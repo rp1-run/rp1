@@ -255,9 +255,10 @@ Can you use skills_mermaid to validate this diagram?
 
 **Steps**:
 1. Install OpenCode and opencode-skills plugin
-2. Install rp1 via `curl -fsSL https://raw.githubusercontent.com/rp1-run/rp1/main/scripts/install-for-opencode.sh | bash`
-3. Existing `.rp1/context/` works without regeneration
-4. Learn OpenCode-specific invocation patterns
+2. Install uv: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+3. Install rp1: `curl -fsSL https://raw.githubusercontent.com/rp1-run/rp1/main/scripts/install-for-opencode.sh | bash`
+4. Existing `.rp1/context/` works without regeneration
+5. Learn OpenCode-specific invocation patterns
 
 See [Migration Guide](migration.md) for detailed steps.
 

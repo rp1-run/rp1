@@ -95,7 +95,10 @@ cd ~/.opencode-skills
 
 **Install via curl** (no authentication required):
 ```bash
-# One-liner installation
+# First, install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Then install rp1
 curl -fsSL https://raw.githubusercontent.com/rp1-run/rp1/main/scripts/install-for-opencode.sh | bash
 ```
 

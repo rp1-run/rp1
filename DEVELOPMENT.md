@@ -202,6 +202,7 @@ These agents run `/rp1-base:knowledge-load` as their first step to receive compr
 
 3. Or install from GitHub release:
    ```bash
+   curl -LsSf https://astral.sh/uv/install.sh | sh  # Install uv first (if needed)
    curl -fsSL https://raw.githubusercontent.com/rp1-run/rp1/main/scripts/install-for-opencode.sh | bash
    ```
 
