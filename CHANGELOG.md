@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.2.4](https://github.com/rp1-run/rp1/compare/v4.2.3...v4.2.4) (2025-12-01)
+
+
+### Documentation
+
+* more polish ([#18](https://github.com/rp1-run/rp1/issues/18)) ([a76f860](https://github.com/rp1-run/rp1/commit/a76f860336380d99e42e11a4302d01dee83de286))
+
 ## [4.2.3](https://github.com/rp1-run/rp1/compare/v4.2.2...v4.2.3) (2025-12-01)
 
 
