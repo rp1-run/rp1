@@ -1,0 +1,88 @@
+# Platform Registry: Known differences between Claude Code and OpenCode
+#
+# This registry documents platform-specific transformations needed to convert
+# Claude Code artifacts to OpenCode format. Simple mappings are defined here;
+# complex semantic transformations are handled in code (transformations.py).
+#
+# Version: 1.0.0
+# Last Updated: 2025-11-23
+
+# Directory structure mappings
+# OpenCode uses singular form for agent and command directories
+directory_mappings:
+  agents: agent  # Claude Code agents/ → OpenCode agent/
+  commands: command  # Claude Code commands/ → OpenCode command/
+
+# Tool name mappings
+# Maps Claude Code tool names to OpenCode equivalents
+tool_mappings:
+  # Direct file operations
+  Read: read_file
+  Write: write_file
+  Edit: edit_file
+  NotebookEdit: edit_notebook_cell
+
+  # Search and discovery
+  Grep: grep_file
+  Glob: glob_pattern
+
+  # Execution
+  Bash: bash_run
+  BashOutput: get_bash_output
+  KillShell: kill_bash
+
+  # Agent coordination (semantic transformations - handled in code)
+  Task: "@mention"  # Task tool → @ mention pattern
+  SlashCommand: command_invoke  # SlashCommand → command_invoke()
+  Skill: skills_{name}  # Skill tool → skills_{name} custom tool
+
+  # Web and external
+  WebFetch: web_fetch
+  WebSearch: web_search
+
+  # Interaction
+  AskUserQuestion: ask_user
+  TodoWrite: manage_todos
+
+  # Special tools (Claude Code specific - not available in OpenCode)
+  ExitPlanMode: null
+
+# Metadata field mappings
+# Most fields map directly, but some may need transformation
+metadata_mappings:
+  name: name
+  version: version
+  description: description
+  tags: tags
+  created: created
+  updated: updated
+  author: author
+
+# Test cases for transformations
+# Used by test suite to verify correct transformation behavior
+test_cases:
+  - name: Task tool to @ mention
+    input: "Use the Task tool to invoke agent:\nsubagent_type: rp1-dev:test-agent"
+    expected_pattern: "@rp1-dev:test-agent"
+    preserve: false
+
+  - name: SlashCommand to command_invoke
+    input: "Run /rp1-base:knowledge-load to load context"
+    expected_pattern: 'command_invoke("rp1-base:knowledge-load")'
+    preserve: false
+
+  - name: Code block preservation
+    input: |
+      Here's an example:
+      ```python
+      # This shows Task tool usage
+      subagent_type: example-agent
+      ```
+    expected_pattern: "subagent_type: example-agent"
+    preserve: true  # Should NOT be transformed inside code blocks
+
+  - name: Tool permission mapping
+    input: ["Read", "Write", "Bash"]
+    expected:
+      file: ["read", "write"]
+      bash: ["execute"]

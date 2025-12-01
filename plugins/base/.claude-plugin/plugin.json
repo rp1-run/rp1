@@ -1,0 +1,19 @@
+{
+  "name": "rp1-base",
+  "description": "Core knowledge management, documentation generation, and strategic analysis for Claude Code",
+  "version": "4.0.0",
+  "author": {
+    "name": "Prem Pillai",
+    "email": "prem.pillai@gmail.com"
+  },
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/rp1-run/rp1",
+  "repository": "https://github.com/rp1-run/rp1",
+  "keywords": [
+    "knowledge-management",
+    "documentation",
+    "strategic-analysis",
+    "security-validation",
+    "content-writing"
+  ]
+}

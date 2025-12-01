@@ -1,0 +1,16 @@
+{
+  "name": "rp1-local",
+  "owner": {
+    "name": "Prem Pillai"
+  },
+  "plugins": [
+    {
+      "name": "rp1-base",
+      "source": "./../plugins/base/"
+    },
+    {
+      "name": "rp1-dev",
+      "source": "./../plugins/dev/"
+    }
+  ]
+}

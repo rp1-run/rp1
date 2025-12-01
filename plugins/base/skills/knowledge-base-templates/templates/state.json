@@ -1,0 +1,44 @@
+{
+  "repo_type": "[single-project | monorepo]",
+  "analysis_date": "[ISO 8601 timestamp]",
+  "last_commit": "[git commit hash]",
+  "build_strategy": "[validation_driven_update | incremental_update | full_scan]",
+  "projects_analyzed": ["[project-1]", "[project-2]"],
+  "total_files_scanned": 0,
+  "high_value_files": 0,
+  "documentation_files": 0,
+  "languages_detected": {
+    "[Language]": {
+      "files": 0,
+      "lines": 0
+    }
+  },
+  "coverage_metrics": {
+    "concepts_documented": 0,
+    "modules_covered": 0,
+    "apis_documented": 0
+  },
+  "quality_indicators": {
+    "architecture_clarity": "[high | medium | low]",
+    "concept_extraction": "[high | medium | low]",
+    "module_boundaries": "[high | medium | low]"
+  },
+  "validation_context": {
+    "last_validation_date": "[ISO 8601 timestamp]",
+    "validation_files_found": [],
+    "total_issues_found": 0,
+    "issues_actioned": 0,
+    "issues_remaining": 0,
+    "issue_types": {
+      "stale_documents": 0,
+      "missing_references": 0,
+      "inconsistencies": 0
+    }
+  },
+  "incremental_updates": {
+    "last_incremental_date": "[ISO 8601 timestamp]",
+    "files_changed_since_last": 0,
+    "sections_updated": [],
+    "full_scan_required": false
+  }
+}

@@ -1,0 +1,15 @@
+.DS_Store
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+node_modules/
+
+# Build tool artifacts
+tools/build/dist/
+
+# Install tool artifacts (except bundled OpenCode artifacts)
+tools/install/dist/*.whl
+tools/install/dist/*.tar.gz
+!tools/install/dist/opencode/
