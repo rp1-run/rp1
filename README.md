@@ -86,17 +86,11 @@ Use Claude Code's native plugin system:
 
 ### OpenCode
 
-Install via the `rp1-opencode` tool (requires `uv` and `gh` CLI):
+Install via curl (requires `uv`):
 
 ```bash
-# Prerequisites: Install and authenticate gh CLI
-brew install gh && gh auth login
-
-# Install rp1-opencode
-gh repo clone rp1-run/rp1 /tmp/rp1 && bash /tmp/rp1/scripts/install-for-opencode.sh
-
-# Or if you already have the repo cloned:
-./scripts/install-for-opencode.sh
+# One-liner installation
+curl -fsSL https://raw.githubusercontent.com/rp1-run/rp1/main/scripts/install-for-opencode.sh | bash
 ```
 
 ### First Run (Both Platforms)

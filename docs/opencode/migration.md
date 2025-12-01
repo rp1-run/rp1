@@ -93,20 +93,17 @@ cd ~/.opencode-skills
 
 #### 3. Install rp1 on OpenCode
 
-**Install via script** (requires `gh` CLI for private repo):
+**Install via curl** (no authentication required):
 ```bash
-# Prerequisites
-brew install gh && gh auth login
-
-# Clone and run install script
-gh repo clone rp1-run/rp1 /tmp/rp1 && bash /tmp/rp1/scripts/install-for-opencode.sh
+# One-liner installation
+curl -fsSL https://raw.githubusercontent.com/rp1-run/rp1/main/scripts/install-for-opencode.sh | bash
 ```
 
 **Verify installation**:
 ```bash
-# Download wheel and verify
-gh release download --repo rp1-run/rp1 --pattern 'rp1_opencode-*.whl' --dir /tmp
-uvx --from /tmp/rp1_opencode-*.whl rp1-opencode verify
+# Set wheel URL and verify
+export RP1_WHL=$(curl -fsSL https://api.github.com/repos/rp1-run/rp1/releases | grep -o 'https://[^"]*rp1_opencode-[0-9][0-9.]*-py3-none-any\.whl' | head -1)
+uvx --from "$RP1_WHL" rp1-opencode verify
 
 # Should show:
 # ✓ All 21 commands present

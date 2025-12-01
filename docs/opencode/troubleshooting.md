@@ -9,9 +9,16 @@
 
 This guide provides solutions to common issues when using rp1 on OpenCode platform. Each issue includes symptoms, root cause, diagnostic commands, and resolution steps.
 
+**Installation**:
+
+```bash
+# One-liner installation (no authentication required)
+curl -fsSL https://raw.githubusercontent.com/rp1-run/rp1/main/scripts/install-for-opencode.sh | bash
+```
+
 **Setup for rp1-opencode commands**:
 
-Since rp1-opencode is distributed via GitHub releases (not PyPI), you need to specify the wheel URL:
+Since rp1-opencode is distributed via GitHub releases (not PyPI), you need to specify the wheel URL for subsequent commands:
 
 ```bash
 # Set the wheel URL for all rp1-opencode commands in this session
