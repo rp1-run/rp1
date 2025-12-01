@@ -26,7 +26,6 @@ theme:
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
-
   features:
     - navigation.instant
     - navigation.tracking
@@ -40,7 +39,6 @@ theme:
     - content.tabs.link
     - content.code.copy
     - content.action.edit
-
   icon:
     repo: fontawesome/brands/github
 
