@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.1.3](https://github.com/rp1-run/rp1/compare/v4.1.2...v4.1.3) (2025-12-01)
+
+
+### Bug Fixes
+
+* badge displays ([0775ad9](https://github.com/rp1-run/rp1/commit/0775ad934a65c18364a0c5ed9c2499771de287cd))
+
 ## [4.1.2](https://github.com/rp1-run/rp1/compare/v4.1.1...v4.1.2) (2025-12-01)
 
 
