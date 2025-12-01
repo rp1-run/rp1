@@ -4,13 +4,22 @@ hide:
   - toc
 ---
 
-# Stop prompting. **Start shipping.**
+# > stop prompting; **start shipping**<span class="cursor"></span>
 
 Professional development workflows for AI coding assistants.
 21 commands. 18 specialized agents. Single-pass execution.
 
 [Get Started](getting-started/quickstart.md){ .md-button .md-button--primary }
 [View on GitHub](https://github.com/rp1-run/rp1){ .md-button }
+
+<div class="terminal-window">
+  <div class="terminal-header">
+    <span class="terminal-dot red"></span>
+    <span class="terminal-dot yellow"></span>
+    <span class="terminal-dot green"></span>
+  </div>
+  <img src="assets/screens/example.png" alt="rp1 in action">
+</div>
 
 ---
 
