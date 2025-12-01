@@ -80,10 +80,10 @@ This guide compares rp1 functionality on Claude Code and OpenCode platforms, hig
 
 | Aspect | Claude Code | OpenCode |
 |--------|-------------|----------|
-| **Installation Method** | Plugin marketplace (`/plugin install`) | Python CLI tool (see [install script](../../scripts/install-for-opencode.sh)) |
+| **Installation Method** | Plugin marketplace (`/plugin install`) | curl one-liner (see [install script](../../scripts/install-for-opencode.sh)) |
 | **Update Method** | `/plugin update` | `uvx --from $RP1_WHL rp1-opencode update` |
 | **Uninstall Method** | `/plugin uninstall` | `uvx --from $RP1_WHL rp1-opencode uninstall` |
-| **Prerequisites** | None (native plugin system) | OpenCode ≥0.8.0, opencode-skills plugin |
+| **Prerequisites** | None (native plugin system) | OpenCode ≥0.8.0, uv, opencode-skills plugin |
 | **Installation Time** | < 1 min | 2-5 min |
 | **Configuration** | Automatic | CLI-guided with prompts |
 | **Backup Management** | Built-in by Claude Code | Manual backup via installation tool |
@@ -255,7 +255,7 @@ Can you use skills_mermaid to validate this diagram?
 
 **Steps**:
 1. Install OpenCode and opencode-skills plugin
-2. Install rp1 via `gh repo clone rp1-run/rp1 /tmp/rp1 && bash /tmp/rp1/scripts/install-for-opencode.sh`
+2. Install rp1 via `curl -fsSL https://raw.githubusercontent.com/rp1-run/rp1/main/scripts/install-for-opencode.sh | bash`
 3. Existing `.rp1/context/` works without regeneration
 4. Learn OpenCode-specific invocation patterns
 

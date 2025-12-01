@@ -200,7 +200,12 @@ These agents run `/rp1-base:knowledge-load` as their first step to receive compr
    uvx --from . rp1-opencode install --force
    ```
 
-3. **General Testing Steps:**
+3. Or install from GitHub release:
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/rp1-run/rp1/main/scripts/install-for-opencode.sh | bash
+   ```
+
+**General Testing Steps:**
 
    1. Test the specific command/agent you modified
    2. Verify constitutional prompt structure is maintained
