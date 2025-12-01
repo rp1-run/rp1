@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.1.2](https://github.com/rp1-run/rp1/compare/v4.1.1...v4.1.2) (2025-12-01)
+
+
+### Documentation
+
+* update uv instructions ([435a58b](https://github.com/rp1-run/rp1/commit/435a58bf4104b9c5db16b56cc3f2bc4ce1ecd367))
+
 ## [4.1.1](https://github.com/rp1-run/rp1/compare/v4.1.0...v4.1.1) (2025-12-01)
 
 
