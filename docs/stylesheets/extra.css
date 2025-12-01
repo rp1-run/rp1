@@ -111,6 +111,19 @@
   letter-spacing: 0.05em;
 }
 
+/* Platform cards - centered layout */
+.md-typeset .platform-card {
+  text-align: center;
+}
+
+.md-typeset .platform-card img {
+  margin-bottom: 0.5rem;
+}
+
+.md-typeset .platform-card p {
+  margin: 0.25rem 0;
+}
+
 /* Grid cards for feature highlights */
 .grid.cards {
   display: grid;
