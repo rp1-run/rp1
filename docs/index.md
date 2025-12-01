@@ -6,139 +6,178 @@ hide:
 
 # Stop prompting. **Start shipping.**
 
-Fully open-source, ready to use, professional development workflows for AI coding agents.  
-No iteration loops. No guesswork. Just battle-tested patterns that execute flawlessly.  
+Professional development workflows for AI coding assistants.
+21 commands. 18 specialized agents. Single-pass execution.
 
 [Get Started](getting-started/quickstart.md){ .md-button .md-button--primary }
 [View on GitHub](https://github.com/rp1-run/rp1){ .md-button }
 
 ---
 
-## The Problem
+## Try it out
 
-AI coding assistants are powerful, but ad-hoc prompting leads to:
+<div class="grid" markdown>
 
-<div class="grid cards" markdown>
+<div markdown>
 
-- :material-refresh:{ .lg .middle } **Iteration Loops**
+**Ship a feature**
 
-    ---
-
-    Back-and-forth refinement wastes time and context. Each retry loses valuable context from the conversation.
-
-- :material-head-question:{ .lg .middle } **Inconsistent Results**
-
-    ---
-
-    Same task, different prompts, different outcomes. Quality depends on how well you phrase your request.
-
-- :material-puzzle:{ .lg .middle } **Context Blindness**
-
-    ---
-
-    Generic responses ignore your codebase patterns, architecture, and conventions.
-
-</div>
-
----
-
-## The Solution
-
-**Constitutional prompting** encodes expertise into reusable patterns that execute in a single pass.
-
-<div class="grid cards" markdown>
-
-- :material-clock-fast:{ .lg .middle } **Time Savings**
-
-    ---
-
-    Expert-crafted prompts eliminate trial and error. Tasks that took multiple iterations now complete in one shot.
-
-- :material-check-all:{ .lg .middle } **Consistency**
-
-    ---
-
-    Same workflow, same quality, every time. Built-in validation ensures outputs meet your standards.
-
-- :material-eye:{ .lg .middle } **Codebase Awareness**
-
-    ---
-
-    Knowledge-aware agents understand your architecture, patterns, and conventions before they write code.
-
-</div>
-
----
-
-## How It Works
-
-```mermaid
-graph LR
-    A[Your Idea] --> B[Blueprint]
-    B --> C[Requirements]
-    C --> D[Design]
-    D --> E[Tasks]
-    E --> F[Build]
-    F --> G[Verify]
-    G --> H[Ship]
-
-    style A fill:#673ab7,color:#fff
-    style H fill:#673ab7,color:#fff
+```bash
+/rp1-dev:feature-requirements "user-auth"
+/rp1-dev:feature-design "user-auth"
+/rp1-dev:feature-build "user-auth"
 ```
 
-**rp1** provides 21 commands backed by 18 specialized agents that handle the entire development lifecycle:
+**Review a PR**
 
-1. **Blueprint**: Capture project vision through charter and PRD documents
-2. **Requirements**: Transform ideas into detailed specifications
-3. **Design**: Create technical designs with architecture diagrams
-4. **Tasks**: Break down work into actionable steps
-5. **Build**: Implement systematically with automated testing
-6. **Verify**: Validate against acceptance criteria
-7. **Review**: Comprehensive PR review with map-reduce analysis
+```bash
+/rp1-dev:pr-review "feature/auth"
+```
 
----
+**Investigate a bug**
 
-## Platform Support
+```bash
+/rp1-dev:code-investigate "bug-123" "Login fails"
+```
 
-rp1 works with your favorite AI coding assistant:
+</div>
 
-<div class="grid cards" markdown>
+<div markdown>
 
-- :simple-anthropic:{ .lg .middle } **Claude Code**
+**Generate knowledge base**
 
-    ---
+```bash
+/rp1-base:knowledge-build
+```
 
-    Native plugin support via the Claude Code marketplace.
+**Quick code check**
 
-    ```bash
-    /plugin marketplace add rp1-run/rp1
-    /plugin install rp1-base
-    /plugin install rp1-dev
-    ```
+```bash
+/rp1-dev:code-check
+```
 
-- :material-code-braces:{ .lg .middle } **OpenCode**
+**Strategic analysis**
 
-    ---
+```bash
+/rp1-base:strategize
+```
 
-    Vendor-independent CLI plugin execution.
+[See all 21 commands :material-arrow-right:](reference/index.md)
 
-    ```bash
-    curl -fsSL https://raw.githubusercontent.com/rp1-run/rp1/main/scripts/install-for-opencode.sh | bash
-    ```
+</div>
 
 </div>
 
 ---
 
-## Ready to Ship?
+## Commands by workflow
 
-Get started in under 5 minutes with our quick start guide.
+<div class="grid cols-3" markdown>
 
-[Get Started :material-arrow-right:](getting-started/quickstart.md){ .md-button .md-button--primary }
+<div markdown>
 
-<br>
+**Planning**
+
+- [blueprint](reference/dev/blueprint.md) - Project vision wizard
+- [feature-requirements](reference/dev/feature-requirements.md) - Gather specifications
+- [feature-design](reference/dev/feature-design.md) - Technical architecture
+- [feature-tasks](reference/dev/feature-tasks.md) - Break down work
+
+</div>
+
+<div markdown>
+
+**Implementation**
+
+- [feature-build](reference/dev/feature-build.md) - Systematic development
+- [feature-verify](reference/dev/feature-verify.md) - Acceptance validation
+- [code-check](reference/dev/code-check.md) - Fast hygiene checks
+- [code-audit](reference/dev/code-audit.md) - Pattern consistency
+
+</div>
+
+<div markdown>
+
+**Review & Analysis**
+
+- [pr-review](reference/dev/pr-review.md) - Map-reduce code review
+- [pr-visual](reference/dev/pr-visual.md) - Diagram PR changes
+- [code-investigate](reference/dev/code-investigate.md) - Bug root cause
+- [strategize](reference/base/strategize.md) - Holistic recommendations
+
+</div>
+
+</div>
+
+---
+
+## Platform support
+
+<div class="grid" markdown>
+
+<div markdown>
+
+![Claude Code](assets/brands/claude.png){ width="24" } **Claude Code**
+
+```bash
+/plugin marketplace add rp1-run/rp1
+/plugin install rp1-base
+/plugin install rp1-dev
+```
+
+[Claude Code setup :material-arrow-right:](getting-started/claude-code.md)
+
+</div>
+
+<div markdown>
+
+![OpenCode](assets/brands/opencode.png){ width="24" } **OpenCode**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rp1-run/rp1/main/scripts/install-for-opencode.sh | bash
+```
+
+[OpenCode setup :material-arrow-right:](getting-started/opencode.md)
+
+</div>
+
+</div>
+
+**Coming soon:** Cursor, Goose, Amp
+
+---
+
+## Why rp1?
+
+<div class="grid" markdown>
+
+<div markdown>
+
+**Single-pass execution**
+
+Constitutional prompts encode expert patterns with built-in rules. No iteration loops, no "let me revise that" — tasks complete in one shot.
+
+[Learn about constitutional prompting :material-arrow-right:](concepts/constitutional-prompting.md)
+
+</div>
+
+<div markdown>
+
+**Codebase awareness**
+
+Run `knowledge-build` once. Your architecture becomes context for every command. No generic advice — everything respects your patterns.
+
+[Learn about knowledge-aware agents :material-arrow-right:](concepts/knowledge-aware-agents.md)
+
+</div>
+
+</div>
+
+---
 
 <div align="center" markdown>
+
+[Get Started](getting-started/quickstart.md){ .md-button .md-button--primary }
 
 [![GitHub stars](https://img.shields.io/github/stars/rp1-run/rp1?style=social)](https://github.com/rp1-run/rp1)
 

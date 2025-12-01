@@ -15,9 +15,11 @@
   /* ACCENT COLOR: Used for Buttons, Links, and Toggles */
   --md-accent-fg-color: #4CC9F0;
   --md-accent-fg-color--transparent: rgba(76, 201, 240, 0.1);
+}
 
-  /* Links match accent */
-  --md-typeset-a-color: #4CC9F0;
+/* LIGHT MODE: Darker link color for better contrast */
+[data-md-color-scheme="default"] {
+  --md-typeset-a-color: #0077B6;
 }
 
 /* DARK MODE SPECIFICS */
@@ -27,6 +29,9 @@
 
   /* Code blocks: slightly lighter to stand out */
   --md-code-bg-color: #161b22;
+
+  /* Brighter link color for dark backgrounds */
+  --md-typeset-a-color: #4CC9F0;
 }
 
 /* Dark mode headings use RP1 Orange */
@@ -64,6 +69,46 @@
 .md-typeset .md-button {
   margin-right: 0.5rem;
   margin-bottom: 0.5rem;
+}
+
+/* Simple grid layout (Stripe-style) */
+.md-typeset .grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2rem;
+  margin: 1.5rem 0;
+}
+
+/* 3-column grid for command listings */
+.md-typeset .grid.cols-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+@media (max-width: 768px) {
+  .md-typeset .grid,
+  .md-typeset .grid.cols-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Grid items - clean list styling */
+.md-typeset .grid ul {
+  list-style: none;
+  padding-left: 0;
+  margin: 0.5rem 0;
+}
+
+.md-typeset .grid ul li {
+  padding: 0.25rem 0;
+}
+
+/* Grid section headers */
+.md-typeset .grid p strong {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 /* Grid cards for feature highlights */
