@@ -9,6 +9,9 @@ node_modules/
 # Build tool artifacts
 tools/build/dist/
 
+# MkDocs build output
+site/
+
 # Install tool artifacts (except bundled OpenCode artifacts)
 tools/install/dist/*.whl
 tools/install/dist/*.tar.gz
