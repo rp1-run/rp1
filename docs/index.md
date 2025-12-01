@@ -6,7 +6,8 @@ hide:
 
 # Stop prompting. **Start shipping.**
 
-Professional development workflows for AI coding assistants. No iteration loops. No guesswork. Just battle-tested patterns that execute flawlessly.
+Fully open-source, ready to use, professional development workflows for AI coding agents.  
+No iteration loops. No guesswork. Just battle-tested patterns that execute flawlessly.  
 
 [Get Started](getting-started/quickstart.md){ .md-button .md-button--primary }
 [View on GitHub](https://github.com/rp1-run/rp1){ .md-button }
@@ -19,19 +20,19 @@ AI coding assistants are powerful, but ad-hoc prompting leads to:
 
 <div class="grid cards" markdown>
 
--   :material-refresh:{ .lg .middle } **Iteration Loops**
+- :material-refresh:{ .lg .middle } **Iteration Loops**
 
     ---
 
     Back-and-forth refinement wastes time and context. Each retry loses valuable context from the conversation.
 
--   :material-head-question:{ .lg .middle } **Inconsistent Results**
+- :material-head-question:{ .lg .middle } **Inconsistent Results**
 
     ---
 
     Same task, different prompts, different outcomes. Quality depends on how well you phrase your request.
 
--   :material-puzzle:{ .lg .middle } **Context Blindness**
+- :material-puzzle:{ .lg .middle } **Context Blindness**
 
     ---
 
@@ -47,19 +48,19 @@ AI coding assistants are powerful, but ad-hoc prompting leads to:
 
 <div class="grid cards" markdown>
 
--   :material-clock-fast:{ .lg .middle } **Time Savings**
+- :material-clock-fast:{ .lg .middle } **Time Savings**
 
     ---
 
     Expert-crafted prompts eliminate trial and error. Tasks that took multiple iterations now complete in one shot.
 
--   :material-check-all:{ .lg .middle } **Consistency**
+- :material-check-all:{ .lg .middle } **Consistency**
 
     ---
 
     Same workflow, same quality, every time. Built-in validation ensures outputs meet your standards.
 
--   :material-eye:{ .lg .middle } **Codebase Awareness**
+- :material-eye:{ .lg .middle } **Codebase Awareness**
 
     ---
 
@@ -103,7 +104,7 @@ rp1 works with your favorite AI coding assistant:
 
 <div class="grid cards" markdown>
 
--   :simple-anthropic:{ .lg .middle } **Claude Code**
+- :simple-anthropic:{ .lg .middle } **Claude Code**
 
     ---
 
@@ -115,7 +116,7 @@ rp1 works with your favorite AI coding assistant:
     /plugin install rp1-dev
     ```
 
--   :material-code-braces:{ .lg .middle } **OpenCode**
+- :material-code-braces:{ .lg .middle } **OpenCode**
 
     ---
 

@@ -1,17 +1,64 @@
 # Concepts
 
-!!! info "Coming Soon"
+Understanding the core ideas behind rp1 helps you get the most out of its workflows. These concept guides explain the "why" behind rp1's design decisions.
 
-    Core concept documentation is being developed for Phase 2.
+---
 
-    **Expected Content:**
+<div class="grid cards" markdown>
 
-    - **Constitutional Prompting** - How expertise is encoded into reusable patterns
-    - **Knowledge-Aware Agents** - Understanding your codebase before writing code
-    - **Command-Agent Pattern** - Thin wrappers delegating to autonomous agents
-    - **Map-Reduce Workflows** - Parallel processing for KB generation and PR review
-    - **Feature Workflow** - The complete lifecycle from blueprint to verification
+-   :material-script-text:{ .lg .middle } **Constitutional Prompting**
 
-    In the meantime, check out the [Quick Start](../getting-started/quickstart.md) to get started with rp1.
+    ---
 
-[Back to Home](../index.md){ .md-button }
+    Learn how rp1 encodes expert knowledge into AI-executable workflows for consistent, single-pass execution.
+
+    [:octicons-arrow-right-24: Learn more](constitutional-prompting.md)
+
+-   :material-brain:{ .lg .middle } **Knowledge-Aware Agents**
+
+    ---
+
+    Discover how agents understand your codebase before writing code, respecting your patterns and architecture.
+
+    [:octicons-arrow-right-24: Learn more](knowledge-aware-agents.md)
+
+-   :material-layers:{ .lg .middle } **Command-Agent Pattern**
+
+    ---
+
+    Understand the architecture where thin wrapper commands delegate to autonomous agents.
+
+    [:octicons-arrow-right-24: Learn more](command-agent-pattern.md)
+
+-   :material-sitemap:{ .lg .middle } **Map-Reduce Workflows**
+
+    ---
+
+    See how rp1 parallelizes work for knowledge base generation and PR reviews.
+
+    [:octicons-arrow-right-24: Learn more](map-reduce-workflows.md)
+
+</div>
+
+---
+
+## Quick Overview
+
+| Concept | What It Is | Why It Matters |
+|---------|-----------|----------------|
+| [Constitutional Prompting](constitutional-prompting.md) | Expert knowledge encoded in prompts | No iteration loops, consistent output |
+| [Knowledge-Aware Agents](knowledge-aware-agents.md) | Agents that understand your codebase | Output fits your architecture |
+| [Command-Agent Pattern](command-agent-pattern.md) | Commands delegate to agents | Clean, reusable workflows |
+| [Map-Reduce Workflows](map-reduce-workflows.md) | Parallel processing pattern | Fast KB and PR analysis |
+
+---
+
+## Where to Start
+
+**New to rp1?** Start with [Constitutional Prompting](constitutional-prompting.md) to understand rp1's core philosophy.
+
+**Want context-aware output?** Read [Knowledge-Aware Agents](knowledge-aware-agents.md) to learn about the knowledge base.
+
+**Curious about architecture?** See [Command-Agent Pattern](command-agent-pattern.md) for the technical design.
+
+**Need performance?** Check [Map-Reduce Workflows](map-reduce-workflows.md) for parallelization patterns.
