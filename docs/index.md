@@ -115,29 +115,27 @@ Professional development workflows for AI coding assistants.
 
 <div class="grid" markdown>
 
-<div markdown>
+<div class="platform-card" markdown>
 
-![Claude Code](assets/brands/claude.png){ width="24" } **Claude Code**
+<img src="assets/brands/claude.png" width="32">
 
-```bash
-/plugin marketplace add rp1-run/rp1
-/plugin install rp1-base
-/plugin install rp1-dev
-```
+**Claude Code**
 
-[Claude Code setup :material-arrow-right:](getting-started/claude-code.md)
+Native plugin via marketplace
+
+[Setup guide :material-arrow-right:](getting-started/claude-code.md)
 
 </div>
 
-<div markdown>
+<div class="platform-card" markdown>
 
-![OpenCode](assets/brands/opencode.png){ width="24" } **OpenCode**
+<img src="assets/brands/opencode.png" width="32">
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/rp1-run/rp1/main/scripts/install-for-opencode.sh | bash
-```
+**OpenCode**
 
-[OpenCode setup :material-arrow-right:](getting-started/opencode.md)
+One-line install script
+
+[Setup guide :material-arrow-right:](getting-started/opencode.md)
 
 </div>
 
