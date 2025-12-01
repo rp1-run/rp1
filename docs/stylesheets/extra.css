@@ -39,6 +39,12 @@
   color: #FDBE5D;
 }
 
+/* Logo sizing */
+.md-header__button.md-logo img {
+  height: 2.5rem;
+  width: auto;
+}
+
 /* Hero section enhancement */
 .md-typeset h1 {
   font-weight: 700;
