@@ -171,7 +171,54 @@
   color: var(--md-accent-fg-color);
 }
 
+/* Blinking cursor */
+.md-typeset h1 .cursor {
+  display: inline-block;
+  width: 0.12em;
+  height: 1em;
+  background: var(--md-accent-fg-color);
+  margin-left: 0.15em;
+  vertical-align: text-bottom;
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
 /* Badge centering */
 .md-typeset div[align="center"] {
   margin-top: 2rem;
+}
+
+/* Terminal window frame */
+.terminal-window {
+  margin: 2rem auto;
+  max-width: 900px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+}
+
+.terminal-header {
+  background: #2d2d2d;
+  padding: 10px 12px;
+  display: flex;
+  gap: 6px;
+}
+
+.terminal-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.terminal-dot.red { background: #ff5f56; }
+.terminal-dot.yellow { background: #ffbd2e; }
+.terminal-dot.green { background: #27ca40; }
+
+.terminal-window img {
+  display: block;
+  width: 100%;
 }
