@@ -1,44 +1,42 @@
 /* ==========================================================================
    rp1 Brand Colors
-   Primary Orange: #FDBE5D (light) / #D65729 (dark)
-   Primary Blue:   #7FFFD4 (light cyan) / #2176FF (dark blue)
-   Dark Outline:   #162B49
+   Primary: Dark Navy #162B49 (header/sidebar)
+   Accent: Cyan #4CC9F0 (buttons, links, toggles)
+   Orange: #FDBE5D (headings in dark mode)
    ========================================================================== */
 
-:root {
-  /* Primary color - Blue */
-  --md-primary-fg-color: #2176FF;
-  --md-primary-fg-color--light: #7FFFD4;
-  --md-primary-fg-color--dark: #162B49;
-  --md-primary-bg-color: #ffffff;
-  --md-primary-bg-color--light: #f5f5f5;
+:root,
+:root > * {
+  /* PRIMARY COLOR: Used for the Header and Sidebar */
+  --md-primary-fg-color: #162B49;
+  --md-primary-fg-color--light: #2A4670;
+  --md-primary-fg-color--dark: #0D1A2E;
 
-  /* Accent color - Orange */
-  --md-accent-fg-color: #D65729;
-  --md-accent-fg-color--transparent: rgba(214, 87, 41, 0.1);
-  --md-accent-bg-color: #FDBE5D;
+  /* ACCENT COLOR: Used for Buttons, Links, and Toggles */
+  --md-accent-fg-color: #4CC9F0;
+  --md-accent-fg-color--transparent: rgba(76, 201, 240, 0.1);
+
+  /* Links match accent */
+  --md-typeset-a-color: #4CC9F0;
 }
 
-/* Dark mode overrides */
+/* DARK MODE SPECIFICS */
 [data-md-color-scheme="slate"] {
-  --md-primary-fg-color: #7FFFD4;
-  --md-primary-fg-color--light: #2176FF;
-  --md-primary-fg-color--dark: #162B49;
-  --md-primary-bg-color: #162B49;
-  --md-primary-bg-color--light: #1e3a5f;
+  /* Background: A very deep blue-grey */
+  --md-default-bg-color: #0d1117;
 
-  --md-accent-fg-color: #FDBE5D;
-  --md-accent-fg-color--transparent: rgba(253, 190, 93, 0.1);
-  --md-accent-bg-color: #D65729;
+  /* Code blocks: slightly lighter to stand out */
+  --md-code-bg-color: #161b22;
 }
 
-/* Header bar */
-.md-header {
-  background-color: #162B49;
+/* Dark mode headings use RP1 Orange */
+[data-md-color-scheme="slate"] h1,
+[data-md-color-scheme="slate"] .md-typeset h1 {
+  color: #FDBE5D;
 }
 
-[data-md-color-scheme="slate"] .md-header {
-  background-color: #0d1b2a;
+[data-md-color-scheme="slate"] strong {
+  color: #FDBE5D;
 }
 
 /* Hero section enhancement */
