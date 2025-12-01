@@ -19,6 +19,7 @@
 [![rp1-base](https://img.shields.io/static/v1?label=rp1-base&message=v4.2.1&color=blue)](https://github.com/rp1-run/rp1/releases)
 [![rp1-dev](https://img.shields.io/static/v1?label=rp1-dev&message=v4.2.1&color=blue)](https://github.com/rp1-run/rp1/releases)
 <!-- x-release-please-end -->
+[![Docs](https://img.shields.io/badge/docs-rp1.run-blue)](https://rp1.run)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
 
 Professional development workflows for AI coding assistants. No iteration loops. No guesswork. Just battle-tested patterns that execute flawlessly.
@@ -435,6 +436,7 @@ Apache License 2.0 - See [LICENSE](LICENSE)
 
 ## Links
 
+- [**Documentation**](https://rp1.run)
 - [Detailed Examples & Workflows](EXAMPLES.md)
 - [Development Guide](DEVELOPMENT.md)
 - [GitHub Repository](https://github.com/rp1-run/rp1)
