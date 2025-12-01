@@ -26,7 +26,6 @@ theme:
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
-
   features:
     - navigation.instant
     - navigation.tracking
@@ -40,14 +39,17 @@ theme:
     - content.tabs.link
     - content.code.copy
     - content.action.edit
-
   icon:
     repo: fontawesome/brands/github
 
 markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.tabbed:
       alternate_style: true
   - pymdownx.emoji:
@@ -68,9 +70,56 @@ nav:
   - Getting Started:
     - getting-started/index.md
     - Quick Start: getting-started/quickstart.md
-  - Guides: guides/index.md
-  - Reference: reference/index.md
-  - Concepts: concepts/index.md
+    - Claude Code: getting-started/claude-code.md
+    - OpenCode: getting-started/opencode.md
+    - Platform Comparison: getting-started/platforms.md
+  - Guides:
+    - guides/index.md
+    - Feature Development: guides/feature-development.md
+    - Bug Investigation: guides/bug-investigation.md
+    - PR Review: guides/pr-review.md
+    - Team Onboarding: guides/team-onboarding.md
+  - Reference:
+    - reference/index.md
+    - Base Plugin:
+      - reference/base/index.md
+      - knowledge-build: reference/base/knowledge-build.md
+      - knowledge-load: reference/base/knowledge-load.md
+      - project-birds-eye-view: reference/base/project-birds-eye-view.md
+      - strategize: reference/base/strategize.md
+      - write-content: reference/base/write-content.md
+      - analyse-security: reference/base/analyse-security.md
+    - Dev Plugin:
+      - reference/dev/index.md
+      - Blueprint & Planning:
+        - blueprint: reference/dev/blueprint.md
+        - feature-requirements: reference/dev/feature-requirements.md
+        - feature-design: reference/dev/feature-design.md
+        - feature-tasks: reference/dev/feature-tasks.md
+        - validate-hypothesis: reference/dev/validate-hypothesis.md
+      - Implementation:
+        - feature-build: reference/dev/feature-build.md
+        - feature-verify: reference/dev/feature-verify.md
+        - feature-edit: reference/dev/feature-edit.md
+        - feature-archive: reference/dev/feature-archive.md
+        - feature-unarchive: reference/dev/feature-unarchive.md
+      - Code Quality:
+        - code-check: reference/dev/code-check.md
+        - code-audit: reference/dev/code-audit.md
+        - code-investigate: reference/dev/code-investigate.md
+        - code-clean-comments: reference/dev/code-clean-comments.md
+        - code-quick-build: reference/dev/code-quick-build.md
+      - PR Management:
+        - pr-review: reference/dev/pr-review.md
+        - pr-visual: reference/dev/pr-visual.md
+        - pr-feedback-collect: reference/dev/pr-feedback-collect.md
+        - pr-feedback-fix: reference/dev/pr-feedback-fix.md
+  - Concepts:
+    - concepts/index.md
+    - Constitutional Prompting: concepts/constitutional-prompting.md
+    - Knowledge-Aware Agents: concepts/knowledge-aware-agents.md
+    - Command-Agent Pattern: concepts/command-agent-pattern.md
+    - Map-Reduce Workflows: concepts/map-reduce-workflows.md
 
 extra:
   social:
@@ -80,3 +129,6 @@ extra:
 
 extra_css:
   - stylesheets/extra.css
+
+extra_javascript:
+  - https://unpkg.com/mermaid@10/dist/mermaid.min.js
