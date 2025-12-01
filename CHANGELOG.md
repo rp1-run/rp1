@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.1.1](https://github.com/rp1-run/rp1/compare/v4.1.0...v4.1.1) (2025-12-01)
+
+
+### Bug Fixes
+
+* **ci:** handle empty PR output in auto-merge step ([d25d0b7](https://github.com/rp1-run/rp1/commit/d25d0b7921b367845f2b833dc69f3b47baa35780))
+
 ## [4.1.0](https://github.com/rp1-run/rp1/compare/v4.0.0...v4.1.0) (2025-12-01)
 
 
