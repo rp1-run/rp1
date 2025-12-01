@@ -1,0 +1,119 @@
+/* ==========================================================================
+   rp1 Brand Colors
+   Primary: Dark Navy #162B49 (header/sidebar)
+   Accent: Cyan #4CC9F0 (buttons, links, toggles)
+   Orange: #FDBE5D (headings in dark mode)
+   ========================================================================== */
+
+:root,
+:root > * {
+  /* PRIMARY COLOR: Used for the Header and Sidebar */
+  --md-primary-fg-color: #162B49;
+  --md-primary-fg-color--light: #2A4670;
+  --md-primary-fg-color--dark: #0D1A2E;
+
+  /* ACCENT COLOR: Used for Buttons, Links, and Toggles */
+  --md-accent-fg-color: #4CC9F0;
+  --md-accent-fg-color--transparent: rgba(76, 201, 240, 0.1);
+
+  /* Links match accent */
+  --md-typeset-a-color: #4CC9F0;
+}
+
+/* DARK MODE SPECIFICS */
+[data-md-color-scheme="slate"] {
+  /* Background: A very deep blue-grey */
+  --md-default-bg-color: #0d1117;
+
+  /* Code blocks: slightly lighter to stand out */
+  --md-code-bg-color: #161b22;
+}
+
+/* Dark mode headings use RP1 Orange */
+[data-md-color-scheme="slate"] h1,
+[data-md-color-scheme="slate"] .md-typeset h1 {
+  color: #FDBE5D;
+}
+
+[data-md-color-scheme="slate"] strong {
+  color: #FDBE5D;
+}
+
+/* Logo sizing */
+.md-header__button.md-logo img {
+  height: 2.5rem;
+  width: auto;
+}
+
+/* Hero section enhancement */
+.md-typeset h1 {
+  font-weight: 700;
+}
+
+/* Code blocks */
+.md-typeset code {
+  border-radius: 4px;
+}
+
+/* Platform tabs */
+.md-typeset .tabbed-set {
+  margin-bottom: 1.5rem;
+}
+
+/* CTA buttons */
+.md-typeset .md-button {
+  margin-right: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Grid cards for feature highlights */
+.grid.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+/* Feature cards styling */
+.grid.cards > ul {
+  display: contents;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.grid.cards > ul > li {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  background: var(--md-default-bg-color);
+}
+
+[data-md-color-scheme="slate"] .grid.cards > ul > li {
+  border-color: var(--md-default-fg-color--lighter);
+}
+
+/* Icon styling in cards */
+.grid.cards .lg {
+  font-size: 2rem;
+}
+
+.grid.cards .middle {
+  vertical-align: middle;
+}
+
+/* Mermaid diagram centering */
+.md-typeset .mermaid {
+  text-align: center;
+  margin: 2rem 0;
+}
+
+/* Home page specific styles */
+.md-typeset h1 strong {
+  color: var(--md-accent-fg-color);
+}
+
+/* Badge centering */
+.md-typeset div[align="center"] {
+  margin-top: 2rem;
+}

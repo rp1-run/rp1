@@ -200,6 +200,18 @@ If needed, read an example agent spec at: ./plugins/base/agents/kb-spatial-analy
 # Should show 19 commands (6 base + 13 dev)
 ```
 
+### Documentation Site Testing
+
+```bash
+# Preview docs locally (requires uv)
+uv run --with mkdocs-material mkdocs serve
+
+# Build with strict mode (catches broken links)
+uv run --with mkdocs-material mkdocs build --strict
+
+# Site will be available at http://127.0.0.1:8000
+```
+
 ### Validation Checklist
 
 **After making changes**:

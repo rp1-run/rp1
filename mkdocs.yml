@@ -1,0 +1,82 @@
+site_name: rp1
+site_url: https://rp1.run
+site_description: "Stop prompting. Start shipping. Professional development workflows for AI coding assistants."
+repo_url: https://github.com/rp1-run/rp1
+repo_name: rp1-run/rp1
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  logo: assets/logo.png
+  favicon: assets/logo.png
+  palette:
+    # Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.tabs.link
+    - content.code.copy
+    - content.action.edit
+
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - admonition
+  - pymdownx.details
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - getting-started/index.md
+    - Quick Start: getting-started/quickstart.md
+  - Guides: guides/index.md
+  - Reference: reference/index.md
+  - Concepts: concepts/index.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/rp1-run/rp1
+  generator: false
+
+extra_css:
+  - stylesheets/extra.css
