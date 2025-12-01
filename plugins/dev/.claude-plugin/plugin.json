@@ -1,7 +1,7 @@
 {
   "name": "rp1-dev",
   "description": "Development workflow automation including feature development, code quality, and PR management",
-  "version": "4.1.4",
+  "version": "4.2.0",
   "author": {
     "name": "Prem Pillai",
     "email": "prem.pillai@gmail.com"

@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.2.0](https://github.com/rp1-run/rp1/compare/v4.1.4...v4.2.0) (2025-12-01)
+
+
+### Features
+
+* **docs:** add documentation site with MkDocs Material ([#10](https://github.com/rp1-run/rp1/issues/10)) ([312bebb](https://github.com/rp1-run/rp1/commit/312bebb2c526a3b84ac2e347f2878987e1d226c4))
+
 ## [4.1.4](https://github.com/rp1-run/rp1/compare/v4.1.3...v4.1.4) (2025-12-01)
 
 
