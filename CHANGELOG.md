@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.2.1](https://github.com/rp1-run/rp1/compare/v4.2.0...v4.2.1) (2025-12-01)
+
+
+### Documentation
+
+* add more guides ([#12](https://github.com/rp1-run/rp1/issues/12)) ([71cc175](https://github.com/rp1-run/rp1/commit/71cc17598a068deeee4154d1e92ec3ae2a895411))
+
 ## [4.2.0](https://github.com/rp1-run/rp1/compare/v4.1.4...v4.2.0) (2025-12-01)
 
 
