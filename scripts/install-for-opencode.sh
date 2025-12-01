@@ -11,6 +11,17 @@ set -euo pipefail
 
 REPO="rp1-run/rp1"
 
+# Check for uv
+if ! command -v uv &> /dev/null; then
+    echo "❌ uv not found"
+    echo ""
+    echo "   Install uv first:"
+    echo "   curl -LsSf https://astral.sh/uv/install.sh | sh"
+    echo ""
+    echo "   Then re-run this script."
+    exit 1
+fi
+
 echo "🔍 Fetching latest rp1-opencode release..."
 
 # Fetch releases from GitHub API (no authentication needed for public repo)

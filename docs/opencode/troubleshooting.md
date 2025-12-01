@@ -12,7 +12,10 @@ This guide provides solutions to common issues when using rp1 on OpenCode platfo
 **Installation**:
 
 ```bash
-# One-liner installation (no authentication required)
+# First, install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Then install rp1 (no authentication required)
 curl -fsSL https://raw.githubusercontent.com/rp1-run/rp1/main/scripts/install-for-opencode.sh | bash
 ```
 
