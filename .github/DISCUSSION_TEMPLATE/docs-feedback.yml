@@ -1,0 +1,36 @@
+title: "[Docs] "
+labels:
+  - documentation
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve rp1 documentation!
+  - type: input
+    id: page_url
+    attributes:
+      label: Page URL
+      description: Which documentation page is this about?
+      placeholder: "https://rp1.run/guides/feature-development"
+    validations:
+      required: true
+  - type: textarea
+    id: feedback
+    attributes:
+      label: Your Feedback
+      description: What would you like to see changed or improved?
+      placeholder: "The example code for feature-build doesn't show..."
+    validations:
+      required: true
+  - type: dropdown
+    id: feedback_type
+    attributes:
+      label: Feedback Type
+      options:
+        - Incorrect information
+        - Missing information
+        - Unclear explanation
+        - Typo or grammar
+        - Suggestion for improvement
+    validations:
+      required: true
