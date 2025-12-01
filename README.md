@@ -16,8 +16,8 @@
 > **Stop prompting. Start shipping.**
 
 <!-- x-release-please-start-version -->
-[![rp1-base](https://img.shields.io/badge/rp1--base-v4.1.2-blue)](https://github.com/rp1-run/rp1/releases)
-[![rp1-dev](https://img.shields.io/badge/rp1--dev-v4.1.2-blue)](https://github.com/rp1-run/rp1/releases)
+[![rp1-base](https://img.shields.io/badge/rp1--base-v4.1.3)](https://github.com/rp1-run/rp1/releases)
+[![rp1-dev](https://img.shields.io/badge/rp1--dev-v4.1.3)](https://github.com/rp1-run/rp1/releases)
 <!-- x-release-please-end -->
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
 
