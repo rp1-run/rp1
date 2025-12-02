@@ -35,7 +35,7 @@ jobs:
         with:
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
           apiToken: ${{ secrets.CF_API_TOKEN }}
-          project: rp1-docs
+          project: rp1
           commitHash: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Run Lighthouse CI
