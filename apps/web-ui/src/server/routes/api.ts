@@ -1,4 +1,5 @@
 import { join, relative, extname, basename } from "path";
+import { readdir, stat } from "fs/promises";
 import { getProjectMetadata, formatProjectError, type Project } from "../project";
 import { isLeft } from "../../lib/fp";
 
@@ -72,7 +73,7 @@ async function buildFileTree(
   relativePath: string
 ): Promise<FileNode | null> {
   try {
-    const entries = await Bun.readdir(dirPath, { withFileTypes: true });
+    const entries = await readdir(dirPath, { withFileTypes: true });
 
     const children: FileNode[] = [];
 
@@ -86,13 +87,13 @@ async function buildFileTree(
           children.push(subTree);
         }
       } else if (entry.isFile()) {
-        const stat = await Bun.file(entryPath).stat();
+        const fileStat = await stat(entryPath);
         children.push({
           path: entryRelativePath,
           name: entry.name,
           type: "file",
-          size: stat?.size,
-          modifiedAt: stat?.mtime?.toISOString(),
+          size: fileStat.size,
+          modifiedAt: fileStat.mtime?.toISOString(),
         });
       }
     }
