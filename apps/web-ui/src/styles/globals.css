@@ -129,16 +129,16 @@
     content: "\200b"; /* zero-width space */
   }
 
-  :root .shiki,
-  :root .shiki span {
-    color: var(--shiki-light) !important;
+  /* Shiki dual theme support - variables are defined inline on each span */
+  .shiki,
+  .shiki span {
+    color: var(--shiki-light);
     background-color: transparent !important;
   }
 
-  .dark .shiki,
-  .dark .shiki span {
-    color: var(--shiki-dark) !important;
-    background-color: transparent !important;
+  html.dark .shiki,
+  html.dark .shiki span {
+    color: var(--shiki-dark);
   }
 
   .mermaid-svg svg {
