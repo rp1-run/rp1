@@ -1,6 +1,6 @@
 [project]
 name = "rp1-opencode"
-version = "4.2.5" # x-release-please-version
+version = "4.3.0" # x-release-please-version
 description = "Installation tool for managing rp1 plugins on OpenCode platform"
 authors = [{ name = "Prem Pillai", email = "prem.pillai@gmail.com" }]
 readme = "README.md"
