@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, KeyboardEvent } from "react";
+import { useCallback, useEffect, useRef, KeyboardEvent } from "react";
 import { ChevronRight, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getFileIcon, getFolderIcon } from "./icons";
