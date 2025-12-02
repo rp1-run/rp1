@@ -1,6 +1,6 @@
-import { join, relative, extname, basename } from "path";
+import { join, extname, basename } from "path";
 import { readdir, stat } from "fs/promises";
-import { getProjectMetadata, formatProjectError, type Project } from "../project";
+import { getProjectMetadata, formatProjectError } from "../project";
 import { isLeft } from "../../lib/fp";
 
 export interface FileNode {
@@ -140,7 +140,6 @@ export async function handleContentRequest(
     }
 
     const content = await file.text();
-    const stat = await file.stat();
     const mimeType = getMimeType(filePath);
 
     let frontmatter: Record<string, unknown> | undefined;

@@ -1,5 +1,9 @@
-import type { Server, ServerWebSocket } from "bun";
+import type { ServerWebSocket } from "bun";
 import type { WebSocketHub } from "./websocket";
+
+interface WebSocketData {
+  projectPath: string;
+}
 
 export interface ServerConfig {
   port: number;
@@ -9,14 +13,14 @@ export interface ServerConfig {
 }
 
 export interface AppServer {
-  server: Server;
+  server: ReturnType<typeof Bun.serve<WebSocketData>>;
   stop: () => void;
 }
 
 export function startServer(config: ServerConfig): AppServer {
   const { port, projectPath, websocketHub, isDev = false } = config;
 
-  const server = Bun.serve({
+  const server = Bun.serve<WebSocketData>({
     port,
     hostname: "127.0.0.1",
     fetch(req, server) {
@@ -40,13 +44,13 @@ export function startServer(config: ServerConfig): AppServer {
       return handleStaticRequest(req, isDev);
     },
     websocket: {
-      open(ws: ServerWebSocket<{ projectPath: string }>) {
+      open(ws: ServerWebSocket<WebSocketData>) {
         websocketHub.addClient(ws);
       },
-      message(ws: ServerWebSocket<{ projectPath: string }>, message) {
+      message(ws: ServerWebSocket<WebSocketData>, message) {
         websocketHub.handleMessage(ws, message);
       },
-      close(ws: ServerWebSocket<{ projectPath: string }>) {
+      close(ws: ServerWebSocket<WebSocketData>) {
         websocketHub.removeClient(ws);
       },
     },

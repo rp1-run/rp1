@@ -1,16 +1,5 @@
 import { join } from "path";
-import {
-  Either,
-  left,
-  right,
-  pipe,
-  chain,
-  map,
-  TaskEither,
-  tryCatch,
-  chainTE,
-  mapTE,
-} from "../lib/fp";
+import { pipe, TaskEither, tryCatch, chainTE } from "../lib/fp";
 
 export interface Project {
   path: string;
@@ -26,23 +15,9 @@ export type ProjectError =
   | { _tag: "MissingSubdirectory"; path: string; directory: string }
   | { _tag: "FileSystemError"; path: string; message: string };
 
-async function directoryExists(path: string): Promise<boolean> {
-  try {
-    const stat = await Bun.file(path).exists();
-    if (stat) {
-      const info = await Bun.file(path).stat();
-      return info?.isDirectory ?? false;
-    }
-    return false;
-  } catch {
-    const entries = await Bun.readdir(path).catch(() => null);
-    return entries !== null;
-  }
-}
-
 async function checkDirectoryExists(dirPath: string): Promise<boolean> {
   try {
-    const entries = await Array.fromAsync(
+    await Array.fromAsync(
       new Bun.Glob("*").scan({ cwd: dirPath, onlyFiles: false, dot: true })
     );
     return true;
