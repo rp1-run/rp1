@@ -18,3 +18,4 @@ tools/install/dist/*.tar.gz
 !tools/install/dist/opencode/
 .playwright-mcp
 apps/web-ui/.vite/*
+apps/web-ui/dist/
