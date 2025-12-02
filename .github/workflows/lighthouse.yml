@@ -1,0 +1,49 @@
+name: Lighthouse CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'mkdocs.yml'
+      - '.github/workflows/lighthouse.yml'
+      - 'lighthouserc.json'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'mkdocs.yml'
+
+jobs:
+  lighthouse:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Lighthouse CI
+        run: npm install -g @lhci/cli
+
+      - name: Wait for Cloudflare Pages deploy
+        uses: WalshyDev/cf-pages-await@v1
+        id: cf-pages
+        with:
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          project: rp1
+          commitHash: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Run Lighthouse CI
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+        run: |
+          lhci autorun --config=lighthouserc.json \
+            --collect.url=${{ steps.cf-pages.outputs.url }} \
+            --collect.url=${{ steps.cf-pages.outputs.url }}/getting-started/quickstart/ \
+            --collect.url=${{ steps.cf-pages.outputs.url }}/reference/ \
+            --collect.url=${{ steps.cf-pages.outputs.url }}/guides/feature-development/
