@@ -44,6 +44,7 @@ export function CodeBlock({ code, language, className }: CodeBlockProps) {
             light: "catppuccin-latte",
             dark: "catppuccin-mocha",
           },
+          defaultColor: false,
         });
 
         setHighlightedHtml(html);

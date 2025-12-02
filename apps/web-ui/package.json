@@ -5,12 +5,13 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "concurrently -k -n server,client -c blue,green \"bun run dev:server\" \"bun run dev:client\"",
-    "dev:client": "vite",
-    "dev:server": "bun run src/cli.ts ../..",
+    "dev": "rm -rf dist && concurrently -k -n server,client -c blue,green \"bun run dev:server\" \"bun run dev:client\"",
+    "dev:client": "vite --open",
+    "dev:server": "NODE_ENV=development bun run src/cli.ts ../..",
     "build": "vite build",
     "preview": "vite preview",
-    "start": "bun run src/cli.ts"
+    "start": "bun run src/cli.ts",
+    "clean": "rm -rf dist"
   },
   "dependencies": {
     "react": "^18.3.1",

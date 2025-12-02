@@ -1,7 +1,9 @@
+import { useEffect, useState, useRef, useCallback } from "react";
 import { createBrowserRouter, Navigate, useParams } from "react-router-dom";
 import { Layout } from "./Layout";
-import { FileText, AlertCircle, Loader2 } from "lucide-react";
+import { FileText, AlertCircle, Loader2, RefreshCw } from "lucide-react";
 import { useFileContent } from "@/hooks/useFileContent";
+import { useWebSocket } from "@/providers/WebSocketProvider";
 import { MarkdownViewer } from "@/components/MarkdownViewer";
 
 export const router = createBrowserRouter([
@@ -24,7 +26,38 @@ export const router = createBrowserRouter([
 function ContentView() {
   const params = useParams();
   const path = params["*"] || null;
-  const { content, loading, error } = useFileContent(path);
+  const { content, loading, error, refetch } = useFileContent(path);
+  const { onFileChange } = useWebSocket();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const scrollPositionRef = useRef(0);
+
+  const handleRefresh = useCallback(async () => {
+    const scrollContainer = document.querySelector('[data-radix-scroll-area-viewport]');
+    if (scrollContainer) {
+      scrollPositionRef.current = scrollContainer.scrollTop;
+    }
+
+    setIsRefreshing(true);
+    await refetch();
+    setIsRefreshing(false);
+
+    requestAnimationFrame(() => {
+      const scrollContainer = document.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollContainer) {
+        scrollContainer.scrollTop = scrollPositionRef.current;
+      }
+    });
+  }, [refetch]);
+
+  useEffect(() => {
+    if (!path) return;
+
+    return onFileChange((msg) => {
+      if (msg.path === path) {
+        handleRefresh();
+      }
+    });
+  }, [path, onFileChange, handleRefresh]);
 
   if (!path) {
     return (
@@ -35,7 +68,7 @@ function ContentView() {
     );
   }
 
-  if (loading) {
+  if (loading && !isRefreshing) {
     return (
       <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
         <Loader2 className="h-8 w-8 mb-4 animate-spin" />
@@ -65,12 +98,20 @@ function ContentView() {
 
   if (content.mimeType === "text/markdown" || path.endsWith(".md")) {
     return (
-      <MarkdownViewer
-        content={content.content}
-        path={content.path}
-        frontmatter={content.frontmatter}
-        showFrontmatter={false}
-      />
+      <div className="relative">
+        {isRefreshing && (
+          <div className="absolute top-0 right-0 flex items-center gap-1.5 px-2 py-1 text-xs text-muted-foreground bg-background/80 backdrop-blur-sm rounded-bl border-l border-b z-10">
+            <RefreshCw className="h-3 w-3 animate-spin" />
+            <span>Refreshing...</span>
+          </div>
+        )}
+        <MarkdownViewer
+          content={content.content}
+          path={content.path}
+          frontmatter={content.frontmatter}
+          showFrontmatter={false}
+        />
+      </div>
     );
   }
 

@@ -8,8 +8,10 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { FileTree } from "@/components/FileTree";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { useFileTree } from "@/hooks/useFileTree";
-import { PanelLeftClose, PanelLeft } from "lucide-react";
+import { useWebSocket } from "@/providers/WebSocketProvider";
+import { PanelLeftClose, PanelLeft, Wifi, WifiOff } from "lucide-react";
 import type { ImperativePanelHandle } from "react-resizable-panels";
 
 const SIDEBAR_COLLAPSED_KEY = "rp1-ui-sidebar-collapsed";
@@ -61,8 +63,15 @@ export function Layout() {
   const navigate = useNavigate();
   const params = useParams();
   const { tree, loading, error, refetch } = useFileTree();
+  const { status: wsStatus, onTreeChange } = useWebSocket();
 
   const selectedPath = params["*"] || null;
+
+  useEffect(() => {
+    return onTreeChange(() => {
+      refetch();
+    });
+  }, [onTreeChange, refetch]);
 
   const handleFileSelect = useCallback(
     (path: string) => {
@@ -106,7 +115,7 @@ export function Layout() {
 
   return (
     <div className="flex h-screen flex-col">
-      <Header onToggleSidebar={toggleSidebar} sidebarCollapsed={sidebarCollapsed} />
+      <Header onToggleSidebar={toggleSidebar} sidebarCollapsed={sidebarCollapsed} wsStatus={wsStatus} />
       <ResizablePanelGroup
         direction="horizontal"
         className="flex-1"
@@ -145,7 +154,7 @@ export function Layout() {
         </ResizablePanel>
         <ResizableHandle withHandle />
         <ResizablePanel defaultSize={sidebarCollapsed ? 100 : 100 - sidebarSize}>
-          <main className="h-full">
+          <main id="main-content" className="h-full" tabIndex={-1}>
             <ScrollArea className="h-full">
               <div className="p-6">
                 <Outlet context={{ refetchTree: refetch }} />
@@ -161,9 +170,10 @@ export function Layout() {
 interface HeaderProps {
   onToggleSidebar: () => void;
   sidebarCollapsed: boolean;
+  wsStatus: "connecting" | "connected" | "disconnected";
 }
 
-function Header({ onToggleSidebar, sidebarCollapsed }: HeaderProps) {
+function Header({ onToggleSidebar, sidebarCollapsed, wsStatus }: HeaderProps) {
   return (
     <header className="flex h-12 items-center justify-between border-b px-4">
       <div className="flex items-center gap-2">
@@ -173,6 +183,7 @@ function Header({ onToggleSidebar, sidebarCollapsed }: HeaderProps) {
           onClick={onToggleSidebar}
           className="h-8 w-8"
           title={sidebarCollapsed ? "Show sidebar (⌘B)" : "Hide sidebar (⌘B)"}
+          aria-label={sidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
         >
           {sidebarCollapsed ? (
             <PanelLeft className="h-4 w-4" />
@@ -181,12 +192,21 @@ function Header({ onToggleSidebar, sidebarCollapsed }: HeaderProps) {
           )}
         </Button>
         <span className="text-lg font-medium">rp1</span>
-        <span className="text-terminal-green animate-blink">_</span>
+        <span className="text-terminal-green animate-blink" aria-hidden="true">_</span>
       </div>
       <div className="flex items-center gap-2">
-        <span className="text-sm text-muted-foreground">
-          Theme toggle placeholder
-        </span>
+        <div
+          className="flex items-center gap-1.5 text-xs text-muted-foreground"
+          title={wsStatus === "connected" ? "Live updates active" : "Reconnecting..."}
+          aria-label={`Connection status: ${wsStatus}`}
+        >
+          {wsStatus === "connected" ? (
+            <Wifi className="h-3.5 w-3.5 text-terminal-green" />
+          ) : (
+            <WifiOff className="h-3.5 w-3.5 text-muted-foreground animate-pulse" />
+          )}
+        </div>
+        <ThemeToggle />
       </div>
     </header>
   );
