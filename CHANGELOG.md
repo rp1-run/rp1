@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.2.5](https://github.com/rp1-run/rp1/compare/v4.2.4...v4.2.5) (2025-12-02)
+
+
+### Documentation
+
+* better landing page ([#20](https://github.com/rp1-run/rp1/issues/20)) ([59a1e64](https://github.com/rp1-run/rp1/commit/59a1e646e5cc48e7df548257ee1bcd0f268d9942))
+
 ## [4.2.4](https://github.com/rp1-run/rp1/compare/v4.2.3...v4.2.4) (2025-12-01)
 
 
