@@ -1,30 +1,154 @@
-import { Outlet } from "react-router-dom";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { Outlet, useNavigate, useParams } from "react-router-dom";
 import {
   ResizablePanelGroup,
   ResizablePanel,
   ResizableHandle,
 } from "@/components/ui/resizable";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
+import { FileTree } from "@/components/FileTree";
+import { useFileTree } from "@/hooks/useFileTree";
+import { PanelLeftClose, PanelLeft } from "lucide-react";
+import type { ImperativePanelHandle } from "react-resizable-panels";
+
+const SIDEBAR_COLLAPSED_KEY = "rp1-ui-sidebar-collapsed";
+const SIDEBAR_SIZE_KEY = "rp1-ui-sidebar-size";
+
+function loadSidebarCollapsed(): boolean {
+  try {
+    return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function saveSidebarCollapsed(collapsed: boolean): void {
+  try {
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(collapsed));
+  } catch {
+    // ignore
+  }
+}
+
+function loadSidebarSize(): number {
+  try {
+    const stored = localStorage.getItem(SIDEBAR_SIZE_KEY);
+    if (stored) {
+      const size = parseFloat(stored);
+      if (!isNaN(size) && size >= 15 && size <= 40) {
+        return size;
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return 20;
+}
+
+function saveSidebarSize(size: number): void {
+  try {
+    localStorage.setItem(SIDEBAR_SIZE_KEY, String(size));
+  } catch {
+    // ignore
+  }
+}
 
 export function Layout() {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(loadSidebarCollapsed);
+  const [sidebarSize, setSidebarSize] = useState(loadSidebarSize);
+  const sidebarRef = useRef<ImperativePanelHandle>(null);
+  const navigate = useNavigate();
+  const params = useParams();
+  const { tree, loading, error, refetch } = useFileTree();
+
+  const selectedPath = params["*"] || null;
+
+  const handleFileSelect = useCallback(
+    (path: string) => {
+      navigate(`/view/${path}`);
+    },
+    [navigate]
+  );
+
+  const toggleSidebar = useCallback(() => {
+    const newCollapsed = !sidebarCollapsed;
+    setSidebarCollapsed(newCollapsed);
+    saveSidebarCollapsed(newCollapsed);
+
+    if (sidebarRef.current) {
+      if (newCollapsed) {
+        sidebarRef.current.collapse();
+      } else {
+        sidebarRef.current.expand();
+      }
+    }
+  }, [sidebarCollapsed]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "b") {
+        e.preventDefault();
+        toggleSidebar();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [toggleSidebar]);
+
+  const handleSidebarResize = useCallback((size: number) => {
+    if (size > 0) {
+      setSidebarSize(size);
+      saveSidebarSize(size);
+    }
+  }, []);
+
   return (
     <div className="flex h-screen flex-col">
-      <Header />
-      <ResizablePanelGroup direction="horizontal" className="flex-1">
+      <Header onToggleSidebar={toggleSidebar} sidebarCollapsed={sidebarCollapsed} />
+      <ResizablePanelGroup
+        direction="horizontal"
+        className="flex-1"
+        onLayout={(sizes) => {
+          if (sizes[0] !== undefined && sizes[0] > 0) {
+            handleSidebarResize(sizes[0]);
+          }
+        }}
+      >
         <ResizablePanel
-          defaultSize={20}
-          minSize={15}
+          ref={sidebarRef}
+          defaultSize={sidebarCollapsed ? 0 : sidebarSize}
+          minSize={0}
           maxSize={40}
+          collapsible
+          collapsedSize={0}
+          onCollapse={() => {
+            setSidebarCollapsed(true);
+            saveSidebarCollapsed(true);
+          }}
+          onExpand={() => {
+            setSidebarCollapsed(false);
+            saveSidebarCollapsed(false);
+          }}
           className="border-r"
         >
-          <Sidebar />
+          <div className="h-full">
+            <FileTree
+              tree={tree}
+              loading={loading}
+              error={error}
+              selectedPath={selectedPath}
+              onSelect={handleFileSelect}
+            />
+          </div>
         </ResizablePanel>
         <ResizableHandle withHandle />
-        <ResizablePanel defaultSize={80}>
+        <ResizablePanel defaultSize={sidebarCollapsed ? 100 : 100 - sidebarSize}>
           <main className="h-full">
             <ScrollArea className="h-full">
               <div className="p-6">
-                <Outlet />
+                <Outlet context={{ refetchTree: refetch }} />
               </div>
             </ScrollArea>
           </main>
@@ -34,10 +158,28 @@ export function Layout() {
   );
 }
 
-function Header() {
+interface HeaderProps {
+  onToggleSidebar: () => void;
+  sidebarCollapsed: boolean;
+}
+
+function Header({ onToggleSidebar, sidebarCollapsed }: HeaderProps) {
   return (
     <header className="flex h-12 items-center justify-between border-b px-4">
       <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onToggleSidebar}
+          className="h-8 w-8"
+          title={sidebarCollapsed ? "Show sidebar (⌘B)" : "Hide sidebar (⌘B)"}
+        >
+          {sidebarCollapsed ? (
+            <PanelLeft className="h-4 w-4" />
+          ) : (
+            <PanelLeftClose className="h-4 w-4" />
+          )}
+        </Button>
         <span className="text-lg font-medium">rp1</span>
         <span className="text-terminal-green animate-blink">_</span>
       </div>
@@ -47,30 +189,5 @@ function Header() {
         </span>
       </div>
     </header>
-  );
-}
-
-function Sidebar() {
-  return (
-    <ScrollArea className="h-full">
-      <div className="p-4">
-        <div className="mb-4">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Context
-          </h2>
-          <div className="mt-2 text-sm text-muted-foreground">
-            File tree placeholder
-          </div>
-        </div>
-        <div>
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Work
-          </h2>
-          <div className="mt-2 text-sm text-muted-foreground">
-            File tree placeholder
-          </div>
-        </div>
-      </div>
-    </ScrollArea>
   );
 }
