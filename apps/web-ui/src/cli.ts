@@ -160,17 +160,23 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  const isDev = process.env.NODE_ENV === "development";
+
   const { stop } = createServer({
     port: args.port,
     projectPath: args.projectPath,
-    isDev: process.env.NODE_ENV === "development",
+    isDev,
   });
 
   const url = `http://127.0.0.1:${args.port}`;
 
-  setTimeout(async () => {
-    await openBrowser(url);
-  }, 500);
+  if (!isDev) {
+    setTimeout(async () => {
+      await openBrowser(url);
+    }, 500);
+  } else {
+    console.log(`\n  For development, open: http://localhost:5173`);
+  }
 
   process.on("SIGINT", () => {
     console.log("\nShutting down...");

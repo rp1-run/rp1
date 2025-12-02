@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useId } from "react";
 import { createPortal } from "react-dom";
 import mermaid from "mermaid";
-import { ZoomIn, ZoomOut, RotateCcw, Code, AlertTriangle, Maximize2, X } from "lucide-react";
+import { ZoomIn, ZoomOut, RotateCcw, Code, AlertTriangle, Maximize2, X, Expand } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -11,11 +11,54 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
+// Catppuccin Latte (light) theme variables for Mermaid
+const catppuccinLatte = {
+  primaryColor: "#8839ef",      // Mauve
+  primaryTextColor: "#4c4f69",  // Text
+  primaryBorderColor: "#7287fd", // Lavender
+  secondaryColor: "#179299",    // Teal
+  secondaryTextColor: "#4c4f69",
+  secondaryBorderColor: "#04a5e5", // Sky
+  tertiaryColor: "#e6e9ef",     // Mantle
+  tertiaryTextColor: "#4c4f69",
+  tertiaryBorderColor: "#bcc0cc", // Surface1
+  lineColor: "#6c6f85",         // Subtext0
+  textColor: "#4c4f69",         // Text
+  mainBkg: "#eff1f5",           // Base
+  nodeBorder: "#bcc0cc",        // Surface1
+  clusterBkg: "#e6e9ef",        // Mantle
+  titleColor: "#4c4f69",        // Text
+  edgeLabelBackground: "#eff1f5",
+  nodeTextColor: "#4c4f69",
+};
+
+// Catppuccin Mocha (dark) theme variables for Mermaid
+const catppuccinMocha = {
+  primaryColor: "#cba6f7",      // Mauve
+  primaryTextColor: "#cdd6f4",  // Text
+  primaryBorderColor: "#b4befe", // Lavender
+  secondaryColor: "#94e2d5",    // Teal
+  secondaryTextColor: "#cdd6f4",
+  secondaryBorderColor: "#89dceb", // Sky
+  tertiaryColor: "#181825",     // Mantle
+  tertiaryTextColor: "#cdd6f4",
+  tertiaryBorderColor: "#45475a", // Surface1
+  lineColor: "#a6adc8",         // Subtext0
+  textColor: "#cdd6f4",         // Text
+  mainBkg: "#1e1e2e",           // Base
+  nodeBorder: "#45475a",        // Surface1
+  clusterBkg: "#181825",        // Mantle
+  titleColor: "#cdd6f4",        // Text
+  edgeLabelBackground: "#1e1e2e",
+  nodeTextColor: "#cdd6f4",
+};
+
 mermaid.initialize({
   startOnLoad: false,
-  theme: "default",
+  theme: "base",
   securityLevel: "loose",
   fontFamily: "JetBrains Mono, monospace",
+  themeVariables: catppuccinMocha,
 });
 
 interface MermaidDiagramProps {
@@ -34,6 +77,8 @@ export function MermaidDiagram({ code, className }: MermaidDiagramProps) {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const svgContainerRef = useRef<HTMLDivElement>(null);
+  const fullscreenContainerRef = useRef<HTMLDivElement>(null);
   const uniqueId = useId();
   const diagramId = `mermaid-${uniqueId.replace(/:/g, "")}`;
 
@@ -45,9 +90,10 @@ export function MermaidDiagram({ code, className }: MermaidDiagramProps) {
         const isDark = document.documentElement.classList.contains("dark");
         mermaid.initialize({
           startOnLoad: false,
-          theme: isDark ? "dark" : "default",
+          theme: "base",
           securityLevel: "loose",
           fontFamily: "JetBrains Mono, monospace",
+          themeVariables: isDark ? catppuccinMocha : catppuccinLatte,
         });
 
         const { svg: renderedSvg } = await mermaid.render(diagramId, code);
@@ -78,6 +124,8 @@ export function MermaidDiagram({ code, className }: MermaidDiagramProps) {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
         setIsFullscreen(false);
+        setScale(1);
+        setPosition({ x: 0, y: 0 });
       }
     }
 
@@ -106,13 +154,63 @@ export function MermaidDiagram({ code, className }: MermaidDiagramProps) {
 
   const handleFullscreen = useCallback(() => {
     setIsFullscreen(true);
-    // Reset zoom/pan when entering fullscreen for best initial view
-    setScale(1);
     setPosition({ x: 0, y: 0 });
+
+    // Calculate optimal scale after a brief delay to ensure DOM is ready
+    setTimeout(() => {
+      const container = svgContainerRef.current;
+      if (!container) {
+        setScale(1);
+        return;
+      }
+
+      // Get the actual rendered size of the SVG container (at current scale of 1)
+      const rect = container.getBoundingClientRect();
+      const renderedWidth = rect.width;
+      const renderedHeight = rect.height;
+
+      // Available space in fullscreen
+      const availableWidth = window.innerWidth - 100;
+      const availableHeight = window.innerHeight - 160;
+
+      // Calculate scale to fill available space
+      const scaleX = availableWidth / renderedWidth;
+      const scaleY = availableHeight / renderedHeight;
+      const optimalScale = Math.min(scaleX, scaleY);
+
+      // Clamp between 0.1 and 10
+      setScale(Math.max(0.1, Math.min(10, optimalScale)));
+    }, 50);
   }, []);
 
   const handleCloseFullscreen = useCallback(() => {
     setIsFullscreen(false);
+    setScale(1);
+    setPosition({ x: 0, y: 0 });
+  }, []);
+
+  const handleFitToScreen = useCallback(() => {
+    // Reset scale to 1 first, then measure and rescale
+    setScale(1);
+    setPosition({ x: 0, y: 0 });
+
+    setTimeout(() => {
+      const container = svgContainerRef.current;
+      if (!container) return;
+
+      const rect = container.getBoundingClientRect();
+      const renderedWidth = rect.width;
+      const renderedHeight = rect.height;
+
+      const availableWidth = window.innerWidth - 100;
+      const availableHeight = window.innerHeight - 160;
+
+      const scaleX = availableWidth / renderedWidth;
+      const scaleY = availableHeight / renderedHeight;
+      const optimalScale = Math.min(scaleX, scaleY);
+
+      setScale(Math.max(0.1, Math.min(10, optimalScale)));
+    }, 50);
   }, []);
 
   const handleMouseDown = useCallback(
@@ -220,6 +318,23 @@ export function MermaidDiagram({ code, className }: MermaidDiagramProps) {
         <TooltipContent>Reset view</TooltipContent>
       </Tooltip>
 
+      {isFullscreen && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={handleFitToScreen}
+              aria-label="Fit to screen"
+            >
+              <Expand className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Fit to screen</TooltipContent>
+        </Tooltip>
+      )}
+
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
@@ -253,6 +368,7 @@ export function MermaidDiagram({ code, className }: MermaidDiagramProps) {
     >
       {svg ? (
         <div
+          ref={svgContainerRef}
           className="mermaid-svg transition-transform duration-100 [&_svg]:max-w-none"
           style={{
             transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
@@ -268,7 +384,7 @@ export function MermaidDiagram({ code, className }: MermaidDiagramProps) {
   const fullscreenModal = isFullscreen
     ? createPortal(
         <div
-          className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex flex-col"
+          className="fixed inset-0 z-50 bg-background flex flex-col"
           onClick={(e) => {
             if (e.target === e.currentTarget) handleCloseFullscreen();
           }}

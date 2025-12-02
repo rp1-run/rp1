@@ -150,10 +150,15 @@ export function MarkdownViewer({
               {children}
             </td>
           ),
-          code: ({ className: codeClassName, children, ...props }) => {
+          code: ({ className: codeClassName, children, node, ...props }) => {
             const match = /language-(\w+)/.exec(codeClassName || "");
             const language = match ? match[1] : undefined;
-            const isInline = !codeClassName;
+            const codeContent = String(children).replace(/\n$/, "");
+
+            // Check if this is inline code by looking at the parent element
+            // If the code contains newlines, it's definitely a block
+            const hasNewlines = codeContent.includes("\n");
+            const isInline = !hasNewlines && !codeClassName;
 
             if (isInline) {
               return (
@@ -165,8 +170,6 @@ export function MarkdownViewer({
                 </code>
               );
             }
-
-            const codeContent = String(children).replace(/\n$/, "");
 
             if (language === "mermaid") {
               return <MermaidDiagram code={codeContent} />;
