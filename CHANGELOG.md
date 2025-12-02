@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.3.0](https://github.com/rp1-run/rp1/compare/v4.2.5...v4.3.0) (2025-12-02)
+
+
+### Features
+
+* **docs:** add analytics and Lighthouse CI ([#22](https://github.com/rp1-run/rp1/issues/22)) ([38751f0](https://github.com/rp1-run/rp1/commit/38751f0667117cca98b7055ff163a3be6a0c8ab7))
+
 ## [4.2.5](https://github.com/rp1-run/rp1/compare/v4.2.4...v4.2.5) (2025-12-02)
 
 
