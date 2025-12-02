@@ -41,8 +41,8 @@ export function CodeBlock({ code, language, className }: CodeBlockProps) {
         const html = highlighter.codeToHtml(code, {
           lang: normalizedLang,
           themes: {
-            light: "github-light",
-            dark: "github-dark",
+            light: "catppuccin-latte",
+            dark: "catppuccin-mocha",
           },
         });
 
