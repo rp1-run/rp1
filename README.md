@@ -10,8 +10,8 @@
 
 <p align="center">
   <!-- x-release-please-start-version -->
-  <a href="https://github.com/rp1-run/rp1/releases"><img src="https://img.shields.io/static/v1?label=rp1-base&message=v4.3.0&color=blue" alt="rp1-base"></a>
-  <a href="https://github.com/rp1-run/rp1/releases"><img src="https://img.shields.io/static/v1?label=rp1-dev&message=v4.3.0&color=blue" alt="rp1-dev"></a>
+  <a href="https://github.com/rp1-run/rp1/releases"><img src="https://img.shields.io/static/v1?label=rp1-base&message=v4.4.0&color=blue" alt="rp1-base"></a>
+  <a href="https://github.com/rp1-run/rp1/releases"><img src="https://img.shields.io/static/v1?label=rp1-dev&message=v4.4.0&color=blue" alt="rp1-dev"></a>
   <!-- x-release-please-end -->
   <a href="https://rp1.run"><img src="https://img.shields.io/badge/docs-rp1.run-blue" alt="Docs"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-green.svg" alt="License"></a>
