@@ -1,7 +1,7 @@
 {
-  "name": "block-rp1",
+  "name": "rp1-run",
   "owner": {
-    "name": "Prem Pillai"
+    "name": "Prem Pillai (https://rp1.run)"
   },
   "plugins": [
     {
