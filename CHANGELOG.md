@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.4.0](https://github.com/rp1-run/rp1/compare/v4.3.0...v4.4.0) (2025-12-03)
+
+
+### Features
+
+* set up the correct plugin marketplace metadata ([#24](https://github.com/rp1-run/rp1/issues/24)) ([32d4af6](https://github.com/rp1-run/rp1/commit/32d4af6ff5268222033677d1472b87356716235c))
+
 ## [4.3.0](https://github.com/rp1-run/rp1/compare/v4.2.5...v4.3.0) (2025-12-02)
 
 
