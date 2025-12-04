@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.4.3](https://github.com/rp1-run/rp1/compare/v4.4.2...v4.4.3) (2025-12-04)
+
+
+### Bug Fixes
+
+* **docs:** style issues ([#31](https://github.com/rp1-run/rp1/issues/31)) ([8580367](https://github.com/rp1-run/rp1/commit/85803670d1aa2ef3176e9ba4a121253ba49d2ad1))
+
 ## [4.4.2](https://github.com/rp1-run/rp1/compare/v4.4.1...v4.4.2) (2025-12-04)
 
 
