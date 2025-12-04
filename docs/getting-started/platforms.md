@@ -10,7 +10,7 @@ rp1 supports two AI coding assistant platforms: **Claude Code** and **OpenCode**
 |---------|-------------|----------|
 | **Provider** | Anthropic | Community |
 | **LLM** | Claude | Configurable |
-| **Command Syntax** | `/rp1-base:command` | `/rp1-base/command` |
+| **Command Syntax** | `/command` | `/rp1-base/command` |
 | **Installation** | Plugin marketplace | Python wheel |
 | **All 21 commands** | :material-check: Yes | :material-check: Yes |
 | **Automatic updates** | :material-check: Yes | Manual |
@@ -61,20 +61,18 @@ Both platforms support the **full rp1 command set**:
 
 ## Syntax Differences
 
-The main difference between platforms is the command separator:
-
 === "Claude Code"
 
-    Uses `:` as the separator:
+    Uses short form commands (no prefix needed):
     ```bash
-    /rp1-base:knowledge-build
-    /rp1-dev:feature-requirements my-feature
-    /rp1-dev:pr-review
+    /knowledge-build
+    /feature-requirements my-feature
+    /pr-review
     ```
 
 === "OpenCode"
 
-    Uses `/` as the separator:
+    Uses `/` separated paths with plugin prefix:
     ```bash
     /rp1-base/knowledge-build
     /rp1-dev/feature-requirements my-feature
@@ -82,7 +80,25 @@ The main difference between platforms is the command separator:
     ```
 
 !!! tip "Documentation Conventions"
-    Throughout this documentation, examples are shown with tabs for both platforms. The command functionality is identical; only the syntax differs.
+    Throughout this documentation, Claude Code examples use the short form (`/command`), while OpenCode examples include the full path (`/rp1-xxx/command`).
+
+---
+
+## Command Name Conflicts (Claude Code)
+
+In rare cases, another plugin may define a command with the same name as an rp1 command. When this happens, Claude Code won't know which command to run.
+
+**Resolution**: Use the fully-qualified command name with the plugin prefix:
+
+```bash
+# If another plugin also has a "build" command
+/rp1-base:knowledge-build    # Explicitly use rp1-base's command
+/rp1-dev:feature-build       # Explicitly use rp1-dev's command
+```
+
+!!! note "When to use prefixes"
+    - **Default**: Use short form (`/command`) - simpler and cleaner
+    - **Conflict**: Use prefixed form (`/rp1-xxx:command`) only when you have multiple plugins with the same command name
 
 ---
 

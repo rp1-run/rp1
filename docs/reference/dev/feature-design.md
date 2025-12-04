@@ -9,7 +9,7 @@ Generates technical design specifications from requirements.
 === "Claude Code"
 
     ```bash
-    /rp1-dev:feature-design <feature-id> [extra-context]
+    /feature-design <feature-id> [extra-context]
     ```
 
 === "OpenCode"
@@ -60,7 +60,7 @@ The `feature-design` command transforms requirements into a technical design spe
 === "Claude Code"
 
     ```bash
-    /rp1-dev:feature-design user-auth
+    /feature-design user-auth
     ```
 
 === "OpenCode"
@@ -74,7 +74,7 @@ The `feature-design` command transforms requirements into a technical design spe
 === "Claude Code"
 
     ```bash
-    /rp1-dev:feature-design user-auth "Use existing session middleware"
+    /feature-design user-auth "Use existing session middleware"
     ```
 
 === "OpenCode"

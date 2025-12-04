@@ -9,7 +9,7 @@ Analyzes systems holistically to provide strategic recommendations balancing cos
 === "Claude Code"
 
     ```bash
-    /rp1-base:strategize
+    /strategize
     ```
 
 === "OpenCode"
@@ -56,7 +56,7 @@ The command produces a detailed strategy report covering:
 === "Claude Code"
 
     ```bash
-    /rp1-base:strategize
+    /strategize
     ```
 
 === "OpenCode"

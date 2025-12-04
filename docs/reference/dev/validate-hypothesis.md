@@ -9,7 +9,7 @@ Tests design assumptions through code experiments, codebase analysis, and extern
 === "Claude Code"
 
     ```bash
-    /rp1-dev:validate-hypothesis <feature-id>
+    /validate-hypothesis <feature-id>
     ```
 
 === "OpenCode"
@@ -59,7 +59,7 @@ This is an **optional** step in the feature workflow, recommended when:
 === "Claude Code"
 
     ```bash
-    /rp1-dev:validate-hypothesis caching-layer
+    /validate-hypothesis caching-layer
     ```
 
 === "OpenCode"

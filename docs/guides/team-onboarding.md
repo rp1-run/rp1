@@ -61,7 +61,7 @@ Build the knowledge base for your project:
 === "Claude Code"
 
     ```bash
-    /rp1-base:knowledge-build
+    /knowledge-build
     ```
 
 === "OpenCode"
@@ -259,7 +259,7 @@ The KB is automatically loaded when you run rp1 commands. You can also explicitl
 === "Claude Code"
 
     ```bash
-    /rp1-base:knowledge-load
+    /knowledge-load
     ```
 
 === "OpenCode"
@@ -304,7 +304,7 @@ Create a comprehensive overview document for new developers:
 === "Claude Code"
 
     ```bash
-    /rp1-base:project-birds-eye-view
+    /project-birds-eye-view
     ```
 
 === "OpenCode"
@@ -400,11 +400,11 @@ Use this checklist when onboarding a new team member:
 
 - [ ] Use rp1 to investigate specific areas:
     ```bash
-    /rp1-dev:code-investigate "How does authentication work in this codebase?"
+    /code-investigate "How does authentication work in this codebase?"
     ```
 - [ ] Ask questions about patterns:
     ```bash
-    /rp1-dev:code-investigate "What patterns are used for database access?"
+    /code-investigate "What patterns are used for database access?"
     ```
 
 ### Week 1: First Contribution
@@ -426,7 +426,7 @@ When generated from the root:
 
 ```bash
 cd /path/to/monorepo
-/rp1-base:knowledge-build
+/knowledge-build
 ```
 
 Creates:
@@ -442,7 +442,7 @@ For focused analysis, generate from a specific project:
 
 ```bash
 cd /path/to/monorepo/packages/api
-/rp1-base:knowledge-build
+/knowledge-build
 ```
 
 Creates:
@@ -527,7 +527,7 @@ You've learned the team onboarding workflow:
 
     ```bash
     cd packages/your-project
-    /rp1-base:knowledge-build
+    /knowledge-build
     ```
 
     This creates a project-specific KB in that directory.

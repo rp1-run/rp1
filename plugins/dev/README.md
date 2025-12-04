@@ -23,17 +23,17 @@ Then install dev plugin:
 ## Commands (19)
 
 ### Project Onboarding (1)
-- `/rp1-dev:blueprint [prd-name]` - Guided wizard to capture project vision via charter + PRDs
+- `/blueprint [prd-name]` - Guided wizard to capture project vision via charter + PRDs
 
 **Default Flow** (creates charter + main PRD):
 ```bash
-/rp1-dev:blueprint
+/blueprint
 ```
 
 **Named PRD Flow** (creates additional PRD, requires charter):
 ```bash
-/rp1-dev:blueprint mobile-app
-/rp1-dev:blueprint api
+/blueprint mobile-app
+/blueprint api
 ```
 
 The blueprint command creates a two-tier document hierarchy:
@@ -41,47 +41,47 @@ The blueprint command creates a two-tier document hierarchy:
 2. **PRDs** (`.rp1/work/prds/<name>.md`) - Surface-specific "what" that inherits from charter
 
 ### Feature Development (9)
-- `/rp1-dev:feature-requirements feature-id [extra-context]` - Gather requirements
-- `/rp1-dev:feature-design feature-id [extra-context]` - Create technical design
-- `/rp1-dev:feature-tasks feature-id [extra-context]` - Generate implementation tasks
-- `/rp1-dev:feature-build feature-id [milestone-id]` - Implement features systematically
-- `/rp1-dev:feature-verify feature-id [milestone-id]` - Verify feature meets requirements
-- `/rp1-dev:feature-archive feature-id` - Archive completed feature to archives/
-- `/rp1-dev:feature-unarchive feature-id` - Restore archived feature to active features
-- `/rp1-dev:feature-edit feature-id <edit-description>` - Incorporate mid-stream changes
-- `/rp1-dev:validate-hypothesis feature-id` - Validate design assumptions
+- `/feature-requirements feature-id [extra-context]` - Gather requirements
+- `/feature-design feature-id [extra-context]` - Create technical design
+- `/feature-tasks feature-id [extra-context]` - Generate implementation tasks
+- `/feature-build feature-id [milestone-id]` - Implement features systematically
+- `/feature-verify feature-id [milestone-id]` - Verify feature meets requirements
+- `/feature-archive feature-id` - Archive completed feature to archives/
+- `/feature-unarchive feature-id` - Restore archived feature to active features
+- `/feature-edit feature-id <edit-description>` - Incorporate mid-stream changes
+- `/validate-hypothesis feature-id` - Validate design assumptions
 
 **Example**:
 ```bash
-/rp1-dev:feature-requirements my-feature "Additional context about feature scope"
-/rp1-dev:feature-design my-feature
-/rp1-dev:validate-hypothesis my-feature  # Optional: validate assumptions
-/rp1-dev:feature-tasks my-feature
-/rp1-dev:feature-build my-feature
-/rp1-dev:feature-verify my-feature        # Verify + optional archive prompt
-/rp1-dev:feature-archive my-feature       # Or archive manually
-/rp1-dev:feature-edit my-feature "Discovery: API doesn't support pagination"  # Mid-stream changes
+/feature-requirements my-feature "Additional context about feature scope"
+/feature-design my-feature
+/validate-hypothesis my-feature  # Optional: validate assumptions
+/feature-tasks my-feature
+/feature-build my-feature
+/feature-verify my-feature        # Verify + optional archive prompt
+/feature-archive my-feature       # Or archive manually
+/feature-edit my-feature "Discovery: API doesn't support pagination"  # Mid-stream changes
 ```
 
 ### Code Quality (6)
-- `/rp1-dev:code-check [feature-id]` - Fast code hygiene validation (lints, formatters, tests, coverage)
-- `/rp1-dev:code-investigate [problem-description...]` - Bug investigation and root cause analysis
-- `/rp1-dev:code-test` - (DEPRECATED) Use code-check or feature-verify instead
-- `/rp1-dev:code-audit [feature-id]` - Code quality and pattern analysis
-- `/rp1-dev:code-clean-comments` - Remove unnecessary comments
-- `/rp1-dev:code-quick-build [development-request...]` - Quick fixes, prototypes, and optimizations
+- `/code-check [feature-id]` - Fast code hygiene validation (lints, formatters, tests, coverage)
+- `/code-investigate [problem-description...]` - Bug investigation and root cause analysis
+- `/code-test` - (DEPRECATED) Use code-check or feature-verify instead
+- `/code-audit [feature-id]` - Code quality and pattern analysis
+- `/code-clean-comments` - Remove unnecessary comments
+- `/code-quick-build [development-request...]` - Quick fixes, prototypes, and optimizations
 
 **Examples**:
 ```bash
-/rp1-dev:code-quick-build "Fix authentication bug in login flow"
-/rp1-dev:code-investigate "Users report timeout errors on large file uploads"
+/code-quick-build "Fix authentication bug in login flow"
+/code-investigate "Users report timeout errors on large file uploads"
 ```
 
 ### PR Management (4)
-- `/rp1-dev:pr-review` - Comprehensive pull request review
-- `/rp1-dev:pr-feedback-collect` - Gather GitHub review comments
-- `/rp1-dev:pr-feedback-fix` - Address pull request feedback
-- `/rp1-dev:pr-visual` - Visualize pull request changes
+- `/pr-review` - Comprehensive pull request review
+- `/pr-feedback-collect` - Gather GitHub review comments
+- `/pr-feedback-fix` - Address pull request feedback
+- `/pr-visual` - Visualize pull request changes
 
 ## Field Notes
 

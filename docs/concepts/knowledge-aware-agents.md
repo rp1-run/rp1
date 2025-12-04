@@ -41,7 +41,7 @@ sequenceDiagram
     participant Agents as 5 Parallel Agents
     participant Files as .rp1/context/
 
-    User->>KB: /rp1-base:knowledge-build
+    User->>KB: /knowledge-build
     KB->>SA: Analyze codebase
     SA-->>KB: Categorized files
     KB->>Agents: Process in parallel
@@ -63,7 +63,7 @@ sequenceDiagram
     participant KB as .rp1/context/
     participant Code as Your Codebase
 
-    User->>Cmd: /rp1-dev:feature-build my-feature
+    User->>Cmd: /feature-build my-feature
     Cmd->>Agent: Spawn agent
     Agent->>KB: Load architecture.md
     Agent->>KB: Load patterns.md

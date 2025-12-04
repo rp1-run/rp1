@@ -67,21 +67,21 @@ Works today with **Claude Code** and **OpenCode**.
 **Ship a feature**
 
 ```bash
-/rp1-dev:feature-requirements "user-auth"
-/rp1-dev:feature-design "user-auth"
-/rp1-dev:feature-build "user-auth"
+/feature-requirements "user-auth"
+/feature-design "user-auth"
+/feature-build "user-auth"
 ```
 
 **Review a PR**
 
 ```bash
-/rp1-dev:pr-review "feature/auth"
+/pr-review "feature/auth"
 ```
 
 **Investigate a bug**
 
 ```bash
-/rp1-dev:code-investigate "bug-123" "Login fails"
+/code-investigate "bug-123" "Login fails"
 ```
 
 </div>
@@ -91,19 +91,19 @@ Works today with **Claude Code** and **OpenCode**.
 **Generate knowledge base**
 
 ```bash
-/rp1-base:knowledge-build
+/knowledge-build
 ```
 
 **Quick code check**
 
 ```bash
-/rp1-dev:code-check
+/code-check
 ```
 
 **Strategic analysis**
 
 ```bash
-/rp1-base:strategize
+/strategize
 ```
 
 [See all 21 commands :material-arrow-right:](reference/index.md)

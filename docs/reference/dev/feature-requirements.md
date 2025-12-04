@@ -9,7 +9,7 @@ Interactive requirements collection that transforms high-level requirements into
 === "Claude Code"
 
     ```bash
-    /rp1-dev:feature-requirements <feature-id> [extra-context]
+    /feature-requirements <feature-id> [extra-context]
     ```
 
 === "OpenCode"
@@ -54,7 +54,7 @@ The `feature-requirements` command guides you through defining detailed requirem
 === "Claude Code"
 
     ```bash
-    /rp1-dev:feature-requirements user-auth
+    /feature-requirements user-auth
     ```
 
 === "OpenCode"
@@ -68,7 +68,7 @@ The `feature-requirements` command guides you through defining detailed requirem
 === "Claude Code"
 
     ```bash
-    /rp1-dev:feature-requirements dark-mode "Add dark mode toggle to settings page"
+    /feature-requirements dark-mode "Add dark mode toggle to settings page"
     ```
 
 === "OpenCode"

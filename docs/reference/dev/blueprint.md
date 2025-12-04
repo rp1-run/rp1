@@ -9,8 +9,8 @@ Guided wizard that captures project vision through a two-tier document hierarchy
 === "Claude Code"
 
     ```bash
-    /rp1-dev:blueprint
-    /rp1-dev:blueprint <prd-name>
+    /blueprint
+    /blueprint <prd-name>
     ```
 
 === "OpenCode"
@@ -42,7 +42,7 @@ Creates both charter and main PRD together:
 === "Claude Code"
 
     ```bash
-    /rp1-dev:blueprint
+    /blueprint
     ```
 
 === "OpenCode"
@@ -58,8 +58,8 @@ Creates additional PRD for a specific surface:
 === "Claude Code"
 
     ```bash
-    /rp1-dev:blueprint mobile-app
-    /rp1-dev:blueprint api
+    /blueprint mobile-app
+    /blueprint api
     ```
 
 === "OpenCode"
@@ -83,7 +83,7 @@ Creates additional PRD for a specific surface:
 === "Claude Code"
 
     ```bash
-    /rp1-dev:blueprint
+    /blueprint
     ```
 
 === "OpenCode"
@@ -107,7 +107,7 @@ After creating a charter, add additional PRDs:
 === "Claude Code"
 
     ```bash
-    /rp1-dev:blueprint mobile
+    /blueprint mobile
     ```
 
 === "OpenCode"
