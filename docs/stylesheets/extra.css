@@ -50,6 +50,11 @@
   width: auto;
 }
 
+/* Logo color for light/dark modes */
+.md-header__button.md-logo {
+  color: #ffffff;
+}
+
 /* Hero section enhancement */
 .md-typeset h1 {
   font-weight: 700;
@@ -171,14 +176,14 @@
   color: var(--md-accent-fg-color);
 }
 
-/* Blinking cursor */
+/* Blinking cursor (underscore style) */
 .md-typeset h1 .cursor {
   display: inline-block;
-  width: 0.12em;
-  height: 1em;
+  width: 0.6em;
+  height: 0.15em;
   background: var(--md-accent-fg-color);
-  margin-left: 0.15em;
-  vertical-align: text-bottom;
+  margin-left: 0.1em;
+  vertical-align: baseline;
   animation: blink 1s step-end infinite;
 }
 
