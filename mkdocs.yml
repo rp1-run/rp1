@@ -132,8 +132,10 @@ extra:
   generator: false
 
 extra_css:
+  - https://cdn.jsdelivr.net/npm/@splidejs/splide@4/dist/css/splide-core.min.css
   - stylesheets/extra.css
 
 extra_javascript:
+  - https://cdn.jsdelivr.net/npm/@splidejs/splide@4/dist/js/splide.min.js
   - https://unpkg.com/mermaid@10/dist/mermaid.min.js
   - javascripts/analytics.js

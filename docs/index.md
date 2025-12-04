@@ -12,25 +12,36 @@ Professional development workflows for AI coding assistants.
 [Get Started](getting-started/quickstart.md){ .md-button .md-button--primary }
 [View on GitHub](https://github.com/rp1-run/rp1){ .md-button }
 
-=== "Feature Workflow"
-    <div class="terminal-window">
-      <div class="terminal-header">
-        <span class="terminal-dot red"></span>
-        <span class="terminal-dot yellow"></span>
-        <span class="terminal-dot green"></span>
-      </div>
-      <img src="assets/screens/claude-code.png" alt="rp1 feature workflow showing requirements, design, and build commands">
+<div class="carousel-container">
+  <div class="splide" id="hero-carousel" aria-label="Product Screenshots">
+    <div class="splide__track">
+      <ul class="splide__list">
+        <li class="splide__slide">
+          <div class="carousel-caption">Feature workflow — requirements, design, tasks, build, verify</div>
+          <div class="terminal-window">
+            <div class="terminal-header">
+              <span class="terminal-dot red"></span>
+              <span class="terminal-dot yellow"></span>
+              <span class="terminal-dot green"></span>
+            </div>
+            <img src="assets/screens/claude-code.png" alt="rp1 feature workflow showing requirements, design, and build commands">
+          </div>
+        </li>
+        <li class="splide__slide">
+          <div class="carousel-caption">PR visualization — understand changes at a glance</div>
+          <div class="terminal-window">
+            <div class="terminal-header">
+              <span class="terminal-dot red"></span>
+              <span class="terminal-dot yellow"></span>
+              <span class="terminal-dot green"></span>
+            </div>
+            <img src="assets/screens/pr-visual.png" alt="rp1 PR visual diagram showing code change visualization">
+          </div>
+        </li>
+      </ul>
     </div>
-
-=== "PR Visual"
-    <div class="terminal-window">
-      <div class="terminal-header">
-        <span class="terminal-dot red"></span>
-        <span class="terminal-dot yellow"></span>
-        <span class="terminal-dot green"></span>
-      </div>
-      <img src="assets/screens/pr-visual.png" alt="rp1 PR visual diagram showing code change visualization">
-    </div>
+  </div>
+</div>
 
 ---
 
@@ -288,35 +299,37 @@ One-line install script
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-  const tabSet = document.querySelector('.tabbed-set');
-  if (!tabSet) return;
+  var carousel = document.getElementById('hero-carousel');
+  if (!carousel) return;
 
-  const labels = tabSet.querySelectorAll('.tabbed-labels label');
-  if (labels.length < 2) return;
+  var splide = new Splide('#hero-carousel', {
+    type: 'fade',
+    rewind: true,
+    autoplay: true,
+    interval: 8000,
+    pauseOnHover: true,
+    pauseOnFocus: true,
+    pagination: true,
+    arrows: false,
+    drag: true,
+    speed: 600,
+    easing: 'ease-in-out',
+    keyboard: 'focused',
+    reducedMotion: {
+      autoplay: false,
+      speed: 0
+    }
+  });
 
-  let currentTab = 0;
-  let interval;
+  splide.mount();
 
-  function rotateTab() {
-    currentTab = (currentTab + 1) % labels.length;
-    labels[currentTab].click();
-  }
-
-  function startRotation() {
-    interval = setInterval(rotateTab, 8000);
-  }
-
-  function stopRotation() {
-    clearInterval(interval);
-  }
-
-  // Start auto-rotation
-  startRotation();
-
-  // Pause on hover/focus
-  tabSet.addEventListener('mouseenter', stopRotation);
-  tabSet.addEventListener('mouseleave', startRotation);
-  tabSet.addEventListener('focusin', stopRotation);
-  tabSet.addEventListener('focusout', startRotation);
+  // Focus carousel on hover to enable keyboard navigation
+  carousel.addEventListener('mouseenter', function() {
+    var track = carousel.querySelector('.splide__track');
+    if (track) {
+      track.setAttribute('tabindex', '0');
+      track.focus();
+    }
+  });
 });
 </script>
