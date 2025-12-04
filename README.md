@@ -1,5 +1,9 @@
 <p align="center">
-  <img src="docs/assets/logo.png" alt="rp1" width="120">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-light.svg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/logo-dark.svg">
+    <img src="docs/assets/logo-dark.svg" alt="rp1" width="320">
+  </picture>
 </p>
 
 <h1 align="center">Ready Player One</h1>
