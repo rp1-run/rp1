@@ -312,6 +312,18 @@
   height: auto;
 }
 
+/* Captions below terminal window */
+.carousel-caption {
+  text-align: center;
+  padding: 0.75rem 1rem;
+  font-size: 0.9rem;
+  color: var(--md-default-fg-color--light);
+}
+
+[data-md-color-scheme="slate"] .carousel-caption {
+  color: var(--md-default-fg-color--lighter);
+}
+
 /* Pagination dots - rp1 brand colors */
 .carousel-container .splide__pagination {
   position: absolute;

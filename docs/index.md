@@ -17,6 +17,7 @@ Professional development workflows for AI coding assistants.
     <div class="splide__track">
       <ul class="splide__list">
         <li class="splide__slide">
+          <div class="carousel-caption">Feature workflow — requirements, design, tasks, build, verify</div>
           <div class="terminal-window">
             <div class="terminal-header">
               <span class="terminal-dot red"></span>
@@ -27,6 +28,7 @@ Professional development workflows for AI coding assistants.
           </div>
         </li>
         <li class="splide__slide">
+          <div class="carousel-caption">PR visualization — understand changes at a glance</div>
           <div class="terminal-window">
             <div class="terminal-header">
               <span class="terminal-dot red"></span>
