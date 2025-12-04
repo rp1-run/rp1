@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.4.5](https://github.com/rp1-run/rp1/compare/v4.4.4...v4.4.5) (2025-12-04)
+
+
+### Documentation
+
+* some more copy changes ([#35](https://github.com/rp1-run/rp1/issues/35)) ([1c68623](https://github.com/rp1-run/rp1/commit/1c68623130c1ca94900e9039fb638f02414ae3dd))
+
 ## [4.4.4](https://github.com/rp1-run/rp1/compare/v4.4.3...v4.4.4) (2025-12-04)
 
 
