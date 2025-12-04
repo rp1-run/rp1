@@ -70,6 +70,21 @@
   margin-bottom: 1.5rem;
 }
 
+/* Remove focus outline from tab content panels */
+.md-typeset .tabbed-content,
+.md-typeset .tabbed-block,
+.md-typeset [role="tabpanel"] {
+  outline: none;
+  border: none;
+}
+
+.md-typeset .tabbed-block:focus,
+.md-typeset .tabbed-content:focus,
+.md-typeset [role="tabpanel"]:focus {
+  outline: none;
+  border: none;
+}
+
 /* CTA buttons */
 .md-typeset .md-button {
   margin-right: 0.5rem;
@@ -280,6 +295,13 @@
 .carousel-container {
   margin: 2rem auto;
   max-width: 900px;
+}
+
+/* Remove focus outline from Splide elements */
+.carousel-container .splide,
+.carousel-container .splide__track {
+  outline: none !important;
+  border: none !important;
 }
 
 /* Fade transition type (required when using splide-core.min.css) */
