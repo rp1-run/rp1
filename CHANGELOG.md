@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.4.1](https://github.com/rp1-run/rp1/compare/v4.4.0...v4.4.1) (2025-12-04)
+
+
+### Bug Fixes
+
+* **ci:** ensure release please uses the correct gh token ([#26](https://github.com/rp1-run/rp1/issues/26)) ([8b73560](https://github.com/rp1-run/rp1/commit/8b7356005538e5e56ec50781dd98b643f3b4ac78))
+
 ## [4.4.0](https://github.com/rp1-run/rp1/compare/v4.3.0...v4.4.0) (2025-12-03)
 
 
