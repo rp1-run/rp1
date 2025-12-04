@@ -9,7 +9,7 @@ Analyzes code for pattern consistency, maintainability, duplication, and documen
 === "Claude Code"
 
     ```bash
-    /rp1-dev:code-audit
+    /code-audit
     ```
 
 === "OpenCode"
@@ -43,7 +43,7 @@ The `code-audit` command performs a comprehensive audit of your codebase beyond 
 === "Claude Code"
 
     ```bash
-    /rp1-dev:code-audit
+    /code-audit
     ```
 
 === "OpenCode"

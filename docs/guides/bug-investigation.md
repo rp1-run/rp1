@@ -18,7 +18,7 @@ Systematically investigate bugs using rp1's hypothesis-driven debugging workflow
 
 !!! warning "Before You Begin"
     - rp1 installed ([Quick Start](../getting-started/quickstart.md))
-    - Knowledge base generated (`/rp1-base:knowledge-build`)
+    - Knowledge base generated (`/knowledge-build`)
     - A bug or issue you want to investigate
 
 ---
@@ -62,7 +62,7 @@ Launch the bug investigator with a description of the issue:
 === "Claude Code"
 
     ```bash
-    /rp1-dev:code-investigate "API timeout on /api/orders endpoint during peak hours, returning 504 errors intermittently"
+    /code-investigate "API timeout on /api/orders endpoint during peak hours, returning 504 errors intermittently"
     ```
 
 === "OpenCode"
@@ -276,7 +276,7 @@ If the fix is straightforward, implement it directly:
 === "Claude Code"
 
     ```bash
-    /rp1-dev:code-quick-build "Fix the N+1 query in orderQueries.ts by batching order_items fetch"
+    /code-quick-build "Fix the N+1 query in orderQueries.ts by batching order_items fetch"
     ```
 
 === "OpenCode"
@@ -292,7 +292,7 @@ For larger fixes, use the feature workflow:
 === "Claude Code"
 
     ```bash
-    /rp1-dev:feature-requirements fix-orders-performance "Based on investigation report, fix the N+1 query pattern and add missing index"
+    /feature-requirements fix-orders-performance "Based on investigation report, fix the N+1 query pattern and add missing index"
     ```
 
 === "OpenCode"
@@ -308,7 +308,7 @@ If the root cause isn't clear, investigate specific areas:
 === "Claude Code"
 
     ```bash
-    /rp1-dev:code-investigate "Deep dive into database connection pool behavior under load"
+    /code-investigate "Deep dive into database connection pool behavior under load"
     ```
 
 === "OpenCode"
@@ -355,7 +355,7 @@ You've learned the bug investigation workflow:
 
     Your knowledge base may be outdated. Regenerate it:
     ```bash
-    /rp1-base:knowledge-build
+    /knowledge-build
     ```
 
     Or provide more specific context in your problem description.
@@ -364,7 +364,7 @@ You've learned the bug investigation workflow:
 
     The investigator generates hypotheses based on code evidence. If you suspect something specific, include it:
     ```bash
-    /rp1-dev:code-investigate "API timeout - I suspect it's related to the Redis cache invalidation"
+    /code-investigate "API timeout - I suspect it's related to the Redis cache invalidation"
     ```
 
 ??? question "Report suggests multiple possible causes"

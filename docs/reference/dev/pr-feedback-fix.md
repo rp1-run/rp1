@@ -9,7 +9,7 @@ Systematically addresses PR review comments by loading feedback and implementing
 === "Claude Code"
 
     ```bash
-    /rp1-dev:pr-feedback-fix [feature-id]
+    /pr-feedback-fix [feature-id]
     ```
 
 === "OpenCode"
@@ -50,7 +50,7 @@ The `pr-feedback-fix` command loads collected PR feedback and systematically add
 === "Claude Code"
 
     ```bash
-    /rp1-dev:pr-feedback-fix user-auth
+    /pr-feedback-fix user-auth
     ```
 
 === "OpenCode"

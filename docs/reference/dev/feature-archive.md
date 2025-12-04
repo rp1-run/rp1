@@ -9,7 +9,7 @@ Archives completed features to a dedicated archives directory.
 === "Claude Code"
 
     ```bash
-    /rp1-dev:feature-archive <feature-id>
+    /feature-archive <feature-id>
     ```
 
 === "OpenCode"
@@ -55,7 +55,7 @@ The `feature-archive` command moves completed feature documentation from the act
 === "Claude Code"
 
     ```bash
-    /rp1-dev:feature-archive user-auth
+    /feature-archive user-auth
     ```
 
 === "OpenCode"

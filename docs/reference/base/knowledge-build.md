@@ -9,7 +9,7 @@ Orchestrates parallel knowledge base generation using spatial analysis and a map
 === "Claude Code"
 
     ```bash
-    /rp1-base:knowledge-build
+    /knowledge-build
     ```
 
 === "OpenCode"
@@ -66,7 +66,7 @@ The command generates these files in `.rp1/context/`:
 === "Claude Code"
 
     ```bash
-    /rp1-base:knowledge-build
+    /knowledge-build
     ```
 
 === "OpenCode"

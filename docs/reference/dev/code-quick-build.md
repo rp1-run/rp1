@@ -9,7 +9,7 @@ Handles exploratory development requests including quick fixes, prototypes, and 
 === "Claude Code"
 
     ```bash
-    /rp1-dev:code-quick-build <development-request>
+    /code-quick-build <development-request>
     ```
 
 === "OpenCode"
@@ -44,7 +44,7 @@ The `code-quick-build` command handles development requests that don't warrant t
 === "Claude Code"
 
     ```bash
-    /rp1-dev:code-quick-build "Fix the authentication bug when token expires"
+    /code-quick-build "Fix the authentication bug when token expires"
     ```
 
 === "OpenCode"
@@ -58,7 +58,7 @@ The `code-quick-build` command handles development requests that don't warrant t
 === "Claude Code"
 
     ```bash
-    /rp1-dev:code-quick-build "Add export to CSV button on reports page"
+    /code-quick-build "Add export to CSV button on reports page"
     ```
 
 === "OpenCode"

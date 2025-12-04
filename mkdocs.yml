@@ -3,7 +3,7 @@ site_url: https://rp1.run
 site_description: "Stop prompting. Start shipping. Professional development workflows for AI coding assistants."
 repo_url: https://github.com/rp1-run/rp1
 repo_name: rp1-run/rp1
-edit_uri: edit/main/docs/
+edit_uri: ""
 
 theme:
   name: material
@@ -42,7 +42,6 @@ theme:
     - search.highlight
     - content.tabs.link
     - content.code.copy
-    - content.action.edit
   icon:
     repo: fontawesome/brands/github
 

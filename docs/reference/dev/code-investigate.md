@@ -9,7 +9,7 @@ Systematic bug investigation through evidence-based analysis and hypothesis test
 === "Claude Code"
 
     ```bash
-    /rp1-dev:code-investigate
+    /code-investigate
     ```
 
 === "OpenCode"
@@ -49,7 +49,7 @@ The `code-investigate` command performs systematic investigation of bugs and iss
 === "Claude Code"
 
     ```bash
-    /rp1-dev:code-investigate
+    /code-investigate
     ```
 
 === "OpenCode"

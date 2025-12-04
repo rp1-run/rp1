@@ -9,7 +9,7 @@ Implements features systematically from task lists and design specifications.
 === "Claude Code"
 
     ```bash
-    /rp1-dev:feature-build <feature-id> [milestone-id]
+    /feature-build <feature-id> [milestone-id]
     ```
 
 === "OpenCode"
@@ -52,7 +52,7 @@ The command:
 === "Claude Code"
 
     ```bash
-    /rp1-dev:feature-build user-auth
+    /feature-build user-auth
     ```
 
 === "OpenCode"
@@ -66,7 +66,7 @@ The command:
 === "Claude Code"
 
     ```bash
-    /rp1-dev:feature-build user-auth 2
+    /feature-build user-auth 2
     ```
 
 === "OpenCode"

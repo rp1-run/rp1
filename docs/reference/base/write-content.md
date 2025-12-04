@@ -9,7 +9,7 @@ Interactive assistant for creating polished technical documents through structur
 === "Claude Code"
 
     ```bash
-    /rp1-base:write-content
+    /write-content
     ```
 
 === "OpenCode"
@@ -59,7 +59,7 @@ Documents are written to: `.rp1/work/content/<topic>/<type>.md`
 === "Claude Code"
 
     ```bash
-    /rp1-base:write-content
+    /write-content
     ```
 
 === "OpenCode"

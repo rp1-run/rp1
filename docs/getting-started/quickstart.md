@@ -44,7 +44,7 @@ Choose your platform and follow the installation steps:
     /help
     ```
 
-    You should see rp1 commands listed (look for `/rp1-base:` and `/rp1-dev:`).
+    You should see rp1 commands listed (look for `knowledge-build`, `feature-requirements`, etc.).
 
 === "OpenCode"
 
@@ -77,7 +77,7 @@ Let's build a **knowledge base** for your codebase. This analyzes your project s
 === "Claude Code"
 
     ```bash
-    /rp1-base:knowledge-build
+    /knowledge-build
     ```
 
 === "OpenCode"
@@ -166,11 +166,11 @@ Here are some frequently used commands to try next:
 
     | Command | Description |
     |---------|-------------|
-    | `/rp1-dev:blueprint` | Start a new project with charter and PRD |
-    | `/rp1-dev:feature-requirements <id>` | Collect requirements for a feature |
-    | `/rp1-dev:feature-design <id>` | Create technical design |
-    | `/rp1-dev:pr-review` | Review a pull request |
-    | `/rp1-dev:code-check` | Run lints, tests, and coverage |
+    | `/blueprint` | Start a new project with charter and PRD |
+    | `/feature-requirements <id>` | Collect requirements for a feature |
+    | `/feature-design <id>` | Create technical design |
+    | `/pr-review` | Review a pull request |
+    | `/code-check` | Run lints, tests, and coverage |
 
 === "OpenCode"
 

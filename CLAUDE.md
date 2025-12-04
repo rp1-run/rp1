@@ -55,7 +55,7 @@ The KB files contain detailed architecture, patterns, and component information.
 
 **OpenCode & Claude Code Support**: All rp1 commands use explicit argument syntax compatible with both platforms.
 
-**Subagent Limitations**: Subagents generally cannot spawn other agents. Hence if an agent is designed to act as a subagent, it must not use the SlashCommand tool to call other commands. Intead, just use raw prompts. Example of this to load knowledge base context, do not use the SlashCommand tool to call `/rp1-base:knowledge-load` from a subagent. Instead, just include the relevant prompt text directly. There are examples of this in plugins dir.
+**Subagent Limitations**: Subagents generally cannot spawn other agents. Hence if an agent is designed to act as a subagent, it must not use the SlashCommand tool to call other commands. Instead, just use raw prompts. Example of this to load knowledge base context, do not use the SlashCommand tool to call `/knowledge-load` from a subagent. Instead, just include the relevant prompt text directly. There are examples of this in plugins dir.
 
 **Positional Parameters**:
 
@@ -66,9 +66,9 @@ The KB files contain detailed architecture, patterns, and component information.
 **Command Invocation Examples**:
 
 ```bash
-# Claude Code (flexible)
-/rp1-dev:feature-requirements my-feature "extra context"
-/rp1-dev:code-quick-build "Fix the authentication bug"
+# Claude Code (short form preferred)
+/feature-requirements my-feature "extra context"
+/code-quick-build "Fix the authentication bug"
 
 # OpenCode (strict positional)
 /rp1-dev/feature-requirements my-feature "extra context"
@@ -101,12 +101,16 @@ argument-hint: "feature-id [extra-context]"
 - Use `$ARGUMENTS` for freeform text (development requests, problem descriptions)
 - Use `$1`, `$2`, etc. for structured parameters (feature-id, branch names, modes)
 
-### Namespace Prefixes (ALWAYS USE THESE)
+### Command Invocation (Claude Code)
 
-**Commands**:
+**Standard Usage** - Use short form without prefix:
 
-- ✅ `/rp1-base:command-name` - Base plugin commands
-- ✅ `/rp1-dev:command-name` - Dev plugin commands
+- ✅ `/command-name` - Preferred for most cases (e.g., `/knowledge-build`, `/feature-tasks`)
+
+**Prefixed Form** - Only needed if there's a command name conflict with other plugins:
+
+- `/rp1-base:command-name` - Base plugin commands (when disambiguation needed)
+- `/rp1-dev:command-name` - Dev plugin commands (when disambiguation needed)
 
 **Skills** (all in base):
 
@@ -114,7 +118,7 @@ argument-hint: "feature-id [extra-context]"
 
 **Agent References**:
 
-- ✅ `subagent_type: rp1-base:agent-name` - For claude code
+- ✅ `subagent_type: rp1-base:agent-name` - For Claude Code
 - ✅ `subagent_type: @rp1-dev/agent-name` - For OpenCode
 
 ### Cross-Plugin Dependencies
@@ -123,7 +127,7 @@ argument-hint: "feature-id [extra-context]"
 
 ```markdown
 # In dev agents
-Run `/rp1-base:knowledge-load` to load KB context.
+Run `/knowledge-load` to load KB context.
 
 **CRITICAL**: This requires rp1-base plugin.
 If command fails, inform user to install:
@@ -168,7 +172,7 @@ If command fails, inform user to install:
 
    ```bash
    # Add to plugins/{plugin}/README.md
-   - `/rp1-{plugin}:my-command` - Description
+   - `/my-command` - Description
    ```
 
 5. **Commit with conventional format**:
@@ -216,7 +220,7 @@ uv run --with mkdocs-material mkdocs build --strict
 
 **After making changes**:
 
-- [ ] Command references use proper namespace prefix
+- [ ] Command references use short form `/command` (Claude Code) or `/rp1-xxx/command` (OpenCode)
 - [ ] Agent follows constitutional pattern
 - [ ] Anti-loop directives present
 - [ ] **Agent prompt is crisp and concise (200-300 lines max)**
@@ -237,14 +241,14 @@ uv run --with mkdocs-material mkdocs build --strict
 1. **You're reading this file** (AGENTS.md) - ✅ Orientation complete
 2. **Read on-demand**: Load `.rp1/context/*.md` files using Read tool as needed
 3. **Check patterns**: Look at any agent in `plugins/{plugin}/agents/` for structure examples
-4. **Follow namespace rules**: Always prefix commands properly
+4. **Follow command conventions**: Use short form `/command` for Claude Code docs
 5. **Handle dependencies**: Dev can call base, check for errors
 
 ### Making Changes
 
 1. **Determine plugin**: base (foundation) or dev (development)?
 2. **Follow patterns**: Constitutional agent structure, command thin wrapper
-3. **Use proper prefixes**: `/rp1-{plugin}:command`, `rp1-base:skill`
+3. **Use proper conventions**: `/command` for Claude Code docs, `rp1-base:skill` for skills
 4. **Test thoroughly**: Install both plugins, verify execution
 5. **Update docs**: README when adding commands
 
@@ -252,7 +256,7 @@ uv run --with mkdocs-material mkdocs build --strict
 
 - ❌ Load all KB files upfront (use Read tool selectively)
 - ❌ Create iterative workflows in agents
-- ❌ Forget namespace prefixes
+- ❌ Use prefixed form (`/rp1-dev:command`) in docs unless documenting conflict resolution
 - ❌ Call dev commands from base agents
 
 ---

@@ -75,17 +75,14 @@ After restarting, verify the installation:
 /help
 ```
 
-You should see rp1 commands listed. Look for commands starting with:
-
-- `/rp1-base:` - Base plugin commands (6 commands)
-- `/rp1-dev:` - Dev plugin commands (15 commands)
+You should see rp1 commands listed. Look for commands like `knowledge-build`, `feature-requirements`, `pr-review`, etc.
 
 ### Quick Test
 
 Run your first rp1 command to build a knowledge base:
 
 ```bash
-/rp1-base:knowledge-build
+/knowledge-build
 ```
 
 If successful, you'll see:

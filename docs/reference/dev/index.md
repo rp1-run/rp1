@@ -106,7 +106,7 @@ After installation, start a new feature:
 === "Claude Code"
 
     ```bash
-    /rp1-dev:feature-requirements my-feature
+    /feature-requirements my-feature
     ```
 
 === "OpenCode"

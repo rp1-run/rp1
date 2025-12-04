@@ -9,7 +9,7 @@ Restores archived features back to the active features directory.
 === "Claude Code"
 
     ```bash
-    /rp1-dev:feature-unarchive <feature-id>
+    /feature-unarchive <feature-id>
     ```
 
 === "OpenCode"
@@ -35,7 +35,7 @@ The `feature-unarchive` command moves feature documentation from the archives ba
 === "Claude Code"
 
     ```bash
-    /rp1-dev:feature-unarchive user-auth
+    /feature-unarchive user-auth
     ```
 
 === "OpenCode"

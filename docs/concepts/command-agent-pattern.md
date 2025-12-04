@@ -13,7 +13,7 @@ When you run an rp1 command, two things happen:
 
 ```mermaid
 flowchart LR
-    User[User] -->|/rp1-dev:feature-build my-feature| Command
+    User[User] -->|/feature-build my-feature| Command
     Command -->|Task tool| Agent[Feature Builder Agent]
     Agent -->|Reads| KB[Knowledge Base]
     Agent -->|Reads| Specs[Feature Specs]

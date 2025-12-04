@@ -91,6 +91,31 @@
   margin-bottom: 0.5rem;
 }
 
+/* GitHub button - ensure visibility in both modes */
+.md-typeset .md-button--github {
+  border-color: var(--md-default-fg-color--light);
+  color: var(--md-default-fg-color);
+  background-color: transparent;
+}
+
+.md-typeset .md-button--github:hover {
+  border-color: var(--md-default-fg-color);
+  background-color: var(--md-default-fg-color);
+  color: var(--md-default-bg-color);
+}
+
+[data-md-color-scheme="slate"] .md-typeset .md-button--github {
+  border-color: var(--md-default-fg-color--lighter);
+  color: var(--md-default-fg-color);
+  background-color: transparent;
+}
+
+[data-md-color-scheme="slate"] .md-typeset .md-button--github:hover {
+  border-color: var(--md-default-fg-color);
+  background-color: var(--md-default-fg-color);
+  color: var(--md-default-bg-color);
+}
+
 /* Simple grid layout (Stripe-style) */
 .md-typeset .grid {
   display: grid;

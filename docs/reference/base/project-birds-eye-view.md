@@ -9,7 +9,7 @@ Generates comprehensive project overview documents with architecture diagrams fo
 === "Claude Code"
 
     ```bash
-    /rp1-base:project-birds-eye-view
+    /project-birds-eye-view
     ```
 
 === "OpenCode"
@@ -61,7 +61,7 @@ The command generates a comprehensive markdown document:
 === "Claude Code"
 
     ```bash
-    /rp1-base:project-birds-eye-view
+    /project-birds-eye-view
     ```
 
 === "OpenCode"

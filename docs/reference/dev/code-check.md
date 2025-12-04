@@ -9,7 +9,7 @@ Fast code hygiene validation including linters, formatters, tests, and coverage 
 === "Claude Code"
 
     ```bash
-    /rp1-dev:code-check
+    /code-check
     ```
 
 === "OpenCode"
@@ -38,7 +38,7 @@ The `code-check` command runs your project's standard code quality tools in sequ
 === "Claude Code"
 
     ```bash
-    /rp1-dev:code-check
+    /code-check
     ```
 
 === "OpenCode"

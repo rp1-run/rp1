@@ -9,7 +9,7 @@ Validates acceptance criteria and requirements mapping before merge.
 === "Claude Code"
 
     ```bash
-    /rp1-dev:feature-verify <feature-id> [milestone-id]
+    /feature-verify <feature-id> [milestone-id]
     ```
 
 === "OpenCode"
@@ -62,7 +62,7 @@ The `feature-verify` command performs comprehensive validation of a completed fe
 === "Claude Code"
 
     ```bash
-    /rp1-dev:feature-verify user-auth
+    /feature-verify user-auth
     ```
 
 === "OpenCode"

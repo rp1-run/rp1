@@ -4,14 +4,15 @@ hide:
   - toc
 ---
 
-# > stop prompting; **start shipping**<span class="cursor"></span>
+# stop prompting; **start shipping**
 
 Professional development workflows for AI coding assistants.
-21 commands. 18 specialized agents. Single-pass execution.
+21 commands. 18 specialized agents. Single-pass execution. Careful context management.
+Works today with **Claude Code** and **OpenCode**.
 
 
-[Get Started](getting-started/quickstart.md){ .md-button .md-button--primary }
-[View on GitHub](https://github.com/rp1-run/rp1){ .md-button }
+[:fontawesome-solid-terminal: Get Started](getting-started/quickstart.md){ .md-button .md-button--primary }
+[:fontawesome-brands-github: View on GitHub](https://github.com/rp1-run/rp1){ .md-button .md-button--github }
 
 <div class="carousel-container">
   <div class="splide" id="hero-carousel" aria-label="Product Screenshots">
@@ -66,21 +67,21 @@ Professional development workflows for AI coding assistants.
 **Ship a feature**
 
 ```bash
-/rp1-dev:feature-requirements "user-auth"
-/rp1-dev:feature-design "user-auth"
-/rp1-dev:feature-build "user-auth"
+/feature-requirements "user-auth"
+/feature-design "user-auth"
+/feature-build "user-auth"
 ```
 
 **Review a PR**
 
 ```bash
-/rp1-dev:pr-review "feature/auth"
+/pr-review "feature/auth"
 ```
 
 **Investigate a bug**
 
 ```bash
-/rp1-dev:code-investigate "bug-123" "Login fails"
+/code-investigate "bug-123" "Login fails"
 ```
 
 </div>
@@ -90,19 +91,19 @@ Professional development workflows for AI coding assistants.
 **Generate knowledge base**
 
 ```bash
-/rp1-base:knowledge-build
+/knowledge-build
 ```
 
 **Quick code check**
 
 ```bash
-/rp1-dev:code-check
+/code-check
 ```
 
 **Strategic analysis**
 
 ```bash
-/rp1-base:strategize
+/strategize
 ```
 
 [See all 21 commands :material-arrow-right:](reference/index.md)

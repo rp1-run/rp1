@@ -91,9 +91,9 @@ AI: [fixes tests]
 === "Claude Code"
 
     ```bash
-    /rp1-dev:feature-requirements dark-mode
-    /rp1-dev:feature-design dark-mode
-    /rp1-dev:feature-build dark-mode
+    /feature-requirements dark-mode
+    /feature-design dark-mode
+    /feature-build dark-mode
     ```
 
 === "OpenCode"

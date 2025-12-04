@@ -9,7 +9,7 @@ Loads and prepares knowledge base context for downstream agents.
 === "Claude Code"
 
     ```bash
-    /rp1-base:knowledge-load
+    /knowledge-load
     ```
 
 === "OpenCode"
@@ -63,7 +63,7 @@ The command adapts its loading strategy based on repository type:
 === "Claude Code"
 
     ```bash
-    /rp1-base:knowledge-load
+    /knowledge-load
     ```
 
 === "OpenCode"
@@ -87,7 +87,7 @@ READY [monorepo: 2 projects - rp1-base, rp1-dev]
 If the KB doesn't exist or is corrupted:
 
 ```
-ERROR: Required documentation files not found. Run /rp1-base:knowledge-build first.
+ERROR: Required documentation files not found. Run /knowledge-build first.
 ```
 
 ## Output
