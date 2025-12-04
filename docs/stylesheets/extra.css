@@ -263,3 +263,115 @@
   height: 1em !important;
   vertical-align: -0.125em;
 }
+
+/* ==========================================================================
+   Image Carousel (Splide.js)
+
+   Using splide-core.min.css which requires custom transition styles.
+   The !important declarations override Splide's inline JS styles for fade mode.
+   ========================================================================== */
+
+/* Container */
+.carousel-container {
+  margin: 2rem auto;
+  max-width: 900px;
+}
+
+/* Fade transition type (required when using splide-core.min.css) */
+.splide--fade > .splide__track > .splide__list {
+  display: block !important;
+}
+
+.splide--fade > .splide__track > .splide__list > .splide__slide {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  transform: none !important;
+  opacity: 0;
+  z-index: 0;
+  transition: opacity 400ms;
+}
+
+.splide--fade > .splide__track > .splide__list > .splide__slide.is-active {
+  position: relative !important;
+  opacity: 1;
+  z-index: 1;
+}
+
+/* Terminal window inside carousel */
+.carousel-container .terminal-window {
+  margin: 0;
+}
+
+/* Images scale to container width */
+.carousel-container .terminal-window img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Captions below terminal window */
+.carousel-caption {
+  text-align: center;
+  padding: 0.75rem 1rem;
+  font-size: 0.9rem;
+  color: var(--md-default-fg-color--light);
+}
+
+[data-md-color-scheme="slate"] .carousel-caption {
+  color: var(--md-default-fg-color--lighter);
+}
+
+/* Pagination dots - rp1 brand colors */
+.carousel-container .splide__pagination {
+  position: absolute;
+  bottom: -2rem;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.carousel-container .splide__pagination__page {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--md-default-fg-color--lighter);
+  opacity: 0.5;
+  cursor: pointer;
+}
+
+.carousel-container .splide__pagination__page.is-active {
+  background: var(--md-accent-fg-color);
+  opacity: 1;
+}
+
+/* Dark mode */
+[data-md-color-scheme="slate"] .carousel-container .splide__pagination__page {
+  background: var(--md-default-fg-color--light);
+}
+
+[data-md-color-scheme="slate"] .carousel-container .splide__pagination__page.is-active {
+  background: var(--md-accent-fg-color);
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .carousel-container {
+    margin: 1rem auto;
+  }
+
+  .carousel-container .splide__pagination__page {
+    width: 12px;
+    height: 12px;
+  }
+}
