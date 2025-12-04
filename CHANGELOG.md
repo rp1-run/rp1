@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.4.4](https://github.com/rp1-run/rp1/compare/v4.4.3...v4.4.4) (2025-12-04)
+
+
+### Documentation
+
+* add artifacts screenshot ([#33](https://github.com/rp1-run/rp1/issues/33)) ([f3eb408](https://github.com/rp1-run/rp1/commit/f3eb40886af870776b63c59fa45e99dd8ab45b7c))
+
 ## [4.4.3](https://github.com/rp1-run/rp1/compare/v4.4.2...v4.4.3) (2025-12-04)
 
 
