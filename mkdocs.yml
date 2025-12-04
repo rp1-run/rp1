@@ -8,8 +8,8 @@ edit_uri: edit/main/docs/
 theme:
   name: material
   custom_dir: docs/overrides
-  logo: assets/logo.png
-  favicon: assets/logo.png
+  logo: assets/logo.svg
+  favicon: assets/logo.svg
   font:
     text: JetBrains Mono
     code: JetBrains Mono
