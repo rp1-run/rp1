@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.4.2](https://github.com/rp1-run/rp1/compare/v4.4.1...v4.4.2) (2025-12-04)
+
+
+### Documentation
+
+* fix carousel on lp ([#28](https://github.com/rp1-run/rp1/issues/28)) ([aab5c95](https://github.com/rp1-run/rp1/commit/aab5c95e5e4ea606d88a00640bb43a4c687c26e3))
+
 ## [4.4.1](https://github.com/rp1-run/rp1/compare/v4.4.0...v4.4.1) (2025-12-04)
 
 
