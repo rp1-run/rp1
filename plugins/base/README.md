@@ -20,16 +20,16 @@ The `rp1-base` plugin provides core knowledge and documentation capabilities tha
 ## Commands (6)
 
 ### Knowledge Management
-- `/rp1-base:knowledge-build` - Parallel KB generation using map-reduce architecture with 6 agents (includes pattern extraction)
-- `/rp1-base:knowledge-load` - Load and prepare codebase documentation for analysis
+- `/knowledge-build` - Parallel KB generation using map-reduce architecture with 6 agents (includes pattern extraction)
+- `/knowledge-load` - Load and prepare codebase documentation for analysis
 
 ### Documentation & Strategy
-- `/rp1-base:project-birds-eye-view` - Generate project overview documentation for new developers
-- `/rp1-base:strategize` - Holistic system optimization with strategic recommendations
-- `/rp1-base:write-content` - Interactive technical document creation
+- `/project-birds-eye-view` - Generate project overview documentation for new developers
+- `/strategize` - Holistic system optimization with strategic recommendations
+- `/write-content` - Interactive technical document creation
 
 ### Security
-- `/rp1-base:analyse-security` - Security validation and vulnerability scanning
+- `/analyse-security` - Security validation and vulnerability scanning
 
 ## Skills (4)
 

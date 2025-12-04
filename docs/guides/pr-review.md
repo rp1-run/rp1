@@ -18,7 +18,7 @@ Perform thorough code reviews using rp1's map-reduce PR analysis. This tutorial 
 
 !!! warning "Before You Begin"
     - rp1 installed ([Quick Start](../getting-started/quickstart.md))
-    - Knowledge base generated (`/rp1-base:knowledge-build`)
+    - Knowledge base generated (`/knowledge-build`)
     - A PR to review (local branch or GitHub PR)
     - For GitHub features: `gh` CLI authenticated
 
@@ -63,13 +63,13 @@ Start the automated review analysis:
 === "Claude Code"
 
     ```bash
-    /rp1-dev:pr-review
+    /pr-review
     ```
 
     Or specify a target branch:
 
     ```bash
-    /rp1-dev:pr-review feature/user-auth main
+    /pr-review feature/user-auth main
     ```
 
 === "OpenCode"
@@ -244,7 +244,7 @@ For complex PRs, generate visual diagrams:
 === "Claude Code"
 
     ```bash
-    /rp1-dev:pr-visual
+    /pr-visual
     ```
 
 === "OpenCode"
@@ -305,7 +305,7 @@ If the PR has been reviewed on GitHub, collect the feedback:
 === "Claude Code"
 
     ```bash
-    /rp1-dev:pr-feedback-collect
+    /pr-feedback-collect
     ```
 
 === "OpenCode"
@@ -373,13 +373,13 @@ Address reviewer comments systematically:
 === "Claude Code"
 
     ```bash
-    /rp1-dev:pr-feedback-fix
+    /pr-feedback-fix
     ```
 
     Or with a feature context:
 
     ```bash
-    /rp1-dev:pr-feedback-fix user-auth
+    /pr-feedback-fix user-auth
     ```
 
 === "OpenCode"
@@ -536,7 +536,7 @@ You've learned the complete PR review workflow:
 
     Confidence depends on evidence found in your codebase. Ensure your knowledge base is current:
     ```bash
-    /rp1-base:knowledge-build
+    /knowledge-build
     ```
 
 ??? question "pr-feedback-collect can't find comments"
@@ -559,7 +559,7 @@ You've learned the complete PR review workflow:
 
     Yes. `pr-review` and `pr-visual` work with local branches:
     ```bash
-    /rp1-dev:pr-review feature-branch main
+    /pr-review feature-branch main
     ```
 
     Only `pr-feedback-collect` requires GitHub integration.

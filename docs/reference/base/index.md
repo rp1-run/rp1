@@ -69,7 +69,7 @@ After installation, generate a knowledge base:
 === "Claude Code"
 
     ```bash
-    /rp1-base:knowledge-build
+    /knowledge-build
     ```
 
 === "OpenCode"

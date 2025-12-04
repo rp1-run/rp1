@@ -9,7 +9,7 @@ Transform pull request diffs into comprehensive Mermaid diagrams for visual code
 === "Claude Code"
 
     ```bash
-    /rp1-dev:pr-visual [pr-branch] [base-branch] [review-depth] [focus-areas]
+    /pr-visual [pr-branch] [base-branch] [review-depth] [focus-areas]
     ```
 
 === "OpenCode"
@@ -47,7 +47,7 @@ The `pr-visual` command generates Mermaid diagrams from PR diffs to help underst
 === "Claude Code"
 
     ```bash
-    /rp1-dev:pr-visual
+    /pr-visual
     ```
 
 === "OpenCode"
@@ -61,7 +61,7 @@ The `pr-visual` command generates Mermaid diagrams from PR diffs to help underst
 === "Claude Code"
 
     ```bash
-    /rp1-dev:pr-visual feature/auth main
+    /pr-visual feature/auth main
     ```
 
 === "OpenCode"

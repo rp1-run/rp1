@@ -9,7 +9,7 @@ Intent-aware map-reduce PR review with confidence gating and holistic synthesis.
 === "Claude Code"
 
     ```bash
-    /rp1-dev:pr-review [target] [base-branch]
+    /pr-review [target] [base-branch]
     ```
 
 === "OpenCode"
@@ -111,7 +111,7 @@ Findings are filtered by confidence level:
 === "Claude Code"
 
     ```bash
-    /rp1-dev:pr-review
+    /pr-review
     ```
 
 === "OpenCode"
@@ -125,7 +125,7 @@ Findings are filtered by confidence level:
 === "Claude Code"
 
     ```bash
-    /rp1-dev:pr-review 123
+    /pr-review 123
     ```
 
 === "OpenCode"

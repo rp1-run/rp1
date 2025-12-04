@@ -9,7 +9,7 @@ Automatically gathers PR review comments from GitHub, classifies them, and gener
 === "Claude Code"
 
     ```bash
-    /rp1-dev:pr-feedback-collect
+    /pr-feedback-collect
     ```
 
 === "OpenCode"
@@ -61,7 +61,7 @@ The `pr-feedback-collect` command extracts review comments from a GitHub pull re
 === "Claude Code"
 
     ```bash
-    /rp1-dev:pr-feedback-collect
+    /pr-feedback-collect
     ```
 
 === "OpenCode"

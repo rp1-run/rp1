@@ -18,7 +18,7 @@ Build your first feature with rp1's complete development workflow. This tutorial
 
 !!! warning "Before You Begin"
     - rp1 installed ([Quick Start](../getting-started/quickstart.md))
-    - Knowledge base generated (`/rp1-base:knowledge-build`)
+    - Knowledge base generated (`/knowledge-build`)
     - A codebase you want to enhance
 
 ---
@@ -67,7 +67,7 @@ If you're starting a new project, run the blueprint wizard:
 === "Claude Code"
 
     ```bash
-    /rp1-dev:blueprint
+    /blueprint
     ```
 
 === "OpenCode"
@@ -102,7 +102,7 @@ Define what the dark mode toggle needs to do:
 === "Claude Code"
 
     ```bash
-    /rp1-dev:feature-requirements dark-mode-toggle
+    /feature-requirements dark-mode-toggle
     ```
 
 === "OpenCode"
@@ -135,7 +135,7 @@ Contents:
 - 3 user stories
 - Acceptance criteria
 
-Next step: /rp1-dev:feature-design dark-mode-toggle
+Next step: /feature-design dark-mode-toggle
 ```
 
 !!! tip "Checkpoint"
@@ -150,7 +150,7 @@ Transform requirements into a technical design:
 === "Claude Code"
 
     ```bash
-    /rp1-dev:feature-design dark-mode-toggle
+    /feature-design dark-mode-toggle
     ```
 
 === "OpenCode"
@@ -184,7 +184,7 @@ Design includes:
 - Storage strategy
 - Testing approach
 
-Next step: /rp1-dev:feature-tasks dark-mode-toggle
+Next step: /feature-tasks dark-mode-toggle
 ```
 
 !!! tip "Checkpoint"
@@ -199,7 +199,7 @@ Break the design into actionable tasks:
 === "Claude Code"
 
     ```bash
-    /rp1-dev:feature-tasks dark-mode-toggle
+    /feature-tasks dark-mode-toggle
     ```
 
 === "OpenCode"
@@ -235,7 +235,7 @@ Tasks:
 
 Output: .rp1/work/features/dark-mode-toggle/tasks.md
 
-Next step: /rp1-dev:feature-build dark-mode-toggle
+Next step: /feature-build dark-mode-toggle
 ```
 
 !!! tip "Checkpoint"
@@ -250,7 +250,7 @@ Implement the feature from the task list:
 === "Claude Code"
 
     ```bash
-    /rp1-dev:feature-build dark-mode-toggle
+    /feature-build dark-mode-toggle
     ```
 
 === "OpenCode"
@@ -291,7 +291,7 @@ Tasks completed: 6/6
 Tests: 12/12 passing
 Coverage: 94%
 
-Next step: /rp1-dev:feature-verify dark-mode-toggle
+Next step: /feature-verify dark-mode-toggle
 ```
 
 !!! tip "Checkpoint"
@@ -308,7 +308,7 @@ Validate the implementation against requirements:
 === "Claude Code"
 
     ```bash
-    /rp1-dev:feature-verify dark-mode-toggle
+    /feature-verify dark-mode-toggle
     ```
 
 === "OpenCode"
@@ -385,14 +385,14 @@ You've completed the full feature development workflow:
 
     Provide more context upfront. Include initial requirements in the command:
     ```bash
-    /rp1-dev:feature-requirements dark-mode "Add a toggle in settings to switch between light and dark theme, persisting preference"
+    /feature-requirements dark-mode "Add a toggle in settings to switch between light and dark theme, persisting preference"
     ```
 
 ??? question "Design doesn't match my architecture"
 
     Rebuild your knowledge base to ensure rp1 has current codebase context:
     ```bash
-    /rp1-base:knowledge-build
+    /knowledge-build
     ```
 
 ??? question "Build phase is failing tests"

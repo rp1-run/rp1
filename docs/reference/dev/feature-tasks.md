@@ -9,7 +9,7 @@ Breaks down technical design into actionable implementation tasks.
 === "Claude Code"
 
     ```bash
-    /rp1-dev:feature-tasks <feature-id> [extra-context]
+    /feature-tasks <feature-id> [extra-context]
     ```
 
 === "OpenCode"
@@ -60,7 +60,7 @@ Each task includes:
 === "Claude Code"
 
     ```bash
-    /rp1-dev:feature-tasks user-auth
+    /feature-tasks user-auth
     ```
 
 === "OpenCode"

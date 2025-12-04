@@ -9,7 +9,7 @@ Removes unnecessary comments from code while preserving essential documentation.
 === "Claude Code"
 
     ```bash
-    /rp1-dev:code-clean-comments
+    /code-clean-comments
     ```
 
 === "OpenCode"
@@ -49,7 +49,7 @@ The `code-clean-comments` command systematically removes unnecessary comments fr
 === "Claude Code"
 
     ```bash
-    /rp1-dev:code-clean-comments
+    /code-clean-comments
     ```
 
 === "OpenCode"

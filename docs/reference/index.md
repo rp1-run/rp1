@@ -75,9 +75,10 @@ Commands differ slightly between platforms:
 === "Claude Code"
 
     ```bash
-    /rp1-base:command-name [arguments]
-    /rp1-dev:command-name [arguments]
+    /command-name [arguments]
     ```
+
+    Use the short form without prefix. If you have a command name conflict with another plugin, use the prefixed form: `/rp1-base:command-name` or `/rp1-dev:command-name`.
 
 === "OpenCode"
 

@@ -9,7 +9,7 @@ Performs comprehensive security validation including vulnerability scanning, aut
 === "Claude Code"
 
     ```bash
-    /rp1-base:analyse-security
+    /analyse-security
     ```
 
 === "OpenCode"
@@ -73,7 +73,7 @@ Findings are classified by severity:
 === "Claude Code"
 
     ```bash
-    /rp1-base:analyse-security
+    /analyse-security
     ```
 
 === "OpenCode"
