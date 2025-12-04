@@ -39,6 +39,17 @@ Professional development workflows for AI coding assistants.
             <img src="assets/screens/pr-visual.png" alt="rp1 PR visual diagram showing code change visualization">
           </div>
         </li>
+        <li class="splide__slide">
+          <div class="carousel-caption">Artifacts-driven development — structured documentation for every feature</div>
+          <div class="terminal-window">
+            <div class="terminal-header">
+              <span class="terminal-dot red"></span>
+              <span class="terminal-dot yellow"></span>
+              <span class="terminal-dot green"></span>
+            </div>
+            <img src="assets/screens/artifacts driven development.png" alt="rp1 artifacts structure showing design decisions and feature documentation">
+          </div>
+        </li>
       </ul>
     </div>
   </div>
