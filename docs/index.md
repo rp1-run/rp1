@@ -4,14 +4,15 @@ hide:
   - toc
 ---
 
-# > stop prompting; **start shipping**<span class="cursor"></span>
+# stop prompting; **start shipping**
 
 Professional development workflows for AI coding assistants.
-21 commands. 18 specialized agents. Single-pass execution.
+21 commands. 18 specialized agents. Single-pass execution. Careful context management.
+Works today with **Claude Code** and **OpenCode**.
 
 
-[Get Started](getting-started/quickstart.md){ .md-button .md-button--primary }
-[View on GitHub](https://github.com/rp1-run/rp1){ .md-button }
+[:fontawesome-solid-terminal: Get Started](getting-started/quickstart.md){ .md-button .md-button--primary }
+[:fontawesome-brands-github: View on GitHub](https://github.com/rp1-run/rp1){ .md-button .md-button--github }
 
 <div class="carousel-container">
   <div class="splide" id="hero-carousel" aria-label="Product Screenshots">
