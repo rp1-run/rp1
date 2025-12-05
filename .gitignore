@@ -17,9 +17,12 @@ tools/install/dist/*.whl
 tools/install/dist/*.tar.gz
 !tools/install/dist/opencode/
 .playwright-mcp
-apps/web-ui/.vite/*
+
+# Web UI build artifacts
+apps/web-ui/.vite/
 apps/web-ui/dist/
 
 # CLI build output
 cli/dist/
-cli/web-ui/dist/**/*
+cli/web-ui/.vite/
+cli/web-ui/dist/

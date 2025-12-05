@@ -78,7 +78,6 @@ export function MermaidDiagram({ code, className }: MermaidDiagramProps) {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const svgContainerRef = useRef<HTMLDivElement>(null);
-  const fullscreenContainerRef = useRef<HTMLDivElement>(null);
   const uniqueId = useId();
   const diagramId = `mermaid-${uniqueId.replace(/:/g, "")}`;
 
