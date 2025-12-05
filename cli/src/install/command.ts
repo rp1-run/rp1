@@ -11,6 +11,7 @@ import { stat } from "fs/promises";
 import type { Logger } from "../../shared/logger.js";
 import type { CLIError } from "../../shared/errors.js";
 import { usageError } from "../../shared/errors.js";
+import { confirmAction } from "../../shared/prompts.js";
 import { isHealthy } from "./models.js";
 import {
   checkOpenCodeInstalled,
@@ -35,6 +36,12 @@ export interface InstallArgs {
   artifactsDir: string | null;
   skipSkills: boolean;
   dryRun: boolean;
+  yes: boolean;
+}
+
+export interface InstallOptions {
+  isTTY: boolean;
+  skipPrompt: boolean;
 }
 
 export const parseInstallArgs = (
@@ -44,6 +51,7 @@ export const parseInstallArgs = (
   let skipSkills = false;
   let dryRun = false;
   let showHelp = false;
+  let yes = false;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -64,6 +72,8 @@ export const parseInstallArgs = (
       skipSkills = true;
     } else if (arg === "--dry-run") {
       dryRun = true;
+    } else if (arg === "--yes" || arg === "-y") {
+      yes = true;
     } else if (!arg.startsWith("-")) {
       if (artifactsDir === null) {
         artifactsDir = arg;
@@ -71,37 +81,19 @@ export const parseInstallArgs = (
     }
   }
 
-  return { artifactsDir, skipSkills, dryRun, showHelp };
-};
-
-const printInstallHelp = (): void => {
-  console.log(`
-${bold("rp1 install:opencode")} - Install rp1 plugins to OpenCode
-
-${bold("Usage:")}
-  rp1 install:opencode [options]
-
-${bold("Options:")}
-  -a, --artifacts-dir <path>  Path to artifacts directory (default: dist/opencode/)
-  --skip-skills               Skip skills installation
-  --dry-run                   Show what would be installed without installing
-  -h, --help                  Show this help message
-
-${bold("Examples:")}
-  rp1 install:opencode                    # Install from default artifacts
-  rp1 install:opencode --dry-run          # Preview installation
-  rp1 install:opencode -a ./my-artifacts  # Install from custom path
-`);
+  return { artifactsDir, skipSkills, dryRun, showHelp, yes };
 };
 
 export const executeInstall = (
   args: string[],
-  _logger: Logger,
+  logger: Logger,
+  options?: InstallOptions,
 ): TE.TaskEither<CLIError, void> => {
   const config = parseInstallArgs(args);
+  const isTTY = options?.isTTY ?? process.stdout.isTTY ?? false;
+  const skipPrompt = options?.skipPrompt ?? config.yes;
 
   if (config.showHelp) {
-    printInstallHelp();
     return TE.right(undefined);
   }
 
@@ -123,11 +115,11 @@ export const executeInstall = (
         ),
     ),
     TE.chain(() => {
-      console.log(bold("Checking prerequisites..."));
+      logger.start("Checking prerequisites...");
       return checkOpenCodeInstalled();
     }),
     TE.chainFirst((result) => {
-      console.log(green(`✓ ${result.message}`));
+      logger.success(result.message);
       return TE.right(undefined);
     }),
     TE.chain((result) => {
@@ -135,13 +127,13 @@ export const executeInstall = (
       if (E.isLeft(versionResult)) {
         return TE.left(versionResult.left);
       }
-      console.log(green(`✓ ${versionResult.right.message}`));
+      logger.success(versionResult.right.message);
       return TE.right(undefined);
     }),
     TE.chain(() => checkOpenCodeSkillsPlugin()),
     TE.chain((result) => {
       if (result.value === "true") {
-        console.log(green("✓ opencode-skills plugin detected"));
+        logger.success("opencode-skills plugin detected");
         return TE.right({ skipSkills: config.skipSkills });
       }
       console.log(yellow("⚠ opencode-skills plugin not configured"));
@@ -150,7 +142,7 @@ export const executeInstall = (
         installOpenCodeSkillsPlugin(),
         TE.map((installed) => {
           if (installed) {
-            console.log(green("✓ opencode-skills plugin configured"));
+            logger.success("opencode-skills plugin configured");
             console.log(dim("  OpenCode will install it on next startup"));
           } else {
             console.log(dim("  opencode-skills already in config"));
@@ -164,7 +156,7 @@ export const executeInstall = (
       return pipe(
         checkWritePermissions(targetDir),
         TE.map((result) => {
-          console.log(green(`✓ ${result.message}`));
+          logger.success(result.message);
           return state;
         }),
       );
@@ -178,21 +170,19 @@ export const executeInstall = (
         return TE.right(undefined);
       }
 
-      console.log(bold("\nDiscovering plugins..."));
+      logger.start("Discovering plugins...");
       return pipe(
         discoverPlugins(artifactsDir),
         TE.chain((plugins) => {
           const pluginNames = plugins.map((p) => p.plugin).join(", ");
-          console.log(
-            green(`✓ Found ${plugins.length} plugin(s): ${pluginNames}`),
-          );
+          logger.success(`Found ${plugins.length} plugin(s): ${pluginNames}`);
 
           const allSkills = plugins.flatMap((p) => [...p.skills]);
           if (allSkills.length > 0) {
             console.log(dim(`  Skills to install: ${allSkills.join(", ")}`));
           }
 
-          console.log(bold("\nInstalling rp1 artifacts..."));
+          logger.start("Installing rp1 artifacts...");
 
           const pluginDirs = plugins.map((p) =>
             join(artifactsDir, p.plugin.replace("rp1-", "")),
@@ -202,34 +192,44 @@ export const executeInstall = (
             installRp1(
               pluginDirs,
               state.skipSkills,
-              (msg) => console.log(green(`✓ ${msg}`)),
-              (path) => console.log(yellow(`  ⚠ Overwriting: ${path}`)),
+              (msg) => logger.success(msg),
+              async (path) => {
+                if (!skipPrompt) {
+                  const proceed = await confirmAction(
+                    `Overwrite existing file: ${path}?`,
+                    { isTTY, defaultOnNonTTY: false },
+                  );
+                  if (!proceed) {
+                    console.log(yellow(`  Skipped: ${path}`));
+                    return;
+                  }
+                }
+                console.log(yellow(`  ⚠ Overwriting: ${path}`));
+              },
             ),
             TE.chain((result) => {
-              console.log(
-                green(
-                  `✓ Installed ${result.filesInstalled} total files across ${result.pluginsInstalled.length} plugins`,
-                ),
+              logger.success(
+                `Installed ${result.filesInstalled} total files across ${result.pluginsInstalled.length} plugins`,
               );
 
               for (const warning of result.warnings) {
                 console.log(yellow(`⚠ ${warning}`));
               }
 
-              console.log(bold("\nValidating configuration..."));
+              logger.start("Validating configuration...");
               const configPath = getConfigPath();
               const latestVersion = plugins[0]?.version ?? "0.0.0";
 
               return pipe(
                 updateOpenCodeConfig(configPath, latestVersion, allSkills),
                 TE.map(() => {
-                  console.log(green("✓ Configuration validated"));
+                  logger.success("Configuration validated");
                   return { artifactsDir };
                 }),
               );
             }),
             TE.chain(({ artifactsDir: verifyDir }) => {
-              console.log(bold("\nVerifying installation..."));
+              logger.start("Verifying installation...");
               return pipe(
                 verifyInstallation(verifyDir),
                 TE.map((report) => {
@@ -270,28 +270,10 @@ export const executeInstall = (
   );
 };
 
-const printVerifyHelp = (): void => {
-  console.log(`
-${bold("rp1 verify:opencode")} - Verify rp1 installation health
-
-${bold("Usage:")}
-  rp1 verify:opencode [options]
-
-${bold("Options:")}
-  --artifacts-dir <path>  Path to artifacts for name-based verification
-  -h, --help              Show this help message
-`);
-};
-
 export const executeVerify = (
   args: string[],
   _logger: Logger,
 ): TE.TaskEither<CLIError, void> => {
-  if (args.includes("--help") || args.includes("-h")) {
-    printVerifyHelp();
-    return TE.right(undefined);
-  }
-
   let artifactsDir: string | undefined;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--artifacts-dir" && i + 1 < args.length) {
@@ -342,27 +324,10 @@ export const executeVerify = (
   );
 };
 
-const printListHelp = (): void => {
-  console.log(`
-${bold("rp1 list")} - List installed rp1 commands
-
-${bold("Usage:")}
-  rp1 list [options]
-
-${bold("Options:")}
-  -h, --help  Show this help message
-`);
-};
-
 export const executeList = (
-  args: string[],
+  _args: string[],
   _logger: Logger,
 ): TE.TaskEither<CLIError, void> => {
-  if (args.includes("--help") || args.includes("-h")) {
-    printListHelp();
-    return TE.right(undefined);
-  }
-
   console.log(bold("\n📋 Installed rp1 Commands\n"));
 
   return pipe(

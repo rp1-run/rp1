@@ -83,3 +83,10 @@ export {
   resolveRp1Root,
   loadViewConfig,
 } from "./config.js";
+
+export {
+  type PromptOptions,
+  confirmAction,
+  selectOption,
+  selectMultiple,
+} from "./prompts.js";

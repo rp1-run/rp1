@@ -23,7 +23,6 @@ import {
   runtimeError,
   formatError,
 } from "../../shared/errors.js";
-import { createSpinner } from "../../shared/spinner.js";
 import type { BuildConfig, BuildSummary } from "./models.js";
 import { defaultRegistry } from "./registry.js";
 import { parseCommand, parseAgent, parseSkill } from "./parser.js";
@@ -102,7 +101,6 @@ export const parseBuildArgs = (
       printBuildHelp();
       process.exit(0);
     } else if (!arg.startsWith("-")) {
-      // Positional argument - treat as output dir
       (config as { outputDir: string }).outputDir = arg;
     }
   }
@@ -235,9 +233,8 @@ const buildPlugin = async (
   pluginName: string,
   projectRoot: string,
   outputPath: string,
-  _logger: Logger,
+  logger: Logger,
   jsonOutput: boolean,
-  spinner?: ReturnType<typeof createSpinner>,
 ): Promise<BuildSummary> => {
   const errors: string[] = [];
   const commandNames: string[] = [];
@@ -264,8 +261,8 @@ const buildPlugin = async (
   });
   await mkdir(join(pluginOutputDir, "skills"), { recursive: true });
 
-  if (!jsonOutput && spinner) {
-    spinner.start(`Building ${pluginName} plugin...`);
+  if (!jsonOutput) {
+    logger.start(`Building ${pluginName} plugin...`);
   }
 
   // Process commands
@@ -425,13 +422,13 @@ const buildPlugin = async (
   }
 
   // Complete spinner
-  if (!jsonOutput && spinner) {
+  if (!jsonOutput) {
     const hasErrors = errors.length > 0;
     const summary = `${pluginName}: ${commandNames.length} commands, ${agentNames.length} agents, ${skillNames.length} skills`;
     if (hasErrors) {
-      spinner.fail(`${summary} (${errors.length} errors)`);
+      logger.fail(`${summary} (${errors.length} errors)`);
     } else {
-      spinner.succeed(summary);
+      logger.success(summary);
     }
   }
 
@@ -528,9 +525,6 @@ export const executeBuild = (
           const pluginsToBuild =
             config.plugin === "all" ? ["base", "dev"] : [config.plugin];
 
-          // Create spinner for progress indication
-          const spinner = config.jsonOutput ? undefined : createSpinner();
-
           // Build each plugin
           const summaries: BuildSummary[] = [];
           for (const pluginName of pluginsToBuild) {
@@ -540,7 +534,6 @@ export const executeBuild = (
               outputPath,
               logger,
               config.jsonOutput,
-              spinner,
             );
             summaries.push(summary);
           }

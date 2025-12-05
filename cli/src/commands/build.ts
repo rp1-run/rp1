@@ -1,25 +1,47 @@
-/**
- * Build command registration.
- * Registers the build:opencode command with the CLI router.
- */
-
+import { Command } from "commander";
+import * as E from "fp-ts/lib/Either.js";
 import type { Logger } from "../../shared/logger.js";
-import type { CLIError } from "../../shared/errors.js";
-import * as TE from "fp-ts/lib/TaskEither.js";
-import { registerCommand } from "../router.js";
+import { formatError, getExitCode } from "../../shared/errors.js";
 import { executeBuild } from "../build/index.js";
 
-const execute = (
-  args: string[],
-  logger: Logger,
-): TE.TaskEither<CLIError, void> => {
-  return executeBuild(args, logger);
-};
+export const buildCommand = new Command("build:opencode")
+  .description("Build OpenCode artifacts from Claude Code sources")
+  .option("-o, --output-dir <dir>", "Output directory", "dist/opencode")
+  .option("-p, --plugin <name>", "Build specific plugin (base, dev, all)", "all")
+  .option("--json", "Output results as JSON for CI/CD")
+  .option("--target-install-tool", "Generate artifacts under tools/install/dist/")
+  .addHelpText("after", `
+Examples:
+  rp1 build:opencode                    Build all plugins
+  rp1 build:opencode --plugin dev       Build only dev plugin
+  rp1 build:opencode -o ./output        Custom output directory
+  rp1 build:opencode --json             JSON output for CI
+`)
+  .action(async (options, command) => {
+    const logger = command.parent?._logger as Logger;
+    if (!logger) {
+      console.error("Logger not initialized");
+      process.exit(1);
+    }
 
-registerCommand({
-  name: "build:opencode",
-  description: "Build OpenCode artifacts from Claude Code sources",
-  execute,
-});
+    const args: string[] = [];
+    if (options.outputDir !== "dist/opencode") {
+      args.push("--output-dir", options.outputDir);
+    }
+    if (options.plugin !== "all") {
+      args.push("--plugin", options.plugin);
+    }
+    if (options.json) {
+      args.push("--json");
+    }
+    if (options.targetInstallTool) {
+      args.push("--target-install-tool");
+    }
 
-export { execute };
+    const result = await executeBuild(args, logger)();
+
+    if (E.isLeft(result)) {
+      console.error(formatError(result.left, process.stderr.isTTY ?? false));
+      process.exit(getExitCode(result.left));
+    }
+  });

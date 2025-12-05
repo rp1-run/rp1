@@ -1,58 +1,73 @@
 #!/usr/bin/env node
-import { pipe } from "fp-ts/lib/function.js";
-import * as TE from "fp-ts/lib/TaskEither.js";
-import * as E from "fp-ts/lib/Either.js";
+import { Command } from "commander";
 import { detectRuntime } from "../shared/runtime.js";
-import { createLogger, LogLevel } from "../shared/logger.js";
-import { type CLIError, formatError, getExitCode } from "../shared/errors.js";
-import { route } from "./router.js";
+import { createLogger, LogLevel, type Logger } from "../shared/logger.js";
+import { formatError, getExitCode, type CLIError } from "../shared/errors.js";
 import pkg from "../package.json";
 
-import "./commands/view.js";
-import "./commands/build.js";
-import "./commands/install.js";
+import { viewCommand } from "./commands/view.js";
+import { buildCommand } from "./commands/build.js";
+import { installCommand, verifyCommand, listCommand } from "./commands/install.js";
 
-const getVersion = (): string => pkg.version;
+declare module "commander" {
+  interface Command {
+    _logger?: Logger;
+    _isTTY?: boolean;
+  }
+}
 
-const main: TE.TaskEither<CLIError, void> = pipe(
-  TE.Do,
-  TE.bind("runtime", () => TE.right(detectRuntime())),
-  TE.bind("args", () => TE.right(process.argv.slice(2))),
-  TE.bind("logger", ({ args }) => {
-    const verbose = args.includes("--verbose") || args.includes("-v");
-    const trace = args.includes("--trace") || process.env.DEBUG === "*";
-    return TE.right(
-      createLogger({
-        level: trace
-          ? LogLevel.TRACE
-          : verbose
-            ? LogLevel.DEBUG
-            : LogLevel.INFO,
-        color: process.stdout.isTTY ?? false,
-      }),
-    );
-  }),
-  TE.chainFirst(({ runtime, logger }) => {
-    if (runtime.warning) {
-      logger.warn(runtime.warning);
-    }
-    return TE.right(undefined);
-  }),
-  TE.chain(({ args, logger }) => {
-    if (args.includes("--version") || args.includes("-V")) {
-      console.log(getVersion());
-      process.exit(0);
-    }
-    return route(args, logger);
-  }),
-);
+const program = new Command()
+  .name("rp1")
+  .description("AI-assisted development workflows CLI")
+  .version(pkg.version, "-V, --version", "Show version number")
+  .option("-v, --verbose", "Enable debug logging")
+  .option("--trace", "Enable trace logging")
+  .helpOption("-h, --help", "Show this help message")
+  .configureOutput({
+    outputError: (str, write) => write(`\x1b[31m${str}\x1b[0m`),
+  });
 
-main().then(
-  E.fold(
-    (error) => {
-      console.error(formatError(error, process.stderr.isTTY ?? false));
-      process.exit(getExitCode(error));
-    },
-    () => {},
-  ),
-);
+program.hook("preAction", (thisCommand) => {
+  const opts = thisCommand.opts();
+  const isTTY = process.stdout.isTTY ?? false;
+
+  const level = opts.trace || process.env.DEBUG === "*"
+    ? LogLevel.TRACE
+    : opts.verbose
+      ? LogLevel.DEBUG
+      : LogLevel.INFO;
+
+  const logger = createLogger({
+    level,
+    color: isTTY,
+  });
+
+  const runtime = detectRuntime();
+  if (runtime.warning) {
+    logger.warn(runtime.warning);
+  }
+
+  thisCommand._logger = logger;
+  thisCommand._isTTY = isTTY;
+});
+
+program.addCommand(viewCommand);
+program.addCommand(buildCommand);
+program.addCommand(installCommand);
+program.addCommand(verifyCommand);
+program.addCommand(listCommand);
+
+const handleError = (error: CLIError): void => {
+  const isTTY = process.stderr.isTTY ?? false;
+  console.error(formatError(error, isTTY));
+  process.exit(getExitCode(error));
+};
+
+program.parseAsync(process.argv).catch((error) => {
+  if (error && typeof error === "object" && "code" in error) {
+    handleError(error as CLIError);
+  } else {
+    console.error(error);
+    process.exit(1);
+  }
+});

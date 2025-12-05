@@ -64,4 +64,5 @@ export {
   executeVerify,
   executeList,
   parseInstallArgs,
+  type InstallOptions,
 } from "./command.js";
