@@ -22,3 +22,4 @@ apps/web-ui/dist/
 
 # CLI build output
 cli/dist/
+cli/web-ui/dist/**/*

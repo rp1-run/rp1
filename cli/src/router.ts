@@ -31,12 +31,17 @@ export const route = (
   args: string[],
   logger: Logger
 ): TE.TaskEither<CLIError, void> => {
-  if (args.length === 0 || args.includes("--help") || args.includes("-h")) {
+  if (args.length === 0) {
     printHelp();
     return TE.right(undefined);
   }
 
   const commandName = args[0];
+
+  if (commandName === "--help" || commandName === "-h") {
+    printHelp();
+    return TE.right(undefined);
+  }
 
   if (commandName.startsWith("-")) {
     printHelp();
