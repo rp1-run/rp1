@@ -1,0 +1,30 @@
+{
+  "lockfileVersion": 1,
+  "configVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "@rp1-run/rp1",
+      "dependencies": {
+        "fp-ts": "^2.16.9",
+      },
+      "devDependencies": {
+        "@types/bun": "^1.1.14",
+        "@types/node": "^22.0.0",
+        "typescript": "^5.7.2",
+      },
+    },
+  },
+  "packages": {
+    "@types/bun": ["@types/bun@1.3.3", "https://global.block-artifacts.com/artifactory/api/npm/square-npm/@types/bun/-/bun-1.3.3.tgz", { "dependencies": { "bun-types": "1.3.3" } }, "sha512-ogrKbJ2X5N0kWLLFKeytG0eHDleBYtngtlbu9cyBKFtNL3cnpDZkNdQj8flVf6WTZUX5ulI9AY1oa7ljhSrp+g=="],
+
+    "@types/node": ["@types/node@22.19.1", "https://global.block-artifacts.com/artifactory/api/npm/square-npm/@types/node/-/node-22.19.1.tgz", { "dependencies": { "undici-types": "~6.21.0" } }, "sha512-LCCV0HdSZZZb34qifBsyWlUmok6W7ouER+oQIGBScS8EsZsQbrtFTUrDX4hOl+CS6p7cnNC4td+qrSVGSCTUfQ=="],
+
+    "bun-types": ["bun-types@1.3.3", "https://global.block-artifacts.com/artifactory/api/npm/square-npm/bun-types/-/bun-types-1.3.3.tgz", { "dependencies": { "@types/node": "*" } }, "sha512-z3Xwlg7j2l9JY27x5Qn3Wlyos8YAp0kKRlrePAOjgjMGS5IG6E7Jnlx736vH9UVI4wUICwwhC9anYL++XeOgTQ=="],
+
+    "fp-ts": ["fp-ts@2.16.11", "https://global.block-artifacts.com/artifactory/api/npm/square-npm/fp-ts/-/fp-ts-2.16.11.tgz", {}, "sha512-LaI+KaX2NFkfn1ZGHoKCmcfv7yrZsC3b8NtWsTVQeHkq4F27vI5igUuO53sxqDEa2gNQMHFPmpojDw/1zmUK7w=="],
+
+    "typescript": ["typescript@5.9.3", "https://global.block-artifacts.com/artifactory/api/npm/square-npm/typescript/-/typescript-5.9.3.tgz", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
+
+    "undici-types": ["undici-types@6.21.0", "https://global.block-artifacts.com/artifactory/api/npm/square-npm/undici-types/-/undici-types-6.21.0.tgz", {}, "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ=="],
+  }
+}

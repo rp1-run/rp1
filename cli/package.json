@@ -1,0 +1,29 @@
+{
+  "name": "@rp1-run/rp1",
+  "version": "4.4.3",
+  "description": "AI-assisted development workflows CLI",
+  "type": "module",
+  "bin": {
+    "rp1": "./dist/main.js"
+  },
+  "files": [
+    "dist",
+    "shared"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "bun build src/main.ts --outdir dist --target node",
+    "dev": "bun run src/main.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "fp-ts": "^2.16.9"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.1.14",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.2"
+  }
+}
