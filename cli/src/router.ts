@@ -24,12 +24,12 @@ const findCommand = (name: string): O.Option<Command> =>
 const findSimilarCommand = (input: string): O.Option<string> =>
   pipe(
     Array.from(commands.keys()),
-    A.findFirst((cmd) => cmd.startsWith(input.slice(0, 2)))
+    A.findFirst((cmd) => cmd.startsWith(input.slice(0, 2))),
   );
 
 export const route = (
   args: string[],
-  logger: Logger
+  logger: Logger,
 ): TE.TaskEither<CLIError, void> => {
   if (args.length === 0) {
     printHelp();
@@ -55,12 +55,14 @@ export const route = (
         const suggestion = pipe(
           findSimilarCommand(commandName),
           O.map((cmd) => `Did you mean '${cmd}'?`),
-          O.getOrElse(() => `Run 'rp1 --help' for available commands`)
+          O.getOrElse(() => `Run 'rp1 --help' for available commands`),
         );
-        return TE.left(usageError(`Unknown command: ${commandName}`, suggestion));
+        return TE.left(
+          usageError(`Unknown command: ${commandName}`, suggestion),
+        );
       },
-      (command) => command.execute(args.slice(1), logger)
-    )
+      (command) => command.execute(args.slice(1), logger),
+    ),
   );
 };
 
@@ -69,7 +71,7 @@ const printHelp = (): void => {
   const commandList = pipe(
     Array.from(commands.entries()),
     A.map(([name, cmd]) => `  ${name.padEnd(14)} ${cmd.description}`),
-    (lines) => lines.join("\n")
+    (lines) => lines.join("\n"),
   );
 
   console.log(`

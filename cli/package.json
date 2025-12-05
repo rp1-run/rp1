@@ -25,7 +25,8 @@
     "prepublishOnly": "bun run build:all"
   },
   "dependencies": {
-    "fp-ts": "^2.16.9"
+    "fp-ts": "^2.16.9",
+    "yaml": "^2.3.4"
   },
   "devDependencies": {
     "@types/bun": "^1.1.14",

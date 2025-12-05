@@ -9,6 +9,8 @@ import { route } from "./router.js";
 import pkg from "../package.json";
 
 import "./commands/view.js";
+import "./commands/build.js";
+import "./commands/install.js";
 
 const getVersion = (): string => pkg.version;
 
@@ -21,9 +23,13 @@ const main: TE.TaskEither<CLIError, void> = pipe(
     const trace = args.includes("--trace") || process.env.DEBUG === "*";
     return TE.right(
       createLogger({
-        level: trace ? LogLevel.TRACE : verbose ? LogLevel.DEBUG : LogLevel.INFO,
+        level: trace
+          ? LogLevel.TRACE
+          : verbose
+            ? LogLevel.DEBUG
+            : LogLevel.INFO,
         color: process.stdout.isTTY ?? false,
-      })
+      }),
     );
   }),
   TE.chainFirst(({ runtime, logger }) => {
@@ -38,7 +44,7 @@ const main: TE.TaskEither<CLIError, void> = pipe(
       process.exit(0);
     }
     return route(args, logger);
-  })
+  }),
 );
 
 main().then(
@@ -47,6 +53,6 @@ main().then(
       console.error(formatError(error, process.stderr.isTTY ?? false));
       process.exit(getExitCode(error));
     },
-    () => {}
-  )
+    () => {},
+  ),
 );

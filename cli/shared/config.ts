@@ -16,7 +16,9 @@ export interface ViewConfig extends CLIConfig {
   openBrowser: boolean;
 }
 
-export const findRp1Root = (startPath: string = process.cwd()): O.Option<string> => {
+export const findRp1Root = (
+  startPath: string = process.cwd(),
+): O.Option<string> => {
   let current = resolve(startPath);
   const root = resolve("/");
 
@@ -39,11 +41,18 @@ export const findRp1Root = (startPath: string = process.cwd()): O.Option<string>
 const parsePort = (portStr: string): E.Either<CLIError, number> => {
   const port = parseInt(portStr, 10);
   return isNaN(port) || port < 1 || port > 65535
-    ? E.left(usageError(`Invalid port: ${portStr}`, "Use a number between 1 and 65535"))
+    ? E.left(
+        usageError(
+          `Invalid port: ${portStr}`,
+          "Use a number between 1 and 65535",
+        ),
+      )
     : E.right(port);
 };
 
-export const parseViewArgs = (args: string[]): E.Either<CLIError, ViewConfig> => {
+export const parseViewArgs = (
+  args: string[],
+): E.Either<CLIError, ViewConfig> => {
   const config: ViewConfig = {
     rp1Root: process.env.RP1_ROOT || "",
     port: 7710,
@@ -77,7 +86,9 @@ export const parseViewArgs = (args: string[]): E.Either<CLIError, ViewConfig> =>
   return E.right(config);
 };
 
-export const resolveRp1Root = (config: ViewConfig): E.Either<CLIError, ViewConfig> =>
+export const resolveRp1Root = (
+  config: ViewConfig,
+): E.Either<CLIError, ViewConfig> =>
   pipe(
     config.rp1Root,
     O.fromPredicate((root) => root.length > 0),
@@ -86,10 +97,12 @@ export const resolveRp1Root = (config: ViewConfig): E.Either<CLIError, ViewConfi
     E.fromOption(() =>
       notFoundError(
         ".rp1 directory",
-        "Run this command from an rp1 project directory, or specify a path: rp1 view /path/to/project"
-      )
-    )
+        "Run this command from an rp1 project directory, or specify a path: rp1 view /path/to/project",
+      ),
+    ),
   );
 
-export const loadViewConfig = (args: string[]): E.Either<CLIError, ViewConfig> =>
+export const loadViewConfig = (
+  args: string[],
+): E.Either<CLIError, ViewConfig> =>
   pipe(parseViewArgs(args), E.chain(resolveRp1Root));
