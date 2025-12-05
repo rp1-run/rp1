@@ -8,15 +8,21 @@
   },
   "files": [
     "dist",
-    "shared"
+    "shared",
+    "web-ui/dist",
+    "web-ui/src",
+    "web-ui/package.json"
   ],
   "engines": {
     "node": ">=18.0.0"
   },
   "scripts": {
     "build": "bun build src/main.ts --outdir dist --target node",
+    "build:web-ui": "cd web-ui && bun run build",
+    "build:all": "bun run build && bun run build:web-ui",
     "dev": "bun run src/main.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "bun run build:all"
   },
   "dependencies": {
     "fp-ts": "^2.16.9"

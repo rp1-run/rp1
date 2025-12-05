@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -e
+
+# Resolve the directory of this script
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP_DIR="$(dirname "$SCRIPT_DIR")"
+
+# Run the CLI with bun
+exec bun run "$APP_DIR/src/cli.ts" "$@"
