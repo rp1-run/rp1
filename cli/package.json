@@ -14,7 +14,7 @@
     "web-ui/package.json"
   ],
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "scripts": {
     "build": "bun build src/main.ts --outdir dist --target node",
@@ -25,6 +25,9 @@
     "prepublishOnly": "bun run build:all"
   },
   "dependencies": {
+    "@inquirer/prompts": "^8.0.2",
+    "commander": "^14.0.2",
+    "consola": "^3.4.2",
     "fp-ts": "^2.16.9",
     "yaml": "^2.3.4"
   },

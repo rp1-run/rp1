@@ -1,9 +1,11 @@
 import { join } from "path";
 import { statSync } from "fs";
 import { spawn } from "child_process";
+import { Command } from "commander";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import * as T from "fp-ts/lib/Task.js";
+import * as E from "fp-ts/lib/Either.js";
 import type { Logger } from "../../shared/logger.js";
 import { loadViewConfig, type ViewConfig } from "../../shared/config.js";
 import {
@@ -12,8 +14,9 @@ import {
   portInUseError,
   runtimeError,
   tryCatchTE,
+  formatError,
+  getExitCode,
 } from "../../shared/errors.js";
-import { registerCommand } from "../router.js";
 import { isBun } from "../../shared/runtime.js";
 
 const directoryExists = (path: string): boolean => {
@@ -156,43 +159,10 @@ const startServer = (
     (e) => runtimeError(`Failed to start server: ${e}`),
   );
 
-const printViewHelp = (): void => {
-  console.log(`
-rp1 view - Launch the web-based documentation viewer
-
-Usage:
-  rp1 view [path] [options]
-
-Arguments:
-  path                 Path to project directory (default: current directory)
-
-Options:
-  -p, --port <port>    Port to run server on (default: 7710)
-  --no-open            Start server without opening browser
-  -v, --verbose        Enable debug logging
-  --trace              Enable trace logging
-  -h, --help           Show this help message
-
-Examples:
-  rp1 view                      # View current project
-  rp1 view /path/to/project     # View specific project
-  rp1 view --port 8080          # Use custom port
-  rp1 view --no-open            # Don't auto-open browser
-
-Environment:
-  RP1_ROOT             Set default project path
-`);
-};
-
 const execute = (
   args: string[],
   logger: Logger,
 ): TE.TaskEither<CLIError, void> => {
-  if (args.includes("--help") || args.includes("-h")) {
-    printViewHelp();
-    return TE.right(undefined);
-  }
-
   return pipe(
     loadViewConfig(args),
     TE.fromEither,
@@ -218,10 +188,43 @@ const execute = (
   );
 };
 
-registerCommand({
-  name: "view",
-  description: "Launch the web-based documentation viewer",
-  execute,
-});
+export const viewCommand = new Command("view")
+  .description("Launch the web-based documentation viewer")
+  .argument("[path]", "Path to project directory", process.cwd())
+  .option("-p, --port <port>", "Port to run server on", "7710")
+  .option("--no-open", "Start server without opening browser")
+  .addHelpText("after", `
+Examples:
+  rp1 view                      View current project
+  rp1 view /path/to/project     View specific project
+  rp1 view --port 8080          Use custom port
+  rp1 view --no-open            Don't auto-open browser
 
-export { execute };
+Environment:
+  RP1_ROOT                      Set default project path
+`)
+  .action(async (path, options, command) => {
+    const logger = command.parent?._logger;
+    if (!logger) {
+      console.error("Logger not initialized");
+      process.exit(1);
+    }
+
+    const args: string[] = [];
+    if (path && path !== process.cwd()) {
+      args.push(path);
+    }
+    if (options.port !== "7710") {
+      args.push("--port", options.port);
+    }
+    if (!options.open) {
+      args.push("--no-open");
+    }
+
+    const result = await execute(args, logger)();
+
+    if (E.isLeft(result)) {
+      console.error(formatError(result.left, process.stderr.isTTY ?? false));
+      process.exit(getExitCode(result.left));
+    }
+  });

@@ -1,55 +1,102 @@
-/**
- * Install command registration.
- * Registers install:opencode, verify, and list commands with the CLI router.
- */
-
+import { Command } from "commander";
+import * as E from "fp-ts/lib/Either.js";
 import type { Logger } from "../../shared/logger.js";
-import type { CLIError } from "../../shared/errors.js";
-import * as TE from "fp-ts/lib/TaskEither.js";
-import { registerCommand } from "../router.js";
+import { formatError, getExitCode } from "../../shared/errors.js";
 import {
   executeInstall,
   executeVerify,
   executeList,
 } from "../install/index.js";
 
-const executeInstallCommand = (
-  args: string[],
-  logger: Logger,
-): TE.TaskEither<CLIError, void> => {
-  return executeInstall(args, logger);
-};
+export const installCommand = new Command("install:opencode")
+  .description("Install rp1 plugins to OpenCode platform")
+  .option("-a, --artifacts-dir <path>", "Path to artifacts directory")
+  .option("--skip-skills", "Skip skills installation")
+  .option("--dry-run", "Show what would be installed without installing")
+  .option("-y, --yes", "Skip confirmation prompts")
+  .addHelpText("after", `
+Examples:
+  rp1 install:opencode                    Install from default artifacts
+  rp1 install:opencode --dry-run          Preview installation
+  rp1 install:opencode -a ./my-artifacts  Install from custom path
+  rp1 install:opencode -y                 Skip confirmation prompts
+`)
+  .action(async (options, command) => {
+    const logger = command.parent?._logger as Logger;
+    const isTTY = command.parent?._isTTY ?? false;
 
-const executeVerifyCommand = (
-  args: string[],
-  logger: Logger,
-): TE.TaskEither<CLIError, void> => {
-  return executeVerify(args, logger);
-};
+    if (!logger) {
+      console.error("Logger not initialized");
+      process.exit(1);
+    }
 
-const executeListCommand = (
-  args: string[],
-  logger: Logger,
-): TE.TaskEither<CLIError, void> => {
-  return executeList(args, logger);
-};
+    const args: string[] = [];
+    if (options.artifactsDir) {
+      args.push("--artifacts-dir", options.artifactsDir);
+    }
+    if (options.skipSkills) {
+      args.push("--skip-skills");
+    }
+    if (options.dryRun) {
+      args.push("--dry-run");
+    }
+    if (options.yes) {
+      args.push("--yes");
+    }
 
-registerCommand({
-  name: "install:opencode",
-  description: "Install rp1 plugins to OpenCode platform",
-  execute: executeInstallCommand,
-});
+    const result = await executeInstall(args, logger, { isTTY, skipPrompt: options.yes })();
 
-registerCommand({
-  name: "verify:opencode",
-  description: "Verify rp1 installation health",
-  execute: executeVerifyCommand,
-});
+    if (E.isLeft(result)) {
+      console.error(formatError(result.left, process.stderr.isTTY ?? false));
+      process.exit(getExitCode(result.left));
+    }
+  });
 
-registerCommand({
-  name: "list",
-  description: "List installed rp1 commands",
-  execute: executeListCommand,
-});
+export const verifyCommand = new Command("verify:opencode")
+  .description("Verify rp1 installation health")
+  .option("--artifacts-dir <path>", "Path to artifacts for name-based verification")
+  .addHelpText("after", `
+Examples:
+  rp1 verify:opencode                     Verify installation
+  rp1 verify:opencode --artifacts-dir .   Verify against specific artifacts
+`)
+  .action(async (options, command) => {
+    const logger = command.parent?._logger as Logger;
+    if (!logger) {
+      console.error("Logger not initialized");
+      process.exit(1);
+    }
 
-export { executeInstallCommand, executeVerifyCommand, executeListCommand };
+    const args: string[] = [];
+    if (options.artifactsDir) {
+      args.push("--artifacts-dir", options.artifactsDir);
+    }
+
+    const result = await executeVerify(args, logger)();
+
+    if (E.isLeft(result)) {
+      console.error(formatError(result.left, process.stderr.isTTY ?? false));
+      process.exit(getExitCode(result.left));
+    }
+  });
+
+export const listCommand = new Command("list")
+  .description("List installed rp1 commands")
+  .addHelpText("after", `
+Examples:
+  rp1 list                                List all installed commands
+`)
+  .action(async (_options, command) => {
+    const logger = command.parent?._logger as Logger;
+    if (!logger) {
+      console.error("Logger not initialized");
+      process.exit(1);
+    }
+
+    const result = await executeList([], logger)();
+
+    if (E.isLeft(result)) {
+      console.error(formatError(result.left, process.stderr.isTTY ?? false));
+      process.exit(getExitCode(result.left));
+    }
+  });

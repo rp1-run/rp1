@@ -1,10 +1,14 @@
-export enum LogLevel {
-  TRACE = 0,
-  DEBUG = 1,
-  INFO = 2,
-  WARN = 3,
-  ERROR = 4,
-}
+import { createConsola, type ConsolaInstance } from "consola";
+
+export type LogLevel = "trace" | "debug" | "info" | "warn" | "error";
+
+export const LogLevel = {
+  TRACE: "trace" as LogLevel,
+  DEBUG: "debug" as LogLevel,
+  INFO: "info" as LogLevel,
+  WARN: "warn" as LogLevel,
+  ERROR: "error" as LogLevel,
+} as const;
 
 export interface LoggerOptions {
   level: LogLevel;
@@ -18,46 +22,42 @@ export interface Logger {
   info(message: string, ...args: unknown[]): void;
   warn(message: string, ...args: unknown[]): void;
   error(message: string, ...args: unknown[]): void;
+
+  start(message: string): void;
+  success(message: string): void;
+  fail(message: string): void;
+
+  box(message: string): void;
 }
 
-const COLORS = {
-  reset: "\x1b[0m",
-  dim: "\x1b[2m",
-  cyan: "\x1b[36m",
-  yellow: "\x1b[33m",
-  red: "\x1b[31m",
-  green: "\x1b[32m",
-};
-
-const PREFIXES: Record<LogLevel, { label: string; color: string }> = {
-  [LogLevel.TRACE]: { label: "TRACE", color: COLORS.dim },
-  [LogLevel.DEBUG]: { label: "DEBUG", color: COLORS.cyan },
-  [LogLevel.INFO]: { label: "INFO", color: COLORS.green },
-  [LogLevel.WARN]: { label: "WARN", color: COLORS.yellow },
-  [LogLevel.ERROR]: { label: "ERROR", color: COLORS.red },
+const LOG_LEVEL_MAP: Record<LogLevel, number> = {
+  trace: 5,
+  debug: 4,
+  info: 3,
+  warn: 2,
+  error: 1,
 };
 
 export function createLogger(options: LoggerOptions): Logger {
-  const { level, color, timestamps = false } = options;
-
-  function log(msgLevel: LogLevel, message: string, ...args: unknown[]): void {
-    if (msgLevel < level) return;
-
-    const prefix = PREFIXES[msgLevel];
-    const timestamp = timestamps ? `[${new Date().toISOString()}] ` : "";
-    const levelStr = color
-      ? `${prefix.color}[${prefix.label}]${COLORS.reset}`
-      : `[${prefix.label}]`;
-
-    const output = msgLevel >= LogLevel.ERROR ? console.error : console.log;
-    output(`${timestamp}${levelStr} ${message}`, ...args);
-  }
+  const consola: ConsolaInstance = createConsola({
+    level: LOG_LEVEL_MAP[options.level],
+    formatOptions: {
+      colors: options.color,
+      date: options.timestamps ?? false,
+    },
+  });
 
   return {
-    trace: (msg, ...args) => log(LogLevel.TRACE, msg, ...args),
-    debug: (msg, ...args) => log(LogLevel.DEBUG, msg, ...args),
-    info: (msg, ...args) => log(LogLevel.INFO, msg, ...args),
-    warn: (msg, ...args) => log(LogLevel.WARN, msg, ...args),
-    error: (msg, ...args) => log(LogLevel.ERROR, msg, ...args),
+    trace: (msg, ...args) => consola.trace(msg, ...args),
+    debug: (msg, ...args) => consola.debug(msg, ...args),
+    info: (msg, ...args) => consola.info(msg, ...args),
+    warn: (msg, ...args) => consola.warn(msg, ...args),
+    error: (msg, ...args) => consola.error(msg, ...args),
+
+    start: (msg) => consola.start(msg),
+    success: (msg) => consola.success(msg),
+    fail: (msg) => consola.fail(msg),
+
+    box: (msg) => consola.box(msg),
   };
 }
