@@ -1,6 +1,5 @@
 /**
  * Prerequisites checking module for OpenCode installation.
- * TypeScript port of tools/install/src/rp1_opencode/prerequisites.py
  */
 
 import * as TE from "fp-ts/lib/TaskEither.js";

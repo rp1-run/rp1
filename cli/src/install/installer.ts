@@ -1,6 +1,5 @@
 /**
  * Installer module for copying rp1 artifacts to OpenCode directories.
- * TypeScript port of tools/install/src/rp1_opencode/installer.py
  */
 
 import * as TE from "fp-ts/lib/TaskEither.js";

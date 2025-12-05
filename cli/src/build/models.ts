@@ -1,6 +1,5 @@
 /**
  * Type-safe data models for Claude Code and OpenCode artifacts.
- * TypeScript port of tools/build/src/rp1_opencode_builder/models.py
  */
 
 /**
@@ -128,7 +127,6 @@ export interface BuildConfig {
   readonly outputDir: string;
   readonly plugin: "base" | "dev" | "all";
   readonly jsonOutput: boolean;
-  readonly targetInstallTool: boolean;
 }
 
 /**

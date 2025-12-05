@@ -1,6 +1,5 @@
 /**
  * Frontmatter parsing for Claude Code commands, agents, and skills.
- * TypeScript port of tools/build/src/rp1_opencode_builder/parser.py
  */
 
 import { readFile, readdir, stat } from "fs/promises";

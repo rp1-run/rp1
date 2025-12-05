@@ -1,6 +1,5 @@
 /**
  * Configuration management module for OpenCode.
- * TypeScript port of tools/install/src/rp1_opencode/config.py
  */
 
 import * as TE from "fp-ts/lib/TaskEither.js";

@@ -1,6 +1,5 @@
 /**
  * Manifest parsing module for plugin metadata.
- * TypeScript port of tools/install/src/rp1_opencode/manifest.py
  */
 
 import * as TE from "fp-ts/lib/TaskEither.js";

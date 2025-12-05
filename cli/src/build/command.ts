@@ -1,6 +1,5 @@
 /**
  * CLI entry point for build:opencode command.
- * TypeScript port of tools/build/src/rp1_opencode_builder/cli.py
  */
 
 import {
@@ -59,7 +58,6 @@ export const parseBuildArgs = (
     outputDir: "dist/opencode",
     plugin: "all",
     jsonOutput: false,
-    targetInstallTool: false,
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -95,8 +93,6 @@ export const parseBuildArgs = (
         | "all";
     } else if (arg === "--json") {
       (config as { jsonOutput: boolean }).jsonOutput = true;
-    } else if (arg === "--target-install-tool") {
-      (config as { targetInstallTool: boolean }).targetInstallTool = true;
     } else if (arg === "--help" || arg === "-h") {
       printBuildHelp();
       process.exit(0);
@@ -119,7 +115,6 @@ ${COLORS.bold}Options:${COLORS.reset}
   -o, --output-dir <dir>   Output directory (default: dist/opencode/)
   -p, --plugin <name>      Build specific plugin (base, dev, or all)
   --json                   Output results as JSON for CI/CD
-  --target-install-tool    Generate artifacts under tools/install/dist/
   -h, --help               Show this help message
 
 ${COLORS.bold}Examples:${COLORS.reset}
@@ -504,18 +499,7 @@ export const executeBuild = (
           const projectRoot = await findProjectRoot(process.cwd());
 
           // Determine output directory
-          let outputPath: string;
-          if (config.targetInstallTool) {
-            outputPath = join(
-              projectRoot,
-              "tools",
-              "install",
-              "dist",
-              "opencode",
-            );
-          } else {
-            outputPath = resolve(config.outputDir);
-          }
+          const outputPath = resolve(config.outputDir);
 
           if (!config.jsonOutput) {
             logger.debug(`Output directory: ${outputPath}`);

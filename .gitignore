@@ -6,20 +6,14 @@
 .idea/
 node_modules/
 
-# Build tool artifacts
+# Build artifacts
 dist/
-tools/build/dist/
 
 # MkDocs build output
 site/
 
-# Install tool artifacts
-tools/install/dist/
+# Miscellaneous
 .playwright-mcp
-
-# Web UI build artifacts
-apps/web-ui/.vite/
-apps/web-ui/dist/
 
 # CLI build output
 cli/dist/

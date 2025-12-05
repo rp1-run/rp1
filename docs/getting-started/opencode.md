@@ -8,7 +8,7 @@ Detailed guide for installing and configuring rp1 on OpenCode.
 
 !!! info "System Requirements"
     - **OpenCode** installed and working ([GitHub](https://github.com/opencode-ai/opencode))
-    - **uv** package manager (Python tooling)
+    - **curl** and **tar** (standard on macOS/Linux)
     - **macOS or Linux** (Windows via WSL)
     - **A codebase** you want to enhance with rp1 workflows
 
@@ -16,31 +16,7 @@ Detailed guide for installing and configuring rp1 on OpenCode.
 
 ## Installation
 
-### Step 1: Install uv (if not already installed)
-
-uv is a fast Python package manager required for rp1 on OpenCode.
-
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-**Expected output:**
-```
-Downloading uv...
-Installing to ~/.cargo/bin
-```
-
-After installation, restart your shell or run:
-```bash
-source ~/.bashrc  # or ~/.zshrc
-```
-
-Verify the installation:
-```bash
-uv --version
-```
-
-### Step 2: Run the rp1 installer
+### Step 1: Run the rp1 installer
 
 The installer automatically downloads and configures both rp1 plugins:
 
@@ -50,20 +26,24 @@ curl -fsSL https://raw.githubusercontent.com/rp1-run/rp1/main/scripts/install-fo
 
 **What the installer does:**
 
-1. Downloads the latest rp1 plugin wheels from GitHub Releases
-2. Extracts them to `~/.opencode/plugins/`
+1. Downloads the latest rp1 plugin tarball from GitHub Releases
+2. Extracts them to `~/.opencode/prompts/`
 3. Configures both `rp1-base` and `rp1-dev` plugins
 4. Verifies the installation
 
 **Expected output:**
 ```
-Downloading rp1-base...
-Downloading rp1-dev...
-Installing to ~/.opencode/plugins/
-Installation complete!
+🔍 Fetching latest rp1 release...
+📦 Found version: X.Y.Z
+⬇️  Downloading artifacts...
+📂 Installing to: ~/.opencode/prompts
+   Installing rp1-base...
+   Installing rp1-dev...
+
+✅ Installation complete!
 ```
 
-### Step 3: Restart OpenCode
+### Step 2: Restart OpenCode
 
 Close and reopen OpenCode to load the new plugins.
 
@@ -73,25 +53,23 @@ Close and reopen OpenCode to load the new plugins.
 
 If the automated installer doesn't work, you can install manually:
 
-### Download the wheels
+### Download the tarball
 
 ```bash
-# Create plugins directory
-mkdir -p ~/.opencode/plugins
+# Create prompts directory
+mkdir -p ~/.opencode/prompts
 
-# Download latest releases
-curl -L -o /tmp/rp1-base.whl \
-  https://github.com/rp1-run/rp1/releases/latest/download/rp1_base-*.whl
-
-curl -L -o /tmp/rp1-dev.whl \
-  https://github.com/rp1-run/rp1/releases/latest/download/rp1_dev-*.whl
+# Download latest release tarball (replace X.Y.Z with actual version)
+curl -L -o /tmp/rp1-opencode.tar.gz \
+  https://github.com/rp1-run/rp1/releases/latest/download/rp1-opencode-X.Y.Z.tar.gz
 ```
 
-### Extract to plugins directory
+### Extract to prompts directory
 
 ```bash
-unzip /tmp/rp1-base.whl -d ~/.opencode/plugins/rp1-base
-unzip /tmp/rp1-dev.whl -d ~/.opencode/plugins/rp1-dev
+tar -xzf /tmp/rp1-opencode.tar.gz -C /tmp
+cp -r /tmp/opencode/rp1-base ~/.opencode/prompts/
+cp -r /tmp/opencode/rp1-dev ~/.opencode/prompts/
 ```
 
 ### Restart OpenCode
@@ -100,10 +78,10 @@ unzip /tmp/rp1-dev.whl -d ~/.opencode/plugins/rp1-dev
 
 ## Directory Structure
 
-After installation, your plugins directory should look like:
+After installation, your prompts directory should look like:
 
 ```
-~/.opencode/plugins/
+~/.opencode/prompts/
 ├── rp1-base/
 │   ├── agents/
 │   ├── commands/
@@ -173,23 +151,13 @@ rm -rf ~/.opencode/plugins/rp1-dev
 
 ## Troubleshooting
 
-??? question "uv command not found?"
-
-    **Solution**: The uv installer adds uv to `~/.cargo/bin`. Make sure this is in your PATH:
-
-    ```bash
-    export PATH="$HOME/.cargo/bin:$PATH"
-    ```
-
-    Add this line to your `~/.bashrc` or `~/.zshrc` to make it permanent.
-
 ??? question "Installation script fails?"
 
     **Solution**: Check the error message. Common issues:
 
     - **Network error**: Check your internet connection
     - **Permission denied**: Don't run with `sudo`; the script installs to your home directory
-    - **curl not found**: Install curl (`apt install curl` on Ubuntu, `brew install curl` on macOS)
+    - **curl/tar not found**: Install curl and tar (`apt install curl tar` on Ubuntu, `brew install curl` on macOS)
 
     Try the manual installation method as an alternative.
 
@@ -198,7 +166,7 @@ rm -rf ~/.opencode/plugins/rp1-dev
     **Solution**: Verify the plugins are in the correct location:
 
     ```bash
-    ls ~/.opencode/plugins/
+    ls ~/.opencode/prompts/
     ```
 
     You should see both `rp1-base` and `rp1-dev` directories.

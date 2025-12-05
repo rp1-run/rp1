@@ -1,7 +1,5 @@
 /**
  * Validation module for OpenCode artifacts.
- * TypeScript port of tools/build/src/rp1_opencode_builder/validator.py
- *
  * Provides L1 (syntax) and L2 (schema) validation for generated artifacts.
  */
 

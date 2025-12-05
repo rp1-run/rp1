@@ -1,6 +1,5 @@
 /**
  * Type-safe data models for OpenCode installation.
- * TypeScript port of tools/install/src/rp1_opencode/models.py
  */
 
 /**
