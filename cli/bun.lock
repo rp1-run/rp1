@@ -6,6 +6,7 @@
       "name": "@rp1-run/rp1",
       "dependencies": {
         "fp-ts": "^2.16.9",
+        "yaml": "^2.3.4",
       },
       "devDependencies": {
         "@types/bun": "^1.1.14",
@@ -26,5 +27,7 @@
     "typescript": ["typescript@5.9.3", "https://global.block-artifacts.com/artifactory/api/npm/square-npm/typescript/-/typescript-5.9.3.tgz", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
     "undici-types": ["undici-types@6.21.0", "https://global.block-artifacts.com/artifactory/api/npm/square-npm/undici-types/-/undici-types-6.21.0.tgz", {}, "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ=="],
+
+    "yaml": ["yaml@2.8.2", "https://global.block-artifacts.com/artifactory/api/npm/square-npm/yaml/-/yaml-2.8.2.tgz", { "bin": { "yaml": "bin.mjs" } }, "sha512-mplynKqc1C2hTVYxd0PU2xQAc22TI1vShAYGksCCfxbn/dFwnHTNi1bvYsBTkhdUNtGIf5xNOg938rrSSYvS9A=="],
   }
 }

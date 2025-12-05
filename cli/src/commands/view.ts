@@ -27,7 +27,7 @@ const directoryExists = (path: string): boolean => {
 
 const validateProject = (
   projectPath: string,
-  logger: Logger
+  logger: Logger,
 ): TE.TaskEither<CLIError, string> => {
   logger.debug(`Validating project structure at: ${projectPath}`);
 
@@ -36,8 +36,8 @@ const validateProject = (
     return TE.left(
       notFoundError(
         `.rp1 directory at ${projectPath}`,
-        "Make sure you are in an rp1 project directory or specify the correct path"
-      )
+        "Make sure you are in an rp1 project directory or specify the correct path",
+      ),
     );
   }
 
@@ -51,7 +51,7 @@ const validateProject = (
 
 const checkPortAvailable = (
   port: number,
-  logger: Logger
+  logger: Logger,
 ): TE.TaskEither<CLIError, number> =>
   tryCatchTE(
     async () => {
@@ -80,10 +80,11 @@ const checkPortAvailable = (
         });
       }
     },
-    () => portInUseError(port)
+    () => portInUseError(port),
   );
 
-const openBrowser = (url: string, logger: Logger): T.Task<void> =>
+const openBrowser =
+  (url: string, logger: Logger): T.Task<void> =>
   async () => {
     const platform = process.platform;
     const [command, args]: [string, string[]] =
@@ -126,7 +127,7 @@ const setupShutdownHandlers = (stop: () => void, logger: Logger): void => {
 
 const startServer = (
   config: ViewConfig,
-  logger: Logger
+  logger: Logger,
 ): TE.TaskEither<CLIError, void> =>
   tryCatchTE(
     async () => {
@@ -152,7 +153,7 @@ const startServer = (
 
       await new Promise(() => {});
     },
-    (e) => runtimeError(`Failed to start server: ${e}`)
+    (e) => runtimeError(`Failed to start server: ${e}`),
   );
 
 const printViewHelp = (): void => {
@@ -185,7 +186,7 @@ Environment:
 
 const execute = (
   args: string[],
-  logger: Logger
+  logger: Logger,
 ): TE.TaskEither<CLIError, void> => {
   if (args.includes("--help") || args.includes("-h")) {
     printViewHelp();
@@ -197,23 +198,23 @@ const execute = (
     TE.fromEither,
     TE.chainFirst((config) => {
       logger.debug(
-        `Config: rp1Root=${config.rp1Root}, port=${config.port}, openBrowser=${config.openBrowser}`
+        `Config: rp1Root=${config.rp1Root}, port=${config.port}, openBrowser=${config.openBrowser}`,
       );
       return TE.right(undefined);
     }),
     TE.chain((config) =>
       pipe(
         validateProject(config.rp1Root, logger),
-        TE.map(() => config)
-      )
+        TE.map(() => config),
+      ),
     ),
     TE.chain((config) =>
       pipe(
         checkPortAvailable(config.port, logger),
-        TE.map(() => config)
-      )
+        TE.map(() => config),
+      ),
     ),
-    TE.chain((config) => startServer(config, logger))
+    TE.chain((config) => startServer(config, logger)),
   );
 };
 

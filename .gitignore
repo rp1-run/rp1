@@ -7,15 +7,14 @@
 node_modules/
 
 # Build tool artifacts
+dist/
 tools/build/dist/
 
 # MkDocs build output
 site/
 
-# Install tool artifacts (except bundled OpenCode artifacts)
-tools/install/dist/*.whl
-tools/install/dist/*.tar.gz
-!tools/install/dist/opencode/
+# Install tool artifacts
+tools/install/dist/
 .playwright-mcp
 
 # Web UI build artifacts

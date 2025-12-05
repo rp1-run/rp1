@@ -50,6 +50,16 @@ export {
   configError,
   runtimeError,
   portInUseError,
+  // Build error factories
+  parseError,
+  transformError,
+  validationError,
+  generationError,
+  // Install error factories
+  prerequisiteError,
+  installError,
+  backupError,
+  verificationError,
   getExitCode,
   withExitCode,
   formatError,
@@ -63,11 +73,7 @@ export {
   createLogger,
 } from "./logger.js";
 
-export {
-  type RuntimeInfo,
-  detectRuntime,
-  isBun,
-} from "./runtime.js";
+export { type RuntimeInfo, detectRuntime, isBun } from "./runtime.js";
 
 export {
   type CLIConfig,
