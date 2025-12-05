@@ -14,9 +14,19 @@ rp1/
 │       ├── .claude-plugin/   # Plugin metadata (depends on base)
 │       ├── agents/           # Specialized agents
 │       └── commands/         # Slash commands
-├── tools/
-│   ├── build/                # OpenCode artifact builder
-│   └── install/              # OpenCode installer
+├── cli/                      # Unified TypeScript CLI (rp1 command)
+│   ├── src/
+│   │   ├── main.ts           # CLI entry point
+│   │   ├── commands/         # CLI command implementations
+│   │   ├── build/            # OpenCode artifact builder
+│   │   └── install/          # OpenCode installer
+│   ├── shared/               # Shared utilities (logger, errors, fp)
+│   └── web-ui/               # Web-based documentation viewer
+│       ├── src/
+│       │   ├── app/          # React app components
+│       │   ├── components/   # Reusable UI components
+│       │   └── server/       # Bun HTTP/WebSocket server
+│       └── dist/             # Built frontend assets
 ├── scripts/                  # Utility scripts
 ├── .github/workflows/        # CI/CD automation (release-please)
 ├── release-please-config.json
@@ -38,6 +48,142 @@ The project is split into two plugins:
 - 13 commands: Feature workflows (4), code quality (5), PR management (4)
 - 7 agents: bug-investigator, test-runner, code-auditor, comment-cleaner, pr-reviewer, pr-feedback-collector, pr-visualizer
 - Depends on: `rp1-base >= 2.0.0`
+
+## rp1 CLI
+
+The unified TypeScript CLI (`cli/`) provides tooling for building, installing, and viewing rp1 artifacts. It runs on both Node.js (>=20) and Bun.
+
+### Prerequisites
+
+- **Runtime**: Node.js >= 20.0.0 or Bun
+- **Package Manager**: bun (recommended) or npm
+
+### Installation
+
+```bash
+# From repository root
+cd cli
+bun install
+bun run build
+```
+
+### CLI Commands
+
+#### `rp1 view` - Documentation Viewer
+
+Launch a web-based documentation viewer for browsing `.rp1/` artifacts.
+
+```bash
+rp1 view                        # View current project
+rp1 view /path/to/project       # View specific project
+rp1 view --port 8080            # Use custom port (default: 7710)
+rp1 view --no-open              # Don't auto-open browser
+```
+
+Features:
+- Markdown rendering with syntax highlighting (Shiki)
+- Mermaid diagram support
+- File tree navigation
+- Live reloading via WebSocket
+- Light/dark theme toggle
+
+#### `rp1 build:opencode` - Build OpenCode Artifacts
+
+Transform Claude Code plugins into OpenCode-compatible format.
+
+```bash
+rp1 build:opencode                      # Build all plugins
+rp1 build:opencode --plugin dev         # Build specific plugin (base, dev, all)
+rp1 build:opencode -o ./output          # Custom output directory
+rp1 build:opencode --json               # JSON output for CI/CD
+rp1 build:opencode --target-install-tool  # Generate to tools/install/dist/
+```
+
+Output structure:
+```
+dist/opencode/
+├── rp1-base/
+│   ├── commands/
+│   ├── agents/
+│   └── skills/
+├── rp1-dev/
+│   ├── commands/
+│   └── agents/
+└── manifest.json
+```
+
+#### `rp1 install:opencode` - Install to OpenCode
+
+Install rp1 plugins to the OpenCode platform.
+
+```bash
+rp1 install:opencode                    # Install from default artifacts
+rp1 install:opencode --dry-run          # Preview installation
+rp1 install:opencode -a ./my-artifacts  # Install from custom path
+rp1 install:opencode --skip-skills      # Skip skills installation
+rp1 install:opencode -y                 # Skip confirmation prompts
+```
+
+#### `rp1 verify:opencode` - Verify Installation
+
+Check that rp1 is correctly installed in OpenCode.
+
+```bash
+rp1 verify:opencode                     # Verify installation health
+rp1 verify:opencode --artifacts-dir .   # Verify against specific artifacts
+```
+
+#### `rp1 list` - List Installed Commands
+
+List all installed rp1 commands.
+
+```bash
+rp1 list
+```
+
+### Global Options
+
+```bash
+rp1 --version, -V      # Show version number
+rp1 --verbose, -v      # Enable debug logging
+rp1 --trace            # Enable trace logging
+rp1 --help, -h         # Show help message
+```
+
+### Development Workflow
+
+```bash
+# Run CLI in development mode
+cd cli
+bun run dev view /path/to/project
+
+# Type checking
+bun run typecheck
+
+# Build for distribution
+bun run build
+bun run build:web-ui
+bun run build:all
+```
+
+### Web UI Development
+
+The web viewer is a React application with a Bun server backend.
+
+```bash
+cd cli/web-ui
+
+# Development mode (hot reload)
+bun run dev
+
+# Build production assets
+bun run build
+```
+
+Architecture:
+- **Frontend**: React + Vite + TailwindCSS
+- **Backend**: Bun HTTP server with WebSocket support
+- **Features**: File tree, markdown viewer, Mermaid diagrams, live reload
 
 ## Release Process
 
@@ -183,24 +329,30 @@ These agents run `/rp1-base:knowledge-load` as their first step to receive compr
    /plugin install rp1-base@rp1-local
    /plugin install rp1-dev@rp1-local
 
-   # Verify - should see 19 commands (6 base + 13 dev)
+   # Verify - should see 21 commands (6 base + 15 dev)
    /help | grep rp1
    ```
 
 **For OpenCode:**
 
-1. Build artifacts:
+1. Build artifacts using the rp1 CLI:
    ```bash
-   ./scripts/build.sh
+   cd cli
+   bun run dev build:opencode
    ```
 
-2. Install from local source:
+2. Install from built artifacts:
    ```bash
-   cd tools/install
-   uvx --from . rp1-opencode install --force
+   bun run dev install:opencode
    ```
 
-3. Or install from GitHub release:
+3. Verify installation:
+   ```bash
+   bun run dev verify:opencode
+   bun run dev list
+   ```
+
+4. Or install from GitHub release:
    ```bash
    curl -LsSf https://astral.sh/uv/install.sh | sh  # Install uv first (if needed)
    curl -fsSL https://raw.githubusercontent.com/rp1-run/rp1/main/scripts/install-for-opencode.sh | bash
@@ -233,16 +385,31 @@ When adding or modifying features:
 
 **Pattern**: Command Pattern + Strategy Pattern
 
-- **Commands** (19 total): Lightweight entry points that users invoke
+- **Commands** (21 total): Lightweight entry points that users invoke
   - Base: 6 commands
-  - Dev: 13 commands
-- **Agents** (11 total): Specialized sub-agents with deep execution logic
-  - Base: 4 agents
-  - Dev: 7 agents
-- **Skills** (3 total): Reusable capabilities in base plugin
-  - maestro, mermaid, knowledge-base-templates
+  - Dev: 15 commands
+- **Agents** (18 total): Specialized sub-agents with deep execution logic
+  - Base: 9 agents
+  - Dev: 9 agents
+- **Skills** (4 total): Reusable capabilities in base plugin
+  - maestro, mermaid, markdown-preview, knowledge-base-templates
 
 Commands delegate to agents via Claude Code's Task tool, ensuring only relevant context is loaded.
+
+### CLI Architecture
+
+The `cli/` directory contains a unified TypeScript CLI built with:
+
+- **Commander.js**: CLI argument parsing and command structure
+- **fp-ts**: Functional programming utilities for error handling
+- **Bun/Node.js**: Runtime-agnostic execution
+- **React + Vite**: Web UI frontend
+- **TailwindCSS**: Styling
+
+Key modules:
+- `cli/src/build/`: Claude Code → OpenCode artifact transformation
+- `cli/src/install/`: OpenCode installation management
+- `cli/web-ui/`: Documentation viewer with live reload
 
 ### Cross-Plugin Dependencies
 
