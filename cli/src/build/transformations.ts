@@ -1,6 +1,5 @@
 /**
  * Transformation engine for converting Claude Code artifacts to OpenCode format.
- * TypeScript port of tools/build/src/rp1_opencode_builder/transformations.py
  */
 
 import * as E from "fp-ts/lib/Either.js";

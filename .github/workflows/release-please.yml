@@ -48,36 +48,34 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install dependencies
-        run: sudo apt-get install -y jq
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          python-version: '3.13'
+          bun-version: latest
 
-      - name: Build OpenCode artifacts
+      - name: Build CLI and OpenCode artifacts
         run: |
-          # Remove lockfiles to force resolution from public PyPI
-          rm -f tools/build/uv.lock
-          rm -f tools/install/uv.lock
+          cd cli
+          bun install
+          bun run build
+          bun run dev build:opencode --target-install-tool
 
-          # Build bundled artifacts
-          chmod +x scripts/build.sh
-          ./scripts/build.sh
+      - name: Create release tarball
+        run: |
+          VERSION=${{ needs.release-please.outputs.version }}
+          mkdir -p release-artifacts
 
-          # Build installer package
-          cd tools/install
-          uv build
+          # Create tarball of OpenCode artifacts
+          tar -czvf release-artifacts/rp1-opencode-${VERSION}.tar.gz -C cli/dist opencode
+
+          # Create a manifest for verification
+          echo "{\"version\": \"${VERSION}\", \"created\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" > release-artifacts/manifest.json
 
       - name: Upload artifacts to release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload ${{ needs.release-please.outputs.tag_name }} \
-            tools/install/dist/*.whl \
-            tools/install/dist/*.tar.gz \
+            release-artifacts/rp1-opencode-*.tar.gz \
+            release-artifacts/manifest.json \
             --clobber

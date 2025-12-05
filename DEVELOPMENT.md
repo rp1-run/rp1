@@ -92,11 +92,10 @@ Features:
 Transform Claude Code plugins into OpenCode-compatible format.
 
 ```bash
-rp1 build:opencode                      # Build all plugins
+rp1 build:opencode                      # Build all plugins to cli/dist/opencode/
 rp1 build:opencode --plugin dev         # Build specific plugin (base, dev, all)
 rp1 build:opencode -o ./output          # Custom output directory
 rp1 build:opencode --json               # JSON output for CI/CD
-rp1 build:opencode --target-install-tool  # Generate to tools/install/dist/
 ```
 
 Output structure:
@@ -198,8 +197,8 @@ The project uses **release-please** for fully automated releases based on conven
    - Creates/updates a Release PR with changelog
    - When the Release PR is merged:
      - Creates a GitHub Release with version tag
-     - Builds and attaches OpenCode wheel artifacts
-     - Updates version files (`plugin.json`, `pyproject.toml`, README badges)
+     - Builds and attaches OpenCode tarball artifacts
+     - Updates version files (`plugin.json`, `package.json`, README badges)
 
 No manual tagging or release scripts required - just write good commit messages!
 
@@ -451,14 +450,14 @@ Both plugins are released together via **release-please**.
    - Version bump based on commit types
 3. Merge the Release PR to trigger:
    - GitHub Release creation
-   - OpenCode wheel build and attachment
+   - OpenCode artifact tarball build and attachment
    - Version file updates (handled by release-please extra-files)
 
 ### Version Files Managed
 
 - `plugins/base/.claude-plugin/plugin.json` - version field
 - `plugins/dev/.claude-plugin/plugin.json` - version field
-- `tools/install/pyproject.toml` - version field
+- `cli/package.json` - version field
 - `README.md` - version badges
 - `.release-please-manifest.json` - canonical version source
 

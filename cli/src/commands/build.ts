@@ -9,7 +9,6 @@ export const buildCommand = new Command("build:opencode")
   .option("-o, --output-dir <dir>", "Output directory", "dist/opencode")
   .option("-p, --plugin <name>", "Build specific plugin (base, dev, all)", "all")
   .option("--json", "Output results as JSON for CI/CD")
-  .option("--target-install-tool", "Generate artifacts under tools/install/dist/")
   .addHelpText("after", `
 Examples:
   rp1 build:opencode                    Build all plugins
@@ -33,9 +32,6 @@ Examples:
     }
     if (options.json) {
       args.push("--json");
-    }
-    if (options.targetInstallTool) {
-      args.push("--target-install-tool");
     }
 
     const result = await executeBuild(args, logger)();

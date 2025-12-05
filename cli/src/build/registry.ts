@@ -1,6 +1,5 @@
 /**
  * Platform registry with transformation rules.
- * TypeScript port of tools/build/src/rp1_opencode_builder/registry.py
  */
 
 import type { PlatformRegistry } from "./models.js";

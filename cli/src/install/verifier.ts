@@ -1,6 +1,5 @@
 /**
  * Installation verification module.
- * TypeScript port of tools/install/src/rp1_opencode/verifier.py
  */
 
 import * as TE from "fp-ts/lib/TaskEither.js";
