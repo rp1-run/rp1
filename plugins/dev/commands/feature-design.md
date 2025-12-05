@@ -192,6 +192,8 @@ Generate these files in the feature documentation directory:
 **design.md**: Complete technical design document following the template structure
 **design-decisions.md**: Log of all major technology and architecture decisions with rationales
 
+**IMPORTANT**: All markdown documents written with Mermaid diagrams are at risk of mermaid render errors. Use mermaid skills to validate and fix the documents.
+
 ## Hypothesis Validation (Optional)
 
 If your Assumption Analysis identified HIGH-impact, LOW/MEDIUM-confidence assumptions:
