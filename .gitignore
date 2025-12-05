@@ -19,3 +19,6 @@ tools/install/dist/*.tar.gz
 .playwright-mcp
 apps/web-ui/.vite/*
 apps/web-ui/dist/
+
+# CLI build output
+cli/dist/
