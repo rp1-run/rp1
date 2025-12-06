@@ -1,17 +1,27 @@
 ---
 name: knowledge-load
-version: 2.0.0
+version: 2.1.0
 description: Ingests and prepares codebase documentation, builds internal knowledge graphs, and creates optimized context representations for downstream analysis tasks.
+argument-hint: "[mode]"
 tags:
   - core
   - documentation
   - analysis
   - planning
+  - deprecated
 created: 2025-10-25
+updated: 2025-12-06
 author: cloud-on-prem/rp1
 ---
 
 # Knowledge Loader - Context Ingestion & Preparation
+
+> **⚠️ DEPRECATED**: This command is deprecated. All rp1 commands are now **self-contained**
+> and load KB context automatically via their agents. You no longer need to run `/knowledge-load`
+> before using other commands.
+>
+> **For agent developers**: Use direct Read tool calls to load KB files progressively.
+> See the [Progressive Loading Pattern](#progressive-loading-pattern) below.
 
 You are KnowLoadGPT, an expert knowledge processor that ingests and prepares codebase documentation for analysis. Your role is to load documentation, build internal knowledge graphs, and create optimized representations for downstream tasks.
 
@@ -23,6 +33,11 @@ Here are the parameters for this knowledge loading session:
 {{RP1_ROOT}}
 </root_directory>
 (defaults to `.rp1/` if not set via environment variable $RP1_ROOT; always favour the project root directory; if it's a mono-repo project, still place this in the individual project's root. )
+
+<load_mode>
+$1
+</load_mode>
+(Default: "progressive" | Options: "progressive", "full")
 
 <project_path>
 {{PROJECT_PATH}}
@@ -44,13 +59,16 @@ Here are the parameters for this knowledge loading session:
 
 Load and prepare the knowledge base by following this workflow:
 
-1. **Analyze Parameters**: Determine repository structure (single project, monorepo root, or monorepo subproject) and optimal loading strategy
-2. **Load Documentation**: Ingest markdown files from context directory
-3. **Extract Knowledge**: Identify entities, relationships, and cross-references
-4. **Build Knowledge Graph**: Create internal representation
-5. **Optimize for Budget**: Apply compression techniques to stay within memory limits
-6. **Validate Completeness**: Ensure all required knowledge has been loaded
-7. **Report Status**: Provide completion confirmation or error details
+1. **Check Load Mode**: Determine if progressive (default) or full mode
+2. **Analyze Parameters**: Determine repository structure (single project, monorepo root, or monorepo subproject) and optimal loading strategy
+3. **Load Documentation**: Ingest markdown files based on mode:
+   - **Progressive mode**: Load only `index.md` (agents load additional files on-demand)
+   - **Full mode**: Load all markdown files from context directory
+4. **Extract Knowledge**: Identify entities, relationships, and cross-references
+5. **Build Knowledge Graph**: Create internal representation
+6. **Optimize for Budget**: Apply compression techniques to stay within memory limits
+7. **Validate Completeness**: Ensure required knowledge for the mode has been loaded
+8. **Report Status**: Provide completion confirmation with mode indicator
 
 ## Repository Structure Detection
 
@@ -119,9 +137,33 @@ If knowledge size exceeds budget, apply compression in this order:
 
 **Success Response Format**:
 
-- Single Project: "READY"
-- Monorepo Root: "READY [system: X projects]"
-- Monorepo Subproject: "READY [project: {project_name}]"
+Progressive mode (default):
+- Single Project: "READY [progressive]"
+- Monorepo Root: "READY [progressive, system: X projects]"
+- Monorepo Subproject: "READY [progressive, project: {project_name}]"
+
+Full mode:
+- Single Project: "READY [full: N files]"
+- Monorepo Root: "READY [full: N files, system: X projects]"
+- Monorepo Subproject: "READY [full: N files, project: {project_name}]"
+
+**Progressive Mode Output**:
+```
+⚠️ DEPRECATION WARNING: This command is deprecated. Commands now load KB automatically.
+
+READY [progressive]
+
+Loaded: index.md (~80 lines)
+Available: architecture.md, modules.md, patterns.md, concept_map.md
+Use Read tool to load additional files as needed.
+```
+
+**Full Mode Output**:
+```
+⚠️ DEPRECATION WARNING: This command is deprecated. Commands now load KB automatically.
+
+READY [full: 5 files, ~1180 lines]
+```
 
 **Error Response Format**:
 
@@ -181,4 +223,68 @@ Extracting repository structure...
 Found monorepo with 2 projects...
 Loading concept_map.md...
 etc. (too verbose!)
+```
+
+## Progressive Loading Pattern
+
+**For Agent Developers**: This section documents the recommended pattern for KB-aware agents.
+
+### Why Progressive Loading?
+
+- **Context efficiency**: Load ~80 lines vs ~1180 lines for most tasks
+- **Better instruction following**: Smaller context means better adherence to agent instructions
+- **Faster responses**: Less context to process
+
+### Pattern for Most Agents (Progressive)
+
+```markdown
+## 1. Load Knowledge Base
+
+Read `{RP1_ROOT}/context/index.md` to understand project structure and available KB files.
+
+**Selective Loading**: Based on your task, load additional files as needed:
+- For pattern consistency checks → Read `{RP1_ROOT}/context/patterns.md`
+- For architecture understanding → Read `{RP1_ROOT}/context/architecture.md`
+- For component details → Read `{RP1_ROOT}/context/modules.md`
+
+Do NOT load all KB files unless performing holistic analysis.
+```
+
+### Pattern for Holistic Agents (Full)
+
+```markdown
+## 1. Load Knowledge Base
+
+Read all markdown files from `{RP1_ROOT}/context/*.md`:
+- `{RP1_ROOT}/context/index.md` - Project overview
+- `{RP1_ROOT}/context/architecture.md` - System design
+- `{RP1_ROOT}/context/modules.md` - Component breakdown
+- `{RP1_ROOT}/context/concept_map.md` - Domain terminology
+- `{RP1_ROOT}/context/patterns.md` - Code conventions
+
+If `{RP1_ROOT}/context/` doesn't exist, warn user to run `/knowledge-build` first.
+```
+
+### Task-to-KB-Files Mapping
+
+| Task Type | KB Files to Load |
+|-----------|------------------|
+| Code review | `index.md` + `patterns.md` |
+| Bug investigation | `index.md` + `architecture.md` + `modules.md` |
+| Feature implementation | `index.md` + `modules.md` + `patterns.md` |
+| PR review | `index.md` + `patterns.md` |
+| Strategic analysis | ALL files (use full mode) |
+| Security audit | `index.md` + `architecture.md` |
+
+### Critical: Subagent Limitation
+
+**NEVER use `/knowledge-load` command in subagents**. Using SlashCommand tool in subagents causes early exit.
+
+Always use direct Read tool calls:
+```markdown
+# CORRECT (in subagent)
+Read `{RP1_ROOT}/context/index.md`
+
+# INCORRECT (causes subagent to exit)
+Run `/knowledge-load`
 ```

@@ -40,6 +40,14 @@ Practical tutorials that walk you through complete rp1 workflows from start to f
 
     [:octicons-arrow-right-24: Start tutorial](team-onboarding.md)
 
+-   :material-book-cog:{ .lg .middle } **KB Loading Patterns**
+
+    ---
+
+    Learn how to implement knowledge-aware agents that efficiently load KB context using progressive or full loading patterns.
+
+    [:octicons-arrow-right-24: Read guide](kb-loading-patterns.md)
+
 </div>
 
 ---

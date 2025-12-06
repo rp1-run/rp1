@@ -50,7 +50,7 @@ Phase 3 (Sequential):  Command → Merge JSON → Generate index.md → Write KB
 
    **CASE A: No changes detected** (state.json exists AND git commit unchanged):
    - **ACTION**: Skip build entirely (no-op)
-   - **MESSAGE**: "✓ KB is up-to-date (commit {{commit_hash}}). No regeneration needed. Use /rp1-base:knowledge-load to load existing KB."
+   - **MESSAGE**: "✓ KB is up-to-date (commit {{commit_hash}}). No regeneration needed. KB is automatically loaded by agents when needed."
 
    **CASE A-MONOREPO: No changes in this service** (monorepo: git commit changed but no changes in CODEBASE_ROOT):
    - **ACTION**: Skip build BUT update state.json with new commit
@@ -60,7 +60,7 @@ Phase 3 (Sequential):  Command → Merge JSON → Generate index.md → Write KB
      - Update only the `git_commit` field to new commit hash
      - Keep all other fields unchanged (strategy, repo_type, files_analyzed, etc.)
      - Write updated state.json
-   - **MESSAGE**: "✓ No changes in this service since last build. Updated commit reference ({{old_commit}} → {{new_commit}}). Use /rp1-base:knowledge-load to load existing KB."
+   - **MESSAGE**: "✓ No changes in this service since last build. Updated commit reference ({{old_commit}} → {{new_commit}}). KB is automatically loaded by agents when needed."
 
    **CASE B: First-time build** (no state.json):
    - **ACTION**: Full analysis mode - proceed to Phase 1
