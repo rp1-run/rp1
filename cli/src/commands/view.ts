@@ -61,7 +61,10 @@ const checkPortAvailable = (
       logger.debug(`Checking if port ${port} is available`);
 
       if (isBun()) {
-        const server = Bun.serve({
+        // Use globalThis.Bun to avoid ReferenceError when running under Node.js
+        // The isBun() check ensures this code path only runs when Bun is available
+        const BunRuntime = globalThis.Bun as typeof Bun;
+        const server = BunRuntime.serve({
           port,
           hostname: "127.0.0.1",
           fetch() {
@@ -101,7 +104,9 @@ const openBrowser =
 
     try {
       if (isBun()) {
-        const proc = Bun.spawn([command, ...args], {
+        // Use globalThis.Bun to avoid ReferenceError when running under Node.js
+        const BunRuntime = globalThis.Bun as typeof Bun;
+        const proc = BunRuntime.spawn([command, ...args], {
           stdout: "ignore",
           stderr: "ignore",
         });
