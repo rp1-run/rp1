@@ -40,43 +40,33 @@ Choose your platform and follow the installation steps:
 
     **Step 4: Verify installation**
 
-    ```bash
-    /help
-    ```
-
-    You should see rp1 commands listed (look for `knowledge-build`, `feature-requirements`, etc.).
+    Type `/` to see available commands. You should see rp1 commands listed (look for `knowledge-build`, `feature-requirements`, etc.).
 
 === "OpenCode"
 
-    **Step 1: Install Bun (if not already installed)**
-
-    ```bash
-    curl -fsSL https://bun.sh/install | bash
-    ```
-
-    **Step 2: Install rp1 CLI**
+    **Step 1: Install rp1 CLI globally (recommended)**
 
     ```bash
     bun install -g @rp1-run/rp1
-    ```
-
-    **Step 3: Install to OpenCode**
-
-    ```bash
     rp1 install:opencode
     ```
 
-    **Step 4: Restart OpenCode**
+    Or run without installing:
+
+    ```bash
+    bunx @rp1-run/rp1 install:opencode
+    ```
+
+    !!! tip "Using npm instead"
+        If you prefer npm, use `npx @rp1-run/rp1 install:opencode`
+
+    **Step 2: Restart OpenCode**
 
     Close and reopen OpenCode to load the new plugins.
 
-    **Step 5: Verify installation**
+    **Step 3: Verify installation**
 
-    ```bash
-    /help
-    ```
-
-    You should see rp1 commands listed (look for `/rp1-base/` and `/rp1-dev/`).
+    Type `/` to see available commands. You should see rp1 commands listed (look for `/rp1-base/` and `/rp1-dev/`).
 
 ---
 
@@ -131,6 +121,7 @@ The `knowledge-build` command:
     - `.rp1/context/architecture.md` - System architecture
     - `.rp1/context/modules.md` - Component breakdown
     - `.rp1/context/concept_map.md` - Domain concepts
+    - `.rp1/context/patterns.md` - Implementation patterns
 
 ---
 

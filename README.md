@@ -38,32 +38,22 @@
 /plugin install rp1-dev
 ```
 
-### OpenCode
+### OpenCode / CLI
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/rp1-run/rp1/main/scripts/install-for-opencode.sh | bash
-```
-
-### CLI (Bun recommended)
-
-```bash
-# Install Bun (if not already installed)
-curl -fsSL https://bun.sh/install | bash
-
-# Install rp1 CLI globally
+# Install globally with Bun (recommended)
 bun install -g @rp1-run/rp1
+rp1 install:opencode
 
 # Or run without installing
-bunx @rp1-run/rp1 --help
+bunx @rp1-run/rp1 install:opencode
 ```
 
 <details>
 <summary>Using npm instead</summary>
 
 ```bash
-npm install -g @rp1-run/rp1
-# or run without installing
-npx @rp1-run/rp1 --help
+npx @rp1-run/rp1 install:opencode
 ```
 
 </details>
