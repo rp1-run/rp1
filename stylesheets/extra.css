@@ -1,0 +1,429 @@
+/* ==========================================================================
+   rp1 Brand Colors
+   Primary: Dark Navy #162B49 (header/sidebar)
+   Accent: Cyan #4CC9F0 (buttons, links, toggles)
+   Orange: #FDBE5D (headings in dark mode)
+   ========================================================================== */
+
+:root,
+:root > * {
+  /* PRIMARY COLOR: Used for the Header and Sidebar */
+  --md-primary-fg-color: #162B49;
+  --md-primary-fg-color--light: #2A4670;
+  --md-primary-fg-color--dark: #0D1A2E;
+
+  /* ACCENT COLOR: Used for Buttons, Links, and Toggles */
+  --md-accent-fg-color: #4CC9F0;
+  --md-accent-fg-color--transparent: rgba(76, 201, 240, 0.1);
+}
+
+/* LIGHT MODE: Darker link color for better contrast */
+[data-md-color-scheme="default"] {
+  --md-typeset-a-color: #0077B6;
+}
+
+/* DARK MODE SPECIFICS */
+[data-md-color-scheme="slate"] {
+  /* Background: A very deep blue-grey */
+  --md-default-bg-color: #0d1117;
+
+  /* Code blocks: slightly lighter to stand out */
+  --md-code-bg-color: #161b22;
+
+  /* Brighter link color for dark backgrounds */
+  --md-typeset-a-color: #4CC9F0;
+}
+
+/* Dark mode headings use RP1 Orange */
+[data-md-color-scheme="slate"] h1,
+[data-md-color-scheme="slate"] .md-typeset h1 {
+  color: #FDBE5D;
+}
+
+[data-md-color-scheme="slate"] strong {
+  color: #FDBE5D;
+}
+
+/* Logo sizing */
+.md-header__button.md-logo img {
+  height: 2.5rem;
+  width: auto;
+}
+
+/* Logo color for light/dark modes */
+.md-header__button.md-logo {
+  color: #ffffff;
+}
+
+/* Hero section enhancement */
+.md-typeset h1 {
+  font-weight: 700;
+}
+
+/* Code blocks */
+.md-typeset code {
+  border-radius: 4px;
+}
+
+/* Platform tabs */
+.md-typeset .tabbed-set {
+  margin-bottom: 1.5rem;
+}
+
+/* Remove focus outline from tab content panels */
+.md-typeset .tabbed-content,
+.md-typeset .tabbed-block,
+.md-typeset [role="tabpanel"] {
+  outline: none;
+  border: none;
+}
+
+.md-typeset .tabbed-block:focus,
+.md-typeset .tabbed-content:focus,
+.md-typeset [role="tabpanel"]:focus {
+  outline: none;
+  border: none;
+}
+
+/* CTA buttons */
+.md-typeset .md-button {
+  margin-right: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+/* GitHub button - ensure visibility in both modes */
+.md-typeset .md-button--github {
+  border-color: var(--md-default-fg-color--light);
+  color: var(--md-default-fg-color);
+  background-color: transparent;
+}
+
+.md-typeset .md-button--github:hover {
+  border-color: var(--md-default-fg-color);
+  background-color: var(--md-default-fg-color);
+  color: var(--md-default-bg-color);
+}
+
+[data-md-color-scheme="slate"] .md-typeset .md-button--github {
+  border-color: var(--md-default-fg-color--lighter);
+  color: var(--md-default-fg-color);
+  background-color: transparent;
+}
+
+[data-md-color-scheme="slate"] .md-typeset .md-button--github:hover {
+  border-color: var(--md-default-fg-color);
+  background-color: var(--md-default-fg-color);
+  color: var(--md-default-bg-color);
+}
+
+/* Simple grid layout (Stripe-style) */
+.md-typeset .grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2rem;
+  margin: 1.5rem 0;
+}
+
+/* 3-column grid for command listings */
+.md-typeset .grid.cols-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+@media (max-width: 768px) {
+  .md-typeset .grid,
+  .md-typeset .grid.cols-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Grid items - clean list styling */
+.md-typeset .grid ul {
+  list-style: none;
+  padding-left: 0;
+  margin: 0.5rem 0;
+}
+
+.md-typeset .grid ul li {
+  padding: 0.25rem 0;
+}
+
+/* Grid section headers */
+.md-typeset .grid p strong {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Platform cards - centered layout */
+.md-typeset .platform-card {
+  text-align: center;
+}
+
+.md-typeset .platform-card img {
+  margin-bottom: 0.5rem;
+}
+
+.md-typeset .platform-card p {
+  margin: 0.25rem 0;
+}
+
+/* Grid cards for feature highlights */
+.grid.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+/* Feature cards styling */
+.grid.cards > ul {
+  display: contents;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.grid.cards > ul > li {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  background: var(--md-default-bg-color);
+}
+
+[data-md-color-scheme="slate"] .grid.cards > ul > li {
+  border-color: var(--md-default-fg-color--lighter);
+}
+
+/* Icon styling in cards */
+.grid.cards .lg {
+  font-size: 2rem;
+}
+
+.grid.cards .middle {
+  vertical-align: middle;
+}
+
+/* Mermaid diagram centering */
+.md-typeset .mermaid {
+  text-align: center;
+  margin: 2rem 0;
+}
+
+/* Home page specific styles */
+.md-typeset h1 strong {
+  color: var(--md-accent-fg-color);
+}
+
+/* Blinking cursor (underscore style) */
+.md-typeset h1 .cursor {
+  display: inline-block;
+  width: 0.6em;
+  height: 0.15em;
+  background: var(--md-accent-fg-color);
+  margin-left: 0.1em;
+  vertical-align: baseline;
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* Badge centering */
+.md-typeset div[align="center"] {
+  margin-top: 2rem;
+}
+
+/* Terminal window frame */
+.terminal-window {
+  margin: 2rem auto;
+  max-width: 900px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+}
+
+.terminal-header {
+  background: #2d2d2d;
+  padding: 10px 12px;
+  display: flex;
+  gap: 6px;
+}
+
+.terminal-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.terminal-dot.red { background: #ff5f56; }
+.terminal-dot.yellow { background: #ffbd2e; }
+.terminal-dot.green { background: #27ca40; }
+
+.terminal-window img {
+  display: block;
+  width: 100%;
+}
+
+/* Grid layout for principles and why sections */
+.md-typeset .grid.principles,
+.md-typeset .grid.why {
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .md-typeset .grid.principles,
+  .md-typeset .grid.why {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ==========================================================================
+   Icon-Text Base Style
+   Inline icons matching text height, vertically aligned
+   ========================================================================== */
+
+/* Override the block display for strong in icon sections */
+.md-typeset .grid.why p strong,
+.md-typeset .grid.principles p strong {
+  display: inline !important;
+  font-size: inherit;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.md-typeset .grid.why .twemoji,
+.md-typeset .grid.principles .twemoji {
+  display: inline !important;
+  vertical-align: -0.125em;
+}
+
+.md-typeset .grid.why .twemoji svg,
+.md-typeset .grid.principles .twemoji svg {
+  width: 1em !important;
+  height: 1em !important;
+  vertical-align: -0.125em;
+}
+
+/* ==========================================================================
+   Image Carousel (Splide.js)
+
+   Using splide-core.min.css which requires custom transition styles.
+   The !important declarations override Splide's inline JS styles for fade mode.
+   ========================================================================== */
+
+/* Container */
+.carousel-container {
+  margin: 2rem auto;
+  max-width: 900px;
+}
+
+/* Remove focus outline from Splide elements */
+.carousel-container .splide,
+.carousel-container .splide__track {
+  outline: none !important;
+  border: none !important;
+}
+
+/* Fade transition type (required when using splide-core.min.css) */
+.splide--fade > .splide__track > .splide__list {
+  display: block !important;
+}
+
+.splide--fade > .splide__track > .splide__list > .splide__slide {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100% !important;
+  transform: none !important;
+  opacity: 0;
+  z-index: 0;
+  transition: opacity 400ms;
+}
+
+.splide--fade > .splide__track > .splide__list > .splide__slide.is-active {
+  position: relative !important;
+  opacity: 1;
+  z-index: 1;
+}
+
+/* Terminal window inside carousel */
+.carousel-container .terminal-window {
+  margin: 0;
+}
+
+/* Images scale to container width */
+.carousel-container .terminal-window img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Captions below terminal window */
+.carousel-caption {
+  text-align: center;
+  padding: 0.75rem 1rem;
+  font-size: 0.9rem;
+  color: var(--md-default-fg-color--light);
+}
+
+[data-md-color-scheme="slate"] .carousel-caption {
+  color: var(--md-default-fg-color--lighter);
+}
+
+/* Pagination dots - rp1 brand colors */
+.carousel-container .splide__pagination {
+  position: absolute;
+  bottom: -2rem;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.carousel-container .splide__pagination__page {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--md-default-fg-color--lighter);
+  opacity: 0.5;
+  cursor: pointer;
+}
+
+.carousel-container .splide__pagination__page.is-active {
+  background: var(--md-accent-fg-color);
+  opacity: 1;
+}
+
+/* Dark mode */
+[data-md-color-scheme="slate"] .carousel-container .splide__pagination__page {
+  background: var(--md-default-fg-color--light);
+}
+
+[data-md-color-scheme="slate"] .carousel-container .splide__pagination__page.is-active {
+  background: var(--md-accent-fg-color);
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .carousel-container {
+    margin: 1rem auto;
+  }
+
+  .carousel-container .splide__pagination__page {
+    width: 12px;
+    height: 12px;
+  }
+}
