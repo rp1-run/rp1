@@ -48,19 +48,29 @@ Choose your platform and follow the installation steps:
 
 === "OpenCode"
 
-    **Step 1: Install uv (if not already installed)**
+    **Step 1: Install Bun (if not already installed)**
 
     ```bash
-    curl -LsSf https://astral.sh/uv/install.sh | sh
+    curl -fsSL https://bun.sh/install | bash
     ```
 
-    **Step 2: Run the installer**
+    **Step 2: Install rp1 CLI**
 
     ```bash
-    curl -fsSL https://raw.githubusercontent.com/rp1-run/rp1/main/scripts/install-for-opencode.sh | bash
+    bun install -g @rp1-run/rp1
     ```
 
-    **Step 3: Verify installation**
+    **Step 3: Install to OpenCode**
+
+    ```bash
+    rp1 install:opencode
+    ```
+
+    **Step 4: Restart OpenCode**
+
+    Close and reopen OpenCode to load the new plugins.
+
+    **Step 5: Verify installation**
 
     ```bash
     /help

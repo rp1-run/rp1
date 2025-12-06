@@ -1,0 +1,61 @@
+{
+  "name": "@rp1-run/rp1",
+  "version": "4.4.3",
+  "description": "AI-assisted development workflows CLI",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rp1-run/rp1.git",
+    "directory": "cli"
+  },
+  "homepage": "https://rp1.run",
+  "bugs": {
+    "url": "https://github.com/rp1-run/rp1/issues"
+  },
+  "keywords": [
+    "ai",
+    "cli",
+    "development",
+    "workflows",
+    "claude",
+    "opencode",
+    "automation"
+  ],
+  "type": "module",
+  "bin": {
+    "rp1": "./dist/main.js"
+  },
+  "files": [
+    "dist",
+    "shared",
+    "web-ui/dist",
+    "web-ui/src",
+    "web-ui/package.json"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build": "bun build src/main.ts --outdir dist --target node",
+    "build:web-ui": "cd web-ui && bun run build",
+    "build:all": "bun run build && bun run build:web-ui",
+    "dev": "bun run src/main.ts",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "bun run build:all"
+  },
+  "dependencies": {
+    "@inquirer/prompts": "^8.0.2",
+    "commander": "^14.0.2",
+    "consola": "^3.4.2",
+    "fp-ts": "^2.16.9",
+    "yaml": "^2.3.4"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.1.14",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.2"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
