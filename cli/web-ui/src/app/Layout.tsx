@@ -11,7 +11,7 @@ import { FileTree } from "@/components/FileTree";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useFileTree } from "@/hooks/useFileTree";
 import { useWebSocket } from "@/providers/WebSocketProvider";
-import { PanelLeftClose, PanelLeft, Wifi, WifiOff } from "lucide-react";
+import { PanelLeftClose, PanelLeft } from "lucide-react";
 import type { ImperativePanelHandle } from "react-resizable-panels";
 
 const SIDEBAR_COLLAPSED_KEY = "rp1-ui-sidebar-collapsed";
@@ -191,21 +191,14 @@ function Header({ onToggleSidebar, sidebarCollapsed, wsStatus }: HeaderProps) {
             <PanelLeftClose className="h-4 w-4" />
           )}
         </Button>
-        <span className="text-lg font-medium">rp1</span>
-        <span className="text-terminal-green animate-blink" aria-hidden="true">_</span>
-      </div>
-      <div className="flex items-center gap-2">
-        <div
-          className="flex items-center gap-1.5 text-xs text-muted-foreground"
+        <span
           title={wsStatus === "connected" ? "Live updates active" : "Reconnecting..."}
           aria-label={`Connection status: ${wsStatus}`}
-        >
-          {wsStatus === "connected" ? (
-            <Wifi className="h-3.5 w-3.5 text-terminal-green" />
-          ) : (
-            <WifiOff className="h-3.5 w-3.5 text-muted-foreground animate-pulse" />
-          )}
-        </div>
+        ><span className="text-terminal-mauve">&gt; </span><span className="text-lg font-medium">rp1</span><span
+            className={`animate-blink ${wsStatus === "connected" ? "text-terminal-green" : "text-terminal-red"}`}
+          >_</span></span>
+      </div>
+      <div className="flex items-center gap-2">
         <ThemeToggle />
       </div>
     </header>

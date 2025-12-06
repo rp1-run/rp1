@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <style>
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      50.01%, 100% { opacity: 0; }
+    }
+    #cursor {
+      animation: blink 1s step-end infinite;
+    }
+    @media (prefers-color-scheme: light) {
+      .chevron { fill: #8839ef; }
+      .cursor { fill: #40a02b; }
+    }
+    @media (prefers-color-scheme: dark) {
+      .chevron { fill: #cba6f7; }
+      .cursor { fill: #a6e3a1; }
+    }
+  </style>
+  <text
+    x="2"
+    y="24"
+    font-family="monospace"
+    font-size="20"
+    font-weight="bold"
+  ><tspan class="chevron" fill="#cba6f7">&gt;</tspan><tspan id="cursor" class="cursor" fill="#a6e3a1">_</tspan></text>
+</svg>

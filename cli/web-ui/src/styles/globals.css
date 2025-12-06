@@ -49,9 +49,11 @@
     --ring: 240 5.9% 10%;
     --radius: 0.5rem;
 
-    /* Terminal aesthetic */
-    --terminal-green: 142 76% 36%;
-    --terminal-cursor: 142 76% 36%;
+    /* Terminal aesthetic - Catppuccin Latte */
+    --terminal-green: 115 54% 40%;  /* #40a02b */
+    --terminal-cursor: 115 54% 40%;
+    --terminal-mauve: 266 85% 58%;  /* #8839ef */
+    --terminal-red: 347 87% 44%;    /* #d20f39 */
   }
 
   .dark {
@@ -75,9 +77,11 @@
     --input: 240 3.7% 15.9%;
     --ring: 240 4.9% 83.9%;
 
-    /* Terminal aesthetic */
-    --terminal-green: 142 76% 46%;
-    --terminal-cursor: 142 76% 46%;
+    /* Terminal aesthetic - Catppuccin Mocha */
+    --terminal-green: 115 54% 76%;  /* #a6e3a1 */
+    --terminal-cursor: 115 54% 76%;
+    --terminal-mauve: 267 84% 81%;  /* #cba6f7 */
+    --terminal-red: 343 81% 75%;    /* #f38ba8 */
   }
 }
 
@@ -157,6 +161,14 @@
 
   .bg-terminal-green {
     background-color: hsl(var(--terminal-green));
+  }
+
+  .text-terminal-mauve {
+    color: hsl(var(--terminal-mauve));
+  }
+
+  .text-terminal-red {
+    color: hsl(var(--terminal-red));
   }
 
   @keyframes blink {
