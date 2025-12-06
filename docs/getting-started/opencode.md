@@ -8,7 +8,6 @@ Detailed guide for installing and configuring rp1 on OpenCode.
 
 !!! info "System Requirements"
     - **OpenCode** installed and working ([GitHub](https://github.com/opencode-ai/opencode))
-    - **curl** and **tar** (standard on macOS/Linux)
     - **macOS or Linux** (Windows via WSL)
     - **A codebase** you want to enhance with rp1 workflows
 
@@ -16,34 +15,32 @@ Detailed guide for installing and configuring rp1 on OpenCode.
 
 ## Installation
 
-### Step 1: Run the rp1 installer
-
-The installer automatically downloads and configures both rp1 plugins:
+### Step 1: Install Bun (if not already installed)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/rp1-run/rp1/main/scripts/install-for-opencode.sh | bash
+curl -fsSL https://bun.sh/install | bash
 ```
 
-**What the installer does:**
+### Step 2: Install rp1 CLI
 
-1. Downloads the latest rp1 plugin tarball from GitHub Releases
-2. Extracts them to `~/.opencode/prompts/`
+```bash
+bun install -g @rp1-run/rp1
+```
+
+### Step 3: Install to OpenCode
+
+```bash
+rp1 install:opencode
+```
+
+**What this does:**
+
+1. Downloads the latest rp1 plugins from npm
+2. Installs them to `~/.opencode/prompts/`
 3. Configures both `rp1-base` and `rp1-dev` plugins
 4. Verifies the installation
 
-**Expected output:**
-```
-🔍 Fetching latest rp1 release...
-📦 Found version: X.Y.Z
-⬇️  Downloading artifacts...
-📂 Installing to: ~/.opencode/prompts
-   Installing rp1-base...
-   Installing rp1-dev...
-
-✅ Installation complete!
-```
-
-### Step 2: Restart OpenCode
+### Step 4: Restart OpenCode
 
 Close and reopen OpenCode to load the new plugins.
 
@@ -132,10 +129,11 @@ READY [monorepo: N projects]
 
 ### Updating Plugins
 
-To update to the latest version, re-run the installer:
+To update to the latest version:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/rp1-run/rp1/main/scripts/install-for-opencode.sh | bash
+bun update -g @rp1-run/rp1
+rp1 install:opencode
 ```
 
 ### Uninstalling
@@ -151,13 +149,13 @@ rm -rf ~/.opencode/plugins/rp1-dev
 
 ## Troubleshooting
 
-??? question "Installation script fails?"
+??? question "Installation fails?"
 
     **Solution**: Check the error message. Common issues:
 
+    - **Bun not found**: Make sure Bun is installed and in your PATH. Try restarting your terminal after installing Bun.
     - **Network error**: Check your internet connection
-    - **Permission denied**: Don't run with `sudo`; the script installs to your home directory
-    - **curl/tar not found**: Install curl and tar (`apt install curl tar` on Ubuntu, `brew install curl` on macOS)
+    - **Permission denied**: Don't run with `sudo`; the CLI installs to your home directory
 
     Try the manual installation method as an alternative.
 

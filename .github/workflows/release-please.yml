@@ -79,3 +79,74 @@ jobs:
             release-artifacts/rp1-opencode-*.tar.gz \
             release-artifacts/manifest.json \
             --clobber
+
+  npm-publish:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        working-directory: cli
+        run: bun install
+
+      - name: Build CLI and web-ui
+        working-directory: cli
+        run: bun run build:all
+
+      - name: Verify build artifacts
+        working-directory: cli
+        run: |
+          # Verify main CLI binary exists
+          if [ ! -f dist/main.js ]; then
+            echo "Error: dist/main.js not found"
+            exit 1
+          fi
+
+          # Verify web-ui build exists
+          if [ ! -d web-ui/dist ]; then
+            echo "Error: web-ui/dist not found"
+            exit 1
+          fi
+
+          # Verify shared directory exists
+          if [ ! -d shared ]; then
+            echo "Error: shared/ not found"
+            exit 1
+          fi
+
+          echo "All build artifacts verified"
+
+      - name: Verify version match
+        working-directory: cli
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION="${{ needs.release-please.outputs.version }}"
+
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "Error: package.json version ($PKG_VERSION) does not match tag version ($TAG_VERSION)"
+            exit 1
+          fi
+
+          echo "Version verified: $PKG_VERSION"
+
+      - name: Publish to npm
+        working-directory: cli
+        run: npm publish --access public --provenance

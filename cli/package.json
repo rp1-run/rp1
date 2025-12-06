@@ -2,6 +2,25 @@
   "name": "@rp1-run/rp1",
   "version": "4.4.3",
   "description": "AI-assisted development workflows CLI",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rp1-run/rp1.git",
+    "directory": "cli"
+  },
+  "homepage": "https://rp1.run",
+  "bugs": {
+    "url": "https://github.com/rp1-run/rp1/issues"
+  },
+  "keywords": [
+    "ai",
+    "cli",
+    "development",
+    "workflows",
+    "claude",
+    "opencode",
+    "automation"
+  ],
   "type": "module",
   "bin": {
     "rp1": "./dist/main.js"
@@ -35,5 +54,8 @@
     "@types/bun": "^1.1.14",
     "@types/node": "^22.0.0",
     "typescript": "^5.7.2"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
