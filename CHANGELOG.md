@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.0.1](https://github.com/rp1-run/rp1/compare/v5.0.0...v5.0.1) (2025-12-06)
+
+
+### Documentation
+
+* use bunx commands ([#69](https://github.com/rp1-run/rp1/issues/69)) ([d21004b](https://github.com/rp1-run/rp1/commit/d21004bfdd179013149c1a5dce0d9b5884350934))
+
 ## [5.0.0](https://github.com/rp1-run/rp1/compare/v4.4.5...v5.0.0) (2025-12-06)
 
 
