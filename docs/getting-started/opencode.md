@@ -7,29 +7,36 @@ Detailed guide for installing and configuring rp1 on OpenCode.
 ## Prerequisites
 
 !!! info "System Requirements"
+    - **[Bun](https://bun.sh)** runtime installed - `curl -fsSL https://bun.sh/install | bash`
     - **OpenCode** installed and working ([GitHub](https://github.com/opencode-ai/opencode))
     - **macOS or Linux** (Windows via WSL)
     - **A codebase** you want to enhance with rp1 workflows
+
+!!! warning "Bun Required"
+    The rp1 CLI requires Bun runtime. Node.js is not supported due to Bun-specific APIs used in the web UI server.
 
 ---
 
 ## Installation
 
-### Step 1: Install rp1 CLI globally (recommended)
+### Step 1: Install rp1 CLI globally
 
 ```bash
 bun install -g @rp1-run/rp1
-rp1 install:opencode
 ```
 
-Or run without installing:
+!!! tip "Add Bun to PATH"
+    If you see `warn: To run "rp1", add the global bin folder to $PATH`, add this to your `~/.zshrc` or `~/.bashrc`:
+
+    ```bash
+    export PATH="$HOME/.bun/bin:$PATH"
+    ```
+
+    Then restart your terminal or run `source ~/.zshrc`.
 
 ```bash
-bunx @rp1-run/rp1@latest install:opencode
+rp1 install:opencode
 ```
-
-!!! tip "Using npm instead"
-    If you prefer npm, use `npx @rp1-run/rp1@latest install:opencode`
 
 **What this does:**
 
@@ -138,12 +145,8 @@ Auto-detects AGENTS.md or CLAUDE.md and adds KB loading patterns. Running again 
 To update to the latest version:
 
 ```bash
-# If installed globally
 bun update -g @rp1-run/rp1
 rp1 install:opencode
-
-# Or run directly without updating global install
-bunx @rp1-run/rp1@latest install:opencode
 ```
 
 ### Uninstalling
@@ -163,7 +166,7 @@ rm -rf ~/.opencode/plugins/rp1-dev
 
     **Solution**: Check the error message. Common issues:
 
-    - **bunx/npx not found**: Make sure Bun or Node.js is installed and in your PATH
+    - **bun not found**: Install Bun with `curl -fsSL https://bun.sh/install | bash`
     - **Network error**: Check your internet connection
     - **Permission denied**: Don't run with `sudo`; the CLI installs to your home directory
 

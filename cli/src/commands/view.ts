@@ -194,7 +194,7 @@ const execute = (
 };
 
 export const viewCommand = new Command("view")
-  .description("Launch the web-based documentation viewer")
+  .description("Launch the web-based documentation viewer (requires Bun)")
   .argument("[path]", "Path to project directory", process.cwd())
   .option("-p, --port <port>", "Port to run server on", "7710")
   .option("--no-open", "Start server without opening browser")
@@ -207,8 +207,21 @@ Examples:
 
 Environment:
   RP1_ROOT                      Set default project path
+
+Note: This command requires Bun runtime. Install from https://bun.sh
 `)
   .action(async (path, options, command) => {
+    // Check for Bun runtime early - the web-ui server requires Bun APIs
+    if (!isBun()) {
+      console.error("\x1b[31mError: The 'view' command requires Bun runtime.\x1b[0m");
+      console.error("\nThe web UI server uses Bun-specific APIs that are not available in Node.js.");
+      console.error("\nTo fix this:");
+      console.error("  1. Install Bun: curl -fsSL https://bun.sh/install | bash");
+      console.error("  2. Run with Bun: bun rp1 view");
+      console.error("\nOther rp1 commands work with Node.js.");
+      process.exit(1);
+    }
+
     const logger = command.parent?._logger;
     if (!logger) {
       console.error("Logger not initialized");

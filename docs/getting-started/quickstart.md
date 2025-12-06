@@ -11,6 +11,7 @@ Before installing rp1, ensure you have:
 - **An AI coding assistant** installed:
     - [Claude Code](https://claude.ai/code) - Anthropic's official CLI for Claude
     - [OpenCode](https://github.com/opencode-ai/opencode) - Vendor-independent alternative
+- **[Bun](https://bun.sh)** runtime (for OpenCode/CLI) - `curl -fsSL https://bun.sh/install | bash`
 - **A codebase** you want to enhance with rp1 workflows
 
 ---
@@ -44,27 +45,29 @@ Choose your platform and follow the installation steps:
 
 === "OpenCode"
 
-    **Step 1: Install rp1 CLI globally (recommended)**
+    **Step 1: Install rp1 CLI globally**
 
     ```bash
     bun install -g @rp1-run/rp1
+    ```
+
+    !!! tip "Add Bun to PATH if needed"
+        If you see a PATH warning, add to `~/.zshrc` or `~/.bashrc`:
+        ```bash
+        export PATH="$HOME/.bun/bin:$PATH"
+        ```
+
+    **Step 2: Install plugins**
+
+    ```bash
     rp1 install:opencode
     ```
 
-    Or run without installing:
-
-    ```bash
-    bunx @rp1-run/rp1@latest install:opencode
-    ```
-
-    !!! tip "Using npm instead"
-        If you prefer npm, use `npx @rp1-run/rp1@latest install:opencode`
-
-    **Step 2: Restart OpenCode**
+    **Step 3: Restart OpenCode**
 
     Close and reopen OpenCode to load the new plugins.
 
-    **Step 3: Verify installation**
+    **Step 4: Verify installation**
 
     Type `/` to see available commands. You should see rp1 commands listed (look for `/rp1-base/` and `/rp1-dev/`).
 

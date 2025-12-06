@@ -40,23 +40,17 @@
 
 ### OpenCode / CLI
 
+> **Requires [Bun](https://bun.sh)** - Install with `curl -fsSL https://bun.sh/install | bash`
+
 ```bash
-# Install globally with Bun (recommended)
+# Install globally
 bun install -g @rp1-run/rp1
+
+# Ensure Bun's bin is in your PATH (add to ~/.zshrc or ~/.bashrc)
+export PATH="$HOME/.bun/bin:$PATH"
+
 rp1 install:opencode
-
-# Or run without installing
-bunx @rp1-run/rp1@latest install:opencode
 ```
-
-<details>
-<summary>Using npm instead</summary>
-
-```bash
-npx @rp1-run/rp1@latest install:opencode
-```
-
-</details>
 
 ### First Run
 

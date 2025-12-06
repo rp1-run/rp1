@@ -28,7 +28,6 @@
   "files": [
     "dist",
     "shared",
-    "scripts",
     "web-ui/dist",
     "web-ui/src",
     "web-ui/package.json"
@@ -37,7 +36,6 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "postinstall": "node scripts/postinstall.js",
     "build": "bun build src/main.ts --outdir dist --target node",
     "build:web-ui": "cd web-ui && bun run build",
     "build:opencode": "bun run src/main.ts build:opencode",
