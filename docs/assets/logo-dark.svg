@@ -21,12 +21,11 @@
   <text
     x="16"
     y="50%"
-    font-family="JetBrains Mono"
+    font-family="JetBrains Mono, monospace"
     font-size="32"
     letter-spacing="2"
-    fill="#111827"
     dominant-baseline="middle"
   >
-    &gt; rp1<tspan id="cursor">_</tspan>
+    <tspan fill="#8839ef">&gt; </tspan><tspan fill="#4c4f69">rp1</tspan><tspan id="cursor" fill="#40a02b">_</tspan>
   </text>
 </svg>

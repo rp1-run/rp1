@@ -44,6 +44,30 @@
 curl -fsSL https://raw.githubusercontent.com/rp1-run/rp1/main/scripts/install-for-opencode.sh | bash
 ```
 
+### CLI (Bun recommended)
+
+```bash
+# Install Bun (if not already installed)
+curl -fsSL https://bun.sh/install | bash
+
+# Install rp1 CLI globally
+bun install -g @rp1-run/rp1
+
+# Or run without installing
+bunx @rp1-run/rp1 --help
+```
+
+<details>
+<summary>Using npm instead</summary>
+
+```bash
+npm install -g @rp1-run/rp1
+# or run without installing
+npx @rp1-run/rp1 --help
+```
+
+</details>
+
 ### First Run
 
 ```bash

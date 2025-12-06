@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "🧹 Cleaning uv cache..."
-uv cache clean
+echo "🔨 Building CLI and artifacts..."
+cd "$(dirname "$0")/../cli"
+bun install --quiet
+bun run build
 
-echo "🔨 Building fresh wheel..."
-cd tools/install
-uv build --quiet
-cd ../..
+echo "📦 Building OpenCode artifacts..."
+bun run dev build:opencode
 
-echo "📦 Installing from local wheel..."
-uvx --from ./tools/install rp1-opencode install
+echo "📦 Installing to OpenCode..."
+bun run dev install:opencode
+
+echo "✅ Installation complete!"
