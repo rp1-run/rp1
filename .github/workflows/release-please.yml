@@ -5,6 +5,12 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      manual_publish:
+        description: 'Manually trigger npm publish for current version'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -13,6 +19,8 @@ permissions:
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    # Skip if this is a manual publish request
+    if: ${{ !inputs.manual_publish }}
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
@@ -22,7 +30,6 @@ jobs:
         id: release
         uses: googleapis/release-please-action@v4
         with:
-          # Use PAT to allow release PR merges to trigger workflows
           token: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
@@ -116,24 +123,18 @@ jobs:
       - name: Verify build artifacts
         working-directory: cli
         run: |
-          # Verify main CLI binary exists
           if [ ! -f dist/main.js ]; then
             echo "Error: dist/main.js not found"
             exit 1
           fi
-
-          # Verify web-ui build exists
           if [ ! -d web-ui/dist ]; then
             echo "Error: web-ui/dist not found"
             exit 1
           fi
-
-          # Verify shared directory exists
           if [ ! -d shared ]; then
             echo "Error: shared/ not found"
             exit 1
           fi
-
           echo "All build artifacts verified"
 
       - name: Verify version match
@@ -148,6 +149,68 @@ jobs:
           fi
 
           echo "Version verified: $PKG_VERSION"
+
+      - name: Publish to npm
+        working-directory: cli
+        run: npm publish --access public --provenance
+
+  # Manual npm publish job - triggered via workflow_dispatch with manual_publish=true
+  manual-npm-publish:
+    if: ${{ inputs.manual_publish == true }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        working-directory: cli
+        run: |
+          bun install
+          cd web-ui && bun install
+
+      - name: Build CLI and web-ui
+        working-directory: cli
+        run: bun run build:all
+
+      - name: Verify build artifacts
+        working-directory: cli
+        run: |
+          if [ ! -f dist/main.js ]; then
+            echo "Error: dist/main.js not found"
+            exit 1
+          fi
+          if [ ! -d web-ui/dist ]; then
+            echo "Error: web-ui/dist not found"
+            exit 1
+          fi
+          if [ ! -d shared ]; then
+            echo "Error: shared/ not found"
+            exit 1
+          fi
+          echo "All build artifacts verified"
+
+      - name: Get version from package.json
+        id: version
+        working-directory: cli
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Publishing version: $VERSION"
 
       - name: Publish to npm
         working-directory: cli
