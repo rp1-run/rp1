@@ -51,7 +51,7 @@ program.hook("preAction", (thisCommand) => {
   thisCommand._isTTY = isTTY;
 });
 
-program.addCommand(viewCommand);
+program.addCommand(viewCommand, { hidden: true });
 program.addCommand(buildCommand);
 program.addCommand(installCommand);
 program.addCommand(verifyCommand);
