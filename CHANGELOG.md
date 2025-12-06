@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.3.0](https://github.com/rp1-run/rp1/compare/v5.2.0...v5.3.0) (2025-12-06)
+
+
+### Features
+
+* **cli:** use bun when available ([#84](https://github.com/rp1-run/rp1/issues/84)) ([3a43940](https://github.com/rp1-run/rp1/commit/3a43940ed23a89a1920ad4a77da36baf278d5dbb))
+
 ## [5.2.0](https://github.com/rp1-run/rp1/compare/v5.1.1...v5.2.0) (2025-12-06)
 
 
