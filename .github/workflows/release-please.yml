@@ -107,8 +107,19 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           registry-url: 'https://registry.npmjs.org'
+
+      - name: Verify npm version
+        run: |
+          echo "Node version: $(node -v)"
+          echo "npm version: $(npm -v)"
+          # OIDC trusted publishing requires npm >= 11.5.1
+          NPM_VERSION=$(npm -v | cut -d. -f1)
+          if [ "$NPM_VERSION" -lt 11 ]; then
+            echo "Error: npm version must be >= 11.5.1 for OIDC trusted publishing"
+            exit 1
+          fi
 
       - name: Install dependencies
         working-directory: cli
@@ -174,8 +185,19 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           registry-url: 'https://registry.npmjs.org'
+
+      - name: Verify npm version
+        run: |
+          echo "Node version: $(node -v)"
+          echo "npm version: $(npm -v)"
+          # OIDC trusted publishing requires npm >= 11.5.1
+          NPM_VERSION=$(npm -v | cut -d. -f1)
+          if [ "$NPM_VERSION" -lt 11 ]; then
+            echo "Error: npm version must be >= 11.5.1 for OIDC trusted publishing"
+            exit 1
+          fi
 
       - name: Install dependencies
         working-directory: cli
