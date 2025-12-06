@@ -53,7 +53,15 @@ Follow this systematic approach to conduct comprehensive security validation:
 
 ### Phase 1: Knowledge Loading and Context Setup
 
-1. **Load Codebase Knowledge**: Read all markdown files from `{RP1_ROOT}/context/*.md` (index.md, concept_map.md, architecture.md, modules.md) to understand the repository structure, architecture patterns, component relationships, and attack surfaces. If the `{RP1_ROOT}/context/` directory doesn't exist, warn the user to run `/rp1-base:knowledge-build` first.
+1. **Load Codebase Knowledge**: Read all markdown files from `{RP1_ROOT}/context/`:
+   - `{RP1_ROOT}/context/index.md` - Project overview and structure
+   - `{RP1_ROOT}/context/architecture.md` - System design and layers
+   - `{RP1_ROOT}/context/modules.md` - Component breakdown
+   - `{RP1_ROOT}/context/concept_map.md` - Domain terminology
+   - `{RP1_ROOT}/context/patterns.md` - Code conventions
+   - `{RP1_ROOT}/context/dependencies.md` - External dependencies (if exists)
+
+   If the `{RP1_ROOT}/context/` directory doesn't exist, warn the user to run `/knowledge-build` first.
 2. **Load Security Context**: Analyze requirements, design documents, and security specifications for the feature
 3. **Detect Security Tools**: Identify available security scanning tools based on the technology stack
 
