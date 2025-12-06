@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.1.0](https://github.com/rp1-run/rp1/compare/v5.0.2...v5.1.0) (2025-12-06)
+
+
+### Features
+
+* **prompts:** enhance kb load ([#78](https://github.com/rp1-run/rp1/issues/78)) ([fada076](https://github.com/rp1-run/rp1/commit/fada0765b5a855fab569e6902b8f4176700ad10d))
+
 ## [5.0.2](https://github.com/rp1-run/rp1/compare/v5.0.1...v5.0.2) (2025-12-06)
 
 
