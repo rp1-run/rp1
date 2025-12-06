@@ -1,5 +1,15 @@
 # Changelog
 
+## [5.0.2](https://github.com/rp1-run/rp1/compare/v5.0.1...v5.0.2) (2025-12-06)
+
+
+### Bug Fixes
+
+* **ci:** add id-token permission for npm OIDC publish [skip ci] ([5bcf65a](https://github.com/rp1-run/rp1/commit/5bcf65a8fa2bf99d2edca167d9456974360c58e4))
+* **ci:** install npm@latest for OIDC trusted publishing [skip ci] ([eb9628d](https://github.com/rp1-run/rp1/commit/eb9628de2919271e6c7fefaf93ff4d03a211705b))
+* **ci:** simplify releases ([#75](https://github.com/rp1-run/rp1/issues/75)) ([bb358c8](https://github.com/rp1-run/rp1/commit/bb358c83f26f61066b977e458848f7561450e793))
+* **ci:** use Node 22 for npm OIDC trusted publishing [skip ci] ([03e0b28](https://github.com/rp1-run/rp1/commit/03e0b28f69701fa2a8b26b45a30d421a6dd11ab0))
+
 ## [5.0.1](https://github.com/rp1-run/rp1/compare/v5.0.0...v5.0.1) (2025-12-06)
 
 
