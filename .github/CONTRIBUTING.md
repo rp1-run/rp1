@@ -52,16 +52,17 @@ git commit -m "feat!: redesign command-agent architecture"
 
 ## Release Process
 
-Releases use a unified tag-based workflow:
+Releases are fully automated via **release-please**:
 
 1. Merge your PR to `main` with conventional commit messages
-2. When ready to release, a maintainer runs `./scripts/release.sh`
-3. The script creates a `v*` tag based on conventional commits
-4. GitHub Actions automatically:
-   - Builds OpenCode artifacts
-   - Creates GitHub Release
-   - Opens a PR to sync version files
-5. Approve/merge the version bump PR
+2. release-please automatically creates/updates a Release PR with changelog
+3. When the Release PR is merged, GitHub Actions automatically:
+   - Creates GitHub Release with version tag
+   - Builds and attaches OpenCode tarball artifacts
+   - Publishes to npm with OIDC provenance
+   - Updates version files (`plugin.json`, `package.json`, README badges)
+
+No manual tagging or scripts required - just write good commit messages!
 
 ## Development Workflow
 

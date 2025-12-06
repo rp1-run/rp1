@@ -14,9 +14,20 @@ on:
       - 'docs/**'
       - 'mkdocs.yml'
 
+concurrency:
+  group: lighthouse-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  statuses: write
+
 jobs:
   lighthouse:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,13 +35,13 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Install Lighthouse CI
         run: npm install -g @lhci/cli
 
       - name: Wait for Cloudflare Pages deploy
-        uses: WalshyDev/cf-pages-await@v1
+        uses: WalshyDev/cf-pages-await@3abae9f62a7672a1701300702ce42908e16cb88a  # v1
         id: cf-pages
         with:
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
