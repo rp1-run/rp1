@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.1.1](https://github.com/rp1-run/rp1/compare/v5.1.0...v5.1.1) (2025-12-06)
+
+
+### Bug Fixes
+
+* **cli:** bundle OpenCode artifacts with npm package ([#80](https://github.com/rp1-run/rp1/issues/80)) ([8a90205](https://github.com/rp1-run/rp1/commit/8a90205c79d24ccd5e5d2f8f8aaea5f69d2fbf1d))
+
 ## [5.1.0](https://github.com/rp1-run/rp1/compare/v5.0.2...v5.1.0) (2025-12-06)
 
 
