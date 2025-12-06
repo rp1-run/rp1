@@ -96,6 +96,18 @@ READY [monorepo: N projects]
 
 ---
 
+## Inject rp1 Knowledge (Optional)
+
+If you have the rp1 CLI installed, you can inject rp1 context directly into your project's CLAUDE.md or AGENTS.md:
+
+```bash
+rp1 init
+```
+
+Auto-detects CLAUDE.md or AGENTS.md and adds KB loading patterns. Running again updates existing content.
+
+---
+
 ## Configuration
 
 ### Plugin Updates
