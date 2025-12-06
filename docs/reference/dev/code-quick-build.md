@@ -69,11 +69,31 @@ The `code-quick-build` command handles development requests that don't warrant t
 
 ## Workflow
 
-1. Analyzes the request scope
-2. Creates a brief implementation plan
-3. Implements the changes
-4. Runs code checks
-5. Reports completion
+1. **Prepares workspace** - Generates a unique task ID for documentation
+2. **Loads KB context** - Progressively loads knowledge base based on request type
+3. **Analyzes the request scope** - Determines if small, medium, or large
+4. **Creates implementation plan** - Outlines steps and risks
+5. **Implements the changes** - Executes the plan
+6. **Generates documentation** - Writes summary to `.rp1/work/quick-builds/{task-id}/summary.md`
+
+## Output
+
+After completing a task, the command generates a summary document at:
+
+```
+.rp1/work/quick-builds/{YYYYMMDD-HHMMSS-slug}/summary.md
+```
+
+This provides:
+
+- Original request documentation
+- Files modified with change descriptions
+- Key implementation details
+- Verification steps performed
+- Notes and follow-up considerations
+
+!!! note "Knowledge Base Loading"
+    This command uses progressive KB loading to understand codebase patterns before making changes. It loads `index.md` first, then selectively loads additional KB files based on the request type (e.g., `patterns.md` for bug fixes, `architecture.md` for feature additions).
 
 !!! tip "When to Use Full Workflow"
     If the command determines the request requires significant architectural changes or spans multiple components, it will recommend using the full feature workflow instead.
