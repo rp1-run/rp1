@@ -58,7 +58,7 @@ jobs:
           cd cli
           bun install
           bun run build
-          bun run dev build:opencode --target-install-tool
+          bun run dev build:opencode
 
       - name: Create release tarball
         run: |
@@ -105,7 +105,9 @@ jobs:
 
       - name: Install dependencies
         working-directory: cli
-        run: bun install
+        run: |
+          bun install
+          cd web-ui && bun install
 
       - name: Build CLI and web-ui
         working-directory: cli
