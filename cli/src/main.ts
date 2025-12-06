@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 import { Command } from "commander";
 import { detectRuntime } from "../shared/runtime.js";
 import { createLogger, LogLevel, type Logger } from "../shared/logger.js";
