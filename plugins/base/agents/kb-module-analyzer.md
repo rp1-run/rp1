@@ -150,7 +150,7 @@ Analyze individual components within modules:
       "Spawn 4 parallel analysis agents",
       "Merge results into KB files"
     ],
-    "dependencies": ["kb-spatial-analyzer", "kb-index-builder", "kb-concept-extractor", "kb-architecture-mapper", "kb-module-analyzer"]
+    "dependencies": ["kb-spatial-analyzer", "kb-concept-extractor", "kb-architecture-mapper", "kb-module-analyzer", "kb-pattern-extractor"]
   }
 ]
 ```

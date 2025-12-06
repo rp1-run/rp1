@@ -67,6 +67,17 @@ The hypotheses.md file follows this structure:
 (Tester appends findings here)
 ```
 
+## 1. Load Knowledge Base
+
+Read `{RP1_ROOT}/context/index.md` to understand project structure.
+
+**Selective Loading**: For hypothesis validation, also read:
+- `{RP1_ROOT}/context/architecture.md` for system design validation
+
+Do NOT load all KB files. Hypothesis testing needs architecture context.
+
+If `{RP1_ROOT}/context/` doesn't exist, continue without KB context.
+
 ## Validation Planning Requirements
 
 Before executing validation, work through detailed planning in <validation_planning> tags inside your thinking block:

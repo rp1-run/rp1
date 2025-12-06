@@ -38,6 +38,14 @@ $3
 $4
 </test_command>
 
+## 1. Load Knowledge Base
+
+Read `{RP1_ROOT}/context/index.md` to understand project structure.
+
+Do NOT load additional KB files. Comment cleaning needs minimal context.
+
+If `{RP1_ROOT}/context/` doesn't exist, continue without KB context.
+
 ## Comment Classification Rules
 
 ### PRESERVE These Comments (Never Remove)

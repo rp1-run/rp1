@@ -35,11 +35,17 @@ $3
 
 ## 1. Load Knowledge Base
 
-Read all markdown files from `{RP1_ROOT}/context/*.md` (index.md, concept_map.md, architecture.md, modules.md) to load KB context.
+Read `{RP1_ROOT}/context/index.md` to understand project structure and available KB files.
+
+**Selective Loading**: For code review, load:
+- `{RP1_ROOT}/context/patterns.md` - Required for pattern consistency checks
+- `{RP1_ROOT}/context/architecture.md` - Only if reviewing cross-component changes
+
+Do NOT load all KB files. Code review needs patterns context, not full project documentation.
 
 **CRITICAL**: After KB is loaded, CONTINUE with analysis. Do NOT stop here.
 
-If `{RP1_ROOT}/context/` directory doesn't exist, continue with degraded context (log warning in output, suggest running `/rp1-base:knowledge-build` first).
+If `{RP1_ROOT}/context/` directory doesn't exist, continue with degraded context (log warning in output, suggest running `/knowledge-build` first).
 
 ## 2. Extract Unit Content
 

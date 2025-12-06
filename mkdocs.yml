@@ -82,6 +82,7 @@ nav:
     - Bug Investigation: guides/bug-investigation.md
     - PR Review: guides/pr-review.md
     - Team Onboarding: guides/team-onboarding.md
+    - KB Loading Patterns: guides/kb-loading-patterns.md
   - Reference:
     - reference/index.md
     - Base Plugin:

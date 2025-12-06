@@ -85,9 +85,15 @@ In your planning work, make sure to:
 
 ### Step 1: Load Codebase Knowledge
 
-**REQUIRED FIRST STEP:** Read all markdown files from `{RP1_ROOT}/context/*.md` (index.md, concept_map.md, architecture.md, modules.md)
+**REQUIRED FIRST STEP:** Read `{RP1_ROOT}/context/index.md` to understand project structure.
 
-If the `{RP1_ROOT}/context/` directory doesn't exist, warn the user to run `/rp1-base:knowledge-build` first to generate the knowledge base.
+**Selective Loading** for bug investigation:
+- Read `{RP1_ROOT}/context/architecture.md` for system understanding
+- Read `{RP1_ROOT}/context/modules.md` for component investigation
+
+Do NOT load all KB files. Bug investigation needs architecture and modules context.
+
+If `{RP1_ROOT}/context/` doesn't exist, warn user to run `/knowledge-build` first.
 
 Use the loaded knowledge to understand system architecture, component relationships, and data flows relevant to your investigation.
 

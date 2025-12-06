@@ -1,5 +1,10 @@
 # knowledge-load
 
+!!! warning "Deprecated"
+    This command is **deprecated**. All rp1 commands are now self-contained and load KB context automatically via their agents. You no longer need to run `/knowledge-load` before using other commands.
+
+    **For agent developers**: Use direct Read tool calls to load KB files progressively. See [KB Loading Patterns](../../guides/kb-loading-patterns.md).
+
 Loads and prepares knowledge base context for downstream agents.
 
 ---
@@ -28,10 +33,18 @@ This command is typically called internally by other KB-aware agents, but can be
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
+| `mode` | `progressive` | Loading mode: `progressive` (index.md only) or `full` (all files) |
 | `RP1_ROOT` | `.rp1/` | Root directory for KB artifacts |
 | `PROJECT_PATH` | `.` | Project path (for monorepo subprojects) |
 | `FOCUS_MODE` | `balanced` | Context allocation strategy |
 | `MEMORY_BUDGET` | Auto | Memory limit for loaded context |
+
+### Loading Modes
+
+| Mode | Files Loaded | Use Case |
+|------|--------------|----------|
+| `progressive` | `index.md` only | Default; agents load more on-demand |
+| `full` | All KB files | Legacy; holistic analysis |
 
 ### Focus Modes
 
@@ -92,13 +105,32 @@ ERROR: Required documentation files not found. Run /knowledge-build first.
 
 ## Output
 
-The command returns a simple status:
+The command returns a status with deprecation warning:
+
+**Progressive Mode (Default)**:
+```
+⚠️ DEPRECATION WARNING: This command is deprecated. Commands now load KB automatically.
+
+READY [progressive]
+
+Loaded: index.md (~80 lines)
+Available: architecture.md, modules.md, patterns.md, concept_map.md
+Use Read tool to load additional files as needed.
+```
+
+**Full Mode**:
+```
+⚠️ DEPRECATION WARNING: This command is deprecated. Commands now load KB automatically.
+
+READY [full: 5 files, ~1180 lines]
+```
 
 | Response | Meaning |
 |----------|---------|
-| `READY` | Single project KB loaded successfully |
-| `READY [system: N projects]` | Monorepo root KB loaded |
-| `READY [project: name]` | Monorepo subproject KB loaded |
+| `READY [progressive]` | Progressive mode, index.md loaded |
+| `READY [full: N files]` | Full mode, all KB files loaded |
+| `READY [progressive, system: N projects]` | Monorepo root, progressive |
+| `READY [progressive, project: name]` | Monorepo subproject, progressive |
 | `ERROR: message` | Loading failed with reason |
 
 ## Memory Budget Management
@@ -111,6 +143,23 @@ If the KB exceeds memory budget, compression is applied in this order:
 4. Remove historical information
 5. Compress target project details (last resort)
 
+## Recommended Alternative
+
+Instead of using this deprecated command, agents should load KB files directly:
+
+```markdown
+## 1. Load Knowledge Base
+
+Read `{RP1_ROOT}/context/index.md` to understand project structure.
+
+Based on your task, selectively load additional files:
+- Code review → Read `{RP1_ROOT}/context/patterns.md`
+- Bug investigation → Read `{RP1_ROOT}/context/architecture.md` + `modules.md`
+- Feature work → Read `{RP1_ROOT}/context/modules.md` + `patterns.md`
+```
+
+See [KB Loading Patterns Guide](../../guides/kb-loading-patterns.md) for complete documentation.
+
 ## Related Commands
 
 - [`knowledge-build`](knowledge-build.md) - Generate the knowledge base
@@ -118,3 +167,4 @@ If the KB exceeds memory budget, compression is applied in this order:
 ## See Also
 
 - [Knowledge-Aware Agents](../../concepts/knowledge-aware-agents.md) - How agents use KB context
+- [KB Loading Patterns](../../guides/kb-loading-patterns.md) - Progressive loading for agents

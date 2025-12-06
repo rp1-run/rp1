@@ -38,7 +38,18 @@ $3
 $4
 </findings_summary>
 
-## 1. Parse Input
+## 1. Load Knowledge Base
+
+Read `{RP1_ROOT}/context/index.md` to understand project structure and available KB files.
+
+**Selective Loading**: For PR synthesis, load:
+- `{RP1_ROOT}/context/patterns.md` - Required for pattern consistency synthesis
+
+Do NOT load all KB files. Synthesis primarily uses summaries from sub-reviewers.
+
+If `{RP1_ROOT}/context/` directory doesn't exist, continue with degraded context.
+
+## 2. Parse Input
 
 Extract from parameters:
 
@@ -60,7 +71,7 @@ Extract from parameters:
 - Counts by severity (critical, high, medium, low)
 - Top issues list (for context)
 
-## 2. Intent Verification
+## 3. Intent Verification
 
 **Skip if mode = "branch_only"** (no intent to verify).
 
@@ -81,7 +92,7 @@ For "full" or "user_provided" modes:
    - `intent_achieved: false` - Missing expected changes or behavior
    - `intent_gap`: If false, explain what's missing
 
-## 3. Cross-File Issue Detection
+## 4. Cross-File Issue Detection
 
 Analyze `cross_file` flags from all summaries:
 
@@ -114,7 +125,7 @@ Analyze `cross_file` flags from all summaries:
 - New dependencies without proper imports
 - Breaking changes to shared utilities
 
-## 4. Fitness Judgment
+## 5. Fitness Judgment
 
 Determine overall judgment based on:
 
@@ -138,7 +149,7 @@ Determine overall judgment based on:
 - Mention highest severity issue if relevant
 - Note cross-file concerns if present
 
-## 5. Output JSON
+## 6. Output JSON
 
 Return ONLY this JSON structure (no preamble, no explanation):
 

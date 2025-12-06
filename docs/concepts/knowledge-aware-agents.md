@@ -51,9 +51,9 @@ sequenceDiagram
     KB-->>User: READY
 ```
 
-### Phase 2: Context Loading
+### Phase 2: Self-Contained Context Loading
 
-When you run any rp1 command, agents automatically load relevant KB context:
+rp1 commands are **self-contained**: agents load relevant KB context automatically. You never need to run `/knowledge-load` first.
 
 ```mermaid
 sequenceDiagram
@@ -65,12 +65,15 @@ sequenceDiagram
 
     User->>Cmd: /feature-build my-feature
     Cmd->>Agent: Spawn agent
-    Agent->>KB: Load architecture.md
-    Agent->>KB: Load patterns.md
-    Agent->>KB: Load modules.md
+    Agent->>KB: Load index.md (always)
+    Agent->>KB: Load patterns.md (if needed)
+    Agent->>KB: Load modules.md (if needed)
     Agent->>Code: Read relevant files
     Agent-->>User: Context-aware output
 ```
+
+!!! tip "Progressive Loading"
+    Most agents use **progressive loading**: start with `index.md`, then load additional files only when needed. This reduces context usage by 50-70% while maintaining quality.
 
 ---
 
@@ -187,5 +190,6 @@ The KB should be rebuilt when your codebase changes significantly:
 
 ## Learn More
 
-- [`knowledge-build` Reference](../reference/base/knowledge-build.md) - Command details
-- [`knowledge-load` Reference](../reference/base/knowledge-load.md) - Loading context
+- [`knowledge-build` Reference](../reference/base/knowledge-build.md) - Generate the knowledge base
+- [KB Loading Patterns Guide](../guides/kb-loading-patterns.md) - Implement KB loading in your agents
+- [`knowledge-load` Reference](../reference/base/knowledge-load.md) - Deprecated loading command

@@ -50,8 +50,9 @@ Before executing, analyze in `<edit_analysis>` tags in your thinking block:
 
 ### Section 1: Load Context
 
-**Step 1.1**: Load KB context by reading all markdown files from `{RP1_ROOT}/context/*.md` (index.md, concept_map.md, architecture.md, modules.md)
-- If `{RP1_ROOT}/context/` directory doesn't exist: warn and continue with limited context. Suggest running `/rp1-base:knowledge-build` first.
+**Step 1.1**: Load KB context by reading `{RP1_ROOT}/context/index.md` to understand project structure.
+- Do NOT load additional KB files. Mid-stream edits focus on feature docs, not deep KB context.
+- If `{RP1_ROOT}/context/` doesn't exist: warn and continue. Suggest running `/knowledge-build` first.
 - Track KB availability for analysis quality
 - **IMPORTANT**: After KB is loaded, IMMEDIATELY continue to Step 1.2. Do NOT stop here.
 

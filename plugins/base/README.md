@@ -7,7 +7,7 @@ Foundation plugin providing knowledge management, documentation generation, stra
 The `rp1-base` plugin provides core knowledge and documentation capabilities that power the rp1 ecosystem:
 
 - **Parallel KB generation** - Map-reduce architecture with 5 specialized agents
-- Knowledge base loading and preparation
+- **Self-contained commands** - All commands load KB context automatically (no manual `/knowledge-load` step needed)
 - Project documentation and strategic analysis
 - Security validation
 - Content writing
@@ -21,7 +21,7 @@ The `rp1-base` plugin provides core knowledge and documentation capabilities tha
 
 ### Knowledge Management
 - `/knowledge-build` - Parallel KB generation using map-reduce architecture with 6 agents (includes pattern extraction)
-- `/knowledge-load` - Load and prepare codebase documentation for analysis
+- `/knowledge-load` - ⚠️ **DEPRECATED** - Commands now load KB automatically. See [Progressive Loading](../../docs/concepts/knowledge-aware-agents.md)
 
 ### Documentation & Strategy
 - `/project-birds-eye-view` - Generate project overview documentation for new developers

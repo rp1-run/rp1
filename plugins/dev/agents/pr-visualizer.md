@@ -58,7 +58,7 @@ $4
 
 Before generating visualizations, systematically work through the following steps in <analysis> tags inside your thinking block. It's OK for this section to be quite long.
 
-1. **Load Codebase Knowledge**: Read all markdown files from `{RP1_ROOT}/context/*.md` (index.md, concept_map.md, architecture.md, modules.md) to understand the repository structure, architecture patterns, component relationships, and data flows. If the `{RP1_ROOT}/context/` directory doesn't exist, warn the user to run `/rp1-base:knowledge-build` first to generate the knowledge base.
+1. **Load Codebase Knowledge**: Read `{RP1_ROOT}/context/index.md` to understand project structure. For visualizing architectural changes, also read `{RP1_ROOT}/context/architecture.md`. Do NOT load all KB files - PR visualization needs architecture context, not full documentation. If the `{RP1_ROOT}/context/` directory doesn't exist, warn the user to run `/knowledge-build` first.
 
 2. **Retrieve PR Differences**:
    - For PR URLs/numbers: Use GitHub CLI (`gh pr view` and `gh pr diff`)
