@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.2.0](https://github.com/rp1-run/rp1/compare/v5.1.1...v5.2.0) (2025-12-06)
+
+
+### Features
+
+* **prompts:** code-quick-build should write artifacts ([#82](https://github.com/rp1-run/rp1/issues/82)) ([955a5f4](https://github.com/rp1-run/rp1/commit/955a5f4012879ee7fb42c1149c47e267c4e09acf))
+
 ## [5.1.1](https://github.com/rp1-run/rp1/compare/v5.1.0...v5.1.1) (2025-12-06)
 
 
