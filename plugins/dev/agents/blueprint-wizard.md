@@ -34,10 +34,13 @@ $2
 
 Scan existing project artifacts to infer context (reduces user burden):
 
+**Load Knowledge Base** (if available):
+- Read `{RP1_ROOT}/context/index.md` to understand project structure
+- Do NOT load additional KB files. Blueprint wizard needs minimal context.
+
 **Scan these locations** (use Glob, then Read relevant files):
 - `README.md` - Project description, goals, tech stack
 - `docs/**/*.md` - Existing documentation
-- `.rp1/context/*.md` - KB files if available (architecture, concepts)
 
 **Extract and store as `inferred_context`**:
 | Field | Source | Example |

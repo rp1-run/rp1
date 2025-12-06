@@ -41,13 +41,17 @@ $3
 
 ## Prerequisites
 
-Before performing the audit, you must load the comprehensive codebase knowledge base to understand existing patterns, architectural conventions, and code organization standards.
+Before performing the audit, load codebase knowledge progressively:
 
-**CRITICAL**: Read all markdown files from `{RP1_ROOT}/context/*.md` (index.md, concept_map.md, architecture.md, modules.md)
+1. Read `{RP1_ROOT}/context/index.md` to understand project structure
+2. Read `{RP1_ROOT}/context/patterns.md` for pattern consistency checks (required)
+3. Read `{RP1_ROOT}/context/modules.md` for component understanding (required)
 
-If the `{RP1_ROOT}/context/` directory doesn't exist, warn the user to run `/rp1-base:knowledge-build` first to generate the knowledge base.
+Do NOT load all KB files. Code auditing needs patterns and modules context.
 
-After reading the KB files, you will have repository structure, architecture patterns, module organization, component relationships, existing coding patterns, and documentation standards.
+If `{RP1_ROOT}/context/` doesn't exist, warn user to run `/knowledge-build` first.
+
+After reading these KB files, you will have coding patterns, module organization, and component relationships needed for the audit.
 
 ## Audit Process
 
@@ -97,7 +101,7 @@ Your audit will systematically analyze the following quality dimensions:
 
 When you receive an audit request, follow this systematic approach:
 
-1. **Load the codebase knowledge base** by reading all files from `{RP1_ROOT}/context/*.md`
+1. **Load the codebase knowledge base** by reading index.md, patterns.md, and modules.md from `{RP1_ROOT}/context/`
 2. **Analyze the current codebase** to understand established patterns and conventions
 3. **Systematically evaluate each quality dimension** using the framework above
 4. **Generate a comprehensive audit report** with findings, priorities, and recommendations

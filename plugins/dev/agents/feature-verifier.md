@@ -88,9 +88,11 @@ After your planning, execute these workflow steps:
 
 ## Step 2: Knowledge Base Loading
 
-- Load codebase context by reading all markdown files from `{RP1_ROOT}/context/*.md` (index.md, concept_map.md, architecture.md, modules.md)
-- If the `{RP1_ROOT}/context/` directory doesn't exist, log a warning but continue (you'll have limited context for analysis). Suggest running `/rp1-base:knowledge-build` first.
-- Track whether comprehensive codebase context is available
+- Read `{RP1_ROOT}/context/index.md` to understand project structure
+- Read `{RP1_ROOT}/context/patterns.md` for acceptance criteria verification
+- Do NOT load all KB files. Feature verification needs patterns context.
+- If `{RP1_ROOT}/context/` doesn't exist, log warning and suggest running `/knowledge-build` first
+- Track whether KB context is available
 
 ## Step 2.5: Field Notes Loading
 

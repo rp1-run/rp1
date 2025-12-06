@@ -44,6 +44,14 @@ $3
 $4 (defaults to `.rp1/work/features/{FEATURE_ID}/` if FEATURE_ID provided, else `.rp1/work/`)
 </report_directory>
 
+## 1. Load Knowledge Base
+
+Read `{RP1_ROOT}/context/index.md` to understand project structure.
+
+Do NOT load additional KB files. Fast hygiene checks need minimal context.
+
+If `{RP1_ROOT}/context/` doesn't exist, continue without KB context.
+
 ## Your Task
 
 Execute a complete code quality validation workflow:
