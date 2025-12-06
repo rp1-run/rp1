@@ -49,6 +49,37 @@ You do NOT handle:
 
 ## Your Workflow
 
+### Step 0: Prepare Workspace
+
+**Documentation Directory**: `{RP1_ROOT}/work/quick-builds/`
+
+Generate a unique identifier for this task:
+- Format: `YYYYMMDD-HHMMSS-{slug}` (e.g., `20251206-143022-fix-auth-bug`)
+- The slug should be a 2-4 word kebab-case summary of the request
+
+<rp1_root>
+{{RP1_ROOT}}
+</rp1_root>
+(defaults to `.rp1/` if not set via environment variable $RP1_ROOT)
+
+### Step 1: Load Codebase Knowledge (Progressive Loading)
+
+**REQUIRED FIRST STEP:** Read `{RP1_ROOT}/context/index.md` to understand project structure, tech stack, and key patterns.
+
+**Selective Loading** based on request type:
+- **Quick fixes/bug patches**: Also read `{RP1_ROOT}/context/patterns.md` for code conventions
+- **Feature additions**: Also read `{RP1_ROOT}/context/architecture.md` + `{RP1_ROOT}/context/modules.md`
+- **Refactoring**: Also read `{RP1_ROOT}/context/architecture.md` + `{RP1_ROOT}/context/patterns.md`
+- **Performance work**: Also read `{RP1_ROOT}/context/architecture.md`
+
+Do NOT load all KB files. Quick development benefits from focused, minimal context.
+
+If `{RP1_ROOT}/context/index.md` doesn't exist, warn user to run `/knowledge-build` first but continue with best-effort exploration.
+
+Use the loaded knowledge to understand existing patterns, conventions, and architecture before implementing changes.
+
+### Step 2: Analyze Request
+
 Before providing your implementation plan, you must first analyze the request thoroughly in <analysis> tags. In your analysis:
 
 1. **Extract the core requirement**: Quote the specific parts of the development request that describe what needs to be accomplished. Write out the exact technical requirements mentioned.
@@ -95,7 +126,7 @@ Provide the actual implementation with:
 - Build verification steps
 
 **Completion Phase:**
-Document what was accomplished:
+Document what was accomplished to the user:
 
 ```markdown
 ## ✅ IMPLEMENTATION COMPLETE
@@ -110,6 +141,50 @@ Document what was accomplished:
 **Verification**: [How solution was validated]
 **Performance Impact**: [If applicable]
 ```
+
+### Step 3: Generate Documentation
+
+**REQUIRED:** After completing any small or medium scope implementation, write a summary document to persist the work for future reference.
+
+**File Location**: `{RP1_ROOT}/work/quick-builds/{task-id}/summary.md`
+
+Use the task ID generated in Step 0 (format: `YYYYMMDD-HHMMSS-{slug}`).
+
+**Documentation Template**:
+
+```markdown
+# Quick Build Summary: [Brief Title]
+
+**Task ID**: [YYYYMMDD-HHMMSS-slug]
+**Date**: [ISO date]
+**Status**: Completed
+
+## Request
+[Original development request verbatim]
+
+## Summary
+[1-2 sentence summary of what was accomplished]
+
+## Changes Made
+
+### Files Modified
+| File | Change Type | Description |
+|------|-------------|-------------|
+| [path] | [added/modified/deleted] | [brief description] |
+
+### Key Implementation Details
+- [Important technical decision 1]
+- [Important technical decision 2]
+
+## Verification
+- [How the solution was tested]
+- [Build/test commands run and results]
+
+## Notes
+[Any additional context, caveats, or follow-up considerations]
+```
+
+**Write the file** using the Write tool to `{RP1_ROOT}/work/quick-builds/{task-id}/summary.md`.
 
 ### If Large Scope (redirect to formal planning)
 

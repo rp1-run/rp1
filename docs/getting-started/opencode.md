@@ -25,11 +25,11 @@ rp1 install:opencode
 Or run without installing:
 
 ```bash
-bunx @rp1-run/rp1 install:opencode
+bunx @rp1-run/rp1@latest install:opencode
 ```
 
 !!! tip "Using npm instead"
-    If you prefer npm, use `npx @rp1-run/rp1 install:opencode`
+    If you prefer npm, use `npx @rp1-run/rp1@latest install:opencode`
 
 **What this does:**
 
