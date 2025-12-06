@@ -451,7 +451,30 @@ Both plugins are released together via **release-please**.
 3. Merge the Release PR to trigger:
    - GitHub Release creation
    - OpenCode artifact tarball build and attachment
+   - npm package publish with OIDC provenance
    - Version file updates (handled by release-please extra-files)
+
+### CI Workflows
+
+| Workflow | Trigger | Purpose |
+|----------|---------|---------|
+| `release-please.yml` | Push to main | Version management, releases, npm publish |
+| `npm-publish.yml` | Called by release-please | Reusable npm publish with OIDC provenance |
+| `lighthouse.yml` | Push/PR to main (docs changes) | Documentation quality checks via Cloudflare Pages |
+
+### Manual npm Publish
+
+If npm publish fails during a release (network issue, npm outage, OIDC token problem), you can manually trigger it:
+
+1. Go to **GitHub repo → Actions → "Release Please"**
+2. Click **"Run workflow"** dropdown
+3. Check **"Manually trigger npm publish for current version"**
+4. Click **"Run workflow"**
+
+This builds and publishes whatever version is currently in `cli/package.json` to npm. Use this for:
+- Recovering from failed npm publishes
+- Re-publishing after a yanked version
+- Testing the publish workflow without creating a new release
 
 ### Version Files Managed
 
