@@ -1,5 +1,16 @@
 # Changelog
 
+## [5.0.0](https://github.com/rp1-run/rp1/compare/v4.4.5...v5.0.0) (2025-12-06)
+
+
+### ⚠ BREAKING CHANGES
+
+* **cli:** cli refactoring and introduce web-ui ([#67](https://github.com/rp1-run/rp1/issues/67))
+
+### Features
+
+* **cli:** cli refactoring and introduce web-ui ([#67](https://github.com/rp1-run/rp1/issues/67)) ([ad3d2f0](https://github.com/rp1-run/rp1/commit/ad3d2f0fb54cffac0894c6c2e91517c7794c00f3))
+
 ## [4.4.5](https://github.com/rp1-run/rp1/compare/v4.4.4...v4.4.5) (2025-12-04)
 
 
