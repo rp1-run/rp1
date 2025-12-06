@@ -15,23 +15,21 @@ Detailed guide for installing and configuring rp1 on OpenCode.
 
 ## Installation
 
-### Step 1: Install Bun (if not already installed)
-
-```bash
-curl -fsSL https://bun.sh/install | bash
-```
-
-### Step 2: Install rp1 CLI
+### Step 1: Install rp1 CLI globally (recommended)
 
 ```bash
 bun install -g @rp1-run/rp1
-```
-
-### Step 3: Install to OpenCode
-
-```bash
 rp1 install:opencode
 ```
+
+Or run without installing:
+
+```bash
+bunx @rp1-run/rp1 install:opencode
+```
+
+!!! tip "Using npm instead"
+    If you prefer npm, use `npx @rp1-run/rp1 install:opencode`
 
 **What this does:**
 
@@ -40,7 +38,7 @@ rp1 install:opencode
 3. Configures both `rp1-base` and `rp1-dev` plugins
 4. Verifies the installation
 
-### Step 4: Restart OpenCode
+### Step 2: Restart OpenCode
 
 Close and reopen OpenCode to load the new plugins.
 
@@ -92,11 +90,7 @@ After installation, your prompts directory should look like:
 
 ## Verification
 
-After restarting OpenCode, verify the installation:
-
-```bash
-/help
-```
+After restarting OpenCode, verify the installation by typing `/` to see available commands.
 
 You should see rp1 commands listed. Look for commands starting with:
 
@@ -132,8 +126,12 @@ READY [monorepo: N projects]
 To update to the latest version:
 
 ```bash
+# If installed globally
 bun update -g @rp1-run/rp1
 rp1 install:opencode
+
+# Or run directly without updating global install
+bunx @rp1-run/rp1@latest install:opencode
 ```
 
 ### Uninstalling
@@ -153,7 +151,7 @@ rm -rf ~/.opencode/plugins/rp1-dev
 
     **Solution**: Check the error message. Common issues:
 
-    - **Bun not found**: Make sure Bun is installed and in your PATH. Try restarting your terminal after installing Bun.
+    - **bunx/npx not found**: Make sure Bun or Node.js is installed and in your PATH
     - **Network error**: Check your internet connection
     - **Permission denied**: Don't run with `sudo`; the CLI installs to your home directory
 
