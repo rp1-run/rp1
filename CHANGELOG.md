@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.3.1](https://github.com/rp1-run/rp1/compare/v5.3.0...v5.3.1) (2025-12-06)
+
+
+### Bug Fixes
+
+* **cli:** bun is now required ([3cc42d6](https://github.com/rp1-run/rp1/commit/3cc42d6034fb3b1ff013f6f69a8ecb6b9cc0a8f4))
+
 ## [5.3.0](https://github.com/rp1-run/rp1/compare/v5.2.0...v5.3.0) (2025-12-06)
 
 
