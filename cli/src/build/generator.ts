@@ -13,6 +13,21 @@ import type {
 } from "./models.js";
 
 /**
+ * Escape a string value for safe YAML output.
+ * Wraps in double quotes if the value contains special YAML characters.
+ */
+const escapeYamlValue = (value: string): string => {
+  // Characters that require quoting in YAML
+  const needsQuoting = /[\[\]{}:#>|*&!%@`'"\\,\n]|^[\s-]|^\s*$/.test(value);
+  if (needsQuoting) {
+    // Escape backslashes and double quotes, then wrap in double quotes
+    const escaped = value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+    return `"${escaped}"`;
+  }
+  return value;
+};
+
+/**
  * Generate OpenCode command markdown file with YAML frontmatter.
  */
 export const generateCommandFile = (
@@ -21,7 +36,7 @@ export const generateCommandFile = (
 ): E.Either<CLIError, { filename: string; content: string }> => {
   try {
     // Build YAML frontmatter (metadata only)
-    const frontmatterLines = ["---", `description: ${ocCmd.description}`];
+    const frontmatterLines = ["---", `description: ${escapeYamlValue(ocCmd.description)}`];
 
     // Add argument-hint if present (quote the value to handle brackets properly in YAML)
     if (ocCmd.argumentHint) {
@@ -71,7 +86,7 @@ export const generateAgentFile = (
     // Build YAML frontmatter
     const frontmatterLines = [
       "---",
-      `description: ${ocAgent.description}`,
+      `description: ${escapeYamlValue(ocAgent.description)}`,
       `mode: ${ocAgent.mode}`,
     ];
 
@@ -114,8 +129,8 @@ export const generateSkillFile = (
     // Anthropic Skills v1.0 format
     const frontmatterLines = [
       "---",
-      `name: ${ocSkill.name}`,
-      `description: ${ocSkill.description}`,
+      `name: ${escapeYamlValue(ocSkill.name)}`,
+      `description: ${escapeYamlValue(ocSkill.description)}`,
       "---",
       "",
       ocSkill.content,
