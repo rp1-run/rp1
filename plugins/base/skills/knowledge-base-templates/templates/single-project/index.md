@@ -1,54 +1,60 @@
-# [Project Name] - Codebase Knowledge Base
+# [Project Name] - Knowledge Base
 
-**Repository Type**: [Single Project | Monorepo | Microservices]
-**Primary Languages**: [Languages by usage]
-**Last Updated**: [Date]
-**Analysis Scope**: [Files analyzed count]
+**Type**: Single Project
+**Languages**: [Primary languages]
+**Version**: [Version]
+**Updated**: [Date]
 
-## Quick Start
+## Project Summary
 
-### Development Setup
-```bash
-# Clone and setup commands
-git clone [repo-url]
-cd [project-name]
-[setup commands]
+[2-3 sentences describing WHAT this project does and WHY it exists]
+
+## Quick Reference
+
+| Aspect | Value |
+|--------|-------|
+| Entry Point | [main file/command] |
+| Key Pattern | [primary architectural pattern] |
+| Tech Stack | [core technologies] |
+
+## KB File Manifest
+
+**Progressive Loading**: Load files on-demand based on your task.
+
+| File | Lines | Load For |
+|------|-------|----------|
+| architecture.md | ~[N] | System design, component relationships, data flows |
+| modules.md | ~[N] | Component breakdown, module responsibilities |
+| patterns.md | ~[N] | Code conventions, implementation patterns |
+| concept_map.md | ~[N] | Domain terminology, business concepts |
+
+## Task-Based Loading
+
+| Task | Files to Load |
+|------|---------------|
+| Code review | `patterns.md` |
+| Bug investigation | `architecture.md`, `modules.md` |
+| Feature implementation | `modules.md`, `patterns.md` |
+| Strategic analysis | ALL files |
+
+## How to Load
+
+```
+Read: {RP1_ROOT}/context/{filename}
 ```
 
-### Project Structure
+## Project Structure
+
 ```
-[key directories and their purposes]
+[key directories]
 src/
-├── core/           # Core business logic
-├── api/            # HTTP endpoints and handlers
-├── services/       # External service integrations
-└── utils/          # Shared utilities
+├── [dir]/    # [purpose]
+└── [dir]/    # [purpose]
 ```
 
-### Entry Points
-- **Main Application**: `src/main.py` - Application bootstrap
-- **API Server**: `src/api/server.py` - HTTP server setup
-- **CLI Tool**: `src/cli/main.py` - Command-line interface
-- **Configuration**: `config/` - Environment and feature configs
+## Navigation
 
-### Key Commands
-```bash
-# Development
-make dev          # Start development server
-make test         # Run test suite
-make build        # Build for production
-
-# Deployment
-make deploy       # Deploy to staging
-make release      # Create production release
-```
-
-## Architecture Quick Reference
-- **Pattern**: [Microservices | Monolithic | Layered]
-- **Data Flow**: [Request → Service → Database]
-- **Key Technologies**: [Database, Framework, Infrastructure]
-
-## Development Workflow
-1. [Brief steps for contributing]
-2. [Testing requirements]
-3. [Code review process]
+- **[architecture.md](architecture.md)**: System design and diagrams
+- **[modules.md](modules.md)**: Component breakdown
+- **[patterns.md](patterns.md)**: Code conventions
+- **[concept_map.md](concept_map.md)**: Domain terminology

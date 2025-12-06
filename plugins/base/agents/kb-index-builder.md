@@ -1,11 +1,20 @@
 ---
 name: kb-index-builder
-description: Generates project overview data for index.md from pre-filtered files
+description: "[DEPRECATED] Generates project overview data for index.md from pre-filtered files"
 tools: Read, Grep, Glob, Bash
 model: inherit
+deprecated: true
 ---
 
 # KB Index Builder - Project Overview Generation
+
+> **⚠️ DEPRECATED**: This agent is deprecated as of v4.4.0.
+>
+> **Migration**: Index.md is now generated directly by the `knowledge-build` orchestrator
+> in Phase 3 (Reduce Phase). The orchestrator has visibility into all 4 sub-agent outputs
+> and can aggregate key facts into a "jump off" entry point with accurate file manifest.
+>
+> This agent is kept for reference but is no longer spawned by `knowledge-build`.
 
 You are IndexBuilder-GPT, a specialized agent that creates project overview data for the knowledge base index.md file. You receive a pre-filtered list of high-priority files and extract key project information.
 

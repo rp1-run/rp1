@@ -127,16 +127,24 @@ Templates include Mermaid diagram placeholders. When filling templates:
 ## Template Reference
 
 ### index.md
-**Purpose**: Project overview and quick start guide
+**Purpose**: Entry point and navigation hub for progressive KB loading
 
 **Key Sections**:
-- Development setup instructions
+- Project summary (WHAT and WHY in 2-3 sentences)
+- Quick reference table (entry point, key pattern, tech stack)
+- KB File Manifest with line counts and "Load For" guidance
+- Task-Based Loading profiles (code review, bug investigation, etc.)
+- How to Load instructions
 - Project structure tree
-- Entry points and key files
-- Common commands
-- Architecture quick reference
+- Navigation links to other KB files
 
-**When to Use**: Always - this is the main entry point
+**When to Use**: Always - this is the mandatory entry point for all KB-aware agents
+
+**Progressive Loading Pattern**:
+Index.md is designed as a "jump off" point. Agents should:
+1. Load index.md first to understand project structure
+2. Based on task, selectively load additional files per Task-Based Loading table
+3. Never load all KB files unless performing holistic analysis
 
 ### concept_map.md
 **Purpose**: Domain concepts and terminology
@@ -282,8 +290,64 @@ Example workflow:
 ### Knowledge Build Commands
 These templates are designed to work with knowledge building workflows:
 - `/knowledge-build`: Uses these templates to generate documentation
-- `/knowledge-load`: Loads generated knowledge bases
+- `/knowledge-load`: Loads generated knowledge bases (deprecated - agents load KB directly)
 - `/project-birds-eye-view`: May use similar structure
+
+## Index.md Generation (Orchestrator-Owned)
+
+**Important**: Index.md is generated directly by the `/knowledge-build` orchestrator, NOT by a sub-agent. This is because the orchestrator has visibility into all 4 sub-agent outputs and can aggregate key facts into a "jump off" entry point.
+
+### Aggregation Process
+
+Extract data from each sub-agent's JSON output:
+
+| Data | Source Agent | JSON Path |
+|------|--------------|-----------|
+| Project summary | concept-extractor | `data.concepts[0].description` or domain overview |
+| Entry points | architecture-mapper | `data.entry_points[]` |
+| Key pattern | pattern-extractor | `data.patterns[0].name` |
+| Tech stack | module-analyzer | `data.project.frameworks[]` + `data.project.primary_language` |
+| Project name | spatial-analyzer | `project.name` or package.json |
+| Languages | module-analyzer | `data.metadata.languages[]` |
+
+### Calculate File Manifest
+
+After writing concept_map.md, architecture.md, modules.md, patterns.md, calculate line counts:
+
+```bash
+wc -l {{RP1_ROOT}}/context/concept_map.md
+wc -l {{RP1_ROOT}}/context/architecture.md
+wc -l {{RP1_ROOT}}/context/modules.md
+wc -l {{RP1_ROOT}}/context/patterns.md
+# For monorepo, also:
+wc -l {{RP1_ROOT}}/context/dependencies.md
+wc -l {{RP1_ROOT}}/context/technology-matrix.md
+```
+
+### Template Placeholder Mapping
+
+Use template from `templates/{single-project|monorepo}/index.md`:
+
+| Placeholder | Data Source |
+|-------------|-------------|
+| `[Project Name]` | spatial-analyzer or package.json `name` |
+| `[Primary languages]` | module-analyzer languages |
+| `[Version]` | package.json version or git describe |
+| `[Date]` | Current date (ISO format) |
+| `[2-3 sentences...]` | Aggregated from concept-extractor domain description |
+| `[main file/command]` | architecture-mapper entry_points[0] |
+| `[primary architectural pattern]` | pattern-extractor patterns[0].name |
+| `[core technologies]` | module-analyzer frameworks |
+| `~[N]` (line counts) | wc -l results from file manifest step |
+| `[key directories]` | spatial-analyzer structure or architecture-mapper |
+| `[project-a]`, `[project-b]` | spatial-analyzer monorepo_projects (monorepo only) |
+
+### Generation Order
+
+1. Write concept_map.md, architecture.md, modules.md, patterns.md first
+2. Calculate line counts for file manifest
+3. Fill index.md template with aggregated data
+4. Write index.md last
 
 ## Examples
 

@@ -1,113 +1,73 @@
-# [Repository Name] - Monorepo Knowledge Base
+# [Repository Name] - Knowledge Base
 
-**Repository Type**: Monorepo
-**Primary Languages**: [Languages by usage across all projects]
-**Last Updated**: [Date]
-**Projects**: [Count]
-**Total Files Analyzed**: [Count]
+**Type**: Monorepo
+**Languages**: [Primary languages]
+**Version**: [Version]
+**Updated**: [Date]
+**Projects**: [Count] ([list project names])
 
-## Quick Start
+## Project Summary
 
-### Development Setup
-```bash
-# Clone and setup commands
-git clone [repo-url]
-cd [repo-name]
-[workspace setup commands]
-```
+[2-3 sentences describing WHAT this repository does and WHY it exists]
 
-### Repository Structure
-```
-[key directories and their purposes]
-packages/
-├── service-a/      # User authentication service
-├── service-b/      # Order processing service
-├── frontend/       # Web application
-└── shared-lib/     # Common utilities and types
-```
+## Quick Reference
+
+| Aspect | Value |
+|--------|-------|
+| Entry Point | [main command/project] |
+| Key Pattern | [primary architectural pattern] |
+| Tech Stack | [core technologies] |
 
 ## Projects Overview
 
-| Project | Purpose | Language | Entry Point | Status |
-|---------|---------|----------|-------------|--------|
-| [service-a] | [User authentication] | [Go] | [cmd/auth/main.go] | [Active] |
-| [service-b] | [Order processing] | [Go] | [cmd/orders/main.go] | [Active] |
-| [frontend] | [Web interface] | [TypeScript] | [src/main.tsx] | [Active] |
-| [shared-lib] | [Common utilities] | [Go] | [pkg/] | [Active] |
+| Project | Purpose | Language | Entry Point |
+|---------|---------|----------|-------------|
+| [project-a] | [brief purpose] | [lang] | [entry file] |
+| [project-b] | [brief purpose] | [lang] | [entry file] |
 
-### Project Details
+## KB File Manifest
 
-#### [Service A] - [Purpose]
-- **Location**: `packages/service-a/`
-- **Technology**: [Language + Framework]
-- **Dependencies**: [What it depends on]
-- **Documentation**: See `projects/service-a/overview.md`
+**Progressive Loading**: Load files on-demand based on your task.
 
-#### [Service B] - [Purpose]
-- **Location**: `packages/service-b/`
-- **Technology**: [Language + Framework]
-- **Dependencies**: [What it depends on]
-- **Documentation**: See `projects/service-b/overview.md`
+| File | Lines | Load For |
+|------|-------|----------|
+| architecture.md | ~[N] | System design, component relationships, data flows |
+| modules.md | ~[N] | Component breakdown, module responsibilities |
+| patterns.md | ~[N] | Code conventions, implementation patterns |
+| concept_map.md | ~[N] | Domain terminology, business concepts |
+| dependencies.md | ~[N] | Inter-project dependencies, shared code |
+| technology-matrix.md | ~[N] | Technology decisions, framework choices |
 
-## Shared Infrastructure
+## Task-Based Loading
 
-### Common Libraries
-- **[shared-lib]**: [Purpose and usage across projects]
-- **[common-types]**: [Shared type definitions]
+| Task | Files to Load |
+|------|---------------|
+| Code review | `patterns.md` |
+| Bug investigation | `architecture.md`, `modules.md` |
+| Feature implementation | `modules.md`, `patterns.md` |
+| Strategic analysis | ALL files |
+| Security audit | `architecture.md`, `dependencies.md` |
 
-### Workspace Configuration
-- **Build Tool**: [Turborepo, Nx, Lerna, etc.]
-- **Package Manager**: [pnpm, yarn, npm workspaces]
-- **Dependency Management**: [How shared dependencies work]
+## How to Load
 
-## Architecture Overview
-
-```mermaid
-graph TB
-    Frontend[Web Frontend] --> Gateway[API Gateway]
-    Mobile[Mobile App] --> Gateway
-    Gateway --> ServiceA[Service A]
-    Gateway --> ServiceB[Service B]
-    ServiceA --> SharedLib[Shared Library]
-    ServiceB --> SharedLib
-    ServiceA --> DB[(Database)]
-    ServiceB --> DB
+```
+Read: {RP1_ROOT}/context/{filename}
 ```
 
-See [architecture.md](architecture.md) for detailed system architecture.
+## Repository Structure
 
-## Development Workflow
-
-### Working with Multiple Projects
-1. [How to run multiple services locally]
-2. [How to make changes across projects]
-3. [Testing strategy for cross-project changes]
-
-### Key Commands
-```bash
-# Development
-npm run dev           # Start all services
-npm run dev:service-a # Start specific service
-npm run test          # Run all tests
-npm run build         # Build all projects
-
-# Deployment
-npm run deploy        # Deploy all services
-npm run deploy:prod   # Production deployment
 ```
-
-## Inter-Project Dependencies
-
-See [dependencies.md](dependencies.md) for detailed dependency graph and impact analysis.
-
-## Technology Stack
-
-See [technology-matrix.md](technology-matrix.md) for complete technology breakdown by project.
+[repo-name]/
+├── [project-a]/    # [purpose]
+├── [project-b]/    # [purpose]
+└── [shared]/       # [shared infrastructure]
+```
 
 ## Navigation
 
-- **Architecture**: See [architecture.md](architecture.md)
-- **Concepts**: See [concept_map.md](concept_map.md)
-- **Modules**: See [modules.md](modules.md)
-- **Dependencies**: See [dependencies.md](dependencies.md)
-- **Project Details**: See `projects/[project-name]/overview.md`
+- **[architecture.md](architecture.md)**: System design and diagrams
+- **[modules.md](modules.md)**: Component breakdown
+- **[patterns.md](patterns.md)**: Code conventions
+- **[concept_map.md](concept_map.md)**: Domain terminology
+- **[dependencies.md](dependencies.md)**: Inter-project dependencies
+- **[technology-matrix.md](technology-matrix.md)**: Technology decisions
