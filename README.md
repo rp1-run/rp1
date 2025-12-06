@@ -46,14 +46,14 @@ bun install -g @rp1-run/rp1
 rp1 install:opencode
 
 # Or run without installing
-bunx @rp1-run/rp1 install:opencode
+bunx @rp1-run/rp1@latest install:opencode
 ```
 
 <details>
 <summary>Using npm instead</summary>
 
 ```bash
-npx @rp1-run/rp1 install:opencode
+npx @rp1-run/rp1@latest install:opencode
 ```
 
 </details>
