@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.0.1](https://github.com/rp1-run/rp1/compare/v6.0.0...v6.0.1) (2025-12-07)
+
+
+### Bug Fixes
+
+* **homebrew:** switch from cask to formula to fix macOS Gatekeeper error ([894441b](https://github.com/rp1-run/rp1/commit/894441b53a0742078659f40b7e69cbe6870909f5))
+
 ## [6.0.0](https://github.com/rp1-run/rp1/compare/v5.4.0...v6.0.0) (2025-12-07)
 
 
