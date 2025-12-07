@@ -70,18 +70,19 @@ release:
     ---
     **Full Changelog**: https://github.com/rp1-run/rp1/compare/{{ .PreviousTag }}...{{ .Tag }}
 
-brews:
+homebrew_casks:
   - name: rp1
     repository:
       owner: rp1-run
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
-    directory: Formula
+    directory: Casks
     homepage: "https://rp1.run"
     description: "AI-assisted development workflows CLI"
-    license: MIT
-    install: |
-      bin.install "rp1"
+    hooks:
+      post:
+        install: |
+          system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/rp1"]
 
 scoops:
   - name: rp1
