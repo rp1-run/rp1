@@ -22,10 +22,28 @@ builds:
       - --minify
 
 archives:
-  - id: default
+  # Raw binaries for macOS and Linux (direct download)
+  - id: binaries
     formats:
       - binary
+    builds:
+      - rp1
     name_template: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}"
+    allow_different_binary_count: true
+    filters:
+      goos:
+        - darwin
+        - linux
+  # Zip archive for Windows (required by Scoop)
+  - id: windows-zip
+    formats:
+      - zip
+    builds:
+      - rp1
+    name_template: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}"
+    filters:
+      goos:
+        - windows
 
 checksum:
   name_template: "checksums.txt"
@@ -78,6 +96,8 @@ homebrew_casks:
 
 scoops:
   - name: rp1
+    ids:
+      - windows-zip
     repository:
       owner: rp1-run
       name: scoop-bucket
