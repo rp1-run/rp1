@@ -1,5 +1,16 @@
 # Changelog
 
+## [6.0.0](https://github.com/rp1-run/rp1/compare/v5.4.0...v6.0.0) (2025-12-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* **cli:** CLI now distributed as native binaries via Homebrew, Scoop, and install script instead of npm.
+
+### Features
+
+* **cli:** single binary distribution via package managers ([c73e606](https://github.com/rp1-run/rp1/commit/c73e6060a46e4d1b03158f249706075bd6571aac))
+
 ## [5.4.0](https://github.com/rp1-run/rp1/compare/v5.3.1...v5.4.0) (2025-12-07)
 
 
