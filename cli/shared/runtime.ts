@@ -1,25 +1,5 @@
-// Bun global type declaration for cross-runtime compatibility
-// When running under Node.js, Bun will be undefined
-// Use globalThis.Bun instead of direct Bun reference to avoid ReferenceError
-declare const Bun:
-  | {
-      version: string;
-      serve: (options: {
-        port: number;
-        hostname?: string;
-        fetch: (req: Request) => Response | Promise<Response>;
-      }) => { stop: () => void };
-      spawn: (
-        command: string[],
-        options?: { stdout?: "ignore" | "pipe"; stderr?: "ignore" | "pipe" }
-      ) => { exited: Promise<number> };
-    }
-  | undefined;
-
-declare global {
-  // eslint-disable-next-line no-var
-  var Bun: typeof Bun;
-}
+// Runtime detection for cross-runtime compatibility (Bun/Node.js)
+// Bun types come from @types/bun in devDependencies
 
 export interface RuntimeInfo {
   runtime: "bun" | "node";

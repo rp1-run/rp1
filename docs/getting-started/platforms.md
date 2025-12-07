@@ -11,9 +11,9 @@ rp1 supports two AI coding assistant platforms: **Claude Code** and **OpenCode**
 | **Provider** | Anthropic | Community |
 | **LLM** | Claude | Configurable |
 | **Command Syntax** | `/command` | `/rp1-base/command` |
-| **Installation** | Plugin marketplace | Python wheel |
+| **Installation** | Plugin marketplace | Binary + plugins |
 | **All 21 commands** | :material-check: Yes | :material-check: Yes |
-| **Automatic updates** | :material-check: Yes | Manual |
+| **Automatic updates** | :material-check: Yes | Via package manager |
 | **Open source** | :material-close: No | :material-check: Yes |
 
 ---
@@ -186,16 +186,19 @@ In rare cases, another plugin may define a command with the same name as an rp1 
 ### OpenCode
 
 ```bash
-# Install uv (if needed)
-curl -LsSf https://astral.sh/uv/install.sh | sh
+# macOS / Linux (Homebrew)
+brew install rp1-run/tap/rp1
 
-# Run installer
-curl -fsSL https://raw.githubusercontent.com/rp1-run/rp1/main/scripts/install-for-opencode.sh | bash
+# Windows (Scoop)
+scoop bucket add rp1 https://github.com/rp1-run/scoop-bucket && scoop install rp1
+
+# Install plugins
+rp1 install:opencode
 
 # Restart OpenCode
 ```
 
-**Time**: ~5 minutes
+**Time**: ~2 minutes
 
 ---
 

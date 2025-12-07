@@ -7,32 +7,39 @@ Detailed guide for installing and configuring rp1 on OpenCode.
 ## Prerequisites
 
 !!! info "System Requirements"
-    - **[Bun](https://bun.sh)** runtime installed - `curl -fsSL https://bun.sh/install | bash`
     - **OpenCode** installed and working ([GitHub](https://github.com/opencode-ai/opencode))
-    - **macOS or Linux** (Windows via WSL)
+    - **macOS, Linux, or Windows**
     - **A codebase** you want to enhance with rp1 workflows
-
-!!! warning "Bun Required"
-    The rp1 CLI requires Bun runtime. Node.js is not supported due to Bun-specific APIs used in the web UI server.
 
 ---
 
 ## Installation
 
-### Step 1: Install rp1 CLI globally
+### Step 1: Install rp1 CLI
 
-```bash
-bun install -g @rp1-run/rp1
-```
-
-!!! tip "Add Bun to PATH"
-    If you see `warn: To run "rp1", add the global bin folder to $PATH`, add this to your `~/.zshrc` or `~/.bashrc`:
+=== "macOS / Linux (Homebrew)"
 
     ```bash
-    export PATH="$HOME/.bun/bin:$PATH"
+    brew install rp1-run/tap/rp1
     ```
 
-    Then restart your terminal or run `source ~/.zshrc`.
+=== "Windows (Scoop)"
+
+    ```bash
+    scoop bucket add rp1 https://github.com/rp1-run/scoop-bucket
+    scoop install rp1
+    ```
+
+=== "CI/CD (curl)"
+
+    ```bash
+    curl -fsSL https://rp1.run/install.sh | sh
+    ```
+
+!!! tip "First-time macOS/Windows users"
+    You may see a security warning because the binary isn't code-signed. See [Security Bypass](installation.md#security-bypass) for instructions.
+
+### Step 2: Install OpenCode plugins
 
 ```bash
 rp1 install:opencode
@@ -40,12 +47,12 @@ rp1 install:opencode
 
 **What this does:**
 
-1. Downloads the latest rp1 plugins from npm
+1. Downloads the latest rp1 plugins
 2. Installs them to `~/.opencode/prompts/`
 3. Configures both `rp1-base` and `rp1-dev` plugins
 4. Verifies the installation
 
-### Step 2: Restart OpenCode
+### Step 3: Restart OpenCode
 
 Close and reopen OpenCode to load the new plugins.
 
@@ -144,10 +151,19 @@ Auto-detects AGENTS.md or CLAUDE.md and adds KB loading patterns. Running again 
 
 To update to the latest version:
 
-```bash
-bun update -g @rp1-run/rp1
-rp1 install:opencode
-```
+=== "Homebrew"
+
+    ```bash
+    brew upgrade rp1
+    rp1 install:opencode
+    ```
+
+=== "Scoop"
+
+    ```bash
+    scoop update rp1
+    rp1 install:opencode
+    ```
 
 ### Uninstalling
 
@@ -166,11 +182,19 @@ rm -rf ~/.opencode/plugins/rp1-dev
 
     **Solution**: Check the error message. Common issues:
 
-    - **bun not found**: Install Bun with `curl -fsSL https://bun.sh/install | bash`
     - **Network error**: Check your internet connection
-    - **Permission denied**: Don't run with `sudo`; the CLI installs to your home directory
+    - **Permission denied**: The install script may need elevated permissions for `/usr/local/bin`. Either run with `sudo` or install to a user directory with `INSTALL_DIR=$HOME/.local/bin`
+    - **Checksum verification failed**: Try downloading again. If it persists, [report an issue](https://github.com/rp1-run/rp1/issues)
 
     Try the manual installation method as an alternative.
+
+??? question "macOS security warning?"
+
+    macOS Gatekeeper blocks unsigned binaries. See [Security Bypass](installation.md#macos-gatekeeper) for solutions.
+
+??? question "Windows SmartScreen warning?"
+
+    Windows blocks unsigned executables. See [Security Bypass](installation.md#windows-smartscreen) for solutions.
 
 ??? question "Plugins not loading?"
 

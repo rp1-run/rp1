@@ -1,3 +1,15 @@
+# Release Please - Versioning & Changelog Automation
+#
+# This workflow handles:
+# - Semantic versioning via conventional commits
+# - Changelog generation
+# - Release PR creation and tagging
+# - OpenCode artifact builds
+# - npm publishing
+#
+# Binary distribution (rp1 CLI) is handled separately by goreleaser.yml,
+# which triggers on the tag created by this workflow.
+
 name: Release Please
 
 on:

@@ -7,7 +7,7 @@ import pkg from "../package.json";
 
 import { viewCommand } from "./commands/view.js";
 import { buildCommand } from "./commands/build.js";
-import { installCommand, verifyCommand, listCommand } from "./commands/install.js";
+import { installCommand, verifyCommand, listCommand, installClaudeCodeCommand } from "./commands/install.js";
 import { initCommand } from "./commands/init.js";
 
 declare module "commander" {
@@ -55,6 +55,7 @@ program.hook("preAction", (thisCommand) => {
 program.addCommand(viewCommand, { hidden: true });
 program.addCommand(buildCommand);
 program.addCommand(installCommand);
+program.addCommand(installClaudeCodeCommand);
 program.addCommand(verifyCommand);
 program.addCommand(listCommand);
 program.addCommand(initCommand);

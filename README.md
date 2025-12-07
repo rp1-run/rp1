@@ -38,17 +38,29 @@
 /plugin install rp1-dev
 ```
 
-### OpenCode / CLI
+### rp1 CLI (for OpenCode)
 
-> **Requires [Bun](https://bun.sh)** - Install with `curl -fsSL https://bun.sh/install | bash`
+=== "macOS / Linux (Homebrew)"
 
 ```bash
-# Install globally
-bun install -g @rp1-run/rp1
+brew install rp1-run/tap/rp1
+```
 
-# Ensure Bun's bin is in your PATH (add to ~/.zshrc or ~/.bashrc)
-export PATH="$HOME/.bun/bin:$PATH"
+=== "Windows (Scoop)"
 
+```bash
+scoop bucket add rp1 https://github.com/rp1-run/scoop-bucket
+scoop install rp1
+```
+
+=== "CI/CD (curl)"
+
+```bash
+curl -fsSL https://rp1.run/install.sh | sh
+```
+
+Then install plugins for OpenCode:
+```bash
 rp1 install:opencode
 ```
 

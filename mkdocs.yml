@@ -68,10 +68,14 @@ markdown_extensions:
 plugins:
   - search
 
+hooks:
+  - docs/hooks.py
+
 nav:
   - Home: index.md
   - Getting Started:
     - getting-started/index.md
+    - Installation: getting-started/installation.md
     - Quick Start: getting-started/quickstart.md
     - Claude Code: getting-started/claude-code.md
     - OpenCode: getting-started/opencode.md
