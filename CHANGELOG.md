@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.0.3](https://github.com/rp1-run/rp1/compare/v6.0.2...v6.0.3) (2025-12-07)
+
+
+### Bug Fixes
+
+* **homebrew:** use staged_path directly for xattr (not hardcoded binary name) ([999b2f7](https://github.com/rp1-run/rp1/commit/999b2f7ea185271c6cf62b4474d8ba9f07676b68))
+
 ## [6.0.2](https://github.com/rp1-run/rp1/compare/v6.0.1...v6.0.2) (2025-12-07)
 
 
