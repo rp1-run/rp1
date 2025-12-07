@@ -9,16 +9,39 @@ Get rp1 running in under **5 minutes**.
 Before installing rp1, ensure you have:
 
 - **An AI coding assistant** installed:
-    - [Claude Code](https://claude.ai/code) - Anthropic's official CLI for Claude
-    - [OpenCode](https://github.com/opencode-ai/opencode) - Vendor-independent alternative
-- **[Bun](https://bun.sh)** runtime (for OpenCode/CLI) - `curl -fsSL https://bun.sh/install | bash`
+  - [Claude Code](https://claude.ai/code) - Anthropic's official CLI for Claude
+  - [OpenCode](https://github.com/opencode-ai/opencode) - Vendor-independent alternative
 - **A codebase** you want to enhance with rp1 workflows
 
 ---
 
 ## Installation
 
-Choose your platform and follow the installation steps:
+### Step 0: Install the rp1 CLI (Optional for Claude Code)
+
+The rp1 CLI provides tools for building and installing plugins. **Required for OpenCode**, optional for Claude Code.
+
+=== "macOS / Linux (Homebrew)"
+
+    ```bash
+    brew install rp1-run/tap/rp1
+    ```
+
+=== "Windows (Scoop)"
+
+    ```bash
+    scoop bucket add rp1 https://github.com/rp1-run/scoop-bucket
+    scoop install rp1
+    ```
+
+!!! tip "Claude Code users"
+    You can skip Step 0 and install plugins directly from the marketplace as shown below. The CLI is only needed if you want to install rp1 for OpenCode or want to access advanced/upcoming features.
+
+---
+
+### Platform-Specific Setup
+
+Choose your platform and follow the remaining steps:
 
 === "Claude Code"
 
@@ -45,29 +68,17 @@ Choose your platform and follow the installation steps:
 
 === "OpenCode"
 
-    **Step 1: Install rp1 CLI globally**
-
-    ```bash
-    bun install -g @rp1-run/rp1
-    ```
-
-    !!! tip "Add Bun to PATH if needed"
-        If you see a PATH warning, add to `~/.zshrc` or `~/.bashrc`:
-        ```bash
-        export PATH="$HOME/.bun/bin:$PATH"
-        ```
-
-    **Step 2: Install plugins**
+    **Step 1: Install plugins** (requires CLI from Step 0)
 
     ```bash
     rp1 install:opencode
     ```
 
-    **Step 3: Restart OpenCode**
+    **Step 2: Restart OpenCode**
 
     Close and reopen OpenCode to load the new plugins.
 
-    **Step 4: Verify installation**
+    **Step 3: Verify installation**
 
     Type `/` to see available commands. You should see rp1 commands listed (look for `/rp1-base/` and `/rp1-dev/`).
 
@@ -134,7 +145,7 @@ Now that rp1 is installed and understands your codebase, explore what you can do
 
 <div class="grid cards" markdown>
 
--   :material-book-open-variant:{ .lg .middle } **Guides**
+- :material-book-open-variant:{ .lg .middle } **Guides**
 
     ---
 
@@ -142,7 +153,7 @@ Now that rp1 is installed and understands your codebase, explore what you can do
 
     [:octicons-arrow-right-24: View Guides](../guides/index.md)
 
--   :material-book-search:{ .lg .middle } **Reference**
+- :material-book-search:{ .lg .middle } **Reference**
 
     ---
 
@@ -150,7 +161,7 @@ Now that rp1 is installed and understands your codebase, explore what you can do
 
     [:octicons-arrow-right-24: View Reference](../reference/index.md)
 
--   :material-lightbulb:{ .lg .middle } **Concepts**
+- :material-lightbulb:{ .lg .middle } **Concepts**
 
     ---
 

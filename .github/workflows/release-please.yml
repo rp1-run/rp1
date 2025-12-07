@@ -5,7 +5,7 @@
 # - Changelog generation
 # - Release PR creation and tagging
 # - OpenCode artifact builds
-# - npm publishing (deprecated - will be removed after migration to binary distribution)
+# - npm publishing
 #
 # Binary distribution (rp1 CLI) is handled separately by goreleaser.yml,
 # which triggers on the tag created by this workflow.
@@ -162,12 +162,6 @@ jobs:
             release-artifacts/manifest.json \
             --clobber
 
-  # DEPRECATED: npm publishing will be removed after 30-day migration period.
-  # Users should migrate to binary distribution via:
-  # - Homebrew: brew install rp1-run/tap/rp1
-  # - Scoop: scoop install rp1
-  # - Direct download: https://github.com/rp1-run/rp1/releases
-  # See goreleaser.yml for binary distribution workflow.
   npm-publish:
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true'

@@ -100,3 +100,31 @@ Examples:
       process.exit(getExitCode(result.left));
     }
   });
+
+export const installClaudeCodeCommand = new Command("install:claudecode")
+  .description("Show instructions for installing rp1 plugins in Claude Code")
+  .action(async () => {
+    const cyan = "\x1b[36m";
+    const bold = "\x1b[1m";
+    const reset = "\x1b[0m";
+    const dim = "\x1b[2m";
+
+    console.log(`
+${bold}Installing rp1 plugins in Claude Code${reset}
+
+Claude Code uses a plugin marketplace. Run these commands in Claude Code:
+
+${cyan}# Add the rp1 marketplace${reset}
+${bold}/plugin marketplace add rp1-run/rp1${reset}
+
+${cyan}# Install the plugins${reset}
+${bold}/plugin install rp1-base${reset}
+${bold}/plugin install rp1-dev${reset}
+
+${cyan}# Verify installation${reset}
+${bold}/help${reset}  ${dim}(should show rp1 commands)${reset}
+
+${dim}For detailed instructions, visit:${reset}
+${bold}https://rp1.run/getting-started/quickstart/${reset}
+`);
+  });
