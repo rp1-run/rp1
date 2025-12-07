@@ -13,6 +13,7 @@ export {
   expectLeft,
   expectTaskRight,
   expectTaskLeft,
+  getErrorMessage,
 } from "./fp-ts-helpers.js";
 
 export {

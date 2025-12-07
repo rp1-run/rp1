@@ -1,8 +1,8 @@
 {
   "plugin": "test-plugin",
   "version": "1.0.0",
-  "generatedAt": "2025-01-01T00:00:00Z",
-  "opencodeVersionTested": "0.9.0",
+  "generated_at": "2025-01-01T00:00:00Z",
+  "opencode_version_tested": "0.9.0",
   "artifacts": {
     "commands": ["sample-command"],
     "agents": ["sample-agent"],

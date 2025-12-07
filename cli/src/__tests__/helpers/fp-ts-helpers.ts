@@ -61,3 +61,50 @@ export async function expectTaskLeft<L, R>(
   const result = await task();
   return expectLeft(result);
 }
+
+/**
+ * CLIError type definition (matches cli/shared/errors.ts).
+ * Used for type-safe error message extraction.
+ */
+type CLIError =
+  | { _tag: "UsageError"; message: string; suggestion?: string }
+  | { _tag: "NotFoundError"; resource: string; suggestion?: string }
+  | { _tag: "ConfigError"; message: string; suggestion?: string }
+  | { _tag: "RuntimeError"; message: string; cause?: unknown }
+  | { _tag: "PortInUseError"; port: number }
+  | { _tag: "ParseError"; file: string; message: string }
+  | { _tag: "TransformError"; file: string; message: string }
+  | {
+      _tag: "ValidationError";
+      file: string;
+      level: "L1" | "L2";
+      message: string;
+    }
+  | { _tag: "GenerationError"; file: string; message: string }
+  | {
+      _tag: "PrerequisiteError";
+      check: string;
+      message: string;
+      suggestion?: string;
+    }
+  | { _tag: "InstallError"; operation: string; message: string }
+  | { _tag: "BackupError"; message: string }
+  | { _tag: "VerificationError"; message: string; issues: string[] };
+
+/**
+ * Extract a displayable message from any CLIError variant.
+ * Useful in tests where we need to check error messages across
+ * different error types in the discriminated union.
+ * @param error - Any CLIError variant
+ * @returns A string representation of the error message
+ */
+export function getErrorMessage(error: CLIError): string {
+  switch (error._tag) {
+    case "NotFoundError":
+      return `${error.resource} not found`;
+    case "PortInUseError":
+      return `Port ${error.port} is already in use`;
+    default:
+      return (error as { message: string }).message;
+  }
+}
