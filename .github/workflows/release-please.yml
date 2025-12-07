@@ -5,7 +5,6 @@
 # - Changelog generation
 # - Release PR creation and tagging
 # - OpenCode artifact builds
-# - npm publishing
 #
 # Binary distribution (rp1 CLI) is handled separately by goreleaser.yml,
 # which triggers on the tag created by this workflow.
@@ -19,13 +18,6 @@ on:
   pull_request:
     branches:
       - main
-  workflow_dispatch:
-    inputs:
-      manual_publish:
-        description: 'Manually trigger npm publish for current version'
-        required: false
-        type: boolean
-        default: false
 
 concurrency:
   group: release-${{ github.ref }}
@@ -34,7 +26,6 @@ concurrency:
 permissions:
   contents: write
   pull-requests: write
-  id-token: write
 
 jobs:
   test:
@@ -78,8 +69,8 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # Skip if this is a manual publish request or PR (only run on push to main)
-    if: ${{ !inputs.manual_publish && github.event_name == 'push' }}
+    # Only run on push to main
+    if: ${{ github.event_name == 'push' }}
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
@@ -161,14 +152,3 @@ jobs:
             release-artifacts/rp1-opencode-*.tar.gz \
             release-artifacts/manifest.json \
             --clobber
-
-  npm-publish:
-    needs: release-please
-    if: needs.release-please.outputs.release_created == 'true'
-    uses: ./.github/workflows/npm-publish.yml
-    with:
-      version: ${{ needs.release-please.outputs.version }}
-
-  manual-npm-publish:
-    if: inputs.manual_publish == true
-    uses: ./.github/workflows/npm-publish.yml
