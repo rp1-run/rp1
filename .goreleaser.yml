@@ -4,7 +4,7 @@ project_name: rp1
 
 before:
   hooks:
-    - cd cli && bun install
+    - bash -c "cd cli && bun install"
 
 builds:
   - id: rp1
