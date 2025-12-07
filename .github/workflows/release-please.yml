@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       manual_publish:
@@ -22,11 +25,49 @@ permissions:
   id-token: write
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('cli/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: cd cli && bun install
+
+      - name: Run tests
+        run: cd cli && bun test
+
+      - name: Generate coverage report
+        if: always()
+        run: cd cli && bun test --coverage 2>&1 | tee coverage.txt || true
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: cli/coverage.txt
+
   release-please:
+    needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # Skip if this is a manual publish request
-    if: ${{ !inputs.manual_publish }}
+    # Skip if this is a manual publish request or PR (only run on push to main)
+    if: ${{ !inputs.manual_publish && github.event_name == 'push' }}
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
