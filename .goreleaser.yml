@@ -70,17 +70,18 @@ release:
     ---
     **Full Changelog**: https://github.com/rp1-run/rp1/compare/{{ .PreviousTag }}...{{ .Tag }}
 
-homebrew_casks:
+brews:
   - name: rp1
     repository:
       owner: rp1-run
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
-    directory: Casks
+    directory: Formula
     homepage: "https://rp1.run"
     description: "AI-assisted development workflows CLI"
-    binaries:
-      - rp1
+    license: MIT
+    install: |
+      bin.install "rp1"
 
 scoops:
   - name: rp1
