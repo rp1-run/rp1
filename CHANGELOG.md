@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.0.2](https://github.com/rp1-run/rp1/compare/v6.0.1...v6.0.2) (2025-12-07)
+
+
+### Bug Fixes
+
+* **homebrew:** use cask post-install hook to remove quarantine attribute ([be35462](https://github.com/rp1-run/rp1/commit/be35462719bc8c34c4fb6a459568cd19b8046075))
+
 ## [6.0.1](https://github.com/rp1-run/rp1/compare/v6.0.0...v6.0.1) (2025-12-07)
 
 
