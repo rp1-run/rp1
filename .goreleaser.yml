@@ -82,7 +82,7 @@ homebrew_casks:
     hooks:
       post:
         install: |
-          system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/rp1"]
+          system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", staged_path]
 
 scoops:
   - name: rp1
