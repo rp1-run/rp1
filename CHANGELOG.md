@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.4.0](https://github.com/rp1-run/rp1/compare/v5.3.1...v5.4.0) (2025-12-07)
+
+
+### Features
+
+* **tests:** add tests for cli ([#87](https://github.com/rp1-run/rp1/issues/87)) ([d95687a](https://github.com/rp1-run/rp1/commit/d95687a067ba14e656610e1d100a35615fd92567))
+
 ## [5.3.1](https://github.com/rp1-run/rp1/compare/v5.3.0...v5.3.1) (2025-12-06)
 
 
