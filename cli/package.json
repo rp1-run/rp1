@@ -42,6 +42,9 @@
     "build:all": "bun run build && bun run build:web-ui && bun run build:opencode",
     "dev": "bun run src/main.ts",
     "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "test:coverage": "bun test --coverage",
+    "test:watch": "bun test --watch",
     "prepublishOnly": "bun run build:all"
   },
   "dependencies": {
