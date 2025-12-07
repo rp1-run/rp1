@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.0.1](https://github.com/rp1-run/rp1/compare/v6.0.0...v6.0.1) (2025-12-07)
+
+
+### Bug Fixes
+
+* **ci:** wrap goreleaser hook in bash for shell command execution ([f7cea2c](https://github.com/rp1-run/rp1/commit/f7cea2cf0c373eaea50b6b1e4bdd084d28fcea98))
+
 ## [6.0.0](https://github.com/rp1-run/rp1/compare/v5.4.0...v6.0.0) (2025-12-07)
 
 
