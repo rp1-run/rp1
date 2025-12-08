@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.3](https://github.com/rp1-run/rp1/compare/v0.2.2...v0.2.3) (2025-12-08)
+
+
+### Bug Fixes
+
+* **cli:** ci build for webui ([#107](https://github.com/rp1-run/rp1/issues/107)) ([5b1c725](https://github.com/rp1-run/rp1/commit/5b1c7255f0b25b84f31bf697c6b9c7d78aa3a02b))
+
 ## [0.2.2](https://github.com/rp1-run/rp1/compare/v0.2.1...v0.2.2) (2025-12-08)
 
 
