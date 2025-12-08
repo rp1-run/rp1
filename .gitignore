@@ -19,3 +19,6 @@ site/
 cli/dist/
 cli/web-ui/.vite/
 cli/web-ui/dist/
+
+# Generated files (created by build:release)
+cli/src/assets/embedded.ts

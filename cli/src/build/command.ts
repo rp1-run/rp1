@@ -22,7 +22,7 @@ import {
   runtimeError,
   formatError,
 } from "../../shared/errors.js";
-import type { BuildConfig, BuildSummary } from "./models.js";
+import type { BuildConfig, BuildSummary, BundlePluginAssets, BundleAssetEntry } from "./models.js";
 import { defaultRegistry } from "./registry.js";
 import { parseCommand, parseAgent, parseSkill } from "./parser.js";
 import {
@@ -35,6 +35,7 @@ import {
   generateAgentFile,
   generateSkillFile,
   generateManifest,
+  generateBundleManifest,
 } from "./generator.js";
 import { validateCommand, validateAgent, validateSkill } from "./validator.js";
 
@@ -222,6 +223,14 @@ const copySupportingFiles = async (
 };
 
 /**
+ * Extended build result with asset paths for bundle manifest.
+ */
+interface PluginBuildResult {
+  summary: BuildSummary;
+  assets: BundlePluginAssets;
+}
+
+/**
  * Build a single plugin.
  */
 const buildPlugin = async (
@@ -230,11 +239,11 @@ const buildPlugin = async (
   outputPath: string,
   logger: Logger,
   jsonOutput: boolean,
-): Promise<BuildSummary> => {
+): Promise<PluginBuildResult> => {
   const errors: string[] = [];
-  const commandNames: string[] = [];
-  const agentNames: string[] = [];
-  const skillNames: string[] = [];
+  const commandEntries: BundleAssetEntry[] = [];
+  const agentEntries: BundleAssetEntry[] = [];
+  const skillEntries: BundleAssetEntry[] = [];
 
   const pluginDir = join(projectRoot, "plugins", pluginName);
   const pluginOutputDir = join(outputPath, pluginName);
@@ -294,14 +303,10 @@ const buildPlugin = async (
     }
 
     // Write to namespaced subdirectory
-    const outputFile = join(
-      pluginOutputDir,
-      "command",
-      `rp1-${pluginName}`,
-      filename,
-    );
+    const relativePath = `${pluginName}/command/rp1-${pluginName}/${filename}`;
+    const outputFile = join(outputPath, relativePath);
     await writeFile(outputFile, content);
-    commandNames.push(ccCmd.name);
+    commandEntries.push({ name: ccCmd.name, path: relativePath });
   }
 
   // Process agents
@@ -338,14 +343,10 @@ const buildPlugin = async (
     }
 
     // Write to namespaced subdirectory
-    const outputFile = join(
-      pluginOutputDir,
-      "agent",
-      `rp1-${pluginName}`,
-      filename,
-    );
+    const relativePath = `${pluginName}/agent/rp1-${pluginName}/${filename}`;
+    const outputFile = join(outputPath, relativePath);
     await writeFile(outputFile, content);
-    agentNames.push(ccAgent.name);
+    agentEntries.push({ name: ccAgent.name, path: relativePath });
   }
 
   // Process skills (only in base plugin)
@@ -391,17 +392,22 @@ const buildPlugin = async (
 
       // Write SKILL.md
       const skillOutputDir = join(pluginOutputDir, "skills", outSkillDir);
+      const relativePath = `${pluginName}/skills/${outSkillDir}/SKILL.md`;
       await mkdir(skillOutputDir, { recursive: true });
       await writeFile(join(skillOutputDir, "SKILL.md"), skillMdContent);
 
       // Copy supporting files
       await copySupportingFiles(skillDir, skillOutputDir, supportingFiles);
 
-      skillNames.push(ccSkill.name);
+      skillEntries.push({ name: ccSkill.name, path: relativePath });
     }
   }
 
   // Generate manifest
+  const commandNames = commandEntries.map(e => e.name);
+  const agentNames = agentEntries.map(e => e.name);
+  const skillNames = skillEntries.map(e => e.name);
+
   const manifestResult = generateManifest(
     `rp1-${pluginName}`,
     pluginVersion,
@@ -419,7 +425,7 @@ const buildPlugin = async (
   // Complete spinner
   if (!jsonOutput) {
     const hasErrors = errors.length > 0;
-    const summary = `${pluginName}: ${commandNames.length} commands, ${agentNames.length} agents, ${skillNames.length} skills`;
+    const summary = `${pluginName}: ${commandEntries.length} commands, ${agentEntries.length} agents, ${skillEntries.length} skills`;
     if (hasErrors) {
       logger.fail(`${summary} (${errors.length} errors)`);
     } else {
@@ -428,11 +434,19 @@ const buildPlugin = async (
   }
 
   return {
-    plugin: pluginName,
-    commands: commandNames.length,
-    agents: agentNames.length,
-    skills: skillNames.length,
-    errors,
+    summary: {
+      plugin: pluginName,
+      commands: commandEntries.length,
+      agents: agentEntries.length,
+      skills: skillEntries.length,
+      errors,
+    },
+    assets: {
+      name: `rp1-${pluginName}`,
+      commands: commandEntries,
+      agents: agentEntries,
+      skills: skillEntries,
+    },
   };
 };
 
@@ -511,15 +525,51 @@ export const executeBuild = (
 
           // Build each plugin
           const summaries: BuildSummary[] = [];
+          const pluginAssets: Map<string, BundlePluginAssets> = new Map();
+
           for (const pluginName of pluginsToBuild) {
-            const summary = await buildPlugin(
+            const result = await buildPlugin(
               pluginName,
               projectRoot,
               outputPath,
               logger,
               config.jsonOutput,
             );
-            summaries.push(summary);
+            summaries.push(result.summary);
+            pluginAssets.set(pluginName, result.assets);
+          }
+
+          // Generate bundle manifest if building all plugins
+          if (config.plugin === "all") {
+            const baseAssets = pluginAssets.get("base");
+            const devAssets = pluginAssets.get("dev");
+
+            if (baseAssets && devAssets) {
+              // Read version from CLI package.json
+              const pkgPath = join(projectRoot, "cli", "package.json");
+              let version = "0.0.0";
+              try {
+                const pkg = JSON.parse(await readFile(pkgPath, "utf-8"));
+                version = pkg.version ?? "0.0.0";
+              } catch {
+                // Fallback to version from plugin
+              }
+
+              const bundleManifestResult = generateBundleManifest(
+                baseAssets,
+                devAssets,
+                version,
+              );
+              if (E.isRight(bundleManifestResult)) {
+                await writeFile(
+                  join(outputPath, "bundle-manifest.json"),
+                  bundleManifestResult.right,
+                );
+                if (!config.jsonOutput) {
+                  logger.debug("Generated bundle-manifest.json");
+                }
+              }
+            }
           }
 
           // Output results

@@ -112,7 +112,8 @@ You can also specify a version manually:
     fi
 
     # Extract tag_name from JSON response (portable, no jq dependency)
-    echo "$response" | grep -o '"tag_name":\s*"[^"]*"' | head -1 | sed 's/.*"tag_name":\s*"\([^"]*\)".*/\1/' | sed 's/^v//'
+    # Note: Use [[:space:]]* instead of \s* for POSIX compatibility
+    echo "$response" | grep -o '"tag_name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' | sed 's/^v//'
 }
 
 # Validate version format

@@ -6,10 +6,11 @@ export interface ServerOptions {
   port?: number;
   projectPath: string;
   isDev?: boolean;
+  webUIDir?: string;
 }
 
 export function createServer(options: ServerOptions) {
-  const { port = 7710, projectPath, isDev = false } = options;
+  const { port = 7710, projectPath, isDev = false, webUIDir } = options;
 
   const websocketHub = new WebSocketHub();
   const fileWatcher = new FileWatcher(projectPath, websocketHub);
@@ -19,6 +20,7 @@ export function createServer(options: ServerOptions) {
     projectPath,
     websocketHub,
     isDev,
+    webUIDir,
   });
 
   fileWatcher.start();

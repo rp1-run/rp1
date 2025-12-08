@@ -27,7 +27,8 @@ function getMimeType(filePath: string): string {
 
 export async function handleStaticRequest(
   req: Request,
-  isDev: boolean
+  isDev: boolean,
+  webUIDir?: string
 ): Promise<Response> {
   const url = new URL(req.url);
   let pathname = url.pathname;
@@ -36,7 +37,10 @@ export async function handleStaticRequest(
     return proxyToVite(req);
   }
 
-  const distDir = join(import.meta.dir, "../../../dist/client");
+  // Use provided webUIDir (e.g., from extracted bundled assets) or default to local dist
+  const distDir = webUIDir
+    ? join(webUIDir, "client")
+    : join(import.meta.dir, "../../../dist/client");
 
   if (pathname === "/") {
     pathname = "/index.html";

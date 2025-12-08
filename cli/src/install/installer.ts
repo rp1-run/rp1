@@ -359,10 +359,11 @@ export const installRp1 = (
 
 /**
  * Get the default artifacts directory.
- * Checks for bundled artifacts first, then falls back to cwd.
+ * Checks for bundled artifacts relative to the binary location.
+ * Returns null if no artifacts are found (user must specify --artifacts-dir or build first).
  */
-export const getDefaultArtifactsDir = (): string => {
-  // Check for bundled artifacts (when installed as npm package)
+export const getDefaultArtifactsDir = (): string | null => {
+  // Check for bundled artifacts (when installed as npm package or binary)
   const moduleDir = dirname(fileURLToPath(import.meta.url));
   const bundledPaths = [
     join(moduleDir, "..", "..", "dist", "opencode"), // From src/install/ -> dist/opencode
@@ -376,6 +377,6 @@ export const getDefaultArtifactsDir = (): string => {
     }
   }
 
-  // Fall back to cwd-based path (for development)
-  return join(process.cwd(), "dist", "opencode");
+  // No bundled artifacts found - return null to indicate user must build or specify path
+  return null;
 };

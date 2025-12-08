@@ -36,10 +36,13 @@
     "node": ">=20.0.0"
   },
   "scripts": {
+    "postinstall": "test -f src/assets/embedded.ts || cp src/assets/embedded.stub.ts src/assets/embedded.ts",
     "build": "bun build src/main.ts --outdir dist --target node",
     "build:web-ui": "cd web-ui && bun run build",
     "build:opencode": "bun run scripts/build-opencode.ts",
     "build:all": "bun run build && bun run build:web-ui && bun run build:opencode",
+    "generate:assets": "bun run scripts/generate-asset-imports.ts",
+    "build:release": "bun run build:web-ui && bun run build:opencode && bun run generate:assets",
     "dev": "bun run src/main.ts",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
