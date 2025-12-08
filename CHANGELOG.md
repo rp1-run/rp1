@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/rp1-run/rp1/compare/v0.2.0...v0.2.1) (2025-12-08)
+
+
+### Documentation
+
+* update for open source release ([89dcdb9](https://github.com/rp1-run/rp1/commit/89dcdb907966cc7dcbe466473b83623bedaf6386))
+
 ## [0.2.0](https://github.com/rp1-run/rp1/compare/v0.1.0...v0.2.0) (2025-12-08)
 
 
