@@ -52,17 +52,20 @@ git commit -m "feat!: redesign command-agent architecture"
 
 ## Release Process
 
-Releases are fully automated via **release-please**:
+Releases are managed via **release-please** with manual approval gates:
 
 1. Merge your PR to `main` with conventional commit messages
 2. release-please automatically creates/updates a Release PR with changelog
-3. When the Release PR is merged, GitHub Actions automatically:
+3. **Manual Approval Required**: A maintainer must review and merge the Release PR
+   - This prevents accidental releases during development/debugging
+   - Only maintainers with write access can merge release PRs
+4. When the Release PR is manually merged, GitHub Actions automatically:
    - Creates GitHub Release with version tag
    - Builds and attaches OpenCode tarball artifacts
-   - Publishes to npm with OIDC provenance
    - Updates version files (`plugin.json`, `package.json`, README badges)
+   - Triggers GoReleaser for Homebrew/Scoop distribution
 
-No manual tagging or scripts required - just write good commit messages!
+Auto-merge is intentionally disabled to ensure release quality and timing control.
 
 ## Development Workflow
 
