@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/rp1-run/rp1/compare/v0.2.1...v0.2.2) (2025-12-08)
+
+
+### Bug Fixes
+
+* **cli:** install issues and bundle generations  ([#105](https://github.com/rp1-run/rp1/issues/105)) ([339f52f](https://github.com/rp1-run/rp1/commit/339f52f6678c5a6139c8fadf8478483fd926546e))
+
 ## [0.2.1](https://github.com/rp1-run/rp1/compare/v0.2.0...v0.2.1) (2025-12-08)
 
 
