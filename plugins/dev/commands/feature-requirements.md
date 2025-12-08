@@ -43,6 +43,26 @@ $2
 {{FEATURE_DOCS_DIR}}
 </feature_docs_dir> `{RP1_ROOT}/work/features/<FEATURE_ID>/` (default) - Where to store the generated docs
 
+## Step 0: Load Codebase Knowledge (Progressive Loading)
+
+**REQUIRED FIRST STEP:** Read `{RP1_ROOT}/context/index.md` to understand project structure, domain concepts, and available KB files.
+
+**For Requirements Gathering**, also read:
+
+- `{RP1_ROOT}/context/concept_map.md` - Domain terminology and business concepts to use consistent language
+
+Do NOT load architecture or patterns files. Requirements gathering focuses on WHAT, not HOW.
+
+If `{RP1_ROOT}/context/index.md` doesn't exist, warn user:
+
+```
+💡 **Tip**: No knowledge base found. Consider running `/knowledge-build` first for better domain context.
+```
+
+Continue with best-effort requirements gathering.
+
+Use the loaded knowledge to understand existing domain terminology and business concepts before gathering requirements.
+
 ## Charter & PRD Integration
 
 **Before starting requirements gathering**, check for project context:
@@ -51,6 +71,7 @@ $2
 2. **Check for PRDs**: List files in `.rp1/work/prds/` directory
 
 **If PRDs exist**:
+
 - If multiple PRDs found: Use AskUserQuestion to let user select which PRD to associate with (or "None")
 - If single PRD found: Ask "Associate this feature with [PRD name]? [Yes/No]"
 - If user selects a PRD:
@@ -60,11 +81,14 @@ $2
   - Use PRD scope to inform feature scoping questions
 
 **If no charter/PRDs exist**:
+
 - Display a helpful tip to the user:
+
   ```
   💡 **Tip**: No project charter or PRDs found. Consider running `/rp1-dev:blueprint` first to establish
   your project's vision, scope, and context. This helps keep features aligned with project goals.
   ```
+
 - Continue with standard requirements workflow (backward compatible)
 
 ## Your Task
@@ -218,14 +242,15 @@ THEN [observable outcome]
 
 Before generating your requirements specification, work through your analysis systematically inside <requirements_analysis> tags in your thinking block:
 
-1. **Check project context**: Look for `.rp1/work/charter.md` and `.rp1/work/prds/*.md` files. If PRDs exist, prompt user for association.
-2. **Parse the input requirements**: Quote specific phrases from the input that describe what needs to be built
-3. **Identify ambiguities**: List specific vague terms, undefined concepts, or unclear statements from the input (quote them directly)
-4. **Catalog missing information**: Systematically go through WHO/WHAT/CONSTRAINTS/SCOPE categories and note what information is missing
-5. **Plan clarifying questions**: If in interactive mode, prepare specific questions to resolve the ambiguities you've identified
-6. **Structure document approach**: Plan how you'll organize each section of the requirements document based on the available information
-7. **Validate parameters**: Check that FEATURE_ID is provided, note RP1_ROOT and FEATURE_DOCS_DIR settings
-8. **Output File** Once generated, the docs need to be stored in the `FEATURE_DOCS_DIR` directory for further processing.
+1. **Load KB context**: Read `{RP1_ROOT}/context/index.md` and `{RP1_ROOT}/context/concept_map.md` to understand domain terminology
+2. **Check project context**: Look for `.rp1/work/charter.md` and `.rp1/work/prds/*.md` files. If PRDs exist, prompt user for association.
+3. **Parse the input requirements**: Quote specific phrases from the input that describe what needs to be built
+4. **Identify ambiguities**: List specific vague terms, undefined concepts, or unclear statements from the input (quote them directly)
+5. **Catalog missing information**: Systematically go through WHO/WHAT/CONSTRAINTS/SCOPE categories and note what information is missing
+6. **Plan clarifying questions**: If in interactive mode, prepare specific questions to resolve the ambiguities you've identified
+7. **Structure document approach**: Plan how you'll organize each section of the requirements document based on the available information
+8. **Validate parameters**: Check that FEATURE_ID is provided, note RP1_ROOT and FEATURE_DOCS_DIR settings
+9. **Output File** Once generated, the docs need to be stored in the `FEATURE_DOCS_DIR` directory for further processing.
 
 It's OK for this analysis section to be quite long as you work through each aspect systematically.
 
