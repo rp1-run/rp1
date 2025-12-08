@@ -256,6 +256,19 @@ export const executeInstall = (
     );
   }
 
+  if (artifactsDir === null) {
+    return TE.left(
+      usageError(
+        "No artifacts found",
+        "This appears to be a development build without bundled assets.\n\n" +
+          "Options:\n" +
+          "  1. Install a release binary from: https://github.com/rp1-run/rp1/releases\n" +
+          "  2. Build artifacts first: rp1 build:opencode\n" +
+          "  3. Specify path: rp1 install:opencode --artifacts-dir <path>",
+      ),
+    );
+  }
+
   console.log(bold("\n🚀 rp1-opencode Installation\n"));
   console.log(dim(`Using artifacts: ${artifactsDir}\n`));
 

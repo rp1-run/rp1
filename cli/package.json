@@ -36,7 +36,7 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "postinstall": "test -f src/assets/embedded.ts || cp src/assets/embedded.stub.ts src/assets/embedded.ts",
+    "postinstall": "(test -f src/assets/embedded.ts || cp src/assets/embedded.stub.ts src/assets/embedded.ts) && cd web-ui && bun install",
     "build": "bun build src/main.ts --outdir dist --target node",
     "build:web-ui": "cd web-ui && bun run build",
     "build:opencode": "bun run scripts/build-opencode.ts",

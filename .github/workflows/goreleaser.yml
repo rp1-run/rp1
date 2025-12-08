@@ -35,8 +35,7 @@ jobs:
         run: |
           cd cli
           bun install
-          bun run build:web-ui
-          bun run scripts/generate-asset-imports.ts
+          bun run build:release
 
       # Verify assets were generated correctly
       - name: Verify asset generation
