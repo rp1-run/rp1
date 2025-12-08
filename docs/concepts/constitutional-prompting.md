@@ -52,17 +52,6 @@ flowchart LR
         C2 --> C3[Execute Rules]
         C3 --> C4[Single Output]
     end
-
-    style A1 fill:#ffcdd2
-    style A2 fill:#ffcdd2
-    style A3 fill:#ffcdd2
-    style A4 fill:#ffcdd2
-    style A5 fill:#ffcdd2
-    style A6 fill:#c8e6c9
-    style C1 fill:#c8e6c9
-    style C2 fill:#c8e6c9
-    style C3 fill:#c8e6c9
-    style C4 fill:#c8e6c9
 ```
 
 ---
