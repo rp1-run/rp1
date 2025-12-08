@@ -38,7 +38,7 @@
   "scripts": {
     "build": "bun build src/main.ts --outdir dist --target node",
     "build:web-ui": "cd web-ui && bun run build",
-    "build:opencode": "bun run src/main.ts build:opencode",
+    "build:opencode": "bun run scripts/build-opencode.ts",
     "build:all": "bun run build && bun run build:web-ui && bun run build:opencode",
     "dev": "bun run src/main.ts",
     "typecheck": "tsc --noEmit",

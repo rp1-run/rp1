@@ -39,12 +39,14 @@ rp1/
 The project is split into two plugins:
 
 **rp1-base** (Foundation):
+
 - 6 commands: Knowledge, docs, strategy, security, content writing
 - 4 agents: knowledge-builder, project-documenter, strategic-advisor, security-validator
 - 3 skills: maestro, mermaid, knowledge-base-templates (shared)
 - No dependencies
 
 **rp1-dev** (Development):
+
 - 13 commands: Feature workflows (4), code quality (5), PR management (4)
 - 7 agents: bug-investigator, test-runner, code-auditor, comment-cleaner, pr-reviewer, pr-feedback-collector, pr-visualizer
 - Depends on: `rp1-base >= 2.0.0`
@@ -81,6 +83,7 @@ rp1 view --no-open              # Don't auto-open browser
 ```
 
 Features:
+
 - Markdown rendering with syntax highlighting (Shiki)
 - Mermaid diagram support
 - File tree navigation
@@ -99,6 +102,7 @@ rp1 build:opencode --json               # JSON output for CI/CD
 ```
 
 Output structure:
+
 ```
 dist/opencode/
 ├── rp1-base/
@@ -180,6 +184,7 @@ bun run build
 ```
 
 Architecture:
+
 - **Frontend**: React + Vite + TailwindCSS
 - **Backend**: Bun HTTP server with WebSocket support
 - **Features**: File tree, markdown viewer, Mermaid diagrams, live reload
@@ -217,6 +222,7 @@ fix(commands): resolve argument parsing
 ```
 
 **Version Bumps**:
+
 - `feat:` → Minor version bump (1.3.0 → 1.4.0)
 - `fix:` → Patch version bump (1.3.0 → 1.3.1)
 - `feat!:` or `BREAKING CHANGE:` → Major version bump (1.3.0 → 2.0.0)
@@ -301,11 +307,13 @@ Role persona and critical instructions
 7 agents automatically load the codebase knowledge base before execution:
 
 **Base (3)**:
+
 - `project-documenter`
 - `strategic-advisor`
 - `security-validator`
 
 **Dev (4)**:
+
 - `bug-investigator`
 - `code-auditor`
 - `pr-reviewer`
@@ -335,23 +343,27 @@ These agents run `/rp1-base:knowledge-load` as their first step to receive compr
 **For OpenCode:**
 
 1. Build artifacts using the rp1 CLI:
+
    ```bash
    cd cli
    bun run dev build:opencode
    ```
 
 2. Install from built artifacts:
+
    ```bash
    bun run dev install:opencode
    ```
 
 3. Verify installation:
+
    ```bash
    bun run dev verify:opencode
    bun run dev list
    ```
 
 4. Or install from GitHub release:
+
    ```bash
    curl -LsSf https://astral.sh/uv/install.sh | sh  # Install uv first (if needed)
    curl -fsSL https://raw.githubusercontent.com/rp1-run/rp1/main/scripts/install-for-opencode.sh | bash
@@ -406,6 +418,7 @@ The `cli/` directory contains a unified TypeScript CLI built with:
 - **TailwindCSS**: Styling
 
 Key modules:
+
 - `cli/src/build/`: Claude Code → OpenCode artifact transformation
 - `cli/src/install/`: OpenCode installation management
 - `cli/web-ui/`: Documentation viewer with live reload
@@ -413,11 +426,13 @@ Key modules:
 ### Cross-Plugin Dependencies
 
 **Dev depends on Base**:
+
 - Dev agents can invoke base commands: `/rp1-base:command-name`
 - Dev agents can use base skills: `rp1-base:skill-name`
 - Dev plugin declares dependency in `plugin.json`: `{"rp1-base": ">=2.0.0"}`
 
 **Base is independent**:
+
 - Base has no dependencies
 - Base agents cannot call dev commands
 
@@ -472,6 +487,7 @@ If npm publish fails during a release (network issue, npm outage, OIDC token pro
 4. Click **"Run workflow"**
 
 This builds and publishes whatever version is currently in `cli/package.json` to npm. Use this for:
+
 - Recovering from failed npm publishes
 - Re-publishing after a yanked version
 - Testing the publish workflow without creating a new release

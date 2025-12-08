@@ -27,6 +27,12 @@ The rp1 CLI provides tools for building and installing plugins. **Required for O
     brew install rp1-run/tap/rp1
     ```
 
+=== "macOS / Linux (curl)"
+
+    ```bash
+    curl -fsSL https://rp1.run/install.sh | sh
+    ```
+
 === "Windows (Scoop)"
 
     ```bash

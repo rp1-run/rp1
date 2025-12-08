@@ -86,6 +86,37 @@ Before submitting a PR:
 3. Check for any breaking changes
 4. Update documentation if needed
 
+## Internal Commands
+
+The following commands are hidden from the public CLI but remain available for development and contributor use:
+
+### build:opencode
+
+Builds OpenCode artifacts from Claude Code plugin sources.
+
+**Invocation** (development only):
+```bash
+cd cli
+bun run build:opencode
+```
+
+This runs the standalone build script at `scripts/build-opencode.ts`.
+
+**Purpose**: Transforms Claude Code plugins into OpenCode-compatible format for release artifacts. This command is used by GitHub Actions during the release process and by contributors building OpenCode tarballs locally.
+
+### view
+
+Launches a web-based documentation viewer for knowledge base files.
+
+**Invocation**:
+```bash
+rp1 view [path]
+```
+
+**Purpose**: Development utility for previewing knowledge base documentation. Hidden from help output but functional when invoked directly.
+
+**Why Hidden**: These commands serve internal/development purposes and would confuse end users who have no use for them. The `build:opencode` command is only needed during releases and development. The `view` command requires Bun runtime and is primarily for contributors debugging KB generation.
+
 ## Questions?
 
 Open an issue or discussion on GitHub!

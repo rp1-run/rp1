@@ -23,17 +23,17 @@ Detailed guide for installing and configuring rp1 on OpenCode.
     brew install rp1-run/tap/rp1
     ```
 
+=== "macOS / Linux (curl)"
+
+    ```bash
+    curl -fsSL https://rp1.run/install.sh | sh
+    ```
+
 === "Windows (Scoop)"
 
     ```bash
     scoop bucket add rp1 https://github.com/rp1-run/scoop-bucket
     scoop install rp1
-    ```
-
-=== "CI/CD (curl)"
-
-    ```bash
-    curl -fsSL https://rp1.run/install.sh | sh
     ```
 
 !!! tip "First-time macOS/Windows users"
@@ -55,6 +55,46 @@ rp1 install:opencode
 ### Step 3: Restart OpenCode
 
 Close and reopen OpenCode to load the new plugins.
+
+---
+
+## What Gets Installed
+
+When you run `rp1 install:opencode`, the following changes are made to your system:
+
+### Files Created
+
+| Location | Contents |
+|----------|----------|
+| `~/.opencode/prompts/rp1-base/commands/` | 6 command files (.md) |
+| `~/.opencode/prompts/rp1-base/agents/` | 9 agent files (.md) |
+| `~/.opencode/prompts/rp1-base/skills/` | 4 skill directories |
+| `~/.opencode/prompts/rp1-dev/commands/` | 15 command files (.md) |
+| `~/.opencode/prompts/rp1-dev/agents/` | 9 agent files (.md) |
+
+### Backups
+
+Before installation, the installer creates a timestamped backup of any existing rp1 files. Backups are stored in the same directory with a `.backup-TIMESTAMP` suffix.
+
+### Verification
+
+After installation, verify the files exist:
+
+```bash
+ls ~/.opencode/prompts/rp1-base/
+ls ~/.opencode/prompts/rp1-dev/
+```
+
+You should see `agents/`, `commands/`, and (for rp1-base) `skills/` directories.
+
+### Removal
+
+To completely remove rp1 from OpenCode:
+
+```bash
+rm -rf ~/.opencode/prompts/rp1-base
+rm -rf ~/.opencode/prompts/rp1-dev
+```
 
 ---
 
@@ -167,12 +207,7 @@ To update to the latest version:
 
 ### Uninstalling
 
-To remove rp1:
-
-```bash
-rm -rf ~/.opencode/plugins/rp1-base
-rm -rf ~/.opencode/plugins/rp1-dev
-```
+See [What Gets Installed > Removal](#removal) for complete uninstallation instructions.
 
 ---
 
@@ -226,5 +261,6 @@ rm -rf ~/.opencode/plugins/rp1-dev
 Now that rp1 is installed:
 
 - [:octicons-arrow-right-24: Quick Start](quickstart.md) - Run your first commands
+- [:octicons-arrow-right-24: The .rp1 Directory](rp1-directory.md) - Understand project storage and configuration
 - [:octicons-arrow-right-24: Feature Development Guide](../guides/feature-development.md) - Build your first feature with rp1
 - [:octicons-arrow-right-24: Command Reference](../reference/index.md) - Explore all 21 commands

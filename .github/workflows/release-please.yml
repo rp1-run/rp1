@@ -117,7 +117,7 @@ jobs:
           cd cli
           bun install
           bun run build
-          bun run dev build:opencode
+          bun run build:opencode
 
       - name: Create release tarball
         run: |

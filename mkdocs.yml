@@ -77,6 +77,7 @@ nav:
     - getting-started/index.md
     - Installation: getting-started/installation.md
     - Quick Start: getting-started/quickstart.md
+    - The .rp1 Directory: getting-started/rp1-directory.md
     - Claude Code: getting-started/claude-code.md
     - OpenCode: getting-started/opencode.md
     - Platform Comparison: getting-started/platforms.md
