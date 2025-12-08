@@ -10,6 +10,7 @@ export interface ServerConfig {
   projectPath: string;
   websocketHub: WebSocketHub;
   isDev?: boolean;
+  webUIDir?: string;
 }
 
 export interface AppServer {
@@ -18,7 +19,7 @@ export interface AppServer {
 }
 
 export function startServer(config: ServerConfig): AppServer {
-  const { port, projectPath, websocketHub, isDev = false } = config;
+  const { port, projectPath, websocketHub, isDev = false, webUIDir } = config;
 
   const server = Bun.serve<WebSocketData>({
     port,
@@ -41,7 +42,7 @@ export function startServer(config: ServerConfig): AppServer {
         return handleApiRequest(req, projectPath);
       }
 
-      return handleStaticRequest(req, isDev);
+      return handleStaticRequest(req, isDev, webUIDir);
     },
     websocket: {
       open(ws: ServerWebSocket<WebSocketData>) {
@@ -95,10 +96,11 @@ async function handleApiRequest(
 
 async function handleStaticRequest(
   req: Request,
-  isDev: boolean
+  isDev: boolean,
+  webUIDir?: string
 ): Promise<Response> {
   const { handleStaticRequest: staticHandler } = await import(
     "./routes/static"
   );
-  return staticHandler(req, isDev);
+  return staticHandler(req, isDev, webUIDir);
 }

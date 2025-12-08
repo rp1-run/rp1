@@ -189,6 +189,92 @@ Architecture:
 - **Backend**: Bun HTTP server with WebSocket support
 - **Features**: File tree, markdown viewer, Mermaid diagrams, live reload
 
+## Asset Bundling
+
+The rp1 CLI supports bundling all plugin and web-ui assets into a single binary for distribution. This enables self-contained installation without requiring network access to download plugins.
+
+### How It Works
+
+**Development Builds** (`bun run dev` or `bun run build`):
+
+- Uses a placeholder `src/assets/embedded.ts` with `IS_BUNDLED = false`
+- Requires `--artifacts-dir` flag for `install:opencode`
+- Serves web-ui from local `web-ui/dist/` directory
+
+**Release Builds** (via GoReleaser):
+
+- Generates `src/assets/embedded.ts` with all assets imported via Bun's `with { type: "file" }` syntax
+- `install:opencode` extracts plugins from bundled assets
+- `view` command extracts and caches web-ui at `~/.rp1/web-ui/{version}/`
+
+### Build Scripts
+
+```bash
+# Generate asset imports (creates populated embedded.ts)
+bun run generate:assets
+
+# Full release build (web-ui + assets)
+bun run build:release
+
+# Individual steps
+bun run build:web-ui         # Build web-ui frontend
+bun run scripts/generate-asset-imports.ts  # Generate embedded.ts
+```
+
+### Testing Bundled Assets Locally
+
+To test the bundled asset workflow without doing a full release:
+
+```bash
+cd cli
+
+# 1. Build web-ui assets
+bun run build:web-ui
+
+# 2. Generate embedded.ts with all imports
+bun run generate:assets
+
+# 3. Build the CLI with bundled assets
+bun build src/main.ts --compile --outfile dist/rp1-bundled
+
+# 4. Test the bundled binary
+./dist/rp1-bundled install:opencode --dry-run
+./dist/rp1-bundled view
+
+# 5. Restore placeholder for development
+git checkout src/assets/embedded.ts
+```
+
+### CI/CD Integration
+
+The GoReleaser workflow automatically:
+
+1. Builds web-ui (`bun run build:web-ui`)
+2. Generates asset imports (`bun run generate:assets`)
+3. Verifies `IS_BUNDLED = true` in embedded.ts
+4. Compiles platform binaries with assets bundled
+
+See `.github/workflows/goreleaser.yml` for the full pipeline.
+
+### Asset Structure
+
+When bundled, the following assets are embedded:
+
+```
+plugins/
+├── base/
+│   ├── .claude-plugin/*.json   # Plugin metadata
+│   ├── commands/*.md           # Command prompts
+│   ├── agents/*.md             # Agent prompts
+│   └── skills/*/SKILL.md       # Skill prompts
+└── dev/
+    ├── .claude-plugin/*.json
+    ├── commands/*.md
+    └── agents/*.md
+
+cli/web-ui/dist/                # Compiled web-ui frontend
+```
+
 ## Release Process
 
 The project uses **release-please** for fully automated releases based on conventional commits.

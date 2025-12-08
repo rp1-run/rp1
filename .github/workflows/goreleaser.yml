@@ -30,6 +30,33 @@ jobs:
         with:
           go-version: stable
 
+      # Asset generation step - must complete before GoReleaser
+      - name: Generate bundled assets
+        run: |
+          cd cli
+          bun install
+          bun run build:web-ui
+          bun run scripts/generate-asset-imports.ts
+
+      # Verify assets were generated correctly
+      - name: Verify asset generation
+        run: |
+          if [ ! -f cli/src/assets/embedded.ts ]; then
+            echo "Error: embedded.ts not generated"
+            exit 1
+          fi
+
+          # Check that IS_BUNDLED is true (not the placeholder)
+          if grep -q "IS_BUNDLED = false" cli/src/assets/embedded.ts; then
+            echo "Error: embedded.ts is placeholder (IS_BUNDLED = false)"
+            exit 1
+          fi
+
+          # Display manifest summary
+          echo "Asset manifest generated successfully"
+          echo "First 30 lines:"
+          head -30 cli/src/assets/embedded.ts
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:

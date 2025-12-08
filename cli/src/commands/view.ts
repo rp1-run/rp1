@@ -18,6 +18,11 @@ import {
   getExitCode,
 } from "../../shared/errors.js";
 import { isBun } from "../../shared/runtime.js";
+import {
+  hasBundledAssets,
+  getBundledAssets,
+  getWebUIDir,
+} from "../assets/index.js";
 
 const directoryExists = (path: string): boolean => {
   try {
@@ -133,35 +138,62 @@ const setupShutdownHandlers = (stop: () => void, logger: Logger): void => {
   process.on("SIGTERM", shutdown);
 };
 
+/**
+ * Get web-ui directory from bundled assets if available.
+ * Returns undefined for dev builds (uses local dist).
+ */
+const resolveWebUIDir = (
+  logger: Logger,
+): TE.TaskEither<CLIError, string | undefined> => {
+  if (!hasBundledAssets()) {
+    logger.debug("No bundled assets, using local web-ui dist");
+    return TE.right(undefined);
+  }
+
+  return pipe(
+    TE.fromEither(getBundledAssets()),
+    TE.chain((assets) => {
+      logger.debug(`Bundled assets found (version ${assets.version})`);
+      return getWebUIDir(assets, (msg) => logger.debug(msg));
+    }),
+  );
+};
+
 const startServer = (
   config: ViewConfig,
   logger: Logger,
 ): TE.TaskEither<CLIError, void> =>
-  tryCatchTE(
-    async () => {
-      const { createServer } = await import("../../web-ui/src/server.js");
+  pipe(
+    resolveWebUIDir(logger),
+    TE.chain((webUIDir) =>
+      tryCatchTE(
+        async () => {
+          const { createServer } = await import("../../web-ui/src/server.js");
 
-      const { stop } = createServer({
-        port: config.port,
-        projectPath: config.rp1Root,
-        isDev: false,
-      });
+          const { stop } = createServer({
+            port: config.port,
+            projectPath: config.rp1Root,
+            isDev: false,
+            webUIDir,
+          });
 
-      const url = `http://127.0.0.1:${config.port}`;
+          const url = `http://127.0.0.1:${config.port}`;
 
-      if (config.openBrowser) {
-        logger.debug("Opening browser in 500ms");
-        setTimeout(() => openBrowser(url, logger)(), 500);
-      } else {
-        logger.info(`Server running at ${url}`);
-        logger.info("Press Ctrl+C to stop");
-      }
+          if (config.openBrowser) {
+            logger.debug("Opening browser in 500ms");
+            setTimeout(() => openBrowser(url, logger)(), 500);
+          } else {
+            logger.info(`Server running at ${url}`);
+            logger.info("Press Ctrl+C to stop");
+          }
 
-      setupShutdownHandlers(stop, logger);
+          setupShutdownHandlers(stop, logger);
 
-      await new Promise(() => {});
-    },
-    (e) => runtimeError(`Failed to start server: ${e}`),
+          await new Promise(() => {});
+        },
+        (e) => runtimeError(`Failed to start server: ${e}`),
+      ),
+    ),
   );
 
 const execute = (

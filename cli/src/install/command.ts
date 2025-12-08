@@ -25,6 +25,11 @@ import { discoverPlugins } from "./manifest.js";
 import { installRp1, getDefaultArtifactsDir } from "./installer.js";
 import { verifyInstallation, listInstalledCommands } from "./verifier.js";
 import { updateOpenCodeConfig, getConfigPath } from "./config.js";
+import {
+  hasBundledAssets,
+  getBundledAssets,
+  extractPlugins,
+} from "../assets/index.js";
 
 const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
 const yellow = (s: string) => `\x1b[33m${s}\x1b[0m`;
@@ -84,6 +89,140 @@ export const parseInstallArgs = (
   return { artifactsDir, skipSkills, dryRun, showHelp, yes };
 };
 
+/**
+ * Install plugins from bundled assets embedded in the release binary.
+ */
+const executeInstallFromBundled = (
+  config: InstallArgs,
+  logger: Logger,
+  _options?: InstallOptions,
+): TE.TaskEither<CLIError, void> => {
+  return pipe(
+    TE.fromEither(getBundledAssets()),
+    TE.chain((assets) => {
+      console.log(bold("\n🚀 rp1-opencode Installation (from bundled assets)\n"));
+      console.log(dim(`Version: ${assets.version}\n`));
+
+      // Run prerequisites checks
+      logger.start("Checking prerequisites...");
+      return pipe(
+        checkOpenCodeInstalled(),
+        TE.chainFirst((result) => {
+          logger.success(result.message);
+          return TE.right(undefined);
+        }),
+        TE.chain((result) => {
+          const versionResult = checkOpenCodeVersion(result.value ?? "");
+          if (E.isLeft(versionResult)) {
+            return TE.left(versionResult.left);
+          }
+          logger.success(versionResult.right.message);
+          return TE.right(undefined);
+        }),
+        TE.chain(() => checkOpenCodeSkillsPlugin()),
+        TE.chain((result) => {
+          if (result.value === "true") {
+            logger.success("opencode-skills plugin detected");
+            return TE.right({ skipSkills: config.skipSkills });
+          }
+          console.log(yellow("⚠ opencode-skills plugin not configured"));
+          console.log(dim("  Configuring opencode-skills plugin..."));
+          return pipe(
+            installOpenCodeSkillsPlugin(),
+            TE.map((installed) => {
+              if (installed) {
+                logger.success("opencode-skills plugin configured");
+                console.log(dim("  OpenCode will install it on next startup"));
+              } else {
+                console.log(dim("  opencode-skills already in config"));
+              }
+              return { skipSkills: config.skipSkills };
+            }),
+          );
+        }),
+        TE.chain((_state) => {
+          const targetDir = getOpenCodeConfigDir();
+          return pipe(
+            checkWritePermissions(targetDir),
+            TE.map((result) => {
+              logger.success(result.message);
+              return { targetDir };
+            }),
+          );
+        }),
+        TE.chain(({ targetDir }) => {
+          if (config.dryRun) {
+            console.log(yellow("\nDRY RUN MODE - No files will be modified\n"));
+            console.log("Would install from bundled assets:");
+            console.log(`  • rp1-base: ${assets.plugins.base.commands.length} commands, ${assets.plugins.base.agents.length} agents, ${assets.plugins.base.skills.length} skills`);
+            console.log(`  • rp1-dev: ${assets.plugins.dev.commands.length} commands, ${assets.plugins.dev.agents.length} agents`);
+            return TE.right(undefined);
+          }
+
+          logger.start("Extracting bundled plugins...");
+          return pipe(
+            extractPlugins(assets, targetDir, (msg) => logger.success(msg)),
+            TE.chain((result) => {
+              logger.success(
+                `Installed ${result.filesExtracted} files from ${result.plugins.length} plugins`,
+              );
+
+              // Get skills list for config update
+              const allSkills = assets.plugins.base.skills.map((s) => s.name);
+
+              logger.start("Validating configuration...");
+              const configPath = getConfigPath();
+
+              return pipe(
+                updateOpenCodeConfig(configPath, assets.version, allSkills),
+                TE.map(() => {
+                  logger.success("Configuration validated");
+                  return { targetDir };
+                }),
+              );
+            }),
+            TE.chain(() => {
+              logger.start("Verifying installation...");
+              return pipe(
+                verifyInstallation(undefined),
+                TE.map((report) => {
+                  if (isHealthy(report)) {
+                    console.log(
+                      green(bold("\n✓ Installation complete and verified!")),
+                    );
+                    console.log(
+                      dim(
+                        `\nCommands: ${report.commandsFound}/${report.commandsExpected}`,
+                      ),
+                    );
+                    console.log(
+                      dim(
+                        `Agents: ${report.agentsFound}/${report.agentsExpected}`,
+                      ),
+                    );
+                    console.log(
+                      dim(
+                        `Skills: ${report.skillsFound}/${report.skillsExpected}`,
+                      ),
+                    );
+                  } else {
+                    console.log(
+                      yellow("\n⚠ Installation complete with warnings"),
+                    );
+                    for (const issue of report.issues) {
+                      console.log(yellow(`  • ${issue}`));
+                    }
+                  }
+                }),
+              );
+            }),
+          );
+        }),
+      );
+    }),
+  );
+};
+
 export const executeInstall = (
   args: string[],
   logger: Logger,
@@ -97,13 +236,22 @@ export const executeInstall = (
     return TE.right(undefined);
   }
 
+  // Check for bundled assets first (release binary), unless explicit artifacts-dir provided
+  if (config.artifactsDir === null && hasBundledAssets()) {
+    return executeInstallFromBundled(config, logger, options);
+  }
+
   const artifactsDir = config.artifactsDir ?? getDefaultArtifactsDir();
 
   if (artifactsDir === null) {
     return TE.left(
       usageError(
-        "No artifacts directory found",
-        "Build artifacts first with: rp1 build:opencode\nOr specify a path with: rp1 install:opencode --artifacts-dir <path>",
+        "No artifacts found",
+        "This appears to be a development build without bundled assets.\n\n" +
+          "Options:\n" +
+          "  1. Install a release binary from: https://github.com/rp1-run/rp1/releases\n" +
+          "  2. Build artifacts first: rp1 build:opencode\n" +
+          "  3. Specify path: rp1 install:opencode --artifacts-dir <path>",
       ),
     );
   }

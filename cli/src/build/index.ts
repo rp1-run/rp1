@@ -15,6 +15,9 @@ export type {
   BuildConfig,
   ArtifactResult,
   BuildSummary,
+  BundleAssetEntry,
+  BundlePluginAssets,
+  BundleManifest,
 } from "./models.js";
 
 // Registry
@@ -40,6 +43,7 @@ export {
   generateAgentFile,
   generateSkillFile,
   generateManifest,
+  generateBundleManifest,
 } from "./generator.js";
 
 // Validator

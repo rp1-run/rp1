@@ -10,6 +10,8 @@ import type {
   OpenCodeAgent,
   OpenCodeSkill,
   PluginManifest,
+  BundleManifest,
+  BundlePluginAssets,
 } from "./models.js";
 
 /**
@@ -192,5 +194,30 @@ export const generateManifest = (
     return E.left(
       generationError(pluginName, `Manifest generation failed: ${e}`),
     );
+  }
+};
+
+/**
+ * Generate combined bundle manifest for asset embedding.
+ * This manifest is used by generate-asset-imports.ts to create static imports.
+ */
+export const generateBundleManifest = (
+  baseAssets: BundlePluginAssets,
+  devAssets: BundlePluginAssets,
+  version: string,
+): E.Either<CLIError, string> => {
+  try {
+    const manifest: BundleManifest = {
+      plugins: {
+        base: baseAssets,
+        dev: devAssets,
+      },
+      version,
+      buildTimestamp: new Date().toISOString(),
+    };
+
+    return E.right(JSON.stringify(manifest, null, 2));
+  } catch (e) {
+    return E.left(generationError("bundle", `Bundle manifest generation failed: ${e}`));
   }
 };

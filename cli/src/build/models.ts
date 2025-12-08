@@ -150,3 +150,34 @@ export interface BuildSummary {
   readonly skills: number;
   readonly errors: readonly string[];
 }
+
+/**
+ * Asset entry with name and relative path for bundling.
+ */
+export interface BundleAssetEntry {
+  readonly name: string;
+  readonly path: string;
+}
+
+/**
+ * Plugin assets for bundling.
+ */
+export interface BundlePluginAssets {
+  readonly name: string;
+  readonly commands: readonly BundleAssetEntry[];
+  readonly agents: readonly BundleAssetEntry[];
+  readonly skills: readonly BundleAssetEntry[];
+}
+
+/**
+ * Combined manifest for bundling all plugins.
+ * Generated at dist/opencode/bundle-manifest.json after build.
+ */
+export interface BundleManifest {
+  readonly plugins: {
+    readonly base: BundlePluginAssets;
+    readonly dev: BundlePluginAssets;
+  };
+  readonly version: string;
+  readonly buildTimestamp: string;
+}
