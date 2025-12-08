@@ -99,6 +99,15 @@ export const executeInstall = (
 
   const artifactsDir = config.artifactsDir ?? getDefaultArtifactsDir();
 
+  if (artifactsDir === null) {
+    return TE.left(
+      usageError(
+        "No artifacts directory found",
+        "Build artifacts first with: rp1 build:opencode\nOr specify a path with: rp1 install:opencode --artifacts-dir <path>",
+      ),
+    );
+  }
+
   console.log(bold("\n🚀 rp1-opencode Installation\n"));
   console.log(dim(`Using artifacts: ${artifactsDir}\n`));
 
