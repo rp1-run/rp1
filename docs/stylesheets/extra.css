@@ -196,13 +196,28 @@
   border-color: var(--md-default-fg-color--lighter);
 }
 
-/* Icon styling in cards */
-.grid.cards .lg {
-  font-size: 2rem;
+/* ==========================================================================
+   Grid Cards Icon Styling
+   Match the inline icon pattern from .grid.why and .grid.principles
+   ========================================================================== */
+
+/* Override the block display for strong in grid cards */
+.md-typeset .grid.cards p strong {
+  display: inline !important;
+  font-size: inherit;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
-.grid.cards .middle {
-  vertical-align: middle;
+.md-typeset .grid.cards .twemoji {
+  display: inline !important;
+  vertical-align: -0.125em;
+}
+
+.md-typeset .grid.cards .twemoji svg {
+  width: 1em !important;
+  height: 1em !important;
+  vertical-align: -0.125em;
 }
 
 /* Mermaid diagram centering */

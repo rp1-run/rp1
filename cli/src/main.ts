@@ -6,7 +6,6 @@ import { formatError, getExitCode, type CLIError } from "../shared/errors.js";
 import pkg from "../package.json";
 
 import { viewCommand } from "./commands/view.js";
-import { buildCommand } from "./commands/build.js";
 import { installCommand, verifyCommand, listCommand, installClaudeCodeCommand } from "./commands/install.js";
 import { initCommand } from "./commands/init.js";
 
@@ -53,7 +52,6 @@ program.hook("preAction", (thisCommand) => {
 });
 
 program.addCommand(viewCommand, { hidden: true });
-program.addCommand(buildCommand);
 program.addCommand(installCommand);
 program.addCommand(installClaudeCodeCommand);
 program.addCommand(verifyCommand);

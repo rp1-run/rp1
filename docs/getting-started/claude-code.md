@@ -187,5 +187,6 @@ If you need to remove rp1:
 Now that rp1 is installed:
 
 - [:octicons-arrow-right-24: Quick Start](quickstart.md) - Run your first commands
+- [:octicons-arrow-right-24: The .rp1 Directory](rp1-directory.md) - Understand project storage and configuration
 - [:octicons-arrow-right-24: Feature Development Guide](../guides/feature-development.md) - Build your first feature with rp1
 - [:octicons-arrow-right-24: Command Reference](../reference/index.md) - Explore all 21 commands

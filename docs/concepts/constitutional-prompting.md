@@ -52,17 +52,6 @@ flowchart LR
         C2 --> C3[Execute Rules]
         C3 --> C4[Single Output]
     end
-
-    style A1 fill:#ffcdd2
-    style A2 fill:#ffcdd2
-    style A3 fill:#ffcdd2
-    style A4 fill:#ffcdd2
-    style A5 fill:#ffcdd2
-    style A6 fill:#c8e6c9
-    style C1 fill:#c8e6c9
-    style C2 fill:#c8e6c9
-    style C3 fill:#c8e6c9
-    style C4 fill:#c8e6c9
 ```
 
 ---
@@ -153,25 +142,25 @@ Agents define exactly what they produce:
 
 <div class="grid cards" markdown>
 
--   :material-lightning-bolt:{ .lg .middle } **Faster Execution**
+-   :material-lightning-bolt: **Faster Execution**
 
     ---
 
     Single-pass completion means no back-and-forth. Get results in one command.
 
--   :material-check-all:{ .lg .middle } **Consistent Output**
+-   :material-check-all: **Consistent Output**
 
     ---
 
     The same command produces the same structure every time. No surprises.
 
--   :material-brain:{ .lg .middle } **Encoded Expertise**
+-   :material-brain: **Encoded Expertise**
 
     ---
 
     Best practices are built into the prompts. You don't need to remember them.
 
--   :material-file-document:{ .lg .middle } **Documented Artifacts**
+-   :material-file-document: **Documented Artifacts**
 
     ---
 

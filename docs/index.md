@@ -311,38 +311,66 @@ One-line install script
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-  var carousel = document.getElementById('hero-carousel');
-  if (!carousel) return;
+// Initialize carousel - works with MkDocs Material instant navigation
+(function() {
+  var splideInstance = null;
 
-  var splide = new Splide('#hero-carousel', {
-    type: 'fade',
-    rewind: true,
-    autoplay: true,
-    interval: 8000,
-    pauseOnHover: true,
-    pauseOnFocus: true,
-    pagination: true,
-    arrows: false,
-    drag: true,
-    speed: 600,
-    easing: 'ease-in-out',
-    keyboard: 'focused',
-    reducedMotion: {
-      autoplay: false,
-      speed: 0
+  function initCarousel() {
+    var carousel = document.getElementById('hero-carousel');
+    if (!carousel) return;
+
+    // Destroy existing instance if present (prevents memory leaks on SPA navigation)
+    if (splideInstance) {
+      splideInstance.destroy();
+      splideInstance = null;
     }
-  });
 
-  splide.mount();
+    // Check if Splide is available
+    if (typeof Splide === 'undefined') return;
 
-  // Focus carousel on hover to enable keyboard navigation
-  carousel.addEventListener('mouseenter', function() {
-    var track = carousel.querySelector('.splide__track');
-    if (track) {
-      track.setAttribute('tabindex', '0');
-      track.focus();
-    }
-  });
-});
+    splideInstance = new Splide('#hero-carousel', {
+      type: 'fade',
+      rewind: true,
+      autoplay: true,
+      interval: 8000,
+      pauseOnHover: true,
+      pauseOnFocus: true,
+      pagination: true,
+      arrows: false,
+      drag: true,
+      speed: 600,
+      easing: 'ease-in-out',
+      keyboard: 'focused',
+      reducedMotion: {
+        autoplay: false,
+        speed: 0
+      }
+    });
+
+    splideInstance.mount();
+
+    // Focus carousel on hover to enable keyboard navigation
+    carousel.addEventListener('mouseenter', function() {
+      var track = carousel.querySelector('.splide__track');
+      if (track) {
+        track.setAttribute('tabindex', '0');
+        track.focus();
+      }
+    });
+  }
+
+  // Initialize on first load
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initCarousel);
+  } else {
+    initCarousel();
+  }
+
+  // Re-initialize on MkDocs Material instant navigation (SPA-style page changes)
+  if (typeof document$ !== 'undefined') {
+    document$.subscribe(function() {
+      initCarousel();
+    });
+  }
+})();
 </script>

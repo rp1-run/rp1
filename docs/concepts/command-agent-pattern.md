@@ -191,25 +191,25 @@ Each command spawns its agent, which produces artifacts used by subsequent steps
 
 <div class="grid cards" markdown>
 
--   :material-layers:{ .lg .middle } **Clean Architecture**
+-   :material-layers: **Clean Architecture**
 
     ---
 
     Clear separation between user interface and business logic.
 
--   :material-recycle:{ .lg .middle } **Reusable Components**
+-   :material-recycle: **Reusable Components**
 
     ---
 
     Agents can be shared across commands and invoked by other agents.
 
--   :material-test-tube:{ .lg .middle } **Testable Workflows**
+-   :material-test-tube: **Testable Workflows**
 
     ---
 
     Agents are self-contained and can be validated independently.
 
--   :material-update:{ .lg .middle } **Independent Evolution**
+-   :material-update: **Independent Evolution**
 
     ---
 

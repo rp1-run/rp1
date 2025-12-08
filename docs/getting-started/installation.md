@@ -8,7 +8,7 @@ This guide covers all installation methods for rp1 across different platforms an
 
 <div class="grid cards" markdown>
 
--   :material-apple:{ .lg .middle } **macOS**
+-   :material-apple: **macOS**
 
     ---
 
@@ -16,7 +16,7 @@ This guide covers all installation methods for rp1 across different platforms an
 
     [:octicons-arrow-right-24: macOS Installation](#macos)
 
--   :material-linux:{ .lg .middle } **Linux**
+-   :material-linux: **Linux**
 
     ---
 
@@ -24,7 +24,7 @@ This guide covers all installation methods for rp1 across different platforms an
 
     [:octicons-arrow-right-24: Linux Installation](#linux)
 
--   :material-microsoft-windows:{ .lg .middle } **Windows**
+-   :material-microsoft-windows: **Windows**
 
     ---
 
@@ -32,7 +32,7 @@ This guide covers all installation methods for rp1 across different platforms an
 
     [:octicons-arrow-right-24: Windows Installation](#windows)
 
--   :material-cloud:{ .lg .middle } **CI/CD**
+-   :material-cloud: **CI/CD**
 
     ---
 
@@ -169,6 +169,31 @@ curl -fsSL https://rp1.run/install.sh | sh
 |----------|-------------|---------|
 | `VERSION` | Pin to specific version | Latest |
 | `INSTALL_DIR` | Custom install directory | `/usr/local/bin` |
+
+### Install Script Details
+
+The install script (`https://rp1.run/install.sh`) performs the following steps:
+
+1. **Detects your platform** (macOS, Linux, or Windows/WSL)
+2. **Detects your architecture** (x64 or arm64)
+3. **Downloads the appropriate binary** from GitHub Releases
+4. **Verifies SHA256 checksum** against published checksums.txt
+5. **Installs to `/usr/local/bin`** (or custom `INSTALL_DIR`)
+6. **Sets executable permissions**
+
+**Security Notes:**
+
+- All downloads use HTTPS
+- Binary checksums are verified before installation
+- No credentials or tokens are collected
+- Script source is auditable at the URL above
+
+**What Gets Modified:**
+
+| Item | Change |
+|------|--------|
+| `/usr/local/bin/rp1` | Binary installed (or `INSTALL_DIR`) |
+| Nothing else | No config files, no environment changes |
 
 ---
 
@@ -332,5 +357,6 @@ sha256sum -c checksums.txt --ignore-missing
 ## Next Steps
 
 - [:octicons-arrow-right-24: Quick Start](quickstart.md) - Run your first rp1 command
+- [:octicons-arrow-right-24: The .rp1 Directory](rp1-directory.md) - Understand project storage and configuration
 - [:octicons-arrow-right-24: Claude Code Setup](claude-code.md) - Use rp1 with Claude Code
 - [:octicons-arrow-right-24: OpenCode Setup](opencode.md) - Use rp1 with OpenCode

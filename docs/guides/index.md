@@ -8,7 +8,7 @@ Practical tutorials that walk you through complete rp1 workflows from start to f
 
 <div class="grid cards" markdown>
 
--   :material-feature-search-outline:{ .lg .middle } **Feature Development**
+-   :material-feature-search-outline: **Feature Development**
 
     ---
 
@@ -16,7 +16,7 @@ Practical tutorials that walk you through complete rp1 workflows from start to f
 
     [:octicons-arrow-right-24: Start tutorial](feature-development.md)
 
--   :material-bug-outline:{ .lg .middle } **Bug Investigation**
+-   :material-bug-outline: **Bug Investigation**
 
     ---
 
@@ -24,7 +24,7 @@ Practical tutorials that walk you through complete rp1 workflows from start to f
 
     [:octicons-arrow-right-24: Start tutorial](bug-investigation.md)
 
--   :material-source-pull:{ .lg .middle } **PR Review**
+-   :material-source-pull: **PR Review**
 
     ---
 
@@ -32,7 +32,7 @@ Practical tutorials that walk you through complete rp1 workflows from start to f
 
     [:octicons-arrow-right-24: Start tutorial](pr-review.md)
 
--   :material-account-group:{ .lg .middle } **Team Onboarding**
+-   :material-account-group: **Team Onboarding**
 
     ---
 
@@ -40,7 +40,7 @@ Practical tutorials that walk you through complete rp1 workflows from start to f
 
     [:octicons-arrow-right-24: Start tutorial](team-onboarding.md)
 
--   :material-book-cog:{ .lg .middle } **KB Loading Patterns**
+-   :material-book-cog: **KB Loading Patterns**
 
     ---
 
