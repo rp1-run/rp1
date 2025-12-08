@@ -8,7 +8,7 @@ This guide covers all installation methods for rp1 across different platforms an
 
 <div class="grid cards" markdown>
 
--   :material-apple:{ .lg .middle } **macOS**
+-   :material-apple: **macOS**
 
     ---
 
@@ -16,7 +16,7 @@ This guide covers all installation methods for rp1 across different platforms an
 
     [:octicons-arrow-right-24: macOS Installation](#macos)
 
--   :material-linux:{ .lg .middle } **Linux**
+-   :material-linux: **Linux**
 
     ---
 
@@ -24,7 +24,7 @@ This guide covers all installation methods for rp1 across different platforms an
 
     [:octicons-arrow-right-24: Linux Installation](#linux)
 
--   :material-microsoft-windows:{ .lg .middle } **Windows**
+-   :material-microsoft-windows: **Windows**
 
     ---
 
@@ -32,7 +32,7 @@ This guide covers all installation methods for rp1 across different platforms an
 
     [:octicons-arrow-right-24: Windows Installation](#windows)
 
--   :material-cloud:{ .lg .middle } **CI/CD**
+-   :material-cloud: **CI/CD**
 
     ---
 

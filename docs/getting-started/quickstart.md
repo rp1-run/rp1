@@ -151,7 +151,7 @@ Now that rp1 is installed and understands your codebase, explore what you can do
 
 <div class="grid cards" markdown>
 
-- :material-book-open-variant:{ .lg .middle } **Guides**
+- :material-book-open-variant: **Guides**
 
     ---
 
@@ -159,7 +159,7 @@ Now that rp1 is installed and understands your codebase, explore what you can do
 
     [:octicons-arrow-right-24: View Guides](../guides/index.md)
 
-- :material-book-search:{ .lg .middle } **Reference**
+- :material-book-search: **Reference**
 
     ---
 
@@ -167,7 +167,7 @@ Now that rp1 is installed and understands your codebase, explore what you can do
 
     [:octicons-arrow-right-24: View Reference](../reference/index.md)
 
-- :material-lightbulb:{ .lg .middle } **Concepts**
+- :material-lightbulb: **Concepts**
 
     ---
 

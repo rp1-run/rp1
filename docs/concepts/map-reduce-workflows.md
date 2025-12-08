@@ -232,25 +232,25 @@ flowchart LR
 
 <div class="grid cards" markdown>
 
--   :material-speedometer:{ .lg .middle } **Parallelization**
+-   :material-speedometer: **Parallelization**
 
     ---
 
     Multiple agents work simultaneously, reducing wall-clock time.
 
--   :material-magnify-expand:{ .lg .middle } **Scalability**
+-   :material-magnify-expand: **Scalability**
 
     ---
 
     Large codebases and PRs are handled by splitting work.
 
--   :material-focus-auto:{ .lg .middle } **Specialization**
+-   :material-focus-auto: **Specialization**
 
     ---
 
     Each agent focuses on its area of expertise.
 
--   :material-merge:{ .lg .middle } **Holistic Results**
+-   :material-merge: **Holistic Results**
 
     ---
 

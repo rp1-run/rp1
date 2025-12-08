@@ -155,25 +155,25 @@ The KB should be rebuilt when your codebase changes significantly:
 
 <div class="grid cards" markdown>
 
--   :material-compass:{ .lg .middle } **Pattern Awareness**
+-   :material-compass: **Pattern Awareness**
 
     ---
 
     Agents know your code patterns and follow them automatically.
 
--   :material-book-open-variant:{ .lg .middle } **Domain Understanding**
+-   :material-book-open-variant: **Domain Understanding**
 
     ---
 
     Your business terminology is understood and used correctly.
 
--   :material-sitemap:{ .lg .middle } **Architecture Respect**
+-   :material-sitemap: **Architecture Respect**
 
     ---
 
     New code fits into your existing architecture, not against it.
 
--   :material-speedometer:{ .lg .middle } **Faster Onboarding**
+-   :material-speedometer: **Faster Onboarding**
 
     ---
 

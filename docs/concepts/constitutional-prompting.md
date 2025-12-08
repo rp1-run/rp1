@@ -153,25 +153,25 @@ Agents define exactly what they produce:
 
 <div class="grid cards" markdown>
 
--   :material-lightning-bolt:{ .lg .middle } **Faster Execution**
+-   :material-lightning-bolt: **Faster Execution**
 
     ---
 
     Single-pass completion means no back-and-forth. Get results in one command.
 
--   :material-check-all:{ .lg .middle } **Consistent Output**
+-   :material-check-all: **Consistent Output**
 
     ---
 
     The same command produces the same structure every time. No surprises.
 
--   :material-brain:{ .lg .middle } **Encoded Expertise**
+-   :material-brain: **Encoded Expertise**
 
     ---
 
     Best practices are built into the prompts. You don't need to remember them.
 
--   :material-file-document:{ .lg .middle } **Documented Artifacts**
+-   :material-file-document: **Documented Artifacts**
 
     ---
 

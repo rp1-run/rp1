@@ -6,7 +6,7 @@ Understanding the core ideas behind rp1 helps you get the most out of its workfl
 
 <div class="grid cards" markdown>
 
--   :material-script-text:{ .lg .middle } **Constitutional Prompting**
+-   :material-script-text: **Constitutional Prompting**
 
     ---
 
@@ -14,7 +14,7 @@ Understanding the core ideas behind rp1 helps you get the most out of its workfl
 
     [:octicons-arrow-right-24: Learn more](constitutional-prompting.md)
 
--   :material-brain:{ .lg .middle } **Knowledge-Aware Agents**
+-   :material-brain: **Knowledge-Aware Agents**
 
     ---
 
@@ -22,7 +22,7 @@ Understanding the core ideas behind rp1 helps you get the most out of its workfl
 
     [:octicons-arrow-right-24: Learn more](knowledge-aware-agents.md)
 
--   :material-layers:{ .lg .middle } **Command-Agent Pattern**
+-   :material-layers: **Command-Agent Pattern**
 
     ---
 
@@ -30,7 +30,7 @@ Understanding the core ideas behind rp1 helps you get the most out of its workfl
 
     [:octicons-arrow-right-24: Learn more](command-agent-pattern.md)
 
--   :material-sitemap:{ .lg .middle } **Map-Reduce Workflows**
+-   :material-sitemap: **Map-Reduce Workflows**
 
     ---
 

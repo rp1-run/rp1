@@ -106,25 +106,25 @@ In rare cases, another plugin may define a command with the same name as an rp1 
 
 <div class="grid cards" markdown>
 
--   :material-check-circle:{ .lg .middle } **You want the simplest setup**
+-   :material-check-circle: **You want the simplest setup**
 
     ---
 
     Plugin marketplace installation with automatic updates. Just add the marketplace and install.
 
--   :material-check-circle:{ .lg .middle } **You're already using Claude Code**
+-   :material-check-circle: **You're already using Claude Code**
 
     ---
 
     Native integration means zero additional setup if Claude Code is your primary AI assistant.
 
--   :material-check-circle:{ .lg .middle } **You prefer managed solutions**
+-   :material-check-circle: **You prefer managed solutions**
 
     ---
 
     Anthropic maintains Claude Code, providing a polished, supported experience.
 
--   :material-check-circle:{ .lg .middle } **You want Claude specifically**
+-   :material-check-circle: **You want Claude specifically**
 
     ---
 
@@ -138,25 +138,25 @@ In rare cases, another plugin may define a command with the same name as an rp1 
 
 <div class="grid cards" markdown>
 
--   :material-check-circle:{ .lg .middle } **You want vendor independence**
+-   :material-check-circle: **You want vendor independence**
 
     ---
 
     OpenCode is open source and supports multiple LLM providers.
 
--   :material-check-circle:{ .lg .middle } **You need flexibility**
+-   :material-check-circle: **You need flexibility**
 
     ---
 
     Configure your preferred LLM backend, API endpoints, and settings.
 
--   :material-check-circle:{ .lg .middle } **You prefer open source tools**
+-   :material-check-circle: **You prefer open source tools**
 
     ---
 
     Full visibility into how your AI assistant works.
 
--   :material-check-circle:{ .lg .middle } **Enterprise requirements**
+-   :material-check-circle: **Enterprise requirements**
 
     ---
 
