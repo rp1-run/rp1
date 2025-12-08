@@ -29,6 +29,8 @@ jobs:
             ci
             chore
             revert
+          # Scopes are optional but if provided must match one of these
+          # 'main' is used by release-please for release PRs
           scopes: |
             base
             dev
@@ -36,10 +38,13 @@ jobs:
             web-ui
             docs
             deps
+            main
           requireScope: false
           subjectPattern: ^.+$
           subjectPatternError: |
             The subject (after the type/scope) must not be empty.
+          # Skip validation for bot PRs and release-please PRs
           ignoreLabels: |
             bot
             dependencies
+            autorelease: pending
