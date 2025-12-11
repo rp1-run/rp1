@@ -42,8 +42,8 @@ The blueprint command creates a two-tier document hierarchy:
 
 ### Feature Development (9)
 - `/feature-requirements feature-id [extra-context]` - Gather requirements
-- `/feature-design feature-id [extra-context]` - Create technical design
-- `/feature-tasks feature-id [extra-context]` - Generate implementation tasks
+- `/feature-design feature-id [extra-context]` - Create technical design (auto-generates tasks)
+- `/feature-tasks feature-id [extra-context]` - Regenerate tasks (optional - tasks auto-generate after design)
 - `/feature-build feature-id [milestone-id] [mode]` - Implement features via builder-reviewer pairs
 - `/feature-verify feature-id [milestone-id]` - Verify feature meets requirements
 - `/feature-archive feature-id` - Archive completed feature to archives/
@@ -51,15 +51,19 @@ The blueprint command creates a two-tier document hierarchy:
 - `/feature-edit feature-id <edit-description>` - Incorporate mid-stream changes
 - `/validate-hypothesis feature-id` - Validate design assumptions
 
-**Example**:
+**5-Step Workflow**:
 ```bash
 /feature-requirements my-feature "Additional context about feature scope"
-/feature-design my-feature
-/validate-hypothesis my-feature  # Optional: validate assumptions
-/feature-tasks my-feature
+/feature-design my-feature        # Auto-generates tasks.md
 /feature-build my-feature
 /feature-verify my-feature        # Verify + optional archive prompt
 /feature-archive my-feature       # Or archive manually
+```
+
+**Optional Commands**:
+```bash
+/validate-hypothesis my-feature   # Validate design assumptions before build
+/feature-tasks my-feature         # Regenerate tasks manually (standalone)
 /feature-edit my-feature "Discovery: API doesn't support pagination"  # Mid-stream changes
 ```
 
@@ -104,7 +108,7 @@ The `feature-build` command uses a **builder-reviewer architecture** for improve
 /feature-build my-feature 1 auto    # Build milestone 1, auto-handle failures
 ```
 
-## Agents (18)
+## Agents (19)
 
 This plugin provides specialized agents for development workflows:
 
@@ -112,6 +116,7 @@ This plugin provides specialized agents for development workflows:
 |-------|---------|
 | task-builder | Implements tasks with full context, writes implementation summaries |
 | task-reviewer | Verifies builder work across 4 dimensions, returns SUCCESS/FAILURE |
+| feature-tasker | Generates tasks from design, supports incremental updates |
 | blueprint-wizard | Captures project vision through charter and PRD documents |
 | hypothesis-tester | Validates design assumptions through experiments |
 | feature-verifier | Verifies acceptance criteria before merge |

@@ -1,7 +1,7 @@
 ---
 name: feature-design
-version: 2.0.0
-description: Transform requirements into detailed technical design documents with interactive technology selection and comprehensive architecture diagrams.
+version: 2.1.0
+description: Transform requirements into detailed technical design documents with interactive technology selection and comprehensive architecture diagrams. Automatically generates implementation tasks upon completion.
 argument-hint: "feature-id [extra-context]"
 tags:
   - feature
@@ -58,6 +58,11 @@ Here is the root directory path:
 ## Process Instructions
 
 Before generating your design documents or asking clarification questions, you must work through a detailed analysis inside <design_thinking> tags within your thinking block. It's OK for this section to be quite long. This analysis should include:
+
+0. **Update Mode Detection**: Check if `{RP1_ROOT}/work/features/{FEATURE_ID}/design.md` already exists.
+   - If exists: Set `UPDATE_MODE = true` (design iteration - tasks will be incrementally updated)
+   - If not exists: Set `UPDATE_MODE = false` (initial design - fresh task generation)
+   Note this for use when spawning the tasker agent later.
 
 1. **Requirements Extraction**: Go through the input materials systematically and extract all specific functional and non-functional requirements. List each requirement explicitly with a brief description - be thorough as this forms the foundation of your design.
 
@@ -194,6 +199,26 @@ Generate these files in the feature documentation directory:
 
 **IMPORTANT**: All markdown documents written with Mermaid diagrams are at risk of mermaid render errors. Use mermaid skills to validate and fix the documents.
 
+## Task Generation (Automatic)
+
+After successfully generating and storing the design documents, you MUST spawn the feature-tasker agent to automatically generate implementation tasks.
+
+**Spawn the Tasker Agent**:
+
+Use the Task tool with these parameters:
+- **subagent_type**: `rp1-dev:feature-tasker`
+- **prompt**: Include the feature ID and UPDATE_MODE determined in Step 0 of Process Instructions
+
+```
+FEATURE_ID: {the feature id from $1}
+UPDATE_MODE: {true if design.md existed before this session, false otherwise}
+RP1_ROOT: {the rp1 root directory}
+```
+
+**Wait for Completion**: The tasker agent will read the design you just created, generate tasks, and write them to the feature directory.
+
+**Why This Matters**: This automatic task generation eliminates a manual step in the workflow. Users no longer need to run `/feature-tasks` separately.
+
 ## Hypothesis Validation (Optional)
 
 If your Assumption Analysis identified HIGH-impact, LOW/MEDIUM-confidence assumptions:
@@ -265,15 +290,23 @@ After the hypothesis-tester completes:
 
 ## Success Completion
 
-After successfully generating and storing the design documents, inform the user:
+After the feature-tasker agent completes, inform the user with a unified success message:
 
-"✅ Technical design completed and stored in `{RP1_ROOT}/work/features/{FEATURE_ID}/`
+"Technical design and task planning completed for `{RP1_ROOT}/work/features/{FEATURE_ID}/`
 
-**Next Step**: Run `rp1-dev:feature-tasks` to break down this design into implementation tasks."
+**Design Phase Complete**:
+- `design.md` - Technical architecture and specifications
+- `design-decisions.md` - Decision rationale log
+- `tasks.md` (or milestone files) - Implementation task breakdown
+
+**Next Step**: Run `/feature-build {FEATURE_ID}` to begin implementation."
+
+If UPDATE_MODE was true, also include:
+"(Design iteration detected - tasks were incrementally updated, preserving completed work.)"
 
 Your response should contain either:
 
 1. Technology clarification questions (if needed), OR
-2. The complete generated design documents
+2. The complete generated design documents (followed by automatic task generation)
 
 Do not include both in the same response. Begin your process with the detailed analysis in your thinking block, then provide your final output without duplicating or rehashing any of the analytical work you performed in the thinking block.

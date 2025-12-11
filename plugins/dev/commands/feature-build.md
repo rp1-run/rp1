@@ -66,14 +66,16 @@ Read the task file and parse task status:
 
 **Parse Pattern** for tasks:
 ```regex
-- \[([ x!])\] \*\*([^*]+)\*\*: (.+?)(?:\s*`\[complexity:(simple|medium|complex)\]`)?$
+  - \[([ x!])\] \*\*([^*]+)\*\*: (.+?)(?:\s*`\[complexity:(simple|medium|complex)\]`)?$
 ```
 
 **Extract for each task**:
-- `status`: ` ` = pending, `x` = done, `!` = blocked
+```
+- `status`: ` ` = pending, "x" = done, "!" = blocked
 - `task_id`: The T1, T1.1, etc. identifier
 - `description`: Task description text
 - `complexity`: simple, medium, or complex (default: medium)
+```
 
 **Build task list**:
 ```json
