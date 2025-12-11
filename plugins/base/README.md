@@ -13,11 +13,11 @@ The `rp1-base` plugin provides core knowledge and documentation capabilities tha
 - Content writing
 - Shared skills for all plugins
 
-**Agents**: 9 specialized agents (6 for KB generation, 3 for docs/strategy/security)
-**Commands**: 6 user-facing commands
+**Agents**: 10 specialized agents (6 for KB generation, 4 for docs/strategy/security/validation)
+**Commands**: 7 user-facing commands
 **Skills**: 4 shared capabilities
 
-## Commands (6)
+## Commands (7)
 
 ### Knowledge Management
 - `/knowledge-build` - Parallel KB generation using map-reduce architecture with 6 agents (includes pattern extraction)
@@ -30,6 +30,11 @@ The `rp1-base` plugin provides core knowledge and documentation capabilities tha
 
 ### Security
 - `/analyse-security` - Security validation and vulnerability scanning
+
+### Validation & Repair
+- `/fix-mermaid` - Validates and repairs Mermaid diagrams in markdown files. Scans for mermaid blocks, validates syntax using mermaid-cli, and auto-repairs common errors (up to 3 attempts per diagram). Unfixable diagrams get placeholder comments.
+  - **Usage**: `/fix-mermaid path/to/file.md` or `/fix-mermaid -` for stdin
+  - **Requires**: Node.js (npx fetches @mermaid-js/mermaid-cli automatically)
 
 ## Skills (4)
 

@@ -1,181 +1,208 @@
 ---
 name: mermaid
-description: Create, validate, and troubleshoot Mermaid.js diagrams. Use when generating flowcharts, sequence diagrams, class diagrams, ER diagrams, Gantt charts, state diagrams, or any other Mermaid visualization. Automatically validates syntax and fixes errors.
+description: Create, validate, and troubleshoot Mermaid.js diagrams. Use when generating flowcharts, sequence diagrams, class diagrams, ER diagrams, Gantt charts, state diagrams, or any visualization. Handles diagram validation, syntax errors, broken diagrams, and automatic repair. Trigger terms - mermaid, diagram, flowchart, sequence, class diagram, ER diagram, entity relationship, state machine, gantt, visualization, chart, graph.
 allowed-tools: Bash, Read, Write, Edit
 ---
 
 # Mermaid Diagrams Skill
 
-This skill enables you to create valid, well-formed Mermaid.js diagrams with automatic validation using the validate_mermaid.sh script.
+Create valid, well-formed Mermaid.js diagrams with automatic validation and error repair guidance.
 
-## Creating Diagrams
+## What This Skill Does
 
-When asked to create a Mermaid diagram:
+- **Creates diagrams**: Flowcharts, sequence diagrams, class diagrams, ER diagrams, state diagrams, Gantt charts, and more
+- **Validates syntax**: Uses mermaid-cli to verify diagrams before presenting to users
+- **Troubleshoots errors**: Categorizes validation errors and guides repairs
+- **Integrates with fixer agent**: Supports bulk validation and automatic repair workflows
 
-1. **Reference the cheat sheet**: Consult [reference.md](reference.md) for syntax examples
-2. **Choose the right diagram type** based on the use case:
-   - Flowcharts: Process flows, decision trees
-   - Sequence diagrams: API interactions, message flows
-   - Class diagrams: Object relationships, system architecture
-   - ER diagrams: Database schemas, data models
-   - State diagrams: State machines, workflow states
-   - Gantt charts: Project timelines, schedules
-   - Git graphs: Branch strategies, commit history
+## When to Use
 
-3. **Create the diagram** following proper syntax:
-   - Start with the correct diagram type declaration
+Activate this skill when:
+- User requests any diagram, chart, or visualization
+- Creating flowcharts, sequence diagrams, class diagrams, ER diagrams, state diagrams, Gantt charts
+- Validating existing mermaid code blocks
+- Debugging diagram syntax errors
+- Working with markdown files containing mermaid blocks
+
+**Trigger phrases**: "create a diagram", "draw a flowchart", "visualize this process", "sequence diagram for", "ER diagram", "class diagram", "fix this mermaid", "validate diagram"
+
+## Validation Workflow
+
+**CRITICAL**: Every diagram MUST be validated before being considered complete.
+
+### Step 1: Create the Diagram
+
+1. Consult [reference.md](reference.md) for syntax
+2. Choose the appropriate diagram type
+3. Follow proper syntax conventions:
+   - Start with diagram type declaration
    - Use consistent indentation
-   - Quote labels with spaces or special characters
-   - Follow arrow conventions for the diagram type
+   - Quote labels with special characters
+   - Use correct arrow types for the diagram
 
-4. **Always validate** before finalizing (see validation section)
-
-## Validation Process
-
-**CRITICAL**: Every Mermaid diagram MUST be validated before being considered complete.
-
-Use the `validate_mermaid.sh` script for all validation tasks. The script supports:
-- Single diagram strings via stdin
-- Single diagram files (.mmd)
-- Markdown files with embedded diagrams (.md)
-
-### Validation Methods
-
-#### Method 1: Validate diagram from stdin (recommended for inline diagrams)
+### Step 2: Validate Using Script
 
 ```bash
+# Validate from stdin (recommended for inline diagrams)
 echo 'flowchart TD
-    A --> B' | base/skills/mermaid/scripts/validate_mermaid.sh
-```
+    A --> B' | plugins/base/skills/mermaid/scripts/validate_mermaid.sh
 
-Or using heredoc:
-
-```bash
-base/skills/mermaid/scripts/validate_mermaid.sh <<'EOF'
+# Using heredoc for multi-line
+plugins/base/skills/mermaid/scripts/validate_mermaid.sh <<'EOF'
 flowchart TD
     A --> B
     B --> C
 EOF
+
+# Validate single .mmd file
+plugins/base/skills/mermaid/scripts/validate_mermaid.sh /path/to/diagram.mmd
+
+# Validate all diagrams in markdown file
+plugins/base/skills/mermaid/scripts/validate_mermaid.sh /path/to/document.md
+
+# Get structured JSON output for programmatic use
+echo 'flowchart TD; A-->B' | plugins/base/skills/mermaid/scripts/validate_mermaid.sh --json
 ```
 
-#### Method 2: Validate single diagram file
-
-```bash
-base/skills/mermaid/scripts/validate_mermaid.sh /path/to/diagram.mmd
-```
-
-#### Method 3: Validate all diagrams in markdown file
-
-```bash
-base/skills/mermaid/scripts/validate_mermaid.sh /path/to/document.md
-```
-
-### Interpreting Validation Results
+### Step 3: Handle Validation Results
 
 **Success**:
 ```
-✅ Diagram stdin: Valid
+PASS stdin: Valid
 ```
 
-**Failure with error details**:
+**Failure** (text mode):
 ```
-❌ Diagram stdin: Invalid
-Error: Parse error on line 2:
-...
+FAIL stdin: Invalid
+  Category: ARROW_SYNTAX
+  Error Line: 2
+  Error: Parse error on line 2...
 ```
 
-## Common Validation Issues & Fixes
+**Failure** (JSON mode):
+```json
+{
+  "valid": false,
+  "diagram_index": 1,
+  "markdown_line": 0,
+  "error": {
+    "raw": "Parse error on line 2...",
+    "line": 2,
+    "category": "ARROW_SYNTAX",
+    "context": "A -> B"
+  }
+}
+```
 
-When validation fails, the script will display the error. Check for these common issues:
+### Step 4: Iterative Repair
 
-### Issue 1: Invalid Arrow Syntax
+1. Parse the error category and message
+2. Apply targeted fix (see Error Categories below)
+3. Re-validate
+4. Repeat until valid (max 3 attempts)
+5. If unfixable after 3 attempts, report to user
+
+## Error Categories
+
+The validation script automatically categorizes errors for guided repair. See [EXAMPLES.md](EXAMPLES.md) for detailed examples of each category.
+
+| Category | Description | Quick Fix |
+|----------|-------------|-----------|
+| `ARROW_SYNTAX` | Invalid arrow for diagram type | Replace `->` with `-->` in state/flowchart |
+| `QUOTE_ERROR` | Special characters in unquoted labels | Wrap label in double quotes |
+| `CARDINALITY` | ER diagram relationship errors | Use valid notation: `\|\|--o{` |
+| `LINE_BREAK` | Missing newlines between statements | Each statement on its own line |
+| `DIAGRAM_TYPE` | Misspelled or missing diagram type | Correct spelling, add declaration |
+| `NODE_SYNTAX` | Unbalanced brackets/braces | Match all opening and closing brackets |
+
+### Fix Strategies Summary
+
+**ARROW_SYNTAX**: Check diagram type and use correct arrows:
+- Flowchart: `-->`, `---`, `==>`, `-.->`, `--o`, `--x`
+- State diagram: `-->` only (not `->`)
+- Sequence diagram: `->>`, `-->>`, `-x`, `--x`, `-)`, `--)`
+
+**QUOTE_ERROR**: Quote labels containing:
+- Parentheses: `["Start Process (init)"]`
+- Colons: `["Time: 10:30 AM"]`
+- Brackets: `["Value [optional]"]`
+
+**CARDINALITY**: Use proper ER notation:
+- One-to-many: `||--o{`
+- One-to-one: `||--||`
+- Zero-or-one: `|o--o|`
+
+**LINE_BREAK**: Separate statements:
 ```mermaid
-# WRONG
-A <-!-> B
-
-# CORRECT
-A <--> B
-```
-
-### Issue 2: Missing Line Breaks
-```mermaid
-# WRONG (all on one line)
-sequenceDiagram Alice->>Bob: Hi Bob->>Alice: Hi Alice
-
-# CORRECT (proper line breaks)
 sequenceDiagram
-    Alice->>Bob: Hi
-    Bob->>Alice: Hi Alice
+    Alice->>Bob: Hello
+    Bob->>Alice: Hi
 ```
 
-### Issue 3: Unquoted Labels with Special Characters
-```mermaid
-# WRONG
-flowchart LR
-    A[Node with "unescaped quotes]
+**DIAGRAM_TYPE**: Valid types:
+`flowchart`, `graph`, `sequenceDiagram`, `classDiagram`, `stateDiagram`, `stateDiagram-v2`, `erDiagram`, `gantt`, `pie`, `journey`, `gitGraph`, `mindmap`, `timeline`, `quadrantChart`, `xychart-beta`, `block-beta`, `sankey-beta`, `kanban`, `radar-beta`
 
-# CORRECT
-flowchart LR
-    A["Node with escaped quotes"]
+**NODE_SYNTAX**: Balance all brackets:
+- Rectangle: `[text]`
+- Rounded: `(text)`
+- Diamond: `{text}`
+- Stadium: `([text])`
+- Hexagon: `{{text}}`
+
+## Integration with Fixer Agent
+
+For bulk diagram repair across markdown files, use the mermaid-fixer agent via the `/fix-mermaid` command:
+
+```bash
+# Fix all diagrams in a markdown file
+/fix-mermaid path/to/document.md
+
+# Fix a single diagram from stdin
+/fix-mermaid -
 ```
 
-### Issue 4: Incorrect Cardinality in ER Diagrams
-```mermaid
-# WRONG
-erDiagram
-    USER -->-- ORDER
+The fixer agent:
+1. Scans markdown for all mermaid blocks
+2. Validates each diagram
+3. Attempts automatic repair (up to 3 iterations)
+4. Inserts placeholders for unfixable diagrams
+5. Reports summary of actions taken
 
-# CORRECT
-erDiagram
-    USER ||--o{ ORDER : places
+**Placeholder format for unfixable diagrams**:
+```html
+<!-- MERMAID FIX NEEDED: {diagram_type}
+Error: {error_message}
+Line: {line_number}
+Attempts: 3
+
+Original diagram could not be auto-repaired.
+Please fix manually and remove this comment block.
+-->
 ```
-
-### Issue 5: Malformed Class Definitions
-```mermaid
-# WRONG
-classDiagram
-    class User {
-        string name  // wrong comment syntax
-    }
-
-# CORRECT
-classDiagram
-    class User {
-        string name
-    }
-```
-
-## Iterative Validation Workflow
-
-1. **Generate** the initial diagram
-2. **Validate** using the script
-3. **If errors found**:
-   - Parse error message from script output
-   - Identify the problematic syntax
-   - Fix the issue
-   - Validate again
-4. **Repeat** until validation passes (max 3 attempts)
-5. **Confirm** with success message
-
-## Error Recovery
-
-If validation fails repeatedly (after 3 attempts):
-
-1. Simplify the diagram to the minimal working example
-2. Validate the simple version
-3. Add complexity incrementally, validating after each addition
-4. This identifies the exact syntax causing the issue
 
 ## Best Practices
 
-- **Always validate before showing to user** - never present unvalidated diagrams
-- **Use the script for all validation** - don't use inline npx commands
-- **Always quote labels** containing spaces, colons, or special characters
-- **Use consistent arrow styles** within the same diagram
-- **Test complex diagrams incrementally** - build and validate in stages
-- **Reference documentation** when unsure about syntax
-- **Provide clear diagram titles** for better understanding
-- **Use comments** (`%%`) to document complex sections
+### Creating Diagrams
+
+1. **Reference documentation first**: Check [reference.md](reference.md) for syntax
+2. **Start with diagram type**: Every diagram must start with type declaration
+3. **Quote special characters**: Always quote labels with spaces, colons, parentheses
+4. **Use consistent arrow styles**: Don't mix arrow types within a diagram
+5. **Build incrementally**: For complex diagrams, validate after each addition
+
+### Validation
+
+1. **Always validate before presenting**: Never show unvalidated diagrams to users
+2. **Use the script, not inline npx**: The script handles edge cases properly
+3. **Use JSON mode for programmatic repair**: `--json` flag for structured output
+4. **Check error category first**: Guides targeted fixes
+
+### Troubleshooting
+
+1. **Start minimal**: If complex diagram fails, reduce to minimal example
+2. **Validate incrementally**: Add complexity one step at a time
+3. **Reference EXAMPLES.md**: Find similar error patterns
+4. **Check diagram type requirements**: Different types have different syntax
 
 ## Output Format
 
@@ -186,199 +213,89 @@ When presenting diagrams to users:
 
 Brief description of what the diagram represents.
 
-\```mermaid
-diagram-code-here
-\```
+\`\`\`mermaid
+flowchart TD
+    A[Start] --> B[Process]
+    B --> C[End]
+\`\`\`
 
-**Validation Status**: ✅ Validated successfully
+**Validation Status**: Validated successfully
 ```
 
-## Examples
+## Supported Diagram Types
 
-### Example 1: Creating a Flowchart
+| Type | Use Case | Declaration |
+|------|----------|-------------|
+| Flowchart | Process flows, decision trees | `flowchart TD/LR/RL/BT` |
+| Sequence | API interactions, message flows | `sequenceDiagram` |
+| Class | Object relationships, architecture | `classDiagram` |
+| ER | Database schemas, data models | `erDiagram` |
+| State | State machines, workflow states | `stateDiagram-v2` |
+| Gantt | Project timelines, schedules | `gantt` |
+| Git Graph | Branch strategies, commit history | `gitGraph` |
+| Pie | Proportional data | `pie` |
+| Journey | User experience flows | `journey` |
+| Mindmap | Hierarchical concepts | `mindmap` |
+| Timeline | Chronological events | `timeline` |
+| Quadrant | 2D categorization | `quadrantChart` |
+| XY Chart | Bar/line charts | `xychart-beta` |
+| Block | Grid layouts | `block-beta` |
+| Sankey | Flow quantities | `sankey-beta` |
+| Kanban | Task boards | `kanban` |
+| Radar | Multi-axis comparison | `radar-beta` |
 
-**User Request**: "Create a flowchart for user authentication"
+## Quick Reference
 
-**Process**:
-1. Create the diagram
-2. Validate using script
-3. Present to user
+### Validation Commands
 
+```bash
+# Text output (default)
+echo 'diagram' | plugins/base/skills/mermaid/scripts/validate_mermaid.sh
+
+# JSON output
+echo 'diagram' | plugins/base/skills/mermaid/scripts/validate_mermaid.sh --json
+
+# Markdown file
+plugins/base/skills/mermaid/scripts/validate_mermaid.sh document.md
+```
+
+### Common Patterns
+
+**Simple flowchart**:
 ```mermaid
 flowchart TD
-    Start([User Login]) --> Input[Enter credentials]
-    Input --> Validate{Valid credentials?}
-    Validate -->|Yes| CheckMFA{MFA enabled?}
-    Validate -->|No| Error[Show error message]
-    Error --> Input
-    CheckMFA -->|Yes| MFA[Verify MFA code]
-    CheckMFA -->|No| Success[Grant access]
-    MFA --> MFACheck{MFA valid?}
-    MFACheck -->|Yes| Success
-    MFACheck -->|No| Error
-    Success --> End([Dashboard])
+    A[Start] --> B{Decision}
+    B -->|Yes| C[Action]
+    B -->|No| D[End]
 ```
 
-**Validation command**:
-```bash
-echo 'flowchart TD
-    Start([User Login]) --> Input[Enter credentials]
-    Input --> Validate{Valid credentials?}
-    Validate -->|Yes| CheckMFA{MFA enabled?}
-    Validate -->|No| Error[Show error message]
-    Error --> Input
-    CheckMFA -->|Yes| MFA[Verify MFA code]
-    CheckMFA -->|No| Success[Grant access]
-    MFA --> MFACheck{MFA valid?}
-    MFACheck -->|Yes| Success
-    MFACheck -->|No| Error
-    Success --> End([Dashboard])' | base/skills/mermaid/scripts/validate_mermaid.sh
-```
-
-**Result**: ✅ Validated successfully
-
-### Example 2: Creating a Sequence Diagram
-
-**User Request**: "Show API authentication flow"
-
+**Sequence diagram**:
 ```mermaid
 sequenceDiagram
-    participant Client
-    participant API
-    participant AuthService
-    participant Database
-
-    Client->>+API: POST /login {username, password}
-    API->>+AuthService: Validate credentials
-    AuthService->>+Database: Query user
-    Database-->>-AuthService: User data
-    AuthService->>AuthService: Verify password hash
-
-    alt Credentials valid
-        AuthService-->>API: Generate JWT token
-        API-->>Client: 200 OK {token}
-    else Invalid credentials
-        AuthService-->>API: Authentication failed
-        API-->>Client: 401 Unauthorized
-    end
-
-    deactivate AuthService
-    deactivate API
+    Client->>Server: Request
+    Server-->>Client: Response
 ```
 
-**Validation**: ✅ Passes validation
-
-### Example 3: Fixing a Validation Error
-
-**Initial attempt** (invalid):
-```mermaid
-stateDiagram-v2
-    [*] --> Idle
-    Idle -> Running : start
-    Running -> Idle : stop
-```
-
-**Validation**:
-```bash
-echo 'stateDiagram-v2
-    [*] --> Idle
-    Idle -> Running : start
-    Running -> Idle : stop' | base/skills/mermaid/scripts/validate_mermaid.sh
-```
-
-**Output**:
-```
-❌ Diagram stdin: Invalid
-Error: Parse error on line 3
-```
-
-**Analysis**: Arrow syntax wrong - should be `-->` not `->`
-
-**Fixed version**:
-```mermaid
-stateDiagram-v2
-    [*] --> Idle
-    Idle --> Running : start
-    Running --> Idle : stop
-```
-
-**Validation**: ✅ Success
-
-### Example 4: Complex ER Diagram
-
-**User Request**: "Database schema for e-commerce"
-
+**ER diagram**:
 ```mermaid
 erDiagram
     CUSTOMER ||--o{ ORDER : places
-    CUSTOMER {
-        int customer_id PK
-        string email
-        string name
-        date created_at
-    }
-
-    ORDER ||--|{ ORDER_ITEM : contains
-    ORDER {
-        int order_id PK
-        int customer_id FK
-        date order_date
-        decimal total_amount
-        string status
-    }
-
-    ORDER_ITEM }o--|| PRODUCT : references
-    ORDER_ITEM {
-        int order_item_id PK
-        int order_id FK
-        int product_id FK
-        int quantity
-        decimal price
-    }
-
-    PRODUCT {
-        int product_id PK
-        string name
-        string description
-        decimal price
-        int stock_quantity
-    }
-
-    PRODUCT }o--|| CATEGORY : belongs_to
-    CATEGORY {
-        int category_id PK
-        string name
-        string description
-    }
+    ORDER ||--|{ LINE_ITEM : contains
 ```
-
-**Validation**: ✅ All syntax validated
-
-## Script Location
-
-The validation script is located at:
-```
-base/skills/mermaid/scripts/validate_mermaid.sh
-```
-
-Run it with:
-- `echo 'diagram' | base/skills/mermaid/scripts/validate_mermaid.sh` (stdin)
-- `base/skills/mermaid/scripts/validate_mermaid.sh file.mmd` (single file)
-- `base/skills/mermaid/scripts/validate_mermaid.sh file.md` (markdown with multiple diagrams)
 
 ## Resources
 
-- **Cheat Sheet**: See [reference.md](reference.md) for comprehensive syntax examples
-- **Script Documentation**: See [scripts/README.md](scripts/README.md) for script usage details
+- **Syntax Reference**: [reference.md](reference.md) - Complete syntax for all diagram types
+- **Error Examples**: [EXAMPLES.md](EXAMPLES.md) - Error patterns with fixes
+- **Script Documentation**: [scripts/README.md](scripts/README.md) - Validation script details
 - **Official Docs**: https://mermaid.js.org/
 - **Live Editor**: https://mermaid.live/
 
 ## Success Criteria
 
 A diagram is complete when:
-1. ✅ Syntax is correct for the diagram type
-2. ✅ Validation passes with validate_mermaid.sh script
-3. ✅ Diagram accurately represents the requested information
-4. ✅ Labels are clear and properly quoted
-5. ✅ Styling is appropriate (if requested)
-6. ✅ Comments document complex sections (if needed)
+1. Syntax is correct for the diagram type
+2. Validation passes with validate_mermaid.sh script
+3. Diagram accurately represents the requested information
+4. Labels are clear and properly quoted
+5. Comments document complex sections (if needed)

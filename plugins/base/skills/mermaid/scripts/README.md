@@ -1,6 +1,6 @@
 # Mermaid Validation Script
 
-Helper script for validating Mermaid diagrams with comprehensive error reporting.
+Helper script for validating Mermaid diagrams with comprehensive error reporting and structured JSON output.
 
 ## validate_mermaid.sh
 
@@ -10,6 +10,17 @@ A validation script that can validate:
 - Markdown files with embedded Mermaid diagrams (.md)
 
 ### Usage
+
+```bash
+# Basic usage
+./validate_mermaid.sh [OPTIONS] <file.mmd|file.md>
+echo 'diagram' | ./validate_mermaid.sh [OPTIONS]
+./validate_mermaid.sh [OPTIONS] <<< 'diagram'
+
+# Options
+--json, -j    Output results in structured JSON format
+-h, --help    Show help message
+```
 
 **Validate from stdin (recommended for inline diagrams):**
 ```bash
@@ -34,11 +45,97 @@ EOF
 ./validate_mermaid.sh document.md
 ```
 
+### Output Modes
+
+The script supports two output modes:
+
+| Mode | Flag | Description |
+|------|------|-------------|
+| Text (default) | none | Colored output with PASS/FAIL indicators |
+| JSON | `--json` or `-j` | Structured JSON with error details and categories |
+
+### JSON Output Format
+
+When using `--json` or `-j`, the script outputs structured JSON for programmatic use.
+
+**Single diagram (valid):**
+```json
+{
+  "valid": true,
+  "diagram_index": 1,
+  "markdown_line": 0
+}
+```
+
+**Single diagram (invalid):**
+```json
+{
+  "valid": false,
+  "diagram_index": 1,
+  "markdown_line": 0,
+  "error": {
+    "raw": "Parse error on line 1: Unexpected token",
+    "line": 1,
+    "category": "ARROW_SYNTAX",
+    "context": "A -> B"
+  }
+}
+```
+
+**Markdown file with multiple diagrams:**
+```json
+[
+  {
+    "valid": true,
+    "diagram_index": 1,
+    "markdown_line": 10
+  },
+  {
+    "valid": false,
+    "diagram_index": 2,
+    "markdown_line": 25,
+    "error": {
+      "raw": "Parse error on line 3",
+      "line": 3,
+      "category": "NODE_SYNTAX",
+      "context": "B[Unclosed bracket"
+    }
+  }
+]
+```
+
+**JSON fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `valid` | boolean | Whether the diagram passed validation |
+| `diagram_index` | number | 1-based index of the diagram (within file or 1 for stdin) |
+| `markdown_line` | number | Line number where the diagram block starts in markdown (0 for stdin/single files) |
+| `error.raw` | string | Full error message from mermaid-cli |
+| `error.line` | number/null | Line number within the diagram where error occurred |
+| `error.category` | string | Detected error category (see below) |
+| `error.context` | string | Code snippet showing the problematic syntax |
+
+### Error Categories
+
+The script automatically detects and categorizes errors into one of seven categories:
+
+| Category | Description | Common Causes |
+|----------|-------------|---------------|
+| `ARROW_SYNTAX` | Invalid arrow syntax | Using `->` instead of `-->`, wrong arrow type for diagram |
+| `QUOTE_ERROR` | String/quote issues | Unquoted labels with special characters, unterminated strings |
+| `CARDINALITY` | ER relationship errors | Invalid cardinality notation in erDiagram |
+| `LINE_BREAK` | Line structure issues | Missing newlines, multiple statements on one line |
+| `DIAGRAM_TYPE` | Invalid diagram type | Misspelled or unknown diagram declaration |
+| `NODE_SYNTAX` | Malformed nodes | Unclosed brackets, unbalanced braces/parentheses |
+| `UNKNOWN` | Unrecognized error | Error does not match known patterns |
+
 ### Features
 
-- Color-coded output (green for success, red for errors, yellow for info)
+- Two output modes: colored text (default) or structured JSON
+- Automatic error category detection for guided repair
+- Line number extraction from mermaid-cli errors
 - Counts total diagrams and failed validations
-- Extracts error messages from mermaid-cli
 - Supports multiple input formats (stdin, .mmd, .md)
 - Exit code 0 on success, 1 on failure
 - Automatic cleanup of temporary files
@@ -50,43 +147,60 @@ EOF
 
 ### Examples
 
-**Example 1: Valid diagram from stdin**
+**Example 1: Valid diagram with text output**
 ```bash
 $ echo "flowchart TD; A-->B" | ./validate_mermaid.sh
-✅ Diagram stdin: Valid
+PASS stdin: Valid
 ```
 
-**Example 2: Invalid diagram from stdin**
+**Example 2: Valid diagram with JSON output**
+```bash
+$ echo "flowchart TD; A-->B" | ./validate_mermaid.sh --json
+{
+  "valid": true,
+  "diagram_index": 1,
+  "markdown_line": 0
+}
+```
+
+**Example 3: Invalid diagram with text output**
 ```bash
 $ echo "flowchart TD; A<-!->B" | ./validate_mermaid.sh
-❌ Diagram stdin: Invalid
-Error: Parse error on line 1:
-flowchart TD; A<-\!->B
------------------^
+FAIL stdin: Invalid
+  Category: ARROW_SYNTAX
+  Error Line: 1
+  Error: Parse error on line 1...
 ```
 
-**Example 3: Valid diagram file**
+**Example 4: Invalid diagram with JSON output**
 ```bash
-$ cat diagram.mmd
-flowchart LR
-    A --> B
-    B --> C
-
-$ ./validate_mermaid.sh diagram.mmd
-✅ Diagram diagram.mmd: Valid
+$ echo "stateDiagram-v2; A -> B" | ./validate_mermaid.sh -j
+{
+  "valid": false,
+  "diagram_index": 1,
+  "markdown_line": 0,
+  "error": {
+    "raw": "Parse error on line 1...",
+    "line": 1,
+    "category": "ARROW_SYNTAX",
+    "context": "A -> B"
+  }
+}
 ```
 
-**Example 4: Markdown with multiple diagrams**
+**Example 5: Markdown file with text output**
 ```bash
 $ ./validate_mermaid.sh examples.md
 Validating Mermaid diagrams in: examples.md
 
-✅ Diagram 1: Valid
+PASS Diagram 1 (line 10): Valid
 
-✅ Diagram 2: Valid
+PASS Diagram 2 (line 25): Valid
 
-❌ Diagram 3: Invalid
-Error: Parse error on line 2
+FAIL Diagram 3 (line 45): Invalid
+  Category: NODE_SYNTAX
+  Error Line: 2
+  Error: Parse error on line 2
 
 ================================
 Validation Summary
@@ -97,20 +211,35 @@ Failed: 1
 ================================
 ```
 
+**Example 6: Markdown file with JSON output**
+```bash
+$ ./validate_mermaid.sh --json examples.md
+[
+  {"valid": true, "diagram_index": 1, "markdown_line": 10},
+  {"valid": true, "diagram_index": 2, "markdown_line": 25},
+  {"valid": false, "diagram_index": 3, "markdown_line": 45, "error": {...}}
+]
+```
+
 ## Integration with Claude Code
 
-The script is designed to be called from the Mermaid skill:
+The script is designed to be called from the Mermaid skill and mermaid-fixer agent:
 
+**Text mode (for human-readable output):**
 ```bash
-# From skill instructions (SKILL.md)
 echo 'flowchart TD
-    A --> B' | base/skills/mermaid/scripts/validate_mermaid.sh
+    A --> B' | plugins/base/skills/mermaid/scripts/validate_mermaid.sh
+```
+
+**JSON mode (for programmatic repair workflows):**
+```bash
+echo 'flowchart TD
+    A --> B' | plugins/base/skills/mermaid/scripts/validate_mermaid.sh --json
 ```
 
 Or with heredoc for multi-line diagrams:
-
 ```bash
-base/skills/mermaid/scripts/validate_mermaid.sh <<'EOF'
+plugins/base/skills/mermaid/scripts/validate_mermaid.sh --json <<'EOF'
 sequenceDiagram
     Alice->>Bob: Hello
     Bob->>Alice: Hi
@@ -123,7 +252,19 @@ The script provides detailed error messages from mermaid-cli, including:
 - Line number where the error occurred
 - The specific syntax that caused the error
 - Expected tokens vs. what was found
-- Stack trace for debugging (when available)
+- Automatic categorization for guided repair
+
+In JSON mode, all error details are structured for programmatic access:
+```json
+{
+  "error": {
+    "raw": "Full error message from mermaid-cli",
+    "line": 3,
+    "category": "ARROW_SYNTAX",
+    "context": "A -> B"
+  }
+}
+```
 
 ## Performance
 
@@ -131,3 +272,9 @@ The script provides detailed error messages from mermaid-cli, including:
 - Markdown files with multiple diagrams validate sequentially
 - Temporary files are automatically cleaned up after validation
 - Uses `-q` (quiet) flag to suppress unnecessary mermaid-cli output
+
+## Related Documentation
+
+- [SKILL.md](../SKILL.md) - Main mermaid skill documentation
+- [EXAMPLES.md](../EXAMPLES.md) - Error patterns and fix examples
+- [reference.md](../reference.md) - Mermaid syntax reference
