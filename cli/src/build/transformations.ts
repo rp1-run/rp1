@@ -252,9 +252,15 @@ export const transformSkill = (
       ccSkill.name,
     );
 
+    // Transform allowed-tools from comma-separated string to array (OpenCode format)
+    const allowedTools = ccSkill.allowedTools
+      ? ccSkill.allowedTools.split(",").map((t) => t.trim())
+      : undefined;
+
     const ocSkill: OpenCodeSkill = {
       name: ccSkill.name,
       description: ccSkill.description,
+      allowedTools,
       content: transformedContent,
       supportingFiles: ccSkill.supportingFiles,
     };

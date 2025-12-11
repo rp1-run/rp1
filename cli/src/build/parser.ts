@@ -199,6 +199,7 @@ export const parseSkill = (
     TE.chain(({ metadata, body }) => {
       const name = metadata.name;
       const description = metadata.description;
+      const allowedTools = metadata["allowed-tools"];
 
       if (!name || !description) {
         const missing = [!name && "name", !description && "description"].filter(
@@ -223,31 +224,21 @@ export const parseSkill = (
         );
       }
 
-      return TE.right({ name: String(name), description: descStr, body });
+      // Extract allowed-tools as string (Claude Code format: comma-separated)
+      const allowedToolsStr = typeof allowedTools === "string" ? allowedTools : undefined;
+
+      return TE.right({ name: String(name), description: descStr, allowedTools: allowedToolsStr, body });
     }),
-    TE.chain(({ name, description, body }) =>
+    TE.chain(({ name, description, allowedTools, body }) =>
       pipe(
         TE.tryCatch(
           async () => {
-            // Find supporting files
-            const supportingFiles: string[] = [];
-            const subdirs = ["templates", "scripts", "examples"];
-
-            for (const subdir of subdirs) {
-              const subdirPath = join(skillDir, subdir);
-              try {
-                const subdirStat = await stat(subdirPath);
-                if (subdirStat.isDirectory()) {
-                  const files = await findFilesRecursive(subdirPath);
-                  supportingFiles.push(
-                    ...files.map((f) => relative(skillDir, f)),
-                  );
-                }
-              } catch {
-                // Subdir doesn't exist, skip
-              }
-            }
-
+            // Find all files in skill directory recursively, excluding SKILL.md
+            // (SKILL.md is generated with transformations, not copied verbatim)
+            const allFiles = await findFilesRecursive(skillDir);
+            const supportingFiles = allFiles
+              .map((f) => relative(skillDir, f))
+              .filter((f) => f !== "SKILL.md");
             return supportingFiles;
           },
           (e) => parseError(skillDir, `Failed to scan supporting files: ${e}`),
@@ -255,6 +246,7 @@ export const parseSkill = (
         TE.map((supportingFiles) => ({
           name,
           description,
+          allowedTools,
           content: body,
           supportingFiles,
         })),

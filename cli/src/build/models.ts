@@ -40,6 +40,7 @@ export interface ClaudeCodeAgent {
 export interface ClaudeCodeSkill {
   readonly name: string;
   readonly description: string;
+  readonly allowedTools?: string; // Comma-separated string in Claude Code format
   readonly content: string;
   readonly supportingFiles: readonly string[];
 }
@@ -81,6 +82,7 @@ export interface OpenCodeAgent {
 export interface OpenCodeSkill {
   readonly name: string;
   readonly description: string;
+  readonly allowedTools?: readonly string[]; // Array format for OpenCode
   readonly content: string;
   readonly supportingFiles: readonly string[];
 }

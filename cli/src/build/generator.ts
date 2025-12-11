@@ -133,10 +133,17 @@ export const generateSkillFile = (
       "---",
       `name: ${escapeYamlValue(ocSkill.name)}`,
       `description: ${escapeYamlValue(ocSkill.description)}`,
-      "---",
-      "",
-      ocSkill.content,
     ];
+
+    // Add allowed-tools as YAML array if present (OpenCode format)
+    if (ocSkill.allowedTools && ocSkill.allowedTools.length > 0) {
+      frontmatterLines.push("allowed-tools:");
+      for (const tool of ocSkill.allowedTools) {
+        frontmatterLines.push(`  - ${tool}`);
+      }
+    }
+
+    frontmatterLines.push("---", "", ocSkill.content);
 
     const skillMdContent = frontmatterLines.join("\n");
     const skillDir = ocSkill.name;
