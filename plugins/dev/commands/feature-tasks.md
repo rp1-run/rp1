@@ -110,6 +110,68 @@ B) Single task list for continuous development
 Please specify your preference and answer the questions above.
 ```
 
+## Task Format Schema
+
+### Complexity Tags
+
+Every task SHOULD include a complexity tag that indicates expected effort and grouping behavior:
+
+| Tag | Meaning | Builder-Reviewer Behavior |
+|-----|---------|---------------------------|
+| `[complexity:simple]` | Trivial task (1-2 hours) | May be grouped with 2-3 other simple tasks |
+| `[complexity:medium]` | Standard task (4-8 hours) | Individual builder-reviewer unit |
+| `[complexity:complex]` | Complex task (8+ hours) | Individual unit with extended thinking |
+
+**Default**: If no complexity tag is present, tasks default to `medium`.
+
+**Syntax**: Place the tag at the end of the task description line:
+```markdown
+- [ ] **T1**: Implement user validation `[complexity:simple]`
+- [ ] **T2**: Create authentication middleware `[complexity:medium]`
+- [ ] **T3**: Refactor session management `[complexity:complex]`
+```
+
+### Status Markers
+
+Tasks use checkbox markers to indicate status:
+
+| Marker | Status | Meaning |
+|--------|--------|---------|
+| `- [ ]` | Pending | Not yet started |
+| `- [x]` | Done | Completed and verified |
+| `- [!]` | Blocked | Failed after retry, requires intervention |
+
+### Implementation Summary Block
+
+When a builder completes a task, it adds an implementation summary immediately below the task line:
+
+```markdown
+- [x] **T1**: Implement JWT validation `[complexity:medium]`
+
+  **Implementation Summary**:
+  - **Files**: `src/auth.ts`, `src/middleware/validate.ts`
+  - **Approach**: Used jsonwebtoken library with expiration checking
+  - **Deviations**: None
+```
+
+### Review Feedback Block
+
+If a reviewer rejects a task, it adds feedback for the retry builder:
+
+```markdown
+- [ ] **T1**: Implement JWT validation `[complexity:medium]`
+
+  **Implementation Summary**:
+  - **Files**: `src/auth.ts`
+  - **Approach**: Added token parsing
+  - **Deviations**: None
+
+  **Review Feedback** (Attempt 1):
+  - **Status**: FAILURE
+  - **Issues**: Missing signature verification
+  - **Guidance**: Add `jwt.verify()` call before expiration check
+```
+
 ## Task Quality Standards
 
 Every task MUST be:
@@ -180,15 +242,24 @@ Generate these files in the feature directory:
 
 ## Tasks
 ### [Category Name]
-- [ ] [Specific task description]
+- [ ] **T[N].[M]**: [Specific task description] `[complexity:simple|medium|complex]`
   **Reference**: [design.md#section](design.md#section)
   **Effort**: [X hours]
-  - [ ] [Sub-task if needed]
-  - [ ] [Sub-task if needed]
+  **Acceptance Criteria**:
+  - [ ] [Specific criterion]
+  - [ ] [Specific criterion]
 
-## Acceptance Criteria (Partial)
-[Subset of overall criteria this milestone addresses]
+  **Implementation Guidance**:
+  - [Specific guidance for implementer]
+
+## Definition of Done
+[Criteria for milestone completion]
 ```
+
+**Complexity Classification Guidelines**:
+- `simple`: Configuration changes, type annotations, documentation updates, trivial refactors (1-2 hours)
+- `medium`: New functions, API endpoints, component implementations, moderate logic changes (4-8 hours)
+- `complex`: System refactors, multi-file changes with intricate logic, algorithmic implementations (8+ hours)
 
 ### For Small Scope (Single Task List)
 
@@ -210,14 +281,18 @@ Generate this file in the feature directory:
 
 ## Task Breakdown
 ### [Category 1]
-- [ ] [Specific task]
+- [ ] **T1**: [Specific task] `[complexity:simple|medium|complex]`
   **Reference**: [design.md#section](design.md#section)
   **Effort**: [X hours]
+  **Acceptance Criteria**:
+  - [ ] [Specific criterion]
 
 ### [Category 2]
-- [ ] [Specific task]
+- [ ] **T2**: [Specific task] `[complexity:simple|medium|complex]`
   **Reference**: [design.md#section](design.md#section)
   **Effort**: [X hours]
+  **Acceptance Criteria**:
+  - [ ] [Specific criterion]
 
 ## Acceptance Criteria Checklist
 [All acceptance criteria with checkboxes]
