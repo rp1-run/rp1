@@ -214,11 +214,62 @@ const copySupportingFiles = async (
 };
 
 /**
+ * Recursively copy a directory tree.
+ */
+const copyDirectory = async (
+  srcDir: string,
+  destDir: string,
+): Promise<void> => {
+  await mkdir(destDir, { recursive: true });
+  const entries = await readdir(srcDir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const srcPath = join(srcDir, entry.name);
+    const destPath = join(destDir, entry.name);
+
+    if (entry.isDirectory()) {
+      await copyDirectory(srcPath, destPath);
+    } else if (entry.isFile()) {
+      await copyFile(srcPath, destPath);
+    }
+  }
+};
+
+/**
+ * Copy OpenCode plugin files from platforms/opencode/ to .opencode/ in output.
+ * Source is organized under platforms/ for cleaner repo structure.
+ * Output uses .opencode/ for OpenCode platform compatibility.
+ * Returns true if plugin was found and copied, false otherwise.
+ */
+const copyOpenCodePlugin = async (
+  pluginDir: string,
+  pluginOutputDir: string,
+): Promise<boolean> => {
+  const openCodeSrcDir = join(pluginDir, "platforms", "opencode");
+
+  try {
+    const srcStat = await stat(openCodeSrcDir);
+    if (!srcStat.isDirectory()) {
+      return false;
+    }
+
+    // Copy platforms/opencode/ to .opencode/ in output for platform compatibility
+    const openCodeDestDir = join(pluginOutputDir, ".opencode");
+    await copyDirectory(openCodeSrcDir, openCodeDestDir);
+    return true;
+  } catch {
+    // platforms/opencode directory doesn't exist, skip
+    return false;
+  }
+};
+
+/**
  * Extended build result with asset paths for bundle manifest.
  */
 interface PluginBuildResult {
   summary: BuildSummary;
   assets: BundlePluginAssets;
+  hasOpenCodePlugin: boolean;
 }
 
 /**
@@ -394,6 +445,9 @@ const buildPlugin = async (
     }
   }
 
+  // Copy OpenCode plugin if present
+  const hasOpenCodePlugin = await copyOpenCodePlugin(pluginDir, pluginOutputDir);
+
   // Generate manifest
   const commandNames = commandEntries.map(e => e.name);
   const agentNames = agentEntries.map(e => e.name);
@@ -416,7 +470,8 @@ const buildPlugin = async (
   // Complete spinner
   if (!jsonOutput) {
     const hasErrors = errors.length > 0;
-    const summary = `${pluginName}: ${commandEntries.length} commands, ${agentEntries.length} agents, ${skillEntries.length} skills`;
+    const ocPluginNote = hasOpenCodePlugin ? " + OpenCode plugin" : "";
+    const summary = `${pluginName}: ${commandEntries.length} commands, ${agentEntries.length} agents, ${skillEntries.length} skills${ocPluginNote}`;
     if (hasErrors) {
       logger.fail(`${summary} (${errors.length} errors)`);
     } else {
@@ -438,6 +493,7 @@ const buildPlugin = async (
       agents: agentEntries,
       skills: skillEntries,
     },
+    hasOpenCodePlugin,
   };
 };
 

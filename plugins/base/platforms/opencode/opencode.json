@@ -1,0 +1,7 @@
+{
+  "name": "rp1-base-hooks",
+  "version": "0.2.3",
+  "description": "rp1 session hooks for OpenCode",
+  "main": "plugin/index.ts",
+  "events": ["session.created"]
+}
