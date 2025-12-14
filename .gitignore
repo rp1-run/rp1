@@ -22,3 +22,6 @@ cli/web-ui/dist/
 
 # Generated files (created by build:release)
 cli/src/assets/embedded.ts
+
+# local rp1 binary
+rp1-local
