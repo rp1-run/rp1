@@ -38,16 +38,7 @@ import {
   generateBundleManifest,
 } from "./generator.js";
 import { validateCommand, validateAgent, validateSkill } from "./validator.js";
-
-const COLORS = {
-  reset: "\x1b[0m",
-  dim: "\x1b[2m",
-  green: "\x1b[32m",
-  yellow: "\x1b[33m",
-  red: "\x1b[31m",
-  cyan: "\x1b[36m",
-  bold: "\x1b[1m",
-};
+import { codes as COLORS } from "../lib/colors.js";
 
 /**
  * Parse build command arguments.

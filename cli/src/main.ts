@@ -3,11 +3,14 @@ import { Command } from "commander";
 import { detectRuntime } from "../shared/runtime.js";
 import { createLogger, LogLevel, type Logger } from "../shared/logger.js";
 import { formatError, getExitCode, type CLIError } from "../shared/errors.js";
+import { codes } from "./lib/colors.js";
 import pkg from "../package.json";
 
 import { viewCommand } from "./commands/view.js";
 import { installCommand, verifyCommand, listCommand, installClaudeCodeCommand } from "./commands/install.js";
 import { initCommand } from "./commands/init.js";
+import { checkUpdateCommand } from "./commands/check-update.js";
+import { selfUpdateCommand } from "./commands/self-update.js";
 
 declare module "commander" {
   interface Command {
@@ -24,7 +27,7 @@ const program = new Command()
   .option("--trace", "Enable trace logging")
   .helpOption("-h, --help", "Show this help message")
   .configureOutput({
-    outputError: (str, write) => write(`\x1b[31m${str}\x1b[0m`),
+    outputError: (str, write) => write(`${codes.red}${str}${codes.reset}`),
   });
 
 program.hook("preAction", (thisCommand) => {
@@ -57,6 +60,8 @@ program.addCommand(installClaudeCodeCommand);
 program.addCommand(verifyCommand);
 program.addCommand(listCommand);
 program.addCommand(initCommand);
+program.addCommand(checkUpdateCommand);
+program.addCommand(selfUpdateCommand);
 
 const handleError = (error: CLIError): void => {
   const isTTY = process.stderr.isTTY ?? false;

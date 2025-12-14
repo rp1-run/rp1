@@ -18,6 +18,7 @@ import {
   getExitCode,
 } from "../../shared/errors.js";
 import { isBun } from "../../shared/runtime.js";
+import { codes } from "../lib/colors.js";
 import {
   hasBundledAssets,
   getBundledAssets,
@@ -245,7 +246,7 @@ Note: This command requires Bun runtime. Install from https://bun.sh
   .action(async (path, options, command) => {
     // Check for Bun runtime early - the web-ui server requires Bun APIs
     if (!isBun()) {
-      console.error("\x1b[31mError: The 'view' command requires Bun runtime.\x1b[0m");
+      console.error(`${codes.red}Error: The 'view' command requires Bun runtime.${codes.reset}`);
       console.error("\nThe web UI server uses Bun-specific APIs that are not available in Node.js.");
       console.error("\nTo fix this:");
       console.error("  1. Install Bun: curl -fsSL https://bun.sh/install | bash");

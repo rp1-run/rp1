@@ -30,12 +30,9 @@ import {
   getBundledAssets,
   extractPlugins,
 } from "../assets/index.js";
+import { colorFns } from "../lib/colors.js";
 
-const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
-const yellow = (s: string) => `\x1b[33m${s}\x1b[0m`;
-const red = (s: string) => `\x1b[31m${s}\x1b[0m`;
-const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
-const bold = (s: string) => `\x1b[1m${s}\x1b[0m`;
+const { green, yellow, red, dim, bold } = colorFns;
 
 export interface InstallArgs {
   artifactsDir: string | null;

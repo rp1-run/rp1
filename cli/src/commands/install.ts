@@ -7,6 +7,7 @@ import {
   executeVerify,
   executeList,
 } from "../install/index.js";
+import { codes } from "../lib/colors.js";
 
 export const installCommand = new Command("install:opencode")
   .description("Install rp1 plugins to OpenCode platform")
@@ -104,10 +105,7 @@ Examples:
 export const installClaudeCodeCommand = new Command("install:claudecode")
   .description("Show instructions for installing rp1 plugins in Claude Code")
   .action(async () => {
-    const cyan = "\x1b[36m";
-    const bold = "\x1b[1m";
-    const reset = "\x1b[0m";
-    const dim = "\x1b[2m";
+    const { cyan, bold, reset, dim } = codes;
 
     console.log(`
 ${bold}Installing rp1 plugins in Claude Code${reset}
