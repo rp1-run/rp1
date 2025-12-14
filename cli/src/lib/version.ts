@@ -4,16 +4,14 @@
  * and compare semantic versions.
  */
 
-import { createRequire } from "module";
-import { dirname, join } from "path";
-import { fileURLToPath } from "url";
-import { existsSync, readFileSync } from "fs";
 import {
   readCacheSync,
   isCacheValid,
   writeCache,
   DEFAULT_TTL_HOURS,
 } from "./cache.js";
+// Static import ensures version is bundled at compile time
+import pkg from "../../package.json";
 
 /**
  * Result of a version check operation.
@@ -50,64 +48,15 @@ interface ParsedVersion {
 
 /**
  * Get the currently installed version of rp1.
- * Reads version from package.json.
+ * Uses statically imported package.json version (bundled at compile time).
  *
  * @returns The installed version string (e.g., "0.2.3") or "unknown" if unavailable.
  */
 export const getInstalledVersion = (): string => {
-  try {
-    // Try to read from package.json using multiple strategies for different runtime contexts
-
-    // Strategy 1: Use createRequire for ESM context
-    try {
-      const require = createRequire(import.meta.url);
-      const pkg = require("../../package.json");
-      if (typeof pkg.version === "string") {
-        return stripVersionPrefix(pkg.version);
-      }
-    } catch {
-      // Continue to next strategy
-    }
-
-    // Strategy 2: Direct file read relative to this module
-    try {
-      const __filename = fileURLToPath(import.meta.url);
-      const __dirname = dirname(__filename);
-      const packagePath = join(__dirname, "..", "..", "package.json");
-
-      if (existsSync(packagePath)) {
-        const content = readFileSync(packagePath, "utf-8");
-        const pkg = JSON.parse(content) as { version?: string };
-        if (typeof pkg.version === "string") {
-          return stripVersionPrefix(pkg.version);
-        }
-      }
-    } catch {
-      // Continue to next strategy
-    }
-
-    // Strategy 3: Check common dist locations
-    try {
-      const __filename = fileURLToPath(import.meta.url);
-      const __dirname = dirname(__filename);
-      // When running from dist, package.json is one level up
-      const distPackagePath = join(__dirname, "..", "package.json");
-
-      if (existsSync(distPackagePath)) {
-        const content = readFileSync(distPackagePath, "utf-8");
-        const pkg = JSON.parse(content) as { version?: string };
-        if (typeof pkg.version === "string") {
-          return stripVersionPrefix(pkg.version);
-        }
-      }
-    } catch {
-      // Graceful degradation
-    }
-
-    return "unknown";
-  } catch {
-    return "unknown";
+  if (typeof pkg.version === "string") {
+    return stripVersionPrefix(pkg.version);
   }
+  return "unknown";
 };
 
 /**
@@ -365,12 +314,16 @@ export const getLatestVersion = async (
     const version = stripVersionPrefix(data.tag_name);
     const releaseUrl = data.html_url;
 
-    // Update cache (fire-and-forget, don't block on result)
-    writeCache({
-      latestVersion: version,
-      releaseUrl: releaseUrl,
-      ttlHours: ttlHours,
-    })();
+    // Update cache (await but ignore errors - cache is non-critical)
+    try {
+      await writeCache({
+        latestVersion: version,
+        releaseUrl: releaseUrl,
+        ttlHours: ttlHours,
+      })();
+    } catch {
+      // Ignore cache write errors - non-critical
+    }
 
     return {
       version,
