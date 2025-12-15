@@ -2,7 +2,7 @@
  * Frontmatter parsing for Claude Code commands, agents, and skills.
  */
 
-import { readFile, readdir, stat } from "fs/promises";
+import { readFile, readdir } from "fs/promises";
 import { join, relative } from "path";
 import { parse as parseYaml } from "yaml";
 import * as E from "fp-ts/lib/Either.js";

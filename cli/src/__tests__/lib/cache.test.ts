@@ -111,7 +111,6 @@ describe("cache", () => {
       expect(result!.ttlHours).toBe(24);
       expect(typeof result!.checkedAt).toBe("string");
 
-      // Clean up
       await expectTaskRight(invalidateCache());
     });
 
@@ -129,7 +128,6 @@ describe("cache", () => {
       const validResult = await expectTaskRight(readCache());
       expect(validResult).not.toBeNull();
 
-      // Clean up
       await expectTaskRight(invalidateCache());
     });
 
@@ -156,7 +154,6 @@ describe("cache", () => {
 
   describe("readCacheSync", () => {
     test("returns null when cache file does not exist", () => {
-      // Delete cache first to ensure clean state
       const cachePath = getCachePath();
       if (existsSync(cachePath)) {
         // Use async invalidation then sync read
@@ -182,19 +179,16 @@ describe("cache", () => {
       expect(result!.latestVersion).toBe("1.0.0");
       expect(result!.ttlHours).toBe(12);
 
-      // Clean up
       await expectTaskRight(invalidateCache());
     });
   });
 
   describe("writeCache", () => {
     afterEach(async () => {
-      // Clean up any cache file created during tests
       await expectTaskRight(invalidateCache());
     });
 
     test("creates config directory if it does not exist", async () => {
-      // Invalidate first to ensure clean state
       await expectTaskRight(invalidateCache());
 
       await expectTaskRight(
@@ -285,7 +279,7 @@ describe("cache", () => {
       const cache: VersionCache = {
         latestVersion: "0.3.0",
         releaseUrl: "https://example.com",
-        checkedAt: new Date().toISOString(), // Just now
+        checkedAt: new Date().toISOString(),
         ttlHours: 24,
       };
 
@@ -294,7 +288,7 @@ describe("cache", () => {
 
     test("returns true for cache at TTL boundary (just under)", () => {
       const almostExpired = new Date();
-      almostExpired.setHours(almostExpired.getHours() - 23); // 23 hours ago
+      almostExpired.setHours(almostExpired.getHours() - 23);
 
       const cache: VersionCache = {
         latestVersion: "0.3.0",
@@ -308,7 +302,7 @@ describe("cache", () => {
 
     test("returns false for expired cache", () => {
       const expired = new Date();
-      expired.setHours(expired.getHours() - 25); // 25 hours ago
+      expired.setHours(expired.getHours() - 25);
 
       const cache: VersionCache = {
         latestVersion: "0.3.0",
@@ -322,7 +316,7 @@ describe("cache", () => {
 
     test("returns false for cache exactly at TTL boundary", () => {
       const exactlyExpired = new Date();
-      exactlyExpired.setHours(exactlyExpired.getHours() - 24); // Exactly 24 hours ago
+      exactlyExpired.setHours(exactlyExpired.getHours() - 24);
 
       const cache: VersionCache = {
         latestVersion: "0.3.0",
@@ -331,7 +325,6 @@ describe("cache", () => {
         ttlHours: 24,
       };
 
-      // At exactly TTL hours, cache should be invalid (< not <=)
       expect(isCacheValid(cache)).toBe(false);
     });
 
@@ -343,14 +336,14 @@ describe("cache", () => {
         latestVersion: "0.3.0",
         releaseUrl: "https://example.com",
         checkedAt: twoHoursAgo.toISOString(),
-        ttlHours: 1, // 1 hour TTL - should be expired
+        ttlHours: 1,
       };
 
       const longTtlCache: VersionCache = {
         latestVersion: "0.3.0",
         releaseUrl: "https://example.com",
         checkedAt: twoHoursAgo.toISOString(),
-        ttlHours: 4, // 4 hour TTL - should be valid
+        ttlHours: 4,
       };
 
       expect(isCacheValid(shortTtlCache)).toBe(false);
@@ -400,7 +393,7 @@ describe("cache", () => {
       const ageHours = getCacheAgeHours(cache);
 
       expect(ageHours).toBeGreaterThanOrEqual(0);
-      expect(ageHours).toBeLessThan(0.01); // Less than ~36 seconds
+      expect(ageHours).toBeLessThan(0.01);
     });
   });
 
@@ -418,7 +411,6 @@ describe("cache", () => {
 
       const expiresIn = getCacheExpiresInHours(cache);
 
-      // Should be approximately 23 hours remaining
       expect(expiresIn).toBeGreaterThanOrEqual(22.9);
       expect(expiresIn).toBeLessThanOrEqual(23.1);
     });
@@ -456,7 +448,6 @@ describe("cache", () => {
 
   describe("invalidateCache", () => {
     test("removes existing cache file", async () => {
-      // First create a cache file
       await expectTaskRight(
         writeCache({
           latestVersion: "0.3.0",
@@ -468,28 +459,23 @@ describe("cache", () => {
       const cachePath = getCachePath();
       expect(existsSync(cachePath)).toBe(true);
 
-      // Now invalidate
       await expectTaskRight(invalidateCache());
 
       expect(existsSync(cachePath)).toBe(false);
     });
 
     test("succeeds when cache file does not exist", async () => {
-      // Ensure cache doesn't exist
       const cachePath = getCachePath();
       if (existsSync(cachePath)) {
         await rm(cachePath);
       }
 
-      // Invalidating non-existent cache should succeed
       await expectTaskRight(invalidateCache());
 
-      // Still shouldn't exist
       expect(existsSync(cachePath)).toBe(false);
     });
 
     test("allows writing new cache after invalidation", async () => {
-      // Write, invalidate, write again
       await expectTaskRight(
         writeCache({
           latestVersion: "0.1.0",
@@ -512,7 +498,6 @@ describe("cache", () => {
 
       expect(result!.latestVersion).toBe("0.2.0");
 
-      // Clean up
       await expectTaskRight(invalidateCache());
     });
   });

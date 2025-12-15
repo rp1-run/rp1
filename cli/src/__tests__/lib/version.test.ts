@@ -4,15 +4,13 @@
  * and the composite checkForUpdate function.
  */
 
-import { describe, test, expect, beforeEach, afterEach, mock } from "bun:test";
+import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import {
   compareVersions,
   getInstalledVersion,
   getLatestVersion,
   checkForUpdate,
   stripVersionPrefix,
-  type VersionCheckResult,
-  type LatestVersionResult,
 } from "../../lib/version.js";
 import {
   writeCache,
@@ -116,13 +114,11 @@ describe("version", () => {
 
     describe("invalid version strings", () => {
       test("handles missing patch version", () => {
-        // Should treat as 0.2.0
         const result = compareVersions("0.2", "0.2.0");
         expect(result).toBe(0);
       });
 
       test("handles missing minor and patch", () => {
-        // Should treat as 1.0.0
         const result = compareVersions("1", "1.0.0");
         expect(result).toBe(0);
       });
@@ -133,13 +129,11 @@ describe("version", () => {
       });
 
       test("handles non-numeric parts gracefully", () => {
-        // Non-numeric parts become 0
         const result = compareVersions("abc.def.ghi", "0.0.0");
         expect(result).toBe(0);
       });
 
       test("handles malformed versions with extra dots", () => {
-        // Extra parts ignored after major.minor.patch
         const result = compareVersions("1.2.3.4.5", "1.2.3");
         expect(result).toBe(0);
       });
@@ -152,7 +146,6 @@ describe("version", () => {
 
       expect(typeof version).toBe("string");
       expect(version).not.toBe("");
-      // Version should match semver pattern (x.y.z) or be "unknown"
       expect(
         version === "unknown" || /^\d+\.\d+\.\d+/.test(version),
       ).toBe(true);
@@ -176,17 +169,14 @@ describe("version", () => {
 
   describe("getLatestVersion", () => {
     beforeEach(async () => {
-      // Clean up any existing cache before each test
       await expectTaskRight(invalidateCache());
     });
 
     afterEach(async () => {
-      // Clean up cache after each test
       await expectTaskRight(invalidateCache());
     });
 
     test("returns cached version when cache is valid", async () => {
-      // Write a valid cache entry
       await expectTaskRight(
         writeCache({
           latestVersion: "9.9.9",
@@ -205,7 +195,6 @@ describe("version", () => {
     });
 
     test("bypasses cache when force=true", async () => {
-      // Write a cache entry
       await expectTaskRight(
         writeCache({
           latestVersion: "9.9.9",
@@ -214,35 +203,25 @@ describe("version", () => {
         }),
       );
 
-      // Force should bypass cache and fetch fresh
       const result = await getLatestVersion({ force: true, timeoutMs: 5000 });
 
-      // If network is available, it should return fresh result (not cached)
-      // If network fails, it returns null
       if (result !== null) {
         expect(result.cached).toBe(false);
-        // Version should be different from our fake cache (unless coincidentally the same)
-        // The important thing is cached is false
       }
     });
 
     test("returns null on network error with short timeout", async () => {
-      // Use extremely short timeout to force failure
       const result = await getLatestVersion({ timeoutMs: 1 });
 
-      // Should return null on timeout/error
       expect(result).toBeNull();
     });
 
     test("updates cache after successful fetch", async () => {
-      // Ensure no cache exists
       await expectTaskRight(invalidateCache());
 
-      // Fetch (may succeed or fail depending on network)
       const result = await getLatestVersion({ force: true, timeoutMs: 5000 });
 
       if (result !== null && !result.cached) {
-        // If we got a fresh fetch, cache should be updated
         const cache = readCacheSync();
         expect(cache).not.toBeNull();
         expect(cache!.latestVersion).toBe(result.version);
@@ -250,7 +229,6 @@ describe("version", () => {
     });
 
     test("returns cache metadata when using cached result", async () => {
-      // Write cache from 1 hour ago
       const oneHourAgo = new Date();
       oneHourAgo.setHours(oneHourAgo.getHours() - 1);
 
@@ -268,19 +246,14 @@ describe("version", () => {
       expect(result!.cached).toBe(true);
       expect(typeof result!.cacheAgeHours).toBe("number");
       expect(typeof result!.cacheExpiresInHours).toBe("number");
-      // Cache age should be very small (just created)
       expect(result!.cacheAgeHours!).toBeLessThan(0.1);
-      // Expires should be close to TTL
       expect(result!.cacheExpiresInHours!).toBeGreaterThan(23);
     });
 
     test("fetches from GitHub when cache is expired", async () => {
-      // Write an expired cache (26 hours old with 24h TTL)
       const expiredDate = new Date();
       expiredDate.setHours(expiredDate.getHours() - 26);
 
-      // Write cache directly with old timestamp
-      // We need to manually construct this since writeCache auto-sets checkedAt
       const { writeFile, mkdir } = await import("fs/promises");
       const { existsSync } = await import("fs");
       const { join } = await import("path");
@@ -300,13 +273,9 @@ describe("version", () => {
       };
       await writeFile(cachePath, JSON.stringify(expiredCache));
 
-      // Now getLatestVersion should try to fetch fresh
       const result = await getLatestVersion({ timeoutMs: 5000 });
 
-      // Result depends on network availability
-      // But it should NOT return the cached "0.0.1" since cache is expired
       if (result !== null) {
-        // If network succeeded, should be fresh
         expect(result.cached).toBe(false);
       }
     });
@@ -322,7 +291,6 @@ describe("version", () => {
     });
 
     test("returns complete result structure", async () => {
-      // Write cache to avoid network dependency
       await expectTaskRight(
         writeCache({
           latestVersion: "99.0.0",
@@ -333,7 +301,6 @@ describe("version", () => {
 
       const result = await checkForUpdate();
 
-      // Check result structure
       expect(result).toHaveProperty("currentVersion");
       expect(result).toHaveProperty("latestVersion");
       expect(result).toHaveProperty("updateAvailable");
@@ -345,7 +312,6 @@ describe("version", () => {
     });
 
     test("detects update available when latest > current", async () => {
-      // Write cache with version higher than current
       await expectTaskRight(
         writeCache({
           latestVersion: "99.0.0",
@@ -362,10 +328,8 @@ describe("version", () => {
     });
 
     test("detects no update when current >= latest", async () => {
-      // Get current version
       const currentVersion = getInstalledVersion();
 
-      // Write cache with same version as current
       await expectTaskRight(
         writeCache({
           latestVersion: currentVersion,
@@ -413,7 +377,6 @@ describe("version", () => {
     });
 
     test("returns error when latest version cannot be fetched", async () => {
-      // No cache, and use tiny timeout to force network failure
       const result = await checkForUpdate({ timeoutMs: 1 });
 
       expect(result.updateAvailable).toBe(false);
@@ -431,12 +394,9 @@ describe("version", () => {
         }),
       );
 
-      // Force with short timeout should fail (not use cache)
       const result = await checkForUpdate({ force: true, timeoutMs: 1 });
 
-      // Should have tried network (and failed), not used cache
       expect(result.cached).toBe(false);
-      // Since network failed with tiny timeout
       expect(result.latestVersion).toBeNull();
     });
 
@@ -454,7 +414,6 @@ describe("version", () => {
     });
 
     test("handles network timeout gracefully", async () => {
-      // Very short timeout should trigger abort
       const result = await getLatestVersion({ timeoutMs: 1 });
 
       expect(result).toBeNull();
@@ -469,7 +428,6 @@ describe("version", () => {
     });
 
     test("gracefully handles corrupted cache", async () => {
-      // Write invalid JSON to cache file
       const { writeFile, mkdir } = await import("fs/promises");
       const { existsSync } = await import("fs");
       const { join } = await import("path");
@@ -483,12 +441,8 @@ describe("version", () => {
       const cachePath = join(configDir, "version-cache.json");
       await writeFile(cachePath, "{ invalid json here }}}");
 
-      // Should gracefully handle corrupted cache
-      // Either by returning null or by fetching fresh
       const result = await getLatestVersion({ timeoutMs: 5000 });
 
-      // Result should be null (cache invalid, need network) or valid fresh result
-      // The key is it should not throw
       expect(result === null || typeof result === "object").toBe(true);
     });
 
@@ -504,13 +458,10 @@ describe("version", () => {
       }
 
       const cachePath = join(configDir, "version-cache.json");
-      // Missing required fields
       await writeFile(cachePath, JSON.stringify({ latestVersion: "1.0.0" }));
 
-      // Should treat as invalid cache
       const result = await getLatestVersion({ timeoutMs: 5000 });
 
-      // Should not throw, should try to fetch or return null
       expect(result === null || typeof result === "object").toBe(true);
     });
   });

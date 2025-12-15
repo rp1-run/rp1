@@ -1,10 +1,7 @@
 /**
  * Unit tests for the package manager library.
- * Tests installation method detection and update execution.
- *
- * Note: Since detectInstallMethod and runUpdate call external commands (brew, scoop),
- * these tests focus on verifiable behavior and use mocking via Bun's mock module
- * to simulate different platform/command scenarios.
+ * Tests use mocking via Bun's mock module to simulate different platform/command
+ * scenarios since detectInstallMethod and runUpdate call external commands.
  */
 
 import {
@@ -32,19 +29,16 @@ describe("package-manager", () => {
     let platformSpy: ReturnType<typeof spyOn>;
 
     beforeEach(() => {
-      // Reset spies for each test
       execSyncSpy = spyOn(childProcess, "execSync");
       platformSpy = spyOn(os, "platform");
     });
 
     afterEach(() => {
-      // Restore original implementations
       mock.restore();
     });
 
     describe("homebrew detection (macOS/Linux)", () => {
       test("returns homebrew when brew list rp1 succeeds on macOS", async () => {
-        // Mock platform as macOS
         platformSpy.mockReturnValue("darwin");
 
         // Mock execSync: first call for `which brew` succeeds, second for `brew list rp1` succeeds
@@ -66,10 +60,8 @@ describe("package-manager", () => {
       });
 
       test("returns homebrew when brew list rp1 succeeds on Linux", async () => {
-        // Mock platform as Linux
         platformSpy.mockReturnValue("linux");
 
-        // Mock successful brew detection
         execSyncSpy.mockImplementation((cmd: string) => {
           if (cmd === "which brew") {
             return "/home/linuxbrew/.linuxbrew/bin/brew";
@@ -87,10 +79,8 @@ describe("package-manager", () => {
       });
 
       test("returns manual when brew command not found", async () => {
-        // Mock platform as macOS
         platformSpy.mockReturnValue("darwin");
 
-        // Mock `which brew` failing
         execSyncSpy.mockImplementation((cmd: string) => {
           if (cmd === "which brew") {
             throw new Error("brew not found");
@@ -106,10 +96,8 @@ describe("package-manager", () => {
       });
 
       test("returns manual when brew list rp1 fails", async () => {
-        // Mock platform as macOS
         platformSpy.mockReturnValue("darwin");
 
-        // Mock brew exists but rp1 is not installed via brew
         execSyncSpy.mockImplementation((cmd: string) => {
           if (cmd === "which brew") {
             return "/opt/homebrew/bin/brew";
@@ -129,10 +117,8 @@ describe("package-manager", () => {
 
     describe("scoop detection (Windows)", () => {
       test("returns scoop when scoop info rp1 succeeds", async () => {
-        // Mock platform as Windows
         platformSpy.mockReturnValue("win32");
 
-        // Mock successful scoop detection
         execSyncSpy.mockImplementation((cmd: string) => {
           if (cmd === "where scoop") {
             return "C:\\Users\\user\\scoop\\shims\\scoop.cmd";
@@ -155,10 +141,8 @@ Website: https://rp1.run`;
       });
 
       test("returns manual when scoop command not found", async () => {
-        // Mock platform as Windows
         platformSpy.mockReturnValue("win32");
 
-        // Mock `where scoop` failing
         execSyncSpy.mockImplementation((cmd: string) => {
           if (cmd === "where scoop") {
             throw new Error("scoop not found");
@@ -174,10 +158,8 @@ Website: https://rp1.run`;
       });
 
       test("returns manual when scoop info rp1 fails", async () => {
-        // Mock platform as Windows
         platformSpy.mockReturnValue("win32");
 
-        // Mock scoop exists but rp1 is not installed
         execSyncSpy.mockImplementation((cmd: string) => {
           if (cmd === "where scoop") {
             return "C:\\Users\\user\\scoop\\shims\\scoop.cmd";
@@ -195,16 +177,13 @@ Website: https://rp1.run`;
       });
 
       test("returns manual when scoop info output lacks Installed marker", async () => {
-        // Mock platform as Windows
         platformSpy.mockReturnValue("win32");
 
-        // Mock scoop finds the app but it's not installed
         execSyncSpy.mockImplementation((cmd: string) => {
           if (cmd === "where scoop") {
             return "C:\\Users\\user\\scoop\\shims\\scoop.cmd";
           }
           if (cmd === "scoop info rp1") {
-            // Output without "Installed:" marker
             return `Name: rp1
 Description: AI Plugin System
 Version: 0.2.3
@@ -222,7 +201,6 @@ Website: https://rp1.run`;
 
     describe("manual/unknown platform detection", () => {
       test("returns manual for unknown platform", async () => {
-        // Mock an unknown platform
         platformSpy.mockReturnValue("freebsd" as NodeJS.Platform);
 
         const result = await detectInstallMethod();
@@ -265,7 +243,6 @@ Website: https://rp1.run`;
 
     describe("homebrew update path", () => {
       test("executes brew upgrade rp1 and returns success", async () => {
-        // Mock successful brew upgrade
         execSyncSpy.mockImplementation((cmd: string) => {
           if (cmd === "brew upgrade rp1") {
             return `==> Upgrading 1 outdated package:
