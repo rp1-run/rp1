@@ -29,6 +29,7 @@ import {
 	checkWritePermissions,
 	getOpenCodeConfigDir,
 	installOpenCodeSkillsPlugin,
+	registerRp1HooksPlugin,
 } from "./prerequisites.js";
 import { listInstalledCommands, verifyInstallation } from "./verifier.js";
 
@@ -185,7 +186,11 @@ const executeInstallFromBundled = (
 
 							return pipe(
 								updateOpenCodeConfig(configPath, assets.version, allSkills),
-								TE.map(() => {
+								TE.chain(() => registerRp1HooksPlugin()),
+								TE.map((registered) => {
+									if (registered) {
+										logger.success("rp1-base-hooks plugin registered");
+									}
 									logger.success("Configuration validated");
 									return { targetDir };
 								}),
@@ -408,7 +413,11 @@ export const executeInstall = (
 
 							return pipe(
 								updateOpenCodeConfig(configPath, latestVersion, allSkills),
-								TE.map(() => {
+								TE.chain(() => registerRp1HooksPlugin()),
+								TE.map((registered) => {
+									if (registered) {
+										logger.success("rp1-base-hooks plugin registered");
+									}
 									logger.success("Configuration validated");
 									return { artifactsDir };
 								}),

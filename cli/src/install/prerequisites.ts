@@ -233,6 +233,56 @@ export const checkWritePermissions = (
 	);
 
 /**
+ * Register rp1-base-hooks plugin in opencode.json.
+ * Adds "./plugin/rp1-base-hooks" to the plugin array.
+ */
+export const registerRp1HooksPlugin = (): TE.TaskEither<CLIError, boolean> =>
+	TE.tryCatch(
+		async () => {
+			const configDir = join(homedir(), ".config", "opencode");
+			const configPath = join(configDir, "opencode.json");
+
+			await mkdir(configDir, { recursive: true });
+
+			let config: Record<string, unknown> = {};
+			try {
+				const content = await readFile(configPath, "utf-8");
+				config = JSON.parse(content) as Record<string, unknown>;
+			} catch {
+				// File doesn't exist or is invalid, start fresh
+			}
+
+			if (!("plugin" in config)) {
+				config.plugin = [];
+			}
+
+			if (typeof config.plugin === "string") {
+				config.plugin = [config.plugin];
+			}
+
+			const plugins = config.plugin as string[];
+			const pluginRef = "./plugin/rp1-base-hooks";
+			const alreadyPresent = plugins.some((p) =>
+				String(p).includes("rp1-base-hooks"),
+			);
+
+			if (!alreadyPresent) {
+				plugins.push(pluginRef);
+				await writeFile(configPath, JSON.stringify(config, null, 2));
+				return true;
+			}
+
+			return false;
+		},
+		(e) =>
+			prerequisiteError(
+				"register-hooks-plugin",
+				`Failed to register rp1-base-hooks: ${e}`,
+				"Manually add './plugin/rp1-base-hooks' to ~/.config/opencode/opencode.json plugins array",
+			),
+	);
+
+/**
  * Get the default OpenCode config directory.
  */
 export const getOpenCodeConfigDir = (): string =>

@@ -1,73 +1,73 @@
 {
-	"name": "@rp1-run/rp1",
-	"version": "0.2.3",
-	"description": "AI-assisted development workflows CLI",
-	"license": "MIT",
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/rp1-run/rp1.git",
-		"directory": "cli"
-	},
-	"homepage": "https://rp1.run",
-	"bugs": {
-		"url": "https://github.com/rp1-run/rp1/issues"
-	},
-	"keywords": [
-		"ai",
-		"cli",
-		"development",
-		"workflows",
-		"claude",
-		"opencode",
-		"automation"
-	],
-	"type": "module",
-	"bin": {
-		"rp1": "./dist/main.js"
-	},
-	"files": [
-		"dist",
-		"shared",
-		"web-ui/dist",
-		"web-ui/src",
-		"web-ui/package.json"
-	],
-	"engines": {
-		"node": ">=20.0.0"
-	},
-	"scripts": {
-		"postinstall": "(test -f src/assets/embedded.ts || cp src/assets/embedded.stub.ts src/assets/embedded.ts) && cd web-ui && bun install",
-		"build": "bun build src/main.ts --outdir dist --target node",
-		"build:web-ui": "cd web-ui && bun run build",
-		"build:opencode": "bun run scripts/build-opencode.ts",
-		"build:all": "bun run build && bun run build:web-ui && bun run build:opencode",
-		"generate:assets": "bun run scripts/generate-asset-imports.ts",
-		"build:release": "bun run build:web-ui && bun run build:opencode && bun run generate:assets",
-		"dev": "bun run src/main.ts",
-		"typecheck": "tsc --noEmit",
-		"lint": "biome check .",
-		"lint:fix": "biome check --write .",
-		"format": "biome format .",
-		"format:fix": "biome format --write .",
-		"test": "bun test",
-		"test:coverage": "bun test --coverage",
-		"test:watch": "bun test --watch",
-		"prepublishOnly": "bun run build:all"
-	},
-	"dependencies": {
-		"@inquirer/prompts": "^8.0.2",
-		"commander": "^14.0.2",
-		"consola": "^3.4.2",
-		"fp-ts": "^2.16.9",
-		"yaml": "^2.3.4"
-	},
-	"devDependencies": {
-		"@biomejs/biome": "^2.3.8",
-		"@types/bun": "^1.1.14",
-		"@types/node": "^22.0.0",
-		"typescript": "^5.7.2"
-	},
-	"publishConfig": {
-		"access": "public"
-	}
+  "name": "@rp1-run/rp1",
+  "version": "0.2.3",
+  "description": "AI-assisted development workflows CLI",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rp1-run/rp1.git",
+    "directory": "cli"
+  },
+  "homepage": "https://rp1.run",
+  "bugs": {
+    "url": "https://github.com/rp1-run/rp1/issues"
+  },
+  "keywords": [
+    "ai",
+    "cli",
+    "development",
+    "workflows",
+    "claude",
+    "opencode",
+    "automation"
+  ],
+  "type": "module",
+  "bin": {
+    "rp1": "./dist/main.js"
+  },
+  "files": [
+    "dist",
+    "shared",
+    "web-ui/dist",
+    "web-ui/src",
+    "web-ui/package.json"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "postinstall": "(test -f src/assets/embedded.ts || cp src/assets/embedded.stub.ts src/assets/embedded.ts) && cd web-ui && bun install",
+    "build": "bun build src/main.ts --outdir dist --target node",
+    "build:web-ui": "cd web-ui && bun run build",
+    "build:opencode": "bun run scripts/build-opencode.ts",
+    "build:all": "bun run build && bun run build:web-ui && bun run build:opencode",
+    "generate:assets": "bun run scripts/generate-asset-imports.ts",
+    "build:release": "bun run build:web-ui && bun run build:opencode && bun run generate:assets",
+    "dev": "bun run src/main.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format .",
+    "format:fix": "biome format --write .",
+    "test": "bun test",
+    "test:coverage": "bun test --coverage",
+    "test:watch": "bun test --watch",
+    "prepublishOnly": "bun run build:all"
+  },
+  "dependencies": {
+    "@inquirer/prompts": "^8.0.2",
+    "commander": "^14.0.2",
+    "consola": "^3.4.2",
+    "fp-ts": "^2.16.9",
+    "yaml": "^2.3.4"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.8",
+    "@types/bun": "^1.1.14",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.2"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }
