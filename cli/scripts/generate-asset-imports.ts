@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+
 /**
  * Generates embedded.ts with all asset imports for bundling.
  * Run before `bun build --compile` to include assets in binary.
@@ -11,39 +12,39 @@
  *   From cli/:      bun run scripts/generate-asset-imports.ts
  */
 
-import { readdir, writeFile, stat, readFile } from "fs/promises";
-import { join, relative, dirname, resolve } from "path";
-import { existsSync } from "fs";
-import type { BundleManifest, BundleAssetEntry } from "../src/build/models.js";
+import { existsSync } from "node:fs";
+import { readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { dirname, join, relative, resolve } from "node:path";
+import type { BundleManifest } from "../src/build/models.js";
 
 // Determine ROOT and CLI_DIR based on file structure detection
 function findRootDir(): { root: string; cli: string } {
-  const cwd = process.cwd();
+	const cwd = process.cwd();
 
-  // Check if cwd is the cli directory (has package.json with @rp1-run/rp1)
-  const cwdPkg = join(cwd, "package.json");
-  if (existsSync(cwdPkg)) {
-    try {
-      const pkg = require(cwdPkg);
-      if (pkg.name === "@rp1-run/rp1") {
-        // We're in cli directory
-        return { root: resolve(cwd, ".."), cli: cwd };
-      }
-    } catch {
-      // Not the cli package
-    }
-  }
+	// Check if cwd is the cli directory (has package.json with @rp1-run/rp1)
+	const cwdPkg = join(cwd, "package.json");
+	if (existsSync(cwdPkg)) {
+		try {
+			const pkg = require(cwdPkg);
+			if (pkg.name === "@rp1-run/rp1") {
+				// We're in cli directory
+				return { root: resolve(cwd, ".."), cli: cwd };
+			}
+		} catch {
+			// Not the cli package
+		}
+	}
 
-  // Check if cwd has both plugins/ and cli/ directories (repo root)
-  if (existsSync(join(cwd, "plugins")) && existsSync(join(cwd, "cli"))) {
-    return { root: cwd, cli: join(cwd, "cli") };
-  }
+	// Check if cwd has both plugins/ and cli/ directories (repo root)
+	if (existsSync(join(cwd, "plugins")) && existsSync(join(cwd, "cli"))) {
+		return { root: cwd, cli: join(cwd, "cli") };
+	}
 
-  // Fallback: assume repo root structure
-  return { root: cwd, cli: join(cwd, "cli") };
+	// Fallback: assume repo root structure
+	return { root: cwd, cli: join(cwd, "cli") };
 }
 
-const { root: ROOT, cli: CLI_DIR } = findRootDir();
+const { cli: CLI_DIR } = findRootDir();
 
 const OPENCODE_DIST = join(CLI_DIR, "dist/opencode");
 const WEBUI_DIST = join(CLI_DIR, "web-ui/dist");
@@ -51,104 +52,106 @@ const OUTPUT_FILE = join(CLI_DIR, "src/assets/embedded.ts");
 const BUNDLE_MANIFEST = join(OPENCODE_DIST, "bundle-manifest.json");
 
 interface AssetImport {
-  varName: string;
-  importPath: string;
-  outputName: string;
-  category: "command" | "agent" | "skill" | "webui" | "opencode-plugin";
-  plugin?: "base" | "dev";
+	varName: string;
+	importPath: string;
+	outputName: string;
+	category: "command" | "agent" | "skill" | "webui" | "opencode-plugin";
+	plugin?: "base" | "dev";
 }
 
 /**
  * Calculate relative import path from OUTPUT_FILE location to the asset.
  */
 function getImportPath(assetPath: string): string {
-  const outputDir = dirname(OUTPUT_FILE);
-  return relative(outputDir, assetPath);
+	const outputDir = dirname(OUTPUT_FILE);
+	return relative(outputDir, assetPath);
 }
 
 /**
  * Create a valid TypeScript variable name from a path/name.
  */
 function toVarName(prefix: string, name: string): string {
-  return `${prefix}_${name.replace(/[-./\\[\]@]/g, "_")}`;
+	return `${prefix}_${name.replace(/[-./\\[\]@]/g, "_")}`;
 }
 
 /**
  * Read and parse the bundle manifest.
  */
 async function readBundleManifest(): Promise<BundleManifest> {
-  try {
-    const content = await readFile(BUNDLE_MANIFEST, "utf-8");
-    return JSON.parse(content) as BundleManifest;
-  } catch (e) {
-    console.error(
-      "Error: bundle-manifest.json not found. Run 'bun run build:opencode' first.",
-    );
-    process.exit(1);
-  }
+	try {
+		const content = await readFile(BUNDLE_MANIFEST, "utf-8");
+		return JSON.parse(content) as BundleManifest;
+	} catch (_e) {
+		console.error(
+			"Error: bundle-manifest.json not found. Run 'bun run build:opencode' first.",
+		);
+		process.exit(1);
+	}
 }
 
 /**
  * Collect plugin assets from the bundle manifest.
  */
-async function collectPluginAssets(manifest: BundleManifest): Promise<AssetImport[]> {
-  const imports: AssetImport[] = [];
+async function collectPluginAssets(
+	manifest: BundleManifest,
+): Promise<AssetImport[]> {
+	const imports: AssetImport[] = [];
 
-  for (const [pluginKey, plugin] of Object.entries(manifest.plugins)) {
-    const pluginName = pluginKey as "base" | "dev";
+	for (const [pluginKey, plugin] of Object.entries(manifest.plugins)) {
+		const pluginName = pluginKey as "base" | "dev";
 
-    // Commands
-    for (const cmd of plugin.commands) {
-      const fullPath = join(OPENCODE_DIST, cmd.path);
-      imports.push({
-        varName: toVarName(`${pluginName}_cmd`, cmd.name),
-        importPath: getImportPath(fullPath),
-        outputName: cmd.name,
-        category: "command",
-        plugin: pluginName,
-      });
-    }
+		// Commands
+		for (const cmd of plugin.commands) {
+			const fullPath = join(OPENCODE_DIST, cmd.path);
+			imports.push({
+				varName: toVarName(`${pluginName}_cmd`, cmd.name),
+				importPath: getImportPath(fullPath),
+				outputName: cmd.name,
+				category: "command",
+				plugin: pluginName,
+			});
+		}
 
-    // Agents
-    for (const agent of plugin.agents) {
-      const fullPath = join(OPENCODE_DIST, agent.path);
-      imports.push({
-        varName: toVarName(`${pluginName}_agent`, agent.name),
-        importPath: getImportPath(fullPath),
-        outputName: agent.name,
-        category: "agent",
-        plugin: pluginName,
-      });
-    }
+		// Agents
+		for (const agent of plugin.agents) {
+			const fullPath = join(OPENCODE_DIST, agent.path);
+			imports.push({
+				varName: toVarName(`${pluginName}_agent`, agent.name),
+				importPath: getImportPath(fullPath),
+				outputName: agent.name,
+				category: "agent",
+				plugin: pluginName,
+			});
+		}
 
-    // Skills
-    for (const skill of plugin.skills) {
-      const fullPath = join(OPENCODE_DIST, skill.path);
-      imports.push({
-        varName: toVarName(`${pluginName}_skill`, skill.name),
-        importPath: getImportPath(fullPath),
-        outputName: skill.name,
-        category: "skill",
-        plugin: pluginName,
-      });
-    }
+		// Skills
+		for (const skill of plugin.skills) {
+			const fullPath = join(OPENCODE_DIST, skill.path);
+			imports.push({
+				varName: toVarName(`${pluginName}_skill`, skill.name),
+				importPath: getImportPath(fullPath),
+				outputName: skill.name,
+				category: "skill",
+				plugin: pluginName,
+			});
+		}
 
-    // OpenCode Plugin (TypeScript plugin responding to OpenCode events)
-    if (plugin.openCodePlugin) {
-      for (const file of plugin.openCodePlugin.files) {
-        const fullPath = join(OPENCODE_DIST, file.path);
-        imports.push({
-          varName: toVarName(`${pluginName}_plugin`, file.name),
-          importPath: getImportPath(fullPath),
-          outputName: file.name,
-          category: "opencode-plugin",
-          plugin: pluginName,
-        });
-      }
-    }
-  }
+		// OpenCode Plugin (TypeScript plugin responding to OpenCode events)
+		if (plugin.openCodePlugin) {
+			for (const file of plugin.openCodePlugin.files) {
+				const fullPath = join(OPENCODE_DIST, file.path);
+				imports.push({
+					varName: toVarName(`${pluginName}_plugin`, file.name),
+					importPath: getImportPath(fullPath),
+					outputName: file.name,
+					category: "opencode-plugin",
+					plugin: pluginName,
+				});
+			}
+		}
+	}
 
-  return imports;
+	return imports;
 }
 
 /**
@@ -156,93 +159,96 @@ async function collectPluginAssets(manifest: BundleManifest): Promise<AssetImpor
  * Web-ui doesn't have a manifest, so we still walk the directory.
  */
 async function collectWebUIAssets(): Promise<AssetImport[]> {
-  const imports: AssetImport[] = [];
+	const imports: AssetImport[] = [];
 
-  async function walk(dir: string): Promise<void> {
-    try {
-      const items = await readdir(dir, { withFileTypes: true });
-      for (const item of items) {
-        const fullPath = join(dir, item.name);
-        if (item.isDirectory()) {
-          await walk(fullPath);
-        } else {
-          const relPath = relative(WEBUI_DIST, fullPath);
-          imports.push({
-            varName: toVarName("webui", relPath),
-            importPath: getImportPath(fullPath),
-            outputName: relPath,
-            category: "webui",
-          });
-        }
-      }
-    } catch {
-      // Directory doesn't exist
-    }
-  }
+	async function walk(dir: string): Promise<void> {
+		try {
+			const items = await readdir(dir, { withFileTypes: true });
+			for (const item of items) {
+				const fullPath = join(dir, item.name);
+				if (item.isDirectory()) {
+					await walk(fullPath);
+				} else {
+					const relPath = relative(WEBUI_DIST, fullPath);
+					imports.push({
+						varName: toVarName("webui", relPath),
+						importPath: getImportPath(fullPath),
+						outputName: relPath,
+						category: "webui",
+					});
+				}
+			}
+		} catch {
+			// Directory doesn't exist
+		}
+	}
 
-  try {
-    await stat(WEBUI_DIST);
-    await walk(WEBUI_DIST);
-  } catch {
-    console.warn(
-      "Warning: web-ui/dist not found. Run 'bun run build:web-ui' first.",
-    );
-  }
+	try {
+		await stat(WEBUI_DIST);
+		await walk(WEBUI_DIST);
+	} catch {
+		console.warn(
+			"Warning: web-ui/dist not found. Run 'bun run build:web-ui' first.",
+		);
+	}
 
-  return imports;
+	return imports;
 }
 
 async function generate(): Promise<void> {
-  console.log("Generating asset imports from bundle manifest...");
+	console.log("Generating asset imports from bundle manifest...");
 
-  const manifest = await readBundleManifest();
-  const pluginAssets = await collectPluginAssets(manifest);
-  const webuiAssets = await collectWebUIAssets();
+	const manifest = await readBundleManifest();
+	const pluginAssets = await collectPluginAssets(manifest);
+	const webuiAssets = await collectWebUIAssets();
 
-  // Generate import statements
-  const imports = [...pluginAssets, ...webuiAssets]
-    .map((a) => `import ${a.varName} from "${a.importPath}" with { type: "file" };`)
-    .join("\n");
+	// Generate import statements
+	const imports = [...pluginAssets, ...webuiAssets]
+		.map(
+			(a) =>
+				`import ${a.varName} from "${a.importPath}" with { type: "file" };`,
+		)
+		.join("\n");
 
-  // Generate manifest arrays
-  const baseCommands = pluginAssets
-    .filter((a) => a.category === "command" && a.plugin === "base")
-    .map((a) => `{ name: "${a.outputName}", path: ${a.varName} }`);
+	// Generate manifest arrays
+	const baseCommands = pluginAssets
+		.filter((a) => a.category === "command" && a.plugin === "base")
+		.map((a) => `{ name: "${a.outputName}", path: ${a.varName} }`);
 
-  const baseAgents = pluginAssets
-    .filter((a) => a.category === "agent" && a.plugin === "base")
-    .map((a) => `{ name: "${a.outputName}", path: ${a.varName} }`);
+	const baseAgents = pluginAssets
+		.filter((a) => a.category === "agent" && a.plugin === "base")
+		.map((a) => `{ name: "${a.outputName}", path: ${a.varName} }`);
 
-  const baseSkills = pluginAssets
-    .filter((a) => a.category === "skill" && a.plugin === "base")
-    .map((a) => `{ name: "${a.outputName}", path: ${a.varName} }`);
+	const baseSkills = pluginAssets
+		.filter((a) => a.category === "skill" && a.plugin === "base")
+		.map((a) => `{ name: "${a.outputName}", path: ${a.varName} }`);
 
-  const devCommands = pluginAssets
-    .filter((a) => a.category === "command" && a.plugin === "dev")
-    .map((a) => `{ name: "${a.outputName}", path: ${a.varName} }`);
+	const devCommands = pluginAssets
+		.filter((a) => a.category === "command" && a.plugin === "dev")
+		.map((a) => `{ name: "${a.outputName}", path: ${a.varName} }`);
 
-  const devAgents = pluginAssets
-    .filter((a) => a.category === "agent" && a.plugin === "dev")
-    .map((a) => `{ name: "${a.outputName}", path: ${a.varName} }`);
+	const devAgents = pluginAssets
+		.filter((a) => a.category === "agent" && a.plugin === "dev")
+		.map((a) => `{ name: "${a.outputName}", path: ${a.varName} }`);
 
-  // OpenCode plugin files (only base plugin has this currently)
-  const basePluginFiles = pluginAssets
-    .filter((a) => a.category === "opencode-plugin" && a.plugin === "base")
-    .map((a) => `{ name: "${a.outputName}", path: ${a.varName} }`);
+	// OpenCode plugin files (only base plugin has this currently)
+	const basePluginFiles = pluginAssets
+		.filter((a) => a.category === "opencode-plugin" && a.plugin === "base")
+		.map((a) => `{ name: "${a.outputName}", path: ${a.varName} }`);
 
-  // Generate openCodePlugin block if base plugin has files
-  const baseOpenCodePlugin = manifest.plugins.base.openCodePlugin
-    ? `openCodePlugin: {
+	// Generate openCodePlugin block if base plugin has files
+	const baseOpenCodePlugin = manifest.plugins.base.openCodePlugin
+		? `openCodePlugin: {
         name: "${manifest.plugins.base.openCodePlugin.name}",
         files: [${basePluginFiles.join(", ")}],
       },`
-    : "";
+		: "";
 
-  const webuiEntries = webuiAssets.map(
-    (a) => `{ name: "${a.outputName}", path: ${a.varName} }`,
-  );
+	const webuiEntries = webuiAssets.map(
+		(a) => `{ name: "${a.outputName}", path: ${a.varName} }`,
+	);
 
-  const content = `// AUTO-GENERATED FILE - DO NOT EDIT
+	const content = `// AUTO-GENERATED FILE - DO NOT EDIT
 // Generated by: bun run scripts/generate-asset-imports.ts
 // Source: dist/opencode/bundle-manifest.json
 // Timestamp: ${new Date().toISOString()}
@@ -273,18 +279,22 @@ export const EMBEDDED_MANIFEST = {
 export const IS_BUNDLED = true;
 `;
 
-  await writeFile(OUTPUT_FILE, content);
-  console.log(`Generated ${OUTPUT_FILE}`);
-  console.log(`  Base: ${baseCommands.length} commands, ${baseAgents.length} agents, ${baseSkills.length} skills`);
-  if (basePluginFiles.length > 0) {
-    console.log(`  Base OpenCode Plugin: ${basePluginFiles.length} files`);
-  }
-  console.log(`  Dev: ${devCommands.length} commands, ${devAgents.length} agents`);
-  console.log(`  Web-UI: ${webuiAssets.length} files`);
-  console.log(`  Version: ${manifest.version}`);
+	await writeFile(OUTPUT_FILE, content);
+	console.log(`Generated ${OUTPUT_FILE}`);
+	console.log(
+		`  Base: ${baseCommands.length} commands, ${baseAgents.length} agents, ${baseSkills.length} skills`,
+	);
+	if (basePluginFiles.length > 0) {
+		console.log(`  Base OpenCode Plugin: ${basePluginFiles.length} files`);
+	}
+	console.log(
+		`  Dev: ${devCommands.length} commands, ${devAgents.length} agents`,
+	);
+	console.log(`  Web-UI: ${webuiAssets.length} files`);
+	console.log(`  Version: ${manifest.version}`);
 }
 
 generate().catch((e) => {
-  console.error("Failed to generate asset imports:", e);
-  process.exit(1);
+	console.error("Failed to generate asset imports:", e);
+	process.exit(1);
 });

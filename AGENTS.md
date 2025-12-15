@@ -200,6 +200,15 @@ If needed, read an example agent spec at: ./plugins/base/agents/kb-spatial-analy
 # Should show 19 commands (6 base + 13 dev)
 ```
 
+### Testing, formatting, and validating CLI  (must be done after changes)
+
+```bash
+cd cli
+bun run test
+bun run lint
+bun run format
+```
+
 ### Validation Checklist
 
 **After making changes**:
@@ -212,6 +221,7 @@ If needed, read an example agent spec at: ./plugins/base/agents/kb-spatial-analy
 - [ ] Cross-plugin calls have error handling
 - [ ] README updated (if new command)
 - [ ] Conventional commit format used
+- [ ] When modifying cli, tests pass with format/lint checks
 
 **Before merging**:
 

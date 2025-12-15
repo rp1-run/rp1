@@ -2,62 +2,56 @@
  * Build module exports.
  */
 
-// Models
-export type {
-  ClaudeCodeCommand,
-  ClaudeCodeAgent,
-  ClaudeCodeSkill,
-  OpenCodeCommand,
-  OpenCodeAgent,
-  OpenCodeSkill,
-  PlatformRegistry,
-  PluginManifest,
-  BuildConfig,
-  ArtifactResult,
-  BuildSummary,
-  BundleAssetEntry,
-  BundlePluginAssets,
-  BundleManifest,
-} from "./models.js";
-
-// Registry
-export {
-  defaultRegistry,
-  getToolMapping,
-  getDirectoryMapping,
-} from "./registry.js";
-
-// Parser
-export { parseCommand, parseAgent, parseSkill } from "./parser.js";
-
-// Transformations
-export {
-  transformCommand,
-  transformAgent,
-  transformSkill,
-} from "./transformations.js";
-
+// Command
+export { executeBuild, parseBuildArgs } from "./command.js";
 // Generator
 export {
-  generateCommandFile,
-  generateAgentFile,
-  generateSkillFile,
-  generateManifest,
-  generateBundleManifest,
+	generateAgentFile,
+	generateBundleManifest,
+	generateCommandFile,
+	generateManifest,
+	generateSkillFile,
 } from "./generator.js";
-
+// Models
+export type {
+	ArtifactResult,
+	BuildConfig,
+	BuildSummary,
+	BundleAssetEntry,
+	BundleManifest,
+	BundlePluginAssets,
+	ClaudeCodeAgent,
+	ClaudeCodeCommand,
+	ClaudeCodeSkill,
+	OpenCodeAgent,
+	OpenCodeCommand,
+	OpenCodeSkill,
+	PlatformRegistry,
+	PluginManifest,
+} from "./models.js";
+// Parser
+export { parseAgent, parseCommand, parseSkill } from "./parser.js";
+// Registry
+export {
+	defaultRegistry,
+	getDirectoryMapping,
+	getToolMapping,
+} from "./registry.js";
+// Transformations
+export {
+	transformAgent,
+	transformCommand,
+	transformSkill,
+} from "./transformations.js";
 // Validator
 export {
-  validateCommandSyntax,
-  validateAgentSyntax,
-  validateSkillSyntax,
-  validateCommandSchema,
-  validateAgentSchema,
-  validateSkillSchema,
-  validateCommand,
-  validateAgent,
-  validateSkill,
+	validateAgent,
+	validateAgentSchema,
+	validateAgentSyntax,
+	validateCommand,
+	validateCommandSchema,
+	validateCommandSyntax,
+	validateSkill,
+	validateSkillSchema,
+	validateSkillSyntax,
 } from "./validator.js";
-
-// Command
-export { parseBuildArgs, executeBuild } from "./command.js";

@@ -110,9 +110,9 @@
 
   /* Shiki code block styling */
   .shiki-container pre {
-    margin: 0 !important;
-    padding: 0 !important;
-    background: transparent !important;
+    margin: 0;
+    padding: 0;
+    background: transparent;
     font-size: 0.875rem;
     line-height: 1.5rem;
   }
@@ -137,7 +137,7 @@
   .shiki,
   .shiki span {
     color: var(--shiki-light);
-    background-color: transparent !important;
+    background-color: transparent;
   }
 
   html.dark .shiki,

@@ -8,7 +8,7 @@
     <meta name="theme-color" content="#0a0a0a" />
     <title>rp1 - Ready Player One</title>
     <script>
-      (function() {
+      (() => {
         const stored = localStorage.getItem('rp1-ui-theme');
         const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
         const theme = stored || (prefersDark ? 'dark' : 'light');

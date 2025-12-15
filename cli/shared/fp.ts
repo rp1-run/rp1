@@ -1,9 +1,9 @@
-import { pipe, flow, identity } from "fp-ts/lib/function.js";
-import * as E from "fp-ts/lib/Either.js";
-import * as TE from "fp-ts/lib/TaskEither.js";
-import * as O from "fp-ts/lib/Option.js";
 import * as A from "fp-ts/lib/Array.js";
-import * as T from "fp-ts/lib/Task.js";
+import * as E from "fp-ts/lib/Either.js";
+import { flow, identity, pipe } from "fp-ts/lib/function.js";
+import * as O from "fp-ts/lib/Option.js";
+import type * as T from "fp-ts/lib/Task.js";
+import * as TE from "fp-ts/lib/TaskEither.js";
 
 export { pipe, flow, identity };
 

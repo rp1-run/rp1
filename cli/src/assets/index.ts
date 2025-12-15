@@ -8,23 +8,22 @@
  * - Extracting web-ui to cache (extractWebUI, getWebUIDir)
  */
 
-// Re-export reader functions
-export {
-  hasBundledAssets,
-  getBundledAssets,
-  getBundledVersion,
-  readEmbeddedFile,
-  readEmbeddedFileBytes,
-  type AssetEntry,
-  type BundledPlugin,
-  type BundledAssets,
-} from "./reader.js";
-
 // Re-export extractor functions
 export {
-  extractPlugins,
-  extractWebUI,
-  getWebUIDir,
-  getWebUICacheDir,
-  type ExtractionResult,
+	type ExtractionResult,
+	extractPlugins,
+	extractWebUI,
+	getWebUICacheDir,
+	getWebUIDir,
 } from "./extractor.js";
+// Re-export reader functions
+export {
+	type AssetEntry,
+	type BundledAssets,
+	type BundledPlugin,
+	getBundledAssets,
+	getBundledVersion,
+	hasBundledAssets,
+	readEmbeddedFile,
+	readEmbeddedFileBytes,
+} from "./reader.js";
