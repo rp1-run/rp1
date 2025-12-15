@@ -1,5 +1,22 @@
 # Changelog
 
+## [Unreleased]
+
+### Features
+
+* **cli:** add automatic version update notifications at session start
+* **cli:** add `rp1 check-update` command to check for available updates
+* **cli:** add `rp1 self-update` command to update via Homebrew, Scoop, or manual instructions
+* **plugins:** add `/self-update` slash command to rp1-base plugin
+* **plugins:** add Claude Code session hook for automatic update notifications
+* **plugins:** add OpenCode plugin for automatic update notifications
+
+### Notes
+
+- Version check results are cached for 24 hours (use `--force` to bypass)
+- Configuration stored in `~/.config/rp1/` directory
+- Restart Claude Code or OpenCode after updating to use new version
+
 ## [0.2.3](https://github.com/rp1-run/rp1/compare/v0.2.2...v0.2.3) (2025-12-08)
 
 

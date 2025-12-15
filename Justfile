@@ -29,3 +29,6 @@ install-local: build
 
 local *args: build
     ./rp1-local {{args}}
+
+test-cli:
+  cd cli && bun run test
