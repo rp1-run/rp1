@@ -308,25 +308,11 @@ const collectOpenCodePluginFiles = async (
 };
 
 /**
- * Read OpenCode plugin name from opencode.json.
- * Falls back to default name if file doesn't exist or is invalid.
+ * Get OpenCode plugin name for a given plugin.
+ * Returns "{pluginName}-hooks" (e.g., "rp1-base-hooks" for base plugin).
  */
-const readOpenCodePluginName = async (
-	pluginOutputDir: string,
-): Promise<string> => {
-	try {
-		const openCodeJsonPath = join(
-			pluginOutputDir,
-			"platforms",
-			"opencode",
-			"opencode.json",
-		);
-		const content = await readFile(openCodeJsonPath, "utf-8");
-		const json = JSON.parse(content) as { name?: string };
-		return json.name ?? "rp1-hooks";
-	} catch {
-		return "rp1-hooks";
-	}
+const getOpenCodePluginName = (pluginName: string): string => {
+	return `rp1-${pluginName}-hooks`;
 };
 
 /**
@@ -524,9 +510,8 @@ const buildPlugin = async (
 			pluginOutputDir,
 			pluginName,
 		);
-		const openCodePluginName = await readOpenCodePluginName(pluginOutputDir);
 		openCodePluginAsset = {
-			name: openCodePluginName,
+			name: getOpenCodePluginName(pluginName),
 			files: pluginFiles,
 		};
 	}

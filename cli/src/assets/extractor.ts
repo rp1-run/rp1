@@ -6,10 +6,12 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../shared/errors.js";
 import { installError, runtimeError } from "../../shared/errors.js";
+import { getConfigPath, registerOpenCodePlugin } from "../install/config.js";
 import type { AssetEntry, BundledAssets, BundledPlugin } from "./reader.js";
 
 /**
@@ -171,6 +173,24 @@ export const extractPlugins = (
 				onProgress,
 			);
 			filesExtracted += devPluginFiles;
+
+			// Register OpenCode plugins in user's opencode.json config
+			const configPath = getConfigPath();
+			const pluginsToRegister: string[] = [];
+
+			if (assets.plugins.base.openCodePlugin) {
+				pluginsToRegister.push(assets.plugins.base.openCodePlugin.name);
+			}
+			if (assets.plugins.dev.openCodePlugin) {
+				pluginsToRegister.push(assets.plugins.dev.openCodePlugin.name);
+			}
+
+			for (const pluginName of pluginsToRegister) {
+				const result = await registerOpenCodePlugin(configPath, pluginName)();
+				if (E.isRight(result) && result.right) {
+					onProgress?.(`  Registered ${pluginName} in opencode.json`);
+				}
+			}
 
 			return { filesExtracted, targetDir, plugins };
 		},

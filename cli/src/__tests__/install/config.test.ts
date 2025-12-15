@@ -11,7 +11,7 @@ import * as E from "fp-ts/lib/Either.js";
 import {
 	backupConfig,
 	readOpenCodeConfig,
-	updateOpenCodeConfig,
+	registerOpenCodePlugin,
 } from "../../install/config.js";
 import { cleanupTempDir, createTempDir } from "../helpers/index.js";
 
@@ -63,11 +63,14 @@ describe("config", () => {
 		});
 	});
 
-	describe("updateOpenCodeConfig", () => {
+	describe("registerOpenCodePlugin", () => {
 		test("creates parent directories if missing", async () => {
 			const configPath = join(tempDir, "nested", "deep", "opencode.json");
 
-			const result = await updateOpenCodeConfig(configPath, "1.0.0", [])();
+			const result = await registerOpenCodePlugin(
+				configPath,
+				"rp1-base-hooks",
+			)();
 
 			expect(E.isRight(result)).toBe(true);
 
@@ -77,7 +80,7 @@ describe("config", () => {
 			expect(dirStat.isDirectory()).toBe(true);
 		});
 
-		test("preserves existing valid config keys", async () => {
+		test("preserves existing config keys when adding plugin", async () => {
 			const configPath = join(tempDir, "opencode.json");
 			const existingConfig = {
 				plugin: ["existing-plugin"],
@@ -86,9 +89,10 @@ describe("config", () => {
 			};
 			await writeFile(configPath, JSON.stringify(existingConfig));
 
-			const result = await updateOpenCodeConfig(configPath, "1.0.0", [
-				"skill1",
-			])();
+			const result = await registerOpenCodePlugin(
+				configPath,
+				"rp1-base-hooks",
+			)();
 
 			expect(E.isRight(result)).toBe(true);
 
@@ -98,13 +102,17 @@ describe("config", () => {
 			expect(updatedConfig.customKey).toBe("should-be-preserved");
 			expect(updatedConfig.model).toBe("claude-3");
 			expect(updatedConfig.plugin).toContain("existing-plugin");
+			expect(updatedConfig.plugin).toContain("./plugin/rp1-base-hooks");
 		});
 
 		test("creates plugin array if missing", async () => {
 			const configPath = join(tempDir, "opencode.json");
 			await writeFile(configPath, JSON.stringify({ customKey: "value" }));
 
-			const result = await updateOpenCodeConfig(configPath, "1.0.0", [])();
+			const result = await registerOpenCodePlugin(
+				configPath,
+				"rp1-base-hooks",
+			)();
 
 			expect(E.isRight(result)).toBe(true);
 
@@ -112,18 +120,58 @@ describe("config", () => {
 			const updatedConfig = JSON.parse(updatedContent);
 
 			expect(Array.isArray(updatedConfig.plugin)).toBe(true);
+			expect(updatedConfig.plugin).toContain("./plugin/rp1-base-hooks");
 		});
 
 		test("creates new config file when none exists", async () => {
 			const configPath = join(tempDir, "opencode.json");
 
-			const result = await updateOpenCodeConfig(configPath, "1.0.0", [])();
+			const result = await registerOpenCodePlugin(
+				configPath,
+				"rp1-base-hooks",
+			)();
 
 			expect(E.isRight(result)).toBe(true);
+			if (E.isRight(result)) {
+				expect(result.right).toBe(true); // Newly registered
+			}
 
 			const content = await readFile(configPath, "utf-8");
 			const config = JSON.parse(content);
-			expect(config).toHaveProperty("plugin");
+			expect(config.plugin).toContain("./plugin/rp1-base-hooks");
+		});
+
+		test("returns false when plugin already registered", async () => {
+			const configPath = join(tempDir, "opencode.json");
+			const existingConfig = {
+				plugin: ["./plugin/rp1-base-hooks"],
+			};
+			await writeFile(configPath, JSON.stringify(existingConfig));
+
+			const result = await registerOpenCodePlugin(
+				configPath,
+				"rp1-base-hooks",
+			)();
+
+			expect(E.isRight(result)).toBe(true);
+			if (E.isRight(result)) {
+				expect(result.right).toBe(false); // Already registered
+			}
+		});
+
+		test("returns true when plugin newly registered", async () => {
+			const configPath = join(tempDir, "opencode.json");
+			await writeFile(configPath, JSON.stringify({ plugin: [] }));
+
+			const result = await registerOpenCodePlugin(
+				configPath,
+				"rp1-base-hooks",
+			)();
+
+			expect(E.isRight(result)).toBe(true);
+			if (E.isRight(result)) {
+				expect(result.right).toBe(true); // Newly registered
+			}
 		});
 	});
 

@@ -59,15 +59,17 @@ export const readOpenCodeConfig = (
 	);
 
 /**
- * Update opencode.json with rp1 configuration.
- * OpenCode config only supports specific keys. Since opencode-skills plugin
- * handles skill discovery automatically, we don't need custom_tools entries.
+ * Register an OpenCode plugin in the user's opencode.json config.
+ * Adds the plugin path to the plugin array if not already present.
+ *
+ * @param configPath - Path to opencode.json
+ * @param pluginName - Plugin name (e.g., "rp1-base-hooks")
+ * @returns TaskEither indicating success or failure
  */
-export const updateOpenCodeConfig = (
+export const registerOpenCodePlugin = (
 	configPath: string,
-	_rp1Version: string,
-	_skills: readonly string[],
-): TE.TaskEither<CLIError, void> =>
+	pluginName: string,
+): TE.TaskEither<CLIError, boolean> =>
 	TE.tryCatch(
 		async () => {
 			let config: Record<string, unknown> = {};
@@ -76,21 +78,34 @@ export const updateOpenCodeConfig = (
 				const content = await readFile(configPath, "utf-8");
 				config = JSON.parse(content) as Record<string, unknown>;
 			} catch {
-				// File doesn't exist or is invalid
+				// File doesn't exist or is invalid - start fresh
 			}
 
 			// Ensure plugin array exists
-			if (!("plugin" in config)) {
+			if (!Array.isArray(config.plugin)) {
 				config.plugin = [];
 			}
+
+			// Plugin path relative to ~/.config/opencode/
+			const pluginPath = `./plugin/${pluginName}`;
+
+			// Check if already registered
+			const plugins = config.plugin as string[];
+			if (plugins.includes(pluginPath)) {
+				return false; // Already registered
+			}
+
+			// Add plugin to array
+			plugins.push(pluginPath);
 
 			// Ensure parent directory exists
 			await mkdir(dirname(configPath), { recursive: true });
 
-			// Write config (preserving existing valid keys)
-			await writeFile(configPath, JSON.stringify(config, null, 2));
+			// Write config (preserving existing keys)
+			await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`);
+			return true; // Newly registered
 		},
-		(e) => configError(`Failed to update config: ${e}`),
+		(e) => configError(`Failed to register plugin: ${e}`),
 	);
 
 /**

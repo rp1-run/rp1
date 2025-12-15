@@ -18,7 +18,6 @@ import {
 	hasBundledAssets,
 } from "../assets/index.js";
 import { colorFns } from "../lib/colors.js";
-import { getConfigPath, updateOpenCodeConfig } from "./config.js";
 import { getDefaultArtifactsDir, installRp1 } from "./installer.js";
 import { discoverPlugins } from "./manifest.js";
 import { isHealthy } from "./models.js";
@@ -178,15 +177,10 @@ const executeInstallFromBundled = (
 								`Installed ${result.filesExtracted} files from ${result.plugins.length} plugins`,
 							);
 
-							// Get skills list for config update
-							const allSkills = assets.plugins.base.skills.map((s) => s.name);
-
 							logger.start("Validating configuration...");
-							const configPath = getConfigPath();
 
 							return pipe(
-								updateOpenCodeConfig(configPath, assets.version, allSkills),
-								TE.chain(() => registerRp1HooksPlugin()),
+								registerRp1HooksPlugin(),
 								TE.map((registered) => {
 									if (registered) {
 										logger.success("rp1-base-hooks plugin registered");
@@ -408,12 +402,9 @@ export const executeInstall = (
 							}
 
 							logger.start("Validating configuration...");
-							const configPath = getConfigPath();
-							const latestVersion = plugins[0]?.version ?? "0.0.0";
 
 							return pipe(
-								updateOpenCodeConfig(configPath, latestVersion, allSkills),
-								TE.chain(() => registerRp1HooksPlugin()),
+								registerRp1HooksPlugin(),
 								TE.map((registered) => {
 									if (registered) {
 										logger.success("rp1-base-hooks plugin registered");

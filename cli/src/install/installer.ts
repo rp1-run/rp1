@@ -8,6 +8,7 @@ import {
 	copyFile,
 	mkdir,
 	readdir,
+	readFile,
 	rm,
 	stat,
 	writeFile,
@@ -15,10 +16,12 @@ import {
 import { homedir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../shared/errors.js";
 import { backupError, formatError, installError } from "../../shared/errors.js";
+import { getConfigPath, registerOpenCodePlugin } from "./config.js";
 import type { BackupManifest, InstallResult } from "./models.js";
 
 /**
@@ -403,17 +406,49 @@ export const installRp1 = (
 						pluginsInstalled.push(pluginName);
 						totalFiles += filesCopied;
 
-						const pluginResult = await copyOpenCodePlugin(
-							pluginDir,
-							"rp1-base-hooks",
-							onProgress,
-						)();
-						if (pluginResult._tag === "Left") {
-							warnings.push(
-								`OpenCode plugin installation failed: ${formatError(pluginResult.left, false)}`,
-							);
-						} else if (pluginResult.right > 0) {
-							totalFiles += pluginResult.right;
+						// Read plugin manifest to get OpenCode plugin name
+						let openCodePluginName: string | null = null;
+						try {
+							const manifestPath = join(pluginDir, "manifest.json");
+							const manifestContent = await readFile(manifestPath, "utf-8");
+							const manifest = JSON.parse(manifestContent) as {
+								hasOpenCodePlugin?: boolean;
+								plugin?: string;
+							};
+							if (manifest.hasOpenCodePlugin && manifest.plugin) {
+								// Plugin name is "rp1-base" -> hooks name is "rp1-base-hooks"
+								openCodePluginName = `${manifest.plugin}-hooks`;
+							}
+						} catch {
+							// No manifest or invalid - use default naming
+							openCodePluginName = `rp1-${pluginName}-hooks`;
+						}
+
+						if (openCodePluginName) {
+							const pluginResult = await copyOpenCodePlugin(
+								pluginDir,
+								openCodePluginName,
+								onProgress,
+							)();
+							if (pluginResult._tag === "Left") {
+								warnings.push(
+									`OpenCode plugin installation failed: ${formatError(pluginResult.left, false)}`,
+								);
+							} else if (pluginResult.right > 0) {
+								totalFiles += pluginResult.right;
+
+								// Register plugin in opencode.json config
+								const configPath = getConfigPath();
+								const regResult = await registerOpenCodePlugin(
+									configPath,
+									openCodePluginName,
+								)();
+								if (E.isRight(regResult) && regResult.right) {
+									onProgress?.(
+										`Registered ${openCodePluginName} in opencode.json`,
+									);
+								}
+							}
 						}
 					}
 

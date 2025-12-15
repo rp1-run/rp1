@@ -17,7 +17,7 @@ export {
 	getConfigDir,
 	getConfigPath,
 	readOpenCodeConfig,
-	updateOpenCodeConfig,
+	registerOpenCodePlugin,
 } from "./config.js";
 // Installer
 export {
