@@ -82,6 +82,32 @@ It's OK for this section to be quite long as you work through each prerequisite 
 - Validates: acceptance criteria mapping, requirement coverage, test-to-requirement traceability
 - Generates: `feature_verify_report_N.md` in the feature directory
 
+**Phase 3: Manual Verification Collection**
+
+After feature-verifier completes:
+
+1. Parse JSON output for `manual_items` array from the verifier response
+2. If `manual_items` is non-empty:
+   - Read current tasks.md (or tracker.md for milestones)
+   - Append "Manual Verification" section if not exists
+   - Add TODO items for each manual verification item
+
+**tasks.md Addition Format**:
+```markdown
+## Manual Verification
+
+The following items require manual verification before merge:
+
+- [ ] **AC-003**: Verify email arrives in inbox within 30 seconds
+  *Reason*: External email service, cannot automate delivery verification
+- [ ] **AC-007**: Confirm mobile notification appears
+  *Reason*: Requires physical device testing
+```
+
+3. If `manual_items` is empty:
+   - Do not add section to tasks.md
+   - Report "No manual verification required" in output
+
 **Critical Requirements**:
 
 - Both phases must run regardless of Phase 1 results
@@ -142,8 +168,12 @@ Report: code_check_report_N.md
 Status: In Progress/Complete/Failed
 Report: feature_verify_report_N.md
 
+### Phase 3: Manual Verification Collection
+Status: Complete/Skipped
+Manual items: N items appended to tasks.md / No manual verification required
+
 ### Validation Summary
-[Summary of findings from both reports]
+[Summary of findings from all phases]
 
 ### Next Steps
 Manual verification required - please verify functionality manually if required before merge.
@@ -154,9 +184,10 @@ Manual verification required - please verify functionality manually if required 
 1. **Validate Environment**: Check RP1_ROOT, feature directory, and prerequisites
 2. **Execute Phase 1**: Run code-checker subagent and capture results
 3. **Execute Phase 2**: Run feature-verifier subagent and capture results
-4. **Generate Summary**: Provide comprehensive validation summary
-5. **Post-Verification Archive Prompt**: If BOTH phases passed, offer to archive the feature
-6. **Guide Next Steps**: Direct user to manual verification as the final step
+4. **Execute Phase 3**: Parse `manual_items` from verifier JSON output, append to tasks.md if non-empty
+5. **Generate Summary**: Provide comprehensive validation summary
+6. **Post-Verification Archive Prompt**: If BOTH Phase 1 and Phase 2 passed, offer to archive the feature
+7. **Guide Next Steps**: Direct user to manual verification items (if any) as the final step
 
 Remember: This validation provides technical and business requirement verification, but manual functional testing is still required before merge. Always guide the user to perform final manual verification after completing both validation phases.
 

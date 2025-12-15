@@ -197,6 +197,21 @@ Add feedback block after the builder's implementation summary:
 
 The guidance MUST be actionable—tell the builder exactly what to fix.
 
+## 5.5 Task File Update (On SUCCESS)
+
+If verdict is SUCCESS, add a one-line validation entry after the implementation summary:
+
+```markdown
+- [x] **T1**: Task description `[complexity:medium]`
+
+  **Implementation Summary**:
+  - **Files**: ...
+  - **Approach**: ...
+  **Validated**: PASS
+```
+
+Do NOT add verbose details on success—one line only.
+
 ## 6. Output Contract
 
 Your final output MUST be valid JSON:
@@ -220,9 +235,27 @@ Your final output MUST be valid JSON:
       "severity": "blocking | suggestion"
     }
   ],
+  "manual_verification": [
+    {
+      "criterion": "What needs manual verification",
+      "reason": "Why automation is impossible"
+    }
+  ],
   "summary": "Brief summary of verification result"
 }
 ```
+
+### Manual Verification Detection
+
+During completeness check, identify acceptance criteria that CANNOT be automated:
+
+**Mark as manual_verification when**:
+- Requires physical device testing
+- Requires third-party service UI inspection
+- Requires subjective human judgment
+- Requires production environment access
+
+If no manual items, return empty array: `"manual_verification": []`
 
 ### On SUCCESS
 
@@ -238,6 +271,12 @@ Your final output MUST be valid JSON:
     "quality": "PASS"
   },
   "issues": [],
+  "manual_verification": [
+    {
+      "criterion": "Verify external API response format",
+      "reason": "Third-party API, behavior may vary"
+    }
+  ],
   "summary": "Task T1 implemented correctly. JWT validation follows design spec."
 }
 ```
@@ -263,6 +302,7 @@ Your final output MUST be valid JSON:
       "severity": "blocking"
     }
   ],
+  "manual_verification": [],
   "summary": "Implementation missing signature validation. Use jwt.verify() instead of jwt.decode()."
 }
 ```

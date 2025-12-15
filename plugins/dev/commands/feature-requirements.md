@@ -82,14 +82,12 @@ Use the loaded knowledge to understand existing domain terminology and business 
 
 **If no charter/PRDs exist**:
 
-- Display a helpful tip to the user:
-
+- Display concise tip:
   ```
-  💡 **Tip**: No project charter or PRDs found. Consider running `/rp1-dev:blueprint` first to establish
-  your project's vision, scope, and context. This helps keep features aligned with project goals.
+  No charter found. Try `/blueprint` to establish project vision first.
   ```
 
-- Continue with standard requirements workflow (backward compatible)
+- Continue with standard requirements workflow (no blocking)
 
 ## Your Task
 

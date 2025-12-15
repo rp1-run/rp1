@@ -40,10 +40,10 @@ Activate this skill when:
 
 ```bash
 # Default: files changed since branch diverged from main
-python plugins/base/skills/comments/scripts/extract_comments.py branch main
+python plugins/base/skills/code-comments/scripts/extract_comments.py branch main
 
 # Only unstaged files (pre-commit use case)
-python plugins/base/skills/comments/scripts/extract_comments.py unstaged main
+python plugins/base/skills/code-comments/scripts/extract_comments.py unstaged main
 ```
 
 ### Output Format

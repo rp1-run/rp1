@@ -141,6 +141,29 @@ After your planning, execute these workflow steps:
   - If deviation is NOT documented, flag for review as potential issue
 - Provide specific evidence for each status (code snippets, file references, missing functionality)
 
+### 5.1 Manual Verification Detection
+
+During verification, identify criteria that CANNOT be automated:
+
+**Mark as MANUAL_REQUIRED when**:
+- Requires physical device testing
+- Requires third-party service UI inspection
+- Requires subjective human judgment
+- Requires production environment access
+
+**Output structure** for manual items:
+```json
+{
+  "manual_verification": [
+    {
+      "criterion": "AC-003",
+      "description": "Verify email arrives in inbox within 30 seconds",
+      "reason": "External email service, cannot automate delivery verification"
+    }
+  ]
+}
+```
+
 ## Step 6: Coverage Analysis
 
 - Calculate requirements coverage by analyzing how many acceptance criteria are fully verified per requirement
@@ -153,6 +176,32 @@ After your planning, execute these workflow steps:
 - Generate a comprehensive markdown report following the required structure below
 - Write the report to `{feature_dir}/feature_verification_{number}.md`
 - Include an executive summary with key metrics and actionable next steps
+
+## Step 7.5: Manual Verification Return
+
+After generating the report, output structured manual verification items:
+
+```json
+{
+  "verification_complete": true,
+  "manual_items": [
+    {
+      "criterion": "AC-XXX",
+      "description": "What to verify",
+      "reason": "Why automation impossible"
+    }
+  ]
+}
+```
+
+If no manual items needed, return empty array:
+
+```json
+{
+  "verification_complete": true,
+  "manual_items": []
+}
+```
 
 ## Required Report Format
 

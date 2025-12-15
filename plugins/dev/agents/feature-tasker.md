@@ -54,20 +54,45 @@ List all components, services, API endpoints, database changes, and UI elements 
 
 ### 2.2 Scope Classification
 
-**Large Scope Indicators** (Use Milestones):
-- Multiple services/components (>3)
-- Database schema + API + UI changes
-- Estimated effort >2 weeks
-- Cross-team dependencies
-- Phased deployment requirements
+**STRONG BIAS**: Default to flat task list. Only use milestones when manual gatekeeping is absolutely required.
 
-**Small Scope Indicators** (Single Task List):
-- Single component/service focus
-- Estimated effort <1 week
-- No external dependencies
-- Focused feature addition
+**Flat Task List (Default)**:
+- Single component or focused change
+- No manual approval gates between task groups
+- Validator can verify all acceptance criteria automatically
 
-### 2.3 Decision Output
+**Milestones (ONLY when required)**:
+- Manual gate exists between phases (e.g., "Deploy to staging, then manual QA sign-off, then production")
+- External human approval required mid-workflow
+- Cross-team handoff with wait period
+
+**Decision Rule**: If you can imagine the validator automatically verifying completion, use flat list.
+
+**Manual Verification Threshold**:
+Only flag for manual verification when automation is provably impossible:
+- Physical hardware testing
+- External service UI verification (third-party dashboards)
+- Subjective human judgment (UX feel, design aesthetics)
+
+**NOT manual verification** (validator can check):
+- API responses match expected format
+- Database state changes correctly
+- UI components render expected content
+- Error messages display correctly
+- Performance meets thresholds (via benchmarks)
+
+### 2.3 Milestone Override
+
+User can force milestones via `$2` positional argument set to `milestones`.
+
+Example: `/feature-tasks my-feature milestones`
+
+If milestones are created, document reasoning:
+```markdown
+**Milestone Rationale**: [Specific manual gate requiring human intervention]
+```
+
+### 2.4 Decision Output
 
 Determine: `SCOPE_TYPE = "large" | "small"`
 

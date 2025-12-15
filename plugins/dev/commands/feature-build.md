@@ -192,6 +192,11 @@ Task tool parameters:
 
 **Parse reviewer response**: Extract JSON from response. If invalid JSON, treat as FAILURE.
 
+**Collect manual verification items**:
+- Parse `manual_verification` array from reviewer response
+- Aggregate across all task units into `aggregated_manual_verification` list
+- Deduplicate by criterion (keep first occurrence)
+
 ### 4.3 Handle Retry
 
 On first failure:
@@ -223,7 +228,57 @@ After each task unit completes, output progress:
   Status: {VERIFIED | RETRY | BLOCKED}
 ```
 
-## 6. Final Summary
+## 6. Post-Build Cleanup
+
+After all task units complete (before final summary):
+
+### 6.1 Spawn Comment Cleaner
+
+Use the Task tool to spawn the comment cleaner agent:
+
+```
+Task tool parameters:
+  subagent_type: rp1-dev:comment-cleaner
+  prompt: |
+    SCOPE: branch
+    BASE_BRANCH: main
+```
+
+### 6.2 Handle Result
+
+- **Success**: Capture cleanup stats for summary
+- **Failure**: Log warning, do NOT block completion:
+  ```
+  Warning: Comment cleanup encountered issues (non-blocking):
+  {error_message}
+  ```
+
+### 6.3 Manual Verification Logging
+
+If `aggregated_manual_verification` items exist from reviewer responses:
+
+1. Read tasks.md (or `milestone-{MILESTONE_ID}.md`)
+2. Check if "## Manual Verification" section already exists
+3. **If section does NOT exist**:
+   - Append new section at end of file:
+   ```markdown
+   ## Manual Verification
+
+   Items requiring manual verification before merge:
+
+   - [ ] {criterion}
+     *Reason*: {reason}
+   ```
+4. **If section exists** (deduplication):
+   - Parse existing items from section
+   - Only append items where criterion is NOT already listed
+   - Skip duplicates silently
+
+5. **If no manual items**: Do not add section, report "No manual verification required"
+
+Continue to Final Summary regardless of manual verification outcome.
+
+## 7. Final Summary
 
 After all units processed, output summary:
 
@@ -241,12 +296,19 @@ After all units processed, output summary:
 ### Blocked Tasks
 - T5: [description] - BLOCKED (reason: {reviewer feedback summary})
 
+### Comment Cleanup
+- Files cleaned: {N}
+- Comments removed: {N}
+
+### Manual Verification
+- Items logged: {N} (or "None required")
+
 ### Next Steps
 {If all complete}: Ready for `/feature-verify {FEATURE_ID}`
 {If blocked tasks}: Review blocked tasks and run `/feature-build {FEATURE_ID}` to retry
 ```
 
-## 7. Anti-Loop Directive
+## 8. Anti-Loop Directive
 
 **CRITICAL**: Execute this workflow in a single pass. Do NOT:
 - Ask for clarification (except via AskUserQuestion for escalation)
@@ -256,7 +318,7 @@ After all units processed, output summary:
 
 Complete the orchestration loop and output the final summary. If you encounter an error (file not found, invalid format), report it clearly and stop.
 
-## 8. What Orchestrator Does NOT Do
+## 9. What Orchestrator Does NOT Do
 
 To maintain minimal context and clear separation of concerns:
 

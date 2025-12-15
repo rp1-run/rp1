@@ -2,7 +2,7 @@
 name: pr-review
 version: 3.0.0
 description: Intent-aware map-reduce PR review with confidence gating and holistic synthesis
-argument-hint: "[target] [base-branch]"
+argument-hint: "[target] [base-branch] [skip-visual]"
 tags:
   - review
   - pr
@@ -26,6 +26,7 @@ This command orchestrates an intent-aware, confidence-gated PR review using a ma
 |------|----------|---------|---------|
 | TARGET | $1 | (current branch) | PR number, URL, branch name, or empty |
 | BASE_BRANCH | $2 | (from PR or 'main') | Base branch for diff comparison |
+| SKIP_VISUAL | $3 | (none) | Set to `skip-visual` to disable visual generation |
 | RP1_ROOT | Environment | `.rp1/` | Root directory for artifacts |
 
 <target>
@@ -36,6 +37,10 @@ $1
 $2
 </base_branch>
 
+<skip_visual>
+$3
+</skip_visual>
+
 <rp1_root>
 {{RP1_ROOT}}
 </rp1_root>
@@ -43,11 +48,12 @@ $2
 ## Architecture Overview
 
 ```
-Phase 0 (Sequential):  Input Resolution → Intent Model
-Phase 1 (Sequential):  Splitter → ReviewUnit[]
-Phase 2 (Parallel):    N × Sub-Reviewers → Findings + Summaries
-Phase 3 (Sequential):  Synthesizer → Cross-File Issues + Judgment
-Phase 4 (Sequential):  Reporter → Markdown Report
+Phase 0   (Sequential):  Input Resolution → Intent Model
+Phase 0.5 (Background):  Visual Generation (conditional, parallel with Phase 1)
+Phase 1   (Sequential):  Splitter → ReviewUnit[]
+Phase 2   (Parallel):    N × Sub-Reviewers → Findings + Summaries
+Phase 3   (Sequential):  Synthesizer → Cross-File Issues + Judgment
+Phase 4   (Sequential):  Reporter → Markdown Report (includes visual link)
 ```
 
 ## Execution Instructions
@@ -118,6 +124,44 @@ Phase 4 (Sequential):  Reporter → Markdown Report
   "commit_summaries": ["..."]
 }
 ```
+
+### Phase 0.5: Visual Generation (Conditional)
+
+Before splitting, assess if PR warrants visualization. Visual runs in background while review continues.
+
+1. **Get diff stats**:
+   ```bash
+   git diff --stat {{base}}..{{branch}}
+   git diff --numstat {{base}}..{{branch}}
+   ```
+
+2. **Smart Detection Algorithm**:
+   ```
+   VISUAL_WARRANTED = false
+
+   IF file_count > 5 THEN VISUAL_WARRANTED = true
+   IF any file has > 200 lines changed THEN VISUAL_WARRANTED = true
+   IF multiple directories affected THEN VISUAL_WARRANTED = true
+   IF architectural files changed (*.config, schema.*, migrations/*) THEN VISUAL_WARRANTED = true
+   ```
+
+3. **Skip Conditions** (force no visual):
+   - `$3 == "skip-visual"` positional argument provided
+   - Trivial PR: `file_count <= 3` AND all files in same directory AND `< 100 total lines`
+
+4. **If visualization warranted**:
+   ```
+   Use Task tool with:
+   subagent_type: rp1-dev:pr-visualizer
+   run_in_background: true
+   prompt: "Generate PR visualization.
+     PR_BRANCH: {{pr_branch}}
+     BASE_BRANCH: {{base_branch}}
+     REVIEW_DEPTH: quick"
+   ```
+   Store task reference as `VISUAL_TASK_ID` for retrieval in Phase 4.
+
+5. **Continue immediately** to Phase 1 (don't wait for visual).
 
 ### Phase 1: Splitting (Sequential)
 
@@ -235,7 +279,13 @@ Phase 4 (Sequential):  Reporter → Markdown Report
    - From PR number if available: `pr-{{number}}`
    - Otherwise from branch: sanitize branch name (replace `/` with `-`)
 
-4. **Spawn reporter**:
+4. **Retrieve visual result** (if VISUAL_TASK_ID exists):
+   - Check if background visual task completed
+   - If completed: extract `visual_path` from result
+   - If still running or failed: set `visual_path` = "none"
+   - Store as `VISUAL_PATH` for reporter
+
+5. **Spawn reporter**:
    ```
    Use Task tool with:
    subagent_type: rp1-dev:pr-review-reporter
@@ -246,15 +296,16 @@ Phase 4 (Sequential):  Reporter → Markdown Report
      FINDINGS_JSON: {{stringify(merged_findings)}}
      CROSS_FILE_JSON: {{stringify(cross_file_findings)}}
      STATS_JSON: {{stringify(stats)}}
+     VISUAL_PATH: {{VISUAL_PATH or "none"}}
      OUTPUT_DIR: {{RP1_ROOT}}/work/pr-reviews
      REVIEW_ID: {{review_id}}
      Return JSON with path."
    ```
 
-5. **Parse reporter result**:
+6. **Parse reporter result**:
    - Extract `path` from JSON response
 
-6. **Handle reporter failure**:
+7. **Handle reporter failure**:
    - Log error
    - Output findings summary inline to user as fallback
 
@@ -273,6 +324,7 @@ Findings:
 - ✅ Low: {{low}}
 
 Report: {{REPORT_PATH}}
+{{IF VISUAL_PATH != "none"}}Visual: {{VISUAL_PATH}}{{/IF}}
 ```
 
 **Judgment emoji mapping**:
@@ -280,12 +332,15 @@ Report: {{REPORT_PATH}}
 - `request_changes` → ⚠️
 - `block` → 🛑
 
+**Visual link**: Only include if visual was generated (VISUAL_PATH != "none").
+
 ## Error Handling
 
 | Error | Action |
 |-------|--------|
 | Can't determine branch | Ask user for branch name |
 | gh CLI not available | Fall back to git-only mode |
+| Visual generation fails | Continue without visual (non-blocking) |
 | Splitter fails | Abort with clear error |
 | >50% sub-reviewers fail | Abort with error |
 | Synthesizer fails | Continue with findings-only judgment |

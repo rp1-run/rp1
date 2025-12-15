@@ -1,32 +1,29 @@
 ---
 name: code-clean-comments
-version: 2.0.0
-description: Systematically removes unnecessary comments from code while preserving docstrings, critical logic explanations, and type directives.
+version: 3.0.0
+description: Systematically removes unnecessary comments from code using git-scoped file detection.
+argument-hint: "[scope] [base-branch]"
 tags:
   - code
   - refactoring
   - review
-  - analysis
 created: 2025-10-25
 author: cloud-on-prem/rp1
 ---
 
-# Comment Sanitizer
+# Comment Cleaner
 
-This command invokes the **comment-cleaner** sub-agent for surgical comment cleanup.
+Spawns the comment-cleaner agent for surgical comment cleanup.
 
-Use the Task tool to invoke the comment-cleaner agent:
+**Scope Options**:
+- `branch` (default): Files changed since diverging from base branch
+- `unstaged`: Only unstaged files (pre-commit use case)
+
+Use the Task tool:
 
 ```
 subagent_type: rp1-dev:comment-cleaner
+prompt: |
+  SCOPE: {$1 or "branch"}
+  BASE_BRANCH: {$2 or "main"}
 ```
-
-The agent will:
-- Identify changed files in current branch
-- Classify comments (preserve docstrings, critical logic, type directives)
-- Remove unnecessary comments (obvious explanations, redundant, leaked info)
-- Validate changes with tests and linting
-- Perform multiple sweep iterations if needed
-- Report back with cleanup summary
-
-The agent has access to all necessary tools and will handle the entire comment cleanup workflow autonomously.
