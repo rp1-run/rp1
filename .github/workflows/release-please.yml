@@ -8,14 +8,14 @@
 #
 # Binary distribution (rp1 CLI) is handled separately by goreleaser.yml,
 # which triggers on the tag created by this workflow.
+#
+# Note: CI checks (lint, typecheck, tests) run in ci.yml workflow.
+# Use branch protection rules to require CI to pass before merging.
 
 name: Release Please
 
 on:
   push:
-    branches:
-      - main
-  pull_request:
     branches:
       - main
 
@@ -28,49 +28,9 @@ permissions:
   pull-requests: write
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Cache Bun dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('cli/bun.lockb') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
-
-      - name: Install dependencies
-        run: cd cli && bun install
-
-      - name: Run tests
-        run: cd cli && bun test
-
-      - name: Generate coverage report
-        if: always()
-        run: cd cli && bun test --coverage 2>&1 | tee coverage.txt || true
-
-      - name: Upload coverage report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: cli/coverage.txt
-
   release-please:
-    needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # Only run on push to main
-    if: ${{ github.event_name == 'push' }}
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
