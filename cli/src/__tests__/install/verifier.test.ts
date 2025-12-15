@@ -31,6 +31,8 @@ describe("verifier", () => {
         agentsExpected: 5,
         skillsFound: 3,
         skillsExpected: 3,
+        pluginsFound: 1,
+        pluginsExpected: 1,
         issues: [],
       };
 
@@ -45,6 +47,8 @@ describe("verifier", () => {
         agentsExpected: 5,
         skillsFound: 3,
         skillsExpected: 3,
+        pluginsFound: 1,
+        pluginsExpected: 1,
         issues: [],
       };
 
@@ -59,6 +63,8 @@ describe("verifier", () => {
         agentsExpected: 5,
         skillsFound: 3,
         skillsExpected: 3,
+        pluginsFound: 1,
+        pluginsExpected: 1,
         issues: [],
       };
 
@@ -73,6 +79,8 @@ describe("verifier", () => {
         agentsExpected: 5,
         skillsFound: 0,
         skillsExpected: 3,
+        pluginsFound: 1,
+        pluginsExpected: 1,
         issues: ["Missing skills (3): skill1, skill2, skill3"],
       };
 
@@ -87,6 +95,8 @@ describe("verifier", () => {
         agentsExpected: 5,
         skillsFound: 3,
         skillsExpected: 3,
+        pluginsFound: 1,
+        pluginsExpected: 1,
         issues: ["Invalid YAML in sample-command.md"],
       };
 
@@ -101,6 +111,8 @@ describe("verifier", () => {
         agentsExpected: 5,
         skillsFound: 2,
         skillsExpected: 3,
+        pluginsFound: 1,
+        pluginsExpected: 1,
         issues: [
           "Missing skills (1): skill3. Note: Skills require opencode-skills plugin.",
         ],
@@ -117,6 +129,8 @@ describe("verifier", () => {
         agentsExpected: 5,
         skillsFound: 2,
         skillsExpected: 3,
+        pluginsFound: 1,
+        pluginsExpected: 1,
         issues: [
           "Missing skills (1): skill3",
           "Cannot read command1.md: ENOENT",
@@ -125,15 +139,63 @@ describe("verifier", () => {
 
       expect(isHealthy(report)).toBe(false);
     });
+
+    test("returns true when only plugins are missing (plugins are optional)", () => {
+      const report: VerificationReport = {
+        commandsFound: 10,
+        commandsExpected: 10,
+        agentsFound: 5,
+        agentsExpected: 5,
+        skillsFound: 3,
+        skillsExpected: 3,
+        pluginsFound: 0,
+        pluginsExpected: 1,
+        issues: ["Missing plugins (1): rp1-base-hooks. Note: Plugins provide session hooks."],
+      };
+
+      expect(isHealthy(report)).toBe(true);
+    });
+
+    test("returns true when only plugin-related issues exist", () => {
+      const report: VerificationReport = {
+        commandsFound: 10,
+        commandsExpected: 10,
+        agentsFound: 5,
+        agentsExpected: 5,
+        skillsFound: 3,
+        skillsExpected: 3,
+        pluginsFound: 0,
+        pluginsExpected: 1,
+        issues: [
+          "Missing plugins (1): rp1-base-hooks. Note: Plugins provide session hooks.",
+        ],
+      };
+
+      expect(isHealthy(report)).toBe(true);
+    });
+
+    test("returns true when both skills and plugins are missing (both optional)", () => {
+      const report: VerificationReport = {
+        commandsFound: 10,
+        commandsExpected: 10,
+        agentsFound: 5,
+        agentsExpected: 5,
+        skillsFound: 0,
+        skillsExpected: 3,
+        pluginsFound: 0,
+        pluginsExpected: 1,
+        issues: [
+          "Missing skills (3): skill1, skill2, skill3",
+          "Missing plugins (1): rp1-base-hooks. Note: Plugins provide session hooks.",
+        ],
+      };
+
+      expect(isHealthy(report)).toBe(true);
+    });
   });
 
-  // Note: verifyInstallation and listInstalledCommands use homedir()
-  // making them harder to unit test without mocking. These would be
-  // better suited for integration tests where we can set up the full
-  // ~/.config/opencode structure in a temp directory.
-
   describe("VerificationReport structure", () => {
-    test("report contains all required fields", () => {
+    test("report contains all required fields including plugins", () => {
       const report: VerificationReport = {
         commandsFound: 0,
         commandsExpected: 0,
@@ -141,6 +203,8 @@ describe("verifier", () => {
         agentsExpected: 0,
         skillsFound: 0,
         skillsExpected: 0,
+        pluginsFound: 0,
+        pluginsExpected: 0,
         issues: [],
       };
 
@@ -150,8 +214,66 @@ describe("verifier", () => {
       expect(report).toHaveProperty("agentsExpected");
       expect(report).toHaveProperty("skillsFound");
       expect(report).toHaveProperty("skillsExpected");
+      expect(report).toHaveProperty("pluginsFound");
+      expect(report).toHaveProperty("pluginsExpected");
       expect(report).toHaveProperty("issues");
       expect(Array.isArray(report.issues)).toBe(true);
+    });
+  });
+
+  describe("plugin verification", () => {
+    test("reports missing plugins as issues", () => {
+      const report: VerificationReport = {
+        commandsFound: 10,
+        commandsExpected: 10,
+        agentsFound: 5,
+        agentsExpected: 5,
+        skillsFound: 3,
+        skillsExpected: 3,
+        pluginsFound: 0,
+        pluginsExpected: 1,
+        issues: ["Missing plugins (1): rp1-base-hooks. Note: Plugins provide session hooks."],
+      };
+
+      expect(report.pluginsFound).toBe(0);
+      expect(report.pluginsExpected).toBe(1);
+      expect(report.issues.some(i => i.includes("Missing plugins"))).toBe(true);
+      expect(report.issues.some(i => i.includes("rp1-base-hooks"))).toBe(true);
+    });
+
+    test("correctly counts installed plugins", () => {
+      const report: VerificationReport = {
+        commandsFound: 10,
+        commandsExpected: 10,
+        agentsFound: 5,
+        agentsExpected: 5,
+        skillsFound: 3,
+        skillsExpected: 3,
+        pluginsFound: 1,
+        pluginsExpected: 1,
+        issues: [],
+      };
+
+      expect(report.pluginsFound).toBe(1);
+      expect(report.pluginsExpected).toBe(1);
+      expect(report.pluginsFound).toBe(report.pluginsExpected);
+    });
+
+    test("handles missing plugin directory gracefully", () => {
+      const report: VerificationReport = {
+        commandsFound: 10,
+        commandsExpected: 10,
+        agentsFound: 5,
+        agentsExpected: 5,
+        skillsFound: 3,
+        skillsExpected: 3,
+        pluginsFound: 0,
+        pluginsExpected: 1,
+        issues: ["Missing plugins (1): rp1-base-hooks. Note: Plugins provide session hooks."],
+      };
+
+      expect(report.pluginsFound).toBe(0);
+      expect(isHealthy(report)).toBe(true);
     });
   });
 });

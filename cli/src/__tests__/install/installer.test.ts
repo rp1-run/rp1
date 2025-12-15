@@ -8,7 +8,9 @@ import { join } from "path";
 import { readFile, stat, mkdir } from "fs/promises";
 import * as E from "fp-ts/lib/Either.js";
 
-import { copyArtifacts, backupExistingInstallation } from "../../install/installer.js";
+import { copyArtifacts, backupExistingInstallation, copyOpenCodePlugin } from "../../install/installer.js";
+import { rm } from "fs/promises";
+import { homedir } from "os";
 import { createTempDir, cleanupTempDir, writeFixture } from "../helpers/index.js";
 
 describe("installer", () => {
@@ -190,6 +192,168 @@ describe("installer", () => {
       if (E.isRight(result)) {
         expect(result.right).toBe(3);
       }
+    });
+  });
+
+  describe("copyOpenCodePlugin", () => {
+    const testPluginName = "rp1-test-plugin";
+    const testPluginDir = join(homedir(), ".config", "opencode", "plugin", testPluginName);
+
+    afterEach(async () => {
+      // Clean up test plugin directory
+      try {
+        await rm(testPluginDir, { recursive: true, force: true });
+      } catch {
+        // Directory may not exist
+      }
+    });
+
+    test("creates target directory with correct permissions (0o755)", async () => {
+      const sourceDir = join(tempDir, "source");
+
+      // Create source plugin structure
+      await writeFixture(
+        sourceDir,
+        "platforms/opencode/opencode.json",
+        JSON.stringify({ name: testPluginName, version: "1.0.0" }),
+      );
+      await writeFixture(
+        sourceDir,
+        "platforms/opencode/index.ts",
+        "export default {};",
+      );
+
+      const result = await copyOpenCodePlugin(sourceDir, testPluginName)();
+
+      expect(E.isRight(result)).toBe(true);
+
+      // Verify target directory was created with correct permissions
+      const dirStat = await stat(testPluginDir);
+      expect(dirStat.isDirectory()).toBe(true);
+
+      // Check directory permissions (0o755 = rwxr-xr-x)
+      const mode = dirStat.mode & 0o777;
+      expect(mode & 0o755).toBe(0o755);
+    });
+
+    test("copies files with correct permissions (0o644)", async () => {
+      const sourceDir = join(tempDir, "source");
+
+      // Create source plugin structure
+      await writeFixture(
+        sourceDir,
+        "platforms/opencode/opencode.json",
+        JSON.stringify({ name: testPluginName, version: "1.0.0" }),
+      );
+      await writeFixture(
+        sourceDir,
+        "platforms/opencode/index.ts",
+        "export default {};",
+      );
+
+      await copyOpenCodePlugin(sourceDir, testPluginName)();
+
+      // Verify file permissions
+      const jsonFile = join(testPluginDir, "opencode.json");
+      const jsonStat = await stat(jsonFile);
+      const jsonMode = jsonStat.mode & 0o777;
+      expect(jsonMode & 0o644).toBe(0o644);
+
+      const tsFile = join(testPluginDir, "index.ts");
+      const tsStat = await stat(tsFile);
+      const tsMode = tsStat.mode & 0o777;
+      expect(tsMode & 0o644).toBe(0o644);
+    });
+
+    test("returns 0 when no source plugin exists", async () => {
+      const sourceDir = join(tempDir, "empty-source");
+      await mkdir(sourceDir, { recursive: true });
+
+      // Source exists but has no platforms/opencode/ dir
+      const result = await copyOpenCodePlugin(sourceDir, testPluginName)();
+
+      expect(E.isRight(result)).toBe(true);
+      if (E.isRight(result)) {
+        expect(result.right).toBe(0);
+      }
+    });
+
+    test("returns file count when successful", async () => {
+      const sourceDir = join(tempDir, "source");
+
+      // Create source plugin with multiple files
+      await writeFixture(
+        sourceDir,
+        "platforms/opencode/opencode.json",
+        JSON.stringify({ name: testPluginName, version: "1.0.0" }),
+      );
+      await writeFixture(
+        sourceDir,
+        "platforms/opencode/index.ts",
+        "export default {};",
+      );
+      await writeFixture(
+        sourceDir,
+        "platforms/opencode/utils.ts",
+        "export const helper = () => {};",
+      );
+
+      const result = await copyOpenCodePlugin(sourceDir, testPluginName)();
+
+      expect(E.isRight(result)).toBe(true);
+      if (E.isRight(result)) {
+        expect(result.right).toBe(3); // 3 files copied
+      }
+    });
+
+    test("invokes onProgress callback with installation message", async () => {
+      const sourceDir = join(tempDir, "source");
+
+      await writeFixture(
+        sourceDir,
+        "platforms/opencode/opencode.json",
+        JSON.stringify({ name: testPluginName, version: "1.0.0" }),
+      );
+      await writeFixture(
+        sourceDir,
+        "platforms/opencode/index.ts",
+        "export default {};",
+      );
+
+      const progressMessages: string[] = [];
+      await copyOpenCodePlugin(sourceDir, testPluginName, (msg) => {
+        progressMessages.push(msg);
+      })();
+
+      expect(progressMessages.length).toBe(1);
+      expect(progressMessages[0]).toContain(testPluginName);
+      expect(progressMessages[0]).toContain("plugin");
+      expect(progressMessages[0]).toContain("files");
+    });
+
+    test("copies nested directory structure correctly", async () => {
+      const sourceDir = join(tempDir, "source");
+
+      // Create nested plugin structure
+      await writeFixture(
+        sourceDir,
+        "platforms/opencode/opencode.json",
+        JSON.stringify({ name: testPluginName, version: "1.0.0" }),
+      );
+      await writeFixture(
+        sourceDir,
+        "platforms/opencode/plugin/index.ts",
+        "export default {};",
+      );
+
+      const result = await copyOpenCodePlugin(sourceDir, testPluginName)();
+
+      expect(E.isRight(result)).toBe(true);
+
+      // Verify nested file was copied
+      const nestedFile = join(testPluginDir, "plugin/index.ts");
+      const content = await readFile(nestedFile, "utf-8");
+      expect(content).toBe("export default {};");
     });
   });
 

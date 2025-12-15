@@ -32,17 +32,21 @@ export interface VerificationReport {
   readonly agentsExpected: number;
   readonly skillsFound: number;
   readonly skillsExpected: number;
+  readonly pluginsFound: number;
+  readonly pluginsExpected: number;
   readonly issues: readonly string[];
 }
 
 /**
  * Check if installation is healthy.
- * Skills are optional (require opencode-skills plugin), so missing skills
+ * Skills and plugins are optional enhancements, so missing skills/plugins
  * don't make installation unhealthy.
  */
 export const isHealthy = (report: VerificationReport): boolean => {
   const criticalIssues = report.issues.filter(
-    (i) => !i.toLowerCase().includes("skills"),
+    (i) =>
+      !i.toLowerCase().includes("skills") &&
+      !i.toLowerCase().includes("plugin"),
   );
   return (
     criticalIssues.length === 0 &&

@@ -283,6 +283,30 @@ export const backupExistingInstallation = (): TE.TaskEither<
         // No config file
       }
 
+      // Backup rp1 plugins
+      const pluginDir = join(configDir, "plugin");
+      const rp1Plugins = ["rp1-base-hooks"];
+      try {
+        const pluginStats = await stat(pluginDir);
+        if (pluginStats.isDirectory()) {
+          const backupPluginDir = join(backupPath, "plugin");
+          for (const pluginName of rp1Plugins) {
+            const srcPluginDir = join(pluginDir, pluginName);
+            try {
+              await stat(srcPluginDir);
+              filesBackedUp += await copyDir(
+                srcPluginDir,
+                join(backupPluginDir, pluginName),
+              );
+            } catch {
+              // Plugin doesn't exist
+            }
+          }
+        }
+      } catch {
+        // No plugins directory
+      }
+
       // Create backup manifest
       const manifest: BackupManifest = {
         timestamp,
@@ -298,6 +322,45 @@ export const backupExistingInstallation = (): TE.TaskEither<
       return manifest;
     },
     (e) => backupError(`Failed to create backup: ${e}`),
+  );
+
+/**
+ * Copy OpenCode plugin from source to target plugin directory.
+ * Source: {sourceDir}/platforms/opencode/
+ * Target: ~/.config/opencode/plugin/{plugin-name}/
+ * Returns the number of files copied, or 0 if no plugin exists at source.
+ */
+export const copyOpenCodePlugin = (
+  sourceDir: string,
+  pluginName: string,
+  onProgress?: (message: string) => void,
+): TE.TaskEither<CLIError, number> =>
+  TE.tryCatch(
+    async () => {
+      const opencodeSrc = join(sourceDir, "platforms", "opencode");
+      const targetDir = join(
+        homedir(),
+        ".config",
+        "opencode",
+        "plugin",
+        pluginName,
+      );
+
+      try {
+        await stat(opencodeSrc);
+      } catch {
+        return 0;
+      }
+
+      await mkdir(targetDir, { recursive: true });
+      await chmod(targetDir, 0o755);
+
+      const filesCopied = await copyDir(opencodeSrc, targetDir);
+      onProgress?.(`Installed ${pluginName} plugin: ${filesCopied} files`);
+
+      return filesCopied;
+    },
+    (e) => installError("copy-plugin", `Failed to copy plugin: ${e}`),
   );
 
 /**
@@ -339,6 +402,19 @@ export const installRp1 = (
             );
             pluginsInstalled.push(pluginName);
             totalFiles += filesCopied;
+
+            const pluginResult = await copyOpenCodePlugin(
+              pluginDir,
+              "rp1-base-hooks",
+              onProgress,
+            )();
+            if (pluginResult._tag === "Left") {
+              warnings.push(
+                `OpenCode plugin installation failed: ${formatError(pluginResult.left, false)}`,
+              );
+            } else if (pluginResult.right > 0) {
+              totalFiles += pluginResult.right;
+            }
           }
 
           if (skipSkills) {

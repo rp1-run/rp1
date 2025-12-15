@@ -120,6 +120,7 @@ export interface PluginManifest {
     readonly opencodeVersion: string;
     readonly opencodeSkillsRequired: boolean;
   };
+  readonly hasOpenCodePlugin?: boolean;
 }
 
 /**
@@ -162,6 +163,15 @@ export interface BundleAssetEntry {
 }
 
 /**
+ * OpenCode plugin asset entry for bundling.
+ * Represents a plugin that responds to OpenCode events (e.g., update notifications).
+ */
+export interface OpenCodePluginAsset {
+  readonly name: string;
+  readonly files: readonly BundleAssetEntry[];
+}
+
+/**
  * Plugin assets for bundling.
  */
 export interface BundlePluginAssets {
@@ -169,6 +179,7 @@ export interface BundlePluginAssets {
   readonly commands: readonly BundleAssetEntry[];
   readonly agents: readonly BundleAssetEntry[];
   readonly skills: readonly BundleAssetEntry[];
+  readonly openCodePlugin?: OpenCodePluginAsset;
 }
 
 /**

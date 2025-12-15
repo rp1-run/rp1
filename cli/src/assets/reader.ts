@@ -15,6 +15,14 @@ export interface AssetEntry {
 }
 
 /**
+ * OpenCode plugin asset (TypeScript plugin responding to OpenCode events).
+ */
+export interface OpenCodePluginAsset {
+  name: string;
+  files: AssetEntry[];
+}
+
+/**
  * Plugin asset structure.
  */
 export interface BundledPlugin {
@@ -22,6 +30,7 @@ export interface BundledPlugin {
   commands: AssetEntry[];
   agents: AssetEntry[];
   skills: AssetEntry[];
+  openCodePlugin?: OpenCodePluginAsset;
 }
 
 /**

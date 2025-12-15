@@ -171,6 +171,7 @@ export const generateManifest = (
   commands: readonly string[],
   agents: readonly string[],
   skills: readonly string[],
+  hasOpenCodePlugin?: boolean,
 ): E.Either<CLIError, string> => {
   try {
     const timestamp = new Date().toISOString();
@@ -194,6 +195,7 @@ export const generateManifest = (
         opencodeVersion: ">=0.8.0",
         opencodeSkillsRequired: skills.length > 0,
       },
+      hasOpenCodePlugin,
     };
 
     return E.right(JSON.stringify(manifest, null, 2));

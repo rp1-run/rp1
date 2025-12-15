@@ -54,7 +54,7 @@ interface AssetImport {
   varName: string;
   importPath: string;
   outputName: string;
-  category: "command" | "agent" | "skill" | "webui";
+  category: "command" | "agent" | "skill" | "webui" | "opencode-plugin";
   plugin?: "base" | "dev";
 }
 
@@ -131,6 +131,20 @@ async function collectPluginAssets(manifest: BundleManifest): Promise<AssetImpor
         category: "skill",
         plugin: pluginName,
       });
+    }
+
+    // OpenCode Plugin (TypeScript plugin responding to OpenCode events)
+    if (plugin.openCodePlugin) {
+      for (const file of plugin.openCodePlugin.files) {
+        const fullPath = join(OPENCODE_DIST, file.path);
+        imports.push({
+          varName: toVarName(`${pluginName}_plugin`, file.name),
+          importPath: getImportPath(fullPath),
+          outputName: file.name,
+          category: "opencode-plugin",
+          plugin: pluginName,
+        });
+      }
     }
   }
 
@@ -211,6 +225,19 @@ async function generate(): Promise<void> {
     .filter((a) => a.category === "agent" && a.plugin === "dev")
     .map((a) => `{ name: "${a.outputName}", path: ${a.varName} }`);
 
+  // OpenCode plugin files (only base plugin has this currently)
+  const basePluginFiles = pluginAssets
+    .filter((a) => a.category === "opencode-plugin" && a.plugin === "base")
+    .map((a) => `{ name: "${a.outputName}", path: ${a.varName} }`);
+
+  // Generate openCodePlugin block if base plugin has files
+  const baseOpenCodePlugin = manifest.plugins.base.openCodePlugin
+    ? `openCodePlugin: {
+        name: "${manifest.plugins.base.openCodePlugin.name}",
+        files: [${basePluginFiles.join(", ")}],
+      },`
+    : "";
+
   const webuiEntries = webuiAssets.map(
     (a) => `{ name: "${a.outputName}", path: ${a.varName} }`,
   );
@@ -229,6 +256,7 @@ export const EMBEDDED_MANIFEST = {
       commands: [${baseCommands.join(", ")}],
       agents: [${baseAgents.join(", ")}],
       skills: [${baseSkills.join(", ")}],
+      ${baseOpenCodePlugin}
     },
     dev: {
       name: "rp1-dev",
@@ -248,6 +276,9 @@ export const IS_BUNDLED = true;
   await writeFile(OUTPUT_FILE, content);
   console.log(`Generated ${OUTPUT_FILE}`);
   console.log(`  Base: ${baseCommands.length} commands, ${baseAgents.length} agents, ${baseSkills.length} skills`);
+  if (basePluginFiles.length > 0) {
+    console.log(`  Base OpenCode Plugin: ${basePluginFiles.length} files`);
+  }
   console.log(`  Dev: ${devCommands.length} commands, ${devAgents.length} agents`);
   console.log(`  Web-UI: ${webuiAssets.length} files`);
   console.log(`  Version: ${manifest.version}`);

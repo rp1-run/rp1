@@ -93,6 +93,41 @@ const extractPlugin = async (
 };
 
 /**
+ * Extract OpenCode plugin from bundled assets.
+ * Creates plugin directory at ~/.config/opencode/plugin/{plugin-name}/
+ *
+ * Returns 0 if no openCodePlugin field exists (graceful handling).
+ */
+const extractOpenCodePlugin = async (
+  plugin: BundledPlugin,
+  onProgress?: (msg: string) => void,
+): Promise<number> => {
+  if (!plugin.openCodePlugin) {
+    return 0;
+  }
+
+  const targetDir = join(
+    homedir(),
+    ".config",
+    "opencode",
+    "plugin",
+    plugin.openCodePlugin.name,
+  );
+
+  await mkdir(targetDir, { recursive: true });
+  let filesExtracted = 0;
+
+  for (const file of plugin.openCodePlugin.files) {
+    const destPath = join(targetDir, file.name);
+    await extractAsset(file, destPath);
+    filesExtracted++;
+  }
+
+  onProgress?.(`  ${plugin.openCodePlugin.name}: ${filesExtracted} files`);
+  return filesExtracted;
+};
+
+/**
  * Extract all plugin files to OpenCode config directory.
  * This is the main entry point for `install:opencode` from bundled assets.
  */
@@ -123,6 +158,19 @@ export const extractPlugins = (
         onProgress,
       );
       plugins.push(assets.plugins.dev.name);
+
+      // Extract OpenCode plugins (TypeScript hooks)
+      const basePluginFiles = await extractOpenCodePlugin(
+        assets.plugins.base,
+        onProgress,
+      );
+      filesExtracted += basePluginFiles;
+
+      const devPluginFiles = await extractOpenCodePlugin(
+        assets.plugins.dev,
+        onProgress,
+      );
+      filesExtracted += devPluginFiles;
 
       return { filesExtracted, targetDir, plugins };
     },

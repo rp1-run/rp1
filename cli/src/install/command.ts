@@ -151,8 +151,13 @@ const executeInstallFromBundled = (
           if (config.dryRun) {
             console.log(yellow("\nDRY RUN MODE - No files will be modified\n"));
             console.log("Would install from bundled assets:");
-            console.log(`  • rp1-base: ${assets.plugins.base.commands.length} commands, ${assets.plugins.base.agents.length} agents, ${assets.plugins.base.skills.length} skills`);
+            const basePlugin = assets.plugins.base;
+            const hasBaseHooks = basePlugin.openCodePlugin !== undefined;
+            console.log(`  • rp1-base: ${basePlugin.commands.length} commands, ${basePlugin.agents.length} agents, ${basePlugin.skills.length} skills`);
             console.log(`  • rp1-dev: ${assets.plugins.dev.commands.length} commands, ${assets.plugins.dev.agents.length} agents`);
+            if (hasBaseHooks) {
+              console.log(`  • Plugins: ${basePlugin.openCodePlugin?.name ?? "rp1-base-hooks"} (OpenCode session hooks)`);
+            }
             return TE.right(undefined);
           }
 
@@ -200,6 +205,11 @@ const executeInstallFromBundled = (
                     console.log(
                       dim(
                         `Skills: ${report.skillsFound}/${report.skillsExpected}`,
+                      ),
+                    );
+                    console.log(
+                      dim(
+                        `Plugins: ${report.pluginsFound}/${report.pluginsExpected}`,
                       ),
                     );
                   } else {
@@ -334,6 +344,7 @@ export const executeInstall = (
         console.log(`Would install from: ${artifactsDir}`);
         console.log("  • Base plugin: commands, agents, skills");
         console.log("  • Dev plugin: commands, agents");
+        console.log("  • Plugins: rp1-base-hooks (OpenCode session hooks)");
         return TE.right(undefined);
       }
 
@@ -419,6 +430,11 @@ export const executeInstall = (
                         `Skills: ${report.skillsFound}/${report.skillsExpected}`,
                       ),
                     );
+                    console.log(
+                      dim(
+                        `Plugins: ${report.pluginsFound}/${report.pluginsExpected}`,
+                      ),
+                    );
                   } else {
                     console.log(
                       yellow("\n⚠ Installation complete with warnings"),
@@ -470,6 +486,11 @@ export const executeVerify = (
       const skillOk = report.skillsFound === report.skillsExpected;
       console.log(
         `│ Skills    │ ${String(report.skillsFound).padStart(5)} │ ${String(report.skillsExpected).padStart(8)} │   ${skillOk ? green("✓") : yellow("⚠")}    │`,
+      );
+
+      const pluginOk = report.pluginsFound === report.pluginsExpected;
+      console.log(
+        `│ Plugins   │ ${String(report.pluginsFound).padStart(5)} │ ${String(report.pluginsExpected).padStart(8)} │   ${pluginOk ? green("✓") : yellow("⚠")}    │`,
       );
 
       console.log("└───────────┴───────┴──────────┴────────┘");

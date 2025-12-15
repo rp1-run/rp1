@@ -212,6 +212,30 @@ export const verifyInstallation = (
         );
       }
 
+      // Check plugins
+      const pluginDir = join(configDir, "plugin");
+      const expectedPlugins = ["rp1-base-hooks"];
+      let pluginsFound = 0;
+      const missingPluginNames: string[] = [];
+
+      for (const pluginName of expectedPlugins) {
+        const pluginPath = join(pluginDir, pluginName);
+        try {
+          await stat(pluginPath);
+          pluginsFound++;
+        } catch {
+          missingPluginNames.push(pluginName);
+        }
+      }
+
+      if (missingPluginNames.length > 0) {
+        issues.push(
+          `Missing plugins (${missingPluginNames.length}): ${missingPluginNames.join(", ")}. Note: Plugins provide session hooks.`,
+        );
+      }
+
+      const pluginsExpected = expectedPlugins.length;
+
       return {
         commandsFound,
         commandsExpected,
@@ -219,6 +243,8 @@ export const verifyInstallation = (
         agentsExpected,
         skillsFound,
         skillsExpected,
+        pluginsFound,
+        pluginsExpected,
         issues,
       };
     },

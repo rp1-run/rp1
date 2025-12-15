@@ -22,7 +22,7 @@ import {
   runtimeError,
   formatError,
 } from "../../shared/errors.js";
-import type { BuildConfig, BuildSummary, BundlePluginAssets, BundleAssetEntry } from "./models.js";
+import type { BuildConfig, BuildSummary, BundlePluginAssets, BundleAssetEntry, OpenCodePluginAsset } from "./models.js";
 import { defaultRegistry } from "./registry.js";
 import { parseCommand, parseAgent, parseSkill } from "./parser.js";
 import {
@@ -236,9 +236,8 @@ const copyDirectory = async (
 };
 
 /**
- * Copy OpenCode plugin files from platforms/opencode/ to .opencode/ in output.
- * Source is organized under platforms/ for cleaner repo structure.
- * Output uses .opencode/ for OpenCode platform compatibility.
+ * Copy OpenCode plugin files from platforms/opencode/ to platforms/opencode/ in output.
+ * Source and output use the same structure for consistency.
  * Returns true if plugin was found and copied, false otherwise.
  */
 const copyOpenCodePlugin = async (
@@ -253,13 +252,62 @@ const copyOpenCodePlugin = async (
       return false;
     }
 
-    // Copy platforms/opencode/ to .opencode/ in output for platform compatibility
-    const openCodeDestDir = join(pluginOutputDir, ".opencode");
+    const openCodeDestDir = join(pluginOutputDir, "platforms", "opencode");
     await copyDirectory(openCodeSrcDir, openCodeDestDir);
     return true;
   } catch {
-    // platforms/opencode directory doesn't exist, skip
     return false;
+  }
+};
+
+/**
+ * Collect OpenCode plugin files into BundleAssetEntry array.
+ * Recursively collects all files from the platforms/opencode/ directory.
+ */
+const collectOpenCodePluginFiles = async (
+  pluginOutputDir: string,
+  pluginName: string,
+): Promise<BundleAssetEntry[]> => {
+  const entries: BundleAssetEntry[] = [];
+  const openCodeDir = join(pluginOutputDir, "platforms", "opencode");
+
+  const collectFiles = async (dir: string, relativePath: string): Promise<void> => {
+    const items = await readdir(dir, { withFileTypes: true });
+    for (const item of items) {
+      const fullPath = join(dir, item.name);
+      const itemRelativePath = relativePath ? `${relativePath}/${item.name}` : item.name;
+      if (item.isDirectory()) {
+        await collectFiles(fullPath, itemRelativePath);
+      } else if (item.isFile()) {
+        entries.push({
+          name: itemRelativePath,
+          path: `${pluginName}/platforms/opencode/${itemRelativePath}`,
+        });
+      }
+    }
+  };
+
+  try {
+    await collectFiles(openCodeDir, "");
+  } catch {
+    // Directory doesn't exist or is not readable
+  }
+
+  return entries;
+};
+
+/**
+ * Read OpenCode plugin name from opencode.json.
+ * Falls back to default name if file doesn't exist or is invalid.
+ */
+const readOpenCodePluginName = async (pluginOutputDir: string): Promise<string> => {
+  try {
+    const openCodeJsonPath = join(pluginOutputDir, "platforms", "opencode", "opencode.json");
+    const content = await readFile(openCodeJsonPath, "utf-8");
+    const json = JSON.parse(content) as { name?: string };
+    return json.name ?? "rp1-hooks";
+  } catch {
+    return "rp1-hooks";
   }
 };
 
@@ -448,6 +496,17 @@ const buildPlugin = async (
   // Copy OpenCode plugin if present
   const hasOpenCodePlugin = await copyOpenCodePlugin(pluginDir, pluginOutputDir);
 
+  // Collect OpenCode plugin files for bundle manifest
+  let openCodePluginAsset: OpenCodePluginAsset | undefined;
+  if (hasOpenCodePlugin) {
+    const pluginFiles = await collectOpenCodePluginFiles(pluginOutputDir, pluginName);
+    const openCodePluginName = await readOpenCodePluginName(pluginOutputDir);
+    openCodePluginAsset = {
+      name: openCodePluginName,
+      files: pluginFiles,
+    };
+  }
+
   // Generate manifest
   const commandNames = commandEntries.map(e => e.name);
   const agentNames = agentEntries.map(e => e.name);
@@ -459,6 +518,7 @@ const buildPlugin = async (
     commandNames,
     agentNames,
     skillNames,
+    hasOpenCodePlugin || undefined,
   );
   if (E.isRight(manifestResult)) {
     await writeFile(
@@ -492,6 +552,7 @@ const buildPlugin = async (
       commands: commandEntries,
       agents: agentEntries,
       skills: skillEntries,
+      openCodePlugin: openCodePluginAsset,
     },
     hasOpenCodePlugin,
   };
