@@ -2,7 +2,9 @@
 
 The `rp1-dev` plugin provides development workflow capabilities for the complete feature lifecycle, code quality tools, and PR management.
 
-**Version**: 4.1.0
+**Version**: 3.0.0
+**Commands**: 19
+**Agents**: 19
 **Dependencies**: rp1-base >= 2.0.0
 
 ---
@@ -17,8 +19,8 @@ Start projects and plan features with structured documentation.
 |---------|-------------|
 | [`blueprint`](blueprint.md) | Create project charter and PRD documents |
 | [`feature-requirements`](feature-requirements.md) | Collect and document feature requirements |
-| [`feature-design`](feature-design.md) | Generate technical design specifications |
-| [`feature-tasks`](feature-tasks.md) | Break down design into actionable tasks |
+| [`feature-design`](feature-design.md) | Generate technical design specifications (auto-generates tasks) |
+| [`feature-tasks`](feature-tasks.md) | Regenerate tasks (optional - tasks auto-generate after design) |
 | [`validate-hypothesis`](validate-hypothesis.md) | Test design assumptions through experiments |
 
 ### Implementation
@@ -27,7 +29,7 @@ Build features from specifications and manage the implementation lifecycle.
 
 | Command | Description |
 |---------|-------------|
-| [`feature-build`](feature-build.md) | Implement features from task lists |
+| [`feature-build`](feature-build.md) | Implement features via builder-reviewer architecture |
 | [`feature-verify`](feature-verify.md) | Validate acceptance criteria before merge |
 | [`feature-edit`](feature-edit.md) | Propagate mid-stream changes across documents |
 | [`feature-archive`](feature-archive.md) | Archive completed features |
@@ -60,22 +62,30 @@ Review and manage pull requests effectively.
 
 ## Feature Development Workflow
 
-The dev plugin commands work together to support a complete feature lifecycle:
+The dev plugin commands work together to support a **5-step feature lifecycle**:
 
 ```
-blueprint → feature-requirements → feature-design → feature-tasks → feature-build → feature-verify
+feature-requirements → feature-design → feature-build → feature-verify → feature-archive
 ```
+
+!!! note "Tasks Auto-Generate"
+    Running `/feature-design` automatically generates `tasks.md`. The separate `/feature-tasks` command is optional and only needed to regenerate tasks manually.
 
 Each step produces artifacts that feed into the next:
 
 | Step | Command | Artifact |
 |------|---------|----------|
-| 1 | `blueprint` | `.rp1/work/charter.md`, `.rp1/work/prds/*.md` |
-| 2 | `feature-requirements` | `.rp1/work/features/{id}/requirements.md` |
-| 3 | `feature-design` | `.rp1/work/features/{id}/design.md` |
-| 4 | `feature-tasks` | `.rp1/work/features/{id}/tasks.md` |
-| 5 | `feature-build` | Implementation + task updates |
-| 6 | `feature-verify` | Verification report |
+| 1 | `feature-requirements` | `.rp1/work/features/{id}/requirements.md` |
+| 2 | `feature-design` | `.rp1/work/features/{id}/design.md` + `tasks.md` |
+| 3 | `feature-build` | Implementation + task updates |
+| 4 | `feature-verify` | Verification report |
+| 5 | `feature-archive` | Archived feature in `.rp1/work/archives/` |
+
+**Optional Steps**:
+
+- `blueprint` - Create project charter and PRDs before starting features
+- `validate-hypothesis` - Test design assumptions before building
+- `feature-tasks` - Manually regenerate or update tasks
 
 [:octicons-arrow-right-24: Feature Development Tutorial](../../guides/feature-development.md)
 

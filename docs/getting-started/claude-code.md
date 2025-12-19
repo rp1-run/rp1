@@ -23,13 +23,31 @@ You should see version information. If not, install Claude Code first from [clau
 
 ## Installation
 
+!!! tip "CLI vs Slash Commands"
+    Claude Code provides two ways to manage plugins:
+
+    - **CLI commands** (`claude plugin ...`) - Run from any terminal, even outside Claude Code
+    - **Slash commands** (`/plugin ...`) - Run inside an active Claude Code session
+
+    Both methods work identically. CLI commands are convenient for scripting and when you don't have a Claude Code session open.
+
 ### Step 1: Add the rp1 marketplace
 
-Open Claude Code in your terminal and run:
+=== "CLI (Terminal)"
 
-```bash
-/plugin marketplace add rp1-run/rp1
-```
+    Run from any terminal:
+
+    ```bash
+    claude plugin marketplace add rp1-run/rp1
+    ```
+
+=== "Slash Command"
+
+    Inside a Claude Code session:
+
+    ```bash
+    /plugin marketplace add rp1-run/rp1
+    ```
 
 **Expected output:**
 ```
@@ -38,9 +56,17 @@ Marketplace 'rp1-run/rp1' added successfully.
 
 ### Step 2: Install the base plugin
 
-```bash
-/plugin install rp1-base
-```
+=== "CLI (Terminal)"
+
+    ```bash
+    claude plugin install rp1-base
+    ```
+
+=== "Slash Command"
+
+    ```bash
+    /plugin install rp1-base
+    ```
 
 **Expected output:**
 ```
@@ -49,9 +75,17 @@ Plugin 'rp1-base' installed successfully.
 
 ### Step 3: Install the dev plugin
 
-```bash
-/plugin install rp1-dev
-```
+=== "CLI (Terminal)"
+
+    ```bash
+    claude plugin install rp1-dev
+    ```
+
+=== "Slash Command"
+
+    ```bash
+    /plugin install rp1-dev
+    ```
 
 **Expected output:**
 ```
@@ -114,19 +148,50 @@ Auto-detects CLAUDE.md or AGENTS.md and adds KB loading patterns. Running again 
 
 To update rp1 to the latest version:
 
-```bash
-/plugin update rp1-base
-/plugin update rp1-dev
-```
+=== "CLI (Terminal)"
+
+    Run from any terminal:
+
+    ```bash
+    claude plugin update rp1-base
+    claude plugin update rp1-dev
+    ```
+
+    Or update all plugins at once:
+
+    ```bash
+    claude plugin update --all
+    ```
+
+=== "Slash Command"
+
+    Inside a Claude Code session:
+
+    ```bash
+    /plugin update rp1-base
+    /plugin update rp1-dev
+    ```
+
+!!! warning "Restart After Update"
+    After updating plugins, restart Claude Code to load the new versions.
 
 ### Uninstalling
 
 If you need to remove rp1:
 
-```bash
-/plugin uninstall rp1-dev
-/plugin uninstall rp1-base
-```
+=== "CLI (Terminal)"
+
+    ```bash
+    claude plugin uninstall rp1-dev
+    claude plugin uninstall rp1-base
+    ```
+
+=== "Slash Command"
+
+    ```bash
+    /plugin uninstall rp1-dev
+    /plugin uninstall rp1-base
+    ```
 
 ---
 
@@ -137,9 +202,18 @@ If you need to remove rp1:
     **Solution**: Make sure you completely restarted Claude Code. Close all terminal windows running Claude Code, then start a fresh session.
 
     If commands still don't appear, verify the plugins are installed:
-    ```bash
-    /plugin list
-    ```
+
+    === "CLI (Terminal)"
+
+        ```bash
+        claude plugin list
+        ```
+
+    === "Slash Command"
+
+        ```bash
+        /plugin list
+        ```
 
     You should see `rp1-base` and `rp1-dev` in the list.
 
@@ -158,11 +232,22 @@ If you need to remove rp1:
 ??? question "Plugin install fails?"
 
     **Solution**: Check your internet connection and try again. If the issue persists, try removing and re-adding the marketplace:
-    ```bash
-    /plugin marketplace remove rp1-run/rp1
-    /plugin marketplace add rp1-run/rp1
-    /plugin install rp1-base
-    ```
+
+    === "CLI (Terminal)"
+
+        ```bash
+        claude plugin marketplace remove rp1-run/rp1
+        claude plugin marketplace add rp1-run/rp1
+        claude plugin install rp1-base
+        ```
+
+    === "Slash Command"
+
+        ```bash
+        /plugin marketplace remove rp1-run/rp1
+        /plugin marketplace add rp1-run/rp1
+        /plugin install rp1-base
+        ```
 
 ??? question "Knowledge build takes a long time?"
 
@@ -179,6 +264,55 @@ If you need to remove rp1:
 
     1. `rp1-base` must be installed first (it has no dependencies)
     2. `rp1-dev` depends on `rp1-base`
+
+??? question "How do I check plugin versions?"
+
+    View installed plugin versions:
+
+    === "CLI (Terminal)"
+
+        ```bash
+        claude plugin list
+        ```
+
+    === "Slash Command"
+
+        ```bash
+        /plugin list
+        ```
+
+    To check for available updates:
+
+    === "CLI (Terminal)"
+
+        ```bash
+        claude plugin outdated
+        ```
+
+---
+
+## CLI Command Reference
+
+For convenience, here's a summary of all plugin management CLI commands:
+
+| Command | Description |
+|---------|-------------|
+| `claude plugin marketplace add <repo>` | Add a plugin marketplace |
+| `claude plugin marketplace remove <repo>` | Remove a plugin marketplace |
+| `claude plugin install <plugin>` | Install a plugin |
+| `claude plugin uninstall <plugin>` | Uninstall a plugin |
+| `claude plugin update <plugin>` | Update a specific plugin |
+| `claude plugin update --all` | Update all plugins |
+| `claude plugin list` | List installed plugins |
+| `claude plugin enable <plugin>` | Enable a disabled plugin |
+| `claude plugin disable <plugin>` | Disable a plugin |
+
+!!! tip "CLI Advantage"
+    CLI commands can be run from any terminal without an active Claude Code session. This is useful for:
+
+    - Scripting plugin installations
+    - Managing plugins from your IDE's integrated terminal
+    - Updating plugins while Claude Code is closed
 
 ---
 

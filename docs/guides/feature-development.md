@@ -8,10 +8,11 @@ Build your first feature with rp1's complete development workflow. This tutorial
 
 ## What You'll Learn
 
-- How rp1's 6-step feature workflow connects together
+- How rp1's 5-step feature workflow connects together
 - Using blueprint to capture project vision
-- Generating requirements, design, and tasks
-- Building and verifying features
+- Generating requirements and design (with auto-generated tasks)
+- Building with the builder-reviewer architecture
+- Verifying and archiving features
 - The artifacts produced at each step
 
 ## Prerequisites
@@ -35,32 +36,33 @@ We'll build a **dark mode toggle** feature for a settings page. This example was
 
 ---
 
-## The 6-Step Workflow
+## The 5-Step Workflow
 
 ```mermaid
 flowchart LR
-    B[Blueprint] --> R[Requirements]
-    R --> D[Design]
-    D --> T[Tasks]
-    T --> Bu[Build]
+    R[Requirements] --> D[Design]
+    D --> Bu[Build]
     Bu --> V[Verify]
+    V --> A[Archive]
 ```
 
 | Step | Purpose | Output |
 |------|---------|--------|
-| Blueprint | Capture project vision | charter.md, PRD |
 | Requirements | Define what to build | requirements.md |
-| Design | Define how to build it | design.md |
-| Tasks | Break into actionable items | tasks.md |
+| Design | Define how to build it | design.md + tasks.md |
 | Build | Implement the code | Working feature |
 | Verify | Validate against criteria | Verification report |
+| Archive | Store completed feature | Archived artifacts |
+
+!!! info "Tasks Auto-Generate After Design"
+    Unlike previous versions, you no longer need a separate `/feature-tasks` step. Running `/feature-design` automatically generates both `design.md` and `tasks.md`. The `/feature-tasks` command is still available for regenerating or updating tasks if needed.
 
 ---
 
-## Step 1: Blueprint (Optional)
+## Optional: Blueprint
 
 !!! info "When to Use Blueprint"
-    Blueprint is ideal for new projects or major initiatives. For small features in existing projects, you can skip to Step 2.
+    Blueprint is ideal for new projects or major initiatives. For small features in existing projects, you can skip to Step 1.
 
 If you're starting a new project, run the blueprint wizard:
 
@@ -95,7 +97,7 @@ The wizard asks questions and creates:
 
 ---
 
-## Step 2: Feature Requirements
+## Step 1: Feature Requirements
 
 Define what the dark mode toggle needs to do:
 
@@ -124,7 +126,7 @@ Answer the questions, and rp1 generates a comprehensive requirements document.
 **What to expect:**
 
 ```
-✅ Requirements generated
+Requirements generated
 
 Output: .rp1/work/features/dark-mode-toggle/requirements.md
 
@@ -143,7 +145,7 @@ Next step: /feature-design dark-mode-toggle
 
 ---
 
-## Step 3: Feature Design
+## Step 2: Feature Design
 
 Transform requirements into a technical design:
 
@@ -171,11 +173,11 @@ rp1 analyzes your requirements and your codebase (via the KB) to create a design
 **What to expect:**
 
 ```
-✅ Technical design generated
+Technical design generated
 
 Output:
 - .rp1/work/features/dark-mode-toggle/design.md
-- .rp1/work/features/dark-mode-toggle/design-decisions.md
+- .rp1/work/features/dark-mode-toggle/tasks.md (auto-generated)
 
 Design includes:
 - Architecture diagram
@@ -184,66 +186,46 @@ Design includes:
 - Storage strategy
 - Testing approach
 
-Next step: /feature-tasks dark-mode-toggle
-```
-
-!!! tip "Checkpoint"
-    Review `design.md` to ensure it aligns with your codebase patterns.
-
----
-
-## Step 4: Feature Tasks
-
-Break the design into actionable tasks:
-
-=== "Claude Code"
-
-    ```bash
-    /feature-tasks dark-mode-toggle
-    ```
-
-=== "OpenCode"
-
-    ```bash
-    /rp1-dev/feature-tasks dark-mode-toggle
-    ```
-
-**What happens:**
-
-rp1 analyzes the design and creates a structured task breakdown with:
-- Clear task descriptions
-- Acceptance criteria per task
-- Dependencies between tasks
-- Effort estimates
-
-**What to expect:**
-
-```
-✅ Task breakdown complete
-
-Feature: dark-mode-toggle
-Tasks: 6
-Milestones: 1
-
-Tasks:
-- [ ] Create theme context provider
-- [ ] Add dark mode CSS variables
-- [ ] Implement toggle component
-- [ ] Add localStorage persistence
-- [ ] Integrate into settings page
-- [ ] Write tests
-
-Output: .rp1/work/features/dark-mode-toggle/tasks.md
+Tasks include:
+- [ ] Create theme context provider [complexity:medium]
+- [ ] Add dark mode CSS variables [complexity:simple]
+- [ ] Implement toggle component [complexity:medium]
+- [ ] Add localStorage persistence [complexity:simple]
+- [ ] Integrate into settings page [complexity:simple]
+- [ ] Write tests [complexity:medium]
 
 Next step: /feature-build dark-mode-toggle
 ```
 
 !!! tip "Checkpoint"
-    Review tasks and verify they cover all requirements.
+    Review `design.md` to ensure it aligns with your codebase patterns. Review `tasks.md` to verify task breakdown is appropriate.
 
 ---
 
-## Step 5: Feature Build
+## Optional: Validate Hypothesis
+
+!!! info "When to Use"
+    Use `/validate-hypothesis` when your design contains risky assumptions that should be tested before full implementation.
+
+If your design includes untested assumptions (e.g., "CSS custom properties work with the existing theming system"), you can validate them:
+
+=== "Claude Code"
+
+    ```bash
+    /validate-hypothesis dark-mode-toggle
+    ```
+
+=== "OpenCode"
+
+    ```bash
+    /rp1-dev/validate-hypothesis dark-mode-toggle
+    ```
+
+This creates minimal proof-of-concept code to validate critical design decisions before committing to full implementation.
+
+---
+
+## Step 3: Feature Build
 
 Implement the feature from the task list:
 
@@ -261,31 +243,54 @@ Implement the feature from the task list:
 
 **What happens:**
 
-rp1 works through each task:
-1. Reads the task description
-2. Implements according to the design
-3. Runs tests and linting
-4. Updates the task file with implementation details
-5. Documents any discoveries in field notes
+rp1 uses a **builder-reviewer architecture** for reliable implementation:
+
+```mermaid
+flowchart TD
+    O[Orchestrator] --> G[Group Tasks]
+    G --> B[Builder Agent]
+    B --> R[Reviewer Agent]
+    R -->|PASS| N[Next Group]
+    R -->|FAIL| F[Feedback]
+    F --> B2[Builder Retry]
+    B2 --> R2[Reviewer]
+    R2 -->|PASS| N
+    R2 -->|FAIL| E[Escalate to User]
+```
+
+1. **Orchestrator** groups tasks by complexity
+2. **Builder** implements tasks according to design
+3. **Reviewer** validates implementation against criteria
+4. If issues found, builder gets **one retry with feedback**
+5. Persistent failures escalate to user
+
+**Builder-Reviewer Benefits:**
+
+- **Quality gate**: Every task is verified before moving on
+- **Adaptive grouping**: Simple tasks are batched, complex tasks run solo
+- **Feedback loop**: Builder learns from reviewer feedback
+- **Fail-safe**: Unresolvable issues escalate rather than silently fail
 
 **What to expect:**
-
-This is the longest step. rp1 provides progress updates:
 
 ```
 Building feature: dark-mode-toggle
 
-[1/6] Creating theme context provider...
-  ✓ Created src/contexts/ThemeContext.tsx
-  ✓ Tests passing
+[Group 1/3] Tasks T1, T2 (simple)
+  Builder: Implementing...
+  Reviewer: Validating... PASS
 
-[2/6] Adding dark mode CSS variables...
-  ✓ Updated src/styles/variables.css
-  ✓ Lint clean
+[Group 2/3] Task T3 (medium)
+  Builder: Implementing...
+  Reviewer: Validating... FAIL (missing edge case)
+  Builder: Retrying with feedback...
+  Reviewer: Validating... PASS
 
-...
+[Group 3/3] Tasks T4, T5, T6 (simple/medium)
+  Builder: Implementing...
+  Reviewer: Validating... PASS
 
-✅ Implementation complete
+Build Complete
 
 Tasks completed: 6/6
 Tests: 12/12 passing
@@ -301,7 +306,7 @@ Next step: /feature-verify dark-mode-toggle
 
 ---
 
-## Step 6: Feature Verify
+## Step 4: Feature Verify
 
 Validate the implementation against requirements:
 
@@ -329,16 +334,16 @@ rp1 performs comprehensive validation:
 **What to expect:**
 
 ```
-✅ Feature Verification Complete
+Feature Verification Complete
 
 Feature: dark-mode-toggle
 Status: READY FOR MERGE
 
 Requirements Coverage:
-- REQ-001: ✓ PASS (toggle component renders)
-- REQ-002: ✓ PASS (theme changes on toggle)
-- REQ-003: ✓ PASS (preference persists)
-- REQ-004: ✓ PASS (respects system preference)
+- REQ-001: PASS (toggle component renders)
+- REQ-002: PASS (theme changes on toggle)
+- REQ-003: PASS (preference persists)
+- REQ-004: PASS (respects system preference)
 
 Acceptance Criteria: 12/12 passed
 Tests: 12/12 passing
@@ -349,18 +354,60 @@ Report: .rp1/work/features/dark-mode-toggle/verification-report.md
 
 ---
 
+## Step 5: Feature Archive
+
+After merging your feature, archive it:
+
+=== "Claude Code"
+
+    ```bash
+    /feature-archive dark-mode-toggle
+    ```
+
+=== "OpenCode"
+
+    ```bash
+    /rp1-dev/feature-archive dark-mode-toggle
+    ```
+
+**What happens:**
+
+rp1 moves all feature artifacts to the archive:
+- Compresses artifacts for storage
+- Preserves requirements, design, tasks, and verification report
+- Clears working directory for next feature
+
+**What to expect:**
+
+```
+Feature Archived
+
+Feature: dark-mode-toggle
+Location: .rp1/archive/features/dark-mode-toggle/
+
+Archived artifacts:
+- requirements.md
+- design.md
+- tasks.md
+- verification-report.md
+- field-notes.md
+```
+
+---
+
 ## Summary
 
 You've completed the full feature development workflow:
 
 | Step | Command | Artifact |
 |------|---------|----------|
-| 1. Blueprint | `blueprint` | charter.md, PRD |
-| 2. Requirements | `feature-requirements` | requirements.md |
-| 3. Design | `feature-design` | design.md |
-| 4. Tasks | `feature-tasks` | tasks.md |
-| 5. Build | `feature-build` | Implementation |
-| 6. Verify | `feature-verify` | verification-report.md |
+| Optional | `blueprint` | charter.md, PRD |
+| 1. Requirements | `feature-requirements` | requirements.md |
+| 2. Design | `feature-design` | design.md + tasks.md |
+| Optional | `validate-hypothesis` | Proof-of-concept |
+| 3. Build | `feature-build` | Implementation |
+| 4. Verify | `feature-verify` | verification-report.md |
+| 5. Archive | `feature-archive` | Archived artifacts |
 
 ### Key Benefits
 
@@ -368,14 +415,16 @@ You've completed the full feature development workflow:
 - **Documented artifacts** - Every step produces documentation
 - **Context-aware** - rp1 respects your codebase patterns
 - **Traceable** - Requirements map to design to tasks to code
+- **Quality-gated builds** - Builder-reviewer ensures implementation quality
+- **Auto-generated tasks** - Design produces tasks automatically
 
 ---
 
 ## Next Steps
 
-- **Archive the feature**: After merging, run `feature-archive dark-mode-toggle`
 - **Try another workflow**: Explore [PR Review](../reference/dev/pr-review.md) or [Code Investigation](../reference/dev/code-investigate.md)
 - **Learn the concepts**: Understand [Constitutional Prompting](../concepts/constitutional-prompting.md)
+- **Regenerate tasks**: If needed, use `/feature-tasks` to update task breakdown
 
 ---
 
@@ -395,14 +444,28 @@ You've completed the full feature development workflow:
     /knowledge-build
     ```
 
-??? question "Build phase is failing tests"
+??? question "Build phase is failing repeatedly"
 
-    Check if your test configuration is detectable. rp1 auto-detects common setups (Jest, pytest, etc.). If yours is custom, you may need to run tests manually.
+    The builder-reviewer architecture retries once with feedback. If issues persist:
+
+    1. Check the reviewer feedback for specific problems
+    2. Verify your test configuration is detectable
+    3. Consider using `--mode ask` to handle failures interactively
+    4. Update design.md if the approach needs adjustment
 
 ??? question "Can I skip steps?"
 
     Yes, but with caution. You can skip:
-    - Blueprint (for small features in existing projects)
-    - validate-hypothesis (unless you have risky assumptions)
 
-    Don't skip requirements, design, or tasks—these provide the context for build and verify.
+    - **Blueprint** - For small features in existing projects
+    - **validate-hypothesis** - Unless you have risky design assumptions
+    - **feature-tasks** - Tasks auto-generate after design; only needed for regeneration
+
+    Don't skip requirements, design, build, or verify—these form the core workflow.
+
+??? question "Can I regenerate tasks after design changes?"
+
+    Yes. If you update `design.md`, run `/feature-tasks` to regenerate the task breakdown:
+    ```bash
+    /feature-tasks dark-mode-toggle
+    ```

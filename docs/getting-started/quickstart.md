@@ -51,18 +51,43 @@ Choose your platform and follow the remaining steps:
 
 === "Claude Code"
 
+    !!! tip "CLI vs Slash Commands"
+        Claude Code provides two ways to manage plugins:
+
+        - **CLI commands** (`claude plugin ...`) - Run from any terminal, even outside Claude Code
+        - **Slash commands** (`/plugin ...`) - Run inside an active Claude Code session
+
+        Both methods work identically. CLI commands are convenient for scripting and when you don't have a Claude Code session open.
+
     **Step 1: Add the marketplace**
 
-    ```bash
-    /plugin marketplace add rp1-run/rp1
-    ```
+    === "CLI (Terminal)"
+
+        ```bash
+        claude plugin marketplace add rp1-run/rp1
+        ```
+
+    === "Slash Command"
+
+        ```bash
+        /plugin marketplace add rp1-run/rp1
+        ```
 
     **Step 2: Install the plugins**
 
-    ```bash
-    /plugin install rp1-base
-    /plugin install rp1-dev
-    ```
+    === "CLI (Terminal)"
+
+        ```bash
+        claude plugin install rp1-base
+        claude plugin install rp1-dev
+        ```
+
+    === "Slash Command"
+
+        ```bash
+        /plugin install rp1-base
+        /plugin install rp1-dev
+        ```
 
     **Step 3: Restart Claude Code**
 

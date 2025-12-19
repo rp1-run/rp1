@@ -92,12 +92,21 @@ nav:
     - reference/index.md
     - Base Plugin:
       - reference/base/index.md
-      - knowledge-build: reference/base/knowledge-build.md
-      - knowledge-load: reference/base/knowledge-load.md
-      - project-birds-eye-view: reference/base/project-birds-eye-view.md
-      - strategize: reference/base/strategize.md
-      - write-content: reference/base/write-content.md
-      - analyse-security: reference/base/analyse-security.md
+      - Knowledge:
+        - knowledge-build: reference/base/knowledge-build.md
+        - knowledge-load: reference/base/knowledge-load.md
+      - Research:
+        - deep-research: reference/base/deep-research.md
+      - Documentation:
+        - project-birds-eye-view: reference/base/project-birds-eye-view.md
+        - write-content: reference/base/write-content.md
+      - Analysis:
+        - strategize: reference/base/strategize.md
+        - analyse-security: reference/base/analyse-security.md
+      - Validation:
+        - fix-mermaid: reference/base/fix-mermaid.md
+      - Maintenance:
+        - self-update: reference/base/self-update.md
     - Dev Plugin:
       - reference/dev/index.md
       - Blueprint & Planning:
