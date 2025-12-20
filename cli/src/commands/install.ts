@@ -2,12 +2,12 @@ import { Command } from "commander";
 import * as E from "fp-ts/lib/Either.js";
 import { formatError, getExitCode } from "../../shared/errors.js";
 import type { Logger } from "../../shared/logger.js";
+import { executeClaudeCodeInstall } from "../install/claudecode/index.js";
 import {
 	executeInstall,
 	executeList,
 	executeVerify,
 } from "../install/index.js";
-import { codes } from "../lib/colors.js";
 
 export const installCommand = new Command("install:opencode")
 	.description("Install rp1 plugins to OpenCode platform")
@@ -118,26 +118,51 @@ Examples:
 	});
 
 export const installClaudeCodeCommand = new Command("install:claudecode")
-	.description("Show instructions for installing rp1 plugins in Claude Code")
-	.action(async () => {
-		const { cyan, bold, reset, dim } = codes;
+	.description("Install rp1 plugins to Claude Code")
+	.option("--dry-run", "Show what would be executed without making changes")
+	.option("-y, --yes", "Skip confirmation prompts (non-interactive mode)")
+	.option(
+		"-s, --scope <scope>",
+		"Installation scope: user, project, or local",
+		"user",
+	)
+	.addHelpText(
+		"after",
+		`
+Examples:
+  rp1 install:claudecode                Install to user scope
+  rp1 install:claudecode --dry-run      Preview installation commands
+  rp1 install:claudecode -y             Non-interactive installation
+  rp1 install:claudecode -s project     Install to project scope
+`,
+	)
+	.action(async (options, command) => {
+		const logger = command.parent?._logger as Logger;
+		const isTTY = command.parent?._isTTY ?? false;
 
-		console.log(`
-${bold}Installing rp1 plugins in Claude Code${reset}
+		if (!logger) {
+			console.error("Logger not initialized");
+			process.exit(1);
+		}
 
-Claude Code uses a plugin marketplace. Run these commands in Claude Code:
+		const args: string[] = [];
+		if (options.dryRun) {
+			args.push("--dry-run");
+		}
+		if (options.yes) {
+			args.push("--yes");
+		}
+		if (options.scope) {
+			args.push("--scope", options.scope);
+		}
 
-${cyan}# Add the rp1 marketplace${reset}
-${bold}/plugin marketplace add rp1-run/rp1${reset}
+		const result = await executeClaudeCodeInstall(args, logger, {
+			isTTY,
+			skipPrompt: options.yes,
+		})();
 
-${cyan}# Install the plugins${reset}
-${bold}/plugin install rp1-base${reset}
-${bold}/plugin install rp1-dev${reset}
-
-${cyan}# Verify installation${reset}
-${bold}/help${reset}  ${dim}(should show rp1 commands)${reset}
-
-${dim}For detailed instructions, visit:${reset}
-${bold}https://rp1.run/getting-started/quickstart/${reset}
-`);
+		if (E.isLeft(result)) {
+			console.error(formatError(result.left, process.stderr.isTTY ?? false));
+			process.exit(getExitCode(result.left));
+		}
 	});
