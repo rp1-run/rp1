@@ -73,7 +73,7 @@ Creates additional PRD for a specific surface:
 
 | File | Location | Contents |
 |------|----------|----------|
-| Charter | `.rp1/work/charter.md` | Problem, users, business rationale, scope |
+| Charter | `.rp1/context/charter.md` | Problem, users, business rationale, scope |
 | PRD | `.rp1/work/prds/<name>.md` | Surface scope, requirements, timeline |
 
 ## Examples

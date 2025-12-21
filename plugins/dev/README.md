@@ -37,8 +37,8 @@ Then install dev plugin:
 ```
 
 The blueprint command creates a two-tier document hierarchy:
-1. **Charter** (`.rp1/work/charter.md`) - Project-level "why" and "who"
-2. **PRDs** (`.rp1/work/prds/<name>.md`) - Surface-specific "what" that inherits from charter
+1. **Charter** (`{RP1_ROOT}/context/charter.md`) - Project-level "why" and "who"
+2. **PRDs** (`{RP1_ROOT}/work/prds/<name>.md`) - Surface-specific "what" that inherits from charter
 
 ### Feature Development (9)
 - `/feature-requirements feature-id [extra-context]` - Gather requirements

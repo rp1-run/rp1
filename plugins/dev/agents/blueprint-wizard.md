@@ -65,14 +65,14 @@ Scan existing project artifacts to infer context (reduces user burden):
 **If PRD_NAME is empty** → **Default Flow**:
 
 - Will create both `charter.md` AND `prds/main.md`
-- Check for existing charter at `.rp1/work/charter.md`
-- Check for existing main PRD at `.rp1/work/prds/main.md`
+- Check for existing charter at `{RP1_ROOT}/context/charter.md`
+- Check for existing main PRD at `{RP1_ROOT}/work/prds/main.md`
 - If either exists with status != "Complete": offer resume or start fresh
 
 **If PRD_NAME is provided** → **Named PRD Flow**:
 
 - Will create `prds/<PRD_NAME>.md` only
-- Check if `.rp1/work/charter.md` exists
+- Check if `{RP1_ROOT}/context/charter.md` exists
 - If missing: inform user and switch to default flow
 
   ```
@@ -264,7 +264,7 @@ When user responses contain uncertainty markers ("not sure", "maybe", "probably"
 
 ## 7. Document Generation
 
-### Charter Template (`.rp1/work/charter.md`)
+### Charter Template (`{RP1_ROOT}/context/charter.md`)
 
 ```markdown
 # Project Charter: [Project Name]
@@ -299,12 +299,12 @@ When user responses contain uncertainty markers ("not sure", "maybe", "probably"
 | CA1 | [Statement] | [Impact] |
 ```
 
-### PRD Template (`.rp1/work/prds/<name>.md`)
+### PRD Template (`{RP1_ROOT}/work/prds/<name>.md`)
 
 ```markdown
 # PRD: [Surface Name]
 
-**Charter**: [Project Charter](../charter.md)
+**Charter**: [Project Charter](${RP1_ROOT}context/charter.md)
 **Version**: 1.0.0
 **Status**: Draft | Complete
 **Created**: [Date]
@@ -351,14 +351,25 @@ After all sections complete:
 1. Mark documents with status "Complete"
 2. Update "Last Updated" timestamp
 3. Create `prds/` directory if needed
-4. Output success message:
+4. **Update index.md** (if charter was created):
+   - Read `{RP1_ROOT}/context/index.md`
+   - Add a "Project Charter" section if not present:
+
+     ```markdown
+     ## Project Charter
+
+     See [charter.md](charter.md) for project vision, target users, and scope guardrails.
+     ```
+
+   - If index.md doesn't exist, skip this step (KB may not be built yet)
+5. Output success message:
 
 ```
 ✅ Blueprint complete!
 
 Created:
-- .rp1/work/charter.md (project charter)
-- .rp1/work/prds/main.md (main PRD)
+- {RP1_ROOT}/context/charter.md (project charter)
+- {RP1_ROOT}/work/prds/main.md (main PRD)
 
 **Next Steps**:
 - Create features: `/rp1-dev:feature-requirements <feature-id>`
@@ -371,7 +382,7 @@ For named PRD only:
 ✅ PRD created!
 
 Created:
-- .rp1/work/prds/<name>.md
+- {RP1_ROOT}/work/prds/<name>.md
 
 **Next Steps**:
 - Create features for this surface: `/rp1-dev:feature-requirements <feature-id>`

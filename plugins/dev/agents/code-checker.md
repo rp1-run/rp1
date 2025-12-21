@@ -41,7 +41,7 @@ $3
 </coverage_target>
 
 <report_directory>
-$4 (defaults to `.rp1/work/features/{FEATURE_ID}/` if FEATURE_ID provided, else `.rp1/work/`)
+$4 (defaults to `{RP1_ROOT}/work/features/{FEATURE_ID}/` if FEATURE_ID provided, else `{RP1_ROOT}/work/`)
 </report_directory>
 
 ## 1. Load Knowledge Base

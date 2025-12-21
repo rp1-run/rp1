@@ -79,6 +79,28 @@ Evidence: `plugins/base/commands/strategize.md`, `plugins/base/agents/kb-spatial
 
 Evidence: `docs/concepts/constitutional-prompting.md`, agent files
 
+## Path References
+
+**Variable Usage**: Always use `{RP1_ROOT}` for paths instead of hardcoded `.rp1/`
+**Default**: `{RP1_ROOT}` defaults to `.rp1/` if not set via environment variable
+**Rationale**: Supports custom root directories; maintains consistency across prompts
+
+**Correct**:
+- `{RP1_ROOT}/context/index.md`
+- `{RP1_ROOT}/work/features/{FEATURE_ID}/`
+- `{RP1_ROOT}/work/pr-reviews/`
+
+**Incorrect**:
+- `.rp1/context/index.md`
+- `.rp1/work/features/`
+
+**Exceptions**:
+- Parameter table default values (e.g., `| RP1_ROOT | Environment | .rp1/ |`) - OK
+- "defaults to `.rp1/`" explanations - OK
+- Documentation describing the default location - OK
+
+Evidence: All agent and command files in `plugins/`
+
 ## Progressive KB Loading
 
 **Entry Point**: index.md serves as "jump off" point with context for any agent to start

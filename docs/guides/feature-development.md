@@ -89,11 +89,11 @@ The wizard guides you through:
 **What to expect:**
 
 The wizard asks questions and creates:
-- `.rp1/work/charter.md` - Project vision
+- `.rp1/context/charter.md` - Project vision
 - `.rp1/work/prds/main.md` - Product requirements
 
 !!! tip "Checkpoint"
-    After blueprint: `ls .rp1/work/` should show `charter.md` and `prds/` directory.
+    After blueprint: `ls .rp1/context/` should show `charter.md` and `ls .rp1/work/` should show `prds/` directory.
 
 ---
 

@@ -198,7 +198,7 @@ Remember: This validation provides technical and business requirement verificati
 **Question**: "Verification passed! Would you like to archive this feature?"
 
 **Options**:
-1. **Yes - Archive now**: Archive the feature to `.rp1/work/archives/features/`
+1. **Yes - Archive now**: Archive the feature to `{RP1_ROOT}/work/archives/features/`
 2. **No - Keep in active features**: Complete verification without archiving
 
 **If user selects "Yes"**:

@@ -252,8 +252,8 @@ Map data flow and state:
 
 **For rp1 example**:
 
-- State stored in `.rp1/context/state.json`
-- KB files generated in `.rp1/context/*.md`
+- State stored in `{RP1_ROOT}/context/state.json`
+- KB files generated in `{RP1_ROOT}/context/*.md`
 - State updated after each KB generation
 
 **Output Format**:
@@ -262,7 +262,7 @@ Map data flow and state:
 {
   "state_management": {
     "strategy": "File-based state with JSON metadata",
-    "location": ".rp1/context/state.json",
+    "location": "{RP1_ROOT}/context/state.json",
     "lifecycle": "Generated after KB build, used for incremental updates"
   },
   "data_flows": [

@@ -43,14 +43,14 @@ Launch the blueprint wizard to capture and structure your project vision through
 
 The blueprint command creates a two-tier document hierarchy:
 
-1. **Charter** (`.rp1/work/charter.md`) - Single project-level document capturing:
+1. **Charter** (`{RP1_ROOT}/context/charter.md`) - Single project-level document capturing:
    - Problem & context (why)
    - Target users (who)
    - Business rationale
    - Scope guardrails
    - Success criteria
 
-2. **PRDs** (`.rp1/work/prds/<name>.md`) - Surface-specific documents capturing:
+2. **PRDs** (`{RP1_ROOT}/work/prds/<name>.md`) - Surface-specific documents capturing:
    - Surface overview
    - In/out scope
    - Requirements
@@ -77,7 +77,7 @@ The wizard will:
 2. Detect mode (default vs named PRD)
 3. Guide through 5 charter sections (if default flow)
 4. Guide through 5 PRD sections
-5. Generate documents at .rp1/work/
+5. Generate charter at {RP1_ROOT}/context/, PRDs at {RP1_ROOT}/work/prds/
 
 Execute the blueprint-wizard workflow immediately.
 ```
