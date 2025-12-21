@@ -204,9 +204,23 @@ Create a comprehensive feedback document with this exact structure:
 ```
 
 ### Phase 6: File Output and Reporting
-- Write the feedback document to: `<RP1_ROOT>/work/features/<FEATURE_ID>/collected_feedback.md`
-- Overwrite the file if it already exists
-- Create directory structure if it doesn't exist
+
+**Directory**: `<RP1_ROOT>/work/pr-reviews/`
+
+**File Naming Pattern**: `<identifier>-feedback-<NNN>.md`
+- `<identifier>`: PR number (e.g., `pr-123`), feature ID, or sanitized branch name
+- `<NNN>`: Zero-padded sequence number (001, 002, etc.)
+
+**Steps**:
+1. Create directory if it doesn't exist: `mkdir -p <RP1_ROOT>/work/pr-reviews/`
+2. Determine identifier (prefer PR number > feature ID > branch name)
+3. Find next available sequence number by checking existing files matching `<identifier>-feedback-*.md`
+4. Write to: `<RP1_ROOT>/work/pr-reviews/<identifier>-feedback-<NNN>.md`
+
+**Examples**:
+- `pr-123-feedback-001.md`
+- `feature-auth-feedback-001.md`
+- `my-branch-feedback-002.md`
 
 ### Phase 7: Final Summary Report
 Provide a concise summary (under 400 words) with:

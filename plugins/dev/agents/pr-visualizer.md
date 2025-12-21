@@ -144,9 +144,17 @@ sequenceDiagram
 ## Final Steps
 
 After generating your analysis and diagrams:
-1. Save output to: `{RP1_ROOT}/work/pr_reviews/{pr-branch}-visual.md`
-2. Generate preview using `rp1-base:markdown-preview` skill
-3. Provide a brief completion summary
+
+1. **Determine output path**:
+   - Directory: `{RP1_ROOT}/work/pr-reviews/`
+   - Pattern: `<identifier>-visual-<NNN>.md`
+   - `<identifier>`: PR number (e.g., `pr-123`) or sanitized branch name
+   - `<NNN>`: Next available sequence number (check existing `<identifier>-visual-*.md` files)
+   - Example: `pr-123-visual-001.md`, `feature-auth-visual-002.md`
+
+2. Save output to the determined path
+3. Generate preview using `rp1-base:markdown-preview` skill
+4. Provide a brief completion summary including the file path
 
 If no visualizations are warranted, output exactly: "No visualizations needed."
 
