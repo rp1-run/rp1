@@ -51,7 +51,7 @@ Phase 3 (Sequential):  Command → Merge JSON → Generate index.md → Write KB
 
 ### Feature Learning Mode
 
-If `FEATURE_ID` ($1) is provided, this is a **feature learning build** that captures knowledge from an archived feature:
+If `FEATURE_ID` ($1) is provided, this is a **feature learning build** that captures knowledge from an archived feature. **Skip Phase 0 entirely** (no git commit parsing needed).
 
 1. **Locate archived feature**:
    ```
@@ -74,33 +74,58 @@ If `FEATURE_ID` ($1) is provided, this is a **feature learning build** that capt
    - `{FEATURE_PATH}/requirements.md` - What was built
    - `{FEATURE_PATH}/design.md` - How it was designed
    - `{FEATURE_PATH}/field-notes.md` - Learnings and discoveries (if exists)
-   - `{FEATURE_PATH}/tasks.md` - Implementation details (if exists)
+   - `{FEATURE_PATH}/tasks.md` - Implementation details with files modified
 
-3. **Extract feature context**:
+3. **Extract files modified from tasks.md**:
+   Parse implementation summaries to build `FILES_MODIFIED` list:
+   ```
+   Look for patterns:
+   - **Files**: `src/file1.ts`, `src/file2.ts`
+   - **Files Modified**: ...
+
+   Extract all file paths into FILES_MODIFIED array.
+   ```
+
+4. **Extract feature context**:
    Build a `FEATURE_CONTEXT` object containing:
    - Feature ID and path
    - Key requirements (summarized)
    - Architectural decisions from design.md
    - All discoveries from field-notes.md
    - Implementation patterns used
+   - `files_modified`: FILES_MODIFIED array
 
-4. **Proceed with incremental build**:
-   - Force MODE=INCREMENTAL (even if no git changes)
-   - Pass `FEATURE_CONTEXT` to all sub-agents in Phase 2
-   - Sub-agents should incorporate feature learnings into their analysis
+5. **Jump directly to Phase 1 (Spatial Analysis)**:
+   - Pass `FILES_MODIFIED` to spatial analyzer instead of git diff
+   - Spatial analyzer categorizes these specific files
+   - No git commit comparison needed
 
-5. **Sub-agent prompts include**:
+6. **Spatial analyzer prompt (Feature Learning Mode)**:
+   ```
+   FEATURE_LEARNING mode. Categorize these files modified during feature implementation:
+   FILES: {{stringify(FILES_MODIFIED)}}
+
+   Rank each file 0-5, categorize by KB section (index_files, concept_files, arch_files, module_files).
+   Return JSON with categorized files.
+   ```
+
+7. **Sub-agent prompts include**:
    ```
    FEATURE_CONTEXT: {{stringify(feature_context)}}
+   MODE: FEATURE_LEARNING
 
    Incorporate learnings from this completed feature:
    - Update patterns.md with implementation patterns discovered
    - Update architecture.md if new architectural patterns emerged
    - Update modules.md with new components/dependencies
    - Update concept_map.md with new domain concepts
+
+   Focus on files that were modified: {{stringify(FILES_MODIFIED)}}
    ```
 
 ### Phase 0: Change Detection and Diff Analysis
+
+**NOTE**: Skip this phase entirely if FEATURE_ID is provided (Feature Learning Mode).
 
 1. **Check for existing KB state**:
    - Check if `{{RP1_ROOT}}/context/state.json` exists

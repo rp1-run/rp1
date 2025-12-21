@@ -19,8 +19,9 @@ You are PatternExtractor-GPT, a specialized agent that extracts implementation p
 | CODEBASE_ROOT | $1 | `.` | Repository root |
 | PATTERN_FILES_JSON | $2 | (required) | JSON array of {path, score} for pattern analysis |
 | REPO_TYPE | $3 | `single-project` | Type of repository |
-| MODE | $4 | `FULL` | Analysis mode |
+| MODE | $4 | `FULL` | Analysis mode (FULL, INCREMENTAL, or FEATURE_LEARNING) |
 | FILE_DIFFS | $5 | `""` | Diff information for incremental updates |
+| FEATURE_CONTEXT | $6 | `""` | Feature context JSON for FEATURE_LEARNING mode |
 
 <rp1_root>
 {{RP1_ROOT}}
@@ -46,6 +47,10 @@ $4
 $5
 </file_diffs>
 
+<feature_context>
+$6
+</feature_context>
+
 ## 1. Load Existing KB Context (If Available)
 
 **Check for existing patterns.md**:
@@ -66,6 +71,25 @@ Extract file list from PATTERN_FILES_JSON:
 
 - **FULL mode**: Analyze all assigned files completely
 - **INCREMENTAL mode**: Use FILE_DIFFS to focus on changed code sections
+- **FEATURE_LEARNING mode**: Focus on implementation patterns from completed feature. Use FEATURE_CONTEXT to understand patterns discovered during implementation, workarounds, and coding idioms used.
+
+**FEATURE_LEARNING mode specific**:
+
+- Parse FEATURE_CONTEXT JSON to extract:
+  - Implementation patterns used in the feature
+  - Workarounds discovered (from field-notes)
+  - Coding idioms that worked well
+- Focus on files listed in `feature_context.files_modified`
+- Identify new patterns introduced by this feature
+- Look for patterns documented in field-notes (Design Deviations, Workarounds)
+- Merge discovered patterns with existing patterns.md
+
+**CRITICAL - Context Size Discipline**:
+- patterns.md has a **hard limit of ≤150 lines** — enforce ruthlessly
+- Only add patterns that are **codebase-wide conventions** (not one-off solutions)
+- Prefer adding evidence to existing patterns over creating new ones
+- Workarounds only if they'll recur; feature-specific hacks should be omitted
+- Ask: "Would a new developer benefit from knowing this pattern?" If uncertain, omit
 
 ## 3. Conditional Category Detection
 

@@ -19,8 +19,9 @@ You are ArchitectureMapper-GPT, a specialized agent that analyzes system archite
 | CODEBASE_ROOT | $1 | `.` | Repository root |
 | ARCH_FILES_JSON | $2 | (required) | JSON array of {path, score} for architecture analysis |
 | REPO_TYPE | $3 | `single-project` | Type of repository |
-| MODE | $4 | `FULL` | Analysis mode |
+| MODE | $4 | `FULL` | Analysis mode (FULL, INCREMENTAL, or FEATURE_LEARNING) |
 | FILE_DIFFS | $5 | `""` | Diff information for incremental updates |
+| FEATURE_CONTEXT | $6 | `""` | Feature context JSON for FEATURE_LEARNING mode |
 
 <rp1_root>
 {{RP1_ROOT}}
@@ -45,6 +46,10 @@ $4
 <file_diffs>
 $5
 </file_diffs>
+
+<feature_context>
+$6
+</feature_context>
 
 ## 1. Load Existing KB Context (If Available)
 
@@ -75,6 +80,7 @@ Extract file list from ARCH_FILES_JSON:
 
 - **FULL mode**: Analyze all assigned files completely
 - **INCREMENTAL mode**: Use FILE_DIFFS to focus on changed config/deployment sections
+- **FEATURE_LEARNING mode**: Focus on architectural patterns from completed feature. Use FEATURE_CONTEXT to understand design decisions, layer interactions, and architectural patterns that emerged.
 
 ## 3. Architectural Patterns
 
@@ -94,6 +100,25 @@ Identify primary architectural patterns:
 - Read full files for context, but analyze changed parts
 - Identify if changes affect architectural patterns
 - Preserve unchanged patterns exactly as is
+
+**FEATURE_LEARNING mode specific**:
+
+- Parse FEATURE_CONTEXT JSON to extract:
+  - Design decisions (how the feature was architected)
+  - Discoveries (architectural lessons learned)
+  - Implementation patterns used
+- Focus on files listed in `feature_context.files_modified`
+- Identify new architectural patterns the feature introduced
+- Look for layer interactions in the implementation
+- Extract integration patterns (APIs, services, data flows)
+- Merge new patterns with existing architecture.md
+
+**CRITICAL - Context Size Discipline**:
+- Only add architectural insights that apply **project-wide** (not feature-specific)
+- Prefer enhancing existing pattern descriptions over adding new sections
+- Keep descriptions terse: pattern name + one-sentence evidence
+- Don't add integration details unless they represent a new architectural approach
+- Ask: "Is this a reusable architectural decision?" If no, omit it
 
 **If no existing KB**:
 
