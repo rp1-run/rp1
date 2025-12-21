@@ -1,0 +1,19 @@
+{
+  "name": "rp1-utils",
+  "description": "Meta tools for rp1 developers: prompt engineering, agent refactoring, and workflow optimization",
+  "version": "0.2.3",
+  "author": {
+    "name": "Prem Pillai (https://rp1.run)",
+    "email": "prem.pillai@gmail.com"
+  },
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/rp1-run/rp1",
+  "repository": "https://github.com/rp1-run/rp1",
+  "keywords": [
+    "prompt-engineering",
+    "agent-development",
+    "refactoring",
+    "meta-tools",
+    "rp1-development"
+  ]
+}

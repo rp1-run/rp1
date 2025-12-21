@@ -11,6 +11,10 @@
     {
       "name": "rp1-dev",
       "source": "./../plugins/dev/"
+    },
+    {
+      "name": "rp1-utils",
+      "source": "./../plugins/utils/"
     }
   ]
 }
