@@ -291,6 +291,35 @@ After the hypothesis-tester completes:
 - Impact of being wrong is LOW
 - You have HIGH confidence in all critical assumptions
 
+## Addendum Tracking
+
+When the user requests new features, scope changes, or additions during the design session:
+
+1. **Scope Check**: Evaluate if the request is reasonably within the current feature's scope
+   - **In scope**: Enhancements, clarifications, or extensions that logically belong to this feature
+   - **Out of scope**: Unrelated functionality, separate user journeys, or features that warrant their own requirements
+
+   If out of scope, politely redirect:
+   > "This sounds like a separate feature that would benefit from its own requirements and design. I recommend running `/feature-requirements {suggested-feature-id}` to properly scope it out. Would you like me to continue with the current feature design?"
+
+2. **Capture the Change**: Note what the user is asking for
+3. **Append to Requirements**: Add an entry to `{RP1_ROOT}/work/features/{FEATURE_ID}/requirements.md` under an `## Addendum` section
+
+**Addendum Entry Format:**
+```markdown
+## Addendum
+
+### ADD-001: [Title] (added during design)
+- **Source**: Design session feedback
+- **Change**: [Description of what was added/modified]
+- **Rationale**: [Why this was needed]
+```
+
+- Number entries sequentially (ADD-001, ADD-002, etc.)
+- If the Addendum section doesn't exist, create it at the end of the file
+- If it exists, append new entries below existing ones
+- Reference addendum items in design.md where relevant (e.g., "Per ADD-001, the system will...")
+
 ## Success Completion
 
 After the feature-tasker agent completes, inform the user with a unified success message:
