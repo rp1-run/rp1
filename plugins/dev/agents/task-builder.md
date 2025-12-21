@@ -98,7 +98,29 @@ For each task:
 4. Write clean code—no implementation comments
 5. Add docstrings where appropriate
 
-### 3.2 Quality Checks
+### 3.2 Testing Discipline
+
+**CRITICAL**: Follow these rules strictly when writing tests. If no high-value tests can be added without inventing contrived cases, say so and add none.
+
+| # | Rule |
+|---|------|
+| 1 | Add tests only when they protect user-visible behavior, contract boundaries, bug fixes, or high-risk logic. If a test cannot realistically catch a regression, do not add it. |
+| 2 | Do not test third-party libraries, framework behavior, or language primitives. Test only our usage and integration assumptions at the seam. |
+| 3 | Do not write trivial tests for getters, setters, field access, dataclass defaults, or type-checked attribute presence. Treat these as noise unless logic exists. |
+| 4 | Do not duplicate existing coverage. Search for similar unit, integration, and e2e tests first and extend the closest one if needed. |
+| 5 | Prefer black-box assertions on inputs and outputs over testing private methods or internal call structure. Avoid locking in implementation details. |
+| 6 | Cover the happy path plus the smallest set of meaningful boundary conditions implied by the spec (not hypothetical extremes). Add edge cases only when requested or previously buggy. |
+| 7 | When fixing a bug, write a regression test that fails on the pre-fix behavior and passes after the fix. Name it after the observed failure mode. |
+| 8 | Keep tests deterministic and non-flaky: freeze time, control randomness, avoid reliance on ordering, avoid real network, and isolate filesystem state. |
+| 9 | Use the lightest-weight test type that proves the behavior: unit for pure logic, integration for component boundaries, e2e only for critical flows. |
+| 10 | Mock only unstable external boundaries (network, clock, OS, third-party APIs). Do not mock your own code just to make tests pass. |
+| 11 | Minimize combinatorics: use table-driven cases for variants. Do not explode permutations unless risk justifies it. |
+| 12 | Keep tests fast and parallel-safe. Do not materially increase suite runtime without clear value and mention of the tradeoff. |
+| 13 | Follow repo conventions (framework, fixtures, naming, helpers, assertion style). |
+
+**Before writing any test, ask**: "What regression would this catch that isn't already covered?" If no clear answer, skip the test.
+
+### 3.3 Quality Checks
 
 After implementation:
 1. Run formatter if available (`npm run format`, `cargo fmt`, etc.)
@@ -106,7 +128,7 @@ After implementation:
 3. Run relevant tests if available
 4. Verify acceptance criteria are addressed
 
-### 3.3 Scope Verification
+### 3.4 Scope Verification
 
 Before writing summary, verify:
 - [ ] Only modified files listed in scope

@@ -148,6 +148,69 @@ Verify across four dimensions, using `<thinking>` for detailed analysis:
 
 **Evidence**: Reference patterns.md, show alignment
 
+### 3.5 Testing Discipline Check
+
+**Question**: Are tests high-value and non-superfluous?
+
+**Pass Criteria**: Tests follow testing discipline rules
+
+**Checks**:
+- [ ] Tests protect user-visible behavior, not implementation details
+- [ ] No tests for third-party libraries, framework behavior, or language primitives
+- [ ] No trivial tests for getters/setters/field access/dataclass defaults
+- [ ] No duplication of existing test coverage
+- [ ] Tests are black-box (inputs/outputs), not testing private internals
+- [ ] Coverage is minimal: happy path + meaningful boundaries only
+- [ ] Tests are deterministic (no flakiness from time, randomness, ordering, network)
+- [ ] Lightest-weight test type used (unit > integration > e2e)
+- [ ] Mocks only for external boundaries, not internal code
+- [ ] Follows repo test conventions
+
+**FAIL if**:
+- Superfluous tests added that don't catch real regressions
+- Tests that lock in implementation details
+- Tests for library/framework behavior we don't own
+- Combinatorial explosion without risk justification
+
+**Evidence**: List any test violations found
+
+### 3.6 Comment Quality Check
+
+**Question**: Are there unnecessary comments in modified files?
+
+**Pass Criteria**: No low-value comments in changed code
+
+**For each modified file**, scan for comments and classify:
+
+**KEEP (Acceptable)**:
+| Category | Examples |
+|----------|----------|
+| Docstrings | `"""Function docs"""`, `/** JSDoc */` |
+| Public API docs | Parameter descriptions, return types |
+| Algorithm explanations | "Using Dijkstra's for shortest path" |
+| Why explanations | "Required for backwards compat with v1 API" |
+| Security notes | `# SECURITY:`, `// WARNING:` |
+| Type directives | `# type: ignore`, `// @ts-ignore`, `# noqa` |
+| TODO with ticket | `# TODO(JIRA-123):` |
+| License headers | Copyright notices |
+
+**REMOVE (Unacceptable)**:
+| Category | Examples |
+|----------|----------|
+| Obvious narration | "Loop through users", "Check if null" |
+| Name repetition | "This function gets user by ID" |
+| Commented-out code | `// old_function()` |
+| Feature/task IDs | `# REQ-001`, `// T3.2` |
+| Debug artifacts | `# print here for debug` |
+| Empty comments | `//`, `#` |
+| Placeholder TODOs | `# TODO`, `// FIXME` (without tickets) |
+
+**Decision Rule**: KEEP if it explains WHY or prevents future mistakes. REMOVE if it restates WHAT or is obvious from code.
+
+**FAIL if**: Any REMOVE-category comments are found in modified files.
+
+**Evidence**: List comment violations with file:line and content
+
 ## 4. Verdict Determination
 
 Based on verification dimensions, determine verdict:
@@ -158,6 +221,8 @@ All of these must be true:
 - Accuracy: PASS (implementation matches design)
 - Completeness: PASS (all acceptance criteria met)
 - Quality: PASS (follows patterns) OR PASS with suggestions
+- Testing: PASS (tests are high-value) OR N/A (no tests added)
+- Comments: PASS (no unnecessary comments) OR N/A (no code files modified)
 
 ### FAILURE Criteria
 Any of these trigger FAILURE:
@@ -165,6 +230,8 @@ Any of these trigger FAILURE:
 - Accuracy: FAIL (implementation doesn't match design)
 - Completeness: FAIL (missing acceptance criteria)
 - Quality: FAIL with blocking issues
+- Testing: FAIL (superfluous or low-value tests added)
+- Comments: FAIL (unnecessary comments found in modified files)
 
 ### Issue Severity
 - `blocking`: Causes FAILURE, must be fixed
@@ -199,7 +266,7 @@ The guidance MUST be actionable—tell the builder exactly what to fix.
 
 ## 5.5 Task File Update (On SUCCESS)
 
-If verdict is SUCCESS, add a one-line validation entry after the implementation summary:
+If verdict is SUCCESS, add a validation summary after the implementation summary:
 
 ```markdown
 - [x] **T1**: Task description `[complexity:medium]`
@@ -207,10 +274,19 @@ If verdict is SUCCESS, add a one-line validation entry after the implementation 
   **Implementation Summary**:
   - **Files**: ...
   - **Approach**: ...
-  **Validated**: PASS
+
+  **Validation Summary**:
+  | Dimension | Status |
+  |-----------|--------|
+  | Discipline | ✅ PASS |
+  | Accuracy | ✅ PASS |
+  | Completeness | ✅ PASS |
+  | Quality | ✅ PASS |
+  | Testing | ✅ PASS |
+  | Comments | ✅ PASS |
 ```
 
-Do NOT add verbose details on success—one line only.
+Use ✅ for PASS, ⏭️ for N/A. This provides clear traceability of what was verified.
 
 ## 6. Output Contract
 
@@ -225,11 +301,13 @@ Your final output MUST be valid JSON:
     "discipline": "PASS | FAIL",
     "accuracy": "PASS | FAIL",
     "completeness": "PASS | FAIL",
-    "quality": "PASS | FAIL"
+    "quality": "PASS | FAIL",
+    "testing": "PASS | FAIL | N/A",
+    "comments": "PASS | FAIL | N/A"
   },
   "issues": [
     {
-      "type": "discipline | accuracy | completeness | quality",
+      "type": "discipline | accuracy | completeness | quality | testing | comments",
       "description": "Clear description of the issue",
       "evidence": "file:line or specific evidence",
       "severity": "blocking | suggestion"
@@ -268,7 +346,9 @@ If no manual items, return empty array: `"manual_verification": []`
     "discipline": "PASS",
     "accuracy": "PASS",
     "completeness": "PASS",
-    "quality": "PASS"
+    "quality": "PASS",
+    "testing": "PASS",
+    "comments": "PASS"
   },
   "issues": [],
   "manual_verification": [
@@ -292,7 +372,9 @@ If no manual items, return empty array: `"manual_verification": []`
     "discipline": "PASS",
     "accuracy": "FAIL",
     "completeness": "PASS",
-    "quality": "PASS"
+    "quality": "PASS",
+    "testing": "N/A",
+    "comments": "PASS"
   },
   "issues": [
     {
