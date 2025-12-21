@@ -64,15 +64,19 @@ The agent returns output in this format:
 COMPRESSED_PROMPT>>>
 
 <<<CHANGES
-| op | ref | from | to | note |
-|---|---|---|---|---|
-[change rows]
+[op] ref: description
+  - from: "short excerpt"
+  - to: "short excerpt"
+  - note: reason
+
+[op] ref: description
+  ...
 CHANGES>>>
 ```
 
 **Parse the output:**
 - Extract content between `<<<COMPRESSED_PROMPT` and `COMPRESSED_PROMPT>>>`
-- Extract the changes table between `<<<CHANGES` and `CHANGES>>>`
+- Extract the changes list between `<<<CHANGES` and `CHANGES>>>`
 
 ### Step 5: Finalize
 

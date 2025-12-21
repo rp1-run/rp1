@@ -62,11 +62,15 @@ OUTPUT FORMAT (strict):
 [compressed prompt here]
 COMPRESSED_PROMPT>>>
 
-2) Change log (terse markdown table):
+2) Change log (vertical list for terminal readability):
 <<<CHANGES
-| op | ref | from | to | note |
-|---|---|---|---|---|
-[rows...]
+[op] ref: description
+  - from: "short excerpt or id"
+  - to: "short excerpt or id"
+  - note: reason
+
+[op] ref: description
+  ...
 CHANGES>>>
 
 Change-log rules:
@@ -74,8 +78,9 @@ Change-log rules:
 - Track changes at semantic-chunk granularity (section/sentence/bullet), not per-word.
 - Include: deletions of fluff, merges, moves, renames, abbrevs introduced, symbolification (diagram/code), and any verbatim-kept risky phrases.
 - 'ref' should point to compressed prompt section id (use '§1', '§2', ... headers) or a short unique header name.
-- 'from'/'to' should be short excerpts (<= ~12 words each) or ids (eg '§3.b -> §2').
+- 'from'/'to' should be short excerpts (<= ~10 words each) or ids (eg '§3.b -> §2'). Truncate with '...' if longer.
 - If any edit has potential semantic risk, mark op='SEM-RISK' and keep the original wording in the compressed prompt for that part.
+- Group related changes under single entry when sensible (eg multiple fluff deletions in same section).
 
 Recommended section labels (use as needed; keep terse):
 
