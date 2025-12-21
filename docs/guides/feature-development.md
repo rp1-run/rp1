@@ -18,7 +18,7 @@ Build your first feature with rp1's complete development workflow. This tutorial
 ## Prerequisites
 
 !!! warning "Before You Begin"
-    - rp1 installed ([Quick Start](../getting-started/quickstart.md))
+    - rp1 installed ([Installation](../getting-started/installation.md))
     - Knowledge base generated (`/knowledge-build`)
     - A codebase you want to enhance
 

@@ -58,13 +58,13 @@ New to rp1? Follow this recommended sequence:
 
 ```mermaid
 flowchart LR
-    QS[Quick Start] --> FD[Feature Development]
+    INST[Installation] --> FD[Feature Development]
     FD --> BI[Bug Investigation]
     BI --> PR[PR Review]
     PR --> TO[Team Onboarding]
 ```
 
-1. **[Quick Start](../getting-started/quickstart.md)** - Install and configure rp1
+1. **[Installation](../getting-started/installation.md)** - Install and configure rp1
 2. **[Feature Development](feature-development.md)** - Learn the core workflow
 3. **[Bug Investigation](bug-investigation.md)** - Debug issues systematically
 4. **[PR Review](pr-review.md)** - Automate code review

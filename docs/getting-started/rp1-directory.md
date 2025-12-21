@@ -211,5 +211,5 @@ rp1 automatically detects monorepo structures and creates project-specific secti
 
 ## Next Steps
 
-- [:octicons-arrow-right-24: Quick Start](quickstart.md) - Run your first commands
+- [:octicons-arrow-right-24: First Workflow](first-workflow.md) - Run your first commands
 - [:octicons-arrow-right-24: Feature Development](../guides/feature-development.md) - Learn the feature workflow

@@ -17,7 +17,7 @@ Help new team members get productive quickly using rp1's knowledge base capabili
 ## Prerequisites
 
 !!! warning "Before You Begin"
-    - rp1 installed ([Quick Start](../getting-started/quickstart.md))
+    - rp1 installed ([Installation](../getting-started/installation.md))
     - A codebase you want to document
     - Git repository (KB tracks commits for incremental updates)
 
@@ -384,7 +384,7 @@ Use this checklist when onboarding a new team member:
 ### Day 1: Environment Setup
 
 - [ ] Clone repository
-- [ ] Install rp1 ([Quick Start](../getting-started/quickstart.md))
+- [ ] Install rp1 ([Installation](../getting-started/installation.md))
 - [ ] Read `.rp1/docs/project-overview.md`
 - [ ] Run through setup instructions
 - [ ] Verify development environment works

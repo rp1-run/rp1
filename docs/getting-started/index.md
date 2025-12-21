@@ -1,32 +1,36 @@
 # Getting Started
 
-Welcome to rp1! This section helps you get up and running quickly.
+Welcome to rp1! Get professional development workflows for your AI coding assistant in minutes.
 
-## Quick Start
+## What is rp1?
 
-Ready to dive in? The **Quick Start** guide will have you running your first rp1 command in under 5 minutes.
+rp1 is a plugin system that brings structured, repeatable workflows to AI coding assistants like Claude Code and OpenCode. Instead of prompting from scratch each time, rp1 provides constitutional agents that execute complete development workflows - from knowledge base generation to feature implementation to PR review.
 
-[Quick Start Guide :material-arrow-right:](quickstart.md){ .md-button .md-button--primary }
+## Quick Links
 
-## What You'll Learn
+<div class="grid cards" markdown>
 
-- **Installation**: How to install rp1 for your platform (Claude Code or OpenCode)
-- **First Command**: Running your first knowledge-building command
-- **Expected Output**: Understanding what rp1 produces
+-   :material-download:{ .lg .middle } **Install rp1**
+
+    ---
+
+    Get the CLI and plugins installed on your platform.
+
+    [:octicons-arrow-right-24: Installation](installation.md)
+
+-   :material-rocket-launch:{ .lg .middle } **First Workflow**
+
+    ---
+
+    Run your first command and build your knowledge base.
+
+    [:octicons-arrow-right-24: First Workflow](first-workflow.md)
+
+</div>
 
 ## Prerequisites
 
-Before you begin, make sure you have:
+Before you begin, you need:
 
-- An AI coding assistant installed:
-    - [Claude Code](https://claude.ai/code) - Anthropic's official CLI
-    - [OpenCode](https://github.com/opencode-ai/opencode) - Vendor-independent alternative
-- A codebase you want to enhance with rp1 workflows
-
-## Next Steps
-
-After completing the quick start, explore:
-
-- **[Guides](../guides/index.md)** - Step-by-step tutorials for common workflows
-- **[Reference](../reference/index.md)** - Complete command documentation
-- **[Concepts](../concepts/index.md)** - Understand the patterns behind rp1
+- **An AI coding assistant**: [Claude Code](https://claude.ai/code) or [OpenCode](https://github.com/opencode-ai/opencode)
+- **A codebase** to enhance with rp1 workflows

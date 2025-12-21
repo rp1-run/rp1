@@ -17,7 +17,7 @@ Systematically investigate bugs using rp1's hypothesis-driven debugging workflow
 ## Prerequisites
 
 !!! warning "Before You Begin"
-    - rp1 installed ([Quick Start](../getting-started/quickstart.md))
+    - rp1 installed ([Installation](../getting-started/installation.md))
     - Knowledge base generated (`/knowledge-build`)
     - A bug or issue you want to investigate
 
