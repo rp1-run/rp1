@@ -26,6 +26,11 @@ This command orchestrates parallel knowledge base generation using a map-reduce 
 </rp1_root>
 (defaults to `.rp1/` if not set via environment variable $RP1_ROOT)
 
+<feature_id>
+$1
+</feature_id>
+(optional - if provided, incorporates learnings from archived feature into KB)
+
 ## Architecture Overview
 
 ```
@@ -43,6 +48,57 @@ Phase 3 (Sequential):  Command → Merge JSON → Generate index.md → Write KB
 ## Execution Instructions
 
 **DO NOT ask for user approval. Execute immediately.**
+
+### Feature Learning Mode
+
+If `FEATURE_ID` ($1) is provided, this is a **feature learning build** that captures knowledge from an archived feature:
+
+1. **Locate archived feature**:
+   ```
+   FEATURE_PATH = {RP1_ROOT}/work/archives/features/{FEATURE_ID}/
+   ```
+
+   If not found, check active features:
+   ```
+   FEATURE_PATH = {RP1_ROOT}/work/features/{FEATURE_ID}/
+   ```
+
+   If neither exists, error:
+   ```
+   ❌ Feature not found: {FEATURE_ID}
+   Checked: {RP1_ROOT}/work/archives/features/{FEATURE_ID}/
+           {RP1_ROOT}/work/features/{FEATURE_ID}/
+   ```
+
+2. **Read feature documentation**:
+   - `{FEATURE_PATH}/requirements.md` - What was built
+   - `{FEATURE_PATH}/design.md` - How it was designed
+   - `{FEATURE_PATH}/field-notes.md` - Learnings and discoveries (if exists)
+   - `{FEATURE_PATH}/tasks.md` - Implementation details (if exists)
+
+3. **Extract feature context**:
+   Build a `FEATURE_CONTEXT` object containing:
+   - Feature ID and path
+   - Key requirements (summarized)
+   - Architectural decisions from design.md
+   - All discoveries from field-notes.md
+   - Implementation patterns used
+
+4. **Proceed with incremental build**:
+   - Force MODE=INCREMENTAL (even if no git changes)
+   - Pass `FEATURE_CONTEXT` to all sub-agents in Phase 2
+   - Sub-agents should incorporate feature learnings into their analysis
+
+5. **Sub-agent prompts include**:
+   ```
+   FEATURE_CONTEXT: {{stringify(feature_context)}}
+
+   Incorporate learnings from this completed feature:
+   - Update patterns.md with implementation patterns discovered
+   - Update architecture.md if new architectural patterns emerged
+   - Update modules.md with new components/dependencies
+   - Update concept_map.md with new domain concepts
+   ```
 
 ### Phase 0: Change Detection and Diff Analysis
 
@@ -402,10 +458,36 @@ Next steps:
 - Add meta.json to .gitignore to prevent sharing local paths
 ```
 
+**Final Report (Feature Learning Mode)**:
+
+```
+✅ Feature Learnings Captured
+
+Feature: {{FEATURE_ID}}
+Source: {{FEATURE_PATH}}
+
+Learnings Incorporated:
+- patterns.md: {{N}} new patterns from implementation
+- architecture.md: {{N}} architectural decisions
+- modules.md: {{N}} new components/dependencies
+- concept_map.md: {{N}} domain concepts
+
+KB Files Updated:
+- {{RP1_ROOT}}/context/index.md
+- {{RP1_ROOT}}/context/concept_map.md
+- {{RP1_ROOT}}/context/architecture.md
+- {{RP1_ROOT}}/context/modules.md
+- {{RP1_ROOT}}/context/patterns.md
+
+The knowledge from feature "{{FEATURE_ID}}" has been captured into the KB.
+Future agents will benefit from these learnings.
+```
+
 ## Parameters
 
 | Parameter | Default | Purpose |
 |-----------|---------|---------|
+| FEATURE_ID | (none) | Optional feature ID to incorporate learnings from archived feature |
 | RP1_ROOT | `.rp1/` | Root directory for KB artifacts |
 | CODEBASE_ROOT | `.` | Repository root to analyze |
 | EXCLUDE_PATTERNS | `node_modules/,.git/,build/,dist/` | Patterns to exclude from scanning |

@@ -213,7 +213,10 @@ Verify operation succeeded:
 **Discoveries**: {N discoveries transferred to PRD | No field notes found | No PRD found}
 
 The feature documentation has been moved to the archives.
-To restore later: `/rp1-dev:feature-unarchive {FEATURE_ID}`
+
+**Next Steps**:
+- Capture learnings into KB: `/knowledge-build {FEATURE_ID}`
+- To restore later: `/feature-unarchive {FEATURE_ID}`
 ```
 
 If discoveries were transferred, also show:
