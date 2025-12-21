@@ -29,18 +29,40 @@ def get_changed_files(scope, base):
     """Get changed files based on scope."""
     if scope == "unstaged":
         ok, out = run_git(["diff", "--name-only"])
-        return ok, out.split("\n") if out else []
-    ok, merge_base = run_git(["merge-base", "HEAD", base])
-    if not ok:
-        return False, []
-    ok, out = run_git(["diff", "--name-only", merge_base, "HEAD"])
-    if not ok:
-        return False, []
-    files = set(out.split("\n")) if out else set()
-    _, unstaged = run_git(["diff", "--name-only"])
-    if unstaged:
-        files.update(unstaged.split("\n"))
-    return True, list(files)
+        return ok, out.split("\n") if out else [], None, "unstaged"
+    if scope == "branch":
+        ok, merge_base = run_git(["merge-base", "HEAD", base])
+        if not ok:
+            return False, [], None, "branch"
+        ok, out = run_git(["diff", "--name-only", merge_base, "HEAD"])
+        if not ok:
+            return False, [], None, "branch"
+        files = set(out.split("\n")) if out else set()
+        _, unstaged = run_git(["diff", "--name-only"])
+        if unstaged:
+            files.update(unstaged.split("\n"))
+        return True, list(files), merge_base, "branch"
+    # Commit range (e.g., "abc123..def456", "HEAD~5..HEAD")
+    ok, out = run_git(["diff", "--name-only", scope])
+    return ok, out.split("\n") if out else [], scope, "range"
+
+def get_lines_added(scope_type, diff_arg):
+    """Get total lines added (insertions only) from git diff --stat."""
+    if scope_type == "unstaged":
+        ok, out = run_git(["diff", "--stat"])
+    elif scope_type == "branch":
+        ok, out = run_git(["diff", "--stat", diff_arg, "HEAD"])
+    else:  # range
+        ok, out = run_git(["diff", "--stat", diff_arg])
+    if not ok or not out:
+        return 0
+    # Parse last line: "N files changed, X insertions(+), Y deletions(-)"
+    lines = out.strip().split("\n")
+    if not lines:
+        return 0
+    summary = lines[-1]
+    match = re.search(r"(\d+)\s+insertion", summary)
+    return int(match.group(1)) if match else 0
 
 def extract_comments(filepath, ext):
     """Extract comments from a file."""
@@ -93,17 +115,15 @@ def main():
         print(json.dumps({"error": "Usage: extract_comments.py <scope> <base_branch>"}))
         sys.exit(1)
     scope, base = sys.argv[1], sys.argv[2]
-    if scope not in ("branch", "unstaged"):
-        print(json.dumps({"error": f"Invalid scope: {scope}. Use 'branch' or 'unstaged'"}))
-        sys.exit(1)
     ok, _ = run_git(["rev-parse", "--git-dir"])
     if not ok:
         print(json.dumps({"error": "Not a git repository", "scope": scope, "base": base, "files_scanned": 0, "comments": []}))
         sys.exit(1)
-    ok, files = get_changed_files(scope, base)
+    ok, files, diff_arg, scope_type = get_changed_files(scope, base)
     if not ok:
-        print(json.dumps({"error": "Failed to get changed files", "scope": scope, "base": base, "files_scanned": 0, "comments": []}))
+        print(json.dumps({"error": f"Failed to get changed files for scope '{scope}'", "scope": scope, "base": base, "files_scanned": 0, "lines_added": 0, "comments": []}))
         sys.exit(1)
+    lines_added = get_lines_added(scope_type, diff_arg)
     all_comments, scanned = [], 0
     for f in files:
         if not f:
@@ -114,7 +134,7 @@ def main():
             continue
         scanned += 1
         all_comments.extend(extract_comments(p, ext))
-    print(json.dumps({"scope": scope, "base": base, "files_scanned": scanned, "comments": all_comments}, indent=2))
+    print(json.dumps({"scope": scope, "base": base, "files_scanned": scanned, "lines_added": lines_added, "comments": all_comments}, indent=2))
 
 if __name__ == "__main__":
     main()

@@ -13,7 +13,7 @@ You are CommentCleanGPT. Remove unnecessary comments from files in the selected 
 
 | Name | Position | Default | Purpose |
 |------|----------|---------|---------|
-| SCOPE | $1 | `branch` | Scope: `branch` (default) or `unstaged` |
+| SCOPE | $1 | `branch` | Scope: `branch` (default) or `unstaged`  or `commit range`|
 | BASE_BRANCH | $2 | `main` | Base branch for diff |
 | RP1_ROOT | Environment | `.rp1/` | Root directory |
 
@@ -39,10 +39,10 @@ This returns a JSON manifest with all comment locations, file paths, line number
 
 ### 1.2 Validate Scope Size
 
-From the JSON output, check `files_scanned`. If > 50 files:
+From the JSON output, check `lines_added`. If > 1500:
 
 ```
-ERROR: Scope too large ({N} files).
+ERROR: Scope too large ({N} lines added).
 For large changes, use /feature-build workflow which includes comment cleanup.
 ```
 
@@ -64,7 +64,7 @@ The manifest contains pre-extracted comments with context. Use this as your work
 | Why explanations | "Required for backwards compat with v1 API" |
 | Security notes | `# SECURITY:`, `// WARNING:` |
 | Type directives | `# type: ignore`, `// @ts-ignore`, `# noqa` |
-| TODO with ticket | `# TODO(JIRA-123):` |
+| TODO | `# TODO(JIRA-123):` |
 | License headers | Copyright notices |
 
 ### REMOVE

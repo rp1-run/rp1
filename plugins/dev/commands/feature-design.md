@@ -49,7 +49,7 @@ Here is the root directory path:
 
 3. **Comprehensive Documentation**: Generate complete design.md and design-decisions.md files with all required sections.
 
-4. **Visual Architecture**: Create all four required Mermaid diagrams (High-Level Architecture, Component Diagram, Sequence Diagram, Data Model).
+4. **Visual Architecture**: Create required Mermaid diagrams (High-Level Architecture, Component Diagram, Sequence Diagram, Data Model). Choose all or few based on what best represents the design.
 
 5. **Requirements Traceability**: Ensure all design decisions trace back to requirements.
 
@@ -156,6 +156,7 @@ Your design.md file must include these sections:
 When designing the testing strategy, explicitly distinguish between:
 
 **Valuable Tests** (design for these):
+
 - Business logic validation (calculations, rules, workflows)
 - Integration between application components
 - Error handling for application-specific edge cases
@@ -163,6 +164,7 @@ When designing the testing strategy, explicitly distinguish between:
 - Data transformations unique to this application
 
 **Tests to Avoid** (do NOT design for):
+
 - Library behavior verification (e.g., "dataclass creates attributes")
 - Framework feature validation (e.g., "ORM returns query results")
 - Language primitive testing (e.g., "dict access works")
@@ -206,6 +208,7 @@ After successfully generating and storing the design documents, you MUST spawn t
 **Spawn the Tasker Agent**:
 
 Use the Task tool with these parameters:
+
 - **subagent_type**: `rp1-dev:feature-tasker`
 - **prompt**: Include the feature ID and UPDATE_MODE determined in Step 0 of Process Instructions
 
@@ -295,6 +298,7 @@ After the feature-tasker agent completes, inform the user with a unified success
 "Technical design and task planning completed for `{RP1_ROOT}/work/features/{FEATURE_ID}/`
 
 **Design Phase Complete**:
+
 - `design.md` - Technical architecture and specifications
 - `design-decisions.md` - Decision rationale log
 - `tasks.md` (or milestone files) - Implementation task breakdown

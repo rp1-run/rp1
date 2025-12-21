@@ -18,6 +18,7 @@ Spawns the comment-cleaner agent for surgical comment cleanup.
 **Scope Options**:
 - `branch` (default): Files changed since diverging from base branch
 - `unstaged`: Only unstaged files (pre-commit use case)
+- `<commit-range>`: Any valid git commit range (e.g., `HEAD~5..HEAD`, `abc123..def456`)
 
 Use the Task tool:
 

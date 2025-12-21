@@ -240,7 +240,7 @@ Use the Task tool to spawn the comment cleaner agent:
 Task tool parameters:
   subagent_type: rp1-dev:comment-cleaner
   prompt: |
-    SCOPE: branch
+    SCOPE: unstaged
     BASE_BRANCH: main
 ```
 
