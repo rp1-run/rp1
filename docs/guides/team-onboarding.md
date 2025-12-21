@@ -130,9 +130,10 @@ Phase 3: Merging Results
 ✅ Knowledge Base Complete
 
 Location: .rp1/context/
-Files: 5 markdown files + state.json
+Files: 5 markdown files + state.json + meta.json
 Time: 8 minutes 32 seconds
 
+Note: meta.json contains local paths - add to .gitignore
 Next: Knowledge base is ready for use with rp1 commands
 ```
 

@@ -69,11 +69,20 @@ Phase 3 (Sequential):  Command → Merge JSON → Generate index.md → Write KB
 
    **CASE C: Incremental update** (state.json exists AND commit changed AND files changed in CODEBASE_ROOT):
    - **ACTION**: Incremental analysis mode - get changed files with diffs
-   - **Read monorepo metadata from state.json**:
+   - **Read monorepo metadata from state.json AND local values from meta.json**:
      ```bash
+     # Read shareable state
      repo_type=$(jq -r '.repo_type // "single-project"' {{RP1_ROOT}}/context/state.json)
-     repo_root=$(jq -r '.repo_root // "."' {{RP1_ROOT}}/context/state.json)
-     current_project_path=$(jq -r '.current_project_path // "."' {{RP1_ROOT}}/context/state.json)
+
+     # Read local values from meta.json (with fallback to state.json for backward compatibility)
+     if [ -f "{{RP1_ROOT}}/context/meta.json" ]; then
+       repo_root=$(jq -r '.repo_root // "."' {{RP1_ROOT}}/context/meta.json)
+       current_project_path=$(jq -r '.current_project_path // "."' {{RP1_ROOT}}/context/meta.json)
+     else
+       # Backward compatibility: read from state.json if meta.json doesn't exist
+       repo_root=$(jq -r '.repo_root // "."' {{RP1_ROOT}}/context/state.json)
+       current_project_path=$(jq -r '.current_project_path // "."' {{RP1_ROOT}}/context/state.json)
+     fi
      ```
    - **Get changed files list**:
      ```bash
@@ -143,8 +152,9 @@ Phase 3 (Sequential):  Command → Merge JSON → Generate index.md → Write KB
 
 2. **Parse spatial analyzer output**:
    - Extract JSON from agent response
-   - Validate structure: must have `repo_type`, `repo_root`, `current_project_path`, `monorepo_projects`, `total_files_scanned`, `index_files`, `concept_files`, `arch_files`, `module_files`
-   - Store monorepo metadata: `repo_type`, `repo_root`, `monorepo_projects`, `current_project_path`
+   - Validate structure: must have `repo_type`, `monorepo_projects`, `total_files_scanned`, `index_files`, `concept_files`, `arch_files`, `module_files`, `local_meta`
+   - Store shareable metadata: `repo_type`, `monorepo_projects`
+   - Store local metadata from `local_meta`: `repo_root`, `current_project_path` (will be written to meta.json)
    - For incremental: files_scanned should match changed_file_count
    - Check that at least one category has files (some categories may be empty in incremental)
 
@@ -290,14 +300,12 @@ Phase 3 (Sequential):  Command → Merge JSON → Generate index.md → Write KB
    - Extract languages and frameworks
    - Calculate metrics (module count, component count, concept count)
 
-2. **Generate state.json**:
+2. **Generate state.json** (shareable metadata - safe to commit/share):
 
    ```json
    {
      "strategy": "parallel-map-reduce",
      "repo_type": "{{repo_type}}",
-     "repo_root": "{{repo_root}}",
-     "current_project_path": "{{current_project_path}}",
      "monorepo_projects": ["{{project1}}", "{{project2}}"],
      "generated_at": "{{ISO timestamp}}",
      "git_commit": "{{git rev-parse HEAD}}",
@@ -311,11 +319,23 @@ Phase 3 (Sequential):  Command → Merge JSON → Generate index.md → Write KB
    }
    ```
 
-3. **Write state.json**:
+3. **Generate meta.json** (local values - should NOT be committed/shared):
+
+   ```json
+   {
+     "repo_root": "{{repo_root}}",
+     "current_project_path": "{{current_project_path}}"
+   }
+   ```
+
+   **NOTE**: `meta.json` contains local paths that may differ per team member. This file should be added to `.gitignore`.
+
+4. **Write state files**:
 
    ```
    Use Write tool to write:
    - {{RP1_ROOT}}/context/state.json
+   - {{RP1_ROOT}}/context/meta.json
    ```
 
 ### Phase 5: Error Handling
@@ -354,12 +374,14 @@ KB Files Written:
 - {{RP1_ROOT}}/context/architecture.md
 - {{RP1_ROOT}}/context/modules.md
 - {{RP1_ROOT}}/context/patterns.md
-- {{RP1_ROOT}}/context/state.json
+- {{RP1_ROOT}}/context/state.json (shareable metadata)
+- {{RP1_ROOT}}/context/meta.json (local paths - add to .gitignore)
 
 Next steps:
 - KB is automatically loaded by agents when needed (no manual /knowledge-load required)
 - Subsequent runs will use same parallel approach (10-15 min)
 - Incremental updates (changed files only) are faster (2-5 min)
+- Add meta.json to .gitignore to prevent sharing local paths
 ```
 
 ## Parameters

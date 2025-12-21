@@ -1,9 +1,17 @@
 {
+  "strategy": "[parallel-map-reduce]",
   "repo_type": "[single-project | monorepo]",
-  "analysis_date": "[ISO 8601 timestamp]",
-  "last_commit": "[git commit hash]",
+  "monorepo_projects": ["[project-1]", "[project-2]"],
+  "generated_at": "[ISO 8601 timestamp]",
+  "git_commit": "[git commit hash]",
+  "files_analyzed": 0,
+  "languages": ["[Language1]", "[Language2]"],
+  "metrics": {
+    "modules": 0,
+    "components": 0,
+    "concepts": 0
+  },
   "build_strategy": "[validation_driven_update | incremental_update | full_scan]",
-  "projects_analyzed": ["[project-1]", "[project-2]"],
   "total_files_scanned": 0,
   "high_value_files": 0,
   "documentation_files": 0,

@@ -88,7 +88,8 @@ The knowledge base lives in `.rp1/context/` and contains:
 | `modules.md` | Component breakdown | Modules, dependencies, key files |
 | `concept_map.md` | Domain terminology | Business concepts, glossary |
 | `patterns.md` | Implementation patterns | Code patterns, idioms, conventions |
-| `state.json` | Build metadata | Last commit, file counts |
+| `state.json` | Build metadata (shareable) | Last commit, file counts, repo type |
+| `meta.json` | Local metadata (not shared) | Local paths (repo_root) |
 
 ---
 

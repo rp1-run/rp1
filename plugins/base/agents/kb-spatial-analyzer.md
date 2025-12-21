@@ -103,15 +103,17 @@ Run 5 fast heuristics in priority order (stop at first match):
 If "monorepo" detected:
 - Use Glob from REPO_ROOT to list directories containing plugin.json or package.json at depth 1-2
 - Store as `monorepo_projects` array (e.g., `["base/", "dev/"]`)
-- Use `CURRENT_PROJECT` from Step 1 as `current_project_path`
-- Store absolute path: `repo_root` = `REPO_ROOT`
+- Use `CURRENT_PROJECT` from Step 1 as `current_project_path` (LOCAL - goes in meta.json)
+- Store absolute path: `repo_root` = `REPO_ROOT` (LOCAL - goes in meta.json)
 
 If "single-project":
 - Set `monorepo_projects` to `[]`
-- Set `current_project_path` to `"."`
-- Set `repo_root` to `REPO_ROOT`
+- Set `current_project_path` to `"."` (LOCAL - goes in meta.json)
+- Set `repo_root` to `REPO_ROOT` (LOCAL - goes in meta.json)
 
 Set `repo_type` to either "single-project" or "monorepo".
+
+**NOTE**: `repo_root` and `current_project_path` are LOCAL values that should NOT be shared with team members. The orchestrator will write these to `meta.json` instead of `state.json`.
 
 ## 2. File Discovery
 
@@ -247,8 +249,6 @@ Return structured JSON with these fields:
 ```json
 {
   "repo_type": "monorepo | single-project",
-  "repo_root": "/absolute/path",
-  "current_project_path": "project/ | .",
   "monorepo_projects": ["project1/", "project2/"],
   "total_files_scanned": <count>,
   "metadata": {
@@ -259,9 +259,15 @@ Return structured JSON with these fields:
   "index_files": [{"path": <path>, "score": <0-5>}, ...],
   "concept_files": [{"path": <path>, "score": <0-5>}, ...],
   "arch_files": [{"path": <path>, "score": <0-5>}, ...],
-  "module_files": [{"path": <path>, "score": <0-5>}, ...]
+  "module_files": [{"path": <path>, "score": <0-5>}, ...],
+  "local_meta": {
+    "repo_root": "/absolute/path",
+    "current_project_path": "project/ | ."
+  }
 }
 ```
+
+**NOTE**: The `local_meta` object contains LOCAL values that should be written to `meta.json` (not `state.json`) by the orchestrator. These values may differ per team member.
 
 **Requirements**: Each category has at least 1 file, sorted by score DESC then path ASC, limit 500 files per category.
 

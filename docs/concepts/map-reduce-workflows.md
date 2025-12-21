@@ -110,7 +110,8 @@ The orchestrator merges JSON outputs into final KB files:
 ├── architecture.md  ← from architecture-mapper
 ├── modules.md       ← from module-analyzer
 ├── patterns.md      ← from pattern-extractor
-└── state.json       ← build metadata
+├── state.json       ← build metadata (shareable)
+└── meta.json        ← local paths (not shared)
 ```
 
 ---
