@@ -21,11 +21,13 @@ Launch the blueprint wizard to capture and structure your project vision through
 ## Usage
 
 **Default Flow** (creates charter + main PRD together):
+
 ```
 /rp1-dev:blueprint
 ```
 
 **Named PRD Flow** (requires existing charter):
+
 ```
 /rp1-dev:blueprint mobile-app
 /rp1-dev:blueprint api
@@ -38,6 +40,7 @@ Launch the blueprint wizard to capture and structure your project vision through
 |------|----------|---------|---------|
 | PRD_NAME | $1 | (none) | Name of PRD to create (omit for default flow) |
 | EXTRA_CONTEXT | $ARGUMENTS | `""` | Additional context from user |
+| RP1_ROOT | Environment | `.rp1/` | Root directory |
 
 ## Document Hierarchy
 
@@ -62,6 +65,7 @@ PRDs inherit from the charter and link back to it, avoiding content duplication.
 ## Workflow
 
 Use the Task tool with:
+
 - **subagent_type**: `rp1-dev:blueprint-wizard`
 - **prompt**: Include PRD_NAME ($1) and EXTRA_CONTEXT ($ARGUMENTS)
 
@@ -85,5 +89,6 @@ Execute the blueprint-wizard workflow immediately.
 ## Next Steps
 
 After completing blueprint:
+
 - Use `/rp1-dev:feature-requirements <feature-id>` to define specific features
 - Features can optionally associate with a parent PRD for context inheritance
