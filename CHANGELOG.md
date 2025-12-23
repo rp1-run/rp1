@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.4](https://github.com/rp1-run/rp1/compare/v0.2.3...v0.2.4) (2025-12-23)
+
+
+### Features
+
+* prompt refinements ([#109](https://github.com/rp1-run/rp1/issues/109)) ([b91ae94](https://github.com/rp1-run/rp1/commit/b91ae94ce991cac5f435b12b80ec140633a26b97))
+
 ## [Unreleased]
 
 ### Features
