@@ -6,16 +6,17 @@
 ## Core Business Concepts
 
 ### Plugin
-**Definition**: Self-contained unit providing commands, agents, and skills for Claude Code/OpenCode platforms. Two plugins exist: rp1-base (foundation) and rp1-dev (development workflows).
-**Implementation**: `plugins/base/.claude-plugin/plugin.json`, `plugins/dev/.claude-plugin/plugin.json`
+**Definition**: Self-contained unit providing commands, agents, and skills for Claude Code/OpenCode platforms. Three plugins exist: rp1-base (foundation), rp1-dev (development workflows), and rp1-utils (utilities).
+**Implementation**: `plugins/base/.claude-plugin/plugin.json`, `plugins/dev/.claude-plugin/plugin.json`, `plugins/utils/.claude-plugin/plugin.json`
 **Key Properties**:
-- name: Plugin identifier (rp1-base, rp1-dev)
-- version: Semantic version (v0.2.3)
-- dependencies: Required plugins (dev requires base >= 2.0.0)
+- name: Plugin identifier (rp1-base, rp1-dev, rp1-utils)
+- version: Semantic version synchronized across all plugins
+- dependencies: Plugin can depend on others (dev depends on base >= 2.0.0)
 
 **Business Rules**:
-- Base plugin is independent; dev plugin depends on base
-- All skills are owned exclusively by base plugin
+- Base plugin is independent and owns all skills
+- Dev plugin depends on base for KB loading and shared capabilities
+- Skills are exclusively owned by base plugin
 
 ### Command
 **Definition**: User-facing slash command acting as a thin wrapper (50-100 lines) that parses parameters and delegates to agents via the Task tool. Contains no business logic.
@@ -38,12 +39,12 @@
 **Types**: knowledge-base-templates, mermaid, maestro, markdown-preview, code-comments
 
 ### Knowledge Base
-**Definition**: Auto-generated codebase documentation stored in `{RP1_ROOT}/context/` containing index.md, concept_map.md, architecture.md, modules.md, patterns.md, state.json, and meta.json.
+**Definition**: Auto-generated codebase documentation stored in `{RP1_ROOT}/context/` containing index.md, concept_map.md, architecture.md, modules.md, patterns.md, state.json.
 **Implementation**: `.rp1/context/*.md`
 **Usage**: Agents load KB files directly via Read tool for codebase context
 
 ### Feature Workflow
-**Definition**: Six-step development process: blueprint → requirements → design → tasks → build → verify
+**Definition**: Six-step development process: blueprint -> requirements -> design -> tasks -> build -> verify
 **Artifacts**: Stored in {RP1_ROOT}/work/features/{FEATURE_ID}/
 **Documents**: requirements.md, design.md, tasks.md, field-notes.md
 
@@ -108,7 +109,6 @@
 - **Anti-Loop Directive**: Explicit instruction preventing iteration loops, forcing single-pass completion
 - **Context Blindness**: Problem where generic AI assistants lack awareness of codebase patterns
 - **Direct KB Loading Pattern**: Agents read context/*.md files directly via Read tool (subagent limitation workaround)
-- **Namespace Prefix**: Required command/skill routing prefix (/rp1-base:, /rp1-dev:) for disambiguation
 - **Positional Parameters**: Argument syntax using $1, $2, $ARGUMENTS for cross-platform compatibility
 - **Incremental Build**: KB rebuild mode that only processes changed files via git diff comparison
 - **Review Dimension**: One of five PR analysis categories: Correctness, Security, Performance, Maintainability, Testing
@@ -128,8 +128,8 @@
 
 ### Knowledge Base Artifacts
 **Scope**: Codebase documentation
-**Files**: index.md, concept_map.md, architecture.md, modules.md, patterns.md, state.json, meta.json
-**Boundaries**: Generated in `{RP1_ROOT}/context/`. state.json is shareable, meta.json is local-only.
+**Files**: index.md, concept_map.md, architecture.md, modules.md, patterns.md, state.json
+**Boundaries**: Generated in `{RP1_ROOT}/context/`.
 
 ### Feature Artifacts
 **Scope**: Feature development
@@ -143,6 +143,7 @@ graph TB
     subgraph "Plugin System"
         Base[rp1-base]
         Dev[rp1-dev]
+        Utils[rp1-utils]
         Dev -->|depends on| Base
     end
 

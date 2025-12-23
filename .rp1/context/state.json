@@ -1,15 +1,15 @@
 {
   "strategy": "parallel-map-reduce",
-  "repo_type": "monorepo",
+  "repo_type": "single-project",
   "current_project_path": ".",
-  "monorepo_projects": ["plugins/base/", "plugins/dev/"],
-  "generated_at": "2025-12-21T00:00:00Z",
-  "git_commit": "55b843570e0ee0e48a0cd312e354e133764b9ea7",
-  "files_analyzed": 187,
-  "languages": ["Markdown", "TypeScript", "Python", "Shell", "YAML", "JSON"],
+  "monorepo_projects": [],
+  "generated_at": "2025-12-23T00:00:00Z",
+  "git_commit": "b2e8bfa01dcc37cddce2b8ec3eb9d0ce298c3189",
+  "files_analyzed": 186,
+  "languages": ["TypeScript", "Markdown", "Shell", "YAML", "JSON"],
   "metrics": {
-    "modules": 8,
-    "components": 82,
+    "modules": 11,
+    "components": 85,
     "concepts": 24
   }
 }

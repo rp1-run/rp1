@@ -1,9 +1,8 @@
 # Module & Component Breakdown
 
 **Project**: rp1 Plugin System
-**Analysis Date**: 2025-12-21
-**Total Components**: 82 (28 commands, 31 agents, 5 skills, 18 CLI modules)
-**Version**: 0.2.3
+**Analysis Date**: 2025-12-23
+**Total Components**: 85 (29 commands, 32 agents, 5 skills, 19 CLI modules)
 
 ## Plugin Modules
 
@@ -92,7 +91,7 @@
 | hypothesis-tester | Design hypothesis validation |
 | feature-tasker | Task generation from design |
 | task-builder | Task implementation with context |
-| task-reviewer | Implementation verification (4 dimensions) |
+| task-reviewer | Implementation verification (6 dimensions) |
 | feature-verifier | Acceptance criteria verification |
 | feature-editor | Mid-stream change propagation |
 | feature-archiver | Feature archive/restore |
@@ -106,7 +105,14 @@
 | pr-review-reporter | Format findings into report |
 | pr-visualizer | PR diff visualization |
 | pr-feedback-collector | Collect GitHub PR comments |
-| test-runner | Comprehensive test execution |
+
+### plugins/utils
+**Purpose**: Utility plugin for prompt optimization
+**Components**: 1 command, 1 agent
+
+| Command | Agent | Purpose |
+|---------|-------|---------|
+| tersify-prompt | prompt-tersifier | Prompt compression |
 
 ## CLI Modules
 
@@ -142,6 +148,16 @@
 | installer.ts | Claude Code plugin installation |
 | prerequisites.ts | Claude Code prerequisite checks |
 | command.ts | Claude Code install command |
+
+### cli/src/init/
+**Purpose**: Project initialization with tool detection
+
+| Module | Purpose |
+|--------|---------|
+| index.ts | Init orchestration |
+| git-root.ts | Git repository detection |
+| shell-fence.ts | Shell fence injection |
+| tool-detector.ts | Development tool detection |
 
 ### cli/web-ui/
 **Purpose**: React-based documentation viewer with Mermaid support
@@ -182,12 +198,6 @@ graph TD
         FBuild[feature-build] --> Builder[task-builder]
         FBuild --> Reviewer[task-reviewer]
     end
-
-    subgraph "Feature Verify"
-        Verify[feature-verify] --> Checker[code-checker]
-        Verify --> Verifier[feature-verifier]
-        Verify -.-> Archiver[feature-archiver]
-    end
 ```
 
 ## Module Metrics
@@ -196,6 +206,7 @@ graph TD
 |--------|----------|--------|--------|--------------|
 | plugins/base | 9 | 13 | 5 | ~5,000 |
 | plugins/dev | 19 | 18 | 0 | ~7,000 |
+| plugins/utils | 1 | 1 | 0 | ~300 |
 | cli/src | 6 | - | - | ~8,000 |
 | cli/web-ui | - | - | - | ~2,500 |
 
@@ -206,14 +217,14 @@ Commands are thin wrappers (~50-100 lines) that delegate to constitutional agent
 
 ### Map-Reduce Orchestration
 Both KB generation and PR review use map-reduce pattern:
-- KB: spatial analyzer → 4-5 parallel agents → orchestrator merge
-- PR: splitter → N sub-reviewers → synthesizer → reporter
+- KB: spatial analyzer -> 4 parallel agents -> orchestrator merge
+- PR: splitter -> N sub-reviewers -> synthesizer -> reporter
 
 ### Builder-Reviewer Loop
 Feature build uses paired agents:
 - task-builder implements changes
 - task-reviewer verifies (SUCCESS/FAILURE with feedback)
-- Retry on failure with feedback
+- Retry on failure with feedback (max 3 attempts)
 
 ### Cross-Plugin Invocation
 Dev plugin agents can invoke base plugin capabilities with error handling:
@@ -224,7 +235,12 @@ If command fails, inform user to install: /plugin install rp1-base
 
 ### Progressive KB Loading
 Agents load KB selectively based on task type:
-- Code review → patterns.md
-- Bug investigation → architecture.md, modules.md
-- Feature implementation → modules.md, patterns.md
-- Strategic analysis → ALL files
+- Code review -> patterns.md
+- Bug investigation -> architecture.md, modules.md
+- Feature implementation -> modules.md, patterns.md
+- Strategic analysis -> ALL files
+
+## Cross-References
+- **Domain Concepts**: See [concept_map.md](concept_map.md)
+- **Architecture**: See [architecture.md](architecture.md)
+- **Implementation Patterns**: See [patterns.md](patterns.md)

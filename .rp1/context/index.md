@@ -1,14 +1,13 @@
 # rp1 - Knowledge Base
 
-**Type**: Monorepo
+**Type**: Single Project
 **Languages**: TypeScript, Markdown, Shell
 **Version**: 0.2.3
-**Updated**: 2025-12-21
-**Projects**: 2 (plugins/base, plugins/dev)
+**Updated**: 2025-12-23
 
 ## Project Summary
 
-rp1 is a Claude Code plugin system that automates development workflows through constitutional prompting. It provides two plugins: rp1-base (foundation: knowledge management, documentation, strategy, security) and rp1-dev (workflows: features, code quality, PR management).
+rp1 is a Claude Code plugin system that automates development workflows through constitutional prompting. It provides three plugins: rp1-base (foundation: knowledge management, documentation, strategy, security), rp1-dev (workflows: features, code quality, PR management), and rp1-utils (prompt utilities).
 
 ## Quick Reference
 
@@ -18,24 +17,16 @@ rp1 is a Claude Code plugin system that automates development workflows through 
 | Key Pattern | Constitutional Agents with Map-Reduce Orchestration |
 | Tech Stack | TypeScript CLI, Markdown Prompts, fp-ts, Bun, GoReleaser |
 
-## Projects Overview
-
-| Project | Purpose | Language | Entry Point |
-|---------|---------|----------|-------------|
-| plugins/base | Foundation: knowledge, docs, strategy, security | Markdown | commands/knowledge-build.md |
-| plugins/dev | Workflows: features, code quality, PRs | Markdown | commands/feature-build.md |
-| cli | Cross-platform CLI for building/installing | TypeScript | src/main.ts |
-
 ## KB File Manifest
 
 **Progressive Loading**: Load files on-demand based on your task.
 
 | File | Lines | Load For |
 |------|-------|----------|
-| architecture.md | ~212 | System design, component relationships, data flows |
-| modules.md | ~230 | Component breakdown, module responsibilities |
-| patterns.md | ~115 | Code conventions, implementation patterns |
-| concept_map.md | ~180 | Domain terminology, business concepts |
+| architecture.md | ~254 | System design, component relationships, data flows |
+| modules.md | ~246 | Component breakdown, module responsibilities |
+| patterns.md | ~123 | Code conventions, implementation patterns |
+| concept_map.md | ~181 | Domain terminology, business concepts |
 
 ## Task-Based Loading
 
@@ -63,10 +54,12 @@ rp1/
 │   │   ├── agents/            # Constitutional agents
 │   │   ├── commands/          # Slash commands (thin wrappers)
 │   │   └── skills/            # Reusable capabilities
-│   └── dev/                   # Development plugin (19 commands, 18 agents)
-│       ├── .claude-plugin/    # Plugin metadata (depends on base)
-│       ├── agents/            # Constitutional agents
-│       └── commands/          # Slash commands
+│   ├── dev/                   # Development plugin (19 commands, 18 agents)
+│   │   ├── .claude-plugin/    # Plugin metadata (depends on base)
+│   │   ├── agents/            # Constitutional agents
+│   │   └── commands/          # Slash commands
+│   └── utils/                 # Utility plugin (1 command, 1 agent)
+│       └── ...
 ├── cli/                       # Cross-platform CLI
 │   ├── src/                   # TypeScript source (fp-ts patterns)
 │   └── web-ui/                # React documentation viewer
