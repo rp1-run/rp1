@@ -9,14 +9,27 @@ Removes unnecessary comments from code while preserving essential documentation.
 === "Claude Code"
 
     ```bash
-    /code-clean-comments
+    /code-clean-comments [scope] [base-branch]
     ```
 
 === "OpenCode"
 
     ```bash
-    /rp1-dev/code-clean-comments
+    /rp1-dev/code-clean-comments [scope] [base-branch]
     ```
+
+## Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `scope` | `branch` | Scope of files to clean |
+| `base-branch` | `main` | Base branch for diff comparison |
+
+**Scope Options:**
+
+- `branch` - Files changed since diverging from base branch
+- `unstaged` - Only unstaged files (pre-commit use case)
+- `<commit-range>` - Any valid git commit range (e.g., `HEAD~5..HEAD`, `abc123..def456`)
 
 ## Description
 
@@ -44,19 +57,23 @@ The `code-clean-comments` command systematically removes unnecessary comments fr
 
 ## Examples
 
-### Clean Comments
+### Clean branch changes (default)
 
-=== "Claude Code"
+```bash
+/code-clean-comments
+```
 
-    ```bash
-    /code-clean-comments
-    ```
+### Clean unstaged files only
 
-=== "OpenCode"
+```bash
+/code-clean-comments unstaged
+```
 
-    ```bash
-    /rp1-dev/code-clean-comments
-    ```
+### Clean specific commit range
+
+```bash
+/code-clean-comments HEAD~5..HEAD
+```
 
 **Example output:**
 ```

@@ -37,29 +37,33 @@ Then install dev plugin:
 ```
 
 The blueprint command creates a two-tier document hierarchy:
-1. **Charter** (`.rp1/work/charter.md`) - Project-level "why" and "who"
-2. **PRDs** (`.rp1/work/prds/<name>.md`) - Surface-specific "what" that inherits from charter
+1. **Charter** (`{RP1_ROOT}/context/charter.md`) - Project-level "why" and "who"
+2. **PRDs** (`{RP1_ROOT}/work/prds/<name>.md`) - Surface-specific "what" that inherits from charter
 
 ### Feature Development (9)
 - `/feature-requirements feature-id [extra-context]` - Gather requirements
-- `/feature-design feature-id [extra-context]` - Create technical design
-- `/feature-tasks feature-id [extra-context]` - Generate implementation tasks
-- `/feature-build feature-id [milestone-id]` - Implement features systematically
+- `/feature-design feature-id [extra-context]` - Create technical design (auto-generates tasks)
+- `/feature-tasks feature-id [extra-context]` - Regenerate tasks (optional - tasks auto-generate after design)
+- `/feature-build feature-id [milestone-id] [mode]` - Implement features via builder-reviewer pairs
 - `/feature-verify feature-id [milestone-id]` - Verify feature meets requirements
 - `/feature-archive feature-id` - Archive completed feature to archives/
 - `/feature-unarchive feature-id` - Restore archived feature to active features
 - `/feature-edit feature-id <edit-description>` - Incorporate mid-stream changes
 - `/validate-hypothesis feature-id` - Validate design assumptions
 
-**Example**:
+**5-Step Workflow**:
 ```bash
 /feature-requirements my-feature "Additional context about feature scope"
-/feature-design my-feature
-/validate-hypothesis my-feature  # Optional: validate assumptions
-/feature-tasks my-feature
+/feature-design my-feature        # Auto-generates tasks.md
 /feature-build my-feature
 /feature-verify my-feature        # Verify + optional archive prompt
 /feature-archive my-feature       # Or archive manually
+```
+
+**Optional Commands**:
+```bash
+/validate-hypothesis my-feature   # Validate design assumptions before build
+/feature-tasks my-feature         # Regenerate tasks manually (standalone)
 /feature-edit my-feature "Discovery: API doesn't support pagination"  # Mid-stream changes
 ```
 
@@ -83,6 +87,53 @@ The blueprint command creates a two-tier document hierarchy:
 - `/pr-feedback-fix` - Address pull request feedback
 - `/pr-visual` - Visualize pull request changes
 
+## Builder-Reviewer Architecture (v3.0)
+
+The `feature-build` command uses a **builder-reviewer architecture** for improved accuracy and reliability:
+
+1. **Minimal Orchestrator**: Coordinates task flow without loading KB or codebase context
+2. **Task Builder Agent**: Implements tasks with full context (KB, PRD, design, tasks)
+3. **Task Reviewer Agent**: Verifies implementation for discipline, accuracy, completeness, and quality
+
+**Key Features**:
+- **Adaptive Task Grouping**: Simple tasks grouped (2-3), medium/complex tasks individual
+- **Single Retry**: Failed tasks retry once with reviewer feedback before escalation
+- **Configurable Failure Handling**: `ask` mode (default) pauses for guidance, `auto` mode marks blocked and continues
+- **Complexity Tags**: Tasks can be tagged `[complexity:simple|medium|complex]` for grouping
+
+**Example**:
+```bash
+/feature-build my-feature           # Build all tasks with ask mode
+/feature-build my-feature 2         # Build milestone 2 only
+/feature-build my-feature 1 auto    # Build milestone 1, auto-handle failures
+```
+
+## Agents (19)
+
+This plugin provides specialized agents for development workflows:
+
+| Agent | Purpose |
+|-------|---------|
+| task-builder | Implements tasks with full context, writes implementation summaries |
+| task-reviewer | Verifies builder work across 4 dimensions, returns SUCCESS/FAILURE |
+| feature-tasker | Generates tasks from design, supports incremental updates |
+| blueprint-wizard | Captures project vision through charter and PRD documents |
+| hypothesis-tester | Validates design assumptions through experiments |
+| feature-verifier | Verifies acceptance criteria before merge |
+| feature-editor | Propagates mid-stream changes across documentation |
+| feature-archiver | Archives/restores completed features |
+| code-checker | Fast code hygiene validation |
+| code-auditor | Pattern consistency analysis |
+| bug-investigator | Evidence-based bug investigation |
+| comment-cleaner | Removes unnecessary comments |
+| test-runner | Comprehensive test execution |
+| pr-review-splitter | Segments diffs into review units |
+| pr-sub-reviewer | Analyzes review units across 5 dimensions |
+| pr-review-synthesizer | Produces holistic fitness judgment |
+| pr-review-reporter | Formats findings into markdown |
+| pr-visualizer | Creates Mermaid diagrams for PR changes |
+| pr-feedback-collector | Gathers GitHub review comments |
+
 ## Field Notes
 
 During feature implementation, the `feature-build` command automatically captures key learnings in a `field-notes.md` file within the feature directory. These notes document:
@@ -98,7 +149,7 @@ The `feature-verify` command reads these field notes to distinguish intentional 
 
 ## Version
 
-Current: 2.0.0
+Current: 3.0.0
 
 ## Requires
 

@@ -8,15 +8,15 @@
  * with YAML frontmatter and markdown content.
  */
 export interface ClaudeCodeCommand {
-  readonly name: string;
-  readonly version: string;
-  readonly description: string;
-  readonly argumentHint?: string;
-  readonly tags: readonly string[];
-  readonly created: string;
-  readonly updated?: string;
-  readonly author: string;
-  readonly content: string;
+	readonly name: string;
+	readonly version: string;
+	readonly description: string;
+	readonly argumentHint?: string;
+	readonly tags: readonly string[];
+	readonly created: string;
+	readonly updated?: string;
+	readonly author: string;
+	readonly content: string;
 }
 
 /**
@@ -25,11 +25,11 @@ export interface ClaudeCodeCommand {
  * with YAML frontmatter specifying tools, model, and prompt content.
  */
 export interface ClaudeCodeAgent {
-  readonly name: string;
-  readonly description: string;
-  readonly tools: readonly string[];
-  readonly model: string;
-  readonly content: string;
+	readonly name: string;
+	readonly description: string;
+	readonly tools: readonly string[];
+	readonly model: string;
+	readonly content: string;
 }
 
 /**
@@ -38,10 +38,11 @@ export interface ClaudeCodeAgent {
  * with SKILL.md file and optional supporting files (templates, scripts).
  */
 export interface ClaudeCodeSkill {
-  readonly name: string;
-  readonly description: string;
-  readonly content: string;
-  readonly supportingFiles: readonly string[];
+	readonly name: string;
+	readonly description: string;
+	readonly allowedTools?: string; // Comma-separated string in Claude Code format
+	readonly content: string;
+	readonly supportingFiles: readonly string[];
 }
 
 /**
@@ -50,12 +51,12 @@ export interface ClaudeCodeSkill {
  * command template, description, and optional agent delegation.
  */
 export interface OpenCodeCommand {
-  readonly template: string;
-  readonly description: string;
-  readonly argumentHint?: string;
-  readonly agent?: string;
-  readonly model?: string;
-  readonly subtask: boolean;
+	readonly template: string;
+	readonly description: string;
+	readonly argumentHint?: string;
+	readonly agent?: string;
+	readonly model?: string;
+	readonly subtask: boolean;
 }
 
 /**
@@ -64,13 +65,13 @@ export interface OpenCodeCommand {
  * and permissions for security and capability management.
  */
 export interface OpenCodeAgent {
-  readonly name: string;
-  readonly description: string;
-  readonly mode: "subagent";
-  readonly model: string;
-  readonly tools: readonly string[];
-  readonly permissions: Record<string, readonly string[]>;
-  readonly content: string;
+	readonly name: string;
+	readonly description: string;
+	readonly mode: "subagent";
+	readonly model: string;
+	readonly tools: readonly string[];
+	readonly permissions: Record<string, readonly string[]>;
+	readonly content: string;
 }
 
 /**
@@ -79,10 +80,11 @@ export interface OpenCodeAgent {
  * and are accessed via the opencode-skills plugin.
  */
 export interface OpenCodeSkill {
-  readonly name: string;
-  readonly description: string;
-  readonly content: string;
-  readonly supportingFiles: readonly string[];
+	readonly name: string;
+	readonly description: string;
+	readonly allowedTools?: readonly string[]; // Array format for OpenCode
+	readonly content: string;
+	readonly supportingFiles: readonly string[];
 }
 
 /**
@@ -91,82 +93,93 @@ export interface OpenCodeSkill {
  * for transforming Claude Code artifacts to OpenCode format.
  */
 export interface PlatformRegistry {
-  readonly directoryMappings: Record<string, string>;
-  readonly toolMappings: Record<string, string | null>;
-  readonly metadataMappings: Record<string, string>;
+	readonly directoryMappings: Record<string, string>;
+	readonly toolMappings: Record<string, string | null>;
+	readonly metadataMappings: Record<string, string>;
 }
 
 /**
  * Plugin manifest tracking generated artifacts.
  */
 export interface PluginManifest {
-  readonly plugin: string;
-  readonly version: string;
-  readonly generatedAt: string;
-  readonly opencodeVersionTested: string;
-  readonly artifacts: {
-    readonly commands: readonly string[];
-    readonly agents: readonly string[];
-    readonly skills: readonly string[];
-  };
-  readonly installation: {
-    readonly commandsDir: string;
-    readonly agentsDir: string;
-    readonly skillsDir: string;
-  };
-  readonly requirements: {
-    readonly opencodeVersion: string;
-    readonly opencodeSkillsRequired: boolean;
-  };
+	readonly plugin: string;
+	readonly version: string;
+	readonly generatedAt: string;
+	readonly opencodeVersionTested: string;
+	readonly artifacts: {
+		readonly commands: readonly string[];
+		readonly agents: readonly string[];
+		readonly skills: readonly string[];
+	};
+	readonly installation: {
+		readonly commandsDir: string;
+		readonly agentsDir: string;
+		readonly skillsDir: string;
+	};
+	readonly requirements: {
+		readonly opencodeVersion: string;
+		readonly opencodeSkillsRequired: boolean;
+	};
+	readonly hasOpenCodePlugin?: boolean;
 }
 
 /**
  * Build configuration options.
  */
 export interface BuildConfig {
-  readonly outputDir: string;
-  readonly plugin: "base" | "dev" | "all";
-  readonly jsonOutput: boolean;
+	readonly outputDir: string;
+	readonly plugin: "base" | "dev" | "all";
+	readonly jsonOutput: boolean;
 }
 
 /**
  * Build result for a single artifact.
  */
 export interface ArtifactResult {
-  readonly type: "command" | "agent" | "skill";
-  readonly name: string;
-  readonly filename: string;
-  readonly success: boolean;
-  readonly error?: string;
+	readonly type: "command" | "agent" | "skill";
+	readonly name: string;
+	readonly filename: string;
+	readonly success: boolean;
+	readonly error?: string;
 }
 
 /**
  * Build summary statistics.
  */
 export interface BuildSummary {
-  readonly plugin: string;
-  readonly commands: number;
-  readonly agents: number;
-  readonly skills: number;
-  readonly errors: readonly string[];
+	readonly plugin: string;
+	readonly commands: number;
+	readonly agents: number;
+	readonly skills: number;
+	readonly errors: readonly string[];
 }
 
 /**
  * Asset entry with name and relative path for bundling.
  */
 export interface BundleAssetEntry {
-  readonly name: string;
-  readonly path: string;
+	readonly name: string;
+	readonly path: string;
+}
+
+/**
+ * OpenCode plugin asset entry for bundling.
+ * Represents a plugin that responds to OpenCode events (e.g., update notifications).
+ */
+export interface OpenCodePluginAsset {
+	readonly name: string;
+	readonly files: readonly BundleAssetEntry[];
 }
 
 /**
  * Plugin assets for bundling.
  */
 export interface BundlePluginAssets {
-  readonly name: string;
-  readonly commands: readonly BundleAssetEntry[];
-  readonly agents: readonly BundleAssetEntry[];
-  readonly skills: readonly BundleAssetEntry[];
+	readonly name: string;
+	readonly commands: readonly BundleAssetEntry[];
+	readonly agents: readonly BundleAssetEntry[];
+	readonly skills: readonly BundleAssetEntry[];
+	readonly openCodePlugin?: OpenCodePluginAsset;
 }
 
 /**
@@ -174,10 +187,10 @@ export interface BundlePluginAssets {
  * Generated at dist/opencode/bundle-manifest.json after build.
  */
 export interface BundleManifest {
-  readonly plugins: {
-    readonly base: BundlePluginAssets;
-    readonly dev: BundlePluginAssets;
-  };
-  readonly version: string;
-  readonly buildTimestamp: string;
+	readonly plugins: {
+		readonly base: BundlePluginAssets;
+		readonly dev: BundlePluginAssets;
+	};
+	readonly version: string;
+	readonly buildTimestamp: string;
 }

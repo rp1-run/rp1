@@ -76,11 +76,8 @@ nav:
   - Getting Started:
     - getting-started/index.md
     - Installation: getting-started/installation.md
-    - Quick Start: getting-started/quickstart.md
+    - First Workflow: getting-started/first-workflow.md
     - The .rp1 Directory: getting-started/rp1-directory.md
-    - Claude Code: getting-started/claude-code.md
-    - OpenCode: getting-started/opencode.md
-    - Platform Comparison: getting-started/platforms.md
   - Guides:
     - guides/index.md
     - Feature Development: guides/feature-development.md
@@ -90,14 +87,25 @@ nav:
     - KB Loading Patterns: guides/kb-loading-patterns.md
   - Reference:
     - reference/index.md
+    - CLI:
+      - init: reference/cli/init.md
     - Base Plugin:
       - reference/base/index.md
-      - knowledge-build: reference/base/knowledge-build.md
-      - knowledge-load: reference/base/knowledge-load.md
-      - project-birds-eye-view: reference/base/project-birds-eye-view.md
-      - strategize: reference/base/strategize.md
-      - write-content: reference/base/write-content.md
-      - analyse-security: reference/base/analyse-security.md
+      - Knowledge:
+        - knowledge-build: reference/base/knowledge-build.md
+        - knowledge-load: reference/base/knowledge-load.md
+      - Research:
+        - deep-research: reference/base/deep-research.md
+      - Documentation:
+        - project-birds-eye-view: reference/base/project-birds-eye-view.md
+        - write-content: reference/base/write-content.md
+      - Analysis:
+        - strategize: reference/base/strategize.md
+        - analyse-security: reference/base/analyse-security.md
+      - Validation:
+        - fix-mermaid: reference/base/fix-mermaid.md
+      - Maintenance:
+        - self-update: reference/base/self-update.md
     - Dev Plugin:
       - reference/dev/index.md
       - Blueprint & Planning:

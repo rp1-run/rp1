@@ -149,6 +149,12 @@ If command fails, inform user to install:
 
 ## 🏗️ Development Patterns
 
+### Technology choices
+
+1. Always prefer Bun and its ecosystem when writing new code in the repository. Fall back to Node.js only if a Bun ecosystem equivalent is unavailable or not sufficiently mature.
+
+2. We use bun to create an executable of the main CLI. Extra care should be taken to ensure we bundle all assets and any other files properly for this single executable to work.
+
 ### Adding a New Command
 
 1. **Choose plugin**: base or dev?
@@ -200,6 +206,15 @@ If needed, read an example agent spec at: ./plugins/base/agents/kb-spatial-analy
 # Should show 19 commands (6 base + 13 dev)
 ```
 
+### Testing, formatting, and validating CLI  (must be done after changes)
+
+```bash
+cd cli
+bun run test
+bun run lint
+bun run format
+```
+
 ### Validation Checklist
 
 **After making changes**:
@@ -212,6 +227,7 @@ If needed, read an example agent spec at: ./plugins/base/agents/kb-spatial-analy
 - [ ] Cross-plugin calls have error handling
 - [ ] README updated (if new command)
 - [ ] Conventional commit format used
+- [ ] When modifying cli, tests pass with format/lint checks
 
 **Before merging**:
 
@@ -219,6 +235,10 @@ If needed, read an example agent spec at: ./plugins/base/agents/kb-spatial-analy
 - [ ] Commands appear in `/help`
 - [ ] Test command execution
 - [ ] Cross-plugin KB loading works (if KB-aware)
+
+### Documentation
+
+1. When adding new features/commands/agents, update relevant parts of the user-facing docs if relevant.
 
 ### Reading This Codebase
 
@@ -253,3 +273,13 @@ If needed, read an example agent spec at: ./plugins/base/agents/kb-spatial-analy
 ---
 
 **This is a navigation guide. For detailed information, read the KB files in `.rp1/context/`.**
+
+<!-- rp1:start -->
+## rp1 Knowledge Base
+
+KB files in `.rp1/context/`: `index.md` (load first), `architecture.md`, `modules.md`, `patterns.md`, `concept_map.md`
+
+**Loading**: Read index.md first. Then based on task: code review → patterns.md, bugs → architecture.md + modules.md, features → modules.md + patterns.md, strategic → ALL files.
+
+**Important**: Do NOT use `/rp1-base/knowledge-load` in subagents (causes early exit). Use Read tool directly.
+<!-- rp1:end -->

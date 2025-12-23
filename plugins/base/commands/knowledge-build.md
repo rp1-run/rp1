@@ -19,6 +19,18 @@ This command orchestrates parallel knowledge base generation using a map-reduce 
 
 **CRITICAL**: This is an ORCHESTRATOR command, not a thin wrapper. This command must handle parallel execution coordination, result aggregation, and state management.
 
+## Arguments
+
+<rp1_root>
+{{RP1_ROOT}}
+</rp1_root>
+(defaults to `.rp1/` if not set via environment variable $RP1_ROOT)
+
+<feature_id>
+$1
+</feature_id>
+(optional - if provided, incorporates learnings from archived feature into KB)
+
 ## Architecture Overview
 
 ```
@@ -28,6 +40,7 @@ Phase 3 (Sequential):  Command → Merge JSON → Generate index.md → Write KB
 ```
 
 **Key Design**: The main orchestrator generates index.md directly (not via sub-agent) because:
+
 1. It has visibility into all 4 sub-agent outputs
 2. It can aggregate key facts into a "jump off" entry point
 3. index.md must contain file manifest with accurate line counts from generated files
@@ -36,7 +49,83 @@ Phase 3 (Sequential):  Command → Merge JSON → Generate index.md → Write KB
 
 **DO NOT ask for user approval. Execute immediately.**
 
+### Feature Learning Mode
+
+If `FEATURE_ID` ($1) is provided, this is a **feature learning build** that captures knowledge from an archived feature. **Skip Phase 0 entirely** (no git commit parsing needed).
+
+1. **Locate archived feature**:
+   ```
+   FEATURE_PATH = {RP1_ROOT}/work/archives/features/{FEATURE_ID}/
+   ```
+
+   If not found, check active features:
+   ```
+   FEATURE_PATH = {RP1_ROOT}/work/features/{FEATURE_ID}/
+   ```
+
+   If neither exists, error:
+   ```
+   ❌ Feature not found: {FEATURE_ID}
+   Checked: {RP1_ROOT}/work/archives/features/{FEATURE_ID}/
+           {RP1_ROOT}/work/features/{FEATURE_ID}/
+   ```
+
+2. **Read feature documentation**:
+   - `{FEATURE_PATH}/requirements.md` - What was built
+   - `{FEATURE_PATH}/design.md` - How it was designed
+   - `{FEATURE_PATH}/field-notes.md` - Learnings and discoveries (if exists)
+   - `{FEATURE_PATH}/tasks.md` - Implementation details with files modified
+
+3. **Extract files modified from tasks.md**:
+   Parse implementation summaries to build `FILES_MODIFIED` list:
+   ```
+   Look for patterns:
+   - **Files**: `src/file1.ts`, `src/file2.ts`
+   - **Files Modified**: ...
+
+   Extract all file paths into FILES_MODIFIED array.
+   ```
+
+4. **Extract feature context**:
+   Build a `FEATURE_CONTEXT` object containing:
+   - Feature ID and path
+   - Key requirements (summarized)
+   - Architectural decisions from design.md
+   - All discoveries from field-notes.md
+   - Implementation patterns used
+   - `files_modified`: FILES_MODIFIED array
+
+5. **Jump directly to Phase 1 (Spatial Analysis)**:
+   - Pass `FILES_MODIFIED` to spatial analyzer instead of git diff
+   - Spatial analyzer categorizes these specific files
+   - No git commit comparison needed
+
+6. **Spatial analyzer prompt (Feature Learning Mode)**:
+   ```
+   FEATURE_LEARNING mode. Categorize these files modified during feature implementation:
+   FILES: {{stringify(FILES_MODIFIED)}}
+
+   Rank each file 0-5, categorize by KB section (index_files, concept_files, arch_files, module_files).
+   Return JSON with categorized files.
+   ```
+
+7. **Sub-agent prompts include**:
+   ```
+   FEATURE_CONTEXT: {{stringify(feature_context)}}
+   MODE: FEATURE_LEARNING
+
+   Incorporate learnings from this completed feature:
+   - Update patterns.md with implementation patterns discovered
+   - Update architecture.md if new architectural patterns emerged
+   - Update modules.md with new components/dependencies
+   - Update concept_map.md with new domain concepts
+
+   Focus on files that were modified: {{stringify(FILES_MODIFIED)}}
+   ```
+
 ### Phase 0: Change Detection and Diff Analysis
+
+**NOTE**: Skip this phase entirely if FEATURE_ID is provided (Feature Learning Mode).
 
 1. **Check for existing KB state**:
    - Check if `{{RP1_ROOT}}/context/state.json` exists
@@ -69,13 +158,25 @@ Phase 3 (Sequential):  Command → Merge JSON → Generate index.md → Write KB
 
    **CASE C: Incremental update** (state.json exists AND commit changed AND files changed in CODEBASE_ROOT):
    - **ACTION**: Incremental analysis mode - get changed files with diffs
-   - **Read monorepo metadata from state.json**:
+   - **Read monorepo metadata from state.json AND local values from meta.json**:
+
      ```bash
+     # Read shareable state
      repo_type=$(jq -r '.repo_type // "single-project"' {{RP1_ROOT}}/context/state.json)
-     repo_root=$(jq -r '.repo_root // "."' {{RP1_ROOT}}/context/state.json)
-     current_project_path=$(jq -r '.current_project_path // "."' {{RP1_ROOT}}/context/state.json)
+
+     # Read local values from meta.json (with fallback to state.json for backward compatibility)
+     if [ -f "{{RP1_ROOT}}/context/meta.json" ]; then
+       repo_root=$(jq -r '.repo_root // "."' {{RP1_ROOT}}/context/meta.json)
+       current_project_path=$(jq -r '.current_project_path // "."' {{RP1_ROOT}}/context/meta.json)
+     else
+       # Backward compatibility: read from state.json if meta.json doesn't exist
+       repo_root=$(jq -r '.repo_root // "."' {{RP1_ROOT}}/context/state.json)
+       current_project_path=$(jq -r '.current_project_path // "."' {{RP1_ROOT}}/context/state.json)
+     fi
      ```
+
    - **Get changed files list**:
+
      ```bash
      # If monorepo, run git diff from repo root and filter to current project
      if [ "$repo_type" = "monorepo" ]; then
@@ -96,10 +197,12 @@ Phase 3 (Sequential):  Command → Merge JSON → Generate index.md → Write KB
        git diff --name-only {{old_commit}} {{new_commit}}
      fi
      ```
+
    - **Check if any files changed in scope**:
      - If NO changes found → **Go to CASE A-MONOREPO** (update commit only)
      - If changes found → Continue with incremental analysis
    - **Check change set size** (prevent token limit issues):
+
      ```bash
      changed_file_count=$(echo "$changed_files" | wc -l)
      if [ $changed_file_count -gt 50 ]; then
@@ -110,14 +213,17 @@ Phase 3 (Sequential):  Command → Merge JSON → Generate index.md → Write KB
        MODE="INCREMENTAL"
      fi
      ```
+
    - **MESSAGE**:
      - If MODE=FULL: "Large change set ({{changed_file_count}} files). Full analysis (10-15 min)"
      - If MODE=INCREMENTAL: "Changes detected since last build ({{old_commit}} → {{new_commit}}). Analyzing {{changed_file_count}} changed files (2-5 min)"
    - **Get detailed diffs for each changed file** (only if MODE=INCREMENTAL):
+
      ```bash
      # Only if incremental mode (< 50 files)
      git diff {{old_commit}} {{new_commit}} -- <filepath>
      ```
+
    - **Store diffs**: Create FILE_DIFFS JSON mapping filepath → diff content (only if MODE=INCREMENTAL)
    - **Filter changed files**: Apply EXCLUDE_PATTERNS, filter to relevant extensions
    - **Store changed files list**: Will be passed to spatial analyzer
@@ -128,6 +234,7 @@ Phase 3 (Sequential):  Command → Merge JSON → Generate index.md → Write KB
 1. **Spawn spatial analyzer agent**:
 
    **For full build (CASE B)**:
+
    ```
    Use Task tool with:
    subagent_type: rp1-base:kb-spatial-analyzer
@@ -135,6 +242,7 @@ Phase 3 (Sequential):  Command → Merge JSON → Generate index.md → Write KB
    ```
 
    **For incremental build (CASE C)**:
+
    ```
    Use Task tool with:
    subagent_type: rp1-base:kb-spatial-analyzer
@@ -143,8 +251,9 @@ Phase 3 (Sequential):  Command → Merge JSON → Generate index.md → Write KB
 
 2. **Parse spatial analyzer output**:
    - Extract JSON from agent response
-   - Validate structure: must have `repo_type`, `repo_root`, `current_project_path`, `monorepo_projects`, `total_files_scanned`, `index_files`, `concept_files`, `arch_files`, `module_files`
-   - Store monorepo metadata: `repo_type`, `repo_root`, `monorepo_projects`, `current_project_path`
+   - Validate structure: must have `repo_type`, `monorepo_projects`, `total_files_scanned`, `index_files`, `concept_files`, `arch_files`, `module_files`, `local_meta`
+   - Store shareable metadata: `repo_type`, `monorepo_projects`
+   - Store local metadata from `local_meta`: `repo_root`, `current_project_path` (will be written to meta.json)
    - For incremental: files_scanned should match changed_file_count
    - Check that at least one category has files (some categories may be empty in incremental)
 
@@ -199,10 +308,10 @@ Phase 3 (Sequential):  Command → Merge JSON → Generate index.md → Write KB
    **If 1 agent fails**:
    - Continue with remaining 3 successful agents
    - Generate placeholder content for failed section:
-     * concept_map.md failed → "# Error extracting concepts - run full rebuild"
-     * architecture.md failed → "# Error mapping architecture - see logs"
-     * modules.md failed → "# Error analyzing modules - run full rebuild"
-     * patterns.md failed → "# Error extracting patterns - run full rebuild"
+     - concept_map.md failed → "# Error extracting concepts - run full rebuild"
+     - architecture.md failed → "# Error mapping architecture - see logs"
+     - modules.md failed → "# Error analyzing modules - run full rebuild"
+     - patterns.md failed → "# Error extracting patterns - run full rebuild"
    - Include warning in final report: "⚠️ Partial KB generated (1 agent failed: <agent-name>)"
    - Write partial KB files (index.md always generated by orchestrator + 3 successful agent files + 1 placeholder)
    - Exit with partial success (still usable KB)
@@ -211,9 +320,9 @@ Phase 3 (Sequential):  Command → Merge JSON → Generate index.md → Write KB
    - Log all errors with specific agent names and error messages
    - Do NOT write partial KB (too incomplete to be useful)
    - Provide troubleshooting guidance:
-     * Check file permissions
-     * Verify git repository is valid
-     * Try running again (may be transient failure)
+     - Check file permissions
+     - Verify git repository is valid
+     - Try running again (may be transient failure)
    - Exit with error message: "ERROR: KB generation failed (X agents failed)"
    - Exit code: 1
 
@@ -290,14 +399,12 @@ Phase 3 (Sequential):  Command → Merge JSON → Generate index.md → Write KB
    - Extract languages and frameworks
    - Calculate metrics (module count, component count, concept count)
 
-2. **Generate state.json**:
+2. **Generate state.json** (shareable metadata - safe to commit/share):
 
    ```json
    {
      "strategy": "parallel-map-reduce",
      "repo_type": "{{repo_type}}",
-     "repo_root": "{{repo_root}}",
-     "current_project_path": "{{current_project_path}}",
      "monorepo_projects": ["{{project1}}", "{{project2}}"],
      "generated_at": "{{ISO timestamp}}",
      "git_commit": "{{git rev-parse HEAD}}",
@@ -311,11 +418,23 @@ Phase 3 (Sequential):  Command → Merge JSON → Generate index.md → Write KB
    }
    ```
 
-3. **Write state.json**:
+3. **Generate meta.json** (local values - should NOT be committed/shared):
+
+   ```json
+   {
+     "repo_root": "{{repo_root}}",
+     "current_project_path": "{{current_project_path}}"
+   }
+   ```
+
+   **NOTE**: `meta.json` contains local paths that may differ per team member. This file should be added to `.gitignore`.
+
+4. **Write state files**:
 
    ```
    Use Write tool to write:
    - {{RP1_ROOT}}/context/state.json
+   - {{RP1_ROOT}}/context/meta.json
    ```
 
 ### Phase 5: Error Handling
@@ -354,18 +473,46 @@ KB Files Written:
 - {{RP1_ROOT}}/context/architecture.md
 - {{RP1_ROOT}}/context/modules.md
 - {{RP1_ROOT}}/context/patterns.md
-- {{RP1_ROOT}}/context/state.json
+- {{RP1_ROOT}}/context/state.json (shareable metadata)
+- {{RP1_ROOT}}/context/meta.json (local paths - add to .gitignore)
 
 Next steps:
 - KB is automatically loaded by agents when needed (no manual /knowledge-load required)
 - Subsequent runs will use same parallel approach (10-15 min)
 - Incremental updates (changed files only) are faster (2-5 min)
+- Add meta.json to .gitignore to prevent sharing local paths
+```
+
+**Final Report (Feature Learning Mode)**:
+
+```
+✅ Feature Learnings Captured
+
+Feature: {{FEATURE_ID}}
+Source: {{FEATURE_PATH}}
+
+Learnings Incorporated:
+- patterns.md: {{N}} new patterns from implementation
+- architecture.md: {{N}} architectural decisions
+- modules.md: {{N}} new components/dependencies
+- concept_map.md: {{N}} domain concepts
+
+KB Files Updated:
+- {{RP1_ROOT}}/context/index.md
+- {{RP1_ROOT}}/context/concept_map.md
+- {{RP1_ROOT}}/context/architecture.md
+- {{RP1_ROOT}}/context/modules.md
+- {{RP1_ROOT}}/context/patterns.md
+
+The knowledge from feature "{{FEATURE_ID}}" has been captured into the KB.
+Future agents will benefit from these learnings.
 ```
 
 ## Parameters
 
 | Parameter | Default | Purpose |
 |-----------|---------|---------|
+| FEATURE_ID | (none) | Optional feature ID to incorporate learnings from archived feature |
 | RP1_ROOT | `.rp1/` | Root directory for KB artifacts |
 | CODEBASE_ROOT | `.` | Repository root to analyze |
 | EXCLUDE_PATTERNS | `node_modules/,.git/,build/,dist/` | Patterns to exclude from scanning |
@@ -383,6 +530,7 @@ Next steps:
 ## Output Discipline
 
 **CRITICAL - Keep Output Concise**:
+
 - Do ALL internal work in <thinking> tags (NOT visible to user)
 - Do NOT output verbose phase-by-phase progress ("Now doing Phase 1...", "Spawning agents...", etc.)
 - Do NOT explain internal logic or decision-making process
@@ -392,6 +540,7 @@ Next steps:
   3. **Final report**: Success message with KB files written (see Final Report above)
 
 **Example of CORRECT output**:
+
 ```
 First-time KB generation with parallel analysis (10-15 min)
 Analyzing... (Phase 2/5)
@@ -400,6 +549,7 @@ Analyzing... (Phase 2/5)
 ```
 
 **Example of INCORRECT output** (DO NOT DO THIS):
+
 ```
 Checking for state.json...
 state.json not found, proceeding with first-time build
@@ -418,17 +568,20 @@ etc. (too verbose!)
 ## Expected Performance
 
 **No changes detected**:
+
 - Instant (no-op)
 - **Single-project**: Commit unchanged → Skip entirely
 - **Monorepo**: Commit changed but no changes in this service → Update state.json commit only
 
 **First-time build** (no state.json - full analysis):
+
 - 10-15 minutes
 - Spatial analyzer scans all files
 - 5 parallel agents analyze all relevant files
 - Generates complete KB
 
 **Incremental update** (commit changed - changed files only):
+
 - 2-5 minutes (much faster!)
 - Git diff identifies changed files
 - Spatial analyzer categorizes only changed files

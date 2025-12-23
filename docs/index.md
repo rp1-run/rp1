@@ -11,7 +11,7 @@ Professional development workflows for AI coding assistants.
 Works today with **Claude Code** and **OpenCode**.
 
 
-[:fontawesome-solid-terminal: Get Started](getting-started/quickstart.md){ .md-button .md-button--primary }
+[:fontawesome-solid-terminal: Get Started](getting-started/installation.md){ .md-button .md-button--primary }
 [:fontawesome-brands-github: View on GitHub](https://github.com/rp1-run/rp1){ .md-button .md-button--github }
 
 <div class="carousel-container">
@@ -280,7 +280,7 @@ Get new developers productive on your codebase fast. Knowledge base + guided exp
 
 Native plugin via marketplace
 
-[Setup guide :material-arrow-right:](getting-started/claude-code.md)
+[Setup guide :material-arrow-right:](getting-started/installation.md)
 
 </div>
 
@@ -292,7 +292,7 @@ Native plugin via marketplace
 
 One-line install script
 
-[Setup guide :material-arrow-right:](getting-started/opencode.md)
+[Setup guide :material-arrow-right:](getting-started/installation.md)
 
 </div>
 
@@ -304,7 +304,7 @@ One-line install script
 
 <div align="center" markdown>
 
-[Get Started](getting-started/quickstart.md){ .md-button .md-button--primary }
+[Get Started](getting-started/installation.md){ .md-button .md-button--primary }
 
 [![GitHub stars](https://img.shields.io/github/stars/rp1-run/rp1?style=social)](https://github.com/rp1-run/rp1)
 

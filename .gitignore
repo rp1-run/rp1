@@ -20,5 +20,17 @@ cli/dist/
 cli/web-ui/.vite/
 cli/web-ui/dist/
 
-# Generated files (created by build:release)
+# Generated files (created by build:release / generate:assets)
 cli/src/assets/embedded.ts
+cli/src/config/supported-tools.generated.ts
+
+# local rp1 binary
+rp1-local
+
+# rp1:start
+!.rp1/
+.rp1/*
+!.rp1/context/
+!.rp1/context/**
+.rp1/context/meta.json
+# rp1:end

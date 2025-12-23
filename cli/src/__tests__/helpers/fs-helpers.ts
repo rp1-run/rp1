@@ -3,9 +3,9 @@
  * Provides temp directory management for integration tests.
  */
 
-import { mkdtemp, rm, mkdir, writeFile } from "fs/promises";
-import { join } from "path";
-import { tmpdir } from "os";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 /**
  * Create a temporary directory for test isolation.
@@ -13,8 +13,8 @@ import { tmpdir } from "os";
  * @returns Promise resolving to the absolute path of the created directory
  */
 export async function createTempDir(prefix: string): Promise<string> {
-  const tempPath = await mkdtemp(join(tmpdir(), `rp1-test-${prefix}-`));
-  return tempPath;
+	const tempPath = await mkdtemp(join(tmpdir(), `rp1-test-${prefix}-`));
+	return tempPath;
 }
 
 /**
@@ -22,7 +22,7 @@ export async function createTempDir(prefix: string): Promise<string> {
  * @param path - Absolute path to the directory to remove
  */
 export async function cleanupTempDir(path: string): Promise<void> {
-  await rm(path, { recursive: true, force: true });
+	await rm(path, { recursive: true, force: true });
 }
 
 /**
@@ -34,13 +34,13 @@ export async function cleanupTempDir(path: string): Promise<void> {
  * @returns Promise resolving to the absolute path of the written file
  */
 export async function writeFixture(
-  dir: string,
-  relativePath: string,
-  content: string,
+	dir: string,
+	relativePath: string,
+	content: string,
 ): Promise<string> {
-  const fullPath = join(dir, relativePath);
-  const parentDir = join(fullPath, "..");
-  await mkdir(parentDir, { recursive: true });
-  await writeFile(fullPath, content, "utf-8");
-  return fullPath;
+	const fullPath = join(dir, relativePath);
+	const parentDir = join(fullPath, "..");
+	await mkdir(parentDir, { recursive: true });
+	await writeFile(fullPath, content, "utf-8");
+	return fullPath;
 }

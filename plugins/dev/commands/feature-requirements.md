@@ -67,8 +67,8 @@ Use the loaded knowledge to understand existing domain terminology and business 
 
 **Before starting requirements gathering**, check for project context:
 
-1. **Check for charter**: Look for `.rp1/work/charter.md`
-2. **Check for PRDs**: List files in `.rp1/work/prds/` directory
+1. **Check for charter**: Look for `{RP1_ROOT}/context/charter.md`
+2. **Check for PRDs**: List files in `{RP1_ROOT}/work/prds/` directory
 
 **If PRDs exist**:
 
@@ -82,14 +82,12 @@ Use the loaded knowledge to understand existing domain terminology and business 
 
 **If no charter/PRDs exist**:
 
-- Display a helpful tip to the user:
-
+- Display concise tip:
   ```
-  💡 **Tip**: No project charter or PRDs found. Consider running `/rp1-dev:blueprint` first to establish
-  your project's vision, scope, and context. This helps keep features aligned with project goals.
+  No charter found. Try `/blueprint` to establish project vision first.
   ```
 
-- Continue with standard requirements workflow (backward compatible)
+- Continue with standard requirements workflow (no blocking)
 
 ## Your Task
 
@@ -243,7 +241,7 @@ THEN [observable outcome]
 Before generating your requirements specification, work through your analysis systematically inside <requirements_analysis> tags in your thinking block:
 
 1. **Load KB context**: Read `{RP1_ROOT}/context/index.md` and `{RP1_ROOT}/context/concept_map.md` to understand domain terminology
-2. **Check project context**: Look for `.rp1/work/charter.md` and `.rp1/work/prds/*.md` files. If PRDs exist, prompt user for association.
+2. **Check project context**: Look for `{RP1_ROOT}/context/charter.md` and `{RP1_ROOT}/work/prds/*.md` files. If PRDs exist, prompt user for association.
 3. **Parse the input requirements**: Quote specific phrases from the input that describe what needs to be built
 4. **Identify ambiguities**: List specific vague terms, undefined concepts, or unclear statements from the input (quote them directly)
 5. **Catalog missing information**: Systematically go through WHO/WHAT/CONSTRAINTS/SCOPE categories and note what information is missing

@@ -1,0 +1,16 @@
+{
+  "description": "rp1 version update notification hook",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/check-update.py",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -14,7 +14,8 @@ rp1 stores project-specific data in a `.rp1/` directory at your project root. Th
 │   ├── modules.md        # Component breakdown
 │   ├── concept_map.md    # Domain concepts
 │   ├── patterns.md       # Implementation patterns
-│   └── state.json        # Build state tracking
+│   ├── state.json        # Build state tracking (shareable)
+│   └── meta.json         # Local paths (NOT shareable - add to .gitignore)
 └── work/                 # Active development work
     ├── charter.md        # Project charter (from /blueprint)
     ├── prds/             # Product requirement documents
@@ -38,6 +39,9 @@ rp1 stores project-specific data in a `.rp1/` directory at your project root. Th
 # rp1 working files (individual work artifacts)
 .rp1/work/
 
+# rp1 local metadata (contains absolute paths specific to your machine)
+.rp1/context/meta.json
+
 # rp1 generated KB (optional - see trade-offs below)
 # .rp1/context/
 ```
@@ -47,7 +51,8 @@ rp1 stores project-specific data in a `.rp1/` directory at your project root. Th
 | Directory | Recommendation | Rationale |
 |-----------|---------------|-----------|
 | `.rp1/work/` | **Ignore** | Individual work artifacts (features, PRDs, tasks) - typically personal workflow |
-| `.rp1/context/` | **Consider** | See trade-offs below |
+| `.rp1/context/meta.json` | **Always Ignore** | Contains local paths (repo_root) that differ per machine |
+| `.rp1/context/` (rest) | **Consider** | See trade-offs below |
 
 ### Knowledge Base: To Commit or Not?
 
@@ -211,5 +216,5 @@ rp1 automatically detects monorepo structures and creates project-specific secti
 
 ## Next Steps
 
-- [:octicons-arrow-right-24: Quick Start](quickstart.md) - Run your first commands
+- [:octicons-arrow-right-24: First Workflow](first-workflow.md) - Run your first commands
 - [:octicons-arrow-right-24: Feature Development](../guides/feature-development.md) - Learn the feature workflow

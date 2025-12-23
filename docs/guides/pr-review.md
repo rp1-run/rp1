@@ -17,7 +17,7 @@ Perform thorough code reviews using rp1's map-reduce PR analysis. This tutorial 
 ## Prerequisites
 
 !!! warning "Before You Begin"
-    - rp1 installed ([Quick Start](../getting-started/quickstart.md))
+    - rp1 installed ([Installation](../getting-started/installation.md))
     - Knowledge base generated (`/knowledge-build`)
     - A PR to review (local branch or GitHub PR)
     - For GitHub features: `gh` CLI authenticated

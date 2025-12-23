@@ -1,8 +1,13 @@
 # feature-design
 
-Generates technical design specifications from requirements.
+Generates technical design specifications from requirements, then automatically creates tasks.
 
 ---
+
+!!! info "Automatic Task Generation"
+    Running `feature-design` now automatically generates `tasks.md` along with the design.
+    The separate [`/feature-tasks`](feature-tasks.md) command is optional and only needed
+    for regenerating tasks or making incremental updates.
 
 ## Synopsis
 
@@ -40,6 +45,7 @@ The `feature-design` command transforms requirements into a technical design spe
 |------|----------|
 | `design.md` | Technical design specification |
 | `design-decisions.md` | Rationale for key decisions |
+| `tasks.md` | Implementation task breakdown (auto-generated) |
 
 **Location:** `.rp1/work/features/<feature-id>/`
 
@@ -87,7 +93,8 @@ The `feature-design` command transforms requirements into a technical design spe
 
 - [`feature-requirements`](feature-requirements.md) - Previous step
 - [`validate-hypothesis`](validate-hypothesis.md) - Optional: test assumptions
-- [`feature-tasks`](feature-tasks.md) - Next step: task breakdown
+- [`feature-build`](feature-build.md) - Next step: implement tasks
+- [`feature-tasks`](feature-tasks.md) - Optional: regenerate or update tasks
 
 ## See Also
 

@@ -1,6 +1,6 @@
 ---
 name: feature-archiver
-description: Archives completed features to .rp1/work/archives/features/ or restores archived features back to active features directory
+description: Archives completed features to {RP1_ROOT}/work/archives/features/ or restores archived features back to active features directory
 tools: Read, Glob, Bash, Edit, AskUserQuestion
 model: inherit
 author: cloud-on-prem/rp1
@@ -120,7 +120,7 @@ Check if `{SOURCE}/field-notes.md` exists:
 
 Look for PRD reference in the feature's requirements.md:
 1. Read `{SOURCE}/requirements.md`
-2. Search for pattern: `PRD:` or `Related PRD:` or link to `.rp1/work/prds/*.md`
+2. Search for pattern: `PRD:` or `Related PRD:` or link to `{RP1_ROOT}/work/prds/*.md`
 3. If found: `PRD_PATH = {RP1_ROOT}/work/prds/{prd_name}.md`
 4. If not found: Check if `{RP1_ROOT}/work/prds/main.md` exists (default PRD)
 5. If no PRD found: Skip discovery extraction with note in output
@@ -213,7 +213,10 @@ Verify operation succeeded:
 **Discoveries**: {N discoveries transferred to PRD | No field notes found | No PRD found}
 
 The feature documentation has been moved to the archives.
-To restore later: `/rp1-dev:feature-unarchive {FEATURE_ID}`
+
+**Next Steps**:
+- Capture learnings into KB: `/knowledge-build {FEATURE_ID}`
+- To restore later: `/feature-unarchive {FEATURE_ID}`
 ```
 
 If discoveries were transferred, also show:

@@ -13,15 +13,24 @@ The `rp1-base` plugin provides core knowledge and documentation capabilities tha
 - Content writing
 - Shared skills for all plugins
 
-**Agents**: 9 specialized agents (6 for KB generation, 3 for docs/strategy/security)
-**Commands**: 6 user-facing commands
+**Agents**: 12 specialized agents (6 for KB generation, 2 for deep research, 4 for docs/strategy/security/validation)
+**Commands**: 9 user-facing commands
 **Skills**: 4 shared capabilities
 
-## Commands (6)
+## Commands (9)
 
 ### Knowledge Management
 - `/knowledge-build` - Parallel KB generation using map-reduce architecture with 6 agents (includes pattern extraction)
-- `/knowledge-load` - ⚠️ **DEPRECATED** - Commands now load KB automatically. See [Progressive Loading](../../docs/concepts/knowledge-aware-agents.md)
+- `/knowledge-load` - **DEPRECATED** - Commands now load KB automatically. See [Progressive Loading](../../docs/concepts/knowledge-aware-agents.md)
+
+### Research
+- `/deep-research` - Autonomous deep research on codebases and technical topics. Uses map-reduce architecture with explorer agents for thorough investigation and reporter agent for structured report output including Mermaid diagrams.
+  - **Usage Examples**:
+    - Single project: `/deep-research "understand the authentication flow in this codebase"`
+    - Multi-project: `/deep-research "compare error handling patterns across projects A, B, C"`
+    - Technical investigation: `/deep-research "best practices for integrating Redis caching"`
+  - **Output**: Structured reports saved to `{RP1_ROOT}/work/research/YYYY-MM-DD-<topic>.md`
+  - **Features**: Intent clarification, KB-aware exploration, web search integration, ultrathink synthesis
 
 ### Documentation & Strategy
 - `/project-birds-eye-view` - Generate project overview documentation for new developers
@@ -30,6 +39,32 @@ The `rp1-base` plugin provides core knowledge and documentation capabilities tha
 
 ### Security
 - `/analyse-security` - Security validation and vulnerability scanning
+
+### Validation & Repair
+- `/fix-mermaid` - Validates and repairs Mermaid diagrams in markdown files. Scans for mermaid blocks, validates syntax using mermaid-cli, and auto-repairs common errors (up to 3 attempts per diagram). Unfixable diagrams get placeholder comments.
+  - **Usage**: `/fix-mermaid path/to/file.md` or `/fix-mermaid -` for stdin
+  - **Requires**: Node.js (npx fetches @mermaid-js/mermaid-cli automatically)
+
+### Maintenance
+- `/self-update` - Update rp1 to the latest version using your package manager (Homebrew, Scoop) or get manual instructions
+
+## Automatic Update Notifications
+
+rp1 automatically checks for updates when you start a new session in Claude Code or OpenCode. If a newer version is available, you will see a notification with the current and available versions.
+
+**Behavior**:
+- Checks only on new session start (not on resume, compact, or clear)
+- Version check results are cached for 24 hours to minimize network requests
+- Network failures are handled gracefully (no error shown, session continues normally)
+- Use `rp1 check-update --force` to bypass the cache and check immediately
+
+**Configuration**:
+- Cache file location: `~/.config/rp1/version-cache.json`
+- The `~/.config/rp1/` directory is created automatically on first use
+
+**After Updating**:
+- Run `/self-update` to update rp1 when a new version is available
+- Restart Claude Code or OpenCode after updating to use the new version
 
 ## Skills (4)
 

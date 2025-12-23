@@ -1,7 +1,7 @@
-import { pipe, flow, identity } from "fp-ts/function";
 import * as E from "fp-ts/Either";
-import * as TE from "fp-ts/TaskEither";
+import { flow, identity, pipe } from "fp-ts/function";
 import * as O from "fp-ts/Option";
+import * as TE from "fp-ts/TaskEither";
 
 export { pipe, flow, identity };
 

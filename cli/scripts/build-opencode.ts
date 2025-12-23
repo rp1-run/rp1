@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+
 /**
  * Standalone script to build OpenCode artifacts.
  * This is the internal build script used by CI and contributors.
@@ -13,18 +14,18 @@
  *   -h, --help               Show this help message
  */
 
+import * as E from "fp-ts/lib/Either.js";
 import { createLogger, LogLevel } from "../shared/logger.js";
 import { executeBuild } from "../src/build/index.js";
-import * as E from "fp-ts/lib/Either.js";
 
 const logger = createLogger({
-  level: process.env.DEBUG ? LogLevel.DEBUG : LogLevel.INFO,
-  color: process.stdout.isTTY ?? false,
+	level: process.env.DEBUG ? LogLevel.DEBUG : LogLevel.INFO,
+	color: process.stdout.isTTY ?? false,
 });
 
 const args = process.argv.slice(2);
 const result = await executeBuild(args, logger)();
 
 if (E.isLeft(result)) {
-  process.exit(1);
+	process.exit(1);
 }

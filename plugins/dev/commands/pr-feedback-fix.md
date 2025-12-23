@@ -36,7 +36,9 @@ Here is the root directory for the project:
 
 Based on the provided root directory and feature ID, load these files:
 
-- PR feedback: `{root_directory}/work/features/{feature_id}/pr_feedback.md`
+- PR feedback: `{root_directory}/work/pr-reviews/<identifier>-feedback-<NNN>.md`
+  - Find the most recent feedback file matching the identifier (PR number, feature ID, or branch name)
+  - Pattern: `{root_directory}/work/pr-reviews/{identifier}-feedback-*.md`
 - Requirements: `{root_directory}/work/features/{feature_id}/requirements.md`
 - Design document: `{root_directory}/work/features/{feature_id}/design.md`
 

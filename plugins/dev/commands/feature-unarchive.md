@@ -1,7 +1,7 @@
 ---
 name: feature-unarchive
 version: 1.0.0
-description: Restores an archived feature to .rp1/work/features/
+description: Restores an archived feature to {RP1_ROOT}/work/features/
 argument-hint: "feature-id"
 tags: [feature, archive, restore, lifecycle]
 created: 2025-11-29

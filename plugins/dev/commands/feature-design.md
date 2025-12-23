@@ -1,7 +1,7 @@
 ---
 name: feature-design
-version: 2.0.0
-description: Transform requirements into detailed technical design documents with interactive technology selection and comprehensive architecture diagrams.
+version: 2.1.0
+description: Transform requirements into detailed technical design documents with interactive technology selection and comprehensive architecture diagrams. Automatically generates implementation tasks upon completion.
 argument-hint: "feature-id [extra-context]"
 tags:
   - feature
@@ -49,7 +49,7 @@ Here is the root directory path:
 
 3. **Comprehensive Documentation**: Generate complete design.md and design-decisions.md files with all required sections.
 
-4. **Visual Architecture**: Create all four required Mermaid diagrams (High-Level Architecture, Component Diagram, Sequence Diagram, Data Model).
+4. **Visual Architecture**: Create required Mermaid diagrams (High-Level Architecture, Component Diagram, Sequence Diagram, Data Model). Choose all or few based on what best represents the design.
 
 5. **Requirements Traceability**: Ensure all design decisions trace back to requirements.
 
@@ -58,6 +58,11 @@ Here is the root directory path:
 ## Process Instructions
 
 Before generating your design documents or asking clarification questions, you must work through a detailed analysis inside <design_thinking> tags within your thinking block. It's OK for this section to be quite long. This analysis should include:
+
+0. **Update Mode Detection**: Check if `{RP1_ROOT}/work/features/{FEATURE_ID}/design.md` already exists.
+   - If exists: Set `UPDATE_MODE = true` (design iteration - tasks will be incrementally updated)
+   - If not exists: Set `UPDATE_MODE = false` (initial design - fresh task generation)
+   Note this for use when spawning the tasker agent later.
 
 1. **Requirements Extraction**: Go through the input materials systematically and extract all specific functional and non-functional requirements. List each requirement explicitly with a brief description - be thorough as this forms the foundation of your design.
 
@@ -151,6 +156,7 @@ Your design.md file must include these sections:
 When designing the testing strategy, explicitly distinguish between:
 
 **Valuable Tests** (design for these):
+
 - Business logic validation (calculations, rules, workflows)
 - Integration between application components
 - Error handling for application-specific edge cases
@@ -158,6 +164,7 @@ When designing the testing strategy, explicitly distinguish between:
 - Data transformations unique to this application
 
 **Tests to Avoid** (do NOT design for):
+
 - Library behavior verification (e.g., "dataclass creates attributes")
 - Framework feature validation (e.g., "ORM returns query results")
 - Language primitive testing (e.g., "dict access works")
@@ -193,6 +200,27 @@ Generate these files in the feature documentation directory:
 **design-decisions.md**: Log of all major technology and architecture decisions with rationales
 
 **IMPORTANT**: All markdown documents written with Mermaid diagrams are at risk of mermaid render errors. Use mermaid skills to validate and fix the documents.
+
+## Task Generation (Automatic)
+
+After successfully generating and storing the design documents, you MUST spawn the feature-tasker agent to automatically generate implementation tasks.
+
+**Spawn the Tasker Agent**:
+
+Use the Task tool with these parameters:
+
+- **subagent_type**: `rp1-dev:feature-tasker`
+- **prompt**: Include the feature ID and UPDATE_MODE determined in Step 0 of Process Instructions
+
+```
+FEATURE_ID: {the feature id from $1}
+UPDATE_MODE: {true if design.md existed before this session, false otherwise}
+RP1_ROOT: {the rp1 root directory}
+```
+
+**Wait for Completion**: The tasker agent will read the design you just created, generate tasks, and write them to the feature directory.
+
+**Why This Matters**: This automatic task generation eliminates a manual step in the workflow. Users no longer need to run `/feature-tasks` separately.
 
 ## Hypothesis Validation (Optional)
 
@@ -263,17 +291,55 @@ After the hypothesis-tester completes:
 - Impact of being wrong is LOW
 - You have HIGH confidence in all critical assumptions
 
+## Addendum Tracking
+
+When the user requests new features, scope changes, or additions during the design session:
+
+1. **Scope Check**: Evaluate if the request is reasonably within the current feature's scope
+   - **In scope**: Enhancements, clarifications, or extensions that logically belong to this feature
+   - **Out of scope**: Unrelated functionality, separate user journeys, or features that warrant their own requirements
+
+   If out of scope, politely redirect:
+   > "This sounds like a separate feature that would benefit from its own requirements and design. I recommend running `/feature-requirements {suggested-feature-id}` to properly scope it out. Would you like me to continue with the current feature design?"
+
+2. **Capture the Change**: Note what the user is asking for
+3. **Append to Requirements**: Add an entry to `{RP1_ROOT}/work/features/{FEATURE_ID}/requirements.md` under an `## Addendum` section
+
+**Addendum Entry Format:**
+```markdown
+## Addendum
+
+### ADD-001: [Title] (added during design)
+- **Source**: Design session feedback
+- **Change**: [Description of what was added/modified]
+- **Rationale**: [Why this was needed]
+```
+
+- Number entries sequentially (ADD-001, ADD-002, etc.)
+- If the Addendum section doesn't exist, create it at the end of the file
+- If it exists, append new entries below existing ones
+- Reference addendum items in design.md where relevant (e.g., "Per ADD-001, the system will...")
+
 ## Success Completion
 
-After successfully generating and storing the design documents, inform the user:
+After the feature-tasker agent completes, inform the user with a unified success message:
 
-"✅ Technical design completed and stored in `{RP1_ROOT}/work/features/{FEATURE_ID}/`
+"Technical design and task planning completed for `{RP1_ROOT}/work/features/{FEATURE_ID}/`
 
-**Next Step**: Run `rp1-dev:feature-tasks` to break down this design into implementation tasks."
+**Design Phase Complete**:
+
+- `design.md` - Technical architecture and specifications
+- `design-decisions.md` - Decision rationale log
+- `tasks.md` (or milestone files) - Implementation task breakdown
+
+**Next Step**: Run `/feature-build {FEATURE_ID}` to begin implementation."
+
+If UPDATE_MODE was true, also include:
+"(Design iteration detected - tasks were incrementally updated, preserving completed work.)"
 
 Your response should contain either:
 
 1. Technology clarification questions (if needed), OR
-2. The complete generated design documents
+2. The complete generated design documents (followed by automatic task generation)
 
 Do not include both in the same response. Begin your process with the detailed analysis in your thinking block, then provide your final output without duplicating or rehashing any of the analytical work you performed in the thinking block.

@@ -1,130 +1,168 @@
 import { Command } from "commander";
 import * as E from "fp-ts/lib/Either.js";
-import type { Logger } from "../../shared/logger.js";
 import { formatError, getExitCode } from "../../shared/errors.js";
+import type { Logger } from "../../shared/logger.js";
+import { executeClaudeCodeInstall } from "../install/claudecode/index.js";
 import {
-  executeInstall,
-  executeVerify,
-  executeList,
+	executeInstall,
+	executeList,
+	executeVerify,
 } from "../install/index.js";
 
 export const installCommand = new Command("install:opencode")
-  .description("Install rp1 plugins to OpenCode platform")
-  .option("-a, --artifacts-dir <path>", "Path to artifacts directory")
-  .option("--skip-skills", "Skip skills installation")
-  .option("--dry-run", "Show what would be installed without installing")
-  .option("-y, --yes", "Skip confirmation prompts")
-  .addHelpText("after", `
+	.description("Install rp1 plugins to OpenCode platform")
+	.option("-a, --artifacts-dir <path>", "Path to artifacts directory")
+	.option("--skip-skills", "Skip skills installation")
+	.option("--dry-run", "Show what would be installed without installing")
+	.option("-y, --yes", "Skip confirmation prompts")
+	.addHelpText(
+		"after",
+		`
 Examples:
   rp1 install:opencode                    Install from default artifacts
   rp1 install:opencode --dry-run          Preview installation
   rp1 install:opencode -a ./my-artifacts  Install from custom path
   rp1 install:opencode -y                 Skip confirmation prompts
-`)
-  .action(async (options, command) => {
-    const logger = command.parent?._logger as Logger;
-    const isTTY = command.parent?._isTTY ?? false;
+`,
+	)
+	.action(async (options, command) => {
+		const logger = command.parent?._logger as Logger;
+		const isTTY = command.parent?._isTTY ?? false;
 
-    if (!logger) {
-      console.error("Logger not initialized");
-      process.exit(1);
-    }
+		if (!logger) {
+			console.error("Logger not initialized");
+			process.exit(1);
+		}
 
-    const args: string[] = [];
-    if (options.artifactsDir) {
-      args.push("--artifacts-dir", options.artifactsDir);
-    }
-    if (options.skipSkills) {
-      args.push("--skip-skills");
-    }
-    if (options.dryRun) {
-      args.push("--dry-run");
-    }
-    if (options.yes) {
-      args.push("--yes");
-    }
+		const args: string[] = [];
+		if (options.artifactsDir) {
+			args.push("--artifacts-dir", options.artifactsDir);
+		}
+		if (options.skipSkills) {
+			args.push("--skip-skills");
+		}
+		if (options.dryRun) {
+			args.push("--dry-run");
+		}
+		if (options.yes) {
+			args.push("--yes");
+		}
 
-    const result = await executeInstall(args, logger, { isTTY, skipPrompt: options.yes })();
+		const result = await executeInstall(args, logger, {
+			isTTY,
+			skipPrompt: options.yes,
+		})();
 
-    if (E.isLeft(result)) {
-      console.error(formatError(result.left, process.stderr.isTTY ?? false));
-      process.exit(getExitCode(result.left));
-    }
-  });
+		if (E.isLeft(result)) {
+			console.error(formatError(result.left, process.stderr.isTTY ?? false));
+			process.exit(getExitCode(result.left));
+		}
+	});
 
 export const verifyCommand = new Command("verify:opencode")
-  .description("Verify rp1 installation health")
-  .option("--artifacts-dir <path>", "Path to artifacts for name-based verification")
-  .addHelpText("after", `
+	.description("Verify rp1 installation health")
+	.option(
+		"--artifacts-dir <path>",
+		"Path to artifacts for name-based verification",
+	)
+	.addHelpText(
+		"after",
+		`
 Examples:
   rp1 verify:opencode                     Verify installation
   rp1 verify:opencode --artifacts-dir .   Verify against specific artifacts
-`)
-  .action(async (options, command) => {
-    const logger = command.parent?._logger as Logger;
-    if (!logger) {
-      console.error("Logger not initialized");
-      process.exit(1);
-    }
+`,
+	)
+	.action(async (options, command) => {
+		const logger = command.parent?._logger as Logger;
+		if (!logger) {
+			console.error("Logger not initialized");
+			process.exit(1);
+		}
 
-    const args: string[] = [];
-    if (options.artifactsDir) {
-      args.push("--artifacts-dir", options.artifactsDir);
-    }
+		const args: string[] = [];
+		if (options.artifactsDir) {
+			args.push("--artifacts-dir", options.artifactsDir);
+		}
 
-    const result = await executeVerify(args, logger)();
+		const result = await executeVerify(args, logger)();
 
-    if (E.isLeft(result)) {
-      console.error(formatError(result.left, process.stderr.isTTY ?? false));
-      process.exit(getExitCode(result.left));
-    }
-  });
+		if (E.isLeft(result)) {
+			console.error(formatError(result.left, process.stderr.isTTY ?? false));
+			process.exit(getExitCode(result.left));
+		}
+	});
 
 export const listCommand = new Command("list")
-  .description("List installed rp1 commands")
-  .addHelpText("after", `
+	.description("List installed rp1 commands")
+	.addHelpText(
+		"after",
+		`
 Examples:
   rp1 list                                List all installed commands
-`)
-  .action(async (_options, command) => {
-    const logger = command.parent?._logger as Logger;
-    if (!logger) {
-      console.error("Logger not initialized");
-      process.exit(1);
-    }
+`,
+	)
+	.action(async (_options, command) => {
+		const logger = command.parent?._logger as Logger;
+		if (!logger) {
+			console.error("Logger not initialized");
+			process.exit(1);
+		}
 
-    const result = await executeList([], logger)();
+		const result = await executeList([], logger)();
 
-    if (E.isLeft(result)) {
-      console.error(formatError(result.left, process.stderr.isTTY ?? false));
-      process.exit(getExitCode(result.left));
-    }
-  });
+		if (E.isLeft(result)) {
+			console.error(formatError(result.left, process.stderr.isTTY ?? false));
+			process.exit(getExitCode(result.left));
+		}
+	});
 
 export const installClaudeCodeCommand = new Command("install:claudecode")
-  .description("Show instructions for installing rp1 plugins in Claude Code")
-  .action(async () => {
-    const cyan = "\x1b[36m";
-    const bold = "\x1b[1m";
-    const reset = "\x1b[0m";
-    const dim = "\x1b[2m";
+	.description("Install rp1 plugins to Claude Code")
+	.option("--dry-run", "Show what would be executed without making changes")
+	.option("-y, --yes", "Skip confirmation prompts (non-interactive mode)")
+	.option(
+		"-s, --scope <scope>",
+		"Installation scope: user, project, or local",
+		"user",
+	)
+	.addHelpText(
+		"after",
+		`
+Examples:
+  rp1 install:claudecode                Install to user scope
+  rp1 install:claudecode --dry-run      Preview installation commands
+  rp1 install:claudecode -y             Non-interactive installation
+  rp1 install:claudecode -s project     Install to project scope
+`,
+	)
+	.action(async (options, command) => {
+		const logger = command.parent?._logger as Logger;
+		const isTTY = command.parent?._isTTY ?? false;
 
-    console.log(`
-${bold}Installing rp1 plugins in Claude Code${reset}
+		if (!logger) {
+			console.error("Logger not initialized");
+			process.exit(1);
+		}
 
-Claude Code uses a plugin marketplace. Run these commands in Claude Code:
+		const args: string[] = [];
+		if (options.dryRun) {
+			args.push("--dry-run");
+		}
+		if (options.yes) {
+			args.push("--yes");
+		}
+		if (options.scope) {
+			args.push("--scope", options.scope);
+		}
 
-${cyan}# Add the rp1 marketplace${reset}
-${bold}/plugin marketplace add rp1-run/rp1${reset}
+		const result = await executeClaudeCodeInstall(args, logger, {
+			isTTY,
+			skipPrompt: options.yes,
+		})();
 
-${cyan}# Install the plugins${reset}
-${bold}/plugin install rp1-base${reset}
-${bold}/plugin install rp1-dev${reset}
-
-${cyan}# Verify installation${reset}
-${bold}/help${reset}  ${dim}(should show rp1 commands)${reset}
-
-${dim}For detailed instructions, visit:${reset}
-${bold}https://rp1.run/getting-started/quickstart/${reset}
-`);
-  });
+		if (E.isLeft(result)) {
+			console.error(formatError(result.left, process.stderr.isTTY ?? false));
+			process.exit(getExitCode(result.left));
+		}
+	});

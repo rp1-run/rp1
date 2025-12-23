@@ -50,14 +50,15 @@ The command automatically detects the appropriate build mode:
 
 The command generates these files in `.rp1/context/`:
 
-| File | Contents |
-|------|----------|
-| `index.md` | Project overview, structure, entry points |
-| `architecture.md` | System architecture, patterns, integrations |
-| `modules.md` | Component breakdown, dependencies |
-| `concept_map.md` | Domain concepts, terminology |
-| `patterns.md` | Implementation patterns, idioms |
-| `state.json` | Build metadata, git commit reference |
+| File | Contents | Shareable? |
+|------|----------|------------|
+| `index.md` | Project overview, structure, entry points | Yes |
+| `architecture.md` | System architecture, patterns, integrations | Yes |
+| `modules.md` | Component breakdown, dependencies | Yes |
+| `concept_map.md` | Domain concepts, terminology | Yes |
+| `patterns.md` | Implementation patterns, idioms | Yes |
+| `state.json` | Build metadata, git commit reference | Yes |
+| `meta.json` | Local paths (repo_root, current_project_path) | **No** - add to .gitignore |
 
 ## Examples
 
@@ -91,7 +92,8 @@ KB Files Written:
 - .rp1/context/architecture.md
 - .rp1/context/modules.md
 - .rp1/context/patterns.md
-- .rp1/context/state.json
+- .rp1/context/state.json (shareable)
+- .rp1/context/meta.json (local - add to .gitignore)
 ```
 
 ### Incremental Build

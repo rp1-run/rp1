@@ -231,18 +231,32 @@ Index.md is designed as a "jump off" point. Agents should:
 **When to Use**: Monorepos with multiple technology stacks
 
 ### state.json
-**Purpose**: Metadata and tracking information
+**Purpose**: Shareable metadata and tracking information (safe to commit)
 
 **Key Fields**:
+- `strategy`: Build strategy used (e.g., "parallel-map-reduce")
 - `repo_type`: "single-project" or "monorepo"
-- `analysis_date`: When analysis was performed
-- `build_strategy`: Which strategy was used
-- `languages_detected`: Code statistics
-- `coverage_metrics`: Documentation coverage
-- `validation_context`: Validation issues tracking
-- `incremental_updates`: Change tracking
+- `monorepo_projects`: List of project directories (monorepo)
+- `generated_at`: When analysis was performed (ISO timestamp)
+- `git_commit`: Commit hash at generation time
+- `files_analyzed`: Number of files processed
+- `languages`: Detected programming languages
+- `metrics`: Module, component, and concept counts
 
 **When to Use**: Always - tracks knowledge base state
+
+**NOTE**: Does NOT contain local paths. Local values are stored in `meta.json`.
+
+### meta.json
+**Purpose**: Local-only values that should NOT be shared with team members
+
+**Key Fields**:
+- `repo_root`: Absolute path to repository root (local to each machine)
+- `current_project_path`: Relative path from repo_root to current project
+
+**When to Use**: Always generated alongside state.json
+
+**IMPORTANT**: Add to `.gitignore` - these paths may differ per team member and should not be committed.
 
 ## Best Practices
 

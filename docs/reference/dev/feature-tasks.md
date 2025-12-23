@@ -4,6 +4,18 @@ Breaks down technical design into actionable implementation tasks.
 
 ---
 
+!!! note "Optional Command"
+    Tasks are now **automatically generated** when you run [`/feature-design`](feature-design.md).
+    Use this command only when you need to regenerate tasks or make incremental updates.
+
+## When to Use
+
+| Use Case | Description |
+|----------|-------------|
+| **Regenerate tasks** | Design changed significantly; regenerate the entire task breakdown |
+| **Incremental updates** | Add tasks for new requirements without regenerating everything |
+| **Mid-feature changes** | Update task structure after using [`/feature-edit`](feature-edit.md) |
+
 ## Synopsis
 
 === "Claude Code"
@@ -21,6 +33,12 @@ Breaks down technical design into actionable implementation tasks.
 ## Description
 
 The `feature-tasks` command transforms a technical design into actionable tasks with milestones. It analyzes the design document and creates a structured task breakdown with acceptance criteria for each task.
+
+Since [`/feature-design`](feature-design.md) now auto-generates `tasks.md`, this command is primarily used for:
+
+- **Regeneration**: When design changes require a fresh task breakdown
+- **Incremental updates**: When adding requirements to an existing feature
+- **Manual control**: When you want to customize task generation parameters
 
 ## Parameters
 

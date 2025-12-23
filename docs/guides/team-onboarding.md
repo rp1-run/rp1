@@ -17,7 +17,7 @@ Help new team members get productive quickly using rp1's knowledge base capabili
 ## Prerequisites
 
 !!! warning "Before You Begin"
-    - rp1 installed ([Quick Start](../getting-started/quickstart.md))
+    - rp1 installed ([Installation](../getting-started/installation.md))
     - A codebase you want to document
     - Git repository (KB tracks commits for incremental updates)
 
@@ -130,9 +130,10 @@ Phase 3: Merging Results
 ✅ Knowledge Base Complete
 
 Location: .rp1/context/
-Files: 5 markdown files + state.json
+Files: 5 markdown files + state.json + meta.json
 Time: 8 minutes 32 seconds
 
+Note: meta.json contains local paths - add to .gitignore
 Next: Knowledge base is ready for use with rp1 commands
 ```
 
@@ -384,7 +385,7 @@ Use this checklist when onboarding a new team member:
 ### Day 1: Environment Setup
 
 - [ ] Clone repository
-- [ ] Install rp1 ([Quick Start](../getting-started/quickstart.md))
+- [ ] Install rp1 ([Installation](../getting-started/installation.md))
 - [ ] Read `.rp1/docs/project-overview.md`
 - [ ] Run through setup instructions
 - [ ] Verify development environment works

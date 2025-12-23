@@ -1,6 +1,6 @@
 # Mermaid Diagrams Cheat Sheet
 
-A comprehensive reference guide for creating various types of Mermaid diagrams.
+A comprehensive reference guide for creating various types of Mermaid diagrams, including common errors and fix guidance.
 
 ## Table of Contents
 - [Flowcharts](#flowcharts)
@@ -22,6 +22,7 @@ A comprehensive reference guide for creating various types of Mermaid diagrams.
 - [XY Charts](#xy-charts)
 - [Kanban](#kanban)
 - [Radar Charts](#radar-charts)
+- [Error Categories Quick Reference](#error-categories-quick-reference)
 - [Comments](#comments)
 
 ---
@@ -64,6 +65,33 @@ flowchart LR
 - `--` - Line (no arrow)
 - `-- text -->` - Arrow with label
 
+### Flowchart Common Errors
+
+**ARROW_SYNTAX**: Invalid arrow `->` (use `-->`)
+```mermaid
+%% WRONG: flowchart TD; A -> B
+%% RIGHT:
+flowchart TD
+    A --> B
+```
+
+**NODE_SYNTAX**: Unbalanced brackets
+```mermaid
+%% WRONG: A[Start Process
+%% RIGHT:
+flowchart TD
+    A[Start Process]
+```
+
+**QUOTE_ERROR**: Special characters need quotes
+```mermaid
+%% WRONG: A[Time: 10:30]
+%% RIGHT:
+flowchart TD
+    A["Time: 10:30"]
+    B["Value (optional)"]
+```
+
 ---
 
 ## Sequence Diagrams
@@ -85,41 +113,20 @@ sequenceDiagram
 - `-)` - Solid line with open arrow
 - `--)` - Dotted line with open arrow
 
-### Activation & Deactivation
+### Activation & Control Flow
 ```mermaid
 sequenceDiagram
-    Alice ->>+ Bob: Explicit activation
-    activate Bob
-    Bob ->> Charlie: Message
-    deactivate Bob
-
-    Alice ->>+ Bob: Implicit activation
-    Bob ->>- Alice: Implicit deactivation
-```
-
-### Control Flow
-```mermaid
-sequenceDiagram
-    Alice ->> Bob: Message
+    Alice ->>+ Bob: Activate
+    Bob ->>- Alice: Deactivate
 
     loop Every minute
         Bob ->> Alice: Status
     end
 
-    opt If condition
-        Alice ->> Bob: Optional message
-    end
-
     alt Success
-        Bob ->> Alice: Success response
+        Bob ->> Alice: OK
     else Failure
-        Bob ->> Alice: Error response
-    end
-
-    par Parallel
-        Alice ->> Bob: Message 1
-    and
-        Alice ->> Charlie: Message 2
+        Bob ->> Alice: Error
     end
 ```
 
@@ -131,6 +138,26 @@ sequenceDiagram
     note left of Alice: Left note
     note right of Alice: Right note
     note over Alice,Bob: Note spanning both
+```
+
+### Sequence Diagram Common Errors
+
+**ARROW_SYNTAX**: Wrong arrow type
+```mermaid
+%% WRONG: Alice - Bob: Hello
+%% RIGHT:
+sequenceDiagram
+    Alice->>Bob: Hello
+    Bob-->>Alice: Response
+```
+
+**LINE_BREAK**: Messages must be on separate lines
+```mermaid
+%% WRONG: Alice->>Bob: Hi Bob->>Alice: Hello
+%% RIGHT:
+sequenceDiagram
+    Alice->>Bob: Hi
+    Bob->>Alice: Hello
 ```
 
 ---
@@ -183,6 +210,18 @@ classDiagram
 - `*` Abstract
 - `$` Static
 
+### Class Diagram Common Errors
+
+**QUOTE_ERROR**: Unterminated strings in annotations
+```mermaid
+%% WRONG: +getMethod() "Returns value
+%% RIGHT:
+classDiagram
+    class MyClass {
+        +getMethod() String
+    }
+```
+
 ---
 
 ## State Diagrams
@@ -201,47 +240,25 @@ stateDiagram-v2
 ```mermaid
 stateDiagram-v2
     [*] --> First
-
     state First {
         [*] --> a
         a --> b
     }
-
-    First --> Second
-
-    state Second {
-        [*] --> c
-        c --> d
-    }
+    First --> [*]
 ```
 
-### Concurrency
+Notes: Use `note left of State` or `note right of State`
+
+### State Diagram Common Errors
+
+**ARROW_SYNTAX**: Must use `-->` not `->`
 ```mermaid
+%% WRONG: [*] -> State1; State1 -> State2
+%% RIGHT:
 stateDiagram-v2
-    [*] --> Active
-
-    state Active {
-        [*] --> NumLockOff
-        NumLockOff --> NumLockOn
-        --
-        [*] --> CapsLockOff
-        CapsLockOff --> CapsLockOn
-    }
-```
-
-### Notes
-```mermaid
-stateDiagram-v2
-    direction LR
-    Start --> Middle
-
-    note left of Start
-        This is a left note
-    end note
-
-    note right of Middle
-        This is a right note
-    end note
+    [*] --> State1
+    State1 --> State2
+    State2 --> [*]
 ```
 
 ---
@@ -281,6 +298,22 @@ erDiagram
 - `}|--|{` - One or more to one or more
 - `|o--o|` - Zero or one to zero or one
 
+### ER Diagram Common Errors
+
+**CARDINALITY**: Invalid relationship symbols
+```mermaid
+%% WRONG: CUSTOMER |--| ORDER : places
+%% WRONG: CUSTOMER -- ORDER : places
+%% RIGHT:
+erDiagram
+    CUSTOMER ||--o{ ORDER : places
+    ORDER ||--|{ ITEM : contains
+```
+
+**Fix guidance**: Use proper cardinality markers on both sides:
+- Left side: `||` (one), `|o` (zero or one), `}|` (one+), `}o` (zero+)
+- Right side: `||` (one), `o|` (zero or one), `|{` (one+), `o{` (zero+)
+
 ---
 
 ## Gantt Charts
@@ -288,74 +321,44 @@ erDiagram
 ### Basic Syntax
 ```mermaid
 gantt
-    title A Gantt Diagram
-    dateFormat YYYY-MM-DD
-    section Section
-        A task          :a1, 2014-01-01, 30d
-        Another task    :after a1, 20d
-    section Another
-        Task in Another :2014-01-12, 12d
-        another task    :24d
-```
-
-### Advanced Features
-```mermaid
-gantt
-    dateFormat  YYYY-MM-DD
     title Project Timeline
-    excludes weekends
-
-    section Planning
-    Completed task      :done,    des1, 2024-01-01, 2024-01-05
-    Active task         :active,  des2, 2024-01-06, 3d
-    Future task         :         des3, after des2, 5d
-
-    section Critical
-    Critical task       :crit, done, 2024-01-01, 24h
-    Milestone           :milestone, m1, 2024-01-10, 0d
+    dateFormat YYYY-MM-DD
+    section Phase 1
+        Completed task  :done, a1, 2024-01-01, 7d
+        Active task     :active, a2, after a1, 5d
+        Critical task   :crit, a3, after a2, 3d
+    section Phase 2
+        Milestone       :milestone, m1, 2024-01-20, 0d
 ```
 
-### Task States
-- `:done` - Completed
-- `:active` - Currently active
-- `:crit` - Critical task
-- `:milestone` - Milestone marker
+Task states: `:done`, `:active`, `:crit`, `:milestone`
+
+### Gantt Common Errors
+
+**LINE_BREAK**: Tasks must be on separate lines
+```mermaid
+%% WRONG: Task A :a1, 2024-01-01, 7d Task B :a2, after a1, 5d
+%% RIGHT:
+gantt
+    title Plan
+    Task A :a1, 2024-01-01, 7d
+    Task B :a2, after a1, 5d
+```
 
 ---
 
 ## Git Graphs
 
-### Basic Example
-```mermaid
-gitGraph:
-    commit
-    branch develop
-    checkout develop
-    commit
-    commit
-    checkout main
-    merge develop
-    commit
-```
-
-### Advanced Features
+### Basic Syntax
 ```mermaid
 gitGraph:
     commit id: "Initial"
-    branch hotfix
-    checkout hotfix
-    commit
     branch develop
     checkout develop
     commit id:"Feature" tag:"v1.0"
     checkout main
-    merge hotfix
-    checkout develop
+    merge develop
     commit type:HIGHLIGHT
-    branch featureA
-    commit
-    checkout develop
-    merge featureA
 ```
 
 ### Commit Types
@@ -398,35 +401,16 @@ journey
 
 ## Architecture Diagrams
 
-### Basic Example
+### Basic Syntax
 ```mermaid
 architecture-beta
-    service db(database)[Database]
-    service disk1(disk)[Storage]
-    service server(server)[Server]
-
-    db:L <-- R:server
-    disk1:T -- B:server
-```
-
-### With Groups
-```mermaid
-architecture-beta
-    group cloud[Cloud Infrastructure]
-    group onprem[On-Premise] in cloud
-
-    service db(database)[Database] in onprem
+    group cloud[Cloud]
+    service db(database)[Database] in cloud
     service server(server)[Server] in cloud
-
     db:L <-- R:server
 ```
 
-### Service Icons
-- `cloud` - Cloud service
-- `database` - Database
-- `disk` - Storage disk
-- `internet` - Internet
-- `server` - Server
+Service icons: `cloud`, `database`, `disk`, `internet`, `server`
 
 ---
 
@@ -464,44 +448,13 @@ mindmap
 
 ## Block Diagrams
 
-### Basic Structure
+### Basic Syntax
 ```mermaid
 block-beta
     columns 3
-    a b c
+    a["default"] b("rounded") c{{"hexagon"}}
     d e f
-```
-
-### With Shapes
-```mermaid
-block-beta
-    columns 4
-    a["default"]
-    b("rounded")
-    c[["double-edged"]]
-    d{{"hexagon"}}
-```
-
-### Nested Blocks
-```mermaid
-block-beta
-    columns 5
-    a:3 b:2
-    block:myBlock:2
-        columns 2
-        i j k
-    end
-```
-
-### Connections
-```mermaid
-block-beta
-    columns 3
-    a space b
-    c
-
     a-->b
-    b--"label"-->c
 ```
 
 ---
@@ -521,45 +474,14 @@ sankey-beta
 
 ## ZenUML
 
-### Basic Sequence
+### Basic Syntax
 ```mermaid
 zenuml
     title Demo
     Alice->John: Hello John
     John->Alice: Great!
-```
-
-### Message Types
-```mermaid
-zenuml
-    User->Server.SyncMessage
-    User->Server.SyncWithResult { return result }
-    User->Server: AsyncMessage
-    new CreateMessage
-    @return Server->User: ReplyMessage
-```
-
-### Control Flow
-```mermaid
-zenuml
-    User->Server: Request
-
     if (condition) {
-        Server->User: Response1
-    } else {
-        Server->User: Response2
-    }
-
-    while(condition) {
-        Server->User: Repeated message
-    }
-
-    try {
-        User->Server: Risky operation
-    } catch {
-        Server->User: Error
-    } finally {
-        Server->User: Cleanup
+        Alice->John: Conditional
     }
 ```
 
@@ -612,20 +534,6 @@ kanban
         Task D@{ ticket: 'ABC-123' }
 ```
 
-### Metadata Options
-```mermaid
-kanban
-    Backlog
-        Task A@{ ticket: ABC-123, assigned: 'Alice', priority: 'High' }
-
-    All Priorities
-        Very High@{ priority: 'Very High' }
-        High@{ priority: 'High' }
-        Normal
-        Low@{ priority: 'Low' }
-        Very Low@{ priority: 'Very Low' }
-```
-
 ---
 
 ## Radar Charts
@@ -637,6 +545,65 @@ radar-beta
     axis Programming, Design, Testing, Documentation, Communication
     curve Developer1{80, 60, 70, 50, 65}
     curve Developer2{70, 80, 60, 70, 75}
+```
+
+---
+
+## Error Categories Quick Reference
+
+When validation fails, errors are categorized for targeted fixing. See [EXAMPLES.md](EXAMPLES.md) for detailed examples.
+
+### Category Overview
+
+| Category | Common Cause | Primary Fix |
+|----------|--------------|-------------|
+| `ARROW_SYNTAX` | Wrong arrow for diagram type | Use correct arrows (`-->` for flowchart/state, `->>` for sequence) |
+| `QUOTE_ERROR` | Special chars in labels | Wrap label in double quotes: `["text: here"]` |
+| `CARDINALITY` | ER relationship notation | Use proper notation: `\|\|--o{` |
+| `LINE_BREAK` | Missing newlines | Put each statement on its own line |
+| `DIAGRAM_TYPE` | Typo or missing type | Add/fix declaration: `flowchart TD` |
+| `NODE_SYNTAX` | Unbalanced brackets | Match all `[]`, `()`, `{}` pairs |
+
+### Fix Strategy by Diagram Type
+
+**Flowchart/Graph**:
+- Arrows: `-->`, `---`, `==>`, `-.->` (NOT `->`)
+- Quote labels with `:`, `()`, `[]`
+- Balance all node brackets
+
+**Sequence Diagram**:
+- Arrows: `->>`, `-->>`, `-x`, `--x`, `-)`, `--)` (NOT `->`)
+- Each message on separate line
+- No semicolons between messages
+
+**State Diagram**:
+- Arrows: `-->` only (NOT `->`)
+- Use `stateDiagram-v2` (not `stateDiagram`)
+- Each transition on separate line
+
+**ER Diagram**:
+- Cardinality required: `||--o{`, `}|--|{`, etc.
+- Simple `--` is invalid
+- Relationship label required after `:`
+
+**Gantt Chart**:
+- Each task on separate line
+- Format: `Task Name :id, start, duration`
+- Dates: `YYYY-MM-DD` format
+
+**Class Diagram**:
+- Close all quotes in annotations
+- Use `~Type~` for generics
+- Methods: `+methodName() ReturnType`
+
+### Validation Command
+
+```bash
+# Validate from stdin
+echo 'flowchart TD; A-->B' | plugins/base/skills/mermaid/scripts/validate_mermaid.sh
+
+# JSON output with error category
+echo 'flowchart TD; A->B' | plugins/base/skills/mermaid/scripts/validate_mermaid.sh --json
 ```
 
 ---
@@ -669,52 +636,33 @@ sequenceDiagram
 ## Common Patterns
 
 ### Direction Control
-Most diagrams support direction:
+Most diagrams support direction with `direction LR/RL/TB/BT`:
 ```mermaid
-flowchart TB  %% Top to Bottom
-classDiagram
-    direction LR  %% Left to Right
-stateDiagram-v2
-    direction RL  %% Right to Left
-```
-
-### Styling with Classes
-```mermaid
-classDiagram
-    class MyClass {
-        +attribute
-    }
-
-    class AnotherClass
-
-    MyClass --|> AnotherClass
-
-    class MyClass cssClass1
-    class AnotherClass cssClass2
+flowchart TB
+    A --> B
 ```
 
 ### Accessibility
-Add titles and descriptions:
+Add titles and descriptions with `accTitle` and `accDescr`:
 ```mermaid
 stateDiagram-v2
-    accTitle: This is the accessible title
-    accDescr: This is an accessible description
-
+    accTitle: Accessible title
+    accDescr: Accessible description
     [*] --> State1
 ```
 
 ---
 
-## Tips for Creating Valid Diagrams
+## Tips for Valid Diagrams
 
-1. **Always start with the diagram type** (`flowchart`, `sequenceDiagram`, `classDiagram`, etc.)
-2. **Use consistent indentation** for readability
-3. **Quote labels with special characters** or spaces: `A["Label with spaces"]`
-4. **Escape special characters** if needed
-5. **Use semicolons carefully** - some diagram types require them, others don't
-6. **Test arrows syntax** - different diagrams use different arrow styles
-7. **Check cardinality notation** in ER diagrams - symbols matter
-8. **Use comments** (`%%`) to document complex diagrams
+1. **Start with diagram type**: `flowchart`, `sequenceDiagram`, `classDiagram`, etc.
+2. **Use correct arrows**: Different diagram types require different arrow syntax
+3. **Quote special characters**: Labels with `:`, `()`, `[]` need quotes
+4. **One statement per line**: Especially for sequence, state, and gantt diagrams
+5. **Balance brackets**: Every `[`, `(`, `{` needs its closing pair
+6. **Check cardinality**: ER diagrams require valid relationship markers
+7. **Validate before presenting**: Use `validate_mermaid.sh` script
+8. **Reference EXAMPLES.md**: Find similar error patterns when debugging
 
 ---
 
@@ -723,13 +671,23 @@ stateDiagram-v2
 To validate a Mermaid diagram:
 
 ```bash
-# Single diagram validation
-printf 'graph TD; A-->B' | npx -y @mermaid-js/mermaid-cli@latest -i /dev/stdin -o /tmp/_.svg 2>&1 | grep -A2 -m1 '^Error:' && false || true
+# Single diagram validation (stdin)
+echo 'flowchart TD; A-->B' | plugins/base/skills/mermaid/scripts/validate_mermaid.sh
+
+# File validation
+plugins/base/skills/mermaid/scripts/validate_mermaid.sh diagram.mmd
+
+# Markdown file (validates all mermaid blocks)
+plugins/base/skills/mermaid/scripts/validate_mermaid.sh document.md
+
+# JSON output for programmatic use
+plugins/base/skills/mermaid/scripts/validate_mermaid.sh --json document.md
 ```
 
-Common issues:
-- Invalid node syntax
-- Missing semicolons or line breaks
-- Invalid arrow types for the diagram type
-- Malformed relationships or cardinality notation
-- Invalid style/class definitions
+---
+
+## Related Documentation
+
+- **[SKILL.md](SKILL.md)**: Validation workflow and skill overview
+- **[EXAMPLES.md](EXAMPLES.md)**: Comprehensive error pattern catalog
+- **[scripts/README.md](scripts/README.md)**: Validation script documentation
