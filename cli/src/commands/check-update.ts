@@ -5,7 +5,7 @@
 
 import { Command } from "commander";
 import type { Logger } from "../../shared/logger.js";
-import { getColors } from "../lib/colors.js";
+import { getColorFns } from "../lib/colors.js";
 import { type CheckOptions, checkForUpdate } from "../lib/version.js";
 
 /**
@@ -34,17 +34,17 @@ const formatHumanOutput = (
 	result: Awaited<ReturnType<typeof checkForUpdate>>,
 	isTTY: boolean,
 ): string => {
-	const { green, yellow, cyan, bold, dim, reset } = getColors(isTTY);
+	const { green, yellow, cyan, bold, dim } = getColorFns(isTTY);
 
 	const lines: string[] = [];
 
 	// Current version line
-	lines.push(`rp1 ${bold}v${result.currentVersion}${reset} is installed.`);
+	lines.push(`rp1 ${bold(`v${result.currentVersion}`)} is installed.`);
 
 	// Error case
 	if (result.error) {
 		lines.push("");
-		lines.push(`${yellow}Warning:${reset} ${result.error}`);
+		lines.push(`${yellow("Warning:")} ${result.error}`);
 		return lines.join("\n");
 	}
 
@@ -52,15 +52,15 @@ const formatHumanOutput = (
 	if (result.updateAvailable && result.latestVersion) {
 		lines.push("");
 		lines.push(
-			`${green}A new version is available:${reset} ${bold}v${result.latestVersion}${reset}`,
+			`${green("A new version is available:")} ${bold(`v${result.latestVersion}`)}`,
 		);
 		lines.push("");
 		lines.push(
-			`Run '${cyan}rp1 self-update${reset}' or '${cyan}/self-update${reset}' to update.`,
+			`Run '${cyan("rp1 self-update")}' or '${cyan("/self-update")}' to update.`,
 		);
 	} else if (result.latestVersion) {
 		lines.push("");
-		lines.push(`${green}You are up to date!${reset}`);
+		lines.push(green("You are up to date!"));
 	}
 
 	// Cache status (only if cached)
@@ -70,7 +70,7 @@ const formatHumanOutput = (
 			result.cacheAgeHours < 1
 				? `${Math.round(result.cacheAgeHours * 60)} minutes`
 				: `${result.cacheAgeHours.toFixed(1)} hours`;
-		lines.push(`${dim}(cached ${ageFormatted} ago)${reset}`);
+		lines.push(dim(`(cached ${ageFormatted} ago)`));
 	}
 
 	return lines.join("\n");

@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { statSync } from "node:fs";
 import { join } from "node:path";
+import chalk from "chalk";
 import { Command } from "commander";
 import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
@@ -23,7 +24,6 @@ import {
 	getWebUIDir,
 	hasBundledAssets,
 } from "../assets/index.js";
-import { codes } from "../lib/colors.js";
 
 const directoryExists = (path: string): boolean => {
 	try {
@@ -250,7 +250,7 @@ Note: This command requires Bun runtime. Install from https://bun.sh
 		// Check for Bun runtime early - the web-ui server requires Bun APIs
 		if (!isBun()) {
 			console.error(
-				`${codes.red}Error: The 'view' command requires Bun runtime.${codes.reset}`,
+				chalk.red("Error: The 'view' command requires Bun runtime."),
 			);
 			console.error(
 				"\nThe web UI server uses Bun-specific APIs that are not available in Node.js.",

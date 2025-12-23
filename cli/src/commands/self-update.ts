@@ -6,7 +6,7 @@
 import { Command } from "commander";
 import type { Logger } from "../../shared/logger.js";
 import { invalidateCache } from "../lib/cache.js";
-import { getColors } from "../lib/colors.js";
+import { getColorFns } from "../lib/colors.js";
 import {
 	detectInstallMethod,
 	type InstallMethod,
@@ -29,15 +29,15 @@ const GITHUB_RELEASES_URL = "https://github.com/rp1-run/rp1/releases";
  * @param isTTY - Whether output is a TTY (enables colors)
  */
 const createFormatter = (isTTY: boolean) => {
-	const c = getColors(isTTY);
+	const c = getColorFns(isTTY);
 
 	return {
 		info: (msg: string) => console.log(msg),
-		success: (msg: string) => console.log(`${c.green}${msg}${c.reset}`),
-		warning: (msg: string) => console.log(`${c.yellow}${msg}${c.reset}`),
-		error: (msg: string) => console.error(`${c.red}${msg}${c.reset}`),
-		dim: (msg: string) => `${c.dim}${msg}${c.reset}`,
-		cyan: (msg: string) => `${c.cyan}${msg}${c.reset}`,
+		success: (msg: string) => console.log(c.green(msg)),
+		warning: (msg: string) => console.log(c.yellow(msg)),
+		error: (msg: string) => console.error(c.red(msg)),
+		dim: (msg: string) => c.dim(msg),
+		cyan: (msg: string) => c.cyan(msg),
 	};
 };
 

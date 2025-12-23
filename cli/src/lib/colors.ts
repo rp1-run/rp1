@@ -1,69 +1,48 @@
 /**
- * Shared ANSI color utilities for CLI output.
- * Provides both raw color codes and TTY-aware color functions.
+ * Shared color utilities for CLI output using chalk.
+ * Provides TTY-aware color functions with type safety.
  */
 
-/**
- * Raw ANSI escape codes for terminal colors.
- * Use these when you need direct control over color application.
- */
-export const codes = {
-	reset: "\x1b[0m",
-	bold: "\x1b[1m",
-	dim: "\x1b[2m",
-	red: "\x1b[31m",
-	green: "\x1b[32m",
-	yellow: "\x1b[33m",
-	blue: "\x1b[34m",
-	magenta: "\x1b[35m",
-	cyan: "\x1b[36m",
-	white: "\x1b[37m",
-} as const;
+import chalk, { Chalk, type ChalkInstance } from "chalk";
 
 /**
- * TTY-aware color codes that return empty strings when not in a TTY.
- * Use these for conditional coloring based on terminal capability.
+ * Create a chalk instance configured for TTY awareness.
+ * Returns a chalk instance with colors enabled/disabled based on TTY.
  *
  * @param isTTY - Whether the output stream is a TTY
- * @returns Object with color codes (or empty strings if not TTY)
+ * @returns Configured chalk instance
  */
-export const getColors = (isTTY: boolean) => ({
-	reset: isTTY ? codes.reset : "",
-	bold: isTTY ? codes.bold : "",
-	dim: isTTY ? codes.dim : "",
-	red: isTTY ? codes.red : "",
-	green: isTTY ? codes.green : "",
-	yellow: isTTY ? codes.yellow : "",
-	blue: isTTY ? codes.blue : "",
-	magenta: isTTY ? codes.magenta : "",
-	cyan: isTTY ? codes.cyan : "",
-	white: isTTY ? codes.white : "",
-});
+export const createChalk = (isTTY: boolean): ChalkInstance => {
+	return new Chalk({ level: isTTY ? chalk.level : 0 });
+};
 
 /**
- * Color type derived from getColors return type.
- */
-export type Colors = ReturnType<typeof getColors>;
-
-/**
- * Color wrapper functions that apply color and reset.
- * Convenient for wrapping text in a single color.
+ * TTY-aware color functions.
+ * Use these for conditional coloring based on terminal capability.
  *
  * @param isTTY - Whether the output stream is a TTY
  * @returns Object with color wrapper functions
  */
 export const getColorFns = (isTTY: boolean) => {
-	const c = getColors(isTTY);
+	const c = createChalk(isTTY);
 	return {
-		red: (s: string) => `${c.red}${s}${c.reset}`,
-		green: (s: string) => `${c.green}${s}${c.reset}`,
-		yellow: (s: string) => `${c.yellow}${s}${c.reset}`,
-		blue: (s: string) => `${c.blue}${s}${c.reset}`,
-		magenta: (s: string) => `${c.magenta}${s}${c.reset}`,
-		cyan: (s: string) => `${c.cyan}${s}${c.reset}`,
-		white: (s: string) => `${c.white}${s}${c.reset}`,
-		bold: (s: string) => `${c.bold}${s}${c.reset}`,
-		dim: (s: string) => `${c.dim}${s}${c.reset}`,
+		red: (s: string) => c.red(s),
+		green: (s: string) => c.green(s),
+		yellow: (s: string) => c.yellow(s),
+		blue: (s: string) => c.blue(s),
+		magenta: (s: string) => c.magenta(s),
+		cyan: (s: string) => c.cyan(s),
+		white: (s: string) => c.white(s),
+		bold: (s: string) => c.bold(s),
+		dim: (s: string) => c.dim(s),
+		gray: (s: string) => c.gray(s),
+		// Composite styles
+		boldRed: (s: string) => c.bold.red(s),
+		boldGreen: (s: string) => c.bold.green(s),
+		boldYellow: (s: string) => c.bold.yellow(s),
+		boldBlue: (s: string) => c.bold.blue(s),
+		boldCyan: (s: string) => c.bold.cyan(s),
+		dimWhite: (s: string) => c.dim.white(s),
 	};
 };
 

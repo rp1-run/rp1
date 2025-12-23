@@ -6,6 +6,7 @@
       "name": "@rp1-run/rp1",
       "dependencies": {
         "@inquirer/prompts": "^8.0.2",
+        "chalk": "^5.6.2",
         "commander": "^14.0.2",
         "consola": "^3.4.2",
         "fp-ts": "^2.16.9",

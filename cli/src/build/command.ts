@@ -23,7 +23,7 @@ import {
 } from "../../shared/errors.js";
 import type { Logger } from "../../shared/logger.js";
 import { createSpinner } from "../../shared/spinner.js";
-import { codes as COLORS } from "../lib/colors.js";
+import { colorFns } from "../lib/colors.js";
 import {
 	generateAgentFile,
 	generateBundleManifest,
@@ -104,19 +104,20 @@ export const parseBuildArgs = (
 };
 
 const printBuildHelp = (): void => {
+	const { bold } = colorFns;
 	console.log(`
-${COLORS.bold}rp1 build:opencode${COLORS.reset} - Build OpenCode artifacts from Claude Code sources
+${bold("rp1 build:opencode")} - Build OpenCode artifacts from Claude Code sources
 
-${COLORS.bold}Usage:${COLORS.reset}
+${bold("Usage:")}
   rp1 build:opencode [options]
 
-${COLORS.bold}Options:${COLORS.reset}
+${bold("Options:")}
   -o, --output-dir <dir>   Output directory (default: dist/opencode/)
   -p, --plugin <name>      Build specific plugin (base, dev, or all)
   --json                   Output results as JSON for CI/CD
   -h, --help               Show this help message
 
-${COLORS.bold}Examples:${COLORS.reset}
+${bold("Examples:")}
   rp1 build:opencode                    # Build all plugins
   rp1 build:opencode --plugin dev       # Build only dev plugin
   rp1 build:opencode -o ./output        # Custom output directory
@@ -575,9 +576,8 @@ const buildPlugin = async (
  * Print build summary table.
  */
 const printSummary = (summaries: BuildSummary[], outputPath: string): void => {
-	console.log(
-		`\n${COLORS.green}${COLORS.bold}✓ Build complete!${COLORS.reset}\n`,
-	);
+	const { bold, green, cyan, yellow, boldGreen } = colorFns;
+	console.log(`\n${boldGreen("✓ Build complete!")}\n`);
 
 	// Calculate column widths
 	const pluginCol = 12;
@@ -585,30 +585,28 @@ const printSummary = (summaries: BuildSummary[], outputPath: string): void => {
 
 	// Header
 	console.log(
-		`${COLORS.bold}${"Plugin".padEnd(pluginCol)}${"Commands".padStart(numCol)}${"Agents".padStart(numCol)}${"Skills".padStart(numCol)}${COLORS.reset}`,
+		bold(
+			`${"Plugin".padEnd(pluginCol)}${"Commands".padStart(numCol)}${"Agents".padStart(numCol)}${"Skills".padStart(numCol)}`,
+		),
 	);
 	console.log("-".repeat(pluginCol + numCol * 3));
 
 	// Rows
 	for (const summary of summaries) {
 		console.log(
-			`${COLORS.cyan}rp1-${summary.plugin.padEnd(pluginCol - 4)}${COLORS.reset}` +
-				`${COLORS.green}${String(summary.commands).padStart(numCol)}${COLORS.reset}` +
-				`${COLORS.green}${String(summary.agents).padStart(numCol)}${COLORS.reset}` +
-				`${COLORS.green}${String(summary.skills).padStart(numCol)}${COLORS.reset}`,
+			cyan(`rp1-${summary.plugin.padEnd(pluginCol - 4)}`) +
+				green(String(summary.commands).padStart(numCol)) +
+				green(String(summary.agents).padStart(numCol)) +
+				green(String(summary.skills).padStart(numCol)),
 		);
 	}
 
-	console.log(
-		`\nOutput directory: ${COLORS.cyan}${resolve(outputPath)}${COLORS.reset}`,
-	);
+	console.log(`\nOutput directory: ${cyan(resolve(outputPath))}`);
 
 	// Show errors if any
 	const allErrors = summaries.flatMap((s) => s.errors);
 	if (allErrors.length > 0) {
-		console.log(
-			`\n${COLORS.yellow}⚠ ${allErrors.length} errors occurred:${COLORS.reset}`,
-		);
+		console.log(`\n${yellow(`⚠ ${allErrors.length} errors occurred:`)}`);
 		for (const error of allErrors.slice(0, 5)) {
 			console.log(`  • ${error}`);
 		}

@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import chalk from "chalk";
 import { Command } from "commander";
 import pkg from "../package.json";
 import { type CLIError, formatError, getExitCode } from "../shared/errors.js";
@@ -14,7 +15,6 @@ import {
 } from "./commands/install.js";
 import { selfUpdateCommand } from "./commands/self-update.js";
 import { viewCommand } from "./commands/view.js";
-import { codes } from "./lib/colors.js";
 
 declare module "commander" {
 	interface Command {
@@ -31,7 +31,7 @@ const program = new Command()
 	.option("--trace", "Enable trace logging")
 	.helpOption("-h, --help", "Show this help message")
 	.configureOutput({
-		outputError: (str, write) => write(`${codes.red}${str}${codes.reset}`),
+		outputError: (str, write) => write(chalk.red(str)),
 	});
 
 program.hook("preAction", (thisCommand) => {
