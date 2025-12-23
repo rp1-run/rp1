@@ -1,13 +1,6 @@
 name: Lighthouse CI
 
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - 'docs/**'
-      - 'mkdocs.yml'
-      - '.github/workflows/lighthouse.yml'
-      - 'lighthouserc.json'
   push:
     branches: [main]
     paths:
@@ -15,12 +8,11 @@ on:
       - 'mkdocs.yml'
 
 concurrency:
-  group: lighthouse-${{ github.event.pull_request.number || github.sha }}
+  group: lighthouse-${{ github.sha }}
   cancel-in-progress: true
 
 permissions:
   contents: read
-  pull-requests: write
   statuses: write
 
 jobs:
