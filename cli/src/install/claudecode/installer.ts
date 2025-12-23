@@ -10,6 +10,7 @@ import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../../shared/errors.js";
 import { formatError, installError } from "../../../shared/errors.js";
 import type { Logger } from "../../../shared/logger.js";
+import { createSpinner, type Spinner } from "../../../shared/spinner.js";
 import type { ClaudeCodeInstallResult } from "./models.js";
 
 const execAsync = promisify(exec);
@@ -32,12 +33,14 @@ const COMMAND_TIMEOUT = 30000;
 /**
  * Execute a Claude CLI command.
  * @param command - The full command to execute
+ * @param spinner - Spinner for progress indication
  * @param logger - Logger for output
  * @param dryRun - If true, log the command without executing
  * @returns TaskEither with stdout on success or CLIError on failure
  */
 const executeClaudeCommand = (
 	command: string,
+	spinner: Spinner,
 	logger: Logger,
 	dryRun: boolean,
 ): TE.TaskEither<CLIError, string> => {
@@ -46,7 +49,7 @@ const executeClaudeCommand = (
 		return TE.right("");
 	}
 
-	logger.start(`Running: ${command}`);
+	spinner.start(`Running: ${command}`);
 
 	return pipe(
 		TE.tryCatch(
@@ -92,29 +95,33 @@ const getErrorMessage = (error: CLIError): string => formatError(error, false);
  *
  * @param logger - Logger for progress output
  * @param dryRun - If true, log the command without executing
+ * @param isTTY - Whether the terminal supports TTY for spinner display
  * @returns TaskEither with true on success (or already exists), CLIError on failure
  */
 export const addMarketplace = (
 	logger: Logger,
 	dryRun: boolean,
+	isTTY: boolean,
 ): TE.TaskEither<CLIError, boolean> => {
 	const command = `claude plugin marketplace add ${MARKETPLACE_REPO}`;
+	const spinner = createSpinner(isTTY);
 
 	return pipe(
-		executeClaudeCommand(command, logger, dryRun),
+		executeClaudeCommand(command, spinner, logger, dryRun),
 		TE.map(() => {
 			if (!dryRun) {
-				logger.success(`Marketplace ${MARKETPLACE_REPO} added`);
+				spinner.succeed(`Marketplace ${MARKETPLACE_REPO} added`);
 			}
 			return true;
 		}),
 		TE.orElse((error) => {
 			// Handle "already exists" gracefully
 			if (error._tag === "InstallError" && isAlreadyExistsError(error)) {
+				spinner.stop();
 				logger.info(`Marketplace ${MARKETPLACE_REPO} already registered`);
 				return TE.right(true);
 			}
-			logger.fail(`Failed to add marketplace: ${getErrorMessage(error)}`);
+			spinner.fail(`Failed to add marketplace: ${getErrorMessage(error)}`);
 			return TE.left(error);
 		}),
 	);
@@ -142,6 +149,7 @@ const buildScopeArg = (scope: string): string => {
  * @param scope - Installation scope: "user", "project", or "local"
  * @param logger - Logger for progress output
  * @param dryRun - If true, log the command without executing
+ * @param isTTY - Whether the terminal supports TTY for spinner display
  * @returns TaskEither with true on success (or already exists), CLIError on failure
  */
 export const installPlugin = (
@@ -149,27 +157,32 @@ export const installPlugin = (
 	scope: string,
 	logger: Logger,
 	dryRun: boolean,
+	isTTY: boolean,
 ): TE.TaskEither<CLIError, boolean> => {
 	// Plugin name format: <plugin>@<marketplace>
 	const pluginRef = `${pluginName}@${MARKETPLACE_NAME}`;
 	const scopeArg = buildScopeArg(scope);
 	const command = `claude plugin install ${pluginRef} ${scopeArg}`;
+	const spinner = createSpinner(isTTY);
 
 	return pipe(
-		executeClaudeCommand(command, logger, dryRun),
+		executeClaudeCommand(command, spinner, logger, dryRun),
 		TE.map(() => {
 			if (!dryRun) {
-				logger.success(`Plugin ${pluginName} installed`);
+				spinner.succeed(`Plugin ${pluginName} installed`);
 			}
 			return true;
 		}),
 		TE.orElse((error) => {
 			// Handle "already exists" gracefully - try to update instead
 			if (error._tag === "InstallError" && isAlreadyExistsError(error)) {
+				spinner.stop();
 				logger.info(`Plugin ${pluginName} already installed, updating...`);
-				return updatePlugin(pluginName, scope, logger, dryRun);
+				return updatePlugin(pluginName, scope, logger, dryRun, isTTY);
 			}
-			logger.fail(`Failed to install ${pluginName}: ${getErrorMessage(error)}`);
+			spinner.fail(
+				`Failed to install ${pluginName}: ${getErrorMessage(error)}`,
+			);
 			return TE.left(error);
 		}),
 	);
@@ -183,6 +196,7 @@ export const installPlugin = (
  * @param scope - Installation scope: "user", "project", or "local"
  * @param logger - Logger for progress output
  * @param dryRun - If true, log the command without executing
+ * @param isTTY - Whether the terminal supports TTY for spinner display
  * @returns TaskEither with true on success, CLIError on failure
  */
 export const updatePlugin = (
@@ -190,21 +204,23 @@ export const updatePlugin = (
 	scope: string,
 	logger: Logger,
 	dryRun: boolean,
+	isTTY: boolean,
 ): TE.TaskEither<CLIError, boolean> => {
 	const pluginRef = `${pluginName}@${MARKETPLACE_NAME}`;
 	const scopeArg = buildScopeArg(scope);
 	const command = `claude plugin update ${pluginRef} ${scopeArg}`;
+	const spinner = createSpinner(isTTY);
 
 	return pipe(
-		executeClaudeCommand(command, logger, dryRun),
+		executeClaudeCommand(command, spinner, logger, dryRun),
 		TE.map(() => {
 			if (!dryRun) {
-				logger.success(`Plugin ${pluginName} updated`);
+				spinner.succeed(`Plugin ${pluginName} updated`);
 			}
 			return true;
 		}),
 		TE.mapLeft((error) => {
-			logger.fail(`Failed to update ${pluginName}: ${getErrorMessage(error)}`);
+			spinner.fail(`Failed to update ${pluginName}: ${getErrorMessage(error)}`);
 			return error;
 		}),
 	);
@@ -217,12 +233,14 @@ export const updatePlugin = (
  * @param scope - Installation scope: "user", "project", or "local"
  * @param logger - Logger for progress output
  * @param dryRun - If true, log commands without executing
+ * @param isTTY - Whether the terminal supports TTY for spinner display
  * @returns TaskEither with ClaudeCodeInstallResult on success
  */
 export const installAllPlugins = (
 	scope: string,
 	logger: Logger,
 	dryRun: boolean,
+	isTTY: boolean,
 ): TE.TaskEither<CLIError, ClaudeCodeInstallResult> => {
 	const plugins = ["rp1-base", "rp1-dev"];
 	const warnings: string[] = [];
@@ -230,11 +248,11 @@ export const installAllPlugins = (
 
 	return pipe(
 		// Step 1: Add marketplace
-		addMarketplace(logger, dryRun),
+		addMarketplace(logger, dryRun, isTTY),
 		TE.chain((marketplaceAdded) =>
 			pipe(
 				// Step 2: Install rp1-base
-				installPlugin(plugins[0], scope, logger, dryRun),
+				installPlugin(plugins[0], scope, logger, dryRun, isTTY),
 				TE.map((success) => {
 					if (success) pluginsInstalled.push(plugins[0]);
 					return { marketplaceAdded };
@@ -244,7 +262,7 @@ export const installAllPlugins = (
 		TE.chain((result) =>
 			pipe(
 				// Step 3: Install rp1-dev
-				installPlugin(plugins[1], scope, logger, dryRun),
+				installPlugin(plugins[1], scope, logger, dryRun, isTTY),
 				TE.map((success) => {
 					if (success) pluginsInstalled.push(plugins[1]);
 					return result;

@@ -12,6 +12,7 @@ import type { CLIError } from "../../shared/errors.js";
 import { usageError } from "../../shared/errors.js";
 import type { Logger } from "../../shared/logger.js";
 import { confirmAction } from "../../shared/prompts.js";
+import { createSpinner } from "../../shared/spinner.js";
 import {
 	extractPlugins,
 	getBundledAssets,
@@ -91,9 +92,12 @@ export const parseInstallArgs = (
  */
 const executeInstallFromBundled = (
 	config: InstallArgs,
-	logger: Logger,
-	_options?: InstallOptions,
+	_logger: Logger,
+	options?: InstallOptions,
 ): TE.TaskEither<CLIError, void> => {
+	const isTTY = options?.isTTY ?? process.stdout.isTTY ?? false;
+	const spinner = createSpinner(isTTY);
+
 	return pipe(
 		TE.fromEither(getBundledAssets()),
 		TE.chain((assets) => {
@@ -103,25 +107,26 @@ const executeInstallFromBundled = (
 			console.log(dim(`Version: ${assets.version}\n`));
 
 			// Run prerequisites checks
-			logger.start("Checking prerequisites...");
+			spinner.start("Checking prerequisites...");
 			return pipe(
 				checkOpenCodeInstalled(),
 				TE.chainFirst((result) => {
-					logger.success(result.message);
+					spinner.succeed(result.message);
 					return TE.right(undefined);
 				}),
 				TE.chain((result) => {
 					const versionResult = checkOpenCodeVersion(result.value ?? "");
 					if (E.isLeft(versionResult)) {
+						spinner.fail("Version check failed");
 						return TE.left(versionResult.left);
 					}
-					logger.success(versionResult.right.message);
+					spinner.succeed(versionResult.right.message);
 					return TE.right(undefined);
 				}),
 				TE.chain(() => checkOpenCodeSkillsPlugin()),
 				TE.chain((result) => {
 					if (result.value === "true") {
-						logger.success("opencode-skills plugin detected");
+						spinner.succeed("opencode-skills plugin detected");
 						return TE.right({ skipSkills: config.skipSkills });
 					}
 					console.log(yellow("⚠ opencode-skills plugin not configured"));
@@ -130,7 +135,7 @@ const executeInstallFromBundled = (
 						installOpenCodeSkillsPlugin(),
 						TE.map((installed) => {
 							if (installed) {
-								logger.success("opencode-skills plugin configured");
+								spinner.succeed("opencode-skills plugin configured");
 								console.log(dim("  OpenCode will install it on next startup"));
 							} else {
 								console.log(dim("  opencode-skills already in config"));
@@ -144,13 +149,14 @@ const executeInstallFromBundled = (
 					return pipe(
 						checkWritePermissions(targetDir),
 						TE.map((result) => {
-							logger.success(result.message);
+							spinner.succeed(result.message);
 							return { targetDir };
 						}),
 					);
 				}),
 				TE.chain(({ targetDir }) => {
 					if (config.dryRun) {
+						spinner.stop();
 						console.log(yellow("\nDRY RUN MODE - No files will be modified\n"));
 						console.log("Would install from bundled assets:");
 						const basePlugin = assets.plugins.base;
@@ -169,32 +175,36 @@ const executeInstallFromBundled = (
 						return TE.right(undefined);
 					}
 
-					logger.start("Extracting bundled plugins...");
+					spinner.start("Extracting bundled plugins...");
 					return pipe(
-						extractPlugins(assets, targetDir, (msg) => logger.success(msg)),
+						extractPlugins(assets, targetDir, (msg) => {
+							spinner.text = msg;
+						}),
 						TE.chain((result) => {
-							logger.success(
+							spinner.succeed(
 								`Installed ${result.filesExtracted} files from ${result.plugins.length} plugins`,
 							);
 
-							logger.start("Validating configuration...");
+							spinner.start("Validating configuration...");
 
 							return pipe(
 								registerRp1HooksPlugin(),
 								TE.map((registered) => {
 									if (registered) {
-										logger.success("rp1-base-hooks plugin registered");
+										spinner.succeed("rp1-base-hooks plugin registered");
+										spinner.start("Validating configuration...");
 									}
-									logger.success("Configuration validated");
+									spinner.succeed("Configuration validated");
 									return { targetDir };
 								}),
 							);
 						}),
 						TE.chain(() => {
-							logger.start("Verifying installation...");
+							spinner.start("Verifying installation...");
 							return pipe(
 								verifyInstallation(undefined),
 								TE.map((report) => {
+									spinner.stop();
 									if (isHealthy(report)) {
 										console.log(
 											green(bold("\n✓ Installation complete and verified!")),
@@ -234,6 +244,10 @@ const executeInstallFromBundled = (
 				}),
 			);
 		}),
+		TE.mapLeft((error) => {
+			spinner.stop();
+			return error;
+		}),
 	);
 };
 
@@ -245,6 +259,7 @@ export const executeInstall = (
 	const config = parseInstallArgs(args);
 	const isTTY = options?.isTTY ?? process.stdout.isTTY ?? false;
 	const skipPrompt = options?.skipPrompt ?? config.yes;
+	const spinner = createSpinner(isTTY);
 
 	if (config.showHelp) {
 		return TE.right(undefined);
@@ -299,25 +314,26 @@ export const executeInstall = (
 				),
 		),
 		TE.chain(() => {
-			logger.start("Checking prerequisites...");
+			spinner.start("Checking prerequisites...");
 			return checkOpenCodeInstalled();
 		}),
 		TE.chainFirst((result) => {
-			logger.success(result.message);
+			spinner.succeed(result.message);
 			return TE.right(undefined);
 		}),
 		TE.chain((result) => {
 			const versionResult = checkOpenCodeVersion(result.value ?? "");
 			if (E.isLeft(versionResult)) {
+				spinner.fail("Version check failed");
 				return TE.left(versionResult.left);
 			}
-			logger.success(versionResult.right.message);
+			spinner.succeed(versionResult.right.message);
 			return TE.right(undefined);
 		}),
 		TE.chain(() => checkOpenCodeSkillsPlugin()),
 		TE.chain((result) => {
 			if (result.value === "true") {
-				logger.success("opencode-skills plugin detected");
+				spinner.succeed("opencode-skills plugin detected");
 				return TE.right({ skipSkills: config.skipSkills });
 			}
 			console.log(yellow("⚠ opencode-skills plugin not configured"));
@@ -326,7 +342,7 @@ export const executeInstall = (
 				installOpenCodeSkillsPlugin(),
 				TE.map((installed) => {
 					if (installed) {
-						logger.success("opencode-skills plugin configured");
+						spinner.succeed("opencode-skills plugin configured");
 						console.log(dim("  OpenCode will install it on next startup"));
 					} else {
 						console.log(dim("  opencode-skills already in config"));
@@ -340,13 +356,14 @@ export const executeInstall = (
 			return pipe(
 				checkWritePermissions(targetDir),
 				TE.map((result) => {
-					logger.success(result.message);
+					spinner.succeed(result.message);
 					return state;
 				}),
 			);
 		}),
 		TE.chain((state) => {
 			if (config.dryRun) {
+				spinner.stop();
 				console.log(yellow("\nDRY RUN MODE - No files will be modified\n"));
 				console.log(`Would install from: ${artifactsDir}`);
 				console.log("  • Base plugin: commands, agents, skills");
@@ -355,19 +372,19 @@ export const executeInstall = (
 				return TE.right(undefined);
 			}
 
-			logger.start("Discovering plugins...");
+			spinner.start("Discovering plugins...");
 			return pipe(
 				discoverPlugins(artifactsDir),
 				TE.chain((plugins) => {
 					const pluginNames = plugins.map((p) => p.plugin).join(", ");
-					logger.success(`Found ${plugins.length} plugin(s): ${pluginNames}`);
+					spinner.succeed(`Found ${plugins.length} plugin(s): ${pluginNames}`);
 
 					const allSkills = plugins.flatMap((p) => [...p.skills]);
 					if (allSkills.length > 0) {
 						console.log(dim(`  Skills to install: ${allSkills.join(", ")}`));
 					}
 
-					logger.start("Installing rp1 artifacts...");
+					spinner.start("Installing rp1 artifacts...");
 
 					const pluginDirs = plugins.map((p) =>
 						join(artifactsDir, p.plugin.replace("rp1-", "")),
@@ -377,23 +394,28 @@ export const executeInstall = (
 						installRp1(
 							pluginDirs,
 							state.skipSkills,
-							(msg) => logger.success(msg),
+							(msg) => {
+								spinner.text = msg;
+							},
 							async (path) => {
 								if (!skipPrompt) {
+									spinner.stop();
 									const proceed = await confirmAction(
 										`Overwrite existing file: ${path}?`,
 										{ isTTY, defaultOnNonTTY: false },
 									);
 									if (!proceed) {
 										console.log(yellow(`  Skipped: ${path}`));
+										spinner.start("Installing rp1 artifacts...");
 										return;
 									}
+									spinner.start("Installing rp1 artifacts...");
 								}
 								console.log(yellow(`  ⚠ Overwriting: ${path}`));
 							},
 						),
 						TE.chain((result) => {
-							logger.success(
+							spinner.succeed(
 								`Installed ${result.filesInstalled} total files across ${result.pluginsInstalled.length} plugins`,
 							);
 
@@ -401,24 +423,26 @@ export const executeInstall = (
 								console.log(yellow(`⚠ ${warning}`));
 							}
 
-							logger.start("Validating configuration...");
+							spinner.start("Validating configuration...");
 
 							return pipe(
 								registerRp1HooksPlugin(),
 								TE.map((registered) => {
 									if (registered) {
-										logger.success("rp1-base-hooks plugin registered");
+										spinner.succeed("rp1-base-hooks plugin registered");
+										spinner.start("Validating configuration...");
 									}
-									logger.success("Configuration validated");
+									spinner.succeed("Configuration validated");
 									return { artifactsDir };
 								}),
 							);
 						}),
 						TE.chain(({ artifactsDir: verifyDir }) => {
-							logger.start("Verifying installation...");
+							spinner.start("Verifying installation...");
 							return pipe(
 								verifyInstallation(verifyDir),
 								TE.map((report) => {
+									spinner.stop();
 									if (isHealthy(report)) {
 										console.log(
 											green(bold("\n✓ Installation complete and verified!")),
@@ -457,6 +481,10 @@ export const executeInstall = (
 					);
 				}),
 			);
+		}),
+		TE.mapLeft((error) => {
+			spinner.stop();
+			return error;
 		}),
 	);
 };

@@ -7,6 +7,7 @@ import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../../shared/errors.js";
 import type { Logger } from "../../../shared/logger.js";
+import { createSpinner, type Spinner } from "../../../shared/spinner.js";
 import { getColorFns } from "../../lib/colors.js";
 import { installAllPlugins } from "./installer.js";
 import type {
@@ -117,13 +118,14 @@ const displayDryRunPlan = (
  */
 const displaySuccess = (
 	result: ClaudeCodeInstallResult,
+	spinner: Spinner,
 	logger: Logger,
 	isTTY: boolean,
 ): void => {
 	const color = getColorFns(isTTY);
 
 	logger.info("");
-	logger.success(
+	spinner.succeed(
 		color.green("rp1 plugins installed successfully to Claude Code!"),
 	);
 	logger.info("");
@@ -144,11 +146,11 @@ const displaySuccess = (
  */
 const logPrerequisiteResults = (
 	results: readonly ClaudeCodePrerequisiteResult[],
-	logger: Logger,
+	spinner: Spinner,
 ): void => {
 	for (const result of results) {
 		if (result.passed) {
-			logger.success(result.message);
+			spinner.succeed(result.message);
 		}
 	}
 };
@@ -170,6 +172,7 @@ const executeDryRun = (
  */
 const executeNormalInstall = (
 	config: ClaudeCodeInstallConfig,
+	spinner: Spinner,
 	logger: Logger,
 	isTTY: boolean,
 ): TE.TaskEither<CLIError, void> =>
@@ -178,13 +181,15 @@ const executeNormalInstall = (
 		TE.Do,
 		TE.tap(() => {
 			logger.info("");
-			logger.start("Installing plugins...");
+			spinner.start("Installing plugins...");
 			return TE.right(undefined);
 		}),
-		TE.chain(() => installAllPlugins(config.scope, logger, config.dryRun)),
+		TE.chain(() =>
+			installAllPlugins(config.scope, logger, config.dryRun, isTTY),
+		),
 		// Step 2: Display success message
 		TE.map((installResult: ClaudeCodeInstallResult) => {
-			displaySuccess(installResult, logger, isTTY);
+			displaySuccess(installResult, spinner, logger, isTTY);
 		}),
 	);
 
@@ -206,6 +211,7 @@ export const executeClaudeCodeInstall = (
 	const config = createConfig(parsedArgs);
 	const isTTY = options.isTTY;
 	const color = getColorFns(isTTY);
+	const spinner = createSpinner(isTTY);
 
 	// Display header
 	logger.info("");
@@ -216,12 +222,12 @@ export const executeClaudeCodeInstall = (
 		// Step 1: Run prerequisite checks
 		TE.Do,
 		TE.tap(() => {
-			logger.start("Checking prerequisites...");
+			spinner.start("Checking prerequisites...");
 			return TE.right(undefined);
 		}),
 		TE.chain(() => runAllPrerequisiteChecks()),
 		TE.tap((prereqResults: readonly ClaudeCodePrerequisiteResult[]) => {
-			logPrerequisiteResults(prereqResults, logger);
+			logPrerequisiteResults(prereqResults, spinner);
 			return TE.right(undefined);
 		}),
 		// Step 2: Branch based on dry-run mode
@@ -229,7 +235,12 @@ export const executeClaudeCodeInstall = (
 			if (config.dryRun) {
 				return executeDryRun(config, logger, isTTY);
 			}
-			return executeNormalInstall(config, logger, isTTY);
+			return executeNormalInstall(config, spinner, logger, isTTY);
+		}),
+		// Stop spinner on error to ensure clean exit
+		TE.mapLeft((error) => {
+			spinner.stop();
+			return error;
 		}),
 	);
 };

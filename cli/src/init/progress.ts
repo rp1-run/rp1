@@ -3,7 +3,7 @@
  * Provides visual feedback during multi-step initialization.
  */
 
-import type { Logger } from "../../shared/logger.js";
+import { createSpinner, type Spinner } from "../../shared/spinner.js";
 import type { InitStepInfo, StepStatus } from "./models.js";
 
 // ============================================================================
@@ -13,6 +13,7 @@ import type { InitStepInfo, StepStatus } from "./models.js";
 /**
  * Visual icons for each step status.
  * Used in TTY mode for visual progress indication.
+ * @deprecated Kept for backward compatibility. Use the spinner utility directly.
  */
 export const STEP_ICONS: Record<StepStatus, string> = {
 	pending: "○",
@@ -28,24 +29,21 @@ export const STEP_ICONS: Record<StepStatus, string> = {
 
 /**
  * Progress tracker for multi-step init workflow.
- * Provides visual feedback using the Logger's start/success/fail methods.
- * TTY-aware: skips visual output in non-TTY environments.
+ * Provides visual feedback using the Spinner utility.
+ * TTY-aware: uses animated spinners in TTY, console.log in non-TTY.
  */
 export class InitProgress {
 	private steps: InitStepInfo[] = [];
 	private currentIndex = -1;
-	private readonly logger: Logger;
-	private readonly isTTY: boolean;
+	private readonly spinner: Spinner;
 
 	/**
 	 * Create a new progress tracker.
 	 *
-	 * @param logger - Logger instance for output
 	 * @param isTTY - Whether we're in a TTY environment
 	 */
-	constructor(logger: Logger, isTTY: boolean) {
-		this.logger = logger;
-		this.isTTY = isTTY;
+	constructor(isTTY: boolean) {
+		this.spinner = createSpinner(isTTY);
 	}
 
 	/**
@@ -73,7 +71,6 @@ export class InitProgress {
 	startStep(name: string): void {
 		const index = this.steps.findIndex((s) => s.name === name);
 		if (index === -1) {
-			this.logger.debug(`Unknown step: ${name}`);
 			return;
 		}
 
@@ -131,6 +128,30 @@ export class InitProgress {
 	}
 
 	/**
+	 * Pause the current step's spinner.
+	 * Use this before showing interactive prompts to prevent spinner interference.
+	 * Call resumeStep() to restart the spinner, or completeStep()/failStep() to finish.
+	 */
+	pauseStep(): void {
+		this.spinner.stop();
+	}
+
+	/**
+	 * Resume the current step's spinner after a pause.
+	 * Use this after interactive prompts complete if the step is still in progress.
+	 */
+	resumeStep(): void {
+		if (this.currentIndex === -1 || this.currentIndex >= this.steps.length) {
+			return;
+		}
+
+		const current = this.steps[this.currentIndex];
+		if (current.status === "running") {
+			this.spinner.start(current.description);
+		}
+	}
+
+	/**
 	 * Get the current state of all steps.
 	 * Useful for generating summary information.
 	 *
@@ -161,13 +182,9 @@ export class InitProgress {
 
 	/**
 	 * Render current step progress.
-	 * Uses Logger's start/success/fail methods for visual feedback.
+	 * Uses Spinner for visual feedback with in-place line replacement.
 	 */
 	private render(): void {
-		if (!this.isTTY) {
-			return;
-		}
-
 		if (this.currentIndex === -1 || this.currentIndex >= this.steps.length) {
 			return;
 		}
@@ -176,16 +193,16 @@ export class InitProgress {
 
 		switch (current.status) {
 			case "running":
-				this.logger.start(current.description);
+				this.spinner.start(current.description);
 				break;
 			case "completed":
-				this.logger.success(current.description);
+				this.spinner.succeed(current.description);
 				break;
 			case "failed":
-				this.logger.fail(current.description);
+				this.spinner.fail(current.description);
 				break;
 			case "skipped":
-				this.logger.info(`Skipped: ${current.description}`);
+				this.spinner.info(`Skipped: ${current.description}`);
 				break;
 			case "pending":
 				break;
@@ -201,13 +218,9 @@ export class InitProgress {
  * Create a new progress tracker.
  * Convenience factory function.
  *
- * @param logger - Logger instance for output
  * @param isTTY - Whether we're in a TTY environment
  * @returns A new InitProgress instance
  */
-export const createProgress = (
-	logger: Logger,
-	isTTY: boolean,
-): InitProgress => {
-	return new InitProgress(logger, isTTY);
+export const createProgress = (isTTY: boolean): InitProgress => {
+	return new InitProgress(isTTY);
 };

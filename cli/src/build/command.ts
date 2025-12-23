@@ -22,6 +22,7 @@ import {
 	usageError,
 } from "../../shared/errors.js";
 import type { Logger } from "../../shared/logger.js";
+import { createSpinner } from "../../shared/spinner.js";
 import { codes as COLORS } from "../lib/colors.js";
 import {
 	generateAgentFile,
@@ -331,7 +332,7 @@ const buildPlugin = async (
 	pluginName: string,
 	projectRoot: string,
 	outputPath: string,
-	logger: Logger,
+	_logger: Logger,
 	jsonOutput: boolean,
 ): Promise<PluginBuildResult> => {
 	const errors: string[] = [];
@@ -342,6 +343,9 @@ const buildPlugin = async (
 	const pluginDir = join(projectRoot, "plugins", pluginName);
 	const pluginOutputDir = join(outputPath, pluginName);
 	const pluginVersion = await readPluginVersion(pluginDir);
+
+	// Create spinner for progress indication (only in interactive mode)
+	const spinner = createSpinner(!jsonOutput && (process.stdout.isTTY ?? false));
 
 	// Clean and create output directories with subdirectory namespacing
 	try {
@@ -360,7 +364,7 @@ const buildPlugin = async (
 	await mkdir(join(pluginOutputDir, "skills"), { recursive: true });
 
 	if (!jsonOutput) {
-		logger.start(`Building ${pluginName} plugin...`);
+		spinner.start(`Building ${pluginName} plugin...`);
 	}
 
 	// Process commands
@@ -542,9 +546,9 @@ const buildPlugin = async (
 		const ocPluginNote = hasOpenCodePlugin ? " + OpenCode plugin" : "";
 		const summary = `${pluginName}: ${commandEntries.length} commands, ${agentEntries.length} agents, ${skillEntries.length} skills${ocPluginNote}`;
 		if (hasErrors) {
-			logger.fail(`${summary} (${errors.length} errors)`);
+			spinner.fail(`${summary} (${errors.length} errors)`);
 		} else {
-			logger.success(summary);
+			spinner.succeed(summary);
 		}
 	}
 

@@ -59,6 +59,7 @@
 		"commander": "^14.0.2",
 		"consola": "^3.4.2",
 		"fp-ts": "^2.16.9",
+		"ora": "^9.0.0",
 		"yaml": "^2.3.4"
 	},
 	"devDependencies": {

@@ -105,7 +105,7 @@ const createSuccessDeps = (
 				value: "1.0.40",
 			},
 		] as readonly ClaudeCodePrerequisiteResult[]),
-	installPlugins: () =>
+	installPlugins: (_scope, _logger, _dryRun, _isTTY) =>
 		TE.right({
 			marketplaceAdded: true,
 			pluginsInstalled,
@@ -122,7 +122,7 @@ const createPrereqFailDeps = (): PluginInstallDeps => ({
 			message: "Claude Code CLI not found in PATH",
 			suggestion: "Install Claude Code",
 		} as CLIError),
-	installPlugins: () =>
+	installPlugins: (_scope, _logger, _dryRun, _isTTY) =>
 		TE.right({
 			marketplaceAdded: false,
 			pluginsInstalled: [],
@@ -141,7 +141,7 @@ const createInstallFailDeps = (): PluginInstallDeps => ({
 				value: "1.0.40",
 			},
 		] as readonly ClaudeCodePrerequisiteResult[]),
-	installPlugins: () =>
+	installPlugins: (_scope, _logger, _dryRun, _isTTY) =>
 		TE.left({
 			_tag: "InstallError",
 			operation: "plugin-install",
@@ -234,14 +234,6 @@ describe("plugin-installation step", () => {
 			);
 			expect(nonInteractiveCall).toBeDefined();
 
-			// Should have started installation
-			const startCall = logger.calls.find(
-				(c) =>
-					c.method === "start" &&
-					String(c.args[0]).includes("Installing plugins"),
-			);
-			expect(startCall).toBeDefined();
-
 			// Should have plugin_installed actions
 			const installedActions = result.actions.filter(
 				(a) => a.type === "plugin_installed",
@@ -274,13 +266,6 @@ describe("plugin-installation step", () => {
 			expect(pluginNames).toContain("rp1-base");
 			expect(pluginNames).toContain("rp1-dev");
 
-			// Should log success
-			const successCall = logger.calls.find(
-				(c) =>
-					c.method === "success" && String(c.args[0]).includes("2 plugin(s)"),
-			);
-			expect(successCall).toBeDefined();
-
 			// Result should indicate success
 			expect(result.result).not.toBeNull();
 			expect(result.result?.success).toBe(true);
@@ -310,10 +295,6 @@ describe("plugin-installation step", () => {
 				expect(failedAction.error).toBeDefined();
 			}
 
-			// Should log failure
-			const failCall = logger.calls.find((c) => c.method === "fail");
-			expect(failCall).toBeDefined();
-
 			// Should show manual installation link
 			const manualCall = logger.calls.find(
 				(c) =>
@@ -334,7 +315,12 @@ describe("plugin-installation step", () => {
 			const deps = createSuccessDeps();
 			const config: PluginInstallConfig = { dryRun: false, scope: "user" };
 
-			const result = await installClaudeCodePlugins(config, logger, deps)();
+			const result = await installClaudeCodePlugins(
+				config,
+				logger,
+				false,
+				deps,
+			)();
 
 			// installClaudeCodePlugins never fails - errors become failed results
 			expect(result._tag).toBe("Right");
@@ -351,7 +337,12 @@ describe("plugin-installation step", () => {
 			const deps = createInstallFailDeps();
 			const config: PluginInstallConfig = { dryRun: false, scope: "user" };
 
-			const result = await installClaudeCodePlugins(config, logger, deps)();
+			const result = await installClaudeCodePlugins(
+				config,
+				logger,
+				false,
+				deps,
+			)();
 
 			// Should still return Right (errors are converted to failed results)
 			expect(result._tag).toBe("Right");
@@ -368,7 +359,12 @@ describe("plugin-installation step", () => {
 			const deps = createPrereqFailDeps();
 			const config: PluginInstallConfig = { dryRun: false, scope: "user" };
 
-			const result = await installClaudeCodePlugins(config, logger, deps)();
+			const result = await installClaudeCodePlugins(
+				config,
+				logger,
+				false,
+				deps,
+			)();
 
 			// Should return Right with failed result (errors converted via orElse)
 			expect(result._tag).toBe("Right");
@@ -382,6 +378,7 @@ describe("plugin-installation step", () => {
 		test("passes config to installPlugins", async () => {
 			let capturedScope: string | undefined;
 			let capturedDryRun: boolean | undefined;
+			let capturedIsTTY: boolean | undefined;
 
 			const deps: PluginInstallDeps = {
 				runPrerequisiteChecks: () =>
@@ -393,9 +390,10 @@ describe("plugin-installation step", () => {
 							value: "1.0.40",
 						},
 					] as readonly ClaudeCodePrerequisiteResult[]),
-				installPlugins: (scope, _logger, dryRun) => {
+				installPlugins: (scope, _logger, dryRun, isTTY) => {
 					capturedScope = scope;
 					capturedDryRun = dryRun;
+					capturedIsTTY = isTTY;
 					return TE.right({
 						marketplaceAdded: true,
 						pluginsInstalled: [],
@@ -407,10 +405,11 @@ describe("plugin-installation step", () => {
 			const config: PluginInstallConfig = { dryRun: true, scope: "project" };
 			const logger = createMockLogger();
 
-			await installClaudeCodePlugins(config, logger, deps)();
+			await installClaudeCodePlugins(config, logger, true, deps)();
 
 			expect(capturedScope).toBe("project");
 			expect(capturedDryRun).toBe(true);
+			expect(capturedIsTTY).toBe(true);
 		});
 	});
 
@@ -446,7 +445,7 @@ describe("plugin-installation step", () => {
 							value: "1.0.40",
 						},
 					] as readonly ClaudeCodePrerequisiteResult[]),
-				installPlugins: () =>
+				installPlugins: (_scope, _logger, _dryRun, _isTTY) =>
 					TE.right({
 						marketplaceAdded: true,
 						pluginsInstalled: ["rp1-base"],

@@ -36,7 +36,7 @@ import type {
 	ReinitState,
 } from "./models.js";
 import { GITIGNORE_PRESETS } from "./models.js";
-import { createProgress } from "./progress.js";
+import { createProgress, type InitProgress } from "./progress.js";
 import {
 	appendShellFencedContent,
 	hasShellFencedContent,
@@ -234,9 +234,11 @@ async function handleGitRootCheck(
 	gitResult: GitRootResult,
 	promptOptions: PromptOptions,
 	logger: Logger,
+	progress: InitProgress,
 ): Promise<{ proceed: boolean; cwd: string; warning?: string }> {
 	// Not in a git repo - warn but allow proceeding
 	if (!gitResult.isGitRepo) {
+		progress.pauseStep();
 		const warning =
 			"Not in a git repository. Git-related features will be limited.";
 		logger.warn(warning);
@@ -250,6 +252,7 @@ async function handleGitRootCheck(
 	}
 
 	// In subdirectory - prompt for action
+	progress.pauseStep();
 	logger.warn(`Not at git repository root`);
 	logger.info(`Current directory: ${gitResult.currentDir}`);
 	logger.info(`Git root: ${gitResult.gitRoot}`);
@@ -367,11 +370,15 @@ async function handleReinitCheck(
 	state: ReinitState,
 	promptOptions: PromptOptions,
 	logger: Logger,
+	progress: InitProgress,
 ): Promise<{ proceed: boolean; choice: ReinitChoice }> {
 	// Not initialized - proceed normally
 	if (!isAlreadyInitialized(state)) {
 		return { proceed: true, choice: "reinitialize" };
 	}
+
+	// Pause spinner before showing info/prompts
+	progress.pauseStep();
 
 	// Log what was found
 	logger.info("Existing rp1 configuration detected:");
@@ -481,6 +488,7 @@ async function handleToolDetection(
 	registry: ToolsRegistry,
 	promptOptions: PromptOptions,
 	logger: Logger,
+	progress: InitProgress,
 ): Promise<{
 	toolResult: ToolDetectionResult;
 	warnings: string[];
@@ -508,6 +516,7 @@ async function handleToolDetection(
 		}
 	} else {
 		// No tools found - offer guidance
+		progress.pauseStep();
 		logger.warn("No supported agentic tools detected");
 
 		const toolChoices = registry.tools.map((tool) => ({
@@ -643,6 +652,7 @@ async function configureGitignore(
 	cwd: string,
 	promptOptions: PromptOptions,
 	logger: Logger,
+	progress: InitProgress,
 ): Promise<InitAction[]> {
 	const actions: InitAction[] = [];
 	const gitignorePath = path.resolve(cwd, ".gitignore");
@@ -651,6 +661,8 @@ async function configureGitignore(
 	let preset: GitignorePreset = "recommended";
 
 	if (promptOptions.isTTY) {
+		// Pause spinner before showing prompt
+		progress.pauseStep();
 		const choice = await selectOption<GitignorePreset>(
 			"How should rp1 files be tracked in git?",
 			[
@@ -768,7 +780,7 @@ export function executeInit(
 				logger.debug(`Interactive mode: ${isTTY}`);
 
 				// Create progress tracker and register steps
-				const progress = createProgress(logger, isTTY);
+				const progress = createProgress(isTTY);
 				progress.registerSteps([...INIT_STEPS]);
 
 				// Step 2: Load registry
@@ -794,6 +806,7 @@ export function executeInit(
 					gitResult,
 					promptOptions,
 					logger,
+					progress,
 				);
 				progress.completeStep();
 
@@ -819,6 +832,7 @@ export function executeInit(
 					reinitState,
 					promptOptions,
 					logger,
+					progress,
 				);
 				progress.completeStep();
 
@@ -858,7 +872,7 @@ export function executeInit(
 				// Step 6: Tool detection
 				progress.startStep("tool-detection");
 				const { toolResult, warnings: toolWarnings } =
-					await handleToolDetection(registry, promptOptions, logger);
+					await handleToolDetection(registry, promptOptions, logger, progress);
 				allWarnings.push(...toolWarnings);
 				const primaryTool = getPrimaryTool(toolResult);
 				progress.completeStep();
@@ -880,6 +894,7 @@ export function executeInit(
 						cwd,
 						promptOptions,
 						logger,
+						progress,
 					);
 					allActions.push(...gitignoreActions);
 					progress.completeStep();

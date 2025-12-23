@@ -10,6 +10,7 @@ import type { CLIError } from "../../../shared/errors.js";
 import { formatError } from "../../../shared/errors.js";
 import type { Logger } from "../../../shared/logger.js";
 import { confirmAction, type PromptOptions } from "../../../shared/prompts.js";
+import { createSpinner } from "../../../shared/spinner.js";
 import { installAllPlugins as defaultInstallAllPlugins } from "../../install/claudecode/installer.js";
 import type {
 	ClaudeCodeInstallResult,
@@ -48,6 +49,7 @@ export interface PluginInstallDeps {
 		scope: string,
 		logger: Logger,
 		dryRun: boolean,
+		isTTY: boolean,
 	) => TE.TaskEither<CLIError, ClaudeCodeInstallResult>;
 }
 
@@ -65,19 +67,23 @@ export const defaultPluginInstallDeps: PluginInstallDeps = {
  *
  * @param config - Plugin installation configuration
  * @param logger - Logger for progress output
+ * @param isTTY - Whether the terminal supports TTY for spinner display
  * @param deps - Optional dependencies for testing
  * @returns TaskEither with PluginInstallResult on success or CLIError on failure
  */
 export const installClaudeCodePlugins = (
 	config: PluginInstallConfig,
 	logger: Logger,
+	isTTY: boolean,
 	deps: PluginInstallDeps = defaultPluginInstallDeps,
 ): TE.TaskEither<CLIError, PluginInstallResult> =>
 	pipe(
 		// Step 1: Run prerequisite checks
 		deps.runPrerequisiteChecks(),
 		// Step 2: Install all plugins
-		TE.chain(() => deps.installPlugins(config.scope, logger, config.dryRun)),
+		TE.chain(() =>
+			deps.installPlugins(config.scope, logger, config.dryRun, isTTY),
+		),
 		// Step 3: Map to PluginInstallResult
 		TE.map(
 			(result): PluginInstallResult => ({
@@ -155,7 +161,13 @@ export const executePluginInstallation = async (
 	// Non-interactive mode (--yes): proceed with installation
 	if (!promptOptions.isTTY) {
 		logger.info("Installing plugins (non-interactive mode)...");
-		return executeInstallation(actions, config, logger, deps);
+		return executeInstallation(
+			actions,
+			config,
+			logger,
+			promptOptions.isTTY,
+			deps,
+		);
 	}
 
 	// Interactive: confirm with user
@@ -174,7 +186,13 @@ export const executePluginInstallation = async (
 	}
 
 	// Execute installation
-	return executeInstallation(actions, config, logger, deps);
+	return executeInstallation(
+		actions,
+		config,
+		logger,
+		promptOptions.isTTY,
+		deps,
+	);
 };
 
 /**
@@ -185,11 +203,18 @@ async function executeInstallation(
 	actions: InitAction[],
 	config: PluginInstallConfig,
 	logger: Logger,
+	isTTY: boolean,
 	deps: PluginInstallDeps = defaultPluginInstallDeps,
 ): Promise<PluginInstallStepResult> {
-	logger.start("Installing plugins...");
+	const spinner = createSpinner(isTTY);
+	spinner.start("Installing plugins...");
 
-	const resultEither = await installClaudeCodePlugins(config, logger, deps)();
+	const resultEither = await installClaudeCodePlugins(
+		config,
+		logger,
+		isTTY,
+		deps,
+	)();
 
 	// installClaudeCodePlugins never fails (errors converted to failed result)
 	// but we handle both cases for type safety
@@ -202,7 +227,7 @@ async function executeInstallation(
 			name: "rp1-plugins",
 			error: errorMessage,
 		});
-		logger.fail(`Plugin installation failed: ${errorMessage}`);
+		spinner.fail(`Plugin installation failed: ${errorMessage}`);
 		return { actions, result: null };
 	}
 
@@ -223,7 +248,7 @@ async function executeInstallation(
 			logger.warn(warning);
 		}
 
-		logger.success(
+		spinner.succeed(
 			`Installed ${result.pluginsInstalled.length} plugin(s): ${result.pluginsInstalled.join(", ")}`,
 		);
 	} else {
@@ -241,7 +266,7 @@ async function executeInstallation(
 			error: errorMessage,
 		});
 
-		logger.fail(`Plugin installation failed: ${errorMessage}`);
+		spinner.fail(`Plugin installation failed: ${errorMessage}`);
 		logger.info(
 			"You can try installing manually: https://rp1.run/getting-started/installation/",
 		);
