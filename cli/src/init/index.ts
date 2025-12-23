@@ -10,11 +10,7 @@ import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import { type CLIError, runtimeError } from "../../shared/errors.js";
 import type { Logger } from "../../shared/logger.js";
-import {
-	confirmAction,
-	type PromptOptions,
-	selectOption,
-} from "../../shared/prompts.js";
+import { type PromptOptions, selectOption } from "../../shared/prompts.js";
 import {
 	loadToolsRegistry,
 	type SupportedTool,
@@ -28,12 +24,29 @@ import {
 	wrapWithFence,
 } from "./comment-fence.js";
 import { detectGitRoot, type GitRootResult } from "./git-root.js";
+import type {
+	GitignorePreset,
+	HealthReport,
+	InitAction,
+	InitOptions,
+	InitResult,
+	NextStep,
+	PluginStatus,
+	ReinitChoice,
+	ReinitState,
+} from "./models.js";
+import { GITIGNORE_PRESETS } from "./models.js";
+import { createProgress } from "./progress.js";
 import {
 	appendShellFencedContent,
 	hasShellFencedContent,
 	replaceShellFencedContent,
 	validateShellFencing,
 } from "./shell-fence.js";
+import { performHealthCheck } from "./steps/health-check.js";
+import { executePluginInstallation } from "./steps/plugin-installation.js";
+import { displaySummary, generateNextSteps } from "./steps/summary.js";
+import { verifyClaudeCodePlugins } from "./steps/verification.js";
 import { AGENTS_TEMPLATE, CLAUDE_CODE_TEMPLATE } from "./templates/index.js";
 import {
 	type DetectedTool,
@@ -46,43 +59,22 @@ import {
 } from "./tool-detector.js";
 
 // ============================================================================
-// Types
+// Re-exports for backward compatibility
 // ============================================================================
 
-/**
- * Options for the init command.
- */
-export interface InitOptions {
-	/** Current working directory (defaults to process.cwd()) */
-	readonly cwd?: string;
-	/** Force non-interactive mode (--yes flag) */
-	readonly yes?: boolean;
-	/** Force interactive mode even without TTY (--interactive flag) */
-	readonly interactive?: boolean;
-}
+export type {
+	GitignorePreset,
+	InitAction,
+	InitOptions,
+	InitResult,
+	ReinitChoice,
+	ReinitState,
+} from "./models.js";
+export { GITIGNORE_PRESETS } from "./models.js";
 
-/**
- * An action taken during initialization.
- */
-export type InitAction =
-	| { readonly type: "created_directory"; readonly path: string }
-	| { readonly type: "created_file"; readonly path: string }
-	| { readonly type: "updated_file"; readonly path: string }
-	| { readonly type: "skipped"; readonly reason: string }
-	| { readonly type: "plugin_install_suggested"; readonly tool: string }
-	| { readonly type: "kb_build_suggested" };
-
-/**
- * Result of the initialization process.
- */
-export interface InitResult {
-	/** All actions taken during initialization */
-	readonly actions: readonly InitAction[];
-	/** The primary detected tool (if any) */
-	readonly detectedTool: DetectedTool | null;
-	/** Warnings generated during initialization */
-	readonly warnings: readonly string[];
-}
+// ============================================================================
+// Types (local to orchestrator)
+// ============================================================================
 
 /**
  * Context for the init execution.
@@ -98,48 +90,30 @@ export interface InitContext {
 	readonly logger: Logger;
 }
 
-/**
- * Gitignore preset configurations.
- */
-export const GITIGNORE_PRESETS = {
-	/**
-	 * Option A (Recommended): Track context, ignore work.
-	 * Uses !.rp1/ to override global gitignore rules that may ignore .rp1/
-	 */
-	recommended: `!.rp1/
-.rp1/*
-!.rp1/context/
-!.rp1/context/**
-.rp1/context/meta.json`,
-
-	/** Option B: Track everything except meta.json */
-	track_all: `!.rp1/
-.rp1/context/meta.json`,
-
-	/** Option C: Ignore entire .rp1/ */
-	ignore_all: `.rp1/`,
-} as const;
-
-export type GitignorePreset = keyof typeof GITIGNORE_PRESETS;
+// ============================================================================
+// Init Workflow Steps Definition
+// ============================================================================
 
 /**
- * Choice for re-initialization behavior.
+ * Step definitions for progress tracking.
+ * Used to register steps with InitProgress.
  */
-export type ReinitChoice = "update" | "skip" | "reinitialize";
-
-/**
- * State detection for re-initialization.
- */
-export interface ReinitState {
-	/** Whether .rp1/ directory exists */
-	readonly hasRp1Dir: boolean;
-	/** Whether instruction file has fenced content */
-	readonly hasFencedContent: boolean;
-	/** Whether KB content exists (.rp1/context/index.md) */
-	readonly hasKBContent: boolean;
-	/** Whether work content exists (any files in .rp1/work/) */
-	readonly hasWorkContent: boolean;
-}
+const INIT_STEPS = [
+	{ name: "registry", description: "Loading tools registry..." },
+	{ name: "git-check", description: "Checking git repository..." },
+	{ name: "reinit-check", description: "Checking existing setup..." },
+	{ name: "directory-setup", description: "Setting up directory structure..." },
+	{ name: "tool-detection", description: "Detecting agentic tools..." },
+	{
+		name: "instruction-injection",
+		description: "Configuring instruction file...",
+	},
+	{ name: "gitignore-config", description: "Configuring .gitignore..." },
+	{ name: "plugin-installation", description: "Installing plugins..." },
+	{ name: "verification", description: "Verifying plugin installation..." },
+	{ name: "health-check", description: "Performing health check..." },
+	{ name: "summary", description: "Generating summary..." },
+] as const;
 
 // ============================================================================
 // Helper Functions
@@ -219,16 +193,34 @@ function getTemplateForTool(tool: SupportedTool): string {
 // Step 1: TTY Detection
 // ============================================================================
 
+/**
+ * Detect whether interactive mode should be used.
+ *
+ * Default behaviors in non-interactive mode (--yes):
+ * - Plugin installation: Automatically proceeds if AI tool (Claude Code) is detected
+ * - Git root prompt: Defaults to continue in current directory
+ * - Re-initialization: Defaults to skip (no changes to existing setup)
+ * - Gitignore preset: Uses "recommended" preset
+ * - All prompts: Use sensible defaults without user interaction
+ *
+ * @param options - Init options from CLI
+ * @returns true if interactive mode should be used, false otherwise
+ */
 function detectTTY(options: InitOptions): boolean {
-	// --yes forces non-interactive
+	// --yes forces non-interactive mode
+	// In this mode, all prompts use default values:
+	// - Plugin installation proceeds automatically when tool detected
+	// - Gitignore uses "recommended" preset
+	// - Re-initialization skips (preserves existing config)
 	if (options.yes) {
 		return false;
 	}
-	// --interactive forces interactive
+	// --interactive forces interactive mode even without TTY
 	if (options.interactive) {
 		return true;
 	}
 	// Default: check if stdout is a TTY
+	// Non-TTY environments (CI, pipes) behave like --yes
 	return process.stdout.isTTY ?? false;
 }
 
@@ -357,6 +349,9 @@ export async function detectReinitState(
 
 /**
  * Check if re-initialization is needed and prompt user for action.
+ *
+ * Non-interactive default: Returns true if either .rp1/ directory exists
+ * or instruction file has fenced content, triggering re-init prompt logic.
  */
 function isAlreadyInitialized(state: ReinitState): boolean {
 	return state.hasRp1Dir || state.hasFencedContent;
@@ -364,6 +359,9 @@ function isAlreadyInitialized(state: ReinitState): boolean {
 
 /**
  * Handle re-initialization check with user prompt.
+ *
+ * Non-interactive default: Skips re-initialization to preserve existing config.
+ * This is a safe default for CI/automation environments.
  */
 async function handleReinitCheck(
 	state: ReinitState,
@@ -476,7 +474,7 @@ async function createDirectoryStructure(
 }
 
 // ============================================================================
-// Step 4: Tool Detection
+// Step 5: Tool Detection
 // ============================================================================
 
 async function handleToolDetection(
@@ -488,8 +486,6 @@ async function handleToolDetection(
 	warnings: string[];
 }> {
 	const warnings: string[] = [];
-
-	logger.start("Detecting agentic tools...");
 
 	const toolResultEither = await detectTools(registry)();
 	// detectTools never fails, so we can safely extract the value
@@ -557,7 +553,7 @@ async function handleToolDetection(
 }
 
 // ============================================================================
-// Step 5: Instruction File Injection
+// Step 6: Instruction File Injection
 // ============================================================================
 
 async function injectInstructions(
@@ -640,7 +636,7 @@ async function injectInstructions(
 }
 
 // ============================================================================
-// Step 6: Gitignore Configuration
+// Step 7: Gitignore Configuration
 // ============================================================================
 
 async function configureGitignore(
@@ -732,118 +728,6 @@ async function configureGitignore(
 }
 
 // ============================================================================
-// Step 7: Plugin Installation Offer
-// ============================================================================
-
-async function offerPluginInstallation(
-	detectedTool: DetectedTool | null,
-	promptOptions: PromptOptions,
-	logger: Logger,
-): Promise<InitAction[]> {
-	const actions: InitAction[] = [];
-
-	if (!detectedTool) {
-		return actions;
-	}
-
-	if (!promptOptions.isTTY) {
-		// Non-TTY: skip plugin installation
-		actions.push({
-			type: "skipped",
-			reason: "Plugin installation skipped in non-interactive mode",
-		});
-		return actions;
-	}
-
-	const confirmed = await confirmAction(
-		`Install rp1 plugins for ${detectedTool.tool.name}?`,
-		{ ...promptOptions, defaultOnNonTTY: false },
-	);
-
-	if (!confirmed) {
-		actions.push({
-			type: "skipped",
-			reason: "Plugin installation declined by user",
-		});
-		return actions;
-	}
-
-	// Check if tool has a plugin install command
-	if (detectedTool.tool.plugin_install_cmd) {
-		const baseCmd = detectedTool.tool.plugin_install_cmd.replace(
-			"{plugin}",
-			"rp1-base",
-		);
-		const devCmd = detectedTool.tool.plugin_install_cmd.replace(
-			"{plugin}",
-			"rp1-dev",
-		);
-
-		logger.info(`To install plugins, run:`);
-		logger.box(`${baseCmd}\n${devCmd}`);
-	} else {
-		// Tool uses config file approach (e.g., OpenCode)
-		logger.info(`To install plugins for ${detectedTool.tool.name}:`);
-		logger.box(
-			`See: https://rp1.run/getting-started/installation/#${detectedTool.tool.id}`,
-		);
-	}
-
-	actions.push({
-		type: "plugin_install_suggested",
-		tool: detectedTool.tool.id,
-	});
-	return actions;
-}
-
-// ============================================================================
-// Step 8: Knowledge Build Offer
-// ============================================================================
-
-async function offerKnowledgeBuild(
-	detectedTool: DetectedTool | null,
-	promptOptions: PromptOptions,
-	logger: Logger,
-): Promise<InitAction[]> {
-	const actions: InitAction[] = [];
-
-	if (!promptOptions.isTTY) {
-		// Non-TTY: just show suggestion
-		logger.info("Next step: Build knowledge base with /knowledge-build");
-		actions.push({ type: "kb_build_suggested" });
-		return actions;
-	}
-
-	const confirmed = await confirmAction(
-		"Build knowledge base now? (takes 10-15 minutes)",
-		{ ...promptOptions, defaultOnNonTTY: false },
-	);
-
-	if (!confirmed) {
-		logger.info("You can build the knowledge base later with /knowledge-build");
-		actions.push({
-			type: "skipped",
-			reason: "Knowledge build declined by user",
-		});
-		return actions;
-	}
-
-	// Provide command based on detected tool
-	if (detectedTool) {
-		const cmdPrefix =
-			detectedTool.tool.id === "claude-code" ? "" : "/rp1-base/";
-		logger.box(
-			`Run in ${detectedTool.tool.name}:\n\n${cmdPrefix}knowledge-build`,
-		);
-	} else {
-		logger.box("Run in your agentic tool:\n\n/knowledge-build");
-	}
-
-	actions.push({ type: "kb_build_suggested" });
-	return actions;
-}
-
-// ============================================================================
 // Main Executor
 // ============================================================================
 
@@ -859,8 +743,10 @@ async function offerKnowledgeBuild(
  * 6. Tool detection
  * 7. Instruction file injection
  * 8. Gitignore configuration
- * 9. Plugin installation offer
- * 10. Knowledge build offer
+ * 9. Plugin installation (actual execution)
+ * 10. Plugin verification
+ * 11. Health check
+ * 12. Summary display
  *
  * @param options - Init options from CLI
  * @param logger - Logger instance
@@ -881,11 +767,18 @@ export function executeInit(
 				const promptOptions: PromptOptions = { isTTY };
 				logger.debug(`Interactive mode: ${isTTY}`);
 
+				// Create progress tracker and register steps
+				const progress = createProgress(logger, isTTY);
+				progress.registerSteps([...INIT_STEPS]);
+
 				// Step 2: Load registry
+				progress.startStep("registry");
 				logger.debug("Loading tools registry...");
 				const registry = await loadToolsRegistry();
+				progress.completeStep();
 
 				// Step 3: Git root detection
+				progress.startStep("git-check");
 				const initialCwd = options.cwd || process.cwd();
 				const gitResultEither = await detectGitRoot(initialCwd)();
 				const gitResult = E.isRight(gitResultEither)
@@ -902,12 +795,15 @@ export function executeInit(
 					promptOptions,
 					logger,
 				);
+				progress.completeStep();
 
 				if (!gitCheck.proceed) {
 					return {
 						actions: [{ type: "skipped", reason: "User cancelled" }],
 						detectedTool: null,
 						warnings: [],
+						healthReport: null,
+						nextSteps: [],
 					};
 				}
 
@@ -917,13 +813,14 @@ export function executeInit(
 				}
 
 				// Step 4: Re-initialization detection
-				// Check if rp1 is already initialized before creating anything
+				progress.startStep("reinit-check");
 				const reinitState = await detectReinitState(cwd, null);
 				const reinitCheck = await handleReinitCheck(
 					reinitState,
 					promptOptions,
 					logger,
 				);
+				progress.completeStep();
 
 				if (!reinitCheck.proceed) {
 					// User chose to skip - exit successfully
@@ -936,6 +833,8 @@ export function executeInit(
 						],
 						detectedTool: null,
 						warnings: [],
+						healthReport: null,
+						nextSteps: [],
 					};
 				}
 
@@ -943,86 +842,211 @@ export function executeInit(
 				const isUpdateOnly = reinitCheck.choice === "update";
 
 				// Step 5: Create directory structure (skip if update-only and dirs exist)
+				progress.startStep("directory-setup");
 				if (!isUpdateOnly || !reinitState.hasRp1Dir) {
-					logger.start("Setting up directory structure...");
 					const dirActions = await createDirectoryStructure(cwd, logger);
 					allActions.push(...dirActions);
+					progress.completeStep();
 				} else {
 					allActions.push({
 						type: "skipped",
 						reason: "Directory structure already exists (update mode)",
 					});
+					progress.skipStep();
 				}
 
 				// Step 6: Tool detection
+				progress.startStep("tool-detection");
 				const { toolResult, warnings: toolWarnings } =
 					await handleToolDetection(registry, promptOptions, logger);
 				allWarnings.push(...toolWarnings);
-
 				const primaryTool = getPrimaryTool(toolResult);
+				progress.completeStep();
 
 				// Step 7: Instruction file injection
-				logger.start("Configuring instruction file...");
+				progress.startStep("instruction-injection");
 				const { actions: instrActions } = await injectInstructions(
 					cwd,
 					primaryTool || null,
 					logger,
 				);
 				allActions.push(...instrActions);
+				progress.completeStep();
 
 				// Step 8: Gitignore configuration
+				progress.startStep("gitignore-config");
 				if (gitResult.isGitRepo) {
-					logger.start("Configuring .gitignore...");
 					const gitignoreActions = await configureGitignore(
 						cwd,
 						promptOptions,
 						logger,
 					);
 					allActions.push(...gitignoreActions);
+					progress.completeStep();
 				} else {
 					allActions.push({
 						type: "skipped",
 						reason: "Gitignore configuration skipped (not a git repository)",
 					});
+					progress.skipStep();
 				}
 
-				// For update mode, skip plugin and KB offers since they've already been through init
+				// For update mode, skip plugin installation and subsequent steps
 				if (isUpdateOnly) {
 					allActions.push({
 						type: "skipped",
-						reason: "Plugin and KB offers skipped (update mode)",
+						reason: "Plugin installation skipped (update mode)",
 					});
+
+					// Skip remaining steps
+					progress.startStep("plugin-installation");
+					progress.skipStep();
+					progress.startStep("verification");
+					progress.skipStep();
+					progress.startStep("health-check");
+					progress.skipStep();
+					progress.startStep("summary");
+					progress.skipStep();
+
 					logger.success("rp1 configuration updated!");
 					return {
 						actions: allActions,
 						detectedTool: primaryTool || null,
 						warnings: allWarnings,
+						healthReport: null,
+						nextSteps: [],
 					};
 				}
 
-				// Step 9: Plugin installation offer
-				const pluginActions = await offerPluginInstallation(
-					primaryTool || null,
-					promptOptions,
-					logger,
-				);
-				allActions.push(...pluginActions);
+				// Step 9: Plugin installation (actual execution, not just offer)
+				progress.startStep("plugin-installation");
+				let pluginStatus: readonly PluginStatus[] = [];
+				let pluginInstallationAttempted = false;
 
-				// Step 10: Knowledge build offer
-				const kbActions = await offerKnowledgeBuild(
-					primaryTool || null,
-					promptOptions,
-					logger,
-				);
-				allActions.push(...kbActions);
+				// Execute plugin installation - this replaces the old offerPluginInstallation
+				// Non-critical: failure does not abort init
+				try {
+					const { actions: pluginActions, result: pluginResult } =
+						await executePluginInstallation(
+							primaryTool || null,
+							promptOptions,
+							logger,
+						);
+					allActions.push(...pluginActions);
 
-				// Final summary
-				logger.success("rp1 initialization complete!");
+					// Track whether installation was attempted (for verification step)
+					pluginInstallationAttempted = pluginResult?.success ?? false;
+					progress.completeStep();
+				} catch (error) {
+					// Plugin installation failed - log warning but continue
+					const errorMessage =
+						error instanceof Error ? error.message : String(error);
+					logger.warn(`Plugin installation error: ${errorMessage}`);
+					allActions.push({
+						type: "plugin_install_failed",
+						name: "rp1-plugins",
+						error: errorMessage,
+					});
+					allWarnings.push(`Plugin installation failed: ${errorMessage}`);
+					progress.failStep();
+				}
+
+				// Step 10: Verification (only if plugin installation was attempted)
+				progress.startStep("verification");
+				if (
+					pluginInstallationAttempted &&
+					primaryTool?.tool.id === "claude-code"
+				) {
+					try {
+						const verificationResult = await verifyClaudeCodePlugins();
+						pluginStatus = verificationResult.plugins;
+
+						if (verificationResult.verified) {
+							allActions.push({
+								type: "verification_passed",
+								component: "plugins",
+							});
+							logger.success("Plugin verification passed");
+						} else {
+							for (const issue of verificationResult.issues) {
+								allActions.push({
+									type: "verification_failed",
+									component: "plugins",
+									issue,
+								});
+								logger.warn(`Verification issue: ${issue}`);
+							}
+						}
+						progress.completeStep();
+					} catch (error) {
+						const errorMessage =
+							error instanceof Error ? error.message : String(error);
+						logger.warn(`Verification error: ${errorMessage}`);
+						allWarnings.push(`Plugin verification failed: ${errorMessage}`);
+						progress.failStep();
+					}
+				} else {
+					// No verification needed - skip
+					allActions.push({
+						type: "skipped",
+						reason: "Plugin verification skipped (no installation performed)",
+					});
+					progress.skipStep();
+				}
+
+				// Step 11: Health check
+				progress.startStep("health-check");
+				let healthReport: HealthReport | null = null;
+				try {
+					healthReport = await performHealthCheck(cwd, pluginStatus);
+
+					if (healthReport.issues.length === 0) {
+						allActions.push({ type: "health_check_passed" });
+					} else {
+						for (const issue of healthReport.issues) {
+							allActions.push({
+								type: "health_check_warning",
+								message: issue,
+							});
+						}
+					}
+					progress.completeStep();
+				} catch (error) {
+					const errorMessage =
+						error instanceof Error ? error.message : String(error);
+					logger.warn(`Health check error: ${errorMessage}`);
+					allWarnings.push(`Health check failed: ${errorMessage}`);
+					progress.failStep();
+				}
+
+				// Step 12: Summary
+				progress.startStep("summary");
+
+				// Generate next steps based on current state
+				const hasKBContent = reinitState.hasKBContent;
+				const nextSteps: NextStep[] = generateNextSteps(
+					healthReport,
+					primaryTool || null,
+					hasKBContent,
+				);
+
+				// Display comprehensive summary
+				displaySummary(
+					allActions,
+					healthReport,
+					nextSteps,
+					primaryTool || null,
+					logger,
+					isTTY,
+				);
+				progress.completeStep();
 
 				return {
 					actions: allActions,
 					detectedTool: primaryTool || null,
 					warnings: allWarnings,
+					healthReport,
+					nextSteps,
 				};
 			},
 			(error): CLIError => {
