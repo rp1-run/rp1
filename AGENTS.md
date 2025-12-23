@@ -149,6 +149,10 @@ If command fails, inform user to install:
 
 ## 🏗️ Development Patterns
 
+### Technology choices
+
+1. Always prefer Bun and its ecosystem when writing new code in the repository. Fall back to Node.js only if a Bun ecosystem equivalent is unavailable or not sufficiently mature.
+
 ### Adding a New Command
 
 1. **Choose plugin**: base or dev?
@@ -229,6 +233,10 @@ bun run format
 - [ ] Commands appear in `/help`
 - [ ] Test command execution
 - [ ] Cross-plugin KB loading works (if KB-aware)
+
+### Documentation
+
+1. When adding new features/commands/agents, update relevant parts of the user-facing docs if relevant.
 
 ### Reading This Codebase
 

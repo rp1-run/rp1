@@ -57,7 +57,44 @@ You should see the version number (e.g., `0.2.1`). If you get "command not found
 
 ---
 
-## Step 3: Install Plugins
+## Step 3: Initialize Your Project
+
+Navigate to your project directory and run init:
+
+```bash
+cd your-project
+rp1 init
+```
+
+This interactive command will:
+
+- Create the `.rp1/` directory structure
+- Detect your AI assistant (Claude Code or OpenCode)
+- Inject rp1 instructions into `CLAUDE.md` or `AGENTS.md`
+- Configure `.gitignore` for rp1 artifacts
+- Offer to install plugins (optional)
+
+**Expected output:**
+
+```
+Detecting git repository...
+Creating .rp1 directory structure...
+Detecting agentic tools...
+Detected: Claude Code v2.0.75
+Configuring .gitignore...
+Injecting rp1 instructions into CLAUDE.md...
+
+Initialization complete!
+```
+
+!!! tip "CI/Automation"
+    For non-interactive environments, use `rp1 init --yes` to accept all defaults.
+
+[:octicons-arrow-right-24: Full init reference](../reference/cli/init.md)
+
+---
+
+## Step 4: Install Plugins
 
 === "Claude Code"
 
@@ -98,7 +135,7 @@ You should see the version number (e.g., `0.2.1`). If you get "command not found
 
 ---
 
-## Step 4: Verify Plugins
+## Step 5: Verify Plugins
 
 === "Claude Code"
 

@@ -87,6 +87,8 @@ nav:
     - KB Loading Patterns: guides/kb-loading-patterns.md
   - Reference:
     - reference/index.md
+    - CLI:
+      - init: reference/cli/init.md
     - Base Plugin:
       - reference/base/index.md
       - Knowledge:

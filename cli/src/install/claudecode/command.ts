@@ -133,7 +133,9 @@ const displaySuccess = (
 	}
 	logger.info("");
 	logger.info(
-		color.dim("Restart Claude Code and run /help to see available rp1 commands."),
+		color.dim(
+			"Restart Claude Code and run /help to see available rp1 commands.",
+		),
 	);
 };
 
