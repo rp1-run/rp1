@@ -72,66 +72,60 @@ This interactive command will:
 - Detect your AI assistant (Claude Code or OpenCode)
 - Inject rp1 instructions into `CLAUDE.md` or `AGENTS.md`
 - Configure `.gitignore` for rp1 artifacts
-- Offer to install plugins (optional)
+- **Install plugins automatically** (for Claude Code)
+- Verify the installation
+- Display next steps
 
 **Expected output:**
 
 ```
-Detecting git repository...
-Creating .rp1 directory structure...
-Detecting agentic tools...
-Detected: Claude Code v2.0.75
-Configuring .gitignore...
-Injecting rp1 instructions into CLAUDE.md...
+◐ Loading tools registry...
+✔ Loading tools registry...
+◐ Setting up directory structure...
+✔ Setting up directory structure...
+◐ Detecting agentic tools...
+✔ Claude Code v2.0.75
+✔ Detecting agentic tools...
+◐ Installing plugins...
+✔ Installing plugins...
+◐ Verifying plugin installation...
+✔ Verifying plugin installation...
 
-Initialization complete!
+✔ rp1 initialized successfully!
+
+Actions: 3 created, 0 updated
+Detected tool: Claude Code v2.0.75
+
+Next Steps:
+  1. → Restart Claude Code to load plugins (required)
+  2. ○ Run /knowledge-build to analyze your codebase (optional)
 ```
 
 !!! tip "CI/Automation"
-    For non-interactive environments, use `rp1 init --yes` to accept all defaults.
+    For non-interactive environments, use `rp1 init --yes` to accept all defaults and install plugins automatically.
 
 [:octicons-arrow-right-24: Full init reference](../reference/cli/init.md)
 
 ---
 
-## Step 4: Install Plugins
+## Step 4: Restart Your AI Tool
 
-=== "Claude Code"
+**Restart your AI assistant** to load the newly installed plugins.
 
-    Install both rp1 plugins with a single command:
+!!! note "Manual Plugin Installation"
+    If init couldn't install plugins (e.g., OpenCode, or if you skipped installation), you can install them manually:
 
-    ```bash
-    rp1 install:claudecode
-    ```
+    === "Claude Code"
 
-    **Expected output:**
+        ```bash
+        rp1 install:claudecode
+        ```
 
-    ```
-    Adding marketplace rp1-run/rp1...
-    Installing rp1-base...
-    Installing rp1-dev...
-    Done! Restart Claude Code to load plugins.
-    ```
+    === "OpenCode"
 
-    **Restart Claude Code** to load the new plugins.
-
-=== "OpenCode"
-
-    Install both rp1 plugins with a single command:
-
-    ```bash
-    rp1 install:opencode
-    ```
-
-    **Expected output:**
-
-    ```
-    Downloading plugins...
-    Installing to ~/.opencode/prompts/...
-    Done! Restart OpenCode to load plugins.
-    ```
-
-    **Restart OpenCode** to load the new plugins.
+        ```bash
+        rp1 install:opencode
+        ```
 
 ---
 
