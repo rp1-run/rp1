@@ -55,6 +55,6 @@ jobs:
         run: |
           lhci autorun --config=lighthouserc.json \
             --collect.url=${{ steps.cf-pages.outputs.url }} \
-            --collect.url=${{ steps.cf-pages.outputs.url }}/getting-started/quickstart/ \
+            --collect.url=${{ steps.cf-pages.outputs.url }}/getting-started/installation/ \
             --collect.url=${{ steps.cf-pages.outputs.url }}/reference/ \
             --collect.url=${{ steps.cf-pages.outputs.url }}/guides/feature-development/
