@@ -153,6 +153,8 @@ If command fails, inform user to install:
 
 1. Always prefer Bun and its ecosystem when writing new code in the repository. Fall back to Node.js only if a Bun ecosystem equivalent is unavailable or not sufficiently mature.
 
+2. We use bun to create an executable of the main CLI. Extra care should be taken to ensure we bundle all assets and any other files properly for this single executable to work.
+
 ### Adding a New Command
 
 1. **Choose plugin**: base or dev?
