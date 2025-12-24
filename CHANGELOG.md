@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.5](https://github.com/rp1-run/rp1/compare/v0.2.4...v0.2.5) (2025-12-23)
+
+
+### Documentation
+
+* update README ([#111](https://github.com/rp1-run/rp1/issues/111)) ([2202bef](https://github.com/rp1-run/rp1/commit/2202bef432c000915bf9563d4f3d8daab3a5ce46))
+
 ## [0.2.4](https://github.com/rp1-run/rp1/compare/v0.2.3...v0.2.4) (2025-12-23)
 
 
