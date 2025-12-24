@@ -57,7 +57,7 @@ Instead of validating each diagram individually, validate the entire markdown do
 
 2. **Validate all diagrams in one pass**:
    ```bash
-   base/skills/mermaid/scripts/validate_mermaid.sh "$TEMP_MD"
+   rp1 agent-tools mmd-validate "$TEMP_MD"
    EXIT_CODE=$?
    ```
 
@@ -83,7 +83,7 @@ Instead of validating each diagram individually, validate the entire markdown do
 **Why This Approach is Better**:
 - ✅ **Single validation pass** instead of per-diagram validation
 - ✅ **Faster**: Validates all diagrams in ~2-5 seconds total (not per diagram)
-- ✅ **Uses existing script**: Leverages `validate_mermaid.sh` markdown support
+- ✅ **Uses CLI tool**: Leverages `rp1 agent-tools mmd-validate` for validation
 - ✅ **Simpler logic**: No loops, no retry attempts
 - ✅ **Non-blocking errors**: Invalid diagrams show in preview with Mermaid's own error rendering
 - ✅ **Better user experience**: User sees actual diagram syntax errors in browser
@@ -95,8 +95,8 @@ Instead of validating each diagram individually, validate the entire markdown do
 - Warning message prepended to document if validation fails
 
 **Dependencies**:
-- Uses `base/skills/mermaid/scripts/validate_mermaid.sh` script (must be accessible)
-- Script supports markdown files with multiple Mermaid blocks
+- Requires rp1 CLI v0.3.0+ (includes `agent-tools mmd-validate` command)
+- CLI tool supports markdown files with multiple Mermaid blocks
 
 ### 3. Generate Self-Contained HTML
 
@@ -277,7 +277,7 @@ Read the generated markdown file and pass content:
 
 The skill will:
 1. Write markdown to temp file
-2. Validate ALL Mermaid diagrams in one pass using validate_mermaid.sh
+2. Validate ALL Mermaid diagrams in one pass using rp1 CLI tool
 3. Generate self-contained HTML with professional styling
 4. Save to temp directory
 5. Auto-open in browser
@@ -322,7 +322,7 @@ Browser opens automatically.
 ## Dependencies
 
 **Internal**:
-- `base/skills/mermaid/scripts/validate_mermaid.sh` (for bulk diagram validation)
+- rp1 CLI v0.3.0+ (for bulk diagram validation via `agent-tools mmd-validate`)
 
 **External** (embedded via CDN):
 - marked.js (markdown parsing)
@@ -343,7 +343,7 @@ Browser opens automatically.
 5. **Self-Contained Output**: HTML file contains all resources (CSS inline, JS via CDN)
 6. **Best-Effort Rendering**: Never fail due to malformed markdown; render as best as possible
 7. **Theme Fallback**: Invalid theme parameter defaults to "github"
-8. **Validation Script Optional**: If validation script unavailable, continue without pre-validation
+8. **Validation Tool Optional**: If rp1 CLI validation unavailable, continue without pre-validation
 
 ## References
 

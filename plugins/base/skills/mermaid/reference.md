@@ -599,12 +599,17 @@ When validation fails, errors are categorized for targeted fixing. See [EXAMPLES
 ### Validation Command
 
 ```bash
-# Validate from stdin
-echo 'flowchart TD; A-->B' | plugins/base/skills/mermaid/scripts/validate_mermaid.sh
+# Validate markdown file (all embedded diagrams)
+rp1 agent-tools mmd-validate document.md
 
-# JSON output with error category
-echo 'flowchart TD; A->B' | plugins/base/skills/mermaid/scripts/validate_mermaid.sh --json
+# Validate standalone mermaid file
+rp1 agent-tools mmd-validate diagram.mmd
+
+# Validate from stdin
+echo 'flowchart TD; A-->B' | rp1 agent-tools mmd-validate
 ```
+
+**Note**: Requires rp1 v0.3.0 or later.
 
 ---
 
@@ -661,7 +666,7 @@ stateDiagram-v2
 4. **One statement per line**: Especially for sequence, state, and gantt diagrams
 5. **Balance brackets**: Every `[`, `(`, `{` needs its closing pair
 6. **Check cardinality**: ER diagrams require valid relationship markers
-7. **Validate before presenting**: Use `validate_mermaid.sh` script
+7. **Validate before presenting**: Use `rp1 agent-tools mmd-validate`
 8. **Reference EXAMPLES.md**: Find similar error patterns when debugging
 
 ---
@@ -671,18 +676,17 @@ stateDiagram-v2
 To validate a Mermaid diagram:
 
 ```bash
-# Single diagram validation (stdin)
-echo 'flowchart TD; A-->B' | plugins/base/skills/mermaid/scripts/validate_mermaid.sh
+# Validate markdown file (all embedded diagrams)
+rp1 agent-tools mmd-validate document.md
 
-# File validation
-plugins/base/skills/mermaid/scripts/validate_mermaid.sh diagram.mmd
+# Validate standalone mermaid file
+rp1 agent-tools mmd-validate diagram.mmd
 
-# Markdown file (validates all mermaid blocks)
-plugins/base/skills/mermaid/scripts/validate_mermaid.sh document.md
-
-# JSON output for programmatic use
-plugins/base/skills/mermaid/scripts/validate_mermaid.sh --json document.md
+# Validate from stdin
+echo 'flowchart TD; A-->B' | rp1 agent-tools mmd-validate
 ```
+
+**Note**: Requires rp1 v0.3.0 or later. Chromium is auto-downloaded on first use.
 
 ---
 
@@ -690,4 +694,3 @@ plugins/base/skills/mermaid/scripts/validate_mermaid.sh --json document.md
 
 - **[SKILL.md](SKILL.md)**: Validation workflow and skill overview
 - **[EXAMPLES.md](EXAMPLES.md)**: Comprehensive error pattern catalog
-- **[scripts/README.md](scripts/README.md)**: Validation script documentation
