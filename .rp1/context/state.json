@@ -1,15 +1,14 @@
 {
   "strategy": "parallel-map-reduce",
   "repo_type": "single-project",
-  "current_project_path": ".",
   "monorepo_projects": [],
-  "generated_at": "2025-12-23T00:00:00Z",
-  "git_commit": "b2e8bfa01dcc37cddce2b8ec3eb9d0ce298c3189",
-  "files_analyzed": 186,
+  "generated_at": "2025-12-24T00:00:00Z",
+  "git_commit": "85519ee6615c36224b39bc99801a5b64cdba74bb",
+  "files_analyzed": 265,
   "languages": ["TypeScript", "Markdown", "Shell", "YAML", "JSON"],
   "metrics": {
-    "modules": 11,
-    "components": 85,
+    "modules": 12,
+    "components": 90,
     "concepts": 24
   }
 }

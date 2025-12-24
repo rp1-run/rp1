@@ -1,8 +1,8 @@
 # Module & Component Breakdown
 
 **Project**: rp1 Plugin System
-**Analysis Date**: 2025-12-23
-**Total Components**: 85 (29 commands, 32 agents, 5 skills, 19 CLI modules)
+**Analysis Date**: 2025-12-24
+**Total Components**: 90+ (29 commands, 32 agents, 5 skills, 24+ CLI modules)
 
 ## Plugin Modules
 
@@ -84,28 +84,6 @@
 | pr-feedback-collect | pr-feedback-collector | GitHub comment collection |
 | pr-feedback-fix | None (direct) | Review comment resolution |
 
-**Dev Agents**:
-| Agent | Purpose |
-|-------|---------|
-| blueprint-wizard | Guided project vision capture |
-| hypothesis-tester | Design hypothesis validation |
-| feature-tasker | Task generation from design |
-| task-builder | Task implementation with context |
-| task-reviewer | Implementation verification (6 dimensions) |
-| feature-verifier | Acceptance criteria verification |
-| feature-editor | Mid-stream change propagation |
-| feature-archiver | Feature archive/restore |
-| code-checker | Code hygiene validation |
-| code-auditor | Pattern and maintainability analysis |
-| bug-investigator | Evidence-based bug investigation |
-| comment-cleaner | Comment removal with preservation rules |
-| pr-review-splitter | Segment diff into review units |
-| pr-sub-reviewer | Analyze across 5 dimensions |
-| pr-review-synthesizer | Produce fitness judgment |
-| pr-review-reporter | Format findings into report |
-| pr-visualizer | PR diff visualization |
-| pr-feedback-collector | Collect GitHub PR comments |
-
 ### plugins/utils
 **Purpose**: Utility plugin for prompt optimization
 **Components**: 1 command, 1 agent
@@ -117,58 +95,111 @@
 ## CLI Modules
 
 ### cli/src/commands/
-**Purpose**: Cross-platform CLI for building, installing, and viewing rp1 artifacts
-
-| Command | File | Purpose |
-|---------|------|---------|
-| build | build.ts | Build OpenCode artifacts from Claude Code sources |
-| install | install.ts | Install plugins to OpenCode/Claude Code |
-| init | init.ts | Initialize rp1 knowledge in CLAUDE.md/AGENTS.md |
-| view | view.ts | Launch web-based documentation viewer |
-| self-update | self-update.ts | Update CLI to latest version |
-| check-update | check-update.ts | Check for available updates |
-
-### cli/src/install/
-**Purpose**: Plugin installation logic with fp-ts functional patterns
+**Purpose**: CLI entry point with Commander.js
 
 | Module | Purpose |
 |--------|---------|
-| installer.ts | Copy artifacts to target directories |
-| command.ts | Installation command orchestration |
-| config.ts | Installation configuration management |
-| manifest.ts | Plugin manifest handling |
-| prerequisites.ts | Runtime prerequisite checking |
+| main.ts | CLI entry point with lazy loading for agent-tools |
+| init.ts | Initialize rp1 in a project |
+| install.ts | Install plugins to OpenCode/Claude Code |
+| view.ts | Launch web-based documentation viewer |
+| self-update.ts | Update CLI to latest version |
+| check-update.ts | Check for available updates |
+
+### cli/src/init/
+**Purpose**: Project initialization with 12-step workflow
+
+| Module | Purpose |
+|--------|---------|
+| index.ts | Init orchestration with TTY-aware interactivity |
+| git-root.ts | Git repository detection |
+| tool-detector.ts | Detect agentic tools (Claude Code, OpenCode) |
+| comment-fence.ts | Fenced content injection into CLAUDE.md |
+| progress.ts | Progress indication |
+| templates/*.ts | Template generation for AGENTS.md, CLAUDE.md |
+| steps/*.ts | Modular init steps (verification, plugin-installation, health-check) |
+
+### cli/src/install/
+**Purpose**: Plugin installation logic with fp-ts patterns
+
+| Module | Purpose |
+|--------|---------|
+| index.ts | Barrel exports |
+| installer.ts | Copy artifacts to target directories with backup |
+| manifest.ts | Plugin manifest parsing and discovery |
 | verifier.ts | Installation verification |
+| config.ts | Installation configuration |
+| prerequisites.ts | Runtime prerequisite checking |
 
 ### cli/src/install/claudecode/
 **Purpose**: Claude Code specific installation
 
 | Module | Purpose |
 |--------|---------|
-| installer.ts | Claude Code plugin installation |
+| installer.ts | Claude Code plugin installation via native commands |
 | prerequisites.ts | Claude Code prerequisite checks |
 | command.ts | Claude Code install command |
 
-### cli/src/init/
-**Purpose**: Project initialization with tool detection
+### cli/src/agent-tools/
+**Purpose**: Framework for AI agent tools with registry
 
 | Module | Purpose |
 |--------|---------|
-| index.ts | Init orchestration |
-| git-root.ts | Git repository detection |
-| shell-fence.ts | Shell fence injection |
-| tool-detector.ts | Development tool detection |
+| index.ts | Tool registry (register, get, list) |
+| command.ts | Commander.js integration |
+| input.ts | Input handling (file/stdin) |
+| output.ts | JSON output formatting |
+| models.ts | Type definitions |
+| mmd-validate/ | Mermaid validation tool |
+
+### cli/src/agent-tools/mmd-validate/
+**Purpose**: Mermaid diagram validation tool
+
+| Module | Purpose |
+|--------|---------|
+| index.ts | Tool entry point |
+| validator.ts | Validation orchestrator with browser-based validation |
+| extractor.ts | Mermaid block extraction from markdown |
+| browser.ts | Puppeteer browser management |
+| models.ts | Validation result types |
 
 ### cli/web-ui/
 **Purpose**: React-based documentation viewer with Mermaid support
 
 | Component | Purpose |
 |-----------|---------|
-| App.tsx | Main application shell |
-| FileTree/ | Directory navigation |
-| MarkdownViewer/ | Markdown rendering with Mermaid |
-| ThemeProvider | Light/dark theme support |
-| WebSocketProvider | Live reload support |
+| src/main.tsx | React entry point |
+| src/server.ts | Server factory with WebSocket and file watching |
+| src/app/App.tsx | Main app with providers |
+| src/server/http.ts | Bun HTTP server |
+| src/server/websocket.ts | WebSocket hub for live reload |
+| src/components/MarkdownViewer/ | Markdown rendering with Mermaid |
+| src/components/FileTree/ | Directory navigation |
+| src/providers/*.tsx | Theme, WebSocket, DiagramFullscreen providers |
+| src/hooks/*.ts | Custom hooks (useFileTree, useFileContent) |
+
+### cli/shared/
+**Purpose**: Shared utilities including fp-ts helpers
+
+| Module | Purpose |
+|--------|---------|
+| index.ts | Barrel export |
+| errors.ts | CLIError types and formatters |
+| fp.ts | fp-ts re-exports (Either, TaskEither, pipe) |
+| logger.ts | Logger with LogLevel enum |
+| prompts.ts | Interactive prompts |
+| config.ts | Configuration management |
+
+### packages/catppuccin-mermaid/
+**Purpose**: Catppuccin color theme library for Mermaid diagrams
+
+| Module | Purpose |
+|--------|---------|
+| src/index.ts | Theme exports |
+| src/theme.ts | Theme generation |
+| src/palette.ts | Color palette definitions |
+| src/flavors/*.ts | Latte, frappe, macchiato, mocha flavors |
+| src/utils/contrast.ts | WCAG contrast utilities |
 
 ## Module Dependencies
 
@@ -198,6 +229,13 @@ graph TD
         FBuild[feature-build] --> Builder[task-builder]
         FBuild --> Reviewer[task-reviewer]
     end
+
+    subgraph "CLI Modules"
+        Main[main.ts] --> Init[init/]
+        Main --> Install[install/]
+        Main -.->|lazy| AgentTools[agent-tools/]
+        AgentTools --> MmdValidate[mmd-validate/]
+    end
 ```
 
 ## Module Metrics
@@ -207,8 +245,13 @@ graph TD
 | plugins/base | 9 | 13 | 5 | ~5,000 |
 | plugins/dev | 19 | 18 | 0 | ~7,000 |
 | plugins/utils | 1 | 1 | 0 | ~300 |
-| cli/src | 6 | - | - | ~8,000 |
+| cli/src | 6 | - | - | ~3,000 |
+| cli/src/init | - | - | - | ~1,500 |
+| cli/src/install | - | - | - | ~1,200 |
+| cli/src/agent-tools | - | - | - | ~600 |
 | cli/web-ui | - | - | - | ~2,500 |
+| cli/shared | - | - | - | ~500 |
+| packages/catppuccin-mermaid | - | - | - | ~400 |
 
 ## Cross-Module Patterns
 
@@ -226,12 +269,16 @@ Feature build uses paired agents:
 - task-reviewer verifies (SUCCESS/FAILURE with feedback)
 - Retry on failure with feedback (max 3 attempts)
 
-### Cross-Plugin Invocation
-Dev plugin agents can invoke base plugin capabilities with error handling:
-```markdown
-**CRITICAL**: This requires rp1-base plugin.
-If command fails, inform user to install: /plugin install rp1-base
-```
+### fp-ts Functional Error Handling
+CLI modules use Either/TaskEither for type-safe error handling:
+- `E.left()` for errors, `E.right()` for success
+- `pipe()` for function composition
+- `TE.tryCatch()` wraps async operations
+
+### Lazy Loading
+Heavy dependencies (puppeteer) are lazy-loaded:
+- main.ts lazy-loads agent-tools/command.ts
+- Reduces CLI startup time for non-agent-tools commands
 
 ### Progressive KB Loading
 Agents load KB selectively based on task type:

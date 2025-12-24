@@ -1,7 +1,7 @@
 # Implementation Patterns
 
 **Project**: rp1 Plugin System
-**Last Updated**: 2025-12-23
+**Last Updated**: 2025-12-24
 
 ## Naming & Organization
 
@@ -10,69 +10,62 @@
 **Imports**: Absolute imports with .js extension; fp-ts uses namespace pattern (E, TE, pipe)
 **Agents**: kebab-case with descriptive suffixes (kb-spatial-analyzer, task-builder)
 
-Evidence: `cli/src/build/parser.ts`, `plugins/base/agents/kb-spatial-analyzer.md`
+Evidence: `cli/src/main.ts`, `plugins/base/agents/kb-spatial-analyzer.md`
 
 ## Type & Data Modeling
 
-**Data Representation**: TypeScript interfaces with readonly properties; discriminated unions for errors
+**Data Representation**: TypeScript interfaces with readonly properties; discriminated unions for errors (_tag field)
 **Type Strictness**: Strict typing throughout CLI; all interfaces use readonly modifiers
 **Immutability**: Enforced via readonly arrays and readonly properties on all model interfaces
 
-Evidence: `cli/src/build/models.ts:10-46`, `cli/src/install/models.ts`
+Evidence: `cli/shared/errors.ts:11-36`, `cli/src/init/models.ts`
 
 ## Error Handling
 
 **Strategy**: Functional Either/TaskEither pattern via fp-ts; no thrown exceptions in business logic
-**Propagation**: Errors lifted to Either and composed through pipe(); caught at CLI boundary
-**Common Types**: ParseError, GenerationError, ValidationError, InstallError, BackupError
+**Propagation**: Errors lifted to Either and composed through pipe(); caught at CLI boundary with formatError
+**Common Types**: ParseError, ValidationError, InstallError, BackupError, RuntimeError, UsageError, NotFoundError
 
-Evidence: `cli/src/build/generator.ts:69-71`, `cli/src/build/parser.ts:40-43`
+Evidence: `cli/shared/errors.ts:38-133`, `cli/src/install/installer.ts:76-180`
 
 ## Validation & Boundaries
 
-**Location**: API boundary validation in CLI; schema validation via YAML frontmatter parsing
-**Method**: Two-level: extractFrontmatter (syntax) then field validation (schema); fail-fast Left returns
+**Location**: API boundary validation in CLI; fail-fast with Left returns
+**Method**: Two-level validation: fencing validation (syntax) then field validation (schema); TE.tryCatch wraps async operations
 
-Evidence: `cli/src/build/parser.ts:35-70`
+Evidence: `cli/src/init/index.ts:621-626`, `cli/src/agent-tools/mmd-validate/validator.ts`
 
 ## Observability
 
-**Logging**: Custom progress callbacks (onProgress, onOverwrite) for installation; formatError for display
-**Metrics**: Confidence scoring (0-100) in task-reviewer for verification quality
-**Tracing**: Silent execution with `<thinking>` tags in agents; parent orchestrator handles user communication
+**Logging**: Custom Logger with LogLevel enum (TRACE, DEBUG, INFO); TTY-aware color formatting
+**Metrics**: Confidence scoring (0-100) in agents for verification quality
+**Tracing**: Silent execution with `<thinking>` tags in agents; progress callbacks (onProgress, onOverwrite) in installers
 
-Evidence: `plugins/dev/agents/task-reviewer.md:403-414`
+Evidence: `cli/src/main.ts:51-61`, `plugins/dev/agents/task-reviewer.md`
 
 ## Testing Idioms
 
-**Organization**: Tests in `cli/src/__tests__/` mirroring src/ structure; fixtures in `__tests__/fixtures/`
-**Fixtures**: Helper functions (getFixturePath, createTempDir); test files use realistic data
-**Levels**: Unit tests dominant; integration tests for end-to-end CLI flows
+**Organization**: Tests in `cli/src/__tests__/` mirroring src/ structure
+**Fixtures**: Helper functions (getFixturePath, createTempDir); realistic test data
+**Levels**: Unit tests dominant; integration tests for CLI flows
+**Discipline**: 13 rules in task-builder for testing rigor
 
 Evidence: `cli/src/__tests__/`, `plugins/dev/agents/task-builder.md:103-122`
 
 ## I/O & Integration
 
-**Filesystem**: Node.js fs/promises with async/await; TE.tryCatch wraps all I/O operations
-**File Operations**: Recursive directory operations (findFilesRecursive, copyDir) with chmod for permissions
-**Path Handling**: Node path module (join, relative, dirname) for cross-platform; Unix-style in agents
+**Filesystem**: Node.js fs/promises with async/await; TE.tryCatch wraps all I/O
+**File Operations**: Recursive operations (findFiles, copyDir) with chmod for permissions
+**HTTP Clients**: fetch API in React hooks; WebSocket with reconnect backoff strategy
 
-Evidence: `cli/src/install/installer.ts:29-70`, `cli/src/build/parser.ts:266-280`
+Evidence: `cli/src/install/installer.ts:30-70`, `cli/web-ui/src/providers/WebSocketProvider.tsx`
 
 ## Concurrency & Async
 
-**Async Usage**: Async/await throughout CLI; TaskEither for composable async operations with error handling
-**Parallelism**: Sequential loops in installers; parallel agent execution via map-reduce orchestration
+**Async Usage**: Async/await throughout CLI; TaskEither for composable async with error handling
+**Parallelism**: Sequential loops in installers; parallel via A.sequence(TE.ApplicativePar) for batch operations
 
-Evidence: `docs/concepts/map-reduce-workflows.md`, `cli/src/install/installer.ts:76-180`
-
-## Extension Mechanisms
-
-**Plugin Architecture**: Three-plugin system (base + dev + utils); dev depends on base for KB and skills
-**Skill System**: Shared capabilities via SKILL.md files with trigger-rich descriptions in frontmatter
-**Comment Fence**: `<!-- rp1:start -->` markers for updating injected content in CLAUDE.md
-
-Evidence: `plugins/base/skills/maestro/SKILL.md`, `plugins/base/skills/mermaid/SKILL.md`
+Evidence: `cli/src/agent-tools/mmd-validate/validator.ts:107-121`, `cli/shared/fp.ts`
 
 ## Command-Agent Pattern
 
@@ -84,7 +77,7 @@ Evidence: `docs/concepts/command-agent-pattern.md`, `plugins/base/agents/kb-spat
 
 ## Constitutional Prompting
 
-**Structure**: YAML frontmatter + Parameters table + Numbered sections + Anti-loop + Output contract
+**Structure**: YAML frontmatter + Parameters table (Section 0) + Numbered workflow sections + Anti-loop + Output contract
 **Execution**: Single-pass with anti-loop: "Do NOT ask for clarification or wait for feedback"
 **Workflow Sections**: Context Loading -> Analysis -> Implementation -> Output
 
@@ -93,10 +86,14 @@ Evidence: `docs/concepts/constitutional-prompting.md`, `plugins/dev/agents/task-
 ## Progressive KB Loading
 
 **Entry Point**: index.md serves as jump-off point; agents read index.md first always
-**Selective Loading**: Load additional files based on task: code review -> patterns.md; bugs -> architecture.md + modules.md
+**Selective Loading**: Load additional files based on task:
+- Code review -> patterns.md
+- Bug investigation -> architecture.md, modules.md
+- Feature implementation -> modules.md, patterns.md
+- Strategic analysis -> ALL files
 **Subagent Constraint**: Use Read tool directly in subagents; SlashCommand causes early exit
 
-Evidence: `docs/concepts/knowledge-aware-agents.md`, `plugins/base/skills/knowledge-base-templates/SKILL.md:129-148`
+Evidence: `docs/concepts/knowledge-aware-agents.md`, AGENTS.md
 
 ## Map-Reduce Orchestration
 
@@ -114,6 +111,14 @@ Evidence: `docs/concepts/map-reduce-workflows.md`
 **Retry**: On failure, builder retries with reviewer feedback; max 3 attempts
 
 Evidence: `plugins/dev/agents/task-builder.md`, `plugins/dev/agents/task-reviewer.md`
+
+## React Patterns
+
+**Hooks**: Custom hooks return {data, loading, error, refetch} pattern; useCallback for stable references
+**Context**: Provider pattern with createContext; useContext with null check throwing Error
+**State**: useState for local state; useRef for mutable refs (WebSocket, listeners, subscriptions)
+
+Evidence: `cli/web-ui/src/hooks/useFileTree.ts`, `cli/web-ui/src/providers/WebSocketProvider.tsx`
 
 ## Path References
 
