@@ -10,17 +10,17 @@ build-opencode:
 
 # Build the local binary (generates asset imports first)
 build-local:
-    cd cli && bun run generate:assets && bun build ./src/main.ts --compile --outfile ../rp1-local
+    cd cli && bun run generate:assets && bun build ./src/main.ts --compile --outfile ../bin/rp1
 
 # Build everything for local testing
 build: build-opencode build-local
 
 # Full local install: build + install opencode (includes plugin installation)
 install-local: build
-    ./rp1-local install:opencode
+    ./bin/rp1 install:opencode
 
 local *args: build
-    ./rp1-local {{args}}
+    ./bin/rp1 {{args}}
 
 test-cli: check-cli
   cd cli && bun run test

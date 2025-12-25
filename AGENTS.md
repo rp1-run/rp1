@@ -2,41 +2,17 @@
 
 ## Quick Orientation
 
-**What is this?** Two Claude Code plugins that automate development workflows through constitutional prompting.
+**What is this?** Multi Agentic Tool plugins that automate development workflows through constitutional prompting.
 **Plugins**:
 
 - **rp1-base**: Knowledge management, documentation, strategy, security (6 commands, 9 agents, 4 skills)
 - **rp1-dev**: Feature workflows, code quality, PR management, testing (15 commands, 9 agents)
+- rp1-utils: Shared utilities (no commands/agents)
 **Key Concept**: Commands delegate to agents that execute complete workflows autonomously (no iterative refinement).
 
 ---
 
-## 📚 Primary Documentation Location
-
-**Read these files FIRST before making changes**:
-
-```
-.rp1/context/          # Auto-generated knowledge base (authoritative)
-├── index.md           # Project overview, structure, entry points
-├── concept_map.md     # Domain concepts and terminology
-├── architecture.md    # System architecture and patterns
-└── modules.md         # Component breakdown (all commands/agents/skills)
-```
-
-**This AGENTS.md file is a navigation guide, NOT a content repository.**
-The KB files contain detailed architecture, patterns, and component information.
-
 ## 🧭 Navigation Guide
-
-### "I need to understand..."
-
-| Topic | File to Read |
-|-------|--------------|
-| Overall architecture | `.rp1/context/architecture.md` |
-| What commands/agents exist | `.rp1/context/modules.md` |
-| Domain terminology | `.rp1/context/concept_map.md` |
-| Project overview | `.rp1/context/index.md` |
-| Specific command/agent | `plugins/{plugin}/commands/*.md` or `plugins/{plugin}/agents/*.md` |
 
 ### "I need to..."
 
@@ -157,7 +133,7 @@ If command fails, inform user to install:
 
 ### Adding a New Command
 
-1. **Choose plugin**: base or dev?
+1. **Choose plugin**: base or dev or utils?
 2. **Create agent** (if needed):
 
    ```bash
@@ -193,26 +169,10 @@ If needed, read an example agent spec at: ./plugins/base/agents/kb-spatial-analy
 
 ## 🧪 Testing
 
-### Local Testing Setup (claude code)
-
-```bash
-# From repository root
-/plugin marketplace add .
-/plugin install rp1-base@rp1-local
-/plugin install rp1-dev@rp1-local
-
-# Verify
-/help | grep rp1
-# Should show 19 commands (6 base + 13 dev)
-```
-
 ### Testing, formatting, and validating CLI  (must be done after changes)
 
 ```bash
-cd cli
-bun run test
-bun run lint
-bun run format
+just # run just to read about various test/lint commands
 ```
 
 ### Validation Checklist
@@ -227,7 +187,7 @@ bun run format
 - [ ] Cross-plugin calls have error handling
 - [ ] README updated (if new command)
 - [ ] Conventional commit format used
-- [ ] When modifying cli, tests pass with format/lint checks
+- [ ] When modifying cli, tests pass with format/lint checks (use just)
 
 **Before merging**:
 
@@ -238,30 +198,13 @@ bun run format
 
 ### Documentation
 
-1. When adding new features/commands/agents, update relevant parts of the user-facing docs if relevant.
-
-### Reading This Codebase
-
-1. **You're reading this file** (AGENTS.md) - ✅ Orientation complete
-2. **Read on-demand**: Load `.rp1/context/*.md` files using Read tool as needed
-3. **Check patterns**: Look at any agent in `plugins/{plugin}/agents/` for structure examples
-4. **Follow namespace rules**: Always prefix commands properly
-5. **Handle dependencies**: Dev can call base, check for errors
-
-### Making Changes
-
-1. **Determine plugin**: base (foundation) or dev (development)?
-2. **Follow patterns**: Constitutional agent structure, command thin wrapper
-3. **Use proper prefixes**: `/rp1-{plugin}:command`, `rp1-base:skill`
-4. **Test thoroughly**: Install both plugins, verify execution
-5. **Update docs**: README when adding commands
+1. When adding new features/commands/agents, update relevant parts of the user-facing docs if relevant. (documentation is in the `docs/` folder at the repo root).
 
 ### Don't
 
-- ❌ Load all KB files upfront (use Read tool selectively)
-- ❌ Create iterative workflows in agents
+- ❌ Create iterative workflows in agents (subagents cannot call other agents)
 - ❌ Forget namespace prefixes
-- ❌ Call dev commands from base agents
+- ❌ Call dev commands from base agents (one-way dependency)
 
 ---
 
@@ -271,9 +214,6 @@ bun run format
 - **Issues**: <https://github.com/rp1-run/rp1/issues>
 
 ---
-
-**This is a navigation guide. For detailed information, read the KB files in `.rp1/context/`.**
-
 <!-- rp1:start -->
 ## rp1 Knowledge Base
 

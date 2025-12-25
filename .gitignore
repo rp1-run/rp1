@@ -25,7 +25,7 @@ cli/src/assets/embedded.ts
 cli/src/config/supported-tools.generated.ts
 
 # local rp1 binary
-rp1-local
+bin/rp1
 
 # rp1:start
 !.rp1/

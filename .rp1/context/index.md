@@ -2,8 +2,8 @@
 
 **Type**: Single Project
 **Languages**: TypeScript, Markdown, Shell
-**Version**: 0.2.3
-**Updated**: 2025-12-23
+**Version**: 0.2.5
+**Updated**: 2025-12-24
 
 ## Project Summary
 
@@ -23,10 +23,10 @@ rp1 is a Claude Code plugin system that automates development workflows through 
 
 | File | Lines | Load For |
 |------|-------|----------|
-| architecture.md | ~254 | System design, component relationships, data flows |
-| modules.md | ~246 | Component breakdown, module responsibilities |
-| patterns.md | ~123 | Code conventions, implementation patterns |
-| concept_map.md | ~181 | Domain terminology, business concepts |
+| architecture.md | ~271 | System design, component relationships, data flows |
+| modules.md | ~293 | Component breakdown, module responsibilities |
+| patterns.md | ~128 | Code conventions, implementation patterns |
+| concept_map.md | ~180 | Domain terminology, business concepts |
 
 ## Task-Based Loading
 
@@ -62,7 +62,13 @@ rp1/
 │       └── ...
 ├── cli/                       # Cross-platform CLI
 │   ├── src/                   # TypeScript source (fp-ts patterns)
+│   │   ├── commands/          # CLI commands (init, install, view)
+│   │   ├── init/              # Project initialization
+│   │   ├── install/           # Plugin installation
+│   │   └── agent-tools/       # AI agent tools (mmd-validate)
 │   └── web-ui/                # React documentation viewer
+├── packages/                  # NPM packages
+│   └── catppuccin-mermaid/    # Mermaid theme library
 ├── docs/                      # MkDocs Material site
 ├── .github/workflows/         # CI/CD (release-please, GoReleaser)
 └── .rp1/context/              # Auto-generated knowledge base

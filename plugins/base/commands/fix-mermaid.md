@@ -35,7 +35,7 @@ prompt: |
 
 The agent will:
 - Scan markdown for all mermaid code blocks
-- Validate each diagram using mermaid-cli
+- Validate each diagram using rp1 CLI tool
 - Attempt automatic repair (up to 3 iterations per diagram)
 - Insert placeholders for unfixable diagrams
 - Output JSON summary of repairs made
@@ -48,5 +48,5 @@ The agent will:
 
 ## Requirements
 
-- Node.js (for npx)
-- @mermaid-js/mermaid-cli (fetched via npx automatically)
+- rp1 CLI v0.3.0 or later (includes `agent-tools mmd-validate` command)
+- Chromium (auto-downloaded on first use by rp1)

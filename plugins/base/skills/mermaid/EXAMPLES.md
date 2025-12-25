@@ -618,36 +618,50 @@ flowchart TD
 
 ## Validation Command
 
-Test diagrams using the validation script:
+Test diagrams using the rp1 CLI tool:
 
 ```bash
-# Validate single diagram from stdin
-echo 'flowchart TD; A-->B' | ./scripts/validate_mermaid.sh
+# Validate markdown file (all embedded diagrams)
+rp1 agent-tools mmd-validate path/to/document.md
 
-# Validate with JSON output
-echo 'flowchart TD; A-->B' | ./scripts/validate_mermaid.sh --json
+# Validate standalone mermaid file
+rp1 agent-tools mmd-validate path/to/diagram.mmd
 
-# Validate markdown file
-./scripts/validate_mermaid.sh path/to/file.md
-
-# Validate markdown file with JSON output
-./scripts/validate_mermaid.sh --json path/to/file.md
+# Validate from stdin
+echo 'flowchart TD; A-->B' | rp1 agent-tools mmd-validate
 ```
 
-JSON output includes error category for automated repair:
+JSON output uses ToolResult envelope format:
 ```json
 {
-  "valid": false,
-  "diagram_index": 1,
-  "markdown_line": 10,
-  "error": {
-    "raw": "Parse error on line 2...",
+  "success": false,
+  "tool": "mmd-validate",
+  "data": {
+    "diagrams": [
+      {
+        "index": 0,
+        "valid": false,
+        "diagramType": "stateDiagram-v2",
+        "startLine": 10,
+        "errors": [{
+          "diagramIndex": 0,
+          "message": "Parse error on line 2: Expecting '-->', got 'MINUS'",
+          "line": 2,
+          "context": "[*] -> State1"
+        }]
+      }
+    ],
+    "summary": { "total": 1, "valid": 0, "invalid": 1 }
+  },
+  "errors": [{
+    "message": "Parse error on line 2: Expecting '-->', got 'MINUS'",
     "line": 2,
-    "category": "ARROW_SYNTAX",
-    "context": "A -> B"
-  }
+    "context": "[*] -> State1"
+  }]
 }
 ```
+
+**Note**: Requires rp1 v0.3.0 or later. Chromium is auto-downloaded on first use.
 
 ---
 
@@ -655,4 +669,3 @@ JSON output includes error category for automated repair:
 
 - **[SKILL.md](./SKILL.md)**: Main mermaid skill with validation workflow
 - **[reference.md](./reference.md)**: Complete syntax reference for all diagram types
-- **[scripts/README.md](./scripts/README.md)**: Validation script documentation

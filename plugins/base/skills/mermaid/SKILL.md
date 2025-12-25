@@ -8,10 +8,12 @@ allowed-tools: Bash, Read, Write, Edit
 
 Create valid, well-formed Mermaid.js diagrams with automatic validation and error repair guidance.
 
+> **Requirement**: rp1 CLI v0.3.0 or later (includes `agent-tools mmd-validate` command)
+
 ## What This Skill Does
 
 - **Creates diagrams**: Flowcharts, sequence diagrams, class diagrams, ER diagrams, state diagrams, Gantt charts, and more
-- **Validates syntax**: Uses mermaid-cli to verify diagrams before presenting to users
+- **Validates syntax**: Uses `rp1 agent-tools mmd-validate` CLI tool for verification
 - **Troubleshoots errors**: Categorizes validation errors and guides repairs
 - **Integrates with fixer agent**: Supports bulk validation and automatic repair workflows
 
@@ -40,80 +42,111 @@ Activate this skill when:
    - Quote labels with special characters
    - Use correct arrow types for the diagram
 
-### Step 2: Validate Using Script
+### Step 2: Validate Using CLI Tool
 
 ```bash
-# Validate from stdin (recommended for inline diagrams)
+# Validate markdown file (all embedded diagrams)
+rp1 agent-tools mmd-validate path/to/document.md
+
+# Validate standalone mermaid file
+rp1 agent-tools mmd-validate path/to/diagram.mmd
+
+# Validate from stdin (for inline diagrams)
 echo 'flowchart TD
-    A --> B' | plugins/base/skills/mermaid/scripts/validate_mermaid.sh
-
-# Using heredoc for multi-line
-plugins/base/skills/mermaid/scripts/validate_mermaid.sh <<'EOF'
-flowchart TD
-    A --> B
-    B --> C
-EOF
-
-# Validate single .mmd file
-plugins/base/skills/mermaid/scripts/validate_mermaid.sh /path/to/diagram.mmd
-
-# Validate all diagrams in markdown file
-plugins/base/skills/mermaid/scripts/validate_mermaid.sh /path/to/document.md
-
-# Get structured JSON output for programmatic use
-echo 'flowchart TD; A-->B' | plugins/base/skills/mermaid/scripts/validate_mermaid.sh --json
+    A --> B' | rp1 agent-tools mmd-validate
 ```
 
 ### Step 3: Handle Validation Results
 
-**Success**:
-```
-PASS stdin: Valid
-```
+The CLI tool outputs structured JSON in a `ToolResult` envelope:
 
-**Failure** (text mode):
-```
-FAIL stdin: Invalid
-  Category: ARROW_SYNTAX
-  Error Line: 2
-  Error: Parse error on line 2...
-```
-
-**Failure** (JSON mode):
+**Success** (all diagrams valid):
 ```json
 {
-  "valid": false,
-  "diagram_index": 1,
-  "markdown_line": 0,
-  "error": {
-    "raw": "Parse error on line 2...",
-    "line": 2,
-    "category": "ARROW_SYNTAX",
-    "context": "A -> B"
+  "success": true,
+  "tool": "mmd-validate",
+  "data": {
+    "diagrams": [
+      { "index": 0, "valid": true, "diagramType": "flowchart", "startLine": 5 }
+    ],
+    "summary": { "total": 1, "valid": 1, "invalid": 0 }
   }
 }
 ```
 
+**Failure** (contains invalid diagrams):
+```json
+{
+  "success": false,
+  "tool": "mmd-validate",
+  "data": {
+    "diagrams": [
+      {
+        "index": 0,
+        "valid": false,
+        "diagramType": "stateDiagram-v2",
+        "startLine": 10,
+        "errors": [{
+          "diagramIndex": 0,
+          "message": "Parse error on line 2: Expecting '-->', got 'MINUS'",
+          "line": 2,
+          "context": "[*] -> State1"
+        }]
+      }
+    ],
+    "summary": { "total": 1, "valid": 0, "invalid": 1 }
+  },
+  "errors": [{
+    "message": "Parse error on line 2: Expecting '-->', got 'MINUS'",
+    "line": 2,
+    "context": "[*] -> State1"
+  }]
+}
+```
+
+**Parsing the Response**:
+- `success: true` AND `data.summary.invalid == 0` -> All diagrams valid
+- `success: false` -> Extract errors from `data.diagrams[].errors[]`
+- For each error:
+  - `diagramIndex`: Which diagram has the error (0-based)
+  - `message`: Full error message for category detection
+  - `line`: Line within the diagram (for targeted fix)
+  - `context`: Problematic code snippet
+
 ### Step 4: Iterative Repair
 
-1. Parse the error category and message
-2. Apply targeted fix (see Error Categories below)
-3. Re-validate
+1. Parse the error message to detect category (see Error Categories below)
+2. Apply targeted fix based on category
+3. Re-validate using the CLI tool
 4. Repeat until valid (max 3 attempts)
 5. If unfixable after 3 attempts, report to user
 
 ## Error Categories
 
-The validation script automatically categorizes errors for guided repair. See [EXAMPLES.md](EXAMPLES.md) for detailed examples of each category.
+Detect error categories by pattern matching the `message` field in validation errors. See [EXAMPLES.md](EXAMPLES.md) for detailed examples of each category.
 
-| Category | Description | Quick Fix |
-|----------|-------------|-----------|
-| `ARROW_SYNTAX` | Invalid arrow for diagram type | Replace `->` with `-->` in state/flowchart |
-| `QUOTE_ERROR` | Special characters in unquoted labels | Wrap label in double quotes |
-| `CARDINALITY` | ER diagram relationship errors | Use valid notation: `\|\|--o{` |
-| `LINE_BREAK` | Missing newlines between statements | Each statement on its own line |
-| `DIAGRAM_TYPE` | Misspelled or missing diagram type | Correct spelling, add declaration |
-| `NODE_SYNTAX` | Unbalanced brackets/braces | Match all opening and closing brackets |
+| Category | Detection Patterns | Quick Fix |
+|----------|-------------------|-----------|
+| `ARROW_SYNTAX` | `got 'MINUS'`, `got 'GT'`, `expecting.*LINK` | Replace `->` with `-->` in state/flowchart |
+| `QUOTE_ERROR` | `unterminated string`, `got 'STR'`, `lexical error.*string` | Wrap label in double quotes |
+| `CARDINALITY` | `cardinality`, `relationship`, `erDiagram` | Use valid notation: `\|\|--o{` |
+| `LINE_BREAK` | `expecting.*(NEWLINE\|NL\|EOF)` | Each statement on its own line |
+| `DIAGRAM_TYPE` | `unknown diagram type`, `UnknownDiagramError` | Correct spelling, add declaration |
+| `NODE_SYNTAX` | `got 'PS'`, `got 'PE'`, `got 'SQS'`, `got 'SQE'`, `unclosed` | Match all opening and closing brackets |
+
+### Error Category Detection
+
+Parse the `message` field from validation errors to detect category:
+
+```
+ARROW_SYNTAX:  message contains "got 'MINUS'" or "got 'GT'" or "expecting.*LINK"
+QUOTE_ERROR:   message contains "unterminated string" or "got 'STR'" or "lexical error.*string"
+CARDINALITY:   message contains "cardinality" or "relationship"
+LINE_BREAK:    message contains "expecting.*NEWLINE" or "expecting.*NL" or "expecting.*EOF"
+DIAGRAM_TYPE:  message contains "unknown diagram type" or "UnknownDiagramError"
+NODE_SYNTAX:   message contains "got 'PS'" or "got 'SQS'" or "unclosed"
+UNKNOWN:       default (no pattern matched)
+```
 
 ### Fix Strategies Summary
 
@@ -162,11 +195,29 @@ For bulk diagram repair across markdown files, use the mermaid-fixer agent via t
 ```
 
 The fixer agent:
-1. Scans markdown for all mermaid blocks
-2. Validates each diagram
-3. Attempts automatic repair (up to 3 iterations)
-4. Inserts placeholders for unfixable diagrams
-5. Reports summary of actions taken
+1. Runs `rp1 agent-tools mmd-validate` on the file
+2. Parses JSON response to build task list of invalid diagrams
+3. For each invalid diagram:
+   - Extracts error from `data.diagrams[].errors[]`
+   - Detects category from error message
+   - Applies targeted fix
+4. Re-validates after fixes (up to 3 iterations)
+5. Inserts placeholders for unfixable diagrams
+6. Reports summary of actions taken
+
+**JSON Response Parsing for Fixer**:
+```
+1. Run: rp1 agent-tools mmd-validate /path/to/file.md
+2. Parse JSON output
+3. If success == true AND data.summary.invalid == 0:
+   -> All diagrams valid, done
+4. If success == false:
+   -> For each diagram in data.diagrams where valid == false:
+      -> Extract errors[].message, errors[].line, errors[].context
+      -> Detect error category from message patterns
+      -> Apply category-specific fix
+5. Re-validate and repeat (max 3 iterations)
+```
 
 **Placeholder format for unfixable diagrams**:
 ```html
@@ -193,8 +244,8 @@ Please fix manually and remove this comment block.
 ### Validation
 
 1. **Always validate before presenting**: Never show unvalidated diagrams to users
-2. **Use the script, not inline npx**: The script handles edge cases properly
-3. **Use JSON mode for programmatic repair**: `--json` flag for structured output
+2. **Use the CLI tool**: `rp1 agent-tools mmd-validate` provides structured JSON output
+3. **Parse JSON for programmatic repair**: Extract errors from `data.diagrams[].errors[]`
 4. **Check error category first**: Guides targeted fixes
 
 ### Troubleshooting
@@ -203,6 +254,20 @@ Please fix manually and remove this comment block.
 2. **Validate incrementally**: Add complexity one step at a time
 3. **Reference EXAMPLES.md**: Find similar error patterns
 4. **Check diagram type requirements**: Different types have different syntax
+
+**Tool Not Available?**
+
+If `rp1 agent-tools mmd-validate` returns "command not found":
+
+```
+Mermaid validation requires rp1 v0.3.0 or later.
+
+Please update rp1 using your package manager:
+  macOS:   brew upgrade rp1
+  Windows: scoop update rp1
+
+Or visit https://rp1.run for installation instructions.
+```
 
 ## Output Format
 
@@ -249,14 +314,14 @@ flowchart TD
 ### Validation Commands
 
 ```bash
-# Text output (default)
-echo 'diagram' | plugins/base/skills/mermaid/scripts/validate_mermaid.sh
+# Validate markdown file (all embedded diagrams)
+rp1 agent-tools mmd-validate document.md
 
-# JSON output
-echo 'diagram' | plugins/base/skills/mermaid/scripts/validate_mermaid.sh --json
+# Validate standalone mermaid file
+rp1 agent-tools mmd-validate diagram.mmd
 
-# Markdown file
-plugins/base/skills/mermaid/scripts/validate_mermaid.sh document.md
+# Validate from stdin
+echo 'flowchart TD; A-->B' | rp1 agent-tools mmd-validate
 ```
 
 ### Common Patterns
@@ -287,7 +352,6 @@ erDiagram
 
 - **Syntax Reference**: [reference.md](reference.md) - Complete syntax for all diagram types
 - **Error Examples**: [EXAMPLES.md](EXAMPLES.md) - Error patterns with fixes
-- **Script Documentation**: [scripts/README.md](scripts/README.md) - Validation script details
 - **Official Docs**: https://mermaid.js.org/
 - **Live Editor**: https://mermaid.live/
 
@@ -295,7 +359,7 @@ erDiagram
 
 A diagram is complete when:
 1. Syntax is correct for the diagram type
-2. Validation passes with validate_mermaid.sh script
+2. Validation passes with `rp1 agent-tools mmd-validate`
 3. Diagram accurately represents the requested information
 4. Labels are clear and properly quoted
 5. Comments document complex sections (if needed)

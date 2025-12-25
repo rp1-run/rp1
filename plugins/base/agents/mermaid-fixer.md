@@ -76,28 +76,76 @@ diagrams = [
 
 ## 3. Validation Loop
 
-For each extracted diagram, validate using the validation script.
+Validate the file using the `rp1 agent-tools mmd-validate` CLI tool.
 
 **Validation Command**:
 ```bash
-echo '<diagram_content>' | plugins/base/skills/mermaid/scripts/validate_mermaid.sh --json
+rp1 agent-tools mmd-validate /path/to/file.md
 ```
 
+> **Requirement**: rp1 CLI v0.3.0 or later. If command not found, output error message with upgrade guidance and stop.
+
 **Parse JSON Response**:
-- `valid: true` -> Mark diagram as VALID, no repair needed
-- `valid: false` -> Extract error details for repair:
-  - `error.category`: ARROW_SYNTAX, QUOTE_ERROR, CARDINALITY, LINE_BREAK, DIAGRAM_TYPE, NODE_SYNTAX, UNKNOWN
-  - `error.line`: Line number within diagram
-  - `error.raw`: Full error message
-  - `error.context`: Problematic code snippet
+
+The CLI tool outputs a `ToolResult` envelope:
+
+```json
+{
+  "success": false,
+  "tool": "mmd-validate",
+  "data": {
+    "diagrams": [
+      {
+        "index": 0,
+        "valid": false,
+        "diagramType": "stateDiagram-v2",
+        "startLine": 10,
+        "errors": [{
+          "diagramIndex": 0,
+          "message": "Parse error on line 2: Expecting '-->', got 'MINUS'",
+          "line": 2,
+          "context": "[*] -> State1"
+        }]
+      }
+    ],
+    "summary": { "total": 1, "valid": 0, "invalid": 1 }
+  },
+  "errors": [{ "message": "...", "line": 2, "context": "..." }]
+}
+```
+
+**Response Parsing**:
+- `success: true` AND `data.summary.invalid == 0` -> All diagrams valid, done
+- `success: false` -> Extract errors from `data.diagrams[].errors[]`
+- For each error:
+  - `diagramIndex`: Which diagram has the error (0-based)
+  - `message`: Full error message for category detection
+  - `line`: Line within the diagram (for targeted fix)
+  - `context`: Problematic code snippet
 
 **Track Results**:
 - Increment `valid_initially` counter for diagrams that pass first validation
 - Queue failed diagrams for repair
 
+**Tool Not Available?**
+
+If `rp1 agent-tools mmd-validate` returns "command not found":
+
+```
+Mermaid validation requires rp1 v0.3.0 or later.
+
+Please update rp1 using your package manager:
+  macOS:   brew upgrade rp1
+  Windows: scoop update rp1
+
+Or visit https://rp1.run for installation instructions.
+```
+
+Do NOT fall back to deprecated methods. Fail cleanly with guidance.
+
 ## 4. Repair Logic
 
-For each invalid diagram, attempt repair up to 3 times.
+For each invalid diagram, attempt repair up to 3 times. **CRITICAL**: Maximum 3 iterations per diagram is a hard limit.
 
 **Repair Algorithm**:
 ```
@@ -108,7 +156,8 @@ function repair_diagram(diagram):
       return {status: "FIXED", attempts: attempt, diagram: diagram.content}
 
     error = result.error
-    fixed_content = apply_fix(diagram.content, error)
+    category = detect_category(error.message)
+    fixed_content = apply_fix(diagram.content, error, category)
 
     if fixed_content == diagram.content:
       # No fix could be applied, try next strategy
@@ -117,6 +166,38 @@ function repair_diagram(diagram):
     diagram.content = fixed_content
 
   return {status: "UNFIXABLE", attempts: 3, original_error: error}
+```
+
+**Error Category Detection**:
+
+Parse `error.message` to detect category using pattern matching:
+
+| Pattern | Category |
+|---------|----------|
+| `got 'MINUS'`, `got 'GT'`, `expecting.*LINK` | ARROW_SYNTAX |
+| `unterminated string`, `got 'STR'`, `lexical error.*string` | QUOTE_ERROR |
+| `cardinality`, `relationship`, `erDiagram` | CARDINALITY |
+| `expecting.*(NEWLINE\|NL\|EOF)` | LINE_BREAK |
+| `unknown diagram type`, `UnknownDiagramError` | DIAGRAM_TYPE |
+| `got 'PS'`, `got 'PE'`, `got 'SQS'`, `got 'SQE'`, `unclosed` | NODE_SYNTAX |
+| (default - no pattern matched) | UNKNOWN |
+
+**Detection Logic**:
+```
+function detect_category(message):
+  if message contains "got 'MINUS'" or "got 'GT'" or matches "expecting.*LINK":
+    return ARROW_SYNTAX
+  if message contains "unterminated string" or "got 'STR'" or matches "lexical error.*string":
+    return QUOTE_ERROR
+  if message contains "cardinality" or "relationship":
+    return CARDINALITY
+  if message matches "expecting.*(NEWLINE|NL|EOF)":
+    return LINE_BREAK
+  if message contains "unknown diagram type" or "UnknownDiagramError":
+    return DIAGRAM_TYPE
+  if message contains "got 'PS'" or "got 'SQS'" or "unclosed":
+    return NODE_SYNTAX
+  return UNKNOWN
 ```
 
 **Fix Strategies by Category**:
@@ -262,11 +343,13 @@ Output JSON summary after processing all diagrams.
 
 **CRITICAL - Execution Flow**:
 1. Read input file
-2. Extract mermaid blocks (track in `<thinking>` tags)
-3. Validate each diagram via Bash tool
-4. Apply repairs (max 3 attempts each)
-5. Generate output (in-place or stdout)
-6. Output JSON summary
+2. Run `rp1 agent-tools mmd-validate /path/to/file.md` via Bash tool
+3. Parse JSON response: check `success` and `data.summary`
+4. For failed diagrams, extract errors from `data.diagrams[].errors[]`
+5. Apply targeted repairs based on error category (max 3 attempts each)
+6. Re-validate after repairs using CLI tool
+7. Generate output (in-place or stdout)
+8. Output JSON summary
 
 **Final Output Format**:
 ```

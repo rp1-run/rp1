@@ -117,7 +117,7 @@ Each microservice is independently deployable and has its own database.
 
 **Validation Flow**:
 1. Write entire markdown (with all diagrams) to temp file
-2. Run `validate_mermaid.sh` once on the markdown file
+2. Run `rp1 agent-tools mmd-validate` once on the markdown file
 3. If validation passes: proceed with HTML generation
 4. If validation fails: prepend warning, continue generation (non-blocking)
 5. Mermaid.js renders diagrams in browser (shows errors if invalid)
@@ -327,7 +327,7 @@ Pass to skill:
 
 The skill will:
 1. Write markdown to temp file
-2. Validate ALL diagrams in one pass (validate_mermaid.sh)
+2. Validate ALL diagrams in one pass (rp1 agent-tools mmd-validate)
 3. Generate self-contained HTML
 4. Open in browser automatically
 5. Return file path
