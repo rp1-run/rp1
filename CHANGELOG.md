@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.6](https://github.com/rp1-run/rp1/compare/v0.2.5...v0.2.6) (2025-12-25)
+
+
+### Features
+
+* blazing fast validation of mmd using new built-in agent-tools ([#114](https://github.com/rp1-run/rp1/issues/114)) ([b560bc9](https://github.com/rp1-run/rp1/commit/b560bc97151db0ed5f27fc1b02c3a2b750b8fe84))
+
 ## [0.2.5](https://github.com/rp1-run/rp1/compare/v0.2.4...v0.2.5) (2025-12-23)
 
 
