@@ -120,12 +120,18 @@ Generate tasks following this schema:
 
 ```markdown
 - [ ] **T{N}**: [Specific task description] `[complexity:simple|medium|complex]`
-  **Reference**: [design.md#section](design.md#section)
-  **Effort**: [X hours]
-  **Acceptance Criteria**:
-  - [ ] [Specific criterion]
-  - [ ] [Specific criterion]
+
+    **Reference**: [design.md#section](design.md#section)
+
+    **Effort**: [X hours]
+
+    **Acceptance Criteria**:
+
+    - [ ] [Specific criterion]
+    - [ ] [Specific criterion]
 ```
+
+**IMPORTANT**: Use 4-space indentation AND blank lines between metadata fields (Reference, Effort, Acceptance Criteria). This ensures proper markdown nesting in rendered output.
 
 ### 3.4 Task Quality Standards
 
@@ -289,17 +295,25 @@ When UPDATE_MODE completes, include change summary:
 
 ### [Category 1]
 - [ ] **T1**: [Specific task] `[complexity:medium]`
-  **Reference**: [design.md#section](design.md#section)
-  **Effort**: [X hours]
-  **Acceptance Criteria**:
-  - [ ] [Criterion]
+
+    **Reference**: [design.md#section](design.md#section)
+
+    **Effort**: [X hours]
+
+    **Acceptance Criteria**:
+
+    - [ ] [Criterion]
 
 ### [Category 2]
 - [ ] **T2**: [Specific task] `[complexity:simple]`
-  **Reference**: [design.md#section](design.md#section)
-  **Effort**: [X hours]
-  **Acceptance Criteria**:
-  - [ ] [Criterion]
+
+    **Reference**: [design.md#section](design.md#section)
+
+    **Effort**: [X hours]
+
+    **Acceptance Criteria**:
+
+    - [ ] [Criterion]
 
 ## Acceptance Criteria Checklist
 [All acceptance criteria from requirements.md with checkboxes]
@@ -354,10 +368,14 @@ When UPDATE_MODE completes, include change summary:
 
 ### [Category Name]
 - [ ] **T[N].[M]**: [Specific task description] `[complexity:medium]`
-  **Reference**: [design.md#section](design.md#section)
-  **Effort**: [X hours]
-  **Acceptance Criteria**:
-  - [ ] [Criterion]
+
+    **Reference**: [design.md#section](design.md#section)
+
+    **Effort**: [X hours]
+
+    **Acceptance Criteria**:
+
+    - [ ] [Criterion]
 
 ## Definition of Done
 [Criteria for milestone completion]

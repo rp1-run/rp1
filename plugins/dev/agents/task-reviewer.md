@@ -271,20 +271,24 @@ If verdict is SUCCESS, add a validation summary after the implementation summary
 ```markdown
 - [x] **T1**: Task description `[complexity:medium]`
 
-  **Implementation Summary**:
-  - **Files**: ...
-  - **Approach**: ...
+    **Implementation Summary**:
 
-  **Validation Summary**:
-  | Dimension | Status |
-  |-----------|--------|
-  | Discipline | ✅ PASS |
-  | Accuracy | ✅ PASS |
-  | Completeness | ✅ PASS |
-  | Quality | ✅ PASS |
-  | Testing | ✅ PASS |
-  | Comments | ✅ PASS |
+    - **Files**: ...
+    - **Approach**: ...
+
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ✅ PASS |
+    | Comments | ✅ PASS |
 ```
+
+**IMPORTANT**: Use 4-space indentation AND blank lines between major sections (Implementation Summary, Validation Summary). This ensures proper markdown nesting.
 
 Use ✅ for PASS, ⏭️ for N/A. This provides clear traceability of what was verified.
 
