@@ -47,3 +47,7 @@ check-web-ui:
 
 # Lint and type check everything
 check: check-cli check-web-ui
+
+# Docs
+docs:
+    uv run --index https://pypi.org --with mkdocs-material mkdocs serve
