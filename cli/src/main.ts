@@ -11,6 +11,7 @@ import {
 	installClaudeCodeCommand,
 	installCommand,
 	listCommand,
+	verifyClaudeCodeCommand,
 	verifyCommand,
 } from "./commands/install.js";
 import { selfUpdateCommand } from "./commands/self-update.js";
@@ -121,6 +122,7 @@ program.addCommand(viewCommand, { hidden: true });
 program.addCommand(installCommand);
 program.addCommand(installClaudeCodeCommand);
 program.addCommand(verifyCommand);
+program.addCommand(verifyClaudeCodeCommand);
 program.addCommand(listCommand);
 program.addCommand(initCommand);
 program.addCommand(checkUpdateCommand);

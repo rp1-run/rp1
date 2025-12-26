@@ -33,7 +33,7 @@ import {
 } from "./prerequisites.js";
 import { listInstalledCommands, verifyInstallation } from "./verifier.js";
 
-const { green, yellow, red, dim, bold } = colorFns;
+const { green, yellow, red, dim, bold, cyan } = colorFns;
 
 export interface InstallArgs {
 	artifactsDir: string | null;
@@ -500,48 +500,55 @@ export const executeVerify = (
 		}
 	}
 
-	console.log(bold("\n🔍 Verifying rp1 Installation\n"));
+	console.log(bold("\nVerifying OpenCode Plugins\n"));
 
 	return pipe(
 		verifyInstallation(artifactsDir),
 		TE.map((report) => {
-			console.log("┌───────────┬───────┬──────────┬────────┐");
-			console.log("│ Component │ Found │ Expected │ Status │");
-			console.log("├───────────┼───────┼──────────┼────────┤");
+			console.log("+-----------+--------------+--------+");
+			console.log("| Component | Found/Expect | Status |");
+			console.log("+-----------+--------------+--------+");
 
-			const cmdOk = report.commandsFound === report.commandsExpected;
+			const cmdOk = report.commandsFound >= report.commandsExpected;
+			const cmdCount = `${report.commandsFound}/${report.commandsExpected}`.padEnd(12);
 			console.log(
-				`│ Commands  │ ${String(report.commandsFound).padStart(5)} │ ${String(report.commandsExpected).padStart(8)} │   ${cmdOk ? green("✓") : red("✗")}    │`,
+				`| Commands  | ${cmdCount} | ${cmdOk ? green("  OK  ") : red(" MISS ")} |`,
 			);
 
-			const agentOk = report.agentsFound === report.agentsExpected;
+			const agentOk = report.agentsFound >= report.agentsExpected;
+			const agentCount = `${report.agentsFound}/${report.agentsExpected}`.padEnd(12);
 			console.log(
-				`│ Agents    │ ${String(report.agentsFound).padStart(5)} │ ${String(report.agentsExpected).padStart(8)} │   ${agentOk ? green("✓") : red("✗")}    │`,
+				`| Agents    | ${agentCount} | ${agentOk ? green("  OK  ") : red(" MISS ")} |`,
 			);
 
-			const skillOk = report.skillsFound === report.skillsExpected;
+			const skillOk = report.skillsFound >= report.skillsExpected;
+			const skillCount = `${report.skillsFound}/${report.skillsExpected}`.padEnd(12);
 			console.log(
-				`│ Skills    │ ${String(report.skillsFound).padStart(5)} │ ${String(report.skillsExpected).padStart(8)} │   ${skillOk ? green("✓") : yellow("⚠")}    │`,
+				`| Skills    | ${skillCount} | ${skillOk ? green("  OK  ") : yellow(" WARN ")} |`,
 			);
 
-			const pluginOk = report.pluginsFound === report.pluginsExpected;
+			const pluginOk = report.pluginsFound >= report.pluginsExpected;
+			const pluginCount = `${report.pluginsFound}/${report.pluginsExpected}`.padEnd(12);
 			console.log(
-				`│ Plugins   │ ${String(report.pluginsFound).padStart(5)} │ ${String(report.pluginsExpected).padStart(8)} │   ${pluginOk ? green("✓") : yellow("⚠")}    │`,
+				`| Plugins   | ${pluginCount} | ${pluginOk ? green("  OK  ") : yellow(" WARN ")} |`,
 			);
 
-			console.log("└───────────┴───────┴──────────┴────────┘");
+			console.log("+-----------+--------------+--------+");
 
 			if (report.issues.length > 0) {
 				console.log(yellow("\nIssues Found:"));
 				for (const issue of report.issues) {
-					console.log(yellow(`  • ${issue}`));
+					console.log(yellow(`  - ${issue}`));
 				}
 			}
 
 			if (isHealthy(report)) {
-				console.log(green(bold("\n✓ Installation is healthy!")));
+				console.log(green("All components installed"));
 			} else {
-				console.log(red(bold("\n✗ Installation is unhealthy")));
+				console.log(red(bold("\nInstallation incomplete")));
+				console.log(dim("\nRemediation:"));
+				console.log(dim("  Install missing components with:"));
+				console.log(cyan("    rp1 install:opencode"));
 				process.exit(1);
 			}
 		}),

@@ -45,8 +45,12 @@ import {
 } from "./shell-fence.js";
 import { performHealthCheck } from "./steps/health-check.js";
 import { executePluginInstallation } from "./steps/plugin-installation.js";
+import { checkRp1Readiness } from "./steps/readiness.js";
 import { displaySummary, generateNextSteps } from "./steps/summary.js";
-import { verifyClaudeCodePlugins } from "./steps/verification.js";
+import {
+	verifyClaudeCodePlugins,
+	verifyOpenCodePlugins,
+} from "./steps/verification.js";
 import { AGENTS_TEMPLATE, CLAUDE_CODE_TEMPLATE } from "./templates/index.js";
 import {
 	type DetectedTool,
@@ -58,10 +62,6 @@ import {
 	type ToolDetectionResult,
 } from "./tool-detector.js";
 
-// ============================================================================
-// Re-exports for backward compatibility
-// ============================================================================
-
 export type {
 	GitignorePreset,
 	InitAction,
@@ -71,10 +71,6 @@ export type {
 	ReinitState,
 } from "./models.js";
 export { GITIGNORE_PRESETS } from "./models.js";
-
-// ============================================================================
-// Types (local to orchestrator)
-// ============================================================================
 
 /**
  * Context for the init execution.
@@ -89,10 +85,6 @@ export interface InitContext {
 	/** Logger instance */
 	readonly logger: Logger;
 }
-
-// ============================================================================
-// Init Workflow Steps Definition
-// ============================================================================
 
 /**
  * Step definitions for progress tracking.
@@ -115,10 +107,6 @@ const INIT_STEPS = [
 	{ name: "summary", description: "Generating summary..." },
 ] as const;
 
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
 async function fileExists(filePath: string): Promise<boolean> {
 	try {
 		await fs.access(filePath);
@@ -140,7 +128,6 @@ async function directoryExists(dirPath: string): Promise<boolean> {
 async function hasAnyFiles(dirPath: string): Promise<boolean> {
 	try {
 		const entries = await fs.readdir(dirPath, { withFileTypes: true });
-		// Check for any files or non-empty subdirectories
 		for (const entry of entries) {
 			if (entry.isFile()) {
 				return true;
@@ -189,10 +176,6 @@ function getTemplateForTool(tool: SupportedTool): string {
 	return AGENTS_TEMPLATE;
 }
 
-// ============================================================================
-// Step 1: TTY Detection
-// ============================================================================
-
 /**
  * Detect whether interactive mode should be used.
  *
@@ -207,26 +190,14 @@ function getTemplateForTool(tool: SupportedTool): string {
  * @returns true if interactive mode should be used, false otherwise
  */
 function detectTTY(options: InitOptions): boolean {
-	// --yes forces non-interactive mode
-	// In this mode, all prompts use default values:
-	// - Plugin installation proceeds automatically when tool detected
-	// - Gitignore uses "recommended" preset
-	// - Re-initialization skips (preserves existing config)
 	if (options.yes) {
 		return false;
 	}
-	// --interactive forces interactive mode even without TTY
 	if (options.interactive) {
 		return true;
 	}
-	// Default: check if stdout is a TTY
-	// Non-TTY environments (CI, pipes) behave like --yes
 	return process.stdout.isTTY ?? false;
 }
-
-// ============================================================================
-// Step 2: Git Root Detection
-// ============================================================================
 
 type GitRootChoice = "continue" | "switch" | "cancel";
 
@@ -236,7 +207,6 @@ async function handleGitRootCheck(
 	logger: Logger,
 	progress: InitProgress,
 ): Promise<{ proceed: boolean; cwd: string; warning?: string }> {
-	// Not in a git repo - warn but allow proceeding
 	if (!gitResult.isGitRepo) {
 		progress.pauseStep();
 		const warning =
@@ -245,13 +215,11 @@ async function handleGitRootCheck(
 		return { proceed: true, cwd: gitResult.currentDir, warning };
 	}
 
-	// At git root - proceed normally
 	if (gitResult.isAtRoot) {
 		logger.debug("At git repository root");
 		return { proceed: true, cwd: gitResult.currentDir };
 	}
 
-	// In subdirectory - prompt for action
 	progress.pauseStep();
 	logger.warn(`Not at git repository root`);
 	logger.info(`Current directory: ${gitResult.currentDir}`);
@@ -279,7 +247,6 @@ async function handleGitRootCheck(
 		promptOptions,
 	);
 
-	// Non-TTY mode defaults to continue with warning
 	if (choice === null) {
 		const warning = `Initializing in subdirectory: ${gitResult.currentDir}`;
 		logger.warn(warning);
@@ -296,10 +263,6 @@ async function handleGitRootCheck(
 	}
 }
 
-// ============================================================================
-// Step 3: Re-initialization Detection
-// ============================================================================
-
 /**
  * Detect re-initialization state by checking for existing rp1 artifacts.
  * Exported for testing purposes.
@@ -313,10 +276,8 @@ export async function detectReinitState(
 	const contextDir = path.join(rp1Dir, "context");
 	const workDir = path.join(rp1Dir, "work");
 
-	// Check for .rp1/ directory
 	const hasRp1Dir = await directoryExists(rp1Dir);
 
-	// Check for fenced content in instruction file
 	let hasFenced = false;
 	if (detectedToolInstructionFile) {
 		const instrPath = path.resolve(cwd, detectedToolInstructionFile);
@@ -325,7 +286,6 @@ export async function detectReinitState(
 			hasFenced = hasFencedContent(content);
 		}
 	} else {
-		// Check both possible instruction files
 		for (const file of ["CLAUDE.md", "AGENTS.md"]) {
 			const instrPath = path.resolve(cwd, file);
 			const content = await readFileContent(instrPath);
@@ -336,10 +296,8 @@ export async function detectReinitState(
 		}
 	}
 
-	// Check for KB content
 	const hasKB = await fileExists(path.join(contextDir, "index.md"));
 
-	// Check for work content
 	const hasWork = await hasAnyFiles(workDir);
 
 	return {
@@ -372,15 +330,12 @@ async function handleReinitCheck(
 	logger: Logger,
 	progress: InitProgress,
 ): Promise<{ proceed: boolean; choice: ReinitChoice }> {
-	// Not initialized - proceed normally
 	if (!isAlreadyInitialized(state)) {
 		return { proceed: true, choice: "reinitialize" };
 	}
 
-	// Pause spinner before showing info/prompts
 	progress.pauseStep();
 
-	// Log what was found
 	logger.info("Existing rp1 configuration detected:");
 	if (state.hasRp1Dir) {
 		logger.info("  - .rp1/ directory exists");
@@ -395,13 +350,11 @@ async function handleReinitCheck(
 		logger.info("  - Work artifacts exist");
 	}
 
-	// Non-TTY mode: default to skip
 	if (!promptOptions.isTTY) {
 		logger.info("Non-interactive mode: Skipping re-initialization");
 		return { proceed: false, choice: "skip" };
 	}
 
-	// Prompt for action
 	const choice = await selectOption<ReinitChoice>(
 		"rp1 is already initialized. What would you like to do?",
 		[
@@ -424,7 +377,6 @@ async function handleReinitCheck(
 		promptOptions,
 	);
 
-	// Handle null (shouldn't happen in TTY, but be defensive)
 	if (choice === null) {
 		return { proceed: false, choice: "skip" };
 	}
@@ -442,10 +394,6 @@ async function handleReinitCheck(
 	return { proceed: true, choice };
 }
 
-// ============================================================================
-// Step 4: Directory Structure Creation
-// ============================================================================
-
 async function createDirectoryStructure(
 	cwd: string,
 	logger: Logger,
@@ -456,21 +404,18 @@ async function createDirectoryStructure(
 	const contextDir = path.join(rp1Dir, "context");
 	const workDir = path.join(rp1Dir, "work");
 
-	// Create .rp1/
 	if (!(await directoryExists(rp1Dir))) {
 		await fs.mkdir(rp1Dir, { recursive: true });
 		logger.info(`Created: ${rp1Dir}`);
 		actions.push({ type: "created_directory", path: rp1Dir });
 	}
 
-	// Create .rp1/context/
 	if (!(await directoryExists(contextDir))) {
 		await fs.mkdir(contextDir, { recursive: true });
 		logger.info(`Created: ${contextDir}`);
 		actions.push({ type: "created_directory", path: contextDir });
 	}
 
-	// Create .rp1/work/
 	if (!(await directoryExists(workDir))) {
 		await fs.mkdir(workDir, { recursive: true });
 		logger.info(`Created: ${workDir}`);
@@ -480,11 +425,20 @@ async function createDirectoryStructure(
 	return actions;
 }
 
-// ============================================================================
-// Step 5: Tool Detection
-// ============================================================================
-
-async function handleToolDetection(
+/**
+ * Process tool detection results and display appropriate feedback.
+ * This function handles the user-facing aspects of tool detection:
+ * logging detected tools, prompting for installation guidance, etc.
+ *
+ * @param toolResult - Pre-fetched tool detection result from parallel execution
+ * @param registry - Tools registry for installation guidance
+ * @param promptOptions - TTY options for interactive prompts
+ * @param logger - Logger instance
+ * @param progress - Progress tracker for pausing spinner during prompts
+ * @returns Object containing the tool result and any warnings generated
+ */
+async function processToolDetectionResult(
+	toolResult: ToolDetectionResult,
 	registry: ToolsRegistry,
 	promptOptions: PromptOptions,
 	logger: Logger,
@@ -495,19 +449,11 @@ async function handleToolDetection(
 }> {
 	const warnings: string[] = [];
 
-	const toolResultEither = await detectTools(registry)();
-	// detectTools never fails, so we can safely extract the value
-	const toolResult = E.isRight(toolResultEither)
-		? toolResultEither.right
-		: { detected: [], missing: [...registry.tools] };
-
 	if (hasDetectedTools(toolResult)) {
-		// Report detected tools
 		for (const detected of toolResult.detected) {
 			logger.success(formatDetectedTool(detected));
 		}
 
-		// Check for outdated tools
 		const outdated = getOutdatedTools(toolResult);
 		for (const tool of outdated) {
 			const warning = `${tool.tool.name} version ${tool.version} is below minimum ${tool.tool.min_version}`;
@@ -515,7 +461,6 @@ async function handleToolDetection(
 			warnings.push(warning);
 		}
 	} else {
-		// No tools found - offer guidance
 		progress.pauseStep();
 		logger.warn("No supported agentic tools detected");
 
@@ -546,7 +491,6 @@ async function handleToolDetection(
 		}
 
 		if (!promptOptions.isTTY) {
-			// Non-TTY mode: list all install URLs
 			logger.info("Supported tools:");
 			for (const tool of registry.tools) {
 				logger.info(`  ${tool.name}: ${tool.install_url}`);
@@ -561,10 +505,6 @@ async function handleToolDetection(
 	return { toolResult, warnings };
 }
 
-// ============================================================================
-// Step 6: Instruction File Injection
-// ============================================================================
-
 async function injectInstructions(
 	cwd: string,
 	detectedTool: DetectedTool | null,
@@ -572,16 +512,13 @@ async function injectInstructions(
 ): Promise<{ actions: InitAction[]; instructionFile: string | null }> {
 	const actions: InitAction[] = [];
 
-	// Determine which instruction file to use
 	let instructionFile: string;
 	let template: string;
 
 	if (detectedTool) {
-		// Use detected tool's instruction file
 		instructionFile = detectedTool.tool.instruction_file;
 		template = getTemplateForTool(detectedTool.tool);
 	} else {
-		// Check if either file exists, prefer CLAUDE.md
 		const claudePath = path.resolve(cwd, "CLAUDE.md");
 		const agentsPath = path.resolve(cwd, "AGENTS.md");
 
@@ -592,7 +529,6 @@ async function injectInstructions(
 			instructionFile = "AGENTS.md";
 			template = AGENTS_TEMPLATE;
 		} else {
-			// Default to CLAUDE.md for new projects
 			instructionFile = "CLAUDE.md";
 			template = CLAUDE_CODE_TEMPLATE;
 		}
@@ -605,7 +541,6 @@ async function injectInstructions(
 	const exists = await fileExists(filePath);
 
 	if (!exists) {
-		// Create new file
 		logger.info(`Creating: ${filePath}`);
 		const content = `${wrapWithFence(template)}\n`;
 		await writeFileContent(filePath, content);
@@ -614,7 +549,6 @@ async function injectInstructions(
 		return { actions, instructionFile };
 	}
 
-	// File exists - update or append
 	const existingContent = await readFileContent(filePath);
 	if (existingContent === null) {
 		throw new Error(`Failed to read file: ${filePath}`);
@@ -626,14 +560,12 @@ async function injectInstructions(
 	}
 
 	if (hasFencedContent(existingContent)) {
-		// Update existing fenced content
 		logger.info(`Updating: ${filePath}`);
 		const newContent = replaceFencedContent(existingContent, template);
 		await writeFileContent(filePath, newContent);
 		actions.push({ type: "updated_file", path: filePath });
 		logger.success(`Updated ${instructionFile}`);
 	} else {
-		// Append new fenced content
 		logger.info(`Appending to: ${filePath}`);
 		const newContent = appendFencedContent(existingContent, template);
 		await writeFileContent(filePath, newContent);
@@ -644,10 +576,6 @@ async function injectInstructions(
 	return { actions, instructionFile };
 }
 
-// ============================================================================
-// Step 7: Gitignore Configuration
-// ============================================================================
-
 async function configureGitignore(
 	cwd: string,
 	promptOptions: PromptOptions,
@@ -657,11 +585,9 @@ async function configureGitignore(
 	const actions: InitAction[] = [];
 	const gitignorePath = path.resolve(cwd, ".gitignore");
 
-	// Determine preset to use
 	let preset: GitignorePreset = "recommended";
 
 	if (promptOptions.isTTY) {
-		// Pause spinner before showing prompt
 		progress.pauseStep();
 		const choice = await selectOption<GitignorePreset>(
 			"How should rp1 files be tracked in git?",
@@ -694,7 +620,6 @@ async function configureGitignore(
 	const exists = await fileExists(gitignorePath);
 
 	if (!exists) {
-		// Create new .gitignore
 		logger.info(`Creating: ${gitignorePath}`);
 		const content = `# rp1:start\n${gitignoreContent}\n# rp1:end\n`;
 		await writeFileContent(gitignorePath, content);
@@ -703,7 +628,6 @@ async function configureGitignore(
 		return actions;
 	}
 
-	// File exists - update or append
 	const existingContent = await readFileContent(gitignorePath);
 	if (existingContent === null) {
 		throw new Error(`Failed to read file: ${gitignorePath}`);
@@ -715,7 +639,6 @@ async function configureGitignore(
 	}
 
 	if (hasShellFencedContent(existingContent)) {
-		// Update existing fenced content
 		logger.info(`Updating .gitignore`);
 		const newContent = replaceShellFencedContent(
 			existingContent,
@@ -725,7 +648,6 @@ async function configureGitignore(
 		actions.push({ type: "updated_file", path: gitignorePath });
 		logger.success("Updated .gitignore rp1 entries");
 	} else {
-		// Append new fenced content
 		logger.info(`Appending to .gitignore`);
 		const newContent = appendShellFencedContent(
 			existingContent,
@@ -738,10 +660,6 @@ async function configureGitignore(
 
 	return actions;
 }
-
-// ============================================================================
-// Main Executor
-// ============================================================================
 
 /**
  * Execute the full initialization workflow.
@@ -774,22 +692,18 @@ export function executeInit(
 				const allActions: InitAction[] = [];
 				const allWarnings: string[] = [];
 
-				// Step 1: Determine TTY mode
 				const isTTY = detectTTY(options);
 				const promptOptions: PromptOptions = { isTTY };
 				logger.debug(`Interactive mode: ${isTTY}`);
 
-				// Create progress tracker and register steps
 				const progress = createProgress(isTTY);
 				progress.registerSteps([...INIT_STEPS]);
 
-				// Step 2: Load registry
 				progress.startStep("registry");
 				logger.debug("Loading tools registry...");
 				const registry = await loadToolsRegistry();
 				progress.completeStep();
 
-				// Step 3: Git root detection
 				progress.startStep("git-check");
 				const initialCwd = options.cwd || process.cwd();
 				const gitResultEither = await detectGitRoot(initialCwd)();
@@ -825,7 +739,6 @@ export function executeInit(
 					allWarnings.push(gitCheck.warning);
 				}
 
-				// Step 4: Re-initialization detection
 				progress.startStep("reinit-check");
 				const reinitState = await detectReinitState(cwd, null);
 				const reinitCheck = await handleReinitCheck(
@@ -837,7 +750,6 @@ export function executeInit(
 				progress.completeStep();
 
 				if (!reinitCheck.proceed) {
-					// User chose to skip - exit successfully
 					return {
 						actions: [
 							{
@@ -852,10 +764,8 @@ export function executeInit(
 					};
 				}
 
-				// For "update" choice, we only update instruction file and gitignore
 				const isUpdateOnly = reinitCheck.choice === "update";
 
-				// Step 5: Create directory structure (skip if update-only and dirs exist)
 				progress.startStep("directory-setup");
 				if (!isUpdateOnly || !reinitState.hasRp1Dir) {
 					const dirActions = await createDirectoryStructure(cwd, logger);
@@ -869,15 +779,28 @@ export function executeInit(
 					progress.skipStep();
 				}
 
-				// Step 6: Tool detection
 				progress.startStep("tool-detection");
-				const { toolResult, warnings: toolWarnings } =
-					await handleToolDetection(registry, promptOptions, logger, progress);
+
+				const [toolResultEither, readinessResult] = await Promise.all([
+					detectTools(registry)(),
+					checkRp1Readiness(cwd),
+				]);
+
+				const toolDetectionResult = E.isRight(toolResultEither)
+					? toolResultEither.right
+					: { detected: [], missing: [...registry.tools] };
+
+				const { warnings: toolWarnings } = await processToolDetectionResult(
+					toolDetectionResult,
+					registry,
+					promptOptions,
+					logger,
+					progress,
+				);
 				allWarnings.push(...toolWarnings);
-				const primaryTool = getPrimaryTool(toolResult);
+				const primaryTool = getPrimaryTool(toolDetectionResult);
 				progress.completeStep();
 
-				// Step 7: Instruction file injection
 				progress.startStep("instruction-injection");
 				const { actions: instrActions } = await injectInstructions(
 					cwd,
@@ -887,7 +810,6 @@ export function executeInit(
 				allActions.push(...instrActions);
 				progress.completeStep();
 
-				// Step 8: Gitignore configuration
 				progress.startStep("gitignore-config");
 				if (gitResult.isGitRepo) {
 					const gitignoreActions = await configureGitignore(
@@ -906,93 +828,94 @@ export function executeInit(
 					progress.skipStep();
 				}
 
-				// For update mode, skip plugin installation and subsequent steps
+				let pluginStatus: readonly PluginStatus[] = [];
+
 				if (isUpdateOnly) {
 					allActions.push({
 						type: "skipped",
 						reason: "Plugin installation skipped (update mode)",
 					});
 
-					// Skip remaining steps
 					progress.startStep("plugin-installation");
-					progress.skipStep();
-					progress.startStep("verification");
-					progress.skipStep();
-					progress.startStep("health-check");
-					progress.skipStep();
-					progress.startStep("summary");
 					progress.skipStep();
 
 					logger.success("rp1 configuration updated!");
-					return {
-						actions: allActions,
-						detectedTool: primaryTool || null,
-						warnings: allWarnings,
-						healthReport: null,
-						nextSteps: [],
-					};
-				}
+				} else {
+					progress.startStep("plugin-installation");
 
-				// Step 9: Plugin installation (actual execution, not just offer)
-				progress.startStep("plugin-installation");
-				let pluginStatus: readonly PluginStatus[] = [];
-				let pluginInstallationAttempted = false;
-
-				// Execute plugin installation - this replaces the old offerPluginInstallation
-				// Non-critical: failure does not abort init
-				try {
-					const { actions: pluginActions, result: pluginResult } =
-						await executePluginInstallation(
+					try {
+						const { actions: pluginActions } = await executePluginInstallation(
 							primaryTool || null,
 							promptOptions,
 							logger,
 						);
-					allActions.push(...pluginActions);
-
-					// Track whether installation was attempted (for verification step)
-					pluginInstallationAttempted = pluginResult?.success ?? false;
-					progress.completeStep();
-				} catch (error) {
-					// Plugin installation failed - log warning but continue
-					const errorMessage =
-						error instanceof Error ? error.message : String(error);
-					logger.warn(`Plugin installation error: ${errorMessage}`);
-					allActions.push({
-						type: "plugin_install_failed",
-						name: "rp1-plugins",
-						error: errorMessage,
-					});
-					allWarnings.push(`Plugin installation failed: ${errorMessage}`);
-					progress.failStep();
+						allActions.push(...pluginActions);
+						progress.completeStep();
+					} catch (error) {
+						const errorMessage =
+							error instanceof Error ? error.message : String(error);
+						logger.warn(`Plugin installation error: ${errorMessage}`);
+						allActions.push({
+							type: "plugin_install_failed",
+							name: "rp1-plugins",
+							error: errorMessage,
+						});
+						allWarnings.push(`Plugin installation failed: ${errorMessage}`);
+						progress.failStep();
+					}
 				}
 
-				// Step 10: Verification (only if plugin installation was attempted)
 				progress.startStep("verification");
-				if (
-					pluginInstallationAttempted &&
-					primaryTool?.tool.id === "claude-code"
-				) {
+				if (toolDetectionResult.detected.length > 0) {
 					try {
-						const verificationResult = await verifyClaudeCodePlugins();
-						pluginStatus = verificationResult.plugins;
+						let allVerified = true;
+						const allPluginStatus: PluginStatus[] = [];
 
-						if (verificationResult.verified) {
-							allActions.push({
-								type: "verification_passed",
-								component: "plugins",
-							});
-							logger.success("Plugin verification passed");
-						} else {
-							for (const issue of verificationResult.issues) {
-								allActions.push({
-									type: "verification_failed",
-									component: "plugins",
-									issue,
-								});
-								logger.warn(`Verification issue: ${issue}`);
+						for (const detected of toolDetectionResult.detected) {
+							let verificationResult: {
+								verified: boolean;
+								plugins: readonly PluginStatus[];
+								issues: readonly string[];
+							} | null = null;
+
+							if (detected.tool.id === "claude-code") {
+								verificationResult = await verifyClaudeCodePlugins();
+							} else if (detected.tool.id === "opencode") {
+								verificationResult = await verifyOpenCodePlugins();
+							}
+
+							if (verificationResult) {
+								allPluginStatus.push(...verificationResult.plugins);
+
+								if (verificationResult.verified) {
+									allActions.push({
+										type: "verification_passed",
+										component: `${detected.tool.name} plugins`,
+									});
+									logger.success(
+										`${detected.tool.name} plugin verification passed`,
+									);
+								} else {
+									allVerified = false;
+									for (const issue of verificationResult.issues) {
+										allActions.push({
+											type: "verification_failed",
+											component: `${detected.tool.name} plugins`,
+											issue,
+										});
+										logger.warn(`${detected.tool.name} verification: ${issue}`);
+									}
+								}
 							}
 						}
-						progress.completeStep();
+
+						pluginStatus = allPluginStatus;
+
+						if (allVerified) {
+							progress.completeStep();
+						} else {
+							progress.failStep();
+						}
 					} catch (error) {
 						const errorMessage =
 							error instanceof Error ? error.message : String(error);
@@ -1001,19 +924,21 @@ export function executeInit(
 						progress.failStep();
 					}
 				} else {
-					// No verification needed - skip
 					allActions.push({
 						type: "skipped",
-						reason: "Plugin verification skipped (no installation performed)",
+						reason: "Plugin verification skipped (no tools detected)",
 					});
 					progress.skipStep();
 				}
 
-				// Step 11: Health check
 				progress.startStep("health-check");
 				let healthReport: HealthReport | null = null;
 				try {
-					healthReport = await performHealthCheck(cwd, pluginStatus);
+					healthReport = await performHealthCheck(
+						cwd,
+						pluginStatus,
+						readinessResult,
+					);
 
 					if (healthReport.issues.length === 0) {
 						allActions.push({ type: "health_check_passed" });
@@ -1034,23 +959,22 @@ export function executeInit(
 					progress.failStep();
 				}
 
-				// Step 12: Summary
 				progress.startStep("summary");
 
-				// Generate next steps based on current state
 				const hasKBContent = reinitState.hasKBContent;
+				const hasCharterContent = healthReport?.charterExists ?? false;
 				const nextSteps: NextStep[] = generateNextSteps(
 					healthReport,
 					primaryTool || null,
 					hasKBContent,
+					hasCharterContent,
 				);
 
-				// Display comprehensive summary
 				displaySummary(
 					allActions,
 					healthReport,
 					nextSteps,
-					primaryTool || null,
+					toolDetectionResult.detected,
 					logger,
 					isTTY,
 				);

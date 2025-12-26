@@ -6,8 +6,9 @@
 import { readFile, stat } from "node:fs/promises";
 import { resolve } from "node:path";
 import { hasFencedContent } from "../comment-fence.js";
-import type { HealthReport, PluginStatus } from "../models.js";
+import type { HealthReport, PluginStatus, StepCallbacks } from "../models.js";
 import { hasShellFencedContent } from "../shell-fence.js";
+import type { ReadinessResult } from "./readiness.js";
 
 /**
  * Instruction files to check for rp1 content.
@@ -102,43 +103,51 @@ function checkPluginsInstalled(plugins: readonly PluginStatus[]): {
  *
  * @param cwd - Current working directory
  * @param plugins - Plugin status array from verification step
+ * @param readiness - Optional readiness result from parallel checks
+ * @param callbacks - Optional callbacks for reporting progress to UI
  * @returns HealthReport with boolean flags and issues array
  */
 export async function performHealthCheck(
 	cwd: string,
 	plugins: readonly PluginStatus[],
+	readiness?: ReadinessResult,
+	callbacks?: StepCallbacks,
 ): Promise<HealthReport> {
-	// Respect RP1_ROOT environment variable for directory paths
 	const rp1Root = process.env.RP1_ROOT || ".rp1";
 	const rp1Dir = resolve(cwd, rp1Root);
 	const issues: string[] = [];
 
-	// Check 1: .rp1/ directory exists and is a directory
+	callbacks?.onActivity("Checking rp1 directory structure", "info");
+
 	const rp1DirExists = await isDirectory(rp1Dir);
 	if (!rp1DirExists) {
 		issues.push(`${rp1Root}/ directory not found`);
 	}
 
-	// Check 2: Instruction file (CLAUDE.md or AGENTS.md) contains rp1 fenced content
 	const instructionFileValid = await checkInstructionFile(cwd);
 	if (!instructionFileValid) {
 		issues.push("Instruction file missing rp1 content");
 	}
 
-	// Check 3: .gitignore has rp1 entries (skip if no git)
 	const gitignoreResult = await checkGitignore(cwd);
 	const gitignoreConfigured = gitignoreResult.configured;
 	if (gitignoreResult.exists && !gitignoreResult.configured) {
 		issues.push(".gitignore missing rp1 entries");
 	}
 
-	// Check 4: All expected plugins are installed
 	const pluginCheck = checkPluginsInstalled(plugins);
 	const pluginsInstalled = pluginCheck.allInstalled;
 	if (!pluginsInstalled && pluginCheck.missingPlugins.length > 0) {
 		issues.push(
 			`Plugins not installed: ${pluginCheck.missingPlugins.join(", ")}`,
 		);
+	}
+
+	const issueCount = issues.length;
+	if (issueCount === 0) {
+		callbacks?.onActivity("All health checks passed", "success");
+	} else {
+		callbacks?.onActivity(`Found ${issueCount} issue(s)`, "warning");
 	}
 
 	return {
@@ -148,5 +157,7 @@ export async function performHealthCheck(
 		pluginsInstalled,
 		plugins,
 		issues,
+		kbExists: readiness?.kbExists ?? false,
+		charterExists: readiness?.charterExists ?? false,
 	};
 }

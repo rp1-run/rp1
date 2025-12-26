@@ -39,6 +39,7 @@ export interface VerificationReport {
 
 /**
  * Check if installation is healthy.
+ * Installation is healthy if we have at least the expected number of components.
  * Skills and plugins are optional enhancements, so missing skills/plugins
  * don't make installation unhealthy.
  */
@@ -50,8 +51,8 @@ export const isHealthy = (report: VerificationReport): boolean => {
 	);
 	return (
 		criticalIssues.length === 0 &&
-		report.commandsFound === report.commandsExpected &&
-		report.agentsFound === report.agentsExpected
+		report.commandsFound >= report.commandsExpected &&
+		report.agentsFound >= report.agentsExpected
 	);
 };
 
