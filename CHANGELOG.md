@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.7](https://github.com/rp1-run/rp1/compare/v0.2.6...v0.2.7) (2025-12-26)
+
+
+### Features
+
+* better init wizard ([#116](https://github.com/rp1-run/rp1/issues/116)) ([e0d86b2](https://github.com/rp1-run/rp1/commit/e0d86b2dad00ca95d7bf1671b348a1094d12a3c4))
+
 ## [0.2.6](https://github.com/rp1-run/rp1/compare/v0.2.5...v0.2.6) (2025-12-25)
 
 
