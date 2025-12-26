@@ -1,7 +1,7 @@
 {
   "name": "rp1-base",
   "description": "Core knowledge management, documentation generation, and strategic analysis for Claude Code",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "author": {
     "name": "Prem Pillai (https://rp1.run)",
     "email": "prem.pillai@gmail.com"
