@@ -78,26 +78,91 @@ This interactive command will:
 
 **Expected output:**
 
+The init command displays a step-by-step wizard with real-time progress:
+
 ```
-✔ Loading tools registry...
-✔ Setting up directory structure...
-✔ Claude Code v2.0.75
-✔ Detecting agentic tools...
-✔ Installing plugins...
-✔ Verifying plugin installation...
+rp1 init                                              Step 6 of 8
 
-✔ rp1 initialized successfully!
+  ✓ Loading tools registry
+    └─ Registry loaded successfully
 
-Actions: 3 created, 0 updated
-Detected tool: Claude Code v2.0.75
+  ✓ Checking git repository
+    └─ At repository root
+
+  ✓ Setting up directories
+    └─ Created .rp1/context/
+    └─ Created .rp1/work/
+
+  ✓ Detecting AI tools
+    └─ Found: Claude Code v2.0.75
+
+  ✓ Configuring instruction file
+    └─ Updated CLAUDE.md
+
+  ◐ Installing plugins...
+    └─ Installing rp1-base...
+
+  ○ Verifying installation
+  ○ Health check
+```
+
+When complete, you'll see a summary with next steps:
+
+```
+✨ rp1 initialized successfully!
+
+Detected Tools:
+  ✓ Claude Code v2.0.75
+
+Setup Status:
+  ✓ .rp1/ directory
+  ✓ CLAUDE.md configured
+  ✓ .gitignore configured
+  ✓ Plugins installed
 
 Next Steps:
-  1. → Restart Claude Code to load plugins (required)
-  2. ○ Run /knowledge-build to analyze your codebase (optional)
+  → 1. Restart Claude Code to load plugins  [required]
+
+  ○ 2. Build knowledge base
+       Run: /knowledge-build
+       Analyzes your codebase for AI context awareness
+
+  ○ 3. Create project charter
+       Run: /blueprint
+       Captures project vision to guide feature development
+
+Documentation: https://rp1.run
 ```
 
+!!! note "Multi-Tool Detection"
+    If you have both Claude Code and OpenCode installed, rp1 will detect and configure plugins for **both tools** automatically. The summary will show all detected tools and their configuration status.
+
 !!! tip "CI/Automation"
-    For non-interactive environments, use `rp1 init --yes` to accept all defaults and install plugins automatically.
+    For non-interactive environments (CI pipelines, Docker builds, scripts), use `rp1 init --yes` to accept all defaults and install plugins automatically.
+
+    **Non-TTY mode features:**
+
+    - No ANSI color codes (clean, parseable output)
+    - No animated spinners (static progress lines)
+    - Sensible defaults for all prompts
+    - Standard exit codes (0=success, 1=failure)
+
+    **Example CI output:**
+
+    ```
+    [1/8] Loading tools registry... done
+    [2/8] Checking git repository... done
+    [3/8] Setting up directories... done
+    [4/8] Detecting AI tools... Claude Code v2.0.75
+    [5/8] Configuring instruction file... done
+    [6/8] Configuring .gitignore... done (recommended preset)
+    [7/8] Installing plugins... done
+    [8/8] Health check... done
+
+    rp1 initialized successfully!
+    ```
+
+    See [Non-Interactive Mode](../reference/cli/init.md#non-interactive-mode) for CI/CD integration examples.
 
 [:octicons-arrow-right-24: Full init reference](../reference/cli/init.md)
 

@@ -6,16 +6,11 @@
 
 import type { DetectedTool } from "./tool-detector.js";
 
-// ============================================================================
-// Action Types
-// ============================================================================
-
 /**
  * An action taken during initialization.
  * Extended with plugin installation and verification action types.
  */
 export type InitAction =
-	// Directory and file actions
 	| { readonly type: "created_directory"; readonly path: string }
 	| { readonly type: "created_file"; readonly path: string }
 	| { readonly type: "updated_file"; readonly path: string }
@@ -23,7 +18,6 @@ export type InitAction =
 	// Legacy suggestion actions (for backward compatibility)
 	| { readonly type: "plugin_install_suggested"; readonly tool: string }
 	| { readonly type: "kb_build_suggested" }
-	// Plugin installation actions
 	| {
 			readonly type: "plugin_installed";
 			readonly name: string;
@@ -39,20 +33,14 @@ export type InitAction =
 			readonly name: string;
 			readonly error: string;
 	  }
-	// Verification actions
 	| { readonly type: "verification_passed"; readonly component: string }
 	| {
 			readonly type: "verification_failed";
 			readonly component: string;
 			readonly issue: string;
 	  }
-	// Health check actions
 	| { readonly type: "health_check_passed" }
 	| { readonly type: "health_check_warning"; readonly message: string };
-
-// ============================================================================
-// Plugin Status
-// ============================================================================
 
 /**
  * Plugin installation status.
@@ -65,10 +53,6 @@ export interface PluginStatus {
 	readonly location: string | null;
 }
 
-// ============================================================================
-// Health Report
-// ============================================================================
-
 /**
  * Health check report for the rp1 setup.
  * Validates all components are correctly configured.
@@ -80,6 +64,8 @@ export interface HealthReport {
 	readonly pluginsInstalled: boolean;
 	readonly plugins: readonly PluginStatus[];
 	readonly issues: readonly string[];
+	readonly kbExists: boolean;
+	readonly charterExists: boolean;
 }
 
 /**
@@ -93,11 +79,9 @@ export const emptyHealthReport = (): HealthReport => ({
 	pluginsInstalled: false,
 	plugins: [],
 	issues: ["Health check not performed"],
+	kbExists: false,
+	charterExists: false,
 });
-
-// ============================================================================
-// Next Steps
-// ============================================================================
 
 /**
  * Next step guidance for the user.
@@ -108,11 +92,9 @@ export interface NextStep {
 	readonly action: string;
 	readonly command?: string;
 	readonly required: boolean;
+	readonly docsUrl?: string;
+	readonly blurb?: string;
 }
-
-// ============================================================================
-// Verification Result
-// ============================================================================
 
 /**
  * Result of plugin verification.
@@ -124,10 +106,6 @@ export interface VerificationResult {
 	readonly issues: readonly string[];
 }
 
-// ============================================================================
-// Plugin Install Result
-// ============================================================================
-
 /**
  * Result of plugin installation attempt.
  */
@@ -137,10 +115,6 @@ export interface PluginInstallResult {
 	readonly warnings: readonly string[];
 	readonly error?: unknown;
 }
-
-// ============================================================================
-// Progress Tracking
-// ============================================================================
 
 /**
  * Step execution status for progress tracking.
@@ -161,10 +135,6 @@ export interface InitStepInfo {
 	readonly status: StepStatus;
 }
 
-// ============================================================================
-// Enhanced Init Result
-// ============================================================================
-
 /**
  * Enhanced result of the initialization process.
  * Includes health report and next steps in addition to actions.
@@ -181,10 +151,6 @@ export interface InitResult {
 	/** Next steps for the user */
 	readonly nextSteps: readonly NextStep[];
 }
-
-// ============================================================================
-// Init Options and Context (re-exported for convenience)
-// ============================================================================
 
 /**
  * Options for the init command.
@@ -239,4 +205,85 @@ export interface ReinitState {
 	readonly hasKBContent: boolean;
 	/** Whether work content exists (any files in .rp1/work/) */
 	readonly hasWorkContent: boolean;
+}
+
+/**
+ * Step identifiers for the wizard flow.
+ * Each step maps to a specific phase of initialization.
+ */
+export type StepId =
+	| "registry"
+	| "git-check"
+	| "reinit-check"
+	| "directory-setup"
+	| "tool-detection"
+	| "instruction-injection"
+	| "gitignore-config"
+	| "plugin-installation"
+	| "verification"
+	| "health-check"
+	| "summary";
+
+/**
+ * User choices collected during wizard prompts.
+ * Captures interactive selections made by the user.
+ */
+export interface UserChoices {
+	/** Choice for handling git root vs current directory */
+	readonly gitRootChoice?: "continue" | "switch" | "cancel";
+	/** Choice for re-initialization behavior */
+	readonly reinitChoice?: ReinitChoice;
+	/** Selected gitignore preset */
+	readonly gitignorePreset?: GitignorePreset;
+}
+
+/**
+ * Callback interface for step execution progress.
+ * Used by business logic to report activities to UI.
+ */
+export interface StepCallbacks {
+	/** Report an activity message to the UI */
+	readonly onActivity: (
+		message: string,
+		type: "info" | "success" | "warning" | "error",
+	) => void;
+	/** Optional progress percentage callback (0-100) */
+	readonly onProgress?: (percent: number) => void;
+}
+
+/**
+ * Activity type for UI display.
+ */
+export type ActivityType = "info" | "success" | "warning" | "error";
+
+/**
+ * An activity message displayed during step execution.
+ * Used to show real-time feedback in the wizard UI.
+ */
+export interface Activity {
+	/** Unique identifier for the activity */
+	readonly id: string;
+	/** The message to display */
+	readonly message: string;
+	/** Type of activity (determines styling) */
+	readonly type: ActivityType;
+	/** Timestamp when the activity occurred */
+	readonly timestamp: number;
+}
+
+/**
+ * A step in the wizard flow with its current state.
+ * Extends InitStepInfo with activities for UI rendering.
+ */
+export interface WizardStep {
+	/** Unique identifier for the step */
+	readonly id: StepId;
+	/** Display name of the step */
+	readonly name: string;
+	/** Description shown in the UI */
+	readonly description: string;
+	/** Current execution status */
+	readonly status: StepStatus;
+	/** Activities logged during this step */
+	readonly activities: readonly Activity[];
 }

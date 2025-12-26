@@ -154,12 +154,15 @@ Add summary block immediately after the task line:
 ```markdown
 - [x] **T1**: Task description `[complexity:medium]`
 
-  **Implementation Summary**:
-  - **Files**: `src/file1.ts`, `src/file2.ts`
-  - **Approach**: [Brief description of what you implemented and how]
-  - **Deviations**: None | [Description of any deviations from design with justification]
-  - **Tests**: [Test results if applicable: X/Y passing]
+    **Implementation Summary**:
+
+    - **Files**: `src/file1.ts`, `src/file2.ts`
+    - **Approach**: [Brief description of what you implemented and how]
+    - **Deviations**: None | [Description of any deviations from design with justification]
+    - **Tests**: [Test results if applicable: X/Y passing]
 ```
+
+**IMPORTANT**: Use 4-space indentation AND blank lines between major sections (after task line, before Implementation Summary). This ensures proper markdown nesting.
 
 ### 4.3 Update Progress
 

@@ -12,6 +12,50 @@ import {
 } from "../../../init/steps/verification.js";
 import { cleanupTempDir, createTempDir } from "../../helpers/index.js";
 
+/**
+ * Helper to create installed_plugins.json with given plugins.
+ */
+async function createInstalledPluginsJson(
+	pluginDir: string,
+	plugins: Array<{
+		name: string;
+		version: string;
+		installPath?: string;
+	}>,
+): Promise<void> {
+	const pluginsRecord: Record<
+		string,
+		Array<{
+			scope: string;
+			installPath: string;
+			version: string;
+			installedAt: string;
+			lastUpdated: string;
+		}>
+	> = {};
+
+	for (const plugin of plugins) {
+		const fullId = `${plugin.name}@rp1-run`;
+		const installPath =
+			plugin.installPath ??
+			join(pluginDir, "cache", "rp1-run", plugin.name, plugin.version);
+		pluginsRecord[fullId] = [
+			{
+				scope: "user",
+				installPath,
+				version: plugin.version,
+				installedAt: new Date().toISOString(),
+				lastUpdated: new Date().toISOString(),
+			},
+		];
+	}
+
+	await writeFile(
+		join(pluginDir, "installed_plugins.json"),
+		JSON.stringify({ version: 2, plugins: pluginsRecord }, null, 2),
+	);
+}
+
 describe("verification step", () => {
 	let tempDir: string;
 
@@ -34,28 +78,16 @@ describe("verification step", () => {
 	});
 
 	describe("verifyClaudeCodePlugins", () => {
-		test("detects plugins in expected directory structure", async () => {
+		test("detects plugins from installed_plugins.json", async () => {
 			// Create the expected Claude Code plugin directory structure
 			const pluginDir = join(tempDir, ".claude", "plugins");
 			await mkdir(pluginDir, { recursive: true });
 
-			// Create rp1-base plugin with manifest
-			const basePluginDir = join(pluginDir, "rp1-base@rp1-run");
-			const baseManifestDir = join(basePluginDir, ".claude-plugin");
-			await mkdir(baseManifestDir, { recursive: true });
-			await writeFile(
-				join(baseManifestDir, "plugin.json"),
-				JSON.stringify({ version: "0.2.3" }),
-			);
-
-			// Create rp1-dev plugin with manifest
-			const devPluginDir = join(pluginDir, "rp1-dev@rp1-run");
-			const devManifestDir = join(devPluginDir, ".claude-plugin");
-			await mkdir(devManifestDir, { recursive: true });
-			await writeFile(
-				join(devManifestDir, "plugin.json"),
-				JSON.stringify({ version: "0.2.3" }),
-			);
+			// Create installed_plugins.json with both plugins
+			await createInstalledPluginsJson(pluginDir, [
+				{ name: "rp1-base", version: "0.2.3" },
+				{ name: "rp1-dev", version: "0.2.3" },
+			]);
 
 			// Pass custom search directories
 			const result = await verifyClaudeCodePlugins([pluginDir]);
@@ -69,14 +101,12 @@ describe("verification step", () => {
 			expect(basePlugin).toBeDefined();
 			expect(basePlugin?.installed).toBe(true);
 			expect(basePlugin?.version).toBe("0.2.3");
-			expect(basePlugin?.location).toBe(basePluginDir);
 
 			// Check rp1-dev plugin
 			const devPlugin = result.plugins.find((p) => p.name === "rp1-dev");
 			expect(devPlugin).toBeDefined();
 			expect(devPlugin?.installed).toBe(true);
 			expect(devPlugin?.version).toBe("0.2.3");
-			expect(devPlugin?.location).toBe(devPluginDir);
 		});
 
 		test("handles missing plugin directory gracefully", async () => {
@@ -96,28 +126,16 @@ describe("verification step", () => {
 			}
 		});
 
-		test("extracts version from plugin.json manifest", async () => {
-			// Create plugin directory with versioned manifest
+		test("extracts version from installed_plugins.json", async () => {
+			// Create plugin directory with versioned plugins
 			const pluginDir = join(tempDir, "plugins");
 			await mkdir(pluginDir, { recursive: true });
 
-			// Create rp1-base with specific version
-			const basePluginDir = join(pluginDir, "rp1-base@rp1-run");
-			const baseManifestDir = join(basePluginDir, ".claude-plugin");
-			await mkdir(baseManifestDir, { recursive: true });
-			await writeFile(
-				join(baseManifestDir, "plugin.json"),
-				JSON.stringify({ version: "1.2.3-beta.1" }),
-			);
-
-			// Create rp1-dev with different version
-			const devPluginDir = join(pluginDir, "rp1-dev@rp1-run");
-			const devManifestDir = join(devPluginDir, ".claude-plugin");
-			await mkdir(devManifestDir, { recursive: true });
-			await writeFile(
-				join(devManifestDir, "plugin.json"),
-				JSON.stringify({ version: "2.0.0" }),
-			);
+			// Create installed_plugins.json with specific versions
+			await createInstalledPluginsJson(pluginDir, [
+				{ name: "rp1-base", version: "1.2.3-beta.1" },
+				{ name: "rp1-dev", version: "2.0.0" },
+			]);
 
 			const result = await verifyClaudeCodePlugins([pluginDir]);
 
@@ -136,13 +154,9 @@ describe("verification step", () => {
 			await mkdir(pluginDir, { recursive: true });
 
 			// Only create rp1-base, not rp1-dev
-			const basePluginDir = join(pluginDir, "rp1-base@rp1-run");
-			const baseManifestDir = join(basePluginDir, ".claude-plugin");
-			await mkdir(baseManifestDir, { recursive: true });
-			await writeFile(
-				join(baseManifestDir, "plugin.json"),
-				JSON.stringify({ version: "0.2.3" }),
-			);
+			await createInstalledPluginsJson(pluginDir, [
+				{ name: "rp1-base", version: "0.2.3" },
+			]);
 
 			const result = await verifyClaudeCodePlugins([pluginDir]);
 
@@ -163,93 +177,66 @@ describe("verification step", () => {
 			expect(result.issues.some((i) => i.includes("rp1-dev"))).toBe(true);
 		});
 
-		test("handles plugin without manifest gracefully", async () => {
-			// Create plugin directory structure without plugin.json
+		test("handles missing installed_plugins.json gracefully", async () => {
+			// Create plugin directory without installed_plugins.json
 			const pluginDir = join(tempDir, "plugins");
 			await mkdir(pluginDir, { recursive: true });
 
-			// Create rp1-base without manifest (just the directory structure)
-			const basePluginDir = join(pluginDir, "rp1-base@rp1-run");
-			const baseManifestDir = join(basePluginDir, ".claude-plugin");
-			await mkdir(baseManifestDir, { recursive: true });
-			// No plugin.json file
-
-			// Create rp1-dev with manifest
-			const devPluginDir = join(pluginDir, "rp1-dev@rp1-run");
-			const devManifestDir = join(devPluginDir, ".claude-plugin");
-			await mkdir(devManifestDir, { recursive: true });
-			await writeFile(
-				join(devManifestDir, "plugin.json"),
-				JSON.stringify({ version: "0.2.3" }),
-			);
-
 			const result = await verifyClaudeCodePlugins([pluginDir]);
 
-			// Both plugins should be detected as installed
-			expect(result.verified).toBe(true);
+			// Verification should fail
+			expect(result.verified).toBe(false);
 
-			// rp1-base should have "unknown" version (no manifest)
-			const basePlugin = result.plugins.find((p) => p.name === "rp1-base");
-			expect(basePlugin?.installed).toBe(true);
-			expect(basePlugin?.version).toBe("unknown");
+			// All plugins should be marked as not installed
+			for (const plugin of result.plugins) {
+				expect(plugin.installed).toBe(false);
+			}
 
-			// rp1-dev should have proper version
-			const devPlugin = result.plugins.find((p) => p.name === "rp1-dev");
-			expect(devPlugin?.installed).toBe(true);
-			expect(devPlugin?.version).toBe("0.2.3");
+			// Issues should mention installed_plugins.json
+			expect(
+				result.issues.some((i) => i.includes("installed_plugins.json")),
+			).toBe(true);
 		});
 
-		test("handles malformed plugin.json gracefully", async () => {
-			// Create plugin with invalid JSON manifest
+		test("handles malformed installed_plugins.json gracefully", async () => {
+			// Create plugin directory with invalid JSON
 			const pluginDir = join(tempDir, "plugins");
 			await mkdir(pluginDir, { recursive: true });
-
-			const basePluginDir = join(pluginDir, "rp1-base@rp1-run");
-			const baseManifestDir = join(basePluginDir, ".claude-plugin");
-			await mkdir(baseManifestDir, { recursive: true });
-			await writeFile(join(baseManifestDir, "plugin.json"), "{ invalid json }");
-
-			const devPluginDir = join(pluginDir, "rp1-dev@rp1-run");
-			const devManifestDir = join(devPluginDir, ".claude-plugin");
-			await mkdir(devManifestDir, { recursive: true });
 			await writeFile(
-				join(devManifestDir, "plugin.json"),
-				JSON.stringify({ version: "0.2.3" }),
+				join(pluginDir, "installed_plugins.json"),
+				"{ invalid json }",
 			);
 
 			const result = await verifyClaudeCodePlugins([pluginDir]);
 
-			// Both should still be detected as installed
-			expect(result.verified).toBe(true);
+			// Verification should fail
+			expect(result.verified).toBe(false);
 
-			// rp1-base should have "unknown" version (failed to parse)
-			const basePlugin = result.plugins.find((p) => p.name === "rp1-base");
-			expect(basePlugin?.installed).toBe(true);
-			expect(basePlugin?.version).toBe("unknown");
+			// All plugins should be marked as not installed
+			for (const plugin of result.plugins) {
+				expect(plugin.installed).toBe(false);
+			}
 		});
 
-		test("handles plugin.json without version field", async () => {
-			// Create plugin with manifest missing version field
+		test("handles empty plugins object in installed_plugins.json", async () => {
+			// Create plugin directory with empty plugins
 			const pluginDir = join(tempDir, "plugins");
 			await mkdir(pluginDir, { recursive: true });
-
-			const basePluginDir = join(pluginDir, "rp1-base@rp1-run");
-			const baseManifestDir = join(basePluginDir, ".claude-plugin");
-			await mkdir(baseManifestDir, { recursive: true });
 			await writeFile(
-				join(baseManifestDir, "plugin.json"),
-				JSON.stringify({ name: "rp1-base" }), // No version field
+				join(pluginDir, "installed_plugins.json"),
+				JSON.stringify({ version: 2, plugins: {} }),
 			);
-
-			const devPluginDir = join(pluginDir, "rp1-dev@rp1-run");
-			await mkdir(devPluginDir, { recursive: true });
 
 			const result = await verifyClaudeCodePlugins([pluginDir]);
 
-			// rp1-base should be installed but with "unknown" version
-			const basePlugin = result.plugins.find((p) => p.name === "rp1-base");
-			expect(basePlugin?.installed).toBe(true);
-			expect(basePlugin?.version).toBe("unknown");
+			// Verification should fail - no plugins installed
+			expect(result.verified).toBe(false);
+			expect(result.plugins).toHaveLength(2);
+
+			// All plugins should be marked as not installed
+			for (const plugin of result.plugins) {
+				expect(plugin.installed).toBe(false);
+			}
 		});
 
 		test("uses first found directory from search list", async () => {
@@ -259,16 +246,10 @@ describe("verification step", () => {
 
 			// Only create the second directory with plugins
 			await mkdir(secondDir, { recursive: true });
-
-			for (const pluginName of ["rp1-base", "rp1-dev"]) {
-				const pluginPath = join(secondDir, `${pluginName}@rp1-run`);
-				const manifestDir = join(pluginPath, ".claude-plugin");
-				await mkdir(manifestDir, { recursive: true });
-				await writeFile(
-					join(manifestDir, "plugin.json"),
-					JSON.stringify({ version: "1.0.0" }),
-				);
-			}
+			await createInstalledPluginsJson(secondDir, [
+				{ name: "rp1-base", version: "1.0.0" },
+				{ name: "rp1-dev", version: "1.0.0" },
+			]);
 
 			// Pass both directories in order - should find plugins in second
 			const result = await verifyClaudeCodePlugins([firstDir, secondDir]);
@@ -276,26 +257,18 @@ describe("verification step", () => {
 			// Should find plugins in the second directory
 			expect(result.verified).toBe(true);
 			expect(result.plugins.every((p) => p.installed)).toBe(true);
-			expect(result.plugins.every((p) => p.location?.includes(secondDir))).toBe(
-				true,
-			);
 		});
 
-		test("returns correct structure when no directories provided", async () => {
-			// Create plugin directory at temp location with standard naming
+		test("returns correct structure when plugins found", async () => {
+			// Create plugin directory with standard naming
 			const pluginDir = join(tempDir, ".claude", "plugins");
 			await mkdir(pluginDir, { recursive: true });
 
 			// Create both plugins
-			for (const pluginName of ["rp1-base", "rp1-dev"]) {
-				const pluginPath = join(pluginDir, `${pluginName}@rp1-run`);
-				const manifestDir = join(pluginPath, ".claude-plugin");
-				await mkdir(manifestDir, { recursive: true });
-				await writeFile(
-					join(manifestDir, "plugin.json"),
-					JSON.stringify({ version: "1.0.0" }),
-				);
-			}
+			await createInstalledPluginsJson(pluginDir, [
+				{ name: "rp1-base", version: "1.0.0" },
+				{ name: "rp1-dev", version: "1.0.0" },
+			]);
 
 			// Pass custom directories to simulate the function's behavior
 			const result = await verifyClaudeCodePlugins([pluginDir]);
@@ -306,6 +279,7 @@ describe("verification step", () => {
 			expect(result).toHaveProperty("issues");
 			expect(Array.isArray(result.plugins)).toBe(true);
 			expect(Array.isArray(result.issues)).toBe(true);
+			expect(result.verified).toBe(true);
 		});
 	});
 });

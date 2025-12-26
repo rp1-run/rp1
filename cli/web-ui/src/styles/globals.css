@@ -108,6 +108,151 @@
     @apply mb-0;
   }
 
+  /* Responsive table styling (T1) */
+  .markdown-content table {
+    @apply min-w-full;
+  }
+
+  .markdown-content .table-wrapper {
+    @apply max-w-full overflow-x-auto;
+  }
+
+  /* Task list container styling (T3) */
+  .markdown-content ul.contains-task-list {
+    @apply list-none ml-0 pl-0;
+  }
+
+  /* Task list items - use padding + absolute positioning for checkbox */
+  .markdown-content li.task-list-item {
+    @apply list-none ml-0;
+    position: relative;
+    padding-left: 1.5rem;
+  }
+
+  /* Task checkboxes - position absolutely at the start */
+  .markdown-content li.task-list-item > input[type="checkbox"] {
+    @apply h-4 w-4 rounded border-border;
+    position: absolute;
+    left: 0;
+    top: 0.375rem;
+    accent-color: hsl(var(--terminal-green));
+  }
+
+  /* Checked state distinction */
+  .markdown-content li.task-list-item > input[type="checkbox"]:checked {
+    @apply opacity-80;
+  }
+
+  /* Nested tables in lists (T5) */
+  .markdown-content li > .table-wrapper,
+  .markdown-content li > table {
+    @apply my-2;
+  }
+
+  /* Nested lists maintain proper spacing (T5) */
+  .markdown-content li > ul,
+  .markdown-content li > ol {
+    @apply mt-2 mb-0;
+  }
+
+  /* Heading styles (T2) */
+  .markdown-content h1 {
+    @apply scroll-m-20 text-3xl font-bold tracking-tight mb-4 mt-6;
+  }
+
+  .markdown-content h1:first-child {
+    @apply mt-0;
+  }
+
+  .markdown-content h2 {
+    @apply scroll-m-20 text-2xl font-semibold tracking-tight mt-8 mb-4 border-b pb-2;
+  }
+
+  .markdown-content h3 {
+    @apply scroll-m-20 text-xl font-semibold tracking-tight mt-6 mb-3;
+  }
+
+  .markdown-content h4 {
+    @apply scroll-m-20 text-lg font-semibold tracking-tight mt-4 mb-2;
+  }
+
+  .markdown-content h5 {
+    @apply scroll-m-20 text-base font-semibold tracking-tight mt-4 mb-2;
+  }
+
+  .markdown-content h6 {
+    @apply scroll-m-20 text-sm font-semibold tracking-tight mt-4 mb-2 text-muted-foreground;
+  }
+
+  /* Text element styles (T2) */
+  .markdown-content p {
+    @apply leading-7;
+  }
+
+  .markdown-content p:not(:first-child) {
+    @apply mt-4;
+  }
+
+  .markdown-content strong {
+    @apply font-bold;
+  }
+
+  .markdown-content em {
+    @apply italic;
+  }
+
+  .markdown-content del {
+    @apply line-through text-muted-foreground;
+  }
+
+  /* List styles (T2) */
+  .markdown-content ul {
+    @apply my-4 ml-6 list-disc;
+  }
+
+  .markdown-content ol {
+    @apply my-4 ml-6 list-decimal;
+  }
+
+  .markdown-content li {
+    @apply mt-2;
+  }
+
+  /* Blockquote and hr styles (T2) */
+  .markdown-content blockquote {
+    @apply mt-4 border-l-4 border-terminal-green pl-4 italic text-muted-foreground;
+  }
+
+  .markdown-content hr {
+    @apply my-6 border-border;
+  }
+
+  /* Image styles (T2) */
+  .markdown-content img {
+    @apply my-4 max-w-full rounded-md;
+  }
+
+  /* Table cell styles (T2) */
+  .markdown-content thead {
+    @apply border-b bg-muted/50;
+  }
+
+  .markdown-content tbody tr:nth-child(even) {
+    @apply bg-muted/30;
+  }
+
+  .markdown-content tr {
+    @apply border-b border-border;
+  }
+
+  .markdown-content th {
+    @apply px-3 py-2 text-left font-semibold;
+  }
+
+  .markdown-content td {
+    @apply px-3 py-2;
+  }
+
   /* Shiki code block styling */
   .shiki-container pre {
     margin: 0;

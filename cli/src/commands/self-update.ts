@@ -4,8 +4,10 @@
  */
 
 import { Command } from "commander";
+import * as E from "fp-ts/lib/Either.js";
+import { formatError } from "../../shared/errors.js";
 import type { Logger } from "../../shared/logger.js";
-import { invalidateCache } from "../lib/cache.js";
+import { DEFAULT_TTL_HOURS, writeCache } from "../lib/cache.js";
 import { getColorFns } from "../lib/colors.js";
 import {
 	detectInstallMethod,
@@ -193,13 +195,21 @@ Examples:
 			process.exit(1);
 		}
 
-		// Step 5: Invalidate cache after successful update
-		logger?.debug("Invalidating version cache after successful update");
-		try {
-			await invalidateCache()();
-		} catch (e) {
+		// Step 5: Update cache with new version to suppress update banner
+		const newVersion = updateResult.newVersion ?? currentVersion;
+		logger?.debug(
+			`Updating version cache after successful update to v${newVersion}`,
+		);
+		const cacheResult = await writeCache({
+			latestVersion: newVersion,
+			releaseUrl: `${GITHUB_RELEASES_URL}/tag/v${newVersion}`,
+			ttlHours: DEFAULT_TTL_HOURS,
+		})();
+		if (E.isLeft(cacheResult)) {
 			// Non-critical error, just log it
-			logger?.debug(`Failed to invalidate cache: ${e}`);
+			logger?.debug(
+				`Failed to update cache: ${formatError(cacheResult.left, false)}`,
+			);
 		}
 
 		// Step 6: Report success

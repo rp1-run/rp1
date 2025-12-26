@@ -1,7 +1,7 @@
 {
 	"compilerOptions": {
 		"target": "ES2022",
-		"lib": ["ES2022"],
+		"lib": ["ES2022", "DOM"],
 		"module": "ESNext",
 		"moduleResolution": "bundler",
 		"allowImportingTsExtensions": true,
@@ -19,7 +19,9 @@
 		"paths": {
 			"@shared/*": ["./shared/*"]
 		},
-		"types": ["bun-types", "node"]
+		"types": ["bun-types", "node"],
+		"jsx": "react-jsx",
+		"jsxImportSource": "react"
 	},
 	"include": ["src/**/*", "shared/**/*"],
 	"exclude": ["node_modules", "dist", "src/assets/embedded.ts"]

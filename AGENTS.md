@@ -131,6 +131,10 @@ If command fails, inform user to install:
 
 2. We use bun to create an executable of the main CLI. Extra care should be taken to ensure we bundle all assets and any other files properly for this single executable to work.
 
+3. When using fp-ts, use monads and functional patterns where appropriate, but avoid overcomplicating simple logic. This includes using `match`, `map`, `flatmap`, `isLeft` etc
+
+4. Use appropriate lsps when writing or looking for code.
+
 ### Adding a New Command
 
 1. **Choose plugin**: base or dev or utils?

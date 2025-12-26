@@ -5,55 +5,101 @@
 
 import type { Logger } from "../../../shared/logger.js";
 import { getColorFns } from "../../lib/colors.js";
-import type { HealthReport, InitAction, NextStep } from "../models.js";
+import type {
+	HealthReport,
+	InitAction,
+	NextStep,
+	StepCallbacks,
+} from "../models.js";
 import type { DetectedTool } from "../tool-detector.js";
 
 /**
  * Generate next steps based on init result.
  * Produces contextual NextStep array based on health report and detected tool.
+ * Required steps are ordered before optional steps.
  *
  * @param healthReport - Health check report (may be null)
  * @param detectedTool - Primary detected tool (may be null)
  * @param hasKBContent - Whether KB content exists (.rp1/context/index.md)
- * @returns Array of next steps ordered by priority
+ * @param hasCharterContent - Whether charter content exists (.rp1/context/charter.md)
+ * @returns Array of next steps ordered by priority (required first, then optional)
  */
 export function generateNextSteps(
 	healthReport: HealthReport | null,
 	detectedTool: DetectedTool | null,
 	hasKBContent: boolean,
+	hasCharterContent: boolean,
 ): NextStep[] {
-	const steps: NextStep[] = [];
-	let order = 1;
+	const requiredSteps: Omit<NextStep, "order">[] = [];
+	const optionalSteps: Omit<NextStep, "order">[] = [];
 
-	// If plugins were just installed, restart AI tool
+	// Required: If plugins were just installed, restart AI tool
 	if (healthReport?.pluginsInstalled) {
-		steps.push({
-			order: order++,
+		requiredSteps.push({
 			action: `Restart ${detectedTool?.tool.name ?? "your AI tool"} to load plugins`,
 			required: true,
 		});
 	}
 
-	// If no KB content, suggest building
-	if (!hasKBContent) {
-		steps.push({
-			order: order++,
-			action: "Build knowledge base to analyze your codebase",
-			command: "/knowledge-build",
-			required: false,
-		});
-	}
-
-	// If no AI tool detected, suggest installing one
+	// Required: If no AI tool detected, suggest installing one
 	if (!detectedTool) {
-		steps.push({
-			order: order++,
+		requiredSteps.push({
 			action: "Install an AI coding tool (Claude Code or OpenCode)",
 			required: true,
+			docsUrl: "https://rp1.run/installation",
 		});
 	}
 
-	return steps;
+	// Optional: If no KB content, suggest building
+	if (!hasKBContent) {
+		optionalSteps.push({
+			action: "Build knowledge base",
+			command: "/knowledge-build",
+			required: false,
+			docsUrl: "https://rp1.run/guides/knowledge-base",
+			blurb: "Analyzes your codebase for AI context awareness",
+		});
+	}
+
+	// Optional: If no charter content, suggest creating
+	if (!hasCharterContent) {
+		optionalSteps.push({
+			action: "Create project charter",
+			command: "/blueprint",
+			required: false,
+			docsUrl: "https://rp1.run/guides/blueprint",
+			blurb: "Captures project vision to guide feature development",
+		});
+	}
+
+	// Combine required first, then optional, with sequential order numbers
+	const allSteps = [...requiredSteps, ...optionalSteps];
+	return allSteps.map((step, index) => ({
+		...step,
+		order: index + 1,
+	}));
+}
+
+/**
+ * Counts of actions by category.
+ */
+export interface ActionCounts {
+	readonly created: number;
+	readonly updated: number;
+	readonly installed: number;
+	readonly failed: number;
+}
+
+/**
+ * Data structure for summary display.
+ * Used by UI components to render the final summary.
+ */
+export interface SummaryData {
+	readonly actionCounts: ActionCounts;
+	readonly detectedTools: readonly DetectedTool[];
+	readonly healthReport: HealthReport | null;
+	readonly nextSteps: readonly NextStep[];
+	readonly hasFailures: boolean;
 }
 
 /**
@@ -62,12 +108,7 @@ export function generateNextSteps(
  * @param actions - Array of init actions
  * @returns Object with counts for each category
  */
-function countActions(actions: readonly InitAction[]): {
-	created: number;
-	updated: number;
-	installed: number;
-	failed: number;
-} {
+export function countActions(actions: readonly InitAction[]): ActionCounts {
 	let created = 0;
 	let updated = 0;
 	let installed = 0;
@@ -97,57 +138,98 @@ function countActions(actions: readonly InitAction[]): {
 }
 
 /**
+ * Prepare summary data for UI rendering.
+ * Extracts and computes all data needed for the summary display.
+ * UI components can use this data to render the summary.
+ *
+ * @param actions - All actions taken during initialization
+ * @param healthReport - Health check report (may be null)
+ * @param detectedTools - All detected tools (may be empty array)
+ * @param callbacks - Optional callbacks for reporting progress to UI
+ * @returns SummaryData object for UI consumption
+ */
+export function prepareSummaryData(
+	actions: readonly InitAction[],
+	healthReport: HealthReport | null,
+	detectedTools: readonly DetectedTool[],
+	callbacks?: StepCallbacks,
+): SummaryData {
+	callbacks?.onActivity("Preparing summary", "info");
+
+	const actionCounts = countActions(actions);
+	const hasKBContent = healthReport?.kbExists ?? false;
+	const hasCharterContent = healthReport?.charterExists ?? false;
+	const primaryTool = detectedTools[0] ?? null;
+
+	const nextSteps = generateNextSteps(
+		healthReport,
+		primaryTool,
+		hasKBContent,
+		hasCharterContent,
+	);
+
+	const hasFailures = actionCounts.failed > 0;
+
+	callbacks?.onActivity(
+		hasFailures ? "Summary ready (with warnings)" : "Summary ready",
+		hasFailures ? "warning" : "success",
+	);
+
+	return {
+		actionCounts,
+		detectedTools,
+		healthReport,
+		nextSteps,
+		hasFailures,
+	};
+}
+
+/**
  * Display comprehensive summary of initialization.
  * Renders formatted output with color coding.
+ * Uses console.log directly for clean output without log prefixes.
  *
  * @param actions - All actions taken during initialization
  * @param healthReport - Health check report (may be null)
  * @param nextSteps - Generated next steps for the user
- * @param detectedTool - Primary detected tool (may be null)
- * @param logger - Logger instance for output
+ * @param detectedTools - All detected tools (may be empty array)
+ * @param _logger - Logger instance (unused, kept for API compatibility)
  * @param isTTY - Whether output is a TTY (for color support)
  */
 export function displaySummary(
 	actions: readonly InitAction[],
 	healthReport: HealthReport | null,
 	nextSteps: readonly NextStep[],
-	detectedTool: DetectedTool | null,
-	logger: Logger,
+	detectedTools: readonly DetectedTool[],
+	_logger: Logger,
 	isTTY: boolean,
 ): void {
 	const color = getColorFns(isTTY);
+	const log = (msg: string) => console.log(msg);
 
 	// Count actions by type
 	const counts = countActions(actions);
 
 	// Header
-	logger.info("");
-	logger.info(
-		color.bold("==================================================="),
-	);
-	logger.info(
-		color.bold("           rp1 Initialization Summary              "),
-	);
-	logger.info(
-		color.bold("==================================================="),
-	);
-	logger.info("");
+	log("");
+	log(color.bold("==================================================="));
+	log(color.bold("           rp1 Initialization Summary              "));
+	log(color.bold("==================================================="));
+	log("");
 
 	// Actions summary
-	logger.info(color.dim("Actions:"));
+	log(color.dim("Actions:"));
 	if (counts.created > 0) {
-		logger.info(`  ${color.green("\u2713")} ${counts.created} created`);
+		log(`  ${color.green("\u2713")} ${counts.created} created`);
 	}
 	if (counts.updated > 0) {
-		logger.info(`  ${color.green("\u2713")} ${counts.updated} updated`);
+		log(`  ${color.green("\u2713")} ${counts.updated} updated`);
 	}
 	if (counts.installed > 0) {
-		logger.info(
-			`  ${color.green("\u2713")} ${counts.installed} plugins installed`,
-		);
+		log(`  ${color.green("\u2713")} ${counts.installed} plugins installed`);
 	}
 	if (counts.failed > 0) {
-		logger.info(`  ${color.red("\u2717")} ${counts.failed} failed`);
+		log(`  ${color.red("\u2717")} ${counts.failed} failed`);
 	}
 	// Handle case where no significant actions occurred
 	if (
@@ -156,54 +238,68 @@ export function displaySummary(
 		counts.installed === 0 &&
 		counts.failed === 0
 	) {
-		logger.info(`  ${color.dim("No changes made")}`);
+		log(`  ${color.dim("No changes made")}`);
 	}
 
-	// Detected tool
-	if (detectedTool) {
-		logger.info("");
-		logger.info(color.dim("Detected Tool:"));
-		const versionStr =
-			detectedTool.version === "unknown"
-				? "(version unknown)"
-				: `v${detectedTool.version}`;
-		logger.info(`  ${detectedTool.tool.name} ${versionStr}`);
+	// Detected tools
+	if (detectedTools.length > 0) {
+		log("");
+		const label =
+			detectedTools.length === 1 ? "Detected Tool:" : "Detected Tools:";
+		log(color.dim(label));
+		for (const tool of detectedTools) {
+			const versionStr =
+				tool.version === "unknown" ? "(version unknown)" : `v${tool.version}`;
+			log(`  ${color.green("\u2713")} ${tool.tool.name} ${versionStr}`);
+		}
 	}
 
-	// Health status
+	// Setup status
 	if (healthReport) {
-		logger.info("");
-		logger.info(color.dim("Health Check:"));
+		log("");
+		log(color.dim("Setup Status:"));
 
 		const check = (ok: boolean, label: string) => {
 			const icon = ok ? color.green("\u2713") : color.red("\u2717");
-			logger.info(`  ${icon} ${label}`);
+			log(`  ${icon} ${label}`);
 		};
 
 		check(healthReport.rp1DirExists, ".rp1/ directory");
 		check(healthReport.instructionFileValid, "Instruction file");
 		check(healthReport.gitignoreConfigured, ".gitignore");
 		check(healthReport.pluginsInstalled, "Plugins");
+		check(healthReport.kbExists, "Knowledge base");
+		check(healthReport.charterExists, "Charter");
 	}
 
 	// Next steps
 	if (nextSteps.length > 0) {
-		logger.info("");
-		logger.info(color.bold("Next Steps:"));
+		log("");
+		log(color.bold("Next Steps:"));
 		for (const step of nextSteps) {
 			const marker = step.required
 				? color.yellow("\u2192")
 				: color.dim("\u25CB");
 			const cmd = step.command ? color.cyan(` (${step.command})`) : "";
 			const requiredTag = step.required ? color.yellow(" [required]") : "";
-			logger.info(
-				`  ${marker} ${step.order}. ${step.action}${cmd}${requiredTag}`,
-			);
+			log(`  ${marker} ${step.order}. ${step.action}${cmd}${requiredTag}`);
+			// Render blurb indented below command
+			if (step.blurb) {
+				log(`       ${color.dim(step.blurb)}`);
+			}
+			// Render docs URL indented below blurb
+			if (step.docsUrl) {
+				log(`       ${color.dim("Docs:")} ${color.cyan(step.docsUrl)}`);
+			}
+			// Add blank line between steps if there are blurb or docsUrl
+			if (step.blurb || step.docsUrl) {
+				log("");
+			}
 		}
 	}
 
 	// Documentation link
-	logger.info("");
-	logger.info(color.dim("Documentation: https://rp1.run"));
-	logger.info("");
+	log("");
+	log(color.dim("Documentation: https://rp1.run"));
+	log("");
 }

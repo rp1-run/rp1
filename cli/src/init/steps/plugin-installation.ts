@@ -17,7 +17,11 @@ import type {
 	ClaudeCodePrerequisiteResult,
 } from "../../install/claudecode/models.js";
 import { runAllPrerequisiteChecks as defaultRunAllPrerequisiteChecks } from "../../install/claudecode/prerequisites.js";
-import type { InitAction, PluginInstallResult } from "../models.js";
+import type {
+	InitAction,
+	PluginInstallResult,
+	StepCallbacks,
+} from "../models.js";
 import type { DetectedTool } from "../tool-detector.js";
 
 /**
@@ -121,6 +125,7 @@ export interface PluginInstallStepResult {
  * @param logger - Logger for progress output
  * @param config - Optional plugin installation configuration
  * @param deps - Optional dependencies for testing
+ * @param callbacks - Optional callbacks for reporting progress to UI
  * @returns Plugin installation step result with actions and result
  */
 export const executePluginInstallation = async (
@@ -129,12 +134,14 @@ export const executePluginInstallation = async (
 	logger: Logger,
 	config: PluginInstallConfig = defaultPluginInstallConfig,
 	deps: PluginInstallDeps = defaultPluginInstallDeps,
+	callbacks?: StepCallbacks,
 ): Promise<PluginInstallStepResult> => {
 	const actions: InitAction[] = [];
 
 	// No tool detected - skip installation
 	if (!detectedTool) {
 		logger.info("No agentic tool detected - skipping plugin installation");
+		callbacks?.onActivity("No agentic tool detected", "warning");
 		actions.push({
 			type: "skipped",
 			reason: "No agentic tool detected - cannot install plugins",
@@ -151,12 +158,21 @@ export const executePluginInstallation = async (
 		logger.box(
 			`See: https://rp1.run/getting-started/installation/#${detectedTool.tool.id}`,
 		);
+		callbacks?.onActivity(
+			`Manual installation required for ${detectedTool.tool.name}`,
+			"info",
+		);
 		actions.push({
 			type: "skipped",
 			reason: `Automated installation not supported for ${detectedTool.tool.name}`,
 		});
 		return { actions, result: null };
 	}
+
+	callbacks?.onActivity(
+		`Installing plugins for ${detectedTool.tool.name}`,
+		"info",
+	);
 
 	// Non-interactive mode (--yes): proceed with installation
 	if (!promptOptions.isTTY) {
@@ -167,6 +183,7 @@ export const executePluginInstallation = async (
 			logger,
 			promptOptions.isTTY,
 			deps,
+			callbacks,
 		);
 	}
 
@@ -178,6 +195,7 @@ export const executePluginInstallation = async (
 
 	if (!confirmed) {
 		logger.info("Plugin installation declined");
+		callbacks?.onActivity("Plugin installation declined by user", "info");
 		actions.push({
 			type: "skipped",
 			reason: "Plugin installation declined by user",
@@ -192,6 +210,7 @@ export const executePluginInstallation = async (
 		logger,
 		promptOptions.isTTY,
 		deps,
+		callbacks,
 	);
 };
 
@@ -205,6 +224,7 @@ async function executeInstallation(
 	logger: Logger,
 	isTTY: boolean,
 	deps: PluginInstallDeps = defaultPluginInstallDeps,
+	callbacks?: StepCallbacks,
 ): Promise<PluginInstallStepResult> {
 	const spinner = createSpinner(isTTY);
 	spinner.start("Installing plugins...");
@@ -228,6 +248,7 @@ async function executeInstallation(
 			error: errorMessage,
 		});
 		spinner.fail(`Plugin installation failed: ${errorMessage}`);
+		callbacks?.onActivity(`Installation failed: ${errorMessage}`, "error");
 		return { actions, result: null };
 	}
 
@@ -251,6 +272,10 @@ async function executeInstallation(
 		spinner.succeed(
 			`Installed ${result.pluginsInstalled.length} plugin(s): ${result.pluginsInstalled.join(", ")}`,
 		);
+		callbacks?.onActivity(
+			`Installed ${result.pluginsInstalled.length} plugin(s)`,
+			"success",
+		);
 	} else {
 		// Installation failed
 		const errorMessage =
@@ -267,6 +292,7 @@ async function executeInstallation(
 		});
 
 		spinner.fail(`Plugin installation failed: ${errorMessage}`);
+		callbacks?.onActivity(`Installation failed: ${errorMessage}`, "error");
 		logger.info(
 			"You can try installing manually: https://rp1.run/getting-started/installation/",
 		);
