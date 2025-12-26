@@ -163,7 +163,7 @@ export function Layout() {
 				>
 					<main id="main-content" className="h-full" tabIndex={-1}>
 						<ScrollArea className="h-full">
-							<div className="p-6">
+							<div className="mx-auto max-w-4xl p-6">
 								<Outlet context={{ refetchTree: refetch }} />
 							</div>
 						</ScrollArea>
