@@ -43,9 +43,14 @@ function createDetectedTool(
 ): DetectedTool {
 	return {
 		tool: {
+			id: "claude-code",
 			name,
-			configPaths: [],
-			detectVersion: async () => version,
+			binary: "claude",
+			min_version: "1.0.0",
+			instruction_file: "CLAUDE.md",
+			install_url: "https://example.com",
+			plugin_install_cmd: null,
+			capabilities: [],
 		},
 		version,
 		meetsMinVersion: true,
@@ -63,6 +68,10 @@ function createMockLogger(): {
 		debug: (msg: string) => void;
 		trace: (msg: string) => void;
 		warn: (msg: string) => void;
+		start: (msg: string) => void;
+		success: (msg: string) => void;
+		fail: (msg: string) => void;
+		box: (msg: string) => void;
 	};
 	output: string[];
 	restore: () => void;
@@ -80,6 +89,10 @@ function createMockLogger(): {
 			debug: (msg: string) => output.push(`DEBUG: ${msg}`),
 			trace: (msg: string) => output.push(`TRACE: ${msg}`),
 			warn: (msg: string) => output.push(`WARN: ${msg}`),
+			start: (msg: string) => output.push(`START: ${msg}`),
+			success: (msg: string) => output.push(`SUCCESS: ${msg}`),
+			fail: (msg: string) => output.push(`FAIL: ${msg}`),
+			box: (msg: string) => output.push(`BOX: ${msg}`),
 		},
 		output,
 		restore: () => {
@@ -307,7 +320,7 @@ describe("summary step", () => {
 
 	describe("displaySummary", () => {
 		test("renders blurb text for steps that have blurbs", () => {
-			const { logger, output, restore } = createMockLogger();
+			const { logger, output } = createMockLogger();
 			const actions: readonly [] = [];
 			const healthReport = createHealthReport({ pluginsInstalled: false });
 			const nextSteps: NextStep[] = [
@@ -338,7 +351,7 @@ describe("summary step", () => {
 		});
 
 		test("renders docs URL for steps that have docsUrl", () => {
-			const { logger, output, restore } = createMockLogger();
+			const { logger, output } = createMockLogger();
 			const actions: readonly [] = [];
 			const healthReport = createHealthReport({ pluginsInstalled: false });
 			const nextSteps: NextStep[] = [
@@ -370,7 +383,7 @@ describe("summary step", () => {
 		});
 
 		test("renders KB presence in setup status section", () => {
-			const { logger, output, restore } = createMockLogger();
+			const { logger, output } = createMockLogger();
 			const actions: readonly [] = [];
 			const healthReport = createHealthReport({ kbExists: true });
 			const nextSteps: NextStep[] = [];
@@ -390,7 +403,7 @@ describe("summary step", () => {
 		});
 
 		test("renders charter presence in setup status section", () => {
-			const { logger, output, restore } = createMockLogger();
+			const { logger, output } = createMockLogger();
 			const actions: readonly [] = [];
 			const healthReport = createHealthReport({ charterExists: true });
 			const nextSteps: NextStep[] = [];
@@ -410,7 +423,7 @@ describe("summary step", () => {
 		});
 
 		test("displays Setup Status section header", () => {
-			const { logger, output, restore } = createMockLogger();
+			const { logger, output } = createMockLogger();
 			const actions: readonly [] = [];
 			const healthReport = createHealthReport();
 			const nextSteps: NextStep[] = [];
@@ -430,7 +443,7 @@ describe("summary step", () => {
 		});
 
 		test("renders documentation footer with rp1.run URL", () => {
-			const { logger, output, restore } = createMockLogger();
+			const { logger, output } = createMockLogger();
 			const actions: readonly [] = [];
 			const healthReport = createHealthReport();
 			const nextSteps: NextStep[] = [];
@@ -453,7 +466,7 @@ describe("summary step", () => {
 		});
 
 		test("does not render blurb when step has no blurb", () => {
-			const { logger, output, restore } = createMockLogger();
+			const { logger, output } = createMockLogger();
 			const actions: readonly [] = [];
 			const healthReport = createHealthReport({ pluginsInstalled: false });
 			const nextSteps: NextStep[] = [
@@ -480,7 +493,7 @@ describe("summary step", () => {
 		});
 
 		test("does not render docs URL when step has no docsUrl", () => {
-			const { logger, output, restore } = createMockLogger();
+			const { logger, output } = createMockLogger();
 			const actions: readonly [] = [];
 			const healthReport = createHealthReport({ pluginsInstalled: false });
 			const nextSteps: NextStep[] = [
@@ -519,7 +532,7 @@ describe("summary step", () => {
 		});
 
 		test("renders required step marker correctly", () => {
-			const { logger, output, restore } = createMockLogger();
+			const { logger, output } = createMockLogger();
 			const actions: readonly [] = [];
 			const healthReport = createHealthReport();
 			const nextSteps: NextStep[] = [
@@ -548,7 +561,7 @@ describe("summary step", () => {
 		});
 
 		test("renders optional step without required tag", () => {
-			const { logger, output, restore } = createMockLogger();
+			const { logger, output } = createMockLogger();
 			const actions: readonly [] = [];
 			const healthReport = createHealthReport();
 			const nextSteps: NextStep[] = [
@@ -577,7 +590,7 @@ describe("summary step", () => {
 		});
 
 		test("renders command in cyan for steps with commands", () => {
-			const { logger, output, restore } = createMockLogger();
+			const { logger, output } = createMockLogger();
 			const actions: readonly [] = [];
 			const healthReport = createHealthReport();
 			const nextSteps: NextStep[] = [
@@ -604,7 +617,7 @@ describe("summary step", () => {
 		});
 
 		test("handles null healthReport gracefully", () => {
-			const { logger, output, restore } = createMockLogger();
+			const { logger, output } = createMockLogger();
 			const actions: readonly [] = [];
 			const nextSteps: NextStep[] = [];
 			const detectedTool = createDetectedTool();
@@ -621,7 +634,7 @@ describe("summary step", () => {
 		});
 
 		test("handles null detectedTool gracefully", () => {
-			const { logger, output, restore } = createMockLogger();
+			const { logger, output } = createMockLogger();
 			const actions: readonly [] = [];
 			const healthReport = createHealthReport();
 			const nextSteps: NextStep[] = [];
@@ -638,7 +651,7 @@ describe("summary step", () => {
 		});
 
 		test("renders detected tool with version", () => {
-			const { logger, output, restore } = createMockLogger();
+			const { logger, output } = createMockLogger();
 			const actions: readonly [] = [];
 			const healthReport = createHealthReport();
 			const nextSteps: NextStep[] = [];
@@ -660,7 +673,7 @@ describe("summary step", () => {
 		});
 
 		test("renders (version unknown) when tool version is unknown", () => {
-			const { logger, output, restore } = createMockLogger();
+			const { logger, output } = createMockLogger();
 			const actions: readonly [] = [];
 			const healthReport = createHealthReport();
 			const nextSteps: NextStep[] = [];
@@ -683,7 +696,7 @@ describe("summary step", () => {
 		});
 
 		test("renders created count for directory and file actions", () => {
-			const { logger, output, restore } = createMockLogger();
+			const { logger, output } = createMockLogger();
 			const actions: readonly InitAction[] = [
 				{ type: "created_directory", path: ".rp1" },
 				{ type: "created_file", path: "CLAUDE.md" },
@@ -707,7 +720,7 @@ describe("summary step", () => {
 		});
 
 		test("renders updated count for file updates", () => {
-			const { logger, output, restore } = createMockLogger();
+			const { logger, output } = createMockLogger();
 			const actions: readonly InitAction[] = [
 				{ type: "updated_file", path: "CLAUDE.md" },
 				{ type: "updated_file", path: ".gitignore" },
@@ -730,7 +743,7 @@ describe("summary step", () => {
 		});
 
 		test("renders installed count for plugin installations", () => {
-			const { logger, output, restore } = createMockLogger();
+			const { logger, output } = createMockLogger();
 			const actions: readonly InitAction[] = [
 				{ type: "plugin_installed", name: "rp1-base", version: "1.0.0" },
 				{ type: "plugin_updated", name: "rp1-dev", version: "1.0.1" },
@@ -755,7 +768,7 @@ describe("summary step", () => {
 		});
 
 		test("renders failed count for failures", () => {
-			const { logger, output, restore } = createMockLogger();
+			const { logger, output } = createMockLogger();
 			const actions: readonly InitAction[] = [
 				{
 					type: "plugin_install_failed",
@@ -782,7 +795,7 @@ describe("summary step", () => {
 		});
 
 		test("renders No changes made when no actions occurred", () => {
-			const { logger, output, restore } = createMockLogger();
+			const { logger, output } = createMockLogger();
 			const actions: readonly InitAction[] = [];
 			const healthReport = createHealthReport();
 			const nextSteps: NextStep[] = [];
@@ -804,7 +817,7 @@ describe("summary step", () => {
 		});
 
 		test("renders multiple action types in single summary", () => {
-			const { logger, output, restore } = createMockLogger();
+			const { logger, output } = createMockLogger();
 			const actions: readonly InitAction[] = [
 				{ type: "created_directory", path: ".rp1" },
 				{ type: "created_file", path: "CLAUDE.md" },

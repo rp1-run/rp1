@@ -440,7 +440,7 @@ describe("SelectPrompt", () => {
 			const { lastFrame } = render(
 				<SelectPrompt message="Select" options={options} onSelect={() => {}} />,
 			);
-			const output = lastFrame();
+			const output = lastFrame() ?? "";
 
 			// Should render without error
 			// Ink may wrap long content, so we check for presence of the characters

@@ -510,25 +510,29 @@ export const executeVerify = (
 			console.log("+-----------+--------------+--------+");
 
 			const cmdOk = report.commandsFound >= report.commandsExpected;
-			const cmdCount = `${report.commandsFound}/${report.commandsExpected}`.padEnd(12);
+			const cmdCount =
+				`${report.commandsFound}/${report.commandsExpected}`.padEnd(12);
 			console.log(
 				`| Commands  | ${cmdCount} | ${cmdOk ? green("  OK  ") : red(" MISS ")} |`,
 			);
 
 			const agentOk = report.agentsFound >= report.agentsExpected;
-			const agentCount = `${report.agentsFound}/${report.agentsExpected}`.padEnd(12);
+			const agentCount =
+				`${report.agentsFound}/${report.agentsExpected}`.padEnd(12);
 			console.log(
 				`| Agents    | ${agentCount} | ${agentOk ? green("  OK  ") : red(" MISS ")} |`,
 			);
 
 			const skillOk = report.skillsFound >= report.skillsExpected;
-			const skillCount = `${report.skillsFound}/${report.skillsExpected}`.padEnd(12);
+			const skillCount =
+				`${report.skillsFound}/${report.skillsExpected}`.padEnd(12);
 			console.log(
 				`| Skills    | ${skillCount} | ${skillOk ? green("  OK  ") : yellow(" WARN ")} |`,
 			);
 
 			const pluginOk = report.pluginsFound >= report.pluginsExpected;
-			const pluginCount = `${report.pluginsFound}/${report.pluginsExpected}`.padEnd(12);
+			const pluginCount =
+				`${report.pluginsFound}/${report.pluginsExpected}`.padEnd(12);
 			console.log(
 				`| Plugins   | ${pluginCount} | ${pluginOk ? green("  OK  ") : yellow(" WARN ")} |`,
 			);

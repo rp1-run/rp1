@@ -26,10 +26,11 @@ function createMockTool(overrides: Partial<DetectedTool> = {}): DetectedTool {
 			name: "Claude Code",
 			binary: "claude",
 			min_version: "1.0.0",
-			instructions_file: "CLAUDE.md",
+			instruction_file: "CLAUDE.md",
+			install_url: "https://example.com",
 			plugin_install_cmd: "claude plugin install {url}",
+			capabilities: [],
 		},
-		path: "/usr/local/bin/claude",
 		version: "1.0.33",
 		meetsMinVersion: true,
 		...overrides,
@@ -137,7 +138,9 @@ describe("FinalSummary", () => {
 					name: "OpenCode",
 					binary: "opencode",
 					min_version: "0.8.0",
-					instructions_file: "AGENTS.md",
+					instruction_file: "AGENTS.md",
+					install_url: "https://example.com",
+					capabilities: [],
 					plugin_install_cmd: "opencode plugin install {url}",
 				},
 			});
@@ -160,7 +163,9 @@ describe("FinalSummary", () => {
 					name: "OpenCode",
 					binary: "opencode",
 					min_version: "0.8.0",
-					instructions_file: "AGENTS.md",
+					instruction_file: "AGENTS.md",
+					install_url: "https://example.com",
+					capabilities: [],
 					plugin_install_cmd: "opencode plugin install {url}",
 				},
 			});
@@ -172,7 +177,9 @@ describe("FinalSummary", () => {
 			const { lastFrame } = render(<FinalSummary state={state} />);
 			const output = lastFrame();
 
-			expect(output).toContain("Restart Claude Code and OpenCode to load plugins");
+			expect(output).toContain(
+				"Restart Claude Code and OpenCode to load plugins",
+			);
 		});
 	});
 
@@ -430,7 +437,9 @@ describe("FinalSummary", () => {
 					name: "OpenCode",
 					binary: "opencode",
 					min_version: "0.8.0",
-					instructions_file: "AGENTS.md",
+					instruction_file: "AGENTS.md",
+					install_url: "https://example.com",
+					capabilities: [],
 					plugin_install_cmd: "opencode plugin install {url}",
 				},
 				version: "0.9.0",
@@ -511,7 +520,7 @@ describe("FinalSummary", () => {
 			const state = createTestWizardState({ healthReport });
 
 			const { lastFrame } = render(<FinalSummary state={state} />);
-			const output = lastFrame();
+			const output = lastFrame() ?? "";
 
 			// Restart is required and should appear first (as step 1)
 			const restartIndex = output.indexOf("Restart");

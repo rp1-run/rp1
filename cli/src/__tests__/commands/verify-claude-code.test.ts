@@ -23,6 +23,7 @@ describe("verify:claude-code command", () => {
 
 	/**
 	 * Helper to create plugin directory structure with both plugins installed.
+	 * Creates installed_plugins.json which is the format Claude Code uses.
 	 */
 	async function createInstalledPlugins(
 		pluginDir: string,
@@ -32,28 +33,42 @@ describe("verify:claude-code command", () => {
 
 		const baseVersion = versions.base ?? "0.2.5";
 		const devVersion = versions.dev ?? "0.2.5";
+		const now = new Date().toISOString();
 
-		// Create rp1-base plugin
-		const basePluginDir = join(pluginDir, "rp1-base@rp1-run");
-		const baseManifestDir = join(basePluginDir, ".claude-plugin");
-		await mkdir(baseManifestDir, { recursive: true });
-		await writeFile(
-			join(baseManifestDir, "plugin.json"),
-			JSON.stringify({ version: baseVersion }),
-		);
+		// Create installed_plugins.json
+		const installedPlugins = {
+			version: 1,
+			plugins: {
+				"rp1-base@rp1-run": [
+					{
+						scope: "user",
+						installPath: join(pluginDir, "rp1-base@rp1-run"),
+						version: baseVersion,
+						installedAt: now,
+						lastUpdated: now,
+					},
+				],
+				"rp1-dev@rp1-run": [
+					{
+						scope: "user",
+						installPath: join(pluginDir, "rp1-dev@rp1-run"),
+						version: devVersion,
+						installedAt: now,
+						lastUpdated: now,
+					},
+				],
+			},
+		};
 
-		// Create rp1-dev plugin
-		const devPluginDir = join(pluginDir, "rp1-dev@rp1-run");
-		const devManifestDir = join(devPluginDir, ".claude-plugin");
-		await mkdir(devManifestDir, { recursive: true });
 		await writeFile(
-			join(devManifestDir, "plugin.json"),
-			JSON.stringify({ version: devVersion }),
+			join(pluginDir, "installed_plugins.json"),
+			JSON.stringify(installedPlugins, null, 2),
 		);
 	}
 
 	/**
 	 * Helper to create only rp1-base plugin (partial installation).
+	 * Creates installed_plugins.json with only rp1-base.
 	 */
 	async function createPartialInstallation(
 		pluginDir: string,
@@ -61,12 +76,27 @@ describe("verify:claude-code command", () => {
 	): Promise<void> {
 		await mkdir(pluginDir, { recursive: true });
 
-		const basePluginDir = join(pluginDir, "rp1-base@rp1-run");
-		const baseManifestDir = join(basePluginDir, ".claude-plugin");
-		await mkdir(baseManifestDir, { recursive: true });
+		const now = new Date().toISOString();
+
+		// Create installed_plugins.json with only rp1-base
+		const installedPlugins = {
+			version: 1,
+			plugins: {
+				"rp1-base@rp1-run": [
+					{
+						scope: "user",
+						installPath: join(pluginDir, "rp1-base@rp1-run"),
+						version: baseVersion,
+						installedAt: now,
+						lastUpdated: now,
+					},
+				],
+			},
+		};
+
 		await writeFile(
-			join(baseManifestDir, "plugin.json"),
-			JSON.stringify({ version: baseVersion }),
+			join(pluginDir, "installed_plugins.json"),
+			JSON.stringify(installedPlugins, null, 2),
 		);
 	}
 
@@ -370,26 +400,40 @@ describe("verify:claude-code command", () => {
 			expect(basePlugin?.version).toBe("1.0.0");
 		});
 
-		test("displays unknown when manifest has no version", async () => {
+		test("displays unknown when installed_plugins.json has no version", async () => {
 			const pluginDir = join(tempDir, "plugins");
 			await mkdir(pluginDir, { recursive: true });
 
-			// Create plugin without version in manifest
-			const basePluginDir = join(pluginDir, "rp1-base@rp1-run");
-			const baseManifestDir = join(basePluginDir, ".claude-plugin");
-			await mkdir(baseManifestDir, { recursive: true });
-			await writeFile(
-				join(baseManifestDir, "plugin.json"),
-				JSON.stringify({ name: "rp1-base" }), // No version field
-			);
+			const now = new Date().toISOString();
 
-			// Create rp1-dev with version
-			const devPluginDir = join(pluginDir, "rp1-dev@rp1-run");
-			const devManifestDir = join(devPluginDir, ".claude-plugin");
-			await mkdir(devManifestDir, { recursive: true });
+			// Create installed_plugins.json with missing version for rp1-base
+			const installedPlugins = {
+				version: 1,
+				plugins: {
+					"rp1-base@rp1-run": [
+						{
+							scope: "user",
+							installPath: join(pluginDir, "rp1-base@rp1-run"),
+							// version intentionally omitted
+							installedAt: now,
+							lastUpdated: now,
+						},
+					],
+					"rp1-dev@rp1-run": [
+						{
+							scope: "user",
+							installPath: join(pluginDir, "rp1-dev@rp1-run"),
+							version: "1.0.0",
+							installedAt: now,
+							lastUpdated: now,
+						},
+					],
+				},
+			};
+
 			await writeFile(
-				join(devManifestDir, "plugin.json"),
-				JSON.stringify({ version: "1.0.0" }),
+				join(pluginDir, "installed_plugins.json"),
+				JSON.stringify(installedPlugins, null, 2),
 			);
 
 			const result = await verifyClaudeCodePlugins([pluginDir]);
