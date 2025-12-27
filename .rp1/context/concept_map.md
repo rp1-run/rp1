@@ -6,10 +6,10 @@
 ## Core Business Concepts
 
 ### Plugin
-**Definition**: Self-contained unit providing commands, agents, and skills for Claude Code/OpenCode platforms. Two plugins exist: rp1-base (foundation) and rp1-dev (development workflows).
+**Definition**: Self-contained unit providing commands, agents, and skills for Claude Code/OpenCode platforms. Three plugins exist: rp1-base (foundation), rp1-dev (development workflows), rp1-utils (prompt utilities).
 **Implementation**: `plugins/base/.claude-plugin/plugin.json`, `plugins/dev/.claude-plugin/plugin.json`
 **Key Properties**:
-- name: Plugin identifier (rp1-base, rp1-dev)
+- name: Plugin identifier (rp1-base, rp1-dev, rp1-utils)
 - version: Semantic version synchronized across all plugins
 - dependencies: Plugin can depend on others (dev depends on base >= 2.0.0)
 
@@ -23,7 +23,7 @@
 **Implementation**: `plugins/*/commands/*.md`
 **Relationships**:
 - Invokes Agent via Task tool for execution
-- Uses short form `/command-name` in Claude Code
+- Uses namespace prefixes: /rp1-base:, /rp1-dev:
 
 ### Agent
 **Definition**: Autonomous worker (200-350 lines) with constitutional structure that executes complete workflows in single-pass with anti-loop directives and JSON output contracts.
@@ -143,6 +143,7 @@ graph TB
     subgraph "Plugin System"
         Base[rp1-base]
         Dev[rp1-dev]
+        Utils[rp1-utils]
         Dev -->|depends on| Base
     end
 
