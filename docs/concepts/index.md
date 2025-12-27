@@ -38,6 +38,14 @@ Understanding the core ideas behind rp1 helps you get the most out of its workfl
 
     [:octicons-arrow-right-24: Learn more](map-reduce-workflows.md)
 
+-   :material-restart: **Stateless Agents**
+
+    ---
+
+    Learn how resumable interview workflows use file-based state for robustness.
+
+    [:octicons-arrow-right-24: Learn more](stateless-agents.md)
+
 </div>
 
 ---
@@ -50,6 +58,7 @@ Understanding the core ideas behind rp1 helps you get the most out of its workfl
 | [Knowledge-Aware Agents](knowledge-aware-agents.md) | Agents that understand your codebase | Output fits your architecture |
 | [Command-Agent Pattern](command-agent-pattern.md) | Commands delegate to agents | Clean, reusable workflows |
 | [Map-Reduce Workflows](map-reduce-workflows.md) | Parallel processing pattern | Fast KB and PR analysis |
+| [Stateless Agents](stateless-agents.md) | Resumable interview workflows | Robust, transparent state |
 
 ---
 
@@ -62,3 +71,5 @@ Understanding the core ideas behind rp1 helps you get the most out of its workfl
 **Curious about architecture?** See [Command-Agent Pattern](command-agent-pattern.md) for the technical design.
 
 **Need performance?** Check [Map-Reduce Workflows](map-reduce-workflows.md) for parallelization patterns.
+
+**Building resumable workflows?** See [Stateless Agents](stateless-agents.md) for interrupt-safe interview patterns.
