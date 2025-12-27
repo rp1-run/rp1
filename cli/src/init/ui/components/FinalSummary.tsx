@@ -8,6 +8,7 @@
 import figures from "figures";
 import { Box, Text } from "ink";
 import type React from "react";
+import type { ProjectContext } from "../../context-detector.js";
 import type { HealthReport, NextStep } from "../../models.js";
 import type { DetectedTool } from "../../tool-detector.js";
 import type { WizardState } from "../hooks/useWizardState.js";
@@ -251,6 +252,7 @@ const NextStepsList: React.FC<NextStepsListProps> = ({ steps }) => {
 const generateNextSteps = (
 	healthReport: HealthReport | null,
 	detectedTools: readonly DetectedTool[],
+	projectContext: ProjectContext | null,
 ): readonly NextStep[] => {
 	const steps: NextStep[] = [];
 	let order = 1;
@@ -286,6 +288,19 @@ const generateNextSteps = (
 		required: true,
 		blurb: "New plugins require a restart to become available",
 	});
+
+	// Greenfield: Suggest bootstrap as first optional step
+	if (projectContext === "greenfield") {
+		steps.push({
+			order: order++,
+			action: "Bootstrap a new project",
+			command: "/bootstrap",
+			required: false,
+			blurb:
+				"Creates a complete project with charter, tech stack, and runnable code",
+			docsUrl: "https://rp1.run/guides/bootstrap",
+		});
+	}
 
 	// Check for plugin installation issues from healthReport
 	if (healthReport && !healthReport.pluginsInstalled) {
@@ -388,7 +403,11 @@ const isSuccessful = (state: WizardState): boolean => {
  */
 export const FinalSummary: React.FC<FinalSummaryProps> = ({ state }) => {
 	const success = isSuccessful(state);
-	const nextSteps = generateNextSteps(state.healthReport, state.detectedTools);
+	const nextSteps = generateNextSteps(
+		state.healthReport,
+		state.detectedTools,
+		state.projectContext,
+	);
 
 	const borderColor = success ? colors.success : colors.error;
 	const statusEmoji = success ? "\u2728" : "\u274C"; // Sparkles or X

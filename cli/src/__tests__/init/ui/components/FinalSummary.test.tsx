@@ -85,6 +85,7 @@ function createTestWizardState(
 		activities: [],
 		detectedTools: [createMockTool()],
 		healthReport: createMockHealthReport(),
+		projectContext: null,
 		userChoices: {},
 		phase: "complete",
 		error: null,

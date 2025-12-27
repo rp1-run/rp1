@@ -6,6 +6,7 @@
  */
 
 import { useReducer } from "react";
+import type { ProjectContext } from "../../context-detector.js";
 import type {
 	Activity,
 	HealthReport,
@@ -35,6 +36,8 @@ export interface WizardState {
 	readonly detectedTools: readonly DetectedTool[];
 	/** Health check report after completion */
 	readonly healthReport: HealthReport | null;
+	/** Project context (greenfield vs brownfield) */
+	readonly projectContext: ProjectContext | null;
 	/** User choices from prompts */
 	readonly userChoices: UserChoices;
 	/** Current wizard phase */
@@ -74,7 +77,11 @@ export type WizardAction =
 			readonly type: "SET_DETECTED_TOOLS";
 			readonly tools: readonly DetectedTool[];
 	  }
-	| { readonly type: "SET_HEALTH_REPORT"; readonly report: HealthReport };
+	| { readonly type: "SET_HEALTH_REPORT"; readonly report: HealthReport }
+	| {
+			readonly type: "SET_PROJECT_CONTEXT";
+			readonly context: ProjectContext;
+	  };
 
 /**
  * Helper for exhaustive switch statements.
@@ -154,6 +161,7 @@ const createInitialState = (): WizardState => ({
 	activities: [],
 	detectedTools: [],
 	healthReport: null,
+	projectContext: null,
 	userChoices: {},
 	phase: "running",
 	error: null,
@@ -298,6 +306,13 @@ const wizardReducer = (
 			return {
 				...state,
 				healthReport: action.report,
+			};
+		}
+
+		case "SET_PROJECT_CONTEXT": {
+			return {
+				...state,
+				projectContext: action.context,
 			};
 		}
 

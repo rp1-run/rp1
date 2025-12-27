@@ -4,7 +4,24 @@
  * next steps guidance, and progress tracking.
  */
 
+import type { GitRootResult } from "./git-root.js";
 import type { DetectedTool } from "./tool-detector.js";
+
+/**
+ * Project context classification for greenfield/brownfield detection.
+ */
+export type ProjectContext = "brownfield" | "greenfield";
+
+/**
+ * Result of project context detection.
+ * Captures the classification result along with supporting details.
+ */
+export interface ContextDetectionResult {
+	readonly context: ProjectContext;
+	readonly gitResult: GitRootResult;
+	readonly hasSourceFiles: boolean;
+	readonly reasoning: string;
+}
 
 /**
  * An action taken during initialization.

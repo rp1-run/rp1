@@ -3,53 +3,40 @@ name: feature-edit
 version: 1.0.0
 description: Incorporates mid-stream changes into feature documentation with validation and propagation
 argument-hint: "feature-id <edit-description>"
-tags:
-  - feature
-  - documentation
-  - workflow
+tags: [feature, documentation, workflow]
 created: 2025-11-29
 author: cloud-on-prem/rp1
 ---
 
-# Feature Edit - Mid-Stream Documentation Changes
+# Feature Edit Command Router
 
-You are a command router for the feature-edit workflow. Your only job is to validate parameters and delegate to the feature-editor agent.
+Route to feature-editor agent after param validation.
 
-## Input Parameters
+## §IN
 
-<feature_id>
-$1
-</feature_id>
+| Param | Source | Req |
+|-------|--------|-----|
+| FEATURE_ID | $1 | Yes |
+| EDIT_DESCRIPTION | $ARGUMENTS | Yes |
+| RP1_ROOT | {{RP1_ROOT}} | No (default `.rp1/`) |
 
-<edit_description>
-$ARGUMENTS
-</edit_description>
+## §ERR
 
-<rp1_root>
-{{RP1_ROOT}}
-</rp1_root>
-(defaults to `.rp1/` if not set via environment variable $RP1_ROOT)
-
-## Parameter Validation
-
-**Required**: Both `FEATURE_ID` and `EDIT_DESCRIPTION` must be provided.
-
-If `FEATURE_ID` is empty or missing:
+**Missing FEATURE_ID**:
 ```
-❌ Error: Missing feature-id parameter
+Error: Missing feature-id parameter
 
 Usage: /rp1-dev:feature-edit feature-id "edit description"
-
 Example: /rp1-dev:feature-edit auth-flow "Discovery: OAuth library doesn't support refresh tokens"
 ```
 
-If `EDIT_DESCRIPTION` is empty or missing:
+**Missing EDIT_DESCRIPTION**:
 ```
-❌ Error: Missing edit description
+Error: Missing edit description
 
 Usage: /rp1-dev:feature-edit feature-id "edit description"
 
-Supported edit types:
+Edit types:
 - Requirement changes: "Add rate limiting to login endpoint"
 - Discoveries: "Discovery: API doesn't support pagination"
 - Concerns: "Concern: Error handling for failed requests not specified"
@@ -57,17 +44,48 @@ Supported edit types:
 - Pivots: "Pivot: Focus on mobile-first instead of desktop"
 ```
 
-## Delegation
+## §PROC
 
-If both parameters are valid, delegate to the feature-editor agent:
+### 1. Initial Invocation
 
-Use the Task tool with:
+Task tool config:
 - `subagent_type`: `rp1-dev:feature-editor`
-- `prompt`: Pass through the feature-id and edit description for processing
+- `prompt`:
+```
+FEATURE_ID: $1
+EDIT_DESCRIPTION: $ARGUMENTS
+DECISIONS: {}
 
-The agent will:
-1. Load KB and feature documentation
-2. Analyze and classify the edit
-3. Validate scope and detect conflicts
-4. Propagate changes to requirements.md, design.md, and tasks.md
-5. Return a summary of changes made
+Analyze and process this edit.
+```
+
+### 2. Decision Loop
+
+Parse agent response:
+
+**If `type: "needs_decision"`** (JSON w/ `decision_key`, `question`, `options`, `context`):
+
+1. AskUserQuestion:
+   - `question`: from JSON
+   - `header`: decision_key
+   - `options`: mapped from JSON
+   - `multiSelect`: false
+
+2. Re-invoke agent w/ accumulated decisions:
+```
+FEATURE_ID: $1
+EDIT_DESCRIPTION: $ARGUMENTS
+DECISIONS: {"classification": "...", "scope_action": "...", ...}
+```
+
+3. Repeat until success/error (not decision request)
+
+**If success**: Display summary
+
+**If error/abort**: Display message
+
+### Loop Constraints
+
+- Accumulate decisions across invocations
+- Max 3 rounds: classification, scope, conflict
+- Stop on "abort"/"split" scope_action

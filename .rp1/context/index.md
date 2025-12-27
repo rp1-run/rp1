@@ -2,8 +2,8 @@
 
 **Type**: Single Project
 **Languages**: TypeScript, Markdown, Shell
-**Version**: 0.2.5
-**Updated**: 2025-12-24
+**Version**: 0.2.7
+**Updated**: 2025-12-27
 
 ## Project Summary
 
@@ -24,9 +24,9 @@ rp1 is a Claude Code plugin system that automates development workflows through 
 | File | Lines | Load For |
 |------|-------|----------|
 | architecture.md | ~271 | System design, component relationships, data flows |
-| modules.md | ~293 | Component breakdown, module responsibilities |
-| patterns.md | ~128 | Code conventions, implementation patterns |
-| concept_map.md | ~180 | Domain terminology, business concepts |
+| modules.md | ~282 | Component breakdown, module responsibilities |
+| patterns.md | ~134 | Code conventions, implementation patterns |
+| concept_map.md | ~181 | Domain terminology, business concepts |
 
 ## Task-Based Loading
 
@@ -54,7 +54,7 @@ rp1/
 │   │   ├── agents/            # Constitutional agents
 │   │   ├── commands/          # Slash commands (thin wrappers)
 │   │   └── skills/            # Reusable capabilities
-│   ├── dev/                   # Development plugin (19 commands, 18 agents)
+│   ├── dev/                   # Development plugin (20 commands, 19 agents)
 │   │   ├── .claude-plugin/    # Plugin metadata (depends on base)
 │   │   ├── agents/            # Constitutional agents
 │   │   └── commands/          # Slash commands

@@ -1,7 +1,7 @@
 # Module & Component Breakdown
 
 **Project**: rp1 Plugin System
-**Analysis Date**: 2025-12-24
+**Analysis Date**: 2025-12-27
 **Total Components**: 90+ (29 commands, 32 agents, 5 skills, 24+ CLI modules)
 
 ## Plugin Modules
@@ -50,13 +50,14 @@
 
 ### plugins/dev
 **Purpose**: Development workflow automation for features, code quality, and PR management
-**Components**: 19 commands, 18 agents
+**Components**: 20 commands, 19 agents
 **Dependency**: Requires rp1-base >= 2.0.0
 
 **Feature Workflow Commands**:
 | Command | Agent | Purpose |
 |---------|-------|---------|
 | blueprint | blueprint-wizard | Charter and PRD creation |
+| bootstrap | bootstrap-scaffolder | Greenfield project scaffolding |
 | feature-requirements | None (interactive) | Requirements gathering |
 | feature-design | None (direct) | Technical design generation |
 | feature-tasks | feature-tasker | Task breakdown |
@@ -114,6 +115,7 @@
 | index.ts | Init orchestration with TTY-aware interactivity |
 | git-root.ts | Git repository detection |
 | tool-detector.ts | Detect agentic tools (Claude Code, OpenCode) |
+| context-detector.ts | Classify project as greenfield or brownfield |
 | comment-fence.ts | Fenced content injection into CLAUDE.md |
 | progress.ts | Progress indication |
 | templates/*.ts | Template generation for AGENTS.md, CLAUDE.md |
@@ -178,18 +180,6 @@
 | src/providers/*.tsx | Theme, WebSocket, DiagramFullscreen providers |
 | src/hooks/*.ts | Custom hooks (useFileTree, useFileContent) |
 
-### cli/shared/
-**Purpose**: Shared utilities including fp-ts helpers
-
-| Module | Purpose |
-|--------|---------|
-| index.ts | Barrel export |
-| errors.ts | CLIError types and formatters |
-| fp.ts | fp-ts re-exports (Either, TaskEither, pipe) |
-| logger.ts | Logger with LogLevel enum |
-| prompts.ts | Interactive prompts |
-| config.ts | Configuration management |
-
 ### packages/catppuccin-mermaid/
 **Purpose**: Catppuccin color theme library for Mermaid diagrams
 
@@ -242,15 +232,14 @@ graph TD
 
 | Module | Commands | Agents | Skills | Lines (est.) |
 |--------|----------|--------|--------|--------------|
-| plugins/base | 9 | 13 | 5 | ~5,000 |
-| plugins/dev | 19 | 18 | 0 | ~7,000 |
+| plugins/base | 9 | 13 | 5 | ~5,500 |
+| plugins/dev | 20 | 19 | 0 | ~7,500 |
 | plugins/utils | 1 | 1 | 0 | ~300 |
 | cli/src | 6 | - | - | ~3,000 |
-| cli/src/init | - | - | - | ~1,500 |
+| cli/src/init | - | - | - | ~2,500 |
 | cli/src/install | - | - | - | ~1,200 |
 | cli/src/agent-tools | - | - | - | ~600 |
 | cli/web-ui | - | - | - | ~2,500 |
-| cli/shared | - | - | - | ~500 |
 | packages/catppuccin-mermaid | - | - | - | ~400 |
 
 ## Cross-Module Patterns

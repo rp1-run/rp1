@@ -23,8 +23,8 @@ build-local: build-opencode build-web-ui clean-web-ui-cache
 # Build everything for local testing
 build: build-local
 
-# Full local install: build + install opencode (includes plugin installation)
-install-local: build
+# Full local install: rm stable rp1, build + install opencode (includes plugin installation)
+install-local: build rm-stable-rp1
     ./bin/rp1 install:opencode
 
 local *args: build
@@ -41,6 +41,10 @@ test: test-cli
 check-cli:
     cd cli && bun run lint && bun run typecheck && bun run format
 
+# Auto-fix lint and format issues in CLI
+fix-cli:
+    cd cli && bun run lint:fix && bun run format:fix
+
 # Type check web-ui
 check-web-ui:
     cd cli/web-ui && npx tsc --noEmit
@@ -51,3 +55,12 @@ check: check-cli check-web-ui
 # Docs
 docs:
     uv run --index https://pypi.org --with mkdocs-material mkdocs serve
+
+# Dev stuff
+# Removes Stable version of Claude and OpenCode rp1 plugins
+# This is useful when testing local builds to avoid conflicts
+rm-stable-rp1:
+  claude plugin marketplace rm rp1-run || true
+  rm -rf ~/.config/opencode/plugin/rp1*
+  rm -rf ~/.config/opencode/command/rp1*
+  rm -rf ~/.config/opencode/skills/

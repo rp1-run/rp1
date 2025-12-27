@@ -1,7 +1,7 @@
 # Implementation Patterns
 
 **Project**: rp1 Plugin System
-**Last Updated**: 2025-12-24
+**Last Updated**: 2025-12-27
 
 ## Naming & Organization
 
@@ -18,7 +18,7 @@ Evidence: `cli/src/main.ts`, `plugins/base/agents/kb-spatial-analyzer.md`
 **Type Strictness**: Strict typing throughout CLI; all interfaces use readonly modifiers
 **Immutability**: Enforced via readonly arrays and readonly properties on all model interfaces
 
-Evidence: `cli/shared/errors.ts:11-36`, `cli/src/init/models.ts`
+Evidence: `cli/src/init/models.ts`, `cli/src/build/models.ts`
 
 ## Error Handling
 
@@ -26,14 +26,14 @@ Evidence: `cli/shared/errors.ts:11-36`, `cli/src/init/models.ts`
 **Propagation**: Errors lifted to Either and composed through pipe(); caught at CLI boundary with formatError
 **Common Types**: ParseError, ValidationError, InstallError, BackupError, RuntimeError, UsageError, NotFoundError
 
-Evidence: `cli/shared/errors.ts:38-133`, `cli/src/install/installer.ts:76-180`
+Evidence: `cli/src/install/installer.ts:76-180`
 
 ## Validation & Boundaries
 
 **Location**: API boundary validation in CLI; fail-fast with Left returns
 **Method**: Two-level validation: fencing validation (syntax) then field validation (schema); TE.tryCatch wraps async operations
 
-Evidence: `cli/src/init/index.ts:621-626`, `cli/src/agent-tools/mmd-validate/validator.ts`
+Evidence: `cli/src/init/index.ts`, `cli/src/agent-tools/mmd-validate/validator.ts`
 
 ## Observability
 
@@ -65,7 +65,7 @@ Evidence: `cli/src/install/installer.ts:30-70`, `cli/web-ui/src/providers/WebSoc
 **Async Usage**: Async/await throughout CLI; TaskEither for composable async with error handling
 **Parallelism**: Sequential loops in installers; parallel via A.sequence(TE.ApplicativePar) for batch operations
 
-Evidence: `cli/src/agent-tools/mmd-validate/validator.ts:107-121`, `cli/shared/fp.ts`
+Evidence: `cli/src/agent-tools/mmd-validate/validator.ts:107-121`
 
 ## Command-Agent Pattern
 
@@ -112,13 +112,19 @@ Evidence: `docs/concepts/map-reduce-workflows.md`
 
 Evidence: `plugins/dev/agents/task-builder.md`, `plugins/dev/agents/task-reviewer.md`
 
-## React Patterns
+## Module Exports
 
-**Hooks**: Custom hooks return {data, loading, error, refetch} pattern; useCallback for stable references
-**Context**: Provider pattern with createContext; useContext with null check throwing Error
-**State**: useState for local state; useRef for mutable refs (WebSocket, listeners, subscriptions)
+**Pattern**: Barrel exports via index.ts; grouped by type (Command, Models, Functions)
+**Type Exports**: Use 'export type' for interface re-exports; functions exported directly
 
-Evidence: `cli/web-ui/src/hooks/useFileTree.ts`, `cli/web-ui/src/providers/WebSocketProvider.tsx`
+Evidence: `cli/src/build/index.ts`, `cli/src/install/index.ts`
+
+## Tool Registration
+
+**Pattern**: Registry pattern with Map; registerTool at module load; getTool/listTools for access
+**Tool Result**: Standard ToolResult<T> envelope with success, tool, data, errors fields
+
+Evidence: `cli/src/agent-tools/index.ts:39-64`, `cli/src/agent-tools/models.ts`
 
 ## Path References
 
@@ -126,3 +132,75 @@ Evidence: `cli/web-ui/src/hooks/useFileTree.ts`, `cli/web-ui/src/providers/WebSo
 **Rationale**: Supports custom root directories; maintains consistency across prompts
 
 Evidence: `plugins/base/agents/kb-spatial-analyzer.md:24-26`
+
+## Stateless Agent Pattern
+
+**Purpose**: Enable resumable, transparent, and robust agent workflows by externalizing state to a visible scratch pad.
+
+**Benefits**:
+- **Resumability**: Interrupted sessions continue from scratch pad state
+- **Transparency**: Users see accumulated Q&A during interviews
+- **Robustness**: State survives AI session crashes; file-based persistence
+
+**Architecture**:
+
+| Role | Responsibility |
+|------|----------------|
+| Caller (Orchestrator) | Manages state persistence, handles user interaction (AskUserQuestion), parses agent responses, loops until terminal state |
+| Stateless Agent | Reads all state from scratch pad (no memory), analyzes state to determine next action, returns structured JSON response, never interacts with user directly |
+
+**Response Protocol Schema**:
+
+```typescript
+interface StatelessAgentResponse {
+  type: "next_question" | "success" | "skip" | "error";
+  next_question?: string;   // Present when type = "next_question"
+  message?: string;         // Present for success/skip/error
+  charter_complete?: boolean;
+  metadata?: {
+    question_number?: number;
+    total_questions?: number;
+    gaps_remaining?: string[];
+  };
+}
+```
+
+**Response Types**:
+
+| Type | When Used | Caller Action |
+|------|-----------|---------------|
+| `next_question` | Agent needs more information | AskUserQuestion, write Q&A to scratch pad, re-invoke agent |
+| `success` | All required information gathered | Remove scratch pad, finalize document |
+| `skip` | Question can be skipped | Record skip in scratch pad, continue loop |
+| `error` | Unrecoverable issue | Display error, preserve state for retry |
+
+**Scratch Pad Format**:
+
+```markdown
+## Scratch Pad
+
+<!-- Interview state - will be removed upon completion -->
+<!-- Mode: CREATE | UPDATE | RESUME -->
+<!-- Started: 2025-12-27T10:30:00Z -->
+
+### Q1: Brain Dump
+**Asked**: Tell me everything about this project...
+**Answer**: We're building a task management app...
+
+### Q2: Target Users
+**Asked**: Who are the primary users?
+**Skipped**: Already covered in brain dump response.
+
+<!-- End scratch pad -->
+```
+
+**Scratch Pad Rules**:
+1. Heading: Always `## Scratch Pad`
+2. Metadata: Mode, start timestamp in HTML comments
+3. Q&A Format: `### Q{N}: {Topic}` with `**Asked**:` and `**Answer**:` or `**Skipped**:`
+4. Termination: Removed entirely upon successful completion
+5. Preservation: Kept on error for retry/resume
+
+**When to Use**: Multi-turn interview workflows requiring resumability. Standard agents suffice for single-pass workflows.
+
+Evidence: `plugins/dev/agents/charter-interviewer.md`, `plugins/dev/commands/blueprint.md`

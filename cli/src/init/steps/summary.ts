@@ -9,6 +9,7 @@ import type {
 	HealthReport,
 	InitAction,
 	NextStep,
+	ProjectContext,
 	StepCallbacks,
 } from "../models.js";
 import type { DetectedTool } from "../tool-detector.js";
@@ -22,6 +23,7 @@ import type { DetectedTool } from "../tool-detector.js";
  * @param detectedTool - Primary detected tool (may be null)
  * @param hasKBContent - Whether KB content exists (.rp1/context/index.md)
  * @param hasCharterContent - Whether charter content exists (.rp1/context/charter.md)
+ * @param projectContext - Project context (greenfield or brownfield)
  * @returns Array of next steps ordered by priority (required first, then optional)
  */
 export function generateNextSteps(
@@ -29,6 +31,7 @@ export function generateNextSteps(
 	detectedTool: DetectedTool | null,
 	hasKBContent: boolean,
 	hasCharterContent: boolean,
+	projectContext?: ProjectContext,
 ): NextStep[] {
 	const requiredSteps: Omit<NextStep, "order">[] = [];
 	const optionalSteps: Omit<NextStep, "order">[] = [];
@@ -50,7 +53,19 @@ export function generateNextSteps(
 		});
 	}
 
-	// Optional: If no KB content, suggest building
+	// Greenfield: Suggest /bootstrap as first optional step
+	if (projectContext === "greenfield") {
+		optionalSteps.push({
+			action: "Bootstrap a new project",
+			command: "/bootstrap",
+			required: false,
+			docsUrl: "https://rp1.run/guides/bootstrap",
+			blurb:
+				"Creates a complete project with charter, tech stack, and runnable code",
+		});
+	}
+
+	// Optional: If no KB content, suggest building (brownfield behavior)
 	if (!hasKBContent) {
 		optionalSteps.push({
 			action: "Build knowledge base",
@@ -146,6 +161,7 @@ export function countActions(actions: readonly InitAction[]): ActionCounts {
  * @param healthReport - Health check report (may be null)
  * @param detectedTools - All detected tools (may be empty array)
  * @param callbacks - Optional callbacks for reporting progress to UI
+ * @param projectContext - Project context (greenfield or brownfield)
  * @returns SummaryData object for UI consumption
  */
 export function prepareSummaryData(
@@ -153,6 +169,7 @@ export function prepareSummaryData(
 	healthReport: HealthReport | null,
 	detectedTools: readonly DetectedTool[],
 	callbacks?: StepCallbacks,
+	projectContext?: ProjectContext,
 ): SummaryData {
 	callbacks?.onActivity("Preparing summary", "info");
 
@@ -166,6 +183,7 @@ export function prepareSummaryData(
 		primaryTool,
 		hasKBContent,
 		hasCharterContent,
+		projectContext,
 	);
 
 	const hasFailures = actionCounts.failed > 0;
