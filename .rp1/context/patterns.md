@@ -132,3 +132,75 @@ Evidence: `cli/src/agent-tools/index.ts:39-64`, `cli/src/agent-tools/models.ts`
 **Rationale**: Supports custom root directories; maintains consistency across prompts
 
 Evidence: `plugins/base/agents/kb-spatial-analyzer.md:24-26`
+
+## Stateless Agent Pattern
+
+**Purpose**: Enable resumable, transparent, and robust agent workflows by externalizing state to a visible scratch pad.
+
+**Benefits**:
+- **Resumability**: Interrupted sessions continue from scratch pad state
+- **Transparency**: Users see accumulated Q&A during interviews
+- **Robustness**: State survives AI session crashes; file-based persistence
+
+**Architecture**:
+
+| Role | Responsibility |
+|------|----------------|
+| Caller (Orchestrator) | Manages state persistence, handles user interaction (AskUserQuestion), parses agent responses, loops until terminal state |
+| Stateless Agent | Reads all state from scratch pad (no memory), analyzes state to determine next action, returns structured JSON response, never interacts with user directly |
+
+**Response Protocol Schema**:
+
+```typescript
+interface StatelessAgentResponse {
+  type: "next_question" | "success" | "skip" | "error";
+  next_question?: string;   // Present when type = "next_question"
+  message?: string;         // Present for success/skip/error
+  charter_complete?: boolean;
+  metadata?: {
+    question_number?: number;
+    total_questions?: number;
+    gaps_remaining?: string[];
+  };
+}
+```
+
+**Response Types**:
+
+| Type | When Used | Caller Action |
+|------|-----------|---------------|
+| `next_question` | Agent needs more information | AskUserQuestion, write Q&A to scratch pad, re-invoke agent |
+| `success` | All required information gathered | Remove scratch pad, finalize document |
+| `skip` | Question can be skipped | Record skip in scratch pad, continue loop |
+| `error` | Unrecoverable issue | Display error, preserve state for retry |
+
+**Scratch Pad Format**:
+
+```markdown
+## Scratch Pad
+
+<!-- Interview state - will be removed upon completion -->
+<!-- Mode: CREATE | UPDATE | RESUME -->
+<!-- Started: 2025-12-27T10:30:00Z -->
+
+### Q1: Brain Dump
+**Asked**: Tell me everything about this project...
+**Answer**: We're building a task management app...
+
+### Q2: Target Users
+**Asked**: Who are the primary users?
+**Skipped**: Already covered in brain dump response.
+
+<!-- End scratch pad -->
+```
+
+**Scratch Pad Rules**:
+1. Heading: Always `## Scratch Pad`
+2. Metadata: Mode, start timestamp in HTML comments
+3. Q&A Format: `### Q{N}: {Topic}` with `**Asked**:` and `**Answer**:` or `**Skipped**:`
+4. Termination: Removed entirely upon successful completion
+5. Preservation: Kept on error for retry/resume
+
+**When to Use**: Multi-turn interview workflows requiring resumability. Standard agents suffice for single-pass workflows.
+
+Evidence: `plugins/dev/agents/charter-interviewer.md`, `plugins/dev/commands/blueprint.md`
