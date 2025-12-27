@@ -40,6 +40,8 @@ Archives a completed feature's documentation from the active features directory 
 
 ## Execution
 
+### Step 1: Invoke Archiver Agent
+
 Use the Task tool with:
 - `subagent_type`: `rp1-dev:feature-archiver`
 - `prompt`: Archive mode with feature ID from $1
@@ -49,4 +51,50 @@ Execute the feature-archiver agent to archive the specified feature.
 
 MODE: archive
 FEATURE_ID: $1
+SKIP_DOC_CHECK: false
 ```
+
+### Step 2: Handle Agent Response
+
+Parse the agent's output. If it returns JSON with `type: "needs_confirmation"`:
+
+```json
+{
+  "type": "needs_confirmation",
+  "reason": "minimal_docs",
+  "feature_id": "...",
+  "message": "..."
+}
+```
+
+Use AskUserQuestion to confirm:
+
+```
+questions:
+  - question: "Feature '{feature_id}' has minimal documentation (no requirements.md or design.md). Archive anyway?"
+    header: "Confirm"
+    options:
+      - label: "Yes - Archive anyway"
+        description: "Proceed with archiving despite minimal documentation"
+      - label: "No - Cancel"
+        description: "Abort the archive operation"
+    multiSelect: false
+```
+
+**If user selects "Yes"**: Re-invoke archiver with `SKIP_DOC_CHECK: true`
+
+```
+MODE: archive
+FEATURE_ID: $1
+SKIP_DOC_CHECK: true
+```
+
+**If user selects "No"**: Output cancellation message and stop:
+
+```
+⚠️ **Cancelled**: Archive aborted by user
+```
+
+### Step 3: Report Result
+
+If archiver returns success output (not JSON), display it directly to the user.

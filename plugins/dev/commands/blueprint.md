@@ -296,32 +296,123 @@ new_string:
 
 Match from `## Scratch Pad` through `<!-- End scratch pad -->` and replace with empty string. After removal, write the finalized charter content from `response.charter_content` to the appropriate sections.
 
-### Step 4: PRD Creation (via Blueprint Wizard)
+### Step 4: PRD Creation (Stateless Orchestration)
 
-After charter interview completes successfully, spawn blueprint-wizard for PRD creation only.
+After charter interview completes successfully, orchestrate the PRD wizard loop.
 
-Use the Task tool with:
+The blueprint-wizard is a **stateless agent**. Blueprint command orchestrates the PRD interview.
 
-- **subagent_type**: `rp1-dev:blueprint-wizard`
-- **prompt**: Include PRD_NAME ($1), EXTRA_CONTEXT ($ARGUMENTS)
+#### 4.1 Determine PRD Name
+
+- If $1 is provided: `PRD_NAME = $1`
+- If $1 is empty: `PRD_NAME = "main"`
+
+#### 4.2 Initialize PRD with Scratch Pad
+
+Create `{RP1_ROOT}/work/prds/{PRD_NAME}.md`:
+
+```markdown
+# PRD: {PRD_NAME}
+
+**Charter**: [Project Charter]({RP1_ROOT}/context/charter.md)
+**Version**: 1.0.0
+**Status**: Draft
+**Created**: {YYYY-MM-DD}
+
+## Scratch Pad
+
+<!-- Mode: CREATE -->
+<!-- Section: 1 -->
+<!-- Started: {timestamp} -->
+
+### Q&A History
+
+<!-- End scratch pad -->
+```
+
+#### 4.3 PRD Interview Loop
 
 ```
-Create PRD for the project. Charter already exists at {RP1_ROOT}/context/charter.md.
+PRD_PATH = {RP1_ROOT}/work/prds/{PRD_NAME}.md
+question_count = 0
 
-Parameters:
-- PRD_NAME: $1 (empty = create main.md PRD)
-- EXTRA_CONTEXT: $ARGUMENTS
+loop:
+  # Invoke stateless blueprint-wizard
+  Task tool:
+    subagent_type: rp1-dev:blueprint-wizard
+    prompt: |
+      PRD_NAME: {PRD_NAME}
+      EXTRA_CONTEXT: $ARGUMENTS
+      RP1_ROOT: {RP1_ROOT}
 
-The wizard will:
-1. Read existing charter for context
-2. Scan project artifacts (README, docs)
-3. Guide through PRD sections only (charter already done)
-4. Generate PRD at {RP1_ROOT}/work/prds/
+  # Parse JSON response from agent
+  response = parse_json(agent_output)
 
-Execute the PRD workflow immediately.
+  IF response.type == "next_question" OR response.type == "validate":
+      # Ask user the PRD question
+      answer = AskUserQuestion(response.next_question)
+      question_count += 1
+
+      # Write Q&A to scratch pad
+      Edit PRD file:
+        Insert before "<!-- End scratch pad -->":
+        """
+        #### S{response.metadata.section}: {response.metadata.topic}
+        **Asked**: {response.next_question}
+        **Answer**: {answer}
+
+        """
+
+      # Check for uncertainty markers in answer
+      IF answer contains ("not sure", "maybe", "probably", "I think"):
+          # Agent will handle on next invocation
+          pass
+
+      continue loop
+
+  ELIF response.type == "section_complete":
+      # Update section number in scratch pad
+      Edit PRD file:
+        Replace "<!-- Section: {N} -->" with "<!-- Section: {N+1} -->"
+
+      # Write section content to PRD (above scratch pad)
+      Edit PRD file:
+        Insert completed section content at appropriate location
+
+      continue loop
+
+  ELIF response.type == "uncertainty":
+      # Ask for best guess
+      guess = AskUserQuestion(response.message)
+      Edit PRD file:
+        Add to Q&A History: "**Assumption**: {guess}"
+      continue loop
+
+  ELIF response.type == "success":
+      # Finalize PRD: write content and remove scratch pad
+      Write PRD file with response.prd_content (removes scratch pad)
+      Output: "PRD created at {PRD_PATH}"
+      break
+
+  ELIF response.type == "error":
+      Output: "PRD creation error: {response.message}"
+      IF response.metadata.missing == "charter":
+          Output: "Please run /blueprint without arguments to create the charter first."
+      break
 ```
 
-**Note**: Blueprint-wizard assumes charter.md already exists and handles only PRD creation.
+#### 4.4 Success Output
+
+```
+PRD created!
+
+Created:
+- {RP1_ROOT}/work/prds/{PRD_NAME}.md
+
+Next Steps:
+- Create features: /rp1-dev:feature-requirements <feature-id>
+- Add more surfaces: /rp1-dev:blueprint mobile-app
+```
 
 ## Next Steps
 

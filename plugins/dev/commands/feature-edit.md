@@ -59,15 +59,68 @@ Supported edit types:
 
 ## Delegation
 
-If both parameters are valid, delegate to the feature-editor agent:
+If both parameters are valid, delegate to the feature-editor agent using a decision loop.
+
+### Step 1: Initial Invocation
 
 Use the Task tool with:
 - `subagent_type`: `rp1-dev:feature-editor`
-- `prompt`: Pass through the feature-id and edit description for processing
+- `prompt`:
 
-The agent will:
-1. Load KB and feature documentation
-2. Analyze and classify the edit
-3. Validate scope and detect conflicts
-4. Propagate changes to requirements.md, design.md, and tasks.md
-5. Return a summary of changes made
+```
+FEATURE_ID: $1
+EDIT_DESCRIPTION: $ARGUMENTS
+DECISIONS: {}
+
+Analyze and process this edit.
+```
+
+### Step 2: Handle Agent Response
+
+Parse the agent's output.
+
+**If agent returns JSON with `type: "needs_decision"`**:
+
+```json
+{
+  "type": "needs_decision",
+  "decision_key": "classification|scope_action|conflict_action",
+  "question": "...",
+  "options": [...],
+  "context": {...}
+}
+```
+
+Use AskUserQuestion to get user decision:
+
+```
+questions:
+  - question: "{question from JSON}"
+    header: "{decision_key}"
+    options: [map options from JSON to AskUserQuestion format]
+    multiSelect: false
+```
+
+Then re-invoke the agent with the accumulated decisions:
+
+```
+FEATURE_ID: $1
+EDIT_DESCRIPTION: $ARGUMENTS
+DECISIONS: {"classification": "...", "scope_action": "...", ...}
+```
+
+Continue this loop until the agent returns a success/error result (not a decision request).
+
+**If agent returns success output** (edit applied):
+
+Display the summary to the user.
+
+**If agent returns error or abort**:
+
+Display the error/cancellation message to the user.
+
+### Decision Loop Notes
+
+- Accumulate decisions across invocations (agent may need multiple decisions)
+- Maximum 3 decision rounds (classification, scope, conflict) before completing
+- If user selects "abort" or "split" for scope_action, stop the loop and display appropriate message

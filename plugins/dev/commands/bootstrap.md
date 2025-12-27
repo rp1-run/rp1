@@ -35,15 +35,18 @@ $1
 ## §1 Pre-Flight: Directory Check
 
 ### 1.1 List Contents
+
 ```bash
 ls -la
 ```
 
 Classify:
-- **Empty**: Only `.`, `..`, `.DS_Store`
-- **Non-empty**: Contains files/dirs
+
+- **Empty**: Only `.`, `..`, `.DS_Store` `.rp1/`, `CLAUDE.md`, `AGENTS.md`
+- **Non-empty**: Contains project files/dirs
 
 ### 1.2 If Non-Empty
+
 List existing: source files, configs, docs, directories.
 
 ## §2 Project Name Resolution
@@ -51,17 +54,21 @@ List existing: source files, configs, docs, directories.
 **If $1 provided**: Validate (no spaces, valid dir chars). Target: `{cwd}/{PROJECT_NAME}`
 
 **If $1 empty**: AskUserQuestion:
+
 ```
 What would you like to name your project?
 
 Directory name/identifier. Use lowercase, numbers, hyphens (e.g., my-awesome-app).
 ```
+
 Validate response. Max 2 attempts, then abort.
 
 ## §3 Target Directory Setup
 
 ### Case A: Empty Directory
+
 AskUserQuestion:
+
 ```
 Current directory is empty. Would you like to:
 
@@ -70,11 +77,14 @@ Current directory is empty. Would you like to:
 
 Reply "here" or "subdirectory" (or 1/2).
 ```
+
 - "here"/1: TARGET_DIR = cwd
 - "subdirectory"/2: TARGET_DIR = `{cwd}/{PROJECT_NAME}`
 
 ### Case B: Non-Empty (ADD-001 Compliance)
+
 AskUserQuestion:
+
 ```
 Current directory contains existing files:
 
@@ -86,8 +96,10 @@ This will NOT modify existing files.
 
 Proceed? (yes/no)
 ```
+
 - yes/y: TARGET_DIR = `{cwd}/{PROJECT_NAME}`
 - no/n: Abort:
+
   ```
   Bootstrap cancelled. No files created.
 
@@ -97,9 +109,11 @@ Proceed? (yes/no)
   ```
 
 ### Create Subdirectory (if needed)
+
 ```bash
 mkdir -p "{TARGET_DIR}"
 ```
+
 Fail -> abort w/ error.
 
 ## §4 Charter Interview Phase (Stateless Orchestration)
@@ -113,6 +127,7 @@ mkdir -p "{TARGET_DIR}/{RP1_ROOT}/context"
 ```
 
 Create `{TARGET_DIR}/{RP1_ROOT}/context/charter.md`:
+
 ```markdown
 # Project Charter: {PROJECT_NAME}
 
@@ -222,22 +237,145 @@ while question_count < 10:  # Safety limit
 ```bash
 ls "{TARGET_DIR}/{RP1_ROOT}/context/charter.md"
 ```
+
 Missing -> warn, continue to scaffolding.
 
-## §5 Scaffolding Phase
+## §5 Scaffolding Phase (Stateless Orchestration)
 
-Task tool:
-- **subagent_type**: `rp1-dev:bootstrap-scaffolder`
-- **prompt**:
-```
-PROJECT_NAME: {PROJECT_NAME}
-TARGET_DIR: {TARGET_DIR}
-CHARTER_PATH: {TARGET_DIR}/{RP1_ROOT}/context/charter.md
-RP1_ROOT: {RP1_ROOT}
+The bootstrap-scaffolder is a **stateless agent**. Bootstrap orchestrates the scaffolder loop.
 
-Conduct tech stack interview, research, scaffold project.
-Execute immediately.
+### 5.1 Initialize Preferences with Scratch Pad
+
+Create `{TARGET_DIR}/{RP1_ROOT}/context/preferences.md`:
+
+```markdown
+# Project Preferences
+
+**Generated**: {timestamp}
+**Status**: In Progress
+
+## Scratch Pad
+
+<!-- Phase: INTERVIEW -->
+<!-- Questions Asked: 0 -->
+<!-- Started: {timestamp} -->
+
+### Tech Stack State
+Language: [?]
+Runtime: [?]
+Framework: [?]
+PkgMgr: [?]
+Testing: [?]
+Build: [?]
+Lint: [?]
+Format: [?]
+
+### Q&A History
+
+### Research Notes
+
+<!-- End scratch pad -->
 ```
+
+### 5.2 Scaffolder Loop
+
+```
+PREFS_PATH = {TARGET_DIR}/{RP1_ROOT}/context/preferences.md
+question_count = 0
+summary_iterations = 0
+
+loop:
+  # Invoke stateless bootstrap-scaffolder
+  Task tool:
+    subagent_type: rp1-dev:bootstrap-scaffolder
+    prompt: |
+      PROJECT_NAME: {PROJECT_NAME}
+      TARGET_DIR: {TARGET_DIR}
+      CHARTER_PATH: {TARGET_DIR}/{RP1_ROOT}/context/charter.md
+      PREFS_PATH: {PREFS_PATH}
+      RP1_ROOT: {RP1_ROOT}
+
+  # Parse JSON response from agent
+  response = parse_json(agent_output)
+
+  IF response.type == "next_question":
+      # Ask user the tech stack question
+      answer = AskUserQuestion(response.next_question)
+      question_count += 1
+
+      # Write Q&A to scratch pad
+      Edit preferences.md:
+        Insert before "### Research Notes":
+        """
+        #### Q{question_count}: {response.metadata.question_topic}
+        **Asked**: {response.next_question}
+        **Answer**: {answer}
+
+        """
+
+      # Update stack state if answer implies choices
+      # (Agent will parse on next invocation)
+      continue loop
+
+  ELIF response.type == "research_ready":
+      # Update phase to RESEARCH in scratch pad
+      Edit preferences.md:
+        Replace "<!-- Phase: INTERVIEW -->" with "<!-- Phase: RESEARCH -->"
+
+      # Re-invoke agent - it will perform research and return summary
+      continue loop
+
+  ELIF response.type == "summary":
+      # Show summary and ask for confirmation
+      answer = AskUserQuestion:
+        question: "{response.summary}\n\nProceed with this configuration?"
+        options:
+          - label: "Yes - Create project"
+            description: "Proceed with scaffolding"
+          - label: "No - Make changes"
+            description: "Revise the configuration"
+
+      IF answer contains "Yes":
+          # Update phase to SCAFFOLD
+          Edit preferences.md:
+            Replace "<!-- Phase: RESEARCH -->" OR "<!-- Phase: SUMMARY -->"
+            with "<!-- Phase: SCAFFOLD -->"
+            Add: "### Confirmation\n**Confirmed**: yes\n"
+          continue loop
+
+      ELSE:
+          summary_iterations += 1
+          IF summary_iterations >= 2:
+              Output: "Maximum revisions reached. Re-run /bootstrap to start fresh."
+              break
+          # Ask what to change, record in scratch pad, continue loop
+          change_request = AskUserQuestion("What would you like to change?")
+          Edit preferences.md:
+            Add to Q&A History: "#### Revision {summary_iterations}\n**Change**: {change_request}\n"
+          continue loop
+
+  ELIF response.type == "scaffold":
+      # Agent indicates it will scaffold - re-invoke to execute
+      continue loop
+
+  ELIF response.type == "success":
+      # Scaffolding complete
+      Output: response.output
+      break
+
+  ELIF response.type == "error":
+      Output: "Scaffolding error: {response.message}"
+      break
+```
+
+### 5.3 Verify Scaffold
+
+After successful scaffold:
+```bash
+ls "{TARGET_DIR}"
+```
+
+Confirm key files exist: package.json (or equivalent), src/, tests/, README.md, AGENTS.md
 
 ## §6 Success Output
 
@@ -272,12 +410,14 @@ Useful Commands:
 ## §7 Anti-Loop Directives
 
 **CRITICAL**: Single-pass execution. DO NOT:
+
 - Ask clarification beyond defined prompts
 - Loop to earlier steps
 - Re-run agents after completion
 - Modify files outside TARGET_DIR
 
 **Flow**:
+
 1. Check directory (once)
 2. Resolve project name (once, max 2 validations)
 3. Setup target dir (once)
@@ -287,6 +427,7 @@ Useful Commands:
 7. STOP
 
 **Errors**:
+
 - Dir creation fails -> abort w/ error
 - User declines -> abort gracefully
 - Charter-interviewer fails -> warn, continue

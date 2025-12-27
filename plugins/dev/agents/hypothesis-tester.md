@@ -254,39 +254,32 @@ For each validated hypothesis, append findings to the hypotheses.md file using t
 
 Also update the hypothesis status from PENDING to CONFIRMED or REJECTED.
 
-### Section 4.5: User Confirmation for Rejected Hypotheses
+### Section 4.5: Return Rejected Hypotheses for Caller Confirmation
 
-**IMPORTANT**: When a hypothesis is REJECTED, the user may have domain knowledge that validates the assumption despite the evidence found. Before finalizing rejected hypotheses:
+**IMPORTANT**: When hypotheses are REJECTED, the user may have domain knowledge that validates them. Instead of asking directly, return rejected hypotheses for the calling command to handle.
 
-For each REJECTED hypothesis, use the AskUserQuestion tool:
+After all validations complete, if there are any REJECTED hypotheses, output a JSON block at the end of your response:
 
+```json
+{
+  "type": "rejected_hypotheses",
+  "hypotheses": [
+    {
+      "id": "HYP-XXX",
+      "statement": "{brief statement}",
+      "evidence_summary": "{why it was rejected}"
+    }
+  ],
+  "hypotheses_path": "{RP1_ROOT}/work/features/{FEATURE_ID}/hypotheses.md"
+}
 ```
-questions:
-  - question: "HYP-XXX was REJECTED: {brief statement}. Based on the evidence, I couldn't confirm this assumption. Do you have knowledge that confirms this hypothesis is actually valid?"
-    header: "HYP-XXX"
-    options:
-      - label: "Accept rejection"
-        description: "The hypothesis is indeed invalid - I'll adjust the design accordingly"
-      - label: "Override - I confirm it's valid"
-        description: "I have domain knowledge confirming this assumption is correct"
-    multiSelect: false
-```
 
-**If user selects "Override - I confirm it's valid"**:
+The calling command will:
+1. Ask the user about each rejected hypothesis
+2. For overrides: Update hypotheses.md status to CONFIRMED_BY_USER and append user override note
+3. For acceptances: Keep status as REJECTED
 
-1. Update the hypothesis status from REJECTED to CONFIRMED_BY_USER
-2. Update the findings to append:
-
-   ```markdown
-   **User Override**: User confirmed hypothesis validity based on domain knowledge.
-   ```
-
-3. The design can proceed with the original assumption
-
-**If user selects "Accept rejection"**:
-
-1. Keep status as REJECTED
-2. The design must adapt to the invalidated assumption
+**If no hypotheses were rejected**: Skip the JSON block and just output the summary
 
 ### Section 5: Update Summary Table
 
@@ -302,7 +295,7 @@ Append or update the summary table at the end of the document:
 | HYP-003 | HIGH | CONFIRMED_BY_USER | {brief} |
 ```
 
-Update the document status to VALIDATED if all hypotheses are processed (CONFIRMED, CONFIRMED_BY_USER, or REJECTED with user acceptance).
+Update the document status to VALIDATED if all hypotheses are processed (CONFIRMED or REJECTED). Note: The calling command may later update REJECTED hypotheses to CONFIRMED_BY_USER based on user input.
 
 ### Section 6: Cleanup Temporary Artifacts
 
@@ -340,17 +333,12 @@ Note: CONFIRMED_BY_USER hypotheses should be treated as valid for design purpose
 
 **EXECUTE IMMEDIATELY**:
 
-- Do NOT propose plans or ask for approval (except user confirmation for REJECTED hypotheses)
+- Do NOT propose plans or ask for approval
 - Do NOT iterate or refine after completing workflow
 - Execute validation workflow ONCE
 - Document all findings in hypotheses.md
 - Report summary and STOP
-
-**User Confirmation Exception**:
-
-- For REJECTED hypotheses, you MUST ask the user for confirmation using AskUserQuestion
-- Wait for user response before finalizing the hypothesis status
-- This is the ONLY point where user input is required during validation
+- If REJECTED hypotheses exist, include JSON block for caller to handle user confirmation
 
 **Output Discipline**:
 
