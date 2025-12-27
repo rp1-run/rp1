@@ -102,25 +102,127 @@ mkdir -p "{TARGET_DIR}"
 ```
 Fail -> abort w/ error.
 
-## §4 Charter Interview Phase
+## §4 Charter Interview Phase (Stateless Orchestration)
 
-Task tool:
-- **subagent_type**: `rp1-dev:charter-interviewer`
-- **prompt**:
-```
-PROJECT_NAME: {PROJECT_NAME}
-TARGET_DIR: {TARGET_DIR}
-RP1_ROOT: {RP1_ROOT}
+The charter-interviewer is a **stateless agent**. Bootstrap orchestrates the interview loop.
 
-Conduct charter interview. Generate {TARGET_DIR}/{RP1_ROOT}/context/charter.md.
-Execute immediately.
+### 4.1 Initialize Charter with Scratch Pad
+
+```bash
+mkdir -p "{TARGET_DIR}/{RP1_ROOT}/context"
 ```
 
-Verify:
+Create `{TARGET_DIR}/{RP1_ROOT}/context/charter.md`:
+```markdown
+# Project Charter: {PROJECT_NAME}
+
+**Version**: 1.0.0
+**Status**: Draft
+**Created**: {timestamp}
+
+## Vision
+
+_TBD_
+
+## Problem & Context
+
+_TBD_
+
+## Target Users
+
+_TBD_
+
+## Business Rationale
+
+_TBD_
+
+## Scope Guardrails
+
+### Will Do
+
+_TBD_
+
+### Won't Do
+
+_TBD_
+
+## Success Criteria
+
+_TBD_
+
+## Scratch Pad
+
+<!-- Interview state - will be removed upon completion -->
+<!-- Mode: CREATE -->
+<!-- Started: {timestamp} -->
+
+<!-- End scratch pad -->
+```
+
+### 4.2 Interview Loop
+
+```
+CHARTER_PATH = {TARGET_DIR}/{RP1_ROOT}/context/charter.md
+question_count = 0
+
+while question_count < 10:  # Safety limit
+    # Invoke stateless charter-interviewer
+    Task tool:
+      subagent_type: rp1-dev:charter-interviewer
+      prompt: |
+        CHARTER_PATH: {CHARTER_PATH}
+        MODE: CREATE
+        RP1_ROOT: {RP1_ROOT}
+
+    # Parse JSON response from agent
+    response = parse_json(agent_output)
+
+    if response.type == "next_question":
+        # Ask user the question
+        answer = AskUserQuestion(response.next_question)
+        question_count += 1
+
+        # Write Q&A to scratch pad (before <!-- End scratch pad -->)
+        Edit charter.md:
+          Insert before "<!-- End scratch pad -->":
+          """
+          ### Q{question_count}: {topic_from_metadata}
+          **Asked**: {response.next_question}
+          **Answer**: {answer}
+
+          """
+
+    elif response.type == "success":
+        # Finalize charter: write charter_content sections, remove scratch pad
+        if response.charter_content:
+            Update charter sections with response.charter_content
+        Remove "## Scratch Pad" through "<!-- End scratch pad -->" from charter.md
+        break
+
+    elif response.type == "skip":
+        # Record skip in scratch pad
+        question_count += 1
+        Edit charter.md:
+          Insert before "<!-- End scratch pad -->":
+          """
+          ### Q{question_count}: Skipped
+          **Skipped**: {response.message}
+
+          """
+
+    elif response.type == "error":
+        # Display error, preserve scratch pad for retry
+        Output: "Charter interview error: {response.message}"
+        Output: "Re-run /bootstrap to retry from scratch pad state."
+        break
+```
+
+### 4.3 Verify Charter
+
 ```bash
 ls "{TARGET_DIR}/{RP1_ROOT}/context/charter.md"
 ```
-Missing -> warn, continue.
+Missing -> warn, continue to scaffolding.
 
 ## §5 Scaffolding Phase
 

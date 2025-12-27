@@ -100,6 +100,7 @@ If you omit the project name, bootstrap will prompt you for one.
 Bootstrap handles two scenarios:
 
 **Empty Directory**:
+
 ```
 The current directory is empty. Would you like to:
 
@@ -110,6 +111,7 @@ Reply with "here" or "subdirectory" (or 1/2).
 ```
 
 **Non-Empty Directory** (e.g., `~/projects/`):
+
 ```
 The current directory contains existing files:
 
@@ -132,6 +134,7 @@ Proceed with creating ./my-awesome-app/? (yes/no)
 The charter interviewer asks up to 5 questions to capture your project vision.
 
 **Question 1** (always asked):
+
 ```
 Tell me everything that's in your head about this project. What are you trying to build?
 Who is it for? What problem does it solve? Any ideas about how it should work?
@@ -188,6 +191,7 @@ The bootstrap scaffolder asks up to 5 questions about your technology preference
 - **Build Tools**: Vite, webpack, etc.
 
 **Example exchange**:
+
 ```
 Based on your charter, I'm thinking about the tech stack.
 
