@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.8](https://github.com/rp1-run/rp1/compare/v0.2.7...v0.2.8) (2025-12-27)
+
+
+### Features
+
+* better greenfield experience ([#137](https://github.com/rp1-run/rp1/issues/137)) ([d2d0fe4](https://github.com/rp1-run/rp1/commit/d2d0fe4d818d5c257959fe50eab5ffa80c5e5a93))
+
 ## [0.2.7](https://github.com/rp1-run/rp1/compare/v0.2.6...v0.2.7) (2025-12-26)
 
 
