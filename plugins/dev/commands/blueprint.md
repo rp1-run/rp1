@@ -1,107 +1,44 @@
 ---
 name: blueprint
 version: 2.0.0
-description: Guided wizard that captures project vision through a two-tier document hierarchy (charter + PRDs) to bridge the gap between idea and feature requirements.
+description: Guided wizard for project vision via two-tier docs (charter + PRDs)
 argument-hint: "[prd-name]"
-tags:
-  - planning
-  - project
-  - charter
-  - prd
-  - onboarding
-  - core
+tags: [planning, project, charter, prd, onboarding, core]
 created: 2025-11-30
 author: cloud-on-prem/rp1
 ---
 
-# Project Blueprint - Vision Capture
+# Project Blueprint
 
-Launch the blueprint wizard to capture and structure your project vision through guided questioning.
+## §PARAMS
 
-## Usage
+| Name | Pos | Default | Purpose |
+|------|-----|---------|---------|
+| PRD_NAME | $1 | (none) | PRD name (omit for default flow) |
+| EXTRA_CONTEXT | $ARGUMENTS | `""` | Additional context |
+| RP1_ROOT | Env | `.rp1/` | Root dir |
 
-**Default Flow** (creates charter + main PRD together):
+## §CTX
 
-```
-/rp1-dev:blueprint
-```
+**Doc Hierarchy**:
+1. **Charter** (`{RP1_ROOT}/context/charter.md`) - Project-level: problem/context, users, business rationale, scope guardrails, success criteria
+2. **PRDs** (`{RP1_ROOT}/work/prds/<name>.md`) - Surface-specific: overview, in/out scope, requirements, dependencies, timeline. Inherit from charter, link back, no duplication.
 
-**Named PRD Flow** (requires existing charter):
-
-```
-/rp1-dev:blueprint mobile-app
-/rp1-dev:blueprint api
-/rp1-dev:blueprint web
-```
-
-## Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| PRD_NAME | $1 | (none) | Name of PRD to create (omit for default flow) |
-| EXTRA_CONTEXT | $ARGUMENTS | `""` | Additional context from user |
-| RP1_ROOT | Environment | `.rp1/` | Root directory |
-
-## Document Hierarchy
-
-The blueprint command creates a two-tier document hierarchy:
-
-1. **Charter** (`{RP1_ROOT}/context/charter.md`) - Single project-level document capturing:
-   - Problem & context (why)
-   - Target users (who)
-   - Business rationale
-   - Scope guardrails
-   - Success criteria
-
-2. **PRDs** (`{RP1_ROOT}/work/prds/<name>.md`) - Surface-specific documents capturing:
-   - Surface overview
-   - In/out scope
-   - Requirements
-   - Dependencies
-   - Timeline
-
-PRDs inherit from the charter and link back to it, avoiding content duplication.
-
-## Workflow
+## §PROC
 
 ### Step 1: Mode Detection
 
-Before invoking the charter interviewer, detect the current mode based on charter.md state.
+Read `{RP1_ROOT}/context/charter.md`:
 
-**Detection Logic**:
-
-1. Use the Read tool to attempt reading `{RP1_ROOT}/context/charter.md`
-2. Based on the result, determine the mode:
-
-| Condition | Mode | User Message |
-|-----------|------|--------------|
-| File does not exist | CREATE | "Starting new charter creation. I'll guide you through defining your project vision." |
-| File exists AND contains `## Scratch Pad` | RESUME | "Resuming interrupted charter session. I'll continue from where you left off." |
-| File exists AND does NOT contain `## Scratch Pad` | UPDATE | "Updating existing charter. I'll ask focused questions about changes you want to make." |
-
-**Implementation**:
-
-```
-1. Read {RP1_ROOT}/context/charter.md
-2. If file not found or empty:
-   - MODE = CREATE
-   - Output: "Starting new charter creation. I'll guide you through defining your project vision."
-3. Else if file contains "## Scratch Pad":
-   - MODE = RESUME
-   - Output: "Resuming interrupted charter session. I'll continue from where you left off."
-4. Else:
-   - MODE = UPDATE
-   - Output: "Updating existing charter. I'll ask focused questions about changes you want to make."
-```
-
-Store the detected MODE for use in subsequent steps.
+| Condition | Mode | Message |
+|-----------|------|---------|
+| Not exist | CREATE | "Starting new charter creation. I'll guide you through defining your project vision." |
+| Exists + has `## Scratch Pad` | RESUME | "Resuming interrupted charter session. I'll continue from where you left off." |
+| Exists + no scratch pad | UPDATE | "Updating existing charter. I'll ask focused questions about changes you want to make." |
 
 ### Step 2: Initialize Scratch Pad
 
-Before starting the interview loop, initialize the scratch pad based on MODE.
-
-**CREATE Mode** - Use Write tool to create charter.md:
-
+**CREATE** - Write charter.md:
 ```markdown
 # Project Charter: [To Be Determined]
 
@@ -113,17 +50,13 @@ Before starting the interview loop, initialize the scratch pad based on MODE.
 
 <!-- Interview state - will be removed upon completion -->
 <!-- Mode: CREATE -->
-<!-- Started: {ISO timestamp e.g. 2025-12-27T10:30:00Z} -->
+<!-- Started: {ISO timestamp} -->
 
 <!-- End scratch pad -->
 ```
 
-**UPDATE Mode** - Use Edit tool to append scratch pad to existing charter:
-
-```
-old_string: [last line of existing charter content]
-new_string: [last line of existing charter content]
-
+**UPDATE** - Edit: append scratch pad after last line:
+```markdown
 ## Scratch Pad
 
 <!-- Interview state - will be removed upon completion -->
@@ -133,184 +66,72 @@ new_string: [last line of existing charter content]
 <!-- End scratch pad -->
 ```
 
-**RESUME Mode** - No initialization needed (scratch pad already exists).
+**RESUME** - No init (scratch pad exists).
 
-### Step 3: Charter Interview Loop (Orchestration)
-
-Execute a loop that invokes the stateless charter-interviewer agent repeatedly until a terminal state is reached.
-
-**Loop Structure**:
+### Step 3: Charter Interview Loop
 
 ```
 question_number = 0
 loop:
-  1. Invoke charter-interviewer via Task tool:
+  1. Task tool:
      - subagent_type: rp1-dev:charter-interviewer
-     - prompt: Include CHARTER_PATH ({RP1_ROOT}/context/charter.md), MODE, and RP1_ROOT
+     - prompt: CHARTER_PATH={RP1_ROOT}/context/charter.md, MODE={mode}, RP1_ROOT={RP1_ROOT}
 
-  2. Parse the JSON response from charter-interviewer
+  2. Parse JSON response
 
-  3. Handle response based on type:
+  3. Handle by type:
 
-     IF type == "next_question":
-        question_number = response.metadata.question_number
-        topic = determine_topic_from_gaps(response.metadata.gaps_remaining[0])
+     next_question:
+        question_number = metadata.question_number
+        topic = map_gap_to_topic(metadata.gaps_remaining[0])
+        answer = AskUserQuestion(response.next_question)
+        Edit charter.md (insert before <!-- End scratch pad -->):
+           ### Q{N}: {topic}
+           **Asked**: {question}
+           **Answer**: {answer}
+        continue
 
-        a. Call AskUserQuestion with response.next_question
-        b. Get user's answer
-        c. Write Q&A to scratch pad in charter.md:
+     success:
+        Write charter sections from response.charter_content
+        Remove "## Scratch Pad" section entirely
+        Update status to "Complete"
+        Output: "Charter complete! Proceeding to PRD creation..."
+        break -> Step 4
 
-           ### Q{question_number}: {topic}
-           **Asked**: {response.next_question}
-           **Answer**: {user's answer}
+     skip:
+        question_number = metadata.question_number
+        topic = from message
+        Edit charter.md:
+           ### Q{N}: {topic}
+           **Skipped**: {message}
+        continue
 
-        d. Continue loop
-
-     IF type == "success":
-        a. Get charter_content from response
-        b. Write finalized charter sections to charter.md (replacing placeholders)
-        c. Remove the entire "## Scratch Pad" section from charter.md
-        d. Update charter status to "Complete"
-        e. Output: "Charter complete! Proceeding to PRD creation..."
-        f. Exit loop, proceed to Step 4
-
-     IF type == "skip":
-        question_number = response.metadata.question_number
-        topic = determine_topic_from_message(response.message)
-
-        a. Record skip in scratch pad:
-
-           ### Q{question_number}: {topic}
-           **Skipped**: {response.message}
-
-        b. Continue loop
-
-     IF type == "error":
-        a. Display error message to user: response.message
-        b. Output: "Charter interview encountered an error. Scratch pad state preserved for retry."
-        c. Preserve scratch pad state (do NOT remove it)
-        d. Exit command (do NOT proceed to PRD)
+     error:
+        Output: "Charter interview encountered an error. Scratch pad state preserved for retry."
+        Preserve scratch pad, EXIT (no PRD)
 ```
 
-**Task Tool Invocation for charter-interviewer**:
-
-```
-Use Task tool with:
-- subagent_type: rp1-dev:charter-interviewer
-- prompt:
-  Analyze charter state and return next interview action.
-
-  Parameters:
-  - CHARTER_PATH: {RP1_ROOT}/context/charter.md
-  - MODE: {detected mode from Step 1}
-
-  Read the charter file, analyze the scratch pad state, and return a JSON response
-  indicating the next action (next_question, success, skip, or error).
-```
-
-**Response Parsing**:
-
-The charter-interviewer returns valid JSON matching this schema:
-```typescript
-interface StatelessAgentResponse {
-  type: "next_question" | "success" | "skip" | "error";
-  next_question?: string;
-  message?: string;
-  charter_complete?: boolean;
-  charter_content?: {
-    problem?: string;
-    users?: string;
-    value_prop?: string;
-    scope?: string;
-    success?: string;
-  };
-  metadata?: {
-    question_number?: number;
-    total_questions?: number;
-    gaps_remaining?: string[];
-  };
-}
-```
-
-Parse the JSON from the agent's output. The agent outputs ONLY the JSON block.
-
-**Topic Mapping** (for scratch pad entries):
-
-| Gap ID | Topic |
-|--------|-------|
+**Topic Map**:
+| Gap | Topic |
+|-----|-------|
 | problem | Problem & Context |
 | users | Target Users |
 | value_prop | Value Proposition |
 | scope | Scope |
 | success | Success Criteria |
+| (Q1 CREATE) | Brain Dump |
 
-For Q1 in CREATE mode, use topic "Brain Dump".
+**Scratch Pad Edits**:
+- Insert Q&A: `old_string: <!-- End scratch pad -->` -> prepend entry
+- Remove: match `## Scratch Pad` through `<!-- End scratch pad -->`, replace w/ empty
 
-#### Scratch Pad Write Operations
+### Step 4: PRD Creation
 
-**Writing Q&A pairs** - Use Edit tool to insert Q&A before `<!-- End scratch pad -->`:
+#### 4.1 PRD Name
+`PRD_NAME = $1 || "main"`
 
-```
-old_string: <!-- End scratch pad -->
-new_string: ### Q{N}: {Topic}
-**Asked**: {question text}
-**Answer**: {user's answer}
-
-<!-- End scratch pad -->
-```
-
-Example for first question in CREATE mode:
-```
-old_string: <!-- End scratch pad -->
-new_string: ### Q1: Brain Dump
-**Asked**: Tell me everything about this project. What are you building, what problem does it solve, and who is it for?
-**Answer**: We're building a task management app for remote teams. The main problem is coordination across time zones.
-
-<!-- End scratch pad -->
-```
-
-**Recording skipped questions** - Use Edit tool with `**Skipped**:` instead of `**Answer**:`:
-
-```
-old_string: <!-- End scratch pad -->
-new_string: ### Q{N}: {Topic}
-**Skipped**: {reason from response.message}
-
-<!-- End scratch pad -->
-```
-
-**Removing scratch pad on success** - Use Edit tool to remove entire section:
-
-```
-old_string: ## Scratch Pad
-
-<!-- Interview state - will be removed upon completion -->
-<!-- Mode: {MODE} -->
-<!-- Started: {timestamp} -->
-
-{all Q&A entries}
-
-<!-- End scratch pad -->
-new_string:
-```
-
-Match from `## Scratch Pad` through `<!-- End scratch pad -->` and replace with empty string. After removal, write the finalized charter content from `response.charter_content` to the appropriate sections.
-
-### Step 4: PRD Creation (Stateless Orchestration)
-
-After charter interview completes successfully, orchestrate the PRD wizard loop.
-
-The blueprint-wizard is a **stateless agent**. Blueprint command orchestrates the PRD interview.
-
-#### 4.1 Determine PRD Name
-
-- If $1 is provided: `PRD_NAME = $1`
-- If $1 is empty: `PRD_NAME = "main"`
-
-#### 4.2 Initialize PRD with Scratch Pad
-
+#### 4.2 Init PRD
 Create `{RP1_ROOT}/work/prds/{PRD_NAME}.md`:
-
 ```markdown
 # PRD: {PRD_NAME}
 
@@ -330,79 +151,50 @@ Create `{RP1_ROOT}/work/prds/{PRD_NAME}.md`:
 <!-- End scratch pad -->
 ```
 
-#### 4.3 PRD Interview Loop
-
+#### 4.3 PRD Loop
 ```
 PRD_PATH = {RP1_ROOT}/work/prds/{PRD_NAME}.md
 question_count = 0
 
 loop:
-  # Invoke stateless blueprint-wizard
   Task tool:
     subagent_type: rp1-dev:blueprint-wizard
-    prompt: |
-      PRD_NAME: {PRD_NAME}
-      EXTRA_CONTEXT: $ARGUMENTS
-      RP1_ROOT: {RP1_ROOT}
+    prompt: PRD_NAME={PRD_NAME}, EXTRA_CONTEXT=$ARGUMENTS, RP1_ROOT={RP1_ROOT}
 
-  # Parse JSON response from agent
-  response = parse_json(agent_output)
+  Parse JSON response
 
-  IF response.type == "next_question" OR response.type == "validate":
-      # Ask user the PRD question
+  next_question | validate:
       answer = AskUserQuestion(response.next_question)
-      question_count += 1
+      question_count++
+      Edit PRD (insert before <!-- End scratch pad -->):
+         #### S{section}: {topic}
+         **Asked**: {question}
+         **Answer**: {answer}
+      continue
 
-      # Write Q&A to scratch pad
-      Edit PRD file:
-        Insert before "<!-- End scratch pad -->":
-        """
-        #### S{response.metadata.section}: {response.metadata.topic}
-        **Asked**: {response.next_question}
-        **Answer**: {answer}
+  section_complete:
+      Update section marker: <!-- Section: {N} --> -> <!-- Section: {N+1} -->
+      Write section content to PRD above scratch pad
+      continue
 
-        """
-
-      # Check for uncertainty markers in answer
-      IF answer contains ("not sure", "maybe", "probably", "I think"):
-          # Agent will handle on next invocation
-          pass
-
-      continue loop
-
-  ELIF response.type == "section_complete":
-      # Update section number in scratch pad
-      Edit PRD file:
-        Replace "<!-- Section: {N} -->" with "<!-- Section: {N+1} -->"
-
-      # Write section content to PRD (above scratch pad)
-      Edit PRD file:
-        Insert completed section content at appropriate location
-
-      continue loop
-
-  ELIF response.type == "uncertainty":
-      # Ask for best guess
+  uncertainty:
       guess = AskUserQuestion(response.message)
-      Edit PRD file:
-        Add to Q&A History: "**Assumption**: {guess}"
-      continue loop
+      Add: **Assumption**: {guess}
+      continue
 
-  ELIF response.type == "success":
-      # Finalize PRD: write content and remove scratch pad
-      Write PRD file with response.prd_content (removes scratch pad)
+  success:
+      Write PRD w/ response.prd_content (removes scratch pad)
       Output: "PRD created at {PRD_PATH}"
       break
 
-  ELIF response.type == "error":
-      Output: "PRD creation error: {response.message}"
-      IF response.metadata.missing == "charter":
-          Output: "Please run /blueprint without arguments to create the charter first."
+  error:
+      Output: "PRD creation error: {message}"
+      If metadata.missing == "charter":
+         Output: "Please run /blueprint without arguments to create the charter first."
       break
 ```
 
 #### 4.4 Success Output
-
 ```
 PRD created!
 
@@ -414,9 +206,13 @@ Next Steps:
 - Add more surfaces: /rp1-dev:blueprint mobile-app
 ```
 
-## Next Steps
+## §USAGE
 
-After completing blueprint:
+**Default** (charter + main PRD): `/rp1-dev:blueprint`
 
-- Use `/rp1-dev:feature-requirements <feature-id>` to define specific features
-- Features can optionally associate with a parent PRD for context inheritance
+**Named PRD** (requires charter): `/rp1-dev:blueprint mobile-app`
+
+## §NEXT
+
+- `/rp1-dev:feature-requirements <feature-id>` - Define specific features
+- Features can associate w/ parent PRD for context inheritance

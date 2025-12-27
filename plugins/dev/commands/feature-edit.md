@@ -3,53 +3,40 @@ name: feature-edit
 version: 1.0.0
 description: Incorporates mid-stream changes into feature documentation with validation and propagation
 argument-hint: "feature-id <edit-description>"
-tags:
-  - feature
-  - documentation
-  - workflow
+tags: [feature, documentation, workflow]
 created: 2025-11-29
 author: cloud-on-prem/rp1
 ---
 
-# Feature Edit - Mid-Stream Documentation Changes
+# Feature Edit Command Router
 
-You are a command router for the feature-edit workflow. Your only job is to validate parameters and delegate to the feature-editor agent.
+Route to feature-editor agent after param validation.
 
-## Input Parameters
+## §IN
 
-<feature_id>
-$1
-</feature_id>
+| Param | Source | Req |
+|-------|--------|-----|
+| FEATURE_ID | $1 | Yes |
+| EDIT_DESCRIPTION | $ARGUMENTS | Yes |
+| RP1_ROOT | {{RP1_ROOT}} | No (default `.rp1/`) |
 
-<edit_description>
-$ARGUMENTS
-</edit_description>
+## §ERR
 
-<rp1_root>
-{{RP1_ROOT}}
-</rp1_root>
-(defaults to `.rp1/` if not set via environment variable $RP1_ROOT)
-
-## Parameter Validation
-
-**Required**: Both `FEATURE_ID` and `EDIT_DESCRIPTION` must be provided.
-
-If `FEATURE_ID` is empty or missing:
+**Missing FEATURE_ID**:
 ```
-❌ Error: Missing feature-id parameter
+Error: Missing feature-id parameter
 
 Usage: /rp1-dev:feature-edit feature-id "edit description"
-
 Example: /rp1-dev:feature-edit auth-flow "Discovery: OAuth library doesn't support refresh tokens"
 ```
 
-If `EDIT_DESCRIPTION` is empty or missing:
+**Missing EDIT_DESCRIPTION**:
 ```
-❌ Error: Missing edit description
+Error: Missing edit description
 
 Usage: /rp1-dev:feature-edit feature-id "edit description"
 
-Supported edit types:
+Edit types:
 - Requirement changes: "Add rate limiting to login endpoint"
 - Discoveries: "Discovery: API doesn't support pagination"
 - Concerns: "Concern: Error handling for failed requests not specified"
@@ -57,16 +44,13 @@ Supported edit types:
 - Pivots: "Pivot: Focus on mobile-first instead of desktop"
 ```
 
-## Delegation
+## §PROC
 
-If both parameters are valid, delegate to the feature-editor agent using a decision loop.
+### 1. Initial Invocation
 
-### Step 1: Initial Invocation
-
-Use the Task tool with:
+Task tool config:
 - `subagent_type`: `rp1-dev:feature-editor`
 - `prompt`:
-
 ```
 FEATURE_ID: $1
 EDIT_DESCRIPTION: $ARGUMENTS
@@ -75,52 +59,33 @@ DECISIONS: {}
 Analyze and process this edit.
 ```
 
-### Step 2: Handle Agent Response
+### 2. Decision Loop
 
-Parse the agent's output.
+Parse agent response:
 
-**If agent returns JSON with `type: "needs_decision"`**:
+**If `type: "needs_decision"`** (JSON w/ `decision_key`, `question`, `options`, `context`):
 
-```json
-{
-  "type": "needs_decision",
-  "decision_key": "classification|scope_action|conflict_action",
-  "question": "...",
-  "options": [...],
-  "context": {...}
-}
-```
+1. AskUserQuestion:
+   - `question`: from JSON
+   - `header`: decision_key
+   - `options`: mapped from JSON
+   - `multiSelect`: false
 
-Use AskUserQuestion to get user decision:
-
-```
-questions:
-  - question: "{question from JSON}"
-    header: "{decision_key}"
-    options: [map options from JSON to AskUserQuestion format]
-    multiSelect: false
-```
-
-Then re-invoke the agent with the accumulated decisions:
-
+2. Re-invoke agent w/ accumulated decisions:
 ```
 FEATURE_ID: $1
 EDIT_DESCRIPTION: $ARGUMENTS
 DECISIONS: {"classification": "...", "scope_action": "...", ...}
 ```
 
-Continue this loop until the agent returns a success/error result (not a decision request).
+3. Repeat until success/error (not decision request)
 
-**If agent returns success output** (edit applied):
+**If success**: Display summary
 
-Display the summary to the user.
+**If error/abort**: Display message
 
-**If agent returns error or abort**:
+### Loop Constraints
 
-Display the error/cancellation message to the user.
-
-### Decision Loop Notes
-
-- Accumulate decisions across invocations (agent may need multiple decisions)
-- Maximum 3 decision rounds (classification, scope, conflict) before completing
-- If user selects "abort" or "split" for scope_action, stop the loop and display appropriate message
+- Accumulate decisions across invocations
+- Max 3 rounds: classification, scope, conflict
+- Stop on "abort"/"split" scope_action

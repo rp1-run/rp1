@@ -8,9 +8,9 @@ created: 2025-11-29
 author: cloud-on-prem/rp1
 ---
 
-# Feature Archive - Archive Completed Features
+# Feature Archive
 
-Archives a completed feature's documentation from the active features directory to the archives directory.
+Archives completed feature docs from active -> archives dir.
 
 ## Usage
 
@@ -18,57 +18,36 @@ Archives a completed feature's documentation from the active features directory 
 /rp1-dev:feature-archive <feature-id>
 ```
 
-**Parameters**:
-- `feature-id` (required): The feature identifier to archive
-
-**Examples**:
-```bash
-# Archive a completed feature
-/rp1-dev:feature-archive my-feature
-
-# Archive after successful verification
-/rp1-dev:feature-verify my-feature
-# Then archive when prompted
-```
+**Params**: `feature-id` (req) - Feature ID to archive
 
 ## Behavior
 
-- Moves `{RP1_ROOT}/work/features/<feature-id>/` to `{RP1_ROOT}/work/archives/features/<feature-id>/`
-- Creates the archives/features/ directory if it doesn't exist
-- If an archive with the same ID exists, appends a timestamp suffix
-- Validates the feature has documentation before archiving
+- Moves `{RP1_ROOT}/work/features/<feature-id>/` -> `{RP1_ROOT}/work/archives/features/<feature-id>/`
+- Creates archives/features/ if missing
+- Existing archive ID -> appends timestamp suffix
+- Validates docs exist before archiving
 
 ## Execution
 
-### Step 1: Invoke Archiver Agent
+### Step 1: Invoke Agent
 
-Use the Task tool with:
+Task tool:
 - `subagent_type`: `rp1-dev:feature-archiver`
-- `prompt`: Archive mode with feature ID from $1
-
+- `prompt`:
 ```
-Execute the feature-archiver agent to archive the specified feature.
-
 MODE: archive
 FEATURE_ID: $1
 SKIP_DOC_CHECK: false
 ```
 
-### Step 2: Handle Agent Response
+### Step 2: Handle Response
 
-Parse the agent's output. If it returns JSON with `type: "needs_confirmation"`:
-
+If agent returns JSON w/ `type: "needs_confirmation"`:
 ```json
-{
-  "type": "needs_confirmation",
-  "reason": "minimal_docs",
-  "feature_id": "...",
-  "message": "..."
-}
+{"type":"needs_confirmation","reason":"minimal_docs","feature_id":"...","message":"..."}
 ```
 
-Use AskUserQuestion to confirm:
-
+AskUserQuestion:
 ```
 questions:
   - question: "Feature '{feature_id}' has minimal documentation (no requirements.md or design.md). Archive anyway?"
@@ -81,20 +60,9 @@ questions:
     multiSelect: false
 ```
 
-**If user selects "Yes"**: Re-invoke archiver with `SKIP_DOC_CHECK: true`
+- **Yes**: Re-invoke w/ `SKIP_DOC_CHECK: true`
+- **No**: Output `Archive aborted by user` + STOP
 
-```
-MODE: archive
-FEATURE_ID: $1
-SKIP_DOC_CHECK: true
-```
+### Step 3: Report
 
-**If user selects "No"**: Output cancellation message and stop:
-
-```
-⚠️ **Cancelled**: Archive aborted by user
-```
-
-### Step 3: Report Result
-
-If archiver returns success output (not JSON), display it directly to the user.
+Display agent success output directly.
