@@ -106,6 +106,7 @@ export const buildStateFromResult = (result: InitResult): WizardState => {
 		activities: [],
 		detectedTools: result.detectedTool ? [result.detectedTool] : [],
 		healthReport: result.healthReport,
+		projectContext: null,
 		userChoices: {},
 		phase: "complete",
 		error: null,

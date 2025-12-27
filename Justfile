@@ -41,6 +41,10 @@ test: test-cli
 check-cli:
     cd cli && bun run lint && bun run typecheck && bun run format
 
+# Auto-fix lint and format issues in CLI
+fix-cli:
+    cd cli && bun run lint:fix && bun run format:fix
+
 # Type check web-ui
 check-web-ui:
     cd cli/web-ui && npx tsc --noEmit

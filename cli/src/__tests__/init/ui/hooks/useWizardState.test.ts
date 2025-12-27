@@ -34,6 +34,7 @@ function createTestState(overrides: Partial<WizardState> = {}): WizardState {
 		activities: [],
 		detectedTools: [],
 		healthReport: null,
+		projectContext: null,
 		userChoices: {},
 		phase: "running",
 		error: null,
