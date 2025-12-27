@@ -28,27 +28,45 @@ Minimal coordinator: pre-flight checks -> charter-interviewer -> bootstrap-scaff
 ls -la
 ```
 
-- **Empty**: Only `.`, `..`, `.DS_Store`, `.rp1/`, `CLAUDE.md`, `AGENTS.md`
+Classify directory state:
+
+- **rp1-initialized**: Only `.`, `..`, `.DS_Store`, `.rp1/`, `CLAUDE.md`, `AGENTS.md` (user ran `rp1 init` here)
+- **Empty**: Only `.`, `..`, `.DS_Store` (no rp1 files)
 - **Non-empty**: Contains project files -> list top 10-15
+
+**Extract CURRENT_DIR_NAME**: basename of current working directory (e.g., `/home/user/my-app` → `my-app`)
 
 ## §2 Project Name
 
-**$1 provided**: Validate (no spaces, valid dir chars). Target: `{cwd}/{PROJECT_NAME}`
+**$1 provided**: Validate (no spaces, valid dir chars). PROJECT_NAME = $1
 
-**$1 empty**: AskUserQuestion: "What would you like to name your project? Use lowercase, numbers, hyphens (e.g., my-awesome-app)."
+**$1 empty + rp1-initialized**: PROJECT_NAME = CURRENT_DIR_NAME (auto-extracted from directory basename)
 
-Max 2 attempts, then abort.
+**$1 empty + Empty/Non-empty**: AskUserQuestion: "What would you like to name your project? Use lowercase, numbers, hyphens (e.g., my-awesome-app)."
+
+Max 2 attempts for validation, then abort.
 
 ## §3 Target Dir Setup
 
-### Case A: Empty Dir
+### Case A: rp1-initialized
+
+AskUserQuestion: "Directory '{CURRENT_DIR_NAME}' contains rp1 configuration. Create project '{PROJECT_NAME}' here?"
+Options:
+
+- **Yes, proceed here (Recommended)**: "Create the scaffolded project in the current directory"
+- **Create subdirectory**: "Create a new subdirectory '{PROJECT_NAME}' instead"
+
+- Yes/1: TARGET_DIR = cwd
+- subdirectory/2: TARGET_DIR = `{cwd}/{PROJECT_NAME}`
+
+### Case B: Empty Dir (no rp1 files)
 
 AskUserQuestion: "Current directory is empty. Create files here or subdirectory '{PROJECT_NAME}'? Reply 'here' or 'subdirectory' (1/2)."
 
 - here/1: TARGET_DIR = cwd
 - subdirectory/2: TARGET_DIR = `{cwd}/{PROJECT_NAME}`
 
-### Case B: Non-Empty
+### Case C: Non-Empty
 
 AskUserQuestion: "Current dir has files: [list]. Project goes in ./{PROJECT_NAME}/ (won't modify existing). Proceed? (yes/no)"
 
@@ -66,6 +84,7 @@ mkdir -p "{TARGET_DIR}/{RP1_ROOT}/context"
 ```
 
 Create `{TARGET_DIR}/{RP1_ROOT}/context/charter.md`:
+
 ```markdown
 # Project Charter: {PROJECT_NAME}
 **Version**: 1.0.0 | **Status**: Draft | **Created**: {timestamp}
@@ -132,6 +151,7 @@ while question_count < 10:
 ### 5.1 Init Preferences
 
 Create `{TARGET_DIR}/{RP1_ROOT}/context/preferences.md`:
+
 ```markdown
 # Project Preferences
 **Generated**: {timestamp} | **Status**: In Progress
@@ -162,7 +182,11 @@ loop:
 
   response = parse_json(output)
 
-  if "next_question": ask user, question_count++, append Q&A, continue
+  if "next_question":
+    answer = AskUserQuestion(response.next_question)
+    question_count++
+    Append to scratch pad: "### Q{n}: {topic}\n**Asked**: {q}\n**Answer**: {answer}"
+    continue
   elif "research_ready": update phase to RESEARCH, continue
   elif "summary":
     answer = AskUserQuestion("{summary}\nProceed? Yes/No")
@@ -170,7 +194,9 @@ loop:
     else:
       summary_iterations++
       if >= 2: "Max revisions. Re-run /bootstrap." break
-      ask what to change, record, continue
+      answer = AskUserQuestion("What would you like to change?")
+      Append to scratch pad: "### Revision: {answer}"
+      continue
   elif "scaffold": continue
   elif "success": Output response.output, break
   elif "error": Output error, break
@@ -196,6 +222,7 @@ Commands: /rp1-dev:feature-requirements, /rp1-dev:blueprint update, /rp1-base:kn
 ## §7 Anti-Loop
 
 **Single-pass. DO NOT**:
+
 - Ask clarification beyond defined prompts
 - Loop to earlier steps
 - Re-run agents after completion
