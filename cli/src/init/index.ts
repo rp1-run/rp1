@@ -23,6 +23,10 @@ import {
 	validateFencing,
 	wrapWithFence,
 } from "./comment-fence.js";
+import {
+	type ContextDetectionResult,
+	detectProjectContext,
+} from "./context-detector.js";
 import { detectGitRoot, type GitRootResult } from "./git-root.js";
 import type {
 	GitignorePreset,
@@ -32,6 +36,7 @@ import type {
 	InitResult,
 	NextStep,
 	PluginStatus,
+	ProjectContext,
 	ReinitChoice,
 	ReinitState,
 } from "./models.js";
@@ -739,6 +744,22 @@ export function executeInit(
 					allWarnings.push(gitCheck.warning);
 				}
 
+				const contextResultEither = await detectProjectContext(cwd)();
+				const contextResult: ContextDetectionResult = E.isRight(
+					contextResultEither,
+				)
+					? contextResultEither.right
+					: {
+							context: "brownfield" as ProjectContext,
+							gitResult,
+							hasSourceFiles: false,
+							reasoning: "Context detection failed, defaulting to brownfield",
+						};
+				const projectContext = contextResult.context;
+				logger.debug(
+					`Project context: ${projectContext} (${contextResult.reasoning})`,
+				);
+
 				progress.startStep("reinit-check");
 				const reinitState = await detectReinitState(cwd, null);
 				const reinitCheck = await handleReinitCheck(
@@ -968,6 +989,7 @@ export function executeInit(
 					primaryTool || null,
 					hasKBContent,
 					hasCharterContent,
+					projectContext,
 				);
 
 				displaySummary(

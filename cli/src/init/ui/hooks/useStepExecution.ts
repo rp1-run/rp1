@@ -22,6 +22,10 @@ import {
 	validateFencing,
 	wrapWithFence,
 } from "../../comment-fence.js";
+import {
+	detectProjectContext,
+	type ProjectContext,
+} from "../../context-detector.js";
 import { detectGitRoot, type GitRootResult } from "../../git-root.js";
 import type {
 	Activity,
@@ -90,6 +94,7 @@ interface ExecutionContext {
 	registry: ToolsRegistry | null;
 	gitResult: GitRootResult | null;
 	reinitState: ReinitState | null;
+	projectContext: ProjectContext | null;
 	toolDetectionResult: ToolDetectionResult | null;
 	primaryTool: DetectedTool | null;
 	readinessResult: ReadinessResult | null;
@@ -175,6 +180,7 @@ export const useStepExecution = ({
 		registry: null,
 		gitResult: null,
 		reinitState: null,
+		projectContext: null,
 		toolDetectionResult: null,
 		primaryTool: null,
 		readinessResult: null,
@@ -283,12 +289,33 @@ export const useStepExecution = ({
 			const ctx = contextRef.current;
 			addAct("reinit-check", "Checking for existing setup...", "info");
 
+			// Detect project context (greenfield vs brownfield)
+			const contextResultEither = await detectProjectContext(ctx.cwd)();
+			if (E.isRight(contextResultEither)) {
+				ctx.projectContext = contextResultEither.right.context;
+			} else {
+				ctx.projectContext = "brownfield"; // Default fallback
+			}
+
+			// Update wizard state with project context
+			dispatch({
+				type: "SET_PROJECT_CONTEXT",
+				context: ctx.projectContext,
+			});
+
 			const reinitState = await detectReinitState(ctx.cwd, ctx.primaryTool);
 			ctx.reinitState = reinitState;
 
 			if (!reinitState.hasRp1Dir && !reinitState.hasFencedContent) {
-				addAct("reinit-check", "Fresh installation", "success");
+				const contextLabel =
+					ctx.projectContext === "greenfield" ? "greenfield" : "brownfield";
+				addAct(
+					"reinit-check",
+					`Fresh installation (${contextLabel} project)`,
+					"success",
+				);
 			} else {
+				// rp1 is already configured - need user choice
 				const details: string[] = [];
 				if (reinitState.hasRp1Dir) details.push(".rp1/ exists");
 				if (reinitState.hasFencedContent)
@@ -297,15 +324,23 @@ export const useStepExecution = ({
 				if (reinitState.hasWorkContent) details.push("work content exists");
 				addAct("reinit-check", `Existing: ${details.join(", ")}`, "info");
 
-				// Handle reinit choice from state
 				const choice = state.userChoices.reinitChoice;
+
+				if (choice === undefined && !options.yes && onPromptRequest) {
+					// Interactive mode and no choice yet - request prompt
+					promptRequestedRef.current = true;
+					onPromptRequest({ type: "reinit", resolve: () => {} });
+					return; // Step will be re-executed after user makes a choice
+				}
+
+				// Handle reinit choice from state
 				if (choice === "skip") {
 					throw new Error("Re-initialization skipped by user");
 				}
 				// update or reinitialize both proceed
 			}
 		},
-		[state.userChoices.reinitChoice],
+		[dispatch, state.userChoices.reinitChoice, options.yes, onPromptRequest],
 	);
 
 	/**
@@ -778,6 +813,7 @@ export const useStepExecution = ({
 				ctx.primaryTool,
 				ctx.reinitState?.hasKBContent ?? false,
 				ctx.healthReport?.charterExists ?? false,
+				ctx.projectContext ?? undefined,
 			);
 
 			addAct("summary", `Generated ${nextSteps.length} next steps`, "success");

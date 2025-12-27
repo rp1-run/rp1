@@ -210,7 +210,6 @@ describe("summary step", () => {
 			// kbExists=false, charterExists=false generate optional steps
 			const steps = generateNextSteps(healthReport, detectedTool, false, false);
 
-			// Find indices of required and optional steps
 			const requiredIndices = steps
 				.map((s, i) => (s.required ? i : -1))
 				.filter((i) => i >= 0);
@@ -232,7 +231,6 @@ describe("summary step", () => {
 
 			const steps = generateNextSteps(healthReport, detectedTool, false, false);
 
-			// Verify order numbers are sequential starting at 1
 			steps.forEach((step, index) => {
 				expect(step.order).toBe(index + 1);
 			});
@@ -315,6 +313,100 @@ describe("summary step", () => {
 			// The restart step should say "your AI tool"
 			const restartStep = steps.find((s) => s.action.includes("Restart"));
 			expect(restartStep?.action).toContain("your AI tool");
+		});
+
+		test("GF-01: Greenfield init suggests /bootstrap", () => {
+			const healthReport = createHealthReport({ pluginsInstalled: false });
+			const detectedTool = createDetectedTool();
+
+			const steps = generateNextSteps(
+				healthReport,
+				detectedTool,
+				false,
+				false,
+				"greenfield",
+			);
+
+			const bootstrapStep = steps.find((s) => s.command === "/bootstrap");
+			expect(bootstrapStep).toBeDefined();
+			expect(bootstrapStep?.action).toBe("Bootstrap a new project");
+			expect(bootstrapStep?.required).toBe(false);
+			expect(bootstrapStep?.docsUrl).toBe("https://rp1.run/guides/bootstrap");
+			expect(bootstrapStep?.blurb).toBe(
+				"Creates a complete project with charter, tech stack, and runnable code",
+			);
+		});
+
+		test("GF-01: Greenfield context puts /bootstrap before /knowledge-build", () => {
+			const healthReport = createHealthReport({ pluginsInstalled: false });
+			const detectedTool = createDetectedTool();
+
+			const steps = generateNextSteps(
+				healthReport,
+				detectedTool,
+				false,
+				false,
+				"greenfield",
+			);
+
+			const bootstrapStep = steps.find((s) => s.command === "/bootstrap");
+			const kbStep = steps.find((s) => s.command === "/knowledge-build");
+
+			expect(bootstrapStep).toBeDefined();
+			expect(kbStep).toBeDefined();
+			// Safe to access .order after expect().toBeDefined() assertions
+			expect(bootstrapStep?.order).toBeLessThan(kbStep?.order ?? Infinity);
+		});
+
+		test("BF-01: Brownfield init suggests /knowledge-build", () => {
+			const healthReport = createHealthReport({ pluginsInstalled: false });
+			const detectedTool = createDetectedTool();
+
+			const steps = generateNextSteps(
+				healthReport,
+				detectedTool,
+				false,
+				false,
+				"brownfield",
+			);
+
+			const kbStep = steps.find((s) => s.command === "/knowledge-build");
+			expect(kbStep).toBeDefined();
+			expect(kbStep?.action).toBe("Build knowledge base");
+			expect(kbStep?.required).toBe(false);
+			expect(kbStep?.docsUrl).toBe("https://rp1.run/guides/knowledge-base");
+		});
+
+		test("BF-01: Brownfield context does not suggest /bootstrap", () => {
+			const healthReport = createHealthReport({ pluginsInstalled: false });
+			const detectedTool = createDetectedTool();
+
+			const steps = generateNextSteps(
+				healthReport,
+				detectedTool,
+				false,
+				false,
+				"brownfield",
+			);
+
+			const bootstrapStep = steps.find((s) => s.command === "/bootstrap");
+			expect(bootstrapStep).toBeUndefined();
+		});
+
+		test("undefined projectContext does not suggest /bootstrap", () => {
+			const healthReport = createHealthReport({ pluginsInstalled: false });
+			const detectedTool = createDetectedTool();
+
+			const steps = generateNextSteps(
+				healthReport,
+				detectedTool,
+				false,
+				false,
+				undefined,
+			);
+
+			const bootstrapStep = steps.find((s) => s.command === "/bootstrap");
+			expect(bootstrapStep).toBeUndefined();
 		});
 	});
 
@@ -622,12 +714,10 @@ describe("summary step", () => {
 			const nextSteps: NextStep[] = [];
 			const detectedTool = createDetectedTool();
 
-			// Should not throw
 			expect(() => {
 				displaySummary(actions, null, nextSteps, [detectedTool], logger, false);
 			}).not.toThrow();
 
-			// Should still render header and footer
 			expect(
 				output.some((line) => line.includes("rp1 Initialization Summary")),
 			).toBe(true);
@@ -639,12 +729,10 @@ describe("summary step", () => {
 			const healthReport = createHealthReport();
 			const nextSteps: NextStep[] = [];
 
-			// Should not throw
 			expect(() => {
 				displaySummary(actions, healthReport, nextSteps, [], logger, false);
 			}).not.toThrow();
 
-			// Should still render header and footer
 			expect(
 				output.some((line) => line.includes("rp1 Initialization Summary")),
 			).toBe(true);

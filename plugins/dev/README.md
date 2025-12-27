@@ -20,12 +20,13 @@ Then install dev plugin:
 /plugin install rp1-dev
 ```
 
-## Commands (19)
+## Commands (20)
 
-### Project Onboarding (1)
+### Project Onboarding (2)
 - `/blueprint [prd-name]` - Guided wizard to capture project vision via charter + PRDs
+- `/bootstrap [project-name]` - Bootstrap a new project with charter discovery and tech stack scaffolding
 
-**Default Flow** (creates charter + main PRD):
+**Blueprint Flow** (for brownfield projects):
 ```bash
 /blueprint
 ```
@@ -39,6 +40,26 @@ Then install dev plugin:
 The blueprint command creates a two-tier document hierarchy:
 1. **Charter** (`{RP1_ROOT}/context/charter.md`) - Project-level "why" and "who"
 2. **PRDs** (`{RP1_ROOT}/work/prds/<name>.md`) - Surface-specific "what" that inherits from charter
+
+**Bootstrap Flow** (for greenfield projects):
+```bash
+/bootstrap my-new-app
+```
+
+The bootstrap command creates a complete runnable project from scratch:
+1. **Charter Interview** - 5 questions to capture your project vision
+2. **Tech Stack Selection** - 5 questions to determine language, framework, and tooling
+3. **Best Practices Research** - Fetches current versions and patterns
+4. **Project Scaffolding** - Generates runnable code, tests, and configuration
+
+**What bootstrap creates**:
+- `.rp1/context/charter.md` - Project charter from interview
+- `.rp1/context/preferences.md` - Tech decisions and rationale
+- `AGENTS.md` and `CLAUDE.md` - AI assistant configuration
+- `README.md` - Getting started guide
+- Source code, tests, and package manifest
+
+**Non-empty directory handling**: When run in a directory with existing files, bootstrap prompts for confirmation and creates the project in a new subdirectory to avoid conflicts.
 
 ### Feature Development (9)
 - `/feature-requirements feature-id [extra-context]` - Gather requirements
