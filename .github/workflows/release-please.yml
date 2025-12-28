@@ -1,10 +1,16 @@
 # Release Please - Versioning & Changelog Automation
 #
+# Rolling Release PR Strategy:
+# - One open release PR always exists, accumulating changes
+# - Every merged PR updates the release PR (changelog, version bump)
+# - NO release happens until the release PR itself is merged
+# - Merging the release PR triggers: tag creation, GitHub release, artifact builds
+#
 # This workflow handles:
 # - Semantic versioning via conventional commits
 # - Changelog generation
-# - Release PR creation and tagging
-# - OpenCode artifact builds
+# - Release PR creation and maintenance
+# - OpenCode artifact builds (only on actual release)
 #
 # Binary distribution (rp1 CLI) is handled separately by goreleaser.yml,
 # which triggers on the tag created by this workflow.

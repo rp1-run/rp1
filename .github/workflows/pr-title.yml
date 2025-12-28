@@ -29,6 +29,7 @@ jobs:
             ci
             chore
             revert
+            security
           # Scopes are optional but if provided must match one of these
           # 'main' is used by release-please for release PRs
           scopes: |
@@ -39,6 +40,7 @@ jobs:
             docs
             deps
             main
+            security
           requireScope: false
           subjectPattern: ^.+$
           subjectPatternError: |
