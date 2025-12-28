@@ -100,7 +100,7 @@ Generating hypotheses...
 ```
 
 !!! tip "Checkpoint"
-    The investigator should identify files related to the orders endpoint. If it's searching in wrong locations, ensure your knowledge base is up to date.
+    The investigator should identify files related to the orders endpoint. If it's searching in wrong locations, rebuild your knowledge base with `/knowledge-build`.
 
 ---
 
@@ -148,7 +148,7 @@ The investigator gathers evidence for each hypothesis by examining your code:
 
 **What to expect:**
 
-```
+````
 🔎 Gathering Evidence for H1: Database query N+1 problem
 
 Analyzing: src/db/queries/orderQueries.ts
@@ -171,7 +171,7 @@ Evidence strength: STRONG
 - Sequential queries inside loop (line 48-50)
 - No batch loading of order items
 - Query count = 1 + N (where N = number of orders)
-```
+````
 
 !!! info "How Evidence is Gathered"
     The investigator uses your knowledge base to understand your architecture, then performs targeted code searches. It examines actual code patterns, not just file names.
@@ -267,55 +267,45 @@ Output: .rp1/work/investigations/api-timeout-orders/report.md
 
 ## Acting on Findings
 
-After the investigation, you have several options:
+After the investigation, you have several options. Always reference the investigation report to give the agent full context.
 
 ### Option A: Quick Fix
 
 If the fix is straightforward, implement it directly:
 
-=== "Claude Code"
-
-    ```bash
-    /code-quick-build "Fix the N+1 query in orderQueries.ts by batching order_items fetch"
-    ```
-
-=== "OpenCode"
-
-    ```bash
-    /rp1-dev/code-quick-build "Fix the N+1 query in orderQueries.ts by batching order_items fetch"
-    ```
+```bash
+/code-quick-build "Fix the N+1 query" \
+  .rp1/work/investigations/api-timeout-orders/report.md
+```
 
 ### Option B: Formal Feature
 
 For larger fixes, use the feature workflow:
 
-=== "Claude Code"
-
-    ```bash
-    /feature-requirements fix-orders-performance "Based on investigation report, fix the N+1 query pattern and add missing index"
-    ```
-
-=== "OpenCode"
-
-    ```bash
-    /rp1-dev/feature-requirements fix-orders-performance "Based on investigation report, fix the N+1 query pattern and add missing index"
-    ```
+```bash
+/feature-requirements fix-orders-performance \
+  .rp1/work/investigations/api-timeout-orders/report.md
+```
 
 ### Option C: Further Investigation
 
 If the root cause isn't clear, investigate specific areas:
 
-=== "Claude Code"
+```bash
+/code-investigate "Deep dive into connection pool behavior" \
+  .rp1/work/investigations/api-timeout-orders/report.md
+```
 
-    ```bash
-    /code-investigate "Deep dive into database connection pool behavior under load"
-    ```
+### Option D: Deep Research
 
-=== "OpenCode"
+If the issue spans multiple repositories, external services, or requires broader research:
 
-    ```bash
-    /rp1-dev/code-investigate "Deep dive into database connection pool behavior under load"
-    ```
+```bash
+/deep-research "How does payment service interact with orders API?" \
+  .rp1/work/investigations/api-timeout-orders/report.md
+```
+
+This is useful for cross-service communication, third-party integrations, or understanding external systems. See [Deep Research](../reference/base/deep-research.md) for more details.
 
 ---
 

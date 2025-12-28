@@ -149,107 +149,18 @@ Next: Knowledge base is ready for use with rp1 commands
 
 ## Step 2: Understand KB Output
 
-The knowledge base consists of 5 core files:
+The knowledge base consists of 5 core markdown files plus metadata files.
 
-### index.md - Project Overview
+!!! info "KB File Reference"
+    See [What's in the Knowledge Base?](../concepts/knowledge-aware-agents.md#whats-in-the-knowledge-base) for the complete list of files and their purposes.
 
-Quick start guide with:
+Each KB file serves a specific role:
 
-- Repository structure
-- Project summary
-- Entry points
-- Development setup
-
-```markdown
-# Project Knowledge Base
-
-**Repository Type**: Single Project
-**Primary Languages**: TypeScript, Python
-**Last Updated**: 2024-01-15
-
-## Quick Start
-...
-
-## Repository Structure
-```
-
-### concept_map.md - Domain Concepts
-
-Business and technical concepts:
-
-- Domain terminology
-- Key entities
-- Relationships
-- Business rules
-
-```markdown
-# Domain Concepts
-
-## Core Business Concepts
-
-### Order
-**Definition**: A customer's request to purchase items
-**Implementation**: src/models/order.ts
-**Relationships**: Customer (1:N), OrderItem (1:N), Payment (1:1)
-```
-
-### architecture.md - System Architecture
-
-High-level system design:
-
-- Component diagrams
-- Integration points
-- Data flow
-- Deployment architecture
-
-```markdown
-# System Architecture
-
-## High-Level Architecture
-
-```mermaid
-graph TB
-    subgraph "Frontend"
-        WEB[Web App]
-        MOBILE[Mobile App]
-    end
-    ...
-```
-
-### modules.md - Module Breakdown
-
-Component structure:
-
-- Module purposes
-- Dependencies
-- Key files
-- APIs
-
-```markdown
-# Module Breakdown
-
-## src/api
-**Purpose**: REST API endpoints
-**Dependencies**: services, models, middleware
-**Key Files**: routes.ts, handlers.ts
-```
-
-### patterns.md - Implementation Patterns
-
-Coding conventions:
-
-- Naming conventions
-- Error handling patterns
-- Testing idioms
-- Common utilities
-
-```markdown
-# Implementation Patterns
-
-## Error Handling
-**Pattern**: Custom error classes with error codes
-**Example**: throw new AppError('NOT_FOUND', 'User not found')
-```
+- **index.md**: Quick start guide with repository structure, entry points, and setup
+- **concept_map.md**: Domain terminology, key entities, relationships, and business rules
+- **architecture.md**: Component diagrams, integration points, data flow, and deployment
+- **modules.md**: Module purposes, dependencies, key files, and APIs
+- **patterns.md**: Naming conventions, error handling patterns, and coding idioms
 
 ---
 
@@ -339,7 +250,7 @@ Creating orientation document...
 ✓ Development workflows
 ✓ Common tasks
 
-Output: .rp1/docs/project-overview.md
+Output: .rp1/context/birds-eye-view.md
 
 ✅ Orientation document complete
 
@@ -354,7 +265,7 @@ The document includes:
 The generated document is designed for new developers to read on their first day.
 
 !!! tip "Checkpoint"
-    Open `.rp1/docs/project-overview.md` and review it. Does it capture the key things a new developer needs to know?
+    Open `.rp1/context/birds-eye-view.md` and review it. Does it capture the key things a new developer needs to know?
 
 ---
 
@@ -364,10 +275,12 @@ Commit the KB to your repository:
 
 ```bash
 git add .rp1/context/
-git add .rp1/docs/
 git commit -m "docs: add knowledge base and orientation docs"
 git push
 ```
+
+!!! tip "Automatic .gitignore"
+    When you run `rp1 init`, it automatically configures `.gitignore` with the correct paths—committing context files while ignoring temporary work files.
 
 **Why commit the KB?**
 
@@ -386,16 +299,16 @@ Use this checklist when onboarding a new team member:
 
 - [ ] Clone repository
 - [ ] Install rp1 ([Installation](../getting-started/installation.md))
-- [ ] Read `.rp1/docs/project-overview.md`
 - [ ] Run through setup instructions
 - [ ] Verify development environment works
 
 ### Day 1-2: Codebase Orientation
 
-- [ ] Read `.rp1/context/index.md` for project structure
-- [ ] Review `.rp1/context/architecture.md` for system design
-- [ ] Scan `.rp1/context/concept_map.md` for domain terminology
-- [ ] Explore key modules identified in overview
+- [ ] Read `.rp1/context/birds-eye-view.md` - the comprehensive project overview
+- [ ] Explore key modules and files identified in the overview
+
+!!! info "KB Files Are for Agents"
+    The other files in `.rp1/context/` (index.md, architecture.md, etc.) are primarily for agents to manage context. The birds-eye-view is the human-readable orientation document.
 
 ### Day 3-5: Guided Exploration
 
@@ -406,6 +319,10 @@ Use this checklist when onboarding a new team member:
 - [ ] Ask questions about patterns:
     ```bash
     /code-investigate "What patterns are used for database access?"
+    ```
+- [ ] Research broader topics spanning multiple services or external integrations:
+    ```bash
+    /deep-research "How do the frontend and backend communicate?"
     ```
 
 ### Week 1: First Contribution

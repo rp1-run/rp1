@@ -23,8 +23,15 @@ build-local: build-opencode build-web-ui clean-web-ui-cache
 # Build everything for local testing
 build: build-local
 
+update-local-claude:
+  claude plugin marketplace rm rp1-local
+  claude plugin marketplace add ./local-marketplace/
+  claude plugin install rp1-base@rp1-local
+  claude plugin install rp1-dev@rp1-local
+  claude plugin install rp1-utils@rp1-local
+
 # Full local install: rm stable rp1, build + install opencode (includes plugin installation)
-install-local: build rm-stable-rp1
+install-local: build rm-stable-rp1 update-local-claude
     ./bin/rp1 install:opencode
 
 local *args: build
@@ -60,7 +67,7 @@ docs:
 # Removes Stable version of Claude and OpenCode rp1 plugins
 # This is useful when testing local builds to avoid conflicts
 rm-stable-rp1:
-  claude plugin marketplace rm rp1-run || true
   rm -rf ~/.config/opencode/plugin/rp1*
   rm -rf ~/.config/opencode/command/rp1*
   rm -rf ~/.config/opencode/skills/
+  -claude plugin marketplace rm rp1-run 2>/dev/null

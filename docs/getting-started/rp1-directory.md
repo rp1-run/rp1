@@ -1,6 +1,6 @@
 # The .rp1 Directory
 
-rp1 stores project-specific data in a `.rp1/` directory at your project root. This guide explains the directory structure, what to commit vs ignore, and how to customize the storage location.
+rp1 stores project-specific data in a `.rp1/` directory at your project root. This location can be customized via the `RP1_ROOT` environment variable ([see below](#configuring-rp1_root)). This guide explains the directory structure, what to commit vs ignore, and how to customize the storage location.
 
 ---
 
@@ -33,26 +33,7 @@ rp1 stores project-specific data in a `.rp1/` directory at your project root. Th
 
 ## Git Recommendations
 
-### Recommended .gitignore
-
-```gitignore
-# rp1 working files (individual work artifacts)
-.rp1/work/
-
-# rp1 local metadata (contains absolute paths specific to your machine)
-.rp1/context/meta.json
-
-# rp1 generated KB (optional - see trade-offs below)
-# .rp1/context/
-```
-
-### What to Commit vs Ignore
-
-| Directory | Recommendation | Rationale |
-|-----------|---------------|-----------|
-| `.rp1/work/` | **Ignore** | Individual work artifacts (features, PRDs, tasks) - typically personal workflow |
-| `.rp1/context/meta.json` | **Always Ignore** | Contains local paths (repo_root) that differ per machine |
-| `.rp1/context/` (rest) | **Consider** | See trade-offs below |
+When you run `rp1 init`, it automatically configures `.gitignore` with one of three presets. See [Git Ignore Presets](../reference/cli/init.md#git-ignore-presets) for details on each option.
 
 ### Knowledge Base: To Commit or Not?
 
@@ -68,27 +49,28 @@ The `.rp1/context/` directory contains your auto-generated knowledge base. There
 
 - Your codebase changes frequently (KB regenerates often = noisy git history)
 - Team members prefer fresh, local KB generation
-- You want to keep repository size smaller
 
 !!! tip "Hybrid Approach"
     Some teams commit context files but add them to `.gitattributes` with `merge=ours` to avoid merge conflicts, or only commit periodically (e.g., with releases).
 
-!!! tip "Stealth Mode"
-    To ignore `.rp1/` across all your projects without modifying each repo's `.gitignore`, add it to your global gitignore:
+!!! warning "Stealth Mode (Discouraged)"
+    You can ignore `.rp1/` across all projects by adding it to your global gitignore:
 
     ```bash
-    # Add to global gitignore
     echo ".rp1/" >> ~/.gitignore_global
     git config --global core.excludesfile ~/.gitignore_global
     ```
 
-    This keeps rp1 artifacts completely out of version control on your machine.
+    This is **heavily discouraged** as it prevents sharing KB with your team. Consider using the [`RP1_ROOT` environment variable](#configuring-rp1_root) instead to store rp1 data outside your repository.
 
 ---
 
 ## Configuring RP1_ROOT
 
 By default, rp1 uses `.rp1/` in your current working directory. Override this with the `RP1_ROOT` environment variable.
+
+!!! tip "Advanced Configuration"
+    For automatic per-directory configuration using `direnv`, see [Custom RP1_ROOT](../reference/cli/init.md#custom-rp1_root) in the init reference.
 
 ### Use Cases
 
@@ -130,6 +112,9 @@ By default, rp1 uses `.rp1/` in your current working directory. Override this wi
     # Or per-command (Claude Code)
     RP1_ROOT=/custom/path /knowledge-build
     ```
+
+    !!! tip
+        Use [direnv](../reference/cli/init.md#custom-rp1_root) to automatically set `RP1_ROOT` when you enter a project directory.
 
 ### Monorepo Considerations
 

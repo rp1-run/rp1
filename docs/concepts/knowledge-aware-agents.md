@@ -113,7 +113,7 @@ Problems:
 
 With KB loaded, the agent knows:
 - You use a `Validator` class pattern
-- Error messages follow `{field}: {message}` format
+- Error messages follow `<field>: <message>` format
 - Validators are in `src/validators/`
 - You have a `ValidationResult` type
 
@@ -192,5 +192,4 @@ The KB should be rebuilt when your codebase changes significantly:
 ## Learn More
 
 - [`knowledge-build` Reference](../reference/base/knowledge-build.md) - Generate the knowledge base
-- [KB Loading Patterns Guide](../guides/kb-loading-patterns.md) - Implement KB loading in your agents
-- [`knowledge-load` Reference](../reference/base/knowledge-load.md) - Deprecated loading command
+- [`knowledge-load` Reference](../reference/base/knowledge-load.md) - Load KB context explicitly

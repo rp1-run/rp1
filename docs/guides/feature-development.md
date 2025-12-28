@@ -24,6 +24,17 @@ Build your first feature with rp1's complete development workflow. This tutorial
 
 ---
 
+!!! tip "Small task? Use Quick Build"
+    For **small features, fixes, or enhancements** with well-defined scope (under 2 hours), use `/code-quick-build` instead. It skips formal documentation and implements directly.
+
+    ```bash
+    /code-quick-build "Add dark mode toggle to settings page"
+    ```
+
+    [Learn more about code-quick-build :material-arrow-right:](../reference/dev/code-quick-build.md)
+
+---
+
 ## The Scenario
 
 We'll build a **dark mode toggle** feature for a settings page. This example was chosen because:
@@ -54,46 +65,41 @@ flowchart LR
 | Verify | Validate against criteria | Verification report |
 | Archive | Store completed feature | Archived artifacts |
 
-!!! info "Tasks Auto-Generate After Design"
-    Unlike previous versions, you no longer need a separate `/feature-tasks` step. Running `/feature-design` automatically generates both `design.md` and `tasks.md`. The `/feature-tasks` command is still available for regenerating or updating tasks if needed.
-
 ---
 
-## Optional: Blueprint
+??? info "Optional: Blueprint - for projects without a charter"
+    Blueprint is ideal for new projects, major initiatives, or existing projects that lack a formal charter. For small features where project context is already established, skip to Step 1.
 
-!!! info "When to Use Blueprint"
-    Blueprint is ideal for new projects or major initiatives. For small features in existing projects, you can skip to Step 1.
+    If you don't have a project charter yet, run the blueprint wizard:
 
-If you're starting a new project, run the blueprint wizard:
+    === "Claude Code"
 
-=== "Claude Code"
+        ```bash
+        /blueprint
+        ```
 
-    ```bash
-    /blueprint
-    ```
+    === "OpenCode"
 
-=== "OpenCode"
+        ```bash
+        /rp1-dev/blueprint
+        ```
 
-    ```bash
-    /rp1-dev/blueprint
-    ```
+    The wizard guides you through:
 
-The wizard guides you through:
+    1. What problem are you solving?
+    2. Who will use this?
+    3. Why build this now?
+    4. What's in/out of scope?
+    5. How will you measure success?
 
-1. What problem are you solving?
-2. Who will use this?
-3. Why build this now?
-4. What's in/out of scope?
-5. How will you measure success?
+    **What to expect:**
 
-**What to expect:**
+    The wizard asks questions and creates:
 
-The wizard asks questions and creates:
-- `.rp1/context/charter.md` - Project vision
-- `.rp1/work/prds/main.md` - Product requirements
+    - `.rp1/context/charter.md` - Project vision
+    - `.rp1/work/prds/main.md` - Product requirements
 
-!!! tip "Checkpoint"
-    After blueprint: `ls .rp1/context/` should show `charter.md` and `ls .rp1/work/` should show `prds/` directory.
+    **Checkpoint:** After blueprint, `ls .rp1/context/` should show `charter.md` and `ls .rp1/work/` should show `prds/` directory.
 
 ---
 
@@ -116,6 +122,7 @@ Define what the dark mode toggle needs to do:
 **What happens:**
 
 The command asks clarifying questions:
+
 - Who needs dark mode? (all users? accessibility settings?)
 - What should the toggle control? (just this app? system preference?)
 - Should the preference persist? (localStorage? user account?)
@@ -202,26 +209,24 @@ Next step: /feature-build dark-mode-toggle
 
 ---
 
-## Optional: Validate Hypothesis
+??? info "Optional: Validate Hypothesis - for risky design assumptions"
+    Use `/validate-hypothesis` when your design contains risky assumptions that should be tested before full implementation. Note that the design agent may automatically trigger this step if it detects high-risk assumptions.
 
-!!! info "When to Use"
-    Use `/validate-hypothesis` when your design contains risky assumptions that should be tested before full implementation.
+    If your design includes untested assumptions (e.g., "CSS custom properties work with the existing theming system"), you can manually validate them:
 
-If your design includes untested assumptions (e.g., "CSS custom properties work with the existing theming system"), you can validate them:
+    === "Claude Code"
 
-=== "Claude Code"
+        ```bash
+        /validate-hypothesis dark-mode-toggle
+        ```
 
-    ```bash
-    /validate-hypothesis dark-mode-toggle
-    ```
+    === "OpenCode"
 
-=== "OpenCode"
+        ```bash
+        /rp1-dev/validate-hypothesis dark-mode-toggle
+        ```
 
-    ```bash
-    /rp1-dev/validate-hypothesis dark-mode-toggle
-    ```
-
-This creates minimal proof-of-concept code to validate critical design decisions before committing to full implementation.
+    This creates temporary proof-of-concept code in `/tmp`, validates or invalidates the assumption, writes findings back to your design document, and cleans up the temporary code.
 
 ---
 
@@ -352,11 +357,14 @@ Coverage: 94%
 Report: .rp1/work/features/dark-mode-toggle/verification-report.md
 ```
 
+!!! tip "Auto-prompt"
+    If all validations pass, the verify agent will ask if you want to archive the feature automatically.
+
 ---
 
 ## Step 5: Feature Archive
 
-After merging your feature, archive it:
+After merging your feature, archive it. You can also run this manually after your own verification:
 
 === "Claude Code"
 
@@ -450,8 +458,7 @@ You've completed the full feature development workflow:
 
     1. Check the reviewer feedback for specific problems
     2. Verify your test configuration is detectable
-    3. Consider using `--mode ask` to handle failures interactively
-    4. Update design.md if the approach needs adjustment
+    3. Update design.md if the approach needs adjustment
 
 ??? question "Can I skip steps?"
 
