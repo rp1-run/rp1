@@ -77,6 +77,37 @@ See [DEVELOPMENT.md](../DEVELOPMENT.md) for detailed project architecture and te
 4. Push and create PR: `git push origin feat/your-feature`
 5. After PR approval and merge, automation handles the release
 
+## Git Hooks (Optional)
+
+This project uses [Lefthook](https://github.com/evilmartians/lefthook) for local git hooks. Installing it is optional but recommended.
+
+### Setup
+
+```bash
+# macOS
+brew install lefthook
+
+# Or via npm
+npm install -g @evilmartians/lefthook
+
+# Then install hooks
+lefthook install
+```
+
+### What the hooks do
+
+- **pre-commit**: Runs lint and format checks on staged files (fast, parallel)
+- **pre-push**: Runs typecheck and tests (comprehensive, parallel)
+
+### Skipping hooks
+
+If you need to skip hooks temporarily:
+
+```bash
+git commit --no-verify -m "your message"
+git push --no-verify
+```
+
 ## Testing
 
 Before submitting a PR:
