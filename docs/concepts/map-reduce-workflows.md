@@ -29,11 +29,11 @@ flowchart LR
 
     Merge --> Output[Output]
 
-    style Split fill:#e3f2fd
-    style Merge fill:#e3f2fd
-    style P1 fill:#c8e6c9
-    style P2 fill:#c8e6c9
-    style P3 fill:#c8e6c9
+    style Split fill:#1565c0,color:#fff
+    style Merge fill:#1565c0,color:#fff
+    style P1 fill:#2e7d32,color:#fff
+    style P2 fill:#2e7d32,color:#fff
+    style P3 fill:#2e7d32,color:#fff
 ```
 
 ---
@@ -56,7 +56,7 @@ flowchart TB
     SA --> Modules[Module Files]
     SA --> Patterns[Pattern Files]
 
-    style SA fill:#e3f2fd
+    style SA fill:#1565c0,color:#fff
 ```
 
 **What it produces:**
@@ -92,11 +92,11 @@ flowchart TB
     A4 --> J4[JSON]
     A5 --> J5[JSON]
 
-    style A1 fill:#c8e6c9
-    style A2 fill:#c8e6c9
-    style A3 fill:#c8e6c9
-    style A4 fill:#c8e6c9
-    style A5 fill:#c8e6c9
+    style A1 fill:#2e7d32,color:#fff
+    style A2 fill:#2e7d32,color:#fff
+    style A3 fill:#2e7d32,color:#fff
+    style A4 fill:#2e7d32,color:#fff
+    style A5 fill:#2e7d32,color:#fff
 ```
 
 ### Phase 3: Reduce (Merge)
@@ -132,7 +132,7 @@ flowchart TB
     Splitter --> RU2[Review Unit 2<br/>api updates]
     Splitter --> RU3[Review Unit N<br/>test files]
 
-    style Splitter fill:#e3f2fd
+    style Splitter fill:#1565c0,color:#fff
 ```
 
 **What it does:**
@@ -164,9 +164,9 @@ flowchart TB
     R2 --> F2[Findings JSON]
     R3 --> F3[Findings JSON]
 
-    style R1 fill:#c8e6c9
-    style R2 fill:#c8e6c9
-    style R3 fill:#c8e6c9
+    style R1 fill:#2e7d32,color:#fff
+    style R2 fill:#2e7d32,color:#fff
+    style R3 fill:#2e7d32,color:#fff
 ```
 
 **Confidence Gating:**
@@ -190,7 +190,7 @@ flowchart LR
     Judgment --> Changes[Request Changes]
     Judgment --> Block[Block]
 
-    style Synth fill:#e3f2fd
+    style Synth fill:#1565c0,color:#fff
 ```
 
 **Output:**

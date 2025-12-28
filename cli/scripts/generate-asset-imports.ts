@@ -12,6 +12,7 @@
  *   From cli/:      bun run scripts/generate-asset-imports.ts
  */
 
+import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
@@ -326,6 +327,21 @@ export const IS_BUNDLED = true;
 
 	// Generate tools registry from YAML
 	await generateToolsRegistry();
+
+	// Run biome to fix formatting/linting on generated files
+	console.log("Running biome fix on generated files...");
+	try {
+		execSync(`bunx biome check --write "${OUTPUT_FILE}" "${TOOLS_GENERATED}"`, {
+			cwd: CLI_DIR,
+			stdio: "inherit",
+		});
+		console.log("Biome fix completed.");
+	} catch {
+		// Biome may exit with non-zero if it finds unfixable issues, but we still want to continue
+		console.warn(
+			"Warning: Biome reported issues that could not be auto-fixed.",
+		);
+	}
 }
 
 generate().catch((e) => {

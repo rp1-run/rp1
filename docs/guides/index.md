@@ -28,9 +28,17 @@ Practical tutorials that walk you through complete rp1 workflows from start to f
 
     ---
 
-    Perform thorough code reviews with map-reduce analysis, confidence gating, and automated feedback handling.
+    Perform thorough code reviews with map-reduce analysis and confidence gating.
 
     [:octicons-arrow-right-24: Start tutorial](pr-review.md)
+
+-   :material-comment-check-outline: **Addressing PR Feedback**
+
+    ---
+
+    Systematically collect and fix reviewer comments from GitHub PRs.
+
+    [:octicons-arrow-right-24: Start tutorial](pr-feedback.md)
 
 -   :material-account-group: **Team Onboarding**
 
@@ -39,14 +47,6 @@ Practical tutorials that walk you through complete rp1 workflows from start to f
     Help new team members get productive quickly with generated knowledge bases and orientation documentation.
 
     [:octicons-arrow-right-24: Start tutorial](team-onboarding.md)
-
--   :material-book-cog: **KB Loading Patterns**
-
-    ---
-
-    Learn how to implement knowledge-aware agents that efficiently load KB context using progressive or full loading patterns.
-
-    [:octicons-arrow-right-24: Read guide](kb-loading-patterns.md)
 
 </div>
 
@@ -57,18 +57,20 @@ Practical tutorials that walk you through complete rp1 workflows from start to f
 New to rp1? Follow this recommended sequence:
 
 ```mermaid
-flowchart LR
+flowchart TB
     INST[Installation] --> FD[Feature Development]
     FD --> BI[Bug Investigation]
     BI --> PR[PR Review]
-    PR --> TO[Team Onboarding]
+    PR --> FB[PR Feedback]
+    FB --> TO[Team Onboarding]
 ```
 
 1. **[Installation](../getting-started/installation.md)** - Install and configure rp1
 2. **[Feature Development](feature-development.md)** - Learn the core workflow
 3. **[Bug Investigation](bug-investigation.md)** - Debug issues systematically
 4. **[PR Review](pr-review.md)** - Automate code review
-5. **[Team Onboarding](team-onboarding.md)** - Share knowledge with your team
+5. **[Addressing PR Feedback](pr-feedback.md)** - Handle reviewer comments
+6. **[Team Onboarding](team-onboarding.md)** - Share knowledge with your team
 
 ---
 

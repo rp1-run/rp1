@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.9](https://github.com/rp1-run/rp1/compare/v0.2.8...v0.2.9) (2025-12-28)
+
+
+### Features
+
+* update docs to match features and some prompt improvements ([#139](https://github.com/rp1-run/rp1/issues/139)) ([cd707fc](https://github.com/rp1-run/rp1/commit/cd707fc7bd19422699bb1d25021c5d36ac1a2cbe))
+
 ## [0.2.8](https://github.com/rp1-run/rp1/compare/v0.2.7...v0.2.8) (2025-12-27)
 
 

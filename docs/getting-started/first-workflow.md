@@ -4,9 +4,25 @@ You've installed rp1. Now let's put it to work.
 
 ---
 
+## Choose Your Path
+
+=== "Existing Codebase"
+
+    You have an existing project and want rp1 to learn it. **Continue below** to build your knowledge base.
+
+=== "Starting Fresh"
+
+    You're creating a brand new project from scratch.
+
+    [Go to Bootstrap Guide :material-arrow-right:](../guides/bootstrap.md){ .md-button .md-button--primary }
+
+    The bootstrap workflow will guide you through project creation with charter interviews, tech stack selection, and scaffolding.
+
+---
+
 ## Build Your Knowledge Base
 
-The first step with any codebase is building a **knowledge base**. This teaches rp1 about your project's structure, architecture, and patterns.
+The first step with any existing codebase is building a **knowledge base**. This teaches rp1 about your project's structure, architecture, and patterns.
 
 === "Claude Code"
 
@@ -38,15 +54,10 @@ READY [single-project]
 
 ## What Just Happened?
 
-The `knowledge-build` command analyzed your codebase and created five files in `.rp1/context/`:
+The `knowledge-build` command analyzed your codebase and created knowledge base files in `.rp1/context/`.
 
-| File | Contents |
-|------|----------|
-| `index.md` | Project overview and entry points |
-| `architecture.md` | System patterns and component relationships |
-| `modules.md` | Module breakdown and dependencies |
-| `concept_map.md` | Domain terminology and business concepts |
-| `patterns.md` | Code conventions and implementation patterns |
+!!! info "KB File Reference"
+    See [What's in the Knowledge Base?](../concepts/knowledge-aware-agents.md#whats-in-the-knowledge-base) for the complete list of generated files and their purposes.
 
 Future rp1 commands use this knowledge base to understand your codebase context, making their outputs more accurate and relevant.
 
@@ -55,7 +66,15 @@ Future rp1 commands use this knowledge base to understand your codebase context,
 
 ---
 
-## Common Commands
+## Ready to Ship? Start Here
+
+The **recommended next step** is to build a feature. This is rp1's flagship workflow - from requirements to deployed code.
+
+[Start Feature Development :material-arrow-right:](../guides/feature-development.md){ .md-button .md-button--primary }
+
+---
+
+## Explore More Workflows
 
 Now that rp1 understands your codebase, try these workflows:
 

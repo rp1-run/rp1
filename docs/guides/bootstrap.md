@@ -23,55 +23,30 @@ Create a complete project from scratch with rp1's guided bootstrap workflow. Thi
 
 ---
 
-## Greenfield Detection
+??? info "How Greenfield Detection Works"
+    When you run `rp1 init` in a directory, rp1 automatically detects whether you're in a **greenfield** (new project) or **brownfield** (existing codebase) context.
 
-When you run `rp1 init` in a directory, rp1 automatically detects whether you're in a **greenfield** (new project) or **brownfield** (existing codebase) context.
+    **Detection Rules:**
 
-### Detection Rules
+    | Directory State | Classification | Suggested Action |
+    |-----------------|----------------|------------------|
+    | Empty directory | Greenfield | `/bootstrap` |
+    | Git repo with source files | Brownfield | `/knowledge-build` |
+    | Git repo, only `.git` folder | Greenfield | `/bootstrap` |
+    | No git, but has source files | Brownfield | `/knowledge-build` |
 
-| Directory State | Classification | Suggested Action |
-|-----------------|----------------|------------------|
-| Empty directory | Greenfield | `/bootstrap` |
-| Git repo with source files | Brownfield | `/knowledge-build` |
-| Git repo, only `.git` folder | Greenfield | `/bootstrap` |
-| No git, but has source files | Brownfield | `/knowledge-build` |
+    **What You'll See:**
 
-### What You'll See
+    When `rp1 init` detects a greenfield context:
 
-When `rp1 init` detects a greenfield context:
+    ```
+    Greenfield project detected
 
-```
-Greenfield project detected
+    This directory appears to be empty or starting fresh.
 
-This directory appears to be empty or starting fresh.
-
-Next steps:
-- /bootstrap - Create a complete project with guided setup
-```
-
----
-
-## The Bootstrap Flow
-
-```mermaid
-flowchart LR
-    S[Start] --> D[Directory Check]
-    D --> N[Project Name]
-    N --> C[Charter Interview]
-    C --> T[Tech Stack Interview]
-    T --> R[Research]
-    R --> Sc[Scaffold]
-    Sc --> Done[Complete Project]
-```
-
-| Phase | Purpose | Duration |
-|-------|---------|----------|
-| Directory Check | Determine target location | Instant |
-| Project Name | Identify the project | ~30 seconds |
-| Charter Interview | Capture project vision | 2-5 minutes |
-| Tech Stack Interview | Select technologies | 2-5 minutes |
-| Research | Find best practices | ~30 seconds |
-| Scaffold | Generate project files | ~2 minutes |
+    Next steps:
+    - /bootstrap - Create a complete project with guided setup
+    ```
 
 ---
 
@@ -311,19 +286,23 @@ Useful Commands:
 
 ### Verify Your Project
 
+Example commands (actual commands depend on your chosen tech stack):
+
 ```bash
 cd my-awesome-app
-npm run dev      # Start development server
-npm test         # Run tests
+bun run dev      # Start development server
+bun test         # Run tests
 ```
 
 ### Continue Building
 
-Your project is now ready for the standard rp1 workflow:
+Your project is now ready for the standard rp1 workflow. Start with:
 
-1. `/feature-requirements my-feature` - Plan your first feature
-2. `/feature-design my-feature` - Create technical design
-3. `/feature-build my-feature` - Implement the feature
+```
+/feature-requirements my-feature
+```
+
+See the [Feature Development](feature-development.md) guide for the complete workflow.
 
 ---
 
@@ -374,3 +353,41 @@ The bootstrap workflow:
     Bootstrap is designed for guided project creation. If you want minimal scaffolding, consider:
     - Using your framework's CLI directly (e.g., `npm create vite`)
     - Then running `rp1 init` to add rp1 configuration
+
+---
+
+## The Bootstrap Flow
+
+```mermaid
+flowchart TB
+    S[Start] --> D[Directory Check]
+    D --> N[Project Name]
+    N --> C[Charter Interview]
+    C --> T[Tech Stack Interview]
+    T --> R[Research]
+    R --> Sc[Scaffold]
+    Sc --> Done[Complete Project]
+```
+
+| Phase | Purpose | Duration |
+|-------|---------|----------|
+| Directory Check | Determine target location | Instant |
+| Project Name | Identify the project | ~30 seconds |
+| Charter Interview | Capture project vision | 2-5 minutes |
+| Tech Stack Interview | Select technologies | 2-5 minutes |
+| Research | Find best practices | ~30 seconds |
+| Scaffold | Generate project files | ~2 minutes |
+
+---
+
+## Next Steps
+
+Now that your project is bootstrapped, continue building:
+
+[Start Feature Development :material-arrow-right:](feature-development.md){ .md-button .md-button--primary }
+
+**Or explore other guides:**
+
+- [Bug Investigation](bug-investigation.md) - Debug and fix issues systematically
+- [PR Review](pr-review.md) - Automated code review workflow
+- [Team Onboarding](team-onboarding.md) - Bring your team up to speed
