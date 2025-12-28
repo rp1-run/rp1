@@ -165,28 +165,25 @@ Each finding has a confidence score that determines how it's reported:
 📊 Findings Summary
 
 Critical Findings (≥65% confidence):
-┌────────────────────────────────────────────────────────────────┐
-│ 🔴 SECURITY: JWT secret hardcoded in source file              │
-│    Location: src/middleware/auth.ts:12                        │
-│    Confidence: 92%                                            │
-│    "Secret should be loaded from environment variable"        │
-└────────────────────────────────────────────────────────────────┘
+
+  🔴 SECURITY: JWT secret hardcoded in source file
+     Location: src/middleware/auth.ts:12
+     Confidence: 92%
+     "Secret should be loaded from environment variable"
 
 High Priority (≥65% confidence):
-┌────────────────────────────────────────────────────────────────┐
-│ 🟠 Missing token expiration check                             │
-│    Location: src/middleware/auth.ts:45                        │
-│    Confidence: 78%                                            │
-│    "Token validation doesn't check exp claim"                 │
-└────────────────────────────────────────────────────────────────┘
+
+  🟠 Missing token expiration check
+     Location: src/middleware/auth.ts:45
+     Confidence: 78%
+     "Token validation doesn't check exp claim"
 
 Medium Priority (≥65% confidence):
-┌────────────────────────────────────────────────────────────────┐
-│ 🟡 No rate limiting on login endpoint                         │
-│    Location: src/routes/auth.ts:28                            │
-│    Confidence: 71%                                            │
-│    "Login should have rate limiting to prevent brute force"   │
-└────────────────────────────────────────────────────────────────┘
+
+  🟡 No rate limiting on login endpoint
+     Location: src/routes/auth.ts:28
+     Confidence: 71%
+     "Login should have rate limiting to prevent brute force"
 
 Filtered (40-64%, critical/high only investigated):
 - Possible SQL injection (45% → investigated → FALSE POSITIVE)

@@ -38,28 +38,24 @@ The command is fully interactive when run in a terminal, or uses sensible defaul
 The init command displays a step-by-step wizard interface with real-time progress. The wizard shows all 8 steps with their current status, and each step displays activity logs as it executes:
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  rp1 init                                          Step 4 of 8  │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ✓ Loading tools registry                                      │
-│    └─ Registry loaded successfully                             │
-│                                                                 │
-│  ✓ Checking git repository                                     │
-│    └─ At repository root                                       │
-│                                                                 │
-│  ✓ Setting up directories                                      │
-│    └─ Created .rp1/context/                                    │
-│                                                                 │
-│  ◐ Detecting AI tools...                                       │
-│    └─ Found: Claude Code v2.0.75                               │
-│                                                                 │
-│  ○ Configuring instruction file                                │
-│  ○ Configuring .gitignore                                      │
-│  ○ Installing plugins                                          │
-│  ○ Health check                                                │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+rp1 init                                              Step 4 of 8
+
+  ✓ Loading tools registry
+    └─ Registry loaded successfully
+
+  ✓ Checking git repository
+    └─ At repository root
+
+  ✓ Setting up directories
+    └─ Created .rp1/context/
+
+  ◐ Detecting AI tools...
+    └─ Found: Claude Code v2.0.75
+
+  ○ Configuring instruction file
+  ○ Configuring .gitignore
+  ○ Installing plugins
+  ○ Health check
 ```
 
 ### The 8 Steps
@@ -186,37 +182,32 @@ If any check fails, init reports the issue with remediation steps.
 At the end of initialization, a comprehensive summary is displayed:
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│  ✨ rp1 initialized successfully!                              │
-│                                                                 │
-│  Detected Tools:                                               │
-│    ✓ Claude Code v2.0.75                                       │
-│                                                                 │
-│  Setup Status:                                                 │
-│    ✓ .rp1/ directory                                           │
-│    ✓ CLAUDE.md configured                                      │
-│    ✓ .gitignore configured                                     │
-│    ✓ Plugins installed                                         │
-│    ✗ Knowledge base (not built)                                │
-│    ✗ Project charter (not created)                             │
-│                                                                 │
-├─────────────────────────────────────────────────────────────────┤
-│  Next Steps:                                                   │
-│                                                                 │
-│  → 1. Restart Claude Code to load plugins  [required]          │
-│                                                                 │
-│  ○ 2. Build knowledge base                                     │
-│       Run: /knowledge-build                                    │
-│       Analyzes your codebase for AI context awareness          │
-│                                                                 │
-│  ○ 3. Create project charter                                   │
-│       Run: /blueprint                                          │
-│       Captures project vision to guide feature development     │
-│                                                                 │
-│  Documentation: https://rp1.run                                │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+✨ rp1 initialized successfully!
+
+Detected Tools:
+  ✓ Claude Code v2.0.75
+
+Setup Status:
+  ✓ .rp1/ directory
+  ✓ CLAUDE.md configured
+  ✓ .gitignore configured
+  ✓ Plugins installed
+  ✗ Knowledge base (not built)
+  ✗ Project charter (not created)
+
+Next Steps:
+
+  → 1. Restart Claude Code to load plugins  [required]
+
+  ○ 2. Build knowledge base
+       Run: /knowledge-build
+       Analyzes your codebase for AI context awareness
+
+  ○ 3. Create project charter
+       Run: /blueprint
+       Captures project vision to guide feature development
+
+Documentation: https://rp1.run
 ```
 
 ### Summary Sections
@@ -255,36 +246,32 @@ rp1 init
 **Expected wizard output:**
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  rp1 init                                          Step 8 of 8  │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ✓ Loading tools registry                                      │
-│    └─ Registry loaded successfully                             │
-│                                                                 │
-│  ✓ Checking git repository                                     │
-│    └─ At repository root                                       │
-│                                                                 │
-│  ✓ Setting up directories                                      │
-│    └─ Created .rp1/context/                                    │
-│                                                                 │
-│  ✓ Detecting AI tools                                          │
-│    └─ Found: Claude Code v2.0.75                               │
-│                                                                 │
-│  ✓ Configuring instruction file                                │
-│    └─ Updated CLAUDE.md                                        │
-│                                                                 │
-│  ✓ Configuring .gitignore                                      │
-│    └─ Applied recommended preset                               │
-│                                                                 │
-│  ✓ Installing plugins                                          │
-│    └─ rp1-base installed                                       │
-│    └─ rp1-dev installed                                        │
-│                                                                 │
-│  ✓ Health check                                                │
-│    └─ All checks passed                                        │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+rp1 init                                              Step 8 of 8
+
+  ✓ Loading tools registry
+    └─ Registry loaded successfully
+
+  ✓ Checking git repository
+    └─ At repository root
+
+  ✓ Setting up directories
+    └─ Created .rp1/context/
+
+  ✓ Detecting AI tools
+    └─ Found: Claude Code v2.0.75
+
+  ✓ Configuring instruction file
+    └─ Updated CLAUDE.md
+
+  ✓ Configuring .gitignore
+    └─ Applied recommended preset
+
+  ✓ Installing plugins
+    └─ rp1-base installed
+    └─ rp1-dev installed
+
+  ✓ Health check
+    └─ All checks passed
 ```
 
 ### CI/Automation (Non-Interactive)
@@ -344,25 +331,21 @@ rp1 init
 **Expected wizard output:**
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  rp1 init                                          Step 3 of 8  │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ✓ Loading tools registry                                      │
-│                                                                 │
-│  ✓ Checking git repository                                     │
-│    └─ At repository root                                       │
-│                                                                 │
-│  ? Existing configuration detected                             │
-│    └─ .rp1/ directory exists                                   │
-│    └─ CLAUDE.md has rp1 content                                │
-│                                                                 │
-│    What would you like to do?                                  │
-│    > Update configuration                                      │
-│      Skip (exit without changes)                               │
-│      Reinitialize                                              │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+rp1 init                                              Step 3 of 8
+
+  ✓ Loading tools registry
+
+  ✓ Checking git repository
+    └─ At repository root
+
+  ? Existing configuration detected
+    └─ .rp1/ directory exists
+    └─ CLAUDE.md has rp1 content
+
+    What would you like to do?
+    > Update configuration
+      Skip (exit without changes)
+      Reinitialize
 ```
 
 | Choice | Behavior |
@@ -383,23 +366,19 @@ rp1 init
 **Expected wizard output:**
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  rp1 init                                          Step 2 of 8  │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ✓ Loading tools registry                                      │
-│                                                                 │
-│  ? Checking git repository                                     │
-│    └─ Not at repository root                                   │
-│    └─ Current: /path/to/my-monorepo/packages/my-package        │
-│    └─ Git root: /path/to/my-monorepo                           │
-│                                                                 │
-│    What would you like to do?                                  │
-│    > Continue here (initialize this subdirectory)              │
-│      Switch to git root                                        │
-│      Cancel                                                    │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+rp1 init                                              Step 2 of 8
+
+  ✓ Loading tools registry
+
+  ? Checking git repository
+    └─ Not at repository root
+    └─ Current: /path/to/my-monorepo/packages/my-package
+    └─ Git root: /path/to/my-monorepo
+
+    What would you like to do?
+    > Continue here (initialize this subdirectory)
+      Switch to git root
+      Cancel
 ```
 
 ### Multi-Tool Detection
@@ -413,22 +392,18 @@ rp1 init
 **Expected summary output:**
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│  ✨ rp1 initialized successfully!                              │
-│                                                                 │
-│  Detected Tools:                                               │
-│    ✓ Claude Code v2.0.75                                       │
-│    ✓ OpenCode v0.8.0                                           │
-│                                                                 │
-│  Setup Status:                                                 │
-│    ✓ .rp1/ directory                                           │
-│    ✓ CLAUDE.md configured                                      │
-│    ✓ .gitignore configured                                     │
-│    ✓ Plugins installed (Claude Code)                           │
-│    ✓ Plugins installed (OpenCode - manual)                     │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+✨ rp1 initialized successfully!
+
+Detected Tools:
+  ✓ Claude Code v2.0.75
+  ✓ OpenCode v0.8.0
+
+Setup Status:
+  ✓ .rp1/ directory
+  ✓ CLAUDE.md configured
+  ✓ .gitignore configured
+  ✓ Plugins installed (Claude Code)
+  ✓ Plugins installed (OpenCode - manual)
 ```
 
 ## Non-Interactive Mode
@@ -493,77 +468,77 @@ else
 fi
 ```
 
-### CI/CD Integration Examples
+??? example "CI/CD Integration Examples"
 
-#### GitHub Actions
+    #### GitHub Actions
 
-```yaml
-name: Setup rp1
-on: [push]
+    ```yaml
+    name: Setup rp1
+    on: [push]
 
-jobs:
-  setup:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+    jobs:
+      setup:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
 
-      - name: Install rp1
-        run: curl -fsSL https://rp1.run/install.sh | sh
+          - name: Install rp1
+            run: curl -fsSL https://rp1.run/install.sh | sh
 
-      - name: Initialize rp1
-        run: rp1 init --yes
+          - name: Initialize rp1
+            run: rp1 init --yes
 
-      - name: Verify setup
-        run: |
-          test -d .rp1/context
-          test -d .rp1/work
-```
+          - name: Verify setup
+            run: |
+              test -d .rp1/context
+              test -d .rp1/work
+    ```
 
-#### GitLab CI
+    #### GitLab CI
 
-```yaml
-setup-rp1:
-  stage: setup
-  script:
-    - curl -fsSL https://rp1.run/install.sh | sh
-    - rp1 init --yes
-  artifacts:
-    paths:
-      - .rp1/
-```
+    ```yaml
+    setup-rp1:
+      stage: setup
+      script:
+        - curl -fsSL https://rp1.run/install.sh | sh
+        - rp1 init --yes
+      artifacts:
+        paths:
+          - .rp1/
+    ```
 
-#### Docker
+    #### Docker
 
-```dockerfile
-FROM ubuntu:22.04
+    ```dockerfile
+    FROM ubuntu:22.04
 
-# Install rp1
-RUN curl -fsSL https://rp1.run/install.sh | sh
+    # Install rp1
+    RUN curl -fsSL https://rp1.run/install.sh | sh
 
-# Initialize in build context
-WORKDIR /app
-COPY . .
-RUN rp1 init --yes
-```
+    # Initialize in build context
+    WORKDIR /app
+    COPY . .
+    RUN rp1 init --yes
+    ```
 
-#### Shell Script
+    #### Shell Script
 
-```bash
-#!/bin/bash
-set -e
+    ```bash
+    #!/bin/bash
+    set -e
 
-# Install and initialize rp1
-curl -fsSL https://rp1.run/install.sh | sh
-rp1 init --yes
+    # Install and initialize rp1
+    curl -fsSL https://rp1.run/install.sh | sh
+    rp1 init --yes
 
-# Check exit code and setup status
-if [ $? -eq 0 ] && [ -d ".rp1" ]; then
-    echo "rp1 setup complete"
-else
-    echo "rp1 setup failed" >&2
-    exit 1
-fi
-```
+    # Check exit code and setup status
+    if [ $? -eq 0 ] && [ -d ".rp1" ]; then
+        echo "rp1 setup complete"
+    else
+        echo "rp1 setup failed" >&2
+        exit 1
+    fi
+    ```
 
 ### Non-Interactive Defaults
 
@@ -613,99 +588,94 @@ Claude Code: https://docs.anthropic.com/en/docs/claude-code/getting-started
 OpenCode: https://opencode.ai/docs/installation
 ```
 
-## Multi-Tool Environments
+??? info "Multi-Tool Environments"
 
-When multiple AI tools are installed (e.g., both Claude Code and OpenCode), `rp1 init` handles them intelligently:
+    When multiple AI tools are installed (e.g., both Claude Code and OpenCode), `rp1 init` handles them intelligently:
 
-### How Multi-Tool Setup Works
+    ### How Multi-Tool Setup Works
 
-| Behavior | Description |
-|----------|-------------|
-| **Detects all installed tools** | Both Claude Code and OpenCode appear in the detection step if installed |
-| **Installs plugins for ALL tools** | Plugins are installed for every detected tool, not just the primary one |
-| **Uses primary tool's instruction file** | The first detected tool determines whether `CLAUDE.md` or `AGENTS.md` is used |
-| **Reports all tool statuses** | The final summary shows configuration status for each detected tool |
+    | Behavior | Description |
+    |----------|-------------|
+    | **Detects all installed tools** | Both Claude Code and OpenCode appear in the detection step if installed |
+    | **Installs plugins for ALL tools** | Plugins are installed for every detected tool, not just the primary one |
+    | **Uses primary tool's instruction file** | The first detected tool determines whether `CLAUDE.md` or `AGENTS.md` is used |
+    | **Reports all tool statuses** | The final summary shows configuration status for each detected tool |
 
-### Primary Tool Selection
+    ### Primary Tool Selection
 
-The "primary" tool determines which instruction file is created:
+    The "primary" tool determines which instruction file is created:
 
-| Detection Order | Instruction File |
-|-----------------|------------------|
-| Claude Code detected first | `CLAUDE.md` |
-| OpenCode detected first | `AGENTS.md` |
-| Both detected (Claude Code first) | `CLAUDE.md` (but plugins installed for both) |
+    | Detection Order | Instruction File |
+    |-----------------|------------------|
+    | Claude Code detected first | `CLAUDE.md` |
+    | OpenCode detected first | `AGENTS.md` |
+    | Both detected (Claude Code first) | `CLAUDE.md` (but plugins installed for both) |
 
-!!! note "Instruction File Behavior"
-    Only one instruction file is created (either `CLAUDE.md` or `AGENTS.md`), but plugins are installed for **all** detected tools. This ensures both tools can use rp1 regardless of which instruction file exists.
+    !!! note "Instruction File Behavior"
+        Only one instruction file is created (either `CLAUDE.md` or `AGENTS.md`), but plugins are installed for **all** detected tools. This ensures both tools can use rp1 regardless of which instruction file exists.
 
-### Verifying Multi-Tool Setup
+    ### Verifying Multi-Tool Setup
 
-After initialization, verify that plugins are installed for each tool:
+    After initialization, verify that plugins are installed for each tool:
 
-=== "Claude Code"
+    === "Claude Code"
 
-    Check that rp1 plugins are installed:
+        Check that rp1 plugins are installed:
 
-    ```bash
-    ls ~/.claude/plugins/ | grep rp1
+        ```bash
+        ls ~/.claude/plugins/ | grep rp1
+        ```
+
+        Expected output:
+
+        ```
+        rp1-base
+        rp1-dev
+        ```
+
+        You can also verify via the Claude Code CLI:
+
+        ```bash
+        claude plugin list | grep rp1
+        ```
+
+    === "OpenCode"
+
+        Check that rp1 prompts are available:
+
+        ```bash
+        ls ~/.opencode/prompts/ | grep rp1
+        ```
+
+        Or verify in OpenCode settings:
+
+        1. Open OpenCode
+        2. Go to Settings > Prompts
+        3. Look for `rp1-base` and `rp1-dev` entries
+
+    ### Multi-Tool Summary Example
+
+    When both tools are detected and configured:
+
     ```
+    ✨ rp1 initialized successfully!
 
-    Expected output:
+    Detected Tools:
+      ✓ Claude Code v2.0.75
+      ✓ OpenCode v0.8.0
 
+    Setup Status:
+      ✓ .rp1/ directory
+      ✓ CLAUDE.md configured
+      ✓ .gitignore configured
+      ✓ Plugins installed (Claude Code)
+      ✓ Plugins installed (OpenCode - manual)
+
+    Next Steps:
+
+      → 1. Restart Claude Code to load plugins  [required]
+      → 2. Restart OpenCode to load plugins     [required]
     ```
-    rp1-base
-    rp1-dev
-    ```
-
-    You can also verify via the Claude Code CLI:
-
-    ```bash
-    claude plugin list | grep rp1
-    ```
-
-=== "OpenCode"
-
-    Check that rp1 prompts are available:
-
-    ```bash
-    ls ~/.opencode/prompts/ | grep rp1
-    ```
-
-    Or verify in OpenCode settings:
-
-    1. Open OpenCode
-    2. Go to Settings > Prompts
-    3. Look for `rp1-base` and `rp1-dev` entries
-
-### Multi-Tool Summary Example
-
-When both tools are detected and configured:
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                                                                 │
-│  ✨ rp1 initialized successfully!                              │
-│                                                                 │
-│  Detected Tools:                                               │
-│    ✓ Claude Code v2.0.75                                       │
-│    ✓ OpenCode v0.8.0                                           │
-│                                                                 │
-│  Setup Status:                                                 │
-│    ✓ .rp1/ directory                                           │
-│    ✓ CLAUDE.md configured                                      │
-│    ✓ .gitignore configured                                     │
-│    ✓ Plugins installed (Claude Code)                           │
-│    ✓ Plugins installed (OpenCode - manual)                     │
-│                                                                 │
-├─────────────────────────────────────────────────────────────────┤
-│  Next Steps:                                                   │
-│                                                                 │
-│  → 1. Restart Claude Code to load plugins  [required]          │
-│  → 2. Restart OpenCode to load plugins     [required]          │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
 
 ## Environment Variables
 

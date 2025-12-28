@@ -149,107 +149,18 @@ Next: Knowledge base is ready for use with rp1 commands
 
 ## Step 2: Understand KB Output
 
-The knowledge base consists of 5 core files:
+The knowledge base consists of 5 core markdown files plus metadata files.
 
-### index.md - Project Overview
+!!! info "KB File Reference"
+    See [What's in the Knowledge Base?](../concepts/knowledge-aware-agents.md#whats-in-the-knowledge-base) for the complete list of files and their purposes.
 
-Quick start guide with:
+Each KB file serves a specific role:
 
-- Repository structure
-- Project summary
-- Entry points
-- Development setup
-
-```markdown
-# Project Knowledge Base
-
-**Repository Type**: Single Project
-**Primary Languages**: TypeScript, Python
-**Last Updated**: 2024-01-15
-
-## Quick Start
-...
-
-## Repository Structure
-```
-
-### concept_map.md - Domain Concepts
-
-Business and technical concepts:
-
-- Domain terminology
-- Key entities
-- Relationships
-- Business rules
-
-```markdown
-# Domain Concepts
-
-## Core Business Concepts
-
-### Order
-**Definition**: A customer's request to purchase items
-**Implementation**: src/models/order.ts
-**Relationships**: Customer (1:N), OrderItem (1:N), Payment (1:1)
-```
-
-### architecture.md - System Architecture
-
-High-level system design:
-
-- Component diagrams
-- Integration points
-- Data flow
-- Deployment architecture
-
-```markdown
-# System Architecture
-
-## High-Level Architecture
-
-```mermaid
-graph TB
-    subgraph "Frontend"
-        WEB[Web App]
-        MOBILE[Mobile App]
-    end
-    ...
-```
-
-### modules.md - Module Breakdown
-
-Component structure:
-
-- Module purposes
-- Dependencies
-- Key files
-- APIs
-
-```markdown
-# Module Breakdown
-
-## src/api
-**Purpose**: REST API endpoints
-**Dependencies**: services, models, middleware
-**Key Files**: routes.ts, handlers.ts
-```
-
-### patterns.md - Implementation Patterns
-
-Coding conventions:
-
-- Naming conventions
-- Error handling patterns
-- Testing idioms
-- Common utilities
-
-```markdown
-# Implementation Patterns
-
-## Error Handling
-**Pattern**: Custom error classes with error codes
-**Example**: throw new AppError('NOT_FOUND', 'User not found')
-```
+- **index.md**: Quick start guide with repository structure, entry points, and setup
+- **concept_map.md**: Domain terminology, key entities, relationships, and business rules
+- **architecture.md**: Component diagrams, integration points, data flow, and deployment
+- **modules.md**: Module purposes, dependencies, key files, and APIs
+- **patterns.md**: Naming conventions, error handling patterns, and coding idioms
 
 ---
 

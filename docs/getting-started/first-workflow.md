@@ -54,15 +54,10 @@ READY [single-project]
 
 ## What Just Happened?
 
-The `knowledge-build` command analyzed your codebase and created five files in `.rp1/context/`:
+The `knowledge-build` command analyzed your codebase and created knowledge base files in `.rp1/context/`.
 
-| File | Contents |
-|------|----------|
-| `index.md` | Project overview and entry points |
-| `architecture.md` | System patterns and component relationships |
-| `modules.md` | Module breakdown and dependencies |
-| `concept_map.md` | Domain terminology and business concepts |
-| `patterns.md` | Code conventions and implementation patterns |
+!!! info "KB File Reference"
+    See [What's in the Knowledge Base?](../concepts/knowledge-aware-agents.md#whats-in-the-knowledge-base) for the complete list of generated files and their purposes.
 
 Future rp1 commands use this knowledge base to understand your codebase context, making their outputs more accurate and relevant.
 

@@ -74,66 +74,62 @@ hooks:
 nav:
   - Home: index.md
   - Getting Started:
-    - getting-started/index.md
+    - Overview: getting-started/index.md
     - Installation: getting-started/installation.md
     - First Workflow: getting-started/first-workflow.md
     - The .rp1 Directory: getting-started/rp1-directory.md
   - Guides:
-    - guides/index.md
+    - Overview: guides/index.md
     - Feature Development: guides/feature-development.md
     - Project Bootstrap: guides/bootstrap.md
     - Bug Investigation: guides/bug-investigation.md
     - PR Review: guides/pr-review.md
     - Addressing PR Feedback: guides/pr-feedback.md
     - Team Onboarding: guides/team-onboarding.md
+    - CI/CD Integration: guides/ci-cd-integration.md
+    - Scaling with Teams: guides/scaling-with-teams.md
+  - Comparison:
+    - Why rp1?: comparison/vs-raw-prompting.md
   - Reference:
-    - reference/index.md
+    - Overview: reference/index.md
     - CLI:
+      - Overview: reference/cli/index.md
       - init: reference/cli/init.md
     - Base Plugin:
-      - reference/base/index.md
-      - Knowledge:
-        - knowledge-build: reference/base/knowledge-build.md
-        - knowledge-load: reference/base/knowledge-load.md
-      - Research:
-        - deep-research: reference/base/deep-research.md
-      - Documentation:
-        - project-birds-eye-view: reference/base/project-birds-eye-view.md
-        - write-content: reference/base/write-content.md
-      - Analysis:
-        - strategize: reference/base/strategize.md
-        - analyse-security: reference/base/analyse-security.md
-      - Validation:
-        - fix-mermaid: reference/base/fix-mermaid.md
-      - Maintenance:
-        - self-update: reference/base/self-update.md
+      - Overview: reference/base/index.md
+      - knowledge-build: reference/base/knowledge-build.md
+      - knowledge-load: reference/base/knowledge-load.md
+      - deep-research: reference/base/deep-research.md
+      - project-birds-eye-view: reference/base/project-birds-eye-view.md
+      - write-content: reference/base/write-content.md
+      - strategize: reference/base/strategize.md
+      - analyse-security: reference/base/analyse-security.md
+      - fix-mermaid: reference/base/fix-mermaid.md
+      - self-update: reference/base/self-update.md
     - Dev Plugin:
-      - reference/dev/index.md
-      - Blueprint & Planning:
-        - blueprint: reference/dev/blueprint.md
-        - feature-requirements: reference/dev/feature-requirements.md
-        - feature-design: reference/dev/feature-design.md
-        - feature-tasks: reference/dev/feature-tasks.md
-        - validate-hypothesis: reference/dev/validate-hypothesis.md
-      - Implementation:
-        - feature-build: reference/dev/feature-build.md
-        - feature-verify: reference/dev/feature-verify.md
-        - feature-edit: reference/dev/feature-edit.md
-        - feature-archive: reference/dev/feature-archive.md
-        - feature-unarchive: reference/dev/feature-unarchive.md
-      - Code Quality:
-        - code-check: reference/dev/code-check.md
-        - code-audit: reference/dev/code-audit.md
-        - code-investigate: reference/dev/code-investigate.md
-        - code-clean-comments: reference/dev/code-clean-comments.md
-        - code-quick-build: reference/dev/code-quick-build.md
-      - PR Management:
-        - pr-review: reference/dev/pr-review.md
-        - pr-visual: reference/dev/pr-visual.md
-        - pr-feedback-collect: reference/dev/pr-feedback-collect.md
-        - pr-feedback-fix: reference/dev/pr-feedback-fix.md
+      - Overview: reference/dev/index.md
+      - blueprint: reference/dev/blueprint.md
+      - feature-requirements: reference/dev/feature-requirements.md
+      - feature-design: reference/dev/feature-design.md
+      - feature-tasks: reference/dev/feature-tasks.md
+      - validate-hypothesis: reference/dev/validate-hypothesis.md
+      - feature-build: reference/dev/feature-build.md
+      - feature-verify: reference/dev/feature-verify.md
+      - feature-edit: reference/dev/feature-edit.md
+      - feature-archive: reference/dev/feature-archive.md
+      - feature-unarchive: reference/dev/feature-unarchive.md
+      - code-check: reference/dev/code-check.md
+      - code-audit: reference/dev/code-audit.md
+      - code-investigate: reference/dev/code-investigate.md
+      - code-clean-comments: reference/dev/code-clean-comments.md
+      - code-quick-build: reference/dev/code-quick-build.md
+      - pr-review: reference/dev/pr-review.md
+      - pr-visual: reference/dev/pr-visual.md
+      - pr-feedback-collect: reference/dev/pr-feedback-collect.md
+      - pr-feedback-fix: reference/dev/pr-feedback-fix.md
+  - Troubleshooting: troubleshooting/index.md
   - Concepts:
-    - concepts/index.md
+    - Overview: concepts/index.md
     - Constitutional Prompting: concepts/constitutional-prompting.md
     - Knowledge-Aware Agents: concepts/knowledge-aware-agents.md
     - Command-Agent Pattern: concepts/command-agent-pattern.md
