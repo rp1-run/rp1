@@ -34,9 +34,9 @@ flowchart TB
     CMD -->|"6. Write to scratch pad"| STATE
     CMD -->|"7. Loop until done"| AGENT
 
-    style CMD fill:#e3f2fd
-    style AGENT fill:#fff3e0
-    style STATE fill:#fce4ec
+    style CMD fill:#1565c0,color:#fff
+    style AGENT fill:#e65100,color:#fff
+    style STATE fill:#c2185b,color:#fff
 ```
 
 ---
@@ -98,27 +98,8 @@ flowchart LR
     RESUME --> LOOP
     LOOP --> DONE[Complete & clean up]
 
-    style RESUME fill:#fff3e0
+    style RESUME fill:#e65100,color:#fff
 ```
-
----
-
-## When to Use Stateless Agents
-
-| Use Case | Recommended Pattern |
-|----------|---------------------|
-| Single-pass task (code review, generation) | Standard agent |
-| Multi-step interview that might be interrupted | **Stateless agent** |
-| Long-running workflow with user interaction | **Stateless agent** |
-| State must survive session boundaries | **Stateless agent** |
-| Simple delegation with no state | Standard agent |
-
-**Key indicators for Stateless Agent pattern**:
-
-- Workflow involves multiple user interactions
-- Session interruption is likely (long workflows)
-- User needs visibility into accumulated state
-- Resume capability is important
 
 ---
 
@@ -189,4 +170,4 @@ The charter-interviewer agent is **stateless**—it reads the scratch pad, analy
 ## Learn More
 
 - [Feature Development Tutorial](../guides/feature-development.md) - See workflows in action
-- [Knowledge Base Patterns](../../.rp1/context/patterns.md) - Technical pattern documentation
+- [`blueprint` Reference](../reference/dev/blueprint.md) - Command using Stateless Agents

@@ -81,10 +81,11 @@ nav:
   - Guides:
     - guides/index.md
     - Feature Development: guides/feature-development.md
+    - Project Bootstrap: guides/bootstrap.md
     - Bug Investigation: guides/bug-investigation.md
     - PR Review: guides/pr-review.md
+    - Addressing PR Feedback: guides/pr-feedback.md
     - Team Onboarding: guides/team-onboarding.md
-    - KB Loading Patterns: guides/kb-loading-patterns.md
   - Reference:
     - reference/index.md
     - CLI:
@@ -137,6 +138,7 @@ nav:
     - Knowledge-Aware Agents: concepts/knowledge-aware-agents.md
     - Command-Agent Pattern: concepts/command-agent-pattern.md
     - Map-Reduce Workflows: concepts/map-reduce-workflows.md
+    - Stateless Agents: concepts/stateless-agents.md
 
 extra:
   social:

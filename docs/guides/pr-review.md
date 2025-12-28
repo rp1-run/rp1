@@ -20,7 +20,7 @@ Perform thorough code reviews using rp1's map-reduce PR analysis. This tutorial 
     - rp1 installed ([Installation](../getting-started/installation.md))
     - Knowledge base generated (`/knowledge-build`)
     - A PR to review (local branch or GitHub PR)
-    - For GitHub features: `gh` CLI authenticated
+    - For GitHub features: [`gh` CLI](https://cli.github.com/) installed and authenticated
 
 ---
 
@@ -39,20 +39,17 @@ We'll review a **feature PR** that adds user authentication to an API. This exam
 ## The PR Review Workflow
 
 ```mermaid
-flowchart LR
-    PR[PR Created] --> R[Review]
-    R --> V[Visualize]
-    V --> FC[Feedback Collect]
-    FC --> FF[Feedback Fix]
-    FF --> M[Merge]
+flowchart TB
+    PR[PR Created] --> R[Review + Visual]
+    R --> FB[Address Feedback]
+    FB --> M[Merge]
 ```
 
 | Step | Command | Purpose |
 |------|---------|---------|
-| Review | `pr-review` | Automated analysis with confidence gating |
-| Visualize | `pr-visual` | Diagram-based change understanding |
-| Feedback Collect | `pr-feedback-collect` | Gather review comments from GitHub |
-| Feedback Fix | `pr-feedback-fix` | Address reviewer comments systematically |
+| Review | `pr-review` | Automated analysis with confidence gating (auto-generates visuals for complex PRs) |
+| Visualize | `pr-visual` | Manual diagram generation (if needed separately) |
+| Address Feedback | [Separate guide](pr-feedback.md) | Collect and fix reviewer comments |
 
 ---
 
@@ -66,10 +63,17 @@ Start the automated review analysis:
     /pr-review
     ```
 
-    Or specify a target branch:
+    Or specify a target:
 
     ```bash
+    # By branch
     /pr-review feature/user-auth main
+
+    # By PR number
+    /pr-review 42
+
+    # By GitHub URL
+    /pr-review https://github.com/owner/repo/pull/42
     ```
 
 === "OpenCode"
@@ -78,10 +82,17 @@ Start the automated review analysis:
     /rp1-dev/pr-review
     ```
 
-    Or specify a target branch:
+    Or specify a target:
 
     ```bash
+    # By branch
     /rp1-dev/pr-review feature/user-auth main
+
+    # By PR number
+    /rp1-dev/pr-review 42
+
+    # By GitHub URL
+    /rp1-dev/pr-review https://github.com/owner/repo/pull/42
     ```
 
 **What happens:**
@@ -237,9 +248,9 @@ Report: .rp1/work/pr-reviews/feature-user-auth/review.md
 
 ---
 
-## Step 4: Visualize Changes (Optional)
+## Step 4: Visualize Changes (Auto or Manual)
 
-For complex PRs, generate visual diagrams:
+Visualizations are **automatically generated** during `pr-review` for complex PRs (5+ files, large changes, or architectural modifications). You can also generate them manually:
 
 === "Claude Code"
 
@@ -293,153 +304,16 @@ flowchart TB
     end
 ```
 
-!!! info "When to Visualize"
-    Use `pr-visual` for PRs with many file changes, new architectural patterns, or when you need to explain changes to stakeholders.
+!!! info "When to Run Manually"
+    Run `pr-visual` separately when you want to regenerate diagrams, share visuals without the full review, or explain changes to stakeholders.
 
 ---
 
-## Step 5: Collect Feedback (After GitHub Review)
+## Step 5: Address Feedback
 
-If the PR has been reviewed on GitHub, collect the feedback:
+After human reviewers comment on your PR, use the feedback workflow to collect and fix their comments systematically.
 
-=== "Claude Code"
-
-    ```bash
-    /pr-feedback-collect
-    ```
-
-=== "OpenCode"
-
-    ```bash
-    /rp1-dev/pr-feedback-collect
-    ```
-
-**What happens:**
-
-rp1 uses the `gh` CLI to:
-
-1. Fetch PR review comments
-2. Classify by priority and type
-3. Extract actionable tasks
-4. Generate a structured feedback document
-
-**What to expect:**
-
-```
-📥 Collecting PR Feedback
-
-PR: #42 - Add user authentication
-Reviewers: @alice, @bob
-
-Fetching comments...
-✓ 6 review comments found
-✓ 2 general comments found
-
-Classifying feedback...
-✓ Critical: 1
-✓ High: 2
-✓ Medium: 3
-✓ Low: 2
-
-Output: .rp1/work/features/{feature-id}/pr_feedback.md
-```
-
-The generated feedback document:
-
-```markdown
-# PR Feedback: #42 - Add user authentication
-
-## Critical Priority
-- [ ] **@alice**: "JWT secret cannot be in source code" (auth.ts:12)
-
-## High Priority
-- [ ] **@bob**: "Add token expiration validation" (auth.ts:45)
-- [ ] **@alice**: "Need tests for invalid token scenarios" (auth.test.ts)
-
-## Medium Priority
-- [ ] **@bob**: "Consider using httpOnly cookies" (auth.ts:67)
-...
-```
-
-!!! tip "Checkpoint"
-    The feedback document organizes comments by priority. Critical items should be addressed first.
-
----
-
-## Step 6: Fix Feedback
-
-Address reviewer comments systematically:
-
-=== "Claude Code"
-
-    ```bash
-    /pr-feedback-fix
-    ```
-
-    Or with a feature context:
-
-    ```bash
-    /pr-feedback-fix user-auth
-    ```
-
-=== "OpenCode"
-
-    ```bash
-    /rp1-dev/pr-feedback-fix
-    ```
-
-    Or with a feature context:
-
-    ```bash
-    /rp1-dev/pr-feedback-fix user-auth
-    ```
-
-**What happens:**
-
-rp1 reads the feedback document and:
-
-1. Prioritizes issues by severity
-2. Implements fixes for each item
-3. Updates the feedback document with completion status
-4. Runs tests to verify fixes
-
-**What to expect:**
-
-```
-🔧 Addressing PR Feedback
-
-Loading: .rp1/work/features/user-auth/pr_feedback.md
-Found: 8 feedback items (1 critical, 2 high, 3 medium, 2 low)
-
-Fixing Critical Issues...
-[1/1] Moving JWT secret to environment variable
-  ✓ Updated src/middleware/auth.ts
-  ✓ Added JWT_SECRET to .env.example
-  ✓ Updated documentation
-
-Fixing High Priority Issues...
-[1/2] Adding token expiration validation
-  ✓ Updated validateToken() in auth.ts
-  ✓ Added test cases
-
-[2/2] Adding invalid token test scenarios
-  ✓ Added 4 test cases to auth.test.ts
-  ✓ All tests passing
-
-Fixing Medium Priority Issues...
-...
-
-Summary:
-- Critical: 1/1 fixed
-- High: 2/2 fixed
-- Medium: 3/3 fixed
-- Low: 2/2 fixed
-
-Ready to commit and push.
-```
-
-!!! tip "Checkpoint"
-    After fixing feedback, run the PR review again to verify all issues are resolved.
+[Go to Addressing PR Feedback :material-arrow-right:](pr-feedback.md){ .md-button .md-button--primary }
 
 ---
 
@@ -450,7 +324,7 @@ Ready to commit and push.
 Run `pr-review` before requesting human review:
 
 ```mermaid
-flowchart LR
+flowchart TB
     DEV[Developer] --> PR[Create PR]
     PR --> rp1[rp1 pr-review]
     rp1 --> FIX[Fix Issues]
@@ -465,7 +339,7 @@ flowchart LR
 Use rp1 to process and fix human feedback:
 
 ```mermaid
-flowchart LR
+flowchart TB
     PR[Create PR] --> HUMAN[Human Review]
     HUMAN --> COLLECT[rp1 pr-feedback-collect]
     COLLECT --> FIX[rp1 pr-feedback-fix]
@@ -480,7 +354,7 @@ flowchart LR
 Combine automated and human review:
 
 ```mermaid
-flowchart LR
+flowchart TB
     PR[Create PR] --> AUTO[rp1 pr-review]
     AUTO --> FIX1[Fix Auto Issues]
     FIX1 --> HUMAN[Human Review]
@@ -495,31 +369,28 @@ flowchart LR
 
 ## Summary
 
-You've learned the complete PR review workflow:
+You've learned the PR review workflow:
 
 | Step | Command | Output |
 |------|---------|--------|
 | 1. Review | `pr-review` | Findings with confidence scores |
 | 2. Judgment | (automatic) | APPROVE / REQUEST_CHANGES / BLOCK |
-| 3. Visualize | `pr-visual` | Mermaid diagrams |
-| 4. Collect | `pr-feedback-collect` | Structured feedback document |
-| 5. Fix | `pr-feedback-fix` | Addressed issues |
+| 3. Visualize | `pr-visual` | Mermaid diagrams (auto or manual) |
 
 ### Key Concepts
 
-- **Map-Reduce**: Parallel analysis of diff units, synthesized judgment
+- **[Map-Reduce](../concepts/map-reduce-workflows.md)**: Parallel analysis of diff units, synthesized judgment
 - **Confidence Gating**: Only high-confidence findings reported
 - **Fitness Judgment**: Holistic assessment, not just issue list
-- **Feedback Loop**: Systematic processing of reviewer comments
 
 ---
 
 ## Next Steps
 
-- **Reference docs**: See [pr-review](../reference/dev/pr-review.md), [pr-visual](../reference/dev/pr-visual.md), [pr-feedback-collect](../reference/dev/pr-feedback-collect.md), [pr-feedback-fix](../reference/dev/pr-feedback-fix.md)
+- **Address feedback**: See [Addressing PR Feedback](pr-feedback.md) for the complete feedback workflow
+- **Reference docs**: See [pr-review](../reference/dev/pr-review.md), [pr-visual](../reference/dev/pr-visual.md)
 - **Understand the architecture**: Learn about [Map-Reduce Workflows](../concepts/map-reduce-workflows.md)
 - **Investigate issues**: Use [Bug Investigation](bug-investigation.md) for complex problems
-- **Build features**: Follow the [Feature Development](feature-development.md) workflow
 
 ---
 
@@ -538,14 +409,6 @@ You've learned the complete PR review workflow:
     ```bash
     /knowledge-build
     ```
-
-??? question "pr-feedback-collect can't find comments"
-
-    Ensure:
-
-    1. You're in a git repository with a remote
-    2. The `gh` CLI is authenticated (`gh auth status`)
-    3. The PR exists and has comments
 
 ??? question "Diagrams aren't rendering"
 

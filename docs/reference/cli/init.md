@@ -728,6 +728,9 @@ direnv allow
 rp1 init
 ```
 
+!!! tip "direnv"
+    [direnv](https://direnv.net/){:target="_blank"} automatically loads environment variables when you enter a directory. It's useful for per-project configuration without polluting your global shell config.
+
 ## Idempotency
 
 The init command is safe to run multiple times:

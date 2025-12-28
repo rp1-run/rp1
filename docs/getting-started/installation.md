@@ -137,7 +137,7 @@ Documentation: https://rp1.run
 !!! note "Multi-Tool Detection"
     If you have both Claude Code and OpenCode installed, rp1 will detect and configure plugins for **both tools** automatically. The summary will show all detected tools and their configuration status.
 
-!!! tip "CI/Automation"
+??? tip "CI/Automation"
     For non-interactive environments (CI pipelines, Docker builds, scripts), use `rp1 init --yes` to accept all defaults and install plugins automatically.
 
     **Non-TTY mode features:**
@@ -170,9 +170,10 @@ Documentation: https://rp1.run
 
 ## Step 4: Restart Your AI Tool
 
-**Restart your AI assistant** to load the newly installed plugins.
+!!! warning "Required: Restart Your AI Assistant"
+    You **must restart** your AI assistant (Claude Code or OpenCode) to load the newly installed plugins. Without restarting, rp1 commands will not be available.
 
-!!! note "Manual Plugin Installation"
+??? note "Manual Plugin Installation"
     If init couldn't install plugins (e.g., OpenCode, or if you skipped installation), you can install them manually:
 
     === "Claude Code"

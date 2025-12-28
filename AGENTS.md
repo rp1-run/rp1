@@ -223,7 +223,18 @@ just # run just to read about various test/lint commands
 
 KB files in `.rp1/context/`: `index.md` (load first), `architecture.md`, `modules.md`, `patterns.md`, `concept_map.md`
 
-**Loading**: Read index.md first. Then based on task: code review → patterns.md, bugs → architecture.md + modules.md, features → modules.md + patterns.md, strategic → ALL files.
+**Loading Patterns**:
+
+| Task Type | KB Files to Load |
+|-----------|------------------|
+| Code review | `index.md` + `patterns.md` |
+| Bug investigation | `index.md` + `architecture.md` + `modules.md` |
+| Feature implementation | `index.md` + `modules.md` + `patterns.md` |
+| PR review | `index.md` + `patterns.md` |
+| Architecture analysis | `index.md` + `architecture.md` |
+| Strategic / Security / Docs | ALL files |
+
+**Progressive Loading** (recommended): Start with `index.md`, load others as needed based on task.
 
 **Important**: Do NOT use `/rp1-base/knowledge-load` in subagents (causes early exit). Use Read tool directly.
 <!-- rp1:end -->

@@ -339,7 +339,7 @@ Creating orientation document...
 ✓ Development workflows
 ✓ Common tasks
 
-Output: .rp1/docs/project-overview.md
+Output: .rp1/context/birds-eye-view.md
 
 ✅ Orientation document complete
 
@@ -354,7 +354,7 @@ The document includes:
 The generated document is designed for new developers to read on their first day.
 
 !!! tip "Checkpoint"
-    Open `.rp1/docs/project-overview.md` and review it. Does it capture the key things a new developer needs to know?
+    Open `.rp1/context/birds-eye-view.md` and review it. Does it capture the key things a new developer needs to know?
 
 ---
 
@@ -364,10 +364,12 @@ Commit the KB to your repository:
 
 ```bash
 git add .rp1/context/
-git add .rp1/docs/
 git commit -m "docs: add knowledge base and orientation docs"
 git push
 ```
+
+!!! tip "Automatic .gitignore"
+    When you run `rp1 init`, it automatically configures `.gitignore` with the correct paths—committing context files while ignoring temporary work files.
 
 **Why commit the KB?**
 
@@ -386,16 +388,16 @@ Use this checklist when onboarding a new team member:
 
 - [ ] Clone repository
 - [ ] Install rp1 ([Installation](../getting-started/installation.md))
-- [ ] Read `.rp1/docs/project-overview.md`
 - [ ] Run through setup instructions
 - [ ] Verify development environment works
 
 ### Day 1-2: Codebase Orientation
 
-- [ ] Read `.rp1/context/index.md` for project structure
-- [ ] Review `.rp1/context/architecture.md` for system design
-- [ ] Scan `.rp1/context/concept_map.md` for domain terminology
-- [ ] Explore key modules identified in overview
+- [ ] Read `.rp1/context/birds-eye-view.md` - the comprehensive project overview
+- [ ] Explore key modules and files identified in the overview
+
+!!! info "KB Files Are for Agents"
+    The other files in `.rp1/context/` (index.md, architecture.md, etc.) are primarily for agents to manage context. The birds-eye-view is the human-readable orientation document.
 
 ### Day 3-5: Guided Exploration
 
@@ -406,6 +408,10 @@ Use this checklist when onboarding a new team member:
 - [ ] Ask questions about patterns:
     ```bash
     /code-investigate "What patterns are used for database access?"
+    ```
+- [ ] Research broader topics spanning multiple services or external integrations:
+    ```bash
+    /deep-research "How do the frontend and backend communicate?"
     ```
 
 ### Week 1: First Contribution

@@ -12,16 +12,19 @@ When you run an rp1 command, two things happen:
 2. The **agent** (200-350 lines) executes the complete workflow autonomously
 
 ```mermaid
-flowchart LR
-    User[User] -->|/feature-build my-feature| Command
+flowchart TB
+    User[User] -->|/feature-build| Command[Command]
     Command -->|Task tool| Agent[Feature Builder Agent]
-    Agent -->|Reads| KB[Knowledge Base]
-    Agent -->|Reads| Specs[Feature Specs]
-    Agent -->|Writes| Code[Implementation]
-    Agent -->|Updates| Tasks[Task Tracker]
 
-    style Command fill:#e3f2fd
-    style Agent fill:#c8e6c9
+    subgraph "Agent Interactions"
+        Agent -->|Reads| KB[Knowledge Base]
+        Agent -->|Reads| Specs[Feature Specs]
+        Agent -->|Writes| Code[Implementation]
+        Agent -->|Updates| Tasks[Task Tracker]
+    end
+
+    style Command fill:#1565c0,color:#fff
+    style Agent fill:#2e7d32,color:#fff
 ```
 
 ---
@@ -171,16 +174,16 @@ flowchart TB
     D3 -.-> A4
     D4 -.-> A5
 
-    style C1 fill:#e3f2fd
-    style C2 fill:#e3f2fd
-    style C3 fill:#e3f2fd
-    style C4 fill:#e3f2fd
-    style C5 fill:#e3f2fd
-    style A1 fill:#c8e6c9
-    style A2 fill:#c8e6c9
-    style A3 fill:#c8e6c9
-    style A4 fill:#c8e6c9
-    style A5 fill:#c8e6c9
+    style C1 fill:#1565c0,color:#fff
+    style C2 fill:#1565c0,color:#fff
+    style C3 fill:#1565c0,color:#fff
+    style C4 fill:#1565c0,color:#fff
+    style C5 fill:#1565c0,color:#fff
+    style A1 fill:#2e7d32,color:#fff
+    style A2 fill:#2e7d32,color:#fff
+    style A3 fill:#2e7d32,color:#fff
+    style A4 fill:#2e7d32,color:#fff
+    style A5 fill:#2e7d32,color:#fff
 ```
 
 Each command spawns its agent, which produces artifacts used by subsequent steps.
