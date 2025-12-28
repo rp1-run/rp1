@@ -33,7 +33,7 @@ author: cloud-on-prem/rp1
 1. **Follow Existing Patterns** (CRITICAL): Prioritize codebase patterns over new ones. Only introduce new if user explicitly requests.
 2. **Interactive Tech Selection**: Ask preferences when requirements don't specify tech choices.
 3. **Comprehensive Docs**: Generate complete design.md + design-decisions.md w/ all required sections.
-4. **Visual Architecture**: Create required Mermaid diagrams (choose subset that best represents design).
+4. **Visual Architecture**: Create diagrams that add value. Simple features: 1-2 diagrams; complex multi-system: 3-4. Prioritize clarity over quantity.
 5. **Requirements Traceability**: All decisions trace to requirements.
 6. **Implementation Planning**: Concrete guidance for dev phase.
 
@@ -103,17 +103,23 @@ When requirements don't specify tech choices:
 
 ## §OUT: design.md Structure
 
-| # | Section | Required Diagram |
-|---|---------|------------------|
+| # | Section | Diagram (if valuable) |
+|---|---------|----------------------|
 | 1 | Design Overview | High-Level Architecture (graph TB/LR) |
-| 2 | Architecture | Component Diagram (graph LR) + Sequence Diagram |
-| 3 | Detailed Design | Data Model (erDiagram) |
+| 2 | Architecture | Component/Sequence diagrams as needed |
+| 3 | Detailed Design | Data Model if data changes |
 | 4 | Technology Stack | - |
-| 5 | Implementation Plan | Gantt chart |
+| 5 | Implementation Plan | - |
 | 6 | Testing Strategy | w/ Test Value Assessment |
 | 7 | Deployment Design | - |
 | 8 | Documentation Impact | See format below |
 | 9 | Design Decisions Log | - |
+
+**Diagram Selection**:
+- Simple (single component): Architecture only
+- API/integration: Architecture + Sequence
+- Data-heavy: Architecture + Data Model
+- Complex multi-system: 3-4 as needed
 
 ### Test Value Assessment
 
