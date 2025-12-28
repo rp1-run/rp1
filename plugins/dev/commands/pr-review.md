@@ -60,6 +60,40 @@ Phase 4   (Sequential):  Reporter → Markdown Report (includes visual link)
 
 **DO NOT ask for user approval. Execute immediately.**
 
+### Pre-flight: Git State Check
+
+Before any other operation, check for uncommitted changes to prevent data loss.
+
+1. **Check git status**:
+   ```bash
+   git status --porcelain
+   ```
+
+2. **If output is non-empty** (dirty state):
+   Use AskUserQuestion tool:
+   ```
+   question: "You have uncommitted changes. How should I proceed?"
+   options:
+     - label: "Stash and continue"
+       description: "Stash changes, run review, then restore them"
+     - label: "Abort"
+       description: "Cancel the review to preserve my work"
+   ```
+
+3. **Handle user choice**:
+   - **Stash and continue**:
+     ```bash
+     git stash push -m "rp1-pr-review-auto-stash"
+     ```
+     Set `STASHED = true` for cleanup in final output.
+   - **Abort**: Exit with message "Review cancelled. Your changes are preserved."
+
+4. **Cleanup** (in Final Output section):
+   If `STASHED = true`, restore after review completes:
+   ```bash
+   git stash pop
+   ```
+
 ### Phase 0: Input Resolution and Intent Building
 
 1. **Resolve target to branch**:
@@ -311,6 +345,13 @@ Before splitting, assess if PR warrants visualization. Visual runs in background
 
 ### Final Output
 
+1. **Restore stashed changes** (if STASHED = true):
+   ```bash
+   git stash pop
+   ```
+   Report: "✓ Restored your stashed changes"
+
+2. **Output summary**:
 ```
 {{JUDGMENT_EMOJI}} PR Review Complete
 
@@ -325,6 +366,7 @@ Findings:
 
 Report: {{REPORT_PATH}}
 {{IF VISUAL_PATH != "none"}}Visual: {{VISUAL_PATH}}{{/IF}}
+{{IF STASHED}}✓ Restored your stashed changes{{/IF}}
 ```
 
 **Judgment emoji mapping**:
@@ -338,6 +380,7 @@ Report: {{REPORT_PATH}}
 
 | Error | Action |
 |-------|--------|
+| Dirty git state | Prompt user to stash or abort |
 | Can't determine branch | Ask user for branch name |
 | gh CLI not available | Fall back to git-only mode |
 | Visual generation fails | Continue without visual (non-blocking) |
