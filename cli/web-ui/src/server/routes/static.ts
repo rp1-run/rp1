@@ -1,4 +1,4 @@
-import { extname, join } from "node:path";
+import { extname, join, resolve } from "node:path";
 
 const MIME_TYPES: Record<string, string> = {
 	".html": "text/html; charset=utf-8",
@@ -46,7 +46,14 @@ export async function handleStaticRequest(
 		pathname = "/index.html";
 	}
 
-	const filePath = join(distDir, pathname);
+	// Canonicalize paths to prevent directory traversal attacks
+	const resolvedDist = resolve(distDir);
+	const filePath = resolve(distDir, pathname.slice(1)); // slice(1) removes leading /
+
+	// Security: Ensure resolved path is within distDir
+	if (!filePath.startsWith(`${resolvedDist}/`) && filePath !== resolvedDist) {
+		return new Response("Forbidden", { status: 403 });
+	}
 
 	const file = Bun.file(filePath);
 	const exists = await file.exists();
