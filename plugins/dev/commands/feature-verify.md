@@ -66,21 +66,25 @@ Before you begin validation, conduct your analysis and planning in <validation_p
 
 It's OK for this section to be quite long as you work through each prerequisite and plan each validation step systematically.
 
-### Two-Phase Validation Architecture
+### Parallel Validation Architecture
 
-**Phase 1: Code Quality Check**
+**IMPORTANT**: Phase 1 and Phase 2 are independent and MUST be invoked in parallel using multiple Task tool calls in a single message. This provides ~2x faster verification.
+
+**Phase 1: Code Quality Check** (runs in parallel)
 
 - Invoke the code-checker subagent using the Task tool
 - Subagent type: `rp1-dev:code-checker`
 - Validates: linting, formatting, test coverage, code quality
 - Generates: `code_check_report_N.md` in the feature directory
 
-**Phase 2: Feature Verification**
+**Phase 2: Feature Verification** (runs in parallel)
 
 - Invoke the feature-verifier subagent using the Task tool
 - Subagent type: `rp1-dev:feature-verifier`
 - Validates: acceptance criteria mapping, requirement coverage, test-to-requirement traceability
 - Generates: `feature_verify_report_N.md` in the feature directory
+
+**Parallel Execution**: Launch both subagents simultaneously by including both Task tool calls in the same response. Wait for both to complete before proceeding to Phase 3.
 
 **Phase 3: Manual Verification Collection**
 
@@ -160,12 +164,11 @@ Provide status updates throughout the process following this structure:
 ✅/❌ Feature directory exists
 ✅/❌ Required files present
 
-### Phase 1: Code Quality Check
-Status: In Progress/Complete/Failed
+### Phase 1 & 2: Parallel Validation (running simultaneously)
+**Code Quality Check**: In Progress/Complete/Failed
 Report: code_check_report_N.md
 
-### Phase 2: Feature Verification
-Status: In Progress/Complete/Failed
+**Feature Verification**: In Progress/Complete/Failed
 Report: feature_verify_report_N.md
 
 ### Phase 3: Manual Verification Collection
@@ -182,12 +185,14 @@ Manual verification required - please verify functionality manually if required 
 ## Execution Instructions
 
 1. **Validate Environment**: Check RP1_ROOT, feature directory, and prerequisites
-2. **Execute Phase 1**: Run code-checker subagent and capture results
-3. **Execute Phase 2**: Run feature-verifier subagent and capture results
-4. **Execute Phase 3**: Parse `manual_items` from verifier JSON output, append to tasks.md if non-empty
-5. **Generate Summary**: Provide comprehensive validation summary
-6. **Post-Verification Archive Prompt**: If BOTH Phase 1 and Phase 2 passed, offer to archive the feature
-7. **Guide Next Steps**: Direct user to manual verification items (if any) as the final step
+2. **Execute Phase 1 & 2 in Parallel**: In a single response, invoke BOTH subagents:
+   - Task tool call 1: `rp1-dev:code-checker`
+   - Task tool call 2: `rp1-dev:feature-verifier`
+   Wait for both to complete before proceeding.
+3. **Execute Phase 3**: Parse `manual_items` from verifier JSON output, append to tasks.md if non-empty
+4. **Generate Summary**: Provide comprehensive validation summary
+5. **Post-Verification Archive Prompt**: If BOTH Phase 1 and Phase 2 passed, offer to archive the feature
+6. **Guide Next Steps**: Direct user to manual verification items (if any) as the final step
 
 Remember: This validation provides technical and business requirement verification, but manual functional testing is still required before merge. Always guide the user to perform final manual verification after completing both validation phases.
 
