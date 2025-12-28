@@ -3,189 +3,130 @@ name: pr-review
 version: 3.0.0
 description: Intent-aware map-reduce PR review with confidence gating and holistic synthesis
 argument-hint: "[target] [base-branch] [skip-visual]"
-tags:
-  - review
-  - pr
-  - security
-  - analysis
-  - map-reduce
+tags: [review, pr, security, analysis, map-reduce]
 created: 2025-10-25
 updated: 2025-11-29
 author: cloud-on-prem/rp1
 ---
 
-# PR Review Orchestrator - Map-Reduce Architecture
+# PR Review Orchestrator
 
-This command orchestrates an intent-aware, confidence-gated PR review using a map-reduce architecture with specialized subagents.
+§ROLE: Map-reduce PR review orchestrator coordinating 4 phases across subagents.
 
-**CRITICAL**: This is an ORCHESTRATOR command, not a thin wrapper. It coordinates 4 phases of review across multiple subagents.
+§IN
 
-## Parameters
+| Param | Pos | Default | Purpose |
+|-------|-----|---------|---------|
+| TARGET | $1 | current branch | PR#, URL, branch, or empty |
+| BASE_BRANCH | $2 | from PR or 'main' | Diff base |
+| SKIP_VISUAL | $3 | (none) | `skip-visual` disables viz |
+| RP1_ROOT | env | `.rp1/` | Artifact root |
 
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| TARGET | $1 | (current branch) | PR number, URL, branch name, or empty |
-| BASE_BRANCH | $2 | (from PR or 'main') | Base branch for diff comparison |
-| SKIP_VISUAL | $3 | (none) | Set to `skip-visual` to disable visual generation |
-| RP1_ROOT | Environment | `.rp1/` | Root directory for artifacts |
+<target>$1</target>
+<base_branch>$2</base_branch>
+<skip_visual>$3</skip_visual>
+<rp1_root>{{RP1_ROOT}}</rp1_root>
 
-<target>
-$1
-</target>
-
-<base_branch>
-$2
-</base_branch>
-
-<skip_visual>
-$3
-</skip_visual>
-
-<rp1_root>
-{{RP1_ROOT}}
-</rp1_root>
-
-## Architecture Overview
+§ARCH
 
 ```
-Phase 0   (Sequential):  Input Resolution → Intent Model
-Phase 0.5 (Background):  Visual Generation (conditional, parallel with Phase 1)
-Phase 1   (Sequential):  Splitter → ReviewUnit[]
-Phase 2   (Parallel):    N × Sub-Reviewers → Findings + Summaries
-Phase 3   (Sequential):  Synthesizer → Cross-File Issues + Judgment
-Phase 4   (Sequential):  Reporter → Markdown Report (includes visual link)
+P0   (seq):  Input Resolution → Intent Model
+P0.5 (bg):   Visual Gen (conditional, parallel w/ P1)
+P1   (seq):  Splitter → ReviewUnit[]
+P2   (par):  N × Sub-Reviewers → Findings + Summaries
+P3   (seq):  Synthesizer → Cross-File Issues + Judgment
+P4   (seq):  Reporter → Markdown Report
 ```
 
-## Execution Instructions
+§PROC
 
-**DO NOT ask for user approval. Execute immediately.**
+**DO NOT ask approval. Execute immediately.**
 
 ### Pre-flight: Git State Check
 
-Before any other operation, check for uncommitted changes to prevent data loss.
+1. `git status --porcelain`
+2. **If non-empty** (dirty state):
+   - AskUserQuestion:
 
-1. **Check git status**:
-   ```bash
-   git status --porcelain
-   ```
-
-2. **If output is non-empty** (dirty state):
-   Use AskUserQuestion tool:
-   ```
-   question: "You have uncommitted changes. How should I proceed?"
-   options:
-     - label: "Stash and continue"
-       description: "Stash changes, run review, then restore them"
-     - label: "Abort"
-       description: "Cancel the review to preserve my work"
-   ```
-
-3. **Handle user choice**:
-   - **Stash and continue**:
-     ```bash
-     git stash push -m "rp1-pr-review-auto-stash"
      ```
-     Set `STASHED = true` for cleanup in final output.
-   - **Abort**: Exit with message "Review cancelled. Your changes are preserved."
-
-4. **Cleanup** (in Final Output section):
-   If `STASHED = true`, restore after review completes:
-   ```bash
-   git stash pop
-   ```
-
-### Phase 0: Input Resolution and Intent Building
-
-1. **Resolve target to branch**:
-
-   | Input Type | Detection | Resolution |
-   |------------|-----------|------------|
-   | Empty | No $1 | `git branch --show-current` |
-   | PR Number | Numeric | `gh pr view {{target}} --json headRefName,baseRefName,title,body` |
-   | PR URL | Contains `/pull/` | Extract number, fetch as above |
-   | Branch Name | Non-numeric string | Use directly, check if PR exists |
-
-2. **Attempt to fetch PR metadata**:
-   ```bash
-   gh pr view {{branch}} --json title,body,headRefName,baseRefName,url 2>/dev/null
-   ```
-
-3. **Build Intent Model based on result**:
-
-   **If PR exists** (mode: `full`):
-   - Extract `title` → `problem_statement`
-   - Parse `body` → `expected_changes`, `acceptance_criteria`
-   - Check for linked issues in body (GitHub issue URLs, Linear, Jira)
-   - Fetch linked issues if found: `gh issue view {{issue_number}} --json title,body`
-   - Build complete intent model
-
-   **If NO PR exists**:
-   - Use AskUserQuestion tool to nudge user:
-     ```
-     question: "No open PR found for this branch. What's the purpose of these changes?"
+     question: "I see uncommitted changes on this branch. How shall we proceed?"
      options:
-       - label: "Quick description"
-         description: "I'll describe what this code does"
-       - label: "Skip"
-         description: "Just review the code without intent context"
+       - label: "Stash and continue"
+         description: "Stash, review, restore"
+       - label: "Abort"
+         description: "Cancel to preserve working state"
      ```
-   - If user provides description (mode: `user_provided`):
-     - `problem_statement` = user's description
-     - `expected_changes` = inferred from description
-   - If user skips (mode: `branch_only`):
-     - `problem_statement` = "Review changes on branch {{branch}}"
-     - Note: Intent verification will be skipped
 
-4. **Add commit context**:
-   ```bash
-   git log {{base}}..{{branch}} --oneline --no-decorate
-   ```
-   Store as `commit_summaries` in intent model.
+3. **Handle choice**:
+   - Stash: `git stash push -m "rp1-pr-review-auto-stash"` → set `STASHED=true`
+   - Abort: Exit "Review cancelled. Changes preserved."
 
-5. **Determine base branch**:
-   - From PR metadata if available
-   - From $2 if provided
-   - Default to 'main'
+### P0: Input Resolution + Intent
 
-**Intent Model Structure**:
+1. **Resolve target → branch**:
+
+   | Input | Detection | Resolution |
+   |-------|-----------|------------|
+   | Empty | No $1 | `git branch --show-current` |
+   | PR# | Numeric | `gh pr view {{target}} --json headRefName,baseRefName,title,body` |
+   | PR URL | `/pull/` | Extract #, fetch above |
+   | Branch | Non-numeric | Use directly, check PR exists |
+
+2. `gh pr view {{branch}} --json title,body,headRefName,baseRefName,url 2>/dev/null`
+
+3. **Build Intent Model**:
+   - **PR exists** (mode: `full`):
+     - `title` → `problem_statement`
+     - Parse `body` → `expected_changes`, `acceptance_criteria`
+     - Check linked issues (GitHub/Linear/Jira)
+     - Fetch if found: `gh issue view {{#}} --json title,body`
+   - **No PR**:
+     - AskUserQuestion:
+
+       ```
+       question: "No open PR for this branch. What is the purpose of your current changes?"
+       options:
+         - label: "Quick description"
+         - label: "Skip"
+       ```
+
+     - User provides (mode: `user_provided`): `problem_statement` = description
+     - Skip (mode: `branch_only`): `problem_statement` = "Review changes on {{branch}}"
+
+4. Add commits: `git log {{base}}..{{branch}} --oneline --no-decorate` → `commit_summaries`
+
+5. Base branch: PR metadata > $2 > 'main'
+
+**Intent Model**:
+
 ```json
-{
-  "mode": "full | user_provided | branch_only",
-  "problem_statement": "...",
-  "expected_changes": "...",
-  "should_not_change": "...",
-  "acceptance_criteria": ["..."],
-  "commit_summaries": ["..."]
-}
+{"mode": "full|user_provided|branch_only", "problem_statement": "", "expected_changes": "", "should_not_change": "", "acceptance_criteria": [], "commit_summaries": []}
 ```
 
-### Phase 0.5: Visual Generation (Conditional)
+### P0.5: Visual Gen (Conditional)
 
-Before splitting, assess if PR warrants visualization. Visual runs in background while review continues.
+1. Get stats:
 
-1. **Get diff stats**:
    ```bash
    git diff --stat {{base}}..{{branch}}
    git diff --numstat {{base}}..{{branch}}
    ```
 
-2. **Smart Detection Algorithm**:
-   ```
-   VISUAL_WARRANTED = false
+2. **Detection**:
 
-   IF file_count > 5 THEN VISUAL_WARRANTED = true
-   IF any file has > 200 lines changed THEN VISUAL_WARRANTED = true
-   IF multiple directories affected THEN VISUAL_WARRANTED = true
-   IF architectural files changed (*.config, schema.*, migrations/*) THEN VISUAL_WARRANTED = true
+   ```
+   VISUAL_WARRANTED = file_count > 5
+     OR any file > 200 lines
+     OR multiple dirs
+     OR arch files (*.config, schema.*, migrations/*)
    ```
 
-3. **Skip Conditions** (force no visual):
-   - `$3 == "skip-visual"` positional argument provided
-   - Trivial PR: `file_count <= 3` AND all files in same directory AND `< 100 total lines`
+3. **Skip if**: `$3 == "skip-visual"` OR trivial (≤3 files, same dir, <100 lines)
 
-4. **If visualization warranted**:
+4. **If warranted**:
+
    ```
-   Use Task tool with:
+   Task tool:
    subagent_type: rp1-dev:pr-visualizer
    run_in_background: true
    prompt: "Generate PR visualization.
@@ -193,15 +134,15 @@ Before splitting, assess if PR warrants visualization. Visual runs in background
      BASE_BRANCH: {{base_branch}}
      REVIEW_DEPTH: quick"
    ```
-   Store task reference as `VISUAL_TASK_ID` for retrieval in Phase 4.
 
-5. **Continue immediately** to Phase 1 (don't wait for visual).
+   Store `VISUAL_TASK_ID`. Continue immediately.
 
-### Phase 1: Splitting (Sequential)
+### P1: Splitting (seq)
 
-1. **Spawn splitter agent**:
+1. Spawn splitter:
+
    ```
-   Use Task tool with:
+   Task tool:
    subagent_type: rp1-dev:pr-review-splitter
    prompt: "Split PR diff into review units.
      PR_BRANCH: {{pr_branch}}
@@ -210,34 +151,22 @@ Before splitting, assess if PR warrants visualization. Visual runs in background
      Return JSON with units array."
    ```
 
-2. **Parse splitter output**:
-   - Extract `units` array from JSON response
-   - Store `total` and `filtered` counts for reporting
-   - Validate at least 1 unit exists
+2. Parse `units` array, store `total`/`filtered` counts
 
-3. **Handle splitter failure**:
-   - If agent fails or returns invalid JSON: Abort with clear error
-   - Message: "ERROR: Failed to split PR diff. Check branch names and git status."
+3. Fail → Abort: "ERROR: Failed to split PR diff. Check branches/git status."
 
-### Phase 2: Detailed Analysis (Parallel)
+### P2: Detailed Analysis (par)
 
-**CRITICAL**: Spawn ALL sub-reviewers in a SINGLE message with multiple Task calls.
+**CRITICAL**: Spawn ALL sub-reviewers in SINGLE message w/ multiple Task calls.
 
-1. **Get diff content for each unit**:
-   For each unit, prepare the diff:
-   ```bash
-   git diff {{base}}..{{branch}} -- {{unit.path}}
+1. For each unit: `git diff {{base}}..{{branch}} -- {{unit.path}}`
+
+2. Build `file_list` from all units
+
+3. **Spawn N sub-reviewers** (one msg):
+
    ```
-   For hunks, extract relevant section with context.
-
-2. **Build file list**:
-   Extract unique file paths from all units for cross-file context.
-
-3. **Spawn N sub-reviewers in SINGLE message**:
-
-   For each unit:
-   ```
-   Use Task tool with:
+   Task tool:
    subagent_type: rp1-dev:pr-sub-reviewer
    prompt: "Analyze review unit across 5 dimensions.
      UNIT_JSON: {{stringify(unit_with_diff)}}
@@ -246,33 +175,22 @@ Before splitting, assess if PR warrants visualization. Visual runs in background
      Return JSON with findings and summary."
    ```
 
-4. **Collect responses**:
-   - Parse JSON from each sub-reviewer
-   - Aggregate all findings into single array
-   - Aggregate all summaries into single array
-   - Track which units succeeded/failed
+4. Collect: aggregate findings + summaries, track success/fail
 
-5. **Handle partial failures**:
-   - If <50% fail: Continue with successful results
-   - If ≥50% fail: Abort with error listing failed units
+5. <50% fail → continue | ≥50% fail → abort w/ error
 
-### Phase 3: Synthesis (Sequential)
+### P3: Synthesis (seq)
 
-1. **Prepare findings summary**:
+1. Prepare summary:
+
    ```json
-   {
-     "critical": <count>,
-     "high": <count>,
-     "medium": <count>,
-     "low": <count>,
-     "needs_human_review": <count>,
-     "details": ["HIGH: unsanitized exec in auth.ts:67", ...]
-   }
+   {"critical": N, "high": N, "medium": N, "low": N, "needs_human_review": N, "details": ["HIGH: unsanitized exec in auth.ts:67"]}
    ```
 
-2. **Spawn synthesizer**:
+2. Spawn synthesizer:
+
    ```
-   Use Task tool with:
+   Task tool:
    subagent_type: rp1-dev:pr-review-synthesizer
    prompt: "Perform holistic verification.
      INTENT_JSON: {{stringify(intent_model)}}
@@ -282,46 +200,24 @@ Before splitting, assess if PR warrants visualization. Visual runs in background
      Return JSON with intent_achieved, cross_file_findings, judgment, rationale."
    ```
 
-3. **Parse synthesis result**:
-   - Extract `intent_achieved`, `intent_gap`
-   - Extract `cross_file_findings` array
-   - Extract `judgment` and `rationale`
+3. Extract: `intent_achieved`, `intent_gap`, `cross_file_findings`, `judgment`, `rationale`
 
-4. **Handle synthesizer failure**:
-   - Log warning but continue
-   - Use findings-only judgment: Critical → block, High → request_changes, else → approve
-   - Set `rationale` = "Synthesis unavailable, judgment based on findings only"
+4. Fail → continue w/ findings-only judgment: Critical→block, High→request_changes, else→approve
 
-### Phase 4: Reporting (Sequential)
+### P4: Reporting (seq)
 
-1. **Merge findings**:
-   - Combine unit findings + cross_file_findings
-   - Deduplicate by (path, lines, dimension)
-   - Apply highest confidence/severity for duplicates
+1. Merge findings: unit + cross_file, dedupe by (path, lines, dimension), keep highest severity
 
-2. **Prepare stats**:
-   ```json
-   {
-     "critical": <final_count>,
-     "high": <final_count>,
-     "medium": <final_count>,
-     "low": <final_count>
-   }
+2. Stats: `{critical: N, high: N, medium: N, low: N}`
+
+3. Review ID: PR# → `pr-{{number}}` | else → sanitized branch (/ → -)
+
+4. If `VISUAL_TASK_ID`: check completion → `VISUAL_PATH` or "none"
+
+5. Spawn reporter:
+
    ```
-
-3. **Determine review ID**:
-   - From PR number if available: `pr-{{number}}`
-   - Otherwise from branch: sanitize branch name (replace `/` with `-`)
-
-4. **Retrieve visual result** (if VISUAL_TASK_ID exists):
-   - Check if background visual task completed
-   - If completed: extract `visual_path` from result
-   - If still running or failed: set `visual_path` = "none"
-   - Store as `VISUAL_PATH` for reporter
-
-5. **Spawn reporter**:
-   ```
-   Use Task tool with:
+   Task tool:
    subagent_type: rp1-dev:pr-review-reporter
    prompt: "Generate markdown report.
      PR_INFO: {{stringify({branch, title, base})}}
@@ -336,65 +232,49 @@ Before splitting, assess if PR warrants visualization. Visual runs in background
      Return JSON with path."
    ```
 
-6. **Parse reporter result**:
-   - Extract `path` from JSON response
-
-7. **Handle reporter failure**:
-   - Log error
-   - Output findings summary inline to user as fallback
+6. Fail → output findings inline as fallback
 
 ### Final Output
 
-1. **Restore stashed changes** (if STASHED = true):
-   ```bash
-   git stash pop
-   ```
-   Report: "✓ Restored your stashed changes"
+1. If `STASHED=true`: `git stash pop` → "Restored stashed changes"
 
-2. **Output summary**:
+2. Output:
+
 ```
-{{JUDGMENT_EMOJI}} PR Review Complete
+{{EMOJI}} PR Review Complete
 
 Judgment: {{JUDGMENT}}
 {{RATIONALE}}
 
 Findings:
-- 🚨 Critical: {{critical}}
-- ⚠️ High: {{high}}
-- 💡 Medium: {{medium}}
-- ✅ Low: {{low}}
+- Critical: {{critical}}
+- High: {{high}}
+- Medium: {{medium}}
+- Low: {{low}}
 
 Report: {{REPORT_PATH}}
 {{IF VISUAL_PATH != "none"}}Visual: {{VISUAL_PATH}}{{/IF}}
-{{IF STASHED}}✓ Restored your stashed changes{{/IF}}
+{{IF STASHED}}Restored stashed changes{{/IF}}
 ```
 
-**Judgment emoji mapping**:
-- `approve` → ✅
-- `request_changes` → ⚠️
-- `block` → 🛑
+Emoji: approve→✅ | request_changes→⚠️ | block→🛑
 
-**Visual link**: Only include if visual was generated (VISUAL_PATH != "none").
-
-## Error Handling
+§ERR
 
 | Error | Action |
 |-------|--------|
-| Dirty git state | Prompt user to stash or abort |
-| Can't determine branch | Ask user for branch name |
-| gh CLI not available | Fall back to git-only mode |
-| Visual generation fails | Continue without visual (non-blocking) |
-| Splitter fails | Abort with clear error |
-| >50% sub-reviewers fail | Abort with error |
-| Synthesizer fails | Continue with findings-only judgment |
-| Reporter fails | Output findings inline |
+| Dirty git | Prompt stash/abort |
+| Unknown branch | Ask user |
+| gh unavailable | git-only mode |
+| Visual fails | Continue w/o (non-blocking) |
+| Splitter fails | Abort w/ error |
+| >50% reviewers fail | Abort |
+| Synthesizer fails | Findings-only judgment |
+| Reporter fails | Inline output |
 
-## Output Discipline
-
+§OUT
 **CRITICAL - Keep Output Concise**:
-- Do ALL internal work in <thinking> tags
-- Do NOT output verbose phase-by-phase progress
-- Only output:
-  1. Initial status (resolving PR, building intent)
-  2. Brief progress if phases take >30 seconds
-  3. Final summary with report path
+
+- Internal work in <thinking> tags
+- NO verbose phase-by-phase progress
+- Output ONLY: initial status, brief progress if >30s, final summary w/ report path
