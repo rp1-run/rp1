@@ -18,6 +18,7 @@ export {
 	getErrorMessage,
 } from "./fp-ts-helpers.js";
 export {
+	assertTestIsolation,
 	cleanupTempDir,
 	createTempDir,
 	writeFixture,

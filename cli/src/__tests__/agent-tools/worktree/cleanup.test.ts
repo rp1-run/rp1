@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { cleanupWorktree } from "../../../agent-tools/worktree/cleanup.js";
 import { createWorktree } from "../../../agent-tools/worktree/create.js";
 import {
+	assertTestIsolation,
 	expectTaskLeft,
 	expectTaskRight,
 	getErrorMessage,
@@ -29,6 +30,9 @@ describe("worktree cleanup", () => {
 		const tempDir = join(tmpdir(), `worktree-cleanup-test-${Date.now()}`);
 		await mkdir(tempDir, { recursive: true });
 		tempBase = await realpath(tempDir);
+
+		// CRITICAL: Verify test isolation to prevent main repo contamination
+		await assertTestIsolation(tempBase);
 
 		// Create a git repo for testing
 		repoRoot = join(tempBase, "test-repo");
