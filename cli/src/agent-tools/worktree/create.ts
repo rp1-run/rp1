@@ -169,6 +169,25 @@ const getHeadCommitSha = (cwd: string): TE.TaskEither<CLIError, string> =>
 	execGitCommand(["rev-parse", "HEAD"], cwd);
 
 /**
+ * Get the main repository root from git-common-dir.
+ * Works from both main repo and worktrees.
+ * This is critical to avoid using the wrong HEAD when running from inside another worktree.
+ */
+const getMainRepoRoot = (cwd: string): TE.TaskEither<CLIError, string> =>
+	pipe(
+		execGitCommand(["rev-parse", "--git-common-dir"], cwd),
+		TE.map((commonDir) => {
+			const absoluteCommonDir = path.isAbsolute(commonDir)
+				? commonDir
+				: path.resolve(cwd, commonDir);
+			if (path.basename(absoluteCommonDir) === ".git") {
+				return path.dirname(absoluteCommonDir);
+			}
+			return absoluteCommonDir;
+		}),
+	);
+
+/**
  * Create a git worktree with a new branch.
  */
 const createGitWorktree = (
@@ -232,19 +251,24 @@ export const createWorktree = (
 
 	return pipe(
 		checkGitVersion(cwd),
-		TE.chain(() => resolveRp1Root(cwd)),
-		TE.bindTo("rootResult"),
-		TE.bind("branchName", () => findUniqueBranchName(baseBranchName, cwd)),
-		TE.bind("basedOn", () => getHeadCommitSha(cwd)),
+		// Get main repo root first - all git operations must use this
+		// to avoid issues when running from inside another worktree
+		TE.chain(() => getMainRepoRoot(cwd)),
+		TE.bindTo("repoRoot"),
+		TE.bind("rootResult", ({ repoRoot }) => resolveRp1Root(repoRoot)),
+		TE.bind("branchName", ({ repoRoot }) =>
+			findUniqueBranchName(baseBranchName, repoRoot),
+		),
+		TE.bind("basedOn", ({ repoRoot }) => getHeadCommitSha(repoRoot)),
 		TE.bind("worktreesDir", ({ rootResult }) =>
 			ensureWorktreesDir(rootResult.root),
 		),
 		TE.bind("worktreePath", ({ worktreesDir, branchName }) =>
 			TE.right(path.join(worktreesDir, branchName)),
 		),
-		TE.chain(({ branchName, basedOn, worktreePath }) =>
+		TE.chain(({ repoRoot, branchName, basedOn, worktreePath }) =>
 			pipe(
-				createGitWorktree(branchName, worktreePath, cwd),
+				createGitWorktree(branchName, worktreePath, repoRoot),
 				TE.map(
 					(): WorktreeCreateResult => ({
 						path: worktreePath,
