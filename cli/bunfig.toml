@@ -1,2 +1,5 @@
 [test]
 root = "./src/__tests__"
+
+[install]
+registry = "https://registry.npmjs.org/"
