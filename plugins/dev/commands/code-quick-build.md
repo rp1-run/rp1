@@ -64,6 +64,8 @@ Cache `root` as `{RP1_ROOT}`.
 
 0.5 Generate task ID: `YYYYMMDD-HHMMSS-{slug}`
 
+0.6. If required, install deps for running tests/builds/lints etc (infer from project).
+
 ### 1. Load KB (Progressive)
 
 **REQUIRED**: Read `{RP1_ROOT}/context/index.md`
