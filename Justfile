@@ -37,11 +37,19 @@ install-local: build rm-stable-rp1 update-local-claude
 local *args: build
     ./bin/rp1 {{args}}
 
-# Run tests for CLI
+# Run unit tests for CLI (fast, no integration tests)
+test-unit: check-cli
+    cd cli && bun run test:unit
+
+# Run integration tests for CLI
+test-integration:
+    cd cli && bun run test:integration
+
+# Run all tests for CLI (unit + integration)
 test-cli: check-cli
     cd cli && bun run test
 
-# Run all tests
+# Run all tests (alias)
 test: test-cli
 
 # Lint and type check CLI TypeScript files

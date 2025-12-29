@@ -50,6 +50,8 @@
 		"format": "biome format .",
 		"format:fix": "biome format --write .",
 		"test": "bun test",
+		"test:unit": "find src/__tests__ -name '*.test.ts' ! -path '*integration*' -print0 | xargs -0 bun test",
+		"test:integration": "find src/__tests__ -name '*.test.ts' -path '*integration*' -print0 | xargs -0 bun test",
 		"test:coverage": "bun test --coverage",
 		"test:watch": "bun test --watch",
 		"prepublishOnly": "bun run build:all"
