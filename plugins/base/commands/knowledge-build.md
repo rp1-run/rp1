@@ -203,11 +203,27 @@ If `FEATURE_ID` ($1) is provided, this is a **feature learning build** that capt
      - If changes found → Continue with incremental analysis
    - **Check change set size** (prevent token limit issues):
 
+     Use line-change count instead of file count for more accurate assessment.
+     50 one-line changes ≠ significant, but 5 large refactors = significant.
+
      ```bash
-     changed_file_count=$(echo "$changed_files" | wc -l)
-     if [ $changed_file_count -gt 50 ]; then
-       echo "⚠️ Large change set ($changed_file_count files changed). Using FULL mode for reliability."
-       # Fall back to FULL mode (skip getting diffs)
+     # Define patterns for generated/vendor files to exclude from line count
+     GENERATED_PATTERNS="package-lock.json|yarn.lock|bun.lockb|pnpm-lock.yaml|Cargo.lock|poetry.lock|Gemfile.lock|composer.lock|go.sum"
+     GENERATED_PATTERNS="$GENERATED_PATTERNS|node_modules/|vendor/|dist/|build/|\.min\.(js|css)$|\.bundle\.(js|css)$"
+     GENERATED_PATTERNS="$GENERATED_PATTERNS|\.generated\.|\.g\.(ts|dart)$|__pycache__/|\.pyc$"
+
+     # Get line changes excluding generated files
+     # git diff --stat shows: "file | N +/-" and summary "X files changed, Y insertions(+), Z deletions(-)"
+     line_changes=$(git diff --stat {{old_commit}} {{new_commit}} -- . \
+       | grep -v -E "$GENERATED_PATTERNS" \
+       | tail -1 \
+       | grep -oE '[0-9]+ insertion|[0-9]+ deletion' \
+       | grep -oE '[0-9]+' \
+       | awk '{sum += $1} END {print sum+0}')
+
+     # Threshold: ~2000 lines of non-generated code
+     if [ "$line_changes" -gt 2000 ]; then
+       echo "⚠️ Large change set (~$line_changes lines changed). Using FULL mode for reliability."
        MODE="FULL"
      else
        MODE="INCREMENTAL"
@@ -215,19 +231,19 @@ If `FEATURE_ID` ($1) is provided, this is a **feature learning build** that capt
      ```
 
    - **MESSAGE**:
-     - If MODE=FULL: "Large change set ({{changed_file_count}} files). Full analysis (10-15 min)"
-     - If MODE=INCREMENTAL: "Changes detected since last build ({{old_commit}} → {{new_commit}}). Analyzing {{changed_file_count}} changed files (2-5 min)"
+     - If MODE=FULL: "Large change set (~{{line_changes}} lines). Full analysis (10-15 min)"
+     - If MODE=INCREMENTAL: "Changes detected since last build ({{old_commit}} → {{new_commit}}). ~{{line_changes}} lines changed (2-5 min)"
    - **Get detailed diffs for each changed file** (only if MODE=INCREMENTAL):
 
      ```bash
-     # Only if incremental mode (< 50 files)
+     # Only if incremental mode (≤2000 lines changed)
      git diff {{old_commit}} {{new_commit}} -- <filepath>
      ```
 
    - **Store diffs**: Create FILE_DIFFS JSON mapping filepath → diff content (only if MODE=INCREMENTAL)
    - **Filter changed files**: Apply EXCLUDE_PATTERNS, filter to relevant extensions
    - **Store changed files list**: Will be passed to spatial analyzer
-   - **MODE**: INCREMENTAL (< 50 files) or FULL (>= 50 files)
+   - **MODE**: INCREMENTAL (≤2000 lines) or FULL (>2000 lines)
 
 ### Phase 1: Spatial Analysis (Sequential)
 
