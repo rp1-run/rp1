@@ -108,6 +108,47 @@ The bootstrap command creates a complete runnable project from scratch:
 - `/pr-feedback-fix` - Address pull request feedback
 - `/pr-visual` - Visualize pull request changes
 
+## Skills (1)
+
+### worktree-workflow
+
+Isolated git worktree workflow for coding agents. Handles worktree creation, atomic commits, branch publishing, optional PR creation, and cleanup. Use when implementing code changes that need branch isolation.
+
+**Invocation**: Use the Skill tool with `skill: "rp1-dev:worktree-workflow"`
+
+**Parameters**:
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `task_slug` | string | Yes | - | 2-4 word slug for branch naming (e.g., `fix-auth-bug`) |
+| `agent_prefix` | string | No | `quick-build` | Branch prefix (e.g., `feature`, `fix`, `refactor`) |
+| `create_pr` | boolean | No | `false` | Whether to create a PR after pushing |
+| `pr_title` | string | No | - | PR title (required if `create_pr=true`) |
+| `pr_body` | string | No | - | PR body content (markdown supported) |
+
+**Usage in Agents**:
+
+```markdown
+# My Coding Agent
+
+When implementing changes that need branch isolation:
+
+1. Use the Skill tool with `skill: "rp1-dev:worktree-workflow"`
+2. Provide task_slug matching the work being done
+3. The skill handles:
+   - Worktree creation and verification
+   - Atomic commits with conventional format
+   - Commit ownership validation
+   - Branch publishing and optional PR creation
+   - Cleanup with dirty state handling
+```
+
+**Workflow Phases**:
+1. **Setup**: Create worktree, verify git state
+2. **Implementation**: Make changes with atomic commits
+3. **Publish**: Validate commits, push branch, optionally create PR
+4. **Cleanup**: Handle dirty state, remove worktree
+
 ## Builder-Reviewer Architecture (v3.0)
 
 The `feature-build` command uses a **builder-reviewer architecture** for improved accuracy and reliability:

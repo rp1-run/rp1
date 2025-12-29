@@ -35,26 +35,24 @@ $ARGUMENTS
 
 ### 0. Prepare Workspace
 
-0.1 Store original directory and check dirty state:
+Load skill `rp1-dev:worktree-workflow` for isolated workspace management.
 
-```bash
-pwd  # Store this as {original_cwd}
-git status --porcelain
-```
+**Skill Parameters**:
 
-If non-empty, warn: "WARNING: Uncommitted changes exist. Agent works on HEAD. Your work is safe."
+| Parameter | Value |
+|-----------|-------|
+| `task_slug` | 2-4 word slug from request (lowercase-hyphen) |
+| `agent_prefix` | `quick-build` |
+| `create_pr` | `false` |
 
-0.2 Generate slug (2-4 words, lowercase-hyphen) from request. Create worktree:
+Execute **Phase 1 (Setup)** from the skill:
+- Store original directory
+- Create worktree and verify state
+- Install dependencies if needed
 
-```bash
-rp1 agent-tools worktree create {slug}
-```
+After Phase 1 completes:
 
-Parse JSON -> store `path` as `worktree_path`, `branch`, `basedOn`.
-
-0.3 Switch: `cd {worktree_path}`
-
-0.4 Resolve root:
+0.1 Resolve root:
 
 ```bash
 rp1 agent-tools rp1-root-dir
@@ -62,9 +60,7 @@ rp1 agent-tools rp1-root-dir
 
 Cache `root` as `{RP1_ROOT}`.
 
-0.5 Generate task ID: `YYYYMMDD-HHMMSS-{slug}`
-
-0.6. If required, install deps for running tests/builds/lints etc (infer from project).
+0.2 Generate task ID: `YYYYMMDD-HHMMSS-{slug}`
 
 ### 1. Load KB (Progressive)
 
@@ -171,33 +167,17 @@ Write to `{RP1_ROOT}/work/quick-builds/{task-id}/summary.md`:
 [caveats, follow-ups]
 ```
 
-### 5. Commit & Cleanup
+### 5. Finalize
 
-5.1 Commit:
+Execute remaining phases from skill `rp1-dev:worktree-workflow`:
 
-```bash
-git add -A && git commit -m "feat: {summary}" # use conventional commit fomat, fix, perf, docs as appropriate
-```
+**Phase 2 (Implementation)**: Commit all changes using conventional format (feat:, fix:, refactor:, etc.). Skip if no changes.
 
-Skip if no changes.
+**Phase 3 (Publish)**: Validate commit ownership, push branch to remote. Skip PR creation (create_pr=false).
 
-5.2 Cleanup:
-
-**CRITICAL**: Return to original directory BEFORE cleanup (shell cwd will be deleted):
-
-```bash
-cd {original_cwd}
-```
-
-**On success**:
-
-```bash
-rp1 agent-tools worktree cleanup {worktree_path} --keep-branch
-```
+**Phase 4 (Cleanup)**: Handle dirty state if any, restore original directory, cleanup worktree.
 
 Report: Branch `{branch}` ready. Merge/cherry-pick/push as needed.
-
-**On failure**: Preserve worktree for debug. Report location + manual cleanup steps.
 
 ## §DO
 
@@ -210,7 +190,7 @@ Report: Branch `{branch}` ready. Merge/cherry-pick/push as needed.
 
 ## §CHK
 
-- [ ] Original cwd stored before cd to worktree
+- [ ] Skill Phase 1 (Setup) completed: worktree created and verified
 - [ ] Scope correctly assessed
 - [ ] KB loaded appropriately
 - [ ] Analysis thorough
@@ -218,5 +198,4 @@ Report: Branch `{branch}` ready. Merge/cherry-pick/push as needed.
 - [ ] Tests added
 - [ ] Build verified
 - [ ] Summary doc written
-- [ ] Returned to original cwd before cleanup
-- [ ] Worktree cleaned/preserved appropriately
+- [ ] Skill Phases 2-4 completed: committed, pushed, cleaned up
