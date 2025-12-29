@@ -17,9 +17,21 @@ export {
 	expectTaskRight,
 	getErrorMessage,
 } from "./fp-ts-helpers.js";
+
 export {
 	assertTestIsolation,
 	cleanupTempDir,
 	createTempDir,
 	writeFixture,
 } from "./fs-helpers.js";
+
+export {
+	captureMainRepoState,
+	createInitialCommit,
+	createTestWorktree,
+	getIsolatedGitEnv,
+	initTestRepo,
+	removeTestWorktree,
+	spawnGit,
+	verifyNoMainRepoContamination,
+} from "./git-helpers.js";
