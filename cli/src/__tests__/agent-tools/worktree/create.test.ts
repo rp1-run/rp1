@@ -18,7 +18,12 @@ import {
 	createWorktree,
 	DEFAULT_PREFIX,
 } from "../../../agent-tools/worktree/create.js";
-import { expectTaskLeft, expectTaskRight } from "../../helpers/index.js";
+import {
+	assertTestIsolation,
+	expectTaskLeft,
+	expectTaskRight,
+	getErrorMessage,
+} from "../../helpers/index.js";
 
 describe("worktree creation", () => {
 	let tempBase: string;
@@ -35,6 +40,9 @@ describe("worktree creation", () => {
 		const tempDir = join(tmpdir(), `worktree-create-test-${Date.now()}`);
 		await mkdir(tempDir, { recursive: true });
 		tempBase = await realpath(tempDir);
+
+		// CRITICAL: Verify test isolation to prevent main repo contamination
+		await assertTestIsolation(tempBase);
 
 		// Create a git repo for testing
 		repoRoot = join(tempBase, "test-repo");
@@ -243,6 +251,38 @@ describe("worktree creation", () => {
 			);
 
 			expect(error._tag).toBe("RuntimeError");
+		});
+
+		test("returns error when running from inside a worktree", async () => {
+			// Create an actual git worktree to test nesting prevention
+			const existingWorktreePath = join(tempBase, "existing-worktree");
+			const createWtProc = Bun.spawn(
+				[
+					"git",
+					"worktree",
+					"add",
+					"-b",
+					"existing-branch",
+					existingWorktreePath,
+				],
+				{ cwd: repoRoot, stdout: "pipe", stderr: "pipe" },
+			);
+			await createWtProc.exited;
+
+			// Try to create a new worktree from inside the existing one
+			const error = await expectTaskLeft(
+				createWorktree({ slug: "nested" }, existingWorktreePath),
+			);
+
+			expect(error._tag).toBe("UsageError");
+			expect(getErrorMessage(error)).toContain("inside another worktree");
+
+			// Cleanup
+			const removeWtProc = Bun.spawn(
+				["git", "worktree", "remove", "--force", existingWorktreePath],
+				{ cwd: repoRoot, stdout: "pipe", stderr: "pipe" },
+			);
+			await removeWtProc.exited;
 		});
 	});
 });
