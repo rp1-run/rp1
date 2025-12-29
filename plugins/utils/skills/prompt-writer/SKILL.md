@@ -177,6 +177,46 @@ Only when it REDUCES confusion. Don't force diagrams.
 | Verbose conditionals | "In the case that X happens..." | "If X:" |
 | Unnecessary context | Explaining obvious things | Omit |
 | Meta-commentary | "This section describes..." | Just describe |
+| Backtick key-value | BACKTICK x BACKTICK=value causes shell expansion | Use `x=value` or prose |
+
+## §6.1 Shell-Safe Formatting
+
+**CRITICAL**: Prompts are processed through shell expansion. Certain patterns cause parse errors.
+
+### Dangerous Patterns
+
+| Pattern | Problem | Shell Error |
+|---------|---------|-------------|
+| BACKTICK x BACKTICK=y | Backtick interpreted as command substitution | "x not found" |
+| BACKTICK ! BACKTICK=blocked | ! executed as history expansion | "blocked not found" |
+| DOLLAR(cmd)=value | Command substitution | Executes cmd |
+
+(BACKTICK = the ` character, DOLLAR = the $ character)
+
+### Safe Alternatives
+
+**BAD** (causes shell expansion errors):
+```
+- [status]: [BACKTICK] [BACKTICK]=pending, [BACKTICK]x[BACKTICK]=done, [BACKTICK]![BACKTICK]=blocked
+```
+(where [BACKTICK] represents the ` character)
+
+**GOOD** (no backticks around values in key=value patterns):
+```markdown
+- `status`: space=pending, x=done, !=blocked
+```
+
+**ALSO GOOD** (use prose instead of symbolic):
+```markdown
+- `status`: empty space means pending, x means done, ! means blocked
+```
+
+### Rule
+
+When writing key=value mappings:
+- DO NOT wrap single characters in backticks immediately before `=`
+- Use descriptive words (`space`, `empty`) or omit backticks entirely
+- Backticks inside code blocks (triple-backtick fences) are safe
 
 ## §7 Quick Reference
 
@@ -219,3 +259,4 @@ Before finalizing prompt:
 - [ ] Abbreviations obvious or in §LEG
 - [ ] Symbolics only where clearer
 - [ ] ≤300 lines for simple, ≤500 for complex
+- [ ] No shell-unsafe patterns (see §6.1)

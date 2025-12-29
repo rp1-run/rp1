@@ -35,6 +35,7 @@ $1
 - DO NOT delete constraints or change modality
 - Keep literals VERBATIM: names, IDs, paths, URLs, quoted strings, code, numbers, dates
 - If compression risks ambiguity → keep original phrasing
+- **SHELL-SAFE**: Never write BACKTICK x BACKTICK=value patterns - backticks before `=` cause shell expansion errors. Use `x=value` or prose instead (see skill §6.1)
 
 ## §OUT
 

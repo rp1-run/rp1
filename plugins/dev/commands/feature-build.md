@@ -45,7 +45,7 @@ Minimal coordinator for builder-reviewer workflow. Does NOT load KB/design/codeb
 **Regex**: `- \[([ x!])\] \*\*([^*]+)\*\*: (.+?)(?:\s*\`\[complexity:(simple|medium|complex)\]\`)?$`
 
 **Extract**:
-- `status`: ` `=pending, `x`=done, `!`=blocked
+- `status`: space=pending, x=done, !=blocked
 - `task_id`: T1, T1.1, TD1, etc.
 - `description`: Task text
 - `complexity`: simple/medium/complex (default: medium)
