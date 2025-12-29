@@ -49,7 +49,7 @@ Record `original_cwd` in your working memory. You will need this value in Phase 
 Run the worktree creation command with the provided parameters:
 
 ```bash
-rp1 agent-tools worktree create --slug {task_slug} --prefix {agent_prefix}
+rp1 agent-tools worktree create {task_slug} --prefix {agent_prefix}
 ```
 
 The command returns JSON. Parse and extract these values:
