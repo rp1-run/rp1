@@ -43,8 +43,11 @@ The command automatically detects the appropriate build mode:
 | Mode | Condition | Duration |
 |------|-----------|----------|
 | **Skip** | KB exists, no git changes | Instant |
-| **Full** | First build or >50 files changed | 10-15 min |
-| **Incremental** | <50 files changed since last build | 2-5 min |
+| **Full** | First build or >2000 lines changed | 10-15 min |
+| **Incremental** | ≤2000 lines changed since last build | 2-5 min |
+
+!!! note "Line-change threshold"
+    The threshold uses **lines changed** (insertions + deletions) rather than file count. This better reflects actual change significance—50 one-line config tweaks are less impactful than 5 large refactors. Generated files (lock files, vendor, dist, etc.) are excluded from the count.
 
 ## Output
 
