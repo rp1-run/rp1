@@ -12,6 +12,17 @@ The rp1 CLI provides commands for initializing projects and managing plugin inst
 
 ---
 
+## Agent Tools
+
+Agent tools are CLI utilities designed for use by AI agents during automated workflows. They provide structured JSON output for programmatic consumption.
+
+| Command | Description |
+|---------|-------------|
+| [`rp1-root-dir`](rp1-root-dir.md) | Resolve RP1_ROOT path with worktree awareness |
+| [`worktree`](worktree.md) | Create and manage git worktrees for isolated execution |
+
+---
+
 ## Global Options
 
 These options are available for all CLI commands:

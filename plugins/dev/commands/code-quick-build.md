@@ -51,20 +51,66 @@ You do NOT handle:
 
 ### Step 0: Prepare Workspace
 
+**REQUIRED**: This command operates in an isolated git worktree to protect your uncommitted work.
+
+#### 0.1 Check for Uncommitted Changes
+
+Run `git status --porcelain` in the current directory.
+
+If output is non-empty, display this warning:
+```
+WARNING: You have uncommitted changes. The agent will work on HEAD (last commit),
+not your current changes. Your uncommitted work is safe and untouched.
+```
+
+Continue regardless of dirty state.
+
+#### 0.2 Generate Task Slug and Create Worktree
+
+From the development request, extract 2-4 key words for branch naming (lowercase, hyphen-separated).
+
+Create the worktree:
+```bash
+rp1 agent-tools worktree create {slug}
+```
+
+Parse the JSON response to extract:
+- `path`: Worktree directory path
+- `branch`: Branch name (e.g., `quick-build-fix-auth-bug`)
+- `basedOn`: Base commit SHA
+
+**Store these values** for use in cleanup.
+
+#### 0.3 Switch to Worktree
+
+Change directory to the worktree path:
+```bash
+cd {worktree_path}
+```
+
+All subsequent file operations occur in this isolated worktree directory.
+
+#### 0.4 Resolve RP1_ROOT
+
+**REQUIRED**: Call `rp1 agent-tools rp1-root-dir` and cache the `root` value from the JSON response.
+
+```bash
+rp1 agent-tools rp1-root-dir
+```
+
+Use this cached `root` value as `{RP1_ROOT}` for all KB and artifact paths.
+
+#### 0.5 Generate Task ID
+
 **Documentation Directory**: `{RP1_ROOT}/work/quick-builds/`
 
 Generate a unique identifier for this task:
 - Format: `YYYYMMDD-HHMMSS-{slug}` (e.g., `20251206-143022-fix-auth-bug`)
-- The slug should be a 2-4 word kebab-case summary of the request
-
-<rp1_root>
-{{RP1_ROOT}}
-</rp1_root>
-(defaults to `.rp1/` if not set via environment variable $RP1_ROOT)
+- Use the same slug from branch creation
 
 ### Step 1: Load Codebase Knowledge (Progressive Loading)
 
-**REQUIRED FIRST STEP:** Read `{RP1_ROOT}/context/index.md` to understand project structure, tech stack, and key patterns.
+**REQUIRED**: Using the cached RP1_ROOT from Step 0.4, read `{RP1_ROOT}/context/index.md` to understand project structure, tech stack, and key patterns.
 
 **Selective Loading** based on request type:
 - **Quick fixes/bug patches**: Also read `{RP1_ROOT}/context/patterns.md` for code conventions
@@ -185,6 +231,66 @@ Use the task ID generated in Step 0 (format: `YYYYMMDD-HHMMSS-{slug}`).
 ```
 
 **Write the file** using the Write tool to `{RP1_ROOT}/work/quick-builds/{task-id}/summary.md`.
+
+### Step 4: Commit and Cleanup
+
+**REQUIRED**: Before cleanup, commit all changes to the worktree branch.
+
+#### 4.1 Commit Changes
+
+```bash
+git add -A
+git commit -m "quick-build: {brief task summary}"
+```
+
+If no changes to commit, skip the commit step.
+
+#### 4.2 Cleanup and Report
+
+**On Success** (implementation completed without errors):
+
+1. Remove the worktree:
+```bash
+rp1 agent-tools worktree cleanup {worktree_path} --keep-branch
+```
+
+2. Report to user:
+```markdown
+## Implementation Complete
+
+**Branch**: `{branch_name}`
+
+Your changes are committed and ready to integrate:
+- Merge: `git merge {branch_name}`
+- Cherry-pick: `git cherry-pick {branch_name}`
+- Create PR: `git push -u origin {branch_name}`
+
+The worktree has been cleaned up automatically.
+```
+
+**On Failure** (errors occurred during implementation):
+
+1. Do NOT call cleanup - preserve the worktree for debugging
+2. Report to user:
+```markdown
+## Build Failed
+
+The worktree has been preserved for debugging:
+- **Location**: `{worktree_path}`
+- **Branch**: `{branch_name}`
+
+To investigate:
+```bash
+cd {worktree_path}
+# Inspect and fix issues
+```
+
+To clean up manually:
+```bash
+rp1 agent-tools worktree cleanup {worktree_path}
+git branch -D {branch_name}  # Optional: delete branch
+```
+```
 
 ### If Large Scope (redirect to formal planning)
 

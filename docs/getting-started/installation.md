@@ -4,6 +4,38 @@ Get rp1 installed in under 5 minutes. This guide covers all platforms and AI ass
 
 ---
 
+## Prerequisites
+
+Before installing rp1, ensure you have:
+
+- **Git 2.15+**: Required for worktree isolation in `code-quick-build`. Check with `git --version`.
+
+??? note "Upgrading Git"
+
+    === "macOS"
+
+        ```bash
+        brew install git
+        ```
+
+    === "Ubuntu/Debian"
+
+        ```bash
+        sudo add-apt-repository ppa:git-core/ppa
+        sudo apt update
+        sudo apt install git
+        ```
+
+    === "Windows"
+
+        Download from [git-scm.com](https://git-scm.com/download/win) or use:
+
+        ```bash
+        winget install Git.Git
+        ```
+
+---
+
 ## Step 1: Install the rp1 CLI
 
 The rp1 CLI provides tools for installing plugins and managing your setup. Install it first, then add plugins for your AI assistant.
