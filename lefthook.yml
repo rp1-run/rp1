@@ -22,4 +22,4 @@ pre-push:
     typecheck-webui:
       run: cd cli/web-ui && npx tsc --noEmit
     test:
-      run: cd cli && bun run test
+      run: cd cli && bun run test:unit
