@@ -234,4 +234,70 @@ describe("worktree cleanup", () => {
 			expect(error._tag).toBe("UsageError");
 		});
 	});
+
+	describe("safety check: cwd inside worktree", () => {
+		test("returns error when cwd is the worktree directory", async () => {
+			const createResult = await expectTaskRight(
+				createWorktree({ slug: "cwd-safety" }, repoRoot),
+			);
+
+			// Try to cleanup with cwd set to the worktree itself
+			const error = await expectTaskLeft(
+				cleanupWorktree({ path: createResult.path }, createResult.path),
+			);
+
+			expect(error._tag).toBe("UsageError");
+			expect(getErrorMessage(error)).toContain("current directory is inside");
+
+			// Cleanup properly from repo root
+			await expectTaskRight(
+				cleanupWorktree(
+					{ path: createResult.path, keepBranch: false },
+					repoRoot,
+				),
+			);
+		});
+
+		test("returns error when cwd is inside the worktree", async () => {
+			const createResult = await expectTaskRight(
+				createWorktree({ slug: "cwd-nested-safety" }, repoRoot),
+			);
+
+			// Create a subdirectory inside the worktree
+			const subdir = join(createResult.path, "subdir");
+			await mkdir(subdir, { recursive: true });
+
+			// Try to cleanup with cwd set to a subdirectory of the worktree
+			const error = await expectTaskLeft(
+				cleanupWorktree({ path: createResult.path }, subdir),
+			);
+
+			expect(error._tag).toBe("UsageError");
+			expect(getErrorMessage(error)).toContain("current directory is inside");
+
+			// Cleanup properly from repo root
+			await expectTaskRight(
+				cleanupWorktree(
+					{ path: createResult.path, keepBranch: false },
+					repoRoot,
+				),
+			);
+		});
+
+		test("succeeds when cwd is outside the worktree", async () => {
+			const createResult = await expectTaskRight(
+				createWorktree({ slug: "cwd-outside" }, repoRoot),
+			);
+
+			// Cleanup from repo root (outside the worktree)
+			const cleanupResult = await expectTaskRight(
+				cleanupWorktree(
+					{ path: createResult.path, keepBranch: false },
+					repoRoot,
+				),
+			);
+
+			expect(cleanupResult.removed).toBe(true);
+		});
+	});
 });
