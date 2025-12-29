@@ -1,4 +1,0 @@
-{
-  "repo_root": "[absolute path to repository root - LOCAL ONLY]",
-  "current_project_path": "[relative path from repo_root to current project - LOCAL ONLY]"
-}
