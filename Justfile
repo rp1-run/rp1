@@ -79,3 +79,6 @@ rm-stable-rp1:
   rm -rf ~/.config/opencode/command/rp1*
   rm -rf ~/.config/opencode/skills/
   -claude plugin marketplace rm rp1-run 2>/dev/null
+
+install-cli-deps:
+  cd cli && bun install --frozen-lockfile
