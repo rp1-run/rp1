@@ -35,9 +35,10 @@ $ARGUMENTS
 
 ### 0. Prepare Workspace
 
-0.1 Check dirty state:
+0.1 Store original directory and check dirty state:
 
 ```bash
+pwd  # Store this as {original_cwd}
 git status --porcelain
 ```
 
@@ -180,6 +181,12 @@ Skip if no changes.
 
 5.2 Cleanup:
 
+**CRITICAL**: Return to original directory BEFORE cleanup (shell cwd will be deleted):
+
+```bash
+cd {original_cwd}
+```
+
 **On success**:
 
 ```bash
@@ -201,6 +208,7 @@ Report: Branch `{branch}` ready. Merge/cherry-pick/push as needed.
 
 ## §CHK
 
+- [ ] Original cwd stored before cd to worktree
 - [ ] Scope correctly assessed
 - [ ] KB loaded appropriately
 - [ ] Analysis thorough
@@ -208,4 +216,5 @@ Report: Branch `{branch}` ready. Merge/cherry-pick/push as needed.
 - [ ] Tests added
 - [ ] Build verified
 - [ ] Summary doc written
+- [ ] Returned to original cwd before cleanup
 - [ ] Worktree cleaned/preserved appropriately
