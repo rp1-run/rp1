@@ -68,7 +68,7 @@ It's OK for this section to be quite long as you work through each prerequisite 
 
 ### Parallel Validation Architecture
 
-**IMPORTANT**: Phase 1 and Phase 2 are independent and MUST be invoked in parallel using multiple Task tool calls in a single message. This provides ~2x faster verification.
+**IMPORTANT**: Phase 1, Phase 2, and Phase 3 are independent and MUST be invoked in parallel using multiple Task tool calls in a single message. This provides ~3x faster verification.
 
 **Phase 1: Code Quality Check** (runs in parallel)
 
@@ -84,9 +84,18 @@ It's OK for this section to be quite long as you work through each prerequisite 
 - Validates: acceptance criteria mapping, requirement coverage, test-to-requirement traceability
 - Generates: `feature_verify_report_N.md` in the feature directory
 
-**Parallel Execution**: Launch both subagents simultaneously by including both Task tool calls in the same response. Wait for both to complete before proceeding to Phase 3.
+**Phase 3: Comment Check** (runs in parallel)
 
-**Phase 3: Manual Verification Collection**
+- Invoke the comment-cleaner subagent in check mode using the Task tool
+- Subagent type: `rp1-dev:comment-cleaner`
+- Parameters: `SCOPE: branch`, `BASE_BRANCH: main`, `MODE: check`, `REPORT_DIR: {feature_directory}`
+- Validates: flags unnecessary comments added during implementation
+- Generates: `comment_check_report_N.md` in the feature directory
+- Status: PASS (no issues) or WARN (flagged comments found)
+
+**Parallel Execution**: Launch all three subagents simultaneously by including all Task tool calls in the same response. Wait for all to complete before proceeding to Phase 4.
+
+**Phase 4: Manual Verification Collection**
 
 After feature-verifier completes:
 
@@ -114,8 +123,9 @@ The following items require manual verification before merge:
 
 **Critical Requirements**:
 
-- Both phases must run regardless of Phase 1 results
+- All three parallel phases must run regardless of individual results
 - Each phase generates separate numbered reports for complete audit trail
+- Comment check is advisory (WARN status doesn't block verification)
 - Provide comprehensive assessment for merge decisions
 
 ### Prerequisites and Dependencies
@@ -164,19 +174,23 @@ Provide status updates throughout the process following this structure:
 ✅/❌ Feature directory exists
 ✅/❌ Required files present
 
-### Phase 1 & 2: Parallel Validation (running simultaneously)
+### Phases 1-3: Parallel Validation (running simultaneously)
 **Code Quality Check**: In Progress/Complete/Failed
 Report: code_check_report_N.md
 
 **Feature Verification**: In Progress/Complete/Failed
 Report: feature_verify_report_N.md
 
-### Phase 3: Manual Verification Collection
+**Comment Check**: In Progress/Complete (PASS/WARN)
+Report: comment_check_report_N.md
+
+### Phase 4: Manual Verification Collection
 Status: Complete/Skipped
 Manual items: N items appended to tasks.md / No manual verification required
 
 ### Validation Summary
 [Summary of findings from all phases]
+[If Comment Check WARN: "Note: {N} unnecessary comments flagged. Run /code-clean-comments to clean."]
 
 ### Next Steps
 Manual verification required - please verify functionality manually if required before merge.
@@ -185,14 +199,15 @@ Manual verification required - please verify functionality manually if required 
 ## Execution Instructions
 
 1. **Validate Environment**: Check RP1_ROOT, feature directory, and prerequisites
-2. **Execute Phase 1 & 2 in Parallel**: In a single response, invoke BOTH subagents:
+2. **Execute Phases 1-3 in Parallel**: In a single response, invoke ALL THREE subagents:
    - Task tool call 1: `rp1-dev:code-checker`
    - Task tool call 2: `rp1-dev:feature-verifier`
-   Wait for both to complete before proceeding.
-3. **Execute Phase 3**: Parse `manual_items` from verifier JSON output, append to tasks.md if non-empty
-4. **Generate Summary**: Provide comprehensive validation summary
-5. **Post-Verification Archive Prompt**: If BOTH Phase 1 and Phase 2 passed, offer to archive the feature
-6. **Guide Next Steps**: Direct user to manual verification items (if any) as the final step
+   - Task tool call 3: `rp1-dev:comment-cleaner` with MODE=check, REPORT_DIR={feature_directory}
+   Wait for all to complete before proceeding.
+3. **Execute Phase 4**: Parse `manual_items` from verifier JSON output, append to tasks.md if non-empty
+4. **Generate Summary**: Provide comprehensive validation summary (include comment check advisory if WARN)
+5. **Post-Verification Archive Prompt**: If Phase 1 and Phase 2 passed (comment check WARN is advisory, doesn't block), offer to archive
+6. **Guide Next Steps**: Direct user to manual verification items (if any) and suggest `/code-clean-comments` if comments flagged
 
 Remember: This validation provides technical and business requirement verification, but manual functional testing is still required before merge. Always guide the user to perform final manual verification after completing both validation phases.
 
