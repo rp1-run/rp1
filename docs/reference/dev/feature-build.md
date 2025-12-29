@@ -289,9 +289,90 @@ After all units complete:
 ### Blocked Tasks
 - T5: Integration tests - BLOCKED (external API unavailable)
 
+### Follow-up Tasks
+- T6: Add input validation - VERIFIED
+(if any follow-ups were processed)
+
 ### Next Steps
 Ready for `/feature-verify user-auth`
 ```
+
+## Post-Build Follow-ups
+
+After a successful build (all tasks verified), the orchestrator offers an opportunity to add follow-up tasks without leaving the build session. This maintains builder-reviewer quality gates for ad-hoc additions.
+
+### How It Works
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant O as Orchestrator
+    participant B as Builder
+    participant R as Reviewer
+
+    Note over O: Initial build complete<br/>(all tasks verified)
+
+    O->>U: "Any follow-up tasks?"
+    U-->>O: "Also add input validation"
+
+    Note over O: Generate task T{N}
+    O->>O: Append to tasks.md
+
+    O->>B: Build T{N}
+    B-->>O: Complete
+    O->>R: Verify T{N}
+    R-->>O: SUCCESS
+
+    O->>U: "Any more follow-ups?"
+    U-->>O: "Done"
+
+    Note over O: Output final summary
+```
+
+### Follow-up Flow
+
+1. **Trigger**: After post-build cleanup, if all initial tasks are verified
+2. **Prompt**: User is asked if they want to add follow-up tasks
+3. **Task Generation**: User's request is converted to a task with auto-generated ID
+4. **Execution**: New task goes through full builder/reviewer loop
+5. **Loop**: User can add more follow-ups or exit
+
+### Example
+
+```
+Build complete. Any follow-up tasks?
+(e.g., "also add input validation", "fix the edge case for empty arrays")
+
+> Add input validation for email field
+
+Adding task T6: Add input validation for email field [complexity:simple]
+Building...
+Reviewing...
+✓ Task T6 verified
+
+Any more follow-up tasks?
+> Done
+
+## Build Summary
+...
+### Follow-up Tasks
+- T6: Add input validation for email field - VERIFIED
+```
+
+### When Follow-ups Are Skipped
+
+Follow-up prompting is skipped when:
+
+- Any initial tasks are blocked (failed after max attempts)
+- Build was aborted by user
+- Running in `auto` mode (non-interactive)
+
+### Task ID Generation
+
+Follow-up tasks get sequential IDs based on existing tasks:
+
+- Existing: T1, T2, T3 → Follow-up: T4
+- Existing: T1, T1.1, T2 → Follow-up: T3 (only counts base IDs)
 
 ## Examples
 

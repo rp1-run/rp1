@@ -218,7 +218,19 @@ If manual items collected:
 4. **If exists**: Append only non-duplicate items
 5. **If no items**: Report "No manual verification required"
 
-## §7 Summary
+## §7 Summary & Follow-ups
+
+### §7.1 Trigger Follow-up Loop
+
+**After §6 Post-Build completes**:
+
+If ALL initial tasks verified (no blocked): Proceed to §10 Post-Build Follow-ups
+
+If any blocked tasks: Skip follow-ups, output summary directly.
+
+### §7.2 Final Summary
+
+Output after follow-up loop completes (or if skipped):
 
 ```
 ## Build Summary
@@ -232,6 +244,10 @@ If manual items collected:
 
 ### Blocked Tasks
 - T5: [desc] - BLOCKED (reason: {feedback})
+
+### Follow-up Tasks
+- T{N}: [desc] - {VERIFIED|BLOCKED}
+(if any follow-ups were processed)
 
 ### Comment Cleanup
 - Files: {N}, Comments removed: {N}
@@ -249,13 +265,65 @@ If manual items collected:
 
 ## §8 Anti-Loop
 
-**CRITICAL**: Single pass only. Do NOT:
-- Ask clarification (except AskUserQuestion for escalation)
+**CRITICAL**: Single pass only (except post-build loop). Do NOT:
+- Ask clarification (except AskUserQuestion for escalation/follow-ups)
 - Wait for external feedback
 - Re-read files multiple times
 - Loop to earlier steps
 
 On error (file not found, invalid format): report clearly, stop.
+
+## §10 Post-Build Follow-ups
+
+After successful build (no blocked tasks), offer follow-up capability.
+
+### §10.1 Follow-up Prompt
+
+Use AskUserQuestion with options:
+- "Add follow-up task" -> User describes additional work
+- "Done" -> Exit build session
+
+**Prompt**: "Build complete. Any follow-up tasks? (e.g., 'also add input validation', 'fix the edge case for empty arrays')"
+
+### §10.2 Task Generation
+
+If user provides follow-up request:
+
+1. **Parse existing tasks** from tasks.md to find max task ID:
+   - Extract all `T{N}` IDs (e.g., T1, T2, T3)
+   - Find max N value
+   - New ID = `T{max+1}`
+
+2. **Determine complexity** from request:
+   - Simple: single file, small change, config tweak
+   - Medium: multi-file, moderate logic (default)
+   - Complex: architectural, cross-cutting
+
+3. **Append task** to tasks.md before any "## Manual Verification" section:
+   ```markdown
+   - [ ] **T{N}**: {user_request_description} `[complexity:{complexity}]`
+   ```
+
+### §10.3 Execute Follow-up
+
+1. Create single TaskUnit for the new task
+2. Run builder/reviewer loop (§4) for this unit
+3. Return to §10.1 to offer more follow-ups
+
+### §10.4 Exit Condition
+
+- User selects "Done" -> proceed to §7 Summary (updated)
+- 3 consecutive failures on same follow-up -> force exit with warning
+
+### §10.5 Summary Update
+
+When follow-ups complete, append to summary:
+
+```
+### Follow-up Tasks
+- T{N}: [desc] - {VERIFIED|BLOCKED}
+- T{M}: [desc] - {VERIFIED|BLOCKED}
+```
 
 ## §9 Exclusions
 
@@ -268,4 +336,4 @@ Orchestrator does NOT:
 
 All delegated to builder/reviewer agents.
 
-Begin: Validate params -> read task file -> group tasks -> orchestration loop.
+Begin: Validate params -> read task file -> group tasks -> orchestration loop -> post-build -> follow-up loop (if all tasks verified) -> summary.
