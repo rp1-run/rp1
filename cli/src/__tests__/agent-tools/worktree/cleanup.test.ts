@@ -11,17 +11,26 @@ import { cleanupWorktree } from "../../../agent-tools/worktree/cleanup.js";
 import { createWorktree } from "../../../agent-tools/worktree/create.js";
 import {
 	assertTestIsolation,
+	captureMainRepoState,
+	createInitialCommit,
 	expectTaskLeft,
 	expectTaskRight,
 	getErrorMessage,
+	initTestRepo,
+	spawnGit,
+	verifyNoMainRepoContamination,
 } from "../../helpers/index.js";
 
 describe("worktree cleanup", () => {
 	let tempBase: string;
 	let repoRoot: string;
 	let originalEnv: string | undefined;
+	let mainRepoSnapshot: Awaited<ReturnType<typeof captureMainRepoState>>;
 
 	beforeAll(async () => {
+		// Capture main repo state before tests for contamination detection
+		mainRepoSnapshot = await captureMainRepoState();
+
 		// Save original RP1_ROOT env value
 		originalEnv = process.env.RP1_ROOT;
 		delete process.env.RP1_ROOT;
@@ -34,43 +43,11 @@ describe("worktree cleanup", () => {
 		// CRITICAL: Verify test isolation to prevent main repo contamination
 		await assertTestIsolation(tempBase);
 
-		// Create a git repo for testing
+		// Create a git repo for testing with isolated git environment
 		repoRoot = join(tempBase, "test-repo");
 		await mkdir(repoRoot, { recursive: true });
-		const initProc = Bun.spawn(["git", "init"], {
-			cwd: repoRoot,
-			stdout: "pipe",
-			stderr: "pipe",
-		});
-		await initProc.exited;
-
-		// Configure git user
-		const configEmail = Bun.spawn(
-			["git", "config", "user.email", "test@test.com"],
-			{ cwd: repoRoot, stdout: "pipe", stderr: "pipe" },
-		);
-		await configEmail.exited;
-		const configName = Bun.spawn(["git", "config", "user.name", "Test User"], {
-			cwd: repoRoot,
-			stdout: "pipe",
-			stderr: "pipe",
-		});
-		await configName.exited;
-
-		// Create initial commit
-		await Bun.write(join(repoRoot, "README.md"), "# Test Repo");
-		const addProc = Bun.spawn(["git", "add", "."], {
-			cwd: repoRoot,
-			stdout: "pipe",
-			stderr: "pipe",
-		});
-		await addProc.exited;
-		const commitProc = Bun.spawn(["git", "commit", "-m", "Initial commit"], {
-			cwd: repoRoot,
-			stdout: "pipe",
-			stderr: "pipe",
-		});
-		await commitProc.exited;
+		await initTestRepo(repoRoot);
+		await createInitialCommit(repoRoot);
 	});
 
 	afterAll(async () => {
@@ -83,6 +60,9 @@ describe("worktree cleanup", () => {
 
 		// Cleanup temp directories
 		await rm(tempBase, { recursive: true, force: true });
+
+		// Verify main repo wasn't contaminated
+		await verifyNoMainRepoContamination(mainRepoSnapshot);
 	});
 
 	/**
@@ -92,9 +72,9 @@ describe("worktree cleanup", () => {
 		branchName: string,
 		cwd: string,
 	): Promise<boolean> => {
-		const proc = Bun.spawn(
-			["git", "show-ref", "--verify", "--quiet", `refs/heads/${branchName}`],
-			{ cwd, stdout: "pipe", stderr: "pipe" },
+		const proc = spawnGit(
+			["show-ref", "--verify", "--quiet", `refs/heads/${branchName}`],
+			{ cwd },
 		);
 		const exitCode = await proc.exited;
 		return exitCode === 0;

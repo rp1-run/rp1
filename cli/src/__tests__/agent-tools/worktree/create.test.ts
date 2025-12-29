@@ -20,9 +20,15 @@ import {
 } from "../../../agent-tools/worktree/create.js";
 import {
 	assertTestIsolation,
+	captureMainRepoState,
+	createInitialCommit,
 	expectTaskLeft,
 	expectTaskRight,
 	getErrorMessage,
+	initTestRepo,
+	removeTestWorktree,
+	spawnGit,
+	verifyNoMainRepoContamination,
 } from "../../helpers/index.js";
 
 describe("worktree creation", () => {
@@ -30,8 +36,12 @@ describe("worktree creation", () => {
 	let repoRoot: string;
 	let originalEnv: string | undefined;
 	let createdWorktrees: string[] = [];
+	let mainRepoSnapshot: Awaited<ReturnType<typeof captureMainRepoState>>;
 
 	beforeAll(async () => {
+		// Capture main repo state before tests for contamination detection
+		mainRepoSnapshot = await captureMainRepoState();
+
 		// Save original RP1_ROOT env value
 		originalEnv = process.env.RP1_ROOT;
 		delete process.env.RP1_ROOT;
@@ -44,54 +54,18 @@ describe("worktree creation", () => {
 		// CRITICAL: Verify test isolation to prevent main repo contamination
 		await assertTestIsolation(tempBase);
 
-		// Create a git repo for testing
+		// Create a git repo for testing with isolated git environment
 		repoRoot = join(tempBase, "test-repo");
 		await mkdir(repoRoot, { recursive: true });
-		const initProc = Bun.spawn(["git", "init"], {
-			cwd: repoRoot,
-			stdout: "pipe",
-			stderr: "pipe",
-		});
-		await initProc.exited;
-
-		// Configure git user
-		const configEmail = Bun.spawn(
-			["git", "config", "user.email", "test@test.com"],
-			{ cwd: repoRoot, stdout: "pipe", stderr: "pipe" },
-		);
-		await configEmail.exited;
-		const configName = Bun.spawn(["git", "config", "user.name", "Test User"], {
-			cwd: repoRoot,
-			stdout: "pipe",
-			stderr: "pipe",
-		});
-		await configName.exited;
-
-		// Create initial commit
-		await Bun.write(join(repoRoot, "README.md"), "# Test Repo");
-		const addProc = Bun.spawn(["git", "add", "."], {
-			cwd: repoRoot,
-			stdout: "pipe",
-			stderr: "pipe",
-		});
-		await addProc.exited;
-		const commitProc = Bun.spawn(["git", "commit", "-m", "Initial commit"], {
-			cwd: repoRoot,
-			stdout: "pipe",
-			stderr: "pipe",
-		});
-		await commitProc.exited;
+		await initTestRepo(repoRoot);
+		await createInitialCommit(repoRoot);
 	});
 
 	afterEach(async () => {
-		// Cleanup any created worktrees
+		// Cleanup any created worktrees using isolated git commands
 		for (const wtPath of createdWorktrees) {
 			try {
-				const removeProc = Bun.spawn(
-					["git", "worktree", "remove", "--force", wtPath],
-					{ cwd: repoRoot, stdout: "pipe", stderr: "pipe" },
-				);
-				await removeProc.exited;
+				await removeTestWorktree(repoRoot, wtPath, true);
 			} catch {
 				// Ignore errors during cleanup
 			}
@@ -112,6 +86,9 @@ describe("worktree creation", () => {
 
 		// Cleanup temp directories
 		await rm(tempBase, { recursive: true, force: true });
+
+		// Verify main repo wasn't contaminated
+		await verifyNoMainRepoContamination(mainRepoSnapshot);
 	});
 
 	describe("clean creation", () => {
@@ -147,14 +124,12 @@ describe("worktree creation", () => {
 		});
 
 		test("returns HEAD commit SHA as basedOn", async () => {
-			// Get current HEAD
-			const headProc = Bun.spawn(["git", "rev-parse", "HEAD"], {
-				cwd: repoRoot,
-				stdout: "pipe",
-				stderr: "pipe",
-			});
+			// Get current HEAD using isolated git
+			const headProc = spawnGit(["rev-parse", "HEAD"], { cwd: repoRoot });
 			await headProc.exited;
-			const expectedSha = (await new Response(headProc.stdout).text()).trim();
+			const expectedSha = (
+				await new Response(headProc.stdout as ReadableStream).text()
+			).trim();
 
 			const result = await expectTaskRight(
 				createWorktree({ slug: "sha-test" }, repoRoot),
@@ -256,16 +231,9 @@ describe("worktree creation", () => {
 		test("returns error when running from inside a worktree", async () => {
 			// Create an actual git worktree to test nesting prevention
 			const existingWorktreePath = join(tempBase, "existing-worktree");
-			const createWtProc = Bun.spawn(
-				[
-					"git",
-					"worktree",
-					"add",
-					"-b",
-					"existing-branch",
-					existingWorktreePath,
-				],
-				{ cwd: repoRoot, stdout: "pipe", stderr: "pipe" },
+			const createWtProc = spawnGit(
+				["worktree", "add", "-b", "existing-branch", existingWorktreePath],
+				{ cwd: repoRoot },
 			);
 			await createWtProc.exited;
 
@@ -277,12 +245,8 @@ describe("worktree creation", () => {
 			expect(error._tag).toBe("UsageError");
 			expect(getErrorMessage(error)).toContain("inside another worktree");
 
-			// Cleanup
-			const removeWtProc = Bun.spawn(
-				["git", "worktree", "remove", "--force", existingWorktreePath],
-				{ cwd: repoRoot, stdout: "pipe", stderr: "pipe" },
-			);
-			await removeWtProc.exited;
+			// Cleanup using isolated git
+			await removeTestWorktree(repoRoot, existingWorktreePath, true);
 		});
 	});
 });
