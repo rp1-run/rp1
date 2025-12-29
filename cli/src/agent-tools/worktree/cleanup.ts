@@ -176,14 +176,36 @@ export interface CleanupWorktreeOptions {
 }
 
 /**
+ * Get the main repository root from git-common-dir.
+ * Works from both main repo and worktrees.
+ */
+const getMainRepoRoot = (cwd: string): TE.TaskEither<CLIError, string> =>
+	pipe(
+		execGitCommand(["rev-parse", "--git-common-dir"], cwd),
+		TE.map((commonDir) => {
+			// commonDir is typically .git or /path/to/repo/.git
+			const absoluteCommonDir = path.isAbsolute(commonDir)
+				? commonDir
+				: path.resolve(cwd, commonDir);
+			// If it ends with .git, parent is the repo root
+			if (path.basename(absoluteCommonDir) === ".git") {
+				return path.dirname(absoluteCommonDir);
+			}
+			// Otherwise return as-is (bare repo case)
+			return absoluteCommonDir;
+		}),
+	);
+
+/**
  * Remove a git worktree and optionally delete the associated branch.
  *
  * Algorithm:
- * 1. Verify path is a valid worktree
- * 2. Run `git worktree remove <path>` (add `--force` if option set)
- * 3. If `!keepBranch`: run `git branch -D <branch>`
- * 4. Run `git worktree prune` to clean up stale refs
- * 5. Return WorktreeCleanupResult
+ * 1. Resolve main repo root (safe cwd that won't be deleted)
+ * 2. Verify path is a valid worktree
+ * 3. Run `git worktree remove <path>` (add `--force` if option set)
+ * 4. If `!keepBranch`: run `git branch -D <branch>`
+ * 5. Run `git worktree prune` to clean up stale refs
+ * 6. Return WorktreeCleanupResult
  *
  * @param options - Cleanup options
  * @param cwd - Current working directory (defaults to process.cwd())
@@ -199,23 +221,27 @@ export const cleanupWorktree = (
 		: path.resolve(cwd, worktreePath);
 
 	return pipe(
-		verifyWorktree(absolutePath, cwd),
-		TE.bindTo("branchName"),
-		TE.chain(({ branchName }) =>
+		// First get the main repo root - this is a safe cwd that won't be deleted
+		getMainRepoRoot(cwd),
+		TE.bindTo("repoRoot"),
+		TE.bind("branchName", ({ repoRoot }) =>
+			verifyWorktree(absolutePath, repoRoot),
+		),
+		TE.chain(({ repoRoot, branchName }) =>
 			pipe(
-				removeWorktree(absolutePath, force, cwd),
-				TE.map(() => ({ branchName })),
+				removeWorktree(absolutePath, force, repoRoot),
+				TE.map(() => ({ repoRoot, branchName })),
 			),
 		),
-		TE.bind("branchDeleted", ({ branchName }) => {
+		TE.bind("branchDeleted", ({ repoRoot, branchName }) => {
 			if (keepBranch || !branchName) {
 				return TE.right(false);
 			}
-			return deleteBranch(branchName, cwd);
+			return deleteBranch(branchName, repoRoot);
 		}),
-		TE.chain(({ branchDeleted }) =>
+		TE.chain(({ repoRoot, branchDeleted }) =>
 			pipe(
-				pruneWorktrees(cwd),
+				pruneWorktrees(repoRoot),
 				TE.map(() => branchDeleted),
 			),
 		),
