@@ -1,7 +1,7 @@
 ---
 name: build
-version: 1.3.0
-description: Orchestrates complete feature development workflow by sequentially invoking feature-requirements, feature-design, feature-build, feature-verify, and feature-archive commands with smart artifact detection and resumption.
+version: 1.4.0
+description: Orchestrates complete feature development workflow by sequentially invoking feature-requirements, feature-design, feature-build, feature-verify, and feature-archive commands via SlashCommand tool with smart artifact detection and resumption.
 argument-hint: "feature-id [--afk]"
 tags:
   - core
@@ -13,7 +13,9 @@ author: cloud-on-prem/rp1
 
 # Build Command - Feature Workflow Orchestrator
 
-End-to-end feature orchestrator. Invokes 5 feature commands via SlashCommand w/ artifact detection for resumption.
+End-to-end feature orchestrator. Uses **SlashCommand tool** to invoke 5 feature commands sequentially with artifact detection for resumption.
+
+**CRITICAL ORCHESTRATION RULE**: This command MUST invoke each sub-command using the SlashCommand tool and MUST continue to the next step after each completes. Do NOT terminate after a single step.
 
 ## §IN
 
@@ -128,7 +130,46 @@ afk_flag = "--afk" if afk_mode else ""
 | 4 | start_step <= 4 | `/rp1-dev:feature-verify {feature_id} {afk_flag}` |
 | 5 | Always if reached | `/rp1-dev:feature-archive {feature_id} {afk_flag}` |
 
-**CRITICAL**: Wait for command completion before proceeding.
+### How to Execute Each Step
+
+**CRITICAL**: Use the **SlashCommand tool** to invoke each command. This is NOT the Skill tool - use `SlashCommand` specifically.
+
+For each step that should run (based on start_step):
+
+1. **Invoke via SlashCommand tool**:
+   ```
+   SlashCommand: /rp1-dev:feature-{step} {feature_id} {afk_flag}
+   ```
+
+2. **Wait for completion**: The SlashCommand tool will execute the command and return its result. Do NOT proceed until you receive the result.
+
+3. **Check result**: If the command output indicates success (artifact created, "completed", etc.), update progress and proceed to next step.
+
+4. **On failure**: Follow §5 Retry mechanism (--afk) or §6 Error Handling (interactive).
+
+5. **Continue to next step**: After successful completion, immediately invoke the next step's command via SlashCommand tool.
+
+**IMPORTANT**: After each SlashCommand completes, YOU (the /build orchestrator) must continue executing. Do NOT stop after a step completes. The sub-command's "Next Step" message is informational - YOU are responsible for invoking the next step.
+
+**Execution Loop**:
+```
+for step in range(start_step, 6):
+    if step == 5 and not afk_mode:
+        # Archive gate - ask user first (§4.1)
+
+    Update progress: step -> RUNNING
+
+    Use SlashCommand tool to invoke: /rp1-dev:feature-{step_name} {feature_id} {afk_flag}
+
+    Wait for SlashCommand result
+
+    if failure:
+        Handle per §5/§6
+        if abort: break
+    else:
+        Update progress: step -> COMPLETED
+        # Continue to next iteration
+```
 
 ### Step 5: Archive Gate
 
@@ -327,16 +368,29 @@ Result: {N}/5 steps completed, {M} skipped
 - Wait for feedback between steps
 - Re-execute completed steps
 - Loop back
+- **STOP after a single step** - you MUST continue to next step
 
 On blocking error: Report, preserve, exit.
+
+**CONTINUATION REQUIREMENT**: After each SlashCommand tool invocation completes, you MUST:
+1. Parse the result
+2. Update progress display
+3. Immediately invoke the NEXT step via SlashCommand tool
+4. Repeat until all 5 steps complete or abort condition
+
+Do NOT output "Next Step: ..." and stop. YOU execute the next step.
 
 ## §9 Execution Flow
 
 1. Validate params (§0)
 2. Detect artifacts (§2) -> determine start_step
 3. Display initial progress (§3)
-4. Execute steps (§4) from start_step:
+4. **Execute ALL steps from start_step to 5** (§4):
+   - Use SlashCommand tool for each step
+   - Wait for result, then IMMEDIATELY proceed to next step
    - On failure + --afk: retry mechanism (§5)
    - On failure + interactive: user handling (§6)
 5. If retry exhausted: error summary (§6), abort
-6. Display final summary (§7)
+6. Display final summary (§7) - only after ALL steps attempted
+
+**YOU ARE THE ORCHESTRATOR**: Sub-commands will output "Next Step: ..." messages. IGNORE these - they are for standalone execution. YOU control the workflow and invoke each next step.

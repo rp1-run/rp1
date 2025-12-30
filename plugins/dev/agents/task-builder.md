@@ -146,7 +146,7 @@ Before summary:
 
 ## 4. Task File Update
 
-### 4.1 Mark Complete
+### 4.1 Mark Complete (MUST DO IF IMPLEMENTED)
 
 `- [ ]` -> `- [x]`
 

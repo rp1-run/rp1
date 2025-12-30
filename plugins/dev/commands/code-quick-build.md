@@ -46,6 +46,7 @@ Load skill `rp1-dev:worktree-workflow` for isolated workspace management.
 | `create_pr` | `false` |
 
 Execute **Phase 1 (Setup)** from the skill:
+
 - Store original directory
 - Create worktree and verify state
 - Install dependencies if needed
@@ -169,7 +170,7 @@ Write to `{RP1_ROOT}/work/quick-builds/{task-id}/summary.md`:
 
 ### 5. Finalize
 
-Execute remaining phases from skill `rp1-dev:worktree-workflow`:
+*CRITICAL*: Execute remaining phases by using the skill `rp1-dev:worktree-workflow`. This ensures all work is completed in an isolated worktree.
 
 **Phase 2 (Implementation)**: Commit all changes using conventional format (feat:, fix:, refactor:, etc.). Skip if no changes.
 

@@ -48,6 +48,7 @@ if "--afk" appears in arguments:
 ```
 
 **When AFK_MODE is true**:
+
 - Skip all interactive prompts (AskUserQuestion)
 - On failure, automatically mark tasks blocked and continue (equivalent to MODE=auto)
 - Skip post-build follow-up prompts (auto-select "Done")
@@ -69,7 +70,7 @@ Track all auto-selected defaults during execution. At the end of build, output:
 
 ## §0 Worktree Setup
 
-**Skip if**: `--no-worktree` in arguments
+**Skip only if**: `--no-worktree` is set to TRUE in arguments
 
 ### §0.1 Preserve Original Directory
 
@@ -288,6 +289,7 @@ On first failure:
 ### §4.4 Escalation
 
 **AFK_MODE=true**: Automatically mark blocked (`- [!]`), continue to next unit. Log decision:
+
 - Decision Point: "Task {task_ids} failed after retry"
 - Auto-Selected Choice: "Mark blocked, continue"
 - Rationale: "AFK mode - autonomous execution without prompts"
@@ -498,6 +500,7 @@ git status --porcelain
 **If dirty** (output not empty):
 
 **AFK_MODE=true**: Automatically commit changes with message "chore: uncommitted changes from feature build". Log decision:
+
 - Decision Point: "Uncommitted changes in worktree"
 - Auto-Selected Choice: "Auto-commit"
 - Rationale: "AFK mode - preserve all work without prompts"
@@ -617,6 +620,7 @@ On error (file not found, invalid format): report clearly, stop.
 After successful build (no blocked tasks), offer follow-up capability.
 
 **AFK_MODE=true**: Skip follow-up prompts entirely. Log decision:
+
 - Decision Point: "Post-build follow-up prompt"
 - Auto-Selected Choice: "Skip (Done)"
 - Rationale: "AFK mode - autonomous execution complete, no interactive follow-ups"
