@@ -92,6 +92,7 @@ nav:
     - Why rp1?: comparison/vs-raw-prompting.md
   - Reference:
     - Overview: reference/index.md
+    - Repository Structure: reference/repository-structure.md
     - CLI:
       - Overview: reference/cli/index.md
       - init: reference/cli/init.md
