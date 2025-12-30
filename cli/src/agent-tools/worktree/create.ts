@@ -8,42 +8,16 @@ import path from "node:path";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../../shared/errors.js";
-import {
-	prerequisiteError,
-	runtimeError,
-	usageError,
-} from "../../../shared/errors.js";
+import { prerequisiteError, runtimeError } from "../../../shared/errors.js";
 import {
 	branchExists,
 	execGitCommand,
 	type GitContext,
 	getHeadCommitSha,
-	isInsideWorktree,
 	withGitContext,
 } from "../git.js";
 import { resolveRp1Root } from "../rp1-root-dir/resolver.js";
 import type { WorktreeCreateResult } from "./models.js";
-
-/**
- * Guard against worktree nesting using git's native detection.
- * Returns error if cwd is inside an existing git worktree.
- */
-const guardAgainstWorktreeNesting = (
-	cwd: string,
-): TE.TaskEither<CLIError, void> =>
-	pipe(
-		isInsideWorktree(cwd),
-		TE.chain((inWorktree) =>
-			inWorktree
-				? TE.left(
-						usageError(
-							`Cannot create worktree from inside another worktree: ${cwd}`,
-							"Run this command from the main repository, not from inside a worktree directory.",
-						),
-					)
-				: TE.right(undefined),
-		),
-	);
 
 /** Default branch prefix for worktree branches */
 const DEFAULT_PREFIX = "quick-build";
@@ -163,6 +137,38 @@ const ensureWorktreesDir = (rp1Root: string): TE.TaskEither<CLIError, string> =>
 			),
 	);
 
+/**
+ * Enable the worktreeConfig extension in the main repository.
+ * This must be enabled before using git config --worktree.
+ */
+const enableWorktreeConfigExtension = (
+	repoRoot: string,
+): TE.TaskEither<CLIError, void> =>
+	pipe(
+		execGitCommand(["config", "extensions.worktreeConfig", "true"], repoRoot),
+		TE.map(() => undefined),
+	);
+
+/**
+ * Configure the worktree to disable all git hooks.
+ * Sets core.hooksPath to /dev/null which prevents any hook execution.
+ * Uses --worktree flag to ensure config is local to this worktree only.
+ */
+const configureWorktreeHooks = (
+	worktreePath: string,
+	repoRoot: string,
+): TE.TaskEither<CLIError, void> =>
+	pipe(
+		enableWorktreeConfigExtension(repoRoot),
+		TE.chain(() =>
+			execGitCommand(
+				["config", "--worktree", "core.hooksPath", "/dev/null"],
+				worktreePath,
+			),
+		),
+		TE.map(() => undefined),
+	);
+
 export interface CreateWorktreeOptions {
 	/** Task slug for branch naming */
 	readonly slug: string;
@@ -198,20 +204,13 @@ export const createWorktree = (
 	const baseBranchName = `${prefix}-${slug}`;
 
 	return pipe(
-		// Guard: prevent creating worktrees from inside another worktree
-		guardAgainstWorktreeNesting(cwd),
-		TE.chain(() => checkGitVersion(cwd)),
-		// Create GitContext - this resolves the main repo root upfront
-		// All subsequent operations use ctx.repoRoot for safety
+		checkGitVersion(cwd),
 		TE.chain(() => withGitContext(cwd)),
 		TE.bindTo("ctx"),
-		// Resolve RP1_ROOT from main repo (not from nested worktree)
 		TE.bind("rootResult", ({ ctx }) => resolveRp1Root(ctx.repoRoot)),
-		// Find unique branch name in main repo
 		TE.bind("branchName", ({ ctx }) =>
 			findUniqueBranchName(baseBranchName, ctx),
 		),
-		// Get HEAD from main repo (critical!)
 		TE.bind("basedOn", ({ ctx }) => getHeadCommitSha(ctx.repoRoot)),
 		TE.bind("worktreesDir", ({ rootResult }) =>
 			ensureWorktreesDir(rootResult.root),
@@ -219,10 +218,10 @@ export const createWorktree = (
 		TE.bind("worktreePath", ({ worktreesDir, branchName }) =>
 			TE.right(path.join(worktreesDir, branchName)),
 		),
-		// Create worktree from main repo root
 		TE.chain(({ ctx, branchName, basedOn, worktreePath }) =>
 			pipe(
 				createGitWorktree(branchName, worktreePath, ctx),
+				TE.chain(() => configureWorktreeHooks(worktreePath, ctx.repoRoot)),
 				TE.map(
 					(): WorktreeCreateResult => ({
 						path: worktreePath,

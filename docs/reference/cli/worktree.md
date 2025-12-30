@@ -14,6 +14,8 @@ rp1 agent-tools worktree <subcommand> [options]
 
 The `worktree` agent tool provides subcommands to create, manage, and clean up git worktrees. These worktrees give agents an isolated environment to make changes without risking the user's uncommitted work in the main repository.
 
+Worktrees created by this tool have git hooks disabled (`core.hooksPath=/dev/null`) for safety and isolation, preventing hooks from the main repository from interfering with agent operations.
+
 ## Subcommands
 
 | Subcommand | Description |
@@ -221,6 +223,28 @@ Worktrees are created under `.rp1/work/worktrees/`:
 ```
 
 The worktree directory contains a complete copy of the repository at the base commit, allowing the agent to make changes without affecting the main working directory.
+
+## Git Hooks Isolation
+
+Worktrees created by this tool have git hooks disabled by default. This is achieved by setting `core.hooksPath=/dev/null` in the worktree's local git configuration.
+
+### Why Hooks Are Disabled
+
+- **Safety**: Prevents potentially destructive hooks from the main repository from running during agent operations
+- **Isolation**: Ensures the worktree environment is predictable and controlled
+- **Speed**: Avoids hook execution overhead during rapid agent iterations
+- **Consistency**: Agent behavior remains consistent regardless of what hooks are configured in the main repo
+
+### What This Means
+
+When working in an rp1 worktree:
+
+- Pre-commit hooks will not run
+- Pre-push hooks will not run
+- Commit-msg hooks will not run
+- All other git hooks are bypassed
+
+This allows agents to commit freely without interference from linters, formatters, or validation scripts that may be configured in the main repository.
 
 ## Requirements
 

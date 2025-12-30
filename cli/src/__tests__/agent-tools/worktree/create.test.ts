@@ -24,7 +24,6 @@ import {
 	createInitialCommit,
 	expectTaskLeft,
 	expectTaskRight,
-	getErrorMessage,
 	initTestRepo,
 	removeTestWorktree,
 	spawnGit,
@@ -39,22 +38,16 @@ describe("worktree creation", () => {
 	let mainRepoSnapshot: Awaited<ReturnType<typeof captureMainRepoState>>;
 
 	beforeAll(async () => {
-		// Capture main repo state before tests for contamination detection
 		mainRepoSnapshot = await captureMainRepoState();
-
-		// Save original RP1_ROOT env value
 		originalEnv = process.env.RP1_ROOT;
 		delete process.env.RP1_ROOT;
 
-		// Create unique temp directory for this test run
 		const tempDir = join(tmpdir(), `worktree-create-test-${Date.now()}`);
 		await mkdir(tempDir, { recursive: true });
 		tempBase = await realpath(tempDir);
 
-		// CRITICAL: Verify test isolation to prevent main repo contamination
 		await assertTestIsolation(tempBase);
 
-		// Create a git repo for testing with isolated git environment
 		repoRoot = join(tempBase, "test-repo");
 		await mkdir(repoRoot, { recursive: true });
 		await initTestRepo(repoRoot);
@@ -62,32 +55,25 @@ describe("worktree creation", () => {
 	});
 
 	afterEach(async () => {
-		// Cleanup any created worktrees using isolated git commands
 		for (const wtPath of createdWorktrees) {
 			try {
 				await removeTestWorktree(repoRoot, wtPath, true);
 			} catch {
-				// Ignore errors during cleanup
+				// Intentionally ignored - cleanup is best-effort
 			}
 		}
 		createdWorktrees = [];
-
-		// Ensure RP1_ROOT is cleared
 		delete process.env.RP1_ROOT;
 	});
 
 	afterAll(async () => {
-		// Restore original RP1_ROOT
 		if (originalEnv !== undefined) {
 			process.env.RP1_ROOT = originalEnv;
 		} else {
 			delete process.env.RP1_ROOT;
 		}
 
-		// Cleanup temp directories
 		await rm(tempBase, { recursive: true, force: true });
-
-		// Verify main repo wasn't contaminated
 		await verifyNoMainRepoContamination(mainRepoSnapshot);
 	});
 
@@ -124,7 +110,6 @@ describe("worktree creation", () => {
 		});
 
 		test("returns HEAD commit SHA as basedOn", async () => {
-			// Get current HEAD using isolated git
 			const headProc = spawnGit(["rev-parse", "HEAD"], { cwd: repoRoot });
 			await headProc.exited;
 			const expectedSha = (
@@ -150,18 +135,34 @@ describe("worktree creation", () => {
 			const file = Bun.file(join(result.path, "README.md"));
 			expect(await file.exists()).toBe(true);
 		});
+
+		test("sets core.hooksPath to /dev/null in created worktree", async () => {
+			const result = await expectTaskRight(
+				createWorktree({ slug: "hooks-test" }, repoRoot),
+			);
+
+			createdWorktrees.push(result.path);
+
+			const proc = spawnGit(["config", "--worktree", "core.hooksPath"], {
+				cwd: result.path,
+			});
+			await proc.exited;
+			const hooksPath = (
+				await new Response(proc.stdout as ReadableStream).text()
+			).trim();
+
+			expect(hooksPath).toBe("/dev/null");
+		});
 	});
 
 	describe("branch collision handling", () => {
 		test("appends -2 suffix when branch already exists", async () => {
-			// Create first worktree
 			const first = await expectTaskRight(
 				createWorktree({ slug: "collision" }, repoRoot),
 			);
 			createdWorktrees.push(first.path);
 			expect(first.branch).toBe("quick-build-collision");
 
-			// Create second worktree with same slug
 			const second = await expectTaskRight(
 				createWorktree({ slug: "collision" }, repoRoot),
 			);
@@ -171,7 +172,6 @@ describe("worktree creation", () => {
 		});
 
 		test("appends -3 suffix when -2 branch also exists", async () => {
-			// Create first two worktrees
 			const first = await expectTaskRight(
 				createWorktree({ slug: "multi-collision" }, repoRoot),
 			);
@@ -182,7 +182,6 @@ describe("worktree creation", () => {
 			);
 			createdWorktrees.push(second.path);
 
-			// Create third worktree with same slug
 			const third = await expectTaskRight(
 				createWorktree({ slug: "multi-collision" }, repoRoot),
 			);
@@ -228,25 +227,19 @@ describe("worktree creation", () => {
 			expect(error._tag).toBe("RuntimeError");
 		});
 
-		test("returns error when running from inside a worktree", async () => {
-			// Create an actual git worktree to test nesting prevention
-			const existingWorktreePath = join(tempBase, "existing-worktree");
-			const createWtProc = spawnGit(
-				["worktree", "add", "-b", "existing-branch", existingWorktreePath],
-				{ cwd: repoRoot },
+		test("can create worktree from inside another worktree", async () => {
+			const first = await expectTaskRight(
+				createWorktree({ slug: "outer" }, repoRoot),
 			);
-			await createWtProc.exited;
+			createdWorktrees.push(first.path);
 
-			// Try to create a new worktree from inside the existing one
-			const error = await expectTaskLeft(
-				createWorktree({ slug: "nested" }, existingWorktreePath),
+			const second = await expectTaskRight(
+				createWorktree({ slug: "inner" }, first.path),
 			);
+			createdWorktrees.push(second.path);
 
-			expect(error._tag).toBe("UsageError");
-			expect(getErrorMessage(error)).toContain("inside another worktree");
-
-			// Cleanup using isolated git
-			await removeTestWorktree(repoRoot, existingWorktreePath, true);
+			expect(second.path).toBeDefined();
+			expect(second.branch).toBe("quick-build-inner");
 		});
 	});
 });
