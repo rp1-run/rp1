@@ -18,6 +18,8 @@ You are CommentCleanGPT. Analyze and optionally remove unnecessary comments from
 | MODE | $3 | `clean` | `clean` (remove) or `check` (report-only) |
 | REPORT_DIR | $4 | `""` | Report output dir (check mode) |
 | RP1_ROOT | Environment | `.rp1/` | Root directory |
+| WORKTREE_PATH | Prompt | `""` | Worktree directory (if any) |
+| COMMIT_CHANGES | Prompt | `false` | Commit changes after cleanup |
 
 <scope>
 $1
@@ -34,6 +36,24 @@ $3
 <report_dir>
 $4
 </report_dir>
+
+<worktree_path>
+{{WORKTREE_PATH from prompt}}
+</worktree_path>
+
+<commit_changes>
+{{COMMIT_CHANGES from prompt}}
+</commit_changes>
+
+## 0.5 Working Directory
+
+If WORKTREE_PATH is not empty:
+
+```bash
+cd {WORKTREE_PATH}
+```
+
+All subsequent file operations use this directory.
 
 ## 1. Comment Extraction (Use Skill)
 
@@ -173,15 +193,27 @@ Also output summary to stdout:
 {If WARN: Run `/code-clean-comments` to remove flagged comments}
 ```
 
-## 5. Anti-Loop Directive
+## 5. Commit Changes (Conditional)
+
+After removing comments, if COMMIT_CHANGES=true AND changes were made:
+
+```bash
+git add -A && git commit -m "style: remove unnecessary comments"
+```
+
+If no changes were made, skip commit creation.
+
+## 6. Anti-Loop Directive
 
 Execute in single pass:
 
-1. Extract comments via skill script
-2. Validate scope size
-3. Classify comments
-4. If MODE=clean: remove comments; If MODE=check: generate report
-5. Output results
-6. STOP
+1. If WORKTREE_PATH provided: cd to worktree
+2. Extract comments via skill script
+3. Validate scope size
+4. Classify comments
+5. If MODE=clean: remove comments; If MODE=check: generate report
+6. If COMMIT_CHANGES=true AND changes made: commit
+7. Output results
+8. STOP
 
 Do NOT iterate, ask for confirmation, or re-analyze files.

@@ -65,7 +65,7 @@ The bootstrap command creates a complete runnable project from scratch:
 - `/feature-requirements feature-id [extra-context]` - Gather requirements
 - `/feature-design feature-id [extra-context]` - Create technical design (auto-generates tasks)
 - `/feature-tasks feature-id [extra-context]` - Regenerate tasks (optional - tasks auto-generate after design)
-- `/feature-build feature-id [milestone-id] [mode]` - Implement features via builder-reviewer pairs
+- `/feature-build feature-id [milestone-id] [mode] [--no-worktree] [--push] [--create-pr]` - Implement features via builder-reviewer pairs in isolated worktree (default: worktree ON)
 - `/feature-verify feature-id [milestone-id]` - Verify feature meets requirements
 - `/feature-archive feature-id` - Archive completed feature to archives/
 - `/feature-unarchive feature-id` - Restore archived feature to active features
@@ -149,10 +149,16 @@ When implementing changes that need branch isolation:
 3. **Publish**: Validate commits, push branch, optionally create PR
 4. **Cleanup**: Handle dirty state, remove worktree
 
-## Builder-Reviewer Architecture (v3.0)
+## Builder-Reviewer Architecture (v4.0)
 
-The `feature-build` command uses a **builder-reviewer architecture** for improved accuracy and reliability:
+The `feature-build` command uses a **builder-reviewer architecture** with **worktree isolation** for improved accuracy and reliability:
 
+**Workflow Sequence** (worktree mode):
+1. **Setup**: Create isolated worktree with feature branch
+2. **Build**: Builder-reviewer loop implements tasks in worktree
+3. **Finalize**: Validate commits, optionally push/create PR, cleanup worktree
+
+**Architecture**:
 1. **Minimal Orchestrator**: Coordinates task flow without loading KB or codebase context
 2. **Task Builder Agent**: Implements tasks with full context (KB, PRD, design, tasks)
 3. **Task Reviewer Agent**: Verifies implementation for discipline, accuracy, completeness, and quality
@@ -163,11 +169,19 @@ The `feature-build` command uses a **builder-reviewer architecture** for improve
 - **Configurable Failure Handling**: `ask` mode (default) pauses for guidance, `auto` mode marks blocked and continues
 - **Complexity Tags**: Tasks can be tagged `[complexity:simple|medium|complex]` for grouping
 
+**Worktree Flags**:
+- `--no-worktree` - Disable worktree isolation (work in current directory)
+- `--push` - Push branch to remote after successful build
+- `--create-pr` - Create PR after push (implies `--push`)
+
 **Example**:
 ```bash
-/feature-build my-feature           # Build all tasks with ask mode
+/feature-build my-feature           # Build in worktree, branch stays local
+/feature-build my-feature --push    # Build and push branch to remote
+/feature-build my-feature --create-pr  # Build, push, and create PR
 /feature-build my-feature 2         # Build milestone 2 only
 /feature-build my-feature 1 auto    # Build milestone 1, auto-handle failures
+/feature-build my-feature --no-worktree  # Build in current directory (legacy)
 ```
 
 ## Agents (19)

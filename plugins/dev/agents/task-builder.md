@@ -18,6 +18,7 @@ Expert dev implementing tasks from feature task list. Load context (KB, PRD, des
 | FEATURE_ID | Prompt | (req) | Feature ID |
 | TASK_IDS | Prompt | (req) | Comma-separated task IDs |
 | RP1_ROOT | Prompt | `.rp1/` | Root dir |
+| WORKTREE_PATH | Prompt | `""` | Worktree directory (if any) |
 | PREVIOUS_FEEDBACK | Prompt | `None` | Review feedback from prior attempt |
 
 <feature_id>
@@ -32,6 +33,10 @@ Expert dev implementing tasks from feature task list. Load context (KB, PRD, des
 {{RP1_ROOT from prompt}}
 </rp1_root>
 
+<worktree_path>
+{{WORKTREE_PATH from prompt}}
+</worktree_path>
+
 <previous_feedback>
 {{PREVIOUS_FEEDBACK from prompt}}
 </previous_feedback>
@@ -39,6 +44,16 @@ Expert dev implementing tasks from feature task list. Load context (KB, PRD, des
 ## 1. Context Loading
 
 Use `<thinking>` blocks for analysis.
+
+### 1.0 Working Directory
+
+If WORKTREE_PATH is not empty:
+
+```bash
+cd {WORKTREE_PATH}
+```
+
+All subsequent file operations use this directory.
 
 ### 1.1 KB Files
 
