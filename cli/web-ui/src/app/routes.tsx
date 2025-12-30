@@ -1,10 +1,28 @@
 import { AlertCircle, FileText, Loader2, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createBrowserRouter, Navigate, useParams } from "react-router-dom";
+import {
+	createBrowserRouter,
+	Navigate,
+	useParams,
+	useSearchParams,
+} from "react-router-dom";
 import { MarkdownViewer } from "@/components/MarkdownViewer";
 import { useFileContent } from "@/hooks/useFileContent";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 import { Layout } from "./Layout";
+
+function IndexRedirect() {
+	const [searchParams] = useSearchParams();
+	const file = searchParams.get("file");
+
+	if (file) {
+		// Remove leading slash if present to normalize path
+		const normalizedPath = file.startsWith("/") ? file.slice(1) : file;
+		return <Navigate to={`/view/${normalizedPath}`} replace />;
+	}
+
+	return <Navigate to="/view/context/index.md" replace />;
+}
 
 export const router = createBrowserRouter([
 	{
@@ -13,7 +31,7 @@ export const router = createBrowserRouter([
 		children: [
 			{
 				index: true,
-				element: <Navigate to="/view/context/index.md" replace />,
+				element: <IndexRedirect />,
 			},
 			{
 				path: "view/*",
