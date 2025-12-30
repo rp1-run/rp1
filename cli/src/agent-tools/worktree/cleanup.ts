@@ -123,34 +123,18 @@ export interface CleanupWorktreeOptions {
 }
 
 /**
- * Check if cwd is inside the worktree being deleted.
- * This is a safety check to prevent leaving the shell in a deleted directory.
- */
-const isCwdInsideWorktree = (cwd: string, worktreePath: string): boolean => {
-	const normalizedCwd = path.normalize(cwd);
-	const normalizedWorktree = path.normalize(worktreePath);
-	return (
-		normalizedCwd === normalizedWorktree ||
-		normalizedCwd.startsWith(`${normalizedWorktree}${path.sep}`)
-	);
-};
-
-/**
  * Remove a git worktree and optionally delete the associated branch.
  *
- * Uses GitContext to ensure all git operations use the main repository root.
- * This is critical because:
- * 1. The user might be running from inside the worktree being deleted
- * 2. After deletion, git commands would fail if cwd no longer exists
+ * Uses GitContext to ensure all git operations use the main repository root,
+ * so cleanup works correctly regardless of cwd location.
  *
  * Algorithm:
- * 1. Safety check: ensure cwd is not inside the worktree being deleted
- * 2. Create GitContext (resolves main repo root)
- * 3. Verify path is a valid worktree
- * 4. Run `git worktree remove <path>` (add `--force` if option set)
- * 5. If `!keepBranch`: run `git branch -D <branch>`
- * 6. Run `git worktree prune` to clean up stale refs
- * 7. Return WorktreeCleanupResult
+ * 1. Create GitContext (resolves main repo root)
+ * 2. Verify path is a valid worktree
+ * 3. Run `git worktree remove <path>` (add `--force` if option set)
+ * 4. If `!keepBranch`: run `git branch -D <branch>`
+ * 5. Run `git worktree prune` to clean up stale refs
+ * 6. Return WorktreeCleanupResult
  *
  * @param options - Cleanup options
  * @param cwd - Current working directory (defaults to process.cwd())
@@ -165,37 +149,22 @@ export const cleanupWorktree = (
 		? worktreePath
 		: path.resolve(cwd, worktreePath);
 
-	// Safety check: prevent cleanup if shell cwd is inside the worktree
-	if (isCwdInsideWorktree(cwd, absolutePath)) {
-		return TE.left(
-			usageError(
-				`Cannot cleanup worktree: current directory is inside it (${cwd})`,
-				`Change to a different directory first: cd ${path.dirname(absolutePath)}`,
-			),
-		);
-	}
-
 	return pipe(
-		// Create GitContext - this resolves main repo root upfront
 		withGitContext(cwd),
 		TE.bindTo("ctx"),
-		// Verify worktree and get branch name
 		TE.bind("branchName", ({ ctx }) => verifyWorktree(absolutePath, ctx)),
-		// Remove the worktree (from main repo root, not from inside it)
 		TE.chain(({ ctx, branchName }) =>
 			pipe(
 				removeWorktree(absolutePath, force, ctx),
 				TE.map(() => ({ ctx, branchName })),
 			),
 		),
-		// Delete branch if requested
 		TE.bind("branchDeleted", ({ ctx, branchName }) => {
 			if (keepBranch || !branchName) {
 				return TE.right(false);
 			}
 			return deleteBranch(branchName, ctx);
 		}),
-		// Prune stale references
 		TE.chain(({ ctx, branchDeleted }) =>
 			pipe(
 				pruneWorktrees(ctx),
