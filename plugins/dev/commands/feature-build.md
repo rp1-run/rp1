@@ -1,8 +1,8 @@
 ---
 name: feature-build
-version: 3.0.0
+version: 4.0.0
 description: Orchestrates feature implementation using builder-reviewer agent pairs with adaptive task grouping and configurable failure handling.
-argument-hint: "feature-id [milestone-id] [mode]"
+argument-hint: "feature-id [milestone-id] [mode] [--no-worktree] [--push] [--create-pr]"
 tags:
   - core
   - feature
@@ -23,6 +23,9 @@ Minimal coordinator for builder-reviewer workflow. Does NOT load KB/design/codeb
 | MILESTONE_ID | $2 | `""` | Milestone (empty=tasks.md) |
 | MODE | $3 | `ask` | Failure: `ask`/`auto` |
 | RP1_ROOT | env | `.rp1/` | Root dir |
+| --no-worktree | flag | `false` | Disable worktree isolation |
+| --push | flag | `false` | Push branch after build |
+| --create-pr | flag | `false` | Create PR (implies --push) |
 
 <feature_id>$1</feature_id>
 <milestone_id>$2</milestone_id>
@@ -30,6 +33,113 @@ Minimal coordinator for builder-reviewer workflow. Does NOT load KB/design/codeb
 <rp1_root>{{RP1_ROOT}}</rp1_root>
 
 **Special**: `--no-group` in args -> all tasks processed individually
+
+## §0 Worktree Setup
+
+**Skip if**: `--no-worktree` in arguments
+
+### §0.1 Preserve Original Directory
+
+Store current directory before any cd operations:
+
+```bash
+original_cwd=$(pwd)
+```
+
+Record `original_cwd` in working memory for Phase 4 cleanup.
+
+### §0.2 Create Worktree
+
+```bash
+rp1 agent-tools worktree create {FEATURE_ID} --prefix feature
+```
+
+Parse JSON response:
+
+```json
+{
+  "path": "/path/to/worktree",
+  "branch": "feature/my-feature-abc123",
+  "basedOn": "abc1234"
+}
+```
+
+Store in working memory:
+
+- `worktree_path` = response.path
+- `branch` = response.branch
+- `basedOn` = response.basedOn
+
+**On failure**: STOP, report error, do not proceed.
+
+### §0.3 Enter Worktree
+
+```bash
+cd {worktree_path}
+```
+
+### §0.4 Verify State
+
+**Check 1: Verify history**
+
+```bash
+git log --oneline -3
+```
+
+Expected: Normal commit history (no errors or abnormal commits indicating corrupted history).
+
+**Check 2: Verify basedOn in history**
+
+The `basedOn` commit must appear in recent history (should be HEAD at this point).
+
+**Check 3: Verify branch**
+
+```bash
+git branch --show-current
+```
+
+Expected: Output matches `branch` value exactly.
+
+**Verification Failure Protocol**:
+
+If ANY check fails:
+
+1. STOP immediately
+2. Report failure: which check failed, expected vs actual, worktree path
+3. Cleanup: `cd {original_cwd} && rp1 agent-tools worktree cleanup {worktree_path}`
+4. Exit with error
+
+### §0.5 Install Dependencies
+
+Detect package manager and install. Check lockfiles first (more specific), then manifests:
+
+| File | Command |
+|------|---------|
+| `bun.lockb` | `bun install` |
+| `package-lock.json` | `npm ci` |
+| `yarn.lock` | `yarn install --frozen-lockfile` |
+| `pnpm-lock.yaml` | `pnpm install --frozen-lockfile` |
+| `Cargo.lock` | `cargo build --locked` |
+| `package.json` (no lockfile) | `npm install` |
+| `Cargo.toml` (no lockfile) | `cargo build` |
+| `requirements.txt` | `pip install -r requirements.txt` |
+| `pyproject.toml` | `pip install -e .` |
+| `go.mod` | `go mod download` |
+| `Gemfile` | `bundle install` |
+
+**No files detected**: Skip dependency installation.
+
+**Installation failure**: STOP, cleanup worktree, report error.
+
+### §0.6 Variables Set
+
+After successful setup:
+
+- `original_cwd`: Directory to restore after cleanup
+- `worktree_path`: Absolute path to worktree
+- `branch`: Branch name for push/PR
+- `basedOn`: Base commit for validation
+- `use_worktree`: true (false if `--no-worktree`)
 
 ## §1 Validation
 
@@ -45,6 +155,7 @@ Minimal coordinator for builder-reviewer workflow. Does NOT load KB/design/codeb
 **Regex**: `- \[([ x!])\] \*\*([^*]+)\*\*: (.+?)(?:\s*\`\[complexity:(simple|medium|complex)\]\`)?$`
 
 **Extract**:
+
 - `status`: space=pending, x=done, !=blocked
 - `task_id`: T1, T1.1, TD1, etc.
 - `description`: Task text
@@ -54,6 +165,7 @@ Minimal coordinator for builder-reviewer workflow. Does NOT load KB/design/codeb
 **TD* tasks** also extract: `doc_type` (add/edit/remove), `target` (path), `section`, `kb_source`
 
 **Build lists**:
+
 - `implementation_tasks`: T* prefix -> builder/reviewer
 - `doc_tasks`: TD* prefix -> scribe agent
 
@@ -100,14 +212,16 @@ for unit in task_units:
 ### §4.1 Spawn Builder
 
 Task tool:
+
 ```
 subagent_type: rp1-dev:task-builder
 prompt: |
   FEATURE_ID: {FEATURE_ID}
   TASK_IDS: {comma-separated IDs}
   RP1_ROOT: {RP1_ROOT}
+  WORKTREE_PATH: {worktree_path or ""}
   PREVIOUS_FEEDBACK: {feedback or "None"}
-  Implement task(s). Load context (KB, PRD, design). Update tasks.md, mark done.
+  Implement task(s). If WORKTREE_PATH provided, cd there first. Load context (KB, PRD, design). Update tasks.md, mark done.
 ```
 
 Wait for completion before reviewer.
@@ -115,13 +229,15 @@ Wait for completion before reviewer.
 ### §4.2 Spawn Reviewer
 
 Task tool:
+
 ```
 subagent_type: rp1-dev:task-reviewer
 prompt: |
   FEATURE_ID: {FEATURE_ID}
   TASK_IDS: {comma-separated IDs}
   RP1_ROOT: {RP1_ROOT}
-  Verify builder work. Return JSON w/ status: SUCCESS/FAILURE.
+  WORKTREE_PATH: {worktree_path or ""}
+  Verify builder work. If WORKTREE_PATH provided, verify in that directory. Return JSON w/ status: SUCCESS/FAILURE.
 ```
 
 Parse JSON response. Invalid JSON = FAILURE.
@@ -131,6 +247,7 @@ Parse JSON response. Invalid JSON = FAILURE.
 ### §4.3 Retry
 
 On first failure:
+
 1. Capture feedback from `issues` array
 2. Increment attempt
 3. Re-run builder w/ feedback
@@ -138,6 +255,7 @@ On first failure:
 ### §4.4 Escalation
 
 **MODE=ask**: AskUserQuestion w/ options:
+
 - "Skip" -> Mark blocked (`- [!]`), continue
 - "Provide guidance" -> Bonus builder attempt (no retry count)
 - "Abort" -> Output summary, exit
@@ -151,6 +269,7 @@ After ALL implementation units complete, process `doc_tasks` if any pending.
 **Skip if**: empty or all done
 
 **Step 1**: Build scan_results.json:
+
 ```json
 {
   "generated_at": "{ISO}",
@@ -159,11 +278,13 @@ After ALL implementation units complete, process `doc_tasks` if any pending.
   "summary": {"verify": N, "add": N, "fix": N}
 }
 ```
+
 Scenario map: add->add, edit->fix, remove->verify. Group by target file.
 
 **Step 2**: Write to `{RP1_ROOT}/work/features/{FEATURE_ID}/doc_scan_results.json`
 
 **Step 3**: Spawn scribe:
+
 ```
 subagent_type: rp1-base:scribe
 prompt: |
@@ -174,6 +295,7 @@ prompt: |
 ```
 
 **Step 4**: Handle result:
+
 - Success: Mark all TD* done (`- [x]`)
 - Partial: Done for success, blocked for failed
 - Failure: Warn, mark all blocked
@@ -183,6 +305,7 @@ prompt: |
 ## §5 Progress
 
 Per unit:
+
 ```
 ## Task Unit {N}/{total}: {task_ids} ({complexity})
   Builder: {emoji} {status}
@@ -197,38 +320,189 @@ Per unit:
 ```
 subagent_type: rp1-dev:comment-cleaner
 prompt: |
-  SCOPE: unstaged
-  BASE_BRANCH: main
+  SCOPE: {basedOn}..HEAD
+  BASE_BRANCH: {basedOn}
+  WORKTREE_PATH: {worktree_path or ""}
+  COMMIT_CHANGES: {true if use_worktree else false}
 ```
+
+**Key Behavior**:
+
+- SCOPE uses `{basedOn}..HEAD` for line-scoped filtering (only comments on changed lines)
+- BASE_BRANCH set to `{basedOn}` commit for accurate diff baseline
+- If COMMIT_CHANGES=true, comment-cleaner commits with: `style: remove unnecessary comments`
 
 Failure: Warn only, non-blocking.
 
 ### §6.2 Manual Verification
 
 If manual items collected:
+
 1. Read tasks.md
 2. Check for existing "## Manual Verification" section
 3. **If none**: Append:
+
    ```
    ## Manual Verification
    Items requiring manual verification before merge:
    - [ ] {criterion}
      *Reason*: {reason}
    ```
+
 4. **If exists**: Append only non-duplicate items
 5. **If no items**: Report "No manual verification required"
 
-## §7 Summary & Follow-ups
+## §7 Worktree Finalize
 
-### §7.1 Trigger Follow-up Loop
+**Skip if**: `--no-worktree` in arguments OR no `worktree_path` set
 
-**After §6 Post-Build completes**:
+### §7.1 Check Build Status
+
+**If any tasks blocked**: Skip push/PR, proceed directly to §7.5.
+
+Report: "Build incomplete (blocked tasks). Branch not pushed."
+
+Set `should_push = false`, `should_pr = false`.
+
+### §7.2 Commit Ownership Validation
+
+```bash
+git log {basedOn}..HEAD --oneline --format="%h %an <%ae> %s"
+```
+
+**Validate**:
+
+1. Commit count is reasonable (> 0 commits expected)
+2. No orphan commits (all commits descend from `basedOn`)
+3. No unexpected authors (all commits from agent/user identity)
+
+**Validation failure protocol**:
+
+1. STOP push operation
+2. Preserve worktree for investigation (do NOT cleanup)
+3. Report anomaly with expected vs actual values
+4. Proceed to §7.6 (restore directory only, skip cleanup)
+
+### §7.3 Push Branch (Conditional)
+
+**Execute if**: (`--push` OR `--create-pr`) AND validation passed AND no blocked tasks
+
+```bash
+git push -u origin {branch}
+```
+
+**Retry on failure**: 3 attempts with backoff (10s, 20s, 30s)
+
+```
+attempt = 1, max_retries = 3, delays = [10, 20, 30]
+while attempt <= max_retries:
+  result = git push -u origin {branch}
+  if success: break
+  if attempt < max_retries:
+    report: "Push failed, retrying in {delays[attempt-1]}s (attempt {attempt}/{max_retries})"
+    sleep(delays[attempt-1])
+    attempt++
+  else:
+    report: "Push failed after {max_retries} attempts"
+    set push_failed = true
+```
+
+**Push failure**: Branch remains local. Report clearly with recovery guidance:
+
+- "Authentication failed" -> suggest `gh auth login` or SSH key refresh
+- "Network error" -> suggest checking connectivity and retrying manually
+- Other -> show error message, suggest `git push -u origin {branch}` to retry
+
+### §7.4 Create PR (Conditional)
+
+**Execute if**: `--create-pr` AND push succeeded
+
+```bash
+gh pr create --head {branch} --base main \
+  --title "feat({FEATURE_ID}): {summary}" \
+  --body "$(cat <<'EOF'
+## Summary
+{task summaries from completed tasks}
+
+## Tasks Implemented
+{list of task IDs and descriptions}
+
+## Test Plan
+- Verify via `/feature-verify {FEATURE_ID}`
+
+---
+Generated by https://rp1.run (feature-build)
+EOF
+)"
+```
+
+**PR title**: Generate summary from feature scope (first 50 chars of main goal).
+
+**PR body construction**:
+
+1. Summary: One bullet per major change
+2. Tasks Implemented: List all completed T* tasks with descriptions
+3. Test Plan: Standard verification step
+
+**Error handling**:
+
+- "PR already exists" -> Report existing PR URL, treat as success
+- Other failures -> Warn only (branch pushed, user can create PR manually)
+
+PR creation failure is NON-BLOCKING. Branch is already pushed.
+
+### §7.5 Dirty State Check
+
+```bash
+git status --porcelain
+```
+
+**If dirty** (output not empty):
+
+Use AskUserQuestion with options:
+
+- "Commit changes" -> Commit with message "chore: uncommitted changes from feature build"
+- "Discard changes" -> `git checkout -- .`
+- "Abort cleanup" -> Skip cleanup, report worktree path for manual handling
+
+**If clean**: Proceed to cleanup.
+
+### §7.6 Restore Directory
+
+```bash
+cd {original_cwd}
+```
+
+**CRITICAL**: Must restore before cleanup (cannot delete directory you are in).
+
+### §7.7 Cleanup Worktree
+
+**Skip if**: Validation failed in §7.2 (preserve for investigation)
+
+```bash
+rp1 agent-tools worktree cleanup {worktree_path} --keep-branch
+```
+
+`--keep-branch` preserves the branch after removing the worktree directory.
+
+**Report**:
+
+- Branch name: `{branch}`
+- Branch pushed: Yes/No
+- PR URL: {url} (if created)
+- Worktree removed: Yes/No
+
+## §8 Summary & Follow-ups
+
+### §8.1 Trigger Follow-up Loop
+
+**After §7 Worktree Finalize completes**:
 
 If ALL initial tasks verified (no blocked): Proceed to §10 Post-Build Follow-ups
 
 If any blocked tasks: Skip follow-ups, output summary directly.
 
-### §7.2 Final Summary
+### §8.2 Final Summary
 
 Output after follow-up loop completes (or if skipped):
 
@@ -263,9 +537,10 @@ Output after follow-up loop completes (or if skipped):
 {Blocked}: Review blocked, run `/feature-build {FEATURE_ID}` to retry
 ```
 
-## §8 Anti-Loop
+## §9 Anti-Loop
 
 **CRITICAL**: Single pass only (except post-build loop). Do NOT:
+
 - Ask clarification (except AskUserQuestion for escalation/follow-ups)
 - Wait for external feedback
 - Re-read files multiple times
@@ -280,6 +555,7 @@ After successful build (no blocked tasks), offer follow-up capability.
 ### §10.1 Follow-up Prompt
 
 Use AskUserQuestion with options:
+
 - "Add follow-up task" -> User describes additional work
 - "Done" -> Exit build session
 
@@ -300,6 +576,7 @@ If user provides follow-up request:
    - Complex: architectural, cross-cutting
 
 3. **Append task** to tasks.md before any "## Manual Verification" section:
+
    ```markdown
    - [ ] **T{N}**: {user_request_description} `[complexity:{complexity}]`
    ```
@@ -312,7 +589,7 @@ If user provides follow-up request:
 
 ### §10.4 Exit Condition
 
-- User selects "Done" -> proceed to §7 Summary (updated)
+- User selects "Done" -> proceed to §8 Summary (updated)
 - 3 consecutive failures on same follow-up -> force exit with warning
 
 ### §10.5 Summary Update
@@ -325,9 +602,10 @@ When follow-ups complete, append to summary:
 - T{M}: [desc] - {VERIFIED|BLOCKED}
 ```
 
-## §9 Exclusions
+## §11 Exclusions
 
 Orchestrator does NOT:
+
 - Load KB files
 - Load PRD/design docs
 - Analyze codebase
@@ -336,4 +614,4 @@ Orchestrator does NOT:
 
 All delegated to builder/reviewer agents.
 
-Begin: Validate params -> read task file -> group tasks -> orchestration loop -> post-build -> follow-up loop (if all tasks verified) -> summary.
+Begin: Worktree setup (if enabled) -> Validate params -> read task file -> group tasks -> orchestration loop -> post-build -> worktree finalize (push/PR/cleanup) -> follow-up loop (if all tasks verified) -> summary.

@@ -18,6 +18,7 @@ You are **TaskReviewer**, an expert code reviewer that verifies the builder's im
 | FEATURE_ID | Prompt | (required) | Feature identifier |
 | TASK_IDS | Prompt | (required) | Comma-separated task IDs to verify |
 | RP1_ROOT | Prompt | `.rp1/` | Root directory |
+| WORKTREE_PATH | Prompt | `""` | Worktree directory (if any) |
 
 The orchestrator provides these parameters in the prompt:
 
@@ -33,9 +34,21 @@ The orchestrator provides these parameters in the prompt:
 {{RP1_ROOT from prompt}}
 </rp1_root>
 
+<worktree_path>
+{{WORKTREE_PATH from prompt}}
+</worktree_path>
+
 ## 1. Context Loading
 
 Load verification context. Use `<thinking>` blocks for analysis.
+
+### 1.0 Working Directory
+
+If WORKTREE_PATH is not empty, verify code in that directory. All file operations should use the worktree path.
+
+```bash
+cd {WORKTREE_PATH}
+```
 
 ### 1.1 Selective KB Loading
 
