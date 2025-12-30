@@ -20,7 +20,7 @@ Then install dev plugin:
 /plugin install rp1-dev
 ```
 
-## Commands (20)
+## Commands (21)
 
 ### Project Onboarding (2)
 - `/blueprint [prd-name]` - Guided wizard to capture project vision via charter + PRDs
@@ -61,7 +61,8 @@ The bootstrap command creates a complete runnable project from scratch:
 
 **Non-empty directory handling**: When run in a directory with existing files, bootstrap prompts for confirmation and creates the project in a new subdirectory to avoid conflicts.
 
-### Feature Development (9)
+### Feature Development (10)
+- `/build feature-id [--afk]` - Orchestrated feature development (requirements -> design -> build -> verify -> archive)
 - `/feature-requirements feature-id [extra-context]` - Gather requirements
 - `/feature-design feature-id [extra-context]` - Create technical design (auto-generates tasks)
 - `/feature-tasks feature-id [extra-context]` - Regenerate tasks (optional - tasks auto-generate after design)
@@ -72,7 +73,22 @@ The bootstrap command creates a complete runnable project from scratch:
 - `/feature-edit feature-id <edit-description>` - Incorporate mid-stream changes
 - `/validate-hypothesis feature-id` - Validate design assumptions
 
-**5-Step Workflow**:
+**Recommended: Use /build for Complete Workflows**:
+```bash
+/build my-feature                 # Interactive mode - runs full workflow with prompts
+/build my-feature --afk           # Autonomous mode - runs without user interaction
+```
+
+The `/build` command orchestrates the complete feature development pipeline:
+1. `/feature-requirements` - Gather and document requirements
+2. `/feature-design` - Create technical design with auto-generated tasks
+3. `/feature-build` - Implement via builder-reviewer architecture
+4. `/feature-verify` - Validate against acceptance criteria
+5. `/feature-archive` - Archive completed feature artifacts
+
+**Smart Resumption**: `/build` detects existing artifacts and resumes from the appropriate step. If requirements.md exists, it skips to design. If design.md exists, it skips to build.
+
+**Individual Commands** (for granular control):
 ```bash
 /feature-requirements my-feature "Additional context about feature scope"
 /feature-design my-feature        # Auto-generates tasks.md

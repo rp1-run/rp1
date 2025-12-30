@@ -1,8 +1,8 @@
 ---
 name: feature-verify
-version: 2.0.0
-description: Comprehensive feature validation with code checks and acceptance criteria verification before merge
-argument-hint: "feature-id [milestone-id]"
+version: 2.1.0
+description: Comprehensive feature validation with code checks and acceptance criteria verification before merge. Supports --afk mode for autonomous execution.
+argument-hint: "feature-id [milestone-id] [--afk]"
 tags: [testing, verification, feature, quality]
 created: 2025-11-08
 author: cloud-on-prem/rp1
@@ -21,6 +21,33 @@ $1
 <milestone_id>
 $2
 </milestone_id>
+
+## Parameters
+
+| Name | Position | Default | Purpose |
+|------|----------|---------|---------|
+| FEATURE_ID | $1 | (required) | Feature identifier |
+| MILESTONE_ID | $2 | `""` | Milestone filter (empty = all tasks) |
+| --afk | flag | `false` | Enable non-interactive mode (skips prompts, auto-archives on success) |
+| RP1_ROOT | Environment | `.rp1/` | Root directory |
+
+## AFK Mode Detection
+
+**Parse arguments for --afk flag**:
+
+Check if `--afk` appears in any argument position. Set AFK_MODE accordingly:
+
+```
+AFK_MODE = false
+if "--afk" appears in $1, $2, or $3:
+    AFK_MODE = true
+```
+
+**When AFK_MODE is true**:
+- Skip all interactive prompts (AskUserQuestion)
+- Auto-archive feature after successful verification
+- Proceed without user confirmation at any step
+- Log all auto-selected actions for user review
 
 ## Your Role and Context
 
@@ -213,7 +240,11 @@ Remember: This validation provides technical and business requirement verificati
 
 ## Post-Verification Archive Prompt
 
-**After BOTH Phase 1 and Phase 2 pass successfully**, use the AskUserQuestion tool to prompt the user:
+**After BOTH Phase 1 and Phase 2 pass successfully**:
+
+### Interactive Mode (AFK_MODE = false)
+
+Use the AskUserQuestion tool to prompt the user:
 
 **Question**: "Verification passed! Would you like to archive this feature?"
 
@@ -232,6 +263,24 @@ Remember: This validation provides technical and business requirement verificati
 - Complete verification normally
 - Do not perform any archive action
 
-**Important**: Only show the archive prompt when ALL verification phases pass. If any phase fails, skip the archive prompt entirely and proceed to the failure summary.
+### AFK Mode (AFK_MODE = true)
+
+**Skip the AskUserQuestion prompt entirely**. Automatically proceed with archiving:
+
+1. Use the Task tool to invoke the feature-archiver agent:
+   - `subagent_type`: `rp1-dev:feature-archiver`
+   - `prompt`: `MODE: archive, FEATURE_ID: <feature_id>, SKIP_DOC_CHECK: true`
+2. Log the auto-archive action:
+   ```
+   ## AFK Mode: Auto-Selected Actions
+
+   | Action | Choice | Rationale |
+   |--------|--------|-----------|
+   | Post-verification archive | Auto-archive | AFK mode - verification passed, proceeding without prompt |
+   ```
+3. Report the archive result as part of the verification output
+4. Include the archive location in the final summary
+
+**Important**: Only execute archive (interactive or AFK) when ALL verification phases pass. If any phase fails, skip the archive step entirely and proceed to the failure summary.
 
 Your final output should consist only of the validation status updates and summary, and should not duplicate or rehash any of the planning work you did in the thinking block.

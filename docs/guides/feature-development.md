@@ -65,6 +65,50 @@ flowchart LR
 | Verify | Validate against criteria | Verification report |
 | Archive | Store completed feature | Archived artifacts |
 
+### Recommended: Use /build for Complete Workflows
+
+The `/build` command orchestrates the entire workflow in a single command:
+
+=== "Claude Code"
+
+    ```bash
+    /build my-feature              # Interactive mode
+    /build my-feature --afk        # Autonomous mode
+    ```
+
+=== "OpenCode"
+
+    ```bash
+    /rp1-dev/build my-feature              # Interactive mode
+    /rp1-dev/build my-feature --afk        # Autonomous mode
+    ```
+
+**Why use /build?**
+
+- **Single command**: No need to run 5 separate commands
+- **Smart resumption**: Detects existing artifacts and resumes from the right step
+- **AFK mode**: Run autonomously without user interaction (ideal for CI/CD or overnight runs)
+
+**When to use --afk mode:**
+
+- Autonomous development sessions (start before lunch, review after)
+- CI/CD pipelines for automated feature scaffolding
+- Batch processing multiple features
+- When you trust the AI to make reasonable decisions
+
+**Resumption scenarios:**
+
+| Existing Artifacts | /build Resumes From |
+|-------------------|---------------------|
+| None | requirements |
+| requirements.md | design |
+| requirements.md + design.md | build |
+| requirements.md + design.md + tasks.md (completed) | verify |
+| All + verification-report.md | archive |
+
+!!! tip "Granular Control"
+    If you need to run individual steps or customize the workflow, use the individual commands documented below.
+
 ---
 
 ??? info "Optional: Blueprint - for projects without a charter"
