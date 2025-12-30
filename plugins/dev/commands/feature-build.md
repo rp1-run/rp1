@@ -1,8 +1,8 @@
 ---
 name: feature-build
-version: 4.0.0
-description: Orchestrates feature implementation using builder-reviewer agent pairs with adaptive task grouping and configurable failure handling.
-argument-hint: "feature-id [milestone-id] [mode] [--no-worktree] [--push] [--create-pr]"
+version: 4.1.0
+description: Orchestrates feature implementation using builder-reviewer agent pairs with adaptive task grouping and configurable failure handling. Supports --afk mode for autonomous execution.
+argument-hint: "feature-id [milestone-id] [mode] [--afk] [--no-worktree] [--push] [--create-pr]"
 tags:
   - core
   - feature
@@ -23,6 +23,7 @@ Minimal coordinator for builder-reviewer workflow. Does NOT load KB/design/codeb
 | MILESTONE_ID | $2 | `""` | Milestone (empty=tasks.md) |
 | MODE | $3 | `ask` | Failure: `ask`/`auto` |
 | RP1_ROOT | env | `.rp1/` | Root dir |
+| --afk | flag | `false` | Enable non-interactive mode (skips prompts, uses defaults) |
 | --no-worktree | flag | `false` | Disable worktree isolation |
 | --push | flag | `false` | Push branch after build |
 | --create-pr | flag | `false` | Create PR (implies --push) |
@@ -33,6 +34,38 @@ Minimal coordinator for builder-reviewer workflow. Does NOT load KB/design/codeb
 <rp1_root>{{RP1_ROOT}}</rp1_root>
 
 **Special**: `--no-group` in args -> all tasks processed individually
+
+## §AFK Mode Detection
+
+**Parse arguments for --afk flag**:
+
+Check if `--afk` appears in any argument position. Set AFK_MODE accordingly:
+
+```
+AFK_MODE = false
+if "--afk" appears in arguments:
+    AFK_MODE = true
+```
+
+**When AFK_MODE is true**:
+- Skip all interactive prompts (AskUserQuestion)
+- On failure, automatically mark tasks blocked and continue (equivalent to MODE=auto)
+- Skip post-build follow-up prompts (auto-select "Done")
+- On dirty state in worktree, auto-commit changes
+- Use existing test patterns via builder/reviewer agents
+- Log all auto-selected defaults for user review
+
+**AFK Mode Logging**:
+
+Track all auto-selected defaults during execution. At the end of build, output:
+
+```markdown
+## AFK Mode: Auto-Selected Defaults
+
+| Decision Point | Auto-Selected Choice | Rationale |
+|----------------|---------------------|-----------|
+| [escalation point] | [choice made] | [why] |
+```
 
 ## §0 Worktree Setup
 
@@ -254,13 +287,18 @@ On first failure:
 
 ### §4.4 Escalation
 
-**MODE=ask**: AskUserQuestion w/ options:
+**AFK_MODE=true**: Automatically mark blocked (`- [!]`), continue to next unit. Log decision:
+- Decision Point: "Task {task_ids} failed after retry"
+- Auto-Selected Choice: "Mark blocked, continue"
+- Rationale: "AFK mode - autonomous execution without prompts"
+
+**MODE=ask** (and AFK_MODE=false): AskUserQuestion w/ options:
 
 - "Skip" -> Mark blocked (`- [!]`), continue
 - "Provide guidance" -> Bonus builder attempt (no retry count)
 - "Abort" -> Output summary, exit
 
-**MODE=auto**: Mark blocked, continue.
+**MODE=auto** (and AFK_MODE=false): Mark blocked, continue.
 
 ### §4.5 Doc Tasks
 
@@ -459,7 +497,12 @@ git status --porcelain
 
 **If dirty** (output not empty):
 
-Use AskUserQuestion with options:
+**AFK_MODE=true**: Automatically commit changes with message "chore: uncommitted changes from feature build". Log decision:
+- Decision Point: "Uncommitted changes in worktree"
+- Auto-Selected Choice: "Auto-commit"
+- Rationale: "AFK mode - preserve all work without prompts"
+
+**AFK_MODE=false**: Use AskUserQuestion with options:
 
 - "Commit changes" -> Commit with message "chore: uncommitted changes from feature build"
 - "Discard changes" -> `git checkout -- .`
@@ -498,7 +541,9 @@ rp1 agent-tools worktree cleanup {worktree_path} --keep-branch
 
 **After §7 Worktree Finalize completes**:
 
-If ALL initial tasks verified (no blocked): Proceed to §10 Post-Build Follow-ups
+If AFK_MODE=true: Skip follow-ups, output summary directly (see §10).
+
+If ALL initial tasks verified (no blocked) AND AFK_MODE=false: Proceed to §10 Post-Build Follow-ups
 
 If any blocked tasks: Skip follow-ups, output summary directly.
 
@@ -537,14 +582,33 @@ Output after follow-up loop completes (or if skipped):
 {Blocked}: Review blocked, run `/feature-build {FEATURE_ID}` to retry
 ```
 
+**AFK Mode Completion**: If AFK_MODE was true, append to summary:
+
+```markdown
+## AFK Mode Summary
+
+All decisions were made autonomously. Auto-selected defaults:
+
+| Decision Point | Auto-Selected Choice | Rationale |
+|----------------|---------------------|-----------|
+| [from logged decisions during execution] |
+
+Test patterns used: Existing codebase patterns via builder/reviewer agents.
+Follow-up prompts: Skipped (autonomous mode).
+
+Review blocked tasks (if any) and re-run with `/feature-build {FEATURE_ID}` to retry.
+```
+
 ## §9 Anti-Loop
 
-**CRITICAL**: Single pass only (except post-build loop). Do NOT:
+**CRITICAL**: Single pass only (except post-build loop in non-AFK mode). Do NOT:
 
-- Ask clarification (except AskUserQuestion for escalation/follow-ups)
+- Ask clarification (except AskUserQuestion for escalation/follow-ups when AFK_MODE=false)
 - Wait for external feedback
 - Re-read files multiple times
 - Loop to earlier steps
+
+**AFK_MODE=true**: No AskUserQuestion calls at all. All decisions are auto-selected and logged.
 
 On error (file not found, invalid format): report clearly, stop.
 
@@ -552,7 +616,16 @@ On error (file not found, invalid format): report clearly, stop.
 
 After successful build (no blocked tasks), offer follow-up capability.
 
+**AFK_MODE=true**: Skip follow-up prompts entirely. Log decision:
+- Decision Point: "Post-build follow-up prompt"
+- Auto-Selected Choice: "Skip (Done)"
+- Rationale: "AFK mode - autonomous execution complete, no interactive follow-ups"
+
+Proceed directly to §8 Summary.
+
 ### §10.1 Follow-up Prompt
+
+**Skip if AFK_MODE=true** (see above).
 
 Use AskUserQuestion with options:
 
@@ -614,4 +687,4 @@ Orchestrator does NOT:
 
 All delegated to builder/reviewer agents.
 
-Begin: Worktree setup (if enabled) -> Validate params -> read task file -> group tasks -> orchestration loop -> post-build -> worktree finalize (push/PR/cleanup) -> follow-up loop (if all tasks verified) -> summary.
+Begin: Parse --afk flag -> Worktree setup (if enabled) -> Validate params -> read task file -> group tasks -> orchestration loop -> post-build -> worktree finalize (push/PR/cleanup) -> follow-up loop (if all tasks verified AND not AFK mode) -> summary (include AFK summary if AFK mode).

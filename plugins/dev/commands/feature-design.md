@@ -1,8 +1,8 @@
 ---
 name: feature-design
-version: 2.1.0
-description: Transform requirements into detailed technical design documents with interactive technology selection and comprehensive architecture diagrams. Automatically generates implementation tasks upon completion.
-argument-hint: "feature-id [extra-context]"
+version: 2.2.0
+description: Transform requirements into detailed technical design documents with interactive technology selection and comprehensive architecture diagrams. Automatically generates implementation tasks upon completion. Supports --afk mode for autonomous execution.
+argument-hint: "feature-id [extra-context] [--afk]"
 tags:
   - feature
   - planning
@@ -22,11 +22,32 @@ author: cloud-on-prem/rp1
 |-------|----------|---------|---------|
 | FEATURE_ID | $1 | (req) | Feature identifier |
 | EXTRA_CONTEXT | $2 | `""` | Additional design context |
+| --afk | flag in $1, $2, or $3 | `false` | Enable non-interactive mode |
 | RP1_ROOT | env | `.rp1/` | Root directory (prefer project root; mono-repo: individual project root) |
 
 **Paths**:
 - Feature dir: `{RP1_ROOT}/work/features/{FEATURE_ID}/`
 - Output: design.md, design-decisions.md in feature dir
+
+## §AFK Mode Detection
+
+**Parse arguments for --afk flag**:
+
+Check if `--afk` appears in any argument position ($1, $2, or $3). Set AFK_MODE accordingly:
+
+```
+AFK_MODE = false
+if "$1" contains "--afk" OR "$2" contains "--afk" OR "$3" contains "--afk":
+    AFK_MODE = true
+```
+
+**When AFK_MODE is true**:
+- Skip all interactive technology selection prompts
+- Auto-select technologies based on KB patterns.md and existing codebase
+- Use KB architecture.md for architecture patterns
+- Use PRD constraints for design decisions
+- Log all auto-selected choices for user review
+- Generate complete design without clarifying questions
 
 ## §OBJ
 
@@ -41,10 +62,25 @@ author: cloud-on-prem/rp1
 
 Before output, work through analysis in `<design_thinking>` tags (can be long):
 
-### Step 0: Update Mode Detection
-Check if `{RP1_ROOT}/work/features/{FEATURE_ID}/design.md` exists:
+### Step 0: Mode Detection
+
+**AFK Mode**: Check if `--afk` appears in $1, $2, or $3. Set AFK_MODE = true if found.
+
+**Update Mode**: Check if `{RP1_ROOT}/work/features/{FEATURE_ID}/design.md` exists:
 - Exists: `UPDATE_MODE = true` (design iteration, tasks incrementally updated)
 - Not exists: `UPDATE_MODE = false` (fresh task generation)
+
+### Step 0.5: KB Context Loading (AFK Mode)
+
+If AFK_MODE = true, load KB files for auto-selection:
+1. Read `{RP1_ROOT}/context/index.md` for project overview
+2. Read `{RP1_ROOT}/context/patterns.md` for technology patterns, naming conventions, implementation patterns
+3. Read `{RP1_ROOT}/context/architecture.md` for architectural patterns, layer architecture, integration points
+
+If KB files don't exist, warn user and use codebase analysis as fallback:
+```
+No KB found. AFK mode will use direct codebase analysis for pattern inference.
+```
 
 ### Step 1-8: Analysis (in thinking block)
 
@@ -80,6 +116,8 @@ When requirements don't specify tech choices:
 
 **Categories**: Language/Framework | Data Storage | Integration Patterns | Infrastructure
 
+### Interactive Mode (AFK_MODE = false)
+
 **Question Format**:
 ```markdown
 ## Technology Clarification Needed
@@ -99,6 +137,38 @@ When requirements don't specify tech choices:
 - Preferences between options?
 - Other tech to consider?
 - Follow existing [pattern] or introduce new?
+```
+
+### AFK Mode (AFK_MODE = true)
+
+**Auto-Selection Strategy** (priority order):
+
+| Decision Type | Primary Source | Fallback |
+|---------------|----------------|----------|
+| Technology choices | KB `{RP1_ROOT}/context/patterns.md` | Most common pattern in codebase |
+| Architecture patterns | KB `{RP1_ROOT}/context/architecture.md` | Existing codebase architecture |
+| Design decisions | PRD constraints from requirements.md | Conservative/simple defaults |
+| Test approach | Existing test patterns in codebase | Standard unit test coverage |
+
+**Auto-Selection Process**:
+
+1. **Read KB patterns.md**: Extract technology stack, naming conventions, implementation patterns
+2. **Read KB architecture.md**: Extract architectural patterns, layer architecture, integration points
+3. **Analyze codebase**: Identify most common frameworks, libraries, patterns in use
+4. **Check requirements.md**: Extract any PRD constraints or explicit tech preferences
+5. **Select best match**: Choose option that aligns most closely with existing patterns
+6. **Log decision**: Record what was chosen and why
+
+**When multiple valid options exist**: Always prefer the option that aligns with existing codebase patterns. Only introduce new patterns if existing patterns cannot meet requirements.
+
+**Inference Logging Format** (include in design-decisions.md when AFK_MODE = true):
+
+```markdown
+## AFK Mode: Auto-Selected Technology Decisions
+
+| Decision | Choice | Source | Rationale |
+|----------|--------|--------|-----------|
+| [tech decision needed] | [selected option] | [KB/codebase/default] | [why this choice] |
 ```
 
 ## §OUT: design.md Structure
@@ -272,10 +342,22 @@ Technical design and task planning completed for `{RP1_ROOT}/work/features/{FEAT
 
 If UPDATE_MODE true, add: "(Design iteration detected - tasks incrementally updated, preserving completed work.)"
 
+**AFK Mode Completion**: If AFK_MODE was true, also display:
+```
+## AFK Mode Summary
+
+All design decisions were made autonomously. Review the following:
+- `design-decisions.md` contains "AFK Mode: Auto-Selected Technology Decisions" table
+- All technology choices were based on KB patterns and codebase conventions
+- Architecture decisions aligned with KB architecture.md patterns
+```
+
 ## §CHK
 
 Response contains EITHER:
-1. Technology clarification questions (if needed), OR
+1. Technology clarification questions (if needed AND AFK_MODE = false), OR
 2. Complete generated design docs (followed by automatic task generation)
 
-Never both. Begin w/ detailed analysis in thinking block, then output w/o duplicating analytical work.
+**AFK_MODE = true**: Always generate complete design docs without questions. Use KB patterns.md + architecture.md + codebase conventions for all decisions.
+
+Never both questions and complete docs. Begin w/ detailed analysis in thinking block, then output w/o duplicating analytical work.
