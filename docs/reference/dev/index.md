@@ -3,8 +3,8 @@
 The `rp1-dev` plugin provides development workflow capabilities for the complete feature lifecycle, code quality tools, and PR management.
 
 **Version**: 3.0.0
-**Commands**: 19
-**Agents**: 19
+**Commands**: 20
+**Agents**: 20
 **Dependencies**: rp1-base >= 2.0.0
 
 ---
@@ -18,6 +18,7 @@ Start projects and plan features with structured documentation.
 | Command | Description |
 |---------|-------------|
 | [`blueprint`](blueprint.md) | Create project charter and PRD documents |
+| [`blueprint-archive`](blueprint-archive.md) | Archive completed PRDs with closure summary |
 | [`feature-requirements`](feature-requirements.md) | Collect and document feature requirements |
 | [`feature-design`](feature-design.md) | Generate technical design specifications (auto-generates tasks) |
 | [`feature-tasks`](feature-tasks.md) | Regenerate tasks (optional - tasks auto-generate after design) |
@@ -84,6 +85,7 @@ Each step produces artifacts that feed into the next:
 **Optional Steps**:
 
 - `blueprint` - Create project charter and PRDs before starting features
+- `blueprint-archive` - Archive completed PRDs with closure summary
 - `validate-hypothesis` - Test design assumptions before building
 - `feature-tasks` - Manually regenerate or update tasks
 
