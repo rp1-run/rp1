@@ -22,6 +22,8 @@ Guide for writing maximally terse agent prompts without post-hoc compression. Ap
 
 **Preserve Exactness**: Normative language (MUST/SHOULD/MAY), literals, constraints stay verbatim.
 
+**Do not tersify already terse content**: This is not a golfing exercise. If content is already concise, keep as is.
+
 ## §1 Section Patterns
 
 Use terse section headers. Pick from:
@@ -196,17 +198,21 @@ Only when it REDUCES confusion. Don't force diagrams.
 ### Safe Alternatives
 
 **BAD** (causes shell expansion errors):
+
 ```
 - [status]: [BACKTICK] [BACKTICK]=pending, [BACKTICK]x[BACKTICK]=done, [BACKTICK]![BACKTICK]=blocked
 ```
+
 (where [BACKTICK] represents the ` character)
 
 **GOOD** (no backticks around values in key=value patterns):
+
 ```markdown
 - `status`: space=pending, x=done, !=blocked
 ```
 
 **ALSO GOOD** (use prose instead of symbolic):
+
 ```markdown
 - `status`: empty space means pending, x means done, ! means blocked
 ```
@@ -214,6 +220,7 @@ Only when it REDUCES confusion. Don't force diagrams.
 ### Rule
 
 When writing key=value mappings:
+
 - DO NOT wrap single characters in backticks immediately before `=`
 - Use descriptive words (`space`, `empty`) or omit backticks entirely
 - Backticks inside code blocks (triple-backtick fences) are safe

@@ -31,6 +31,7 @@ $1
 ## §HARD RULES
 
 - Preserve ALL meaning: goals/tasks/constraints/edge-cases/defs/IO/AC/tool rules/formatting/safety
+- DO NOT terify already terse content. This is not a golf exercise.
 - DO NOT add new reqs/steps/tools/assumptions/examples
 - DO NOT delete constraints or change modality
 - Keep literals VERBATIM: names, IDs, paths, URLs, quoted strings, code, numbers, dates
