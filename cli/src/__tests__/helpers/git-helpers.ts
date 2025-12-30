@@ -164,10 +164,27 @@ interface RepoStateSnapshot {
 
 /**
  * Capture the current state of the main repo for later comparison.
+ * Handles both regular repos and worktrees by using git rev-parse.
  */
 export async function captureMainRepoState(): Promise<RepoStateSnapshot> {
 	const mainRepoRoot = getMainRepoRoot();
-	const configPath = path.join(mainRepoRoot, ".git", "config");
+
+	// Use git rev-parse to find the actual git directory
+	// This handles worktrees where .git is a file pointing to the real git dir
+	const gitDirProc = spawnGit(["rev-parse", "--git-common-dir"], {
+		cwd: mainRepoRoot,
+	});
+	await gitDirProc.exited;
+	const gitCommonDir = (
+		await new Response(gitDirProc.stdout as ReadableStream).text()
+	).trim();
+
+	// Resolve to absolute path
+	const absoluteGitDir = path.isAbsolute(gitCommonDir)
+		? gitCommonDir
+		: path.resolve(mainRepoRoot, gitCommonDir);
+
+	const configPath = path.join(absoluteGitDir, "config");
 
 	// Read config file
 	const configFile = Bun.file(configPath);
