@@ -30,17 +30,8 @@ jobs:
             chore
             revert
             security
-          # Scopes are optional but if provided must match one of these
-          # 'main' is used by release-please for release PRs
-          scopes: |
-            base
-            dev
-            cli
-            web-ui
-            docs
-            deps
-            main
-            security
+          # Scopes are optional - any scope is allowed to give flexibility
+          # Common scopes: base, dev, cli, web-ui, docs, deps, tests, etc.
           requireScope: false
           subjectPattern: ^.+$
           subjectPatternError: |
