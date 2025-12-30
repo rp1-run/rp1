@@ -8,7 +8,16 @@ import { mkdir, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getWorktreeStatus } from "../../../agent-tools/worktree/status.js";
-import { expectTaskLeft, expectTaskRight } from "../../helpers/index.js";
+import {
+	captureMainRepoState,
+	createInitialCommit,
+	createTestWorktree,
+	expectTaskLeft,
+	expectTaskRight,
+	initTestRepo,
+	removeTestWorktree,
+	verifyNoMainRepoContamination,
+} from "../../helpers/index.js";
 
 describe("worktree status detection", () => {
 	let tempBase: string;
@@ -16,100 +25,40 @@ describe("worktree status detection", () => {
 	let worktreeRepoRoot: string;
 	let linkedWorktreePath: string;
 	let nonGitDir: string;
+	let mainRepoSnapshot: Awaited<ReturnType<typeof captureMainRepoState>>;
 
 	beforeAll(async () => {
+		// Capture main repo state before tests for contamination detection
+		mainRepoSnapshot = await captureMainRepoState();
+
 		// Create unique temp directory for this test run
 		// Use realpath to resolve symlinks (macOS /var -> /private/var)
 		const tempDir = join(tmpdir(), `worktree-status-test-${Date.now()}`);
 		await mkdir(tempDir, { recursive: true });
 		tempBase = await realpath(tempDir);
 
-		// Create a standard git repo (non-worktree)
+		// Create a standard git repo (non-worktree) with isolated git
 		standardRepoRoot = join(tempBase, "standard-repo");
 		await mkdir(standardRepoRoot, { recursive: true });
-		const initStandard = Bun.spawn(["git", "init"], {
-			cwd: standardRepoRoot,
-			stdout: "pipe",
-			stderr: "pipe",
-		});
-		await initStandard.exited;
+		await initTestRepo(standardRepoRoot);
+		await createInitialCommit(standardRepoRoot);
 
-		// Configure git user
-		const configEmail = Bun.spawn(
-			["git", "config", "user.email", "test@test.com"],
-			{ cwd: standardRepoRoot, stdout: "pipe", stderr: "pipe" },
-		);
-		await configEmail.exited;
-		const configName = Bun.spawn(["git", "config", "user.name", "Test User"], {
-			cwd: standardRepoRoot,
-			stdout: "pipe",
-			stderr: "pipe",
-		});
-		await configName.exited;
-
-		// Create a file and commit
-		await Bun.write(join(standardRepoRoot, "README.md"), "# Test Repo");
-		const addProc = Bun.spawn(["git", "add", "."], {
-			cwd: standardRepoRoot,
-			stdout: "pipe",
-			stderr: "pipe",
-		});
-		await addProc.exited;
-		const commitProc = Bun.spawn(["git", "commit", "-m", "Initial commit"], {
-			cwd: standardRepoRoot,
-			stdout: "pipe",
-			stderr: "pipe",
-		});
-		await commitProc.exited;
-
-		// Create a repo with a linked worktree
+		// Create a repo with a linked worktree using isolated git
 		worktreeRepoRoot = join(tempBase, "worktree-main");
 		await mkdir(worktreeRepoRoot, { recursive: true });
-		const initWorktree = Bun.spawn(["git", "init"], {
-			cwd: worktreeRepoRoot,
-			stdout: "pipe",
-			stderr: "pipe",
-		});
-		await initWorktree.exited;
+		await initTestRepo(worktreeRepoRoot);
 
-		// Configure git user for worktree repo
-		const wtConfigEmail = Bun.spawn(
-			["git", "config", "user.email", "test@test.com"],
-			{ cwd: worktreeRepoRoot, stdout: "pipe", stderr: "pipe" },
-		);
-		await wtConfigEmail.exited;
-		const wtConfigName = Bun.spawn(
-			["git", "config", "user.name", "Test User"],
-			{
-				cwd: worktreeRepoRoot,
-				stdout: "pipe",
-				stderr: "pipe",
-			},
-		);
-		await wtConfigName.exited;
-
-		// Create initial commit in worktree repo
+		// Create initial commit with different content
 		await Bun.write(join(worktreeRepoRoot, "README.md"), "# Worktree Main");
-		const wtAddProc = Bun.spawn(["git", "add", "."], {
-			cwd: worktreeRepoRoot,
-			stdout: "pipe",
-			stderr: "pipe",
-		});
-		await wtAddProc.exited;
-		const wtCommitProc = Bun.spawn(["git", "commit", "-m", "Initial commit"], {
-			cwd: worktreeRepoRoot,
-			stdout: "pipe",
-			stderr: "pipe",
-		});
-		await wtCommitProc.exited;
+		await createInitialCommit(worktreeRepoRoot);
 
-		// Create a linked worktree
+		// Create a linked worktree using isolated git
 		linkedWorktreePath = join(tempBase, "linked-worktree");
-		const worktreeAddProc = Bun.spawn(
-			["git", "worktree", "add", "-b", "feature-branch", linkedWorktreePath],
-			{ cwd: worktreeRepoRoot, stdout: "pipe", stderr: "pipe" },
+		await createTestWorktree(
+			worktreeRepoRoot,
+			linkedWorktreePath,
+			"feature-branch",
 		);
-		await worktreeAddProc.exited;
 
 		// Create a non-git directory
 		nonGitDir = join(tempBase, "not-a-repo");
@@ -117,15 +66,14 @@ describe("worktree status detection", () => {
 	});
 
 	afterAll(async () => {
-		// Remove linked worktree first (git cleanup)
-		const worktreeRemoveProc = Bun.spawn(
-			["git", "worktree", "remove", "--force", linkedWorktreePath],
-			{ cwd: worktreeRepoRoot, stdout: "pipe", stderr: "pipe" },
-		);
-		await worktreeRemoveProc.exited;
+		// Remove linked worktree first using isolated git
+		await removeTestWorktree(worktreeRepoRoot, linkedWorktreePath, true);
 
 		// Cleanup temp directories
 		await rm(tempBase, { recursive: true, force: true });
+
+		// Verify main repo wasn't contaminated
+		await verifyNoMainRepoContamination(mainRepoSnapshot);
 	});
 
 	describe("non-worktree context", () => {

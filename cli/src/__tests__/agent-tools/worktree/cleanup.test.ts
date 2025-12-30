@@ -11,78 +11,48 @@ import { cleanupWorktree } from "../../../agent-tools/worktree/cleanup.js";
 import { createWorktree } from "../../../agent-tools/worktree/create.js";
 import {
 	assertTestIsolation,
+	captureMainRepoState,
+	createInitialCommit,
 	expectTaskLeft,
 	expectTaskRight,
 	getErrorMessage,
+	initTestRepo,
+	spawnGit,
+	verifyNoMainRepoContamination,
 } from "../../helpers/index.js";
 
 describe("worktree cleanup", () => {
 	let tempBase: string;
 	let repoRoot: string;
 	let originalEnv: string | undefined;
+	let mainRepoSnapshot: Awaited<ReturnType<typeof captureMainRepoState>>;
 
 	beforeAll(async () => {
-		// Save original RP1_ROOT env value
+		mainRepoSnapshot = await captureMainRepoState();
 		originalEnv = process.env.RP1_ROOT;
 		delete process.env.RP1_ROOT;
 
-		// Create unique temp directory for this test run
 		const tempDir = join(tmpdir(), `worktree-cleanup-test-${Date.now()}`);
 		await mkdir(tempDir, { recursive: true });
 		tempBase = await realpath(tempDir);
 
-		// CRITICAL: Verify test isolation to prevent main repo contamination
 		await assertTestIsolation(tempBase);
 
-		// Create a git repo for testing
 		repoRoot = join(tempBase, "test-repo");
 		await mkdir(repoRoot, { recursive: true });
-		const initProc = Bun.spawn(["git", "init"], {
-			cwd: repoRoot,
-			stdout: "pipe",
-			stderr: "pipe",
-		});
-		await initProc.exited;
-
-		// Configure git user
-		const configEmail = Bun.spawn(
-			["git", "config", "user.email", "test@test.com"],
-			{ cwd: repoRoot, stdout: "pipe", stderr: "pipe" },
-		);
-		await configEmail.exited;
-		const configName = Bun.spawn(["git", "config", "user.name", "Test User"], {
-			cwd: repoRoot,
-			stdout: "pipe",
-			stderr: "pipe",
-		});
-		await configName.exited;
-
-		// Create initial commit
-		await Bun.write(join(repoRoot, "README.md"), "# Test Repo");
-		const addProc = Bun.spawn(["git", "add", "."], {
-			cwd: repoRoot,
-			stdout: "pipe",
-			stderr: "pipe",
-		});
-		await addProc.exited;
-		const commitProc = Bun.spawn(["git", "commit", "-m", "Initial commit"], {
-			cwd: repoRoot,
-			stdout: "pipe",
-			stderr: "pipe",
-		});
-		await commitProc.exited;
+		await initTestRepo(repoRoot);
+		await createInitialCommit(repoRoot);
 	});
 
 	afterAll(async () => {
-		// Restore original RP1_ROOT
 		if (originalEnv !== undefined) {
 			process.env.RP1_ROOT = originalEnv;
 		} else {
 			delete process.env.RP1_ROOT;
 		}
 
-		// Cleanup temp directories
 		await rm(tempBase, { recursive: true, force: true });
+		await verifyNoMainRepoContamination(mainRepoSnapshot);
 	});
 
 	/**
@@ -92,9 +62,9 @@ describe("worktree cleanup", () => {
 		branchName: string,
 		cwd: string,
 	): Promise<boolean> => {
-		const proc = Bun.spawn(
-			["git", "show-ref", "--verify", "--quiet", `refs/heads/${branchName}`],
-			{ cwd, stdout: "pipe", stderr: "pipe" },
+		const proc = spawnGit(
+			["show-ref", "--verify", "--quiet", `refs/heads/${branchName}`],
+			{ cwd },
 		);
 		const exitCode = await proc.exited;
 		return exitCode === 0;
@@ -114,12 +84,10 @@ describe("worktree cleanup", () => {
 
 	describe("success cleanup with branch kept (default)", () => {
 		test("removes worktree directory", async () => {
-			// Create a worktree first
 			const createResult = await expectTaskRight(
 				createWorktree({ slug: "cleanup-keep" }, repoRoot),
 			);
 
-			// Cleanup with default keepBranch=true
 			const cleanupResult = await expectTaskRight(
 				cleanupWorktree({ path: createResult.path }, repoRoot),
 			);
@@ -197,13 +165,11 @@ describe("worktree cleanup", () => {
 				createWorktree({ slug: "dirty-worktree" }, repoRoot),
 			);
 
-			// Make uncommitted changes in the worktree
 			await Bun.write(
 				join(createResult.path, "dirty-file.txt"),
 				"uncommitted changes",
 			);
 
-			// Cleanup with force
 			const cleanupResult = await expectTaskRight(
 				cleanupWorktree(
 					{ path: createResult.path, force: true, keepBranch: false },
@@ -239,53 +205,35 @@ describe("worktree cleanup", () => {
 		});
 	});
 
-	describe("safety check: cwd inside worktree", () => {
-		test("returns error when cwd is the worktree directory", async () => {
+	describe("cleanup works from any directory", () => {
+		test("succeeds when cwd is the worktree directory", async () => {
 			const createResult = await expectTaskRight(
-				createWorktree({ slug: "cwd-safety" }, repoRoot),
+				createWorktree({ slug: "cwd-inside" }, repoRoot),
 			);
 
-			// Try to cleanup with cwd set to the worktree itself
-			const error = await expectTaskLeft(
-				cleanupWorktree({ path: createResult.path }, createResult.path),
-			);
-
-			expect(error._tag).toBe("UsageError");
-			expect(getErrorMessage(error)).toContain("current directory is inside");
-
-			// Cleanup properly from repo root
-			await expectTaskRight(
+			const cleanupResult = await expectTaskRight(
 				cleanupWorktree(
 					{ path: createResult.path, keepBranch: false },
-					repoRoot,
+					createResult.path,
 				),
 			);
+
+			expect(cleanupResult.removed).toBe(true);
 		});
 
-		test("returns error when cwd is inside the worktree", async () => {
+		test("succeeds when cwd is inside the worktree", async () => {
 			const createResult = await expectTaskRight(
-				createWorktree({ slug: "cwd-nested-safety" }, repoRoot),
+				createWorktree({ slug: "cwd-nested" }, repoRoot),
 			);
 
-			// Create a subdirectory inside the worktree
 			const subdir = join(createResult.path, "subdir");
 			await mkdir(subdir, { recursive: true });
 
-			// Try to cleanup with cwd set to a subdirectory of the worktree
-			const error = await expectTaskLeft(
-				cleanupWorktree({ path: createResult.path }, subdir),
+			const cleanupResult = await expectTaskRight(
+				cleanupWorktree({ path: createResult.path, keepBranch: false }, subdir),
 			);
 
-			expect(error._tag).toBe("UsageError");
-			expect(getErrorMessage(error)).toContain("current directory is inside");
-
-			// Cleanup properly from repo root
-			await expectTaskRight(
-				cleanupWorktree(
-					{ path: createResult.path, keepBranch: false },
-					repoRoot,
-				),
-			);
+			expect(cleanupResult.removed).toBe(true);
 		});
 
 		test("succeeds when cwd is outside the worktree", async () => {
@@ -293,7 +241,6 @@ describe("worktree cleanup", () => {
 				createWorktree({ slug: "cwd-outside" }, repoRoot),
 			);
 
-			// Cleanup from repo root (outside the worktree)
 			const cleanupResult = await expectTaskRight(
 				cleanupWorktree(
 					{ path: createResult.path, keepBranch: false },

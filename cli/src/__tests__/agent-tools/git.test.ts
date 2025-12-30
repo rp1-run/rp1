@@ -21,6 +21,13 @@ import {
 	isInsideWorktree,
 	withGitContext,
 } from "../../agent-tools/git.js";
+import {
+	captureMainRepoState,
+	createInitialCommit,
+	createTestWorktree,
+	initTestRepo,
+	verifyNoMainRepoContamination,
+} from "../helpers/index.js";
 
 /** Normalize path to handle macOS /var -> /private/var symlinks */
 const normalizePath = (p: string): string => {
@@ -61,39 +68,34 @@ describe("git utilities", () => {
 	let testDir: string;
 	let repoRoot: string;
 	let worktreePath: string;
+	let mainRepoSnapshot: Awaited<ReturnType<typeof captureMainRepoState>>;
 
 	beforeAll(async () => {
+		// Capture main repo state before tests for contamination detection
+		mainRepoSnapshot = await captureMainRepoState();
+
 		testDir = path.join(tmpdir(), `git-utils-test-${Date.now()}`);
 		mkdirSync(testDir, { recursive: true });
 
 		repoRoot = path.join(testDir, "test-repo");
 		mkdirSync(repoRoot, { recursive: true });
 
-		await Bun.spawn(["git", "init"], { cwd: repoRoot }).exited;
-		await Bun.spawn(["git", "config", "user.email", "test@test.com"], {
-			cwd: repoRoot,
-		}).exited;
-		await Bun.spawn(["git", "config", "user.name", "Test User"], {
-			cwd: repoRoot,
-		}).exited;
+		// Use isolated git helpers to prevent contamination
+		await initTestRepo(repoRoot);
+		await createInitialCommit(repoRoot);
 
-		await Bun.write(path.join(repoRoot, "README.md"), "# Test");
-		await Bun.spawn(["git", "add", "."], { cwd: repoRoot }).exited;
-		await Bun.spawn(["git", "commit", "-m", "Initial commit"], {
-			cwd: repoRoot,
-		}).exited;
-
+		// Create worktree using isolated git
 		worktreePath = path.join(testDir, "test-worktree");
-		await Bun.spawn(
-			["git", "worktree", "add", "-b", "test-branch", worktreePath],
-			{ cwd: repoRoot },
-		).exited;
+		await createTestWorktree(repoRoot, worktreePath, "test-branch");
 	});
 
-	afterAll(() => {
+	afterAll(async () => {
 		if (existsSync(testDir)) {
 			rmSync(testDir, { recursive: true, force: true });
 		}
+
+		// Verify main repo wasn't contaminated
+		await verifyNoMainRepoContamination(mainRepoSnapshot);
 	});
 
 	describe("execGitCommand", () => {

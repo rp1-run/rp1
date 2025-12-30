@@ -16,6 +16,31 @@ import type { CLIError } from "../../shared/errors.js";
 import { runtimeError } from "../../shared/errors.js";
 
 /**
+ * Environment variables to clear when spawning git processes.
+ * Prevents git context inheritance that can cause cross-repo operations.
+ */
+export const GIT_ENV_VARS_TO_CLEAR = [
+	"GIT_DIR",
+	"GIT_WORK_TREE",
+	"GIT_INDEX_FILE",
+	"GIT_OBJECT_DIRECTORY",
+	"GIT_ALTERNATE_OBJECT_DIRECTORIES",
+	"GIT_COMMON_DIR",
+] as const;
+
+/**
+ * Create an isolated environment for git command execution.
+ * Clears git-related environment variables to prevent context leakage.
+ */
+export const getIsolatedGitEnv = (): NodeJS.ProcessEnv => {
+	const env = { ...process.env };
+	for (const key of GIT_ENV_VARS_TO_CLEAR) {
+		delete env[key];
+	}
+	return env;
+};
+
+/**
  * Context for git operations.
  *
  * - `repoRoot`: Main repository root. Use this for ALL mutation operations.
@@ -48,6 +73,7 @@ export const execGitCommand = (
 				cwd,
 				stdout: "pipe",
 				stderr: "pipe",
+				env: getIsolatedGitEnv(),
 			});
 			const exitCode = await proc.exited;
 
@@ -84,6 +110,7 @@ export const execGitCommandMayFail = (
 				cwd,
 				stdout: "pipe",
 				stderr: "pipe",
+				env: getIsolatedGitEnv(),
 			});
 			const exitCode = await proc.exited;
 			const stdout = (await new Response(proc.stdout).text()).trim();
@@ -115,12 +142,10 @@ export const getMainRepoRoot = (cwd: string): TE.TaskEither<CLIError, string> =>
 				? commonDir
 				: path.resolve(cwd, commonDir);
 
-			// commonDir is typically .git or /path/to/repo/.git
 			if (path.basename(absoluteCommonDir) === ".git") {
 				return path.dirname(absoluteCommonDir);
 			}
 
-			// Handle bare repos or unusual configurations
 			return absoluteCommonDir;
 		}),
 	);
@@ -261,12 +286,10 @@ export const deriveRepoRootFromGitDir = (gitDirPath: string): string => {
 		return path.dirname(normalized);
 	}
 
-	// Handle cases where path is inside .git (e.g., .git/worktrees/...)
 	const gitIndex = normalized.lastIndexOf(".git");
 	if (gitIndex !== -1) {
 		return normalized.slice(0, gitIndex - 1);
 	}
 
-	// Fallback: assume parent is the repo root
 	return path.dirname(normalized);
 };
