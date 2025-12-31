@@ -50,13 +50,21 @@
 
 ### plugins/dev
 **Purpose**: Development workflow automation for features, code quality, and PR management
-**Components**: 22 commands, 21 agents
+**Components**: 22 commands, 25 agents
 **Dependency**: Requires rp1-base >= 2.0.0
+
+**Build Helper Agents** (leaf executors with JSON output):
+| Agent | Purpose |
+|-------|---------|
+| build-artifact-detector | Determines workflow start_step by checking existing artifacts |
+| build-task-parser | Extracts structured task information from tasks.md |
+| build-task-grouper | Batches tasks into execution units by complexity |
+| build-verify-aggregator | Aggregates verification results into final status |
 
 **Feature Workflow Commands**:
 | Command | Agent | Purpose |
 |---------|-------|---------|
-| build | Orchestrator (6+ agents) | End-to-end 6-step workflow |
+| build | Orchestrator (10+ agents) | End-to-end 6-step workflow |
 | blueprint | blueprint-wizard | Charter and PRD creation |
 | blueprint-archive | prd-archiver | Archive completed PRDs with features |
 | bootstrap | bootstrap-scaffolder | Greenfield project scaffolding |
