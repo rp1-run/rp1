@@ -181,13 +181,20 @@ cd {worktree_path}
 git push origin {branch}
 ```
 
-**To discard and cleanup** (if not satisfied):
+**To discard changes**:
 ```bash
 cd {original_cwd}
-rp1 agent-tools worktree cleanup {worktree_path}
+git checkout {branch} -- .  # revert changes
 ```
 
 ---
+
+## 🧹 Cleanup (Required)
+
+When done reviewing, remove the worktree:
+```bash
+git worktree remove {worktree_path}
+```
 
 **Ready for Re-Review**: ✅/❌ (after you push)
 ```
