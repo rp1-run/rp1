@@ -1,7 +1,7 @@
 ---
 name: build
 version: 2.0.0
-description: End-to-end feature workflow (requirements -> design -> tasks -> build -> verify -> archive) in a single command. No SlashCommand dependencies.
+description: End-to-end feature workflow (requirements -> design -> tasks -> build -> verify -> archive) in a single command.
 argument-hint: "feature-id [--afk] [--no-worktree] [--push] [--create-pr]"
 tags:
   - core
@@ -13,7 +13,7 @@ author: cloud-on-prem/rp1
 
 # Build Command - Consolidated Feature Workflow
 
-6-step workflow orchestrator. Inlines all step logic. Uses Task tool for agent delegation (no SlashCommand).
+6-step workflow orchestrator. Inlines all step logic. Uses Task tool for agent delegation
 
 ## §PARAMS
 
@@ -41,6 +41,7 @@ CREATE_PR = "--create-pr" in args
 **Feature dir**: `{RP1_ROOT}/work/features/{FEATURE_ID}/`
 
 **Validation**:
+
 1. FEATURE_ID: Required. Error if empty.
 2. Create feature dir if missing.
 
@@ -176,6 +177,7 @@ Current: Step {N} of 6
 ```
 
 **Display rules**:
+
 - Show after artifact detection
 - Update after each step transition
 - Include reason only for SKIPPED/FAILED/DECLINED
@@ -194,6 +196,7 @@ Current: Step {N} of 6
 ### Failure Detection
 
 Step FAILED when:
+
 - Agent Task returns error
 - Expected artifact not created/updated
 - Output contains error indicators
@@ -272,6 +275,7 @@ On failure (AFK_MODE=false):
 ### Artifact Preservation Rules
 
 **CRITICAL**: On ANY failure:
+
 - NEVER delete completed step artifacts
 - NEVER rollback successful steps
 - KEEP partial artifacts from failed step
@@ -300,7 +304,7 @@ On failure (AFK_MODE=false):
 
 ### §1.1 KB Loading
 
-Read via Read tool (NOT SlashCommand):
+Read via Read tool:
 
 1. `{RP1_ROOT}/context/index.md` - project structure, domain
 2. `{RP1_ROOT}/context/concept_map.md` - domain terminology
@@ -320,6 +324,7 @@ Check for project ctx:
 | AFK | Auto-match FEATURE_ID against PRD filenames/titles. Use most recent if multiple. Log choice. |
 
 If PRD selected:
+
 - Read PRD + charter for scope ctx
 - Add `**Parent PRD**: [name](../../prds/name.md)` to output
 
@@ -328,6 +333,7 @@ No charter/PRD: display tip, continue (non-blocking).
 ### §1.3 Ambiguity Resolution
 
 **Detect**:
+
 - Vague terms: "fast", "secure", "user-friendly", "scalable"
 - Missing actors: "the system should..." (which users?)
 - Undefined scope: "etc.", "various features"
@@ -414,6 +420,7 @@ Write to `{RP1_ROOT}/work/features/{FEATURE_ID}/requirements.md`:
 ```
 
 **AFK Mode Output**: Include at end:
+
 - `## AFK Mode: Auto-Selected Defaults` - PRD association choices
 - `## AFK Mode: Inferred Decisions` - ambiguity resolutions table
 
@@ -437,7 +444,7 @@ Update progress -> Step 1 COMPLETED, proceed to Step 2.
 
 ### §2.1 KB Loading
 
-Read via Read tool (NOT SlashCommand):
+Read via Read tool:
 
 1. `{RP1_ROOT}/context/index.md` - project structure, domain
 2. `{RP1_ROOT}/context/patterns.md` - tech patterns, naming, impl patterns
@@ -448,6 +455,7 @@ If KB missing: warn, continue w/ codebase analysis fallback.
 ### §2.2 Mode Detection
 
 **UPDATE_MODE**: Check if `{RP1_ROOT}/work/features/{FEATURE_ID}/design.md` exists:
+
 - Exists: `UPDATE_MODE = true` (design iteration)
 - Not exists: `UPDATE_MODE = false` (fresh design)
 
@@ -469,12 +477,14 @@ Before output, perform analysis in `<design_thinking>` tags:
 ### §2.4 Assumption Analysis
 
 Identify assumptions that could invalidate design:
+
 - External API capabilities/limitations
 - System performance characteristics
 - Third-party library behaviors
 - Existing patterns not yet verified
 
 For each, assess:
+
 - **Impact if wrong**: HIGH (invalidates design) / MEDIUM (requires changes) / LOW (minor adjustments)
 - **Confidence**: HIGH (well-documented) / MEDIUM (some evidence) / LOW (uncertain)
 
@@ -527,6 +537,7 @@ Write to `{RP1_ROOT}/work/features/{FEATURE_ID}/design.md`:
 | 9 | Design Decisions Log | - |
 
 **Diagram Selection**:
+
 - Simple (single component): Architecture only
 - API/integration: Architecture + Sequence
 - Data-heavy: Architecture + Data Model
@@ -631,6 +642,7 @@ Task tool invocation:
 **Step 3**: After tester completes, incorporate findings into design. Document in design-decisions.md.
 
 **Skip Hypothesis Validation When**:
+
 - Assumptions well-documented in official sources
 - Self-evident from existing code
 - LOW impact if wrong
@@ -743,6 +755,7 @@ cd {worktree_path}
 | Branch | `git branch --show-current` | Matches `branch` value |
 
 **On failure**:
+
 1. STOP
 2. Report: which check failed, expected vs actual
 3. Cleanup: `cd {original_cwd} && rp1 agent-tools worktree cleanup {worktree_path}`
@@ -805,9 +818,11 @@ Read task file. Error if missing/empty.
 | 4 | `complexity` | simple/medium/complex (default: medium) |
 
 **Derived**:
+
 - `is_doc_task`: true if ID starts w/ "TD"
 
 **TD* tasks** also extract from description:
+
 - `doc_type`: add/edit/remove
 - `target`: path
 - `section`: section name
@@ -954,6 +969,7 @@ prompt: |
 ```
 
 **Key behavior**:
+
 - SCOPE uses `{basedOn}..HEAD` for line-scoped filtering
 - If COMMIT_CHANGES=true, commits with: `style: remove unnecessary comments`
 
@@ -1047,11 +1063,13 @@ git log {basedOn}..HEAD --oneline --format="%h %an <%ae> %s"
 ```
 
 **Validate**:
+
 - Commit count > 0
 - All commits descend from `basedOn`
 - No unexpected authors
 
 **On failure**:
+
 1. STOP push
 2. Preserve worktree (do NOT cleanup)
 3. Report anomaly
@@ -1080,6 +1098,7 @@ while attempt <= max:
 ```
 
 **On failure**: Report w/ recovery guidance:
+
 - "Authentication failed" -> `gh auth login` or SSH key
 - "Network error" -> check connectivity
 - Other -> `git push -u origin {branch}` to retry
@@ -1108,6 +1127,7 @@ EOF
 ```
 
 **Error handling**:
+
 - "PR already exists" -> Report URL, treat as success
 - Other failures -> Warn only (branch pushed)
 
@@ -1296,6 +1316,7 @@ Items requiring manual verification before merge:
 | 3: Comment Check | WARN | Advisory only |
 
 **Overall Status**:
+
 - VERIFIED: Phases 1 + 2 both PASS
 - FAILED: Either Phase 1 or 2 FAIL
 
@@ -1498,12 +1519,14 @@ Update progress -> Step 6 COMPLETED (or DECLINED if user aborted).
 **CRITICAL**: Single-pass execution. Execute IMMEDIATELY.
 
 **DO NOT**:
+
 - Ask for clarification mid-workflow
 - Wait for user feedback between steps
 - Loop or re-implement failed steps beyond defined retry limits
 - Request additional info after workflow starts
 
 **Blocking issue handling**:
+
 1. Document error clearly w/ step ctx
 2. Mark step FAILED or BLOCKED
 3. Continue to next step (if AFK) or prompt retry/skip/abort (if interactive)
