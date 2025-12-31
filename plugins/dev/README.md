@@ -20,10 +20,11 @@ Then install dev plugin:
 /plugin install rp1-dev
 ```
 
-## Commands (15)
+## Commands (16)
 
-### Project Onboarding (2)
+### Project Onboarding (3)
 - `/blueprint [prd-name]` - Guided wizard to capture project vision via charter + PRDs
+- `/blueprint-archive <prd-name>` - Archive completed PRD with associated features
 - `/bootstrap [project-name]` - Bootstrap a new project with charter discovery and tech stack scaffolding
 
 **Blueprint Flow** (for brownfield projects):
