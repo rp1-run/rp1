@@ -69,6 +69,7 @@ Before output, perform analysis in `<design_thinking>` tags:
 | 6 | Technical/business/resource constraints, emphasize pattern consistency |
 | 7 | Technical risks + mitigation strategies |
 | 8 | Assumption analysis (see §5) |
+| 9 | DAG analysis: identify impl components, map dependencies, group parallelizable tasks (see §7.1) |
 
 ## §5 Assumption Analysis
 
@@ -121,10 +122,11 @@ Write to `{RP1_ROOT}/work/features/{FEATURE_ID}/design.md`:
 | 3 | Detailed Design | Data Model if data changes |
 | 4 | Technology Stack | - |
 | 5 | Implementation Plan | - |
-| 6 | Testing Strategy | w/ Test Value Assessment |
-| 7 | Deployment Design | - |
-| 8 | Documentation Impact | See format below |
-| 9 | Design Decisions Log | - |
+| 6 | Implementation DAG | See §7.1 format (skip if single-component) |
+| 7 | Testing Strategy | w/ Test Value Assessment |
+| 8 | Deployment Design | - |
+| 9 | Documentation Impact | See format below |
+| 10 | Design Decisions Log | - |
 
 **Diagram Selection**:
 
@@ -154,6 +156,45 @@ Each test MUST trace to app requirement, not library feature.
 |------|--------|---------|-----------|-----------|
 | add/edit/remove | path/file.md | section | {kb_file}:{anchor} | reason |
 ```
+
+### §7.1 Implementation DAG Format
+
+**Inclusion Rule**: Include for 2+ implementation components. Omit for single-component designs (no parallelization value).
+
+**Format**:
+
+```markdown
+## Implementation DAG
+
+**Parallel Groups** (tasks with no inter-dependencies):
+
+1. [T1, T2, T3] - {reason tasks are parallel}
+2. [T4, T5] - {reason}
+3. [T6] - {reason}
+
+**Dependencies**:
+
+- T4 -> T1 ({reason}: {detail})
+- T6 -> [T4, T5] ({reason}: multiple deps)
+
+**Critical Path**: T1 -> T4 -> T6
+```
+
+**Task ID Rules**:
+- T{N} corresponds to Implementation Plan components
+- Sequential starting from T1
+- Each T{N} in exactly one parallel group
+
+**Parallelization Bias** - default parallel unless hard dependency exists:
+
+| Hard Dependency | Example | Result |
+|-----------------|---------|--------|
+| Data | B reads what A writes | B -> A |
+| Interface | B uses API A defines | B -> A |
+| Build | B imports module A creates | B -> A |
+| Sequential workflow | B validates A output | B -> A |
+
+**NOT hard dependencies** (can be parallel): same library, different parts of same file, similar complexity, same category.
 
 ## §8 Decisions Output
 
