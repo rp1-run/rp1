@@ -143,7 +143,7 @@ start_step = 6 (archive)
 | Step | Name | Agent(s) |
 |------|------|----------|
 | 1 | Requirements | Inline logic |
-| 2 | Design | feature-tasker, hypothesis-tester (opt) |
+| 2 | Design | hypothesis-tester (opt), feature-tasker |
 | 3 | Tasks | feature-tasker |
 | 4 | Build | task-builder, task-reviewer, comment-cleaner, scribe |
 | 5 | Verify | code-checker, feature-verifier, comment-cleaner |
@@ -247,7 +247,7 @@ On failure (AFK_MODE=false):
 **Steps 4-6 (Non-foundational)**:
 
 1. Display error w/ step ctx, artifacts status
-2. AskUserQuestion: `How to proceed? [retry/skip/abort]`
+2. AskUserQuestion: `How shall we proceed? [retry/skip/abort]`
 3. Handle:
    - retry: re-execute step
    - skip: mark blocked, continue (warn about deps)
@@ -616,22 +616,9 @@ When user requests scope changes during session:
 - **Rationale**: [Why needed]
 ```
 
-### §2.9 Task Generation
+### §2.9 Hypothesis Testing (Optional)
 
-After writing design docs, spawn feature-tasker:
-
-```
-Task tool invocation:
-  subagent_type: rp1-dev:feature-tasker
-  prompt: |
-    FEATURE_ID: {FEATURE_ID}
-    UPDATE_MODE: {true if design.md existed, false otherwise}
-    RP1_ROOT: {rp1 root directory}
-```
-
-Wait for completion. Tasker reads design, generates tasks, writes to feature dir.
-
-### §2.10 Hypothesis Testing (Optional)
+**IMPORTANT**: Validate hypotheses BEFORE task generation. If hypotheses fail, design changes → tasks would be invalid.
 
 If §2.4 flagged HIGH-impact + LOW/MEDIUM-confidence assumptions:
 
@@ -665,7 +652,7 @@ Task tool invocation:
   prompt: "Validate hypotheses for feature {FEATURE_ID}"
 ```
 
-**Step 3**: After tester completes, incorporate findings into design. Document in design-decisions.md.
+**Step 3**: After tester completes, incorporate findings into design. Update design.md and design-decisions.md if needed.
 
 **Skip Hypothesis Validation When**:
 
@@ -673,6 +660,21 @@ Task tool invocation:
 - Self-evident from existing code
 - LOW impact if wrong
 - HIGH confidence in all critical assumptions
+
+### §2.10 Task Generation
+
+After design finalized (and hypotheses validated if applicable), spawn feature-tasker:
+
+```
+Task tool invocation:
+  subagent_type: rp1-dev:feature-tasker
+  prompt: |
+    FEATURE_ID: {FEATURE_ID}
+    UPDATE_MODE: {true if design.md existed, false otherwise}
+    RP1_ROOT: {rp1 root directory}
+```
+
+Wait for completion. Tasker reads validated design, generates tasks, writes to feature dir.
 
 ### §2.11 Completion
 
