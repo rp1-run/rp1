@@ -191,8 +191,9 @@ git checkout {branch} -- .  # revert changes
 
 ## 🧹 Cleanup (Required)
 
-When done reviewing, remove the worktree:
+When done reviewing, return to the main repo and remove the worktree:
 ```bash
+cd {original_cwd}
 git worktree remove {worktree_path}
 ```
 
