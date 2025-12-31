@@ -2,7 +2,7 @@
 name: build
 version: 2.0.0
 description: End-to-end feature workflow (requirements -> design -> tasks -> build -> verify -> archive) in a single command.
-argument-hint: "feature-id [--afk] [--no-worktree] [--push] [--create-pr]"
+argument-hint: "feature-id [requirements] [--afk] [--no-worktree] [--push] [--create-pr]"
 tags:
   - core
   - feature
@@ -20,6 +20,7 @@ author: cloud-on-prem/rp1
 | Name | Pos | Default | Purpose |
 |------|-----|---------|---------|
 | FEATURE_ID | $1 | (req) | Feature identifier |
+| REQUIREMENTS | $2 | false | requirements for building the feature |
 | --afk | flag | false | Non-interactive mode, auto-selects defaults |
 | --no-worktree | flag | false | Disable worktree isolation |
 | --push | flag | false | Push branch after build |
@@ -43,6 +44,7 @@ CREATE_PR = "--create-pr" in args
 **Validation**:
 
 1. FEATURE_ID: Required. Error if empty.
+2. REQUIREMENTS: Optional. If provided, use as initial requirements.
 2. Create feature dir if missing.
 
 ## §AFK-MODE
@@ -337,6 +339,7 @@ Task tool invocation:
     RP1_ROOT: {RP1_ROOT}
 
     Generate requirements specification for feature.
+    Here are the raw requirements: <REQUIREMENTS>
 ```
 
 ### §1.2 Response Handling
@@ -357,6 +360,7 @@ On success: `Requirements completed: {artifact_path}`
 ### §2.1 Mode Detection
 
 Check if `{RP1_ROOT}/work/features/{FEATURE_ID}/design.md` exists:
+
 - Exists: `UPDATE_MODE = true`
 - Not exists: `UPDATE_MODE = false`
 
@@ -411,6 +415,7 @@ Task tool invocation:
 ### §2.6 Completion
 
 On success:
+
 ```
 Design completed: {RP1_ROOT}/work/features/{FEATURE_ID}/
 - design.md
@@ -481,6 +486,7 @@ args: task_slug={FEATURE_ID}, agent_prefix=feature, create_pr={CREATE_PR}
 ```
 
 This sets up an isolated worktree. The skill handles:
+
 - Worktree creation and directory change
 - State verification
 - Dependency installation
@@ -758,6 +764,7 @@ Report: "Build incomplete (blocked tasks). Branch not pushed."
 #### §4.5.2 Publish (via skill)
 
 The worktree-workflow skill handles:
+
 - Commit ownership validation
 - Push branch (if `--push` or `--create-pr`)
 - Create PR (if `--create-pr`)
@@ -1058,6 +1065,7 @@ questions:
 ```
 
 **Step 2**: Generate task ID:
+
 - Parse tasks.md for highest T{N} ID (ignore TD* doc tasks)
 - New ID = T{N+1}
 
@@ -1103,6 +1111,7 @@ Task tool invocation:
 ```
 
 **Step 6**: Handle result:
+
 - SUCCESS: Mark task done, update summary
 - FAILURE: Retry once with feedback, mark blocked if still fails
 
@@ -1111,11 +1120,13 @@ Task tool invocation:
 #### §5.8.4 Option: Archive
 
 When user selects "Archive":
+
 - Proceed to §STEP-6
 
 #### §5.8.5 Option: Do Nothing
 
 When user selects "Do nothing":
+
 - Mark Step 6 as SKIPPED
 - Output final summary
 - Exit workflow gracefully
@@ -1132,6 +1143,7 @@ To archive: /feature-archive {FEATURE_ID}
 #### §5.8.6 AFK Mode
 
 When AFK_MODE = true:
+
 - Skip §5.8 entirely
 - Log decision: "Post-verify options skipped (AFK mode)"
 - Auto-proceed to Step 6 (archive)
