@@ -142,8 +142,8 @@ start_step = 6 (archive)
 
 | Step | Name | Agent(s) |
 |------|------|----------|
-| 1 | Requirements | Inline logic |
-| 2 | Design | hypothesis-tester (opt), feature-tasker |
+| 1 | Requirements | feature-requirement-gatherer |
+| 2 | Design | feature-architect, hypothesis-tester (opt), feature-tasker |
 | 3 | Tasks | feature-tasker |
 | 4 | Build | task-builder, task-reviewer, comment-cleaner, scribe |
 | 5 | Verify | code-checker, feature-verifier, comment-cleaner |
@@ -324,327 +324,66 @@ On failure (AFK_MODE=false):
 
 **Skip if**: `requirements.md` contains `## 5. Functional Requirements`
 
-**Role**: Requirements Gatherer - transforms high-level reqs into detailed specs.
+**Purpose**: Generate requirements specification. Delegates to feature-requirement-gatherer agent.
 
-**Constraint**: WHAT not HOW. No tech impl, arch, or code. Focus on business needs.
-
-### §1.1 KB Loading
-
-Read via Read tool:
-
-1. `{RP1_ROOT}/context/index.md` - project structure, domain
-2. `{RP1_ROOT}/context/concept_map.md` - domain terminology
-
-If KB missing: warn, continue w/ best-effort.
-
-### §1.2 PRD Detection
-
-Check for project ctx:
-
-1. Charter: `{RP1_ROOT}/context/charter.md`
-2. PRDs: `{RP1_ROOT}/work/prds/*.md`
-
-| Mode | PRD Action |
-|------|------------|
-| Interactive | If multiple PRDs: prompt selection. If single: confirm association. |
-| AFK | Auto-match FEATURE_ID against PRD filenames/titles. Use most recent if multiple. Log choice. |
-
-If PRD selected:
-
-- Read PRD + charter for scope ctx
-- Add `**Parent PRD**: [name](../../prds/name.md)` to output
-
-No charter/PRD: display tip, continue (non-blocking).
-
-### §1.3 Ambiguity Resolution
-
-**Detect**:
-
-- Vague terms: "fast", "secure", "user-friendly", "scalable"
-- Missing actors: "the system should..." (which users?)
-- Undefined scope: "etc.", "various features"
-- Conflicting requirements
-
-**Question Framework**:
-
-| Category | Focus |
-|----------|-------|
-| WHO | User types, actors, permissions, stakeholders |
-| WHAT | Specific actions, data reqs, success criteria |
-| CONSTRAINTS | Performance, compliance, business rules |
-| SCOPE | Included/excluded, MVP def, dependencies |
-
-**Resolution**:
-
-| Mode | Action |
-|------|--------|
-| Interactive | AskUserQuestion for clarification |
-| AFK | Infer from KB ctx, PRD constraints, EXTRA_CONTEXT. Apply conservative defaults. Log all inferences. |
-
-### §1.4 Requirements Structure
-
-Each requirement MUST include:
-
-| Element | Description |
-|---------|-------------|
-| Actor | WHO needs this |
-| Action | WHAT they need to do |
-| Outcome | HOW success is defined (measurable) |
-| Rationale | WHY needed (business perspective) |
-| Acceptance | Testable conditions |
-| Priority | Must/Should/Could/Won't Have |
-
-**Exclude**: Tech impl, arch decisions, tech choices, DB schemas, API designs, code examples.
-
-### §1.5 Output Template
-
-Write to `{RP1_ROOT}/work/features/{FEATURE_ID}/requirements.md`:
-
-```markdown
-# Requirements Specification: [Feature Title]
-
-**Feature ID**: [FEATURE_ID]
-**Parent PRD**: [PRD Name](../../prds/prd-name.md) _(if associated)_
-**Version**: 1.0.0
-**Status**: Draft
-**Created**: [Date]
-
-## 1. Feature Overview
-[One paragraph - business perspective]
-
-## 2. Business Context
-### 2.1 Problem Statement
-### 2.2 Business Value
-### 2.3 Success Metrics
-
-## 3. Stakeholders & Users
-### 3.1 User Types
-### 3.2 Stakeholder Interests
-
-## 4. Scope Definition
-### 4.1 In Scope
-### 4.2 Out of Scope
-### 4.3 Assumptions
-
-## 5. Functional Requirements
-[REQ-ID format w/ priority, user type, requirement, rationale, acceptance criteria]
-
-## 6. Non-Functional Requirements
-### 6.1 Performance Expectations
-### 6.2 Security Requirements
-### 6.3 Usability Requirements
-### 6.4 Compliance Requirements
-
-## 7. User Stories
-[STORY-ID format w/ As a/I want/So that + GIVEN/WHEN/THEN]
-
-## 8. Business Rules
-
-## 9. Dependencies & Constraints
-
-## 10. Clarifications Log
-```
-
-**AFK Mode Output**: Include at end:
-
-- `## AFK Mode: Auto-Selected Defaults` - PRD association choices
-- `## AFK Mode: Inferred Decisions` - ambiguity resolutions table
-
-### §1.6 Completion
-
-On success:
+### §1.1 Agent Spawn
 
 ```
-Requirements completed: {RP1_ROOT}/work/features/{FEATURE_ID}/requirements.md
+Task tool invocation:
+  subagent_type: rp1-dev:feature-requirement-gatherer
+  prompt: |
+    FEATURE_ID: {FEATURE_ID}
+    AFK_MODE: {AFK_MODE}
+    RP1_ROOT: {RP1_ROOT}
+
+    Generate requirements specification for feature.
 ```
 
-Update progress -> Step 1 COMPLETED, proceed to Step 2.
+### §1.2 Response Handling
+
+| Response | Action |
+|----------|--------|
+| `status: success` | Log artifact path, update progress, proceed to Step 2 |
+| `status: error` | ABORT (foundational step). Display error, output summary |
+
+On success: `Requirements completed: {artifact_path}`
 
 ## §STEP-2: Design
 
 **Skip if**: `design.md` contains `## 2. Architecture`
 
-**Role**: TechDesigner - transforms requirements -> technical design. HOW to implement via architecture, tech choices, APIs, data models.
+**Purpose**: Generate technical design. Delegates to feature-architect agent, then optionally hypothesis-tester, then feature-tasker.
 
-**Constraint**: Follow existing patterns. Only introduce new if user explicitly requests.
+### §2.1 Mode Detection
 
-### §2.1 KB Loading
+Check if `{RP1_ROOT}/work/features/{FEATURE_ID}/design.md` exists:
+- Exists: `UPDATE_MODE = true`
+- Not exists: `UPDATE_MODE = false`
 
-Read via Read tool:
+### §2.2 Architect Spawn
 
-1. `{RP1_ROOT}/context/index.md` - project structure, domain
-2. `{RP1_ROOT}/context/patterns.md` - tech patterns, naming, impl patterns
-3. `{RP1_ROOT}/context/architecture.md` - arch patterns, layers, integration
+```
+Task tool invocation:
+  subagent_type: rp1-dev:feature-architect
+  prompt: |
+    FEATURE_ID: {FEATURE_ID}
+    AFK_MODE: {AFK_MODE}
+    UPDATE_MODE: {UPDATE_MODE}
+    RP1_ROOT: {RP1_ROOT}
 
-If KB missing: warn, continue w/ codebase analysis fallback.
-
-### §2.2 Mode Detection
-
-**UPDATE_MODE**: Check if `{RP1_ROOT}/work/features/{FEATURE_ID}/design.md` exists:
-
-- Exists: `UPDATE_MODE = true` (design iteration)
-- Not exists: `UPDATE_MODE = false` (fresh design)
-
-### §2.3 Analysis
-
-Before output, perform analysis in `<design_thinking>` tags:
-
-| Step | Analysis |
-|------|----------|
-| 1 | Extract functional/non-functional reqs systematically |
-| 2 | CRITICAL - analyze codebase patterns: arch, data access, API, frontend, testing |
-| 3 | Per requirement: specified vs needs decision. List gaps, prioritize alignment w/ existing stack |
-| 4 | Step-by-step high-level approach following existing patterns |
-| 5 | All integration points w/ systems, APIs, data sources |
-| 6 | Technical/business/resource constraints, emphasize pattern consistency |
-| 7 | Technical risks + mitigation strategies |
-| 8 | Assumption analysis (see §2.4) |
-
-### §2.4 Assumption Analysis
-
-Identify assumptions that could invalidate design:
-
-- External API capabilities/limitations
-- System performance characteristics
-- Third-party library behaviors
-- Existing patterns not yet verified
-
-For each, assess:
-
-- **Impact if wrong**: HIGH (invalidates design) / MEDIUM (requires changes) / LOW (minor adjustments)
-- **Confidence**: HIGH (well-documented) / MEDIUM (some evidence) / LOW (uncertain)
-
-Flag for hypothesis validation: HIGH impact + LOW/MEDIUM confidence.
-
-### §2.5 Technology Selection
-
-When requirements don't specify tech choices:
-
-**Categories**: Language/Framework | Data Storage | Integration Patterns | Infrastructure
-
-| Mode | Action |
-|------|--------|
-| Interactive | AskUserQuestion for preferences between options |
-| AFK | Auto-select from KB patterns.md, existing codebase patterns, conservative defaults |
-
-**AFK Auto-Selection Priority**:
-
-| Decision Type | Primary Source | Fallback |
-|---------------|----------------|----------|
-| Technology | KB patterns.md | Most common in codebase |
-| Architecture | KB architecture.md | Existing codebase arch |
-| Design | PRD constraints | Conservative defaults |
-| Test approach | Existing test patterns | Standard unit coverage |
-
-**AFK Logging**: Record all auto-selected decisions in design-decisions.md:
-
-```markdown
-## AFK Mode: Auto-Selected Technology Decisions
-
-| Decision | Choice | Source | Rationale |
-|----------|--------|--------|-----------|
-| {decision} | {choice} | {KB/codebase/default} | {why} |
+    Generate technical design from requirements.
 ```
 
-### §2.6 Output: design.md
+### §2.3 Architect Response
 
-Write to `{RP1_ROOT}/work/features/{FEATURE_ID}/design.md`:
+| Response | Action |
+|----------|--------|
+| `status: success` | Extract `flagged_hypotheses`, proceed to §2.4 |
+| `status: error` | ABORT (foundational step). Display error, output summary |
 
-| # | Section | Diagram (if valuable) |
-|---|---------|----------------------|
-| 1 | Design Overview | High-Level Architecture (graph TB/LR) |
-| 2 | Architecture | Component/Sequence diagrams as needed |
-| 3 | Detailed Design | Data Model if data changes |
-| 4 | Technology Stack | - |
-| 5 | Implementation Plan | - |
-| 6 | Testing Strategy | w/ Test Value Assessment |
-| 7 | Deployment Design | - |
-| 8 | Documentation Impact | See format below |
-| 9 | Design Decisions Log | - |
+### §2.4 Hypothesis Testing (Conditional)
 
-**Diagram Selection**:
-
-- Simple (single component): Architecture only
-- API/integration: Architecture + Sequence
-- Data-heavy: Architecture + Data Model
-- Complex multi-system: 3-4 as needed
-
-**Test Value Assessment**:
-
-| Valuable (design for) | Avoid (do NOT design for) |
-|-----------------------|--------------------------|
-| Business logic | Library behavior verification |
-| Component integration | Framework feature validation |
-| App-specific error handling | Language primitive testing |
-| API contract verification | Third-party API behavior |
-| App-unique data transforms | - |
-
-Each test MUST trace to app requirement, not library feature.
-
-**Documentation Impact Format**:
-
-```markdown
-## Documentation Impact
-
-| Type | Target | Section | KB Source | Rationale |
-|------|--------|---------|-----------|-----------|
-| add/edit/remove | path/file.md | section | {kb_file}:{anchor} | reason |
-```
-
-### §2.7 Output: design-decisions.md
-
-Log of all major technology/architecture decisions w/ rationales.
-
-Write to `{RP1_ROOT}/work/features/{FEATURE_ID}/design-decisions.md`.
-
-### §2.8 Scope Changes (Addendum)
-
-When user requests scope changes during session:
-
-1. **Scope Check**:
-   - In scope: Enhancements/clarifications logically belonging to feature
-   - Out of scope: Redirect to separate feature
-
-2. Append to requirements.md:
-
-```markdown
-## Addendum
-
-### ADD-001: [Title] (added during design)
-- **Source**: Design session feedback
-- **Change**: [Description]
-- **Rationale**: [Why needed]
-```
-
-### §2.9 Hypothesis Testing (Optional)
-
-**IMPORTANT**: Validate hypotheses BEFORE task generation. If hypotheses fail, design changes → tasks would be invalid.
-
-If §2.4 flagged HIGH-impact + LOW/MEDIUM-confidence assumptions:
-
-**Step 1**: Create `{RP1_ROOT}/work/features/{FEATURE_ID}/hypotheses.md`:
-
-```markdown
-# Hypothesis Document: {FEATURE_ID}
-
-**Version**: 1.0.0 | **Created**: {timestamp} | **Status**: PENDING
-
-## Hypotheses
-
-### HYP-001: {Title}
-**Risk Level**: HIGH | **Status**: PENDING
-
-**Statement**: {assumption}
-**Context**: {why matters}
-
-**Validation Criteria**:
-- CONFIRM: {evidence}
-- REJECT: {evidence}
-
-**Method**: CODE_EXPERIMENT | CODEBASE_ANALYSIS | EXTERNAL_RESEARCH
-```
-
-**Step 2**: Spawn hypothesis-tester:
+**If `flagged_hypotheses` non-empty**:
 
 ```
 Task tool invocation:
@@ -652,42 +391,32 @@ Task tool invocation:
   prompt: "Validate hypotheses for feature {FEATURE_ID}"
 ```
 
-**Step 3**: After tester completes, incorporate findings into design. Update design.md and design-decisions.md if needed.
+After tester completes, incorporate findings. Update design if needed.
 
-**Skip Hypothesis Validation When**:
+**Skip if**: `flagged_hypotheses` empty or all HIGH confidence.
 
-- Assumptions well-documented in official sources
-- Self-evident from existing code
-- LOW impact if wrong
-- HIGH confidence in all critical assumptions
+### §2.5 Task Generation
 
-### §2.10 Task Generation
-
-After design finalized (and hypotheses validated if applicable), spawn feature-tasker:
+After design finalized, spawn feature-tasker:
 
 ```
 Task tool invocation:
   subagent_type: rp1-dev:feature-tasker
   prompt: |
     FEATURE_ID: {FEATURE_ID}
-    UPDATE_MODE: {true if design.md existed, false otherwise}
-    RP1_ROOT: {rp1 root directory}
+    UPDATE_MODE: {UPDATE_MODE}
+    RP1_ROOT: {RP1_ROOT}
 ```
 
-Wait for completion. Tasker reads validated design, generates tasks, writes to feature dir.
-
-### §2.11 Completion
+### §2.6 Completion
 
 On success:
-
 ```
 Design completed: {RP1_ROOT}/work/features/{FEATURE_ID}/
 - design.md
 - design-decisions.md
 - tasks.md (generated by feature-tasker)
 ```
-
-**AFK Mode**: Add summary of auto-selected decisions.
 
 Update progress -> Step 2 COMPLETED, proceed to Step 3.
 
@@ -744,83 +473,27 @@ Update progress -> Step 3 COMPLETED, proceed to Step 4.
 
 **Skip if**: `--no-worktree` flag set
 
-#### §4.1.1 Preserve CWD
+Use the Skill tool to invoke the worktree-workflow skill:
 
-```bash
-original_cwd=$(pwd)
+```
+skill: "rp1-dev:worktree-workflow"
+args: task_slug={FEATURE_ID}, agent_prefix=feature, create_pr={CREATE_PR}
 ```
 
-Store for restoration in §4.5.
+This sets up an isolated worktree. The skill handles:
+- Worktree creation and directory change
+- State verification
+- Dependency installation
 
-#### §4.1.2 Create Worktree
-
-```bash
-rp1 agent-tools worktree create {FEATURE_ID} --prefix feature
-```
-
-Parse JSON response:
-
-| Field | Store As | Purpose |
-|-------|----------|---------|
-| `path` | `worktree_path` | Abs path to worktree |
-| `branch` | `branch` | Branch name (feature/...) |
-| `basedOn` | `basedOn` | Base commit for diff scope |
-
-**On failure**: STOP, report error, do not proceed.
-
-#### §4.1.3 Enter Worktree
-
-```bash
-cd {worktree_path}
-```
-
-#### §4.1.4 Verify State
-
-| Check | Command | Expected |
-|-------|---------|----------|
-| History | `git log --oneline -3` | Normal commits |
-| Base commit | Verify `basedOn` in history | Should be HEAD or recent |
-| Branch | `git branch --show-current` | Matches `branch` value |
-
-**On failure**:
-
-1. STOP
-2. Report: which check failed, expected vs actual
-3. Cleanup: `cd {original_cwd} && rp1 agent-tools worktree cleanup {worktree_path}`
-4. Exit w/ error
-
-#### §4.1.5 Install Dependencies
-
-Check lockfiles (more specific) then manifests (examples below; infer the correct one from project):
-
-| File | Command |
-|------|---------|
-| `bun.lockb` | `bun install` |
-| `package-lock.json` | `npm ci` |
-| `yarn.lock` | `yarn install --frozen-lockfile` |
-| `pnpm-lock.yaml` | `pnpm install --frozen-lockfile` |
-| `Cargo.lock` | `cargo build --locked` |
-| `package.json` (no lock) | `npm install` |
-| `Cargo.toml` (no lock) | `cargo build` |
-| `requirements.txt` | `pip install -r requirements.txt` |
-| `pyproject.toml` | `pip install -e .` |
-| `go.mod` | `go mod download` |
-| `Gemfile` | `bundle install` |
-
-**No files**: Skip install.
-**Failure**: STOP, cleanup worktree, report error.
-
-#### §4.1.6 Variables Set
-
-After setup:
+Store the returned values:
 
 | Variable | Value |
 |----------|-------|
-| `original_cwd` | Dir to restore after cleanup |
 | `worktree_path` | Abs path to worktree |
 | `branch` | Branch name for push/PR |
 | `basedOn` | Base commit for validation |
-| `use_worktree` | true (false if `--no-worktree`) |
+
+**On failure**: STOP, report error, do not proceed.
 
 ### §4.2 Task Parsing
 
@@ -1078,119 +751,19 @@ Items requiring manual verification before merge:
 
 #### §4.5.1 Check Build Status
 
-**If any tasks blocked**: Skip push/PR, proceed to §4.5.6.
+**If any tasks blocked**: Skip push/PR.
 
 Report: "Build incomplete (blocked tasks). Branch not pushed."
 
-Set `should_push = false`, `should_pr = false`.
+#### §4.5.2 Publish (via skill)
 
-#### §4.5.2 Commit Ownership Validation
-
-```bash
-git log {basedOn}..HEAD --oneline --format="%h %an <%ae> %s"
-```
-
-**Validate**:
-
-- Commit count > 0
-- All commits descend from `basedOn`
-- No unexpected authors
-
-**On failure**:
-
-1. STOP push
-2. Preserve worktree (do NOT cleanup)
-3. Report anomaly
-4. Proceed to §4.5.6 (restore only)
-
-#### §4.5.3 Push Branch
-
-**Execute if**: (`--push` OR `--create-pr`) AND validation passed AND no blocked tasks
-
-```bash
-git push -u origin {branch}
-```
-
-**Retry**: 3 attempts w/ backoff (10s, 20s, 30s)
-
-```
-attempt = 1, max = 3, delays = [10, 20, 30]
-while attempt <= max:
-  result = git push -u origin {branch}
-  if success: break
-  if attempt < max:
-    sleep(delays[attempt-1])
-    attempt++
-  else:
-    push_failed = true
-```
-
-**On failure**: Report w/ recovery guidance:
-
-- "Authentication failed" -> `gh auth login` or SSH key
-- "Network error" -> check connectivity
-- Other -> `git push -u origin {branch}` to retry
-
-#### §4.5.4 Create PR
-
-**Execute if**: `--create-pr` AND push succeeded
-
-```bash
-gh pr create --head {branch} --base main \
-  --title "feat({FEATURE_ID}): {summary}" \
-  --body "$(cat <<'EOF'
-## Summary
-{task summaries from completed tasks}
-
-## Tasks Implemented
-{list of task IDs and descriptions}
-
-## Test Plan
-- Verification completed as part of build workflow (Step 5)
-
----
-Generated by https://rp1.run (feature-build)
-EOF
-)"
-```
-
-**Error handling**:
-
-- "PR already exists" -> Report URL, treat as success
-- Other failures -> Warn only (branch pushed)
-
-PR failure is NON-BLOCKING.
-
-#### §4.5.5 Dirty State Check
-
-```bash
-git status --porcelain
-```
-
-**If dirty** (output not empty):
-
-| Mode | Action |
-|------|--------|
-| AFK | Auto-commit w/ "chore: uncommitted changes from feature build". Log decision. |
-| Interactive | AskUserQuestion: Commit / Discard / Abort cleanup |
-
-**If clean**: Proceed to cleanup.
-
-#### §4.5.6 Restore Directory
-
-```bash
-cd {original_cwd}
-```
-
-**CRITICAL**: Must restore before cleanup.
-
-#### §4.5.7 Cleanup Worktree
-
-**Skip if**: Validation failed in §4.5.2 (preserve for investigation)
-
-```bash
-rp1 agent-tools worktree cleanup {worktree_path} --keep-branch
-```
+The worktree-workflow skill handles:
+- Commit ownership validation
+- Push branch (if `--push` or `--create-pr`)
+- Create PR (if `--create-pr`)
+- Dirty state resolution (AFK: auto-commit, Interactive: prompt)
+- Restore original directory
+- Cleanup worktree
 
 **Report**:
 
