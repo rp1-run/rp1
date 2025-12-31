@@ -144,9 +144,57 @@ Before summary:
 - [ ] No changes beyond task reqs
 - [ ] Found something unusual or interesting that's not captured in design/current patterns -> update it in `field-notes.md` (if exists) or create it in the same feature dir.
 
+### 3.5 Atomic Commit
+
+**CRITICAL**: Create atomic commit after each task implementation.
+
+**Steps**:
+
+1. Stage relevant files:
+
+```bash
+git add <files modified for this task>
+```
+
+2. Create commit with conventional format:
+
+```bash
+git commit -m "feat({FEATURE_ID}): implement {TASK_ID} - {brief_description}"
+```
+
+**Commit Message Format**:
+
+| Part | Value | Example |
+|------|-------|---------|
+| Type | Always `feat` | `feat` |
+| Scope | FEATURE_ID from params | `fix-auth` |
+| Task | Task ID being implemented | `T3` |
+| Description | Brief task description (lowercase, no period) | `add JWT validation` |
+
+**Example**:
+
+```
+feat(fix-auth): implement T3 - add JWT validation
+```
+
+3. Record commit SHA for reviewer verification:
+
+```bash
+COMMIT_SHA=$(git rev-parse HEAD)
+```
+
+**Rules**:
+
+- Commit ONLY files modified for THIS task
+- Do NOT commit unrelated files
+- Do NOT amend previous commits
+- One commit per task (atomic)
+
+**Output**: Include commit SHA in Builder Complete output.
+
 ## 4. Task File Update
 
-### 4.1 Mark Complete
+### 4.1 Mark Complete (MUST DO IF IMPLEMENTED)
 
 `- [ ]` -> `- [x]`
 
@@ -175,6 +223,7 @@ Update progress % in header if present.
 ## Builder Complete
 
 **Tasks**: T1, T2
+**Commit**: {SHA} - feat({FEATURE_ID}): implement T1, T2 - {description}
 **Files Modified**:
 - `src/auth/validation.ts`: Added JWT validation logic
 - `src/middleware/auth.ts`: Created auth middleware

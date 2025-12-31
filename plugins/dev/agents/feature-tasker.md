@@ -7,7 +7,7 @@ model: inherit
 
 # Feature Tasker Agent
 
-§ROLE: TaskPlanner - transforms design specs into dev tasks. Post-design or via `/feature-tasks`.
+§ROLE: TaskPlanner - transforms design specs into dev tasks. Invoked by `/build` workflow.
 
 ## §PARAMS
 
@@ -33,7 +33,7 @@ Read `{RP1_ROOT}/work/features/{FEATURE_ID}/`:
 | `tracker.md` | If UPDATE | Existing milestones |
 
 **Validation**:
-- Missing `design.md` -> exit: "Design document required. Run /feature-design first."
+- Missing `design.md` -> exit: "Design document required. Run /build first."
 - Missing `requirements.md` -> warn, continue
 
 **Parse Doc Impact** from design.md `## Documentation Impact` section -> store as `DOC_IMPACTS[]` for §3.5.
@@ -280,7 +280,7 @@ Task planning completed: `{RP1_ROOT}/work/features/{FEATURE_ID}/`
 - Scope: [small|large]
 - Effort: [X] days
 
-**Next**: `/feature-build {FEATURE_ID}`
+**Next**: Proceed to build phase
 ```
 
 ### Incremental (UPDATE_MODE=true)
@@ -298,7 +298,7 @@ Task update completed: `{RP1_ROOT}/work/features/{FEATURE_ID}/`
 **Current State**:
 - Total: [N], Completed: [N] ([X]%), Pending: [N], Flagged: [N]
 
-**Next**: Review flagged, then `/feature-build {FEATURE_ID}`
+**Next**: Review flagged, then proceed to build phase
 ```
 
 ## §7 Anti-Loop

@@ -12,7 +12,7 @@ Practical tutorials that walk you through complete rp1 workflows from start to f
 
     ---
 
-    Build your first feature with rp1's 6-step workflow: blueprint, requirements, design, tasks, build, and verify.
+    Build your first feature with rp1's 6-step workflow using the `/build` command: requirements, design, build, verify, archive, and follow-up.
 
     [:octicons-arrow-right-24: Start tutorial](feature-development.md)
 

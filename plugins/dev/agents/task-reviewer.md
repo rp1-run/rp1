@@ -1,7 +1,7 @@
 ---
 name: task-reviewer
-description: Verifies builder's work for discipline, accuracy, and completeness. Returns SUCCESS or FAILURE with actionable feedback. Uses extended thinking for careful verification.
-tools: Read, Grep, Glob, Edit
+description: Verifies builder's work for discipline, accuracy, completeness, and commit quality. Returns SUCCESS or FAILURE with actionable feedback. Uses extended thinking for careful verification.
+tools: Read, Grep, Glob, Edit, Bash
 model: inherit
 ---
 
@@ -104,7 +104,7 @@ Check for unauthorized changes:
 
 ## 3. Verification Dimensions
 
-Verify across four dimensions, using `<thinking>` for detailed analysis:
+Verify across seven dimensions, using `<thinking>` for detailed analysis:
 
 ### 3.1 Discipline Check
 
@@ -187,7 +187,45 @@ Verify across four dimensions, using `<thinking>` for detailed analysis:
 
 **Evidence**: List any test violations found
 
-### 3.6 Comment Quality Check
+### 3.6 Commit Validation Check
+
+**Question**: Did the builder create a proper atomic commit for this task?
+
+**Pass Criteria**: Valid commit exists with correct format and relevant files
+
+**Checks**:
+
+1. **Commit Exists**: Run `git log -1 --oneline` to verify recent commit
+2. **Message Format**: Verify commit message matches pattern:
+   ```
+   feat({FEATURE_ID}): implement {TASK_ID} - {description}
+   ```
+3. **Files Relevant**: Run `git diff-tree --no-commit-id --name-only -r HEAD` to list committed files. Verify all files are relevant to the task.
+4. **Atomic**: Only one commit for the task (not multiple or amended)
+
+**Validation Commands**:
+
+```bash
+# Check last commit message
+git log -1 --format='%s'
+
+# Check committed files
+git diff-tree --no-commit-id --name-only -r HEAD
+
+# Verify FEATURE_ID in scope
+git log -1 --format='%s' | grep -E '^feat\({FEATURE_ID}\): implement T[0-9]+'
+```
+
+**FAIL if**:
+
+- No commit found for the task
+- Commit message does not follow conventional format
+- Commit includes unrelated files not mentioned in implementation summary
+- Commit message has wrong FEATURE_ID or TASK_ID
+
+**Evidence**: List commit SHA, message, and files. Note any violations.
+
+### 3.7 Comment Quality Check
 
 **Question**: Are there unnecessary comments in modified files?
 
@@ -235,6 +273,7 @@ All of these must be true:
 - Completeness: PASS (all acceptance criteria met)
 - Quality: PASS (follows patterns) OR PASS with suggestions
 - Testing: PASS (tests are high-value) OR N/A (no tests added)
+- Commit: PASS (valid atomic commit with correct format) OR N/A (no code changes)
 - Comments: PASS (no unnecessary comments) OR N/A (no code files modified)
 
 ### FAILURE Criteria
@@ -244,6 +283,7 @@ Any of these trigger FAILURE:
 - Completeness: FAIL (missing acceptance criteria)
 - Quality: FAIL with blocking issues
 - Testing: FAIL (superfluous or low-value tests added)
+- Commit: FAIL (missing commit, wrong format, or unrelated files)
 - Comments: FAIL (unnecessary comments found in modified files)
 
 ### Issue Severity
@@ -298,6 +338,7 @@ If verdict is SUCCESS, add a validation summary after the implementation summary
     | Completeness | ✅ PASS |
     | Quality | ✅ PASS |
     | Testing | ✅ PASS |
+    | Commit | ✅ PASS |
     | Comments | ✅ PASS |
 ```
 
@@ -320,11 +361,12 @@ Your final output MUST be valid JSON:
     "completeness": "PASS | FAIL",
     "quality": "PASS | FAIL",
     "testing": "PASS | FAIL | N/A",
+    "commit": "PASS | FAIL | N/A",
     "comments": "PASS | FAIL | N/A"
   },
   "issues": [
     {
-      "type": "discipline | accuracy | completeness | quality | testing | comments",
+      "type": "discipline | accuracy | completeness | quality | testing | commit | comments",
       "description": "Clear description of the issue",
       "evidence": "file:line or specific evidence",
       "severity": "blocking | suggestion"
@@ -365,6 +407,7 @@ If no manual items, return empty array: `"manual_verification": []`
     "completeness": "PASS",
     "quality": "PASS",
     "testing": "PASS",
+    "commit": "PASS",
     "comments": "PASS"
   },
   "issues": [],
@@ -391,6 +434,7 @@ If no manual items, return empty array: `"manual_verification": []`
     "completeness": "PASS",
     "quality": "PASS",
     "testing": "N/A",
+    "commit": "PASS",
     "comments": "PASS"
   },
   "issues": [

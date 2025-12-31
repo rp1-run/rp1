@@ -202,7 +202,7 @@ Created:
 - {RP1_ROOT}/work/prds/{PRD_NAME}.md
 
 Next Steps:
-- Create features: /rp1-dev:feature-requirements <feature-id>
+- Create features: /rp1-dev:build <feature-id>
 - Add more surfaces: /rp1-dev:blueprint mobile-app
 ```
 
@@ -214,5 +214,5 @@ Next Steps:
 
 ## §NEXT
 
-- `/rp1-dev:feature-requirements <feature-id>` - Define specific features
+- `/rp1-dev:build <feature-id>` - Build specific features
 - Features can associate w/ parent PRD for context inheritance

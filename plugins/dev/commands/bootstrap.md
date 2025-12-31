@@ -216,7 +216,7 @@ Created: {RP1_ROOT}/context/charter.md, preferences.md, AGENTS.md, CLAUDE.md, RE
 
 Next: cd {PROJECT_NAME}, review code, run app (see README.md)
 
-Commands: /rp1-dev:feature-requirements, /rp1-dev:blueprint update, /rp1-base:knowledge-build
+Commands: /rp1-dev:build, /rp1-dev:blueprint update, /rp1-base:knowledge-build
 ```
 
 ## §7 Anti-Loop

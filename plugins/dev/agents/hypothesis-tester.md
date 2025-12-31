@@ -56,7 +56,7 @@ Read `{RP1_ROOT}/work/features/{FEATURE_ID}/hypotheses.md`
 If missing:
 ```
 ERROR: No hypotheses.md found at {path}
-Run /rp1-dev:feature-design to generate hypotheses first.
+Run /rp1-dev:build to generate hypotheses first.
 ```
 
 ### 2. Parse PENDING Hypotheses
