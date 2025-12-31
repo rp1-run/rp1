@@ -2,7 +2,7 @@
 
 **Project**: rp1 Plugin System
 **Analysis Date**: 2025-12-31
-**Total Components**: 95+ (30 commands, 33 agents, 5 skills, 27+ CLI modules)
+**Total Components**: 97+ (31 commands, 34 agents, 5 skills, 27+ CLI modules)
 
 ## Plugin Modules
 
@@ -50,7 +50,7 @@
 
 ### plugins/dev
 **Purpose**: Development workflow automation for features, code quality, and PR management
-**Components**: 21 commands, 20 agents
+**Components**: 22 commands, 21 agents
 **Dependency**: Requires rp1-base >= 2.0.0
 
 **Feature Workflow Commands**:
@@ -58,6 +58,7 @@
 |---------|-------|---------|
 | build | Orchestrator (6+ agents) | End-to-end 6-step workflow |
 | blueprint | blueprint-wizard | Charter and PRD creation |
+| blueprint-archive | prd-archiver | Archive completed PRDs with features |
 | bootstrap | bootstrap-scaffolder | Greenfield project scaffolding |
 | feature-requirements | feature-requirement-gatherer | Requirements gathering |
 | feature-design | feature-architect | Technical design generation |
@@ -246,7 +247,7 @@ graph TD
 | Module | Commands | Agents | Skills | Lines (est.) |
 |--------|----------|--------|--------|--------------|
 | plugins/base | 9 | 13 | 5 | ~5,500 |
-| plugins/dev | 21 | 20 | 0 | ~8,500 |
+| plugins/dev | 22 | 21 | 0 | ~8,700 |
 | plugins/utils | 1 | 1 | 0 | ~300 |
 | cli/src | 6 | - | - | ~3,000 |
 | cli/src/init | - | - | - | ~2,500 |
