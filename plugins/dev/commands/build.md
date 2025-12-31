@@ -791,7 +791,7 @@ cd {worktree_path}
 
 #### §4.1.5 Install Dependencies
 
-Check lockfiles (more specific) then manifests:
+Check lockfiles (more specific) then manifests (examples below; infer the correct one from project):
 
 | File | Command |
 |------|---------|
