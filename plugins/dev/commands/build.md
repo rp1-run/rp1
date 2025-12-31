@@ -185,13 +185,30 @@ Current: Step {N} of 6
 
 ## §ERROR-HANDLING
 
-### Retry Behavior
+### Foundational Steps (CRITICAL)
+
+**Steps 1-3 (Requirements, Design, Tasks) are foundational. If ANY fails → ABORT immediately.**
+
+| Step | Foundational | On Failure (ANY mode) |
+|------|--------------|----------------------|
+| 1 - Requirements | ✅ YES | ❌ ABORT - cannot design without requirements |
+| 2 - Design | ✅ YES | ❌ ABORT - cannot build without design |
+| 3 - Tasks | ✅ YES | ❌ ABORT - cannot build without tasks |
+| 4 - Build | ❌ NO | Retry/skip per mode |
+| 5 - Verify | ❌ NO | Retry/skip per mode |
+| 6 - Archive | ❌ NO | Retry/skip per mode |
+
+**Rationale**: There is no point building something without foundational requirements and design. Early abort saves time and prevents broken state.
+
+### Retry Behavior (Steps 4-6 only)
 
 | Mode | On Failure |
 |------|------------|
 | AFK | Auto-retry once, mark blocked, continue to next step |
 | Interactive (ask) | Prompt: retry/skip/abort |
 | Interactive (auto) | Mark blocked, continue |
+
+**Note**: Retry behavior only applies to non-foundational steps (4-6). Steps 1-3 always abort on failure.
 
 ### Failure Detection
 
@@ -205,20 +222,29 @@ Step FAILED when:
 ### AFK Retry Flow
 
 ```
-if failure AND AFK_MODE:
-  if attempts < 2:
-    log_failure()
-    attempt++
-    re-invoke agent (fresh ctx)
-  else:
-    mark_blocked()
-    log_afk_decision("Step {N} blocked after retry")
-    continue to next step
+if failure:
+  if step in [1, 2, 3]:  # Foundational steps
+    ABORT("Step {N} failed - foundational step, cannot continue")
+    # No retry, no skip - immediate abort regardless of mode
+
+  elif AFK_MODE:  # Steps 4-6 only
+    if attempts < 2:
+      log_failure()
+      attempt++
+      re-invoke agent (fresh ctx)
+    else:
+      mark_blocked()
+      log_afk_decision("Step {N} blocked after retry")
+      continue to next step
 ```
 
 ### Interactive Retry (MODE=ask)
 
 On failure (AFK_MODE=false):
+
+**Steps 1-3 (Foundational)**: ABORT immediately, no prompt. Display error and exit.
+
+**Steps 4-6 (Non-foundational)**:
 
 1. Display error w/ step ctx, artifacts status
 2. AskUserQuestion: `How to proceed? [retry/skip/abort]`
