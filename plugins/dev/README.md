@@ -20,7 +20,7 @@ Then install dev plugin:
 /plugin install rp1-dev
 ```
 
-## Commands (16)
+## Commands (15)
 
 ### Project Onboarding (2)
 - `/blueprint [prd-name]` - Guided wizard to capture project vision via charter + PRDs
@@ -106,10 +106,9 @@ The `/build` command orchestrates the complete 6-step feature development pipeli
 /code-investigate "Users report timeout errors on large file uploads"
 ```
 
-### PR Management (4)
+### PR Management (3)
 - `/pr-review` - Comprehensive pull request review
-- `/pr-feedback-collect` - Gather GitHub review comments
-- `/pr-feedback-fix` - Address pull request feedback
+- `/address-pr-feedback [pr-number | pr-url | branch]` - Unified PR feedback workflow: collect, triage, and fix review comments
 - `/pr-visual` - Visualize pull request changes
 
 ## Skills (1)

@@ -78,8 +78,7 @@ The dev plugin provides development workflow capabilities: feature lifecycle, co
 |---------|-------------|
 | [`pr-review`](dev/pr-review.md) | Map-reduce PR review with confidence gating |
 | [`pr-visual`](dev/pr-visual.md) | Generate Mermaid diagrams from PR diffs |
-| [`pr-feedback-collect`](dev/pr-feedback-collect.md) | Extract and classify PR review comments |
-| [`pr-feedback-fix`](dev/pr-feedback-fix.md) | Systematically address PR feedback |
+| [`address-pr-feedback`](dev/address-pr-feedback.md) | Unified workflow: collect, triage, and fix PR review comments |
 
 [:octicons-arrow-right-24: Dev Plugin Reference](dev/index.md)
 
