@@ -71,30 +71,33 @@ After collection completes:
 
 ### Step 3.1: Setup Worktree
 
-First, store the current directory and create a worktree on the PR branch:
+First, store the current directory:
 
 ```bash
 original_cwd=$(pwd)
 ```
 
-Checkout the PR branch in a worktree:
+Check if a worktree for this branch already exists:
 
 ```bash
-rp1 agent-tools worktree create pr-feedback-fix --branch {pr_branch}
+git worktree list | grep {pr_branch}
 ```
 
-If the `--branch` flag is not supported, create a new worktree and checkout the PR branch:
+**If worktree exists**: Extract the path and cd into it:
 
 ```bash
-git fetch origin {pr_branch}
-rp1 agent-tools worktree create pr-feedback-fix --prefix fix
-cd {worktree_path}
-git checkout {pr_branch}
+cd {existing_worktree_path}
+```
+
+**If worktree does not exist**: Create a new worktree using the PR branch name:
+
+```bash
+rp1 agent-tools worktree create {pr_branch} --prefix fix
 ```
 
 Parse the JSON response and store:
 - `worktree_path`: Path to the worktree
-- `branch`: Branch name (should match PR branch)
+- `branch`: Branch name (matches PR branch)
 
 Enter the worktree:
 
