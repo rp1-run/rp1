@@ -48,15 +48,23 @@
 **Artifacts**: Stored in {RP1_ROOT}/work/features/{FEATURE_ID}/
 **Documents**: requirements.md, design.md, tasks.md, field-notes.md
 
-### Project Charter
-**Definition**: High-level document capturing project vision (why/who)
-**Location**: .rp1/work/charter.md
-**Relationship**: Required before PRDs; PRDs inherit context from charter
+### Worktree Workflow
+**Definition**: Four-phase isolated git workflow for safe agent execution: Setup (create worktree, verify state) -> Implementation (atomic commits) -> Publish (validate ownership, push, optional PR) -> Cleanup (restore directory, remove worktree).
+**Implementation**: `plugins/dev/skills/worktree-workflow/SKILL.md`
+**Use Cases**: code-quick-build, feature-build with isolation
 
-### Field Notes
-**Definition**: Implementation learnings captured during feature-build phase
-**Triggers**: Design Deviation, User Clarification, Codebase Discovery, Workaround
-**Consumer**: feature-verify reads for INTENTIONAL DEVIATION detection
+### RP1_ROOT
+**Definition**: Root directory for rp1 artifacts. Resolution-aware: from env override, git common-dir (linked worktree), or cwd.
+**Implementation**: `cli/src/agent-tools/rp1-root-dir/resolver.ts`
+**Contains**: context/ (KB files), work/ (features, worktrees)
+
+### Worktree
+**Definition**: Isolated git workspace for parallel agent work. Created via CLI tool, contains branch name and basedOn commit SHA for validation.
+**Implementation**: `cli/src/agent-tools/worktree/models.ts`
+
+### Stateless Agent
+**Definition**: Agent pattern for resumable interview workflows. Uses file-based scratch pad for state instead of conversation context. Enables session-independent execution.
+**Implementation**: `docs/concepts/stateless-agents.md`, `plugins/dev/agents/charter-interviewer.md`
 
 ## Technical Concepts
 
@@ -91,10 +99,14 @@
 **Thresholds**: 65%+ include, 40-64% investigate (critical/high only), <40% exclude
 **Application**: Sub-reviewer findings before synthesis
 
-### Spatial Analyzer
-**Definition**: Agent that scans repository and categorizes files by KB section
-**Output**: Ranked file lists with importance scores 0-5
-**Categories**: index_files, concept_files, arch_files, module_files
+### Commit Ownership Validation
+**Purpose**: Pre-push verification ensuring all commits were created during current session
+**Checks**: Count matches tracked, all commits descend from basedOn, no unexpected authors
+**Use Case**: Prevents corrupted PRs in worktree workflow
+
+### Workflow Orchestrator Pattern
+**Purpose**: Skill pattern for multi-phase workflows with defined phases, verification steps, and error recovery procedures
+**Implementation**: `plugins/dev/skills/worktree-workflow/SKILL.md`
 
 ## Terminology Glossary
 
@@ -104,6 +116,7 @@
 - **Output Contract**: Agent specification defining exactly what artifacts/files/structures the agent produces
 - **Fitness Judgment**: PR review verdict: approve, request_changes, or block
 - **Review Unit**: Segmented piece of PR diff created by splitter for focused analysis
+- **Atomic Commit**: Single logical unit of work committed with conventional commit format
 
 ### Technical Terms
 - **Anti-Loop Directive**: Explicit instruction preventing iteration loops, forcing single-pass completion
@@ -113,6 +126,10 @@
 - **Incremental Build**: KB rebuild mode that only processes changed files via git diff comparison
 - **Review Dimension**: One of five PR analysis categories: Correctness, Security, Performance, Maintainability, Testing
 - **Comment-Fenced Injection**: Pattern using `<!-- rp1:start -->` markers to inject/update content without duplication
+- **basedOn Commit**: SHA of commit from which a worktree branch was created. Used for validation in commit ownership checks
+- **Scratch Pad**: File-based state storage for stateless agents. Visible section in document showing Q&A progress during interviews
+- **Terse Prompting**: Prompt authoring approach using structure-first composition with compression-by-default
+- **Conventional Commit**: Commit format: type(scope): description. Types: feat, fix, refactor, docs, test, chore, style, perf
 
 ## Concept Boundaries
 
@@ -123,8 +140,13 @@
 
 ### Dev Plugin (rp1-dev)
 **Scope**: Development workflows
-**Concepts**: Feature Workflows, Code Quality, PR Management, Testing, Build Operations
+**Concepts**: Feature Workflows, Code Quality, PR Management, Testing, Build Operations, Worktree Isolation
 **Boundaries**: Depends on base plugin for KB and skills. Owns feature development lifecycle.
+
+### Worktree Operations
+**Scope**: Isolated agent execution
+**Concepts**: Worktree Creation, Commit Validation, Branch Publishing, Cleanup
+**Boundaries**: CLI tools + skills for safe parallel work
 
 ### Knowledge Base Artifacts
 **Scope**: Codebase documentation
@@ -158,6 +180,7 @@ graph TB
         Feature[Feature Workflow]
         PR[PR Review]
         KBGen[KB Generation]
+        Worktree[Worktree Workflow]
     end
 
     Base --> Cmd
@@ -172,6 +195,7 @@ graph TB
 
     KBGen -->|generates| KB
     Feature -->|uses| KB
+    Feature -->|uses| Worktree
     PR -->|uses| KB
 ```
 

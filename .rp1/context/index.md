@@ -2,8 +2,8 @@
 
 **Type**: Single Project
 **Languages**: TypeScript, Markdown, Shell
-**Version**: 0.2.7
-**Updated**: 2025-12-27
+**Version**: 0.2.9
+**Updated**: 2025-12-31
 
 ## Project Summary
 
@@ -13,7 +13,7 @@ rp1 is a Claude Code plugin system that automates development workflows through 
 
 | Aspect | Value |
 |--------|-------|
-| Entry Point | `/knowledge-build`, `/feature-build` |
+| Entry Point | `/build`, `/knowledge-build` |
 | Key Pattern | Constitutional Agents with Map-Reduce Orchestration |
 | Tech Stack | TypeScript CLI, Markdown Prompts, fp-ts, Bun, GoReleaser |
 
@@ -23,10 +23,10 @@ rp1 is a Claude Code plugin system that automates development workflows through 
 
 | File | Lines | Load For |
 |------|-------|----------|
-| architecture.md | ~271 | System design, component relationships, data flows |
-| modules.md | ~282 | Component breakdown, module responsibilities |
-| patterns.md | ~134 | Code conventions, implementation patterns |
-| concept_map.md | ~181 | Domain terminology, business concepts |
+| architecture.md | ~313 | System design, component relationships, data flows |
+| modules.md | ~304 | Component breakdown, module responsibilities |
+| patterns.md | ~141 | Code conventions, implementation patterns |
+| concept_map.md | ~205 | Domain terminology, business concepts |
 
 ## Task-Based Loading
 
@@ -54,10 +54,11 @@ rp1/
 │   │   ├── agents/            # Constitutional agents
 │   │   ├── commands/          # Slash commands (thin wrappers)
 │   │   └── skills/            # Reusable capabilities
-│   ├── dev/                   # Development plugin (20 commands, 19 agents)
+│   ├── dev/                   # Development plugin (21 commands, 20 agents)
 │   │   ├── .claude-plugin/    # Plugin metadata (depends on base)
 │   │   ├── agents/            # Constitutional agents
-│   │   └── commands/          # Slash commands
+│   │   ├── commands/          # Slash commands
+│   │   └── skills/            # worktree-workflow skill
 │   └── utils/                 # Utility plugin (1 command, 1 agent)
 │       └── ...
 ├── cli/                       # Cross-platform CLI
@@ -65,7 +66,7 @@ rp1/
 │   │   ├── commands/          # CLI commands (init, install, view)
 │   │   ├── init/              # Project initialization
 │   │   ├── install/           # Plugin installation
-│   │   └── agent-tools/       # AI agent tools (mmd-validate)
+│   │   └── agent-tools/       # AI agent tools (mmd-validate, worktree, rp1-root-dir)
 │   └── web-ui/                # React documentation viewer
 ├── packages/                  # NPM packages
 │   └── catppuccin-mermaid/    # Mermaid theme library
@@ -77,10 +78,10 @@ rp1/
 ## Key Commands
 
 ```bash
-# KB generation
-/knowledge-build        # Full: 10-15 min, Incremental: 2-5 min
+# End-to-end feature workflow (6-step)
+/build my-feature             # Full workflow: requirements -> design -> tasks -> build -> verify -> archive
 
-# Feature workflow (6-step)
+# Individual feature steps
 /blueprint my-prd
 /feature-requirements my-feature
 /feature-design my-feature
@@ -88,12 +89,17 @@ rp1/
 /feature-build my-feature
 /feature-verify my-feature
 
+# KB generation
+/knowledge-build              # Full: 10-15 min, Incremental: 2-5 min
+
 # Code quality
-/code-check             # Fast hygiene (lint, test)
-/code-audit             # Pattern analysis
+/code-check                   # Fast hygiene (lint, test)
+/code-quick-build "task"      # Quick fixes with worktree isolation
+/code-audit                   # Pattern analysis
 
 # PR review
-/pr-review              # Map-reduce review with confidence gating
+/pr-review                    # Map-reduce review with confidence gating
+/address-pr-feedback          # Collect, triage, fix PR comments
 ```
 
 ## Navigation

@@ -1,8 +1,8 @@
 # Module & Component Breakdown
 
 **Project**: rp1 Plugin System
-**Analysis Date**: 2025-12-27
-**Total Components**: 90+ (29 commands, 32 agents, 5 skills, 24+ CLI modules)
+**Analysis Date**: 2025-12-31
+**Total Components**: 95+ (30 commands, 33 agents, 5 skills, 27+ CLI modules)
 
 ## Plugin Modules
 
@@ -50,16 +50,17 @@
 
 ### plugins/dev
 **Purpose**: Development workflow automation for features, code quality, and PR management
-**Components**: 20 commands, 19 agents
+**Components**: 21 commands, 20 agents
 **Dependency**: Requires rp1-base >= 2.0.0
 
 **Feature Workflow Commands**:
 | Command | Agent | Purpose |
 |---------|-------|---------|
+| build | Orchestrator (6+ agents) | End-to-end 6-step workflow |
 | blueprint | blueprint-wizard | Charter and PRD creation |
 | bootstrap | bootstrap-scaffolder | Greenfield project scaffolding |
-| feature-requirements | None (interactive) | Requirements gathering |
-| feature-design | None (direct) | Technical design generation |
+| feature-requirements | feature-requirement-gatherer | Requirements gathering |
+| feature-design | feature-architect | Technical design generation |
 | feature-tasks | feature-tasker | Task breakdown |
 | feature-build | task-builder + reviewer | Implementation from tasks |
 | feature-verify | code-checker + verifier | Acceptance validation |
@@ -75,15 +76,14 @@
 | code-audit | code-auditor | Pattern consistency analysis |
 | code-investigate | bug-investigator | Evidence-based bug investigation |
 | code-clean-comments | comment-cleaner | Comment removal |
-| code-quick-build | None (direct) | Quick fixes and prototypes |
+| code-quick-build | None (direct + worktree) | Quick fixes and prototypes |
 
 **PR Review Commands**:
 | Command | Agent | Purpose |
 |---------|-------|---------|
 | pr-review | Orchestrator (4 agents) | Map-reduce PR review |
 | pr-visual | pr-visualizer | Diff visualization |
-| pr-feedback-collect | pr-feedback-collector | GitHub comment collection |
-| pr-feedback-fix | None (direct) | Review comment resolution |
+| address-pr-feedback | pr-feedback-collector | Unified collect, triage, fix workflow |
 
 ### plugins/utils
 **Purpose**: Utility plugin for prompt optimization
@@ -133,15 +133,6 @@
 | config.ts | Installation configuration |
 | prerequisites.ts | Runtime prerequisite checking |
 
-### cli/src/install/claudecode/
-**Purpose**: Claude Code specific installation
-
-| Module | Purpose |
-|--------|---------|
-| installer.ts | Claude Code plugin installation via native commands |
-| prerequisites.ts | Claude Code prerequisite checks |
-| command.ts | Claude Code install command |
-
 ### cli/src/agent-tools/
 **Purpose**: Framework for AI agent tools with registry
 
@@ -152,18 +143,31 @@
 | input.ts | Input handling (file/stdin) |
 | output.ts | JSON output formatting |
 | models.ts | Type definitions |
+| git.ts | Shared git utilities with GitContext pattern |
 | mmd-validate/ | Mermaid validation tool |
+| rp1-root-dir/ | RP1_ROOT resolution with worktree awareness |
+| worktree/ | Git worktree management for isolated execution |
 
-### cli/src/agent-tools/mmd-validate/
-**Purpose**: Mermaid diagram validation tool
+### cli/src/agent-tools/worktree/
+**Purpose**: Git worktree management for isolated agent execution
+
+| Module | Purpose |
+|--------|---------|
+| index.ts | Entry point with executeCreate, executeCleanup, executeStatus |
+| create.ts | Worktree creation with branch collision handling |
+| cleanup.ts | Worktree removal with optional branch deletion |
+| status.ts | Worktree detection and info |
+| slug.ts | Task slug generation for branch naming |
+| models.ts | Type definitions (WorktreeCreateResult, WorktreeCleanupResult, WorktreeStatusResult) |
+
+### cli/src/agent-tools/rp1-root-dir/
+**Purpose**: RP1_ROOT path resolution with worktree awareness
 
 | Module | Purpose |
 |--------|---------|
 | index.ts | Tool entry point |
-| validator.ts | Validation orchestrator with browser-based validation |
-| extractor.ts | Mermaid block extraction from markdown |
-| browser.ts | Puppeteer browser management |
-| models.ts | Validation result types |
+| resolver.ts | Resolution logic (env -> git-common-dir -> cwd) |
+| models.ts | Type definitions (Rp1RootResult, Rp1RootSource) |
 
 ### cli/web-ui/
 **Purpose**: React-based documentation viewer with Mermaid support
@@ -174,6 +178,7 @@
 | src/server.ts | Server factory with WebSocket and file watching |
 | src/app/App.tsx | Main app with providers |
 | src/server/http.ts | Bun HTTP server |
+| src/server/routes/static.ts | Static file serving with MIME types |
 | src/server/websocket.ts | WebSocket hub for live reload |
 | src/components/MarkdownViewer/ | Markdown rendering with Mermaid |
 | src/components/FileTree/ | Directory navigation |
@@ -208,6 +213,15 @@ graph TD
         KBBuild --> Pattern[kb-pattern-extractor]
     end
 
+    subgraph "Build Workflow"
+        Build[/build] --> ReqGatherer[feature-requirement-gatherer]
+        Build --> Architect[feature-architect]
+        Build --> Tasker[feature-tasker]
+        Build --> Builder[task-builder]
+        Build --> Reviewer[task-reviewer]
+        Build --> Verifier[feature-verifier]
+    end
+
     subgraph "PR Review"
         PRReview[pr-review] --> Splitter[pr-review-splitter]
         PRReview --> SubReviewer[pr-sub-reviewer]
@@ -215,16 +229,15 @@ graph TD
         PRReview --> Reporter[pr-review-reporter]
     end
 
-    subgraph "Feature Build"
-        FBuild[feature-build] --> Builder[task-builder]
-        FBuild --> Reviewer[task-reviewer]
-    end
-
     subgraph "CLI Modules"
         Main[main.ts] --> Init[init/]
         Main --> Install[install/]
         Main -.->|lazy| AgentTools[agent-tools/]
         AgentTools --> MmdValidate[mmd-validate/]
+        AgentTools --> Worktree[worktree/]
+        AgentTools --> Rp1Root[rp1-root-dir/]
+        Worktree --> Git[git.ts]
+        Rp1Root --> Git
     end
 ```
 
@@ -233,12 +246,12 @@ graph TD
 | Module | Commands | Agents | Skills | Lines (est.) |
 |--------|----------|--------|--------|--------------|
 | plugins/base | 9 | 13 | 5 | ~5,500 |
-| plugins/dev | 20 | 19 | 0 | ~7,500 |
+| plugins/dev | 21 | 20 | 0 | ~8,500 |
 | plugins/utils | 1 | 1 | 0 | ~300 |
 | cli/src | 6 | - | - | ~3,000 |
 | cli/src/init | - | - | - | ~2,500 |
 | cli/src/install | - | - | - | ~1,200 |
-| cli/src/agent-tools | - | - | - | ~600 |
+| cli/src/agent-tools | - | - | - | ~1,200 |
 | cli/web-ui | - | - | - | ~2,500 |
 | packages/catppuccin-mermaid | - | - | - | ~400 |
 
@@ -254,9 +267,18 @@ Both KB generation and PR review use map-reduce pattern:
 
 ### Builder-Reviewer Loop
 Feature build uses paired agents:
-- task-builder implements changes
+- task-builder implements changes with atomic commits
 - task-reviewer verifies (SUCCESS/FAILURE with feedback)
 - Retry on failure with feedback (max 3 attempts)
+
+### GitContext Safety Pattern
+All git mutations use GitContext.repoRoot to ensure operations target main repo, not nested worktree. Prevents cross-repo bugs when running from inside worktree.
+
+### Worktree Isolation
+Feature builds and quick builds use git worktrees for isolated execution without affecting user's working directory. Clean rollback on failure.
+
+### AFK Mode Auto-Selection
+Commands support --afk flag for autonomous execution with auto-selected defaults from KB context. All decisions logged for review.
 
 ### fp-ts Functional Error Handling
 CLI modules use Either/TaskEither for type-safe error handling:
