@@ -1450,16 +1450,21 @@ Update progress -> Step 6 COMPLETED (or DECLINED if user aborted).
 **Feature**: {FEATURE_ID}
 **Directory**: {RP1_ROOT}/work/features/{FEATURE_ID}/
 
+### Repository Status
+
+🌿 **Branch**: {branch_name} {✅ pushed | ⏳ local only}
+🔗 **PR**: {pr_url | not created}
+
 ### Step Results
 
 | Step | Status | Details |
 |------|--------|---------|
-| 1: Requirements | {COMPLETED/SKIPPED/FAILED/N/A} | {reason} |
-| 2: Design | {COMPLETED/SKIPPED/FAILED/N/A} | {reason} |
-| 3: Tasks | {COMPLETED/SKIPPED/FAILED/N/A} | {reason} |
-| 4: Build | {COMPLETED/SKIPPED/FAILED/N/A} | {reason} |
-| 5: Verify | {COMPLETED/SKIPPED/FAILED/N/A} | {reason} |
-| 6: Archive | {COMPLETED/SKIPPED/DECLINED/N/A} | {reason} |
+| 1: Requirements | {✅ COMPLETED | ⏭️ SKIPPED | ❌ FAILED | ➖ N/A} | {reason} |
+| 2: Design | {✅ COMPLETED | ⏭️ SKIPPED | ❌ FAILED | ➖ N/A} | {reason} |
+| 3: Tasks | {✅ COMPLETED | ⏭️ SKIPPED | ❌ FAILED | ➖ N/A} | {reason} |
+| 4: Build | {✅ COMPLETED | ⏭️ SKIPPED | ❌ FAILED | ➖ N/A} | {reason} |
+| 5: Verify | {✅ COMPLETED | ⏭️ SKIPPED | ❌ FAILED | ➖ N/A} | {reason} |
+| 6: Archive | {✅ COMPLETED | ⏭️ SKIPPED | 🚫 DECLINED | ➖ N/A} | {reason} |
 
 **Result**: {completed}/6 completed, {skipped} skipped
 
@@ -1467,13 +1472,13 @@ Update progress -> Step 6 COMPLETED (or DECLINED if user aborted).
 
 | Artifact | Status |
 |----------|--------|
-| requirements.md | {CREATED/UPDATED/EXISTED} |
-| design.md | {CREATED/UPDATED/EXISTED} |
-| design-decisions.md | {CREATED/UPDATED/EXISTED/N/A} |
-| tasks.md | {CREATED/UPDATED/EXISTED} |
-| Code changes | {YES/NO} |
-| feature_verify_report*.md | {CREATED/N/A} |
-| Archived to | {path/N/A} |
+| requirements.md | {✅ CREATED | 📝 UPDATED | 📁 EXISTED} |
+| design.md | {✅ CREATED | 📝 UPDATED | 📁 EXISTED} |
+| design-decisions.md | {✅ CREATED | 📝 UPDATED | 📁 EXISTED | ➖ N/A} |
+| tasks.md | {✅ CREATED | 📝 UPDATED | 📁 EXISTED} |
+| Code changes | {✅ YES | ➖ NO} |
+| feature_verify_report*.md | {✅ CREATED | ➖ N/A} |
+| Archived to | {📦 path | ➖ N/A} |
 ```
 
 **If AFK_MODE = true**, append:
