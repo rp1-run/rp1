@@ -56,8 +56,17 @@ The `feature-design` command transforms requirements into a technical design spe
 - Data models
 - API specifications
 - Integration points
+- Implementation DAG (for multi-component features)
 - Technology choices with rationale
 - Testing strategy
+
+### Implementation DAG
+
+For features with 2+ implementation components, the design includes an Implementation DAG section that identifies parallel execution opportunities and dependencies. This enables optimized task ordering during the build phase.
+
+The DAG section is omitted for single-component designs where parallelization provides no value.
+
+See [DAG Format Reference](../dag-format.md) for the complete specification.
 
 ## Examples
 

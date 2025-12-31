@@ -38,6 +38,30 @@ Read `{RP1_ROOT}/work/features/{FEATURE_ID}/`:
 
 **Parse Doc Impact** from design.md `## Documentation Impact` section -> store as `DOC_IMPACTS[]` for §3.5.
 
+### §1.1 DAG Parsing
+
+Check design.md for `## Implementation DAG` section.
+
+**If DAG not found**: Store `DAG_STATE = null` (backward compatible: sequential ordering in §3.6).
+
+**If DAG found**, parse:
+
+1. **Parallel Groups**: Extract `[T1, T2, ...]` patterns from numbered lists
+   ```
+   1. [T1, T2, T3] - comment
+   ```
+   Store: `PARALLEL_GROUPS[] = [{group: 1, tasks: ["T1","T2","T3"]}, ...]`
+
+2. **Dependencies**: Extract `T{N} -> T{M}` and `T{N} -> [T{M}, T{O}]` patterns
+   ```
+   - T4 -> T1
+   - T6 -> [T4, T5]
+   ```
+   Store: `DEPENDENCIES[] = [{task: "T4", depends_on: ["T1"]}, {task: "T6", depends_on: ["T4","T5"]}, ...]`
+
+3. **Build DAG**: Create dependency graph from parsed data
+   Store: `DAG_STATE = {groups: PARALLEL_GROUPS, deps: DEPENDENCIES}`
+
 ## §2 Scope Analysis
 
 In `<thinking>`:
@@ -128,6 +152,32 @@ If `DOC_IMPACTS[]` non-empty (excl "No changes"):
 
 No DOC_IMPACTS -> skip section.
 
+### 3.6 DAG-Based Task Ordering
+
+Apply ordering based on `DAG_STATE` from §1.1.
+
+| DAG State | Ordering Behavior |
+|-----------|-------------------|
+| `null` (no DAG) | Sequential by design.md section order |
+| Has DAG | Topological sort respecting dependencies |
+
+**If DAG_STATE exists**:
+
+1. **Topological Sort**: Order tasks so dependencies come before dependents
+   ```
+   FOR each task T in DEPENDENCIES:
+     T appears AFTER all tasks in T.depends_on
+   ```
+
+2. **Category Grouping**: Group tasks by parallel group for output
+   - Parallel group 1 tasks -> first category
+   - Parallel group 2 tasks -> second category
+   - Use group comments as category names if descriptive
+
+3. **Include DAG in Output**: Copy `## Implementation DAG` section from design.md to tasks.md header (after Overview, before Task Breakdown)
+
+**Backward Compatibility**: When `DAG_STATE = null`, order tasks sequentially by appearance in design.md Implementation Plan section.
+
 ## §4 Incremental Update (UPDATE_MODE=true only)
 
 ### 4.1 Parse Existing
@@ -202,10 +252,14 @@ List uncovered design sections -> new tasks: T{max_id + 1}...
 ## Overview
 [Brief from design]
 
+## Implementation DAG
+[If DAG_STATE exists - copy from design.md per §3.6]
+[Omit section if DAG_STATE = null]
+
 ## Task Breakdown
 
-### [Category]
-[Tasks per §3.3]
+### [Category per parallel group]
+[Tasks per §3.3, ordered per §3.6]
 
 ### User Docs
 [If DOC_IMPACTS - per §3.5]

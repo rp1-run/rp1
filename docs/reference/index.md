@@ -110,7 +110,8 @@ Commands differ slightly between platforms:
 Looking for something specific?
 
 - **Build a knowledge base**: [`knowledge-build`](base/knowledge-build.md)
-- **Start a new feature**: [`blueprint`](dev/blueprint.md) → [`feature-requirements`](dev/feature-requirements.md)
+- **Start a new feature**: [`blueprint`](dev/blueprint.md) -> [`feature-requirements`](dev/feature-requirements.md)
 - **Review a PR**: [`pr-review`](dev/pr-review.md)
 - **Run code checks**: [`code-check`](dev/code-check.md)
 - **Security scan**: [`analyse-security`](base/analyse-security.md)
+- **Task dependency format**: [`dag-format`](dag-format.md)
