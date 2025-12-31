@@ -980,9 +980,165 @@ Verification failed: see reports for details
 | AFK | Mark FAILED, continue to Step 6 (skip archive) |
 | Interactive | Prompt retry/skip/abort |
 
+### §5.8 Post-Verify Flow (Interactive Only)
+
+**Skip if**: AFK_MODE = true (auto-proceed to Step 6)
+
+After verification completes, show summary and offer options before archiving.
+
+#### §5.8.1 Change Summary
+
+Display summary of all changes made:
+
+```markdown
+## Build Summary
+
+**Feature**: {FEATURE_ID}
+**Verification Status**: {VERIFIED/PARTIAL/FAILED}
+
+### Files Modified
+{List files changed during Step 4, grouped by type}
+
+### Tasks Completed
+| Task | Status | Summary |
+|------|--------|---------|
+| T1 | ✅ VERIFIED | {implementation_summary} |
+| T2 | ✅ VERIFIED | {implementation_summary} |
+
+### Blocked Tasks
+| Task | Reason |
+|------|--------|
+| T3 | {reason} |
+
+### Verification Results
+| Phase | Status |
+|-------|--------|
+| Code Check | {PASS/FAIL} |
+| Feature Verify | {PASS/FAIL} |
+| Comment Check | {PASS/WARN} |
+
+---
+
+**Please review the changes above.**
+Inspect modified files and verify the implementation before proceeding.
+```
+
+#### §5.8.2 Post-Verify Options
+
+Present AskUserQuestion with three options:
+
+```yaml
+questions:
+  - question: "How would you like to proceed?"
+    header: "Post-Verify"
+    options:
+      - label: "Add or change a task"
+        description: "Specify a new task to implement (goes through builder-reviewer)"
+      - label: "Archive"
+        description: "Archive feature to work/archives/features/"
+      - label: "Do nothing"
+        description: "Exit workflow, keep feature in work/features/"
+    multiSelect: false
+```
+
+#### §5.8.3 Option: Add or Change Task
+
+When user selects "Add or change a task":
+
+**Step 1**: Prompt for task description (user selects "Other" and types):
+
+```yaml
+questions:
+  - question: "Describe the task to add or change:"
+    header: "New Task"
+    options:
+      - label: "Example: Fix the edge case for empty arrays"
+        description: "Select 'Other' to type your own task description"
+    multiSelect: false
+```
+
+**Step 2**: Generate task ID:
+- Parse tasks.md for highest T{N} ID (ignore TD* doc tasks)
+- New ID = T{N+1}
+
+**Step 3**: Append to tasks.md:
+
+```markdown
+- [ ] **T{N+1}**: {user_description} `[complexity:medium]`
+
+    **Reference**: Post-verify addition
+
+    **Effort**: As needed
+
+    **Acceptance Criteria**:
+
+    - [ ] Task completed as described
+```
+
+**Step 4**: Spawn builder:
+
+```
+Task tool invocation:
+  subagent_type: rp1-dev:task-builder
+  prompt: |
+    FEATURE_ID: {FEATURE_ID}
+    TASK_IDS: T{N+1}
+    RP1_ROOT: {RP1_ROOT}
+    WORKTREE_PATH: {worktree_path or ""}
+    PREVIOUS_FEEDBACK: None
+
+    Implement the post-verify task.
+```
+
+**Step 5**: Spawn reviewer:
+
+```
+Task tool invocation:
+  subagent_type: rp1-dev:task-reviewer
+  prompt: |
+    FEATURE_ID: {FEATURE_ID}
+    TASK_IDS: T{N+1}
+    RP1_ROOT: {RP1_ROOT}
+    WORKTREE_PATH: {worktree_path or ""}
+```
+
+**Step 6**: Handle result:
+- SUCCESS: Mark task done, update summary
+- FAILURE: Retry once with feedback, mark blocked if still fails
+
+**Step 7**: Loop back to §5.8.1 (show updated summary, present options again)
+
+#### §5.8.4 Option: Archive
+
+When user selects "Archive":
+- Proceed to §STEP-6
+
+#### §5.8.5 Option: Do Nothing
+
+When user selects "Do nothing":
+- Mark Step 6 as SKIPPED
+- Output final summary
+- Exit workflow gracefully
+- Feature remains in `{RP1_ROOT}/work/features/{FEATURE_ID}/`
+
+```
+Workflow complete. Feature remains active at:
+{RP1_ROOT}/work/features/{FEATURE_ID}/
+
+To resume later: /build {FEATURE_ID}
+To archive: /feature-archive {FEATURE_ID}
+```
+
+#### §5.8.6 AFK Mode
+
+When AFK_MODE = true:
+- Skip §5.8 entirely
+- Log decision: "Post-verify options skipped (AFK mode)"
+- Auto-proceed to Step 6 (archive)
+
 ## §STEP-6: Archive
 
-**Skip if**: Never auto-skip. Always prompt (interactive) or auto-archive (AFK).
+**Skip if**: User selected "Do nothing" in §5.8.5
 
 **Purpose**: Move completed feature to `{RP1_ROOT}/work/archives/features/`. Final workflow step.
 
@@ -991,7 +1147,7 @@ Verification failed: see reports for details
 | Mode | Behavior |
 |------|----------|
 | AFK | Auto-archive without prompt, log decision |
-| Interactive | Prompt user for confirmation |
+| Interactive | Proceed (user already confirmed in §5.8.2) |
 
 ### §6.2 Initial Agent Invocation
 
@@ -1033,22 +1189,16 @@ Log decision:
 
 #### Interactive Mode (AFK_MODE = false)
 
-AskUserQuestion:
+User already confirmed archive in §5.8.2. Re-invoke w/ `SKIP_DOC_CHECK: true`:
 
-```yaml
-questions:
-  - question: "Feature '{FEATURE_ID}' has minimal documentation. Archive anyway?"
-    header: "Confirm Archive"
-    options:
-      - label: "Yes - Archive"
-        description: "Proceed with archiving"
-      - label: "No - Cancel"
-        description: "Abort archive"
-    multiSelect: false
 ```
-
-**Yes**: Re-invoke w/ `SKIP_DOC_CHECK: true`
-**No**: Mark Step 6 as DECLINED, output `Archive aborted by user`
+Task tool invocation:
+  subagent_type: rp1-dev:feature-archiver
+  prompt: |
+    MODE: archive
+    FEATURE_ID: {FEATURE_ID}
+    SKIP_DOC_CHECK: true
+```
 
 ### §6.4 Completion
 
