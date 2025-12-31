@@ -127,50 +127,53 @@ In interactive mode, you can review before proceeding. In `--afk` mode, it auto-
 
 ---
 
-## Phase 3: Fix
+## Phase 3: Fix (Worktree Isolated)
 
-The command addresses comments in priority order (blocking → important → suggestions → style):
+The command creates an isolated worktree to make changes, allowing you to review before pushing.
 
 ```
+🔧 Setting Up Worktree
+
+Creating isolated workspace...
+✓ Worktree: .rp1/work/worktrees/fix-pr-feedback-fix-abc123
+✓ Branch: feature/user-auth (same as PR)
+✓ Dependencies installed
+
 🔧 Addressing PR Feedback
 
 Fixing Blocking Issues...
 [1/1] Moving JWT secret to environment variable
   ✓ Updated src/middleware/auth.ts
   ✓ Added JWT_SECRET to .env.example
-  ✓ Updated documentation
+  ✓ Committed: fix(feedback): move JWT secret to env var
 
 Fixing Important Issues...
 [1/2] Adding token expiration validation
   ✓ Updated validateToken() in auth.ts
-  ✓ Added test cases
+  ✓ Committed: fix(feedback): add token expiration check
 
 [2/2] Adding invalid token test scenarios
   ✓ Added 4 test cases to auth.test.ts
-  ✓ All tests passing
+  ✓ Committed: test(auth): add invalid token scenarios
 
 Fixing Suggestions...
 ...
+
+✓ All changes committed to worktree (not pushed)
 ```
 
 ---
 
 ## Phase 4: Report
 
-Finally, you receive a consolidated summary:
+Finally, you receive a consolidated summary with instructions for reviewing your changes:
 
 ```markdown
 ## PR Feedback Resolution Summary
 
 **PR**: #42 - Add user authentication
+**Branch**: feature/user-auth
 **Collected**: 2025-01-15T10:30:00Z
-
-### Phases
-| Phase | Status | Details |
-|-------|--------|---------|
-| Collect | ✅ | 8 comments found |
-| Triage | ✅ | 1/2/3/2 priority split |
-| Fix | ✅ | 8/8 resolved |
 
 ### Resolution Summary
 - 🚨 Blocking: 1/1
@@ -178,11 +181,33 @@ Finally, you receive a consolidated summary:
 - 💡 Suggestions: 3/3
 - 🎨 Style: 2/2
 
-**Ready for Re-Review**: ✅
+### Commits Made
+5 commit(s) in worktree:
+- `abc1234` - fix(feedback): move JWT secret to env var
+- `def5678` - fix(feedback): add token expiration check
+- ...
+
+---
+
+## 📂 Review Your Changes
+
+The fixes have been made in an isolated worktree. **Changes are NOT pushed yet.**
+
+**Worktree Location**:
+/path/to/.rp1/work/worktrees/fix-pr-feedback-fix-abc123
+
+**To review the changes**:
+cd /path/to/worktree && git log --oneline -10
+
+**To push the changes** (after review):
+cd /path/to/worktree && git push origin feature/user-auth
+
+**To discard and cleanup** (if not satisfied):
+rp1 agent-tools worktree cleanup /path/to/worktree
 ```
 
-!!! tip "After Fixing"
-    Run `/pr-review` again to verify all issues are resolved before requesting re-review.
+!!! tip "Review Before Pushing"
+    Navigate to the worktree to review all changes before pushing. You can run `/pr-review` on the worktree branch to verify fixes.
 
 ---
 

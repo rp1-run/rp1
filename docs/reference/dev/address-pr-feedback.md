@@ -110,30 +110,36 @@ Displays summary for review:
 In interactive mode, you can review before proceeding.
 In `--afk` mode, auto-proceeds to fix phase.
 
-### Phase 3: Fix
+### Phase 3: Fix (Worktree Isolated)
 
-Processes comments in priority order:
+Creates an isolated worktree on the PR branch for making changes:
 
-1. Blocking issues (must fix)
-2. Important issues (should fix)
-3. Suggestions (consider)
-4. Style issues (optional)
+1. Sets up worktree with same branch as PR
+2. Installs dependencies
+3. Processes comments in priority order (blocking → important → suggestions → style)
+4. Commits each fix with conventional commit format
+5. Runs quality checks (lint, typecheck, tests)
+6. Leaves worktree intact for user review
 
 For each comment:
 
 - Analyzes the concern
 - Implements code changes
+- Commits with `fix(feedback): description`
 - Updates feedback document with resolution status
 - Runs tests to verify
 
+**Important**: Changes are NOT pushed automatically. The worktree is preserved so you can review before pushing.
+
 ### Phase 4: Report
 
-Generates consolidated summary:
+Generates consolidated summary with worktree navigation instructions:
 
 ```markdown
 ## PR Feedback Resolution Summary
 
 **PR**: #42 - Feature title
+**Branch**: feature/my-feature
 
 ### Resolution Summary
 - 🚨 Blocking: 1/1
@@ -141,7 +147,18 @@ Generates consolidated summary:
 - 💡 Suggestions: 3/3
 - 🎨 Style: 2/2
 
-**Ready for Re-Review**: ✅
+### Commits Made
+5 commit(s) in worktree
+
+## 📂 Review Your Changes
+
+**Worktree Location**: /path/to/worktree
+
+**To push** (after review):
+cd /path/to/worktree && git push origin feature/my-feature
+
+**To discard**:
+rp1 agent-tools worktree cleanup /path/to/worktree
 ```
 
 ## Related Commands
