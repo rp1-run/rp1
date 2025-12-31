@@ -69,52 +69,16 @@ After collection completes:
 
 **IMPORTANT**: All fix work is done in an isolated worktree to allow user review before pushing.
 
-### Step 3.1: Setup Worktree
+Use the Skill tool to invoke the worktree-workflow skill:
 
-First, store the current directory:
-
-```bash
-original_cwd=$(pwd)
+```
+skill: "rp1-dev:worktree-workflow"
+args: task_slug={pr_branch}, agent_prefix=fix, create_pr=false
 ```
 
-Check if a worktree for this branch already exists:
+This sets up an isolated worktree on the PR branch.
 
-```bash
-git worktree list | grep {pr_branch}
-```
-
-**If worktree exists**: Extract the path and cd into it:
-
-```bash
-cd {existing_worktree_path}
-```
-
-**If worktree does not exist**: Create a new worktree using the PR branch name:
-
-```bash
-rp1 agent-tools worktree create {pr_branch} --prefix fix
-```
-
-Parse the JSON response and store:
-- `worktree_path`: Path to the worktree
-- `branch`: Branch name (matches PR branch)
-
-Enter the worktree:
-
-```bash
-cd {worktree_path}
-```
-
-### Step 3.2: Install Dependencies
-
-Check for and install project dependencies:
-
-```bash
-# Check lockfiles and install appropriately
-bun install  # or npm ci, yarn install, etc.
-```
-
-### Step 3.3: Process Comments
+### Inside the Worktree
 
 Process comments in priority order: Blocking → Important → Suggestions → Style.
 
@@ -123,65 +87,36 @@ For each unresolved comment:
 1. **Analyze** the concern raised
 2. **Decide** whether to implement or decline (document reasoning)
 3. **Implement** code changes if proceeding
-4. **Commit** with conventional format after each logical change:
-   ```bash
-   git add -A && git commit -m "fix(feedback): {description of fix}"
-   ```
+4. **Commit** with conventional format: `fix(feedback): {description}`
 5. **Test** to ensure no regressions
 6. **Update** pr_feedback.md with resolution status
 
 ### Resolution Format
 
 For resolved comments:
-
 ```markdown
 **🔧 RESOLUTION WORK**:
 - **Analysis**: {understanding}
 - **Changes**: {files modified}
 - **Commit**: {commit hash and message}
-- **Testing**: {test results}
 - **Status**: ✅ Resolved
 ```
 
 For declined comments:
-
 ```markdown
 **🚫 DECLINED**:
 - **Reasoning**: {why not implementing}
 - **Status**: ❌ Won't Fix
 ```
 
-### Step 3.4: Quality Gates
+### After Fixes Complete
 
-After all resolutions:
+Run quality checks (lint, typecheck, tests). Commit any auto-fixes.
 
-```bash
-# Run project quality checks
-bun run lint      # or equivalent
-bun run typecheck # or equivalent
-bun test          # or equivalent
-```
-
-Commit any auto-fixes from linting:
-
-```bash
-git add -A && git commit -m "style: apply linting fixes" || true
-```
-
-### Step 3.5: Worktree Summary
-
-After fixes complete, do NOT push. Store the worktree info for the final report:
-
+Do **NOT** push or cleanup. Return to original directory and store:
 - `worktree_path`: Full path to the worktree
 - `branch`: The branch name
 - `commit_count`: Number of commits made
-- `last_commit`: The most recent commit hash
-
-Return to original directory but **do NOT cleanup** the worktree:
-
-```bash
-cd {original_cwd}
-```
 
 ## Phase 4: Report
 
