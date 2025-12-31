@@ -92,6 +92,7 @@ nav:
     - Why rp1?: comparison/vs-raw-prompting.md
   - Reference:
     - Overview: reference/index.md
+    - DAG Format: reference/dag-format.md
     - CLI:
       - Overview: reference/cli/index.md
       - init: reference/cli/init.md

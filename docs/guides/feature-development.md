@@ -187,6 +187,29 @@ rp1 analyzes your requirements and your codebase (via the KB) to create a design
 - `.rp1/work/features/dark-mode-toggle/design.md` - Architecture, component specs, state management, testing approach
 - `.rp1/work/features/dark-mode-toggle/tasks.md` - Auto-generated task breakdown with complexity tags
 
+??? info "Implementation DAG"
+    For features with multiple components, the design includes an **Implementation DAG** (Directed Acyclic Graph) section that identifies:
+
+    - **Parallel groups**: Tasks that can execute simultaneously
+    - **Dependencies**: Which tasks must complete before others can start
+    - **Critical path**: The longest dependency chain
+
+    This enables the build phase to parallelize independent tasks. See [DAG Format Reference](../reference/dag-format.md) for the complete specification.
+
+    Example DAG output:
+    ```markdown
+    ## Implementation DAG
+
+    **Parallel Groups**:
+    1. [T1, T2] - Theme provider and CSS variables are independent
+    2. [T3] - Toggle component depends on theme system
+
+    **Dependencies**:
+    - T3 -> [T1, T2] (toggle needs theme system ready)
+
+    **Critical Path**: T1 -> T3
+    ```
+
 ??? info "Optional: Validate Hypothesis"
     If the design contains risky assumptions, use `/validate-hypothesis dark-mode-toggle` to test them before build continues. This creates temporary proof-of-concept code, validates the assumption, and writes findings back to your design document.
 
