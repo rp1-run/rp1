@@ -851,7 +851,7 @@ Report prereq status before spawning agents.
 Task tool invocation:
   subagent_type: rp1-dev:code-checker
   prompt: |
-    Run code quality checks for feature {FEATURE_ID}.
+    Run code quality checks for feature {FEATURE_ID} on branch {branch}.
     Generate report in {RP1_ROOT}/work/features/{FEATURE_ID}/
 ```
 
@@ -868,7 +868,7 @@ Task tool invocation:
     MILESTONE_ID: {MILESTONE_ID or ""}
     RP1_ROOT: {RP1_ROOT}
 
-    Verify acceptance criteria and requirement coverage.
+    Verify acceptance criteria and requirement coverage on branch {branch}.
 ```
 
 **Output**: `feature_verify_report_N.md`
@@ -881,7 +881,7 @@ Task tool invocation:
 Task tool invocation:
   subagent_type: rp1-dev:comment-cleaner
   prompt: |
-    SCOPE: branch
+    SCOPE: {branch}
     BASE_BRANCH: main
     MODE: check
     REPORT_DIR: {RP1_ROOT}/work/features/{FEATURE_ID}/
