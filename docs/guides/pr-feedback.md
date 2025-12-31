@@ -1,6 +1,6 @@
 # Addressing PR Feedback
 
-Systematically collect and resolve reviewer comments using rp1's feedback workflow. This guide covers gathering GitHub review comments and implementing fixes.
+Systematically collect and resolve reviewer comments using rp1's unified feedback workflow. This guide covers the complete process from gathering GitHub review comments to implementing fixes.
 
 **Time to complete**: ~15-20 minutes
 
@@ -9,7 +9,7 @@ Systematically collect and resolve reviewer comments using rp1's feedback workfl
 ## What You'll Learn
 
 - Collecting and classifying PR review comments
-- Prioritizing feedback by severity
+- Triaging feedback by priority
 - Implementing fixes systematically
 - Verifying all feedback is addressed
 
@@ -24,47 +24,66 @@ Systematically collect and resolve reviewer comments using rp1's feedback workfl
 
 ## The Feedback Workflow
 
+The unified `/address-pr-feedback` command handles the complete feedback workflow in a single invocation:
+
 ```mermaid
 flowchart TB
-    PR[PR Reviewed] --> C[Collect]
-    C --> F[Fix]
-    F --> V[Verify]
-    V --> P[Push]
+    PR[PR Reviewed] --> CMD[/address-pr-feedback]
+    CMD --> C[Phase 1: Collect]
+    C --> T[Phase 2: Triage]
+    T --> F[Phase 3: Fix]
+    F --> R[Phase 4: Report]
+    R --> P[Push & Re-request Review]
 ```
 
-| Step | Command | Purpose |
-|------|---------|---------|
-| Collect | `pr-feedback-collect` | Gather and classify review comments |
-| Fix | `pr-feedback-fix` | Address comments systematically |
+| Phase | Purpose |
+|-------|---------|
+| Collect | Gather and classify review comments from GitHub |
+| Triage | Display priority breakdown for review |
+| Fix | Address comments systematically in priority order |
+| Report | Generate resolution summary |
 
 ---
 
-## Step 1: Collect Feedback
+## Using the Unified Command
 
-After your PR has been reviewed on GitHub, collect the feedback:
+After your PR has been reviewed on GitHub, run the unified command:
 
 === "Claude Code"
 
     ```bash
-    /pr-feedback-collect
+    /address-pr-feedback
+    ```
+
+    Or with a specific PR:
+
+    ```bash
+    /address-pr-feedback 42
+    ```
+
+    For autonomous mode (no prompts):
+
+    ```bash
+    /address-pr-feedback 42 --afk
     ```
 
 === "OpenCode"
 
     ```bash
-    /rp1-dev/pr-feedback-collect
+    /rp1-dev/address-pr-feedback
     ```
 
-**What happens:**
+    Or with a specific PR:
 
-rp1 uses the `gh` CLI to:
+    ```bash
+    /rp1-dev/address-pr-feedback 42
+    ```
 
-1. Fetch PR review comments
-2. Classify by priority and type
-3. Extract actionable tasks
-4. Generate a structured feedback document
+---
 
-**What to expect:**
+## Phase 1: Collection
+
+The command first collects feedback from GitHub:
 
 ```
 📥 Collecting PR Feedback
@@ -77,88 +96,51 @@ Fetching comments...
 ✓ 2 general comments found
 
 Classifying feedback...
-✓ Critical: 1
-✓ High: 2
-✓ Medium: 3
-✓ Low: 2
+✓ Blocking: 1
+✓ Important: 2
+✓ Suggestions: 3
+✓ Style: 2
 
-Output: .rp1/work/features/{feature-id}/pr_feedback.md
+Output: .rp1/work/pr-reviews/pr-42-feedback-001.md
 ```
-
-The generated feedback document:
-
-```markdown
-# PR Feedback: #42 - Add user authentication
-
-## Critical Priority
-- [ ] **@alice**: "JWT secret cannot be in source code" (auth.ts:12)
-
-## High Priority
-- [ ] **@bob**: "Add token expiration validation" (auth.ts:45)
-- [ ] **@alice**: "Need tests for invalid token scenarios" (auth.test.ts)
-
-## Medium Priority
-- [ ] **@bob**: "Consider using httpOnly cookies" (auth.ts:67)
-...
-```
-
-!!! tip "Checkpoint"
-    The feedback document organizes comments by priority. Critical items should be addressed first.
 
 ---
 
-## Step 2: Fix Feedback
+## Phase 2: Triage
 
-Address reviewer comments systematically:
+After collection, you'll see a priority breakdown:
 
-=== "Claude Code"
+```
+## Feedback Triage
 
-    ```bash
-    /pr-feedback-fix
-    ```
+**PR**: #42 - Add user authentication
+**Comments**: 8
 
-    Or with a feature context:
+### Priority Breakdown
+- 🚨 Blocking: 1
+- ⚠️ Important: 2
+- 💡 Suggestions: 3
+- 🎨 Style: 2
+```
 
-    ```bash
-    /pr-feedback-fix user-auth
-    ```
+In interactive mode, you can review before proceeding. In `--afk` mode, it auto-proceeds.
 
-=== "OpenCode"
+---
 
-    ```bash
-    /rp1-dev/pr-feedback-fix
-    ```
+## Phase 3: Fix
 
-    Or with a feature context:
-
-    ```bash
-    /rp1-dev/pr-feedback-fix user-auth
-    ```
-
-**What happens:**
-
-rp1 reads the feedback document and:
-
-1. Prioritizes issues by severity
-2. Implements fixes for each item
-3. Updates the feedback document with completion status
-4. Runs tests to verify fixes
-
-**What to expect:**
+The command addresses comments in priority order (blocking → important → suggestions → style):
 
 ```
 🔧 Addressing PR Feedback
 
-Loading: .rp1/work/features/user-auth/pr_feedback.md
-Found: 8 feedback items (1 critical, 2 high, 3 medium, 2 low)
-
-Fixing Critical Issues...
+Fixing Blocking Issues...
 [1/1] Moving JWT secret to environment variable
   ✓ Updated src/middleware/auth.ts
   ✓ Added JWT_SECRET to .env.example
   ✓ Updated documentation
 
-Fixing High Priority Issues...
+Fixing Important Issues...
 [1/2] Adding token expiration validation
   ✓ Updated validateToken() in auth.ts
   ✓ Added test cases
@@ -167,42 +149,63 @@ Fixing High Priority Issues...
   ✓ Added 4 test cases to auth.test.ts
   ✓ All tests passing
 
-Fixing Medium Priority Issues...
+Fixing Suggestions...
 ...
-
-Summary:
-- Critical: 1/1 fixed
-- High: 2/2 fixed
-- Medium: 3/3 fixed
-- Low: 2/2 fixed
-
-Ready to commit and push.
 ```
 
-!!! tip "Checkpoint"
-    After fixing feedback, run `/pr-review` again to verify all issues are resolved.
+---
+
+## Phase 4: Report
+
+Finally, you receive a consolidated summary:
+
+```markdown
+## PR Feedback Resolution Summary
+
+**PR**: #42 - Add user authentication
+**Collected**: 2025-01-15T10:30:00Z
+
+### Phases
+| Phase | Status | Details |
+|-------|--------|---------|
+| Collect | ✅ | 8 comments found |
+| Triage | ✅ | 1/2/3/2 priority split |
+| Fix | ✅ | 8/8 resolved |
+
+### Resolution Summary
+- 🚨 Blocking: 1/1
+- ⚠️ Important: 2/2
+- 💡 Suggestions: 3/3
+- 🎨 Style: 2/2
+
+**Ready for Re-Review**: ✅
+```
+
+!!! tip "After Fixing"
+    Run `/pr-review` again to verify all issues are resolved before requesting re-review.
 
 ---
 
 ## Summary
 
-| Step | Command | Output |
-|------|---------|--------|
-| Collect | `pr-feedback-collect` | Structured feedback document |
-| Fix | `pr-feedback-fix` | Addressed issues |
+| Command | Purpose |
+|---------|---------|
+| `/address-pr-feedback` | Complete feedback workflow (collect, triage, fix, report) |
+| `/address-pr-feedback 42` | Target specific PR number |
+| `/address-pr-feedback --afk` | Run autonomously without prompts |
 
 ---
 
 ## Next Steps
 
 - **Verify changes**: Run [PR Review](pr-review.md) to confirm fixes
-- **Reference docs**: See [pr-feedback-collect](../reference/dev/pr-feedback-collect.md), [pr-feedback-fix](../reference/dev/pr-feedback-fix.md)
+- **Reference docs**: See [address-pr-feedback](../reference/dev/address-pr-feedback.md)
 
 ---
 
 ## Troubleshooting
 
-??? question "pr-feedback-collect can't find comments"
+??? question "Command can't find comments"
 
     Ensure:
 
@@ -212,8 +215,15 @@ Ready to commit and push.
 
 ??? question "Some feedback items weren't fixed"
 
-    The fixer prioritizes by severity. If items remain:
+    The command prioritizes by severity. If items remain:
 
     1. Check the feedback document for unchecked items
-    2. Run `/pr-feedback-fix` again for remaining items
+    2. Run `/address-pr-feedback` again for remaining items
     3. For complex issues, fix manually and mark complete in the document
+
+??? question "Want to skip the triage prompt?"
+
+    Use `--afk` mode to run autonomously:
+    ```bash
+    /address-pr-feedback 42 --afk
+    ```

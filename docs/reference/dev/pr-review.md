@@ -165,7 +165,7 @@ Report: .rp1/work/pr-reviews/pr-123.md
 ## Related Commands
 
 - [`pr-visual`](pr-visual.md) - Generate diagrams from PR
-- [`pr-feedback-collect`](pr-feedback-collect.md) - Collect review comments
+- [`address-pr-feedback`](address-pr-feedback.md) - Collect and fix review comments
 
 ## See Also
 

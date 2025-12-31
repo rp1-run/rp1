@@ -385,14 +385,11 @@ Define what rp1 reviews vs. what humans review:
 
 ### Review Feedback Loop
 
-When rp1 identifies issues, use the feedback commands:
+When rp1 identifies issues, use the unified feedback command:
 
 ```bash
-# Collect feedback from PR comments
-/pr-feedback-collect PR_NUMBER
-
-# Apply fixes based on feedback
-/pr-feedback-fix FEATURE_ID
+# Collect and fix PR feedback in one command
+/address-pr-feedback PR_NUMBER
 ```
 
 ---

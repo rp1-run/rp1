@@ -338,9 +338,8 @@ Use rp1 to process and fix human feedback:
 ```mermaid
 flowchart TB
     PR[Create PR] --> HUMAN[Human Review]
-    HUMAN --> COLLECT[rp1 pr-feedback-collect]
-    COLLECT --> FIX[rp1 pr-feedback-fix]
-    FIX --> UPDATE[Push Updates]
+    HUMAN --> ADDR[/address-pr-feedback]
+    ADDR --> UPDATE[Push Updates]
     UPDATE --> MERGE[Merge]
 ```
 
@@ -355,9 +354,8 @@ flowchart TB
     PR[Create PR] --> AUTO[rp1 pr-review]
     AUTO --> FIX1[Fix Auto Issues]
     FIX1 --> HUMAN[Human Review]
-    HUMAN --> COLLECT[pr-feedback-collect]
-    COLLECT --> FIX2[pr-feedback-fix]
-    FIX2 --> MERGE[Merge]
+    HUMAN --> ADDR[/address-pr-feedback]
+    ADDR --> MERGE[Merge]
 ```
 
 **Benefits**: Most thorough review process, combines AI and human insight.
@@ -422,4 +420,4 @@ You've learned the PR review workflow:
     /pr-review feature-branch main
     ```
 
-    Only `pr-feedback-collect` requires GitHub integration.
+    Only `/address-pr-feedback` requires GitHub integration.
