@@ -14,6 +14,7 @@
     "feature-workflow",
     "code-quality",
     "pr-management",
-    "testing"
+    "testing",
+    "lifecycle"
   ]
 }
