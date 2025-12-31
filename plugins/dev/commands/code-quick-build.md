@@ -26,7 +26,7 @@ $ARGUMENTS
 |------|-------|----------|
 | Small | <2 | Single file, simple fix, cfg change, util fn |
 | Medium | 2-8 | Multi-file, API endpoint, schema mod, integrations |
-| Large | >8 | REDIRECT to `rp1-dev:feature-requirements` |
+| Large | >8 | REDIRECT to `rp1-dev:build` |
 
 **DO**: Bug fixes, small features, refactoring, perf, security patches, tech debt, prototypes
 **DONT**: Large features (>8h), multi-sprint, breaking changes, major arch changes
@@ -132,7 +132,7 @@ Why: [reasons]
 Options:
 1. Reduce scope: [minimal solution]
 2. Phase it: [breakdown]
-3. Formal planning: run `rp1-dev:feature-requirements`
+3. Formal planning: run `rp1-dev:build`
 
 Quick win: [simplest valuable alternative]
 ```

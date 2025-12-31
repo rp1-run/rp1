@@ -55,7 +55,7 @@ In `<edit_analysis>` tags analyze:
 
 | File | Req | On Missing |
 |------|-----|------------|
-| requirements.md | Yes | Error: "Cannot edit feature without requirements. Run /rp1-dev:feature-requirements first." |
+| requirements.md | Yes | Error: "Cannot edit feature without requirements. Run /rp1-dev:build first." |
 | design.md | No | Warn: skip design implications |
 | tasks.md | No | Warn: skip task impacts |
 | field-notes.md | No | Info: no prior impl context |
@@ -63,7 +63,7 @@ In `<edit_analysis>` tags analyze:
 **1.3** If feature dir missing:
 ```
 ❌ Error: Feature directory not found: {RP1_ROOT}/work/features/{FEATURE_ID}/
-To create: /rp1-dev:feature-requirements {FEATURE_ID}
+To create: /rp1-dev:build {FEATURE_ID}
 ```
 
 ### S2: Edit Classification
@@ -123,7 +123,7 @@ Else if ambiguous: return JSON:
   "question": "This edit may expand scope significantly (~{ratio}% expansion). How proceed?",
   "options": [
     {"value": "proceed", "label": "Proceed anyway", "description": "Add to current feature"},
-    {"value": "split", "label": "Split to new feature", "description": "Create via /rp1-dev:feature-requirements"},
+    {"value": "split", "label": "Split to new feature", "description": "Create via /rp1-dev:build"},
     {"value": "abort", "label": "Cancel", "description": "Abort edit"}
   ],
   "context": {"expansion_ratio": "{ratio}", "existing_items": N, "new_items": N}
@@ -136,7 +136,7 @@ Else if ambiguous: return JSON:
 
 Expansion ~{ratio}% suggests new feature, not modification.
 
-**Recommendation**: /rp1-dev:feature-requirements {suggested-new-feature-id} "{edit description}"
+**Recommendation**: /rp1-dev:build {suggested-new-feature-id} "{edit description}"
 
 Rephrase w/ narrower scope if you believe it belongs here.
 ```
@@ -265,8 +265,7 @@ If abort: output cancellation, stop w/o changes.
 
 **Next Steps**:
 - Review appended changes
-- Run `/rp1-dev:feature-build {FEATURE_ID}` to implement new tasks
-- Run `/rp1-dev:feature-verify {FEATURE_ID}` to validate AC
+- Run `/rp1-dev:build {FEATURE_ID}` to implement remaining tasks
 ```
 
 ## §DONT
@@ -302,7 +301,7 @@ If edit implies code changes: document requirement, add tasks for impl agent, DO
 
 | Condition | Response |
 |-----------|----------|
-| Feature dir not found | Error w/ /feature-requirements guidance |
+| Feature dir not found | Error w/ /build guidance |
 | requirements.md missing | Error: cannot edit w/o requirements |
 | design.md missing | Warn, skip design updates |
 | tasks.md missing | Warn, skip task updates |

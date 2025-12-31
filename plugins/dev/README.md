@@ -20,7 +20,7 @@ Then install dev plugin:
 /plugin install rp1-dev
 ```
 
-## Commands (21)
+## Commands (16)
 
 ### Project Onboarding (2)
 - `/blueprint [prd-name]` - Guided wizard to capture project vision via charter + PRDs
@@ -61,47 +61,35 @@ The bootstrap command creates a complete runnable project from scratch:
 
 **Non-empty directory handling**: When run in a directory with existing files, bootstrap prompts for confirmation and creates the project in a new subdirectory to avoid conflicts.
 
-### Feature Development (10)
-- `/build feature-id [--afk]` - Orchestrated feature development (requirements -> design -> build -> verify -> archive)
-- `/feature-requirements feature-id [extra-context]` - Gather requirements
-- `/feature-design feature-id [extra-context]` - Create technical design (auto-generates tasks)
-- `/feature-tasks feature-id [extra-context]` - Regenerate tasks (optional - tasks auto-generate after design)
-- `/feature-build feature-id [milestone-id] [mode] [--no-worktree] [--push] [--create-pr]` - Implement features via builder-reviewer pairs in isolated worktree (default: worktree ON)
-- `/feature-verify feature-id [milestone-id]` - Verify feature meets requirements
-- `/feature-archive feature-id` - Archive completed feature to archives/
+### Feature Development (4)
+- `/build feature-id [--afk]` - Complete 6-step feature development workflow
+- `/feature-edit feature-id <edit-description>` - Incorporate mid-stream changes during build
 - `/feature-unarchive feature-id` - Restore archived feature to active features
-- `/feature-edit feature-id <edit-description>` - Incorporate mid-stream changes
 - `/validate-hypothesis feature-id` - Validate design assumptions
 
-**Recommended: Use /build for Complete Workflows**:
+**Use /build for Feature Development**:
 ```bash
 /build my-feature                 # Interactive mode - runs full workflow with prompts
 /build my-feature --afk           # Autonomous mode - runs without user interaction
 ```
 
-The `/build` command orchestrates the complete feature development pipeline:
-1. `/feature-requirements` - Gather and document requirements
-2. `/feature-design` - Create technical design with auto-generated tasks
-3. `/feature-build` - Implement via builder-reviewer architecture
-4. `/feature-verify` - Validate against acceptance criteria
-5. `/feature-archive` - Archive completed feature artifacts
+The `/build` command orchestrates the complete 6-step feature development pipeline:
+1. **Requirements** - Gather and document requirements
+2. **Design** - Create technical design with auto-generated tasks
+3. **Build** - Implement via builder-reviewer architecture in isolated worktree
+4. **Verify** - Validate against acceptance criteria
+5. **Archive** - Archive completed feature artifacts
+6. **Follow-up** - Handle documentation updates and remaining tasks
 
 **Smart Resumption**: `/build` detects existing artifacts and resumes from the appropriate step. If requirements.md exists, it skips to design. If design.md exists, it skips to build.
 
-**Individual Commands** (for granular control):
-```bash
-/feature-requirements my-feature "Additional context about feature scope"
-/feature-design my-feature        # Auto-generates tasks.md
-/feature-build my-feature
-/feature-verify my-feature        # Verify + optional archive prompt
-/feature-archive my-feature       # Or archive manually
-```
+**Note**: Individual step commands (`/feature-requirements`, `/feature-design`, `/feature-tasks`, `/feature-build`, `/feature-verify`, `/feature-archive`) are no longer available as standalone commands. Use `/build` which orchestrates all steps automatically.
 
-**Optional Commands**:
+**Supporting Commands**:
 ```bash
 /validate-hypothesis my-feature   # Validate design assumptions before build
-/feature-tasks my-feature         # Regenerate tasks manually (standalone)
 /feature-edit my-feature "Discovery: API doesn't support pagination"  # Mid-stream changes
+/feature-unarchive my-feature     # Restore archived feature
 ```
 
 ### Code Quality (6)
@@ -167,7 +155,7 @@ When implementing changes that need branch isolation:
 
 ## Builder-Reviewer Architecture (v4.0)
 
-The `feature-build` command uses a **builder-reviewer architecture** with **worktree isolation** for improved accuracy and reliability:
+The build step of `/build` uses a **builder-reviewer architecture** with **worktree isolation** for improved accuracy and reliability:
 
 **Workflow Sequence** (worktree mode):
 1. **Setup**: Create isolated worktree with feature branch
@@ -185,20 +173,10 @@ The `feature-build` command uses a **builder-reviewer architecture** with **work
 - **Configurable Failure Handling**: `ask` mode (default) pauses for guidance, `auto` mode marks blocked and continues
 - **Complexity Tags**: Tasks can be tagged `[complexity:simple|medium|complex]` for grouping
 
-**Worktree Flags**:
-- `--no-worktree` - Disable worktree isolation (work in current directory)
-- `--push` - Push branch to remote after successful build
-- `--create-pr` - Create PR after push (implies `--push`)
-
-**Example**:
-```bash
-/feature-build my-feature           # Build in worktree, branch stays local
-/feature-build my-feature --push    # Build and push branch to remote
-/feature-build my-feature --create-pr  # Build, push, and create PR
-/feature-build my-feature 2         # Build milestone 2 only
-/feature-build my-feature 1 auto    # Build milestone 1, auto-handle failures
-/feature-build my-feature --no-worktree  # Build in current directory (legacy)
-```
+**Worktree Behavior**:
+- Build step runs in an isolated worktree by default
+- Changes are committed atomically with conventional commit format
+- Branch is pushed and PR created as part of the workflow
 
 ## Agents (19)
 
@@ -228,14 +206,14 @@ This plugin provides specialized agents for development workflows:
 
 ## Field Notes
 
-During feature implementation, the `feature-build` command automatically captures key learnings in a `field-notes.md` file within the feature directory. These notes document:
+During feature implementation, the build step of `/build` automatically captures key learnings in a `field-notes.md` file within the feature directory. These notes document:
 
 - **Implementation deviations**: When the actual approach differs from the design
 - **User clarifications**: Corrections or new context provided during the build
 - **Codebase discoveries**: Undocumented patterns found during implementation
 - **Workarounds**: Constraints that required alternative approaches
 
-The `feature-verify` command reads these field notes to distinguish intentional deviations from potential issues, preventing false verification failures.
+The verify step reads these field notes to distinguish intentional deviations from potential issues, preventing false verification failures.
 
 **Location**: `{RP1_ROOT}/work/features/{FEATURE_ID}/field-notes.md`
 

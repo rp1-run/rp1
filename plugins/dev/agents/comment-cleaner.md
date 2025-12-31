@@ -73,7 +73,7 @@ From the JSON output, check `lines_added`. If > 1500:
 
 ```
 ERROR: Scope too large ({N} lines added).
-For large changes, use /feature-build workflow which includes comment cleanup.
+For large changes, use /build workflow which includes comment cleanup.
 ```
 
 Exit without processing.
