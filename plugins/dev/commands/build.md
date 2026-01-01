@@ -99,6 +99,27 @@ Task: rp1-dev:feature-tasker
 prompt: FEATURE_ID={FEATURE_ID}, UPDATE_MODE={UPDATE_MODE}, RP1_ROOT={RP1_ROOT}
 ```
 
+### §2.1 Design Review Checkpoint
+
+**Skip if**: AFK_MODE
+
+After design completes, pause for user review:
+
+```
+AskUserQuestion: |
+  Design phase complete. Review artifacts:
+  - {RP1_ROOT}/work/features/{FEATURE_ID}/design.md
+  - {RP1_ROOT}/work/features/{FEATURE_ID}/tasks.md
+
+  Options:
+  1. "Continue" - Proceed to build phase
+  2. "Revise" - Re-run design with feedback
+  3. "Stop" - Exit workflow (artifacts preserved)
+```
+
+**On "Revise"**: Re-run §STEP-2 with user feedback appended to requirements.
+**On "Stop"**: Exit with summary of completed steps.
+
 ## §STEP-3: Tasks
 
 **Skip if**: start_step > 3
