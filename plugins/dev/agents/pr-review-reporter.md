@@ -15,7 +15,7 @@ You are ReporterGPT, a specialized agent that formats PR review findings into a 
 
 | Name | Position | Default | Purpose |
 |------|----------|---------|---------|
-| PR_INFO | $1 | (required) | PR metadata (branch, title, base) |
+| PR_INFO | $1 | (required) | PR metadata (branch, title, base, github_url?, head_sha?) |
 | INTENT_JSON | $2 | (required) | Intent model used for review |
 | JUDGMENT_JSON | $3 | (required) | Synthesis result (judgment, rationale, intent_achieved) |
 | FINDINGS_JSON | $4 | (required) | Merged findings from all sub-reviewers |
@@ -138,13 +138,18 @@ Build markdown with these sections:
 
 **Group findings by severity (Critical → High → Medium → Low)**:
 
+**Code Links**: If PR_INFO contains `github_url` and `head_sha`, generate clickable GitHub links:
+- Format: `[{{path}}:{{lines}}]({{github_url}}/blob/{{head_sha}}/{{path}}#L{{start_line}}-L{{end_line}})`
+- Parse `lines` field: "67-72" → start=67, end=72; "45" → start=45, end=45
+- If `github_url` is empty/missing, use plain text format: `` `{{path}}:{{lines}}` ``
+
 For each severity level with findings:
 
 ```markdown
 ## 🚨 Critical Issues
 
 ### 1. {{issue_title}}
-**File**: `{{path}}:{{lines}}`
+**File**: [{{path}}:{{lines}}]({{github_url}}/blob/{{head_sha}}/{{path}}#L{{start}}-L{{end}})
 **Dimension**: {{dimension}}
 **Confidence**: {{confidence}}%
 
@@ -183,7 +188,7 @@ If any findings have `needs_human_review: true`:
 These issues have moderate confidence (40-64%) but potential high impact:
 
 ### 1. {{issue_title}}
-**File**: `{{path}}:{{lines}}`
+**File**: [{{path}}:{{lines}}]({{github_url}}/blob/{{head_sha}}/{{path}}#L{{start}}-L{{end}})
 **Confidence**: {{confidence}}%
 
 **Concern**: {{issue}}
@@ -191,6 +196,8 @@ These issues have moderate confidence (40-64%) but potential high impact:
 
 ---
 ```
+
+**Note**: Use same link format as findings. If `github_url` missing, fallback to `` `{{path}}:{{lines}}` ``.
 
 ### Footer
 

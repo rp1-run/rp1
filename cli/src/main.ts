@@ -15,6 +15,7 @@ import {
 	verifyCommand,
 } from "./commands/install.js";
 import { selfUpdateCommand } from "./commands/self-update.js";
+import { uninstallCommand } from "./commands/uninstall.js";
 import { viewCommand } from "./commands/view.js";
 
 /**
@@ -194,6 +195,7 @@ program.addCommand(verifyCommand);
 program.addCommand(verifyClaudeCodeCommand);
 program.addCommand(listCommand);
 program.addCommand(initCommand);
+program.addCommand(uninstallCommand);
 program.addCommand(checkUpdateCommand);
 program.addCommand(selfUpdateCommand);
 

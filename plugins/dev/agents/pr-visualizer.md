@@ -145,16 +145,43 @@ sequenceDiagram
 
 After generating your analysis and diagrams:
 
-1. **Determine output path**:
-   - Directory: `{RP1_ROOT}/work/pr-reviews/`
-   - Pattern: `<identifier>-visual-<NNN>.md`
-   - `<identifier>`: PR number (e.g., `pr-123`) or sanitized branch name
-   - `<NNN>`: Next available sequence number (check existing `<identifier>-visual-*.md` files)
-   - Example: `pr-123-visual-001.md`, `feature-auth-visual-002.md`
+### 1. Determine File Name
 
-2. Save output to the determined path
-3. Generate preview using `rp1-base:markdown-preview` skill
-4. Provide a brief completion summary including the file path
+**Naming Pattern**: `<identifier>-visual-<NNN>.md`
+
+1. **Derive REVIEW_ID from PR_BRANCH**:
+   - If PR number available: `pr-{{number}}` (e.g., `pr-123`)
+   - Otherwise: sanitize branch name (replace `/` with `-`)
+   - Examples: `feature/auth` -> `feature-auth`, `fix-bug` -> `fix-bug`
+
+2. **Ensure output directory exists**:
+   ```bash
+   mkdir -p {RP1_ROOT}/work/pr-reviews
+   ```
+
+3. **Find next available sequence**:
+   Use Glob to check existing files:
+   ```
+   {RP1_ROOT}/work/pr-reviews/{{REVIEW_ID}}-visual-*.md
+   ```
+
+4. **Calculate sequence number**:
+   - No existing files -> `001`
+   - Existing files -> increment highest sequence
+   - Format: Zero-padded 3 digits
+
+5. **Final path**: `{RP1_ROOT}/work/pr-reviews/{{REVIEW_ID}}-visual-<NNN>.md`
+
+**Examples**:
+- `pr-123-visual-001.md`
+- `feature-auth-visual-002.md`
+- `my-branch-visual-001.md`
+
+### 2. Save and Preview
+
+1. Save output to the determined path using Write tool
+2. Generate preview using `rp1-base:markdown-preview` skill
+3. Provide a brief completion summary including the file path
 
 If no visualizations are warranted, output exactly: "No visualizations needed."
 

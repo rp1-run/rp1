@@ -74,6 +74,12 @@ P4   (seq):  Reporter → Markdown Report
 
 2. `gh pr view {{branch}} --json title,body,headRefName,baseRefName,url 2>/dev/null`
 
+2a. **Get GitHub repo info** (for code links):
+   ```bash
+   gh repo view --json url --jq '.url' 2>/dev/null
+   ```
+   Store as `GITHUB_URL`. If fails, set to empty (links will be omitted in report).
+
 3. **Build Intent Model**:
    - **PR exists** (mode: `full`):
      - `title` → `problem_statement`
@@ -214,13 +220,19 @@ P4   (seq):  Reporter → Markdown Report
 
 4. If `VISUAL_TASK_ID`: check completion → `VISUAL_PATH` or "none"
 
-5. Spawn reporter:
+5. Get HEAD commit SHA for code links:
+   ```bash
+   git rev-parse {{branch}}
+   ```
+   Store as `HEAD_SHA`.
+
+6. Spawn reporter:
 
    ```
    Task tool:
    subagent_type: rp1-dev:pr-review-reporter
    prompt: "Generate markdown report.
-     PR_INFO: {{stringify({branch, title, base})}}
+     PR_INFO: {{stringify({branch, title, base, github_url: GITHUB_URL, head_sha: HEAD_SHA})}}
      INTENT_JSON: {{stringify(intent_model)}}
      JUDGMENT_JSON: {{stringify({judgment, rationale, intent_achieved, intent_gap})}}
      FINDINGS_JSON: {{stringify(merged_findings)}}
@@ -232,7 +244,7 @@ P4   (seq):  Reporter → Markdown Report
      Return JSON with path."
    ```
 
-6. Fail → output findings inline as fallback
+7. Fail → output findings inline as fallback
 
 ### Final Output
 
