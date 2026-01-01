@@ -274,7 +274,7 @@ After the investigation, you have several options. Always reference the investig
 If the fix is straightforward, implement it directly:
 
 ```bash
-/code-quick-build "Fix the N+1 query" \
+/build-fast "Fix the N+1 query" \
   .rp1/work/investigations/api-timeout-orders/report.md
 ```
 
@@ -332,7 +332,7 @@ You've learned the bug investigation workflow:
 
 ## Next Steps
 
-- **Fix the bug**: Use [code-quick-build](../reference/dev/code-quick-build.md) for simple fixes
+- **Fix the bug**: Use [build-fast](../reference/dev/build-fast.md) for simple fixes
 - **Larger fixes**: Use the [Feature Development](feature-development.md) workflow
 - **Review the PR**: After fixing, use [PR Review](pr-review.md) to verify the change
 - **Reference**: See [code-investigate](../reference/dev/code-investigate.md) for full command options

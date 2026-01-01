@@ -134,7 +134,7 @@ rp1 covers most development scenarios with dedicated commands:
 
 | Task | rp1 Command |
 |------|-------------|
-| Quick fixes, small scripts | `/code-quick-build` |
+| Quick fixes, small scripts | `/build-fast` |
 | Learning, research, exploration | `/deep-research` |
 | Bug investigation | `/code-investigate` |
 | Strategic decisions | `/strategize` |

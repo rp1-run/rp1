@@ -70,7 +70,7 @@ The dev plugin provides development workflow capabilities: feature lifecycle, co
 | [`code-audit`](dev/code-audit.md) | Pattern consistency and maintainability audit |
 | [`code-investigate`](dev/code-investigate.md) | Systematic bug investigation |
 | [`code-clean-comments`](dev/code-clean-comments.md) | Remove unnecessary code comments |
-| [`code-quick-build`](dev/code-quick-build.md) | Exploratory development for quick fixes |
+| [`build-fast`](dev/build-fast.md) | Quick iteration development with scope gating |
 
 ### PR Management
 

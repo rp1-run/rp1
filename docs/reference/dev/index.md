@@ -45,7 +45,7 @@ Maintain code health with automated checks and analysis.
 | [`code-audit`](code-audit.md) | Pattern consistency and maintainability audit |
 | [`code-investigate`](code-investigate.md) | Systematic bug investigation |
 | [`code-clean-comments`](code-clean-comments.md) | Remove unnecessary code comments |
-| [`code-quick-build`](code-quick-build.md) | Exploratory development for quick fixes |
+| [`build-fast`](build-fast.md) | Quick iteration development with scope gating |
 
 ### PR Management
 

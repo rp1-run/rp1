@@ -266,7 +266,7 @@ This allows agents to commit freely without interference from linters, formatter
 
 The primary use case is providing agents with a safe sandbox:
 
-1. User invokes `/code-quick-build "fix auth bug"`
+1. User invokes `/build-fast "fix auth bug"`
 2. Agent creates worktree: `rp1 agent-tools worktree create fix-auth-bug`
 3. Agent works in worktree, making changes freely
 4. Agent commits changes to the worktree branch
@@ -284,4 +284,4 @@ When the main repository has uncommitted changes, the agent warns the user but p
 ## Related
 
 - [`rp1-root-dir`](rp1-root-dir.md) - Resolve RP1_ROOT with worktree awareness
-- [`code-quick-build`](../dev/code-quick-build.md) - Uses worktrees for isolated development
+- [`build-fast`](../dev/build-fast.md) - Uses worktrees for isolated development

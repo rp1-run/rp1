@@ -272,7 +272,7 @@ flowchart TD
 
 - Skip blueprint for bugs and small fixes
 - Skip design for simple changes
-- Use `/code-quick-build` for urgent hotfixes
+- Use `/build-fast` for urgent hotfixes
 ```
 
 ### Branch Naming Conventions
@@ -552,6 +552,6 @@ You've learned how to scale rp1 to your team:
 ??? question "How do we handle contractors or external contributors?"
 
     1. **Read-only KB**: Share KB files, don't require regeneration
-    2. **Simplified workflow**: `/code-quick-build` for small contributions
+    2. **Simplified workflow**: `/build-fast` for small contributions
     3. **Mentored onboarding**: Pair with team member on first PR
     4. **Documentation**: Point to [First Workflow](../getting-started/first-workflow.md)

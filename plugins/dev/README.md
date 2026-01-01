@@ -93,17 +93,16 @@ The `/build` command orchestrates the complete 6-step feature development pipeli
 /feature-unarchive my-feature     # Restore archived feature
 ```
 
-### Code Quality (6)
+### Code Quality (5)
 - `/code-check [feature-id]` - Fast code hygiene validation (lints, formatters, tests, coverage)
 - `/code-investigate [problem-description...]` - Bug investigation and root cause analysis
-- `/code-test` - (DEPRECATED) Use code-check or feature-verify instead
 - `/code-audit [feature-id]` - Code quality and pattern analysis
 - `/code-clean-comments` - Remove unnecessary comments
-- `/code-quick-build [development-request...]` - Quick fixes, prototypes, and optimizations
+- `/build-fast [development-request...] [--afk]` - Quick iteration development with scope gating
 
 **Examples**:
 ```bash
-/code-quick-build "Fix authentication bug in login flow"
+/build-fast "Fix authentication bug in login flow"
 /code-investigate "Users report timeout errors on large file uploads"
 ```
 

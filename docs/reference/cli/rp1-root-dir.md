@@ -12,7 +12,7 @@ rp1 agent-tools rp1-root-dir
 
 ## Description
 
-The `rp1-root-dir` agent tool resolves the path to the `.rp1/` directory, handling the case where the agent is running inside a git worktree. This ensures that commands like `code-quick-build` can access the shared knowledge base from the main repository even when executing in an isolated worktree.
+The `rp1-root-dir` agent tool resolves the path to the `.rp1/` directory, handling the case where the agent is running inside a git worktree. This ensures that commands like `build-fast` can access the shared knowledge base from the main repository even when executing in an isolated worktree.
 
 ## Output
 
@@ -119,11 +119,11 @@ $ rp1 agent-tools rp1-root-dir
 
 This tool is primarily used by agents that need to access the knowledge base while operating in isolated environments:
 
-- **Worktree isolation**: `code-quick-build` creates worktrees for safe experimentation while still needing access to KB files
+- **Worktree isolation**: `build-fast` creates worktrees for safe experimentation while still needing access to KB files
 - **Custom RP1_ROOT**: Projects using non-standard `.rp1/` locations
 - **Monorepo setups**: Ensuring consistent KB access across workspace directories
 
 ## Related
 
 - [`worktree`](worktree.md) - Create and manage git worktrees
-- [`code-quick-build`](../dev/code-quick-build.md) - Uses worktrees for isolated development
+- [`build-fast`](../dev/build-fast.md) - Uses worktrees for isolated development
