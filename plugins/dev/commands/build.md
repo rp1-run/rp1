@@ -41,6 +41,7 @@ Skip prompts, auto-select defaults, retry once on failure, auto-archive.
 ## §ARTIFACT-DETECTION
 
 **Spawn agent**:
+
 ```
 Task: rp1-dev:build-artifact-detector
 prompt: FEATURE_ID={FEATURE_ID}, RP1_ROOT={RP1_ROOT}
@@ -86,6 +87,7 @@ prompt: FEATURE_ID={FEATURE_ID}, AFK_MODE={AFK_MODE}, UPDATE_MODE={design.md exi
 ```
 
 If `flagged_hypotheses` non-empty:
+
 ```
 Task: rp1-dev:hypothesis-tester
 prompt: Validate hypotheses for feature {FEATURE_ID}
@@ -123,6 +125,7 @@ Store: `worktree_path`, `branch`, `basedOn`
 ### §4.2 Task Parsing
 
 **Spawn agent**:
+
 ```
 Task: rp1-dev:build-task-parser
 prompt: TASKS_PATH={RP1_ROOT}/work/features/{FEATURE_ID}/tasks.md
@@ -133,6 +136,7 @@ prompt: TASKS_PATH={RP1_ROOT}/work/features/{FEATURE_ID}/tasks.md
 ### §4.3 Task Grouping
 
 **Spawn agent** (with pending implementation_tasks):
+
 ```
 Task: rp1-dev:build-task-grouper
 prompt: |
@@ -156,30 +160,9 @@ for unit in task_units:
     else: escalate (AFK: mark blocked; Interactive: prompt)
 ```
 
-### §4.5 Test Runner (Informational)
-
-After builder-reviewer loop:
-```
-Task: rp1-dev:test-runner
-prompt: |
-  FEATURE_ID: {FEATURE_ID}
-  TEST_SCOPE: all
-  RP1_ROOT: {RP1_ROOT}
-```
-
-**Non-blocking**: Log results, continue regardless of outcome.
-
-### §4.6 Post-Build
-
-**Comment Cleaner**:
-```
-Task: rp1-dev:comment-cleaner
-prompt: SCOPE={basedOn}..HEAD, BASE_BRANCH={basedOn}, WORKTREE_PATH={path}, COMMIT_CHANGES=true
-```
+### §4.5 Post-Build
 
 **Doc Tasks** (TD*): Build `doc_scan_results.json`, spawn scribe.
-
-**Worktree Finalize**: Commit validation, push if requested, cleanup.
 
 ## §STEP-5: Verify
 
@@ -190,14 +173,15 @@ prompt: SCOPE={basedOn}..HEAD, BASE_BRANCH={basedOn}, WORKTREE_PATH={path}, COMM
 **CRITICAL**: Invoke ALL THREE in SINGLE response.
 
 ```
-Task: rp1-dev:code-checker (FEATURE_ID, branch)
-Task: rp1-dev:feature-verifier (FEATURE_ID, RP1_ROOT)
-Task: rp1-dev:comment-cleaner (MODE=check, SCOPE=branch)
+Task: rp1-dev:code-checker (FEATURE_ID, branch, WORKTREE_PATH=worktree_path)
+Task: rp1-dev:feature-verifier (FEATURE_ID, RP1_ROOT, WORKTREE_PATH=worktree_path)
+Task: rp1-dev:comment-cleaner (MODE=clean, SCOPE=branch COMMIT_CHANGES=true WORKTREE_PATH=worktree_path)
 ```
 
 ### §5.2 Aggregate Results
 
 **Spawn agent**:
+
 ```
 Task: rp1-dev:build-verify-aggregator
 prompt: |
@@ -214,13 +198,21 @@ prompt: |
 
 If `manual_items` non-empty: Append to tasks.md `## Manual Verification` section.
 
-### §5.4 Post-Verify (Interactive Only)
+### §5.4 Worktree Finalization and Git operations
+
+validate commits; cleanup worktree; push if requested; create PR if requested.
+
+## §6 SUMMARY
+
+Output: Feature ID, step status table (1-6), artifacts created.
+
+### §6.1 Post-Verify (Interactive Only)
 
 **Skip if**: AFK_MODE
 
 AskUserQuestion: "Add task" -> spawn builder/reviewer. "Archive" -> Step 6. "Do nothing" -> exit.
 
-## §STEP-6: Archive
+### §STEP-6.2: Archive
 
 **Skip if**: User chose "Do nothing"
 
@@ -228,12 +220,6 @@ AskUserQuestion: "Add task" -> spawn builder/reviewer. "Archive" -> Step 6. "Do 
 Task: rp1-dev:feature-archiver
 prompt: MODE=archive, FEATURE_ID={FEATURE_ID}, SKIP_DOC_CHECK=false
 ```
-
----
-
-## §SUMMARY
-
-Output: Feature ID, step status table (1-6), artifacts created.
 
 ## §ANTI-LOOP
 
