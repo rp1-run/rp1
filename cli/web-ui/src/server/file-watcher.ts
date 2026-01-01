@@ -25,6 +25,9 @@ function shouldIgnore(filename: string): boolean {
 	return IGNORED_PATTERNS.some((pattern) => pattern.test(filename));
 }
 
+const MAX_WATCHERS = 10;
+const GRACE_PERIOD_MS = 30_000;
+
 export class FileWatcher {
 	private watchers: ReturnType<typeof watch>[] = [];
 	private hub: WebSocketHub;
@@ -32,12 +35,17 @@ export class FileWatcher {
 	private pendingChanges: Map<string, PendingChange> = new Map();
 	private debounceTimeout: ReturnType<typeof setTimeout> | null = null;
 	private debounceMs: number;
+	readonly projectId: string;
+	readonly projectPath: string;
 
 	constructor(
+		projectId: string,
 		projectPath: string,
 		hub: WebSocketHub,
 		options: { debounceMs?: number } = {},
 	) {
+		this.projectId = projectId;
+		this.projectPath = projectPath;
 		this.rp1Path = join(projectPath, ".rp1");
 		this.hub = hub;
 		this.debounceMs = options.debounceMs ?? 100;
@@ -121,15 +129,15 @@ export class FileWatcher {
 		);
 
 		for (const change of changes) {
-			this.hub.broadcastFileChange(change.path, change.type);
+			this.hub.broadcastFileChange(this.projectId, change.path, change.type);
 		}
 
 		if (hasStructuralChange) {
-			this.hub.broadcastTreeChange();
+			this.hub.broadcastTreeChange(this.projectId);
 		}
 
 		console.log(
-			`Notified ${changes.length} file change(s):`,
+			`[${this.projectId}] Notified ${changes.length} file change(s):`,
 			changes.map((c) => `${c.type}:${c.path}`).join(", "),
 		);
 	}
@@ -150,6 +158,139 @@ export class FileWatcher {
 
 		this.watchers = [];
 		this.pendingChanges.clear();
-		console.log("File watcher stopped");
+		console.log(`[${this.projectId}] File watcher stopped`);
+	}
+}
+
+interface PooledWatcher {
+	watcher: FileWatcher;
+	clientCount: number;
+	lastAccessedAt: number;
+	gracePeriodTimer: ReturnType<typeof setTimeout> | null;
+}
+
+export class FileWatcherPool {
+	private watchers: Map<string, PooledWatcher> = new Map();
+	private hub: WebSocketHub;
+
+	constructor(hub: WebSocketHub) {
+		this.hub = hub;
+	}
+
+	acquireWatcher(projectId: string, projectPath: string): FileWatcher {
+		const existing = this.watchers.get(projectId);
+
+		if (existing) {
+			if (existing.gracePeriodTimer) {
+				clearTimeout(existing.gracePeriodTimer);
+				existing.gracePeriodTimer = null;
+			}
+			existing.clientCount++;
+			existing.lastAccessedAt = Date.now();
+			console.log(
+				`[${projectId}] Watcher acquired, client count: ${existing.clientCount}`,
+			);
+			return existing.watcher;
+		}
+
+		this.evictIfNeeded();
+
+		const watcher = new FileWatcher(projectId, projectPath, this.hub);
+		watcher.start();
+
+		this.watchers.set(projectId, {
+			watcher,
+			clientCount: 1,
+			lastAccessedAt: Date.now(),
+			gracePeriodTimer: null,
+		});
+
+		console.log(
+			`[${projectId}] Watcher created, total watchers: ${this.watchers.size}`,
+		);
+		return watcher;
+	}
+
+	releaseWatcher(projectId: string): void {
+		const pooled = this.watchers.get(projectId);
+		if (!pooled) return;
+
+		pooled.clientCount--;
+		console.log(
+			`[${projectId}] Watcher released, client count: ${pooled.clientCount}`,
+		);
+
+		if (pooled.clientCount <= 0) {
+			pooled.gracePeriodTimer = setTimeout(() => {
+				const current = this.watchers.get(projectId);
+				if (current && current.clientCount <= 0) {
+					current.watcher.stop();
+					this.watchers.delete(projectId);
+					console.log(
+						`[${projectId}] Watcher stopped after grace period, total watchers: ${this.watchers.size}`,
+					);
+				}
+			}, GRACE_PERIOD_MS);
+		}
+	}
+
+	private evictIfNeeded(): void {
+		if (this.watchers.size < MAX_WATCHERS) return;
+
+		let oldestKey: string | null = null;
+		let oldestTime = Infinity;
+
+		for (const [key, pooled] of this.watchers.entries()) {
+			if (pooled.clientCount === 0 && pooled.lastAccessedAt < oldestTime) {
+				oldestTime = pooled.lastAccessedAt;
+				oldestKey = key;
+			}
+		}
+
+		if (!oldestKey) {
+			for (const [key, pooled] of this.watchers.entries()) {
+				if (pooled.lastAccessedAt < oldestTime) {
+					oldestTime = pooled.lastAccessedAt;
+					oldestKey = key;
+				}
+			}
+		}
+
+		if (oldestKey) {
+			const pooled = this.watchers.get(oldestKey);
+			if (pooled) {
+				if (pooled.gracePeriodTimer) {
+					clearTimeout(pooled.gracePeriodTimer);
+				}
+				pooled.watcher.stop();
+				this.watchers.delete(oldestKey);
+				console.log(
+					`[${oldestKey}] Watcher evicted (LRU), total watchers: ${this.watchers.size}`,
+				);
+			}
+		}
+	}
+
+	getWatcher(projectId: string): FileWatcher | undefined {
+		return this.watchers.get(projectId)?.watcher;
+	}
+
+	hasWatcher(projectId: string): boolean {
+		return this.watchers.has(projectId);
+	}
+
+	get watcherCount(): number {
+		return this.watchers.size;
+	}
+
+	stop(): void {
+		for (const [_projectId, pooled] of this.watchers.entries()) {
+			if (pooled.gracePeriodTimer) {
+				clearTimeout(pooled.gracePeriodTimer);
+			}
+			pooled.watcher.stop();
+		}
+		this.watchers.clear();
+		console.log("FileWatcherPool stopped, all watchers cleared");
 	}
 }

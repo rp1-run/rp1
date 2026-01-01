@@ -1,6 +1,7 @@
 import { readdir, stat } from "node:fs/promises";
 import { basename, extname, join, resolve } from "node:path";
 import { isLeft } from "../../lib/fp";
+import type { FileWatcherPool } from "../file-watcher";
 import { formatProjectError, getProjectMetadata } from "../project";
 import {
 	getAllProjects,
@@ -11,6 +12,7 @@ import {
 	registerProject,
 	removeProject,
 } from "../registry";
+import type { WebSocketHub } from "../websocket";
 
 export interface FileNode {
 	path: string;
@@ -34,6 +36,8 @@ export interface FileContent {
 export interface ApiContext {
 	readonly port: number;
 	readonly startTime: number;
+	readonly websocketHub?: WebSocketHub;
+	readonly fileWatcherPool?: FileWatcherPool;
 	readonly shutdownCallback?: () => void;
 }
 
@@ -307,6 +311,9 @@ export async function handleProjectRegisterRequest(
 		// Register the project
 		const project = await registerProject(projectPath);
 
+		// Notify all clients that project list changed
+		ctx.websocketHub?.broadcastProjectsChanged();
+
 		// Build the URL for this project
 		const url = `http://127.0.0.1:${ctx.port}/project/${project.id}`;
 
@@ -346,6 +353,7 @@ export async function handleProjectGetRequest(
  */
 export async function handleProjectDeleteRequest(
 	projectId: string,
+	ctx?: ApiContext,
 ): Promise<Response> {
 	try {
 		const removed = await removeProject(projectId);
@@ -353,6 +361,9 @@ export async function handleProjectDeleteRequest(
 		if (!removed) {
 			return errorResponse(`Project not found: ${projectId}`, 404);
 		}
+
+		// Notify all clients that project list changed
+		ctx?.websocketHub?.broadcastProjectsChanged();
 
 		return jsonResponse({ removed: true });
 	} catch (error) {

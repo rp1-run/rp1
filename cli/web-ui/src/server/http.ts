@@ -1,15 +1,18 @@
 import type { ServerWebSocket } from "bun";
+import type { FileWatcherPool } from "./file-watcher";
 import type { ApiContext } from "./routes/api";
 import type { WebSocketHub } from "./websocket";
 
 interface WebSocketData {
 	projectPath: string;
+	projectId?: string;
 }
 
 export interface ServerConfig {
 	port: number;
 	projectPath: string;
 	websocketHub: WebSocketHub;
+	fileWatcherPool?: FileWatcherPool;
 	isDev?: boolean;
 	webUIDir?: string;
 	startTime?: number;
@@ -25,6 +28,7 @@ export function startServer(config: ServerConfig): AppServer {
 		port,
 		projectPath,
 		websocketHub,
+		fileWatcherPool,
 		isDev = false,
 		webUIDir,
 		startTime = Date.now(),
@@ -35,6 +39,8 @@ export function startServer(config: ServerConfig): AppServer {
 	const apiContext: ApiContext = {
 		port,
 		startTime,
+		websocketHub,
+		fileWatcherPool,
 		shutdownCallback: () => {
 			serverInstance.stop();
 		},
@@ -48,8 +54,9 @@ export function startServer(config: ServerConfig): AppServer {
 			const pathname = url.pathname;
 
 			if (pathname === "/ws") {
+				const projectIdParam = url.searchParams.get("projectId");
 				const upgraded = server.upgrade(req, {
-					data: { projectPath },
+					data: { projectPath, projectId: projectIdParam ?? undefined },
 				});
 				if (!upgraded) {
 					return new Response("WebSocket upgrade failed", { status: 400 });
@@ -65,13 +72,26 @@ export function startServer(config: ServerConfig): AppServer {
 		},
 		websocket: {
 			open(ws: ServerWebSocket<WebSocketData>) {
-				websocketHub.addClient(ws);
+				const projectId = ws.data.projectId;
+				websocketHub.addClient(ws, projectId);
+				if (projectId && fileWatcherPool) {
+					const { getProject } = require("./registry");
+					getProject(projectId).then((project: { path: string } | null) => {
+						if (project) {
+							fileWatcherPool.acquireWatcher(projectId, project.path);
+						}
+					});
+				}
 			},
 			message(ws: ServerWebSocket<WebSocketData>, message) {
 				websocketHub.handleMessage(ws, message);
 			},
 			close(ws: ServerWebSocket<WebSocketData>) {
+				const projectId = websocketHub.getClientProject(ws);
 				websocketHub.removeClient(ws);
+				if (projectId && fileWatcherPool) {
+					fileWatcherPool.releaseWatcher(projectId);
+				}
 			},
 		},
 	});
@@ -133,7 +153,7 @@ async function handleApiRequest(
 		// DELETE /api/projects/:id - remove project from registry
 		if (subPath === "" && method === "DELETE") {
 			const { handleProjectDeleteRequest } = await import("./routes/api");
-			return handleProjectDeleteRequest(projectId);
+			return handleProjectDeleteRequest(projectId, apiContext);
 		}
 
 		// GET /api/projects/:id/files - get file tree for project
