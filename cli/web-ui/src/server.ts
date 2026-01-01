@@ -11,6 +11,7 @@ export interface ServerOptions {
 
 export function createServer(options: ServerOptions) {
 	const { port = 7710, projectPath, isDev = false, webUIDir } = options;
+	const startTime = Date.now();
 
 	const websocketHub = new WebSocketHub();
 	const fileWatcher = new FileWatcher(projectPath, websocketHub);
@@ -21,6 +22,7 @@ export function createServer(options: ServerOptions) {
 		websocketHub,
 		isDev,
 		webUIDir,
+		startTime,
 	});
 
 	fileWatcher.start();
@@ -34,6 +36,7 @@ export function createServer(options: ServerOptions) {
 		server: server.server,
 		websocketHub,
 		fileWatcher,
+		startTime,
 		stop: () => {
 			fileWatcher.stop();
 			websocketHub.stop();

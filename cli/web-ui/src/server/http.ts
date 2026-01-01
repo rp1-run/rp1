@@ -1,4 +1,5 @@
 import type { ServerWebSocket } from "bun";
+import type { ApiContext } from "./routes/api";
 import type { WebSocketHub } from "./websocket";
 
 interface WebSocketData {
@@ -11,6 +12,7 @@ export interface ServerConfig {
 	websocketHub: WebSocketHub;
 	isDev?: boolean;
 	webUIDir?: string;
+	startTime?: number;
 }
 
 export interface AppServer {
@@ -19,9 +21,26 @@ export interface AppServer {
 }
 
 export function startServer(config: ServerConfig): AppServer {
-	const { port, projectPath, websocketHub, isDev = false, webUIDir } = config;
+	const {
+		port,
+		projectPath,
+		websocketHub,
+		isDev = false,
+		webUIDir,
+		startTime = Date.now(),
+	} = config;
 
-	const server = Bun.serve<WebSocketData>({
+	let serverInstance: ReturnType<typeof Bun.serve<WebSocketData>>;
+
+	const apiContext: ApiContext = {
+		port,
+		startTime,
+		shutdownCallback: () => {
+			serverInstance.stop();
+		},
+	};
+
+	serverInstance = Bun.serve<WebSocketData>({
 		port,
 		hostname: "127.0.0.1",
 		fetch(req, server) {
@@ -39,7 +58,7 @@ export function startServer(config: ServerConfig): AppServer {
 			}
 
 			if (pathname.startsWith("/api/")) {
-				return handleApiRequest(req, projectPath);
+				return handleApiRequest(req, projectPath, apiContext);
 			}
 
 			return handleStaticRequest(req, isDev, webUIDir);
@@ -60,18 +79,78 @@ export function startServer(config: ServerConfig): AppServer {
 	console.log(`Server running at http://127.0.0.1:${port}`);
 
 	return {
-		server,
-		stop: () => server.stop(),
+		server: serverInstance,
+		stop: () => serverInstance.stop(),
 	};
 }
 
 async function handleApiRequest(
 	req: Request,
 	projectPath: string,
+	apiContext: ApiContext,
 ): Promise<Response> {
 	const url = new URL(req.url);
 	const pathname = url.pathname;
+	const method = req.method;
 
+	// Multi-project API endpoints (new)
+	// GET /api/health - daemon health check
+	if (pathname === "/api/health" && method === "GET") {
+		const { handleHealthRequest } = await import("./routes/api");
+		return handleHealthRequest(apiContext);
+	}
+
+	// POST /api/shutdown - graceful shutdown
+	if (pathname === "/api/shutdown" && method === "POST") {
+		const { handleShutdownRequest } = await import("./routes/api");
+		return handleShutdownRequest(apiContext);
+	}
+
+	// GET /api/projects - list all projects
+	if (pathname === "/api/projects" && method === "GET") {
+		const { handleProjectsListRequest } = await import("./routes/api");
+		return handleProjectsListRequest();
+	}
+
+	// POST /api/projects/register - register a new project
+	if (pathname === "/api/projects/register" && method === "POST") {
+		const { handleProjectRegisterRequest } = await import("./routes/api");
+		return handleProjectRegisterRequest(req, apiContext);
+	}
+
+	// Routes with project ID parameter: /api/projects/:id/*
+	const projectsMatch = pathname.match(/^\/api\/projects\/([^/]+)(.*)$/);
+	if (projectsMatch) {
+		const projectId = decodeURIComponent(projectsMatch[1]);
+		const subPath = projectsMatch[2];
+
+		// GET /api/projects/:id - get single project metadata
+		if (subPath === "" && method === "GET") {
+			const { handleProjectGetRequest } = await import("./routes/api");
+			return handleProjectGetRequest(projectId);
+		}
+
+		// DELETE /api/projects/:id - remove project from registry
+		if (subPath === "" && method === "DELETE") {
+			const { handleProjectDeleteRequest } = await import("./routes/api");
+			return handleProjectDeleteRequest(projectId);
+		}
+
+		// GET /api/projects/:id/files - get file tree for project
+		if (subPath === "/files" && method === "GET") {
+			const { handleProjectFilesRequest } = await import("./routes/api");
+			return handleProjectFilesRequest(projectId);
+		}
+
+		// GET /api/projects/:id/content/* - get file content
+		if (subPath.startsWith("/content/") && method === "GET") {
+			const { handleProjectContentRequest } = await import("./routes/api");
+			const filePath = decodeURIComponent(subPath.slice("/content/".length));
+			return handleProjectContentRequest(projectId, filePath);
+		}
+	}
+
+	// Legacy single-project endpoints (backward compatibility)
 	if (pathname === "/api/project") {
 		const { handleProjectRequest } = await import("./routes/api");
 		return handleProjectRequest(projectPath);
