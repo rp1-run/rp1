@@ -68,7 +68,7 @@ describe("integration: dependencies", () => {
 		);
 		await writeFixture(
 			baseDir,
-			"skills/maestro/SKILL.md",
+			"skill/maestro/SKILL.md",
 			"---\nname: maestro\ndescription: Skill creation wizard for Claude Code\n---\nMaestro skill content",
 		);
 

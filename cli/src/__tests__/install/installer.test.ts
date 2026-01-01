@@ -31,7 +31,7 @@ describe("installer", () => {
 	});
 
 	describe("copyArtifacts", () => {
-		test("copies files to correct subdirectories (command/, agent/, skills/)", async () => {
+		test("copies files to correct subdirectories (command/, agent/, skill/)", async () => {
 			// Set up source directory structure
 			const sourceDir = join(tempDir, "source");
 			const targetDir = join(tempDir, "target");
@@ -49,7 +49,7 @@ describe("installer", () => {
 			);
 			await writeFixture(
 				sourceDir,
-				"skills/sample-skill/SKILL.md",
+				"skill/sample-skill/SKILL.md",
 				"---\nname: sample-skill\n---\nSkill content",
 			);
 
@@ -74,7 +74,7 @@ describe("installer", () => {
 			expect(agentContent).toContain("Agent content");
 
 			const skillContent = await readFile(
-				join(targetDir, "skills/sample-skill/SKILL.md"),
+				join(targetDir, "skill/sample-skill/SKILL.md"),
 				"utf-8",
 			);
 			expect(skillContent).toContain("Skill content");
@@ -135,7 +135,7 @@ describe("installer", () => {
 			const targetDir = join(tempDir, "target");
 			await mkdir(sourceDir, { recursive: true });
 
-			// Source exists but has no command/agent/skills dirs
+			// Source exists but has no command/agent/skill dirs
 			const result = await copyArtifacts(sourceDir, targetDir)();
 
 			expect(E.isRight(result)).toBe(true);
@@ -151,17 +151,17 @@ describe("installer", () => {
 			// Create skill with nested structure
 			await writeFixture(
 				sourceDir,
-				"skills/my-skill/SKILL.md",
+				"skill/my-skill/SKILL.md",
 				"---\nname: my-skill\n---\nSkill main",
 			);
 			await writeFixture(
 				sourceDir,
-				"skills/my-skill/templates/template1.md",
+				"skill/my-skill/templates/template1.md",
 				"Template 1 content",
 			);
 			await writeFixture(
 				sourceDir,
-				"skills/my-skill/templates/nested/template2.md",
+				"skill/my-skill/templates/nested/template2.md",
 				"Template 2 content",
 			);
 
@@ -171,13 +171,13 @@ describe("installer", () => {
 
 			// Verify nested files were copied
 			const template1 = await readFile(
-				join(targetDir, "skills/my-skill/templates/template1.md"),
+				join(targetDir, "skill/my-skill/templates/template1.md"),
 				"utf-8",
 			);
 			expect(template1).toBe("Template 1 content");
 
 			const template2 = await readFile(
-				join(targetDir, "skills/my-skill/templates/nested/template2.md"),
+				join(targetDir, "skill/my-skill/templates/nested/template2.md"),
 				"utf-8",
 			);
 			expect(template2).toBe("Template 2 content");

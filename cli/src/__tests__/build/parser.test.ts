@@ -134,7 +134,7 @@ Content.`;
 
 	describe("parseSkill", () => {
 		test("validates description minimum length (>=20 chars)", async () => {
-			const fixturePath = getFixturePath("valid-plugin", "skills/sample-skill");
+			const fixturePath = getFixturePath("valid-plugin", "skill/sample-skill");
 			const result = await expectTaskRight(parseSkill(fixturePath));
 
 			expect(result.name).toBe("sample-skill");
@@ -166,7 +166,7 @@ Content.`,
 		});
 
 		test("discovers supporting files in templates/ subdirectory", async () => {
-			const fixturePath = getFixturePath("valid-plugin", "skills/sample-skill");
+			const fixturePath = getFixturePath("valid-plugin", "skill/sample-skill");
 			const result = await expectTaskRight(parseSkill(fixturePath));
 
 			expect(result.supportingFiles).toContain("templates/example.md");
