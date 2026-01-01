@@ -44,11 +44,11 @@
 ```bash
 # Claude Code (flexible)
 /rp1-dev:feature-requirements my-feature "extra context"
-/rp1-dev:code-quick-build "Fix the authentication bug"
+/rp1-dev:build-fast "Fix the authentication bug"
 
 # OpenCode (strict positional)
 /rp1-dev/feature-requirements my-feature "extra context"
-/rp1-dev/code-quick-build "Fix the authentication bug"
+/rp1-dev/build-fast "Fix the authentication bug"
 ```
 
 **Argument Hints**: Commands with parameters include `argument-hint` in frontmatter:

@@ -8,7 +8,7 @@ Get rp1 installed in under 5 minutes. This guide covers all platforms and AI ass
 
 Before installing rp1, ensure you have:
 
-- **Git 2.15+**: Required for worktree isolation in `code-quick-build`. Check with `git --version`.
+- **Git 2.15+**: Required for worktree isolation in `build-fast`. Check with `git --version`.
 
 ??? note "Upgrading Git"
 

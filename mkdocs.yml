@@ -123,7 +123,7 @@ nav:
       - code-audit: reference/dev/code-audit.md
       - code-investigate: reference/dev/code-investigate.md
       - code-clean-comments: reference/dev/code-clean-comments.md
-      - code-quick-build: reference/dev/code-quick-build.md
+      - build-fast: reference/dev/build-fast.md
       - pr-review: reference/dev/pr-review.md
       - pr-visual: reference/dev/pr-visual.md
       - pr-feedback-collect: reference/dev/pr-feedback-collect.md

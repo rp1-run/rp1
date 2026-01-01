@@ -719,7 +719,7 @@ Agent not following TypeScript patterns from KB.
 
 ## Steps to Reproduce
 1. Run `/knowledge-build`
-2. Run `/code-quick-build "Add a new service"`
+2. Run `/build-fast "Add a new service"`
 3. Generated code uses `any` instead of proper types
 
 ## Expected

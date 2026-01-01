@@ -1,7 +1,7 @@
 ---
 name: build-fast
 version: 1.0.0
-description: Quick-iteration development for small/medium scope changes. Replaces code-quick-build with TIN architecture.
+description: Quick-iteration development for small/medium scope changes with TIN architecture.
 argument-hint: "[development-request...] [--afk]"
 tags:
   - core

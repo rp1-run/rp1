@@ -95,7 +95,6 @@ rp1/
 
 # Code quality
 /code-check                   # Fast hygiene (lint, test)
-/code-quick-build "task"      # Quick fixes with worktree isolation (deprecated)
 /code-audit                   # Pattern analysis
 
 # PR review

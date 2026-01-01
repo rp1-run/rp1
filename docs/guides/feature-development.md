@@ -23,14 +23,14 @@ Build your first feature with rp1's complete development workflow. This tutorial
 
 ---
 
-!!! tip "Small task? Use Quick Build"
-    For **small features, fixes, or enhancements** with well-defined scope (under 2 hours), use `/code-quick-build` instead. It skips formal documentation and implements directly.
+!!! tip "Small task? Use Build Fast"
+    For **small features, fixes, or enhancements** with well-defined scope (under 2 hours), use `/build-fast` instead. It skips formal documentation and implements directly with scope gating.
 
     ```bash
-    /code-quick-build "Add dark mode toggle to settings page"
+    /build-fast "Add dark mode toggle to settings page"
     ```
 
-    [Learn more about code-quick-build :material-arrow-right:](../reference/dev/code-quick-build.md)
+    [Learn more about build-fast :material-arrow-right:](../reference/dev/build-fast.md)
 
 ---
 

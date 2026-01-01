@@ -22,7 +22,7 @@ Quick-iteration development for small/medium scope changes with TIN architecture
 
 The `build-fast` command handles development requests that don't warrant the full feature workflow. It assesses request scope and either implements the changes (for small/medium scope) or redirects to `/build` (for large scope). All changes are made in an isolated git worktree.
 
-This command replaces `code-quick-build` with improved TIN (Thin command + sub-agent delegation) architecture, scope gating, and AFK mode support.
+This command uses TIN (Thin command + sub-agent delegation) architecture with scope gating and AFK mode support.
 
 ## Parameters
 
@@ -212,11 +212,7 @@ Recommended Quick Win: [simplest valuable alternative]
 !!! note "Git 2.15+ Required"
     Worktree isolation requires git 2.15 or later. Check your version with `git --version`.
 
-!!! tip "Migration from code-quick-build"
-    If you were using `/code-quick-build`, simply replace it with `/build-fast`. The syntax is identical for basic usage, with the addition of `--afk` for non-interactive mode.
-
 ## Related Commands
 
-- [`code-quick-build`](code-quick-build.md) - Deprecated, use `build-fast` instead
-- [`feature-requirements`](feature-requirements.md) - For larger features requiring full workflow
+- [`build`](../../guides/feature-development.md) - For larger features requiring full workflow
 - [`code-check`](code-check.md) - Verify changes

@@ -444,7 +444,7 @@ Database connection pool exhaustion due to:
 
 ```bash
 # Quick development for exploratory work
-/rp1-dev:code-quick-build
+/rp1-dev:build-fast
 
 # Good for:
 # - Quick bug fixes
@@ -508,7 +508,7 @@ Database connection pool exhaustion due to:
 | `/rp1-dev:code-investigate` | Bug root cause analysis | Debugging, incident response |
 | `/rp1-dev:code-audit` | Pattern consistency & maintainability | Post-refactoring, quarterly reviews |
 | `/rp1-dev:code-clean-comments` | Remove unnecessary comments | Cleanup, before releases |
-| `/rp1-dev:code-quick-build` | Quick fixes, prototypes, optimizations | Ad-hoc development |
+| `/rp1-dev:build-fast` | Quick fixes, prototypes, optimizations | Ad-hoc development |
 | `/rp1-dev:code-test` | **DEPRECATED** - Use code-check or feature-verify | Don't use |
 
 #### PR Management (4)
