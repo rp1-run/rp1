@@ -24,11 +24,9 @@ import { discoverPlugins } from "./manifest.js";
 import { isHealthy } from "./models.js";
 import {
 	checkOpenCodeInstalled,
-	checkOpenCodeSkillsPlugin,
 	checkOpenCodeVersion,
 	checkWritePermissions,
 	getOpenCodeConfigDir,
-	installOpenCodeSkillsPlugin,
 	registerRp1HooksPlugin,
 } from "./prerequisites.js";
 import { listInstalledCommands, verifyInstallation } from "./verifier.js";
@@ -123,28 +121,7 @@ const executeInstallFromBundled = (
 					spinner.succeed(versionResult.right.message);
 					return TE.right(undefined);
 				}),
-				TE.chain(() => checkOpenCodeSkillsPlugin()),
-				TE.chain((result) => {
-					if (result.value === "true") {
-						spinner.succeed("opencode-skills plugin detected");
-						return TE.right({ skipSkills: config.skipSkills });
-					}
-					console.log(yellow("⚠ opencode-skills plugin not configured"));
-					console.log(dim("  Configuring opencode-skills plugin..."));
-					return pipe(
-						installOpenCodeSkillsPlugin(),
-						TE.map((installed) => {
-							if (installed) {
-								spinner.succeed("opencode-skills plugin configured");
-								console.log(dim("  OpenCode will install it on next startup"));
-							} else {
-								console.log(dim("  opencode-skills already in config"));
-							}
-							return { skipSkills: config.skipSkills };
-						}),
-					);
-				}),
-				TE.chain((_state) => {
+				TE.chain(() => {
 					const targetDir = getOpenCodeConfigDir();
 					return pipe(
 						checkWritePermissions(targetDir),
@@ -330,34 +307,13 @@ export const executeInstall = (
 			spinner.succeed(versionResult.right.message);
 			return TE.right(undefined);
 		}),
-		TE.chain(() => checkOpenCodeSkillsPlugin()),
-		TE.chain((result) => {
-			if (result.value === "true") {
-				spinner.succeed("opencode-skills plugin detected");
-				return TE.right({ skipSkills: config.skipSkills });
-			}
-			console.log(yellow("⚠ opencode-skills plugin not configured"));
-			console.log(dim("  Configuring opencode-skills plugin..."));
-			return pipe(
-				installOpenCodeSkillsPlugin(),
-				TE.map((installed) => {
-					if (installed) {
-						spinner.succeed("opencode-skills plugin configured");
-						console.log(dim("  OpenCode will install it on next startup"));
-					} else {
-						console.log(dim("  opencode-skills already in config"));
-					}
-					return { skipSkills: config.skipSkills };
-				}),
-			);
-		}),
-		TE.chain((state) => {
+		TE.chain(() => {
 			const targetDir = getOpenCodeConfigDir();
 			return pipe(
 				checkWritePermissions(targetDir),
 				TE.map((result) => {
 					spinner.succeed(result.message);
-					return state;
+					return { skipSkills: config.skipSkills };
 				}),
 			);
 		}),

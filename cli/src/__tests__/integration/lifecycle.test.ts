@@ -142,7 +142,7 @@ describe("integration: lifecycle", () => {
 			// Set up a mock build output directory
 			const buildDir = join(tempDir, "build-output");
 
-			// Create expected structure: command/, agent/, skills/
+			// Create expected structure: command/, agent/, skill/
 			await writeFixture(
 				buildDir,
 				"command/rp1-base/test-command.md",
@@ -155,24 +155,22 @@ describe("integration: lifecycle", () => {
 			);
 			await writeFixture(
 				buildDir,
-				"skills/test-skill/SKILL.md",
+				"skill/test-skill/SKILL.md",
 				"---\nname: test-skill\ndescription: A test skill for testing\n---\nContent",
 			);
 
-			// Verify directory structure
 			const entries = await readdir(buildDir);
 			expect(entries).toContain("command");
 			expect(entries).toContain("agent");
-			expect(entries).toContain("skills");
+			expect(entries).toContain("skill");
 
-			// Verify subdirectory contents
 			const commandEntries = await readdir(join(buildDir, "command"));
 			expect(commandEntries).toContain("rp1-base");
 
 			const agentEntries = await readdir(join(buildDir, "agent"));
 			expect(agentEntries).toContain("rp1-base");
 
-			const skillEntries = await readdir(join(buildDir, "skills"));
+			const skillEntries = await readdir(join(buildDir, "skill"));
 			expect(skillEntries).toContain("test-skill");
 		},
 		{ timeout: 60000 },
@@ -203,7 +201,7 @@ describe("integration: lifecycle", () => {
 			expect(manifestJson.artifacts.commands).toEqual(commands);
 			expect(manifestJson.artifacts.agents).toEqual(agents);
 			expect(manifestJson.artifacts.skills).toEqual(skills);
-			expect(manifestJson.requirements.opencodeSkillsRequired).toBe(true);
+			expect(manifestJson.requirements.opencodeVersion).toBe(">=0.8.0");
 
 			// Write manifest and verify round-trip
 			const manifestPath = join(tempDir, "manifest.json");
@@ -221,7 +219,6 @@ describe("integration: lifecycle", () => {
 			const sourceDir = join(tempDir, "source");
 			const targetDir = join(tempDir, "target");
 
-			// Set up source with all artifact types
 			await writeFixture(
 				sourceDir,
 				"command/rp1-base/lifecycle-cmd.md",
@@ -234,11 +231,10 @@ describe("integration: lifecycle", () => {
 			);
 			await writeFixture(
 				sourceDir,
-				"skills/lifecycle-skill/SKILL.md",
+				"skill/lifecycle-skill/SKILL.md",
 				"---\nname: lifecycle-skill\ndescription: Lifecycle test skill here\n---\nSkill body",
 			);
 
-			// Install artifacts
 			const installResult = await copyArtifacts(sourceDir, targetDir)();
 
 			expect(E.isRight(installResult)).toBe(true);
@@ -247,7 +243,6 @@ describe("integration: lifecycle", () => {
 			const filesCopied = installResult.right;
 			expect(filesCopied).toBe(3);
 
-			// Verify all artifacts exist in target
 			const cmdStat = await stat(
 				join(targetDir, "command/rp1-base/lifecycle-cmd.md"),
 			);
@@ -259,11 +254,10 @@ describe("integration: lifecycle", () => {
 			expect(agentStat.isFile()).toBe(true);
 
 			const skillStat = await stat(
-				join(targetDir, "skills/lifecycle-skill/SKILL.md"),
+				join(targetDir, "skill/lifecycle-skill/SKILL.md"),
 			);
 			expect(skillStat.isFile()).toBe(true);
 
-			// Verify content integrity
 			const cmdContent = await readFile(
 				join(targetDir, "command/rp1-base/lifecycle-cmd.md"),
 				"utf-8",

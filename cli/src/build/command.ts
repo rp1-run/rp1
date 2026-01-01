@@ -362,7 +362,7 @@ const buildPlugin = async (
 	await mkdir(join(pluginOutputDir, "agent", `rp1-${pluginName}`), {
 		recursive: true,
 	});
-	await mkdir(join(pluginOutputDir, "skills"), { recursive: true });
+	await mkdir(join(pluginOutputDir, "skill"), { recursive: true });
 
 	if (!jsonOutput) {
 		spinner.start(`Building ${pluginName} plugin...`);
@@ -490,8 +490,8 @@ const buildPlugin = async (
 			}
 
 			// Write SKILL.md
-			const skillOutputDir = join(pluginOutputDir, "skills", outSkillDir);
-			const relativePath = `${pluginName}/skills/${outSkillDir}/SKILL.md`;
+			const skillOutputDir = join(pluginOutputDir, "skill", outSkillDir);
+			const relativePath = `${pluginName}/skill/${outSkillDir}/SKILL.md`;
 			await mkdir(skillOutputDir, { recursive: true });
 			await writeFile(join(skillOutputDir, "SKILL.md"), skillMdContent);
 

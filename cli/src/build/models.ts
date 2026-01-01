@@ -118,7 +118,6 @@ export interface PluginManifest {
 	};
 	readonly requirements: {
 		readonly opencodeVersion: string;
-		readonly opencodeSkillsRequired: boolean;
 	};
 	readonly hasOpenCodePlugin?: boolean;
 }

@@ -234,21 +234,5 @@ describe("generator", () => {
 			expect(manifest.installation.commandsDir).toBeDefined();
 			expect(manifest.requirements.opencodeVersion).toBe(">=0.8.0");
 		});
-
-		test("sets opencodeSkillsRequired based on skills count", () => {
-			const withSkills = expectRight(
-				generateManifest("p1", "1.0.0", [], [], ["skill1"]),
-			);
-			expect(JSON.parse(withSkills).requirements.opencodeSkillsRequired).toBe(
-				true,
-			);
-
-			const noSkills = expectRight(
-				generateManifest("p2", "1.0.0", ["cmd1"], [], []),
-			);
-			expect(JSON.parse(noSkills).requirements.opencodeSkillsRequired).toBe(
-				false,
-			);
-		});
 	});
 });

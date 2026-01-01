@@ -57,7 +57,7 @@ const extractAsset = async (
  * Creates the correct OpenCode directory structure:
  * - command/rp1-{plugin}/{cmd}.md
  * - agent/rp1-{plugin}/{agent}.md
- * - skills/{skill}/SKILL.md
+ * - skill/{skill}/SKILL.md
  *
  * Assets are already in OpenCode format (pre-transformed during build).
  */
@@ -85,7 +85,7 @@ const extractPlugin = async (
 
 	// Extract skills
 	for (const skill of plugin.skills) {
-		const destPath = join(targetDir, "skills", skill.name, "SKILL.md");
+		const destPath = join(targetDir, "skill", skill.name, "SKILL.md");
 		await extractAsset(skill, destPath);
 		filesExtracted++;
 	}
