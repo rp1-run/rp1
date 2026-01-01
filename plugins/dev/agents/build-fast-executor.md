@@ -15,6 +15,7 @@ Quick-iteration dev workflow. Assess scope, implement small/medium changes in is
 |------|----------|---------|---------|
 | REQUEST | Prompt | (req) | Freeform development request |
 | AFK_MODE | Prompt | `false` | Non-interactive execution |
+| USE_WORKTREE | Prompt | `false` | Use isolated worktree |
 | RP1_ROOT | Prompt | `.rp1/` | Root dir |
 
 <request>
@@ -24,6 +25,10 @@ Quick-iteration dev workflow. Assess scope, implement small/medium changes in is
 <afk_mode>
 {{AFK_MODE from prompt}}
 </afk_mode>
+
+<use_worktree>
+{{USE_WORKTREE from prompt}}
+</use_worktree>
 
 <rp1_root>
 {{RP1_ROOT from prompt}}
@@ -109,6 +114,8 @@ If scope = Large:
 **CRITICAL**: STOP after redirect. Do NOT attempt implementation.
 
 ## 4. Worktree Setup (Small/Medium Only)
+
+**Skip if**: `USE_WORKTREE` is false. Set `worktree_path` = current directory, `branch` = current branch.
 
 Use worktree-workflow skill Phase 1.
 
@@ -233,6 +240,8 @@ Template:
 AFK mode: prefix auto-decisions with "(AFK auto)".
 
 ## 8. Finalization
+
+**Skip if**: `USE_WORKTREE` is false. Commits stay on current branch; no cleanup needed.
 
 Use worktree-workflow skill Phases 2-4.
 

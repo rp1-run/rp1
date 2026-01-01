@@ -2,7 +2,7 @@
 name: build-fast
 version: 1.0.0
 description: Quick-iteration development for small/medium scope changes with TIN architecture.
-argument-hint: "[development-request...] [--afk]"
+argument-hint: "[development-request...] [--afk] [--use-worktree]"
 tags:
   - core
   - code
@@ -21,12 +21,13 @@ Quick-iteration workflow for focused changes. Delegates execution to build-fast-
 |------|-----|---------|---------|
 | REQUEST | $ARGUMENTS | (req) | Freeform development request |
 | --afk | flag | false | Non-interactive mode |
+| --use-worktree | flag | false | Use isolated worktree |
 | RP1_ROOT | env | `.rp1/` | Root dir |
 
 <request>$ARGUMENTS</request>
 <rp1_root>{{RP1_ROOT}}</rp1_root>
 
-**Parse flags**: Extract `AFK_MODE` boolean from args (true if `--afk` present).
+**Parse flags**: `AFK_MODE`, `USE_WORKTREE` from args.
 
 ## EXECUTION
 
@@ -34,7 +35,7 @@ Quick-iteration workflow for focused changes. Delegates execution to build-fast-
 
 ```
 Task: rp1-dev:build-fast-executor
-prompt: REQUEST={REQUEST}, AFK_MODE={AFK_MODE}, RP1_ROOT={RP1_ROOT}
+prompt: REQUEST={REQUEST}, AFK_MODE={AFK_MODE}, USE_WORKTREE={USE_WORKTREE}, RP1_ROOT={RP1_ROOT}
 ```
 
 Agent handles:
