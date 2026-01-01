@@ -159,13 +159,11 @@ describe("integration: lifecycle", () => {
 				"---\nname: test-skill\ndescription: A test skill for testing\n---\nContent",
 			);
 
-			// Verify directory structure
 			const entries = await readdir(buildDir);
 			expect(entries).toContain("command");
 			expect(entries).toContain("agent");
 			expect(entries).toContain("skill");
 
-			// Verify subdirectory contents
 			const commandEntries = await readdir(join(buildDir, "command"));
 			expect(commandEntries).toContain("rp1-base");
 
@@ -221,7 +219,6 @@ describe("integration: lifecycle", () => {
 			const sourceDir = join(tempDir, "source");
 			const targetDir = join(tempDir, "target");
 
-			// Set up source with all artifact types
 			await writeFixture(
 				sourceDir,
 				"command/rp1-base/lifecycle-cmd.md",
@@ -238,7 +235,6 @@ describe("integration: lifecycle", () => {
 				"---\nname: lifecycle-skill\ndescription: Lifecycle test skill here\n---\nSkill body",
 			);
 
-			// Install artifacts
 			const installResult = await copyArtifacts(sourceDir, targetDir)();
 
 			expect(E.isRight(installResult)).toBe(true);
@@ -247,7 +243,6 @@ describe("integration: lifecycle", () => {
 			const filesCopied = installResult.right;
 			expect(filesCopied).toBe(3);
 
-			// Verify all artifacts exist in target
 			const cmdStat = await stat(
 				join(targetDir, "command/rp1-base/lifecycle-cmd.md"),
 			);
@@ -263,7 +258,6 @@ describe("integration: lifecycle", () => {
 			);
 			expect(skillStat.isFile()).toBe(true);
 
-			// Verify content integrity
 			const cmdContent = await readFile(
 				join(targetDir, "command/rp1-base/lifecycle-cmd.md"),
 				"utf-8",

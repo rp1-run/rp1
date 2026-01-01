@@ -33,7 +33,6 @@ describe("integration: dependencies", () => {
 	async function setupMockBasePlugin(rootDir: string): Promise<string> {
 		const baseDir = join(rootDir, "rp1-base");
 
-		// Create manifest
 		await writeFixture(
 			baseDir,
 			"manifest.json",
@@ -50,7 +49,6 @@ describe("integration: dependencies", () => {
 			}),
 		);
 
-		// Create artifacts
 		await writeFixture(
 			baseDir,
 			"command/rp1-base/knowledge-build.md",
@@ -81,7 +79,6 @@ describe("integration: dependencies", () => {
 	async function setupMockDevPlugin(rootDir: string): Promise<string> {
 		const devDir = join(rootDir, "rp1-dev");
 
-		// Create manifest
 		await writeFixture(
 			devDir,
 			"manifest.json",
@@ -98,7 +95,6 @@ describe("integration: dependencies", () => {
 			}),
 		);
 
-		// Create artifacts with cross-plugin references
 		await writeFixture(
 			devDir,
 			"command/rp1-dev/feature-build.md",
@@ -124,37 +120,31 @@ describe("integration: dependencies", () => {
 			const artifactsDir = join(tempDir, "artifacts");
 			const targetDir = join(tempDir, "target");
 
-			// Set up both plugins
 			const baseDir = await setupMockBasePlugin(artifactsDir);
 			const devDir = await setupMockDevPlugin(artifactsDir);
 
-			// Install base first
 			const baseResult = await copyArtifacts(baseDir, targetDir)();
 			expect(E.isRight(baseResult)).toBe(true);
 			if (E.isRight(baseResult)) {
 				expect(baseResult.right).toBeGreaterThan(0);
 			}
 
-			// Verify base artifacts installed
 			const baseKbBuildStat = await stat(
 				join(targetDir, "command/rp1-base/knowledge-build.md"),
 			);
 			expect(baseKbBuildStat.isFile()).toBe(true);
 
-			// Install dev (depends on base)
 			const devResult = await copyArtifacts(devDir, targetDir)();
 			expect(E.isRight(devResult)).toBe(true);
 			if (E.isRight(devResult)) {
 				expect(devResult.right).toBeGreaterThan(0);
 			}
 
-			// Verify dev artifacts installed alongside base
 			const devFeatureBuildStat = await stat(
 				join(targetDir, "command/rp1-dev/feature-build.md"),
 			);
 			expect(devFeatureBuildStat.isFile()).toBe(true);
 
-			// Both plugins' artifacts should coexist
 			const baseCmdExists = await stat(
 				join(targetDir, "command/rp1-base/knowledge-load.md"),
 			)
@@ -178,23 +168,19 @@ describe("integration: dependencies", () => {
 			const artifactsDir = join(tempDir, "artifacts");
 			const targetDir = join(tempDir, "target");
 
-			// Set up and install both plugins
 			const baseDir = await setupMockBasePlugin(artifactsDir);
 			const devDir = await setupMockDevPlugin(artifactsDir);
 
 			await copyArtifacts(baseDir, targetDir)();
 			await copyArtifacts(devDir, targetDir)();
 
-			// Read dev command that references base
 			const featureBuildContent = await readFile(
 				join(targetDir, "command/rp1-dev/feature-build.md"),
 				"utf-8",
 			);
 
-			// Verify the cross-plugin reference is present
 			expect(featureBuildContent).toContain("rp1-base/knowledge-load");
 
-			// Verify the referenced base command exists
 			const knowledgeLoadExists = await stat(
 				join(targetDir, "command/rp1-base/knowledge-load.md"),
 			)
@@ -211,11 +197,9 @@ describe("integration: dependencies", () => {
 		async () => {
 			const artifactsDir = join(tempDir, "artifacts");
 
-			// Set up both plugins
 			await setupMockBasePlugin(artifactsDir);
 			await setupMockDevPlugin(artifactsDir);
 
-			// Discover plugins
 			const discoverResult = await discoverPlugins(artifactsDir)();
 
 			expect(E.isRight(discoverResult)).toBe(true);

@@ -32,11 +32,9 @@ describe("installer", () => {
 
 	describe("copyArtifacts", () => {
 		test("copies files to correct subdirectories (command/, agent/, skill/)", async () => {
-			// Set up source directory structure
 			const sourceDir = join(tempDir, "source");
 			const targetDir = join(tempDir, "target");
 
-			// Create source artifacts
 			await writeFixture(
 				sourceDir,
 				"command/rp1-base/sample-command.md",
@@ -60,7 +58,6 @@ describe("installer", () => {
 				expect(result.right).toBeGreaterThan(0);
 			}
 
-			// Verify files exist in target
 			const commandContent = await readFile(
 				join(targetDir, "command/rp1-base/sample-command.md"),
 				"utf-8",
@@ -84,14 +81,12 @@ describe("installer", () => {
 			const sourceDir = join(tempDir, "source");
 			const targetDir = join(tempDir, "target");
 
-			// Create source artifact
 			await writeFixture(
 				sourceDir,
 				"command/rp1-base/existing.md",
 				"---\nname: existing\n---\nNew content",
 			);
 
-			// Create existing file in target
 			await writeFixture(
 				targetDir,
 				"command/rp1-base/existing.md",
@@ -123,8 +118,6 @@ describe("installer", () => {
 			const targetFile = join(targetDir, "command/rp1-base/test.md");
 			const fileStat = await stat(targetFile);
 
-			// Check that file is readable (0o644 = rw-r--r--)
-			// Note: On some systems, umask may affect permissions
 			const mode = fileStat.mode & 0o777;
 			expect(mode & 0o444).toBe(0o444); // Readable by all
 			expect(mode & 0o200).toBe(0o200); // Writable by owner
@@ -135,7 +128,6 @@ describe("installer", () => {
 			const targetDir = join(tempDir, "target");
 			await mkdir(sourceDir, { recursive: true });
 
-			// Source exists but has no command/agent/skill dirs
 			const result = await copyArtifacts(sourceDir, targetDir)();
 
 			expect(E.isRight(result)).toBe(true);
@@ -148,7 +140,6 @@ describe("installer", () => {
 			const sourceDir = join(tempDir, "source");
 			const targetDir = join(tempDir, "target");
 
-			// Create skill with nested structure
 			await writeFixture(
 				sourceDir,
 				"skill/my-skill/SKILL.md",
@@ -169,7 +160,6 @@ describe("installer", () => {
 
 			expect(E.isRight(result)).toBe(true);
 
-			// Verify nested files were copied
 			const template1 = await readFile(
 				join(targetDir, "skill/my-skill/templates/template1.md"),
 				"utf-8",
@@ -187,7 +177,6 @@ describe("installer", () => {
 			const sourceDir = join(tempDir, "source");
 			const targetDir = join(tempDir, "target");
 
-			// Create multiple artifacts
 			await writeFixture(sourceDir, "command/rp1-base/cmd1.md", "content1");
 			await writeFixture(sourceDir, "command/rp1-base/cmd2.md", "content2");
 			await writeFixture(sourceDir, "agent/rp1-base/agent1.md", "content3");
@@ -223,7 +212,6 @@ describe("installer", () => {
 		test("creates target directory with correct permissions (0o755)", async () => {
 			const sourceDir = join(tempDir, "source");
 
-			// Create source plugin structure
 			await writeFixture(
 				sourceDir,
 				"platforms/opencode/opencode.json",
@@ -239,11 +227,9 @@ describe("installer", () => {
 
 			expect(E.isRight(result)).toBe(true);
 
-			// Verify target directory was created with correct permissions
 			const dirStat = await stat(testPluginDir);
 			expect(dirStat.isDirectory()).toBe(true);
 
-			// Check directory permissions (0o755 = rwxr-xr-x)
 			const mode = dirStat.mode & 0o777;
 			expect(mode & 0o755).toBe(0o755);
 		});
@@ -251,7 +237,6 @@ describe("installer", () => {
 		test("copies files with correct permissions (0o644)", async () => {
 			const sourceDir = join(tempDir, "source");
 
-			// Create source plugin structure
 			await writeFixture(
 				sourceDir,
 				"platforms/opencode/opencode.json",
@@ -265,7 +250,6 @@ describe("installer", () => {
 
 			await copyOpenCodePlugin(sourceDir, testPluginName)();
 
-			// Verify file permissions
 			const jsonFile = join(testPluginDir, "opencode.json");
 			const jsonStat = await stat(jsonFile);
 			const jsonMode = jsonStat.mode & 0o777;
@@ -281,7 +265,6 @@ describe("installer", () => {
 			const sourceDir = join(tempDir, "empty-source");
 			await mkdir(sourceDir, { recursive: true });
 
-			// Source exists but has no platforms/opencode/ dir
 			const result = await copyOpenCodePlugin(sourceDir, testPluginName)();
 
 			expect(E.isRight(result)).toBe(true);
@@ -293,7 +276,6 @@ describe("installer", () => {
 		test("returns file count when successful", async () => {
 			const sourceDir = join(tempDir, "source");
 
-			// Create source plugin with multiple files
 			await writeFixture(
 				sourceDir,
 				"platforms/opencode/opencode.json",
@@ -346,7 +328,6 @@ describe("installer", () => {
 		test("copies nested directory structure correctly", async () => {
 			const sourceDir = join(tempDir, "source");
 
-			// Create nested plugin structure
 			await writeFixture(
 				sourceDir,
 				"platforms/opencode/opencode.json",
@@ -362,7 +343,6 @@ describe("installer", () => {
 
 			expect(E.isRight(result)).toBe(true);
 
-			// Verify nested file was copied
 			const nestedFile = join(testPluginDir, "plugin/index.ts");
 			const content = await readFile(nestedFile, "utf-8");
 			expect(content).toBe("export default {};");

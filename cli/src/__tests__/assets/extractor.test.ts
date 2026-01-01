@@ -25,7 +25,6 @@ describe("extractor", () => {
 
 	describe("extractPlugins", () => {
 		test("creates correct OpenCode directory structure", async () => {
-			// Create mock embedded files in temp dir for this test
 			const mockCommandPath = join(tempDir, "mock-command.md");
 			const mockAgentPath = join(tempDir, "mock-agent.md");
 			const mockSkillPath = join(tempDir, "mock-skill.md");
@@ -64,7 +63,6 @@ describe("extractor", () => {
 				expect(extraction.plugins).toContain("rp1-base");
 				expect(extraction.plugins).toContain("rp1-dev");
 
-				// Verify directory structure matches OpenCode requirements
 				const commandPath = join(
 					targetDir,
 					"command",
@@ -82,7 +80,6 @@ describe("extractor", () => {
 				expect(agentStat.isFile()).toBe(true);
 				expect(skillStat.isFile()).toBe(true);
 
-				// Verify content was correctly extracted
 				const cmdContent = await readFile(commandPath, "utf-8");
 				expect(cmdContent).toContain("Mock Command");
 			}
@@ -159,7 +156,6 @@ describe("extractor", () => {
 			if (E.isRight(result)) {
 				expect(result.right.filesExtracted).toBe(3);
 
-				// Both commands should exist
 				const cmd1Path = join(targetDir, "command", "rp1-base", "cmd-one.md");
 				const cmd2Path = join(targetDir, "command", "rp1-base", "cmd-two.md");
 
