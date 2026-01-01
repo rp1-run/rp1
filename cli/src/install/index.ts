@@ -51,12 +51,11 @@ export {
 // Prerequisites
 export {
 	checkOpenCodeInstalled,
-	checkOpenCodeSkillsPlugin,
 	checkOpenCodeVersion,
 	checkWritePermissions,
 	getOpenCodeConfigDir,
 	getOpenCodeConfigPath,
-	installOpenCodeSkillsPlugin,
+	registerRp1HooksPlugin,
 } from "./prerequisites.js";
 // Verifier
 export { listInstalledCommands, verifyInstallation } from "./verifier.js";
