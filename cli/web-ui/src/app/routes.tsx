@@ -1,19 +1,34 @@
 import { AlertCircle, FileText, Loader2, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createBrowserRouter, Navigate, useParams } from "react-router-dom";
+import {
+	createBrowserRouter,
+	Navigate,
+	useNavigate,
+	useParams,
+} from "react-router-dom";
 import { MarkdownViewer } from "@/components/MarkdownViewer";
-import { useFileContent } from "@/hooks/useFileContent";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 import { Layout } from "./Layout";
+
+interface FileContent {
+	path: string;
+	content: string;
+	mimeType: string;
+	frontmatter?: Record<string, unknown>;
+}
 
 export const router = createBrowserRouter([
 	{
 		path: "/",
+		element: <RootRedirect />,
+	},
+	{
+		path: "/project/:projectId",
 		element: <Layout />,
 		children: [
 			{
 				index: true,
-				element: <Navigate to="/view/context/index.md" replace />,
+				element: <Navigate to="view/context/index.md" replace />,
 			},
 			{
 				path: "view/*",
@@ -21,15 +36,182 @@ export const router = createBrowserRouter([
 			},
 		],
 	},
+	{
+		path: "/view/*",
+		element: <LegacyRedirect />,
+	},
 ]);
+
+/**
+ * Root redirect - navigate to last invoked project or first available.
+ */
+function RootRedirect() {
+	const navigate = useNavigate();
+	const [error, setError] = useState<string | null>(null);
+
+	useEffect(() => {
+		async function redirectToProject() {
+			try {
+				const response = await fetch("/api/projects");
+				if (!response.ok) {
+					setError(`Failed to fetch projects: ${response.statusText}`);
+					return;
+				}
+
+				const data = (await response.json()) as {
+					projects: Array<{ id: string; available: boolean }>;
+					lastInvoked: string | null;
+				};
+
+				if (data.projects.length === 0) {
+					setError(
+						"No projects registered. Run `rp1 view` in a project directory to register it.",
+					);
+					return;
+				}
+
+				let targetId = data.lastInvoked;
+				if (!targetId || !data.projects.find((p) => p.id === targetId)) {
+					const available = data.projects.find((p) => p.available);
+					targetId = available?.id ?? data.projects[0].id;
+				}
+
+				navigate(`/project/${targetId}`, { replace: true });
+			} catch (err) {
+				setError(err instanceof Error ? err.message : String(err));
+			}
+		}
+
+		redirectToProject();
+	}, [navigate]);
+
+	if (error) {
+		return (
+			<div className="flex flex-col items-center justify-center h-screen text-muted-foreground">
+				<AlertCircle className="h-12 w-12 mb-4 text-destructive opacity-70" />
+				<p className="text-lg mb-2">No projects available</p>
+				<p className="text-sm">{error}</p>
+			</div>
+		);
+	}
+
+	return (
+		<div className="flex flex-col items-center justify-center h-screen text-muted-foreground">
+			<Loader2 className="h-8 w-8 mb-4 animate-spin" />
+			<p className="text-sm">Loading projects...</p>
+		</div>
+	);
+}
+
+/**
+ * Legacy redirect - /view/* -> /project/:lastInvoked/view/*
+ * For backward compatibility with old URL structure.
+ */
+function LegacyRedirect() {
+	const params = useParams();
+	const navigate = useNavigate();
+	const path = params["*"] || "context/index.md";
+	const [error, setError] = useState<string | null>(null);
+
+	useEffect(() => {
+		async function redirectWithProject() {
+			try {
+				const response = await fetch("/api/projects");
+				if (!response.ok) {
+					setError(`Failed to fetch projects: ${response.statusText}`);
+					return;
+				}
+
+				const data = (await response.json()) as {
+					projects: Array<{ id: string; available: boolean }>;
+					lastInvoked: string | null;
+				};
+
+				if (data.projects.length === 0) {
+					setError("No projects registered");
+					return;
+				}
+
+				let targetId = data.lastInvoked;
+				if (!targetId || !data.projects.find((p) => p.id === targetId)) {
+					const available = data.projects.find((p) => p.available);
+					targetId = available?.id ?? data.projects[0].id;
+				}
+
+				navigate(`/project/${targetId}/view/${path}`, { replace: true });
+			} catch (err) {
+				setError(err instanceof Error ? err.message : String(err));
+			}
+		}
+
+		redirectWithProject();
+	}, [navigate, path]);
+
+	if (error) {
+		return (
+			<div className="flex flex-col items-center justify-center h-screen text-muted-foreground">
+				<AlertCircle className="h-12 w-12 mb-4 text-destructive opacity-70" />
+				<p className="text-lg">{error}</p>
+			</div>
+		);
+	}
+
+	return (
+		<div className="flex flex-col items-center justify-center h-screen text-muted-foreground">
+			<Loader2 className="h-8 w-8 mb-4 animate-spin" />
+			<p className="text-sm">Redirecting...</p>
+		</div>
+	);
+}
 
 function ContentView() {
 	const params = useParams();
+	const projectId = params.projectId;
 	const path = params["*"] || null;
-	const { content, loading, error, refetch } = useFileContent(path);
 	const { onFileChange } = useWebSocket();
+	const [content, setContent] = useState<FileContent | null>(null);
+	const [loading, setLoading] = useState(false);
+	const [error, setError] = useState<string | null>(null);
 	const [isRefreshing, setIsRefreshing] = useState(false);
 	const scrollPositionRef = useRef(0);
+
+	const fetchContent = useCallback(async () => {
+		if (!path || !projectId) {
+			setContent(null);
+			setLoading(false);
+			setError(null);
+			return;
+		}
+
+		setLoading(true);
+		setError(null);
+
+		try {
+			const response = await fetch(
+				`/api/projects/${encodeURIComponent(projectId)}/content/${encodeURIComponent(path)}`,
+			);
+			if (!response.ok) {
+				if (response.status === 404) {
+					throw new Error(`File not found: ${path}`);
+				}
+				if (response.status === 410) {
+					throw new Error(`Project unavailable: ${projectId}`);
+				}
+				throw new Error(`Failed to fetch content: ${response.statusText}`);
+			}
+			const data = (await response.json()) as FileContent;
+			setContent(data);
+		} catch (err) {
+			setError(err instanceof Error ? err.message : String(err));
+			setContent(null);
+		} finally {
+			setLoading(false);
+		}
+	}, [path, projectId]);
+
+	useEffect(() => {
+		fetchContent();
+	}, [fetchContent]);
 
 	const handleRefresh = useCallback(async () => {
 		const scrollContainer = document.querySelector(
@@ -40,7 +222,7 @@ function ContentView() {
 		}
 
 		setIsRefreshing(true);
-		await refetch();
+		await fetchContent();
 		setIsRefreshing(false);
 
 		requestAnimationFrame(() => {
@@ -51,7 +233,7 @@ function ContentView() {
 				scrollContainer.scrollTop = scrollPositionRef.current;
 			}
 		});
-	}, [refetch]);
+	}, [fetchContent]);
 
 	useEffect(() => {
 		if (!path) return;

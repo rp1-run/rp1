@@ -1,7 +1,18 @@
 import { readdir, stat } from "node:fs/promises";
-import { basename, extname, join } from "node:path";
+import { basename, extname, join, resolve } from "node:path";
 import { isLeft } from "../../lib/fp";
+import type { FileWatcherPool } from "../file-watcher";
 import { formatProjectError, getProjectMetadata } from "../project";
+import {
+	getAllProjects,
+	getLastInvokedProjectId,
+	getProject,
+	isValidProject,
+	loadRegistry,
+	registerProject,
+	removeProject,
+} from "../registry";
+import type { WebSocketHub } from "../websocket";
 
 export interface FileNode {
 	path: string;
@@ -17,6 +28,17 @@ export interface FileContent {
 	content: string;
 	mimeType: string;
 	frontmatter?: Record<string, unknown>;
+}
+
+/**
+ * Context for API handlers.
+ */
+export interface ApiContext {
+	readonly port: number;
+	readonly startTime: number;
+	readonly websocketHub?: WebSocketHub;
+	readonly fileWatcherPool?: FileWatcherPool;
+	readonly shutdownCallback?: () => void;
 }
 
 function jsonResponse(data: unknown, status = 200): Response {
@@ -212,5 +234,240 @@ function parseFrontmatter(content: string): {
 		};
 	} catch {
 		return { content };
+	}
+}
+
+/**
+ * Handle GET /api/health - daemon health check.
+ */
+export async function handleHealthRequest(ctx: ApiContext): Promise<Response> {
+	const registry = await loadRegistry();
+	const projectCount = Object.keys(registry.projects).length;
+	const uptime = Math.floor((Date.now() - ctx.startTime) / 1000);
+
+	return jsonResponse({
+		status: "ok",
+		uptime,
+		port: ctx.port,
+		projectCount,
+	});
+}
+
+/**
+ * Handle POST /api/shutdown - graceful daemon shutdown.
+ */
+export async function handleShutdownRequest(
+	ctx: ApiContext,
+): Promise<Response> {
+	if (ctx.shutdownCallback) {
+		// Schedule shutdown after response is sent
+		setTimeout(() => ctx.shutdownCallback?.(), 100);
+	}
+	return jsonResponse({ status: "shutting_down" });
+}
+
+/**
+ * Handle GET /api/projects - list all registered projects.
+ */
+export async function handleProjectsListRequest(): Promise<Response> {
+	try {
+		const projects = await getAllProjects();
+		const lastInvoked = await getLastInvokedProjectId();
+
+		return jsonResponse({
+			projects,
+			lastInvoked,
+		});
+	} catch (error) {
+		return errorResponse(`Failed to load projects: ${String(error)}`);
+	}
+}
+
+/**
+ * Handle POST /api/projects/register - register a new project.
+ */
+export async function handleProjectRegisterRequest(
+	req: Request,
+	ctx: ApiContext,
+): Promise<Response> {
+	try {
+		const body = (await req.json()) as { path?: string };
+
+		if (!body.path || typeof body.path !== "string") {
+			return errorResponse("Missing required field: path", 400);
+		}
+
+		const projectPath = body.path;
+
+		const valid = await isValidProject(projectPath);
+		if (!valid) {
+			return errorResponse(
+				`Invalid project: ${projectPath} does not contain .rp1/ directory`,
+				400,
+			);
+		}
+
+		const project = await registerProject(projectPath);
+		ctx.websocketHub?.broadcastProjectsChanged();
+
+		const url = `http://127.0.0.1:${ctx.port}/project/${project.id}`;
+
+		return jsonResponse({ project, url });
+	} catch (error) {
+		return errorResponse(`Failed to register project: ${String(error)}`);
+	}
+}
+
+/**
+ * Handle GET /api/projects/:id - get single project metadata.
+ */
+export async function handleProjectGetRequest(
+	projectId: string,
+): Promise<Response> {
+	try {
+		const project = await getProject(projectId);
+
+		if (!project) {
+			return errorResponse(`Project not found: ${projectId}`, 404);
+		}
+
+		const available = await isValidProject(project.path);
+
+		return jsonResponse({
+			...project,
+			available,
+		});
+	} catch (error) {
+		return errorResponse(`Failed to get project: ${String(error)}`);
+	}
+}
+
+/**
+ * Handle DELETE /api/projects/:id - remove project from registry.
+ */
+export async function handleProjectDeleteRequest(
+	projectId: string,
+	ctx?: ApiContext,
+): Promise<Response> {
+	try {
+		const removed = await removeProject(projectId);
+
+		if (!removed) {
+			return errorResponse(`Project not found: ${projectId}`, 404);
+		}
+
+		ctx?.websocketHub?.broadcastProjectsChanged();
+
+		return jsonResponse({ removed: true });
+	} catch (error) {
+		return errorResponse(`Failed to remove project: ${String(error)}`);
+	}
+}
+
+/**
+ * Handle GET /api/projects/:id/files - get file tree for a project.
+ */
+export async function handleProjectFilesRequest(
+	projectId: string,
+): Promise<Response> {
+	try {
+		const project = await getProject(projectId);
+
+		if (!project) {
+			return errorResponse(`Project not found: ${projectId}`, 404);
+		}
+
+		const available = await isValidProject(project.path);
+		if (!available) {
+			return errorResponse(`Project unavailable: ${projectId}`, 410);
+		}
+
+		const rp1Path = join(project.path, ".rp1");
+		const sections: FileNode[] = [];
+
+		const workPath = join(rp1Path, "work");
+		const workTree = await buildFileTree(workPath, "work");
+		if (workTree) {
+			sections.push(workTree);
+		}
+
+		const contextPath = join(rp1Path, "context");
+		const contextTree = await buildFileTree(contextPath, "context");
+		if (contextTree) {
+			sections.push(contextTree);
+		}
+
+		return jsonResponse(sections);
+	} catch (error) {
+		return errorResponse(`Failed to read file tree: ${String(error)}`);
+	}
+}
+
+/**
+ * Handle GET /api/projects/:id/content/* - get file content for a project.
+ */
+export async function handleProjectContentRequest(
+	projectId: string,
+	filePath: string,
+): Promise<Response> {
+	try {
+		const project = await getProject(projectId);
+
+		if (!project) {
+			return errorResponse(`Project not found: ${projectId}`, 404);
+		}
+
+		const available = await isValidProject(project.path);
+		if (!available) {
+			return errorResponse(`Project unavailable: ${projectId}`, 410);
+		}
+
+		// Path traversal prevention
+		if (filePath.includes("..") || filePath.startsWith("/")) {
+			return errorResponse("Invalid file path", 400);
+		}
+
+		const allowedPrefixes = ["work/", "context/"];
+		if (!allowedPrefixes.some((prefix) => filePath.startsWith(prefix))) {
+			return errorResponse(
+				"Access denied: path outside allowed directories",
+				403,
+			);
+		}
+
+		const rp1Path = resolve(project.path, ".rp1");
+		const fullPath = resolve(rp1Path, filePath);
+
+		// Security: ensure resolved path is within .rp1/
+		if (!fullPath.startsWith(`${rp1Path}/`)) {
+			return errorResponse("Access denied: path traversal detected", 403);
+		}
+
+		const file = Bun.file(fullPath);
+		const exists = await file.exists();
+
+		if (!exists) {
+			return errorResponse("File not found", 404);
+		}
+
+		const content = await file.text();
+		const mimeType = getMimeType(filePath);
+
+		let frontmatter: Record<string, unknown> | undefined;
+		if (extname(filePath) === ".md") {
+			const parsed = parseFrontmatter(content);
+			frontmatter = parsed.frontmatter;
+		}
+
+		const response: FileContent = {
+			path: filePath,
+			content,
+			mimeType,
+			frontmatter,
+		};
+
+		return jsonResponse(response);
+	} catch (error) {
+		return errorResponse(`Failed to read file: ${String(error)}`);
 	}
 }

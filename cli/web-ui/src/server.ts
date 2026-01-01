@@ -1,4 +1,4 @@
-import { FileWatcher } from "./server/file-watcher";
+import { FileWatcherPool } from "./server/file-watcher";
 import { startServer } from "./server/http";
 import { WebSocketHub } from "./server/websocket";
 
@@ -11,19 +11,20 @@ export interface ServerOptions {
 
 export function createServer(options: ServerOptions) {
 	const { port = 7710, projectPath, isDev = false, webUIDir } = options;
+	const startTime = Date.now();
 
 	const websocketHub = new WebSocketHub();
-	const fileWatcher = new FileWatcher(projectPath, websocketHub);
+	const fileWatcherPool = new FileWatcherPool(websocketHub);
 
 	const server = startServer({
 		port,
 		projectPath,
 		websocketHub,
+		fileWatcherPool,
 		isDev,
 		webUIDir,
+		startTime,
 	});
-
-	fileWatcher.start();
 
 	console.log(`rp1 Web UI server started`);
 	console.log(`  Project: ${projectPath}`);
@@ -33,9 +34,10 @@ export function createServer(options: ServerOptions) {
 	return {
 		server: server.server,
 		websocketHub,
-		fileWatcher,
+		fileWatcherPool,
+		startTime,
 		stop: () => {
-			fileWatcher.stop();
+			fileWatcherPool.stop();
 			websocketHub.stop();
 			server.stop();
 		},

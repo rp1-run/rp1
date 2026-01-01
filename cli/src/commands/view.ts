@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { statSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import chalk from "chalk";
 import { Command } from "commander";
 import * as E from "fp-ts/lib/Either.js";
@@ -13,17 +13,11 @@ import {
 	formatError,
 	getExitCode,
 	notFoundError,
-	portInUseError,
 	runtimeError,
 	tryCatchTE,
 } from "../../shared/errors.js";
 import type { Logger } from "../../shared/logger.js";
 import { isBun } from "../../shared/runtime.js";
-import {
-	getBundledAssets,
-	getWebUIDir,
-	hasBundledAssets,
-} from "../assets/index.js";
 
 const directoryExists = (path: string): boolean => {
 	try {
@@ -58,43 +52,6 @@ const validateProject = (
 	return TE.right(projectPath);
 };
 
-const checkPortAvailable = (
-	port: number,
-	logger: Logger,
-): TE.TaskEither<CLIError, number> =>
-	tryCatchTE(
-		async () => {
-			logger.debug(`Checking if port ${port} is available`);
-
-			if (isBun()) {
-				// Use globalThis.Bun to avoid ReferenceError when running under Node.js
-				// The isBun() check ensures this code path only runs when Bun is available
-				const BunRuntime = globalThis.Bun as typeof Bun;
-				const server = BunRuntime.serve({
-					port,
-					hostname: "127.0.0.1",
-					fetch() {
-						return new Response("test");
-					},
-				});
-				server.stop();
-				return port;
-			} else {
-				const net = await import("node:net");
-				return new Promise<number>((resolve, reject) => {
-					const server = net.createServer();
-					server.once("error", () => reject(new Error("Port in use")));
-					server.once("listening", () => {
-						server.close();
-						resolve(port);
-					});
-					server.listen(port, "127.0.0.1");
-				});
-			}
-		},
-		() => portInUseError(port),
-	);
-
 const openBrowser =
 	(url: string, logger: Logger): T.Task<void> =>
 	async () => {
@@ -110,7 +67,6 @@ const openBrowser =
 
 		try {
 			if (isBun()) {
-				// Use globalThis.Bun to avoid ReferenceError when running under Node.js
 				const BunRuntime = globalThis.Bun as typeof Bun;
 				const proc = BunRuntime.spawn([command, ...args], {
 					stdout: "ignore",
@@ -129,78 +85,143 @@ const openBrowser =
 		}
 	};
 
-const setupShutdownHandlers = (stop: () => void, logger: Logger): void => {
-	const shutdown = () => {
-		logger.info("Shutting down...");
-		stop();
-		process.exit(0);
-	};
-	process.on("SIGINT", shutdown);
-	process.on("SIGTERM", shutdown);
-};
-
 /**
- * Get web-ui directory from bundled assets if available.
- * Returns undefined for dev builds (uses local dist).
+ * Execute with daemon support - start daemon if needed, register project, open browser.
  */
-const resolveWebUIDir = (
-	logger: Logger,
-): TE.TaskEither<CLIError, string | undefined> => {
-	if (!hasBundledAssets()) {
-		logger.debug("No bundled assets, using local web-ui dist");
-		return TE.right(undefined);
-	}
-
-	return pipe(
-		TE.fromEither(getBundledAssets()),
-		TE.chain((assets) => {
-			logger.debug(`Bundled assets found (version ${assets.version})`);
-			return getWebUIDir(assets, (msg) => logger.debug(msg));
-		}),
-	);
-};
-
-const startServer = (
+const executeWithDaemon = (
 	config: ViewConfig,
 	logger: Logger,
 ): TE.TaskEither<CLIError, void> =>
-	pipe(
-		resolveWebUIDir(logger),
-		TE.chain((webUIDir) =>
-			tryCatchTE(
-				async () => {
-					const { createServer } = await import("../../web-ui/src/server.js");
+	tryCatchTE(
+		async () => {
+			const { ensureDaemon, registerProjectWithDaemon } = await import(
+				"../../web-ui/src/daemon/index.js"
+			);
 
-					const { stop } = createServer({
-						port: config.port,
-						projectPath: config.rp1Root,
-						isDev: false,
-						webUIDir,
-					});
+			logger.debug("Ensuring daemon is running...");
+			const { connection, wasRunning } = await ensureDaemon(config.port);
 
-					const url = `http://127.0.0.1:${config.port}`;
+			if (wasRunning) {
+				logger.debug(`Connected to existing daemon on port ${config.port}`);
+			} else {
+				logger.info(`Started daemon on port ${config.port}`);
+			}
 
-					if (config.openBrowser) {
-						logger.debug("Opening browser in 500ms");
-						setTimeout(() => openBrowser(url, logger)(), 500);
-					} else {
-						logger.info(`Server running at ${url}`);
-						logger.info("Press Ctrl+C to stop");
-					}
+			logger.debug(`Registering project: ${config.rp1Root}`);
+			const { project, url } = await registerProjectWithDaemon(
+				connection,
+				config.rp1Root,
+			);
 
-					setupShutdownHandlers(stop, logger);
+			logger.info(`Project registered: ${project.name} (${project.id})`);
 
-					await new Promise(() => {});
-				},
-				(e) => runtimeError(`Failed to start server: ${e}`),
-			),
-		),
+			if (config.openBrowser) {
+				logger.debug("Opening browser...");
+				await openBrowser(url, logger)();
+				logger.info(`Opened ${url}`);
+			} else {
+				logger.info(`Server running at ${url}`);
+			}
+		},
+		(e) => runtimeError(`Failed to start viewer: ${e}`),
+	);
+
+/**
+ * Stop the daemon.
+ */
+const stopDaemonCommand = (logger: Logger): TE.TaskEither<CLIError, void> =>
+	tryCatchTE(
+		async () => {
+			const { stopDaemon } = await import("../../web-ui/src/daemon/index.js");
+
+			logger.debug("Stopping daemon...");
+			const stopped = await stopDaemon();
+
+			if (stopped) {
+				logger.info("Daemon stopped successfully");
+			} else {
+				logger.info("No daemon running");
+			}
+		},
+		(e) => runtimeError(`Failed to stop daemon: ${e}`),
+	);
+
+/**
+ * Get daemon status.
+ */
+const statusCommand = (_logger: Logger): TE.TaskEither<CLIError, void> =>
+	tryCatchTE(
+		async () => {
+			const { getStatus } = await import("../../web-ui/src/daemon/index.js");
+
+			const status = await getStatus();
+
+			if (status.running) {
+				console.log(chalk.green("Daemon Status: Running"));
+				console.log(`  Port: ${status.port}`);
+				if (status.uptime !== undefined) {
+					const hours = Math.floor(status.uptime / 3600);
+					const minutes = Math.floor((status.uptime % 3600) / 60);
+					const seconds = status.uptime % 60;
+					const uptimeStr =
+						hours > 0
+							? `${hours}h ${minutes}m ${seconds}s`
+							: minutes > 0
+								? `${minutes}m ${seconds}s`
+								: `${seconds}s`;
+					console.log(`  Uptime: ${uptimeStr}`);
+				}
+				if (status.projectCount !== undefined) {
+					console.log(`  Projects: ${status.projectCount}`);
+				}
+			} else {
+				console.log(chalk.yellow("Daemon Status: Stopped"));
+			}
+		},
+		(e) => runtimeError(`Failed to get status: ${e}`),
+	);
+
+/**
+ * Restart the daemon.
+ */
+const restartDaemonCommand = (
+	port: number,
+	logger: Logger,
+): TE.TaskEither<CLIError, void> =>
+	tryCatchTE(
+		async () => {
+			const { restartDaemon } = await import(
+				"../../web-ui/src/daemon/index.js"
+			);
+
+			logger.debug("Restarting daemon...");
+			await restartDaemon(port);
+			logger.info(`Daemon restarted on port ${port}`);
+		},
+		(e) => runtimeError(`Failed to restart daemon: ${e}`),
 	);
 
 const execute = (
 	args: string[],
+	options: { stop?: boolean; status?: boolean; restart?: boolean },
 	logger: Logger,
 ): TE.TaskEither<CLIError, void> => {
+	if (options.stop) {
+		return stopDaemonCommand(logger);
+	}
+
+	if (options.status) {
+		return statusCommand(logger);
+	}
+
+	if (options.restart) {
+		return pipe(
+			loadViewConfig(args),
+			TE.fromEither,
+			TE.chain((config) => restartDaemonCommand(config.port, logger)),
+		);
+	}
+
 	return pipe(
 		loadViewConfig(args),
 		TE.fromEither,
@@ -216,21 +237,20 @@ const execute = (
 				TE.map(() => config),
 			),
 		),
-		TE.chain((config) =>
-			pipe(
-				checkPortAvailable(config.port, logger),
-				TE.map(() => config),
-			),
-		),
-		TE.chain((config) => startServer(config, logger)),
+		TE.chain((config) => executeWithDaemon(config, logger)),
 	);
 };
 
 export const viewCommand = new Command("view")
-	.description("Launch the web-based documentation viewer (requires Bun)")
+	.description(
+		"Launch the web-based documentation viewer with background daemon",
+	)
 	.argument("[path]", "Path to project directory", process.cwd())
 	.option("-p, --port <port>", "Port to run server on", "7710")
 	.option("--no-open", "Start server without opening browser")
+	.option("--stop", "Stop the background daemon")
+	.option("--status", "Show daemon status")
+	.option("--restart", "Restart the daemon")
 	.addHelpText(
 		"after",
 		`
@@ -239,6 +259,14 @@ Examples:
   rp1 view /path/to/project     View specific project
   rp1 view --port 8080          Use custom port
   rp1 view --no-open            Don't auto-open browser
+  rp1 view --stop               Stop the daemon
+  rp1 view --status             Show daemon status
+  rp1 view --restart            Restart the daemon
+
+Daemon:
+  The viewer runs as a background daemon. Multiple projects can be viewed
+  by running 'rp1 view' in different directories. Use the project switcher
+  in the web UI to navigate between projects.
 
 Environment:
   RP1_ROOT                      Set default project path
@@ -272,7 +300,7 @@ Note: This command requires Bun runtime. Install from https://bun.sh
 
 		const args: string[] = [];
 		if (path && path !== process.cwd()) {
-			args.push(path);
+			args.push(resolve(path));
 		}
 		if (options.port !== "7710") {
 			args.push("--port", options.port);
@@ -281,7 +309,15 @@ Note: This command requires Bun runtime. Install from https://bun.sh
 			args.push("--no-open");
 		}
 
-		const result = await execute(args, logger)();
+		const result = await execute(
+			args,
+			{
+				stop: options.stop,
+				status: options.status,
+				restart: options.restart,
+			},
+			logger,
+		)();
 
 		if (E.isLeft(result)) {
 			console.error(formatError(result.left, process.stderr.isTTY ?? false));
