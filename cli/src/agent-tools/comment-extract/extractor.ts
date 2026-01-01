@@ -187,7 +187,7 @@ export const extractCommentsFromFiles = (
 	{ comments: readonly ExtractedComment[]; filesScanned: number }
 > =>
 	pipe(
-		files,
+		[...files],
 		A.filter((f) => {
 			const ext = path.extname(f).toLowerCase();
 			return getPatterns(ext) !== undefined;
