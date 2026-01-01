@@ -12,6 +12,10 @@ dist/
 # MkDocs build output
 site/
 
+# Python cache
+__pycache__/
+*.pyc
+
 # Miscellaneous
 .playwright-mcp
 
