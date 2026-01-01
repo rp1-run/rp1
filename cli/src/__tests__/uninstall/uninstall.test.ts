@@ -31,15 +31,18 @@ const createMockLogger = (): Logger => ({
 
 describe("uninstall", () => {
 	let tempDir: string;
+	let originalCwd: string;
 	const logger = createMockLogger();
 	const nonInteractivePromptOptions = { isTTY: false };
 
 	beforeEach(async () => {
+		originalCwd = process.cwd();
 		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "rp1-uninstall-test-"));
 		process.chdir(tempDir);
 	});
 
 	afterEach(async () => {
+		process.chdir(originalCwd);
 		if (tempDir) {
 			await fs.rm(tempDir, { recursive: true, force: true });
 		}
