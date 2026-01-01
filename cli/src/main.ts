@@ -46,6 +46,8 @@ const isDaemonServerCommand = (): boolean => {
  */
 const handleDaemonServerCommand = async (): Promise<void> => {
 	const { createServer } = await import("../web-ui/src/server.js");
+	const { getWebUIDir, getBundledAssets } = await import("./assets/index.js");
+	const E = await import("fp-ts/lib/Either.js");
 
 	const args = process.argv.slice(2);
 	let port = 7710;
@@ -65,10 +67,26 @@ const handleDaemonServerCommand = async (): Promise<void> => {
 		}
 	}
 
+	// Extract web UI assets if needed
+	const assetsResult = getBundledAssets();
+	if (E.isLeft(assetsResult)) {
+		console.error("Failed to get bundled assets:", assetsResult.left);
+		process.exit(1);
+	}
+
+	const webUIDirResult = await getWebUIDir(assetsResult.right)();
+	if (E.isLeft(webUIDirResult)) {
+		console.error("Failed to extract web UI assets:", webUIDirResult.left);
+		process.exit(1);
+	}
+
+	const webUIDir = webUIDirResult.right;
+
 	const { stop } = createServer({
 		port,
 		projectPath: process.cwd(),
 		isDev: false,
+		webUIDir,
 	});
 
 	process.on("SIGINT", () => {
