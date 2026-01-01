@@ -5,7 +5,6 @@
 
 import { spawn } from "node:child_process";
 import { readFile, unlink, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
 import { ensureConfigDir, getPidFilePath } from "./config-dir";
 import {
 	checkHealth,
@@ -147,33 +146,32 @@ async function waitForHealth(
 }
 
 /**
- * Find the daemon entry point script.
+ * Find the rp1 executable path.
+ * Uses process.execPath for compiled binary, falls back to "rp1" in PATH.
  */
-function getDaemonEntryPoint(): string {
-	// In development: use the source file
-	// In production: use the bundled server entry
-	const srcPath = join(dirname(import.meta.path), "..", "server.ts");
-	return srcPath;
+function getRp1Executable(): string {
+	// If running as compiled binary, use the same executable
+	if (process.execPath.endsWith("rp1")) {
+		return process.execPath;
+	}
+	// Otherwise use rp1 from PATH (development mode)
+	return "rp1";
 }
 
 /**
  * Spawn a new daemon process.
  */
 async function spawnDaemon(port: number): Promise<number> {
-	const entryPoint = getDaemonEntryPoint();
+	const rp1Path = getRp1Executable();
 
-	const proc = spawn(
-		"bun",
-		["run", entryPoint, "--daemon", "--port", String(port)],
-		{
-			detached: true,
-			stdio: "ignore",
-			env: {
-				...process.env,
-				RP1_DAEMON_MODE: "true",
-			},
+	const proc = spawn(rp1Path, ["_daemon-server", "--port", String(port)], {
+		detached: true,
+		stdio: "ignore",
+		env: {
+			...process.env,
+			RP1_DAEMON_MODE: "true",
 		},
-	);
+	});
 
 	// Unref to allow parent process to exit independently
 	proc.unref();

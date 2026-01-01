@@ -27,10 +27,61 @@ const isAgentToolsCommand = (): boolean => {
 };
 
 /**
+ * Check if daemon-server command is being invoked (internal use only).
+ * Used for spawning the web UI daemon server.
+ */
+const isDaemonServerCommand = (): boolean => {
+	const args = process.argv.slice(2);
+	return args.length > 0 && args[0] === "_daemon-server";
+};
+
+/**
  * Handle agent-tools command with lazy loading.
  * Dynamically imports the agent-tools module to avoid loading puppeteer
  * during normal CLI startup for other commands.
  */
+/**
+ * Handle daemon server command (internal use only).
+ * Starts the web UI server in daemon mode.
+ */
+const handleDaemonServerCommand = async (): Promise<void> => {
+	const { createServer } = await import("../web-ui/src/server.js");
+
+	const args = process.argv.slice(2);
+	let port = 7710;
+
+	for (let i = 0; i < args.length; i++) {
+		const arg = args[i];
+		if (arg === "--port" && args[i + 1]) {
+			const parsedPort = Number.parseInt(args[++i], 10);
+			if (!Number.isNaN(parsedPort) && parsedPort >= 1 && parsedPort <= 65535) {
+				port = parsedPort;
+			}
+		} else if (arg.startsWith("--port=")) {
+			const parsedPort = Number.parseInt(arg.slice("--port=".length), 10);
+			if (!Number.isNaN(parsedPort) && parsedPort >= 1 && parsedPort <= 65535) {
+				port = parsedPort;
+			}
+		}
+	}
+
+	const { stop } = createServer({
+		port,
+		projectPath: process.cwd(),
+		isDev: false,
+	});
+
+	process.on("SIGINT", () => {
+		stop();
+		process.exit(0);
+	});
+
+	process.on("SIGTERM", () => {
+		stop();
+		process.exit(0);
+	});
+};
+
 const handleAgentToolsCommand = async (): Promise<void> => {
 	const { agentToolsCommand } = await import("./agent-tools/command.js");
 
@@ -161,8 +212,14 @@ const handleError = (error: CLIError): void => {
 	process.exit(getExitCode(error));
 };
 
-// Entry point with lazy loading for agent-tools
-if (isAgentToolsCommand()) {
+// Entry point with lazy loading for special commands
+if (isDaemonServerCommand()) {
+	// Handle daemon server command (internal use only)
+	handleDaemonServerCommand().catch((error) => {
+		console.error("Daemon server error:", error);
+		process.exit(1);
+	});
+} else if (isAgentToolsCommand()) {
 	// Handle agent-tools command with lazy loading to avoid loading puppeteer at startup
 	handleAgentToolsCommand().catch((error) => {
 		if (error && typeof error === "object" && "code" in error) {

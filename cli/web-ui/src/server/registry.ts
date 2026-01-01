@@ -130,8 +130,7 @@ export async function getProjectName(projectPath: string): Promise<string> {
 		if (h1Match?.[1]) {
 			return h1Match[1].trim();
 		}
-	} catch {
-	}
+	} catch {}
 
 	return basename(projectPath);
 }
@@ -187,8 +186,7 @@ export async function saveRegistry(registry: ProjectRegistry): Promise<void> {
 	} catch (error) {
 		try {
 			await unlink(tempPath);
-		} catch {
-		}
+		} catch {}
 		throw error;
 	}
 }
