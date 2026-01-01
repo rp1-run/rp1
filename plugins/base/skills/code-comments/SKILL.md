@@ -40,29 +40,37 @@ Activate this skill when:
 
 ```bash
 # Default: files changed since branch diverged from main
-python plugins/base/skills/code-comments/scripts/extract_comments.py branch main
+rp1 agent-tools comment-extract branch main
 
 # Only unstaged files (pre-commit use case)
-python plugins/base/skills/code-comments/scripts/extract_comments.py unstaged main
+rp1 agent-tools comment-extract unstaged main
+
+# Extract from commit range with line-scoped filtering
+rp1 agent-tools comment-extract "abc123..def456" main --line-scoped
 ```
 
 ### Output Format
 
 ```json
 {
-  "scope": "branch",
-  "base": "main",
-  "files_scanned": 12,
-  "comments": [
-    {
-      "file": "src/auth.py",
-      "line": 45,
-      "type": "single",
-      "content": "# Check if user is active",
-      "context_before": "def validate_user(user):",
-      "context_after": "    if user.is_active:"
-    }
-  ]
+  "success": true,
+  "tool": "comment-extract",
+  "data": {
+    "scope": "branch",
+    "base": "main",
+    "filesScanned": 12,
+    "linesAdded": 150,
+    "comments": [
+      {
+        "file": "src/auth.py",
+        "line": 45,
+        "type": "single",
+        "content": "# Check if user is active",
+        "contextBefore": "def validate_user(user):",
+        "contextAfter": "    if user.is_active:"
+      }
+    ]
+  }
 }
 ```
 
@@ -70,35 +78,44 @@ python plugins/base/skills/code-comments/scripts/extract_comments.py unstaged ma
 
 | Field | Description |
 |-------|-------------|
-| `scope` | The scope used (`branch` or `unstaged`) |
-| `base` | Base branch for comparison |
-| `files_scanned` | Number of files processed |
-| `comments` | Array of comment objects |
-| `comments[].file` | Relative file path |
-| `comments[].line` | Line number (1-indexed) |
-| `comments[].type` | Comment type (`single` or `multi`) |
-| `comments[].content` | The comment text |
-| `comments[].context_before` | Line before the comment |
-| `comments[].context_after` | Line after the comment |
+| `success` | Whether extraction completed successfully |
+| `tool` | Tool name (`comment-extract`) |
+| `data.scope` | The scope used (`branch`, `unstaged`, or commit range) |
+| `data.base` | Base branch for comparison |
+| `data.filesScanned` | Number of files processed |
+| `data.linesAdded` | Total lines added in diff |
+| `data.lineScoped` | Whether line-scoped filtering was applied |
+| `data.comments` | Array of comment objects |
+| `data.comments[].file` | Relative file path |
+| `data.comments[].line` | Line number (1-indexed) |
+| `data.comments[].type` | Comment type (`single` or `multi`) |
+| `data.comments[].content` | The comment text |
+| `data.comments[].contextBefore` | Line before the comment |
+| `data.comments[].contextAfter` | Line after the comment |
 
 ## Error Handling
 
-The script handles:
+The tool handles:
 
 - Git command failures (not a repo, invalid branch)
 - Missing files (deleted in working tree)
 - Binary files (automatically skipped)
-- Encoding issues (UTF-8 with fallback)
+- Encoding issues (UTF-8)
 
 Error output format:
 
 ```json
 {
-  "error": "Not a git repository",
-  "scope": "branch",
-  "base": "main",
-  "files_scanned": 0,
-  "comments": []
+  "success": false,
+  "tool": "comment-extract",
+  "data": {
+    "scope": "branch",
+    "base": "main",
+    "filesScanned": 0,
+    "linesAdded": 0,
+    "comments": []
+  },
+  "errors": [{ "message": "Not a git repository" }]
 }
 ```
 

@@ -6,6 +6,7 @@
 import { Command } from "commander";
 import * as E from "fp-ts/lib/Either.js";
 import { formatError } from "../../shared/errors.js";
+import { executeExtract } from "./comment-extract/index.js";
 import { getTool, type ToolOptions } from "./index.js";
 import { readInput } from "./input.js";
 import { formatOutput } from "./output.js";
@@ -19,6 +20,7 @@ import {
 import "./mmd-validate/index.js";
 import "./rp1-root-dir/index.js";
 import "./worktree/index.js";
+import "./comment-extract/index.js";
 
 /** Default timeout for tool execution in milliseconds */
 const DEFAULT_TIMEOUT = 30000;
@@ -49,9 +51,10 @@ export const agentToolsCommand = new Command("agent-tools")
 		"after",
 		`
 Available Tools:
-  mmd-validate    Validate Mermaid diagram syntax
-  rp1-root-dir    Resolve RP1_ROOT path with worktree awareness
-  worktree        Manage git worktrees for isolated agent execution
+  mmd-validate      Validate Mermaid diagram syntax
+  rp1-root-dir      Resolve RP1_ROOT path with worktree awareness
+  worktree          Manage git worktrees for isolated agent execution
+  comment-extract   Extract comments from git-changed files
 
 Examples:
   rp1 agent-tools mmd-validate ./document.md
@@ -61,6 +64,8 @@ Examples:
   rp1 agent-tools worktree create fix-auth-bug
   rp1 agent-tools worktree status
   rp1 agent-tools worktree cleanup /path/to/worktree
+  rp1 agent-tools comment-extract branch main
+  rp1 agent-tools comment-extract unstaged main
 `,
 	);
 
@@ -397,3 +402,71 @@ Examples:
 		console.log(formatOutput(result.right));
 		process.exit(0);
 	});
+
+/**
+ * comment-extract subcommand.
+ * Extracts comments from git-changed files for analysis.
+ */
+agentToolsCommand
+	.command("comment-extract <scope> <base>")
+	.description("Extract comments from git-changed files")
+	.option("--line-scoped", "Only extract comments on changed lines", false)
+	.addHelpText(
+		"after",
+		`
+Description:
+  Extracts comments from files changed in a git scope for analysis.
+  Supports multiple languages including Python, JavaScript, TypeScript,
+  Go, Rust, Java, C/C++, Ruby, PHP, and Shell scripts.
+
+Arguments:
+  scope    Git scope: "branch", "unstaged", or a commit range (e.g., "abc123..def456")
+  base     Base branch for comparison (e.g., "main", "master")
+
+Options:
+  --line-scoped    Only include comments on lines that actually changed (for commit ranges)
+
+Output:
+  JSON with extraction results:
+  - scope: The scope used
+  - base: Base branch
+  - filesScanned: Number of files processed
+  - linesAdded: Total lines added in diff
+  - comments: Array of comment objects with file, line, type, content, context
+
+Examples:
+  # Extract from branch changes
+  rp1 agent-tools comment-extract branch main
+
+  # Extract from unstaged changes
+  rp1 agent-tools comment-extract unstaged main
+
+  # Extract from commit range with line-scoped filtering
+  rp1 agent-tools comment-extract "abc123..def456" main --line-scoped
+`,
+	)
+	.action(
+		async (
+			scope: string,
+			base: string,
+			options: { lineScoped: boolean },
+		): Promise<void> => {
+			const toolName = "comment-extract";
+
+			const result = await executeExtract({
+				scope,
+				base,
+				lineScoped: options.lineScoped,
+			})();
+
+			if (E.isLeft(result)) {
+				console.error(
+					createErrorResponse(toolName, formatError(result.left, false)),
+				);
+				process.exit(1);
+			}
+
+			console.log(formatOutput(result.right));
+			process.exit(0);
+		},
+	);

@@ -158,8 +158,15 @@ If pyproject.toml: `pip install -e .`
 1. Navigate to relevant files
 2. Use LSP if available
 3. Match codebase patterns (naming, structure, error handling)
-4. Clean code, no implementation comments
-5. Docstrings where appropriate
+4. Use sound development practices:
+   - Meaningful names
+   - Clean code
+   - Single Responsibility Principle
+   - DRY (Don't Repeat Yourself)
+   - Error handling
+   - Logging where appropriate
+   - Unit tests for new logic/edited logic
+   - Docstrings where appropriate
 
 ### 5.3 Testing Discipline
 
@@ -214,6 +221,7 @@ Format: `YYYYMMDD-HHMMSS-{slug}`
 Path: `{RP1_ROOT}/work/quick-builds/{task-id}/summary.md`
 
 Template:
+
 - Header: Task ID, Date, Status, Branch
 - Request: verbatim
 - Summary: 1-2 sentences
