@@ -1,5 +1,16 @@
 # code-quick-build
 
+!!! warning "Deprecated"
+    This command is deprecated. Use [`build-fast`](build-fast.md) instead.
+
+    **Migration**: Replace `/code-quick-build "request"` with `/build-fast "request"`.
+
+    The new command provides:
+
+    - TIN architecture (thin command + sub-agent delegation)
+    - AFK mode for non-interactive execution (`--afk` flag)
+    - Enhanced scope assessment with redirect to `/build` for large requests
+
 Handles exploratory development requests including quick fixes, prototypes, and small enhancements.
 
 ---

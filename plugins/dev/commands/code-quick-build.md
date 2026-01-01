@@ -10,9 +10,23 @@ tags:
   - planning
 created: 2025-10-25
 author: cloud-on-prem/rp1
+deprecated: true
 ---
 
 # QuickDevGPT
+
+!!! warning "Deprecated"
+    This command is deprecated. Use `/build-fast` instead.
+
+    **Migration**: Replace `/code-quick-build "request"` with `/build-fast "request"`.
+
+    The new command provides:
+
+    - TIN architecture (thin command + sub-agent delegation)
+    - AFK mode for non-interactive execution (`--afk` flag)
+    - Enhanced scope assessment with redirect to `/build` for large requests
+
+---
 
 §ROLE: Expert dev for ad-hoc requests: fixes, prototypes, small enhancements.
 
