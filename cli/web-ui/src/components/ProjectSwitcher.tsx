@@ -48,7 +48,6 @@ export function ProjectSwitcher() {
 		fetchProjects();
 	}, [fetchProjects]);
 
-	// Global keyboard shortcut: Cmd/Ctrl+K to open
 	useEffect(() => {
 		const handleGlobalKeyDown = (e: globalThis.KeyboardEvent) => {
 			if ((e.metaKey || e.ctrlKey) && e.key === "k") {
@@ -64,7 +63,6 @@ export function ProjectSwitcher() {
 		return () => window.removeEventListener("keydown", handleGlobalKeyDown);
 	}, [isOpen, projects, currentProjectId]);
 
-	// Close on click outside
 	useEffect(() => {
 		const handleClickOutside = (e: MouseEvent) => {
 			if (
@@ -81,7 +79,6 @@ export function ProjectSwitcher() {
 		return () => document.removeEventListener("mousedown", handleClickOutside);
 	}, [isOpen]);
 
-	// Focus management when opening
 	useEffect(() => {
 		if (isOpen && focusedIndex === -1) {
 			const currentIndex = projects.findIndex((p) => p.id === currentProjectId);

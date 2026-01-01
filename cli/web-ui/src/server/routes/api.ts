@@ -299,7 +299,6 @@ export async function handleProjectRegisterRequest(
 
 		const projectPath = body.path;
 
-		// Validate that .rp1/ exists
 		const valid = await isValidProject(projectPath);
 		if (!valid) {
 			return errorResponse(
@@ -308,13 +307,9 @@ export async function handleProjectRegisterRequest(
 			);
 		}
 
-		// Register the project
 		const project = await registerProject(projectPath);
-
-		// Notify all clients that project list changed
 		ctx.websocketHub?.broadcastProjectsChanged();
 
-		// Build the URL for this project
 		const url = `http://127.0.0.1:${ctx.port}/project/${project.id}`;
 
 		return jsonResponse({ project, url });
@@ -336,7 +331,6 @@ export async function handleProjectGetRequest(
 			return errorResponse(`Project not found: ${projectId}`, 404);
 		}
 
-		// Refresh availability status
 		const available = await isValidProject(project.path);
 
 		return jsonResponse({
@@ -362,7 +356,6 @@ export async function handleProjectDeleteRequest(
 			return errorResponse(`Project not found: ${projectId}`, 404);
 		}
 
-		// Notify all clients that project list changed
 		ctx?.websocketHub?.broadcastProjectsChanged();
 
 		return jsonResponse({ removed: true });
@@ -389,7 +382,6 @@ export async function handleProjectFilesRequest(
 			return errorResponse(`Project unavailable: ${projectId}`, 410);
 		}
 
-		// Use the existing handleFilesRequest logic but with the project path
 		const rp1Path = join(project.path, ".rp1");
 		const sections: FileNode[] = [];
 
@@ -435,7 +427,6 @@ export async function handleProjectContentRequest(
 			return errorResponse("Invalid file path", 400);
 		}
 
-		// Only allow access to work/ and context/ directories
 		const allowedPrefixes = ["work/", "context/"];
 		if (!allowedPrefixes.some((prefix) => filePath.startsWith(prefix))) {
 			return errorResponse(
@@ -444,7 +435,6 @@ export async function handleProjectContentRequest(
 			);
 		}
 
-		// Resolve and validate the path is within .rp1/
 		const rp1Path = resolve(project.path, ".rp1");
 		const fullPath = resolve(rp1Path, filePath);
 

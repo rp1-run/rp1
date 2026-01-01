@@ -206,7 +206,6 @@ const execute = (
 	options: { stop?: boolean; status?: boolean; restart?: boolean },
 	logger: Logger,
 ): TE.TaskEither<CLIError, void> => {
-	// Handle lifecycle commands first
 	if (options.stop) {
 		return stopDaemonCommand(logger);
 	}
@@ -223,7 +222,6 @@ const execute = (
 		);
 	}
 
-	// Normal view command - start daemon and open browser
 	return pipe(
 		loadViewConfig(args),
 		TE.fromEither,

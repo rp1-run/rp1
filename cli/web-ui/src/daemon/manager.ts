@@ -162,7 +162,6 @@ function getDaemonEntryPoint(): string {
 async function spawnDaemon(port: number): Promise<number> {
 	const entryPoint = getDaemonEntryPoint();
 
-	// Spawn with Bun in daemon mode
 	const proc = spawn(
 		"bun",
 		["run", entryPoint, "--daemon", "--port", String(port)],
@@ -194,13 +193,10 @@ async function spawnDaemon(port: number): Promise<number> {
 export async function ensureDaemon(
 	port: number = DEFAULT_PORT,
 ): Promise<DaemonStartResult> {
-	// Step 1: Read PID file
 	const pidData = await readPidFile();
 
 	if (pidData) {
-		// Step 2: Check if process is still alive
 		if (isProcessRunning(pidData.pid)) {
-			// Verify daemon is responsive
 			const conn = createConnection(pidData.port);
 			const health = await checkHealth(conn);
 
@@ -208,26 +204,20 @@ export async function ensureDaemon(
 				return { connection: conn, wasRunning: true };
 			}
 
-			// Process exists but not responding - may be starting up
-			// Wait briefly for health
 			const healthy = await waitForHealth(conn, 2000);
 			if (healthy) {
 				return { connection: conn, wasRunning: true };
 			}
 		}
 
-		// Step 3: Process dead or unresponsive - remove stale PID file
 		await removePidFile();
 	}
 
-	// Step 4: Check port availability
 	const portAvailable = await isPortAvailable(port);
 	if (!portAvailable) {
-		// Try to connect - maybe another daemon is running
 		const conn = createConnection(port);
 		const health = await checkHealth(conn);
 		if (health) {
-			// Another daemon is running, create PID file and use it
 			await writePidFile({ port, pid: process.pid }); // We don't know the real PID
 			return { connection: conn, wasRunning: true };
 		}
@@ -237,18 +227,13 @@ export async function ensureDaemon(
 		);
 	}
 
-	// Step 5: Spawn daemon process
 	const pid = await spawnDaemon(port);
-
-	// Step 6: Write PID file
 	await writePidFile({ port, pid });
 
-	// Step 7: Wait for health check
 	const conn = createConnection(port);
 	const healthy = await waitForHealth(conn);
 
 	if (!healthy) {
-		// Clean up on failure
 		await removePidFile();
 		throw new Error(
 			"Daemon started but failed to become healthy within timeout",
@@ -270,11 +255,9 @@ export async function stopDaemon(): Promise<boolean> {
 
 	const conn = createConnection(pidData.port);
 
-	// Try graceful shutdown via API
 	const stopped = await stopDaemonIpc(conn);
 
 	if (!stopped && isProcessRunning(pidData.pid)) {
-		// Force kill if graceful shutdown failed
 		try {
 			process.kill(pidData.pid, "SIGTERM");
 		} catch {
@@ -282,10 +265,7 @@ export async function stopDaemon(): Promise<boolean> {
 		}
 	}
 
-	// Wait a bit for process to exit
 	await new Promise((resolve) => setTimeout(resolve, 500));
-
-	// Clean up PID file
 	await removePidFile();
 
 	return true;
@@ -302,7 +282,6 @@ export async function getStatus(): Promise<DaemonStatus> {
 	}
 
 	if (!isProcessRunning(pidData.pid)) {
-		// Stale PID file
 		await removePidFile();
 		return { running: false };
 	}
@@ -318,7 +297,6 @@ export async function restartDaemon(
 	port: number = DEFAULT_PORT,
 ): Promise<DaemonStartResult> {
 	await stopDaemon();
-	// Wait for port to be released
 	await new Promise((resolve) => setTimeout(resolve, 1000));
 	return ensureDaemon(port);
 }

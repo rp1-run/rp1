@@ -45,7 +45,6 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 			const data = (await response.json()) as ProjectsResponse;
 			setProjects(data.projects);
 
-			// Set current project if not already set
 			if (!currentProjectId && data.lastInvoked) {
 				setCurrentProjectId(data.lastInvoked);
 			} else if (!currentProjectId && data.projects.length > 0) {

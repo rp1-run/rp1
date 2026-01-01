@@ -72,7 +72,6 @@ export function generateProjectId(
 		return slug;
 	}
 
-	// Add parent directory for uniqueness
 	const parentName = basename(dirname(projectPath));
 	const slugWithParent = slugify(`${parentName}-${dirName}`);
 
@@ -80,7 +79,6 @@ export function generateProjectId(
 		return slugWithParent;
 	}
 
-	// Fall back to counter suffix
 	let counter = 2;
 	while (existingIds.has(`${slug}-${counter}`)) {
 		counter++;
@@ -133,7 +131,6 @@ export async function getProjectName(projectPath: string): Promise<string> {
 			return h1Match[1].trim();
 		}
 	} catch {
-		// Fall back to directory name
 	}
 
 	return basename(projectPath);
@@ -188,11 +185,9 @@ export async function saveRegistry(registry: ProjectRegistry): Promise<void> {
 		// Atomic rename
 		await rename(tempPath, registryPath);
 	} catch (error) {
-		// Clean up temp file on failure
 		try {
 			await unlink(tempPath);
 		} catch {
-			// Ignore cleanup errors
 		}
 		throw error;
 	}

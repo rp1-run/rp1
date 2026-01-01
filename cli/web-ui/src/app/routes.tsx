@@ -70,7 +70,6 @@ function RootRedirect() {
 					return;
 				}
 
-				// Prefer last invoked, or first available project
 				let targetId = data.lastInvoked;
 				if (!targetId || !data.projects.find((p) => p.id === targetId)) {
 					const available = data.projects.find((p) => p.available);

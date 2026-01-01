@@ -29,7 +29,6 @@ export function getConfigDir(): string {
 		return join(home, "AppData", "Roaming", "rp1");
 	}
 
-	// Linux and other Unix-like systems
 	const xdgConfig = process.env.XDG_CONFIG_HOME;
 	if (xdgConfig) {
 		return join(xdgConfig, "rp1");
