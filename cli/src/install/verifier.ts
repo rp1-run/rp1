@@ -177,7 +177,7 @@ export const verifyInstallation = (
 			}
 
 			// Check skills
-			const skillsDir = join(configDir, "skills");
+			const skillsDir = join(configDir, "skill");
 			let skillsFound = 0;
 			const missingSkillNames: string[] = [];
 
