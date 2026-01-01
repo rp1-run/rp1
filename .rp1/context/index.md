@@ -80,6 +80,7 @@ rp1/
 ```bash
 # End-to-end feature workflow (6-step)
 /build my-feature             # Full workflow: requirements -> design -> tasks -> build -> verify -> archive
+/build-fast "task"            # Quick iteration development with scope gating
 
 # Individual feature steps
 /blueprint my-prd
@@ -94,7 +95,7 @@ rp1/
 
 # Code quality
 /code-check                   # Fast hygiene (lint, test)
-/code-quick-build "task"      # Quick fixes with worktree isolation
+/code-quick-build "task"      # Quick fixes with worktree isolation (deprecated)
 /code-audit                   # Pattern analysis
 
 # PR review
