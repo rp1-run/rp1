@@ -83,6 +83,9 @@ export async function initTestRepo(repoPath: string): Promise<void> {
 		cwd: repoPath,
 	});
 	await nameProc.exited;
+
+	// Create .gitignore with .rp1/ to satisfy worktree safety checks
+	await Bun.write(path.join(repoPath, ".gitignore"), ".rp1/\n");
 }
 
 /**
