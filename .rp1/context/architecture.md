@@ -154,24 +154,38 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant User
-    participant Command as /feature-build
+    participant Build as /build
+    participant ArtDet as build-artifact-detector
+    participant Parser as build-task-parser
+    participant Grouper as build-task-grouper
     participant Builder as task-builder
     participant Reviewer as task-reviewer
+    participant Runner as test-runner
+    participant VerAgg as build-verify-aggregator
     participant Files as Source Files
 
-    User->>Command: Invoke with feature-id
-    Command->>Command: Parse tasks.md
-    loop For each task group
-        Command->>Builder: Implement task
+    User->>Build: Invoke with feature-id
+    Build->>ArtDet: Detect artifacts
+    ArtDet-->>Build: {start_step, artifacts}
+    Build->>Parser: Parse tasks.md
+    Parser-->>Build: {tasks, summary}
+    Build->>Grouper: Group by complexity
+    Grouper-->>Build: {task_units}
+    loop For each task unit
+        Build->>Builder: Implement task(s)
         Builder->>Files: Write code
-        Builder-->>Command: Implementation summary
-        Command->>Reviewer: Verify work
-        Reviewer-->>Command: SUCCESS or FAILURE
+        Builder-->>Build: Implementation summary
+        Build->>Reviewer: Verify work
+        Reviewer-->>Build: SUCCESS or FAILURE
         alt FAILURE
-            Command->>Builder: Retry with feedback
+            Build->>Builder: Retry with feedback
         end
     end
-    Command-->>User: Build complete
+    Build->>Runner: Run tests (informational)
+    Runner-->>Build: Test results
+    Build->>VerAgg: Aggregate results
+    VerAgg-->>Build: {overall_status, ready_for_merge}
+    Build-->>User: Build complete
 ```
 
 ### PR Review Flow

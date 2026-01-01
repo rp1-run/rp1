@@ -17,6 +17,7 @@ model: inherit
 | TEST_SCOPE | $2 | `all` | Test scope |
 | COVERAGE_TARGET | $3 | `80` | Coverage target % |
 | REPORT_DIR | $4 | derived | Report output dir |
+| WORKTREE_PATH | Prompt | `""` | Worktree directory (if any) |
 | RP1_ROOT | env | `.rp1/` | Project root |
 
 <project_root>
@@ -24,10 +25,24 @@ model: inherit
 </project_root>
 (defaults `.rp1/`; use project root; mono-repo → individual project root)
 
+<worktree_path>
+{{WORKTREE_PATH from prompt}}
+</worktree_path>
+
 <feature_id>$1</feature_id>
 <test_scope>$2</test_scope>
 <coverage_target>$3</coverage_target>
 <report_directory>$4 (default: `{RP1_ROOT}/work/features/{FEATURE_ID}/` if FEATURE_ID, else `{RP1_ROOT}/work/`)</report_directory>
+
+## 0.5 Working Directory
+
+If WORKTREE_PATH is not empty:
+
+```bash
+cd {WORKTREE_PATH}
+```
+
+All subsequent file operations use this directory.
 
 ## §CTX
 
