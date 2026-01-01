@@ -83,3 +83,44 @@ export async function assertTestIsolation(testPath: string): Promise<void> {
 		);
 	}
 }
+
+/**
+ * Temporarily override an environment variable for test execution.
+ * Returns a restore function that MUST be called to restore the original value.
+ *
+ * Usage:
+ * ```ts
+ * const restore = withEnvOverride("RP1_ROOT", "/custom/path");
+ * try {
+ *   // test code that uses RP1_ROOT
+ * } finally {
+ *   restore();
+ * }
+ * ```
+ *
+ * @param key - Environment variable name
+ * @param value - Value to set (or undefined to delete)
+ * @returns Function to restore the original value
+ */
+export function withEnvOverride(
+	key: string,
+	value: string | undefined,
+): () => void {
+	const originalValue = process.env[key];
+
+	// Set or delete the env var
+	if (value === undefined) {
+		delete process.env[key];
+	} else {
+		process.env[key] = value;
+	}
+
+	// Return restore function
+	return () => {
+		if (originalValue === undefined) {
+			delete process.env[key];
+		} else {
+			process.env[key] = originalValue;
+		}
+	};
+}

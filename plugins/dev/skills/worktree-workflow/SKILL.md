@@ -10,6 +10,7 @@ This skill provides a complete workflow for performing coding work in isolated g
 ## What This Skill Does
 
 - Creates isolated worktree for code changes via `rp1 agent-tools worktree create`
+- **Safety validation**: Verifies the worktree directory is gitignored before creation (prevents repo corruption)
 - Manages atomic commits with conventional commit format (feat:, fix:, refactor:, etc.)
 - Validates commit ownership before publishing (prevents corrupted PRs with orphan commits)
 - Creates PRs with `--head` flag (no branch checkout required)
@@ -69,6 +70,18 @@ Store these values in working memory:
 - `basedOn`: The commit hash the branch was created from
 
 If the command fails, **STOP** and report the error to the user. Do not proceed with partial state.
+
+**Common failure: Gitignore validation error**
+
+If you see an error like:
+```
+Worktree directory "..." is not gitignored. Creating worktrees in tracked directories can cause repository corruption.
+```
+
+This means the `.rp1/work/worktrees/` directory is not in `.gitignore`. To fix:
+1. Add `.rp1/*` to your `.gitignore` (with exceptions like `!.rp1/context/` if needed)
+2. Commit the `.gitignore` changes
+3. Retry the worktree creation
 
 #### Step 1.3: Enter Worktree
 
