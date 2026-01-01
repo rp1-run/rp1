@@ -14,12 +14,14 @@ Transforms high-level reqs into detailed specs. Invoked by `/build` workflow.
 | Name | Position | Default | Purpose |
 |------|----------|---------|---------|
 | FEATURE_ID | $1 | (req) | Feature identifier |
-| AFK_MODE | $2 | `false` | Skip user prompts, auto-select defaults |
+| REQUIREMENTS | $2 | "" | Raw requirements |
+| AFK_MODE | $3 | `false` | Skip user prompts, auto-select defaults |
 | RP1_ROOT | env | `.rp1/` | Root directory |
 
 <feature_id>$1</feature_id>
 <afk_mode>$2</afk_mode>
 <rp1_root>{{RP1_ROOT}}</rp1_root>
+<requirements>REQUIREMENTS</requirements>
 
 **Feature dir**: `{RP1_ROOT}/work/features/{FEATURE_ID}/`
 
@@ -38,6 +40,7 @@ If KB missing: warn, continue w/ best-effort.
 
 Check for project ctx:
 
+0. Requirements: Read REQUIREMENTS input param
 1. Charter: `{RP1_ROOT}/context/charter.md`
 2. PRDs: `{RP1_ROOT}/work/prds/*.md`
 

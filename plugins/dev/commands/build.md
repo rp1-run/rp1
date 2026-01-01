@@ -29,6 +29,7 @@ author: cloud-on-prem/rp1
 
 <feature_id>$1</feature_id>
 <rp1_root>{{RP1_ROOT}}</rp1_root>
+<requirements>REQUIREMENTS</requirements>
 
 **Parse flags**: `AFK_MODE`, `USE_WORKTREE`, `PUSH_BRANCH`, `CREATE_PR` from args.
 
@@ -74,7 +75,7 @@ Steps 1-3 foundational -> ABORT on fail. Steps 4-6 -> retry/prompt. NEVER delete
 
 ```
 Task: rp1-dev:feature-requirement-gatherer
-prompt: FEATURE_ID={FEATURE_ID}, AFK_MODE={AFK_MODE}, RP1_ROOT={RP1_ROOT}
+prompt: FEATURE_ID={FEATURE_ID}, REQUIREMENTS={requirements}, AFK_MODE={AFK_MODE}, RP1_ROOT={RP1_ROOT}
 ```
 
 ## §STEP-2: Design
