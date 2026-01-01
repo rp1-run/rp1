@@ -145,11 +145,11 @@ export const copyArtifacts = (
 			}
 
 			// Copy skills
-			const skillsSrc = join(sourceDir, "skills");
+			const skillsSrc = join(sourceDir, "skill");
 			try {
 				const stats = await stat(skillsSrc);
 				if (stats.isDirectory()) {
-					const skillsDst = join(targetDir, "skills");
+					const skillsDst = join(targetDir, "skill");
 					await mkdir(skillsDst, { recursive: true });
 
 					const entries = await readdir(skillsSrc, { withFileTypes: true });
@@ -160,7 +160,7 @@ export const copyArtifacts = (
 
 							try {
 								await stat(dstSkillDir);
-								onOverwrite?.(`skills/${entry.name}`);
+								onOverwrite?.(`skill/${entry.name}`);
 								await rm(dstSkillDir, { recursive: true });
 							} catch {
 								// Doesn't exist
@@ -249,7 +249,7 @@ export const backupExistingInstallation = (): TE.TaskEither<
 			}
 
 			// Backup known rp1 skills
-			const skillsDir = join(configDir, "skills");
+			const skillsDir = join(configDir, "skill");
 			const rp1Skills = [
 				"maestro",
 				"mermaid",
@@ -259,7 +259,7 @@ export const backupExistingInstallation = (): TE.TaskEither<
 			try {
 				const stats = await stat(skillsDir);
 				if (stats.isDirectory()) {
-					const backupSkillsDir = join(backupPath, "skills");
+					const backupSkillsDir = join(backupPath, "skill");
 					for (const skillName of rp1Skills) {
 						const skillDir = join(skillsDir, skillName);
 						try {
