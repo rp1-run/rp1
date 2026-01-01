@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ImperativePanelHandle } from "react-resizable-panels";
 import { Outlet, useNavigate, useParams } from "react-router-dom";
 import { FileTree } from "@/components/FileTree";
+import { ProjectSwitcher } from "@/components/ProjectSwitcher";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,8 +12,8 @@ import {
 	ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useFileTree } from "@/hooks/useFileTree";
 import { useWebSocket } from "@/providers/WebSocketProvider";
+import type { FileNode } from "../server/routes/api";
 
 const SIDEBAR_COLLAPSED_KEY = "rp1-ui-sidebar-collapsed";
 const SIDEBAR_SIZE_KEY = "rp1-ui-sidebar-size";
@@ -56,6 +57,61 @@ function saveSidebarSize(size: number): void {
 	}
 }
 
+interface UseProjectFileTreeResult {
+	tree: FileNode[];
+	loading: boolean;
+	error: string | null;
+	refetch: () => Promise<void>;
+}
+
+function useProjectFileTree(
+	projectId: string | undefined,
+): UseProjectFileTreeResult {
+	const [tree, setTree] = useState<FileNode[]>([]);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
+
+	const fetchTree = useCallback(async () => {
+		if (!projectId) {
+			setTree([]);
+			setLoading(false);
+			return;
+		}
+
+		setLoading(true);
+		setError(null);
+
+		try {
+			const response = await fetch(
+				`/api/projects/${encodeURIComponent(projectId)}/files`,
+			);
+			if (!response.ok) {
+				if (response.status === 410) {
+					throw new Error(`Project unavailable: ${projectId}`);
+				}
+				throw new Error(`Failed to fetch file tree: ${response.statusText}`);
+			}
+			const data = await response.json();
+			setTree(data);
+		} catch (err) {
+			setError(err instanceof Error ? err.message : String(err));
+		} finally {
+			setLoading(false);
+		}
+	}, [projectId]);
+
+	useEffect(() => {
+		fetchTree();
+	}, [fetchTree]);
+
+	return {
+		tree,
+		loading,
+		error,
+		refetch: fetchTree,
+	};
+}
+
 export function Layout() {
 	const [sidebarCollapsed, setSidebarCollapsed] =
 		useState(loadSidebarCollapsed);
@@ -63,7 +119,8 @@ export function Layout() {
 	const sidebarRef = useRef<ImperativePanelHandle>(null);
 	const navigate = useNavigate();
 	const params = useParams();
-	const { tree, loading, error, refetch } = useFileTree();
+	const projectId = params.projectId;
+	const { tree, loading, error, refetch } = useProjectFileTree(projectId);
 	const { status: wsStatus, onTreeChange } = useWebSocket();
 
 	const selectedPath = params["*"] || null;
@@ -76,9 +133,11 @@ export function Layout() {
 
 	const handleFileSelect = useCallback(
 		(path: string) => {
-			navigate(`/view/${path}`);
+			if (projectId) {
+				navigate(`/project/${projectId}/view/${path}`);
+			}
 		},
-		[navigate],
+		[navigate, projectId],
 	);
 
 	const toggleSidebar = useCallback(() => {
@@ -189,7 +248,11 @@ function Header({ onToggleSidebar, sidebarCollapsed, wsStatus }: HeaderProps) {
 					size="icon"
 					onClick={onToggleSidebar}
 					className="h-8 w-8"
-					title={sidebarCollapsed ? "Show sidebar (⌘B)" : "Hide sidebar (⌘B)"}
+					title={
+						sidebarCollapsed
+							? "Show sidebar (Cmd/Ctrl+B)"
+							: "Hide sidebar (Cmd/Ctrl+B)"
+					}
 					aria-label={sidebarCollapsed ? "Show sidebar" : "Hide sidebar"}
 				>
 					{sidebarCollapsed ? (
@@ -213,6 +276,8 @@ function Header({ onToggleSidebar, sidebarCollapsed, wsStatus }: HeaderProps) {
 						_
 					</span>
 				</span>
+				<span className="text-muted-foreground">/</span>
+				<ProjectSwitcher />
 			</div>
 			<div className="flex items-center gap-2">
 				<ThemeToggle />
