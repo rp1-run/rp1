@@ -12,7 +12,7 @@ You've installed rp1. Now let's put it to work.
 
 === "Starting Fresh"
 
-    You're creating a brand new project from scratch.
+    You're creating a brand new project from scratch (a "greenfield" project - starting with a clean slate, no existing code).
 
     [Go to Bootstrap Guide :material-arrow-right:](../guides/bootstrap.md){ .md-button .md-button--primary }
 
