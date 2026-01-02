@@ -15,6 +15,8 @@ Works today with **Claude Code** and **OpenCode**.
 [:fontawesome-solid-terminal: Get Started](getting-started/installation.md){ .md-button .md-button--primary }
 [:fontawesome-brands-github: View on GitHub](https://github.com/rp1-run/rp1){ .md-button .md-button--github }
 
+[![GitHub stars](https://img.shields.io/github/stars/rp1-run/rp1?style=social)](https://github.com/rp1-run/rp1)
+
 <div class="carousel-container">
   <div class="splide" id="hero-carousel" aria-label="Product Screenshots">
     <div class="splide__track">
@@ -306,8 +308,6 @@ One-line install script
 <div align="center" markdown>
 
 [Get Started](getting-started/installation.md){ .md-button .md-button--primary }
-
-[![GitHub stars](https://img.shields.io/github/stars/rp1-run/rp1?style=social)](https://github.com/rp1-run/rp1)
 
 </div>
 
