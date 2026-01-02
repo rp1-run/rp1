@@ -225,3 +225,11 @@ Or start small:
 - [Constitutional Prompting](../concepts/constitutional-prompting.md) - How rp1 achieves single-pass execution
 - [Knowledge-Aware Agents](../concepts/knowledge-aware-agents.md) - How the KB provides codebase context
 - [Feature Development](../guides/feature-development.md) - Full workflow tutorial
+
+---
+
+## Ready to Try?
+
+Start shipping features without iteration loops.
+
+[Get Started :material-arrow-right:](../getting-started/installation.md){ .md-button .md-button--primary }
