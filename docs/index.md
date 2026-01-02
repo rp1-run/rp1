@@ -7,7 +7,8 @@ hide:
 # stop prompting; **start shipping**
 
 Professional development workflows for AI coding assistants.
-21 commands. 18 specialized agents. Single-pass execution. Careful context management.
+**Save 16+ hours per week** with single-pass AI workflows.
+21 commands. 18 specialized agents. Careful context management.
 Works today with **Claude Code** and **OpenCode**.
 
 

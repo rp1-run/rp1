@@ -96,6 +96,8 @@ nav:
     - CLI:
       - Overview: reference/cli/index.md
       - init: reference/cli/init.md
+      - rp1-root-dir: reference/cli/rp1-root-dir.md
+      - worktree: reference/cli/worktree.md
     - Base Plugin:
       - Overview: reference/base/index.md
       - knowledge-build: reference/base/knowledge-build.md
@@ -110,6 +112,7 @@ nav:
     - Dev Plugin:
       - Overview: reference/dev/index.md
       - blueprint: reference/dev/blueprint.md
+      - blueprint-archive: reference/dev/blueprint-archive.md
       - feature-requirements: reference/dev/feature-requirements.md
       - feature-design: reference/dev/feature-design.md
       - feature-tasks: reference/dev/feature-tasks.md
@@ -126,8 +129,6 @@ nav:
       - build-fast: reference/dev/build-fast.md
       - pr-review: reference/dev/pr-review.md
       - pr-visual: reference/dev/pr-visual.md
-      - pr-feedback-collect: reference/dev/pr-feedback-collect.md
-      - pr-feedback-fix: reference/dev/pr-feedback-fix.md
   - Troubleshooting: troubleshooting/index.md
   - Concepts:
     - Overview: concepts/index.md
@@ -136,6 +137,7 @@ nav:
     - Command-Agent Pattern: concepts/command-agent-pattern.md
     - Map-Reduce Workflows: concepts/map-reduce-workflows.md
     - Stateless Agents: concepts/stateless-agents.md
+    - Skills: concepts/skills.md
 
 extra:
   social:
