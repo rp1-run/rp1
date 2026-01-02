@@ -63,7 +63,7 @@ sequenceDiagram
     participant KB as .rp1/context/
     participant Code as Your Codebase
 
-    User->>Cmd: /feature-build my-feature
+    User->>Cmd: /build my-feature
     Cmd->>Agent: Spawn agent
     Agent->>KB: Load index.md (always)
     Agent->>KB: Load patterns.md (if needed)

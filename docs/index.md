@@ -70,9 +70,13 @@ Works today with **Claude Code** and **OpenCode**.
 **Ship a feature**
 
 ```bash
-/feature-requirements "user-auth"
-/feature-design "user-auth"
-/feature-build "user-auth"
+/build "user-auth"
+```
+
+Or for small tasks under 2 hours:
+
+```bash
+/build-fast "Add dark mode toggle"
 ```
 
 **Review a PR**

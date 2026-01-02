@@ -69,15 +69,13 @@ These friction points compound. What starts as minor inconvenience becomes signi
     # One-time setup (already done)
     /knowledge-build
 
-    # Single command
-    /feature-requirements dark-mode-toggle
-    /feature-design dark-mode-toggle
-    /feature-build dark-mode-toggle
+    # Single command orchestrates the entire workflow
+    /build dark-mode-toggle
 
     # What happens:
     # - KB provides your architecture, patterns, conventions
-    # - Requirements agent clarifies scope upfront
-    # - Design agent creates spec matching your patterns
+    # - Requirements step clarifies scope upfront
+    # - Design step creates spec matching your patterns
     # - Builder implements with reviewer validation
     # - Tests included, style matches codebase
 

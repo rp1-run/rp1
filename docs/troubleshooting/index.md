@@ -624,13 +624,13 @@ Common issues, solutions, and debugging strategies for rp1.
         OpenCode uses namespaced commands:
 
         ```
-        @rp1-dev/feature-build
+        @rp1-dev/build
         ```
 
         vs Claude Code:
 
         ```
-        /rp1-dev:feature-build
+        /rp1-dev:build
         ```
 
     2. **Verify plugin installation:**
@@ -668,8 +668,8 @@ Common issues, solutions, and debugging strategies for rp1.
         Stick to well-tested commands like:
 
         - `/knowledge-build`
-        - `/feature-requirements`
-        - `/feature-build`
+        - `/build` (orchestrates feature workflow)
+        - `/build-fast` (quick tasks)
 
     3. **Report discrepancies:**
 

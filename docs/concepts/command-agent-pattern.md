@@ -13,7 +13,7 @@ When you run an rp1 command, two things happen:
 
 ```mermaid
 flowchart TB
-    User[User] -->|/feature-build| Command[Command]
+    User[User] -->|/build| Command[Command]
     Command -->|Task tool| Agent[Feature Builder Agent]
 
     subgraph "Agent Interactions"
@@ -135,11 +135,18 @@ Agents are self-contained workflows that can be:
 
 ## Example: The Feature Workflow
 
-The feature development workflow demonstrates multiple command-agent pairs working together:
+The feature development workflow demonstrates multiple command-agent pairs working together. The `/build` command orchestrates all these steps automatically:
+
+!!! note "Orchestrated by /build"
+    While individual commands like `feature-requirements`, `feature-design`, and `feature-build` exist as reference documentation, the recommended entry point is `/build` which orchestrates all steps with smart resumption and builder-reviewer architecture.
 
 ```mermaid
 flowchart TB
-    subgraph "Commands (Thin Wrappers)"
+    subgraph "Entry Point"
+        BUILD[/build]
+    end
+
+    subgraph "Orchestrated Commands"
         C1[feature-requirements]
         C2[feature-design]
         C3[feature-tasks]
@@ -163,17 +170,19 @@ flowchart TB
         D5[Verification Report]
     end
 
+    BUILD --> C1
     C1 --> A1 --> D1
     C2 --> A2 --> D2
     C3 --> A3 --> D3
     C4 --> A4 --> D4
     C5 --> A5 --> D5
 
-    D1 -.-> A2
-    D2 -.-> A3
-    D3 -.-> A4
-    D4 -.-> A5
+    D1 -.-> C2
+    D2 -.-> C3
+    D3 -.-> C4
+    D4 -.-> C5
 
+    style BUILD fill:#7b1fa2,color:#fff
     style C1 fill:#1565c0,color:#fff
     style C2 fill:#1565c0,color:#fff
     style C3 fill:#1565c0,color:#fff
@@ -186,7 +195,7 @@ flowchart TB
     style A5 fill:#2e7d32,color:#fff
 ```
 
-Each command spawns its agent, which produces artifacts used by subsequent steps.
+Each step spawns its agent, which produces artifacts used by subsequent steps. The `/build` command handles resumption automatically based on which artifacts exist.
 
 ---
 

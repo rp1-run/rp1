@@ -80,20 +80,16 @@ AI: [fixes tests]
 === "Claude Code"
 
     ```bash
-    /feature-requirements dark-mode
-    /feature-design dark-mode
-    /feature-build dark-mode
+    /build dark-mode
     ```
 
 === "OpenCode"
 
     ```bash
-    /rp1-dev/feature-requirements dark-mode
-    /rp1-dev/feature-design dark-mode
-    /rp1-dev/feature-build dark-mode
+    /rp1-dev/build dark-mode
     ```
 
-**Result**: 3 commands, each executes in a single pass, produces documented artifacts
+**Result**: Single command orchestrates all steps (requirements, design, build, verify) in single passes, produces documented artifacts
 
 ---
 
