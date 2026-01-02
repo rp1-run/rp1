@@ -123,9 +123,9 @@ Works today with **Claude Code** and **OpenCode**.
 
 <div markdown>
 
-:fontawesome-solid-bolt: **Single-pass execution**
+:fontawesome-solid-bolt: **Ship features without iteration loops**
 
-Constitutional prompts encode expert patterns with built-in rules. No iteration loops, no "let me revise that" — tasks complete in one shot.
+Constitutional prompts encode expert patterns with built-in rules. No "let me revise that" — tasks complete in one shot.
 
 [Learn about constitutional prompting :material-arrow-right:](concepts/constitutional-prompting.md)
 
@@ -133,7 +133,7 @@ Constitutional prompts encode expert patterns with built-in rules. No iteration 
 
 <div markdown>
 
-:fontawesome-solid-brain: **Codebase awareness**
+:fontawesome-solid-brain: **Get context-aware suggestions instantly**
 
 Run `knowledge-build` once. Your architecture becomes context for every command. No generic advice — everything respects your patterns.
 
@@ -143,7 +143,7 @@ Run `knowledge-build` once. Your architecture becomes context for every command.
 
 <div markdown>
 
-:fontawesome-solid-layer-group: **Lean context architecture**
+:fontawesome-solid-layer-group: **Keep your AI focused, not overwhelmed**
 
 Progressive disclosure and subagent delegation keep your main thread focused. Complex work happens in specialized agents, results flow back clean.
 
@@ -153,7 +153,7 @@ Progressive disclosure and subagent delegation keep your main thread focused. Co
 
 <div markdown>
 
-:fontawesome-solid-flask: **Validate before you build**
+:fontawesome-solid-flask: **Catch bad assumptions before coding**
 
 Hypothesis testing catches bad assumptions early. Design decisions get validated against your codebase before implementation begins.
 
@@ -163,7 +163,7 @@ Hypothesis testing catches bad assumptions early. Design decisions get validated
 
 <div markdown>
 
-:fontawesome-solid-door-open: **Start anywhere**
+:fontawesome-solid-door-open: **Jump in with any level of planning**
 
 Full blueprints with charters and PRDs, or jump straight in with a vague idea. Structured when you need it, flexible when you don't.
 
