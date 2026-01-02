@@ -226,7 +226,7 @@ Documentation: https://rp1.run
 
 === "Claude Code"
 
-    Type `/` to see available commands. You should see rp1 commands listed (look for `knowledge-build`, `feature-requirements`, etc.).
+    Type `/` to see available commands. You should see rp1 commands listed (look for `knowledge-build`, `build`, `build-fast`, etc.).
 
     **Quick test:**
 

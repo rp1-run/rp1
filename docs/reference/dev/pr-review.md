@@ -1,6 +1,6 @@
 # pr-review
 
-Intent-aware map-reduce PR review with confidence gating and holistic synthesis.
+Thorough code review that understands what your PR is trying to accomplish and checks the implementation against that intent.
 
 ---
 
@@ -20,7 +20,7 @@ Intent-aware map-reduce PR review with confidence gating and holistic synthesis.
 
 ## Description
 
-The `pr-review` command performs comprehensive code review using a map-reduce architecture. It understands the PR's intent (from description or linked issues), splits the diff into reviewable units, analyzes each in parallel, and synthesizes findings into a holistic judgment.
+The `pr-review` command performs comprehensive code review by first understanding what your PR is trying to accomplish (from the description or linked issues), then reviewing each changed file against that intent. Findings are synthesized into an overall assessment with specific, actionable feedback.
 
 ## Parameters
 
@@ -54,6 +54,7 @@ flowchart TB
         R1[Sub-Reviewer 1]
         R2[Sub-Reviewer 2]
         RN[Sub-Reviewer N]
+        VIS[Visual PR - complex PRs only]
     end
 
     subgraph "Phase 3"
@@ -68,9 +69,11 @@ flowchart TB
     RU --> R1
     RU --> R2
     RU --> RN
+    RU -.->|if complex| VIS
     R1 --> SY
     R2 --> SY
     RN --> SY
+    VIS -.-> MD
     JD --> RP
 ```
 
@@ -103,6 +106,9 @@ Findings are filtered by confidence level:
 | ✅ `approve` | Ready to merge |
 | ⚠️ `request_changes` | Issues to address |
 | 🛑 `block` | Critical problems found |
+
+!!! info "Visual PR Workflow"
+    For complex PRs (significant architectural changes or cross-cutting concerns), the review automatically triggers [`pr-visual`](pr-visual.md) in parallel with sub-reviewers, creating diagrams that help you understand the PR at a glance.
 
 ## Examples
 

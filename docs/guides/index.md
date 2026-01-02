@@ -48,6 +48,14 @@ Practical tutorials that walk you through complete rp1 workflows from start to f
 
     [:octicons-arrow-right-24: Start tutorial](team-onboarding.md)
 
+-   :material-source-branch: **Parallel Development**
+
+    ---
+
+    Run multiple tasks simultaneously using git worktrees for isolated execution.
+
+    [:octicons-arrow-right-24: Start tutorial](parallel-development.md)
+
 </div>
 
 ---

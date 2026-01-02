@@ -72,5 +72,8 @@ Proceed with edit? [Yes/No]
 
 ## Related Commands
 
-- [`feature-requirements`](feature-requirements.md) - Original requirements
-- [`feature-build`](feature-build.md) - Implementation phase
+- [`/build`](build.md) - Feature workflow (creates requirements and handles implementation)
+
+## See Also
+
+- [Feature Development Guide](../../guides/feature-development.md) - Complete workflow walkthrough

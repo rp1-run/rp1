@@ -7,15 +7,13 @@ hide:
 # stop prompting; **start shipping**
 
 Professional development workflows for AI coding assistants.
-**Save 16+ hours per week** with single-pass AI workflows.
+Skip the iteration loops — single-pass workflows that get it right the first time.
 21 commands. 18 specialized agents. Careful context management.
-Works today with **Claude Code** and **OpenCode**.
+Works today with **Claude Code** and **OpenCode** (experimental).
 
 
 [:fontawesome-solid-terminal: Get Started](getting-started/installation.md){ .md-button .md-button--primary }
 [:fontawesome-brands-github: View on GitHub](https://github.com/rp1-run/rp1){ .md-button .md-button--github }
-
-[![GitHub stars](https://img.shields.io/github/stars/rp1-run/rp1?style=social)](https://github.com/rp1-run/rp1)
 
 <div class="carousel-container">
   <div class="splide" id="hero-carousel" aria-label="Product Screenshots">
@@ -73,7 +71,7 @@ Works today with **Claude Code** and **OpenCode**.
 /build "user-auth"
 ```
 
-Or for small tasks under 2 hours:
+Or for small well-scoped quick tasks (that don't need extensive planning):
 
 ```bash
 /build-fast "Add dark mode toggle"
@@ -149,7 +147,7 @@ Run `knowledge-build` once. Your architecture becomes context for every command.
 
 :fontawesome-solid-layer-group: **Keep your AI focused, not overwhelmed**
 
-Progressive disclosure and subagent delegation keep your main thread focused. Complex work happens in specialized agents, results flow back clean.
+Progressive disclosure and subagent delegation offload complex work to specialized agents while keeping your main thread focused. This allows your workflows to run uninterrupted for hours if needed on complex tasks.
 
 [Explore the command-agent pattern :material-arrow-right:](concepts/command-agent-pattern.md)
 
@@ -159,7 +157,7 @@ Progressive disclosure and subagent delegation keep your main thread focused. Co
 
 :fontawesome-solid-flask: **Catch bad assumptions before coding**
 
-Hypothesis testing catches bad assumptions early. Design decisions get validated against your codebase before implementation begins.
+Automatic hypothesis testing catches bad assumptions early. Design decisions get validated against your codebase before implementation begins.
 
 [See hypothesis validation :material-arrow-right:](reference/dev/validate-hypothesis.md)
 
@@ -175,11 +173,31 @@ Full blueprints with charters and PRDs, or jump straight in with a vague idea. S
 
 </div>
 
+<div markdown>
+
+:fontawesome-solid-file-lines: **Artifact-driven development**
+
+Understand what is being created, how it's being created, and why. Full transparency into the agent's thinking as work progresses. Artifacts also enable full resumability — workflows aren't tied to the agent's context window to remember state.
+
+[See the feature workflow :material-arrow-right:](guides/feature-development.md)
+
+</div>
+
+<div markdown>
+
+:fontawesome-solid-code-branch: **Parallelize work with git worktrees**
+
+Run multiple features simultaneously in isolated worktrees. No branch switching, no stashing — each task gets its own clean working directory.
+
+[Learn about parallel worktrees :material-arrow-right:](concepts/parallel-worktrees.md)
+
+</div>
+
 </div>
 
 ---
 
-## Our Principles
+## rp1 Principles
 
 <div class="grid principles" markdown>
 
@@ -187,7 +205,7 @@ Full blueprints with charters and PRDs, or jump straight in with a vague idea. S
 
 :fontawesome-solid-battery-full: **Batteries Included**
 
-Skills, subagents, and finely-tuned prompts ship out of the box. No assembly required.
+Skills, subagents, specialized agent tools, and finely-tuned prompts ship out of the box. No assembly required.
 
 </div>
 
@@ -219,7 +237,7 @@ Keep improving and adapting as frontier models mature. Today's best, tomorrow's 
 
 :fontawesome-solid-shuffle: **Model/Tool Agnostic**
 
-No lock-in to any frontier lab or platform. Works with Claude Code, OpenCode, and more tools coming.
+No lock-in to any frontier lab or platform. Works with Claude Code, OpenCode (experimental), and more tools coming.
 
 </div>
 
@@ -285,8 +303,6 @@ Get new developers productive on your codebase fast. Knowledge base + guided exp
 
 **Claude Code**
 
-Native plugin via marketplace
-
 [Setup guide :material-arrow-right:](getting-started/installation.md)
 
 </div>
@@ -295,9 +311,7 @@ Native plugin via marketplace
 
 <img src="assets/brands/opencode.png" width="32">
 
-**OpenCode**
-
-One-line install script
+**OpenCode** (experimental)
 
 [Setup guide :material-arrow-right:](getting-started/installation.md)
 

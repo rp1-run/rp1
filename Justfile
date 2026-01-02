@@ -69,7 +69,7 @@ check: check-cli check-web-ui
 
 # Docs
 docs:
-    uv run --index https://pypi.org --with mkdocs-material mkdocs serve --strict
+    uvx --index https://pypi.org --with mkdocs-material mkdocs serve --strict --livereload
 
 # Dev stuff
 # Removes Stable version of Claude and OpenCode rp1 plugins

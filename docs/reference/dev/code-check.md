@@ -75,4 +75,4 @@ Summary: Format and lint issues detected
 ## Related Commands
 
 - [`code-audit`](code-audit.md) - Deeper pattern analysis
-- [`feature-build`](feature-build.md) - Build workflow runs checks automatically
+- [`/build`](build.md) - Full workflow runs checks automatically during verify step

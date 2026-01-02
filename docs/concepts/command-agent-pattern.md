@@ -135,10 +135,7 @@ Agents are self-contained workflows that can be:
 
 ## Example: The Feature Workflow
 
-The feature development workflow demonstrates multiple command-agent pairs working together. The `/build` command orchestrates all these steps automatically:
-
-!!! note "Orchestrated by /build"
-    While individual commands like `feature-requirements`, `feature-design`, and `feature-build` exist as reference documentation, the recommended entry point is `/build` which orchestrates all steps with smart resumption and builder-reviewer architecture.
+The feature development workflow demonstrates multiple command-agent pairs working together. The `/build` command orchestrates all steps automatically:
 
 ```mermaid
 flowchart TB
@@ -146,48 +143,49 @@ flowchart TB
         BUILD[/build]
     end
 
-    subgraph "Orchestrated Commands"
-        C1[feature-requirements]
-        C2[feature-design]
-        C3[feature-tasks]
-        C4[feature-build]
-        C5[feature-verify]
+    subgraph "Workflow Steps"
+        S1[Requirements]
+        S2[Design]
+        S3[Build]
+        S4[Verify]
+        S5[Follow-up]
+        S6[Archive]
     end
 
     subgraph "Agents (Autonomous Workers)"
         A1[Requirements Collector]
         A2[Design Generator]
-        A3[Task Planner]
-        A4[Feature Builder]
+        A3[Task Builder]
+        A4[Task Reviewer]
         A5[Feature Verifier]
     end
 
     subgraph "Artifacts"
         D1[requirements.md]
-        D2[design.md]
-        D3[tasks.md]
-        D4[Implementation]
-        D5[Verification Report]
+        D2[design.md + tasks.md]
+        D3[Implementation]
+        D4[Verification Report]
     end
 
-    BUILD --> C1
-    C1 --> A1 --> D1
-    C2 --> A2 --> D2
-    C3 --> A3 --> D3
-    C4 --> A4 --> D4
-    C5 --> A5 --> D5
+    BUILD --> S1
+    S1 --> A1 --> D1
+    S2 --> A2 --> D2
+    S3 --> A3
+    A3 --> A4
+    A4 --> D3
+    S4 --> A5 --> D4
 
-    D1 -.-> C2
-    D2 -.-> C3
-    D3 -.-> C4
-    D4 -.-> C5
+    D1 -.-> S2
+    D2 -.-> S3
+    D3 -.-> S4
 
     style BUILD fill:#7b1fa2,color:#fff
-    style C1 fill:#1565c0,color:#fff
-    style C2 fill:#1565c0,color:#fff
-    style C3 fill:#1565c0,color:#fff
-    style C4 fill:#1565c0,color:#fff
-    style C5 fill:#1565c0,color:#fff
+    style S1 fill:#1565c0,color:#fff
+    style S2 fill:#1565c0,color:#fff
+    style S3 fill:#1565c0,color:#fff
+    style S4 fill:#1565c0,color:#fff
+    style S5 fill:#1565c0,color:#fff
+    style S6 fill:#1565c0,color:#fff
     style A1 fill:#2e7d32,color:#fff
     style A2 fill:#2e7d32,color:#fff
     style A3 fill:#2e7d32,color:#fff

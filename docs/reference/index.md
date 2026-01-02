@@ -38,26 +38,29 @@ The base plugin provides foundation capabilities: knowledge management, document
 
 ---
 
-## Dev Plugin (15 commands)
+## Dev Plugin
 
 The dev plugin provides development workflow capabilities: feature lifecycle, code quality, and PR management.
+
+### Feature Development
+
+| Command | Description |
+|---------|-------------|
+| [`build`](dev/build.md) | **Primary command** — End-to-end feature workflow (requirements → design → build → verify → archive) |
+| [`build-fast`](dev/build-fast.md) | Quick iteration for small, well-scoped tasks |
+| [`validate-hypothesis`](dev/validate-hypothesis.md) | Test design assumptions through experiments |
 
 ### Blueprint & Planning
 
 | Command | Description |
 |---------|-------------|
 | [`blueprint`](dev/blueprint.md) | Create project charter and PRD documents |
-| [`feature-requirements`](dev/feature-requirements.md) | Collect and document feature requirements |
-| [`feature-design`](dev/feature-design.md) | Generate technical design specifications |
-| [`feature-tasks`](dev/feature-tasks.md) | Break down design into actionable tasks |
-| [`validate-hypothesis`](dev/validate-hypothesis.md) | Test design assumptions through experiments |
+| [`blueprint-archive`](dev/blueprint-archive.md) | Archive completed blueprints |
 
-### Implementation
+### Feature Management
 
 | Command | Description |
 |---------|-------------|
-| [`feature-build`](dev/feature-build.md) | Implement features from task lists |
-| [`feature-verify`](dev/feature-verify.md) | Validate acceptance criteria before merge |
 | [`feature-edit`](dev/feature-edit.md) | Propagate mid-stream changes across documents |
 | [`feature-archive`](dev/feature-archive.md) | Archive completed features |
 | [`feature-unarchive`](dev/feature-unarchive.md) | Restore archived features |
@@ -70,7 +73,6 @@ The dev plugin provides development workflow capabilities: feature lifecycle, co
 | [`code-audit`](dev/code-audit.md) | Pattern consistency and maintainability audit |
 | [`code-investigate`](dev/code-investigate.md) | Systematic bug investigation |
 | [`code-clean-comments`](dev/code-clean-comments.md) | Remove unnecessary code comments |
-| [`build-fast`](dev/build-fast.md) | Quick iteration development with scope gating |
 
 ### PR Management
 

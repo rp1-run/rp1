@@ -120,9 +120,9 @@ This creates `.rp1/work/prds/mobile.md` linked to the existing charter.
 
 ## Related Commands
 
-- [`feature-requirements`](feature-requirements.md) - Define specific features (next step)
-- [`feature-design`](feature-design.md) - Create technical design
+- [`/build`](build.md) - End-to-end feature workflow (next step after blueprint)
+- [`/build-fast`](build-fast.md) - Quick iteration for small tasks
 
 ## See Also
 
-- [Feature Development Tutorial](../../guides/feature-development.md) - Complete workflow walkthrough
+- [Feature Development Guide](../../guides/feature-development.md) - Complete workflow walkthrough

@@ -132,10 +132,14 @@ rp1 covers most development scenarios with dedicated commands:
 
 | Task | rp1 Command |
 |------|-------------|
-| Quick fixes, small scripts | `/build-fast` |
-| Learning, research, exploration | `/deep-research` |
+| Feature development | `/build` |
+| Quick fixes, small tasks | `/build-fast` |
+| PR code review | `/pr-review` |
+| Address PR feedback | `/address-pr-feedback` |
 | Bug investigation | `/code-investigate` |
-| Strategic decisions | `/strategize` |
+| Learning, research, exploration | `/deep-research` |
+
+[:octicons-arrow-right-24: See all 21 commands](../reference/index.md)
 
 Raw prompting remains useful for:
 

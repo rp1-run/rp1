@@ -86,6 +86,7 @@ nav:
     - PR Review: guides/pr-review.md
     - Addressing PR Feedback: guides/pr-feedback.md
     - Team Onboarding: guides/team-onboarding.md
+    - Parallel Development: guides/parallel-development.md
     - CI/CD Integration: guides/ci-cd-integration.md
     - Scaling with Teams: guides/scaling-with-teams.md
   - Comparison:
@@ -111,14 +112,11 @@ nav:
       - self-update: reference/base/self-update.md
     - Dev Plugin:
       - Overview: reference/dev/index.md
+      - build: reference/dev/build.md
+      - build-fast: reference/dev/build-fast.md
       - blueprint: reference/dev/blueprint.md
       - blueprint-archive: reference/dev/blueprint-archive.md
-      - feature-requirements: reference/dev/feature-requirements.md
-      - feature-design: reference/dev/feature-design.md
-      - feature-tasks: reference/dev/feature-tasks.md
       - validate-hypothesis: reference/dev/validate-hypothesis.md
-      - feature-build: reference/dev/feature-build.md
-      - feature-verify: reference/dev/feature-verify.md
       - feature-edit: reference/dev/feature-edit.md
       - feature-archive: reference/dev/feature-archive.md
       - feature-unarchive: reference/dev/feature-unarchive.md
@@ -126,7 +124,6 @@ nav:
       - code-audit: reference/dev/code-audit.md
       - code-investigate: reference/dev/code-investigate.md
       - code-clean-comments: reference/dev/code-clean-comments.md
-      - build-fast: reference/dev/build-fast.md
       - pr-review: reference/dev/pr-review.md
       - pr-visual: reference/dev/pr-visual.md
       - address-pr-feedback: reference/dev/address-pr-feedback.md
@@ -138,6 +135,8 @@ nav:
     - Command-Agent Pattern: concepts/command-agent-pattern.md
     - Map-Reduce Workflows: concepts/map-reduce-workflows.md
     - Stateless Agents: concepts/stateless-agents.md
+    - Parallel Worktrees: concepts/parallel-worktrees.md
+    - Builder-Reviewer Agents: concepts/builder-reviewer-agents.md
     - Skills: concepts/skills.md
 
 extra:

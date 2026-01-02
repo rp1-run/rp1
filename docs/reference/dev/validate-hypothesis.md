@@ -100,5 +100,8 @@ Overall: PROCEED with modifications
 
 ## Related Commands
 
-- [`feature-design`](feature-design.md) - Creates the design to validate
-- [`feature-tasks`](feature-tasks.md) - Next step after validation
+- [`/build`](build.md) - Orchestrates the full feature workflow including design and implementation
+
+## See Also
+
+- [Feature Development Guide](../../guides/feature-development.md) - See hypothesis validation in context
