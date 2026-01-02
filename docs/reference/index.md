@@ -110,7 +110,7 @@ Commands differ slightly between platforms:
 Looking for something specific?
 
 - **Build a knowledge base**: [`knowledge-build`](base/knowledge-build.md)
-- **Start a new feature**: [`build`](dev/build.md) (orchestrates requirements, design, build, verify)
+- **Start a new feature**: Use `/build` (orchestrates requirements, design, build, verify) - see [Feature Development Guide](../guides/feature-development.md)
 - **Review a PR**: [`pr-review`](dev/pr-review.md)
 - **Run code checks**: [`code-check`](dev/code-check.md)
 - **Security scan**: [`analyse-security`](base/analyse-security.md)

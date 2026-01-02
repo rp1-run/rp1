@@ -129,6 +129,7 @@ nav:
       - build-fast: reference/dev/build-fast.md
       - pr-review: reference/dev/pr-review.md
       - pr-visual: reference/dev/pr-visual.md
+      - address-pr-feedback: reference/dev/address-pr-feedback.md
   - Troubleshooting: troubleshooting/index.md
   - Concepts:
     - Overview: concepts/index.md

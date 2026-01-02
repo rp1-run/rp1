@@ -170,5 +170,4 @@ The skill content is loaded and the agent follows its instructions.
 
 ## Learn More
 
-- [maestro skill](../../plugins/base/skills/maestro/SKILL.md) - Skill for creating skills
-- [maestro patterns](../../plugins/base/skills/maestro/PATTERNS.md) - Common skill patterns
+For examples of well-structured skills, explore the skills in the `plugins/base/skills/` and `plugins/dev/skills/` directories in the rp1 repository.
