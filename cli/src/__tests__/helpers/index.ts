@@ -22,6 +22,7 @@ export {
 	assertTestIsolation,
 	cleanupTempDir,
 	createTempDir,
+	withEnvOverride,
 	writeFixture,
 } from "./fs-helpers.js";
 

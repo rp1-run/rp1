@@ -28,6 +28,7 @@ import {
 	removeTestWorktree,
 	spawnGit,
 	verifyNoMainRepoContamination,
+	withEnvOverride,
 } from "../../helpers/index.js";
 
 describe("worktree creation", () => {
@@ -240,6 +241,80 @@ describe("worktree creation", () => {
 
 			expect(second.path).toBeDefined();
 			expect(second.branch).toBe("quick-build-inner");
+		});
+	});
+
+	describe("gitignore validation", () => {
+		test("returns error when worktrees directory is not gitignored", async () => {
+			// Create a new repo without .gitignore
+			const repoNoGitignore = join(tempBase, "repo-no-gitignore-2");
+			await mkdir(repoNoGitignore, { recursive: true });
+			await initTestRepo(repoNoGitignore);
+			await createInitialCommit(repoNoGitignore);
+
+			// Use a custom RP1_ROOT that won't be affected by global gitignore rules
+			// (global gitignore typically ignores .rp1/ but not arbitrary paths)
+			const customRp1Root = join(repoNoGitignore, "custom-rp1-root");
+			await mkdir(join(customRp1Root, "work", "worktrees"), {
+				recursive: true,
+			});
+
+			// Set RP1_ROOT to the custom path, capture restore function
+			const restoreEnv = withEnvOverride("RP1_ROOT", customRp1Root);
+
+			try {
+				const error = await expectTaskLeft(
+					createWorktree({ slug: "test" }, repoNoGitignore),
+				);
+
+				expect(error._tag).toBe("PrerequisiteError");
+				if (error._tag === "PrerequisiteError") {
+					expect(error.message).toContain("not gitignored");
+				}
+			} finally {
+				restoreEnv();
+			}
+		});
+
+		test("succeeds when worktrees directory is gitignored", async () => {
+			// Create a new repo with proper .gitignore
+			const repoWithGitignore = join(tempBase, "repo-with-gitignore");
+			await mkdir(repoWithGitignore, { recursive: true });
+			await initTestRepo(repoWithGitignore);
+
+			// Use a custom RP1_ROOT and add it to gitignore
+			const customRp1Root = join(repoWithGitignore, "custom-rp1-root");
+
+			// Add .gitignore that ignores the custom path
+			await Bun.write(
+				join(repoWithGitignore, ".gitignore"),
+				"custom-rp1-root/\n",
+			);
+
+			// Commit gitignore
+			const addProc = spawnGit(["add", ".gitignore"], {
+				cwd: repoWithGitignore,
+			});
+			await addProc.exited;
+			const commitProc = spawnGit(["commit", "-m", "Add gitignore"], {
+				cwd: repoWithGitignore,
+			});
+			await commitProc.exited;
+
+			// Set RP1_ROOT to the custom path, capture restore function
+			const restoreEnv = withEnvOverride("RP1_ROOT", customRp1Root);
+
+			try {
+				const result = await expectTaskRight(
+					createWorktree({ slug: "test" }, repoWithGitignore),
+				);
+				createdWorktrees.push(result.path);
+
+				expect(result.path).toContain("custom-rp1-root/work/worktrees");
+				expect(result.branch).toBe("quick-build-test");
+			} finally {
+				restoreEnv();
+			}
 		});
 	});
 });

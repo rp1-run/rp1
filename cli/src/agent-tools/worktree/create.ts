@@ -12,6 +12,7 @@ import { prerequisiteError, runtimeError } from "../../../shared/errors.js";
 import {
 	branchExists,
 	execGitCommand,
+	execGitCommandMayFail,
 	type GitContext,
 	getHeadCommitSha,
 	withGitContext,
@@ -138,6 +139,61 @@ const ensureWorktreesDir = (rp1Root: string): TE.TaskEither<CLIError, string> =>
 	);
 
 /**
+ * Check if a path is gitignored in the repository.
+ * Returns true if the path is ignored by .gitignore rules.
+ *
+ * Uses `git check-ignore` which exits with:
+ * - 0: path is ignored
+ * - 1: path is NOT ignored
+ * - 128: fatal error (not in git repo, etc.)
+ *
+ * @param relativePath - Path relative to the repo root to check
+ * @param repoRoot - Main repository root
+ */
+const isPathGitignored = (
+	relativePath: string,
+	repoRoot: string,
+): TE.TaskEither<CLIError, boolean> =>
+	pipe(
+		execGitCommandMayFail(["check-ignore", "-q", relativePath], repoRoot),
+		TE.map(({ success }) => success),
+	);
+
+/**
+ * Validate that the worktrees directory is gitignored.
+ * This prevents potential repository corruption from nested worktrees
+ * being tracked by git.
+ *
+ * @param worktreesDir - Absolute path to the worktrees directory
+ * @param repoRoot - Main repository root
+ */
+const validateWorktreesGitignored = (
+	worktreesDir: string,
+	repoRoot: string,
+): TE.TaskEither<CLIError, void> => {
+	// Get the relative path from repo root to worktrees dir
+	const relativePath = path.relative(repoRoot, worktreesDir);
+
+	return pipe(
+		isPathGitignored(relativePath, repoRoot),
+		TE.chain((isIgnored) => {
+			if (!isIgnored) {
+				return TE.left(
+					prerequisiteError(
+						"gitignore",
+						`Worktree directory "${relativePath}" is not gitignored. ` +
+							"Creating worktrees in tracked directories can cause repository corruption.",
+						`Add "${relativePath}" or its parent directory to .gitignore before creating worktrees. ` +
+							'Typically, add ".rp1/*" with exceptions for ".rp1/context/" if needed.',
+					),
+				);
+			}
+			return TE.right(undefined);
+		}),
+	);
+};
+
+/**
  * Enable the worktreeConfig extension in the main repository.
  * This must be enabled before using git config --worktree.
  */
@@ -214,6 +270,10 @@ export const createWorktree = (
 		TE.bind("basedOn", ({ ctx }) => getHeadCommitSha(ctx.repoRoot)),
 		TE.bind("worktreesDir", ({ rootResult }) =>
 			ensureWorktreesDir(rootResult.root),
+		),
+		// Validate worktrees directory is gitignored before creating worktree
+		TE.chainFirst(({ worktreesDir, ctx }) =>
+			validateWorktreesGitignored(worktreesDir, ctx.repoRoot),
 		),
 		TE.bind("worktreePath", ({ worktreesDir, branchName }) =>
 			TE.right(path.join(worktreesDir, branchName)),
