@@ -1,5 +1,61 @@
 # Changelog
 
+## [0.2.10](https://github.com/rp1-run/rp1/compare/v0.2.9...v0.2.10) (2026-01-02)
+
+
+### Features
+
+* Add /blueprint-archive for PRD lifecycle management ([#178](https://github.com/rp1-run/rp1/issues/178)) ([5cc082e](https://github.com/rp1-run/rp1/commit/5cc082e0e9cf5018c65eb49628550bf2fda71208))
+* Add task DAG with parallelization hints to feature design ([#176](https://github.com/rp1-run/rp1/issues/176)) ([140fdb0](https://github.com/rp1-run/rp1/commit/140fdb0aceea493bcda396e5a39760ffad9fde82))
+* add worktree skill ([#158](https://github.com/rp1-run/rp1/issues/158)) ([95b00c5](https://github.com/rp1-run/rp1/commit/95b00c57cb40bebd78fae93548540ad1e2cafbcc))
+* build command ([#171](https://github.com/rp1-run/rp1/issues/171)) ([b3265ac](https://github.com/rp1-run/rp1/commit/b3265acfd186436577d7ce267b791ccf43a0b475))
+* **dev:** add /build-fast command for quick-iteration development ([#181](https://github.com/rp1-run/rp1/issues/181)) ([1248e99](https://github.com/rp1-run/rp1/commit/1248e9975b2bb4a8f45c05fe04fa22f029567c40))
+* **dev:** add comment check to /feature-verify ([#150](https://github.com/rp1-run/rp1/issues/150)) ([07c39a8](https://github.com/rp1-run/rp1/commit/07c39a85db679c578cc1937632efccc58a3dc889))
+* **dev:** add GitHub code links to PR review reports ([#168](https://github.com/rp1-run/rp1/issues/168)) ([f380fbd](https://github.com/rp1-run/rp1/commit/f380fbdd7c9a688f706f68b76bd929128163beee))
+* **dev:** add post-build follow-up orchestration for feature-build ([#159](https://github.com/rp1-run/rp1/issues/159)) ([34f85ae](https://github.com/rp1-run/rp1/commit/34f85aeb23bbd1cdb99a6ab224085f0185bd9603))
+* ensure git worktrees are safely created inside a repo (check git ignore) ([#185](https://github.com/rp1-run/rp1/issues/185)) ([c7846a8](https://github.com/rp1-run/rp1/commit/c7846a8800b5a7d48dac5487b9bde6e17efaee85))
+* ensure requirements from build flow through ([#180](https://github.com/rp1-run/rp1/issues/180)) ([2ed0d5c](https://github.com/rp1-run/rp1/commit/2ed0d5c2a185e38cf6f8709347a4860c356f2062))
+* ensure worktree deps are installed ([#156](https://github.com/rp1-run/rp1/issues/156)) ([616a9c0](https://github.com/rp1-run/rp1/commit/616a9c0c15e77de0afc9ea8d14170bed7e9c542a))
+* feature flow now uses worktrees by default ([#170](https://github.com/rp1-run/rp1/issues/170)) ([90773cd](https://github.com/rp1-run/rp1/commit/90773cd93a0cb2e492ec5903e3981478c4edcd50))
+* flat build command with subagent orchestration ([#172](https://github.com/rp1-run/rp1/issues/172)) ([96d8cb3](https://github.com/rp1-run/rp1/commit/96d8cb32dd5432fe854078024acb7fa174534e17))
+* git worktree support for parallel work ([#147](https://github.com/rp1-run/rp1/issues/147)) ([78650c3](https://github.com/rp1-run/rp1/commit/78650c3b9b254692d04bc698ca8a086d53659484))
+* **promts:** build is now a wrapper command ([#179](https://github.com/rp1-run/rp1/issues/179)) ([34ce424](https://github.com/rp1-run/rp1/commit/34ce424ac3922d67db08abfcdd9963219eb71e6e))
+* webui overhaul ([#183](https://github.com/rp1-run/rp1/issues/183)) ([58731fe](https://github.com/rp1-run/rp1/commit/58731fec6e790ff4556b52a1124d5cfed37a46fe))
+
+
+### Bug Fixes
+
+* bring back feature-archive ([#175](https://github.com/rp1-run/rp1/issues/175)) ([837b139](https://github.com/rp1-run/rp1/commit/837b1393ba16f6e7808dafd1570d89933ddd0aa5))
+* ensure git worktrees are created non-recursively ([#151](https://github.com/rp1-run/rp1/issues/151)) ([5b1f0b7](https://github.com/rp1-run/rp1/commit/5b1f0b7e960a7462c5bf5e8564ccf2360251d244))
+* ensure mv to main work dir before cleaning up worktrees ([#152](https://github.com/rp1-run/rp1/issues/152)) ([a938ff8](https://github.com/rp1-run/rp1/commit/a938ff8c874f30e45c7b9125d9ec700cb8c2c1a1))
+* ensure worktrees are safer ([0739d69](https://github.com/rp1-run/rp1/commit/0739d69f09e6116ae31bacc769690353b682510e))
+* handle dirty git state gracefully in /pr-review ([#146](https://github.com/rp1-run/rp1/issues/146)) ([7108843](https://github.com/rp1-run/rp1/commit/710884385af2412d2444e0d8077fb73cd7887267))
+* isolate git tests to ensure they don't mess with main repo ([#160](https://github.com/rp1-run/rp1/issues/160)) ([29301ef](https://github.com/rp1-run/rp1/commit/29301efa484be258868a00e5f3c10af3d881cffb))
+* opencode skills (no longer requires plugin) ([#184](https://github.com/rp1-run/rp1/issues/184)) ([2802fe6](https://github.com/rp1-run/rp1/commit/2802fe696dd2133eccd3beba40775b6e7bfe1fee))
+* reduce diagram over-generation in /feature-design ([#143](https://github.com/rp1-run/rp1/issues/143)) ([bf1a2e9](https://github.com/rp1-run/rp1/commit/bf1a2e96836a6058f502ad24ec3384a13e508fec))
+* remove incorrect --slug option from worktree skill ([#162](https://github.com/rp1-run/rp1/issues/162)) ([f2491e9](https://github.com/rp1-run/rp1/commit/f2491e99eff328738aed0868665c2bd24c3a0bcf))
+* **security:** prevent path traversal in webui static file server ([#141](https://github.com/rp1-run/rp1/issues/141)) ([c81cd7c](https://github.com/rp1-run/rp1/commit/c81cd7c8c8f8ccaf3e5593ee48e91a35bc6d7e73))
+* **test:** handle worktree environment in captureMainRepoState ([#165](https://github.com/rp1-run/rp1/issues/165)) ([a016aa3](https://github.com/rp1-run/rp1/commit/a016aa33528f1b419b1cbb744ecb1063d2a75cc8))
+
+
+### Performance Improvements
+
+* run code-check and feature-check in parallel in /feature-verify ([#144](https://github.com/rp1-run/rp1/issues/144)) ([4b0f04f](https://github.com/rp1-run/rp1/commit/4b0f04f9e62169e40fb87449d7ae7ba06b076718))
+
+
+### Code Refactoring
+
+* clean up defensive worktree code by disabling hooks ([#163](https://github.com/rp1-run/rp1/issues/163)) ([8a56b65](https://github.com/rp1-run/rp1/commit/8a56b6579345d359f429ba1895bc3a31bfb81443))
+* **dev:** consolidate PR feedback commands into /address-pr-feedback ([#173](https://github.com/rp1-run/rp1/issues/173)) ([dd2e91c](https://github.com/rp1-run/rp1/commit/dd2e91cfd85201986614ee1ab3177ae8c3495240))
+* leaner build command ([#174](https://github.com/rp1-run/rp1/issues/174)) ([daaee87](https://github.com/rp1-run/rp1/commit/daaee878410a7676348fe8e1abe36290d30f143f))
+* mv comment fetcher to agent-tools ([#182](https://github.com/rp1-run/rp1/issues/182)) ([7e3c204](https://github.com/rp1-run/rp1/commit/7e3c2048082d0d986f46dd6f5242e70d8df10d9d))
+* terse build ([#177](https://github.com/rp1-run/rp1/issues/177)) ([9170730](https://github.com/rp1-run/rp1/commit/917073022ad3e47d2b2a1449079139386733303c))
+
+
+### Documentation
+
+* fix navigation, improve homepage messaging, update deprecated commands ([#186](https://github.com/rp1-run/rp1/issues/186)) ([20489ae](https://github.com/rp1-run/rp1/commit/20489ae3cd6492a79b8331ea1b0db16115991dee))
+
 ## [0.2.9](https://github.com/rp1-run/rp1/compare/v0.2.8...v0.2.9) (2025-12-28)
 
 
