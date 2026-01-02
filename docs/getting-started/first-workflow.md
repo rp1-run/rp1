@@ -12,7 +12,7 @@ You've installed rp1. Now let's put it to work.
 
 === "Starting Fresh"
 
-    You're creating a brand new project from scratch.
+    You're creating a brand new project from scratch (a "greenfield" project - starting with a clean slate, no existing code).
 
     [Go to Bootstrap Guide :material-arrow-right:](../guides/bootstrap.md){ .md-button .md-button--primary }
 
@@ -88,21 +88,21 @@ Now that rp1 understands your codebase, try these workflows:
 
     `/blueprint`
 
--   :material-clipboard-check: **Gather Requirements**
+-   :material-hammer-wrench: **Build a Feature**
 
     ---
 
-    Collect and structure requirements for a feature.
+    Full workflow from requirements to verified implementation.
 
-    `/feature-requirements my-feature`
+    `/build my-feature`
 
--   :material-pencil-ruler: **Create Technical Design**
+-   :material-lightning-bolt: **Quick Task**
 
     ---
 
-    Generate detailed technical specifications.
+    Small fixes or enhancements under 2 hours.
 
-    `/feature-design my-feature`
+    `/build-fast "Add dark mode toggle"`
 
 -   :material-source-pull: **Review a Pull Request**
 

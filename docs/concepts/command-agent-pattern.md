@@ -13,7 +13,7 @@ When you run an rp1 command, two things happen:
 
 ```mermaid
 flowchart TB
-    User[User] -->|/feature-build| Command[Command]
+    User[User] -->|/build| Command[Command]
     Command -->|Task tool| Agent[Feature Builder Agent]
 
     subgraph "Agent Interactions"
@@ -135,50 +135,57 @@ Agents are self-contained workflows that can be:
 
 ## Example: The Feature Workflow
 
-The feature development workflow demonstrates multiple command-agent pairs working together:
+The feature development workflow demonstrates multiple command-agent pairs working together. The `/build` command orchestrates all steps automatically:
 
 ```mermaid
 flowchart TB
-    subgraph "Commands (Thin Wrappers)"
-        C1[feature-requirements]
-        C2[feature-design]
-        C3[feature-tasks]
-        C4[feature-build]
-        C5[feature-verify]
+    subgraph "Entry Point"
+        BUILD[/build]
+    end
+
+    subgraph "Workflow Steps"
+        S1[Requirements]
+        S2[Design]
+        S3[Build]
+        S4[Verify]
+        S5[Follow-up]
+        S6[Archive]
     end
 
     subgraph "Agents (Autonomous Workers)"
         A1[Requirements Collector]
         A2[Design Generator]
-        A3[Task Planner]
-        A4[Feature Builder]
+        A3[Task Builder]
+        A4[Task Reviewer]
         A5[Feature Verifier]
     end
 
     subgraph "Artifacts"
         D1[requirements.md]
-        D2[design.md]
-        D3[tasks.md]
-        D4[Implementation]
-        D5[Verification Report]
+        D2[design.md + tasks.md]
+        D3[Implementation]
+        D4[Verification Report]
     end
 
-    C1 --> A1 --> D1
-    C2 --> A2 --> D2
-    C3 --> A3 --> D3
-    C4 --> A4 --> D4
-    C5 --> A5 --> D5
+    BUILD --> S1
+    S1 --> A1 --> D1
+    S2 --> A2 --> D2
+    S3 --> A3
+    A3 --> A4
+    A4 --> D3
+    S4 --> A5 --> D4
 
-    D1 -.-> A2
-    D2 -.-> A3
-    D3 -.-> A4
-    D4 -.-> A5
+    D1 -.-> S2
+    D2 -.-> S3
+    D3 -.-> S4
 
-    style C1 fill:#1565c0,color:#fff
-    style C2 fill:#1565c0,color:#fff
-    style C3 fill:#1565c0,color:#fff
-    style C4 fill:#1565c0,color:#fff
-    style C5 fill:#1565c0,color:#fff
+    style BUILD fill:#7b1fa2,color:#fff
+    style S1 fill:#1565c0,color:#fff
+    style S2 fill:#1565c0,color:#fff
+    style S3 fill:#1565c0,color:#fff
+    style S4 fill:#1565c0,color:#fff
+    style S5 fill:#1565c0,color:#fff
+    style S6 fill:#1565c0,color:#fff
     style A1 fill:#2e7d32,color:#fff
     style A2 fill:#2e7d32,color:#fff
     style A3 fill:#2e7d32,color:#fff
@@ -186,7 +193,7 @@ flowchart TB
     style A5 fill:#2e7d32,color:#fff
 ```
 
-Each command spawns its agent, which produces artifacts used by subsequent steps.
+Each step spawns its agent, which produces artifacts used by subsequent steps. The `/build` command handles resumption automatically based on which artifacts exist.
 
 ---
 

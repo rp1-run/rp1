@@ -279,7 +279,8 @@ Next Steps:
 4. Start building your features!
 
 Useful Commands:
-- /feature-requirements - Plan a new feature
+- /build my-feature - Build a new feature (full workflow)
+- /build-fast "task" - Quick fixes under 2 hours
 - /blueprint update - Refine your charter
 - /knowledge-build - Generate knowledge base (after adding more code)
 ```
@@ -299,10 +300,10 @@ bun test         # Run tests
 Your project is now ready for the standard rp1 workflow. Start with:
 
 ```
-/feature-requirements my-feature
+/build my-feature
 ```
 
-See the [Feature Development](feature-development.md) guide for the complete workflow.
+The `/build` command orchestrates requirements, design, build, verify, and archive steps automatically. See the [Feature Development](feature-development.md) guide for details.
 
 ---
 

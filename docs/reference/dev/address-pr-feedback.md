@@ -18,7 +18,7 @@ Unified PR feedback workflow - collect, triage, and fix review comments in a sin
 
 ## Description
 
-The `address-pr-feedback` command provides a unified workflow for handling PR review comments. It consolidates what was previously two separate commands into a single, streamlined process.
+The `address-pr-feedback` command handles PR review comments end-to-end: collecting feedback from GitHub, triaging by priority, fixing issues systematically, and reporting what was resolved.
 
 The command executes four phases:
 

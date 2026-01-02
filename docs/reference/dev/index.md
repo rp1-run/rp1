@@ -3,34 +3,37 @@
 The `rp1-dev` plugin provides development workflow capabilities for the complete feature lifecycle, code quality tools, and PR management.
 
 **Version**: 3.0.0
-**Commands**: 19
-**Agents**: 19
 **Dependencies**: rp1-base >= 2.0.0
 
 ---
 
 ## Commands by Category
 
+### Feature Development
+
+Build features with full workflow orchestration.
+
+| Command | Description |
+|---------|-------------|
+| [`build`](build.md) | **Primary command** — End-to-end feature workflow (requirements → design → build → verify → archive) |
+| [`build-fast`](build-fast.md) | Quick iteration for small, well-scoped tasks |
+| [`validate-hypothesis`](validate-hypothesis.md) | Test design assumptions through experiments |
+
 ### Blueprint & Planning
 
-Start projects and plan features with structured documentation.
+Start projects with structured documentation.
 
 | Command | Description |
 |---------|-------------|
 | [`blueprint`](blueprint.md) | Create project charter and PRD documents |
-| [`feature-requirements`](feature-requirements.md) | Collect and document feature requirements |
-| [`feature-design`](feature-design.md) | Generate technical design specifications (auto-generates tasks) |
-| [`feature-tasks`](feature-tasks.md) | Regenerate tasks (optional - tasks auto-generate after design) |
-| [`validate-hypothesis`](validate-hypothesis.md) | Test design assumptions through experiments |
+| [`blueprint-archive`](blueprint-archive.md) | Archive completed blueprints |
 
-### Implementation
+### Feature Management
 
-Build features from specifications and manage the implementation lifecycle.
+Manage features during and after development.
 
 | Command | Description |
 |---------|-------------|
-| [`feature-build`](feature-build.md) | Implement features via builder-reviewer architecture |
-| [`feature-verify`](feature-verify.md) | Validate acceptance criteria before merge |
 | [`feature-edit`](feature-edit.md) | Propagate mid-stream changes across documents |
 | [`feature-archive`](feature-archive.md) | Archive completed features |
 | [`feature-unarchive`](feature-unarchive.md) | Restore archived features |
@@ -45,7 +48,6 @@ Maintain code health with automated checks and analysis.
 | [`code-audit`](code-audit.md) | Pattern consistency and maintainability audit |
 | [`code-investigate`](code-investigate.md) | Systematic bug investigation |
 | [`code-clean-comments`](code-clean-comments.md) | Remove unnecessary code comments |
-| [`build-fast`](build-fast.md) | Quick iteration development with scope gating |
 
 ### PR Management
 
@@ -61,30 +63,37 @@ Review and manage pull requests effectively.
 
 ## Feature Development Workflow
 
-The dev plugin commands work together to support a **5-step feature lifecycle**:
+Use `/build` as your **single entry point** for feature development:
 
+```mermaid
+flowchart LR
+    R[Requirements] --> D[Design]
+    D --> B[Build]
+    B --> V[Verify]
+    V --> UR[User Review]
+    UR -->|More work| F[Follow-up]
+    F --> B
+    UR -->|Done| A[Archive]
 ```
-feature-requirements → feature-design → feature-build → feature-verify → feature-archive
-```
 
-!!! note "Tasks Auto-Generate"
-    Running `/feature-design` automatically generates `tasks.md`. The separate `/feature-tasks` command is optional and only needed to regenerate tasks manually.
+The command handles all steps automatically with smart resumption — it detects existing artifacts and continues from where you left off.
 
-Each step produces artifacts that feed into the next:
+| Step | What Happens | Artifact |
+|------|--------------|----------|
+| Requirements | Collect and document requirements | `requirements.md` |
+| Design | Generate technical design + tasks | `design.md`, `tasks.md` |
+| Build | Implement via builder-reviewer | Code changes |
+| Verify | Validate against acceptance criteria | `verification-report.md` |
+| User Review | Manual verification checkpoint | User decision |
+| Follow-up | Add more work if needed | Loops to Build |
+| Archive | Store completed feature | Archived artifacts |
 
-| Step | Command | Artifact |
-|------|---------|----------|
-| 1 | `feature-requirements` | `.rp1/work/features/{id}/requirements.md` |
-| 2 | `feature-design` | `.rp1/work/features/{id}/design.md` + `tasks.md` |
-| 3 | `feature-build` | Implementation + task updates |
-| 4 | `feature-verify` | Verification report |
-| 5 | `feature-archive` | Archived feature in `.rp1/work/archives/` |
+**When to use which command:**
 
-**Optional Steps**:
-
-- `blueprint` - Create project charter and PRDs before starting features
-- `validate-hypothesis` - Test design assumptions before building
-- `feature-tasks` - Manually regenerate or update tasks
+| Use Case | Command |
+|----------|---------|
+| Multi-component features, architectural changes | `/build` |
+| Bug fixes, small enhancements, isolated changes | `/build-fast` |
 
 [:octicons-arrow-right-24: Feature Development Tutorial](../../guides/feature-development.md)
 
@@ -115,13 +124,13 @@ After installation, start a new feature:
 === "Claude Code"
 
     ```bash
-    /feature-requirements my-feature
+    /build my-feature
     ```
 
 === "OpenCode"
 
     ```bash
-    /rp1-dev/feature-requirements my-feature
+    /rp1-dev/build my-feature
     ```
 
-This creates `.rp1/work/features/my-feature/requirements.md` and guides you through requirements collection.
+This runs the complete feature workflow — collecting requirements, generating design, implementing with builder-reviewer, and verifying the result.

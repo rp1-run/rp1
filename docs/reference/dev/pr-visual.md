@@ -1,6 +1,6 @@
 # pr-visual
 
-Transform pull request diffs into comprehensive Mermaid diagrams for visual code review.
+See what your PR changes at a glance with auto-generated architecture and flow diagrams.
 
 ---
 
@@ -79,12 +79,108 @@ Diagrams Generated:
 2. Auth Flow Changes (3 new paths)
 3. Dependency Graph (2 new imports)
 
-Output: .rp1/work/pr-diagrams/feature-auth.md
+Output: $RP1_ROOT/work/pr-reviews/feature-auth-visual-001.md
 ```
+
+### Example Diagrams
+
+??? example "Architecture Overview"
+    Shows how new and modified components fit into the existing system:
+
+    ```mermaid
+    flowchart TB
+        subgraph "Existing Components"
+            API[API Layer]
+            DB[(Database)]
+            UI[Frontend]
+        end
+
+        subgraph "New/Modified (this PR)"
+            AUTH[Auth Service]:::new
+            MW[Auth Middleware]:::new
+            SESS[Session Store]:::modified
+        end
+
+        UI --> API
+        API --> MW
+        MW --> AUTH
+        AUTH --> SESS
+        AUTH --> DB
+
+        classDef new fill:#2e7d32,color:#fff
+        classDef modified fill:#f57c00,color:#fff
+    ```
+
+??? example "Auth Flow Changes"
+    Visualizes the control flow through changed code paths:
+
+    ```mermaid
+    sequenceDiagram
+        participant U as User
+        participant UI as Frontend
+        participant MW as Middleware
+        participant AUTH as Auth Service
+        participant DB as Database
+
+        U->>UI: Login request
+        UI->>MW: POST /api/login
+        MW->>AUTH: validateCredentials()
+        AUTH->>DB: Query user
+        DB-->>AUTH: User record
+        AUTH-->>MW: JWT token
+        MW-->>UI: Set cookie + redirect
+        UI-->>U: Dashboard
+    ```
+
+??? example "Dependency Graph"
+    Shows import and dependency changes:
+
+    ```mermaid
+    flowchart LR
+        subgraph "New Dependencies"
+            JWT[jsonwebtoken]:::new
+            BCRYPT[bcrypt]:::new
+        end
+
+        subgraph "Modified Files"
+            AUTH[auth.service.ts]:::modified
+            MW[middleware.ts]:::modified
+            CFG[config.ts]:::modified
+        end
+
+        AUTH --> JWT
+        AUTH --> BCRYPT
+        MW --> AUTH
+        CFG --> AUTH
+
+        classDef new fill:#2e7d32,color:#fff
+        classDef modified fill:#f57c00,color:#fff
+    ```
+
+??? example "Data Flow"
+    Tracks data transformations through the system:
+
+    ```mermaid
+    flowchart LR
+        REQ[Request Body]:::input
+        VAL[Validated Input]
+        HASH[Hashed Password]
+        TOKEN[JWT Token]
+        RESP[Response]:::output
+
+        REQ -->|validate| VAL
+        VAL -->|bcrypt| HASH
+        HASH -->|compare| DB[(Database)]
+        DB -->|user data| TOKEN
+        TOKEN -->|sign| RESP
+
+        classDef input fill:#1565c0,color:#fff
+        classDef output fill:#2e7d32,color:#fff
+    ```
 
 ## Output
 
-**Location:** `.rp1/work/pr-diagrams/<branch-name>.md`
+**Location:** `$RP1_ROOT/work/pr-reviews/<review-id>-visual-<NNN>.md`
 
 Contains validated Mermaid diagrams ready for rendering.
 

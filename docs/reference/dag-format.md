@@ -195,6 +195,5 @@ If no Implementation DAG section exists, downstream agents use sequential orderi
 
 ## Related Documentation
 
-- [Feature Design](dev/feature-design.md) - Where DAG is generated
-- [Feature Tasks](dev/feature-tasks.md) - Consumes DAG for task ordering
+- [Build Command](dev/build.md) - Uses DAG for task ordering during the build step
 - [Feature Development Tutorial](../guides/feature-development.md) - Complete workflow

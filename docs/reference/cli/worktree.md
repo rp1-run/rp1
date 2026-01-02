@@ -2,6 +2,9 @@
 
 Manages git worktrees for isolated agent execution, enabling safe experimentation without affecting uncommitted work.
 
+!!! note "Internal Tool"
+    This CLI tool is used internally by rp1 agents. It is not intended for direct use by users.
+
 ---
 
 ## Synopsis

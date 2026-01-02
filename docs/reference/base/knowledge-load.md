@@ -3,7 +3,7 @@
 !!! warning "Deprecated"
     This command is **deprecated**. All rp1 commands are now self-contained and load KB context automatically via their agents. You no longer need to run `/knowledge-load` before using other commands.
 
-    **For agent developers**: Use direct Read tool calls to load KB files progressively. See [KB Loading Patterns](../../guides/kb-loading-patterns.md).
+    **For agent developers**: Use direct Read tool calls to load KB files progressively. See the [Knowledge-Aware Agents](../../concepts/knowledge-aware-agents.md) concept page.
 
 Loads and prepares knowledge base context for downstream agents.
 
@@ -158,7 +158,7 @@ Based on your task, selectively load additional files:
 - Feature work → Read `{RP1_ROOT}/context/modules.md` + `patterns.md`
 ```
 
-See [KB Loading Patterns Guide](../../guides/kb-loading-patterns.md) for complete documentation.
+See the [Knowledge-Aware Agents](../../concepts/knowledge-aware-agents.md) concept page for more on progressive loading patterns.
 
 ## Related Commands
 
@@ -167,4 +167,3 @@ See [KB Loading Patterns Guide](../../guides/kb-loading-patterns.md) for complet
 ## See Also
 
 - [Knowledge-Aware Agents](../../concepts/knowledge-aware-agents.md) - How agents use KB context
-- [KB Loading Patterns](../../guides/kb-loading-patterns.md) - Progressive loading for agents

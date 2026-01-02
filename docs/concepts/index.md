@@ -46,6 +46,22 @@ Understanding the core ideas behind rp1 helps you get the most out of its workfl
 
     [:octicons-arrow-right-24: Learn more](stateless-agents.md)
 
+-   :material-source-branch: **Parallel Worktrees**
+
+    ---
+
+    Run multiple tasks simultaneously using git worktrees for isolated execution.
+
+    [:octicons-arrow-right-24: Learn more](parallel-worktrees.md)
+
+-   :material-account-check: **Builder-Reviewer Agents**
+
+    ---
+
+    Learn how adversarial cooperation between builder and reviewer agents ensures reliable code implementation.
+
+    [:octicons-arrow-right-24: Learn more](builder-reviewer-agents.md)
+
 </div>
 
 ---
@@ -59,6 +75,8 @@ Understanding the core ideas behind rp1 helps you get the most out of its workfl
 | [Command-Agent Pattern](command-agent-pattern.md) | Commands delegate to agents | Clean, reusable workflows |
 | [Map-Reduce Workflows](map-reduce-workflows.md) | Parallel processing pattern | Fast KB and PR analysis |
 | [Stateless Agents](stateless-agents.md) | Resumable interview workflows | Robust, transparent state |
+| [Parallel Worktrees](parallel-worktrees.md) | Git worktree isolation | Run multiple tasks at once |
+| [Builder-Reviewer Agents](builder-reviewer-agents.md) | Adversarial agent cooperation | Higher quality, reliable code |
 
 ---
 
@@ -73,3 +91,7 @@ Understanding the core ideas behind rp1 helps you get the most out of its workfl
 **Need performance?** Check [Map-Reduce Workflows](map-reduce-workflows.md) for parallelization patterns.
 
 **Building resumable workflows?** See [Stateless Agents](stateless-agents.md) for interrupt-safe interview patterns.
+
+**Running tasks in parallel?** Check [Parallel Worktrees](parallel-worktrees.md) for isolated task execution.
+
+**Want reliable implementations?** See [Builder-Reviewer Agents](builder-reviewer-agents.md) for adversarial cooperation.

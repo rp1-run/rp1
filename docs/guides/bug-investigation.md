@@ -283,7 +283,7 @@ If the fix is straightforward, implement it directly:
 For larger fixes, use the feature workflow:
 
 ```bash
-/feature-requirements fix-orders-performance \
+/build fix-orders-performance \
   .rp1/work/investigations/api-timeout-orders/report.md
 ```
 

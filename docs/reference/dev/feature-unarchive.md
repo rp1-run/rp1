@@ -58,4 +58,4 @@ Files restored: 6
 ## Related Commands
 
 - [`feature-archive`](feature-archive.md) - Archive completed features
-- [`feature-build`](feature-build.md) - Continue implementation
+- [`/build`](build.md) - Continue implementation after restoring

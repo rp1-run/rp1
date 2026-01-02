@@ -24,7 +24,7 @@
 <p align="center">
   Professional development workflows for AI coding assistants.<br>
   21 commands. 18 specialized agents. Single-pass execution.<br>
-  Works today with <strong>Claude Code</strong> and <strong>OpenCode</strong>.
+  Works today with <strong>Claude Code</strong>. Experimental support for <strong>OpenCode</strong>.
 </p>
 
 ---
@@ -83,9 +83,7 @@ This will set up rp1 and install plugins for your AI assistant (Claude Code or O
 ### Ship a feature
 
 ```bash
-/feature-requirements "user-auth"
-/feature-design "user-auth"
-/feature-build "user-auth"
+/build user-auth
 ```
 
 ### Review a PR
@@ -127,7 +125,7 @@ This will set up rp1 and install plugins for your AI assistant (Claude Code or O
 | Platform | Status |
 |----------|--------|
 | [Claude Code](https://claude.ai/code) | Available |
-| [OpenCode](https://opencode.ai) | Available |
+| [OpenCode](https://opencode.ai) | Experimental |
 | Cursor, Goose, Amp | Coming Soon |
 
 ---

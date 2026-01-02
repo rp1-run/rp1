@@ -215,19 +215,20 @@ Consistent rp1 usage across the team maximizes value. Standardize on workflows, 
 
 ### Feature Development Standard
 
-Define a standard feature workflow for your team:
+Define a standard feature workflow for your team. The `/build` command orchestrates all steps automatically:
 
 ```mermaid
 flowchart TD
-    subgraph "Planning"
+    subgraph "Entry Point"
+        BUILD_CMD[/build feature-name]
+    end
+
+    subgraph "Orchestrated Steps"
         CHARTER[Blueprint] --> REQS[Requirements]
         REQS --> DESIGN[Design]
         DESIGN --> TASKS[Tasks]
-    end
-
-    subgraph "Implementation"
-        TASKS --> BUILD[Feature Build]
-        BUILD --> VERIFY[Verify]
+        TASKS --> IMPL[Build]
+        IMPL --> VERIFY[Verify]
     end
 
     subgraph "Review"
@@ -235,6 +236,8 @@ flowchart TD
         PR --> REVIEW[PR Review]
         REVIEW --> MERGE[Merge]
     end
+
+    BUILD_CMD --> CHARTER
 ```
 
 **Standard workflow document**:
@@ -242,37 +245,24 @@ flowchart TD
 ```markdown
 ## Team Feature Workflow
 
-### Required Steps
+### Primary Command
 
-1. **Blueprint** (`/blueprint feature-name`)
-   - Create charter with stakeholder input
-   - All features need a charter
+Use `/build feature-name` for all feature development. It orchestrates:
 
-2. **Requirements** (`/feature-requirements feature-name`)
-   - Document acceptance criteria
-   - Review with product owner
+1. **Requirements** - Document acceptance criteria, review with product owner
+2. **Design** - Technical design, peer review for medium+ complexity
+3. **Tasks** - Break into implementable chunks with complexity estimates
+4. **Build** - Implement with builder-reviewer architecture
+5. **Verify** - Validate against acceptance criteria
+6. **Archive** - Store completed artifacts
 
-3. **Design** (`/feature-design feature-name`)
-   - Technical design before coding
-   - Peer review for medium+ complexity
+### Optional Pre-step
 
-4. **Tasks** (`/feature-tasks feature-name`)
-   - Break into implementable chunks
-   - Estimate complexity
+- **Blueprint** (`/blueprint feature-name`) - Create charter with stakeholder input for new projects
 
-5. **Build** (`/feature-build feature-name`)
-   - Implement with rp1 assistance
-   - Commit frequently
+### Quick Alternative
 
-6. **Verify** (`/feature-verify feature-name`)
-   - Run before PR creation
-   - Address all issues
-
-### Optional Steps
-
-- Skip blueprint for bugs and small fixes
-- Skip design for simple changes
-- Use `/build-fast` for urgent hotfixes
+- Use `/build-fast` for small tasks, bugs, or urgent hotfixes under 2 hours
 ```
 
 ### Branch Naming Conventions
@@ -290,7 +280,7 @@ Standardize branch naming to integrate with rp1:
     ```bash
     git checkout -b feature/user-auth
     /blueprint user-auth
-    /feature-requirements user-auth
+    /build user-auth
     ```
 
 ### PR Template Integration
@@ -312,7 +302,7 @@ Add rp1-specific sections to your PR template:
 
 ### Checklist
 
-- [ ] Ran `/feature-verify` before creating PR
+- [ ] Ran `/build` through verify step before creating PR
 - [ ] All acceptance criteria met
 - [ ] Tests passing
 - [ ] Documentation updated (if applicable)
@@ -452,7 +442,7 @@ flowchart TD
 | `requirements.md` | Merge acceptance criteria, deduplicate |
 | `design.md` | Team discussion, choose authoritative version |
 | `tasks.md` | Merge task lists, update status |
-| `verification-report.md` | Regenerate with `/feature-verify` |
+| `verification-report.md` | Re-run `/build` to regenerate verification |
 
 **Example: Merging requirements**:
 

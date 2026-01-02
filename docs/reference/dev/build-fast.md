@@ -1,6 +1,6 @@
 # build-fast
 
-Quick-iteration development for small/medium scope changes with TIN architecture.
+Quick-iteration development for small, well-scoped tasks using the [command-agent pattern](../../concepts/command-agent-pattern.md).
 
 ---
 
@@ -22,14 +22,14 @@ Quick-iteration development for small/medium scope changes with TIN architecture
 
 The `build-fast` command handles development requests that don't warrant the full feature workflow. It assesses request scope and either implements the changes (for small/medium scope) or redirects to `/build` (for large scope). All changes are made in an isolated git worktree.
 
-This command uses TIN (Thin command + sub-agent delegation) architecture with scope gating and AFK mode support.
+This command uses the [command-agent pattern](../../concepts/command-agent-pattern.md) with scope gating and AFK mode support.
 
 ## Parameters
 
 | Parameter | Position | Required | Default | Description |
 |-----------|----------|----------|---------|-------------|
 | `DEVELOPMENT_REQUEST` | `$ARGUMENTS` | Yes | - | Freeform description of what to build |
-| `--afk` | Flag | No | `false` | Non-interactive mode for automation |
+| `--afk` | Flag | No | `false` | AFK (Away From Keyboard) mode — non-interactive for automation |
 
 ## Scope Assessment
 

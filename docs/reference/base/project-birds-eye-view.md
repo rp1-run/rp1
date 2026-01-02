@@ -75,21 +75,126 @@ The command generates a comprehensive markdown document:
 ✅ Project Overview Generated
 
 Summary:
-- Project: rp1 Plugin System
-- Type: Monorepo with 2 plugins
-- Tech Stack: Markdown, Python
+- Project: Acme Store
+- Type: E-commerce Platform
+- Tech Stack: TypeScript, PostgreSQL, Redis
 
-Output: .rp1/work/project-overview.md
+Output: $RP1_ROOT/work/project-overview.md
 
 Sections Generated:
 - Summary ✓
 - System Context ✓
 - Architecture (with diagram) ✓
 - Modules ✓
-- Data Model (TBD - no schema detected)
+- Data Model ✓
 - Workflows ✓
-- APIs (TBD - no external APIs detected)
+- APIs ✓
 ```
+
+### Example Diagrams
+
+??? example "System Context"
+    Shows the project's external boundaries and integrations:
+
+    ```mermaid
+    flowchart TB
+        subgraph "External Systems"
+            STRIPE[Stripe API]
+            EMAIL[SendGrid]
+            S3[AWS S3]
+        end
+
+        subgraph "Acme Store"
+            API[API Gateway]
+            CART[Cart Service]
+            ORDERS[Order Service]
+        end
+
+        subgraph "Users"
+            CUST[Customer]
+            ADMIN[Admin]
+        end
+
+        CUST --> API
+        ADMIN --> API
+        API --> CART
+        API --> ORDERS
+        ORDERS --> STRIPE
+        ORDERS --> EMAIL
+        CART --> S3
+    ```
+
+??? example "Architecture Layers"
+    Shows the system's layered architecture:
+
+    ```mermaid
+    flowchart TB
+        subgraph "Presentation Layer"
+            WEB[Web App]
+            MOBILE[Mobile App]
+        end
+
+        subgraph "Application Layer"
+            AUTH[Auth Service]
+            CATALOG[Catalog Service]
+            CHECKOUT[Checkout Service]
+        end
+
+        subgraph "Data Layer"
+            PG[(PostgreSQL)]
+            REDIS[(Redis Cache)]
+            ES[(Elasticsearch)]
+        end
+
+        WEB --> AUTH
+        MOBILE --> AUTH
+        AUTH --> CATALOG
+        AUTH --> CHECKOUT
+        CATALOG --> PG
+        CATALOG --> ES
+        CHECKOUT --> PG
+        CHECKOUT --> REDIS
+    ```
+
+??? example "Module Dependencies"
+    Shows how modules depend on each other:
+
+    ```mermaid
+    flowchart LR
+        subgraph "Core"
+            AUTH[auth]
+            CONFIG[config]
+            LOGGER[logger]
+        end
+
+        subgraph "Features"
+            CART[cart]
+            PRODUCTS[products]
+            ORDERS[orders]
+        end
+
+        CART --> AUTH
+        PRODUCTS --> AUTH
+        ORDERS --> AUTH
+        ORDERS --> CART
+        ORDERS --> PRODUCTS
+        AUTH --> CONFIG
+        AUTH --> LOGGER
+    ```
+
+??? example "Order Workflow"
+    Shows a critical business process:
+
+    ```mermaid
+    flowchart LR
+        BROWSE[Browse] --> ADD[Add to Cart]
+        ADD --> REVIEW[Review Cart]
+        REVIEW --> PAY[Payment]
+        PAY -->|Success| CONFIRM[Confirmation]
+        PAY -->|Failure| RETRY[Retry]
+        RETRY --> PAY
+        CONFIRM --> SHIP[Shipping]
+    ```
 
 ## Diagram Validation
 

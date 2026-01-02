@@ -69,15 +69,13 @@ These friction points compound. What starts as minor inconvenience becomes signi
     # One-time setup (already done)
     /knowledge-build
 
-    # Single command
-    /feature-requirements dark-mode-toggle
-    /feature-design dark-mode-toggle
-    /feature-build dark-mode-toggle
+    # Single command orchestrates the entire workflow
+    /build dark-mode-toggle
 
     # What happens:
     # - KB provides your architecture, patterns, conventions
-    # - Requirements agent clarifies scope upfront
-    # - Design agent creates spec matching your patterns
+    # - Requirements step clarifies scope upfront
+    # - Design step creates spec matching your patterns
     # - Builder implements with reviewer validation
     # - Tests included, style matches codebase
 
@@ -134,10 +132,14 @@ rp1 covers most development scenarios with dedicated commands:
 
 | Task | rp1 Command |
 |------|-------------|
-| Quick fixes, small scripts | `/build-fast` |
-| Learning, research, exploration | `/deep-research` |
+| Feature development | `/build` |
+| Quick fixes, small tasks | `/build-fast` |
+| PR code review | `/pr-review` |
+| Address PR feedback | `/address-pr-feedback` |
 | Bug investigation | `/code-investigate` |
-| Strategic decisions | `/strategize` |
+| Learning, research, exploration | `/deep-research` |
+
+[:octicons-arrow-right-24: See all 21 commands](../reference/index.md)
 
 Raw prompting remains useful for:
 
@@ -225,3 +227,11 @@ Or start small:
 - [Constitutional Prompting](../concepts/constitutional-prompting.md) - How rp1 achieves single-pass execution
 - [Knowledge-Aware Agents](../concepts/knowledge-aware-agents.md) - How the KB provides codebase context
 - [Feature Development](../guides/feature-development.md) - Full workflow tutorial
+
+---
+
+## Ready to Try?
+
+Start shipping features without iteration loops.
+
+[Get Started :material-arrow-right:](../getting-started/installation.md){ .md-button .md-button--primary }
