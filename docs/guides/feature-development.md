@@ -23,8 +23,27 @@ Build your first feature with rp1's complete development workflow. This tutorial
 
 ---
 
-!!! tip "Small task? Use Build Fast"
-    For **small features, fixes, or enhancements** with well-defined scope (under 2 hours), use `/build-fast` instead. It skips formal documentation and implements directly with scope gating.
+## When to Use /build vs /build-fast
+
+Choose the right command for your task:
+
+| Criteria | /build | /build-fast |
+|----------|--------|-------------|
+| **Task size** | Multi-day features | Under 2 hours |
+| **Documentation** | Full artifacts (requirements, design, tasks) | Minimal (summary only) |
+| **Scope** | Complex, multi-component | Well-defined, single focus |
+| **Planning needed** | Yes - requirements + design | No - direct implementation |
+| **Examples** | New authentication system, API redesign | Bug fix, add config option, small refactor |
+
+**Decision flow**:
+
+1. Can you describe the task in one sentence? --> Consider `/build-fast`
+2. Will it take more than 2 hours? --> Use `/build`
+3. Does it touch multiple components? --> Use `/build`
+4. Is it a bug fix or small enhancement? --> Use `/build-fast`
+
+!!! tip "When in doubt"
+    Start with `/build-fast`. If scope grows during implementation, the command will suggest switching to the full workflow.
 
     ```bash
     /build-fast "Add dark mode toggle to settings page"
