@@ -30,7 +30,7 @@ function saveSidebarCollapsed(collapsed: boolean): void {
 	try {
 		localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(collapsed));
 	} catch {
-		// ignore
+		// Storage unavailable (private browsing, quota exceeded)
 	}
 }
 
@@ -44,7 +44,7 @@ function loadSidebarSize(): number {
 			}
 		}
 	} catch {
-		// ignore
+		// Storage unavailable (private browsing, quota exceeded)
 	}
 	return 20;
 }
@@ -53,7 +53,7 @@ function saveSidebarSize(size: number): void {
 	try {
 		localStorage.setItem(SIDEBAR_SIZE_KEY, String(size));
 	} catch {
-		// ignore
+		// Storage unavailable (private browsing, quota exceeded)
 	}
 }
 

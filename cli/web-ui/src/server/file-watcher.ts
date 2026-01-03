@@ -129,9 +129,8 @@ export class FileWatcher {
 	}
 
 	private queueChange(path: string, type: ChangeType): void {
-		// Check burst mode before processing
 		if (this.checkBurstMode()) {
-			return; // Defer during burst mode
+			return;
 		}
 
 		const existing = this.pendingChanges.get(path);
@@ -150,7 +149,6 @@ export class FileWatcher {
 
 	private checkBurstMode(): boolean {
 		const now = Date.now();
-		// Remove timestamps outside window
 		this.burstState.changeTimestamps = this.burstState.changeTimestamps.filter(
 			(t) => now - t < BURST_WINDOW_MS,
 		);
@@ -166,7 +164,6 @@ export class FileWatcher {
 		}
 
 		if (this.burstState.mode === "burst") {
-			// Reset stabilize timer on new change during burst
 			this.resetBurstStabilizeTimer();
 			return true;
 		}
@@ -260,9 +257,7 @@ export class FileWatcher {
 		this.burstState.changeTimestamps = [];
 
 		for (const watcher of this.watchers) {
-			watcher.close().catch(() => {
-				// ignore close errors
-			});
+			watcher.close().catch(() => {});
 		}
 
 		this.watchers = [];
