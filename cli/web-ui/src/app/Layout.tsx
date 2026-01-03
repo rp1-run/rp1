@@ -127,7 +127,10 @@ export function Layout() {
 
 	useEffect(() => {
 		return onTreeChange(() => {
-			refetch();
+			refetch().catch((err) => {
+				console.warn("Tree refetch failed, likely branch switch:", err);
+				// Non-fatal: tree will be stale but will auto-recover on next successful poll
+			});
 		});
 	}, [onTreeChange, refetch]);
 

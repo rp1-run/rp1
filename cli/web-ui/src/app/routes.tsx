@@ -235,15 +235,25 @@ function ContentView() {
 		});
 	}, [fetchContent]);
 
+	const navigate = useNavigate();
+
 	useEffect(() => {
-		if (!path) return;
+		if (!path || !projectId) return;
 
 		return onFileChange((msg) => {
 			if (msg.path === path) {
-				handleRefresh();
+				handleRefresh().catch((err) => {
+					// File may no longer exist after branch switch
+					if (err instanceof Error && err.message.includes("not found")) {
+						navigate(`/project/${projectId}/view/context/index.md`, {
+							replace: true,
+						});
+					}
+					// Other errors already set error state via fetchContent
+				});
 			}
 		});
-	}, [path, onFileChange, handleRefresh]);
+	}, [path, projectId, onFileChange, handleRefresh, navigate]);
 
 	if (!path) {
 		return (
