@@ -87,24 +87,12 @@ export function getProjectMetadata(
 		chainTE(() =>
 			tryCatch(
 				async () => {
-					const projectName = basePath.split("/").pop() ?? "unknown";
+					// Always use directory name for project display
+					const name = basePath.split("/").pop() ?? "unknown";
 					const charterPath = join(basePath, ".rp1", "work", "charter.md");
 
-					let name = projectName;
 					const charterFile = Bun.file(charterPath);
 					const charterExists = await charterFile.exists();
-
-					if (charterExists) {
-						try {
-							const content = await charterFile.text();
-							const titleMatch = content.match(/^#\s+(.+)/m);
-							if (titleMatch) {
-								name = titleMatch[1].trim();
-							}
-						} catch {
-							/* use directory name */
-						}
-					}
 
 					const project: Project = {
 						path: basePath,
