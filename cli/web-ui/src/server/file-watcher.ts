@@ -1,5 +1,5 @@
-import { watch } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
+import chokidar from "chokidar";
 import type { WebSocketHub } from "./websocket";
 
 type ChangeType = "modify" | "add" | "delete";
@@ -29,7 +29,7 @@ const MAX_WATCHERS = 10;
 const GRACE_PERIOD_MS = 30_000;
 
 export class FileWatcher {
-	private watchers: ReturnType<typeof watch>[] = [];
+	private watchers: chokidar.FSWatcher[] = [];
 	private hub: WebSocketHub;
 	private rp1Path: string;
 	private pendingChanges: Map<string, PendingChange> = new Map();
@@ -63,19 +63,26 @@ export class FileWatcher {
 
 	private watchDirectory(dirPath: string, section: string): void {
 		try {
-			const watcher = watch(
-				dirPath,
-				{ recursive: true },
-				(eventType, filename) => {
-					if (!filename || shouldIgnore(filename)) return;
-
-					const fullPath = join(dirPath, filename);
-					const relativePath = `${section}/${filename}`;
-					const changeType = this.determineChangeType(eventType, fullPath);
-
-					this.queueChange(relativePath, changeType);
+			const watcher = chokidar.watch(dirPath, {
+				persistent: true,
+				ignoreInitial: true,
+				awaitWriteFinish: {
+					stabilityThreshold: 50,
+					pollInterval: 10,
 				},
-			);
+				ignored: IGNORED_PATTERNS,
+				depth: 10,
+			});
+
+			watcher
+				.on("add", (fullPath) => this.handleEvent(fullPath, section, "add"))
+				.on("change", (fullPath) =>
+					this.handleEvent(fullPath, section, "modify"),
+				)
+				.on("unlink", (fullPath) =>
+					this.handleEvent(fullPath, section, "delete"),
+				)
+				.on("error", (error) => this.handleWatcherError(error));
 
 			this.watchers.push(watcher);
 		} catch (error) {
@@ -83,14 +90,27 @@ export class FileWatcher {
 		}
 	}
 
-	private determineChangeType(
-		eventType: "rename" | "change",
-		_fullPath: string,
-	): ChangeType {
-		if (eventType === "rename") {
-			return "add";
+	private handleEvent(
+		fullPath: string,
+		section: string,
+		type: ChangeType,
+	): void {
+		try {
+			const filename = relative(join(this.rp1Path, section), fullPath);
+			if (!filename || shouldIgnore(filename)) return;
+
+			const relativePath = `${section}/${filename}`;
+			this.queueChange(relativePath, type);
+		} catch (error) {
+			console.warn(
+				`[${this.projectId}] Error handling ${type} event for ${fullPath}:`,
+				error,
+			);
 		}
-		return "modify";
+	}
+
+	private handleWatcherError(error: Error): void {
+		console.error(`[${this.projectId}] Watcher error:`, error);
 	}
 
 	private queueChange(path: string, type: ChangeType): void {
@@ -149,11 +169,9 @@ export class FileWatcher {
 		}
 
 		for (const watcher of this.watchers) {
-			try {
-				watcher.close();
-			} catch {
-				// ignore
-			}
+			watcher.close().catch(() => {
+				// ignore close errors
+			});
 		}
 
 		this.watchers = [];
