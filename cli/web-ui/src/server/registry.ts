@@ -110,28 +110,10 @@ export async function isValidProject(projectPath: string): Promise<boolean> {
 }
 
 /**
- * Extract project name from charter or use directory name.
+ * Get project display name from directory name.
+ * Always uses directory name for consistency and clarity.
  */
-export async function getProjectName(projectPath: string): Promise<string> {
-	try {
-		const charterPath = `${projectPath}/.rp1/work/charter.md`;
-		const content = await readFile(charterPath, "utf-8");
-
-		// Extract title from frontmatter
-		const titleMatch = content.match(
-			/^---[\s\S]*?title:\s*["']?([^"'\n]+)["']?/m,
-		);
-		if (titleMatch?.[1]) {
-			return titleMatch[1].trim();
-		}
-
-		// Extract first H1
-		const h1Match = content.match(/^#\s+(.+)$/m);
-		if (h1Match?.[1]) {
-			return h1Match[1].trim();
-		}
-	} catch {}
-
+export function getProjectName(projectPath: string): string {
 	return basename(projectPath);
 }
 
@@ -232,7 +214,7 @@ export async function registerProject(
 
 	// Create new entry
 	const id = generateProjectId(projectPath, existingIds);
-	const name = await getProjectName(projectPath);
+	const name = getProjectName(projectPath);
 
 	const entry: ProjectEntry = {
 		id,
