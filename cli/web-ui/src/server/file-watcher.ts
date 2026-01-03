@@ -224,22 +224,26 @@ export class FileWatcher {
 		const changes = Array.from(this.pendingChanges.values());
 		this.pendingChanges.clear();
 
-		const hasStructuralChange = changes.some(
-			(c) => c.type === "add" || c.type === "delete",
-		);
+		try {
+			const hasStructuralChange = changes.some(
+				(c) => c.type === "add" || c.type === "delete",
+			);
 
-		for (const change of changes) {
-			this.hub.broadcastFileChange(this.projectId, change.path, change.type);
+			for (const change of changes) {
+				this.hub.broadcastFileChange(this.projectId, change.path, change.type);
+			}
+
+			if (hasStructuralChange) {
+				this.hub.broadcastTreeChange(this.projectId);
+			}
+
+			console.log(
+				`[${this.projectId}] Notified ${changes.length} file change(s):`,
+				changes.map((c) => `${c.type}:${c.path}`).join(", "),
+			);
+		} catch (error) {
+			console.error(`[${this.projectId}] Error broadcasting changes:`, error);
 		}
-
-		if (hasStructuralChange) {
-			this.hub.broadcastTreeChange(this.projectId);
-		}
-
-		console.log(
-			`[${this.projectId}] Notified ${changes.length} file change(s):`,
-			changes.map((c) => `${c.type}:${c.path}`).join(", "),
-		);
 	}
 
 	stop(): void {
