@@ -10,6 +10,12 @@ interface PendingChange {
 	timestamp: number;
 }
 
+interface BurstState {
+	mode: "normal" | "burst";
+	changeTimestamps: number[];
+	stabilizeTimer: ReturnType<typeof setTimeout> | null;
+}
+
 const IGNORED_PATTERNS = [
 	/\.swp$/,
 	/\.swo$/,
@@ -28,6 +34,10 @@ function shouldIgnore(filename: string): boolean {
 const MAX_WATCHERS = 10;
 const GRACE_PERIOD_MS = 30_000;
 
+const BURST_THRESHOLD = 10;
+const BURST_WINDOW_MS = 500;
+const BURST_STABILIZE_MS = 300;
+
 export class FileWatcher {
 	private watchers: chokidar.FSWatcher[] = [];
 	private hub: WebSocketHub;
@@ -35,6 +45,11 @@ export class FileWatcher {
 	private pendingChanges: Map<string, PendingChange> = new Map();
 	private debounceTimeout: ReturnType<typeof setTimeout> | null = null;
 	private debounceMs: number;
+	private burstState: BurstState = {
+		mode: "normal",
+		changeTimestamps: [],
+		stabilizeTimer: null,
+	};
 	readonly projectId: string;
 	readonly projectPath: string;
 
@@ -114,6 +129,11 @@ export class FileWatcher {
 	}
 
 	private queueChange(path: string, type: ChangeType): void {
+		// Check burst mode before processing
+		if (this.checkBurstMode()) {
+			return; // Defer during burst mode
+		}
+
 		const existing = this.pendingChanges.get(path);
 		const now = Date.now();
 
@@ -126,6 +146,66 @@ export class FileWatcher {
 		}
 
 		this.scheduleFlush();
+	}
+
+	private checkBurstMode(): boolean {
+		const now = Date.now();
+		// Remove timestamps outside window
+		this.burstState.changeTimestamps = this.burstState.changeTimestamps.filter(
+			(t) => now - t < BURST_WINDOW_MS,
+		);
+
+		this.burstState.changeTimestamps.push(now);
+
+		if (
+			this.burstState.changeTimestamps.length > BURST_THRESHOLD &&
+			this.burstState.mode === "normal"
+		) {
+			this.enterBurstMode();
+			return true;
+		}
+
+		if (this.burstState.mode === "burst") {
+			// Reset stabilize timer on new change during burst
+			this.resetBurstStabilizeTimer();
+			return true;
+		}
+
+		return false;
+	}
+
+	private enterBurstMode(): void {
+		this.burstState.mode = "burst";
+		// Clear pending individual changes - they'll be replaced by tree refresh
+		this.pendingChanges.clear();
+		if (this.debounceTimeout) {
+			clearTimeout(this.debounceTimeout);
+			this.debounceTimeout = null;
+		}
+		console.log(`[${this.projectId}] Burst mode activated`);
+
+		this.resetBurstStabilizeTimer();
+	}
+
+	private resetBurstStabilizeTimer(): void {
+		if (this.burstState.stabilizeTimer) {
+			clearTimeout(this.burstState.stabilizeTimer);
+		}
+
+		this.burstState.stabilizeTimer = setTimeout(() => {
+			this.exitBurstMode();
+		}, BURST_STABILIZE_MS);
+	}
+
+	private exitBurstMode(): void {
+		this.burstState.mode = "normal";
+		this.burstState.changeTimestamps = [];
+		this.burstState.stabilizeTimer = null;
+
+		// Emit single tree refresh instead of individual file changes
+		this.pendingChanges.clear();
+		this.hub.broadcastTreeChange(this.projectId);
+		console.log(`[${this.projectId}] Burst mode exited, tree refresh emitted`);
 	}
 
 	private scheduleFlush(): void {
@@ -167,6 +247,13 @@ export class FileWatcher {
 			clearTimeout(this.debounceTimeout);
 			this.debounceTimeout = null;
 		}
+
+		if (this.burstState.stabilizeTimer) {
+			clearTimeout(this.burstState.stabilizeTimer);
+			this.burstState.stabilizeTimer = null;
+		}
+		this.burstState.mode = "normal";
+		this.burstState.changeTimestamps = [];
 
 		for (const watcher of this.watchers) {
 			watcher.close().catch(() => {
