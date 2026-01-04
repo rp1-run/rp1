@@ -1,5 +1,5 @@
-import { watch } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
+import chokidar from "chokidar";
 import type { WebSocketHub } from "./websocket";
 
 type ChangeType = "modify" | "add" | "delete";
@@ -8,6 +8,12 @@ interface PendingChange {
 	path: string;
 	type: ChangeType;
 	timestamp: number;
+}
+
+interface BurstState {
+	mode: "normal" | "burst";
+	changeTimestamps: number[];
+	stabilizeTimer: ReturnType<typeof setTimeout> | null;
 }
 
 const IGNORED_PATTERNS = [
@@ -28,13 +34,22 @@ function shouldIgnore(filename: string): boolean {
 const MAX_WATCHERS = 10;
 const GRACE_PERIOD_MS = 30_000;
 
+const BURST_THRESHOLD = 10;
+const BURST_WINDOW_MS = 500;
+const BURST_STABILIZE_MS = 300;
+
 export class FileWatcher {
-	private watchers: ReturnType<typeof watch>[] = [];
+	private watchers: chokidar.FSWatcher[] = [];
 	private hub: WebSocketHub;
 	private rp1Path: string;
 	private pendingChanges: Map<string, PendingChange> = new Map();
 	private debounceTimeout: ReturnType<typeof setTimeout> | null = null;
 	private debounceMs: number;
+	private burstState: BurstState = {
+		mode: "normal",
+		changeTimestamps: [],
+		stabilizeTimer: null,
+	};
 	readonly projectId: string;
 	readonly projectPath: string;
 
@@ -63,19 +78,26 @@ export class FileWatcher {
 
 	private watchDirectory(dirPath: string, section: string): void {
 		try {
-			const watcher = watch(
-				dirPath,
-				{ recursive: true },
-				(eventType, filename) => {
-					if (!filename || shouldIgnore(filename)) return;
-
-					const fullPath = join(dirPath, filename);
-					const relativePath = `${section}/${filename}`;
-					const changeType = this.determineChangeType(eventType, fullPath);
-
-					this.queueChange(relativePath, changeType);
+			const watcher = chokidar.watch(dirPath, {
+				persistent: true,
+				ignoreInitial: true,
+				awaitWriteFinish: {
+					stabilityThreshold: 50,
+					pollInterval: 10,
 				},
-			);
+				ignored: IGNORED_PATTERNS,
+				depth: 10,
+			});
+
+			watcher
+				.on("add", (fullPath) => this.handleEvent(fullPath, section, "add"))
+				.on("change", (fullPath) =>
+					this.handleEvent(fullPath, section, "modify"),
+				)
+				.on("unlink", (fullPath) =>
+					this.handleEvent(fullPath, section, "delete"),
+				)
+				.on("error", (error) => this.handleWatcherError(error));
 
 			this.watchers.push(watcher);
 		} catch (error) {
@@ -83,17 +105,34 @@ export class FileWatcher {
 		}
 	}
 
-	private determineChangeType(
-		eventType: "rename" | "change",
-		_fullPath: string,
-	): ChangeType {
-		if (eventType === "rename") {
-			return "add";
+	private handleEvent(
+		fullPath: string,
+		section: string,
+		type: ChangeType,
+	): void {
+		try {
+			const filename = relative(join(this.rp1Path, section), fullPath);
+			if (!filename || shouldIgnore(filename)) return;
+
+			const relativePath = `${section}/${filename}`;
+			this.queueChange(relativePath, type);
+		} catch (error) {
+			console.warn(
+				`[${this.projectId}] Error handling ${type} event for ${fullPath}:`,
+				error,
+			);
 		}
-		return "modify";
+	}
+
+	private handleWatcherError(error: Error): void {
+		console.error(`[${this.projectId}] Watcher error:`, error);
 	}
 
 	private queueChange(path: string, type: ChangeType): void {
+		if (this.checkBurstMode()) {
+			return;
+		}
+
 		const existing = this.pendingChanges.get(path);
 		const now = Date.now();
 
@@ -106,6 +145,64 @@ export class FileWatcher {
 		}
 
 		this.scheduleFlush();
+	}
+
+	private checkBurstMode(): boolean {
+		const now = Date.now();
+		this.burstState.changeTimestamps = this.burstState.changeTimestamps.filter(
+			(t) => now - t < BURST_WINDOW_MS,
+		);
+
+		this.burstState.changeTimestamps.push(now);
+
+		if (
+			this.burstState.changeTimestamps.length > BURST_THRESHOLD &&
+			this.burstState.mode === "normal"
+		) {
+			this.enterBurstMode();
+			return true;
+		}
+
+		if (this.burstState.mode === "burst") {
+			this.resetBurstStabilizeTimer();
+			return true;
+		}
+
+		return false;
+	}
+
+	private enterBurstMode(): void {
+		this.burstState.mode = "burst";
+		// Clear pending individual changes - they'll be replaced by tree refresh
+		this.pendingChanges.clear();
+		if (this.debounceTimeout) {
+			clearTimeout(this.debounceTimeout);
+			this.debounceTimeout = null;
+		}
+		console.log(`[${this.projectId}] Burst mode activated`);
+
+		this.resetBurstStabilizeTimer();
+	}
+
+	private resetBurstStabilizeTimer(): void {
+		if (this.burstState.stabilizeTimer) {
+			clearTimeout(this.burstState.stabilizeTimer);
+		}
+
+		this.burstState.stabilizeTimer = setTimeout(() => {
+			this.exitBurstMode();
+		}, BURST_STABILIZE_MS);
+	}
+
+	private exitBurstMode(): void {
+		this.burstState.mode = "normal";
+		this.burstState.changeTimestamps = [];
+		this.burstState.stabilizeTimer = null;
+
+		// Emit single tree refresh instead of individual file changes
+		this.pendingChanges.clear();
+		this.hub.broadcastTreeChange(this.projectId);
+		console.log(`[${this.projectId}] Burst mode exited, tree refresh emitted`);
 	}
 
 	private scheduleFlush(): void {
@@ -124,22 +221,26 @@ export class FileWatcher {
 		const changes = Array.from(this.pendingChanges.values());
 		this.pendingChanges.clear();
 
-		const hasStructuralChange = changes.some(
-			(c) => c.type === "add" || c.type === "delete",
-		);
+		try {
+			const hasStructuralChange = changes.some(
+				(c) => c.type === "add" || c.type === "delete",
+			);
 
-		for (const change of changes) {
-			this.hub.broadcastFileChange(this.projectId, change.path, change.type);
+			for (const change of changes) {
+				this.hub.broadcastFileChange(this.projectId, change.path, change.type);
+			}
+
+			if (hasStructuralChange) {
+				this.hub.broadcastTreeChange(this.projectId);
+			}
+
+			console.log(
+				`[${this.projectId}] Notified ${changes.length} file change(s):`,
+				changes.map((c) => `${c.type}:${c.path}`).join(", "),
+			);
+		} catch (error) {
+			console.error(`[${this.projectId}] Error broadcasting changes:`, error);
 		}
-
-		if (hasStructuralChange) {
-			this.hub.broadcastTreeChange(this.projectId);
-		}
-
-		console.log(
-			`[${this.projectId}] Notified ${changes.length} file change(s):`,
-			changes.map((c) => `${c.type}:${c.path}`).join(", "),
-		);
 	}
 
 	stop(): void {
@@ -148,12 +249,15 @@ export class FileWatcher {
 			this.debounceTimeout = null;
 		}
 
+		if (this.burstState.stabilizeTimer) {
+			clearTimeout(this.burstState.stabilizeTimer);
+			this.burstState.stabilizeTimer = null;
+		}
+		this.burstState.mode = "normal";
+		this.burstState.changeTimestamps = [];
+
 		for (const watcher of this.watchers) {
-			try {
-				watcher.close();
-			} catch {
-				// ignore
-			}
+			watcher.close().catch(() => {});
 		}
 
 		this.watchers = [];

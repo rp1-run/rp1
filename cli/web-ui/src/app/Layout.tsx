@@ -30,7 +30,7 @@ function saveSidebarCollapsed(collapsed: boolean): void {
 	try {
 		localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(collapsed));
 	} catch {
-		// ignore
+		// Storage unavailable (private browsing, quota exceeded)
 	}
 }
 
@@ -44,7 +44,7 @@ function loadSidebarSize(): number {
 			}
 		}
 	} catch {
-		// ignore
+		// Storage unavailable (private browsing, quota exceeded)
 	}
 	return 20;
 }
@@ -53,7 +53,7 @@ function saveSidebarSize(size: number): void {
 	try {
 		localStorage.setItem(SIDEBAR_SIZE_KEY, String(size));
 	} catch {
-		// ignore
+		// Storage unavailable (private browsing, quota exceeded)
 	}
 }
 
@@ -127,7 +127,10 @@ export function Layout() {
 
 	useEffect(() => {
 		return onTreeChange(() => {
-			refetch();
+			refetch().catch((err) => {
+				console.warn("Tree refetch failed, likely branch switch:", err);
+				// Non-fatal: tree will be stale but will auto-recover on next successful poll
+			});
 		});
 	}, [onTreeChange, refetch]);
 
