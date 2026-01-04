@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.11](https://github.com/rp1-run/rp1/compare/v0.2.10...v0.2.11) (2026-01-04)
+
+
+### Features
+
+* **web-ui:** improve hot reloading ([#190](https://github.com/rp1-run/rp1/issues/190)) ([8b1ef55](https://github.com/rp1-run/rp1/commit/8b1ef5576091258a3dd46ae87785b7de6a8872ee))
+
+
+### Bug Fixes
+
+* **web-ui:** use directory name for project display instead of charter title ([#187](https://github.com/rp1-run/rp1/issues/187)) ([d2c285c](https://github.com/rp1-run/rp1/commit/d2c285c8b72d03671117f5bdafa9c3b0ff76be98))
+
 ## [0.2.10](https://github.com/rp1-run/rp1/compare/v0.2.9...v0.2.10) (2026-01-02)
 
 
