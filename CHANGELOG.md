@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.12](https://github.com/rp1-run/rp1/compare/v0.2.11...v0.2.12) (2026-01-06)
+
+
+### Bug Fixes
+
+* **ci:** correct release artifact names in verification step ([80504f5](https://github.com/rp1-run/rp1/commit/80504f545acbfe8d5b904c523c2fb73d51cce65a))
+
 ## [0.2.11](https://github.com/rp1-run/rp1/compare/v0.2.10...v0.2.11) (2026-01-06)
 
 
