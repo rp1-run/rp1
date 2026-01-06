@@ -551,7 +551,7 @@ When running non-interactively, these defaults are applied:
 | Gitignore preset | Recommended |
 
 !!! tip "Override Defaults"
-    If you need different behavior in CI, consider running interactive mode with pre-configured environment or using the individual install commands (`rp1 install:claudecode`) for more control.
+    If you need different behavior in CI, consider running interactive mode with pre-configured environment or using the individual install commands (`rp1 install:claude-code`) for more control.
 
 ## Tool Detection
 
@@ -816,7 +816,7 @@ Content outside fenced sections is never modified.
 
     ```bash
     # Claude Code
-    rp1 install:claudecode
+    rp1 install:claude-code
 
     # OpenCode
     rp1 install:opencode
@@ -830,7 +830,7 @@ Content outside fenced sections is never modified.
     |-------|----------|
     | Missing `.rp1/` directory | Re-run `rp1 init` |
     | Instruction file missing rp1 content | Delete the file and re-run init, or manually add the fenced section |
-    | Plugins not installed | Run `rp1 install:claudecode` or `rp1 install:opencode` |
+    | Plugins not installed | Run `rp1 install:claude-code` or `rp1 install:opencode` |
     | `.gitignore` not configured | Re-run init and select a gitignore preset |
 
 ??? question "Tool not detected but installed"
@@ -865,7 +865,7 @@ Content outside fenced sections is never modified.
 
         ```bash
         # For Claude Code
-        rp1 install:claudecode
+        rp1 install:claude-code
 
         # For OpenCode
         rp1 install:opencode
@@ -893,7 +893,7 @@ Content outside fenced sections is never modified.
 
 ## Related Commands
 
-- [`install:claudecode`](../../getting-started/installation.md) - Manual plugin installation for Claude Code
+- [`install:claude-code`](../../getting-started/installation.md) - Manual plugin installation for Claude Code
 - [`install:opencode`](../../getting-started/installation.md) - Manual plugin installation for OpenCode
 - [`knowledge-build`](../base/knowledge-build.md) - Build knowledge base after init
 

@@ -554,7 +554,7 @@ Common issues, solutions, and debugging strategies for rp1.
     4. **Reinstall plugins:**
 
         ```bash
-        rp1 install:claudecode
+        rp1 install:claude-code
         ```
 
 ??? question "Claude Code crashes during rp1 operations"

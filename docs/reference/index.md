@@ -11,7 +11,7 @@ The rp1 CLI provides tools for setup and management outside of AI assistant sess
 | Command | Description |
 |---------|-------------|
 | [`init`](cli/init.md) | Initialize rp1 in a project with guided setup |
-| `install:claudecode` | Install plugins for Claude Code |
+| `install:claude-code` | Install plugins for Claude Code |
 | `install:opencode` | Install plugins for OpenCode |
 | `build` | Build plugin packages from source |
 | `self-update` | Update the rp1 CLI to the latest version |

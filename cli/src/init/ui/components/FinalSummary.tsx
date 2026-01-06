@@ -309,12 +309,34 @@ const generateNextSteps = (
 			.map((p) => p.name);
 
 		if (missingPlugins.length > 0) {
+			// Determine the appropriate install command based on detected tools
+			const hasClaudeCode = detectedTools.some(
+				(t) => t.tool.id === "claude-code",
+			);
+			const hasOpenCode = detectedTools.some((t) => t.tool.id === "opencode");
+
+			let installCommand: string | undefined;
+			let installBlurb: string;
+
+			if (hasClaudeCode && !hasOpenCode) {
+				installCommand = "rp1 install:claude-code";
+				installBlurb = `Plugins failed to install: ${missingPlugins.join(", ")}`;
+			} else if (hasOpenCode && !hasClaudeCode) {
+				installCommand = "rp1 install:opencode";
+				installBlurb = `Plugins failed to install: ${missingPlugins.join(", ")}`;
+			} else {
+				// Multiple tools or edge case - provide documentation link
+				installCommand = undefined;
+				installBlurb = `Plugins failed to install: ${missingPlugins.join(", ")}. See https://rp1.run/getting-started/installation for manual installation.`;
+			}
+
 			steps.push({
 				order: order++,
 				action: "Manually install missing plugins",
-				command: `rp1 install ${missingPlugins.join(" ")}`,
+				command: installCommand,
 				required: true,
-				blurb: `Plugins failed to install: ${missingPlugins.join(", ")}`,
+				blurb: installBlurb,
+				docsUrl: "https://rp1.run/getting-started/installation",
 			});
 		}
 	}
@@ -417,7 +439,6 @@ export const FinalSummary: React.FC<FinalSummaryProps> = ({ state }) => {
 
 	return (
 		<Box flexDirection="column" paddingY={spacing.small}>
-			{/* Status Header */}
 			<Box
 				borderStyle={borders.standard}
 				borderColor={borderColor}
@@ -429,19 +450,16 @@ export const FinalSummary: React.FC<FinalSummaryProps> = ({ state }) => {
 				</Text>
 			</Box>
 
-			{/* Detected Tools */}
 			<Box marginTop={spacing.small}>
 				<DetectedToolsList tools={state.detectedTools} />
 			</Box>
 
-			{/* Setup Status */}
 			{state.healthReport && (
 				<Box marginTop={spacing.small}>
 					<SetupStatusList report={state.healthReport} />
 				</Box>
 			)}
 
-			{/* Next Steps */}
 			{nextSteps.length > 0 && (
 				<Box
 					marginTop={spacing.small}
@@ -453,7 +471,6 @@ export const FinalSummary: React.FC<FinalSummaryProps> = ({ state }) => {
 				</Box>
 			)}
 
-			{/* Documentation Link */}
 			<Box marginTop={spacing.small}>
 				<Text color={colors.dim}>Documentation: https://rp1.run</Text>
 			</Box>
