@@ -185,7 +185,7 @@ describe("FinalSummary", () => {
 	});
 
 	describe("next steps generation - plugin issues", () => {
-		test("shows manual install step when plugins not installed", () => {
+		test("shows install:claude-code when only Claude Code detected and plugins not installed", () => {
 			const healthReport = createMockHealthReport({
 				pluginsInstalled: false,
 				plugins: [
@@ -205,11 +205,82 @@ describe("FinalSummary", () => {
 			const output = lastFrame();
 
 			expect(output).toContain("Manually install missing plugins");
-			expect(output).toContain("rp1 install");
+			expect(output).toContain("rp1 install:claude-code");
 			expect(output).toContain("rp1-dev");
 		});
 
-		test("shows multiple missing plugins", () => {
+		test("shows install:opencode when only OpenCode detected and plugins not installed", () => {
+			const openCodeTool = createMockTool({
+				tool: {
+					id: "opencode",
+					name: "OpenCode",
+					binary: "opencode",
+					min_version: "0.8.0",
+					instruction_file: "AGENTS.md",
+					install_url: "https://example.com",
+					capabilities: [],
+					plugin_install_cmd: "opencode plugin install {url}",
+				},
+			});
+
+			const healthReport = createMockHealthReport({
+				pluginsInstalled: false,
+				plugins: [
+					{ name: "rp1-base", installed: false, version: null, location: null },
+					{ name: "rp1-dev", installed: false, version: null, location: null },
+				],
+			});
+
+			const state = createTestWizardState({
+				detectedTools: [openCodeTool],
+				healthReport,
+			});
+
+			const { lastFrame } = render(<FinalSummary state={state} />);
+			const output = lastFrame();
+
+			expect(output).toContain("Manually install missing plugins");
+			expect(output).toContain("rp1 install:opencode");
+		});
+
+		test("shows documentation URL when multiple tools detected and plugins not installed", () => {
+			const claudeCodeTool = createMockTool();
+			const openCodeTool = createMockTool({
+				tool: {
+					id: "opencode",
+					name: "OpenCode",
+					binary: "opencode",
+					min_version: "0.8.0",
+					instruction_file: "AGENTS.md",
+					install_url: "https://example.com",
+					capabilities: [],
+					plugin_install_cmd: "opencode plugin install {url}",
+				},
+			});
+
+			const healthReport = createMockHealthReport({
+				pluginsInstalled: false,
+				plugins: [
+					{ name: "rp1-base", installed: false, version: null, location: null },
+					{ name: "rp1-dev", installed: false, version: null, location: null },
+				],
+			});
+
+			const state = createTestWizardState({
+				detectedTools: [claudeCodeTool, openCodeTool],
+				healthReport,
+			});
+
+			const { lastFrame } = render(<FinalSummary state={state} />);
+			const output = lastFrame();
+
+			expect(output).toContain("Manually install missing plugins");
+			expect(output).toContain("https://rp1.run/getting-started/installation");
+			// Should not contain the non-existent 'rp1 install' command
+			expect(output).not.toContain("rp1 install rp1-base");
+		});
+
+		test("shows multiple missing plugins in blurb", () => {
 			const healthReport = createMockHealthReport({
 				pluginsInstalled: false,
 				plugins: [

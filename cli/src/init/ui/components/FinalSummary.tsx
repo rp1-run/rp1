@@ -309,12 +309,34 @@ const generateNextSteps = (
 			.map((p) => p.name);
 
 		if (missingPlugins.length > 0) {
+			// Determine the appropriate install command based on detected tools
+			const hasClaudeCode = detectedTools.some(
+				(t) => t.tool.id === "claude-code",
+			);
+			const hasOpenCode = detectedTools.some((t) => t.tool.id === "opencode");
+
+			let installCommand: string | undefined;
+			let installBlurb: string;
+
+			if (hasClaudeCode && !hasOpenCode) {
+				installCommand = "rp1 install:claude-code";
+				installBlurb = `Plugins failed to install: ${missingPlugins.join(", ")}`;
+			} else if (hasOpenCode && !hasClaudeCode) {
+				installCommand = "rp1 install:opencode";
+				installBlurb = `Plugins failed to install: ${missingPlugins.join(", ")}`;
+			} else {
+				// Multiple tools or edge case - provide documentation link
+				installCommand = undefined;
+				installBlurb = `Plugins failed to install: ${missingPlugins.join(", ")}. See https://rp1.run/getting-started/installation for manual installation.`;
+			}
+
 			steps.push({
 				order: order++,
 				action: "Manually install missing plugins",
-				command: `rp1 install ${missingPlugins.join(" ")}`,
+				command: installCommand,
 				required: true,
-				blurb: `Plugins failed to install: ${missingPlugins.join(", ")}`,
+				blurb: installBlurb,
+				docsUrl: "https://rp1.run/getting-started/installation",
 			});
 		}
 	}
