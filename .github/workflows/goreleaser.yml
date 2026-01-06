@@ -66,6 +66,48 @@ jobs:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           SCOOP_BUCKET_TOKEN: ${{ secrets.SCOOP_BUCKET_TOKEN }}
 
+      - name: Verify Release Artifacts
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          EXPECTED_ARTIFACTS=(
+            "rp1-darwin-arm64"
+            "rp1-darwin-x64"
+            "rp1-linux-arm64"
+            "rp1-linux-x64"
+            "rp1-windows-x64.exe"
+            "checksums.txt"
+          )
+
+          TAG="${{ github.ref_name }}"
+          echo "Verifying artifacts for release: $TAG"
+
+          # Get list of assets for this release
+          ASSETS=$(gh release view "$TAG" --json assets -q ".assets[].name" 2>/dev/null || echo "")
+
+          if [ -z "$ASSETS" ]; then
+            echo "Warning: Could not fetch release assets. Release may still be processing."
+            exit 0
+          fi
+
+          MISSING=0
+          for artifact in "${EXPECTED_ARTIFACTS[@]}"; do
+            if echo "$ASSETS" | grep -q "^${artifact}$"; then
+              echo "Found: $artifact"
+            else
+              echo "Missing: $artifact"
+              MISSING=$((MISSING + 1))
+            fi
+          done
+
+          if [ $MISSING -gt 0 ]; then
+            echo "Error: $MISSING expected artifact(s) missing from release"
+            exit 1
+          fi
+
+          echo "All expected artifacts present"
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         if: always()

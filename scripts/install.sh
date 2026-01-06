@@ -134,13 +134,47 @@ download() {
 
     if command -v curl >/dev/null 2>&1; then
         curl -fSL --progress-bar -o "$output" "$url" || {
+            local http_code
+            http_code=$(curl -s -o /dev/null -w "%{http_code}" "$url" 2>/dev/null || echo "000")
             error "Download failed: $url
-Check your internet connection and try again."
+
+Possible causes:
+  - Network connectivity issues (HTTP status: $http_code)
+  - GitHub rate limiting (try again in a few minutes)
+  - Release artifacts not yet available for this version
+  - Firewall or proxy blocking the connection
+
+Troubleshooting:
+  1. Verify the URL is accessible: curl -I \"$url\"
+  2. Try a specific version: VERSION=0.2.9 sh install.sh
+  3. Check releases: https://github.com/${GITHUB_REPO}/releases
+
+Alternative installation methods:
+  - Homebrew (macOS/Linux): brew install rp1-run/tap/rp1
+  - Scoop (Windows): scoop install rp1
+  - Manual download: https://github.com/${GITHUB_REPO}/releases"
         }
     elif command -v wget >/dev/null 2>&1; then
         wget -q --show-progress -O "$output" "$url" || {
+            local http_code
+            http_code=$(wget --spider -S "$url" 2>&1 | grep "HTTP/" | tail -1 | awk '{print $2}' || echo "000")
             error "Download failed: $url
-Check your internet connection and try again."
+
+Possible causes:
+  - Network connectivity issues (HTTP status: $http_code)
+  - GitHub rate limiting (try again in a few minutes)
+  - Release artifacts not yet available for this version
+  - Firewall or proxy blocking the connection
+
+Troubleshooting:
+  1. Verify the URL is accessible: wget --spider \"$url\"
+  2. Try a specific version: VERSION=0.2.9 sh install.sh
+  3. Check releases: https://github.com/${GITHUB_REPO}/releases
+
+Alternative installation methods:
+  - Homebrew (macOS/Linux): brew install rp1-run/tap/rp1
+  - Scoop (Windows): scoop install rp1
+  - Manual download: https://github.com/${GITHUB_REPO}/releases"
         }
     else
         error "Neither curl nor wget found. Please install one of them."

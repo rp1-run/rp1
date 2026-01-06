@@ -211,7 +211,7 @@ Documentation: https://rp1.run
     === "Claude Code"
 
         ```bash
-        rp1 install:claudecode
+        rp1 install:claude-code
         ```
 
     === "OpenCode"
