@@ -71,10 +71,10 @@ jobs:
         run: |
           EXPECTED_ARTIFACTS=(
             "rp1-darwin-arm64"
-            "rp1-darwin-x64"
+            "rp1-darwin-amd64"
             "rp1-linux-arm64"
-            "rp1-linux-x64"
-            "rp1-windows-x64.exe"
+            "rp1-linux-amd64"
+            "rp1-windows-amd64.zip"
             "checksums.txt"
           )
 
