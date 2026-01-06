@@ -439,7 +439,6 @@ export const FinalSummary: React.FC<FinalSummaryProps> = ({ state }) => {
 
 	return (
 		<Box flexDirection="column" paddingY={spacing.small}>
-			{/* Status Header */}
 			<Box
 				borderStyle={borders.standard}
 				borderColor={borderColor}
@@ -451,19 +450,16 @@ export const FinalSummary: React.FC<FinalSummaryProps> = ({ state }) => {
 				</Text>
 			</Box>
 
-			{/* Detected Tools */}
 			<Box marginTop={spacing.small}>
 				<DetectedToolsList tools={state.detectedTools} />
 			</Box>
 
-			{/* Setup Status */}
 			{state.healthReport && (
 				<Box marginTop={spacing.small}>
 					<SetupStatusList report={state.healthReport} />
 				</Box>
 			)}
 
-			{/* Next Steps */}
 			{nextSteps.length > 0 && (
 				<Box
 					marginTop={spacing.small}
@@ -475,7 +471,6 @@ export const FinalSummary: React.FC<FinalSummaryProps> = ({ state }) => {
 				</Box>
 			)}
 
-			{/* Documentation Link */}
 			<Box marginTop={spacing.small}>
 				<Text color={colors.dim}>Documentation: https://rp1.run</Text>
 			</Box>

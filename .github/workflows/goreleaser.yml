@@ -37,7 +37,6 @@ jobs:
           bun install
           bun run build:release
 
-      # Verify assets were generated correctly
       - name: Verify asset generation
         run: |
           if [ ! -f cli/src/assets/embedded.ts ]; then
@@ -51,7 +50,6 @@ jobs:
             exit 1
           fi
 
-          # Display manifest summary
           echo "Asset manifest generated successfully"
           echo "First 30 lines:"
           head -30 cli/src/assets/embedded.ts
@@ -83,7 +81,6 @@ jobs:
           TAG="${{ github.ref_name }}"
           echo "Verifying artifacts for release: $TAG"
 
-          # Get list of assets for this release
           ASSETS=$(gh release view "$TAG" --json assets -q ".assets[].name" 2>/dev/null || echo "")
 
           if [ -z "$ASSETS" ]; then

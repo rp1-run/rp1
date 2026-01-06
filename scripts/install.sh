@@ -6,7 +6,6 @@ set -eu
 #        curl -fsSL https://rp1.run/install.sh | VERSION=5.5.0 sh
 #        curl -fsSL https://rp1.run/install.sh | INSTALL_DIR=/opt/bin sh
 
-# Configuration
 GITHUB_REPO="rp1-run/rp1"
 BINARY_NAME="rp1"
 DEFAULT_INSTALL_DIR="/usr/local/bin"
@@ -28,7 +27,6 @@ else
     NC=''
 fi
 
-# Output helpers
 info() {
     printf "${BLUE}==>${NC} ${BOLD}%s${NC}\n" "$1"
 }
@@ -46,7 +44,6 @@ error() {
     exit 1
 }
 
-# Detect OS
 detect_os() {
     case "$(uname -s)" in
         Darwin)
@@ -71,7 +68,6 @@ Windows users: Install via Scoop - see https://rp1.run/docs/installation"
     esac
 }
 
-# Detect architecture
 detect_arch() {
     case "$(uname -m)" in
         x86_64|amd64)
@@ -87,7 +83,6 @@ Supported: x86_64 (x64), arm64 (aarch64)"
     esac
 }
 
-# Get latest version from GitHub API
 get_latest_version() {
     local api_url="https://api.github.com/repos/${GITHUB_REPO}/releases/latest"
     local response
@@ -116,7 +111,6 @@ You can also specify a version manually:
     echo "$response" | grep -o '"tag_name"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' | sed 's/^v//'
 }
 
-# Validate version format
 validate_version() {
     local version="$1"
     if ! echo "$version" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+'; then
@@ -125,7 +119,6 @@ Expected format: X.Y.Z (e.g., 5.5.0)"
     fi
 }
 
-# Download file with progress
 download() {
     local url="$1"
     local output="$2"
@@ -181,7 +174,6 @@ Alternative installation methods:
     fi
 }
 
-# Calculate SHA256 checksum
 calculate_sha256() {
     local file="$1"
 
@@ -194,7 +186,6 @@ calculate_sha256() {
     fi
 }
 
-# Verify checksum
 verify_checksum() {
     local file="$1"
     local checksums_file="$2"
@@ -202,7 +193,6 @@ verify_checksum() {
 
     info "Verifying checksum..."
 
-    # Extract expected checksum for our binary
     local expected_checksum
     expected_checksum=$(grep "$expected_filename" "$checksums_file" | cut -d' ' -f1)
 
@@ -210,7 +200,6 @@ verify_checksum() {
         error "Could not find checksum for $expected_filename in checksums.txt"
     fi
 
-    # Calculate actual checksum
     local actual_checksum
     actual_checksum=$(calculate_sha256 "$file")
 
@@ -226,21 +215,18 @@ Please report this issue at: https://github.com/${GITHUB_REPO}/issues"
     success "Checksum verified"
 }
 
-# Main installation function
 main() {
     echo ""
     printf "${BOLD}rp1 Binary Installer${NC}\n"
     echo "=============================="
     echo ""
 
-    # Detect platform
     local os arch
     os=$(detect_os)
     arch=$(detect_arch)
 
     info "Detected platform: ${os}-${arch}"
 
-    # Determine version
     local version
     if [ -n "${VERSION:-}" ]; then
         version="$VERSION"
@@ -255,34 +241,27 @@ main() {
         info "Latest version: $version"
     fi
 
-    # Determine install directory
     local install_dir="${INSTALL_DIR:-$DEFAULT_INSTALL_DIR}"
     info "Install directory: $install_dir"
 
-    # Create temp directory
     local tmp_dir
     tmp_dir=$(mktemp -d)
     trap 'rm -rf "$tmp_dir"' EXIT
 
-    # Construct download URLs
     local binary_filename="${BINARY_NAME}-${os}-${arch}"
     local download_url="https://github.com/${GITHUB_REPO}/releases/download/v${version}/${binary_filename}"
     local checksums_url="https://github.com/${GITHUB_REPO}/releases/download/v${version}/checksums.txt"
 
-    # Download binary and checksums
     local binary_path="$tmp_dir/$binary_filename"
     local checksums_path="$tmp_dir/checksums.txt"
 
     download "$download_url" "$binary_path"
     download "$checksums_url" "$checksums_path"
 
-    # Verify checksum
     verify_checksum "$binary_path" "$checksums_path" "$binary_filename"
 
-    # Install binary
     info "Installing to $install_dir..."
 
-    # Create install directory if it doesn't exist
     if [ ! -d "$install_dir" ]; then
         if ! mkdir -p "$install_dir" 2>/dev/null; then
             error "Cannot create directory: $install_dir
@@ -293,7 +272,6 @@ Or install to a user-writable directory:
         fi
     fi
 
-    # Move binary to install location
     local final_path="$install_dir/$BINARY_NAME"
     if ! mv "$binary_path" "$final_path" 2>/dev/null; then
         if ! sudo mv "$binary_path" "$final_path" 2>/dev/null; then
@@ -305,10 +283,8 @@ Or install to a user-writable directory:
         fi
     fi
 
-    # Set executable permissions
     chmod +x "$final_path"
 
-    # Verify installation
     echo ""
     info "Verifying installation..."
 
@@ -323,7 +299,6 @@ Or install to a user-writable directory:
         printf "  ${BOLD}Location:${NC} %s\n" "$final_path"
         echo ""
 
-        # Check if install_dir is in PATH
         case ":$PATH:" in
             *":$install_dir:"*)
                 printf "Run '${BOLD}rp1 --help${NC}' to get started.\n"
@@ -358,5 +333,4 @@ Or install to a user-writable directory:
     fi
 }
 
-# Run main
 main "$@"
