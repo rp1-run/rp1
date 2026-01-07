@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.13](https://github.com/rp1-run/rp1/compare/v0.2.12...v0.2.13) (2026-01-07)
+
+
+### Bug Fixes
+
+* small fixes to prompt and installation script ([#213](https://github.com/rp1-run/rp1/issues/213)) ([be819ff](https://github.com/rp1-run/rp1/commit/be819ffdb4795b58dd48cd46010a1dde83a3ad1c))
+
 ## [0.2.12](https://github.com/rp1-run/rp1/compare/v0.2.11...v0.2.12) (2026-01-06)
 
 
