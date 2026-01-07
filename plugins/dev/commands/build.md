@@ -31,7 +31,7 @@ author: cloud-on-prem/rp1
 <rp1_root>{{RP1_ROOT}}</rp1_root>
 <requirements>REQUIREMENTS</requirements>
 
-**Parse flags**: `AFK_MODE`, `USE_WORKTREE`, `PUSH_BRANCH`, `CREATE_PR` from args.
+**Parse flags**: `AFK_MODE`, `NO_WORKTREE`, `PUSH_BRANCH`, `CREATE_PR` from args.
 
 **Feature dir**: `{RP1_ROOT}/work/features/{FEATURE_ID}/`
 
@@ -135,7 +135,7 @@ prompt: FEATURE_ID={FEATURE_ID}, UPDATE_MODE=false, RP1_ROOT={RP1_ROOT}
 
 ### §4.1 Worktree Setup
 
-**Skip if**: `--no-worktree`
+**Skip if**: `NO_WORKTREE` is true (or set as a flag)
 
 ```
 Skill: rp1-dev:worktree-workflow

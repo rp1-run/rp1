@@ -115,9 +115,10 @@ If scope = Large:
 
 ## 4. Worktree Setup (Small/Medium Only)
 
-**Skip if**: `USE_WORKTREE` is false. Set `worktree_path` = current directory, `branch` = current branch.
+**Skip if**: `USE_WORKTREE` is false.
 
-Use worktree-workflow skill Phase 1.
+Set `worktree_path` = current directory, `branch` = current branch.
+Use worktree-workflow skill `rp1-dev:worktree-workflow`
 
 ### 4.1 Generate Task Slug
 
@@ -156,9 +157,9 @@ Verify: history exists, branch matches. If fail: cleanup + STOP.
 
 ### 5.1 Install Dependencies
 
-If package.json: `bun install` or `npm install`
-If Cargo.toml: `cargo build`
-If pyproject.toml: `pip install -e .`
+For example: (adapt as needed by the project)
+  If package.json: `bun install` or `npm install`
+  If Cargo.toml: `cargo build`
 
 ### 5.2 Code Changes
 
