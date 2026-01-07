@@ -71,7 +71,7 @@ Windows users: Install via Scoop - see https://rp1.run/docs/installation"
 detect_arch() {
     case "$(uname -m)" in
         x86_64|amd64)
-            echo "x64"
+            echo "amd64"
             ;;
         arm64|aarch64)
             echo "arm64"
