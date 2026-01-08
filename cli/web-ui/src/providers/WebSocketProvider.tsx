@@ -31,6 +31,8 @@ type ConnectionStatus = "connecting" | "connected" | "disconnected";
 
 interface WebSocketContextValue {
 	status: ConnectionStatus;
+	projectId: string | null;
+	setProjectId: (projectId: string | null) => void;
 	subscribe: (path: string) => void;
 	unsubscribe: (path: string) => void;
 	onFileChange: (callback: (msg: FileChangedMessage) => void) => () => void;
@@ -53,12 +55,14 @@ export function WebSocketProvider({
 	port = 7710,
 }: WebSocketProviderProps) {
 	const [status, setStatus] = useState<ConnectionStatus>("disconnected");
+	const [projectId, setProjectIdState] = useState<string | null>(null);
 	const wsRef = useRef<WebSocket | null>(null);
 	const reconnectDelayRef = useRef(INITIAL_RECONNECT_DELAY);
 	const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
 		null,
 	);
 	const mountedRef = useRef(true);
+	const projectIdRef = useRef<string | null>(null);
 	const fileChangeListenersRef = useRef<Set<(msg: FileChangedMessage) => void>>(
 		new Set(),
 	);
@@ -69,6 +73,7 @@ export function WebSocketProvider({
 
 	useEffect(() => {
 		mountedRef.current = true;
+		projectIdRef.current = projectId;
 
 		function connect() {
 			if (!mountedRef.current) return;
@@ -77,7 +82,11 @@ export function WebSocketProvider({
 
 			setStatus("connecting");
 
-			const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+			const currentProjectId = projectIdRef.current;
+			const wsUrl = currentProjectId
+				? `ws://127.0.0.1:${port}/ws?projectId=${encodeURIComponent(currentProjectId)}`
+				: `ws://127.0.0.1:${port}/ws`;
+			const ws = new WebSocket(wsUrl);
 
 			ws.onopen = () => {
 				if (!mountedRef.current) {
@@ -157,7 +166,7 @@ export function WebSocketProvider({
 				wsRef.current = null;
 			}
 		};
-	}, [port]);
+	}, [port, projectId]);
 
 	const subscribe = useCallback((path: string) => {
 		subscriptionsRef.current.add(path);
@@ -193,9 +202,21 @@ export function WebSocketProvider({
 		[],
 	);
 
+	const setProjectId = useCallback((newProjectId: string | null) => {
+		setProjectIdState(newProjectId);
+	}, []);
+
 	return (
 		<WebSocketContext.Provider
-			value={{ status, subscribe, unsubscribe, onFileChange, onTreeChange }}
+			value={{
+				status,
+				projectId,
+				setProjectId,
+				subscribe,
+				unsubscribe,
+				onFileChange,
+				onTreeChange,
+			}}
 		>
 			{children}
 		</WebSocketContext.Provider>
