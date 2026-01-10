@@ -5,17 +5,13 @@ import pkg from "../package.json";
 import { type CLIError, formatError, getExitCode } from "../shared/errors.js";
 import { createLogger, type Logger, LogLevel } from "../shared/logger.js";
 import { detectRuntime } from "../shared/runtime.js";
-import { checkUpdateCommand } from "./commands/check-update.js";
+import { allDeprecatedCommands } from "./commands/deprecated/index.js";
 import { initCommand } from "./commands/init.js";
-import {
-	installClaudeCodeCommand,
-	installCommand,
-	listCommand,
-	verifyClaudeCodeCommand,
-	verifyCommand,
-} from "./commands/install.js";
-import { selfUpdateCommand } from "./commands/self-update.js";
+import { installParentCommand } from "./commands/install/index.js";
+import { listCommand } from "./commands/install.js";
 import { uninstallCommand } from "./commands/uninstall.js";
+import { updateCommand } from "./commands/update/index.js";
+import { verifyCommand } from "./commands/verify/index.js";
 import { viewCommand } from "./commands/view.js";
 
 /**
@@ -189,15 +185,22 @@ program.hook("preAction", (thisCommand) => {
 });
 
 program.addCommand(viewCommand, { hidden: true });
-program.addCommand(installCommand);
-program.addCommand(installClaudeCodeCommand);
+
+// New parent commands with subcommands
+program.addCommand(installParentCommand);
 program.addCommand(verifyCommand);
-program.addCommand(verifyClaudeCodeCommand);
+program.addCommand(updateCommand);
+
+// Keep list command (still needed)
 program.addCommand(listCommand);
 program.addCommand(initCommand);
 program.addCommand(uninstallCommand);
-program.addCommand(checkUpdateCommand);
-program.addCommand(selfUpdateCommand);
+
+// Register deprecated commands with hidden: true
+// These still work but don't show in --help
+for (const deprecatedCommand of allDeprecatedCommands) {
+	program.addCommand(deprecatedCommand, { hidden: true });
+}
 
 // Add agent-tools stub command for help visibility
 // Actual execution is handled by lazy loading above
