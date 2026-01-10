@@ -1,7 +1,7 @@
 ---
 name: self-update
-version: 1.0.0
-description: Update rp1 to the latest version using the appropriate package manager
+version: 1.1.0
+description: Update rp1 CLI and all plugins to the latest version
 tags:
   - utility
   - update
@@ -12,23 +12,29 @@ author: rp1
 
 # Self-Update Command
 
-Update rp1 to the latest version using the appropriate package manager.
+Update rp1 CLI to the latest version and update all installed plugins.
 
 ## Execution
 
-Run the self-update command via Bash:
+Run the following commands sequentially via Bash:
 
 ```bash
-rp1 self-update
+# 1. Update the CLI itself
+rp1 update
+
+# 2. Update all plugins
+rp1 update plugins all
 ```
 
 ## Interpreting Results
 
-The command will output one of three outcomes. Report the result to the user accordingly:
+### CLI Update (`rp1 update`)
 
-### Success (Exit Code 0)
+The CLI update command will output one of three outcomes:
 
-The update completed successfully. Example output:
+#### Success (Exit Code 0)
+
+The CLI update completed successfully. Example output:
 ```
 Detecting installation method...
 Homebrew installation detected
@@ -37,9 +43,9 @@ Updating rp1...
 Successfully updated rp1 from 0.2.3 to 0.3.0
 ```
 
-**Report to user**: Confirm the version change and remind them to restart their IDE.
+**Report to user**: Confirm the version change.
 
-### Manual Installation Required (Exit Code 2)
+#### Manual Installation Required (Exit Code 2)
 
 Automatic update is not available. Example output:
 ```
@@ -51,29 +57,49 @@ Please download the latest version from:
 https://github.com/rp1-run/rp1/releases/latest
 ```
 
-**Report to user**: Explain that they need to update manually and provide the GitHub releases link.
+**Report to user**: Explain that they need to update the CLI manually and provide the GitHub releases link. Continue with plugin update.
 
-### Error (Exit Code 1)
+#### Error (Exit Code 1)
 
-The update failed. Example output:
+The CLI update failed. Example output:
 ```
 Error: brew upgrade failed: Permission denied
 ```
 
 **Report to user**: Show the error message and suggest checking permissions or trying manual update.
 
+### Plugin Update (`rp1 update plugins all`)
+
+After CLI update, the plugin update command will:
+
+1. Detect all installed agentic tools (Claude Code, OpenCode)
+2. Update plugins for each detected tool
+
+Example output:
+```
+Detecting installed tools...
+Found: Claude Code, OpenCode
+
+Updating plugins for Claude Code...
+Successfully updated plugins for Claude Code
+
+Updating plugins for OpenCode...
+Successfully updated plugins for OpenCode
+```
+
+**Report to user**: Confirm which tools had their plugins updated.
+
 ## Restart Reminder
 
-After reporting the result, always remind the user:
+After reporting the results, always remind the user:
 
 > Please restart Claude Code (or OpenCode) to use the new version.
 
-This is important because the updated CLI will not take effect until the IDE is restarted.
+This is important because the updated CLI and plugins will not take effect until the IDE is restarted.
 
 ## Notes
 
-- This command automatically detects the installation method (Homebrew, Scoop, or manual)
-- Homebrew users: runs `brew upgrade rp1`
-- Scoop users: runs `scoop update rp1`
-- Manual installations: provides GitHub release download instructions
-- The command is safe to run even if already on the latest version
+- `rp1 update` handles CLI self-update using the appropriate package manager (Homebrew, Scoop, or manual)
+- `rp1 update plugins all` updates plugins for all detected agentic tools
+- The plugin command ensures both CLI and plugins are updated together
+- Both commands are safe to run even if already on the latest version

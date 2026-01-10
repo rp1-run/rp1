@@ -71,18 +71,19 @@ const createClaudeCodeTool = (version = "1.0.40"): DetectedTool => ({
 	meetsMinVersion: true,
 });
 
-const createOpenCodeTool = (): DetectedTool => ({
+// An unsupported tool for testing skip behavior
+const createUnsupportedTool = (): DetectedTool => ({
 	tool: {
-		id: "opencode",
-		name: "OpenCode",
-		binary: "opencode",
-		min_version: "0.8.0",
-		instruction_file: "AGENTS.md",
-		install_url: "https://opencode.ai",
+		id: "cursor",
+		name: "Cursor",
+		binary: "cursor",
+		min_version: "0.1.0",
+		instruction_file: "CURSOR.md",
+		install_url: "https://cursor.ai",
 		plugin_install_cmd: null,
-		capabilities: ["plugins"],
+		capabilities: [],
 	},
-	version: "0.9.0",
+	version: "0.5.0",
 	meetsMinVersion: true,
 });
 
@@ -178,12 +179,12 @@ describe("plugin-installation step", () => {
 			expect(infoCall).toBeDefined();
 		});
 
-		test("skips with manual guidance for non-Claude Code tools", async () => {
+		test("skips with manual guidance for unsupported tools", async () => {
 			const logger = createTrackingMockLogger();
-			const openCodeTool = createOpenCodeTool();
+			const unsupportedTool = createUnsupportedTool();
 
 			const result = await executePluginInstallation(
-				openCodeTool,
+				unsupportedTool,
 				{ isTTY: false },
 				logger,
 			);
@@ -192,7 +193,7 @@ describe("plugin-installation step", () => {
 			expect(result.actions).toHaveLength(1);
 			expect(result.actions[0]).toEqual({
 				type: "skipped",
-				reason: "Automated installation not supported for OpenCode",
+				reason: "Automated installation not supported for Cursor",
 			});
 
 			// Result should be null

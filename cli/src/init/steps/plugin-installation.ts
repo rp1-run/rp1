@@ -1,6 +1,7 @@
 /**
  * Plugin installation step for the rp1 init command.
- * Executes actual plugin installation using the existing Claude Code installer.
+ * Uses shared installation logic from install-core.ts to eliminate duplication
+ * between init and install commands.
  */
 
 import * as E from "fp-ts/lib/Either.js";
@@ -17,6 +18,10 @@ import type {
 	ClaudeCodePrerequisiteResult,
 } from "../../install/claudecode/models.js";
 import { runAllPrerequisiteChecks as defaultRunAllPrerequisiteChecks } from "../../install/claudecode/prerequisites.js";
+import {
+	type InstallContext,
+	installOpenCodePlugins as sharedInstallOpenCodePlugins,
+} from "../../shared/install-core.js";
 import type {
 	InitAction,
 	PluginInstallResult,
@@ -119,12 +124,13 @@ export interface PluginInstallStepResult {
 /**
  * Main plugin installation step.
  * Handles tool detection, user confirmation, and execution.
+ * Uses shared installation logic from install-core.ts for consistency.
  *
  * @param detectedTool - The detected agentic tool (or null if none)
  * @param promptOptions - Options for prompting (TTY awareness)
  * @param logger - Logger for progress output
  * @param config - Optional plugin installation configuration
- * @param deps - Optional dependencies for testing
+ * @param deps - Optional dependencies for testing (Claude Code only)
  * @param callbacks - Optional callbacks for reporting progress to UI
  * @returns Plugin installation step result with actions and result
  */
@@ -149,9 +155,10 @@ export const executePluginInstallation = async (
 		return { actions, result: null };
 	}
 
-	// Only Claude Code supports automated plugin installation
-	if (detectedTool.tool.id !== "claude-code") {
-		// OpenCode and other tools require manual installation
+	// Check for supported tools (Claude Code and OpenCode)
+	const supportedTools = ["claude-code", "opencode"];
+	if (!supportedTools.includes(detectedTool.tool.id)) {
+		// Unsupported tools require manual installation
 		logger.info(
 			`Plugin installation for ${detectedTool.tool.name} requires manual setup.`,
 		);
@@ -177,7 +184,8 @@ export const executePluginInstallation = async (
 	// Non-interactive mode (--yes): proceed with installation
 	if (!promptOptions.isTTY) {
 		logger.info("Installing plugins (non-interactive mode)...");
-		return executeInstallation(
+		return executeInstallationForTool(
+			detectedTool,
 			actions,
 			config,
 			logger,
@@ -203,8 +211,9 @@ export const executePluginInstallation = async (
 		return { actions, result: null };
 	}
 
-	// Execute installation
-	return executeInstallation(
+	// Execute installation for the specific tool
+	return executeInstallationForTool(
+		detectedTool,
 		actions,
 		config,
 		logger,
@@ -215,10 +224,12 @@ export const executePluginInstallation = async (
 };
 
 /**
- * Execute the actual plugin installation.
- * Extracted for reuse between interactive and non-interactive modes.
+ * Execute the actual plugin installation for a specific tool.
+ * Uses shared installation logic from install-core.ts.
+ * Routes to the appropriate installer based on tool ID.
  */
-async function executeInstallation(
+async function executeInstallationForTool(
+	detectedTool: DetectedTool,
 	actions: InitAction[],
 	config: PluginInstallConfig,
 	logger: Logger,
@@ -227,19 +238,78 @@ async function executeInstallation(
 	callbacks?: StepCallbacks,
 ): Promise<PluginInstallStepResult> {
 	const spinner = createSpinner(isTTY);
-	spinner.start("Installing plugins...");
+	spinner.start(`Installing plugins for ${detectedTool.tool.name}...`);
 
-	const resultEither = await installClaudeCodePlugins(
-		config,
+	// Create InstallContext for shared installation functions
+	const ctx: InstallContext = {
 		logger,
 		isTTY,
-		deps,
-	)();
+		dryRun: config.dryRun,
+		skipPrompt: !isTTY,
+	};
 
-	// installClaudeCodePlugins never fails (errors converted to failed result)
-	// but we handle both cases for type safety
+	let resultEither: E.Either<CLIError, PluginInstallResult>;
+
+	if (detectedTool.tool.id === "claude-code") {
+		// Use injectable deps for Claude Code (supports testing)
+		// Note: installClaudeCodePlugins never fails due to orElse, but type is still Either<CLIError, ...>
+		resultEither = (await installClaudeCodePlugins(
+			config,
+			logger,
+			isTTY,
+			deps,
+		)()) as E.Either<CLIError, PluginInstallResult>;
+	} else if (detectedTool.tool.id === "opencode") {
+		// Use shared OpenCode installation logic
+		const openCodeResult = await sharedInstallOpenCodePlugins({}, ctx)();
+
+		if (E.isLeft(openCodeResult)) {
+			resultEither = E.right({
+				success: false,
+				pluginsInstalled: [],
+				warnings: [],
+				error: openCodeResult.left,
+			});
+		} else {
+			resultEither = E.right({
+				success: true,
+				pluginsInstalled: ["rp1-base", "rp1-dev"],
+				warnings: [],
+			});
+		}
+	} else {
+		// This should not happen due to earlier check, but handle defensively
+		resultEither = E.right({
+			success: false,
+			pluginsInstalled: [],
+			warnings: [`Unsupported tool: ${detectedTool.tool.name}`],
+		});
+	}
+
+	// Process the result (common for all tools)
+	return processInstallationResult(
+		resultEither,
+		actions,
+		spinner,
+		logger,
+		callbacks,
+	);
+}
+
+/**
+ * Process installation result and update actions.
+ * Extracted to share between different tool installations.
+ */
+function processInstallationResult(
+	resultEither: E.Either<CLIError, PluginInstallResult>,
+	actions: InitAction[],
+	spinner: ReturnType<typeof createSpinner>,
+	logger: Logger,
+	callbacks?: StepCallbacks,
+): PluginInstallStepResult {
+	// This should typically be Right since we convert errors to failed results in orElse
+	// but we handle Left defensively
 	if (E.isLeft(resultEither)) {
-		// This branch should never be reached due to orElse, but handle defensively
 		const error = resultEither.left;
 		const errorMessage = formatError(error, false);
 		actions.push({

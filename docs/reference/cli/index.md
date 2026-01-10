@@ -1,6 +1,6 @@
 # CLI Reference
 
-The rp1 CLI provides commands for initializing projects and managing plugin installations.
+The rp1 CLI provides commands for initializing projects, managing plugin installations, and keeping rp1 up to date.
 
 ---
 
@@ -9,6 +9,9 @@ The rp1 CLI provides commands for initializing projects and managing plugin inst
 | Command | Description |
 |---------|-------------|
 | [`init`](init.md) | Initialize rp1 in a project with guided setup |
+| [`install`](install.md) | Install rp1 plugins for AI tools |
+| [`verify`](install.md#verification) | Verify plugin installation |
+| [`update`](update.md) | Update rp1 CLI and plugins |
 
 ---
 
