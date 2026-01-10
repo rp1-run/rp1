@@ -298,25 +298,145 @@ deprecatedSelfUpdate
 
 /**
  * Deprecated: check-update
- * Delegates to: rp1 update --check
+ * Maintains backward compatibility with original command options (--json, --force, etc.)
+ * For full feature parity, delegates to the original check-update logic.
  */
 export const deprecatedCheckUpdate = createDeprecatedCommand(
 	"check-update",
 	"update --check",
 	async (_options, command: Command) => {
-		// Import dynamically to avoid circular dependency
-		const { executeUpdateAction } = await import("../update/index.js");
+		// Import version check logic to maintain backward compatibility
+		const { checkForUpdate } = await import("../../lib/version.js");
+		const { getColorFns } = await import("../../lib/colors.js");
 
-		// Get parent context for logger/isTTY
 		const { logger, isTTY } = getContext(command);
+		const opts = command.opts();
 
-		await executeUpdateAction(
-			{ check: true, dryRun: false, force: false, yes: false },
-			logger,
-			isTTY,
+		// Parse options (maintain backward compatibility with original command)
+		const timeoutMs = Number.parseInt(opts.timeout ?? "5000", 10);
+		const ttlHours = Number.parseInt(opts.cacheTtl ?? "24", 10);
+
+		// Validate numeric options
+		if (Number.isNaN(timeoutMs) || timeoutMs <= 0) {
+			const errorOutput = opts.json
+				? JSON.stringify({ error: "Invalid timeout value" }, null, 2)
+				: "Error: Invalid timeout value. Must be a positive number.";
+			console.error(errorOutput);
+			process.exit(1);
+		}
+
+		if (Number.isNaN(ttlHours) || ttlHours <= 0) {
+			const errorOutput = opts.json
+				? JSON.stringify({ error: "Invalid cache-ttl value" }, null, 2)
+				: "Error: Invalid cache-ttl value. Must be a positive number.";
+			console.error(errorOutput);
+			process.exit(1);
+		}
+
+		// Build check options
+		const checkOptions = {
+			force: opts.force ?? false,
+			timeoutMs,
+			ttlHours,
+		};
+
+		logger?.debug(
+			`Checking for updates (force=${opts.force}, timeout=${timeoutMs}ms, ttl=${ttlHours}h)`,
 		);
+
+		try {
+			const result = await checkForUpdate(checkOptions);
+
+			// Output result based on format
+			if (opts.json) {
+				// JSON output format (snake_case for API consistency)
+				console.log(
+					JSON.stringify(
+						{
+							current_version: result.currentVersion,
+							latest_version: result.latestVersion,
+							update_available: result.updateAvailable,
+							release_url: result.releaseUrl,
+							error: result.error,
+							cached: result.cached,
+							cache_age_hours: result.cacheAgeHours,
+							cache_expires_in_hours: result.cacheExpiresInHours,
+						},
+						null,
+						2,
+					),
+				);
+			} else {
+				// Human-readable format
+				const { green, yellow, cyan, bold, dim: dimFn } = getColorFns(isTTY);
+
+				console.log(`rp1 ${bold(`v${result.currentVersion}`)} is installed.`);
+
+				if (result.error) {
+					console.log("");
+					console.log(`${yellow("Warning:")} ${result.error}`);
+				} else if (result.updateAvailable && result.latestVersion) {
+					console.log("");
+					console.log(
+						`${green("A new version is available:")} ${bold(`v${result.latestVersion}`)}`,
+					);
+					console.log("");
+					console.log(`Run '${cyan("rp1 update")}' to update.`);
+				} else if (result.latestVersion) {
+					console.log("");
+					console.log(green("You are up to date!"));
+				}
+
+				if (result.cached && result.cacheAgeHours !== null) {
+					console.log("");
+					const ageFormatted =
+						result.cacheAgeHours < 1
+							? `${Math.round(result.cacheAgeHours * 60)} minutes`
+							: `${result.cacheAgeHours.toFixed(1)} hours`;
+					console.log(dimFn(`(cached ${ageFormatted} ago)`));
+				}
+			}
+
+			// Exit code handling
+			if (result.error && !result.latestVersion) {
+				process.exit(1);
+			}
+			process.exit(0);
+		} catch (error) {
+			const errorMessage =
+				error instanceof Error ? error.message : "Unknown error";
+
+			if (opts.json) {
+				console.error(
+					JSON.stringify(
+						{
+							current_version: null,
+							latest_version: null,
+							update_available: false,
+							release_url: null,
+							error: errorMessage,
+							cached: false,
+							cache_age_hours: null,
+							cache_expires_in_hours: null,
+						},
+						null,
+						2,
+					),
+				);
+			} else {
+				console.error(`Error: ${errorMessage}`);
+			}
+			process.exit(1);
+		}
 	},
 );
+
+// Add options that the deprecated check-update command accepts
+deprecatedCheckUpdate
+	.option("--json", "Output result as JSON", false)
+	.option("--timeout <ms>", "API timeout in milliseconds", "5000")
+	.option("--force", "Bypass cache and force fresh check", false)
+	.option("--cache-ttl <hours>", "Cache TTL in hours", "24");
 
 /**
  * All deprecated commands for easy registration in main.ts.

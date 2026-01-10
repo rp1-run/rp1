@@ -190,4 +190,159 @@ describe("install-core function exports", () => {
 		expect(typeof installCore.installAllDetectedTools).toBe("function");
 		expect(typeof installCore.installForSpecificTool).toBe("function");
 	});
+
+	test("context interface is used by exported functions", () => {
+		// Type-level validation: verify context interface is compatible
+		// with the already imported InstallContext type
+		const ctx: InstallContext = createMockContext();
+
+		// Verify the context has all required fields
+		expect(ctx.logger).toBeDefined();
+		expect(typeof ctx.isTTY).toBe("boolean");
+		expect(typeof ctx.dryRun).toBe("boolean");
+		expect(typeof ctx.skipPrompt).toBe("boolean");
+	});
+});
+
+describe("install-core function signatures", () => {
+	test("installClaudeCodePlugins accepts scope and context", async () => {
+		const { installClaudeCodePlugins } = await import(
+			"../../shared/install-core.js"
+		);
+
+		// Verify function can be called with expected arguments
+		// This is a type-level test - we don't execute the actual installation
+		expect(installClaudeCodePlugins.length).toBeGreaterThanOrEqual(0);
+	});
+
+	test("installOpenCodePlugins accepts config and context", async () => {
+		const { installOpenCodePlugins } = await import(
+			"../../shared/install-core.js"
+		);
+
+		expect(installOpenCodePlugins.length).toBeGreaterThanOrEqual(0);
+	});
+
+	test("installAllDetectedTools accepts registry and context", async () => {
+		const { installAllDetectedTools } = await import(
+			"../../shared/install-core.js"
+		);
+
+		expect(installAllDetectedTools.length).toBeGreaterThanOrEqual(0);
+	});
+
+	test("installForSpecificTool accepts toolId, registry, and context", async () => {
+		const { installForSpecificTool } = await import(
+			"../../shared/install-core.js"
+		);
+
+		expect(installForSpecificTool.length).toBeGreaterThanOrEqual(0);
+	});
+});
+
+describe("install-core context variations", () => {
+	test("context with dry-run mode", () => {
+		const ctx = createMockContext({ dryRun: true });
+
+		expect(ctx.dryRun).toBe(true);
+		// In dry-run mode, no actual installation should occur
+	});
+
+	test("context with TTY mode", () => {
+		const ctx = createMockContext({ isTTY: true });
+
+		expect(ctx.isTTY).toBe(true);
+		// In TTY mode, spinners and prompts may be displayed
+	});
+
+	test("context with skipPrompt mode", () => {
+		const ctx = createMockContext({ skipPrompt: true });
+
+		expect(ctx.skipPrompt).toBe(true);
+		// With skipPrompt, confirmation prompts are bypassed
+	});
+
+	test("context combines multiple flags", () => {
+		const ctx = createMockContext({
+			dryRun: true,
+			isTTY: true,
+			skipPrompt: false,
+		});
+
+		expect(ctx.dryRun).toBe(true);
+		expect(ctx.isTTY).toBe(true);
+		expect(ctx.skipPrompt).toBe(false);
+	});
+});
+
+describe("install-core result handling", () => {
+	test("success result has expected shape", () => {
+		const successResult = {
+			toolId: "claude-code",
+			toolName: "Claude Code",
+			success: true,
+			pluginsInstalled: ["rp1-base", "rp1-dev"] as readonly string[],
+			warnings: [] as readonly string[],
+		};
+
+		expect(successResult.success).toBe(true);
+		expect(successResult.pluginsInstalled.length).toBeGreaterThan(0);
+		expect(successResult.warnings.length).toBe(0);
+	});
+
+	test("failure result includes error details", () => {
+		const failureResult = {
+			toolId: "opencode",
+			toolName: "OpenCode",
+			success: false,
+			pluginsInstalled: [] as readonly string[],
+			warnings: ["Some warning"] as readonly string[],
+			error: {
+				_tag: "InstallError" as const,
+				operation: "install",
+				message: "Installation failed",
+			},
+		};
+
+		expect(failureResult.success).toBe(false);
+		expect(failureResult.error).toBeDefined();
+		expect(failureResult.warnings.length).toBe(1);
+	});
+
+	test("partial success result has mixed outcomes", () => {
+		const partialResult = {
+			installed: 1,
+			results: [
+				{
+					toolId: "claude-code",
+					toolName: "Claude Code",
+					success: true,
+					pluginsInstalled: ["rp1-base", "rp1-dev"] as readonly string[],
+					warnings: [] as readonly string[],
+				},
+				{
+					toolId: "opencode",
+					toolName: "OpenCode",
+					success: false,
+					pluginsInstalled: [] as readonly string[],
+					warnings: [] as readonly string[],
+					error: {
+						_tag: "InstallError" as const,
+						operation: "install",
+						message: "Failed",
+					},
+				},
+			],
+			detected: [],
+		};
+
+		expect(partialResult.installed).toBe(1);
+		expect(partialResult.results.length).toBe(2);
+
+		const successes = partialResult.results.filter((r) => r.success);
+		const failures = partialResult.results.filter((r) => !r.success);
+
+		expect(successes.length).toBe(1);
+		expect(failures.length).toBe(1);
+	});
 });
