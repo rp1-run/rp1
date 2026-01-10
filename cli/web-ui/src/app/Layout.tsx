@@ -121,7 +121,12 @@ export function Layout() {
 	const params = useParams();
 	const projectId = params.projectId;
 	const { tree, loading, error, refetch } = useProjectFileTree(projectId);
-	const { status: wsStatus, onTreeChange } = useWebSocket();
+	const { status: wsStatus, onTreeChange, setProjectId } = useWebSocket();
+
+	// Sync route projectId to WebSocket context for file watching
+	useEffect(() => {
+		setProjectId(projectId ?? null);
+	}, [projectId, setProjectId]);
 
 	const selectedPath = params["*"] || null;
 
