@@ -97,6 +97,8 @@ nav:
     - CLI:
       - Overview: reference/cli/index.md
       - init: reference/cli/init.md
+      - install: reference/cli/install.md
+      - update: reference/cli/update.md
       - rp1-root-dir: reference/cli/rp1-root-dir.md
       - worktree: reference/cli/worktree.md
     - Base Plugin:
