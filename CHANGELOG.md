@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.14](https://github.com/rp1-run/rp1/compare/v0.2.13...v0.2.14) (2026-01-10)
+
+
+### Features
+
+* cli installation commands consolidation ([#217](https://github.com/rp1-run/rp1/issues/217)) ([97f555f](https://github.com/rp1-run/rp1/commit/97f555ff3eaefc0600fab58f9f417a0f04e7ff22))
+
+
+### Bug Fixes
+
+* **web-ui:** ensure file monitoring works on projects ([#215](https://github.com/rp1-run/rp1/issues/215)) ([960b47a](https://github.com/rp1-run/rp1/commit/960b47aabce3211ef4ac04e00542b0a6f356041e))
+
 ## [0.2.13](https://github.com/rp1-run/rp1/compare/v0.2.12...v0.2.13) (2026-01-07)
 
 
