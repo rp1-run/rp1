@@ -71,21 +71,6 @@ const createClaudeCodeTool = (version = "1.0.40"): DetectedTool => ({
 	meetsMinVersion: true,
 });
 
-const createOpenCodeTool = (): DetectedTool => ({
-	tool: {
-		id: "opencode",
-		name: "OpenCode",
-		binary: "opencode",
-		min_version: "0.8.0",
-		instruction_file: "AGENTS.md",
-		install_url: "https://opencode.ai",
-		plugin_install_cmd: null,
-		capabilities: ["plugins"],
-	},
-	version: "0.9.0",
-	meetsMinVersion: true,
-});
-
 // An unsupported tool for testing skip behavior
 const createUnsupportedTool = (): DetectedTool => ({
 	tool: {

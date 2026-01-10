@@ -69,8 +69,9 @@ const getUpdateCommand = (method: InstallMethod): string | null => {
 
 /**
  * Format check-update result for human output.
+ * Exported for use by deprecated check-update command wrapper.
  */
-const formatCheckOutput = (
+export const formatCheckOutput = (
 	result: Awaited<ReturnType<typeof checkForUpdate>>,
 	isTTY: boolean,
 ): void => {
@@ -109,8 +110,9 @@ const formatCheckOutput = (
 /**
  * Execute the self-update logic.
  * Returns true if update was successful, false if manual update required.
+ * Exported for use by deprecated self-update command wrapper.
  */
-const executeSelfUpdate = async (
+export const executeSelfUpdate = async (
 	options: { dryRun: boolean; force: boolean },
 	logger: Logger | undefined,
 	isTTY: boolean,
@@ -245,6 +247,108 @@ const executeSelfUpdate = async (
 };
 
 /**
+ * Execute the update action logic.
+ * Exported for use by deprecated command wrappers.
+ *
+ * @param options - Update options (check, dryRun, force, yes)
+ * @param logger - Logger instance
+ * @param isTTY - Whether running in TTY mode
+ */
+export const executeUpdateAction = async (
+	options: { check: boolean; dryRun: boolean; force: boolean; yes: boolean },
+	logger: Logger | undefined,
+	isTTY: boolean,
+): Promise<void> => {
+	const { dim } = getColorFns(isTTY);
+
+	logger?.debug(
+		`Update action starting (check=${options.check}, dry-run=${options.dryRun}, force=${options.force}, yes=${options.yes})`,
+	);
+
+	// Handle --check mode: delegate to check-update logic
+	if (options.check) {
+		const checkOptions: CheckOptions = {
+			force: false, // Use cache unless expired
+			timeoutMs: 5000,
+		};
+
+		logger?.debug(`Checking for updates (timeout=${checkOptions.timeoutMs}ms)`);
+
+		try {
+			const result = await checkForUpdate(checkOptions);
+			formatCheckOutput(result, isTTY);
+
+			if (result.error && !result.latestVersion) {
+				process.exit(1);
+			}
+			process.exit(0);
+		} catch (error) {
+			const errorMessage =
+				error instanceof Error ? error.message : "Unknown error";
+			console.error(`Error: ${errorMessage}`);
+			process.exit(1);
+		}
+	}
+
+	// Standard update flow: self-update then optionally update plugins
+	const updateResult = await executeSelfUpdate(
+		{ dryRun: options.dryRun, force: options.force },
+		logger,
+		isTTY,
+	);
+
+	// If self-update failed or requires manual intervention, exit
+	if (!updateResult.success || updateResult.exitCode !== 0) {
+		process.exit(updateResult.exitCode);
+	}
+
+	// For dry-run, also show plugin update preview
+	if (options.dryRun) {
+		console.log("");
+		console.log("Plugin updates would also be available:");
+		console.log(
+			"  Run 'rp1 update plugins' to update plugins after CLI update.",
+		);
+		console.log("");
+		console.log("Run without --dry-run to perform the update.");
+		process.exit(0);
+	}
+
+	// Prompt for plugin update (skip in non-TTY or if --yes)
+	if (!isTTY) {
+		// Non-TTY: skip plugin prompt silently
+		console.log("");
+		console.log(
+			dim("Please restart Claude Code or OpenCode to use the new version."),
+		);
+		console.log(dim("Run 'rp1 update plugins' to update plugins."));
+		process.exit(0);
+	}
+
+	console.log("");
+	const shouldUpdatePlugins = options.yes
+		? true
+		: await confirmAction("Would you like to update rp1 plugins as well?", {
+				isTTY,
+				defaultOnNonTTY: false,
+			});
+
+	if (shouldUpdatePlugins && logger) {
+		await executePluginUpdates(
+			{ dryRun: false, yes: options.yes },
+			logger,
+			isTTY,
+		);
+	}
+
+	console.log("");
+	console.log(
+		dim("Please restart Claude Code or OpenCode to use the new version."),
+	);
+	process.exit(0);
+};
+
+/**
  * Execute plugin updates for all detected tools.
  */
 const executePluginUpdates = async (
@@ -336,95 +440,8 @@ Examples:
 	.action(async (options, command) => {
 		const logger = command.parent?._logger as Logger | undefined;
 		const isTTY = command.parent?._isTTY ?? process.stdout.isTTY ?? false;
-		const { dim } = getColorFns(isTTY);
 
-		logger?.debug(
-			`Update command starting (check=${options.check}, dry-run=${options.dryRun}, force=${options.force}, yes=${options.yes})`,
-		);
-
-		// Handle --check mode: delegate to check-update logic
-		if (options.check) {
-			const checkOptions: CheckOptions = {
-				force: false, // Use cache unless expired
-				timeoutMs: 5000,
-			};
-
-			logger?.debug(
-				`Checking for updates (timeout=${checkOptions.timeoutMs}ms)`,
-			);
-
-			try {
-				const result = await checkForUpdate(checkOptions);
-				formatCheckOutput(result, isTTY);
-
-				if (result.error && !result.latestVersion) {
-					process.exit(1);
-				}
-				process.exit(0);
-			} catch (error) {
-				const errorMessage =
-					error instanceof Error ? error.message : "Unknown error";
-				console.error(`Error: ${errorMessage}`);
-				process.exit(1);
-			}
-		}
-
-		// Standard update flow: self-update then optionally update plugins
-		const updateResult = await executeSelfUpdate(
-			{ dryRun: options.dryRun, force: options.force },
-			logger,
-			isTTY,
-		);
-
-		// If self-update failed or requires manual intervention, exit
-		if (!updateResult.success || updateResult.exitCode !== 0) {
-			process.exit(updateResult.exitCode);
-		}
-
-		// For dry-run, also show plugin update preview
-		if (options.dryRun) {
-			console.log("");
-			console.log("Plugin updates would also be available:");
-			console.log(
-				"  Run 'rp1 update plugins' to update plugins after CLI update.",
-			);
-			console.log("");
-			console.log("Run without --dry-run to perform the update.");
-			process.exit(0);
-		}
-
-		// Prompt for plugin update (skip in non-TTY or if --yes)
-		if (!isTTY) {
-			// Non-TTY: skip plugin prompt silently
-			console.log("");
-			console.log(
-				dim("Please restart Claude Code or OpenCode to use the new version."),
-			);
-			console.log(dim("Run 'rp1 update plugins' to update plugins."));
-			process.exit(0);
-		}
-
-		console.log("");
-		const shouldUpdatePlugins = options.yes
-			? true
-			: await confirmAction("Would you like to update rp1 plugins as well?", {
-					isTTY,
-					defaultOnNonTTY: false,
-				});
-
-		if (shouldUpdatePlugins && logger) {
-			await executePluginUpdates(
-				{ dryRun: false, yes: options.yes },
-				logger,
-				isTTY,
-			);
-		}
-
-		console.log("");
-		console.log(
-			dim("Please restart Claude Code or OpenCode to use the new version."),
-		);
-		process.exit(0);
+		await executeUpdateAction(options, logger, isTTY);
 	});
 
 // Add plugins subcommand
