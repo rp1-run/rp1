@@ -186,7 +186,6 @@ program.hook("preAction", (thisCommand) => {
 
 program.addCommand(viewCommand, { hidden: true });
 
-// New parent commands with subcommands
 program.addCommand(installParentCommand);
 program.addCommand(verifyCommand);
 program.addCommand(updateCommand);

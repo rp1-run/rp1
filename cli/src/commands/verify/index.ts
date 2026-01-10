@@ -26,7 +26,6 @@ Examples:
 `,
 	);
 
-// Add subcommands
 verifyCommand.addCommand(verifyClaudeCodeSubcommand);
 verifyCommand.addCommand(verifyOpenCodeSubcommand);
 

@@ -31,7 +31,6 @@ Examples:
 `,
 	);
 
-// Add subcommands
 installParentCommand.addCommand(installClaudeCodeSubcommand);
 installParentCommand.addCommand(installOpenCodeSubcommand);
 installParentCommand.addCommand(installAllSubcommand);

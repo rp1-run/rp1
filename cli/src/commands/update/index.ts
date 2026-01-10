@@ -444,5 +444,4 @@ Examples:
 		await executeUpdateAction(options, logger, isTTY);
 	});
 
-// Add plugins subcommand
 updateCommand.addCommand(pluginsSubcommand);

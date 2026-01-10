@@ -134,7 +134,6 @@ export const deprecatedInstallClaudeCode = createDeprecatedCommand(
 	},
 );
 
-// Add options that the deprecated command accepts (for pass-through)
 deprecatedInstallClaudeCode
 	.option("--dry-run", "Show what would be executed without making changes")
 	.option("-y, --yes", "Skip confirmation prompts")
@@ -207,7 +206,6 @@ export const deprecatedInstallOpencode = createDeprecatedCommand(
 	},
 );
 
-// Add options that the deprecated command accepts
 deprecatedInstallOpencode
 	.option("-a, --artifacts-dir <path>", "Path to artifacts directory")
 	.option("--skip-skills", "Skip skills installation")
@@ -253,7 +251,6 @@ export const deprecatedVerifyOpencode = createDeprecatedCommand(
 	},
 );
 
-// Add options that the deprecated command accepts
 deprecatedVerifyOpencode.option(
 	"--artifacts-dir <path>",
 	"Path to artifacts for name-based verification",
@@ -290,7 +287,6 @@ export const deprecatedSelfUpdate = createDeprecatedCommand(
 	},
 );
 
-// Add options that the deprecated command accepts
 deprecatedSelfUpdate
 	.option("--dry-run", "Show what would be done without executing")
 	.option("--force", "Force update even if already on latest")
@@ -431,7 +427,6 @@ export const deprecatedCheckUpdate = createDeprecatedCommand(
 	},
 );
 
-// Add options that the deprecated check-update command accepts
 deprecatedCheckUpdate
 	.option("--json", "Output result as JSON", false)
 	.option("--timeout <ms>", "API timeout in milliseconds", "5000")
