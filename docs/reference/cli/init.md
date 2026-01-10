@@ -551,7 +551,7 @@ When running non-interactively, these defaults are applied:
 | Gitignore preset | Recommended |
 
 !!! tip "Override Defaults"
-    If you need different behavior in CI, consider running interactive mode with pre-configured environment or using the individual install commands (`rp1 install:claude-code`) for more control.
+    If you need different behavior in CI, consider running interactive mode with pre-configured environment or using the individual install commands (`rp1 install claude-code`) for more control.
 
 ## Tool Detection
 
@@ -816,10 +816,13 @@ Content outside fenced sections is never modified.
 
     ```bash
     # Claude Code
-    rp1 install:claude-code
+    rp1 install claude-code
 
     # OpenCode
-    rp1 install:opencode
+    rp1 install opencode
+
+    # All detected tools
+    rp1 install all
     ```
 
 ??? question "Health check reports issues"
@@ -865,10 +868,13 @@ Content outside fenced sections is never modified.
 
         ```bash
         # For Claude Code
-        rp1 install:claude-code
+        rp1 install claude-code
 
         # For OpenCode
-        rp1 install:opencode
+        rp1 install opencode
+
+        # For all detected tools
+        rp1 install all
         ```
 
     4. **Verify plugin installation for each tool:**
@@ -893,8 +899,9 @@ Content outside fenced sections is never modified.
 
 ## Related Commands
 
-- [`install:claude-code`](../../getting-started/installation.md) - Manual plugin installation for Claude Code
-- [`install:opencode`](../../getting-started/installation.md) - Manual plugin installation for OpenCode
+- [`install`](install.md) - Manual plugin installation (`install claude-code`, `install opencode`, `install all`)
+- [`verify`](install.md#verification) - Verify plugin installation
+- [`update`](update.md) - Update CLI and plugins
 - [`knowledge-build`](../base/knowledge-build.md) - Build knowledge base after init
 
 ## See Also

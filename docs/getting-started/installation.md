@@ -211,14 +211,23 @@ Documentation: https://rp1.run
     === "Claude Code"
 
         ```bash
-        rp1 install:claude-code
+        rp1 install claude-code
         ```
 
     === "OpenCode"
 
         ```bash
-        rp1 install:opencode
+        rp1 install opencode
         ```
+
+    === "All Detected Tools"
+
+        ```bash
+        rp1 install all
+        ```
+
+    !!! warning "Deprecated Syntax"
+        The old colon-separated syntax (`rp1 install:claude-code`, `rp1 install:opencode`) is deprecated. Use `rp1 install <tool>` instead.
 
 ---
 
