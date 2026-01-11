@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.15](https://github.com/rp1-run/rp1/compare/v0.2.14...v0.2.15) (2026-01-11)
+
+
+### Features
+
+* remote pr review ([#219](https://github.com/rp1-run/rp1/issues/219)) ([33895ab](https://github.com/rp1-run/rp1/commit/33895abd26c002fde86e311ff91bdedd6bc26c6c))
+
 ## [0.2.14](https://github.com/rp1-run/rp1/compare/v0.2.13...v0.2.14) (2026-01-10)
 
 
