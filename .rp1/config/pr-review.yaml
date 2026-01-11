@@ -1,0 +1,25 @@
+# rp1 PR Review Configuration
+# See: https://rp1.run/reference/pr-review-config/
+# Enable automated PR review in CI
+enabled: true
+# Review draft PRs
+review_drafts: false
+# AI harness to use
+ai_harness: claude-code
+# Post inline comments on specific code locations
+add_comments: true
+# Collapse summary in <details> tag
+collapse_summary: false
+# Verdict mode: auto determines based on finding severity
+# - critical/high findings = REQUEST_CHANGES
+# - medium/low findings = COMMENT
+# - no findings = APPROVE
+verdict: auto
+# Maximum inline comments per review
+max_comments: 25
+# Bot marker for comment deduplication
+bot_marker: "<!-- rp1-review -->"
+# Generate mermaid diagrams in summary (adds processing time)
+visualize: true
+# CI platform
+ci_platform: github
