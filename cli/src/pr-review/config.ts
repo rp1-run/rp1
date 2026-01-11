@@ -153,27 +153,12 @@ const validateConfig = (
 		return E.left(configError(formatZodErrors(result.error, configPath)));
 	}
 
-	// Transform the validated data to PRReviewConfig partial
-	const validated: Partial<PRReviewConfig> = {};
+	// Return validated data as Partial<PRReviewConfig>
+	// Filter out undefined values to create a clean partial
 	const data = result.data;
-
-	if (data.enabled !== undefined) validated.enabled = data.enabled as boolean;
-	if (data.review_drafts !== undefined)
-		validated.review_drafts = data.review_drafts as boolean;
-	if (data.ai_harness !== undefined)
-		validated.ai_harness = data.ai_harness as AIHarness;
-	if (data.add_comments !== undefined)
-		validated.add_comments = data.add_comments as boolean;
-	if (data.collapse_summary !== undefined)
-		validated.collapse_summary = data.collapse_summary as boolean;
-	if (data.verdict !== undefined) validated.verdict = data.verdict as Verdict;
-	if (data.max_comments !== undefined)
-		validated.max_comments = data.max_comments;
-	if (data.bot_marker !== undefined) validated.bot_marker = data.bot_marker;
-	if (data.visualize !== undefined)
-		validated.visualize = data.visualize as boolean;
-	if (data.ci_platform !== undefined)
-		validated.ci_platform = data.ci_platform as CIPlatformConfig;
+	const validated: Partial<PRReviewConfig> = Object.fromEntries(
+		Object.entries(data).filter(([_, v]) => v !== undefined),
+	) as Partial<PRReviewConfig>;
 
 	return E.right(validated);
 };
