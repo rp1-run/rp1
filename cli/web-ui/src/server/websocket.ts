@@ -24,6 +24,13 @@ export interface ProjectsChangedMessage {
 	timestamp: string;
 }
 
+export interface StatusChangedMessage {
+	type: "status_changed";
+	projectId: string;
+	feature: string;
+	status: string;
+}
+
 export interface SubscribeMessage {
 	type: "subscribe";
 	path: string;
@@ -43,7 +50,8 @@ export type ServerMessage =
 	| FileChangedMessage
 	| TreeChangedMessage
 	| HeartbeatMessage
-	| ProjectsChangedMessage;
+	| ProjectsChangedMessage
+	| StatusChangedMessage;
 export type ClientMessage =
 	| SubscribeMessage
 	| UnsubscribeMessage
@@ -63,6 +71,9 @@ interface ClientState {
 export class WebSocketHub {
 	private clients: Map<ServerWebSocket<ClientData>, ClientState> = new Map();
 	private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+	private statusPollInterval: ReturnType<typeof setInterval> | null = null;
+	private lastStatusSnapshot: Map<string, string> = new Map();
+	private statusPollCallback: (() => Promise<void>) | null = null;
 
 	constructor() {
 		this.startHeartbeat();
@@ -193,6 +204,79 @@ export class WebSocketHub {
 		this.broadcast(message);
 	}
 
+	broadcastStatusChange(
+		projectId: string,
+		feature: string,
+		status: string,
+	): void {
+		const message: StatusChangedMessage = {
+			type: "status_changed",
+			projectId,
+			feature,
+			status,
+		};
+
+		const data = JSON.stringify(message);
+		for (const state of this.clients.values()) {
+			const isProjectMatch =
+				state.projectId === null || state.projectId === projectId;
+
+			if (isProjectMatch) {
+				try {
+					state.ws.send(data);
+				} catch {
+					this.removeClient(state.ws);
+				}
+			}
+		}
+	}
+
+	startStatusPolling(
+		pollCallback: () => Promise<
+			Array<{ projectId: string; feature: string; status: string }>
+		>,
+	): void {
+		if (this.statusPollInterval) {
+			return;
+		}
+
+		const STATUS_POLL_INTERVAL = 5_000;
+
+		this.statusPollCallback = async () => {
+			try {
+				const statuses = await pollCallback();
+
+				for (const { projectId, feature, status } of statuses) {
+					const key = `${projectId}:${feature}`;
+					const lastStatus = this.lastStatusSnapshot.get(key);
+
+					if (lastStatus !== status) {
+						this.lastStatusSnapshot.set(key, status);
+						if (lastStatus !== undefined) {
+							this.broadcastStatusChange(projectId, feature, status);
+						}
+					}
+				}
+			} catch (error) {
+				console.warn("Status polling error:", error);
+			}
+		};
+
+		this.statusPollInterval = setInterval(
+			() => this.statusPollCallback?.(),
+			STATUS_POLL_INTERVAL,
+		);
+	}
+
+	stopStatusPolling(): void {
+		if (this.statusPollInterval) {
+			clearInterval(this.statusPollInterval);
+			this.statusPollInterval = null;
+		}
+		this.statusPollCallback = null;
+		this.lastStatusSnapshot.clear();
+	}
+
 	private startHeartbeat(): void {
 		const HEARTBEAT_INTERVAL = 30_000;
 		const STALE_THRESHOLD = 90_000;
@@ -231,6 +315,7 @@ export class WebSocketHub {
 			clearInterval(this.heartbeatInterval);
 			this.heartbeatInterval = null;
 		}
+		this.stopStatusPolling();
 		for (const ws of this.clients.keys()) {
 			try {
 				ws.close();

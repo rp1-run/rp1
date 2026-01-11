@@ -8,7 +8,11 @@ import {
 	type UpdateCommandOptions,
 	validateUpdateOptions,
 } from "../../../agent-tools/work/update.js";
-import { expectTaskLeft, expectTaskRight } from "../../helpers/index.js";
+import {
+	expectTaskLeft,
+	expectTaskRight,
+	getErrorMessage,
+} from "../../helpers/index.js";
 
 describe("validateUpdateOptions", () => {
 	describe("project path validation (BR-002)", () => {
@@ -32,7 +36,7 @@ describe("validateUpdateOptions", () => {
 
 			const error = await expectTaskLeft(validateUpdateOptions(options));
 			expect(error._tag).toBe("UsageError");
-			expect(error.message).toContain("absolute");
+			expect(getErrorMessage(error)).toContain("absolute");
 		});
 
 		test("rejects empty project path", async () => {
@@ -44,7 +48,7 @@ describe("validateUpdateOptions", () => {
 
 			const error = await expectTaskLeft(validateUpdateOptions(options));
 			expect(error._tag).toBe("UsageError");
-			expect(error.message).toContain("required");
+			expect(getErrorMessage(error)).toContain("required");
 		});
 
 		test("rejects whitespace-only project path", async () => {
@@ -102,7 +106,7 @@ describe("validateUpdateOptions", () => {
 
 			const error = await expectTaskLeft(validateUpdateOptions(options));
 			expect(error._tag).toBe("UsageError");
-			expect(error.message).toContain("^[a-z0-9-]+$");
+			expect(getErrorMessage(error)).toContain("^[a-z0-9-]+$");
 		});
 
 		test("rejects underscores", async () => {
@@ -136,7 +140,7 @@ describe("validateUpdateOptions", () => {
 
 			const error = await expectTaskLeft(validateUpdateOptions(options));
 			expect(error._tag).toBe("UsageError");
-			expect(error.message).toContain("required");
+			expect(getErrorMessage(error)).toContain("required");
 		});
 	});
 
@@ -194,10 +198,10 @@ describe("validateUpdateOptions", () => {
 
 			const error = await expectTaskLeft(validateUpdateOptions(options));
 			expect(error._tag).toBe("UsageError");
-			expect(error.message).toContain("started");
-			expect(error.message).toContain("in_progress");
-			expect(error.message).toContain("completed");
-			expect(error.message).toContain("failed");
+			expect(getErrorMessage(error)).toContain("started");
+			expect(getErrorMessage(error)).toContain("in_progress");
+			expect(getErrorMessage(error)).toContain("completed");
+			expect(getErrorMessage(error)).toContain("failed");
 		});
 
 		test("rejects empty status", async () => {
@@ -209,7 +213,7 @@ describe("validateUpdateOptions", () => {
 
 			const error = await expectTaskLeft(validateUpdateOptions(options));
 			expect(error._tag).toBe("UsageError");
-			expect(error.message).toContain("required");
+			expect(getErrorMessage(error)).toContain("required");
 		});
 	});
 
@@ -271,7 +275,7 @@ describe("validateUpdateOptions", () => {
 
 			const error = await expectTaskLeft(validateUpdateOptions(options));
 			expect(error._tag).toBe("UsageError");
-			expect(error.message).toContain("valid JSON");
+			expect(getErrorMessage(error)).toContain("valid JSON");
 		});
 
 		test("rejects malformed JSON", async () => {

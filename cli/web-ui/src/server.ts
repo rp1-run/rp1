@@ -1,5 +1,6 @@
 import { FileWatcherPool } from "./server/file-watcher";
 import { startServer } from "./server/http";
+import { getAllProjects } from "./server/registry";
 import { WebSocketHub } from "./server/websocket";
 
 export interface ServerOptions {
@@ -24,6 +25,35 @@ export function createServer(options: ServerOptions) {
 		isDev,
 		webUIDir,
 		startTime,
+	});
+
+	websocketHub.startStatusPolling(async () => {
+		const { getLatestStatusByFeature } = await import(
+			"../../src/agent-tools/work/database"
+		);
+		const { isLeft } = await import("fp-ts/lib/Either.js");
+
+		const projects = await getAllProjects();
+		const results: Array<{
+			projectId: string;
+			feature: string;
+			status: string;
+		}> = [];
+
+		for (const project of projects) {
+			const latestResult = await getLatestStatusByFeature(project.path)();
+			if (!isLeft(latestResult)) {
+				for (const record of latestResult.right) {
+					results.push({
+						projectId: project.id,
+						feature: record.feature,
+						status: record.status,
+					});
+				}
+			}
+		}
+
+		return results;
 	});
 
 	console.log(`rp1 Web UI server started`);
