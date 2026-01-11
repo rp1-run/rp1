@@ -2,10 +2,6 @@ version: 2
 
 project_name: rp1
 
-before:
-  hooks:
-    - bash -c "cd cli && bun install"
-
 builds:
   - id: rp1
     builder: bun
