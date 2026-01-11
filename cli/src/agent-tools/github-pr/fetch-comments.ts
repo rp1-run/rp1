@@ -19,29 +19,14 @@ import { parseJsonInput, validateFetchCommentsInput } from "./validation.js";
 const TOOL_NAME = "github-pr";
 
 /**
- * Common bot user patterns for detection.
- */
-const BOT_PATTERNS = [
-	/\[bot\]$/i,
-	/-bot$/i,
-	/^dependabot$/i,
-	/^github-actions$/i,
-	/^renovate$/i,
-	/^codecov$/i,
-	/^sonarcloud$/i,
-];
-
-/**
- * Determine if a user is a bot based on username and type.
+ * Determine if a user is a bot based on the GitHub API user.type field.
+ * Uses the authoritative `user.type` from GitHub REST API v3 which can be
+ * "User", "Bot", "Organization", etc.
  *
- * @param username - GitHub username
- * @param userType - User type from GitHub API (e.g., "Bot", "User")
- * @returns true if user appears to be a bot
+ * @param userType - User type from GitHub API
+ * @returns true if user type is "Bot"
  */
-const isBot = (username: string, userType?: string): boolean => {
-	if (userType === "Bot") return true;
-	return BOT_PATTERNS.some((pattern) => pattern.test(username));
-};
+const isBot = (userType?: string): boolean => userType === "Bot";
 
 /**
  * Execute fetch-comments operation.
@@ -88,7 +73,7 @@ export const executeFetchComments = (
 									path: c.path,
 									line: c.line ?? c.original_line ?? undefined,
 									created_at: c.created_at,
-									is_bot: isBot(c.user?.login ?? "", c.user?.type),
+									is_bot: isBot(c.user?.type),
 								}));
 
 							const issueComments: PRComment[] = issueCommentsResponse.data.map(
@@ -97,7 +82,7 @@ export const executeFetchComments = (
 									user: c.user?.login ?? "unknown",
 									body: c.body ?? "",
 									created_at: c.created_at,
-									is_bot: isBot(c.user?.login ?? "", c.user?.type),
+									is_bot: isBot(c.user?.type),
 								}),
 							);
 
