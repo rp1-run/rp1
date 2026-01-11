@@ -17,6 +17,7 @@ import { join } from "node:path";
 import {
 	getDefaultConfig,
 	isValidAIHarness,
+	isValidCIPlatform,
 	isValidVerdict,
 	loadPRReviewConfig,
 } from "../../pr-review/config.js";
@@ -78,6 +79,7 @@ describe("PR review config loader", () => {
 			expect(defaults.max_comments).toBe(25);
 			expect(defaults.bot_marker).toBe("<!-- rp1-review -->");
 			expect(defaults.visualize).toBe(false);
+			expect(defaults.ci_platform).toBe("auto");
 		});
 	});
 
@@ -114,6 +116,7 @@ verdict: request_changes
 max_comments: 50
 bot_marker: "<!-- custom-bot -->"
 visualize: true
+ci_platform: github
 `;
 			await writeFile(join(rp1Root, "config", "pr-review.yaml"), config);
 
@@ -130,6 +133,7 @@ visualize: true
 			expect(result.config.max_comments).toBe(50);
 			expect(result.config.bot_marker).toBe("<!-- custom-bot -->");
 			expect(result.config.visualize).toBe(true);
+			expect(result.config.ci_platform).toBe("github");
 		});
 
 		test("merges partial config with defaults", async () => {
@@ -209,6 +213,20 @@ enabled: true
 			expect(error._tag).toBe("ConfigError");
 			if (error._tag === "ConfigError") {
 				expect(error.message).toContain("ai_harness");
+			}
+		});
+
+		test("returns error for invalid ci_platform value", async () => {
+			await writeFile(
+				join(rp1Root, "config", "pr-review.yaml"),
+				"ci_platform: jenkins",
+			);
+
+			const error = await expectTaskLeft(loadPRReviewConfig(rp1Root));
+
+			expect(error._tag).toBe("ConfigError");
+			if (error._tag === "ConfigError") {
+				expect(error.message).toContain("ci_platform");
 			}
 		});
 
@@ -392,6 +410,19 @@ max_comments: -1
 			expect(isValidAIHarness("gemini")).toBe(false);
 			expect(isValidAIHarness("gpt")).toBe(false);
 			expect(isValidAIHarness("")).toBe(false);
+		});
+
+		test("isValidCIPlatform returns true for valid values", () => {
+			expect(isValidCIPlatform("github")).toBe(true);
+			expect(isValidCIPlatform("buildkite")).toBe(true);
+			expect(isValidCIPlatform("gitlab")).toBe(true);
+			expect(isValidCIPlatform("auto")).toBe(true);
+		});
+
+		test("isValidCIPlatform returns false for invalid values", () => {
+			expect(isValidCIPlatform("jenkins")).toBe(false);
+			expect(isValidCIPlatform("circleci")).toBe(false);
+			expect(isValidCIPlatform("")).toBe(false);
 		});
 	});
 });
