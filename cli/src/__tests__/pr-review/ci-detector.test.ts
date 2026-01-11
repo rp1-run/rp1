@@ -86,31 +86,31 @@ describe("CI environment detection", () => {
 			expect(result.platform).toBe("github_actions");
 		});
 
-		test("detects Buildkite", () => {
+		test("detects Buildkite CI environment with buildkite config", () => {
 			process.env.BUILDKITE = "true";
 
-			const result = detectCIMode();
+			const result = detectCIMode("buildkite");
 
 			expect(result.isCI).toBe(true);
 			expect(result.platform).toBe("buildkite");
 		});
 
-		test("detects GitLab CI", () => {
+		test("detects GitLab CI environment with gitlab config", () => {
 			process.env.GITLAB_CI = "true";
 
-			const result = detectCIMode();
+			const result = detectCIMode("gitlab");
 
 			expect(result.isCI).toBe(true);
 			expect(result.platform).toBe("gitlab_ci");
 		});
 
-		test("detects generic CI", () => {
+		test("detects generic CI environment", () => {
 			process.env.CI = "true";
 
 			const result = detectCIMode();
 
 			expect(result.isCI).toBe(true);
-			expect(result.platform).toBe("generic_ci");
+			expect(result.platform).toBe("github_actions"); // defaults to github
 		});
 
 		test("returns not CI when no CI variables set", () => {
@@ -129,48 +129,51 @@ describe("CI environment detection", () => {
 			expect(result.platform).toBe("github_actions");
 		});
 
-		test("Buildkite takes precedence over generic CI", () => {
+		test("platform is determined by config, not env vars", () => {
 			process.env.BUILDKITE = "true";
 			process.env.CI = "true";
 
-			const result = detectCIMode();
-
-			expect(result.platform).toBe("buildkite");
-		});
-
-		test("explicit ci_platform config overrides auto-detection", () => {
-			// No CI env vars set, but explicit config
+			// Even with Buildkite env var, platform comes from config
 			const result = detectCIMode("github");
 
 			expect(result.isCI).toBe(true);
 			expect(result.platform).toBe("github_actions");
 		});
 
-		test("explicit ci_platform=buildkite sets buildkite platform", () => {
+		test("ci_platform=github returns github_actions platform in CI", () => {
+			process.env.CI = "true";
+			const result = detectCIMode("github");
+
+			expect(result.isCI).toBe(true);
+			expect(result.platform).toBe("github_actions");
+		});
+
+		test("ci_platform=buildkite returns buildkite platform in CI", () => {
+			process.env.CI = "true";
 			const result = detectCIMode("buildkite");
 
 			expect(result.isCI).toBe(true);
 			expect(result.platform).toBe("buildkite");
 		});
 
-		test("explicit ci_platform=gitlab sets gitlab_ci platform", () => {
+		test("ci_platform=gitlab returns gitlab_ci platform in CI", () => {
+			process.env.CI = "true";
 			const result = detectCIMode("gitlab");
 
 			expect(result.isCI).toBe(true);
 			expect(result.platform).toBe("gitlab_ci");
 		});
 
-		test("ci_platform=auto falls back to env detection", () => {
-			process.env.GITHUB_ACTIONS = "true";
-
-			const result = detectCIMode("auto");
+		test("defaults to github platform when no config provided", () => {
+			process.env.CI = "true";
+			const result = detectCIMode();
 
 			expect(result.isCI).toBe(true);
 			expect(result.platform).toBe("github_actions");
 		});
 
-		test("ci_platform=auto returns not CI when no env vars", () => {
-			const result = detectCIMode("auto");
+		test("returns not CI when no CI env vars set regardless of platform config", () => {
+			const result = detectCIMode("github");
 
 			expect(result.isCI).toBe(false);
 			expect(result.platform).toBeUndefined();
@@ -402,13 +405,13 @@ describe("CI environment detection", () => {
 			}
 		});
 
-		test("returns generic context for Buildkite", async () => {
+		test("returns generic context for Buildkite with buildkite config", async () => {
 			process.env.BUILDKITE = "true";
 			process.env.BUILDKITE_BUILD_ID = "build-123";
 			process.env.BUILDKITE_BRANCH = "feature";
 			process.env.BUILDKITE_PULL_REQUEST = "42";
 
-			const result = await expectTaskRight(extractContext());
+			const result = await expectTaskRight(extractContext("buildkite"));
 
 			expect(result.ciMode.isCI).toBe(true);
 			expect(result.ciMode.platform).toBe("buildkite");
@@ -420,12 +423,12 @@ describe("CI environment detection", () => {
 			}
 		});
 
-		test("returns generic context for GitLab CI", async () => {
+		test("returns generic context for GitLab CI with gitlab config", async () => {
 			process.env.GITLAB_CI = "true";
 			process.env.CI_MERGE_REQUEST_IID = "99";
 			process.env.CI_PROJECT_PATH = "group/project";
 
-			const result = await expectTaskRight(extractContext());
+			const result = await expectTaskRight(extractContext("gitlab"));
 
 			expect(result.ciMode.isCI).toBe(true);
 			expect(result.ciMode.platform).toBe("gitlab_ci");
@@ -473,7 +476,7 @@ describe("CI environment detection", () => {
 		test("isGenericCIContext identifies generic CI contexts", async () => {
 			process.env.BUILDKITE = "true";
 
-			const result = await expectTaskRight(extractContext());
+			const result = await expectTaskRight(extractContext("buildkite"));
 
 			expect(isGenericCIContext(result.context)).toBe(true);
 			expect(isGitHubContext(result.context)).toBe(false);

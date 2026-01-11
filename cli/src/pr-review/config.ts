@@ -60,7 +60,7 @@ const PRReviewConfigSchema = z
 		max_comments: z.number().int().nonnegative().optional(),
 		bot_marker: z.string().optional(),
 		visualize: booleanSchema.optional(),
-		ci_platform: z.enum(["github", "buildkite", "gitlab", "auto"]).optional(),
+		ci_platform: z.enum(["github", "buildkite", "gitlab"]).optional(),
 	})
 	.strict();
 
@@ -75,7 +75,7 @@ const DEFAULT_CONFIG: PRReviewConfig = {
 	max_comments: 25,
 	bot_marker: "<!-- rp1-review -->",
 	visualize: false,
-	ci_platform: "auto",
+	ci_platform: "github",
 };
 
 /**
@@ -100,7 +100,6 @@ const VALID_CI_PLATFORMS: readonly CIPlatformConfig[] = [
 	"github",
 	"buildkite",
 	"gitlab",
-	"auto",
 ];
 
 /**

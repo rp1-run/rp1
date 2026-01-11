@@ -70,6 +70,11 @@ bot_marker: "<!-- rp1-review -->"
 # Type: boolean
 # Default: false
 visualize: false
+
+# CI platform for context extraction
+# Type: "github" | "buildkite" | "gitlab"
+# Default: "github"
+ci_platform: github
 ```
 
 ---
@@ -288,6 +293,32 @@ visualize: true  # Include visual diagrams
 
 ---
 
+### ci_platform
+
+| Property | Value |
+|----------|-------|
+| Type | `"github"` \| `"buildkite"` \| `"gitlab"` |
+| Default | `"github"` |
+| Required | No |
+
+Specifies which CI platform to use for context extraction. This determines how PR metadata is retrieved.
+
+| Platform | Description |
+|----------|-------------|
+| `github` | Use GitHub Actions environment variables and event payload |
+| `buildkite` | Use Buildkite environment variables |
+| `gitlab` | Use GitLab CI environment variables |
+
+**Example:**
+```yaml
+ci_platform: github  # Use GitHub Actions (default)
+```
+
+!!! note "CI Detection"
+    The CI environment is detected automatically via standard environment variables (`CI=true`, `GITHUB_ACTIONS=true`, etc.). The `ci_platform` setting only controls which platform's context extraction is used.
+
+---
+
 ## Environment Variable Overrides
 
 Configuration values can be overridden via environment variables for CI flexibility:
@@ -344,6 +375,9 @@ bot_marker: "<!-- rp1-review -->"
 
 # Include visual diagrams for architectural context
 visualize: true
+
+# Use GitHub Actions for CI (default)
+ci_platform: github
 ```
 
 ---
@@ -356,6 +390,7 @@ Invalid configuration produces clear error messages:
 |-------|-------|-----|
 | `Invalid verdict value` | `verdict` not one of allowed values | Use `auto`, `approve`, `request_changes`, or `comment` |
 | `Invalid ai_harness value` | `ai_harness` not recognized | Use `claude-code` or `opencode` |
+| `Invalid ci_platform value` | `ci_platform` not recognized | Use `github`, `buildkite`, or `gitlab` |
 | `max_comments must be positive` | Negative or zero value | Use a positive integer |
 | `YAML parse error` | Invalid YAML syntax | Check indentation and structure |
 

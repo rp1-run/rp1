@@ -24,7 +24,7 @@ import type {
  * Map CIPlatformConfig to CIPlatform.
  * Converts user-facing config values to internal platform identifiers.
  */
-const configToPlatform = (config: CIPlatformConfig): CIPlatform | undefined => {
+const configToPlatform = (config: CIPlatformConfig): CIPlatform => {
 	switch (config) {
 		case "github":
 			return "github_actions";
@@ -32,63 +32,41 @@ const configToPlatform = (config: CIPlatformConfig): CIPlatform | undefined => {
 			return "buildkite";
 		case "gitlab":
 			return "gitlab_ci";
-		case "auto":
-			return undefined;
 	}
 };
 
 /**
- * Auto-detect CI mode from environment variables.
- * Checks for known CI platform indicators in order of specificity.
- *
- * Detection order:
- * 1. GITHUB_ACTIONS=true -> github_actions
- * 2. BUILDKITE=true -> buildkite
- * 3. GITLAB_CI=true -> gitlab_ci
- * 4. CI=true -> generic_ci
- * 5. None -> not CI
+ * Detect if running in a CI environment based on the CI environment variable.
+ * This is a simple check that only detects whether we're in CI, not which platform.
  */
-const autoDetectCIMode = (): CIModeResult => {
-	if (process.env.GITHUB_ACTIONS === "true") {
-		return { isCI: true, platform: "github_actions" };
-	}
-
-	if (process.env.BUILDKITE === "true") {
-		return { isCI: true, platform: "buildkite" };
-	}
-
-	if (process.env.GITLAB_CI === "true") {
-		return { isCI: true, platform: "gitlab_ci" };
-	}
-
-	if (process.env.CI === "true") {
-		return { isCI: true, platform: "generic_ci" };
-	}
-
-	return { isCI: false };
+const detectCIEnvironment = (): boolean => {
+	return (
+		process.env.CI === "true" ||
+		process.env.GITHUB_ACTIONS === "true" ||
+		process.env.BUILDKITE === "true" ||
+		process.env.GITLAB_CI === "true"
+	);
 };
 
 /**
- * Detect CI mode, optionally using explicit platform configuration.
- * When ci_platform is "auto" or not provided, uses environment variable detection.
- * When ci_platform is explicit (github/buildkite/gitlab), uses that platform directly.
+ * Detect CI mode using explicit platform configuration.
+ * The platform is always taken from the config (defaults to "github").
+ * CI mode is determined by environment variable presence.
  *
- * @param ciPlatformConfig - Optional explicit CI platform from config
+ * @param ciPlatformConfig - CI platform from config (defaults to "github")
  * @returns CI mode detection result
  */
 export const detectCIMode = (
-	ciPlatformConfig?: CIPlatformConfig,
+	ciPlatformConfig: CIPlatformConfig = "github",
 ): CIModeResult => {
-	// If explicit platform is configured (not "auto"), use it directly
-	if (ciPlatformConfig && ciPlatformConfig !== "auto") {
-		const platform = configToPlatform(ciPlatformConfig);
-		if (platform) {
-			return { isCI: true, platform };
-		}
+	const isInCI = detectCIEnvironment();
+	const platform = configToPlatform(ciPlatformConfig);
+
+	if (isInCI) {
+		return { isCI: true, platform };
 	}
 
-	// Fall back to auto-detection
-	return autoDetectCIMode();
+	return { isCI: false };
 };
 
 /**

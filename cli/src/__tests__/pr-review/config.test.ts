@@ -79,7 +79,7 @@ describe("PR review config loader", () => {
 			expect(defaults.max_comments).toBe(25);
 			expect(defaults.bot_marker).toBe("<!-- rp1-review -->");
 			expect(defaults.visualize).toBe(false);
-			expect(defaults.ci_platform).toBe("auto");
+			expect(defaults.ci_platform).toBe("github");
 		});
 	});
 
@@ -416,12 +416,12 @@ max_comments: -1
 			expect(isValidCIPlatform("github")).toBe(true);
 			expect(isValidCIPlatform("buildkite")).toBe(true);
 			expect(isValidCIPlatform("gitlab")).toBe(true);
-			expect(isValidCIPlatform("auto")).toBe(true);
 		});
 
 		test("isValidCIPlatform returns false for invalid values", () => {
 			expect(isValidCIPlatform("jenkins")).toBe(false);
 			expect(isValidCIPlatform("circleci")).toBe(false);
+			expect(isValidCIPlatform("auto")).toBe(false);
 			expect(isValidCIPlatform("")).toBe(false);
 		});
 	});

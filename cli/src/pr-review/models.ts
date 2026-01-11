@@ -19,12 +19,11 @@ export type Verdict = "approve" | "request_changes" | "comment" | "auto";
 
 /**
  * CI platform configuration for explicit platform selection.
- * - github: Use GitHub Actions context extraction
+ * - github: Use GitHub Actions context extraction (default)
  * - buildkite: Use Buildkite context extraction
  * - gitlab: Use GitLab CI context extraction
- * - auto: Auto-detect based on environment variables (default)
  */
-export type CIPlatformConfig = "github" | "buildkite" | "gitlab" | "auto";
+export type CIPlatformConfig = "github" | "buildkite" | "gitlab";
 
 /**
  * PR review configuration schema.
@@ -49,7 +48,7 @@ export interface PRReviewConfig {
 	readonly bot_marker: string;
 	/** Generate mermaid diagrams in summary; default: false */
 	readonly visualize: boolean;
-	/** CI platform configuration; default: "auto" */
+	/** CI platform configuration; default: "github" */
 	readonly ci_platform: CIPlatformConfig;
 }
 
