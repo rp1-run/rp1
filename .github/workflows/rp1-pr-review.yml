@@ -29,4 +29,5 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: claude -p "/rp1-dev:pr-review"
+          CI: "true"
+        run: claude --dangerously-skip-permissions -p "/rp1-dev:pr-review"

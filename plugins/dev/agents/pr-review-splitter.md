@@ -46,7 +46,7 @@ Store the list of files for processing.
 **Skip files matching these patterns** (linguist-generated and low-value):
 
 ### Lock Files
-- `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`
+- `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `bun.lock`, `bun.lockb`
 - `Gemfile.lock`, `Cargo.lock`, `poetry.lock`, `composer.lock`, `go.sum`
 
 ### Build Outputs
