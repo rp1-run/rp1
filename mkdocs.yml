@@ -84,6 +84,7 @@ nav:
     - Project Bootstrap: guides/bootstrap.md
     - Bug Investigation: guides/bug-investigation.md
     - PR Review: guides/pr-review.md
+    - Remote PR Review (CI/CD): guides/remote-pr-review.md
     - Addressing PR Feedback: guides/pr-feedback.md
     - Team Onboarding: guides/team-onboarding.md
     - Parallel Development: guides/parallel-development.md
@@ -94,6 +95,8 @@ nav:
   - Reference:
     - Overview: reference/index.md
     - DAG Format: reference/dag-format.md
+    - PR Review Config: reference/pr-review-config.md
+    - Agent Tools: reference/agent-tools.md
     - CLI:
       - Overview: reference/cli/index.md
       - init: reference/cli/init.md

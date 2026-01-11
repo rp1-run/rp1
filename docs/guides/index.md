@@ -32,6 +32,14 @@ Practical tutorials that walk you through complete rp1 workflows from start to f
 
     [:octicons-arrow-right-24: Start tutorial](pr-review.md)
 
+-   :material-robot: **Remote PR Review (CI/CD)**
+
+    ---
+
+    Automate PR reviews in GitHub Actions with intelligent comment deduplication.
+
+    [:octicons-arrow-right-24: Start tutorial](remote-pr-review.md)
+
 -   :material-comment-check-outline: **Addressing PR Feedback**
 
     ---
