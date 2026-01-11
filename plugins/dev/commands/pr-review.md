@@ -1,17 +1,17 @@
 ---
 name: pr-review
-version: 3.0.0
-description: Intent-aware map-reduce PR review with confidence gating and holistic synthesis
+version: 4.0.0
+description: Intent-aware map-reduce PR review with CI/CD support, confidence gating, and intelligent comment deduplication
 argument-hint: "[target] [base-branch] [skip-visual]"
-tags: [review, pr, security, analysis, map-reduce]
+tags: [review, pr, security, analysis, map-reduce, ci]
 created: 2025-10-25
-updated: 2025-11-29
+updated: 2026-01-11
 author: cloud-on-prem/rp1
 ---
 
 # PR Review Orchestrator
 
-§ROLE: Map-reduce PR review orchestrator coordinating 4 phases across subagents.
+§ROLE: Map-reduce PR review orchestrator coordinating 6 phases. Supports both local and CI/CD modes with intelligent comment deduplication.
 
 §IN
 
@@ -30,19 +30,86 @@ author: cloud-on-prem/rp1
 §ARCH
 
 ```
+P-1  (seq):  Config Load → CI Detection → Early Exit Check
 P0   (seq):  Input Resolution → Intent Model
 P0.5 (bg):   Visual Gen (conditional, parallel w/ P1)
 P1   (seq):  Splitter → ReviewUnit[]
 P2   (par):  N × Sub-Reviewers → Findings + Summaries
 P3   (seq):  Synthesizer → Cross-File Issues + Judgment
-P4   (seq):  Reporter → Markdown Report
+P4   (seq):  Reporter → Markdown Report + Structured Data
+P5   (seq):  Comment Posting (CI only) → GitHub Review
 ```
 
 §PROC
 
 **DO NOT ask approval. Execute immediately.**
 
-### Pre-flight: Git State Check
+### P-1: Configuration and CI Detection (NEW)
+
+1. **Detect CI mode**:
+   Check environment variables in order:
+   - `GITHUB_ACTIONS=true` → GitHub Actions
+   - `BUILDKITE=true` → Buildkite
+   - `GITLAB_CI=true` → GitLab CI
+   - `CI=true` → Generic CI
+   - None → Local mode
+
+   Store: `CI_MODE` (boolean), `CI_PLATFORM` (string or null)
+
+2. **Load config file**:
+   Read `.rp1/config/pr-review.yaml` if exists. Schema:
+   ```yaml
+   enabled: boolean        # default: false
+   review_drafts: boolean  # default: true
+   ai_harness: string      # "claude-code" | "opencode", default: "claude-code"
+   add_comments: boolean   # default: true
+   collapse_summary: boolean # default: false
+   verdict: string         # "approve" | "request_changes" | "comment" | "auto", default: "auto"
+   max_comments: integer   # default: 25
+   bot_marker: string      # default: "<!-- rp1-review -->"
+   visualize: boolean      # default: false
+   ```
+   If file missing: use all defaults.
+
+3. **Apply environment overrides**:
+   | Env Var | Overrides |
+   |---------|-----------|
+   | RP1_PR_REVIEW_ENABLED | enabled |
+   | RP1_PR_REVIEW_VERDICT | verdict |
+   | RP1_PR_REVIEW_ADD_COMMENTS | add_comments |
+   | RP1_PR_REVIEW_VISUALIZE | visualize |
+
+4. **Early exit check** (CI mode only):
+   ```
+   if CI_MODE AND NOT config.enabled:
+     Output: "PR review not enabled for CI. Set `enabled: true` in .rp1/config/pr-review.yaml or RP1_PR_REVIEW_ENABLED=true"
+     EXIT
+   ```
+
+5. **Build CI_CONTEXT** (GitHub Actions only):
+   If `CI_PLATFORM == "github_actions"`:
+   - Read `GITHUB_EVENT_PATH` JSON file
+   - Extract: pr_number, action, is_draft
+   - Read `GITHUB_REPOSITORY` → owner, repo
+   - Read `GITHUB_TOKEN` → token
+   - Read `GITHUB_HEAD_REF` → head_ref
+   - Read `GITHUB_BASE_REF` → base_ref
+
+   Store `CI_CONTEXT`:
+   ```json
+   {"pr_number": N, "owner": "...", "repo": "...", "token": "...", "head_ref": "...", "base_ref": "...", "is_draft": false}
+   ```
+
+6. **Draft PR check** (CI mode only):
+   ```
+   if CI_MODE AND CI_CONTEXT.is_draft AND NOT config.review_drafts:
+     Output: "Skipping draft PR review (review_drafts=false)"
+     EXIT
+   ```
+
+### Pre-flight: Git State Check (Local Mode Only)
+
+**Skip if CI_MODE = true** (CI always has clean checkout)
 
 1. `git status --porcelain`
 2. **If non-empty** (dirty state):
@@ -62,6 +129,29 @@ P4   (seq):  Reporter → Markdown Report
    - Abort: Exit "Review cancelled. Changes preserved."
 
 ### P0: Input Resolution + Intent
+
+**Behavior varies by mode**:
+
+#### CI Mode (CI_MODE = true)
+
+1. **Use CI_CONTEXT directly**:
+   - `pr_branch` = CI_CONTEXT.head_ref
+   - `base_branch` = CI_CONTEXT.base_ref (or $2 if provided)
+   - `pr_number` = CI_CONTEXT.pr_number
+
+2. **Get PR metadata** (for intent model):
+   ```bash
+   gh pr view {{CI_CONTEXT.pr_number}} --json title,body,url 2>/dev/null
+   ```
+
+3. **Build Intent Model** (no user prompts):
+   - Parse title → `problem_statement`
+   - Parse body → `expected_changes`, `acceptance_criteria`
+   - If parsing fails: `mode = "ci_minimal"`, `problem_statement = "Review PR #{{pr_number}}"`
+
+4. **Skip user prompts**: CI_MODE implies AFK (Away From Keyboard)
+
+#### Local Mode (CI_MODE = false)
 
 1. **Resolve target → branch**:
 
@@ -97,7 +187,7 @@ P4   (seq):  Reporter → Markdown Report
        ```
 
      - User provides (mode: `user_provided`): `problem_statement` = description
-     - Skip (mode: `branch_only`): `problem_statement` = "Review changes on {{branch}}"
+     - Skip (mode: `branch_only`): `problem_statement` = "Review changes on {{branch}}"`
 
 4. Add commits: `git log {{base}}..{{branch}} --oneline --no-decorate` → `commit_summaries`
 
@@ -106,11 +196,21 @@ P4   (seq):  Reporter → Markdown Report
 **Intent Model**:
 
 ```json
-{"mode": "full|user_provided|branch_only", "problem_statement": "", "expected_changes": "", "should_not_change": "", "acceptance_criteria": [], "commit_summaries": []}
+{"mode": "full|user_provided|branch_only|ci_minimal", "problem_statement": "", "expected_changes": "", "should_not_change": "", "acceptance_criteria": [], "commit_summaries": []}
 ```
 
 ### P0.5: Visual Gen (Conditional)
 
+**Modified behavior based on config.visualize flag**:
+
+#### Config-Driven Skip (CI mode)
+```
+if CI_MODE AND NOT config.visualize:
+  VISUAL_WARRANTED = false
+  Skip visualization
+```
+
+#### Local Mode Detection (unchanged)
 1. Get stats:
 
    ```bash
@@ -129,19 +229,25 @@ P4   (seq):  Reporter → Markdown Report
 
 3. **Skip if**: `$3 == "skip-visual"` OR trivial (≤3 files, same dir, <100 lines)
 
-4. **If warranted**:
+#### Spawn Visualizer
 
-   ```
-   Task tool:
-   subagent_type: rp1-dev:pr-visualizer
-   run_in_background: true
-   prompt: "Generate PR visualization.
-     PR_BRANCH: {{pr_branch}}
-     BASE_BRANCH: {{base_branch}}
-     REVIEW_DEPTH: quick"
-   ```
+**If VISUAL_WARRANTED = true**:
 
-   Store `VISUAL_TASK_ID`. Continue immediately.
+```
+OUTPUT_MODE = CI_MODE ? "markdown" : "html"
+
+Task tool:
+subagent_type: rp1-dev:pr-visualizer
+run_in_background: true (local) | false (CI)
+prompt: "Generate PR visualization.
+  PR_BRANCH: {{pr_branch}}
+  BASE_BRANCH: {{base_branch}}
+  REVIEW_DEPTH: quick
+  OUTPUT_MODE: {{OUTPUT_MODE}}"
+```
+
+**CI Mode**: Run foreground, capture output as `VISUAL_CONTENT` (mermaid markdown string)
+**Local Mode**: Run background, store `VISUAL_TASK_ID`. Continue immediately.
 
 ### P1: Splitting (seq)
 
@@ -218,7 +324,7 @@ P4   (seq):  Reporter → Markdown Report
 
 3. Review ID: PR# → `pr-{{number}}` | else → sanitized branch (/ → -)
 
-4. If `VISUAL_TASK_ID`: check completion → `VISUAL_PATH` or "none"
+4. If `VISUAL_TASK_ID` (local mode): check completion → `VISUAL_PATH` or "none"
 
 5. Get HEAD commit SHA for code links:
    ```bash
@@ -246,11 +352,126 @@ P4   (seq):  Reporter → Markdown Report
 
 7. Fail → output findings inline as fallback
 
+8. **Store for P5** (CI mode): `REPORTER_FINDINGS` = merged_findings (structured data)
+
+### P5: Comment Posting (CI Mode Only)
+
+**Skip if CI_MODE = false** (local mode just generates report)
+
+1. **Fetch existing comments**:
+   ```bash
+   echo '{"owner":"{{CI_CONTEXT.owner}}","repo":"{{CI_CONTEXT.repo}}","pr_number":{{CI_CONTEXT.pr_number}}}' | \
+     rp1 agent-tools github-pr fetch-comments
+   ```
+
+   Parse output to get:
+   - `existing_bot_comments`: comments where is_bot=true
+   - `existing_human_comments`: comments where is_bot=false
+
+2. **Prepare new_comments** from REPORTER_FINDINGS:
+   Transform merged_findings to deduplicator format:
+   ```json
+   [
+     {
+       "id": "f1",
+       "path": "src/auth.ts",
+       "line": 67,
+       "line_end": 72,
+       "body": "{{finding.issue}}",
+       "severity": "{{finding.severity}}",
+       "dimension": "{{finding.dimension}}"
+     }
+   ]
+   ```
+
+3. **Spawn deduplicator**:
+   ```
+   Task tool:
+   subagent_type: rp1-dev:pr-comment-deduplicator
+   prompt: "Deduplicate PR comments.
+     NEW_COMMENTS: {{stringify(new_comments)}}
+     EXISTING_BOT_COMMENTS: {{stringify(existing_bot_comments)}}
+     EXISTING_HUMAN_COMMENTS: {{stringify(existing_human_comments)}}
+     BOT_MARKER: {{config.bot_marker}}
+     Return JSON with to_post, to_react, to_augment, duplicates_skipped."
+   ```
+
+   Parse: `dedup_output`
+
+4. **Build poster config**:
+   ```json
+   {
+     "verdict": "{{config.verdict}}",
+     "bot_marker": "{{config.bot_marker}}",
+     "max_comments": {{config.max_comments}},
+     "add_comments": {{config.add_comments}}
+   }
+   ```
+
+5. **Build findings summary**:
+   ```json
+   {
+     "critical": {{stats.critical}},
+     "high": {{stats.high}},
+     "medium": {{stats.medium}},
+     "low": {{stats.low}},
+     "total": {{stats.critical + stats.high + stats.medium + stats.low}}
+   }
+   ```
+
+6. **Spawn poster**:
+   ```
+   Task tool:
+   subagent_type: rp1-dev:pr-comment-poster
+   prompt: "Post PR review to GitHub.
+     OWNER: {{CI_CONTEXT.owner}}
+     REPO: {{CI_CONTEXT.repo}}
+     PR_NUMBER: {{CI_CONTEXT.pr_number}}
+     DEDUP_OUTPUT: {{stringify(dedup_output)}}
+     CONFIG: {{stringify(poster_config)}}
+     VISUAL_CONTENT: {{VISUAL_CONTENT or ""}}
+     FINDINGS_SUMMARY: {{stringify(findings_summary)}}
+     Return JSON with success, review, reactions, replies, summary, errors."
+   ```
+
+7. **Parse poster output**:
+   - `poster_result.review.url` → `REVIEW_URL`
+   - `poster_result.review.comments_posted` → `COMMENTS_POSTED`
+   - `poster_result.reactions.succeeded` → `REACTIONS_ADDED`
+   - `poster_result.errors` → `POSTING_ERRORS`
+
 ### Final Output
 
-1. If `STASHED=true`: `git stash pop` → "Restored stashed changes"
+1. If `STASHED=true` (local mode): `git stash pop` → "Restored stashed changes"
 
-2. Output:
+2. **Output format varies by mode**:
+
+#### CI Mode Output
+
+```
+{{EMOJI}} PR Review Complete (CI Mode)
+
+Judgment: {{JUDGMENT}}
+{{RATIONALE}}
+
+Findings:
+- Critical: {{critical}}
+- High: {{high}}
+- Medium: {{medium}}
+- Low: {{low}}
+
+GitHub Review: {{REVIEW_URL}}
+Comments Posted: {{COMMENTS_POSTED}}
+Duplicates Skipped: {{dedup_output.duplicates_skipped}}
+Reactions Added: {{REACTIONS_ADDED}}
+{{IF POSTING_ERRORS}}
+Errors: {{POSTING_ERRORS}}
+{{/IF}}
+
+Local Report: {{REPORT_PATH}}
+```
+
+#### Local Mode Output
 
 ```
 {{EMOJI}} PR Review Complete
@@ -275,14 +496,19 @@ Emoji: approve→✅ | request_changes→⚠️ | block→🛑
 
 | Error | Action |
 |-------|--------|
-| Dirty git | Prompt stash/abort |
-| Unknown branch | Ask user |
+| CI not enabled | Exit with config instructions |
+| Draft PR skipped | Exit with message |
+| Dirty git (local) | Prompt stash/abort |
+| Unknown branch | Ask user (local) or fail (CI) |
 | gh unavailable | git-only mode |
 | Visual fails | Continue w/o (non-blocking) |
 | Splitter fails | Abort w/ error |
 | >50% reviewers fail | Abort |
 | Synthesizer fails | Findings-only judgment |
 | Reporter fails | Inline output |
+| fetch-comments fails | Skip P5, warn |
+| Deduplicator fails | Post all comments (no dedup) |
+| Poster fails | Output error, report still generated |
 
 §OUT
 **CRITICAL - Keep Output Concise**:
@@ -290,3 +516,4 @@ Emoji: approve→✅ | request_changes→⚠️ | block→🛑
 - Internal work in <thinking> tags
 - NO verbose phase-by-phase progress
 - Output ONLY: initial status, brief progress if >30s, final summary w/ report path
+- CI mode: Include GitHub review URL in output
