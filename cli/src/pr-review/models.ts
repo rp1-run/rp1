@@ -18,6 +18,15 @@ export type AIHarness = "claude-code" | "opencode";
 export type Verdict = "approve" | "request_changes" | "comment" | "auto";
 
 /**
+ * CI platform configuration for explicit platform selection.
+ * - github: Use GitHub Actions context extraction
+ * - buildkite: Use Buildkite context extraction
+ * - gitlab: Use GitLab CI context extraction
+ * - auto: Auto-detect based on environment variables (default)
+ */
+export type CIPlatformConfig = "github" | "buildkite" | "gitlab" | "auto";
+
+/**
  * PR review configuration schema.
  * Maps to `.rp1/config/pr-review.yaml` file structure.
  */
@@ -40,6 +49,8 @@ export interface PRReviewConfig {
 	readonly bot_marker: string;
 	/** Generate mermaid diagrams in summary; default: false */
 	readonly visualize: boolean;
+	/** CI platform configuration; default: "auto" */
+	readonly ci_platform: CIPlatformConfig;
 }
 
 /**

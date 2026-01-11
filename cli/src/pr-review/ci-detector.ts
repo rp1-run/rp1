@@ -11,6 +11,7 @@ import { type CLIError, runtimeError } from "../../shared/errors.js";
 import type {
 	CIModeResult,
 	CIPlatform,
+	CIPlatformConfig,
 	ContextExtractionResult,
 	ExecutionContext,
 	GenericCIContext,
@@ -20,7 +21,24 @@ import type {
 } from "./models.js";
 
 /**
- * Detect CI mode from environment variables.
+ * Map CIPlatformConfig to CIPlatform.
+ * Converts user-facing config values to internal platform identifiers.
+ */
+const configToPlatform = (config: CIPlatformConfig): CIPlatform | undefined => {
+	switch (config) {
+		case "github":
+			return "github_actions";
+		case "buildkite":
+			return "buildkite";
+		case "gitlab":
+			return "gitlab_ci";
+		case "auto":
+			return undefined;
+	}
+};
+
+/**
+ * Auto-detect CI mode from environment variables.
  * Checks for known CI platform indicators in order of specificity.
  *
  * Detection order:
@@ -30,7 +48,7 @@ import type {
  * 4. CI=true -> generic_ci
  * 5. None -> not CI
  */
-export const detectCIMode = (): CIModeResult => {
+const autoDetectCIMode = (): CIModeResult => {
 	if (process.env.GITHUB_ACTIONS === "true") {
 		return { isCI: true, platform: "github_actions" };
 	}
@@ -48,6 +66,29 @@ export const detectCIMode = (): CIModeResult => {
 	}
 
 	return { isCI: false };
+};
+
+/**
+ * Detect CI mode, optionally using explicit platform configuration.
+ * When ci_platform is "auto" or not provided, uses environment variable detection.
+ * When ci_platform is explicit (github/buildkite/gitlab), uses that platform directly.
+ *
+ * @param ciPlatformConfig - Optional explicit CI platform from config
+ * @returns CI mode detection result
+ */
+export const detectCIMode = (
+	ciPlatformConfig?: CIPlatformConfig,
+): CIModeResult => {
+	// If explicit platform is configured (not "auto"), use it directly
+	if (ciPlatformConfig && ciPlatformConfig !== "auto") {
+		const platform = configToPlatform(ciPlatformConfig);
+		if (platform) {
+			return { isCI: true, platform };
+		}
+	}
+
+	// Fall back to auto-detection
+	return autoDetectCIMode();
 };
 
 /**
@@ -226,12 +267,14 @@ const createLocalContext = (): LocalContext => ({
 /**
  * Extract execution context based on detected CI mode.
  * Returns appropriate context type for the environment.
+ *
+ * @param ciPlatformConfig - Optional explicit CI platform from config
+ * @returns TaskEither with context extraction result
  */
-export const extractContext = (): TE.TaskEither<
-	CLIError,
-	ContextExtractionResult
-> => {
-	const ciMode = detectCIMode();
+export const extractContext = (
+	ciPlatformConfig?: CIPlatformConfig,
+): TE.TaskEither<CLIError, ContextExtractionResult> => {
+	const ciMode = detectCIMode(ciPlatformConfig);
 
 	if (!ciMode.isCI) {
 		return TE.right({

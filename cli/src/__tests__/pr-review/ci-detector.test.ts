@@ -137,6 +137,44 @@ describe("CI environment detection", () => {
 
 			expect(result.platform).toBe("buildkite");
 		});
+
+		test("explicit ci_platform config overrides auto-detection", () => {
+			// No CI env vars set, but explicit config
+			const result = detectCIMode("github");
+
+			expect(result.isCI).toBe(true);
+			expect(result.platform).toBe("github_actions");
+		});
+
+		test("explicit ci_platform=buildkite sets buildkite platform", () => {
+			const result = detectCIMode("buildkite");
+
+			expect(result.isCI).toBe(true);
+			expect(result.platform).toBe("buildkite");
+		});
+
+		test("explicit ci_platform=gitlab sets gitlab_ci platform", () => {
+			const result = detectCIMode("gitlab");
+
+			expect(result.isCI).toBe(true);
+			expect(result.platform).toBe("gitlab_ci");
+		});
+
+		test("ci_platform=auto falls back to env detection", () => {
+			process.env.GITHUB_ACTIONS = "true";
+
+			const result = detectCIMode("auto");
+
+			expect(result.isCI).toBe(true);
+			expect(result.platform).toBe("github_actions");
+		});
+
+		test("ci_platform=auto returns not CI when no env vars", () => {
+			const result = detectCIMode("auto");
+
+			expect(result.isCI).toBe(false);
+			expect(result.platform).toBeUndefined();
+		});
 	});
 
 	describe("isCI", () => {
