@@ -1,0 +1,89 @@
+# rp1 PR Review - GitHub Actions Workflow Template
+#
+# This workflow enables automated code review on pull requests using rp1's
+# AI-powered review capabilities with Claude.
+#
+# SETUP:
+# 1. Copy this file to your repository: .github/workflows/rp1-pr-review.yml
+# 2. Add ANTHROPIC_API_KEY to your repository secrets (Settings > Secrets)
+# 3. (Optional) Create .rp1/config/pr-review.yaml for custom configuration
+#
+# CONFIGURATION OPTIONS (.rp1/config/pr-review.yaml):
+# -----------------------------------------------
+# enabled: true            # Enable/disable reviews (default: false)
+# review_drafts: true      # Review draft PRs (default: true)
+# ai_harness: "claude-code" # AI harness: "claude-code" | "opencode"
+# add_comments: true       # Post inline comments (default: true)
+# collapse_summary: false  # Collapse summary in details tag (default: false)
+# verdict: "auto"          # Review verdict mode (see below)
+# max_comments: 25         # Maximum inline comments (default: 25)
+# bot_marker: "<!-- rp1-review -->"  # Comment marker for deduplication
+# visualize: false         # Include mermaid diagrams in summary (default: false)
+#
+# VERDICT MODES:
+# - "approve": Always approve (advisory-only reviews)
+# - "request_changes": Always request changes (strict enforcement)
+# - "comment": Always post as neutral comment
+# - "auto": Based on severity (critical/high=request_changes, medium/low=comment, none=approve)
+#
+# ENVIRONMENT OVERRIDES:
+# These environment variables override config file settings in CI:
+# - RP1_PR_REVIEW_ENABLED=true
+# - RP1_PR_REVIEW_VERDICT=comment
+# - RP1_PR_REVIEW_ADD_COMMENTS=false
+# - RP1_PR_REVIEW_VISUALIZE=true
+#
+# CUSTOMIZATION:
+# - Modify `runs-on` to use self-hosted runners if needed
+# - Adjust `timeout-minutes` based on typical PR size
+# - Add path filters to `on.pull_request.paths` to limit reviewed files
+# - Use `if: github.event.pull_request.draft == false` to skip draft PRs at workflow level
+
+name: rp1 PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    # Optional: Uncomment to only review changes to specific paths
+    # paths:
+    #   - 'src/**'
+    #   - 'lib/**'
+    #   - '*.ts'
+    #   - '*.js'
+
+permissions:
+  contents: read        # Required to checkout code and read PR diff
+  pull-requests: write  # Required to post review comments
+
+jobs:
+  review:
+    name: AI Code Review
+    runs-on: ubuntu-latest
+    timeout-minutes: 15  # Adjust based on typical PR size
+
+    # Optional: Skip draft PRs at workflow level (alternative to config setting)
+    # if: github.event.pull_request.draft == false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history needed for accurate diff analysis
+
+      - name: Install rp1
+        run: curl -fsSL https://rp1.run/install.sh | bash
+
+      - name: Install Claude Code
+        run: |
+          npm install -g @anthropic-ai/claude-code
+
+      - name: Run PR Review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Optional: Override config settings via environment variables
+          # RP1_PR_REVIEW_ENABLED: "true"
+          # RP1_PR_REVIEW_VERDICT: "comment"
+          # RP1_PR_REVIEW_VISUALIZE: "true"
+        run: |
+          claude /rp1-dev:pr-review
