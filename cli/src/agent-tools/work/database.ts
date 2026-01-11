@@ -78,7 +78,6 @@ const getDatabase = (
 			// Enable WAL mode for better concurrent write performance
 			db.exec("PRAGMA journal_mode = WAL;");
 
-			// Create schema
 			db.exec(SCHEMA_SQL);
 
 			dbInstance = db;

@@ -170,7 +170,6 @@ Examples:
 			const result = await tool.execute(content, toolOptions)();
 
 			if (E.isLeft(result)) {
-				// Tool execution error - exit code 1
 				console.error(
 					createErrorResponse(toolName, formatError(result.left, false)),
 				);
@@ -585,7 +584,6 @@ Examples:
 		}): Promise<void> => {
 			const toolName = "work";
 
-			// Validate input options
 			const validationResult = await validateUpdateOptions(options)();
 
 			if (E.isLeft(validationResult)) {
@@ -598,7 +596,6 @@ Examples:
 				process.exit(1);
 			}
 
-			// Execute the update
 			const result = await executeWorkUpdate(validationResult.right)();
 
 			if (E.isLeft(result)) {
