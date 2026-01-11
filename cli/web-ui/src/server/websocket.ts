@@ -246,8 +246,12 @@ export class WebSocketHub {
 			try {
 				const statuses = await pollCallback();
 
+				// Track which keys are still active to clean up stale entries
+				const activeKeys = new Set<string>();
+
 				for (const { projectId, feature, status } of statuses) {
 					const key = `${projectId}:${feature}`;
+					activeKeys.add(key);
 					const lastStatus = this.lastStatusSnapshot.get(key);
 
 					if (lastStatus !== status) {
@@ -257,20 +261,33 @@ export class WebSocketHub {
 						}
 					}
 				}
+
+				// Clean up entries for features no longer in poll results
+				for (const key of this.lastStatusSnapshot.keys()) {
+					if (!activeKeys.has(key)) {
+						this.lastStatusSnapshot.delete(key);
+					}
+				}
 			} catch (error) {
 				console.warn("Status polling error:", error);
 			}
 		};
 
-		this.statusPollInterval = setInterval(
-			() => this.statusPollCallback?.(),
-			STATUS_POLL_INTERVAL,
-		);
+		// Use setTimeout chaining instead of setInterval to ensure serial execution
+		const schedulePoll = () => {
+			this.statusPollInterval = setTimeout(async () => {
+				await this.statusPollCallback?.();
+				if (this.statusPollInterval) {
+					schedulePoll();
+				}
+			}, STATUS_POLL_INTERVAL) as unknown as ReturnType<typeof setInterval>;
+		};
+		schedulePoll();
 	}
 
 	stopStatusPolling(): void {
 		if (this.statusPollInterval) {
-			clearInterval(this.statusPollInterval);
+			clearTimeout(this.statusPollInterval);
 			this.statusPollInterval = null;
 		}
 		this.statusPollCallback = null;

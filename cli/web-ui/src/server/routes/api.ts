@@ -51,7 +51,7 @@ export interface StatusResponse {
 	projectId: string;
 	active: FeatureStatus[];
 	recentlyCompleted: FeatureStatus[];
-	lastUpdated: string;
+	lastUpdated: string | null;
 }
 
 /**
@@ -509,9 +509,8 @@ export async function handleProjectStatusRequest(
 			return errorResponse(`Project not found: ${projectId}`, 404);
 		}
 
-		const { getLatestStatusByFeature, queryStatusUpdates } = await import(
-			"../../../../src/agent-tools/work/database"
-		);
+		const { getLatestStatusByFeature, queryStatusUpdatesForFeatures } =
+			await import("../../../../src/agent-tools/work/database");
 		const { isLeft } = await import("fp-ts/lib/Either.js");
 
 		const latestResult = await getLatestStatusByFeature(project.path)();
@@ -525,30 +524,43 @@ export async function handleProjectStatusRequest(
 
 		const latestStatuses = latestResult.right;
 
+		// Return early with null lastUpdated if no statuses exist
+		if (latestStatuses.length === 0) {
+			const response: StatusResponse = {
+				projectId,
+				active: [],
+				recentlyCompleted: [],
+				lastUpdated: null,
+			};
+			return jsonResponse(response);
+		}
+
 		const now = new Date();
 		const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+		// Batch query: fetch updates for all features in a single query
+		const featureNames = latestStatuses.map((r) => r.feature);
+		const updatesResult = await queryStatusUpdatesForFeatures(
+			project.path,
+			featureNames,
+			10,
+		)();
+
+		const updatesMap = isLeft(updatesResult)
+			? new Map<string, StatusUpdate[]>()
+			: updatesResult.right;
 
 		const featureMap = new Map<string, FeatureStatus>();
 
 		for (const record of latestStatuses) {
-			const updatesResult = await queryStatusUpdates({
-				projectPath: project.path,
-				feature: record.feature,
-				limit: 10,
-			})();
-
-			const updates: StatusUpdate[] = [];
-			if (!isLeft(updatesResult)) {
-				for (const update of updatesResult.right) {
-					updates.push({
-						id: update.id,
-						task: update.task,
-						status: update.status,
-						message: update.message,
-						createdAt: update.createdAt,
-					});
-				}
-			}
+			const rawUpdates = updatesMap.get(record.feature) ?? [];
+			const updates: StatusUpdate[] = rawUpdates.map((update) => ({
+				id: update.id,
+				task: update.task,
+				status: update.status,
+				message: update.message,
+				createdAt: update.createdAt,
+			}));
 
 			featureMap.set(record.feature, {
 				feature: record.feature,
@@ -583,16 +595,11 @@ export async function handleProjectStatusRequest(
 				new Date(b.lastUpdate).getTime() - new Date(a.lastUpdate).getTime(),
 		);
 
-		const lastUpdated =
-			latestStatuses.length > 0
-				? latestStatuses[0].createdAt
-				: now.toISOString();
-
 		const response: StatusResponse = {
 			projectId,
 			active,
 			recentlyCompleted,
-			lastUpdated,
+			lastUpdated: latestStatuses[0].createdAt,
 		};
 
 		return jsonResponse(response);

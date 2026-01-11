@@ -88,7 +88,10 @@ describe("work database", () => {
 			);
 
 			expect(result.id).toBeGreaterThan(0);
-			expect(result.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+			// Strict ISO 8601 format: YYYY-MM-DDTHH:MM:SS.sssZ
+			expect(result.createdAt).toMatch(
+				/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
+			);
 		});
 
 		test("stores all provided fields", async () => {

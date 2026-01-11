@@ -217,6 +217,87 @@ export const queryStatusUpdates = (
 	);
 
 /**
+ * Query recent status updates for multiple features in a single query.
+ * Avoids N+1 queries when fetching updates for multiple features.
+ *
+ * @param projectPath - Project path to filter by
+ * @param features - Array of feature names to fetch updates for
+ * @param limitPerFeature - Maximum updates per feature (default: 10)
+ * @param dbPath - Database file path (optional, defaults to ~/.rp1/status.db)
+ * @returns TaskEither with Map of feature -> StatusUpdateRecord[] or CLIError
+ */
+export const queryStatusUpdatesForFeatures = (
+	projectPath: string,
+	features: readonly string[],
+	limitPerFeature = 10,
+	dbPath?: string,
+): TE.TaskEither<CLIError, Map<string, StatusUpdateRecord[]>> =>
+	pipe(
+		getDatabase(dbPath),
+		TE.chain((db) =>
+			TE.tryCatch(
+				async () => {
+					if (features.length === 0) {
+						return new Map<string, StatusUpdateRecord[]>();
+					}
+
+					// Use window function to rank updates per feature
+					const placeholders = features.map((_, i) => `$f${i}`).join(", ");
+					const sql = `
+						SELECT id, project_path, feature, task, status, message, metadata, created_at
+						FROM (
+							SELECT *,
+								ROW_NUMBER() OVER (PARTITION BY feature ORDER BY created_at DESC) as rn
+							FROM status_updates
+							WHERE project_path = $projectPath
+							AND feature IN (${placeholders})
+						)
+						WHERE rn <= $limit
+						ORDER BY feature, created_at DESC
+					`;
+
+					const params: Record<string, string | number> = {
+						$projectPath: projectPath,
+						$limit: limitPerFeature,
+					};
+					features.forEach((f, i) => {
+						params[`$f${i}`] = f;
+					});
+
+					const stmt = db.prepare(sql);
+					const rows = stmt.all(params) as Array<{
+						id: number;
+						project_path: string;
+						feature: string;
+						task: string | null;
+						status: string;
+						message: string | null;
+						metadata: string | null;
+						created_at: string;
+					}>;
+
+					const result = new Map<string, StatusUpdateRecord[]>();
+					for (const feature of features) {
+						result.set(feature, []);
+					}
+					for (const row of rows) {
+						const records = result.get(row.feature);
+						if (records) {
+							records.push(rowToRecord(row));
+						}
+					}
+
+					return result;
+				},
+				(error) =>
+					runtimeError(
+						`Failed to query status updates for features: ${error instanceof Error ? error.message : String(error)}`,
+					),
+			),
+		),
+	);
+
+/**
  * Get the latest status for each feature in a project.
  *
  * @param projectPath - Project path to filter by
