@@ -1,20 +1,23 @@
 /**
  * Input validation for github-pr agent tool.
- * Provides validation functions for all tool inputs.
+ * Uses Zod schemas for validation of all tool inputs.
  */
 
 import * as E from "fp-ts/lib/Either.js";
+import { z } from "zod";
 import type { CLIError } from "../../../shared/errors.js";
 import { usageError } from "../../../shared/errors.js";
 import type {
 	AddReactionInput,
 	FetchCommentsInput,
-	ReactionType,
 	ReplyCommentInput,
 	SubmitReviewInput,
 } from "./models.js";
 
-const VALID_REACTIONS: readonly ReactionType[] = [
+/**
+ * Valid reaction types for GitHub comments.
+ */
+const VALID_REACTIONS = [
 	"+1",
 	"-1",
 	"laugh",
@@ -23,9 +26,97 @@ const VALID_REACTIONS: readonly ReactionType[] = [
 	"hooray",
 	"rocket",
 	"eyes",
-];
+] as const;
 
+/**
+ * Valid review event types.
+ */
 const VALID_EVENTS = ["APPROVE", "REQUEST_CHANGES", "COMMENT"] as const;
+
+/**
+ * Zod schema for review comment within a review submission.
+ */
+const ReviewCommentSchema = z.object({
+	path: z.string().min(1, "path is required and must be a non-empty string"),
+	line: z.number().int().positive("line must be a positive integer"),
+	body: z.string().min(1, "body is required and must be a non-empty string"),
+});
+
+/**
+ * Zod schema for SubmitReviewInput.
+ */
+const SubmitReviewInputSchema = z.object({
+	owner: z.string().min(1, "owner is required and must be a non-empty string"),
+	repo: z.string().min(1, "repo is required and must be a non-empty string"),
+	pr_number: z
+		.number()
+		.int()
+		.positive("pr_number is required and must be a positive integer"),
+	body: z.string().min(1, "body is required and must be a non-empty string"),
+	event: z.enum(VALID_EVENTS, {
+		errorMap: () => ({
+			message: `event must be one of: ${VALID_EVENTS.join(", ")}`,
+		}),
+	}),
+	comments: z.array(ReviewCommentSchema).optional(),
+});
+
+/**
+ * Zod schema for AddReactionInput.
+ */
+const AddReactionInputSchema = z.object({
+	owner: z.string().min(1, "owner is required and must be a non-empty string"),
+	repo: z.string().min(1, "repo is required and must be a non-empty string"),
+	comment_id: z
+		.number()
+		.int()
+		.positive("comment_id is required and must be a positive integer"),
+	reaction: z.enum(VALID_REACTIONS, {
+		errorMap: () => ({
+			message: `reaction must be one of: ${VALID_REACTIONS.join(", ")}`,
+		}),
+	}),
+});
+
+/**
+ * Zod schema for ReplyCommentInput.
+ */
+const ReplyCommentInputSchema = z.object({
+	owner: z.string().min(1, "owner is required and must be a non-empty string"),
+	repo: z.string().min(1, "repo is required and must be a non-empty string"),
+	pr_number: z
+		.number()
+		.int()
+		.positive("pr_number is required and must be a positive integer"),
+	comment_id: z
+		.number()
+		.int()
+		.positive("comment_id is required and must be a positive integer"),
+	body: z.string().min(1, "body is required and must be a non-empty string"),
+});
+
+/**
+ * Zod schema for FetchCommentsInput.
+ */
+const FetchCommentsInputSchema = z.object({
+	owner: z.string().min(1, "owner is required and must be a non-empty string"),
+	repo: z.string().min(1, "repo is required and must be a non-empty string"),
+	pr_number: z
+		.number()
+		.int()
+		.positive("pr_number is required and must be a positive integer"),
+});
+
+/**
+ * Format Zod validation errors into a human-readable string.
+ */
+const formatZodErrors = (error: z.ZodError): string => {
+	const messages = error.issues.map((issue) => {
+		const path = issue.path.length > 0 ? `${issue.path.join(".")}: ` : "";
+		return `${path}${issue.message}`;
+	});
+	return messages.join("; ");
+};
 
 /**
  * Parse JSON input from stdin.
@@ -48,200 +139,81 @@ export const parseJsonInput = <T>(input: string): E.Either<CLIError, T> => {
 };
 
 /**
- * Validate required string field.
- */
-const validateRequiredString = (
-	value: unknown,
-	field: string,
-): E.Either<string, string> => {
-	if (typeof value !== "string" || value.trim().length === 0) {
-		return E.left(`${field} is required and must be a non-empty string`);
-	}
-	return E.right(value);
-};
-
-/**
- * Validate required positive integer field.
- */
-const validateRequiredPositiveInt = (
-	value: unknown,
-	field: string,
-): E.Either<string, number> => {
-	if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
-		return E.left(`${field} is required and must be a positive integer`);
-	}
-	return E.right(value);
-};
-
-/**
- * Validate SubmitReviewInput.
+ * Validate SubmitReviewInput using Zod schema.
  */
 export const validateSubmitReviewInput = (
 	data: unknown,
 ): E.Either<CLIError, SubmitReviewInput> => {
-	const errors: string[] = [];
-	const input = data as Record<string, unknown>;
+	const result = SubmitReviewInputSchema.safeParse(data);
 
-	const ownerResult = validateRequiredString(input.owner, "owner");
-	if (E.isLeft(ownerResult)) errors.push(ownerResult.left);
-
-	const repoResult = validateRequiredString(input.repo, "repo");
-	if (E.isLeft(repoResult)) errors.push(repoResult.left);
-
-	const prNumberResult = validateRequiredPositiveInt(
-		input.pr_number,
-		"pr_number",
-	);
-	if (E.isLeft(prNumberResult)) errors.push(prNumberResult.left);
-
-	const bodyResult = validateRequiredString(input.body, "body");
-	if (E.isLeft(bodyResult)) errors.push(bodyResult.left);
-
-	if (
-		typeof input.event !== "string" ||
-		!VALID_EVENTS.includes(input.event as (typeof VALID_EVENTS)[number])
-	) {
-		errors.push(`event must be one of: ${VALID_EVENTS.join(", ")}`);
-	}
-
-	if (input.comments !== undefined) {
-		if (!Array.isArray(input.comments)) {
-			errors.push("comments must be an array if provided");
-		} else {
-			for (let i = 0; i < input.comments.length; i++) {
-				const comment = input.comments[i] as Record<string, unknown>;
-				const pathResult = validateRequiredString(
-					comment.path,
-					`comments[${i}].path`,
-				);
-				if (E.isLeft(pathResult)) errors.push(pathResult.left);
-
-				const lineResult = validateRequiredPositiveInt(
-					comment.line,
-					`comments[${i}].line`,
-				);
-				if (E.isLeft(lineResult)) errors.push(lineResult.left);
-
-				const commentBodyResult = validateRequiredString(
-					comment.body,
-					`comments[${i}].body`,
-				);
-				if (E.isLeft(commentBodyResult)) errors.push(commentBodyResult.left);
-			}
-		}
-	}
-
-	if (errors.length > 0) {
+	if (!result.success) {
 		return E.left(
-			usageError(`Validation failed: ${errors.join("; ")}`, "Fix input fields"),
+			usageError(
+				`Validation failed: ${formatZodErrors(result.error)}`,
+				"Fix input fields",
+			),
 		);
 	}
 
-	return E.right(input as unknown as SubmitReviewInput);
+	return E.right(result.data as SubmitReviewInput);
 };
 
 /**
- * Validate AddReactionInput.
+ * Validate AddReactionInput using Zod schema.
  */
 export const validateAddReactionInput = (
 	data: unknown,
 ): E.Either<CLIError, AddReactionInput> => {
-	const errors: string[] = [];
-	const input = data as Record<string, unknown>;
+	const result = AddReactionInputSchema.safeParse(data);
 
-	const ownerResult = validateRequiredString(input.owner, "owner");
-	if (E.isLeft(ownerResult)) errors.push(ownerResult.left);
-
-	const repoResult = validateRequiredString(input.repo, "repo");
-	if (E.isLeft(repoResult)) errors.push(repoResult.left);
-
-	const commentIdResult = validateRequiredPositiveInt(
-		input.comment_id,
-		"comment_id",
-	);
-	if (E.isLeft(commentIdResult)) errors.push(commentIdResult.left);
-
-	if (
-		typeof input.reaction !== "string" ||
-		!VALID_REACTIONS.includes(input.reaction as ReactionType)
-	) {
-		errors.push(`reaction must be one of: ${VALID_REACTIONS.join(", ")}`);
-	}
-
-	if (errors.length > 0) {
+	if (!result.success) {
 		return E.left(
-			usageError(`Validation failed: ${errors.join("; ")}`, "Fix input fields"),
+			usageError(
+				`Validation failed: ${formatZodErrors(result.error)}`,
+				"Fix input fields",
+			),
 		);
 	}
 
-	return E.right(input as unknown as AddReactionInput);
+	return E.right(result.data as AddReactionInput);
 };
 
 /**
- * Validate ReplyCommentInput.
+ * Validate ReplyCommentInput using Zod schema.
  */
 export const validateReplyCommentInput = (
 	data: unknown,
 ): E.Either<CLIError, ReplyCommentInput> => {
-	const errors: string[] = [];
-	const input = data as Record<string, unknown>;
+	const result = ReplyCommentInputSchema.safeParse(data);
 
-	const ownerResult = validateRequiredString(input.owner, "owner");
-	if (E.isLeft(ownerResult)) errors.push(ownerResult.left);
-
-	const repoResult = validateRequiredString(input.repo, "repo");
-	if (E.isLeft(repoResult)) errors.push(repoResult.left);
-
-	const prNumberResult = validateRequiredPositiveInt(
-		input.pr_number,
-		"pr_number",
-	);
-	if (E.isLeft(prNumberResult)) errors.push(prNumberResult.left);
-
-	const commentIdResult = validateRequiredPositiveInt(
-		input.comment_id,
-		"comment_id",
-	);
-	if (E.isLeft(commentIdResult)) errors.push(commentIdResult.left);
-
-	const bodyResult = validateRequiredString(input.body, "body");
-	if (E.isLeft(bodyResult)) errors.push(bodyResult.left);
-
-	if (errors.length > 0) {
+	if (!result.success) {
 		return E.left(
-			usageError(`Validation failed: ${errors.join("; ")}`, "Fix input fields"),
+			usageError(
+				`Validation failed: ${formatZodErrors(result.error)}`,
+				"Fix input fields",
+			),
 		);
 	}
 
-	return E.right(input as unknown as ReplyCommentInput);
+	return E.right(result.data as ReplyCommentInput);
 };
 
 /**
- * Validate FetchCommentsInput.
+ * Validate FetchCommentsInput using Zod schema.
  */
 export const validateFetchCommentsInput = (
 	data: unknown,
 ): E.Either<CLIError, FetchCommentsInput> => {
-	const errors: string[] = [];
-	const input = data as Record<string, unknown>;
+	const result = FetchCommentsInputSchema.safeParse(data);
 
-	const ownerResult = validateRequiredString(input.owner, "owner");
-	if (E.isLeft(ownerResult)) errors.push(ownerResult.left);
-
-	const repoResult = validateRequiredString(input.repo, "repo");
-	if (E.isLeft(repoResult)) errors.push(repoResult.left);
-
-	const prNumberResult = validateRequiredPositiveInt(
-		input.pr_number,
-		"pr_number",
-	);
-	if (E.isLeft(prNumberResult)) errors.push(prNumberResult.left);
-
-	if (errors.length > 0) {
+	if (!result.success) {
 		return E.left(
-			usageError(`Validation failed: ${errors.join("; ")}`, "Fix input fields"),
+			usageError(
+				`Validation failed: ${formatZodErrors(result.error)}`,
+				"Fix input fields",
+			),
 		);
 	}
 
-	return E.right(input as unknown as FetchCommentsInput);
+	return E.right(result.data as FetchCommentsInput);
 };
