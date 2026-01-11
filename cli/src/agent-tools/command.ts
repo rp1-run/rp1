@@ -7,6 +7,12 @@ import { Command } from "commander";
 import * as E from "fp-ts/lib/Either.js";
 import { formatError } from "../../shared/errors.js";
 import { executeExtract } from "./comment-extract/index.js";
+import {
+	executeAddReaction,
+	executeFetchComments,
+	executeReplyComment,
+	executeSubmitReview,
+} from "./github-pr/index.js";
 import { getTool, type ToolOptions } from "./index.js";
 import { readInput } from "./input.js";
 import { formatOutput } from "./output.js";
@@ -21,6 +27,7 @@ import "./mmd-validate/index.js";
 import "./rp1-root-dir/index.js";
 import "./worktree/index.js";
 import "./comment-extract/index.js";
+import "./github-pr/index.js";
 
 /** Default timeout for tool execution in milliseconds */
 const DEFAULT_TIMEOUT = 30000;
@@ -55,6 +62,7 @@ Available Tools:
   rp1-root-dir      Resolve RP1_ROOT path with worktree awareness
   worktree          Manage git worktrees for isolated agent execution
   comment-extract   Extract comments from git-changed files
+  github-pr         GitHub PR operations (submit-review, add-reaction, reply-comment, fetch-comments)
 
 Examples:
   rp1 agent-tools mmd-validate ./document.md
@@ -66,6 +74,7 @@ Examples:
   rp1 agent-tools worktree cleanup /path/to/worktree
   rp1 agent-tools comment-extract branch main
   rp1 agent-tools comment-extract unstaged main
+  echo '{"owner":"org","repo":"repo","pr_number":123}' | rp1 agent-tools github-pr fetch-comments
 `,
 	);
 
@@ -470,3 +479,273 @@ Examples:
 			process.exit(0);
 		},
 	);
+
+/**
+ * github-pr subcommand.
+ * GitHub PR operations for AI agents.
+ */
+const githubPrCommand = agentToolsCommand
+	.command("github-pr")
+	.description("GitHub PR operations for AI agents")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Provides subcommands for GitHub PR operations used by AI agents.
+  All operations accept JSON input via stdin and output JSON results.
+  Requires GITHUB_TOKEN environment variable for authentication.
+
+Subcommands:
+  submit-review    Submit a PR review with optional inline comments
+  add-reaction     Add a reaction to a PR comment
+  reply-comment    Reply to an existing PR comment thread
+  fetch-comments   Fetch all comments from a PR
+
+Examples:
+  # Submit a review
+  echo '{"owner":"org","repo":"repo","pr_number":123,"body":"LGTM","event":"APPROVE"}' | \\
+    rp1 agent-tools github-pr submit-review
+
+  # Add a reaction
+  echo '{"owner":"org","repo":"repo","comment_id":456,"reaction":"+1"}' | \\
+    rp1 agent-tools github-pr add-reaction
+
+  # Fetch comments
+  echo '{"owner":"org","repo":"repo","pr_number":123}' | \\
+    rp1 agent-tools github-pr fetch-comments
+`,
+	);
+
+/**
+ * github-pr submit-review subcommand.
+ * Submits a PR review with optional inline comments.
+ */
+githubPrCommand
+	.command("submit-review")
+	.description("Submit a PR review with optional inline comments")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Submits a PR review via GitHub API. Accepts JSON input via stdin.
+
+Input (JSON via stdin):
+  {
+    "owner": "string",           // Repository owner
+    "repo": "string",            // Repository name
+    "pr_number": number,         // Pull request number
+    "body": "string",            // Review summary body
+    "event": "APPROVE" | "REQUEST_CHANGES" | "COMMENT",
+    "comments": [                // Optional inline comments
+      {
+        "path": "string",        // File path
+        "line": number,          // Line number
+        "body": "string"         // Comment body
+      }
+    ]
+  }
+
+Output:
+  JSON with review details:
+  - review_id: Created review ID
+  - html_url: URL to the review
+  - comments_posted: Number of inline comments posted
+
+Examples:
+  echo '{"owner":"org","repo":"repo","pr_number":123,"body":"LGTM","event":"APPROVE"}' | \\
+    rp1 agent-tools github-pr submit-review
+`,
+	)
+	.action(async (): Promise<void> => {
+		const toolName = "github-pr";
+		const inputResult = await readInput()();
+
+		if (E.isLeft(inputResult)) {
+			console.error(
+				createErrorResponse(toolName, formatError(inputResult.left, false)),
+			);
+			process.exit(1);
+		}
+
+		const result = await executeSubmitReview(inputResult.right.content)();
+
+		if (E.isLeft(result)) {
+			console.error(
+				createErrorResponse(toolName, formatError(result.left, false)),
+			);
+			process.exit(1);
+		}
+
+		console.log(formatOutput(result.right));
+		process.exit(0);
+	});
+
+/**
+ * github-pr add-reaction subcommand.
+ * Adds a reaction to a PR comment.
+ */
+githubPrCommand
+	.command("add-reaction")
+	.description("Add a reaction to a PR comment")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Adds a reaction to a PR review comment via GitHub API.
+  Accepts JSON input via stdin.
+
+Input (JSON via stdin):
+  {
+    "owner": "string",           // Repository owner
+    "repo": "string",            // Repository name
+    "comment_id": number,        // Comment ID to react to
+    "reaction": "+1" | "-1" | "laugh" | "confused" | "heart" | "hooray" | "rocket" | "eyes"
+  }
+
+Output:
+  JSON with reaction details:
+  - reaction_id: Created reaction ID
+  - content: Reaction type
+
+Examples:
+  echo '{"owner":"org","repo":"repo","comment_id":456,"reaction":"+1"}' | \\
+    rp1 agent-tools github-pr add-reaction
+`,
+	)
+	.action(async (): Promise<void> => {
+		const toolName = "github-pr";
+		const inputResult = await readInput()();
+
+		if (E.isLeft(inputResult)) {
+			console.error(
+				createErrorResponse(toolName, formatError(inputResult.left, false)),
+			);
+			process.exit(1);
+		}
+
+		const result = await executeAddReaction(inputResult.right.content)();
+
+		if (E.isLeft(result)) {
+			console.error(
+				createErrorResponse(toolName, formatError(result.left, false)),
+			);
+			process.exit(1);
+		}
+
+		console.log(formatOutput(result.right));
+		process.exit(0);
+	});
+
+/**
+ * github-pr reply-comment subcommand.
+ * Replies to an existing PR comment thread.
+ */
+githubPrCommand
+	.command("reply-comment")
+	.description("Reply to an existing PR comment thread")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Posts a reply to an existing PR review comment thread via GitHub API.
+  Accepts JSON input via stdin.
+
+Input (JSON via stdin):
+  {
+    "owner": "string",           // Repository owner
+    "repo": "string",            // Repository name
+    "pr_number": number,         // Pull request number
+    "comment_id": number,        // Comment ID to reply to
+    "body": "string"             // Reply body
+  }
+
+Output:
+  JSON with reply details:
+  - comment_id: Created comment ID
+  - html_url: URL to the comment
+
+Examples:
+  echo '{"owner":"org","repo":"repo","pr_number":123,"comment_id":456,"body":"Thanks!"}' | \\
+    rp1 agent-tools github-pr reply-comment
+`,
+	)
+	.action(async (): Promise<void> => {
+		const toolName = "github-pr";
+		const inputResult = await readInput()();
+
+		if (E.isLeft(inputResult)) {
+			console.error(
+				createErrorResponse(toolName, formatError(inputResult.left, false)),
+			);
+			process.exit(1);
+		}
+
+		const result = await executeReplyComment(inputResult.right.content)();
+
+		if (E.isLeft(result)) {
+			console.error(
+				createErrorResponse(toolName, formatError(result.left, false)),
+			);
+			process.exit(1);
+		}
+
+		console.log(formatOutput(result.right));
+		process.exit(0);
+	});
+
+/**
+ * github-pr fetch-comments subcommand.
+ * Fetches all comments from a PR.
+ */
+githubPrCommand
+	.command("fetch-comments")
+	.description("Fetch all comments from a PR")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Fetches all review comments and issue comments from a PR via GitHub API.
+  Accepts JSON input via stdin.
+
+Input (JSON via stdin):
+  {
+    "owner": "string",           // Repository owner
+    "repo": "string",            // Repository name
+    "pr_number": number          // Pull request number
+  }
+
+Output:
+  JSON with comment lists:
+  - review_comments: Array of review comments (inline code comments)
+    - id, user, body, path, line, created_at, is_bot
+  - issue_comments: Array of issue comments (general PR comments)
+    - id, user, body, created_at, is_bot
+
+Examples:
+  echo '{"owner":"org","repo":"repo","pr_number":123}' | \\
+    rp1 agent-tools github-pr fetch-comments
+`,
+	)
+	.action(async (): Promise<void> => {
+		const toolName = "github-pr";
+		const inputResult = await readInput()();
+
+		if (E.isLeft(inputResult)) {
+			console.error(
+				createErrorResponse(toolName, formatError(inputResult.left, false)),
+			);
+			process.exit(1);
+		}
+
+		const result = await executeFetchComments(inputResult.right.content)();
+
+		if (E.isLeft(result)) {
+			console.error(
+				createErrorResponse(toolName, formatError(result.left, false)),
+			);
+			process.exit(1);
+		}
+
+		console.log(formatOutput(result.right));
+		process.exit(0);
+	});

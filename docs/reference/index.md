@@ -19,6 +19,26 @@ The rp1 CLI provides tools for setup and management outside of AI assistant sess
 
 [:octicons-arrow-right-24: CLI Reference](cli/init.md)
 
+### Agent Tools
+
+Internal CLI utilities for AI agent workflows:
+
+| Tool | Description |
+|------|-------------|
+| [`worktree`](cli/worktree.md) | Git worktree management for isolated execution |
+| [`rp1-root-dir`](cli/rp1-root-dir.md) | RP1_ROOT path resolution |
+| [`github-pr`](agent-tools.md#github-pr) | GitHub PR operations (submit-review, add-reaction, reply-comment, fetch-comments) |
+
+[:octicons-arrow-right-24: Agent Tools Reference](agent-tools.md)
+
+### Configuration Files
+
+| Config | Description |
+|--------|-------------|
+| [`pr-review.yaml`](pr-review-config.md) | PR review behavior for CI/CD mode |
+
+[:octicons-arrow-right-24: PR Review Config Reference](pr-review-config.md)
+
 ---
 
 ## Base Plugin (6 commands)

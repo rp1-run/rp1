@@ -2,7 +2,7 @@
 
 **Project**: rp1 Plugin System
 **Architecture Pattern**: Plugin Architecture with Map-Reduce Orchestration
-**Last Updated**: 2025-12-31
+**Last Updated**: 2026-01-11
 
 ## High-Level Architecture
 
@@ -53,7 +53,6 @@ graph TB
         RP[release-please]
         GR[GoReleaser]
         Bun[Bun Compiler]
-        Lefthook[Lefthook]
         GHActions --> RP
         RP -->|tag| GR
         GR --> Bun
@@ -114,8 +113,8 @@ graph TB
 **Description**: Single repository containing CLI, plugins, and docs with synchronized semantic versioning via release-please.
 
 ### Git Worktree Isolation
-**Evidence**: `docs/reference/cli/worktree.md`, `.rp1/work/worktrees/` directory structure
-**Description**: Agents execute in isolated git worktrees with disabled hooks (core.hooksPath=/dev/null), protecting user's uncommitted work during code-quick-build workflows.
+**Evidence**: `.rp1/work/worktrees/` directory structure, worktree CLI command
+**Description**: Agents execute in isolated git worktrees with disabled hooks (core.hooksPath=/dev/null), protecting user's uncommitted work during build-fast workflows.
 
 ## Layer Architecture
 
@@ -215,11 +214,11 @@ sequenceDiagram
     Reporter-->>User: markdown review
 ```
 
-### Code Quick Build (Worktree) Flow
+### Build-Fast (Worktree) Flow
 ```mermaid
 sequenceDiagram
     participant User
-    participant Command as /code-quick-build
+    participant Command as /build-fast
     participant CLI as rp1 worktree CLI
     participant Agent as Implementation Agent
     participant Git as Git Repository
@@ -244,9 +243,10 @@ sequenceDiagram
 ### GitHub Actions
 **Purpose**: CI/CD automation for testing, releases, and binary distribution
 - `ci.yml`: lint, typecheck, tests via Bun and `just` task runner
-- `release-please.yml`: versioning + OpenCode artifact builds (rolling release PR strategy)
+- `release-please.yml`: versioning + OpenCode artifact builds + Cloudflare Pages deploy
 - `pr-title.yml`: conventional commit validation for PR titles
 - `goreleaser.yml`: binary builds triggered by tag
+- `lighthouse.yml`: docs site performance testing
 
 ### GoReleaser
 **Purpose**: Cross-platform binary builds using Bun compiler
@@ -258,20 +258,9 @@ sequenceDiagram
 **Configuration**: Syncs versions across plugins/base, plugins/dev, cli/package.json
 **Strategy**: Rolling release PR that accumulates changes until merged
 
-### Lefthook
-**Purpose**: Local git hooks for quality gates
-- Pre-commit: parallel lint + format
-- Pre-push: typecheck + unit tests
-
-### Just
-**Purpose**: Task runner for development workflows
-- Build orchestration (opencode, web-ui, local binary)
-- Test commands (unit, integration)
-- Local plugin installation
-
-### MkDocs Material
-**Purpose**: Documentation site at rp1.run
-**Features**: Material theme, Mermaid diagrams, search, tabs, code copy
+### Cloudflare Pages
+**Purpose**: Documentation site hosting at rp1.run
+**Trigger**: Deploy hook on release
 
 ### Claude Code Plugin Marketplace
 **Purpose**: Native plugin distribution
@@ -280,6 +269,7 @@ sequenceDiagram
 ### OpenCode
 **Purpose**: Alternative AI coding assistant support
 **Distribution**: Tarball in GitHub releases with AGENTS.md instruction file
+**Minimum Version**: 0.8.0
 
 ## Deployment Architecture
 

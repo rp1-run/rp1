@@ -19,6 +19,9 @@ __pycache__/
 # Miscellaneous
 .playwright-mcp
 
+# Package lock files (we use bun exclusively with bun.lock)
+package-lock.json
+
 # CLI build output
 cli/dist/
 cli/web-ui/.vite/
@@ -36,5 +39,7 @@ bin/rp1
 .rp1/*
 !.rp1/context/
 !.rp1/context/**
+!.rp1/config/
+!.rp1/config/**
 .rp1/context/meta.json
 # rp1:end

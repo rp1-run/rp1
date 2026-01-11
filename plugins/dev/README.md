@@ -107,9 +107,26 @@ The `/build` command orchestrates the complete 6-step feature development pipeli
 ```
 
 ### PR Management (3)
-- `/pr-review` - Comprehensive pull request review
+- `/pr-review` - Comprehensive pull request review (supports CI/CD mode)
 - `/address-pr-feedback [pr-number | pr-url | branch]` - Unified PR feedback workflow: collect, triage, and fix review comments
 - `/pr-visual` - Visualize pull request changes
+
+**CI/CD Mode**: The `pr-review` command supports automated execution in CI/CD pipelines:
+
+```yaml
+# .rp1/config/pr-review.yaml
+enabled: true
+verdict: auto
+add_comments: true
+```
+
+When running in GitHub Actions (or other CI platforms), the command:
+- Automatically detects CI context from environment variables
+- Posts reviews and inline comments directly to PRs
+- Deduplicates comments across multiple runs
+- Respects human reviewer comments
+
+See the [Remote PR Review documentation](https://rp1.run/guides/remote-pr-review/) for setup instructions.
 
 ## Skills (1)
 

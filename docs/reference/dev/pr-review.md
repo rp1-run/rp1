@@ -168,6 +168,96 @@ Report: .rp1/work/pr-reviews/pr-123.md
 - Cross-file issues
 - Recommendations
 
+---
+
+## CI Mode
+
+When running in a CI/CD environment (detected via `CI=true` environment variable), the command operates in **CI mode** with additional capabilities. The CI platform is determined by the `ci_platform` config option (default: `github`).
+
+### CI Mode Behavior
+
+| Phase | Local Mode | CI Mode |
+|-------|------------|---------|
+| P-1: Config | Skipped | Load `.rp1/config/pr-review.yaml`, apply env overrides |
+| P0: Input | Interactive prompts | Extract from `GITHUB_EVENT_PATH` |
+| P0.5: Visual | HTML preview | Markdown mode (embedded in summary) |
+| P1-P4: Review | Standard | Standard |
+| P5: Posting | Skipped | Post review to GitHub via API |
+
+### Configuration
+
+Create `.rp1/config/pr-review.yaml` to enable and configure CI reviews:
+
+```yaml
+enabled: true
+verdict: auto
+add_comments: true
+max_comments: 25
+visualize: false
+```
+
+See [PR Review Config Reference](../pr-review-config.md) for all options.
+
+### Environment Variables
+
+Override configuration via environment variables:
+
+| Variable | Effect |
+|----------|--------|
+| `RP1_PR_REVIEW_ENABLED` | Enable/disable review |
+| `RP1_PR_REVIEW_VERDICT` | Set verdict mode |
+| `RP1_PR_REVIEW_ADD_COMMENTS` | Enable/disable inline comments |
+| `RP1_PR_REVIEW_VISUALIZE` | Enable/disable diagrams |
+
+### Comment Deduplication
+
+In CI mode, the command:
+
+1. Fetches existing comments from the PR
+2. Compares new findings against existing bot comments
+3. Acknowledges human comments that match findings
+4. Posts only unique findings
+
+This prevents duplicate comments across multiple workflow runs.
+
+### GitHub Actions Setup
+
+```yaml
+name: rp1 PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install rp1
+        run: curl -fsSL https://rp1.run/install.sh | bash
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Run PR Review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: claude /rp1-dev:pr-review
+```
+
+See [Remote PR Review Guide](../../guides/remote-pr-review.md) for detailed setup instructions.
+
+---
+
 ## Related Commands
 
 - [`pr-visual`](pr-visual.md) - Generate diagrams from PR
@@ -176,3 +266,6 @@ Report: .rp1/work/pr-reviews/pr-123.md
 ## See Also
 
 - [Map-Reduce Workflows](../../concepts/map-reduce-workflows.md) - How parallel review works
+- [Remote PR Review Guide](../../guides/remote-pr-review.md) - CI setup tutorial
+- [PR Review Config](../pr-review-config.md) - Configuration reference
+- [Agent Tools](../agent-tools.md) - GitHub PR tools documentation

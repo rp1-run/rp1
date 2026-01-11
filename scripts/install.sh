@@ -244,7 +244,6 @@ main() {
     local install_dir="${INSTALL_DIR:-$DEFAULT_INSTALL_DIR}"
     info "Install directory: $install_dir"
 
-    local tmp_dir
     tmp_dir=$(mktemp -d)
     trap 'rm -rf "$tmp_dir"' EXIT
 
