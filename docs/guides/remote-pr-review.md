@@ -132,7 +132,7 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: claude /rp1-dev:pr-review
+        run: claude -p "/rp1-dev:pr-review"
 ```
 
 ### Required Secrets
@@ -210,7 +210,7 @@ Example usage in workflow:
     ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     RP1_PR_REVIEW_VERDICT: request_changes  # Override config
-  run: claude /rp1-dev:pr-review
+  run: claude -p "/rp1-dev:pr-review"
 ```
 
 ---

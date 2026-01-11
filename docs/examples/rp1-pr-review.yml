@@ -86,4 +86,4 @@ jobs:
           # RP1_PR_REVIEW_VERDICT: "comment"
           # RP1_PR_REVIEW_VISUALIZE: "true"
         run: |
-          claude /rp1-dev:pr-review
+          claude -p "/rp1-dev:pr-review"
