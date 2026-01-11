@@ -122,11 +122,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install rp1
-        run: curl -fsSL https://rp1.run/install.sh | bash
-
       - name: Install Claude Code
         run: npm install -g @anthropic-ai/claude-code
+
+      - name: Install rp1
+        run: |
+          curl -fsSL https://rp1.run/install.sh | bash
+          rp1 install claude-code
 
       - name: Run PR Review
         env:
