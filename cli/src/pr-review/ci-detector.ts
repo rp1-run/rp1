@@ -31,27 +31,22 @@ import type {
  * 5. None -> not CI
  */
 export const detectCIMode = (): CIModeResult => {
-	// GitHub Actions
 	if (process.env.GITHUB_ACTIONS === "true") {
 		return { isCI: true, platform: "github_actions" };
 	}
 
-	// Buildkite
 	if (process.env.BUILDKITE === "true") {
 		return { isCI: true, platform: "buildkite" };
 	}
 
-	// GitLab CI
 	if (process.env.GITLAB_CI === "true") {
 		return { isCI: true, platform: "gitlab_ci" };
 	}
 
-	// Generic CI (many CI systems set CI=true)
 	if (process.env.CI === "true") {
 		return { isCI: true, platform: "generic_ci" };
 	}
 
-	// Not in CI
 	return { isCI: false };
 };
 
@@ -159,7 +154,6 @@ export const extractGitHubContext = (): TE.TaskEither<
 		TE.bindW("repoInfo", () => TE.fromEither(parseGitHubRepository())),
 		TE.bindW("token", () => TE.fromEither(getGitHubToken())),
 		TE.chain(({ eventPayload, repoInfo, token }) => {
-			// Extract PR number from event payload
 			const prNumber = eventPayload.pull_request?.number ?? eventPayload.number;
 
 			if (prNumber === undefined) {
@@ -170,13 +164,8 @@ export const extractGitHubContext = (): TE.TaskEither<
 				);
 			}
 
-			// Extract action
 			const action = eventPayload.action ?? "unknown";
-
-			// Extract draft status
 			const isDraft = eventPayload.pull_request?.draft ?? false;
-
-			// Get refs from environment or event payload
 			const headRef =
 				process.env.GITHUB_HEAD_REF ??
 				eventPayload.pull_request?.head?.ref ??
@@ -245,14 +234,12 @@ export const extractContext = (): TE.TaskEither<
 	const ciMode = detectCIMode();
 
 	if (!ciMode.isCI) {
-		// Local mode
 		return TE.right({
 			context: createLocalContext(),
 			ciMode,
 		});
 	}
 
-	// CI mode - extract platform-specific context
 	if (ciMode.platform === "github_actions") {
 		return pipe(
 			extractGitHubContext(),

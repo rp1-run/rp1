@@ -101,7 +101,6 @@ const validateConfig = (
 	const validated: MutableConfig = {};
 	const errors: string[] = [];
 
-	// Validate enabled
 	if ("enabled" in obj) {
 		const val = parseBoolean(obj.enabled);
 		if (val === undefined) {
@@ -111,7 +110,6 @@ const validateConfig = (
 		}
 	}
 
-	// Validate review_drafts
 	if ("review_drafts" in obj) {
 		const val = parseBoolean(obj.review_drafts);
 		if (val === undefined) {
@@ -123,7 +121,6 @@ const validateConfig = (
 		}
 	}
 
-	// Validate ai_harness
 	if ("ai_harness" in obj) {
 		const val = obj.ai_harness;
 		if (
@@ -138,7 +135,6 @@ const validateConfig = (
 		}
 	}
 
-	// Validate add_comments
 	if ("add_comments" in obj) {
 		const val = parseBoolean(obj.add_comments);
 		if (val === undefined) {
@@ -150,7 +146,6 @@ const validateConfig = (
 		}
 	}
 
-	// Validate collapse_summary
 	if ("collapse_summary" in obj) {
 		const val = parseBoolean(obj.collapse_summary);
 		if (val === undefined) {
@@ -162,7 +157,6 @@ const validateConfig = (
 		}
 	}
 
-	// Validate verdict
 	if ("verdict" in obj) {
 		const val = obj.verdict;
 		if (typeof val !== "string" || !VALID_VERDICTS.includes(val as Verdict)) {
@@ -174,7 +168,6 @@ const validateConfig = (
 		}
 	}
 
-	// Validate max_comments
 	if ("max_comments" in obj) {
 		const val = obj.max_comments;
 		if (typeof val !== "number" || !Number.isInteger(val) || val < 0) {
@@ -184,7 +177,6 @@ const validateConfig = (
 		}
 	}
 
-	// Validate bot_marker
 	if ("bot_marker" in obj) {
 		const val = obj.bot_marker;
 		if (typeof val !== "string") {
@@ -194,7 +186,6 @@ const validateConfig = (
 		}
 	}
 
-	// Validate visualize
 	if ("visualize" in obj) {
 		const val = parseBoolean(obj.visualize);
 		if (val === undefined) {
@@ -227,7 +218,6 @@ const applyEnvOverrides = (
 	const overrides: string[] = [];
 	let result = { ...config };
 
-	// RP1_PR_REVIEW_ENABLED
 	const enabledEnv = process.env.RP1_PR_REVIEW_ENABLED;
 	if (enabledEnv !== undefined) {
 		const val = parseBoolean(enabledEnv);
@@ -237,7 +227,6 @@ const applyEnvOverrides = (
 		}
 	}
 
-	// RP1_PR_REVIEW_VERDICT
 	const verdictEnv = process.env.RP1_PR_REVIEW_VERDICT;
 	if (verdictEnv !== undefined) {
 		if (VALID_VERDICTS.includes(verdictEnv as Verdict)) {
@@ -246,7 +235,6 @@ const applyEnvOverrides = (
 		}
 	}
 
-	// RP1_PR_REVIEW_ADD_COMMENTS
 	const addCommentsEnv = process.env.RP1_PR_REVIEW_ADD_COMMENTS;
 	if (addCommentsEnv !== undefined) {
 		const val = parseBoolean(addCommentsEnv);
@@ -256,7 +244,6 @@ const applyEnvOverrides = (
 		}
 	}
 
-	// RP1_PR_REVIEW_VISUALIZE
 	const visualizeEnv = process.env.RP1_PR_REVIEW_VISUALIZE;
 	if (visualizeEnv !== undefined) {
 		const val = parseBoolean(visualizeEnv);
@@ -327,7 +314,6 @@ export const loadPRReviewConfig = (
 						envOverrides: overrides,
 					});
 				}
-				// Real error reading file
 				return TE.left<CLIError, PRReviewConfigResult>(errorOrNotFound);
 			},
 			(rawConfig) =>
