@@ -193,6 +193,8 @@ export const GITIGNORE_PRESETS = {
 .rp1/*
 !.rp1/context/
 !.rp1/context/**
+!.rp1/config/
+!.rp1/config/**
 .rp1/context/meta.json`,
 
 	/** Option B: Track everything except meta.json */
