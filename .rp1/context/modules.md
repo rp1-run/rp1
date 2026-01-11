@@ -1,14 +1,14 @@
 # Module & Component Breakdown
 
 **Project**: rp1 Plugin System
-**Analysis Date**: 2025-12-31
-**Total Components**: 97+ (31 commands, 34 agents, 5 skills, 27+ CLI modules)
+**Analysis Date**: 2026-01-11
+**Total Components**: 100+ (32 commands, 36 agents, 5 skills, 27+ CLI modules)
 
 ## Plugin Modules
 
 ### plugins/base
 **Purpose**: Foundation plugin for knowledge management, documentation, strategy, and security
-**Components**: 9 commands, 13 agents, 5 skills
+**Components**: 9 commands, 12 agents, 5 skills
 
 **Commands**:
 | Command | Agent | Purpose |
@@ -27,7 +27,6 @@
 | Agent | Purpose |
 |-------|---------|
 | kb-spatial-analyzer | File scanning and categorization (0-5 ranking) |
-| kb-index-builder | Index.md generation (deprecated - orchestrator-owned) |
 | kb-concept-extractor | Domain concept extraction |
 | kb-architecture-mapper | Architecture pattern mapping |
 | kb-module-analyzer | Module dependency analysis |
@@ -38,6 +37,7 @@
 | security-validator | Comprehensive security auditing |
 | project-documenter | 12-section project documentation |
 | mermaid-fixer | Mermaid diagram validation and repair |
+| scribe | Documentation scanning and processing |
 
 **Skills**:
 | Skill | Purpose |
@@ -50,7 +50,7 @@
 
 ### plugins/dev
 **Purpose**: Development workflow automation for features, code quality, and PR management
-**Components**: 22 commands, 25 agents
+**Components**: 15 commands, 24 agents, 1 skill
 **Dependency**: Requires rp1-base >= 2.0.0
 
 **Build Helper Agents** (leaf executors with JSON output):
@@ -60,19 +60,16 @@
 | build-task-parser | Extracts structured task information from tasks.md |
 | build-task-grouper | Batches tasks into execution units by complexity |
 | build-verify-aggregator | Aggregates verification results into final status |
+| build-fast-executor | Quick-iteration workflow executor with scope gating |
 
 **Feature Workflow Commands**:
 | Command | Agent | Purpose |
 |---------|-------|---------|
 | build | Orchestrator (10+ agents) | End-to-end 6-step workflow |
+| build-fast | build-fast-executor | Quick iteration development |
 | blueprint | blueprint-wizard | Charter and PRD creation |
 | blueprint-archive | prd-archiver | Archive completed PRDs with features |
 | bootstrap | bootstrap-scaffolder | Greenfield project scaffolding |
-| feature-requirements | feature-requirement-gatherer | Requirements gathering |
-| feature-design | feature-architect | Technical design generation |
-| feature-tasks | feature-tasker | Task breakdown |
-| feature-build | task-builder + reviewer | Implementation from tasks |
-| feature-verify | code-checker + verifier | Acceptance validation |
 | feature-edit | feature-editor | Mid-stream change propagation |
 | feature-archive | feature-archiver | Archive completed features |
 | feature-unarchive | feature-archiver | Restore archived features |
@@ -85,7 +82,6 @@
 | code-audit | code-auditor | Pattern consistency analysis |
 | code-investigate | bug-investigator | Evidence-based bug investigation |
 | code-clean-comments | comment-cleaner | Comment removal |
-| code-quick-build | None (direct + worktree) | Quick fixes and prototypes |
 
 **PR Review Commands**:
 | Command | Agent | Purpose |
@@ -94,13 +90,22 @@
 | pr-visual | pr-visualizer | Diff visualization |
 | address-pr-feedback | pr-feedback-collector | Unified collect, triage, fix workflow |
 
+**Skill**:
+| Skill | Purpose |
+|-------|---------|
+| worktree-workflow | Isolated git worktree workflow for coding agents |
+
 ### plugins/utils
 **Purpose**: Utility plugin for prompt optimization
-**Components**: 1 command, 1 agent
+**Components**: 1 command, 1 agent, 1 skill
 
 | Command | Agent | Purpose |
 |---------|-------|---------|
 | tersify-prompt | prompt-tersifier | Prompt compression |
+
+| Skill | Purpose |
+|-------|---------|
+| prompt-writer | Terse prompt authoring patterns |
 
 ## CLI Modules
 
@@ -111,13 +116,15 @@
 |--------|---------|
 | main.ts | CLI entry point with lazy loading for agent-tools |
 | init.ts | Initialize rp1 in a project |
-| install.ts | Install plugins to OpenCode/Claude Code |
+| install/index.ts | Install plugins to OpenCode/Claude Code |
+| update/index.ts | Update plugins |
+| verify/index.ts | Verify plugin installation |
 | view.ts | Launch web-based documentation viewer |
 | self-update.ts | Update CLI to latest version |
 | check-update.ts | Check for available updates |
 
 ### cli/src/init/
-**Purpose**: Project initialization with 12-step workflow
+**Purpose**: Project initialization with 11-step workflow
 
 | Module | Purpose |
 |--------|---------|
@@ -129,6 +136,7 @@
 | progress.ts | Progress indication |
 | templates/*.ts | Template generation for AGENTS.md, CLAUDE.md |
 | steps/*.ts | Modular init steps (verification, plugin-installation, health-check) |
+| ui/*.tsx | React/Ink UI components for wizard |
 
 ### cli/src/install/
 **Purpose**: Plugin installation logic with fp-ts patterns
@@ -141,6 +149,7 @@
 | verifier.ts | Installation verification |
 | config.ts | Installation configuration |
 | prerequisites.ts | Runtime prerequisite checking |
+| claudecode/index.ts | Claude Code specific installation |
 
 ### cli/src/agent-tools/
 **Purpose**: Framework for AI agent tools with registry
@@ -151,11 +160,12 @@
 | command.ts | Commander.js integration |
 | input.ts | Input handling (file/stdin) |
 | output.ts | JSON output formatting |
-| models.ts | Type definitions |
+| models.ts | Type definitions (ToolResult) |
 | git.ts | Shared git utilities with GitContext pattern |
 | mmd-validate/ | Mermaid validation tool |
 | rp1-root-dir/ | RP1_ROOT resolution with worktree awareness |
 | worktree/ | Git worktree management for isolated execution |
+| comment-extract/ | Comment extraction from source files |
 
 ### cli/src/agent-tools/worktree/
 **Purpose**: Git worktree management for isolated agent execution
@@ -167,16 +177,7 @@
 | cleanup.ts | Worktree removal with optional branch deletion |
 | status.ts | Worktree detection and info |
 | slug.ts | Task slug generation for branch naming |
-| models.ts | Type definitions (WorktreeCreateResult, WorktreeCleanupResult, WorktreeStatusResult) |
-
-### cli/src/agent-tools/rp1-root-dir/
-**Purpose**: RP1_ROOT path resolution with worktree awareness
-
-| Module | Purpose |
-|--------|---------|
-| index.ts | Tool entry point |
-| resolver.ts | Resolution logic (env -> git-common-dir -> cwd) |
-| models.ts | Type definitions (Rp1RootResult, Rp1RootSource) |
+| models.ts | Type definitions (WorktreeCreateResult, WorktreeCleanupResult) |
 
 ### cli/web-ui/
 **Purpose**: React-based documentation viewer with Mermaid support
@@ -187,12 +188,13 @@
 | src/server.ts | Server factory with WebSocket and file watching |
 | src/app/App.tsx | Main app with providers |
 | src/server/http.ts | Bun HTTP server |
-| src/server/routes/static.ts | Static file serving with MIME types |
 | src/server/websocket.ts | WebSocket hub for live reload |
+| src/server/file-watcher.ts | File system monitoring |
+| src/server/project.ts | Project management |
+| src/server/registry.ts | Project registry |
 | src/components/MarkdownViewer/ | Markdown rendering with Mermaid |
 | src/components/FileTree/ | Directory navigation |
-| src/providers/*.tsx | Theme, WebSocket, DiagramFullscreen providers |
-| src/hooks/*.ts | Custom hooks (useFileTree, useFileContent) |
+| src/providers/*.tsx | Theme, WebSocket, Project providers |
 
 ### packages/catppuccin-mermaid/
 **Purpose**: Catppuccin color theme library for Mermaid diagrams
@@ -203,7 +205,6 @@
 | src/theme.ts | Theme generation |
 | src/palette.ts | Color palette definitions |
 | src/flavors/*.ts | Latte, frappe, macchiato, mocha flavors |
-| src/utils/contrast.ts | WCAG contrast utilities |
 
 ## Module Dependencies
 
@@ -231,13 +232,6 @@ graph TD
         Build --> Verifier[feature-verifier]
     end
 
-    subgraph "PR Review"
-        PRReview[pr-review] --> Splitter[pr-review-splitter]
-        PRReview --> SubReviewer[pr-sub-reviewer]
-        PRReview --> Synth[pr-review-synthesizer]
-        PRReview --> Reporter[pr-review-reporter]
-    end
-
     subgraph "CLI Modules"
         Main[main.ts] --> Init[init/]
         Main --> Install[install/]
@@ -246,7 +240,6 @@ graph TD
         AgentTools --> Worktree[worktree/]
         AgentTools --> Rp1Root[rp1-root-dir/]
         Worktree --> Git[git.ts]
-        Rp1Root --> Git
     end
 ```
 
@@ -254,15 +247,14 @@ graph TD
 
 | Module | Commands | Agents | Skills | Lines (est.) |
 |--------|----------|--------|--------|--------------|
-| plugins/base | 9 | 13 | 5 | ~5,500 |
-| plugins/dev | 22 | 21 | 0 | ~8,700 |
-| plugins/utils | 1 | 1 | 0 | ~300 |
-| cli/src | 6 | - | - | ~3,000 |
+| plugins/base | 9 | 12 | 5 | ~5,500 |
+| plugins/dev | 15 | 24 | 1 | ~9,200 |
+| plugins/utils | 1 | 1 | 1 | ~800 |
+| cli/src | 8 | - | - | ~3,000 |
 | cli/src/init | - | - | - | ~2,500 |
 | cli/src/install | - | - | - | ~1,200 |
-| cli/src/agent-tools | - | - | - | ~1,200 |
-| cli/web-ui | - | - | - | ~2,500 |
-| packages/catppuccin-mermaid | - | - | - | ~400 |
+| cli/src/agent-tools | - | - | - | ~1,500 |
+| cli/web-ui | - | - | - | ~2,800 |
 
 ## Cross-Module Patterns
 
@@ -285,9 +277,6 @@ All git mutations use GitContext.repoRoot to ensure operations target main repo,
 
 ### Worktree Isolation
 Feature builds and quick builds use git worktrees for isolated execution without affecting user's working directory. Clean rollback on failure.
-
-### AFK Mode Auto-Selection
-Commands support --afk flag for autonomous execution with auto-selected defaults from KB context. All decisions logged for review.
 
 ### fp-ts Functional Error Handling
 CLI modules use Either/TaskEither for type-safe error handling:

@@ -2,8 +2,8 @@
 
 **Type**: Single Project
 **Languages**: TypeScript, Markdown, Shell, Python
-**Version**: 0.2.9
-**Updated**: 2026-01-02
+**Version**: 0.2.14
+**Updated**: 2026-01-11
 
 ## Project Summary
 
@@ -23,10 +23,10 @@ rp1 is a Claude Code plugin system that automates development workflows through 
 
 | File | Lines | Load For |
 |------|-------|----------|
-| architecture.md | ~328 | System design, component relationships, data flows |
-| modules.md | ~314 | Component breakdown, module responsibilities |
-| patterns.md | ~142 | Code conventions, implementation patterns |
-| concept_map.md | ~206 | Domain terminology, business concepts |
+| architecture.md | ~317 | System design, component relationships, data flows |
+| modules.md | ~302 | Component breakdown, module responsibilities |
+| patterns.md | ~141 | Code conventions, implementation patterns |
+| concept_map.md | ~220 | Domain terminology, business concepts |
 
 ## Task-Based Loading
 
@@ -49,21 +49,21 @@ Read: .rp1/context/{filename}
 ```
 rp1/
 ├── plugins/
-│   ├── base/                  # Foundation plugin (10 commands, 13 agents, 5 skills)
+│   ├── base/                  # Foundation plugin (9 commands, 12 agents, 5 skills)
 │   │   ├── .claude-plugin/    # Plugin metadata
 │   │   ├── agents/            # Constitutional agents
 │   │   ├── commands/          # Slash commands (thin wrappers)
 │   │   └── skills/            # Reusable capabilities
-│   ├── dev/                   # Development plugin (16 commands, 29 agents)
+│   ├── dev/                   # Development plugin (15 commands, 24 agents, 1 skill)
 │   │   ├── .claude-plugin/    # Plugin metadata (depends on base)
 │   │   ├── agents/            # Constitutional agents
 │   │   ├── commands/          # Slash commands
 │   │   └── skills/            # worktree-workflow skill
-│   └── utils/                 # Utility plugin (1 command, 1 agent)
+│   └── utils/                 # Utility plugin (1 command, 1 agent, 1 skill)
 │       └── ...
 ├── cli/                       # Cross-platform CLI
 │   ├── src/                   # TypeScript source (fp-ts patterns)
-│   │   ├── commands/          # CLI commands (init, install, view, uninstall)
+│   │   ├── commands/          # CLI commands (init, install, view, update, verify)
 │   │   ├── init/              # Project initialization
 │   │   ├── install/           # Plugin installation
 │   │   └── agent-tools/       # AI agent tools (mmd-validate, worktree, rp1-root-dir, comment-extract)
@@ -84,11 +84,8 @@ rp1/
 
 # Individual feature steps
 /blueprint my-prd
-/feature-requirements my-feature
-/feature-design my-feature
-/feature-tasks my-feature
-/feature-build my-feature
-/feature-verify my-feature
+/feature-edit my-feature
+/feature-archive my-feature
 
 # KB generation
 /knowledge-build              # Full: 10-15 min, Incremental: 2-5 min
@@ -96,7 +93,7 @@ rp1/
 # Code quality
 /code-check                   # Fast hygiene (lint, test)
 /code-audit                   # Pattern analysis
-/code-quick-build             # Quick builds with worktree isolation
+/code-investigate             # Bug investigation
 
 # PR review
 /pr-review                    # Map-reduce review with confidence gating
