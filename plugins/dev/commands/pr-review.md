@@ -46,17 +46,7 @@ P5   (seq):  Comment Posting (CI only) → GitHub Review
 
 ### P-1: Configuration and CI Detection (NEW)
 
-1. **Detect CI mode**:
-   Check environment variables in order:
-   - `GITHUB_ACTIONS=true` → GitHub Actions
-   - `BUILDKITE=true` → Buildkite
-   - `GITLAB_CI=true` → GitLab CI
-   - `CI=true` → Generic CI
-   - None → Local mode
-
-   Store: `CI_MODE` (boolean), `CI_PLATFORM` (string or null)
-
-2. **Load config file**:
+1. **Load config file**:
    Read `.rp1/config/pr-review.yaml` if exists. Schema:
    ```yaml
    enabled: boolean        # default: false
@@ -68,8 +58,16 @@ P5   (seq):  Comment Posting (CI only) → GitHub Review
    max_comments: integer   # default: 25
    bot_marker: string      # default: "<!-- rp1-review -->"
    visualize: boolean      # default: false
+   ci_platform: string     # "github" | "buildkite" | "gitlab", default: "github"
    ```
    If file missing: use all defaults.
+
+2. **Detect CI mode**:
+   Check: `CI=true` environment variable
+   - If set → `CI_MODE = true`
+   - If not set → `CI_MODE = false` (Local mode)
+
+   Platform comes from config: `CI_PLATFORM = config.ci_platform` (default: "github")
 
 3. **Apply environment overrides**:
    | Env Var | Overrides |
@@ -86,8 +84,8 @@ P5   (seq):  Comment Posting (CI only) → GitHub Review
      EXIT
    ```
 
-5. **Build CI_CONTEXT** (GitHub Actions only):
-   If `CI_PLATFORM == "github_actions"`:
+5. **Build CI_CONTEXT** (GitHub only):
+   If `CI_PLATFORM == "github"`:
    - Read `GITHUB_EVENT_PATH` JSON file
    - Extract: pr_number, action, is_draft
    - Read `GITHUB_REPOSITORY` → owner, repo

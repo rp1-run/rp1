@@ -172,7 +172,7 @@ Report: .rp1/work/pr-reviews/pr-123.md
 
 ## CI Mode
 
-When running in a CI/CD environment (detected via `GITHUB_ACTIONS`, `BUILDKITE`, `GITLAB_CI`, or `CI` environment variables), the command operates in **CI mode** with additional capabilities.
+When running in a CI/CD environment (detected via `CI=true` environment variable), the command operates in **CI mode** with additional capabilities. The CI platform is determined by the `ci_platform` config option (default: `github`).
 
 ### CI Mode Behavior
 
