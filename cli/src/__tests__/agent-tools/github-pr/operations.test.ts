@@ -225,31 +225,3 @@ describe("github-pr operations", () => {
 		});
 	});
 });
-
-describe("bot detection", () => {
-	test("detects [bot] suffix", () => {
-		const BOT_PATTERNS = [
-			/\[bot\]$/i,
-			/-bot$/i,
-			/^dependabot$/i,
-			/^github-actions$/i,
-			/^renovate$/i,
-			/^codecov$/i,
-			/^sonarcloud$/i,
-		];
-
-		const isBot = (username: string): boolean =>
-			BOT_PATTERNS.some((pattern) => pattern.test(username));
-
-		expect(isBot("dependabot[bot]")).toBe(true);
-		expect(isBot("github-actions[bot]")).toBe(true);
-		expect(isBot("some-bot")).toBe(true);
-		expect(isBot("dependabot")).toBe(true);
-		expect(isBot("renovate")).toBe(true);
-		expect(isBot("codecov")).toBe(true);
-		expect(isBot("sonarcloud")).toBe(true);
-		expect(isBot("github-actions")).toBe(true);
-		expect(isBot("human-reviewer")).toBe(false);
-		expect(isBot("john-doe")).toBe(false);
-	});
-});
