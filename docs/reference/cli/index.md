@@ -22,6 +22,7 @@ Agent tools are CLI utilities designed for use by AI agents during automated wor
 | Command | Description |
 |---------|-------------|
 | [`rp1-root-dir`](rp1-root-dir.md) | Resolve RP1_ROOT path with worktree awareness |
+| [`work`](work.md) | Record workflow status updates for progress tracking |
 | [`worktree`](worktree.md) | Create and manage git worktrees for isolated execution |
 | [`github-pr`](../agent-tools.md#github-pr) | GitHub PR operations (submit-review, add-reaction, reply-comment, fetch-comments) |
 
