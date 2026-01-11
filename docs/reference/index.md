@@ -41,6 +41,18 @@ Internal CLI utilities for AI agent workflows:
 
 ---
 
+## Web UI
+
+The rp1 web UI provides browser-based documentation viewing and agent activity monitoring.
+
+| Feature | Description |
+|---------|-------------|
+| [Status Dashboard](web-ui.md#status-dashboard) | Real-time visibility into agent workflow progress |
+
+[:octicons-arrow-right-24: Web UI Reference](web-ui.md)
+
+---
+
 ## Base Plugin (6 commands)
 
 The base plugin provides foundation capabilities: knowledge management, documentation generation, strategic analysis, and security validation.
@@ -137,3 +149,4 @@ Looking for something specific?
 - **Run code checks**: [`code-check`](dev/code-check.md)
 - **Security scan**: [`analyse-security`](base/analyse-security.md)
 - **Task dependency format**: [`dag-format`](dag-format.md)
+- **Monitor agent progress**: [Status Dashboard](web-ui.md#status-dashboard)

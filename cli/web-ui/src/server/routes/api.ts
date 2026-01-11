@@ -30,6 +30,30 @@ export interface FileContent {
 	frontmatter?: Record<string, unknown>;
 }
 
+export interface StatusUpdate {
+	id: number;
+	task: string | null;
+	status: string;
+	message: string | null;
+	createdAt: string;
+}
+
+export interface FeatureStatus {
+	feature: string;
+	status: "started" | "in_progress" | "completed" | "failed";
+	currentTask: string | null;
+	message: string | null;
+	lastUpdate: string;
+	updates: StatusUpdate[];
+}
+
+export interface StatusResponse {
+	projectId: string;
+	active: FeatureStatus[];
+	recentlyCompleted: FeatureStatus[];
+	lastUpdated: string | null;
+}
+
 /**
  * Context for API handlers.
  */
@@ -469,5 +493,117 @@ export async function handleProjectContentRequest(
 		return jsonResponse(response);
 	} catch (error) {
 		return errorResponse(`Failed to read file: ${String(error)}`);
+	}
+}
+
+/**
+ * Handle GET /api/projects/:id/status - get status updates for a project.
+ */
+export async function handleProjectStatusRequest(
+	projectId: string,
+): Promise<Response> {
+	try {
+		const project = await getProject(projectId);
+
+		if (!project) {
+			return errorResponse(`Project not found: ${projectId}`, 404);
+		}
+
+		const { getLatestStatusByFeature, queryStatusUpdatesForFeatures } =
+			await import("../../../../src/agent-tools/work/database");
+		const { isLeft } = await import("fp-ts/lib/Either.js");
+
+		const latestResult = await getLatestStatusByFeature(project.path)();
+
+		if (isLeft(latestResult)) {
+			const { formatError } = await import("../../../../shared/errors");
+			return errorResponse(
+				`Failed to query status: ${formatError(latestResult.left, false)}`,
+			);
+		}
+
+		const latestStatuses = latestResult.right;
+
+		// Return early with null lastUpdated if no statuses exist
+		if (latestStatuses.length === 0) {
+			const response: StatusResponse = {
+				projectId,
+				active: [],
+				recentlyCompleted: [],
+				lastUpdated: null,
+			};
+			return jsonResponse(response);
+		}
+
+		const now = new Date();
+		const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+		// Batch query: fetch updates for all features in a single query
+		const featureNames = latestStatuses.map((r) => r.feature);
+		const updatesResult = await queryStatusUpdatesForFeatures(
+			project.path,
+			featureNames,
+			10,
+		)();
+
+		const updatesMap = isLeft(updatesResult)
+			? new Map<string, StatusUpdate[]>()
+			: updatesResult.right;
+
+		const featureMap = new Map<string, FeatureStatus>();
+
+		for (const record of latestStatuses) {
+			const rawUpdates = updatesMap.get(record.feature) ?? [];
+			const updates: StatusUpdate[] = rawUpdates.map((update) => ({
+				id: update.id,
+				task: update.task,
+				status: update.status,
+				message: update.message,
+				createdAt: update.createdAt,
+			}));
+
+			featureMap.set(record.feature, {
+				feature: record.feature,
+				status: record.status,
+				currentTask: record.task,
+				message: record.message,
+				lastUpdate: record.createdAt,
+				updates,
+			});
+		}
+
+		const active: FeatureStatus[] = [];
+		const recentlyCompleted: FeatureStatus[] = [];
+
+		for (const status of featureMap.values()) {
+			if (status.status !== "completed") {
+				active.push(status);
+			} else {
+				const completedAt = new Date(status.lastUpdate);
+				if (completedAt >= twentyFourHoursAgo) {
+					recentlyCompleted.push(status);
+				}
+			}
+		}
+
+		active.sort(
+			(a, b) =>
+				new Date(b.lastUpdate).getTime() - new Date(a.lastUpdate).getTime(),
+		);
+		recentlyCompleted.sort(
+			(a, b) =>
+				new Date(b.lastUpdate).getTime() - new Date(a.lastUpdate).getTime(),
+		);
+
+		const response: StatusResponse = {
+			projectId,
+			active,
+			recentlyCompleted,
+			lastUpdated: latestStatuses[0].createdAt,
+		};
+
+		return jsonResponse(response);
+	} catch (error) {
+		return errorResponse(`Failed to get status: ${String(error)}`);
 	}
 }

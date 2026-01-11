@@ -25,7 +25,19 @@ interface HeartbeatMessage {
 	timestamp: string;
 }
 
-type ServerMessage = FileChangedMessage | TreeChangedMessage | HeartbeatMessage;
+interface StatusChangedMessage {
+	type: "status_changed";
+	projectId: string;
+	feature: string;
+	status: string;
+	timestamp: string;
+}
+
+type ServerMessage =
+	| FileChangedMessage
+	| TreeChangedMessage
+	| HeartbeatMessage
+	| StatusChangedMessage;
 
 type ConnectionStatus = "connecting" | "connected" | "disconnected";
 
@@ -37,6 +49,7 @@ interface WebSocketContextValue {
 	unsubscribe: (path: string) => void;
 	onFileChange: (callback: (msg: FileChangedMessage) => void) => () => void;
 	onTreeChange: (callback: (msg: TreeChangedMessage) => void) => () => void;
+	onStatusChange: (callback: (msg: StatusChangedMessage) => void) => () => void;
 }
 
 const WebSocketContext = createContext<WebSocketContextValue | null>(null);
@@ -69,6 +82,9 @@ export function WebSocketProvider({
 	const treeChangeListenersRef = useRef<Set<(msg: TreeChangedMessage) => void>>(
 		new Set(),
 	);
+	const statusChangeListenersRef = useRef<
+		Set<(msg: StatusChangedMessage) => void>
+	>(new Set());
 	const subscriptionsRef = useRef<Set<string>>(new Set());
 
 	useEffect(() => {
@@ -124,6 +140,11 @@ export function WebSocketProvider({
 							break;
 						case "tree:changed":
 							for (const listener of treeChangeListenersRef.current) {
+								listener(message);
+							}
+							break;
+						case "status_changed":
+							for (const listener of statusChangeListenersRef.current) {
 								listener(message);
 							}
 							break;
@@ -202,6 +223,16 @@ export function WebSocketProvider({
 		[],
 	);
 
+	const onStatusChange = useCallback(
+		(callback: (msg: StatusChangedMessage) => void) => {
+			statusChangeListenersRef.current.add(callback);
+			return () => {
+				statusChangeListenersRef.current.delete(callback);
+			};
+		},
+		[],
+	);
+
 	const setProjectId = useCallback((newProjectId: string | null) => {
 		setProjectIdState(newProjectId);
 	}, []);
@@ -216,6 +247,7 @@ export function WebSocketProvider({
 				unsubscribe,
 				onFileChange,
 				onTreeChange,
+				onStatusChange,
 			}}
 		>
 			{children}

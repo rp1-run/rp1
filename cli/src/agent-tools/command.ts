@@ -17,6 +17,27 @@ import { getTool, type ToolOptions } from "./index.js";
 import { readInput } from "./input.js";
 import { formatOutput } from "./output.js";
 import {
+	closeDatabase,
+	executeUpdate as executeWorkUpdate,
+} from "./work/index.js";
+import { VALID_STATUSES } from "./work/models.js";
+import { validateUpdateOptions } from "./work/update.js";
+
+// Register process exit handlers for graceful cleanup
+const cleanupAndExit = () => {
+	closeDatabase();
+};
+process.on("exit", cleanupAndExit);
+process.on("SIGTERM", () => {
+	cleanupAndExit();
+	process.exit(0);
+});
+process.on("SIGINT", () => {
+	cleanupAndExit();
+	process.exit(0);
+});
+
+import {
 	executeCleanup,
 	executeCreate,
 	executeStatus,
@@ -28,6 +49,7 @@ import "./rp1-root-dir/index.js";
 import "./worktree/index.js";
 import "./comment-extract/index.js";
 import "./github-pr/index.js";
+import "./work/index.js";
 
 /** Default timeout for tool execution in milliseconds */
 const DEFAULT_TIMEOUT = 30000;
@@ -63,6 +85,7 @@ Available Tools:
   worktree          Manage git worktrees for isolated agent execution
   comment-extract   Extract comments from git-changed files
   github-pr         GitHub PR operations (submit-review, add-reaction, reply-comment, fetch-comments)
+  work              Track agent workflow progress with status updates
 
 Examples:
   rp1 agent-tools mmd-validate ./document.md
@@ -75,6 +98,7 @@ Examples:
   rp1 agent-tools comment-extract branch main
   rp1 agent-tools comment-extract unstaged main
   echo '{"owner":"org","repo":"repo","pr_number":123}' | rp1 agent-tools github-pr fetch-comments
+  rp1 agent-tools work update --project /path/to/project --feature my-feature --status in_progress
 `,
 	);
 
@@ -164,7 +188,6 @@ Examples:
 			const result = await tool.execute(content, toolOptions)();
 
 			if (E.isLeft(result)) {
-				// Tool execution error - exit code 1
 				console.error(
 					createErrorResponse(toolName, formatError(result.left, false)),
 				);
@@ -467,6 +490,131 @@ Examples:
 				base,
 				lineScoped: options.lineScoped,
 			})();
+
+			if (E.isLeft(result)) {
+				console.error(
+					createErrorResponse(toolName, formatError(result.left, false)),
+				);
+				process.exit(1);
+			}
+
+			console.log(formatOutput(result.right));
+			process.exit(0);
+		},
+	);
+
+/**
+ * work subcommand.
+ * Tracks agent workflow progress with status updates.
+ */
+const workCommand = agentToolsCommand
+	.command("work")
+	.description("Track agent workflow progress with status updates")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Provides subcommands for tracking agent workflow progress via status updates.
+  Status updates are stored in a global SQLite database at ~/.rp1/status.db.
+
+Subcommands:
+  update    Record a status update for a feature/task
+
+Examples:
+  rp1 agent-tools work update --project /path/to/project --feature my-feature --status started
+  rp1 agent-tools work update --project /path/to/project --feature my-feature --task T1 --status in_progress --message "Working on requirements"
+`,
+	);
+
+/**
+ * work update subcommand.
+ * Records a status update for agent workflow tracking.
+ */
+workCommand
+	.command("update")
+	.description("Record a status update for a feature/task")
+	.requiredOption("-p, --project <path>", "Absolute path to project root")
+	.requiredOption("-f, --feature <name>", "Feature identifier (kebab-case)")
+	.option("-t, --task <id>", "Task identifier within feature")
+	.requiredOption(
+		"-s, --status <status>",
+		`Status state (${VALID_STATUSES.join(", ")})`,
+	)
+	.option("-m, --message <text>", "Human-readable status message")
+	.option("--metadata <json>", "JSON string for additional context")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Records a status update to the global status database (~/.rp1/status.db).
+  Creates the database file automatically on first invocation.
+
+Arguments:
+  --project <path>     Absolute path to project root (required)
+  --feature <name>     Feature identifier in kebab-case (required)
+  --task <id>          Task identifier within feature (optional)
+  --status <status>    Status state: ${VALID_STATUSES.join(", ")} (required)
+  --message <text>     Human-readable status message (optional)
+  --metadata <json>    JSON string for additional context (optional)
+
+Validation:
+  - Project path must be absolute
+  - Feature name must match pattern ^[a-z0-9-]+$
+  - Status must be one of the valid states
+  - Metadata must be valid JSON if provided
+
+Output:
+  JSON with the recorded status update:
+  - id: Auto-generated record ID
+  - projectPath: Project path
+  - feature: Feature name
+  - task: Task identifier (null if not specified)
+  - status: Status state
+  - message: Status message (null if not specified)
+  - createdAt: ISO 8601 UTC timestamp
+
+Examples:
+  # Record feature start
+  rp1 agent-tools work update \\
+    --project /Users/dev/myapp \\
+    --feature auth-refactor \\
+    --status started \\
+    --message "Starting feature implementation"
+
+  # Record task progress with metadata
+  rp1 agent-tools work update \\
+    --project /Users/dev/myapp \\
+    --feature auth-refactor \\
+    --task T1 \\
+    --status in_progress \\
+    --message "Gathering requirements" \\
+    --metadata '{"step":"requirements","progress":50}'
+`,
+	)
+	.action(
+		async (options: {
+			project: string;
+			feature: string;
+			task?: string;
+			status: string;
+			message?: string;
+			metadata?: string;
+		}): Promise<void> => {
+			const toolName = "work";
+
+			const validationResult = await validateUpdateOptions(options)();
+
+			if (E.isLeft(validationResult)) {
+				console.error(
+					createErrorResponse(
+						toolName,
+						formatError(validationResult.left, false),
+					),
+				);
+				process.exit(1);
+			}
+
+			const result = await executeWorkUpdate(validationResult.right)();
 
 			if (E.isLeft(result)) {
 				console.error(

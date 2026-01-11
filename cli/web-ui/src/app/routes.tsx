@@ -7,6 +7,7 @@ import {
 	useParams,
 } from "react-router-dom";
 import { MarkdownViewer } from "@/components/MarkdownViewer";
+import { StatusDashboard } from "@/pages/StatusDashboard";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 import { Layout } from "./Layout";
 
@@ -33,6 +34,10 @@ export const router = createBrowserRouter([
 			{
 				path: "view/*",
 				element: <ContentView />,
+			},
+			{
+				path: "status",
+				element: <StatusDashboard />,
 			},
 		],
 	},

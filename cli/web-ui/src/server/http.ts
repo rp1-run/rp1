@@ -162,6 +162,12 @@ async function handleApiRequest(
 			return handleProjectFilesRequest(projectId);
 		}
 
+		// GET /api/projects/:id/status - get status updates for project
+		if (subPath === "/status" && method === "GET") {
+			const { handleProjectStatusRequest } = await import("./routes/api");
+			return handleProjectStatusRequest(projectId);
+		}
+
 		// GET /api/projects/:id/content/* - get file content
 		if (subPath.startsWith("/content/") && method === "GET") {
 			const { handleProjectContentRequest } = await import("./routes/api");
