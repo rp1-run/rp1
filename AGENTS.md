@@ -169,6 +169,57 @@ If command fails, inform user to install:
 
 If needed, read an example agent spec at: ./plugins/base/agents/kb-spatial-analyzer.md
 
+### Agent Tools
+
+Agent tools are CLI utilities that provide structured JSON output for programmatic use within agents. They are invoked via `rp1 agent-tools <tool> <subcommand>`.
+
+#### Work Status Updates
+
+The `work` tool enables agents to report workflow progress for real-time visibility in the Status Dashboard.
+
+**Command**: `rp1 agent-tools work update`
+
+**Usage Pattern**:
+```bash
+# Report feature started
+rp1 agent-tools work update \
+  --project "$(pwd)" \
+  --feature my-feature \
+  --status started \
+  --message "Beginning feature implementation"
+
+# Report task in progress
+rp1 agent-tools work update \
+  --project "$(pwd)" \
+  --feature my-feature \
+  --task requirements \
+  --status in_progress \
+  --message "Gathering requirements"
+
+# Report completion
+rp1 agent-tools work update \
+  --project "$(pwd)" \
+  --feature my-feature \
+  --status completed \
+  --message "Feature implemented successfully"
+```
+
+**Status Values**:
+- `started` - Work has begun
+- `in_progress` - Active work in progress
+- `completed` - Work finished successfully
+- `failed` - Work encountered an error
+
+**Agent Integration Guidelines**:
+
+1. **Report at key milestones**: Start of feature, task transitions, completion/failure
+2. **Use meaningful messages**: Include context about current activity
+3. **Include task identifier**: When working on specific tasks within a feature
+4. **Project path**: Always use absolute path (use `$(pwd)` or resolve fully)
+5. **Feature naming**: Use kebab-case matching the feature ID (e.g., `auth-refactor`)
+
+**Output**: Returns ToolResult JSON envelope with the recorded status update ID and timestamp.
+
 ---
 
 ## 🧪 Testing
