@@ -23,6 +23,16 @@ import { VALID_STATUSES } from "./models.js";
 /** Default database file location */
 const DEFAULT_DB_PATH = join(homedir(), ".rp1", "status.db");
 
+/** Valid feature name pattern (kebab-case with alphanumeric) */
+const FEATURE_PATTERN = /^[a-z0-9-]+$/;
+
+/**
+ * Validate that a feature name matches the expected pattern.
+ * Used to prevent SQL injection when building dynamic queries.
+ */
+const isValidFeatureName = (name: string): boolean =>
+	FEATURE_PATTERN.test(name);
+
 /** SQL schema for status_updates table */
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS status_updates (
@@ -41,7 +51,18 @@ CREATE INDEX IF NOT EXISTS idx_status_created ON status_updates(created_at);
 CREATE INDEX IF NOT EXISTS idx_status_feature ON status_updates(project_path, feature);
 `;
 
-/** Cached database connection */
+/**
+ * Cached database connection (singleton pattern).
+ *
+ * Why singleton: SQLite with WAL mode benefits from connection reuse - opening
+ * multiple connections incurs lock contention and initialization overhead.
+ * The status database is accessed frequently during agent operations, so a
+ * persistent connection significantly improves write performance.
+ *
+ * Note: This deviates from the fp-ts immutability patterns used elsewhere.
+ * The trade-off is justified for database connections where connection pooling
+ * is standard practice.
+ */
 let dbInstance: Database | null = null;
 
 /**
@@ -239,6 +260,16 @@ export const queryStatusUpdatesForFeatures = (
 				async () => {
 					if (features.length === 0) {
 						return new Map<string, StatusUpdateRecord[]>();
+					}
+
+					// Validate feature names to prevent SQL injection
+					const invalidFeatures = features.filter(
+						(f) => !isValidFeatureName(f),
+					);
+					if (invalidFeatures.length > 0) {
+						throw new Error(
+							`Invalid feature names (must match ^[a-z0-9-]+$): ${invalidFeatures.join(", ")}`,
+						);
 					}
 
 					// Use window function to rank updates per feature

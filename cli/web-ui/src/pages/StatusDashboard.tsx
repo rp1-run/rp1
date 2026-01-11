@@ -163,7 +163,7 @@ function CollapsibleSection({
 export function StatusDashboard() {
 	const params = useParams();
 	const projectId = params.projectId;
-	const { status: wsStatus } = useWebSocket();
+	const { status: wsStatus, onStatusChange } = useWebSocket();
 
 	const [statusData, setStatusData] = useState<StatusResponse | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -173,7 +173,6 @@ export function StatusDashboard() {
 	const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
 		null,
 	);
-	const wsRef = useRef<WebSocket | null>(null);
 
 	const fetchStatus = useCallback(async () => {
 		if (!projectId) {
@@ -206,40 +205,27 @@ export function StatusDashboard() {
 		fetchStatus();
 	}, [fetchStatus]);
 
+	// Subscribe to status changes via WebSocket provider
 	useEffect(() => {
 		if (!projectId || !autoRefresh) {
 			return;
 		}
 
-		const wsUrl = `ws://127.0.0.1:7710/ws?projectId=${encodeURIComponent(projectId)}`;
-		const ws = new WebSocket(wsUrl);
-
-		ws.onmessage = (event) => {
-			try {
-				const message = JSON.parse(event.data);
-				if (message.type === "status_changed") {
-					setIsRefreshing(true);
-					fetchStatus();
-				}
-			} catch {
-				// Ignore parse errors
+		const unsubscribe = onStatusChange((message) => {
+			// Only refresh if the status change is for our project
+			if (message.projectId === projectId) {
+				setIsRefreshing(true);
+				fetchStatus();
 			}
-		};
+		});
 
-		ws.onerror = () => {
-			ws.close();
-		};
+		return unsubscribe;
+	}, [projectId, autoRefresh, fetchStatus, onStatusChange]);
 
-		wsRef.current = ws;
-
-		return () => {
-			ws.close();
-			wsRef.current = null;
-		};
-	}, [projectId, autoRefresh, fetchStatus]);
-
+	// Fallback polling when WebSocket is not connected
 	useEffect(() => {
-		if (!autoRefresh) {
+		// Only poll when auto-refresh is enabled AND WebSocket is not connected
+		if (!autoRefresh || wsStatus === "connected") {
 			if (pollingIntervalRef.current) {
 				clearInterval(pollingIntervalRef.current);
 				pollingIntervalRef.current = null;
@@ -258,7 +244,7 @@ export function StatusDashboard() {
 				pollingIntervalRef.current = null;
 			}
 		};
-	}, [autoRefresh, fetchStatus]);
+	}, [autoRefresh, fetchStatus, wsStatus]);
 
 	const handleManualRefresh = useCallback(() => {
 		setIsRefreshing(true);

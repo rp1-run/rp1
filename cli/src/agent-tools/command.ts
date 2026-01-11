@@ -16,9 +16,27 @@ import {
 import { getTool, type ToolOptions } from "./index.js";
 import { readInput } from "./input.js";
 import { formatOutput } from "./output.js";
-import { executeUpdate as executeWorkUpdate } from "./work/index.js";
+import {
+	closeDatabase,
+	executeUpdate as executeWorkUpdate,
+} from "./work/index.js";
 import { VALID_STATUSES } from "./work/models.js";
 import { validateUpdateOptions } from "./work/update.js";
+
+// Register process exit handlers for graceful cleanup
+const cleanupAndExit = () => {
+	closeDatabase();
+};
+process.on("exit", cleanupAndExit);
+process.on("SIGTERM", () => {
+	cleanupAndExit();
+	process.exit(0);
+});
+process.on("SIGINT", () => {
+	cleanupAndExit();
+	process.exit(0);
+});
+
 import {
 	executeCleanup,
 	executeCreate,
