@@ -28,6 +28,8 @@ export interface ProjectEntry {
 	readonly lastAccessedAt: string;
 	/** False if .rp1/ directory is missing on last check */
 	readonly available: boolean;
+	/** Number of active (non-completed) features (optional, populated by API) */
+	readonly activeFeatureCount?: number;
 }
 
 /**

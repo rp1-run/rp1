@@ -13,6 +13,7 @@ import {
 } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { useWebSocket } from "@/providers/WebSocketProvider";
 import type { ProjectEntry } from "../server/registry";
 
 interface ProjectsResponse {
@@ -30,6 +31,7 @@ export function ProjectSwitcher() {
 	const navigate = useNavigate();
 	const params = useParams();
 	const currentProjectId = params.projectId;
+	const { onStatusChange } = useWebSocket();
 
 	const fetchProjects = useCallback(async () => {
 		try {
@@ -43,6 +45,14 @@ export function ProjectSwitcher() {
 			setLoading(false);
 		}
 	}, []);
+
+	// Refetch projects when status changes to update active feature counts
+	useEffect(() => {
+		const unsubscribe = onStatusChange(() => {
+			fetchProjects();
+		});
+		return unsubscribe;
+	}, [onStatusChange, fetchProjects]);
 
 	useEffect(() => {
 		fetchProjects();
@@ -220,6 +230,16 @@ export function ProjectSwitcher() {
 								<span className="w-3.5" />
 							)}
 							<span className="truncate flex-1">{project.name}</span>
+							{(project.activeFeatureCount ?? 0) > 0 && (
+								// biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-label for screen readers
+								<span
+									className="text-terminal-green text-[0.5rem] leading-none flex-shrink-0"
+									title="Has active work"
+									aria-label="Has active work"
+								>
+									&#9679;
+								</span>
+							)}
 							{!project.available && (
 								<span className="text-xs">(unavailable)</span>
 							)}

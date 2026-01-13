@@ -306,8 +306,25 @@ export async function handleProjectsListRequest(): Promise<Response> {
 		const projects = await getAllProjects();
 		const lastInvoked = await getLastInvokedProjectId();
 
+		// Fetch active feature counts for all projects in parallel
+		const { getActiveFeatureCount } = await import(
+			"../../../../src/agent-tools/work/database"
+		);
+		const { isLeft } = await import("fp-ts/lib/Either.js");
+
+		const projectsWithStatus = await Promise.all(
+			projects.map(async (project) => {
+				const countResult = await getActiveFeatureCount(project.path)();
+				const activeFeatureCount = isLeft(countResult) ? 0 : countResult.right;
+				return {
+					...project,
+					activeFeatureCount,
+				};
+			}),
+		);
+
 		return jsonResponse({
-			projects,
+			projects: projectsWithStatus,
 			lastInvoked,
 		});
 	} catch (error) {

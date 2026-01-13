@@ -450,4 +450,47 @@ export const getRecentlyCompletedTasks = (
 		),
 	);
 
+/**
+ * Get count of active (non-completed) features for a project.
+ *
+ * @param projectPath - Project path to filter by
+ * @param dbPath - Database file path (optional, defaults to ~/.rp1/status.db)
+ * @returns TaskEither with count of active features
+ */
+export const getActiveFeatureCount = (
+	projectPath: string,
+	dbPath?: string,
+): TE.TaskEither<CLIError, number> =>
+	pipe(
+		getDatabase(dbPath),
+		TE.chain((db) =>
+			TE.tryCatch(
+				async () => {
+					// Count distinct features where the latest status is not 'completed'
+					const stmt = db.prepare(`
+						SELECT COUNT(DISTINCT s.feature) as count
+						FROM status_updates s
+						INNER JOIN (
+							SELECT feature, MAX(created_at) as max_created
+							FROM status_updates
+							WHERE project_path = $projectPath
+							GROUP BY feature
+						) latest ON s.feature = latest.feature AND s.created_at = latest.max_created
+						WHERE s.project_path = $projectPath
+						AND s.status != 'completed'
+					`);
+
+					const result = stmt.get({ $projectPath: projectPath }) as {
+						count: number;
+					};
+					return result.count;
+				},
+				(error) =>
+					runtimeError(
+						`Failed to get active feature count: ${error instanceof Error ? error.message : String(error)}`,
+					),
+			),
+		),
+	);
+
 export { DEFAULT_DB_PATH };
