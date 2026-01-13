@@ -47,10 +47,18 @@ export interface FeatureStatus {
 	updates: StatusUpdate[];
 }
 
+export interface CompletedTask {
+	feature: string;
+	task: string;
+	message: string | null;
+	completedAt: string;
+}
+
 export interface StatusResponse {
 	projectId: string;
 	active: FeatureStatus[];
 	recentlyCompleted: FeatureStatus[];
+	recentlyCompletedTasks: CompletedTask[];
 	lastUpdated: string | null;
 }
 
@@ -509,8 +517,11 @@ export async function handleProjectStatusRequest(
 			return errorResponse(`Project not found: ${projectId}`, 404);
 		}
 
-		const { getLatestStatusByFeature, queryStatusUpdatesForFeatures } =
-			await import("../../../../src/agent-tools/work/database");
+		const {
+			getLatestStatusByFeature,
+			queryStatusUpdatesForFeatures,
+			getRecentlyCompletedTasks,
+		} = await import("../../../../src/agent-tools/work/database");
 		const { isLeft } = await import("fp-ts/lib/Either.js");
 
 		const latestResult = await getLatestStatusByFeature(project.path)();
@@ -524,12 +535,28 @@ export async function handleProjectStatusRequest(
 
 		const latestStatuses = latestResult.right;
 
+		// Fetch recently completed tasks (task-level granularity)
+		const completedTasksResult = await getRecentlyCompletedTasks(
+			project.path,
+			24,
+		)();
+
+		const recentlyCompletedTasks: CompletedTask[] = isLeft(completedTasksResult)
+			? []
+			: completedTasksResult.right.map((record) => ({
+					feature: record.feature,
+					task: record.task as string, // task is guaranteed non-null from query
+					message: record.message,
+					completedAt: record.createdAt,
+				}));
+
 		// Return early with null lastUpdated if no statuses exist
 		if (latestStatuses.length === 0) {
 			const response: StatusResponse = {
 				projectId,
 				active: [],
 				recentlyCompleted: [],
+				recentlyCompletedTasks,
 				lastUpdated: null,
 			};
 			return jsonResponse(response);
@@ -599,6 +626,7 @@ export async function handleProjectStatusRequest(
 			projectId,
 			active,
 			recentlyCompleted,
+			recentlyCompletedTasks,
 			lastUpdated: latestStatuses[0].createdAt,
 		};
 

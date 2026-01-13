@@ -9,7 +9,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useWebSocket } from "@/providers/WebSocketProvider";
-import type { FeatureStatus, StatusResponse } from "../server/routes/api";
+import type {
+	CompletedTask,
+	FeatureStatus,
+	StatusResponse,
+} from "../server/routes/api";
 
 const POLLING_INTERVAL = 5_000;
 
@@ -118,6 +122,43 @@ function FeatureCard({ feature }: FeatureCardProps) {
 			)}
 			<div className="mt-2 text-xs text-muted-foreground text-right">
 				{formatRelativeTime(feature.lastUpdate)}
+			</div>
+		</div>
+	);
+}
+
+interface CompletedTaskCardProps {
+	task: CompletedTask;
+}
+
+function CompletedTaskCard({ task }: CompletedTaskCardProps) {
+	return (
+		<div className="rounded-lg border bg-card p-4 mb-3">
+			<div className="flex items-start justify-between gap-4">
+				<div className="flex items-center gap-2 min-w-0">
+					{/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-label for screen readers */}
+					<span
+						className="text-muted-foreground"
+						title="Completed"
+						aria-label="Status: Completed"
+					>
+						&#10003;
+					</span>
+					<span className="font-medium truncate">
+						{task.feature}/{task.task}
+					</span>
+				</div>
+				<span className="text-sm text-muted-foreground whitespace-nowrap">
+					completed
+				</span>
+			</div>
+			{task.message && (
+				<div className="mt-1 text-sm text-muted-foreground italic">
+					"{task.message}"
+				</div>
+			)}
+			<div className="mt-2 text-xs text-muted-foreground text-right">
+				{formatRelativeTime(task.completedAt)}
 			</div>
 		</div>
 	);
@@ -279,7 +320,8 @@ export function StatusDashboard() {
 	}
 
 	const hasActiveFeatures = statusData.active.length > 0;
-	const hasRecentlyCompleted = statusData.recentlyCompleted.length > 0;
+	const hasRecentlyCompletedTasks =
+		(statusData.recentlyCompletedTasks?.length ?? 0) > 0;
 
 	return (
 		<div className="relative">
@@ -346,14 +388,17 @@ export function StatusDashboard() {
 				)}
 			</section>
 
-			{hasRecentlyCompleted && (
+			{hasRecentlyCompletedTasks && (
 				<CollapsibleSection
 					title="Recently Completed"
-					count={statusData.recentlyCompleted.length}
+					count={statusData.recentlyCompletedTasks.length}
 					defaultOpen={false}
 				>
-					{statusData.recentlyCompleted.map((feature) => (
-						<FeatureCard key={feature.feature} feature={feature} />
+					{statusData.recentlyCompletedTasks.map((task) => (
+						<CompletedTaskCard
+							key={`${task.feature}-${task.task}-${task.completedAt}`}
+							task={task}
+						/>
 					))}
 				</CollapsibleSection>
 			)}

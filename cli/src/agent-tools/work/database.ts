@@ -397,4 +397,57 @@ export const resetDatabaseInstance = (): void => {
 	dbInstance = null;
 };
 
+/**
+ * Get recently completed tasks (task-level granularity).
+ * Returns all task completions within the given time window.
+ *
+ * @param projectPath - Project path to filter by
+ * @param hoursAgo - Number of hours to look back (default: 24)
+ * @param dbPath - Database file path (optional, defaults to ~/.rp1/status.db)
+ * @returns TaskEither with array of StatusUpdateRecord for completed tasks
+ */
+export const getRecentlyCompletedTasks = (
+	projectPath: string,
+	hoursAgo = 24,
+	dbPath?: string,
+): TE.TaskEither<CLIError, readonly StatusUpdateRecord[]> =>
+	pipe(
+		getDatabase(dbPath),
+		TE.chain((db) =>
+			TE.tryCatch(
+				async () => {
+					const stmt = db.prepare(`
+						SELECT id, project_path, feature, task, status, message, metadata, created_at
+						FROM status_updates
+						WHERE project_path = $projectPath
+						AND status = 'completed'
+						AND task IS NOT NULL
+						AND created_at >= datetime('now', $hoursOffset)
+						ORDER BY created_at DESC
+					`);
+
+					const rows = stmt.all({
+						$projectPath: projectPath,
+						$hoursOffset: `-${hoursAgo} hours`,
+					}) as Array<{
+						id: number;
+						project_path: string;
+						feature: string;
+						task: string | null;
+						status: string;
+						message: string | null;
+						metadata: string | null;
+						created_at: string;
+					}>;
+
+					return rows.map(rowToRecord);
+				},
+				(error) =>
+					runtimeError(
+						`Failed to get recently completed tasks: ${error instanceof Error ? error.message : String(error)}`,
+					),
+			),
+		),
+	);
+
 export { DEFAULT_DB_PATH };
