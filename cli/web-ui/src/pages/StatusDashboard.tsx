@@ -38,63 +38,6 @@ function formatRelativeTime(dateString: string): string {
 	return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
 }
 
-interface StatusIndicatorProps {
-	status: string;
-	size?: "sm" | "md";
-}
-
-function StatusIndicator({ status, size = "md" }: StatusIndicatorProps) {
-	const sizeClass = size === "sm" ? "text-xs" : "";
-	switch (status) {
-		case "started":
-			return (
-				// biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-label for screen readers
-				<span
-					className={`text-terminal-mauve ${sizeClass}`}
-					title="Started"
-					aria-label="Status: Started"
-				>
-					&#9675;
-				</span>
-			);
-		case "in_progress":
-			return (
-				// biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-label for screen readers
-				<span
-					className={`text-terminal-green ${sizeClass}`}
-					title="In Progress"
-					aria-label="Status: In Progress"
-				>
-					&#9679;
-				</span>
-			);
-		case "completed":
-			return (
-				// biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-label for screen readers
-				<span
-					className={`text-muted-foreground ${sizeClass}`}
-					title="Completed"
-					aria-label="Status: Completed"
-				>
-					&#10003;
-				</span>
-			);
-		case "failed":
-			return (
-				// biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-label for screen readers
-				<span
-					className={`text-terminal-red ${sizeClass}`}
-					title="Failed"
-					aria-label="Status: Failed"
-				>
-					&#10007;
-				</span>
-			);
-		default:
-			return null;
-	}
-}
-
 interface FeatureBadgeProps {
 	feature: string;
 }
@@ -117,7 +60,6 @@ function TaskItem({ update, isLatest }: TaskItemProps) {
 		<div
 			className={`flex items-start gap-2 py-1.5 ${isLatest ? "" : "opacity-60"}`}
 		>
-			<StatusIndicator status={update.status} size="sm" />
 			<div className="flex-1 min-w-0">
 				<span className="text-sm font-medium">{update.task || "feature"}</span>
 				{update.message && (
@@ -165,7 +107,14 @@ function FeatureGroupCard({ feature }: FeatureGroupCardProps) {
 			<div className="bg-muted/30 px-4 py-3 border-b">
 				<div className="flex items-center justify-between gap-4">
 					<div className="flex items-center gap-2 min-w-0">
-						<StatusIndicator status={feature.status} />
+						{/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-label for screen readers */}
+						<span
+							className="animate-blink text-terminal-green"
+							title="Active"
+							aria-label="Status: Active"
+						>
+							&#9679;
+						</span>
 						<span className="font-semibold truncate">{feature.feature}</span>
 					</div>
 					<div className="flex items-center gap-2">
@@ -188,11 +137,6 @@ function FeatureGroupCard({ feature }: FeatureGroupCardProps) {
 						)}
 					</div>
 				</div>
-				{feature.message && (
-					<p className="text-sm text-muted-foreground mt-1 italic">
-						"{feature.message}"
-					</p>
-				)}
 			</div>
 
 			{/* Tasks List */}
