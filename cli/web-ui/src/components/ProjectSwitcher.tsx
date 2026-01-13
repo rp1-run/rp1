@@ -28,6 +28,7 @@ export function ProjectSwitcher() {
 	const [focusedIndex, setFocusedIndex] = useState(-1);
 	const dropdownRef = useRef<HTMLDivElement>(null);
 	const buttonRef = useRef<HTMLButtonElement>(null);
+	const listRef = useRef<HTMLDivElement>(null);
 	const navigate = useNavigate();
 	const params = useParams();
 	const currentProjectId = params.projectId;
@@ -95,6 +96,13 @@ export function ProjectSwitcher() {
 			setFocusedIndex(currentIndex >= 0 ? currentIndex : 0);
 		}
 	}, [isOpen, focusedIndex, projects, currentProjectId]);
+
+	// Focus the listbox when dropdown opens for keyboard navigation
+	useEffect(() => {
+		if (isOpen && listRef.current) {
+			listRef.current.focus();
+		}
+	}, [isOpen]);
 
 	const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
 		if (!isOpen) {
@@ -190,14 +198,17 @@ export function ProjectSwitcher() {
 
 			{isOpen && (
 				<div
+					ref={listRef}
 					className={cn(
 						"absolute top-full left-0 mt-1 z-50",
 						"min-w-[200px] max-w-[300px] max-h-[300px] overflow-y-auto",
 						"rounded-md border bg-popover shadow-md",
 						"font-mono text-sm",
+						"focus:outline-none",
 					)}
 					role="listbox"
 					tabIndex={0}
+					onKeyDown={handleKeyDown}
 					aria-activedescendant={
 						focusedIndex >= 0
 							? `project-${projects[focusedIndex]?.id}`
