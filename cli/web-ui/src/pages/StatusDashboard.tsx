@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
+import { useProjects } from "@/providers/ProjectProvider";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 import type {
 	CompletedTask,
@@ -243,7 +244,10 @@ function CollapsibleSection({
 export function StatusDashboard() {
 	const params = useParams();
 	const projectId = params.projectId;
+	const { projects } = useProjects();
 	const { status: wsStatus, onStatusChange } = useWebSocket();
+
+	const currentProject = projects.find((p) => p.id === projectId);
 
 	const [statusData, setStatusData] = useState<StatusResponse | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -361,7 +365,9 @@ export function StatusDashboard() {
 			<div className="flex items-center justify-between mb-6">
 				<div className="flex items-center gap-2">
 					<span className="text-terminal-mauve">&gt;</span>
-					<h1 className="text-xl font-semibold">Status Dashboard</h1>
+					<h1 className="text-xl font-semibold">
+						{currentProject?.name ?? projectId} Status
+					</h1>
 				</div>
 			</div>
 
