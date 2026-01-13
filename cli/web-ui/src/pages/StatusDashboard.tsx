@@ -7,7 +7,6 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 import type {
 	CompletedTask,
@@ -318,7 +317,6 @@ export function StatusDashboard() {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [isRefreshing, setIsRefreshing] = useState(false);
-	const [autoRefresh, setAutoRefresh] = useState(true);
 	const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
 		null,
 	);
@@ -356,7 +354,7 @@ export function StatusDashboard() {
 
 	// Subscribe to status changes via WebSocket provider
 	useEffect(() => {
-		if (!projectId || !autoRefresh) {
+		if (!projectId) {
 			return;
 		}
 
@@ -369,12 +367,12 @@ export function StatusDashboard() {
 		});
 
 		return unsubscribe;
-	}, [projectId, autoRefresh, fetchStatus, onStatusChange]);
+	}, [projectId, fetchStatus, onStatusChange]);
 
 	// Fallback polling when WebSocket is not connected
 	useEffect(() => {
-		// Only poll when auto-refresh is enabled AND WebSocket is not connected
-		if (!autoRefresh || wsStatus === "connected") {
+		// Only poll when WebSocket is not connected
+		if (wsStatus === "connected") {
 			if (pollingIntervalRef.current) {
 				clearInterval(pollingIntervalRef.current);
 				pollingIntervalRef.current = null;
@@ -393,12 +391,7 @@ export function StatusDashboard() {
 				pollingIntervalRef.current = null;
 			}
 		};
-	}, [autoRefresh, fetchStatus, wsStatus]);
-
-	const handleManualRefresh = useCallback(() => {
-		setIsRefreshing(true);
-		fetchStatus();
-	}, [fetchStatus]);
+	}, [fetchStatus, wsStatus]);
 
 	if (loading) {
 		return (
@@ -437,39 +430,6 @@ export function StatusDashboard() {
 				<div className="flex items-center gap-2">
 					<span className="text-terminal-mauve">&gt;</span>
 					<h1 className="text-xl font-semibold">Status Dashboard</h1>
-				</div>
-				<div className="flex items-center gap-2">
-					<Button
-						variant="ghost"
-						size="sm"
-						onClick={handleManualRefresh}
-						disabled={isRefreshing}
-						title="Refresh status"
-					>
-						<RefreshCw
-							className={`h-4 w-4 mr-1 ${isRefreshing ? "animate-spin" : ""}`}
-						/>
-						Refresh
-					</Button>
-					<button
-						type="button"
-						onClick={() => setAutoRefresh(!autoRefresh)}
-						className={`flex items-center gap-1 px-2 py-1 rounded text-sm transition-colors ${
-							autoRefresh
-								? "text-terminal-green"
-								: "text-muted-foreground hover:text-foreground"
-						}`}
-						title={
-							autoRefresh ? "Auto-refresh enabled" : "Auto-refresh disabled"
-						}
-					>
-						<span
-							className={`w-2 h-2 rounded-full ${
-								autoRefresh ? "bg-terminal-green" : "bg-muted-foreground"
-							}`}
-						/>
-						Auto
-					</button>
 				</div>
 			</div>
 
@@ -512,20 +472,6 @@ export function StatusDashboard() {
 					))}
 				</CollapsibleSection>
 			)}
-
-			<div className="mt-6 text-xs text-muted-foreground text-center">
-				{wsStatus === "connected" ? (
-					<span className="flex items-center justify-center gap-1">
-						<span className="w-1.5 h-1.5 rounded-full bg-terminal-green" />
-						Live updates active
-					</span>
-				) : (
-					<span className="flex items-center justify-center gap-1">
-						<span className="w-1.5 h-1.5 rounded-full bg-terminal-red" />
-						Reconnecting...
-					</span>
-				)}
-			</div>
 		</div>
 	);
 }
