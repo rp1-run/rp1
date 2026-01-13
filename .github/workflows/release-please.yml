@@ -32,6 +32,7 @@ concurrency:
 permissions:
   contents: write
   pull-requests: write
+  statuses: write
 
 jobs:
   release-please:
@@ -120,3 +121,40 @@ jobs:
         run: |
           curl -X POST "${{ secrets.CLOUDFLARE_PAGES_DEPLOY_HOOK }}"
           echo "Triggered Cloudflare Pages deployment for release ${{ needs.release-please.outputs.tag_name }}"
+
+  lighthouse:
+    needs: [release-please, deploy-docs]
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Lighthouse CI
+        run: npm install -g @lhci/cli
+
+      - name: Wait for Cloudflare Pages deploy
+        uses: WalshyDev/cf-pages-await@3abae9f62a7672a1701300702ce42908e16cb88a  # v1
+        id: cf-pages
+        with:
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          project: rp1
+          commitHash: ${{ github.sha }}
+
+      - name: Run Lighthouse CI
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+        run: |
+          lhci autorun --config=lighthouserc.json \
+            --collect.url=${{ steps.cf-pages.outputs.url }} \
+            --collect.url=${{ steps.cf-pages.outputs.url }}/getting-started/installation/ \
+            --collect.url=${{ steps.cf-pages.outputs.url }}/reference/ \
+            --collect.url=${{ steps.cf-pages.outputs.url }}/guides/feature-development/
