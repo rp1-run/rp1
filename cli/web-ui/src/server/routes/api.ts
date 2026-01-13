@@ -56,6 +56,7 @@ export interface CompletedTask {
 
 export interface StatusResponse {
 	projectId: string;
+	projectName: string;
 	active: FeatureStatus[];
 	recentlyCompleted: FeatureStatus[];
 	recentlyCompletedTasks: CompletedTask[];
@@ -618,6 +619,7 @@ export async function handleProjectStatusRequest(
 		if (latestStatuses.length === 0) {
 			const response: StatusResponse = {
 				projectId,
+				projectName: project.name,
 				active: [],
 				recentlyCompleted: [],
 				recentlyCompletedTasks,
@@ -688,6 +690,7 @@ export async function handleProjectStatusRequest(
 
 		const response: StatusResponse = {
 			projectId,
+			projectName: project.name,
 			active,
 			recentlyCompleted,
 			recentlyCompletedTasks,
