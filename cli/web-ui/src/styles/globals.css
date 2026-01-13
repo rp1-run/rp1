@@ -331,7 +331,7 @@
   }
 
   .animate-pulse-gentle {
-    animation: pulse-gentle 2s ease-in-out infinite;
+    animation: pulse-gentle 1.3s ease-in-out infinite;
   }
 
   .sr-only {

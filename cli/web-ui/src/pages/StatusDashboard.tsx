@@ -109,7 +109,7 @@ function FeatureGroupCard({ feature }: FeatureGroupCardProps) {
 					<div className="flex items-center gap-2 min-w-0">
 						{/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-label for screen readers */}
 						<span
-							className="animate-pulse-gentle text-terminal-green text-[0.5rem] leading-none"
+							className="animate-pulse-gentle text-terminal-green text-[0.75rem] leading-none"
 							title="Active"
 							aria-label="Status: Active"
 						>
@@ -141,18 +141,6 @@ function FeatureGroupCard({ feature }: FeatureGroupCardProps) {
 
 			{/* Tasks List */}
 			<div className="px-4 py-2">
-				{/* Current task highlight */}
-				{feature.currentTask && (
-					<div className="py-2 border-b border-dashed border-muted mb-2">
-						<div className="flex items-center gap-2">
-							<span className="text-xs font-medium text-terminal-mauve uppercase tracking-wide">
-								Current
-							</span>
-							<span className="text-sm font-medium">{feature.currentTask}</span>
-						</div>
-					</div>
-				)}
-
 				{/* Task history (when expanded) */}
 				{isExpanded && uniqueTasks.length > 0 && (
 					<div className="space-y-1">
