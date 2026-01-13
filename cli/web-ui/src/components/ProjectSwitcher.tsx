@@ -208,7 +208,6 @@ export function ProjectSwitcher() {
 					)}
 					role="listbox"
 					tabIndex={0}
-					onKeyDown={handleKeyDown}
 					aria-activedescendant={
 						focusedIndex >= 0
 							? `project-${projects[focusedIndex]?.id}`
