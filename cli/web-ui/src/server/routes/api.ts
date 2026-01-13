@@ -507,6 +507,53 @@ export async function handleProjectContentRequest(
 /**
  * Handle GET /api/projects/:id/status - get status updates for a project.
  */
+/**
+ * Handle POST /api/status/notify - notify WebSocket clients of a status change.
+ * Called by CLI after writing status update to trigger immediate broadcast.
+ */
+export async function handleStatusNotifyRequest(
+	req: Request,
+	ctx: ApiContext,
+): Promise<Response> {
+	try {
+		const body = (await req.json()) as {
+			projectPath?: string;
+			feature?: string;
+			status?: string;
+		};
+
+		if (!body.projectPath || !body.feature || !body.status) {
+			return errorResponse(
+				"Missing required fields: projectPath, feature, status",
+				400,
+			);
+		}
+
+		// Look up project ID from path
+		const projects = await getAllProjects();
+		const project = projects.find((p) => p.path === body.projectPath);
+
+		if (!project) {
+			// Project not registered, nothing to broadcast
+			return jsonResponse({
+				notified: false,
+				reason: "project_not_registered",
+			});
+		}
+
+		// Broadcast the status change to WebSocket clients
+		ctx.websocketHub?.broadcastStatusChange(
+			project.id,
+			body.feature,
+			body.status,
+		);
+
+		return jsonResponse({ notified: true, projectId: project.id });
+	} catch (error) {
+		return errorResponse(`Failed to process notification: ${String(error)}`);
+	}
+}
+
 export async function handleProjectStatusRequest(
 	projectId: string,
 ): Promise<Response> {

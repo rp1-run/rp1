@@ -126,6 +126,12 @@ async function handleApiRequest(
 		return handleShutdownRequest(apiContext);
 	}
 
+	// POST /api/status/notify - immediate WebSocket broadcast for status changes
+	if (pathname === "/api/status/notify" && method === "POST") {
+		const { handleStatusNotifyRequest } = await import("./routes/api");
+		return handleStatusNotifyRequest(req, apiContext);
+	}
+
 	// GET /api/projects - list all projects
 	if (pathname === "/api/projects" && method === "GET") {
 		const { handleProjectsListRequest } = await import("./routes/api");

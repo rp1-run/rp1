@@ -108,6 +108,30 @@ export async function stopDaemon(conn: DaemonConnection): Promise<boolean> {
 }
 
 /**
+ * Notify the daemon of a status update for immediate WebSocket broadcast.
+ * Fails silently if daemon is not running - this is expected behavior.
+ */
+export async function notifyStatusChange(
+	conn: DaemonConnection,
+	projectPath: string,
+	feature: string,
+	status: string,
+): Promise<boolean> {
+	try {
+		const response = await fetch(`${conn.baseUrl}/api/status/notify`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ projectPath, feature, status }),
+			signal: AbortSignal.timeout(1000), // Short timeout - fire and forget
+		});
+		return response.ok;
+	} catch {
+		// Daemon not running or unresponsive - this is fine
+		return false;
+	}
+}
+
+/**
  * Get daemon status.
  */
 export interface DaemonStatus {
