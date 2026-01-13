@@ -109,7 +109,7 @@ function FeatureGroupCard({ feature }: FeatureGroupCardProps) {
 					<div className="flex items-center gap-2 min-w-0">
 						{/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-label for screen readers */}
 						<span
-							className="animate-blink text-terminal-green"
+							className="animate-pulse-gentle text-terminal-green text-[0.5rem] leading-none"
 							title="Active"
 							aria-label="Status: Active"
 						>
