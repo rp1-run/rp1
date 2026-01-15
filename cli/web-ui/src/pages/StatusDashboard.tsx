@@ -203,6 +203,40 @@ function CompletedTaskCard({ task }: CompletedTaskCardProps) {
 	);
 }
 
+interface CompletedFeatureCardProps {
+	feature: FeatureStatus;
+}
+
+function CompletedFeatureCard({ feature }: CompletedFeatureCardProps) {
+	return (
+		<div className="rounded-lg border bg-card p-3 mb-2">
+			<div className="flex items-start justify-between gap-3">
+				<div className="flex items-start gap-2 min-w-0">
+					{/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-label for screen readers */}
+					<span
+						className="text-muted-foreground mt-0.5"
+						title="Completed"
+						aria-label="Status: Completed"
+					>
+						&#10003;
+					</span>
+					<div className="min-w-0">
+						<span className="font-semibold">{feature.feature}</span>
+						{feature.message && (
+							<p className="text-xs text-muted-foreground mt-1 italic">
+								"{feature.message}"
+							</p>
+						)}
+					</div>
+				</div>
+				<span className="text-xs text-muted-foreground whitespace-nowrap">
+					{formatRelativeTime(feature.lastUpdate)}
+				</span>
+			</div>
+		</div>
+	);
+}
+
 interface CollapsibleSectionProps {
 	title: string;
 	count: number;
@@ -353,8 +387,33 @@ export function StatusDashboard() {
 	}
 
 	const hasActiveFeatures = statusData.active.length > 0;
-	const hasRecentlyCompletedTasks =
-		(statusData.recentlyCompletedTasks?.length ?? 0) > 0;
+
+	// Deduplicate recently completed items by feature name.
+	// If a feature appears in both recentlyCompleted (feature-level) and
+	// recentlyCompletedTasks (task-level), prefer the one with more detail.
+	const seenFeatures = new Set<string>();
+	const deduplicatedCompletedFeatures: FeatureStatus[] = [];
+	const deduplicatedCompletedTasks: CompletedTask[] = [];
+
+	// First pass: add feature-level completions, tracking seen features
+	for (const feature of statusData.recentlyCompleted ?? []) {
+		seenFeatures.add(feature.feature);
+		deduplicatedCompletedFeatures.push(feature);
+	}
+
+	// Second pass: add task-level completions only if feature not already seen
+	for (const task of statusData.recentlyCompletedTasks ?? []) {
+		if (!seenFeatures.has(task.feature)) {
+			deduplicatedCompletedTasks.push(task);
+			// Don't add to seenFeatures here - allow multiple tasks from same feature
+			// if that feature wasn't in recentlyCompleted
+		}
+	}
+
+	const hasRecentlyCompletedFeatures = deduplicatedCompletedFeatures.length > 0;
+	const hasRecentlyCompletedTasks = deduplicatedCompletedTasks.length > 0;
+	const hasAnyRecentlyCompleted =
+		hasRecentlyCompletedFeatures || hasRecentlyCompletedTasks;
 
 	return (
 		<div className="relative">
@@ -392,18 +451,29 @@ export function StatusDashboard() {
 				)}
 			</section>
 
-			{hasRecentlyCompletedTasks && (
+			{hasAnyRecentlyCompleted && (
 				<CollapsibleSection
 					title="Recently Completed"
-					count={statusData.recentlyCompletedTasks.length}
+					count={
+						deduplicatedCompletedFeatures.length +
+						deduplicatedCompletedTasks.length
+					}
 					defaultOpen={false}
 				>
-					{statusData.recentlyCompletedTasks.map((task) => (
-						<CompletedTaskCard
-							key={`${task.feature}-${task.task}-${task.completedAt}`}
-							task={task}
-						/>
-					))}
+					{hasRecentlyCompletedFeatures &&
+						deduplicatedCompletedFeatures.map((feature) => (
+							<CompletedFeatureCard
+								key={`feature-${feature.feature}-${feature.lastUpdate}`}
+								feature={feature}
+							/>
+						))}
+					{hasRecentlyCompletedTasks &&
+						deduplicatedCompletedTasks.map((task) => (
+							<CompletedTaskCard
+								key={`task-${task.feature}-${task.task}-${task.completedAt}`}
+								task={task}
+							/>
+						))}
 				</CollapsibleSection>
 			)}
 		</div>
