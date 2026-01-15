@@ -44,11 +44,19 @@ Quick-iteration dev workflow. Assess scope, implement small/medium changes in is
 {{RP1_ROOT from prompt}}
 </rp1_root>
 
-## 1. KB Loading
+## 1. Initialization
+
+**Load skill**: `rp1-base:work-status` (provides command syntax for all status updates)
+
+Generate a **feature slug** from REQUEST (2-4 word kebab-case, e.g., `fix-auth-bug`, `add-date-util`). Use this slug for all status updates.
+
+**Report status: started** - "Beginning quick build: {brief summary}"
+
+## 2. KB Loading
 
 Progressive loading based on request type.
 
-### 1.1 Detect Request Type
+### 2.1 Detect Request Type
 
 | Keyword | Type |
 |---------|------|
@@ -59,7 +67,7 @@ Progressive loading based on request type.
 
 Default: Feature (if no match).
 
-### 1.2 Load KB Files
+### 2.2 Load KB Files
 
 Always read: `{RP1_ROOT}/context/index.md`
 
@@ -74,7 +82,9 @@ Then by type:
 
 If files missing: warn, continue. KB missing is NOT a blocker.
 
-## 2. Scope Assessment
+## 3. Scope Assessment
+
+**Report status: in_progress** (task: scope-assessment)
 
 Analyze REQUEST against these criteria:
 
@@ -99,9 +109,11 @@ Analyze REQUEST against these criteria:
 - Estimated effort: [hours]
 ```
 
-## 3. Large Scope Redirect
+## 4. Large Scope Redirect
 
 If scope = Large:
+
+**Report status: completed** - "Request exceeds scope - redirected to /build"
 
 ```markdown
 ## REQUEST EXCEEDS SCOPE
@@ -123,18 +135,18 @@ If scope = Large:
 
 **CRITICAL**: STOP after redirect. Do NOT attempt implementation.
 
-## 4. Worktree Setup (Small/Medium Only)
+## 5. Worktree Setup (Small/Medium Only)
 
 **Skip if**: `GIT_WORKTREE` is false.
 
 Set `worktree_path` = current directory, `branch` = current branch.
 Use worktree-workflow skill `rp1-dev:worktree-workflow`
 
-### 4.1 Generate Task Slug
+### 5.1 Generate Task Slug
 
 From REQUEST, create 2-4 word kebab-case slug (e.g., `fix-auth-bug`, `add-date-util`).
 
-### 4.2 Create Worktree
+### 5.2 Create Worktree
 
 ```bash
 original_cwd=$(pwd)
@@ -153,7 +165,7 @@ Parse JSON response:
 
 Store: `worktree_path`, `branch`, `basedOn`, `original_cwd`.
 
-### 4.3 Enter and Verify
+### 5.3 Enter and Verify
 
 ```bash
 cd {worktree_path}
@@ -163,15 +175,17 @@ git branch --show-current
 
 Verify: history exists, branch matches. If fail: cleanup + STOP.
 
-## 5. Implementation
+## 6. Implementation
 
-### 5.1 Install Dependencies
+**Report status: in_progress** (task: implementation)
+
+### 6.1 Install Dependencies
 
 For example: (adapt as needed by the project)
   If package.json: `bun install` or `npm install`
   If Cargo.toml: `cargo build`
 
-### 5.2 Code Changes
+### 6.2 Code Changes
 
 1. Navigate to relevant files
 2. Use LSP if available
@@ -186,7 +200,7 @@ For example: (adapt as needed by the project)
    - Unit tests for new logic/edited logic
    - Docstrings where appropriate
 
-### 5.3 Testing Discipline
+### 6.3 Testing Discipline
 
 | Rule | Description |
 |------|-------------|
@@ -200,7 +214,7 @@ For example: (adapt as needed by the project)
 
 Before any test: "What regression would this catch?" No answer -> skip.
 
-### 5.4 Atomic Commits
+### 6.4 Atomic Commits
 
 **Skip if**: `GIT_COMMIT` is false AND `GIT_WORKTREE` is false. Changes remain uncommitted in working directory.
 
@@ -214,13 +228,15 @@ Types: feat, fix, refactor, docs, test, chore.
 
 Track commit count for validation.
 
-## 6. Quality Checks
+## 7. Quality Checks
 
-### 6.1 Detect Build System
+**Report status: in_progress** (task: quality-checks)
+
+### 7.1 Detect Build System
 
 Scan for: package.json, Cargo.toml, pyproject.toml, go.mod, etc.
 
-### 6.2 Run Checks
+### 7.2 Run Checks
 
 | Check | Example Commands |
 |-------|------------------|
@@ -230,13 +246,13 @@ Scan for: package.json, Cargo.toml, pyproject.toml, go.mod, etc.
 
 Fix lint/format issues. Verify tests pass.
 
-## 7. Summary Artifact
+## 8. Summary Artifact
 
-### 7.1 Generate Task ID
+### 8.1 Generate Task ID
 
 Format: `YYYYMMDD-HHMMSS-{slug}`
 
-### 7.2 Write Summary
+### 8.2 Write Summary
 
 Path: `{RP1_ROOT}/work/quick-builds/{task-id}/summary.md`
 
@@ -252,13 +268,13 @@ Template:
 
 AFK mode: prefix auto-decisions with "(AFK auto)".
 
-## 8. Finalization
+## 9. Finalization
 
 **Skip if**: `GIT_WORKTREE` is false. Changes stay in current directory.
 
 Use worktree-workflow skill Phases 2-4.
 
-### 8.1 Validate Commits
+### 9.1 Validate Commits
 
 **Skip if**: `GIT_PUSH` is false.
 
@@ -268,7 +284,7 @@ git log {basedOn}..HEAD --oneline --format="%h %an <%ae> %s"
 
 Verify: commit count matches tracked count, no unexpected authors.
 
-### 8.2 Push Branch
+### 9.2 Push Branch
 
 **Skip if**: `GIT_PUSH` is false.
 
@@ -276,7 +292,7 @@ Verify: commit count matches tracked count, no unexpected authors.
 git push -u origin {branch}
 ```
 
-### 8.3 Cleanup
+### 9.3 Cleanup
 
 Always run cleanup if worktree was created:
 
@@ -285,7 +301,9 @@ cd {original_cwd}
 rp1 agent-tools worktree cleanup {worktree_path} --keep-branch
 ```
 
-## 9. Output Contract
+## 10. Output Contract
+
+**Report status: completed** or **failed** (with summary message)
 
 ```markdown
 ## Build Fast Complete
@@ -329,7 +347,7 @@ If `GIT_PUSH=true`:
 - Cherry-pick: `git cherry-pick {commits}`
 ```
 
-## 10. AFK Mode Behavior
+## 11. AFK Mode Behavior
 
 | Decision Point | AFK Behavior |
 |----------------|--------------|
@@ -341,7 +359,7 @@ If `GIT_PUSH=true`:
 
 Log all auto-decisions in summary under "Key Decisions" with "(AFK auto)" prefix.
 
-## 11. Anti-Loop Directive
+## 12. Anti-Loop Directive
 
 **CRITICAL**: Single pass. DO NOT:
 
