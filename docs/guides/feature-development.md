@@ -105,14 +105,14 @@ The `/build` command is the **single entry point** for feature development. It o
 === "Claude Code"
 
     ```bash
-    /build my-feature              # Interactive mode
+    /build my-feature              # Interactive mode (default)
     /build my-feature --afk        # Autonomous mode
     ```
 
 === "OpenCode"
 
     ```bash
-    /rp1-dev/build my-feature              # Interactive mode
+    /rp1-dev/build my-feature              # Interactive mode (default)
     /rp1-dev/build my-feature --afk        # Autonomous mode
     ```
 
@@ -123,10 +123,42 @@ The `/build` command is the **single entry point** for feature development. It o
 
 - **Single command**: One entry point for the entire workflow
 - **Smart resumption**: Detects existing artifacts and resumes from the right step
+- **Interactive by default**: Approval gates let you review and steer at each step
 - **AFK mode** (Away From Keyboard): Run autonomously without user interaction (ideal for CI/CD or overnight runs)
 - **Consistent quality**: Builder-reviewer architecture ensures implementation quality
 
-**When to use --afk mode:**
+### Interactive Mode (Default)
+
+In interactive mode, approval gates appear between major workflow stages:
+
+```mermaid
+flowchart LR
+    R[Requirements] --> G1{Gate 1}
+    G1 -->|Continue| D[Design]
+    D --> G2{Gate 2}
+    G2 -->|Continue| T[Tasks]
+    T --> G3{Gate 3}
+    G3 -->|Continue| B[Build]
+    B --> G4{Gate 4}
+    G4 -->|Continue| V[Verify]
+    V --> A[Archive]
+```
+
+At each gate, you can:
+
+| Option | What Happens |
+|--------|--------------|
+| **Continue** | Proceed to the next stage |
+| **Revise** | Provide feedback and re-run the current stage |
+| **Stop** | Exit the workflow (artifacts preserved for later) |
+
+Gate 4 (after Build) also offers **Add Task** to implement additional work before verification.
+
+When you select **Stop**, the workflow saves your progress. Resume anytime with `/build my-feature` — the artifact detector automatically continues from where you left off.
+
+### AFK Mode (Autonomous)
+
+When to use `--afk` mode:
 
 - Autonomous development sessions (start before lunch, review after)
 - CI/CD pipelines for automated feature scaffolding
