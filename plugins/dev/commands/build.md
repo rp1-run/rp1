@@ -236,6 +236,41 @@ for unit in task_units:
 
 **Doc Tasks** (TD*): Build `doc_scan_results.json`, spawn scribe.
 
+### §4.6 Build Review Checkpoint
+
+**Skip if**: AFK_MODE
+
+After build completes, pause for user review:
+
+```
+AskUserQuestion: |
+  Build phase complete. All tasks implemented.
+
+  Summary: Completed implementation tasks with commits in branch {branch}.
+  - Branch: {branch}
+  - Worktree: {worktree_path or "main repo"}
+
+  Options:
+  1. "Continue" - Proceed to verification phase
+  2. "Add Task" - Add additional implementation work
+  3. "Stop" - Exit workflow (all code changes preserved)
+```
+
+**On "Add Task"**:
+1. Prompt for task description
+2. Create ad-hoc task entry with ID "TX-{timestamp}"
+3. Spawn builder/reviewer:
+   ```
+   Task: rp1-dev:task-builder
+   prompt: FEATURE_ID={FEATURE_ID}, TASK_IDS=[TX-{timestamp}], WORKTREE_PATH={worktree_path}, PREVIOUS_FEEDBACK={task_description}
+
+   Task: rp1-dev:task-reviewer
+   prompt: FEATURE_ID={FEATURE_ID}, TASK_IDS=[TX-{timestamp}], WORKTREE_PATH={worktree_path}
+   ```
+4. Return to §4.6 checkpoint (loop until "Continue" or "Stop")
+
+**On "Stop"**: Output summary of completed steps (Steps 1-4 done), branch name, merge instructions: `git checkout main && git merge {branch}`. Provide resume instruction: `/build {FEATURE_ID}`. Exit.
+
 ## §STEP-5: Verify
 
 **Skip if**: start_step > 5
