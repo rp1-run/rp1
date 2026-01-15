@@ -1,4 +1,4 @@
-import { PanelLeft, PanelLeftClose, SquareActivity } from "lucide-react";
+import { Activity, PanelLeft, PanelLeftClose } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ImperativePanelHandle } from "react-resizable-panels";
 import { Outlet, useNavigate, useParams } from "react-router-dom";
@@ -316,7 +316,7 @@ function Header({
 								disabled={!projectId}
 								aria-label="View status dashboard"
 							>
-								<SquareActivity className="h-4 w-4" />
+								<Activity className="h-4 w-4" />
 							</Button>
 						</TooltipTrigger>
 						<TooltipContent>Status Dashboard</TooltipContent>
