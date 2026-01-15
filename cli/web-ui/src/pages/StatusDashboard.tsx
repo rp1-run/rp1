@@ -9,7 +9,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 import type {
-	CompletedTask,
 	FeatureStatus,
 	StatusResponse,
 	StatusUpdate,
@@ -36,18 +35,6 @@ function formatRelativeTime(dateString: string): string {
 		return `${diffHours} hour${diffHours === 1 ? "" : "s"} ago`;
 	}
 	return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
-}
-
-interface FeatureBadgeProps {
-	feature: string;
-}
-
-function FeatureBadge({ feature }: FeatureBadgeProps) {
-	return (
-		<span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-terminal-mauve/10 text-terminal-mauve border border-terminal-mauve/20">
-			{feature}
-		</span>
-	);
 }
 
 interface TaskItemProps {
@@ -161,43 +148,6 @@ function FeatureGroupCard({ feature }: FeatureGroupCardProps) {
 			{/* Footer with timestamp */}
 			<div className="px-4 py-2 bg-muted/20 text-xs text-muted-foreground text-right border-t">
 				Last update: {formatRelativeTime(feature.lastUpdate)}
-			</div>
-		</div>
-	);
-}
-
-interface CompletedTaskCardProps {
-	task: CompletedTask;
-}
-
-function CompletedTaskCard({ task }: CompletedTaskCardProps) {
-	return (
-		<div className="rounded-lg border bg-card p-3 mb-2">
-			<div className="flex items-start justify-between gap-3">
-				<div className="flex items-start gap-2 min-w-0">
-					{/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-label for screen readers */}
-					<span
-						className="text-muted-foreground mt-0.5"
-						title="Completed"
-						aria-label="Status: Completed"
-					>
-						&#10003;
-					</span>
-					<div className="min-w-0">
-						<div className="flex items-center gap-2 flex-wrap">
-							<FeatureBadge feature={task.feature} />
-							<span className="font-medium text-sm">{task.task}</span>
-						</div>
-						{task.message && (
-							<p className="text-xs text-muted-foreground mt-1 italic">
-								"{task.message}"
-							</p>
-						)}
-					</div>
-				</div>
-				<span className="text-xs text-muted-foreground whitespace-nowrap">
-					{formatRelativeTime(task.completedAt)}
-				</span>
 			</div>
 		</div>
 	);
@@ -388,32 +338,9 @@ export function StatusDashboard() {
 
 	const hasActiveFeatures = statusData.active.length > 0;
 
-	// Deduplicate recently completed items by feature name.
-	// If a feature appears in both recentlyCompleted (feature-level) and
-	// recentlyCompletedTasks (task-level), prefer the one with more detail.
-	const seenFeatures = new Set<string>();
-	const deduplicatedCompletedFeatures: FeatureStatus[] = [];
-	const deduplicatedCompletedTasks: CompletedTask[] = [];
-
-	// First pass: add feature-level completions, tracking seen features
-	for (const feature of statusData.recentlyCompleted ?? []) {
-		seenFeatures.add(feature.feature);
-		deduplicatedCompletedFeatures.push(feature);
-	}
-
-	// Second pass: add task-level completions only if feature not already seen
-	for (const task of statusData.recentlyCompletedTasks ?? []) {
-		if (!seenFeatures.has(task.feature)) {
-			deduplicatedCompletedTasks.push(task);
-			// Don't add to seenFeatures here - allow multiple tasks from same feature
-			// if that feature wasn't in recentlyCompleted
-		}
-	}
-
-	const hasRecentlyCompletedFeatures = deduplicatedCompletedFeatures.length > 0;
-	const hasRecentlyCompletedTasks = deduplicatedCompletedTasks.length > 0;
-	const hasAnyRecentlyCompleted =
-		hasRecentlyCompletedFeatures || hasRecentlyCompletedTasks;
+	// Show only completed features (not individual tasks) for a cleaner display
+	const completedFeatures = statusData.recentlyCompleted ?? [];
+	const hasRecentlyCompleted = completedFeatures.length > 0;
 
 	return (
 		<div className="relative">
@@ -451,29 +378,18 @@ export function StatusDashboard() {
 				)}
 			</section>
 
-			{hasAnyRecentlyCompleted && (
+			{hasRecentlyCompleted && (
 				<CollapsibleSection
 					title="Recently Completed"
-					count={
-						deduplicatedCompletedFeatures.length +
-						deduplicatedCompletedTasks.length
-					}
+					count={completedFeatures.length}
 					defaultOpen={false}
 				>
-					{hasRecentlyCompletedFeatures &&
-						deduplicatedCompletedFeatures.map((feature) => (
-							<CompletedFeatureCard
-								key={`feature-${feature.feature}-${feature.lastUpdate}`}
-								feature={feature}
-							/>
-						))}
-					{hasRecentlyCompletedTasks &&
-						deduplicatedCompletedTasks.map((task) => (
-							<CompletedTaskCard
-								key={`task-${task.feature}-${task.task}-${task.completedAt}`}
-								task={task}
-							/>
-						))}
+					{completedFeatures.map((feature) => (
+						<CompletedFeatureCard
+							key={`feature-${feature.feature}-${feature.lastUpdate}`}
+							feature={feature}
+						/>
+					))}
 				</CollapsibleSection>
 			)}
 		</div>
