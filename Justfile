@@ -16,24 +16,34 @@ build-web-ui:
 clean-web-ui-cache:
     rm -rf ~/.rp1/web-ui/
 
-# Build the local binary (generates asset imports first, requires opencode + web-ui built)
-build-local: build-opencode build-web-ui clean-web-ui-cache
+# Build the local binary with -dev version suffix
+build-local-dev: build-opencode build-web-ui clean-web-ui-cache
+    cd cli && bun run generate:assets && bun build ./src/main.ts --compile --outfile ../bin/rp1 --define __RP1_DEV_BUILD__=true
+
+# Build the local binary (release version, no -dev suffix)
+build-local-release: build-opencode build-web-ui clean-web-ui-cache
     cd cli && bun run generate:assets && bun build ./src/main.ts --compile --outfile ../bin/rp1
 
-# Build everything for local testing
-build: build-local
+# Build everything for local testing (uses dev versions)
+build: build-local-dev
 
-update-local-claude:
-  claude plugin marketplace rm rp1-local
-  claude plugin marketplace add ./local-marketplace/
-  claude plugin install rp1-base@rp1-local
-  claude plugin install rp1-dev@rp1-local
-  claude plugin install rp1-utils@rp1-local
+# Prepare dev marketplace with -dev version plugins
+prepare-dev-plugins:
+    ./scripts/prepare-dev-plugins.sh
 
-# Full local install: rm stable rp1, build + install opencode (includes plugin installation)
+# Install dev plugins to Claude Code (with -dev versions)
+update-local-claude: prepare-dev-plugins
+    -claude plugin marketplace rm rp1-local 2>/dev/null
+    claude plugin marketplace add ./.dev-marketplace/
+    claude plugin install rp1-base@rp1-local
+    claude plugin install rp1-dev@rp1-local
+    claude plugin install rp1-utils@rp1-local
+
+# Full local install: rm stable rp1, build + install opencode (all with -dev versions)
 install-local: build rm-stable-rp1 update-local-claude
-    ./bin/rp1 install:opencode
+    ./bin/rp1 install opencode
 
+# Run local binary with args
 local *args: build
     ./bin/rp1 {{args}}
 
@@ -75,10 +85,14 @@ docs:
 # Removes Stable version of Claude and OpenCode rp1 plugins
 # This is useful when testing local builds to avoid conflicts
 rm-stable-rp1:
-  rm -rf ~/.config/opencode/plugin/rp1*
-  rm -rf ~/.config/opencode/command/rp1*
-  rm -rf ~/.config/opencode/skills/
-  -claude plugin marketplace rm rp1-run 2>/dev/null
+    rm -rf ~/.config/opencode/plugin/rp1*
+    rm -rf ~/.config/opencode/command/rp1*
+    rm -rf ~/.config/opencode/skills/
+    -claude plugin marketplace rm rp1-run 2>/dev/null
+
+# Clean up dev marketplace
+clean-dev:
+    rm -rf .dev-marketplace/
 
 install-cli-deps:
-  cd cli && bun install --frozen-lockfile
+    cd cli && bun install --frozen-lockfile

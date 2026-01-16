@@ -3,6 +3,14 @@ import chalk from "chalk";
 import { Command } from "commander";
 import pkg from "../package.json";
 import { type CLIError, formatError, getExitCode } from "../shared/errors.js";
+
+// Dev builds inject this constant at build time
+declare const __RP1_DEV_BUILD__: boolean | undefined;
+const version =
+	typeof __RP1_DEV_BUILD__ !== "undefined" && __RP1_DEV_BUILD__
+		? `${pkg.version}-dev`
+		: pkg.version;
+
 import { createLogger, type Logger, LogLevel } from "../shared/logger.js";
 import { detectRuntime } from "../shared/runtime.js";
 import { allDeprecatedCommands } from "./commands/deprecated/index.js";
@@ -103,7 +111,7 @@ const handleAgentToolsCommand = async (): Promise<void> => {
 	// Create minimal program for agent-tools with shared configuration
 	const agentProgram = new Command()
 		.name("rp1")
-		.version(pkg.version, "-V, --version", "Show version number")
+		.version(version, "-V, --version", "Show version number")
 		.option("-v, --verbose", "Enable debug logging")
 		.option("--trace", "Enable trace logging")
 		.helpOption("-h, --help", "Show this help message")
@@ -151,7 +159,7 @@ declare module "commander" {
 const program = new Command()
 	.name("rp1")
 	.description("AI-assisted development workflows CLI")
-	.version(pkg.version, "-V, --version", "Show version number")
+	.version(version, "-V, --version", "Show version number")
 	.option("-v, --verbose", "Enable debug logging")
 	.option("--trace", "Enable trace logging")
 	.helpOption("-h, --help", "Show this help message")
