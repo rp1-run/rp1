@@ -78,6 +78,29 @@ Task: rp1-dev:feature-requirement-gatherer
 prompt: FEATURE_ID={FEATURE_ID}, REQUIREMENTS={requirements}, AFK_MODE={AFK_MODE}, RP1_ROOT={RP1_ROOT}
 ```
 
+### §1.1 Requirements Review Checkpoint
+
+**Skip if**: AFK_MODE
+
+After requirements completes, pause for user review:
+
+```
+AskUserQuestion: |
+  Requirements phase complete. Review artifact:
+  - {RP1_ROOT}/work/features/{FEATURE_ID}/requirements.md
+
+  Summary: Generated requirements specification with functional requirements,
+  user stories, and defined scope boundaries.
+
+  Options:
+  1. "Continue" - Proceed to design phase
+  2. "Revise" - Re-run requirements with feedback
+  3. "Stop" - Exit workflow (artifacts preserved)
+```
+
+**On "Revise"**: Prompt for feedback, append to REQUIREMENTS param, re-invoke §STEP-1.
+**On "Stop"**: Output summary of completed steps (Step 1 done), provide resume instruction: `/build {FEATURE_ID}`. Exit.
+
 ## §STEP-2: Design
 
 **Skip if**: start_step > 2
@@ -111,14 +134,18 @@ AskUserQuestion: |
   - {RP1_ROOT}/work/features/{FEATURE_ID}/design.md
   - {RP1_ROOT}/work/features/{FEATURE_ID}/tasks.md
 
+  Summary: Generated technical design with architecture decisions, component
+  specifications, and implementation approach. Tasks file includes initial
+  task breakdown with complexity assessment.
+
   Options:
-  1. "Continue" - Proceed to build phase
+  1. "Continue" - Proceed to task finalization phase
   2. "Revise" - Re-run design with feedback
   3. "Stop" - Exit workflow (artifacts preserved)
 ```
 
-**On "Revise"**: Re-run §STEP-2 with user feedback appended to requirements.
-**On "Stop"**: Exit with summary of completed steps.
+**On "Revise"**: Prompt for feedback, append to requirements.md Addendum section, re-invoke §STEP-2 with UPDATE_MODE=true.
+**On "Stop"**: Output summary of completed steps (Steps 1-2 done), provide resume instruction: `/build {FEATURE_ID}`. Exit.
 
 ## §STEP-3: Tasks
 
@@ -128,6 +155,29 @@ AskUserQuestion: |
 Task: rp1-dev:feature-tasker
 prompt: FEATURE_ID={FEATURE_ID}, UPDATE_MODE=false, RP1_ROOT={RP1_ROOT}
 ```
+
+### §3.1 Tasks Review Checkpoint
+
+**Skip if**: AFK_MODE
+
+After tasks completes, pause for user review:
+
+```
+AskUserQuestion: |
+  Tasks phase complete. Review artifact:
+  - {RP1_ROOT}/work/features/{FEATURE_ID}/tasks.md
+
+  Summary: Generated implementation tasks with dependency ordering
+  and complexity assessment. Tasks are ready for build phase execution.
+
+  Options:
+  1. "Continue" - Proceed to build phase
+  2. "Revise" - Re-run task generation with feedback
+  3. "Stop" - Exit workflow (artifacts preserved)
+```
+
+**On "Revise"**: Prompt for feedback, re-invoke §STEP-3 with UPDATE_MODE=true and feedback as UPDATE_CONTEXT.
+**On "Stop"**: Output summary of completed steps (Steps 1-3 done), provide resume instruction: `/build {FEATURE_ID}`. Exit.
 
 ## §STEP-4: Build
 
@@ -185,6 +235,41 @@ for unit in task_units:
 ### §4.5 Post-Build
 
 **Doc Tasks** (TD*): Build `doc_scan_results.json`, spawn scribe.
+
+### §4.6 Build Review Checkpoint
+
+**Skip if**: AFK_MODE
+
+After build completes, pause for user review:
+
+```
+AskUserQuestion: |
+  Build phase complete. All tasks implemented.
+
+  Summary: Completed implementation tasks with commits in branch {branch}.
+  - Branch: {branch}
+  - Worktree: {worktree_path or "main repo"}
+
+  Options:
+  1. "Continue" - Proceed to verification phase
+  2. "Add Task" - Add additional implementation work
+  3. "Stop" - Exit workflow (all code changes preserved)
+```
+
+**On "Add Task"**:
+1. Prompt for task description
+2. Create ad-hoc task entry with ID "TX-{timestamp}"
+3. Spawn builder/reviewer:
+   ```
+   Task: rp1-dev:task-builder
+   prompt: FEATURE_ID={FEATURE_ID}, TASK_IDS=[TX-{timestamp}], WORKTREE_PATH={worktree_path}, PREVIOUS_FEEDBACK={task_description}
+
+   Task: rp1-dev:task-reviewer
+   prompt: FEATURE_ID={FEATURE_ID}, TASK_IDS=[TX-{timestamp}], WORKTREE_PATH={worktree_path}
+   ```
+4. Return to §4.6 checkpoint (loop until "Continue" or "Stop")
+
+**On "Stop"**: Output summary of completed steps (Steps 1-4 done), branch name, merge instructions: `git checkout main && git merge {branch}`. Provide resume instruction: `/build {FEATURE_ID}`. Exit.
 
 ## §STEP-5: Verify
 

@@ -55,6 +55,55 @@ The command orchestrates these steps:
 | 5. Follow-up | Add more work if needed | Loops to Build |
 | 6. Archive | Store completed feature | Archived artifacts |
 
+## Interactive Mode (Default)
+
+By default, `/build` runs in **interactive mode**, presenting approval gates between major workflow stages. These gates allow you to review artifacts, provide feedback, and control workflow progression.
+
+### Approval Gates
+
+| Gate | After | Options | Purpose |
+|------|-------|---------|---------|
+| Gate 1 | Requirements | Continue, Revise, Stop | Review requirements before design |
+| Gate 2 | Design | Continue, Revise, Stop | Review design and task breakdown |
+| Gate 3 | Tasks | Continue, Revise, Stop | Review implementation plan |
+| Gate 4 | Build | Continue, Add Task, Stop | Review implementation before verify |
+
+### Gate Options
+
+At each gate, you can choose:
+
+| Option | Behavior |
+|--------|----------|
+| **Continue** | Proceed to the next workflow stage |
+| **Revise** | Provide feedback and re-run the current stage |
+| **Stop** | Exit the workflow (all artifacts preserved) |
+| **Add Task** | (Gate 4 only) Add additional implementation work |
+
+### Feedback Loop
+
+When you select **Revise**, you're prompted for feedback. This feedback is incorporated into the re-execution:
+
+| Stage | How Feedback is Used |
+|-------|---------------------|
+| Requirements | Appended to REQUIREMENTS parameter |
+| Design | Appended to requirements.md as addendum |
+| Tasks | Passed as UPDATE_CONTEXT to feature-tasker |
+| Build | Creates ad-hoc task for builder-reviewer |
+
+### AFK Mode
+
+Use `--afk` to bypass all gates and run the workflow autonomously:
+
+```bash
+/build my-feature --afk
+```
+
+In AFK mode:
+
+- All approval gates are skipped
+- Workflow proceeds automatically through all stages
+- Changes remain isolated to a separate branch
+
 ## Smart Resumption
 
 The command detects existing artifacts and resumes from the appropriate step:
@@ -66,6 +115,8 @@ The command detects existing artifacts and resumes from the appropriate step:
 | `requirements.md` + `design.md` | Build |
 | All + `tasks.md` (completed) | Verify |
 | All + `verification-report.md` | Archive |
+
+If you stopped at a gate, resuming `/build` continues from the next stage.
 
 ## Examples
 
@@ -152,5 +203,6 @@ The command detects existing artifacts and resumes from the appropriate step:
 ## See Also
 
 - [Feature Development Guide](../../guides/feature-development.md) - Complete tutorial
+- [Interactive Build Guide](../../guides/interactive-build.md) - Gate interaction patterns and feedback workflows
 - [Builder-Reviewer Agents](../../concepts/builder-reviewer-agents.md) - How the build step works
 - [Parallel Development](../../guides/parallel-development.md) - Worktree isolation details
