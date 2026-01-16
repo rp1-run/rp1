@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.16](https://github.com/rp1-run/rp1/compare/v0.2.15...v0.2.16) (2026-01-16)
+
+
+### Features
+
+* add feature task api to keep track of agent progress in webui ([#222](https://github.com/rp1-run/rp1/issues/222)) ([d2ce48b](https://github.com/rp1-run/rp1/commit/d2ce48b36be282a976f98555c603751a20bed5c2))
+
+
+### Bug Fixes
+
+* **ci:** run lighthouse only on releases ([8a257f1](https://github.com/rp1-run/rp1/commit/8a257f172665b3e4e43ae0606ca95465bc33cbb5))
+* make the build command interactive to ensrue there are enough points for the user to intervene ([#224](https://github.com/rp1-run/rp1/issues/224)) ([eaaabad](https://github.com/rp1-run/rp1/commit/eaaabadf5a5fe40b1420004f3549bcb1699ab4b5))
+
 ## [0.2.15](https://github.com/rp1-run/rp1/compare/v0.2.14...v0.2.15) (2026-01-11)
 
 
