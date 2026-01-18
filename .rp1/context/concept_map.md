@@ -160,7 +160,7 @@
 
 ### CLI Tools
 **Scope**: Agent-facing utilities
-**Concepts**: Worktree Management, RP1 Root Resolution, Mermaid Validation, Comment Extraction
+**Concepts**: Worktree Management, RP1 Root Resolution, Mermaid Validation, Comment Extraction, Work Status, GitHub PR Operations
 **Boundaries**: Provide JSON-formatted tool results for AI agent consumption
 
 ### Knowledge Base Artifacts

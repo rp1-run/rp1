@@ -2,7 +2,7 @@
 
 **Project**: rp1 Plugin System
 **Architecture Pattern**: Plugin Architecture with Map-Reduce Orchestration
-**Last Updated**: 2026-01-11
+**Last Updated**: 2026-01-18
 
 ## High-Level Architecture
 
@@ -66,6 +66,11 @@ graph TB
         Curl[curl install.sh]
     end
 
+    subgraph "Quality"
+        Evals[Promptfoo Evals]
+        Biome[Biome Linter]
+    end
+
     CC --> Base
     CC --> Dev
     OC --> Tarball
@@ -116,6 +121,10 @@ graph TB
 **Evidence**: `.rp1/work/worktrees/` directory structure, worktree CLI command
 **Description**: Agents execute in isolated git worktrees with disabled hooks (core.hooksPath=/dev/null), protecting user's uncommitted work during build-fast workflows.
 
+### Tool Registry Pattern
+**Evidence**: `cli/src/config/supported-tools.yaml`, `cli/src/agent-tools/index.ts`
+**Description**: Centralized registry for agent tools with registration, lookup, and listing.
+
 ## Layer Architecture
 
 | Layer | Purpose | Components |
@@ -123,10 +132,11 @@ graph TB
 | **Interface** | User-facing entry points for AI assistants | `plugins/*/commands/*.md` |
 | **Agent** | Autonomous workflow execution | `plugins/*/agents/*.md` |
 | **Skill** | Reusable shared capabilities | `plugins/base/skills/*.md` |
-| **CLI** | Cross-platform tooling and agent tools | `cli/src/main.ts`, `cli/web-ui/*`, `agent-tools (worktree, rp1-root-dir)` |
+| **CLI** | Cross-platform tooling and agent tools | `cli/src/main.ts`, `cli/web-ui/*`, `agent-tools` |
 | **Config** | Tool registry and configuration | `cli/src/config/supported-tools.*`, `cli/bunfig.toml` |
 | **Knowledge** | Persistent codebase knowledge | `.rp1/context/*.md`, `.rp1/context/state.json` |
-| **Build/Release** | CI/CD automation and quality gates | `.github/workflows/*`, `.goreleaser.yml`, `Justfile`, `lefthook.yml` |
+| **Build/Release** | CI/CD automation and quality gates | `.github/workflows/*`, `.goreleaser.yml`, `Justfile` |
+| **Evaluation** | Prompt evaluation and instruction-following tests | `evals/promptfooconfig.yaml`, `evals/suites/*` |
 
 ## Key Workflows
 
@@ -156,20 +166,15 @@ sequenceDiagram
     participant Build as /build
     participant ArtDet as build-artifact-detector
     participant Parser as build-task-parser
-    participant Grouper as build-task-grouper
     participant Builder as task-builder
     participant Reviewer as task-reviewer
-    participant Runner as test-runner
-    participant VerAgg as build-verify-aggregator
     participant Files as Source Files
 
     User->>Build: Invoke with feature-id
     Build->>ArtDet: Detect artifacts
-    ArtDet-->>Build: {start_step, artifacts}
+    ArtDet-->>Build: start_step, artifacts
     Build->>Parser: Parse tasks.md
-    Parser-->>Build: {tasks, summary}
-    Build->>Grouper: Group by complexity
-    Grouper-->>Build: {task_units}
+    Parser-->>Build: tasks, summary
     loop For each task unit
         Build->>Builder: Implement task(s)
         Builder->>Files: Write code
@@ -180,10 +185,6 @@ sequenceDiagram
             Build->>Builder: Retry with feedback
         end
     end
-    Build->>Runner: Run tests (informational)
-    Runner-->>Build: Test results
-    Build->>VerAgg: Aggregate results
-    VerAgg-->>Build: {overall_status, ready_for_merge}
     Build-->>User: Build complete
 ```
 
@@ -244,9 +245,8 @@ sequenceDiagram
 **Purpose**: CI/CD automation for testing, releases, and binary distribution
 - `ci.yml`: lint, typecheck, tests via Bun and `just` task runner
 - `release-please.yml`: versioning + OpenCode artifact builds + Cloudflare Pages deploy
-- `pr-title.yml`: conventional commit validation for PR titles
 - `goreleaser.yml`: binary builds triggered by tag
-- `lighthouse.yml`: docs site performance testing
+- `rp1-pr-review.yml`: automated PR review workflow
 
 ### GoReleaser
 **Purpose**: Cross-platform binary builds using Bun compiler
@@ -270,6 +270,11 @@ sequenceDiagram
 **Purpose**: Alternative AI coding assistant support
 **Distribution**: Tarball in GitHub releases with AGENTS.md instruction file
 **Minimum Version**: 0.8.0
+
+### Promptfoo
+**Purpose**: Evaluation framework for agent instruction-following tests
+**Location**: `evals/`
+**Provider**: `anthropic:claude-agent-sdk`
 
 ## Deployment Architecture
 
@@ -298,7 +303,7 @@ sequenceDiagram
 ## Performance Considerations
 
 ### Lazy Loading
-- Agent-tools (puppeteer) lazy-loaded to reduce CLI startup time
+- Agent-tools lazy-loaded to reduce CLI startup time
 - Heavy dependencies only loaded when needed
 
 ### Parallel Execution

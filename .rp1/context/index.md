@@ -23,9 +23,9 @@ rp1 is a Claude Code plugin system that automates development workflows through 
 
 | File | Lines | Load For |
 |------|-------|----------|
-| architecture.md | ~317 | System design, component relationships, data flows |
-| modules.md | ~302 | Component breakdown, module responsibilities |
-| patterns.md | ~141 | Code conventions, implementation patterns |
+| architecture.md | ~322 | System design, component relationships, data flows |
+| modules.md | ~304 | Component breakdown, module responsibilities |
+| patterns.md | ~142 | Code conventions, implementation patterns |
 | concept_map.md | ~220 | Domain terminology, business concepts |
 
 ## Task-Based Loading

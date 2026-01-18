@@ -2,7 +2,7 @@
 
 **Project**: rp1 Plugin System
 **Analysis Date**: 2026-01-18
-**Total Components**: 100+ (32 commands, 36 agents, 5 skills, 27+ CLI modules)
+**Total Components**: 100+ (32 commands, 36 agents, 6 skills, 27+ CLI modules)
 
 ## Plugin Modules
 
@@ -117,6 +117,10 @@
 ```
 evals/
 ├── package.json              # Dependencies: promptfoo ^0.120.0, @anthropic-ai/claude-agent-sdk
+├── src/
+│   ├── index.ts              # Entry point
+│   ├── harness.ts            # Test environment setup/teardown
+│   └── types.ts              # Type definitions
 └── suites/
     ├── shared/               # Reusable across suites
     │   ├── extension.ts      # beforeEach/afterEach hooks for workspace isolation
@@ -133,31 +137,7 @@ evals/
 |-----------|---------|
 | extension.ts | Workspace isolation - resets `/tmp/rp1-eval-workspace` before each test |
 | git.ts assertions | Deterministic verification of git state (commit count, HEAD changes) |
-| config.yaml | Provider config with `setting_sources: [user, project, local]` for skill discovery |
-
-**Test Isolation Pattern**:
-- Fixed workspace: `/tmp/rp1-eval-workspace`
-- `beforeEach` hook: Complete reset (rm -rf, git init, initial commit)
-- Records `GIT_HEAD_BEFORE` and `GIT_COUNT_BEFORE` for assertions
-- `afterEach` hook: Logs final state for debugging
-
-**Provider Configuration**:
-```yaml
-providers:
-  - id: anthropic:claude-agent-sdk
-    config:
-      model: claude-opus-4-5
-      working_dir: /tmp/rp1-eval-workspace
-      permission_mode: bypassPermissions
-      setting_sources: [user, project, local]  # Required for skill discovery
-      tools: [Read, Write, Edit, Glob, Grep, Bash, Skill]
-```
-
-**Assertion Types**:
-| Assertion | Purpose |
-|-----------|---------|
-| assertCommitMade | Verifies agent created git commit (count increased or HEAD changed) |
-| assertNoCommitMade | Verifies agent did NOT create git commit |
+| harness.ts | Test environment setup/teardown with isolated git repos |
 
 **Running Evals**:
 ```bash
@@ -174,11 +154,8 @@ just evals-suite rp1-dev/build-fast
 | main.ts | CLI entry point with lazy loading for agent-tools |
 | init.ts | Initialize rp1 in a project |
 | install/index.ts | Install plugins to OpenCode/Claude Code |
-| update/index.ts | Update plugins |
-| verify/index.ts | Verify plugin installation |
 | view.ts | Launch web-based documentation viewer |
 | self-update.ts | Update CLI to latest version |
-| check-update.ts | Check for available updates |
 
 ### cli/src/init/
 **Purpose**: Project initialization with 11-step workflow
@@ -190,8 +167,6 @@ just evals-suite rp1-dev/build-fast
 | tool-detector.ts | Detect agentic tools (Claude Code, OpenCode) |
 | context-detector.ts | Classify project as greenfield or brownfield |
 | comment-fence.ts | Fenced content injection into CLAUDE.md |
-| progress.ts | Progress indication |
-| templates/*.ts | Template generation for AGENTS.md, CLAUDE.md |
 | steps/*.ts | Modular init steps (verification, plugin-installation, health-check) |
 | ui/*.tsx | React/Ink UI components for wizard |
 
@@ -200,12 +175,9 @@ just evals-suite rp1-dev/build-fast
 
 | Module | Purpose |
 |--------|---------|
-| index.ts | Barrel exports |
 | installer.ts | Copy artifacts to target directories with backup |
 | manifest.ts | Plugin manifest parsing and discovery |
 | verifier.ts | Installation verification |
-| config.ts | Installation configuration |
-| prerequisites.ts | Runtime prerequisite checking |
 | claudecode/index.ts | Claude Code specific installation |
 
 ### cli/src/agent-tools/
@@ -215,53 +187,25 @@ just evals-suite rp1-dev/build-fast
 |--------|---------|
 | index.ts | Tool registry (register, get, list) |
 | command.ts | Commander.js integration |
-| input.ts | Input handling (file/stdin) |
-| output.ts | JSON output formatting |
 | models.ts | Type definitions (ToolResult) |
 | git.ts | Shared git utilities with GitContext pattern |
-| mmd-validate/ | Mermaid validation tool |
-| rp1-root-dir/ | RP1_ROOT resolution with worktree awareness |
 | worktree/ | Git worktree management for isolated execution |
+| github-pr/ | GitHub PR operations (submit-review, fetch-comments) |
+| mmd-validate/ | Mermaid validation tool |
+| work/ | Workflow status tracking |
 | comment-extract/ | Comment extraction from source files |
-
-### cli/src/agent-tools/worktree/
-**Purpose**: Git worktree management for isolated agent execution
-
-| Module | Purpose |
-|--------|---------|
-| index.ts | Entry point with executeCreate, executeCleanup, executeStatus |
-| create.ts | Worktree creation with branch collision handling |
-| cleanup.ts | Worktree removal with optional branch deletion |
-| status.ts | Worktree detection and info |
-| slug.ts | Task slug generation for branch naming |
-| models.ts | Type definitions (WorktreeCreateResult, WorktreeCleanupResult) |
 
 ### cli/web-ui/
 **Purpose**: React-based documentation viewer with Mermaid support
 
 | Component | Purpose |
 |-----------|---------|
-| src/main.tsx | React entry point |
 | src/server.ts | Server factory with WebSocket and file watching |
-| src/app/App.tsx | Main app with providers |
+| src/main.tsx | React entry point |
 | src/server/http.ts | Bun HTTP server |
 | src/server/websocket.ts | WebSocket hub for live reload |
-| src/server/file-watcher.ts | File system monitoring |
-| src/server/project.ts | Project management |
-| src/server/registry.ts | Project registry |
+| src/pages/StatusDashboard.tsx | Real-time work status display |
 | src/components/MarkdownViewer/ | Markdown rendering with Mermaid |
-| src/components/FileTree/ | Directory navigation |
-| src/providers/*.tsx | Theme, WebSocket, Project providers |
-
-### packages/catppuccin-mermaid/
-**Purpose**: Catppuccin color theme library for Mermaid diagrams
-
-| Module | Purpose |
-|--------|---------|
-| src/index.ts | Theme exports |
-| src/theme.ts | Theme generation |
-| src/palette.ts | Color palette definitions |
-| src/flavors/*.ts | Latte, frappe, macchiato, mocha flavors |
 
 ## Module Dependencies
 
@@ -293,9 +237,9 @@ graph TD
         Main[main.ts] --> Init[init/]
         Main --> Install[install/]
         Main -.->|lazy| AgentTools[agent-tools/]
-        AgentTools --> MmdValidate[mmd-validate/]
         AgentTools --> Worktree[worktree/]
-        AgentTools --> Rp1Root[rp1-root-dir/]
+        AgentTools --> GitHubPR[github-pr/]
+        AgentTools --> Work[work/]
         Worktree --> Git[git.ts]
     end
 ```
@@ -310,7 +254,7 @@ graph TD
 | cli/src | 8 | - | - | ~3,000 |
 | cli/src/init | - | - | - | ~2,500 |
 | cli/src/install | - | - | - | ~1,200 |
-| cli/src/agent-tools | - | - | - | ~1,500 |
+| cli/src/agent-tools | - | - | - | ~1,800 |
 | cli/web-ui | - | - | - | ~2,800 |
 | evals | - | - | - | ~350 |
 
@@ -343,7 +287,7 @@ CLI modules use Either/TaskEither for type-safe error handling:
 - `TE.tryCatch()` wraps async operations
 
 ### Lazy Loading
-Heavy dependencies (puppeteer) are lazy-loaded:
+Heavy dependencies are lazy-loaded:
 - main.ts lazy-loads agent-tools/command.ts
 - Reduces CLI startup time for non-agent-tools commands
 

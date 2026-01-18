@@ -1,7 +1,7 @@
 # Implementation Patterns
 
 **Project**: rp1 Plugin System
-**Last Updated**: 2026-01-11
+**Last Updated**: 2026-01-18
 
 ## Naming & Organization
 
@@ -18,7 +18,7 @@ Evidence: `cli/src/main.ts`, `plugins/base/agents/kb-spatial-analyzer.md`
 **Type Strictness**: Strict typing throughout CLI; all interfaces use readonly modifiers
 **Immutability**: Enforced via readonly arrays and readonly properties on all model interfaces
 
-Evidence: `cli/src/agent-tools/rp1-root-dir/models.ts`, `cli/src/agent-tools/worktree/models.ts`
+Evidence: `cli/src/agent-tools/models.ts`, `cli/src/install/models.ts`
 
 ## Error Handling
 
@@ -26,14 +26,14 @@ Evidence: `cli/src/agent-tools/rp1-root-dir/models.ts`, `cli/src/agent-tools/wor
 **Propagation**: Errors lifted to Either and composed through pipe(); caught at CLI boundary with formatError
 **Common Types**: ParseError, ValidationError, PrerequisiteError, RuntimeError, UsageError, NotFoundError
 
-Evidence: `cli/src/agent-tools/command.ts:127-158`, `cli/src/agent-tools/worktree/create.ts`
+Evidence: `cli/src/agent-tools/command.ts`, `cli/src/agent-tools/worktree/create.ts`
 
 ## Validation & Boundaries
 
 **Location**: API boundary validation in CLI; fail-fast with Left returns
 **Method**: Two-level validation: fencing validation (syntax) then field validation (schema); TE.tryCatch wraps async operations
 
-Evidence: `cli/src/agent-tools/rp1-root-dir/resolver.ts:37-81`
+Evidence: `cli/src/build/parser.ts`
 
 ## Observability
 
@@ -41,7 +41,7 @@ Evidence: `cli/src/agent-tools/rp1-root-dir/resolver.ts:37-81`
 **Metrics**: Confidence scoring (0-100) in agents for verification quality
 **Tracing**: Silent execution with `<thinking>` tags in agents; progress callbacks in installers
 
-Evidence: `cli/src/main.ts:51-61`, `plugins/dev/agents/task-reviewer.md`
+Evidence: `cli/src/main.ts`, `plugins/dev/agents/task-reviewer.md`
 
 ## Testing Idioms
 
@@ -49,8 +49,9 @@ Evidence: `cli/src/main.ts:51-61`, `plugins/dev/agents/task-reviewer.md`
 **Fixtures**: Helper functions (getFixturePath, createTempDir); realistic test data
 **Levels**: Unit tests dominant; integration tests for CLI flows
 **Discipline**: 13 rules in task-builder: no trivial tests, black-box assertions, deterministic, mock only external boundaries
+**Evals**: Promptfoo-based instruction-following tests in `evals/`
 
-Evidence: `cli/src/__tests__/`, `plugins/dev/agents/task-builder.md:107-127`
+Evidence: `cli/src/__tests__/`, `plugins/dev/agents/task-builder.md`, `evals/`
 
 ## I/O & Integration
 
@@ -58,14 +59,14 @@ Evidence: `cli/src/__tests__/`, `plugins/dev/agents/task-builder.md:107-127`
 **Git Operations**: Shared git.ts utilities with GitContext pattern; getIsolatedGitEnv() clears env vars to prevent context leakage
 **Worktree Safety**: Always use GitContext.repoRoot for mutations; cwd for read-only queries
 
-Evidence: `cli/src/agent-tools/git.ts:1-57`, `cli/src/agent-tools/worktree/create.ts`
+Evidence: `cli/src/agent-tools/git.ts`, `cli/src/agent-tools/worktree/create.ts`
 
 ## Concurrency & Async
 
 **Async Usage**: Async/await throughout CLI; TaskEither for composable async with error handling
 **Parallelism**: Sequential loops in installers; parallel via A.sequence(TE.ApplicativePar) for batch operations
 
-Evidence: `cli/src/agent-tools/mmd-validate/validator.ts:107-121`
+Evidence: `cli/src/agent-tools/mmd-validate/validator.ts`
 
 ## Command-Agent Pattern
 
@@ -114,7 +115,7 @@ Evidence: `plugins/dev/agents/task-builder.md`, `plugins/dev/agents/task-reviewe
 **Tool Result**: Standard ToolResult<T> envelope with success, tool, data, errors fields
 **Lazy Loading**: Tools lazy-loaded via import statements in command.ts
 
-Evidence: `cli/src/agent-tools/rp1-root-dir/index.ts:38-43`, `cli/src/agent-tools/command.ts:19-21`
+Evidence: `cli/src/agent-tools/index.ts`, `cli/src/agent-tools/command.ts`
 
 ## Stateless Agent Pattern
 
@@ -129,7 +130,7 @@ Evidence: `docs/concepts/stateless-agents.md`, `plugins/dev/agents/charter-inter
 **Variable Usage**: Always use {RP1_ROOT} for paths; defaults to .rp1/ if not set
 **Worktree Awareness**: resolveRp1Root() detects worktrees via git-common-dir and returns main repo's .rp1/
 
-Evidence: `cli/src/agent-tools/rp1-root-dir/resolver.ts:22-47`
+Evidence: `cli/src/agent-tools/rp1-root-dir/resolver.ts`
 
 ## Terse Prompt Authoring
 
