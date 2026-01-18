@@ -61,14 +61,19 @@ async function getCommandVersion(commandPath: string): Promise<string> {
 /**
  * Run eval suite via promptfoo.
  * Returns true only on 100% pass (exit code 0).
- * Note: This runs from the repository root.
+ * Note: Uses locally installed promptfoo from evals/node_modules.
  */
 async function runEvalSuite(suite: string): Promise<boolean> {
-	const configPath = `evals/suites/${suite}/config.yaml`;
-	const proc = spawn(["bun", "x", "promptfoo", "eval", "-c", configPath], {
-		stdout: "inherit",
-		stderr: "inherit",
-	});
+	const configPath = `suites/${suite}/config.yaml`;
+	// Run from evals/ directory using local promptfoo installation
+	const proc = spawn(
+		["./node_modules/.bin/promptfoo", "eval", "-c", configPath],
+		{
+			cwd: "evals",
+			stdout: "inherit",
+			stderr: "inherit",
+		},
+	);
 	const exitCode = await proc.exited;
 	return exitCode === 0;
 }
