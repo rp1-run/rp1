@@ -2,8 +2,8 @@
 
 **Type**: Single Project
 **Languages**: TypeScript, Markdown, Shell, Python
-**Version**: 0.2.14
-**Updated**: 2026-01-11
+**Version**: 0.3.0
+**Updated**: 2026-01-18
 
 ## Project Summary
 
@@ -71,6 +71,10 @@ rp1/
 ├── packages/                  # NPM packages
 │   └── catppuccin-mermaid/    # Mermaid theme library
 ├── docs/                      # MkDocs Material site
+├── evals/                     # Promptfoo evaluation suites
+│   └── suites/                # Test suites (mirrors plugins structure)
+│       ├── shared/            # Shared assertions and hooks
+│       └── rp1-dev/           # Dev plugin evals
 ├── .github/workflows/         # CI/CD (release-please, GoReleaser)
 └── .rp1/context/              # Auto-generated knowledge base
 ```
@@ -98,6 +102,9 @@ rp1/
 # PR review
 /pr-review                    # Map-reduce review with confidence gating
 /address-pr-feedback          # Collect, triage, fix PR comments
+
+# Evaluations
+just evals-suite rp1-dev/build-fast   # Run build-fast instruction-following tests
 ```
 
 ## Navigation

@@ -96,3 +96,19 @@ clean-dev:
 
 install-cli-deps:
     cd cli && bun install --frozen-lockfile
+
+# Install eval dependencies
+install-evals-deps:
+    cd evals && bun install --frozen-lockfile
+
+# Run all evaluation suites
+evals: install-evals-deps
+    cd evals && bunx promptfoo eval
+
+# Run specific evaluation suite (e.g., just evals-suite build-fast)
+evals-suite suite: install-evals-deps
+    cd evals && bunx promptfoo eval -c suites/{{suite}}/config.yaml
+
+# Run evaluation suite with verbose output
+evals-verbose suite: install-evals-deps
+    cd evals && bunx promptfoo eval -c suites/{{suite}}/config.yaml --verbose
