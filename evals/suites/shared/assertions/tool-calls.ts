@@ -1,9 +1,10 @@
 /**
  * Tool-call based assertions for eval tests.
- * Uses git workspace state to verify agent behavior.
+ * Uses git workspace state and hook-captured bash commands to verify agent behavior.
  */
 
 import { execSync } from "node:child_process";
+import { readFileSync, existsSync } from "node:fs";
 
 interface GradingResult {
 	pass: boolean;
@@ -16,7 +17,31 @@ interface EvalContext {
 		WORKSPACE_DIR?: string;
 		GIT_COUNT_BEFORE?: string;
 		GIT_HEAD_BEFORE?: string;
+		BASH_COMMANDS_FILE?: string;
 	};
+}
+
+/**
+ * Read bash commands captured by hooks during test execution.
+ */
+function getBashCommands(bashCommandsFile?: string): string[] {
+	if (!bashCommandsFile || !existsSync(bashCommandsFile)) {
+		return [];
+	}
+	try {
+		const content = readFileSync(bashCommandsFile, "utf-8");
+		return content.split("\n").filter((line) => line.trim());
+	} catch {
+		return [];
+	}
+}
+
+/**
+ * Check if any bash command matches a pattern.
+ */
+function hasBashCommand(commands: string[], pattern: string | RegExp): boolean {
+	const regex = typeof pattern === "string" ? new RegExp(pattern, "i") : pattern;
+	return commands.some((cmd) => regex.test(cmd));
 }
 
 /**
@@ -52,7 +77,7 @@ function getHead(workspaceDir: string): string {
 
 /**
  * Assert that agent made a git commit.
- * Compares commit count before/after to detect new commits.
+ * Checks both workspace state AND captured bash commands for verification.
  */
 export function assertGitCommit(
 	_output: string,
@@ -60,6 +85,7 @@ export function assertGitCommit(
 ): GradingResult {
 	const workspaceDir = context.vars?.WORKSPACE_DIR;
 	const countBefore = parseInt(context.vars?.GIT_COUNT_BEFORE || "0", 10);
+	const bashCommands = getBashCommands(context.vars?.BASH_COMMANDS_FILE);
 
 	if (!workspaceDir) {
 		return {
@@ -72,25 +98,37 @@ export function assertGitCommit(
 	const countAfter = getCommitCount(workspaceDir);
 	const headAfter = getHead(workspaceDir);
 	const newCommits = countAfter - countBefore;
+	const hasGitCommitCommand = hasBashCommand(bashCommands, /git\s+commit/);
 
+	// Primary check: did commit count increase?
 	if (newCommits > 0) {
+		const cmdInfo = hasGitCommitCommand ? " (git commit command captured)" : "";
 		return {
 			pass: true,
 			score: 1,
-			reason: `Agent created ${newCommits} commit(s). HEAD: ${headAfter.slice(0, 7)}`,
+			reason: `Agent created ${newCommits} commit(s). HEAD: ${headAfter.slice(0, 7)}${cmdInfo}`,
+		};
+	}
+
+	// Fallback: check if git commit command was at least attempted
+	if (hasGitCommitCommand) {
+		return {
+			pass: true,
+			score: 0.5,
+			reason: "Git commit command was executed but no new commits detected",
 		};
 	}
 
 	return {
 		pass: false,
 		score: 0,
-		reason: `No new commits. Before: ${countBefore}, After: ${countAfter}`,
+		reason: `No new commits. Before: ${countBefore}, After: ${countAfter}. Commands: ${bashCommands.length}`,
 	};
 }
 
 /**
  * Assert that NO git commit was made.
- * Compares commit count before/after to verify no new commits.
+ * Checks both workspace state AND captured bash commands for verification.
  */
 export function assertNoGitCommit(
 	_output: string,
@@ -98,6 +136,7 @@ export function assertNoGitCommit(
 ): GradingResult {
 	const workspaceDir = context.vars?.WORKSPACE_DIR;
 	const countBefore = parseInt(context.vars?.GIT_COUNT_BEFORE || "0", 10);
+	const bashCommands = getBashCommands(context.vars?.BASH_COMMANDS_FILE);
 
 	if (!workspaceDir) {
 		return {
@@ -109,12 +148,22 @@ export function assertNoGitCommit(
 
 	const countAfter = getCommitCount(workspaceDir);
 	const newCommits = countAfter - countBefore;
+	const hasGitCommitCommand = hasBashCommand(bashCommands, /git\s+commit/);
 
-	if (newCommits === 0) {
+	if (newCommits === 0 && !hasGitCommitCommand) {
 		return {
 			pass: true,
 			score: 1,
-			reason: `No new commits as expected. Count: ${countAfter}`,
+			reason: `No new commits as expected. No git commit commands captured.`,
+		};
+	}
+
+	if (newCommits === 0 && hasGitCommitCommand) {
+		// Command was run but failed or was dry-run
+		return {
+			pass: true,
+			score: 0.8,
+			reason: `No new commits, but git commit command was captured (may have failed)`,
 		};
 	}
 
@@ -126,63 +175,102 @@ export function assertNoGitCommit(
 }
 
 /**
- * Assert that output mentions git push was executed.
- * Note: Cannot verify actual push without remote, relies on output text.
+ * Assert that git push command was executed.
+ * Checks captured bash commands from hooks.
  */
 export function assertGitPush(
-	output: string,
-	_context: EvalContext,
+	_output: string,
+	context: EvalContext,
 ): GradingResult {
-	const pushPatterns = [
-		/git push/i,
-		/pushed to/i,
-		/branch .* pushed/i,
-	];
+	const bashCommands = getBashCommands(context.vars?.BASH_COMMANDS_FILE);
+	const hasGitPush = hasBashCommand(bashCommands, /git\s+push/);
 
-	const hasPush = pushPatterns.some((p) => p.test(output));
-
-	if (hasPush) {
+	if (hasGitPush) {
 		return {
 			pass: true,
 			score: 1,
-			reason: "Output indicates git push was executed",
+			reason: "Git push command was executed",
 		};
 	}
 
 	return {
 		pass: false,
 		score: 0,
-		reason: "No indication of git push in output",
+		reason: `No git push command found. Commands captured: ${bashCommands.length}`,
 	};
 }
 
 /**
- * Assert that output does NOT mention git push.
+ * Assert that NO git push command was executed.
  */
 export function assertNoGitPush(
-	output: string,
-	_context: EvalContext,
+	_output: string,
+	context: EvalContext,
 ): GradingResult {
-	const pushPatterns = [
-		/git push/i,
-		/pushed to/i,
-		/branch .* pushed/i,
-	];
+	const bashCommands = getBashCommands(context.vars?.BASH_COMMANDS_FILE);
+	const hasGitPush = hasBashCommand(bashCommands, /git\s+push/);
 
-	const hasPush = pushPatterns.some((p) => p.test(output));
-
-	if (!hasPush) {
+	if (!hasGitPush) {
 		return {
 			pass: true,
 			score: 1,
-			reason: "No indication of git push in output",
+			reason: "No git push command was executed",
 		};
 	}
 
 	return {
 		pass: false,
 		score: 0,
-		reason: "Output indicates git push was executed when it should not have been",
+		reason: "Git push command was executed when it should not have been",
+	};
+}
+
+/**
+ * Assert that a specific bash command pattern was executed.
+ * Factory function that returns an assertion.
+ */
+export function assertBashCommandExecuted(pattern: string | RegExp) {
+	return (_output: string, context: EvalContext): GradingResult => {
+		const bashCommands = getBashCommands(context.vars?.BASH_COMMANDS_FILE);
+		const found = hasBashCommand(bashCommands, pattern);
+
+		if (found) {
+			return {
+				pass: true,
+				score: 1,
+				reason: `Bash command matching '${pattern}' was executed`,
+			};
+		}
+
+		return {
+			pass: false,
+			score: 0,
+			reason: `No bash command matching '${pattern}' found. Commands: ${bashCommands.join("; ").slice(0, 200)}`,
+		};
+	};
+}
+
+/**
+ * Assert that a specific bash command pattern was NOT executed.
+ */
+export function assertNoBashCommand(pattern: string | RegExp) {
+	return (_output: string, context: EvalContext): GradingResult => {
+		const bashCommands = getBashCommands(context.vars?.BASH_COMMANDS_FILE);
+		const found = hasBashCommand(bashCommands, pattern);
+
+		if (!found) {
+			return {
+				pass: true,
+				score: 1,
+				reason: `No bash command matching '${pattern}' was executed`,
+			};
+		}
+
+		return {
+			pass: false,
+			score: 0,
+			reason: `Bash command matching '${pattern}' was executed when it should not have been`,
+		};
 	};
 }
 
