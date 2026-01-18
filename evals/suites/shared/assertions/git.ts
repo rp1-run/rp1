@@ -1,6 +1,6 @@
 /**
- * Deterministic assertions for git commit behavior
- * Checks actual git state in the eval workspace
+ * Shared git assertions for eval tests
+ * Checks actual git state in the workspace
  */
 
 import { execSync } from "node:child_process";

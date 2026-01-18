@@ -1,23 +1,13 @@
 /**
- * Promptfoo extension for test isolation
- * Resets a fixed workspace directory before each test
+ * Shared promptfoo extension hooks
+ * Provides workspace isolation for tests
  */
 
 import { execSync } from "node:child_process";
 import { rmSync, mkdirSync, writeFileSync } from "node:fs";
 
 // Fixed workspace directory
-const WORKSPACE_DIR = "/tmp/rp1-eval-workspace";
-
-interface TestContext {
-  test: {
-    vars: Record<string, string>;
-    description?: string;
-  };
-  result?: {
-    success: boolean;
-  };
-}
+export const WORKSPACE_DIR = "/tmp/rp1-eval-workspace";
 
 /**
  * Reset the workspace: clean everything and reinitialize git
@@ -91,13 +81,25 @@ function getHead(): string {
   }
 }
 
+interface TestContext {
+  test: {
+    vars: Record<string, string>;
+    description?: string;
+  };
+  result?: {
+    success: boolean;
+  };
+}
+
 export async function extensionHook(
   hookName: string,
   context: TestContext,
 ): Promise<TestContext | void> {
   if (hookName === "beforeEach") {
     // Reset workspace to clean state
-    console.log(`[rp1-eval] Resetting workspace for "${context.test.description}"`);
+    console.log(
+      `[rp1-eval] Resetting workspace for "${context.test.description}"`,
+    );
     resetWorkspace();
 
     // Record initial git state (should be 1 commit after reset)
@@ -108,7 +110,9 @@ export async function extensionHook(
     context.test.vars.GIT_HEAD_BEFORE = head;
     context.test.vars.GIT_COUNT_BEFORE = String(count);
 
-    console.log(`[rp1-eval] Workspace ready: HEAD=${head.slice(0, 7)}, commits=${count}`);
+    console.log(
+      `[rp1-eval] Workspace ready: HEAD=${head.slice(0, 7)}, commits=${count}`,
+    );
     return context;
   }
 
