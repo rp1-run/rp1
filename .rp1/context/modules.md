@@ -1,7 +1,7 @@
 # Module & Component Breakdown
 
 **Project**: rp1 Plugin System
-**Analysis Date**: 2026-01-11
+**Analysis Date**: 2026-01-18
 **Total Components**: 100+ (32 commands, 36 agents, 5 skills, 27+ CLI modules)
 
 ## Plugin Modules
@@ -106,6 +106,63 @@
 | Skill | Purpose |
 |-------|---------|
 | prompt-writer | Terse prompt authoring patterns |
+
+## Evaluation Suites
+
+### evals/
+**Purpose**: Promptfoo-based evaluation system for testing agent instruction-following behavior
+**Framework**: Promptfoo with `anthropic:claude-agent-sdk` provider
+
+**Directory Structure** (mirrors plugins):
+```
+evals/
+├── package.json              # Dependencies: promptfoo ^0.120.0, @anthropic-ai/claude-agent-sdk
+└── suites/
+    ├── shared/               # Reusable across suites
+    │   ├── extension.ts      # beforeEach/afterEach hooks for workspace isolation
+    │   └── assertions/
+    │       └── git.ts        # Deterministic git state assertions
+    └── rp1-dev/
+        └── build-fast/       # Suite for /build-fast command
+            ├── config.yaml   # Promptfoo config with scenarios
+            └── prompt.txt    # Slash command template
+```
+
+**Key Components**:
+| Component | Purpose |
+|-----------|---------|
+| extension.ts | Workspace isolation - resets `/tmp/rp1-eval-workspace` before each test |
+| git.ts assertions | Deterministic verification of git state (commit count, HEAD changes) |
+| config.yaml | Provider config with `setting_sources: [user, project, local]` for skill discovery |
+
+**Test Isolation Pattern**:
+- Fixed workspace: `/tmp/rp1-eval-workspace`
+- `beforeEach` hook: Complete reset (rm -rf, git init, initial commit)
+- Records `GIT_HEAD_BEFORE` and `GIT_COUNT_BEFORE` for assertions
+- `afterEach` hook: Logs final state for debugging
+
+**Provider Configuration**:
+```yaml
+providers:
+  - id: anthropic:claude-agent-sdk
+    config:
+      model: claude-opus-4-5
+      working_dir: /tmp/rp1-eval-workspace
+      permission_mode: bypassPermissions
+      setting_sources: [user, project, local]  # Required for skill discovery
+      tools: [Read, Write, Edit, Glob, Grep, Bash, Skill]
+```
+
+**Assertion Types**:
+| Assertion | Purpose |
+|-----------|---------|
+| assertCommitMade | Verifies agent created git commit (count increased or HEAD changed) |
+| assertNoCommitMade | Verifies agent did NOT create git commit |
+
+**Running Evals**:
+```bash
+just evals-suite rp1-dev/build-fast
+```
 
 ## CLI Modules
 
@@ -255,6 +312,7 @@ graph TD
 | cli/src/install | - | - | - | ~1,200 |
 | cli/src/agent-tools | - | - | - | ~1,500 |
 | cli/web-ui | - | - | - | ~2,800 |
+| evals | - | - | - | ~350 |
 
 ## Cross-Module Patterns
 
