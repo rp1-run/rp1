@@ -1,19 +1,9 @@
 /**
  * Tool-call based assertions for eval tests.
- * Checks what tools the agent invoked rather than side effects.
+ * Uses git workspace state to verify agent behavior.
  */
 
-interface ToolCall {
-	name: string;
-	args?: Record<string, unknown>;
-}
-
-interface ProviderResponse {
-	output?: {
-		tool_calls?: ToolCall[];
-	};
-	toolCalls?: ToolCall[];
-}
+import { execSync } from "node:child_process";
 
 interface GradingResult {
 	pass: boolean;
@@ -21,189 +11,235 @@ interface GradingResult {
 	reason: string;
 }
 
-/**
- * Extract tool calls from provider response.
- */
-function getToolCalls(providerResponse?: ProviderResponse): ToolCall[] {
-	return (
-		providerResponse?.output?.tool_calls ??
-		providerResponse?.toolCalls ??
-		[]
-	);
+interface EvalContext {
+	vars: {
+		WORKSPACE_DIR?: string;
+		GIT_COUNT_BEFORE?: string;
+		GIT_HEAD_BEFORE?: string;
+	};
 }
 
 /**
- * Check if any Bash call contains a pattern.
+ * Get current commit count in workspace
  */
-function hasBashCommand(calls: ToolCall[], pattern: string | RegExp): boolean {
-	return calls.some((call) => {
-		if (call.name?.toLowerCase() !== "bash") return false;
-		const cmd = call.args?.command;
-		if (typeof cmd !== "string") return false;
-		return typeof pattern === "string"
-			? cmd.includes(pattern)
-			: pattern.test(cmd);
-	});
+function getCommitCount(workspaceDir: string): number {
+	try {
+		const result = execSync("git rev-list --count HEAD", {
+			cwd: workspaceDir,
+			encoding: "utf-8",
+			stdio: ["pipe", "pipe", "pipe"],
+		});
+		return parseInt(result.trim(), 10);
+	} catch {
+		return 0;
+	}
 }
 
 /**
- * Assert that agent ran `git commit`.
+ * Get current HEAD in workspace
+ */
+function getHead(workspaceDir: string): string {
+	try {
+		return execSync("git rev-parse HEAD", {
+			cwd: workspaceDir,
+			encoding: "utf-8",
+			stdio: ["pipe", "pipe", "pipe"],
+		}).trim();
+	} catch {
+		return "";
+	}
+}
+
+/**
+ * Assert that agent made a git commit.
+ * Compares commit count before/after to detect new commits.
  */
 export function assertGitCommit(
 	_output: string,
-	{ providerResponse }: { providerResponse?: ProviderResponse },
+	context: EvalContext,
 ): GradingResult {
-	const calls = getToolCalls(providerResponse);
-	const hasCommit = hasBashCommand(calls, "git commit");
+	const workspaceDir = context.vars?.WORKSPACE_DIR;
+	const countBefore = parseInt(context.vars?.GIT_COUNT_BEFORE || "0", 10);
 
-	if (hasCommit) {
+	if (!workspaceDir) {
 		return {
-			pass: true,
-			score: 1,
-			reason: "Agent executed git commit",
+			pass: false,
+			score: 0,
+			reason: "WORKSPACE_DIR not set in vars",
 		};
 	}
 
-	const bashCalls = calls
-		.filter((c) => c.name?.toLowerCase() === "bash")
-		.map((c) => c.args?.command)
-		.filter(Boolean);
+	const countAfter = getCommitCount(workspaceDir);
+	const headAfter = getHead(workspaceDir);
+	const newCommits = countAfter - countBefore;
+
+	if (newCommits > 0) {
+		return {
+			pass: true,
+			score: 1,
+			reason: `Agent created ${newCommits} commit(s). HEAD: ${headAfter.slice(0, 7)}`,
+		};
+	}
 
 	return {
 		pass: false,
 		score: 0,
-		reason: `No git commit found. Bash calls: ${bashCalls.length > 0 ? bashCalls.join("; ") : "none"}`,
+		reason: `No new commits. Before: ${countBefore}, After: ${countAfter}`,
 	};
 }
 
 /**
- * Assert that agent did NOT run `git commit`.
+ * Assert that NO git commit was made.
+ * Compares commit count before/after to verify no new commits.
  */
 export function assertNoGitCommit(
 	_output: string,
-	{ providerResponse }: { providerResponse?: ProviderResponse },
+	context: EvalContext,
 ): GradingResult {
-	const calls = getToolCalls(providerResponse);
-	const hasCommit = hasBashCommand(calls, "git commit");
+	const workspaceDir = context.vars?.WORKSPACE_DIR;
+	const countBefore = parseInt(context.vars?.GIT_COUNT_BEFORE || "0", 10);
 
-	if (!hasCommit) {
+	if (!workspaceDir) {
+		return {
+			pass: false,
+			score: 0,
+			reason: "WORKSPACE_DIR not set in vars",
+		};
+	}
+
+	const countAfter = getCommitCount(workspaceDir);
+	const newCommits = countAfter - countBefore;
+
+	if (newCommits === 0) {
 		return {
 			pass: true,
 			score: 1,
-			reason: "Agent did not execute git commit",
+			reason: `No new commits as expected. Count: ${countAfter}`,
 		};
 	}
 
 	return {
 		pass: false,
 		score: 0,
-		reason: "Agent executed git commit when it should not have",
+		reason: `Agent made ${newCommits} commit(s) when it should not have`,
 	};
 }
 
 /**
- * Assert that agent ran `git push`.
+ * Assert that output mentions git push was executed.
+ * Note: Cannot verify actual push without remote, relies on output text.
  */
 export function assertGitPush(
-	_output: string,
-	{ providerResponse }: { providerResponse?: ProviderResponse },
+	output: string,
+	_context: EvalContext,
 ): GradingResult {
-	const calls = getToolCalls(providerResponse);
-	const hasPush = hasBashCommand(calls, "git push");
+	const pushPatterns = [
+		/git push/i,
+		/pushed to/i,
+		/branch .* pushed/i,
+	];
+
+	const hasPush = pushPatterns.some((p) => p.test(output));
 
 	if (hasPush) {
 		return {
 			pass: true,
 			score: 1,
-			reason: "Agent executed git push",
+			reason: "Output indicates git push was executed",
 		};
 	}
 
 	return {
 		pass: false,
 		score: 0,
-		reason: "No git push found",
+		reason: "No indication of git push in output",
 	};
 }
 
 /**
- * Assert that agent did NOT run `git push`.
+ * Assert that output does NOT mention git push.
  */
 export function assertNoGitPush(
-	_output: string,
-	{ providerResponse }: { providerResponse?: ProviderResponse },
+	output: string,
+	_context: EvalContext,
 ): GradingResult {
-	const calls = getToolCalls(providerResponse);
-	const hasPush = hasBashCommand(calls, "git push");
+	const pushPatterns = [
+		/git push/i,
+		/pushed to/i,
+		/branch .* pushed/i,
+	];
+
+	const hasPush = pushPatterns.some((p) => p.test(output));
 
 	if (!hasPush) {
 		return {
 			pass: true,
 			score: 1,
-			reason: "Agent did not execute git push",
+			reason: "No indication of git push in output",
 		};
 	}
 
 	return {
 		pass: false,
 		score: 0,
-		reason: "Agent executed git push when it should not have",
+		reason: "Output indicates git push was executed when it should not have been",
 	};
 }
 
 /**
- * Assert that agent used a specific tool.
+ * Assert that output contains a pattern.
  */
-export function assertToolUsed(toolName: string) {
-	return (
-		_output: string,
-		{ providerResponse }: { providerResponse?: ProviderResponse },
-	): GradingResult => {
-		const calls = getToolCalls(providerResponse);
-		const used = calls.some(
-			(c) => c.name?.toLowerCase() === toolName.toLowerCase(),
-		);
-
-		if (used) {
-			return {
-				pass: true,
-				score: 1,
-				reason: `Agent used ${toolName} tool`,
-			};
-		}
-
-		const toolsUsed = [...new Set(calls.map((c) => c.name))];
-		return {
-			pass: false,
-			score: 0,
-			reason: `Agent did not use ${toolName}. Tools used: ${toolsUsed.join(", ") || "none"}`,
-		};
-	};
-}
-
-/**
- * Assert that agent ran a Bash command matching a pattern.
- */
-export function assertBashCommand(pattern: string | RegExp) {
-	return (
-		_output: string,
-		{ providerResponse }: { providerResponse?: ProviderResponse },
-	): GradingResult => {
-		const calls = getToolCalls(providerResponse);
-		const found = hasBashCommand(calls, pattern);
+export function assertOutputContains(pattern: string | RegExp) {
+	return (output: string, _context: EvalContext): GradingResult => {
+		const regex = typeof pattern === "string" ? new RegExp(pattern, "i") : pattern;
+		const found = regex.test(output);
 
 		if (found) {
 			return {
 				pass: true,
 				score: 1,
-				reason: `Agent ran Bash command matching: ${pattern}`,
+				reason: `Output contains pattern: ${pattern}`,
 			};
 		}
 
 		return {
 			pass: false,
 			score: 0,
-			reason: `No Bash command matching: ${pattern}`,
+			reason: `Output does not contain pattern: ${pattern}`,
 		};
+	};
+}
+
+/**
+ * Assert that a file exists in the workspace.
+ */
+export function assertFileExists(relativePath: string) {
+	return (_output: string, context: EvalContext): GradingResult => {
+		const workspaceDir = context.vars?.WORKSPACE_DIR;
+
+		if (!workspaceDir) {
+			return {
+				pass: false,
+				score: 0,
+				reason: "WORKSPACE_DIR not set in vars",
+			};
+		}
+
+		try {
+			execSync(`test -f "${workspaceDir}/${relativePath}"`, {
+				stdio: ["pipe", "pipe", "pipe"],
+			});
+			return {
+				pass: true,
+				score: 1,
+				reason: `File exists: ${relativePath}`,
+			};
+		} catch {
+			return {
+				pass: false,
+				score: 0,
+				reason: `File does not exist: ${relativePath}`,
+			};
+		}
 	};
 }

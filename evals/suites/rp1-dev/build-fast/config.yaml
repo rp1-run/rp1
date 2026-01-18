@@ -4,12 +4,16 @@
 #
 # Run: just evals-attest rp1-dev/build-fast
 description: "rp1-dev:build-fast instruction-following evaluation"
+
+extensions:
+  - file://../../shared/extension.ts:extensionHook
+
 providers:
   - id: anthropic:claude-agent-sdk
     label: rp1-agentic-eval
     config:
       model: claude-opus-4-5
-      working_dir: /tmp/rp1-evals
+      working_dir: /tmp/rp1-eval-workspace
       permission_mode: bypassPermissions
       allow_dangerously_skip_permissions: true
       max_turns: 50

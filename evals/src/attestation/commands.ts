@@ -61,19 +61,16 @@ async function getCommandVersion(commandPath: string): Promise<string> {
 /**
  * Run eval suite via promptfoo.
  * Returns true only on 100% pass (exit code 0).
- * Note: Uses locally installed promptfoo from evals/node_modules.
+ * Note: Uses bunx which delegates to Node.js for better-sqlite3 compat.
  */
 async function runEvalSuite(suite: string): Promise<boolean> {
 	const configPath = `suites/${suite}/config.yaml`;
-	// Run from evals/ directory using local promptfoo installation
-	const proc = spawn(
-		["./node_modules/.bin/promptfoo", "eval", "-c", configPath],
-		{
-			cwd: "evals",
-			stdout: "inherit",
-			stderr: "inherit",
-		},
-	);
+	// Use bunx to run promptfoo (Node.js runtime for better-sqlite3 compatibility)
+	const proc = spawn(["bunx", "promptfoo", "eval", "-c", configPath], {
+		cwd: "evals",
+		stdout: "inherit",
+		stderr: "inherit",
+	});
 	const exitCode = await proc.exited;
 	return exitCode === 0;
 }
