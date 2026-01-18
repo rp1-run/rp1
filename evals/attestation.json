@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0.0",
+  "commands": {
+    "rp1-dev:build-fast": {
+      "prompt_hash": "sha256:4fd7774d6daec326de840916169ec9f5fb206e0db351738a29aa2b94005ed48a",
+      "deps_hash": "sha256:f6adf4caacf1c0f92b0dd1ad5707a8e6283e4049abc8a75ba9aed057715897cb",
+      "version": "2.0.0",
+      "last_eval": {
+        "passed": true,
+        "timestamp": "2026-01-18T09:41:49.170Z",
+        "git_commit": "ce3450e",
+        "result_file": "output/rp1-dev-build-fast-2026-01-18.json"
+      }
+    }
+  },
+  "files": {
+    "plugins/dev/commands/build-fast.md": "sha256:4fd7774d6daec326de840916169ec9f5fb206e0db351738a29aa2b94005ed48a",
+    "plugins/dev/agents/build-fast-executor.md": "sha256:7f172c42f53532b36fa500b8a8fe688d0bad8eb312bbafb26df6852ca61c8e58",
+    "plugins/dev/skills/worktree-workflow/SKILL.md": "sha256:c0f5beca9cba362eba543220df679b8016c8710390adcf8a61c95b0c10b06f48"
+  }
+}
