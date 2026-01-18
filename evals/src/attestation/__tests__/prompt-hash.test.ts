@@ -5,10 +5,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import {
-	computeDepsHash,
-	stripFrontmatter,
-} from "../prompt-hash.js";
+import { computeDepsHash, stripFrontmatter } from "../prompt-hash.js";
 import type { HashResult } from "../types.js";
 
 describe("prompt-hash", () => {
@@ -154,8 +151,7 @@ name: test
 
 			expect(result).toMatch(/^sha256:[a-f0-9]{64}$/);
 			// Empty string hashed
-			const expected =
-				"sha256:" + createHash("sha256").update("").digest("hex");
+			const expected = `sha256:${createHash("sha256").update("").digest("hex")}`;
 			expect(result).toBe(expected);
 		});
 
@@ -167,9 +163,7 @@ name: test
 			const result = computeDepsHash(hashes);
 
 			// Single hash joined with nothing else
-			const expected =
-				"sha256:" +
-				createHash("sha256").update("sha256:abc123").digest("hex");
+			const expected = `sha256:${createHash("sha256").update("sha256:abc123").digest("hex")}`;
 			expect(result).toBe(expected);
 		});
 

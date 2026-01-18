@@ -55,7 +55,7 @@ export function saveManifest(
 	return pipe(
 		TE.tryCatch(
 			async () => {
-				const content = JSON.stringify(manifest, null, 2) + "\n";
+				const content = `${JSON.stringify(manifest, null, 2)}\n`;
 				await Bun.write(MANIFEST_PATH, content);
 			},
 			(error) => new Error(`Failed to save manifest: ${error}`),

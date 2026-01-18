@@ -36,10 +36,9 @@ const PLUGIN_PATHS: Record<string, string> = {
  */
 export function parseAgentRefs(content: string): readonly string[] {
 	const refs: string[] = [];
-	let match: RegExpExecArray | null;
-
 	const pattern = new RegExp(TASK_PATTERN);
-	while ((match = pattern.exec(content)) !== null) {
+
+	for (const match of content.matchAll(pattern)) {
 		const [, plugin, agent] = match;
 		const basePath = PLUGIN_PATHS[plugin];
 		if (basePath) {
@@ -58,10 +57,9 @@ export function parseAgentRefs(content: string): readonly string[] {
  */
 export function parseSkillRefs(content: string): readonly string[] {
 	const refs: string[] = [];
-	let match: RegExpExecArray | null;
-
 	const pattern = new RegExp(SKILL_PATTERN);
-	while ((match = pattern.exec(content)) !== null) {
+
+	for (const match of content.matchAll(pattern)) {
 		const [, plugin, skill] = match;
 		const basePath = PLUGIN_PATHS[plugin];
 		if (basePath) {
