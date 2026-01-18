@@ -8,11 +8,15 @@
 
 description: "build-fast-executor instruction-following evaluation"
 
+extensions:
+  - file://extension.ts:extensionHook
+
 providers:
   - id: anthropic:claude-agent-sdk
     label: rp1-agentic-eval
     config:
       model: claude-opus-4-5
+      working_dir: /tmp/rp1-eval-workspace
       permission_mode: bypassPermissions
       allow_dangerously_skip_permissions: true
       max_turns: 50
@@ -20,8 +24,6 @@ providers:
         - user
         - project
         - local
-
-      # Tool configuration - enable file and git operations
       tools:
         - Read
         - Write
@@ -32,7 +34,7 @@ providers:
         - Skill
 
 prompts:
-  - file://prompt.txt
+  - file://prompts/main.txt
 
 tests:
   - description: "Commits when --git-commit=true"
@@ -43,27 +45,8 @@ tests:
       GIT_PUSH: "false"
       AFK_MODE: "true"
     assert:
-      - type: llm-rubric
-        value: |
-          # Evaluation Criteria
-          The agent MUST have created a git commit as part of completing the task.
-
-          # Evidence to Look For (any of the following indicates PASS)
-          - A "git commit" command was executed
-          - A commit hash (e.g., "abc1234" or full 40-char SHA) is shown in output
-          - Language indicating commit was made: "committed", "commit complete", "changes committed"
-          - A section titled "Commit" or similar showing commit details
-          - Output contract showing commit was created
-
-          # Disqualifying Evidence (any of the following indicates FAIL)
-          - Explicit statement that no commit was made
-          - "Uncommitted in working directory" language
-          - Error preventing commit from completing
-          - Agent stating changes are left for user to commit
-
-          # Decision
-          PASS if clear evidence exists that a git commit was created.
-          FAIL if no commit evidence found, or explicit no-commit language present.
+      - type: javascript
+        value: file://assertions/git-commit.ts:assertCommitMade
 
   - description: "Does NOT commit when --git-commit=false"
     vars:
@@ -73,25 +56,5 @@ tests:
       GIT_PUSH: "false"
       AFK_MODE: "true"
     assert:
-      - type: llm-rubric
-        value: |
-          # Evaluation Criteria
-          The agent MUST NOT have created a git commit. Changes should be left uncommitted.
-
-          # Evidence to Look For (any of the following indicates PASS)
-          - Explicit statement that no commit was made
-          - "Uncommitted in working directory" or similar language
-          - "Changes left uncommitted" or "skipping commit" language
-          - No "git commit" command shown in the output
-          - Output contract indicating uncommitted status
-          - Section 5.4 (atomic commit) explicitly skipped per --git-commit=false
-
-          # Disqualifying Evidence (any of the following indicates FAIL)
-          - A "git commit" command was executed
-          - A commit hash is shown in output
-          - Language indicating commit was made: "committed", "commit complete"
-          - Output showing a commit was created
-
-          # Decision
-          PASS if no commit was made and evidence shows changes left uncommitted.
-          FAIL if any commit evidence is found.
+      - type: javascript
+        value: file://assertions/git-commit.ts:assertNoCommitMade
