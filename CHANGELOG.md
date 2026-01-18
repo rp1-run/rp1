@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.0](https://github.com/rp1-run/rp1/compare/v0.2.16...v0.3.0) (2026-01-18)
+
+
+### ⚠ BREAKING CHANGES
+
+* **prompts:** make git operations opt-in ([#225](https://github.com/rp1-run/rp1/issues/225))
+
+### Features
+
+* **prompts:** make git operations opt-in ([#225](https://github.com/rp1-run/rp1/issues/225)) ([a6f1eb7](https://github.com/rp1-run/rp1/commit/a6f1eb7ab81be52da740d74e389295a66fb49f60))
+
 ## [Unreleased]
 
 ### BREAKING CHANGES
