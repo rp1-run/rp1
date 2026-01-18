@@ -5,6 +5,10 @@
 # Run: just evals-attest rp1-dev/build-fast
 description: "rp1-dev:build-fast instruction-following evaluation"
 
+# Enable tracing to capture tool calls
+tracing:
+  enabled: true
+
 extensions:
   - file://../../shared/extension.ts:extensionHook
 
