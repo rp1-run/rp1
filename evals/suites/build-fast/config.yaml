@@ -12,10 +12,14 @@ providers:
   - id: anthropic:claude-agent-sdk
     label: rp1-agentic-eval
     config:
-      model: claude-sonnet-4-20250514
+      model: claude-opus-4-5
       permission_mode: bypassPermissions
       allow_dangerously_skip_permissions: true
       max_turns: 50
+      setting_sources:
+        - user
+        - project
+        - local
 
       # Tool configuration - enable file and git operations
       tools:
@@ -28,31 +32,7 @@ providers:
         - Skill
 
 prompts:
-  - |
-    ## Context
-    You are in an isolated test environment with a git repository already initialized.
-    The rp1 plugins are globally installed on this machine.
-
-    ## Task
-    Execute the rp1 build-fast command with the following parameters:
-
-    **Request**: {{REQUEST}}
-    **Git Commit**: {{GIT_COMMIT}}
-    **Git Worktree**: {{GIT_WORKTREE}}
-    **Git Push**: {{GIT_PUSH}}
-    **AFK Mode**: {{AFK_MODE}}
-
-    Use the Skill tool to invoke the slash command:
-    ```
-    /rp1-dev:build-fast "{{REQUEST}}" --git-commit={{GIT_COMMIT}} --git-worktree={{GIT_WORKTREE}} --git-push={{GIT_PUSH}} --afk={{AFK_MODE}}
-    ```
-
-    ## Instructions
-    1. Execute the slash command using the Skill tool
-    2. Complete the full build-fast workflow
-    3. If GIT_COMMIT is "true", ensure a git commit is created
-    4. If GIT_COMMIT is "false", leave changes uncommitted in the working directory
-    5. Report the final status including whether a commit was made
+  - file://prompt.txt
 
 tests:
   - description: "Commits when --git-commit=true"
