@@ -112,3 +112,15 @@ evals-suite suite: install-evals-deps
 # Run evaluation suite with verbose output
 evals-verbose suite: install-evals-deps
     cd evals && bunx promptfoo eval -c suites/{{suite}}/config.yaml --verbose
+
+# Run eval suite and update attestation on pass
+evals-attest suite: install-evals-deps
+    cd evals && bun run src/attestation/cli.ts attest {{suite}}
+
+# Verify all attestations are current
+evals-verify: install-evals-deps
+    cd evals && bun run src/attestation/cli.ts verify
+
+# Show commands needing re-attestation
+evals-status: install-evals-deps
+    cd evals && bun run src/attestation/cli.ts status
