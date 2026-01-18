@@ -7,28 +7,23 @@
  * @module attestation
  */
 
-// Command logic
 export { attestCommand, getStatus, verifyAttestations } from "./commands.js";
-// Dependency graph
 export {
 	buildDependencyGraph,
 	parseAgentRefs,
 	parseSkillRefs,
 } from "./deps-graph.js";
-// Manifest operations
 export {
 	emptyManifest,
 	loadManifest,
 	saveManifest,
 	updateManifest,
 } from "./manifest.js";
-// Hash computation
 export {
 	computeDepsHash,
 	computePromptHash,
 	stripFrontmatter,
 } from "./prompt-hash.js";
-// Type definitions
 export type {
 	AttestationManifest,
 	CommandAttestation,

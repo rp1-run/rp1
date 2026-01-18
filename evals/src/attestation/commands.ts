@@ -102,14 +102,12 @@ export function attestCommand(
 
 	return pipe(
 		TE.Do,
-		// Run eval suite
 		TE.bind("passed", () =>
 			TE.tryCatch(
 				() => runEvalSuite(suite),
 				(e) => new Error(`Eval execution failed: ${e}`),
 			),
 		),
-		// Check pass status
 		TE.chain(
 			({
 				passed,
@@ -121,7 +119,6 @@ export function attestCommand(
 					});
 				}
 
-				// Continue with attestation update
 				return pipe(
 					TE.Do,
 					TE.bind("manifest", () => loadManifest()),

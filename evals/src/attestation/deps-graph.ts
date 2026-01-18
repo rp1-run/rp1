@@ -47,7 +47,7 @@ export function parseAgentRefs(content: string): readonly string[] {
 		}
 	}
 
-	return [...new Set(refs)]; // dedupe
+	return [...new Set(refs)];
 }
 
 /**
@@ -85,14 +85,10 @@ export function buildDependencyGraph(
 	return pipe(
 		TE.tryCatch(
 			async () => {
-				// Read command file
 				const commandFile = Bun.file(commandPath);
 				const commandContent = await commandFile.text();
-
-				// Parse agent refs from command
 				const agentPaths = parseAgentRefs(commandContent);
 
-				// For each agent, parse skill refs
 				const skillPaths: string[] = [];
 				for (const agentPath of agentPaths) {
 					const agentFile = Bun.file(agentPath);
@@ -102,7 +98,6 @@ export function buildDependencyGraph(
 					}
 				}
 
-				// Extract command name from path
 				const match = commandPath.match(/commands\/(.+)\.md$/);
 				const commandName = match ? match[1] : commandPath;
 

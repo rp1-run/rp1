@@ -72,7 +72,6 @@ export function updateManifest(
 	attestation: CommandAttestation,
 	fileHashes: readonly HashResult[],
 ): AttestationManifest {
-	// Update files map
 	const updatedFiles = { ...manifest.files };
 	for (const fh of fileHashes) {
 		updatedFiles[fh.path] = fh.hash;
