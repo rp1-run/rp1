@@ -15,7 +15,9 @@ Quick-iteration dev workflow. Assess scope, implement small/medium changes in is
 |------|----------|---------|---------|
 | REQUEST | Prompt | (req) | Freeform development request |
 | AFK_MODE | Prompt | `false` | Non-interactive execution |
-| USE_WORKTREE | Prompt | `false` | Use isolated worktree |
+| GIT_WORKTREE | Prompt | `false` | Use isolated worktree |
+| GIT_COMMIT | Prompt | `false` | Commit changes |
+| GIT_PUSH | Prompt | `false` | Push branch to remote |
 | RP1_ROOT | Prompt | `.rp1/` | Root dir |
 
 <request>
@@ -26,9 +28,17 @@ Quick-iteration dev workflow. Assess scope, implement small/medium changes in is
 {{AFK_MODE from prompt}}
 </afk_mode>
 
-<use_worktree>
-{{USE_WORKTREE from prompt}}
-</use_worktree>
+<git_worktree>
+{{GIT_WORKTREE from prompt}}
+</git_worktree>
+
+<git_commit>
+{{GIT_COMMIT from prompt}}
+</git_commit>
+
+<git_push>
+{{GIT_PUSH from prompt}}
+</git_push>
 
 <rp1_root>
 {{RP1_ROOT from prompt}}
@@ -115,7 +125,7 @@ If scope = Large:
 
 ## 4. Worktree Setup (Small/Medium Only)
 
-**Skip if**: `USE_WORKTREE` is false.
+**Skip if**: `GIT_WORKTREE` is false.
 
 Set `worktree_path` = current directory, `branch` = current branch.
 Use worktree-workflow skill `rp1-dev:worktree-workflow`
@@ -192,7 +202,9 @@ Before any test: "What regression would this catch?" No answer -> skip.
 
 ### 5.4 Atomic Commits
 
-After each logical unit:
+**Skip if**: `GIT_COMMIT` is false AND `GIT_WORKTREE` is false. Changes remain uncommitted in working directory.
+
+If `GIT_COMMIT` is true OR `GIT_WORKTREE` is true, after each logical unit:
 
 ```bash
 git add -A && git commit -m "type(scope): description"
@@ -242,11 +254,13 @@ AFK mode: prefix auto-decisions with "(AFK auto)".
 
 ## 8. Finalization
 
-**Skip if**: `USE_WORKTREE` is false. Commits stay on current branch; no cleanup needed.
+**Skip if**: `GIT_WORKTREE` is false. Changes stay in current directory.
 
 Use worktree-workflow skill Phases 2-4.
 
 ### 8.1 Validate Commits
+
+**Skip if**: `GIT_PUSH` is false.
 
 ```bash
 git log {basedOn}..HEAD --oneline --format="%h %an <%ae> %s"
@@ -256,11 +270,15 @@ Verify: commit count matches tracked count, no unexpected authors.
 
 ### 8.2 Push Branch
 
+**Skip if**: `GIT_PUSH` is false.
+
 ```bash
 git push -u origin {branch}
 ```
 
 ### 8.3 Cleanup
+
+Always run cleanup if worktree was created:
 
 ```bash
 cd {original_cwd}
@@ -282,7 +300,29 @@ rp1 agent-tools worktree cleanup {worktree_path} --keep-branch
 **Quality**: Format OK | Lint OK | Tests X/Y OK
 
 **Summary**: {RP1_ROOT}/work/quick-builds/{task-id}/summary.md
+```
 
+**Conditional sections** (add based on flags):
+
+If `GIT_COMMIT=false` AND `GIT_WORKTREE=false`:
+```markdown
+**Changes**: Uncommitted in working directory
+**Next Steps**:
+- Review changes: `git diff`
+- Stage and commit: `git add -A && git commit -m "..."`
+```
+
+If `GIT_PUSH=false` (but committed):
+```markdown
+**Branch**: Local only (not pushed)
+**Next Steps**:
+- Review: `git log {branch}`
+- Push: `git push -u origin {branch}`
+- Merge: `git merge {branch}` or create PR
+```
+
+If `GIT_PUSH=true`:
+```markdown
 **Next Steps**:
 - Review: `git log {branch}`
 - Merge: `git merge {branch}` or create PR
