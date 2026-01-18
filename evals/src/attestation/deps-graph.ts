@@ -3,8 +3,8 @@
  * Parses markdown to extract Task and Skill references from prompt files.
  */
 
-import * as TE from "fp-ts/TaskEither";
 import { pipe } from "fp-ts/function";
+import * as TE from "fp-ts/TaskEither";
 import type { DependencyGraph } from "./types.js";
 
 /**

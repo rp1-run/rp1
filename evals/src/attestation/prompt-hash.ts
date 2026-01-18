@@ -4,8 +4,8 @@
  */
 
 import { createHash } from "node:crypto";
-import * as TE from "fp-ts/TaskEither";
 import { pipe } from "fp-ts/function";
+import * as TE from "fp-ts/TaskEither";
 import type { HashResult } from "./types.js";
 
 /**

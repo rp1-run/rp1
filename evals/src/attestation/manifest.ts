@@ -4,8 +4,8 @@
  * that tracks content hashes for prompt files.
  */
 
-import * as TE from "fp-ts/TaskEither";
 import { pipe } from "fp-ts/function";
+import * as TE from "fp-ts/TaskEither";
 import type {
 	AttestationManifest,
 	CommandAttestation,
