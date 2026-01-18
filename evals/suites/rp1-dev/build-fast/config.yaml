@@ -2,26 +2,21 @@
 #
 # Tests the /rp1-dev:build-fast command's flag handling behavior
 #
-# Run: just evals-suite rp1-dev/build-fast
-
+# Run: just evals-attest rp1-dev/build-fast
 description: "rp1-dev:build-fast instruction-following evaluation"
-
-extensions:
-  - file://../../shared/extension.ts:extensionHook
-
 providers:
   - id: anthropic:claude-agent-sdk
     label: rp1-agentic-eval
     config:
       model: claude-opus-4-5
-      working_dir: /tmp/rp1-eval-workspace
+      working_dir: /tmp/rp1-evals
       permission_mode: bypassPermissions
       allow_dangerously_skip_permissions: true
       max_turns: 50
       setting_sources:
-        - user
         - project
         - local
+        - user
       tools:
         - Read
         - Write
@@ -30,12 +25,9 @@ providers:
         - Grep
         - Bash
         - Skill
-
 prompts:
   - file://prompt.txt
-
 scenarios:
-  # Scenario: Git commit flag behavior
   - description: "git-commit flag tests"
     config:
       - vars:
@@ -49,11 +41,10 @@ scenarios:
           GIT_COMMIT: "true"
         assert:
           - type: javascript
-            value: file://../../shared/assertions/git.ts:assertCommitMade
-
+            value: file://../../shared/assertions/tool-calls.ts:assertGitCommit
       - description: "Does NOT commit when --git-commit=false"
         vars:
           GIT_COMMIT: "false"
         assert:
           - type: javascript
-            value: file://../../shared/assertions/git.ts:assertNoCommitMade
+            value: file://../../shared/assertions/tool-calls.ts:assertNoGitCommit
