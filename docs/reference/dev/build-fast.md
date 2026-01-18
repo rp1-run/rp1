@@ -9,18 +9,20 @@ Quick-iteration development for small, well-scoped tasks using the [command-agen
 === "Claude Code"
 
     ```bash
-    /build-fast <development-request> [--afk]
+    /build-fast <development-request> [--afk] [--git-worktree] [--git-commit] [--git-push]
     ```
 
 === "OpenCode"
 
     ```bash
-    /rp1-dev/build-fast <development-request> [--afk]
+    /rp1-dev/build-fast <development-request> [--afk] [--git-worktree] [--git-commit] [--git-push]
     ```
 
 ## Description
 
-The `build-fast` command handles development requests that don't warrant the full feature workflow. It assesses request scope and either implements the changes (for small/medium scope) or redirects to `/build` (for large scope). All changes are made in an isolated git worktree.
+The `build-fast` command handles development requests that don't warrant the full feature workflow. It assesses request scope and either implements the changes (for small/medium scope) or redirects to `/build` (for large scope).
+
+By default, changes are made in your current working directory without any git operations. Use `--git-*` flags to enable worktree isolation, commits, or pushing.
 
 This command uses the [command-agent pattern](../../concepts/command-agent-pattern.md) with scope gating and AFK mode support.
 
@@ -30,6 +32,9 @@ This command uses the [command-agent pattern](../../concepts/command-agent-patte
 |-----------|----------|----------|---------|-------------|
 | `DEVELOPMENT_REQUEST` | `$ARGUMENTS` | Yes | - | Freeform description of what to build |
 | `--afk` | Flag | No | `false` | AFK (Away From Keyboard) mode — non-interactive for automation |
+| `--git-worktree` | Flag | No | `false` | Use isolated git worktree |
+| `--git-commit` | Flag | No | `false` | Commit changes |
+| `--git-push` | Flag | No | `false` | Push branch to remote |
 
 ## Scope Assessment
 
@@ -37,8 +42,8 @@ The command assesses request complexity before execution:
 
 | Scope | Hours | Behavior |
 |-------|-------|----------|
-| Small | <2 | Implements in worktree |
-| Medium | 2-8 | Implements in worktree |
+| Small | <2 | Implements changes |
+| Medium | 2-8 | Implements changes |
 | Large | >8 | Redirects to `/build` |
 
 **Assessment criteria**:
@@ -127,11 +132,11 @@ All auto-decisions are logged in the summary artifact with "(AFK auto)" prefix.
 2. **Scope assessment** - Categorizes as Small, Medium, or Large
 3. **Branch: Large scope** - Redirects to `/build` with options
 4. **Branch: Small/Medium** - Continues to implementation
-5. **Worktree setup** - Creates isolated git worktree
+5. **Worktree setup** - Creates isolated git worktree (if `--git-worktree` specified)
 6. **Implementation** - Code changes following codebase patterns
 7. **Quality checks** - Format, lint, test
 8. **Summary artifact** - Writes documentation
-9. **Finalization** - Push branch, cleanup worktree
+9. **Finalization** - Commit (if `--git-commit`), push (if `--git-push`), cleanup worktree
 
 ## KB Loading
 
@@ -147,9 +152,19 @@ The command loads KB context progressively based on request type:
 
 If KB files are missing, the command warns but continues.
 
-## Worktree Isolation
+## Git Operations
 
-All changes are made in an isolated git worktree:
+By default, `build-fast` makes changes in your current working directory without any git operations. Use flags to opt-in:
+
+| Flag | Effect |
+|------|--------|
+| `--git-worktree` | Create isolated git worktree for changes |
+| `--git-commit` | Commit changes after implementation |
+| `--git-push` | Push branch to remote (requires --git-commit or --git-worktree) |
+
+### With Worktree Isolation
+
+When using `--git-worktree`:
 
 - **Your changes are safe**: Uncommitted work in your main repository is never touched
 - **Agent works on HEAD**: Changes are based on your last commit
@@ -157,7 +172,7 @@ All changes are made in an isolated git worktree:
 
 ### After Completion
 
-On success, you receive integration options:
+On success with git operations enabled, you receive integration options:
 
 ```bash
 # Merge the branch

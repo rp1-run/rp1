@@ -1,8 +1,8 @@
 ---
 name: build
-version: 2.1.0
+version: 3.0.0
 description: End-to-end feature workflow (requirements -> design -> tasks -> build -> verify -> archive) in a single command.
-argument-hint: "feature-id [requirements] [--afk] [--no-worktree] [--push] [--create-pr]"
+argument-hint: "feature-id [requirements] [--afk] [--git-worktree] [--git-commit] [--git-push] [--git-pr]"
 tags:
   - core
   - feature
@@ -22,18 +22,28 @@ author: cloud-on-prem/rp1
 | FEATURE_ID | $1 | (req) | Feature identifier |
 | REQUIREMENTS | $2 | "" | Raw requirements |
 | --afk | flag | false | Non-interactive mode |
-| --no-worktree | flag | false | Disable worktree |
-| --push | flag | false | Push branch |
-| --create-pr | flag | false | Create PR (implies --push) |
+| --git-worktree | flag | false | Use isolated git worktree |
+| --git-commit | flag | false | Commit changes after build |
+| --git-push | flag | false | Push branch to remote |
+| --git-pr | flag | false | Create PR (implies --git-push, --git-commit) |
 | RP1_ROOT | env | `.rp1/` | Root dir |
 
 <feature_id>$1</feature_id>
 <rp1_root>{{RP1_ROOT}}</rp1_root>
 <requirements>REQUIREMENTS</requirements>
 
-**Parse flags**: `AFK_MODE`, `NO_WORKTREE`, `PUSH_BRANCH`, `CREATE_PR` from args.
+**Parse flags**: `AFK_MODE`, `GIT_WORKTREE`, `GIT_COMMIT`, `GIT_PUSH`, `GIT_PR` from args.
 
 **Feature dir**: `{RP1_ROOT}/work/features/{FEATURE_ID}/`
+
+## §FLAG-VALIDATION
+
+**Implication chain**:
+- If `GIT_PR`: set `GIT_PUSH=true`, `GIT_COMMIT=true`
+- If `GIT_PUSH`: set `GIT_COMMIT=true`
+
+**Validation**:
+- `GIT_PUSH` without `GIT_COMMIT` after implication chain: ERROR "Nothing to push without commits"
 
 ## §AFK-MODE
 
@@ -185,11 +195,11 @@ AskUserQuestion: |
 
 ### §4.1 Worktree Setup
 
-**Skip if**: `NO_WORKTREE` is true (or set as a flag)
+**Skip if**: `GIT_WORKTREE` is false
 
 ```
 Skill: rp1-dev:worktree-workflow
-args: task_slug={FEATURE_ID}, agent_prefix=feature, create_pr={CREATE_PR}
+args: task_slug={FEATURE_ID}, agent_prefix=feature, create_pr={GIT_PR}
 ```
 
 Store: `worktree_path`, `branch`, `basedOn`
@@ -307,7 +317,14 @@ If `manual_items` non-empty: Append to tasks.md `## Manual Verification` section
 
 ### §5.4 Worktree Finalization and Git operations
 
-validate commits; cleanup worktree; push if requested; create PR if requested.
+**Skip commit if**: `GIT_COMMIT` is false.
+**Skip push if**: `GIT_PUSH` is false.
+**Skip PR if**: `GIT_PR` is false.
+
+If `GIT_COMMIT`: validate commits; stage and commit changes.
+If `GIT_PUSH`: push branch to remote.
+If `GIT_PR`: create PR.
+If `GIT_WORKTREE`: cleanup worktree.
 
 ## §6 SUMMARY
 

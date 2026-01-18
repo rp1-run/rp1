@@ -9,13 +9,13 @@ End-to-end feature workflow orchestrator. Runs the complete 6-step lifecycle (re
 === "Claude Code"
 
     ```bash
-    /build feature-id [requirements] [--afk] [--no-worktree] [--push] [--create-pr]
+    /build feature-id [requirements] [--afk] [--git-worktree] [--git-commit] [--git-push] [--git-pr]
     ```
 
 === "OpenCode"
 
     ```bash
-    /rp1-dev/build feature-id [requirements] [--afk] [--no-worktree] [--push] [--create-pr]
+    /rp1-dev/build feature-id [requirements] [--afk] [--git-worktree] [--git-commit] [--git-push] [--git-pr]
     ```
 
 ## Description
@@ -27,7 +27,8 @@ The `build` command is the **primary entry point** for feature development. It o
 - **Single command**: No need to run individual steps manually
 - **Smart resumption**: Detects existing artifacts and resumes from the right step
 - **AFK mode**: Run autonomously without user interaction
-- **Worktree isolation**: Changes happen in a separate branch (default for full workflow)
+- **Safe defaults**: No git operations unless explicitly requested via flags
+- **Opt-in git operations**: Use `--git-*` flags for worktree, commit, push, PR
 - **Builder-reviewer architecture**: Quality-gated implementation with feedback loops
 
 ## Parameters
@@ -37,9 +38,10 @@ The `build` command is the **primary entry point** for feature development. It o
 | `FEATURE_ID` | `$1` | Yes | - | Feature identifier (used for directory and branch names) |
 | `REQUIREMENTS` | `$2` | No | `""` | Initial requirements text or context |
 | `--afk` | flag | No | `false` | Non-interactive mode (auto-proceed, no prompts) |
-| `--no-worktree` | flag | No | `false` | Disable worktree isolation |
-| `--push` | flag | No | `false` | Push branch after completion |
-| `--create-pr` | flag | No | `false` | Create PR after completion (implies --push) |
+| `--git-worktree` | flag | No | `false` | Use isolated git worktree |
+| `--git-commit` | flag | No | `false` | Commit changes after build |
+| `--git-push` | flag | No | `false` | Push branch to remote |
+| `--git-pr` | flag | No | `false` | Create PR (implies --git-push and --git-commit) |
 
 ## Workflow Steps
 
@@ -102,7 +104,7 @@ In AFK mode:
 
 - All approval gates are skipped
 - Workflow proceeds automatically through all stages
-- Changes remain isolated to a separate branch
+- Changes remain in working directory unless `--git-commit` is specified
 
 ## Smart Resumption
 
@@ -170,13 +172,27 @@ If you stopped at a gate, resuming `/build` continues from the next stage.
 === "Claude Code"
 
     ```bash
-    /build new-feature --create-pr
+    /build new-feature --git-pr
     ```
 
 === "OpenCode"
 
     ```bash
-    /rp1-dev/build new-feature --create-pr
+    /rp1-dev/build new-feature --git-pr
+    ```
+
+### With Git Commit Only
+
+=== "Claude Code"
+
+    ```bash
+    /build new-feature --git-commit
+    ```
+
+=== "OpenCode"
+
+    ```bash
+    /rp1-dev/build new-feature --git-commit
     ```
 
 ## Output

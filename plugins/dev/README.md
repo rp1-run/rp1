@@ -63,15 +63,17 @@ The bootstrap command creates a complete runnable project from scratch:
 **Non-empty directory handling**: When run in a directory with existing files, bootstrap prompts for confirmation and creates the project in a new subdirectory to avoid conflicts.
 
 ### Feature Development (4)
-- `/build feature-id [--afk]` - Complete 6-step feature development workflow
+- `/build feature-id [--afk] [--git-worktree] [--git-commit] [--git-push] [--git-pr]` - Complete 6-step feature development workflow
 - `/feature-edit feature-id <edit-description>` - Incorporate mid-stream changes during build
 - `/feature-unarchive feature-id` - Restore archived feature to active features
 - `/validate-hypothesis feature-id` - Validate design assumptions
 
 **Use /build for Feature Development**:
 ```bash
-/build my-feature                 # Interactive mode - runs full workflow with prompts
-/build my-feature --afk           # Autonomous mode - runs without user interaction
+/build my-feature                 # Interactive mode - no git operations (safe default)
+/build my-feature --afk           # Autonomous mode - no user interaction
+/build my-feature --git-commit    # Commit changes after build
+/build my-feature --git-pr        # Full workflow: commit, push, and create PR
 ```
 
 The `/build` command orchestrates the complete 6-step feature development pipeline:
@@ -98,7 +100,7 @@ The `/build` command orchestrates the complete 6-step feature development pipeli
 - `/code-investigate [problem-description...]` - Bug investigation and root cause analysis
 - `/code-audit [feature-id]` - Code quality and pattern analysis
 - `/code-clean-comments` - Remove unnecessary comments
-- `/build-fast [development-request...] [--afk]` - Quick iteration development with scope gating
+- `/build-fast [development-request...] [--afk] [--git-worktree] [--git-commit] [--git-push]` - Quick iteration development with scope gating
 
 **Examples**:
 ```bash
@@ -189,10 +191,11 @@ The build step of `/build` uses a **builder-reviewer architecture** with **workt
 - **Configurable Failure Handling**: `ask` mode (default) pauses for guidance, `auto` mode marks blocked and continues
 - **Complexity Tags**: Tasks can be tagged `[complexity:simple|medium|complex]` for grouping
 
-**Worktree Behavior**:
-- Build step runs in an isolated worktree by default
-- Changes are committed atomically with conventional commit format
-- Branch is pushed and PR created as part of the workflow
+**Git Operations** (all opt-in):
+- `--git-worktree`: Run in isolated worktree (default: disabled)
+- `--git-commit`: Commit changes atomically with conventional format (default: disabled)
+- `--git-push`: Push branch to remote (default: disabled)
+- `--git-pr`: Create PR (implies --git-push, --git-commit)
 
 ## Agents (19)
 
