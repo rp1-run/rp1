@@ -1,6 +1,6 @@
 ---
 name: build
-version: 2.1.0
+version: 3.0.0
 description: End-to-end feature workflow (requirements -> design -> tasks -> build -> verify -> archive) in a single command.
 argument-hint: "feature-id [requirements] [--afk] [--git-worktree] [--git-commit] [--git-push] [--git-pr]"
 tags:

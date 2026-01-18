@@ -1,6 +1,6 @@
 ---
 name: build-fast
-version: 1.0.0
+version: 2.0.0
 description: Quick-iteration development for small/medium scope changes with TIN architecture.
 argument-hint: "[development-request...] [--afk] [--git-worktree] [--git-commit] [--git-push]"
 tags:
