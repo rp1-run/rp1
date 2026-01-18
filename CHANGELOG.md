@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased]
+
+### BREAKING CHANGES
+
+* **dev:** `/build` and `/build-fast` Git operations are now opt-in by default
+  - Removed: `--no-worktree`, `--push`, `--create-pr`, `--use-worktree` flags
+  - Added: `--git-worktree`, `--git-commit`, `--git-push`, `--git-pr` flags (all default to false)
+  - Migration: Replace `--no-worktree` (no replacement needed, worktree is now off by default)
+  - Migration: Replace `--push` with `--git-push`
+  - Migration: Replace `--create-pr` with `--git-pr`
+  - Migration: Replace `--use-worktree` with `--git-worktree`
+  - Note: `--git-pr` implies `--git-push` which implies `--git-commit`
+
 ## [0.2.16](https://github.com/rp1-run/rp1/compare/v0.2.15...v0.2.16) (2026-01-16)
 
 
