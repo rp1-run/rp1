@@ -1,0 +1,117 @@
+# build-fast-executor Instruction-Following Evaluation
+#
+# Tests that the build-fast agent correctly handles the --git-commit flag:
+# - Commits when --git-commit=true
+# - Does NOT commit when --git-commit=false
+#
+# Run: promptfoo eval -c suites/build-fast/config.yaml
+
+description: "build-fast-executor instruction-following evaluation"
+
+providers:
+  - id: anthropic:claude-agent-sdk
+    label: rp1-agentic-eval
+    config:
+      model: claude-sonnet-4-20250514
+      permission_mode: bypassPermissions
+      allow_dangerously_skip_permissions: true
+      max_turns: 50
+
+      # Tool configuration - enable file and git operations
+      tools:
+        - Read
+        - Write
+        - Edit
+        - Glob
+        - Grep
+        - Bash
+        - Skill
+
+prompts:
+  - |
+    ## Context
+    You are in an isolated test environment with a git repository already initialized.
+    The rp1 plugins are globally installed on this machine.
+
+    ## Task
+    Execute the rp1 build-fast command with the following parameters:
+
+    **Request**: {{REQUEST}}
+    **Git Commit**: {{GIT_COMMIT}}
+    **Git Worktree**: {{GIT_WORKTREE}}
+    **Git Push**: {{GIT_PUSH}}
+    **AFK Mode**: {{AFK_MODE}}
+
+    Use the Skill tool to invoke the slash command:
+    ```
+    /rp1-dev:build-fast "{{REQUEST}}" --git-commit={{GIT_COMMIT}} --git-worktree={{GIT_WORKTREE}} --git-push={{GIT_PUSH}} --afk={{AFK_MODE}}
+    ```
+
+    ## Instructions
+    1. Execute the slash command using the Skill tool
+    2. Complete the full build-fast workflow
+    3. If GIT_COMMIT is "true", ensure a git commit is created
+    4. If GIT_COMMIT is "false", leave changes uncommitted in the working directory
+    5. Report the final status including whether a commit was made
+
+tests:
+  - description: "Commits when --git-commit=true"
+    vars:
+      REQUEST: "Add a hello world function to src/index.ts"
+      GIT_COMMIT: "true"
+      GIT_WORKTREE: "false"
+      GIT_PUSH: "false"
+      AFK_MODE: "true"
+    assert:
+      - type: llm-rubric
+        value: |
+          # Evaluation Criteria
+          The agent MUST have created a git commit as part of completing the task.
+
+          # Evidence to Look For (any of the following indicates PASS)
+          - A "git commit" command was executed
+          - A commit hash (e.g., "abc1234" or full 40-char SHA) is shown in output
+          - Language indicating commit was made: "committed", "commit complete", "changes committed"
+          - A section titled "Commit" or similar showing commit details
+          - Output contract showing commit was created
+
+          # Disqualifying Evidence (any of the following indicates FAIL)
+          - Explicit statement that no commit was made
+          - "Uncommitted in working directory" language
+          - Error preventing commit from completing
+          - Agent stating changes are left for user to commit
+
+          # Decision
+          PASS if clear evidence exists that a git commit was created.
+          FAIL if no commit evidence found, or explicit no-commit language present.
+
+  - description: "Does NOT commit when --git-commit=false"
+    vars:
+      REQUEST: "Add a hello world function to src/index.ts"
+      GIT_COMMIT: "false"
+      GIT_WORKTREE: "false"
+      GIT_PUSH: "false"
+      AFK_MODE: "true"
+    assert:
+      - type: llm-rubric
+        value: |
+          # Evaluation Criteria
+          The agent MUST NOT have created a git commit. Changes should be left uncommitted.
+
+          # Evidence to Look For (any of the following indicates PASS)
+          - Explicit statement that no commit was made
+          - "Uncommitted in working directory" or similar language
+          - "Changes left uncommitted" or "skipping commit" language
+          - No "git commit" command shown in the output
+          - Output contract indicating uncommitted status
+          - Section 5.4 (atomic commit) explicitly skipped per --git-commit=false
+
+          # Disqualifying Evidence (any of the following indicates FAIL)
+          - A "git commit" command was executed
+          - A commit hash is shown in output
+          - Language indicating commit was made: "committed", "commit complete"
+          - Output showing a commit was created
+
+          # Decision
+          PASS if no commit was made and evidence shows changes left uncommitted.
+          FAIL if any commit evidence is found.

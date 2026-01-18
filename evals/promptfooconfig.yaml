@@ -1,0 +1,17 @@
+# rp1 Prompt Evaluation Suite - Root Configuration
+#
+# This file contains global settings applied to all evaluation suites.
+# Run specific suites via: promptfoo eval -c suites/<suite>/config.yaml
+
+description: "rp1 Prompt Evaluation Suite"
+
+# Serial execution to prevent cross-test contamination
+# Claude Agent SDK tests may modify filesystem state
+evaluateOptions:
+  maxConcurrency: 1
+
+# Suites are imported via CLI command:
+#   promptfoo eval -c suites/build-fast/config.yaml
+#
+# Or run all via:
+#   for config in suites/*/config.yaml; do promptfoo eval -c "$config"; done
