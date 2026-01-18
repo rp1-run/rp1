@@ -115,12 +115,12 @@ evals-verbose suite: install-evals-deps
 
 # Run eval suite and update attestation on pass
 evals-attest suite: install-evals-deps
-    cd evals && bun run src/attestation/cli.ts attest {{suite}}
+    bun run evals/src/attestation/cli.ts attest {{suite}}
 
 # Verify all attestations are current
 evals-verify: install-evals-deps
-    cd evals && bun run src/attestation/cli.ts verify
+    bun run evals/src/attestation/cli.ts verify
 
 # Show commands needing re-attestation
 evals-status: install-evals-deps
-    cd evals && bun run src/attestation/cli.ts status
+    bun run evals/src/attestation/cli.ts status

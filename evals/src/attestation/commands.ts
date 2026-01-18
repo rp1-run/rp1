@@ -61,11 +61,11 @@ async function getCommandVersion(commandPath: string): Promise<string> {
 /**
  * Run eval suite via promptfoo.
  * Returns true only on 100% pass (exit code 0).
+ * Note: This runs from the repository root.
  */
 async function runEvalSuite(suite: string): Promise<boolean> {
-	const configPath = `suites/${suite}/config.yaml`;
-	const proc = spawn(["bunx", "promptfoo", "eval", "-c", configPath], {
-		cwd: "evals",
+	const configPath = `evals/suites/${suite}/config.yaml`;
+	const proc = spawn(["bun", "x", "promptfoo", "eval", "-c", configPath], {
 		stdout: "inherit",
 		stderr: "inherit",
 	});
