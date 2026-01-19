@@ -68,7 +68,11 @@ graph TB
 
     subgraph "Quality"
         Evals[Promptfoo Evals]
+        Attest[Attestation System]
+        Provider[claude-with-tools]
         Biome[Biome Linter]
+        Evals --> Provider
+        Attest --> Evals
     end
 
     CC --> Base
@@ -105,6 +109,10 @@ graph TB
 **Evidence**: `knowledge-build` spawns parallel agents, `pr-review` uses splitter/sub-reviewers/synthesizer
 **Description**: Complex workflows split into units, processed in parallel by specialized agents, then merged by orchestrator. Enables scalability for large codebases.
 
+### Content-Addressable Attestation
+**Evidence**: `evals/src/attestation/` module with SHA-256 hashing and dependency graph derivation
+**Description**: Prompt files tracked via content hashes with dependency graphs. Changes require eval suite re-attestation before merge.
+
 ### Multi-Platform Distribution
 **Evidence**: `.goreleaser.yml` (darwin-arm64/x64, linux-arm64/x64, windows-x64), homebrew_casks, scoops config
 **Description**: Targets Claude Code (native plugins), OpenCode (tarballs), and standalone CLI via GoReleaser binaries with Homebrew/Scoop distribution.
@@ -136,7 +144,7 @@ graph TB
 | **Config** | Tool registry and configuration | `cli/src/config/supported-tools.*`, `cli/bunfig.toml` |
 | **Knowledge** | Persistent codebase knowledge | `.rp1/context/*.md`, `.rp1/context/state.json` |
 | **Build/Release** | CI/CD automation and quality gates | `.github/workflows/*`, `.goreleaser.yml`, `Justfile` |
-| **Evaluation** | Prompt evaluation and instruction-following tests | `evals/promptfooconfig.yaml`, `evals/suites/*` |
+| **Evaluation** | Prompt evaluation, attestation, and instruction-following tests | `evals/promptfooconfig.yaml`, `evals/suites/*`, `evals/src/attestation/*`, `evals/providers/*` |
 
 ## Key Workflows
 
@@ -239,6 +247,32 @@ sequenceDiagram
     end
 ```
 
+### Eval Attestation Flow
+```mermaid
+sequenceDiagram
+    participant Dev as Developer
+    participant CLI as Attestation CLI
+    participant Graph as deps-graph
+    participant Hash as prompt-hash
+    participant Eval as Promptfoo
+    participant Manifest as attestation.json
+
+    Dev->>CLI: attest rp1-dev/build-fast
+    CLI->>Graph: Build dependency graph
+    Graph-->>CLI: command + agents + skills
+    CLI->>Hash: Compute file hashes
+    Hash-->>CLI: SHA-256 hashes
+    CLI->>Eval: Run suite
+    alt 100% Pass
+        Eval-->>CLI: Success
+        CLI->>Manifest: Update attestation
+        CLI-->>Dev: Attestation updated
+    else Failure
+        Eval-->>CLI: Failed
+        CLI-->>Dev: Eval did not pass
+    end
+```
+
 ## Integration Points
 
 ### GitHub Actions
@@ -274,7 +308,22 @@ sequenceDiagram
 ### Promptfoo
 **Purpose**: Evaluation framework for agent instruction-following tests
 **Location**: `evals/`
-**Provider**: `anthropic:claude-agent-sdk`
+**Provider**: Custom `claude-with-tools` wrapping `@anthropic-ai/claude-agent-sdk`
+
+### claude-agent-sdk
+**Purpose**: Programmatic access to Claude Code for eval execution
+**Integration**: Streaming query API with tool capture via content_block events
+**Usage**: Wrapped by custom promptfoo provider for tool call inspection
+
+### Attestation System
+**Purpose**: Content-addressable tracking of prompt file changes
+**Location**: `evals/src/attestation/`
+**Components**:
+- `cli.ts`: CLI entry point (attest, verify, status commands)
+- `deps-graph.ts`: Dependency graph builder
+- `prompt-hash.ts`: SHA-256 hashing with frontmatter stripping
+- `manifest.ts`: attestation.json I/O
+- `commands.ts`: Core logic using fp-ts TaskEither
 
 ## Deployment Architecture
 

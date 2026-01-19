@@ -111,21 +111,33 @@
 
 ### evals/
 **Purpose**: Promptfoo-based evaluation system for testing agent instruction-following behavior
-**Framework**: Promptfoo with `anthropic:claude-agent-sdk` provider
+**Framework**: Promptfoo with custom `claude-with-tools` provider wrapping `@anthropic-ai/claude-agent-sdk`
 
 **Directory Structure** (mirrors plugins):
 ```
 evals/
 ├── package.json              # Dependencies: promptfoo ^0.120.0, @anthropic-ai/claude-agent-sdk
+├── attestation.json          # Content-addressable tracking manifest
+├── providers/
+│   └── claude-with-tools.ts  # Custom provider with tool call capture
 ├── src/
 │   ├── index.ts              # Entry point
 │   ├── harness.ts            # Test environment setup/teardown
-│   └── types.ts              # Type definitions
+│   ├── types.ts              # Type definitions
+│   └── attestation/          # Attestation system
+│       ├── index.ts          # Public exports
+│       ├── types.ts          # Domain types
+│       ├── cli.ts            # CLI (attest, verify, status)
+│       ├── commands.ts       # Core logic (fp-ts TaskEither)
+│       ├── deps-graph.ts     # Dependency graph builder
+│       ├── manifest.ts       # Manifest I/O
+│       └── prompt-hash.ts    # SHA-256 hashing
 └── suites/
     ├── shared/               # Reusable across suites
     │   ├── extension.ts      # beforeEach/afterEach hooks for workspace isolation
     │   └── assertions/
-    │       └── git.ts        # Deterministic git state assertions
+    │       ├── git.ts        # Deterministic git state assertions
+    │       └── tool-calls.ts # Tool call inspection assertions
     └── rp1-dev/
         └── build-fast/       # Suite for /build-fast command
             ├── config.yaml   # Promptfoo config with scenarios
@@ -135,9 +147,19 @@ evals/
 **Key Components**:
 | Component | Purpose |
 |-----------|---------|
+| claude-with-tools.ts | Custom provider wrapping claude-agent-sdk with tool call capture |
+| attestation/ | Content-addressable tracking of prompt files for merge-gate validation |
 | extension.ts | Workspace isolation - resets `/tmp/rp1-eval-workspace` before each test |
 | git.ts assertions | Deterministic verification of git state (commit count, HEAD changes) |
+| tool-calls.ts | Tool call assertions for inspecting agent behavior via metadata |
 | harness.ts | Test environment setup/teardown with isolated git repos |
+
+**Attestation CLI**:
+```bash
+bun run evals/src/attestation/cli.ts attest rp1-dev/build-fast  # Run eval and update attestation
+bun run evals/src/attestation/cli.ts verify                     # Check all attestations current
+bun run evals/src/attestation/cli.ts status                     # Show commands needing attention
+```
 
 **Running Evals**:
 ```bash
@@ -256,7 +278,9 @@ graph TD
 | cli/src/install | - | - | - | ~1,200 |
 | cli/src/agent-tools | - | - | - | ~1,800 |
 | cli/web-ui | - | - | - | ~2,800 |
-| evals | - | - | - | ~350 |
+| evals | - | - | - | ~1,500 |
+| evals/src/attestation | - | - | - | ~530 |
+| evals/providers | - | - | - | ~345 |
 
 ## Cross-Module Patterns
 
@@ -297,6 +321,18 @@ Agents load KB selectively based on task type:
 - Bug investigation -> architecture.md, modules.md
 - Feature implementation -> modules.md, patterns.md
 - Strategic analysis -> ALL files
+
+### Content-Addressable Attestation
+Attestation system hashes prompt file content (excluding frontmatter) and dependency graphs to detect changes requiring re-evaluation:
+- SHA-256 hashing with sha256: prefix
+- Transitive dependency resolution (command -> agents -> skills)
+- Manifest tracking in evals/attestation.json
+
+### Tool Call Capture Provider
+Custom promptfoo provider intercepts claude-agent-sdk streaming to capture tool calls for assertion-based validation:
+- Captures tool_use blocks from stream events
+- Exposes toolCalls, bashCommands via metadata
+- Enables behavioral assertions on tool usage patterns
 
 ## Cross-References
 - **Domain Concepts**: See [concept_map.md](concept_map.md)

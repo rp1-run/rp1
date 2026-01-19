@@ -49,17 +49,18 @@ Evidence: `cli/src/main.ts`, `plugins/dev/agents/task-reviewer.md`
 **Fixtures**: Helper functions (getFixturePath, createTempDir); realistic test data
 **Levels**: Unit tests dominant; integration tests for CLI flows
 **Discipline**: 13 rules in task-builder: no trivial tests, black-box assertions, deterministic, mock only external boundaries
-**Evals**: Promptfoo-based instruction-following tests in `evals/`
+**Evals**: Promptfoo-based instruction-following tests with custom provider for tool call capture
 
-Evidence: `cli/src/__tests__/`, `plugins/dev/agents/task-builder.md`, `evals/`
+Evidence: `cli/src/__tests__/`, `plugins/dev/agents/task-builder.md`, `evals/providers/claude-with-tools.ts`
 
 ## I/O & Integration
 
-**Filesystem**: Node.js fs/promises + Bun APIs with async/await; TE.tryCatch wraps all I/O
+**Filesystem**: Node.js fs/promises + Bun APIs with async/await; TE.tryCatch wraps all I/O; Bun.file() for file reads
 **Git Operations**: Shared git.ts utilities with GitContext pattern; getIsolatedGitEnv() clears env vars to prevent context leakage
 **Worktree Safety**: Always use GitContext.repoRoot for mutations; cwd for read-only queries
+**Process Spawning**: Bun spawn() with stdout:'pipe' for capture; exit code for success/failure
 
-Evidence: `cli/src/agent-tools/git.ts`, `cli/src/agent-tools/worktree/create.ts`
+Evidence: `cli/src/agent-tools/git.ts`, `evals/src/attestation/commands.ts:43-49`
 
 ## Concurrency & Async
 
@@ -131,6 +132,32 @@ Evidence: `docs/concepts/stateless-agents.md`, `plugins/dev/agents/charter-inter
 **Worktree Awareness**: resolveRp1Root() detects worktrees via git-common-dir and returns main repo's .rp1/
 
 Evidence: `cli/src/agent-tools/rp1-root-dir/resolver.ts`
+
+## Content-Addressable Hashing
+
+**Algorithm**: SHA-256 with sha256: prefix convention for all content hashes
+**Frontmatter Handling**: Strip YAML frontmatter before hashing (stripFrontmatter) so metadata changes don't invalidate
+**Deps Hash**: Combined hash from lexicographically sorted file hashes joined with pipe separator
+**Deduplication**: Set-based deduplication of all dependency paths
+
+Evidence: `evals/src/attestation/prompt-hash.ts`, `evals/src/attestation/deps-graph.ts`
+
+## Dependency Graph Parsing
+
+**Pattern**: Regex extraction of Task: and Skill: references from markdown files
+**Plugin Mapping**: PLUGIN_PATHS constant maps plugin names to filesystem paths
+**Recursive Resolution**: Command -> Agents -> Skills traversal for complete dependency graph
+
+Evidence: `evals/src/attestation/deps-graph.ts:14-71`
+
+## Promptfoo Provider Pattern
+
+**Interface**: Implements id() and callApi(prompt, context, options) -> ProviderResponse
+**Stream Processing**: AsyncIterator consumption with type guards for message discrimination
+**Metadata Exposure**: ProviderMetadata with toolCalls, bashCommands, toolCallCount for assertion inspection
+**Permission Hooks**: canUseTool callback intercepts tool requests; enables automated option selection for AskUserQuestion
+
+Evidence: `evals/providers/claude-with-tools.ts`
 
 ## Terse Prompt Authoring
 

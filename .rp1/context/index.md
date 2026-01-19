@@ -3,7 +3,7 @@
 **Type**: Single Project
 **Languages**: TypeScript, Markdown, Shell, Python
 **Version**: 0.3.0
-**Updated**: 2026-01-18
+**Updated**: 2026-01-19
 
 ## Project Summary
 
@@ -23,10 +23,10 @@ rp1 is a Claude Code plugin system that automates development workflows through 
 
 | File | Lines | Load For |
 |------|-------|----------|
-| architecture.md | ~322 | System design, component relationships, data flows |
-| modules.md | ~304 | Component breakdown, module responsibilities |
-| patterns.md | ~142 | Code conventions, implementation patterns |
-| concept_map.md | ~220 | Domain terminology, business concepts |
+| architecture.md | ~371 | System design, component relationships, data flows |
+| modules.md | ~340 | Component breakdown, module responsibilities |
+| patterns.md | ~169 | Code conventions, implementation patterns |
+| concept_map.md | ~275 | Domain terminology, business concepts |
 
 ## Task-Based Loading
 
@@ -72,6 +72,8 @@ rp1/
 │   └── catppuccin-mermaid/    # Mermaid theme library
 ├── docs/                      # MkDocs Material site
 ├── evals/                     # Promptfoo evaluation suites
+│   ├── src/attestation/       # Content-addressable prompt tracking
+│   ├── providers/             # Custom promptfoo providers (claude-with-tools)
 │   └── suites/                # Test suites (mirrors plugins structure)
 │       ├── shared/            # Shared assertions and hooks
 │       └── rp1-dev/           # Dev plugin evals
@@ -105,6 +107,8 @@ rp1/
 
 # Evaluations
 just evals-suite rp1-dev/build-fast   # Run build-fast instruction-following tests
+bun run evals/src/attestation/cli.ts attest rp1-dev/build-fast  # Update attestation on pass
+bun run evals/src/attestation/cli.ts verify                     # Check all attestations current
 ```
 
 ## Navigation
