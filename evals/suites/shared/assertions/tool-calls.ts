@@ -405,22 +405,24 @@ export function assertFileExists(relativePath: string) {
 
 /**
  * Assert that agent made a git commit via tool call.
- * Uses the new tool-call-based approach (replaces legacy assertGitCommit).
+ * Handles git commands with flags before subcommand (e.g., git -C /path commit).
  */
-export const assertGitCommitToolCall = assertToolCall("Bash", /git\s+commit/);
+export const assertGitCommitToolCall = assertToolCall("Bash", /\bgit\b.*\bcommit\b/);
 
 /**
  * Assert that agent did NOT make a git commit via tool call.
- * Uses the new tool-call-based approach (replaces legacy assertNoGitCommit).
+ * Handles git commands with flags before subcommand (e.g., git -C /path commit).
  */
-export const assertNoGitCommitToolCall = assertNoToolCall("Bash", /git\s+commit/);
+export const assertNoGitCommitToolCall = assertNoToolCall("Bash", /\bgit\b.*\bcommit\b/);
 
 /**
  * Assert that agent executed a git push via tool call.
+ * Handles git commands with flags before subcommand (e.g., git -C /path push).
  */
-export const assertGitPushToolCall = assertToolCall("Bash", /git\s+push/);
+export const assertGitPushToolCall = assertToolCall("Bash", /\bgit\b.*\bpush\b/);
 
 /**
  * Assert that agent did NOT execute a git push via tool call.
+ * Handles git commands with flags before subcommand (e.g., git -C /path push).
  */
-export const assertNoGitPushToolCall = assertNoToolCall("Bash", /git\s+push/);
+export const assertNoGitPushToolCall = assertNoToolCall("Bash", /\bgit\b.*\bpush\b/);
