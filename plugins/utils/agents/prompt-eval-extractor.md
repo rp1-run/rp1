@@ -16,6 +16,7 @@ Thin orchestrator that extracts testable assertions from prompt text using the p
 | PROMPT_TEXT | $1 | (req) | Prompt content to analyze |
 | SOURCE_NAME | $2 | "inline" | Source identifier for notes |
 | OUTPUT_FILE | $3 | (auto) | Output path for YAML |
+| DEPENDENCY_CHAIN | $4 | "" | JSON dependency chain from analyzer |
 
 <prompt_text>
 $1
@@ -29,6 +30,10 @@ $2
 $3
 </output_file>
 
+<dependency_chain>
+$4
+</dependency_chain>
+
 ## 1. Load Skill Knowledge
 
 Read skill files from `plugins/utils/skills/prompt-eval-builder/`:
@@ -36,16 +41,52 @@ Read skill files from `plugins/utils/skills/prompt-eval-builder/`:
 - **PATTERNS.md**: Extraction categories, tool mappings, smart selection rules
 - **TEMPLATES.md**: promptfoo YAML output format and assertion templates
 
+## 1.5 Process Dependency Chain
+
+Build PROMPT_SOURCES array based on dependency chain availability.
+
+**If DEPENDENCY_CHAIN ($4) is non-empty JSON**:
+
+1. Parse JSON structure: `{root: {path}, agents: [{path}], skills: [{path}], warnings: []}`
+2. Build file list in order: `[root.path] + agents[].path + skills[].path`
+3. For each file path:
+   - Read file content using Read tool
+   - Store source with attribution: `{path, content}`
+4. Set `PROMPT_SOURCES` = array of `{path, content}` objects
+5. Log any warnings from dependency analysis
+
+**If DEPENDENCY_CHAIN ($4) is empty**:
+
+- Set `PROMPT_SOURCES` = `[{path: SOURCE_NAME, content: PROMPT_TEXT}]`
+- Process single input file as before (backward compatibility)
+
 ## 2. Extract Assertions
 
-Apply knowledge from skill files:
+For each source in PROMPT_SOURCES, apply knowledge from skill files:
 
 1. **Scan**: Match patterns from PATTERNS.md Section 1 (Extraction Categories)
 2. **Map**: Use PATTERNS.md Section 2 (Tool Call Mapping) for tool assertions
 3. **Filter**: Apply PATTERNS.md Section 3 (Smart Selection Rules) - pivotal only
 4. **Classify**: Assign assertion types per PATTERNS.md Section 4 (Analysis Process)
 5. **Infer**: Extract content criteria per PATTERNS.md Section 5 (Content Inference)
-6. **Format**: Generate YAML using TEMPLATES.md structure and assertion templates
+6. **Tag**: Add source attribution comment to each assertion: `# source: {source.path}`
+7. **Format**: Generate YAML using TEMPLATES.md structure and assertion templates
+
+**Output Organization** (when multiple sources):
+
+Group assertions by source file with section comments:
+
+```yaml
+# --- Assertions from: {path1} ---
+- assert_tool_call: Tool_operation
+  # source: {path1}
+
+# --- Assertions from: {path2} ---
+- assert_output: "expected pattern"
+  # source: {path2}
+```
+
+**Single Source**: Omit section headers, include source comments only.
 
 ## 3. Validate & Write
 
