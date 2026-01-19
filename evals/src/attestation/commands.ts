@@ -105,7 +105,9 @@ export function attestCommand(
 	const commandKey = suiteToCommandKey(suite);
 	const commandPath = suiteToCommandPath(suite);
 	const timestamp = new Date().toISOString();
-	const resultFile = `output/${suite.replace("/", "-")}-${timestamp.slice(0, 10)}.json`;
+	// Use full timestamp for unique filenames (replace colons for filesystem compatibility)
+	const fileTimestamp = timestamp.slice(0, 19).replace(/:/g, "-");
+	const resultFile = `output/${suite.replace("/", "-")}-${fileTimestamp}.json`;
 
 	return pipe(
 		TE.Do,
