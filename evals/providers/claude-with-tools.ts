@@ -235,7 +235,7 @@ export default class ClaudeWithToolCapture {
         prompt,
         options: {
           model: this.config.model,
-          workingDirectory: this.config.working_dir,
+          cwd: this.config.working_dir,
           permissionMode: this.config.permission_mode,
           allowDangerouslySkipPermissions:
             this.config.allow_dangerously_skip_permissions,
