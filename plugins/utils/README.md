@@ -10,35 +10,49 @@ The `rp1-utils` plugin provides specialized tools for developing and maintaining
 - **Prompt authoring** - Write terse prompts from scratch using compression-by-default principles
 - **Agent refactoring** - Tools for optimizing constitutional agents
 
-**Commands**: 1 user-facing command
-**Agents**: 1 specialized agent
+**Commands**: 2 user-facing commands
+**Agents**: 2 specialized agents
 **Skills**: 1 internal skill
 
-## Commands (1)
+## Commands (2)
 
 ### Prompt Engineering
 - `/tersify-prompt <file-path-or-prompt>` - Rewrite agent prompts to be maximally terse while preserving full intent
+- `/extract-prompt-evals <input> [output-file]` - Extract evaluation assertions from prompt text as promptfoo YAML
+
+#### tersify-prompt
 
 **Modes**:
 - **File mode**: Updates file in place, displays change summary
 - **Inline mode**: Displays compressed prompt and change log
 
-**Usage Examples**:
+**Usage**:
 ```bash
-# File mode - updates file in place
 /tersify-prompt plugins/base/agents/kb-spatial-analyzer.md
-
-# Inline mode - displays output only
 /tersify-prompt "You are a helpful assistant. Always be polite and thorough..."
 ```
 
-**Output**: Compressed prompt with change log table documenting all transformations.
+#### extract-prompt-evals
 
-## Agents (1)
+Analyzes prompt text and generates promptfoo-compatible YAML with placeholder assertions.
+
+**Modes**:
+- **File mode**: Reads prompt file, outputs `{basename}-evals.yaml`
+- **Inline mode**: Processes raw text, outputs `extracted-evals.yaml`
+
+**Usage**:
+```bash
+/extract-prompt-evals plugins/dev/agents/task-builder.md
+/extract-prompt-evals my-prompt.md evals/suites/my-eval/config.yaml
+/extract-prompt-evals "Create a branch and commit changes"
+```
+
+## Agents (2)
 
 | Agent | Purpose |
 |-------|---------|
 | prompt-tersifier | Transforms agent-instruction prompts into maximally terse versions |
+| prompt-eval-extractor | Extracts evaluation assertions from prompt text for promptfoo |
 
 ## Skills (1)
 
