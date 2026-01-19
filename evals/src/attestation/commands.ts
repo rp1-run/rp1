@@ -62,11 +62,14 @@ async function getCommandVersion(commandPath: string): Promise<string> {
  * Run eval suite via promptfoo.
  * Returns true only on 100% pass (exit code 0).
  * Note: Uses bunx which delegates to Node.js for better-sqlite3 compat.
+ *
+ * @param suite - Suite path (e.g., "rp1-dev/build-fast")
+ * @param outputPath - Path to save JSON results (relative to evals/)
  */
-async function runEvalSuite(suite: string): Promise<boolean> {
+async function runEvalSuite(suite: string, outputPath: string): Promise<boolean> {
 	const configPath = `suites/${suite}/config.yaml`;
 	// Use bunx to run promptfoo (Node.js runtime for better-sqlite3 compatibility)
-	const proc = spawn(["bunx", "promptfoo", "eval", "-c", configPath], {
+	const proc = spawn(["bunx", "promptfoo", "eval", "-c", configPath, "--output", outputPath], {
 		cwd: "evals",
 		stdout: "inherit",
 		stderr: "inherit",
@@ -101,12 +104,14 @@ export function attestCommand(
 ): TE.TaskEither<Error, { updated: boolean; message: string }> {
 	const commandKey = suiteToCommandKey(suite);
 	const commandPath = suiteToCommandPath(suite);
+	const timestamp = new Date().toISOString();
+	const resultFile = `output/${suite.replace("/", "-")}-${timestamp.slice(0, 10)}.json`;
 
 	return pipe(
 		TE.Do,
 		TE.bind("passed", () =>
 			TE.tryCatch(
-				() => runEvalSuite(suite),
+				() => runEvalSuite(suite, resultFile),
 				(e) => new Error(`Eval execution failed: ${e}`),
 			),
 		),
@@ -139,8 +144,6 @@ export function attestCommand(
 						),
 					),
 					TE.chain(({ manifest, hashes, version, gitCommit }) => {
-						const timestamp = new Date().toISOString();
-						const resultFile = `output/${suite.replace("/", "-")}-${timestamp.slice(0, 10)}.json`;
 
 						const attestation: CommandAttestation = {
 							prompt_hash:
