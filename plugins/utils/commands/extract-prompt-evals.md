@@ -72,12 +72,51 @@ The agent outputs pure YAML directly (no delimiters).
 1. Capture agent output (raw YAML)
 2. Check if OUTPUT_FILE exists - if so, warn about overwrite
 3. Use Write tool to save YAML to OUTPUT_FILE
-4. Display confirmation to user:
-   ```
-   Extracted evals written to: {OUTPUT_FILE}
 
-   Review the file and refine TODO placeholders for your eval infrastructure.
+### Step 6: Validate YAML
+
+**Validation Loop** (max 3 attempts):
+
+1. Validate the written YAML file:
+   ```bash
+   bun -e "import { readFileSync } from 'fs'; import { parse } from 'yaml'; parse(readFileSync(process.argv[1], 'utf8'))" {OUTPUT_FILE}
    ```
+
+2. **If validation succeeds** (exit code 0):
+   - Display confirmation to user:
+     ```
+     Extracted evals written to: {OUTPUT_FILE}
+
+     Review the file and refine TODO placeholders for your eval infrastructure.
+     ```
+   - Complete successfully
+
+3. **If validation fails** (exit code non-zero):
+   - Capture the error message from stderr
+   - Re-spawn the extractor agent with the error context:
+     ```
+     subagent_type: rp1-utils:prompt-eval-extractor
+     prompt: |
+       $1: {PROMPT_TEXT content}
+       $2: {SOURCE_NAME}
+
+       YAML FIX REQUIRED:
+       The previous output failed YAML validation with error:
+       {captured_error}
+
+       Generate corrected YAML that fixes this syntax error.
+     ```
+   - Write the corrected output to OUTPUT_FILE
+   - Increment attempt counter and retry validation
+
+4. **If max attempts (3) reached without valid YAML**:
+   - Display error:
+     ```
+     Error: Failed to generate valid YAML after 3 attempts.
+     Last validation error: {captured_error}
+
+     The output file may contain invalid YAML. Manual correction required.
+     ```
 
 ## Error Handling
 
