@@ -11,14 +11,14 @@ The `rp1-utils` plugin provides specialized tools for developing and maintaining
 - **Agent refactoring** - Tools for optimizing constitutional agents
 
 **Commands**: 2 user-facing commands
-**Agents**: 2 specialized agents
-**Skills**: 1 internal skill
+**Agents**: 3 specialized agents
+**Skills**: 2 internal skills
 
 ## Commands (2)
 
 ### Prompt Engineering
 - `/tersify-prompt <file-path-or-prompt>` - Rewrite agent prompts to be maximally terse while preserving full intent
-- `/extract-prompt-evals <input> [output-file]` - Extract evaluation assertions from prompt text as promptfoo YAML
+- `/build-prompt-evals <file-or-prompt> [--output <dir>]` - Build eval assertions and minimal test prompt from prompt text
 
 #### tersify-prompt
 
@@ -32,29 +32,35 @@ The `rp1-utils` plugin provides specialized tools for developing and maintaining
 /tersify-prompt "You are a helpful assistant. Always be polite and thorough..."
 ```
 
-#### extract-prompt-evals
+#### build-prompt-evals
 
-Analyzes prompt text and generates promptfoo-compatible YAML with placeholder assertions.
+Generates both eval assertions (YAML) and minimal test prompts from prompt text. Spawns two agents in parallel for efficient processing.
+
+**Outputs**:
+- `{basename}-evals.yaml` - promptfoo-compatible assertions
+- `{basename}-eval-prompt.md` - minimal test prompt for evaluation
 
 **Modes**:
-- **File mode**: Reads prompt file, outputs `{basename}-evals.yaml`
-- **Inline mode**: Processes raw text, outputs `extracted-evals.yaml`
+- **File mode**: Reads prompt file, outputs to same directory
+- **Inline mode**: Processes raw text, outputs to current directory
+- **Custom output**: Use `--output <dir>` to specify output directory
 
 **Usage**:
 ```bash
-/extract-prompt-evals plugins/dev/agents/task-builder.md
-/extract-prompt-evals my-prompt.md evals/suites/my-eval/config.yaml
-/extract-prompt-evals "Create a branch and commit changes"
+/build-prompt-evals plugins/dev/agents/task-builder.md
+/build-prompt-evals my-prompt.md --output evals/suites/my-plugin/
+/build-prompt-evals "Create a branch and commit changes"
 ```
 
-## Agents (2)
+## Agents (3)
 
 | Agent | Purpose |
 |-------|---------|
 | prompt-tersifier | Transforms agent-instruction prompts into maximally terse versions |
 | prompt-eval-extractor | Extracts evaluation assertions from prompt text for promptfoo |
+| eval-prompt-writer | Creates minimal test prompts optimized for evaluation |
 
-## Skills (1)
+## Skills (2)
 
 ### prompt-writer
 Write maximally terse agent prompts from scratch using compression-by-default principles. Teaches structure-first composition with section patterns (§ROLE, §OBJ, §PROC, etc.), abbreviation policies, symbolic encoding, and anti-pattern avoidance.
@@ -67,6 +73,20 @@ Write maximally terse agent prompts from scratch using compression-by-default pr
 - `SKILL.md` - Core authoring guidelines and validation checklist
 - `TEMPLATES.md` - Example prompts at simple/moderate/complex levels
 - `PATTERNS.md` - 10 reusable patterns (constitutional agent, map-reduce, state machine, etc.)
+
+### prompt-eval-builder
+Domain knowledge for extracting eval assertions and creating minimal test prompts from agent prompts. Used by `prompt-eval-extractor` and `eval-prompt-writer` agents.
+
+**Use when**: Generating promptfoo evaluation configs or minimal test prompts from agent prompts.
+
+**Invocation**: Loaded automatically by the agents; use `/build-prompt-evals` command.
+
+**Includes**:
+- `SKILL.md` - Entry point and file manifest
+- `PATTERNS.md` - Extraction categories, tool mappings, smart selection rules, distillation rules
+- `TEMPLATES.md` - promptfoo YAML output templates
+- `VALIDATION.md` - YAML validation loop logic
+- `scripts/validate-yaml.ts` - Executable validation script
 
 ## Version
 

@@ -96,16 +96,18 @@
 | worktree-workflow | Isolated git worktree workflow for coding agents |
 
 ### plugins/utils
-**Purpose**: Utility plugin for prompt optimization
-**Components**: 1 command, 1 agent, 1 skill
+**Purpose**: Utility plugin for prompt optimization and eval generation
+**Components**: 2 commands, 3 agents, 2 skills
 
 | Command | Agent | Purpose |
 |---------|-------|---------|
 | tersify-prompt | prompt-tersifier | Prompt compression |
+| build-prompt-evals | prompt-eval-extractor + eval-prompt-writer | Parallel eval assertion and test prompt generation |
 
 | Skill | Purpose |
 |-------|---------|
 | prompt-writer | Terse prompt authoring patterns |
+| prompt-eval-builder | Eval extraction patterns, templates, and validation |
 
 ## Evaluation Suites
 
@@ -272,7 +274,7 @@ graph TD
 |--------|----------|--------|--------|--------------|
 | plugins/base | 9 | 12 | 5 | ~5,500 |
 | plugins/dev | 15 | 24 | 1 | ~9,200 |
-| plugins/utils | 1 | 1 | 1 | ~800 |
+| plugins/utils | 2 | 3 | 2 | ~1,200 |
 | cli/src | 8 | - | - | ~3,000 |
 | cli/src/init | - | - | - | ~2,500 |
 | cli/src/install | - | - | - | ~1,200 |
