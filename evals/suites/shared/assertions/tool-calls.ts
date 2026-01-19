@@ -21,6 +21,97 @@ interface EvalContext {
 	};
 }
 
+// ============================================================================
+// Tool Input Type Definitions
+// ============================================================================
+
+/**
+ * Input type for Bash tool calls.
+ */
+export interface BashToolInput {
+	command: string;
+	description?: string;
+}
+
+/**
+ * Input type for Write tool calls.
+ */
+export interface WriteToolInput {
+	file_path: string;
+	content: string;
+}
+
+/**
+ * Input type for Read tool calls.
+ */
+export interface ReadToolInput {
+	file_path: string;
+	limit?: number;
+	offset?: number;
+}
+
+/**
+ * Input type for Edit tool calls.
+ */
+export interface EditToolInput {
+	file_path: string;
+	old_string: string;
+	new_string: string;
+}
+
+/**
+ * Input type for Glob tool calls.
+ */
+export interface GlobToolInput {
+	pattern: string;
+	path?: string;
+}
+
+/**
+ * Input type for Grep tool calls.
+ */
+export interface GrepToolInput {
+	pattern: string;
+	path?: string;
+	type?: string;
+}
+
+/**
+ * Input type for AskUserQuestion tool calls.
+ */
+export interface AskUserQuestionInput {
+	questions: Array<{
+		question: string;
+		options: Array<{ label: string }>;
+	}>;
+}
+
+/**
+ * Maps tool names to their corresponding input types.
+ */
+export interface ToolInputMap {
+	Bash: BashToolInput;
+	Write: WriteToolInput;
+	Read: ReadToolInput;
+	Edit: EditToolInput;
+	Glob: GlobToolInput;
+	Grep: GrepToolInput;
+	AskUserQuestion: AskUserQuestionInput;
+}
+
+/**
+ * Union type of all supported tool names.
+ */
+export type ToolName = keyof ToolInputMap;
+
+/**
+ * Generic matcher type for tool input assertions.
+ * - string: matches against the target field (command for Bash, JSON.stringify for others)
+ * - RegExp: matches against the target field
+ * - function: receives strongly-typed input and returns boolean
+ */
+export type Matcher<T> = string | RegExp | ((input: T) => boolean);
+
 /**
  * Read bash commands captured by hooks during test execution.
  */
