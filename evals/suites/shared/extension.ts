@@ -9,9 +9,6 @@ import { rmSync, mkdirSync, writeFileSync } from "node:fs";
 // Fixed workspace directory
 export const WORKSPACE_DIR = "/tmp/rp1-eval-workspace";
 
-// File where hooks write bash commands
-export const BASH_COMMANDS_FILE = "/tmp/rp1-eval-bash-commands.txt";
-
 /**
  * Reset the workspace: clean everything and reinitialize git
  */
@@ -21,13 +18,6 @@ function resetWorkspace(): void {
     rmSync(WORKSPACE_DIR, { recursive: true, force: true });
   } catch {
     // Ignore if doesn't exist
-  }
-
-  // Clear bash commands log
-  try {
-    writeFileSync(BASH_COMMANDS_FILE, "");
-  } catch {
-    // Ignore if can't write
   }
 
   // Recreate directory structure
@@ -50,31 +40,6 @@ function resetWorkspace(): void {
   writeFileSync(
     `${WORKSPACE_DIR}/package.json`,
     JSON.stringify({ name: "test-project", version: "1.0.0" }, null, 2),
-  );
-
-  // Create .claude directory with hooks to capture bash commands
-  mkdirSync(`${WORKSPACE_DIR}/.claude`, { recursive: true });
-  writeFileSync(
-    `${WORKSPACE_DIR}/.claude/hooks.json`,
-    JSON.stringify(
-      {
-        hooks: {
-          PostToolUse: [
-            {
-              matcher: "Bash",
-              hooks: [
-                {
-                  type: "command",
-                  command: `echo "$TOOL_INPUT" | jq -r '.command // empty' >> ${BASH_COMMANDS_FILE}`,
-                },
-              ],
-            },
-          ],
-        },
-      },
-      null,
-      2,
-    ),
   );
 
   // Initial commit
@@ -144,7 +109,6 @@ export async function extensionHook(
     context.test.vars.WORKSPACE_DIR = WORKSPACE_DIR;
     context.test.vars.GIT_HEAD_BEFORE = head;
     context.test.vars.GIT_COUNT_BEFORE = String(count);
-    context.test.vars.BASH_COMMANDS_FILE = BASH_COMMANDS_FILE;
 
     console.log(
       `[rp1-eval] Workspace ready: HEAD=${head.slice(0, 7)}, commits=${count}`,
