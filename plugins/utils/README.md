@@ -11,7 +11,7 @@ The `rp1-utils` plugin provides specialized tools for developing and maintaining
 - **Agent refactoring** - Tools for optimizing constitutional agents
 
 **Commands**: 2 user-facing commands
-**Agents**: 3 specialized agents
+**Agents**: 4 specialized agents
 **Skills**: 2 internal skills
 
 ## Commands (2)
@@ -52,13 +52,49 @@ Generates both eval assertions (YAML) and minimal test prompts from prompt text.
 /build-prompt-evals "Create a branch and commit changes"
 ```
 
-## Agents (3)
+## Agents (4)
 
 | Agent | Purpose |
 |-------|---------|
+| dependency-chain-analyzer | Analyzes command/agent files to discover sub-agent and skill dependencies |
 | prompt-tersifier | Transforms agent-instruction prompts into maximally terse versions |
 | prompt-eval-extractor | Extracts evaluation assertions from prompt text for promptfoo |
 | eval-prompt-writer | Creates minimal test prompts optimized for evaluation |
+
+### dependency-chain-analyzer
+
+Parses command and agent files to extract sub-agent and skill dependencies for comprehensive eval coverage across dependency trees.
+
+**Input**: File path to a command or agent markdown file
+
+**Output**: JSON structure containing:
+
+```json
+{
+  "root": {
+    "path": "plugins/dev/commands/build-fast.md",
+    "name": "build-fast"
+  },
+  "agents": [
+    {"path": "plugins/dev/agents/task-builder.md", "plugin": "rp1-dev", "name": "task-builder"}
+  ],
+  "skills": [
+    {"path": "plugins/base/skills/prompt-writer/SKILL.md", "plugin": "rp1-base", "name": "prompt-writer"}
+  ],
+  "warnings": ["Agent not found: rp1-dev:missing-agent"]
+}
+```
+
+**Usage**: Invoked automatically by `build-prompt-evals` in file mode. Can also be spawned directly:
+
+```
+Task tool with subagent_type: rp1-utils:dependency-chain-analyzer
+$1: plugins/dev/commands/build-fast.md
+```
+
+**Detection Patterns**:
+- Task references: `Task: rp1-dev:agent-name`
+- Skill references: `Skill: rp1-base:skill-name`
 
 ## Skills (2)
 
