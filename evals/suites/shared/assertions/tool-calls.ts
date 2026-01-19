@@ -653,3 +653,29 @@ export function assertFileExists(relativePath: string) {
 		}
 	};
 }
+
+// ============================================================================
+// Pre-configured Tool Call Assertions for config.yaml
+// ============================================================================
+
+/**
+ * Assert that agent made a git commit via tool call.
+ * Uses the new tool-call-based approach (replaces legacy assertGitCommit).
+ */
+export const assertGitCommitToolCall = assertToolCall("Bash", /git\s+commit/);
+
+/**
+ * Assert that agent did NOT make a git commit via tool call.
+ * Uses the new tool-call-based approach (replaces legacy assertNoGitCommit).
+ */
+export const assertNoGitCommitToolCall = assertNoToolCall("Bash", /git\s+commit/);
+
+/**
+ * Assert that agent executed a git push via tool call.
+ */
+export const assertGitPushToolCall = assertToolCall("Bash", /git\s+push/);
+
+/**
+ * Assert that agent did NOT execute a git push via tool call.
+ */
+export const assertNoGitPushToolCall = assertNoToolCall("Bash", /git\s+push/);

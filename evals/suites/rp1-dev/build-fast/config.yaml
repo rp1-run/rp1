@@ -13,7 +13,7 @@ extensions:
   - file://../../shared/extension.ts:extensionHook
 
 providers:
-  - id: anthropic:claude-agent-sdk
+  - id: file://../../providers/claude-with-tools.ts
     label: rp1-agentic-eval
     config:
       model: claude-opus-4-5
@@ -49,10 +49,10 @@ scenarios:
           GIT_COMMIT: "true"
         assert:
           - type: javascript
-            value: file://../../shared/assertions/tool-calls.ts:assertGitCommit
+            value: file://../../shared/assertions/tool-calls.ts:assertGitCommitToolCall
       - description: "Does NOT commit when --git-commit=false"
         vars:
           GIT_COMMIT: "false"
         assert:
           - type: javascript
-            value: file://../../shared/assertions/tool-calls.ts:assertNoGitCommit
+            value: file://../../shared/assertions/tool-calls.ts:assertNoGitCommitToolCall
