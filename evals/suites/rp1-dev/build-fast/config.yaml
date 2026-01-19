@@ -13,7 +13,7 @@ extensions:
   - file://../../shared/extension.ts:extensionHook
 
 providers:
-  - id: file://../../providers/claude-with-tools.ts
+  - id: file://../../../providers/claude-with-tools.ts
     label: rp1-agentic-eval
     config:
       model: claude-opus-4-5
