@@ -19,10 +19,6 @@ interface EvalContext {
 	};
 }
 
-// ============================================================================
-// Tool Input Type Definitions
-// ============================================================================
-
 /**
  * Input type for Bash tool calls.
  */
@@ -110,10 +106,6 @@ export type ToolName = keyof ToolInputMap;
  */
 export type Matcher<T> = string | RegExp | ((input: T) => boolean);
 
-// ============================================================================
-// Tool Call Types (matches provider metadata structure)
-// ============================================================================
-
 /**
  * Represents a captured tool call from the provider.
  */
@@ -149,10 +141,6 @@ export type AssertionFunction = (
 	output: string,
 	context: ToolCallEvalContext,
 ) => GradingResult;
-
-// ============================================================================
-// Generic Tool Call Assertion Functions
-// ============================================================================
 
 /**
  * Get tool calls from the provider metadata.
@@ -196,7 +184,6 @@ function matchesToolCall<T extends ToolName>(
 		return targetString.includes(matcher);
 	}
 
-	// RegExp
 	return matcher.test(targetString);
 }
 
@@ -398,10 +385,6 @@ export function assertFileExists(relativePath: string) {
 		}
 	};
 }
-
-// ============================================================================
-// Pre-configured Tool Call Assertions for config.yaml
-// ============================================================================
 
 /**
  * Assert that agent made a git commit via tool call.

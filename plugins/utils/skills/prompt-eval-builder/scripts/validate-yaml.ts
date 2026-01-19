@@ -32,7 +32,6 @@ function validateYaml(filePath: string): ValidationResult {
   try {
     const content = readFileSync(filePath, 'utf8');
 
-    // Check for common issues before parsing
     if (content.includes('\t')) {
       return {
         valid: false,
@@ -40,7 +39,6 @@ function validateYaml(filePath: string): ValidationResult {
       };
     }
 
-    // Check for code fences (common agent mistake)
     if (content.trim().startsWith('```')) {
       return {
         valid: false,
@@ -48,7 +46,6 @@ function validateYaml(filePath: string): ValidationResult {
       };
     }
 
-    // Attempt to parse YAML
     parse(content);
 
     return { valid: true };
