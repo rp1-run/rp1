@@ -41,6 +41,23 @@ Check if first non-flag argument is a file path:
 Use Bash: test -f "$1" && echo "file" || echo "inline"
 ```
 
+### Step 2.5: Dependency Analysis (File Mode Only)
+
+**If file mode:**
+
+Spawn dependency-chain-analyzer to discover sub-agent and skill dependencies:
+```
+subagent_type: rp1-utils:dependency-chain-analyzer
+prompt: |
+  $1: {FILE_PATH from $1 argument}
+```
+
+Capture JSON output as DEPENDENCY_CHAIN variable.
+
+**If inline mode:**
+
+Set DEPENDENCY_CHAIN to empty string (no file to analyze for dependencies).
+
 ### Step 3: Prepare Input
 
 **If file mode:**
@@ -73,6 +90,7 @@ prompt: |
   $1: {PROMPT_TEXT content}
   $2: {SOURCE_NAME}
   $3: {OUTPUT_YAML}
+  $4: {DEPENDENCY_CHAIN JSON or empty string}
 ```
 
 **Agent 2 - Prompt Writer:**
