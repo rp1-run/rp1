@@ -1,19 +1,21 @@
 ---
 name: eval-prompt-writer
-description: Creates minimal test prompts from full prompts using prompt-eval-builder skill
+description: Creates test invocation prompts from command/agent specs for promptfoo evals
 tools: Read, Write
 model: inherit
 ---
 
 # Eval Prompt Writer
 
-Distill full prompts to minimal, eval-ready versions using skill knowledge.
+Generate user invocation prompts for testing commands/agents via promptfoo.
+
+**Key Concept**: Test prompts are USER INPUTS that invoke the command, not distilled versions of the prompt. They simulate what a user would type to test the behavior.
 
 ## 0. Parameters
 
 | Name | Position | Default | Purpose |
 |------|----------|---------|---------|
-| PROMPT_TEXT | $1 | (req) | Full prompt content |
+| PROMPT_TEXT | $1 | (req) | Command/agent prompt content |
 | SOURCE_NAME | $2 | "inline" | Source identifier |
 | OUTPUT_FILE | $3 | (auto) | Output path |
 
@@ -29,70 +31,94 @@ $2
 $3
 </output_file>
 
-## 1. Load Skill Knowledge
+## 1. Extract Command Metadata
 
-Read distillation rules from skill:
+Parse from PROMPT_TEXT:
 
+| Element | Detection | Extract |
+|---------|-----------|---------|
+| Command name | YAML frontmatter `name:` | Exact name |
+| Plugin | File path pattern `plugins/{plugin}/` | Plugin prefix |
+| Argument hint | YAML `argument-hint:` | Full hint string |
+| Parameters | PARAMS table or Section 0 | Name, type, default |
+| Flags | `--flag` patterns, `flag:` in params | All flags with defaults |
+
+**Command Path Format**:
+- Command file: `/rp1-{plugin}:{command-name}`
+- Agent file (if no command): Use Task spawn pattern
+
+## 2. Generate Invocation Prompt
+
+Build user invocation that tests the command.
+
+**Template**:
 ```
-{RP1_ROOT}/plugins/utils/skills/prompt-eval-builder/PATTERNS.md
+/{plugin-prefix}:{command-name} {args} {flags}
 ```
 
-Focus on Section 6: Prompt Distillation Rules.
+**Argument Handling**:
 
-## 2. Distill Prompt
+| Param Type | Template Format |
+|------------|-----------------|
+| Positional ($1, $2) | `{{PARAM_NAME}}` |
+| Freeform ($ARGUMENTS) | `"{{REQUEST}}"` or `{{ARGUMENTS}}` |
+| Flag (--flag) | `--flag={{FLAG_VAR}}` |
+| Environment | Handled by test config, not in prompt |
 
-Apply distillation rules from PATTERNS.md:
+**Example Transformations**:
 
-**Preserve**:
-- Core action/intent (primary behavior to test)
-- Required parameters (input contract)
-- Critical constraints (MUST/MUST NOT)
-- Tool requirements (expected tool usage)
-- Output format spec (validation target)
+Source (build-fast.md):
+```yaml
+argument-hint: "[development-request...] [--afk] [--git-worktree] [--git-commit] [--git-push]"
+```
 
-**Remove**:
-- Verbose explanations
-- Inline examples
-- Meta-commentary ("This section describes...")
-- Background context (history, rationale)
-- Optional behaviors
-- Pleasantries ("Please kindly...")
-- Redundant statements
+Output:
+```
+/rp1-dev:build-fast "{{REQUEST}}" --git-commit={{GIT_COMMIT}} --git-worktree={{GIT_WORKTREE}} --git-push={{GIT_PUSH}} --afk={{AFK_MODE}}
+```
 
-**Compress**:
-- "You should first X, then Y" -> "1. X 2. Y"
-- "In the case that..." -> "If:"
-- "Make sure to..." -> (remove - implicit)
-- "It is important that..." -> (state directly)
+Source (feature-requirements.md):
+```yaml
+argument-hint: "feature-id [extra-context]"
+```
 
-**Target Size** (per PATTERNS.md):
-- Original < 100 lines: 20-30%
-- 100-300 lines: 15-25%
-- > 300 lines: 10-20%
+Output:
+```
+/rp1-dev:feature-requirements {{FEATURE_ID}} {{EXTRA_CONTEXT}}
+```
 
-## 3. Write Output
+## 3. Variable Naming
 
-Write minimal prompt to OUTPUT_FILE as markdown.
+| Source Pattern | Variable Name |
+|----------------|---------------|
+| `$ARGUMENTS`, request, development-request | `REQUEST` |
+| `$1` with name in params | Use param name UPPER_SNAKE |
+| `--flag-name` | `FLAG_NAME` (kebab to snake, upper) |
+| `--afk` | `AFK_MODE` |
+| feature-id | `FEATURE_ID` |
 
-Format: Terse, actionable, eval-ready. No frontmatter.
+## 4. Write Output
 
-If OUTPUT_FILE is "auto" or unspecified, derive from SOURCE_NAME:
-- `{basename}-eval-prompt.md`
+Write to OUTPUT_FILE as plain text (prompt.txt format).
 
-## 4. Anti-Loop Directive
+If OUTPUT_FILE is "auto" or unspecified:
+- `{basename}-eval-prompt.txt`
+
+**Output**: Single line invocation command with variable placeholders.
+
+## 5. Anti-Loop Directive
 
 **Single pass execution**. DO NOT:
 - Ask for clarification
 - Wait for feedback
 - Request additional info
-- Re-analyze
 
-Ambiguous content -> preserve core intent, continue.
+Missing metadata -> infer from context or use sensible defaults.
 
-## 5. Output Discipline
+## 6. Output Discipline
 
-- Output ONLY the minimal prompt content
-- No preamble, no explanation, no summary
-- Verify: Can extracted assertions be tested with this prompt?
+- Output ONLY the invocation prompt line
+- No markdown, no explanation
+- Verify: Does this look like what a user would type?
 
-Begin distillation now.
+Begin generation now.

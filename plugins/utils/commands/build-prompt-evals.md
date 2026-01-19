@@ -59,7 +59,7 @@ Use Bash: test -f "$1" && echo "file" || echo "inline"
 
 ```
 OUTPUT_YAML = {OUTPUT_DIR}/{basename}-evals.yaml
-OUTPUT_MD = {OUTPUT_DIR}/{basename}-eval-prompt.md
+OUTPUT_PROMPT = {OUTPUT_DIR}/{basename}-eval-prompt.txt
 ```
 
 ### Step 5: Spawn Agents in Parallel
@@ -81,7 +81,7 @@ subagent_type: rp1-utils:eval-prompt-writer
 prompt: |
   $1: {PROMPT_TEXT content}
   $2: {SOURCE_NAME}
-  $3: {OUTPUT_MD}
+  $3: {OUTPUT_PROMPT}
 ```
 
 ### Step 6: Report Completion
@@ -90,7 +90,7 @@ Display output locations:
 ```
 Eval files generated:
   Assertions: {OUTPUT_YAML}
-  Test prompt: {OUTPUT_MD}
+  Test prompt: {OUTPUT_PROMPT}
 
 Review the assertions file and refine TODO placeholders as needed.
 ```
@@ -101,16 +101,16 @@ Review the assertions file and refine TODO placeholders as needed.
 ```
 Usage: /build-prompt-evals <file-or-prompt> [--output <dir>]
 
-  <file-or-prompt>  Path to prompt file OR raw prompt text
+  <file-or-prompt>  Path to command/agent prompt file OR raw prompt text
   [--output <dir>]  Optional output directory (default: input file dir or cwd)
 
 Outputs:
-  {basename}-evals.yaml      Eval assertions in promptfoo format
-  {basename}-eval-prompt.md  Minimal test prompt for evaluations
+  {basename}-evals.yaml       Eval assertions in promptfoo format
+  {basename}-eval-prompt.txt  Test invocation prompt (user input to test the command)
 
 Examples:
-  /build-prompt-evals plugins/dev/agents/task-builder.md
-  /build-prompt-evals plugins/dev/agents/task-builder.md --output evals/suites/rp1-dev/
+  /build-prompt-evals plugins/dev/commands/build-fast.md
+  /build-prompt-evals plugins/dev/commands/build-fast.md --output evals/suites/rp1-dev/
   /build-prompt-evals "Create a branch and commit changes"
 ```
 
@@ -128,19 +128,19 @@ Error: Output directory does not exist: {path}
 
 **File mode with auto output location:**
 ```bash
-/build-prompt-evals plugins/dev/agents/task-builder.md
+/build-prompt-evals plugins/dev/commands/build-fast.md
 ```
 Creates in same directory:
-- `plugins/dev/agents/task-builder-evals.yaml`
-- `plugins/dev/agents/task-builder-eval-prompt.md`
+- `plugins/dev/commands/build-fast-evals.yaml`
+- `plugins/dev/commands/build-fast-eval-prompt.txt`
 
 **File mode with explicit output directory:**
 ```bash
-/build-prompt-evals plugins/dev/agents/task-builder.md --output evals/suites/rp1-dev/
+/build-prompt-evals plugins/dev/commands/build-fast.md --output evals/suites/rp1-dev/
 ```
 Creates in specified directory:
-- `evals/suites/rp1-dev/task-builder-evals.yaml`
-- `evals/suites/rp1-dev/task-builder-eval-prompt.md`
+- `evals/suites/rp1-dev/build-fast-evals.yaml`
+- `evals/suites/rp1-dev/build-fast-eval-prompt.txt`
 
 **Inline mode:**
 ```bash
@@ -148,4 +148,4 @@ Creates in specified directory:
 ```
 Creates in current directory:
 - `extracted-evals.yaml`
-- `extracted-eval-prompt.md`
+- `extracted-eval-prompt.txt`

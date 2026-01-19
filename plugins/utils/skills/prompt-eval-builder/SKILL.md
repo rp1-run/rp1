@@ -1,24 +1,24 @@
 ---
 name: prompt-eval-builder
-description: Domain knowledge for extracting eval assertions and creating minimal test prompts from agent prompts. This skill should be used when generating promptfoo evaluation configs, extracting testable assertions, or distilling prompts to their minimal form for evaluation testing.
+description: Domain knowledge for extracting eval assertions and generating test invocation prompts from command/agent specs. Used for building promptfoo evaluation configs.
 ---
 
 # Prompt Eval Builder
 
-Domain knowledge for building evaluation artifacts from prompt specifications. Provides extraction patterns, output templates, validation logic, and distillation rules.
+Domain knowledge for building evaluation artifacts from prompt specifications. Provides extraction patterns, output templates, validation logic, and invocation prompt generation rules.
 
 ## When to Use
 
-- Generating promptfoo eval configs from agent prompts
+- Generating promptfoo eval configs from command/agent prompts
 - Extracting testable assertions from instruction text
-- Creating minimal test prompts for evaluation
+- Creating test invocation prompts (user inputs that test the command)
 - Validating generated YAML output
 
 ## Skill Files
 
 | File | Purpose | When to Load |
 |------|---------|--------------|
-| PATTERNS.md | Extraction categories, tool mappings, selection rules, distillation rules | Always - core knowledge |
+| PATTERNS.md | Extraction categories, tool mappings, selection rules, invocation generation | Always - core knowledge |
 | TEMPLATES.md | promptfoo YAML output templates, assertion formats | When generating YAML output |
 | VALIDATION.md | YAML validation loop, error handling | When validating/writing output |
 
@@ -27,7 +27,7 @@ Domain knowledge for building evaluation artifacts from prompt specifications. P
 Agents using this skill:
 
 1. Read SKILL.md for overview
-2. Read PATTERNS.md for extraction/distillation rules (always needed)
+2. Read PATTERNS.md for extraction/invocation rules (always needed)
 3. Read TEMPLATES.md for output format (for extraction agent)
 4. Use `scripts/validate-yaml.ts` for YAML validation
 
@@ -47,10 +47,15 @@ Output format: `{ "valid": true }` or `{ "valid": false, "error": "message" }`
 Prompt Text -> Pattern Analysis -> Assertion Extraction -> YAML Generation -> Validation Loop
 ```
 
-### Distillation Flow
+### Invocation Prompt Flow
 
 ```
-Full Prompt -> Core Intent Extraction -> Noise Removal -> Minimal Prompt
+Command/Agent Spec -> Metadata Extraction -> Variable Mapping -> Invocation Prompt
+```
+
+**Key Concept**: Test prompts are USER INPUTS that invoke the command, not distilled versions of the prompt. Example:
+```
+/rp1-dev:build-fast "{{REQUEST}}" --git-commit={{GIT_COMMIT}} --afk={{AFK_MODE}}
 ```
 
 Both flows share PATTERNS.md for domain knowledge.

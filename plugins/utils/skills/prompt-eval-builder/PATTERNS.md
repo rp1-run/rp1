@@ -68,57 +68,73 @@ When prompt specifies content requirements:
 | "with properties A, B" | `// Criteria: has keys [A, B]` |
 | Unclear | `// TODO: Determine validation criteria from context` |
 
-## 6. Prompt Distillation Rules
+## 6. Test Invocation Prompt Generation
 
-For creating minimal eval prompts from full prompts.
+For creating user invocation prompts that test commands/agents.
 
-### Preserve
+**Key Concept**: Test prompts are USER INPUTS, not distilled agent instructions. They simulate what a user would type to invoke and test the command.
 
-| Element | Why |
-|---------|-----|
-| Core action/intent | Primary behavior to test |
-| Required parameters | Input contract |
-| Critical constraints | MUST/MUST NOT |
-| Tool requirements | Expected tool usage |
-| Output format spec | Validation target |
+### Metadata Extraction
 
-### Remove
+| Element | Detection Pattern | Example |
+|---------|-------------------|---------|
+| Command name | YAML `name:` field | `build-fast` |
+| Plugin | File path `plugins/{plugin}/` | `dev` |
+| Argument hint | YAML `argument-hint:` | `"[request...] [--flag]"` |
+| Params | PARAMS table, Section 0 | `REQUEST`, `FEATURE_ID` |
+| Flags | `--flag` in hint or params | `--git-commit`, `--afk` |
 
-| Element | Why |
-|---------|-----|
-| Verbose explanations | Noise for eval |
-| Inline examples | Not needed for execution |
-| Meta-commentary | "This section describes..." |
-| Background context | History, rationale |
-| Optional behaviors | Focus on required path |
-| Pleasantries | "Please kindly..." |
-| Redundant statements | Covered elsewhere |
+### Invocation Template
 
-### Compress
+```
+/{plugin-prefix}:{command-name} {positional-args} {flags}
+```
 
-| Original | Compressed |
-|----------|------------|
-| "You should first X, then Y" | "1. X 2. Y" |
-| "In the case that..." | "If:" |
-| "Make sure to..." | (remove - implicit) |
-| "It is important that..." | (remove - state directly) |
-| Long conditionals | Terse if/then |
+### Variable Placeholders
 
-### Distillation Process
+| Param Type | Template Format |
+|------------|-----------------|
+| Freeform request | `"{{REQUEST}}"` |
+| Positional param | `{{PARAM_NAME}}` |
+| Boolean flag | `--flag={{FLAG_VAR}}` |
+| Environment var | (omit - handled by test config) |
 
-1. **Extract core intent**: What MUST the agent do?
-2. **Identify required inputs**: What params are needed?
-3. **List constraints**: What MUST NOT happen?
-4. **Specify output**: What format/content is expected?
-5. **Strip everything else**: If not in above, remove
-6. **Verify completeness**: Can assertions be tested with this prompt?
+### Variable Naming
 
-### Target Size
+| Source Pattern | Variable Name |
+|----------------|---------------|
+| `$ARGUMENTS`, request | `REQUEST` |
+| `$1` named `feature-id` | `FEATURE_ID` |
+| `--git-commit` flag | `GIT_COMMIT` |
+| `--afk` flag | `AFK_MODE` |
 
-| Original Size | Target |
-|---------------|--------|
-| < 100 lines | 20-30% |
-| 100-300 lines | 15-25% |
-| > 300 lines | 10-20% |
+### Generation Examples
 
-Minimal prompt should be sufficient to trigger all extracted assertions.
+**Input** (build-fast.md):
+```yaml
+name: build-fast
+argument-hint: "[development-request...] [--afk] [--git-worktree] [--git-commit] [--git-push]"
+```
+
+**Output**:
+```
+/rp1-dev:build-fast "{{REQUEST}}" --git-commit={{GIT_COMMIT}} --git-worktree={{GIT_WORKTREE}} --git-push={{GIT_PUSH}} --afk={{AFK_MODE}}
+```
+
+**Input** (feature-requirements.md):
+```yaml
+name: feature-requirements
+argument-hint: "feature-id [extra-context]"
+```
+
+**Output**:
+```
+/rp1-dev:feature-requirements {{FEATURE_ID}} {{EXTRA_CONTEXT}}
+```
+
+### Output Format
+
+- Plain text file (prompt.txt)
+- Single line invocation
+- No markdown, no frontmatter
+- Extension: `.txt` (not `.md`)
