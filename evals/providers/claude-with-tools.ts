@@ -12,7 +12,6 @@ import {
   query,
 } from "@anthropic-ai/claude-agent-sdk";
 
-// Types for tool call capture
 interface ToolCall {
   readonly id: string;
   readonly name: string;
@@ -26,7 +25,6 @@ interface ProviderMetadata {
   readonly toolCallCount: number;
 }
 
-// AskUserQuestion behavior options
 type AskUserBehavior = "first_option" | "random" | "deny";
 
 interface AskUserQuestionInput {
@@ -36,7 +34,6 @@ interface AskUserQuestionInput {
   }>;
 }
 
-// Promptfoo provider types
 interface ProviderOptions {
   readonly config?: ProviderConfig;
   readonly id?: string;
@@ -80,7 +77,6 @@ interface ProviderResponse {
   readonly error?: string;
 }
 
-// Stream message types from claude-agent-sdk
 interface StreamEventMessage {
   readonly type: "stream_event";
   readonly event?: {
@@ -147,7 +143,6 @@ function createAskUserQuestionCanUseTool(
     input: Record<string, unknown>,
     options: { toolUseID: string },
   ): Promise<PermissionResult> => {
-    // Allow all non-AskUserQuestion tools
     if (toolName !== "AskUserQuestion") {
       return {
         behavior: "allow",
@@ -155,7 +150,6 @@ function createAskUserQuestionCanUseTool(
       };
     }
 
-    // Record the AskUserQuestion tool call for assertions
     toolCallsRef.push({
       id: options.toolUseID,
       name: "AskUserQuestion",
@@ -163,7 +157,6 @@ function createAskUserQuestionCanUseTool(
       source: "stream_event",
     });
 
-    // Handle deny behavior
     if (behavior === "deny") {
       return {
         behavior: "deny",
@@ -171,7 +164,6 @@ function createAskUserQuestionCanUseTool(
       };
     }
 
-    // Handle first_option and random behaviors
     const toolInput = input as unknown as AskUserQuestionInput;
     const answers: Record<string, string> = {};
 
@@ -254,7 +246,6 @@ export default class ClaudeWithToolCapture {
       for await (const message of messageStream) {
         const msg = message as StreamMessage;
 
-        // Capture tool_use from stream_event content_block_start
         if (isStreamEventMessage(msg)) {
           const event = msg.event;
           if (
@@ -275,7 +266,6 @@ export default class ClaudeWithToolCapture {
           }
         }
 
-        // Capture full input from assistant messages
         if (isAssistantMessage(msg) && msg.message?.content) {
           for (const block of msg.message.content) {
             if (block.type === "tool_use" && block.id) {
@@ -294,7 +284,6 @@ export default class ClaudeWithToolCapture {
           }
         }
 
-        // Capture final result
         if (isResultMessage(msg)) {
           finalResult = msg.result ?? "";
           if (msg.usage) {
@@ -304,7 +293,6 @@ export default class ClaudeWithToolCapture {
         }
       }
 
-      // Extract bash commands as convenience array
       const bashCommands = toolCalls
         .filter((t) => t.name === "Bash")
         .map((t) => {

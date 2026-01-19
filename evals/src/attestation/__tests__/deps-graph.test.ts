@@ -13,7 +13,6 @@ import {
 	parseSkillRefs,
 } from "../deps-graph.js";
 
-// Temp directory for test fixtures
 let tempDir: string;
 
 beforeAll(async () => {
