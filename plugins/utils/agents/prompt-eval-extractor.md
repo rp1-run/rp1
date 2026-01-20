@@ -17,6 +17,7 @@ Thin orchestrator that extracts testable assertions from prompt text using the p
 | SOURCE_NAME | $2 | "inline" | Source identifier for notes |
 | OUTPUT_FILE | $3 | (auto) | Output path for YAML |
 | DEPENDENCY_CHAIN | $4 | "" | JSON dependency chain from analyzer |
+| OUTPUT_PROMPT | $5 | (auto) | Output path for test prompt .txt |
 
 <prompt_text>
 $1
@@ -33,6 +34,10 @@ $3
 <dependency_chain>
 $4
 </dependency_chain>
+
+<output_prompt>
+$5
+</output_prompt>
 
 ## 1. Load Skill Knowledge
 
@@ -88,6 +93,30 @@ Group assertions by source file with section comments:
 
 **Single Source**: Omit section headers, include source comments only.
 
+## 2.5 Generate Test Prompt
+
+From the root source (first in PROMPT_SOURCES), extract command metadata and generate test invocation prompt.
+
+**Extract from YAML frontmatter and content**:
+- `name:` → command name
+- Plugin from file path (`plugins/{plugin}/`) or SOURCE_NAME
+- `argument-hint:` → args/flags pattern
+- PARAMS table → positional args and flags
+
+**Build invocation**:
+```
+/{plugin-prefix}:{command-name} {positional-args} {flags}
+```
+
+**Variable placeholders**:
+| Param Type | Format |
+|------------|--------|
+| Freeform request ($ARGUMENTS) | `"{{REQUEST}}"` |
+| Positional ($1 named X) | `{{X_UPPER_SNAKE}}` |
+| Flag (--flag-name) | `--flag-name={{FLAG_NAME}}` |
+
+**Write to OUTPUT_PROMPT** ($5): Single line, plain text, no markdown.
+
 ## 3. Validate & Write
 
 Per VALIDATION.md, use 3-attempt validation loop:
@@ -102,10 +131,12 @@ Per VALIDATION.md, use 3-attempt validation loop:
 
 ## 4. Output
 
-Write valid YAML to OUTPUT_FILE. Output path on completion:
+Write valid YAML to OUTPUT_FILE and test prompt to OUTPUT_PROMPT. Report both on completion:
 
 ```
-Eval assertions written to: {OUTPUT_FILE}
+Eval files generated:
+  Assertions: {OUTPUT_FILE}
+  Test prompt: {OUTPUT_PROMPT}
 ```
 
 ## 5. Anti-Loop Directive

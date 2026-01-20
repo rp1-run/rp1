@@ -12,7 +12,7 @@ author: cloud-on-prem/rp1
 
 # Build Prompt Evals
 
-Generate both eval assertions (YAML) and minimal test prompt from source prompt. Spawns extractor and prompt-writer agents in parallel.
+Generate eval assertions (YAML) and test invocation prompt from source prompt. Single agent handles both outputs.
 
 ## Modes
 
@@ -79,11 +79,10 @@ OUTPUT_YAML = {OUTPUT_DIR}/{basename}-evals.yaml
 OUTPUT_PROMPT = {OUTPUT_DIR}/{basename}-eval-prompt.txt
 ```
 
-### Step 5: Spawn Agents in Parallel
+### Step 5: Spawn Extractor Agent
 
-Both agents execute simultaneously (no dependencies):
+Single agent generates both YAML assertions and test prompt:
 
-**Agent 1 - Extractor:**
 ```
 subagent_type: rp1-utils:prompt-eval-extractor
 prompt: |
@@ -91,15 +90,7 @@ prompt: |
   $2: {SOURCE_NAME}
   $3: {OUTPUT_YAML}
   $4: {DEPENDENCY_CHAIN JSON or empty string}
-```
-
-**Agent 2 - Prompt Writer:**
-```
-subagent_type: rp1-utils:eval-prompt-writer
-prompt: |
-  $1: {PROMPT_TEXT content}
-  $2: {SOURCE_NAME}
-  $3: {OUTPUT_PROMPT}
+  $5: {OUTPUT_PROMPT}
 ```
 
 ### Step 6: Report Completion
