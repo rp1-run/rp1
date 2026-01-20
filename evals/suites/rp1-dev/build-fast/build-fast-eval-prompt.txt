@@ -1,0 +1,1 @@
+/rp1-dev:build-fast "{{REQUEST}}"{% if GIT_COMMIT %} --git-commit{% endif %}{% if GIT_WORKTREE %} --git-worktree{% endif %}{% if GIT_PUSH %} --git-push{% endif %}{% if AFK_MODE %} --afk{% endif %}
