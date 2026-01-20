@@ -177,7 +177,6 @@ function createAskUserQuestionCanUseTool(
         const randomIndex = Math.floor(Math.random() * question.options.length);
         selectedLabels = [question.options[randomIndex].label];
       } else {
-        // first_option (default)
         selectedLabels = [question.options[0].label];
       }
       answers[question.question] = selectedLabels.join(", ");
