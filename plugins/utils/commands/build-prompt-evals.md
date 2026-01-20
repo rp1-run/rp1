@@ -1,7 +1,7 @@
 ---
 name: build-prompt-evals
-version: 1.0.0
-description: Builds eval assertions and minimal test prompt from prompt text
+version: 1.1.0
+description: Builds eval assertions and minimal test prompt from prompt text, then optimizes assertions
 argument-hint: "<file-or-prompt> [--output <dir>]"
 tags:
   - prompt-engineering
@@ -12,19 +12,19 @@ author: cloud-on-prem/rp1
 
 # Build Prompt Evals
 
-Generate eval assertions (YAML) and test invocation prompt from source prompt. Single agent handles both outputs.
+Generate eval assertions (YAML) and test invocation prompt from source prompt. Extracts assertions, then runs assertion specialist to resolve placeholders, consolidate scenarios, and document unresolved assertions.
 
 ## Modes
 
 **File Mode** (when $1 is a valid file path):
 1. Read the file content
 2. Use basename for output naming
-3. Spawn both agents with file content
+3. Spawn extractor agent, then assertion specialist
 
 **Inline Mode** (when $1 is prompt text):
 1. Use prompt directly
 2. Use "extracted" as basename
-3. Spawn both agents with inline text
+3. Spawn extractor agent, then assertion specialist
 
 ## Workflow
 
@@ -93,15 +93,49 @@ prompt: |
   $5: {OUTPUT_PROMPT}
 ```
 
-### Step 6: Report Completion
+### Step 6: Extraction Complete (Intermediate)
 
-Display output locations:
+Log extraction completion:
+```
+Extraction complete. Running assertion optimization...
+```
+
+### Step 7: Spawn Assertion Specialist
+
+Resolve RP1_ROOT from git root:
+```bash
+RP1_ROOT="$(git rev-parse --show-toplevel)/.rp1"
+```
+
+Invoke assertion specialist to optimize the generated eval config:
+
+```
+subagent_type: rp1-utils:prompt-assertion-specialist
+prompt: |
+  $1: {OUTPUT_YAML}
+  $2: {SOURCE_NAME}
+  $3: {RP1_ROOT}
+```
+
+Capture JSON output as ASSERTION_RESULT variable.
+
+### Step 8: Report Completion
+
+Display output locations and optimization summary:
 ```
 Eval files generated:
   Assertions: {OUTPUT_YAML}
   Test prompt: {OUTPUT_PROMPT}
 
-Review the assertions file and refine TODO placeholders as needed.
+Assertion optimization:
+  Resolved: {ASSERTION_RESULT.resolved_count} ({ASSERTION_RESULT.resolved_builtin} built-in, {ASSERTION_RESULT.resolved_shared} shared)
+  Unresolved: {ASSERTION_RESULT.unresolved_count}
+  Consolidated scenarios: {ASSERTION_RESULT.consolidated_scenarios}
+
+{If ASSERTION_RESULT.unresolved_count > 0:}
+  See: {ASSERTION_RESULT.output_files[1]} for assertions requiring implementation.
+
+Review the assertions file for any remaining TODO placeholders.
 ```
 
 ## Error Handling
