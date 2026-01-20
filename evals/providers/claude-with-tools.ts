@@ -300,8 +300,17 @@ export default class ClaudeWithToolCapture {
         })
         .filter((cmd) => cmd.length > 0);
 
+      // Append metadata section for LLM judge evaluation
+      const metadataSection = `
+
+## Metadata
+
+\`\`\`json
+${JSON.stringify({ toolCalls, bashCommands, toolCallCount: toolCalls.length }, null, 2)}
+\`\`\``;
+
       return {
-        output: finalResult,
+        output: finalResult + metadataSection,
         tokenUsage: {
           prompt: totalInputTokens,
           completion: totalOutputTokens,
