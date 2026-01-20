@@ -162,6 +162,13 @@ argument-hint: "feature-id [extra-context]"
 defaultTest:
   vars:
     REQUEST: "a simple bun script that validates JSON input"
-    GIT_WORKTREE: "true"
-    GIT_COMMIT: "true"
+    GIT_WORKTREE: true
+    GIT_COMMIT: true
+    GIT_PUSH: false
+    AFK_MODE: false
 ```
+
+**YAML typing rules**:
+- Strings: quote them `"value"`
+- Booleans: unquoted `true` / `false` (not `"true"`)
+- Omit or set `false` for disabled flags (both work with Nunjucks `{% if %}` conditionals)

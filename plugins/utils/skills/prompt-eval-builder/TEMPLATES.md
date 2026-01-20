@@ -31,8 +31,10 @@ prompts:
 
 defaultTest:
   vars:
-    REQUEST: "{plausible_sample_request}"  # Generate realistic example
-    # ... other vars with sensible defaults
+    REQUEST: "{plausible_sample_request}"
+    # Booleans: unquoted true/false, not "true"/"false"
+    SOME_FLAG: true
+    OTHER_FLAG: false
 
 tests:
   - description: "{scenario}"
@@ -192,6 +194,7 @@ defaultTest:
   vars:
     FEATURE_ID: "auth-refactor"
     TASK_IDS: '["T1"]'
+    AFK_MODE: true
 
 tests:
   - description: "task_implementation_creates_commit"
