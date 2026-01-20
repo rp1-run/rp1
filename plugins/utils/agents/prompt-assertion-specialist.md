@@ -59,6 +59,7 @@ Read `evals/suites/shared/assertions/tool-calls.ts` to understand available cust
 | `assertNoGitCommitToolCall` | `assertNoToolCall('Bash', /\bgit\b.*\bcommit\b/)` |
 | `assertGitPushToolCall` | `assertToolCall('Bash', /\bgit\b.*\bpush\b/)` |
 | `assertNoGitPushToolCall` | `assertNoToolCall('Bash', /\bgit\b.*\bpush\b/)` |
+| `assertWorktreeCreateToolCall` | `assertToolCall('Bash', /rp1\s+agent-tools\s+worktree\s+create/)` |
 
 ## 3. Parse Placeholders
 
@@ -106,6 +107,7 @@ If no built-in match:
 | "no git commit" / "did not commit" | `assertNoGitCommitToolCall` |
 | "git push" / "pushed" | `assertGitPushToolCall` |
 | "no git push" / "did not push" | `assertNoGitPushToolCall` |
+| "worktree create" / "creates worktree" | `assertWorktreeCreateToolCall` |
 
 ### 4.3 Format Resolved Assertions
 
@@ -115,11 +117,16 @@ For built-in types:
   value: {value}
 ```
 
-For shared function calls:
+For shared function calls (use colon separator, relative path from config location):
 ```yaml
 - type: javascript
-  value: |
-    file://evals/suites/shared/assertions/tool-calls.ts {functionCall}
+  value: file://../../shared/assertions/tool-calls.ts:{functionName}
+```
+
+Example:
+```yaml
+- type: javascript
+  value: file://../../shared/assertions/tool-calls.ts:assertGitCommitToolCall
 ```
 
 ### 4.4 Track Unresolved
@@ -135,40 +142,63 @@ Track counts:
 
 ## 5. Consolidate Scenarios
 
-Identify scenarios eligible for consolidation:
+**CRITICAL**: Each test runs a full LLM call. Minimize test count by consolidating.
 
-**Criteria**:
-- Identical assertion set (same types and values after resolution)
-- Only `vars` differ between tests
+### 5.1 Group by Unique Vars (Primary)
 
-**Consolidation**:
+Tests with identical vars (or no vars override) MUST be merged into one test with combined assertions:
 
 ```yaml
-# Before
+# BEFORE (wasteful - 3 API calls for same vars)
 tests:
-  - description: "Test A"
-    vars: { VAR1: "a" }
+  - description: "scope_assessment"
     assert:
       - type: contains
-        value: "expected"
-  - description: "Test B"
-    vars: { VAR1: "b" }
+        value: "Scope Assessment"
+  - description: "build_completes"
     assert:
       - type: contains
-        value: "expected"
+        value: "Build Fast Complete"
+  - description: "summary_created"
+    assert:
+      - type: regex
+        value: "summary\\.md"
 
-# After
+# AFTER (efficient - 1 API call)
 tests:
-  - description: "Test A | Test B"
-    vars:
-      - VAR1: "a"
-      - VAR1: "b"
+  - description: "default_behavior"
     assert:
       - type: contains
-        value: "expected"
+        value: "Scope Assessment"
+      - type: contains
+        value: "Build Fast Complete"
+      - type: regex
+        value: "summary\\.md"
 ```
 
-Track `consolidated_count`: number of scenarios consolidated.
+**Algorithm**:
+1. Hash each test's effective vars (vars override merged with defaultTest.vars)
+2. Group tests by identical var hashes
+3. Merge assertions within each group into single test
+4. Keep separate tests only when vars actually differ
+
+### 5.2 Parametrized Tests (Secondary)
+
+Tests with identical assertions but different vars can use vars array:
+
+```yaml
+# Tests that check same behavior with different inputs
+tests:
+  - description: "validates_various_inputs"
+    vars:
+      - REQUEST: "small change"
+      - REQUEST: "medium change"
+    assert:
+      - type: contains
+        value: "Build Fast Complete"
+```
+
+Track `consolidated_scenarios`: number of tests reduced through consolidation.
 
 ## 6. Validate and Write Output
 

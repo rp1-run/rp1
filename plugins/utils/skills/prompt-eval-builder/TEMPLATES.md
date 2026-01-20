@@ -144,7 +144,71 @@ Always include extraction notes at top:
 # ============================================================
 ```
 
-## 4. Test Scenario Naming
+## 4. Test Consolidation (CRITICAL)
+
+**Each test runs a full LLM call. Minimize test count.**
+
+### Group by Unique Vars
+
+Tests with identical vars MUST be combined into one test with multiple assertions:
+
+```yaml
+# WRONG (wasteful - 3 API calls)
+tests:
+  - description: "scope_assessment"
+    assert:
+      - type: contains
+        value: "Scope"
+  - description: "build_completes"
+    assert:
+      - type: contains
+        value: "Complete"
+  - description: "summary_created"
+    assert:
+      - type: regex
+        value: "summary\\.md"
+
+# CORRECT (efficient - 1 API call)
+tests:
+  - description: "default_behavior"
+    assert:
+      - type: contains
+        value: "Scope"
+      - type: contains
+        value: "Complete"
+      - type: regex
+        value: "summary\\.md"
+```
+
+### Separate Tests Only When Vars Differ
+
+Create separate tests ONLY when testing different variable combinations:
+
+```yaml
+tests:
+  # Test 1: Default flags (GIT_COMMIT=true, etc)
+  - description: "default_flags_behavior"
+    assert:
+      # All assertions for default behavior combined here
+
+  # Test 2: Different var value
+  - description: "no_commit_when_disabled"
+    vars:
+      GIT_COMMIT: false
+    assert:
+      - type: javascript
+        value: file://...assertNoGitCommitToolCall
+
+  # Test 3: Different REQUEST triggers different behavior
+  - description: "large_scope_redirect"
+    vars:
+      REQUEST: "rewrite entire system..."
+    assert:
+      - type: contains
+        value: "EXCEEDS SCOPE"
+```
+
+## 5. Test Scenario Naming
 
 | Pattern | Name Format |
 |---------|-------------|
@@ -152,8 +216,9 @@ Always include extraction notes at top:
 | Error handling | `{action}_handles_{error_type}` |
 | Constraint | `{action}_respects_{constraint}` |
 | Negative | `does_not_{prohibited_action}` |
+| Default behavior | `default_behavior` or `default_flags_behavior` |
 
-## 5. YAML Formatting Rules
+## 6. YAML Formatting Rules
 
 | Rule | Example |
 |------|---------|
@@ -163,7 +228,7 @@ Always include extraction notes at top:
 | Use `\|` for multiline JS | Preserves newlines |
 | No tabs | Spaces only |
 
-## 6. Complete Example
+## 7. Complete Example
 
 ```yaml
 # ============================================================
