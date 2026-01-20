@@ -100,7 +100,7 @@ For creating user invocation prompts that test commands/agents.
 | Flag with value | `{% if FLAG_VAR %} --flag={{FLAG_VAR}}{% endif %}` |
 | Environment var | (omit - handled by test config) |
 
-**Note**: Boolean flags use Jinja conditionals - they're either present or absent, not `--flag=true`.
+**Note**: Boolean flags use Nunjucks conditionals - they're either present or absent, not `--flag=true`.
 
 ### Variable Naming
 
