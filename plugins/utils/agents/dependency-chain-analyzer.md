@@ -1,7 +1,7 @@
 ---
 name: dependency-chain-analyzer
 description: Analyzes command/agent files to discover sub-agent and skill dependencies
-tools: Read
+tools: Read, Glob
 model: inherit
 ---
 
@@ -19,13 +19,14 @@ Parses command/agent files to extract sub-agent and skill dependencies for eval 
 $1
 </file_path>
 
-## 1. Plugin Path Mapping
+## 1. Path Discovery
 
-| Plugin | Path |
-|--------|------|
-| rp1-base | plugins/base |
-| rp1-dev | plugins/dev |
-| rp1-utils | plugins/utils |
+**Do NOT assume directory structure.** Use Glob to discover paths dynamically.
+
+**Agent Discovery**: `Glob("**/agents/{agent-name}.md")` → returns matching paths
+**Skill Discovery**: `Glob("**/skills/{skill-name}/SKILL.md")` → returns matching paths
+
+If multiple matches found, prefer the one whose path contains the plugin name (e.g., `rp1-dev` → prefer path containing `/dev/`).
 
 ## 2. Reference Patterns
 
@@ -56,25 +57,25 @@ Read FILE_PATH content. Extract filename as root name.
 ### 3.3 Extract Agent References
 
 For each Task pattern match in root content:
-1. Extract plugin and agent name
-2. Resolve path: `{PLUGIN_PATH}/agents/{agent}.md`
-3. If path not in SEEN_AGENTS:
+1. Extract plugin and agent name from match
+2. **Use Glob** to find path: `Glob("**/agents/{agent}.md")`
+3. If multiple results, prefer path containing plugin hint (e.g., `/dev/` for `rp1-dev`)
+4. If agent key (plugin:name) not in SEEN_AGENTS:
    - Add to SEEN_AGENTS
-   - Try to read agent file
-   - If exists: add to AGENTS with {path, plugin, name}
-   - If missing: add warning "Agent not found: {plugin}:{agent}"
+   - If Glob found match: read agent file, add to AGENTS with {path, plugin, name}
+   - If no match: add warning "Agent not found: {plugin}:{agent}"
 
 ### 3.4 Extract Skill References (Recursive)
 
 For root content AND each agent content:
 1. For each Skill pattern match:
    - Extract plugin and skill name
-   - Resolve path: `{PLUGIN_PATH}/skills/{skill}/SKILL.md`
-   - If path not in SEEN_SKILLS:
-     - Add to SEEN_SKILLS
-     - Try to read skill file
-     - If exists: add to SKILLS with {path, plugin, name}
-     - If missing: add warning "Skill not found: {plugin}:{skill}"
+   - **Use Glob** to find path: `Glob("**/skills/{skill}/SKILL.md")`
+   - If multiple results, prefer path containing plugin hint
+2. If skill key (plugin:name) not in SEEN_SKILLS:
+   - Add to SEEN_SKILLS
+   - If Glob found match: read skill file, add to SKILLS with {path, plugin, name}
+   - If no match: add warning "Skill not found: {plugin}:{skill}"
 
 ### 3.5 Recursive Agent Analysis
 
@@ -125,8 +126,8 @@ Return JSON (no code fences, raw JSON only):
 2. Extract root name from path (last segment without .md)
 3. Apply Task pattern to find agent refs
 4. For each agent ref:
-   - Map plugin to path
-   - Read agent file if exists
+   - Use Glob to discover agent path (do not assume structure)
+   - Read agent file if found
    - Apply Task pattern (recursive agents)
    - Apply Skill pattern (skills)
 5. Apply Skill pattern to root content
@@ -142,6 +143,6 @@ Return JSON (no code fences, raw JSON only):
 - Re-analyze files already in SEEN sets
 
 Missing files -> add warning, continue analysis.
-Unresolvable plugin -> add warning, skip reference.
+Glob returns no matches -> add warning, skip reference.
 
 Begin analysis now.
