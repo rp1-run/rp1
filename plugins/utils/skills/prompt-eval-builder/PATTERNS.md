@@ -96,8 +96,11 @@ For creating user invocation prompts that test commands/agents.
 |------------|-----------------|
 | Freeform request | `"{{REQUEST}}"` |
 | Positional param | `{{PARAM_NAME}}` |
-| Boolean flag | `--flag={{FLAG_VAR}}` |
+| Boolean flag | `{% if FLAG_VAR %} --flag{% endif %}` |
+| Flag with value | `{% if FLAG_VAR %} --flag={{FLAG_VAR}}{% endif %}` |
 | Environment var | (omit - handled by test config) |
+
+**Note**: Boolean flags use Jinja conditionals - they're either present or absent, not `--flag=true`.
 
 ### Variable Naming
 
@@ -118,7 +121,7 @@ argument-hint: "[development-request...] [--afk] [--git-worktree] [--git-commit]
 
 **Output**:
 ```
-/rp1-dev:build-fast "{{REQUEST}}" --git-commit={{GIT_COMMIT}} --git-worktree={{GIT_WORKTREE}} --git-push={{GIT_PUSH}} --afk={{AFK_MODE}}
+/rp1-dev:build-fast "{{REQUEST}}"{% if GIT_COMMIT %} --git-commit{% endif %}{% if GIT_WORKTREE %} --git-worktree{% endif %}{% if GIT_PUSH %} --git-push{% endif %}{% if AFK_MODE %} --afk{% endif %}
 ```
 
 **Input** (feature-requirements.md):
@@ -129,7 +132,7 @@ argument-hint: "feature-id [extra-context]"
 
 **Output**:
 ```
-/rp1-dev:feature-requirements {{FEATURE_ID}} {{EXTRA_CONTEXT}}
+/rp1-dev:feature-requirements {{FEATURE_ID}}{% if EXTRA_CONTEXT %} {{EXTRA_CONTEXT}}{% endif %}
 ```
 
 ### Output Format

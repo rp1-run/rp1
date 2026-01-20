@@ -113,7 +113,8 @@ From the root source (first in PROMPT_SOURCES), extract command metadata and gen
 |------------|--------|
 | Freeform request ($ARGUMENTS) | `"{{REQUEST}}"` |
 | Positional ($1 named X) | `{{X_UPPER_SNAKE}}` |
-| Flag (--flag-name) | `--flag-name={{FLAG_NAME}}` |
+| Boolean flag (--flag) | `{% if FLAG %} --flag{% endif %}` |
+| Optional positional | `{% if VAR %} {{VAR}}{% endif %}` |
 
 **Write to OUTPUT_PROMPT** ($5): Single line, plain text, no markdown.
 
