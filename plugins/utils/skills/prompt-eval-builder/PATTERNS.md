@@ -138,3 +138,27 @@ argument-hint: "feature-id [extra-context]"
 - Single line invocation
 - No markdown, no frontmatter
 - Extension: `.txt` (not `.md`)
+
+### Sample Request Generation
+
+**CRITICAL**: Also generate a plausible sample value for `{{REQUEST}}` and similar placeholders.
+
+1. Analyze the command's purpose from its description and parameters
+2. Invent a realistic, simple example that would exercise the command
+3. Include this sample in the YAML config under `defaultTest.vars`
+
+| Command Type | Sample Request Pattern |
+|--------------|----------------------|
+| Build/create | "a simple {language} script for {common_task}" |
+| Fix/debug | "fix the {common_error} in {typical_file}" |
+| Refactor | "rename {old_name} to {new_name} across the codebase" |
+| Feature | "add {simple_feature} to {component}" |
+
+**Example** (build-fast):
+```yaml
+defaultTest:
+  vars:
+    REQUEST: "a simple bun script that validates JSON input"
+    GIT_WORKTREE: "true"
+    GIT_COMMIT: "true"
+```

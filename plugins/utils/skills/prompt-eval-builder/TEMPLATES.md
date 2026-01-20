@@ -27,58 +27,86 @@ Output valid YAML directly. NO code fences. NO delimiters. Pure YAML that can be
 description: "Evals for {prompt_name}"
 
 prompts:
-  - "{{PROMPT_CONTENT}}"  # TODO: Replace with actual prompt
+  - "{{PROMPT_CONTENT}}"
+
+defaultTest:
+  vars:
+    REQUEST: "{plausible_sample_request}"  # Generate realistic example
+    # ... other vars with sensible defaults
 
 tests:
   - description: "{scenario}"
     assert:
-      # Assertion N: {description}
-      # Extracted from: "{source_phrase}"
+      # Use built-in types where possible
+      - type: contains
+        value: "{expected_output}"
+
+      # Use placeholders for complex logic
       - type: javascript
-        value: |
-          // {assert_type}: {target}
-          // TODO: Implement validation
-          (output, context) => ({ pass: true, score: 1, reason: 'TODO: Implement' })
+        value: "// TODO: assert_tool_call: {tool}_{operation}"
+        # Criteria: {what_to_verify}
 ```
 
 ## 2. Assertion Templates
 
-### Tool Call
+**CRITICAL**: Prefer built-in assertion types. Use placeholders for complex logic - do NOT write full JS implementations.
 
-```yaml
-- type: javascript
-  value: |
-    // assert_tool_call: git_commit
-    // TODO: Verify git commit was called
-    (output, context) => ({ pass: true, score: 1, reason: 'TODO: Implement' })
-```
+### Built-in Types (Preferred)
 
-### Artifact Content
+| Type | Use For | Example |
+|------|---------|---------|
+| `contains` | Output includes text | `value: "Build Complete"` |
+| `icontains` | Case-insensitive match | `value: "success"` |
+| `not-contains` | Output excludes text | `value: "ERROR"` |
+| `regex` | Pattern matching | `value: "feat\\([^)]+\\):"` |
+| `is-json` | Valid JSON output | (no value needed) |
 
-```yaml
-- type: javascript
-  value: |
-    // assert_artifact_content: requirements.txt
-    // TODO: Validate file exists and content matches: {inferred_criteria}
-    (output, context) => ({ pass: true, score: 1, reason: 'TODO: Implement' })
-```
-
-### Output Contains
+### Output Contains (Built-in)
 
 ```yaml
 - type: contains
-  value: "{pattern}"  # TODO: Refine pattern
+  value: "Build Fast Complete"
   # assert_output: completion_message
 ```
 
-### Negative Assertion
+### Negative Contains (Built-in)
+
+```yaml
+- type: not-contains
+  value: "git push --force"
+  # assert_not: force_push
+```
+
+### Regex Pattern (Built-in)
+
+```yaml
+- type: regex
+  value: "(feat|fix|refactor)\\([^)]+\\):"
+  # assert_output: conventional_commit_format
+```
+
+### Tool Call (Placeholder)
 
 ```yaml
 - type: javascript
-  value: |
-    // assert_not: git_push
-    // TODO: Verify no push to remote occurred
-    (output, context) => ({ pass: true, score: 1, reason: 'TODO: Implement' })
+  value: "// TODO: assert_tool_call: git_commit"
+  # Criteria: Verify git commit was called with conventional format
+```
+
+### Artifact Content (Placeholder)
+
+```yaml
+- type: javascript
+  value: "// TODO: assert_artifact_content: summary.md"
+  # Criteria: File exists in work/quick-builds/ with implementation summary
+```
+
+### Conditional Logic (Placeholder)
+
+```yaml
+- type: javascript
+  value: "// TODO: assert_conditional: worktree_create when GIT_WORKTREE=true"
+  # Criteria: Worktree created only when flag enabled
 ```
 
 ### Sequence Marker
@@ -86,9 +114,7 @@ tests:
 ```yaml
 # sequence: 1 - must happen before commit
 - type: javascript
-  value: |
-    // assert_tool_call: git_add
-    (output, context) => ({ pass: true, score: 1, reason: 'TODO: Implement' })
+  value: "// TODO: assert_tool_call: git_add"
 ```
 
 ## 3. Notes Header Format
@@ -148,6 +174,7 @@ Always include extraction notes at top:
 #   - [tool_call] git_commit: from "create atomic commit"
 #   - [artifact_content] tasks.md: from "mark task complete"
 #   - [output] builder_complete: from "output Builder Complete"
+#   - [negative] no_force_push: from "DO NOT force push"
 #
 # Skipped (redundant/trivial):
 #   - "read design.md" - intermediate context loading
@@ -161,28 +188,33 @@ description: "Evals for task-builder agent"
 prompts:
   - "{{PROMPT_CONTENT}}"
 
+defaultTest:
+  vars:
+    FEATURE_ID: "auth-refactor"
+    TASK_IDS: '["T1"]'
+
 tests:
   - description: "task_implementation_creates_commit"
     assert:
       # Assertion 1: Atomic commit created
       # Extracted from: "create atomic commit after each task"
       - type: javascript
-        value: |
-          // assert_tool_call: git_commit
-          // Criteria: commit message follows format feat({FEATURE_ID}): implement {TASK_ID}
-          (output, context) => ({ pass: true, score: 1, reason: 'TODO: Implement' })
+        value: "// TODO: assert_tool_call: git_commit"
+        # Criteria: commit message follows format feat({FEATURE_ID}): implement {TASK_ID}
 
       # Assertion 2: Task marked complete in tasks.md
       # Extracted from: "- [ ] -> - [x]"
       - type: javascript
-        value: |
-          // assert_artifact_content: tasks.md
-          // Criteria: task checkbox changed from [ ] to [x]
-          (output, context) => ({ pass: true, score: 1, reason: 'TODO: Implement' })
+        value: "// TODO: assert_artifact_content: tasks.md"
+        # Criteria: task checkbox changed from [ ] to [x]
 
-      # Assertion 3: Builder Complete output
+      # Assertion 3: Builder Complete output (built-in)
       # Extracted from: "Output Contract: ## Builder Complete"
       - type: contains
         value: "Builder Complete"
-        # assert_output: completion_message
+
+      # Assertion 4: No force push (built-in)
+      # Extracted from: "DO NOT force push"
+      - type: not-contains
+        value: "git push --force"
 ```
