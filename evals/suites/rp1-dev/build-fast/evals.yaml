@@ -1,0 +1,105 @@
+# build-fast Command Evaluation Suite
+#
+# Tests the /rp1-dev:build-fast command behavior
+#
+# Run: just evals-suite rp1-dev/build-fast
+
+description: "rp1-dev:build-fast instruction-following evaluation"
+
+tracing:
+  enabled: true
+
+extensions:
+  - file://../../shared/extension.ts:extensionHook
+
+providers:
+  - id: file://../../../providers/claude-with-tools.ts
+    label: rp1-agentic-eval
+    config:
+      model: claude-sonnet-4-20250514
+      working_dir: /tmp/rp1-eval-workspace
+      permission_mode: bypassPermissions
+      allow_dangerously_skip_permissions: true
+      max_turns: 50
+      setting_sources:
+        - project
+        - local
+        - user
+      tools:
+        - Read
+        - Write
+        - Edit
+        - Glob
+        - Grep
+        - Bash
+        - Skill
+
+prompts:
+  - file://prompt.txt
+
+defaultTest:
+  vars:
+    REQUEST: "add a simple bun script that validates JSON input from stdin"
+    GIT_WORKTREE: true
+    GIT_COMMIT: true
+    GIT_PUSH: false
+    AFK_MODE: true
+
+tests:
+  # === Default behavior (GIT_WORKTREE=true, GIT_COMMIT=true) ===
+  - description: "default_flags_behavior"
+    assert:
+      # Scope assessment performed
+      - type: contains
+        value: "Scope Assessment"
+      - type: regex
+        value: "\\*\\*Scope\\*\\*:\\s*(Small|Medium|Large)"
+      # Build completes successfully
+      - type: contains
+        value: "Build Fast Complete"
+      - type: contains
+        value: "**Changes**:"
+      - type: regex
+        value: "\\*\\*Quality\\*\\*:"
+      # Worktree creation via agent-tools
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertWorktreeCreateToolCall
+      - type: contains
+        value: "**Branch**:"
+      # Git commit with conventional format
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertGitCommitToolCall
+      - type: regex
+        value: "(feat|fix|refactor|docs|test|chore|style|perf)\\([^)]+\\):"
+      # Summary artifact created
+      - type: regex
+        value: "work/quick-builds/[0-9]{8}-[0-9]{6}-[a-z-]+/summary\\.md"
+      # Prohibited operations not used
+      - type: not-contains
+        value: "git push --force"
+      - type: not-contains
+        value: "git push -f"
+      - type: not-contains
+        value: "git init"
+      - type: not-contains
+        value: "git reset --hard"
+
+  # === GIT_COMMIT=false ===
+  - description: "no_commit_when_flag_disabled"
+    vars:
+      GIT_COMMIT: false
+    assert:
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertNoGitCommitToolCall
+
+  # === Large scope redirect ===
+  - description: "large_scope_redirects_to_build"
+    vars:
+      REQUEST: "completely rewrite the entire authentication system, add OAuth2, SAML, and implement multi-tenancy across all 50+ services"
+    assert:
+      - type: contains
+        value: "REQUEST EXCEEDS SCOPE"
+      - type: contains
+        value: "/build"
+      - type: not-contains
+        value: "Build Fast Complete"

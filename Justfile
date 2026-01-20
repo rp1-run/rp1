@@ -105,13 +105,13 @@ install-evals-deps:
 evals: install-evals-deps
     cd evals && bunx promptfoo eval
 
-# Run specific evaluation suite (e.g., just evals-suite build-fast)
+# Run specific evaluation suite (e.g., just evals-suite rp1-dev/build-fast)
 evals-suite suite: install-evals-deps
-    cd evals && bunx promptfoo eval -c suites/{{suite}}/config.yaml
+    cd evals && bunx promptfoo eval -c suites/{{suite}}/evals.yaml
 
 # Run evaluation suite with verbose output
 evals-verbose suite: install-evals-deps
-    cd evals && bunx promptfoo eval -c suites/{{suite}}/config.yaml --verbose
+    cd evals && bunx promptfoo eval -c suites/{{suite}}/evals.yaml --verbose
 
 # Run eval suite and update attestation on pass
 evals-attest suite: install-evals-deps
@@ -124,3 +124,7 @@ evals-verify: install-evals-deps
 # Show commands needing re-attestation
 evals-status: install-evals-deps
     bun run evals/src/attestation/cli.ts status
+
+# View Evals
+evals-view: install-evals-deps
+    cd evals && bunx promptfoo view

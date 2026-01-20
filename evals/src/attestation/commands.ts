@@ -67,7 +67,7 @@ async function getCommandVersion(commandPath: string): Promise<string> {
  * @param outputPath - Path to save JSON results (relative to evals/)
  */
 async function runEvalSuite(suite: string, outputPath: string): Promise<boolean> {
-	const configPath = `suites/${suite}/config.yaml`;
+	const configPath = `suites/${suite}/evals.yaml`;
 	// Use bunx to run promptfoo (Node.js runtime for better-sqlite3 compatibility)
 	const proc = spawn(["bunx", "promptfoo", "eval", "-c", configPath, "--output", outputPath], {
 		cwd: "evals",

@@ -409,3 +409,8 @@ export const assertGitPushToolCall = assertToolCall("Bash", /\bgit\b.*\bpush\b/)
  * Handles git commands with flags before subcommand (e.g., git -C /path push).
  */
 export const assertNoGitPushToolCall = assertNoToolCall("Bash", /\bgit\b.*\bpush\b/);
+
+/**
+ * Assert that agent created a worktree via rp1 agent-tools.
+ */
+export const assertWorktreeCreateToolCall = assertToolCall("Bash", /rp1\s+agent-tools\s+worktree\s+create/);
