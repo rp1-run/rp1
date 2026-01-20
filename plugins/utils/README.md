@@ -11,14 +11,14 @@ The `rp1-utils` plugin provides specialized tools for developing and maintaining
 - **Agent refactoring** - Tools for optimizing constitutional agents
 
 **Commands**: 2 user-facing commands
-**Agents**: 4 specialized agents
+**Agents**: 5 specialized agents
 **Skills**: 2 internal skills
 
 ## Commands (2)
 
 ### Prompt Engineering
 - `/tersify-prompt <file-path-or-prompt>` - Rewrite agent prompts to be maximally terse while preserving full intent
-- `/build-prompt-evals <file-or-prompt> [--output <dir>]` - Build eval assertions and minimal test prompt from prompt text
+- `/build-prompt-evals <file-or-prompt> [--output <dir>]` - Build eval assertions and minimal test prompt, then optimize with assertion resolution and scenario consolidation
 
 #### tersify-prompt
 
@@ -34,11 +34,14 @@ The `rp1-utils` plugin provides specialized tools for developing and maintaining
 
 #### build-prompt-evals
 
-Generates both eval assertions (YAML) and minimal test prompts from prompt text. Spawns two agents in parallel for efficient processing.
+Generates eval assertions (YAML) and minimal test prompts from prompt text, then optimizes the assertions. Full workflow:
+1. **Extraction**: Spawns prompt-eval-extractor to parse assertions and create test prompt
+2. **Optimization**: Spawns prompt-assertion-specialist to resolve placeholder assertions, consolidate scenarios, and document unresolved assertions
 
 **Outputs**:
-- `{basename}-evals.yaml` - promptfoo-compatible assertions
+- `{basename}-evals.yaml` - promptfoo-compatible assertions (optimized)
 - `{basename}-eval-prompt.md` - minimal test prompt for evaluation
+- `{RP1_ROOT}/work/notes/assertions-to-be-built-{timestamp}.md` - (if unresolved placeholders exist)
 
 **Modes**:
 - **File mode**: Reads prompt file, outputs to same directory
@@ -52,7 +55,7 @@ Generates both eval assertions (YAML) and minimal test prompts from prompt text.
 /build-prompt-evals "Create a branch and commit changes"
 ```
 
-## Agents (4)
+## Agents (5)
 
 | Agent | Purpose |
 |-------|---------|
@@ -60,6 +63,7 @@ Generates both eval assertions (YAML) and minimal test prompts from prompt text.
 | prompt-tersifier | Transforms agent-instruction prompts into maximally terse versions |
 | prompt-eval-extractor | Extracts evaluation assertions from prompt text for promptfoo |
 | eval-prompt-writer | Creates minimal test prompts optimized for evaluation |
+| prompt-assertion-specialist | Resolves placeholder assertions to implementations, consolidates scenarios |
 
 ### dependency-chain-analyzer
 
@@ -95,6 +99,30 @@ $1: plugins/dev/commands/build-fast.md
 **Detection Patterns**:
 - Task references: `Task: rp1-dev:agent-name`
 - Skill references: `Skill: rp1-base:skill-name`
+
+### prompt-assertion-specialist
+
+Optimizes eval configurations by resolving placeholder assertions to actual implementations, consolidating redundant test scenarios, and documenting assertions that require custom implementation.
+
+**Input**: Eval YAML config path, source name, RP1_ROOT
+
+**Processing**:
+1. Parse placeholder assertions (PLACEHOLDER:, TODO:, # PLACEHOLDER: markers)
+2. Resolve to promptfoo built-ins (contains, regex, llm-rubric, is-json, etc.)
+3. Resolve to shared assertions (assertToolCall, assertGitCommitToolCall, etc.)
+4. Consolidate scenarios with identical assertions
+5. Document unresolved placeholders with implementation specs
+
+**Output**: Optimized YAML config (overwrites input) + assertions-to-be-built.md if needed
+
+**Usage**: Invoked automatically by `build-prompt-evals` after extraction. Can also be spawned directly:
+
+```
+Task tool with subagent_type: rp1-utils:prompt-assertion-specialist
+$1: path/to/evals.yaml
+$2: source-name
+$3: .rp1
+```
 
 ## Skills (2)
 
