@@ -10,9 +10,15 @@ Domain knowledge for building evaluation artifacts from prompt specifications. P
 ## When to Use
 
 - Generating promptfoo eval configs from command/agent prompts
-- Extracting testable assertions from instruction text
+- Extracting testable assertions from instruction text (primarily LLM rubrics)
 - Creating test invocation prompts (user inputs that test the command)
 - Validating generated YAML output
+
+### Assertion Types
+
+**LLM Rubrics (Default)**: Generated for most behavioral requirements. Rubrics contain REQUIRED/PROHIBITED/EDGE CASES sections and evaluate behavior holistically by checking output text AND Metadata JSON.
+
+**Programmatic Assertions (Complex Cases)**: Generated when requirements need exact counting, strict sequencing, or complex conditional logic that cannot be expressed in natural language rubrics. Uses `type: javascript` with `file://` references to shared assertion functions.
 
 ## Skill Files
 
@@ -44,7 +50,8 @@ Output format: `{ "valid": true }` or `{ "valid": false, "error": "message" }`
 ### Extraction Flow
 
 ```
-Prompt Text -> Pattern Analysis -> Assertion Extraction -> YAML Generation -> Validation Loop
+Prompt Text -> Pattern Analysis -> Requirement Categorization -> LLM Rubric Generation -> YAML Validation
+                                                              \-> Programmatic Assertion (if complex)
 ```
 
 ### Invocation Prompt Flow
