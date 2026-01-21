@@ -43,8 +43,8 @@ $5
 
 Read skill files from `plugins/utils/skills/prompt-eval-builder/`:
 
-- **PATTERNS.md**: Extraction categories, tool mappings, smart selection rules
-- **TEMPLATES.md**: promptfoo YAML output format and assertion templates
+- **PATTERNS.md**: Extraction categories, tool mappings, smart selection rules, **LLM rubric extraction (Sec 7), complexity detection (Sec 8), Metadata patterns (Sec 9)**
+- **TEMPLATES.md**: promptfoo YAML output format, **LLM rubric templates (Sec 2)**
 
 ## 1.5 Process Dependency Chain
 
@@ -65,33 +65,68 @@ Build PROMPT_SOURCES array based on dependency chain availability.
 - Set `PROMPT_SOURCES` = `[{path: SOURCE_NAME, content: PROMPT_TEXT}]`
 - Process single input file as before (backward compatibility)
 
-## 2. Extract Assertions
+## 2. Extract Requirements and Generate Rubrics
 
-For each source in PROMPT_SOURCES, apply knowledge from skill files:
+**Default output**: LLM rubric assertions. Programmatic assertions only for HIGH complexity.
 
-1. **Scan**: Match patterns from PATTERNS.md Section 1 (Extraction Categories)
-2. **Map**: Use PATTERNS.md Section 2 (Tool Call Mapping) for tool assertions
+For each source in PROMPT_SOURCES:
+
+### 2.1 Scan & Categorize
+
+1. **Scan**: Match patterns from PATTERNS.md Section 7 (LLM Rubric Extraction)
+2. **Categorize**: Assign each requirement to rubric section:
+   - MUST/shall/creates/outputs -> REQUIRED (numbered)
+   - MUST NOT/never/avoid -> PROHIBITED (bulleted)
+   - when/if/unless -> EDGE CASES (bulleted)
 3. **Filter**: Apply PATTERNS.md Section 3 (Smart Selection Rules) - pivotal only
-4. **Classify**: Assign assertion types per PATTERNS.md Section 4 (Analysis Process)
-5. **Infer**: Extract content criteria per PATTERNS.md Section 5 (Content Inference)
-6. **Tag**: Add source attribution comment to each assertion: `# source: {source.path}`
-7. **Format**: Generate YAML using TEMPLATES.md structure and assertion templates
 
-**Output Organization** (when multiple sources):
+### 2.2 Detect Complexity
 
-Group assertions by source file with section comments:
+Per PATTERNS.md Section 8 (Complexity Detection):
+
+| Detected Pattern | Action |
+|------------------|--------|
+| "exactly N times", "N calls" | Generate programmatic assertion |
+| "before X and after Y" (strict) | Generate programmatic assertion |
+| All other requirements | Include in LLM rubric |
+
+### 2.3 Generate Assertions
+
+**For LOW/MEDIUM complexity** (default path):
+1. Group ALL requirements into single `type: llm-rubric` per test scenario
+2. Start with: "Evaluate the agent execution. Check the output text AND the Metadata JSON section."
+3. Format REQUIRED section with numbered items (1., 2., 3...)
+4. Format PROHIBITED section with bulleted items (-)
+5. Add EDGE CASES section only if conditional requirements exist
+6. Reference Metadata using patterns from PATTERNS.md Section 9
+
+**For HIGH complexity** (rare):
+1. Generate `type: javascript` with `file://../../shared/assertions/tool-calls.ts:{functionName}`
+2. Add comment explaining requirement
+
+### 2.4 Output Organization
+
+**Single rubric per test scenario** - do NOT create one assertion per requirement.
 
 ```yaml
-# --- Assertions from: {path1} ---
-- assert_tool_call: Tool_operation
-  # source: {path1}
+tests:
+  - description: "default_behavior"
+    assert:
+      - type: llm-rubric
+        value: |
+          Evaluate the agent execution. Check the output text AND the Metadata JSON section.
 
-# --- Assertions from: {path2} ---
-- assert_output: "expected pattern"
-  # source: {path2}
+          REQUIRED (all must pass):
+          1. {requirement_from_source_1}
+          2. {requirement_from_source_2}
+          ...
+
+          PROHIBITED (fail if any present in Metadata bashCommands):
+          - {prohibition_1}
+          - {prohibition_2}
 ```
 
-**Single Source**: Omit section headers, include source comments only.
+**Multiple sources**: Consolidate requirements from all sources into unified rubric sections.
 
 ## 2.5 Generate Test Prompt
 

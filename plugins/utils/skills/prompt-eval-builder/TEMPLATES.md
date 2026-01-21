@@ -51,73 +51,93 @@ tests:
 
 ## 2. Assertion Templates
 
-**CRITICAL**: Prefer built-in assertion types. Use placeholders for complex logic - do NOT write full JS implementations.
+**CRITICAL**: LLM rubrics are the default assertion type. Use programmatic assertions only for complex logic (counting, strict sequencing).
 
-### Built-in Types (Preferred)
+### LLM Rubric (Default)
+
+Primary template for behavioral verification. Groups ALL requirements for a test scenario.
+
+```yaml
+- type: llm-rubric
+  value: |
+    Evaluate the agent execution. Check the output text AND the Metadata JSON section.
+
+    REQUIRED (all must pass):
+    1. {behavioral_requirement_1}
+    2. {behavioral_requirement_2}
+    3. Metadata toolCalls includes {Tool} with {expected_input}
+    ...
+
+    PROHIBITED (fail if any present in Metadata bashCommands):
+    - {prohibited_command_1}
+    - {prohibited_command_2}
+
+    EDGE CASES (optional):
+    - When {condition}: {expected_behavior}
+```
+
+**Structure Rules**:
+- Line 1: "Evaluate the agent execution. Check the output text AND the Metadata JSON section."
+- REQUIRED: Numbered list (1., 2., 3...)
+- PROHIBITED: Bulleted list (- item)
+- EDGE CASES: Optional, bulleted conditionals
+- Empty lines separate sections
+
+### LLM Rubric - Minimal (No Prohibitions)
+
+```yaml
+- type: llm-rubric
+  value: |
+    Evaluate the agent execution. Check the output text AND the Metadata JSON section.
+
+    REQUIRED (all must pass):
+    1. {behavioral_requirement_1}
+    2. {behavioral_requirement_2}
+```
+
+### LLM Rubric - Flag Behavior Check
+
+For testing flag-controlled behavior:
+
+```yaml
+- type: llm-rubric
+  value: |
+    Evaluate whether the agent respected the {FLAG}={value} flag.
+
+    Check the Metadata JSON section for toolCalls and bashCommands.
+
+    REQUIRED:
+    - {expected_behavior_description}
+
+    PASS if: {pass_condition}
+    FAIL if: {fail_condition}
+```
+
+### Built-in Types (Simple Cases)
+
+Use built-in types for trivial checks that don't warrant a full rubric.
 
 | Type | Use For | Example |
 |------|---------|---------|
 | `contains` | Output includes text | `value: "Build Complete"` |
 | `icontains` | Case-insensitive match | `value: "success"` |
 | `not-contains` | Output excludes text | `value: "ERROR"` |
-| `regex` | Pattern matching | `value: "feat\\([^)]+\\):"` |
+| `regex` | Simple pattern matching | `value: "feat\\([^)]+\\):"` |
 | `is-json` | Valid JSON output | (no value needed) |
 
-### Output Contains (Built-in)
+### Programmatic Assertion (Complex Only)
 
-```yaml
-- type: contains
-  value: "Build Fast Complete"
-  # assert_output: completion_message
-```
-
-### Negative Contains (Built-in)
-
-```yaml
-- type: not-contains
-  value: "git push --force"
-  # assert_not: force_push
-```
-
-### Regex Pattern (Built-in)
-
-```yaml
-- type: regex
-  value: "(feat|fix|refactor)\\([^)]+\\):"
-  # assert_output: conventional_commit_format
-```
-
-### Tool Call (Placeholder)
+Reserved for HIGH complexity requirements (counting, strict sequencing).
 
 ```yaml
 - type: javascript
-  value: "// TODO: assert_tool_call: git_commit"
-  # Criteria: Verify git commit was called with conventional format
+  value: file://../../shared/assertions/tool-calls.ts:{functionName}
 ```
 
-### Artifact Content (Placeholder)
-
-```yaml
-- type: javascript
-  value: "// TODO: assert_artifact_content: summary.md"
-  # Criteria: File exists in work/quick-builds/ with implementation summary
-```
-
-### Conditional Logic (Placeholder)
-
-```yaml
-- type: javascript
-  value: "// TODO: assert_conditional: worktree_create when GIT_WORKTREE=true"
-  # Criteria: Worktree created only when flag enabled
-```
-
-### Sequence Marker
-
-```yaml
-# sequence: 1 - must happen before commit
-- type: javascript
-  value: "// TODO: assert_tool_call: git_add"
-```
+**Use programmatic assertions for**:
+- Exact call counts: "called exactly 3 times"
+- Strict ordering: "A must happen before B which must happen before C"
+- Complex matching: custom regex combinations
 
 ## 3. Notes Header Format
 
@@ -130,17 +150,18 @@ Always include extraction notes at top:
 # Source: {source_file_or_identifier}
 # Generated: {ISO_timestamp}
 #
-# Extracted assertions:
-#   - [tool_call] git_commit: from "commit changes"
-#   - [artifact_content] README.md: from "create README with usage"
-#   - [output] success_message: from "report completion"
-#   - [negative] no_push: from "DO NOT push"
+# Rubric sections generated:
+#   - REQUIRED: {count} items
+#   - PROHIBITED: {count} items
+#   - EDGE CASES: {count} items (if any)
+#
+# Assertion types:
+#   - [llm-rubric] {scenario_name}: behavioral verification
+#   - [programmatic] {function}: from "{complex_requirement}" (if any)
 #
 # Skipped (redundant/trivial):
 #   - "read file" - intermediate step, not outcome
 #   - second "write file" - same target as first
-#
-# REVIEW REQUIRED: Placeholder assertions need manual refinement
 # ============================================================
 ```
 
@@ -237,17 +258,17 @@ tests:
 # Source: task-builder.md
 # Generated: 2026-01-19T10:30:00Z
 #
-# Extracted assertions:
-#   - [tool_call] git_commit: from "create atomic commit"
-#   - [artifact_content] tasks.md: from "mark task complete"
-#   - [output] builder_complete: from "output Builder Complete"
-#   - [negative] no_force_push: from "DO NOT force push"
+# Rubric sections generated:
+#   - REQUIRED: 5 items
+#   - PROHIBITED: 3 items
+#   - EDGE CASES: 0 items
+#
+# Assertion types:
+#   - [llm-rubric] default_behavior: behavioral verification
 #
 # Skipped (redundant/trivial):
 #   - "read design.md" - intermediate context loading
 #   - "run formatter" - subsumed by quality check
-#
-# REVIEW REQUIRED: Placeholder assertions need manual refinement
 # ============================================================
 
 description: "Evals for task-builder agent"
@@ -262,27 +283,21 @@ defaultTest:
     AFK_MODE: true
 
 tests:
-  - description: "task_implementation_creates_commit"
+  - description: "default_behavior"
     assert:
-      # Assertion 1: Atomic commit created
-      # Extracted from: "create atomic commit after each task"
-      - type: javascript
-        value: "// TODO: assert_tool_call: git_commit"
-        # Criteria: commit message follows format feat({FEATURE_ID}): implement {TASK_ID}
+      - type: llm-rubric
+        value: |
+          Evaluate the agent execution. Check the output text AND the Metadata JSON section.
 
-      # Assertion 2: Task marked complete in tasks.md
-      # Extracted from: "- [ ] -> - [x]"
-      - type: javascript
-        value: "// TODO: assert_artifact_content: tasks.md"
-        # Criteria: task checkbox changed from [ ] to [x]
+          REQUIRED (all must pass):
+          1. Output contains "Builder Complete" section with task summary
+          2. Output contains commit SHA in format feat({feature}): implement {task}
+          3. Output contains "Quality" section showing format/lint/test status
+          4. Metadata toolCalls includes Bash with "git commit" command
+          5. Metadata toolCalls shows commit message uses conventional format
 
-      # Assertion 3: Builder Complete output (built-in)
-      # Extracted from: "Output Contract: ## Builder Complete"
-      - type: contains
-        value: "Builder Complete"
-
-      # Assertion 4: No force push (built-in)
-      # Extracted from: "DO NOT force push"
-      - type: not-contains
-        value: "git push --force"
+          PROHIBITED (fail if any present in Metadata bashCommands):
+          - "git push --force" or "git push -f"
+          - "git commit --amend"
+          - "git reset --hard"
 ```

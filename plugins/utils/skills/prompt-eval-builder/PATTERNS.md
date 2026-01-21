@@ -172,3 +172,50 @@ defaultTest:
 - Strings: quote them `"value"`
 - Booleans: unquoted `true` / `false` (not `"true"`)
 - Omit or set `false` for disabled flags (both work with Nunjucks `{% if %}` conditionals)
+
+## 7. LLM Rubric Extraction
+
+Map prompt language to rubric sections. LLM rubrics are the **default assertion type**.
+
+| Pattern Category | Detection Patterns | Rubric Section |
+|------------------|-------------------|----------------|
+| Must do | "MUST", "shall", "will create", "outputs", "generates", "creates" | REQUIRED (numbered) |
+| Must not | "MUST NOT", "DO NOT", "never", "avoid", "prohibited" | PROHIBITED (bulleted) |
+| Conditional | "when", "if", "only when", "unless", "in case of" | EDGE CASES |
+| Sequence | "first", "then", "before", "after", "finally", numbered steps | REQUIRED (numbered, preserve order) |
+| Output | "report", "display", "tell user", "output", "confirm" | REQUIRED (numbered) |
+| Tool usage | "create branch", "commit", "read file", "write" | REQUIRED (reference Metadata) |
+
+**Consolidation Rule**: Group ALL related requirements for a test scenario into ONE rubric. Do not create separate assertions for each requirement.
+
+## 8. Complexity Detection
+
+Determines whether to generate LLM rubric (default) or programmatic assertion (fallback).
+
+| Pattern | Complexity | Assertion Type | Rationale |
+|---------|------------|----------------|-----------|
+| "exactly N times", "N calls", "called N times" | HIGH | Programmatic | Counting requires precise logic |
+| "before X and after Y" (strict ordering) | HIGH | Programmatic | Sequence verification needs code |
+| "only when X is true" (conditional flag behavior) | MEDIUM | LLM rubric with EDGE CASES | Natural language handles conditions |
+| "matches regex", "follows format" | MEDIUM | LLM rubric OR built-in regex | Use built-in regex when pattern is simple |
+| Simple behavioral check | LOW | LLM rubric | Default path |
+
+**Decision Flow**:
+1. Scan requirement for HIGH complexity patterns -> Programmatic assertion
+2. Scan for MEDIUM complexity -> LLM rubric (add EDGE CASES if conditional)
+3. Default to LOW -> LLM rubric
+
+## 9. Metadata Reference Patterns
+
+Standardized phrases for referencing provider metadata in rubrics.
+
+| Verification Target | Metadata Field | Reference Pattern |
+|--------------------|----------------|-------------------|
+| Tool was called | toolCalls | "Metadata toolCalls includes {Tool}" |
+| Bash command executed | bashCommands | "Metadata bashCommands contains {command}" |
+| Tool call count | toolCallCount | "Metadata toolCallCount shows N calls" |
+| Specific tool input | toolCalls[].input | "Metadata toolCalls shows {Tool} called with {input}" |
+
+**Always include**: Opening line "Check the output text AND the Metadata JSON section."
+
+**Prohibited checks**: Reference "Metadata bashCommands" for all PROHIBITED items (tool call data source).
