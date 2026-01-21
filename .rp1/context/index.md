@@ -105,10 +105,10 @@ rp1/
 /pr-review                    # Map-reduce review with confidence gating
 /address-pr-feedback          # Collect, triage, fix PR comments
 
-# Evaluations
-just evals-suite rp1-dev/build-fast   # Run build-fast instruction-following tests
-bun run evals/src/attestation/cli.ts attest rp1-dev/build-fast  # Update attestation on pass
-bun run evals/src/attestation/cli.ts verify                     # Check all attestations current
+# Evaluations (two-phase workflow)
+just evals-run rp1-dev/build-fast           # Phase 1: Run evals, output to timestamped file
+just evals-attest-from-output <output-file> # Phase 2: Generate attestation from output
+bun run evals/src/attestation/cli.ts verify # Check all attestations current
 ```
 
 ## Navigation
