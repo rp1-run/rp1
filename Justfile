@@ -124,13 +124,19 @@ evals-verbose suite: install-evals-deps
 evals-parallel-verbose suite concurrency=evals_concurrency: install-evals-deps
     cd evals && bunx promptfoo eval -c suites/{{suite}}/evals.yaml -j {{concurrency}} --verbose
 
-# Run eval suite and update attestation on pass
-evals-attest suite: install-evals-deps
-    bun run evals/src/attestation/cli.ts attest {{suite}}
+# Run evaluation suite and output to timestamped file (for later attestation)
+evals-run suite: install-evals-deps
+    #!/usr/bin/env bash
+    set -e
+    timestamp=$(date -u +%Y-%m-%dT%H-%M-%S)
+    suite_filename=$(echo "{{suite}}" | tr '/' '-')
+    output_file="output/${suite_filename}-${timestamp}.json"
+    cd evals && bunx promptfoo eval -c "suites/{{suite}}/evals.yaml" --output "${output_file}"
+    echo "Output written to: evals/${output_file}"
 
-# Run eval suite in parallel and update attestation on pass
-evals-attest-parallel suite concurrency=evals_concurrency: install-evals-deps
-    bun run evals/src/attestation/cli.ts attest {{suite}} {{concurrency}}
+# Generate attestation from eval output file (no Claude processes spawned)
+evals-attest-from-output output-file: install-evals-deps
+    cd evals && bun run src/attestation/cli.ts attest-from-output {{output-file}}
 
 # Verify all attestations are current
 evals-verify: install-evals-deps
