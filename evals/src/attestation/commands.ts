@@ -3,6 +3,7 @@
  * Provides attest, verify, and status operations for tracking prompt changes.
  */
 
+import path from "node:path";
 import { spawn } from "bun";
 import * as A from "fp-ts/Array";
 import { pipe } from "fp-ts/function";
@@ -19,11 +20,75 @@ import type {
 } from "./types.js";
 
 /**
+ * Promptfoo output structure for parsing eval results.
+ */
+interface PromptfooOutput {
+	evalId: string;
+	results: {
+		version: number;
+		timestamp: string;
+		prompts: Array<{
+			id: string;
+			metrics: {
+				score: number;
+				testPassCount: number;
+				testFailCount: number;
+				testErrorCount: number;
+			};
+		}>;
+	};
+}
+
+/**
  * Map suite path to command key.
  * e.g., "rp1-dev/build-fast" -> "rp1-dev:build-fast"
  */
 function suiteToCommandKey(suite: string): string {
 	return suite.replace("/", ":");
+}
+
+/**
+ * Extract suite name from output filename.
+ * e.g., "rp1-dev-build-fast-2026-01-22T10-30-00.json" -> "rp1-dev/build-fast"
+ *
+ * @param outputPath - Path to the output file
+ * @returns Suite path in format "plugin/command"
+ */
+export function extractSuiteFromFilename(outputPath: string): string {
+	const filename = path.basename(outputPath, ".json");
+	// Remove timestamp suffix (pattern: -YYYY-MM-DDTHH-MM-SS)
+	const withoutTimestamp = filename.replace(
+		/-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}$/,
+		"",
+	);
+	// Convert plugin prefix separator to slash
+	// Pattern: rp1-{plugin}-{command} -> rp1-{plugin}/{command}
+	// Known plugins: dev, base, utils
+	const pluginMatch = withoutTimestamp.match(/^(rp1-(?:dev|base|utils))-(.+)$/);
+	if (pluginMatch) {
+		return `${pluginMatch[1]}/${pluginMatch[2]}`;
+	}
+	// Fallback: convert first dash to slash
+	return withoutTimestamp.replace("-", "/");
+}
+
+/**
+ * Detect pass rate from promptfoo output.
+ * Returns true only if all prompts have zero failures and zero errors.
+ *
+ * @param output - Parsed promptfoo output
+ * @returns True if 100% pass rate, false otherwise
+ */
+export function detectPassRate(output: PromptfooOutput): boolean {
+	const { prompts } = output.results;
+	if (!prompts || prompts.length === 0) {
+		return false;
+	}
+	return prompts.every(
+		(prompt) =>
+			prompt.metrics.testFailCount === 0 &&
+			prompt.metrics.testErrorCount === 0,
+	);
 }
 
 /**
@@ -184,6 +249,95 @@ export function attestCommand(
 				);
 			},
 		),
+	);
+}
+
+/**
+ * Generate attestation from existing eval output file.
+ * Does NOT run evals or spawn any external processes.
+ * Only updates attestation if 100% pass rate detected.
+ *
+ * @param outputPath - Path to promptfoo output JSON file
+ * @returns TaskEither with result indicating whether attestation was updated
+ */
+export function attestFromOutput(
+	outputPath: string,
+): TE.TaskEither<Error, { updated: boolean; message: string }> {
+	return pipe(
+		TE.Do,
+		TE.bind("output", () =>
+			TE.tryCatch(
+				async () => {
+					const file = Bun.file(outputPath);
+					if (!(await file.exists())) {
+						throw new Error(`Output file not found: ${outputPath}`);
+					}
+					return (await file.json()) as PromptfooOutput;
+				},
+				(e) => new Error(`Failed to read output file: ${e}`),
+			),
+		),
+		TE.chain(({ output }) => {
+			const passed = detectPassRate(output);
+			const suite = extractSuiteFromFilename(outputPath);
+			const commandKey = suiteToCommandKey(suite);
+			const commandPath = suiteToCommandPath(suite);
+			const timestamp = output.results.timestamp;
+
+			if (!passed) {
+				return TE.right({
+					updated: false as boolean,
+					message: `Eval suite ${suite} did not pass (failures or errors detected). Attestation not updated.`,
+				});
+			}
+
+			return pipe(
+				TE.Do,
+				TE.bind("manifest", () => loadManifest()),
+				TE.bind("graph", () => buildDependencyGraph(commandPath)),
+				TE.bind("hashes", ({ graph }) => computeAllHashes(graph)),
+				TE.bind("version", () =>
+					TE.tryCatch(
+						() => getCommandVersion(commandPath),
+						(e) => new Error(`Failed to get version: ${e}`),
+					),
+				),
+				TE.bind("gitCommit", () =>
+					TE.tryCatch(
+						() => getGitCommit(),
+						(e) => new Error(`Failed to get git commit: ${e}`),
+					),
+				),
+				TE.chain(({ manifest, hashes, version, gitCommit }) => {
+					const attestation: CommandAttestation = {
+						prompt_hash:
+							hashes.find((h) => h.path === commandPath)?.hash || "",
+						deps_hash: computeDepsHash(hashes),
+						version,
+						last_eval: {
+							passed: true,
+							timestamp,
+							git_commit: gitCommit,
+							result_file: outputPath,
+						},
+					};
+
+					const updatedManifest = updateManifest(
+						manifest,
+						commandKey,
+						attestation,
+						hashes,
+					);
+					return pipe(
+						saveManifest(updatedManifest),
+						TE.map(() => ({
+							updated: true as boolean,
+							message: `Attestation updated for ${commandKey}`,
+						})),
+					);
+				}),
+			);
+		}),
 	);
 }
 
