@@ -3,7 +3,7 @@
 # Tests the /rp1-dev:build-fast command behavior
 #
 # Run: just evals-suite rp1-dev/build-fast
-description: "rp1-dev:build-fast instruction-following evaluation"
+description: "rp1-dev:build instruction-following evaluation"
 tracing:
   enabled: true
 extensions:
@@ -38,7 +38,7 @@ defaultTest:
       config:
         temperature: 0
   vars:
-    REQUEST: "add a simple bun script that validates JSON input from stdin"
+    REQUEST: "add a simple yaml validator command without adding new deps"
     GIT_WORKTREE: true
     GIT_COMMIT: true
     GIT_PUSH: false
