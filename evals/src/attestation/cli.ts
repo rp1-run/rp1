@@ -10,7 +10,12 @@
  */
 
 import * as E from "fp-ts/Either";
-import { attestCommand, getStatus, verifyAttestations } from "./commands.js";
+import {
+	attestCommand,
+	attestFromOutput,
+	getStatus,
+	verifyAttestations,
+} from "./commands.js";
 
 const USAGE = `
 Usage: bun run src/attestation/cli.ts <command> [args]
@@ -19,6 +24,10 @@ Commands:
   attest <suite> [concurrency]   Run eval suite and update attestation on pass
                                  Example: attest rp1-dev/build-fast
                                  Example: attest rp1-dev/build-fast 6
+
+  attest-from-output <file>      Generate attestation from existing eval output
+                                 Does NOT run evals or spawn Claude processes
+                                 Example: attest-from-output output/rp1-dev-build-fast-2026-01-22T10-30-00.json
 
   verify                         Verify all attestations are current
                                  Exit code 0 if all current, 1 if any stale/missing
@@ -100,8 +109,31 @@ async function main(): Promise<void> {
 			process.exit(1);
 		}
 
-		console.log(`Running eval suite: ${suite}${concurrency > 1 ? ` (concurrency: ${concurrency})` : ""}`);
+		console.log(
+			`Running eval suite: ${suite}${concurrency > 1 ? ` (concurrency: ${concurrency})` : ""}`,
+		);
 		const result = await attestCommand(suite, concurrency)();
+
+		if (E.isLeft(result)) {
+			console.error(`Error: ${result.left.message}`);
+			process.exit(1);
+		}
+
+		console.log(result.right.message);
+		process.exit(result.right.updated ? 0 : 1);
+	} else if (command === "attest-from-output") {
+		const outputFile = args[1];
+		if (!outputFile) {
+			console.error("Error: Output file path required");
+			console.error("Usage: attest-from-output <output-file>");
+			console.error(
+				"Example: attest-from-output output/rp1-dev-build-fast-2026-01-22T10-30-00.json",
+			);
+			process.exit(1);
+		}
+
+		console.log(`Generating attestation from output: ${outputFile}`);
+		const result = await attestFromOutput(outputFile)();
 
 		if (E.isLeft(result)) {
 			console.error(`Error: ${result.left.message}`);
