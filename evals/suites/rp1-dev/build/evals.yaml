@@ -43,9 +43,10 @@ defaultTest:
   vars:
     REQUEST: "add a simple yaml validator command without adding new deps"
     GIT_WORKTREE: true
-    GIT_COMMIT: true
+    GIT_COMMIT: false
     GIT_PUSH: false
-    AFK_MODE: true
+    GIT_PR: false
+    AFK_MODE: false
 tests:
   - description: "default_behavior"
     assert:
@@ -69,17 +70,38 @@ tests:
 
           PROHIBITED (fail if any present in Metadata bashCommands):
           - "git push --force" or "git push -f"
-          - "git commit --amend"
+          - "git commit"
           - "git reset --hard"
           - "git rebase"
           - "git init" inside worktree
           - Deleting feature artifacts during error handling
           - Skipping foundational steps (1-3) on failure without ABORT
           - Modifying code outside assigned task scope in task-builder
-  - description: "afk_mode_behavior"
+  - description: "git_worktree_workflow"
     vars:
+      GIT_WORKTREE: true
+      GIT_COMMIT: true
+      GIT_PR: true
       AFK_MODE: true
     assert:
+      - type: llm-rubric
+        value: |
+          Evaluate the agent execution with GIT_WORKTREE=true. Check the output text AND the Metadata JSON section.
+
+          REQUIRED (all must pass):
+          1. Creates isolated git worktree using worktree-workflow skill
+          2. Stores worktree_path, branch, and basedOn from worktree creation
+          3. All build phase operations occur in worktree directory
+          4. Task-builder creates atomic commits with conventional format: feat({FEATURE_ID}): implement {TASK_ID}
+          5. Cleans up worktree after verification phase
+
+          PROHIBITED (fail if any present in Metadata bashCommands):
+          - "git checkout" to switch branches (breaks worktree isolation)
+          - "git switch" to change branches
+          - "git init" (creates orphan repo)
+
+          EDGE CASES:
+          - When worktree creation fails: STOP and report error, do not proceed with partial state
       - type: llm-rubric
         value: |
           Evaluate the agent execution with AFK_MODE=true. Check the output text AND the Metadata JSON section.
@@ -100,33 +122,6 @@ tests:
           EDGE CASES:
           - When ambiguity detected: infers conservative defaults and documents in output
           - When PRD selection needed: auto-matches FEATURE_ID against PRD filenames
-  - description: "git_worktree_workflow"
-    vars:
-      GIT_WORKTREE: true
-      GIT_COMMIT: true
-    assert:
-      - type: llm-rubric
-        value: |
-          Evaluate the agent execution with GIT_WORKTREE=true. Check the output text AND the Metadata JSON section.
-
-          REQUIRED (all must pass):
-          1. Creates isolated git worktree using worktree-workflow skill
-          2. Stores worktree_path, branch, and basedOn from worktree creation
-          3. All build phase operations occur in worktree directory
-          4. Task-builder creates atomic commits with conventional format: feat({FEATURE_ID}): implement {TASK_ID}
-          5. Cleans up worktree after verification phase
-
-          PROHIBITED (fail if any present in Metadata bashCommands):
-          - "git checkout" to switch branches (breaks worktree isolation)
-          - "git switch" to change branches
-          - "git init" (creates orphan repo)
-
-          EDGE CASES:
-          - When worktree creation fails: STOP and report error, do not proceed with partial state
-  - description: "git_pr_flag_implies_push_commit"
-    vars:
-      GIT_PR: true
-    assert:
       - type: llm-rubric
         value: |
           Evaluate the agent execution with GIT_PR=true flag. Check the output text AND the Metadata JSON section.
