@@ -6,6 +6,8 @@
 description: "rp1-dev:build instruction-following evaluation"
 tracing:
   enabled: true
+evaluateOptions:
+  maxConcurrency: 4
 extensions:
   - file://../../shared/extension.ts:extensionHook
 providers:
