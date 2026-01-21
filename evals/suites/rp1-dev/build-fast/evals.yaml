@@ -44,57 +44,95 @@ defaultTest:
     GIT_PUSH: false
     AFK_MODE: true
 tests:
-  # === Default behavior (GIT_WORKTREE=true, GIT_COMMIT=true) ===
-  - description: "default_flags_behavior"
+  - description: "default_behavior"
     assert:
       - type: llm-rubric
         value: |
-          Evaluate the build-fast agent execution. Check the output text AND the Metadata JSON section.
+          Evaluate the agent execution. Check the output text AND the Metadata JSON section.
 
           REQUIRED (all must pass):
-          1. Output contains a scope assessment with classification as Small, Medium, or Large
-          2. Output contains "Build Fast Complete" or similar completion message
-          3. Output contains a Changes section listing what was modified
-          4. Output contains a Quality section (format/lint/test status)
-          5. Output contains branch information (e.g., "**Branch**:" or similar)
-          6. Metadata toolCalls includes a Bash call with "rp1 agent-tools worktree create" command
-          7. Metadata toolCalls includes a Bash call with "git commit" command
-          8. The git commit message uses conventional commit format (feat|fix|refactor|docs|test|chore|style|perf)
-          9. Output references a summary artifact path like work/quick-builds/{timestamp}/summary.md
+          1. Spawns build-artifact-detector agent to determine start_step (1-6)
+          2. Executes workflow steps in order: Requirements -> Design -> Tasks -> Build -> Verify -> Archive
+          3. For each step, spawns the appropriate agent(s) as defined in the progress table
+          4. Outputs step status table using symbols: [ ]=PENDING, [~]=RUNNING, [x]=COMPLETED, [-]=SKIPPED, [!]=FAILED
+          5. Creates feature artifacts in {RP1_ROOT}/work/features/{FEATURE_ID}/ directory
+          6. After requirements step completes, pauses for user review with Continue/Revise/Stop options (when not AFK)
+          7. After design step completes, pauses for user review with Continue/Revise/Stop options (when not AFK)
+          8. After build step completes, pauses for user review with Continue/Add Task/Stop options (when not AFK)
+          9. Builder-reviewer loop runs for each task unit with max 2 attempts before escalation
+          10. Verification phase invokes code-checker, feature-verifier, and comment-cleaner in parallel
+          11. Build-verify-aggregator determines overall_status (VERIFIED/FAILED) and ready_for_merge
+          12. Final output includes Feature ID, step status table (1-6), and artifacts created
 
           PROHIBITED (fail if any present in Metadata bashCommands):
           - "git push --force" or "git push -f"
-          - "git init" (creates orphan repo in worktree)
+          - "git commit --amend"
           - "git reset --hard"
-  # === GIT_COMMIT=false ===
-  - description: "no_commit_when_flag_disabled"
+          - "git rebase"
+          - "git init" inside worktree
+          - Deleting feature artifacts during error handling
+          - Skipping foundational steps (1-3) on failure without ABORT
+          - Modifying code outside assigned task scope in task-builder
+  - description: "afk_mode_behavior"
     vars:
-      GIT_COMMIT: false
+      AFK_MODE: true
     assert:
       - type: llm-rubric
         value: |
-          Evaluate whether the agent respected the GIT_COMMIT=false flag.
-
-          Check the Metadata JSON section for toolCalls and bashCommands.
-
-          REQUIRED:
-          - Agent should NOT have made any git commit
-
-          PASS if: No "git commit" appears in any Bash tool call commands
-          FAIL if: Any Bash command contains "git commit"
-  # === Large scope redirect ===
-  - description: "large_scope_redirects_to_build"
-    vars:
-      REQUEST: "completely rewrite the entire authentication system, add OAuth2, SAML, and implement multi-tenancy across all 50+ services"
-    assert:
-      - type: llm-rubric
-        value: |
-          Evaluate whether the agent correctly identified the request as too large for build-fast.
+          Evaluate the agent execution with AFK_MODE=true. Check the output text AND the Metadata JSON section.
 
           REQUIRED (all must pass):
-          1. Agent recognized this as a Large scope request
-          2. Output contains messaging about the request exceeding scope (e.g., "EXCEEDS SCOPE", "too large", "out of scope")
-          3. Agent recommends using /build or the full build workflow instead
-          4. Agent did NOT attempt to implement the changes (no "Build Fast Complete" message)
+          1. Skips all user prompts and review checkpoints
+          2. Auto-selects defaults for all decision points
+          3. On step failure, retries once before marking as failed
+          4. Auto-archives feature on successful completion
+          5. Logs all auto-selected decisions in output
+          6. Does not invoke AskUserQuestion tool at any point
 
-          The agent should redirect to the full /build workflow, not attempt implementation.
+          PROHIBITED (fail if any present):
+          - Any AskUserQuestion tool calls in Metadata toolCalls
+          - Waiting for user input or confirmation
+          - Interactive prompts for revision feedback
+
+          EDGE CASES:
+          - When ambiguity detected: infers conservative defaults and documents in output
+          - When PRD selection needed: auto-matches FEATURE_ID against PRD filenames
+  - description: "git_worktree_workflow"
+    vars:
+      GIT_WORKTREE: true
+      GIT_COMMIT: true
+    assert:
+      - type: llm-rubric
+        value: |
+          Evaluate the agent execution with GIT_WORKTREE=true. Check the output text AND the Metadata JSON section.
+
+          REQUIRED (all must pass):
+          1. Creates isolated git worktree using worktree-workflow skill
+          2. Stores worktree_path, branch, and basedOn from worktree creation
+          3. All build phase operations occur in worktree directory
+          4. Task-builder creates atomic commits with conventional format: feat({FEATURE_ID}): implement {TASK_ID}
+          5. Cleans up worktree after verification phase
+
+          PROHIBITED (fail if any present in Metadata bashCommands):
+          - "git checkout" to switch branches (breaks worktree isolation)
+          - "git switch" to change branches
+          - "git init" (creates orphan repo)
+
+          EDGE CASES:
+          - When worktree creation fails: STOP and report error, do not proceed with partial state
+  - description: "git_pr_flag_implies_push_commit"
+    vars:
+      GIT_PR: true
+    assert:
+      - type: llm-rubric
+        value: |
+          Evaluate the agent execution with GIT_PR=true flag. Check the output text AND the Metadata JSON section.
+
+          REQUIRED (all must pass):
+          1. Flag implication chain: GIT_PR sets GIT_PUSH=true and GIT_COMMIT=true
+          2. Commits changes after build phase
+          3. Pushes branch to remote
+          4. Creates PR using gh pr create
+
+          EDGE CASES:
+          - When GIT_PUSH=true without GIT_COMMIT (after implication): should NOT error (implication chain sets both)
