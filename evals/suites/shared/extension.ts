@@ -1,26 +1,44 @@
 /**
  * Shared promptfoo extension hooks
- * Provides workspace isolation for tests with local git remote support
+ * Provides workspace isolation for parallel test execution with local git remote support
  *
- * Creates:
- * - /tmp/rp1-eval-workspace: Working directory with bun project
- * - /tmp/rp1-eval-remote.git: Bare git repo acting as local "remote"
+ * Creates per-test isolated directories:
+ * - /tmp/rp1-evals/{uuid}/workspace: Working directory with bun project
+ * - /tmp/rp1-evals/{uuid}/remote.git: Bare git repo acting as local "remote"
  *
- * This allows agents to safely push/commit without affecting real repos.
+ * This allows:
+ * - Parallel test execution (6+ concurrent tests)
+ * - Agents to safely push/commit without affecting real repos
+ * - Automatic cleanup after each test
+ *
+ * Vars injected: WORKSPACE_DIR, REMOTE_DIR, EVAL_BASE_DIR, GIT_HEAD_BEFORE, GIT_COUNT_BEFORE, GIT_REMOTE_HEAD_BEFORE
  */
 
 import { execSync } from "node:child_process";
 import { rmSync, mkdirSync, writeFileSync, copyFileSync, readdirSync, statSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { randomUUID } from "node:crypto";
 
-// Fixed workspace directories
-export const WORKSPACE_DIR = "/tmp/rp1-eval-workspace";
-export const REMOTE_DIR = "/tmp/rp1-eval-remote.git";
+// Base directory for all eval workspaces
+const EVAL_BASE_DIR = "/tmp/rp1-evals";
 
 // Path to fixture project template
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURE_DIR = join(__dirname, "fixtures", "bun-project");
+
+/**
+ * Generate unique workspace paths for parallel test execution
+ */
+function createUniquePaths(): { workspaceDir: string; remoteDir: string; baseDir: string } {
+  const id = randomUUID().slice(0, 8);
+  const baseDir = join(EVAL_BASE_DIR, id);
+  return {
+    baseDir,
+    workspaceDir: join(baseDir, "workspace"),
+    remoteDir: join(baseDir, "remote.git"),
+  };
+}
 
 /**
  * Recursively copy directory contents
@@ -44,38 +62,30 @@ function copyDirSync(src: string, dest: string): void {
  * Create a bare git repo to act as a local remote.
  * This allows agents to push without network access.
  */
-function createBareRemote(): void {
-  rmSync(REMOTE_DIR, { recursive: true, force: true });
-  mkdirSync(REMOTE_DIR, { recursive: true });
-  execSync("git init --bare", { cwd: REMOTE_DIR, stdio: "pipe" });
+function createBareRemote(remoteDir: string): void {
+  mkdirSync(remoteDir, { recursive: true });
+  execSync("git init --bare", { cwd: remoteDir, stdio: "pipe" });
 }
 
 /**
  * Reset the workspace: clean everything and reinitialize git with local remote
  */
-function resetWorkspace(): void {
-  // Remove everything in workspace
-  try {
-    rmSync(WORKSPACE_DIR, { recursive: true, force: true });
-  } catch {
-    // Ignore if doesn't exist
-  }
-
+function resetWorkspace(workspaceDir: string, remoteDir: string): void {
   // Create bare remote first
-  createBareRemote();
+  createBareRemote(remoteDir);
 
   // Recreate directory structure
-  mkdirSync(WORKSPACE_DIR, { recursive: true });
+  mkdirSync(workspaceDir, { recursive: true });
 
   // Copy fixture project if it exists, otherwise create minimal structure
   try {
-    copyDirSync(FIXTURE_DIR, WORKSPACE_DIR);
+    copyDirSync(FIXTURE_DIR, workspaceDir);
   } catch {
     // Fallback: create minimal bun project structure
-    mkdirSync(`${WORKSPACE_DIR}/src`, { recursive: true });
-    writeFileSync(`${WORKSPACE_DIR}/README.md`, "# Test Project\n");
+    mkdirSync(`${workspaceDir}/src`, { recursive: true });
+    writeFileSync(`${workspaceDir}/README.md`, "# Test Project\n");
     writeFileSync(
-      `${WORKSPACE_DIR}/package.json`,
+      `${workspaceDir}/package.json`,
       JSON.stringify(
         {
           name: "rp1-eval-project",
@@ -96,11 +106,11 @@ function resetWorkspace(): void {
       ),
     );
     writeFileSync(
-      `${WORKSPACE_DIR}/src/index.ts`,
+      `${workspaceDir}/src/index.ts`,
       '// Entry point\nconsole.log("Hello from rp1-eval-project");\n',
     );
     writeFileSync(
-      `${WORKSPACE_DIR}/tsconfig.json`,
+      `${workspaceDir}/tsconfig.json`,
       JSON.stringify(
         {
           compilerOptions: {
@@ -120,32 +130,32 @@ function resetWorkspace(): void {
   }
 
   // Initialize git repo
-  execSync("git init", { cwd: WORKSPACE_DIR, stdio: "pipe" });
+  execSync("git init", { cwd: workspaceDir, stdio: "pipe" });
   execSync('git config user.email "test@rp1-eval.local"', {
-    cwd: WORKSPACE_DIR,
+    cwd: workspaceDir,
     stdio: "pipe",
   });
   execSync('git config user.name "rp1-eval"', {
-    cwd: WORKSPACE_DIR,
+    cwd: workspaceDir,
     stdio: "pipe",
   });
 
   // Set up local remote - this allows agents to push safely
-  execSync(`git remote add origin ${REMOTE_DIR}`, {
-    cwd: WORKSPACE_DIR,
+  execSync(`git remote add origin ${remoteDir}`, {
+    cwd: workspaceDir,
     stdio: "pipe",
   });
 
   // Initial commit
-  execSync("git add .", { cwd: WORKSPACE_DIR, stdio: "pipe" });
+  execSync("git add .", { cwd: workspaceDir, stdio: "pipe" });
   execSync('git commit -m "Initial commit"', {
-    cwd: WORKSPACE_DIR,
+    cwd: workspaceDir,
     stdio: "pipe",
   });
 
   // Push to local remote to establish tracking
   execSync("git push -u origin main", {
-    cwd: WORKSPACE_DIR,
+    cwd: workspaceDir,
     stdio: "pipe",
   });
 }
@@ -153,10 +163,10 @@ function resetWorkspace(): void {
 /**
  * Get commit count in workspace
  */
-function getCommitCount(): number {
+function getCommitCount(workspaceDir: string): number {
   try {
     const result = execSync("git rev-list --count HEAD", {
-      cwd: WORKSPACE_DIR,
+      cwd: workspaceDir,
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"],
     });
@@ -169,10 +179,10 @@ function getCommitCount(): number {
 /**
  * Get HEAD in workspace
  */
-function getHead(): string {
+function getHead(workspaceDir: string): string {
   try {
     return execSync("git rev-parse HEAD", {
-      cwd: WORKSPACE_DIR,
+      cwd: workspaceDir,
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"],
     }).trim();
@@ -184,15 +194,26 @@ function getHead(): string {
 /**
  * Get remote HEAD for comparison
  */
-function getRemoteHead(): string {
+function getRemoteHead(remoteDir: string): string {
   try {
     return execSync("git rev-parse refs/heads/main", {
-      cwd: REMOTE_DIR,
+      cwd: remoteDir,
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"],
     }).trim();
   } catch {
     return "";
+  }
+}
+
+/**
+ * Cleanup a test's workspace directory
+ */
+function cleanupWorkspace(baseDir: string): void {
+  try {
+    rmSync(baseDir, { recursive: true, force: true });
+  } catch {
+    // Ignore cleanup errors
   }
 }
 
@@ -211,19 +232,23 @@ export async function extensionHook(
   context: TestContext,
 ): Promise<TestContext | void> {
   if (hookName === "beforeEach") {
-    // Reset workspace to clean state
+    // Create unique paths for this test (enables parallel execution)
+    const { baseDir, workspaceDir, remoteDir } = createUniquePaths();
+
     console.log(
-      `[rp1-eval] Resetting workspace for "${context.test.description}"`,
+      `[rp1-eval] Creating workspace for "${context.test.description}" at ${workspaceDir}`,
     );
-    resetWorkspace();
+    resetWorkspace(workspaceDir, remoteDir);
 
     // Record initial git state (should be 1 commit after reset)
-    const head = getHead();
-    const count = getCommitCount();
-    const remoteHead = getRemoteHead();
+    const head = getHead(workspaceDir);
+    const count = getCommitCount(workspaceDir);
+    const remoteHead = getRemoteHead(remoteDir);
 
-    context.test.vars.WORKSPACE_DIR = WORKSPACE_DIR;
-    context.test.vars.REMOTE_DIR = REMOTE_DIR;
+    // Inject paths into vars - provider will use WORKSPACE_DIR
+    context.test.vars.EVAL_BASE_DIR = baseDir;
+    context.test.vars.WORKSPACE_DIR = workspaceDir;
+    context.test.vars.REMOTE_DIR = remoteDir;
     context.test.vars.GIT_HEAD_BEFORE = head;
     context.test.vars.GIT_COUNT_BEFORE = String(count);
     context.test.vars.GIT_REMOTE_HEAD_BEFORE = remoteHead;
@@ -235,11 +260,15 @@ export async function extensionHook(
   }
 
   if (hookName === "afterEach") {
+    const workspaceDir = context.test.vars.WORKSPACE_DIR;
+    const remoteDir = context.test.vars.REMOTE_DIR;
+    const baseDir = context.test.vars.EVAL_BASE_DIR;
+
     // Log final state for debugging
-    const headAfter = getHead();
-    const countAfter = getCommitCount();
+    const headAfter = getHead(workspaceDir);
+    const countAfter = getCommitCount(workspaceDir);
     const countBefore = parseInt(context.test.vars.GIT_COUNT_BEFORE || "0", 10);
-    const remoteHeadAfter = getRemoteHead();
+    const remoteHeadAfter = getRemoteHead(remoteDir);
     const remoteHeadBefore = context.test.vars.GIT_REMOTE_HEAD_BEFORE || "";
 
     const remotePushed = remoteHeadAfter !== remoteHeadBefore;
@@ -247,5 +276,11 @@ export async function extensionHook(
     console.log(
       `[rp1-eval] After "${context.test.description}": HEAD=${headAfter.slice(0, 7)}, commits=${countAfter}, new=${countAfter - countBefore}, pushed=${remotePushed}`,
     );
+
+    // Cleanup the workspace
+    if (baseDir) {
+      console.log(`[rp1-eval] Cleaning up ${baseDir}`);
+      cleanupWorkspace(baseDir);
+    }
   }
 }

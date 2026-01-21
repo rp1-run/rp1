@@ -1,1 +1,1 @@
-/rp1-dev:build-fast "{{REQUEST}}" --git-commit={{GIT_COMMIT}} --git-worktree={{GIT_WORKTREE}} --git-push={{GIT_PUSH}} --afk={{AFK_MODE}}
+/rp1-dev:build "{{REQUEST}}" --git-commit={{GIT_COMMIT}} --git-worktree={{GIT_WORKTREE}} --git-push={{GIT_PUSH}} --afk={{AFK_MODE}}

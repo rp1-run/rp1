@@ -16,14 +16,15 @@ const USAGE = `
 Usage: bun run src/attestation/cli.ts <command> [args]
 
 Commands:
-  attest <suite>   Run eval suite and update attestation on pass
-                   Example: attest rp1-dev/build-fast
+  attest <suite> [concurrency]   Run eval suite and update attestation on pass
+                                 Example: attest rp1-dev/build-fast
+                                 Example: attest rp1-dev/build-fast 6
 
-  verify           Verify all attestations are current
-                   Exit code 0 if all current, 1 if any stale/missing
+  verify                         Verify all attestations are current
+                                 Exit code 0 if all current, 1 if any stale/missing
 
-  status           Show commands needing re-attestation
-                   Displays summary of current/stale/missing counts
+  status                         Show commands needing re-attestation
+                                 Displays summary of current/stale/missing counts
 `;
 
 /**
@@ -87,13 +88,20 @@ async function main(): Promise<void> {
 		const suite = args[1];
 		if (!suite) {
 			console.error("Error: Suite path required");
-			console.error("Usage: attest <suite>");
+			console.error("Usage: attest <suite> [concurrency]");
 			console.error("Example: attest rp1-dev/build-fast");
+			console.error("Example: attest rp1-dev/build-fast 6");
 			process.exit(1);
 		}
 
-		console.log(`Running eval suite: ${suite}`);
-		const result = await attestCommand(suite)();
+		const concurrency = args[2] ? parseInt(args[2], 10) : 1;
+		if (isNaN(concurrency) || concurrency < 1) {
+			console.error("Error: Concurrency must be a positive integer");
+			process.exit(1);
+		}
+
+		console.log(`Running eval suite: ${suite}${concurrency > 1 ? ` (concurrency: ${concurrency})` : ""}`);
+		const result = await attestCommand(suite, concurrency)();
 
 		if (E.isLeft(result)) {
 			console.error(`Error: ${result.left.message}`);

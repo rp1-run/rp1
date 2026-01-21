@@ -65,11 +65,16 @@ async function getCommandVersion(commandPath: string): Promise<string> {
  *
  * @param suite - Suite path (e.g., "rp1-dev/build-fast")
  * @param outputPath - Path to save JSON results (relative to evals/)
+ * @param concurrency - Max concurrent API calls (default: 1)
  */
-async function runEvalSuite(suite: string, outputPath: string): Promise<boolean> {
+async function runEvalSuite(suite: string, outputPath: string, concurrency = 1): Promise<boolean> {
 	const configPath = `suites/${suite}/evals.yaml`;
+	const args = ["bunx", "promptfoo", "eval", "-c", configPath, "--output", outputPath];
+	if (concurrency > 1) {
+		args.push("-j", String(concurrency));
+	}
 	// Use bunx to run promptfoo (Node.js runtime for better-sqlite3 compatibility)
-	const proc = spawn(["bunx", "promptfoo", "eval", "-c", configPath, "--output", outputPath], {
+	const proc = spawn(args, {
 		cwd: "evals",
 		stdout: "inherit",
 		stderr: "inherit",
@@ -97,10 +102,12 @@ function computeAllHashes(
  * Only updates attestation on 100% pass.
  *
  * @param suite - Suite path (e.g., "rp1-dev/build-fast")
+ * @param concurrency - Max concurrent API calls (default: 1)
  * @returns TaskEither with result indicating whether attestation was updated
  */
 export function attestCommand(
 	suite: string,
+	concurrency = 1,
 ): TE.TaskEither<Error, { updated: boolean; message: string }> {
 	const commandKey = suiteToCommandKey(suite);
 	const commandPath = suiteToCommandPath(suite);
@@ -113,7 +120,7 @@ export function attestCommand(
 		TE.Do,
 		TE.bind("passed", () =>
 			TE.tryCatch(
-				() => runEvalSuite(suite, resultFile),
+				() => runEvalSuite(suite, resultFile, concurrency),
 				(e) => new Error(`Eval execution failed: ${e}`),
 			),
 		),

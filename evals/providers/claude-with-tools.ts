@@ -205,7 +205,7 @@ export default class ClaudeWithToolCapture {
 
   async callApi(
     prompt: string,
-    _context: ProviderContext,
+    context: ProviderContext,
     _options: CallApiOptions,
   ): Promise<ProviderResponse> {
     const toolCalls: ToolCall[] = [];
@@ -215,6 +215,9 @@ export default class ClaudeWithToolCapture {
 
     const askUserBehavior: AskUserBehavior =
       this.config.ask_user_behavior ?? "first_option";
+
+    // Use WORKSPACE_DIR from vars (set by extension) or fall back to config
+    const workingDir = context.vars?.WORKSPACE_DIR ?? this.config.working_dir;
 
     try {
       const canUseTool = createAskUserQuestionCanUseTool(
@@ -226,7 +229,7 @@ export default class ClaudeWithToolCapture {
         prompt,
         options: {
           model: this.config.model,
-          cwd: this.config.working_dir,
+          cwd: workingDir,
           permissionMode: this.config.permission_mode,
           allowDangerouslySkipPermissions:
             this.config.allow_dangerously_skip_permissions,

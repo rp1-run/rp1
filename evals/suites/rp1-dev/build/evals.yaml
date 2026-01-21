@@ -13,9 +13,12 @@ providers:
     label: rp1-agentic-eval
     config:
       model: claude-opus-4-5
-      working_dir: /tmp/rp1-eval-workspace
+      # working_dir is set dynamically by extension via WORKSPACE_DIR var
+      # This enables parallel test execution with isolated workspaces
       permission_mode: bypassPermissions
       allow_dangerously_skip_permissions: true
+      ask_user_question:
+        behavior: first_option
       max_turns: 50
       setting_sources:
         - project

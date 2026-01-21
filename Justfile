@@ -101,21 +101,36 @@ install-cli-deps:
 install-evals-deps:
     cd evals && bun install --frozen-lockfile
 
+# Default concurrency for parallel evals (each test gets isolated workspace)
+evals_concurrency := "1"
+
 # Run all evaluation suites
 evals: install-evals-deps
     cd evals && bunx promptfoo eval
 
-# Run specific evaluation suite (e.g., just evals-suite rp1-dev/build-fast)
+# Run specific evaluation suite (e.g., just evals-suite rp1-dev/build)
 evals-suite suite: install-evals-deps
     cd evals && bunx promptfoo eval -c suites/{{suite}}/evals.yaml
+
+# Run evaluation suite in parallel (e.g., just evals-parallel rp1-dev/build 6)
+evals-parallel suite concurrency=evals_concurrency: install-evals-deps
+    cd evals && bunx promptfoo eval -c suites/{{suite}}/evals.yaml -j {{concurrency}}
 
 # Run evaluation suite with verbose output
 evals-verbose suite: install-evals-deps
     cd evals && bunx promptfoo eval -c suites/{{suite}}/evals.yaml --verbose
 
+# Run evaluation suite in parallel with verbose output
+evals-parallel-verbose suite concurrency=evals_concurrency: install-evals-deps
+    cd evals && bunx promptfoo eval -c suites/{{suite}}/evals.yaml -j {{concurrency}} --verbose
+
 # Run eval suite and update attestation on pass
 evals-attest suite: install-evals-deps
     bun run evals/src/attestation/cli.ts attest {{suite}}
+
+# Run eval suite in parallel and update attestation on pass
+evals-attest-parallel suite concurrency=evals_concurrency: install-evals-deps
+    bun run evals/src/attestation/cli.ts attest {{suite}} {{concurrency}}
 
 # Verify all attestations are current
 evals-verify: install-evals-deps
