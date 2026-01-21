@@ -17,6 +17,6 @@
 		"forceConsistentCasingInFileNames": true,
 		"types": ["bun-types", "node"]
 	},
-	"include": ["src/**/*"],
-	"exclude": ["node_modules", "output"]
+	"include": ["src/**/*", "suites/**/*", "providers/**/*"],
+	"exclude": ["node_modules", "output", "suites/shared/fixtures"]
 }
