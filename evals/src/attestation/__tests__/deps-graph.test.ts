@@ -306,7 +306,6 @@ Content.
 	});
 
 	test("uses full path when command name cannot be extracted", async () => {
-		// Create a file that doesn't match the commands/*.md pattern
 		const weirdPath = join(tempDir, "weird-location.md");
 		await writeFile(
 			weirdPath,
@@ -321,7 +320,6 @@ Content.
 
 		expect(E.isRight(result)).toBe(true);
 		if (E.isRight(result)) {
-			// Falls back to full path when pattern doesn't match
 			expect(result.right.command).toBe(weirdPath);
 		}
 	});

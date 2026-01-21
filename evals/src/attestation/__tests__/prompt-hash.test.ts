@@ -150,7 +150,6 @@ name: test
 			const result = computeDepsHash([]);
 
 			expect(result).toMatch(/^sha256:[a-f0-9]{64}$/);
-			// Empty string hashed
 			const expected = `sha256:${createHash("sha256").update("").digest("hex")}`;
 			expect(result).toBe(expected);
 		});
@@ -162,7 +161,6 @@ name: test
 
 			const result = computeDepsHash(hashes);
 
-			// Single hash joined with nothing else
 			const expected = `sha256:${createHash("sha256").update("sha256:abc123").digest("hex")}`;
 			expect(result).toBe(expected);
 		});

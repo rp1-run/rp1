@@ -300,7 +300,6 @@ export default class ClaudeWithToolCapture {
         })
         .filter((cmd) => cmd.length > 0);
 
-      // Append metadata section for LLM judge evaluation
       const metadataSection = `
 
 ## Metadata
