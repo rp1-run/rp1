@@ -1,51 +1,55 @@
 # Eval System
 
-The eval system generates comprehensive test assertions from agent prompts for use with [promptfoo](https://promptfoo.dev/). It analyzes command dependency chains to ensure eval coverage spans the complete command -> agent -> skill hierarchy.
+The eval system provides deterministic quality assurance for AI agent prompts through automated assertion generation and content-addressable attestation. It ensures that prompt changes are intentional, tested, and traceable across releases.
 
 ---
 
-## How It Works
+## Why Evaluations Matter
 
-When you run `/build-prompt-evals` on a command file, the system:
+Agent prompts are code. Like any code, they can regress, drift from intended behavior, or break in subtle ways. The eval system addresses three core challenges:
 
-1. **Analyzes dependencies** - Discovers all sub-agents and skills referenced by the command
-2. **Extracts assertions** - Generates eval assertions from each file in the dependency chain
-3. **Writes test prompts** - Creates minimal prompts optimized for evaluation
+1. **Prompt Regression** - Changes to agent prompts can silently alter behavior. Evals catch unintended changes before release.
+2. **Dependency Blindness** - Commands delegate to agents which invoke skills. Testing only the command misses behavioral contracts defined deeper in the chain.
+3. **Release Confidence** - Content-addressable attestations prove that specific prompt versions passed specific test suites, enabling deterministic releases.
+
+---
+
+## Content-Addressable Attestation
+
+The attestation system creates cryptographic links between prompt content and test results:
 
 ```mermaid
-sequenceDiagram
-    participant User
-    participant BPE as build-prompt-evals
-    participant DCA as dependency-chain-analyzer
-    participant PEE as prompt-eval-extractor
-    participant EPW as eval-prompt-writer
-    participant FS as File System
-
-    User->>BPE: /build-prompt-evals <file>
-    BPE->>BPE: Detect file mode
-
-    rect rgb(40, 60, 80)
-        Note over BPE,DCA: Dependency Analysis Phase
-        BPE->>DCA: Analyze dependencies
-        DCA->>FS: Read command file
-        DCA->>FS: Read agent files (recursive)
-        DCA-->>BPE: Dependency chain JSON
+flowchart LR
+    subgraph "Prompt Content"
+        PROMPT[agent.md]
     end
 
-    rect rgb(60, 80, 60)
-        Note over BPE,EPW: Parallel Extraction Phase
-        par Extract Assertions
-            BPE->>PEE: Extract (content, chain)
-            PEE->>FS: Read all chain files
-            PEE-->>BPE: evals.yaml
-        and Write Test Prompt
-            BPE->>EPW: Write prompt
-            EPW-->>BPE: prompt.txt
-        end
+    subgraph "Attestation"
+        HASH[SHA-256 Hash]
+        RESULT[Pass/Fail + Timestamp]
     end
 
-    BPE-->>User: Output locations
+    subgraph "Release Gate"
+        CHECK{Hash Match?}
+        RELEASE[Release Approved]
+        BLOCK[Release Blocked]
+    end
+
+    PROMPT -->|hash| HASH
+    HASH --> CHECK
+    RESULT --> CHECK
+    CHECK -->|yes| RELEASE
+    CHECK -->|no| BLOCK
+
+    style HASH fill:#1565c0,color:#fff
+    style RELEASE fill:#2e7d32,color:#fff
+    style BLOCK fill:#c62828,color:#fff
 ```
+
+**Benefits**:
+- **Tamper Detection** - Any prompt modification invalidates the attestation
+- **Audit Trail** - Historical record of what was tested and when
+- **CI/CD Integration** - Automated release gates based on attestation status
 
 ---
 
@@ -134,40 +138,22 @@ flowchart TB
 
 ---
 
-## Usage Modes
+## Assertion Types
 
-### File Mode (with dependency analysis)
+The system extracts several categories of assertions from prompt content:
 
-```bash
-/build-prompt-evals plugins/dev/commands/build-fast.md
-```
-
-1. Analyzes `build-fast.md` for dependencies
-2. Discovers `task-builder.md` agent reference
-3. Extracts assertions from both files
-4. Outputs `build-fast-evals.yaml` with grouped assertions
-
-### Inline Mode (no dependency analysis)
-
-```bash
-/build-prompt-evals "You are an assistant that helps with code review"
-```
-
-1. Skips dependency analysis (no file to analyze)
-2. Extracts assertions from inline text
-3. Outputs to current directory
-
-### Custom Output Directory
-
-```bash
-/build-prompt-evals my-agent.md --output evals/suites/my-plugin/
-```
+| Category | What It Tests | Example |
+|----------|---------------|---------|
+| **Tool Calls** | Expected tool invocations | Agent must call `Write` tool |
+| **Output Contracts** | Required output patterns | Must include "Implementation complete" |
+| **Workflow Steps** | Ordered operations | Read files before editing |
+| **Error Handling** | Failure behaviors | Graceful degradation patterns |
 
 ---
 
-## Output Format
+## Source Attribution
 
-Generated eval files include source attribution for traceability:
+Generated assertions maintain traceability to their origin file, enabling debugging and maintenance:
 
 ```yaml
 # --- Assertions from: plugins/dev/commands/build-fast.md ---
@@ -175,22 +161,11 @@ Generated eval files include source attribution for traceability:
   # source: plugins/dev/commands/build-fast.md
 
 # --- Assertions from: plugins/dev/agents/task-builder.md ---
-- assert_tool_call: Write_create
-  # source: plugins/dev/agents/task-builder.md
 - assert_output: "Implementation complete"
   # source: plugins/dev/agents/task-builder.md
 ```
 
----
-
-## Dependency Detection Patterns
-
-The analyzer detects dependencies using these patterns:
-
-| Pattern | Detects | Example |
-|---------|---------|---------|
-| `Task: plugin:agent` | Agent references in commands | `Task: rp1-dev:task-builder` |
-| `Skill: plugin:skill` | Skill references in agents | `Skill: rp1-base:prompt-writer` |
+This attribution ensures that when an assertion fails, developers can trace it back to the specific behavioral contract in the prompt hierarchy.
 
 ---
 
