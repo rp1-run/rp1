@@ -1,8 +1,8 @@
-# build-fast Command Evaluation Suite
+# build Command Evaluation Suite
 #
-# Tests the /rp1-dev:build-fast command behavior
+# Tests the /rp1-dev:build command behavior
 #
-# Run: just evals-suite rp1-dev/build-fast
+# Run: just evals-run rp1-dev/build
 description: "rp1-dev:build instruction-following evaluation"
 tracing:
   enabled: true
