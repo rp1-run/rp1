@@ -113,6 +113,10 @@ graph TB
 **Evidence**: `evals/src/attestation/` module with SHA-256 hashing and dependency graph derivation
 **Description**: Prompt files tracked via content hashes with dependency graphs. Changes require eval suite re-attestation before merge.
 
+### Two-Phase Eval Workflow
+**Evidence**: `Justfile` evals-run and evals-attest recipes, `evals/src/attestation/commands.ts` attestFromOutput function
+**Description**: Eval execution separated from attestation generation. Phase 1 (evals-run) runs promptfoo with timestamped output. Phase 2 (evals-attest) reads output, validates 100% pass, updates attestation without spawning Claude processes. Prevents fork-bomb behavior from concurrent eval execution.
+
 ### Multi-Platform Distribution
 **Evidence**: `.goreleaser.yml` (darwin-arm64/x64, linux-arm64/x64, windows-x64), homebrew_casks, scoops config
 **Description**: Targets Claude Code (native plugins), OpenCode (tarballs), and standalone CLI via GoReleaser binaries with Homebrew/Scoop distribution.
@@ -247,29 +251,34 @@ sequenceDiagram
     end
 ```
 
-### Eval Attestation Flow
+### Eval Attestation Flow (Two-Phase)
 ```mermaid
 sequenceDiagram
     participant Dev as Developer
+    participant Just as Justfile
+    participant PF as Promptfoo
     participant CLI as Attestation CLI
     participant Graph as deps-graph
-    participant Hash as prompt-hash
-    participant Eval as Promptfoo
     participant Manifest as attestation.json
 
-    Dev->>CLI: attest rp1-dev/build-fast
-    CLI->>Graph: Build dependency graph
-    Graph-->>CLI: command + agents + skills
-    CLI->>Hash: Compute file hashes
-    Hash-->>CLI: SHA-256 hashes
-    CLI->>Eval: Run suite
+    Note over Dev,Manifest: Phase 1: Run Evals
+    Dev->>Just: evals-run rp1-dev/build
+    Just->>PF: promptfoo eval --output file.json
+    PF->>PF: Execute tests (spawns Claude)
+    PF-->>Just: Output file path
+    Just-->>Dev: evals/output/rp1-dev-build-*.json
+
+    Note over Dev,Manifest: Phase 2: Attestation (No Claude)
+    Dev->>Just: evals-attest output/file.json
+    Just->>CLI: attest-from-output file.json
+    CLI->>CLI: Read output, check pass rate
     alt 100% Pass
-        Eval-->>CLI: Success
+        CLI->>Graph: Build dependency graph
+        Graph-->>CLI: command + agents + skills
         CLI->>Manifest: Update attestation
         CLI-->>Dev: Attestation updated
-    else Failure
-        Eval-->>CLI: Failed
-        CLI-->>Dev: Eval did not pass
+    else Failures
+        CLI-->>Dev: Not updated (failures)
     end
 ```
 

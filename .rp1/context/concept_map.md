@@ -106,6 +106,19 @@
 **Definition**: Last successful evaluation metadata: passed status, timestamp, git_commit, and result_file path.
 **Implementation**: `evals/src/attestation/types.ts`
 
+### Two-Phase Eval Workflow
+**Definition**: Separation of eval execution (promptfoo) from attestation generation to prevent fork-bomb behavior. Phase 1: run evals externally via Just recipe. Phase 2: generate attestation from output files without spawning processes.
+**Implementation**: `evals/src/attestation/commands.ts` (attestFromOutput), `Justfile` (evals-run, evals-attest)
+**Key Properties**:
+- evals-run: Executes promptfoo with timestamped output file
+- evals-attest: Reads output, validates 100% pass, updates attestation
+- No Claude processes spawned during attestation phase
+
+### Config-Based Concurrency
+**Definition**: Concurrency control via `evaluateOptions.maxConcurrency` in suite evals.yaml configuration instead of command-line `-j N` flags.
+**Implementation**: `evals/suites/rp1-dev/build/evals.yaml`
+**Benefits**: Centralized config, consistent behavior, easy adjustment
+
 ### VerificationResult
 **Definition**: Single command verification status (current, stale, or missing) with hash comparison details.
 **Implementation**: `evals/src/attestation/types.ts`
@@ -165,6 +178,9 @@
 ## Terminology Glossary
 
 ### Business Terms
+- **Fork-Bomb Behavior**: Anti-pattern where attestCommand spawns promptfoo which spawns eval runners, causing exponential process growth when called in parallel
+- **Pass Rate Detection**: Analysis of promptfoo output JSON to determine 100% pass (zero testFailCount and zero testErrorCount across all prompts)
+- **Suite Path**: Canonical format for identifying eval suites: plugin/command (e.g., 'rp1-dev/build-fast'). Maps bidirectionally to command keys via slash-colon conversion
 - **Single-Pass Execution**: Agent execution model where complete workflow is performed in one run without iteration
 - **Thin Wrapper**: Command design pattern with no business logic, only parameter parsing and agent routing (50-100 lines)
 - **Output Contract**: Agent specification defining exactly what artifacts/files/structures the agent produces

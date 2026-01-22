@@ -158,15 +158,22 @@ evals/
 
 **Attestation CLI**:
 ```bash
-bun run evals/src/attestation/cli.ts attest rp1-dev/build-fast  # Run eval and update attestation
-bun run evals/src/attestation/cli.ts verify                     # Check all attestations current
-bun run evals/src/attestation/cli.ts status                     # Show commands needing attention
+# Two-phase workflow (recommended)
+just evals-run rp1-dev/build verbose=true    # Phase 1: Run evals, output to file
+just evals-attest output/rp1-dev-build-*.json # Phase 2: Generate attestation
+
+# Verification commands
+just evals-verify                            # Check all attestations current
+just evals-status                            # Show commands needing attention
 ```
 
-**Running Evals**:
-```bash
-just evals-suite rp1-dev/build-fast
-```
+**Key Components** (eval-attestation-fix):
+| Component | Purpose |
+|-----------|---------|
+| attestFromOutput | Generate attestation from existing eval output without running evals |
+| extractSuiteFromFilename | Parse suite path from output filename by removing timestamp |
+| detectPassRate | Determine 100% pass rate from promptfoo output JSON |
+| attest-from-output CLI | CLI command invoking attestFromOutput function |
 
 ## CLI Modules
 
@@ -329,6 +336,13 @@ Attestation system hashes prompt file content (excluding frontmatter) and depend
 - SHA-256 hashing with sha256: prefix
 - Transitive dependency resolution (command -> agents -> skills)
 - Manifest tracking in evals/attestation.json
+
+### Execution-Attestation Separation
+Feature eval-attestation-fix separates eval execution from attestation generation:
+- `evals-run`: Runs promptfoo with timestamped output file (spawns Claude processes)
+- `evals-attest`: Reads output, validates 100% pass, updates attestation (no process spawning)
+- Enables parallel eval runs followed by sequential attestation updates
+- Config-based concurrency via `evaluateOptions.maxConcurrency` in suite evals.yaml
 
 ### Tool Call Capture Provider
 Custom promptfoo provider intercepts claude-agent-sdk streaming to capture tool calls for assertion-based validation:

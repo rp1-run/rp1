@@ -167,3 +167,39 @@ Evidence: `evals/providers/claude-with-tools.ts`
 **Preserve Normative**: Exact wording for MUST/SHOULD/DO NOT
 
 Evidence: `plugins/utils/skills/prompt-writer/SKILL.md`
+
+## Two-Phase Eval Workflow
+
+**Phase 1 (Execution)**: Run promptfoo externally via Just recipe; outputs timestamped JSON file (spawns Claude processes)
+**Phase 2 (Attestation)**: Read output, validate 100% pass, update attestation manifest (no process spawning)
+**Rationale**: Prevents fork-bomb behavior when attestCommand runs with concurrency > 1
+**Output Naming**: `{suite-path}-{ISO-timestamp}.json` (e.g., `rp1-dev-build-2026-01-22T10-30-00.json`)
+
+Evidence: `Justfile:106-120`, `evals/src/attestation/commands.ts`
+
+## Suite Path Extraction
+
+**Pattern**: Extract suite path from timestamped output filename via regex
+**Steps**: Remove .json extension -> strip ISO timestamp suffix -> convert plugin-command to plugin/command format
+**Regex**: `-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}$` for timestamp removal
+**Plugin Detection**: Match `^(rp1-(?:dev|base|utils))-(.+)$` to reconstruct proper suite path
+
+Evidence: `evals/src/attestation/commands.ts:extractSuiteFromFilename`
+
+## Pass Rate Detection
+
+**Pattern**: Analyze promptfoo output JSON structure to determine 100% pass status
+**Success Criteria**: All prompts have `testFailCount === 0` AND `testErrorCount === 0`
+**Data Path**: `output.results.prompts[]` array with per-prompt metrics
+**Fail-Fast**: Return false if prompts array empty or missing
+
+Evidence: `evals/src/attestation/commands.ts:detectPassRate`
+
+## Config-Driven Concurrency
+
+**Pattern**: Control parallel execution via YAML config instead of CLI flags
+**Location**: `evaluateOptions.maxConcurrency` in suite's evals.yaml
+**Benefits**: Centralized config, consistent behavior, easy adjustment per suite
+**Default**: 4 concurrent evaluations
+
+Evidence: `evals/suites/rp1-dev/build/evals.yaml`
