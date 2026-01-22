@@ -143,6 +143,7 @@ nav:
     - Parallel Worktrees: concepts/parallel-worktrees.md
     - Builder-Reviewer Agents: concepts/builder-reviewer-agents.md
     - Skills: concepts/skills.md
+    - Eval System: concepts/eval-system.md
 
 extra:
   social:
