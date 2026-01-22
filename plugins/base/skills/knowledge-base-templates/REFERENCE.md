@@ -574,7 +574,7 @@ For projects with multiple languages:
 
 **Related Skills**:
 - **mermaid**: Validate and generate Mermaid diagrams
-- **maestro**: Create custom skills and templates
+- **markdown-preview**: Generate browser-viewable HTML previews
 
 **External Resources**:
 - Mermaid documentation: https://mermaid.js.org/
