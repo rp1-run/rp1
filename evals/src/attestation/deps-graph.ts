@@ -20,12 +20,12 @@ const TASK_PATTERN = /Task:\s*(\w+-\w+):(\w[\w-]*)/g;
 const SKILL_PATTERN = /[Ss]kill[:\s]+`?(\w+-\w+):(\w[\w-]*)`?/g;
 
 /**
- * Map plugin name to path prefix (relative to evals/ directory).
+ * Map plugin name to path prefix (relative to repo root).
  */
 const PLUGIN_PATHS: Record<string, string> = {
-	"rp1-base": "../plugins/base",
-	"rp1-dev": "../plugins/dev",
-	"rp1-utils": "../plugins/utils",
+	"rp1-base": "plugins/base",
+	"rp1-dev": "plugins/dev",
+	"rp1-utils": "plugins/utils",
 };
 
 /**

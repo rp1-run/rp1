@@ -115,8 +115,9 @@ evals-run suite verbose="false": install-evals-deps
     echo "Output written to: evals/${output_file}"
 
 # Generate attestation from eval output file (no Claude processes spawned)
+# Usage: just evals-attest output/rp1-dev-build-2026-01-22T10-30-00.json
 evals-attest output-file: install-evals-deps
-    cd evals && bun run src/attestation/cli.ts attest-from-output {{output-file}}
+    bun run evals/src/attestation/cli.ts attest-from-output evals/{{output-file}}
 
 # Verify all attestations are current
 evals-verify: install-evals-deps
