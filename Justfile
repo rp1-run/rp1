@@ -101,41 +101,21 @@ install-cli-deps:
 install-evals-deps:
     cd evals && bun install --frozen-lockfile
 
-# Default concurrency for parallel evals (each test gets isolated workspace)
-evals_concurrency := "1"
-
-# Run all evaluation suites
-evals: install-evals-deps
-    cd evals && bunx promptfoo eval
-
-# Run specific evaluation suite (e.g., just evals-suite rp1-dev/build)
-evals-suite suite: install-evals-deps
-    cd evals && bunx promptfoo eval -c suites/{{suite}}/evals.yaml
-
-# Run evaluation suite in parallel (e.g., just evals-parallel rp1-dev/build 6)
-evals-parallel suite concurrency=evals_concurrency: install-evals-deps
-    cd evals && bunx promptfoo eval -c suites/{{suite}}/evals.yaml -j {{concurrency}}
-
-# Run evaluation suite with verbose output
-evals-verbose suite: install-evals-deps
-    cd evals && bunx promptfoo eval -c suites/{{suite}}/evals.yaml --verbose
-
-# Run evaluation suite in parallel with verbose output
-evals-parallel-verbose suite concurrency=evals_concurrency: install-evals-deps
-    cd evals && bunx promptfoo eval -c suites/{{suite}}/evals.yaml -j {{concurrency}} --verbose
-
-# Run evaluation suite and output to timestamped file (for later attestation)
-evals-run suite: install-evals-deps
+# Run evaluation suite with timestamped output (e.g., just evals-run rp1-dev/build verbose=true)
+# Concurrency controlled via evaluateOptions.maxConcurrency in suite evals.yaml (default: 4)
+evals-run suite verbose="false": install-evals-deps
     #!/usr/bin/env bash
     set -e
     timestamp=$(date -u +%Y-%m-%dT%H-%M-%S)
     suite_filename=$(echo "{{suite}}" | tr '/' '-')
     output_file="output/${suite_filename}-${timestamp}.json"
-    cd evals && bunx promptfoo eval -c "suites/{{suite}}/evals.yaml" --output "${output_file}"
+    verbose_flag=""
+    if [ "{{verbose}}" = "true" ]; then verbose_flag="--verbose"; fi
+    cd evals && bunx promptfoo eval -c "suites/{{suite}}/evals.yaml" --output "${output_file}" $verbose_flag
     echo "Output written to: evals/${output_file}"
 
 # Generate attestation from eval output file (no Claude processes spawned)
-evals-attest-from-output output-file: install-evals-deps
+evals-attest output-file: install-evals-deps
     cd evals && bun run src/attestation/cli.ts attest-from-output {{output-file}}
 
 # Verify all attestations are current
@@ -146,6 +126,6 @@ evals-verify: install-evals-deps
 evals-status: install-evals-deps
     bun run evals/src/attestation/cli.ts status
 
-# View Evals
+# View eval results in browser
 evals-view: install-evals-deps
     cd evals && bunx promptfoo view

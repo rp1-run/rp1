@@ -106,9 +106,9 @@ rp1/
 /address-pr-feedback          # Collect, triage, fix PR comments
 
 # Evaluations (two-phase workflow)
-just evals-run rp1-dev/build-fast           # Phase 1: Run evals, output to timestamped file
-just evals-attest-from-output <output-file> # Phase 2: Generate attestation from output
-bun run evals/src/attestation/cli.ts verify # Check all attestations current
+just evals-run rp1-dev/build verbose=true   # Run evals with output file (verbose optional)
+just evals-attest <output-file>             # Generate attestation from output
+just evals-verify                           # Check all attestations current
 ```
 
 ## Navigation

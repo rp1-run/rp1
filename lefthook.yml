@@ -24,5 +24,5 @@ pre-push:
     test:
       run: cd cli && bun run test:unit
     evals-verify:
-      run: "just evals-verify || echo 'WARNING: Unattested prompt changes detected. Run: just evals-run <suite> && just evals-attest-from-output <output-file>'"
+      run: "just evals-verify || echo 'WARNING: Unattested prompt changes detected. Run: just evals-run <suite> && just evals-attest <output-file>'"
       fail_text: "Advisory: Some prompts need re-attestation"
