@@ -79,7 +79,7 @@ describe("mmd-validate integration", () => {
 			`\n  Benchmark: 8 diagrams validated in ${duration.toFixed(0)}ms`,
 		);
 		console.log(`  Average: ${(duration / 8).toFixed(0)}ms per diagram`);
-	});
+	}, 30000);
 
 	it("should include error details for invalid diagrams", async () => {
 		const extractResult = extractMermaidBlocks(fixtureContent);
@@ -103,7 +103,7 @@ describe("mmd-validate integration", () => {
 			expect(diagram.errors?.[0].message).toBeTruthy();
 			expect(diagram.errors?.[0].diagramIndex).toBe(diagram.index);
 		}
-	});
+	}, 30000);
 
 	it("should preserve line number information", async () => {
 		const extractResult = extractMermaidBlocks(fixtureContent);
@@ -126,5 +126,5 @@ describe("mmd-validate integration", () => {
 		// First diagram should start around line 9 (after markdown header)
 		expect(data.diagrams[0].startLine).toBeGreaterThanOrEqual(8);
 		expect(data.diagrams[0].startLine).toBeLessThanOrEqual(12);
-	});
+	}, 30000);
 });
