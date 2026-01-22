@@ -4,7 +4,7 @@
  */
 
 import path from "node:path";
-import { spawn } from "bun";
+import { spawnSync } from "bun";
 import * as A from "fp-ts/Array";
 import { pipe } from "fp-ts/function";
 import * as TE from "fp-ts/TaskEither";
@@ -132,20 +132,20 @@ async function getCommandVersion(commandPath: string): Promise<string> {
  * @param outputPath - Path to save JSON results (relative to evals/)
  * @param concurrency - Max concurrent API calls (default: 1)
  */
-async function runEvalSuite(suite: string, outputPath: string, concurrency = 1): Promise<boolean> {
+function runEvalSuite(suite: string, outputPath: string, concurrency = 1): boolean {
 	const configPath = `suites/${suite}/evals.yaml`;
 	const args = ["bunx", "promptfoo", "eval", "-c", configPath, "--output", outputPath];
 	if (concurrency > 1) {
 		args.push("-j", String(concurrency));
 	}
-	// Use bunx to run promptfoo (Node.js runtime for better-sqlite3 compatibility)
-	const proc = spawn(args, {
+	// Use spawnSync to ensure stdout/stderr are fully flushed before returning
+	// (avoids race condition where bunx delegates to Node.js which may not flush)
+	const result = spawnSync(args, {
 		cwd: "evals",
 		stdout: "inherit",
 		stderr: "inherit",
 	});
-	const exitCode = await proc.exited;
-	return exitCode === 0;
+	return result.exitCode === 0;
 }
 
 /**
