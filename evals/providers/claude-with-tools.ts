@@ -15,7 +15,7 @@ import {
 interface ToolCall {
   readonly id: string;
   readonly name: string;
-  input: unknown;
+  readonly input: unknown;
   readonly source?: "stream_event" | "assistant";
 }
 
@@ -271,9 +271,13 @@ export default class ClaudeWithToolCapture {
         if (isAssistantMessage(msg) && msg.message?.content) {
           for (const block of msg.message.content) {
             if (block.type === "tool_use" && block.id) {
-              const existing = toolCalls.find((t) => t.id === block.id);
-              if (existing) {
-                existing.input = block.input;
+              const existingIndex = toolCalls.findIndex((t) => t.id === block.id);
+              if (existingIndex !== -1) {
+                // Replace with new object to maintain immutability
+                toolCalls[existingIndex] = {
+                  ...toolCalls[existingIndex],
+                  input: block.input,
+                };
               } else {
                 toolCalls.push({
                   id: block.id,

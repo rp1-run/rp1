@@ -22,11 +22,16 @@ const SKILL_PATTERN = /[Ss]kill[:\s]+`?(\w+-\w+):(\w[\w-]*)`?/g;
 /**
  * Map plugin name to path prefix (relative to repo root).
  */
-const PLUGIN_PATHS: Record<string, string> = {
+export const PLUGIN_PATHS: Record<string, string> = {
 	"rp1-base": "plugins/base",
 	"rp1-dev": "plugins/dev",
 	"rp1-utils": "plugins/utils",
 };
+
+/** Plugin name suffixes for pattern matching (derived from PLUGIN_PATHS) */
+export const PLUGIN_SUFFIXES = Object.keys(PLUGIN_PATHS).map((k) =>
+	k.replace("rp1-", ""),
+);
 
 /**
  * Parse a command file to extract agent dependencies.
@@ -36,9 +41,8 @@ const PLUGIN_PATHS: Record<string, string> = {
  */
 export function parseAgentRefs(content: string): readonly string[] {
 	const refs: string[] = [];
-	const pattern = new RegExp(TASK_PATTERN);
 
-	for (const match of content.matchAll(pattern)) {
+	for (const match of content.matchAll(TASK_PATTERN)) {
 		const [, plugin, agent] = match;
 		const basePath = PLUGIN_PATHS[plugin];
 		if (basePath) {

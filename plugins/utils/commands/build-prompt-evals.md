@@ -113,8 +113,6 @@ Invoke assertion specialist to optimize the generated eval config:
 subagent_type: rp1-utils:prompt-assertion-specialist
 prompt: |
   $1: {OUTPUT_YAML}
-  $2: {SOURCE_NAME}
-  $3: {RP1_ROOT}
 ```
 
 Capture JSON output as ASSERTION_RESULT variable.

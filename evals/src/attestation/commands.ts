@@ -8,7 +8,7 @@ import { spawnSync } from "bun";
 import * as A from "fp-ts/Array";
 import { pipe } from "fp-ts/function";
 import * as TE from "fp-ts/TaskEither";
-import { buildDependencyGraph } from "./deps-graph.js";
+import { PLUGIN_SUFFIXES, buildDependencyGraph } from "./deps-graph.js";
 import { loadManifest, saveManifest, updateManifest } from "./manifest.js";
 import { computeDepsHash, computePromptHash } from "./prompt-hash.js";
 import type {
@@ -63,8 +63,11 @@ export function extractSuiteFromFilename(outputPath: string): string {
 	);
 	// Convert plugin prefix separator to slash
 	// Pattern: rp1-{plugin}-{command} -> rp1-{plugin}/{command}
-	// Known plugins: dev, base, utils
-	const pluginMatch = withoutTimestamp.match(/^(rp1-(?:dev|base|utils))-(.+)$/);
+	// Use PLUGIN_SUFFIXES as single source of truth
+	const pluginPattern = new RegExp(
+		`^(rp1-(?:${PLUGIN_SUFFIXES.join("|")}))-(.+)$`,
+	);
+	const pluginMatch = withoutTimestamp.match(pluginPattern);
 	if (pluginMatch) {
 		return `${pluginMatch[1]}/${pluginMatch[2]}`;
 	}
