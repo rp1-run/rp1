@@ -92,13 +92,13 @@ export function detectPassRate(output: PromptfooOutput): boolean {
 }
 
 /**
- * Map suite path to command file path.
- * e.g., "rp1-dev/build-fast" -> "plugins/dev/commands/build-fast.md"
+ * Map suite path to command file path (relative to evals/ directory).
+ * e.g., "rp1-dev/build-fast" -> "../plugins/dev/commands/build-fast.md"
  */
 function suiteToCommandPath(suite: string): string {
 	const [plugin, command] = suite.split("/");
 	const pluginDir = plugin.replace("rp1-", "");
-	return `plugins/${pluginDir}/commands/${command}.md`;
+	return `../plugins/${pluginDir}/commands/${command}.md`;
 }
 
 /**
