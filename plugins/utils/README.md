@@ -40,7 +40,7 @@ Generates eval assertions (YAML) and minimal test prompts from prompt text, then
 
 **Outputs**:
 - `{basename}-evals.yaml` - promptfoo-compatible assertions (optimized)
-- `{basename}-eval-prompt.md` - minimal test prompt for evaluation
+- `{basename}-eval-prompt.txt` - minimal test prompt for evaluation
 - `{RP1_ROOT}/work/notes/assertions-to-be-built-{timestamp}.md` - (if unresolved placeholders exist)
 
 **Modes**:
