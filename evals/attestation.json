@@ -1,34 +1,34 @@
 {
-  "schema_version": "1.0.0",
-  "commands": {
-    "rp1-dev:build": {
-      "prompt_hash": "sha256:6940348da866fb8a266a387f2d29df0cc1344b8cbe62194b5feb8d42c276a8d5",
-      "deps_hash": "sha256:c1def3cf850e94445fa83f9849564e9c12fa2929f72db813e04b31709cdc1903",
-      "version": "3.0.0",
-      "last_eval": {
-        "passed": true,
-        "timestamp": "2026-01-22T07:35:37.344Z",
-        "git_commit": "ae02a41",
-        "result_file": "evals/output/rp1-dev-build-2026-01-22T07-35-34.json"
-      }
-    }
-  },
-  "files": {
-    "plugins/dev/skills/worktree-workflow/SKILL.md": "sha256:c0f5beca9cba362eba543220df679b8016c8710390adcf8a61c95b0c10b06f48",
-    "plugins/dev/commands/build.md": "sha256:6940348da866fb8a266a387f2d29df0cc1344b8cbe62194b5feb8d42c276a8d5",
-    "plugins/dev/agents/build-artifact-detector.md": "sha256:ee45f612c99d0d48e4cd2931d21731a2a3b55c73643a7ae083bfe32907c84fe8",
-    "plugins/dev/agents/feature-requirement-gatherer.md": "sha256:fbbdca38cfab8a75df77e421bb733076740bc1c690931a550ba18615f248fdd1",
-    "plugins/dev/agents/feature-architect.md": "sha256:c1f3012ecd9aff6e089886d4ba87b888dbdcb619f6dcdda8901e16b923b51240",
-    "plugins/dev/agents/hypothesis-tester.md": "sha256:e13e9e7122a32c6fd61271f54930cc9dc226696b4652bbe6c5ad5c7420d0b557",
-    "plugins/dev/agents/feature-tasker.md": "sha256:7877bfbf889a93aeab15fc3e7d63a8ea56effab04675e087391938e4d45af2ee",
-    "plugins/dev/agents/build-task-parser.md": "sha256:b326879c3104c764a34781a3c5c969112a16071aa276b201f6ad7e046ee68ec1",
-    "plugins/dev/agents/build-task-grouper.md": "sha256:283d0887ea35aa46652ff5497b95b1e6a4e52eab63c7583a472644b7891613d6",
-    "plugins/dev/agents/task-builder.md": "sha256:5d0a5733603a58f61bc984d4b1443ab6abb7b743db994411b332c0e53e366369",
-    "plugins/dev/agents/task-reviewer.md": "sha256:d4961272c63c778e1c126189f559c03d8bdf17f5f1e79d5063fae372d53f03e1",
-    "plugins/dev/agents/code-checker.md": "sha256:28f68b92f4d82b438eef31f89b255b615383c368668ef32a898b8eb95de20e83",
-    "plugins/dev/agents/feature-verifier.md": "sha256:b3f1fe3eb26357b1447e022c0c6b8d02622a1e39fe9949c783dd922ed9bc8e80",
-    "plugins/dev/agents/comment-cleaner.md": "sha256:9ecf78cfd8735bea49439e3c1d57d376d08168e6293a2a7f689a2ecfcf959824",
-    "plugins/dev/agents/build-verify-aggregator.md": "sha256:84740753ac1ba9c6b7ef189bf47500a00fe96b32a663fbe77e0417829c30b80f",
-    "plugins/dev/agents/feature-archiver.md": "sha256:abf8640e3bbc585e0f370fbf640eddfdb3db0588676817fba540d6794e55ded2"
-  }
+	"schema_version": "1.0.0",
+	"commands": {
+		"rp1-dev:build": {
+			"prompt_hash": "sha256:6940348da866fb8a266a387f2d29df0cc1344b8cbe62194b5feb8d42c276a8d5",
+			"deps_hash": "sha256:c1def3cf850e94445fa83f9849564e9c12fa2929f72db813e04b31709cdc1903",
+			"version": "3.0.0",
+			"last_eval": {
+				"passed": true,
+				"timestamp": "2026-01-22T07:35:37.344Z",
+				"git_commit": "ae02a41",
+				"result_file": "evals/output/rp1-dev-build-2026-01-22T07-35-34.json"
+			}
+		}
+	},
+	"files": {
+		"plugins/dev/skills/worktree-workflow/SKILL.md": "sha256:c0f5beca9cba362eba543220df679b8016c8710390adcf8a61c95b0c10b06f48",
+		"plugins/dev/commands/build.md": "sha256:6940348da866fb8a266a387f2d29df0cc1344b8cbe62194b5feb8d42c276a8d5",
+		"plugins/dev/agents/build-artifact-detector.md": "sha256:ee45f612c99d0d48e4cd2931d21731a2a3b55c73643a7ae083bfe32907c84fe8",
+		"plugins/dev/agents/feature-requirement-gatherer.md": "sha256:fbbdca38cfab8a75df77e421bb733076740bc1c690931a550ba18615f248fdd1",
+		"plugins/dev/agents/feature-architect.md": "sha256:c1f3012ecd9aff6e089886d4ba87b888dbdcb619f6dcdda8901e16b923b51240",
+		"plugins/dev/agents/hypothesis-tester.md": "sha256:e13e9e7122a32c6fd61271f54930cc9dc226696b4652bbe6c5ad5c7420d0b557",
+		"plugins/dev/agents/feature-tasker.md": "sha256:7877bfbf889a93aeab15fc3e7d63a8ea56effab04675e087391938e4d45af2ee",
+		"plugins/dev/agents/build-task-parser.md": "sha256:b326879c3104c764a34781a3c5c969112a16071aa276b201f6ad7e046ee68ec1",
+		"plugins/dev/agents/build-task-grouper.md": "sha256:283d0887ea35aa46652ff5497b95b1e6a4e52eab63c7583a472644b7891613d6",
+		"plugins/dev/agents/task-builder.md": "sha256:5d0a5733603a58f61bc984d4b1443ab6abb7b743db994411b332c0e53e366369",
+		"plugins/dev/agents/task-reviewer.md": "sha256:d4961272c63c778e1c126189f559c03d8bdf17f5f1e79d5063fae372d53f03e1",
+		"plugins/dev/agents/code-checker.md": "sha256:28f68b92f4d82b438eef31f89b255b615383c368668ef32a898b8eb95de20e83",
+		"plugins/dev/agents/feature-verifier.md": "sha256:b3f1fe3eb26357b1447e022c0c6b8d02622a1e39fe9949c783dd922ed9bc8e80",
+		"plugins/dev/agents/comment-cleaner.md": "sha256:9ecf78cfd8735bea49439e3c1d57d376d08168e6293a2a7f689a2ecfcf959824",
+		"plugins/dev/agents/build-verify-aggregator.md": "sha256:84740753ac1ba9c6b7ef189bf47500a00fe96b32a663fbe77e0417829c30b80f",
+		"plugins/dev/agents/feature-archiver.md": "sha256:abf8640e3bbc585e0f370fbf640eddfdb3db0588676817fba540d6794e55ded2"
+	}
 }
