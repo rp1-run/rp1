@@ -1,7 +1,10 @@
 name: rp1 PR Review
+# TEMPORARILY DISABLED - not working as planned
+# To re-enable, uncomment pull_request trigger below
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
+  workflow_dispatch: # Manual trigger only while disabled
+  # pull_request:
+  #   types: [opened, synchronize, reopened]
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
