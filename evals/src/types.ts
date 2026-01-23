@@ -9,7 +9,9 @@
 export interface TestEnvironment {
 	/** Absolute path to the isolated temp directory */
 	readonly tempDir: string;
-	/** Cleanup function to remove the temp directory */
+	/** Absolute path to the bare git remote (if withLocalRemote was true) */
+	readonly remoteDir?: string;
+	/** Cleanup function to remove the temp directory and remote */
 	readonly cleanup: () => Promise<void>;
 	/** Mark the test as failed to preserve temp directory (if preserveOnFail is true) */
 	readonly markFailed: () => void;
@@ -21,6 +23,8 @@ export interface TestEnvironment {
 export interface HarnessOptions {
 	/** Initialize a git repo in the temp directory */
 	readonly withGit: boolean;
+	/** Create a local bare git remote for push testing */
+	readonly withLocalRemote?: boolean;
 	/** Files to create in the temp directory */
 	readonly withFiles: readonly FileSpec[];
 	/** Preserve temp directory on test failure for debugging */

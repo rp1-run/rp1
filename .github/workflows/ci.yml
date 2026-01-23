@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -66,3 +70,22 @@ jobs:
         with:
           name: coverage-report
           path: cli/coverage.txt
+
+  attestation:
+    name: Verify Attestations
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.5"
+
+      - uses: extractions/setup-just@v2
+
+      - name: Install dependencies
+        run: cd evals && bun install
+
+      - name: Verify attestations
+        run: just evals-verify

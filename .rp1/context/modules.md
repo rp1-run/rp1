@@ -2,7 +2,7 @@
 
 **Project**: rp1 Plugin System
 **Analysis Date**: 2026-01-18
-**Total Components**: 100+ (32 commands, 36 agents, 5 skills, 27+ CLI modules)
+**Total Components**: 100+ (32 commands, 36 agents, 6 skills, 27+ CLI modules)
 
 ## Plugin Modules
 
@@ -96,32 +96,50 @@
 | worktree-workflow | Isolated git worktree workflow for coding agents |
 
 ### plugins/utils
-**Purpose**: Utility plugin for prompt optimization
-**Components**: 1 command, 1 agent, 1 skill
+**Purpose**: Utility plugin for prompt optimization and eval generation
+**Components**: 2 commands, 3 agents, 2 skills
 
 | Command | Agent | Purpose |
 |---------|-------|---------|
 | tersify-prompt | prompt-tersifier | Prompt compression |
+| build-prompt-evals | prompt-eval-extractor + eval-prompt-writer | Parallel eval assertion and test prompt generation |
 
 | Skill | Purpose |
 |-------|---------|
 | prompt-writer | Terse prompt authoring patterns |
+| prompt-eval-builder | Eval extraction patterns, templates, and validation |
 
 ## Evaluation Suites
 
 ### evals/
 **Purpose**: Promptfoo-based evaluation system for testing agent instruction-following behavior
-**Framework**: Promptfoo with `anthropic:claude-agent-sdk` provider
+**Framework**: Promptfoo with custom `claude-with-tools` provider wrapping `@anthropic-ai/claude-agent-sdk`
 
 **Directory Structure** (mirrors plugins):
 ```
 evals/
 ├── package.json              # Dependencies: promptfoo ^0.120.0, @anthropic-ai/claude-agent-sdk
+├── attestation.json          # Content-addressable tracking manifest
+├── providers/
+│   └── claude-with-tools.ts  # Custom provider with tool call capture
+├── src/
+│   ├── index.ts              # Entry point
+│   ├── harness.ts            # Test environment setup/teardown
+│   ├── types.ts              # Type definitions
+│   └── attestation/          # Attestation system
+│       ├── index.ts          # Public exports
+│       ├── types.ts          # Domain types
+│       ├── cli.ts            # CLI (attest, verify, status)
+│       ├── commands.ts       # Core logic (fp-ts TaskEither)
+│       ├── deps-graph.ts     # Dependency graph builder
+│       ├── manifest.ts       # Manifest I/O
+│       └── prompt-hash.ts    # SHA-256 hashing
 └── suites/
     ├── shared/               # Reusable across suites
     │   ├── extension.ts      # beforeEach/afterEach hooks for workspace isolation
     │   └── assertions/
-    │       └── git.ts        # Deterministic git state assertions
+    │       ├── git.ts        # Deterministic git state assertions
+    │       └── tool-calls.ts # Tool call inspection assertions
     └── rp1-dev/
         └── build-fast/       # Suite for /build-fast command
             ├── config.yaml   # Promptfoo config with scenarios
@@ -131,38 +149,31 @@ evals/
 **Key Components**:
 | Component | Purpose |
 |-----------|---------|
+| claude-with-tools.ts | Custom provider wrapping claude-agent-sdk with tool call capture |
+| attestation/ | Content-addressable tracking of prompt files for merge-gate validation |
 | extension.ts | Workspace isolation - resets `/tmp/rp1-eval-workspace` before each test |
 | git.ts assertions | Deterministic verification of git state (commit count, HEAD changes) |
-| config.yaml | Provider config with `setting_sources: [user, project, local]` for skill discovery |
+| tool-calls.ts | Tool call assertions for inspecting agent behavior via metadata |
+| harness.ts | Test environment setup/teardown with isolated git repos |
 
-**Test Isolation Pattern**:
-- Fixed workspace: `/tmp/rp1-eval-workspace`
-- `beforeEach` hook: Complete reset (rm -rf, git init, initial commit)
-- Records `GIT_HEAD_BEFORE` and `GIT_COUNT_BEFORE` for assertions
-- `afterEach` hook: Logs final state for debugging
-
-**Provider Configuration**:
-```yaml
-providers:
-  - id: anthropic:claude-agent-sdk
-    config:
-      model: claude-opus-4-5
-      working_dir: /tmp/rp1-eval-workspace
-      permission_mode: bypassPermissions
-      setting_sources: [user, project, local]  # Required for skill discovery
-      tools: [Read, Write, Edit, Glob, Grep, Bash, Skill]
-```
-
-**Assertion Types**:
-| Assertion | Purpose |
-|-----------|---------|
-| assertCommitMade | Verifies agent created git commit (count increased or HEAD changed) |
-| assertNoCommitMade | Verifies agent did NOT create git commit |
-
-**Running Evals**:
+**Attestation CLI**:
 ```bash
-just evals-suite rp1-dev/build-fast
+# Two-phase workflow (recommended)
+just evals-run rp1-dev/build verbose=true    # Phase 1: Run evals, output to file
+just evals-attest output/rp1-dev-build-*.json # Phase 2: Generate attestation
+
+# Verification commands
+just evals-verify                            # Check all attestations current
+just evals-status                            # Show commands needing attention
 ```
+
+**Key Components** (eval-attestation-fix):
+| Component | Purpose |
+|-----------|---------|
+| attestFromOutput | Generate attestation from existing eval output without running evals |
+| extractSuiteFromFilename | Parse suite path from output filename by removing timestamp |
+| detectPassRate | Determine 100% pass rate from promptfoo output JSON |
+| attest-from-output CLI | CLI command invoking attestFromOutput function |
 
 ## CLI Modules
 
@@ -174,11 +185,8 @@ just evals-suite rp1-dev/build-fast
 | main.ts | CLI entry point with lazy loading for agent-tools |
 | init.ts | Initialize rp1 in a project |
 | install/index.ts | Install plugins to OpenCode/Claude Code |
-| update/index.ts | Update plugins |
-| verify/index.ts | Verify plugin installation |
 | view.ts | Launch web-based documentation viewer |
 | self-update.ts | Update CLI to latest version |
-| check-update.ts | Check for available updates |
 
 ### cli/src/init/
 **Purpose**: Project initialization with 11-step workflow
@@ -190,8 +198,6 @@ just evals-suite rp1-dev/build-fast
 | tool-detector.ts | Detect agentic tools (Claude Code, OpenCode) |
 | context-detector.ts | Classify project as greenfield or brownfield |
 | comment-fence.ts | Fenced content injection into CLAUDE.md |
-| progress.ts | Progress indication |
-| templates/*.ts | Template generation for AGENTS.md, CLAUDE.md |
 | steps/*.ts | Modular init steps (verification, plugin-installation, health-check) |
 | ui/*.tsx | React/Ink UI components for wizard |
 
@@ -200,12 +206,9 @@ just evals-suite rp1-dev/build-fast
 
 | Module | Purpose |
 |--------|---------|
-| index.ts | Barrel exports |
 | installer.ts | Copy artifacts to target directories with backup |
 | manifest.ts | Plugin manifest parsing and discovery |
 | verifier.ts | Installation verification |
-| config.ts | Installation configuration |
-| prerequisites.ts | Runtime prerequisite checking |
 | claudecode/index.ts | Claude Code specific installation |
 
 ### cli/src/agent-tools/
@@ -215,53 +218,25 @@ just evals-suite rp1-dev/build-fast
 |--------|---------|
 | index.ts | Tool registry (register, get, list) |
 | command.ts | Commander.js integration |
-| input.ts | Input handling (file/stdin) |
-| output.ts | JSON output formatting |
 | models.ts | Type definitions (ToolResult) |
 | git.ts | Shared git utilities with GitContext pattern |
-| mmd-validate/ | Mermaid validation tool |
-| rp1-root-dir/ | RP1_ROOT resolution with worktree awareness |
 | worktree/ | Git worktree management for isolated execution |
+| github-pr/ | GitHub PR operations (submit-review, fetch-comments) |
+| mmd-validate/ | Mermaid validation tool |
+| work/ | Workflow status tracking |
 | comment-extract/ | Comment extraction from source files |
-
-### cli/src/agent-tools/worktree/
-**Purpose**: Git worktree management for isolated agent execution
-
-| Module | Purpose |
-|--------|---------|
-| index.ts | Entry point with executeCreate, executeCleanup, executeStatus |
-| create.ts | Worktree creation with branch collision handling |
-| cleanup.ts | Worktree removal with optional branch deletion |
-| status.ts | Worktree detection and info |
-| slug.ts | Task slug generation for branch naming |
-| models.ts | Type definitions (WorktreeCreateResult, WorktreeCleanupResult) |
 
 ### cli/web-ui/
 **Purpose**: React-based documentation viewer with Mermaid support
 
 | Component | Purpose |
 |-----------|---------|
-| src/main.tsx | React entry point |
 | src/server.ts | Server factory with WebSocket and file watching |
-| src/app/App.tsx | Main app with providers |
+| src/main.tsx | React entry point |
 | src/server/http.ts | Bun HTTP server |
 | src/server/websocket.ts | WebSocket hub for live reload |
-| src/server/file-watcher.ts | File system monitoring |
-| src/server/project.ts | Project management |
-| src/server/registry.ts | Project registry |
+| src/pages/StatusDashboard.tsx | Real-time work status display |
 | src/components/MarkdownViewer/ | Markdown rendering with Mermaid |
-| src/components/FileTree/ | Directory navigation |
-| src/providers/*.tsx | Theme, WebSocket, Project providers |
-
-### packages/catppuccin-mermaid/
-**Purpose**: Catppuccin color theme library for Mermaid diagrams
-
-| Module | Purpose |
-|--------|---------|
-| src/index.ts | Theme exports |
-| src/theme.ts | Theme generation |
-| src/palette.ts | Color palette definitions |
-| src/flavors/*.ts | Latte, frappe, macchiato, mocha flavors |
 
 ## Module Dependencies
 
@@ -293,9 +268,9 @@ graph TD
         Main[main.ts] --> Init[init/]
         Main --> Install[install/]
         Main -.->|lazy| AgentTools[agent-tools/]
-        AgentTools --> MmdValidate[mmd-validate/]
         AgentTools --> Worktree[worktree/]
-        AgentTools --> Rp1Root[rp1-root-dir/]
+        AgentTools --> GitHubPR[github-pr/]
+        AgentTools --> Work[work/]
         Worktree --> Git[git.ts]
     end
 ```
@@ -306,13 +281,15 @@ graph TD
 |--------|----------|--------|--------|--------------|
 | plugins/base | 9 | 12 | 5 | ~5,500 |
 | plugins/dev | 15 | 24 | 1 | ~9,200 |
-| plugins/utils | 1 | 1 | 1 | ~800 |
+| plugins/utils | 2 | 3 | 2 | ~1,200 |
 | cli/src | 8 | - | - | ~3,000 |
 | cli/src/init | - | - | - | ~2,500 |
 | cli/src/install | - | - | - | ~1,200 |
-| cli/src/agent-tools | - | - | - | ~1,500 |
+| cli/src/agent-tools | - | - | - | ~1,800 |
 | cli/web-ui | - | - | - | ~2,800 |
-| evals | - | - | - | ~350 |
+| evals | - | - | - | ~1,500 |
+| evals/src/attestation | - | - | - | ~530 |
+| evals/providers | - | - | - | ~345 |
 
 ## Cross-Module Patterns
 
@@ -343,7 +320,7 @@ CLI modules use Either/TaskEither for type-safe error handling:
 - `TE.tryCatch()` wraps async operations
 
 ### Lazy Loading
-Heavy dependencies (puppeteer) are lazy-loaded:
+Heavy dependencies are lazy-loaded:
 - main.ts lazy-loads agent-tools/command.ts
 - Reduces CLI startup time for non-agent-tools commands
 
@@ -353,6 +330,25 @@ Agents load KB selectively based on task type:
 - Bug investigation -> architecture.md, modules.md
 - Feature implementation -> modules.md, patterns.md
 - Strategic analysis -> ALL files
+
+### Content-Addressable Attestation
+Attestation system hashes prompt file content (excluding frontmatter) and dependency graphs to detect changes requiring re-evaluation:
+- SHA-256 hashing with sha256: prefix
+- Transitive dependency resolution (command -> agents -> skills)
+- Manifest tracking in evals/attestation.json
+
+### Execution-Attestation Separation
+Feature eval-attestation-fix separates eval execution from attestation generation:
+- `evals-run`: Runs promptfoo with timestamped output file (spawns Claude processes)
+- `evals-attest`: Reads output, validates 100% pass, updates attestation (no process spawning)
+- Enables parallel eval runs followed by sequential attestation updates
+- Config-based concurrency via `evaluateOptions.maxConcurrency` in suite evals.yaml
+
+### Tool Call Capture Provider
+Custom promptfoo provider intercepts claude-agent-sdk streaming to capture tool calls for assertion-based validation:
+- Captures tool_use blocks from stream events
+- Exposes toolCalls, bashCommands via metadata
+- Enables behavioral assertions on tool usage patterns
 
 ## Cross-References
 - **Domain Concepts**: See [concept_map.md](concept_map.md)

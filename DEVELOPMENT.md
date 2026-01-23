@@ -42,7 +42,7 @@ The project is split into two plugins:
 
 - 6 commands: Knowledge, docs, strategy, security, content writing
 - 4 agents: knowledge-builder, project-documenter, strategic-advisor, security-validator
-- 3 skills: maestro, mermaid, knowledge-base-templates (shared)
+- 4 skills: mermaid, markdown-preview, knowledge-base-templates, code-comments (shared)
 - No dependencies
 
 **rp1-dev** (Development):
@@ -489,7 +489,7 @@ When adding or modifying features:
   - Base: 9 agents
   - Dev: 9 agents
 - **Skills** (4 total): Reusable capabilities in base plugin
-  - maestro, mermaid, markdown-preview, knowledge-base-templates
+  - mermaid, markdown-preview, knowledge-base-templates, code-comments
 
 Commands delegate to agents via Claude Code's Task tool, ensuring only relevant context is loaded.
 

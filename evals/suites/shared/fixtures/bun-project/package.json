@@ -1,0 +1,15 @@
+{
+  "name": "rp1-eval-project",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Test project for rp1 evaluations",
+  "scripts": {
+    "dev": "bun run src/index.ts",
+    "test": "bun test",
+    "lint": "echo 'Linting...' && exit 0",
+    "format": "echo 'Formatting...' && exit 0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

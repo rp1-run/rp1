@@ -1,7 +1,7 @@
 # Implementation Patterns
 
 **Project**: rp1 Plugin System
-**Last Updated**: 2026-01-11
+**Last Updated**: 2026-01-18
 
 ## Naming & Organization
 
@@ -18,7 +18,7 @@ Evidence: `cli/src/main.ts`, `plugins/base/agents/kb-spatial-analyzer.md`
 **Type Strictness**: Strict typing throughout CLI; all interfaces use readonly modifiers
 **Immutability**: Enforced via readonly arrays and readonly properties on all model interfaces
 
-Evidence: `cli/src/agent-tools/rp1-root-dir/models.ts`, `cli/src/agent-tools/worktree/models.ts`
+Evidence: `cli/src/agent-tools/models.ts`, `cli/src/install/models.ts`
 
 ## Error Handling
 
@@ -26,14 +26,14 @@ Evidence: `cli/src/agent-tools/rp1-root-dir/models.ts`, `cli/src/agent-tools/wor
 **Propagation**: Errors lifted to Either and composed through pipe(); caught at CLI boundary with formatError
 **Common Types**: ParseError, ValidationError, PrerequisiteError, RuntimeError, UsageError, NotFoundError
 
-Evidence: `cli/src/agent-tools/command.ts:127-158`, `cli/src/agent-tools/worktree/create.ts`
+Evidence: `cli/src/agent-tools/command.ts`, `cli/src/agent-tools/worktree/create.ts`
 
 ## Validation & Boundaries
 
 **Location**: API boundary validation in CLI; fail-fast with Left returns
 **Method**: Two-level validation: fencing validation (syntax) then field validation (schema); TE.tryCatch wraps async operations
 
-Evidence: `cli/src/agent-tools/rp1-root-dir/resolver.ts:37-81`
+Evidence: `cli/src/build/parser.ts`
 
 ## Observability
 
@@ -41,7 +41,7 @@ Evidence: `cli/src/agent-tools/rp1-root-dir/resolver.ts:37-81`
 **Metrics**: Confidence scoring (0-100) in agents for verification quality
 **Tracing**: Silent execution with `<thinking>` tags in agents; progress callbacks in installers
 
-Evidence: `cli/src/main.ts:51-61`, `plugins/dev/agents/task-reviewer.md`
+Evidence: `cli/src/main.ts`, `plugins/dev/agents/task-reviewer.md`
 
 ## Testing Idioms
 
@@ -49,23 +49,25 @@ Evidence: `cli/src/main.ts:51-61`, `plugins/dev/agents/task-reviewer.md`
 **Fixtures**: Helper functions (getFixturePath, createTempDir); realistic test data
 **Levels**: Unit tests dominant; integration tests for CLI flows
 **Discipline**: 13 rules in task-builder: no trivial tests, black-box assertions, deterministic, mock only external boundaries
+**Evals**: Promptfoo-based instruction-following tests with custom provider for tool call capture
 
-Evidence: `cli/src/__tests__/`, `plugins/dev/agents/task-builder.md:107-127`
+Evidence: `cli/src/__tests__/`, `plugins/dev/agents/task-builder.md`, `evals/providers/claude-with-tools.ts`
 
 ## I/O & Integration
 
-**Filesystem**: Node.js fs/promises + Bun APIs with async/await; TE.tryCatch wraps all I/O
+**Filesystem**: Node.js fs/promises + Bun APIs with async/await; TE.tryCatch wraps all I/O; Bun.file() for file reads
 **Git Operations**: Shared git.ts utilities with GitContext pattern; getIsolatedGitEnv() clears env vars to prevent context leakage
 **Worktree Safety**: Always use GitContext.repoRoot for mutations; cwd for read-only queries
+**Process Spawning**: Bun spawn() with stdout:'pipe' for capture; exit code for success/failure
 
-Evidence: `cli/src/agent-tools/git.ts:1-57`, `cli/src/agent-tools/worktree/create.ts`
+Evidence: `cli/src/agent-tools/git.ts`, `evals/src/attestation/commands.ts:43-49`
 
 ## Concurrency & Async
 
 **Async Usage**: Async/await throughout CLI; TaskEither for composable async with error handling
 **Parallelism**: Sequential loops in installers; parallel via A.sequence(TE.ApplicativePar) for batch operations
 
-Evidence: `cli/src/agent-tools/mmd-validate/validator.ts:107-121`
+Evidence: `cli/src/agent-tools/mmd-validate/validator.ts`
 
 ## Command-Agent Pattern
 
@@ -114,7 +116,7 @@ Evidence: `plugins/dev/agents/task-builder.md`, `plugins/dev/agents/task-reviewe
 **Tool Result**: Standard ToolResult<T> envelope with success, tool, data, errors fields
 **Lazy Loading**: Tools lazy-loaded via import statements in command.ts
 
-Evidence: `cli/src/agent-tools/rp1-root-dir/index.ts:38-43`, `cli/src/agent-tools/command.ts:19-21`
+Evidence: `cli/src/agent-tools/index.ts`, `cli/src/agent-tools/command.ts`
 
 ## Stateless Agent Pattern
 
@@ -129,7 +131,33 @@ Evidence: `docs/concepts/stateless-agents.md`, `plugins/dev/agents/charter-inter
 **Variable Usage**: Always use {RP1_ROOT} for paths; defaults to .rp1/ if not set
 **Worktree Awareness**: resolveRp1Root() detects worktrees via git-common-dir and returns main repo's .rp1/
 
-Evidence: `cli/src/agent-tools/rp1-root-dir/resolver.ts:22-47`
+Evidence: `cli/src/agent-tools/rp1-root-dir/resolver.ts`
+
+## Content-Addressable Hashing
+
+**Algorithm**: SHA-256 with sha256: prefix convention for all content hashes
+**Frontmatter Handling**: Strip YAML frontmatter before hashing (stripFrontmatter) so metadata changes don't invalidate
+**Deps Hash**: Combined hash from lexicographically sorted file hashes joined with pipe separator
+**Deduplication**: Set-based deduplication of all dependency paths
+
+Evidence: `evals/src/attestation/prompt-hash.ts`, `evals/src/attestation/deps-graph.ts`
+
+## Dependency Graph Parsing
+
+**Pattern**: Regex extraction of Task: and Skill: references from markdown files
+**Plugin Mapping**: PLUGIN_PATHS constant maps plugin names to filesystem paths
+**Recursive Resolution**: Command -> Agents -> Skills traversal for complete dependency graph
+
+Evidence: `evals/src/attestation/deps-graph.ts:14-71`
+
+## Promptfoo Provider Pattern
+
+**Interface**: Implements id() and callApi(prompt, context, options) -> ProviderResponse
+**Stream Processing**: AsyncIterator consumption with type guards for message discrimination
+**Metadata Exposure**: ProviderMetadata with toolCalls, bashCommands, toolCallCount for assertion inspection
+**Permission Hooks**: canUseTool callback intercepts tool requests; enables automated option selection for AskUserQuestion
+
+Evidence: `evals/providers/claude-with-tools.ts`
 
 ## Terse Prompt Authoring
 
@@ -139,3 +167,39 @@ Evidence: `cli/src/agent-tools/rp1-root-dir/resolver.ts:22-47`
 **Preserve Normative**: Exact wording for MUST/SHOULD/DO NOT
 
 Evidence: `plugins/utils/skills/prompt-writer/SKILL.md`
+
+## Two-Phase Eval Workflow
+
+**Phase 1 (Execution)**: Run promptfoo externally via Just recipe; outputs timestamped JSON file (spawns Claude processes)
+**Phase 2 (Attestation)**: Read output, validate 100% pass, update attestation manifest (no process spawning)
+**Rationale**: Prevents fork-bomb behavior when attestCommand runs with concurrency > 1
+**Output Naming**: `{suite-path}-{ISO-timestamp}.json` (e.g., `rp1-dev-build-2026-01-22T10-30-00.json`)
+
+Evidence: `Justfile:106-120`, `evals/src/attestation/commands.ts`
+
+## Suite Path Extraction
+
+**Pattern**: Extract suite path from timestamped output filename via regex
+**Steps**: Remove .json extension -> strip ISO timestamp suffix -> convert plugin-command to plugin/command format
+**Regex**: `-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}$` for timestamp removal
+**Plugin Detection**: Match `^(rp1-(?:dev|base|utils))-(.+)$` to reconstruct proper suite path
+
+Evidence: `evals/src/attestation/commands.ts:extractSuiteFromFilename`
+
+## Pass Rate Detection
+
+**Pattern**: Analyze promptfoo output JSON structure to determine 100% pass status
+**Success Criteria**: All prompts have `testFailCount === 0` AND `testErrorCount === 0`
+**Data Path**: `output.results.prompts[]` array with per-prompt metrics
+**Fail-Fast**: Return false if prompts array empty or missing
+
+Evidence: `evals/src/attestation/commands.ts:detectPassRate`
+
+## Config-Driven Concurrency
+
+**Pattern**: Control parallel execution via YAML config instead of CLI flags
+**Location**: `evaluateOptions.maxConcurrency` in suite's evals.yaml
+**Benefits**: Centralized config, consistent behavior, easy adjustment per suite
+**Default**: 4 concurrent evaluations
+
+Evidence: `evals/suites/rp1-dev/build/evals.yaml`

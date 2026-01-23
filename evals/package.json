@@ -6,11 +6,12 @@
 	"type": "module",
 	"scripts": {
 		"eval": "promptfoo eval",
-		"eval:build-fast": "promptfoo eval -c suites/build-fast/config.yaml",
+		"eval:build-fast": "promptfoo eval -c suites/rp1-dev/build-fast/evals.yaml",
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
 		"@anthropic-ai/claude-agent-sdk": "^0.2.0",
+		"fp-ts": "2.16.11",
 		"promptfoo": "^0.120.0"
 	},
 	"devDependencies": {

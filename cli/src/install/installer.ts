@@ -251,10 +251,10 @@ export const backupExistingInstallation = (): TE.TaskEither<
 			// Backup known rp1 skills
 			const skillsDir = join(configDir, "skill");
 			const rp1Skills = [
-				"maestro",
 				"mermaid",
 				"markdown-preview",
 				"knowledge-base-templates",
+				"code-comments",
 			];
 			try {
 				const stats = await stat(skillsDir);

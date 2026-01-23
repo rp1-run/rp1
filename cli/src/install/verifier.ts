@@ -185,10 +185,10 @@ export const verifyInstallation = (
 				expectedSkills.size > 0
 					? expectedSkills
 					: new Set([
-							"maestro",
 							"mermaid",
 							"markdown-preview",
 							"knowledge-base-templates",
+							"code-comments",
 						]);
 
 			for (const skillName of skillNamesToCheck) {

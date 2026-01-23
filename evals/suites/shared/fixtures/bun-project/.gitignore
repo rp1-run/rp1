@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+*.js
+*.d.ts
+!src/**/*.d.ts
+
+# Bun
+bun.lockb
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# rp1
+.rp1/

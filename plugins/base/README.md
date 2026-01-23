@@ -15,7 +15,7 @@ The `rp1-base` plugin provides core knowledge and documentation capabilities tha
 
 **Agents**: 12 specialized agents (6 for KB generation, 2 for deep research, 4 for docs/strategy/security/validation)
 **Commands**: 9 user-facing commands
-**Skills**: 4 shared capabilities
+**Skills**: 3 shared capabilities (1 retired)
 
 ## Commands (9)
 
@@ -66,12 +66,13 @@ rp1 automatically checks for updates when you start a new session in Claude Code
 - Run `/self-update` to update rp1 when a new version is available
 - Restart Claude Code or OpenCode after updating to use the new version
 
-## Skills (4)
+## Skills (3)
 
-### maestro
-Creates and refactors Claude Code skills following best practices. Guides through requirements gathering, design, content generation, and validation.
+### maestro (Retired)
 
-**Invocation**: Use the Skill tool with `skill: "rp1-base:maestro"`
+> **Retired**: This skill has been superseded by the official Anthropic `example-skills:skill-creator` skill, which provides comprehensive guidance for creating effective Claude Code skills with better integration into the standard skill ecosystem.
+
+Use `example-skills:skill-creator` instead for creating new skills or updating existing ones.
 
 ### mermaid
 Validates and troubleshoots Mermaid.js diagrams. Supports flowcharts, sequence diagrams, class diagrams, ER diagrams, Gantt charts, state diagrams, and more. Automatically validates syntax and fixes errors.

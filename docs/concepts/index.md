@@ -62,6 +62,14 @@ Understanding the core ideas behind rp1 helps you get the most out of its workfl
 
     [:octicons-arrow-right-24: Learn more](builder-reviewer-agents.md)
 
+-   :material-shield-check: **Eval System**
+
+    ---
+
+    Understand how content-addressable attestation ensures prompt changes are tested and traceable.
+
+    [:octicons-arrow-right-24: Learn more](eval-system.md)
+
 </div>
 
 ---
@@ -77,6 +85,7 @@ Understanding the core ideas behind rp1 helps you get the most out of its workfl
 | [Stateless Agents](stateless-agents.md) | Resumable interview workflows | Robust, transparent state |
 | [Parallel Worktrees](parallel-worktrees.md) | Git worktree isolation | Run multiple tasks at once |
 | [Builder-Reviewer Agents](builder-reviewer-agents.md) | Adversarial agent cooperation | Higher quality, reliable code |
+| [Eval System](eval-system.md) | Content-addressable attestation | Deterministic, traceable releases |
 
 ---
 
@@ -95,3 +104,5 @@ Understanding the core ideas behind rp1 helps you get the most out of its workfl
 **Running tasks in parallel?** Check [Parallel Worktrees](parallel-worktrees.md) for isolated task execution.
 
 **Want reliable implementations?** See [Builder-Reviewer Agents](builder-reviewer-agents.md) for adversarial cooperation.
+
+**Building evals for prompts?** See [Eval System](eval-system.md) for content-addressable attestation.

@@ -3,6 +3,9 @@
  *
  * Provides isolated temp directories with optional git repos for
  * running prompt evaluations safely without affecting the working directory.
+ *
+ * Supports creating a local "remote" git repo so agents can safely push
+ * without network access or affecting real repositories.
  */
 
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
@@ -53,10 +56,23 @@ async function runGit(args: string[], cwd: string): Promise<void> {
 }
 
 /**
+ * Initialize a bare git repo to act as a local remote.
+ * This allows agents to push without network access.
+ */
+async function initBareRemote(remotePath: string): Promise<void> {
+	await mkdir(remotePath, { recursive: true });
+	await runGit(["init", "--bare"], remotePath);
+}
+
+/**
  * Initialize a git repo for testing with proper isolation.
  * Creates the repo, configures test user credentials, and makes an initial commit.
+ * Optionally sets up a local remote for push testing.
  */
-async function initGitRepo(repoPath: string): Promise<void> {
+async function initGitRepo(
+	repoPath: string,
+	remotePath?: string,
+): Promise<void> {
 	await runGit(["init"], repoPath);
 	await runGit(["config", "--local", "user.email", "eval@rp1.run"], repoPath);
 	await runGit(["config", "--local", "user.name", "rp1 Eval"], repoPath);
@@ -65,6 +81,12 @@ async function initGitRepo(repoPath: string): Promise<void> {
 	await writeFile(join(repoPath, ".gitignore"), ".rp1/\n");
 	await runGit(["add", "."], repoPath);
 	await runGit(["commit", "-m", "Initial commit"], repoPath);
+
+	// Set up local remote if provided
+	if (remotePath) {
+		await runGit(["remote", "add", "origin", remotePath], repoPath);
+		await runGit(["push", "-u", "origin", "main"], repoPath);
+	}
 }
 
 /**
@@ -90,11 +112,21 @@ async function createFiles(
  *
  * @example
  * ```typescript
+ * // Basic usage with git
  * const env = await createTestEnvironment({
  *   withGit: true,
  *   withFiles: [{ path: "src/index.ts", content: "// placeholder" }],
  *   preserveOnFail: false
  * });
+ *
+ * // With local remote for push testing
+ * const env = await createTestEnvironment({
+ *   withGit: true,
+ *   withLocalRemote: true,
+ *   withFiles: [],
+ *   preserveOnFail: false
+ * });
+ * // env.remoteDir contains path to bare repo
  * // ... run tests ...
  * await env.cleanup();
  * ```
@@ -103,6 +135,13 @@ export async function createTestEnvironment(
 	opts: HarnessOptions,
 ): Promise<TestEnvironment> {
 	const tempDir = await mkdtemp(join(tmpdir(), "rp1-eval-"));
+	let remoteDir: string | undefined;
+
+	// Create local bare remote if requested
+	if (opts.withLocalRemote) {
+		remoteDir = await mkdtemp(join(tmpdir(), "rp1-eval-remote-"));
+		await initBareRemote(remoteDir);
+	}
 
 	// Create specified files
 	if (opts.withFiles.length > 0) {
@@ -111,7 +150,7 @@ export async function createTestEnvironment(
 
 	// Initialize git if requested
 	if (opts.withGit) {
-		await initGitRepo(tempDir);
+		await initGitRepo(tempDir, remoteDir);
 	}
 
 	// Track whether cleanup should be skipped (for preserveOnFail)
@@ -124,13 +163,20 @@ export async function createTestEnvironment(
 	const cleanup = async (): Promise<void> => {
 		if (shouldPreserve && opts.preserveOnFail) {
 			console.log(`Preserving temp directory for debugging: ${tempDir}`);
+			if (remoteDir) {
+				console.log(`Preserving remote directory: ${remoteDir}`);
+			}
 			return;
 		}
 		await rm(tempDir, { recursive: true, force: true });
+		if (remoteDir) {
+			await rm(remoteDir, { recursive: true, force: true });
+		}
 	};
 
 	return {
 		tempDir,
+		remoteDir,
 		cleanup,
 		markFailed,
 	};

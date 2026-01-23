@@ -78,6 +78,51 @@
 **Definition**: Validation report for rp1 setup including rp1 dir existence, instruction file validity, gitignore config, plugin status, and KB/charter existence.
 **Implementation**: `cli/src/init/models.ts`
 
+### AttestationManifest
+**Definition**: Root structure tracking command attestations, file hashes, and schema version for content-addressable verification of prompt files.
+**Implementation**: `evals/src/attestation/types.ts`
+**Key Properties**:
+- schema_version: Version string for manifest format
+- commands: Record mapping command keys to CommandAttestation
+- files: Record mapping file paths to SHA-256 hashes
+
+### CommandAttestation
+**Definition**: Per-command record containing prompt_hash, deps_hash, version, and last_eval metadata for tracking evaluation coverage.
+**Implementation**: `evals/src/attestation/types.ts`
+**Relationships**:
+- Contains EvalRecord for last successful evaluation
+- deps_hash computed from transitive dependencies (agents + skills)
+
+### DependencyGraph
+**Definition**: Command dependency tree mapping command -> agents -> skills for hash computation and change tracking.
+**Implementation**: `evals/src/attestation/deps-graph.ts`
+**Key Properties**:
+- command: Command name
+- commandPath: Path to command file
+- agents: Array of agent file paths
+- skills: Array of skill file paths
+
+### EvalRecord
+**Definition**: Last successful evaluation metadata: passed status, timestamp, git_commit, and result_file path.
+**Implementation**: `evals/src/attestation/types.ts`
+
+### Two-Phase Eval Workflow
+**Definition**: Separation of eval execution (promptfoo) from attestation generation to prevent fork-bomb behavior. Phase 1: run evals externally via Just recipe. Phase 2: generate attestation from output files without spawning processes.
+**Implementation**: `evals/src/attestation/commands.ts` (attestFromOutput), `Justfile` (evals-run, evals-attest)
+**Key Properties**:
+- evals-run: Executes promptfoo with timestamped output file
+- evals-attest: Reads output, validates 100% pass, updates attestation
+- No Claude processes spawned during attestation phase
+
+### Config-Based Concurrency
+**Definition**: Concurrency control via `evaluateOptions.maxConcurrency` in suite evals.yaml configuration instead of command-line `-j N` flags.
+**Implementation**: `evals/suites/rp1-dev/build/evals.yaml`
+**Benefits**: Centralized config, consistent behavior, easy adjustment
+
+### VerificationResult
+**Definition**: Single command verification status (current, stale, or missing) with hash comparison details.
+**Implementation**: `evals/src/attestation/types.ts`
+
 ## Technical Concepts
 
 ### Constitutional Prompting
@@ -116,6 +161,15 @@
 **Thresholds**: 65%+ include, 40-64% investigate (critical/high only), <40% exclude
 **Application**: Sub-reviewer findings before synthesis
 
+### Content-Addressable Attestation
+**Purpose**: Verification system using SHA-256 hashes to detect prompt file changes requiring re-evaluation
+**Implementation**: `evals/src/attestation/`
+**Workflow**:
+1. Build dependency graph (command -> agents -> skills)
+2. Compute SHA-256 hash for each file (excluding frontmatter)
+3. Run eval suite via promptfoo
+4. On 100% pass, update attestation manifest with hashes
+
 ### Commit Ownership Validation
 **Purpose**: Pre-push verification ensuring all commits were created during current session
 **Checks**: Count matches tracked, all commits descend from basedOn, no unexpected authors
@@ -124,6 +178,9 @@
 ## Terminology Glossary
 
 ### Business Terms
+- **Fork-Bomb Behavior**: Anti-pattern where attestCommand spawns promptfoo which spawns eval runners, causing exponential process growth when called in parallel
+- **Pass Rate Detection**: Analysis of promptfoo output JSON to determine 100% pass (zero testFailCount and zero testErrorCount across all prompts)
+- **Suite Path**: Canonical format for identifying eval suites: plugin/command (e.g., 'rp1-dev/build-fast'). Maps bidirectionally to command keys via slash-colon conversion
 - **Single-Pass Execution**: Agent execution model where complete workflow is performed in one run without iteration
 - **Thin Wrapper**: Command design pattern with no business logic, only parameter parsing and agent routing (50-100 lines)
 - **Output Contract**: Agent specification defining exactly what artifacts/files/structures the agent produces
@@ -145,6 +202,10 @@
 - **Conventional Commit**: Commit format: type(scope): description. Types: feat, fix, refactor, docs, test, chore, style, perf
 - **Brownfield/Greenfield**: Project context classification: brownfield has existing source files, greenfield is new/empty project
 - **Adversarial Cooperation**: Pattern where two agents with opposing goals (build vs critique) work together for higher quality output
+- **Prompt Hash**: SHA-256 hash of command prompt file content (excluding frontmatter), prefixed with 'sha256:'
+- **Deps Hash**: Combined hash of all transitive dependencies (agents + skills) for a command
+- **Stale Attestation**: Command whose current file hashes differ from last attested values, requiring re-evaluation
+- **Tool Call Assertion**: Eval assertion that verifies agent behavior by inspecting captured tool invocations
 
 ## Concept Boundaries
 
@@ -160,13 +221,23 @@
 
 ### CLI Tools
 **Scope**: Agent-facing utilities
-**Concepts**: Worktree Management, RP1 Root Resolution, Mermaid Validation, Comment Extraction
+**Concepts**: Worktree Management, RP1 Root Resolution, Mermaid Validation, Comment Extraction, Work Status, GitHub PR Operations
 **Boundaries**: Provide JSON-formatted tool results for AI agent consumption
 
 ### Knowledge Base Artifacts
 **Scope**: Codebase documentation
 **Files**: index.md, concept_map.md, architecture.md, modules.md, patterns.md, state.json
 **Boundaries**: Generated in `{RP1_ROOT}/context/`. Shared via git, meta.json excluded.
+
+### Eval Attestation
+**Scope**: Content-addressable tracking of prompt files
+**Files**: attestation.json, evals/src/attestation/*
+**Boundaries**: Owns content hash tracking and merge-gate verification for prompt changes
+
+### Eval Assertions
+**Scope**: Tool-call based test assertions for eval suites
+**Files**: evals/suites/shared/assertions/*
+**Boundaries**: Provides assertion functions for inspecting agent tool usage patterns
 
 ### Feature Artifacts
 **Scope**: Feature development

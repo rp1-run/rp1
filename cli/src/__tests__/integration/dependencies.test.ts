@@ -44,7 +44,7 @@ describe("integration: dependencies", () => {
 				artifacts: {
 					commands: ["knowledge-build", "knowledge-load"],
 					agents: ["kb-spatial-analyzer"],
-					skills: ["maestro"],
+					skills: ["mermaid"],
 				},
 			}),
 		);
@@ -66,8 +66,8 @@ describe("integration: dependencies", () => {
 		);
 		await writeFixture(
 			baseDir,
-			"skill/maestro/SKILL.md",
-			"---\nname: maestro\ndescription: Skill creation wizard for Claude Code\n---\nMaestro skill content",
+			"skill/mermaid/SKILL.md",
+			"---\nname: mermaid\ndescription: Mermaid diagram validation and generation\n---\nMermaid skill content",
 		);
 
 		return baseDir;

@@ -1,26 +1,27 @@
 # rp1 Prompt Evaluation Suite - Root Configuration
 #
 # This file exists for future multi-suite runs.
-# Run specific suites via: promptfoo eval -c suites/<suite>/config.yaml
+# Run specific suites via: promptfoo eval -c suites/<plugin>/<suite>/evals.yaml
 #
-# Note: This root config is not used directly. Each suite has its own config.
+# Note: This root config is not used directly. Each suite has its own evals.yaml.
 # To run all suites:
-#   for config in suites/*/config.yaml; do promptfoo eval -c "$config"; done
-
+#   for config in suites/*/*/evals.yaml; do promptfoo eval -c "$config"; done
 # Required placeholder to make this a valid promptfoo config
 description: "rp1 Prompt Evaluation Suite"
-
 # Global settings inherited by suite configs when using --config-chain
 defaultTest:
   options:
     provider:
       config:
         max_turns: 50
-
 evaluateOptions:
   maxConcurrency: 1
-
 # Suites define their own prompts/providers/tests
 prompts: []
 providers: []
 tests: []
+tracing:
+  enabled: true # Required to send OTLP telemetry
+  otlp:
+    http:
+      enabled: true # Required to start the built-in OTLP receiver
