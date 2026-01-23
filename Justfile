@@ -4,6 +4,13 @@
 default:
     @just --list
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Build
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Build everything for local testing
+build: build-local-dev
+
 # Build the OpenCode plugins
 build-opencode:
     cd cli && bun run build:opencode
@@ -20,90 +27,107 @@ clean-web-ui-cache:
 build-local-dev: build-opencode build-web-ui clean-web-ui-cache
     cd cli && bun run generate:assets && bun build ./src/main.ts --compile --outfile ../bin/rp1 --define __RP1_DEV_BUILD__=true
 
-# Build the local binary (release version, no -dev suffix)
-build-local-release: build-opencode build-web-ui clean-web-ui-cache
-    cd cli && bun run generate:assets && bun build ./src/main.ts --compile --outfile ../bin/rp1
+# ─────────────────────────────────────────────────────────────────────────────
+# Test
+# ─────────────────────────────────────────────────────────────────────────────
 
-# Build everything for local testing (uses dev versions)
-build: build-local-dev
+# Run all tests
+test: test-all
+
+# Run unit tests (fast)
+test-unit:
+    cd cli && bun run test:unit
+
+# Run integration tests
+test-integration:
+    cd cli && bun run test:integration
+
+# Run all tests for CLI
+test-all:
+    cd cli && bun run test
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Code Quality
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Lint and type check everything
+check: check-cli check-web-ui
+
+# Lint and type check CLI
+check-cli:
+    cd cli && bun run lint && bun run typecheck && bun run format
+
+# Type check web-ui
+check-web-ui:
+    cd cli/web-ui && npx tsc --noEmit
+
+# Auto-fix lint and format issues
+fix:
+    cd cli && bun run lint:fix && bun run format:fix
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Local Installation
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Full local install: build + remove stable + install to both platforms
+install: build rm-stable install-claude install-opencode
+
+# Run local binary with args
+run *args: build
+    ./bin/rp1 {{args}}
 
 # Prepare dev marketplace with -dev version plugins
 prepare-dev-plugins:
     ./scripts/prepare-dev-plugins.sh
 
-# Install dev plugins to Claude Code (with -dev versions)
-update-local-claude: prepare-dev-plugins
+# Install dev plugins to Claude Code
+install-claude: prepare-dev-plugins
     -claude plugin marketplace rm rp1-local 2>/dev/null
     claude plugin marketplace add ./.dev-marketplace/
     claude plugin install rp1-base@rp1-local
     claude plugin install rp1-dev@rp1-local
     claude plugin install rp1-utils@rp1-local
 
-# Full local install: rm stable rp1, build + install opencode (all with -dev versions)
-install-local: build rm-stable-rp1 update-local-claude
+# Install to OpenCode
+install-opencode:
     ./bin/rp1 install opencode
 
-# Run local binary with args
-local *args: build
-    ./bin/rp1 {{args}}
-
-# Run unit tests for CLI (fast, no integration tests)
-test-unit: check-cli
-    cd cli && bun run test:unit
-
-# Run integration tests for CLI
-test-integration:
-    cd cli && bun run test:integration
-
-# Run all tests for CLI (unit + integration)
-test-cli: check-cli
-    cd cli && bun run test
-
-# Run all tests (alias)
-test: test-cli
-
-# Lint and type check CLI TypeScript files
-check-cli:
-    cd cli && bun run lint && bun run typecheck && bun run format
-
-# Auto-fix lint and format issues in CLI
-fix-cli:
-    cd cli && bun run lint:fix && bun run format:fix
-
-# Type check web-ui
-check-web-ui:
-    cd cli/web-ui && npx tsc --noEmit
-
-# Lint and type check everything
-check: check-cli check-web-ui
-
-# Docs
-docs:
-    uvx --index https://pypi.org --with mkdocs-material mkdocs serve --strict --livereload
-
-# Dev stuff
-# Removes Stable version of Claude and OpenCode rp1 plugins
-# This is useful when testing local builds to avoid conflicts
-rm-stable-rp1:
+# Remove stable rp1 from both platforms
+rm-stable:
     rm -rf ~/.config/opencode/plugin/rp1*
     rm -rf ~/.config/opencode/command/rp1*
     rm -rf ~/.config/opencode/skills/
     -claude plugin marketplace rm rp1-run 2>/dev/null
 
-# Clean up dev marketplace
-clean-dev:
-    rm -rf .dev-marketplace/
+# ─────────────────────────────────────────────────────────────────────────────
+# Web-UI Development
+# ─────────────────────────────────────────────────────────────────────────────
 
-install-cli-deps:
-    cd cli && bun install --frozen-lockfile
+# Run web-ui in dev mode with hot reload
+serve-web-ui:
+    -pkill -f "rp1 _daemon-server" 2>/dev/null || true
+    -lsof -ti:7710 | xargs kill -9 2>/dev/null || true
+    rm -f ~/.rp1/daemon.pid
+    cd cli/web-ui && rm -rf dist && bunx concurrently -k -n server,client -c blue,green "NODE_ENV=development bun run src/cli.ts ../.. --port 7710" "bun run dev:client"
 
-# Install eval dependencies
-install-evals-deps:
+# ─────────────────────────────────────────────────────────────────────────────
+# Documentation
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Serve documentation with live reload
+serve-docs:
+    uvx --index https://pypi.org --with mkdocs-material mkdocs serve --strict --livereload
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Evaluations
+# ─────────────────────────────────────────────────────────────────────────────
+
+# One-time setup for evals (run after clone)
+setup-evals:
     cd evals && bun install --frozen-lockfile
 
-# Run evaluation suite with timestamped output (e.g., just evals-run rp1-dev/build verbose=true)
-# Concurrency controlled via evaluateOptions.maxConcurrency in suite evals.yaml (default: 4)
-evals-run suite verbose="false": install-evals-deps
+# Run evaluation suite (e.g., just run-evals rp1-dev/build)
+run-evals suite verbose="false":
     #!/usr/bin/env bash
     set -e
     timestamp=$(date -u +%Y-%m-%dT%H-%M-%S)
@@ -114,19 +138,18 @@ evals-run suite verbose="false": install-evals-deps
     cd evals && bunx promptfoo eval -c "suites/{{suite}}/evals.yaml" --output "${output_file}" $verbose_flag
     echo "Output written to: evals/${output_file}"
 
-# Generate attestation from eval output file (no Claude processes spawned)
-# Usage: just evals-attest output/rp1-dev-build-2026-01-22T10-30-00.json
-evals-attest output-file: install-evals-deps
+# Generate attestation from eval output file
+attest-evals output-file:
     bun run evals/src/attestation/cli.ts attest-from-output evals/{{output-file}}
 
 # Verify all attestations are current
-evals-verify: install-evals-deps
+verify-evals:
     bun run evals/src/attestation/cli.ts verify
 
 # Show commands needing re-attestation
-evals-status: install-evals-deps
+show-evals-status:
     bun run evals/src/attestation/cli.ts status
 
 # View eval results in browser
-evals-view: install-evals-deps
+view-evals:
     cd evals && bunx promptfoo view

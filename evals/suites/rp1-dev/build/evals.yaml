@@ -2,7 +2,7 @@
 #
 # Tests the /rp1-dev:build command behavior
 #
-# Run: just evals-run rp1-dev/build
+# Run: just run-evals rp1-dev/build
 description: "rp1-dev:build instruction-following evaluation"
 tracing:
   enabled: true

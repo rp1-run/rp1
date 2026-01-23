@@ -1,5 +1,117 @@
 # Development Guide
 
+## Prerequisites
+
+- [Bun](https://bun.sh/) v1.1+ (primary runtime and package manager)
+- [Just](https://github.com/casey/just) (command runner)
+- [Claude Code](https://claude.ai/code) or [OpenCode](https://opencode.ai/) (for testing plugins)
+- Python 3.10+ with `uvx` (for documentation only)
+
+## Quick Start
+
+```bash
+# Clone and install dependencies
+git clone https://github.com/rp1-run/rp1.git
+cd rp1
+cd cli && bun install && cd ..
+
+# Build and install locally
+just install
+
+# Run tests
+just test
+```
+
+## Justfile Recipes
+
+All development commands use [Just](https://github.com/casey/just). Run `just` to see available recipes.
+
+### Build
+
+| Recipe | Description |
+|--------|-------------|
+| `build` | Build everything for local testing |
+| `build-opencode` | Transform Claude Code plugins to OpenCode format |
+| `build-web-ui` | Bundle the React web-ui with Vite |
+| `build-local-dev` | Build binary with `-dev` version suffix |
+| `clean-web-ui-cache` | Clear `~/.rp1/web-ui/` cache |
+
+### Test
+
+| Recipe | Description |
+|--------|-------------|
+| `test` | Run all tests |
+| `test-unit` | Run unit tests only (~60 files, fast) |
+| `test-integration` | Run integration tests |
+| `test-all` | Run all CLI tests |
+
+### Code Quality
+
+| Recipe | Description |
+|--------|-------------|
+| `check` | Lint and type check everything |
+| `check-cli` | Lint (Biome) + typecheck (tsc) + format |
+| `check-web-ui` | Type check web-ui only |
+| `fix` | Auto-fix lint and format issues |
+
+### Local Installation
+
+| Recipe | Description |
+|--------|-------------|
+| `install` | Full local install: build + remove stable + install to both platforms |
+| `run *args` | Build and run local binary with arguments |
+| `install-claude` | Install dev plugins to Claude Code |
+| `install-opencode` | Install to OpenCode |
+| `rm-stable` | Remove stable rp1 from both platforms |
+| `prepare-dev-plugins` | Create `.dev-marketplace/` with -dev versioned plugins |
+
+### Web-UI Development
+
+| Recipe | Description |
+|--------|-------------|
+| `serve-web-ui` | Run web-ui in dev mode with hot reload |
+
+```bash
+just serve-web-ui
+# Opens Vite at http://localhost:5173 (proxies to backend at :7710)
+```
+
+### Documentation
+
+| Recipe | Description |
+|--------|-------------|
+| `serve-docs` | Serve MkDocs documentation with live reload |
+
+```bash
+just serve-docs
+# Opens at http://localhost:8000
+```
+
+### Evaluations
+
+| Recipe | Description |
+|--------|-------------|
+| `setup-evals` | One-time setup: install eval dependencies |
+| `run-evals suite` | Run evaluation suite (e.g., `just run-evals rp1-dev/build`) |
+| `attest-evals file` | Generate attestation from eval output |
+| `verify-evals` | Verify all attestations are current |
+| `show-evals-status` | Show commands needing re-attestation |
+| `view-evals` | Open Promptfoo web viewer |
+
+**Eval workflow:**
+```bash
+# First time only
+just setup-evals
+
+# Run evals and generate attestation
+just run-evals rp1-dev/build
+just attest-evals output/rp1-dev-build-2026-01-23T10-30-00.json
+
+# Check attestation status
+just verify-evals
+just show-evals-status
+```
+
 ## Project Structure
 
 ```
@@ -585,6 +697,44 @@ This builds and publishes whatever version is currently in `cli/package.json` to
 - `cli/package.json` - version field
 - `README.md` - version badges
 - `.release-please-manifest.json` - canonical version source
+
+## Troubleshooting
+
+### Port 7710 already in use
+
+```bash
+just serve-web-ui       # Automatically kills existing daemon
+# Or manually:
+pkill -f "rp1 _daemon-server"
+lsof -ti:7710 | xargs kill -9
+```
+
+### Stale web-ui after rebuild
+
+```bash
+just clean-web-ui-cache
+just build
+```
+
+### Plugin changes not reflecting
+
+```bash
+just rm-stable          # Remove any stable version
+just install            # Reinstall dev version
+```
+
+### Eval dependencies missing
+
+```bash
+just setup-evals        # Run once after clone
+```
+
+### Tests failing with lint errors
+
+```bash
+just fix                # Auto-fix lint/format issues
+just test               # Re-run tests
+```
 
 ## Getting Help
 
