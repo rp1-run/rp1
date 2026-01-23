@@ -31,27 +31,31 @@ build-local-dev: build-opencode build-web-ui clean-web-ui-cache
 # Test
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Run all tests
-test: test-all
+# Run all tests (CLI + evals)
+test: test-cli test-evals
 
-# Run unit tests (fast)
+# Run CLI unit tests (fast)
 test-unit:
     cd cli && bun run test:unit
 
-# Run integration tests
+# Run CLI integration tests
 test-integration:
     cd cli && bun run test:integration
 
-# Run all tests for CLI
-test-all:
+# Run all CLI tests
+test-cli:
     cd cli && bun run test
+
+# Run evals unit tests
+test-evals:
+    cd evals && bun run test
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Code Quality
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Lint and type check everything
-check: check-cli check-web-ui
+check: check-cli check-web-ui check-evals
 
 # Lint and type check CLI
 check-cli:
@@ -61,9 +65,20 @@ check-cli:
 check-web-ui:
     cd cli/web-ui && npx tsc --noEmit
 
+# Lint and type check evals
+check-evals:
+    cd evals && bun run lint && bun run typecheck && bun run format
+
 # Auto-fix lint and format issues
-fix:
+fix: fix-cli fix-evals
+
+# Auto-fix CLI lint and format issues
+fix-cli:
     cd cli && bun run lint:fix && bun run format:fix
+
+# Auto-fix evals lint and format issues
+fix-evals:
+    cd evals && bun run lint:fix && bun run format:fix
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Local Installation

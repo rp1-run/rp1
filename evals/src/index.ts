@@ -3,5 +3,5 @@
  * Exports utilities for creating isolated test environments.
  */
 
-export { createTestEnvironment, cleanupTestEnvironment } from "./harness.js";
-export type { TestEnvironment, HarnessOptions, FileSpec } from "./types.js";
+export { cleanupTestEnvironment, createTestEnvironment } from "./harness.js";
+export type { FileSpec, HarnessOptions, TestEnvironment } from "./types.js";

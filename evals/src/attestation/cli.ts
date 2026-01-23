@@ -104,7 +104,7 @@ async function main(): Promise<void> {
 		}
 
 		const concurrency = args[2] ? parseInt(args[2], 10) : 1;
-		if (isNaN(concurrency) || concurrency < 1) {
+		if (Number.isNaN(concurrency) || concurrency < 1) {
 			console.error("Error: Concurrency must be a positive integer");
 			process.exit(1);
 		}
