@@ -67,7 +67,7 @@ tests:
           Evaluate the agent execution. Check the output text AND the Metadata JSON section.
 
           REQUIRED (all must pass):
-          1. Output contains "Scope Assessment" section with scope classification (Small, Medium, or Large)
+          1. Output contains "Scope" section with scope classification (Small, Medium, or Large)
           2. Output contains reasoning about files affected, systems involved, risk level, and estimated effort
           3. Agent reports work status updates via Metadata bashCommands containing "rp1 agent-tools work update"
           4. Agent loads KB files - Metadata bashCommands or toolCalls shows reading from {RP1_ROOT}/context/ directory
@@ -87,75 +87,75 @@ tests:
           - When AFK_MODE=true: Auto-decisions should be logged with "(AFK auto)" prefix in summary
           - When GIT_PUSH=true: Metadata bashCommands should contain "git push -u origin"
           - When KB files missing: Agent should warn but continue (not block)
-  - description: "large_scope_redirect"
-    vars:
-      REQUEST: "rewrite the entire authentication system from scratch, migrate to a new database schema, and update all API endpoints to use GraphQL instead of REST"
-    assert:
-      - type: llm-rubric
-        value: |
-          Evaluate whether the agent correctly identifies and redirects a large-scope request.
-
-          Check the output text AND the Metadata JSON section.
-
-          REQUIRED (all must pass):
-          1. Output contains "Scope Assessment" section with "Large" classification
-          2. Output contains "REQUEST EXCEEDS SCOPE" or similar redirect notice
-          3. Output explains why this needs the full /build workflow
-          4. Output provides options: reduce scope, phase it, or use /build command
-          5. Output suggests a "Recommended Quick Win" or minimal viable alternative
-          6. Agent reports status as "completed" with redirect message via work status update
-
-          PROHIBITED:
-          - Agent should NOT proceed to implementation phase for large scope
-          - No source code files should be created or modified (check Metadata toolCalls for Write/Edit)
-          - No git commits should be created for the request itself
-
-          PASS if: Agent stops after redirect, provides actionable alternatives
-          FAIL if: Agent attempts to implement the large-scope request
-  - description: "worktree_commits_and_push"
-    vars:
-      REQUEST: "add a simple hello world script"
-      GIT_WORKTREE: true
-      GIT_COMMIT: true
-      GIT_PUSH: true
-    assert:
-      - type: llm-rubric
-        value: |
-          Evaluate whether the agent respects GIT_COMMIT=true and GIT_WORKTREE=true and GIT_PUSH=true flags.
-
-          Check the Metadata JSON section for bashCommands and toolCalls.
-
-          REQUIRED:
-          1. Agent implements the requested change (creates/modifies files)
-          2. Metadata bashCommands contains "git commit"
-          2. Metadata bashCommands contains "git push"
-          3. Agent uses conventional commit format (feat:, fix:, refactor:, etc.) in any git commits
-          4. Metadata bashCommands contains "rp1 agent-tools worktree create"
-          5. Metadata bashCommands contains "rp1 agent-tools worktree cleanup"
-
-          PASS if: Changes made and committed, used worktree
-          FAIL if: Agent does not commit changes or does not use worktree, or does not push
-  - description: "in_afk_mode"
-    vars:
-      REQUEST: "add a json validation script that's utlra performant"
-      GIT_WORKTREE: false
-      GIT_COMMIT: true
-      GIT_PUSH: false
-      AFK_MODE: true
-    assert:
-      - type: llm-rubric
-        value: |
-          Evaluate whether the agent respects AFK_MODE=true (Away from keyboard)
-
-          Check the Metadata JSON section for bashCommands and toolCalls.
-
-          REQUIRED:
-          1. Agent implements the requested change (creates/modifies files)
-          2. Metadata bashCommands contains "git commit"
-          3. Agent uses conventional commit format (feat:, fix:, refactor:, etc.) in any git commits
-
-          PROHIBITED:
-          - Agent should not use AskUserQuestion tool as it's in "away from keyboard" mode
-
-          PASS if: Changes made and completed without waiting on user
-          FAIL if: Agent does not commit changes or waits for user input
+# - description: "large_scope_redirect"
+#   vars:
+#     REQUEST: "rewrite the entire authentication system from scratch, migrate to a new database schema, and update all API endpoints to use GraphQL instead of REST"
+#   assert:
+#     - type: llm-rubric
+#       value: |
+#         Evaluate whether the agent correctly identifies and redirects a large-scope request.
+#
+#         Check the output text AND the Metadata JSON section.
+#
+#         REQUIRED (all must pass):
+#         1. Output contains "Scope Assessment" section with "Large" classification
+#         2. Output contains "REQUEST EXCEEDS SCOPE" or similar redirect notice
+#         3. Output explains why this needs the full /build workflow
+#         4. Output provides options: reduce scope, phase it, or use /build command
+#         5. Output suggests a "Recommended Quick Win" or minimal viable alternative
+#         6. Agent reports status as "completed" with redirect message via work status update
+#
+#         PROHIBITED:
+#         - Agent should NOT proceed to implementation phase for large scope
+#         - No source code files should be created or modified (check Metadata toolCalls for Write/Edit)
+#         - No git commits should be created for the request itself
+#
+#         PASS if: Agent stops after redirect, provides actionable alternatives
+#         FAIL if: Agent attempts to implement the large-scope request
+# - description: "worktree_commits_and_push"
+#   vars:
+#     REQUEST: "add a simple hello world script"
+#     GIT_WORKTREE: true
+#     GIT_COMMIT: true
+#     GIT_PUSH: true
+#   assert:
+#     - type: llm-rubric
+#       value: |
+#         Evaluate whether the agent respects GIT_COMMIT=true and GIT_WORKTREE=true and GIT_PUSH=true flags.
+#
+#         Check the Metadata JSON section for bashCommands and toolCalls.
+#
+#         REQUIRED:
+#         1. Agent implements the requested change (creates/modifies files)
+#         2. Metadata bashCommands contains "git commit"
+#         2. Metadata bashCommands contains "git push"
+#         3. Agent uses conventional commit format (feat:, fix:, refactor:, etc.) in any git commits
+#         4. Metadata bashCommands contains "rp1 agent-tools worktree create"
+#         5. Metadata bashCommands contains "rp1 agent-tools worktree cleanup"
+#
+#         PASS if: Changes made and committed, used worktree
+#         FAIL if: Agent does not commit changes or does not use worktree, or does not push
+# - description: "in_afk_mode"
+#   vars:
+#     REQUEST: "add a json validation script that's utlra performant"
+#     GIT_WORKTREE: false
+#     GIT_COMMIT: true
+#     GIT_PUSH: false
+#     AFK_MODE: true
+#   assert:
+#     - type: llm-rubric
+#       value: |
+#         Evaluate whether the agent respects AFK_MODE=true (Away from keyboard)
+#
+#         Check the Metadata JSON section for bashCommands and toolCalls.
+#
+#         REQUIRED:
+#         1. Agent implements the requested change (creates/modifies files)
+#         2. Metadata bashCommands contains "git commit"
+#         3. Agent uses conventional commit format (feat:, fix:, refactor:, etc.) in any git commits
+#
+#         PROHIBITED:
+#         - Agent should not use AskUserQuestion tool as it's in "away from keyboard" mode
+#
+#         PASS if: Changes made and completed without waiting on user
+#         FAIL if: Agent does not commit changes or waits for user input

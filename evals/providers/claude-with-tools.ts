@@ -3,6 +3,7 @@
  * and captures all tool_use blocks from streaming events.
  *
  * Exposes tool calls via metadata for assertion inspection.
+ * Includes OpenTelemetry instrumentation for tracing.
  */
 
 import {
@@ -11,6 +12,30 @@ import {
 	query,
 	type SettingSource,
 } from "@anthropic-ai/claude-agent-sdk";
+
+// OpenTelemetry imports for tracing
+import {
+	context,
+	propagation,
+	SpanStatusCode,
+	trace,
+} from "@opentelemetry/api";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import {
+	BatchSpanProcessor,
+	NodeTracerProvider,
+} from "@opentelemetry/sdk-trace-node";
+
+// Initialize OpenTelemetry tracer provider once
+const otlpExporter = new OTLPTraceExporter({
+	url: "http://localhost:4318/v1/traces",
+});
+const tracerProvider = new NodeTracerProvider({
+	spanProcessors: [new BatchSpanProcessor(otlpExporter)],
+});
+tracerProvider.register();
+
+const tracer = trace.getTracer("claude-with-tools", "1.0.0");
 
 interface ToolCall {
 	readonly id: string;
@@ -58,6 +83,7 @@ interface ProviderContext {
 		readonly raw?: string;
 		readonly label?: string;
 	};
+	readonly traceparent?: string;
 }
 
 interface CallApiOptions {
@@ -205,111 +231,137 @@ export default class ClaudeWithToolCapture {
 
 	async callApi(
 		prompt: string,
-		context: ProviderContext,
+		providerContext: ProviderContext,
 		_options: CallApiOptions,
 	): Promise<ProviderResponse> {
-		const toolCalls: ToolCall[] = [];
-		let finalResult = "";
-		let totalInputTokens = 0;
-		let totalOutputTokens = 0;
+		// Extract trace context from promptfoo's traceparent
+		let activeContext = context.active();
+		if (providerContext.traceparent) {
+			activeContext = propagation.extract(context.active(), {
+				traceparent: providerContext.traceparent,
+			});
+		}
 
-		const askUserBehavior: AskUserBehavior =
-			this.config.ask_user_behavior ?? "first_option";
-
-		// Use WORKSPACE_DIR from vars (set by extension) or fall back to config
-		const workingDir = context.vars?.WORKSPACE_DIR ?? this.config.working_dir;
-
-		try {
-			const canUseTool = createAskUserQuestionCanUseTool(
-				askUserBehavior,
-				toolCalls,
-			);
-
-			const queryOptions = {
-				prompt,
-				options: {
-					model: this.config.model,
-					cwd: workingDir,
-					permissionMode: this.config.permission_mode,
-					allowDangerouslySkipPermissions:
-						this.config.allow_dangerously_skip_permissions,
-					maxTurns: this.config.max_turns,
-					settingSources: this.config.setting_sources
-						? [...this.config.setting_sources]
-						: undefined,
-					allowedTools: this.config.tools ? [...this.config.tools] : undefined,
-					includePartialMessages: true,
-					canUseTool,
+		// Run the entire provider call within the trace context
+		return context.with(activeContext, async () => {
+			const span = tracer.startSpan("claude-agent-sdk.query", {
+				attributes: {
+					"gen_ai.system": "anthropic",
+					"gen_ai.request.model": this.config.model ?? "unknown",
+					"prompt.length": prompt.length,
 				},
-			};
+			});
 
-			const messageStream = query(queryOptions);
+			const toolCalls: ToolCall[] = [];
+			let finalResult = "";
+			let totalInputTokens = 0;
+			let totalOutputTokens = 0;
 
-			for await (const message of messageStream) {
-				const msg = message as StreamMessage;
+			const askUserBehavior: AskUserBehavior =
+				this.config.ask_user_behavior ?? "first_option";
 
-				if (isStreamEventMessage(msg)) {
-					const event = msg.event;
-					if (
-						event?.type === "content_block_start" &&
-						event.content_block?.type === "tool_use"
-					) {
-						const block = event.content_block;
-						// Avoid duplicates (AskUserQuestion is captured via canUseTool)
-						const existing = toolCalls.find((t) => t.id === block.id);
-						if (!existing) {
-							toolCalls.push({
-								id: block.id,
-								name: block.name,
-								input: block.input ?? {},
-								source: "stream_event",
-							});
-						}
-					}
-				}
+			// Use WORKSPACE_DIR from vars (set by extension) or fall back to config
+			const workingDir =
+				providerContext.vars?.WORKSPACE_DIR ?? this.config.working_dir;
 
-				if (isAssistantMessage(msg) && msg.message?.content) {
-					for (const block of msg.message.content) {
-						if (block.type === "tool_use" && block.id) {
-							const existingIndex = toolCalls.findIndex(
-								(t) => t.id === block.id,
-							);
-							if (existingIndex !== -1) {
-								// Replace with new object to maintain immutability
-								toolCalls[existingIndex] = {
-									...toolCalls[existingIndex],
-									input: block.input,
-								};
-							} else {
+			try {
+				const canUseTool = createAskUserQuestionCanUseTool(
+					askUserBehavior,
+					toolCalls,
+				);
+
+				const queryOptions = {
+					prompt,
+					options: {
+						model: this.config.model,
+						cwd: workingDir,
+						permissionMode: this.config.permission_mode,
+						allowDangerouslySkipPermissions:
+							this.config.allow_dangerously_skip_permissions,
+						maxTurns: this.config.max_turns,
+						settingSources: this.config.setting_sources
+							? [...this.config.setting_sources]
+							: undefined,
+						allowedTools: this.config.tools
+							? [...this.config.tools]
+							: undefined,
+						includePartialMessages: true,
+						canUseTool,
+					},
+				};
+
+				const messageStream = query(queryOptions);
+
+				for await (const message of messageStream) {
+					const msg = message as StreamMessage;
+
+					if (isStreamEventMessage(msg)) {
+						const event = msg.event;
+						if (
+							event?.type === "content_block_start" &&
+							event.content_block?.type === "tool_use"
+						) {
+							const block = event.content_block;
+							// Avoid duplicates (AskUserQuestion is captured via canUseTool)
+							const existing = toolCalls.find((t) => t.id === block.id);
+							if (!existing) {
 								toolCalls.push({
 									id: block.id,
-									name: block.name ?? "unknown",
-									input: block.input,
-									source: "assistant",
+									name: block.name,
+									input: block.input ?? {},
+									source: "stream_event",
+								});
+								// Add span event for tool use
+								span.addEvent("tool_use", {
+									"tool.name": block.name,
+									"tool.id": block.id,
 								});
 							}
 						}
 					}
-				}
 
-				if (isResultMessage(msg)) {
-					finalResult = msg.result ?? "";
-					if (msg.usage) {
-						totalInputTokens += msg.usage.input_tokens ?? 0;
-						totalOutputTokens += msg.usage.output_tokens ?? 0;
+					if (isAssistantMessage(msg) && msg.message?.content) {
+						for (const block of msg.message.content) {
+							if (block.type === "tool_use" && block.id) {
+								const existingIndex = toolCalls.findIndex(
+									(t) => t.id === block.id,
+								);
+								if (existingIndex !== -1) {
+									// Replace with new object to maintain immutability
+									toolCalls[existingIndex] = {
+										...toolCalls[existingIndex],
+										input: block.input,
+									};
+								} else {
+									toolCalls.push({
+										id: block.id,
+										name: block.name ?? "unknown",
+										input: block.input,
+										source: "assistant",
+									});
+								}
+							}
+						}
+					}
+
+					if (isResultMessage(msg)) {
+						finalResult = msg.result ?? "";
+						if (msg.usage) {
+							totalInputTokens += msg.usage.input_tokens ?? 0;
+							totalOutputTokens += msg.usage.output_tokens ?? 0;
+						}
 					}
 				}
-			}
 
-			const bashCommands = toolCalls
-				.filter((t) => t.name === "Bash")
-				.map((t) => {
-					const input = t.input as { command?: string } | undefined;
-					return input?.command ?? "";
-				})
-				.filter((cmd) => cmd.length > 0);
+				const bashCommands = toolCalls
+					.filter((t) => t.name === "Bash")
+					.map((t) => {
+						const input = t.input as { command?: string } | undefined;
+						return input?.command ?? "";
+					})
+					.filter((cmd) => cmd.length > 0);
 
-			const metadataSection = `
+				const metadataSection = `
 
 ## Metadata
 
@@ -317,31 +369,53 @@ export default class ClaudeWithToolCapture {
 ${JSON.stringify({ toolCalls, bashCommands, toolCallCount: toolCalls.length }, null, 2)}
 \`\`\``;
 
-			return {
-				output: finalResult + metadataSection,
-				tokenUsage: {
-					prompt: totalInputTokens,
-					completion: totalOutputTokens,
-					total: totalInputTokens + totalOutputTokens,
-				},
-				metadata: {
-					toolCalls: toolCalls as readonly ToolCall[],
-					bashCommands: bashCommands as readonly string[],
-					toolCallCount: toolCalls.length,
-				},
-			};
-		} catch (error) {
-			const errorMessage =
-				error instanceof Error ? error.message : String(error);
-			return {
-				output: "",
-				error: `Provider error: ${errorMessage}`,
-				metadata: {
-					toolCalls: toolCalls as readonly ToolCall[],
-					bashCommands: [] as readonly string[],
-					toolCallCount: toolCalls.length,
-				},
-			};
-		}
+				// Set span attributes for completion
+				span.setAttributes({
+					"gen_ai.usage.input_tokens": totalInputTokens,
+					"gen_ai.usage.output_tokens": totalOutputTokens,
+					"tool_call.count": toolCalls.length,
+				});
+				span.setStatus({ code: SpanStatusCode.OK });
+				span.end();
+
+				// Flush spans to ensure they're exported before the eval completes
+				await tracerProvider.forceFlush();
+
+				return {
+					output: finalResult + metadataSection,
+					tokenUsage: {
+						prompt: totalInputTokens,
+						completion: totalOutputTokens,
+						total: totalInputTokens + totalOutputTokens,
+					},
+					metadata: {
+						toolCalls: toolCalls as readonly ToolCall[],
+						bashCommands: bashCommands as readonly string[],
+						toolCallCount: toolCalls.length,
+					},
+				};
+			} catch (error) {
+				const errorMessage =
+					error instanceof Error ? error.message : String(error);
+				span.recordException(
+					error instanceof Error ? error : new Error(errorMessage),
+				);
+				span.setStatus({ code: SpanStatusCode.ERROR, message: errorMessage });
+				span.end();
+
+				// Flush spans even on error
+				await tracerProvider.forceFlush();
+
+				return {
+					output: "",
+					error: `Provider error: ${errorMessage}`,
+					metadata: {
+						toolCalls: toolCalls as readonly ToolCall[],
+						bashCommands: [] as readonly string[],
+						toolCallCount: toolCalls.length,
+					},
+				};
+			}
+		});
 	}
 }
