@@ -1,6 +1,4 @@
 description: "Evals for build-fast command and executor agent"
-tracing:
-  enabled: true
 evaluateOptions:
   maxConcurrency: 4
 extensions:
@@ -10,6 +8,8 @@ providers:
     label: rp1-agentic-eval
     config:
       model: claude-opus-4-5
+      # working_dir is set dynamically by extension via WORKSPACE_DIR var
+      # This enables parallel test execution with isolated workspaces
       permission_mode: bypassPermissions
       allow_dangerously_skip_permissions: true
       ask_user_question:
@@ -32,7 +32,7 @@ prompts:
 defaultTest:
   options:
     provider:
-      id: "anthropic:messages:claude-haiku-4-5-20251001"
+      id: "anthropic:claude-haiku-4-5-20251001"
       config:
         temperature: 0
   vars:

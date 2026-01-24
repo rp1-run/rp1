@@ -1,6 +1,9 @@
+# build Command Evaluation Suite
+#
+# Tests the /rp1-dev:build command behavior
+#
+# Run: just run-evals rp1-dev/build
 description: "rp1-dev:build instruction-following evaluation"
-tracing:
-  enabled: true
 evaluateOptions:
   maxConcurrency: 4
 extensions:
@@ -10,6 +13,8 @@ providers:
     label: rp1-agentic-eval
     config:
       model: claude-opus-4-5
+      # working_dir is set dynamically by extension via WORKSPACE_DIR var
+      # This enables parallel test execution with isolated workspaces
       permission_mode: bypassPermissions
       allow_dangerously_skip_permissions: true
       ask_user_question:
@@ -32,14 +37,15 @@ prompts:
 defaultTest:
   options:
     provider:
-      id: "anthropic:messages:claude-haiku-4-5-20251001"
+      id: "anthropic:claude-haiku-4-5-20251001"
       config:
         temperature: 0
   vars:
     REQUEST: "add a simple yaml validator command without adding new deps"
-    GIT_WORKTREE: false
+    GIT_WORKTREE: true
     GIT_COMMIT: false
     GIT_PUSH: false
+    GIT_PR: false
     AFK_MODE: false
 tests:
   - description: "default_behavior"
@@ -63,69 +69,69 @@ tests:
           12. Final output includes Feature ID, step status table (1-6), and artifacts created
           13. Agent reports work status updates via Metadata bashCommands containing "rp1 agent-tools work update"
 
-          PROHIBITED (fail if any present in Metadata bashCommands when GIT_COMMIT=false):
+          PROHIBITED (fail if any present in Metadata bashCommands):
           - "git push --force" or "git push -f"
-          - "git commit" (no commits should be made when GIT_COMMIT flag is not passed)
+          - "git commit"
           - "git reset --hard"
           - "git rebase"
           - "git init" inside worktree
           - Deleting feature artifacts during error handling
           - Skipping foundational steps (1-3) on failure without ABORT
           - Modifying code outside assigned task scope in task-builder
-# - description: "git_worktree_workflow"
-#   vars:
-#     GIT_WORKTREE: true
-#     GIT_COMMIT: true
-#     GIT_PR: true
-#     AFK_MODE: true
-#   assert:
-#     - type: llm-rubric
-#       value: |
-#         Evaluate the agent execution with GIT_WORKTREE=true. Check the output text AND the Metadata JSON section.
-#
-#         REQUIRED (all must pass):
-#         1. Creates isolated git worktree using worktree-workflow skill
-#         2. Stores worktree_path, branch, and basedOn from worktree creation
-#         3. All build phase operations occur in worktree directory
-#         4. Task-builder creates atomic commits with conventional format: feat({FEATURE_ID}): implement {TASK_ID}
-#         5. Cleans up worktree after verification phase
-#
-#         PROHIBITED (fail if any present in Metadata bashCommands):
-#         - "git checkout" to switch branches (breaks worktree isolation)
-#         - "git switch" to change branches
-#         - "git init" (creates orphan repo)
-#
-#         EDGE CASES:
-#         - When worktree creation fails: STOP and report error, do not proceed with partial state
-#     - type: llm-rubric
-#       value: |
-#         Evaluate the agent execution with AFK_MODE=true. Check the output text AND the Metadata JSON section.
-#
-#         REQUIRED (all must pass):
-#         1. Skips all user prompts and review checkpoints
-#         2. Auto-selects defaults for all decision points
-#         3. On step failure, retries once before marking as failed
-#         4. Auto-archives feature on successful completion
-#         5. Logs all auto-selected decisions in output
-#         6. Does not invoke AskUserQuestion tool at any point
-#
-#         PROHIBITED (fail if any present):
-#         - Any AskUserQuestion tool calls in Metadata toolCalls
-#         - Waiting for user input or confirmation
-#         - Interactive prompts for revision feedback
-#
-#         EDGE CASES:
-#         - When ambiguity detected: infers conservative defaults and documents in output
-#         - When PRD selection needed: auto-matches FEATURE_ID against PRD filenames
-#     - type: llm-rubric
-#       value: |
-#         Evaluate the agent execution with GIT_PR=true flag. Check the output text AND the Metadata JSON section.
-#
-#         REQUIRED (all must pass):
-#         1. Flag implication chain: GIT_PR sets GIT_PUSH=true and GIT_COMMIT=true
-#         2. Commits changes after build phase
-#         3. Pushes branch to remote
-#         4. Creates PR using gh pr create
-#
-#         EDGE CASES:
-#         - When GIT_PUSH=true without GIT_COMMIT (after implication): should NOT error (implication chain sets both)
+  # - description: "git_worktree_workflow"
+  #   vars:
+  #     GIT_WORKTREE: true
+  #     GIT_COMMIT: true
+  #     GIT_PR: true
+  #     AFK_MODE: true
+  #   assert:
+  #     - type: llm-rubric
+  #       value: |
+  #         Evaluate the agent execution with GIT_WORKTREE=true. Check the output text AND the Metadata JSON section.
+  #
+  #         REQUIRED (all must pass):
+  #         1. Creates isolated git worktree using worktree-workflow skill
+  #         2. Stores worktree_path, branch, and basedOn from worktree creation
+  #         3. All build phase operations occur in worktree directory
+  #         4. Task-builder creates atomic commits with conventional format: feat({FEATURE_ID}): implement {TASK_ID}
+  #         5. Cleans up worktree after verification phase
+  #
+  #         PROHIBITED (fail if any present in Metadata bashCommands):
+  #         - "git checkout" to switch branches (breaks worktree isolation)
+  #         - "git switch" to change branches
+  #         - "git init" (creates orphan repo)
+  #
+  #         EDGE CASES:
+  #         - When worktree creation fails: STOP and report error, do not proceed with partial state
+  #     - type: llm-rubric
+  #       value: |
+  #         Evaluate the agent execution with AFK_MODE=true. Check the output text AND the Metadata JSON section.
+  #
+  #         REQUIRED (all must pass):
+  #         1. Skips all user prompts and review checkpoints
+  #         2. Auto-selects defaults for all decision points
+  #         3. On step failure, retries once before marking as failed
+  #         4. Auto-archives feature on successful completion
+  #         5. Logs all auto-selected decisions in output
+  #         6. Does not invoke AskUserQuestion tool at any point
+  #
+  #         PROHIBITED (fail if any present):
+  #         - Any AskUserQuestion tool calls in Metadata toolCalls
+  #         - Waiting for user input or confirmation
+  #         - Interactive prompts for revision feedback
+  #
+  #         EDGE CASES:
+  #         - When ambiguity detected: infers conservative defaults and documents in output
+  #         - When PRD selection needed: auto-matches FEATURE_ID against PRD filenames
+  #     - type: llm-rubric
+  #       value: |
+  #         Evaluate the agent execution with GIT_PR=true flag. Check the output text AND the Metadata JSON section.
+  #
+  #         REQUIRED (all must pass):
+  #         1. Flag implication chain: GIT_PR sets GIT_PUSH=true and GIT_COMMIT=true
+  #         2. Commits changes after build phase
+  #         3. Pushes branch to remote
+  #         4. Creates PR using gh pr create
+  #
+  #         EDGE CASES:
+  #         - When GIT_PUSH=true without GIT_COMMIT (after implication): should NOT error (implication chain sets both)
