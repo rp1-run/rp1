@@ -1,4 +1,6 @@
 description: "Evals for build-fast command and executor agent"
+tracing:
+  enabled: true
 evaluateOptions:
   maxConcurrency: 4
 extensions:
@@ -28,6 +30,11 @@ providers:
 prompts:
   - file://prompt.txt
 defaultTest:
+  options:
+    provider:
+      id: "anthropic:messages:claude-haiku-4-5-20251001"
+      config:
+        temperature: 0
   vars:
     REQUEST: "add a simple bun utility script that validates JSON input from stdin"
     GIT_WORKTREE: false

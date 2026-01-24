@@ -1,4 +1,6 @@
 description: "rp1-dev:build instruction-following evaluation"
+tracing:
+  enabled: true
 evaluateOptions:
   maxConcurrency: 4
 extensions:
@@ -28,8 +30,17 @@ providers:
 prompts:
   - file://prompt.txt
 defaultTest:
+  options:
+    provider:
+      id: "anthropic:messages:claude-haiku-4-5-20251001"
+      config:
+        temperature: 0
   vars:
     REQUEST: "add a simple yaml validator command without adding new deps"
+    GIT_WORKTREE: false
+    GIT_COMMIT: false
+    GIT_PUSH: false
+    AFK_MODE: false
 tests:
   - description: "default_behavior"
     assert:

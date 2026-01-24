@@ -154,13 +154,21 @@ Before summary:
 - [ ] No changes beyond task reqs
 - [ ] Found something unusual or interesting that's not captured in design/current patterns -> update it in `field-notes.md` (if exists) or create it in the same feature dir.
 
-### 3.5 Atomic Commit
+### 3.5 Atomic Commit (Conditional)
 
-**Skip if**: `GIT_COMMIT` is false AND `WORKTREE_PATH` is empty. Changes remain uncommitted in working directory.
+**DECISION POINT**: Check `GIT_COMMIT` and `WORKTREE_PATH` parameters before ANY git operations.
 
-If `GIT_COMMIT` is true OR `WORKTREE_PATH` is not empty, create atomic commit after each task implementation.
+#### DEFAULT BEHAVIOR (when `GIT_COMMIT` is NOT explicitly "true"):
 
-**Steps**:
+If `GIT_COMMIT` is missing, empty, "false", or anything other than exactly "true", AND `WORKTREE_PATH` is also empty/missing:
+
+**DO NOT run `git add`. DO NOT run `git commit`. DO NOT run ANY git commands.**
+
+Skip directly to Section 4. Leave all changes uncommitted in the working directory. In your output, report: `**Commit**: No commit (GIT_COMMIT not enabled)`
+
+#### ONLY IF `GIT_COMMIT` is explicitly "true" OR `WORKTREE_PATH` is not empty:
+
+Create atomic commit after each task implementation:
 
 1. Stage relevant files:
 
@@ -183,26 +191,18 @@ git commit -m "feat({FEATURE_ID}): implement {TASK_ID} - {brief_description}"
 | Task | Task ID being implemented | `T3` |
 | Description | Brief task description (lowercase, no period) | `add JWT validation` |
 
-**Example**:
-
-```
-feat(fix-auth): implement T3 - add JWT validation
-```
-
 3. Record commit SHA for reviewer verification:
 
 ```bash
 COMMIT_SHA=$(git rev-parse HEAD)
 ```
 
-**Rules**:
+**Commit Rules** (when committing):
 
 - Commit ONLY files modified for THIS task
 - Do NOT commit unrelated files
 - Do NOT amend previous commits
 - One commit per task (atomic)
-
-**Output**: Include commit SHA in Builder Complete output.
 
 ## 4. Task File Update
 
@@ -238,6 +238,7 @@ Update progress % in header if present.
 
 **Tasks**: T1, T2
 **Commit**: {SHA} - feat({FEATURE_ID}): implement T1, T2 - {description}
+  OR "No commit (GIT_COMMIT=false)" if commits were skipped
 **Files Modified**:
 - `src/auth/validation.ts`: Added JWT validation logic
 - `src/middleware/auth.ts`: Created auth middleware

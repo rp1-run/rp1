@@ -199,7 +199,7 @@ Verify across seven dimensions, using `<thinking>` for detailed analysis:
 
 ### 3.6 Commit Validation Check
 
-**Skip if**: `GIT_COMMIT` is false AND `WORKTREE_PATH` is empty. Mark as N/A (no commits expected).
+**Skip if**: `GIT_COMMIT` is NOT explicitly "true" (i.e., missing, empty, or "false") AND `WORKTREE_PATH` is also empty/missing. Mark dimension as N/A (no commits expected when GIT_COMMIT not enabled).
 
 **Question**: Did the builder create a proper atomic commit for this task?
 

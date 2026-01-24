@@ -11,6 +11,7 @@ description: "rp1 Prompt Evaluation Suite"
 # Global settings inherited by suite configs when using --config-chain
 defaultTest:
   options:
+    id: "anthropic:messages:claude-haiku-4-5-20251001"
     provider:
       config:
         max_turns: 50
