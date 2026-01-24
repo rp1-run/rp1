@@ -25,3 +25,7 @@ tracing:
   otlp:
     http:
       enabled: true # Required to start the built-in OTLP receiver
+      port: 4318
+      acceptFormats:
+        - protobuf
+        - json
