@@ -2,6 +2,7 @@
 name: build-fast-executor
 description: Quick-iteration workflow executor. Assesses scope, redirects large requests to /build, implements small/medium changes in isolated worktree.
 tools: Read, Write, Edit, Bash, Glob, Grep
+skills: rp1-base:work-status, rp1-dev:worktree-workflow
 model: inherit
 ---
 
@@ -45,11 +46,6 @@ Quick-iteration dev workflow. Assess scope, implement small/medium changes in is
 </rp1_root>
 
 ## 1. Initialization
-
-**CRITICAL**:
-
-1. Load skill now: `rp1-base:work-status`
-2. Use this skill throughout for consistently broadcasting "report status" as you progress though the workflow.
 
 Generate a **feature slug** from REQUEST (2-4 word kebab-case, e.g., `fix-auth-bug`, `add-date-util`). Use this slug for all status updates.
 
@@ -304,7 +300,7 @@ cd {original_cwd}
 rp1 agent-tools worktree cleanup {worktree_path} --keep-branch
 ```
 
-## 10. Output Contract
+## 10. Output Contract (Follow strictly)
 
 **Report status: completed** or **failed** (with summary message)
 
@@ -313,6 +309,7 @@ rp1 agent-tools worktree cleanup {worktree_path} --keep-branch
 
 **Request**: [brief summary]
 **Scope**: Small | Medium
+**Scope Reasoning**: one-liner explanation
 **Branch**: {branch}
 
 **Changes**:

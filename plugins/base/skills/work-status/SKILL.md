@@ -17,12 +17,13 @@ Report agent workflow progress for real-time visibility in the Status Dashboard.
 ## When to Use
 
 Activate this skill when:
+
 - Starting a feature implementation
 - Transitioning between tasks within a feature
 - Completing or failing a workflow step
 - Running multi-step workflows that benefit from visibility
 
-**Trigger phrases**: "report progress", "update status", "track workflow", "feature started", "task complete"
+**Trigger phrases**: "report status", "report progress", "update status", "track workflow", "feature started", "task complete"
 
 ## Command Reference
 
@@ -161,11 +162,13 @@ Returns JSON ToolResult envelope:
 ### 1. Report at Key Milestones
 
 DO report:
+
 - Start of feature
 - Task transitions (started, in_progress, completed)
 - Completion or failure of feature
 
 DO NOT report:
+
 - Every minor step (too noisy)
 - Redundant in_progress updates without state change
 
@@ -244,6 +247,7 @@ Integrate status updates into agent workflows:
 ## Phase 2: Implementation
 
 1. For each task in the feature:
+
    ```bash
    # Report task start
    rp1 agent-tools work update \
@@ -267,6 +271,7 @@ Integrate status updates into agent workflows:
 ## Phase 3: Finalization
 
 1. Report feature outcome:
+
    ```bash
    # On success
    rp1 agent-tools work update \
@@ -282,6 +287,7 @@ Integrate status updates into agent workflows:
      --status failed \
      --message "Failed: {error_description}"
    ```
+
 ```
 
 ## Error Handling
@@ -324,6 +330,7 @@ rp1 agent-tools work update -p "$(pwd)" -f my-feature -s completed -m "Done" --m
 ## Success Criteria
 
 A status update is successful when:
+
 1. Command returns `success: true`
 2. Response includes generated `id` and `createdAt`
 3. Status appears in dashboard (if daemon running)
