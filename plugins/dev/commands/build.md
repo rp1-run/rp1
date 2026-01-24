@@ -251,7 +251,7 @@ prompt: |
 for unit in task_units:
   attempt=1, max=2, feedback=null
   while attempt <= max:
-    Task: rp1-dev:task-builder (FEATURE_ID, TASK_IDS, WORKTREE_PATH, feedback)
+    Task: rp1-dev:task-builder (FEATURE_ID, TASK_IDS, WORKTREE_PATH, GIT_COMMIT, feedback)
     Task: rp1-dev:task-reviewer (FEATURE_ID, TASK_IDS, WORKTREE_PATH)
     if SUCCESS: break
     elif attempt < max: feedback=result, attempt++
@@ -288,7 +288,7 @@ AskUserQuestion: |
 3. Spawn builder/reviewer:
    ```
    Task: rp1-dev:task-builder
-   prompt: FEATURE_ID={FEATURE_ID}, TASK_IDS=[TX-{timestamp}], WORKTREE_PATH={worktree_path}, PREVIOUS_FEEDBACK={task_description}
+   prompt: FEATURE_ID={FEATURE_ID}, TASK_IDS=[TX-{timestamp}], WORKTREE_PATH={worktree_path}, GIT_COMMIT={GIT_COMMIT}, PREVIOUS_FEEDBACK={task_description}
 
    Task: rp1-dev:task-reviewer
    prompt: FEATURE_ID={FEATURE_ID}, TASK_IDS=[TX-{timestamp}], WORKTREE_PATH={worktree_path}
@@ -310,7 +310,7 @@ AskUserQuestion: |
 ```
 Task: rp1-dev:code-checker (FEATURE_ID, branch, WORKTREE_PATH=worktree_path)
 Task: rp1-dev:feature-verifier (FEATURE_ID, RP1_ROOT, WORKTREE_PATH=worktree_path)
-Task: rp1-dev:comment-cleaner (MODE=clean, SCOPE=branch COMMIT_CHANGES=true WORKTREE_PATH=worktree_path)
+Task: rp1-dev:comment-cleaner (MODE=clean, SCOPE=branch, COMMIT_CHANGES={GIT_COMMIT}, WORKTREE_PATH=worktree_path)
 ```
 
 ### §5.2 Aggregate Results

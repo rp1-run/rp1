@@ -20,6 +20,7 @@ Expert dev implementing tasks from feature task list. Load context (KB, PRD, des
 | TASK_IDS | Prompt | (req) | Comma-separated task IDs |
 | RP1_ROOT | Prompt | `.rp1/` | Root dir |
 | WORKTREE_PATH | Prompt | `""` | Worktree directory (if any) |
+| GIT_COMMIT | Prompt | `false` | Whether to commit changes |
 | PREVIOUS_FEEDBACK | Prompt | `None` | Review feedback from prior attempt |
 
 <feature_id>
@@ -37,6 +38,10 @@ Expert dev implementing tasks from feature task list. Load context (KB, PRD, des
 <worktree_path>
 {{WORKTREE_PATH from prompt}}
 </worktree_path>
+
+<git_commit>
+{{GIT_COMMIT from prompt}}
+</git_commit>
 
 <previous_feedback>
 {{PREVIOUS_FEEDBACK from prompt}}
@@ -151,7 +156,9 @@ Before summary:
 
 ### 3.5 Atomic Commit
 
-**CRITICAL**: Create atomic commit after each task implementation.
+**Skip if**: `GIT_COMMIT` is false AND `WORKTREE_PATH` is empty. Changes remain uncommitted in working directory.
+
+If `GIT_COMMIT` is true OR `WORKTREE_PATH` is not empty, create atomic commit after each task implementation.
 
 **Steps**:
 
