@@ -155,9 +155,9 @@ run-evals suite verbose="false":
     cd evals && bunx promptfoo eval -c "suites/{{suite}}/evals.yaml" --output "${output_file}" $verbose_flag
     echo "Output written to: evals/${output_file}"
 
-# Generate attestation from eval output file
+# Generate attestation from eval output file (just pass filename, e.g., rp1-dev-build-fast-2026-01-24T05-00-44.json)
 attest-evals output-file:
-    bun run evals/src/attestation/cli.ts attest-from-output evals/{{output-file}}
+    bun run evals/src/attestation/cli.ts attest-from-output evals/output/{{output-file}}
 
 # Verify all attestations are current
 verify-evals:
