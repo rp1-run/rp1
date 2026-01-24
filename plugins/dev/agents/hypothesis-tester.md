@@ -2,6 +2,7 @@
 name: hypothesis-tester
 description: Validates design hypotheses through code experiments, codebase analysis, and external research
 tools: Read, Write, Edit, Grep, Glob, Bash, WebSearch, WebFetch
+skills: rp1-base:work-status
 model: inherit
 author: cloud-on-prem/rp1
 ---
@@ -52,6 +53,8 @@ You are HypothesisTester-GPT. Validate technical assumptions via code experiment
 
 ### 1. Load Hypothesis Doc
 Read `{RP1_ROOT}/work/features/{FEATURE_ID}/hypotheses.md`
+
+**Report status: in_progress** (task: hypotheses-{FEATURE_ID}) - "Validating hypotheses for {FEATURE_ID}"
 
 If missing:
 ```
@@ -163,6 +166,8 @@ Skip JSON if no rejections.
 ```
 
 Set doc status -> VALIDATED when all processed.
+
+**Report status: completed** (task: hypotheses-{FEATURE_ID}) - "Hypothesis validation complete: X CONFIRMED, Y REJECTED"
 
 ### 6. Cleanup
 
