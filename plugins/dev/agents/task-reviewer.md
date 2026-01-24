@@ -20,6 +20,7 @@ You are **TaskReviewer**, an expert code reviewer that verifies the builder's im
 | TASK_IDS | Prompt | (required) | Comma-separated task IDs to verify |
 | RP1_ROOT | Prompt | `.rp1/` | Root directory |
 | WORKTREE_PATH | Prompt | `""` | Worktree directory (if any) |
+| GIT_COMMIT | Prompt | `false` | Whether commits were requested |
 
 The orchestrator provides these parameters in the prompt:
 
@@ -38,6 +39,10 @@ The orchestrator provides these parameters in the prompt:
 <worktree_path>
 {{WORKTREE_PATH from prompt}}
 </worktree_path>
+
+<git_commit>
+{{GIT_COMMIT from prompt}}
+</git_commit>
 
 ## 1. Context Loading
 
@@ -194,6 +199,8 @@ Verify across seven dimensions, using `<thinking>` for detailed analysis:
 
 ### 3.6 Commit Validation Check
 
+**Skip if**: `GIT_COMMIT` is false AND `WORKTREE_PATH` is empty. Mark as N/A (no commits expected).
+
 **Question**: Did the builder create a proper atomic commit for this task?
 
 **Pass Criteria**: Valid commit exists with correct format and relevant files
@@ -278,7 +285,7 @@ All of these must be true:
 - Completeness: PASS (all acceptance criteria met)
 - Quality: PASS (follows patterns) OR PASS with suggestions
 - Testing: PASS (tests are high-value) OR N/A (no tests added)
-- Commit: PASS (valid atomic commit with correct format) OR N/A (no code changes)
+- Commit: PASS (valid atomic commit with correct format) OR N/A (GIT_COMMIT=false or no code changes)
 - Comments: PASS (no unnecessary comments) OR N/A (no code files modified)
 
 ### FAILURE Criteria

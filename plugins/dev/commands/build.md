@@ -252,7 +252,7 @@ for unit in task_units:
   attempt=1, max=2, feedback=null
   while attempt <= max:
     Task: rp1-dev:task-builder (FEATURE_ID, TASK_IDS, WORKTREE_PATH, GIT_COMMIT, feedback)
-    Task: rp1-dev:task-reviewer (FEATURE_ID, TASK_IDS, WORKTREE_PATH)
+    Task: rp1-dev:task-reviewer (FEATURE_ID, TASK_IDS, WORKTREE_PATH, GIT_COMMIT)
     if SUCCESS: break
     elif attempt < max: feedback=result, attempt++
     else: escalate (AFK: mark blocked; Interactive: prompt)
@@ -291,7 +291,7 @@ AskUserQuestion: |
    prompt: FEATURE_ID={FEATURE_ID}, TASK_IDS=[TX-{timestamp}], WORKTREE_PATH={worktree_path}, GIT_COMMIT={GIT_COMMIT}, PREVIOUS_FEEDBACK={task_description}
 
    Task: rp1-dev:task-reviewer
-   prompt: FEATURE_ID={FEATURE_ID}, TASK_IDS=[TX-{timestamp}], WORKTREE_PATH={worktree_path}
+   prompt: FEATURE_ID={FEATURE_ID}, TASK_IDS=[TX-{timestamp}], WORKTREE_PATH={worktree_path}, GIT_COMMIT={GIT_COMMIT}
    ```
 4. Return to §4.6 checkpoint (loop until "Continue" or "Stop")
 
