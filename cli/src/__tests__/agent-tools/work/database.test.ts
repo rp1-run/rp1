@@ -189,7 +189,6 @@ describe("work database", () => {
 
 	describe("queryStatusUpdates", () => {
 		test("returns only records matching project path", async () => {
-			// Insert records for different projects
 			await expectTaskRight(
 				insertStatusUpdate(
 					{
@@ -251,7 +250,6 @@ describe("work database", () => {
 		});
 
 		test("limits results when specified", async () => {
-			// Insert multiple records
 			for (let i = 0; i < 5; i++) {
 				await expectTaskRight(
 					insertStatusUpdate(
@@ -304,7 +302,6 @@ describe("work database", () => {
 				queryStatusUpdates({ projectPath: "/order-test" }, testDbPath),
 			);
 
-			// Most recent first
 			expect(results[0].status).toBe("in_progress");
 			expect(results[1].status).toBe("started");
 		});
@@ -325,7 +322,6 @@ describe("work database", () => {
 		test("returns only the latest status for each feature", async () => {
 			const projectPath = "/latest-test";
 
-			// Insert multiple updates for same feature
 			await expectTaskRight(
 				insertStatusUpdate(
 					{ projectPath, feature: "feature-a", status: "started" },
@@ -347,7 +343,6 @@ describe("work database", () => {
 				),
 			);
 
-			// Insert for different feature
 			await expectTaskRight(
 				insertStatusUpdate(
 					{ projectPath, feature: "feature-b", status: "started" },
@@ -431,7 +426,6 @@ describe("work database", () => {
 		test("excludes tasks without task field", async () => {
 			const projectPath = "/completed-no-task";
 
-			// Insert completed status without task field
 			await expectTaskRight(
 				insertStatusUpdate(
 					{

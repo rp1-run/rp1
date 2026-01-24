@@ -90,7 +90,6 @@ function FeatureGroupCard({ feature }: FeatureGroupCardProps) {
 
 	return (
 		<div className="rounded-lg border bg-card overflow-hidden mb-4">
-			{/* Feature Header */}
 			<div className="bg-muted/30 px-4 py-3 border-b">
 				<div className="flex items-center justify-between gap-4">
 					<div className="flex items-center gap-2 min-w-0">
@@ -126,9 +125,7 @@ function FeatureGroupCard({ feature }: FeatureGroupCardProps) {
 				</div>
 			</div>
 
-			{/* Tasks List */}
 			<div className="px-4 py-2">
-				{/* Task history (when expanded) */}
 				{isExpanded && uniqueTasks.length > 0 && (
 					<div className="space-y-1">
 						{uniqueTasks.map((update, idx) => (
@@ -137,7 +134,6 @@ function FeatureGroupCard({ feature }: FeatureGroupCardProps) {
 					</div>
 				)}
 
-				{/* Collapsed summary */}
 				{!isExpanded && uniqueTasks.length > 0 && (
 					<div className="py-1 text-sm text-muted-foreground">
 						{uniqueTasks.length} task{uniqueTasks.length === 1 ? "" : "s"}
@@ -145,7 +141,6 @@ function FeatureGroupCard({ feature }: FeatureGroupCardProps) {
 				)}
 			</div>
 
-			{/* Footer with timestamp */}
 			<div className="px-4 py-2 bg-muted/20 text-xs text-muted-foreground text-right border-t">
 				Last update: {formatRelativeTime(feature.lastUpdate)}
 			</div>
@@ -287,7 +282,6 @@ export function StatusDashboard() {
 
 	// Fallback polling when WebSocket is not connected
 	useEffect(() => {
-		// Only poll when WebSocket is not connected
 		if (wsStatus === "connected") {
 			if (pollingIntervalRef.current) {
 				clearInterval(pollingIntervalRef.current);
