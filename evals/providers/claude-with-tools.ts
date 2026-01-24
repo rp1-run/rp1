@@ -17,6 +17,7 @@ import {
 import {
 	context,
 	propagation,
+	type Span,
 	SpanStatusCode,
 	trace,
 } from "@opentelemetry/api";
@@ -26,9 +27,12 @@ import {
 	NodeTracerProvider,
 } from "@opentelemetry/sdk-trace-node";
 
-// Initialize OpenTelemetry tracer provider once
+// Initialize OpenTelemetry tracer provider
+// Tracing is always enabled; forceFlush errors are non-fatal if no collector is running
 const otlpExporter = new OTLPTraceExporter({
-	url: "http://localhost:4318/v1/traces",
+	url:
+		process.env.OTEL_EXPORTER_OTLP_ENDPOINT ||
+		"http://localhost:4318/v1/traces",
 });
 const tracerProvider = new NodeTracerProvider({
 	spanProcessors: [new BatchSpanProcessor(otlpExporter)],
@@ -253,6 +257,7 @@ export default class ClaudeWithToolCapture {
 			});
 
 			const toolCalls: ToolCall[] = [];
+			const activeToolSpans = new Map<string, Span>();
 			let finalResult = "";
 			let totalInputTokens = 0;
 			let totalOutputTokens = 0;
@@ -311,11 +316,19 @@ export default class ClaudeWithToolCapture {
 									input: block.input ?? {},
 									source: "stream_event",
 								});
-								// Add span event for tool use
-								span.addEvent("tool_use", {
-									"tool.name": block.name,
-									"tool.id": block.id,
-								});
+								// Create child span for this tool call
+								const toolSpan = tracer.startSpan(
+									`tool.${block.name}`,
+									{
+										attributes: {
+											"tool.name": block.name,
+											"tool.id": block.id,
+											"tool.sequence": toolCalls.length,
+										},
+									},
+									trace.setSpan(context.active(), span),
+								);
+								activeToolSpans.set(block.id, toolSpan);
 							}
 						}
 					}
@@ -339,6 +352,19 @@ export default class ClaudeWithToolCapture {
 										input: block.input,
 										source: "assistant",
 									});
+								}
+								// End the tool span now that we have the full input
+								const toolSpan = activeToolSpans.get(block.id);
+								if (toolSpan) {
+									toolSpan.setAttributes({
+										"tool.input":
+											typeof block.input === "object"
+												? JSON.stringify(block.input).slice(0, 1000)
+												: String(block.input),
+									});
+									toolSpan.setStatus({ code: SpanStatusCode.OK });
+									toolSpan.end();
+									activeToolSpans.delete(block.id);
 								}
 							}
 						}
@@ -369,6 +395,13 @@ export default class ClaudeWithToolCapture {
 ${JSON.stringify({ toolCalls, bashCommands, toolCallCount: toolCalls.length }, null, 2)}
 \`\`\``;
 
+				// End any remaining tool spans
+				for (const [, toolSpan] of activeToolSpans) {
+					toolSpan.setStatus({ code: SpanStatusCode.OK });
+					toolSpan.end();
+				}
+				activeToolSpans.clear();
+
 				// Set span attributes for completion
 				span.setAttributes({
 					"gen_ai.usage.input_tokens": totalInputTokens,
@@ -379,7 +412,8 @@ ${JSON.stringify({ toolCalls, bashCommands, toolCallCount: toolCalls.length }, n
 				span.end();
 
 				// Flush spans to ensure they're exported before the eval completes
-				await tracerProvider.forceFlush();
+				// Non-fatal: don't fail the eval if collector is unavailable
+				await tracerProvider.forceFlush().catch(() => {});
 
 				return {
 					output: finalResult + metadataSection,
@@ -397,6 +431,17 @@ ${JSON.stringify({ toolCalls, bashCommands, toolCallCount: toolCalls.length }, n
 			} catch (error) {
 				const errorMessage =
 					error instanceof Error ? error.message : String(error);
+
+				// End any remaining tool spans with error status
+				for (const [, toolSpan] of activeToolSpans) {
+					toolSpan.setStatus({
+						code: SpanStatusCode.ERROR,
+						message: errorMessage,
+					});
+					toolSpan.end();
+				}
+				activeToolSpans.clear();
+
 				span.recordException(
 					error instanceof Error ? error : new Error(errorMessage),
 				);
@@ -404,7 +449,8 @@ ${JSON.stringify({ toolCalls, bashCommands, toolCallCount: toolCalls.length }, n
 				span.end();
 
 				// Flush spans even on error
-				await tracerProvider.forceFlush();
+				// Non-fatal: don't fail the eval if collector is unavailable
+				await tracerProvider.forceFlush().catch(() => {});
 
 				return {
 					output: "",

@@ -46,7 +46,10 @@ Quick-iteration dev workflow. Assess scope, implement small/medium changes in is
 
 ## 1. Initialization
 
-**Load skill**: `rp1-base:work-status` (provides command syntax for all status updates)
+**CRITICAL**:
+
+1. Load skill now: `rp1-base:work-status`
+2. Use this skill throughout for consistently broadcasting "report status" as you progress though the workflow.
 
 Generate a **feature slug** from REQUEST (2-4 word kebab-case, e.g., `fix-auth-bug`, `add-date-util`). Use this slug for all status updates.
 
@@ -323,6 +326,7 @@ rp1 agent-tools worktree cleanup {worktree_path} --keep-branch
 **Conditional sections** (add based on flags):
 
 If `GIT_COMMIT=false` AND `GIT_WORKTREE=false`:
+
 ```markdown
 **Changes**: Uncommitted in working directory
 **Next Steps**:
@@ -331,6 +335,7 @@ If `GIT_COMMIT=false` AND `GIT_WORKTREE=false`:
 ```
 
 If `GIT_PUSH=false` (but committed):
+
 ```markdown
 **Branch**: Local only (not pushed)
 **Next Steps**:
@@ -340,6 +345,7 @@ If `GIT_PUSH=false` (but committed):
 ```
 
 If `GIT_PUSH=true`:
+
 ```markdown
 **Next Steps**:
 - Review: `git log {branch}`

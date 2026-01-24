@@ -145,6 +145,8 @@ setup-evals:
 run-evals suite verbose="false":
     #!/usr/bin/env bash
     set -e
+    # Add local rp1 bin to PATH so agents can use the dev version
+    export PATH="$(pwd)/bin:$PATH"
     timestamp=$(date -u +%Y-%m-%dT%H-%M-%S)
     suite_filename=$(echo "{{suite}}" | tr '/' '-')
     output_file="output/${suite_filename}-${timestamp}.json"

@@ -6,6 +6,9 @@
 description: "rp1-dev:build instruction-following evaluation"
 tracing:
   enabled: true
+  otlp:
+    http:
+      enabled: true
 evaluateOptions:
   maxConcurrency: 4
 extensions:
