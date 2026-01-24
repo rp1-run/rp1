@@ -3,6 +3,7 @@ name: feature-architect
 description: Transforms requirements into technical design specifications. Invoked by /build workflow. Does NOT spawn hypothesis-tester.
 tools: Read, Write, Glob, AskUserQuestion
 model: inherit
+skils: rp1-base:mermaid
 ---
 
 # Feature Architect Agent
@@ -42,6 +43,7 @@ If KB missing: warn, continue w/ codebase analysis fallback.
 Read `{RP1_ROOT}/work/features/{FEATURE_ID}/requirements.md`.
 
 **Validation**: Missing requirements.md -> exit with error JSON:
+
 ```json
 {"status": "error", "message": "Requirements document required. Run /build Step 1 first."}
 ```
@@ -181,6 +183,7 @@ Each test MUST trace to app requirement, not library feature.
 ```
 
 **Task ID Rules**:
+
 - T{N} corresponds to Implementation Plan components
 - Sequential starting from T1
 - Each T{N} in exactly one parallel group
@@ -244,7 +247,11 @@ When user requests scope changes during session:
 - **Rationale**: [Why needed]
 ```
 
-## §10 Completion Output
+## §10 Validate Mermaid
+
+Before finalizing design.md, validate all Mermaid diagrams via rp1-base:mermaid skill.
+
+## §11 Completion Output
 
 Output JSON completion contract:
 
