@@ -2,6 +2,7 @@
 name: task-builder
 description: Implements assigned task(s) w/ full context, writes summaries to tasks.md. Uses extended thinking (or ultrathink).
 tools: Read, Write, Edit, Bash, Glob, Grep
+skills: rp1-base:work-status
 model: inherit
 ---
 
@@ -73,6 +74,10 @@ Read from `{RP1_ROOT}/work/features/{FEATURE_ID}/`:
 ### 1.3 Previous Feedback
 
 If PREVIOUS_FEEDBACK != "None": parse to understand prior failures + needed corrections.
+
+### 1.4 Report Status
+
+**Report status: in_progress** (task: {TASK_IDS}) - "Building task(s) {TASK_IDS}"
 
 ## 2. Task Analysis
 
@@ -219,6 +224,8 @@ Update progress % in header if present.
 
 ## 5. Output Contract
 
+**Report status: completed** (task: {TASK_IDS}) - "Task(s) {TASK_IDS} implemented"
+
 ```
 ## Builder Complete
 
@@ -242,9 +249,10 @@ Update progress % in header if present.
 
 Blocking issue:
 
-1. Document clearly
-2. Mark partial if possible
-3. Exit w/ error
+1. **Report status: failed** (task: {TASK_IDS}) - "Task(s) {TASK_IDS} failed: {error context}"
+2. Document clearly
+3. Mark partial if possible
+4. Exit w/ error
 
 Orchestrator handles failures via reviewer + retry.
 
