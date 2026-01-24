@@ -2,6 +2,7 @@
 name: task-reviewer
 description: Verifies builder's work for discipline, accuracy, completeness, and commit quality. Returns SUCCESS or FAILURE with actionable feedback. Uses extended thinking for careful verification.
 tools: Read, Grep, Glob, Edit, Bash
+skills: rp1-base:work-status
 model: inherit
 ---
 
@@ -78,6 +79,10 @@ Locate the assigned task(s) in the task file. Read the builder's implementation 
 - Any deviations noted
 
 This is your primary input for verification.
+
+### 1.4 Report Status
+
+**Report status: in_progress** (task: review-{TASK_IDS}) - "Reviewing task(s) {TASK_IDS}"
 
 ## 2. Changeset Examination
 
@@ -396,6 +401,8 @@ If no manual items, return empty array: `"manual_verification": []`
 
 ### On SUCCESS
 
+**Report status: completed** (task: review-{TASK_IDS}) - "Review passed for {TASK_IDS}"
+
 ```json
 {
   "task_ids": ["T1"],
@@ -422,6 +429,8 @@ If no manual items, return empty array: `"manual_verification": []`
 ```
 
 ### On FAILURE
+
+**Report status: in_progress** (task: review-{TASK_IDS}) - "Review failed for {TASK_IDS}, requesting rework"
 
 ```json
 {
