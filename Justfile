@@ -152,7 +152,7 @@ run-evals suite verbose="false":
     output_file="output/${suite_filename}-${timestamp}.json"
     verbose_flag=""
     if [ "{{verbose}}" = "true" ]; then verbose_flag="--verbose"; fi
-    cd evals && bunx promptfoo eval -c "suites/{{suite}}/evals.yaml" --output "${output_file}" $verbose_flag
+    cd evals && bunx promptfoo eval -c "suites/{{suite}}/evals.yaml" --output "${output_file}" $verbose_flag --grader anthropic:messages:claude-haiku-4-5-20251001
     echo "Output written to: evals/${output_file}"
 
 # Generate attestation from eval output file (just pass filename, e.g., rp1-dev-build-fast-2026-01-24T05-00-44.json)

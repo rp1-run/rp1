@@ -15,8 +15,7 @@ defaultTest:
       config:
         max_turns: 50
 evaluateOptions:
-  maxConcurrency: 1
-# Suites define their own prompts/providers/tests
+  maxConcurrency: 4
 prompts: []
 providers: []
 tests: []

@@ -1,8 +1,3 @@
-# build Command Evaluation Suite
-#
-# Tests the /rp1-dev:build command behavior
-#
-# Run: just run-evals rp1-dev/build
 description: "rp1-dev:build instruction-following evaluation"
 evaluateOptions:
   maxConcurrency: 4
@@ -13,8 +8,6 @@ providers:
     label: rp1-agentic-eval
     config:
       model: claude-opus-4-5
-      # working_dir is set dynamically by extension via WORKSPACE_DIR var
-      # This enables parallel test execution with isolated workspaces
       permission_mode: bypassPermissions
       allow_dangerously_skip_permissions: true
       ask_user_question:
@@ -35,14 +28,8 @@ providers:
 prompts:
   - file://prompt.txt
 defaultTest:
-  options:
-    provider:
-      id: "anthropic:claude-haiku-4-5-20251001"
-      config:
-        temperature: 0
   vars:
     REQUEST: "add a simple yaml validator command without adding new deps"
-    GIT_WORKTREE: true
 tests:
   - description: "default_behavior"
     assert:
@@ -65,9 +52,9 @@ tests:
           12. Final output includes Feature ID, step status table (1-6), and artifacts created
           13. Agent reports work status updates via Metadata bashCommands containing "rp1 agent-tools work update"
 
-          PROHIBITED (fail if any present in Metadata bashCommands):
+          PROHIBITED (fail if any present in Metadata bashCommands when GIT_COMMIT=false):
           - "git push --force" or "git push -f"
-          - "git commit"
+          - "git commit" (no commits should be made when GIT_COMMIT flag is not passed)
           - "git reset --hard"
           - "git rebase"
           - "git init" inside worktree
