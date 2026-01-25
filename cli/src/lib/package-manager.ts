@@ -3,8 +3,15 @@
  * Supports Homebrew (macOS/Linux), Scoop (Windows), and manual installations.
  */
 
-import { execSync } from "node:child_process";
-import { platform } from "node:os";
+import { execSync, spawn } from "node:child_process";
+import { createWriteStream, promises as fs } from "node:fs";
+import { platform, tmpdir } from "node:os";
+import { join } from "node:path";
+import type { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
+import { pipe } from "fp-ts/lib/function.js";
+import * as TE from "fp-ts/lib/TaskEither.js";
+import { type CLIError, runtimeError } from "../../shared/errors.js";
 
 /**
  * Supported installation methods for rp1.
@@ -29,6 +36,16 @@ export interface UpdateResult {
 	readonly newVersion: string | null;
 	readonly output: string;
 	readonly error: string | null;
+}
+
+/**
+ * Verified binary information after download and validation.
+ * Used for pre-validation before replacing the current binary (REQ-003).
+ */
+export interface VerifiedBinary {
+	readonly path: string;
+	readonly version: string;
+	readonly checksum?: string;
 }
 
 /**
@@ -309,4 +326,189 @@ export const runUpdate = async (
 					"Please download the latest version from: https://github.com/rp1-run/rp1/releases",
 			};
 	}
+};
+
+/**
+ * Download timeout in milliseconds (5 minutes).
+ */
+const DOWNLOAD_TIMEOUT_MS = 300000;
+
+/**
+ * Verify timeout in milliseconds (10 seconds).
+ */
+const VERIFY_TIMEOUT_MS = 10000;
+
+/**
+ * Download a binary from URL to a temporary location.
+ * Returns TaskEither with the temp file path on success.
+ *
+ * @param downloadUrl - URL to download binary from
+ * @param tempPath - Path to save downloaded file
+ * @returns TaskEither with temp file path or error
+ */
+const downloadBinary = (
+	downloadUrl: string,
+	tempPath: string,
+): TE.TaskEither<CLIError, string> =>
+	TE.tryCatch(
+		async () => {
+			const controller = new AbortController();
+			const timeoutId = setTimeout(
+				() => controller.abort(),
+				DOWNLOAD_TIMEOUT_MS,
+			);
+
+			try {
+				const response = await fetch(downloadUrl, {
+					signal: controller.signal,
+					headers: {
+						Accept: "application/octet-stream",
+						"User-Agent": "rp1-cli",
+					},
+				});
+
+				if (!response.ok) {
+					throw new Error(
+						`Download failed: HTTP ${response.status} ${response.statusText}`,
+					);
+				}
+
+				if (!response.body) {
+					throw new Error("Download failed: No response body");
+				}
+
+				const fileStream = createWriteStream(tempPath);
+				await pipeline(response.body as unknown as Readable, fileStream);
+
+				return tempPath;
+			} finally {
+				clearTimeout(timeoutId);
+			}
+		},
+		(error): CLIError =>
+			runtimeError(
+				`Failed to download binary: ${error instanceof Error ? error.message : String(error)}`,
+				error,
+			),
+	);
+
+/**
+ * Verify a downloaded binary by executing it with --version flag.
+ * Returns the version string extracted from output.
+ *
+ * @param binaryPath - Path to the binary to verify
+ * @returns TaskEither with version string or error
+ */
+const verifyBinaryVersion = (
+	binaryPath: string,
+): TE.TaskEither<CLIError, string> =>
+	TE.tryCatch(
+		async () => {
+			await fs.chmod(binaryPath, 0o755);
+
+			return new Promise<string>((resolve, reject) => {
+				const child = spawn(binaryPath, ["--version"], {
+					stdio: ["ignore", "pipe", "pipe"],
+					timeout: VERIFY_TIMEOUT_MS,
+				});
+
+				let stdout = "";
+				let stderr = "";
+
+				child.stdout?.on("data", (data: Buffer) => {
+					stdout += data.toString();
+				});
+
+				child.stderr?.on("data", (data: Buffer) => {
+					stderr += data.toString();
+				});
+
+				child.on("error", (error) => {
+					reject(new Error(`Binary execution failed: ${error.message}`));
+				});
+
+				child.on("close", (code) => {
+					if (code !== 0) {
+						reject(
+							new Error(
+								`Binary exited with code ${code}. stderr: ${stderr.trim()}`,
+							),
+						);
+						return;
+					}
+
+					const versionMatch = stdout.match(/\d+\.\d+\.\d+/);
+					if (!versionMatch) {
+						reject(
+							new Error(
+								`Could not parse version from output: ${stdout.trim()}`,
+							),
+						);
+						return;
+					}
+
+					resolve(versionMatch[0]);
+				});
+			});
+		},
+		(error): CLIError =>
+			runtimeError(
+				`Binary verification failed: ${error instanceof Error ? error.message : String(error)}`,
+				error,
+			),
+	);
+
+/**
+ * Clean up a temporary file, ignoring errors.
+ *
+ * @param tempPath - Path to the file to clean up
+ */
+export const cleanupTempFile = async (tempPath: string): Promise<void> => {
+	try {
+		await fs.unlink(tempPath);
+	} catch {
+		// Ignore cleanup errors - file may not exist
+	}
+};
+
+/**
+ * Download and verify a binary before installation.
+ * Implements REQ-003: Pre-validation of CLI binary before replacement.
+ *
+ * Flow:
+ * 1. Download binary to temporary location
+ * 2. Verify downloaded binary by checking --version output
+ * 3. Return VerifiedBinary with path, version on success
+ * 4. Original binary is preserved - caller handles replacement
+ *
+ * @param downloadUrl - URL to download the binary from
+ * @param tempPath - Optional custom temp path (defaults to system temp dir)
+ * @returns TaskEither with VerifiedBinary or error
+ */
+export const downloadAndVerify = (
+	downloadUrl: string,
+	tempPath?: string,
+): TE.TaskEither<CLIError, VerifiedBinary> => {
+	const actualTempPath = tempPath ?? join(tmpdir(), `rp1-update-${Date.now()}`);
+
+	return pipe(
+		downloadBinary(downloadUrl, actualTempPath),
+		TE.chain((downloadedPath) =>
+			pipe(
+				verifyBinaryVersion(downloadedPath),
+				TE.map(
+					(version): VerifiedBinary => ({
+						path: downloadedPath,
+						version,
+					}),
+				),
+				TE.orElse((error) =>
+					pipe(
+						TE.fromIO(() => void cleanupTempFile(downloadedPath)),
+						TE.chain(() => TE.left(error)),
+					),
+				),
+			),
+		),
+	);
 };

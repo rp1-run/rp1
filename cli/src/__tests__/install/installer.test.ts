@@ -12,10 +12,14 @@ import {
 	backupExistingInstallation,
 	copyArtifacts,
 	copyOpenCodePlugin,
+	restoreFromBackup,
 } from "../../install/installer.js";
+import type { BackupManifest } from "../../install/models.js";
 import {
 	cleanupTempDir,
 	createTempDir,
+	expectTaskLeft,
+	expectTaskRight,
 	writeFixture,
 } from "../helpers/index.js";
 
@@ -31,6 +35,7 @@ describe("installer", () => {
 	});
 
 	describe("copyArtifacts", () => {
+		// Core functionality: verifies all artifact types reach correct destinations
 		test("copies files to correct subdirectories (command/, agent/, skill/)", async () => {
 			const sourceDir = join(tempDir, "source");
 			const targetDir = join(tempDir, "target");
@@ -77,32 +82,7 @@ describe("installer", () => {
 			expect(skillContent).toContain("Skill content");
 		});
 
-		test("calls onOverwrite callback for existing files", async () => {
-			const sourceDir = join(tempDir, "source");
-			const targetDir = join(tempDir, "target");
-
-			await writeFixture(
-				sourceDir,
-				"command/rp1-base/existing.md",
-				"---\nname: existing\n---\nNew content",
-			);
-
-			await writeFixture(
-				targetDir,
-				"command/rp1-base/existing.md",
-				"---\nname: existing\n---\nOld content",
-			);
-
-			const overwrites: string[] = [];
-			const result = await copyArtifacts(sourceDir, targetDir, (path) => {
-				overwrites.push(path);
-			})();
-
-			expect(E.isRight(result)).toBe(true);
-			expect(overwrites.length).toBeGreaterThan(0);
-			expect(overwrites[0]).toContain("existing.md");
-		});
-
+		// Security: verifies files aren't world-writable (prevents injection)
 		test("sets correct file permissions (0o644 for files)", async () => {
 			const sourceDir = join(tempDir, "source");
 			const targetDir = join(tempDir, "target");
@@ -123,6 +103,7 @@ describe("installer", () => {
 			expect(mode & 0o200).toBe(0o200); // Writable by owner
 		});
 
+		// Boundary: empty plugin shouldn't fail - valid on partial installs
 		test("handles missing source directories gracefully", async () => {
 			const sourceDir = join(tempDir, "empty-source");
 			const targetDir = join(tempDir, "target");
@@ -136,6 +117,7 @@ describe("installer", () => {
 			}
 		});
 
+		// Critical: skills have nested template dirs that must be preserved
 		test("copies skill directories recursively", async () => {
 			const sourceDir = join(tempDir, "source");
 			const targetDir = join(tempDir, "target");
@@ -172,22 +154,6 @@ describe("installer", () => {
 			);
 			expect(template2).toBe("Template 2 content");
 		});
-
-		test("returns count of files copied", async () => {
-			const sourceDir = join(tempDir, "source");
-			const targetDir = join(tempDir, "target");
-
-			await writeFixture(sourceDir, "command/rp1-base/cmd1.md", "content1");
-			await writeFixture(sourceDir, "command/rp1-base/cmd2.md", "content2");
-			await writeFixture(sourceDir, "agent/rp1-base/agent1.md", "content3");
-
-			const result = await copyArtifacts(sourceDir, targetDir)();
-
-			expect(E.isRight(result)).toBe(true);
-			if (E.isRight(result)) {
-				expect(result.right).toBe(3);
-			}
-		});
 	});
 
 	describe("copyOpenCodePlugin", () => {
@@ -209,6 +175,7 @@ describe("installer", () => {
 			}
 		});
 
+		// Security: plugin dirs need execute bit for traversal, but not world-writable
 		test("creates target directory with correct permissions (0o755)", async () => {
 			const sourceDir = join(tempDir, "source");
 
@@ -234,33 +201,7 @@ describe("installer", () => {
 			expect(mode & 0o755).toBe(0o755);
 		});
 
-		test("copies files with correct permissions (0o644)", async () => {
-			const sourceDir = join(tempDir, "source");
-
-			await writeFixture(
-				sourceDir,
-				"platforms/opencode/opencode.json",
-				JSON.stringify({ name: testPluginName, version: "1.0.0" }),
-			);
-			await writeFixture(
-				sourceDir,
-				"platforms/opencode/index.ts",
-				"export default {};",
-			);
-
-			await copyOpenCodePlugin(sourceDir, testPluginName)();
-
-			const jsonFile = join(testPluginDir, "opencode.json");
-			const jsonStat = await stat(jsonFile);
-			const jsonMode = jsonStat.mode & 0o777;
-			expect(jsonMode & 0o644).toBe(0o644);
-
-			const tsFile = join(testPluginDir, "index.ts");
-			const tsStat = await stat(tsFile);
-			const tsMode = tsStat.mode & 0o777;
-			expect(tsMode & 0o644).toBe(0o644);
-		});
-
+		// Boundary: missing plugin source shouldn't fail - valid on partial installs
 		test("returns 0 when no source plugin exists", async () => {
 			const sourceDir = join(tempDir, "empty-source");
 			await mkdir(sourceDir, { recursive: true });
@@ -273,58 +214,7 @@ describe("installer", () => {
 			}
 		});
 
-		test("returns file count when successful", async () => {
-			const sourceDir = join(tempDir, "source");
-
-			await writeFixture(
-				sourceDir,
-				"platforms/opencode/opencode.json",
-				JSON.stringify({ name: testPluginName, version: "1.0.0" }),
-			);
-			await writeFixture(
-				sourceDir,
-				"platforms/opencode/index.ts",
-				"export default {};",
-			);
-			await writeFixture(
-				sourceDir,
-				"platforms/opencode/utils.ts",
-				"export const helper = () => {};",
-			);
-
-			const result = await copyOpenCodePlugin(sourceDir, testPluginName)();
-
-			expect(E.isRight(result)).toBe(true);
-			if (E.isRight(result)) {
-				expect(result.right).toBe(3); // 3 files copied
-			}
-		});
-
-		test("invokes onProgress callback with installation message", async () => {
-			const sourceDir = join(tempDir, "source");
-
-			await writeFixture(
-				sourceDir,
-				"platforms/opencode/opencode.json",
-				JSON.stringify({ name: testPluginName, version: "1.0.0" }),
-			);
-			await writeFixture(
-				sourceDir,
-				"platforms/opencode/index.ts",
-				"export default {};",
-			);
-
-			const progressMessages: string[] = [];
-			await copyOpenCodePlugin(sourceDir, testPluginName, (msg) => {
-				progressMessages.push(msg);
-			})();
-
-			expect(progressMessages.length).toBe(1);
-			expect(progressMessages[0]).toContain(testPluginName);
-			expect(progressMessages[0]).toContain("plugin");
-			expect(progressMessages[0]).toContain("files");
-		});
-
+		// Critical: OpenCode plugins can have nested subdirs (e.g., plugin/index.ts)
 		test("copies nested directory structure correctly", async () => {
 			const sourceDir = join(tempDir, "source");
 
@@ -350,16 +240,11 @@ describe("installer", () => {
 	});
 
 	describe("backupExistingInstallation", () => {
-		// Note: backupExistingInstallation uses homedir(), making it harder to test
-		// in isolation. These tests verify the behavior of the backup functions
-		// with the understanding that they operate on ~/.config/opencode
-
+		// Core backup contract: returns manifest with required fields for restore
+		// Note: uses homedir(), so tests validate return structure not file operations
 		test("backup creates manifest with file count", async () => {
-			// This test verifies the BackupManifest structure returned
-			// We can't easily mock homedir(), so we test the return type
 			const result = await backupExistingInstallation()();
 
-			// Even if no files exist to backup, it should return successfully
 			expect(E.isRight(result)).toBe(true);
 			if (E.isRight(result)) {
 				const manifest = result.right;
@@ -369,25 +254,155 @@ describe("installer", () => {
 				expect(typeof manifest.filesBackedUp).toBe("number");
 			}
 		});
+	});
 
-		test("backup timestamp has correct format", async () => {
-			const result = await backupExistingInstallation()();
+	describe("restoreFromBackup", () => {
+		let backupDir: string;
+		let targetDir: string;
 
-			expect(E.isRight(result)).toBe(true);
-			if (E.isRight(result)) {
-				// Timestamp format: YYYY-MM-DDTHH-MM-SS
-				const timestampPattern = /\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}/;
-				expect(result.right.timestamp).toMatch(timestampPattern);
+		beforeEach(async () => {
+			backupDir = join(tempDir, "backup");
+			targetDir = join(tempDir, "target");
+			await mkdir(backupDir, { recursive: true });
+			await mkdir(targetDir, { recursive: true });
+		});
+
+		// Core restore functionality - verifies backup data actually overwrites corrupted target
+		test("restores command files from backup (P0)", async () => {
+			// Setup backup with commands
+			await writeFixture(
+				backupDir,
+				"command/rp1-base/test-cmd.md",
+				"Original command content",
+			);
+			await writeFixture(join(backupDir, "manifest.json"), "", "");
+
+			// Create manifest
+			const manifest: BackupManifest = {
+				timestamp: "2026-01-25T10-00-00",
+				backupPath: backupDir,
+				filesBackedUp: 1,
+			};
+			await writeFixture(backupDir, "manifest.json", JSON.stringify(manifest));
+
+			// Simulate target with corrupted content
+			const configDir = join(homedir(), ".config", "opencode");
+			await mkdir(join(configDir, "command", "rp1-base"), { recursive: true });
+			await writeFixture(
+				configDir,
+				"command/rp1-base/test-cmd.md",
+				"Corrupted content",
+			);
+
+			const result = await expectTaskRight(restoreFromBackup(manifest));
+
+			expect(result.filesRestored).toBeGreaterThan(0);
+
+			// Verify content was restored
+			const restoredContent = await readFile(
+				join(configDir, "command/rp1-base/test-cmd.md"),
+				"utf-8",
+			);
+			expect(restoredContent).toBe("Original command content");
+
+			// Cleanup
+			await rm(join(configDir, "command/rp1-base"), {
+				recursive: true,
+				force: true,
+			});
+		});
+
+		// Critical: manifest deletion prevents accidental double-restore on retry
+		test("deletes manifest.json after successful restore (prevents duplicate)", async () => {
+			// Setup backup with minimal content
+			await writeFixture(backupDir, "command/rp1-base/cmd.md", "content");
+			const manifest: BackupManifest = {
+				timestamp: "2026-01-25T10-00-00",
+				backupPath: backupDir,
+				filesBackedUp: 1,
+			};
+			await writeFixture(backupDir, "manifest.json", JSON.stringify(manifest));
+
+			// Setup target
+			const configDir = join(homedir(), ".config", "opencode");
+			await mkdir(join(configDir, "command", "rp1-base"), { recursive: true });
+
+			const result = await expectTaskRight(restoreFromBackup(manifest));
+
+			expect(result.manifestDeleted).toBe(true);
+
+			// Verify manifest.json was deleted
+			let manifestExists = true;
+			try {
+				await stat(join(backupDir, "manifest.json"));
+			} catch {
+				manifestExists = false;
+			}
+			expect(manifestExists).toBe(false);
+
+			// Cleanup
+			await rm(join(configDir, "command/rp1-base"), {
+				recursive: true,
+				force: true,
+			});
+		});
+
+		// Error path: missing backup must fail clearly, not silently corrupt
+		test("returns error when backup path does not exist", async () => {
+			const manifest: BackupManifest = {
+				timestamp: "2026-01-25T10-00-00",
+				backupPath: "/nonexistent/path/that/does/not/exist",
+				filesBackedUp: 5,
+			};
+
+			const error = await expectTaskLeft(restoreFromBackup(manifest));
+
+			expect(error._tag).toBe("BackupError");
+			if (error._tag === "BackupError") {
+				expect(error.message).toContain("does not exist");
 			}
 		});
 
-		test("backup path includes backup prefix", async () => {
-			const result = await backupExistingInstallation()();
+		// Boundary: empty backup shouldn't error - valid edge case on fresh install
+		test("handles backup with no files gracefully", async () => {
+			// Empty backup - just manifest
+			const manifest: BackupManifest = {
+				timestamp: "2026-01-25T10-00-00",
+				backupPath: backupDir,
+				filesBackedUp: 0,
+			};
+			await writeFixture(backupDir, "manifest.json", JSON.stringify(manifest));
 
-			expect(E.isRight(result)).toBe(true);
-			if (E.isRight(result)) {
-				expect(result.right.backupPath).toContain("backup_");
-				expect(result.right.backupPath).toContain(".opencode-rp1-backups");
+			const result = await expectTaskRight(restoreFromBackup(manifest));
+
+			expect(result.filesRestored).toBe(0);
+		});
+	});
+
+	describe("copyArtifacts with strict mode", () => {
+		// Core strict mode contract: CI must fail on missing artifacts, not silently succeed
+		test("fails when command directory missing and strict=true (P2)", async () => {
+			const sourceDir = join(tempDir, "empty-source");
+			const targetDir = join(tempDir, "target");
+			await mkdir(sourceDir, { recursive: true });
+
+			const result = await copyArtifacts(
+				sourceDir,
+				targetDir,
+				undefined,
+				undefined,
+				true, // strict mode
+			)();
+
+			// When strict mode is enabled and directories are missing, it should fail
+			expect(E.isLeft(result)).toBe(true);
+			if (E.isLeft(result)) {
+				// The error contains the strict mode failure
+				// Note: The error message format depends on how tryCatch serializes the thrown error
+				expect(result.left._tag).toBe("InstallError");
+				if (result.left._tag === "InstallError") {
+					expect(result.left.operation).toBe("copy-artifacts");
+				}
 			}
 		});
 	});

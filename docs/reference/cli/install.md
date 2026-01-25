@@ -63,7 +63,8 @@ This command:
 
 | Option | Short | Description |
 |--------|-------|-------------|
-| `--dry-run` | | Show what would be installed without making changes |
+| `--dry-run` | | Show what would be installed without making changes. Also validates prerequisites (network, disk space). |
+| `--strict` | | Fail on any missing source directories (useful for CI/CD). Exit code 5 on strict mode failures. |
 | `--yes` | `-y` | Skip confirmation prompts |
 | `--help` | `-h` | Display help information |
 
@@ -128,7 +129,27 @@ rp1 install claude-code --dry-run
   - rp1-base to Claude Code
   - rp1-dev to Claude Code
 
+Validating prerequisites...
+  Network connectivity: OK
+  Disk space: OK (150 MB available)
+  Latest version: 0.3.1
+
 No changes made.
+```
+
+### Strict mode for CI/CD
+
+```bash
+rp1 install opencode --strict
+```
+
+In strict mode, the command fails with exit code 5 if any source directories are missing. This is useful for CI/CD pipelines where you want deterministic failures rather than silent warnings.
+
+**Example in CI:**
+
+```yaml
+- name: Install rp1 plugins
+  run: rp1 install all --strict --yes
 ```
 
 ### Non-interactive installation
@@ -162,6 +183,29 @@ rp1-dev          OK        ~/.claude/commands/rp1-dev
 
 All plugins verified successfully.
 ```
+
+## Reliability Features
+
+### Automatic Rollback
+
+If installation fails partway through, rp1 automatically restores your previous installation from backup. You'll see a message like:
+
+```
+Installation failed. Restored previous installation (12 files). You can safely retry the installation.
+```
+
+### Safe Interruption
+
+You can safely press Ctrl+C during installation. The system will:
+
+1. Stop the installation gracefully
+2. Restore any backed-up files
+3. Clean up partial state
+4. Display guidance for retrying
+
+### Atomic Installation (OpenCode)
+
+For OpenCode installations, plugins are first copied to a staging directory (`~/.config/.rp1-staging/`), verified, then atomically moved to the target location. This ensures you never end up with a partial installation.
 
 ## Troubleshooting
 

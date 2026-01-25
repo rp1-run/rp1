@@ -101,7 +101,7 @@ interface ExecutionContext {
 	pluginStatus: readonly PluginStatus[];
 	healthReport: HealthReport | null;
 	userChoices: {
-		gitRootChoice?: "continue" | "switch" | "cancel";
+		gitRootChoice?: "continue" | "exit";
 		reinitChoice?: ReinitChoice;
 		gitignorePreset?: GitignorePreset;
 	};
@@ -252,30 +252,35 @@ export const useStepExecution = ({
 
 			if (!gitResult.isGitRepo) {
 				addAct("git-check", "Not in a git repository", "warning");
-			} else if (gitResult.isAtRoot) {
-				addAct("git-check", "At repository root", "success");
 			} else {
-				// Not at root - need to decide what to do
-				addAct("git-check", `In subdirectory of ${gitResult.gitRoot}`, "info");
+				// In a git repo - confirm this is the right project root
+				if (gitResult.isAtRoot) {
+					addAct("git-check", "At repository root", "info");
+				} else {
+					addAct(
+						"git-check",
+						`In subdirectory of ${gitResult.gitRoot}`,
+						"info",
+					);
+				}
 
 				const choice = state.userChoices.gitRootChoice;
 
 				if (choice === undefined && !options.yes && onPromptRequest) {
 					// Interactive mode and no choice yet - request prompt
-					// Mark that we're waiting for user input so step isn't marked complete
 					promptRequestedRef.current = true;
 					onPromptRequest({ type: "git-root", resolve: () => {} });
 					return; // Step will be re-executed after user makes a choice
 				}
 
 				// Apply the choice (or default to continue)
-				if (choice === "switch" && gitResult.gitRoot) {
-					ctx.cwd = gitResult.gitRoot;
-					addAct("git-check", `Switched to ${gitResult.gitRoot}`, "success");
-				} else if (choice === "cancel") {
-					throw new Error("Initialization cancelled by user");
+				if (choice === "exit") {
+					throw new Error(
+						"Navigate to your project directory and run 'rp1 init' again.",
+					);
 				}
-				// Default (continue): stay in current directory
+				// Default (continue): user confirmed this is the right directory
+				addAct("git-check", "Project root confirmed", "success");
 			}
 		},
 		[state.userChoices.gitRootChoice, options.yes, onPromptRequest],

@@ -9,6 +9,7 @@ import {
 	mkdir,
 	readdir,
 	readFile,
+	rename,
 	rm,
 	stat,
 	writeFile,
@@ -20,9 +21,20 @@ import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../shared/errors.js";
-import { backupError, formatError, installError } from "../../shared/errors.js";
+import {
+	backupError,
+	formatError,
+	installError,
+	strictModeError,
+} from "../../shared/errors.js";
 import { getConfigPath, registerOpenCodePlugin } from "./config.js";
-import type { BackupManifest, InstallResult } from "./models.js";
+import type {
+	BackupManifest,
+	InstallResult,
+	RestoreResult,
+	StagingResult,
+	StagingVerificationResult,
+} from "./models.js";
 
 /**
  * Recursively find all files matching a pattern in a directory.
@@ -72,17 +84,21 @@ const copyDir = async (src: string, dst: string): Promise<number> => {
 /**
  * Copy rp1 artifacts from source to target directory.
  * Handles subdirectory namespacing (command/rp1-base/, agent/rp1-base/).
+ *
+ * When strict mode is enabled (REQ-013), missing source directories cause
+ * installation failure instead of logging a warning and continuing.
  */
 export const copyArtifacts = (
 	sourceDir: string,
 	targetDir: string,
 	onOverwrite?: (path: string) => void,
+	logger?: { debug: (msg: string) => void },
+	strict?: boolean,
 ): TE.TaskEither<CLIError, number> =>
 	TE.tryCatch(
 		async () => {
 			let filesCopied = 0;
 
-			// Copy commands
 			const commandSrc = join(sourceDir, "command");
 			try {
 				const stats = await stat(commandSrc);
@@ -100,8 +116,10 @@ export const copyArtifacts = (
 						try {
 							await stat(dstFile);
 							onOverwrite?.(`command/${relPath}`);
-						} catch {
-							// File doesn't exist, no overwrite
+						} catch (e) {
+							logger?.debug(
+								`Command file does not exist (will create): ${dstFile}: ${e}`,
+							);
 						}
 
 						await copyFile(srcFile, dstFile);
@@ -109,11 +127,16 @@ export const copyArtifacts = (
 						filesCopied++;
 					}
 				}
-			} catch {
-				// No command directory
+			} catch (e) {
+				if (strict) {
+					throw strictModeError(
+						commandSrc,
+						`Missing source directory: ${commandSrc}`,
+					);
+				}
+				logger?.debug(`Command directory not found at ${commandSrc}: ${e}`);
 			}
 
-			// Copy agents
 			const agentSrc = join(sourceDir, "agent");
 			try {
 				const stats = await stat(agentSrc);
@@ -131,8 +154,10 @@ export const copyArtifacts = (
 						try {
 							await stat(dstFile);
 							onOverwrite?.(`agent/${relPath}`);
-						} catch {
-							// File doesn't exist
+						} catch (e) {
+							logger?.debug(
+								`Agent file does not exist (will create): ${dstFile}: ${e}`,
+							);
 						}
 
 						await copyFile(srcFile, dstFile);
@@ -140,11 +165,16 @@ export const copyArtifacts = (
 						filesCopied++;
 					}
 				}
-			} catch {
-				// No agent directory
+			} catch (e) {
+				if (strict) {
+					throw strictModeError(
+						agentSrc,
+						`Missing source directory: ${agentSrc}`,
+					);
+				}
+				logger?.debug(`Agent directory not found at ${agentSrc}: ${e}`);
 			}
 
-			// Copy skills
 			const skillsSrc = join(sourceDir, "skill");
 			try {
 				const stats = await stat(skillsSrc);
@@ -162,16 +192,24 @@ export const copyArtifacts = (
 								await stat(dstSkillDir);
 								onOverwrite?.(`skill/${entry.name}`);
 								await rm(dstSkillDir, { recursive: true });
-							} catch {
-								// Doesn't exist
+							} catch (e) {
+								logger?.debug(
+									`Skill directory does not exist (will create): ${dstSkillDir}: ${e}`,
+								);
 							}
 
 							filesCopied += await copyDir(srcSkillDir, dstSkillDir);
 						}
 					}
 				}
-			} catch {
-				// No skills directory
+			} catch (e) {
+				if (strict) {
+					throw strictModeError(
+						skillsSrc,
+						`Missing source directory: ${skillsSrc}`,
+					);
+				}
+				logger?.debug(`Skills directory not found at ${skillsSrc}: ${e}`);
 			}
 
 			return filesCopied;
@@ -182,10 +220,9 @@ export const copyArtifacts = (
 /**
  * Create backup of existing rp1 installation.
  */
-export const backupExistingInstallation = (): TE.TaskEither<
-	CLIError,
-	BackupManifest
-> =>
+export const backupExistingInstallation = (logger?: {
+	debug: (msg: string) => void;
+}): TE.TaskEither<CLIError, BackupManifest> =>
 	TE.tryCatch(
 		async () => {
 			const backupDir = join(homedir(), ".opencode-rp1-backups");
@@ -201,8 +238,10 @@ export const backupExistingInstallation = (): TE.TaskEither<
 
 			try {
 				await stat(configDir);
-			} catch {
-				// No existing installation to backup
+			} catch (e) {
+				logger?.debug(
+					`No existing installation to backup at ${configDir}: ${e}`,
+				);
 				return {
 					timestamp,
 					backupPath,
@@ -210,7 +249,6 @@ export const backupExistingInstallation = (): TE.TaskEither<
 				};
 			}
 
-			// Backup commands
 			const commandDir = join(configDir, "command");
 			try {
 				const stats = await stat(commandDir);
@@ -225,11 +263,10 @@ export const backupExistingInstallation = (): TE.TaskEither<
 						filesBackedUp++;
 					}
 				}
-			} catch {
-				// No commands
+			} catch (e) {
+				logger?.debug(`No commands to backup at ${commandDir}: ${e}`);
 			}
 
-			// Backup agents
 			const agentDir = join(configDir, "agent");
 			try {
 				const stats = await stat(agentDir);
@@ -244,11 +281,10 @@ export const backupExistingInstallation = (): TE.TaskEither<
 						filesBackedUp++;
 					}
 				}
-			} catch {
-				// No agents
+			} catch (e) {
+				logger?.debug(`No agents to backup at ${agentDir}: ${e}`);
 			}
 
-			// Backup known rp1 skills
 			const skillsDir = join(configDir, "skill");
 			const rp1Skills = [
 				"mermaid",
@@ -268,25 +304,25 @@ export const backupExistingInstallation = (): TE.TaskEither<
 								skillDir,
 								join(backupSkillsDir, skillName),
 							);
-						} catch {
-							// Skill doesn't exist
+						} catch (e) {
+							logger?.debug(
+								`Skill ${skillName} does not exist at ${skillDir}: ${e}`,
+							);
 						}
 					}
 				}
-			} catch {
-				// No skills
+			} catch (e) {
+				logger?.debug(`No skills directory at ${skillsDir}: ${e}`);
 			}
 
-			// Backup config file
 			const configFile = join(configDir, "opencode.json");
 			try {
 				await copyFile(configFile, join(backupPath, "opencode.json"));
 				filesBackedUp++;
-			} catch {
-				// No config file
+			} catch (e) {
+				logger?.debug(`No config file to backup at ${configFile}: ${e}`);
 			}
 
-			// Backup rp1 plugins
 			const pluginDir = join(configDir, "plugin");
 			const rp1Plugins = ["rp1-base-hooks"];
 			try {
@@ -301,16 +337,17 @@ export const backupExistingInstallation = (): TE.TaskEither<
 								srcPluginDir,
 								join(backupPluginDir, pluginName),
 							);
-						} catch {
-							// Plugin doesn't exist
+						} catch (e) {
+							logger?.debug(
+								`Plugin ${pluginName} does not exist at ${srcPluginDir}: ${e}`,
+							);
 						}
 					}
 				}
-			} catch {
-				// No plugins directory
+			} catch (e) {
+				logger?.debug(`No plugins directory at ${pluginDir}: ${e}`);
 			}
 
-			// Create backup manifest
 			const manifest: BackupManifest = {
 				timestamp,
 				backupPath,
@@ -328,6 +365,204 @@ export const backupExistingInstallation = (): TE.TaskEither<
 	);
 
 /**
+ * Restore installation from a backup manifest.
+ * Removes current rp1 files and copies backup files to target.
+ * Deletes manifest.json after successful restoration to prevent duplicate attempts.
+ */
+export const restoreFromBackup = (
+	manifest: BackupManifest,
+	logger?: { debug: (msg: string) => void },
+): TE.TaskEither<CLIError, RestoreResult> =>
+	TE.tryCatch(
+		async () => {
+			const { backupPath } = manifest;
+			const configDir = join(homedir(), ".config", "opencode");
+			let filesRestored = 0;
+
+			try {
+				await stat(backupPath);
+			} catch (e) {
+				logger?.debug(`Backup path does not exist: ${backupPath}: ${e}`);
+				throw new Error(`Backup path does not exist: ${backupPath}`);
+			}
+
+			const backupCommandDir = join(backupPath, "command");
+			try {
+				const stats = await stat(backupCommandDir);
+				if (stats.isDirectory()) {
+					const targetCommandDir = join(configDir, "command");
+
+					try {
+						const entries = await readdir(targetCommandDir, {
+							withFileTypes: true,
+						});
+						for (const entry of entries) {
+							if (entry.isDirectory() && entry.name.startsWith("rp1-")) {
+								await rm(join(targetCommandDir, entry.name), {
+									recursive: true,
+								});
+								logger?.debug(
+									`Removed existing command directory: ${entry.name}`,
+								);
+							}
+						}
+					} catch (e) {
+						logger?.debug(
+							`Target command directory may not exist at ${targetCommandDir}: ${e}`,
+						);
+					}
+
+					const commandFiles = await findFiles(backupCommandDir, /\.md$/);
+					for (const srcFile of commandFiles) {
+						const relPath = relative(backupCommandDir, srcFile);
+						const dstFile = join(targetCommandDir, relPath);
+						await mkdir(dirname(dstFile), { recursive: true });
+						await copyFile(srcFile, dstFile);
+						await chmod(dstFile, 0o644);
+						filesRestored++;
+						logger?.debug(`Restored command: ${relPath}`);
+					}
+				}
+			} catch (e) {
+				logger?.debug(`No commands to restore from backup: ${e}`);
+			}
+
+			const backupAgentDir = join(backupPath, "agent");
+			try {
+				const stats = await stat(backupAgentDir);
+				if (stats.isDirectory()) {
+					const targetAgentDir = join(configDir, "agent");
+
+					try {
+						const entries = await readdir(targetAgentDir, {
+							withFileTypes: true,
+						});
+						for (const entry of entries) {
+							if (entry.isDirectory() && entry.name.startsWith("rp1-")) {
+								await rm(join(targetAgentDir, entry.name), { recursive: true });
+								logger?.debug(
+									`Removed existing agent directory: ${entry.name}`,
+								);
+							}
+						}
+					} catch (e) {
+						logger?.debug(
+							`Target agent directory may not exist at ${targetAgentDir}: ${e}`,
+						);
+					}
+
+					const agentFiles = await findFiles(backupAgentDir, /\.md$/);
+					for (const srcFile of agentFiles) {
+						const relPath = relative(backupAgentDir, srcFile);
+						const dstFile = join(targetAgentDir, relPath);
+						await mkdir(dirname(dstFile), { recursive: true });
+						await copyFile(srcFile, dstFile);
+						await chmod(dstFile, 0o644);
+						filesRestored++;
+						logger?.debug(`Restored agent: ${relPath}`);
+					}
+				}
+			} catch (e) {
+				logger?.debug(`No agents to restore from backup: ${e}`);
+			}
+
+			const backupSkillsDir = join(backupPath, "skill");
+			try {
+				const stats = await stat(backupSkillsDir);
+				if (stats.isDirectory()) {
+					const targetSkillsDir = join(configDir, "skill");
+					const entries = await readdir(backupSkillsDir, {
+						withFileTypes: true,
+					});
+
+					for (const entry of entries) {
+						if (entry.isDirectory()) {
+							const srcSkillDir = join(backupSkillsDir, entry.name);
+							const dstSkillDir = join(targetSkillsDir, entry.name);
+
+							try {
+								await rm(dstSkillDir, { recursive: true });
+								logger?.debug(`Removed existing skill: ${entry.name}`);
+							} catch (e) {
+								logger?.debug(
+									`Skill directory does not exist (will create): ${dstSkillDir}: ${e}`,
+								);
+							}
+
+							filesRestored += await copyDir(srcSkillDir, dstSkillDir);
+							logger?.debug(`Restored skill: ${entry.name}`);
+						}
+					}
+				}
+			} catch (e) {
+				logger?.debug(`No skills to restore from backup: ${e}`);
+			}
+
+			const backupPluginDir = join(backupPath, "plugin");
+			try {
+				const stats = await stat(backupPluginDir);
+				if (stats.isDirectory()) {
+					const targetPluginDir = join(configDir, "plugin");
+					const entries = await readdir(backupPluginDir, {
+						withFileTypes: true,
+					});
+
+					for (const entry of entries) {
+						if (entry.isDirectory()) {
+							const srcPluginDir = join(backupPluginDir, entry.name);
+							const dstPluginDir = join(targetPluginDir, entry.name);
+
+							try {
+								await rm(dstPluginDir, { recursive: true });
+								logger?.debug(`Removed existing plugin: ${entry.name}`);
+							} catch (e) {
+								logger?.debug(
+									`Plugin directory does not exist (will create): ${dstPluginDir}: ${e}`,
+								);
+							}
+
+							filesRestored += await copyDir(srcPluginDir, dstPluginDir);
+							logger?.debug(`Restored plugin: ${entry.name}`);
+						}
+					}
+				}
+			} catch (e) {
+				logger?.debug(`No plugins to restore from backup: ${e}`);
+			}
+
+			const backupConfig = join(backupPath, "opencode.json");
+			try {
+				await stat(backupConfig);
+				const targetConfig = join(configDir, "opencode.json");
+				await copyFile(backupConfig, targetConfig);
+				await chmod(targetConfig, 0o644);
+				filesRestored++;
+				logger?.debug("Restored opencode.json");
+			} catch (e) {
+				logger?.debug(`No opencode.json to restore from backup: ${e}`);
+			}
+
+			let manifestDeleted = false;
+			const manifestPath = join(backupPath, "manifest.json");
+			try {
+				await rm(manifestPath);
+				manifestDeleted = true;
+				logger?.debug(
+					"Deleted backup manifest to prevent duplicate restoration",
+				);
+			} catch (e) {
+				logger?.debug(`Could not delete manifest.json: ${e}`);
+			}
+
+			return {
+				filesRestored,
+				manifestDeleted,
+			};
+		},
+		(e) => backupError(`Failed to restore from backup: ${e}`),
+	);
+
+/**
  * Copy OpenCode plugin from source to target plugin directory.
  * Source: {sourceDir}/platforms/opencode/
  * Target: ~/.config/opencode/plugin/{plugin-name}/
@@ -337,6 +572,7 @@ export const copyOpenCodePlugin = (
 	sourceDir: string,
 	pluginName: string,
 	onProgress?: (message: string) => void,
+	logger?: { debug: (msg: string) => void },
 ): TE.TaskEither<CLIError, number> =>
 	TE.tryCatch(
 		async () => {
@@ -351,7 +587,10 @@ export const copyOpenCodePlugin = (
 
 			try {
 				await stat(opencodeSrc);
-			} catch {
+			} catch (e) {
+				logger?.debug(
+					`OpenCode plugin source not found at ${opencodeSrc}: ${e}`,
+				);
 				return 0;
 			}
 
@@ -367,103 +606,542 @@ export const copyOpenCodePlugin = (
 	);
 
 /**
+ * Staging directory name for atomic installation.
+ */
+const STAGING_DIR = ".rp1-staging";
+
+/**
+ * Get the staging directory path.
+ * Uses ~/.config/.rp1-staging to ensure same filesystem as target for atomic rename.
+ */
+export const getStagingPath = (): string =>
+	join(homedir(), ".config", STAGING_DIR);
+
+/**
+ * Copy plugin artifacts to staging directory.
+ * All files are copied to staging before atomic rename to target.
+ */
+export const copyToStaging = (
+	pluginDirs: readonly string[],
+	onProgress?: (message: string) => void,
+	logger?: { debug: (msg: string) => void },
+): TE.TaskEither<CLIError, StagingResult> =>
+	TE.tryCatch(
+		async () => {
+			const stagingPath = getStagingPath();
+
+			await mkdir(stagingPath, { recursive: true, mode: 0o700 });
+			logger?.debug(`Created staging directory: ${stagingPath}`);
+
+			let totalFilesCopied = 0;
+			const pluginsCopied: string[] = [];
+
+			for (const pluginDir of pluginDirs) {
+				const pluginName = pluginDir.split("/").pop() ?? "unknown";
+				onProgress?.(`Staging ${pluginName}...`);
+
+				const commandSrc = join(pluginDir, "command");
+				try {
+					const stats = await stat(commandSrc);
+					if (stats.isDirectory()) {
+						const commandDst = join(stagingPath, "command");
+						await mkdir(commandDst, { recursive: true });
+
+						const commandFiles = await findFiles(commandSrc, /\.md$/);
+						for (const srcFile of commandFiles) {
+							const relPath = relative(commandSrc, srcFile);
+							const dstFile = join(commandDst, relPath);
+							await mkdir(dirname(dstFile), { recursive: true });
+							await copyFile(srcFile, dstFile);
+							await chmod(dstFile, 0o644);
+							totalFilesCopied++;
+						}
+					}
+				} catch (e) {
+					logger?.debug(`Command directory not found at ${commandSrc}: ${e}`);
+				}
+
+				const agentSrc = join(pluginDir, "agent");
+				try {
+					const stats = await stat(agentSrc);
+					if (stats.isDirectory()) {
+						const agentDst = join(stagingPath, "agent");
+						await mkdir(agentDst, { recursive: true });
+
+						const agentFiles = await findFiles(agentSrc, /\.md$/);
+						for (const srcFile of agentFiles) {
+							const relPath = relative(agentSrc, srcFile);
+							const dstFile = join(agentDst, relPath);
+							await mkdir(dirname(dstFile), { recursive: true });
+							await copyFile(srcFile, dstFile);
+							await chmod(dstFile, 0o644);
+							totalFilesCopied++;
+						}
+					}
+				} catch (e) {
+					logger?.debug(`Agent directory not found at ${agentSrc}: ${e}`);
+				}
+
+				const skillsSrc = join(pluginDir, "skill");
+				try {
+					const stats = await stat(skillsSrc);
+					if (stats.isDirectory()) {
+						const skillsDst = join(stagingPath, "skill");
+						await mkdir(skillsDst, { recursive: true });
+
+						const entries = await readdir(skillsSrc, { withFileTypes: true });
+						for (const entry of entries) {
+							if (entry.isDirectory()) {
+								const srcSkillDir = join(skillsSrc, entry.name);
+								const dstSkillDir = join(skillsDst, entry.name);
+								totalFilesCopied += await copyDir(srcSkillDir, dstSkillDir);
+							}
+						}
+					}
+				} catch (e) {
+					logger?.debug(`Skills directory not found at ${skillsSrc}: ${e}`);
+				}
+
+				let openCodePluginName: string | null = null;
+				try {
+					const manifestPath = join(pluginDir, "manifest.json");
+					const manifestContent = await readFile(manifestPath, "utf-8");
+					const manifest = JSON.parse(manifestContent) as {
+						hasOpenCodePlugin?: boolean;
+						plugin?: string;
+					};
+					if (manifest.hasOpenCodePlugin && manifest.plugin) {
+						openCodePluginName = `${manifest.plugin}-hooks`;
+					}
+				} catch (e) {
+					logger?.debug(
+						`No manifest or invalid manifest at ${pluginDir}/manifest.json: ${e}`,
+					);
+					openCodePluginName = `rp1-${pluginName}-hooks`;
+				}
+
+				if (openCodePluginName) {
+					const opencodeSrc = join(pluginDir, "platforms", "opencode");
+					try {
+						await stat(opencodeSrc);
+						const pluginDst = join(stagingPath, "plugin", openCodePluginName);
+						await mkdir(pluginDst, { recursive: true });
+						totalFilesCopied += await copyDir(opencodeSrc, pluginDst);
+						logger?.debug(
+							`Copied OpenCode plugin ${openCodePluginName} to staging`,
+						);
+					} catch (e) {
+						logger?.debug(
+							`OpenCode plugin source not found at ${opencodeSrc}: ${e}`,
+						);
+					}
+				}
+
+				pluginsCopied.push(pluginName);
+				logger?.debug(
+					`Staged ${pluginName}: ${totalFilesCopied} files total so far`,
+				);
+			}
+
+			onProgress?.(`Staged ${totalFilesCopied} files to ${stagingPath}`);
+
+			return {
+				stagingPath,
+				filesCopied: totalFilesCopied,
+				pluginsCopied,
+			};
+		},
+		(e) => installError("copy-to-staging", `Failed to copy to staging: ${e}`),
+	);
+
+/**
+ * Count total files recursively in a directory.
+ */
+const countFiles = async (dir: string): Promise<number> => {
+	let count = 0;
+	try {
+		const entries = await readdir(dir, { withFileTypes: true });
+		for (const entry of entries) {
+			const fullPath = join(dir, entry.name);
+			if (entry.isDirectory()) {
+				count += await countFiles(fullPath);
+			} else {
+				count++;
+			}
+		}
+	} catch {
+		// Directory doesn't exist, count = 0
+	}
+	return count;
+};
+
+/**
+ * Verify staging directory contents match expected plugin manifests.
+ * Checks file count and presence of required plugin directories.
+ */
+export const verifyStagingContents = (
+	stagingPath: string,
+	expectedPlugins: readonly string[],
+	expectedFileCount?: number,
+	logger?: { debug: (msg: string) => void },
+): TE.TaskEither<CLIError, StagingVerificationResult> =>
+	TE.tryCatch(
+		async () => {
+			const actualFiles = await countFiles(stagingPath);
+			logger?.debug(`Staging verification: ${actualFiles} files found`);
+
+			const missingPlugins: string[] = [];
+			for (const pluginName of expectedPlugins) {
+				// Check for at least one of: command/, agent/, skill/ subdirectories with plugin content
+				const commandDir = join(stagingPath, "command", `rp1-${pluginName}`);
+				const agentDir = join(stagingPath, "agent", `rp1-${pluginName}`);
+				const skillDir = join(stagingPath, "skill");
+
+				let hasContent = false;
+				try {
+					await stat(commandDir);
+					hasContent = true;
+				} catch {
+					// Command dir doesn't exist
+				}
+
+				try {
+					await stat(agentDir);
+					hasContent = true;
+				} catch {
+					// Agent dir doesn't exist
+				}
+
+				try {
+					await stat(skillDir);
+					const skillEntries = await readdir(skillDir);
+					if (skillEntries.length > 0) {
+						hasContent = true;
+					}
+				} catch {
+					// Skill dir doesn't exist
+				}
+
+				if (!hasContent) {
+					missingPlugins.push(pluginName);
+					logger?.debug(`Missing content for plugin ${pluginName} in staging`);
+				}
+			}
+
+			const expectedFiles = expectedFileCount ?? actualFiles;
+			const valid = missingPlugins.length === 0 && actualFiles >= expectedFiles;
+
+			logger?.debug(
+				`Staging verification: valid=${valid}, expected=${expectedFiles}, actual=${actualFiles}, missing=${missingPlugins.join(", ")}`,
+			);
+
+			return {
+				valid,
+				expectedFiles,
+				actualFiles,
+				missingPlugins,
+			};
+		},
+		(e) =>
+			installError("verify-staging", `Failed to verify staging contents: ${e}`),
+	);
+
+/**
+ * Commit staging directory to target using atomic rename.
+ * On POSIX systems (macOS, Linux), uses fs.rename for atomic operation.
+ * On Windows, falls back to copy + delete if cross-filesystem rename fails.
+ */
+export const commitStaging = (
+	stagingPath: string,
+	targetPath: string,
+	onProgress?: (message: string) => void,
+	logger?: { debug: (msg: string) => void },
+): TE.TaskEither<CLIError, void> =>
+	TE.tryCatch(
+		async () => {
+			await mkdir(dirname(targetPath), { recursive: true });
+
+			// We need to merge staging contents into target rather than replace entirely
+			// because the target may contain user files we shouldn't remove.
+			// Strategy: move each subdirectory from staging to target with backup/replace
+
+			const stagingEntries = await readdir(stagingPath, {
+				withFileTypes: true,
+			});
+
+			for (const entry of stagingEntries) {
+				const srcPath = join(stagingPath, entry.name);
+				const dstPath = join(targetPath, entry.name);
+
+				if (entry.isDirectory()) {
+					// For directories, we need to merge contents or replace
+					// For rp1 artifacts, we replace the whole subdirectory to ensure atomicity
+					try {
+						// Backup existing directory if it exists
+						const backupPath = `${dstPath}.rp1-backup`;
+						try {
+							await stat(dstPath);
+							await rename(dstPath, backupPath);
+							logger?.debug(`Backed up ${entry.name} to ${backupPath}`);
+						} catch {
+							// Target doesn't exist, no backup needed
+						}
+
+						try {
+							// Atomic rename from staging to target
+							await rename(srcPath, dstPath);
+							logger?.debug(`Atomically moved ${entry.name} to target`);
+
+							// Remove backup on success
+							try {
+								await rm(backupPath, { recursive: true });
+							} catch {
+								// Backup may not exist
+							}
+						} catch (renameErr) {
+							// Rename failed (possibly cross-filesystem on Windows)
+							logger?.debug(
+								`Atomic rename failed for ${entry.name}, falling back to copy: ${renameErr}`,
+							);
+
+							// Fallback: copy then delete
+							await copyDir(srcPath, dstPath);
+							await rm(srcPath, { recursive: true });
+
+							// Remove backup on success
+							try {
+								await rm(backupPath, { recursive: true });
+							} catch {
+								// Backup may not exist
+							}
+						}
+					} catch (e) {
+						// Restore from backup if commit failed
+						const backupPath = `${dstPath}.rp1-backup`;
+						try {
+							await rm(dstPath, { recursive: true });
+							await rename(backupPath, dstPath);
+							logger?.debug(`Restored ${entry.name} from backup after failure`);
+						} catch {
+							// Best effort restore
+						}
+						throw e;
+					}
+				} else {
+					// For files (like opencode.json), copy directly
+					await copyFile(srcPath, dstPath);
+					await chmod(dstPath, 0o644);
+					logger?.debug(`Copied file ${entry.name} to target`);
+				}
+			}
+
+			onProgress?.("Installation committed successfully");
+			logger?.debug(`Committed staging to ${targetPath}`);
+		},
+		(e) =>
+			installError(
+				"commit-staging",
+				`Failed to commit staging to target: ${e}`,
+			),
+	);
+
+/**
+ * Clean up staging directory on failure.
+ * Ensures BR-002: Staging directory must be completely removed on failure.
+ */
+export const cleanupStaging = (
+	stagingPath: string,
+	logger?: { debug: (msg: string) => void },
+): TE.TaskEither<CLIError, void> =>
+	TE.tryCatch(
+		async () => {
+			try {
+				await stat(stagingPath);
+				await rm(stagingPath, { recursive: true, force: true });
+				logger?.debug(`Cleaned up staging directory: ${stagingPath}`);
+			} catch (e) {
+				logger?.debug(
+					`Staging directory already removed or doesn't exist: ${e}`,
+				);
+			}
+		},
+		(e) => installError("cleanup-staging", `Failed to cleanup staging: ${e}`),
+	);
+
+/**
+ * Perform the actual installation of rp1 artifacts.
+ * This is an internal helper function used by installRp1.
+ * Separated to enable recovery wrapper pattern.
+ *
+ * When strict mode is enabled, missing source directories cause installation failure.
+ */
+const performInstallation = (
+	pluginDirs: readonly string[],
+	skipSkills: boolean,
+	backup: BackupManifest,
+	onProgress?: (message: string) => void,
+	onOverwrite?: (path: string) => void,
+	logger?: { debug: (msg: string) => void },
+	strict?: boolean,
+): TE.TaskEither<CLIError, InstallResult> =>
+	TE.tryCatch(
+		async () => {
+			const targetDir = join(homedir(), ".config", "opencode");
+			const pluginsInstalled: string[] = [];
+			const warnings: string[] = [];
+			let totalFiles = 0;
+
+			for (const pluginDir of pluginDirs) {
+				const pluginName = pluginDir.split("/").pop() ?? "unknown";
+
+				const result = await copyArtifacts(
+					pluginDir,
+					targetDir,
+					onOverwrite,
+					logger,
+					strict,
+				)();
+				if (result._tag === "Left") {
+					throw new Error(formatError(result.left, false));
+				}
+
+				const filesCopied = result.right;
+				onProgress?.(`Installed ${pluginName} plugin: ${filesCopied} files`);
+				pluginsInstalled.push(pluginName);
+				totalFiles += filesCopied;
+
+				// Read plugin manifest to get OpenCode plugin name
+				let openCodePluginName: string | null = null;
+				try {
+					const manifestPath = join(pluginDir, "manifest.json");
+					const manifestContent = await readFile(manifestPath, "utf-8");
+					const manifest = JSON.parse(manifestContent) as {
+						hasOpenCodePlugin?: boolean;
+						plugin?: string;
+					};
+					if (manifest.hasOpenCodePlugin && manifest.plugin) {
+						// Plugin name is "rp1-base" -> hooks name is "rp1-base-hooks"
+						openCodePluginName = `${manifest.plugin}-hooks`;
+					}
+				} catch (e) {
+					logger?.debug(
+						`No manifest or invalid manifest at ${pluginDir}/manifest.json: ${e}`,
+					);
+					openCodePluginName = `rp1-${pluginName}-hooks`;
+				}
+
+				if (openCodePluginName) {
+					const pluginResult = await copyOpenCodePlugin(
+						pluginDir,
+						openCodePluginName,
+						onProgress,
+						logger,
+					)();
+					if (pluginResult._tag === "Left") {
+						warnings.push(
+							`OpenCode plugin installation failed: ${formatError(pluginResult.left, false)}`,
+						);
+					} else if (pluginResult.right > 0) {
+						totalFiles += pluginResult.right;
+
+						// Register plugin in opencode.json config
+						const configPath = getConfigPath();
+						const regResult = await registerOpenCodePlugin(
+							configPath,
+							openCodePluginName,
+						)();
+						if (E.isRight(regResult) && regResult.right) {
+							onProgress?.(`Registered ${openCodePluginName} in opencode.json`);
+						}
+					}
+				}
+			}
+
+			if (skipSkills) {
+				warnings.push("Skills installation skipped (--skip-skills flag)");
+			}
+
+			return {
+				pluginsInstalled,
+				filesInstalled: totalFiles,
+				backupPath: backup.filesBackedUp > 0 ? backup.backupPath : null,
+				warnings,
+			};
+		},
+		(e) => installError("install", `Installation failed: ${e}`),
+	);
+
+/**
  * Install rp1 artifacts to OpenCode (orchestrator function).
+ * Implements automatic rollback on failure (REQ-002).
+ *
+ * The installation is wrapped with recovery logic:
+ * 1. Create backup before any modifications (BR-001)
+ * 2. Attempt installation
+ * 3. On failure, restore from backup and notify user
+ * 4. Re-throw the original error after restoration
+ *
+ * When strict mode is enabled (REQ-013), missing source directories cause
+ * installation failure with exit code 5 (STRICT_MODE_FAILURE) instead of
+ * logging a warning and continuing.
  */
 export const installRp1 = (
 	pluginDirs: readonly string[],
 	skipSkills: boolean = false,
 	onProgress?: (message: string) => void,
 	onOverwrite?: (path: string) => void,
+	logger?: { debug: (msg: string) => void },
+	strict?: boolean,
 ): TE.TaskEither<CLIError, InstallResult> =>
 	pipe(
-		backupExistingInstallation(),
+		backupExistingInstallation(logger),
 		TE.chain((backup) => {
 			onProgress?.(`Backup created: ${backup.backupPath}`);
 
-			return TE.tryCatch(
-				async () => {
-					const targetDir = join(homedir(), ".config", "opencode");
-					const pluginsInstalled: string[] = [];
-					const warnings: string[] = [];
-					let totalFiles = 0;
-
-					for (const pluginDir of pluginDirs) {
-						const pluginName = pluginDir.split("/").pop() ?? "unknown";
-
-						const result = await copyArtifacts(
-							pluginDir,
-							targetDir,
-							onOverwrite,
-						)();
-						if (result._tag === "Left") {
-							throw new Error(formatError(result.left, false));
-						}
-
-						const filesCopied = result.right;
-						onProgress?.(
-							`Installed ${pluginName} plugin: ${filesCopied} files`,
-						);
-						pluginsInstalled.push(pluginName);
-						totalFiles += filesCopied;
-
-						// Read plugin manifest to get OpenCode plugin name
-						let openCodePluginName: string | null = null;
-						try {
-							const manifestPath = join(pluginDir, "manifest.json");
-							const manifestContent = await readFile(manifestPath, "utf-8");
-							const manifest = JSON.parse(manifestContent) as {
-								hasOpenCodePlugin?: boolean;
-								plugin?: string;
-							};
-							if (manifest.hasOpenCodePlugin && manifest.plugin) {
-								// Plugin name is "rp1-base" -> hooks name is "rp1-base-hooks"
-								openCodePluginName = `${manifest.plugin}-hooks`;
-							}
-						} catch {
-							// No manifest or invalid - use default naming
-							openCodePluginName = `rp1-${pluginName}-hooks`;
-						}
-
-						if (openCodePluginName) {
-							const pluginResult = await copyOpenCodePlugin(
-								pluginDir,
-								openCodePluginName,
-								onProgress,
-							)();
-							if (pluginResult._tag === "Left") {
-								warnings.push(
-									`OpenCode plugin installation failed: ${formatError(pluginResult.left, false)}`,
-								);
-							} else if (pluginResult.right > 0) {
-								totalFiles += pluginResult.right;
-
-								// Register plugin in opencode.json config
-								const configPath = getConfigPath();
-								const regResult = await registerOpenCodePlugin(
-									configPath,
-									openCodePluginName,
-								)();
-								if (E.isRight(regResult) && regResult.right) {
+			return pipe(
+				performInstallation(
+					pluginDirs,
+					skipSkills,
+					backup,
+					onProgress,
+					onOverwrite,
+					logger,
+					strict,
+				),
+				// On installation failure, attempt to restore from backup
+				TE.orElse(
+					(error): TE.TaskEither<CLIError, InstallResult> =>
+						pipe(
+							restoreFromBackup(backup, logger),
+							TE.chain((restoreResult) => {
+								if (restoreResult.filesRestored > 0) {
 									onProgress?.(
-										`Registered ${openCodePluginName} in opencode.json`,
+										`Installation failed. Restored previous installation (${restoreResult.filesRestored} files). You can safely retry the installation.`,
+									);
+								} else {
+									onProgress?.(
+										"Installation failed. No previous installation to restore.",
 									);
 								}
-							}
-						}
-					}
-
-					if (skipSkills) {
-						warnings.push("Skills installation skipped (--skip-skills flag)");
-					}
-
-					return {
-						pluginsInstalled,
-						filesInstalled: totalFiles,
-						backupPath: backup.filesBackedUp > 0 ? backup.backupPath : null,
-						warnings,
-					};
-				},
-				(e) => installError("install", `Installation failed: ${e}`),
+								logger?.debug(
+									`Rollback completed: ${restoreResult.filesRestored} files restored, manifest deleted: ${restoreResult.manifestDeleted}`,
+								);
+								// Re-throw the original error after successful restoration
+								return TE.left<CLIError, InstallResult>(error);
+							}),
+							// If restoration also fails, log and re-throw original error
+							TE.orElse((restoreError) => {
+								logger?.debug(
+									`Restoration failed: ${formatError(restoreError, false)}`,
+								);
+								onProgress?.(
+									`Installation failed. Warning: Could not restore previous installation. Manual intervention may be required.`,
+								);
+								// Still throw the original installation error
+								return TE.left<CLIError, InstallResult>(error);
+							}),
+						),
+				),
 			);
 		}),
 	);

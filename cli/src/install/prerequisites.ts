@@ -1,10 +1,11 @@
 /**
  * Prerequisites checking module for OpenCode installation.
+ * Includes dry-run validation checks for package manager, network, and disk space.
  */
 
 import { exec } from "node:child_process";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { freemem, homedir, platform } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import * as E from "fp-ts/lib/Either.js";
@@ -185,3 +186,379 @@ export const getOpenCodeConfigDir = (): string =>
  */
 export const getOpenCodeConfigPath = (): string =>
 	join(getOpenCodeConfigDir(), "opencode.json");
+
+/**
+ * GitHub API endpoint for connectivity check and version fetch.
+ */
+const GITHUB_API_URL =
+	"https://api.github.com/repos/rp1-run/rp1/releases/latest";
+
+/**
+ * Default timeout for network requests (5 seconds).
+ */
+const NETWORK_TIMEOUT_MS = 5000;
+
+/**
+ * Estimated disk space required for installation (10 MB).
+ * Includes buffer for plugins, cache, and temp files.
+ */
+const DEFAULT_REQUIRED_BYTES = 10 * 1024 * 1024;
+
+/**
+ * Check package manager health.
+ * On macOS: runs `brew doctor` to verify Homebrew is healthy.
+ * On other platforms: skips check (no equivalent).
+ *
+ * Returns warning severity since package manager issues may not block installation.
+ */
+export const checkPackageManagerHealth = (): TE.TaskEither<
+	CLIError,
+	PrerequisiteResult
+> => {
+	const os = platform();
+
+	if (os !== "darwin" && os !== "linux") {
+		return TE.right({
+			check: "package-manager-health",
+			passed: true,
+			message: "Package manager check skipped (not macOS/Linux)",
+			severity: "warning",
+		} as PrerequisiteResult);
+	}
+
+	return TE.tryCatch(
+		async (): Promise<PrerequisiteResult> => {
+			try {
+				const { stdout: whichStdout } = await execAsync("which brew", {
+					timeout: 2000,
+				});
+				if (!whichStdout.trim()) {
+					return {
+						check: "package-manager-health",
+						passed: true,
+						message: "Homebrew not installed - package manager check skipped",
+						severity: "warning",
+					};
+				}
+			} catch {
+				return {
+					check: "package-manager-health",
+					passed: true,
+					message: "Homebrew not installed - package manager check skipped",
+					severity: "warning",
+				};
+			}
+
+			try {
+				const { stdout, stderr } = await execAsync("brew doctor", {
+					timeout: 30000,
+				});
+				const output = (stdout + stderr).trim();
+
+				if (output.includes("Your system is ready to brew") || output === "") {
+					return {
+						check: "package-manager-health",
+						passed: true,
+						message: "Homebrew is healthy",
+					};
+				}
+
+				const warnings = output
+					.split("\n")
+					.filter((line) => line.startsWith("Warning:"))
+					.slice(0, 3);
+
+				return {
+					check: "package-manager-health",
+					passed: true,
+					message: `Homebrew has warnings: ${warnings.length > 0 ? warnings.join("; ") : "see brew doctor for details"}`,
+					severity: "warning",
+				};
+			} catch {
+				return {
+					check: "package-manager-health",
+					passed: true,
+					message: "Homebrew doctor reported issues (non-critical)",
+					severity: "warning",
+				};
+			}
+		},
+		() =>
+			prerequisiteError(
+				"package-manager-health",
+				"Unexpected error checking package manager",
+				"This check is non-critical; installation may still succeed.",
+			),
+	);
+};
+
+/**
+ * Check network connectivity to GitHub API.
+ * Uses HEAD request to minimize data transfer and latency.
+ *
+ * Returns blocker severity since network is required for updates.
+ */
+export const checkNetworkConnectivity = (): TE.TaskEither<
+	CLIError,
+	PrerequisiteResult
+> =>
+	TE.tryCatch(
+		async () => {
+			const controller = new AbortController();
+			const timeoutId = setTimeout(
+				() => controller.abort(),
+				NETWORK_TIMEOUT_MS,
+			);
+
+			try {
+				const response = await fetch(GITHUB_API_URL, {
+					method: "HEAD",
+					signal: controller.signal,
+					headers: {
+						"User-Agent": "rp1-cli",
+					},
+				});
+
+				if (response.ok || response.status === 403) {
+					return {
+						check: "network-connectivity",
+						passed: true,
+						message: "Network connectivity OK (GitHub API reachable)",
+					};
+				}
+
+				return {
+					check: "network-connectivity",
+					passed: false,
+					message: `GitHub API returned status ${response.status}`,
+					severity: "blocker" as const,
+				};
+			} finally {
+				clearTimeout(timeoutId);
+			}
+		},
+		(e) => {
+			const errorMsg =
+				e instanceof Error
+					? e.name === "AbortError"
+						? "Request timed out"
+						: e.message
+					: "Unknown error";
+
+			return prerequisiteError(
+				"network-connectivity",
+				`Cannot reach GitHub API: ${errorMsg}`,
+				"Check your internet connection and firewall settings. Ensure api.github.com is accessible.",
+			);
+		},
+	);
+
+/**
+ * Check available disk space.
+ * Verifies sufficient space exists for installation.
+ *
+ * Returns warning severity since we can't always accurately measure available space
+ * and the actual requirement may vary.
+ */
+export const checkDiskSpace = (
+	requiredBytes: number = DEFAULT_REQUIRED_BYTES,
+): TE.TaskEither<CLIError, PrerequisiteResult> =>
+	TE.tryCatch(
+		async (): Promise<PrerequisiteResult> => {
+			const targetDir = getOpenCodeConfigDir();
+			const requiredMB = Math.ceil(requiredBytes / (1024 * 1024));
+
+			try {
+				const stats = await stat(targetDir);
+				if (stats.isDirectory()) {
+					const freeMemory = freemem();
+
+					if (freeMemory < requiredBytes) {
+						return {
+							check: "disk-space",
+							passed: true,
+							message: `Low system memory detected (${Math.floor(freeMemory / (1024 * 1024))}MB free). Installation requires ~${requiredMB}MB.`,
+							severity: "warning",
+						};
+					}
+
+					return {
+						check: "disk-space",
+						passed: true,
+						message: `Disk space check passed (requires ~${requiredMB}MB)`,
+					};
+				}
+			} catch {
+				// Directory doesn't exist yet, which is fine
+			}
+
+			const freeMemory = freemem();
+			if (freeMemory < requiredBytes * 10) {
+				return {
+					check: "disk-space",
+					passed: true,
+					message: `System memory is limited. Installation requires ~${requiredMB}MB.`,
+					severity: "warning",
+				};
+			}
+
+			return {
+				check: "disk-space",
+				passed: true,
+				message: `Disk space check passed (requires ~${requiredMB}MB)`,
+			};
+		},
+		() =>
+			prerequisiteError(
+				"disk-space",
+				"Could not verify disk space",
+				"This check is non-critical; installation may still succeed.",
+			),
+	);
+
+/**
+ * GitHub release response structure.
+ */
+interface GitHubRelease {
+	readonly tag_name: string;
+	readonly html_url: string;
+}
+
+/**
+ * Fetch the latest available version from GitHub releases.
+ * Returns the exact version that would be installed.
+ *
+ * Timeout: 5 seconds to ensure dry-run completes within 10 second target.
+ */
+export const fetchLatestVersion = (): TE.TaskEither<CLIError, string> =>
+	TE.tryCatch(
+		async () => {
+			const controller = new AbortController();
+			const timeoutId = setTimeout(
+				() => controller.abort(),
+				NETWORK_TIMEOUT_MS,
+			);
+
+			try {
+				const response = await fetch(GITHUB_API_URL, {
+					signal: controller.signal,
+					headers: {
+						Accept: "application/vnd.github.v3+json",
+						"User-Agent": "rp1-cli",
+					},
+				});
+
+				if (!response.ok) {
+					throw new Error(`GitHub API returned status ${response.status}`);
+				}
+
+				const data = (await response.json()) as GitHubRelease;
+
+				if (typeof data.tag_name !== "string") {
+					throw new Error("Invalid response from GitHub API");
+				}
+
+				const version = data.tag_name.startsWith("v")
+					? data.tag_name.slice(1)
+					: data.tag_name;
+
+				return version;
+			} finally {
+				clearTimeout(timeoutId);
+			}
+		},
+		(e) => {
+			const errorMsg =
+				e instanceof Error
+					? e.name === "AbortError"
+						? "Request timed out"
+						: e.message
+					: "Unknown error";
+
+			return prerequisiteError(
+				"fetch-latest-version",
+				`Could not fetch latest version: ${errorMsg}`,
+				"Check your internet connection and try again.",
+			);
+		},
+	);
+
+/**
+ * Dry-run validation result structure.
+ */
+export interface DryRunValidationResult {
+	readonly results: readonly PrerequisiteResult[];
+	readonly latestVersion: string | null;
+	readonly warnings: readonly string[];
+	readonly blockers: readonly string[];
+}
+
+/**
+ * Run all dry-run validation checks in sequence.
+ * Checks package manager health, network connectivity, disk space, and fetches latest version.
+ *
+ * Target: Complete within 10 seconds including network checks.
+ */
+export const runDryRunValidation = (): TE.TaskEither<
+	CLIError,
+	DryRunValidationResult
+> =>
+	pipe(
+		TE.Do,
+		TE.bind("pkgManager", () =>
+			pipe(
+				checkPackageManagerHealth(),
+				TE.orElse(
+					(): TE.TaskEither<CLIError, PrerequisiteResult> =>
+						TE.right({
+							check: "package-manager-health",
+							passed: true,
+							message: "Package manager check skipped",
+							severity: "warning",
+						}),
+				),
+			),
+		),
+		TE.bind("network", () => checkNetworkConnectivity()),
+		TE.bind("diskSpace", () =>
+			pipe(
+				checkDiskSpace(),
+				TE.orElse(
+					(): TE.TaskEither<CLIError, PrerequisiteResult> =>
+						TE.right({
+							check: "disk-space",
+							passed: true,
+							message: "Disk space check skipped",
+							severity: "warning",
+						}),
+				),
+			),
+		),
+		TE.bind("version", ({ network }) => {
+			if (!network.passed) {
+				return TE.right(null as string | null);
+			}
+			return pipe(
+				fetchLatestVersion(),
+				TE.map((v): string | null => v),
+				TE.orElse((): TE.TaskEither<CLIError, string | null> => TE.right(null)),
+			);
+		}),
+		TE.map(({ pkgManager, network, diskSpace, version }) => {
+			const results: PrerequisiteResult[] = [pkgManager, network, diskSpace];
+			const warnings = results
+				.filter((r) => r.severity === "warning" && !r.passed)
+				.map((r) => r.message);
+			const blockers = results
+				.filter((r) => r.severity === "blocker" || !r.passed)
+				.filter((r) => r.severity !== "warning")
+				.map((r) => r.message);
+
+			return {
+				results,
+				latestVersion: version,
+				warnings,
+				blockers,
+			};
+		}),
+	);

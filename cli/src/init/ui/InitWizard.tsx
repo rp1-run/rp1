@@ -355,13 +355,19 @@ export const InitWizard: React.FC<InitWizardProps> = ({
 		switch (activePrompt) {
 			case "git-root":
 				return (
-					<SelectPrompt
-						message="You're not at the git root. Where would you like to initialize?"
-						options={gitRootOptions}
-						onSelect={
-							handleChoice as (value: "continue" | "switch" | "cancel") => void
-						}
-					/>
+					<Box flexDirection="column">
+						<Box marginBottom={spacing.small}>
+							<Text color={colors.dim}>
+								If this is a monorepo root, you should cd into your specific
+								project first.
+							</Text>
+						</Box>
+						<SelectPrompt
+							message="Is this your project root?"
+							options={gitRootOptions}
+							onSelect={handleChoice as (value: "continue" | "exit") => void}
+						/>
+					</Box>
 				);
 			case "reinit":
 				return (

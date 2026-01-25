@@ -75,6 +75,13 @@ export const defaultInstallConfig: InstallConfig = {
 };
 
 /**
+ * Severity level for prerequisite check results.
+ * - "blocker": Installation cannot proceed
+ * - "warning": Installation can proceed but issue noted
+ */
+export type PrerequisiteSeverity = "blocker" | "warning";
+
+/**
  * Prerequisite check result.
  */
 export interface PrerequisiteResult {
@@ -82,6 +89,7 @@ export interface PrerequisiteResult {
 	readonly passed: boolean;
 	readonly message: string;
 	readonly value?: string;
+	readonly severity?: PrerequisiteSeverity;
 }
 
 /**
@@ -94,6 +102,14 @@ export interface BackupManifest {
 }
 
 /**
+ * Result of restoring from a backup.
+ */
+export interface RestoreResult {
+	readonly filesRestored: number;
+	readonly manifestDeleted: boolean;
+}
+
+/**
  * Installation result summary.
  */
 export interface InstallResult {
@@ -101,4 +117,23 @@ export interface InstallResult {
 	readonly filesInstalled: number;
 	readonly backupPath: string | null;
 	readonly warnings: readonly string[];
+}
+
+/**
+ * Result of copying files to staging directory.
+ */
+export interface StagingResult {
+	readonly stagingPath: string;
+	readonly filesCopied: number;
+	readonly pluginsCopied: readonly string[];
+}
+
+/**
+ * Result of verifying staging directory contents.
+ */
+export interface StagingVerificationResult {
+	readonly valid: boolean;
+	readonly expectedFiles: number;
+	readonly actualFiles: number;
+	readonly missingPlugins: readonly string[];
 }
