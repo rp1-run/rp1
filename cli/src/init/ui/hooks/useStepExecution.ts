@@ -114,6 +114,8 @@ interface ExecutionContext {
 export interface PromptRequest {
 	readonly type: "git-root" | "reinit" | "gitignore";
 	readonly resolve: (value: string) => void;
+	/** Current working directory (for git-root prompt) */
+	readonly cwd?: string;
 }
 
 /**
@@ -269,7 +271,11 @@ export const useStepExecution = ({
 				if (choice === undefined && !options.yes && onPromptRequest) {
 					// Interactive mode and no choice yet - request prompt
 					promptRequestedRef.current = true;
-					onPromptRequest({ type: "git-root", resolve: () => {} });
+					onPromptRequest({
+						type: "git-root",
+						resolve: () => {},
+						cwd: gitResult.currentDir,
+					});
 					return; // Step will be re-executed after user makes a choice
 				}
 

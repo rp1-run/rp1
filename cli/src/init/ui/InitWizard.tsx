@@ -84,6 +84,7 @@ export const InitWizard: React.FC<InitWizardProps> = ({
 	const { exit } = useApp();
 	const [state, dispatch] = useWizardState();
 	const [activePrompt, setActivePrompt] = useState<PromptType>(null);
+	const [promptCwd, setPromptCwd] = useState<string | undefined>(undefined);
 
 	// Track whether we've completed to prevent double calls
 	const completedRef = useRef(false);
@@ -99,8 +100,9 @@ export const InitWizard: React.FC<InitWizardProps> = ({
 	 * This allows steps to trigger prompts dynamically based on their results.
 	 */
 	const handlePromptRequest = useCallback(
-		(request: { type: "git-root" | "reinit" | "gitignore" }) => {
+		(request: { type: "git-root" | "reinit" | "gitignore"; cwd?: string }) => {
 			setActivePrompt(request.type);
+			setPromptCwd(request.cwd);
 			dispatch({ type: "SET_PHASE", phase: "prompting" });
 		},
 		[dispatch],
@@ -363,7 +365,7 @@ export const InitWizard: React.FC<InitWizardProps> = ({
 							</Text>
 						</Box>
 						<SelectPrompt
-							message="Is this your project root?"
+							message={`Initialize rp1 in ${promptCwd ?? process.cwd()}?`}
 							options={gitRootOptions}
 							onSelect={handleChoice as (value: "continue" | "exit") => void}
 						/>

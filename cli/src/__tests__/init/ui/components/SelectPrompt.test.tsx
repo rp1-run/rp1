@@ -187,7 +187,7 @@ describe("SelectPrompt", () => {
 		test("renders correctly in SelectPrompt", () => {
 			const { lastFrame } = render(
 				<SelectPrompt
-					message="Is this your project root?"
+					message="Initialize rp1 in /test/path?"
 					options={gitRootOptions}
 					onSelect={() => {}}
 				/>,

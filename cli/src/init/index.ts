@@ -222,13 +222,9 @@ async function handleGitRootCheck(
 
 	// Always confirm with user - they might be at a monorepo root by mistake
 	progress.pauseStep();
-	logger.info(`Current directory: ${gitResult.currentDir}`);
-	if (!gitResult.isAtRoot && gitResult.gitRoot) {
-		logger.info(`Git root: ${gitResult.gitRoot}`);
-	}
 
 	const choice = await selectOption<GitRootChoice>(
-		"Is this your project root? (If this is a monorepo root, you should cd into your specific project first)",
+		`Initialize rp1 in ${gitResult.currentDir}?`,
 		[
 			{
 				value: "continue",
@@ -237,8 +233,8 @@ async function handleGitRootCheck(
 			},
 			{
 				value: "exit",
-				name: "No, let me navigate to the correct directory",
-				description: "Exit so I can cd to my project first",
+				name: "No, let me navigate first",
+				description: "Exit to cd into my project (e.g., for monorepo setups)",
 			},
 		],
 		promptOptions,
