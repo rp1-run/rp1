@@ -68,6 +68,31 @@ const getUpdateCommand = (method: InstallMethod): string | null => {
 };
 
 /**
+ * Format check-update result for JSON output.
+ * Uses snake_case keys for API consistency.
+ */
+export const formatCheckOutputJson = (
+	result: Awaited<ReturnType<typeof checkForUpdate>>,
+): void => {
+	console.log(
+		JSON.stringify(
+			{
+				current_version: result.currentVersion,
+				latest_version: result.latestVersion,
+				update_available: result.updateAvailable,
+				release_url: result.releaseUrl,
+				error: result.error,
+				cached: result.cached,
+				cache_age_hours: result.cacheAgeHours,
+				cache_expires_in_hours: result.cacheExpiresInHours,
+			},
+			null,
+			2,
+		),
+	);
+};
+
+/**
  * Format check-update result for human output.
  * Exported for use by deprecated check-update command wrapper.
  */
@@ -250,19 +275,25 @@ export const executeSelfUpdate = async (
  * Execute the update action logic.
  * Exported for use by deprecated command wrappers.
  *
- * @param options - Update options (check, dryRun, force, yes)
+ * @param options - Update options (check, dryRun, force, yes, json)
  * @param logger - Logger instance
  * @param isTTY - Whether running in TTY mode
  */
 export const executeUpdateAction = async (
-	options: { check: boolean; dryRun: boolean; force: boolean; yes: boolean },
+	options: {
+		check: boolean;
+		dryRun: boolean;
+		force: boolean;
+		yes: boolean;
+		json?: boolean;
+	},
 	logger: Logger | undefined,
 	isTTY: boolean,
 ): Promise<void> => {
 	const { dim } = getColorFns(isTTY);
 
 	logger?.debug(
-		`Update action starting (check=${options.check}, dry-run=${options.dryRun}, force=${options.force}, yes=${options.yes})`,
+		`Update action starting (check=${options.check}, dry-run=${options.dryRun}, force=${options.force}, yes=${options.yes}, json=${options.json})`,
 	);
 
 	// Handle --check mode: delegate to check-update logic
@@ -276,7 +307,12 @@ export const executeUpdateAction = async (
 
 		try {
 			const result = await checkForUpdate(checkOptions);
-			formatCheckOutput(result, isTTY);
+
+			if (options.json) {
+				formatCheckOutputJson(result);
+			} else {
+				formatCheckOutput(result, isTTY);
+			}
 
 			if (result.error && !result.latestVersion) {
 				process.exit(1);
@@ -285,7 +321,27 @@ export const executeUpdateAction = async (
 		} catch (error) {
 			const errorMessage =
 				error instanceof Error ? error.message : "Unknown error";
-			console.error(`Error: ${errorMessage}`);
+
+			if (options.json) {
+				console.error(
+					JSON.stringify(
+						{
+							current_version: null,
+							latest_version: null,
+							update_available: false,
+							release_url: null,
+							error: errorMessage,
+							cached: false,
+							cache_age_hours: null,
+							cache_expires_in_hours: null,
+						},
+						null,
+						2,
+					),
+				);
+			} else {
+				console.error(`Error: ${errorMessage}`);
+			}
 			process.exit(1);
 		}
 	}
@@ -412,6 +468,7 @@ const executePluginUpdates = async (
 export const updateCommand = new Command("update")
 	.description("Update rp1 CLI and/or plugins")
 	.option("--check", "Check for updates without installing", false)
+	.option("--json", "Output result as JSON (only with --check)", false)
 	.option("--dry-run", "Show what would be done without executing", false)
 	.option("--force", "Force update even if already on latest", false)
 	.option("-y, --yes", "Skip confirmation prompts", false)
@@ -423,6 +480,7 @@ Subcommands:
 
 Options:
   --check    Check for available updates without installing
+  --json     Output result as JSON (only with --check)
   --dry-run  Preview what would be done without making changes
   --force    Force update even if already on the latest version
   -y, --yes  Skip all confirmation prompts
@@ -430,6 +488,7 @@ Options:
 Examples:
   rp1 update                   Update CLI, then prompt for plugin update
   rp1 update --check           Check if updates are available
+  rp1 update --check --json    Check for updates with JSON output
   rp1 update --dry-run         Preview update actions
   rp1 update --force           Force reinstall current version
   rp1 update -y                Update without prompts
@@ -441,7 +500,17 @@ Examples:
 		const logger = command.parent?._logger as Logger | undefined;
 		const isTTY = command.parent?._isTTY ?? process.stdout.isTTY ?? false;
 
-		await executeUpdateAction(options, logger, isTTY);
+		await executeUpdateAction(
+			{
+				check: options.check,
+				dryRun: options.dryRun,
+				force: options.force,
+				yes: options.yes,
+				json: options.json,
+			},
+			logger,
+			isTTY,
+		);
 	});
 
 updateCommand.addCommand(pluginsSubcommand);

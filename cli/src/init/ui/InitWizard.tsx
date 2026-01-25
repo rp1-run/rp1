@@ -53,6 +53,9 @@ type PromptType = "git-root" | "reinit" | "gitignore" | null;
  * Note: git-check is NOT listed here because we need to execute the step first
  * to determine if we're at the git root. The step execution itself will
  * trigger a prompt if needed.
+ *
+ * gitignore-config prompt is handled conditionally - skipped in "update" mode
+ * to provide a streamlined update experience.
  */
 const PROMPTABLE_STEPS: Record<StepId, PromptType> = {
 	registry: null,
@@ -61,7 +64,7 @@ const PROMPTABLE_STEPS: Record<StepId, PromptType> = {
 	"directory-setup": null,
 	"tool-detection": null,
 	"instruction-injection": null,
-	"gitignore-config": "gitignore",
+	"gitignore-config": "gitignore", // Conditionally shown - see needsPrompt
 	"plugin-installation": null,
 	verification: null,
 	"health-check": null,
@@ -140,6 +143,11 @@ export const InitWizard: React.FC<InitWizardProps> = ({
 				case "reinit":
 					return choices.reinitChoice === undefined;
 				case "gitignore":
+					// Skip gitignore prompt in "update" mode - use default preset
+					// This provides a streamlined update experience
+					if (choices.reinitChoice === "update") {
+						return false;
+					}
 					return choices.gitignorePreset === undefined;
 				default:
 					return false;

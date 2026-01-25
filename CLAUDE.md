@@ -3,11 +3,22 @@
 <!-- rp1:start -->
 ## rp1 Knowledge Base
 
-KB files in `.rp1/context/`: `index.md` (load first), `architecture.md`, `modules.md`, `patterns.md`, `concept_map.md`
+**Use Progressive Disclosure Pattern**
 
-**Loading**: Read index.md first. Then based on task: code review → patterns.md, bugs → architecture.md + modules.md, features → modules.md + patterns.md, strategic → ALL files.
+Location: `.rp1/context/`
 
-**Important**: Do NOT use `/knowledge-load` in subagents (causes early exit). Use Read tool directly.
+Files:
+- index.md (always load first)
+- architecture.md
+- modules.md
+- patterns.md
+- concept_map.md
+
+Loading rules:
+1. Always read index.md first.
+2. Then load based on task type:
+   - Code review: patterns.md
+   - Bug investigation: architecture.md, modules.md
+   - Feature work: modules.md, patterns.md
+   - Strategic or system-wide analysis: all files
 <!-- rp1:end -->
-
-When working with local web browser based features or debugging, load and use the skill: agent-browser

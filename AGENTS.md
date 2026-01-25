@@ -22,6 +22,7 @@
 | Understand a pattern | Read KB files + sample agent code |
 | Fix broken command | Check namespace prefix rules below |
 | Test changes | See "Testing" section below |
+| Working with Browser features | use skill: agent-browser    |
 
 ---
 
@@ -169,58 +170,9 @@ If command fails, inform user to install:
 
 If needed, read an example agent spec at: ./plugins/base/agents/kb-spatial-analyzer.md
 
-### Agent Tools
+## Common Issues while development
 
-Agent tools are CLI utilities that provide structured JSON output for programmatic use within agents. They are invoked via `rp1 agent-tools <tool> <subcommand>`.
-
-#### Work Status Updates
-
-The `work` tool enables agents to report workflow progress for real-time visibility in the Status Dashboard.
-
-**Command**: `rp1 agent-tools work update`
-
-**Usage Pattern**:
-```bash
-# Report feature started
-rp1 agent-tools work update \
-  --project "$(pwd)" \
-  --feature my-feature \
-  --status started \
-  --message "Beginning feature implementation"
-
-# Report task in progress
-rp1 agent-tools work update \
-  --project "$(pwd)" \
-  --feature my-feature \
-  --task requirements \
-  --status in_progress \
-  --message "Gathering requirements"
-
-# Report completion
-rp1 agent-tools work update \
-  --project "$(pwd)" \
-  --feature my-feature \
-  --status completed \
-  --message "Feature implemented successfully"
-```
-
-**Status Values**:
-- `started` - Work has begun
-- `in_progress` - Active work in progress
-- `completed` - Work finished successfully
-- `failed` - Work encountered an error
-
-**Agent Integration Guidelines**:
-
-1. **Report at key milestones**: Start of feature, task transitions, completion/failure
-2. **Use meaningful messages**: Include context about current activity
-3. **Include task identifier**: When working on specific tasks within a feature
-4. **Project path**: Always use absolute path (use `$(pwd)` or resolve fully)
-5. **Feature naming**: Use kebab-case matching the feature ID (e.g., `auth-refactor`)
-
-**Output**: Returns ToolResult JSON envelope with the recorded status update ID and timestamp.
-
----
+If you encounter issues installing uv, bun, or npm packages, it's most probably due to a VPN issue on my machine. Stop and ask for help. It's an easy manual fix.
 
 ## 🧪 Testing
 
@@ -269,23 +221,26 @@ just # run just to read about various test/lint commands
 - **Issues**: <https://github.com/rp1-run/rp1/issues>
 
 ---
+
 <!-- rp1:start -->
 ## rp1 Knowledge Base
 
-KB files in `.rp1/context/`: `index.md` (load first), `architecture.md`, `modules.md`, `patterns.md`, `concept_map.md`
+**Use Progressive Disclosure Pattern**
 
-**Loading Patterns**:
+Location: `.rp1/context/`
 
-| Task Type | KB Files to Load |
-|-----------|------------------|
-| Code review | `index.md` + `patterns.md` |
-| Bug investigation | `index.md` + `architecture.md` + `modules.md` |
-| Feature implementation | `index.md` + `modules.md` + `patterns.md` |
-| PR review | `index.md` + `patterns.md` |
-| Architecture analysis | `index.md` + `architecture.md` |
-| Strategic / Security / Docs | ALL files |
+Files:
+- index.md (always load first)
+- architecture.md
+- modules.md
+- patterns.md
+- concept_map.md
 
-**Progressive Loading** (recommended): Start with `index.md`, load others as needed based on task.
-
-**Important**: Do NOT use `/rp1-base/knowledge-load` in subagents (causes early exit). Use Read tool directly.
+Loading rules:
+1. Always read index.md first.
+2. Then load based on task type:
+   - Code review: patterns.md
+   - Bug investigation: architecture.md, modules.md
+   - Feature work: modules.md, patterns.md
+   - Strategic or system-wide analysis: all files
 <!-- rp1:end -->

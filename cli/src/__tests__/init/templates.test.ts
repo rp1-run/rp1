@@ -1,6 +1,6 @@
 /**
  * Unit tests for the init tool templates module.
- * Tests that templates contain required references and warnings.
+ * Tests that templates contain required references and structure.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -19,15 +19,15 @@ describe("templates", () => {
 			expect(CLAUDE_CODE_TEMPLATE).toContain("patterns.md");
 		});
 
-		test("contains loading strategy", () => {
-			expect(CLAUDE_CODE_TEMPLATE).toContain("Load");
-			expect(CLAUDE_CODE_TEMPLATE).toContain("Read");
+		test("contains loading rules", () => {
+			expect(CLAUDE_CODE_TEMPLATE).toContain("Loading rules");
+			expect(CLAUDE_CODE_TEMPLATE).toContain("read index.md first");
 		});
 
-		test("warns against /knowledge-load in subagents", () => {
-			expect(CLAUDE_CODE_TEMPLATE).toContain("Do NOT");
-			expect(CLAUDE_CODE_TEMPLATE).toContain("subagent");
-			expect(CLAUDE_CODE_TEMPLATE).toContain("knowledge-load");
+		test("contains task-based loading guidance", () => {
+			expect(CLAUDE_CODE_TEMPLATE).toContain("Code review");
+			expect(CLAUDE_CODE_TEMPLATE).toContain("Bug investigation");
+			expect(CLAUDE_CODE_TEMPLATE).toContain("Feature work");
 		});
 	});
 
@@ -38,14 +38,15 @@ describe("templates", () => {
 			expect(AGENTS_TEMPLATE).toContain("architecture.md");
 		});
 
-		test("contains loading strategy", () => {
-			expect(AGENTS_TEMPLATE).toContain("Load");
-			expect(AGENTS_TEMPLATE).toContain("Read");
+		test("contains loading rules", () => {
+			expect(AGENTS_TEMPLATE).toContain("Loading rules");
+			expect(AGENTS_TEMPLATE).toContain("read index.md first");
 		});
 
-		test("warns against command invocation in subagents", () => {
-			expect(AGENTS_TEMPLATE).toContain("Do NOT");
-			expect(AGENTS_TEMPLATE).toContain("subagent");
+		test("contains task-based loading guidance", () => {
+			expect(AGENTS_TEMPLATE).toContain("Code review");
+			expect(AGENTS_TEMPLATE).toContain("Bug investigation");
+			expect(AGENTS_TEMPLATE).toContain("Feature work");
 		});
 	});
 
@@ -68,11 +69,11 @@ describe("templates", () => {
 			expect(CLAUDE_CODE_TEMPLATE).toContain("rp1 Knowledge Base");
 			expect(AGENTS_TEMPLATE).toContain("rp1 Knowledge Base");
 
-			expect(CLAUDE_CODE_TEMPLATE).toContain("Loading");
-			expect(AGENTS_TEMPLATE).toContain("Loading");
+			expect(CLAUDE_CODE_TEMPLATE).toContain("Loading rules");
+			expect(AGENTS_TEMPLATE).toContain("Loading rules");
 
-			expect(CLAUDE_CODE_TEMPLATE).toContain("Important");
-			expect(AGENTS_TEMPLATE).toContain("Important");
+			expect(CLAUDE_CODE_TEMPLATE).toContain("Progressive Disclosure");
+			expect(AGENTS_TEMPLATE).toContain("Progressive Disclosure");
 		});
 	});
 });
