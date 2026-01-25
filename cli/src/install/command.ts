@@ -38,6 +38,7 @@ export interface InstallArgs {
 	skipSkills: boolean;
 	dryRun: boolean;
 	yes: boolean;
+	strict: boolean;
 }
 
 export interface InstallOptions {
@@ -53,6 +54,7 @@ export const parseInstallArgs = (
 	let dryRun = false;
 	let showHelp = false;
 	let yes = false;
+	let strict = false;
 
 	for (let i = 0; i < args.length; i++) {
 		const arg = args[i];
@@ -75,6 +77,8 @@ export const parseInstallArgs = (
 			dryRun = true;
 		} else if (arg === "--yes" || arg === "-y") {
 			yes = true;
+		} else if (arg === "--strict") {
+			strict = true;
 		} else if (!arg.startsWith("-")) {
 			if (artifactsDir === null) {
 				artifactsDir = arg;
@@ -82,7 +86,7 @@ export const parseInstallArgs = (
 		}
 	}
 
-	return { artifactsDir, skipSkills, dryRun, showHelp, yes };
+	return { artifactsDir, skipSkills, dryRun, showHelp, yes, strict };
 };
 
 /**
@@ -104,7 +108,6 @@ const executeInstallFromBundled = (
 			);
 			console.log(dim(`Version: ${assets.version}\n`));
 
-			// Run prerequisites checks
 			spinner.start("Checking prerequisites...");
 			return pipe(
 				checkOpenCodeInstalled(),
@@ -242,7 +245,6 @@ export const executeInstall = (
 		return TE.right(undefined);
 	}
 
-	// Check for bundled assets first (release binary), unless explicit artifacts-dir provided
 	if (config.artifactsDir === null && hasBundledAssets()) {
 		return executeInstallFromBundled(config, logger, options);
 	}
@@ -369,6 +371,8 @@ export const executeInstall = (
 								}
 								console.log(yellow(`  ⚠ Overwriting: ${path}`));
 							},
+							undefined, // logger
+							config.strict,
 						),
 						TE.chain((result) => {
 							spinner.succeed(

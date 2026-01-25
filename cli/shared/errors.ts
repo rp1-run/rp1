@@ -6,6 +6,7 @@ export enum ExitCode {
 	USAGE_ERROR = 2,
 	CONFIG_ERROR = 3,
 	NOT_FOUND = 4,
+	STRICT_MODE_FAILURE = 5,
 }
 
 export type CLIError =
@@ -33,7 +34,8 @@ export type CLIError =
 	  }
 	| { _tag: "InstallError"; operation: string; message: string }
 	| { _tag: "BackupError"; message: string }
-	| { _tag: "VerificationError"; message: string; issues: string[] };
+	| { _tag: "VerificationError"; message: string; issues: string[] }
+	| { _tag: "StrictModeError"; path: string; message: string };
 
 export const usageError = (message: string, suggestion?: string): CLIError => ({
 	_tag: "UsageError",
@@ -132,6 +134,12 @@ export const verificationError = (
 	issues,
 });
 
+export const strictModeError = (path: string, message: string): CLIError => ({
+	_tag: "StrictModeError",
+	path,
+	message,
+});
+
 export const getExitCode = (error: CLIError): ExitCode => {
 	switch (error._tag) {
 		case "UsageError":
@@ -156,6 +164,8 @@ export const getExitCode = (error: CLIError): ExitCode => {
 		case "BackupError":
 		case "VerificationError":
 			return ExitCode.GENERAL_ERROR;
+		case "StrictModeError":
+			return ExitCode.STRICT_MODE_FAILURE;
 	}
 };
 
@@ -219,6 +229,11 @@ export const formatError = (error: CLIError, color = true): string => {
 		case "VerificationError":
 			return format(
 				`Verification failed: ${error.message}\nIssues:\n${error.issues.map((i) => `  • ${i}`).join("\n")}`,
+			);
+		case "StrictModeError":
+			return format(
+				`Strict mode: ${error.message} (path: ${error.path})`,
+				"Remove --strict flag to continue with warnings instead of errors.",
 			);
 	}
 };

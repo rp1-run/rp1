@@ -89,7 +89,8 @@ type CLIError =
 	  }
 	| { _tag: "InstallError"; operation: string; message: string }
 	| { _tag: "BackupError"; message: string }
-	| { _tag: "VerificationError"; message: string; issues: string[] };
+	| { _tag: "VerificationError"; message: string; issues: string[] }
+	| { _tag: "StrictModeError"; path: string; message: string };
 
 /**
  * Extract a displayable message from any CLIError variant.

@@ -248,8 +248,8 @@ export type StepId =
  * Captures interactive selections made by the user.
  */
 export interface UserChoices {
-	/** Choice for handling git root vs current directory */
-	readonly gitRootChoice?: "continue" | "switch" | "cancel";
+	/** Choice for confirming project root (vs monorepo root) */
+	readonly gitRootChoice?: "continue" | "exit";
 	/** Choice for re-initialization behavior */
 	readonly reinitChoice?: ReinitChoice;
 	/** Selected gitignore preset */

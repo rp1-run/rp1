@@ -13,6 +13,15 @@
 
 ## [Unreleased]
 
+### Features
+
+* **install:** Automatic rollback on installation failure - system restores previous installation from backup if any step fails
+* **install:** SIGINT/SIGTERM signal handlers for safe interruption - Ctrl+C during installation gracefully cleans up and restores backup
+* **install:** Atomic installation via staging directory for OpenCode - plugins install all-or-nothing, preventing partial state
+* **install:** Enhanced dry-run validation - validates network connectivity, disk space, and package manager health before installation
+* **install:** `--strict` flag for CI/CD - treats missing source directories as errors (exit code 5) instead of warnings
+* **update:** Self-update pre-validation - downloads to temp location and verifies binary works before replacing
+
 ### BREAKING CHANGES
 
 * **dev:** `/build` and `/build-fast` Git operations are now opt-in by default

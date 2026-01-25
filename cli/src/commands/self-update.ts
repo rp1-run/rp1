@@ -1,6 +1,7 @@
 /**
  * CLI command for self-updating rp1.
  * Detects installation method and runs appropriate update command.
+ * Includes signal handling for graceful interruption (REQ-004, REQ-005).
  */
 
 import { Command } from "commander";
@@ -19,6 +20,7 @@ import {
 	checkForUpdate,
 	getInstalledVersion,
 } from "../lib/version.js";
+import { createSignalManager } from "../shared/signal-handler.js";
 
 /**
  * GitHub releases URL for manual installation instructions.
@@ -99,12 +101,31 @@ Examples:
 		const isTTY = command.parent?._isTTY ?? process.stdout.isTTY ?? false;
 		const fmt = createFormatter(isTTY);
 
-		// Log debug info if logger available
+		let updateInProgress = false;
+
+		// Create signal manager for graceful interruption (REQ-004, REQ-005)
+		const signalManager = createSignalManager({
+			onCleanup: async () => {
+				if (updateInProgress) {
+					logger?.warn(
+						"Update interrupted. Package manager may have cleanup to perform.",
+					);
+					fmt.warning("\nUpdate interrupted.");
+					fmt.info("If the update was partially completed, you may need to:");
+					fmt.info("  1. Run 'rp1 self-update' again to retry");
+					fmt.info("  2. Or manually update via your package manager");
+				}
+			},
+			timeoutMs: 5000,
+			logger,
+		});
+
+		signalManager.register();
+
 		logger?.debug(
 			`Self-update starting (dry-run=${options.dryRun}, force=${options.force})`,
 		);
 
-		// Step 1: Detect installation method
 		fmt.info("Detecting installation method...");
 		const detection = await detectInstallMethod();
 		logger?.debug(
@@ -115,7 +136,7 @@ Examples:
 		const updateCmd = getUpdateCommand(detection.method);
 
 		if (detection.method === "manual") {
-			// Manual installation - provide guidance and exit with code 2
+			signalManager.unregister();
 			fmt.warning(`Could not detect package manager installation.`);
 			console.log("");
 			fmt.info(fmt.dim(detection.details));
@@ -134,7 +155,6 @@ Examples:
 		fmt.success(`${methodName} installation detected`);
 		console.log("");
 
-		// Step 2: Check if update is needed (unless --force is set)
 		const currentVersion = getInstalledVersion();
 
 		if (!options.force) {
@@ -146,6 +166,7 @@ Examples:
 			const versionCheck = await checkForUpdate(checkOptions);
 
 			if (!versionCheck.updateAvailable && versionCheck.latestVersion) {
+				signalManager.unregister();
 				fmt.success(
 					`You are already on the latest version (v${currentVersion})`,
 				);
@@ -165,8 +186,8 @@ Examples:
 
 		console.log("");
 
-		// Step 3: Handle dry-run mode
 		if (options.dryRun) {
+			signalManager.unregister();
 			fmt.info("Dry run mode - showing what would be done:");
 			console.log("");
 			fmt.info(`  Installation method: ${methodName}`);
@@ -177,13 +198,15 @@ Examples:
 			process.exit(0);
 		}
 
-		// Step 4: Run the update
 		fmt.info("Updating rp1...");
 		console.log("");
 
+		updateInProgress = true;
 		const updateResult = await runUpdate(detection.method, currentVersion);
+		updateInProgress = false;
 
 		if (!updateResult.success) {
+			signalManager.unregister();
 			fmt.error("Update failed!");
 			console.log("");
 			if (updateResult.error) {
@@ -195,7 +218,6 @@ Examples:
 			process.exit(1);
 		}
 
-		// Step 5: Update cache with new version to suppress update banner
 		const newVersion = updateResult.newVersion ?? currentVersion;
 		logger?.debug(
 			`Updating version cache after successful update to v${newVersion}`,
@@ -206,13 +228,11 @@ Examples:
 			ttlHours: DEFAULT_TTL_HOURS,
 		})();
 		if (E.isLeft(cacheResult)) {
-			// Non-critical error, just log it
 			logger?.debug(
 				`Failed to update cache: ${formatError(cacheResult.left, false)}`,
 			);
 		}
 
-		// Step 6: Report success
 		if (updateResult.output) {
 			console.log(updateResult.output);
 			console.log("");
@@ -230,5 +250,7 @@ Examples:
 
 		console.log("");
 		fmt.info("Please restart Claude Code or OpenCode to use the new version.");
+
+		signalManager.unregister();
 		process.exit(0);
 	});

@@ -204,7 +204,7 @@ function detectTTY(options: InitOptions): boolean {
 	return process.stdout.isTTY ?? false;
 }
 
-type GitRootChoice = "continue" | "switch" | "cancel";
+type GitRootChoice = "continue" | "exit";
 
 async function handleGitRootCheck(
 	gitResult: GitRootResult,
@@ -220,50 +220,42 @@ async function handleGitRootCheck(
 		return { proceed: true, cwd: gitResult.currentDir, warning };
 	}
 
-	if (gitResult.isAtRoot) {
-		logger.debug("At git repository root");
-		return { proceed: true, cwd: gitResult.currentDir };
+	// Always confirm with user - they might be at a monorepo root by mistake
+	progress.pauseStep();
+	logger.info(`Current directory: ${gitResult.currentDir}`);
+	if (!gitResult.isAtRoot && gitResult.gitRoot) {
+		logger.info(`Git root: ${gitResult.gitRoot}`);
 	}
 
-	progress.pauseStep();
-	logger.warn(`Not at git repository root`);
-	logger.info(`Current directory: ${gitResult.currentDir}`);
-	logger.info(`Git root: ${gitResult.gitRoot}`);
-
 	const choice = await selectOption<GitRootChoice>(
-		"You're in a subdirectory. What would you like to do?",
+		"Is this your project root? (If this is a monorepo root, you should cd into your specific project first)",
 		[
 			{
 				value: "continue",
-				name: "Continue here (monorepo setup)",
-				description: "Initialize rp1 in the current subdirectory",
+				name: "Yes, initialize here",
+				description: "This is my project root, continue with setup",
 			},
 			{
-				value: "switch",
-				name: "Switch to git root",
-				description: `Initialize rp1 at ${gitResult.gitRoot}`,
-			},
-			{
-				value: "cancel",
-				name: "Cancel",
-				description: "Abort initialization",
+				value: "exit",
+				name: "No, let me navigate to the correct directory",
+				description: "Exit so I can cd to my project first",
 			},
 		],
 		promptOptions,
 	);
 
 	if (choice === null) {
-		const warning = `Initializing in subdirectory: ${gitResult.currentDir}`;
-		logger.warn(warning);
-		return { proceed: true, cwd: gitResult.currentDir, warning };
+		// Non-interactive default: continue
+		return { proceed: true, cwd: gitResult.currentDir };
 	}
 
 	switch (choice) {
 		case "continue":
 			return { proceed: true, cwd: gitResult.currentDir };
-		case "switch":
-			return { proceed: true, cwd: gitResult.gitRoot as string };
-		case "cancel":
+		case "exit":
+			logger.info(
+				"Navigate to your project directory and run 'rp1 init' again.",
+			);
 			return { proceed: false, cwd: gitResult.currentDir };
 	}
 }

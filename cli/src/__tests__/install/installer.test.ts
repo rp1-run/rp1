@@ -12,10 +12,14 @@ import {
 	backupExistingInstallation,
 	copyArtifacts,
 	copyOpenCodePlugin,
+	restoreFromBackup,
 } from "../../install/installer.js";
+import type { BackupManifest } from "../../install/models.js";
 import {
 	cleanupTempDir,
 	createTempDir,
+	expectTaskLeft,
+	expectTaskRight,
 	writeFixture,
 } from "../helpers/index.js";
 
@@ -389,6 +393,229 @@ describe("installer", () => {
 				expect(result.right.backupPath).toContain("backup_");
 				expect(result.right.backupPath).toContain(".opencode-rp1-backups");
 			}
+		});
+	});
+
+	describe("restoreFromBackup", () => {
+		let backupDir: string;
+		let targetDir: string;
+
+		beforeEach(async () => {
+			backupDir = join(tempDir, "backup");
+			targetDir = join(tempDir, "target");
+			await mkdir(backupDir, { recursive: true });
+			await mkdir(targetDir, { recursive: true });
+		});
+
+		// Core restore functionality - verifies backup data actually overwrites corrupted target
+		test("restores command files from backup (P0)", async () => {
+			// Setup backup with commands
+			await writeFixture(
+				backupDir,
+				"command/rp1-base/test-cmd.md",
+				"Original command content",
+			);
+			await writeFixture(join(backupDir, "manifest.json"), "", "");
+
+			// Create manifest
+			const manifest: BackupManifest = {
+				timestamp: "2026-01-25T10-00-00",
+				backupPath: backupDir,
+				filesBackedUp: 1,
+			};
+			await writeFixture(backupDir, "manifest.json", JSON.stringify(manifest));
+
+			// Simulate target with corrupted content
+			const configDir = join(homedir(), ".config", "opencode");
+			await mkdir(join(configDir, "command", "rp1-base"), { recursive: true });
+			await writeFixture(
+				configDir,
+				"command/rp1-base/test-cmd.md",
+				"Corrupted content",
+			);
+
+			const result = await expectTaskRight(restoreFromBackup(manifest));
+
+			expect(result.filesRestored).toBeGreaterThan(0);
+
+			// Verify content was restored
+			const restoredContent = await readFile(
+				join(configDir, "command/rp1-base/test-cmd.md"),
+				"utf-8",
+			);
+			expect(restoredContent).toBe("Original command content");
+
+			// Cleanup
+			await rm(join(configDir, "command/rp1-base"), {
+				recursive: true,
+				force: true,
+			});
+		});
+
+		// Critical: manifest deletion prevents accidental double-restore on retry
+		test("deletes manifest.json after successful restore (prevents duplicate)", async () => {
+			// Setup backup with minimal content
+			await writeFixture(backupDir, "command/rp1-base/cmd.md", "content");
+			const manifest: BackupManifest = {
+				timestamp: "2026-01-25T10-00-00",
+				backupPath: backupDir,
+				filesBackedUp: 1,
+			};
+			await writeFixture(backupDir, "manifest.json", JSON.stringify(manifest));
+
+			// Setup target
+			const configDir = join(homedir(), ".config", "opencode");
+			await mkdir(join(configDir, "command", "rp1-base"), { recursive: true });
+
+			const result = await expectTaskRight(restoreFromBackup(manifest));
+
+			expect(result.manifestDeleted).toBe(true);
+
+			// Verify manifest.json was deleted
+			let manifestExists = true;
+			try {
+				await stat(join(backupDir, "manifest.json"));
+			} catch {
+				manifestExists = false;
+			}
+			expect(manifestExists).toBe(false);
+
+			// Cleanup
+			await rm(join(configDir, "command/rp1-base"), {
+				recursive: true,
+				force: true,
+			});
+		});
+
+		// Error path: missing backup must fail clearly, not silently corrupt
+		test("returns error when backup path does not exist", async () => {
+			const manifest: BackupManifest = {
+				timestamp: "2026-01-25T10-00-00",
+				backupPath: "/nonexistent/path/that/does/not/exist",
+				filesBackedUp: 5,
+			};
+
+			const error = await expectTaskLeft(restoreFromBackup(manifest));
+
+			expect(error._tag).toBe("BackupError");
+			if (error._tag === "BackupError") {
+				expect(error.message).toContain("does not exist");
+			}
+		});
+
+		test("handles backup with no files gracefully", async () => {
+			// Empty backup - just manifest
+			const manifest: BackupManifest = {
+				timestamp: "2026-01-25T10-00-00",
+				backupPath: backupDir,
+				filesBackedUp: 0,
+			};
+			await writeFixture(backupDir, "manifest.json", JSON.stringify(manifest));
+
+			const result = await expectTaskRight(restoreFromBackup(manifest));
+
+			expect(result.filesRestored).toBe(0);
+		});
+
+		test("restores skills from backup", async () => {
+			// Setup backup with skill
+			await writeFixture(
+				backupDir,
+				"skill/test-skill/SKILL.md",
+				"Original skill",
+			);
+			await writeFixture(backupDir, "skill/test-skill/template.md", "Template");
+
+			const manifest: BackupManifest = {
+				timestamp: "2026-01-25T10-00-00",
+				backupPath: backupDir,
+				filesBackedUp: 2,
+			};
+			await writeFixture(backupDir, "manifest.json", JSON.stringify(manifest));
+
+			// Setup target
+			const configDir = join(homedir(), ".config", "opencode");
+			await mkdir(join(configDir, "skill", "test-skill"), { recursive: true });
+			await writeFixture(
+				configDir,
+				"skill/test-skill/SKILL.md",
+				"Corrupted skill",
+			);
+
+			const result = await expectTaskRight(restoreFromBackup(manifest));
+
+			expect(result.filesRestored).toBeGreaterThan(0);
+
+			const restoredContent = await readFile(
+				join(configDir, "skill/test-skill/SKILL.md"),
+				"utf-8",
+			);
+			expect(restoredContent).toBe("Original skill");
+
+			// Cleanup
+			await rm(join(configDir, "skill/test-skill"), {
+				recursive: true,
+				force: true,
+			});
+		});
+	});
+
+	describe("copyArtifacts with strict mode", () => {
+		test("fails when command directory missing and strict=true (P2)", async () => {
+			const sourceDir = join(tempDir, "empty-source");
+			const targetDir = join(tempDir, "target");
+			await mkdir(sourceDir, { recursive: true });
+
+			const result = await copyArtifacts(
+				sourceDir,
+				targetDir,
+				undefined,
+				undefined,
+				true, // strict mode
+			)();
+
+			// When strict mode is enabled and directories are missing, it should fail
+			expect(E.isLeft(result)).toBe(true);
+			if (E.isLeft(result)) {
+				// The error contains the strict mode failure
+				// Note: The error message format depends on how tryCatch serializes the thrown error
+				expect(result.left._tag).toBe("InstallError");
+				if (result.left._tag === "InstallError") {
+					expect(result.left.operation).toBe("copy-artifacts");
+				}
+			}
+		});
+
+		test("continues silently when directory missing and strict=false (default)", async () => {
+			const sourceDir = join(tempDir, "empty-source");
+			const targetDir = join(tempDir, "target");
+			await mkdir(sourceDir, { recursive: true });
+
+			const result = await copyArtifacts(sourceDir, targetDir)();
+
+			expect(E.isRight(result)).toBe(true);
+			if (E.isRight(result)) {
+				expect(result.right).toBe(0); // No files copied, but no error
+			}
+		});
+
+		test("logs debug message for missing directories", async () => {
+			const sourceDir = join(tempDir, "empty-source");
+			const targetDir = join(tempDir, "target");
+			await mkdir(sourceDir, { recursive: true });
+
+			const debugMessages: string[] = [];
+			const logger = {
+				debug: (msg: string) => debugMessages.push(msg),
+			};
+
+			await copyArtifacts(sourceDir, targetDir, undefined, logger, false)();
+
+			expect(
+				debugMessages.some(
+					(msg) => msg.includes("not found") || msg.includes("directory"),
+				),
+			).toBe(true);
 		});
 	});
 });

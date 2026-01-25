@@ -26,9 +26,13 @@ rp1 update
 This command:
 
 1. Checks for the latest rp1 release
-2. Downloads and installs the update (if available)
-3. Prompts to update plugins for detected AI tools
-4. Reports the update result
+2. Downloads the new binary to a temporary location
+3. Verifies the binary works by running `--version`
+4. Replaces the existing binary only after verification
+5. Prompts to update plugins for detected AI tools
+6. Reports the update result
+
+The pre-validation step ensures your CLI is never left in a broken state if the download is corrupted.
 
 ### Check for Updates
 
@@ -159,8 +163,37 @@ rp1 update --dry-run
   - Replace /usr/local/bin/rp1
   - Update plugins for: Claude Code, OpenCode
 
+Validating prerequisites...
+  Package manager: brew doctor OK
+  Network connectivity: OK
+  Disk space: OK (250 MB available)
+  Target version: 0.2.13
+
 No changes made.
 ```
+
+The enhanced dry-run validates prerequisites before showing the update plan, helping you catch issues before they cause failures.
+
+## Reliability Features
+
+### Safe Interruption
+
+You can safely press Ctrl+C during updates. The system will:
+
+1. Stop the update gracefully
+2. Clean up any temporary files
+3. Preserve your current installation
+4. Display guidance for retrying
+
+### Pre-Validation
+
+Before replacing the binary, rp1:
+
+1. Downloads to a temporary location
+2. Runs `--version` to verify the binary works
+3. Only then replaces the existing binary
+
+This ensures you're never left with a broken CLI.
 
 ## Exit Codes
 
@@ -168,6 +201,7 @@ No changes made.
 |------|---------|
 | `0` | Success (up to date or updated successfully) |
 | `1` | Error (network failure, permission denied, etc.) |
+| `5` | Strict mode failure (missing source directories) |
 
 ## CI/CD Integration
 
