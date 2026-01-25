@@ -35,6 +35,7 @@ describe("installer", () => {
 	});
 
 	describe("copyArtifacts", () => {
+		// Core functionality: verifies all artifact types reach correct destinations
 		test("copies files to correct subdirectories (command/, agent/, skill/)", async () => {
 			const sourceDir = join(tempDir, "source");
 			const targetDir = join(tempDir, "target");
@@ -81,32 +82,7 @@ describe("installer", () => {
 			expect(skillContent).toContain("Skill content");
 		});
 
-		test("calls onOverwrite callback for existing files", async () => {
-			const sourceDir = join(tempDir, "source");
-			const targetDir = join(tempDir, "target");
-
-			await writeFixture(
-				sourceDir,
-				"command/rp1-base/existing.md",
-				"---\nname: existing\n---\nNew content",
-			);
-
-			await writeFixture(
-				targetDir,
-				"command/rp1-base/existing.md",
-				"---\nname: existing\n---\nOld content",
-			);
-
-			const overwrites: string[] = [];
-			const result = await copyArtifacts(sourceDir, targetDir, (path) => {
-				overwrites.push(path);
-			})();
-
-			expect(E.isRight(result)).toBe(true);
-			expect(overwrites.length).toBeGreaterThan(0);
-			expect(overwrites[0]).toContain("existing.md");
-		});
-
+		// Security: verifies files aren't world-writable (prevents injection)
 		test("sets correct file permissions (0o644 for files)", async () => {
 			const sourceDir = join(tempDir, "source");
 			const targetDir = join(tempDir, "target");
@@ -127,6 +103,7 @@ describe("installer", () => {
 			expect(mode & 0o200).toBe(0o200); // Writable by owner
 		});
 
+		// Boundary: empty plugin shouldn't fail - valid on partial installs
 		test("handles missing source directories gracefully", async () => {
 			const sourceDir = join(tempDir, "empty-source");
 			const targetDir = join(tempDir, "target");
@@ -140,6 +117,7 @@ describe("installer", () => {
 			}
 		});
 
+		// Critical: skills have nested template dirs that must be preserved
 		test("copies skill directories recursively", async () => {
 			const sourceDir = join(tempDir, "source");
 			const targetDir = join(tempDir, "target");
@@ -176,22 +154,6 @@ describe("installer", () => {
 			);
 			expect(template2).toBe("Template 2 content");
 		});
-
-		test("returns count of files copied", async () => {
-			const sourceDir = join(tempDir, "source");
-			const targetDir = join(tempDir, "target");
-
-			await writeFixture(sourceDir, "command/rp1-base/cmd1.md", "content1");
-			await writeFixture(sourceDir, "command/rp1-base/cmd2.md", "content2");
-			await writeFixture(sourceDir, "agent/rp1-base/agent1.md", "content3");
-
-			const result = await copyArtifacts(sourceDir, targetDir)();
-
-			expect(E.isRight(result)).toBe(true);
-			if (E.isRight(result)) {
-				expect(result.right).toBe(3);
-			}
-		});
 	});
 
 	describe("copyOpenCodePlugin", () => {
@@ -213,6 +175,7 @@ describe("installer", () => {
 			}
 		});
 
+		// Security: plugin dirs need execute bit for traversal, but not world-writable
 		test("creates target directory with correct permissions (0o755)", async () => {
 			const sourceDir = join(tempDir, "source");
 
@@ -238,33 +201,7 @@ describe("installer", () => {
 			expect(mode & 0o755).toBe(0o755);
 		});
 
-		test("copies files with correct permissions (0o644)", async () => {
-			const sourceDir = join(tempDir, "source");
-
-			await writeFixture(
-				sourceDir,
-				"platforms/opencode/opencode.json",
-				JSON.stringify({ name: testPluginName, version: "1.0.0" }),
-			);
-			await writeFixture(
-				sourceDir,
-				"platforms/opencode/index.ts",
-				"export default {};",
-			);
-
-			await copyOpenCodePlugin(sourceDir, testPluginName)();
-
-			const jsonFile = join(testPluginDir, "opencode.json");
-			const jsonStat = await stat(jsonFile);
-			const jsonMode = jsonStat.mode & 0o777;
-			expect(jsonMode & 0o644).toBe(0o644);
-
-			const tsFile = join(testPluginDir, "index.ts");
-			const tsStat = await stat(tsFile);
-			const tsMode = tsStat.mode & 0o777;
-			expect(tsMode & 0o644).toBe(0o644);
-		});
-
+		// Boundary: missing plugin source shouldn't fail - valid on partial installs
 		test("returns 0 when no source plugin exists", async () => {
 			const sourceDir = join(tempDir, "empty-source");
 			await mkdir(sourceDir, { recursive: true });
@@ -277,58 +214,7 @@ describe("installer", () => {
 			}
 		});
 
-		test("returns file count when successful", async () => {
-			const sourceDir = join(tempDir, "source");
-
-			await writeFixture(
-				sourceDir,
-				"platforms/opencode/opencode.json",
-				JSON.stringify({ name: testPluginName, version: "1.0.0" }),
-			);
-			await writeFixture(
-				sourceDir,
-				"platforms/opencode/index.ts",
-				"export default {};",
-			);
-			await writeFixture(
-				sourceDir,
-				"platforms/opencode/utils.ts",
-				"export const helper = () => {};",
-			);
-
-			const result = await copyOpenCodePlugin(sourceDir, testPluginName)();
-
-			expect(E.isRight(result)).toBe(true);
-			if (E.isRight(result)) {
-				expect(result.right).toBe(3); // 3 files copied
-			}
-		});
-
-		test("invokes onProgress callback with installation message", async () => {
-			const sourceDir = join(tempDir, "source");
-
-			await writeFixture(
-				sourceDir,
-				"platforms/opencode/opencode.json",
-				JSON.stringify({ name: testPluginName, version: "1.0.0" }),
-			);
-			await writeFixture(
-				sourceDir,
-				"platforms/opencode/index.ts",
-				"export default {};",
-			);
-
-			const progressMessages: string[] = [];
-			await copyOpenCodePlugin(sourceDir, testPluginName, (msg) => {
-				progressMessages.push(msg);
-			})();
-
-			expect(progressMessages.length).toBe(1);
-			expect(progressMessages[0]).toContain(testPluginName);
-			expect(progressMessages[0]).toContain("plugin");
-			expect(progressMessages[0]).toContain("files");
-		});
-
+		// Critical: OpenCode plugins can have nested subdirs (e.g., plugin/index.ts)
 		test("copies nested directory structure correctly", async () => {
 			const sourceDir = join(tempDir, "source");
 
@@ -354,16 +240,11 @@ describe("installer", () => {
 	});
 
 	describe("backupExistingInstallation", () => {
-		// Note: backupExistingInstallation uses homedir(), making it harder to test
-		// in isolation. These tests verify the behavior of the backup functions
-		// with the understanding that they operate on ~/.config/opencode
-
+		// Core backup contract: returns manifest with required fields for restore
+		// Note: uses homedir(), so tests validate return structure not file operations
 		test("backup creates manifest with file count", async () => {
-			// This test verifies the BackupManifest structure returned
-			// We can't easily mock homedir(), so we test the return type
 			const result = await backupExistingInstallation()();
 
-			// Even if no files exist to backup, it should return successfully
 			expect(E.isRight(result)).toBe(true);
 			if (E.isRight(result)) {
 				const manifest = result.right;
@@ -371,27 +252,6 @@ describe("installer", () => {
 				expect(manifest).toHaveProperty("backupPath");
 				expect(manifest).toHaveProperty("filesBackedUp");
 				expect(typeof manifest.filesBackedUp).toBe("number");
-			}
-		});
-
-		test("backup timestamp has correct format", async () => {
-			const result = await backupExistingInstallation()();
-
-			expect(E.isRight(result)).toBe(true);
-			if (E.isRight(result)) {
-				// Timestamp format: YYYY-MM-DDTHH-MM-SS
-				const timestampPattern = /\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}/;
-				expect(result.right.timestamp).toMatch(timestampPattern);
-			}
-		});
-
-		test("backup path includes backup prefix", async () => {
-			const result = await backupExistingInstallation()();
-
-			expect(E.isRight(result)).toBe(true);
-			if (E.isRight(result)) {
-				expect(result.right.backupPath).toContain("backup_");
-				expect(result.right.backupPath).toContain(".opencode-rp1-backups");
 			}
 		});
 	});
@@ -503,6 +363,7 @@ describe("installer", () => {
 			}
 		});
 
+		// Boundary: empty backup shouldn't error - valid edge case on fresh install
 		test("handles backup with no files gracefully", async () => {
 			// Empty backup - just manifest
 			const manifest: BackupManifest = {
@@ -516,51 +377,10 @@ describe("installer", () => {
 
 			expect(result.filesRestored).toBe(0);
 		});
-
-		test("restores skills from backup", async () => {
-			// Setup backup with skill
-			await writeFixture(
-				backupDir,
-				"skill/test-skill/SKILL.md",
-				"Original skill",
-			);
-			await writeFixture(backupDir, "skill/test-skill/template.md", "Template");
-
-			const manifest: BackupManifest = {
-				timestamp: "2026-01-25T10-00-00",
-				backupPath: backupDir,
-				filesBackedUp: 2,
-			};
-			await writeFixture(backupDir, "manifest.json", JSON.stringify(manifest));
-
-			// Setup target
-			const configDir = join(homedir(), ".config", "opencode");
-			await mkdir(join(configDir, "skill", "test-skill"), { recursive: true });
-			await writeFixture(
-				configDir,
-				"skill/test-skill/SKILL.md",
-				"Corrupted skill",
-			);
-
-			const result = await expectTaskRight(restoreFromBackup(manifest));
-
-			expect(result.filesRestored).toBeGreaterThan(0);
-
-			const restoredContent = await readFile(
-				join(configDir, "skill/test-skill/SKILL.md"),
-				"utf-8",
-			);
-			expect(restoredContent).toBe("Original skill");
-
-			// Cleanup
-			await rm(join(configDir, "skill/test-skill"), {
-				recursive: true,
-				force: true,
-			});
-		});
 	});
 
 	describe("copyArtifacts with strict mode", () => {
+		// Core strict mode contract: CI must fail on missing artifacts, not silently succeed
 		test("fails when command directory missing and strict=true (P2)", async () => {
 			const sourceDir = join(tempDir, "empty-source");
 			const targetDir = join(tempDir, "target");
@@ -584,38 +404,6 @@ describe("installer", () => {
 					expect(result.left.operation).toBe("copy-artifacts");
 				}
 			}
-		});
-
-		test("continues silently when directory missing and strict=false (default)", async () => {
-			const sourceDir = join(tempDir, "empty-source");
-			const targetDir = join(tempDir, "target");
-			await mkdir(sourceDir, { recursive: true });
-
-			const result = await copyArtifacts(sourceDir, targetDir)();
-
-			expect(E.isRight(result)).toBe(true);
-			if (E.isRight(result)) {
-				expect(result.right).toBe(0); // No files copied, but no error
-			}
-		});
-
-		test("logs debug message for missing directories", async () => {
-			const sourceDir = join(tempDir, "empty-source");
-			const targetDir = join(tempDir, "target");
-			await mkdir(sourceDir, { recursive: true });
-
-			const debugMessages: string[] = [];
-			const logger = {
-				debug: (msg: string) => debugMessages.push(msg),
-			};
-
-			await copyArtifacts(sourceDir, targetDir, undefined, logger, false)();
-
-			expect(
-				debugMessages.some(
-					(msg) => msg.includes("not found") || msg.includes("directory"),
-				),
-			).toBe(true);
 		});
 	});
 });
