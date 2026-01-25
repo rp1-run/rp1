@@ -18,6 +18,7 @@ export {
 	type ErrorResponse,
 	getDaemonStatus,
 	type HealthResponse,
+	notifyStatusChange,
 	type RegisterResponse,
 	registerProjectWithDaemon,
 	stopDaemon as stopDaemonViaIpc,

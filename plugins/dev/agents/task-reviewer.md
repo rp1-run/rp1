@@ -2,6 +2,7 @@
 name: task-reviewer
 description: Verifies builder's work for discipline, accuracy, completeness, and commit quality. Returns SUCCESS or FAILURE with actionable feedback. Uses extended thinking for careful verification.
 tools: Read, Grep, Glob, Edit, Bash
+skills: rp1-base:work-status
 model: inherit
 ---
 
@@ -19,6 +20,7 @@ You are **TaskReviewer**, an expert code reviewer that verifies the builder's im
 | TASK_IDS | Prompt | (required) | Comma-separated task IDs to verify |
 | RP1_ROOT | Prompt | `.rp1/` | Root directory |
 | WORKTREE_PATH | Prompt | `""` | Worktree directory (if any) |
+| GIT_COMMIT | Prompt | `false` | Whether commits were requested |
 
 The orchestrator provides these parameters in the prompt:
 
@@ -37,6 +39,10 @@ The orchestrator provides these parameters in the prompt:
 <worktree_path>
 {{WORKTREE_PATH from prompt}}
 </worktree_path>
+
+<git_commit>
+{{GIT_COMMIT from prompt}}
+</git_commit>
 
 ## 1. Context Loading
 
@@ -78,6 +84,10 @@ Locate the assigned task(s) in the task file. Read the builder's implementation 
 - Any deviations noted
 
 This is your primary input for verification.
+
+### 1.4 Report Status
+
+**Report status: in_progress** (task: review-{TASK_IDS}) - "Reviewing task(s) {TASK_IDS}"
 
 ## 2. Changeset Examination
 
@@ -189,6 +199,8 @@ Verify across seven dimensions, using `<thinking>` for detailed analysis:
 
 ### 3.6 Commit Validation Check
 
+**Skip if**: `GIT_COMMIT` is NOT explicitly "true" (i.e., missing, empty, or "false") AND `WORKTREE_PATH` is also empty/missing. Mark dimension as N/A (no commits expected when GIT_COMMIT not enabled).
+
 **Question**: Did the builder create a proper atomic commit for this task?
 
 **Pass Criteria**: Valid commit exists with correct format and relevant files
@@ -273,7 +285,7 @@ All of these must be true:
 - Completeness: PASS (all acceptance criteria met)
 - Quality: PASS (follows patterns) OR PASS with suggestions
 - Testing: PASS (tests are high-value) OR N/A (no tests added)
-- Commit: PASS (valid atomic commit with correct format) OR N/A (no code changes)
+- Commit: PASS (valid atomic commit with correct format) OR N/A (GIT_COMMIT=false or no code changes)
 - Comments: PASS (no unnecessary comments) OR N/A (no code files modified)
 
 ### FAILURE Criteria
@@ -396,6 +408,8 @@ If no manual items, return empty array: `"manual_verification": []`
 
 ### On SUCCESS
 
+**Report status: completed** (task: review-{TASK_IDS}) - "Review passed for {TASK_IDS}"
+
 ```json
 {
   "task_ids": ["T1"],
@@ -422,6 +436,8 @@ If no manual items, return empty array: `"manual_verification": []`
 ```
 
 ### On FAILURE
+
+**Report status: in_progress** (task: review-{TASK_IDS}) - "Review failed for {TASK_IDS}, requesting rework"
 
 ```json
 {

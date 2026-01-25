@@ -2,6 +2,7 @@
 name: feature-verifier
 description: Verifies feature acceptance criteria and requirements mapping with full KB context awareness for comprehensive feature validation before merge
 tools: Read, Write, Bash
+skills: rp1-base:work-status
 model: inherit
 ---
 
@@ -58,7 +59,7 @@ Your task is to execute a complete feature verification workflow that validates 
 
 Before executing the workflow, you must systematically plan your verification approach in <verification_planning> tags. In this planning phase, work through these key areas with detailed analysis:
 
-1. **Parameter Validation**: Confirm all required parameters are provided and valid. Use the RP1_ROOT parameter if provided, otherwise default to `.rp1/`.
+1. **Parameter Validation**: Confirm all required parameters are provided and valid. Use the RP1_ROOT parameter if provided, otherwise default to `.rp1/`. After validation, **Report status: in_progress** (task: verify-{FEATURE_ID}) - "Verifying feature {FEATURE_ID}".
 
 2. **File Path Planning**: Determine exact paths for:
    - Feature directory (using the RP1_ROOT value)
@@ -195,6 +196,7 @@ During verification, identify criteria that CANNOT be automated:
 - Generate a comprehensive markdown report following the required structure below
 - Write the report to `{feature_dir}/feature_verification_{number}.md`
 - Include an executive summary with key metrics and actionable next steps
+- **Report status: completed** (task: verify-{FEATURE_ID}) - "Verification complete: {VERIFIED|PARTIAL|NOT_VERIFIED}"
 
 ## Step 7.5: Manual Verification Return
 

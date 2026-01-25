@@ -7,14 +7,24 @@
 	"scripts": {
 		"eval": "promptfoo eval",
 		"eval:build-fast": "promptfoo eval -c suites/rp1-dev/build-fast/evals.yaml",
-		"typecheck": "tsc --noEmit"
+		"typecheck": "tsc --noEmit",
+		"lint": "biome check .",
+		"lint:fix": "biome check --write .",
+		"format": "biome format .",
+		"format:fix": "biome format --write .",
+		"test": "bun test"
 	},
 	"dependencies": {
 		"@anthropic-ai/claude-agent-sdk": "^0.2.0",
+		"@opentelemetry/api": "^1.9.0",
+		"@opentelemetry/exporter-trace-otlp-http": "^0.211.0",
+		"@opentelemetry/sdk-trace-node": "^2.5.0",
+		"@opentelemetry/semantic-conventions": "^1.39.0",
 		"fp-ts": "2.16.11",
 		"promptfoo": "^0.120.0"
 	},
 	"devDependencies": {
+		"@biomejs/biome": "^2.3.8",
 		"@types/bun": "^1.1.14",
 		"@types/node": "^22.0.0",
 		"typescript": "^5.7.2"

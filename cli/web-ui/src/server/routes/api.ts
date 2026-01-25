@@ -47,10 +47,19 @@ export interface FeatureStatus {
 	updates: StatusUpdate[];
 }
 
+export interface CompletedTask {
+	feature: string;
+	task: string;
+	message: string | null;
+	completedAt: string;
+}
+
 export interface StatusResponse {
 	projectId: string;
+	projectName: string;
 	active: FeatureStatus[];
 	recentlyCompleted: FeatureStatus[];
+	recentlyCompletedTasks: CompletedTask[];
 	lastUpdated: string | null;
 }
 
@@ -298,8 +307,25 @@ export async function handleProjectsListRequest(): Promise<Response> {
 		const projects = await getAllProjects();
 		const lastInvoked = await getLastInvokedProjectId();
 
+		// Fetch active feature counts for all projects in parallel
+		const { getActiveFeatureCount } = await import(
+			"../../../../src/agent-tools/work/database"
+		);
+		const { isLeft } = await import("fp-ts/lib/Either.js");
+
+		const projectsWithStatus = await Promise.all(
+			projects.map(async (project) => {
+				const countResult = await getActiveFeatureCount(project.path)();
+				const activeFeatureCount = isLeft(countResult) ? 0 : countResult.right;
+				return {
+					...project,
+					activeFeatureCount,
+				};
+			}),
+		);
+
 		return jsonResponse({
-			projects,
+			projects: projectsWithStatus,
 			lastInvoked,
 		});
 	} catch (error) {
@@ -499,6 +525,53 @@ export async function handleProjectContentRequest(
 /**
  * Handle GET /api/projects/:id/status - get status updates for a project.
  */
+/**
+ * Handle POST /api/status/notify - notify WebSocket clients of a status change.
+ * Called by CLI after writing status update to trigger immediate broadcast.
+ */
+export async function handleStatusNotifyRequest(
+	req: Request,
+	ctx: ApiContext,
+): Promise<Response> {
+	try {
+		const body = (await req.json()) as {
+			projectPath?: string;
+			feature?: string;
+			status?: string;
+		};
+
+		if (!body.projectPath || !body.feature || !body.status) {
+			return errorResponse(
+				"Missing required fields: projectPath, feature, status",
+				400,
+			);
+		}
+
+		// Look up project ID from path
+		const projects = await getAllProjects();
+		const project = projects.find((p) => p.path === body.projectPath);
+
+		if (!project) {
+			// Project not registered, nothing to broadcast
+			return jsonResponse({
+				notified: false,
+				reason: "project_not_registered",
+			});
+		}
+
+		// Broadcast the status change to WebSocket clients
+		ctx.websocketHub?.broadcastStatusChange(
+			project.id,
+			body.feature,
+			body.status,
+		);
+
+		return jsonResponse({ notified: true, projectId: project.id });
+	} catch (error) {
+		return errorResponse(`Failed to process notification: ${String(error)}`);
+	}
+}
+
 export async function handleProjectStatusRequest(
 	projectId: string,
 ): Promise<Response> {
@@ -509,8 +582,11 @@ export async function handleProjectStatusRequest(
 			return errorResponse(`Project not found: ${projectId}`, 404);
 		}
 
-		const { getLatestStatusByFeature, queryStatusUpdatesForFeatures } =
-			await import("../../../../src/agent-tools/work/database");
+		const {
+			getLatestStatusByFeature,
+			queryStatusUpdatesForFeatures,
+			getRecentlyCompletedTasks,
+		} = await import("../../../../src/agent-tools/work/database");
 		const { isLeft } = await import("fp-ts/lib/Either.js");
 
 		const latestResult = await getLatestStatusByFeature(project.path)();
@@ -524,12 +600,29 @@ export async function handleProjectStatusRequest(
 
 		const latestStatuses = latestResult.right;
 
+		// Fetch recently completed tasks (task-level granularity)
+		const completedTasksResult = await getRecentlyCompletedTasks(
+			project.path,
+			24,
+		)();
+
+		const recentlyCompletedTasks: CompletedTask[] = isLeft(completedTasksResult)
+			? []
+			: completedTasksResult.right.map((record) => ({
+					feature: record.feature,
+					task: record.task as string, // task is guaranteed non-null from query
+					message: record.message,
+					completedAt: record.createdAt,
+				}));
+
 		// Return early with null lastUpdated if no statuses exist
 		if (latestStatuses.length === 0) {
 			const response: StatusResponse = {
 				projectId,
+				projectName: project.name,
 				active: [],
 				recentlyCompleted: [],
+				recentlyCompletedTasks,
 				lastUpdated: null,
 			};
 			return jsonResponse(response);
@@ -597,8 +690,10 @@ export async function handleProjectStatusRequest(
 
 		const response: StatusResponse = {
 			projectId,
+			projectName: project.name,
 			active,
 			recentlyCompleted,
+			recentlyCompletedTasks,
 			lastUpdated: latestStatuses[0].createdAt,
 		};
 

@@ -8,7 +8,7 @@ import { spawnSync } from "bun";
 import * as A from "fp-ts/Array";
 import { pipe } from "fp-ts/function";
 import * as TE from "fp-ts/TaskEither";
-import { PLUGIN_SUFFIXES, buildDependencyGraph } from "./deps-graph.js";
+import { buildDependencyGraph, PLUGIN_SUFFIXES } from "./deps-graph.js";
 import { loadManifest, saveManifest, updateManifest } from "./manifest.js";
 import { computeDepsHash, computePromptHash } from "./prompt-hash.js";
 import type {
@@ -89,8 +89,7 @@ export function detectPassRate(output: PromptfooOutput): boolean {
 	}
 	return prompts.every(
 		(prompt) =>
-			prompt.metrics.testFailCount === 0 &&
-			prompt.metrics.testErrorCount === 0,
+			prompt.metrics.testFailCount === 0 && prompt.metrics.testErrorCount === 0,
 	);
 }
 
@@ -108,7 +107,7 @@ function suiteToCommandPath(suite: string): string {
  * Get current git commit SHA (short form).
  */
 async function getGitCommit(): Promise<string> {
-	const proc = spawn(["git", "rev-parse", "--short", "HEAD"], {
+	const proc = Bun.spawn(["git", "rev-parse", "--short", "HEAD"], {
 		stdout: "pipe",
 	});
 	const output = await new Response(proc.stdout).text();
@@ -135,9 +134,21 @@ async function getCommandVersion(commandPath: string): Promise<string> {
  * @param outputPath - Path to save JSON results (relative to evals/)
  * @param concurrency - Max concurrent API calls (default: 1)
  */
-function runEvalSuite(suite: string, outputPath: string, concurrency = 1): boolean {
+function runEvalSuite(
+	suite: string,
+	outputPath: string,
+	concurrency = 1,
+): boolean {
 	const configPath = `suites/${suite}/evals.yaml`;
-	const args = ["bunx", "promptfoo", "eval", "-c", configPath, "--output", outputPath];
+	const args = [
+		"bunx",
+		"promptfoo",
+		"eval",
+		"-c",
+		configPath,
+		"--output",
+		outputPath,
+	];
 	if (concurrency > 1) {
 		args.push("-j", String(concurrency));
 	}
@@ -188,7 +199,7 @@ export function attestCommand(
 		TE.Do,
 		TE.bind("passed", () =>
 			TE.tryCatch(
-				() => runEvalSuite(suite, resultFile, concurrency),
+				async () => runEvalSuite(suite, resultFile, concurrency),
 				(e) => new Error(`Eval execution failed: ${e}`),
 			),
 		),
@@ -221,7 +232,6 @@ export function attestCommand(
 						),
 					),
 					TE.chain(({ manifest, hashes, version, gitCommit }) => {
-
 						const attestation: CommandAttestation = {
 							prompt_hash:
 								hashes.find((h) => h.path === commandPath)?.hash || "",
@@ -313,8 +323,7 @@ export function attestFromOutput(
 				),
 				TE.chain(({ manifest, hashes, version, gitCommit }) => {
 					const attestation: CommandAttestation = {
-						prompt_hash:
-							hashes.find((h) => h.path === commandPath)?.hash || "",
+						prompt_hash: hashes.find((h) => h.path === commandPath)?.hash || "",
 						deps_hash: computeDepsHash(hashes),
 						version,
 						last_eval: {

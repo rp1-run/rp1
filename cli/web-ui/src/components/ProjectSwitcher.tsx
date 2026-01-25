@@ -13,6 +13,7 @@ import {
 } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { useWebSocket } from "@/providers/WebSocketProvider";
 import type { ProjectEntry } from "../server/registry";
 
 interface ProjectsResponse {
@@ -27,9 +28,11 @@ export function ProjectSwitcher() {
 	const [focusedIndex, setFocusedIndex] = useState(-1);
 	const dropdownRef = useRef<HTMLDivElement>(null);
 	const buttonRef = useRef<HTMLButtonElement>(null);
+	const listRef = useRef<HTMLDivElement>(null);
 	const navigate = useNavigate();
 	const params = useParams();
 	const currentProjectId = params.projectId;
+	const { onStatusChange } = useWebSocket();
 
 	const fetchProjects = useCallback(async () => {
 		try {
@@ -43,6 +46,14 @@ export function ProjectSwitcher() {
 			setLoading(false);
 		}
 	}, []);
+
+	// Refetch projects when status changes to update active feature counts
+	useEffect(() => {
+		const unsubscribe = onStatusChange(() => {
+			fetchProjects();
+		});
+		return unsubscribe;
+	}, [onStatusChange, fetchProjects]);
 
 	useEffect(() => {
 		fetchProjects();
@@ -85,6 +96,13 @@ export function ProjectSwitcher() {
 			setFocusedIndex(currentIndex >= 0 ? currentIndex : 0);
 		}
 	}, [isOpen, focusedIndex, projects, currentProjectId]);
+
+	// Focus the listbox when dropdown opens for keyboard navigation
+	useEffect(() => {
+		if (isOpen && listRef.current) {
+			listRef.current.focus();
+		}
+	}, [isOpen]);
 
 	const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
 		if (!isOpen) {
@@ -131,7 +149,7 @@ export function ProjectSwitcher() {
 	const handleProjectSelect = (project: ProjectEntry) => {
 		if (!project.available) return;
 		setIsOpen(false);
-		navigate(`/project/${project.id}/view/context/index.md`);
+		navigate(`/project/${project.id}/status`);
 	};
 
 	const currentProject = projects.find((p) => p.id === currentProjectId);
@@ -180,11 +198,13 @@ export function ProjectSwitcher() {
 
 			{isOpen && (
 				<div
+					ref={listRef}
 					className={cn(
 						"absolute top-full left-0 mt-1 z-50",
 						"min-w-[200px] max-w-[300px] max-h-[300px] overflow-y-auto",
 						"rounded-md border bg-popover shadow-md",
 						"font-mono text-sm",
+						"focus:outline-none",
 					)}
 					role="listbox"
 					tabIndex={0}
@@ -220,6 +240,16 @@ export function ProjectSwitcher() {
 								<span className="w-3.5" />
 							)}
 							<span className="truncate flex-1">{project.name}</span>
+							{(project.activeFeatureCount ?? 0) > 0 && (
+								// biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-label for screen readers
+								<span
+									className="text-terminal-green text-[0.5rem] leading-none flex-shrink-0"
+									title="Has active work"
+									aria-label="Has active work"
+								>
+									&#9679;
+								</span>
+							)}
 							{!project.available && (
 								<span className="text-xs">(unavailable)</span>
 							)}

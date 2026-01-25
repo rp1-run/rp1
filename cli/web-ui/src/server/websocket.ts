@@ -256,9 +256,7 @@ export class WebSocketHub {
 
 					if (lastStatus !== status) {
 						this.lastStatusSnapshot.set(key, status);
-						if (lastStatus !== undefined) {
-							this.broadcastStatusChange(projectId, feature, status);
-						}
+						this.broadcastStatusChange(projectId, feature, status);
 					}
 				}
 

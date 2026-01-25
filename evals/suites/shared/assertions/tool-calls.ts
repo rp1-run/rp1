@@ -177,7 +177,7 @@ function matchesToolCall<T extends ToolName>(
 	// For others, match against JSON.stringify(input)
 	const targetString =
 		toolName === "Bash"
-			? (input as BashToolInput).command ?? ""
+			? ((input as BashToolInput).command ?? "")
 			: JSON.stringify(input);
 
 	if (typeof matcher === "string") {
@@ -333,7 +333,8 @@ export function assertToolCallCount<T extends ToolName>(
  */
 export function assertOutputContains(pattern: string | RegExp) {
 	return (output: string, _context: EvalContext): GradingResult => {
-		const regex = typeof pattern === "string" ? new RegExp(pattern, "i") : pattern;
+		const regex =
+			typeof pattern === "string" ? new RegExp(pattern, "i") : pattern;
 		const found = regex.test(output);
 
 		if (found) {
@@ -390,27 +391,42 @@ export function assertFileExists(relativePath: string) {
  * Assert that agent made a git commit via tool call.
  * Handles git commands with flags before subcommand (e.g., git -C /path commit).
  */
-export const assertGitCommitToolCall = assertToolCall("Bash", /\bgit\b.*\bcommit\b/);
+export const assertGitCommitToolCall = assertToolCall(
+	"Bash",
+	/\bgit\b.*\bcommit\b/,
+);
 
 /**
  * Assert that agent did NOT make a git commit via tool call.
  * Handles git commands with flags before subcommand (e.g., git -C /path commit).
  */
-export const assertNoGitCommitToolCall = assertNoToolCall("Bash", /\bgit\b.*\bcommit\b/);
+export const assertNoGitCommitToolCall = assertNoToolCall(
+	"Bash",
+	/\bgit\b.*\bcommit\b/,
+);
 
 /**
  * Assert that agent executed a git push via tool call.
  * Handles git commands with flags before subcommand (e.g., git -C /path push).
  */
-export const assertGitPushToolCall = assertToolCall("Bash", /\bgit\b.*\bpush\b/);
+export const assertGitPushToolCall = assertToolCall(
+	"Bash",
+	/\bgit\b.*\bpush\b/,
+);
 
 /**
  * Assert that agent did NOT execute a git push via tool call.
  * Handles git commands with flags before subcommand (e.g., git -C /path push).
  */
-export const assertNoGitPushToolCall = assertNoToolCall("Bash", /\bgit\b.*\bpush\b/);
+export const assertNoGitPushToolCall = assertNoToolCall(
+	"Bash",
+	/\bgit\b.*\bpush\b/,
+);
 
 /**
  * Assert that agent created a worktree via rp1 agent-tools.
  */
-export const assertWorktreeCreateToolCall = assertToolCall("Bash", /rp1\s+agent-tools\s+worktree\s+create/);
+export const assertWorktreeCreateToolCall = assertToolCall(
+	"Bash",
+	/rp1\s+agent-tools\s+worktree\s+create/,
+);

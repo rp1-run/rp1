@@ -18,6 +18,7 @@ import {
 	closeDatabase,
 	DEFAULT_DB_PATH,
 	getLatestStatusByFeature,
+	getRecentlyCompletedTasks,
 	insertStatusUpdate,
 	isValidStatus,
 	queryStatusUpdates,
@@ -188,7 +189,6 @@ describe("work database", () => {
 
 	describe("queryStatusUpdates", () => {
 		test("returns only records matching project path", async () => {
-			// Insert records for different projects
 			await expectTaskRight(
 				insertStatusUpdate(
 					{
@@ -250,7 +250,6 @@ describe("work database", () => {
 		});
 
 		test("limits results when specified", async () => {
-			// Insert multiple records
 			for (let i = 0; i < 5; i++) {
 				await expectTaskRight(
 					insertStatusUpdate(
@@ -303,7 +302,6 @@ describe("work database", () => {
 				queryStatusUpdates({ projectPath: "/order-test" }, testDbPath),
 			);
 
-			// Most recent first
 			expect(results[0].status).toBe("in_progress");
 			expect(results[1].status).toBe("started");
 		});
@@ -324,7 +322,6 @@ describe("work database", () => {
 		test("returns only the latest status for each feature", async () => {
 			const projectPath = "/latest-test";
 
-			// Insert multiple updates for same feature
 			await expectTaskRight(
 				insertStatusUpdate(
 					{ projectPath, feature: "feature-a", status: "started" },
@@ -346,7 +343,6 @@ describe("work database", () => {
 				),
 			);
 
-			// Insert for different feature
 			await expectTaskRight(
 				insertStatusUpdate(
 					{ projectPath, feature: "feature-b", status: "started" },
@@ -368,6 +364,111 @@ describe("work database", () => {
 		test("returns empty array for project with no status updates", async () => {
 			const results = await expectTaskRight(
 				getLatestStatusByFeature("/no-updates-project", testDbPath),
+			);
+
+			expect(results).toEqual([]);
+		});
+	});
+
+	describe("getRecentlyCompletedTasks", () => {
+		test("returns completed tasks with task field", async () => {
+			const projectPath = "/completed-tasks-test";
+
+			// Insert completed tasks for the same feature
+			await expectTaskRight(
+				insertStatusUpdate(
+					{
+						projectPath,
+						feature: "my-feature",
+						task: "T1",
+						status: "completed",
+						message: "Task 1 done",
+					},
+					testDbPath,
+				),
+			);
+			await new Promise((resolve) => setTimeout(resolve, 10));
+			await expectTaskRight(
+				insertStatusUpdate(
+					{
+						projectPath,
+						feature: "my-feature",
+						task: "T2",
+						status: "completed",
+						message: "Task 2 done",
+					},
+					testDbPath,
+				),
+			);
+			await new Promise((resolve) => setTimeout(resolve, 10));
+			await expectTaskRight(
+				insertStatusUpdate(
+					{
+						projectPath,
+						feature: "my-feature",
+						task: "T3",
+						status: "completed",
+					},
+					testDbPath,
+				),
+			);
+
+			const results = await expectTaskRight(
+				getRecentlyCompletedTasks(projectPath, 24, testDbPath),
+			);
+
+			expect(results.length).toBe(3);
+			expect(results[0].task).toBe("T3");
+			expect(results[1].task).toBe("T2");
+			expect(results[2].task).toBe("T1");
+		});
+
+		test("excludes tasks without task field", async () => {
+			const projectPath = "/completed-no-task";
+
+			await expectTaskRight(
+				insertStatusUpdate(
+					{
+						projectPath,
+						feature: "feature-only",
+						status: "completed",
+					},
+					testDbPath,
+				),
+			);
+
+			const results = await expectTaskRight(
+				getRecentlyCompletedTasks(projectPath, 24, testDbPath),
+			);
+
+			expect(results.length).toBe(0);
+		});
+
+		test("excludes non-completed tasks", async () => {
+			const projectPath = "/incomplete-tasks";
+
+			await expectTaskRight(
+				insertStatusUpdate(
+					{
+						projectPath,
+						feature: "in-progress",
+						task: "T1",
+						status: "in_progress",
+					},
+					testDbPath,
+				),
+			);
+
+			const results = await expectTaskRight(
+				getRecentlyCompletedTasks(projectPath, 24, testDbPath),
+			);
+
+			expect(results.length).toBe(0);
+		});
+
+		test("returns empty array for project with no completed tasks", async () => {
+			const results = await expectTaskRight(
+				getRecentlyCompletedTasks("/no-completed-tasks", 24, testDbPath),
 			);
 
 			expect(results).toEqual([]);

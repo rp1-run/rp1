@@ -36,6 +36,10 @@ author: cloud-on-prem/rp1
 
 **Feature dir**: `{RP1_ROOT}/work/features/{FEATURE_ID}/`
 
+## §SKILL-LOADING
+
+**Load skill**: `rp1-base:work-status` - enables workflow progress reporting to Status Dashboard.
+
 ## §FLAG-VALIDATION
 
 **Implication chain**:
@@ -60,6 +64,8 @@ prompt: FEATURE_ID={FEATURE_ID}, RP1_ROOT={RP1_ROOT}
 
 **Parse response**: Extract `start_step` (1-6) and `artifacts` status.
 
+**Report status: started** - "Starting 6-step feature workflow for {FEATURE_ID}"
+
 ## §PROGRESS
 
 | Step | Name | Agent(s) |
@@ -77,11 +83,15 @@ prompt: FEATURE_ID={FEATURE_ID}, RP1_ROOT={RP1_ROOT}
 
 Steps 1-3 foundational -> ABORT on fail. Steps 4-6 -> retry/prompt. NEVER delete artifacts.
 
+**On ABORT**: Report status failed with error context before terminating.
+
 ---
 
 ## §STEP-1: Requirements
 
 **Skip if**: start_step > 1
+
+**Report status: in_progress** (task: requirements) - "Gathering requirements"
 
 ```
 Task: rp1-dev:feature-requirement-gatherer
@@ -114,6 +124,8 @@ AskUserQuestion: |
 ## §STEP-2: Design
 
 **Skip if**: start_step > 2
+
+**Report status: in_progress** (task: design) - "Creating technical design"
 
 ```
 Task: rp1-dev:feature-architect
@@ -161,6 +173,8 @@ AskUserQuestion: |
 
 **Skip if**: start_step > 3
 
+**Report status: in_progress** (task: tasks) - "Generating implementation tasks"
+
 ```
 Task: rp1-dev:feature-tasker
 prompt: FEATURE_ID={FEATURE_ID}, UPDATE_MODE=false, RP1_ROOT={RP1_ROOT}
@@ -192,6 +206,8 @@ AskUserQuestion: |
 ## §STEP-4: Build
 
 **Skip if**: start_step > 4
+
+**Report status: in_progress** (task: build) - "Implementing tasks"
 
 ### §4.1 Worktree Setup
 
@@ -235,8 +251,8 @@ prompt: |
 for unit in task_units:
   attempt=1, max=2, feedback=null
   while attempt <= max:
-    Task: rp1-dev:task-builder (FEATURE_ID, TASK_IDS, WORKTREE_PATH, feedback)
-    Task: rp1-dev:task-reviewer (FEATURE_ID, TASK_IDS, WORKTREE_PATH)
+    Task: rp1-dev:task-builder (FEATURE_ID, TASK_IDS, WORKTREE_PATH, GIT_COMMIT, feedback)
+    Task: rp1-dev:task-reviewer (FEATURE_ID, TASK_IDS, WORKTREE_PATH, GIT_COMMIT)
     if SUCCESS: break
     elif attempt < max: feedback=result, attempt++
     else: escalate (AFK: mark blocked; Interactive: prompt)
@@ -272,10 +288,10 @@ AskUserQuestion: |
 3. Spawn builder/reviewer:
    ```
    Task: rp1-dev:task-builder
-   prompt: FEATURE_ID={FEATURE_ID}, TASK_IDS=[TX-{timestamp}], WORKTREE_PATH={worktree_path}, PREVIOUS_FEEDBACK={task_description}
+   prompt: FEATURE_ID={FEATURE_ID}, TASK_IDS=[TX-{timestamp}], WORKTREE_PATH={worktree_path}, GIT_COMMIT={GIT_COMMIT}, PREVIOUS_FEEDBACK={task_description}
 
    Task: rp1-dev:task-reviewer
-   prompt: FEATURE_ID={FEATURE_ID}, TASK_IDS=[TX-{timestamp}], WORKTREE_PATH={worktree_path}
+   prompt: FEATURE_ID={FEATURE_ID}, TASK_IDS=[TX-{timestamp}], WORKTREE_PATH={worktree_path}, GIT_COMMIT={GIT_COMMIT}
    ```
 4. Return to §4.6 checkpoint (loop until "Continue" or "Stop")
 
@@ -285,6 +301,8 @@ AskUserQuestion: |
 
 **Skip if**: start_step > 5
 
+**Report status: in_progress** (task: verify) - "Running verification checks"
+
 ### §5.1 Parallel Phases
 
 **CRITICAL**: Invoke ALL THREE in SINGLE response.
@@ -292,7 +310,7 @@ AskUserQuestion: |
 ```
 Task: rp1-dev:code-checker (FEATURE_ID, branch, WORKTREE_PATH=worktree_path)
 Task: rp1-dev:feature-verifier (FEATURE_ID, RP1_ROOT, WORKTREE_PATH=worktree_path)
-Task: rp1-dev:comment-cleaner (MODE=clean, SCOPE=branch COMMIT_CHANGES=true WORKTREE_PATH=worktree_path)
+Task: rp1-dev:comment-cleaner (MODE=clean, SCOPE=branch, COMMIT_CHANGES={GIT_COMMIT}, WORKTREE_PATH=worktree_path)
 ```
 
 ### §5.2 Aggregate Results
@@ -340,10 +358,14 @@ AskUserQuestion: "Add task" -> spawn builder/reviewer. "Archive" -> Step 6. "Do 
 
 **Skip if**: User chose "Do nothing"
 
+**Report status: in_progress** (task: archive) - "Archiving feature"
+
 ```
 Task: rp1-dev:feature-archiver
 prompt: MODE=archive, FEATURE_ID={FEATURE_ID}, SKIP_DOC_CHECK=false
 ```
+
+**Report status: completed** - "Feature workflow completed successfully"
 
 ## §ANTI-LOOP
 

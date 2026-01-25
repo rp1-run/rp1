@@ -325,6 +325,15 @@
     animation: blink 1s ease-in-out infinite;
   }
 
+  @keyframes pulse-gentle {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .animate-pulse-gentle {
+    animation: pulse-gentle 1.3s ease-in-out infinite;
+  }
+
   .sr-only {
     position: absolute;
     width: 1px;

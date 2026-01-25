@@ -106,9 +106,9 @@ rp1/
 /address-pr-feedback          # Collect, triage, fix PR comments
 
 # Evaluations (two-phase workflow)
-just evals-run rp1-dev/build verbose=true   # Run evals with output file (verbose optional)
-just evals-attest <output-file>             # Generate attestation from output
-just evals-verify                           # Check all attestations current
+just run-evals rp1-dev/build verbose=true   # Run evals with output file (verbose optional)
+just attest-evals <output-file>             # Generate attestation from output
+just verify-evals                           # Check all attestations current
 ```
 
 ## Navigation

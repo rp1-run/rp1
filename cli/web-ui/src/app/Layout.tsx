@@ -1,4 +1,4 @@
-import { PanelLeft, PanelLeftClose } from "lucide-react";
+import { Activity, PanelLeft, PanelLeftClose } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ImperativePanelHandle } from "react-resizable-panels";
 import { Outlet, useNavigate, useParams } from "react-router-dom";
@@ -12,6 +12,12 @@ import {
 	ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 import type { FileNode } from "../server/routes/api";
 
@@ -187,6 +193,7 @@ export function Layout() {
 				onToggleSidebar={toggleSidebar}
 				sidebarCollapsed={sidebarCollapsed}
 				wsStatus={wsStatus}
+				projectId={projectId}
 			/>
 			<ResizablePanelGroup
 				direction="horizontal"
@@ -245,9 +252,17 @@ interface HeaderProps {
 	onToggleSidebar: () => void;
 	sidebarCollapsed: boolean;
 	wsStatus: "connecting" | "connected" | "disconnected";
+	projectId: string | undefined;
 }
 
-function Header({ onToggleSidebar, sidebarCollapsed, wsStatus }: HeaderProps) {
+function Header({
+	onToggleSidebar,
+	sidebarCollapsed,
+	wsStatus,
+	projectId,
+}: HeaderProps) {
+	const navigate = useNavigate();
+
 	return (
 		<header className="flex h-12 items-center justify-between border-b px-4">
 			<div className="flex items-center gap-2">
@@ -286,6 +301,27 @@ function Header({ onToggleSidebar, sidebarCollapsed, wsStatus }: HeaderProps) {
 				</span>
 				<span className="text-muted-foreground">/</span>
 				<ProjectSwitcher />
+				<TooltipProvider>
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<Button
+								variant="ghost"
+								size="icon"
+								className="h-8 w-8"
+								onClick={() => {
+									if (projectId) {
+										navigate(`/project/${projectId}/status`);
+									}
+								}}
+								disabled={!projectId}
+								aria-label="View status dashboard"
+							>
+								<Activity className="h-4 w-4" />
+							</Button>
+						</TooltipTrigger>
+						<TooltipContent>Status Dashboard</TooltipContent>
+					</Tooltip>
+				</TooltipProvider>
 			</div>
 			<div className="flex items-center gap-2">
 				<ThemeToggle />

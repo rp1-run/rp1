@@ -159,12 +159,12 @@ evals/
 **Attestation CLI**:
 ```bash
 # Two-phase workflow (recommended)
-just evals-run rp1-dev/build verbose=true    # Phase 1: Run evals, output to file
-just evals-attest output/rp1-dev-build-*.json # Phase 2: Generate attestation
+just run-evals rp1-dev/build verbose=true    # Phase 1: Run evals, output to file
+just attest-evals output/rp1-dev-build-*.json # Phase 2: Generate attestation
 
 # Verification commands
-just evals-verify                            # Check all attestations current
-just evals-status                            # Show commands needing attention
+just verify-evals                            # Check all attestations current
+just show-evals-status                       # Show commands needing attention
 ```
 
 **Key Components** (eval-attestation-fix):

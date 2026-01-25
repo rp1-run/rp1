@@ -7,9 +7,12 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import { useWebSocket } from "@/providers/WebSocketProvider";
-import type { FeatureStatus, StatusResponse } from "../server/routes/api";
+import type {
+	FeatureStatus,
+	StatusResponse,
+	StatusUpdate,
+} from "../server/routes/api";
 
 const POLLING_INTERVAL = 5_000;
 
@@ -34,90 +37,146 @@ function formatRelativeTime(dateString: string): string {
 	return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
 }
 
-interface StatusIndicatorProps {
-	status: FeatureStatus["status"];
+interface TaskItemProps {
+	update: StatusUpdate;
+	isLatest: boolean;
 }
 
-function StatusIndicator({ status }: StatusIndicatorProps) {
-	switch (status) {
-		case "started":
-			return (
-				// biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-label for screen readers
-				<span
-					className="text-terminal-mauve"
-					title="Started"
-					aria-label="Status: Started"
-				>
-					&#9675;
-				</span>
-			);
-		case "in_progress":
-			return (
-				// biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-label for screen readers
-				<span
-					className="text-terminal-green"
-					title="In Progress"
-					aria-label="Status: In Progress"
-				>
-					&#9679;
-				</span>
-			);
-		case "completed":
-			return (
-				// biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-label for screen readers
-				<span
-					className="text-muted-foreground"
-					title="Completed"
-					aria-label="Status: Completed"
-				>
-					&#10003;
-				</span>
-			);
-		case "failed":
-			return (
-				// biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-label for screen readers
-				<span
-					className="text-terminal-red"
-					title="Failed"
-					aria-label="Status: Failed"
-				>
-					&#10007;
-				</span>
-			);
-		default:
-			return null;
-	}
+function TaskItem({ update, isLatest }: TaskItemProps) {
+	return (
+		<div
+			className={`flex items-start gap-2 py-1.5 ${isLatest ? "" : "opacity-60"}`}
+		>
+			<div className="flex-1 min-w-0">
+				<span className="text-sm font-medium">{update.task || "feature"}</span>
+				{update.message && (
+					<p className="text-xs text-muted-foreground mt-0.5 italic">
+						"{update.message}"
+					</p>
+				)}
+			</div>
+			<span className="text-xs text-muted-foreground whitespace-nowrap">
+				{formatRelativeTime(update.createdAt)}
+			</span>
+		</div>
+	);
 }
 
-interface FeatureCardProps {
+interface FeatureGroupCardProps {
 	feature: FeatureStatus;
 }
 
-function FeatureCard({ feature }: FeatureCardProps) {
+function FeatureGroupCard({ feature }: FeatureGroupCardProps) {
+	const [isExpanded, setIsExpanded] = useState(true);
+
+	// Get unique tasks from updates, keeping the latest status for each task
+	const taskMap = new Map<string, StatusUpdate>();
+	for (const update of feature.updates) {
+		const taskKey = update.task || "_feature_";
+		const existing = taskMap.get(taskKey);
+		// Keep the most recent update for each task
+		if (
+			!existing ||
+			new Date(update.createdAt) > new Date(existing.createdAt)
+		) {
+			taskMap.set(taskKey, update);
+		}
+	}
+	const uniqueTasks = Array.from(taskMap.values()).sort(
+		(a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+	);
+
+	const hasMultipleTasks = uniqueTasks.length > 1;
+
 	return (
-		<div className="rounded-lg border bg-card p-4 mb-3">
-			<div className="flex items-start justify-between gap-4">
-				<div className="flex items-center gap-2 min-w-0">
-					<StatusIndicator status={feature.status} />
-					<span className="font-medium truncate">{feature.feature}</span>
+		<div className="rounded-lg border bg-card overflow-hidden mb-4">
+			<div className="bg-muted/30 px-4 py-3 border-b">
+				<div className="flex items-center justify-between gap-4">
+					<div className="flex items-center gap-2 min-w-0">
+						{/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-label for screen readers */}
+						<span
+							className="animate-pulse-gentle text-terminal-green text-[0.75rem] leading-none"
+							title="Active"
+							aria-label="Status: Active"
+						>
+							&#9679;
+						</span>
+						<span className="font-semibold truncate">{feature.feature}</span>
+					</div>
+					<div className="flex items-center gap-2">
+						<span className="text-sm text-muted-foreground whitespace-nowrap">
+							{feature.status.replace("_", " ")}
+						</span>
+						{hasMultipleTasks && (
+							<button
+								type="button"
+								onClick={() => setIsExpanded(!isExpanded)}
+								className="p-1 rounded hover:bg-muted transition-colors"
+								aria-label={isExpanded ? "Collapse tasks" : "Expand tasks"}
+							>
+								{isExpanded ? (
+									<ChevronDown className="h-4 w-4 text-muted-foreground" />
+								) : (
+									<ChevronRight className="h-4 w-4 text-muted-foreground" />
+								)}
+							</button>
+						)}
+					</div>
 				</div>
-				<span className="text-sm text-muted-foreground whitespace-nowrap">
-					{feature.status.replace("_", " ")}
-				</span>
 			</div>
-			{feature.currentTask && (
-				<div className="mt-2 text-sm text-muted-foreground">
-					<span className="text-terminal-mauve">task:</span>{" "}
-					{feature.currentTask}
+
+			<div className="px-4 py-2">
+				{isExpanded && uniqueTasks.length > 0 && (
+					<div className="space-y-1">
+						{uniqueTasks.map((update, idx) => (
+							<TaskItem key={update.id} update={update} isLatest={idx === 0} />
+						))}
+					</div>
+				)}
+
+				{!isExpanded && uniqueTasks.length > 0 && (
+					<div className="py-1 text-sm text-muted-foreground">
+						{uniqueTasks.length} task{uniqueTasks.length === 1 ? "" : "s"}
+					</div>
+				)}
+			</div>
+
+			<div className="px-4 py-2 bg-muted/20 text-xs text-muted-foreground text-right border-t">
+				Last update: {formatRelativeTime(feature.lastUpdate)}
+			</div>
+		</div>
+	);
+}
+
+interface CompletedFeatureCardProps {
+	feature: FeatureStatus;
+}
+
+function CompletedFeatureCard({ feature }: CompletedFeatureCardProps) {
+	return (
+		<div className="rounded-lg border bg-card p-3 mb-2">
+			<div className="flex items-start justify-between gap-3">
+				<div className="flex items-start gap-2 min-w-0">
+					{/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-label for screen readers */}
+					<span
+						className="text-muted-foreground mt-0.5"
+						title="Completed"
+						aria-label="Status: Completed"
+					>
+						&#10003;
+					</span>
+					<div className="min-w-0">
+						<span className="font-semibold">{feature.feature}</span>
+						{feature.message && (
+							<p className="text-xs text-muted-foreground mt-1 italic">
+								"{feature.message}"
+							</p>
+						)}
+					</div>
 				</div>
-			)}
-			{feature.message && (
-				<div className="mt-1 text-sm text-muted-foreground italic">
-					"{feature.message}"
-				</div>
-			)}
-			<div className="mt-2 text-xs text-muted-foreground text-right">
-				{formatRelativeTime(feature.lastUpdate)}
+				<span className="text-xs text-muted-foreground whitespace-nowrap">
+					{formatRelativeTime(feature.lastUpdate)}
+				</span>
 			</div>
 		</div>
 	);
@@ -169,7 +228,6 @@ export function StatusDashboard() {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [isRefreshing, setIsRefreshing] = useState(false);
-	const [autoRefresh, setAutoRefresh] = useState(true);
 	const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
 		null,
 	);
@@ -207,7 +265,7 @@ export function StatusDashboard() {
 
 	// Subscribe to status changes via WebSocket provider
 	useEffect(() => {
-		if (!projectId || !autoRefresh) {
+		if (!projectId) {
 			return;
 		}
 
@@ -220,12 +278,11 @@ export function StatusDashboard() {
 		});
 
 		return unsubscribe;
-	}, [projectId, autoRefresh, fetchStatus, onStatusChange]);
+	}, [projectId, fetchStatus, onStatusChange]);
 
 	// Fallback polling when WebSocket is not connected
 	useEffect(() => {
-		// Only poll when auto-refresh is enabled AND WebSocket is not connected
-		if (!autoRefresh || wsStatus === "connected") {
+		if (wsStatus === "connected") {
 			if (pollingIntervalRef.current) {
 				clearInterval(pollingIntervalRef.current);
 				pollingIntervalRef.current = null;
@@ -244,12 +301,7 @@ export function StatusDashboard() {
 				pollingIntervalRef.current = null;
 			}
 		};
-	}, [autoRefresh, fetchStatus, wsStatus]);
-
-	const handleManualRefresh = useCallback(() => {
-		setIsRefreshing(true);
-		fetchStatus();
-	}, [fetchStatus]);
+	}, [fetchStatus, wsStatus]);
 
 	if (loading) {
 		return (
@@ -279,47 +331,19 @@ export function StatusDashboard() {
 	}
 
 	const hasActiveFeatures = statusData.active.length > 0;
-	const hasRecentlyCompleted = statusData.recentlyCompleted.length > 0;
+
+	// Show only completed features (not individual tasks) for a cleaner display
+	const completedFeatures = statusData.recentlyCompleted ?? [];
+	const hasRecentlyCompleted = completedFeatures.length > 0;
 
 	return (
 		<div className="relative">
 			<div className="flex items-center justify-between mb-6">
 				<div className="flex items-center gap-2">
 					<span className="text-terminal-mauve">&gt;</span>
-					<h1 className="text-xl font-semibold">Status Dashboard</h1>
-				</div>
-				<div className="flex items-center gap-2">
-					<Button
-						variant="ghost"
-						size="sm"
-						onClick={handleManualRefresh}
-						disabled={isRefreshing}
-						title="Refresh status"
-					>
-						<RefreshCw
-							className={`h-4 w-4 mr-1 ${isRefreshing ? "animate-spin" : ""}`}
-						/>
-						Refresh
-					</Button>
-					<button
-						type="button"
-						onClick={() => setAutoRefresh(!autoRefresh)}
-						className={`flex items-center gap-1 px-2 py-1 rounded text-sm transition-colors ${
-							autoRefresh
-								? "text-terminal-green"
-								: "text-muted-foreground hover:text-foreground"
-						}`}
-						title={
-							autoRefresh ? "Auto-refresh enabled" : "Auto-refresh disabled"
-						}
-					>
-						<span
-							className={`w-2 h-2 rounded-full ${
-								autoRefresh ? "bg-terminal-green" : "bg-muted-foreground"
-							}`}
-						/>
-						Auto
-					</button>
+					<h1 className="text-xl font-semibold">
+						{statusData.projectName} Status
+					</h1>
 				</div>
 			</div>
 
@@ -333,9 +357,11 @@ export function StatusDashboard() {
 			<section>
 				<h2 className="text-lg font-semibold mb-3">Active Features</h2>
 				{hasActiveFeatures ? (
-					statusData.active.map((feature) => (
-						<FeatureCard key={feature.feature} feature={feature} />
-					))
+					<div className="space-y-4">
+						{statusData.active.map((feature) => (
+							<FeatureGroupCard key={feature.feature} feature={feature} />
+						))}
+					</div>
 				) : (
 					<div className="rounded-lg border bg-muted/30 p-6 text-center text-muted-foreground">
 						<p>No active features</p>
@@ -349,28 +375,17 @@ export function StatusDashboard() {
 			{hasRecentlyCompleted && (
 				<CollapsibleSection
 					title="Recently Completed"
-					count={statusData.recentlyCompleted.length}
+					count={completedFeatures.length}
 					defaultOpen={false}
 				>
-					{statusData.recentlyCompleted.map((feature) => (
-						<FeatureCard key={feature.feature} feature={feature} />
+					{completedFeatures.map((feature) => (
+						<CompletedFeatureCard
+							key={`feature-${feature.feature}-${feature.lastUpdate}`}
+							feature={feature}
+						/>
 					))}
 				</CollapsibleSection>
 			)}
-
-			<div className="mt-6 text-xs text-muted-foreground text-center">
-				{wsStatus === "connected" ? (
-					<span className="flex items-center justify-center gap-1">
-						<span className="w-1.5 h-1.5 rounded-full bg-terminal-green" />
-						Live updates active
-					</span>
-				) : (
-					<span className="flex items-center justify-center gap-1">
-						<span className="w-1.5 h-1.5 rounded-full bg-terminal-red" />
-						Reconnecting...
-					</span>
-				)}
-			</div>
 		</div>
 	);
 }

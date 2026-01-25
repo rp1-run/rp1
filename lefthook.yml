@@ -23,6 +23,6 @@ pre-push:
       run: cd cli/web-ui && npx tsc --noEmit
     test:
       run: cd cli && bun run test:unit
-    evals-verify:
-      run: "just evals-verify || echo 'WARNING: Unattested prompt changes detected. Run: just evals-run <suite> && just evals-attest <output-file>'"
+    verify-evals:
+      run: "just verify-evals || echo 'WARNING: Unattested prompt changes detected. Run: just run-evals <suite> && just attest-evals <output-file>'"
       fail_text: "Advisory: Some prompts need re-attestation"

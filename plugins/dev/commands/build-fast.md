@@ -41,6 +41,7 @@ prompt: REQUEST={REQUEST}, AFK_MODE={AFK_MODE}, GIT_WORKTREE={GIT_WORKTREE}, GIT
 ```
 
 Agent handles:
+
 - KB loading (progressive)
 - Scope assessment (Small/Medium/Large)
 - Large scope redirect to /build
@@ -49,6 +50,10 @@ Agent handles:
 - Quality checks
 - Summary artifact
 - Branch finalization
+
+## Output
+
+Faithfully relay agent output to user.
 
 ## ANTI-LOOP
 

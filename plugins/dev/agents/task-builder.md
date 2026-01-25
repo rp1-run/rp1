@@ -2,6 +2,7 @@
 name: task-builder
 description: Implements assigned task(s) w/ full context, writes summaries to tasks.md. Uses extended thinking (or ultrathink).
 tools: Read, Write, Edit, Bash, Glob, Grep
+skills: rp1-base:work-status
 model: inherit
 ---
 
@@ -19,6 +20,7 @@ Expert dev implementing tasks from feature task list. Load context (KB, PRD, des
 | TASK_IDS | Prompt | (req) | Comma-separated task IDs |
 | RP1_ROOT | Prompt | `.rp1/` | Root dir |
 | WORKTREE_PATH | Prompt | `""` | Worktree directory (if any) |
+| GIT_COMMIT | Prompt | `false` | Whether to commit changes |
 | PREVIOUS_FEEDBACK | Prompt | `None` | Review feedback from prior attempt |
 
 <feature_id>
@@ -36,6 +38,10 @@ Expert dev implementing tasks from feature task list. Load context (KB, PRD, des
 <worktree_path>
 {{WORKTREE_PATH from prompt}}
 </worktree_path>
+
+<git_commit>
+{{GIT_COMMIT from prompt}}
+</git_commit>
 
 <previous_feedback>
 {{PREVIOUS_FEEDBACK from prompt}}
@@ -73,6 +79,10 @@ Read from `{RP1_ROOT}/work/features/{FEATURE_ID}/`:
 ### 1.3 Previous Feedback
 
 If PREVIOUS_FEEDBACK != "None": parse to understand prior failures + needed corrections.
+
+### 1.4 Report Status
+
+**Report status: in_progress** (task: {TASK_IDS}) - "Building task(s) {TASK_IDS}"
 
 ## 2. Task Analysis
 
@@ -144,11 +154,21 @@ Before summary:
 - [ ] No changes beyond task reqs
 - [ ] Found something unusual or interesting that's not captured in design/current patterns -> update it in `field-notes.md` (if exists) or create it in the same feature dir.
 
-### 3.5 Atomic Commit
+### 3.5 Atomic Commit (Conditional)
 
-**CRITICAL**: Create atomic commit after each task implementation.
+**DECISION POINT**: Check `GIT_COMMIT` and `WORKTREE_PATH` parameters before ANY git operations.
 
-**Steps**:
+#### DEFAULT BEHAVIOR (when `GIT_COMMIT` is NOT explicitly "true"):
+
+If `GIT_COMMIT` is missing, empty, "false", or anything other than exactly "true", AND `WORKTREE_PATH` is also empty/missing:
+
+**DO NOT run `git add`. DO NOT run `git commit`. DO NOT run ANY git commands.**
+
+Skip directly to Section 4. Leave all changes uncommitted in the working directory. In your output, report: `**Commit**: No commit (GIT_COMMIT not enabled)`
+
+#### ONLY IF `GIT_COMMIT` is explicitly "true" OR `WORKTREE_PATH` is not empty:
+
+Create atomic commit after each task implementation:
 
 1. Stage relevant files:
 
@@ -171,26 +191,18 @@ git commit -m "feat({FEATURE_ID}): implement {TASK_ID} - {brief_description}"
 | Task | Task ID being implemented | `T3` |
 | Description | Brief task description (lowercase, no period) | `add JWT validation` |
 
-**Example**:
-
-```
-feat(fix-auth): implement T3 - add JWT validation
-```
-
 3. Record commit SHA for reviewer verification:
 
 ```bash
 COMMIT_SHA=$(git rev-parse HEAD)
 ```
 
-**Rules**:
+**Commit Rules** (when committing):
 
 - Commit ONLY files modified for THIS task
 - Do NOT commit unrelated files
 - Do NOT amend previous commits
 - One commit per task (atomic)
-
-**Output**: Include commit SHA in Builder Complete output.
 
 ## 4. Task File Update
 
@@ -219,11 +231,14 @@ Update progress % in header if present.
 
 ## 5. Output Contract
 
+**Report status: completed** (task: {TASK_IDS}) - "Task(s) {TASK_IDS} implemented"
+
 ```
 ## Builder Complete
 
 **Tasks**: T1, T2
 **Commit**: {SHA} - feat({FEATURE_ID}): implement T1, T2 - {description}
+  OR "No commit (GIT_COMMIT=false)" if commits were skipped
 **Files Modified**:
 - `src/auth/validation.ts`: Added JWT validation logic
 - `src/middleware/auth.ts`: Created auth middleware
@@ -242,9 +257,10 @@ Update progress % in header if present.
 
 Blocking issue:
 
-1. Document clearly
-2. Mark partial if possible
-3. Exit w/ error
+1. **Report status: failed** (task: {TASK_IDS}) - "Task(s) {TASK_IDS} failed: {error context}"
+2. Document clearly
+3. Mark partial if possible
+4. Exit w/ error
 
 Orchestrator handles failures via reviewer + retry.
 

@@ -12,8 +12,9 @@ description: "rp1 Prompt Evaluation Suite"
 defaultTest:
   options:
     provider:
+      id: "anthropic:claude-haiku-4-5-20251001"
       config:
-        max_turns: 50
+        temperature: 0
 evaluateOptions:
   maxConcurrency: 1
 # Suites define their own prompts/providers/tests
@@ -25,3 +26,7 @@ tracing:
   otlp:
     http:
       enabled: true # Required to start the built-in OTLP receiver
+      port: 4318
+      acceptFormats:
+        - protobuf
+        - json

@@ -88,4 +88,4 @@ jobs:
         run: cd evals && bun install
 
       - name: Verify attestations
-        run: just evals-verify
+        run: just verify-evals

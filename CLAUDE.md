@@ -9,3 +9,5 @@ KB files in `.rp1/context/`: `index.md` (load first), `architecture.md`, `module
 
 **Important**: Do NOT use `/knowledge-load` in subagents (causes early exit). Use Read tool directly.
 <!-- rp1:end -->
+
+When working with local web browser based features or debugging, load and use the skill: agent-browser

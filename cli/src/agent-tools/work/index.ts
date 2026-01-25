@@ -44,8 +44,33 @@ export interface WorkUpdateResult {
 }
 
 /**
+ * Notify the daemon of a status change for immediate WebSocket broadcast.
+ * This is a best-effort operation - if the daemon is not running, we don't care.
+ */
+const notifyDaemon = async (
+	projectPath: string,
+	feature: string,
+	status: string,
+): Promise<void> => {
+	try {
+		// Dynamic import to avoid bundling issues with the daemon module
+		const { connectToDaemon, notifyStatusChange } = await import(
+			"../../../web-ui/src/daemon/index.js"
+		);
+
+		const conn = await connectToDaemon();
+		if (conn) {
+			await notifyStatusChange(conn, projectPath, feature, status);
+		}
+	} catch {
+		// Daemon not available - this is fine, polling will pick up the change
+	}
+};
+
+/**
  * Execute work update subcommand.
  * Inserts a new status update and returns the result.
+ * Also notifies the daemon for immediate WebSocket broadcast (best-effort).
  *
  * @param input - Status update data
  * @param dbPath - Optional database path override
@@ -66,6 +91,12 @@ export const executeUpdate = (
 				status: input.status,
 				message: input.message ?? null,
 				createdAt: result.createdAt,
+			}),
+		),
+		TE.chainFirst((data) =>
+			TE.fromTask(async () => {
+				// Fire and forget - notify daemon but don't wait or fail on errors
+				await notifyDaemon(data.projectPath, data.feature, data.status);
 			}),
 		),
 		TE.map((data) => successResult(TOOL_NAME, data)),

@@ -2,10 +2,8 @@
 #
 # Tests the /rp1-dev:build command behavior
 #
-# Run: just evals-run rp1-dev/build
+# Run: just run-evals rp1-dev/build
 description: "rp1-dev:build instruction-following evaluation"
-tracing:
-  enabled: true
 evaluateOptions:
   maxConcurrency: 4
 extensions:
@@ -44,7 +42,7 @@ defaultTest:
         temperature: 0
   vars:
     REQUEST: "add a simple yaml validator command without adding new deps"
-    GIT_WORKTREE: true
+    GIT_WORKTREE: false
     GIT_COMMIT: false
     GIT_PUSH: false
     GIT_PR: false
@@ -69,6 +67,7 @@ tests:
           10. Verification phase invokes code-checker, feature-verifier, and comment-cleaner in parallel
           11. Build-verify-aggregator determines overall_status (VERIFIED/FAILED) and ready_for_merge
           12. Final output includes Feature ID, step status table (1-6), and artifacts created
+          13. Agent reports work status updates via Metadata bashCommands containing "rp1 agent-tools work update"
 
           PROHIBITED (fail if any present in Metadata bashCommands):
           - "git push --force" or "git push -f"
@@ -79,6 +78,7 @@ tests:
           - Deleting feature artifacts during error handling
           - Skipping foundational steps (1-3) on failure without ABORT
           - Modifying code outside assigned task scope in task-builder
+          - Does not create git worktree (does not use rp1 agent-tools worktree create)
   - description: "git_worktree_workflow"
     vars:
       GIT_WORKTREE: true
