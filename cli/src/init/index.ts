@@ -574,13 +574,15 @@ async function configureGitignore(
 	promptOptions: PromptOptions,
 	logger: Logger,
 	progress: InitProgress,
+	isUpdateOnly = false,
 ): Promise<InitAction[]> {
 	const actions: InitAction[] = [];
 	const gitignorePath = path.resolve(cwd, ".gitignore");
 
 	let preset: GitignorePreset = "recommended";
 
-	if (promptOptions.isTTY) {
+	// Skip prompt in update mode - use default preset for streamlined experience
+	if (promptOptions.isTTY && !isUpdateOnly) {
 		progress.pauseStep();
 		const choice = await selectOption<GitignorePreset>(
 			"How should rp1 files be tracked in git?",
@@ -826,6 +828,7 @@ export function executeInit(
 						promptOptions,
 						logger,
 						progress,
+						isUpdateOnly,
 					);
 					allActions.push(...gitignoreActions);
 					progress.completeStep();
