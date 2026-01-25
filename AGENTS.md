@@ -22,6 +22,7 @@
 | Understand a pattern | Read KB files + sample agent code |
 | Fix broken command | Check namespace prefix rules below |
 | Test changes | See "Testing" section below |
+| Working with Browser features | use skill: agent-browser    |
 
 ---
 
@@ -220,23 +221,3 @@ just # run just to read about various test/lint commands
 - **Issues**: <https://github.com/rp1-run/rp1/issues>
 
 ---
-<!-- rp1:start -->
-## rp1 Knowledge Base
-
-KB files in `.rp1/context/`: `index.md` (load first), `architecture.md`, `modules.md`, `patterns.md`, `concept_map.md`
-
-**Loading Patterns**:
-
-| Task Type | KB Files to Load |
-|-----------|------------------|
-| Code review | `index.md` + `patterns.md` |
-| Bug investigation | `index.md` + `architecture.md` + `modules.md` |
-| Feature implementation | `index.md` + `modules.md` + `patterns.md` |
-| PR review | `index.md` + `patterns.md` |
-| Architecture analysis | `index.md` + `architecture.md` |
-| Strategic / Security / Docs | ALL files |
-
-**Progressive Loading** (recommended): Start with `index.md`, load others as needed based on task.
-
-**Important**: Do NOT use `/rp1-base/knowledge-load` in subagents (causes early exit). Use Read tool directly.
-<!-- rp1:end -->
