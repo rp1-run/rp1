@@ -245,7 +245,7 @@ async function handleGitRootCheck(
 	);
 
 	if (choice === null) {
-		// Non-interactive default: continue
+		// Non-interactive default: continue in current directory
 		return { proceed: true, cwd: gitResult.currentDir };
 	}
 
@@ -254,7 +254,7 @@ async function handleGitRootCheck(
 			return { proceed: true, cwd: gitResult.currentDir };
 		case "exit":
 			logger.info(
-				"Navigate to your project directory and run 'rp1 init' again.",
+				"Initialization cancelled. Navigate to your target project directory and run 'rp1 init' again.",
 			);
 			return { proceed: false, cwd: gitResult.currentDir };
 	}
