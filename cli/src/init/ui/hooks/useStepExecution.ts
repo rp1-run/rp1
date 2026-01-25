@@ -462,86 +462,69 @@ export const useStepExecution = ({
 
 	/**
 	 * Execute the instruction injection step.
+	 * Injects rp1 KB instructions into ALL existing instruction files (CLAUDE.md and AGENTS.md).
 	 */
 	const executeInstructionInjection = useCallback(
 		async (addAct: AddActivityFn): Promise<void> => {
 			const ctx = contextRef.current;
 
-			// Determine instruction file and template
-			let instructionFile: string;
-			let template: string;
+			// Define all instruction files to check
+			const instructionFiles: Array<{ file: string; template: string }> = [
+				{ file: "CLAUDE.md", template: CLAUDE_CODE_TEMPLATE },
+				{ file: "AGENTS.md", template: AGENTS_TEMPLATE },
+			];
 
-			if (ctx.primaryTool) {
-				instructionFile = ctx.primaryTool.tool.instruction_file;
-				template =
-					instructionFile === "CLAUDE.md"
-						? CLAUDE_CODE_TEMPLATE
-						: AGENTS_TEMPLATE;
-			} else {
-				// Check for existing files, default to CLAUDE.md
-				const claudePath = path.resolve(ctx.cwd, "CLAUDE.md");
-				const agentsPath = path.resolve(ctx.cwd, "AGENTS.md");
+			const claudePath = path.resolve(ctx.cwd, "CLAUDE.md");
+			const agentsPath = path.resolve(ctx.cwd, "AGENTS.md");
 
-				if (await fileExists(claudePath)) {
-					instructionFile = "CLAUDE.md";
-					template = CLAUDE_CODE_TEMPLATE;
-				} else if (await fileExists(agentsPath)) {
-					instructionFile = "AGENTS.md";
-					template = AGENTS_TEMPLATE;
-				} else {
-					instructionFile = "CLAUDE.md";
-					template = CLAUDE_CODE_TEMPLATE;
-				}
-			}
+			const claudeExists = await fileExists(claudePath);
+			const agentsExists = await fileExists(agentsPath);
 
-			const filePath = path.resolve(ctx.cwd, instructionFile);
-			addAct(
-				"instruction-injection",
-				`Configuring ${instructionFile}...`,
-				"info",
-			);
+			// If neither exists, create the primary tool's file or default to CLAUDE.md
+			if (!claudeExists && !agentsExists) {
+				const primaryFile =
+					ctx.primaryTool?.tool.instruction_file ?? "CLAUDE.md";
+				const template =
+					primaryFile === "CLAUDE.md" ? CLAUDE_CODE_TEMPLATE : AGENTS_TEMPLATE;
+				const filePath = path.resolve(ctx.cwd, primaryFile);
 
-			const exists = await fileExists(filePath);
-
-			if (!exists) {
+				addAct("instruction-injection", `Creating ${primaryFile}...`, "info");
 				const content = `${wrapWithFence(template)}\n`;
 				await writeFileContent(filePath, content);
-				addAct(
-					"instruction-injection",
-					`Created ${instructionFile}`,
-					"success",
-				);
+				addAct("instruction-injection", `Created ${primaryFile}`, "success");
 				return;
 			}
 
-			const existingContent = await readFileContent(filePath);
-			if (existingContent === null) {
-				throw new Error(`Failed to read file: ${filePath}`);
-			}
+			// Inject into all existing instruction files
+			for (const { file, template } of instructionFiles) {
+				const filePath = path.resolve(ctx.cwd, file);
+				const exists = await fileExists(filePath);
 
-			const validation = validateFencing(existingContent);
-			if (!validation.valid) {
-				throw new Error(
-					`Invalid fencing in ${instructionFile}: ${validation.error}`,
-				);
-			}
+				if (!exists) {
+					continue;
+				}
 
-			if (hasFencedContent(existingContent)) {
-				const newContent = replaceFencedContent(existingContent, template);
-				await writeFileContent(filePath, newContent);
-				addAct(
-					"instruction-injection",
-					`Updated ${instructionFile}`,
-					"success",
-				);
-			} else {
-				const newContent = appendFencedContent(existingContent, template);
-				await writeFileContent(filePath, newContent);
-				addAct(
-					"instruction-injection",
-					`Appended to ${instructionFile}`,
-					"success",
-				);
+				addAct("instruction-injection", `Configuring ${file}...`, "info");
+
+				const existingContent = await readFileContent(filePath);
+				if (existingContent === null) {
+					throw new Error(`Failed to read file: ${filePath}`);
+				}
+
+				const validation = validateFencing(existingContent);
+				if (!validation.valid) {
+					throw new Error(`Invalid fencing in ${file}: ${validation.error}`);
+				}
+
+				if (hasFencedContent(existingContent)) {
+					const newContent = replaceFencedContent(existingContent, template);
+					await writeFileContent(filePath, newContent);
+					addAct("instruction-injection", `Updated ${file}`, "success");
+				} else {
+					const newContent = appendFencedContent(existingContent, template);
+					await writeFileContent(filePath, newContent);
+					addAct("instruction-injection", `Appended to ${file}`, "success");
+				}
 			}
 		},
 		[],

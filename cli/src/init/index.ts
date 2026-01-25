@@ -13,7 +13,6 @@ import type { Logger } from "../../shared/logger.js";
 import { type PromptOptions, selectOption } from "../../shared/prompts.js";
 import {
 	loadToolsRegistry,
-	type SupportedTool,
 	type ToolsRegistry,
 } from "../config/supported-tools.js";
 import {
@@ -169,16 +168,6 @@ async function writeFileContent(
 
 function countLines(content: string): number {
 	return content.split("\n").length;
-}
-
-/**
- * Get the template for a tool based on its instruction file.
- */
-function getTemplateForTool(tool: SupportedTool): string {
-	if (tool.instruction_file === "CLAUDE.md") {
-		return CLAUDE_CODE_TEMPLATE;
-	}
-	return AGENTS_TEMPLATE;
 }
 
 /**
@@ -498,48 +487,20 @@ async function processToolDetectionResult(
 	return { toolResult, warnings };
 }
 
-async function injectInstructions(
+/**
+ * Inject rp1 KB instructions into a single instruction file.
+ */
+async function injectIntoFile(
 	cwd: string,
-	detectedTool: DetectedTool | null,
+	file: string,
+	template: string,
 	logger: Logger,
-): Promise<{ actions: InitAction[]; instructionFile: string | null }> {
-	const actions: InitAction[] = [];
-
-	let instructionFile: string;
-	let template: string;
-
-	if (detectedTool) {
-		instructionFile = detectedTool.tool.instruction_file;
-		template = getTemplateForTool(detectedTool.tool);
-	} else {
-		const claudePath = path.resolve(cwd, "CLAUDE.md");
-		const agentsPath = path.resolve(cwd, "AGENTS.md");
-
-		if (await fileExists(claudePath)) {
-			instructionFile = "CLAUDE.md";
-			template = CLAUDE_CODE_TEMPLATE;
-		} else if (await fileExists(agentsPath)) {
-			instructionFile = "AGENTS.md";
-			template = AGENTS_TEMPLATE;
-		} else {
-			instructionFile = "CLAUDE.md";
-			template = CLAUDE_CODE_TEMPLATE;
-		}
-	}
-
-	const filePath = path.resolve(cwd, instructionFile);
-	const linesInjected = countLines(template);
-	logger.debug(`Target file: ${filePath}`);
-
+): Promise<InitAction | null> {
+	const filePath = path.resolve(cwd, file);
 	const exists = await fileExists(filePath);
 
 	if (!exists) {
-		logger.info(`Creating: ${filePath}`);
-		const content = `${wrapWithFence(template)}\n`;
-		await writeFileContent(filePath, content);
-		actions.push({ type: "created_file", path: filePath });
-		logger.success(`Created ${instructionFile} with ${linesInjected} lines`);
-		return { actions, instructionFile };
+		return null;
 	}
 
 	const existingContent = await readFileContent(filePath);
@@ -549,24 +510,74 @@ async function injectInstructions(
 
 	const validation = validateFencing(existingContent);
 	if (!validation.valid) {
-		throw new Error(`Invalid fencing in ${filePath}: ${validation.error}`);
+		throw new Error(`Invalid fencing in ${file}: ${validation.error}`);
 	}
 
 	if (hasFencedContent(existingContent)) {
 		logger.info(`Updating: ${filePath}`);
 		const newContent = replaceFencedContent(existingContent, template);
 		await writeFileContent(filePath, newContent);
-		actions.push({ type: "updated_file", path: filePath });
-		logger.success(`Updated ${instructionFile}`);
-	} else {
-		logger.info(`Appending to: ${filePath}`);
-		const newContent = appendFencedContent(existingContent, template);
-		await writeFileContent(filePath, newContent);
-		actions.push({ type: "updated_file", path: filePath });
-		logger.success(`Appended to ${instructionFile}`);
+		logger.success(`Updated ${file}`);
+		return { type: "updated_file", path: filePath };
+	}
+	logger.info(`Appending to: ${filePath}`);
+	const newContent = appendFencedContent(existingContent, template);
+	await writeFileContent(filePath, newContent);
+	logger.success(`Appended to ${file}`);
+	return { type: "updated_file", path: filePath };
+}
+
+/**
+ * Inject rp1 KB instructions into ALL existing instruction files (CLAUDE.md and AGENTS.md).
+ */
+async function injectInstructions(
+	cwd: string,
+	detectedTool: DetectedTool | null,
+	logger: Logger,
+): Promise<{ actions: InitAction[]; instructionFile: string | null }> {
+	const actions: InitAction[] = [];
+
+	const claudePath = path.resolve(cwd, "CLAUDE.md");
+	const agentsPath = path.resolve(cwd, "AGENTS.md");
+
+	const claudeExists = await fileExists(claudePath);
+	const agentsExists = await fileExists(agentsPath);
+
+	// If neither exists, create the primary tool's file or default to CLAUDE.md
+	if (!claudeExists && !agentsExists) {
+		const primaryFile = detectedTool?.tool.instruction_file ?? "CLAUDE.md";
+		const template =
+			primaryFile === "CLAUDE.md" ? CLAUDE_CODE_TEMPLATE : AGENTS_TEMPLATE;
+		const filePath = path.resolve(cwd, primaryFile);
+		const linesInjected = countLines(template);
+
+		logger.info(`Creating: ${filePath}`);
+		const content = `${wrapWithFence(template)}\n`;
+		await writeFileContent(filePath, content);
+		actions.push({ type: "created_file", path: filePath });
+		logger.success(`Created ${primaryFile} with ${linesInjected} lines`);
+		return { actions, instructionFile: primaryFile };
 	}
 
-	return { actions, instructionFile };
+	// Inject into all existing instruction files
+	const instructionFiles: Array<{ file: string; template: string }> = [
+		{ file: "CLAUDE.md", template: CLAUDE_CODE_TEMPLATE },
+		{ file: "AGENTS.md", template: AGENTS_TEMPLATE },
+	];
+
+	let primaryFile: string | null = null;
+
+	for (const { file, template } of instructionFiles) {
+		const action = await injectIntoFile(cwd, file, template, logger);
+		if (action) {
+			actions.push(action);
+			if (!primaryFile) {
+				primaryFile = file;
+			}
+		}
+	}
+
+	return { actions, instructionFile: primaryFile };
 }
 
 async function configureGitignore(
