@@ -40,7 +40,7 @@ def main():
     # Run version check and capture result
     try:
         result = subprocess.run(
-            [rp1_binary, "check-update", "--json"],
+            [rp1_binary, "update", "--check", "--json"],
             capture_output=True,
             text=True,
             timeout=TIMEOUT_SECONDS,
