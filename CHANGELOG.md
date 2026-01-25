@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.3.1](https://github.com/rp1-run/rp1/compare/v0.3.0...v0.3.1) (2026-01-25)
+
+
+### Features
+
+* better update and init paths ([#231](https://github.com/rp1-run/rp1/issues/231)) ([c0e59df](https://github.com/rp1-run/rp1/commit/c0e59df74be969dac8437f70aa70e9102b14eda6))
+* introduce content-addressable eval attestation of workflows ([#230](https://github.com/rp1-run/rp1/issues/230)) ([3f28253](https://github.com/rp1-run/rp1/commit/3f282531dd2956d8b99fb2a2ca192068f54201ed))
+* introduce evals infrastructure ([#227](https://github.com/rp1-run/rp1/issues/227)) ([251e5e2](https://github.com/rp1-run/rp1/commit/251e5e25a72e8330f69533063b8486aac64bcc93))
+
+
+### Bug Fixes
+
+* ensure we show the dir during rp1 init ([5bff720](https://github.com/rp1-run/rp1/commit/5bff72050cb02adaa2d424ccaf68fb912ec5ca83))
+* misc follow up fixes for status page ([#223](https://github.com/rp1-run/rp1/issues/223)) ([b40ff64](https://github.com/rp1-run/rp1/commit/b40ff64331e5f391c6a646738b24ec1e1ce105eb))
+
 ## [0.3.0](https://github.com/rp1-run/rp1/compare/v0.2.16...v0.3.0) (2026-01-18)
 
 
