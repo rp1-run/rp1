@@ -107,26 +107,19 @@ export function SelectPrompt<T extends string = string>({
 }
 
 /**
- * Options for git root directory choice.
- * Used when running init from a subdirectory of a git repository.
+ * Options for confirming project root.
+ * Used to ensure user is in the correct directory (not a monorepo root).
  */
-export const gitRootOptions: readonly SelectOption<
-	"continue" | "switch" | "cancel"
->[] = [
+export const gitRootOptions: readonly SelectOption<"continue" | "exit">[] = [
 	{
 		value: "continue",
-		label: "Continue here",
-		description: "Initialize rp1 in the current directory",
+		label: "Yes, initialize here",
+		description: "This is my project root, continue with setup",
 	},
 	{
-		value: "switch",
-		label: "Switch to git root",
-		description: "Initialize rp1 at the repository root instead",
-	},
-	{
-		value: "cancel",
-		label: "Cancel",
-		description: "Exit without making changes",
+		value: "exit",
+		label: "No, let me navigate first",
+		description: "Exit so I can cd to my project directory",
 	},
 ];
 

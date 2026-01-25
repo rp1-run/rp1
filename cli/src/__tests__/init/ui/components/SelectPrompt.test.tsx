@@ -148,19 +148,17 @@ describe("SelectPrompt", () => {
 	});
 
 	describe("gitRootOptions preset", () => {
-		test("contains continue, switch, and cancel options", () => {
-			expect(gitRootOptions).toHaveLength(3);
+		test("contains continue and exit options", () => {
+			expect(gitRootOptions).toHaveLength(2);
 
 			const values = gitRootOptions.map((opt) => opt.value);
 			expect(values).toContain("continue");
-			expect(values).toContain("switch");
-			expect(values).toContain("cancel");
+			expect(values).toContain("exit");
 		});
 
 		test("options are in expected order", () => {
 			expect(gitRootOptions[0].value).toBe("continue");
-			expect(gitRootOptions[1].value).toBe("switch");
-			expect(gitRootOptions[2].value).toBe("cancel");
+			expect(gitRootOptions[1].value).toBe("exit");
 		});
 
 		test("each option has label and description", () => {
@@ -174,34 +172,30 @@ describe("SelectPrompt", () => {
 
 		test("labels are user-friendly", () => {
 			const labels = gitRootOptions.map((opt) => opt.label);
-			expect(labels).toContain("Continue here");
-			expect(labels).toContain("Switch to git root");
-			expect(labels).toContain("Cancel");
+			expect(labels.some((l) => l.includes("Yes"))).toBe(true);
+			expect(labels.some((l) => l.includes("No"))).toBe(true);
 		});
 
 		test("descriptions explain each choice", () => {
 			const continueOpt = gitRootOptions.find((o) => o.value === "continue");
-			const switchOpt = gitRootOptions.find((o) => o.value === "switch");
-			const cancelOpt = gitRootOptions.find((o) => o.value === "cancel");
+			const exitOpt = gitRootOptions.find((o) => o.value === "exit");
 
-			expect(continueOpt?.description).toContain("current directory");
-			expect(switchOpt?.description).toContain("root");
-			expect(cancelOpt?.description).toContain("Exit");
+			expect(continueOpt?.description).toContain("project root");
+			expect(exitOpt?.description).toContain("cd");
 		});
 
 		test("renders correctly in SelectPrompt", () => {
 			const { lastFrame } = render(
 				<SelectPrompt
-					message="Where to initialize?"
+					message="Is this your project root?"
 					options={gitRootOptions}
 					onSelect={() => {}}
 				/>,
 			);
 			const output = lastFrame();
 
-			expect(output).toContain("Continue here");
-			expect(output).toContain("Switch to git root");
-			expect(output).toContain("Cancel");
+			expect(output).toContain("Yes");
+			expect(output).toContain("No");
 		});
 	});
 
@@ -477,10 +471,10 @@ describe("SelectPrompt", () => {
 		test("gitRootOptions values are properly typed", () => {
 			// This test verifies TypeScript typing at compile time
 			// If the types are wrong, this won't compile
-			const values: ("continue" | "switch" | "cancel")[] = gitRootOptions.map(
+			const values: ("continue" | "exit")[] = gitRootOptions.map(
 				(opt) => opt.value,
 			);
-			expect(values).toHaveLength(3);
+			expect(values).toHaveLength(2);
 		});
 
 		test("reinitOptions values are properly typed", () => {

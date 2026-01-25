@@ -437,9 +437,9 @@ describe("useWizardState", () => {
 
 		test("gitRootChoice can be set", () => {
 			const state = createTestState({
-				userChoices: { gitRootChoice: "switch" },
+				userChoices: { gitRootChoice: "continue" },
 			});
-			expect(state.userChoices.gitRootChoice).toBe("switch");
+			expect(state.userChoices.gitRootChoice).toBe("continue");
 		});
 
 		test("reinitChoice can be set", () => {
