@@ -1,0 +1,145 @@
+import { ChevronLeft, ChevronRight, List } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
+import type { HeadingEntry } from "@/hooks/useHeadingExtraction";
+
+export interface TableOfContentsProps {
+	headings: readonly HeadingEntry[];
+	activeId: string | null;
+	onNavigate: (id: string) => void;
+	collapsed?: boolean;
+	onToggleCollapse?: () => void;
+}
+
+const LEVEL_INDENT: Record<1 | 2 | 3 | 4 | 5 | 6, string> = {
+	1: "pl-0",
+	2: "pl-2",
+	3: "pl-4",
+	4: "pl-6",
+	5: "pl-8",
+	6: "pl-10",
+};
+
+export function TableOfContents({
+	headings,
+	activeId,
+	onNavigate,
+	collapsed = false,
+	onToggleCollapse,
+}: TableOfContentsProps) {
+	if (collapsed) {
+		return (
+			<div className="flex h-full flex-col items-center border-l bg-background py-2">
+				{onToggleCollapse && (
+					<TooltipProvider>
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<Button
+									variant="ghost"
+									size="icon"
+									className="h-8 w-8"
+									onClick={onToggleCollapse}
+									aria-label="Expand table of contents"
+								>
+									<ChevronLeft className="h-4 w-4" />
+								</Button>
+							</TooltipTrigger>
+							<TooltipContent side="left">
+								<p>Expand table of contents</p>
+							</TooltipContent>
+						</Tooltip>
+					</TooltipProvider>
+				)}
+				<TooltipProvider>
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<div className="mt-2 flex items-center justify-center">
+								<List
+									className="h-4 w-4 text-muted-foreground"
+									aria-hidden="true"
+								/>
+							</div>
+						</TooltipTrigger>
+						<TooltipContent side="left">
+							<p>Table of contents ({headings.length} headings)</p>
+						</TooltipContent>
+					</Tooltip>
+				</TooltipProvider>
+			</div>
+		);
+	}
+
+	return (
+		<nav
+			className="flex h-full flex-col border-l bg-background"
+			aria-label="Table of contents"
+		>
+			<div className="flex items-center justify-between border-b px-3 py-2">
+				<h2 className="text-sm font-medium text-foreground">On this page</h2>
+				{onToggleCollapse && (
+					<TooltipProvider>
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<Button
+									variant="ghost"
+									size="icon"
+									className="h-6 w-6"
+									onClick={onToggleCollapse}
+									aria-label="Collapse table of contents"
+								>
+									<ChevronRight className="h-3 w-3" />
+								</Button>
+							</TooltipTrigger>
+							<TooltipContent side="left">
+								<p>Collapse table of contents</p>
+							</TooltipContent>
+						</Tooltip>
+					</TooltipProvider>
+				)}
+			</div>
+
+			{headings.length === 0 ? (
+				<div className="p-3 text-sm text-muted-foreground">
+					No headings found
+				</div>
+			) : (
+				<ScrollArea className="flex-1">
+					<ul className="space-y-0.5 p-2" aria-label="Document headings">
+						{headings.map((heading) => {
+							const isActive = heading.id === activeId;
+
+							return (
+								<li key={heading.id}>
+									<button
+										type="button"
+										onClick={() => onNavigate(heading.id)}
+										className={cn(
+											"w-full text-left text-sm transition-colors",
+											"rounded-md px-2 py-1",
+											"hover:bg-muted/50",
+											"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+											LEVEL_INDENT[heading.level],
+											isActive
+												? "bg-accent text-accent-foreground font-medium"
+												: "text-muted-foreground hover:text-foreground",
+										)}
+										aria-current={isActive ? "location" : undefined}
+									>
+										<span className="line-clamp-2">{heading.text}</span>
+									</button>
+								</li>
+							);
+						})}
+					</ul>
+				</ScrollArea>
+			)}
+		</nav>
+	);
+}
