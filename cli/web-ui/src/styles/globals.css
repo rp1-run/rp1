@@ -31,21 +31,21 @@
     --radius: 0.5rem;
   }
 
-  /* Catppuccin Latte (Light Theme) */
+  /* Catppuccin Latte (Light Theme) - with improved contrast */
   :root,
   [data-theme="light"] {
     --background: 220 23% 95%;
-    --foreground: 234 16% 35%;
+    --foreground: 234 16% 20%;
     --card: 220 23% 95%;
-    --card-foreground: 234 16% 35%;
-    --popover: 220 23% 95%;
-    --popover-foreground: 234 16% 35%;
-    --primary: 266 85% 58%;
-    --primary-foreground: 220 23% 95%;
-    --secondary: 223 16% 83%;
-    --secondary-foreground: 234 16% 35%;
-    --muted: 223 16% 83%;
-    --muted-foreground: 228 14% 45%;
+    --card-foreground: 234 16% 20%;
+    --popover: 220 23% 98%;
+    --popover-foreground: 234 16% 20%;
+    --primary: 266 85% 48%;
+    --primary-foreground: 220 23% 98%;
+    --secondary: 223 16% 88%;
+    --secondary-foreground: 234 16% 20%;
+    --muted: 223 16% 88%;
+    --muted-foreground: 228 14% 38%;
     --accent: 266 85% 58%;
     --accent-foreground: 220 23% 95%;
     --destructive: 347 87% 44%;

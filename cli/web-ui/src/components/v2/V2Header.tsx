@@ -25,7 +25,6 @@ export function V2Header({ wsStatus }: V2HeaderProps) {
         <ProjectSwitcher />
       </div>
       <div className="flex items-center gap-2">
-        <WebSocketIndicator status={wsStatus} />
         <ThemeToggle />
         <HelpButton />
       </div>
@@ -43,7 +42,6 @@ function Logo({ wsStatus }: LogoProps) {
       title={wsStatus === "connected" ? "Live updates active" : "Reconnecting..."}
       aria-label={`rp1 - Connection status: ${wsStatus}`}
     >
-      <span className="text-terminal-mauve">[=] </span>
       <span className="text-lg font-medium">rp1</span>
       <span
         className={cn(
@@ -54,57 +52,6 @@ function Logo({ wsStatus }: LogoProps) {
         _
       </span>
     </span>
-  );
-}
-
-interface WebSocketIndicatorProps {
-  status: ConnectionStatus;
-}
-
-function WebSocketIndicator({ status }: WebSocketIndicatorProps) {
-  const statusConfig = {
-    connected: {
-      label: "Connected",
-      color: "bg-status-completed",
-      description: "Live updates active",
-    },
-    connecting: {
-      label: "Connecting",
-      color: "bg-status-waiting",
-      description: "Connecting to server...",
-    },
-    disconnected: {
-      label: "Disconnected",
-      color: "bg-status-failed",
-      description: "Connection lost, reconnecting...",
-    },
-  };
-
-  const config = statusConfig[status];
-
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div
-            className="flex items-center gap-1.5 px-2 py-1 rounded text-xs text-muted-foreground"
-            role="status"
-            aria-label={`WebSocket ${config.label}`}
-          >
-            <span
-              className={cn(
-                "h-2 w-2 rounded-full",
-                config.color,
-                status === "connecting" && "animate-pulse"
-              )}
-              aria-hidden="true"
-            />
-            <span className="sr-only">{config.label}</span>
-          </div>
-        </TooltipTrigger>
-        <TooltipContent>{config.description}</TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
   );
 }
 
