@@ -18,6 +18,10 @@ export { RunCard, type RunCardProps } from "./RunCard";
 export { StatusBadge, type StatusBadgeProps } from "./StatusBadge";
 export { StepTimeline, type StepTimelineProps } from "./StepTimeline";
 export {
+	SuggestionDiff,
+	type SuggestionDiffProps,
+} from "./SuggestionDiff";
+export {
 	TableOfContents,
 	type TableOfContentsProps,
 } from "./TableOfContents";
