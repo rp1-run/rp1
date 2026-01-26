@@ -136,7 +136,6 @@ export function FilterBar({ filters, onFiltersChange, className }: FilterBarProp
           setProjects(data.projects);
         }
       } catch {
-        // Silently fail, projects dropdown will be empty
       }
     }
     fetchProjects();

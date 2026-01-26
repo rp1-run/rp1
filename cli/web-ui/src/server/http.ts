@@ -113,7 +113,6 @@ async function handleApiRequest(
 	const pathname = url.pathname;
 	const method = req.method;
 
-	// Multi-project API endpoints (new)
 	// GET /api/health - daemon health check
 	if (pathname === "/api/health" && method === "GET") {
 		const { handleHealthRequest } = await import("./routes/api");
@@ -182,12 +181,10 @@ async function handleApiRequest(
 		}
 	}
 
-	// V2 API endpoints for runs and projects
 	if (pathname.startsWith("/api/v2/")) {
 		return handleV2ApiRequest(req, pathname, method);
 	}
 
-	// Legacy single-project endpoints (backward compatibility)
 	if (pathname === "/api/project") {
 		const { handleProjectRequest } = await import("./routes/api");
 		return handleProjectRequest(projectPath);
@@ -226,13 +223,11 @@ async function handleV2ApiRequest(
 	pathname: string,
 	method: string,
 ): Promise<Response> {
-	// GET /api/v2/runs/attention - must come before :id pattern
 	if (pathname === "/api/v2/runs/attention" && method === "GET") {
 		const { handleV2RunsAttentionRequest } = await import("./routes/v2-api");
 		return handleV2RunsAttentionRequest();
 	}
 
-	// GET /api/v2/runs/:id - single run detail
 	const runDetailMatch = pathname.match(/^\/api\/v2\/runs\/([^/]+)$/);
 	if (runDetailMatch && method === "GET") {
 		const { handleV2RunDetailRequest } = await import("./routes/v2-api");
@@ -240,13 +235,11 @@ async function handleV2ApiRequest(
 		return handleV2RunDetailRequest(runId);
 	}
 
-	// GET /api/v2/runs - list runs with filters
 	if (pathname === "/api/v2/runs" && method === "GET") {
 		const { handleV2RunsListRequest } = await import("./routes/v2-api");
 		return handleV2RunsListRequest(req);
 	}
 
-	// GET /api/v2/projects/:id - single project detail
 	const projectDetailMatch = pathname.match(/^\/api\/v2\/projects\/([^/]+)$/);
 	if (projectDetailMatch && method === "GET") {
 		const { handleV2ProjectDetailRequest } = await import("./routes/v2-api");
@@ -254,7 +247,6 @@ async function handleV2ApiRequest(
 		return handleV2ProjectDetailRequest(projectId);
 	}
 
-	// GET /api/v2/projects - list projects
 	if (pathname === "/api/v2/projects" && method === "GET") {
 		const { handleV2ProjectsListRequest } = await import("./routes/v2-api");
 		return handleV2ProjectsListRequest();
