@@ -228,6 +228,17 @@ async function handleV2ApiRequest(
 		return handleV2RunsAttentionRequest();
 	}
 
+	// Artifact content must be matched before run detail (more specific route first)
+	const artifactMatch = pathname.match(
+		/^\/api\/v2\/runs\/([^/]+)\/artifacts\/(.+)$/,
+	);
+	if (artifactMatch && method === "GET") {
+		const { handleV2ArtifactContentRequest } = await import("./routes/v2-api");
+		const runId = decodeURIComponent(artifactMatch[1]);
+		const artifactPath = decodeURIComponent(artifactMatch[2]);
+		return handleV2ArtifactContentRequest(runId, artifactPath);
+	}
+
 	const runDetailMatch = pathname.match(/^\/api\/v2\/runs\/([^/]+)$/);
 	if (runDetailMatch && method === "GET") {
 		const { handleV2RunDetailRequest } = await import("./routes/v2-api");

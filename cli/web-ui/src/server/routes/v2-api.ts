@@ -317,6 +317,221 @@ export async function handleV2RunDetailRequest(
 }
 
 /**
+ * Mock content for artifacts - in production this would read from file system.
+ */
+const mockArtifactContent: Record<string, string> = {
+	".rp1/work/features/auth-refactor/requirements.md": `# Requirements: Auth Refactor
+
+## Overview
+Refactor the authentication system to support modern security standards.
+
+## Functional Requirements
+
+### FR1: Token-based Authentication
+- Support JWT tokens with configurable expiration
+- Implement refresh token rotation
+- Support token revocation
+
+### FR2: Multi-factor Authentication
+- SMS-based OTP
+- TOTP (Google Authenticator compatible)
+- Email-based verification
+
+### FR3: Session Management
+- Track active sessions per user
+- Allow users to terminate sessions
+- Implement session timeout
+
+## Non-Functional Requirements
+
+### NFR1: Security
+- All tokens must be signed with RS256
+- Passwords must be hashed with bcrypt (cost factor 12)
+- Rate limiting on auth endpoints
+
+### NFR2: Performance
+- Token validation < 10ms
+- Login flow < 500ms p99
+
+## Acceptance Criteria
+- [ ] All existing tests pass
+- [ ] New unit tests for token validation
+- [ ] Integration tests for auth flows
+- [ ] Security audit completed
+`,
+	".rp1/work/features/auth-refactor/design.md": `# Design: Auth Refactor
+
+## Architecture
+
+\`\`\`mermaid
+graph TD
+    A[Client] --> B[API Gateway]
+    B --> C[Auth Service]
+    C --> D[Token Store]
+    C --> E[User DB]
+    C --> F[MFA Provider]
+\`\`\`
+
+## Components
+
+### Auth Service
+Handles all authentication logic including:
+- Login/logout
+- Token generation and validation
+- MFA verification
+
+### Token Store
+Redis-based storage for:
+- Active refresh tokens
+- Revoked tokens (blacklist)
+- Rate limiting counters
+
+## API Design
+
+### POST /auth/login
+\`\`\`typescript
+interface LoginRequest {
+  email: string;
+  password: string;
+  mfaCode?: string;
+}
+
+interface LoginResponse {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+}
+\`\`\`
+
+### POST /auth/refresh
+\`\`\`typescript
+interface RefreshRequest {
+  refreshToken: string;
+}
+\`\`\`
+
+## Security Considerations
+- Tokens signed with RS256 using rotating keys
+- Refresh tokens are single-use
+- Failed login attempts tracked per IP
+`,
+	".rp1/work/features/auth-refactor/tasks.md": `# Tasks: Auth Refactor
+
+## T1: Set up token infrastructure
+**Status:** Completed
+- Create JWT utility functions
+- Set up key rotation mechanism
+- Add token validation middleware
+
+## T2: Implement refresh token flow
+**Status:** Completed
+- Create refresh token model
+- Implement token rotation
+- Add revocation support
+
+## T3: Add MFA support
+**Status:** In Progress
+- Integrate TOTP library
+- Create MFA enrollment flow
+- Add SMS provider integration
+
+## T4: Session management
+**Status:** Pending
+- Create session tracking model
+- Add session list endpoint
+- Implement session termination
+
+## T5: Security hardening
+**Status:** Pending
+- Add rate limiting
+- Implement brute force protection
+- Security audit
+`,
+	"src/auth/validation.ts": `import { z } from "zod";
+import jwt from "jsonwebtoken";
+import { getPublicKey } from "./keys";
+
+/**
+ * Schema for validating login requests.
+ */
+export const loginSchema = z.object({
+  email: z.string().email("Invalid email format"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  mfaCode: z.string().length(6).optional(),
+});
+
+/**
+ * Schema for validating JWT payload.
+ */
+export const tokenPayloadSchema = z.object({
+  sub: z.string().uuid(),
+  email: z.string().email(),
+  roles: z.array(z.string()),
+  iat: z.number(),
+  exp: z.number(),
+});
+
+export type TokenPayload = z.infer<typeof tokenPayloadSchema>;
+
+/**
+ * Validate and decode a JWT token.
+ */
+export async function validateToken(token: string): Promise<TokenPayload> {
+  const publicKey = await getPublicKey();
+
+  const decoded = jwt.verify(token, publicKey, {
+    algorithms: ["RS256"],
+  });
+
+  return tokenPayloadSchema.parse(decoded);
+}
+
+/**
+ * Check if a token is expired.
+ */
+export function isTokenExpired(payload: TokenPayload): boolean {
+  return Date.now() >= payload.exp * 1000;
+}
+
+/**
+ * Extract bearer token from Authorization header.
+ */
+export function extractBearerToken(header: string | null): string | null {
+  if (!header?.startsWith("Bearer ")) {
+    return null;
+  }
+  return header.slice(7);
+}
+`,
+};
+
+/**
+ * GET /api/v2/runs/:runId/artifacts/:path - fetch artifact content.
+ */
+export async function handleV2ArtifactContentRequest(
+	runId: string,
+	artifactPath: string,
+): Promise<Response> {
+	const run = mockRuns.find((r) => r.id === runId);
+
+	if (!run) {
+		return errorResponse(`Run not found: ${runId}`, 404);
+	}
+
+	const artifact = run.artifacts.find((a) => a.path === artifactPath);
+	if (!artifact) {
+		return errorResponse(`Artifact not found: ${artifactPath}`, 404);
+	}
+
+	const content = mockArtifactContent[artifactPath];
+	if (!content) {
+		return errorResponse(`Artifact content not found: ${artifactPath}`, 404);
+	}
+
+	return jsonResponse({ content });
+}
+
+/**
  * V2 Project type including availability status.
  */
 interface V2Project {
