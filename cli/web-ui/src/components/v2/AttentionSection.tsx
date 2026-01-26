@@ -15,10 +15,10 @@ const accentColors: Record<AccentColor, string> = {
 };
 
 const accentBgColors: Record<AccentColor, string> = {
-  peach: "bg-status-waiting/5",
-  mauve: "bg-status-needs-review/5",
-  red: "bg-status-failed/5",
-  blue: "bg-status-running/5",
+  peach: "",
+  mauve: "",
+  red: "",
+  blue: "",
 };
 
 export interface AttentionSectionProps {
