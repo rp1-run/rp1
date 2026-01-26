@@ -38,6 +38,7 @@
 		"react-resizable-panels": "^2.1.7"
 	},
 	"devDependencies": {
+		"@happy-dom/global-registrator": "^20.3.9",
 		"@testing-library/react": "^16.0.0",
 		"@types/bun": "^1.1.14",
 		"@types/react": "^18.3.12",
@@ -45,6 +46,7 @@
 		"@vitejs/plugin-react": "^4.3.4",
 		"autoprefixer": "^10.4.20",
 		"concurrently": "^9.2.1",
+		"happy-dom": "^20.3.9",
 		"postcss": "^8.4.49",
 		"tailwindcss": "^3.4.16",
 		"typescript": "^5.7.2",
