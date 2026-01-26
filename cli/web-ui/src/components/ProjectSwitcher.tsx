@@ -184,7 +184,7 @@ export function ProjectSwitcher() {
 				aria-expanded={isOpen}
 				aria-label="Switch project"
 			>
-				<FolderOpen className={cn("h-3.5 w-3.5", isOpen ? "text-accent-foreground" : "text-terminal-mauve")} />
+				<FolderOpen className={cn("h-3.5 w-3.5", isOpen ? "text-zinc-800" : "text-terminal-mauve")} />
 				<span className="max-w-[150px] truncate">
 					{currentProject?.name ?? currentProjectId ?? "Select project"}
 				</span>
