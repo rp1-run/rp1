@@ -1,4 +1,11 @@
-import { AlertCircle, ArrowLeft, ChevronRight, Loader2 } from "lucide-react";
+import {
+	AlertCircle,
+	ArrowLeft,
+	ChevronRight,
+	List,
+	Loader2,
+	PanelLeft,
+} from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { MarkdownViewer } from "@/components/MarkdownViewer";
@@ -6,14 +13,23 @@ import { ArtifactSidebar } from "@/components/v2/ArtifactSidebar";
 import { FollowModeToggle } from "@/components/v2/FollowModeToggle";
 import { NewUpdatesChip } from "@/components/v2/NewUpdatesChip";
 import { TableOfContents } from "@/components/v2/TableOfContents";
+import { Button } from "@/components/ui/button";
+import { Drawer } from "@/components/ui/drawer";
 import {
 	ResizableHandle,
 	ResizablePanel,
 	ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useFollowMode } from "@/hooks/useFollowMode";
 import type { HeadingEntry } from "@/hooks/useHeadingExtraction";
+import { useIsMobile } from "@/hooks/useMediaQuery";
 import { useRunDetail } from "@/hooks/useRunDetail";
 import { cn } from "@/lib/utils";
 import { useWebSocket } from "@/providers/WebSocketProvider";
@@ -30,6 +46,7 @@ export function ArtifactViewerPage() {
 	const navigate = useNavigate();
 	const { run, isLoading, error, refetch } = useRunDetail(runId);
 	const { onFileChange } = useWebSocket();
+	const isMobile = useIsMobile();
 
 	const [artifactContent, setArtifactContent] =
 		useState<ArtifactContent | null>(null);
@@ -42,6 +59,8 @@ export function ArtifactViewerPage() {
 		const stored = sessionStorage.getItem(STORAGE_KEY_TOC_COLLAPSED);
 		return stored === "true";
 	});
+	const [sidebarDrawerOpen, setSidebarDrawerOpen] = useState(false);
+	const [tocDrawerOpen, setTocDrawerOpen] = useState(false);
 
 	const scrollViewportRef = useRef<HTMLDivElement>(null);
 	const headingElementsRef = useRef<Map<string, Element>>(new Map());
@@ -73,8 +92,24 @@ export function ArtifactViewerPage() {
 	const handleArtifactSelect = useCallback(
 		(path: string) => {
 			navigate(`/v2/runs/${runId}/artifacts/${path}`);
+			if (isMobile) {
+				setSidebarDrawerOpen(false);
+			}
 		},
-		[navigate, runId],
+		[navigate, runId, isMobile],
+	);
+
+	const handleTocNavigateMobile = useCallback(
+		(id: string) => {
+			const element = document.getElementById(id);
+			if (element) {
+				element.scrollIntoView({ behavior: "smooth", block: "start" });
+			}
+			if (isMobile) {
+				setTocDrawerOpen(false);
+			}
+		},
+		[isMobile],
 	);
 
 	const handleTocNavigate = useCallback((id: string) => {
@@ -278,6 +313,163 @@ export function ArtifactViewerPage() {
 		);
 	}
 
+	const contentArea = (
+		<>
+			{contentLoading ? (
+				<div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
+					<Loader2 className="h-8 w-8 mb-4 animate-spin" />
+					<p className="text-sm">Loading artifact...</p>
+				</div>
+			) : contentError ? (
+				<div className="flex flex-col items-center justify-center h-64">
+					<AlertCircle className="h-12 w-12 mb-4 text-destructive opacity-70" />
+					<p className="text-lg text-destructive mb-2">
+						Failed to load artifact
+					</p>
+					<p className="text-sm text-muted-foreground">
+						{contentError}
+					</p>
+				</div>
+			) : !selectedArtifactPath ? (
+				<div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
+					<p className="text-lg">
+						Select an artifact from the sidebar
+					</p>
+				</div>
+			) : artifactContent ? (
+				<MarkdownViewer
+					content={artifactContent.content}
+					path={artifactContent.path}
+					onHeadingsExtracted={handleHeadingsExtracted}
+				/>
+			) : null}
+		</>
+	);
+
+	if (isMobile) {
+		return (
+			<div className="flex h-full flex-col">
+				<nav className="flex items-center gap-2 p-4 text-sm text-muted-foreground border-b">
+					<Link
+						to="/v2/projects"
+						className="hover:text-foreground transition-colors"
+					>
+						{run.projectName}
+					</Link>
+					<ChevronRight className="h-4 w-4" aria-hidden="true" />
+					<Link
+						to={`/v2/runs/${runId}`}
+						className="hover:text-foreground transition-colors"
+					>
+						{run.featureName}
+					</Link>
+					<ChevronRight className="h-4 w-4" aria-hidden="true" />
+					<span className="text-foreground truncate max-w-[100px]">
+						{selectedArtifactPath
+							? selectedArtifactPath.split("/").pop()
+							: "Artifacts"}
+					</span>
+				</nav>
+
+				<div className="relative flex h-full flex-1 flex-col">
+					<div className="flex items-center justify-between gap-2 border-b px-4 py-2">
+						<TooltipProvider>
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Button
+										variant="ghost"
+										size="icon"
+										className="h-8 w-8"
+										onClick={() => setSidebarDrawerOpen(true)}
+										aria-label="Open artifact list"
+									>
+										<PanelLeft className="h-4 w-4" />
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent>
+									<p>Artifacts</p>
+								</TooltipContent>
+							</Tooltip>
+						</TooltipProvider>
+
+						<div className="flex items-center gap-2">
+							<FollowModeToggle
+								enabled={followMode}
+								onToggle={() => setFollowMode(!followMode)}
+							/>
+							<TooltipProvider>
+								<Tooltip>
+									<TooltipTrigger asChild>
+										<Button
+											variant="ghost"
+											size="icon"
+											className="h-8 w-8"
+											onClick={() => setTocDrawerOpen(true)}
+											aria-label="Open table of contents"
+										>
+											<List className="h-4 w-4" />
+										</Button>
+									</TooltipTrigger>
+									<TooltipContent>
+										<p>Table of contents</p>
+									</TooltipContent>
+								</Tooltip>
+							</TooltipProvider>
+						</div>
+					</div>
+
+					<ScrollArea
+						className="flex-1"
+						viewportRef={scrollViewportRef}
+					>
+						<div
+							className="p-4"
+							onScroll={handleScroll as unknown as React.UIEventHandler}
+						>
+							{contentArea}
+						</div>
+					</ScrollArea>
+
+					<NewUpdatesChip visible={hasNewUpdates} onClick={scrollToNew} />
+				</div>
+
+				<Drawer
+					open={sidebarDrawerOpen}
+					onClose={() => setSidebarDrawerOpen(false)}
+					side="left"
+					title="Artifacts"
+				>
+					<ScrollArea className="h-full">
+						<ArtifactSidebar
+							artifacts={run.artifacts}
+							selectedPath={selectedArtifactPath}
+							onSelect={handleArtifactSelect}
+						/>
+					</ScrollArea>
+				</Drawer>
+
+				<Drawer
+					open={tocDrawerOpen}
+					onClose={() => setTocDrawerOpen(false)}
+					side="right"
+					title="On this page"
+				>
+					<TableOfContents
+						headings={headings}
+						activeId={activeHeadingId}
+						onNavigate={handleTocNavigateMobile}
+						collapsed={false}
+					/>
+				</Drawer>
+
+				<p className="border-t px-4 py-2 text-xs text-muted-foreground">
+					Press <kbd className="rounded bg-muted px-1.5 py-0.5">Esc</kbd> to
+					return to run details
+				</p>
+			</div>
+		);
+	}
+
 	return (
 		<div className="flex h-full flex-col">
 			<nav className="flex items-center gap-2 p-4 text-sm text-muted-foreground border-b">
@@ -346,34 +538,7 @@ export function ArtifactViewerPage() {
 								className="p-6"
 								onScroll={handleScroll as unknown as React.UIEventHandler}
 							>
-								{contentLoading ? (
-									<div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
-										<Loader2 className="h-8 w-8 mb-4 animate-spin" />
-										<p className="text-sm">Loading artifact...</p>
-									</div>
-								) : contentError ? (
-									<div className="flex flex-col items-center justify-center h-64">
-										<AlertCircle className="h-12 w-12 mb-4 text-destructive opacity-70" />
-										<p className="text-lg text-destructive mb-2">
-											Failed to load artifact
-										</p>
-										<p className="text-sm text-muted-foreground">
-											{contentError}
-										</p>
-									</div>
-								) : !selectedArtifactPath ? (
-									<div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
-										<p className="text-lg">
-											Select an artifact from the sidebar
-										</p>
-									</div>
-								) : artifactContent ? (
-									<MarkdownViewer
-										content={artifactContent.content}
-										path={artifactContent.path}
-										onHeadingsExtracted={handleHeadingsExtracted}
-									/>
-								) : null}
+								{contentArea}
 							</div>
 						</ScrollArea>
 
