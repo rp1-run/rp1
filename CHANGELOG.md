@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/rp1-run/rp1/compare/v0.3.1...v0.3.2) (2026-01-25)
+
+
+### Bug Fixes
+
+* **update:** add --json option and update hook to use non-deprecated command ([#232](https://github.com/rp1-run/rp1/issues/232)) ([b61c8eb](https://github.com/rp1-run/rp1/commit/b61c8eb2e16e58ebe5a438becbb20f07ab54b66a))
+
 ## [0.3.1](https://github.com/rp1-run/rp1/compare/v0.3.0...v0.3.1) (2026-01-25)
 
 
