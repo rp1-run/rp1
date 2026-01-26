@@ -134,7 +134,7 @@ export function TableOfContents({
 			className="flex h-full flex-col border-l bg-background"
 			aria-label="Table of contents"
 		>
-			<div className="flex items-center justify-between border-b px-3 py-2">
+			<div className="sticky top-0 z-10 flex items-center justify-between border-b bg-background px-3 py-2">
 				<h2 className="text-sm font-medium text-foreground">On this page</h2>
 				{onToggleCollapse && (
 					<TooltipProvider>

@@ -207,9 +207,10 @@ export function ArtifactViewerPage() {
 	const [headings, setHeadings] = useState<readonly HeadingEntry[]>([]);
 	const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null);
 	const [tocCollapsed, setTocCollapsed] = useState<boolean>(() => {
-		if (typeof window === "undefined") return false;
+		if (typeof window === "undefined") return true;
 		const stored = sessionStorage.getItem(STORAGE_KEY_TOC_COLLAPSED);
-		return stored === "true";
+		// Default to collapsed (hidden) unless explicitly set to false
+		return stored === null ? true : stored === "true";
 	});
 	const [annotationSidebarOpen, setAnnotationSidebarOpen] = useState<boolean>(
 		() => {
