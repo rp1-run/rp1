@@ -15,6 +15,10 @@ export interface UseTextSelectionResult {
 	readonly selectionPosition: SelectionPosition | null;
 	/** Clear the current selection */
 	readonly clearSelection: () => void;
+	/** Lock the current selection so it persists until explicitly cleared */
+	readonly lockSelection: () => void;
+	/** Whether the selection is currently locked */
+	readonly isLocked: boolean;
 }
 
 /** Options for useTextSelection hook */
@@ -25,10 +29,15 @@ export interface UseTextSelectionOptions {
 	readonly enabled?: boolean;
 	/** Amount of context characters to capture before/after selection */
 	readonly contextLength?: number;
+	/** Delay in ms before showing selection (to avoid flicker on quick selections) */
+	readonly showDelay?: number;
 }
 
 /** Characters of context to capture before/after selection */
 const DEFAULT_CONTEXT_LENGTH = 50;
+
+/** Default delay before showing selection popover (ms) */
+const DEFAULT_SHOW_DELAY = 250;
 
 /**
  * Extract text content from a container element.
@@ -170,29 +179,54 @@ export function useTextSelection(
 		containerRef,
 		enabled = true,
 		contextLength = DEFAULT_CONTEXT_LENGTH,
+		showDelay = DEFAULT_SHOW_DELAY,
 	} = options;
 
 	const [selection, setSelection] = useState<TextSelectionAnchor | null>(null);
 	const [selectionPosition, setSelectionPosition] =
 		useState<SelectionPosition | null>(null);
+	const [isLocked, setIsLocked] = useState(false);
 
 	const isProcessingRef = useRef(false);
+	const showDelayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const pendingSelectionRef = useRef<{
+		anchor: TextSelectionAnchor | null;
+		position: SelectionPosition | null;
+	} | null>(null);
 
 	const clearSelection = useCallback(() => {
+		if (showDelayTimerRef.current) {
+			clearTimeout(showDelayTimerRef.current);
+			showDelayTimerRef.current = null;
+		}
+		pendingSelectionRef.current = null;
 		setSelection(null);
 		setSelectionPosition(null);
+		setIsLocked(false);
 		window.getSelection()?.removeAllRanges();
 	}, []);
 
+	const lockSelection = useCallback(() => {
+		setIsLocked(true);
+	}, []);
+
 	const handleSelectionChange = useCallback(() => {
-		if (!enabled || isProcessingRef.current) {
+		if (!enabled || isProcessingRef.current || isLocked) {
 			return;
 		}
 
 		const browserSelection = window.getSelection();
 		if (!browserSelection || browserSelection.isCollapsed) {
-			setSelection(null);
-			setSelectionPosition(null);
+			// Only clear if not locked
+			if (!isLocked) {
+				if (showDelayTimerRef.current) {
+					clearTimeout(showDelayTimerRef.current);
+					showDelayTimerRef.current = null;
+				}
+				pendingSelectionRef.current = null;
+				setSelection(null);
+				setSelectionPosition(null);
+			}
 			return;
 		}
 
@@ -218,12 +252,25 @@ export function useTextSelection(
 			);
 			const position = calculateSelectionPosition(browserSelection);
 
-			setSelection(anchor);
-			setSelectionPosition(position);
+			// Store pending selection and apply after delay
+			pendingSelectionRef.current = { anchor, position };
+
+			if (showDelayTimerRef.current) {
+				clearTimeout(showDelayTimerRef.current);
+			}
+
+			showDelayTimerRef.current = setTimeout(() => {
+				if (pendingSelectionRef.current) {
+					setSelection(pendingSelectionRef.current.anchor);
+					setSelectionPosition(pendingSelectionRef.current.position);
+					pendingSelectionRef.current = null;
+				}
+				showDelayTimerRef.current = null;
+			}, showDelay);
 		} finally {
 			isProcessingRef.current = false;
 		}
-	}, [enabled, containerRef, contextLength]);
+	}, [enabled, containerRef, contextLength, isLocked, showDelay]);
 
 	useEffect(() => {
 		if (!enabled) {
@@ -231,10 +278,14 @@ export function useTextSelection(
 		}
 
 		const handleMouseUp = () => {
+			// Don't process if locked
+			if (isLocked) return;
 			setTimeout(handleSelectionChange, 0);
 		};
 
 		const handleKeyUp = (event: KeyboardEvent) => {
+			// Don't process if locked
+			if (isLocked) return;
 			if (event.shiftKey) {
 				setTimeout(handleSelectionChange, 0);
 			}
@@ -247,12 +298,23 @@ export function useTextSelection(
 			document.removeEventListener("mouseup", handleMouseUp);
 			document.removeEventListener("keyup", handleKeyUp);
 		};
-	}, [enabled, handleSelectionChange]);
+	}, [enabled, handleSelectionChange, isLocked]);
+
+	// Cleanup timer on unmount
+	useEffect(() => {
+		return () => {
+			if (showDelayTimerRef.current) {
+				clearTimeout(showDelayTimerRef.current);
+			}
+		};
+	}, []);
 
 	return {
 		selection,
 		selectionPosition,
 		clearSelection,
+		lockSelection,
+		isLocked,
 	};
 }
 

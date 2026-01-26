@@ -531,7 +531,7 @@ export function CodeBlock({
 									</div>
 								)}
 								<div
-									className="shiki-container relative"
+									className="shiki-container relative leading-6 [&_pre]:m-0 [&_pre]:p-0 [&_pre]:bg-transparent [&_pre_code]:leading-6 [&_.line]:leading-6 [&_.line]:h-6"
 									// biome-ignore lint/security/noDangerouslySetInnerHtml: trusted Shiki output
 									dangerouslySetInnerHTML={{ __html: highlightedHtml }}
 								/>

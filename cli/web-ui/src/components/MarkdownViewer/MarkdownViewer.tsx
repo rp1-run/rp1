@@ -181,11 +181,13 @@ function TextHighlight({
 			type="button"
 			onClick={handleClick}
 			className={cn(
-				"fixed pointer-events-auto cursor-pointer border-0 p-0",
+				"fixed pointer-events-auto cursor-pointer p-0",
+				"border-l-2",
 				annotation.status === "resolved"
-					? "bg-terminal-green/15"
-					: "bg-terminal-blue/20",
-				"hover:bg-terminal-blue/30 transition-colors",
+					? "bg-terminal-green/20 border-terminal-green"
+					: "bg-terminal-yellow/25 border-terminal-blue",
+				"hover:bg-terminal-blue/35 transition-colors",
+				"underline decoration-terminal-blue/50 decoration-2 decoration-wavy underline-offset-2",
 			)}
 			style={{
 				top: highlightRect.top,
@@ -219,24 +221,71 @@ function AnnotationLayer({
 	const [annotationPosition, setAnnotationPosition] =
 		useState<SelectionPosition | null>(null);
 	const [showSelectionPopover, setShowSelectionPopover] = useState(false);
+	const popoverRef = useRef<HTMLDivElement>(null);
 
-	// Text selection handling
-	const { selection, selectionPosition, clearSelection } = useTextSelection({
+	// Text selection handling with delay to avoid flicker
+	const {
+		selection,
+		selectionPosition,
+		clearSelection,
+		lockSelection,
+		isLocked,
+	} = useTextSelection({
 		containerRef: containerRef as React.RefObject<HTMLElement>,
 		enabled: true,
+		showDelay: 250,
 	});
 
 	// Get annotations for this artifact
 	const { annotations } = useAnnotations({ artifactPath: path });
 
-	// Show selection popover when text is selected
+	// Show selection popover when text is selected and lock it
 	useEffect(() => {
-		if (selection && selectionPosition) {
+		if (selection && selectionPosition && !isLocked) {
 			setShowSelectionPopover(true);
-		} else {
-			setShowSelectionPopover(false);
+			// Lock the selection so it persists
+			lockSelection();
 		}
-	}, [selection, selectionPosition]);
+	}, [selection, selectionPosition, lockSelection, isLocked]);
+
+	// Handle click outside to close popover
+	useEffect(() => {
+		if (!showSelectionPopover) return;
+
+		const handleClickOutside = (e: MouseEvent) => {
+			const target = e.target as Node;
+			// Check if click is outside the popover
+			if (popoverRef.current && !popoverRef.current.contains(target)) {
+				// Also check if clicking on the selection highlight itself
+				const isClickOnSelection =
+					target instanceof Element &&
+					target.closest("[data-selection-highlight]");
+				if (!isClickOnSelection) {
+					setShowSelectionPopover(false);
+					clearSelection();
+				}
+			}
+		};
+
+		const handleEscape = (e: KeyboardEvent) => {
+			if (e.key === "Escape") {
+				setShowSelectionPopover(false);
+				clearSelection();
+			}
+		};
+
+		// Add slight delay to avoid immediate close from the same click
+		const timeoutId = setTimeout(() => {
+			document.addEventListener("mousedown", handleClickOutside);
+			document.addEventListener("keydown", handleEscape);
+		}, 100);
+
+		return () => {
+			clearTimeout(timeoutId);
+			document.removeEventListener("mousedown", handleClickOutside);
+			document.removeEventListener("keydown", handleEscape);
+		};
+	}, [showSelectionPopover, clearSelection]);
 
 	// Get annotations for hidden anchors (memoized for performance)
 	const anchorAnnotationsMap = useMemo(() => {
@@ -334,13 +383,15 @@ function AnnotationLayer({
 
 			{/* Selection popover for creating annotations from text selection */}
 			{showSelectionPopover && selection && selectionPosition && (
-				<SelectionPopover
-					anchor={selection}
-					artifactPath={path}
-					position={selectionPosition}
-					onClose={handleCloseSelectionPopover}
-					onAnnotationCreated={handleAnnotationCreated}
-				/>
+				<div ref={popoverRef}>
+					<SelectionPopover
+						anchor={selection}
+						artifactPath={path}
+						position={selectionPosition}
+						onClose={handleCloseSelectionPopover}
+						onAnnotationCreated={handleAnnotationCreated}
+					/>
+				</div>
 			)}
 
 			{/* Hidden anchor popover for creating annotations */}
