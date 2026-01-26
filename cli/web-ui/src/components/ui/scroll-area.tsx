@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 interface ScrollAreaProps
 	extends React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Root> {
-	viewportRef?: React.RefObject<HTMLDivElement | null>;
+	viewportRef?: React.RefObject<HTMLDivElement>;
 }
 
 const ScrollArea = React.forwardRef<
