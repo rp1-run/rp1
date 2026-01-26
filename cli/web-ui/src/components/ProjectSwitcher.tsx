@@ -174,7 +174,7 @@ export function ProjectSwitcher() {
 				type="button"
 				onClick={() => setIsOpen(!isOpen)}
 				className={cn(
-					"flex items-center gap-1.5 px-2 py-1 rounded text-sm font-mono",
+					"group flex items-center gap-1.5 px-2 py-1 rounded text-sm font-mono",
 					"hover:bg-accent hover:text-accent-foreground",
 					"focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1",
 					"transition-colors",
@@ -184,7 +184,11 @@ export function ProjectSwitcher() {
 				aria-expanded={isOpen}
 				aria-label="Switch project"
 			>
-				<FolderOpen className={cn("h-3.5 w-3.5", !isOpen && "text-terminal-mauve")} />
+				<FolderOpen className={cn(
+					"h-3.5 w-3.5 text-terminal-mauve",
+					"group-hover:text-inherit",
+					isOpen && "text-inherit"
+				)} />
 				<span className="max-w-[150px] truncate">
 					{currentProject?.name ?? currentProjectId ?? "Select project"}
 				</span>
