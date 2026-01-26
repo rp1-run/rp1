@@ -53,9 +53,12 @@ export function useRuns(options: UseRunsOptions = {}): UseRunsResult {
 	const [error, setError] = useState<Error | null>(null);
 	const { subscribeToAttention } = useWebSocket();
 
+	// Destructure to use primitives as dependencies (avoid object reference changes)
+	const { status, projectId, dateRange, limit, offset } = options;
+
 	const fetchRuns = useCallback(async () => {
 		try {
-			const params = buildQueryParams(options);
+			const params = buildQueryParams({ status, projectId, dateRange, limit, offset });
 			const url = `/api/v2/runs${params.toString() ? `?${params.toString()}` : ""}`;
 			const response = await fetch(url);
 
@@ -72,7 +75,7 @@ export function useRuns(options: UseRunsOptions = {}): UseRunsResult {
 		} finally {
 			setIsLoading(false);
 		}
-	}, [options]);
+	}, [status, projectId, dateRange, limit, offset]);
 
 	useEffect(() => {
 		setIsLoading(true);

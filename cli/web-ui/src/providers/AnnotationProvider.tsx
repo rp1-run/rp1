@@ -413,6 +413,20 @@ export function AnnotationProvider({
 					if (prev.some((a) => a.id === msg.annotation.id)) {
 						return prev;
 					}
+					// Check if there's a pending optimistic annotation with temp ID
+					// that matches the same artifact path and anchor
+					const tempIndex = prev.findIndex(
+						(a) =>
+							a.id.startsWith("temp-") &&
+							a.artifactPath === msg.annotation.artifactPath &&
+							JSON.stringify(a.anchor) === JSON.stringify(msg.annotation.anchor),
+					);
+					if (tempIndex >= 0) {
+						// Replace the temp annotation with the real one
+						const updated = [...prev];
+						updated[tempIndex] = msg.annotation;
+						return updated;
+					}
 					return [...prev, msg.annotation];
 				});
 				break;
