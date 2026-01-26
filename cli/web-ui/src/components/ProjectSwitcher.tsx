@@ -202,7 +202,7 @@ export function ProjectSwitcher() {
 					className={cn(
 						"absolute top-full left-0 mt-1 z-50",
 						"min-w-[200px] max-w-[300px] max-h-[300px] overflow-y-auto",
-						"rounded-md border bg-popover shadow-md",
+						"rounded-md border bg-popover text-popover-foreground shadow-md",
 						"font-mono text-sm",
 						"focus:outline-none",
 					)}
@@ -227,11 +227,11 @@ export function ProjectSwitcher() {
 							className={cn(
 								"w-full flex items-center gap-2 px-3 py-2 text-left",
 								"transition-colors",
-								focusedIndex === index && "bg-accent",
+								focusedIndex === index && "bg-accent text-accent-foreground",
 								project.id === currentProjectId && "text-foreground",
 								!project.available &&
 									"text-muted-foreground italic opacity-60 cursor-not-allowed",
-								project.available && "hover:bg-accent cursor-pointer",
+								project.available && "hover:bg-accent hover:text-accent-foreground cursor-pointer",
 							)}
 						>
 							{project.id === currentProjectId ? (
