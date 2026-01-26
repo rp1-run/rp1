@@ -1,8 +1,15 @@
-import { useMemo } from "react";
-import ReactMarkdown from "react-markdown";
+import { useEffect, useMemo } from "react";
+import ReactMarkdown, {
+	type Options as ReactMarkdownOptions,
+} from "react-markdown";
 import rehypeRaw from "rehype-raw";
+import rehypeSlug from "rehype-slug";
 import remarkFrontmatter from "remark-frontmatter";
 import remarkGfm from "remark-gfm";
+import {
+	extractHeadings,
+	type HeadingEntry,
+} from "@/hooks/useHeadingExtraction";
 import { cn } from "@/lib/utils";
 import { CodeBlock } from "./CodeBlock";
 import { MarkdownLink } from "./MarkdownLink";
@@ -14,6 +21,8 @@ export interface MarkdownViewerProps {
 	frontmatter?: Record<string, unknown>;
 	showFrontmatter?: boolean;
 	className?: string;
+	onHeadingsExtracted?: (headings: HeadingEntry[]) => void;
+	headingIdPrefix?: string;
 }
 
 export function MarkdownViewer({
@@ -22,12 +31,38 @@ export function MarkdownViewer({
 	frontmatter,
 	showFrontmatter = false,
 	className,
+	onHeadingsExtracted,
+	headingIdPrefix,
 }: MarkdownViewerProps) {
 	const basePath = useMemo(() => {
 		const parts = path.split("/");
 		parts.pop();
 		return parts.join("/");
 	}, [path]);
+
+	// Extract headings and notify parent via callback
+	const headings = useMemo(() => extractHeadings(content), [content]);
+
+	useEffect(() => {
+		if (onHeadingsExtracted) {
+			// Apply prefix to heading IDs if provided
+			const processedHeadings = headingIdPrefix
+				? headings.map((h) => ({
+						...h,
+						id: `${headingIdPrefix}${h.id}`,
+					}))
+				: [...headings];
+			onHeadingsExtracted(processedHeadings);
+		}
+	}, [headings, onHeadingsExtracted, headingIdPrefix]);
+
+	// Configure rehype-slug with prefix if provided
+	const rehypePlugins: ReactMarkdownOptions["rehypePlugins"] = useMemo(() => {
+		if (headingIdPrefix) {
+			return [rehypeRaw, [rehypeSlug, { prefix: headingIdPrefix }]];
+		}
+		return [rehypeRaw, rehypeSlug];
+	}, [headingIdPrefix]);
 
 	return (
 		<article className={cn("markdown-content", className)}>
@@ -38,7 +73,7 @@ export function MarkdownViewer({
 				)}
 			<ReactMarkdown
 				remarkPlugins={[remarkGfm, remarkFrontmatter]}
-				rehypePlugins={[rehypeRaw]}
+				rehypePlugins={rehypePlugins}
 				components={{
 					a: ({ href, children, ...props }) => (
 						<MarkdownLink href={href} basePath={basePath} {...props}>

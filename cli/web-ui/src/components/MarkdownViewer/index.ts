@@ -1,3 +1,4 @@
+export type { HeadingEntry } from "@/hooks/useHeadingExtraction";
 export { CodeBlock } from "./CodeBlock";
 export { MarkdownLink } from "./MarkdownLink";
 export type { MarkdownViewerProps } from "./MarkdownViewer";

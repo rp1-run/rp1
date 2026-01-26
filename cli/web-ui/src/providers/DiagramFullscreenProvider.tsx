@@ -345,15 +345,17 @@ export function DiagramFullscreenProvider({
 
 		function handleKeyDown(e: KeyboardEvent) {
 			if (e.key === "Escape") {
+				e.stopPropagation();
 				closeFullscreen();
 			}
 		}
 
-		document.addEventListener("keydown", handleKeyDown);
+		// Use capture phase to intercept before other handlers
+		document.addEventListener("keydown", handleKeyDown, true);
 		document.body.style.overflow = "hidden";
 
 		return () => {
-			document.removeEventListener("keydown", handleKeyDown);
+			document.removeEventListener("keydown", handleKeyDown, true);
 			document.body.style.overflow = "";
 		};
 	}, [isFullscreen, closeFullscreen]);

@@ -67,7 +67,7 @@ export function RunDetailPage() {
 	}, [handleEscapeKey]);
 
 	const handleArtifactClick = (artifact: Artifact) => {
-		window.open(`vscode://file${artifact.path}`, "_blank");
+		navigate(`/v2/runs/${runId}/artifacts/${artifact.path}`);
 	};
 
 	if (isLoading) {
