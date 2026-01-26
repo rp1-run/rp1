@@ -61,6 +61,7 @@ export function ArtifactViewerPage() {
 	});
 	const [sidebarDrawerOpen, setSidebarDrawerOpen] = useState(false);
 	const [tocDrawerOpen, setTocDrawerOpen] = useState(false);
+	const [liveAnnouncement, setLiveAnnouncement] = useState<string>("");
 
 	const scrollViewportRef = useRef<HTMLDivElement>(null);
 	const headingElementsRef = useRef<Map<string, Element>>(new Map());
@@ -246,6 +247,16 @@ export function ArtifactViewerPage() {
 		return () => observer.disconnect();
 	}, [headings]);
 
+	// Announce active heading changes to screen readers
+	useEffect(() => {
+		if (activeHeadingId) {
+			const heading = headings.find((h) => h.id === activeHeadingId);
+			if (heading) {
+				setLiveAnnouncement(`Current section: ${heading.text}`);
+			}
+		}
+	}, [activeHeadingId, headings]);
+
 	const handleEscapeKey = useCallback(
 		(event: KeyboardEvent) => {
 			if (event.key === "Escape") {
@@ -346,33 +357,64 @@ export function ArtifactViewerPage() {
 		</>
 	);
 
+	// Live region for screen reader announcements
+	const liveRegion = (
+		<div
+			aria-live="polite"
+			aria-atomic="true"
+			className="sr-only"
+		>
+			{liveAnnouncement}
+		</div>
+	);
+
 	if (isMobile) {
 		return (
 			<div className="flex h-full flex-col">
-				<nav className="flex items-center gap-2 p-4 text-sm text-muted-foreground border-b">
-					<Link
-						to="/v2/projects"
-						className="hover:text-foreground transition-colors"
-					>
-						{run.projectName}
-					</Link>
-					<ChevronRight className="h-4 w-4" aria-hidden="true" />
-					<Link
-						to={`/v2/runs/${runId}`}
-						className="hover:text-foreground transition-colors"
-					>
-						{run.featureName}
-					</Link>
-					<ChevronRight className="h-4 w-4" aria-hidden="true" />
-					<span className="text-foreground truncate max-w-[100px]">
-						{selectedArtifactPath
-							? selectedArtifactPath.split("/").pop()
-							: "Artifacts"}
-					</span>
+				{liveRegion}
+				<nav
+					aria-label="Breadcrumb"
+					className="flex items-center gap-2 p-4 text-sm text-muted-foreground border-b"
+				>
+					<ol className="flex items-center gap-2">
+						<li>
+							<Link
+								to="/v2/projects"
+								className="hover:text-foreground transition-colors"
+							>
+								{run.projectName}
+							</Link>
+						</li>
+						<li aria-hidden="true">
+							<ChevronRight className="h-4 w-4" />
+						</li>
+						<li>
+							<Link
+								to={`/v2/runs/${runId}`}
+								className="hover:text-foreground transition-colors"
+							>
+								{run.featureName}
+							</Link>
+						</li>
+						<li aria-hidden="true">
+							<ChevronRight className="h-4 w-4" />
+						</li>
+						<li aria-current="page">
+							<span className="text-foreground truncate max-w-[100px]">
+								{selectedArtifactPath
+									? selectedArtifactPath.split("/").pop()
+									: "Artifacts"}
+							</span>
+						</li>
+					</ol>
 				</nav>
 
-				<div className="relative flex h-full flex-1 flex-col">
-					<div className="flex items-center justify-between gap-2 border-b px-4 py-2">
+				<main className="relative flex h-full flex-1 flex-col">
+					<div
+						className="flex items-center justify-between gap-2 border-b px-4 py-2"
+						role="toolbar"
+						aria-label="Artifact viewer controls"
+					>
 						<TooltipProvider>
 							<Tooltip>
 								<TooltipTrigger asChild>
@@ -383,7 +425,7 @@ export function ArtifactViewerPage() {
 										onClick={() => setSidebarDrawerOpen(true)}
 										aria-label="Open artifact list"
 									>
-										<PanelLeft className="h-4 w-4" />
+										<PanelLeft className="h-4 w-4" aria-hidden="true" />
 									</Button>
 								</TooltipTrigger>
 								<TooltipContent>
@@ -407,7 +449,7 @@ export function ArtifactViewerPage() {
 											onClick={() => setTocDrawerOpen(true)}
 											aria-label="Open table of contents"
 										>
-											<List className="h-4 w-4" />
+											<List className="h-4 w-4" aria-hidden="true" />
 										</Button>
 									</TooltipTrigger>
 									<TooltipContent>
@@ -422,16 +464,17 @@ export function ArtifactViewerPage() {
 						className="flex-1"
 						viewportRef={scrollViewportRef}
 					>
-						<div
+						<article
 							className="p-4"
 							onScroll={handleScroll as unknown as React.UIEventHandler}
+							aria-label={selectedArtifactPath ? `Content of ${selectedArtifactPath.split("/").pop()}` : "Artifact content"}
 						>
 							{contentArea}
-						</div>
+						</article>
 					</ScrollArea>
 
 					<NewUpdatesChip visible={hasNewUpdates} onClick={scrollToNew} />
-				</div>
+				</main>
 
 				<Drawer
 					open={sidebarDrawerOpen}
@@ -462,40 +505,60 @@ export function ArtifactViewerPage() {
 					/>
 				</Drawer>
 
-				<p className="border-t px-4 py-2 text-xs text-muted-foreground">
-					Press <kbd className="rounded bg-muted px-1.5 py-0.5">Esc</kbd> to
+				<footer className="border-t px-4 py-2 text-xs text-muted-foreground">
+					Press <kbd className="rounded bg-muted px-1.5 py-0.5 font-mono">Esc</kbd> to
 					return to run details
-				</p>
+				</footer>
 			</div>
 		);
 	}
 
 	return (
 		<div className="flex h-full flex-col">
-			<nav className="flex items-center gap-2 p-4 text-sm text-muted-foreground border-b">
-				<Link
-					to="/v2/projects"
-					className="hover:text-foreground transition-colors"
-				>
-					{run.projectName}
-				</Link>
-				<ChevronRight className="h-4 w-4" aria-hidden="true" />
-				<Link
-					to={`/v2/runs/${runId}`}
-					className="hover:text-foreground transition-colors"
-				>
-					{run.featureName}
-				</Link>
-				<ChevronRight className="h-4 w-4" aria-hidden="true" />
-				<span className="text-foreground">Artifacts</span>
-				{selectedArtifactPath && (
-					<>
-						<ChevronRight className="h-4 w-4" aria-hidden="true" />
-						<span className="text-foreground truncate max-w-[200px]">
-							{selectedArtifactPath.split("/").pop()}
-						</span>
-					</>
-				)}
+			{liveRegion}
+			<nav
+				aria-label="Breadcrumb"
+				className="flex items-center gap-2 p-4 text-sm text-muted-foreground border-b"
+			>
+				<ol className="flex items-center gap-2">
+					<li>
+						<Link
+							to="/v2/projects"
+							className="hover:text-foreground transition-colors"
+						>
+							{run.projectName}
+						</Link>
+					</li>
+					<li aria-hidden="true">
+						<ChevronRight className="h-4 w-4" />
+					</li>
+					<li>
+						<Link
+							to={`/v2/runs/${runId}`}
+							className="hover:text-foreground transition-colors"
+						>
+							{run.featureName}
+						</Link>
+					</li>
+					<li aria-hidden="true">
+						<ChevronRight className="h-4 w-4" />
+					</li>
+					<li aria-current={selectedArtifactPath ? undefined : "page"}>
+						<span className="text-foreground">Artifacts</span>
+					</li>
+					{selectedArtifactPath && (
+						<>
+							<li aria-hidden="true">
+								<ChevronRight className="h-4 w-4" />
+							</li>
+							<li aria-current="page">
+								<span className="text-foreground truncate max-w-[200px]">
+									{selectedArtifactPath.split("/").pop()}
+								</span>
+							</li>
+						</>
+					)}
+				</ol>
 			</nav>
 
 			<ResizablePanelGroup
@@ -510,20 +573,26 @@ export function ArtifactViewerPage() {
 					collapsible
 					className="bg-card"
 				>
-					<ScrollArea className="h-full">
-						<ArtifactSidebar
-							artifacts={run.artifacts}
-							selectedPath={selectedArtifactPath}
-							onSelect={handleArtifactSelect}
-						/>
-					</ScrollArea>
+					<aside aria-label="Artifact list">
+						<ScrollArea className="h-full">
+							<ArtifactSidebar
+								artifacts={run.artifacts}
+								selectedPath={selectedArtifactPath}
+								onSelect={handleArtifactSelect}
+							/>
+						</ScrollArea>
+					</aside>
 				</ResizablePanel>
 
-				<ResizableHandle withHandle />
+				<ResizableHandle withHandle aria-label="Resize sidebar" />
 
 				<ResizablePanel defaultSize={70} minSize={40}>
-					<div className="relative flex h-full flex-col">
-						<div className="flex items-center justify-end gap-2 border-b px-4 py-2">
+					<main className="relative flex h-full flex-col">
+						<div
+							className="flex items-center justify-end gap-2 border-b px-4 py-2"
+							role="toolbar"
+							aria-label="Artifact viewer controls"
+						>
 							<FollowModeToggle
 								enabled={followMode}
 								onToggle={() => setFollowMode(!followMode)}
@@ -534,19 +603,20 @@ export function ArtifactViewerPage() {
 							className="flex-1"
 							viewportRef={scrollViewportRef}
 						>
-							<div
+							<article
 								className="p-6"
 								onScroll={handleScroll as unknown as React.UIEventHandler}
+								aria-label={selectedArtifactPath ? `Content of ${selectedArtifactPath.split("/").pop()}` : "Artifact content"}
 							>
 								{contentArea}
-							</div>
+							</article>
 						</ScrollArea>
 
 						<NewUpdatesChip visible={hasNewUpdates} onClick={scrollToNew} />
-					</div>
+					</main>
 				</ResizablePanel>
 
-				<ResizableHandle withHandle />
+				<ResizableHandle withHandle aria-label="Resize table of contents" />
 
 				<ResizablePanel
 					defaultSize={15}
@@ -556,20 +626,22 @@ export function ArtifactViewerPage() {
 					collapsedSize={3}
 					className={cn(tocCollapsed && "min-w-[40px]")}
 				>
-					<TableOfContents
-						headings={headings}
-						activeId={activeHeadingId}
-						onNavigate={handleTocNavigate}
-						collapsed={tocCollapsed}
-						onToggleCollapse={handleToggleTocCollapse}
-					/>
+					<aside aria-label="Table of contents">
+						<TableOfContents
+							headings={headings}
+							activeId={activeHeadingId}
+							onNavigate={handleTocNavigate}
+							collapsed={tocCollapsed}
+							onToggleCollapse={handleToggleTocCollapse}
+						/>
+					</aside>
 				</ResizablePanel>
 			</ResizablePanelGroup>
 
-			<p className="border-t px-4 py-2 text-xs text-muted-foreground">
-				Press <kbd className="rounded bg-muted px-1.5 py-0.5">Esc</kbd> to
+			<footer className="border-t px-4 py-2 text-xs text-muted-foreground">
+				Press <kbd className="rounded bg-muted px-1.5 py-0.5 font-mono">Esc</kbd> to
 				return to run details
-			</p>
+			</footer>
 		</div>
 	);
 }

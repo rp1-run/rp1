@@ -95,6 +95,9 @@ export function ArtifactSidebar({
 				{...containerProps}
 				className="space-y-1 p-2"
 				aria-label="Artifacts"
+				aria-activedescendant={
+					selectedIndex >= 0 ? `artifact-item-${selectedIndex}` : undefined
+				}
 				onFocus={() => {
 					// If no item selected via keyboard, start at the currently selected artifact
 					if (selectedIndex >= 0) {

@@ -1,4 +1,5 @@
 import { ChevronLeft, ChevronRight, List } from "lucide-react";
+import { useCallback, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -34,6 +35,58 @@ export function TableOfContents({
 	collapsed = false,
 	onToggleCollapse,
 }: TableOfContentsProps) {
+	const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+	const itemRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
+
+	const handleKeyDown = useCallback(
+		(e: React.KeyboardEvent, index: number) => {
+			let newIndex: number | null = null;
+
+			switch (e.key) {
+				case "ArrowUp":
+					e.preventDefault();
+					newIndex = index > 0 ? index - 1 : headings.length - 1;
+					break;
+				case "ArrowDown":
+					e.preventDefault();
+					newIndex = index < headings.length - 1 ? index + 1 : 0;
+					break;
+				case "Home":
+					e.preventDefault();
+					newIndex = 0;
+					break;
+				case "End":
+					e.preventDefault();
+					newIndex = headings.length - 1;
+					break;
+				case "Enter":
+				case " ":
+					e.preventDefault();
+					onNavigate(headings[index].id);
+					return;
+				default:
+					return;
+			}
+
+			if (newIndex !== null) {
+				setFocusedIndex(newIndex);
+				itemRefs.current.get(newIndex)?.focus();
+			}
+		},
+		[headings, onNavigate],
+	);
+
+	const setItemRef = useCallback(
+		(index: number) => (node: HTMLButtonElement | null) => {
+			if (node) {
+				itemRefs.current.set(index, node);
+			} else {
+				itemRefs.current.delete(index);
+			}
+		},
+		[],
+	);
+
 	if (collapsed) {
 		return (
 			<div className="flex h-full flex-col items-center border-l bg-background py-2">
@@ -111,15 +164,30 @@ export function TableOfContents({
 				</div>
 			) : (
 				<ScrollArea className="flex-1">
-					<ul className="space-y-0.5 p-2" aria-label="Document headings">
-						{headings.map((heading) => {
+					<ul
+						className="space-y-0.5 p-2"
+						role="listbox"
+						aria-label="Document headings"
+						aria-activedescendant={
+							focusedIndex !== null ? `toc-item-${focusedIndex}` : undefined
+						}
+					>
+						{headings.map((heading, index) => {
 							const isActive = heading.id === activeId;
+							const isFocused = focusedIndex === index;
 
 							return (
-								<li key={heading.id}>
+								<li key={heading.id} role="presentation">
 									<button
+										ref={setItemRef(index)}
+										id={`toc-item-${index}`}
 										type="button"
+										role="option"
+										aria-selected={isActive}
+										tabIndex={isFocused || (focusedIndex === null && index === 0) ? 0 : -1}
 										onClick={() => onNavigate(heading.id)}
+										onKeyDown={(e) => handleKeyDown(e, index)}
+										onFocus={() => setFocusedIndex(index)}
 										className={cn(
 											"w-full text-left text-sm transition-colors",
 											"rounded-md px-2 py-1",

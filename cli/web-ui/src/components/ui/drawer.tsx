@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,10 @@ export function Drawer({
 	className,
 }: DrawerProps) {
 	const drawerRef = useRef<HTMLDivElement>(null);
+	const previousActiveElement = useRef<HTMLElement | null>(null);
+	const titleId = useId();
 
+	// Handle escape key
 	useEffect(() => {
 		if (!open) return;
 
@@ -36,15 +39,56 @@ export function Drawer({
 		return () => document.removeEventListener("keydown", handleEscape);
 	}, [open, onClose]);
 
+	// Focus management: save previous focus and move to drawer
 	useEffect(() => {
-		if (open && drawerRef.current) {
+		if (open) {
+			// Save the currently focused element
+			previousActiveElement.current = document.activeElement as HTMLElement;
+
+			// Focus the first focusable element in the drawer
+			if (drawerRef.current) {
+				const focusableElements = drawerRef.current.querySelectorAll<HTMLElement>(
+					'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+				);
+				const firstElement = focusableElements[0];
+				firstElement?.focus();
+			}
+		} else {
+			// Restore focus to the previously focused element
+			if (previousActiveElement.current) {
+				previousActiveElement.current.focus();
+				previousActiveElement.current = null;
+			}
+		}
+	}, [open]);
+
+	// Focus trap: keep focus within the drawer
+	const handleKeyDown = useCallback(
+		(event: React.KeyboardEvent) => {
+			if (event.key !== "Tab" || !drawerRef.current) return;
+
 			const focusableElements = drawerRef.current.querySelectorAll<HTMLElement>(
 				'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
 			);
 			const firstElement = focusableElements[0];
-			firstElement?.focus();
-		}
-	}, [open]);
+			const lastElement = focusableElements[focusableElements.length - 1];
+
+			if (event.shiftKey) {
+				// Shift + Tab: go to last element if at first
+				if (document.activeElement === firstElement) {
+					event.preventDefault();
+					lastElement?.focus();
+				}
+			} else {
+				// Tab: go to first element if at last
+				if (document.activeElement === lastElement) {
+					event.preventDefault();
+					firstElement?.focus();
+				}
+			}
+		},
+		[],
+	);
 
 	if (typeof document === "undefined") return null;
 
@@ -66,7 +110,9 @@ export function Drawer({
 				ref={drawerRef}
 				role="dialog"
 				aria-modal="true"
-				aria-label={title}
+				aria-labelledby={title ? titleId : undefined}
+				aria-label={title ? undefined : "Drawer"}
+				onKeyDown={handleKeyDown}
 				className={cn(
 					"fixed z-50 flex flex-col bg-background shadow-lg transition-transform duration-200 ease-in-out",
 					side === "left" && "inset-y-0 left-0 w-80 max-w-[85vw]",
@@ -81,15 +127,17 @@ export function Drawer({
 			>
 				{title && (
 					<div className="flex items-center justify-between border-b px-4 py-3">
-						<h2 className="font-medium">{title}</h2>
+						<h2 id={titleId} className="font-medium">
+							{title}
+						</h2>
 						<Button
 							variant="ghost"
 							size="icon"
 							className="h-8 w-8"
 							onClick={onClose}
-							aria-label="Close"
+							aria-label="Close drawer"
 						>
-							<X className="h-4 w-4" />
+							<X className="h-4 w-4" aria-hidden="true" />
 						</Button>
 					</div>
 				)}
