@@ -28,60 +28,83 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 240 5.9% 10%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 240 5.9% 10%;
     --radius: 0.5rem;
-
-    /* Terminal aesthetic - Catppuccin Latte */
-    --terminal-green: 115 54% 40%;  /* #40a02b */
-    --terminal-cursor: 115 54% 40%;
-    --terminal-mauve: 266 85% 58%;  /* #8839ef */
-    --terminal-red: 347 87% 44%;    /* #d20f39 */
   }
 
-  .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
+  /* Catppuccin Latte (Light Theme) */
+  :root,
+  [data-theme="light"] {
+    --background: 220 23% 95%;
+    --foreground: 234 16% 35%;
+    --card: 220 23% 95%;
+    --card-foreground: 234 16% 35%;
+    --popover: 220 23% 95%;
+    --popover-foreground: 234 16% 35%;
+    --primary: 266 85% 58%;
+    --primary-foreground: 220 23% 95%;
+    --secondary: 223 16% 83%;
+    --secondary-foreground: 234 16% 35%;
+    --muted: 223 16% 83%;
+    --muted-foreground: 228 14% 45%;
+    --accent: 266 85% 58%;
+    --accent-foreground: 220 23% 95%;
+    --destructive: 347 87% 44%;
+    --destructive-foreground: 220 23% 95%;
+    --border: 225 14% 77%;
+    --input: 225 14% 77%;
+    --ring: 266 85% 58%;
+
+    /* Terminal aesthetic - Catppuccin Latte */
+    --terminal-green: 109 58% 40%;
+    --terminal-cursor: 109 58% 40%;
+    --terminal-mauve: 266 85% 58%;
+    --terminal-red: 347 87% 44%;
+
+    /* Status colors - Catppuccin Latte */
+    --status-queued: 228 11% 65%;
+    --status-running: 220 91% 54%;
+    --status-waiting: 22 99% 52%;
+    --status-completed: 109 58% 40%;
+    --status-failed: 347 87% 44%;
+    --status-needs-review: 266 85% 58%;
+  }
+
+  /* Catppuccin Mocha (Dark Theme) */
+  .dark,
+  [data-theme="dark"] {
+    --background: 240 21% 15%;
+    --foreground: 226 64% 88%;
+    --card: 240 21% 15%;
+    --card-foreground: 226 64% 88%;
+    --popover: 237 16% 23%;
+    --popover-foreground: 226 64% 88%;
+    --primary: 267 83% 80%;
+    --primary-foreground: 240 21% 15%;
+    --secondary: 237 16% 23%;
+    --secondary-foreground: 226 64% 88%;
+    --muted: 237 16% 23%;
+    --muted-foreground: 227 27% 64%;
+    --accent: 267 83% 80%;
+    --accent-foreground: 240 21% 15%;
+    --destructive: 343 81% 75%;
+    --destructive-foreground: 240 21% 15%;
+    --border: 234 13% 31%;
+    --input: 234 13% 31%;
+    --ring: 267 83% 80%;
 
     /* Terminal aesthetic - Catppuccin Mocha */
-    --terminal-green: 115 54% 76%;  /* #a6e3a1 */
+    --terminal-green: 115 54% 76%;
     --terminal-cursor: 115 54% 76%;
-    --terminal-mauve: 267 84% 81%;  /* #cba6f7 */
-    --terminal-red: 343 81% 75%;    /* #f38ba8 */
+    --terminal-mauve: 267 83% 80%;
+    --terminal-red: 343 81% 75%;
+
+    /* Status colors - Catppuccin Mocha */
+    --status-queued: 230 25% 44%;
+    --status-running: 217 92% 76%;
+    --status-waiting: 23 92% 75%;
+    --status-completed: 115 54% 76%;
+    --status-failed: 343 81% 75%;
+    --status-needs-review: 267 83% 80%;
   }
 }
 
@@ -314,6 +337,55 @@
 
   .text-terminal-red {
     color: hsl(var(--terminal-red));
+  }
+
+  /* Status color utilities */
+  .text-status-queued {
+    color: hsl(var(--status-queued));
+  }
+
+  .bg-status-queued {
+    background-color: hsl(var(--status-queued));
+  }
+
+  .text-status-running {
+    color: hsl(var(--status-running));
+  }
+
+  .bg-status-running {
+    background-color: hsl(var(--status-running));
+  }
+
+  .text-status-waiting {
+    color: hsl(var(--status-waiting));
+  }
+
+  .bg-status-waiting {
+    background-color: hsl(var(--status-waiting));
+  }
+
+  .text-status-completed {
+    color: hsl(var(--status-completed));
+  }
+
+  .bg-status-completed {
+    background-color: hsl(var(--status-completed));
+  }
+
+  .text-status-failed {
+    color: hsl(var(--status-failed));
+  }
+
+  .bg-status-failed {
+    background-color: hsl(var(--status-failed));
+  }
+
+  .text-status-needs-review {
+    color: hsl(var(--status-needs-review));
+  }
+
+  .bg-status-needs-review {
+    background-color: hsl(var(--status-needs-review));
   }
 
   @keyframes blink {
