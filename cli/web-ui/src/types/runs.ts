@@ -5,97 +5,97 @@
 
 /** Status of an agent run */
 export type RunStatus =
-  | "queued"
-  | "running"
-  | "waiting-input"
-  | "completed"
-  | "failed"
-  | "needs-review";
+	| "queued"
+	| "running"
+	| "waiting-input"
+	| "completed"
+	| "failed"
+	| "needs-review";
 
 /** Status of a workflow step within a run */
 export type StepStatus =
-  | "pending"
-  | "running"
-  | "completed"
-  | "failed"
-  | "skipped";
+	| "pending"
+	| "running"
+	| "completed"
+	| "failed"
+	| "skipped";
 
 /** Type of artifact produced by a run */
 export type ArtifactType =
-  | "markdown"
-  | "diff"
-  | "diagram"
-  | "report"
-  | "code"
-  | "other";
+	| "markdown"
+	| "diff"
+	| "diagram"
+	| "report"
+	| "code"
+	| "other";
 
 /** Type of event in the run event stream */
 export type EventType =
-  | "step-start"
-  | "step-complete"
-  | "warning"
-  | "error"
-  | "artifact-updated"
-  | "task-batch";
+	| "step-start"
+	| "step-complete"
+	| "warning"
+	| "error"
+	| "artifact-updated"
+	| "task-batch";
 
 /** A workflow step within a run */
 export interface Step {
-  readonly id: string;
-  readonly name: string;
-  readonly status: StepStatus;
-  readonly startedAt: string | null;
-  readonly completedAt: string | null;
-  readonly taskCount: number | null;
-  readonly completedTaskCount: number | null;
+	readonly id: string;
+	readonly name: string;
+	readonly status: StepStatus;
+	readonly startedAt: string | null;
+	readonly completedAt: string | null;
+	readonly taskCount: number | null;
+	readonly completedTaskCount: number | null;
 }
 
 /** An artifact produced or updated by a run */
 export interface Artifact {
-  readonly path: string;
-  readonly type: ArtifactType;
-  readonly updatedDuringRun: boolean;
-  readonly isNew: boolean;
+	readonly path: string;
+	readonly type: ArtifactType;
+	readonly updatedDuringRun: boolean;
+	readonly isNew: boolean;
 }
 
 /** An event in the run event stream */
 export interface RunEvent {
-  readonly id: string;
-  readonly type: EventType;
-  readonly message: string;
-  readonly timestamp: string;
-  readonly stepId: string | null;
-  readonly metadata: Readonly<Record<string, unknown>> | null;
+	readonly id: string;
+	readonly type: EventType;
+	readonly message: string;
+	readonly timestamp: string;
+	readonly stepId: string | null;
+	readonly metadata: Readonly<Record<string, unknown>> | null;
 }
 
 /** An agent run with all associated data */
 export interface Run {
-  readonly id: string;
-  readonly projectId: string;
-  readonly projectName: string;
-  readonly featureId: string;
-  readonly featureName: string;
-  readonly command: string;
-  readonly status: RunStatus;
-  readonly currentStep: string | null;
-  readonly steps: readonly Step[];
-  readonly artifacts: readonly Artifact[];
-  readonly events: readonly RunEvent[];
-  readonly startedAt: string;
-  readonly completedAt: string | null;
-  readonly error: string | null;
+	readonly id: string;
+	readonly projectId: string;
+	readonly projectName: string;
+	readonly featureId: string;
+	readonly featureName: string;
+	readonly command: string;
+	readonly status: RunStatus;
+	readonly currentStep: string | null;
+	readonly steps: readonly Step[];
+	readonly artifacts: readonly Artifact[];
+	readonly events: readonly RunEvent[];
+	readonly startedAt: string;
+	readonly completedAt: string | null;
+	readonly error: string | null;
 }
 
 /** Attention groupings for the home dashboard */
 export interface AttentionData {
-  readonly waiting: readonly Run[];
-  readonly needsReview: readonly Run[];
-  readonly failed: readonly Run[];
-  readonly running: readonly Run[];
+	readonly waiting: readonly Run[];
+	readonly needsReview: readonly Run[];
+	readonly failed: readonly Run[];
+	readonly running: readonly Run[];
 }
 
 /** Filter state for the runs list */
 export interface RunsFilter {
-  readonly status: RunStatus | "all";
-  readonly projectId: string | null;
-  readonly dateRange: "today" | "week" | "month" | "all";
+	readonly status: RunStatus | "all";
+	readonly projectId: string | null;
+	readonly dateRange: "today" | "week" | "month" | "all";
 }

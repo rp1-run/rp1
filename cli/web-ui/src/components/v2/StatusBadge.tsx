@@ -1,136 +1,137 @@
 import { cva, type VariantProps } from "class-variance-authority";
 import {
-  Check,
-  Clock,
-  Eye,
-  Hand,
-  Loader2,
-  X,
-  Circle,
-  MinusCircle,
+	Check,
+	Circle,
+	Clock,
+	Eye,
+	Hand,
+	Loader2,
+	MinusCircle,
+	X,
 } from "lucide-react";
-import type { RunStatus, StepStatus } from "@/types/runs";
 import { cn } from "@/lib/utils";
+import type { RunStatus, StepStatus } from "@/types/runs";
 
 const statusBadgeVariants = cva(
-  "inline-flex items-center gap-1.5 rounded-full font-medium",
-  {
-    variants: {
-      size: {
-        sm: "px-2 py-0.5 text-xs",
-        md: "px-2.5 py-1 text-sm",
-        lg: "px-3 py-1.5 text-base",
-      },
-    },
-    defaultVariants: {
-      size: "md",
-    },
-  }
+	"inline-flex items-center gap-1.5 rounded-full font-medium",
+	{
+		variants: {
+			size: {
+				sm: "px-2 py-0.5 text-xs",
+				md: "px-2.5 py-1 text-sm",
+				lg: "px-3 py-1.5 text-base",
+			},
+		},
+		defaultVariants: {
+			size: "md",
+		},
+	},
 );
 
 const iconSizes = {
-  sm: "h-3 w-3",
-  md: "h-4 w-4",
-  lg: "h-5 w-5",
+	sm: "h-3 w-3",
+	md: "h-4 w-4",
+	lg: "h-5 w-5",
 } as const;
 
 type Status = RunStatus | StepStatus;
 
 interface StatusConfig {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  colorClass: string;
-  bgClass: string;
-  animate?: boolean;
+	icon: React.ComponentType<{ className?: string }>;
+	label: string;
+	colorClass: string;
+	bgClass: string;
+	animate?: boolean;
 }
 
 const statusConfigs: Record<Status, StatusConfig> = {
-  // Run statuses
-  queued: {
-    icon: Clock,
-    label: "Queued",
-    colorClass: "text-status-queued",
-    bgClass: "bg-status-queued/15",
-  },
-  running: {
-    icon: Loader2,
-    label: "Running",
-    colorClass: "text-status-running",
-    bgClass: "bg-status-running/15",
-    animate: true,
-  },
-  "waiting-input": {
-    icon: Hand,
-    label: "Waiting",
-    colorClass: "text-status-waiting",
-    bgClass: "bg-status-waiting/15",
-  },
-  completed: {
-    icon: Check,
-    label: "Completed",
-    colorClass: "text-status-completed",
-    bgClass: "bg-status-completed/15",
-  },
-  failed: {
-    icon: X,
-    label: "Failed",
-    colorClass: "text-status-failed",
-    bgClass: "bg-status-failed/15",
-  },
-  "needs-review": {
-    icon: Eye,
-    label: "Needs Review",
-    colorClass: "text-status-needs-review",
-    bgClass: "bg-status-needs-review/15",
-  },
-  // Step statuses
-  pending: {
-    icon: Circle,
-    label: "Pending",
-    colorClass: "text-status-queued",
-    bgClass: "bg-status-queued/15",
-  },
-  skipped: {
-    icon: MinusCircle,
-    label: "Skipped",
-    colorClass: "text-muted-foreground",
-    bgClass: "bg-muted/50",
-  },
+	// Run statuses
+	queued: {
+		icon: Clock,
+		label: "Queued",
+		colorClass: "text-status-queued",
+		bgClass: "bg-status-queued/15",
+	},
+	running: {
+		icon: Loader2,
+		label: "Running",
+		colorClass: "text-status-running",
+		bgClass: "bg-status-running/15",
+		animate: true,
+	},
+	"waiting-input": {
+		icon: Hand,
+		label: "Waiting",
+		colorClass: "text-status-waiting",
+		bgClass: "bg-status-waiting/15",
+	},
+	completed: {
+		icon: Check,
+		label: "Completed",
+		colorClass: "text-status-completed",
+		bgClass: "bg-status-completed/15",
+	},
+	failed: {
+		icon: X,
+		label: "Failed",
+		colorClass: "text-status-failed",
+		bgClass: "bg-status-failed/15",
+	},
+	"needs-review": {
+		icon: Eye,
+		label: "Needs Review",
+		colorClass: "text-status-needs-review",
+		bgClass: "bg-status-needs-review/15",
+	},
+	// Step statuses
+	pending: {
+		icon: Circle,
+		label: "Pending",
+		colorClass: "text-status-queued",
+		bgClass: "bg-status-queued/15",
+	},
+	skipped: {
+		icon: MinusCircle,
+		label: "Skipped",
+		colorClass: "text-muted-foreground",
+		bgClass: "bg-muted/50",
+	},
 };
 
 export interface StatusBadgeProps
-  extends VariantProps<typeof statusBadgeVariants> {
-  status: Status;
-  showLabel?: boolean;
-  className?: string;
+	extends VariantProps<typeof statusBadgeVariants> {
+	status: Status;
+	showLabel?: boolean;
+	className?: string;
 }
 
 export function StatusBadge({
-  status,
-  size = "md",
-  showLabel = true,
-  className,
+	status,
+	size = "md",
+	showLabel = true,
+	className,
 }: StatusBadgeProps) {
-  const config = statusConfigs[status];
-  const Icon = config.icon;
-  const iconSize = iconSizes[size || "md"];
+	const config = statusConfigs[status];
+	const Icon = config.icon;
+	const iconSize = iconSizes[size || "md"];
 
-  return (
-    <span
-      className={cn(
-        statusBadgeVariants({ size }),
-        config.colorClass,
-        config.bgClass,
-        className
-      )}
-      role="status"
-      aria-label={config.label}
-    >
-      <Icon
-        className={cn(iconSize, config.animate && "animate-spin")}
-        aria-hidden="true"
-      />
-      {showLabel && <span>{config.label}</span>}
-    </span>
-  );
+	return (
+		// biome-ignore lint/a11y/useSemanticElements: status badge with ARIA role
+		<span
+			className={cn(
+				statusBadgeVariants({ size }),
+				config.colorClass,
+				config.bgClass,
+				className,
+			)}
+			role="status"
+			aria-label={config.label}
+		>
+			<Icon
+				className={cn(iconSize, config.animate && "animate-spin")}
+				aria-hidden="true"
+			/>
+			{showLabel && <span>{config.label}</span>}
+		</span>
+	);
 }

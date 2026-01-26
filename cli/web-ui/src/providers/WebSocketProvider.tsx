@@ -20,10 +20,10 @@ import type {
 } from "../types/websocket";
 
 export type {
-	FileChangedMessage,
-	TreeChangedMessage,
-	StatusChangedMessage,
 	ConnectionStatus,
+	FileChangedMessage,
+	StatusChangedMessage,
+	TreeChangedMessage,
 } from "../types/websocket";
 
 interface WebSocketContextValue {
@@ -35,7 +35,10 @@ interface WebSocketContextValue {
 	onFileChange: (callback: (msg: FileChangedMessage) => void) => () => void;
 	onTreeChange: (callback: (msg: TreeChangedMessage) => void) => () => void;
 	onStatusChange: (callback: (msg: StatusChangedMessage) => void) => () => void;
-	subscribeToRun: (runId: string, callback: RunSubscriptionCallback) => () => void;
+	subscribeToRun: (
+		runId: string,
+		callback: RunSubscriptionCallback,
+	) => () => void;
 	subscribeToAttention: (callback: AttentionCallback) => () => void;
 }
 
@@ -285,7 +288,7 @@ export function WebSocketProvider({
 					wsRef.current.send(JSON.stringify({ type: "subscribe:run", runId }));
 				}
 			}
-			runSubscriptionsRef.current.get(runId)!.add(callback);
+			runSubscriptionsRef.current.get(runId)?.add(callback);
 
 			return () => {
 				const listeners = runSubscriptionsRef.current.get(runId);

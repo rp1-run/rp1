@@ -184,18 +184,22 @@ export function ProjectSwitcher() {
 				aria-expanded={isOpen}
 				aria-label="Switch project"
 			>
-				<FolderOpen className={cn(
-					"h-3.5 w-3.5 text-terminal-mauve",
-					"group-hover:text-inherit",
-					isOpen && "text-inherit"
-				)} />
+				<FolderOpen
+					className={cn(
+						"h-3.5 w-3.5 text-terminal-mauve",
+						"group-hover:text-inherit",
+						isOpen && "text-inherit",
+					)}
+				/>
 				<span className="max-w-[150px] truncate">
 					{currentProject?.name ?? currentProjectId ?? "Select project"}
 				</span>
 				<ChevronDown
 					className={cn(
 						"h-3.5 w-3.5 transition-transform",
-						isOpen ? "rotate-180 text-accent-foreground" : "text-muted-foreground",
+						isOpen
+							? "rotate-180 text-accent-foreground"
+							: "text-muted-foreground",
 					)}
 				/>
 			</button>
@@ -235,7 +239,8 @@ export function ProjectSwitcher() {
 								project.id === currentProjectId && "text-foreground",
 								!project.available &&
 									"text-muted-foreground italic opacity-60 cursor-not-allowed",
-								project.available && "hover:bg-accent hover:text-accent-foreground cursor-pointer",
+								project.available &&
+									"hover:bg-accent hover:text-accent-foreground cursor-pointer",
 							)}
 						>
 							{project.id === currentProjectId ? (

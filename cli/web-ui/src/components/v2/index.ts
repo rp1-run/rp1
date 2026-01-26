@@ -1,5 +1,8 @@
 export { ArtifactList, type ArtifactListProps } from "./ArtifactList";
-export { AttentionSection, type AttentionSectionProps } from "./AttentionSection";
+export {
+	AttentionSection,
+	type AttentionSectionProps,
+} from "./AttentionSection";
 export { EventStream, type EventStreamProps } from "./EventStream";
 export { FilterBar, type FilterBarProps } from "./FilterBar";
 export { RunCard, type RunCardProps } from "./RunCard";

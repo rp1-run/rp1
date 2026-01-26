@@ -1,310 +1,317 @@
+import {
+	AlertCircle,
+	ChevronLeft,
+	ChevronRight,
+	RefreshCw,
+	Search,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { AlertCircle, ChevronLeft, ChevronRight, RefreshCw, Search } from "lucide-react";
-import type { Run, RunsFilter, RunStatus } from "@/types/runs";
-import { useRuns } from "@/hooks/useRuns";
-import { useKeyboardNav } from "@/hooks/useKeyboardNav";
 import { FilterBar } from "@/components/v2/FilterBar";
 import { RunCard } from "@/components/v2/RunCard";
+import { useKeyboardNav } from "@/hooks/useKeyboardNav";
+import { useRuns } from "@/hooks/useRuns";
 import { cn } from "@/lib/utils";
+import type { Run, RunStatus, RunsFilter } from "@/types/runs";
 
 const PAGE_SIZE = 20;
 
 function parseFiltersFromParams(
-  params: URLSearchParams,
-  projectIdFromRoute: string | undefined
+	params: URLSearchParams,
+	projectIdFromRoute: string | undefined,
 ): RunsFilter {
-  const status = params.get("status") as RunStatus | "all" | null;
-  const projectId = projectIdFromRoute ?? params.get("projectId");
-  const dateRange = params.get("dateRange") as RunsFilter["dateRange"] | null;
+	const status = params.get("status") as RunStatus | "all" | null;
+	const projectId = projectIdFromRoute ?? params.get("projectId");
+	const dateRange = params.get("dateRange") as RunsFilter["dateRange"] | null;
 
-  return {
-    status: status ?? "all",
-    projectId: projectId ?? null,
-    dateRange: dateRange ?? "all",
-  };
+	return {
+		status: status ?? "all",
+		projectId: projectId ?? null,
+		dateRange: dateRange ?? "all",
+	};
 }
 
 function LoadingSkeleton() {
-  return (
-    <div className="space-y-3">
-      {Array.from({ length: 5 }, (_, i) => (
-        <div
-          key={i}
-          className="animate-pulse rounded-lg border border-border bg-muted/20 p-4"
-        >
-          <div className="flex items-center gap-3">
-            <div className="h-5 w-5 rounded-full bg-muted" />
-            <div className="h-5 w-40 rounded bg-muted" />
-            <div className="ml-auto h-5 w-16 rounded bg-muted" />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
+	return (
+		<div className="space-y-3">
+			{Array.from({ length: 5 }, (_, i) => (
+				<div
+					key={`skeleton-${i}`}
+					className="animate-pulse rounded-lg border border-border bg-muted/20 p-4"
+				>
+					<div className="flex items-center gap-3">
+						<div className="h-5 w-5 rounded-full bg-muted" />
+						<div className="h-5 w-40 rounded bg-muted" />
+						<div className="ml-auto h-5 w-16 rounded bg-muted" />
+					</div>
+				</div>
+			))}
+		</div>
+	);
 }
 
 function EmptyState({
-  hasFilters,
-  onClearFilters,
+	hasFilters,
+	onClearFilters,
 }: {
-  hasFilters: boolean;
-  onClearFilters: () => void;
+	hasFilters: boolean;
+	onClearFilters: () => void;
 }) {
-  return (
-    <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-muted/10 px-8 py-16">
-      <div className="mb-4 rounded-full bg-muted/50 p-4">
-        <Search className="h-8 w-8 text-muted-foreground" />
-      </div>
-      <h2 className="mb-2 text-lg font-medium text-foreground">No runs found</h2>
-      <p className="mb-4 text-center text-sm text-muted-foreground">
-        {hasFilters
-          ? "Try adjusting your filters to see more results."
-          : "No agent runs have been recorded yet. Start a new run to see it here."}
-      </p>
-      {hasFilters && (
-        <button
-          type="button"
-          onClick={onClearFilters}
-          className="inline-flex items-center gap-2 rounded-md bg-muted px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted/80"
-        >
-          Clear filters
-        </button>
-      )}
-    </div>
-  );
+	return (
+		<div className="flex flex-col items-center justify-center rounded-lg border border-border bg-muted/10 px-8 py-16">
+			<div className="mb-4 rounded-full bg-muted/50 p-4">
+				<Search className="h-8 w-8 text-muted-foreground" />
+			</div>
+			<h2 className="mb-2 text-lg font-medium text-foreground">
+				No runs found
+			</h2>
+			<p className="mb-4 text-center text-sm text-muted-foreground">
+				{hasFilters
+					? "Try adjusting your filters to see more results."
+					: "No agent runs have been recorded yet. Start a new run to see it here."}
+			</p>
+			{hasFilters && (
+				<button
+					type="button"
+					onClick={onClearFilters}
+					className="inline-flex items-center gap-2 rounded-md bg-muted px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted/80"
+				>
+					Clear filters
+				</button>
+			)}
+		</div>
+	);
 }
 
 function ErrorState({ error, onRetry }: { error: Error; onRetry: () => void }) {
-  return (
-    <div className="flex flex-col items-center justify-center rounded-lg border border-status-failed/30 bg-status-failed/10 px-8 py-16">
-      <div className="mb-4 rounded-full bg-status-failed/20 p-4">
-        <AlertCircle className="h-8 w-8 text-status-failed" />
-      </div>
-      <h2 className="mb-2 text-lg font-medium text-foreground">
-        Failed to load runs
-      </h2>
-      <p className="mb-4 text-center text-sm text-muted-foreground">
-        {error.message}
-      </p>
-      <button
-        type="button"
-        onClick={onRetry}
-        className="inline-flex items-center gap-2 rounded-md bg-muted px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted/80"
-      >
-        <RefreshCw className="h-4 w-4" />
-        Try again
-      </button>
-    </div>
-  );
+	return (
+		<div className="flex flex-col items-center justify-center rounded-lg border border-status-failed/30 bg-status-failed/10 px-8 py-16">
+			<div className="mb-4 rounded-full bg-status-failed/20 p-4">
+				<AlertCircle className="h-8 w-8 text-status-failed" />
+			</div>
+			<h2 className="mb-2 text-lg font-medium text-foreground">
+				Failed to load runs
+			</h2>
+			<p className="mb-4 text-center text-sm text-muted-foreground">
+				{error.message}
+			</p>
+			<button
+				type="button"
+				onClick={onRetry}
+				className="inline-flex items-center gap-2 rounded-md bg-muted px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted/80"
+			>
+				<RefreshCw className="h-4 w-4" />
+				Try again
+			</button>
+		</div>
+	);
 }
 
 function Pagination({
-  page,
-  totalPages,
-  onPageChange,
+	page,
+	totalPages,
+	onPageChange,
 }: {
-  page: number;
-  totalPages: number;
-  onPageChange: (page: number) => void;
+	page: number;
+	totalPages: number;
+	onPageChange: (page: number) => void;
 }) {
-  if (totalPages <= 1) return null;
+	if (totalPages <= 1) return null;
 
-  return (
-    <div className="flex items-center justify-center gap-2">
-      <button
-        type="button"
-        onClick={() => onPageChange(page - 1)}
-        disabled={page <= 1}
-        className={cn(
-          "inline-flex h-9 w-9 items-center justify-center rounded-md border border-border transition-colors",
-          "hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          "disabled:cursor-not-allowed disabled:opacity-50"
-        )}
-        aria-label="Previous page"
-      >
-        <ChevronLeft className="h-4 w-4" />
-      </button>
+	return (
+		<div className="flex items-center justify-center gap-2">
+			<button
+				type="button"
+				onClick={() => onPageChange(page - 1)}
+				disabled={page <= 1}
+				className={cn(
+					"inline-flex h-9 w-9 items-center justify-center rounded-md border border-border transition-colors",
+					"hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+					"disabled:cursor-not-allowed disabled:opacity-50",
+				)}
+				aria-label="Previous page"
+			>
+				<ChevronLeft className="h-4 w-4" />
+			</button>
 
-      <span className="min-w-[100px] text-center text-sm text-muted-foreground">
-        Page {page} of {totalPages}
-      </span>
+			<span className="min-w-[100px] text-center text-sm text-muted-foreground">
+				Page {page} of {totalPages}
+			</span>
 
-      <button
-        type="button"
-        onClick={() => onPageChange(page + 1)}
-        disabled={page >= totalPages}
-        className={cn(
-          "inline-flex h-9 w-9 items-center justify-center rounded-md border border-border transition-colors",
-          "hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          "disabled:cursor-not-allowed disabled:opacity-50"
-        )}
-        aria-label="Next page"
-      >
-        <ChevronRight className="h-4 w-4" />
-      </button>
-    </div>
-  );
+			<button
+				type="button"
+				onClick={() => onPageChange(page + 1)}
+				disabled={page >= totalPages}
+				className={cn(
+					"inline-flex h-9 w-9 items-center justify-center rounded-md border border-border transition-colors",
+					"hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+					"disabled:cursor-not-allowed disabled:opacity-50",
+				)}
+				aria-label="Next page"
+			>
+				<ChevronRight className="h-4 w-4" />
+			</button>
+		</div>
+	);
 }
 
 export function RunsListPage() {
-  const navigate = useNavigate();
-  const { projectId: projectIdFromRoute } = useParams();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [page, setPage] = useState(1);
+	const navigate = useNavigate();
+	const { projectId: projectIdFromRoute } = useParams();
+	const [searchParams, setSearchParams] = useSearchParams();
+	const [page, setPage] = useState(1);
 
-  const filters = useMemo(
-    () => parseFiltersFromParams(searchParams, projectIdFromRoute),
-    [searchParams, projectIdFromRoute]
-  );
+	const filters = useMemo(
+		() => parseFiltersFromParams(searchParams, projectIdFromRoute),
+		[searchParams, projectIdFromRoute],
+	);
 
-  const offset = (page - 1) * PAGE_SIZE;
+	const offset = (page - 1) * PAGE_SIZE;
 
-  const { runs, total, isLoading, error, refetch } = useRuns({
-    ...filters,
-    limit: PAGE_SIZE,
-    offset,
-  });
+	const { runs, total, isLoading, error, refetch } = useRuns({
+		...filters,
+		limit: PAGE_SIZE,
+		offset,
+	});
 
-  const totalPages = Math.ceil(total / PAGE_SIZE);
+	const totalPages = Math.ceil(total / PAGE_SIZE);
 
-  const handleFiltersChange = useCallback(
-    (newFilters: RunsFilter) => {
-      const params = new URLSearchParams();
+	const handleFiltersChange = useCallback(
+		(newFilters: RunsFilter) => {
+			const params = new URLSearchParams();
 
-      if (newFilters.status !== "all") {
-        params.set("status", newFilters.status);
-      }
+			if (newFilters.status !== "all") {
+				params.set("status", newFilters.status);
+			}
 
-      if (newFilters.projectId && !projectIdFromRoute) {
-        params.set("projectId", newFilters.projectId);
-      }
+			if (newFilters.projectId && !projectIdFromRoute) {
+				params.set("projectId", newFilters.projectId);
+			}
 
-      if (newFilters.dateRange !== "all") {
-        params.set("dateRange", newFilters.dateRange);
-      }
+			if (newFilters.dateRange !== "all") {
+				params.set("dateRange", newFilters.dateRange);
+			}
 
-      setSearchParams(params, { replace: true });
-      setPage(1);
-    },
-    [setSearchParams, projectIdFromRoute]
-  );
+			setSearchParams(params, { replace: true });
+			setPage(1);
+		},
+		[setSearchParams, projectIdFromRoute],
+	);
 
-  const handleClearFilters = useCallback(() => {
-    handleFiltersChange({
-      status: "all",
-      projectId: projectIdFromRoute ?? null,
-      dateRange: "all",
-    });
-  }, [handleFiltersChange, projectIdFromRoute]);
+	const handleClearFilters = useCallback(() => {
+		handleFiltersChange({
+			status: "all",
+			projectId: projectIdFromRoute ?? null,
+			dateRange: "all",
+		});
+	}, [handleFiltersChange, projectIdFromRoute]);
 
-  const handlePageChange = useCallback((newPage: number) => {
-    setPage(newPage);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, []);
+	const handlePageChange = useCallback((newPage: number) => {
+		setPage(newPage);
+		window.scrollTo({ top: 0, behavior: "smooth" });
+	}, []);
 
-  const handleSelectRun = useCallback(
-    (run: Run) => {
-      navigate(`/v2/runs/${run.id}`);
-    },
-    [navigate]
-  );
+	const handleSelectRun = useCallback(
+		(run: Run) => {
+			navigate(`/v2/runs/${run.id}`);
+		},
+		[navigate],
+	);
 
-  const { selectedIndex, getItemProps, containerProps } = useKeyboardNav({
-    items: runs,
-    onSelect: handleSelectRun,
-    enabled: runs.length > 0,
-  });
+	const { selectedIndex, getItemProps, containerProps } = useKeyboardNav({
+		items: runs,
+		onSelect: handleSelectRun,
+		enabled: runs.length > 0,
+	});
 
-  useEffect(() => {
-    setPage(1);
-  }, [filters.status, filters.projectId, filters.dateRange]);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: intentionally reset page when filters change
+	useEffect(() => {
+		setPage(1);
+	}, [filters.status, filters.projectId, filters.dateRange]);
 
-  const hasFilters =
-    filters.status !== "all" ||
-    (filters.projectId !== null && !projectIdFromRoute) ||
-    filters.dateRange !== "all";
+	const hasFilters =
+		filters.status !== "all" ||
+		(filters.projectId !== null && !projectIdFromRoute) ||
+		filters.dateRange !== "all";
 
-  return (
-    <div className="space-y-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Runs</h1>
-          {projectIdFromRoute && (
-            <p className="mt-1 text-sm text-muted-foreground">
-              Showing runs for project: {projectIdFromRoute}
-            </p>
-          )}
-        </div>
+	return (
+		<div className="space-y-6">
+			<header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+				<div>
+					<h1 className="text-2xl font-semibold text-foreground">Runs</h1>
+					{projectIdFromRoute && (
+						<p className="mt-1 text-sm text-muted-foreground">
+							Showing runs for project: {projectIdFromRoute}
+						</p>
+					)}
+				</div>
 
-        <button
-          type="button"
-          onClick={refetch}
-          disabled={isLoading}
-          className={cn(
-            "inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium transition-colors",
-            "hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-            "disabled:cursor-not-allowed disabled:opacity-50"
-          )}
-          aria-label="Refresh runs"
-        >
-          <RefreshCw
-            className={cn("h-4 w-4", isLoading && "animate-spin")}
-            aria-hidden="true"
-          />
-          <span className="sr-only sm:not-sr-only">Refresh</span>
-        </button>
-      </header>
+				<button
+					type="button"
+					onClick={refetch}
+					disabled={isLoading}
+					className={cn(
+						"inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium transition-colors",
+						"hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+						"disabled:cursor-not-allowed disabled:opacity-50",
+					)}
+					aria-label="Refresh runs"
+				>
+					<RefreshCw
+						className={cn("h-4 w-4", isLoading && "animate-spin")}
+						aria-hidden="true"
+					/>
+					<span className="sr-only sm:not-sr-only">Refresh</span>
+				</button>
+			</header>
 
-      <FilterBar
-        filters={filters}
-        onFiltersChange={handleFiltersChange}
-      />
+			<FilterBar filters={filters} onFiltersChange={handleFiltersChange} />
 
-      {isLoading && runs.length === 0 ? (
-        <LoadingSkeleton />
-      ) : error ? (
-        <ErrorState error={error} onRetry={refetch} />
-      ) : runs.length === 0 ? (
-        <EmptyState hasFilters={hasFilters} onClearFilters={handleClearFilters} />
-      ) : (
-        <>
-          <div
-            {...containerProps}
-            className="space-y-2 focus:outline-none"
-          >
-            {runs.map((run, index) => {
-              const itemProps = getItemProps(index);
-              return (
-                <div
-                  key={run.id}
-                  id={`listbox-item-${index}`}
-                  {...itemProps}
-                  className="focus:outline-none"
-                >
-                  <RunCard
-                    run={run}
-                    onClick={() => handleSelectRun(run)}
-                    selected={selectedIndex === index}
-                  />
-                </div>
-              );
-            })}
-          </div>
+			{isLoading && runs.length === 0 ? (
+				<LoadingSkeleton />
+			) : error ? (
+				<ErrorState error={error} onRetry={refetch} />
+			) : runs.length === 0 ? (
+				<EmptyState
+					hasFilters={hasFilters}
+					onClearFilters={handleClearFilters}
+				/>
+			) : (
+				<>
+					<div {...containerProps} className="space-y-2 focus:outline-none">
+						{runs.map((run, index) => {
+							const itemProps = getItemProps(index);
+							return (
+								<div
+									key={run.id}
+									id={`listbox-item-${index}`}
+									{...itemProps}
+									className="focus:outline-none"
+								>
+									<RunCard
+										run={run}
+										onClick={() => handleSelectRun(run)}
+										selected={selectedIndex === index}
+									/>
+								</div>
+							);
+						})}
+					</div>
 
-          <Pagination
-            page={page}
-            totalPages={totalPages}
-            onPageChange={handlePageChange}
-          />
+					<Pagination
+						page={page}
+						totalPages={totalPages}
+						onPageChange={handlePageChange}
+					/>
 
-          {total > 0 && (
-            <p className="text-center text-sm text-muted-foreground">
-              Showing {offset + 1}-{Math.min(offset + PAGE_SIZE, total)} of {total} runs
-            </p>
-          )}
-        </>
-      )}
-    </div>
-  );
+					{total > 0 && (
+						<p className="text-center text-sm text-muted-foreground">
+							Showing {offset + 1}-{Math.min(offset + PAGE_SIZE, total)} of{" "}
+							{total} runs
+						</p>
+					)}
+				</>
+			)}
+		</div>
+	);
 }
