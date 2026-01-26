@@ -8,38 +8,23 @@ import {
 	useState,
 } from "react";
 
-interface FileChangedMessage {
-	type: "file:changed";
-	path: string;
-	changeType: "modify" | "add" | "delete";
-	timestamp: string;
-}
+import type {
+	AttentionCallback,
+	ConnectionStatus,
+	FileChangedMessage,
+	RunMessage,
+	RunSubscriptionCallback,
+	ServerMessage,
+	StatusChangedMessage,
+	TreeChangedMessage,
+} from "../types/websocket";
 
-interface TreeChangedMessage {
-	type: "tree:changed";
-	timestamp: string;
-}
-
-interface HeartbeatMessage {
-	type: "heartbeat";
-	timestamp: string;
-}
-
-interface StatusChangedMessage {
-	type: "status_changed";
-	projectId: string;
-	feature: string;
-	status: string;
-	timestamp: string;
-}
-
-type ServerMessage =
-	| FileChangedMessage
-	| TreeChangedMessage
-	| HeartbeatMessage
-	| StatusChangedMessage;
-
-type ConnectionStatus = "connecting" | "connected" | "disconnected";
+export type {
+	FileChangedMessage,
+	TreeChangedMessage,
+	StatusChangedMessage,
+	ConnectionStatus,
+} from "../types/websocket";
 
 interface WebSocketContextValue {
 	status: ConnectionStatus;
@@ -50,6 +35,8 @@ interface WebSocketContextValue {
 	onFileChange: (callback: (msg: FileChangedMessage) => void) => () => void;
 	onTreeChange: (callback: (msg: TreeChangedMessage) => void) => () => void;
 	onStatusChange: (callback: (msg: StatusChangedMessage) => void) => () => void;
+	subscribeToRun: (runId: string, callback: RunSubscriptionCallback) => () => void;
+	subscribeToAttention: (callback: AttentionCallback) => () => void;
 }
 
 const WebSocketContext = createContext<WebSocketContextValue | null>(null);
@@ -57,6 +44,7 @@ const WebSocketContext = createContext<WebSocketContextValue | null>(null);
 const INITIAL_RECONNECT_DELAY = 2000;
 const MAX_RECONNECT_DELAY = 30000;
 const RECONNECT_BACKOFF_FACTOR = 2;
+const POLLING_INTERVAL = 5000;
 
 interface WebSocketProviderProps {
 	children: ReactNode;
@@ -74,6 +62,9 @@ export function WebSocketProvider({
 	const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
 		null,
 	);
+	const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
+		null,
+	);
 	const mountedRef = useRef(true);
 	const projectIdRef = useRef<string | null>(null);
 	const fileChangeListenersRef = useRef<Set<(msg: FileChangedMessage) => void>>(
@@ -86,6 +77,28 @@ export function WebSocketProvider({
 		Set<(msg: StatusChangedMessage) => void>
 	>(new Set());
 	const subscriptionsRef = useRef<Set<string>>(new Set());
+
+	const runSubscriptionsRef = useRef<Map<string, Set<RunSubscriptionCallback>>>(
+		new Map(),
+	);
+	const attentionListenersRef = useRef<Set<AttentionCallback>>(new Set());
+
+	const startPollingFallback = useCallback(() => {
+		if (pollingIntervalRef.current) return;
+
+		pollingIntervalRef.current = setInterval(() => {
+			for (const callback of attentionListenersRef.current) {
+				callback();
+			}
+		}, POLLING_INTERVAL);
+	}, []);
+
+	const stopPollingFallback = useCallback(() => {
+		if (pollingIntervalRef.current) {
+			clearInterval(pollingIntervalRef.current);
+			pollingIntervalRef.current = null;
+		}
+	}, []);
 
 	useEffect(() => {
 		mountedRef.current = true;
@@ -111,9 +124,14 @@ export function WebSocketProvider({
 				}
 				setStatus("connected");
 				reconnectDelayRef.current = INITIAL_RECONNECT_DELAY;
+				stopPollingFallback();
 
 				for (const path of subscriptionsRef.current) {
 					ws.send(JSON.stringify({ type: "subscribe", path }));
+				}
+
+				for (const runId of runSubscriptionsRef.current.keys()) {
+					ws.send(JSON.stringify({ type: "subscribe:run", runId }));
 				}
 			};
 
@@ -121,6 +139,7 @@ export function WebSocketProvider({
 				if (!mountedRef.current) return;
 				setStatus("disconnected");
 				wsRef.current = null;
+				startPollingFallback();
 				scheduleReconnect();
 			};
 
@@ -131,32 +150,56 @@ export function WebSocketProvider({
 			ws.onmessage = (event) => {
 				try {
 					const message = JSON.parse(event.data) as ServerMessage;
-
-					switch (message.type) {
-						case "file:changed":
-							for (const listener of fileChangeListenersRef.current) {
-								listener(message);
-							}
-							break;
-						case "tree:changed":
-							for (const listener of treeChangeListenersRef.current) {
-								listener(message);
-							}
-							break;
-						case "status_changed":
-							for (const listener of statusChangeListenersRef.current) {
-								listener(message);
-							}
-							break;
-						case "heartbeat":
-							break;
-					}
+					routeMessage(message);
 				} catch {
 					console.warn("Failed to parse WebSocket message");
 				}
 			};
 
 			wsRef.current = ws;
+		}
+
+		function routeMessage(message: ServerMessage) {
+			if (message.type.startsWith("run:")) {
+				routeRunMessage(message as RunMessage);
+				return;
+			}
+
+			switch (message.type) {
+				case "file:changed":
+					for (const listener of fileChangeListenersRef.current) {
+						listener(message);
+					}
+					break;
+				case "tree:changed":
+					for (const listener of treeChangeListenersRef.current) {
+						listener(message);
+					}
+					break;
+				case "status_changed":
+					for (const listener of statusChangeListenersRef.current) {
+						listener(message);
+					}
+					break;
+				case "heartbeat":
+					break;
+			}
+		}
+
+		function routeRunMessage(message: RunMessage) {
+			const runId = message.runId;
+			const listeners = runSubscriptionsRef.current.get(runId);
+			if (listeners) {
+				for (const callback of listeners) {
+					callback(message);
+				}
+			}
+
+			if (message.type === "run:status") {
+				for (const callback of attentionListenersRef.current) {
+					callback();
+				}
+			}
 		}
 
 		function scheduleReconnect() {
@@ -178,6 +221,7 @@ export function WebSocketProvider({
 
 		return () => {
 			mountedRef.current = false;
+			stopPollingFallback();
 			if (reconnectTimeoutRef.current) {
 				clearTimeout(reconnectTimeoutRef.current);
 				reconnectTimeoutRef.current = null;
@@ -187,7 +231,7 @@ export function WebSocketProvider({
 				wsRef.current = null;
 			}
 		};
-	}, [port, projectId]);
+	}, [port, projectId, startPollingFallback, stopPollingFallback]);
 
 	const subscribe = useCallback((path: string) => {
 		subscriptionsRef.current.add(path);
@@ -233,6 +277,41 @@ export function WebSocketProvider({
 		[],
 	);
 
+	const subscribeToRun = useCallback(
+		(runId: string, callback: RunSubscriptionCallback) => {
+			if (!runSubscriptionsRef.current.has(runId)) {
+				runSubscriptionsRef.current.set(runId, new Set());
+				if (wsRef.current?.readyState === WebSocket.OPEN) {
+					wsRef.current.send(JSON.stringify({ type: "subscribe:run", runId }));
+				}
+			}
+			runSubscriptionsRef.current.get(runId)!.add(callback);
+
+			return () => {
+				const listeners = runSubscriptionsRef.current.get(runId);
+				if (listeners) {
+					listeners.delete(callback);
+					if (listeners.size === 0) {
+						runSubscriptionsRef.current.delete(runId);
+						if (wsRef.current?.readyState === WebSocket.OPEN) {
+							wsRef.current.send(
+								JSON.stringify({ type: "unsubscribe:run", runId }),
+							);
+						}
+					}
+				}
+			};
+		},
+		[],
+	);
+
+	const subscribeToAttention = useCallback((callback: AttentionCallback) => {
+		attentionListenersRef.current.add(callback);
+		return () => {
+			attentionListenersRef.current.delete(callback);
+		};
+	}, []);
+
 	const setProjectId = useCallback((newProjectId: string | null) => {
 		setProjectIdState(newProjectId);
 	}, []);
@@ -248,6 +327,8 @@ export function WebSocketProvider({
 				onFileChange,
 				onTreeChange,
 				onStatusChange,
+				subscribeToRun,
+				subscribeToAttention,
 			}}
 		>
 			{children}
