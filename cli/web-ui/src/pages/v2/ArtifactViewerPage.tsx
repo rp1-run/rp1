@@ -15,6 +15,7 @@ import {
 } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { MarkdownViewer } from "@/components/MarkdownViewer";
+import { CodeBlock } from "@/components/MarkdownViewer/CodeBlock";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
 import {
@@ -41,6 +42,50 @@ import { cn } from "@/lib/utils";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 
 const STORAGE_KEY_TOC_COLLAPSED = "rp1-toc-collapsed";
+
+/**
+ * Map file extensions to syntax highlighting languages.
+ * Returns null for markdown files (which use MarkdownViewer).
+ */
+function getCodeLanguageFromPath(path: string): string | null {
+	const ext = path.split(".").pop()?.toLowerCase();
+	if (!ext) return null;
+
+	const extToLang: Record<string, string> = {
+		ts: "typescript",
+		tsx: "tsx",
+		js: "javascript",
+		jsx: "jsx",
+		py: "python",
+		go: "go",
+		rs: "rust",
+		java: "java",
+		c: "c",
+		cpp: "cpp",
+		cc: "cpp",
+		cxx: "cpp",
+		h: "c",
+		hpp: "cpp",
+		rb: "ruby",
+		sh: "bash",
+		bash: "bash",
+		zsh: "bash",
+		json: "json",
+		yaml: "yaml",
+		yml: "yaml",
+		sql: "sql",
+		html: "html",
+		css: "css",
+		xml: "xml",
+		toml: "toml",
+		txt: "text",
+	};
+
+	// Markdown files should use MarkdownViewer
+	if (ext === "md" || ext === "mdx") return null;
+
+	return extToLang[ext] ?? null;
+}
 
 interface ArtifactContent {
 	path: string;
@@ -356,11 +401,24 @@ export function ArtifactViewerPage() {
 					<p className="text-lg">Select an artifact from the sidebar</p>
 				</div>
 			) : artifactContent ? (
-				<MarkdownViewer
-					content={artifactContent.content}
-					path={artifactContent.path}
-					onHeadingsExtracted={handleHeadingsExtracted}
-				/>
+				(() => {
+					const codeLanguage = getCodeLanguageFromPath(artifactContent.path);
+					if (codeLanguage) {
+						return (
+							<CodeBlock
+								code={artifactContent.content}
+								language={codeLanguage}
+							/>
+						);
+					}
+					return (
+						<MarkdownViewer
+							content={artifactContent.content}
+							path={artifactContent.path}
+							onHeadingsExtracted={handleHeadingsExtracted}
+						/>
+					);
+				})()
 			) : null}
 		</>
 	);
