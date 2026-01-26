@@ -133,6 +133,7 @@ export function AttentionSection({
                     <RunCard
                       run={run}
                       onClick={() => handleRunClick(run.id)}
+                      showStatus={false}
                     />
                   </li>
                 ))}

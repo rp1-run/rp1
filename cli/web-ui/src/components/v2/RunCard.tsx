@@ -1,5 +1,6 @@
 import type { Run } from "@/types/runs";
 import { cn } from "@/lib/utils";
+import { StatusBadge } from "./StatusBadge";
 
 function formatRelativeTime(dateString: string): string {
   const date = new Date(dateString);
@@ -32,10 +33,11 @@ export interface RunCardProps {
   run: Run;
   onClick?: () => void;
   selected?: boolean;
+  showStatus?: boolean;
   className?: string;
 }
 
-export function RunCard({ run, onClick, selected, className }: RunCardProps) {
+export function RunCard({ run, onClick, selected, showStatus = true, className }: RunCardProps) {
   const handleKeyDown = (event: React.KeyboardEvent) => {
     if (onClick && (event.key === "Enter" || event.key === " ")) {
       event.preventDefault();
@@ -56,6 +58,8 @@ export function RunCard({ run, onClick, selected, className }: RunCardProps) {
         className
       )}
     >
+      {showStatus && <StatusBadge status={run.status} size="sm" showLabel={false} />}
+
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="truncate font-medium text-foreground">
