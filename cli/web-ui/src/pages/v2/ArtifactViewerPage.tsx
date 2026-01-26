@@ -1,5 +1,5 @@
 import { AlertCircle, ArrowLeft, ChevronRight, Loader2 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { MarkdownViewer } from "@/components/MarkdownViewer";
 import { ArtifactSidebar } from "@/components/v2/ArtifactSidebar";
@@ -16,6 +16,7 @@ import { useFollowMode } from "@/hooks/useFollowMode";
 import type { HeadingEntry } from "@/hooks/useHeadingExtraction";
 import { useRunDetail } from "@/hooks/useRunDetail";
 import { cn } from "@/lib/utils";
+import { useWebSocket } from "@/providers/WebSocketProvider";
 
 const STORAGE_KEY_TOC_COLLAPSED = "rp1-toc-collapsed";
 
@@ -28,6 +29,7 @@ export function ArtifactViewerPage() {
 	const { runId, "*": artifactPathParam } = useParams();
 	const navigate = useNavigate();
 	const { run, isLoading, error, refetch } = useRunDetail(runId);
+	const { onFileChange } = useWebSocket();
 
 	const [artifactContent, setArtifactContent] =
 		useState<ArtifactContent | null>(null);
@@ -43,6 +45,10 @@ export function ArtifactViewerPage() {
 
 	const scrollViewportRef = useRef<HTMLDivElement>(null);
 	const headingElementsRef = useRef<Map<string, Element>>(new Map());
+	const savedScrollState = useRef<{
+		scrollTop: number;
+		scrollHeight: number;
+	} | null>(null);
 
 	const {
 		followMode,
@@ -82,8 +88,8 @@ export function ArtifactViewerPage() {
 		setHeadings(newHeadings);
 	}, []);
 
-	useEffect(() => {
-		async function fetchArtifactContent() {
+	const fetchArtifactContentWithScrollPreservation = useCallback(
+		async (preserveScroll: boolean) => {
 			if (!run || !selectedArtifactPath) {
 				setArtifactContent(null);
 				return;
@@ -98,7 +104,16 @@ export function ArtifactViewerPage() {
 				return;
 			}
 
-			setContentLoading(true);
+			if (preserveScroll && scrollViewportRef.current) {
+				savedScrollState.current = {
+					scrollTop: scrollViewportRef.current.scrollTop,
+					scrollHeight: scrollViewportRef.current.scrollHeight,
+				};
+			}
+
+			if (!preserveScroll) {
+				setContentLoading(true);
+			}
 			setContentError(null);
 
 			try {
@@ -120,12 +135,46 @@ export function ArtifactViewerPage() {
 				setContentError(err instanceof Error ? err.message : String(err));
 				setArtifactContent(null);
 			} finally {
-				setContentLoading(false);
+				if (!preserveScroll) {
+					setContentLoading(false);
+				}
 			}
-		}
+		},
+		[run, runId, selectedArtifactPath],
+	);
 
-		fetchArtifactContent();
-	}, [run, runId, selectedArtifactPath]);
+	useEffect(() => {
+		fetchArtifactContentWithScrollPreservation(false);
+	}, [fetchArtifactContentWithScrollPreservation]);
+
+	useLayoutEffect(() => {
+		if (savedScrollState.current && scrollViewportRef.current) {
+			const element = scrollViewportRef.current;
+			const state = savedScrollState.current;
+			const newScrollHeight = element.scrollHeight;
+			const heightDelta = newScrollHeight - state.scrollHeight;
+
+			if (state.scrollTop > 0 && heightDelta > 0) {
+				element.scrollTop = state.scrollTop + heightDelta;
+			} else {
+				element.scrollTop = state.scrollTop;
+			}
+
+			savedScrollState.current = null;
+		}
+	}, [artifactContent]);
+
+	useEffect(() => {
+		if (!selectedArtifactPath || !run) return;
+
+		const unsubscribe = onFileChange((msg) => {
+			if (msg.path === selectedArtifactPath && msg.changeType === "modify") {
+				fetchArtifactContentWithScrollPreservation(true);
+			}
+		});
+
+		return unsubscribe;
+	}, [selectedArtifactPath, run, onFileChange, fetchArtifactContentWithScrollPreservation]);
 
 	useEffect(() => {
 		if (!scrollViewportRef.current || headings.length === 0) return;
