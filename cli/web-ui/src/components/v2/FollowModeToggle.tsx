@@ -32,10 +32,7 @@ export function FollowModeToggle({ enabled, onToggle }: FollowModeToggleProps) {
 						aria-pressed={enabled}
 					>
 						<ArrowDownToLine
-							className={cn(
-								"h-4 w-4",
-								enabled ? "fill-current" : "fill-none",
-							)}
+							className={cn("h-4 w-4", enabled ? "fill-current" : "fill-none")}
 							aria-hidden="true"
 						/>
 					</Button>

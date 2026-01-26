@@ -1,14 +1,19 @@
 import { useEffect, useMemo } from "react";
-import ReactMarkdown, { type Options as ReactMarkdownOptions } from "react-markdown";
+import ReactMarkdown, {
+	type Options as ReactMarkdownOptions,
+} from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import rehypeSlug from "rehype-slug";
 import remarkFrontmatter from "remark-frontmatter";
 import remarkGfm from "remark-gfm";
+import {
+	extractHeadings,
+	type HeadingEntry,
+} from "@/hooks/useHeadingExtraction";
 import { cn } from "@/lib/utils";
 import { CodeBlock } from "./CodeBlock";
 import { MarkdownLink } from "./MarkdownLink";
 import { MermaidDiagram } from "./MermaidDiagram";
-import { extractHeadings, type HeadingEntry } from "@/hooks/useHeadingExtraction";
 
 export interface MarkdownViewerProps {
 	content: string;

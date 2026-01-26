@@ -4,23 +4,13 @@ GlobalRegistrator.register();
 
 // Mock MutationObserver since happy-dom's implementation doesn't work with React's virtual DOM
 class MockMutationObserver {
-	private callback: MutationCallback;
-
-	constructor(callback: MutationCallback) {
-		this.callback = callback;
-	}
-
-	observe(_target: Node, _options?: MutationObserverInit): void {
-		// No-op in tests
-	}
-
-	disconnect(): void {
-		// No-op in tests
-	}
-
+	constructor(_callback: MutationCallback) {}
+	observe(_target: Node, _options?: MutationObserverInit): void {}
+	disconnect(): void {}
 	takeRecords(): MutationRecord[] {
 		return [];
 	}
 }
 
-globalThis.MutationObserver = MockMutationObserver as unknown as typeof MutationObserver;
+globalThis.MutationObserver =
+	MockMutationObserver as unknown as typeof MutationObserver;

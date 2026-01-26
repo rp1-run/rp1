@@ -1,6 +1,6 @@
+import { X } from "lucide-react";
 import { useCallback, useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
-import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -47,9 +47,10 @@ export function Drawer({
 
 			// Focus the first focusable element in the drawer
 			if (drawerRef.current) {
-				const focusableElements = drawerRef.current.querySelectorAll<HTMLElement>(
-					'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-				);
+				const focusableElements =
+					drawerRef.current.querySelectorAll<HTMLElement>(
+						'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+					);
 				const firstElement = focusableElements[0];
 				firstElement?.focus();
 			}
@@ -63,32 +64,29 @@ export function Drawer({
 	}, [open]);
 
 	// Focus trap: keep focus within the drawer
-	const handleKeyDown = useCallback(
-		(event: React.KeyboardEvent) => {
-			if (event.key !== "Tab" || !drawerRef.current) return;
+	const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
+		if (event.key !== "Tab" || !drawerRef.current) return;
 
-			const focusableElements = drawerRef.current.querySelectorAll<HTMLElement>(
-				'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-			);
-			const firstElement = focusableElements[0];
-			const lastElement = focusableElements[focusableElements.length - 1];
+		const focusableElements = drawerRef.current.querySelectorAll<HTMLElement>(
+			'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+		);
+		const firstElement = focusableElements[0];
+		const lastElement = focusableElements[focusableElements.length - 1];
 
-			if (event.shiftKey) {
-				// Shift + Tab: go to last element if at first
-				if (document.activeElement === firstElement) {
-					event.preventDefault();
-					lastElement?.focus();
-				}
-			} else {
-				// Tab: go to first element if at last
-				if (document.activeElement === lastElement) {
-					event.preventDefault();
-					firstElement?.focus();
-				}
+		if (event.shiftKey) {
+			// Shift + Tab: go to last element if at first
+			if (document.activeElement === firstElement) {
+				event.preventDefault();
+				lastElement?.focus();
 			}
-		},
-		[],
-	);
+		} else {
+			// Tab: go to first element if at last
+			if (document.activeElement === lastElement) {
+				event.preventDefault();
+				firstElement?.focus();
+			}
+		}
+	}, []);
 
 	if (typeof document === "undefined") return null;
 
