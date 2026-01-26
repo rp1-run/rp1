@@ -9,10 +9,11 @@ import {
 	PanelRightOpen,
 	X,
 } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAnnotations } from "@/hooks/useAnnotations";
 import { cn } from "@/lib/utils";
+import { useAnnotationContext } from "@/providers/AnnotationProvider";
 import type { Annotation, AnnotationFilter } from "@/types/annotations";
 
 export interface AnnotationSidebarProps {
@@ -25,6 +26,7 @@ export interface AnnotationSidebarProps {
 
 type StatusFilterValue = AnnotationFilter["status"];
 type DateRangeValue = AnnotationFilter["dateRange"];
+type AuthorFilterValue = string | null;
 
 const STATUS_OPTIONS: { value: StatusFilterValue; label: string }[] = [
 	{ value: "all", label: "All" },
@@ -38,6 +40,8 @@ const DATE_OPTIONS: { value: DateRangeValue; label: string }[] = [
 	{ value: "week", label: "This Week" },
 	{ value: "month", label: "This Month" },
 ];
+
+const ALL_AUTHORS_VALUE = "__all__";
 
 interface FilterDropdownProps<T extends string> {
 	value: T;
@@ -300,6 +304,23 @@ export function AnnotationSidebar({
 		setFilter,
 	} = useAnnotations({ artifactPath });
 
+	const { annotations: allAnnotations } = useAnnotationContext();
+
+	const authorOptions = useMemo(() => {
+		const artifactAnnotations = artifactPath
+			? allAnnotations.filter((a) => a.artifactPath === artifactPath)
+			: allAnnotations;
+
+		const uniqueAuthors = [
+			...new Set(artifactAnnotations.map((a) => a.author)),
+		].sort();
+
+		return [
+			{ value: ALL_AUTHORS_VALUE, label: "All Authors" },
+			...uniqueAuthors.map((author) => ({ value: author, label: author })),
+		];
+	}, [allAnnotations, artifactPath]);
+
 	const handleStatusChange = useCallback(
 		(status: StatusFilterValue) => {
 			setFilter({ ...filter, status });
@@ -310,6 +331,15 @@ export function AnnotationSidebar({
 	const handleDateRangeChange = useCallback(
 		(dateRange: DateRangeValue) => {
 			setFilter({ ...filter, dateRange });
+		},
+		[filter, setFilter],
+	);
+
+	const handleAuthorChange = useCallback(
+		(value: string) => {
+			const author: AuthorFilterValue =
+				value === ALL_AUTHORS_VALUE ? null : value;
+			setFilter({ ...filter, author });
 		},
 		[filter, setFilter],
 	);
@@ -402,6 +432,12 @@ export function AnnotationSidebar({
 						options={STATUS_OPTIONS}
 						onChange={handleStatusChange}
 						label="Filter by status"
+					/>
+					<FilterDropdown
+						value={filter.author ?? ALL_AUTHORS_VALUE}
+						options={authorOptions}
+						onChange={handleAuthorChange}
+						label="Filter by author"
 					/>
 					<FilterDropdown
 						value={filter.dateRange}
