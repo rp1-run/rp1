@@ -50,9 +50,9 @@ export function RunCard({ run, onClick, selected, className }: RunCardProps) {
       onClick={onClick}
       onKeyDown={onClick ? handleKeyDown : undefined}
       className={cn(
-        "group flex items-center gap-4 rounded-lg border border-border p-3 transition-colors",
+        "group flex items-center gap-4 rounded-md px-3 py-2 transition-colors",
         onClick && "cursor-pointer hover:bg-muted/50",
-        selected && "bg-muted/50 ring-1 ring-ring",
+        selected && "bg-muted/50",
         className
       )}
     >
