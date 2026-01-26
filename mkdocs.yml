@@ -90,6 +90,7 @@ nav:
     - Parallel Development: guides/parallel-development.md
     - CI/CD Integration: guides/ci-cd-integration.md
     - Scaling with Teams: guides/scaling-with-teams.md
+    - V2 Dashboard: web-ui/v2-dashboard.md
   - Comparison:
     - Why rp1?: comparison/vs-raw-prompting.md
   - Reference:
