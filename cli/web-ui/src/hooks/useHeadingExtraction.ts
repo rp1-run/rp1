@@ -1,5 +1,5 @@
-import { useMemo } from "react";
 import GithubSlugger from "github-slugger";
+import { useMemo } from "react";
 
 export interface HeadingEntry {
 	readonly id: string;
@@ -14,9 +14,7 @@ const HEADING_REGEX = /^(#{1,6})\s+(.+)$/gm;
  * IDs are generated using github-slugger to match rehype-slug output.
  * Duplicate headings get suffixed IDs (heading, heading-1, heading-2).
  */
-export function useHeadingExtraction(
-	content: string,
-): readonly HeadingEntry[] {
+export function useHeadingExtraction(content: string): readonly HeadingEntry[] {
 	return useMemo(() => extractHeadings(content), [content]);
 }
 

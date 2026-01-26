@@ -8,8 +8,8 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
 import type { HeadingEntry } from "@/hooks/useHeadingExtraction";
+import { cn } from "@/lib/utils";
 
 export interface TableOfContentsProps {
 	headings: readonly HeadingEntry[];
@@ -164,9 +164,10 @@ export function TableOfContents({
 				</div>
 			) : (
 				<ScrollArea className="flex-1">
-					<ul
+					<div
 						className="space-y-0.5 p-2"
 						role="listbox"
+						tabIndex={0}
 						aria-label="Document headings"
 						aria-activedescendant={
 							focusedIndex !== null ? `toc-item-${focusedIndex}` : undefined
@@ -177,14 +178,18 @@ export function TableOfContents({
 							const isFocused = focusedIndex === index;
 
 							return (
-								<li key={heading.id} role="presentation">
+								<div key={heading.id}>
 									<button
 										ref={setItemRef(index)}
 										id={`toc-item-${index}`}
 										type="button"
 										role="option"
 										aria-selected={isActive}
-										tabIndex={isFocused || (focusedIndex === null && index === 0) ? 0 : -1}
+										tabIndex={
+											isFocused || (focusedIndex === null && index === 0)
+												? 0
+												: -1
+										}
 										onClick={() => onNavigate(heading.id)}
 										onKeyDown={(e) => handleKeyDown(e, index)}
 										onFocus={() => setFocusedIndex(index)}
@@ -202,10 +207,10 @@ export function TableOfContents({
 									>
 										<span className="line-clamp-2">{heading.text}</span>
 									</button>
-								</li>
+								</div>
 							);
 						})}
-					</ul>
+					</div>
 				</ScrollArea>
 			)}
 		</nav>

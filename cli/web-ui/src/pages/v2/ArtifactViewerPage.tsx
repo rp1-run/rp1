@@ -6,13 +6,15 @@ import {
 	Loader2,
 	PanelLeft,
 } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useRef,
+	useState,
+} from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { MarkdownViewer } from "@/components/MarkdownViewer";
-import { ArtifactSidebar } from "@/components/v2/ArtifactSidebar";
-import { FollowModeToggle } from "@/components/v2/FollowModeToggle";
-import { NewUpdatesChip } from "@/components/v2/NewUpdatesChip";
-import { TableOfContents } from "@/components/v2/TableOfContents";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
 import {
@@ -27,6 +29,10 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { ArtifactSidebar } from "@/components/v2/ArtifactSidebar";
+import { FollowModeToggle } from "@/components/v2/FollowModeToggle";
+import { NewUpdatesChip } from "@/components/v2/NewUpdatesChip";
+import { TableOfContents } from "@/components/v2/TableOfContents";
 import { useFollowMode } from "@/hooks/useFollowMode";
 import type { HeadingEntry } from "@/hooks/useHeadingExtraction";
 import { useIsMobile } from "@/hooks/useMediaQuery";
@@ -183,6 +189,7 @@ export function ArtifactViewerPage() {
 		fetchArtifactContentWithScrollPreservation(false);
 	}, [fetchArtifactContentWithScrollPreservation]);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: intentionally depends on artifactContent to restore scroll after content changes
 	useLayoutEffect(() => {
 		if (savedScrollState.current && scrollViewportRef.current) {
 			const element = scrollViewportRef.current;
@@ -210,7 +217,12 @@ export function ArtifactViewerPage() {
 		});
 
 		return unsubscribe;
-	}, [selectedArtifactPath, run, onFileChange, fetchArtifactContentWithScrollPreservation]);
+	}, [
+		selectedArtifactPath,
+		run,
+		onFileChange,
+		fetchArtifactContentWithScrollPreservation,
+	]);
 
 	useEffect(() => {
 		if (!scrollViewportRef.current || headings.length === 0) return;
@@ -337,15 +349,11 @@ export function ArtifactViewerPage() {
 					<p className="text-lg text-destructive mb-2">
 						Failed to load artifact
 					</p>
-					<p className="text-sm text-muted-foreground">
-						{contentError}
-					</p>
+					<p className="text-sm text-muted-foreground">{contentError}</p>
 				</div>
 			) : !selectedArtifactPath ? (
 				<div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
-					<p className="text-lg">
-						Select an artifact from the sidebar
-					</p>
+					<p className="text-lg">Select an artifact from the sidebar</p>
 				</div>
 			) : artifactContent ? (
 				<MarkdownViewer
@@ -359,11 +367,7 @@ export function ArtifactViewerPage() {
 
 	// Live region for screen reader announcements
 	const liveRegion = (
-		<div
-			aria-live="polite"
-			aria-atomic="true"
-			className="sr-only"
-		>
+		<div aria-live="polite" aria-atomic="true" className="sr-only">
 			{liveAnnouncement}
 		</div>
 	);
@@ -460,14 +464,15 @@ export function ArtifactViewerPage() {
 						</div>
 					</div>
 
-					<ScrollArea
-						className="flex-1"
-						viewportRef={scrollViewportRef}
-					>
+					<ScrollArea className="flex-1" viewportRef={scrollViewportRef}>
 						<article
 							className="p-4"
 							onScroll={handleScroll as unknown as React.UIEventHandler}
-							aria-label={selectedArtifactPath ? `Content of ${selectedArtifactPath.split("/").pop()}` : "Artifact content"}
+							aria-label={
+								selectedArtifactPath
+									? `Content of ${selectedArtifactPath.split("/").pop()}`
+									: "Artifact content"
+							}
 						>
 							{contentArea}
 						</article>
@@ -506,7 +511,8 @@ export function ArtifactViewerPage() {
 				</Drawer>
 
 				<footer className="border-t px-4 py-2 text-xs text-muted-foreground">
-					Press <kbd className="rounded bg-muted px-1.5 py-0.5 font-mono">Esc</kbd> to
+					Press{" "}
+					<kbd className="rounded bg-muted px-1.5 py-0.5 font-mono">Esc</kbd> to
 					return to run details
 				</footer>
 			</div>
@@ -599,14 +605,15 @@ export function ArtifactViewerPage() {
 							/>
 						</div>
 
-						<ScrollArea
-							className="flex-1"
-							viewportRef={scrollViewportRef}
-						>
+						<ScrollArea className="flex-1" viewportRef={scrollViewportRef}>
 							<article
 								className="p-6"
 								onScroll={handleScroll as unknown as React.UIEventHandler}
-								aria-label={selectedArtifactPath ? `Content of ${selectedArtifactPath.split("/").pop()}` : "Artifact content"}
+								aria-label={
+									selectedArtifactPath
+										? `Content of ${selectedArtifactPath.split("/").pop()}`
+										: "Artifact content"
+								}
 							>
 								{contentArea}
 							</article>
@@ -639,7 +646,8 @@ export function ArtifactViewerPage() {
 			</ResizablePanelGroup>
 
 			<footer className="border-t px-4 py-2 text-xs text-muted-foreground">
-				Press <kbd className="rounded bg-muted px-1.5 py-0.5 font-mono">Esc</kbd> to
+				Press{" "}
+				<kbd className="rounded bg-muted px-1.5 py-0.5 font-mono">Esc</kbd> to
 				return to run details
 			</footer>
 		</div>

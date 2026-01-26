@@ -6,8 +6,8 @@ import {
 	FileSpreadsheet,
 	FileText,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { useKeyboardNav } from "@/hooks/useKeyboardNav";
+import { cn } from "@/lib/utils";
 import type { Artifact, ArtifactType } from "@/types/runs";
 
 interface ArtifactConfig {
@@ -91,8 +91,10 @@ export function ArtifactSidebar({
 			className={cn("flex flex-col", className)}
 			aria-label="Artifact navigation"
 		>
-			<ul
+			<div
 				{...containerProps}
+				role="listbox"
+				tabIndex={0}
 				className="space-y-1 p-2"
 				aria-label="Artifacts"
 				aria-activedescendant={
@@ -114,70 +116,74 @@ export function ArtifactSidebar({
 					const itemProps = getItemProps(index);
 
 					return (
-						<li key={artifact.path} role="presentation">
-							<div
-								{...itemProps}
-								id={`artifact-item-${index}`}
-								role="option"
-								aria-selected={isSelected}
-								onClick={() => onSelect(artifact.path)}
+						<div
+							key={artifact.path}
+							{...itemProps}
+							id={`artifact-item-${index}`}
+							role="option"
+							tabIndex={-1}
+							aria-selected={isSelected}
+							onClick={() => onSelect(artifact.path)}
+							onKeyDown={(e) => {
+								if (e.key === "Enter" || e.key === " ") {
+									e.preventDefault();
+									onSelect(artifact.path);
+								}
+							}}
+							className={cn(
+								"group flex items-center gap-3 rounded-lg p-2 text-sm cursor-pointer transition-colors outline-none",
+								"hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+								isSelected && "bg-accent text-accent-foreground",
+							)}
+						>
+							<Icon
 								className={cn(
-									"group flex items-center gap-3 rounded-lg p-2 text-sm cursor-pointer transition-colors outline-none",
-									"hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-									isSelected && "bg-accent text-accent-foreground",
+									"h-4 w-4 shrink-0",
+									isSelected
+										? "text-accent-foreground"
+										: "text-muted-foreground",
 								)}
-							>
-								<Icon
-									className={cn(
-										"h-4 w-4 shrink-0",
-										isSelected
-											? "text-accent-foreground"
-											: "text-muted-foreground",
-									)}
-									aria-hidden="true"
-								/>
+								aria-hidden="true"
+							/>
 
-								<div className="min-w-0 flex-1">
-									<div className="flex items-center gap-2">
-										<span
-											className={cn(
-												"truncate font-medium",
-												isSelected
-													? "text-accent-foreground"
-													: "text-foreground",
-											)}
-										>
-											{fileName}
+							<div className="min-w-0 flex-1">
+								<div className="flex items-center gap-2">
+									<span
+										className={cn(
+											"truncate font-medium",
+											isSelected ? "text-accent-foreground" : "text-foreground",
+										)}
+									>
+										{fileName}
+									</span>
+									{artifact.isNew && (
+										<span className="shrink-0 rounded bg-status-completed/20 px-1.5 py-0.5 text-xs font-medium text-status-completed">
+											new
 										</span>
-										{artifact.isNew && (
-											<span className="shrink-0 rounded bg-status-completed/20 px-1.5 py-0.5 text-xs font-medium text-status-completed">
-												new
-											</span>
-										)}
-										{artifact.updatedDuringRun && !artifact.isNew && (
-											<span className="shrink-0 rounded bg-status-running/20 px-1.5 py-0.5 text-xs font-medium text-status-running">
-												updated
-											</span>
-										)}
-									</div>
-									{directory && (
-										<p
-											className={cn(
-												"truncate text-xs",
-												isSelected
-													? "text-accent-foreground/70"
-													: "text-muted-foreground",
-											)}
-										>
-											{directory}
-										</p>
+									)}
+									{artifact.updatedDuringRun && !artifact.isNew && (
+										<span className="shrink-0 rounded bg-status-running/20 px-1.5 py-0.5 text-xs font-medium text-status-running">
+											updated
+										</span>
 									)}
 								</div>
+								{directory && (
+									<p
+										className={cn(
+											"truncate text-xs",
+											isSelected
+												? "text-accent-foreground/70"
+												: "text-muted-foreground",
+										)}
+									>
+										{directory}
+									</p>
+								)}
 							</div>
-						</li>
+						</div>
 					);
 				})}
-			</ul>
+			</div>
 		</nav>
 	);
 }
