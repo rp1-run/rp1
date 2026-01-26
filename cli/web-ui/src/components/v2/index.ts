@@ -1,4 +1,5 @@
 export { AttentionSection, type AttentionSectionProps } from "./AttentionSection";
+export { FilterBar, type FilterBarProps } from "./FilterBar";
 export { RunCard, type RunCardProps } from "./RunCard";
 export { StatusBadge, type StatusBadgeProps } from "./StatusBadge";
 export { V2Header, type V2HeaderProps } from "./V2Header";
