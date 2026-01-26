@@ -1,0 +1,145 @@
+# rp1 Web UI
+
+React-based web interface for the rp1 plugin system. Provides documentation viewing with live Mermaid diagram rendering and a real-time status dashboard for monitoring AI agent runs.
+
+## Quick Start
+
+```bash
+# From project root, launch the web UI
+rp1 view
+
+# Opens http://localhost:3000
+```
+
+## Features
+
+- Documentation viewer with syntax highlighting
+- Live Mermaid diagram rendering with Catppuccin theming
+- File tree navigation for `.rp1/` directory
+- Real-time status dashboard (V2)
+- WebSocket-based live reload
+- Dark/light theme support (Catppuccin Mocha/Latte)
+
+## Routes
+
+### Documentation Viewer (V1)
+
+| Route | Description |
+|-------|-------------|
+| `/` | Documentation viewer with file tree |
+| `/status` | Work status dashboard (legacy) |
+
+### Status Dashboard (V2)
+
+The V2 dashboard provides a glanceable view of AI agent runs across all projects.
+
+| Route | Description |
+|-------|-------------|
+| `/v2/` | Home dashboard - attention-prioritized run overview |
+| `/v2/runs` | Runs list with filters (status, project, date range) |
+| `/v2/runs/:runId` | Run detail - timeline, artifacts, event stream |
+| `/v2/projects` | Project list |
+| `/v2/project/:projectId/runs` | Project-scoped runs list |
+
+See [V2 Dashboard Documentation](../../docs/web-ui/v2-dashboard.md) for detailed usage.
+
+## Development
+
+```bash
+cd cli/web-ui
+
+# Install dependencies
+bun install
+
+# Development server
+bun run dev
+
+# Build for production
+bun run build
+
+# Type checking
+bun run typecheck
+```
+
+## Architecture
+
+```
+src/
+  app/           # App entry, layouts, routing
+    V2Layout.tsx   # V2 shell with sidebar
+    v2-routes.tsx  # V2 route configuration
+  components/
+    ui/          # Shared UI primitives (Radix-based)
+    v2/          # V2-specific components
+      StatusBadge.tsx
+      RunCard.tsx
+      StepTimeline.tsx
+      AttentionSection.tsx
+      FilterBar.tsx
+      ArtifactList.tsx
+      EventStream.tsx
+  hooks/
+    useAttention.ts    # Fetch attention-grouped runs
+    useRuns.ts         # Fetch filtered runs list
+    useRunDetail.ts    # Fetch single run
+    useKeyboardNav.ts  # List keyboard navigation
+  pages/
+    v2/              # V2 page components
+      HomePage.tsx
+      RunsListPage.tsx
+      RunDetailPage.tsx
+      ProjectsPage.tsx
+  providers/
+    WebSocketProvider.tsx  # Real-time updates
+    ThemeProvider.tsx      # Theme management
+  server/
+    routes/
+      v2-api.ts      # V2 API endpoints
+  types/
+    runs.ts          # V2 data types
+    websocket.ts     # WebSocket message types
+```
+
+## API Endpoints
+
+### V2 API
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v2/runs` | GET | List runs with filters |
+| `/api/v2/runs/:id` | GET | Single run detail |
+| `/api/v2/runs/attention` | GET | Runs grouped by attention state |
+| `/api/v2/projects` | GET | List projects |
+| `/api/v2/projects/:id` | GET | Project detail |
+
+Query parameters for `/api/v2/runs`:
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `status` | string | `all` | Filter by status |
+| `projectId` | string | - | Filter by project |
+| `dateRange` | string | `all` | `today`, `week`, `month`, `all` |
+| `limit` | number | `50` | Max results |
+| `offset` | number | `0` | Pagination offset |
+
+## WebSocket Events
+
+V2 run status events:
+
+| Event | Payload | Description |
+|-------|---------|-------------|
+| `run:status` | `{ runId, status, currentStep }` | Run status changed |
+| `run:step` | `{ runId, stepId, status }` | Step status changed |
+| `run:artifact` | `{ runId, artifact }` | Artifact created/updated |
+| `run:event` | `{ runId, event }` | New event in stream |
+
+## Tech Stack
+
+- React 19
+- Vite 6
+- TypeScript
+- Tailwind CSS (Catppuccin theme)
+- Radix UI primitives
+- Lucide React icons
+- react-router-dom
+- Bun runtime (server)

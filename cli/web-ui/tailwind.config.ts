@@ -45,6 +45,16 @@ const config: Config = {
 				terminal: {
 					green: "hsl(var(--terminal-green))",
 					cursor: "hsl(var(--terminal-cursor))",
+					mauve: "hsl(var(--terminal-mauve))",
+					red: "hsl(var(--terminal-red))",
+				},
+				status: {
+					queued: "hsl(var(--status-queued))",
+					running: "hsl(var(--status-running))",
+					waiting: "hsl(var(--status-waiting))",
+					completed: "hsl(var(--status-completed))",
+					failed: "hsl(var(--status-failed))",
+					"needs-review": "hsl(var(--status-needs-review))",
 				},
 			},
 			borderRadius: {

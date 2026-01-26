@@ -174,24 +174,32 @@ export function ProjectSwitcher() {
 				type="button"
 				onClick={() => setIsOpen(!isOpen)}
 				className={cn(
-					"flex items-center gap-1.5 px-2 py-1 rounded text-sm font-mono",
+					"group flex items-center gap-1.5 px-2 py-1 rounded text-sm font-mono",
 					"hover:bg-accent hover:text-accent-foreground",
 					"focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1",
 					"transition-colors",
-					isOpen && "bg-accent",
+					isOpen && "bg-accent text-accent-foreground",
 				)}
 				aria-haspopup="listbox"
 				aria-expanded={isOpen}
 				aria-label="Switch project"
 			>
-				<FolderOpen className="h-3.5 w-3.5 text-terminal-mauve" />
+				<FolderOpen
+					className={cn(
+						"h-3.5 w-3.5 text-terminal-mauve",
+						"group-hover:text-inherit",
+						isOpen && "text-inherit",
+					)}
+				/>
 				<span className="max-w-[150px] truncate">
 					{currentProject?.name ?? currentProjectId ?? "Select project"}
 				</span>
 				<ChevronDown
 					className={cn(
-						"h-3.5 w-3.5 text-muted-foreground transition-transform",
-						isOpen && "rotate-180",
+						"h-3.5 w-3.5 transition-transform",
+						isOpen
+							? "rotate-180 text-accent-foreground"
+							: "text-muted-foreground",
 					)}
 				/>
 			</button>
@@ -202,7 +210,7 @@ export function ProjectSwitcher() {
 					className={cn(
 						"absolute top-full left-0 mt-1 z-50",
 						"min-w-[200px] max-w-[300px] max-h-[300px] overflow-y-auto",
-						"rounded-md border bg-popover shadow-md",
+						"rounded-md border bg-popover text-popover-foreground shadow-md",
 						"font-mono text-sm",
 						"focus:outline-none",
 					)}
@@ -227,11 +235,12 @@ export function ProjectSwitcher() {
 							className={cn(
 								"w-full flex items-center gap-2 px-3 py-2 text-left",
 								"transition-colors",
-								focusedIndex === index && "bg-accent",
+								focusedIndex === index && "bg-accent text-accent-foreground",
 								project.id === currentProjectId && "text-foreground",
 								!project.available &&
 									"text-muted-foreground italic opacity-60 cursor-not-allowed",
-								project.available && "hover:bg-accent cursor-pointer",
+								project.available &&
+									"hover:bg-accent hover:text-accent-foreground cursor-pointer",
 							)}
 						>
 							{project.id === currentProjectId ? (

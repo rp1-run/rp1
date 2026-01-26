@@ -227,7 +227,7 @@ just show-evals-status                       # Show commands needing attention
 | comment-extract/ | Comment extraction from source files |
 
 ### cli/web-ui/
-**Purpose**: React-based documentation viewer with Mermaid support
+**Purpose**: React-based documentation viewer with Mermaid support and V2 status dashboard
 
 | Component | Purpose |
 |-----------|---------|
@@ -235,8 +235,28 @@ just show-evals-status                       # Show commands needing attention
 | src/main.tsx | React entry point |
 | src/server/http.ts | Bun HTTP server |
 | src/server/websocket.ts | WebSocket hub for live reload |
+| src/server/routes/v2-api.ts | V2 API endpoints for runs and projects |
 | src/pages/StatusDashboard.tsx | Real-time work status display |
 | src/components/MarkdownViewer/ | Markdown rendering with Mermaid |
+
+**V2 Dashboard** (`/v2/` routes):
+| Component | Purpose |
+|-----------|---------|
+| src/app/V2Layout.tsx | V2 shell with collapsible sidebar |
+| src/app/v2-routes.tsx | V2 route configuration |
+| src/pages/v2/HomePage.tsx | Attention-grouped run overview |
+| src/pages/v2/RunsListPage.tsx | Filtered runs list with keyboard nav |
+| src/pages/v2/RunDetailPage.tsx | Run timeline, artifacts, event stream |
+| src/components/v2/StatusBadge.tsx | Status indicator with Catppuccin colors |
+| src/components/v2/RunCard.tsx | Run summary card for lists |
+| src/components/v2/StepTimeline.tsx | Horizontal workflow progression |
+| src/components/v2/AttentionSection.tsx | Collapsible attention group |
+| src/components/v2/FilterBar.tsx | Status/project/date filters |
+| src/hooks/useKeyboardNav.ts | Roving tabindex list navigation |
+| src/hooks/useAttention.ts | Fetch attention-grouped runs |
+| src/hooks/useRuns.ts | Fetch filtered runs with WebSocket |
+| src/types/runs.ts | V2 data types (Run, Step, Artifact, Event) |
+| src/types/websocket.ts | WebSocket message types for run events |
 
 ## Module Dependencies
 

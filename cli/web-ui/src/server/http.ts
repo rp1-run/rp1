@@ -113,7 +113,6 @@ async function handleApiRequest(
 	const pathname = url.pathname;
 	const method = req.method;
 
-	// Multi-project API endpoints (new)
 	// GET /api/health - daemon health check
 	if (pathname === "/api/health" && method === "GET") {
 		const { handleHealthRequest } = await import("./routes/api");
@@ -182,7 +181,10 @@ async function handleApiRequest(
 		}
 	}
 
-	// Legacy single-project endpoints (backward compatibility)
+	if (pathname.startsWith("/api/v2/")) {
+		return handleV2ApiRequest(req, pathname, method);
+	}
+
 	if (pathname === "/api/project") {
 		const { handleProjectRequest } = await import("./routes/api");
 		return handleProjectRequest(projectPath);
@@ -214,4 +216,44 @@ async function handleStaticRequest(
 		"./routes/static"
 	);
 	return staticHandler(req, isDev, webUIDir);
+}
+
+async function handleV2ApiRequest(
+	req: Request,
+	pathname: string,
+	method: string,
+): Promise<Response> {
+	if (pathname === "/api/v2/runs/attention" && method === "GET") {
+		const { handleV2RunsAttentionRequest } = await import("./routes/v2-api");
+		return handleV2RunsAttentionRequest();
+	}
+
+	const runDetailMatch = pathname.match(/^\/api\/v2\/runs\/([^/]+)$/);
+	if (runDetailMatch && method === "GET") {
+		const { handleV2RunDetailRequest } = await import("./routes/v2-api");
+		const runId = decodeURIComponent(runDetailMatch[1]);
+		return handleV2RunDetailRequest(runId);
+	}
+
+	if (pathname === "/api/v2/runs" && method === "GET") {
+		const { handleV2RunsListRequest } = await import("./routes/v2-api");
+		return handleV2RunsListRequest(req);
+	}
+
+	const projectDetailMatch = pathname.match(/^\/api\/v2\/projects\/([^/]+)$/);
+	if (projectDetailMatch && method === "GET") {
+		const { handleV2ProjectDetailRequest } = await import("./routes/v2-api");
+		const projectId = decodeURIComponent(projectDetailMatch[1]);
+		return handleV2ProjectDetailRequest(projectId);
+	}
+
+	if (pathname === "/api/v2/projects" && method === "GET") {
+		const { handleV2ProjectsListRequest } = await import("./routes/v2-api");
+		return handleV2ProjectsListRequest();
+	}
+
+	return new Response(JSON.stringify({ error: "Not found" }), {
+		status: 404,
+		headers: { "Content-Type": "application/json" },
+	});
 }

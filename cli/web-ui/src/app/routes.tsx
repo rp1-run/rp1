@@ -10,6 +10,7 @@ import { MarkdownViewer } from "@/components/MarkdownViewer";
 import { StatusDashboard } from "@/pages/StatusDashboard";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 import { Layout } from "./Layout";
+import { v2Routes } from "./v2-routes";
 
 interface FileContent {
 	path: string;
@@ -45,6 +46,7 @@ export const router = createBrowserRouter([
 		path: "/view/*",
 		element: <LegacyRedirect />,
 	},
+	...v2Routes,
 ]);
 
 /**
