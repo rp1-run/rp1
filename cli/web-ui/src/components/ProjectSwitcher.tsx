@@ -178,20 +178,20 @@ export function ProjectSwitcher() {
 					"hover:bg-accent hover:text-accent-foreground",
 					"focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1",
 					"transition-colors",
-					isOpen && "bg-accent",
+					isOpen && "bg-accent text-accent-foreground",
 				)}
 				aria-haspopup="listbox"
 				aria-expanded={isOpen}
 				aria-label="Switch project"
 			>
-				<FolderOpen className="h-3.5 w-3.5 text-terminal-mauve" />
+				<FolderOpen className={cn("h-3.5 w-3.5", isOpen ? "text-accent-foreground" : "text-terminal-mauve")} />
 				<span className="max-w-[150px] truncate">
 					{currentProject?.name ?? currentProjectId ?? "Select project"}
 				</span>
 				<ChevronDown
 					className={cn(
-						"h-3.5 w-3.5 text-muted-foreground transition-transform",
-						isOpen && "rotate-180",
+						"h-3.5 w-3.5 transition-transform",
+						isOpen ? "rotate-180 text-accent-foreground" : "text-muted-foreground",
 					)}
 				/>
 			</button>
