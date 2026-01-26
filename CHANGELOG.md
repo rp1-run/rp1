@@ -37,6 +37,17 @@
 
 ### Features
 
+* **web-ui:** Add annotation system for artifact feedback (Phase 3)
+  - Inline comments anchored to text selections, hidden anchors, or code lines
+  - Suggestion edits rendered as GitHub-style diffs
+  - Threaded replies with unlimited flat threading
+  - Real-time sync via WebSocket broadcast
+  - Annotation sidebar with filtering by status, author, and date range
+  - JSON persistence to `.rp1/open-tasks.json` for AI agent integration
+  - Markdown embedding as HTML comments for human-readable context
+  - Orphaned annotation detection and preservation
+  - Keyboard shortcut support (Cmd/Ctrl+Enter to submit)
+  - Feature flag: `RP1_ANNOTATIONS_ENABLED`
 * **install:** Automatic rollback on installation failure - system restores previous installation from backup if any step fails
 * **install:** SIGINT/SIGTERM signal handlers for safe interruption - Ctrl+C during installation gracefully cleans up and restores backup
 * **install:** Atomic installation via staging directory for OpenCode - plugins install all-or-nothing, preventing partial state
