@@ -230,6 +230,7 @@ just # run just to read about various test/lint commands
 Location: `.rp1/context/`
 
 Files:
+
 - index.md (always load first)
 - architecture.md
 - modules.md
@@ -237,6 +238,7 @@ Files:
 - concept_map.md
 
 Loading rules:
+
 1. Always read index.md first.
 2. Then load based on task type:
    - Code review: patterns.md
@@ -244,3 +246,10 @@ Loading rules:
    - Feature work: modules.md, patterns.md
    - Strategic or system-wide analysis: all files
 <!-- rp1:end -->
+
+## Useful Skills
+
+Use these two skills when working with frontend code.
+
+- frontend-design@claude-plugins-official
+- agent-browser
