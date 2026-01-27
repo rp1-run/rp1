@@ -7,7 +7,9 @@ import rehypeRaw from "rehype-raw";
 import rehypeSlug from "rehype-slug";
 import remarkFrontmatter from "remark-frontmatter";
 import remarkGfm from "remark-gfm";
+import { AnnotationIndicator } from "@/components/v2/AnnotationIndicator";
 import { AnnotationPopover } from "@/components/v2/AnnotationPopover";
+import { SelectionIndicator } from "@/components/v2/SelectionIndicator";
 import { SelectionPopover } from "@/components/v2/SelectionPopover";
 import { useAnnotations } from "@/hooks/useAnnotations";
 import {
@@ -87,157 +89,23 @@ function AnchorIndicator({
 	);
 }
 
-interface TextHighlightProps {
-	annotation: Annotation;
-	containerRef: React.RefObject<HTMLElement | null>;
-	onClick: (annotation: Annotation, position: SelectionPosition) => void;
-}
-
-interface HighlightPosition {
-	top: number;
-	left: number;
-	width: number;
-	height: number;
-}
-
-function TextHighlight({
-	annotation,
-	containerRef,
-	onClick,
-}: TextHighlightProps) {
-	const [highlightPos, setHighlightPos] = useState<HighlightPosition | null>(
-		null,
-	);
-
-	useEffect(() => {
-		if (annotation.anchor.type !== "text-selection" || !containerRef.current) {
-			return;
-		}
-
-		const container = containerRef.current;
-		const { selectedText, contextBefore, contextAfter } = annotation.anchor;
-
-		// Find the text in the container using context for precise matching
-		const fullText = container.textContent ?? "";
-		const searchPattern = contextBefore + selectedText + contextAfter;
-		const patternIndex = fullText.indexOf(searchPattern);
-
-		if (patternIndex === -1) {
-			// Pattern not found - annotation may be orphaned
-			return;
-		}
-
-		const startIndex = patternIndex + contextBefore.length;
-		const endIndex = startIndex + selectedText.length;
-
-		// Use TreeWalker to find the text nodes containing our selection
-		const walker = document.createTreeWalker(
-			container,
-			NodeFilter.SHOW_TEXT,
-			null,
-		);
-
-		let currentOffset = 0;
-		let startNode: Text | null = null;
-		let startOffset = 0;
-		let endNode: Text | null = null;
-		let endOffset = 0;
-
-		let node = walker.nextNode() as Text | null;
-		while (node) {
-			const nodeLength = node.textContent?.length ?? 0;
-			const nodeEnd = currentOffset + nodeLength;
-
-			if (!startNode && startIndex < nodeEnd) {
-				startNode = node;
-				startOffset = startIndex - currentOffset;
-			}
-
-			if (!endNode && endIndex <= nodeEnd) {
-				endNode = node;
-				endOffset = endIndex - currentOffset;
-				break;
-			}
-
-			currentOffset = nodeEnd;
-			node = walker.nextNode() as Text | null;
-		}
-
-		if (startNode && endNode) {
-			try {
-				const range = document.createRange();
-				range.setStart(startNode, startOffset);
-				range.setEnd(endNode, endOffset);
-				const rect = range.getBoundingClientRect();
-				const containerRect = container.getBoundingClientRect();
-
-				// Calculate position relative to the container
-				setHighlightPos({
-					top: rect.top - containerRect.top,
-					left: rect.left - containerRect.left,
-					width: rect.width,
-					height: rect.height,
-				});
-			} catch {
-				// Range creation can fail if offsets are invalid
-			}
-		}
-	}, [annotation, containerRef]);
-
-	if (!highlightPos || !containerRef.current) {
-		return null;
-	}
-
-	const handleClick = (e: React.MouseEvent) => {
-		// Use click position for more intuitive popover placement
-		onClick(annotation, {
-			x: e.clientX,
-			y: e.clientY,
-		});
-	};
-
-	const isResolved = annotation.status === "resolved";
-
-	return (
-		<button
-			type="button"
-			onClick={handleClick}
-			className={cn(
-				"absolute pointer-events-auto cursor-pointer",
-				"border-l-3 rounded-sm",
-				isResolved
-					? "border-terminal-green/70 bg-terminal-green/15"
-					: "border-yellow-400 bg-yellow-200/40",
-				isResolved ? "hover:bg-terminal-green/25" : "hover:bg-yellow-200/60",
-				"transition-colors",
-			)}
-			style={{
-				top: highlightPos.top,
-				left: highlightPos.left - 3,
-				width: highlightPos.width + 6,
-				height: highlightPos.height,
-				zIndex: 5,
-			}}
-			aria-label={`Annotation: ${annotation.content.slice(0, 50)}${annotation.content.length > 50 ? "..." : ""}`}
-		/>
-	);
-}
-
 interface AnnotationLayerProps {
 	path: string;
 	containerRef: React.RefObject<HTMLElement | null>;
+	gutterRef: React.RefObject<HTMLElement | null>;
 	hiddenAnchors: DetectedHiddenAnchor[];
 }
 
 function AnnotationLayer({
 	path,
 	containerRef,
+	gutterRef,
 	hiddenAnchors,
 }: AnnotationLayerProps) {
 	const [activeAnchor, setActiveAnchor] = useState<DetectedHiddenAnchor | null>(
 		null,
 	);
-	const [activeAnnotation, setActiveAnnotation] = useState<Annotation | null>(
+	const [activeAnnotationId, setActiveAnnotationId] = useState<string | null>(
 		null,
 	);
 	const [annotationPosition, setAnnotationPosition] =
@@ -262,32 +130,37 @@ function AnnotationLayer({
 	const { annotations } = useAnnotations({ artifactPath: path });
 	const { selectedAnnotationId, selectAnnotation } = useAnnotationContext();
 
-	// Show selection popover when text is selected and lock it
-	// But not if selection is inside a code block (which has its own annotation system)
+	// Derive active annotation from ID to ensure it updates when context changes
+	const activeAnnotation = activeAnnotationId
+		? (annotations.find((a) => a.id === activeAnnotationId) ?? null)
+		: null;
+
+	// Lock selection when text is selected (but don't show popover yet - Google Docs style)
 	useEffect(() => {
 		if (selection && selectionPosition && !isLocked) {
-			// Check if selection is inside a code block
 			const browserSelection = window.getSelection();
-			if (browserSelection && browserSelection.anchorNode) {
+			if (browserSelection?.anchorNode) {
 				const anchorElement =
 					browserSelection.anchorNode instanceof Element
 						? browserSelection.anchorNode
 						: browserSelection.anchorNode.parentElement;
-				// Code blocks have the shiki-container class or are inside pre > code
 				const isInsideCodeBlock = anchorElement?.closest(
 					".shiki-container, pre code, .group\\/line",
 				);
 				if (isInsideCodeBlock) {
-					// Don't show selection popover for code blocks
 					clearSelection();
 					return;
 				}
 			}
-			setShowSelectionPopover(true);
-			// Lock the selection so it persists
+			// Lock the selection so it persists - icon will appear in gutter
 			lockSelection();
 		}
 	}, [selection, selectionPosition, lockSelection, isLocked, clearSelection]);
+
+	// Handle clicking the selection indicator to show the popover
+	const handleSelectionIndicatorClick = useCallback(() => {
+		setShowSelectionPopover(true);
+	}, []);
 
 	// Handle click outside to close popover
 	useEffect(() => {
@@ -376,8 +249,14 @@ function AnnotationLayer({
 			const position: SelectionPosition = {
 				x: rect.left + rect.width / 2,
 				y: rect.bottom,
+				anchorRect: {
+					left: rect.left,
+					right: rect.right,
+					top: rect.top,
+					bottom: rect.bottom,
+				},
 			};
-			setActiveAnnotation(annotation);
+			setActiveAnnotationId(annotation.id);
 			setAnnotationPosition(position);
 		}
 
@@ -393,13 +272,13 @@ function AnnotationLayer({
 
 			if (anchorAnnotations && anchorAnnotations.length > 0) {
 				// Show first annotation popover
-				setActiveAnnotation(anchorAnnotations[0]);
+				setActiveAnnotationId(anchorAnnotations[0].id);
 				setAnnotationPosition(anchor.position);
 				setActiveAnchor(null);
 			} else {
 				// Show anchor for creating new annotation
 				setActiveAnchor(anchor);
-				setActiveAnnotation(null);
+				setActiveAnnotationId(null);
 			}
 		},
 		[anchorAnnotationsMap],
@@ -407,7 +286,7 @@ function AnnotationLayer({
 
 	const handleTextAnnotationClick = useCallback(
 		(annotation: Annotation, position: SelectionPosition) => {
-			setActiveAnnotation(annotation);
+			setActiveAnnotationId(annotation.id);
 			setAnnotationPosition(position);
 			setActiveAnchor(null);
 		},
@@ -415,7 +294,7 @@ function AnnotationLayer({
 	);
 
 	const handleCloseAnnotationPopover = useCallback(() => {
-		setActiveAnnotation(null);
+		setActiveAnnotationId(null);
 		setAnnotationPosition(null);
 	}, []);
 
@@ -432,7 +311,6 @@ function AnnotationLayer({
 
 	return (
 		<>
-			{/* Hidden anchor indicators */}
 			{hiddenAnchors.map((anchor) => {
 				const anchorAnnotations =
 					anchorAnnotationsMap.get(anchor.anchor.anchorId) ?? [];
@@ -447,17 +325,27 @@ function AnnotationLayer({
 				);
 			})}
 
-			{/* Text selection highlights */}
 			{textSelectionAnnotations.map((annotation) => (
-				<TextHighlight
+				<AnnotationIndicator
 					key={annotation.id}
 					annotation={annotation}
 					containerRef={containerRef}
+					gutterRef={gutterRef}
 					onClick={handleTextAnnotationClick}
 				/>
 			))}
 
-			{/* Selection popover for creating annotations from text selection */}
+			{/* Show selection indicator in gutter when text is selected (Google Docs style) */}
+			{selection && isLocked && !showSelectionPopover && (
+				<SelectionIndicator
+					selection={selection}
+					containerRef={containerRef}
+					gutterRef={gutterRef}
+					onClick={handleSelectionIndicatorClick}
+				/>
+			)}
+
+			{/* Show popover when user clicks the selection indicator */}
 			{showSelectionPopover && selection && selectionPosition && (
 				<div ref={popoverRef}>
 					<SelectionPopover
@@ -470,7 +358,6 @@ function AnnotationLayer({
 				</div>
 			)}
 
-			{/* Hidden anchor popover for creating annotations */}
 			{activeAnchor && !activeAnnotation && (
 				<SelectionPopover
 					anchor={{
@@ -488,7 +375,6 @@ function AnnotationLayer({
 				/>
 			)}
 
-			{/* Annotation popover for viewing/editing existing annotations */}
 			{activeAnnotation && annotationPosition && (
 				<AnnotationPopover
 					annotation={activeAnnotation}
@@ -511,6 +397,7 @@ export function MarkdownViewer({
 	enableAnnotations = false,
 }: MarkdownViewerProps) {
 	const containerRef = useRef<HTMLElement>(null);
+	const gutterRef = useRef<HTMLDivElement>(null);
 	const [hiddenAnchors, setHiddenAnchors] = useState<DetectedHiddenAnchor[]>(
 		[],
 	);
@@ -587,8 +474,20 @@ export function MarkdownViewer({
 	}, [enableAnnotations]);
 
 	return (
-		<div className="relative">
-			<article ref={containerRef} className={cn("markdown-content", className)}>
+		<div className="relative flex gap-3">
+			{/* Annotation gutter - visual column for indicators */}
+			{enableAnnotations && (
+				<div
+					ref={gutterRef}
+					className="w-5 flex-shrink-0 relative"
+					aria-hidden="true"
+				/>
+			)}
+
+			<article
+				ref={containerRef}
+				className={cn("markdown-content flex-1 min-w-0", className)}
+			>
 				{showFrontmatter &&
 					frontmatter &&
 					Object.keys(frontmatter).length > 0 && (
@@ -677,11 +576,12 @@ export function MarkdownViewer({
 				</ReactMarkdown>
 			</article>
 
-			{/* Annotation layer - only rendered when enabled (requires AnnotationProvider) */}
+			{/* Annotation layer renders indicators in the gutter and popovers as overlays */}
 			{enableAnnotations && (
 				<AnnotationLayer
 					path={path}
 					containerRef={containerRef}
+					gutterRef={gutterRef}
 					hiddenAnchors={hiddenAnchors}
 				/>
 			)}

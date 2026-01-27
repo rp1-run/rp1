@@ -1,8 +1,7 @@
 import {
 	Check,
 	CornerDownRight,
-	MoreHorizontal,
-	RefreshCw,
+	GripHorizontal,
 	Send,
 	Trash2,
 	X,
@@ -14,24 +13,53 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { cn } from "@/lib/utils";
+import type { SelectionPosition } from "@/hooks/useTextSelection";
+import {
+	calculatePopoverPosition,
+	cn,
+	type PopoverPosition,
+} from "@/lib/utils";
 import { useAnnotationContext } from "@/providers/AnnotationProvider";
 import type { Annotation, AnnotationReply } from "@/types/annotations";
-import { SuggestionDiff } from "./SuggestionDiff";
+
+const TRUNCATION_LINES = 3;
+const TRUNCATION_CHARS = 200;
+
+function needsTruncation(content: string): boolean {
+	const lineCount = content.split("\n").length;
+	return lineCount > TRUNCATION_LINES || content.length > TRUNCATION_CHARS;
+}
+
+function truncateContent(content: string): string {
+	const lines = content.split("\n");
+	if (lines.length > TRUNCATION_LINES) {
+		return `${lines.slice(0, TRUNCATION_LINES).join("\n")}...`;
+	}
+	if (content.length > TRUNCATION_CHARS) {
+		return `${content.slice(0, TRUNCATION_CHARS)}...`;
+	}
+	return content;
+}
 
 export interface AnnotationPopoverProps {
 	annotation: Annotation;
-	position: { x: number; y: number };
+	position: SelectionPosition;
 	onClose: () => void;
-	onAcceptSuggestion?: (annotation: Annotation) => void;
 	className?: string;
 }
 
 interface ReplyItemProps {
 	reply: AnnotationReply;
+	isExpanded: boolean;
+	onToggleExpand: () => void;
 }
 
-function ReplyItem({ reply }: ReplyItemProps) {
+function ReplyItem({ reply, isExpanded, onToggleExpand }: ReplyItemProps) {
+	const showTruncation = needsTruncation(reply.content);
+	const displayContent = isExpanded
+		? reply.content
+		: truncateContent(reply.content);
+
 	return (
 		<div className="flex gap-2 py-2">
 			<CornerDownRight
@@ -43,7 +71,16 @@ function ReplyItem({ reply }: ReplyItemProps) {
 					<span className="font-medium text-foreground">{reply.author}</span>
 					<span>{formatRelativeTime(reply.createdAt)}</span>
 				</div>
-				<p className="mt-1 text-sm whitespace-pre-wrap">{reply.content}</p>
+				<p className="mt-1 text-sm whitespace-pre-wrap">{displayContent}</p>
+				{showTruncation && (
+					<button
+						type="button"
+						onClick={onToggleExpand}
+						className="text-xs text-primary hover:underline mt-1"
+					>
+						{isExpanded ? "Show less" : "Show more"}
+					</button>
+				)}
 			</div>
 		</div>
 	);
@@ -69,52 +106,141 @@ export function AnnotationPopover({
 	annotation,
 	position,
 	onClose,
-	onAcceptSuggestion,
 	className,
 }: AnnotationPopoverProps) {
 	const [replyText, setReplyText] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
-	const [showMenu, setShowMenu] = useState(false);
-	const [confirmDelete, setConfirmDelete] = useState(false);
-	const [adjustedPosition, setAdjustedPosition] = useState(position);
+	const [confirmAction, setConfirmAction] = useState<
+		"resolve" | "reopen" | "delete" | null
+	>(null);
+	const [expandedComments, setExpandedComments] = useState<Set<string>>(
+		new Set(),
+	);
+	const [popoverPosition, setPopoverPosition] = useState<PopoverPosition>({
+		x: position.anchorRect.right + 8,
+		y: position.anchorRect.top,
+		side: "right",
+	});
+	const [hasBeenDragged, setHasBeenDragged] = useState(false);
+	const [draggedPosition, setDraggedPosition] = useState({ x: 0, y: 0 });
 
 	const popoverRef = useRef<HTMLDivElement>(null);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
+	const isDraggingRef = useRef(false);
+	const dragOffsetRef = useRef<{
+		x: number;
+		y: number;
+		lastX?: number;
+		lastY?: number;
+	}>({ x: 0, y: 0 });
+	const rafRef = useRef<number | null>(null);
 
 	const { resolveAnnotation, reopenAnnotation, deleteAnnotation, addReply } =
 		useAnnotationContext();
 
-	// Adjust position to stay within viewport
+	const toggleExpanded = useCallback((id: string) => {
+		setExpandedComments((prev) => {
+			const next = new Set(prev);
+			if (next.has(id)) {
+				next.delete(id);
+			} else {
+				next.add(id);
+			}
+			return next;
+		});
+	}, []);
+
+	// Drag handlers for repositioning popover - using refs for smooth performance
+	const handleDragStart = useCallback(
+		(e: React.MouseEvent) => {
+			e.preventDefault();
+			const currentX = hasBeenDragged ? draggedPosition.x : popoverPosition.x;
+			const currentY = hasBeenDragged ? draggedPosition.y : popoverPosition.y;
+			isDraggingRef.current = true;
+			dragOffsetRef.current = {
+				x: e.clientX - currentX,
+				y: e.clientY - currentY,
+			};
+
+			const handleDrag = (moveEvent: MouseEvent) => {
+				if (!isDraggingRef.current) return;
+
+				// Cancel any pending animation frame
+				if (rafRef.current) {
+					cancelAnimationFrame(rafRef.current);
+				}
+
+				// Use requestAnimationFrame for smooth updates
+				rafRef.current = requestAnimationFrame(() => {
+					const newX = moveEvent.clientX - dragOffsetRef.current.x;
+					const newY = moveEvent.clientY - dragOffsetRef.current.y;
+
+					// Directly update the DOM for smoothness during drag
+					if (popoverRef.current) {
+						popoverRef.current.style.left = `${newX}px`;
+						popoverRef.current.style.top = `${newY}px`;
+					}
+
+					// Store position for when drag ends
+					dragOffsetRef.current.lastX = newX;
+					dragOffsetRef.current.lastY = newY;
+				});
+			};
+
+			const handleDragEnd = () => {
+				isDraggingRef.current = false;
+
+				if (rafRef.current) {
+					cancelAnimationFrame(rafRef.current);
+					rafRef.current = null;
+				}
+
+				// Commit final position to state
+				const finalX =
+					dragOffsetRef.current.lastX ?? e.clientX - dragOffsetRef.current.x;
+				const finalY =
+					dragOffsetRef.current.lastY ?? e.clientY - dragOffsetRef.current.y;
+				setDraggedPosition({ x: finalX, y: finalY });
+				setHasBeenDragged(true);
+
+				document.removeEventListener("mousemove", handleDrag);
+				document.removeEventListener("mouseup", handleDragEnd);
+			};
+
+			document.addEventListener("mousemove", handleDrag);
+			document.addEventListener("mouseup", handleDragEnd);
+		},
+		[
+			hasBeenDragged,
+			draggedPosition.x,
+			draggedPosition.y,
+			popoverPosition.x,
+			popoverPosition.y,
+		],
+	);
+
+	// Cleanup RAF on unmount
+	useEffect(() => {
+		return () => {
+			if (rafRef.current) {
+				cancelAnimationFrame(rafRef.current);
+			}
+		};
+	}, []);
+
+	// Calculate viewport-aware position
 	useEffect(() => {
 		if (!popoverRef.current) return;
 
 		const rect = popoverRef.current.getBoundingClientRect();
-		const viewportHeight = window.innerHeight;
-		const viewportWidth = window.innerWidth;
-		const padding = 16;
+		const newPosition = calculatePopoverPosition(
+			position.anchorRect,
+			rect.width,
+			rect.height,
+		);
 
-		let newX = position.x;
-		let newY = position.y;
-
-		// Check bottom overflow - move above if needed
-		if (position.y + rect.height + padding > viewportHeight) {
-			newY = Math.max(padding, position.y - rect.height - 16);
-		}
-
-		// Check right overflow
-		if (position.x + rect.width / 2 + padding > viewportWidth) {
-			newX = viewportWidth - rect.width / 2 - padding;
-		}
-
-		// Check left overflow
-		if (position.x - rect.width / 2 < padding) {
-			newX = rect.width / 2 + padding;
-		}
-
-		if (newX !== position.x || newY !== position.y) {
-			setAdjustedPosition({ x: newX, y: newY });
-		}
-	}, [position]);
+		setPopoverPosition(newPosition);
+	}, [position.anchorRect]);
 
 	// Click outside handler
 	useEffect(() => {
@@ -148,43 +274,62 @@ export function AnnotationPopover({
 		};
 	}, [onClose]);
 
+	// Close on scroll (but not when scrolling within the popover itself)
+	useEffect(() => {
+		const handleScroll = (e: Event) => {
+			// Don't close if scrolling within the popover content
+			if (popoverRef.current?.contains(e.target as Node)) {
+				return;
+			}
+			onClose();
+		};
+
+		// Listen for scroll on window and capture phase to catch scrolling containers
+		window.addEventListener("scroll", handleScroll, true);
+
+		return () => {
+			window.removeEventListener("scroll", handleScroll, true);
+		};
+	}, [onClose]);
+
 	const isResolved = annotation.status === "resolved";
-	const hasSuggestion =
-		annotation.annotationType === "suggestion" && annotation.suggestion;
 
-	const handleResolve = useCallback(async () => {
-		try {
-			await resolveAnnotation(annotation.id);
-		} catch (error) {
-			console.error("Failed to resolve annotation:", error);
-		}
-	}, [annotation.id, resolveAnnotation]);
-
-	const handleReopen = useCallback(async () => {
-		try {
-			await reopenAnnotation(annotation.id);
-		} catch (error) {
-			console.error("Failed to reopen annotation:", error);
-		}
-	}, [annotation.id, reopenAnnotation]);
-
-	const handleDelete = useCallback(async () => {
-		if (!confirmDelete) {
-			setConfirmDelete(true);
+	const handleResolveClick = useCallback(() => {
+		if (confirmAction !== "resolve") {
+			setConfirmAction("resolve");
 			return;
 		}
+		resolveAnnotation(annotation.id).catch((error) => {
+			console.error("Failed to resolve annotation:", error);
+		});
+		setConfirmAction(null);
+	}, [annotation.id, confirmAction, resolveAnnotation]);
 
-		try {
-			await deleteAnnotation(annotation.id);
-			onClose();
-		} catch (error) {
-			console.error("Failed to delete annotation:", error);
+	const handleReopenClick = useCallback(() => {
+		if (confirmAction !== "reopen") {
+			setConfirmAction("reopen");
+			return;
 		}
-	}, [annotation.id, confirmDelete, deleteAnnotation, onClose]);
+		reopenAnnotation(annotation.id).catch((error) => {
+			console.error("Failed to reopen annotation:", error);
+		});
+		setConfirmAction(null);
+	}, [annotation.id, confirmAction, reopenAnnotation]);
 
-	const handleCancelDelete = useCallback(() => {
-		setConfirmDelete(false);
-		setShowMenu(false);
+	const handleDeleteClick = useCallback(() => {
+		if (confirmAction !== "delete") {
+			setConfirmAction("delete");
+			return;
+		}
+		deleteAnnotation(annotation.id)
+			.then(() => onClose())
+			.catch((error) => {
+				console.error("Failed to delete annotation:", error);
+			});
+	}, [annotation.id, confirmAction, deleteAnnotation, onClose]);
+
+	const handleCancelAction = useCallback(() => {
+		setConfirmAction(null);
 	}, []);
 
 	const handleSubmitReply = useCallback(async () => {
@@ -213,11 +358,9 @@ export function AnnotationPopover({
 		[handleSubmitReply],
 	);
 
-	const handleAcceptSuggestion = useCallback(() => {
-		if (onAcceptSuggestion) {
-			onAcceptSuggestion(annotation);
-		}
-	}, [annotation, onAcceptSuggestion]);
+	// Use dragged position if user has dragged, otherwise use calculated position
+	const displayX = hasBeenDragged ? draggedPosition.x : popoverPosition.x;
+	const displayY = hasBeenDragged ? draggedPosition.y : popoverPosition.y;
 
 	return (
 		<div
@@ -228,99 +371,62 @@ export function AnnotationPopover({
 				className,
 			)}
 			style={{
-				left: `${adjustedPosition.x}px`,
-				top: `${adjustedPosition.y}px`,
-				transform: "translate(-50%, 8px)",
+				left: `${displayX}px`,
+				top: `${displayY}px`,
 			}}
 			role="dialog"
 			aria-label="Annotation details"
 		>
-			<header className="flex items-center justify-between border-b border-border px-3 py-2">
-				<div className="flex items-center gap-2 text-xs">
-					<span className="font-medium">{annotation.author}</span>
-					<span className="text-muted-foreground">
-						{formatRelativeTime(annotation.createdAt)}
-					</span>
-					{isResolved && (
-						<span className="rounded bg-terminal-green/10 px-1.5 py-0.5 text-[10px] font-medium text-terminal-green">
-							Resolved
-						</span>
-					)}
-					{annotation.orphaned && (
-						<span className="rounded bg-status-warning/10 px-1.5 py-0.5 text-[10px] font-medium text-status-warning">
-							Orphaned
-						</span>
-					)}
-				</div>
-				<div className="flex items-center gap-1">
-					<div className="relative">
-						<button
-							type="button"
-							onClick={() => setShowMenu(!showMenu)}
-							className={cn(
-								"rounded p-1 transition-colors",
-								"hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-							)}
-							aria-label="More options"
-							aria-expanded={showMenu}
-						>
-							<MoreHorizontal className="h-4 w-4" aria-hidden="true" />
-						</button>
-
-						{showMenu && (
-							<>
-								{/* biome-ignore lint/a11y/noStaticElementInteractions: backdrop click handler */}
-								<div
-									className="fixed inset-0 z-40"
-									onClick={() => {
-										setShowMenu(false);
-										setConfirmDelete(false);
-									}}
-									onKeyDown={(e) => {
-										if (e.key === "Escape") {
-											setShowMenu(false);
-											setConfirmDelete(false);
-										}
-									}}
-									role="presentation"
-								/>
-								<div className="absolute right-0 top-full z-50 mt-1 w-36 overflow-hidden rounded-md border border-border bg-background shadow-lg">
-									{confirmDelete ? (
-										<div className="p-2">
-											<p className="mb-2 text-xs text-muted-foreground">
-												Delete this annotation?
-											</p>
-											<div className="flex gap-1">
-												<button
-													type="button"
-													onClick={handleDelete}
-													className="flex-1 rounded bg-destructive px-2 py-1 text-xs font-medium text-destructive-foreground hover:bg-destructive/90"
-												>
-													Delete
-												</button>
-												<button
-													type="button"
-													onClick={handleCancelDelete}
-													className="flex-1 rounded bg-muted px-2 py-1 text-xs font-medium hover:bg-muted/80"
-												>
-													Cancel
-												</button>
-											</div>
-										</div>
-									) : (
-										<button
-											type="button"
-											onClick={handleDelete}
-											className="flex w-full items-center gap-2 px-3 py-2 text-xs text-destructive transition-colors hover:bg-muted"
-										>
-											<Trash2 className="h-3 w-3" aria-hidden="true" />
-											Delete
-										</button>
-									)}
-								</div>
-							</>
+			{/* Top bar with drag handle and actions */}
+			{/* biome-ignore lint/a11y/noStaticElementInteractions: drag handle for mouse-based repositioning */}
+			<header
+				onMouseDown={handleDragStart}
+				className={cn(
+					"flex h-7 cursor-move items-center justify-between border-b border-border bg-muted/50 px-2",
+					"hover:bg-muted transition-colors select-none",
+				)}
+				title="Drag to reposition"
+			>
+				<GripHorizontal
+					className="h-3 w-3 text-muted-foreground"
+					aria-hidden="true"
+				/>
+				{/* biome-ignore lint/a11y/noStaticElementInteractions: prevents drag when clicking buttons */}
+				<div
+					className="flex items-center gap-0.5"
+					onMouseDown={(e) => e.stopPropagation()}
+				>
+					{/* Resolve/Reopen toggle */}
+					<button
+						type="button"
+						onClick={isResolved ? handleReopenClick : handleResolveClick}
+						className={cn(
+							"rounded p-1 transition-colors",
+							isResolved
+								? "text-terminal-green hover:bg-terminal-green/10"
+								: "text-muted-foreground hover:bg-muted hover:text-foreground",
+							"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 						)}
-					</div>
+						aria-label={isResolved ? "Reopen annotation" : "Resolve annotation"}
+						title={isResolved ? "Reopen" : "Resolve"}
+					>
+						<Check className="h-4 w-4" aria-hidden="true" />
+					</button>
+					{/* Delete button */}
+					<button
+						type="button"
+						onClick={handleDeleteClick}
+						className={cn(
+							"rounded p-1 transition-colors",
+							"text-muted-foreground hover:bg-muted hover:text-destructive",
+							"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+						)}
+						aria-label="Delete annotation"
+						title="Delete"
+					>
+						<Trash2 className="h-4 w-4" aria-hidden="true" />
+					</button>
+					{/* Close button */}
 					<button
 						type="button"
 						onClick={onClose}
@@ -335,22 +441,83 @@ export function AnnotationPopover({
 				</div>
 			</header>
 
-			<div className="max-h-80 overflow-y-auto p-3">
-				{hasSuggestion && annotation.suggestion ? (
-					<SuggestionDiff
-						original={annotation.suggestion.originalText}
-						suggested={annotation.suggestion.suggestedText}
-						onAccept={onAcceptSuggestion ? handleAcceptSuggestion : undefined}
-						className="mb-3"
-					/>
-				) : null}
+			{/* Confirmation dialog */}
+			{confirmAction && (
+				<div className="border-b border-border bg-muted/30 px-3 py-2">
+					<p className="mb-2 text-xs text-muted-foreground">
+						{confirmAction === "resolve" && "Mark as resolved?"}
+						{confirmAction === "reopen" && "Reopen this annotation?"}
+						{confirmAction === "delete" && "Delete this annotation?"}
+					</p>
+					<div className="flex gap-2">
+						<button
+							type="button"
+							onClick={
+								confirmAction === "resolve"
+									? handleResolveClick
+									: confirmAction === "reopen"
+										? handleReopenClick
+										: handleDeleteClick
+							}
+							className={cn(
+								"flex-1 rounded px-2 py-1.5 text-xs font-medium transition-colors",
+								confirmAction === "delete"
+									? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+									: "bg-primary text-primary-foreground hover:bg-primary/90",
+							)}
+						>
+							{confirmAction === "resolve" && "Resolve"}
+							{confirmAction === "reopen" && "Reopen"}
+							{confirmAction === "delete" && "Delete"}
+						</button>
+						<button
+							type="button"
+							onClick={handleCancelAction}
+							className="flex-1 rounded border border-border bg-background px-2 py-1.5 text-xs font-medium transition-colors hover:bg-muted"
+						>
+							Cancel
+						</button>
+					</div>
+				</div>
+			)}
 
-				<p className="whitespace-pre-wrap text-sm">{annotation.content}</p>
+			<div className="max-h-80 overflow-y-auto p-3">
+				{/* Author and time metadata */}
+				<div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
+					<span className="font-medium text-foreground">
+						{annotation.author}
+					</span>
+					<span>{formatRelativeTime(annotation.createdAt)}</span>
+					{annotation.orphaned && (
+						<span className="rounded bg-status-warning/10 px-1.5 py-0.5 text-[10px] font-medium text-status-warning">
+							Orphaned
+						</span>
+					)}
+				</div>
+				<p className="whitespace-pre-wrap text-sm">
+					{expandedComments.has(annotation.id)
+						? annotation.content
+						: truncateContent(annotation.content)}
+				</p>
+				{needsTruncation(annotation.content) && (
+					<button
+						type="button"
+						onClick={() => toggleExpanded(annotation.id)}
+						className="text-xs text-primary hover:underline mt-1"
+					>
+						{expandedComments.has(annotation.id) ? "Show less" : "Show more"}
+					</button>
+				)}
 
 				{annotation.replies.length > 0 && (
 					<div className="mt-3 border-t border-border pt-2">
 						{annotation.replies.map((reply) => (
-							<ReplyItem key={reply.id} reply={reply} />
+							<ReplyItem
+								key={reply.id}
+								reply={reply}
+								isExpanded={expandedComments.has(reply.id)}
+								onToggleExpand={() => toggleExpanded(reply.id)}
+							/>
 						))}
 					</div>
 				)}
@@ -391,34 +558,9 @@ export function AnnotationPopover({
 					</button>
 				</div>
 
-				<div className="mt-2 flex items-center justify-between">
-					<span className="text-xs text-muted-foreground">
-						Cmd/Ctrl+Enter to send
-					</span>
-					<button
-						type="button"
-						onClick={isResolved ? handleReopen : handleResolve}
-						className={cn(
-							"inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium transition-colors",
-							isResolved
-								? "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-								: "bg-terminal-green/10 text-terminal-green hover:bg-terminal-green/20",
-							"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-						)}
-					>
-						{isResolved ? (
-							<>
-								<RefreshCw className="h-3 w-3" aria-hidden="true" />
-								Reopen
-							</>
-						) : (
-							<>
-								<Check className="h-3 w-3" aria-hidden="true" />
-								Resolve
-							</>
-						)}
-					</button>
-				</div>
+				<span className="mt-1 text-xs text-muted-foreground">
+					Cmd/Ctrl+Enter to send
+				</span>
 			</footer>
 		</div>
 	);

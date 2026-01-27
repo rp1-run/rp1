@@ -202,9 +202,7 @@ export async function createAnnotation(
 		id: generateAnnotationId(),
 		artifactPath: request.artifactPath,
 		anchor: request.anchor,
-		annotationType: request.annotationType,
 		content: request.content,
-		suggestion: request.suggestion ?? null,
 		status: "open",
 		author: author ?? "user",
 		createdAt: now,
@@ -224,12 +222,12 @@ export async function createAnnotation(
 
 /**
  * Update an existing annotation.
- * Only allows updating content, suggestion, and orphaned status.
+ * Only allows updating content and orphaned status.
  */
 export async function updateAnnotation(
 	projectPath: string,
 	id: string,
-	updates: Partial<Pick<Annotation, "content" | "suggestion" | "orphaned">>,
+	updates: Partial<Pick<Annotation, "content" | "orphaned">>,
 ): Promise<Annotation> {
 	const file = await loadOpenTasksFile(projectPath);
 	const index = file.annotations.findIndex((a) => a.id === id);

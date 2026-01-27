@@ -10,7 +10,6 @@ import type {
 	Annotation,
 	HiddenAnchor,
 	LineAnchor,
-	SuggestionEdit,
 	TextSelectionAnchor,
 } from "../types/annotations";
 import { getAnnotations } from "./annotation-service";
@@ -19,29 +18,6 @@ import { getAnnotations } from "./annotation-service";
  * Regex patterns for parsing embedded annotations.
  */
 const ANNOTATION_START_PATTERN = /<!-- rp1:annotation:([A-Z0-9-]+) -->/g;
-const SUGGESTION_PATTERN =
-	/<!-- rp1:suggestion:([A-Z0-9-]+) original="([^"]*)" suggested="([^"]*)" -->/g;
-
-/**
- * Escape special characters for use in HTML comment attributes.
- * Escapes double quotes and prevents premature comment close.
- */
-function escapeForComment(text: string): string {
-	return text
-		.replace(/"/g, "&quot;")
-		.replace(/-->/g, "--&gt;")
-		.replace(/<!--/g, "&lt;!--");
-}
-
-/**
- * Unescape HTML comment attribute values.
- */
-function unescapeFromComment(text: string): string {
-	return text
-		.replace(/&quot;/g, '"')
-		.replace(/--&gt;/g, "-->")
-		.replace(/&lt;!--/g, "<!--");
-}
 
 /**
  * Format an annotation as HTML comment markers.
@@ -57,20 +33,8 @@ function formatAnnotationMarker(annotation: Annotation): {
 }
 
 /**
- * Format a suggestion annotation as a single HTML comment.
- */
-function formatSuggestionMarker(
-	annotationId: string,
-	suggestion: SuggestionEdit,
-): string {
-	const original = escapeForComment(suggestion.originalText);
-	const suggested = escapeForComment(suggestion.suggestedText);
-	return `<!-- rp1:suggestion:${annotationId} original="${original}" suggested="${suggested}" -->`;
-}
-
-/**
  * Find the position to insert annotation marker based on anchor type.
- * Returns the start and end indices for wrapping text, or insertion point for suggestions.
+ * Returns the start and end indices for wrapping text.
  */
 function findAnchorPosition(
 	content: string,
@@ -165,15 +129,8 @@ function removeAnnotationMarkers(
 		`<!-- /rp1:annotation:${escapeRegex(annotationId)} -->`,
 		"g",
 	);
-	const suggestionPattern = new RegExp(
-		`<!-- rp1:suggestion:${escapeRegex(annotationId)} original="[^"]*" suggested="[^"]*" -->`,
-		"g",
-	);
 
-	return content
-		.replace(startPattern, "")
-		.replace(endPattern, "")
-		.replace(suggestionPattern, "");
+	return content.replace(startPattern, "").replace(endPattern, "");
 }
 
 /**
@@ -192,36 +149,7 @@ export function parseEmbeddedAnnotations(content: string): string[] {
 		ids.add(match[1]);
 	}
 
-	// Also check suggestion markers
-	SUGGESTION_PATTERN.lastIndex = 0;
-	while ((match = SUGGESTION_PATTERN.exec(content)) !== null) {
-		ids.add(match[1]);
-	}
-
 	return Array.from(ids);
-}
-
-/**
- * Parse suggestion data from an embedded suggestion marker.
- * Returns null if no suggestion found for the given ID.
- */
-export function parseSuggestionMarker(
-	content: string,
-	annotationId: string,
-): SuggestionEdit | null {
-	const pattern = new RegExp(
-		`<!-- rp1:suggestion:${escapeRegex(annotationId)} original="([^"]*)" suggested="([^"]*)" -->`,
-	);
-	const match = content.match(pattern);
-
-	if (!match) {
-		return null;
-	}
-
-	return {
-		originalText: unescapeFromComment(match[1]),
-		suggestedText: unescapeFromComment(match[2]),
-	};
 }
 
 /**
@@ -292,26 +220,14 @@ export async function embedAnnotations(
 
 	// Insert markers
 	for (const { annotation, position } of insertions) {
-		if (annotation.annotationType === "suggestion" && annotation.suggestion) {
-			// Insert suggestion marker at the start of the text
-			const marker = formatSuggestionMarker(
-				annotation.id,
-				annotation.suggestion,
-			);
-			updatedContent =
-				updatedContent.slice(0, position.start) +
-				marker +
-				updatedContent.slice(position.start);
-		} else {
-			// Insert comment markers wrapping the text
-			const markers = formatAnnotationMarker(annotation);
-			updatedContent =
-				updatedContent.slice(0, position.start) +
-				markers.start +
-				updatedContent.slice(position.start, position.end) +
-				markers.end +
-				updatedContent.slice(position.end);
-		}
+		// Insert comment markers wrapping the text
+		const markers = formatAnnotationMarker(annotation);
+		updatedContent =
+			updatedContent.slice(0, position.start) +
+			markers.start +
+			updatedContent.slice(position.start, position.end) +
+			markers.end +
+			updatedContent.slice(position.end);
 	}
 
 	// Write updated content if changed

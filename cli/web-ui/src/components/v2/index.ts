@@ -1,4 +1,8 @@
 export {
+	AnnotationIndicator,
+	type AnnotationIndicatorProps,
+} from "./AnnotationIndicator";
+export {
 	AnnotationPopover,
 	type AnnotationPopoverProps,
 } from "./AnnotationPopover";
@@ -29,10 +33,6 @@ export {
 } from "./SelectionPopover";
 export { StatusBadge, type StatusBadgeProps } from "./StatusBadge";
 export { StepTimeline, type StepTimelineProps } from "./StepTimeline";
-export {
-	SuggestionDiff,
-	type SuggestionDiffProps,
-} from "./SuggestionDiff";
 export {
 	TableOfContents,
 	type TableOfContentsProps,

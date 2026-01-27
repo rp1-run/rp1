@@ -6,7 +6,6 @@ import {
 	Loader2,
 	MessageSquare,
 	PanelLeft,
-	PanelRightClose,
 } from "lucide-react";
 import {
 	useCallback,
@@ -91,7 +90,6 @@ function getCodeLanguageFromPath(path: string): string | null {
 		txt: "text",
 	};
 
-	// Markdown files should use MarkdownViewer
 	if (ext === "md" || ext === "mdx") return null;
 
 	return extToLang[ext] ?? null;
@@ -104,16 +102,14 @@ interface ArtifactContent {
 
 /**
  * Annotation toggle button component (must be inside AnnotationProvider).
- * Shows the toggle button with annotation count badge.
+ * Only shows when sidebar is closed - provides a way to open it.
  */
 function AnnotationToggleButton({
 	selectedArtifactPath,
-	annotationSidebarOpen,
-	setAnnotationSidebarOpen,
+	onOpen,
 }: {
 	selectedArtifactPath: string;
-	annotationSidebarOpen: boolean;
-	setAnnotationSidebarOpen: (open: boolean) => void;
+	onOpen: () => void;
 }) {
 	const { count } = useAnnotations({ artifactPath: selectedArtifactPath });
 
@@ -125,20 +121,11 @@ function AnnotationToggleButton({
 						variant="ghost"
 						size="icon"
 						className="h-8 w-8 relative"
-						onClick={() => setAnnotationSidebarOpen(!annotationSidebarOpen)}
-						aria-label={
-							annotationSidebarOpen
-								? "Close annotations panel"
-								: "Open annotations panel"
-						}
-						aria-expanded={annotationSidebarOpen}
+						onClick={onOpen}
+						aria-label="Open annotations panel"
 					>
-						{annotationSidebarOpen ? (
-							<PanelRightClose className="h-4 w-4" aria-hidden="true" />
-						) : (
-							<MessageSquare className="h-4 w-4" aria-hidden="true" />
-						)}
-						{count > 0 && !annotationSidebarOpen && (
+						<MessageSquare className="h-4 w-4" aria-hidden="true" />
+						{count > 0 && (
 							<span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground">
 								{count > 99 ? "99+" : count}
 							</span>
@@ -243,6 +230,13 @@ export function ArtifactViewerPage() {
 	const handleToggleTocCollapse = useCallback(() => {
 		setTocCollapsed((prev) => {
 			const newValue = !prev;
+			// Close annotations when opening ToC
+			if (!newValue) {
+				setAnnotationSidebarOpen(false);
+				if (typeof window !== "undefined") {
+					sessionStorage.setItem(STORAGE_KEY_ANNOTATIONS_COLLAPSED, "true");
+				}
+			}
 			if (typeof window !== "undefined") {
 				sessionStorage.setItem(STORAGE_KEY_TOC_COLLAPSED, String(newValue));
 			}
@@ -252,6 +246,13 @@ export function ArtifactViewerPage() {
 
 	const handleToggleAnnotationSidebar = useCallback((open: boolean) => {
 		setAnnotationSidebarOpen(open);
+		// Close ToC when opening annotations
+		if (open) {
+			setTocCollapsed(true);
+			if (typeof window !== "undefined") {
+				sessionStorage.setItem(STORAGE_KEY_TOC_COLLAPSED, "true");
+			}
+		}
 		if (typeof window !== "undefined") {
 			sessionStorage.setItem(STORAGE_KEY_ANNOTATIONS_COLLAPSED, String(!open));
 		}
@@ -292,15 +293,6 @@ export function ArtifactViewerPage() {
 
 			if (targetElement) {
 				targetElement.scrollIntoView({ behavior: "smooth", block: "center" });
-				// Add a brief highlight effect
-				targetElement.classList.add("ring-2", "ring-primary", "ring-offset-2");
-				setTimeout(() => {
-					targetElement?.classList.remove(
-						"ring-2",
-						"ring-primary",
-						"ring-offset-2",
-					);
-				}, 2000);
 			}
 
 			// Close mobile drawer if open
@@ -746,7 +738,6 @@ export function ArtifactViewerPage() {
 						headings={headings}
 						activeId={activeHeadingId}
 						onNavigate={handleTocNavigateMobile}
-						collapsed={false}
 					/>
 				</Drawer>
 
@@ -759,8 +750,7 @@ export function ArtifactViewerPage() {
 					>
 						<AnnotationSidebar
 							artifactPath={selectedArtifactPath}
-							isOpen={true}
-							onToggle={() => setAnnotationDrawerOpen(false)}
+							onClose={() => setAnnotationDrawerOpen(false)}
 							onNavigateToAnnotation={handleNavigateToAnnotation}
 							className="border-l-0 w-full"
 						/>
@@ -838,7 +828,7 @@ export function ArtifactViewerPage() {
 
 			<ResizablePanelGroup
 				direction="horizontal"
-				className="flex-1"
+				className="flex-1 overflow-hidden"
 				autoSaveId="artifact-viewer-panels"
 			>
 				<ResizablePanel
@@ -848,7 +838,7 @@ export function ArtifactViewerPage() {
 					collapsible
 					className="bg-card"
 				>
-					<aside aria-label="Artifact list">
+					<aside aria-label="Artifact list" className="h-full">
 						<ScrollArea className="h-full">
 							<ArtifactSidebar
 								artifacts={run.artifacts}
@@ -865,7 +855,7 @@ export function ArtifactViewerPage() {
 					defaultSize={ANNOTATIONS_ENABLED ? 55 : 70}
 					minSize={40}
 				>
-					<main className="relative flex h-full flex-col">
+					<main className="relative flex h-full flex-col overflow-hidden">
 						<div
 							className="flex items-center justify-end gap-2 border-b px-4 py-2"
 							role="toolbar"
@@ -895,16 +885,15 @@ export function ArtifactViewerPage() {
 									</Tooltip>
 								</TooltipProvider>
 							)}
-							{ANNOTATIONS_ENABLED && (
+							{ANNOTATIONS_ENABLED && !annotationSidebarOpen && (
 								<AnnotationToggleButton
 									selectedArtifactPath={selectedArtifactPath}
-									annotationSidebarOpen={annotationSidebarOpen}
-									setAnnotationSidebarOpen={handleToggleAnnotationSidebar}
+									onOpen={() => handleToggleAnnotationSidebar(true)}
 								/>
 							)}
 						</div>
 
-						<ScrollArea className="flex-1" viewportRef={scrollViewportRef}>
+						<ScrollArea className="flex-1 min-h-0" viewportRef={scrollViewportRef}>
 							<article
 								className="p-6"
 								onScroll={handleScroll as unknown as React.UIEventHandler}
@@ -932,13 +921,12 @@ export function ArtifactViewerPage() {
 							maxSize={19}
 							collapsible
 						>
-							<aside aria-label="Table of contents">
+							<aside aria-label="Table of contents" className="h-full">
 								<TableOfContents
 									headings={headings}
 									activeId={activeHeadingId}
 									onNavigate={handleTocNavigate}
-									collapsed={false}
-									onToggleCollapse={handleToggleTocCollapse}
+									onClose={handleToggleTocCollapse}
 								/>
 							</aside>
 						</ResizablePanel>
@@ -957,10 +945,7 @@ export function ArtifactViewerPage() {
 						>
 							<AnnotationSidebar
 								artifactPath={selectedArtifactPath}
-								isOpen={annotationSidebarOpen}
-								onToggle={() =>
-									handleToggleAnnotationSidebar(!annotationSidebarOpen)
-								}
+								onClose={() => handleToggleAnnotationSidebar(false)}
 								onNavigateToAnnotation={handleNavigateToAnnotation}
 								className="h-full"
 							/>

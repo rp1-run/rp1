@@ -1,10 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { HiddenAnchor, TextSelectionAnchor } from "@/types/annotations";
 
+/** Anchor rectangle for popover positioning */
+export interface AnchorRect {
+	readonly left: number;
+	readonly right: number;
+	readonly top: number;
+	readonly bottom: number;
+}
+
 /** Position coordinates for popover placement */
 export interface SelectionPosition {
 	readonly x: number;
 	readonly y: number;
+	readonly anchorRect: AnchorRect;
 }
 
 /** Result returned by useTextSelection hook */
@@ -163,6 +172,12 @@ function calculateSelectionPosition(
 	return {
 		x: rect.left + rect.width / 2,
 		y: rect.top,
+		anchorRect: {
+			left: rect.left,
+			right: rect.right,
+			top: rect.top,
+			bottom: rect.bottom,
+		},
 	};
 }
 
@@ -360,6 +375,12 @@ export function detectHiddenAnchors(
 		const position: SelectionPosition = {
 			x: rect.left - containerRect.left + rect.width / 2,
 			y: rect.top - containerRect.top,
+			anchorRect: {
+				left: rect.left,
+				right: rect.right,
+				top: rect.top,
+				bottom: rect.bottom,
+			},
 		};
 
 		anchors.push({
@@ -436,6 +457,12 @@ export function findHiddenAnchorById(
 		position: {
 			x: rect.left + rect.width / 2,
 			y: rect.top,
+			anchorRect: {
+				left: rect.left,
+				right: rect.right,
+				top: rect.top,
+				bottom: rect.bottom,
+			},
 		},
 	};
 }

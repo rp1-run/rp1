@@ -5,11 +5,9 @@ import {
 	Filter,
 	MessageSquare,
 	PanelRightClose,
-	PanelRightOpen,
 	X,
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAnnotations } from "@/hooks/useAnnotations";
 import { cn } from "@/lib/utils";
 import { useAnnotationContext } from "@/providers/AnnotationProvider";
@@ -17,8 +15,7 @@ import type { Annotation, AnnotationFilter } from "@/types/annotations";
 
 export interface AnnotationSidebarProps {
 	artifactPath: string;
-	isOpen: boolean;
-	onToggle: () => void;
+	onClose: () => void;
 	onNavigateToAnnotation?: (annotation: Annotation) => void;
 	className?: string;
 }
@@ -140,55 +137,82 @@ function FilterDropdown<T extends string>({
 interface AnnotationItemProps {
 	annotation: Annotation;
 	onClick: () => void;
+	isExpanded: boolean;
+	onToggleExpand: () => void;
 }
 
-function AnnotationItem({ annotation, onClick }: AnnotationItemProps) {
+function AnnotationItem({
+	annotation,
+	onClick,
+	isExpanded,
+	onToggleExpand,
+}: AnnotationItemProps) {
 	const anchorPreview = getAnchorPreview(annotation);
 	const isResolved = annotation.status === "resolved";
 	const replyCount = annotation.replies.length;
+	const showTruncation = needsTruncation(annotation.content);
+	const displayContent = isExpanded
+		? annotation.content
+		: truncateContent(annotation.content);
 
 	return (
-		<button
-			type="button"
-			onClick={onClick}
+		<div
 			className={cn(
 				"w-full rounded-md border border-transparent px-2 py-1.5 text-left transition-colors",
 				"hover:border-border hover:bg-muted/50",
-				"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 				isResolved && "opacity-60",
 			)}
 		>
-			<div className="flex items-start gap-2">
-				<MessageSquare
-					className={cn(
-						"mt-0.5 h-3.5 w-3.5 shrink-0",
-						annotation.annotationType === "suggestion"
-							? "text-terminal-green"
-							: "text-muted-foreground",
-					)}
-					aria-hidden="true"
-				/>
-				<div className="min-w-0 flex-1">
-					<p className="truncate text-xs text-muted-foreground">
-						{anchorPreview}
-					</p>
-					<p className="mt-0.5 line-clamp-2 text-sm">{annotation.content}</p>
-					<div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-						<span>{annotation.author}</span>
-						<span>-</span>
-						<span>{formatRelativeTime(annotation.createdAt)}</span>
-						{replyCount > 0 && (
-							<>
-								<span>-</span>
-								<span>
-									{replyCount} {replyCount === 1 ? "reply" : "replies"}
-								</span>
-							</>
+			<button
+				type="button"
+				onClick={onClick}
+				className="w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+			>
+				<div className="flex items-start gap-2">
+					<div
+						className={cn(
+							"mt-1.5 h-2 w-2 shrink-0 rounded-full",
+							isResolved ? "bg-terminal-green" : "bg-yellow-400",
 						)}
+						role="img"
+						aria-label={isResolved ? "Resolved" : "Open"}
+					/>
+					<div className="min-w-0 flex-1">
+						<p className="truncate text-xs text-muted-foreground">
+							{anchorPreview}
+						</p>
+						<p className="mt-0.5 whitespace-pre-wrap text-sm">
+							{displayContent}
+						</p>
+						<div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+							<span>{annotation.author}</span>
+							<span>-</span>
+							<span>{formatRelativeTime(annotation.createdAt)}</span>
+							{replyCount > 0 && (
+								<>
+									<span>-</span>
+									<span>
+										{replyCount} {replyCount === 1 ? "reply" : "replies"}
+									</span>
+								</>
+							)}
+						</div>
 					</div>
 				</div>
-			</div>
-		</button>
+			</button>
+			{showTruncation && (
+				<button
+					type="button"
+					onClick={(e) => {
+						e.stopPropagation();
+						onToggleExpand();
+					}}
+					className="ml-4 mt-1 text-xs text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+				>
+					{isExpanded ? "Show less" : "Show more"}
+				</button>
+			)}
+		</div>
 	);
 }
 
@@ -222,14 +246,47 @@ function formatRelativeTime(dateString: string): string {
 	return date.toLocaleDateString();
 }
 
+const TRUNCATION_LINES = 3;
+const TRUNCATION_CHARS = 200;
+
+function needsTruncation(content: string): boolean {
+	const lineCount = content.split("\n").length;
+	return lineCount > TRUNCATION_LINES || content.length > TRUNCATION_CHARS;
+}
+
+function truncateContent(content: string): string {
+	const lines = content.split("\n");
+	if (lines.length > TRUNCATION_LINES) {
+		return `${lines.slice(0, TRUNCATION_LINES).join("\n")}...`;
+	}
+	if (content.length > TRUNCATION_CHARS) {
+		return `${content.slice(0, TRUNCATION_CHARS)}...`;
+	}
+	return content;
+}
+
 export function AnnotationSidebar({
 	artifactPath,
-	isOpen,
-	onToggle,
+	onClose,
 	onNavigateToAnnotation,
 	className,
 }: AnnotationSidebarProps) {
 	const [showFilters, setShowFilters] = useState(false);
+	const [expandedComments, setExpandedComments] = useState<Set<string>>(
+		new Set(),
+	);
+
+	const toggleExpanded = useCallback((annotationId: string) => {
+		setExpandedComments((prev) => {
+			const next = new Set(prev);
+			if (next.has(annotationId)) {
+				next.delete(annotationId);
+			} else {
+				next.add(annotationId);
+			}
+			return next;
+		});
+	}, []);
 
 	const {
 		groupedAnnotations,
@@ -303,37 +360,15 @@ export function AnnotationSidebar({
 		filter.author !== null ||
 		filter.dateRange !== "all";
 
-	if (!isOpen) {
-		return (
-			<button
-				type="button"
-				onClick={onToggle}
-				className={cn(
-					"flex h-10 w-10 items-center justify-center rounded-md border border-border bg-background transition-colors",
-					"hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-					className,
-				)}
-				aria-label="Open annotations panel"
-			>
-				<PanelRightOpen className="h-4 w-4" aria-hidden="true" />
-				{count > 0 && (
-					<span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground">
-						{count > 99 ? "99+" : count}
-					</span>
-				)}
-			</button>
-		);
-	}
-
 	return (
 		<aside
 			className={cn(
-				"flex w-80 flex-col border-l border-border bg-background",
+				"flex h-full flex-col border-l border-border bg-background",
 				className,
 			)}
 			aria-label="Annotations panel"
 		>
-			<header className="flex items-center justify-between border-b border-border px-3 py-2">
+			<header className="shrink-0 flex items-center justify-between border-b border-border bg-background px-3 py-2">
 				<div className="flex items-center gap-2">
 					<h2 className="text-sm font-semibold">Annotations</h2>
 					<span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
@@ -356,7 +391,7 @@ export function AnnotationSidebar({
 					</button>
 					<button
 						type="button"
-						onClick={onToggle}
+						onClick={onClose}
 						className={cn(
 							"rounded-md p-1.5 transition-colors",
 							"hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -405,7 +440,7 @@ export function AnnotationSidebar({
 				</div>
 			)}
 
-			<ScrollArea className="flex-1">
+			<div className="flex-1 overflow-y-auto">
 				{isLoading ? (
 					<div className="flex items-center justify-center py-8">
 						<span className="text-sm text-muted-foreground">Loading...</span>
@@ -423,13 +458,14 @@ export function AnnotationSidebar({
 					</div>
 				) : (
 					<ul className="space-y-1 p-2">
-						{/* Show all annotations in a flat list - open first, then resolved */}
 						{[...groupedAnnotations.open, ...groupedAnnotations.resolved].map(
 							(annotation) => (
 								<li key={annotation.id}>
 									<AnnotationItem
 										annotation={annotation}
 										onClick={() => handleAnnotationClick(annotation)}
+										isExpanded={expandedComments.has(annotation.id)}
+										onToggleExpand={() => toggleExpanded(annotation.id)}
 									/>
 								</li>
 							),
@@ -448,6 +484,8 @@ export function AnnotationSidebar({
 										<AnnotationItem
 											annotation={annotation}
 											onClick={() => handleAnnotationClick(annotation)}
+											isExpanded={expandedComments.has(annotation.id)}
+											onToggleExpand={() => toggleExpanded(annotation.id)}
 										/>
 									</li>
 								))}
@@ -455,9 +493,9 @@ export function AnnotationSidebar({
 						)}
 					</ul>
 				)}
-			</ScrollArea>
+			</div>
 
-			<footer className="border-t border-border px-3 py-2">
+			<footer className="shrink-0 border-t border-border px-3 py-2">
 				<p className="text-xs text-muted-foreground">
 					{count} annotation{count !== 1 ? "s" : ""}
 					{countByStatus.orphaned > 0 && (

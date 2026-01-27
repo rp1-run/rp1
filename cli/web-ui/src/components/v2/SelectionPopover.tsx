@@ -1,4 +1,4 @@
-import { GitCompare, MessageSquare, Send, X } from "lucide-react";
+import { MessageSquare, Send, X } from "lucide-react";
 import {
 	type KeyboardEvent,
 	useCallback,
@@ -6,20 +6,23 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { cn } from "@/lib/utils";
+import type { SelectionPosition } from "@/hooks/useTextSelection";
+import {
+	calculatePopoverPosition,
+	cn,
+	type PopoverPosition,
+} from "@/lib/utils";
 import { useAnnotationContext } from "@/providers/AnnotationProvider";
-import type { SuggestionEdit, TextSelectionAnchor } from "@/types/annotations";
+import type { TextSelectionAnchor } from "@/types/annotations";
 
 export interface SelectionPopoverProps {
 	anchor: TextSelectionAnchor;
 	artifactPath: string;
-	position: { x: number; y: number };
+	position: SelectionPosition;
 	onClose: () => void;
 	onAnnotationCreated?: () => void;
 	className?: string;
 }
-
-type Mode = "comment" | "suggestion";
 
 export function SelectionPopover({
 	anchor,
@@ -29,11 +32,13 @@ export function SelectionPopover({
 	onAnnotationCreated,
 	className,
 }: SelectionPopoverProps) {
-	const [mode, setMode] = useState<Mode>("comment");
 	const [content, setContent] = useState("");
-	const [suggestionText, setSuggestionText] = useState(anchor.selectedText);
 	const [isSubmitting, setIsSubmitting] = useState(false);
-	const [adjustedPosition, setAdjustedPosition] = useState(position);
+	const [popoverPosition, setPopoverPosition] = useState<PopoverPosition>({
+		x: position.anchorRect.right + 8,
+		y: position.anchorRect.top,
+		side: "right",
+	});
 
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const popoverRef = useRef<HTMLDivElement>(null);
@@ -43,37 +48,19 @@ export function SelectionPopover({
 		textareaRef.current?.focus();
 	}, []);
 
-	// Adjust position to stay within viewport
+	// Calculate viewport-aware position
 	useEffect(() => {
 		if (!popoverRef.current) return;
 
 		const rect = popoverRef.current.getBoundingClientRect();
-		const viewportHeight = window.innerHeight;
-		const viewportWidth = window.innerWidth;
-		const padding = 16;
+		const newPosition = calculatePopoverPosition(
+			position.anchorRect,
+			rect.width,
+			rect.height,
+		);
 
-		let newX = position.x;
-		let newY = position.y;
-
-		// Check bottom overflow - move above if needed
-		if (position.y + rect.height + padding > viewportHeight) {
-			newY = Math.max(padding, position.y - rect.height - 16);
-		}
-
-		// Check right overflow
-		if (position.x + rect.width / 2 + padding > viewportWidth) {
-			newX = viewportWidth - rect.width / 2 - padding;
-		}
-
-		// Check left overflow
-		if (position.x - rect.width / 2 < padding) {
-			newX = rect.width / 2 + padding;
-		}
-
-		if (newX !== position.x || newY !== position.y) {
-			setAdjustedPosition({ x: newX, y: newY });
-		}
-	}, [position]);
+		setPopoverPosition(newPosition);
+	}, [position.anchorRect]);
 
 	// Click outside handler
 	useEffect(() => {
@@ -107,9 +94,19 @@ export function SelectionPopover({
 		};
 	}, [onClose]);
 
+	// Close on scroll
 	useEffect(() => {
-		setSuggestionText(anchor.selectedText);
-	}, [anchor.selectedText]);
+		const handleScroll = () => {
+			onClose();
+		};
+
+		// Listen for scroll on window and capture phase to catch scrolling containers
+		window.addEventListener("scroll", handleScroll, true);
+
+		return () => {
+			window.removeEventListener("scroll", handleScroll, true);
+		};
+	}, [onClose]);
 
 	const handleSubmit = useCallback(async () => {
 		const trimmedContent = content.trim();
@@ -117,20 +114,10 @@ export function SelectionPopover({
 
 		setIsSubmitting(true);
 		try {
-			const suggestion: SuggestionEdit | undefined =
-				mode === "suggestion"
-					? {
-							originalText: anchor.selectedText,
-							suggestedText: suggestionText,
-						}
-					: undefined;
-
 			await createAnnotation({
 				artifactPath,
 				anchor,
-				annotationType: mode,
 				content: trimmedContent,
-				suggestion,
 			});
 
 			onAnnotationCreated?.();
@@ -146,10 +133,8 @@ export function SelectionPopover({
 		content,
 		createAnnotation,
 		isSubmitting,
-		mode,
 		onAnnotationCreated,
 		onClose,
-		suggestionText,
 	]);
 
 	const handleKeyDown = useCallback(
@@ -162,14 +147,7 @@ export function SelectionPopover({
 		[handleSubmit],
 	);
 
-	const handleModeChange = useCallback((newMode: Mode) => {
-		setMode(newMode);
-	}, []);
-
-	const canSubmit =
-		content.trim().length > 0 &&
-		!isSubmitting &&
-		(mode === "comment" || suggestionText !== anchor.selectedText);
+	const canSubmit = content.trim().length > 0 && !isSubmitting;
 
 	return (
 		<div
@@ -180,51 +158,16 @@ export function SelectionPopover({
 				className,
 			)}
 			style={{
-				left: `${adjustedPosition.x}px`,
-				top: `${adjustedPosition.y}px`,
-				transform: "translate(-50%, 8px)",
+				left: `${popoverPosition.x}px`,
+				top: `${popoverPosition.y}px`,
 			}}
 			role="dialog"
 			aria-label="Add annotation"
 		>
 			<header className="flex items-center justify-between border-b border-border px-3 py-2">
-				<div
-					className="flex rounded-md border border-border bg-muted/30 p-0.5"
-					role="tablist"
-					aria-label="Annotation type"
-				>
-					<button
-						type="button"
-						role="tab"
-						aria-selected={mode === "comment"}
-						onClick={() => handleModeChange("comment")}
-						className={cn(
-							"inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium transition-colors",
-							"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-							mode === "comment"
-								? "bg-background text-foreground shadow-sm"
-								: "text-muted-foreground hover:text-foreground",
-						)}
-					>
-						<MessageSquare className="h-3 w-3" aria-hidden="true" />
-						Comment
-					</button>
-					<button
-						type="button"
-						role="tab"
-						aria-selected={mode === "suggestion"}
-						onClick={() => handleModeChange("suggestion")}
-						className={cn(
-							"inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium transition-colors",
-							"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-							mode === "suggestion"
-								? "bg-background text-foreground shadow-sm"
-								: "text-muted-foreground hover:text-foreground",
-						)}
-					>
-						<GitCompare className="h-3 w-3" aria-hidden="true" />
-						Suggest Edit
-					</button>
+				<div className="flex items-center gap-1.5 text-xs font-medium">
+					<MessageSquare className="h-3 w-3" aria-hidden="true" />
+					<span>Add Comment</span>
 				</div>
 				<button
 					type="button"
@@ -249,41 +192,12 @@ export function SelectionPopover({
 					</p>
 				</div>
 
-				{mode === "suggestion" && (
-					<div className="mb-3">
-						<label
-							htmlFor="suggestion-text"
-							className="mb-1 block text-xs font-medium text-muted-foreground"
-						>
-							Suggested replacement:
-						</label>
-						<textarea
-							id="suggestion-text"
-							value={suggestionText}
-							onChange={(e) => setSuggestionText(e.target.value)}
-							rows={3}
-							className={cn(
-								"w-full resize-none rounded-md border border-border bg-transparent px-3 py-2 text-sm",
-								"placeholder:text-muted-foreground",
-								"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-								"disabled:cursor-not-allowed disabled:opacity-50",
-							)}
-							disabled={isSubmitting}
-						/>
-						{suggestionText === anchor.selectedText && (
-							<p className="mt-1 text-xs text-status-warning">
-								Modify the text to create a suggestion
-							</p>
-						)}
-					</div>
-				)}
-
 				<div>
 					<label
 						htmlFor="annotation-content"
 						className="mb-1 block text-xs font-medium text-muted-foreground"
 					>
-						{mode === "comment" ? "Comment:" : "Explanation (optional):"}
+						Comment:
 					</label>
 					<textarea
 						id="annotation-content"
@@ -291,11 +205,7 @@ export function SelectionPopover({
 						value={content}
 						onChange={(e) => setContent(e.target.value)}
 						onKeyDown={handleKeyDown}
-						placeholder={
-							mode === "comment"
-								? "Add your comment..."
-								: "Explain why this change is needed..."
-						}
+						placeholder="Add your comment..."
 						rows={3}
 						className={cn(
 							"w-full resize-none rounded-md border border-border bg-transparent px-3 py-2 text-sm",
@@ -325,7 +235,7 @@ export function SelectionPopover({
 					)}
 				>
 					<Send className="h-3 w-3" aria-hidden="true" />
-					{mode === "comment" ? "Add Comment" : "Suggest Edit"}
+					Add Comment
 				</button>
 			</footer>
 		</div>

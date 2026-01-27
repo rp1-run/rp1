@@ -11,7 +11,6 @@ import { createAnnotation } from "../../server/annotation-service";
 import {
 	embedAnnotations,
 	parseEmbeddedAnnotations,
-	parseSuggestionMarker,
 	removeEmbedding,
 } from "../../server/markdown-embedder";
 import type { CreateAnnotationRequest } from "../../types/annotations";
@@ -47,28 +46,6 @@ Another annotation
 			expect(ids).toHaveLength(2);
 		});
 
-		test("extracts annotation IDs from suggestion markers", () => {
-			const content = `
-# Document
-<!-- rp1:suggestion:ANN-789 original="old" suggested="new" -->
-Some text
-`;
-			const ids = parseEmbeddedAnnotations(content);
-			expect(ids).toContain("ANN-789");
-			expect(ids).toHaveLength(1);
-		});
-
-		test("extracts mixed marker types", () => {
-			const content = `
-<!-- rp1:annotation:ANN-001 -->text<!-- /rp1:annotation:ANN-001 -->
-<!-- rp1:suggestion:ANN-002 original="a" suggested="b" -->
-`;
-			const ids = parseEmbeddedAnnotations(content);
-			expect(ids).toContain("ANN-001");
-			expect(ids).toContain("ANN-002");
-			expect(ids).toHaveLength(2);
-		});
-
 		test("returns empty array for content without markers", () => {
 			const content = "# Just a regular document\nNo annotations here.";
 			const ids = parseEmbeddedAnnotations(content);
@@ -84,51 +61,6 @@ Some text
 			const ids = parseEmbeddedAnnotations(content);
 			expect(ids).toContain("ANN-VALID");
 			expect(ids).toHaveLength(1);
-		});
-	});
-
-	describe("parseSuggestionMarker", () => {
-		test("extracts suggestion data from marker", () => {
-			const content =
-				'<!-- rp1:suggestion:ANN-123 original="old text" suggested="new text" -->';
-			const result = parseSuggestionMarker(content, "ANN-123");
-			expect(result).toEqual({
-				originalText: "old text",
-				suggestedText: "new text",
-			});
-		});
-
-		test("handles escaped characters in suggestion", () => {
-			const content =
-				'<!-- rp1:suggestion:ANN-456 original="has &quot;quotes&quot;" suggested="also &quot;quotes&quot;" -->';
-			const result = parseSuggestionMarker(content, "ANN-456");
-			expect(result).toEqual({
-				originalText: 'has "quotes"',
-				suggestedText: 'also "quotes"',
-			});
-		});
-
-		test("handles HTML comment escapes", () => {
-			const content =
-				'<!-- rp1:suggestion:ANN-789 original="before --&gt; after" suggested="has &lt;!-- comment" -->';
-			const result = parseSuggestionMarker(content, "ANN-789");
-			expect(result).toEqual({
-				originalText: "before --> after",
-				suggestedText: "has <!-- comment",
-			});
-		});
-
-		test("returns null for non-existent annotation", () => {
-			const content =
-				'<!-- rp1:suggestion:ANN-123 original="a" suggested="b" -->';
-			const result = parseSuggestionMarker(content, "ANN-999");
-			expect(result).toBeNull();
-		});
-
-		test("returns null for content without suggestions", () => {
-			const content = "Just regular content";
-			const result = parseSuggestionMarker(content, "ANN-123");
-			expect(result).toBeNull();
 		});
 	});
 
@@ -149,7 +81,6 @@ Some text
 					contextBefore: "",
 					contextAfter: " world",
 				},
-				annotationType: "comment",
 				content: "Greeting annotation",
 			};
 
@@ -168,38 +99,6 @@ Some text
 			);
 		});
 
-		test("embeds suggestion annotation with suggestion marker", async () => {
-			const artifactPath = "test.md";
-			const fullPath = join(testProjectPath, artifactPath);
-			await writeFile(fullPath, "The quick brown fox jumps.");
-
-			const request: CreateAnnotationRequest = {
-				artifactPath,
-				anchor: {
-					type: "text-selection",
-					startOffset: 4,
-					endOffset: 9,
-					selectedText: "quick",
-					contextBefore: "The ",
-					contextAfter: " brown",
-				},
-				annotationType: "suggestion",
-				content: "Change adjective",
-				suggestion: {
-					originalText: "quick",
-					suggestedText: "slow",
-				},
-			};
-
-			const annotation = await createAnnotation(testProjectPath, request);
-			await embedAnnotations(testProjectPath, artifactPath);
-
-			const updatedContent = await readFile(fullPath, "utf-8");
-			expect(updatedContent).toContain(
-				`<!-- rp1:suggestion:${annotation.id} original="quick" suggested="slow" -->`,
-			);
-		});
-
 		test("skips orphaned annotations", async () => {
 			const artifactPath = "test.md";
 			const fullPath = join(testProjectPath, artifactPath);
@@ -215,7 +114,6 @@ Some text
 					contextBefore: "",
 					contextAfter: "",
 				},
-				annotationType: "comment",
 				content: "Will be orphaned",
 			};
 
@@ -241,7 +139,6 @@ Some text
 					contextBefore: "",
 					contextAfter: " word",
 				},
-				annotationType: "comment",
 				content: "First annotation",
 			};
 
@@ -255,7 +152,6 @@ Some text
 					contextBefore: "and ",
 					contextAfter: " word",
 				},
-				annotationType: "comment",
 				content: "Second annotation",
 			};
 
@@ -299,7 +195,6 @@ Some text
 					contextBefore: "",
 					contextAfter: " content",
 				},
-				annotationType: "comment",
 				content: "Test annotation",
 			};
 
@@ -339,7 +234,6 @@ Some text
 					anchorId: "section-1",
 					anchorText: "Section 1",
 				},
-				annotationType: "comment",
 				content: "Anchor comment",
 			};
 
@@ -367,7 +261,6 @@ Some text
 					lineNumber: 2,
 					lineContent: "const y = 1;",
 				},
-				annotationType: "comment",
 				content: "Line comment",
 			};
 
@@ -378,37 +271,6 @@ Some text
 			expect(updatedContent).toContain(
 				`<!-- rp1:annotation:${annotation.id} -->`,
 			);
-		});
-
-		test("escapes special characters in suggestion markers", async () => {
-			const artifactPath = "special.md";
-			const fullPath = join(testProjectPath, artifactPath);
-			await writeFile(fullPath, 'Text with "quotes" here.');
-
-			const request: CreateAnnotationRequest = {
-				artifactPath,
-				anchor: {
-					type: "text-selection",
-					startOffset: 10,
-					endOffset: 18,
-					selectedText: '"quotes"',
-					contextBefore: "with ",
-					contextAfter: " here",
-				},
-				annotationType: "suggestion",
-				content: "Change quotes",
-				suggestion: {
-					originalText: '"quotes"',
-					suggestedText: "'single'",
-				},
-			};
-
-			const annotation = await createAnnotation(testProjectPath, request);
-			await embedAnnotations(testProjectPath, artifactPath);
-
-			const updatedContent = await readFile(fullPath, "utf-8");
-			expect(updatedContent).toContain(`rp1:suggestion:${annotation.id}`);
-			expect(updatedContent).toContain("&quot;quotes&quot;");
 		});
 	});
 
@@ -431,21 +293,6 @@ End`,
 			expect(updatedContent).not.toContain("ANN-REMOVE");
 			expect(updatedContent).toContain("keep");
 			expect(updatedContent).toContain("remove");
-		});
-
-		test("removes suggestion markers", async () => {
-			const artifactPath = "sug.md";
-			const fullPath = join(testProjectPath, artifactPath);
-			await writeFile(
-				fullPath,
-				'Text <!-- rp1:suggestion:ANN-SUG original="a" suggested="b" --> here',
-			);
-
-			await removeEmbedding(testProjectPath, artifactPath, "ANN-SUG");
-
-			const updatedContent = await readFile(fullPath, "utf-8");
-			expect(updatedContent).not.toContain("rp1:suggestion");
-			expect(updatedContent).toBe("Text  here");
 		});
 
 		test("does nothing for non-existent file", async () => {

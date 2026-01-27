@@ -50,7 +50,6 @@ describe("annotation-service", () => {
 					contextBefore: "",
 					contextAfter: "",
 				},
-				annotationType: "comment",
 				content: "First comment",
 			};
 
@@ -64,7 +63,6 @@ describe("annotation-service", () => {
 					contextBefore: "",
 					contextAfter: "",
 				},
-				annotationType: "comment",
 				content: "Second comment",
 			};
 
@@ -99,7 +97,6 @@ describe("annotation-service", () => {
 					contextBefore: "before",
 					contextAfter: "after",
 				},
-				annotationType: "comment",
 				content: "My comment",
 			};
 
@@ -124,7 +121,6 @@ describe("annotation-service", () => {
 					lineNumber: 5,
 					lineContent: "const x = 1;",
 				},
-				annotationType: "comment",
 				content: "Line comment",
 			};
 
@@ -136,33 +132,6 @@ describe("annotation-service", () => {
 			expect(annotation.author).toBe("alice");
 		});
 
-		test("creates suggestion annotation with edit data", async () => {
-			const request: CreateAnnotationRequest = {
-				artifactPath: "test.md",
-				anchor: {
-					type: "text-selection",
-					startOffset: 0,
-					endOffset: 10,
-					selectedText: "old text",
-					contextBefore: "",
-					contextAfter: "",
-				},
-				annotationType: "suggestion",
-				content: "Please change this",
-				suggestion: {
-					originalText: "old text",
-					suggestedText: "new text",
-				},
-			};
-
-			const annotation = await createAnnotation(testProjectPath, request);
-			expect(annotation.annotationType).toBe("suggestion");
-			expect(annotation.suggestion).toEqual({
-				originalText: "old text",
-				suggestedText: "new text",
-			});
-		});
-
 		test("persists annotation to file with correct schema", async () => {
 			const request: CreateAnnotationRequest = {
 				artifactPath: "test.md",
@@ -171,7 +140,6 @@ describe("annotation-service", () => {
 					anchorId: "section-1",
 					anchorText: "Section 1",
 				},
-				annotationType: "comment",
 				content: "Anchor comment",
 			};
 
@@ -199,7 +167,6 @@ describe("annotation-service", () => {
 					contextBefore: "",
 					contextAfter: "",
 				},
-				annotationType: "comment",
 				content: "Get me",
 			};
 
@@ -229,7 +196,6 @@ describe("annotation-service", () => {
 					contextBefore: "",
 					contextAfter: "",
 				},
-				annotationType: "comment",
 				content: "Original",
 			};
 
@@ -269,7 +235,6 @@ describe("annotation-service", () => {
 					contextBefore: "",
 					contextAfter: "",
 				},
-				annotationType: "comment",
 				content: "Resolve me",
 			};
 
@@ -301,7 +266,6 @@ describe("annotation-service", () => {
 					contextBefore: "",
 					contextAfter: "",
 				},
-				annotationType: "comment",
 				content: "Reopen me",
 			};
 
@@ -326,7 +290,6 @@ describe("annotation-service", () => {
 					contextBefore: "",
 					contextAfter: "",
 				},
-				annotationType: "comment",
 				content: "Delete me",
 			};
 
@@ -361,7 +324,6 @@ describe("annotation-service", () => {
 					contextBefore: "",
 					contextAfter: "",
 				},
-				annotationType: "comment",
 				content: "Original comment",
 			};
 
@@ -390,7 +352,6 @@ describe("annotation-service", () => {
 					contextBefore: "",
 					contextAfter: "",
 				},
-				annotationType: "comment",
 				content: "Original",
 			};
 
@@ -417,7 +378,6 @@ describe("annotation-service", () => {
 					contextBefore: "",
 					contextAfter: "",
 				},
-				annotationType: "comment",
 				content: "Comment",
 			};
 
@@ -453,7 +413,6 @@ describe("annotation-service", () => {
 					contextBefore: "",
 					contextAfter: "",
 				},
-				annotationType: "comment",
 				content: "Comment on original",
 			};
 
@@ -481,7 +440,6 @@ describe("annotation-service", () => {
 					contextBefore: "",
 					contextAfter: "",
 				},
-				annotationType: "comment",
 				content: "Comment",
 			};
 
@@ -510,7 +468,6 @@ describe("annotation-service", () => {
 					anchorId: "section-intro",
 					anchorText: "Introduction",
 				},
-				annotationType: "comment",
 				content: "Comment on section",
 			};
 
@@ -543,7 +500,6 @@ describe("annotation-service", () => {
 					lineNumber: 2,
 					lineContent: "const x = 1;",
 				},
-				annotationType: "comment",
 				content: "Line comment",
 			};
 
@@ -579,7 +535,6 @@ describe("annotation-service", () => {
 					contextBefore: "",
 					contextAfter: "",
 				},
-				annotationType: "comment",
 				content: "File 1 comment",
 			};
 
@@ -593,7 +548,6 @@ describe("annotation-service", () => {
 					contextBefore: "",
 					contextAfter: "",
 				},
-				annotationType: "comment",
 				content: "File 2 comment",
 			};
 
@@ -623,7 +577,6 @@ describe("annotation-service", () => {
 					contextBefore: "",
 					contextAfter: "",
 				},
-				annotationType: "comment",
 				content: "Test",
 			};
 

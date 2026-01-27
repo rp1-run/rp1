@@ -1,4 +1,4 @@
-import { Check, Code, Copy, MessageSquare, Plus, Send, X } from "lucide-react";
+import { Check, Code, Copy, MessageSquare, Send, X } from "lucide-react";
 import {
 	type KeyboardEvent,
 	useCallback,
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/tooltip";
 import { AnnotationPopover } from "@/components/v2/AnnotationPopover";
 import { useAnnotations } from "@/hooks/useAnnotations";
+import type { SelectionPosition } from "@/hooks/useTextSelection";
 import {
 	getHighlighter,
 	getLanguageDisplayName,
@@ -74,7 +75,6 @@ function LineAnnotationForm({
 			await createAnnotation({
 				artifactPath,
 				anchor,
-				annotationType: "comment",
 				content: trimmedContent,
 			});
 
@@ -188,6 +188,7 @@ interface LineGutterProps {
 	lineNumber: number;
 	annotationCount: number;
 	hasAnnotations: boolean;
+	allResolved: boolean;
 	enableAnnotations: boolean;
 	onGutterClick: (lineNumber: number, rect: DOMRect) => void;
 	onIndicatorClick: (lineNumber: number, rect: DOMRect) => void;
@@ -197,6 +198,7 @@ function LineGutter({
 	lineNumber,
 	annotationCount,
 	hasAnnotations,
+	allResolved,
 	enableAnnotations,
 	onGutterClick,
 	onIndicatorClick,
@@ -232,19 +234,32 @@ function LineGutter({
 			onMouseEnter={() => setIsHovered(true)}
 			onMouseLeave={() => setIsHovered(false)}
 			onClick={handleClick}
+			data-line-number={lineNumber}
 			aria-label={
 				hasAnnotations
 					? `View ${annotationCount} annotation${annotationCount !== 1 ? "s" : ""} on line ${lineNumber}`
 					: `Add annotation on line ${lineNumber}`
 			}
 		>
-			{/* Line number - hidden when has annotations */}
-			<span className={cn(hasAnnotations && "opacity-0")}>{lineNumber}</span>
+			<span className={cn((hasAnnotations || isHovered) && "opacity-0")}>
+				{lineNumber}
+			</span>
 
-			{/* Annotation indicator - absolutely positioned overlay */}
 			{hasAnnotations && (
-				<div className="absolute inset-0 flex items-center justify-end pr-1 text-terminal-yellow">
-					<div className="flex items-center justify-center rounded bg-terminal-yellow/20 px-1 py-0.5">
+				<div
+					className={cn(
+						"absolute inset-0 flex items-center justify-end pr-1 transition-colors",
+						allResolved
+							? "text-terminal-green/70 hover:text-terminal-green"
+							: "text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300",
+					)}
+				>
+					<div
+						className={cn(
+							"flex items-center justify-center rounded px-1 py-0.5",
+							allResolved ? "bg-terminal-green/20" : "bg-amber-500/20",
+						)}
+					>
 						<MessageSquare
 							className="h-3 w-3"
 							aria-hidden="true"
@@ -259,10 +274,15 @@ function LineGutter({
 				</div>
 			)}
 
-			{/* Hover overlay for adding annotation - only when no annotations */}
 			{!hasAnnotations && isHovered && (
-				<div className="absolute inset-0 flex items-center justify-end pr-1 text-muted-foreground hover:text-foreground transition-colors">
-					<Plus className="h-3.5 w-3.5" aria-hidden="true" />
+				<div className="absolute inset-0 flex items-center justify-end pr-1 transition-colors">
+					<div className="flex items-center justify-center rounded px-1 py-0.5 bg-amber-500/20 text-amber-600 dark:text-amber-400">
+						<MessageSquare
+							className="h-3 w-3"
+							fill="currentColor"
+							aria-hidden="true"
+						/>
+					</div>
 				</div>
 			)}
 		</button>
@@ -287,8 +307,8 @@ export function CodeBlock({
 	} | null>(null);
 
 	const [activePopover, setActivePopover] = useState<{
-		annotation: Annotation;
-		position: { x: number; y: number };
+		annotationId: string;
+		position: SelectionPosition;
 	} | null>(null);
 
 	const normalizedLang = normalizeLanguage(language);
@@ -307,6 +327,11 @@ export function CodeBlock({
 		artifactPath: artifactPath ?? "",
 	});
 	const { selectedAnnotationId, selectAnnotation } = useAnnotationContext();
+
+	// Derive active popover annotation from ID to ensure it updates when context changes
+	const activePopoverAnnotation = activePopover
+		? (annotations.find((a) => a.id === activePopover.annotationId) ?? null)
+		: null;
 
 	const lineAnnotationsMap = useMemo(() => {
 		if (!enableAnnotations || !artifactPath) {
@@ -350,10 +375,16 @@ export function CodeBlock({
 		if (gutterButton) {
 			const rect = gutterButton.getBoundingClientRect();
 			setActivePopover({
-				annotation,
+				annotationId: annotation.id,
 				position: {
 					x: rect.right + 8,
 					y: rect.top + rect.height / 2,
+					anchorRect: {
+						left: rect.left,
+						right: rect.right,
+						top: rect.top,
+						bottom: rect.bottom,
+					},
 				},
 			});
 		}
@@ -439,10 +470,16 @@ export function CodeBlock({
 			const annotations = lineAnnotationsMap.get(lineNumber);
 			if (annotations && annotations.length > 0) {
 				setActivePopover({
-					annotation: annotations[0],
+					annotationId: annotations[0].id,
 					position: {
 						x: rect.right + 8,
 						y: rect.top + rect.height / 2,
+						anchorRect: {
+							left: rect.left,
+							right: rect.right,
+							top: rect.top,
+							bottom: rect.bottom,
+						},
 					},
 				});
 			}
@@ -509,6 +546,9 @@ export function CodeBlock({
 							const hasAnnotations =
 								lineAnnotations !== undefined && lineAnnotations.length > 0;
 							const annotationCount = lineAnnotations?.length ?? 0;
+							const allResolved =
+								hasAnnotations &&
+								lineAnnotations?.every((a) => a.status === "resolved");
 
 							return (
 								<LineGutter
@@ -516,6 +556,7 @@ export function CodeBlock({
 									lineNumber={lineNumber}
 									annotationCount={annotationCount}
 									hasAnnotations={hasAnnotations}
+									allResolved={allResolved ?? false}
 									enableAnnotations={enableAnnotations && !!artifactPath}
 									onGutterClick={handleGutterClick}
 									onIndicatorClick={handleIndicatorClick}
@@ -578,9 +619,9 @@ export function CodeBlock({
 				/>
 			)}
 
-			{activePopover && (
+			{activePopover && activePopoverAnnotation && (
 				<AnnotationPopover
-					annotation={activePopover.annotation}
+					annotation={activePopoverAnnotation}
 					position={activePopover.position}
 					onClose={handleClosePopover}
 				/>

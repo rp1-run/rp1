@@ -6,9 +6,7 @@
 import type {
 	AddReplyRequest,
 	Annotation,
-	AnnotationType,
 	CreateAnnotationRequest,
-	SuggestionEdit,
 } from "../../types/annotations";
 import {
 	type AnnotationServiceError,
@@ -107,27 +105,6 @@ function isValidAnchor(anchor: unknown): boolean {
 }
 
 /**
- * Validate annotation type.
- */
-function isValidAnnotationType(type: unknown): type is AnnotationType {
-	return type === "comment" || type === "suggestion";
-}
-
-/**
- * Validate suggestion edit structure.
- */
-function isValidSuggestionEdit(suggestion: unknown): boolean {
-	if (suggestion === undefined || suggestion === null) return true;
-	if (typeof suggestion !== "object") return false;
-
-	const suggObj = suggestion as Record<string, unknown>;
-	return (
-		typeof suggObj.originalText === "string" &&
-		typeof suggObj.suggestedText === "string"
-	);
-}
-
-/**
  * Validate CreateAnnotationRequest body.
  */
 function validateCreateRequest(body: unknown): {
@@ -155,30 +132,8 @@ function validateCreateRequest(body: unknown): {
 		};
 	}
 
-	if (!isValidAnnotationType(req.annotationType)) {
-		return {
-			valid: false,
-			error: "annotationType must be 'comment' or 'suggestion'",
-		};
-	}
-
 	if (typeof req.content !== "string") {
 		return { valid: false, error: "content is required and must be a string" };
-	}
-
-	if (!isValidSuggestionEdit(req.suggestion)) {
-		return {
-			valid: false,
-			error: "suggestion must be an object with originalText and suggestedText",
-		};
-	}
-
-	// Validate suggestion is present for suggestion type
-	if (req.annotationType === "suggestion" && !req.suggestion) {
-		return {
-			valid: false,
-			error: "suggestion is required when annotationType is 'suggestion'",
-		};
 	}
 
 	return {
@@ -186,9 +141,7 @@ function validateCreateRequest(body: unknown): {
 		request: {
 			artifactPath: req.artifactPath as string,
 			anchor: req.anchor as CreateAnnotationRequest["anchor"],
-			annotationType: req.annotationType as AnnotationType,
 			content: req.content as string,
-			suggestion: req.suggestion as SuggestionEdit | undefined,
 		},
 	};
 }
@@ -273,21 +226,13 @@ export async function handleAnnotationUpdateRequest(
 		const body = (await req.json()) as Record<string, unknown>;
 
 		// Validate allowed update fields
-		const allowedFields = ["content", "suggestion", "orphaned"];
-		const updates: Partial<
-			Pick<Annotation, "content" | "suggestion" | "orphaned">
-		> = {};
+		const allowedFields = ["content", "orphaned"];
+		const updates: Partial<Pick<Annotation, "content" | "orphaned">> = {};
 
 		for (const field of allowedFields) {
 			if (field in body) {
 				if (field === "content" && typeof body.content !== "string") {
 					return errorResponse("content must be a string", 400);
-				}
-				if (field === "suggestion" && !isValidSuggestionEdit(body.suggestion)) {
-					return errorResponse(
-						"suggestion must be an object with originalText and suggestedText",
-						400,
-					);
 				}
 				if (field === "orphaned" && typeof body.orphaned !== "boolean") {
 					return errorResponse("orphaned must be a boolean", 400);

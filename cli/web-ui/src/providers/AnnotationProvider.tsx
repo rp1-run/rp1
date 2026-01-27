@@ -130,9 +130,7 @@ export function AnnotationProvider({
 				id: tempId,
 				artifactPath: request.artifactPath,
 				anchor: request.anchor,
-				annotationType: request.annotationType,
 				content: request.content,
-				suggestion: request.suggestion ?? null,
 				status: "open",
 				author: "user",
 				createdAt: new Date().toISOString(),
@@ -463,17 +461,39 @@ export function AnnotationProvider({
 			case "annotation:reply-added": {
 				const msg = message as AnnotationReplyAddedMessage;
 				setAnnotations((prev) =>
-					prev.map((a) =>
-						a.id === msg.annotationId
-							? {
-									...a,
-									replies: a.replies.some((r) => r.id === msg.reply.id)
-										? a.replies
-										: [...a.replies, msg.reply],
-									updatedAt: msg.timestamp,
-								}
-							: a,
-					),
+					prev.map((a) => {
+						if (a.id !== msg.annotationId) return a;
+
+						// Check if reply already exists by ID
+						if (a.replies.some((r) => r.id === msg.reply.id)) {
+							return a;
+						}
+
+						// Check if there's a matching temp reply to replace (race condition fix)
+						const tempIndex = a.replies.findIndex(
+							(r) =>
+								r.id.startsWith("temp-reply-") &&
+								r.content === msg.reply.content,
+						);
+
+						if (tempIndex >= 0) {
+							// Replace temp reply with real one
+							const updatedReplies = [...a.replies];
+							updatedReplies[tempIndex] = msg.reply;
+							return {
+								...a,
+								replies: updatedReplies,
+								updatedAt: msg.timestamp,
+							};
+						}
+
+						// Add as new reply
+						return {
+							...a,
+							replies: [...a.replies, msg.reply],
+							updatedAt: msg.timestamp,
+						};
+					}),
 				);
 				break;
 			}

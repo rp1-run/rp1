@@ -78,8 +78,7 @@ The annotation system enables inline feedback on artifacts. See [Annotations](an
 
 | Action | How |
 |--------|-----|
-| Add comment | Select text, click "Add Comment" |
-| Suggest edit | Select text, click "Suggest Edit", enter replacement |
+| Add comment | Select text, click "Add Comment" in the popover |
 | View annotations | Toggle annotation sidebar with toolbar button |
 | Reply to annotation | Click annotation, enter reply, Cmd/Ctrl + Enter |
 | Resolve annotation | Click annotation, click Resolve button |
@@ -88,19 +87,19 @@ The annotation system enables inline feedback on artifacts. See [Annotations](an
 
 The sidebar displays all annotations for the current artifact, grouped by status:
 
-- **Open**: Active feedback requiring attention
-- **Resolved**: Addressed annotations (collapsed)
+- **Open**: Active feedback requiring attention (yellow indicator)
+- **Resolved**: Addressed annotations (green indicator, collapsed)
 - **Orphaned**: Annotations with missing anchors (warning badge)
 
-Filter annotations by status, author, or date range using the dropdown controls.
+Click a sidebar item to scroll to the annotation and open its popover. Long comments are truncated with a "Show more" option.
 
 ### Inline Indicators
 
-Annotations appear as indicators at their anchor positions:
+Annotations display as thin vertical lines on the left side of annotated content:
 
-- **Text selections**: Highlighted text with click-to-view popover
-- **Line comments**: Icon in code block gutter
-- **Hidden anchors**: Subtle marker at anchor position
+- **Yellow line**: Open annotation requiring attention
+- **Green line**: Resolved annotation
+- **Click** the indicator to open the annotation popover
 
 ---
 

@@ -1,13 +1,10 @@
 /**
  * Type definitions for the annotation system.
- * Used for inline comments, suggestions, and threading on artifacts.
+ * Used for inline comments and threading on artifacts.
  */
 
 /** Anchor type for annotations */
 export type AnchorType = "text-selection" | "hidden-anchor" | "line";
-
-/** Annotation type */
-export type AnnotationType = "comment" | "suggestion";
 
 /** Resolution status */
 export type AnnotationStatus = "open" | "resolved";
@@ -39,12 +36,6 @@ export interface LineAnchor {
 /** Union of all anchor types */
 export type Anchor = TextSelectionAnchor | HiddenAnchor | LineAnchor;
 
-/** Suggestion edit data */
-export interface SuggestionEdit {
-	readonly originalText: string;
-	readonly suggestedText: string;
-}
-
 /** Single reply in a thread */
 export interface AnnotationReply {
 	readonly id: string;
@@ -58,9 +49,7 @@ export interface Annotation {
 	readonly id: string;
 	readonly artifactPath: string;
 	readonly anchor: Anchor;
-	readonly annotationType: AnnotationType;
 	readonly content: string;
-	readonly suggestion: SuggestionEdit | null;
 	readonly status: AnnotationStatus;
 	readonly author: string;
 	readonly createdAt: string;
@@ -73,9 +62,7 @@ export interface Annotation {
 export interface CreateAnnotationRequest {
 	readonly artifactPath: string;
 	readonly anchor: Anchor;
-	readonly annotationType: AnnotationType;
 	readonly content: string;
-	readonly suggestion?: SuggestionEdit;
 }
 
 /** Add reply request */

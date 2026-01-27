@@ -1,6 +1,6 @@
 # Annotations
 
-The annotation system enables persistent, contextual feedback on artifacts in the rp1 web UI. Add inline comments, suggest edits, and collaborate on design documents, requirements, and code.
+The annotation system enables persistent, contextual feedback on artifacts in the rp1 web UI. Add inline comments and collaborate on design documents, requirements, and code.
 
 ---
 
@@ -9,8 +9,7 @@ The annotation system enables persistent, contextual feedback on artifacts in th
 Annotations provide a feedback loop between you and AI agents working on your codebase. Key capabilities:
 
 - **Inline comments** anchored to text selections, hidden markers, or code lines
-- **Suggestion edits** rendered as GitHub-style diffs
-- **Threaded replies** for discussions
+- **Single-level replies** for discussions
 - **Real-time sync** via WebSocket
 - **Dual persistence** to JSON (machine-readable) and markdown (human-readable)
 
@@ -20,19 +19,22 @@ Annotations provide a feedback loop between you and AI agents working on your co
 
 ### Text Selection Comments
 
-1. Select text in any markdown artifact
-2. A popover appears with "Add Comment" and "Suggest Edit" options
-3. Enter your feedback and press **Cmd/Ctrl + Enter** to submit
+1. Select text in any markdown artifact or code block
+2. A small popover appears to the right of your selection with an "Add Comment" action
+3. Click to open the comment editor, then enter your feedback
+4. Press **Cmd/Ctrl + Enter** to submit
 
 The annotation anchors to the selected text. If the document changes and the text can no longer be found, the annotation is marked as "orphaned" but preserved.
 
-### Line Comments (Code Blocks)
+### Code Block Comments
 
-1. Hover over a code block's line gutter
-2. Click the **+** icon that appears
-3. Enter your comment and submit
+Code blocks support the same text selection annotation workflow as markdown content:
 
-Line annotations anchor to the specific line number in the code block.
+1. Select any text within a code block
+2. The comment popover appears to the right of your selection
+3. Add your comment and submit
+
+This unified experience allows precise feedback on any content type.
 
 ### Hidden Anchor Comments
 
@@ -40,28 +42,52 @@ Markdown files can contain hidden anchors (`<a id="section-name">`) that provide
 
 ---
 
-## Annotation Types
+## Visual Indicators
 
-### Comment
+Annotations display as thin vertical lines on the left side of annotated content, providing subtle but visible markers that don't interfere with readability.
 
-Standard feedback or question about the content. Displays as a popover at the anchor position.
+### Indicator Colors
 
-### Suggestion Edit
+| Color | Status | Description |
+|-------|--------|-------------|
+| **Yellow** | Open | Active annotations requiring attention |
+| **Green** | Resolved | Addressed annotations |
 
-Proposes a text change. Displays as a GitHub-style diff block:
+### Interaction
 
-```diff
-- original text (red background, strikethrough)
-+ suggested text (green background)
-```
+- **Click** the left-side indicator to open the annotation popover
+- The popover appears to the right of the content, positioned to avoid viewport edges
+- **Hover** over the indicator to see a visual highlight
 
-Click **Accept** to apply the suggestion (not yet implemented - for future release).
+### Code Block Indicators
+
+Code blocks display indicators in the gutter area, using the same color scheme:
+
+- Yellow gutter highlight for open annotations
+- Green gutter highlight for resolved annotations
 
 ---
 
 ## Annotation Sidebar
 
 The artifact viewer includes a collapsible annotation sidebar on the right side. Toggle it with the annotation button in the toolbar.
+
+### Sidebar Items
+
+Each annotation in the sidebar displays:
+
+- **Status indicator**: Colored dot (yellow = open, green = resolved)
+- **Preview text**: First portion of the comment content
+- **Metadata**: Author and timestamp
+
+### Content Truncation
+
+Long comments are truncated in both the sidebar and popover to maintain a clean interface:
+
+- Comments exceeding 3 lines or ~200 characters show truncated text
+- Click **Show more** to expand and view the full content
+- Click **Show less** to collapse back to the preview
+- Expanded state persists during your session
 
 ### Sections
 
@@ -71,29 +97,26 @@ The artifact viewer includes a collapsible annotation sidebar on the right side.
 | **Resolved** | Addressed annotations (collapsed by default) |
 | **Orphaned** | Annotations whose anchors could not be found (warning badge) |
 
-### Filters
-
-| Filter | Options |
-|--------|---------|
-| **Status** | Open, Resolved, All |
-| **Author** | Filter by annotation creator |
-| **Date Range** | Today, This Week, This Month, All Time |
-
 ### Navigation
 
-Click any annotation in the sidebar to scroll to its anchor position in the document. The anchor highlights briefly to help you locate it.
+Click any annotation in the sidebar to:
+
+1. Scroll the document to the annotation's anchor position
+2. Open the annotation popover at that location
+
+The sidebar remains open after navigation, allowing you to quickly move between annotations.
 
 ---
 
 ## Threading
 
-Annotations support unlimited flat replies:
+Annotations support single-level replies:
 
 1. Click an annotation indicator or sidebar item to open the popover
 2. Enter your reply in the text area at the bottom
 3. Press **Cmd/Ctrl + Enter** or click **Reply** to submit
 
-Replies display in chronological order. Each reply shows the author and timestamp.
+Replies display in chronological order beneath the original comment. Each reply shows the author and timestamp. Reply content follows the same truncation rules as main comments.
 
 ---
 
@@ -103,9 +126,10 @@ Mark annotations as resolved when addressed:
 
 1. Open the annotation popover
 2. Click the **Resolve** button (checkmark icon)
-3. The annotation moves to the "Resolved" section in the sidebar
+3. The indicator changes from yellow to green
+4. The annotation moves to the "Resolved" section in the sidebar
 
-To reopen a resolved annotation, click **Reopen** in the popover.
+To reopen a resolved annotation, click **Unresolve** in the popover. The indicator returns to yellow and the annotation moves back to the "Open" section.
 
 ---
 
@@ -156,12 +180,6 @@ Some annotated text
 <!-- /rp1:annotation:ANN-001 -->
 ```
 
-For suggestions:
-
-```markdown
-<!-- rp1:suggestion:ANN-002 original="old text" suggested="new text" -->
-```
-
 These comments are invisible in rendered markdown but provide context when viewing source files.
 
 ---
@@ -171,7 +189,6 @@ These comments are invisible in rendered markdown but provide context when viewi
 AI agents can access annotations via the JSON file to:
 
 - **Read feedback**: Understand user concerns and questions
-- **Address suggestions**: Apply suggested edits during implementation
 - **Track resolution**: Skip resolved annotations
 
 ### Reading Annotations
