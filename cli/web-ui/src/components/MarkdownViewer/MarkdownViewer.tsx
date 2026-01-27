@@ -187,13 +187,11 @@ function TextHighlight({
 		return null;
 	}
 
-	const handleClick = () => {
-		const containerRect = containerRef.current?.getBoundingClientRect();
-		if (!containerRect) return;
-
+	const handleClick = (e: React.MouseEvent) => {
+		// Use click position for more intuitive popover placement
 		onClick(annotation, {
-			x: containerRect.left + highlightPos.left + highlightPos.width / 2,
-			y: containerRect.top + highlightPos.top + highlightPos.height,
+			x: e.clientX,
+			y: e.clientY,
 		});
 	};
 
@@ -207,11 +205,11 @@ function TextHighlight({
 				"absolute pointer-events-auto cursor-pointer",
 				"border-l-2 rounded-sm",
 				isResolved
-					? "border-terminal-green/60 bg-terminal-green/5"
-					: "border-terminal-yellow bg-terminal-yellow/10",
+					? "border-terminal-green/60 bg-terminal-green/10"
+					: "border-terminal-yellow/80 bg-terminal-yellow/20",
 				isResolved
-					? "hover:bg-terminal-green/15"
-					: "hover:bg-terminal-yellow/20",
+					? "hover:bg-terminal-green/20"
+					: "hover:bg-terminal-yellow/30",
 				"transition-colors",
 			)}
 			style={{
