@@ -7,7 +7,13 @@ import {
 	Trash2,
 	X,
 } from "lucide-react";
-import { type KeyboardEvent, useCallback, useRef, useState } from "react";
+import {
+	type KeyboardEvent,
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import { cn } from "@/lib/utils";
 import { useAnnotationContext } from "@/providers/AnnotationProvider";
 import type { Annotation, AnnotationReply } from "@/types/annotations";
@@ -70,11 +76,75 @@ export function AnnotationPopover({
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [showMenu, setShowMenu] = useState(false);
 	const [confirmDelete, setConfirmDelete] = useState(false);
+	const [adjustedPosition, setAdjustedPosition] = useState(position);
 
+	const popoverRef = useRef<HTMLDivElement>(null);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 
 	const { resolveAnnotation, reopenAnnotation, deleteAnnotation, addReply } =
 		useAnnotationContext();
+
+	// Adjust position to stay within viewport
+	useEffect(() => {
+		if (!popoverRef.current) return;
+
+		const rect = popoverRef.current.getBoundingClientRect();
+		const viewportHeight = window.innerHeight;
+		const viewportWidth = window.innerWidth;
+		const padding = 16;
+
+		let newX = position.x;
+		let newY = position.y;
+
+		// Check bottom overflow - move above if needed
+		if (position.y + rect.height + padding > viewportHeight) {
+			newY = Math.max(padding, position.y - rect.height - 16);
+		}
+
+		// Check right overflow
+		if (position.x + rect.width / 2 + padding > viewportWidth) {
+			newX = viewportWidth - rect.width / 2 - padding;
+		}
+
+		// Check left overflow
+		if (position.x - rect.width / 2 < padding) {
+			newX = rect.width / 2 + padding;
+		}
+
+		if (newX !== position.x || newY !== position.y) {
+			setAdjustedPosition({ x: newX, y: newY });
+		}
+	}, [position]);
+
+	// Click outside handler
+	useEffect(() => {
+		const handleClickOutside = (e: MouseEvent) => {
+			if (
+				popoverRef.current &&
+				!popoverRef.current.contains(e.target as Node)
+			) {
+				onClose();
+			}
+		};
+
+		const handleEscape = (e: globalThis.KeyboardEvent) => {
+			if (e.key === "Escape") {
+				onClose();
+			}
+		};
+
+		// Add slight delay to avoid immediate close from the same click that opened it
+		const timeoutId = setTimeout(() => {
+			document.addEventListener("mousedown", handleClickOutside);
+			document.addEventListener("keydown", handleEscape);
+		}, 100);
+
+		return () => {
+			clearTimeout(timeoutId);
+			document.removeEventListener("mousedown", handleClickOutside);
+			document.removeEventListener("keydown", handleEscape);
+		};
+	}, [onClose]);
 
 	const isResolved = annotation.status === "resolved";
 	const hasSuggestion =
@@ -149,14 +219,15 @@ export function AnnotationPopover({
 
 	return (
 		<div
+			ref={popoverRef}
 			className={cn(
 				"fixed z-50 w-80 overflow-hidden rounded-lg border border-border bg-background shadow-xl",
 				"animate-in fade-in-0 zoom-in-95 duration-150",
 				className,
 			)}
 			style={{
-				left: `${position.x}px`,
-				top: `${position.y}px`,
+				left: `${adjustedPosition.x}px`,
+				top: `${adjustedPosition.y}px`,
 				transform: "translate(-50%, 8px)",
 			}}
 			role="dialog"

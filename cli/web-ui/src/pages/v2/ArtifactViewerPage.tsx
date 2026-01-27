@@ -42,7 +42,6 @@ import { useFollowMode } from "@/hooks/useFollowMode";
 import type { HeadingEntry } from "@/hooks/useHeadingExtraction";
 import { useIsMobile } from "@/hooks/useMediaQuery";
 import { useRunDetail } from "@/hooks/useRunDetail";
-import { cn } from "@/lib/utils";
 import { AnnotationProvider } from "@/providers/AnnotationProvider";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 import type { Annotation } from "@/types/annotations";
@@ -873,6 +872,26 @@ export function ArtifactViewerPage() {
 								enabled={followMode}
 								onToggle={() => setFollowMode(!followMode)}
 							/>
+							{tocCollapsed && headings.length > 0 && (
+								<TooltipProvider>
+									<Tooltip>
+										<TooltipTrigger asChild>
+											<Button
+												variant="ghost"
+												size="icon"
+												className="h-8 w-8"
+												onClick={handleToggleTocCollapse}
+												aria-label="Open table of contents"
+											>
+												<List className="h-4 w-4" aria-hidden="true" />
+											</Button>
+										</TooltipTrigger>
+										<TooltipContent>
+											<p>Table of contents ({headings.length})</p>
+										</TooltipContent>
+									</Tooltip>
+								</TooltipProvider>
+							)}
 							{ANNOTATIONS_ENABLED && (
 								<AnnotationToggleButton
 									selectedArtifactPath={selectedArtifactPath}
@@ -900,26 +919,28 @@ export function ArtifactViewerPage() {
 					</main>
 				</ResizablePanel>
 
-				<ResizableHandle withHandle aria-label="Resize table of contents" />
+				{!tocCollapsed && (
+					<>
+						<ResizableHandle withHandle aria-label="Resize table of contents" />
 
-				<ResizablePanel
-					defaultSize={15}
-					minSize={11}
-					maxSize={19}
-					collapsible
-					collapsedSize={3}
-					className={cn(tocCollapsed && "min-w-[40px]")}
-				>
-					<aside aria-label="Table of contents">
-						<TableOfContents
-							headings={headings}
-							activeId={activeHeadingId}
-							onNavigate={handleTocNavigate}
-							collapsed={tocCollapsed}
-							onToggleCollapse={handleToggleTocCollapse}
-						/>
-					</aside>
-				</ResizablePanel>
+						<ResizablePanel
+							defaultSize={15}
+							minSize={11}
+							maxSize={19}
+							collapsible
+						>
+							<aside aria-label="Table of contents">
+								<TableOfContents
+									headings={headings}
+									activeId={activeHeadingId}
+									onNavigate={handleTocNavigate}
+									collapsed={false}
+									onToggleCollapse={handleToggleTocCollapse}
+								/>
+							</aside>
+						</ResizablePanel>
+					</>
+				)}
 
 				{ANNOTATIONS_ENABLED && annotationSidebarOpen && (
 					<>

@@ -204,20 +204,20 @@ function TextHighlight({
 			type="button"
 			onClick={handleClick}
 			className={cn(
-				"absolute pointer-events-auto cursor-pointer p-0",
-				"border-l-2",
+				"absolute pointer-events-auto cursor-pointer",
+				"border-l-2 rounded-sm",
 				isResolved
-					? "bg-terminal-green/15 border-terminal-green/50"
-					: "bg-terminal-yellow/30 border-terminal-yellow",
+					? "border-terminal-green/60 bg-terminal-green/5"
+					: "border-terminal-yellow bg-terminal-yellow/10",
 				isResolved
-					? "hover:bg-terminal-green/25"
-					: "hover:bg-terminal-yellow/50",
+					? "hover:bg-terminal-green/15"
+					: "hover:bg-terminal-yellow/20",
 				"transition-colors",
 			)}
 			style={{
 				top: highlightPos.top,
-				left: highlightPos.left,
-				width: highlightPos.width,
+				left: highlightPos.left - 2,
+				width: highlightPos.width + 4,
 				height: highlightPos.height,
 				zIndex: 5,
 			}}
