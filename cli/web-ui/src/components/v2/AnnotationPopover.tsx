@@ -129,6 +129,7 @@ export function AnnotationPopover({
 
 		const handleEscape = (e: globalThis.KeyboardEvent) => {
 			if (e.key === "Escape") {
+				e.stopImmediatePropagation();
 				onClose();
 			}
 		};

@@ -88,6 +88,7 @@ export function SelectionPopover({
 
 		const handleEscape = (e: globalThis.KeyboardEvent) => {
 			if (e.key === "Escape") {
+				e.stopImmediatePropagation();
 				onClose();
 			}
 		};
