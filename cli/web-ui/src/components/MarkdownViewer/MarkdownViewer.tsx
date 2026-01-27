@@ -604,7 +604,14 @@ export function MarkdownViewer({
 								return <MermaidDiagram code={codeContent} />;
 							}
 
-							return <CodeBlock language={language} code={codeContent} />;
+							return (
+								<CodeBlock
+									language={language}
+									code={codeContent}
+									artifactPath={path}
+									enableAnnotations={enableAnnotations}
+								/>
+							);
 						},
 						pre: ({ children }) => {
 							return <>{children}</>;
