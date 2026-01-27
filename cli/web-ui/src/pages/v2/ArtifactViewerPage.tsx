@@ -479,9 +479,16 @@ export function ArtifactViewerPage() {
 		}
 	}, [activeHeadingId, headings]);
 
-	const handleEscapeKey = useCallback(
+	const handleKeyDown = useCallback(
 		(event: KeyboardEvent) => {
-			if (event.key === "Escape") {
+			const target = event.target as HTMLElement;
+			const isTextInput =
+				target.tagName === "INPUT" ||
+				target.tagName === "TEXTAREA" ||
+				target.isContentEditable;
+
+			if (!isTextInput && (event.key === "h" || event.key === "ArrowLeft")) {
+				event.preventDefault();
 				navigate(`/v2/runs/${runId}`);
 			}
 		},
@@ -489,11 +496,11 @@ export function ArtifactViewerPage() {
 	);
 
 	useEffect(() => {
-		document.addEventListener("keydown", handleEscapeKey);
+		document.addEventListener("keydown", handleKeyDown);
 		return () => {
-			document.removeEventListener("keydown", handleEscapeKey);
+			document.removeEventListener("keydown", handleKeyDown);
 		};
-	}, [handleEscapeKey]);
+	}, [handleKeyDown]);
 
 	if (isLoading) {
 		return (
@@ -759,7 +766,8 @@ export function ArtifactViewerPage() {
 
 				<footer className="border-t px-4 py-2 text-xs text-muted-foreground">
 					Press{" "}
-					<kbd className="rounded bg-muted px-1.5 py-0.5 font-mono">Esc</kbd> to
+					<kbd className="rounded bg-muted px-1.5 py-0.5 font-mono">h</kbd> or{" "}
+					<kbd className="rounded bg-muted px-1.5 py-0.5 font-mono">←</kbd> to
 					return to run details
 				</footer>
 			</div>
@@ -958,8 +966,8 @@ export function ArtifactViewerPage() {
 			</ResizablePanelGroup>
 
 			<footer className="border-t px-4 py-2 text-xs text-muted-foreground">
-				Press{" "}
-				<kbd className="rounded bg-muted px-1.5 py-0.5 font-mono">Esc</kbd> to
+				Press <kbd className="rounded bg-muted px-1.5 py-0.5 font-mono">h</kbd>{" "}
+				or <kbd className="rounded bg-muted px-1.5 py-0.5 font-mono">←</kbd> to
 				return to run details
 			</footer>
 		</div>

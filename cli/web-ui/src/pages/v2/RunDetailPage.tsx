@@ -50,9 +50,16 @@ export function RunDetailPage() {
 	const navigate = useNavigate();
 	const { run, isLoading, error, refetch } = useRunDetail(runId);
 
-	const handleEscapeKey = useCallback(
+	const handleKeyDown = useCallback(
 		(event: KeyboardEvent) => {
-			if (event.key === "Escape") {
+			const target = event.target as HTMLElement;
+			const isTextInput =
+				target.tagName === "INPUT" ||
+				target.tagName === "TEXTAREA" ||
+				target.isContentEditable;
+
+			if (!isTextInput && (event.key === "h" || event.key === "ArrowLeft")) {
+				event.preventDefault();
 				navigate("/v2/runs");
 			}
 		},
@@ -60,11 +67,11 @@ export function RunDetailPage() {
 	);
 
 	useEffect(() => {
-		document.addEventListener("keydown", handleEscapeKey);
+		document.addEventListener("keydown", handleKeyDown);
 		return () => {
-			document.removeEventListener("keydown", handleEscapeKey);
+			document.removeEventListener("keydown", handleKeyDown);
 		};
-	}, [handleEscapeKey]);
+	}, [handleKeyDown]);
 
 	const handleArtifactClick = (artifact: Artifact) => {
 		navigate(`/v2/runs/${runId}/artifacts/${artifact.path}`);
@@ -209,8 +216,9 @@ export function RunDetailPage() {
 			</div>
 
 			<p className="text-xs text-muted-foreground">
-				Press <kbd className="rounded bg-muted px-1.5 py-0.5">Esc</kbd> to
-				return to runs list
+				Press <kbd className="rounded bg-muted px-1.5 py-0.5">h</kbd> or{" "}
+				<kbd className="rounded bg-muted px-1.5 py-0.5">←</kbd> to return to
+				runs list
 			</p>
 		</div>
 	);

@@ -239,9 +239,7 @@ export function RunsListPage() {
 		navigate("/v2");
 	}, [navigate]);
 
-	const containerRef = useRef<HTMLDivElement>(null);
-
-	const { selectedIndex, containerProps } = useKeyboardNav({
+	const { selectedIndex, setSelectedIndex } = useKeyboardNav({
 		items: runs,
 		onSelect: handleSelectRun,
 		onDrillIn: handleDrillIn,
@@ -250,9 +248,57 @@ export function RunsListPage() {
 		listRef: virtualizedListRef as React.RefObject<KeyboardNavListRef | null>,
 	});
 
-	const handleContainerClick = useCallback(() => {
-		containerRef.current?.focus();
-	}, []);
+	// Document-level keyboard listener for vim navigation
+	useEffect(() => {
+		if (runs.length === 0) return;
+
+		const handleKeyDown = (e: KeyboardEvent) => {
+			const target = e.target as HTMLElement;
+			const isTextInput =
+				target.tagName === "INPUT" ||
+				target.tagName === "TEXTAREA" ||
+				target.isContentEditable;
+
+			if (isTextInput) return;
+
+			switch (e.key) {
+				case "j":
+				case "ArrowDown":
+					e.preventDefault();
+					setSelectedIndex(
+						selectedIndex === null
+							? 0
+							: Math.min(selectedIndex + 1, runs.length - 1),
+					);
+					break;
+				case "k":
+				case "ArrowUp":
+					e.preventDefault();
+					setSelectedIndex(
+						selectedIndex === null
+							? runs.length - 1
+							: Math.max(selectedIndex - 1, 0),
+					);
+					break;
+				case "l":
+				case "ArrowRight":
+				case "Enter":
+					if (selectedIndex !== null && runs[selectedIndex]) {
+						e.preventDefault();
+						handleDrillIn(runs[selectedIndex]);
+					}
+					break;
+				case "h":
+				case "ArrowLeft":
+					e.preventDefault();
+					handleDrillOut();
+					break;
+			}
+		};
+
+		document.addEventListener("keydown", handleKeyDown);
+		return () => document.removeEventListener("keydown", handleKeyDown);
+	}, [runs, selectedIndex, setSelectedIndex, handleDrillIn, handleDrillOut]);
 
 	const renderRunItem = useCallback(
 		(run: Run, _index: number, isSelected: boolean) => (
@@ -321,26 +367,19 @@ export function RunsListPage() {
 				/>
 			) : (
 				<>
-					<div
-						ref={containerRef}
-						{...containerProps}
-						onClick={handleContainerClick}
-						className="focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-lg"
-					>
-						<VirtualizedList
-							ref={virtualizedListRef}
-							items={runs}
-							estimateSize={RUN_CARD_HEIGHT}
-							overscan={5}
-							renderItem={renderRunItem}
-							getItemKey={getRunKey}
-							onSelect={handleSelectRun}
-							selectedIndex={selectedIndex}
-							className="h-[600px] rounded-lg border border-border"
-							itemClassName="p-1"
-							aria-label="Runs list"
-						/>
-					</div>
+					<VirtualizedList
+						ref={virtualizedListRef}
+						items={runs}
+						estimateSize={RUN_CARD_HEIGHT}
+						overscan={5}
+						renderItem={renderRunItem}
+						getItemKey={getRunKey}
+						onSelect={handleSelectRun}
+						selectedIndex={selectedIndex}
+						className="h-[600px] rounded-lg border border-border"
+						itemClassName="p-1"
+						aria-label="Runs list"
+					/>
 
 					<Pagination
 						page={page}
