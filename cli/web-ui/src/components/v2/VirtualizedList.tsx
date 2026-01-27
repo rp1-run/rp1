@@ -137,7 +137,6 @@ function VirtualizedListInner<T>(
 							onKeyDown={(e) => handleKeyDown(e, item, virtualItem.index)}
 							className={cn(
 								"absolute left-0 top-0 w-full cursor-pointer",
-								isSelected && "ring-2 ring-ring ring-inset",
 								itemClassName,
 							)}
 							style={{
