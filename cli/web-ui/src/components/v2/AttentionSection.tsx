@@ -37,6 +37,7 @@ export interface AttentionSectionProps {
 	maxVisible?: number;
 	emptyMessage?: string;
 	accentColor: AccentColor;
+	selectedIndex?: number | null;
 	className?: string;
 }
 
@@ -48,6 +49,7 @@ export function AttentionSection({
 	maxVisible = 5,
 	emptyMessage = "No items",
 	accentColor,
+	selectedIndex: externalSelectedIndex,
 	className,
 }: AttentionSectionProps) {
 	const [isExpanded, setIsExpanded] = useState(defaultExpanded);
@@ -68,20 +70,16 @@ export function AttentionSection({
 		[navigate],
 	);
 
-	const handleDrillIn = useCallback(
-		(run: Run) => {
-			navigate(`/v2/runs/${run.id}`);
-		},
-		[navigate],
-	);
-
-	const { selectedIndex, containerProps } = useKeyboardNav({
+	// Use external selectedIndex if provided
+	const { selectedIndex: internalSelectedIndex } = useKeyboardNav({
 		items: visibleRuns,
 		onSelect: handleRunClick,
-		onDrillIn: handleDrillIn,
-		enabled: hasItems && isExpanded,
+		onDrillIn: handleRunClick,
+		enabled: hasItems && isExpanded && externalSelectedIndex === undefined,
 		listRef: virtualizedListRef as React.RefObject<KeyboardNavListRef | null>,
 	});
+
+	const selectedIndex = externalSelectedIndex ?? internalSelectedIndex;
 
 	const handleToggleExpand = () => {
 		setIsExpanded((prev) => !prev);
@@ -166,7 +164,7 @@ export function AttentionSection({
 					isExpanded ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0",
 				)}
 			>
-				<div className="space-y-2 p-4 pt-0" {...containerProps}>
+				<div className="space-y-2 p-4 pt-0">
 					{hasItems ? (
 						<>
 							{useVirtualization ? (

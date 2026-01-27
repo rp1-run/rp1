@@ -65,6 +65,7 @@ const VIRTUALIZATION_THRESHOLD = 15;
 export interface ArtifactListProps {
 	artifacts: readonly Artifact[];
 	onArtifactClick?: (artifact: Artifact) => void;
+	selectedIndex?: number | null;
 	className?: string;
 }
 
@@ -100,9 +101,9 @@ function ArtifactItem({
 			onClick={handleClick}
 			onKeyDown={onClick ? handleKeyDown : undefined}
 			className={cn(
-				"group flex items-center gap-3 rounded-lg p-2 text-sm",
+				"group flex items-center gap-3 rounded-lg p-2 text-sm border border-transparent",
 				onClick && "cursor-pointer hover:bg-muted/50 transition-colors",
-				isSelected && "bg-muted/50 ring-1 ring-ring",
+				isSelected && "border-l-2 border-l-primary bg-muted/30",
 			)}
 		>
 			<Icon
@@ -144,6 +145,7 @@ function ArtifactItem({
 export function ArtifactList({
 	artifacts,
 	onArtifactClick,
+	selectedIndex: externalSelectedIndex,
 	className,
 }: ArtifactListProps) {
 	const virtualizedListRef = useRef<VirtualizedListRef>(null);
@@ -156,13 +158,19 @@ export function ArtifactList({
 		[onArtifactClick],
 	);
 
-	const { selectedIndex, containerProps } = useKeyboardNav({
+	// Use external selectedIndex if provided, otherwise use internal keyboard nav
+	const { selectedIndex: internalSelectedIndex } = useKeyboardNav({
 		items: artifacts,
 		onSelect: handleSelect,
 		onDrillIn: handleSelect,
-		enabled: artifacts.length > 0 && !!onArtifactClick,
+		enabled:
+			artifacts.length > 0 &&
+			!!onArtifactClick &&
+			externalSelectedIndex === undefined,
 		listRef: virtualizedListRef as React.RefObject<KeyboardNavListRef | null>,
 	});
+
+	const selectedIndex = externalSelectedIndex ?? internalSelectedIndex;
 
 	const renderArtifactItem = useCallback(
 		(artifact: Artifact, _index: number, isSelected: boolean) => (
@@ -187,29 +195,23 @@ export function ArtifactList({
 
 	if (useVirtualization) {
 		return (
-			<div {...containerProps} className={cn("focus:outline-none", className)}>
-				<VirtualizedList
-					ref={virtualizedListRef}
-					items={artifacts}
-					estimateSize={ARTIFACT_ITEM_HEIGHT}
-					overscan={3}
-					renderItem={renderArtifactItem}
-					getItemKey={getArtifactKey}
-					onSelect={handleSelect}
-					selectedIndex={selectedIndex}
-					className="h-[300px]"
-					aria-label="Artifacts"
-				/>
-			</div>
+			<VirtualizedList
+				ref={virtualizedListRef}
+				items={artifacts}
+				estimateSize={ARTIFACT_ITEM_HEIGHT}
+				overscan={3}
+				renderItem={renderArtifactItem}
+				getItemKey={getArtifactKey}
+				onSelect={handleSelect}
+				selectedIndex={selectedIndex}
+				className={cn("h-[300px]", className)}
+				aria-label="Artifacts"
+			/>
 		);
 	}
 
 	return (
-		<ul
-			{...containerProps}
-			className={cn("space-y-1 focus:outline-none", className)}
-			aria-label="Artifacts"
-		>
+		<ul className={cn("space-y-1", className)} aria-label="Artifacts">
 			{artifacts.map((artifact, index) => (
 				<li key={artifact.path}>
 					<ArtifactItem

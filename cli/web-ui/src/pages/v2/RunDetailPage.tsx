@@ -1,5 +1,5 @@
 import { ArrowLeft, ChevronRight, RefreshCw } from "lucide-react";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArtifactList } from "@/components/v2/ArtifactList";
 import { EventStream } from "@/components/v2/EventStream";
@@ -49,33 +49,72 @@ export function RunDetailPage() {
 	const { runId } = useParams();
 	const navigate = useNavigate();
 	const { run, isLoading, error, refetch } = useRunDetail(runId);
+	const [selectedArtifactIndex, setSelectedArtifactIndex] = useState<
+		number | null
+	>(null);
 
-	const handleKeyDown = useCallback(
-		(event: KeyboardEvent) => {
+	const handleArtifactClick = useCallback(
+		(artifact: Artifact) => {
+			navigate(`/v2/runs/${runId}/artifacts/${artifact.path}`);
+		},
+		[navigate, runId],
+	);
+
+	useEffect(() => {
+		if (!run) return;
+
+		const handleKeyDown = (event: KeyboardEvent) => {
 			const target = event.target as HTMLElement;
 			const isTextInput =
 				target.tagName === "INPUT" ||
 				target.tagName === "TEXTAREA" ||
 				target.isContentEditable;
 
-			if (!isTextInput && (event.key === "h" || event.key === "ArrowLeft")) {
-				event.preventDefault();
-				navigate("/v2/runs");
+			if (isTextInput) return;
+
+			const artifacts = run.artifacts;
+
+			switch (event.key) {
+				case "h":
+				case "ArrowLeft":
+					event.preventDefault();
+					navigate("/v2/runs");
+					break;
+				case "j":
+				case "ArrowDown":
+					if (artifacts.length > 0) {
+						event.preventDefault();
+						setSelectedArtifactIndex((prev) =>
+							prev === null ? 0 : Math.min(prev + 1, artifacts.length - 1),
+						);
+					}
+					break;
+				case "k":
+				case "ArrowUp":
+					if (artifacts.length > 0) {
+						event.preventDefault();
+						setSelectedArtifactIndex((prev) =>
+							prev === null ? artifacts.length - 1 : Math.max(prev - 1, 0),
+						);
+					}
+					break;
+				case "l":
+				case "ArrowRight":
+				case "Enter":
+					if (
+						selectedArtifactIndex !== null &&
+						artifacts[selectedArtifactIndex]
+					) {
+						event.preventDefault();
+						handleArtifactClick(artifacts[selectedArtifactIndex]);
+					}
+					break;
 			}
-		},
-		[navigate],
-	);
-
-	useEffect(() => {
-		document.addEventListener("keydown", handleKeyDown);
-		return () => {
-			document.removeEventListener("keydown", handleKeyDown);
 		};
-	}, [handleKeyDown]);
 
-	const handleArtifactClick = (artifact: Artifact) => {
-		navigate(`/v2/runs/${runId}/artifacts/${artifact.path}`);
-	};
+		document.addEventListener("keydown", handleKeyDown);
+		return () => document.removeEventListener("keydown", handleKeyDown);
+	}, [run, navigate, selectedArtifactIndex, handleArtifactClick]);
 
 	if (isLoading) {
 		return (
@@ -207,6 +246,7 @@ export function RunDetailPage() {
 					<ArtifactList
 						artifacts={run.artifacts}
 						onArtifactClick={handleArtifactClick}
+						selectedIndex={selectedArtifactIndex}
 					/>
 				</section>
 
@@ -216,9 +256,10 @@ export function RunDetailPage() {
 			</div>
 
 			<p className="text-xs text-muted-foreground">
-				Press <kbd className="rounded bg-muted px-1.5 py-0.5">h</kbd> or{" "}
-				<kbd className="rounded bg-muted px-1.5 py-0.5">←</kbd> to return to
-				runs list
+				<kbd className="rounded bg-muted px-1.5 py-0.5">j</kbd>/
+				<kbd className="rounded bg-muted px-1.5 py-0.5">k</kbd> navigate
+				artifacts, <kbd className="rounded bg-muted px-1.5 py-0.5">l</kbd> open,{" "}
+				<kbd className="rounded bg-muted px-1.5 py-0.5">h</kbd> back to runs
 			</p>
 		</div>
 	);
