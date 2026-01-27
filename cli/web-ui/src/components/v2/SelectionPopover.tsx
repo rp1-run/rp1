@@ -96,13 +96,14 @@ export function SelectionPopover({
 		// Add slight delay to avoid immediate close from the same click that opened it
 		const timeoutId = setTimeout(() => {
 			document.addEventListener("mousedown", handleClickOutside);
-			document.addEventListener("keydown", handleEscape);
+			// Use capture phase so this fires before page-level escape handler
+			document.addEventListener("keydown", handleEscape, true);
 		}, 100);
 
 		return () => {
 			clearTimeout(timeoutId);
 			document.removeEventListener("mousedown", handleClickOutside);
-			document.removeEventListener("keydown", handleEscape);
+			document.removeEventListener("keydown", handleEscape, true);
 		};
 	}, [onClose]);
 
