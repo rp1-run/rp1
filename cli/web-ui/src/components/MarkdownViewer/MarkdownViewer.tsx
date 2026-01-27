@@ -261,13 +261,31 @@ function AnnotationLayer({
 	const { annotations } = useAnnotations({ artifactPath: path });
 
 	// Show selection popover when text is selected and lock it
+	// But not if selection is inside a code block (which has its own annotation system)
 	useEffect(() => {
 		if (selection && selectionPosition && !isLocked) {
+			// Check if selection is inside a code block
+			const browserSelection = window.getSelection();
+			if (browserSelection && browserSelection.anchorNode) {
+				const anchorElement =
+					browserSelection.anchorNode instanceof Element
+						? browserSelection.anchorNode
+						: browserSelection.anchorNode.parentElement;
+				// Code blocks have the shiki-container class or are inside pre > code
+				const isInsideCodeBlock = anchorElement?.closest(
+					".shiki-container, pre code, .group\\/line",
+				);
+				if (isInsideCodeBlock) {
+					// Don't show selection popover for code blocks
+					clearSelection();
+					return;
+				}
+			}
 			setShowSelectionPopover(true);
 			// Lock the selection so it persists
 			lockSelection();
 		}
-	}, [selection, selectionPosition, lockSelection, isLocked]);
+	}, [selection, selectionPosition, lockSelection, isLocked, clearSelection]);
 
 	// Handle click outside to close popover
 	useEffect(() => {
