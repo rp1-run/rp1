@@ -27,6 +27,7 @@ Start projects with structured documentation.
 |---------|-------------|
 | [`blueprint`](blueprint.md) | Create project charter and PRD documents |
 | [`blueprint-archive`](blueprint-archive.md) | Archive completed blueprints |
+| [`blueprint-audit`](blueprint-audit.md) | Audit PRDs against implementation status |
 
 ### Feature Management
 
