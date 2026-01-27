@@ -370,6 +370,9 @@ export function ArtifactViewerPage() {
 
 			if (!preserveScroll) {
 				setContentLoading(true);
+				// Clear headings when loading new artifact (they'll be repopulated by MarkdownViewer if applicable)
+				setHeadings([]);
+				setActiveHeadingId(null);
 			}
 			setContentError(null);
 
