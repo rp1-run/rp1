@@ -4,7 +4,7 @@
  */
 
 import { useCallback, useMemo } from "react";
-import { useAnnotationContext } from "@/providers/AnnotationProvider";
+import { useAnnotationContextSafe } from "@/providers/AnnotationProvider";
 import type { Anchor, Annotation, AnnotationFilter } from "@/types/annotations";
 
 /** Options for useAnnotations hook */
@@ -143,7 +143,7 @@ export function useAnnotations(
 ): UseAnnotationsResult {
 	const { artifactPath, filter: filterOverride } = options;
 
-	const context = useAnnotationContext();
+	const context = useAnnotationContextSafe();
 
 	// Apply artifact path filter
 	const artifactAnnotations = useMemo(() => {

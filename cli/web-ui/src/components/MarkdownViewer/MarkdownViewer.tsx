@@ -23,7 +23,7 @@ import {
 	useTextSelection,
 } from "@/hooks/useTextSelection";
 import { cn } from "@/lib/utils";
-import { useAnnotationContext } from "@/providers/AnnotationProvider";
+import { useAnnotationContextSafe } from "@/providers/AnnotationProvider";
 import type { Annotation } from "@/types/annotations";
 import { CodeBlock } from "./CodeBlock";
 import { MarkdownLink } from "./MarkdownLink";
@@ -128,7 +128,7 @@ function AnnotationLayer({
 
 	// Get annotations for this artifact
 	const { annotations } = useAnnotations({ artifactPath: path });
-	const { selectedAnnotationId, selectAnnotation } = useAnnotationContext();
+	const { selectedAnnotationId, selectAnnotation } = useAnnotationContextSafe();
 
 	// Derive active annotation from ID to ensure it updates when context changes
 	const activeAnnotation = activeAnnotationId

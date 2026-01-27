@@ -23,7 +23,7 @@ import {
 	normalizeLanguage,
 } from "@/lib/shiki";
 import { cn } from "@/lib/utils";
-import { useAnnotationContext } from "@/providers/AnnotationProvider";
+import { useAnnotationContextSafe } from "@/providers/AnnotationProvider";
 import type { Annotation, LineAnchor } from "@/types/annotations";
 
 interface CodeBlockProps {
@@ -54,7 +54,7 @@ function LineAnnotationForm({
 	const [content, setContent] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
-	const { createAnnotation } = useAnnotationContext();
+	const { createAnnotation } = useAnnotationContextSafe();
 
 	useEffect(() => {
 		textareaRef.current?.focus();
@@ -339,7 +339,7 @@ export function CodeBlock({
 	const { getAnnotationsAtPosition, annotations } = useAnnotations({
 		artifactPath: artifactPath ?? "",
 	});
-	const { selectedAnnotationId, selectAnnotation } = useAnnotationContext();
+	const { selectedAnnotationId, selectAnnotation } = useAnnotationContextSafe();
 
 	// Derive active popover annotation from ID to ensure it updates when context changes
 	const activePopoverAnnotation = activePopover

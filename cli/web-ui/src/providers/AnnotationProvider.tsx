@@ -595,3 +595,32 @@ export function useAnnotationContext(): AnnotationContextValue {
 	}
 	return context;
 }
+
+/**
+ * Default no-op context value for use outside AnnotationProvider.
+ */
+const DEFAULT_ANNOTATION_CONTEXT: AnnotationContextValue = {
+	annotations: [],
+	isLoading: false,
+	error: null,
+	filter: DEFAULT_FILTER,
+	selectedAnnotationId: null,
+	setFilter: () => {},
+	selectAnnotation: () => {},
+	createAnnotation: () => Promise.reject(new Error("No AnnotationProvider")),
+	resolveAnnotation: () => Promise.reject(new Error("No AnnotationProvider")),
+	reopenAnnotation: () => Promise.reject(new Error("No AnnotationProvider")),
+	deleteAnnotation: () => Promise.reject(new Error("No AnnotationProvider")),
+	addReply: () => Promise.reject(new Error("No AnnotationProvider")),
+	getAnnotationsForArtifact: () => [],
+	refetch: () => Promise.resolve(),
+};
+
+/**
+ * Hook to access annotation context safely.
+ * Returns default no-op values when used outside an AnnotationProvider.
+ */
+export function useAnnotationContextSafe(): AnnotationContextValue {
+	const context = useContext(AnnotationContext);
+	return context ?? DEFAULT_ANNOTATION_CONTEXT;
+}
