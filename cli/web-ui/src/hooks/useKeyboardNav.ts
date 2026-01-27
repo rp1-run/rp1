@@ -290,7 +290,7 @@ export function useKeyboardNav<T>({
 		role: "listbox",
 		"aria-activedescendant":
 			selectedIndex !== null ? `listbox-item-${selectedIndex}` : undefined,
-		tabIndex: selectedIndex === null ? 0 : -1,
+		tabIndex: 0,
 		onKeyDown: handleKeyDown,
 	};
 
