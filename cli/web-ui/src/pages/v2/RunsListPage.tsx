@@ -239,6 +239,8 @@ export function RunsListPage() {
 		navigate("/v2");
 	}, [navigate]);
 
+	const containerRef = useRef<HTMLDivElement>(null);
+
 	const { selectedIndex, containerProps } = useKeyboardNav({
 		items: runs,
 		onSelect: handleSelectRun,
@@ -247,6 +249,10 @@ export function RunsListPage() {
 		enabled: runs.length > 0,
 		listRef: virtualizedListRef as React.RefObject<KeyboardNavListRef | null>,
 	});
+
+	const handleContainerClick = useCallback(() => {
+		containerRef.current?.focus();
+	}, []);
 
 	const renderRunItem = useCallback(
 		(run: Run, _index: number, isSelected: boolean) => (
@@ -315,7 +321,12 @@ export function RunsListPage() {
 				/>
 			) : (
 				<>
-					<div {...containerProps} className="focus:outline-none">
+					<div
+						ref={containerRef}
+						{...containerProps}
+						onClick={handleContainerClick}
+						className="focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-lg"
+					>
 						<VirtualizedList
 							ref={virtualizedListRef}
 							items={runs}
