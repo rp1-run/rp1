@@ -56,10 +56,10 @@ function AnchorIndicator({
 			type="button"
 			onClick={onClick}
 			className={cn(
-				"fixed z-10 flex h-5 w-5 items-center justify-center rounded-full transition-all",
+				"absolute z-10 flex h-5 w-5 items-center justify-center rounded-full transition-all",
 				"hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 				hasAnnotations
-					? "bg-terminal-blue text-white"
+					? "bg-terminal-yellow text-black"
 					: "bg-muted text-muted-foreground hover:bg-muted-foreground/20",
 			)}
 			style={{
@@ -92,12 +92,21 @@ interface TextHighlightProps {
 	onClick: (annotation: Annotation, position: SelectionPosition) => void;
 }
 
+interface HighlightPosition {
+	top: number;
+	left: number;
+	width: number;
+	height: number;
+}
+
 function TextHighlight({
 	annotation,
 	containerRef,
 	onClick,
 }: TextHighlightProps) {
-	const [highlightRect, setHighlightRect] = useState<DOMRect | null>(null);
+	const [highlightPos, setHighlightPos] = useState<HighlightPosition | null>(
+		null,
+	);
 
 	useEffect(() => {
 		if (annotation.anchor.type !== "text-selection" || !containerRef.current) {
@@ -158,42 +167,58 @@ function TextHighlight({
 				const range = document.createRange();
 				range.setStart(startNode, startOffset);
 				range.setEnd(endNode, endOffset);
-				setHighlightRect(range.getBoundingClientRect());
+				const rect = range.getBoundingClientRect();
+				const containerRect = container.getBoundingClientRect();
+
+				// Calculate position relative to the container
+				setHighlightPos({
+					top: rect.top - containerRect.top,
+					left: rect.left - containerRect.left,
+					width: rect.width,
+					height: rect.height,
+				});
 			} catch {
 				// Range creation can fail if offsets are invalid
 			}
 		}
 	}, [annotation, containerRef]);
 
-	if (!highlightRect) {
+	if (!highlightPos || !containerRef.current) {
 		return null;
 	}
 
 	const handleClick = () => {
+		const containerRect = containerRef.current?.getBoundingClientRect();
+		if (!containerRect) return;
+
 		onClick(annotation, {
-			x: highlightRect.left + highlightRect.width / 2,
-			y: highlightRect.bottom,
+			x: containerRect.left + highlightPos.left + highlightPos.width / 2,
+			y: containerRect.top + highlightPos.top + highlightPos.height,
 		});
 	};
+
+	const isResolved = annotation.status === "resolved";
 
 	return (
 		<button
 			type="button"
 			onClick={handleClick}
 			className={cn(
-				"fixed pointer-events-auto cursor-pointer p-0",
+				"absolute pointer-events-auto cursor-pointer p-0",
 				"border-l-2",
-				annotation.status === "resolved"
-					? "bg-terminal-green/20 border-terminal-green"
-					: "bg-terminal-yellow/25 border-terminal-blue",
-				"hover:bg-terminal-blue/35 transition-colors",
-				"underline decoration-terminal-blue/50 decoration-2 decoration-wavy underline-offset-2",
+				isResolved
+					? "bg-terminal-green/15 border-terminal-green/50"
+					: "bg-terminal-yellow/30 border-terminal-yellow",
+				isResolved
+					? "hover:bg-terminal-green/25"
+					: "hover:bg-terminal-yellow/50",
+				"transition-colors",
 			)}
 			style={{
-				top: highlightRect.top,
-				left: highlightRect.left,
-				width: highlightRect.width,
-				height: highlightRect.height,
+				top: highlightPos.top,
+				left: highlightPos.left,
+				width: highlightPos.width,
+				height: highlightPos.height,
 				zIndex: 5,
 			}}
 			aria-label={`Annotation: ${annotation.content.slice(0, 50)}${annotation.content.length > 50 ? "..." : ""}`}
@@ -511,7 +536,7 @@ export function MarkdownViewer({
 	}, [enableAnnotations]);
 
 	return (
-		<>
+		<div className="relative">
 			<article ref={containerRef} className={cn("markdown-content", className)}>
 				{showFrontmatter &&
 					frontmatter &&
@@ -602,7 +627,7 @@ export function MarkdownViewer({
 					hiddenAnchors={hiddenAnchors}
 				/>
 			)}
-		</>
+		</div>
 	);
 }
 

@@ -339,6 +339,7 @@ export function detectHiddenAnchors(
 	container: HTMLElement,
 ): DetectedHiddenAnchor[] {
 	const anchors: DetectedHiddenAnchor[] = [];
+	const containerRect = container.getBoundingClientRect();
 
 	const elements = container.querySelectorAll<HTMLAnchorElement>("a[id]");
 
@@ -355,9 +356,10 @@ export function detectHiddenAnchors(
 		const anchorText = getAnchorContextText(element);
 
 		const rect = element.getBoundingClientRect();
+		// Calculate position relative to the container, not the viewport
 		const position: SelectionPosition = {
-			x: rect.left + rect.width / 2,
-			y: rect.top,
+			x: rect.left - containerRect.left + rect.width / 2,
+			y: rect.top - containerRect.top,
 		};
 
 		anchors.push({
