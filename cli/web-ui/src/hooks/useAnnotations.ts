@@ -160,7 +160,6 @@ export function useAnnotations(
 		[context.filter, filterOverride],
 	);
 
-	// Apply filter to annotations
 	const filteredAnnotations = useMemo(() => {
 		return artifactAnnotations.filter((a) => matchesFilter(a, effectiveFilter));
 	}, [artifactAnnotations, effectiveFilter]);
@@ -192,7 +191,6 @@ export function useAnnotations(
 		return { open, resolved, orphaned };
 	}, [filteredAnnotations]);
 
-	// Count annotations
 	const count = filteredAnnotations.length;
 
 	const countByStatus = useMemo(
@@ -204,7 +202,6 @@ export function useAnnotations(
 		[groupedAnnotations],
 	);
 
-	// Create lookup map for getAnnotationById
 	const annotationMap = useMemo(() => {
 		const map = new Map<string, Annotation>();
 		for (const annotation of artifactAnnotations) {
@@ -213,7 +210,6 @@ export function useAnnotations(
 		return map;
 	}, [artifactAnnotations]);
 
-	// Lookup annotation by ID
 	const getAnnotationById = useCallback(
 		(id: string): Annotation | undefined => {
 			return annotationMap.get(id);

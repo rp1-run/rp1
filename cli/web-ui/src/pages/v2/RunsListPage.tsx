@@ -5,11 +5,18 @@ import {
 	RefreshCw,
 	Search,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { FilterBar } from "@/components/v2/FilterBar";
 import { RunCard } from "@/components/v2/RunCard";
-import { useKeyboardNav } from "@/hooks/useKeyboardNav";
+import {
+	VirtualizedList,
+	type VirtualizedListRef,
+} from "@/components/v2/VirtualizedList";
+import {
+	type VirtualizedListRef as KeyboardNavListRef,
+	useKeyboardNav,
+} from "@/hooks/useKeyboardNav";
 import { useRuns } from "@/hooks/useRuns";
 import { cn } from "@/lib/utils";
 import type { Run, RunStatus, RunsFilter } from "@/types/runs";
@@ -155,11 +162,14 @@ function Pagination({
 	);
 }
 
+const RUN_CARD_HEIGHT = 80;
+
 export function RunsListPage() {
 	const navigate = useNavigate();
 	const { projectId: projectIdFromRoute } = useParams();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const [page, setPage] = useState(1);
+	const virtualizedListRef = useRef<VirtualizedListRef>(null);
 
 	const filters = useMemo(
 		() => parseFiltersFromParams(searchParams, projectIdFromRoute),
@@ -218,11 +228,90 @@ export function RunsListPage() {
 		[navigate],
 	);
 
-	const { selectedIndex, getItemProps, containerProps } = useKeyboardNav({
+	const handleDrillIn = useCallback(
+		(run: Run) => {
+			navigate(`/v2/runs/${run.id}`);
+		},
+		[navigate],
+	);
+
+	const handleDrillOut = useCallback(() => {
+		navigate("/v2");
+	}, [navigate]);
+
+	const { selectedIndex, setSelectedIndex } = useKeyboardNav({
 		items: runs,
 		onSelect: handleSelectRun,
+		onDrillIn: handleDrillIn,
+		onDrillOut: handleDrillOut,
 		enabled: runs.length > 0,
+		listRef: virtualizedListRef as React.RefObject<KeyboardNavListRef | null>,
 	});
+
+	// Document-level keyboard listener for vim navigation
+	useEffect(() => {
+		if (runs.length === 0) return;
+
+		const handleKeyDown = (e: KeyboardEvent) => {
+			const target = e.target as HTMLElement;
+			const isTextInput =
+				target.tagName === "INPUT" ||
+				target.tagName === "TEXTAREA" ||
+				target.isContentEditable;
+
+			if (isTextInput) return;
+
+			switch (e.key) {
+				case "j":
+				case "ArrowDown":
+					e.preventDefault();
+					setSelectedIndex(
+						selectedIndex === null
+							? 0
+							: Math.min(selectedIndex + 1, runs.length - 1),
+					);
+					break;
+				case "k":
+				case "ArrowUp":
+					e.preventDefault();
+					setSelectedIndex(
+						selectedIndex === null
+							? runs.length - 1
+							: Math.max(selectedIndex - 1, 0),
+					);
+					break;
+				case "l":
+				case "ArrowRight":
+				case "Enter":
+					if (selectedIndex !== null && runs[selectedIndex]) {
+						e.preventDefault();
+						handleDrillIn(runs[selectedIndex]);
+					}
+					break;
+				case "h":
+				case "ArrowLeft":
+					e.preventDefault();
+					handleDrillOut();
+					break;
+			}
+		};
+
+		document.addEventListener("keydown", handleKeyDown);
+		return () => document.removeEventListener("keydown", handleKeyDown);
+	}, [runs, selectedIndex, setSelectedIndex, handleDrillIn, handleDrillOut]);
+
+	const renderRunItem = useCallback(
+		(run: Run, _index: number, isSelected: boolean) => (
+			<RunCard
+				run={run}
+				onClick={() => handleSelectRun(run)}
+				selected={isSelected}
+			/>
+		),
+		[handleSelectRun],
+	);
+
+	const getRunKey = useCallback((run: Run) => run.id, []);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: intentionally reset page when filters change
 	useEffect(() => {
@@ -278,25 +367,19 @@ export function RunsListPage() {
 				/>
 			) : (
 				<>
-					<div {...containerProps} className="space-y-2 focus:outline-none">
-						{runs.map((run, index) => {
-							const itemProps = getItemProps(index);
-							return (
-								<div
-									key={run.id}
-									id={`listbox-item-${index}`}
-									{...itemProps}
-									className="focus:outline-none"
-								>
-									<RunCard
-										run={run}
-										onClick={() => handleSelectRun(run)}
-										selected={selectedIndex === index}
-									/>
-								</div>
-							);
-						})}
-					</div>
+					<VirtualizedList
+						ref={virtualizedListRef}
+						items={runs}
+						estimateSize={RUN_CARD_HEIGHT}
+						overscan={5}
+						renderItem={renderRunItem}
+						getItemKey={getRunKey}
+						onSelect={handleSelectRun}
+						selectedIndex={selectedIndex}
+						className="h-[600px] rounded-lg border border-border"
+						itemClassName="p-1"
+						aria-label="Runs list"
+					/>
 
 					<Pagination
 						page={page}
