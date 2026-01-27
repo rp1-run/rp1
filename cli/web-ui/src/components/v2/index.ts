@@ -39,3 +39,8 @@ export {
 } from "./TableOfContents";
 export { V2Header, type V2HeaderProps } from "./V2Header";
 export { V2Sidebar, type V2SidebarProps } from "./V2Sidebar";
+export {
+	VirtualizedList,
+	type VirtualizedListProps,
+	type VirtualizedListRef,
+} from "./VirtualizedList";

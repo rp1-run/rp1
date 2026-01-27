@@ -1,7 +1,10 @@
 import { AlertCircle, Eye, Hand, Loader2, RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { AttentionSection } from "@/components/v2/AttentionSection";
 import { useAttention } from "@/hooks/useAttention";
 import { cn } from "@/lib/utils";
+import type { Run } from "@/types/runs";
 
 function LoadingSkeleton() {
 	return (
@@ -65,6 +68,82 @@ function ErrorState({ error, onRetry }: { error: Error; onRetry: () => void }) {
 
 export function HomePage() {
 	const { data, isLoading, error, refetch } = useAttention();
+	const navigate = useNavigate();
+	const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+
+	// Combine all runs into a flat list for keyboard navigation
+	const allRuns = useMemo(() => {
+		if (!data) return [];
+		return [
+			...data.waiting,
+			...data.needsReview,
+			...data.failed,
+			...data.running,
+		];
+	}, [data]);
+
+	const handleRunClick = useCallback(
+		(run: Run) => {
+			navigate(`/v2/runs/${run.id}`);
+		},
+		[navigate],
+	);
+
+	// Document-level keyboard navigation
+	useEffect(() => {
+		if (allRuns.length === 0) return;
+
+		const handleKeyDown = (event: KeyboardEvent) => {
+			const target = event.target as HTMLElement;
+			const isTextInput =
+				target.tagName === "INPUT" ||
+				target.tagName === "TEXTAREA" ||
+				target.isContentEditable;
+
+			if (isTextInput) return;
+
+			switch (event.key) {
+				case "j":
+				case "ArrowDown":
+					event.preventDefault();
+					setSelectedIndex((prev) =>
+						prev === null ? 0 : Math.min(prev + 1, allRuns.length - 1),
+					);
+					break;
+				case "k":
+				case "ArrowUp":
+					event.preventDefault();
+					setSelectedIndex((prev) =>
+						prev === null ? allRuns.length - 1 : Math.max(prev - 1, 0),
+					);
+					break;
+				case "l":
+				case "ArrowRight":
+				case "Enter":
+					if (selectedIndex !== null && allRuns[selectedIndex]) {
+						event.preventDefault();
+						handleRunClick(allRuns[selectedIndex]);
+					}
+					break;
+			}
+		};
+
+		document.addEventListener("keydown", handleKeyDown);
+		return () => document.removeEventListener("keydown", handleKeyDown);
+	}, [allRuns, selectedIndex, handleRunClick]);
+
+	// Calculate which section the selected index falls into
+	const getSelectionForSection = useCallback(
+		(sectionRuns: readonly Run[], sectionStart: number) => {
+			if (selectedIndex === null) return null;
+			const localIndex = selectedIndex - sectionStart;
+			if (localIndex >= 0 && localIndex < sectionRuns.length) {
+				return localIndex;
+			}
+			return null;
+		},
+		[selectedIndex],
+	);
 
 	const isEmpty =
 		data &&
@@ -110,43 +189,66 @@ export function HomePage() {
 				<EmptyState />
 			) : (
 				data && (
-					<div className="space-y-4">
-						<AttentionSection
-							title="Waiting for you"
-							icon={Hand}
-							runs={data.waiting}
-							defaultExpanded={true}
-							accentColor="peach"
-							emptyMessage="No runs waiting for input"
-						/>
+					<>
+						<div className="space-y-4">
+							<AttentionSection
+								title="Waiting for you"
+								icon={Hand}
+								runs={data.waiting}
+								defaultExpanded={true}
+								accentColor="peach"
+								emptyMessage="No runs waiting for input"
+								selectedIndex={getSelectionForSection(data.waiting, 0)}
+							/>
 
-						<AttentionSection
-							title="Needs review"
-							icon={Eye}
-							runs={data.needsReview}
-							defaultExpanded={true}
-							accentColor="mauve"
-							emptyMessage="No runs need review"
-						/>
+							<AttentionSection
+								title="Needs review"
+								icon={Eye}
+								runs={data.needsReview}
+								defaultExpanded={true}
+								accentColor="mauve"
+								emptyMessage="No runs need review"
+								selectedIndex={getSelectionForSection(
+									data.needsReview,
+									data.waiting.length,
+								)}
+							/>
 
-						<AttentionSection
-							title="Failed"
-							icon={AlertCircle}
-							runs={data.failed}
-							defaultExpanded={true}
-							accentColor="red"
-							emptyMessage="No failed runs"
-						/>
+							<AttentionSection
+								title="Failed"
+								icon={AlertCircle}
+								runs={data.failed}
+								defaultExpanded={true}
+								accentColor="red"
+								emptyMessage="No failed runs"
+								selectedIndex={getSelectionForSection(
+									data.failed,
+									data.waiting.length + data.needsReview.length,
+								)}
+							/>
 
-						<AttentionSection
-							title="Running"
-							icon={Loader2}
-							runs={data.running}
-							defaultExpanded={false}
-							accentColor="blue"
-							emptyMessage="No runs currently active"
-						/>
-					</div>
+							<AttentionSection
+								title="Running"
+								icon={Loader2}
+								runs={data.running}
+								defaultExpanded={false}
+								accentColor="blue"
+								emptyMessage="No runs currently active"
+								selectedIndex={getSelectionForSection(
+									data.running,
+									data.waiting.length +
+										data.needsReview.length +
+										data.failed.length,
+								)}
+							/>
+						</div>
+
+						<p className="text-xs text-muted-foreground">
+							<kbd className="rounded bg-muted px-1.5 py-0.5">j</kbd>/
+							<kbd className="rounded bg-muted px-1.5 py-0.5">k</kbd> navigate,{" "}
+							<kbd className="rounded bg-muted px-1.5 py-0.5">l</kbd> open run
+						</p>
+					</>
 				)
 			)}
 		</div>

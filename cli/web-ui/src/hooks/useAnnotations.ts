@@ -4,7 +4,7 @@
  */
 
 import { useCallback, useMemo } from "react";
-import { useAnnotationContext } from "@/providers/AnnotationProvider";
+import { useAnnotationContextSafe } from "@/providers/AnnotationProvider";
 import type { Anchor, Annotation, AnnotationFilter } from "@/types/annotations";
 
 /** Options for useAnnotations hook */
@@ -143,7 +143,7 @@ export function useAnnotations(
 ): UseAnnotationsResult {
 	const { artifactPath, filter: filterOverride } = options;
 
-	const context = useAnnotationContext();
+	const context = useAnnotationContextSafe();
 
 	// Apply artifact path filter
 	const artifactAnnotations = useMemo(() => {
@@ -160,7 +160,6 @@ export function useAnnotations(
 		[context.filter, filterOverride],
 	);
 
-	// Apply filter to annotations
 	const filteredAnnotations = useMemo(() => {
 		return artifactAnnotations.filter((a) => matchesFilter(a, effectiveFilter));
 	}, [artifactAnnotations, effectiveFilter]);
@@ -192,7 +191,6 @@ export function useAnnotations(
 		return { open, resolved, orphaned };
 	}, [filteredAnnotations]);
 
-	// Count annotations
 	const count = filteredAnnotations.length;
 
 	const countByStatus = useMemo(
@@ -204,7 +202,6 @@ export function useAnnotations(
 		[groupedAnnotations],
 	);
 
-	// Create lookup map for getAnnotationById
 	const annotationMap = useMemo(() => {
 		const map = new Map<string, Annotation>();
 		for (const annotation of artifactAnnotations) {
@@ -213,7 +210,6 @@ export function useAnnotations(
 		return map;
 	}, [artifactAnnotations]);
 
-	// Lookup annotation by ID
 	const getAnnotationById = useCallback(
 		(id: string): Annotation | undefined => {
 			return annotationMap.get(id);

@@ -1,9 +1,14 @@
 import { ChevronDown, ChevronRight, type LucideIcon } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+	type VirtualizedListRef as KeyboardNavListRef,
+	useKeyboardNav,
+} from "@/hooks/useKeyboardNav";
 import { cn } from "@/lib/utils";
 import type { Run } from "@/types/runs";
 import { RunCard } from "./RunCard";
+import { VirtualizedList, type VirtualizedListRef } from "./VirtualizedList";
 
 type AccentColor = "peach" | "mauve" | "red" | "blue";
 
@@ -21,6 +26,9 @@ const accentBgColors: Record<AccentColor, string> = {
 	blue: "",
 };
 
+const RUN_CARD_HEIGHT = 72;
+const VIRTUALIZATION_THRESHOLD = 10;
+
 export interface AttentionSectionProps {
 	title: string;
 	icon: LucideIcon;
@@ -29,6 +37,7 @@ export interface AttentionSectionProps {
 	maxVisible?: number;
 	emptyMessage?: string;
 	accentColor: AccentColor;
+	selectedIndex?: number | null;
 	className?: string;
 }
 
@@ -40,20 +49,37 @@ export function AttentionSection({
 	maxVisible = 5,
 	emptyMessage = "No items",
 	accentColor,
+	selectedIndex: externalSelectedIndex,
 	className,
 }: AttentionSectionProps) {
 	const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 	const [showAll, setShowAll] = useState(false);
 	const navigate = useNavigate();
+	const virtualizedListRef = useRef<VirtualizedListRef>(null);
 
 	const hasItems = runs.length > 0;
 	const visibleRuns = showAll ? runs : runs.slice(0, maxVisible);
 	const hiddenCount = runs.length - maxVisible;
 	const hasMore = runs.length > maxVisible;
+	const useVirtualization = showAll && runs.length > VIRTUALIZATION_THRESHOLD;
 
-	const handleRunClick = (runId: string) => {
-		navigate(`/v2/runs/${runId}`);
-	};
+	const handleRunClick = useCallback(
+		(run: Run) => {
+			navigate(`/v2/runs/${run.id}`);
+		},
+		[navigate],
+	);
+
+	// Use external selectedIndex if provided
+	const { selectedIndex: internalSelectedIndex } = useKeyboardNav({
+		items: visibleRuns,
+		onSelect: handleRunClick,
+		onDrillIn: handleRunClick,
+		enabled: hasItems && isExpanded && externalSelectedIndex === undefined,
+		listRef: virtualizedListRef as React.RefObject<KeyboardNavListRef | null>,
+	});
+
+	const selectedIndex = externalSelectedIndex ?? internalSelectedIndex;
 
 	const handleToggleExpand = () => {
 		setIsExpanded((prev) => !prev);
@@ -66,6 +92,20 @@ export function AttentionSection({
 	const handleShowLess = () => {
 		setShowAll(false);
 	};
+
+	const renderRunItem = useCallback(
+		(run: Run, _index: number, isSelected: boolean) => (
+			<RunCard
+				run={run}
+				onClick={() => handleRunClick(run)}
+				showStatus={false}
+				selected={isSelected}
+			/>
+		),
+		[handleRunClick],
+	);
+
+	const getRunKey = useCallback((run: Run) => run.id, []);
 
 	return (
 		<section
@@ -127,20 +167,37 @@ export function AttentionSection({
 				<div className="space-y-2 p-4 pt-0">
 					{hasItems ? (
 						<>
-							<ul className="space-y-2">
-								{visibleRuns.map((run) => (
-									<li
-										key={run.id}
-										className="animate-in fade-in slide-in-from-top-1 duration-200"
-									>
-										<RunCard
-											run={run}
-											onClick={() => handleRunClick(run.id)}
-											showStatus={false}
-										/>
-									</li>
-								))}
-							</ul>
+							{useVirtualization ? (
+								<VirtualizedList
+									ref={virtualizedListRef}
+									items={runs}
+									estimateSize={RUN_CARD_HEIGHT}
+									overscan={3}
+									renderItem={renderRunItem}
+									getItemKey={getRunKey}
+									onSelect={handleRunClick}
+									selectedIndex={selectedIndex}
+									className="h-[400px] rounded-lg"
+									itemClassName="px-1 py-0.5"
+									aria-label={`${title} runs`}
+								/>
+							) : (
+								<ul className="space-y-2">
+									{visibleRuns.map((run, index) => (
+										<li
+											key={run.id}
+											className="animate-in fade-in slide-in-from-top-1 duration-200"
+										>
+											<RunCard
+												run={run}
+												onClick={() => handleRunClick(run)}
+												showStatus={false}
+												selected={selectedIndex === index}
+											/>
+										</li>
+									))}
+								</ul>
+							)}
 
 							{hasMore && (
 								<div className="pt-2">
