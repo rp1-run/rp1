@@ -1,11 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+export interface VirtualizedListRef {
+	scrollToIndex: (
+		index: number,
+		options?: { align?: "start" | "center" | "end" | "auto" },
+	) => void;
+}
+
 export interface UseKeyboardNavOptions<T> {
 	items: readonly T[];
 	onSelect?: (item: T, index: number) => void;
 	onEscape?: () => void;
+	onDrillIn?: (item: T, index: number) => void;
+	onDrillOut?: () => void;
 	enabled?: boolean;
 	wrap?: boolean;
+	listRef?: React.RefObject<VirtualizedListRef | null>;
 }
 
 export interface UseKeyboardNavReturn<T> {
@@ -33,15 +43,43 @@ interface ContainerProps {
 	onKeyDown: (e: React.KeyboardEvent) => void;
 }
 
+function isTextInputElement(element: Element | null): boolean {
+	if (!element) return false;
+
+	const tagName = element.tagName.toLowerCase();
+	if (tagName === "input") {
+		const inputType = (element as HTMLInputElement).type?.toLowerCase();
+		const textInputTypes = [
+			"text",
+			"password",
+			"email",
+			"search",
+			"tel",
+			"url",
+			"number",
+		];
+		return textInputTypes.includes(inputType);
+	}
+
+	if (tagName === "textarea") return true;
+	if ((element as HTMLElement).isContentEditable) return true;
+
+	return false;
+}
+
 export function useKeyboardNav<T>({
 	items,
 	onSelect,
 	onEscape,
+	onDrillIn,
+	onDrillOut,
 	enabled = true,
 	wrap = true,
+	listRef,
 }: UseKeyboardNavOptions<T>): UseKeyboardNavReturn<T> {
 	const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 	const itemRefs = useRef<Map<number, HTMLElement>>(new Map());
+	const lastSelectedIndexRef = useRef<number | null>(null);
 
 	const getItemRef = useCallback(
 		(index: number) => (node: HTMLElement | null) => {
@@ -127,18 +165,48 @@ export function useKeyboardNav<T>({
 		onEscape?.();
 	}, [enabled, onEscape]);
 
+	const drillIn = useCallback(() => {
+		if (!enabled || selectedIndex === null) return;
+		const item = items[selectedIndex];
+		if (item !== undefined) {
+			onDrillIn?.(item, selectedIndex);
+		}
+	}, [enabled, selectedIndex, items, onDrillIn]);
+
+	const drillOut = useCallback(() => {
+		if (!enabled) return;
+		onDrillOut?.();
+	}, [enabled, onDrillOut]);
+
 	const handleKeyDown = useCallback(
 		(e: React.KeyboardEvent) => {
 			if (!enabled) return;
 
+			const isVimKey = ["j", "k", "h", "l"].includes(e.key);
+			if (isVimKey && isTextInputElement(document.activeElement)) {
+				return;
+			}
+
 			switch (e.key) {
 				case "ArrowUp":
+				case "k":
 					e.preventDefault();
 					navigateUp();
 					break;
 				case "ArrowDown":
+				case "j":
 					e.preventDefault();
 					navigateDown();
+					break;
+				case "ArrowLeft":
+				case "h":
+					e.preventDefault();
+					drillOut();
+					break;
+				case "ArrowRight":
+				case "l":
+					e.preventDefault();
+					drillIn();
 					break;
 				case "Home":
 					e.preventDefault();
@@ -166,6 +234,8 @@ export function useKeyboardNav<T>({
 			navigateToLast,
 			selectCurrent,
 			clearSelection,
+			drillIn,
+			drillOut,
 		],
 	);
 
@@ -180,6 +250,17 @@ export function useKeyboardNav<T>({
 			setSelectedIndex(items.length > 0 ? items.length - 1 : null);
 		}
 	}, [items.length, selectedIndex]);
+
+	useEffect(() => {
+		if (
+			selectedIndex !== null &&
+			selectedIndex !== lastSelectedIndexRef.current &&
+			listRef?.current
+		) {
+			listRef.current.scrollToIndex(selectedIndex, { align: "auto" });
+		}
+		lastSelectedIndexRef.current = selectedIndex;
+	}, [selectedIndex, listRef]);
 
 	const getItemProps = useCallback(
 		(index: number): ItemProps => {
