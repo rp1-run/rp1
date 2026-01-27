@@ -133,27 +133,20 @@ export function ArtifactSidebar({
 							className={cn(
 								"group flex items-center gap-3 rounded-lg p-2 text-sm cursor-pointer transition-colors outline-none",
 								"hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-								isSelected && "bg-accent text-accent-foreground",
+								isSelected && "bg-muted ring-1 ring-ring",
 							)}
 						>
 							<Icon
 								className={cn(
 									"h-4 w-4 shrink-0",
-									isSelected
-										? "text-accent-foreground"
-										: "text-muted-foreground",
+									isSelected ? "text-foreground" : "text-muted-foreground",
 								)}
 								aria-hidden="true"
 							/>
 
 							<div className="min-w-0 flex-1">
 								<div className="flex items-center gap-2">
-									<span
-										className={cn(
-											"truncate font-medium",
-											isSelected ? "text-accent-foreground" : "text-foreground",
-										)}
-									>
+									<span className="truncate font-medium text-foreground">
 										{fileName}
 									</span>
 									{artifact.isNew && (
@@ -168,14 +161,7 @@ export function ArtifactSidebar({
 									)}
 								</div>
 								{directory && (
-									<p
-										className={cn(
-											"truncate text-xs",
-											isSelected
-												? "text-accent-foreground/70"
-												: "text-muted-foreground",
-										)}
-									>
+									<p className="truncate text-xs text-muted-foreground">
 										{directory}
 									</p>
 								)}

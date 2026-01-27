@@ -1,5 +1,50 @@
 # Changelog
 
+## [Unreleased]
+
+### Features
+
+* **web-ui:** Add annotation system for artifact feedback (Phase 3)
+  - Inline comments anchored to text selections, hidden anchors, or code lines
+  - Suggestion edits rendered as GitHub-style diffs
+  - Threaded replies with unlimited flat threading
+  - Real-time sync via WebSocket broadcast
+  - Annotation sidebar with filtering by status, author, and date range
+  - JSON persistence to `.rp1/open-tasks.json` for AI agent integration
+  - Markdown embedding as HTML comments for human-readable context
+  - Orphaned annotation detection and preservation
+  - Keyboard shortcut support (Cmd/Ctrl+Enter to submit)
+  - Feature flag: `RP1_ANNOTATIONS_ENABLED`
+* **install:** Automatic rollback on installation failure - system restores previous installation from backup if any step fails
+* **install:** SIGINT/SIGTERM signal handlers for safe interruption - Ctrl+C during installation gracefully cleans up and restores backup
+* **install:** Atomic installation via staging directory for OpenCode - plugins install all-or-nothing, preventing partial state
+* **install:** Enhanced dry-run validation - validates network connectivity, disk space, and package manager health before installation
+* **install:** `--strict` flag for CI/CD - treats missing source directories as errors (exit code 5) instead of warnings
+* **update:** Self-update pre-validation - downloads to temp location and verifies binary works before replacing
+* **cli:** add automatic version update notifications at session start
+* **cli:** add `rp1 check-update` command to check for available updates
+* **cli:** add `rp1 self-update` command to update via Homebrew, Scoop, or manual instructions
+* **plugins:** add `/self-update` slash command to rp1-base plugin
+* **plugins:** add Claude Code session hook for automatic update notifications
+* **plugins:** add OpenCode plugin for automatic update notifications
+
+### BREAKING CHANGES
+
+* **dev:** `/build` and `/build-fast` Git operations are now opt-in by default
+  - Removed: `--no-worktree`, `--push`, `--create-pr`, `--use-worktree` flags
+  - Added: `--git-worktree`, `--git-commit`, `--git-push`, `--git-pr` flags (all default to false)
+  - Migration: Replace `--no-worktree` (no replacement needed, worktree is now off by default)
+  - Migration: Replace `--push` with `--git-push`
+  - Migration: Replace `--create-pr` with `--git-pr`
+  - Migration: Replace `--use-worktree` with `--git-worktree`
+  - Note: `--git-pr` implies `--git-push` which implies `--git-commit`
+
+### Notes
+
+- Version check results are cached for 24 hours (use `--force` to bypass)
+- Configuration stored in `~/.config/rp1/` directory
+- Restart Claude Code or OpenCode after updating to use new version
+
 ## [0.3.2](https://github.com/rp1-run/rp1/compare/v0.3.1...v0.3.2) (2026-01-25)
 
 
@@ -32,28 +77,6 @@
 ### Features
 
 * **prompts:** make git operations opt-in ([#225](https://github.com/rp1-run/rp1/issues/225)) ([a6f1eb7](https://github.com/rp1-run/rp1/commit/a6f1eb7ab81be52da740d74e389295a66fb49f60))
-
-## [Unreleased]
-
-### Features
-
-* **install:** Automatic rollback on installation failure - system restores previous installation from backup if any step fails
-* **install:** SIGINT/SIGTERM signal handlers for safe interruption - Ctrl+C during installation gracefully cleans up and restores backup
-* **install:** Atomic installation via staging directory for OpenCode - plugins install all-or-nothing, preventing partial state
-* **install:** Enhanced dry-run validation - validates network connectivity, disk space, and package manager health before installation
-* **install:** `--strict` flag for CI/CD - treats missing source directories as errors (exit code 5) instead of warnings
-* **update:** Self-update pre-validation - downloads to temp location and verifies binary works before replacing
-
-### BREAKING CHANGES
-
-* **dev:** `/build` and `/build-fast` Git operations are now opt-in by default
-  - Removed: `--no-worktree`, `--push`, `--create-pr`, `--use-worktree` flags
-  - Added: `--git-worktree`, `--git-commit`, `--git-push`, `--git-pr` flags (all default to false)
-  - Migration: Replace `--no-worktree` (no replacement needed, worktree is now off by default)
-  - Migration: Replace `--push` with `--git-push`
-  - Migration: Replace `--create-pr` with `--git-pr`
-  - Migration: Replace `--use-worktree` with `--git-worktree`
-  - Note: `--git-pr` implies `--git-push` which implies `--git-commit`
 
 ## [0.2.16](https://github.com/rp1-run/rp1/compare/v0.2.15...v0.2.16) (2026-01-16)
 
@@ -211,23 +234,6 @@
 ### Features
 
 * prompt refinements ([#109](https://github.com/rp1-run/rp1/issues/109)) ([b91ae94](https://github.com/rp1-run/rp1/commit/b91ae94ce991cac5f435b12b80ec140633a26b97))
-
-## [Unreleased]
-
-### Features
-
-* **cli:** add automatic version update notifications at session start
-* **cli:** add `rp1 check-update` command to check for available updates
-* **cli:** add `rp1 self-update` command to update via Homebrew, Scoop, or manual instructions
-* **plugins:** add `/self-update` slash command to rp1-base plugin
-* **plugins:** add Claude Code session hook for automatic update notifications
-* **plugins:** add OpenCode plugin for automatic update notifications
-
-### Notes
-
-- Version check results are cached for 24 hours (use `--force` to bypass)
-- Configuration stored in `~/.config/rp1/` directory
-- Restart Claude Code or OpenCode after updating to use new version
 
 ## [0.2.3](https://github.com/rp1-run/rp1/compare/v0.2.2...v0.2.3) (2025-12-08)
 

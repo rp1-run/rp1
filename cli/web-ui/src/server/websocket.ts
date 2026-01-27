@@ -1,4 +1,5 @@
 import type { ServerWebSocket } from "bun";
+import type { Annotation, AnnotationReply } from "../types/annotations";
 
 export interface FileChangedMessage {
 	type: "file:changed";
@@ -31,6 +32,37 @@ export interface StatusChangedMessage {
 	status: string;
 }
 
+export interface AnnotationCreatedMessage {
+	type: "annotation:created";
+	annotation: Annotation;
+	timestamp: string;
+}
+
+export interface AnnotationUpdatedMessage {
+	type: "annotation:updated";
+	annotation: Annotation;
+	timestamp: string;
+}
+
+export interface AnnotationResolvedMessage {
+	type: "annotation:resolved";
+	annotationId: string;
+	timestamp: string;
+}
+
+export interface AnnotationDeletedMessage {
+	type: "annotation:deleted";
+	annotationId: string;
+	timestamp: string;
+}
+
+export interface AnnotationReplyAddedMessage {
+	type: "annotation:reply-added";
+	annotationId: string;
+	reply: AnnotationReply;
+	timestamp: string;
+}
+
 export interface SubscribeMessage {
 	type: "subscribe";
 	path: string;
@@ -51,7 +83,12 @@ export type ServerMessage =
 	| TreeChangedMessage
 	| HeartbeatMessage
 	| ProjectsChangedMessage
-	| StatusChangedMessage;
+	| StatusChangedMessage
+	| AnnotationCreatedMessage
+	| AnnotationUpdatedMessage
+	| AnnotationResolvedMessage
+	| AnnotationDeletedMessage
+	| AnnotationReplyAddedMessage;
 export type ClientMessage =
 	| SubscribeMessage
 	| UnsubscribeMessage
@@ -364,5 +401,54 @@ export class WebSocketHub {
 			}
 		}
 		return count;
+	}
+
+	broadcastAnnotationCreated(annotation: Annotation): void {
+		const message: AnnotationCreatedMessage = {
+			type: "annotation:created",
+			annotation,
+			timestamp: new Date().toISOString(),
+		};
+		this.broadcast(message);
+	}
+
+	broadcastAnnotationUpdated(annotation: Annotation): void {
+		const message: AnnotationUpdatedMessage = {
+			type: "annotation:updated",
+			annotation,
+			timestamp: new Date().toISOString(),
+		};
+		this.broadcast(message);
+	}
+
+	broadcastAnnotationResolved(annotationId: string): void {
+		const message: AnnotationResolvedMessage = {
+			type: "annotation:resolved",
+			annotationId,
+			timestamp: new Date().toISOString(),
+		};
+		this.broadcast(message);
+	}
+
+	broadcastAnnotationDeleted(annotationId: string): void {
+		const message: AnnotationDeletedMessage = {
+			type: "annotation:deleted",
+			annotationId,
+			timestamp: new Date().toISOString(),
+		};
+		this.broadcast(message);
+	}
+
+	broadcastAnnotationReplyAdded(
+		annotationId: string,
+		reply: AnnotationReply,
+	): void {
+		const message: AnnotationReplyAddedMessage = {
+			type: "annotation:reply-added",
+			annotationId,
+			reply,
+			timestamp: new Date().toISOString(),
+		};
+		this.broadcast(message);
 	}
 }

@@ -1,9 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { V2Header } from "@/components/v2/V2Header";
 import { V2Sidebar } from "@/components/v2/V2Sidebar";
 import { useWebSocket } from "@/providers/WebSocketProvider";
+
+// Routes that manage their own scrolling and don't need the layout's ScrollArea
+const FULL_HEIGHT_ROUTES = ["/v2/runs/"];
+function isFullHeightRoute(pathname: string): boolean {
+	return FULL_HEIGHT_ROUTES.some(
+		(route) => pathname.startsWith(route) && pathname.includes("/artifacts/"),
+	);
+}
 
 const V2_SIDEBAR_COLLAPSED_KEY = "rp1-v2-sidebar-collapsed";
 
@@ -27,6 +35,8 @@ export function V2Layout() {
 	const [sidebarCollapsed, setSidebarCollapsed] =
 		useState(loadSidebarCollapsed);
 	const { status: wsStatus } = useWebSocket();
+	const location = useLocation();
+	const isFullHeight = isFullHeightRoute(location.pathname);
 
 	const toggleSidebar = useCallback(() => {
 		setSidebarCollapsed((prev) => {
@@ -53,13 +63,19 @@ export function V2Layout() {
 			<V2Header wsStatus={wsStatus} />
 			<div className="flex flex-1 overflow-hidden">
 				<V2Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
-				<main className="flex-1 overflow-hidden">
-					<ScrollArea className="h-full">
-						<div className="p-6">
-							<Outlet />
-						</div>
-					</ScrollArea>
-				</main>
+				{isFullHeight ? (
+					<main className="flex-1 overflow-hidden">
+						<Outlet />
+					</main>
+				) : (
+					<main className="flex-1 overflow-hidden">
+						<ScrollArea className="h-full">
+							<div className="p-6">
+								<Outlet />
+							</div>
+						</ScrollArea>
+					</main>
+				)}
 			</div>
 		</div>
 	);

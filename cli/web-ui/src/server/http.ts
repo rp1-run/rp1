@@ -182,7 +182,7 @@ async function handleApiRequest(
 	}
 
 	if (pathname.startsWith("/api/v2/")) {
-		return handleV2ApiRequest(req, pathname, method);
+		return handleV2ApiRequest(req, pathname, method, projectPath, apiContext);
 	}
 
 	if (pathname === "/api/project") {
@@ -222,6 +222,8 @@ async function handleV2ApiRequest(
 	req: Request,
 	pathname: string,
 	method: string,
+	projectPath: string,
+	apiContext: ApiContext,
 ): Promise<Response> {
 	if (pathname === "/api/v2/runs/attention" && method === "GET") {
 		const { handleV2RunsAttentionRequest } = await import("./routes/v2-api");
@@ -261,6 +263,93 @@ async function handleV2ApiRequest(
 	if (pathname === "/api/v2/projects" && method === "GET") {
 		const { handleV2ProjectsListRequest } = await import("./routes/v2-api");
 		return handleV2ProjectsListRequest();
+	}
+
+	// Annotation API routes
+	const annotationApiContext = {
+		projectPath,
+		websocketHub: apiContext.websocketHub,
+	};
+
+	// POST /api/v2/annotations/:id/replies - add reply (most specific first)
+	const replyMatch = pathname.match(
+		/^\/api\/v2\/annotations\/([^/]+)\/replies$/,
+	);
+	if (replyMatch && method === "POST") {
+		const { handleAnnotationReplyRequest } = await import(
+			"./routes/annotations-api"
+		);
+		const id = decodeURIComponent(replyMatch[1]);
+		return handleAnnotationReplyRequest(id, req, annotationApiContext);
+	}
+
+	// POST /api/v2/annotations/:id/resolve - mark resolved
+	const resolveMatch = pathname.match(
+		/^\/api\/v2\/annotations\/([^/]+)\/resolve$/,
+	);
+	if (resolveMatch && method === "POST") {
+		const { handleAnnotationResolveRequest } = await import(
+			"./routes/annotations-api"
+		);
+		const id = decodeURIComponent(resolveMatch[1]);
+		return handleAnnotationResolveRequest(id, annotationApiContext);
+	}
+
+	// POST /api/v2/annotations/:id/reopen - reopen annotation
+	const reopenMatch = pathname.match(
+		/^\/api\/v2\/annotations\/([^/]+)\/reopen$/,
+	);
+	if (reopenMatch && method === "POST") {
+		const { handleAnnotationReopenRequest } = await import(
+			"./routes/annotations-api"
+		);
+		const id = decodeURIComponent(reopenMatch[1]);
+		return handleAnnotationReopenRequest(id, annotationApiContext);
+	}
+
+	// GET/PATCH/DELETE /api/v2/annotations/:id - single annotation operations
+	const annotationDetailMatch = pathname.match(
+		/^\/api\/v2\/annotations\/([^/]+)$/,
+	);
+	if (annotationDetailMatch) {
+		const id = decodeURIComponent(annotationDetailMatch[1]);
+
+		if (method === "GET") {
+			const { handleAnnotationGetRequest } = await import(
+				"./routes/annotations-api"
+			);
+			return handleAnnotationGetRequest(id, annotationApiContext);
+		}
+
+		if (method === "PATCH") {
+			const { handleAnnotationUpdateRequest } = await import(
+				"./routes/annotations-api"
+			);
+			return handleAnnotationUpdateRequest(id, req, annotationApiContext);
+		}
+
+		if (method === "DELETE") {
+			const { handleAnnotationDeleteRequest } = await import(
+				"./routes/annotations-api"
+			);
+			return handleAnnotationDeleteRequest(id, annotationApiContext);
+		}
+	}
+
+	// GET /api/v2/annotations - list annotations
+	if (pathname === "/api/v2/annotations" && method === "GET") {
+		const { handleAnnotationsListRequest } = await import(
+			"./routes/annotations-api"
+		);
+		return handleAnnotationsListRequest(req, annotationApiContext);
+	}
+
+	// POST /api/v2/annotations - create annotation
+	if (pathname === "/api/v2/annotations" && method === "POST") {
+		const { handleAnnotationCreateRequest } = await import(
+			"./routes/annotations-api"
+		);
+		return handleAnnotationCreateRequest(req, annotationApiContext);
 	}
 
 	return new Response(JSON.stringify({ error: "Not found" }), {

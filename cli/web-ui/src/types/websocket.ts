@@ -3,6 +3,7 @@
  * Extends the existing message types with run-specific events.
  */
 
+import type { Annotation, AnnotationReply } from "./annotations";
 import type { Artifact, RunEvent, RunStatus, StepStatus } from "./runs";
 
 /** File change notification */
@@ -75,6 +76,50 @@ export type RunMessage =
 	| RunArtifactMessage
 	| RunEventMessage;
 
+/** Annotation created notification */
+export interface AnnotationCreatedMessage {
+	type: "annotation:created";
+	annotation: Annotation;
+	timestamp: string;
+}
+
+/** Annotation updated notification */
+export interface AnnotationUpdatedMessage {
+	type: "annotation:updated";
+	annotation: Annotation;
+	timestamp: string;
+}
+
+/** Annotation resolved notification */
+export interface AnnotationResolvedMessage {
+	type: "annotation:resolved";
+	annotationId: string;
+	timestamp: string;
+}
+
+/** Annotation deleted notification */
+export interface AnnotationDeletedMessage {
+	type: "annotation:deleted";
+	annotationId: string;
+	timestamp: string;
+}
+
+/** Annotation reply added notification */
+export interface AnnotationReplyAddedMessage {
+	type: "annotation:reply-added";
+	annotationId: string;
+	reply: AnnotationReply;
+	timestamp: string;
+}
+
+/** Union of all annotation-related messages */
+export type AnnotationMessage =
+	| AnnotationCreatedMessage
+	| AnnotationUpdatedMessage
+	| AnnotationResolvedMessage
+	| AnnotationDeletedMessage
+	| AnnotationReplyAddedMessage;
+
 /** Union of all server messages */
 export type ServerMessage =
 	| FileChangedMessage
@@ -84,7 +129,12 @@ export type ServerMessage =
 	| RunStatusMessage
 	| RunStepMessage
 	| RunArtifactMessage
-	| RunEventMessage;
+	| RunEventMessage
+	| AnnotationCreatedMessage
+	| AnnotationUpdatedMessage
+	| AnnotationResolvedMessage
+	| AnnotationDeletedMessage
+	| AnnotationReplyAddedMessage;
 
 /** WebSocket connection status */
 export type ConnectionStatus = "connecting" | "connected" | "disconnected";

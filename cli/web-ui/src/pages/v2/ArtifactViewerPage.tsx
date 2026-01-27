@@ -4,6 +4,7 @@ import {
 	ChevronRight,
 	List,
 	Loader2,
+	MessageSquare,
 	PanelLeft,
 } from "lucide-react";
 import {
@@ -30,18 +31,26 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { AnnotationSidebar } from "@/components/v2/AnnotationSidebar";
 import { ArtifactSidebar } from "@/components/v2/ArtifactSidebar";
 import { FollowModeToggle } from "@/components/v2/FollowModeToggle";
 import { NewUpdatesChip } from "@/components/v2/NewUpdatesChip";
 import { TableOfContents } from "@/components/v2/TableOfContents";
+import { useAnnotations } from "@/hooks/useAnnotations";
 import { useFollowMode } from "@/hooks/useFollowMode";
 import type { HeadingEntry } from "@/hooks/useHeadingExtraction";
 import { useIsMobile } from "@/hooks/useMediaQuery";
 import { useRunDetail } from "@/hooks/useRunDetail";
-import { cn } from "@/lib/utils";
+import { AnnotationProvider } from "@/providers/AnnotationProvider";
 import { useWebSocket } from "@/providers/WebSocketProvider";
+import type { Annotation } from "@/types/annotations";
+
+const ANNOTATIONS_ENABLED =
+	typeof import.meta !== "undefined" &&
+	import.meta.env?.RP1_ANNOTATIONS_ENABLED !== "false";
 
 const STORAGE_KEY_TOC_COLLAPSED = "rp1-toc-collapsed";
+const STORAGE_KEY_ANNOTATIONS_COLLAPSED = "rp1-annotations-collapsed";
 
 /**
  * Map file extensions to syntax highlighting languages.
@@ -81,7 +90,6 @@ function getCodeLanguageFromPath(path: string): string | null {
 		txt: "text",
 	};
 
-	// Markdown files should use MarkdownViewer
 	if (ext === "md" || ext === "mdx") return null;
 
 	return extToLang[ext] ?? null;
@@ -90,6 +98,85 @@ function getCodeLanguageFromPath(path: string): string | null {
 interface ArtifactContent {
 	path: string;
 	content: string;
+}
+
+/**
+ * Annotation toggle button component (must be inside AnnotationProvider).
+ * Only shows when sidebar is closed - provides a way to open it.
+ */
+function AnnotationToggleButton({
+	selectedArtifactPath,
+	onOpen,
+}: {
+	selectedArtifactPath: string;
+	onOpen: () => void;
+}) {
+	const { count } = useAnnotations({ artifactPath: selectedArtifactPath });
+
+	return (
+		<TooltipProvider>
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<Button
+						variant="ghost"
+						size="icon"
+						className="h-8 w-8 relative"
+						onClick={onOpen}
+						aria-label="Open annotations panel"
+					>
+						<MessageSquare className="h-4 w-4" aria-hidden="true" />
+						{count > 0 && (
+							<span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground">
+								{count > 99 ? "99+" : count}
+							</span>
+						)}
+					</Button>
+				</TooltipTrigger>
+				<TooltipContent>
+					<p>Annotations {count > 0 ? `(${count})` : ""}</p>
+				</TooltipContent>
+			</Tooltip>
+		</TooltipProvider>
+	);
+}
+
+/**
+ * Mobile annotation toolbar button (inside AnnotationProvider).
+ */
+function MobileAnnotationButton({
+	selectedArtifactPath,
+	onClick,
+}: {
+	selectedArtifactPath: string;
+	onClick: () => void;
+}) {
+	const { count } = useAnnotations({ artifactPath: selectedArtifactPath });
+
+	return (
+		<TooltipProvider>
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<Button
+						variant="ghost"
+						size="icon"
+						className="h-8 w-8 relative"
+						onClick={onClick}
+						aria-label="Open annotations"
+					>
+						<MessageSquare className="h-4 w-4" aria-hidden="true" />
+						{count > 0 && (
+							<span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground">
+								{count > 99 ? "99+" : count}
+							</span>
+						)}
+					</Button>
+				</TooltipTrigger>
+				<TooltipContent>
+					<p>Annotations {count > 0 ? `(${count})` : ""}</p>
+				</TooltipContent>
+			</Tooltip>
+		</TooltipProvider>
+	);
 }
 
 export function ArtifactViewerPage() {
@@ -106,12 +193,21 @@ export function ArtifactViewerPage() {
 	const [headings, setHeadings] = useState<readonly HeadingEntry[]>([]);
 	const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null);
 	const [tocCollapsed, setTocCollapsed] = useState<boolean>(() => {
-		if (typeof window === "undefined") return false;
+		if (typeof window === "undefined") return true;
 		const stored = sessionStorage.getItem(STORAGE_KEY_TOC_COLLAPSED);
-		return stored === "true";
+		// Default to collapsed (hidden) unless explicitly set to false
+		return stored === null ? true : stored === "true";
 	});
+	const [annotationSidebarOpen, setAnnotationSidebarOpen] = useState<boolean>(
+		() => {
+			if (typeof window === "undefined") return false;
+			const stored = sessionStorage.getItem(STORAGE_KEY_ANNOTATIONS_COLLAPSED);
+			return stored !== "true"; // Default to open
+		},
+	);
 	const [sidebarDrawerOpen, setSidebarDrawerOpen] = useState(false);
 	const [tocDrawerOpen, setTocDrawerOpen] = useState(false);
+	const [annotationDrawerOpen, setAnnotationDrawerOpen] = useState(false);
 	const [liveAnnouncement, setLiveAnnouncement] = useState<string>("");
 
 	const scrollViewportRef = useRef<HTMLDivElement>(null);
@@ -134,12 +230,78 @@ export function ArtifactViewerPage() {
 	const handleToggleTocCollapse = useCallback(() => {
 		setTocCollapsed((prev) => {
 			const newValue = !prev;
+			// Close annotations when opening ToC
+			if (!newValue) {
+				setAnnotationSidebarOpen(false);
+				if (typeof window !== "undefined") {
+					sessionStorage.setItem(STORAGE_KEY_ANNOTATIONS_COLLAPSED, "true");
+				}
+			}
 			if (typeof window !== "undefined") {
 				sessionStorage.setItem(STORAGE_KEY_TOC_COLLAPSED, String(newValue));
 			}
 			return newValue;
 		});
 	}, []);
+
+	const handleToggleAnnotationSidebar = useCallback((open: boolean) => {
+		setAnnotationSidebarOpen(open);
+		// Close ToC when opening annotations
+		if (open) {
+			setTocCollapsed(true);
+			if (typeof window !== "undefined") {
+				sessionStorage.setItem(STORAGE_KEY_TOC_COLLAPSED, "true");
+			}
+		}
+		if (typeof window !== "undefined") {
+			sessionStorage.setItem(STORAGE_KEY_ANNOTATIONS_COLLAPSED, String(!open));
+		}
+	}, []);
+
+	const handleNavigateToAnnotation = useCallback(
+		(annotation: Annotation) => {
+			const anchor = annotation.anchor;
+			let targetElement: Element | null = null;
+
+			switch (anchor.type) {
+				case "hidden-anchor": {
+					targetElement = document.getElementById(anchor.anchorId);
+					break;
+				}
+				case "line": {
+					// Line annotations are in code blocks - find the line element
+					const lineElements = document.querySelectorAll(
+						`[data-line-number="${anchor.lineNumber}"]`,
+					);
+					if (lineElements.length > 0) {
+						targetElement = lineElements[0];
+					}
+					break;
+				}
+				case "text-selection": {
+					// For text selections, we try to find the text in the document
+					// The annotation highlight should already be visible
+					const highlightElements = document.querySelectorAll(
+						`[data-annotation-id="${annotation.id}"]`,
+					);
+					if (highlightElements.length > 0) {
+						targetElement = highlightElements[0];
+					}
+					break;
+				}
+			}
+
+			if (targetElement) {
+				targetElement.scrollIntoView({ behavior: "smooth", block: "center" });
+			}
+
+			// Close mobile drawer if open
+			if (isMobile) {
+				setAnnotationDrawerOpen(false);
+			}
+		},
+		[isMobile],
+	);
 
 	const handleArtifactSelect = useCallback(
 		(path: string) => {
@@ -200,6 +362,9 @@ export function ArtifactViewerPage() {
 
 			if (!preserveScroll) {
 				setContentLoading(true);
+				// Clear headings when loading new artifact (they'll be repopulated by MarkdownViewer if applicable)
+				setHeadings([]);
+				setActiveHeadingId(null);
 			}
 			setContentError(null);
 
@@ -408,6 +573,8 @@ export function ArtifactViewerPage() {
 							<CodeBlock
 								code={artifactContent.content}
 								language={codeLanguage}
+								artifactPath={artifactContent.path}
+								enableAnnotations={ANNOTATIONS_ENABLED}
 							/>
 						);
 					}
@@ -416,6 +583,7 @@ export function ArtifactViewerPage() {
 							content={artifactContent.content}
 							path={artifactContent.path}
 							onHeadingsExtracted={handleHeadingsExtracted}
+							enableAnnotations={ANNOTATIONS_ENABLED}
 						/>
 					);
 				})()
@@ -431,7 +599,7 @@ export function ArtifactViewerPage() {
 	);
 
 	if (isMobile) {
-		return (
+		const mobileContent = (
 			<div className="flex h-full flex-col">
 				{liveRegion}
 				<nav
@@ -501,6 +669,12 @@ export function ArtifactViewerPage() {
 								enabled={followMode}
 								onToggle={() => setFollowMode(!followMode)}
 							/>
+							{ANNOTATIONS_ENABLED && (
+								<MobileAnnotationButton
+									selectedArtifactPath={selectedArtifactPath}
+									onClick={() => setAnnotationDrawerOpen(true)}
+								/>
+							)}
 							<TooltipProvider>
 								<Tooltip>
 									<TooltipTrigger asChild>
@@ -564,9 +738,24 @@ export function ArtifactViewerPage() {
 						headings={headings}
 						activeId={activeHeadingId}
 						onNavigate={handleTocNavigateMobile}
-						collapsed={false}
 					/>
 				</Drawer>
+
+				{ANNOTATIONS_ENABLED && (
+					<Drawer
+						open={annotationDrawerOpen}
+						onClose={() => setAnnotationDrawerOpen(false)}
+						side="right"
+						title="Annotations"
+					>
+						<AnnotationSidebar
+							artifactPath={selectedArtifactPath}
+							onClose={() => setAnnotationDrawerOpen(false)}
+							onNavigateToAnnotation={handleNavigateToAnnotation}
+							className="border-l-0 w-full"
+						/>
+					</Drawer>
+				)}
 
 				<footer className="border-t px-4 py-2 text-xs text-muted-foreground">
 					Press{" "}
@@ -575,9 +764,21 @@ export function ArtifactViewerPage() {
 				</footer>
 			</div>
 		);
+
+		// Wrap mobile content with AnnotationProvider when annotations are enabled
+		if (ANNOTATIONS_ENABLED) {
+			return (
+				<AnnotationProvider artifactPath={selectedArtifactPath}>
+					{mobileContent}
+				</AnnotationProvider>
+			);
+		}
+
+		return mobileContent;
 	}
 
-	return (
+	// Desktop content
+	const desktopContent = (
 		<div className="flex h-full flex-col">
 			{liveRegion}
 			<nav
@@ -627,7 +828,7 @@ export function ArtifactViewerPage() {
 
 			<ResizablePanelGroup
 				direction="horizontal"
-				className="flex-1"
+				className="flex-1 overflow-hidden"
 				autoSaveId="artifact-viewer-panels"
 			>
 				<ResizablePanel
@@ -637,7 +838,7 @@ export function ArtifactViewerPage() {
 					collapsible
 					className="bg-card"
 				>
-					<aside aria-label="Artifact list">
+					<aside aria-label="Artifact list" className="h-full">
 						<ScrollArea className="h-full">
 							<ArtifactSidebar
 								artifacts={run.artifacts}
@@ -650,8 +851,11 @@ export function ArtifactViewerPage() {
 
 				<ResizableHandle withHandle aria-label="Resize sidebar" />
 
-				<ResizablePanel defaultSize={70} minSize={40}>
-					<main className="relative flex h-full flex-col">
+				<ResizablePanel
+					defaultSize={ANNOTATIONS_ENABLED ? 55 : 70}
+					minSize={40}
+				>
+					<main className="relative flex h-full flex-col overflow-hidden">
 						<div
 							className="flex items-center justify-end gap-2 border-b px-4 py-2"
 							role="toolbar"
@@ -661,9 +865,38 @@ export function ArtifactViewerPage() {
 								enabled={followMode}
 								onToggle={() => setFollowMode(!followMode)}
 							/>
+							{tocCollapsed && headings.length > 0 && (
+								<TooltipProvider>
+									<Tooltip>
+										<TooltipTrigger asChild>
+											<Button
+												variant="ghost"
+												size="icon"
+												className="h-8 w-8"
+												onClick={handleToggleTocCollapse}
+												aria-label="Open table of contents"
+											>
+												<List className="h-4 w-4" aria-hidden="true" />
+											</Button>
+										</TooltipTrigger>
+										<TooltipContent>
+											<p>Table of contents ({headings.length})</p>
+										</TooltipContent>
+									</Tooltip>
+								</TooltipProvider>
+							)}
+							{ANNOTATIONS_ENABLED && !annotationSidebarOpen && (
+								<AnnotationToggleButton
+									selectedArtifactPath={selectedArtifactPath}
+									onOpen={() => handleToggleAnnotationSidebar(true)}
+								/>
+							)}
 						</div>
 
-						<ScrollArea className="flex-1" viewportRef={scrollViewportRef}>
+						<ScrollArea
+							className="flex-1 min-h-0"
+							viewportRef={scrollViewportRef}
+						>
 							<article
 								className="p-6"
 								onScroll={handleScroll as unknown as React.UIEventHandler}
@@ -681,26 +914,47 @@ export function ArtifactViewerPage() {
 					</main>
 				</ResizablePanel>
 
-				<ResizableHandle withHandle aria-label="Resize table of contents" />
+				{!tocCollapsed && (
+					<>
+						<ResizableHandle withHandle aria-label="Resize table of contents" />
 
-				<ResizablePanel
-					defaultSize={15}
-					minSize={11}
-					maxSize={19}
-					collapsible
-					collapsedSize={3}
-					className={cn(tocCollapsed && "min-w-[40px]")}
-				>
-					<aside aria-label="Table of contents">
-						<TableOfContents
-							headings={headings}
-							activeId={activeHeadingId}
-							onNavigate={handleTocNavigate}
-							collapsed={tocCollapsed}
-							onToggleCollapse={handleToggleTocCollapse}
-						/>
-					</aside>
-				</ResizablePanel>
+						<ResizablePanel
+							defaultSize={15}
+							minSize={11}
+							maxSize={19}
+							collapsible
+						>
+							<aside aria-label="Table of contents" className="h-full">
+								<TableOfContents
+									headings={headings}
+									activeId={activeHeadingId}
+									onNavigate={handleTocNavigate}
+									onClose={handleToggleTocCollapse}
+								/>
+							</aside>
+						</ResizablePanel>
+					</>
+				)}
+
+				{ANNOTATIONS_ENABLED && annotationSidebarOpen && (
+					<>
+						<ResizableHandle withHandle aria-label="Resize annotations panel" />
+						<ResizablePanel
+							defaultSize={15}
+							minSize={12}
+							maxSize={25}
+							collapsible
+							className="bg-card"
+						>
+							<AnnotationSidebar
+								artifactPath={selectedArtifactPath}
+								onClose={() => handleToggleAnnotationSidebar(false)}
+								onNavigateToAnnotation={handleNavigateToAnnotation}
+								className="h-full"
+							/>
+						</ResizablePanel>
+					</>
+				)}
 			</ResizablePanelGroup>
 
 			<footer className="border-t px-4 py-2 text-xs text-muted-foreground">
@@ -710,4 +964,15 @@ export function ArtifactViewerPage() {
 			</footer>
 		</div>
 	);
+
+	// Wrap desktop content with AnnotationProvider when annotations are enabled
+	if (ANNOTATIONS_ENABLED) {
+		return (
+			<AnnotationProvider artifactPath={selectedArtifactPath}>
+				{desktopContent}
+			</AnnotationProvider>
+		);
+	}
+
+	return desktopContent;
 }

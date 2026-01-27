@@ -1,3 +1,15 @@
+export {
+	AnnotationIndicator,
+	type AnnotationIndicatorProps,
+} from "./AnnotationIndicator";
+export {
+	AnnotationPopover,
+	type AnnotationPopoverProps,
+} from "./AnnotationPopover";
+export {
+	AnnotationSidebar,
+	type AnnotationSidebarProps,
+} from "./AnnotationSidebar";
 export { ArtifactList, type ArtifactListProps } from "./ArtifactList";
 export {
 	ArtifactSidebar,
@@ -15,6 +27,10 @@ export {
 } from "./FollowModeToggle";
 export { NewUpdatesChip, type NewUpdatesChipProps } from "./NewUpdatesChip";
 export { RunCard, type RunCardProps } from "./RunCard";
+export {
+	SelectionPopover,
+	type SelectionPopoverProps,
+} from "./SelectionPopover";
 export { StatusBadge, type StatusBadgeProps } from "./StatusBadge";
 export { StepTimeline, type StepTimelineProps } from "./StepTimeline";
 export {
