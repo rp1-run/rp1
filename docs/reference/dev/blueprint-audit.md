@@ -119,27 +119,17 @@ Each phase is classified based on evidence:
 
 After presenting results, you're asked about PRD relevance:
 
-```
-**Is this PRD still relevant to your work?**
+| Option | Description |
+|--------|-------------|
+| Archive | PRD is complete or no longer needed - triggers prd-archiver |
+| Add scope | Add new work items to the PRD |
+| Remove scope | Remove incomplete phases from the PRD |
+| Continue | Keep PRD active with no changes |
+| Defer | Revisit this decision later (no changes) |
 
-- [ ] Yes, continue development
-- [ ] No, archive it
-- [ ] Revisit later (defer decision)
-```
+**Archive flow**: You'll be asked for closure status (Complete/Partial) and gap documentation if partial.
 
-**Selecting "No, archive it"** triggers the `prd-archiver` workflow to move the PRD to archives.
-
-**Selecting "Yes, continue development"** offers scope adjustment options:
-
-```
-**Would you like to adjust scope?**
-
-- [ ] Add new scope
-- [ ] Remove incomplete phases
-- [ ] No changes needed
-```
-
-**Selecting "Revisit later"** exits cleanly without changes.
+**Scope modification**: You provide descriptions (add) or select phase IDs (remove).
 
 ### Handle Invalid PRD Name
 

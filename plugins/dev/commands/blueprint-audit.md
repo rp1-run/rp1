@@ -23,48 +23,84 @@ Audits PRD documents against implementation evidence, identifies stale or comple
 ## Behavior
 
 - Extracts phases/milestones from PRD document
-- Checks `{RP1_ROOT}/work/archives/features/` and `{RP1_ROOT}/work/features/` for evidence
+- Checks archives and features directories for evidence
 - Searches codebase when archive/feature evidence insufficient
 - Classifies each phase as Complete/Partial/Not Started
 - Presents audit results with evidence summary
-- Asks user about PRD relevance
-- Offers disposition options: Archive, Modify scope, Defer
+- Guides user through disposition decision
 
 ## Execution
 
-### Step 1: Invoke Auditor
+### Step 1: Run Audit
 
 Task tool:
-
 - `subagent_type`: `rp1-dev:blueprint-auditor`
 - `prompt`:
-
 ```
+MODE: audit
 PRD_NAME: $1
 ```
 
-### Step 2: Handle Response
-
-The agent handles all user interaction internally and returns final results.
-
-**Success Response**:
-```json
-{"type":"success","prd_name":"...","disposition":"...","summary":"..."}
-```
-
-Display summary to user.
+### Step 2: Handle Audit Response
 
 **Error Response**:
 ```json
-{"type":"error","message":"...","available_prds":["prd1","prd2"]}
+{"type":"error","message":"...","available_prds":["..."]}
+```
+Output error message with available PRDs, then STOP.
+
+**Needs User Input** (audit complete):
+```json
+{"type":"needs_user_input","question":"relevance","phases":[...],"summary":{...}}
 ```
 
-Output error message with available PRDs list, then STOP.
+Display the audit table from agent output, then continue to Step 3.
 
-### Step 3: Report
+### Step 3: Ask Relevance Question
 
-Display agent output directly. Include:
+Use AskUserQuestion:
+```
+Question: "Is this PRD still relevant to your work?"
+Options:
+- "Archive" - PRD is complete or no longer needed
+- "Add scope" - Add new work items to PRD
+- "Remove scope" - Remove incomplete phases from PRD
+- "Continue" - Keep PRD active, no changes
+- "Defer" - Revisit this decision later
+```
 
-- PRD audit summary with phase statuses
-- Disposition taken (archived, scope modified, deferred)
+### Step 4: Handle User Choice
+
+**"Archive"**:
+1. Invoke agent with MODE=action, USER_CHOICE=archive
+2. Agent returns `needs_user_input` with question="closure_status"
+3. Ask user:
+   ```
+   Question: "What is the closure status?"
+   Options:
+   - "Complete" - All planned work finished
+   - "Partial" - Some work deferred or abandoned
+   ```
+4. If "Partial", ask for gap documentation (freeform text)
+5. Invoke agent with MODE=action, USER_CHOICE=archive_confirm, SCOPE_INPUT={status}|{gaps}
+
+**"Add scope"**:
+1. Ask user for new scope description (freeform text)
+2. Invoke agent with MODE=action, USER_CHOICE=add_scope, SCOPE_INPUT={description}
+
+**"Remove scope"**:
+1. Present list of Not Started/Partial phases from audit
+2. Ask user which phase IDs to remove (multi-select or comma-separated)
+3. Invoke agent with MODE=action, USER_CHOICE=remove_scope, SCOPE_INPUT={phase_ids}
+
+**"Continue"**:
+- Invoke agent with MODE=action, USER_CHOICE=continue
+
+**"Defer"**:
+- Invoke agent with MODE=action, USER_CHOICE=defer
+
+### Step 5: Report
+
+Display agent's final output. Include:
+- Disposition taken
 - Next steps if applicable
