@@ -228,7 +228,7 @@ function LineGutter({
 		<button
 			ref={gutterRef}
 			type="button"
-			className="h-6 leading-6 relative cursor-pointer w-full bg-transparent border-none p-0 text-inherit font-inherit group/line"
+			className="h-6 leading-6 relative cursor-pointer w-full bg-transparent border-none p-0 text-inherit font-inherit group/line overflow-hidden"
 			onMouseEnter={() => setIsHovered(true)}
 			onMouseLeave={() => setIsHovered(false)}
 			onClick={handleClick}
@@ -238,15 +238,15 @@ function LineGutter({
 					: `Add annotation on line ${lineNumber}`
 			}
 		>
-			{/* Always show line number for stable layout */}
-			<span className={cn(hasAnnotations && "invisible")}>{lineNumber}</span>
+			{/* Line number - hidden when has annotations */}
+			<span className={cn(hasAnnotations && "opacity-0")}>{lineNumber}</span>
 
 			{/* Annotation indicator - absolutely positioned overlay */}
 			{hasAnnotations && (
-				<div className="absolute inset-0 flex items-center justify-center text-terminal-yellow">
-					<div className="relative flex items-center justify-center rounded bg-terminal-yellow/20 px-1">
+				<div className="absolute inset-0 flex items-center justify-end pr-1 text-terminal-yellow">
+					<div className="flex items-center justify-center rounded bg-terminal-yellow/20 px-1 py-0.5">
 						<MessageSquare
-							className="h-3.5 w-3.5"
+							className="h-3 w-3"
 							aria-hidden="true"
 							fill="currentColor"
 						/>
@@ -261,7 +261,7 @@ function LineGutter({
 
 			{/* Hover overlay for adding annotation - only when no annotations */}
 			{!hasAnnotations && isHovered && (
-				<div className="absolute inset-0 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+				<div className="absolute inset-0 flex items-center justify-end pr-1 text-muted-foreground hover:text-foreground transition-colors">
 					<Plus className="h-3.5 w-3.5" aria-hidden="true" />
 				</div>
 			)}
@@ -469,8 +469,8 @@ export function CodeBlock({
 				<div className="flex min-w-full text-sm">
 					<div
 						className={cn(
-							"flex-shrink-0 select-none border-r bg-muted/30 px-3 py-3 text-right text-muted-foreground",
-							enableAnnotations && "min-w-[3rem]",
+							"flex-shrink-0 select-none border-r bg-muted/30 py-3 text-right text-muted-foreground",
+							enableAnnotations ? "w-14 px-2" : "px-3",
 						)}
 						aria-hidden={!enableAnnotations}
 					>
