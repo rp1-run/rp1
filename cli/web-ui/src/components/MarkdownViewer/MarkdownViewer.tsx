@@ -21,6 +21,7 @@ import {
 	useTextSelection,
 } from "@/hooks/useTextSelection";
 import { cn } from "@/lib/utils";
+import { useAnnotationContext } from "@/providers/AnnotationProvider";
 import type { Annotation } from "@/types/annotations";
 import { CodeBlock } from "./CodeBlock";
 import { MarkdownLink } from "./MarkdownLink";
@@ -259,6 +260,7 @@ function AnnotationLayer({
 
 	// Get annotations for this artifact
 	const { annotations } = useAnnotations({ artifactPath: path });
+	const { selectedAnnotationId, selectAnnotation } = useAnnotationContext();
 
 	// Show selection popover when text is selected and lock it
 	// But not if selection is inside a code block (which has its own annotation system)
@@ -347,6 +349,41 @@ function AnnotationLayer({
 			(a) => a.anchor.type === "text-selection" && !a.orphaned,
 		);
 	}, [annotations]);
+
+	// Listen for sidebar navigation - open popover when annotation is selected
+	useEffect(() => {
+		if (!selectedAnnotationId) return;
+
+		// Find the annotation in our list
+		const annotation = annotations.find((a) => a.id === selectedAnnotationId);
+		if (!annotation) return;
+
+		// Only handle text-selection and hidden-anchor types here
+		// Line annotations are handled by CodeBlock
+		if (
+			annotation.anchor.type !== "text-selection" &&
+			annotation.anchor.type !== "hidden-anchor"
+		) {
+			return;
+		}
+
+		// Find the highlight element in the DOM
+		const highlightElement = document.querySelector(
+			`[data-annotation-id="${selectedAnnotationId}"]`,
+		);
+		if (highlightElement) {
+			const rect = highlightElement.getBoundingClientRect();
+			const position: SelectionPosition = {
+				x: rect.left + rect.width / 2,
+				y: rect.bottom,
+			};
+			setActiveAnnotation(annotation);
+			setAnnotationPosition(position);
+		}
+
+		// Clear selection after handling
+		selectAnnotation(null);
+	}, [selectedAnnotationId, annotations, selectAnnotation]);
 
 	const handleAnchorClick = useCallback(
 		(anchor: DetectedHiddenAnchor) => {

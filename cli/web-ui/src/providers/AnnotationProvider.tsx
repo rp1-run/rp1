@@ -37,7 +37,9 @@ export interface AnnotationContextValue {
 	readonly isLoading: boolean;
 	readonly error: string | null;
 	readonly filter: AnnotationFilter;
+	readonly selectedAnnotationId: string | null;
 	setFilter: (filter: AnnotationFilter) => void;
+	selectAnnotation: (id: string | null) => void;
 	createAnnotation: (request: CreateAnnotationRequest) => Promise<Annotation>;
 	resolveAnnotation: (id: string) => Promise<void>;
 	reopenAnnotation: (id: string) => Promise<void>;
@@ -72,6 +74,9 @@ export function AnnotationProvider({
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [filter, setFilter] = useState<AnnotationFilter>(DEFAULT_FILTER);
+	const [selectedAnnotationId, setSelectedAnnotationId] = useState<
+		string | null
+	>(null);
 
 	const { status: wsStatus } = useWebSocket();
 	const wsRef = useRef<WebSocket | null>(null);
@@ -512,13 +517,19 @@ export function AnnotationProvider({
 		};
 	}, [wsStatus, handleAnnotationMessage]);
 
+	const selectAnnotation = useCallback((id: string | null) => {
+		setSelectedAnnotationId(id);
+	}, []);
+
 	const contextValue = useMemo<AnnotationContextValue>(
 		() => ({
 			annotations,
 			isLoading,
 			error,
 			filter,
+			selectedAnnotationId,
 			setFilter,
+			selectAnnotation,
 			createAnnotation,
 			resolveAnnotation,
 			reopenAnnotation,
@@ -532,6 +543,8 @@ export function AnnotationProvider({
 			isLoading,
 			error,
 			filter,
+			selectedAnnotationId,
+			selectAnnotation,
 			createAnnotation,
 			resolveAnnotation,
 			reopenAnnotation,

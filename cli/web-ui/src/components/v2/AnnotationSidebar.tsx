@@ -284,11 +284,18 @@ export function AnnotationSidebar({
 		setFilter({ status: "all", author: null, dateRange: "all" });
 	}, [setFilter]);
 
+	const { selectAnnotation } = useAnnotationContext();
+
 	const handleAnnotationClick = useCallback(
 		(annotation: Annotation) => {
+			// First scroll to the annotation
 			onNavigateToAnnotation?.(annotation);
+			// Then select it to open the popover (with delay for scroll to complete)
+			setTimeout(() => {
+				selectAnnotation(annotation.id);
+			}, 300);
 		},
-		[onNavigateToAnnotation],
+		[onNavigateToAnnotation, selectAnnotation],
 	);
 
 	const hasActiveFilters =

@@ -303,9 +303,10 @@ export function CodeBlock({
 
 	const lineCount = lines.length;
 
-	const { getAnnotationsAtPosition } = useAnnotations({
+	const { getAnnotationsAtPosition, annotations } = useAnnotations({
 		artifactPath: artifactPath ?? "",
 	});
+	const { selectedAnnotationId, selectAnnotation } = useAnnotationContext();
 
 	const lineAnnotationsMap = useMemo(() => {
 		if (!enableAnnotations || !artifactPath) {
@@ -319,9 +320,9 @@ export function CodeBlock({
 				lineNumber: i,
 				lineContent: lines[i - 1] ?? "",
 			};
-			const annotations = getAnnotationsAtPosition(anchor);
-			if (annotations.length > 0) {
-				map.set(i, [...annotations]);
+			const lineAnnotations = getAnnotationsAtPosition(anchor);
+			if (lineAnnotations.length > 0) {
+				map.set(i, [...lineAnnotations]);
 			}
 		}
 		return map;
@@ -332,6 +333,34 @@ export function CodeBlock({
 		lines,
 		getAnnotationsAtPosition,
 	]);
+
+	// Listen for sidebar navigation - open popover when annotation is selected
+	useEffect(() => {
+		if (!selectedAnnotationId || !enableAnnotations) return;
+
+		// Find the annotation in our list
+		const annotation = annotations.find((a) => a.id === selectedAnnotationId);
+		if (!annotation || annotation.anchor.type !== "line") return;
+
+		// Find the gutter button for this line
+		const lineNumber = annotation.anchor.lineNumber;
+		const gutterButton = document.querySelector(
+			`button[aria-label*="line ${lineNumber}"]`,
+		);
+		if (gutterButton) {
+			const rect = gutterButton.getBoundingClientRect();
+			setActivePopover({
+				annotation,
+				position: {
+					x: rect.right + 8,
+					y: rect.top + rect.height / 2,
+				},
+			});
+		}
+
+		// Clear selection after handling
+		selectAnnotation(null);
+	}, [selectedAnnotationId, annotations, enableAnnotations, selectAnnotation]);
 
 	useEffect(() => {
 		let cancelled = false;
