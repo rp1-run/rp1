@@ -893,7 +893,10 @@ export function ArtifactViewerPage() {
 							)}
 						</div>
 
-						<ScrollArea className="flex-1 min-h-0" viewportRef={scrollViewportRef}>
+						<ScrollArea
+							className="flex-1 min-h-0"
+							viewportRef={scrollViewportRef}
+						>
 							<article
 								className="p-6"
 								onScroll={handleScroll as unknown as React.UIEventHandler}

@@ -1,6 +1,12 @@
 import { MessageSquare } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { TextSelectionAnchor } from "@/types/annotations";
 
 export interface SelectionIndicatorProps {
@@ -110,25 +116,32 @@ export function SelectionIndicator({
 
 	// Use portal to render inside the gutter element
 	return createPortal(
-		<button
-			type="button"
-			onClick={handleClick}
-			className="absolute left-0 right-0 cursor-pointer group animate-in fade-in duration-200"
-			style={{
-				top: indicatorPos.top,
-				height: Math.max(indicatorPos.height, 20),
-			}}
-			aria-label="Add annotation to selected text"
-		>
-			{/* Chat bubble icon - same style as CodeBlock */}
-			<div className="absolute right-0.5 top-0 flex items-center justify-center rounded px-1 py-0.5 transition-all bg-amber-500/20 text-amber-600 dark:text-amber-400 hover:bg-amber-500/30 hover:scale-110">
-				<MessageSquare
-					className="h-3 w-3"
-					fill="currentColor"
-					aria-hidden="true"
-				/>
-			</div>
-		</button>,
+		<TooltipProvider>
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<button
+						type="button"
+						onClick={handleClick}
+						className="absolute left-0 right-0 cursor-pointer group animate-in fade-in duration-200"
+						style={{
+							top: indicatorPos.top,
+							height: Math.max(indicatorPos.height, 20),
+						}}
+						aria-label="Add annotation to selected text"
+					>
+						{/* Chat bubble icon - same style as CodeBlock */}
+						<div className="absolute right-0.5 top-0 flex items-center justify-center rounded px-1 py-0.5 transition-all bg-amber-500/20 text-amber-600 dark:text-amber-400 hover:bg-amber-500/30 hover:scale-110">
+							<MessageSquare
+								className="h-3 w-3"
+								fill="currentColor"
+								aria-hidden="true"
+							/>
+						</div>
+					</button>
+				</TooltipTrigger>
+				<TooltipContent side="left">Add comment</TooltipContent>
+			</Tooltip>
+		</TooltipProvider>,
 		gutterRef.current,
 	);
 }

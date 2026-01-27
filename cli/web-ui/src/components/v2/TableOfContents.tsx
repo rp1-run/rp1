@@ -82,7 +82,7 @@ export function TableOfContents({
 			className="flex h-full flex-col border-l bg-background"
 			aria-label="Table of contents"
 		>
-			<header className="shrink-0 flex items-center justify-between border-b bg-background px-3 py-2">
+			<header className="shrink-0 flex h-10 items-center justify-between border-b bg-background px-3">
 				<div className="flex items-center gap-2">
 					<h2 className="text-sm font-semibold">On this page</h2>
 					{headings.length > 0 && (

@@ -226,66 +226,79 @@ function LineGutter({
 		);
 	}
 
+	const tooltipText = hasAnnotations
+		? allResolved
+			? `View resolved comment${annotationCount > 1 ? `s (${annotationCount})` : ""}`
+			: `View comment${annotationCount > 1 ? `s (${annotationCount})` : ""}`
+		: "Add comment";
+
 	return (
-		<button
-			ref={gutterRef}
-			type="button"
-			className="h-6 leading-6 relative cursor-pointer w-full bg-transparent border-none p-0 text-inherit font-inherit group/line overflow-hidden"
-			onMouseEnter={() => setIsHovered(true)}
-			onMouseLeave={() => setIsHovered(false)}
-			onClick={handleClick}
-			data-line-number={lineNumber}
-			aria-label={
-				hasAnnotations
-					? `View ${annotationCount} annotation${annotationCount !== 1 ? "s" : ""} on line ${lineNumber}`
-					: `Add annotation on line ${lineNumber}`
-			}
-		>
-			<span className={cn((hasAnnotations || isHovered) && "opacity-0")}>
-				{lineNumber}
-			</span>
-
-			{hasAnnotations && (
-				<div
-					className={cn(
-						"absolute inset-0 flex items-center justify-end pr-1 transition-colors",
-						allResolved
-							? "text-terminal-green/70 hover:text-terminal-green"
-							: "text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300",
-					)}
-				>
-					<div
-						className={cn(
-							"flex items-center justify-center rounded px-1 py-0.5",
-							allResolved ? "bg-terminal-green/20" : "bg-amber-500/20",
-						)}
+		<TooltipProvider>
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<button
+						ref={gutterRef}
+						type="button"
+						className="h-6 leading-6 relative cursor-pointer w-full bg-transparent border-none p-0 text-inherit font-inherit group/line overflow-hidden"
+						onMouseEnter={() => setIsHovered(true)}
+						onMouseLeave={() => setIsHovered(false)}
+						onClick={handleClick}
+						data-line-number={lineNumber}
+						aria-label={
+							hasAnnotations
+								? `View ${annotationCount} annotation${annotationCount !== 1 ? "s" : ""} on line ${lineNumber}`
+								: `Add annotation on line ${lineNumber}`
+						}
 					>
-						<MessageSquare
-							className="h-3 w-3"
-							aria-hidden="true"
-							fill="currentColor"
-						/>
-						{annotationCount > 1 && (
-							<span className="ml-0.5 text-[10px] font-bold">
-								{annotationCount}
-							</span>
-						)}
-					</div>
-				</div>
-			)}
+						<span className={cn((hasAnnotations || isHovered) && "opacity-0")}>
+							{lineNumber}
+						</span>
 
-			{!hasAnnotations && isHovered && (
-				<div className="absolute inset-0 flex items-center justify-end pr-1 transition-colors">
-					<div className="flex items-center justify-center rounded px-1 py-0.5 bg-amber-500/20 text-amber-600 dark:text-amber-400">
-						<MessageSquare
-							className="h-3 w-3"
-							fill="currentColor"
-							aria-hidden="true"
-						/>
-					</div>
-				</div>
-			)}
-		</button>
+						{hasAnnotations && (
+							<div
+								className={cn(
+									"absolute inset-0 flex items-center justify-end pr-1 transition-colors",
+									allResolved
+										? "text-terminal-green/70 hover:text-terminal-green"
+										: "text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300",
+								)}
+							>
+								<div
+									className={cn(
+										"flex items-center justify-center rounded px-1 py-0.5",
+										allResolved ? "bg-terminal-green/20" : "bg-amber-500/20",
+									)}
+								>
+									<MessageSquare
+										className="h-3 w-3"
+										aria-hidden="true"
+										fill="currentColor"
+									/>
+									{annotationCount > 1 && (
+										<span className="ml-0.5 text-[10px] font-bold">
+											{annotationCount}
+										</span>
+									)}
+								</div>
+							</div>
+						)}
+
+						{!hasAnnotations && isHovered && (
+							<div className="absolute inset-0 flex items-center justify-end pr-1 transition-colors">
+								<div className="flex items-center justify-center rounded px-1 py-0.5 bg-amber-500/20 text-amber-600 dark:text-amber-400">
+									<MessageSquare
+										className="h-3 w-3"
+										fill="currentColor"
+										aria-hidden="true"
+									/>
+								</div>
+							</div>
+						)}
+					</button>
+				</TooltipTrigger>
+				<TooltipContent side="right">{tooltipText}</TooltipContent>
+			</Tooltip>
+		</TooltipProvider>
 	);
 }
 

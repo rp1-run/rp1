@@ -1,6 +1,12 @@
 import { MessageSquare } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { SelectionPosition } from "@/hooks/useTextSelection";
 import { cn } from "@/lib/utils";
 import type { Annotation } from "@/types/annotations";
@@ -119,45 +125,57 @@ export function AnnotationIndicator({
 
 	const isResolved = annotation.status === "resolved";
 
+	const replyCount = annotation.replies.length;
+	const tooltipText = isResolved
+		? `View resolved comment${replyCount > 0 ? ` (${replyCount} ${replyCount === 1 ? "reply" : "replies"})` : ""}`
+		: `View comment${replyCount > 0 ? ` (${replyCount} ${replyCount === 1 ? "reply" : "replies"})` : ""}`;
+
 	// Use portal to render inside the gutter element
 	return createPortal(
-		<button
-			type="button"
-			onClick={handleClick}
-			data-annotation-id={annotation.id}
-			className="absolute left-0 right-0 cursor-pointer group focus:outline-none"
-			style={{
-				top: indicatorPos.top,
-				height: indicatorPos.height,
-				minHeight: 24, // Minimum clickable height
-			}}
-			aria-label={`Annotation: ${annotation.content.slice(0, 50)}${annotation.content.length > 50 ? "..." : ""}`}
-		>
-			{/* Ultrathin vertical line indicator - detached from icon */}
-			<div
-				className={cn(
-					"absolute right-2 top-5 bottom-0 w-0.5 rounded-full transition-all",
-					isResolved
-						? "bg-terminal-green group-hover:bg-terminal-green/80"
-						: "bg-amber-500 group-hover:bg-amber-600",
-				)}
-			/>
-			{/* Chat bubble icon - same style as CodeBlock */}
-			<div
-				className={cn(
-					"absolute right-0.5 top-0 flex items-center justify-center rounded px-1 py-0.5 transition-colors",
-					isResolved
-						? "bg-terminal-green/20 text-terminal-green/70 group-hover:text-terminal-green"
-						: "bg-amber-500/20 text-amber-600 dark:text-amber-400 group-hover:text-amber-700 dark:group-hover:text-amber-300",
-				)}
-			>
-				<MessageSquare
-					className="h-3 w-3"
-					fill="currentColor"
-					aria-hidden="true"
-				/>
-			</div>
-		</button>,
+		<TooltipProvider>
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<button
+						type="button"
+						onClick={handleClick}
+						data-annotation-id={annotation.id}
+						className="absolute left-0 right-0 cursor-pointer group focus:outline-none"
+						style={{
+							top: indicatorPos.top,
+							height: indicatorPos.height,
+							minHeight: 24, // Minimum clickable height
+						}}
+						aria-label={`Annotation: ${annotation.content.slice(0, 50)}${annotation.content.length > 50 ? "..." : ""}`}
+					>
+						{/* Ultrathin vertical line indicator - detached from icon */}
+						<div
+							className={cn(
+								"absolute right-2 top-5 bottom-0 w-0.5 rounded-full transition-all",
+								isResolved
+									? "bg-terminal-green group-hover:bg-terminal-green/80"
+									: "bg-amber-500 group-hover:bg-amber-600",
+							)}
+						/>
+						{/* Chat bubble icon - same style as CodeBlock */}
+						<div
+							className={cn(
+								"absolute right-0.5 top-0 flex items-center justify-center rounded px-1 py-0.5 transition-colors",
+								isResolved
+									? "bg-terminal-green/20 text-terminal-green/70 group-hover:text-terminal-green"
+									: "bg-amber-500/20 text-amber-600 dark:text-amber-400 group-hover:text-amber-700 dark:group-hover:text-amber-300",
+							)}
+						>
+							<MessageSquare
+								className="h-3 w-3"
+								fill="currentColor"
+								aria-hidden="true"
+							/>
+						</div>
+					</button>
+				</TooltipTrigger>
+				<TooltipContent side="left">{tooltipText}</TooltipContent>
+			</Tooltip>
+		</TooltipProvider>,
 		gutterRef.current,
 	);
 }

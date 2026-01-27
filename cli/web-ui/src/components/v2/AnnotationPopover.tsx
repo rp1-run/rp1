@@ -116,10 +116,13 @@ export function AnnotationPopover({
 	const [expandedComments, setExpandedComments] = useState<Set<string>>(
 		new Set(),
 	);
+	// Start hidden until position is calculated to avoid janky movement
+	const [isPositioned, setIsPositioned] = useState(false);
 	const [popoverPosition, setPopoverPosition] = useState<PopoverPosition>({
-		x: position.anchorRect.right + 8,
+		// Initial position at left of anchor (since we prefer left side)
+		x: position.anchorRect.left - 320 - 8, // w-80 = 320px
 		y: position.anchorRect.top,
-		side: "right",
+		side: "left",
 	});
 	const [hasBeenDragged, setHasBeenDragged] = useState(false);
 	const [draggedPosition, setDraggedPosition] = useState({ x: 0, y: 0 });
@@ -240,6 +243,7 @@ export function AnnotationPopover({
 		);
 
 		setPopoverPosition(newPosition);
+		setIsPositioned(true);
 	}, [position.anchorRect]);
 
 	// Click outside handler
@@ -367,7 +371,9 @@ export function AnnotationPopover({
 			ref={popoverRef}
 			className={cn(
 				"fixed z-50 w-80 overflow-hidden rounded-lg border border-border bg-background shadow-xl",
-				"animate-in fade-in-0 zoom-in-95 duration-150",
+				isPositioned
+					? "animate-in fade-in-0 zoom-in-95 duration-150"
+					: "opacity-0",
 				className,
 			)}
 			style={{

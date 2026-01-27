@@ -368,7 +368,7 @@ export function AnnotationSidebar({
 			)}
 			aria-label="Annotations panel"
 		>
-			<header className="shrink-0 flex items-center justify-between border-b border-border bg-background px-3 py-2">
+			<header className="shrink-0 flex h-10 items-center justify-between border-b border-border bg-background px-3">
 				<div className="flex items-center gap-2">
 					<h2 className="text-sm font-semibold">Annotations</h2>
 					<span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
