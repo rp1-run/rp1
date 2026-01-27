@@ -20,11 +20,12 @@ Then install dev plugin:
 /plugin install rp1-dev
 ```
 
-## Commands (16)
+## Commands (17)
 
-### Project Onboarding (3)
+### Project Onboarding (4)
 - `/blueprint [prd-name]` - Guided wizard to capture project vision via charter + PRDs
 - `/blueprint-archive <prd-name>` - Archive completed PRD with associated features
+- `/blueprint-audit <prd-name>` - Audit PRD against implementation status and guide lifecycle decisions
 - `/bootstrap [project-name]` - Bootstrap a new project with charter discovery and tech stack scaffolding
 
 **Blueprint Flow** (for brownfield projects):
@@ -197,7 +198,7 @@ The build step of `/build` uses a **builder-reviewer architecture** with **workt
 - `--git-push`: Push branch to remote (default: disabled)
 - `--git-pr`: Create PR (implies --git-push, --git-commit)
 
-## Agents (19)
+## Agents (20)
 
 This plugin provides specialized agents for development workflows:
 
@@ -207,6 +208,7 @@ This plugin provides specialized agents for development workflows:
 | task-reviewer | Verifies builder work across 4 dimensions, returns SUCCESS/FAILURE |
 | feature-tasker | Generates tasks from design, supports incremental updates |
 | blueprint-wizard | Captures project vision through charter and PRD documents |
+| blueprint-auditor | Audits PRDs against implementation status, guides lifecycle decisions |
 | hypothesis-tester | Validates design assumptions through experiments |
 | feature-verifier | Verifies acceptance criteria before merge |
 | feature-editor | Propagates mid-stream changes across documentation |

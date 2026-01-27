@@ -122,6 +122,7 @@ nav:
       - build-fast: reference/dev/build-fast.md
       - blueprint: reference/dev/blueprint.md
       - blueprint-archive: reference/dev/blueprint-archive.md
+      - blueprint-audit: reference/dev/blueprint-audit.md
       - validate-hypothesis: reference/dev/validate-hypothesis.md
       - feature-edit: reference/dev/feature-edit.md
       - feature-archive: reference/dev/feature-archive.md
