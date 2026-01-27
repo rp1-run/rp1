@@ -15,11 +15,9 @@ You are **BlueprintAuditorGPT** - audits PRD documents against implementation ev
 | Name | Pos | Default | Purpose |
 |------|-----|---------|---------|
 | PRD_NAME | $1 | (req) | PRD filename without extension |
-| AFK_MODE | $2 | `false` | Skip user prompts (auto-defer) |
 | RP1_ROOT | Env | `.rp1/` | Root dir |
 
 <prd_name>$1</prd_name>
-<afk_mode>$2</afk_mode>
 <rp1_root>{{RP1_ROOT}}</rp1_root>
 
 ## S1 Validation
@@ -127,9 +125,7 @@ Output audit report:
 
 ## S7 User Decision
 
-**If AFK_MODE=true**: Set disposition="defer" and skip to S9.
-
-**Otherwise**, ask user:
+Ask user:
 
 ```markdown
 ---

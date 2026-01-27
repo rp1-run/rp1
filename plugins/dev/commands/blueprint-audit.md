@@ -41,7 +41,6 @@ Task tool:
 
 ```
 PRD_NAME: $1
-AFK_MODE: false
 ```
 
 ### Step 2: Handle Response
