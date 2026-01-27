@@ -89,42 +89,31 @@ export function TableOfContents({
 
 	if (collapsed) {
 		return (
-			<div className="flex h-full flex-col items-center border-l bg-background py-2">
+			<div className="flex h-full flex-col border-l bg-background">
 				{onToggleCollapse && (
 					<TooltipProvider>
 						<Tooltip>
 							<TooltipTrigger asChild>
 								<Button
 									variant="ghost"
-									size="icon"
-									className="h-8 w-8"
+									size="sm"
+									className="h-auto w-full rounded-none border-b px-2 py-2 flex items-center justify-center gap-1"
 									onClick={onToggleCollapse}
 									aria-label="Expand table of contents"
 								>
-									<ChevronLeft className="h-4 w-4" />
+									<List className="h-4 w-4" aria-hidden="true" />
+									<ChevronLeft className="h-3 w-3" />
 								</Button>
 							</TooltipTrigger>
 							<TooltipContent side="left">
-								<p>Expand table of contents</p>
+								<p>
+									Expand table of contents
+									{headings.length > 0 && ` (${headings.length})`}
+								</p>
 							</TooltipContent>
 						</Tooltip>
 					</TooltipProvider>
 				)}
-				<TooltipProvider>
-					<Tooltip>
-						<TooltipTrigger asChild>
-							<div className="mt-2 flex items-center justify-center">
-								<List
-									className="h-4 w-4 text-muted-foreground"
-									aria-hidden="true"
-								/>
-							</div>
-						</TooltipTrigger>
-						<TooltipContent side="left">
-							<p>Table of contents ({headings.length} headings)</p>
-						</TooltipContent>
-					</Tooltip>
-				</TooltipProvider>
 			</div>
 		);
 	}

@@ -228,10 +228,7 @@ function LineGutter({
 		<button
 			ref={gutterRef}
 			type="button"
-			className={cn(
-				"h-6 leading-6 relative cursor-pointer w-full bg-transparent border-none p-0 text-inherit font-inherit",
-				!hasAnnotations && "group/line",
-			)}
+			className="h-6 leading-6 relative cursor-pointer w-full bg-transparent border-none p-0 text-inherit font-inherit group/line"
 			onMouseEnter={() => setIsHovered(true)}
 			onMouseLeave={() => setIsHovered(false)}
 			onClick={handleClick}
@@ -241,32 +238,32 @@ function LineGutter({
 					: `Add annotation on line ${lineNumber}`
 			}
 		>
-			{hasAnnotations ? (
-				<div
-					className={cn(
-						"absolute inset-0 flex items-center justify-center",
-						"text-primary",
-					)}
-				>
-					<div className="relative">
+			{/* Always show line number for stable layout */}
+			<span className={cn(hasAnnotations && "invisible")}>{lineNumber}</span>
+
+			{/* Annotation indicator - absolutely positioned overlay */}
+			{hasAnnotations && (
+				<div className="absolute inset-0 flex items-center justify-center text-terminal-yellow">
+					<div className="relative flex items-center justify-center rounded bg-terminal-yellow/20 px-1">
 						<MessageSquare
 							className="h-3.5 w-3.5"
 							aria-hidden="true"
 							fill="currentColor"
 						/>
 						{annotationCount > 1 && (
-							<span className="absolute -right-1.5 -top-1.5 flex h-3.5 min-w-[0.875rem] items-center justify-center rounded-full bg-primary px-0.5 text-[9px] font-medium text-primary-foreground">
+							<span className="ml-0.5 text-[10px] font-bold">
 								{annotationCount}
 							</span>
 						)}
 					</div>
 				</div>
-			) : isHovered ? (
+			)}
+
+			{/* Hover overlay for adding annotation - only when no annotations */}
+			{!hasAnnotations && isHovered && (
 				<div className="absolute inset-0 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
 					<Plus className="h-3.5 w-3.5" aria-hidden="true" />
 				</div>
-			) : (
-				<span>{lineNumber}</span>
 			)}
 		</button>
 	);

@@ -2,7 +2,6 @@ import {
 	AlertTriangle,
 	Check,
 	ChevronDown,
-	ChevronRight,
 	Filter,
 	MessageSquare,
 	PanelRightClose,
@@ -133,69 +132,6 @@ function FilterDropdown<T extends string>({
 						))}
 					</div>
 				</>
-			)}
-		</div>
-	);
-}
-
-interface AnnotationGroupProps {
-	title: string;
-	annotations: readonly Annotation[];
-	defaultExpanded: boolean;
-	icon: React.ReactNode;
-	badge?: React.ReactNode;
-	onAnnotationClick: (annotation: Annotation) => void;
-}
-
-function AnnotationGroup({
-	title,
-	annotations,
-	defaultExpanded,
-	icon,
-	badge,
-	onAnnotationClick,
-}: AnnotationGroupProps) {
-	const [isExpanded, setIsExpanded] = useState(defaultExpanded);
-
-	if (annotations.length === 0) return null;
-
-	return (
-		<div className="border-b border-border last:border-b-0">
-			<button
-				type="button"
-				onClick={() => setIsExpanded(!isExpanded)}
-				className={cn(
-					"flex w-full items-center gap-2 px-3 py-2 text-left transition-colors",
-					"hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
-				)}
-				aria-expanded={isExpanded}
-			>
-				<span className="text-muted-foreground">
-					{isExpanded ? (
-						<ChevronDown className="h-3 w-3" />
-					) : (
-						<ChevronRight className="h-3 w-3" />
-					)}
-				</span>
-				{icon}
-				<span className="flex-1 text-sm font-medium">{title}</span>
-				{badge}
-				<span className="text-xs text-muted-foreground">
-					{annotations.length}
-				</span>
-			</button>
-
-			{isExpanded && (
-				<ul className="space-y-1 px-3 pb-2">
-					{annotations.map((annotation) => (
-						<li key={annotation.id}>
-							<AnnotationItem
-								annotation={annotation}
-								onClick={() => onAnnotationClick(annotation)}
-							/>
-						</li>
-					))}
-				</ul>
 			)}
 		</div>
 	);
@@ -479,70 +415,51 @@ export function AnnotationSidebar({
 						</p>
 					</div>
 				) : (
-					<div>
-						<AnnotationGroup
-							title="Open"
-							annotations={groupedAnnotations.open}
-							defaultExpanded={true}
-							icon={
-								<MessageSquare
-									className="h-4 w-4 text-status-running"
-									aria-hidden="true"
-								/>
-							}
-							onAnnotationClick={handleAnnotationClick}
-						/>
-
-						<AnnotationGroup
-							title="Resolved"
-							annotations={groupedAnnotations.resolved}
-							defaultExpanded={false}
-							icon={
-								<Check
-									className="h-4 w-4 text-terminal-green"
-									aria-hidden="true"
-								/>
-							}
-							onAnnotationClick={handleAnnotationClick}
-						/>
+					<ul className="space-y-1 p-2">
+						{/* Show all annotations in a flat list - open first, then resolved */}
+						{[...groupedAnnotations.open, ...groupedAnnotations.resolved].map(
+							(annotation) => (
+								<li key={annotation.id}>
+									<AnnotationItem
+										annotation={annotation}
+										onClick={() => handleAnnotationClick(annotation)}
+									/>
+								</li>
+							),
+						)}
 
 						{groupedAnnotations.orphaned.length > 0 && (
-							<AnnotationGroup
-								title="Orphaned"
-								annotations={groupedAnnotations.orphaned}
-								defaultExpanded={true}
-								icon={
-									<AlertTriangle
-										className="h-4 w-4 text-status-warning"
-										aria-hidden="true"
-									/>
-								}
-								badge={
-									<span
-										className="rounded bg-status-warning/10 px-1.5 py-0.5 text-[10px] font-medium text-status-warning"
-										title="Anchor text no longer found in document"
-									>
-										anchor not found
-									</span>
-								}
-								onAnnotationClick={handleAnnotationClick}
-							/>
+							<>
+								<li className="pt-2 pb-1">
+									<div className="flex items-center gap-1.5 text-xs text-status-warning">
+										<AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+										<span className="font-medium">Orphaned</span>
+									</div>
+								</li>
+								{groupedAnnotations.orphaned.map((annotation) => (
+									<li key={annotation.id}>
+										<AnnotationItem
+											annotation={annotation}
+											onClick={() => handleAnnotationClick(annotation)}
+										/>
+									</li>
+								))}
+							</>
 						)}
-					</div>
+					</ul>
 				)}
 			</ScrollArea>
 
 			<footer className="border-t border-border px-3 py-2">
-				<div className="flex items-center justify-between text-xs text-muted-foreground">
-					<span>
-						{countByStatus.open} open, {countByStatus.resolved} resolved
-					</span>
+				<p className="text-xs text-muted-foreground">
+					{count} annotation{count !== 1 ? "s" : ""}
 					{countByStatus.orphaned > 0 && (
 						<span className="text-status-warning">
-							{countByStatus.orphaned} orphaned
+							{" "}
+							({countByStatus.orphaned} orphaned)
 						</span>
 					)}
-				</div>
+				</p>
 			</footer>
 		</aside>
 	);

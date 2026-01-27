@@ -58,7 +58,13 @@ export function useRuns(options: UseRunsOptions = {}): UseRunsResult {
 
 	const fetchRuns = useCallback(async () => {
 		try {
-			const params = buildQueryParams({ status, projectId, dateRange, limit, offset });
+			const params = buildQueryParams({
+				status,
+				projectId,
+				dateRange,
+				limit,
+				offset,
+			});
 			const url = `/api/v2/runs${params.toString() ? `?${params.toString()}` : ""}`;
 			const response = await fetch(url);
 

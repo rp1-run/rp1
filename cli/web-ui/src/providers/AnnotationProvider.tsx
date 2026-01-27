@@ -419,7 +419,8 @@ export function AnnotationProvider({
 						(a) =>
 							a.id.startsWith("temp-") &&
 							a.artifactPath === msg.annotation.artifactPath &&
-							JSON.stringify(a.anchor) === JSON.stringify(msg.annotation.anchor),
+							JSON.stringify(a.anchor) ===
+								JSON.stringify(msg.annotation.anchor),
 					);
 					if (tempIndex >= 0) {
 						// Replace the temp annotation with the real one
