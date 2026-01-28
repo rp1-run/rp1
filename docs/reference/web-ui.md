@@ -140,7 +140,39 @@ interface StatusUpdate {
 
 ---
 
+## Keyboard Shortcuts
+
+The web UI supports vim-style keyboard navigation for efficient workflow management. These keys work alongside arrow keys without requiring a mode toggle.
+
+### List Navigation
+
+| Key | Vim Key | Action |
+|-----|---------|--------|
+| Arrow Down | `j` | Move to next item |
+| Arrow Up | `k` | Move to previous item |
+
+### Drill Navigation
+
+| Key | Vim Key | Action |
+|-----|---------|--------|
+| Arrow Right / Enter | `l` | Drill into selected item |
+| Arrow Left | `h` | Drill out to parent (go back) |
+
+### Selection
+
+| Key | Action |
+|-----|--------|
+| Enter | Open/select current item |
+| Escape | Clear selection |
+
+Vim keys are automatically disabled when focus is in a text input field.
+
+For detailed keyboard shortcut documentation, see [Keyboard Shortcuts](../web-ui/keyboard-shortcuts.md).
+
+---
+
 ## Related
 
 - [`work` Agent Tool](cli/work.md) - CLI tool for recording status updates
 - [Feature Development Guide](../guides/feature-development.md) - Using `/build` workflow
+- [Keyboard Shortcuts](../web-ui/keyboard-shortcuts.md) - Complete keyboard shortcut reference
