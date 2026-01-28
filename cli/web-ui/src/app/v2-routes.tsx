@@ -18,7 +18,7 @@ export const v2Routes: RouteObject[] = [
 			{ path: "runs/:runId", element: <RunDetailPage /> },
 			{ path: "runs/:runId/artifacts/*", element: <ArtifactViewerPage /> },
 			{ path: "projects", element: <ProjectsPage /> },
-			{ path: "project/:projectId/runs", element: <RunsListPage /> },
+			{ path: "projects/:projectId/runs", element: <RunsListPage /> },
 		],
 	},
 ];
