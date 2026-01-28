@@ -53,6 +53,8 @@ rp1 agent-tools work update [options]
 |--------|-------------|
 | `started` | Beginning work on feature/task |
 | `in_progress` | Actively working, mid-execution |
+| `waiting-input` | Agent waiting for user response (clarification, approval, decision) |
+| `needs-review` | Work complete, awaiting human review before proceeding |
 | `completed` | Successfully finished |
 | `failed` | Encountered error, cannot continue |
 
@@ -60,7 +62,7 @@ rp1 agent-tools work update [options]
 
 1. **Project path**: MUST be absolute. Should be usually present in the context while working on tasks.
 2. **Feature name**: MUST match `^[a-z0-9-]+$` (lowercase alphanumeric with hyphens)
-3. **Status**: MUST be one of: `started`, `in_progress`, `completed`, `failed`
+3. **Status**: MUST be one of: `started`, `in_progress`, `waiting-input`, `needs-review`, `completed`, `failed`
 4. **Metadata**: MUST be valid JSON if provided
 
 ## Usage Patterns
@@ -121,6 +123,66 @@ rp1 agent-tools work update \
   --status failed \
   --message "Test suite failed" \
   --metadata '{"exitCode":1,"failedTests":["test_auth","test_login"]}'
+```
+
+### Waiting for User Input
+
+Use `waiting-input` when the agent needs user response to proceed:
+
+```bash
+# Waiting for clarification
+rp1 agent-tools work update \
+  --project "$(pwd)" \
+  --feature my-feature \
+  --task requirements \
+  --status waiting-input \
+  --message "Need clarification: should auth support OAuth or just JWT?"
+
+# Waiting for approval
+rp1 agent-tools work update \
+  --project "$(pwd)" \
+  --feature my-feature \
+  --task design \
+  --status waiting-input \
+  --message "Design ready for approval - awaiting user confirmation"
+
+# Waiting for decision
+rp1 agent-tools work update \
+  --project "$(pwd)" \
+  --feature my-feature \
+  --status waiting-input \
+  --message "Multiple implementation options available - need user decision" \
+  --metadata '{"options":["approach-a","approach-b"],"question":"Which approach?"}'
+```
+
+### Needs Review
+
+Use `needs-review` when work is complete but requires human review:
+
+```bash
+# Code ready for review
+rp1 agent-tools work update \
+  --project "$(pwd)" \
+  --feature my-feature \
+  --task implementation \
+  --status needs-review \
+  --message "Implementation complete - ready for code review"
+
+# PR created, awaiting review
+rp1 agent-tools work update \
+  --project "$(pwd)" \
+  --feature my-feature \
+  --status needs-review \
+  --message "PR #42 created - awaiting review" \
+  --metadata '{"prNumber":42,"prUrl":"https://github.com/org/repo/pull/42"}'
+
+# Tests passing, needs QA sign-off
+rp1 agent-tools work update \
+  --project "$(pwd)" \
+  --feature my-feature \
+  --task verification \
+  --status needs-review \
+  --message "All tests passing - needs QA review before merge"
 ```
 
 ### With Metadata
@@ -298,7 +360,7 @@ Integrate status updates into agent workflows:
 |-------|-------|-----|
 | "Project path must be absolute" | Relative path provided | Use `$(pwd)` or full path |
 | "Feature name must match pattern" | Invalid characters | Use lowercase alphanumeric with hyphens |
-| "Invalid status" | Unknown status value | Use: started, in_progress, completed, failed |
+| "Invalid status" | Unknown status value | Use: started, in_progress, waiting-input, needs-review, completed, failed |
 | "Metadata must be valid JSON" | Malformed JSON string | Validate JSON syntax |
 
 ### Example Error Response
@@ -322,6 +384,12 @@ rp1 agent-tools work update -p "$(pwd)" -f my-feature -s started
 
 # With task
 rp1 agent-tools work update -p "$(pwd)" -f my-feature -t T1 -s in_progress -m "Working on task"
+
+# Waiting for user input
+rp1 agent-tools work update -p "$(pwd)" -f my-feature -s waiting-input -m "Need user decision"
+
+# Ready for review
+rp1 agent-tools work update -p "$(pwd)" -f my-feature -s needs-review -m "PR ready for review"
 
 # With metadata
 rp1 agent-tools work update -p "$(pwd)" -f my-feature -s completed -m "Done" --metadata '{"files":5}'
