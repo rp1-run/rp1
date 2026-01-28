@@ -572,4 +572,134 @@ export const getActiveFeatureCount = (
 		),
 	);
 
+/**
+ * Options for querying all latest statuses across projects.
+ */
+export interface QueryAllLatestStatusesOptions {
+	readonly status?: StatusValue;
+	readonly projectPath?: string;
+	readonly limit?: number;
+	readonly offset?: number;
+}
+
+/**
+ * Query all latest statuses across all projects for dashboard display.
+ * Returns the latest status per feature (project_path + feature combination)
+ * with optional filters and pagination.
+ *
+ * @param options - Query options with filters and pagination
+ * @param dbPath - Database file path (optional, defaults to ~/.rp1/status.db)
+ * @returns TaskEither with records and total count, or CLIError
+ */
+export const queryAllLatestStatuses = (
+	options: QueryAllLatestStatusesOptions,
+	dbPath?: string,
+): TE.TaskEither<
+	CLIError,
+	{ records: readonly StatusUpdateRecord[]; total: number }
+> =>
+	pipe(
+		getDatabase(dbPath),
+		TE.chain((db) =>
+			TE.tryCatch(
+				async () => {
+					// Build WHERE clause for the inner subquery
+					const innerConditions: string[] = [];
+					const params: Record<string, string | number> = {};
+
+					if (options.projectPath) {
+						innerConditions.push("project_path = $projectPath");
+						params.$projectPath = options.projectPath;
+					}
+
+					const innerWhere =
+						innerConditions.length > 0
+							? `WHERE ${innerConditions.join(" AND ")}`
+							: "";
+
+					// Build WHERE clause for the outer query (includes status filter)
+					const outerConditions: string[] = [];
+					if (options.projectPath) {
+						outerConditions.push("s.project_path = $projectPath");
+					}
+					if (options.status) {
+						outerConditions.push("s.status = $status");
+						params.$status = options.status;
+					}
+
+					const outerWhere =
+						outerConditions.length > 0
+							? `WHERE ${outerConditions.join(" AND ")}`
+							: "";
+
+					// First, get total count (without pagination)
+					const countSql = `
+						SELECT COUNT(*) as total
+						FROM status_updates s
+						INNER JOIN (
+							SELECT project_path, feature, MAX(created_at) as max_created
+							FROM status_updates
+							${innerWhere}
+							GROUP BY project_path, feature
+						) latest ON s.project_path = latest.project_path
+							AND s.feature = latest.feature
+							AND s.created_at = latest.max_created
+						${outerWhere}
+					`;
+
+					const countResult = db.prepare(countSql).get(params) as {
+						total: number;
+					};
+					const total = countResult.total;
+
+					// Then, get paginated records
+					let dataSql = `
+						SELECT s.id, s.project_path, s.feature, s.task, s.status, s.message, s.metadata, s.created_at
+						FROM status_updates s
+						INNER JOIN (
+							SELECT project_path, feature, MAX(created_at) as max_created
+							FROM status_updates
+							${innerWhere}
+							GROUP BY project_path, feature
+						) latest ON s.project_path = latest.project_path
+							AND s.feature = latest.feature
+							AND s.created_at = latest.max_created
+						${outerWhere}
+						ORDER BY s.created_at DESC
+					`;
+
+					if (options.limit !== undefined) {
+						dataSql += " LIMIT $limit";
+						params.$limit = options.limit;
+					}
+
+					if (options.offset !== undefined) {
+						dataSql += " OFFSET $offset";
+						params.$offset = options.offset;
+					}
+
+					const rows = db.prepare(dataSql).all(params) as Array<{
+						id: number;
+						project_path: string;
+						feature: string;
+						task: string | null;
+						status: string;
+						message: string | null;
+						metadata: string | null;
+						created_at: string;
+					}>;
+
+					return {
+						records: rows.map(rowToRecord),
+						total,
+					};
+				},
+				(error) =>
+					runtimeError(
+						`Failed to query all latest statuses: ${error instanceof Error ? error.message : String(error)}`,
+					),
+			),
+		),
+	);
+
 export { DEFAULT_DB_PATH };
