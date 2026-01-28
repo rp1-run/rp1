@@ -236,8 +236,8 @@ export function RunsListPage() {
 	);
 
 	const handleDrillOut = useCallback(() => {
-		navigate("/v2");
-	}, [navigate]);
+		navigate(projectIdFromRoute ? "/v2/projects" : "/v2");
+	}, [navigate, projectIdFromRoute]);
 
 	const { selectedIndex, setSelectedIndex } = useKeyboardNav({
 		items: runs,
@@ -393,6 +393,13 @@ export function RunsListPage() {
 							{total} runs
 						</p>
 					)}
+
+					<p className="text-center text-xs text-muted-foreground">
+						<kbd className="rounded bg-muted px-1.5 py-0.5">j</kbd>/
+						<kbd className="rounded bg-muted px-1.5 py-0.5">k</kbd> navigate,{" "}
+						<kbd className="rounded bg-muted px-1.5 py-0.5">l</kbd> open,{" "}
+						<kbd className="rounded bg-muted px-1.5 py-0.5">h</kbd> back
+					</p>
 				</>
 			)}
 		</div>
