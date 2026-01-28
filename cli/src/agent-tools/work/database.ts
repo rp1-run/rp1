@@ -4,9 +4,10 @@
  */
 
 import { Database } from "bun:sqlite";
-import { mkdir } from "node:fs/promises";
+import { mkdir, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../../shared/errors.js";
@@ -19,6 +20,9 @@ import type {
 	StatusValue,
 } from "./models.js";
 import { VALID_STATUSES } from "./models.js";
+
+/** Current schema version - must match highest migration number */
+export const CURRENT_SCHEMA_VERSION = 2;
 
 /** Default database file location */
 const DEFAULT_DB_PATH = join(homedir(), ".rp1", "status.db");
@@ -33,14 +37,14 @@ const FEATURE_PATTERN = /^[a-z0-9-]+$/;
 const isValidFeatureName = (name: string): boolean =>
 	FEATURE_PATTERN.test(name);
 
-/** SQL schema for status_updates table */
+/** SQL schema for status_updates table (version 2 with extended statuses) */
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS status_updates (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     project_path TEXT NOT NULL,
     feature TEXT NOT NULL,
     task TEXT,
-    status TEXT NOT NULL CHECK(status IN ('started', 'in_progress', 'completed', 'failed')),
+    status TEXT NOT NULL CHECK(status IN ('started', 'in_progress', 'waiting-input', 'needs-review', 'completed', 'failed')),
     message TEXT,
     metadata TEXT,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
@@ -50,6 +54,67 @@ CREATE INDEX IF NOT EXISTS idx_status_project ON status_updates(project_path);
 CREATE INDEX IF NOT EXISTS idx_status_created ON status_updates(created_at);
 CREATE INDEX IF NOT EXISTS idx_status_feature ON status_updates(project_path, feature);
 `;
+
+/** Get migrations directory path */
+const getMigrationsDir = (): string => {
+	const currentDir = dirname(fileURLToPath(import.meta.url));
+	return join(currentDir, "migrations");
+};
+
+/** Get current database schema version from PRAGMA user_version */
+const getSchemaVersion = (db: Database): number => {
+	const result = db.prepare("PRAGMA user_version").get() as {
+		user_version: number;
+	};
+	return result?.user_version ?? 0;
+};
+
+/** Set database schema version using PRAGMA user_version */
+const setSchemaVersion = (db: Database, version: number): void => {
+	db.exec(`PRAGMA user_version = ${version}`);
+};
+
+/**
+ * Run all pending migrations atomically.
+ * Each migration runs in a transaction for atomicity.
+ *
+ * @param db - Database connection
+ * @returns Promise that resolves when all migrations complete
+ */
+const runMigrations = async (db: Database): Promise<void> => {
+	const currentVersion = getSchemaVersion(db);
+
+	if (currentVersion >= CURRENT_SCHEMA_VERSION) {
+		return;
+	}
+
+	const migrationsDir = getMigrationsDir();
+	const files = await readdir(migrationsDir);
+	const migrationFiles = files.filter((f) => f.endsWith(".sql")).sort();
+
+	for (let v = currentVersion + 1; v <= CURRENT_SCHEMA_VERSION; v++) {
+		const migrationFile = migrationFiles.find((f) =>
+			f.startsWith(`${v.toString().padStart(3, "0")}_`),
+		);
+
+		if (!migrationFile) {
+			throw new Error(`Migration file for version ${v} not found`);
+		}
+
+		console.log(`Running migration to schema version ${v}...`);
+
+		const migrationPath = join(migrationsDir, migrationFile);
+		const migrationSql = await Bun.file(migrationPath).text();
+
+		// Execute migration atomically in a transaction
+		db.transaction(() => {
+			db.exec(migrationSql);
+			setSchemaVersion(db, v);
+		})();
+
+		console.log(`Migration to version ${v} complete`);
+	}
+};
 
 /**
  * Cached database connection (singleton pattern).
@@ -81,7 +146,7 @@ const ensureDbDirectory = async (dbPath: string): Promise<void> => {
 
 /**
  * Get or create database connection.
- * Initializes schema on first connection.
+ * Initializes schema on first connection and runs any pending migrations.
  */
 const getDatabase = (
 	dbPath: string = DEFAULT_DB_PATH,
@@ -99,7 +164,21 @@ const getDatabase = (
 			// Enable WAL mode for better concurrent write performance
 			db.exec("PRAGMA journal_mode = WAL;");
 
-			db.exec(SCHEMA_SQL);
+			// Check if this is a fresh database (no tables exist)
+			const tableCheck = db
+				.prepare(
+					"SELECT name FROM sqlite_master WHERE type='table' AND name='status_updates'",
+				)
+				.get();
+
+			if (!tableCheck) {
+				// Fresh database - create schema with latest version
+				db.exec(SCHEMA_SQL);
+				setSchemaVersion(db, CURRENT_SCHEMA_VERSION);
+			} else {
+				// Existing database - run any pending migrations
+				await runMigrations(db);
+			}
 
 			dbInstance = db;
 			return db;

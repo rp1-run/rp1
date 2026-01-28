@@ -40,7 +40,13 @@ export interface StatusUpdate {
 
 export interface FeatureStatus {
 	feature: string;
-	status: "started" | "in_progress" | "completed" | "failed";
+	status:
+		| "started"
+		| "in_progress"
+		| "waiting-input"
+		| "needs-review"
+		| "completed"
+		| "failed";
 	currentTask: string | null;
 	message: string | null;
 	lastUpdate: string;

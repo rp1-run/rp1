@@ -7,7 +7,13 @@
  * Valid status values for workflow progress tracking.
  * Enforced at database level via CHECK constraint.
  */
-export type StatusValue = "started" | "in_progress" | "completed" | "failed";
+export type StatusValue =
+	| "started"
+	| "in_progress"
+	| "waiting-input"
+	| "needs-review"
+	| "completed"
+	| "failed";
 
 /**
  * Array of valid status values for validation.
@@ -15,6 +21,8 @@ export type StatusValue = "started" | "in_progress" | "completed" | "failed";
 export const VALID_STATUSES: readonly StatusValue[] = [
 	"started",
 	"in_progress",
+	"waiting-input",
+	"needs-review",
 	"completed",
 	"failed",
 ] as const;
