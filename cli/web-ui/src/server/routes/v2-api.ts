@@ -5,6 +5,7 @@
 
 import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
+import { formatError } from "../../../../shared/errors.js";
 import { queryAllLatestStatuses } from "../../../../src/agent-tools/work/database.js";
 import type {
 	StatusUpdateRecord,
@@ -396,7 +397,9 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 		)();
 
 		if (E.isLeft(result)) {
-			return errorResponse(`Database query failed: ${result.left.message}`);
+			return errorResponse(
+				`Database query failed: ${formatError(result.left, false)}`,
+			);
 		}
 
 		const { records, total: dbTotal } = result.right;
@@ -456,7 +459,9 @@ export async function handleV2RunsAttentionRequest(): Promise<Response> {
 		const result = await pipe(queryAllLatestStatuses({}))();
 
 		if (E.isLeft(result)) {
-			return errorResponse(`Database query failed: ${result.left.message}`);
+			return errorResponse(
+				`Database query failed: ${formatError(result.left, false)}`,
+			);
 		}
 
 		const { records } = result.right;
