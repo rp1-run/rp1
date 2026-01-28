@@ -22,6 +22,49 @@ The V2 dashboard runs alongside the existing documentation viewer at `/`. Both a
 
 ---
 
+## Data Sources
+
+The V2 dashboard displays real data from your local rp1 installation. All run data is sourced from the status database at `~/.rp1/status.db`, which is populated when AI agents report their progress using the `work update` agent tool.
+
+### How Runs Are Populated
+
+When an agent (or any workflow) reports status via `rp1 agent-tools work update`, a record is written to `status.db`. The V2 API queries this database to populate the dashboard:
+
+1. **Agent executes workflow** - Agents call `rp1 agent-tools work update` at key milestones (feature started, task in progress, completed, failed)
+2. **Status stored in database** - Each update creates a record in `~/.rp1/status.db` with project path, feature name, task, status, and message
+3. **API queries database** - The `/api/v2/runs` endpoint queries the database for the latest status per feature
+4. **Dashboard displays runs** - The UI renders runs grouped by their current status
+
+### Status Value Mappings
+
+The status database stores granular status values that are mapped to dashboard display statuses:
+
+| Database Status | Dashboard Status | Description |
+|-----------------|------------------|-------------|
+| `started` | Running | Initial execution state |
+| `in_progress` | Running | Active work in progress |
+| `waiting-input` | Waiting | Agent blocked, needs user input |
+| `needs-review` | Needs Review | Work complete, awaiting review |
+| `completed` | Completed | Success terminal state |
+| `failed` | Failed | Error terminal state |
+
+The dashboard groups runs into attention sections based on these mapped statuses:
+
+- **Waiting for you** - Runs with `waiting-input` status
+- **Needs review** - Runs with `needs-review` status
+- **Failed** - Runs with `failed` status
+- **Running** - Runs with `started` or `in_progress` status
+
+### Empty Dashboard
+
+If your dashboard shows no runs, ensure that:
+
+1. Agents are using the `work-status` skill to report progress
+2. The status database exists at `~/.rp1/status.db`
+3. The project is registered (runs are filtered by registered projects)
+
+---
+
 ## Home Dashboard (Now View)
 
 The home dashboard (`/v2/`) shows what needs your attention across all projects. Runs are grouped into four sections displayed in priority order:
