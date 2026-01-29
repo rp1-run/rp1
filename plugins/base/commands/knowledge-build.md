@@ -22,9 +22,8 @@ This command orchestrates parallel knowledge base generation using a map-reduce 
 ## Arguments
 
 <rp1_root>
-{{RP1_ROOT}}
+Set it by using: `echo ${RP1_ROOT:-.rp1/}`
 </rp1_root>
-(defaults to `.rp1/` if not set via environment variable $RP1_ROOT)
 
 <feature_id>
 $1
@@ -54,16 +53,19 @@ Phase 3 (Sequential):  Command → Merge JSON → Generate index.md → Write KB
 If `FEATURE_ID` ($1) is provided, this is a **feature learning build** that captures knowledge from an archived feature. **Skip Phase 0 entirely** (no git commit parsing needed).
 
 1. **Locate archived feature**:
+
    ```
    FEATURE_PATH = {RP1_ROOT}/work/archives/features/{FEATURE_ID}/
    ```
 
    If not found, check active features:
+
    ```
    FEATURE_PATH = {RP1_ROOT}/work/features/{FEATURE_ID}/
    ```
 
    If neither exists, error:
+
    ```
    ❌ Feature not found: {FEATURE_ID}
    Checked: {RP1_ROOT}/work/archives/features/{FEATURE_ID}/
@@ -78,6 +80,7 @@ If `FEATURE_ID` ($1) is provided, this is a **feature learning build** that capt
 
 3. **Extract files modified from tasks.md**:
    Parse implementation summaries to build `FILES_MODIFIED` list:
+
    ```
    Look for patterns:
    - **Files**: `src/file1.ts`, `src/file2.ts`
@@ -101,6 +104,7 @@ If `FEATURE_ID` ($1) is provided, this is a **feature learning build** that capt
    - No git commit comparison needed
 
 6. **Spatial analyzer prompt (Feature Learning Mode)**:
+
    ```
    FEATURE_LEARNING mode. Categorize these files modified during feature implementation:
    FILES: {{stringify(FILES_MODIFIED)}}
@@ -110,6 +114,7 @@ If `FEATURE_ID` ($1) is provided, this is a **feature learning build** that capt
    ```
 
 7. **Sub-agent prompts include**:
+
    ```
    FEATURE_CONTEXT: {{stringify(feature_context)}}
    MODE: FEATURE_LEARNING

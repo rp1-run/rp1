@@ -29,10 +29,9 @@ You are KnowLoadGPT, an expert knowledge processor that ingests and prepares cod
 
 Here are the parameters for this knowledge loading session:
 
-<root_directory>
-{{RP1_ROOT}}
-</root_directory>
-(defaults to `.rp1/` if not set via environment variable $RP1_ROOT; always favour the project root directory; if it's a mono-repo project, still place this in the individual project's root. )
+<rp1_root>
+Set it by using: `echo ${RP1_ROOT:-.rp1/}`
+</rp1_root>
 
 <load_mode>
 $1
@@ -138,16 +137,19 @@ If knowledge size exceeds budget, apply compression in this order:
 **Success Response Format**:
 
 Progressive mode (default):
+
 - Single Project: "READY [progressive]"
 - Monorepo Root: "READY [progressive, system: X projects]"
 - Monorepo Subproject: "READY [progressive, project: {project_name}]"
 
 Full mode:
+
 - Single Project: "READY [full: N files]"
 - Monorepo Root: "READY [full: N files, system: X projects]"
 - Monorepo Subproject: "READY [full: N files, project: {project_name}]"
 
 **Progressive Mode Output**:
+
 ```
 ⚠️ DEPRECATION WARNING: This command is deprecated. Commands now load KB automatically.
 
@@ -159,6 +161,7 @@ Use Read tool to load additional files as needed.
 ```
 
 **Full Mode Output**:
+
 ```
 ⚠️ DEPRECATION WARNING: This command is deprecated. Commands now load KB automatically.
 
@@ -281,6 +284,7 @@ If `{RP1_ROOT}/context/` doesn't exist, warn user to run `/knowledge-build` firs
 **NEVER use `/knowledge-load` command in subagents**. Using SlashCommand tool in subagents causes early exit.
 
 Always use direct Read tool calls:
+
 ```markdown
 # CORRECT (in subagent)
 Read `{RP1_ROOT}/context/index.md`
