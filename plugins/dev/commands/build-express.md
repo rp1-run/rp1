@@ -68,7 +68,7 @@ prompt: |
   REQUEST={REQUEST}
   AFK_MODE=false
   USE_WORKTREE=false
-  RP1_ROOT={RP1_ROOT}
+  RP1_ROOT={{$RP1_ROOT}}
 ```
 
 **Wait for completion. Do NOT implement anything yourself.**

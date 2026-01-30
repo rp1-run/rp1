@@ -20,10 +20,12 @@ Archives completed PRD docs from active -> archives dir with associated features
 
 **Params**: `prd-name` (req) - PRD filename without extension
 
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
+
 ## Behavior
 
-- Moves `{RP1_ROOT}/work/prds/<prd-name>.md` -> `{RP1_ROOT}/work/archives/prds/<prd-name>/prd.md`
-- Archives associated completed features to `{RP1_ROOT}/work/archives/features/`
+- Moves `{{$RP1_ROOT}}/work/prds/<prd-name>.md` -> `{{$RP1_ROOT}}/work/archives/prds/<prd-name>/prd.md`
+- Archives associated completed features to `{{$RP1_ROOT}}/work/archives/features/`
 - Generates `closure_summary.md` with archive metadata
 - Checks KB staleness and suggests `/knowledge-build` if needed
 - Creates archive directories if missing

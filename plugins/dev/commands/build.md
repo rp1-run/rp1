@@ -60,7 +60,7 @@ Skip prompts, auto-select defaults, retry once on failure, auto-archive.
 
 ```
 Task: rp1-dev:build-artifact-detector
-prompt: FEATURE_ID={FEATURE_ID}, RP1_ROOT={RP1_ROOT}
+prompt: FEATURE_ID={FEATURE_ID}, RP1_ROOT={{$RP1_ROOT}}
 ```
 
 **Parse response**: Extract `start_step` (1-6) and `artifacts` status.
@@ -96,7 +96,7 @@ Steps 1-3 foundational -> ABORT on fail. Steps 4-6 -> retry/prompt. NEVER delete
 
 ```
 Task: rp1-dev:feature-requirement-gatherer
-prompt: FEATURE_ID={FEATURE_ID}, REQUIREMENTS={requirements}, AFK_MODE={AFK_MODE}, RP1_ROOT={RP1_ROOT}
+prompt: FEATURE_ID={FEATURE_ID}, REQUIREMENTS={requirements}, AFK_MODE={AFK_MODE}, RP1_ROOT={{$RP1_ROOT}}
 ```
 
 ### §1.1 Requirements Review Checkpoint
@@ -130,7 +130,7 @@ AskUserQuestion: |
 
 ```
 Task: rp1-dev:feature-architect
-prompt: FEATURE_ID={FEATURE_ID}, AFK_MODE={AFK_MODE}, UPDATE_MODE={design.md exists}, RP1_ROOT={RP1_ROOT}
+prompt: FEATURE_ID={FEATURE_ID}, AFK_MODE={AFK_MODE}, UPDATE_MODE={design.md exists}, RP1_ROOT={{$RP1_ROOT}}
 ```
 
 If `flagged_hypotheses` non-empty:
@@ -142,7 +142,7 @@ prompt: Validate hypotheses for feature {FEATURE_ID}
 
 ```
 Task: rp1-dev:feature-tasker
-prompt: FEATURE_ID={FEATURE_ID}, UPDATE_MODE={UPDATE_MODE}, RP1_ROOT={RP1_ROOT}
+prompt: FEATURE_ID={FEATURE_ID}, UPDATE_MODE={UPDATE_MODE}, RP1_ROOT={{$RP1_ROOT}}
 ```
 
 ### §2.1 Design Review Checkpoint
@@ -178,7 +178,7 @@ AskUserQuestion: |
 
 ```
 Task: rp1-dev:feature-tasker
-prompt: FEATURE_ID={FEATURE_ID}, UPDATE_MODE=false, RP1_ROOT={RP1_ROOT}
+prompt: FEATURE_ID={FEATURE_ID}, UPDATE_MODE=false, RP1_ROOT={{$RP1_ROOT}}
 ```
 
 ### §3.1 Tasks Review Checkpoint

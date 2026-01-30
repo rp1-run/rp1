@@ -20,9 +20,11 @@ Archives completed feature docs from active -> archives dir.
 
 **Params**: `feature-id` (req) - Feature ID to archive
 
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
+
 ## Behavior
 
-- Moves `{RP1_ROOT}/work/features/<feature-id>/` -> `{RP1_ROOT}/work/archives/features/<feature-id>/`
+- Moves `{{$RP1_ROOT}}/work/features/<feature-id>/` -> `{{$RP1_ROOT}}/work/archives/features/<feature-id>/`
 - Creates archives/features/ if missing
 - Existing archive ID -> appends timestamp suffix
 - Validates docs exist before archiving

@@ -38,17 +38,19 @@ $3
 $4
 </findings_summary>
 
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
+
 ## 1. Load Knowledge Base
 
-Read `{RP1_ROOT}/context/index.md` to understand project structure and available KB files.
+Read `{{$RP1_ROOT}}/context/index.md` to understand project structure and available KB files.
 
 **Selective Loading**: For PR synthesis, load:
 
-- `{RP1_ROOT}/context/patterns.md` - Required for pattern consistency synthesis
+- `{{$RP1_ROOT}}/context/patterns.md` - Required for pattern consistency synthesis
 
 Do NOT load all KB files. Synthesis primarily uses summaries from sub-reviewers.
 
-If `{RP1_ROOT}/context/` directory doesn't exist, continue with degraded context.
+If `{{$RP1_ROOT}}/context/` directory doesn't exist, continue with degraded context.
 
 ## 2. Parse Input
 

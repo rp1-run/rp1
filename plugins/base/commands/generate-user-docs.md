@@ -445,7 +445,7 @@ For each batch, construct the JSON input matching the scribe agent contract:
 {
   "mode": "scan",
   "files": ["path/to/file1.md", "path/to/file2.md", ...],
-  "kb_index_path": "{RP1_ROOT}/context/index.md"
+  "kb_index_path": "{{$RP1_ROOT}}/context/index.md"
 }
 ```
 
@@ -465,7 +465,7 @@ FOR each batch in BATCHES (in parallel):
         prompt: |
             MODE: scan
             FILES: {{JSON.stringify(batch.files)}}
-            KB_INDEX_PATH: {RP1_ROOT}/context/index.md
+            KB_INDEX_PATH: {{$RP1_ROOT}}/context/index.md
 
             Scan documentation files for classification against KB index.
             Return JSON with classifications.
@@ -727,7 +727,7 @@ For each batch, construct the JSON input matching the scribe agent process mode 
 {
   "mode": "process",
   "files": ["path/to/file1.md", "path/to/file2.md", ...],
-  "scan_results_path": "{RP1_ROOT}/work/features/scribe/scan_results.json",
+  "scan_results_path": "{{$RP1_ROOT}}/work/features/scribe/scan_results.json",
   "style": {
     "heading_style": "atx",
     "list_marker": "dash",

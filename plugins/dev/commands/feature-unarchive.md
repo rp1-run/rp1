@@ -30,9 +30,11 @@ Restores an archived feature's documentation from the archives directory back to
 /rp1-dev:feature-unarchive my-feature_20251129_143022
 ```
 
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
+
 ## Behavior
 
-- Moves `{RP1_ROOT}/work/archives/features/<feature-id>/` to `{RP1_ROOT}/work/features/<feature-id>/`
+- Moves `{{$RP1_ROOT}}/work/archives/features/<feature-id>/` to `{{$RP1_ROOT}}/work/features/<feature-id>/`
 - Fails if a feature with the same ID already exists in the active directory
 - Provides guidance on resolving conflicts
 

@@ -31,7 +31,7 @@ Task tool:
 subagent_type: rp1-dev:hypothesis-tester
 prompt: |
   FEATURE_ID: $1
-  RP1_ROOT: {RP1_ROOT}
+  RP1_ROOT: {{$RP1_ROOT}}
   Validate all PENDING hypotheses for this feature.
 ```
 

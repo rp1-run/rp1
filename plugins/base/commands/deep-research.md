@@ -248,7 +248,7 @@ subagent_type: rp1-base:research-reporter
 prompt: |
   Generate research report.
   SYNTHESIS_DATA: {stringify(synthesis_data)}
-  RP1_ROOT: {RP1_ROOT}
+  RP1_ROOT: {{$RP1_ROOT}}
   REPORT_TYPE: {standard | comparative}
 
   Return JSON with report status and path.
