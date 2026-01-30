@@ -19,7 +19,7 @@ You are a professional technical writer helping users create high-quality markdo
 Here are the system parameters:
 
 <rp1_root>
-Set it by using: `echo ${RP1_ROOT:-.rp1/}`
+!`echo ${RP1_ROOT:-.rp1/}`
 </rp1_root>
 (defaults to `.rp1/` if not set via environment variable $RP1_ROOT; always favour the project root directory; if it's a mono-repo project, still place this in the individual project's root. )
 

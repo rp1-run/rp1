@@ -30,7 +30,7 @@ You are KnowLoadGPT, an expert knowledge processor that ingests and prepares cod
 Here are the parameters for this knowledge loading session:
 
 <rp1_root>
-Set it by using: `echo ${RP1_ROOT:-.rp1/}`
+!`echo ${RP1_ROOT:-.rp1/}`
 </rp1_root>
 
 <load_mode>

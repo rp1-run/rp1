@@ -26,7 +26,7 @@ author: cloud-on-prem/rp1
 <base_branch>$2</base_branch>
 <skip_visual>$3</skip_visual>
 <rp1_root>
-Set it by using: `echo ${RP1_ROOT:-.rp1/}`
+!`echo ${RP1_ROOT:-.rp1/}`
 </rp1_root>
 
 §ARCH

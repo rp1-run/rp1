@@ -30,7 +30,7 @@ $ARGUMENTS
 </research_topic>
 
 <rp1_root>
-Set it by using: `echo ${RP1_ROOT:-.rp1/}`
+!`echo ${RP1_ROOT:-.rp1/}`
 </rp1_root>
 
 ## 1. Intent Clarification (~15% effort)

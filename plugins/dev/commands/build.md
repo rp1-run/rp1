@@ -30,7 +30,7 @@ author: cloud-on-prem/rp1
 
 <feature_id>$1</feature_id>
 <rp1_root>
-Set it by using: `echo ${RP1_ROOT:-.rp1/}`
+!`echo ${RP1_ROOT:-.rp1/}`
 </rp1_root>
 <requirements>$2</requirements>
 

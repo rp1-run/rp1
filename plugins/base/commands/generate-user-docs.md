@@ -26,7 +26,7 @@ This command orchestrates user documentation synchronization with the auto-gener
 | RP1_ROOT | Environment | `.rp1/` | Root directory for KB and state artifacts |
 
 <rp1_root>
-Set it by using: `echo ${RP1_ROOT:-.rp1/}`
+!`echo ${RP1_ROOT:-.rp1/}`
 </rp1_root>
 
 ## Architecture Overview

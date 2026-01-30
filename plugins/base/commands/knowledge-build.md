@@ -22,7 +22,7 @@ This command orchestrates parallel knowledge base generation using a map-reduce 
 ## Arguments
 
 <rp1_root>
-Set it by using: `echo ${RP1_ROOT:-.rp1/}`
+!`echo ${RP1_ROOT:-.rp1/}`
 </rp1_root>
 
 <feature_id>
