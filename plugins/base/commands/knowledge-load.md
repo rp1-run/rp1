@@ -29,9 +29,7 @@ You are KnowLoadGPT, an expert knowledge processor that ingests and prepares cod
 
 Here are the parameters for this knowledge loading session:
 
-<rp1_root>
-!`echo ${RP1_ROOT:-.rp1/}`
-</rp1_root>
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
 <load_mode>
 $1
@@ -63,7 +61,7 @@ Determine the repository type based on these indicators:
 
 ## Loading Strategies by Repository Type
 
-All relevant files are in $RP1_ROOT/context/
+All relevant files are in {{$RP1_ROOT}}/context/
 
 **Single Project**:
 
@@ -227,12 +225,12 @@ etc. (too verbose!)
 ```markdown
 ## 1. Load Knowledge Base
 
-Read `{RP1_ROOT}/context/index.md` to understand project structure and available KB files.
+Read `{{$RP1_ROOT}}/context/index.md` to understand project structure and available KB files.
 
 **Selective Loading**: Based on your task, load additional files as needed:
-- For pattern consistency checks → Read `{RP1_ROOT}/context/patterns.md`
-- For architecture understanding → Read `{RP1_ROOT}/context/architecture.md`
-- For component details → Read `{RP1_ROOT}/context/modules.md`
+- For pattern consistency checks → Read `{{$RP1_ROOT}}/context/patterns.md`
+- For architecture understanding → Read `{{$RP1_ROOT}}/context/architecture.md`
+- For component details → Read `{{$RP1_ROOT}}/context/modules.md`
 
 Do NOT load all KB files unless performing holistic analysis.
 ```
@@ -242,14 +240,14 @@ Do NOT load all KB files unless performing holistic analysis.
 ```markdown
 ## 1. Load Knowledge Base
 
-Read all markdown files from `{RP1_ROOT}/context/*.md`:
-- `{RP1_ROOT}/context/index.md` - Project overview
-- `{RP1_ROOT}/context/architecture.md` - System design
-- `{RP1_ROOT}/context/modules.md` - Component breakdown
-- `{RP1_ROOT}/context/concept_map.md` - Domain terminology
-- `{RP1_ROOT}/context/patterns.md` - Code conventions
+Read all markdown files from `{{$RP1_ROOT}}/context/*.md`:
+- `{{$RP1_ROOT}}/context/index.md` - Project overview
+- `{{$RP1_ROOT}}/context/architecture.md` - System design
+- `{{$RP1_ROOT}}/context/modules.md` - Component breakdown
+- `{{$RP1_ROOT}}/context/concept_map.md` - Domain terminology
+- `{{$RP1_ROOT}}/context/patterns.md` - Code conventions
 
-If `{RP1_ROOT}/context/` doesn't exist, warn user to run `/knowledge-build` first.
+If `{{$RP1_ROOT}}/context/` doesn't exist, warn user to run `/knowledge-build` first.
 ```
 
 ### Task-to-KB-Files Mapping
@@ -271,7 +269,7 @@ Always use direct Read tool calls:
 
 ```markdown
 # CORRECT (in subagent)
-Read `{RP1_ROOT}/context/index.md`
+Read `{{$RP1_ROOT}}/context/index.md`
 
 # INCORRECT (causes subagent to exit)
 Run `/knowledge-load`

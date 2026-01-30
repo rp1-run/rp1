@@ -28,15 +28,14 @@ author: cloud-on-prem/rp1
 | --git-pr | flag | false | Create PR (implies --git-push, --git-commit) |
 | RP1_ROOT | env | `.rp1/` | Root dir |
 
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
+
 <feature_id>$1</feature_id>
-<rp1_root>
-!`echo ${RP1_ROOT:-.rp1/}`
-</rp1_root>
 <requirements>$2</requirements>
 
 **Parse flags**: `AFK_MODE`, `GIT_WORKTREE`, `GIT_COMMIT`, `GIT_PUSH`, `GIT_PR` from args.
 
-**Feature dir**: `{RP1_ROOT}/work/features/{FEATURE_ID}/`
+**Feature dir**: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`
 
 ## §SKILL-LOADING
 
@@ -109,7 +108,7 @@ After requirements completes, pause for user review:
 ```
 AskUserQuestion: |
   Requirements phase complete. Review artifact:
-  - {RP1_ROOT}/work/features/{FEATURE_ID}/requirements.md
+  - {{$RP1_ROOT}}/work/features/{FEATURE_ID}/requirements.md
 
   Summary: Generated requirements specification with functional requirements,
   user stories, and defined scope boundaries.
@@ -155,8 +154,8 @@ After design completes, pause for user review:
 ```
 AskUserQuestion: |
   Design phase complete. Review artifacts:
-  - {RP1_ROOT}/work/features/{FEATURE_ID}/design.md
-  - {RP1_ROOT}/work/features/{FEATURE_ID}/tasks.md
+  - {{$RP1_ROOT}}/work/features/{FEATURE_ID}/design.md
+  - {{$RP1_ROOT}}/work/features/{FEATURE_ID}/tasks.md
 
   Summary: Generated technical design with architecture decisions, component
   specifications, and implementation approach. Tasks file includes initial
@@ -191,7 +190,7 @@ After tasks completes, pause for user review:
 ```
 AskUserQuestion: |
   Tasks phase complete. Review artifact:
-  - {RP1_ROOT}/work/features/{FEATURE_ID}/tasks.md
+  - {{$RP1_ROOT}}/work/features/{FEATURE_ID}/tasks.md
 
   Summary: Generated implementation tasks with dependency ordering
   and complexity assessment. Tasks are ready for build phase execution.
@@ -228,7 +227,7 @@ Store: `worktree_path`, `branch`, `basedOn`
 
 ```
 Task: rp1-dev:build-task-parser
-prompt: TASKS_PATH={RP1_ROOT}/work/features/{FEATURE_ID}/tasks.md
+prompt: TASKS_PATH={{$RP1_ROOT}}/work/features/{FEATURE_ID}/tasks.md
 ```
 
 **Parse response**: Extract `implementation_tasks`, `doc_tasks`, `summary`.

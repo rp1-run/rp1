@@ -25,13 +25,11 @@ You are executing the Deep Research workflow. You coordinate autonomous research
 | RESEARCH_TOPIC | $ARGUMENTS | (required) | User's research topic or questions |
 | RP1_ROOT | Environment | `.rp1/` | Root directory for artifacts |
 
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
+
 <research_topic>
 $ARGUMENTS
 </research_topic>
-
-<rp1_root>
-!`echo ${RP1_ROOT:-.rp1/}`
-</rp1_root>
 
 ## 1. Intent Clarification (~15% effort)
 

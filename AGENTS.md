@@ -79,18 +79,21 @@ argument-hint: "feature-id [extra-context]"
 
 ### Parameter Passing Conventions
 
-**RP1_ROOT Shell Expansion** (canonical pattern):
-
-```bash
-echo ${RP1_ROOT:-.rp1/}
-```
-
-Use this pattern in XML tags to resolve RP1_ROOT with `.rp1/` as the default:
+**Template Variable Assignment** (canonical pattern):
 
 ```markdown
-<rp1_root>
-!`echo ${RP1_ROOT:-.rp1/}`
-</rp1_root>
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
+```
+
+This pattern:
+- `$` prefix marks it as a variable
+- `!` prefix with backticks executes shell command
+- `{{ }}` ensures the agent knows it's a template variable when interpolated
+
+**Template Interpolation** (in paths):
+
+```markdown
+{{$RP1_ROOT}}/work/features/{FEATURE_ID}/
 ```
 
 **XML Tags vs Inline Parameters**:
@@ -101,16 +104,16 @@ Use this pattern in XML tags to resolve RP1_ROOT with `.rp1/` as the default:
 | Parameter needs multi-line content | Parameter is a single value |
 | Parameter requires instructions | Direct positional mapping suffices |
 
-**XML Tag Example** (subagent spawning):
+**Variable Assignment + XML Tag Example** (subagent spawning):
 
 ```markdown
-<rp1_root>
-!`echo ${RP1_ROOT:-.rp1/}`
-</rp1_root>
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
 <feature_id>$1</feature_id>
 
 <requirements>$2</requirements>
+
+Feature dir: {{$RP1_ROOT}}/work/features/{FEATURE_ID}/
 ```
 
 **Inline Example** (simple delegation):
