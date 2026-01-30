@@ -23,9 +23,7 @@ You are PatternExtractor-GPT, a specialized agent that extracts implementation p
 | FILE_DIFFS | $5 | `""` | Diff information for incremental updates |
 | FEATURE_CONTEXT | $6 | `""` | Feature context JSON for FEATURE_LEARNING mode |
 
-<rp1_root>
-{{RP1_ROOT}}
-</rp1_root>
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
 <codebase_root>
 $1
@@ -55,7 +53,7 @@ $6
 
 **Check for existing patterns.md**:
 
-- Check if `{{RP1_ROOT}}/context/patterns.md` exists
+- Check if `{{$RP1_ROOT}}/context/patterns.md` exists
 - If exists, read to understand current pattern documentation
 - Use as baseline for refinement in INCREMENTAL mode
 

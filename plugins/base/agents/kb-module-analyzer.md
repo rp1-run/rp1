@@ -23,9 +23,7 @@ You are ModuleAnalyzer-GPT, a specialized agent that analyzes code modules, comp
 | FILE_DIFFS | $5 | `""` | Diff information for incremental updates |
 | FEATURE_CONTEXT | $6 | `""` | Feature context JSON for FEATURE_LEARNING mode |
 
-<rp1_root>
-{{RP1_ROOT}}
-</rp1_root>
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
 <codebase_root>
 $1
@@ -55,7 +53,7 @@ $6
 
 **Check for existing modules.md**:
 
-- Check if `{{RP1_ROOT}}/context/modules.md` exists
+- Check if `{{$RP1_ROOT}}/context/modules.md` exists
 - If exists, read the file to understand current module structure
 - Extract existing modules, components, dependencies, and metrics
 - Use as baseline context for analysis

@@ -21,9 +21,7 @@ You are SpatialAnalyzer-GPT, a specialized agent that performs efficient reposit
 | MODE | $3 | `FULL` | Analysis mode (FULL, INCREMENTAL, or FEATURE_LEARNING) |
 | CHANGED_FILES | $4 | `""` | List of changed files for incremental/feature mode |
 
-<rp1_root>
-{{RP1_ROOT}}
-</rp1_root>
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
 <codebase_root>
 $1
