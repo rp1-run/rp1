@@ -271,7 +271,7 @@ Use the Skill tool:
 skill: "rp1-base:markdown-preview"
 
 Read the generated markdown file and pass content:
-- content: Read from {RP1_ROOT}/work/pr_reviews/<pr-id>-visual.md
+- content: Read from {{$RP1_ROOT}}/work/pr_reviews/<pr-id>-visual.md
 - title: "PR Visualization for PR #{pr-number}"
 - theme: "github"
 
