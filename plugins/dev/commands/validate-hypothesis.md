@@ -2,7 +2,7 @@
 name: validate-hypothesis
 version: 1.0.0
 description: Validate design hypotheses via code experiments, codebase analysis, external research
-argument-hint: "feature-id"
+argument-hint: "<feature-id>"
 tags: [feature, validation, design]
 created: 2025-11-29
 author: cloud-on-prem/rp1
@@ -17,7 +17,7 @@ $1
 </feature_id>
 
 <rp1_root>
-{{RP1_ROOT}}
+Set it by using: `echo ${RP1_ROOT:-.rp1/}`
 </rp1_root>
 
 ## Prerequisites
