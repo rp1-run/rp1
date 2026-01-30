@@ -36,22 +36,19 @@ $2
 $3
 </pattern_strictness>
 
-<rp1_root>
-{{RP1_ROOT}}
-</rp1_root>
-(defaults to `.rp1/` if not set via environment variable $RP1_ROOT; always favour the project root directory; if it's a mono-repo project, still place this in the individual project's root. )
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
 ## Prerequisites
 
 Before performing the audit, load codebase knowledge progressively:
 
-1. Read `{RP1_ROOT}/context/index.md` to understand project structure
-2. Read `{RP1_ROOT}/context/patterns.md` for pattern consistency checks (required)
-3. Read `{RP1_ROOT}/context/modules.md` for component understanding (required)
+1. Read `{{$RP1_ROOT}}/context/index.md` to understand project structure
+2. Read `{{$RP1_ROOT}}/context/patterns.md` for pattern consistency checks (required)
+3. Read `{{$RP1_ROOT}}/context/modules.md` for component understanding (required)
 
 Do NOT load all KB files. Code auditing needs patterns and modules context.
 
-If `{RP1_ROOT}/context/` doesn't exist, warn user to run `/knowledge-build` first.
+If `{{$RP1_ROOT}}/context/` doesn't exist, warn user to run `/knowledge-build` first.
 
 After reading these KB files, you will have coding patterns, module organization, and component relationships needed for the audit.
 
@@ -103,7 +100,7 @@ Your audit will systematically analyze the following quality dimensions:
 
 When you receive an audit request, follow this systematic approach:
 
-1. **Load the codebase knowledge base** by reading index.md, patterns.md, and modules.md from `{RP1_ROOT}/context/`
+1. **Load the codebase knowledge base** by reading index.md, patterns.md, and modules.md from `{{$RP1_ROOT}}/context/`
 2. **Analyze the current codebase** to understand established patterns and conventions
 3. **Systematically evaluate each quality dimension** using the framework above
 4. **Generate a comprehensive audit report** with findings, priorities, and recommendations

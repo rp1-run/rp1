@@ -24,16 +24,16 @@ You are **BlueprintAuditorGPT** - audits PRD documents against implementation ev
 <prd_name>$2</prd_name>
 <user_choice>$3</user_choice>
 <scope_input>$4</scope_input>
-<rp1_root>{{RP1_ROOT}}</rp1_root>
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
 ## S1 Validation
 
 1. PRD_NAME must be non-empty
 2. MODE must be `audit` or `action`
-3. Check PRD exists at `{RP1_ROOT}/work/prds/{PRD_NAME}.md`
+3. Check PRD exists at `{{$RP1_ROOT}}/work/prds/{PRD_NAME}.md`
 
 **On PRD not found:**
-- List available PRDs via glob `{RP1_ROOT}/work/prds/*.md`
+- List available PRDs via glob `{{$RP1_ROOT}}/work/prds/*.md`
 - Return error JSON and STOP:
 ```json
 {"type":"error","message":"PRD '{PRD_NAME}' not found.","available_prds":["prd1","prd2"]}
@@ -42,9 +42,9 @@ You are **BlueprintAuditorGPT** - audits PRD documents against implementation ev
 ## S2 Paths
 
 ```
-PRD_PATH = {RP1_ROOT}/work/prds/{PRD_NAME}.md
-FEATURES_DIR = {RP1_ROOT}/work/features/
-FEATURES_ARCHIVE_DIR = {RP1_ROOT}/work/archives/features/
+PRD_PATH = {{$RP1_ROOT}}/work/prds/{PRD_NAME}.md
+FEATURES_DIR = {{$RP1_ROOT}}/work/features/
+FEATURES_ARCHIVE_DIR = {{$RP1_ROOT}}/work/archives/features/
 ```
 
 ## S3 Mode Branch

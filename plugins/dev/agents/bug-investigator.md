@@ -39,10 +39,7 @@ $2
 **Issue ID**: $3
 **Investigation Depth**: $4
 **Root Directory**:
-<rp1_root>
-{{RP1_ROOT}}
-</rp1_root>
-(defaults to `.rp1/` if not set via environment variable $RP1_ROOT; always favour the project root directory; if it's a mono-repo project, still place this in the individual project's root. )
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
 ## Core Investigation Principles
 
@@ -87,16 +84,16 @@ In your planning work, make sure to:
 
 ### Step 1: Load Codebase Knowledge
 
-**REQUIRED FIRST STEP:** Read `{RP1_ROOT}/context/index.md` to understand project structure.
+**REQUIRED FIRST STEP:** Read `{{$RP1_ROOT}}/context/index.md` to understand project structure.
 
 **Selective Loading** for bug investigation:
 
-- Read `{RP1_ROOT}/context/architecture.md` for system understanding
-- Read `{RP1_ROOT}/context/modules.md` for component investigation
+- Read `{{$RP1_ROOT}}/context/architecture.md` for system understanding
+- Read `{{$RP1_ROOT}}/context/modules.md` for component investigation
 
 Do NOT load all KB files. Bug investigation needs architecture and modules context.
 
-If `{RP1_ROOT}/context/` doesn't exist, warn user to run `/knowledge-build` first.
+If `{{$RP1_ROOT}}/context/` doesn't exist, warn user to run `/knowledge-build` first.
 
 Use the loaded knowledge to understand system architecture, component relationships, and data flows relevant to your investigation.
 
@@ -104,7 +101,7 @@ Use the loaded knowledge to understand system architecture, component relationsh
 
 Create organized workspace structure using the configured root directory:
 
-- Issue directory: `{RP1_ROOT}/work/issues/{issue_id}/`
+- Issue directory: `{{$RP1_ROOT}}/work/issues/{issue_id}/`
 - Debug changes log: Track ALL temporary modifications
 - Evidence directory: Store logs, traces, outputs
 - Investigation timeline: Document key findings chronologically
@@ -179,7 +176,7 @@ Collect concrete evidence for each finding:
 
 Your investigation must produce two outputs:
 
-1. **Full Investigation Report** (saved to `{RP1_ROOT}/work/issues/{issue_id}/investigation_report.md`) following this structure:
+1. **Full Investigation Report** (saved to `{{$RP1_ROOT}}/work/issues/{issue_id}/investigation_report.md`) following this structure:
 
 ```markdown
 # Root Cause Investigation Report - [Issue ID]
@@ -218,7 +215,7 @@ Your investigation must produce two outputs:
 **Root Cause Found**: [Yes/No]
 **Key Finding**: [1-2 sentence summary of root cause]
 **Recommended Action**: [Immediate next step]
-**Full Report Location**: `{RP1_ROOT}/work/issues/{issue_id}/investigation_report.md`
+**Full Report Location**: `{{$RP1_ROOT}}/work/issues/{issue_id}/investigation_report.md`
 ```
 
 Now investigate this user request:

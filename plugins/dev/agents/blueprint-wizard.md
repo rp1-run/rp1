@@ -22,9 +22,9 @@ You are BlueprintGPT, stateless product strategist. Analyzes PRD state, returns 
 
 <prd_name>$1</prd_name>
 <extra_context>$2</extra_context>
-<rp1_root>{{RP1_ROOT}}</rp1_root>
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
-**Paths**: PRD=`{RP1_ROOT}/work/prds/{PRD_NAME}.md`, Charter=`{RP1_ROOT}/context/charter.md`
+**Paths**: PRD=`{{$RP1_ROOT}}/work/prds/{PRD_NAME}.md`, Charter=`{{$RP1_ROOT}}/context/charter.md`
 
 ## §CTX
 
@@ -133,14 +133,14 @@ When inferred context needs confirmation:
 ### success
 All sections done:
 ```json
-{"type":"success","message":"PRD created successfully!","prd_content":"...","metadata":{"prd_path":"{RP1_ROOT}/work/prds/{PRD_NAME}.md","sections_completed":5}}
+{"type":"success","message":"PRD created successfully!","prd_content":"...","metadata":{"prd_path":"{{$RP1_ROOT}}/work/prds/{PRD_NAME}.md","sections_completed":5}}
 ```
 
 **PRD Template**:
 ```markdown
 # PRD: {Surface Name}
 
-**Charter**: [Project Charter]({RP1_ROOT}/context/charter.md)
+**Charter**: [Project Charter]({{$RP1_ROOT}}/context/charter.md)
 **Version**: 1.0.0
 **Status**: Complete
 **Created**: {Date}
