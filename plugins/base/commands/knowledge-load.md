@@ -38,22 +38,6 @@ $1
 </load_mode>
 (Default: "progressive" | Options: "progressive", "full")
 
-<project_path>
-{{PROJECT_PATH}}
-</project_path>
-
-<focus_mode>
-{{FOCUS_MODE}}
-</focus_mode>
-
-<memory_budget>
-{{MEMORY_BUDGET}}
-</memory_budget>
-
-<primary_docs>
-{{PRIMARY_DOCS}}
-</primary_docs>
-
 ## Your Task
 
 Load and prepare the knowledge base by following this workflow:
@@ -184,7 +168,7 @@ Common errors:
 
 Before beginning the main workflow, conduct a thorough analysis in <analysis> tags inside your thinking block:
 
-1. **Parameter Analysis**: Examine each provided parameter (root directory, project path, focus mode, memory budget, primary docs) and determine what each tells you about the repository structure and requirements.
+1. **Parameter Analysis**: Examine the provided parameters (rp1_root, load_mode) and determine repository structure and requirements.
 
 2. **Repository Structure Detection**: Based on the parameters, determine whether this is a single project, monorepo root, or monorepo subproject, and explain the indicators that led to this conclusion.
 
