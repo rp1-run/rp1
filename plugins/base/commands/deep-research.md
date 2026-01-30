@@ -2,7 +2,7 @@
 name: deep-research
 version: 1.1.0
 description: Autonomous deep research on codebases and technical topics with structured report output
-argument-hint: "[research-topic]"
+argument-hint: "<research-topic>"
 tags:
   - research
   - analysis
@@ -30,7 +30,7 @@ $ARGUMENTS
 </research_topic>
 
 <rp1_root>
-{{RP1_ROOT}}
+Set it by using: `echo ${RP1_ROOT:-.rp1/}`
 </rp1_root>
 
 ## 1. Intent Clarification (~15% effort)
