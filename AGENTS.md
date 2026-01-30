@@ -38,7 +38,6 @@
 
 - ✅ `$1`, `$2`, `$3` - Fixed, structured arguments
 - ✅ `$ARGUMENTS` - Variable-length, freeform input
-- ❌ `{{PLACEHOLDER}}` - **DEPRECATED** (use shell expansion instead)
 
 **Command Invocation Examples**:
 
