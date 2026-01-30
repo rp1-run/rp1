@@ -2,7 +2,7 @@
 name: build
 version: 3.0.0
 description: End-to-end feature workflow (requirements -> design -> tasks -> build -> verify -> archive) in a single command.
-argument-hint: "feature-id [requirements] [--afk] [--git-worktree] [--git-commit] [--git-push] [--git-pr]"
+argument-hint: "<feature-id> [requirements] [--afk] [--git-worktree] [--git-commit] [--git-push] [--git-pr]"
 tags:
   - core
   - feature
@@ -15,9 +15,9 @@ author: cloud-on-prem/rp1
 
 6-step workflow orchestrator. Delegates execution to specialized agents.
 
-## §PARAMS
+## 0. Parameters
 
-| Name | Pos | Default | Purpose |
+| Name | Position | Default | Purpose |
 |------|-----|---------|---------|
 | FEATURE_ID | $1 | (req) | Feature identifier |
 | REQUIREMENTS | $2 | "" | Raw requirements |
@@ -29,8 +29,10 @@ author: cloud-on-prem/rp1
 | RP1_ROOT | env | `.rp1/` | Root dir |
 
 <feature_id>$1</feature_id>
-<rp1_root>{{RP1_ROOT}}</rp1_root>
-<requirements>REQUIREMENTS</requirements>
+<rp1_root>
+Set it by using: `echo ${RP1_ROOT:-.rp1/}`
+</rp1_root>
+<requirements>$2</requirements>
 
 **Parse flags**: `AFK_MODE`, `GIT_WORKTREE`, `GIT_COMMIT`, `GIT_PUSH`, `GIT_PR` from args.
 
