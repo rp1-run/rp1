@@ -38,7 +38,7 @@
 
 - ✅ `$1`, `$2`, `$3` - Fixed, structured arguments
 - ✅ `$ARGUMENTS` - Variable-length, freeform input
-- ❌ `{{PLACEHOLDER}}` - **DEPRECATED** (except for environment variables like {{RP1_ROOT}})
+- ❌ `{{PLACEHOLDER}}` - **DEPRECATED** (use shell expansion instead)
 
 **Command Invocation Examples**:
 
@@ -77,6 +77,88 @@ argument-hint: "feature-id [extra-context]"
 
 - Use `$ARGUMENTS` for freeform text (development requests, problem descriptions)
 - Use `$1`, `$2`, etc. for structured parameters (feature-id, branch names, modes)
+
+### Parameter Passing Conventions
+
+**RP1_ROOT Shell Expansion** (canonical pattern):
+
+```bash
+echo ${RP1_ROOT:-.rp1/}
+```
+
+Use this pattern in XML tags to resolve RP1_ROOT with `.rp1/` as the default:
+
+```markdown
+<rp1_root>
+Set it by using: `echo ${RP1_ROOT:-.rp1/}`
+</rp1_root>
+```
+
+**XML Tags vs Inline Parameters**:
+
+| Use XML Tags When | Use Inline Parameters When |
+|-------------------|---------------------------|
+| Command spawns subagents | Simple delegation to single agent |
+| Parameter needs multi-line content | Parameter is a single value |
+| Parameter requires instructions | Direct positional mapping suffices |
+
+**XML Tag Example** (subagent spawning):
+
+```markdown
+<rp1_root>
+Set it by using: `echo ${RP1_ROOT:-.rp1/}`
+</rp1_root>
+
+<feature_id>$1</feature_id>
+
+<requirements>$2</requirements>
+```
+
+**Inline Example** (simple delegation):
+
+```markdown
+## 0. Parameters
+
+| Name | Position | Default | Purpose |
+|------|----------|---------|---------|
+| TOPIC | $1 | (required) | Research topic |
+
+Analyze the topic: $1
+```
+
+**Standard Parameter Table Format**:
+
+All commands with parameters MUST use this format:
+
+```markdown
+## 0. Parameters
+
+| Name | Position | Default | Purpose |
+|------|----------|---------|---------|
+| FEATURE_ID | $1 | (required) | Feature identifier |
+| CONTEXT | $2 | `""` | Optional context |
+| RP1_ROOT | Environment | `.rp1/` | Root directory |
+```
+
+**Argument-Hint Notation**:
+
+Use in YAML frontmatter to document command usage:
+
+| Notation | Meaning | Example |
+|----------|---------|---------|
+| `<param>` | Required parameter | `<feature-id>` |
+| `[param]` | Optional parameter | `[context]` |
+| `[param...]` | Variadic optional | `[files...]` |
+| `[--flag]` | Optional flag | `[--afk]` |
+
+**Example frontmatter**:
+
+```yaml
+---
+name: build
+argument-hint: "<feature-id> [requirements] [--afk] [--git-worktree]"
+---
+```
 
 ### Namespace Prefixes (ALWAYS USE THESE)
 
