@@ -2,7 +2,7 @@
 name: feature-edit
 version: 1.0.0
 description: Incorporates mid-stream changes into feature documentation with validation and propagation
-argument-hint: "feature-id <edit-description>"
+argument-hint: "<feature-id> <edit-description>"
 tags: [feature, documentation, workflow]
 created: 2025-11-29
 author: cloud-on-prem/rp1
@@ -12,13 +12,13 @@ author: cloud-on-prem/rp1
 
 Route to feature-editor agent after param validation.
 
-## §IN
+## 0. Parameters
 
-| Param | Source | Req |
-|-------|--------|-----|
-| FEATURE_ID | $1 | Yes |
-| EDIT_DESCRIPTION | $ARGUMENTS | Yes |
-| RP1_ROOT | {{RP1_ROOT}} | No (default `.rp1/`) |
+| Name | Position | Default | Purpose |
+|------|----------|---------|---------|
+| FEATURE_ID | $1 | (required) | Feature identifier |
+| EDIT_DESCRIPTION | $ARGUMENTS | (required) | Edit description |
+| RP1_ROOT | Environment | `.rp1/` | Root directory |
 
 ## §ERR
 

@@ -25,7 +25,9 @@ Interactive builder loop. Orchestrates build-fast-executor for each task.
 | RP1_ROOT | env | `.rp1/` | Root dir |
 
 <request>$ARGUMENTS</request>
-<rp1_root>{{RP1_ROOT}}</rp1_root>
+<rp1_root>
+Set it by using: `echo ${RP1_ROOT:-.rp1/}`
+</rp1_root>
 
 ## 1. Main Loop
 
