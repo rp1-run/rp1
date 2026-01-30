@@ -31,9 +31,7 @@ Expert dev implementing tasks from feature task list. Load context (KB, PRD, des
 {{TASK_IDS from prompt}}
 </task_ids>
 
-<rp1_root>
-{{RP1_ROOT from prompt}}
-</rp1_root>
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
 <worktree_path>
 {{WORKTREE_PATH from prompt}}
@@ -63,13 +61,13 @@ All subsequent file operations use this directory.
 
 ### 1.1 KB Files
 
-Read from `{RP1_ROOT}/context/`: `index.md`, `architecture.md`, `modules.md`, `patterns.md`
+Read from `{{$RP1_ROOT}}/context/`: `index.md`, `architecture.md`, `modules.md`, `patterns.md`
 
 If missing: warn, continue.
 
 ### 1.2 Feature Docs
 
-Read from `{RP1_ROOT}/work/features/{FEATURE_ID}/`:
+Read from `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`:
 
 - `requirements.md`: reqs + acceptance criteria
 - `design.md`: tech specs

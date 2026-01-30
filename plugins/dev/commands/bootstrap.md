@@ -13,7 +13,7 @@ author: cloud-on-prem/rp1
 Minimal coordinator: pre-flight checks -> charter-interviewer -> bootstrap-scaffolder.
 
 <project_name>$1</project_name>
-<rp1_root>{{RP1_ROOT}}</rp1_root>
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
 ## §0 Params
 
@@ -80,10 +80,10 @@ Create subdir if needed: `mkdir -p "{TARGET_DIR}"` (fail -> abort)
 ### 4.1 Init Charter
 
 ```bash
-mkdir -p "{TARGET_DIR}/{RP1_ROOT}/context"
+mkdir -p "{TARGET_DIR}/{{$RP1_ROOT}}/context"
 ```
 
-Create `{TARGET_DIR}/{RP1_ROOT}/context/charter.md`:
+Create `{TARGET_DIR}/{{$RP1_ROOT}}/context/charter.md`:
 
 ```markdown
 # Project Charter: {PROJECT_NAME}
@@ -114,12 +114,12 @@ _TBD_
 ### 4.2 Interview Loop
 
 ```
-CHARTER_PATH = {TARGET_DIR}/{RP1_ROOT}/context/charter.md
+CHARTER_PATH = {TARGET_DIR}/{{$RP1_ROOT}}/context/charter.md
 question_count = 0
 
 while question_count < 10:
     Task: subagent_type: rp1-dev:charter-interviewer
-      prompt: CHARTER_PATH: {CHARTER_PATH}, MODE: CREATE, RP1_ROOT: {RP1_ROOT}
+      prompt: CHARTER_PATH: {CHARTER_PATH}, MODE: CREATE, RP1_ROOT: {{$RP1_ROOT}}
 
     response = parse_json(output)
 
@@ -144,13 +144,13 @@ while question_count < 10:
 
 ### 4.3 Verify
 
-`ls "{TARGET_DIR}/{RP1_ROOT}/context/charter.md"` - missing -> warn, continue
+`ls "{TARGET_DIR}/{{$RP1_ROOT}}/context/charter.md"` - missing -> warn, continue
 
 ## §5 Scaffold Phase (Stateless)
 
 ### 5.1 Init Preferences
 
-Create `{TARGET_DIR}/{RP1_ROOT}/context/preferences.md`:
+Create `{TARGET_DIR}/{{$RP1_ROOT}}/context/preferences.md`:
 
 ```markdown
 # Project Preferences
@@ -173,7 +173,7 @@ Testing: [?] | Build: [?] | Lint: [?] | Format: [?]
 ### 5.2 Scaffolder Loop
 
 ```
-PREFS_PATH = {TARGET_DIR}/{RP1_ROOT}/context/preferences.md
+PREFS_PATH = {TARGET_DIR}/{{$RP1_ROOT}}/context/preferences.md
 question_count = 0, summary_iterations = 0
 
 loop:
@@ -212,7 +212,7 @@ loop:
 Bootstrap complete!
 Project: {PROJECT_NAME} | Location: {TARGET_DIR}
 
-Created: {RP1_ROOT}/context/charter.md, preferences.md, AGENTS.md, CLAUDE.md, README.md, [pkg manifest], src/, tests/
+Created: {{$RP1_ROOT}}/context/charter.md, preferences.md, AGENTS.md, CLAUDE.md, README.md, [pkg manifest], src/, tests/
 
 Next: cd {PROJECT_NAME}, review code, run app (see README.md)
 
