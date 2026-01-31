@@ -19,6 +19,7 @@
         "puppeteer": "^24.34.0",
         "react": "^18.3.1",
         "react-devtools-core": "^6.1.1",
+        "shell-quote": "^1.8.3",
         "yaml": "^2.3.4",
         "zod": "^3.24.0",
       },
@@ -27,6 +28,7 @@
         "@types/bun": "^1.1.14",
         "@types/node": "^22.0.0",
         "@types/react": "^18.3.0",
+        "@types/shell-quote": "^1.7.5",
         "ink-testing-library": "^4.0.0",
         "typescript": "^5.7.2",
       },
@@ -124,6 +126,8 @@
     "@types/prop-types": ["@types/prop-types@15.7.15", "", {}, "sha512-F6bEyamV9jKGAFBEmlQnesRPGOQqS2+Uwi0Em15xenOxHaf2hv6L8YCVn3rPdPJOiJfPiCnLIRyvwVaqMY3MIw=="],
 
     "@types/react": ["@types/react@18.3.27", "", { "dependencies": { "@types/prop-types": "*", "csstype": "^3.2.2" } }, "sha512-cisd7gxkzjBKU2GgdYrTdtQx1SORymWyaAFhaxQPK9bYO9ot3Y5OikQRvY0VYQtvwjeQnizCINJAenh/V7MK2w=="],
+
+    "@types/shell-quote": ["@types/shell-quote@1.7.5", "", {}, "sha512-+UE8GAGRPbJVQDdxi16dgadcBfQ+KG2vgZhV1+3A1XmHbmwcdwhCUwIdy+d3pAGrbvgRoVSjeI9vOWyq376Yzw=="],
 
     "@types/yauzl": ["@types/yauzl@2.10.3", "", { "dependencies": { "@types/node": "*" } }, "sha512-oJoftv0LSuaDZE3Le4DbKX+KS9G36NzOeSap90UIK0yMA/NhKJhqlSGtNDORNRaIbQfzjXDrQa0ytJ6mNRGz/Q=="],
 

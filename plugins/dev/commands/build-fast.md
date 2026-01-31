@@ -27,7 +27,7 @@ Quick-iteration workflow for focused changes. Delegates execution to build-fast-
 
 ## §ARGUMENTS PASSED
 
-!`rp1 agent-tools transform-args rp1-dev:build-fast $ARGUMENTS || echo "RP1_VERSION=0.3.2"`
+!`rp1 agent-tools transform-args rp1-dev:build-fast - <<<"$ARGUMENTS" || echo "RP1_VERSION=0.3.2"`
 
 ## §VERSION-GATE
 

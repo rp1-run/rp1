@@ -896,6 +896,8 @@ Examples:
 		process.exit(0);
 	});
 
+import { parse as parseShellArgs } from "shell-quote";
+
 /**
  * transform-args subcommand.
  * Transforms command arguments using schema-driven parsing and settings.
@@ -914,7 +916,12 @@ Description:
 
 Arguments:
   plugin-command    Plugin-command identifier (e.g., "rp1-dev:build")
-  args              Arguments to transform
+  args              Arguments to transform (use "-" to read from stdin)
+
+Stdin Mode:
+  When args is "-", reads arguments from stdin. This is useful for passing
+  arguments with special characters (quotes, newlines) that would break
+  shell parsing. Arguments are parsed with shell-like quoting rules.
 
 Schema Syntax (in command's argument-hint):
   <name>            Required positional argument
@@ -940,6 +947,9 @@ Examples:
   # With variadic arguments
   rp1 agent-tools transform-args rp1-dev:build my-feature "add login"
 
+  # Read arguments from stdin (for special characters)
+  echo 'my-feature "Let'"'"'s add login" --afk' | rp1 agent-tools transform-args rp1-dev:build -
+
   # Fallback mode (unknown command uses ARG_1, ARG_2, etc.)
   rp1 agent-tools transform-args unknown:command foo bar
 `,
@@ -950,7 +960,21 @@ Examples:
 			formatOutput: formatTransformOutput,
 		} = await import("./transform-args/index.js");
 
-		const result = await executeTransform(pluginCommand, args)();
+		let finalArgs = args;
+
+		// If single arg is "-", read from stdin
+		if (args.length === 1 && args[0] === "-") {
+			const inputResult = await readInput()();
+			if (E.isLeft(inputResult)) {
+				console.error(`Error: ${formatError(inputResult.left, false)}`);
+				process.exit(1);
+			}
+			finalArgs = parseShellArgs(inputResult.right.content).filter(
+				(arg): arg is string => typeof arg === "string",
+			);
+		}
+
+		const result = await executeTransform(pluginCommand, finalArgs)();
 
 		if (E.isLeft(result)) {
 			console.error(`Error: ${result.left.message}`);
