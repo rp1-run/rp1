@@ -44,6 +44,8 @@ export interface WizardState {
 	readonly phase: WizardPhase;
 	/** Error message if phase is 'error' */
 	readonly error: string | null;
+	/** Plugin installation error message (if installation failed) */
+	readonly pluginInstallError: string | null;
 }
 
 /**
@@ -81,6 +83,10 @@ export type WizardAction =
 	| {
 			readonly type: "SET_PROJECT_CONTEXT";
 			readonly context: ProjectContext;
+	  }
+	| {
+			readonly type: "SET_PLUGIN_INSTALL_ERROR";
+			readonly error: string;
 	  };
 
 /**
@@ -165,6 +171,7 @@ const createInitialState = (): WizardState => ({
 	userChoices: {},
 	phase: "running",
 	error: null,
+	pluginInstallError: null,
 });
 
 /**
@@ -313,6 +320,13 @@ const wizardReducer = (
 			return {
 				...state,
 				projectContext: action.context,
+			};
+		}
+
+		case "SET_PLUGIN_INSTALL_ERROR": {
+			return {
+				...state,
+				pluginInstallError: action.error,
 			};
 		}
 

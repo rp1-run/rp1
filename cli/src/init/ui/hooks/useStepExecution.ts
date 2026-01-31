@@ -774,6 +774,11 @@ export const useStepExecution = ({
 						"Try again with: rp1 install:claude-code",
 						"info",
 					);
+					// Store the error for display in final summary
+					dispatch({
+						type: "SET_PLUGIN_INSTALL_ERROR",
+						error: errorMessage,
+					});
 				}
 			} catch (error) {
 				const errorMessage =

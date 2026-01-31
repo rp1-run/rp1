@@ -89,6 +89,7 @@ function createTestWizardState(
 		userChoices: {},
 		phase: "complete",
 		error: null,
+		pluginInstallError: null,
 		...overrides,
 	};
 }

@@ -253,6 +253,7 @@ const generateNextSteps = (
 	healthReport: HealthReport | null,
 	detectedTools: readonly DetectedTool[],
 	projectContext: ProjectContext | null,
+	pluginInstallError: string | null,
 ): readonly NextStep[] => {
 	const steps: NextStep[] = [];
 	let order = 1;
@@ -318,16 +319,20 @@ const generateNextSteps = (
 			let installCommand: string | undefined;
 			let installBlurb: string;
 
+			const errorSuffix = pluginInstallError
+				? ` Error: ${pluginInstallError}`
+				: "";
+
 			if (hasClaudeCode && !hasOpenCode) {
 				installCommand = "rp1 install:claude-code";
-				installBlurb = `Plugins failed to install: ${missingPlugins.join(", ")}`;
+				installBlurb = `Plugins failed to install: ${missingPlugins.join(", ")}.${errorSuffix}`;
 			} else if (hasOpenCode && !hasClaudeCode) {
 				installCommand = "rp1 install:opencode";
-				installBlurb = `Plugins failed to install: ${missingPlugins.join(", ")}`;
+				installBlurb = `Plugins failed to install: ${missingPlugins.join(", ")}.${errorSuffix}`;
 			} else {
 				// Multiple tools or edge case - provide documentation link
 				installCommand = undefined;
-				installBlurb = `Plugins failed to install: ${missingPlugins.join(", ")}. See https://rp1.run/getting-started/installation for manual installation.`;
+				installBlurb = `Plugins failed to install: ${missingPlugins.join(", ")}.${errorSuffix} See https://rp1.run/getting-started/installation for manual installation.`;
 			}
 
 			steps.push({
@@ -429,6 +434,7 @@ export const FinalSummary: React.FC<FinalSummaryProps> = ({ state }) => {
 		state.healthReport,
 		state.detectedTools,
 		state.projectContext,
+		state.pluginInstallError,
 	);
 
 	const borderColor = success ? colors.success : colors.error;
