@@ -21,10 +21,7 @@ This command orchestrates parallel knowledge base generation using a map-reduce 
 
 ## Arguments
 
-<rp1_root>
-{{RP1_ROOT}}
-</rp1_root>
-(defaults to `.rp1/` if not set via environment variable $RP1_ROOT)
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
 <feature_id>
 $1
@@ -54,20 +51,23 @@ Phase 3 (Sequential):  Command → Merge JSON → Generate index.md → Write KB
 If `FEATURE_ID` ($1) is provided, this is a **feature learning build** that captures knowledge from an archived feature. **Skip Phase 0 entirely** (no git commit parsing needed).
 
 1. **Locate archived feature**:
+
    ```
-   FEATURE_PATH = {RP1_ROOT}/work/archives/features/{FEATURE_ID}/
+   FEATURE_PATH = {{$RP1_ROOT}}/work/archives/features/{FEATURE_ID}/
    ```
 
    If not found, check active features:
+
    ```
-   FEATURE_PATH = {RP1_ROOT}/work/features/{FEATURE_ID}/
+   FEATURE_PATH = {{$RP1_ROOT}}/work/features/{FEATURE_ID}/
    ```
 
    If neither exists, error:
+
    ```
    ❌ Feature not found: {FEATURE_ID}
-   Checked: {RP1_ROOT}/work/archives/features/{FEATURE_ID}/
-           {RP1_ROOT}/work/features/{FEATURE_ID}/
+   Checked: {{$RP1_ROOT}}/work/archives/features/{FEATURE_ID}/
+           {{$RP1_ROOT}}/work/features/{FEATURE_ID}/
    ```
 
 2. **Read feature documentation**:
@@ -78,6 +78,7 @@ If `FEATURE_ID` ($1) is provided, this is a **feature learning build** that capt
 
 3. **Extract files modified from tasks.md**:
    Parse implementation summaries to build `FILES_MODIFIED` list:
+
    ```
    Look for patterns:
    - **Files**: `src/file1.ts`, `src/file2.ts`
@@ -101,6 +102,7 @@ If `FEATURE_ID` ($1) is provided, this is a **feature learning build** that capt
    - No git commit comparison needed
 
 6. **Spatial analyzer prompt (Feature Learning Mode)**:
+
    ```
    FEATURE_LEARNING mode. Categorize these files modified during feature implementation:
    FILES: {{stringify(FILES_MODIFIED)}}
@@ -110,6 +112,7 @@ If `FEATURE_ID` ($1) is provided, this is a **feature learning build** that capt
    ```
 
 7. **Sub-agent prompts include**:
+
    ```
    FEATURE_CONTEXT: {{stringify(feature_context)}}
    MODE: FEATURE_LEARNING
@@ -128,7 +131,7 @@ If `FEATURE_ID` ($1) is provided, this is a **feature learning build** that capt
 **NOTE**: Skip this phase entirely if FEATURE_ID is provided (Feature Learning Mode).
 
 1. **Check for existing KB state**:
-   - Check if `{{RP1_ROOT}}/context/state.json` exists
+   - Check if `{{$RP1_ROOT}}/context/state.json` exists
    - If exists, read the `git_commit` field from state.json
 
 2. **Check current git commit**:
@@ -162,16 +165,16 @@ If `FEATURE_ID` ($1) is provided, this is a **feature learning build** that capt
 
      ```bash
      # Read shareable state
-     repo_type=$(jq -r '.repo_type // "single-project"' {{RP1_ROOT}}/context/state.json)
+     repo_type=$(jq -r '.repo_type // "single-project"' {{$RP1_ROOT}}/context/state.json)
 
      # Read local values from meta.json (with fallback to state.json for backward compatibility)
-     if [ -f "{{RP1_ROOT}}/context/meta.json" ]; then
-       repo_root=$(jq -r '.repo_root // "."' {{RP1_ROOT}}/context/meta.json)
-       current_project_path=$(jq -r '.current_project_path // "."' {{RP1_ROOT}}/context/meta.json)
+     if [ -f "{{$RP1_ROOT}}/context/meta.json" ]; then
+       repo_root=$(jq -r '.repo_root // "."' {{$RP1_ROOT}}/context/meta.json)
+       current_project_path=$(jq -r '.current_project_path // "."' {{$RP1_ROOT}}/context/meta.json)
      else
        # Backward compatibility: read from state.json if meta.json doesn't exist
-       repo_root=$(jq -r '.repo_root // "."' {{RP1_ROOT}}/context/state.json)
-       current_project_path=$(jq -r '.current_project_path // "."' {{RP1_ROOT}}/context/state.json)
+       repo_root=$(jq -r '.repo_root // "."' {{$RP1_ROOT}}/context/state.json)
+       current_project_path=$(jq -r '.current_project_path // "."' {{$RP1_ROOT}}/context/state.json)
      fi
      ```
 
@@ -384,11 +387,11 @@ If `FEATURE_ID` ($1) is provided, this is a **feature learning build** that capt
 
    ```
    Use Write tool to write:
-   - {{RP1_ROOT}}/context/index.md
-   - {{RP1_ROOT}}/context/concept_map.md
-   - {{RP1_ROOT}}/context/architecture.md
-   - {{RP1_ROOT}}/context/modules.md
-   - {{RP1_ROOT}}/context/patterns.md
+   - {{$RP1_ROOT}}/context/index.md
+   - {{$RP1_ROOT}}/context/concept_map.md
+   - {{$RP1_ROOT}}/context/architecture.md
+   - {{$RP1_ROOT}}/context/modules.md
+   - {{$RP1_ROOT}}/context/patterns.md
    ```
 
 ### Phase 4: State Management
@@ -433,8 +436,8 @@ If `FEATURE_ID` ($1) is provided, this is a **feature learning build** that capt
 
    ```
    Use Write tool to write:
-   - {{RP1_ROOT}}/context/state.json
-   - {{RP1_ROOT}}/context/meta.json
+   - {{$RP1_ROOT}}/context/state.json
+   - {{$RP1_ROOT}}/context/meta.json
    ```
 
 ### Phase 5: Error Handling
@@ -468,13 +471,13 @@ Repository: {{repo_type}}
 Files Analyzed: {{total_files}}
 
 KB Files Written:
-- {{RP1_ROOT}}/context/index.md
-- {{RP1_ROOT}}/context/concept_map.md
-- {{RP1_ROOT}}/context/architecture.md
-- {{RP1_ROOT}}/context/modules.md
-- {{RP1_ROOT}}/context/patterns.md
-- {{RP1_ROOT}}/context/state.json (shareable metadata)
-- {{RP1_ROOT}}/context/meta.json (local paths - add to .gitignore)
+- {{$RP1_ROOT}}/context/index.md
+- {{$RP1_ROOT}}/context/concept_map.md
+- {{$RP1_ROOT}}/context/architecture.md
+- {{$RP1_ROOT}}/context/modules.md
+- {{$RP1_ROOT}}/context/patterns.md
+- {{$RP1_ROOT}}/context/state.json (shareable metadata)
+- {{$RP1_ROOT}}/context/meta.json (local paths - add to .gitignore)
 
 Next steps:
 - KB is automatically loaded by agents when needed (no manual /knowledge-load required)
@@ -498,11 +501,11 @@ Learnings Incorporated:
 - concept_map.md: {{N}} domain concepts
 
 KB Files Updated:
-- {{RP1_ROOT}}/context/index.md
-- {{RP1_ROOT}}/context/concept_map.md
-- {{RP1_ROOT}}/context/architecture.md
-- {{RP1_ROOT}}/context/modules.md
-- {{RP1_ROOT}}/context/patterns.md
+- {{$RP1_ROOT}}/context/index.md
+- {{$RP1_ROOT}}/context/concept_map.md
+- {{$RP1_ROOT}}/context/architecture.md
+- {{$RP1_ROOT}}/context/modules.md
+- {{$RP1_ROOT}}/context/patterns.md
 
 The knowledge from feature "{{FEATURE_ID}}" has been captured into the KB.
 Future agents will benefit from these learnings.

@@ -319,7 +319,7 @@ The PR Visualizer agent has generated pr-visual.md containing:
 Use Skill tool with skill: "rp1-base:markdown-preview"
 
 Read the generated markdown:
-- Read {RP1_ROOT}/work/pr_reviews/pr-{PR_NUMBER}-visual.md
+- Read {{$RP1_ROOT}}/work/pr_reviews/pr-{PR_NUMBER}-visual.md
 
 Pass to skill:
   - content: [markdown content read from file]

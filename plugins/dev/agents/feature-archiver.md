@@ -8,7 +8,7 @@ author: cloud-on-prem/rp1
 
 # Feature Archiver
 
-You are **ArchiverGPT** - archives completed features to `{RP1_ROOT}/work/archives/features/` or restores them.
+You are **ArchiverGPT** - archives completed features to `{{$RP1_ROOT}}/work/archives/features/` or restores them.
 
 ## §0 Parameters
 
@@ -18,6 +18,8 @@ You are **ArchiverGPT** - archives completed features to `{RP1_ROOT}/work/archiv
 | FEATURE_ID | $2 | (req) | Feature ID or archive name |
 | SKIP_DOC_CHECK | $3 | `false` | Skip minimal docs check |
 | RP1_ROOT | Env | `.rp1/` | Root dir |
+
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
 ## §1 Validation
 
@@ -31,11 +33,11 @@ MODE must be `archive`|`unarchive`, FEATURE_ID non-empty. On fail:
 ## §2 Paths
 
 ```
-FEATURES_DIR = {RP1_ROOT}/work/features/
-ARCHIVES_DIR = {RP1_ROOT}/work/archives/features/
+FEATURES_DIR = {{$RP1_ROOT}}/work/features/
+ARCHIVES_DIR = {{$RP1_ROOT}}/work/archives/features/
 
-archive:   SOURCE={FEATURES_DIR}/{FEATURE_ID}/  DEST={ARCHIVES_DIR}/{FEATURE_ID}/
-unarchive: SOURCE={ARCHIVES_DIR}/{FEATURE_ID}/  DEST={FEATURES_DIR}/{FEATURE_ID}/
+archive:   SOURCE={{$FEATURES_DIR}}/{FEATURE_ID}/  DEST={{$ARCHIVES_DIR}}/{FEATURE_ID}/
+unarchive: SOURCE={{$ARCHIVES_DIR}}/{FEATURE_ID}/  DEST={{$FEATURES_DIR}}/{FEATURE_ID}/
 ```
 
 ## §3 Preconditions
@@ -59,9 +61,9 @@ If DEST exists: append `_{TIMESTAMP}` (format: `%Y%m%d_%H%M%S`)
 
 ## §4.5 Discovery Extraction (archive only)
 
-**If `{SOURCE}/field-notes.md` exists:**
+**If `{{$SOURCE}}/field-notes.md` exists:**
 
-1. Find PRD: check `requirements.md` for `PRD:` ref or `{RP1_ROOT}/work/prds/*.md` link; fallback `main.md`
+1. Find PRD: check `requirements.md` for `PRD:` ref or `{{$RP1_ROOT}}/work/prds/*.md` link; fallback `main.md`
 2. Extract valuable entries (incl: `Design Deviation`, `Codebase Discovery`, `Workaround`; excl: `Task {N}`, `User Clarification`, feature-specific)
 3. Compact to one-liners:
    ```
@@ -72,8 +74,8 @@ If DEST exists: append `_{TIMESTAMP}` (format: `%Y%m%d_%H%M%S`)
 ## §5 Execute
 
 ```bash
-mkdir -p {ARCHIVES_DIR}
-mv {SOURCE} {DEST}
+mkdir -p {{$ARCHIVES_DIR}}
+mv {{$SOURCE}} {{$DEST}}
 ```
 On fail: error + STOP
 
@@ -96,8 +98,8 @@ Confirm DEST exists, SOURCE gone.
 The feature documentation has been moved to the archives.
 
 **Next Steps**:
-- Capture learnings into KB: `/knowledge-build {FEATURE_ID}`
-- To restore later: `/feature-unarchive {FEATURE_ID}`
+- Capture learnings into KB: `/knowledge-build {{$FEATURE_ID}}`
+- To restore later: `/feature-unarchive {{$FEATURE_ID}}`
 ```
 
 If discoveries transferred, list them. If renamed, note timestamp suffix.

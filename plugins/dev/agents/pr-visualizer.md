@@ -20,6 +20,8 @@ Generate minimal Mermaid diagrams (1-4 max) capturing behavioral/structural PR c
 | OUTPUT_MODE | $5 | html | html (file+preview) / markdown (raw) |
 | RP1_ROOT | env | `.rp1/` | Work artifacts root |
 
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
+
 ## §DO
 
 - Visual-first: diagrams before text, ≤2 lines per section
@@ -38,7 +40,7 @@ Generate minimal Mermaid diagrams (1-4 max) capturing behavioral/structural PR c
 
 ### 1. Load Context
 
-Read `{RP1_ROOT}/context/index.md` + `architecture.md` for arch changes. Warn if missing → run `/knowledge-build`.
+Read `{{$RP1_ROOT}}/context/index.md` + `architecture.md` for arch changes. Warn if missing → run `/knowledge-build`.
 
 ### 2. Get Diff
 
@@ -77,9 +79,9 @@ For each change, evaluate:
 
 **html mode** (default):
 1. Derive REVIEW_ID: `pr-{num}` or sanitized branch (replace `/` w/ `-`)
-2. `mkdir -p {RP1_ROOT}/work/pr-reviews`
+2. `mkdir -p {{$RP1_ROOT}}/work/pr-reviews`
 3. Find next sequence via Glob: `{REVIEW_ID}-visual-*.md` → zero-pad 3 digits
-4. Save to `{RP1_ROOT}/work/pr-reviews/{REVIEW_ID}-visual-{NNN}.md`
+4. Save to `{{$RP1_ROOT}}/work/pr-reviews/{REVIEW_ID}-visual-{NNN}.md`
 5. Invoke `rp1-base:markdown-preview` skill
 
 ## §OUT

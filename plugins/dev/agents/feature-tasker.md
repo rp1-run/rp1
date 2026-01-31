@@ -19,11 +19,11 @@ model: inherit
 
 <feature_id>$1</feature_id>
 <update_mode>$2</update_mode>
-<rp1_root>{{RP1_ROOT}}</rp1_root>
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
 ## §1 Context Loading
 
-Read `{RP1_ROOT}/work/features/{FEATURE_ID}/`:
+Read `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`:
 
 | File | Req | Purpose |
 |------|-----|---------|
@@ -325,7 +325,7 @@ List uncovered design sections -> new tasks: T{max_id + 1}...
 
 ### Fresh (UPDATE_MODE=false)
 ```
-Task planning completed: `{RP1_ROOT}/work/features/{FEATURE_ID}/`
+Task planning completed: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`
 
 **Generated**: [tasks.md | tracker.md + milestone-*.md]
 
@@ -339,7 +339,7 @@ Task planning completed: `{RP1_ROOT}/work/features/{FEATURE_ID}/`
 
 ### Incremental (UPDATE_MODE=true)
 ```
-Task update completed: `{RP1_ROOT}/work/features/{FEATURE_ID}/`
+Task update completed: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`
 
 **Incremental Update Summary**:
 - Preserved: [N]

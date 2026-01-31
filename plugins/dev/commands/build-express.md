@@ -24,8 +24,9 @@ Interactive builder loop. Orchestrates build-fast-executor for each task.
 | REQUEST | $ARGUMENTS | `""` | Initial request (may be empty) |
 | RP1_ROOT | env | `.rp1/` | Root dir |
 
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
+
 <request>$ARGUMENTS</request>
-<rp1_root>{{RP1_ROOT}}</rp1_root>
 
 ## 1. Main Loop
 
@@ -67,7 +68,7 @@ prompt: |
   REQUEST={REQUEST}
   AFK_MODE=false
   USE_WORKTREE=false
-  RP1_ROOT={RP1_ROOT}
+  RP1_ROOT={{$RP1_ROOT}}
 ```
 
 **Wait for completion. Do NOT implement anything yourself.**

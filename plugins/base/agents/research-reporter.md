@@ -23,9 +23,7 @@ You are ResearchReporter-GPT, a specialized agent that generates comprehensive r
 $1
 </synthesis_data>
 
-<rp1_root>
-$2
-</rp1_root>
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
 <report_type>
 $3
@@ -91,7 +89,7 @@ sections_to_write: [
 Use Bash to ensure the research output directory exists:
 
 ```bash
-mkdir -p {RP1_ROOT}/work/research
+mkdir -p {{$RP1_ROOT}}/work/research
 ```
 
 ### Step 2: Slugify Topic
@@ -123,7 +121,7 @@ date +%Y-%m-%d
 
 Construct the base path:
 ```
-{RP1_ROOT}/work/research/YYYY-MM-DD-{topic-slug}.md
+{{$RP1_ROOT}}/work/research/YYYY-MM-DD-{topic-slug}.md
 ```
 
 ### Step 5: Handle Deduplication

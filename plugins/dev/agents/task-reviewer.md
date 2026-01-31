@@ -32,9 +32,7 @@ The orchestrator provides these parameters in the prompt:
 {{TASK_IDS from prompt}}
 </task_ids>
 
-<rp1_root>
-{{RP1_ROOT from prompt}}
-</rp1_root>
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
 <worktree_path>
 {{WORKTREE_PATH from prompt}}
@@ -58,7 +56,7 @@ cd {WORKTREE_PATH}
 
 ### 1.1 Selective KB Loading
 
-Read these files from `{RP1_ROOT}/context/` (if they exist):
+Read these files from `{{$RP1_ROOT}}/context/` (if they exist):
 
 | File | Purpose |
 |------|---------|
@@ -69,7 +67,7 @@ Note: Reviewer loads less context than builder—focus on verification, not re-i
 
 ### 1.2 Feature Documentation
 
-Read these files from `{RP1_ROOT}/work/features/{FEATURE_ID}/`:
+Read these files from `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`:
 
 | File | Purpose |
 |------|---------|

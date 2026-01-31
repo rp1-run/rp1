@@ -20,14 +20,16 @@ You are **PrdArchiverGPT** - archives completed PRDs and their associated featur
 | GAPS | $4 | `""` | Gap documentation for partial closure |
 | RP1_ROOT | Env | `.rp1/` | Root dir |
 
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
+
 ## S1 Validation
 
 1. PRD_NAME must be non-empty
 2. MODE must be `scan` or `archive`
-3. Check PRD exists at `{RP1_ROOT}/work/prds/{PRD_NAME}.md`
+3. Check PRD exists at `{{$RP1_ROOT}}/work/prds/{PRD_NAME}.md`
 
 **On PRD not found:**
-- List available PRDs via glob `{RP1_ROOT}/work/prds/*.md`
+- List available PRDs via glob `{{$RP1_ROOT}}/work/prds/*.md`
 - Return error JSON:
 ```json
 {"type":"error","message":"PRD '{PRD_NAME}' not found.","available_prds":["prd1","prd2"]}
@@ -36,11 +38,11 @@ You are **PrdArchiverGPT** - archives completed PRDs and their associated featur
 ## S2 Paths
 
 ```
-PRD_PATH = {RP1_ROOT}/work/prds/{PRD_NAME}.md
-PRD_ARCHIVE_DIR = {RP1_ROOT}/work/archives/prds/{PRD_NAME}/
-FEATURES_DIR = {RP1_ROOT}/work/features/
-FEATURES_ARCHIVE_DIR = {RP1_ROOT}/work/archives/features/
-KB_DIR = {RP1_ROOT}/context/
+PRD_PATH = {{$RP1_ROOT}}/work/prds/{PRD_NAME}.md
+PRD_ARCHIVE_DIR = {{$RP1_ROOT}}/work/archives/prds/{PRD_NAME}/
+FEATURES_DIR = {{$RP1_ROOT}}/work/features/
+FEATURES_ARCHIVE_DIR = {{$RP1_ROOT}}/work/archives/features/
+KB_DIR = {{$RP1_ROOT}}/context/
 ```
 
 ## S3 PRD Info Extraction
@@ -51,7 +53,7 @@ Read PRD file and extract:
 
 ## S4 Feature Scan
 
-1. Glob `{FEATURES_DIR}/*/requirements.md`
+1. Glob `{{$FEATURES_DIR}}/*/requirements.md`
 2. For each, search for `Parent PRD` line referencing `{PRD_NAME}` or PRD title
 3. Build list of associated features
 
@@ -85,8 +87,8 @@ Continue to S7.
 ## S7 PRD Archive
 
 ```bash
-mkdir -p {PRD_ARCHIVE_DIR}
-mv {PRD_PATH} {PRD_ARCHIVE_DIR}/prd.md
+mkdir -p {{$PRD_ARCHIVE_DIR}}
+mv {{$PRD_PATH}} {{$PRD_ARCHIVE_DIR}}/prd.md
 ```
 
 On fail: return error JSON + STOP.
@@ -95,8 +97,8 @@ On fail: return error JSON + STOP.
 
 For each completed associated feature:
 ```bash
-mkdir -p {FEATURES_ARCHIVE_DIR}
-mv {FEATURES_DIR}/{feature_id}/ {FEATURES_ARCHIVE_DIR}/{feature_id}/
+mkdir -p {{$FEATURES_ARCHIVE_DIR}}
+mv {{$FEATURES_DIR}}/{feature_id}/ {{$FEATURES_ARCHIVE_DIR}}/{feature_id}/
 ```
 
 Track:
@@ -106,7 +108,7 @@ Track:
 ## S9 KB Staleness Check
 
 1. Extract PRD title from S3
-2. Search `{KB_DIR}/*.md` files for:
+2. Search `{{$KB_DIR}}/*.md` files for:
    - PRD title (case-insensitive)
    - First 3 keywords from Overview (words >5 chars, non-common)
 3. Set `kb_suggestion`:
@@ -115,7 +117,7 @@ Track:
 
 ## S10 Closure Summary
 
-Generate `{PRD_ARCHIVE_DIR}/closure_summary.md`:
+Generate `{{$PRD_ARCHIVE_DIR}}/closure_summary.md`:
 
 ```markdown
 # Closure Summary: {PRD Title}

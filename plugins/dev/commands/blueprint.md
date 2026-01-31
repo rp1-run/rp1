@@ -18,17 +18,19 @@ author: cloud-on-prem/rp1
 | EXTRA_CONTEXT | $ARGUMENTS | `""` | Additional context |
 | RP1_ROOT | Env | `.rp1/` | Root dir |
 
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
+
 ## §CTX
 
 **Doc Hierarchy**:
-1. **Charter** (`{RP1_ROOT}/context/charter.md`) - Project-level: problem/context, users, business rationale, scope guardrails, success criteria
-2. **PRDs** (`{RP1_ROOT}/work/prds/<name>.md`) - Surface-specific: overview, in/out scope, requirements, dependencies, timeline. Inherit from charter, link back, no duplication.
+1. **Charter** (`{{$RP1_ROOT}}/context/charter.md`) - Project-level: problem/context, users, business rationale, scope guardrails, success criteria
+2. **PRDs** (`{{$RP1_ROOT}}/work/prds/<name>.md`) - Surface-specific: overview, in/out scope, requirements, dependencies, timeline. Inherit from charter, link back, no duplication.
 
 ## §PROC
 
 ### Step 1: Mode Detection
 
-Read `{RP1_ROOT}/context/charter.md`:
+Read `{{$RP1_ROOT}}/context/charter.md`:
 
 | Condition | Mode | Message |
 |-----------|------|---------|
@@ -75,7 +77,7 @@ question_number = 0
 loop:
   1. Task tool:
      - subagent_type: rp1-dev:charter-interviewer
-     - prompt: CHARTER_PATH={RP1_ROOT}/context/charter.md, MODE={mode}, RP1_ROOT={RP1_ROOT}
+     - prompt: CHARTER_PATH={{$RP1_ROOT}}/context/charter.md, MODE={mode}, RP1_ROOT={{$RP1_ROOT}}
 
   2. Parse JSON response
 
@@ -131,11 +133,11 @@ loop:
 `PRD_NAME = $1 || "main"`
 
 #### 4.2 Init PRD
-Create `{RP1_ROOT}/work/prds/{PRD_NAME}.md`:
+Create `{{$RP1_ROOT}}/work/prds/{PRD_NAME}.md`:
 ```markdown
 # PRD: {PRD_NAME}
 
-**Charter**: [Project Charter]({RP1_ROOT}/context/charter.md)
+**Charter**: [Project Charter]({{$RP1_ROOT}}/context/charter.md)
 **Version**: 1.0.0
 **Status**: Draft
 **Created**: {YYYY-MM-DD}
@@ -153,13 +155,13 @@ Create `{RP1_ROOT}/work/prds/{PRD_NAME}.md`:
 
 #### 4.3 PRD Loop
 ```
-PRD_PATH = {RP1_ROOT}/work/prds/{PRD_NAME}.md
+PRD_PATH = {{$RP1_ROOT}}/work/prds/{PRD_NAME}.md
 question_count = 0
 
 loop:
   Task tool:
     subagent_type: rp1-dev:blueprint-wizard
-    prompt: PRD_NAME={PRD_NAME}, EXTRA_CONTEXT=$ARGUMENTS, RP1_ROOT={RP1_ROOT}
+    prompt: PRD_NAME={PRD_NAME}, EXTRA_CONTEXT=$ARGUMENTS, RP1_ROOT={{$RP1_ROOT}}
 
   Parse JSON response
 
@@ -199,7 +201,7 @@ loop:
 PRD created!
 
 Created:
-- {RP1_ROOT}/work/prds/{PRD_NAME}.md
+- {{$RP1_ROOT}}/work/prds/{PRD_NAME}.md
 
 Next Steps:
 - Create features: /rp1-dev:build <feature-id>

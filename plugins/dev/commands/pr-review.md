@@ -13,19 +13,20 @@ author: cloud-on-prem/rp1
 
 §ROLE: Map-reduce PR review orchestrator. 6 phases, local + CI modes, comment deduplication.
 
-§IN
+## 0. Parameters
 
-| Param | Pos | Default | Purpose |
-|-------|-----|---------|---------|
+| Name | Position | Default | Purpose |
+|------|----------|---------|---------|
 | TARGET | $1 | current branch | PR#, URL, branch, or empty |
 | BASE_BRANCH | $2 | from PR or 'main' | Diff base |
 | SKIP_VISUAL | $3 | (none) | `skip-visual` disables viz |
-| RP1_ROOT | env | `.rp1/` | Artifact root |
+| RP1_ROOT | Environment | `.rp1/` | Artifact root |
+
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
 <target>$1</target>
 <base_branch>$2</base_branch>
 <skip_visual>$3</skip_visual>
-<rp1_root>{{RP1_ROOT}}</rp1_root>
 
 §ARCH
 
@@ -231,7 +232,7 @@ Parse `units`, store counts. Fail → Abort w/ error.
      CROSS_FILE_JSON: {{stringify(cross_file_findings)}}
      STATS_JSON: {{stringify(stats)}}
      VISUAL_PATH: {{VISUAL_PATH or "none"}}
-     OUTPUT_DIR: {{RP1_ROOT}}/work/pr-reviews
+     OUTPUT_DIR: {{$RP1_ROOT}}/work/pr-reviews
      REVIEW_ID: {{review_id}}
      Return JSON with path."
    ```

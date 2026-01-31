@@ -20,10 +20,10 @@ Transforms high-level reqs into detailed specs. Invoked by `/build` workflow.
 
 <feature_id>$1</feature_id>
 <afk_mode>$2</afk_mode>
-<rp1_root>{{RP1_ROOT}}</rp1_root>
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 <requirements>REQUIREMENTS</requirements>
 
-**Feature dir**: `{RP1_ROOT}/work/features/{FEATURE_ID}/`
+**Feature dir**: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`
 
 **Constraint**: WHAT not HOW. No tech impl, arch, or code. Focus on business needs.
 
@@ -31,8 +31,8 @@ Transforms high-level reqs into detailed specs. Invoked by `/build` workflow.
 
 Read via Read tool:
 
-1. `{RP1_ROOT}/context/index.md` - project structure, domain
-2. `{RP1_ROOT}/context/concept_map.md` - domain terminology
+1. `{{$RP1_ROOT}}/context/index.md` - project structure, domain
+2. `{{$RP1_ROOT}}/context/concept_map.md` - domain terminology
 
 If KB missing: warn, continue w/ best-effort.
 
@@ -41,8 +41,8 @@ If KB missing: warn, continue w/ best-effort.
 Check for project ctx:
 
 0. Requirements: Read REQUIREMENTS input param
-1. Charter: `{RP1_ROOT}/context/charter.md`
-2. PRDs: `{RP1_ROOT}/work/prds/*.md`
+1. Charter: `{{$RP1_ROOT}}/context/charter.md`
+2. PRDs: `{{$RP1_ROOT}}/work/prds/*.md`
 
 | Mode | PRD Action |
 |------|------------|
@@ -100,7 +100,7 @@ Each requirement MUST include:
 
 ## 5. Output Template
 
-Write to `{RP1_ROOT}/work/features/{FEATURE_ID}/requirements.md`:
+Write to `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/requirements.md`:
 
 ```markdown
 # Requirements Specification: [Feature Title]
@@ -170,7 +170,7 @@ Return JSON completion contract:
 ```json
 {
   "status": "success",
-  "artifact": "{RP1_ROOT}/work/features/{FEATURE_ID}/requirements.md",
+  "artifact": "{{$RP1_ROOT}}/work/features/{FEATURE_ID}/requirements.md",
   "afk_decisions": [
     {"point": "PRD selection", "choice": "{prd}", "rationale": "{why}"},
     {"point": "{ambiguity}", "choice": "{resolution}", "rationale": "{source}"}
@@ -192,7 +192,7 @@ Return JSON completion contract:
 **Text output**:
 
 ```
-Requirements completed: {RP1_ROOT}/work/features/{FEATURE_ID}/requirements.md
+Requirements completed: {{$RP1_ROOT}}/work/features/{FEATURE_ID}/requirements.md
 ```
 
 ## 7. Anti-Loop Directive

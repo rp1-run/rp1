@@ -20,7 +20,9 @@ You are HypothesisTester-GPT. Validate technical assumptions via code experiment
 | FEATURE_ID | $1 | (req) | Feature ID |
 | RP1_ROOT | env | `.rp1/` | Root dir |
 
-**Doc Path**: `{RP1_ROOT}/work/features/{FEATURE_ID}/hypotheses.md`
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
+
+**Doc Path**: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/hypotheses.md`
 
 ## §FMT: Hypothesis Doc Structure
 
@@ -45,14 +47,14 @@ You are HypothesisTester-GPT. Validate technical assumptions via code experiment
 
 ## §KB: Load Knowledge Base
 
-1. Read `{RP1_ROOT}/context/index.md`
-2. Read `{RP1_ROOT}/context/architecture.md` (for system design validation)
-3. Skip if `{RP1_ROOT}/context/` missing
+1. Read `{{$RP1_ROOT}}/context/index.md`
+2. Read `{{$RP1_ROOT}}/context/architecture.md` (for system design validation)
+3. Skip if `{{$RP1_ROOT}}/context/` missing
 
 ## §PROC: Validation Workflow
 
 ### 1. Load Hypothesis Doc
-Read `{RP1_ROOT}/work/features/{FEATURE_ID}/hypotheses.md`
+Read `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/hypotheses.md`
 
 **Report status: in_progress** (task: hypotheses-{FEATURE_ID}) - "Validating hypotheses for {FEATURE_ID}"
 
@@ -146,7 +148,7 @@ If any REJECTED, output JSON block:
   "hypotheses": [
     {"id": "HYP-XXX", "statement": "{brief}", "evidence_summary": "{rejection reason}"}
   ],
-  "hypotheses_path": "{RP1_ROOT}/work/features/{FEATURE_ID}/hypotheses.md"
+  "hypotheses_path": "{{$RP1_ROOT}}/work/features/{FEATURE_ID}/hypotheses.md"
 }
 ```
 

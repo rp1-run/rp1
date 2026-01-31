@@ -42,10 +42,7 @@ $3
 
 Here is the root directory for work artifacts:
 
-<rp1_root>
-{{RP1_ROOT}}
-</rp1_root>
-(defaults to `.rp1/` if not set via environment variable $RP1_ROOT; always favour the project root directory; if it's a mono-repo project, still place this in the individual project's root. )
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
 ## Your Security Validation Process
 
@@ -53,15 +50,15 @@ Follow this systematic approach to conduct comprehensive security validation:
 
 ### Phase 1: Knowledge Loading and Context Setup
 
-1. **Load Codebase Knowledge**: Read all markdown files from `{RP1_ROOT}/context/`:
-   - `{RP1_ROOT}/context/index.md` - Project overview and structure
-   - `{RP1_ROOT}/context/architecture.md` - System design and layers
-   - `{RP1_ROOT}/context/modules.md` - Component breakdown
-   - `{RP1_ROOT}/context/concept_map.md` - Domain terminology
-   - `{RP1_ROOT}/context/patterns.md` - Code conventions
-   - `{RP1_ROOT}/context/dependencies.md` - External dependencies (if exists)
+1. **Load Codebase Knowledge**: Read all markdown files from `{{$RP1_ROOT}}/context/`:
+   - `{{$RP1_ROOT}}/context/index.md` - Project overview and structure
+   - `{{$RP1_ROOT}}/context/architecture.md` - System design and layers
+   - `{{$RP1_ROOT}}/context/modules.md` - Component breakdown
+   - `{{$RP1_ROOT}}/context/concept_map.md` - Domain terminology
+   - `{{$RP1_ROOT}}/context/patterns.md` - Code conventions
+   - `{{$RP1_ROOT}}/context/dependencies.md` - External dependencies (if exists)
 
-   If the `{RP1_ROOT}/context/` directory doesn't exist, warn the user to run `/knowledge-build` first.
+   If the `{{$RP1_ROOT}}/context/` directory doesn't exist, warn the user to run `/knowledge-build` first.
 2. **Load Security Context**: Analyze requirements, design documents, and security specifications for the feature
 3. **Detect Security Tools**: Identify available security scanning tools based on the technology stack
 
@@ -199,7 +196,7 @@ After completing your analysis, provide a comprehensive security report with thi
 [APPROVED - Minor improvements can be addressed post-release]
 
 ## Detailed Findings Report
-Location: `{rp1_root}/work/features/{feature_id}/security_report.md`
+Location: `{{$RP1_ROOT}}/work/features/{feature_id}/security_report.md`
 ```
 
 ## Quality Standards

@@ -20,10 +20,7 @@ model: inherit
 | WORKTREE_PATH | Prompt | `""` | Worktree directory (if any) |
 | RP1_ROOT | env | `.rp1/` | Project root |
 
-<project_root>
-{{RP1_ROOT}}
-</project_root>
-(defaults `.rp1/`; use project root; mono-repo → individual project root)
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
 <worktree_path>
 {{WORKTREE_PATH from prompt}}
@@ -32,7 +29,7 @@ model: inherit
 <feature_id>$1</feature_id>
 <test_scope>$2</test_scope>
 <coverage_target>$3</coverage_target>
-<report_directory>$4 (default: `{RP1_ROOT}/work/features/{FEATURE_ID}/` if FEATURE_ID, else `{RP1_ROOT}/work/`)</report_directory>
+<report_directory>$4 (default: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/` if FEATURE_ID, else `{{$RP1_ROOT}}/work/`)</report_directory>
 
 ## 0.5 Working Directory
 
@@ -46,7 +43,7 @@ All subsequent file operations use this directory.
 
 ## §CTX
 
-Read `{RP1_ROOT}/context/index.md` for project structure. Do NOT load additional KB files. If `{RP1_ROOT}/context/` missing → continue w/o KB.
+Read `{{$RP1_ROOT}}/context/index.md` for project structure. Do NOT load additional KB files. If `{{$RP1_ROOT}}/context/` missing → continue w/o KB.
 
 ## §OBJ
 

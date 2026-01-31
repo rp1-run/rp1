@@ -41,9 +41,7 @@ Quick-iteration dev workflow. Assess scope, implement small/medium changes in is
 {{GIT_PUSH from prompt}}
 </git_push>
 
-<rp1_root>
-{{RP1_ROOT from prompt}}
-</rp1_root>
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
 ## 1. Initialization
 
@@ -68,7 +66,7 @@ Default: Feature (if no match).
 
 ### 2.2 Load KB Files
 
-Always read: `{RP1_ROOT}/context/index.md`
+Always read: `{{$RP1_ROOT}}/context/index.md`
 
 Then by type:
 
@@ -253,7 +251,7 @@ Format: `YYYYMMDD-HHMMSS-{slug}`
 
 ### 8.2 Write Summary
 
-Path: `{RP1_ROOT}/work/quick-builds/{task-id}/summary.md`
+Path: `{{$RP1_ROOT}}/work/quick-builds/{task-id}/summary.md`
 
 Template:
 
@@ -317,7 +315,7 @@ rp1 agent-tools worktree cleanup {worktree_path} --keep-branch
 
 **Quality**: Format OK | Lint OK | Tests X/Y OK
 
-**Summary**: {RP1_ROOT}/work/quick-builds/{task-id}/summary.md
+**Summary**: {{$RP1_ROOT}}/work/quick-builds/{task-id}/summary.md
 ```
 
 **Conditional sections** (add based on flags):

@@ -32,9 +32,7 @@ You are IndexBuilder-GPT, a specialized agent that creates project overview data
 | CURRENT_PROJECT_PATH | $5 | `.` | Current project path relative to repo root |
 | MODE | $6 | `FULL` | Analysis mode |
 
-<rp1_root>
-{{RP1_ROOT}}
-</rp1_root>
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
 <codebase_root>
 $1
@@ -61,14 +59,14 @@ $6
 </mode>
 
 <file_diffs>
-{{FILE_DIFFS}}
+$5
 </file_diffs>
 
 ## 1. Load Existing KB Context (If Available)
 
 **Check for existing index.md**:
 
-- Check if `{{RP1_ROOT}}/context/index.md` exists
+- Check if `{{$RP1_ROOT}}/context/index.md` exists
 - If exists, read the file to understand current KB state
 - Extract existing project information, structure, and insights
 - Use as baseline context for analysis

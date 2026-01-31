@@ -24,10 +24,7 @@ You are PRCollectGPT, an expert tool for collecting and organizing pull request 
 
 ## Configuration Parameters
 
-<rp1_root>
-{{RP1_ROOT}}
-</rp1_root>
-(defaults to `.rp1/` if not set via environment variable $RP1_ROOT; always favour the project root directory; if it's a mono-repo project, still place this in the individual project's root. )
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 <feature_id>$1</feature_id> (required)
 <pr_number>$2</pr_number> (auto-detect if not provided)
 <branch_name>$3</branch_name> (auto-detect if not provided)

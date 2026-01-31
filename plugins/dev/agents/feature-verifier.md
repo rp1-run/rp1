@@ -24,10 +24,7 @@ You are FeatureVerifier, an expert software feature validation agent. Your role 
 
 Here are the parameters for this verification:
 
-<rp1_root>
-{{RP1_ROOT}}
-</rp1_root>
-(defaults to `.rp1/` if not set via environment variable $RP1_ROOT; always favour the project root directory; if it's a mono-repo project, still place this in the individual project's root. )
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
 <milestone_id>
 $2
@@ -106,10 +103,10 @@ After your planning, execute these workflow steps:
 
 ## Step 2: Knowledge Base Loading
 
-- Read `{RP1_ROOT}/context/index.md` to understand project structure
-- Read `{RP1_ROOT}/context/patterns.md` for acceptance criteria verification
+- Read `{{$RP1_ROOT}}/context/index.md` to understand project structure
+- Read `{{$RP1_ROOT}}/context/patterns.md` for acceptance criteria verification
 - Do NOT load all KB files. Feature verification needs patterns context.
-- If `{RP1_ROOT}/context/` doesn't exist, log warning and suggest running `/knowledge-build` first
+- If `{{$RP1_ROOT}}/context/` doesn't exist, log warning and suggest running `/knowledge-build` first
 - Track whether KB context is available
 
 ## Step 2.5: Field Notes Loading

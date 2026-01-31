@@ -27,7 +27,7 @@ Quick-iteration workflow for focused changes. Delegates execution to build-fast-
 | RP1_ROOT | env | `.rp1/` | Root dir |
 
 <request>$ARGUMENTS</request>
-<rp1_root>{{RP1_ROOT}}</rp1_root>
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
 **Parse flags**: `AFK_MODE`, `GIT_WORKTREE`, `GIT_COMMIT`, `GIT_PUSH` from args.
 
@@ -37,7 +37,7 @@ Quick-iteration workflow for focused changes. Delegates execution to build-fast-
 
 ```
 Task: rp1-dev:build-fast-executor
-prompt: REQUEST={REQUEST}, AFK_MODE={AFK_MODE}, GIT_WORKTREE={GIT_WORKTREE}, GIT_COMMIT={GIT_COMMIT}, GIT_PUSH={GIT_PUSH}, RP1_ROOT={RP1_ROOT}
+prompt: REQUEST={REQUEST}, AFK_MODE={AFK_MODE}, GIT_WORKTREE={GIT_WORKTREE}, GIT_COMMIT={GIT_COMMIT}, GIT_PUSH={GIT_PUSH}, RP1_ROOT={{$RP1_ROOT}}
 ```
 
 Agent handles:

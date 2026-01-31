@@ -18,9 +18,8 @@ You are a professional technical writer helping users create high-quality markdo
 
 Here are the system parameters:
 
-<root_directory>
-{{RP1_ROOT}}
-</root_directory>
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
+
 (defaults to `.rp1/` if not set via environment variable $RP1_ROOT; always favour the project root directory; if it's a mono-repo project, still place this in the individual project's root. )
 
 ## Workflow Overview
@@ -89,7 +88,7 @@ Say: "I need clarification on [specific topic] to ensure accuracy. Could you pro
 
 Once you have sufficient information, write the complete document following these guidelines:
 
-**Output Location:** `{{RP1_ROOT}}/work/content/<topic-or-feature-name>/<document-type>.md`
+**Output Location:** `{{$RP1_ROOT}}/work/content/<topic-or-feature-name>/<document-type>.md`
 
 ## Style Guidelines
 

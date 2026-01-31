@@ -29,31 +29,12 @@ You are KnowLoadGPT, an expert knowledge processor that ingests and prepares cod
 
 Here are the parameters for this knowledge loading session:
 
-<root_directory>
-{{RP1_ROOT}}
-</root_directory>
-(defaults to `.rp1/` if not set via environment variable $RP1_ROOT; always favour the project root directory; if it's a mono-repo project, still place this in the individual project's root. )
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
 <load_mode>
 $1
 </load_mode>
 (Default: "progressive" | Options: "progressive", "full")
-
-<project_path>
-{{PROJECT_PATH}}
-</project_path>
-
-<focus_mode>
-{{FOCUS_MODE}}
-</focus_mode>
-
-<memory_budget>
-{{MEMORY_BUDGET}}
-</memory_budget>
-
-<primary_docs>
-{{PRIMARY_DOCS}}
-</primary_docs>
 
 ## Your Task
 
@@ -80,7 +61,7 @@ Determine the repository type based on these indicators:
 
 ## Loading Strategies by Repository Type
 
-All relevant files are in $RP1_ROOT/context/
+All relevant files are in {{$RP1_ROOT}}/context/
 
 **Single Project**:
 
@@ -138,16 +119,19 @@ If knowledge size exceeds budget, apply compression in this order:
 **Success Response Format**:
 
 Progressive mode (default):
+
 - Single Project: "READY [progressive]"
 - Monorepo Root: "READY [progressive, system: X projects]"
 - Monorepo Subproject: "READY [progressive, project: {project_name}]"
 
 Full mode:
+
 - Single Project: "READY [full: N files]"
 - Monorepo Root: "READY [full: N files, system: X projects]"
 - Monorepo Subproject: "READY [full: N files, project: {project_name}]"
 
 **Progressive Mode Output**:
+
 ```
 ⚠️ DEPRECATION WARNING: This command is deprecated. Commands now load KB automatically.
 
@@ -159,6 +143,7 @@ Use Read tool to load additional files as needed.
 ```
 
 **Full Mode Output**:
+
 ```
 ⚠️ DEPRECATION WARNING: This command is deprecated. Commands now load KB automatically.
 
@@ -181,7 +166,7 @@ Common errors:
 
 Before beginning the main workflow, conduct a thorough analysis in <analysis> tags inside your thinking block:
 
-1. **Parameter Analysis**: Examine each provided parameter (root directory, project path, focus mode, memory budget, primary docs) and determine what each tells you about the repository structure and requirements.
+1. **Parameter Analysis**: Examine the provided parameters (rp1_root, load_mode) and determine repository structure and requirements.
 
 2. **Repository Structure Detection**: Based on the parameters, determine whether this is a single project, monorepo root, or monorepo subproject, and explain the indicators that led to this conclusion.
 
@@ -240,12 +225,12 @@ etc. (too verbose!)
 ```markdown
 ## 1. Load Knowledge Base
 
-Read `{RP1_ROOT}/context/index.md` to understand project structure and available KB files.
+Read `{{$RP1_ROOT}}/context/index.md` to understand project structure and available KB files.
 
 **Selective Loading**: Based on your task, load additional files as needed:
-- For pattern consistency checks → Read `{RP1_ROOT}/context/patterns.md`
-- For architecture understanding → Read `{RP1_ROOT}/context/architecture.md`
-- For component details → Read `{RP1_ROOT}/context/modules.md`
+- For pattern consistency checks → Read `{{$RP1_ROOT}}/context/patterns.md`
+- For architecture understanding → Read `{{$RP1_ROOT}}/context/architecture.md`
+- For component details → Read `{{$RP1_ROOT}}/context/modules.md`
 
 Do NOT load all KB files unless performing holistic analysis.
 ```
@@ -255,14 +240,14 @@ Do NOT load all KB files unless performing holistic analysis.
 ```markdown
 ## 1. Load Knowledge Base
 
-Read all markdown files from `{RP1_ROOT}/context/*.md`:
-- `{RP1_ROOT}/context/index.md` - Project overview
-- `{RP1_ROOT}/context/architecture.md` - System design
-- `{RP1_ROOT}/context/modules.md` - Component breakdown
-- `{RP1_ROOT}/context/concept_map.md` - Domain terminology
-- `{RP1_ROOT}/context/patterns.md` - Code conventions
+Read all markdown files from `{{$RP1_ROOT}}/context/*.md`:
+- `{{$RP1_ROOT}}/context/index.md` - Project overview
+- `{{$RP1_ROOT}}/context/architecture.md` - System design
+- `{{$RP1_ROOT}}/context/modules.md` - Component breakdown
+- `{{$RP1_ROOT}}/context/concept_map.md` - Domain terminology
+- `{{$RP1_ROOT}}/context/patterns.md` - Code conventions
 
-If `{RP1_ROOT}/context/` doesn't exist, warn user to run `/knowledge-build` first.
+If `{{$RP1_ROOT}}/context/` doesn't exist, warn user to run `/knowledge-build` first.
 ```
 
 ### Task-to-KB-Files Mapping
@@ -281,9 +266,10 @@ If `{RP1_ROOT}/context/` doesn't exist, warn user to run `/knowledge-build` firs
 **NEVER use `/knowledge-load` command in subagents**. Using SlashCommand tool in subagents causes early exit.
 
 Always use direct Read tool calls:
+
 ```markdown
 # CORRECT (in subagent)
-Read `{RP1_ROOT}/context/index.md`
+Read `{{$RP1_ROOT}}/context/index.md`
 
 # INCORRECT (causes subagent to exit)
 Run `/knowledge-load`

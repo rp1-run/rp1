@@ -444,11 +444,11 @@ def build_knowledge_base():
     # 3. Fill templates
     for template_name, template_content in templates:
         filled = fill_template(template_content, analysis)
-        write_doc(f"{RP1_ROOT}/context/{template_name}", filled)
+        write_doc(f"{{$RP1_ROOT}}/context/{template_name}", filled)
 
     # 4. Generate state.json
     state = create_state(analysis)
-    write_json(f"{RP1_ROOT}/context/state.json", state)
+    write_json(f"{{$RP1_ROOT}}/context/state.json", state)
 ```
 
 ### Pattern 2: Incremental Updates

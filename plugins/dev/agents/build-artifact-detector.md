@@ -19,7 +19,7 @@ Determines which build step to start from by checking artifact existence and val
 | RP1_ROOT | env | `.rp1/` | Root directory |
 
 <feature_id>$1</feature_id>
-<rp1_root>{{RP1_ROOT}}</rp1_root>
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
 ## 1. Detection Algorithm
 
@@ -27,21 +27,21 @@ Check artifacts in order. First failing check determines `start_step`.
 
 ### Step 1: Requirements
 
-Read `{RP1_ROOT}/work/features/{FEATURE_ID}/requirements.md`
+Read `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/requirements.md`
 
 - **Valid if**: Contains `## 5. Functional Requirements`
 - **Missing/invalid**: `start_step = 1`, STOP
 
 ### Step 2: Design
 
-Read `{RP1_ROOT}/work/features/{FEATURE_ID}/design.md`
+Read `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/design.md`
 
 - **Valid if**: Contains `## 2. Architecture`
 - **Missing/invalid**: `start_step = 2`, STOP
 
 ### Step 3: Tasks
 
-Read `{RP1_ROOT}/work/features/{FEATURE_ID}/tasks.md`
+Read `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/tasks.md`
 
 - **Valid if**: Contains task entries (`- [ ]` or `- [x]`)
 - **Missing/no entries**: `start_step = 3`, STOP
@@ -55,7 +55,7 @@ Check tasks.md for pending tasks.
 
 ### Step 5: Verification
 
-Glob `{RP1_ROOT}/work/features/{FEATURE_ID}/feature_verify_report*.md`, read most recent.
+Glob `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/feature_verify_report*.md`, read most recent.
 
 - **Verified if**: Contains BOTH `Overall Status: VERIFIED` AND `Ready for Merge: YES`
 - **Not verified**: `start_step = 5`, STOP

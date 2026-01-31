@@ -2,7 +2,7 @@
 name: build
 version: 3.0.0
 description: End-to-end feature workflow (requirements -> design -> tasks -> build -> verify -> archive) in a single command.
-argument-hint: "feature-id [requirements] [--afk] [--git-worktree] [--git-commit] [--git-push] [--git-pr]"
+argument-hint: "<feature-id> [requirements] [--afk] [--git-worktree] [--git-commit] [--git-push] [--git-pr]"
 tags:
   - core
   - feature
@@ -15,9 +15,9 @@ author: cloud-on-prem/rp1
 
 6-step workflow orchestrator. Delegates execution to specialized agents.
 
-## §PARAMS
+## 0. Parameters
 
-| Name | Pos | Default | Purpose |
+| Name | Position | Default | Purpose |
 |------|-----|---------|---------|
 | FEATURE_ID | $1 | (req) | Feature identifier |
 | REQUIREMENTS | $2 | "" | Raw requirements |
@@ -28,13 +28,14 @@ author: cloud-on-prem/rp1
 | --git-pr | flag | false | Create PR (implies --git-push, --git-commit) |
 | RP1_ROOT | env | `.rp1/` | Root dir |
 
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
+
 <feature_id>$1</feature_id>
-<rp1_root>{{RP1_ROOT}}</rp1_root>
-<requirements>REQUIREMENTS</requirements>
+<requirements>$2</requirements>
 
 **Parse flags**: `AFK_MODE`, `GIT_WORKTREE`, `GIT_COMMIT`, `GIT_PUSH`, `GIT_PR` from args.
 
-**Feature dir**: `{RP1_ROOT}/work/features/{FEATURE_ID}/`
+**Feature dir**: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`
 
 ## §SKILL-LOADING
 
@@ -59,7 +60,7 @@ Skip prompts, auto-select defaults, retry once on failure, auto-archive.
 
 ```
 Task: rp1-dev:build-artifact-detector
-prompt: FEATURE_ID={FEATURE_ID}, RP1_ROOT={RP1_ROOT}
+prompt: FEATURE_ID={FEATURE_ID}, RP1_ROOT={{$RP1_ROOT}}
 ```
 
 **Parse response**: Extract `start_step` (1-6) and `artifacts` status.
@@ -95,7 +96,7 @@ Steps 1-3 foundational -> ABORT on fail. Steps 4-6 -> retry/prompt. NEVER delete
 
 ```
 Task: rp1-dev:feature-requirement-gatherer
-prompt: FEATURE_ID={FEATURE_ID}, REQUIREMENTS={requirements}, AFK_MODE={AFK_MODE}, RP1_ROOT={RP1_ROOT}
+prompt: FEATURE_ID={FEATURE_ID}, REQUIREMENTS={requirements}, AFK_MODE={AFK_MODE}, RP1_ROOT={{$RP1_ROOT}}
 ```
 
 ### §1.1 Requirements Review Checkpoint
@@ -107,7 +108,7 @@ After requirements completes, pause for user review:
 ```
 AskUserQuestion: |
   Requirements phase complete. Review artifact:
-  - {RP1_ROOT}/work/features/{FEATURE_ID}/requirements.md
+  - {{$RP1_ROOT}}/work/features/{FEATURE_ID}/requirements.md
 
   Summary: Generated requirements specification with functional requirements,
   user stories, and defined scope boundaries.
@@ -129,7 +130,7 @@ AskUserQuestion: |
 
 ```
 Task: rp1-dev:feature-architect
-prompt: FEATURE_ID={FEATURE_ID}, AFK_MODE={AFK_MODE}, UPDATE_MODE={design.md exists}, RP1_ROOT={RP1_ROOT}
+prompt: FEATURE_ID={FEATURE_ID}, AFK_MODE={AFK_MODE}, UPDATE_MODE={design.md exists}, RP1_ROOT={{$RP1_ROOT}}
 ```
 
 If `flagged_hypotheses` non-empty:
@@ -141,7 +142,7 @@ prompt: Validate hypotheses for feature {FEATURE_ID}
 
 ```
 Task: rp1-dev:feature-tasker
-prompt: FEATURE_ID={FEATURE_ID}, UPDATE_MODE={UPDATE_MODE}, RP1_ROOT={RP1_ROOT}
+prompt: FEATURE_ID={FEATURE_ID}, UPDATE_MODE={UPDATE_MODE}, RP1_ROOT={{$RP1_ROOT}}
 ```
 
 ### §2.1 Design Review Checkpoint
@@ -153,8 +154,8 @@ After design completes, pause for user review:
 ```
 AskUserQuestion: |
   Design phase complete. Review artifacts:
-  - {RP1_ROOT}/work/features/{FEATURE_ID}/design.md
-  - {RP1_ROOT}/work/features/{FEATURE_ID}/tasks.md
+  - {{$RP1_ROOT}}/work/features/{FEATURE_ID}/design.md
+  - {{$RP1_ROOT}}/work/features/{FEATURE_ID}/tasks.md
 
   Summary: Generated technical design with architecture decisions, component
   specifications, and implementation approach. Tasks file includes initial
@@ -177,7 +178,7 @@ AskUserQuestion: |
 
 ```
 Task: rp1-dev:feature-tasker
-prompt: FEATURE_ID={FEATURE_ID}, UPDATE_MODE=false, RP1_ROOT={RP1_ROOT}
+prompt: FEATURE_ID={FEATURE_ID}, UPDATE_MODE=false, RP1_ROOT={{$RP1_ROOT}}
 ```
 
 ### §3.1 Tasks Review Checkpoint
@@ -189,7 +190,7 @@ After tasks completes, pause for user review:
 ```
 AskUserQuestion: |
   Tasks phase complete. Review artifact:
-  - {RP1_ROOT}/work/features/{FEATURE_ID}/tasks.md
+  - {{$RP1_ROOT}}/work/features/{FEATURE_ID}/tasks.md
 
   Summary: Generated implementation tasks with dependency ordering
   and complexity assessment. Tasks are ready for build phase execution.
@@ -226,7 +227,7 @@ Store: `worktree_path`, `branch`, `basedOn`
 
 ```
 Task: rp1-dev:build-task-parser
-prompt: TASKS_PATH={RP1_ROOT}/work/features/{FEATURE_ID}/tasks.md
+prompt: TASKS_PATH={{$RP1_ROOT}}/work/features/{FEATURE_ID}/tasks.md
 ```
 
 **Parse response**: Extract `implementation_tasks`, `doc_tasks`, `summary`.

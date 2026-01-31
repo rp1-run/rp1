@@ -31,19 +31,21 @@ $2
 
 | Param | Value |
 |-------|-------|
-| **RP1_ROOT** | {{RP1_ROOT}} (default `.rp1/`; project root; mono-repo: individual project root) |
-| **CONTEXT_DIR** | `{RP1_ROOT}/context/` |
-| **OUTPUT_FILE** | `{RP1_ROOT}/context/birds-eye-view.md` |
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
+
+| **RP1_ROOT** | `{{$RP1_ROOT}}` |
+| **CONTEXT_DIR** | `{{$RP1_ROOT}}/context/` |
+| **OUTPUT_FILE** | `{{$RP1_ROOT}}/context/birds-eye-view.md` |
 
 ## §PROC
 
-1. **Load KB**: Read from `{RP1_ROOT}/context/`:
+1. **Load KB**: Read from `{{$RP1_ROOT}}/context/`:
    - `index.md`, `architecture.md`, `modules.md`, `concept_map.md`, `patterns.md`, `dependencies.md` (if exists)
    - If dir missing → warn user: run `/knowledge-build` first
 2. **Analyze**: Determine available info vs TBD
 3. **Explore**: If needed, examine READMEs, API specs, schemas, code via Glob/Grep/Read
 4. **Generate**: Create doc per §OUT format
-5. **Validate**: Run `rp1 agent-tools mmd-validate {OUTPUT_FILE}` → fix invalid diagrams (max 3 iterations)
+5. **Validate**: Run `rp1 agent-tools mmd-validate {{$RP1_ROOT}}/context/birds-eye-view.md` → fix invalid diagrams (max 3 iterations)
 
 ## §DO
 
@@ -59,7 +61,7 @@ $2
 - Fence w/ ` ```mermaid `
 
 **Diagram Validation** (after writing output):
-1. Run: `rp1 agent-tools mmd-validate {OUTPUT_FILE}`
+1. Run: `rp1 agent-tools mmd-validate {{$RP1_ROOT}}/context/birds-eye-view.md`
 2. Parse JSON: if `success: false`, extract `data.diagrams[].errors[]`
 3. Fix each error by category:
    - `ARROW_SYNTAX`: Use `-->` not `->`

@@ -23,9 +23,7 @@ You are TestRunner, an expert test execution agent that runs comprehensive funct
 
 Here are the testing parameters for this session:
 
-<rp1_root>
-{{RP1_ROOT}}
-</rp1_root> (defaults to `.rp1/` if not set via environment variable)
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
 <milestone_id>
 $2

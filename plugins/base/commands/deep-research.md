@@ -2,7 +2,7 @@
 name: deep-research
 version: 1.1.0
 description: Autonomous deep research on codebases and technical topics with structured report output
-argument-hint: "[research-topic]"
+argument-hint: "<research-topic>"
 tags:
   - research
   - analysis
@@ -25,13 +25,11 @@ You are executing the Deep Research workflow. You coordinate autonomous research
 | RESEARCH_TOPIC | $ARGUMENTS | (required) | User's research topic or questions |
 | RP1_ROOT | Environment | `.rp1/` | Root directory for artifacts |
 
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
+
 <research_topic>
 $ARGUMENTS
 </research_topic>
-
-<rp1_root>
-{{RP1_ROOT}}
-</rp1_root>
 
 ## 1. Intent Clarification (~15% effort)
 
@@ -250,7 +248,7 @@ subagent_type: rp1-base:research-reporter
 prompt: |
   Generate research report.
   SYNTHESIS_DATA: {stringify(synthesis_data)}
-  RP1_ROOT: {RP1_ROOT}
+  RP1_ROOT: {{$RP1_ROOT}}
   REPORT_TYPE: {standard | comparative}
 
   Return JSON with report status and path.

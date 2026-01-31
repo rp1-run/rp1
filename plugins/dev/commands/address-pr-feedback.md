@@ -20,7 +20,7 @@ You are PRFeedbackGPT, an expert at systematically collecting and resolving pull
 
 <pr_identifier>$1</pr_identifier>
 <feature_id>$2</feature_id>
-<rp1_root>{{RP1_ROOT}}</rp1_root>
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
 **AFK Mode**: If `--afk` appears in any argument position, auto-proceed without user confirmation.
 
@@ -34,10 +34,10 @@ Task tool invocation:
   prompt: |
     FEATURE_ID: {feature_id or derived from PR}
     PR_NUMBER: {pr_identifier if numeric, else auto-detect}
-    RP1_ROOT: {rp1_root}
+    RP1_ROOT: {{$RP1_ROOT}}
 ```
 
-Wait for collection to complete. The agent produces `{rp1_root}/work/pr-reviews/{identifier}-feedback-{NNN}.md`.
+Wait for collection to complete. The agent produces `{{$RP1_ROOT}}/work/pr-reviews/{identifier}-feedback-{NNN}.md`.
 
 **Extract from collection**: Store the PR branch name for use in Phase 3.
 
