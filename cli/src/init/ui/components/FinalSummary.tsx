@@ -254,6 +254,7 @@ const generateNextSteps = (
 	detectedTools: readonly DetectedTool[],
 	projectContext: ProjectContext | null,
 	pluginInstallError: string | null,
+	wasUpdateMode: boolean,
 ): readonly NextStep[] => {
 	const steps: NextStep[] = [];
 	let order = 1;
@@ -319,20 +320,24 @@ const generateNextSteps = (
 			let installCommand: string | undefined;
 			let installBlurb: string;
 
-			const errorSuffix = pluginInstallError
-				? ` Error: ${pluginInstallError}`
-				: "";
+			// Determine message based on whether installation was skipped or failed
+			const wasSkipped = wasUpdateMode && !pluginInstallError;
+			const statusPrefix = wasSkipped
+				? `Plugins not yet installed: ${missingPlugins.join(", ")}.`
+				: pluginInstallError
+					? `Plugin installation failed: ${missingPlugins.join(", ")}. Error: ${pluginInstallError}`
+					: `Plugins failed to install: ${missingPlugins.join(", ")}.`;
 
 			if (hasClaudeCode && !hasOpenCode) {
 				installCommand = "rp1 install:claude-code";
-				installBlurb = `Plugins failed to install: ${missingPlugins.join(", ")}.${errorSuffix}`;
+				installBlurb = statusPrefix;
 			} else if (hasOpenCode && !hasClaudeCode) {
 				installCommand = "rp1 install:opencode";
-				installBlurb = `Plugins failed to install: ${missingPlugins.join(", ")}.${errorSuffix}`;
+				installBlurb = statusPrefix;
 			} else {
 				// Multiple tools or edge case - provide documentation link
 				installCommand = undefined;
-				installBlurb = `Plugins failed to install: ${missingPlugins.join(", ")}.${errorSuffix} See https://rp1.run/getting-started/installation for manual installation.`;
+				installBlurb = `${statusPrefix} See https://rp1.run/getting-started/installation for manual installation.`;
 			}
 
 			steps.push({
@@ -430,11 +435,13 @@ const isSuccessful = (state: WizardState): boolean => {
  */
 export const FinalSummary: React.FC<FinalSummaryProps> = ({ state }) => {
 	const success = isSuccessful(state);
+	const wasUpdateMode = state.userChoices.reinitChoice === "update";
 	const nextSteps = generateNextSteps(
 		state.healthReport,
 		state.detectedTools,
 		state.projectContext,
 		state.pluginInstallError,
+		wasUpdateMode,
 	);
 
 	const borderColor = success ? colors.success : colors.error;
