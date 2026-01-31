@@ -754,16 +754,17 @@ export const useStepExecution = ({
 						`Installed: ${result.result.pluginsInstalled.join(", ")}`,
 						"success",
 					);
-				} else if (result.result?.error) {
-					// Extract error message from CLIError or Error
+				} else if (result.result) {
+					// Installation failed - extract error if available
 					const errorObj = result.result.error;
-					const errorMessage =
-						errorObj instanceof Error
+					const errorMessage = errorObj
+						? errorObj instanceof Error
 							? errorObj.message
 							: typeof errorObj === "object" && errorObj !== null
 								? ((errorObj as { message?: string }).message ??
 									JSON.stringify(errorObj))
-								: String(errorObj);
+								: String(errorObj)
+						: "Installation failed (unknown reason)";
 					addAct(
 						"plugin-installation",
 						`Installation failed: ${errorMessage}`,
@@ -779,11 +780,24 @@ export const useStepExecution = ({
 						type: "SET_PLUGIN_INSTALL_ERROR",
 						error: errorMessage,
 					});
+				} else {
+					// No result at all - something went wrong
+					const errorMessage = "Installation did not complete";
+					addAct("plugin-installation", errorMessage, "warning");
+					dispatch({
+						type: "SET_PLUGIN_INSTALL_ERROR",
+						error: errorMessage,
+					});
 				}
 			} catch (error) {
 				const errorMessage =
 					error instanceof Error ? error.message : String(error);
 				addAct("plugin-installation", `Error: ${errorMessage}`, "error");
+				// Store the error for display in final summary
+				dispatch({
+					type: "SET_PLUGIN_INSTALL_ERROR",
+					error: errorMessage,
+				});
 				// Don't throw - plugin installation failures shouldn't block init
 			}
 		},
