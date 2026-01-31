@@ -15,28 +15,33 @@ author: cloud-on-prem/rp1
 
 6-step workflow orchestrator. Delegates execution to specialized agents.
 
-## §PARSE-ARGS
+## §ARGUMENTS
 
-**Run**:
-```bash
-rp1 agent-tools transform-args rp1-dev:build $ARGUMENTS
+| Key | Description |
+|-----|-------------|
+| `FEATURE_ID` | Feature identifier (required) |
+| `REQUIREMENTS` | Raw requirements text |
+| `AFK` | Non-interactive mode flag |
+| `GIT_WORKTREE` | Use isolated git worktree |
+| `GIT_COMMIT` | Commit changes after build |
+| `GIT_PUSH` | Push branch to remote |
+| `GIT_PR` | Create PR (implies push, commit) |
+
+## §ARGUMENTS PASSED
+
+!`rp1 agent-tools transform-args rp1-dev:build $ARGUMENTS || echo "RP1_VERSION=0.3.2"`
+
+## §VERSION-GATE
+
+**If** `RP1_VERSION` < 0.3.3 **then** STOP execution with message:
+
 ```
+Your rp1 CLI needs to be updated.
 
-**On success**: Parse output as `NAME=value` lines. Variables available:
-- `FEATURE_ID` - Feature identifier (required)
-- `REQUIREMENTS` - Raw requirements text
-- `AFK` - Non-interactive mode flag
-- `GIT_WORKTREE` - Use isolated git worktree
-- `GIT_COMMIT` - Commit changes after build
-- `GIT_PUSH` - Push branch to remote
-- `GIT_PR` - Create PR (implies push, commit)
-
-**On error** (command not found / unknown command):
-```
-ERROR: CLI version mismatch. The rp1 CLI needs to be updated.
 Please run `/rp1-base:self-update` to update, then retry this command.
+
+Or in the terminal: `rp1 update`
 ```
-STOP execution.
 
 $RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
@@ -49,10 +54,12 @@ $RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 ## §FLAG-VALIDATION
 
 **Implication chain**:
+
 - If `GIT_PR`: set `GIT_PUSH=true`, `GIT_COMMIT=true`
 - If `GIT_PUSH`: set `GIT_COMMIT=true`
 
 **Validation**:
+
 - `GIT_PUSH` without `GIT_COMMIT` after implication chain: ERROR "Nothing to push without commits"
 
 ## §AFK-MODE
@@ -289,9 +296,11 @@ AskUserQuestion: |
 ```
 
 **On "Add Task"**:
+
 1. Prompt for task description
 2. Create ad-hoc task entry with ID "TX-{timestamp}"
 3. Spawn builder/reviewer:
+
    ```
    Task: rp1-dev:task-builder
    prompt: FEATURE_ID={FEATURE_ID}, TASK_IDS=[TX-{timestamp}], WORKTREE_PATH={worktree_path}, GIT_COMMIT={GIT_COMMIT}, PREVIOUS_FEEDBACK={task_description}
@@ -299,6 +308,7 @@ AskUserQuestion: |
    Task: rp1-dev:task-reviewer
    prompt: FEATURE_ID={FEATURE_ID}, TASK_IDS=[TX-{timestamp}], WORKTREE_PATH={worktree_path}, GIT_COMMIT={GIT_COMMIT}
    ```
+
 4. Return to §4.6 checkpoint (loop until "Continue" or "Stop")
 
 **On "Stop"**: Output summary of completed steps (Steps 1-4 done), branch name, merge instructions: `git checkout main && git merge {branch}`. Provide resume instruction: `/build {FEATURE_ID}`. Exit.

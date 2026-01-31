@@ -15,26 +15,31 @@ author: cloud-on-prem/rp1
 
 Quick-iteration workflow for focused changes. Delegates execution to build-fast-executor agent.
 
-## §PARSE-ARGS
+## §ARGUMENTS
 
-**Run**:
-```bash
-rp1 agent-tools transform-args rp1-dev:build-fast $ARGUMENTS
+| Key | Description |
+|-----|-------------|
+| `DEVELOPMENT_REQUEST` | Freeform development request (required) |
+| `AFK` | Non-interactive mode flag |
+| `GIT_WORKTREE` | Use isolated git worktree |
+| `GIT_COMMIT` | Commit changes |
+| `GIT_PUSH` | Push branch to remote |
+
+## §ARGUMENTS PASSED
+
+!`rp1 agent-tools transform-args rp1-dev:build-fast $ARGUMENTS || echo "RP1_VERSION=0.3.2"`
+
+## §VERSION-GATE
+
+**If** `RP1_VERSION` < 0.3.3 **then** STOP execution with message:
+
 ```
+Your rp1 CLI needs to be updated.
 
-**On success**: Parse output as `NAME=value` lines. Variables available:
-- `DEVELOPMENT_REQUEST` - Freeform development request (required)
-- `AFK` - Non-interactive mode flag
-- `GIT_WORKTREE` - Use isolated git worktree
-- `GIT_COMMIT` - Commit changes
-- `GIT_PUSH` - Push branch to remote
-
-**On error** (command not found / unknown command):
-```
-ERROR: CLI version mismatch. The rp1 CLI needs to be updated.
 Please run `/rp1-base:self-update` to update, then retry this command.
+
+Or in the terminal: `rp1 update`
 ```
-STOP execution.
 
 $RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
