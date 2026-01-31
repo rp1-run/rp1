@@ -17,6 +17,7 @@ import { allDeprecatedCommands } from "./commands/deprecated/index.js";
 import { initCommand } from "./commands/init.js";
 import { installParentCommand } from "./commands/install/index.js";
 import { listCommand } from "./commands/install.js";
+import { settingsCommand } from "./commands/settings.js";
 import { uninstallCommand } from "./commands/uninstall.js";
 import { updateCommand } from "./commands/update/index.js";
 import { verifyCommand } from "./commands/verify/index.js";
@@ -202,6 +203,7 @@ program.addCommand(updateCommand);
 program.addCommand(listCommand);
 program.addCommand(initCommand);
 program.addCommand(uninstallCommand);
+program.addCommand(settingsCommand);
 
 // Register deprecated commands with hidden: true
 // These still work but don't show in --help
