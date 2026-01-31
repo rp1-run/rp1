@@ -3,6 +3,7 @@
  * Generates deterministic VARIABLE=value output for prompt interpolation.
  */
 
+import { version as RP1_VERSION } from "../../../package.json";
 import type { TransformResult } from "./models.js";
 
 /**
@@ -74,6 +75,7 @@ export const formatLine = (name: string, value: string): string =>
  * 3. Escape quotes within values
  * 4. Boolean values as lowercase true/false
  * 5. One variable per line
+ * 6. Always include RP1_VERSION for version gating
  *
  * @param result - Transform result containing variables
  * @returns Formatted output string with newline-separated lines
@@ -81,8 +83,11 @@ export const formatLine = (name: string, value: string): string =>
 export const formatOutput = (result: TransformResult): string => {
 	const { variables } = result;
 
-	const sortedKeys = Object.keys(variables).sort();
-	const lines = sortedKeys.map((key) => formatLine(key, variables[key]));
+	// Add RP1_VERSION to variables for version gating
+	const allVariables = { ...variables, RP1_VERSION };
+
+	const sortedKeys = Object.keys(allVariables).sort();
+	const lines = sortedKeys.map((key) => formatLine(key, allVariables[key]));
 
 	return lines.join("\n");
 };

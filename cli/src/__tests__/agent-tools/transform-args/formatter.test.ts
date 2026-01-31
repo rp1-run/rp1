@@ -134,17 +134,19 @@ describe("formatter", () => {
 	});
 
 	describe("formatOutput", () => {
-		test("formats single variable", () => {
+		test("formats single variable with RP1_VERSION", () => {
 			const result: TransformResult = {
 				variables: { FEATURE_ID: "my-feature" },
 				warnings: [],
 				schemaUsed: true,
-							};
+			};
 
-			expect(formatOutput(result)).toBe("FEATURE_ID=my-feature");
+			const output = formatOutput(result);
+			expect(output).toContain("FEATURE_ID=my-feature");
+			expect(output).toContain("RP1_VERSION=");
 		});
 
-		test("formats multiple variables sorted alphabetically", () => {
+		test("formats multiple variables sorted alphabetically with RP1_VERSION", () => {
 			const result: TransformResult = {
 				variables: {
 					VERBOSE: "false",
@@ -153,16 +155,17 @@ describe("formatter", () => {
 				},
 				warnings: [],
 				schemaUsed: true,
-							};
+			};
 
 			const output = formatOutput(result);
 			const lines = output.split("\n");
 
-			expect(lines).toEqual([
-				"AFK=true",
-				"FEATURE_ID=my-feature",
-				"VERBOSE=false",
-			]);
+			// Should include AFK, FEATURE_ID, RP1_VERSION, VERBOSE (sorted)
+			expect(lines.length).toBe(4);
+			expect(lines[0]).toBe("AFK=true");
+			expect(lines[1]).toBe("FEATURE_ID=my-feature");
+			expect(lines[2]).toMatch(/^RP1_VERSION=\d+\.\d+\.\d+/);
+			expect(lines[3]).toBe("VERBOSE=false");
 		});
 
 		test("deterministic output for same input", () => {
@@ -174,23 +177,27 @@ describe("formatter", () => {
 				},
 				warnings: [],
 				schemaUsed: true,
-							};
+			};
 
 			const output1 = formatOutput(result);
 			const output2 = formatOutput(result);
 
 			expect(output1).toBe(output2);
-			expect(output1).toBe("A_VAR=a\nM_VAR=m\nZ_VAR=z");
+			expect(output1).toContain("A_VAR=a");
+			expect(output1).toContain("M_VAR=m");
+			expect(output1).toContain("RP1_VERSION=");
+			expect(output1).toContain("Z_VAR=z");
 		});
 
-		test("formats empty variables as empty string", () => {
+		test("formats empty variables with only RP1_VERSION", () => {
 			const result: TransformResult = {
 				variables: {},
 				warnings: [],
 				schemaUsed: true,
-							};
+			};
 
-			expect(formatOutput(result)).toBe("");
+			const output = formatOutput(result);
+			expect(output).toMatch(/^RP1_VERSION=\d+\.\d+\.\d+/);
 		});
 
 		test("formats complex values with proper quoting", () => {
@@ -202,26 +209,27 @@ describe("formatter", () => {
 				},
 				warnings: [],
 				schemaUsed: true,
-							};
+			};
 
 			const output = formatOutput(result);
-			const lines = output.split("\n");
-
-			expect(lines[0]).toBe("FEATURE_ID=auth-feature");
-			expect(lines[1]).toBe('PATH="\\$HOME/project"');
-			expect(lines[2]).toBe('REQUIREMENTS="add login with OAuth 2.0"');
+			expect(output).toContain("FEATURE_ID=auth-feature");
+			expect(output).toContain('PATH="\\$HOME/project"');
+			expect(output).toContain('REQUIREMENTS="add login with OAuth 2.0"');
+			expect(output).toContain("RP1_VERSION=");
 		});
 	});
 
 	describe("formatOutputWithWarnings", () => {
-		test("formats output without warnings", () => {
+		test("formats output without warnings includes RP1_VERSION", () => {
 			const result: TransformResult = {
 				variables: { FEATURE_ID: "my-feature" },
 				warnings: [],
 				schemaUsed: true,
-							};
+			};
 
-			expect(formatOutputWithWarnings(result)).toBe("FEATURE_ID=my-feature");
+			const output = formatOutputWithWarnings(result);
+			expect(output).toContain("FEATURE_ID=my-feature");
+			expect(output).toContain("RP1_VERSION=");
 		});
 
 		test("includes single warning as comment", () => {
@@ -229,14 +237,16 @@ describe("formatter", () => {
 				variables: { ARG_1: "value" },
 				warnings: ["Using fallback argument parsing"],
 				schemaUsed: false,
-							};
+			};
 
 			const output = formatOutputWithWarnings(result);
 			const lines = output.split("\n");
 
 			expect(lines[0]).toBe("# Warning: Using fallback argument parsing");
 			expect(lines[1]).toBe("");
-			expect(lines[2]).toBe("ARG_1=value");
+			// Rest of output has ARG_1 and RP1_VERSION
+			expect(output).toContain("ARG_1=value");
+			expect(output).toContain("RP1_VERSION=");
 		});
 
 		test("includes multiple warnings as comments", () => {
@@ -247,7 +257,7 @@ describe("formatter", () => {
 					"Using fallback argument parsing",
 				],
 				schemaUsed: false,
-							};
+			};
 
 			const output = formatOutputWithWarnings(result);
 			const lines = output.split("\n");
@@ -255,22 +265,23 @@ describe("formatter", () => {
 			expect(lines[0]).toBe("# Warning: Plugin command not found");
 			expect(lines[1]).toBe("# Warning: Using fallback argument parsing");
 			expect(lines[2]).toBe("");
-			expect(lines[3]).toBe("ARG_1=value");
+			expect(output).toContain("ARG_1=value");
+			expect(output).toContain("RP1_VERSION=");
 		});
 
-		test("handles warnings with empty variables", () => {
+		test("handles warnings with empty variables outputs RP1_VERSION", () => {
 			const result: TransformResult = {
 				variables: {},
 				warnings: ["No arguments provided"],
 				schemaUsed: false,
-							};
+			};
 
 			const output = formatOutputWithWarnings(result);
 			const lines = output.split("\n");
 
 			expect(lines[0]).toBe("# Warning: No arguments provided");
 			expect(lines[1]).toBe("");
-			expect(lines[2]).toBe("");
+			expect(lines[2]).toMatch(/^RP1_VERSION=\d+\.\d+\.\d+/);
 		});
 	});
 });
