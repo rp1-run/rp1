@@ -755,10 +755,24 @@ export const useStepExecution = ({
 						"success",
 					);
 				} else if (result.result?.error) {
+					// Extract error message from CLIError or Error
+					const errorObj = result.result.error;
+					const errorMessage =
+						errorObj instanceof Error
+							? errorObj.message
+							: typeof errorObj === "object" && errorObj !== null
+								? ((errorObj as { message?: string }).message ??
+									JSON.stringify(errorObj))
+								: String(errorObj);
 					addAct(
 						"plugin-installation",
-						"Plugin installation encountered issues",
-						"warning",
+						`Installation failed: ${errorMessage}`,
+						"error",
+					);
+					addAct(
+						"plugin-installation",
+						"Try again with: rp1 install:claude-code",
+						"info",
 					);
 				}
 			} catch (error) {
