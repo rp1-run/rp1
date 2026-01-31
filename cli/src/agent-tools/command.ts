@@ -50,6 +50,7 @@ import "./worktree/index.js";
 import "./comment-extract/index.js";
 import "./github-pr/index.js";
 import "./work/index.js";
+import "./transform-args/index.js";
 
 /** Default timeout for tool execution in milliseconds */
 const DEFAULT_TIMEOUT = 30000;
@@ -86,6 +87,7 @@ Available Tools:
   comment-extract   Extract comments from git-changed files
   github-pr         GitHub PR operations (submit-review, add-reaction, reply-comment, fetch-comments)
   work              Track agent workflow progress with status updates
+  transform-args    Transform command arguments using schema and settings
 
 Examples:
   rp1 agent-tools mmd-validate ./document.md
@@ -99,6 +101,7 @@ Examples:
   rp1 agent-tools comment-extract unstaged main
   echo '{"owner":"org","repo":"repo","pr_number":123}' | rp1 agent-tools github-pr fetch-comments
   rp1 agent-tools work update --project /path/to/project --feature my-feature --status in_progress
+  rp1 agent-tools transform-args rp1-dev:build build my-feature --afk
 `,
 	);
 
@@ -897,3 +900,93 @@ Examples:
 		console.log(formatOutput(result.right));
 		process.exit(0);
 	});
+
+/**
+ * transform-args subcommand.
+ * Transforms command arguments using schema-driven parsing and settings.
+ */
+agentToolsCommand
+	.command("transform-args <plugin-command> [namespace] [args...]")
+	.description("Transform arguments using command schema and settings")
+	.allowUnknownOption()
+	.addHelpText(
+		"after",
+		`
+Description:
+  Parses command arguments using the target command's argument-hint schema
+  from YAML frontmatter. Merges with hierarchical settings (global, local)
+  and outputs VARIABLE=value format for prompt interpolation.
+
+Arguments:
+  plugin-command    Plugin-command identifier (e.g., "rp1-dev:build")
+  namespace         Settings namespace, defaults to "global"
+  args              Arguments to transform
+
+Schema Syntax (in command's argument-hint):
+  <name>            Required positional argument
+  [name]            Optional positional argument
+  [name...]         Variadic argument (captures remaining)
+  [--flag]          Boolean flag (default: false)
+  [--flag=default]  Flag with default value
+
+Output:
+  VARIABLE=value format, one per line:
+  - Sorted alphabetically for determinism
+  - Values with spaces are quoted
+  - Boolean flags as lowercase true/false
+
+Exit Codes:
+  0    Success
+  1    Required argument missing or tool error
+
+Examples:
+  # Transform with schema lookup
+  rp1 agent-tools transform-args rp1-dev:build build my-feature --afk
+
+  # Use global namespace
+  rp1 agent-tools transform-args rp1-dev:build global my-feature "add login"
+
+  # Fallback mode (unknown command uses ARG_1, ARG_2, etc.)
+  rp1 agent-tools transform-args unknown:command global foo bar
+`,
+	)
+	.action(
+		async (
+			pluginCommand: string,
+			namespace: string | undefined,
+			args: string[],
+		): Promise<void> => {
+			// Lazy-load the transform-args module
+			const {
+				transformArgs: executeTransform,
+				formatOutput: formatTransformOutput,
+			} = await import("./transform-args/index.js");
+
+			// Default namespace to "global" if not provided
+			const resolvedNamespace = namespace || "global";
+
+			const result = await executeTransform(
+				pluginCommand,
+				resolvedNamespace,
+				args,
+			)();
+
+			if (E.isLeft(result)) {
+				// Required argument missing - output error and exit non-zero
+				console.error(`Error: ${result.left.message}`);
+				process.exit(1);
+			}
+
+			// Output formatted VARIABLE=value lines
+			console.log(formatTransformOutput(result.right));
+
+			// Log warnings to stderr if any
+			if (result.right.warnings.length > 0) {
+				for (const warning of result.right.warnings) {
+					console.error(`Warning: ${warning}`);
+				}
+			}
+
+			process.exit(0);
+		},
+	);
