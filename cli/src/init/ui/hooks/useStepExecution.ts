@@ -6,6 +6,7 @@
  */
 
 import * as fs from "node:fs/promises";
+import { homedir } from "node:os";
 import * as path from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { nanoid } from "nanoid";
@@ -70,6 +71,45 @@ import {
 	type ToolDetectionResult,
 } from "../../tool-detector.js";
 import type { WizardAction, WizardState } from "./useWizardState.js";
+
+/**
+ * Default settings template with all flags disabled for safety.
+ * Users can enable features as needed after reviewing the settings.
+ */
+const DEFAULT_SETTINGS_TEMPLATE = `# rp1 Settings
+# Documentation: https://rp1.run/configuration/settings
+
+# All settings are disabled by default for safety.
+# Enable features by changing false to true.
+
+# Enable git worktree isolation for build commands
+git_worktree = false
+
+# Automatically commit changes after builds
+git_commit = false
+
+# Automatically push branches to remote
+git_push = false
+
+# Enable AFK (unattended) mode for automated workflows
+afk = false
+`;
+
+/**
+ * Resolve the global settings file path.
+ * Uses ~/.config/rp1/settings.toml to match settings-loader.ts.
+ */
+function resolveGlobalSettingsPath(): string {
+	return path.join(homedir(), ".config", "rp1", "settings.toml");
+}
+
+/**
+ * Resolve the local settings file path.
+ */
+function resolveLocalSettingsPath(cwd: string): string {
+	const rp1Root = process.env.RP1_ROOT || ".rp1";
+	return path.join(cwd, rp1Root, "settings.toml");
+}
 
 /**
  * Function type for executing a single step.
@@ -400,6 +440,51 @@ export const useStepExecution = ({
 
 			if (created === 0) {
 				addAct("directory-setup", "Directory structure exists", "success");
+			}
+		},
+		[state.userChoices.reinitChoice],
+	);
+
+	/**
+	 * Execute the settings setup step.
+	 * Creates global and local settings files with safe defaults.
+	 */
+	const executeSettingsSetup = useCallback(
+		async (addAct: AddActivityFn): Promise<void> => {
+			const ctx = contextRef.current;
+
+			// Skip if update mode to preserve existing settings
+			if (state.userChoices.reinitChoice === "update") {
+				addAct("settings-setup", "Settings files preserved (update mode)", "info");
+				return;
+			}
+
+			let created = 0;
+
+			// Create global settings file
+			const globalPath = resolveGlobalSettingsPath();
+			const globalDir = path.dirname(globalPath);
+			if (!(await fileExists(globalPath))) {
+				await fs.mkdir(globalDir, { recursive: true });
+				await writeFileContent(globalPath, DEFAULT_SETTINGS_TEMPLATE);
+				addAct("settings-setup", "Created global settings file", "success");
+				created++;
+			} else {
+				addAct("settings-setup", "Global settings file exists", "info");
+			}
+
+			// Create local settings file
+			const localPath = resolveLocalSettingsPath(ctx.cwd);
+			if (!(await fileExists(localPath))) {
+				await writeFileContent(localPath, DEFAULT_SETTINGS_TEMPLATE);
+				addAct("settings-setup", "Created local settings file", "success");
+				created++;
+			} else {
+				addAct("settings-setup", "Local settings file exists", "info");
+			}
+
+			if (created === 0) {
+				addAct("settings-setup", "Settings files already exist", "success");
 			}
 		},
 		[state.userChoices.reinitChoice],
@@ -846,6 +931,9 @@ export const useStepExecution = ({
 					case "directory-setup":
 						await executeDirectorySetup(addAct);
 						break;
+					case "settings-setup":
+						await executeSettingsSetup(addAct);
+						break;
 					case "tool-detection":
 						await executeToolDetection(addAct);
 						break;
@@ -893,6 +981,7 @@ export const useStepExecution = ({
 			executeGitCheck,
 			executeReinitCheck,
 			executeDirectorySetup,
+			executeSettingsSetup,
 			executeToolDetection,
 			executeInstructionInjection,
 			executeGitignoreConfig,
