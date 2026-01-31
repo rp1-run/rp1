@@ -139,8 +139,7 @@ describe("formatter", () => {
 				variables: { FEATURE_ID: "my-feature" },
 				warnings: [],
 				schemaUsed: true,
-				namespace: "global",
-			};
+							};
 
 			expect(formatOutput(result)).toBe("FEATURE_ID=my-feature");
 		});
@@ -154,8 +153,7 @@ describe("formatter", () => {
 				},
 				warnings: [],
 				schemaUsed: true,
-				namespace: "global",
-			};
+							};
 
 			const output = formatOutput(result);
 			const lines = output.split("\n");
@@ -176,8 +174,7 @@ describe("formatter", () => {
 				},
 				warnings: [],
 				schemaUsed: true,
-				namespace: "global",
-			};
+							};
 
 			const output1 = formatOutput(result);
 			const output2 = formatOutput(result);
@@ -191,8 +188,7 @@ describe("formatter", () => {
 				variables: {},
 				warnings: [],
 				schemaUsed: true,
-				namespace: "global",
-			};
+							};
 
 			expect(formatOutput(result)).toBe("");
 		});
@@ -206,8 +202,7 @@ describe("formatter", () => {
 				},
 				warnings: [],
 				schemaUsed: true,
-				namespace: "global",
-			};
+							};
 
 			const output = formatOutput(result);
 			const lines = output.split("\n");
@@ -224,8 +219,7 @@ describe("formatter", () => {
 				variables: { FEATURE_ID: "my-feature" },
 				warnings: [],
 				schemaUsed: true,
-				namespace: "global",
-			};
+							};
 
 			expect(formatOutputWithWarnings(result)).toBe("FEATURE_ID=my-feature");
 		});
@@ -235,8 +229,7 @@ describe("formatter", () => {
 				variables: { ARG_1: "value" },
 				warnings: ["Using fallback argument parsing"],
 				schemaUsed: false,
-				namespace: "global",
-			};
+							};
 
 			const output = formatOutputWithWarnings(result);
 			const lines = output.split("\n");
@@ -254,8 +247,7 @@ describe("formatter", () => {
 					"Using fallback argument parsing",
 				],
 				schemaUsed: false,
-				namespace: "global",
-			};
+							};
 
 			const output = formatOutputWithWarnings(result);
 			const lines = output.split("\n");
@@ -271,8 +263,7 @@ describe("formatter", () => {
 				variables: {},
 				warnings: ["No arguments provided"],
 				schemaUsed: false,
-				namespace: "global",
-			};
+							};
 
 			const output = formatOutputWithWarnings(result);
 			const lines = output.split("\n");

@@ -48,11 +48,11 @@ describe("settings-merger", () => {
 		});
 
 		test("extracts root-level primitive values", () => {
-			const settings: SettingsFile = {
+			const settings = {
 				verbose: true,
 				mode: "fast",
 				count: 5,
-			} as SettingsFile;
+			} as unknown as SettingsFile;
 
 			const result = extractSettings(settings);
 
