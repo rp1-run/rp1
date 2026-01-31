@@ -199,7 +199,8 @@ const convertToOutputVariables = (
 
 /**
  * Apply settings to variables, filling in defaults from merged settings.
- * CLI args take precedence, then settings.
+ * Precedence: CLI flags > settings > schema defaults.
+ * Settings CAN override schema defaults, but NOT CLI flags.
  */
 const applySettings = (
 	variables: Record<string, string>,
@@ -208,11 +209,15 @@ const applySettings = (
 ): Record<string, string> => {
 	const result: Record<string, string> = { ...variables };
 
-	// Apply settings values that aren't already set by CLI flags
+	// Normalize CLI flag keys to UPPER_SNAKE_CASE for comparison
+	// This handles underscore/hyphen equivalence (git_worktree vs git-worktree)
+	const cliProvidedKeys = new Set(Object.keys(flags).map(toUpperSnakeCase));
+
+	// Apply settings values - can override schema defaults but not CLI flags
 	for (const [key, value] of Object.entries(mergedSettings.values)) {
 		const upperKey = toUpperSnakeCase(key);
-		// Don't override if CLI flag was provided
-		if (!(key in flags) && !(upperKey in result)) {
+		// Only skip if CLI flag was explicitly provided
+		if (!cliProvidedKeys.has(upperKey)) {
 			if (typeof value === "boolean") {
 				result[upperKey] = value.toString();
 			} else if (typeof value === "string") {

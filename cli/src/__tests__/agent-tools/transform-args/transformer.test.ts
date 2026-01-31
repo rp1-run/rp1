@@ -374,8 +374,8 @@ describe("transformer", () => {
 
 				expect(E.isRight(result)).toBe(true);
 				if (E.isRight(result)) {
-					// afk from settings overrides schema default (but schema flag is applied first)
-					expect(result.right.variables.AFK).toBe("false");
+					// afk from settings overrides schema default (no CLI flag was passed)
+					expect(result.right.variables.AFK).toBe("true");
 					// verbose from settings is applied
 					expect(result.right.variables.VERBOSE).toBe("true");
 				}
