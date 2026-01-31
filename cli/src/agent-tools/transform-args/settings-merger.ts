@@ -36,19 +36,16 @@ export const extractSettings = (
 ): Record<string, unknown> => {
 	const result: Record<string, unknown> = {};
 
-	// Apply all root-level key-value pairs (excluding schema_version and reserved keys)
 	for (const [key, value] of Object.entries(settings)) {
 		if (key === "schema_version" || key === "global" || value === undefined) {
 			continue;
 		}
-		// Skip nested objects (they were namespace sections in the old format)
 		if (typeof value === "object" && value !== null) {
 			continue;
 		}
 		result[key] = value;
 	}
 
-	// Also apply [global] section if present (for backwards compatibility)
 	const globalSection = settings.global;
 	if (globalSection && typeof globalSection === "object") {
 		Object.assign(result, globalSection);
@@ -75,23 +72,19 @@ export const mergeSettings = (input: MergeInput): MergedSettings => {
 	const values: Record<string, unknown> = {};
 	const source: Record<string, SettingsSource> = {};
 
-	// Step 1: Apply global settings
 	const globalExtractedSettings = extractSettings(globalSettings);
 	for (const [key, value] of Object.entries(globalExtractedSettings)) {
 		values[key] = value;
 		source[key] = "global";
 	}
 
-	// Step 2: Apply local settings (override global)
 	const localExtractedSettings = extractSettings(localSettings);
 	for (const [key, value] of Object.entries(localExtractedSettings)) {
 		values[key] = value;
 		source[key] = "local";
 	}
 
-	// Step 3: Apply CLI arguments (override all)
 	for (const [key, value] of Object.entries(cliArguments)) {
-		// Skip undefined values from CLI - they weren't actually provided
 		if (value !== undefined) {
 			values[key] = value;
 			source[key] = "cli";

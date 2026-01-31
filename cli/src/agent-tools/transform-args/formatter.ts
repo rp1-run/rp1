@@ -43,13 +43,11 @@ export const needsQuoting = (value: string): boolean =>
  * @returns Formatted value string
  */
 export const formatValue = (value: string): string => {
-	// Boolean-like values normalized to lowercase
 	const lowerValue = value.toLowerCase();
 	if (lowerValue === "true" || lowerValue === "false") {
 		return lowerValue;
 	}
 
-	// Check if quoting is needed
 	if (needsQuoting(value)) {
 		return `"${escapeValue(value)}"`;
 	}
@@ -83,10 +81,7 @@ export const formatLine = (name: string, value: string): string =>
 export const formatOutput = (result: TransformResult): string => {
 	const { variables } = result;
 
-	// Sort keys alphabetically for deterministic output
 	const sortedKeys = Object.keys(variables).sort();
-
-	// Format each variable as a line
 	const lines = sortedKeys.map((key) => formatLine(key, variables[key]));
 
 	return lines.join("\n");
@@ -105,15 +100,13 @@ export const formatOutputWithWarnings = (result: TransformResult): string => {
 	const { warnings } = result;
 	const lines: string[] = [];
 
-	// Add warnings as shell comments
 	if (warnings.length > 0) {
 		for (const warning of warnings) {
 			lines.push(`# Warning: ${warning}`);
 		}
-		lines.push(""); // Empty line after warnings
+		lines.push("");
 	}
 
-	// Add formatted variables
 	lines.push(formatOutput(result));
 
 	return lines.join("\n");

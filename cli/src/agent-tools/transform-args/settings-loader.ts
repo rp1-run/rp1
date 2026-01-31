@@ -62,11 +62,7 @@ export const loadSettingsFile = (
 				return emptySettingsFile();
 			}
 		},
-		() => {
-			// This should never happen since we handle all cases above,
-			// but TypeScript needs a handler
-			return emptySettingsFile();
-		},
+		() => emptySettingsFile(),
 	) as TE.TaskEither<never, SettingsFile>;
 
 /**
@@ -105,7 +101,6 @@ export const loadSettings = (
 				loadSettingsFile(localPath)(),
 			]);
 
-			// Both results should be Right since loadSettingsFile never fails
 			const globalSettings =
 				"right" in globalResult ? globalResult.right : emptySettingsFile();
 			const localSettings =
@@ -118,15 +113,12 @@ export const loadSettings = (
 				localPath,
 			};
 		},
-		() => {
-			// Fallback in case of unexpected error
-			return {
-				global: emptySettingsFile(),
-				local: emptySettingsFile(),
-				globalPath,
-				localPath,
-			};
-		},
+		() => ({
+			global: emptySettingsFile(),
+			local: emptySettingsFile(),
+			globalPath,
+			localPath,
+		}),
 	) as TE.TaskEither<never, LoadedSettings>;
 };
 
@@ -160,7 +152,6 @@ export const loadSettingsFileForValidation = async (
 		return { exists: true, valid: true, content: parsed };
 	} catch (e) {
 		const message = e instanceof Error ? e.message : String(e);
-		// Try to extract line number from TOML parse error
 		const lineMatch = message.match(/line (\d+)/i);
 		const line = lineMatch ? Number.parseInt(lineMatch[1], 10) : undefined;
 		return { exists: true, valid: false, content: null, error: message, line };

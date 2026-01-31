@@ -48,7 +48,6 @@ type ParsedToken =
  * Returns the parsed token type or null if not recognized.
  */
 const parseToken = (token: string): ParsedToken | null => {
-	// Try required positional: <name>
 	const requiredMatch = token.match(REQUIRED_POS);
 	if (requiredMatch) {
 		return {
@@ -61,8 +60,6 @@ const parseToken = (token: string): ParsedToken | null => {
 		};
 	}
 
-	// Try variadic positional: [name...] or [name..]
-	// Must check before optional to avoid false match
 	const variadicMatch = token.match(VARIADIC_POS);
 	if (variadicMatch) {
 		return {
@@ -75,7 +72,6 @@ const parseToken = (token: string): ParsedToken | null => {
 		};
 	}
 
-	// Try optional positional: [name]
 	const optionalMatch = token.match(OPTIONAL_POS);
 	if (optionalMatch) {
 		return {
@@ -88,8 +84,6 @@ const parseToken = (token: string): ParsedToken | null => {
 		};
 	}
 
-	// Try value flag: [--name=value]
-	// Must check before bool flag to avoid false match
 	const valueFlagMatch = token.match(VALUE_FLAG);
 	if (valueFlagMatch) {
 		return {
@@ -102,7 +96,6 @@ const parseToken = (token: string): ParsedToken | null => {
 		};
 	}
 
-	// Try boolean flag: [--name]
 	const boolFlagMatch = token.match(BOOL_FLAG);
 	if (boolFlagMatch) {
 		return {
@@ -185,12 +178,6 @@ export const parseArgumentHint = (
 		}
 	}
 
-	// Warn about unrecognized tokens but don't fail
-	// This allows forward compatibility with new syntax
-	if (unrecognized.length > 0) {
-		// In strict mode we would fail here, but for now we just ignore
-		// unrecognized tokens to maintain backward compatibility
-	}
 
 	const validationResult = validateVariadicPosition(positional);
 	if (E.isLeft(validationResult)) {

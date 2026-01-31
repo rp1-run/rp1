@@ -72,20 +72,15 @@ export const parseRawArguments = (rawArgs: readonly string[]): ParsedCLI => {
 
 	for (const arg of rawArgs) {
 		if (arg.startsWith("--")) {
-			// Handle --name=value
 			const equalsIndex = arg.indexOf("=");
 			if (equalsIndex !== -1) {
 				const name = arg.slice(2, equalsIndex);
 				const value = arg.slice(equalsIndex + 1);
 				flags[name] = value;
-			}
-			// Handle --no-name (negated boolean)
-			else if (arg.startsWith("--no-")) {
+			} else if (arg.startsWith("--no-")) {
 				const name = arg.slice(5);
 				flags[name] = false;
-			}
-			// Handle --name (boolean true)
-			else {
+			} else {
 				const name = arg.slice(2);
 				flags[name] = true;
 			}
@@ -112,21 +107,17 @@ const mapPositionalArgsWithSchema = (
 		const posArg = schema.positional[i];
 
 		if (posArg.variadic) {
-			// Variadic: collect all remaining positional args
 			const remaining = positionalArgs.slice(argIndex);
 			if (remaining.length > 0) {
 				result[posArg.name] = remaining.join(" ");
 			}
-			// Variadic args don't need to be present
 			break;
 		}
 
 		if (argIndex < positionalArgs.length) {
-			// We have an argument for this position
 			result[posArg.name] = positionalArgs[argIndex];
 			argIndex++;
 		} else if (posArg.required) {
-			// Required argument is missing
 			return E.left(
 				transformError(
 					"missing-required-arg",
@@ -134,10 +125,8 @@ const mapPositionalArgsWithSchema = (
 				),
 			);
 		}
-		// Optional args can be missing
 	}
 
-	// Collect any extra positional args not mapped by schema into ARGUMENTS
 	const extraArgs = positionalArgs.slice(argIndex);
 	if (extraArgs.length > 0 && !schema.positional.some((p) => p.variadic)) {
 		result.ARGUMENTS = extraArgs.join(" ");
@@ -156,12 +145,10 @@ const applyFlagDefaults = (
 ): Record<string, string | boolean> => {
 	const result: Record<string, string | boolean> = {};
 
-	// First, apply defaults from schema
 	for (const flagDef of schema.flags) {
 		result[flagDef.name] = flagDef.defaultValue;
 	}
 
-	// Then, override with CLI-provided flags
 	for (const [name, value] of Object.entries(cliFlags)) {
 		result[name] = value;
 	}
@@ -181,7 +168,6 @@ const mapPositionalArgsFallback = (
 		result[`ARG_${i + 1}`] = positionalArgs[i];
 	}
 
-	// Also include all args as ARGUMENTS
 	if (positionalArgs.length > 0) {
 		result.ARGUMENTS = positionalArgs.join(" ");
 	}
@@ -251,19 +237,13 @@ const transformWithSchema = (
 	pipe(
 		mapPositionalArgsWithSchema(parsedCLI.positionalArgs, schema),
 		E.map((positionalVars) => {
-			// Apply flag defaults and merge with CLI flags
 			const flagsWithDefaults = applyFlagDefaults(parsedCLI.flags, schema);
-
-			// Combine positional and flag variables
 			const allVars: Record<string, string | boolean> = {
 				...positionalVars,
 				...flagsWithDefaults,
 			};
 
-			// Convert to output format
 			let variables = convertToOutputVariables(allVars);
-
-			// Apply settings
 			variables = applySettings(variables, parsedCLI.flags, mergedSettings);
 
 			return {
@@ -282,19 +262,13 @@ const transformWithFallback = (
 	fallbackReason: string,
 	mergedSettings: MergedSettings,
 ): TransformResult => {
-	// Map positional args as ARG_1, ARG_2, etc.
 	const positionalVars = mapPositionalArgsFallback(parsedCLI.positionalArgs);
-
-	// Pass through flags as-is
 	const allVars: Record<string, string | boolean> = {
 		...positionalVars,
 		...parsedCLI.flags,
 	};
 
-	// Convert to output format
 	let variables = convertToOutputVariables(allVars);
-
-	// Apply settings
 	variables = applySettings(variables, parsedCLI.flags, mergedSettings);
 
 	return {
@@ -325,29 +299,20 @@ export const transformArgs = (
 	projectRoot: string = process.cwd(),
 ): TE.TaskEither<TransformError, TransformResult> =>
 	pipe(
-		// Step 1: Look up plugin command (never fails, returns fallback on error)
 		lookupPluginCommandWithFallback(pluginCommand, projectRoot),
 		TE.chain((lookupOutcome: PluginLookupOutcome) =>
 			pipe(
-				// Step 2: Load settings
 				loadSettings(projectRoot),
 				TE.chain((loadedSettings) => {
-					// Parse raw arguments
 					const parsedCLI = parseRawArguments(rawArgs);
-
-					// Build CLI arguments for settings merger
 					const cliArguments: CLIArguments = { ...parsedCLI.flags };
-
-					// Merge settings
 					const mergedSettings = mergeSettings({
 						globalSettings: loadedSettings.global,
 						localSettings: loadedSettings.local,
 						cliArguments,
 					});
 
-					// Step 3: Transform based on lookup outcome
 					if (isFallback(lookupOutcome)) {
-						// Fallback mode
 						return TE.right(
 							transformWithFallback(
 								parsedCLI,
@@ -357,11 +322,9 @@ export const transformArgs = (
 						);
 					}
 
-					// Schema mode - parse the argument-hint
 					const schemaResult = parseArgumentHint(lookupOutcome.argumentHint);
 
 					if (E.isLeft(schemaResult)) {
-						// Schema parse error - use fallback
 						const reason = `Schema parse error: ${schemaResult.left.message}`;
 						console.error(
 							`Warning: ${reason}. Using fallback argument parsing.`,
@@ -371,7 +334,6 @@ export const transformArgs = (
 						);
 					}
 
-					// Transform with schema
 					const transformResult = transformWithSchema(
 						parsedCLI,
 						schemaResult.right,

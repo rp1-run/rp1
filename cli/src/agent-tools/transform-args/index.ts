@@ -18,9 +18,7 @@ import {
 } from "./settings-loader.js";
 import { type TransformError, transformArgs } from "./transformer.js";
 
-// Re-export formatter functions
 export { formatOutput, formatOutputWithWarnings } from "./formatter.js";
-// Re-export public types from models
 export type {
 	ArgumentSchema,
 	FileValidation,
@@ -32,9 +30,7 @@ export type {
 	SettingsValidationResult,
 	TransformResult,
 } from "./models.js";
-// Re-export schema parser
 export { parseArgumentHint } from "./schema.js";
-// Re-export settings utilities
 export {
 	loadSettings,
 	loadSettingsFile,
@@ -43,7 +39,6 @@ export {
 } from "./settings-loader.js";
 export { emptyMergedSettings, mergeSettings } from "./settings-merger.js";
 export type { TransformError } from "./transformer.js";
-// Re-export transformation functions
 export { transformArgs, transformArgsSync } from "./transformer.js";
 
 /** Tool name used for registration and output */
@@ -73,7 +68,6 @@ export const execute = (
 	input: string,
 	_options: ToolOptions,
 ): TE.TaskEither<CLIError, ToolResult<TransformArgsData>> => {
-	// Parse input JSON
 	let parsed: { pluginCommand: string; args?: string[] };
 	try {
 		parsed = JSON.parse(input);
@@ -165,7 +159,6 @@ export const validateSettings = async (
 		line: localResult.line,
 	};
 
-	// Overall valid if both files are valid (or don't exist)
 	const valid = globalFile.valid && localFile.valid;
 
 	return { valid, globalFile, localFile };

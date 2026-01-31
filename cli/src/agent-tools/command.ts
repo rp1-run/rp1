@@ -43,7 +43,6 @@ import {
 	executeStatus,
 } from "./worktree/index.js";
 
-// Lazy-load tools to register them with the framework
 import "./mmd-validate/index.js";
 import "./rp1-root-dir/index.js";
 import "./worktree/index.js";
@@ -198,9 +197,6 @@ Examples:
 			}
 
 			console.log(formatOutput(result.right));
-
-			// Exit code 0 for validation results, even if diagrams are invalid
-			// (success: false in JSON indicates validation failures, not tool errors)
 			process.exit(0);
 		},
 	);
@@ -241,7 +237,6 @@ Examples:
 			process.exit(1);
 		}
 
-		// Execute the tool (no input required, but ToolOptions needs inputSource)
 		const result = await tool.execute("", { inputSource: "stdin" })();
 
 		if (E.isLeft(result)) {
@@ -950,7 +945,6 @@ Examples:
 `,
 	)
 	.action(async (pluginCommand: string, args: string[]): Promise<void> => {
-		// Lazy-load the transform-args module
 		const {
 			transformArgs: executeTransform,
 			formatOutput: formatTransformOutput,
@@ -959,15 +953,12 @@ Examples:
 		const result = await executeTransform(pluginCommand, args)();
 
 		if (E.isLeft(result)) {
-			// Required argument missing - output error and exit non-zero
 			console.error(`Error: ${result.left.message}`);
 			process.exit(1);
 		}
 
-		// Output formatted VARIABLE=value lines
 		console.log(formatTransformOutput(result.right));
 
-		// Log warnings to stderr if any
 		if (result.right.warnings.length > 0) {
 			for (const warning of result.right.warnings) {
 				console.error(`Warning: ${warning}`);
