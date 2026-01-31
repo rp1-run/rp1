@@ -155,7 +155,6 @@ const validateVariadicPosition = (
 export const parseArgumentHint = (
 	hint: string,
 ): E.Either<SchemaParseError, ArgumentSchema> => {
-	// Handle empty hint
 	const trimmed = hint.trim();
 	if (trimmed === "") {
 		return E.right({
@@ -165,7 +164,6 @@ export const parseArgumentHint = (
 		});
 	}
 
-	// Tokenize by whitespace
 	const tokens = trimmed.split(/\s+/);
 
 	const positional: PositionalArg[] = [];
@@ -194,7 +192,6 @@ export const parseArgumentHint = (
 		// unrecognized tokens to maintain backward compatibility
 	}
 
-	// Validate variadic position
 	const validationResult = validateVariadicPosition(positional);
 	if (E.isLeft(validationResult)) {
 		return validationResult;
