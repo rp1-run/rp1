@@ -90,7 +90,7 @@ export const formatOutput = (result: TransformResult): string => {
 	const { variables } = result;
 
 	// Add RP1_VERSION and RP1_ROOT for version gating and path resolution
-	const allVariables = {
+	const allVariables: Record<string, string> = {
 		...variables,
 		RP1_ROOT: resolveRP1Root(),
 		RP1_VERSION,

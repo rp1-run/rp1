@@ -178,7 +178,6 @@ export const parseArgumentHint = (
 		}
 	}
 
-
 	const validationResult = validateVariadicPosition(positional);
 	if (E.isLeft(validationResult)) {
 		return validationResult;
