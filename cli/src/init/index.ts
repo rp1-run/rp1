@@ -410,27 +410,78 @@ async function createDirectoryStructure(
 }
 
 /**
- * Default settings template with all flags disabled for safety.
- * Users can enable features as needed after reviewing the settings.
+ * Default settings with all flags disabled for safety.
  */
-const DEFAULT_SETTINGS_TEMPLATE = `# rp1 Settings
+const DEFAULT_SETTINGS: Record<string, boolean> = {
+	git_worktree: false,
+	git_commit: false,
+	git_push: false,
+	afk: false,
+};
+
+/**
+ * Generate settings TOML content with comments.
+ * Preserves user values while adding any new schema fields.
+ */
+function generateSettingsToml(settings: Record<string, boolean>): string {
+	return `# rp1 Settings
 # Documentation: https://rp1.run/configuration/settings
 
 # All settings are disabled by default for safety.
 # Enable features by changing false to true.
 
 # Enable git worktree isolation for build commands
-git_worktree = false
+git_worktree = ${settings.git_worktree ?? false}
 
 # Automatically commit changes after builds
-git_commit = false
+git_commit = ${settings.git_commit ?? false}
 
 # Automatically push branches to remote
-git_push = false
+git_push = ${settings.git_push ?? false}
 
 # Enable AFK (unattended) mode for automated workflows
-afk = false
+afk = ${settings.afk ?? false}
 `;
+}
+
+/**
+ * Parse existing settings file and extract known boolean settings.
+ */
+async function parseExistingSettings(
+	filePath: string,
+): Promise<Record<string, boolean> | null> {
+	try {
+		const file = Bun.file(filePath);
+		if (!(await file.exists())) {
+			return null;
+		}
+		const content = await file.text();
+		const parsed = Bun.TOML.parse(content) as Record<string, unknown>;
+
+		const settings: Record<string, boolean> = {};
+		for (const key of Object.keys(DEFAULT_SETTINGS)) {
+			if (typeof parsed[key] === "boolean") {
+				settings[key] = parsed[key];
+			}
+		}
+		return settings;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Merge existing settings with defaults.
+ * User values take precedence, new schema fields get defaults.
+ */
+function mergeSettings(
+	existing: Record<string, boolean> | null,
+): Record<string, boolean> {
+	if (!existing) {
+		return { ...DEFAULT_SETTINGS };
+	}
+	return { ...DEFAULT_SETTINGS, ...existing };
+}
 
 /**
  * Resolve the global settings file path.
@@ -449,8 +500,48 @@ function resolveLocalSettingsPath(cwd: string): string {
 }
 
 /**
+ * Create or update a single settings file with merge logic.
+ * If file exists, merges with existing settings (user values preserved).
+ * New schema fields are added with defaults.
+ */
+async function createOrUpdateSettingsFile(
+	filePath: string,
+): Promise<{ action: InitAction; isNew: boolean; addedFields: string[] }> {
+	const existing = await parseExistingSettings(filePath);
+	const merged = mergeSettings(existing);
+	const content = generateSettingsToml(merged);
+
+	// Determine what changed
+	const addedFields: string[] = [];
+	if (existing) {
+		for (const key of Object.keys(DEFAULT_SETTINGS)) {
+			if (!(key in existing)) {
+				addedFields.push(key);
+			}
+		}
+	}
+
+	await writeFileContent(filePath, content);
+
+	if (!existing) {
+		return {
+			action: { type: "created_file", path: filePath },
+			isNew: true,
+			addedFields: [],
+		};
+	}
+
+	return {
+		action: { type: "updated_file", path: filePath },
+		isNew: false,
+		addedFields,
+	};
+}
+
+/**
  * Create settings files in both global and local locations.
- * Only creates files if they don't already exist to preserve user customizations.
+ * Safely merges with existing settings - user values are preserved,
+ * new schema fields are added with defaults.
  */
 async function createSettingsFiles(
 	cwd: string,
@@ -458,26 +549,38 @@ async function createSettingsFiles(
 ): Promise<InitAction[]> {
 	const actions: InitAction[] = [];
 
-	// Create global settings file
+	logger.info(
+		"Settings files can be safely re-initialized - your values are preserved",
+	);
+
+	// Process global settings file
 	const globalPath = resolveGlobalSettingsPath();
-	if (!(await fileExists(globalPath))) {
-		logger.info(`Creating global settings: ${globalPath}`);
-		await writeFileContent(globalPath, DEFAULT_SETTINGS_TEMPLATE);
-		actions.push({ type: "created_file", path: globalPath });
-		logger.success("Created global settings file");
+	const globalResult = await createOrUpdateSettingsFile(globalPath);
+	actions.push(globalResult.action);
+
+	if (globalResult.isNew) {
+		logger.success(`Created global settings: ${globalPath}`);
+	} else if (globalResult.addedFields.length > 0) {
+		logger.success(
+			`Updated global settings (added: ${globalResult.addedFields.join(", ")})`,
+		);
 	} else {
-		logger.info("Global settings file already exists, preserving");
+		logger.info("Global settings unchanged (already up to date)");
 	}
 
-	// Create local settings file
+	// Process local settings file
 	const localPath = resolveLocalSettingsPath(cwd);
-	if (!(await fileExists(localPath))) {
-		logger.info(`Creating local settings: ${localPath}`);
-		await writeFileContent(localPath, DEFAULT_SETTINGS_TEMPLATE);
-		actions.push({ type: "created_file", path: localPath });
-		logger.success("Created local settings file");
+	const localResult = await createOrUpdateSettingsFile(localPath);
+	actions.push(localResult.action);
+
+	if (localResult.isNew) {
+		logger.success(`Created local settings: ${localPath}`);
+	} else if (localResult.addedFields.length > 0) {
+		logger.success(
+			`Updated local settings (added: ${localResult.addedFields.join(", ")})`,
+		);
 	} else {
-		logger.info("Local settings file already exists, preserving");
+		logger.info("Local settings unchanged (already up to date)");
 	}
 
 	return actions;

@@ -455,7 +455,11 @@ export const useStepExecution = ({
 
 			// Skip if update mode to preserve existing settings
 			if (state.userChoices.reinitChoice === "update") {
-				addAct("settings-setup", "Settings files preserved (update mode)", "info");
+				addAct(
+					"settings-setup",
+					"Settings files preserved (update mode)",
+					"info",
+				);
 				return;
 			}
 
