@@ -693,16 +693,8 @@ export const useStepExecution = ({
 		async (addAct: AddActivityFn): Promise<void> => {
 			const ctx = contextRef.current;
 
-			// Skip if update mode
-			if (state.userChoices.reinitChoice === "update") {
-				addAct("plugin-installation", "Skipped (update mode)", "info");
-				dispatch({
-					type: "SKIP_STEP",
-					stepId: "plugin-installation",
-					reason: "Update mode - plugins already installed",
-				});
-				return;
-			}
+			// Note: We don't skip plugin installation in update mode
+			// because it's idempotent - worst case it updates to latest version
 
 			if (!ctx.primaryTool) {
 				addAct(
@@ -801,7 +793,7 @@ export const useStepExecution = ({
 				// Don't throw - plugin installation failures shouldn't block init
 			}
 		},
-		[dispatch, state.userChoices.reinitChoice],
+		[dispatch],
 	);
 
 	/**

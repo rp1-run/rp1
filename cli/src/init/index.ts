@@ -1045,39 +1045,33 @@ export function executeInit(
 
 				let pluginStatus: readonly PluginStatus[] = [];
 
-				if (isUpdateOnly) {
+				// Always attempt plugin installation - it's idempotent
+				// Worst case it updates to the latest version
+				progress.startStep("plugin-installation");
+
+				try {
+					const { actions: pluginActions } = await executePluginInstallation(
+						primaryTool || null,
+						promptOptions,
+						logger,
+					);
+					allActions.push(...pluginActions);
+					progress.completeStep();
+				} catch (error) {
+					const errorMessage =
+						error instanceof Error ? error.message : String(error);
+					logger.warn(`Plugin installation error: ${errorMessage}`);
 					allActions.push({
-						type: "skipped",
-						reason: "Plugin installation skipped (update mode)",
+						type: "plugin_install_failed",
+						name: "rp1-plugins",
+						error: errorMessage,
 					});
+					allWarnings.push(`Plugin installation failed: ${errorMessage}`);
+					progress.failStep();
+				}
 
-					progress.startStep("plugin-installation");
-					progress.skipStep();
-
+				if (isUpdateOnly) {
 					logger.success("rp1 configuration updated!");
-				} else {
-					progress.startStep("plugin-installation");
-
-					try {
-						const { actions: pluginActions } = await executePluginInstallation(
-							primaryTool || null,
-							promptOptions,
-							logger,
-						);
-						allActions.push(...pluginActions);
-						progress.completeStep();
-					} catch (error) {
-						const errorMessage =
-							error instanceof Error ? error.message : String(error);
-						logger.warn(`Plugin installation error: ${errorMessage}`);
-						allActions.push({
-							type: "plugin_install_failed",
-							name: "rp1-plugins",
-							error: errorMessage,
-						});
-						allWarnings.push(`Plugin installation failed: ${errorMessage}`);
-						progress.failStep();
-					}
 				}
 
 				progress.startStep("verification");
