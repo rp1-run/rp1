@@ -4,6 +4,7 @@
  */
 
 import * as fs from "node:fs/promises";
+import { homedir } from "node:os";
 import * as path from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
@@ -99,6 +100,7 @@ const INIT_STEPS = [
 	{ name: "git-check", description: "Checking git repository..." },
 	{ name: "reinit-check", description: "Checking existing setup..." },
 	{ name: "directory-setup", description: "Setting up directory structure..." },
+	{ name: "settings-setup", description: "Creating settings files..." },
 	{ name: "tool-detection", description: "Detecting agentic tools..." },
 	{
 		name: "instruction-injection",
@@ -402,6 +404,80 @@ async function createDirectoryStructure(
 		await fs.mkdir(workDir, { recursive: true });
 		logger.info(`Created: ${workDir}`);
 		actions.push({ type: "created_directory", path: workDir });
+	}
+
+	return actions;
+}
+
+/**
+ * Default settings template with all flags disabled for safety.
+ * Users can enable features as needed after reviewing the settings.
+ */
+const DEFAULT_SETTINGS_TEMPLATE = `# rp1 Settings
+# Documentation: https://rp1.run/configuration/settings
+
+# All settings are disabled by default for safety.
+# Enable features by changing false to true.
+
+# Enable git worktree isolation for build commands
+git_worktree = false
+
+# Automatically commit changes after builds
+git_commit = false
+
+# Automatically push branches to remote
+git_push = false
+
+# Enable AFK (unattended) mode for automated workflows
+afk = false
+`;
+
+/**
+ * Resolve the global settings file path.
+ * Uses ~/.config/rp1/settings.toml to match settings-loader.ts.
+ */
+function resolveGlobalSettingsPath(): string {
+	return path.join(homedir(), ".config", "rp1", "settings.toml");
+}
+
+/**
+ * Resolve the local settings file path.
+ */
+function resolveLocalSettingsPath(cwd: string): string {
+	const rp1Root = process.env.RP1_ROOT || ".rp1";
+	return path.join(cwd, rp1Root, "settings.toml");
+}
+
+/**
+ * Create settings files in both global and local locations.
+ * Only creates files if they don't already exist to preserve user customizations.
+ */
+async function createSettingsFiles(
+	cwd: string,
+	logger: Logger,
+): Promise<InitAction[]> {
+	const actions: InitAction[] = [];
+
+	// Create global settings file
+	const globalPath = resolveGlobalSettingsPath();
+	if (!(await fileExists(globalPath))) {
+		logger.info(`Creating global settings: ${globalPath}`);
+		await writeFileContent(globalPath, DEFAULT_SETTINGS_TEMPLATE);
+		actions.push({ type: "created_file", path: globalPath });
+		logger.success("Created global settings file");
+	} else {
+		logger.info("Global settings file already exists, preserving");
+	}
+
+	// Create local settings file
+	const localPath = resolveLocalSettingsPath(cwd);
+	if (!(await fileExists(localPath))) {
+		logger.info(`Creating local settings: ${localPath}`);
+		await writeFileContent(localPath, DEFAULT_SETTINGS_TEMPLATE);
+		actions.push({ type: "created_file", path: localPath });
+		logger.success("Created local settings file");
+	} else {
+		logger.info("Local settings file already exists, preserving");
 	}
 
 	return actions;
@@ -797,6 +873,19 @@ export function executeInit(
 					allActions.push({
 						type: "skipped",
 						reason: "Directory structure already exists (update mode)",
+					});
+					progress.skipStep();
+				}
+
+				progress.startStep("settings-setup");
+				if (!isUpdateOnly) {
+					const settingsActions = await createSettingsFiles(cwd, logger);
+					allActions.push(...settingsActions);
+					progress.completeStep();
+				} else {
+					allActions.push({
+						type: "skipped",
+						reason: "Settings files preserved (update mode)",
 					});
 					progress.skipStep();
 				}
