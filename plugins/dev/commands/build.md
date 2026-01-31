@@ -2,7 +2,7 @@
 name: build
 version: 3.0.0
 description: End-to-end feature workflow (requirements -> design -> tasks -> build -> verify -> archive) in a single command.
-argument-hint: "<feature-id> [requirements] [--afk] [--git-worktree] [--git-commit] [--git-push] [--git-pr]"
+argument-hint: "<feature-id> [requirements...] [--afk] [--git-worktree] [--git-commit] [--git-push] [--git-pr]"
 tags:
   - core
   - feature
@@ -15,25 +15,30 @@ author: cloud-on-prem/rp1
 
 6-step workflow orchestrator. Delegates execution to specialized agents.
 
-## 0. Parameters
+## §PARSE-ARGS
 
-| Name | Position | Default | Purpose |
-|------|-----|---------|---------|
-| FEATURE_ID | $1 | (req) | Feature identifier |
-| REQUIREMENTS | $2 | "" | Raw requirements |
-| --afk | flag | false | Non-interactive mode |
-| --git-worktree | flag | false | Use isolated git worktree |
-| --git-commit | flag | false | Commit changes after build |
-| --git-push | flag | false | Push branch to remote |
-| --git-pr | flag | false | Create PR (implies --git-push, --git-commit) |
-| RP1_ROOT | env | `.rp1/` | Root dir |
+**Run**:
+```bash
+rp1 agent-tools transform-args rp1-dev:build $ARGUMENTS
+```
+
+**On success**: Parse output as `NAME=value` lines. Variables available:
+- `FEATURE_ID` - Feature identifier (required)
+- `REQUIREMENTS` - Raw requirements text
+- `AFK` - Non-interactive mode flag
+- `GIT_WORKTREE` - Use isolated git worktree
+- `GIT_COMMIT` - Commit changes after build
+- `GIT_PUSH` - Push branch to remote
+- `GIT_PR` - Create PR (implies push, commit)
+
+**On error** (command not found / unknown command):
+```
+ERROR: CLI version mismatch. The rp1 CLI needs to be updated.
+Please run `/rp1-base:self-update` to update, then retry this command.
+```
+STOP execution.
 
 $RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
-
-<feature_id>$1</feature_id>
-<requirements>$2</requirements>
-
-**Parse flags**: `AFK_MODE`, `GIT_WORKTREE`, `GIT_COMMIT`, `GIT_PUSH`, `GIT_PR` from args.
 
 **Feature dir**: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`
 
@@ -96,12 +101,12 @@ Steps 1-3 foundational -> ABORT on fail. Steps 4-6 -> retry/prompt. NEVER delete
 
 ```
 Task: rp1-dev:feature-requirement-gatherer
-prompt: FEATURE_ID={FEATURE_ID}, REQUIREMENTS={requirements}, AFK_MODE={AFK_MODE}, RP1_ROOT={{$RP1_ROOT}}
+prompt: FEATURE_ID={FEATURE_ID}, REQUIREMENTS={REQUIREMENTS}, AFK={AFK}, RP1_ROOT={{$RP1_ROOT}}
 ```
 
 ### §1.1 Requirements Review Checkpoint
 
-**Skip if**: AFK_MODE
+**Skip if**: AFK
 
 After requirements completes, pause for user review:
 
@@ -130,7 +135,7 @@ AskUserQuestion: |
 
 ```
 Task: rp1-dev:feature-architect
-prompt: FEATURE_ID={FEATURE_ID}, AFK_MODE={AFK_MODE}, UPDATE_MODE={design.md exists}, RP1_ROOT={{$RP1_ROOT}}
+prompt: FEATURE_ID={FEATURE_ID}, AFK={AFK}, UPDATE_MODE={design.md exists}, RP1_ROOT={{$RP1_ROOT}}
 ```
 
 If `flagged_hypotheses` non-empty:
@@ -147,7 +152,7 @@ prompt: FEATURE_ID={FEATURE_ID}, UPDATE_MODE={UPDATE_MODE}, RP1_ROOT={{$RP1_ROOT
 
 ### §2.1 Design Review Checkpoint
 
-**Skip if**: AFK_MODE
+**Skip if**: AFK
 
 After design completes, pause for user review:
 
@@ -183,7 +188,7 @@ prompt: FEATURE_ID={FEATURE_ID}, UPDATE_MODE=false, RP1_ROOT={{$RP1_ROOT}}
 
 ### §3.1 Tasks Review Checkpoint
 
-**Skip if**: AFK_MODE
+**Skip if**: AFK
 
 After tasks completes, pause for user review:
 
@@ -265,7 +270,7 @@ for unit in task_units:
 
 ### §4.6 Build Review Checkpoint
 
-**Skip if**: AFK_MODE
+**Skip if**: AFK
 
 After build completes, pause for user review:
 
@@ -351,7 +356,7 @@ Output: Feature ID, step status table (1-6), artifacts created.
 
 ### §6.1 Post-Verify (Interactive Only)
 
-**Skip if**: AFK_MODE
+**Skip if**: AFK
 
 AskUserQuestion: "Add task" -> spawn builder/reviewer. "Archive" -> Step 6. "Do nothing" -> exit.
 
