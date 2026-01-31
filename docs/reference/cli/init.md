@@ -16,13 +16,14 @@ The `init` command provides a comprehensive bootstrap experience for users adopt
 
 1. **Git Root Detection** - Verifies you're at the repository root (with monorepo support)
 2. **Directory Setup** - Creates `.rp1/`, `.rp1/context/`, and `.rp1/work/` directories
-3. **Tool Detection** - Identifies installed AI assistants (Claude Code or OpenCode)
-4. **Instruction Injection** - Adds rp1 instructions to `CLAUDE.md` or `AGENTS.md`
-5. **Git Configuration** - Configures `.gitignore` for rp1 artifacts
-6. **Plugin Installation** - Installs rp1 plugins for detected AI tools
-7. **Plugin Verification** - Verifies plugins were installed correctly
-8. **Health Check** - Validates the complete setup
-9. **Summary & Next Steps** - Displays actions taken and recommended next steps
+3. **Settings Setup** - Creates settings files in global (`~/.config/rp1/settings.toml`) and local (`.rp1/settings.toml`) locations with safe defaults
+4. **Tool Detection** - Identifies installed AI assistants (Claude Code or OpenCode)
+5. **Instruction Injection** - Adds rp1 instructions to `CLAUDE.md` or `AGENTS.md`
+6. **Git Configuration** - Configures `.gitignore` for rp1 artifacts
+7. **Plugin Installation** - Installs rp1 plugins for detected AI tools
+8. **Plugin Verification** - Verifies plugins were installed correctly
+9. **Health Check** - Validates the complete setup
+10. **Summary & Next Steps** - Displays actions taken and recommended next steps
 
 The command is fully interactive when run in a terminal, or uses sensible defaults when run in CI/automation environments.
 
@@ -35,10 +36,10 @@ The command is fully interactive when run in a terminal, or uses sensible defaul
 
 ## Progress Visualization
 
-The init command displays a step-by-step wizard interface with real-time progress. The wizard shows all 8 steps with their current status, and each step displays activity logs as it executes:
+The init command displays a step-by-step wizard interface with real-time progress. The wizard shows all 12 steps with their current status, and each step displays activity logs as it executes:
 
 ```
-rp1 init                                              Step 4 of 8
+rp1 init                                              Step 6 of 12
 
   ✓ Loading tools registry
     └─ Registry loaded successfully
@@ -46,8 +47,14 @@ rp1 init                                              Step 4 of 8
   ✓ Checking git repository
     └─ At repository root
 
+  ✓ Checking existing setup
+
   ✓ Setting up directories
     └─ Created .rp1/context/
+
+  ✓ Creating settings files
+    └─ Created global settings file
+    └─ Created local settings file
 
   ◐ Detecting AI tools...
     └─ Found: Claude Code v2.0.75
@@ -55,21 +62,27 @@ rp1 init                                              Step 4 of 8
   ○ Configuring instruction file
   ○ Configuring .gitignore
   ○ Installing plugins
+  ○ Verifying plugins
   ○ Health check
+  ○ Generating summary
 ```
 
-### The 8 Steps
+### The 12 Steps
 
 | Step | Name | Description |
 |------|------|-------------|
 | 1 | Loading tools registry | Loads the supported AI tools configuration |
 | 2 | Checking git repository | Detects git root and offers monorepo options |
-| 3 | Setting up directories | Creates `.rp1/`, `.rp1/context/`, and `.rp1/work/` |
-| 4 | Detecting AI tools | Finds installed AI assistants (Claude Code, OpenCode) |
-| 5 | Configuring instruction file | Injects rp1 content into `CLAUDE.md` or `AGENTS.md` |
-| 6 | Configuring .gitignore | Adds rp1 entries with selected preset |
-| 7 | Installing plugins | Installs rp1-base and rp1-dev for all detected tools |
-| 8 | Health check | Validates the complete setup |
+| 3 | Checking existing setup | Detects if rp1 is already initialized |
+| 4 | Setting up directories | Creates `.rp1/`, `.rp1/context/`, and `.rp1/work/` |
+| 5 | Creating settings files | Creates settings files with safe defaults (all flags disabled) |
+| 6 | Detecting AI tools | Finds installed AI assistants (Claude Code, OpenCode) |
+| 7 | Configuring instruction file | Injects rp1 content into `CLAUDE.md` or `AGENTS.md` |
+| 8 | Configuring .gitignore | Adds rp1 entries with selected preset |
+| 9 | Installing plugins | Installs rp1-base and rp1-dev for all detected tools |
+| 10 | Verifying plugins | Verifies plugins were installed correctly |
+| 11 | Health check | Validates the complete setup |
+| 12 | Generating summary | Displays actions taken and recommended next steps |
 
 ### Status Icons
 
