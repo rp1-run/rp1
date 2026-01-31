@@ -49,14 +49,17 @@ function suiteToCommandKey(suite: string): string {
 
 /**
  * Extract suite name from output filename.
- * e.g., "rp1-dev-build-fast-2026-01-22T10-30-00.json" -> "rp1-dev/build-fast"
+ * Handles both fixed and legacy timestamped filenames:
+ * - "rp1-dev-build-fast.json" -> "rp1-dev/build-fast" (fixed)
+ * - "rp1-dev-build-fast-2026-01-22T10-30-00.json" -> "rp1-dev/build-fast" (legacy)
  *
  * @param outputPath - Path to the output file
  * @returns Suite path in format "plugin/command"
  */
 export function extractSuiteFromFilename(outputPath: string): string {
 	const filename = path.basename(outputPath, ".json");
-	// Remove timestamp suffix (pattern: -YYYY-MM-DDTHH-MM-SS)
+	// Remove timestamp suffix if present (pattern: -YYYY-MM-DDTHH-MM-SS)
+	// This handles legacy timestamped files while fixed filenames pass through unchanged
 	const withoutTimestamp = filename.replace(
 		/-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}$/,
 		"",
@@ -179,6 +182,7 @@ function computeAllHashes(
 /**
  * Attest a command after running its eval suite.
  * Only updates attestation on 100% pass.
+ * Uses a fixed output filename per suite (overwrites on each run).
  *
  * @param suite - Suite path (e.g., "rp1-dev/build-fast")
  * @param concurrency - Max concurrent API calls (default: 1)
@@ -191,9 +195,8 @@ export function attestCommand(
 	const commandKey = suiteToCommandKey(suite);
 	const commandPath = suiteToCommandPath(suite);
 	const timestamp = new Date().toISOString();
-	// Use full timestamp for unique filenames (replace colons for filesystem compatibility)
-	const fileTimestamp = timestamp.slice(0, 19).replace(/:/g, "-");
-	const resultFile = `output/${suite.replace("/", "-")}-${fileTimestamp}.json`;
+	// Fixed filename per suite (no timestamp accumulation)
+	const resultFile = `output/${suite.replace("/", "-")}.json`;
 
 	return pipe(
 		TE.Do,
