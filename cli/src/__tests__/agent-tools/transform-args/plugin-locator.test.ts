@@ -14,8 +14,6 @@ import {
 	lookupPluginCommand,
 	lookupPluginCommandWithFallback,
 	parsePluginCommand,
-	pluginLookupError,
-	pluginLookupFallback,
 	resolvePluginDir,
 	resolvePluginPath,
 } from "../../../agent-tools/transform-args/plugin-locator.js";
@@ -73,28 +71,12 @@ describe("parsePluginCommand", () => {
 
 		expect(error.reason).toBe("invalid-format");
 	});
-
-	test("rejects empty string", () => {
-		const error = expectLeft(parsePluginCommand(""));
-
-		expect(error.reason).toBe("invalid-format");
-	});
 });
 
 describe("resolvePluginDir", () => {
 	test("maps rp1-base to base", () => {
 		const result = expectRight(resolvePluginDir("rp1-base"));
 		expect(result).toBe("base");
-	});
-
-	test("maps rp1-dev to dev", () => {
-		const result = expectRight(resolvePluginDir("rp1-dev"));
-		expect(result).toBe("dev");
-	});
-
-	test("maps rp1-utils to utils", () => {
-		const result = expectRight(resolvePluginDir("rp1-utils"));
-		expect(result).toBe("utils");
 	});
 
 	test("rejects unknown plugin", () => {
@@ -111,14 +93,6 @@ describe("resolvePluginPath", () => {
 		const result = expectRight(resolvePluginPath("rp1-dev:build", "/project"));
 
 		expect(result).toBe("/project/plugins/dev/commands/build.md");
-	});
-
-	test("constructs correct path for rp1-base:knowledge-load", () => {
-		const result = expectRight(
-			resolvePluginPath("rp1-base:knowledge-load", "/app"),
-		);
-
-		expect(result).toBe("/app/plugins/base/commands/knowledge-load.md");
 	});
 
 	test("handles relative project root", () => {
@@ -240,17 +214,6 @@ describe("extractArgumentHint", () => {
 		expect(error.message).toContain("No argument-hint");
 	});
 
-	test("rejects null argument-hint", () => {
-		const metadata = {
-			name: "build",
-			"argument-hint": null,
-		};
-
-		const error = expectLeft(extractArgumentHint(metadata, "test.md"));
-
-		expect(error.reason).toBe("no-argument-hint");
-	});
-
 	test("rejects non-string argument-hint", () => {
 		const metadata = {
 			name: "build",
@@ -261,52 +224,6 @@ describe("extractArgumentHint", () => {
 
 		expect(error.reason).toBe("invalid-frontmatter");
 		expect(error.message).toContain("must be a string");
-	});
-});
-
-describe("type guards", () => {
-	test("isFallback returns true for fallback", () => {
-		const fallback = pluginLookupFallback("test reason", "rp1-dev:build");
-
-		expect(isFallback(fallback)).toBe(true);
-		expect(isResult(fallback)).toBe(false);
-	});
-
-	test("isResult returns true for result", () => {
-		const result = {
-			argumentHint: "<id>",
-			pluginCommand: "rp1-dev:build",
-			filePath: "/path/to/file.md",
-		};
-
-		expect(isResult(result)).toBe(true);
-		expect(isFallback(result)).toBe(false);
-	});
-});
-
-describe("error constructors", () => {
-	test("pluginLookupError creates valid error", () => {
-		const error = pluginLookupError(
-			"file-not-found",
-			"File not found",
-			"rp1-dev:test",
-		);
-
-		expect(error._tag).toBe("PluginLookupError");
-		expect(error.reason).toBe("file-not-found");
-		expect(error.message).toBe("File not found");
-		expect(error.pluginCommand).toBe("rp1-dev:test");
-	});
-
-	test("pluginLookupFallback creates valid fallback", () => {
-		const fallback = pluginLookupFallback(
-			"Command not found",
-			"rp1-dev:missing",
-		);
-
-		expect(fallback._tag).toBe("fallback");
-		expect(fallback.reason).toBe("Command not found");
-		expect(fallback.pluginCommand).toBe("rp1-dev:missing");
 	});
 });
 

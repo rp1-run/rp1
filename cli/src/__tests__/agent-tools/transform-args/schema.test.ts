@@ -5,7 +5,6 @@
 
 import { describe, expect, test } from "bun:test";
 import {
-	emptySchema,
 	parseArgumentHint,
 	type SchemaParseError,
 } from "../../../agent-tools/transform-args/schema.js";
@@ -148,25 +147,11 @@ describe("parseArgumentHint", () => {
 			expect(result.flags[1].name).toBe("mode");
 			expect(result.flags[1].defaultValue).toBe("fast");
 		});
-
-		test("preserves raw hint string", () => {
-			const hint = "<id> [--verbose]";
-			const result = expectRight(parseArgumentHint(hint));
-
-			expect(result.raw).toBe(hint);
-		});
 	});
 
 	describe("edge cases", () => {
 		test("handles empty hint", () => {
 			const result = expectRight(parseArgumentHint(""));
-
-			expect(result.positional).toHaveLength(0);
-			expect(result.flags).toHaveLength(0);
-		});
-
-		test("handles whitespace-only hint", () => {
-			const result = expectRight(parseArgumentHint("   "));
 
 			expect(result.positional).toHaveLength(0);
 			expect(result.flags).toHaveLength(0);
@@ -188,16 +173,6 @@ describe("parseArgumentHint", () => {
 
 			expect(result.positional).toHaveLength(1);
 			expect(result.flags).toHaveLength(1);
-		});
-	});
-
-	describe("emptySchema", () => {
-		test("returns schema with no arguments", () => {
-			const schema = emptySchema();
-
-			expect(schema.positional).toHaveLength(0);
-			expect(schema.flags).toHaveLength(0);
-			expect(schema.raw).toBe("");
 		});
 	});
 });

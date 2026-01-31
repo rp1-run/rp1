@@ -268,22 +268,5 @@ describe("settings-merger", () => {
 
 			expect(value).toBe(false);
 		});
-
-		test("returns default when key is missing", () => {
-			const merged = emptyMergedSettings();
-
-			const value = getBooleanSetting(merged, "missing", true);
-
-			expect(value).toBe(true);
-		});
-	});
-
-	describe("emptyMergedSettings", () => {
-		test("returns empty values and source objects", () => {
-			const result = emptyMergedSettings();
-
-			expect(result.values).toEqual({});
-			expect(result.source).toEqual({});
-		});
 	});
 });

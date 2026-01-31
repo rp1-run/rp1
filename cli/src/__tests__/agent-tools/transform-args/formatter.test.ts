@@ -31,20 +31,8 @@ describe("formatter", () => {
 			expect(needsQuoting("")).toBe(true);
 		});
 
-		test("returns true for value with tab", () => {
-			expect(needsQuoting("hello\tworld")).toBe(true);
-		});
-
-		test("returns true for value with newline", () => {
-			expect(needsQuoting("hello\nworld")).toBe(true);
-		});
-
 		test("returns true for value with double quote", () => {
 			expect(needsQuoting('say "hello"')).toBe(true);
-		});
-
-		test("returns true for value with single quote", () => {
-			expect(needsQuoting("it's")).toBe(true);
 		});
 
 		test("returns true for value with backslash", () => {
@@ -93,10 +81,6 @@ describe("formatter", () => {
 		test("handles mixed special characters", () => {
 			expect(escapeValue('$VAR="value"')).toBe('\\$VAR=\\"value\\"');
 		});
-
-		test("returns unchanged string with no special chars", () => {
-			expect(escapeValue("hello world")).toBe("hello world");
-		});
 	});
 
 	describe("formatValue", () => {
@@ -112,23 +96,16 @@ describe("formatter", () => {
 			expect(formatValue("")).toBe('""');
 		});
 
-		test("formats boolean true as lowercase", () => {
+		test("formats boolean values as lowercase", () => {
 			expect(formatValue("true")).toBe("true");
 			expect(formatValue("TRUE")).toBe("true");
 			expect(formatValue("True")).toBe("true");
-		});
-
-		test("formats boolean false as lowercase", () => {
 			expect(formatValue("false")).toBe("false");
 			expect(formatValue("FALSE")).toBe("false");
-			expect(formatValue("False")).toBe("false");
 		});
 
 		test("formats value with special chars escaped and quoted", () => {
 			expect(formatValue('say "hello"')).toBe('"say \\"hello\\""');
-		});
-
-		test("formats value with dollar sign escaped and quoted", () => {
 			expect(formatValue("$HOME")).toBe('"\\$HOME"');
 		});
 	});

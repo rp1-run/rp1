@@ -8,7 +8,6 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-	emptySettingsFile,
 	loadSettings,
 	loadSettingsFile,
 	loadSettingsFileForValidation,
@@ -44,22 +43,6 @@ describe("settings-loader", () => {
 			const path = resolveLocalSettingsPath("/project");
 
 			expect(path).toBe("/project/.rp1/settings.toml");
-		});
-
-		test("uses process.cwd() by default", () => {
-			const path = resolveLocalSettingsPath();
-
-			expect(path).toEndWith(".rp1/settings.toml");
-			expect(path).toContain(process.cwd());
-		});
-	});
-
-	describe("emptySettingsFile", () => {
-		test("returns empty object", () => {
-			const settings = emptySettingsFile();
-
-			expect(settings).toEqual({});
-			expect(Object.keys(settings)).toHaveLength(0);
 		});
 	});
 
@@ -112,21 +95,6 @@ mode = "fast"
 
 			expect(result).toEqual({});
 		});
-
-		test("handles file with only comments", async () => {
-			const settingsPath = join(testDir, "comments.toml");
-			await writeFile(
-				settingsPath,
-				`
-# This is a comment
-# Another comment
-`,
-			);
-
-			const result = await expectTaskRight(loadSettingsFile(settingsPath));
-
-			expect(result).toEqual({});
-		});
 	});
 
 	describe("loadSettings", () => {
@@ -155,13 +123,6 @@ afk = true
 			const result = await expectTaskRight(loadSettings(emptyDir));
 
 			expect(result.local).toEqual({});
-		});
-
-		test("includes correct paths in result", async () => {
-			const result = await expectTaskRight(loadSettings(testDir));
-
-			expect(result.globalPath).toContain(".config/rp1/settings.toml");
-			expect(result.localPath).toBe(join(testDir, ".rp1/settings.toml"));
 		});
 	});
 

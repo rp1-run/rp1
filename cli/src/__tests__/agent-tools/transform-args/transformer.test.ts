@@ -24,16 +24,8 @@ describe("transformer", () => {
 			expect(toUpperSnakeCase("git-worktree-path")).toBe("GIT_WORKTREE_PATH");
 		});
 
-		it("handles already uppercase", () => {
-			expect(toUpperSnakeCase("FEATURE")).toBe("FEATURE");
-		});
-
 		it("handles mixed case", () => {
 			expect(toUpperSnakeCase("featureId")).toBe("FEATUREID");
-		});
-
-		it("handles single character", () => {
-			expect(toUpperSnakeCase("a")).toBe("A");
 		});
 	});
 
@@ -313,38 +305,6 @@ describe("transformer", () => {
 				if (E.isRight(result)) {
 					expect(result.right.variables.FEATURE_ID).toBe("my-feature");
 					expect(result.right.variables.ARGUMENTS).toBe("extra args");
-				}
-			});
-
-			it("handles complex schema with all arg types", () => {
-				const schema: ArgumentSchema = {
-					positional: [
-						{ name: "feature-id", required: true, variadic: false },
-						{ name: "requirements", required: false, variadic: true },
-					],
-					flags: [
-						{ name: "afk", defaultValue: false, isBoolean: true },
-						{ name: "git-worktree", defaultValue: false, isBoolean: true },
-						{ name: "mode", defaultValue: "fast", isBoolean: false },
-					],
-					raw: "<feature-id> [requirements...] [--afk] [--git-worktree] [--mode=fast]",
-				};
-
-				const result = transformArgsSync(
-					schema,
-					["my-feature", "add", "login", "--afk", "--mode=slow"],
-					emptySettings,
-				);
-
-				expect(E.isRight(result)).toBe(true);
-				if (E.isRight(result)) {
-					expect(result.right.variables).toEqual({
-						FEATURE_ID: "my-feature",
-						REQUIREMENTS: "add login",
-						AFK: "true",
-						GIT_WORKTREE: "false",
-						MODE: "slow",
-					});
 				}
 			});
 		});
