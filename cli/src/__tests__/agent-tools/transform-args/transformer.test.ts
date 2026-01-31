@@ -105,12 +105,7 @@ describe("transformer", () => {
 					raw: "<feature-id>",
 				};
 
-				const result = transformArgsSync(
-					schema,
-					["my-feature"],
-					emptySettings,
-					"global",
-				);
+				const result = transformArgsSync(schema, ["my-feature"], emptySettings);
 
 				expect(E.isRight(result)).toBe(true);
 				if (E.isRight(result)) {
@@ -128,7 +123,7 @@ describe("transformer", () => {
 					raw: "<feature-id>",
 				};
 
-				const result = transformArgsSync(schema, [], emptySettings, "global");
+				const result = transformArgsSync(schema, [], emptySettings);
 
 				expect(E.isLeft(result)).toBe(true);
 				if (E.isLeft(result)) {
@@ -151,7 +146,6 @@ describe("transformer", () => {
 					schema,
 					["my-feature", "add login"],
 					emptySettings,
-					"global",
 				);
 
 				expect(E.isRight(result)).toBe(true);
@@ -173,12 +167,7 @@ describe("transformer", () => {
 					raw: "<feature-id> [requirements]",
 				};
 
-				const result = transformArgsSync(
-					schema,
-					["my-feature"],
-					emptySettings,
-					"global",
-				);
+				const result = transformArgsSync(schema, ["my-feature"], emptySettings);
 
 				expect(E.isRight(result)).toBe(true);
 				if (E.isRight(result)) {
@@ -202,7 +191,6 @@ describe("transformer", () => {
 					schema,
 					["my-feature", "add", "login", "with", "OAuth"],
 					emptySettings,
-					"global",
 				);
 
 				expect(E.isRight(result)).toBe(true);
@@ -224,12 +212,7 @@ describe("transformer", () => {
 					raw: "<feature-id> [requirements...]",
 				};
 
-				const result = transformArgsSync(
-					schema,
-					["my-feature"],
-					emptySettings,
-					"global",
-				);
+				const result = transformArgsSync(schema, ["my-feature"], emptySettings);
 
 				expect(E.isRight(result)).toBe(true);
 				if (E.isRight(result)) {
@@ -249,7 +232,7 @@ describe("transformer", () => {
 					raw: "[--afk] [--verbose]",
 				};
 
-				const result = transformArgsSync(schema, [], emptySettings, "global");
+				const result = transformArgsSync(schema, [], emptySettings);
 
 				expect(E.isRight(result)).toBe(true);
 				if (E.isRight(result)) {
@@ -270,12 +253,7 @@ describe("transformer", () => {
 					raw: "[--afk] [--verbose]",
 				};
 
-				const result = transformArgsSync(
-					schema,
-					["--afk"],
-					emptySettings,
-					"global",
-				);
+				const result = transformArgsSync(schema, ["--afk"], emptySettings);
 
 				expect(E.isRight(result)).toBe(true);
 				if (E.isRight(result)) {
@@ -291,7 +269,7 @@ describe("transformer", () => {
 					raw: "[--output=text]",
 				};
 
-				const result = transformArgsSync(schema, [], emptySettings, "global");
+				const result = transformArgsSync(schema, [], emptySettings);
 
 				expect(E.isRight(result)).toBe(true);
 				if (E.isRight(result)) {
@@ -310,7 +288,6 @@ describe("transformer", () => {
 					schema,
 					["--output=json"],
 					emptySettings,
-					"global",
 				);
 
 				expect(E.isRight(result)).toBe(true);
@@ -330,7 +307,6 @@ describe("transformer", () => {
 					schema,
 					["my-feature", "extra", "args"],
 					emptySettings,
-					"global",
 				);
 
 				expect(E.isRight(result)).toBe(true);
@@ -358,7 +334,6 @@ describe("transformer", () => {
 					schema,
 					["my-feature", "add", "login", "--afk", "--mode=slow"],
 					emptySettings,
-					"global",
 				);
 
 				expect(E.isRight(result)).toBe(true);
@@ -380,7 +355,6 @@ describe("transformer", () => {
 					null,
 					["foo", "bar", "baz"],
 					emptySettings,
-					"global",
 				);
 
 				expect(E.isRight(result)).toBe(true);
@@ -401,7 +375,6 @@ describe("transformer", () => {
 					null,
 					["foo", "--verbose", "--mode=fast"],
 					emptySettings,
-					"global",
 				);
 
 				expect(E.isRight(result)).toBe(true);
@@ -414,7 +387,7 @@ describe("transformer", () => {
 			});
 
 			it("handles empty args in fallback mode", () => {
-				const result = transformArgsSync(null, [], emptySettings, "global");
+				const result = transformArgsSync(null, [], emptySettings);
 
 				expect(E.isRight(result)).toBe(true);
 				if (E.isRight(result)) {
@@ -437,7 +410,7 @@ describe("transformer", () => {
 					source: { afk: "local", verbose: "global" },
 				};
 
-				const result = transformArgsSync(schema, [], settings, "global");
+				const result = transformArgsSync(schema, [], settings);
 
 				expect(E.isRight(result)).toBe(true);
 				if (E.isRight(result)) {
@@ -460,20 +433,11 @@ describe("transformer", () => {
 					source: { afk: "local" },
 				};
 
-				const result = transformArgsSync(schema, ["--afk"], settings, "global");
+				const result = transformArgsSync(schema, ["--afk"], settings);
 
 				expect(E.isRight(result)).toBe(true);
 				if (E.isRight(result)) {
 					expect(result.right.variables.AFK).toBe("true");
-				}
-			});
-
-			it("preserves namespace in result", () => {
-				const result = transformArgsSync(null, [], emptySettings, "build");
-
-				expect(E.isRight(result)).toBe(true);
-				if (E.isRight(result)) {
-					expect(result.right.namespace).toBe("build");
 				}
 			});
 		});

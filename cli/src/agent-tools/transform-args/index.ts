@@ -55,7 +55,6 @@ const TOOL_NAME = "transform-args";
 interface TransformArgsData {
 	readonly output: string;
 	readonly schemaUsed: boolean;
-	readonly namespace: string;
 	readonly variableCount: number;
 	readonly warnings: readonly string[];
 }
@@ -66,7 +65,7 @@ interface TransformArgsData {
  * Parses plugin-command argument schema and transforms raw arguments
  * into VARIABLE=value output format.
  *
- * @param input - JSON input string containing pluginCommand, namespace, and args
+ * @param input - JSON input string containing pluginCommand and args
  * @param options - Tool options (unused for this tool)
  * @returns TaskEither with ToolResult containing transformation data
  */
@@ -75,21 +74,21 @@ export const execute = (
 	_options: ToolOptions,
 ): TE.TaskEither<CLIError, ToolResult<TransformArgsData>> => {
 	// Parse input JSON
-	let parsed: { pluginCommand: string; namespace?: string; args?: string[] };
+	let parsed: { pluginCommand: string; args?: string[] };
 	try {
 		parsed = JSON.parse(input);
 	} catch {
 		return TE.left(runtimeError("Invalid JSON input for transform-args"));
 	}
 
-	const { pluginCommand, namespace = "global", args = [] } = parsed;
+	const { pluginCommand, args = [] } = parsed;
 
 	if (!pluginCommand) {
 		return TE.left(runtimeError("Missing pluginCommand in input"));
 	}
 
 	return pipe(
-		transformArgs(pluginCommand, namespace, args),
+		transformArgs(pluginCommand, args),
 		TE.mapLeft((error: TransformError): CLIError => {
 			return runtimeError(error.message);
 		}),
@@ -98,7 +97,6 @@ export const execute = (
 			const data: TransformArgsData = {
 				output,
 				schemaUsed: result.schemaUsed,
-				namespace: result.namespace,
 				variableCount: Object.keys(result.variables).length,
 				warnings: result.warnings,
 			};

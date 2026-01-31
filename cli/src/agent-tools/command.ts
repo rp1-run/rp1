@@ -906,7 +906,7 @@ Examples:
  * Transforms command arguments using schema-driven parsing and settings.
  */
 agentToolsCommand
-	.command("transform-args <plugin-command> [namespace] [args...]")
+	.command("transform-args <plugin-command> [args...]")
 	.description("Transform arguments using command schema and settings")
 	.allowUnknownOption()
 	.addHelpText(
@@ -919,7 +919,6 @@ Description:
 
 Arguments:
   plugin-command    Plugin-command identifier (e.g., "rp1-dev:build")
-  namespace         Settings namespace, defaults to "global"
   args              Arguments to transform
 
 Schema Syntax (in command's argument-hint):
@@ -941,52 +940,39 @@ Exit Codes:
 
 Examples:
   # Transform with schema lookup
-  rp1 agent-tools transform-args rp1-dev:build build my-feature --afk
+  rp1 agent-tools transform-args rp1-dev:build my-feature --afk
 
-  # Use global namespace
-  rp1 agent-tools transform-args rp1-dev:build global my-feature "add login"
+  # With variadic arguments
+  rp1 agent-tools transform-args rp1-dev:build my-feature "add login"
 
   # Fallback mode (unknown command uses ARG_1, ARG_2, etc.)
-  rp1 agent-tools transform-args unknown:command global foo bar
+  rp1 agent-tools transform-args unknown:command foo bar
 `,
 	)
-	.action(
-		async (
-			pluginCommand: string,
-			namespace: string | undefined,
-			args: string[],
-		): Promise<void> => {
-			// Lazy-load the transform-args module
-			const {
-				transformArgs: executeTransform,
-				formatOutput: formatTransformOutput,
-			} = await import("./transform-args/index.js");
+	.action(async (pluginCommand: string, args: string[]): Promise<void> => {
+		// Lazy-load the transform-args module
+		const {
+			transformArgs: executeTransform,
+			formatOutput: formatTransformOutput,
+		} = await import("./transform-args/index.js");
 
-			// Default namespace to "global" if not provided
-			const resolvedNamespace = namespace || "global";
+		const result = await executeTransform(pluginCommand, args)();
 
-			const result = await executeTransform(
-				pluginCommand,
-				resolvedNamespace,
-				args,
-			)();
+		if (E.isLeft(result)) {
+			// Required argument missing - output error and exit non-zero
+			console.error(`Error: ${result.left.message}`);
+			process.exit(1);
+		}
 
-			if (E.isLeft(result)) {
-				// Required argument missing - output error and exit non-zero
-				console.error(`Error: ${result.left.message}`);
-				process.exit(1);
+		// Output formatted VARIABLE=value lines
+		console.log(formatTransformOutput(result.right));
+
+		// Log warnings to stderr if any
+		if (result.right.warnings.length > 0) {
+			for (const warning of result.right.warnings) {
+				console.error(`Warning: ${warning}`);
 			}
+		}
 
-			// Output formatted VARIABLE=value lines
-			console.log(formatTransformOutput(result.right));
-
-			// Log warnings to stderr if any
-			if (result.right.warnings.length > 0) {
-				for (const warning of result.right.warnings) {
-					console.error(`Warning: ${warning}`);
-				}
-			}
-
-			process.exit(0);
-		},
-	);
+		process.exit(0);
+	});

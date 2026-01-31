@@ -67,7 +67,6 @@ export interface TransformResult {
 	readonly variables: Record<string, string>;
 	readonly warnings: readonly string[];
 	readonly schemaUsed: boolean;
-	readonly namespace: string;
 }
 
 /**

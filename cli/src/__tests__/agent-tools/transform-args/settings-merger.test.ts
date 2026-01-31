@@ -7,7 +7,7 @@ import { describe, expect, test } from "bun:test";
 import type { SettingsFile } from "../../../agent-tools/transform-args/models.js";
 import {
 	emptyMergedSettings,
-	extractNamespaceSettings,
+	extractSettings,
 	getBooleanSetting,
 	getSettingWithSource,
 	getStringSetting,
@@ -16,59 +16,58 @@ import {
 } from "../../../agent-tools/transform-args/settings-merger.js";
 
 describe("settings-merger", () => {
-	describe("extractNamespaceSettings", () => {
-		test("extracts global section only when namespace is global", () => {
+	describe("extractSettings", () => {
+		test("extracts global section contents", () => {
 			const settings: SettingsFile = {
 				global: { verbose: true, mode: "fast" },
-				build: { afk: true },
 			};
 
-			const result = extractNamespaceSettings(settings, "global");
+			const result = extractSettings(settings);
 
 			expect(result).toEqual({ verbose: true, mode: "fast" });
-		});
-
-		test("merges global section with namespace section", () => {
-			const settings: SettingsFile = {
-				global: { verbose: true, mode: "fast" },
-				build: { afk: true, mode: "slow" },
-			};
-
-			const result = extractNamespaceSettings(settings, "build");
-
-			expect(result).toEqual({
-				verbose: true,
-				mode: "slow", // namespace overrides global
-				afk: true,
-			});
-		});
-
-		test("returns only global section when namespace not found", () => {
-			const settings: SettingsFile = {
-				global: { verbose: true },
-			};
-
-			const result = extractNamespaceSettings(settings, "unknown");
-
-			expect(result).toEqual({ verbose: true });
 		});
 
 		test("returns empty object for empty settings", () => {
 			const settings: SettingsFile = {};
 
-			const result = extractNamespaceSettings(settings, "build");
+			const result = extractSettings(settings);
 
 			expect(result).toEqual({});
 		});
 
-		test("handles missing global section", () => {
+		test("ignores nested objects (old namespace sections)", () => {
 			const settings: SettingsFile = {
+				global: { verbose: true },
 				build: { afk: true },
 			};
 
-			const result = extractNamespaceSettings(settings, "build");
+			// Only global section is extracted, nested objects are ignored
+			const result = extractSettings(settings);
 
-			expect(result).toEqual({ afk: true });
+			expect(result).toEqual({ verbose: true });
+		});
+
+		test("extracts root-level primitive values", () => {
+			const settings: SettingsFile = {
+				verbose: true,
+				mode: "fast",
+				count: 5,
+			} as SettingsFile;
+
+			const result = extractSettings(settings);
+
+			expect(result).toEqual({ verbose: true, mode: "fast", count: 5 });
+		});
+
+		test("ignores schema_version", () => {
+			const settings: SettingsFile = {
+				schema_version: "1",
+				global: { verbose: true },
+			};
+
+			const result = extractSettings(settings);
+
+			expect(result).toEqual({ verbose: true });
 		});
 	});
 
@@ -76,11 +75,10 @@ describe("settings-merger", () => {
 		test("applies global settings first", () => {
 			const result = mergeSettings({
 				globalSettings: {
-					build: { afk: true, mode: "fast" },
+					global: { afk: true, mode: "fast" },
 				},
 				localSettings: {},
 				cliArguments: {},
-				namespace: "build",
 			});
 
 			expect(result.values).toEqual({ afk: true, mode: "fast" });
@@ -90,13 +88,12 @@ describe("settings-merger", () => {
 		test("local settings override global", () => {
 			const result = mergeSettings({
 				globalSettings: {
-					build: { afk: true, mode: "fast" },
+					global: { afk: true, mode: "fast" },
 				},
 				localSettings: {
-					build: { afk: false },
+					global: { afk: false },
 				},
 				cliArguments: {},
-				namespace: "build",
 			});
 
 			expect(result.values.afk).toBe(false);
@@ -108,13 +105,12 @@ describe("settings-merger", () => {
 		test("CLI arguments override local and global", () => {
 			const result = mergeSettings({
 				globalSettings: {
-					build: { afk: true, mode: "fast" },
+					global: { afk: true, mode: "fast" },
 				},
 				localSettings: {
-					build: { afk: false, verbose: true },
+					global: { afk: false, verbose: true },
 				},
 				cliArguments: { afk: true, extra: "cli-value" },
-				namespace: "build",
 			});
 
 			expect(result.values.afk).toBe(true);
@@ -130,29 +126,14 @@ describe("settings-merger", () => {
 		test("undefined CLI values are not applied", () => {
 			const result = mergeSettings({
 				globalSettings: {
-					build: { afk: true },
+					global: { afk: true },
 				},
 				localSettings: {},
 				cliArguments: { afk: undefined },
-				namespace: "build",
 			});
 
 			expect(result.values.afk).toBe(true);
 			expect(result.source.afk).toBe("global");
-		});
-
-		test("uses global section from settings files", () => {
-			const result = mergeSettings({
-				globalSettings: {
-					global: { verbose: true },
-					build: { mode: "fast" },
-				},
-				localSettings: {},
-				cliArguments: {},
-				namespace: "build",
-			});
-
-			expect(result.values).toEqual({ verbose: true, mode: "fast" });
 		});
 
 		test("handles empty inputs", () => {
@@ -160,7 +141,6 @@ describe("settings-merger", () => {
 				globalSettings: {},
 				localSettings: {},
 				cliArguments: {},
-				namespace: "build",
 			});
 
 			expect(result.values).toEqual({});
@@ -171,9 +151,8 @@ describe("settings-merger", () => {
 	describe("mergeSettingsWithoutCLI", () => {
 		test("merges only global and local settings", () => {
 			const result = mergeSettingsWithoutCLI(
-				{ build: { afk: true } },
-				{ build: { afk: false, verbose: true } },
-				"build",
+				{ global: { afk: true } },
+				{ global: { afk: false, verbose: true } },
 			);
 
 			expect(result.values.afk).toBe(false);
@@ -186,10 +165,9 @@ describe("settings-merger", () => {
 	describe("getSettingWithSource", () => {
 		test("returns value and source for existing setting", () => {
 			const merged = mergeSettings({
-				globalSettings: { build: { afk: true } },
+				globalSettings: { global: { afk: true } },
 				localSettings: {},
 				cliArguments: {},
-				namespace: "build",
 			});
 
 			const [value, source] = getSettingWithSource(merged, "afk");
@@ -211,10 +189,9 @@ describe("settings-merger", () => {
 	describe("getStringSetting", () => {
 		test("returns string value when present", () => {
 			const merged = mergeSettings({
-				globalSettings: { build: { mode: "fast" } },
+				globalSettings: { global: { mode: "fast" } },
 				localSettings: {},
 				cliArguments: {},
-				namespace: "build",
 			});
 
 			const value = getStringSetting(merged, "mode", "slow");
@@ -224,10 +201,9 @@ describe("settings-merger", () => {
 
 		test("returns default when value is not string", () => {
 			const merged = mergeSettings({
-				globalSettings: { build: { mode: 123 } },
+				globalSettings: { global: { mode: 123 } },
 				localSettings: {},
 				cliArguments: {},
-				namespace: "build",
 			});
 
 			const value = getStringSetting(merged, "mode", "default");
@@ -247,10 +223,9 @@ describe("settings-merger", () => {
 	describe("getBooleanSetting", () => {
 		test("returns boolean value when present", () => {
 			const merged = mergeSettings({
-				globalSettings: { build: { afk: true } },
+				globalSettings: { global: { afk: true } },
 				localSettings: {},
 				cliArguments: {},
-				namespace: "build",
 			});
 
 			const value = getBooleanSetting(merged, "afk", false);
@@ -263,7 +238,6 @@ describe("settings-merger", () => {
 				globalSettings: {},
 				localSettings: {},
 				cliArguments: { afk: "true" },
-				namespace: "build",
 			});
 
 			const value = getBooleanSetting(merged, "afk", false);
@@ -276,7 +250,6 @@ describe("settings-merger", () => {
 				globalSettings: {},
 				localSettings: {},
 				cliArguments: { afk: "false" },
-				namespace: "build",
 			});
 
 			const value = getBooleanSetting(merged, "afk", true);
@@ -286,10 +259,9 @@ describe("settings-merger", () => {
 
 		test("returns default when value is not boolean or boolean string", () => {
 			const merged = mergeSettings({
-				globalSettings: { build: { afk: "yes" } },
+				globalSettings: { global: { afk: "yes" } },
 				localSettings: {},
 				cliArguments: {},
-				namespace: "build",
 			});
 
 			const value = getBooleanSetting(merged, "afk", false);

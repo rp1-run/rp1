@@ -247,7 +247,6 @@ const transformWithSchema = (
 	parsedCLI: ParsedCLI,
 	schema: ArgumentSchema,
 	mergedSettings: MergedSettings,
-	namespace: string,
 ): E.Either<TransformError, TransformResult> =>
 	pipe(
 		mapPositionalArgsWithSchema(parsedCLI.positionalArgs, schema),
@@ -271,7 +270,6 @@ const transformWithSchema = (
 				variables,
 				warnings: [] as readonly string[],
 				schemaUsed: true,
-				namespace,
 			};
 		}),
 	);
@@ -283,7 +281,6 @@ const transformWithFallback = (
 	parsedCLI: ParsedCLI,
 	fallbackReason: string,
 	mergedSettings: MergedSettings,
-	namespace: string,
 ): TransformResult => {
 	// Map positional args as ARG_1, ARG_2, etc.
 	const positionalVars = mapPositionalArgsFallback(parsedCLI.positionalArgs);
@@ -304,7 +301,6 @@ const transformWithFallback = (
 		variables,
 		warnings: [fallbackReason] as readonly string[],
 		schemaUsed: false,
-		namespace,
 	};
 };
 
@@ -319,14 +315,12 @@ const transformWithFallback = (
  * 5. Return TransformResult
  *
  * @param pluginCommand - Plugin-command identifier (e.g., "rp1-dev:build")
- * @param namespace - Settings namespace (defaults to "global")
  * @param rawArgs - Raw argument strings from CLI
  * @param projectRoot - Project root directory (defaults to cwd)
  * @returns TaskEither with TransformResult or TransformError
  */
 export const transformArgs = (
 	pluginCommand: string,
-	namespace: string = "global",
 	rawArgs: readonly string[],
 	projectRoot: string = process.cwd(),
 ): TE.TaskEither<TransformError, TransformResult> =>
@@ -349,7 +343,6 @@ export const transformArgs = (
 						globalSettings: loadedSettings.global,
 						localSettings: loadedSettings.local,
 						cliArguments,
-						namespace,
 					});
 
 					// Step 3: Transform based on lookup outcome
@@ -360,7 +353,6 @@ export const transformArgs = (
 								parsedCLI,
 								lookupOutcome.reason,
 								mergedSettings,
-								namespace,
 							),
 						);
 					}
@@ -375,12 +367,7 @@ export const transformArgs = (
 							`Warning: ${reason}. Using fallback argument parsing.`,
 						);
 						return TE.right(
-							transformWithFallback(
-								parsedCLI,
-								reason,
-								mergedSettings,
-								namespace,
-							),
+							transformWithFallback(parsedCLI, reason, mergedSettings),
 						);
 					}
 
@@ -389,7 +376,6 @@ export const transformArgs = (
 						parsedCLI,
 						schemaResult.right,
 						mergedSettings,
-						namespace,
 					);
 
 					return TE.fromEither(transformResult);
@@ -405,27 +391,20 @@ export const transformArgs = (
  * @param schema - Argument schema (or null for fallback)
  * @param rawArgs - Raw argument strings from CLI
  * @param mergedSettings - Pre-merged settings
- * @param namespace - Settings namespace
  * @returns Either TransformError or TransformResult
  */
 export const transformArgsSync = (
 	schema: ArgumentSchema | null,
 	rawArgs: readonly string[],
 	mergedSettings: MergedSettings,
-	namespace: string,
 ): E.Either<TransformError, TransformResult> => {
 	const parsedCLI = parseRawArguments(rawArgs);
 
 	if (schema === null) {
 		return E.right(
-			transformWithFallback(
-				parsedCLI,
-				"No schema provided",
-				mergedSettings,
-				namespace,
-			),
+			transformWithFallback(parsedCLI, "No schema provided", mergedSettings),
 		);
 	}
 
-	return transformWithSchema(parsedCLI, schema, mergedSettings, namespace);
+	return transformWithSchema(parsedCLI, schema, mergedSettings);
 };

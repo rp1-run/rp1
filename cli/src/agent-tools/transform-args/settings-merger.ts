@@ -19,38 +19,39 @@ export interface MergeInput {
 	readonly globalSettings: SettingsFile;
 	readonly localSettings: SettingsFile;
 	readonly cliArguments: CLIArguments;
-	readonly namespace: string;
 }
 
 /**
- * Extract namespace-specific settings from a settings file.
+ * Extract all settings from a settings file.
  *
- * Algorithm:
- * 1. Start with [global] section if present
- * 2. Merge [namespace] section on top if present
+ * All settings are treated as global. The file structure is flat key-value pairs
+ * at the root level. The [global] section name is reserved for backwards compatibility
+ * but its contents are merged with root-level settings.
  *
  * @param settings - Parsed settings file
- * @param namespace - Namespace to extract
- * @returns Merged settings for the namespace
+ * @returns All settings from the file
  */
-export const extractNamespaceSettings = (
+export const extractSettings = (
 	settings: SettingsFile,
-	namespace: string,
 ): Record<string, unknown> => {
 	const result: Record<string, unknown> = {};
 
-	// First, apply [global] section
+	// Apply all root-level key-value pairs (excluding schema_version and reserved keys)
+	for (const [key, value] of Object.entries(settings)) {
+		if (key === "schema_version" || key === "global" || value === undefined) {
+			continue;
+		}
+		// Skip nested objects (they were namespace sections in the old format)
+		if (typeof value === "object" && value !== null) {
+			continue;
+		}
+		result[key] = value;
+	}
+
+	// Also apply [global] section if present (for backwards compatibility)
 	const globalSection = settings.global;
 	if (globalSection && typeof globalSection === "object") {
 		Object.assign(result, globalSection);
-	}
-
-	// Then, apply [namespace] section (overrides global)
-	if (namespace !== "global") {
-		const namespaceSection = settings[namespace];
-		if (namespaceSection && typeof namespaceSection === "object") {
-			Object.assign(result, namespaceSection as Record<string, unknown>);
-		}
 	}
 
 	return result;
@@ -60,7 +61,7 @@ export const extractNamespaceSettings = (
  * Merge settings with precedence: CLI > local > global.
  *
  * Algorithm:
- * 1. Start with global settings for namespace (merge [global] then [namespace])
+ * 1. Start with global settings file
  * 2. Layer local settings (override global)
  * 3. Layer CLI arguments (override all)
  * 4. Track source for each value
@@ -69,27 +70,21 @@ export const extractNamespaceSettings = (
  * @returns MergedSettings with values and source tracking
  */
 export const mergeSettings = (input: MergeInput): MergedSettings => {
-	const { globalSettings, localSettings, cliArguments, namespace } = input;
+	const { globalSettings, localSettings, cliArguments } = input;
 
 	const values: Record<string, unknown> = {};
 	const source: Record<string, SettingsSource> = {};
 
-	// Step 1: Apply global settings for namespace
-	const globalNamespaceSettings = extractNamespaceSettings(
-		globalSettings,
-		namespace,
-	);
-	for (const [key, value] of Object.entries(globalNamespaceSettings)) {
+	// Step 1: Apply global settings
+	const globalExtractedSettings = extractSettings(globalSettings);
+	for (const [key, value] of Object.entries(globalExtractedSettings)) {
 		values[key] = value;
 		source[key] = "global";
 	}
 
 	// Step 2: Apply local settings (override global)
-	const localNamespaceSettings = extractNamespaceSettings(
-		localSettings,
-		namespace,
-	);
-	for (const [key, value] of Object.entries(localNamespaceSettings)) {
+	const localExtractedSettings = extractSettings(localSettings);
+	for (const [key, value] of Object.entries(localExtractedSettings)) {
 		values[key] = value;
 		source[key] = "local";
 	}
@@ -183,17 +178,14 @@ export const emptyMergedSettings = (): MergedSettings => ({
  *
  * @param globalSettings - Global settings file
  * @param localSettings - Local settings file
- * @param namespace - Namespace to extract
  * @returns MergedSettings from global and local only
  */
 export const mergeSettingsWithoutCLI = (
 	globalSettings: SettingsFile,
 	localSettings: SettingsFile,
-	namespace: string,
 ): MergedSettings =>
 	mergeSettings({
 		globalSettings,
 		localSettings,
 		cliArguments: {},
-		namespace,
 	});
