@@ -13,14 +13,14 @@
       }
     },
     "rp1-dev:build-fast": {
-      "prompt_hash": "sha256:37d38e3c3b4614f386925b5828698ef579437fd5ad1bbd74d418866a88214ba0",
-      "deps_hash": "sha256:f63d94186998c89aa56a1c7e944a978312fdcf27eca9c489b703f4e5323ee5bd",
+      "prompt_hash": "sha256:faa4866c06590fe55331d263b8e60473405a014b0a12d0ea3ab98d0344abb82b",
+      "deps_hash": "sha256:d5896e2f90d1d2e0a2c6bd6a07d4ee93f4a65f827fa08aec874452d5bf908bb4",
       "version": "2.0.0",
       "last_eval": {
         "passed": true,
-        "timestamp": "2026-01-30T09:17:34.581Z",
-        "git_commit": "449e5f3",
-        "result_file": "evals/output/rp1-dev-build-fast-2026-01-30T09-17-33.json"
+        "timestamp": "2026-01-31T06:07:40.383Z",
+        "git_commit": "0269893",
+        "result_file": "evals/output/rp1-dev-build-fast-2026-01-31T06-07-38.json"
       }
     }
   },
@@ -41,7 +41,7 @@
     "plugins/dev/agents/comment-cleaner.md": "sha256:9ecf78cfd8735bea49439e3c1d57d376d08168e6293a2a7f689a2ecfcf959824",
     "plugins/dev/agents/build-verify-aggregator.md": "sha256:84740753ac1ba9c6b7ef189bf47500a00fe96b32a663fbe77e0417829c30b80f",
     "plugins/dev/agents/feature-archiver.md": "sha256:6ac790644fa7dcc4085598e86aa245a91adcfab44fd26dfe2bc053dca5f47b5b",
-    "plugins/dev/commands/build-fast.md": "sha256:37d38e3c3b4614f386925b5828698ef579437fd5ad1bbd74d418866a88214ba0",
+    "plugins/dev/commands/build-fast.md": "sha256:faa4866c06590fe55331d263b8e60473405a014b0a12d0ea3ab98d0344abb82b",
     "plugins/dev/agents/build-fast-executor.md": "sha256:7286e7260d0554ec947ed03f6e518bb93078a1fe837fa76ec06301037023d321"
   }
 }
