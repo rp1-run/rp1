@@ -188,6 +188,7 @@ export const GITIGNORE_PRESETS = {
 	/**
 	 * Option A (Recommended): Track context, ignore work.
 	 * Uses !.rp1/ to override global gitignore rules that may ignore .rp1/
+	 * Also ignores settings.toml as it may contain user-specific preferences.
 	 */
 	recommended: `!.rp1/
 .rp1/*
@@ -195,11 +196,13 @@ export const GITIGNORE_PRESETS = {
 !.rp1/context/**
 !.rp1/config/
 !.rp1/config/**
-.rp1/context/meta.json`,
+.rp1/context/meta.json
+.rp1/settings.toml`,
 
-	/** Option B: Track everything except meta.json */
+	/** Option B: Track everything except meta.json and settings.toml */
 	track_all: `!.rp1/
-.rp1/context/meta.json`,
+.rp1/context/meta.json
+.rp1/settings.toml`,
 
 	/** Option C: Ignore entire .rp1/ */
 	ignore_all: `.rp1/`,
@@ -235,6 +238,7 @@ export type StepId =
 	| "git-check"
 	| "reinit-check"
 	| "directory-setup"
+	| "settings-setup"
 	| "tool-detection"
 	| "instruction-injection"
 	| "gitignore-config"
