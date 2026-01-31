@@ -38,6 +38,7 @@ function createTestState(overrides: Partial<WizardState> = {}): WizardState {
 		userChoices: {},
 		phase: "running",
 		error: null,
+		pluginInstallError: null,
 		...overrides,
 	};
 }

@@ -6,6 +6,7 @@
  */
 
 import * as fs from "node:fs/promises";
+import { homedir } from "node:os";
 import * as path from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { nanoid } from "nanoid";
@@ -70,6 +71,45 @@ import {
 	type ToolDetectionResult,
 } from "../../tool-detector.js";
 import type { WizardAction, WizardState } from "./useWizardState.js";
+
+/**
+ * Default settings template with all flags disabled for safety.
+ * Users can enable features as needed after reviewing the settings.
+ */
+const DEFAULT_SETTINGS_TEMPLATE = `# rp1 Settings
+# Documentation: https://rp1.run/configuration/settings
+
+# All settings are disabled by default for safety.
+# Enable features by changing false to true.
+
+# Enable git worktree isolation for build commands
+git_worktree = false
+
+# Automatically commit changes after builds
+git_commit = false
+
+# Automatically push branches to remote
+git_push = false
+
+# Enable AFK (unattended) mode for automated workflows
+afk = false
+`;
+
+/**
+ * Resolve the global settings file path.
+ * Uses ~/.config/rp1/settings.toml to match settings-loader.ts.
+ */
+function resolveGlobalSettingsPath(): string {
+	return path.join(homedir(), ".config", "rp1", "settings.toml");
+}
+
+/**
+ * Resolve the local settings file path.
+ */
+function resolveLocalSettingsPath(cwd: string): string {
+	const rp1Root = process.env.RP1_ROOT || ".rp1";
+	return path.join(cwd, rp1Root, "settings.toml");
+}
 
 /**
  * Function type for executing a single step.
@@ -406,6 +446,55 @@ export const useStepExecution = ({
 	);
 
 	/**
+	 * Execute the settings setup step.
+	 * Creates global and local settings files with safe defaults.
+	 */
+	const executeSettingsSetup = useCallback(
+		async (addAct: AddActivityFn): Promise<void> => {
+			const ctx = contextRef.current;
+
+			// Skip if update mode to preserve existing settings
+			if (state.userChoices.reinitChoice === "update") {
+				addAct(
+					"settings-setup",
+					"Settings files preserved (update mode)",
+					"info",
+				);
+				return;
+			}
+
+			let created = 0;
+
+			// Create global settings file
+			const globalPath = resolveGlobalSettingsPath();
+			const globalDir = path.dirname(globalPath);
+			if (!(await fileExists(globalPath))) {
+				await fs.mkdir(globalDir, { recursive: true });
+				await writeFileContent(globalPath, DEFAULT_SETTINGS_TEMPLATE);
+				addAct("settings-setup", "Created global settings file", "success");
+				created++;
+			} else {
+				addAct("settings-setup", "Global settings file exists", "info");
+			}
+
+			// Create local settings file
+			const localPath = resolveLocalSettingsPath(ctx.cwd);
+			if (!(await fileExists(localPath))) {
+				await writeFileContent(localPath, DEFAULT_SETTINGS_TEMPLATE);
+				addAct("settings-setup", "Created local settings file", "success");
+				created++;
+			} else {
+				addAct("settings-setup", "Local settings file exists", "info");
+			}
+
+			if (created === 0) {
+				addAct("settings-setup", "Settings files already exist", "success");
+			}
+		},
+		[state.userChoices.reinitChoice],
+	);
+
+	/**
 	 * Execute the tool detection step.
 	 */
 	const executeToolDetection = useCallback(
@@ -604,16 +693,8 @@ export const useStepExecution = ({
 		async (addAct: AddActivityFn): Promise<void> => {
 			const ctx = contextRef.current;
 
-			// Skip if update mode
-			if (state.userChoices.reinitChoice === "update") {
-				addAct("plugin-installation", "Skipped (update mode)", "info");
-				dispatch({
-					type: "SKIP_STEP",
-					stepId: "plugin-installation",
-					reason: "Update mode - plugins already installed",
-				});
-				return;
-			}
+			// Note: We don't skip plugin installation in update mode
+			// because it's idempotent - worst case it updates to latest version
 
 			if (!ctx.primaryTool) {
 				addAct(
@@ -665,21 +746,54 @@ export const useStepExecution = ({
 						`Installed: ${result.result.pluginsInstalled.join(", ")}`,
 						"success",
 					);
-				} else if (result.result?.error) {
+				} else if (result.result) {
+					// Installation failed - extract error if available
+					const errorObj = result.result.error;
+					const errorMessage = errorObj
+						? errorObj instanceof Error
+							? errorObj.message
+							: typeof errorObj === "object" && errorObj !== null
+								? ((errorObj as { message?: string }).message ??
+									JSON.stringify(errorObj))
+								: String(errorObj)
+						: "Installation failed (unknown reason)";
 					addAct(
 						"plugin-installation",
-						"Plugin installation encountered issues",
-						"warning",
+						`Installation failed: ${errorMessage}`,
+						"error",
 					);
+					addAct(
+						"plugin-installation",
+						"Try again with: rp1 install:claude-code",
+						"info",
+					);
+					// Store the error for display in final summary
+					dispatch({
+						type: "SET_PLUGIN_INSTALL_ERROR",
+						error: errorMessage,
+					});
+				} else {
+					// No result at all - something went wrong
+					const errorMessage = "Installation did not complete";
+					addAct("plugin-installation", errorMessage, "warning");
+					dispatch({
+						type: "SET_PLUGIN_INSTALL_ERROR",
+						error: errorMessage,
+					});
 				}
 			} catch (error) {
 				const errorMessage =
 					error instanceof Error ? error.message : String(error);
 				addAct("plugin-installation", `Error: ${errorMessage}`, "error");
+				// Store the error for display in final summary
+				dispatch({
+					type: "SET_PLUGIN_INSTALL_ERROR",
+					error: errorMessage,
+				});
 				// Don't throw - plugin installation failures shouldn't block init
 			}
 		},
-		[dispatch, state.userChoices.reinitChoice],
+		[dispatch],
 	);
 
 	/**
@@ -846,6 +960,9 @@ export const useStepExecution = ({
 					case "directory-setup":
 						await executeDirectorySetup(addAct);
 						break;
+					case "settings-setup":
+						await executeSettingsSetup(addAct);
+						break;
 					case "tool-detection":
 						await executeToolDetection(addAct);
 						break;
@@ -893,6 +1010,7 @@ export const useStepExecution = ({
 			executeGitCheck,
 			executeReinitCheck,
 			executeDirectorySetup,
+			executeSettingsSetup,
 			executeToolDetection,
 			executeInstructionInjection,
 			executeGitignoreConfig,

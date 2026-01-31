@@ -36,11 +36,11 @@ defaultTest:
       config:
         temperature: 0
   vars:
-    REQUEST: "add a simple bun utility script that validates JSON input from stdin"
+    DEVELOPMENT_REQUEST: "add a simple bun utility script that validates JSON input from stdin"
     GIT_WORKTREE: false
     GIT_COMMIT: false
     GIT_PUSH: false
-    AFK_MODE: false
+    AFK: false
 tests:
   - description: "default_behavior"
     assert:
@@ -66,12 +66,12 @@ tests:
           - "git commit"
 
           EDGE CASES:
-          - When AFK_MODE=true: Auto-decisions should be logged with "(AFK auto)" prefix in summary
+          - When AFK=true: Auto-decisions should be logged with "(AFK auto)" prefix in summary
           - When GIT_PUSH=true: Metadata bashCommands should contain "git push -u origin"
           - When KB files missing: Agent should warn but continue (not block)
   - description: "large_scope_redirect"
     vars:
-      REQUEST: "rewrite the entire authentication system from scratch, migrate to a new database schema, and update all API endpoints to use GraphQL instead of REST"
+      DEVELOPMENT_REQUEST: "rewrite the entire authentication system from scratch, migrate to a new database schema, and update all API endpoints to use GraphQL instead of REST"
     assert:
       - type: llm-rubric
         value: |
@@ -96,7 +96,7 @@ tests:
           FAIL if: Agent attempts to implement the large-scope request
   - description: "worktree_commits_and_push"
     vars:
-      REQUEST: "add a simple hello world script"
+      DEVELOPMENT_REQUEST: "add a simple hello world script"
       GIT_WORKTREE: true
       GIT_COMMIT: true
       GIT_PUSH: true
@@ -119,15 +119,15 @@ tests:
           FAIL if: Agent does not commit changes or does not use worktree, or does not push
   - description: "in_afk_mode"
     vars:
-      REQUEST: "add a json validation script that's utlra performant"
+      DEVELOPMENT_REQUEST: "add a json validation script that's utlra performant"
       GIT_WORKTREE: false
       GIT_COMMIT: true
       GIT_PUSH: false
-      AFK_MODE: true
+      AFK: true
     assert:
       - type: llm-rubric
         value: |
-          Evaluate whether the agent respects AFK_MODE=true (Away from keyboard)
+          Evaluate whether the agent respects AFK=true (Away from keyboard)
 
           Check the Metadata JSON section for bashCommands and toolCalls.
 

@@ -108,10 +108,10 @@
 
 ### Two-Phase Eval Workflow
 **Definition**: Separation of eval execution (promptfoo) from attestation generation to prevent fork-bomb behavior. Phase 1: run evals externally via Just recipe. Phase 2: generate attestation from output files without spawning processes.
-**Implementation**: `evals/src/attestation/commands.ts` (attestFromOutput), `Justfile` (evals-run, evals-attest)
+**Implementation**: `evals/src/attestation/commands.ts` (attestFromOutput), `Justfile` (run-evals, attest-evals)
 **Key Properties**:
-- evals-run: Executes promptfoo with timestamped output file
-- evals-attest: Reads output, validates 100% pass, updates attestation
+- run-evals: Executes promptfoo with fixed output file per suite (overwrites on each run)
+- attest-evals: Reads output, validates 100% pass, updates attestation
 - No Claude processes spawned during attestation phase
 
 ### Config-Based Concurrency

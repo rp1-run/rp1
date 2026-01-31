@@ -142,20 +142,22 @@ setup-evals:
     cd evals && bun install --frozen-lockfile
 
 # Run evaluation suite (e.g., just run-evals rp1-dev/build)
+# Output file is overwritten on each run (no timestamp accumulation)
 run-evals suite verbose="false":
     #!/usr/bin/env bash
     set -e
     # Add local rp1 bin to PATH so agents can use the dev version
     export PATH="$(pwd)/bin:$PATH"
-    timestamp=$(date -u +%Y-%m-%dT%H-%M-%S)
     suite_filename=$(echo "{{suite}}" | tr '/' '-')
-    output_file="output/${suite_filename}-${timestamp}.json"
+    output_file="output/${suite_filename}.json"
     verbose_flag=""
     if [ "{{verbose}}" = "true" ]; then verbose_flag="--verbose"; fi
     cd evals && bunx promptfoo eval -c "suites/{{suite}}/evals.yaml" --output "${output_file}" $verbose_flag
     echo "Output written to: evals/${output_file}"
 
-# Generate attestation from eval output file (just pass filename, e.g., rp1-dev-build-fast-2026-01-24T05-00-44.json)
+# Generate attestation from eval output file
+# For new-style fixed filenames: just attest-evals rp1-dev-build-fast.json
+# For legacy timestamped files: just attest-evals rp1-dev-build-fast-2026-01-24T05-00-44.json
 attest-evals output-file:
     bun run evals/src/attestation/cli.ts attest-from-output evals/output/{{output-file}}
 

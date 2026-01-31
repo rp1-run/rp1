@@ -46,7 +46,7 @@ defaultTest:
     GIT_COMMIT: false
     GIT_PUSH: false
     GIT_PR: false
-    AFK_MODE: false
+    AFK: false
 tests:
   - description: "default_behavior"
     assert:
@@ -84,7 +84,7 @@ tests:
       GIT_WORKTREE: true
       GIT_COMMIT: true
       GIT_PR: true
-      AFK_MODE: true
+      AFK: true
     assert:
       - type: llm-rubric
         value: |
@@ -106,7 +106,7 @@ tests:
           - When worktree creation fails: STOP and report error, do not proceed with partial state
       - type: llm-rubric
         value: |
-          Evaluate the agent execution with AFK_MODE=true. Check the output text AND the Metadata JSON section.
+          Evaluate the agent execution with AFK=true. Check the output text AND the Metadata JSON section.
 
           REQUIRED (all must pass):
           1. Skips all user prompts and review checkpoints

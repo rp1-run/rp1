@@ -170,12 +170,12 @@ Evidence: `plugins/utils/skills/prompt-writer/SKILL.md`
 
 ## Two-Phase Eval Workflow
 
-**Phase 1 (Execution)**: Run promptfoo externally via Just recipe; outputs timestamped JSON file (spawns Claude processes)
+**Phase 1 (Execution)**: Run promptfoo externally via Just recipe; outputs to fixed JSON file per suite (spawns Claude processes)
 **Phase 2 (Attestation)**: Read output, validate 100% pass, update attestation manifest (no process spawning)
 **Rationale**: Prevents fork-bomb behavior when attestCommand runs with concurrency > 1
-**Output Naming**: `{suite-path}-{ISO-timestamp}.json` (e.g., `rp1-dev-build-2026-01-22T10-30-00.json`)
+**Output Naming**: `{suite-path}.json` (e.g., `rp1-dev-build.json`) - overwrites on each run, no accumulation
 
-Evidence: `Justfile:106-120`, `evals/src/attestation/commands.ts`
+Evidence: `Justfile:144-156`, `evals/src/attestation/commands.ts`
 
 ## Suite Path Extraction
 

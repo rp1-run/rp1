@@ -15,21 +15,31 @@ author: cloud-on-prem/rp1
 
 Quick-iteration workflow for focused changes. Delegates execution to build-fast-executor agent.
 
-## PARAMS
+## §ARGUMENTS
 
-| Name | Pos | Default | Purpose |
-|------|-----|---------|---------|
-| REQUEST | $ARGUMENTS | (req) | Freeform development request |
-| --afk | flag | false | Non-interactive mode |
-| --git-worktree | flag | false | Use isolated git worktree |
-| --git-commit | flag | false | Commit changes |
-| --git-push | flag | false | Push branch to remote |
-| RP1_ROOT | env | `.rp1/` | Root dir |
+| Key | Description |
+|-----|-------------|
+| `DEVELOPMENT_REQUEST` | Freeform development request (required) |
+| `AFK` | Non-interactive mode flag |
+| `GIT_WORKTREE` | Use isolated git worktree |
+| `GIT_COMMIT` | Commit changes |
+| `GIT_PUSH` | Push branch to remote |
 
-<request>$ARGUMENTS</request>
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
+## §ARGUMENTS PASSED
 
-**Parse flags**: `AFK_MODE`, `GIT_WORKTREE`, `GIT_COMMIT`, `GIT_PUSH` from args.
+!`printf '%s' "$ARGUMENTS" | rp1 agent-tools transform-args rp1-dev:build-fast - || echo "RP1_VERSION=0.3.2"`
+
+## §VERSION-GATE
+
+**If** `RP1_VERSION` < 0.3.3 **then** STOP execution with message:
+
+```
+Your rp1 CLI needs to be updated.
+
+Please run `/rp1-base:self-update` to update, then retry this command.
+
+Or in the terminal: `rp1 update`
+```
 
 ## EXECUTION
 
@@ -37,7 +47,7 @@ $RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
 ```
 Task: rp1-dev:build-fast-executor
-prompt: REQUEST={REQUEST}, AFK_MODE={AFK_MODE}, GIT_WORKTREE={GIT_WORKTREE}, GIT_COMMIT={GIT_COMMIT}, GIT_PUSH={GIT_PUSH}, RP1_ROOT={{$RP1_ROOT}}
+prompt: DEVELOPMENT_REQUEST={DEVELOPMENT_REQUEST}, AFK={AFK}, GIT_WORKTREE={GIT_WORKTREE}, GIT_COMMIT={GIT_COMMIT}, GIT_PUSH={GIT_PUSH}, RP1_ROOT={RP1_ROOT}
 ```
 
 Agent handles:

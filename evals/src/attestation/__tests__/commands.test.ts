@@ -7,7 +7,31 @@ import { describe, expect, test } from "bun:test";
 import { detectPassRate, extractSuiteFromFilename } from "../commands.js";
 
 describe("extractSuiteFromFilename", () => {
-	test("extracts suite from standard filename with timestamp", () => {
+	// Fixed filename format (no timestamp)
+	test("extracts suite from fixed filename without timestamp", () => {
+		const result = extractSuiteFromFilename("output/rp1-dev-build-fast.json");
+		expect(result).toBe("rp1-dev/build-fast");
+	});
+
+	test("extracts suite from fixed filename with absolute path", () => {
+		const result = extractSuiteFromFilename(
+			"/Users/prem/Development/rp1/evals/output/rp1-dev-build.json",
+		);
+		expect(result).toBe("rp1-dev/build");
+	});
+
+	test("handles fixed filename for base plugin", () => {
+		const result = extractSuiteFromFilename("rp1-base-knowledge-load.json");
+		expect(result).toBe("rp1-base/knowledge-load");
+	});
+
+	test("handles fixed filename for utils plugin", () => {
+		const result = extractSuiteFromFilename("rp1-utils-prompt-writer.json");
+		expect(result).toBe("rp1-utils/prompt-writer");
+	});
+
+	// Legacy timestamped filename format (backwards compatibility)
+	test("extracts suite from legacy filename with timestamp", () => {
 		const result = extractSuiteFromFilename(
 			"output/rp1-dev-build-fast-2026-01-22T10-30-00.json",
 		);

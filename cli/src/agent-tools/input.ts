@@ -22,17 +22,13 @@ export const readFromFile = (
 	);
 
 /**
- * Read input from stdin.
+ * Read input from stdin using Bun's native API.
  * Returns a TaskEither that resolves to the stdin content or a UsageError if empty.
  */
 export const readFromStdin = (): TE.TaskEither<CLIError, string> =>
 	TE.tryCatch(
 		async () => {
-			const chunks: Buffer[] = [];
-			for await (const chunk of process.stdin) {
-				chunks.push(chunk);
-			}
-			const content = Buffer.concat(chunks).toString("utf-8");
+			const content = await Bun.stdin.text();
 			if (!content.trim()) {
 				throw new Error("Empty input");
 			}

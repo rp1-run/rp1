@@ -4,6 +4,7 @@
  */
 
 import * as fs from "node:fs/promises";
+import { homedir } from "node:os";
 import * as path from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
@@ -99,6 +100,7 @@ const INIT_STEPS = [
 	{ name: "git-check", description: "Checking git repository..." },
 	{ name: "reinit-check", description: "Checking existing setup..." },
 	{ name: "directory-setup", description: "Setting up directory structure..." },
+	{ name: "settings-setup", description: "Creating settings files..." },
 	{ name: "tool-detection", description: "Detecting agentic tools..." },
 	{
 		name: "instruction-injection",
@@ -402,6 +404,183 @@ async function createDirectoryStructure(
 		await fs.mkdir(workDir, { recursive: true });
 		logger.info(`Created: ${workDir}`);
 		actions.push({ type: "created_directory", path: workDir });
+	}
+
+	return actions;
+}
+
+/**
+ * Default settings with all flags disabled for safety.
+ */
+const DEFAULT_SETTINGS: Record<string, boolean> = {
+	git_worktree: false,
+	git_commit: false,
+	git_push: false,
+	afk: false,
+};
+
+/**
+ * Generate settings TOML content with comments.
+ * Preserves user values while adding any new schema fields.
+ */
+function generateSettingsToml(settings: Record<string, boolean>): string {
+	return `# rp1 Settings
+# Documentation: https://rp1.run/configuration/settings
+
+# All settings are disabled by default for safety.
+# Enable features by changing false to true.
+
+# Enable git worktree isolation for build commands
+git_worktree = ${settings.git_worktree ?? false}
+
+# Automatically commit changes after builds
+git_commit = ${settings.git_commit ?? false}
+
+# Automatically push branches to remote
+git_push = ${settings.git_push ?? false}
+
+# Enable AFK (unattended) mode for automated workflows
+afk = ${settings.afk ?? false}
+`;
+}
+
+/**
+ * Parse existing settings file and extract known boolean settings.
+ */
+async function parseExistingSettings(
+	filePath: string,
+): Promise<Record<string, boolean> | null> {
+	try {
+		const file = Bun.file(filePath);
+		if (!(await file.exists())) {
+			return null;
+		}
+		const content = await file.text();
+		const parsed = Bun.TOML.parse(content) as Record<string, unknown>;
+
+		const settings: Record<string, boolean> = {};
+		for (const key of Object.keys(DEFAULT_SETTINGS)) {
+			if (typeof parsed[key] === "boolean") {
+				settings[key] = parsed[key];
+			}
+		}
+		return settings;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Merge existing settings with defaults.
+ * User values take precedence, new schema fields get defaults.
+ */
+function mergeSettings(
+	existing: Record<string, boolean> | null,
+): Record<string, boolean> {
+	if (!existing) {
+		return { ...DEFAULT_SETTINGS };
+	}
+	return { ...DEFAULT_SETTINGS, ...existing };
+}
+
+/**
+ * Resolve the global settings file path.
+ * Uses ~/.config/rp1/settings.toml to match settings-loader.ts.
+ */
+function resolveGlobalSettingsPath(): string {
+	return path.join(homedir(), ".config", "rp1", "settings.toml");
+}
+
+/**
+ * Resolve the local settings file path.
+ */
+function resolveLocalSettingsPath(cwd: string): string {
+	const rp1Root = process.env.RP1_ROOT || ".rp1";
+	return path.join(cwd, rp1Root, "settings.toml");
+}
+
+/**
+ * Create or update a single settings file with merge logic.
+ * If file exists, merges with existing settings (user values preserved).
+ * New schema fields are added with defaults.
+ */
+async function createOrUpdateSettingsFile(
+	filePath: string,
+): Promise<{ action: InitAction; isNew: boolean; addedFields: string[] }> {
+	const existing = await parseExistingSettings(filePath);
+	const merged = mergeSettings(existing);
+	const content = generateSettingsToml(merged);
+
+	// Determine what changed
+	const addedFields: string[] = [];
+	if (existing) {
+		for (const key of Object.keys(DEFAULT_SETTINGS)) {
+			if (!(key in existing)) {
+				addedFields.push(key);
+			}
+		}
+	}
+
+	await writeFileContent(filePath, content);
+
+	if (!existing) {
+		return {
+			action: { type: "created_file", path: filePath },
+			isNew: true,
+			addedFields: [],
+		};
+	}
+
+	return {
+		action: { type: "updated_file", path: filePath },
+		isNew: false,
+		addedFields,
+	};
+}
+
+/**
+ * Create settings files in both global and local locations.
+ * Safely merges with existing settings - user values are preserved,
+ * new schema fields are added with defaults.
+ */
+async function createSettingsFiles(
+	cwd: string,
+	logger: Logger,
+): Promise<InitAction[]> {
+	const actions: InitAction[] = [];
+
+	logger.info(
+		"Settings files can be safely re-initialized - your values are preserved",
+	);
+
+	// Process global settings file
+	const globalPath = resolveGlobalSettingsPath();
+	const globalResult = await createOrUpdateSettingsFile(globalPath);
+	actions.push(globalResult.action);
+
+	if (globalResult.isNew) {
+		logger.success(`Created global settings: ${globalPath}`);
+	} else if (globalResult.addedFields.length > 0) {
+		logger.success(
+			`Updated global settings (added: ${globalResult.addedFields.join(", ")})`,
+		);
+	} else {
+		logger.info("Global settings unchanged (already up to date)");
+	}
+
+	// Process local settings file
+	const localPath = resolveLocalSettingsPath(cwd);
+	const localResult = await createOrUpdateSettingsFile(localPath);
+	actions.push(localResult.action);
+
+	if (localResult.isNew) {
+		logger.success(`Created local settings: ${localPath}`);
+	} else if (localResult.addedFields.length > 0) {
+		logger.success(
+			`Updated local settings (added: ${localResult.addedFields.join(", ")})`,
+		);
+	} else {
+		logger.info("Local settings unchanged (already up to date)");
 	}
 
 	return actions;
@@ -801,6 +980,19 @@ export function executeInit(
 					progress.skipStep();
 				}
 
+				progress.startStep("settings-setup");
+				if (!isUpdateOnly) {
+					const settingsActions = await createSettingsFiles(cwd, logger);
+					allActions.push(...settingsActions);
+					progress.completeStep();
+				} else {
+					allActions.push({
+						type: "skipped",
+						reason: "Settings files preserved (update mode)",
+					});
+					progress.skipStep();
+				}
+
 				progress.startStep("tool-detection");
 
 				const [toolResultEither, readinessResult] = await Promise.all([
@@ -853,39 +1045,33 @@ export function executeInit(
 
 				let pluginStatus: readonly PluginStatus[] = [];
 
-				if (isUpdateOnly) {
+				// Always attempt plugin installation - it's idempotent
+				// Worst case it updates to the latest version
+				progress.startStep("plugin-installation");
+
+				try {
+					const { actions: pluginActions } = await executePluginInstallation(
+						primaryTool || null,
+						promptOptions,
+						logger,
+					);
+					allActions.push(...pluginActions);
+					progress.completeStep();
+				} catch (error) {
+					const errorMessage =
+						error instanceof Error ? error.message : String(error);
+					logger.warn(`Plugin installation error: ${errorMessage}`);
 					allActions.push({
-						type: "skipped",
-						reason: "Plugin installation skipped (update mode)",
+						type: "plugin_install_failed",
+						name: "rp1-plugins",
+						error: errorMessage,
 					});
+					allWarnings.push(`Plugin installation failed: ${errorMessage}`);
+					progress.failStep();
+				}
 
-					progress.startStep("plugin-installation");
-					progress.skipStep();
-
+				if (isUpdateOnly) {
 					logger.success("rp1 configuration updated!");
-				} else {
-					progress.startStep("plugin-installation");
-
-					try {
-						const { actions: pluginActions } = await executePluginInstallation(
-							primaryTool || null,
-							promptOptions,
-							logger,
-						);
-						allActions.push(...pluginActions);
-						progress.completeStep();
-					} catch (error) {
-						const errorMessage =
-							error instanceof Error ? error.message : String(error);
-						logger.warn(`Plugin installation error: ${errorMessage}`);
-						allActions.push({
-							type: "plugin_install_failed",
-							name: "rp1-plugins",
-							error: errorMessage,
-						});
-						allWarnings.push(`Plugin installation failed: ${errorMessage}`);
-						progress.failStep();
-					}
 				}
 
 				progress.startStep("verification");

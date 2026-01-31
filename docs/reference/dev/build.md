@@ -9,13 +9,13 @@ End-to-end feature workflow orchestrator. Runs the complete 6-step lifecycle (re
 === "Claude Code"
 
     ```bash
-    /build feature-id [requirements] [--afk] [--git-worktree] [--git-commit] [--git-push] [--git-pr]
+    /build <feature-id> [requirements...] [--afk] [--git-worktree] [--git-commit] [--git-push] [--git-pr]
     ```
 
 === "OpenCode"
 
     ```bash
-    /rp1-dev/build feature-id [requirements] [--afk] [--git-worktree] [--git-commit] [--git-push] [--git-pr]
+    /rp1-dev/build <feature-id> [requirements...] [--afk] [--git-worktree] [--git-commit] [--git-push] [--git-pr]
     ```
 
 ## Description

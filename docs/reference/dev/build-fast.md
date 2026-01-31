@@ -9,13 +9,13 @@ Quick-iteration development for small, well-scoped tasks using the [command-agen
 === "Claude Code"
 
     ```bash
-    /build-fast <development-request> [--afk] [--git-worktree] [--git-commit] [--git-push]
+    /build-fast [development-request...] [--afk] [--git-worktree] [--git-commit] [--git-push]
     ```
 
 === "OpenCode"
 
     ```bash
-    /rp1-dev/build-fast <development-request> [--afk] [--git-worktree] [--git-commit] [--git-push]
+    /rp1-dev/build-fast [development-request...] [--afk] [--git-worktree] [--git-commit] [--git-push]
     ```
 
 ## Description

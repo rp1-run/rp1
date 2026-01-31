@@ -114,8 +114,8 @@ graph TB
 **Description**: Prompt files tracked via content hashes with dependency graphs. Changes require eval suite re-attestation before merge.
 
 ### Two-Phase Eval Workflow
-**Evidence**: `Justfile` evals-run and evals-attest recipes, `evals/src/attestation/commands.ts` attestFromOutput function
-**Description**: Eval execution separated from attestation generation. Phase 1 (evals-run) runs promptfoo with timestamped output. Phase 2 (evals-attest) reads output, validates 100% pass, updates attestation without spawning Claude processes. Prevents fork-bomb behavior from concurrent eval execution.
+**Evidence**: `Justfile` run-evals and attest-evals recipes, `evals/src/attestation/commands.ts` attestFromOutput function
+**Description**: Eval execution separated from attestation generation. Phase 1 (run-evals) runs promptfoo with fixed output file per suite (overwrites on each run). Phase 2 (attest-evals) reads output, validates 100% pass, updates attestation without spawning Claude processes. Prevents fork-bomb behavior from concurrent eval execution.
 
 ### Multi-Platform Distribution
 **Evidence**: `.goreleaser.yml` (darwin-arm64/x64, linux-arm64/x64, windows-x64), homebrew_casks, scoops config
