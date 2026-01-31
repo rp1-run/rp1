@@ -325,7 +325,6 @@ export const lookupPluginCommandWithFallback = (
 			(error) =>
 				TE.right<never, PluginLookupOutcome>(
 					pipe(
-						// Log warning to stderr
 						(() => {
 							console.error(
 								`Warning: ${error.message}. Using fallback argument parsing.`,
