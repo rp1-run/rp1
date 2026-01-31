@@ -94,19 +94,19 @@ rp1 agent-tools worktree cleanup $RP1_ROOT/work/worktrees/<task-slug> --keep-bra
 
 ---
 
-## Enabling and Disabling Worktrees
+## Enabling Worktrees
 
-| Command | Default | Toggle |
+| Command | Default | Enable |
 |---------|---------|--------|
-| `/build` | Worktrees **enabled** | `--no-worktree` to disable |
-| `/build-fast` | Worktrees **disabled** | `--use-worktree` to enable |
+| `/build` | Worktrees **disabled** | `--git-worktree` to enable |
+| `/build-fast` | Worktrees **disabled** | `--git-worktree` to enable |
 
 ```bash
-# Disable worktree isolation in /build (changes happen in main directory)
-/build my-feature --no-worktree
+# Enable worktree isolation in /build
+/build my-feature --git-worktree
 
 # Enable worktree isolation in /build-fast
-/build-fast "Fix the auth bug" --use-worktree
+/build-fast "Fix the auth bug" --git-worktree
 ```
 
 ---
