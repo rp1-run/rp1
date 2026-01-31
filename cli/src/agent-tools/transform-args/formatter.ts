@@ -3,8 +3,15 @@
  * Generates deterministic VARIABLE=value output for prompt interpolation.
  */
 
-import { version as RP1_VERSION } from "../../../package.json";
+import { version as PACKAGE_VERSION } from "../../../package.json";
 import type { TransformResult } from "./models.js";
+
+/**
+ * Resolve RP1_VERSION from environment or package.json.
+ * Allows override via env var for local testing without releasing.
+ */
+const resolveRP1Version = (): string =>
+	process.env.RP1_VERSION || PACKAGE_VERSION;
 
 /**
  * Characters that require quoting in shell variable values.
@@ -93,7 +100,7 @@ export const formatOutput = (result: TransformResult): string => {
 	const allVariables: Record<string, string> = {
 		...variables,
 		RP1_ROOT: resolveRP1Root(),
-		RP1_VERSION,
+		RP1_VERSION: resolveRP1Version(),
 	};
 
 	const sortedKeys = Object.keys(allVariables).sort();
