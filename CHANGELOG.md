@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.4.0](https://github.com/rp1-run/rp1/compare/v0.3.2...v0.4.0) (2026-01-31)
+
+
+### ⚠ BREAKING CHANGES
+
+* **prompts:** add a robust args parsing feature ([#244](https://github.com/rp1-run/rp1/issues/244))
+
+### Features
+
+* new blueprint audit workflow ([#239](https://github.com/rp1-run/rp1/issues/239)) ([5576019](https://github.com/rp1-run/rp1/commit/557601972cdd556e3063a3b1d674cc4c13a87b20))
+* new webui phase 2 ([#236](https://github.com/rp1-run/rp1/issues/236)) ([d2ed81b](https://github.com/rp1-run/rp1/commit/d2ed81b5afab442db2d4ae836d4017e933401f8d))
+* new webui phase 3 ([#237](https://github.com/rp1-run/rp1/issues/237)) ([4ea1b88](https://github.com/rp1-run/rp1/commit/4ea1b883bb26d47566c520a35c66a5ee5be818dd))
+* new webui phase 4 ([#238](https://github.com/rp1-run/rp1/issues/238)) ([a7097b3](https://github.com/rp1-run/rp1/commit/a7097b3de74329f34f7eafc1e6ace77fdcd2f1d6))
+* phase 1 of new webui ([#234](https://github.com/rp1-run/rp1/issues/234)) ([8c84513](https://github.com/rp1-run/rp1/commit/8c8451316c4e9c72628faffe561a8d04df6533ad))
+* **prompts:** add a robust args parsing feature ([#244](https://github.com/rp1-run/rp1/issues/244)) ([7bcbd76](https://github.com/rp1-run/rp1/commit/7bcbd76d02e894301aef4a3be44956e25aa4e471))
+
+
+### Code Refactoring
+
+* use better params parsing; esp. env vars ([#243](https://github.com/rp1-run/rp1/issues/243)) ([2cbc280](https://github.com/rp1-run/rp1/commit/2cbc280b19798b5dd16ee57f6db0654c5a36df15))
+
 ## [Unreleased]
 
 ### Features
