@@ -29,7 +29,7 @@ author: cloud-on-prem/rp1
 
 ## §ARGUMENTS PASSED
 
-!`rp1 agent-tools transform-args rp1-dev:build - <<<"$ARGUMENTS" || echo "RP1_VERSION=0.3.2"`
+!`printf '%s' "$ARGUMENTS" | rp1 agent-tools transform-args rp1-dev:build - || echo "RP1_VERSION=0.3.2"`
 
 ## §VERSION-GATE
 
