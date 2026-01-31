@@ -43,9 +43,7 @@ Please run `/rp1-base:self-update` to update, then retry this command.
 Or in the terminal: `rp1 update`
 ```
 
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
-
-**Feature dir**: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`
+**Feature dir**: `{RP1_ROOT}/work/features/{FEATURE_ID}/`
 
 ## §SKILL-LOADING
 
@@ -72,7 +70,7 @@ Skip prompts, auto-select defaults, retry once on failure, auto-archive.
 
 ```
 Task: rp1-dev:build-artifact-detector
-prompt: FEATURE_ID={FEATURE_ID}, RP1_ROOT={{$RP1_ROOT}}
+prompt: FEATURE_ID={FEATURE_ID}, RP1_ROOT={RP1_ROOT}
 ```
 
 **Parse response**: Extract `start_step` (1-6) and `artifacts` status.
@@ -108,7 +106,7 @@ Steps 1-3 foundational -> ABORT on fail. Steps 4-6 -> retry/prompt. NEVER delete
 
 ```
 Task: rp1-dev:feature-requirement-gatherer
-prompt: FEATURE_ID={FEATURE_ID}, REQUIREMENTS={REQUIREMENTS}, AFK={AFK}, RP1_ROOT={{$RP1_ROOT}}
+prompt: FEATURE_ID={FEATURE_ID}, REQUIREMENTS={REQUIREMENTS}, AFK={AFK}, RP1_ROOT={RP1_ROOT}
 ```
 
 ### §1.1 Requirements Review Checkpoint
@@ -120,7 +118,7 @@ After requirements completes, pause for user review:
 ```
 AskUserQuestion: |
   Requirements phase complete. Review artifact:
-  - {{$RP1_ROOT}}/work/features/{FEATURE_ID}/requirements.md
+  - {RP1_ROOT}/work/features/{FEATURE_ID}/requirements.md
 
   Summary: Generated requirements specification with functional requirements,
   user stories, and defined scope boundaries.
@@ -142,7 +140,7 @@ AskUserQuestion: |
 
 ```
 Task: rp1-dev:feature-architect
-prompt: FEATURE_ID={FEATURE_ID}, AFK={AFK}, UPDATE_MODE={design.md exists}, RP1_ROOT={{$RP1_ROOT}}
+prompt: FEATURE_ID={FEATURE_ID}, AFK={AFK}, UPDATE_MODE={design.md exists}, RP1_ROOT={RP1_ROOT}
 ```
 
 If `flagged_hypotheses` non-empty:
@@ -154,7 +152,7 @@ prompt: Validate hypotheses for feature {FEATURE_ID}
 
 ```
 Task: rp1-dev:feature-tasker
-prompt: FEATURE_ID={FEATURE_ID}, UPDATE_MODE={UPDATE_MODE}, RP1_ROOT={{$RP1_ROOT}}
+prompt: FEATURE_ID={FEATURE_ID}, UPDATE_MODE={UPDATE_MODE}, RP1_ROOT={RP1_ROOT}
 ```
 
 ### §2.1 Design Review Checkpoint
@@ -166,8 +164,8 @@ After design completes, pause for user review:
 ```
 AskUserQuestion: |
   Design phase complete. Review artifacts:
-  - {{$RP1_ROOT}}/work/features/{FEATURE_ID}/design.md
-  - {{$RP1_ROOT}}/work/features/{FEATURE_ID}/tasks.md
+  - {RP1_ROOT}/work/features/{FEATURE_ID}/design.md
+  - {RP1_ROOT}/work/features/{FEATURE_ID}/tasks.md
 
   Summary: Generated technical design with architecture decisions, component
   specifications, and implementation approach. Tasks file includes initial
@@ -190,7 +188,7 @@ AskUserQuestion: |
 
 ```
 Task: rp1-dev:feature-tasker
-prompt: FEATURE_ID={FEATURE_ID}, UPDATE_MODE=false, RP1_ROOT={{$RP1_ROOT}}
+prompt: FEATURE_ID={FEATURE_ID}, UPDATE_MODE=false, RP1_ROOT={RP1_ROOT}
 ```
 
 ### §3.1 Tasks Review Checkpoint
@@ -202,7 +200,7 @@ After tasks completes, pause for user review:
 ```
 AskUserQuestion: |
   Tasks phase complete. Review artifact:
-  - {{$RP1_ROOT}}/work/features/{FEATURE_ID}/tasks.md
+  - {RP1_ROOT}/work/features/{FEATURE_ID}/tasks.md
 
   Summary: Generated implementation tasks with dependency ordering
   and complexity assessment. Tasks are ready for build phase execution.
@@ -239,7 +237,7 @@ Store: `worktree_path`, `branch`, `basedOn`
 
 ```
 Task: rp1-dev:build-task-parser
-prompt: TASKS_PATH={{$RP1_ROOT}}/work/features/{FEATURE_ID}/tasks.md
+prompt: TASKS_PATH={RP1_ROOT}/work/features/{FEATURE_ID}/tasks.md
 ```
 
 **Parse response**: Extract `implementation_tasks`, `doc_tasks`, `summary`.

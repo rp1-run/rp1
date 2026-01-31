@@ -41,15 +41,13 @@ Please run `/rp1-base:self-update` to update, then retry this command.
 Or in the terminal: `rp1 update`
 ```
 
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
-
 ## EXECUTION
 
 **Spawn agent**:
 
 ```
 Task: rp1-dev:build-fast-executor
-prompt: DEVELOPMENT_REQUEST={DEVELOPMENT_REQUEST}, AFK={AFK}, GIT_WORKTREE={GIT_WORKTREE}, GIT_COMMIT={GIT_COMMIT}, GIT_PUSH={GIT_PUSH}, RP1_ROOT={{$RP1_ROOT}}
+prompt: DEVELOPMENT_REQUEST={DEVELOPMENT_REQUEST}, AFK={AFK}, GIT_WORKTREE={GIT_WORKTREE}, GIT_COMMIT={GIT_COMMIT}, GIT_PUSH={GIT_PUSH}, RP1_ROOT={RP1_ROOT}
 ```
 
 Agent handles:

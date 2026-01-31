@@ -134,7 +134,7 @@ describe("formatter", () => {
 	});
 
 	describe("formatOutput", () => {
-		test("formats single variable with RP1_VERSION", () => {
+		test("formats single variable with RP1_ROOT and RP1_VERSION", () => {
 			const result: TransformResult = {
 				variables: { FEATURE_ID: "my-feature" },
 				warnings: [],
@@ -143,10 +143,11 @@ describe("formatter", () => {
 
 			const output = formatOutput(result);
 			expect(output).toContain("FEATURE_ID=my-feature");
+			expect(output).toContain("RP1_ROOT=");
 			expect(output).toContain("RP1_VERSION=");
 		});
 
-		test("formats multiple variables sorted alphabetically with RP1_VERSION", () => {
+		test("formats multiple variables sorted alphabetically", () => {
 			const result: TransformResult = {
 				variables: {
 					VERBOSE: "false",
@@ -160,12 +161,13 @@ describe("formatter", () => {
 			const output = formatOutput(result);
 			const lines = output.split("\n");
 
-			// Should include AFK, FEATURE_ID, RP1_VERSION, VERBOSE (sorted)
-			expect(lines.length).toBe(4);
+			// Should include AFK, FEATURE_ID, RP1_ROOT, RP1_VERSION, VERBOSE (sorted)
+			expect(lines.length).toBe(5);
 			expect(lines[0]).toBe("AFK=true");
 			expect(lines[1]).toBe("FEATURE_ID=my-feature");
-			expect(lines[2]).toMatch(/^RP1_VERSION=\d+\.\d+\.\d+/);
-			expect(lines[3]).toBe("VERBOSE=false");
+			expect(lines[2]).toMatch(/^RP1_ROOT=/);
+			expect(lines[3]).toMatch(/^RP1_VERSION=\d+\.\d+\.\d+/);
+			expect(lines[4]).toBe("VERBOSE=false");
 		});
 
 		test("deterministic output for same input", () => {
@@ -185,11 +187,12 @@ describe("formatter", () => {
 			expect(output1).toBe(output2);
 			expect(output1).toContain("A_VAR=a");
 			expect(output1).toContain("M_VAR=m");
+			expect(output1).toContain("RP1_ROOT=");
 			expect(output1).toContain("RP1_VERSION=");
 			expect(output1).toContain("Z_VAR=z");
 		});
 
-		test("formats empty variables with only RP1_VERSION", () => {
+		test("formats empty variables with RP1_ROOT and RP1_VERSION", () => {
 			const result: TransformResult = {
 				variables: {},
 				warnings: [],
@@ -197,7 +200,8 @@ describe("formatter", () => {
 			};
 
 			const output = formatOutput(result);
-			expect(output).toMatch(/^RP1_VERSION=\d+\.\d+\.\d+/);
+			expect(output).toContain("RP1_ROOT=");
+			expect(output).toContain("RP1_VERSION=");
 		});
 
 		test("formats complex values with proper quoting", () => {
@@ -269,7 +273,7 @@ describe("formatter", () => {
 			expect(output).toContain("RP1_VERSION=");
 		});
 
-		test("handles warnings with empty variables outputs RP1_VERSION", () => {
+		test("handles warnings with empty variables outputs RP1_ROOT and RP1_VERSION", () => {
 			const result: TransformResult = {
 				variables: {},
 				warnings: ["No arguments provided"],
@@ -281,7 +285,9 @@ describe("formatter", () => {
 
 			expect(lines[0]).toBe("# Warning: No arguments provided");
 			expect(lines[1]).toBe("");
-			expect(lines[2]).toMatch(/^RP1_VERSION=\d+\.\d+\.\d+/);
+			// RP1_ROOT comes before RP1_VERSION alphabetically
+			expect(lines[2]).toMatch(/^RP1_ROOT=/);
+			expect(lines[3]).toMatch(/^RP1_VERSION=\d+\.\d+\.\d+/);
 		});
 	});
 });

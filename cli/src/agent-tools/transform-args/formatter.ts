@@ -67,6 +67,11 @@ export const formatLine = (name: string, value: string): string =>
 	`${name}=${formatValue(value)}`;
 
 /**
+ * Resolve RP1_ROOT from environment or default.
+ */
+const resolveRP1Root = (): string => process.env.RP1_ROOT || ".rp1/";
+
+/**
  * Format transform result as VARIABLE=value lines.
  *
  * Rules:
@@ -76,6 +81,7 @@ export const formatLine = (name: string, value: string): string =>
  * 4. Boolean values as lowercase true/false
  * 5. One variable per line
  * 6. Always include RP1_VERSION for version gating
+ * 7. Always include RP1_ROOT for path resolution
  *
  * @param result - Transform result containing variables
  * @returns Formatted output string with newline-separated lines
@@ -83,8 +89,12 @@ export const formatLine = (name: string, value: string): string =>
 export const formatOutput = (result: TransformResult): string => {
 	const { variables } = result;
 
-	// Add RP1_VERSION to variables for version gating
-	const allVariables = { ...variables, RP1_VERSION };
+	// Add RP1_VERSION and RP1_ROOT for version gating and path resolution
+	const allVariables = {
+		...variables,
+		RP1_ROOT: resolveRP1Root(),
+		RP1_VERSION,
+	};
 
 	const sortedKeys = Object.keys(allVariables).sort();
 	const lines = sortedKeys.map((key) => formatLine(key, allVariables[key]));
