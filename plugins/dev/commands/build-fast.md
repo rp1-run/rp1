@@ -1,6 +1,6 @@
 ---
 name: build-fast
-version: 4.0.0
+version: 3.0.0
 description: Quick-iteration development for small/medium scope changes with persistent artifacts and optional review.
 argument-hint: "[development-request...] [--afk] [--confirm-plan] [--review] [--git-worktree] [--git-commit] [--git-push]"
 tags:

@@ -9,7 +9,7 @@ Quick-iteration development for small, well-scoped tasks using the [command-agen
 === "Claude Code"
 
     ```bash
-    /build-fast [development-request...] [--afk] [--confirm] [--review] [--git-worktree] [--git-commit] [--git-push]
+    /build-fast [development-request...] [--afk] [--confirm-plan] [--review] [--git-worktree] [--git-commit] [--git-push]
     ```
 
 === "OpenCode"
@@ -32,7 +32,7 @@ This command uses the [command-agent pattern](../../concepts/command-agent-patte
 |-----------|----------|----------|---------|-------------|
 | `DEVELOPMENT_REQUEST` | `$ARGUMENTS` | Yes | - | Freeform description of what to build |
 | `--afk` | Flag | No | `false` | AFK (Away From Keyboard) mode — non-interactive for automation |
-| `--confirm` | Flag | No | `false` | Enable plan review checkpoint before implementation |
+| `--confirm-plan` | Flag | No | `false` | Enable plan review checkpoint before implementation |
 | `--review` | Flag | No | `false` | Enable task-reviewer validation after implementation |
 | `--git-worktree` | Flag | No | `false` | Use isolated git worktree |
 | `--git-commit` | Flag | No | `false` | Commit changes |
@@ -86,12 +86,12 @@ All auto-decisions are logged in the summary artifact with "(AFK auto)" prefix.
 
 ## Confirm Mode
 
-For interactive review of plans before execution, use the `--confirm` flag:
+For interactive review of plans before execution, use the `--confirm-plan` flag:
 
 === "Claude Code"
 
     ```bash
-    /build-fast "refactor the payment module" --confirm
+    /build-fast "refactor the payment module" --confirm-plan
     ```
 
 === "OpenCode"
@@ -141,8 +141,8 @@ Review the changes, then:
 2. "Add/Edit" - Describe additional changes needed
 ```
 
-!!! note "AFK overrides confirm"
-    When `--afk` is specified, `--confirm` is automatically disabled since AFK mode is non-interactive.
+!!! note "AFK overrides confirm-plan"
+    When `--afk` is specified, `--confirm-plan` is automatically disabled since AFK mode is non-interactive.
 
 ## Examples
 
@@ -193,7 +193,7 @@ Review the changes, then:
 === "Claude Code"
 
     ```bash
-    /build-fast "add user preferences API endpoint" --confirm --review
+    /build-fast "add user preferences API endpoint" --confirm-plan --review
     ```
 
 === "OpenCode"
@@ -211,7 +211,7 @@ The command executes in four phases:
 1. **KB loading** - Progressively loads knowledge base based on request type
 2. **Scope assessment** - Categorizes as Small, Medium, or Large
 3. **Large scope redirect** - Redirects to `/build` with options (if scope is Large)
-4. **Plan review checkpoint** - Presents plan for approval (if `--confirm` specified)
+4. **Plan review checkpoint** - Presents plan for approval (if `--confirm-plan` specified)
 
 ### Phase 2: Execution
 
@@ -228,7 +228,7 @@ The command executes in four phases:
 
 10. **Push** - Push branch to remote (if `--git-push` specified)
 11. **Worktree cleanup** - Remove worktree, preserve branch (if `--git-worktree` specified)
-12. **Post-implementation checkpoint** - Opportunity for additional changes (if `--confirm` specified)
+12. **Post-implementation checkpoint** - Opportunity for additional changes (if `--confirm-plan` specified)
 
 ## KB Loading
 
