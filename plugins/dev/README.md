@@ -101,13 +101,21 @@ The `/build` command orchestrates the complete 6-step feature development pipeli
 - `/code-investigate [problem-description...]` - Bug investigation and root cause analysis
 - `/code-audit [feature-id]` - Code quality and pattern analysis
 - `/code-clean-comments` - Remove unnecessary comments
-- `/build-fast [development-request...] [--afk] [--git-worktree] [--git-commit] [--git-push]` - Quick iteration development with scope gating
+- `/build-fast [development-request...] [--afk] [--confirm-plan] [--review] [--git-worktree] [--git-commit] [--git-push]` - Quick iteration development with scope gating and optional review
 
 **Examples**:
 ```bash
 /build-fast "Fix authentication bug in login flow"
+/build-fast "Add input validation" --confirm-plan    # Review plan before implementation
+/build-fast "Refactor auth module" --review          # Enable task-reviewer validation
+/build-fast "Update API endpoints" --confirm-plan --review  # Both checkpoints
 /code-investigate "Users report timeout errors on large file uploads"
 ```
+
+**Build-fast flags**:
+- `--confirm-plan`: Enable plan review checkpoint before implementation and post-implementation review
+- `--review`: Enable task-reviewer validation after implementation (single retry on failure)
+- `--afk`: Non-interactive mode (skips all confirmation prompts)
 
 ### PR Management (3)
 - `/pr-review` - Comprehensive pull request review (supports CI/CD mode)
