@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/rp1-run/rp1/compare/v0.4.0...v0.4.1) (2026-02-01)
+
+
+### Features
+
+* **build-fast:** add --confirm-plan flag and retire executor ([#245](https://github.com/rp1-run/rp1/issues/245)) ([3e8fbc5](https://github.com/rp1-run/rp1/commit/3e8fbc502e304209a91d67a2091da1704931efb8))
+
 ## [0.4.0](https://github.com/rp1-run/rp1/compare/v0.3.2...v0.4.0) (2026-01-31)
 
 
