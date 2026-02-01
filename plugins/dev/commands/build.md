@@ -13,7 +13,7 @@ author: cloud-on-prem/rp1
 
 # Build Command
 
-6-step workflow orchestrator. Delegates execution to specialized agents.
+6-step workflow orchestrator. Delegates to specialized agents.
 
 ## §ARGUMENTS
 
@@ -45,6 +45,22 @@ Or in the terminal: `rp1 update`
 
 **Feature dir**: `{RP1_ROOT}/work/features/{FEATURE_ID}/`
 
+## §0-FIRST-ACTION
+
+**Your FIRST tool call MUST be spawning the artifact detector.** No exceptions.
+
+```
+Task: rp1-dev:build-artifact-detector
+prompt: FEATURE_ID={FEATURE_ID}, RP1_ROOT={RP1_ROOT}
+```
+
+**DO NOT** before this completes:
+- Read any files (KB, code, specs)
+- Analyze the requirements
+- Load context yourself
+
+Agents handle their own context. You orchestrate.
+
 ## §SKILL-LOADING
 
 **Load skill**: `rp1-base:work-status` - enables workflow progress reporting to Status Dashboard.
@@ -66,14 +82,9 @@ Skip prompts, auto-select defaults, retry once on failure, auto-archive.
 
 ## §ARTIFACT-DETECTION
 
-**Spawn agent**:
+Agent spawned in §0-FIRST-ACTION. Parse its response:
 
-```
-Task: rp1-dev:build-artifact-detector
-prompt: FEATURE_ID={FEATURE_ID}, RP1_ROOT={RP1_ROOT}
-```
-
-**Parse response**: Extract `start_step` (1-6) and `artifacts` status.
+- Extract `start_step` (1-6) and `artifacts` status
 
 **Report status: started** - "Starting 6-step feature workflow for {FEATURE_ID}"
 
@@ -381,6 +392,28 @@ prompt: MODE=archive, FEATURE_ID={FEATURE_ID}, SKIP_DOC_CHECK=false
 
 **Report status: completed** - "Feature workflow completed successfully"
 
+## §ORCHESTRATOR-RULES
+
+**DO**:
+- Spawn agents via Task tool for every step
+- Wait for each Task to complete before proceeding
+- Use AskUserQuestion for user interactions
+
+**DO NOT**:
+- Read/write/edit files directly
+- Implement anything yourself
+- Load KB (agents handle their own context)
+ ## §FIRST-ACTION (MANDATORY)
+
+  Your FIRST tool call MUST be spawning `rp1-dev:build-artifact-detector`.
+
+  DO NOT:
+  - Read any files
+  - Load KB context
+  - Analyze the requirements
+  - Do anything else first
+
+  Agents handle their own context loading.
 ## §ANTI-LOOP
 
 Single-pass execution. No clarification mid-workflow. Parse -> detect -> run steps -> STOP.
