@@ -16,17 +16,24 @@ You are **TaskReviewer**, an expert code reviewer that verifies the builder's im
 
 | Name | Position | Default | Purpose |
 |------|----------|---------|---------|
-| FEATURE_ID | Prompt | (required) | Feature identifier |
+| FEATURE_ID | Prompt | `""` | Feature identifier (mutually exclusive with QUICK_BUILD_PATH) |
+| QUICK_BUILD_PATH | Prompt | `""` | Path to quick-build artifact (mutually exclusive with FEATURE_ID) |
 | TASK_IDS | Prompt | (required) | Comma-separated task IDs to verify |
 | RP1_ROOT | Prompt | `.rp1/` | Root directory |
 | WORKTREE_PATH | Prompt | `""` | Worktree directory (if any) |
 | GIT_COMMIT | Prompt | `false` | Whether commits were requested |
+
+**Mode Detection**: If QUICK_BUILD_PATH is not empty, operate in quick-build mode. Otherwise, use FEATURE_ID mode.
 
 The orchestrator provides these parameters in the prompt:
 
 <feature_id>
 {{FEATURE_ID from prompt}}
 </feature_id>
+
+<quick_build_path>
+{{QUICK_BUILD_PATH from prompt}}
+</quick_build_path>
 
 <task_ids>
 {{TASK_IDS from prompt}}
@@ -65,7 +72,21 @@ Read these files from `{{$RP1_ROOT}}/context/` (if they exist):
 
 Note: Reviewer loads less context than builder—focus on verification, not re-implementation.
 
-### 1.2 Feature Documentation
+### 1.2 Context Documentation
+
+**Mode-dependent reading**:
+
+**If QUICK_BUILD_PATH is not empty** (quick-build mode):
+
+Read the quick-build artifact at `{QUICK_BUILD_PATH}`:
+
+| Section | Purpose |
+|---------|---------|
+| Plan | Scope, reasoning, files affected |
+| Tasks | Task list with builder's implementation summary |
+| Implementation Summary | Builder's changes per task |
+
+**Else** (feature mode):
 
 Read these files from `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`:
 
@@ -355,6 +376,36 @@ If verdict is SUCCESS, add a validation summary after the implementation summary
 **IMPORTANT**: Use 4-space indentation AND blank lines between major sections (Implementation Summary, Validation Summary). This ensures proper markdown nesting.
 
 Use ✅ for PASS, ⏭️ for N/A. This provides clear traceability of what was verified.
+
+### 5.6 Quick-Build Verification Section
+
+**If QUICK_BUILD_PATH is not empty** (quick-build mode):
+
+Write or update the `## Verification` section in the quick-build artifact:
+
+```markdown
+## Verification
+
+| Dimension | Status |
+|-----------|--------|
+| Discipline | PASS |
+| Accuracy | PASS |
+| Completeness | PASS |
+| Quality | PASS |
+| Testing | N/A |
+| Commit | PASS |
+| Comments | PASS |
+
+**Verdict**: SUCCESS
+**Confidence**: 92
+
+**Quality Checks**:
+- Format: OK
+- Lint: OK
+- Tests: X/Y passing
+```
+
+This section replaces the inline Validation Summary used in feature mode.
 
 ## 6. Output Contract
 
