@@ -233,16 +233,46 @@ sequenceDiagram
     participant User
     participant Command as /build-fast
     participant CLI as rp1 worktree CLI
-    participant Agent as Implementation Agent
+    participant Planner as build-fast-planner
+    participant Artifact as quick-build artifact
+    participant TB as task-builder
+    participant TR as task-reviewer
     participant Git as Git Repository
 
-    User->>Command: Invoke with task
+    User->>Command: Invoke with task [--confirm-plan] [--review]
     Command->>CLI: Create worktree
     CLI->>Git: git worktree add
     CLI-->>Command: Worktree path + branch
-    Command->>Agent: Work in worktree
-    Agent->>Agent: Implement with atomic commits
-    Agent-->>Command: Implementation complete
+
+    Command->>Planner: Generate plan + tasks
+    Planner->>Artifact: Write Plan + Tasks sections
+    Planner-->>Command: {path, scope, summary, task_ids}
+
+    opt --confirm-plan flag
+        Command->>User: Plan review (Continue/Revise/Stop)
+        User-->>Command: Continue
+    end
+
+    Command->>TB: QUICK_BUILD_PATH, TASK_IDS (all tasks)
+    TB->>Artifact: Read tasks
+    TB->>TB: Implement all tasks (single pass)
+    TB->>Artifact: Write Implementation Summary
+    TB-->>Command: Builder Complete
+
+    opt --review flag
+        Command->>TR: QUICK_BUILD_PATH, TASK_IDS
+        TR->>Artifact: Verify implementation
+        TR->>Artifact: Write Verification section
+        TR-->>Command: SUCCESS or FAILURE
+        alt FAILURE
+            Command->>TB: Retry with feedback (once)
+        end
+    end
+
+    opt --confirm-plan flag
+        Command->>User: Post-impl review (Add-Edit/Done)
+    end
+
     alt Success
         Command->>Git: Push branch
         Command->>User: Merge instructions
