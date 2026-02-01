@@ -9,13 +9,13 @@ Quick-iteration development for small, well-scoped tasks using the [command-agen
 === "Claude Code"
 
     ```bash
-    /build-fast [development-request...] [--afk] [--git-worktree] [--git-commit] [--git-push]
+    /build-fast [development-request...] [--afk] [--confirm] [--review] [--git-worktree] [--git-commit] [--git-push]
     ```
 
 === "OpenCode"
 
     ```bash
-    /rp1-dev/build-fast [development-request...] [--afk] [--git-worktree] [--git-commit] [--git-push]
+    /rp1-dev/build-fast [development-request...] [--afk] [--confirm] [--review] [--git-worktree] [--git-commit] [--git-push]
     ```
 
 ## Description
@@ -32,6 +32,8 @@ This command uses the [command-agent pattern](../../concepts/command-agent-patte
 |-----------|----------|----------|---------|-------------|
 | `DEVELOPMENT_REQUEST` | `$ARGUMENTS` | Yes | - | Freeform description of what to build |
 | `--afk` | Flag | No | `false` | AFK (Away From Keyboard) mode — non-interactive for automation |
+| `--confirm` | Flag | No | `false` | Enable plan review checkpoint before implementation |
+| `--review` | Flag | No | `false` | Enable task-reviewer validation after implementation |
 | `--git-worktree` | Flag | No | `false` | Use isolated git worktree |
 | `--git-commit` | Flag | No | `false` | Commit changes |
 | `--git-push` | Flag | No | `false` | Push branch to remote |
@@ -82,6 +84,66 @@ For automation scenarios (CI, scripts), use the `--afk` flag:
 
 All auto-decisions are logged in the summary artifact with "(AFK auto)" prefix.
 
+## Confirm Mode
+
+For interactive review of plans before execution, use the `--confirm` flag:
+
+=== "Claude Code"
+
+    ```bash
+    /build-fast "refactor the payment module" --confirm
+    ```
+
+=== "OpenCode"
+
+    ```bash
+    /rp1-dev/build-fast "refactor the payment module" --confirm
+    ```
+
+**Confirm mode adds two checkpoints**:
+
+### Plan Review Checkpoint
+
+After planning, before implementation begins:
+
+```
+## Plan Review
+
+**Scope**: Medium
+**Estimated Effort**: 3 hours
+**Artifact**: .rp1/work/quick-builds/20260201-143022-refactor-payment/plan.md
+
+**Tasks**:
+1. Extract payment validation logic
+2. Create PaymentProcessor class
+3. Update existing callers
+
+**Files**: src/payment.ts, src/utils/validation.ts
+
+Options:
+1. "Continue" - Proceed with implementation
+2. "Revise" - Re-plan with your feedback
+3. "Stop" - Exit (artifact preserved for reference)
+```
+
+### Post-Implementation Checkpoint
+
+After implementation completes:
+
+```
+## Implementation Complete
+
+**Branch**: quick-build-refactor-payment
+**Artifact**: .rp1/work/quick-builds/20260201-143022-refactor-payment/plan.md
+
+Review the changes, then:
+1. "Done" - Finish workflow
+2. "Add/Edit" - Describe additional changes needed
+```
+
+!!! note "AFK overrides confirm"
+    When `--afk` is specified, `--confirm` is automatically disabled since AFK mode is non-interactive.
+
 ## Examples
 
 ### Quick Fix
@@ -126,17 +188,47 @@ All auto-decisions are logged in the summary artifact with "(AFK auto)" prefix.
     /rp1-dev/build-fast "Optimize the database query in reports module"
     ```
 
+### With Plan Review
+
+=== "Claude Code"
+
+    ```bash
+    /build-fast "add user preferences API endpoint" --confirm --review
+    ```
+
+=== "OpenCode"
+
+    ```bash
+    /rp1-dev/build-fast "add user preferences API endpoint" --confirm --review
+    ```
+
 ## Workflow
+
+The command executes in four phases:
+
+### Phase 1: Planning
 
 1. **KB loading** - Progressively loads knowledge base based on request type
 2. **Scope assessment** - Categorizes as Small, Medium, or Large
-3. **Branch: Large scope** - Redirects to `/build` with options
-4. **Branch: Small/Medium** - Continues to implementation
+3. **Large scope redirect** - Redirects to `/build` with options (if scope is Large)
+4. **Plan review checkpoint** - Presents plan for approval (if `--confirm` specified)
+
+### Phase 2: Execution
+
 5. **Worktree setup** - Creates isolated git worktree (if `--git-worktree` specified)
-6. **Implementation** - Code changes following codebase patterns
+6. **Task execution** - Code changes following codebase patterns
 7. **Quality checks** - Format, lint, test
-8. **Summary artifact** - Writes documentation
-9. **Finalization** - Commit (if `--git-commit`), push (if `--git-push`), cleanup worktree
+
+### Phase 3: Review (Optional)
+
+8. **Task review** - Validates implementation against requirements (if `--review` specified)
+9. **Retry on failure** - Re-executes tasks with reviewer feedback (max 1 retry)
+
+### Phase 4: Finalization
+
+10. **Push** - Push branch to remote (if `--git-push` specified)
+11. **Worktree cleanup** - Remove worktree, preserve branch (if `--git-worktree` specified)
+12. **Post-implementation checkpoint** - Opportunity for additional changes (if `--confirm` specified)
 
 ## KB Loading
 
