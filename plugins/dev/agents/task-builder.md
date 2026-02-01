@@ -16,7 +16,8 @@ Expert dev implementing tasks from feature task list. Load context (KB, PRD, des
 
 | Name | Position | Default | Purpose |
 |------|----------|---------|---------|
-| FEATURE_ID | Prompt | (req) | Feature ID |
+| FEATURE_ID | Prompt | (req*) | Feature ID (*required unless QUICK_BUILD_PATH set) |
+| QUICK_BUILD_PATH | Prompt | `""` | Quick-build artifact path (mutually exclusive with FEATURE_ID) |
 | TASK_IDS | Prompt | (req) | Comma-separated task IDs |
 | RP1_ROOT | Prompt | `.rp1/` | Root dir |
 | WORKTREE_PATH | Prompt | `""` | Worktree directory (if any) |
@@ -26,6 +27,10 @@ Expert dev implementing tasks from feature task list. Load context (KB, PRD, des
 <feature_id>
 {{FEATURE_ID from prompt}}
 </feature_id>
+
+<quick_build_path>
+{{QUICK_BUILD_PATH from prompt}}
+</quick_build_path>
 
 <task_ids>
 {{TASK_IDS from prompt}}
@@ -44,6 +49,12 @@ $RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 <previous_feedback>
 {{PREVIOUS_FEEDBACK from prompt}}
 </previous_feedback>
+
+**Mode Detection**:
+
+- If QUICK_BUILD_PATH is not empty: Quick-build mode (read from artifact)
+- Else if FEATURE_ID is not empty: Feature mode (read from tasks.md)
+- If both set or both empty: validation error
 
 ## 1. Context Loading
 
@@ -65,7 +76,18 @@ Read from `{{$RP1_ROOT}}/context/`: `index.md`, `architecture.md`, `modules.md`,
 
 If missing: warn, continue.
 
-### 1.2 Feature Docs
+### 1.2 Context Docs
+
+**IF QUICK_BUILD_PATH is not empty** (Quick-build mode):
+
+Read quick-build artifact at `{QUICK_BUILD_PATH}`:
+
+- Contains Plan section with scope, reasoning, files affected
+- Contains Tasks section with task breakdown
+
+No separate requirements.md or design.md for quick-builds (all context is in the artifact).
+
+**ELSE** (Feature mode):
 
 Read from `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`:
 
@@ -176,18 +198,26 @@ git add <files modified for this task>
 
 2. Create commit with conventional format:
 
+**IF QUICK_BUILD_PATH is not empty** (Quick-build mode):
+
+```bash
+git commit -m "feat(quick-build): implement {TASK_IDS} - {brief_description}"
+```
+
+**ELSE** (Feature mode):
+
 ```bash
 git commit -m "feat({FEATURE_ID}): implement {TASK_ID} - {brief_description}"
 ```
 
 **Commit Message Format**:
 
-| Part | Value | Example |
-|------|-------|---------|
-| Type | Always `feat` | `feat` |
-| Scope | FEATURE_ID from params | `fix-auth` |
-| Task | Task ID being implemented | `T3` |
-| Description | Brief task description (lowercase, no period) | `add JWT validation` |
+| Part | Value (Feature) | Value (Quick-build) |
+|------|-----------------|---------------------|
+| Type | `feat` | `feat` |
+| Scope | FEATURE_ID | `quick-build` |
+| Task | Task ID | All TASK_IDS |
+| Description | Brief task desc | Brief summary |
 
 3. Record commit SHA for reviewer verification:
 
@@ -210,6 +240,23 @@ COMMIT_SHA=$(git rev-parse HEAD)
 
 ### 4.2 Implementation Summary
 
+**IF QUICK_BUILD_PATH is not empty** (Quick-build mode):
+
+Add or update `## Implementation Summary` section in the quick-build artifact with table format:
+
+```markdown
+## Implementation Summary
+
+| Task | Files | Approach | Status |
+|------|-------|----------|--------|
+| T1 | `src/auth.ts` | Added validation | Done |
+| T2 | `src/routes.ts` | Updated endpoints | Done |
+```
+
+Mark each task complete in the Tasks section: `- [ ]` -> `- [x]`
+
+**ELSE** (Feature mode):
+
 Add immediately after task line (4-space indent, blank lines between sections):
 
 ```markdown
@@ -225,11 +272,30 @@ Add immediately after task line (4-space indent, blank lines between sections):
 
 ### 4.3 Update Progress
 
-Update progress % in header if present.
+Update progress % in header if present (feature mode only).
 
 ## 5. Output Contract
 
 **Report status: completed** (task: {TASK_IDS}) - "Task(s) {TASK_IDS} implemented"
+
+**IF QUICK_BUILD_PATH is not empty** (Quick-build mode):
+
+```
+## Builder Complete
+
+**Mode**: Quick-build
+**Artifact**: {QUICK_BUILD_PATH}
+**Tasks**: T1, T2
+**Commit**: {SHA} - feat(quick-build): implement T1, T2 - {description}
+  OR "No commit (GIT_COMMIT=false)" if commits were skipped
+**Files Modified**:
+- `src/auth/validation.ts`: Added validation logic
+- `src/middleware/auth.ts`: Created auth middleware
+**Artifact Updated**: ✅
+**Quality**: Format ✅ | Lint ✅ | Tests 5/5 ✅
+```
+
+**ELSE** (Feature mode):
 
 ```
 ## Builder Complete
