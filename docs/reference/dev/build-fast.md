@@ -15,7 +15,7 @@ Quick-iteration development for small, well-scoped tasks using the [command-agen
 === "OpenCode"
 
     ```bash
-    /rp1-dev/build-fast [development-request...] [--afk] [--confirm] [--review] [--git-worktree] [--git-commit] [--git-push]
+    /rp1-dev/build-fast [development-request...] [--afk] [--confirm-plan] [--review] [--git-worktree] [--git-commit] [--git-push]
     ```
 
 ## Description
@@ -97,7 +97,7 @@ For interactive review of plans before execution, use the `--confirm-plan` flag:
 === "OpenCode"
 
     ```bash
-    /rp1-dev/build-fast "refactor the payment module" --confirm
+    /rp1-dev/build-fast "refactor the payment module" --confirm-plan
     ```
 
 **Confirm mode adds two checkpoints**:
@@ -199,7 +199,7 @@ Review the changes, then:
 === "OpenCode"
 
     ```bash
-    /rp1-dev/build-fast "add user preferences API endpoint" --confirm --review
+    /rp1-dev/build-fast "add user preferences API endpoint" --confirm-plan --review
     ```
 
 ## Workflow
