@@ -2,6 +2,9 @@
 name: build-express
 version: 1.0.0
 description: Interactive builder loop with optional review. Deploy task-builder per request, prompt for verify/new-task/exit.
+allowed-tools:
+  - Bash(echo *)
+  - Bash(rp1 *)
 argument-hint: "[request...]"
 tags:
   - core

@@ -2,6 +2,9 @@
 name: bootstrap
 version: 1.0.0
 description: Bootstrap a new project with charter discovery and tech stack scaffolding for greenfield development
+allowed-tools:
+  - Bash(echo *)
+  - Bash(rp1 *)
 argument-hint: "[project-name]"
 tags: [greenfield, scaffolding, project, onboarding, core]
 created: 2025-12-26

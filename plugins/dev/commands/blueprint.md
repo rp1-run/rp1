@@ -2,6 +2,9 @@
 name: blueprint
 version: 2.0.0
 description: Guided wizard for project vision via two-tier docs (charter + PRDs)
+allowed-tools:
+  - Bash(echo *)
+  - Bash(rp1 *)
 argument-hint: "[prd-name]"
 tags: [planning, project, charter, prd, onboarding, core]
 created: 2025-11-30

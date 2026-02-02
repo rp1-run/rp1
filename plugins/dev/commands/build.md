@@ -2,6 +2,9 @@
 name: build
 version: 3.0.0
 description: End-to-end feature workflow (requirements -> design -> tasks -> build -> verify -> archive) in a single command.
+allowed-tools:
+  - Bash(echo *)
+  - Bash(rp1 *)
 argument-hint: "<feature-id> [requirements...] [--afk] [--git-worktree] [--git-commit] [--git-push] [--git-pr]"
 tags:
   - core

@@ -2,6 +2,9 @@
 name: feature-archive
 version: 1.0.0
 description: Archives a completed feature to {RP1_ROOT}/work/archives/features/
+allowed-tools:
+  - Bash(echo *)
+  - Bash(rp1 *)
 argument-hint: "feature-id"
 tags: [feature, archive, lifecycle]
 created: 2025-11-29

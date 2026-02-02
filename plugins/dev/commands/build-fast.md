@@ -2,6 +2,9 @@
 name: build-fast
 version: 3.0.0
 description: Quick-iteration development for small/medium scope changes with persistent artifacts and optional review.
+allowed-tools:
+  - Bash(echo *)
+  - Bash(rp1 *)
 argument-hint: "[development-request...] [--afk] [--confirm-plan] [--review] [--git-worktree] [--git-commit] [--git-push]"
 tags:
   - core

@@ -2,6 +2,9 @@
 name: address-pr-feedback
 version: 2.0.0
 description: Unified PR feedback workflow - collect, triage, and fix review comments in a single command
+allowed-tools:
+  - Bash(echo *)
+  - Bash(rp1 *)
 argument-hint: "[pr-number | pr-url | branch] [--afk]"
 tags:
   - pr

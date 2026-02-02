@@ -2,6 +2,9 @@
 name: pr-review
 version: 4.0.0
 description: Intent-aware map-reduce PR review with CI/CD support, confidence gating, and intelligent comment deduplication
+allowed-tools:
+  - Bash(echo *)
+  - Bash(rp1 *)
 argument-hint: "[target] [base-branch] [skip-visual]"
 tags: [review, pr, security, analysis, map-reduce, ci]
 created: 2025-10-25

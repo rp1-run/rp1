@@ -2,6 +2,9 @@
 name: validate-hypothesis
 version: 1.0.0
 description: Validate design hypotheses via code experiments, codebase analysis, external research
+allowed-tools:
+  - Bash(echo *)
+  - Bash(rp1 *)
 argument-hint: "<feature-id>"
 tags: [feature, validation, design]
 created: 2025-11-29
