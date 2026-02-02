@@ -18,7 +18,7 @@ Generate minimal Mermaid diagrams (1-4 max) capturing behavioral/structural PR c
 | REVIEW_DEPTH | $3 | standard | quick/standard/detailed |
 | FOCUS_AREAS | $4 | all | Optional focus filter |
 | OUTPUT_MODE | $5 | html | html (file+preview) / markdown (raw) |
-| RP1_ROOT | env | `.rp1/` | Work artifacts root |
+| RP1_ROOT | prompt | `.rp1/` | Work artifacts root |
 
 ## §DO
 

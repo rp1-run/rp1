@@ -26,7 +26,7 @@ Interactive builder loop. Orchestrates build-fast-executor for each task.
 | Name | Pos | Default | Purpose |
 |------|-----|---------|---------|
 | REQUEST | $ARGUMENTS | `""` | Initial request (may be empty) |
-| RP1_ROOT | env | `.rp1/` | Root dir |
+| RP1_ROOT | prompt | `.rp1/` | Root dir |
 
 ## §ARGUMENTS PASSED
 

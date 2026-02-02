@@ -27,7 +27,7 @@ Minimal coordinator: pre-flight checks -> charter-interviewer -> bootstrap-scaff
 | Name | Pos | Default | Purpose |
 |------|-----|---------|---------|
 | PROJECT_NAME | $1 | (prompted) | New project dir name |
-| RP1_ROOT | env | `.rp1/` | Root dir |
+| RP1_ROOT | prompt | `.rp1/` | Root dir |
 
 ## §1 Pre-Flight
 

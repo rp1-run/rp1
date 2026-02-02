@@ -18,7 +18,7 @@ model: inherit
 | COVERAGE_TARGET | $3 | `80` | Coverage target % |
 | REPORT_DIR | $4 | derived | Report output dir |
 | WORKTREE_PATH | Prompt | `""` | Worktree directory (if any) |
-| RP1_ROOT | env | `.rp1/` | Project root |
+| RP1_ROOT | prompt | `.rp1/` | Project root |
 
 <worktree_path>
 {{WORKTREE_PATH from prompt}}

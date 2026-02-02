@@ -19,7 +19,7 @@ skils: rp1-base:mermaid
 | FEATURE_ID | $1 | (req) | Feature identifier |
 | AFK_MODE | $2 | `false` | Skip user prompts |
 | UPDATE_MODE | $3 | `false` | Design iteration mode |
-| RP1_ROOT | env | `.rp1/` | Root dir |
+| RP1_ROOT | prompt | `.rp1/` | Root dir |
 
 <feature_id>$1</feature_id>
 <afk_mode>$2</afk_mode>
