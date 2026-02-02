@@ -2,6 +2,9 @@
 name: knowledge-build
 version: 2.1.0
 description: Orchestrates parallel KB generation using spatial analysis and a map-reduce architecture
+allowed-tools:
+  - Bash(echo *)
+  - Bash(rp1 *)
 tags:
   - documentation
   - analysis

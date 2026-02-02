@@ -2,6 +2,9 @@
 name: deep-research
 version: 1.1.0
 description: Autonomous deep research on codebases and technical topics with structured report output
+allowed-tools:
+  - Bash(echo *)
+  - Bash(rp1 *)
 argument-hint: "<research-topic>"
 tags:
   - research

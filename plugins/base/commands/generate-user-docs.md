@@ -2,6 +2,9 @@
 name: generate-user-docs
 version: 1.0.0
 description: Synchronizes user documentation with knowledge base using two-phase map-reduce orchestration
+allowed-tools:
+  - Bash(echo *)
+  - Bash(rp1 *)
 argument-hint: ""
 tags:
   - documentation

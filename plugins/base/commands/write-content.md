@@ -2,6 +2,9 @@
 name: write-content
 version: 2.0.0
 description: Interactive prompt to help create polished technical documents through clarifying questions and structured writing workflows.
+allowed-tools:
+  - Bash(echo *)
+  - Bash(rp1 *)
 tags:
   - documentation
   - planning
