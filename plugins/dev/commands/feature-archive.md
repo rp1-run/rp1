@@ -5,6 +5,7 @@ description: Archives a completed feature to {RP1_ROOT}/work/archives/features/
 allowed-tools:
   - Bash(echo *)
   - Bash(rp1 *)
+  - Bash(printf *)
 argument-hint: "feature-id"
 tags: [feature, archive, lifecycle]
 created: 2025-11-29
@@ -23,7 +24,9 @@ Archives completed feature docs from active -> archives dir.
 
 **Params**: `feature-id` (req) - Feature ID to archive
 
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
+## §ARGUMENTS PASSED
+
+!`printf '%s' "$ARGUMENTS" | rp1 agent-tools transform-args rp1-dev:feature-archive - || echo "RP1_VERSION=0.3.2"`
 
 ## Behavior
 
