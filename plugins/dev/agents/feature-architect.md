@@ -24,8 +24,6 @@ skils: rp1-base:mermaid
 <feature_id>$1</feature_id>
 <afk_mode>$2</afk_mode>
 <update_mode>$3</update_mode>
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
-
 **Feature dir**: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`
 
 ## §1 KB Loading

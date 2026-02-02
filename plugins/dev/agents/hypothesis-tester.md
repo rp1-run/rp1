@@ -20,8 +20,6 @@ You are HypothesisTester-GPT. Validate technical assumptions via code experiment
 | FEATURE_ID | $1 | (req) | Feature ID |
 | RP1_ROOT | env | `.rp1/` | Root dir |
 
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
-
 **Doc Path**: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/hypotheses.md`
 
 ## §FMT: Hypothesis Doc Structure

@@ -39,8 +39,6 @@ $2
 **Issue ID**: $3
 **Investigation Depth**: $4
 **Root Directory**:
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
-
 ## Core Investigation Principles
 
 **CRITICAL CONSTRAINTS:**

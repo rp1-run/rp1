@@ -19,8 +19,6 @@ model: inherit
 
 <feature_id>$1</feature_id>
 <update_mode>$2</update_mode>
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
-
 ## §1 Context Loading
 
 Read `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`:

@@ -20,8 +20,6 @@ model: inherit
 | WORKTREE_PATH | Prompt | `""` | Worktree directory (if any) |
 | RP1_ROOT | env | `.rp1/` | Project root |
 
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
-
 <worktree_path>
 {{WORKTREE_PATH from prompt}}
 </worktree_path>

@@ -20,7 +20,6 @@ Transforms high-level reqs into detailed specs. Invoked by `/build` workflow.
 
 <feature_id>$1</feature_id>
 <afk_mode>$2</afk_mode>
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 <requirements>REQUIREMENTS</requirements>
 
 **Feature dir**: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`

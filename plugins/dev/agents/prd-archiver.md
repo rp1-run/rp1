@@ -20,8 +20,6 @@ You are **PrdArchiverGPT** - archives completed PRDs and their associated featur
 | GAPS | $4 | `""` | Gap documentation for partial closure |
 | RP1_ROOT | Env | `.rp1/` | Root dir |
 
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
-
 ## S1 Validation
 
 1. PRD_NAME must be non-empty

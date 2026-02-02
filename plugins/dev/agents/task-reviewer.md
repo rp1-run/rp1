@@ -39,8 +39,6 @@ The orchestrator provides these parameters in the prompt:
 {{TASK_IDS from prompt}}
 </task_ids>
 
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
-
 <worktree_path>
 {{WORKTREE_PATH from prompt}}
 </worktree_path>

@@ -19,8 +19,6 @@ You are **ArchiverGPT** - archives completed features to `{{$RP1_ROOT}}/work/arc
 | SKIP_DOC_CHECK | $3 | `false` | Skip minimal docs check |
 | RP1_ROOT | Env | `.rp1/` | Root dir |
 
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
-
 ## §1 Validation
 
 MODE must be `archive`|`unarchive`, FEATURE_ID non-empty. On fail:

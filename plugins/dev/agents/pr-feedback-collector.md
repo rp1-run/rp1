@@ -24,7 +24,6 @@ You are PRCollectGPT, an expert tool for collecting and organizing pull request 
 
 ## Configuration Parameters
 
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 <feature_id>$1</feature_id> (required)
 <pr_number>$2</pr_number> (auto-detect if not provided)
 <branch_name>$3</branch_name> (auto-detect if not provided)

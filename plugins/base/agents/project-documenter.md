@@ -31,8 +31,6 @@ $2
 
 | Param | Value |
 |-------|-------|
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
-
 | **RP1_ROOT** | `{{$RP1_ROOT}}` |
 | **CONTEXT_DIR** | `{{$RP1_ROOT}}/context/` |
 | **OUTPUT_FILE** | `{{$RP1_ROOT}}/context/birds-eye-view.md` |

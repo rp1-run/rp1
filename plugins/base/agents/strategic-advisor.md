@@ -49,8 +49,6 @@ $5
 $6
 </risk_tolerance>
 
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
-
 ## Your Analysis Process
 
 Before providing your strategic recommendations, conduct a thorough analysis inside your thinking block in `<strategic_analysis>` tags. In this analysis, you must:

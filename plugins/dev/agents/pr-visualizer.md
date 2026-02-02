@@ -20,8 +20,6 @@ Generate minimal Mermaid diagrams (1-4 max) capturing behavioral/structural PR c
 | OUTPUT_MODE | $5 | html | html (file+preview) / markdown (raw) |
 | RP1_ROOT | env | `.rp1/` | Work artifacts root |
 
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
-
 ## §DO
 
 - Visual-first: diagrams before text, ≤2 lines per section

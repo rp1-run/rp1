@@ -32,8 +32,6 @@ You are IndexBuilder-GPT, a specialized agent that creates project overview data
 | CURRENT_PROJECT_PATH | $5 | `.` | Current project path relative to repo root |
 | MODE | $6 | `FULL` | Analysis mode |
 
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
-
 <codebase_root>
 $1
 </codebase_root>
