@@ -5,6 +5,7 @@ description: End-to-end feature workflow (requirements -> design -> tasks -> bui
 allowed-tools:
   - Bash(echo *)
   - Bash(rp1 *)
+  - Bash(printf *)
 argument-hint: "<feature-id> [requirements...] [--afk] [--git-worktree] [--git-commit] [--git-push] [--git-pr]"
 tags:
   - core
