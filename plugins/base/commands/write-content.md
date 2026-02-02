@@ -5,6 +5,7 @@ description: Interactive prompt to help create polished technical documents thro
 allowed-tools:
   - Bash(echo *)
   - Bash(rp1 *)
+  - Bash(printf *)
 tags:
   - documentation
   - planning

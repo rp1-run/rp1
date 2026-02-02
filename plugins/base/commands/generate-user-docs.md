@@ -5,6 +5,7 @@ description: Synchronizes user documentation with knowledge base using two-phase
 allowed-tools:
   - Bash(echo *)
   - Bash(rp1 *)
+  - Bash(printf *)
 argument-hint: ""
 tags:
   - documentation

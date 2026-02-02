@@ -5,6 +5,7 @@ description: Autonomous deep research on codebases and technical topics with str
 allowed-tools:
   - Bash(echo *)
   - Bash(rp1 *)
+  - Bash(printf *)
 argument-hint: "<research-topic>"
 tags:
   - research

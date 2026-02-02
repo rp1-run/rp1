@@ -5,6 +5,7 @@ description: Orchestrates parallel KB generation using spatial analysis and a ma
 allowed-tools:
   - Bash(echo *)
   - Bash(rp1 *)
+  - Bash(printf *)
 tags:
   - documentation
   - analysis

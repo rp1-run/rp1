@@ -5,6 +5,7 @@ description: Ingests and prepares codebase documentation, builds internal knowle
 allowed-tools:
   - Bash(echo *)
   - Bash(rp1 *)
+  - Bash(printf *)
 argument-hint: "[mode]"
 tags:
   - core
