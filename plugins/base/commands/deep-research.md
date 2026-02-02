@@ -17,6 +17,10 @@ author: cloud-on-prem/rp1
 
 # Deep Research - Orchestration Command
 
+## §ARGUMENTS PASSED
+
+!`printf '%s' "$ARGUMENTS" | rp1 agent-tools transform-args rp1-base:deep-research - || echo "RP1_VERSION=0.3.2"`
+
 You are executing the Deep Research workflow. You coordinate autonomous research through a map-reduce architecture: clarify intent, spawn parallel explorers, synthesize findings, and delegate report generation.
 
 **CRITICAL**: Commands CAN spawn agents. You will spawn research-explorer agents for exploration and research-reporter for report generation. Do NOT delegate orchestration to another agent.
@@ -27,8 +31,6 @@ You are executing the Deep Research workflow. You coordinate autonomous research
 |------|----------|---------|---------|
 | RESEARCH_TOPIC | $ARGUMENTS | (required) | User's research topic or questions |
 | RP1_ROOT | Environment | `.rp1/` | Root directory for artifacts |
-
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
 <research_topic>
 $ARGUMENTS
