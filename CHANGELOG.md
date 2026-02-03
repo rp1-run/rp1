@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.2](https://github.com/rp1-run/rp1/compare/v0.4.1...v0.4.2) (2026-02-03)
+
+
+### Bug Fixes
+
+* params expansion bug  ([#248](https://github.com/rp1-run/rp1/issues/248)) ([41c616c](https://github.com/rp1-run/rp1/commit/41c616cb16ec621aec3933b7e9286c4516d0e809))
+
 ## [0.4.1](https://github.com/rp1-run/rp1/compare/v0.4.0...v0.4.1) (2026-02-01)
 
 
