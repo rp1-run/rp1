@@ -49,7 +49,11 @@ Or in the terminal: `rp1 update`
 
 ## §FLAG-LOGIC
 
-**Override**: If `AFK=true`, then `CONFIRM_PLAN=false` (AFK mode skips all confirmations).
+**CRITICAL OVERRIDE**: When `AFK=true`, treat `CONFIRM_PLAN` as `false` regardless of its passed value. AFK mode means zero user interaction - skip ALL `AskUserQuestion` calls throughout this workflow.
+
+**Effective values when AFK=true**:
+- `CONFIRM_PLAN` → `false` (forced)
+- All checkpoints → SKIP (no AskUserQuestion)
 
 ## §PHASE-1: Planning
 
@@ -70,7 +74,9 @@ Output the planner's `redirect_message` and STOP.
 
 ### §1.2 Plan Review Checkpoint
 
-**Skip if**: `CONFIRM_PLAN=false` OR `AFK=true`
+**SKIP ENTIRELY if**: `AFK=true` OR `CONFIRM_PLAN=false`
+
+When skipped: Do NOT call AskUserQuestion. Proceed directly to §PHASE-2.
 
 ```
 AskUserQuestion: |
@@ -187,7 +193,9 @@ rp1 agent-tools worktree cleanup {worktree_path} --keep-branch
 
 ### §4.3 Post-Implementation Checkpoint
 
-**Skip if**: `CONFIRM_PLAN=false` OR `AFK=true`
+**SKIP ENTIRELY if**: `AFK=true` OR `CONFIRM_PLAN=false`
+
+When skipped: Do NOT call AskUserQuestion. Proceed directly to §OUTPUT.
 
 ```
 AskUserQuestion: |
