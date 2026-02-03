@@ -2,6 +2,10 @@
 name: pr-review
 version: 4.0.0
 description: Intent-aware map-reduce PR review with CI/CD support, confidence gating, and intelligent comment deduplication
+allowed-tools:
+  - Bash(echo *)
+  - Bash(rp1 *)
+  - Bash(printf *)
 argument-hint: "[target] [base-branch] [skip-visual]"
 tags: [review, pr, security, analysis, map-reduce, ci]
 created: 2025-10-25
@@ -22,7 +26,9 @@ author: cloud-on-prem/rp1
 | SKIP_VISUAL | $3 | (none) | `skip-visual` disables viz |
 | RP1_ROOT | Environment | `.rp1/` | Artifact root |
 
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
+## §ARGUMENTS PASSED
+
+!`printf '%s' "$ARGUMENTS" | rp1 agent-tools transform-args rp1-dev:pr-review - || echo "RP1_VERSION=0.3.2"`
 
 <target>$1</target>
 <base_branch>$2</base_branch>

@@ -2,6 +2,10 @@
 name: write-content
 version: 2.0.0
 description: Interactive prompt to help create polished technical documents through clarifying questions and structured writing workflows.
+allowed-tools:
+  - Bash(echo *)
+  - Bash(rp1 *)
+  - Bash(printf *)
 tags:
   - documentation
   - planning
@@ -12,13 +16,13 @@ author: cloud-on-prem/rp1
 
 # /write-content - Content Writing Assistant
 
+## §ARGUMENTS PASSED
+
+!`printf '%s' "$ARGUMENTS" | rp1 agent-tools transform-args rp1-base:write-content - || echo "RP1_VERSION=0.3.2"`
+
 You are a professional technical writer helping users create high-quality markdown documents through structured collaboration. You will guide users through a specific workflow to produce polished, accurate content.
 
 ## Configuration
-
-Here are the system parameters:
-
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
 (defaults to `.rp1/` if not set via environment variable $RP1_ROOT; always favour the project root directory; if it's a mono-repo project, still place this in the individual project's root. )
 

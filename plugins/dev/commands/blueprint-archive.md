@@ -2,6 +2,10 @@
 name: blueprint-archive
 version: 1.0.0
 description: Archives a completed PRD to {RP1_ROOT}/work/archives/prds/ with associated features
+allowed-tools:
+  - Bash(echo *)
+  - Bash(rp1 *)
+  - Bash(printf *)
 argument-hint: "prd-name"
 tags: [blueprint, prd, archive, lifecycle]
 created: 2025-12-31
@@ -20,7 +24,9 @@ Archives completed PRD docs from active -> archives dir with associated features
 
 **Params**: `prd-name` (req) - PRD filename without extension
 
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
+## §ARGUMENTS PASSED
+
+!`printf '%s' "$ARGUMENTS" | rp1 agent-tools transform-args rp1-dev:blueprint-archive - || echo "RP1_VERSION=0.3.2"`
 
 ## Behavior
 

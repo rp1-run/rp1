@@ -178,6 +178,48 @@ argument-hint: "<feature-id> [requirements] [--afk] [--git-worktree]"
 - ✅ `subagent_type: rp1-base:agent-name` - For claude code
 - ✅ `subagent_type: @rp1-dev/agent-name` - For OpenCode
 
+### Allowed-Tools Pattern (Claude Code)
+
+**Purpose**: Pre-authorize Bash commands in command frontmatter to avoid permission prompts during execution.
+
+**When to Use**: Add `allowed-tools` to command files that use:
+
+| Pattern | Use Case | Example |
+|---------|----------|---------|
+| `Bash(echo *)` | Shell parameter expansion with `${}` syntax | `!`echo ${RP1_ROOT:-.rp1/}`` |
+| `Bash(rp1 *)` | rp1 CLI invocations | `rp1 agent-tools work update` |
+| `Bash(printf *)` | Formatted output with special characters | `printf '%s\n' "$VAR"` |
+
+**Frontmatter Example**:
+
+```yaml
+---
+name: my-command
+version: 1.0.0
+description: Command that uses parameter expansion
+allowed-tools:
+  - Bash(echo *)
+  - Bash(rp1 *)
+argument-hint: "[args]"
+tags:
+  - workflow
+---
+```
+
+**Placement Rule**: `allowed-tools` appears after `description`, before `argument-hint` or other metadata fields.
+
+**Agent Files Do NOT Need This**:
+
+Subagents automatically inherit Bash permissions from their parent commands per Claude Code documentation. Only command files require `allowed-tools` frontmatter.
+
+| File Type | Requires allowed-tools | Reason |
+|-----------|------------------------|--------|
+| Commands (`commands/*.md`) | Yes, if using Bash patterns | Entry point for permission grants |
+| Agents (`agents/*.md`) | No | Inherits from parent command |
+| Skills (`skills/*.md`) | No | Loaded by commands/agents |
+
+**OpenCode Compatibility**: OpenCode ignores unknown frontmatter fields, so `allowed-tools` has no effect but causes no errors.
+
 ### Cross-Plugin Dependencies
 
 **Dev can call Base**:

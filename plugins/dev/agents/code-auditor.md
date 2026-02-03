@@ -36,8 +36,6 @@ $2
 $3
 </pattern_strictness>
 
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
-
 ## Prerequisites
 
 Before performing the audit, load codebase knowledge progressively:

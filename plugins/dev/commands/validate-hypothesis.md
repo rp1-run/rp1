@@ -2,6 +2,10 @@
 name: validate-hypothesis
 version: 1.0.0
 description: Validate design hypotheses via code experiments, codebase analysis, external research
+allowed-tools:
+  - Bash(echo *)
+  - Bash(rp1 *)
+  - Bash(printf *)
 argument-hint: "<feature-id>"
 tags: [feature, validation, design]
 created: 2025-11-29
@@ -12,7 +16,9 @@ author: cloud-on-prem/rp1
 
 Invokes **hypothesis-tester** agent to validate design assumptions.
 
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
+## §ARGUMENTS PASSED
+
+!`printf '%s' "$ARGUMENTS" | rp1 agent-tools transform-args rp1-dev:validate-hypothesis - || echo "RP1_VERSION=0.3.2"`
 
 <feature_id>
 $1

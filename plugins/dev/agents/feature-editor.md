@@ -24,8 +24,6 @@ You are EditGPT - feature doc editor for mid-stream changes. Analyze edits, vali
 <feature_id>$1</feature_id>
 <edit_description>$2</edit_description>
 <decisions>$3</decisions>
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
-
 **Decision Keys**: `classification` (edit type), `scope_action` (proceed/split/rephrase), `conflict_action` (proceed/abort)
 
 **Feature Dir**: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`

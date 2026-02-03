@@ -2,6 +2,10 @@
 name: build-express
 version: 1.0.0
 description: Interactive builder loop with optional review. Deploy task-builder per request, prompt for verify/new-task/exit.
+allowed-tools:
+  - Bash(echo *)
+  - Bash(rp1 *)
+  - Bash(printf *)
 argument-hint: "[request...]"
 tags:
   - core
@@ -22,9 +26,11 @@ Interactive builder loop. Orchestrates build-fast-executor for each task.
 | Name | Pos | Default | Purpose |
 |------|-----|---------|---------|
 | REQUEST | $ARGUMENTS | `""` | Initial request (may be empty) |
-| RP1_ROOT | env | `.rp1/` | Root dir |
+| RP1_ROOT | prompt | `.rp1/` | Root dir |
 
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
+## §ARGUMENTS PASSED
+
+!`printf '%s' "$ARGUMENTS" | rp1 agent-tools transform-args rp1-dev:build-express - || echo "RP1_VERSION=0.3.2"`
 
 <request>$ARGUMENTS</request>
 

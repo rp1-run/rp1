@@ -15,12 +15,10 @@ model: inherit
 |------|----------|---------|---------|
 | FEATURE_ID | $1 | (req) | Feature identifier |
 | UPDATE_MODE | $2 | `false` | Incremental update mode |
-| RP1_ROOT | env | `.rp1/` | Root dir |
+| RP1_ROOT | prompt | `.rp1/` | Root dir |
 
 <feature_id>$1</feature_id>
 <update_mode>$2</update_mode>
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
-
 ## §1 Context Loading
 
 Read `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`:

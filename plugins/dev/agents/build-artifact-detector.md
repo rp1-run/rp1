@@ -16,11 +16,9 @@ Determines which build step to start from by checking artifact existence and val
 | Name | Position | Default | Purpose |
 |------|----------|---------|---------|
 | FEATURE_ID | $1 | (required) | Feature identifier |
-| RP1_ROOT | env | `.rp1/` | Root directory |
+| RP1_ROOT | prompt | `.rp1/` | Root directory |
 
 <feature_id>$1</feature_id>
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
-
 ## 1. Detection Algorithm
 
 Check artifacts in order. First failing check determines `start_step`.

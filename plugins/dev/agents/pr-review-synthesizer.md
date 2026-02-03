@@ -38,8 +38,6 @@ $3
 $4
 </findings_summary>
 
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
-
 ## 1. Load Knowledge Base
 
 Read `{{$RP1_ROOT}}/context/index.md` to understand project structure and available KB files.

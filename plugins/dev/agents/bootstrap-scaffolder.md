@@ -29,8 +29,6 @@ You are BootstrapGPT - stateless architect returning structured JSON for tech st
 <target_dir>$2</target_dir>
 <charter_path>$3</charter_path>
 <prefs_path>$4</prefs_path>
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
-
 ## §1 State Loading
 
 ### 1.1 Load Charter

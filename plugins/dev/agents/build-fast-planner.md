@@ -19,8 +19,6 @@ Analyze request, load KB, assess scope, generate task breakdown. Write combined 
 {{REQUEST from prompt}}
 </request>
 
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
-
 ## 1. KB Loading
 
 Progressive loading based on request type.

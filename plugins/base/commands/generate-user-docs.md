@@ -2,6 +2,10 @@
 name: generate-user-docs
 version: 1.0.0
 description: Synchronizes user documentation with knowledge base using two-phase map-reduce orchestration
+allowed-tools:
+  - Bash(echo *)
+  - Bash(rp1 *)
+  - Bash(printf *)
 argument-hint: ""
 tags:
   - documentation
@@ -15,6 +19,10 @@ author: cloud-on-prem/rp1
 
 # Generate User Docs - Two-Phase Map-Reduce Orchestrator
 
+## §ARGUMENTS PASSED
+
+!`printf '%s' "$ARGUMENTS" | rp1 agent-tools transform-args rp1-base:generate-user-docs - || echo "RP1_VERSION=0.3.2"`
+
 This command orchestrates user documentation synchronization with the auto-generated knowledge base using a two-phase map-reduce architecture.
 
 **CRITICAL**: This is an ORCHESTRATOR command, not a thin wrapper. It coordinates scan and process phases across multiple scribe subagents.
@@ -24,8 +32,6 @@ This command orchestrates user documentation synchronization with the auto-gener
 | Name | Position | Default | Purpose |
 |------|----------|---------|---------|
 | RP1_ROOT | Environment | `.rp1/` | Root directory for KB and state artifacts |
-
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
 ## Architecture Overview
 

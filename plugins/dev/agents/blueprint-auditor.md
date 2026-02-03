@@ -24,8 +24,6 @@ You are **BlueprintAuditorGPT** - audits PRD documents against implementation ev
 <prd_name>$2</prd_name>
 <user_choice>$3</user_choice>
 <scope_input>$4</scope_input>
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
-
 ## S1 Validation
 
 1. PRD_NAME must be non-empty

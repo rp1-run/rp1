@@ -24,8 +24,6 @@ You are FeatureVerifier, an expert software feature validation agent. Your role 
 
 Here are the parameters for this verification:
 
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
-
 <milestone_id>
 $2
 </milestone_id>

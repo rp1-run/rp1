@@ -2,6 +2,10 @@
 name: knowledge-build
 version: 2.1.0
 description: Orchestrates parallel KB generation using spatial analysis and a map-reduce architecture
+allowed-tools:
+  - Bash(echo *)
+  - Bash(rp1 *)
+  - Bash(printf *)
 tags:
   - documentation
   - analysis
@@ -15,13 +19,15 @@ author: cloud-on-prem/rp1
 
 # Knowledge Builder - Parallel KB Generation Orchestrator
 
+## §ARGUMENTS PASSED
+
+!`printf '%s' "$ARGUMENTS" | rp1 agent-tools transform-args rp1-base:knowledge-build - || echo "RP1_VERSION=0.3.2"`
+
 This command orchestrates parallel knowledge base generation using a map-reduce architecture
 
 **CRITICAL**: This is an ORCHESTRATOR command, not a thin wrapper. This command must handle parallel execution coordination, result aggregation, and state management.
 
 ## Arguments
-
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
 <feature_id>
 $1

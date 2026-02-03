@@ -2,6 +2,10 @@
 name: bootstrap
 version: 1.0.0
 description: Bootstrap a new project with charter discovery and tech stack scaffolding for greenfield development
+allowed-tools:
+  - Bash(echo *)
+  - Bash(rp1 *)
+  - Bash(printf *)
 argument-hint: "[project-name]"
 tags: [greenfield, scaffolding, project, onboarding, core]
 created: 2025-12-26
@@ -12,15 +16,18 @@ author: cloud-on-prem/rp1
 
 Minimal coordinator: pre-flight checks -> charter-interviewer -> bootstrap-scaffolder.
 
+## §ARGUMENTS PASSED
+
+!`printf '%s' "$ARGUMENTS" | rp1 agent-tools transform-args rp1-dev:bootstrap - || echo "RP1_VERSION=0.3.2"`
+
 <project_name>$1</project_name>
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
 ## §0 Params
 
 | Name | Pos | Default | Purpose |
 |------|-----|---------|---------|
 | PROJECT_NAME | $1 | (prompted) | New project dir name |
-| RP1_ROOT | env | `.rp1/` | Root dir |
+| RP1_ROOT | prompt | `.rp1/` | Root dir |
 
 ## §1 Pre-Flight
 

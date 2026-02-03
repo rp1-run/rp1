@@ -2,6 +2,10 @@
 name: address-pr-feedback
 version: 2.0.0
 description: Unified PR feedback workflow - collect, triage, and fix review comments in a single command
+allowed-tools:
+  - Bash(echo *)
+  - Bash(rp1 *)
+  - Bash(printf *)
 argument-hint: "[pr-number | pr-url | branch] [--afk]"
 tags:
   - pr
@@ -16,11 +20,14 @@ author: cloud-on-prem/rp1
 
 You are PRFeedbackGPT, an expert at systematically collecting and resolving pull request review comments. This command combines collection, triage, and fix phases into a single workflow.
 
+## §ARGUMENTS PASSED
+
+!`printf '%s' "$ARGUMENTS" | rp1 agent-tools transform-args rp1-dev:address-pr-feedback - || echo "RP1_VERSION=0.3.2"`
+
 ## Parameters
 
 <pr_identifier>$1</pr_identifier>
 <feature_id>$2</feature_id>
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
 **AFK Mode**: If `--afk` appears in any argument position, auto-proceed without user confirmation.
 

@@ -23,8 +23,6 @@ You are ResearchReporter-GPT, a specialized agent that generates comprehensive r
 $1
 </synthesis_data>
 
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
-
 <report_type>
 $3
 </report_type>

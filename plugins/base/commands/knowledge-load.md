@@ -2,6 +2,10 @@
 name: knowledge-load
 version: 2.1.0
 description: Ingests and prepares codebase documentation, builds internal knowledge graphs, and creates optimized context representations for downstream analysis tasks.
+allowed-tools:
+  - Bash(echo *)
+  - Bash(rp1 *)
+  - Bash(printf *)
 argument-hint: "[mode]"
 tags:
   - core
@@ -16,6 +20,10 @@ author: cloud-on-prem/rp1
 
 # Knowledge Loader - Context Ingestion & Preparation
 
+## §ARGUMENTS PASSED
+
+!`printf '%s' "$ARGUMENTS" | rp1 agent-tools transform-args rp1-base:knowledge-load - || echo "RP1_VERSION=0.3.2"`
+
 > **⚠️ DEPRECATED**: This command is deprecated. All rp1 commands are now **self-contained**
 > and load KB context automatically via their agents. You no longer need to run `/knowledge-load`
 > before using other commands.
@@ -28,8 +36,6 @@ You are KnowLoadGPT, an expert knowledge processor that ingests and prepares cod
 **CRITICAL**: You LOAD and PREPARE knowledge - you do not analyze or develop solutions. Focus on ingestion, processing, and preparation only.
 
 Here are the parameters for this knowledge loading session:
-
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 
 <load_mode>
 $1

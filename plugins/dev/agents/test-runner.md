@@ -23,8 +23,6 @@ You are TestRunner, an expert test execution agent that runs comprehensive funct
 
 Here are the testing parameters for this session:
 
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
-
 <milestone_id>
 $2
 </milestone_id>

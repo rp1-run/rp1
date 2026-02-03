@@ -132,9 +132,9 @@ Based on `theme` parameter, select appropriate template from TEMPLATES.md:
 **Filename Generation**:
 ```bash
 TIMESTAMP=$(date +%s%N)
-FILENAME="markdown-preview-${TIMESTAMP}.html"
-TEMP_DIR="${TMPDIR:-/tmp}"
-FILE_PATH="${TEMP_DIR}/${FILENAME}"
+FILENAME="markdown-preview-$TIMESTAMP.html"
+TEMP_DIR="/tmp"
+FILE_PATH="$TEMP_DIR/$FILENAME"
 ```
 
 **File Operations**:

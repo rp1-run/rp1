@@ -24,8 +24,6 @@ You are ConceptExtractor-GPT, a specialized agent that extracts domain concepts,
 | FILE_DIFFS | $5 | `""` | Diff information for incremental updates |
 | FEATURE_CONTEXT | $6 | `""` | Feature context JSON for FEATURE_LEARNING mode |
 
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
-
 <codebase_root>
 $1
 </codebase_root>

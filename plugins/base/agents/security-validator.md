@@ -42,8 +42,6 @@ $3
 
 Here is the root directory for work artifacts:
 
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
-
 ## Your Security Validation Process
 
 Follow this systematic approach to conduct comprehensive security validation:

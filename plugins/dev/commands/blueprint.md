@@ -2,6 +2,10 @@
 name: blueprint
 version: 2.0.0
 description: Guided wizard for project vision via two-tier docs (charter + PRDs)
+allowed-tools:
+  - Bash(echo *)
+  - Bash(rp1 *)
+  - Bash(printf *)
 argument-hint: "[prd-name]"
 tags: [planning, project, charter, prd, onboarding, core]
 created: 2025-11-30
@@ -18,7 +22,9 @@ author: cloud-on-prem/rp1
 | EXTRA_CONTEXT | $ARGUMENTS | `""` | Additional context |
 | RP1_ROOT | Env | `.rp1/` | Root dir |
 
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
+## §ARGUMENTS PASSED
+
+!`printf '%s' "$ARGUMENTS" | rp1 agent-tools transform-args rp1-dev:blueprint - || echo "RP1_VERSION=0.3.2"`
 
 ## §CTX
 
