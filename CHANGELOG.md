@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.3](https://github.com/rp1-run/rp1/compare/v0.4.2...v0.4.3) (2026-02-04)
+
+
+### Bug Fixes
+
+* build-fast uses less shell interpolation to reduce issues with param expansion ([#250](https://github.com/rp1-run/rp1/issues/250)) ([0fb957d](https://github.com/rp1-run/rp1/commit/0fb957d85763a1cace5d71243e23292315b8429a))
+
 ## [0.4.2](https://github.com/rp1-run/rp1/compare/v0.4.1...v0.4.2) (2026-02-03)
 
 
