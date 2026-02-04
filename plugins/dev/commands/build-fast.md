@@ -5,7 +5,6 @@ description: Quick-iteration development for small/medium scope changes with per
 allowed-tools:
   - Bash(echo *)
   - Bash(rp1 *)
-  - Bash(printf *)
 argument-hint: "[development-request...] [--afk] [--confirm-plan] [--review] [--git-worktree] [--git-commit] [--git-push]"
 tags:
   - core
@@ -31,9 +30,16 @@ Quick-iteration workflow for focused changes. Three-phase execution: plan -> bui
 | `GIT_COMMIT` | Commit changes |
 | `GIT_PUSH` | Push branch to remote |
 
-## §ARGUMENTS PASSED
+## §PARSE ARGUMENTS
 
-!`printf '%s' "$ARGUMENTS" | rp1 agent-tools transform-args rp1-dev:build-fast - || echo "RP1_VERSION=0.3.2"`
+Before executing this command's logic, run the Bash tool with:
+
+```bash
+rp1 agent-tools transform-args rp1-dev:build-fast -
+```
+
+**Stdin**: The exact content from $ARGUMENTS (pass verbatim, preserving any special characters).
+**Parse output**: Extract VARIABLE=value pairs.
 
 ## §VERSION-GATE
 
@@ -52,6 +58,7 @@ Or in the terminal: `rp1 update`
 **CRITICAL OVERRIDE**: When `AFK=true`, treat `CONFIRM_PLAN` as `false` regardless of its passed value. AFK mode means zero user interaction - skip ALL `AskUserQuestion` calls throughout this workflow.
 
 **Effective values when AFK=true**:
+
 - `CONFIRM_PLAN` → `false` (forced)
 - All checkpoints → SKIP (no AskUserQuestion)
 
