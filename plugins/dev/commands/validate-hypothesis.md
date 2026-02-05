@@ -5,7 +5,6 @@ description: Validate design hypotheses via code experiments, codebase analysis,
 allowed-tools:
   - Bash(echo *)
   - Bash(rp1 *)
-  - Bash(printf *)
 argument-hint: "<feature-id>"
 tags: [feature, validation, design]
 created: 2025-11-29
@@ -16,9 +15,16 @@ author: cloud-on-prem/rp1
 
 Invokes **hypothesis-tester** agent to validate design assumptions.
 
-## §ARGUMENTS PASSED
+## §PARSE ARGUMENTS
 
-!`printf '%s' "$ARGUMENTS" | rp1 agent-tools transform-args rp1-dev:validate-hypothesis - || echo "RP1_VERSION=0.3.2"`
+Before executing this command's logic, run the Bash tool with:
+
+```bash
+rp1 agent-tools transform-args rp1-dev:validate-hypothesis -
+```
+
+**Stdin**: The exact content from $ARGUMENTS (pass verbatim, preserving any special characters).
+**Parse output**: Extract VARIABLE=value pairs.
 
 <feature_id>
 $1

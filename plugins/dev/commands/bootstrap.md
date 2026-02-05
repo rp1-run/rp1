@@ -5,7 +5,6 @@ description: Bootstrap a new project with charter discovery and tech stack scaff
 allowed-tools:
   - Bash(echo *)
   - Bash(rp1 *)
-  - Bash(printf *)
 argument-hint: "[project-name]"
 tags: [greenfield, scaffolding, project, onboarding, core]
 created: 2025-12-26
@@ -16,9 +15,16 @@ author: cloud-on-prem/rp1
 
 Minimal coordinator: pre-flight checks -> charter-interviewer -> bootstrap-scaffolder.
 
-## §ARGUMENTS PASSED
+## §PARSE ARGUMENTS
 
-!`printf '%s' "$ARGUMENTS" | rp1 agent-tools transform-args rp1-dev:bootstrap - || echo "RP1_VERSION=0.3.2"`
+Before executing this command's logic, run the Bash tool with:
+
+```bash
+rp1 agent-tools transform-args rp1-dev:bootstrap -
+```
+
+**Stdin**: The exact content from $ARGUMENTS (pass verbatim, preserving any special characters).
+**Parse output**: Extract VARIABLE=value pairs.
 
 <project_name>$1</project_name>
 
@@ -41,7 +47,7 @@ Classify directory state:
 - **Empty**: Only `.`, `..`, `.DS_Store` (no rp1 files)
 - **Non-empty**: Contains project files -> list top 10-15
 
-**Extract CURRENT_DIR_NAME**: basename of current working directory (e.g., `/home/user/my-app` → `my-app`)
+**Extract CURRENT_DIR_NAME**: basename of current working directory (e.g., `/home/user/my-app` -> `my-app`)
 
 ## §2 Project Name
 

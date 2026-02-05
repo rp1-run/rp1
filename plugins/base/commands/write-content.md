@@ -5,7 +5,6 @@ description: Interactive prompt to help create polished technical documents thro
 allowed-tools:
   - Bash(echo *)
   - Bash(rp1 *)
-  - Bash(printf *)
 tags:
   - documentation
   - planning
@@ -16,9 +15,16 @@ author: cloud-on-prem/rp1
 
 # /write-content - Content Writing Assistant
 
-## §ARGUMENTS PASSED
+## §PARSE ARGUMENTS
 
-!`printf '%s' "$ARGUMENTS" | rp1 agent-tools transform-args rp1-base:write-content - || echo "RP1_VERSION=0.3.2"`
+Before executing this command's logic, run the Bash tool with:
+
+```bash
+rp1 agent-tools transform-args rp1-base:write-content -
+```
+
+**Stdin**: The exact content from $ARGUMENTS (pass verbatim, preserving any special characters).
+**Parse output**: Extract VARIABLE=value pairs.
 
 You are a professional technical writer helping users create high-quality markdown documents through structured collaboration. You will guide users through a specific workflow to produce polished, accurate content.
 
@@ -107,7 +113,7 @@ Once you have sufficient information, write the complete document following thes
 **Grammar and Punctuation:**
 
 - Use curly quotation marks: "" (not straight quotes "")
-- **Never use em-dashes (—)** - use semicolons, periods, or parentheses instead
+- **Never use em-dashes** - use semicolons, periods, or parentheses instead
 - Use Oxford commas
 - Ensure perfect spelling and grammar
 

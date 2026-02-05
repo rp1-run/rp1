@@ -5,7 +5,6 @@ description: Orchestrates parallel KB generation using spatial analysis and a ma
 allowed-tools:
   - Bash(echo *)
   - Bash(rp1 *)
-  - Bash(printf *)
 tags:
   - documentation
   - analysis
@@ -19,9 +18,16 @@ author: cloud-on-prem/rp1
 
 # Knowledge Builder - Parallel KB Generation Orchestrator
 
-## §ARGUMENTS PASSED
+## §PARSE ARGUMENTS
 
-!`printf '%s' "$ARGUMENTS" | rp1 agent-tools transform-args rp1-base:knowledge-build - || echo "RP1_VERSION=0.3.2"`
+Before executing this command's logic, run the Bash tool with:
+
+```bash
+rp1 agent-tools transform-args rp1-base:knowledge-build -
+```
+
+**Stdin**: The exact content from $ARGUMENTS (pass verbatim, preserving any special characters).
+**Parse output**: Extract VARIABLE=value pairs.
 
 This command orchestrates parallel knowledge base generation using a map-reduce architecture
 
@@ -37,9 +43,9 @@ $1
 ## Architecture Overview
 
 ```
-Phase 1 (Sequential):  Spatial Analyzer → Categorized file lists
-Phase 2 (Parallel):    4 Analysis Agents → JSON outputs (concept, arch, module, pattern)
-Phase 3 (Sequential):  Command → Merge JSON → Generate index.md → Write KB files
+Phase 1 (Sequential):  Spatial Analyzer -> Categorized file lists
+Phase 2 (Parallel):    4 Analysis Agents -> JSON outputs (concept, arch, module, pattern)
+Phase 3 (Sequential):  Command -> Merge JSON -> Generate index.md -> Write KB files
 ```
 
 **Key Design**: The main orchestrator generates index.md directly (not via sub-agent) because:
@@ -71,7 +77,7 @@ If `FEATURE_ID` ($1) is provided, this is a **feature learning build** that capt
    If neither exists, error:
 
    ```
-   ❌ Feature not found: {FEATURE_ID}
+   Feature not found: {FEATURE_ID}
    Checked: {{$RP1_ROOT}}/work/archives/features/{FEATURE_ID}/
            {{$RP1_ROOT}}/work/features/{FEATURE_ID}/
    ```
@@ -148,7 +154,7 @@ If `FEATURE_ID` ($1) is provided, this is a **feature learning build** that capt
 
    **CASE A: No changes detected** (state.json exists AND git commit unchanged):
    - **ACTION**: Skip build entirely (no-op)
-   - **MESSAGE**: "✓ KB is up-to-date (commit {{commit_hash}}). No regeneration needed. KB is automatically loaded by agents when needed."
+   - **MESSAGE**: "KB is up-to-date (commit {{commit_hash}}). No regeneration needed. KB is automatically loaded by agents when needed."
 
    **CASE A-MONOREPO: No changes in this service** (monorepo: git commit changed but no changes in CODEBASE_ROOT):
    - **ACTION**: Skip build BUT update state.json with new commit
@@ -158,7 +164,7 @@ If `FEATURE_ID` ($1) is provided, this is a **feature learning build** that capt
      - Update only the `git_commit` field to new commit hash
      - Keep all other fields unchanged (strategy, repo_type, files_analyzed, etc.)
      - Write updated state.json
-   - **MESSAGE**: "✓ No changes in this service since last build. Updated commit reference ({{old_commit}} → {{new_commit}}). KB is automatically loaded by agents when needed."
+   - **MESSAGE**: "No changes in this service since last build. Updated commit reference ({{old_commit}} -> {{new_commit}}). KB is automatically loaded by agents when needed."
 
    **CASE B: First-time build** (no state.json):
    - **ACTION**: Full analysis mode - proceed to Phase 1
@@ -208,14 +214,14 @@ If `FEATURE_ID` ($1) is provided, this is a **feature learning build** that capt
      ```
 
    - **Check if any files changed in scope**:
-     - If NO changes found → **Go to CASE A-MONOREPO** (update commit only)
-     - If changes found → Continue with incremental analysis
+     - If NO changes found -> **Go to CASE A-MONOREPO** (update commit only)
+     - If changes found -> Continue with incremental analysis
    - **Check change set size** (prevent token limit issues):
 
      ```bash
      changed_file_count=$(echo "$changed_files" | wc -l)
      if [ $changed_file_count -gt 50 ]; then
-       echo "⚠️ Large change set ($changed_file_count files changed). Using FULL mode for reliability."
+       echo "Large change set ($changed_file_count files changed). Using FULL mode for reliability."
        # Fall back to FULL mode (skip getting diffs)
        MODE="FULL"
      else
@@ -225,7 +231,7 @@ If `FEATURE_ID` ($1) is provided, this is a **feature learning build** that capt
 
    - **MESSAGE**:
      - If MODE=FULL: "Large change set ({{changed_file_count}} files). Full analysis (10-15 min)"
-     - If MODE=INCREMENTAL: "Changes detected since last build ({{old_commit}} → {{new_commit}}). Analyzing {{changed_file_count}} changed files (2-5 min)"
+     - If MODE=INCREMENTAL: "Changes detected since last build ({{old_commit}} -> {{new_commit}}). Analyzing {{changed_file_count}} changed files (2-5 min)"
    - **Get detailed diffs for each changed file** (only if MODE=INCREMENTAL):
 
      ```bash
@@ -233,7 +239,7 @@ If `FEATURE_ID` ($1) is provided, this is a **feature learning build** that capt
      git diff {{old_commit}} {{new_commit}} -- <filepath>
      ```
 
-   - **Store diffs**: Create FILE_DIFFS JSON mapping filepath → diff content (only if MODE=INCREMENTAL)
+   - **Store diffs**: Create FILE_DIFFS JSON mapping filepath -> diff content (only if MODE=INCREMENTAL)
    - **Filter changed files**: Apply EXCLUDE_PATTERNS, filter to relevant extensions
    - **Store changed files list**: Will be passed to spatial analyzer
    - **MODE**: INCREMENTAL (< 50 files) or FULL (>= 50 files)
@@ -304,7 +310,7 @@ If `FEATURE_ID` ($1) is provided, this is a **feature learning build** that capt
    ```
    Use Task tool with:
    subagent_type: rp1-base:kb-pattern-extractor
-   prompt: "MODE={{mode}}. Extract implementation patterns for patterns.md. Repository type: {{repo_type}}. Files to analyze (JSON): {{stringify(concept_files + module_files)}}. {{if mode==INCREMENTAL}}File diffs (JSON): {{stringify(file_diffs_for_pattern_files)}}{{endif}}. Return JSON with patterns (≤150 lines when rendered)."
+   prompt: "MODE={{mode}}. Extract implementation patterns for patterns.md. Repository type: {{repo_type}}. Files to analyze (JSON): {{stringify(concept_files + module_files)}}. {{if mode==INCREMENTAL}}File diffs (JSON): {{stringify(file_diffs_for_pattern_files)}}{{endif}}. Return JSON with patterns (<=150 lines when rendered)."
    ```
 
 2. **Collect agent outputs**:
@@ -317,11 +323,11 @@ If `FEATURE_ID` ($1) is provided, this is a **feature learning build** that capt
    **If 1 agent fails**:
    - Continue with remaining 3 successful agents
    - Generate placeholder content for failed section:
-     - concept_map.md failed → "# Error extracting concepts - run full rebuild"
-     - architecture.md failed → "# Error mapping architecture - see logs"
-     - modules.md failed → "# Error analyzing modules - run full rebuild"
-     - patterns.md failed → "# Error extracting patterns - run full rebuild"
-   - Include warning in final report: "⚠️ Partial KB generated (1 agent failed: <agent-name>)"
+     - concept_map.md failed -> "# Error extracting concepts - run full rebuild"
+     - architecture.md failed -> "# Error mapping architecture - see logs"
+     - modules.md failed -> "# Error analyzing modules - run full rebuild"
+     - patterns.md failed -> "# Error extracting patterns - run full rebuild"
+   - Include warning in final report: "Partial KB generated (1 agent failed: <agent-name>)"
    - Write partial KB files (index.md always generated by orchestrator + 3 successful agent files + 1 placeholder)
    - Exit with partial success (still usable KB)
 
@@ -366,7 +372,7 @@ If `FEATURE_ID` ($1) is provided, this is a **feature learning build** that capt
    **patterns.md**:
    - Use pattern-extractor JSON data
    - Fill template sections: 6 core patterns, conditional patterns (if detected)
-   - Verify output is ≤150 lines
+   - Verify output is <=150 lines
    - Omit conditional sections if not detected
 
 3. **Validate Mermaid diagrams**:
@@ -470,7 +476,7 @@ If `FEATURE_ID` ($1) is provided, this is a **feature learning build** that capt
 **Final Report**:
 
 ```
-✅ Knowledge Base Generated Successfully
+Knowledge Base Generated Successfully
 
 Strategy: Parallel map-reduce
 Repository: {{repo_type}}
@@ -495,7 +501,7 @@ Next steps:
 **Final Report (Feature Learning Mode)**:
 
 ```
-✅ Feature Learnings Captured
+Feature Learnings Captured
 
 Feature: {{FEATURE_ID}}
 Source: {{FEATURE_PATH}}
@@ -553,7 +559,7 @@ Future agents will benefit from these learnings.
 ```
 First-time KB generation with parallel analysis (10-15 min)
 Analyzing... (Phase 2/5)
-✅ Knowledge Base Generated Successfully
+Knowledge Base Generated Successfully
 [Final Report as shown above]
 ```
 
@@ -579,8 +585,8 @@ etc. (too verbose!)
 **No changes detected**:
 
 - Instant (no-op)
-- **Single-project**: Commit unchanged → Skip entirely
-- **Monorepo**: Commit changed but no changes in this service → Update state.json commit only
+- **Single-project**: Commit unchanged -> Skip entirely
+- **Monorepo**: Commit changed but no changes in this service -> Update state.json commit only
 
 **First-time build** (no state.json - full analysis):
 
