@@ -1,6 +1,6 @@
 {
 	"name": "@rp1-run/rp1",
-	"version": "0.4.4",
+	"version": "0.4.5",
 	"description": "AI-assisted development workflows CLI",
 	"license": "MIT",
 	"repository": {

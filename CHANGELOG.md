@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.5](https://github.com/rp1-run/rp1/compare/v0.4.4...v0.4.5) (2026-02-05)
+
+
+### Bug Fixes
+
+* ensure cli for parsing args suppresses warnings ([#254](https://github.com/rp1-run/rp1/issues/254)) ([47844da](https://github.com/rp1-run/rp1/commit/47844dadcfdb5184b2b2327065be140f84569790))
+
 ## [0.4.4](https://github.com/rp1-run/rp1/compare/v0.4.3...v0.4.4) (2026-02-05)
 
 
