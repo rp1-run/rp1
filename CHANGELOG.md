@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.4](https://github.com/rp1-run/rp1/compare/v0.4.3...v0.4.4) (2026-02-05)
+
+
+### Bug Fixes
+
+* all commands to use argument parsing via tool call instruction ([#252](https://github.com/rp1-run/rp1/issues/252)) ([4087453](https://github.com/rp1-run/rp1/commit/4087453856dce8237f9043c3d193b763d0628c64))
+
 ## [0.4.3](https://github.com/rp1-run/rp1/compare/v0.4.2...v0.4.3) (2026-02-04)
 
 
