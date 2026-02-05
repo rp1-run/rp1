@@ -5,7 +5,6 @@ description: Restores an archived feature to {RP1_ROOT}/work/features/
 allowed-tools:
   - Bash(echo *)
   - Bash(rp1 *)
-  - Bash(printf *)
 argument-hint: "feature-id"
 tags: [feature, archive, restore, lifecycle]
 created: 2025-11-29
@@ -34,9 +33,16 @@ Restores an archived feature's documentation from the archives directory back to
 /rp1-dev:feature-unarchive my-feature_20251129_143022
 ```
 
-## §ARGUMENTS PASSED
+## §PARSE ARGUMENTS
 
-!`printf '%s' "$ARGUMENTS" | rp1 agent-tools transform-args rp1-dev:feature-unarchive - || echo "RP1_VERSION=0.3.2"`
+Before executing this command's logic, run the Bash tool with:
+
+```bash
+rp1 agent-tools transform-args rp1-dev:feature-unarchive -
+```
+
+**Stdin**: The exact content from $ARGUMENTS (pass verbatim, preserving any special characters).
+**Parse output**: Extract VARIABLE=value pairs.
 
 ## Behavior
 

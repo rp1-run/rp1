@@ -5,7 +5,6 @@ description: Unified PR feedback workflow - collect, triage, and fix review comm
 allowed-tools:
   - Bash(echo *)
   - Bash(rp1 *)
-  - Bash(printf *)
 argument-hint: "[pr-number | pr-url | branch] [--afk]"
 tags:
   - pr
@@ -20,9 +19,16 @@ author: cloud-on-prem/rp1
 
 You are PRFeedbackGPT, an expert at systematically collecting and resolving pull request review comments. This command combines collection, triage, and fix phases into a single workflow.
 
-## §ARGUMENTS PASSED
+## §PARSE ARGUMENTS
 
-!`printf '%s' "$ARGUMENTS" | rp1 agent-tools transform-args rp1-dev:address-pr-feedback - || echo "RP1_VERSION=0.3.2"`
+Before executing this command's logic, run the Bash tool with:
+
+```bash
+rp1 agent-tools transform-args rp1-dev:address-pr-feedback -
+```
+
+**Stdin**: The exact content from $ARGUMENTS (pass verbatim, preserving any special characters).
+**Parse output**: Extract VARIABLE=value pairs.
 
 ## Parameters
 
@@ -63,10 +69,10 @@ After collection completes:
 **Comments**: {total}
 
 ### Priority Breakdown
-- 🚨 Blocking: {count}
-- ⚠️ Important: {count}
-- 💡 Suggestions: {count}
-- 🎨 Style: {count}
+- Blocking: {count}
+- Important: {count}
+- Suggestions: {count}
+- Style: {count}
 ```
 
 **AFK Mode**: Auto-proceed to Phase 3 without confirmation. Log: "AFK: Auto-proceeding to fix phase"
@@ -87,7 +93,7 @@ This sets up an isolated worktree on the PR branch.
 
 ### Inside the Worktree
 
-Process comments in priority order: Blocking → Important → Suggestions → Style.
+Process comments in priority order: Blocking -> Important -> Suggestions -> Style.
 
 For each unresolved comment:
 
@@ -102,18 +108,18 @@ For each unresolved comment:
 
 For resolved comments:
 ```markdown
-**🔧 RESOLUTION WORK**:
+**RESOLUTION WORK**:
 - **Analysis**: {understanding}
 - **Changes**: {files modified}
 - **Commit**: {commit hash and message}
-- **Status**: ✅ Resolved
+- **Status**: Resolved
 ```
 
 For declined comments:
 ```markdown
-**🚫 DECLINED**:
+**DECLINED**:
 - **Reasoning**: {why not implementing}
-- **Status**: ❌ Won't Fix
+- **Status**: Won't Fix
 ```
 
 ### After Fixes Complete
@@ -139,15 +145,15 @@ Generate final summary with worktree navigation instructions:
 ### Phases
 | Phase | Status | Details |
 |-------|--------|---------|
-| Collect | ✅ | {N} comments found |
-| Triage | ✅ | {blocking}/{important}/{suggestions}/{style} |
-| Fix | ✅ | {resolved}/{total} resolved |
+| Collect | Done | {N} comments found |
+| Triage | Done | {blocking}/{important}/{suggestions}/{style} |
+| Fix | Done | {resolved}/{total} resolved |
 
 ### Resolution Summary
-- 🚨 Blocking: {resolved}/{total}
-- ⚠️ Important: {resolved}/{total}
-- 💡 Suggestions: {resolved}/{total}
-- 🎨 Style: {resolved}/{total}
+- Blocking: {resolved}/{total}
+- Important: {resolved}/{total}
+- Suggestions: {resolved}/{total}
+- Style: {resolved}/{total}
 
 ### Files Modified
 - `{path}` - {description}
@@ -158,15 +164,15 @@ Generate final summary with worktree navigation instructions:
 - ...
 
 ### Testing Status
-- All tests passing: ✅/❌
-- No regressions: ✅/❌
+- All tests passing: Yes/No
+- No regressions: Yes/No
 
 ### Declined Comments
 - {list with reasons}
 
 ---
 
-## 📂 Review Your Changes
+## Review Your Changes
 
 The fixes have been made in an isolated worktree. **Changes are NOT pushed yet.**
 
@@ -196,7 +202,7 @@ git checkout {branch} -- .  # revert changes
 
 ---
 
-## 🧹 Cleanup (Required)
+## Cleanup (Required)
 
 When done reviewing, return to the main repo and remove the worktree:
 ```bash
@@ -204,7 +210,7 @@ cd {original_cwd}
 git worktree remove {worktree_path}
 ```
 
-**Ready for Re-Review**: ✅/❌ (after you push)
+**Ready for Re-Review**: Yes/No (after you push)
 ```
 
 ## Error Handling

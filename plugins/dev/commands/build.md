@@ -5,7 +5,6 @@ description: End-to-end feature workflow (requirements -> design -> tasks -> bui
 allowed-tools:
   - Bash(echo *)
   - Bash(rp1 *)
-  - Bash(printf *)
 argument-hint: "<feature-id> [requirements...] [--afk] [--git-worktree] [--git-commit] [--git-push] [--git-pr]"
 tags:
   - core
@@ -31,9 +30,16 @@ author: cloud-on-prem/rp1
 | `GIT_PUSH` | Push branch to remote |
 | `GIT_PR` | Create PR (implies push, commit) |
 
-## §ARGUMENTS PASSED
+## §PARSE ARGUMENTS
 
-!`printf '%s' "$ARGUMENTS" | rp1 agent-tools transform-args rp1-dev:build - || echo "RP1_VERSION=0.3.2"`
+Before executing this command's logic, run the Bash tool with:
+
+```bash
+rp1 agent-tools transform-args rp1-dev:build -
+```
+
+**Stdin**: The exact content from $ARGUMENTS (pass verbatim, preserving any special characters).
+**Parse output**: Extract VARIABLE=value pairs.
 
 ## §VERSION-GATE
 

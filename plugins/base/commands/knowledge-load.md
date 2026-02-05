@@ -5,7 +5,6 @@ description: Ingests and prepares codebase documentation, builds internal knowle
 allowed-tools:
   - Bash(echo *)
   - Bash(rp1 *)
-  - Bash(printf *)
 argument-hint: "[mode]"
 tags:
   - core
@@ -20,11 +19,18 @@ author: cloud-on-prem/rp1
 
 # Knowledge Loader - Context Ingestion & Preparation
 
-## §ARGUMENTS PASSED
+## §PARSE ARGUMENTS
 
-!`printf '%s' "$ARGUMENTS" | rp1 agent-tools transform-args rp1-base:knowledge-load - || echo "RP1_VERSION=0.3.2"`
+Before executing this command's logic, run the Bash tool with:
 
-> **⚠️ DEPRECATED**: This command is deprecated. All rp1 commands are now **self-contained**
+```bash
+rp1 agent-tools transform-args rp1-base:knowledge-load -
+```
+
+**Stdin**: The exact content from $ARGUMENTS (pass verbatim, preserving any special characters).
+**Parse output**: Extract VARIABLE=value pairs.
+
+> **DEPRECATED**: This command is deprecated. All rp1 commands are now **self-contained**
 > and load KB context automatically via their agents. You no longer need to run `/knowledge-load`
 > before using other commands.
 >
@@ -139,7 +145,7 @@ Full mode:
 **Progressive Mode Output**:
 
 ```
-⚠️ DEPRECATION WARNING: This command is deprecated. Commands now load KB automatically.
+DEPRECATION WARNING: This command is deprecated. Commands now load KB automatically.
 
 READY [progressive]
 
@@ -151,7 +157,7 @@ Use Read tool to load additional files as needed.
 **Full Mode Output**:
 
 ```
-⚠️ DEPRECATION WARNING: This command is deprecated. Commands now load KB automatically.
+DEPRECATION WARNING: This command is deprecated. Commands now load KB automatically.
 
 READY [full: 5 files, ~1180 lines]
 ```
@@ -234,9 +240,9 @@ etc. (too verbose!)
 Read `{{$RP1_ROOT}}/context/index.md` to understand project structure and available KB files.
 
 **Selective Loading**: Based on your task, load additional files as needed:
-- For pattern consistency checks → Read `{{$RP1_ROOT}}/context/patterns.md`
-- For architecture understanding → Read `{{$RP1_ROOT}}/context/architecture.md`
-- For component details → Read `{{$RP1_ROOT}}/context/modules.md`
+- For pattern consistency checks -> Read `{{$RP1_ROOT}}/context/patterns.md`
+- For architecture understanding -> Read `{{$RP1_ROOT}}/context/architecture.md`
+- For component details -> Read `{{$RP1_ROOT}}/context/modules.md`
 
 Do NOT load all KB files unless performing holistic analysis.
 ```

@@ -5,7 +5,6 @@ description: Intent-aware map-reduce PR review with CI/CD support, confidence ga
 allowed-tools:
   - Bash(echo *)
   - Bash(rp1 *)
-  - Bash(printf *)
 argument-hint: "[target] [base-branch] [skip-visual]"
 tags: [review, pr, security, analysis, map-reduce, ci]
 created: 2025-10-25
@@ -26,9 +25,16 @@ author: cloud-on-prem/rp1
 | SKIP_VISUAL | $3 | (none) | `skip-visual` disables viz |
 | RP1_ROOT | Environment | `.rp1/` | Artifact root |
 
-## §ARGUMENTS PASSED
+## §PARSE ARGUMENTS
 
-!`printf '%s' "$ARGUMENTS" | rp1 agent-tools transform-args rp1-dev:pr-review - || echo "RP1_VERSION=0.3.2"`
+Before executing this command's logic, run the Bash tool with:
+
+```bash
+rp1 agent-tools transform-args rp1-dev:pr-review -
+```
+
+**Stdin**: The exact content from $ARGUMENTS (pass verbatim, preserving any special characters).
+**Parse output**: Extract VARIABLE=value pairs.
 
 <target>$1</target>
 <base_branch>$2</base_branch>
@@ -37,14 +43,14 @@ author: cloud-on-prem/rp1
 §ARCH
 
 ```
-P-1  (seq):  Config Load → CI Detection → Early Exit Check
-P0   (seq):  Input Resolution → Intent Model
+P-1  (seq):  Config Load -> CI Detection -> Early Exit Check
+P0   (seq):  Input Resolution -> Intent Model
 P0.5 (bg):   Visual Gen (conditional, parallel w/ P1)
-P1   (seq):  Splitter → ReviewUnit[]
-P2   (par):  N × Sub-Reviewers → Findings + Summaries
-P3   (seq):  Synthesizer → Cross-File Issues + Judgment
-P4   (seq):  Reporter → Markdown Report + Structured Data
-P5   (seq):  Comment Posting (CI only) → GitHub Review
+P1   (seq):  Splitter -> ReviewUnit[]
+P2   (par):  N x Sub-Reviewers -> Findings + Summaries
+P3   (seq):  Synthesizer -> Cross-File Issues + Judgment
+P4   (seq):  Reporter -> Markdown Report + Structured Data
+P5   (seq):  Comment Posting (CI only) -> GitHub Review
 ```
 
 §PROC
@@ -66,9 +72,9 @@ P5   (seq):  Comment Posting (CI only) → GitHub Review
    visualize: boolean      # default: false
    ci_platform: string     # "github" | "buildkite" | "gitlab", default: "github"
    ```
-   Missing file → use defaults.
+   Missing file -> use defaults.
 
-2. **Detect CI**: `CI=true` env → `CI_MODE=true`, else `CI_MODE=false`
+2. **Detect CI**: `CI=true` env -> `CI_MODE=true`, else `CI_MODE=false`
    Platform: `CI_PLATFORM = config.ci_platform` (default: github)
 
 3. **Env overrides**:
@@ -81,24 +87,24 @@ P5   (seq):  Comment Posting (CI only) → GitHub Review
    | RP1_PR_REVIEW_VISUALIZE | visualize |
 
 4. **Early exit** (CI only):
-   `if CI_MODE AND NOT config.enabled` → Output config instructions, EXIT
+   `if CI_MODE AND NOT config.enabled` -> Output config instructions, EXIT
 
 5. **Build CI_CONTEXT** (GitHub only):
-   - Read `GITHUB_EVENT_PATH` → pr_number, action, is_draft
-   - Read `GITHUB_REPOSITORY` → owner, repo
+   - Read `GITHUB_EVENT_PATH` -> pr_number, action, is_draft
+   - Read `GITHUB_REPOSITORY` -> owner, repo
    - Read `GITHUB_TOKEN`, `GITHUB_HEAD_REF`, `GITHUB_BASE_REF`
 
    Store: `{"pr_number": N, "owner": "...", "repo": "...", "token": "...", "head_ref": "...", "base_ref": "...", "is_draft": false}`
 
 6. **Draft check** (CI only):
-   `if CI_MODE AND CI_CONTEXT.is_draft AND NOT config.review_drafts` → Skip, EXIT
+   `if CI_MODE AND CI_CONTEXT.is_draft AND NOT config.review_drafts` -> Skip, EXIT
 
 ### Pre-flight: Git State (Local Only)
 
 Skip if `CI_MODE=true`.
 
 1. `git status --porcelain`
-2. If non-empty → AskUserQuestion: "Stash and continue" / "Abort"
+2. If non-empty -> AskUserQuestion: "Stash and continue" / "Abort"
 3. Stash: `git stash push -m "rp1-pr-review-auto-stash"`, set `STASHED=true`
    Abort: Exit "Review cancelled."
 
@@ -108,8 +114,8 @@ Skip if `CI_MODE=true`.
 
 1. From CI_CONTEXT: `pr_branch`, `base_branch` ($2 if provided), `pr_number`
 2. `gh pr view {{pr_number}} --json title,body,url 2>/dev/null`
-3. Parse title → `problem_statement`, body → `expected_changes`, `acceptance_criteria`
-   Parse fails → `mode="ci_minimal"`, `problem_statement="Review PR #{{pr_number}}"`
+3. Parse title -> `problem_statement`, body -> `expected_changes`, `acceptance_criteria`
+   Parse fails -> `mode="ci_minimal"`, `problem_statement="Review PR #{{pr_number}}"`
 4. No user prompts (AFK)
 
 #### Local Mode
@@ -125,15 +131,15 @@ Skip if `CI_MODE=true`.
 
 2. `gh pr view {{branch}} --json title,body,headRefName,baseRefName,url 2>/dev/null`
 
-2a. Get repo URL: `gh repo view --json url --jq '.url' 2>/dev/null` → `GITHUB_URL` (empty if fails)
+2a. Get repo URL: `gh repo view --json url --jq '.url' 2>/dev/null` -> `GITHUB_URL` (empty if fails)
 
 3. **Build Intent Model**:
-   - PR exists (mode=`full`): title → `problem_statement`, parse body, fetch linked issues
-   - No PR → AskUserQuestion: "Quick description" / "Skip"
+   - PR exists (mode=`full`): title -> `problem_statement`, parse body, fetch linked issues
+   - No PR -> AskUserQuestion: "Quick description" / "Skip"
      - Provided (mode=`user_provided`): use description
      - Skip (mode=`branch_only`): `problem_statement="Review changes on {{branch}}"`
 
-4. Add: `git log {{base}}..{{branch}} --oneline --no-decorate` → `commit_summaries`
+4. Add: `git log {{base}}..{{branch}} --oneline --no-decorate` -> `commit_summaries`
 
 5. Base: PR metadata > $2 > 'main'
 
@@ -144,7 +150,7 @@ Skip if `CI_MODE=true`.
 **Skip conditions**:
 - CI mode + `NOT config.visualize`
 - $3 == "skip-visual"
-- Trivial: ≤3 files, same dir, <100 lines
+- Trivial: <=3 files, same dir, <100 lines
 
 **Detect** (local):
 ```bash
@@ -179,7 +185,7 @@ prompt: "Split PR diff into review units.
   THRESHOLD: 100
   Return JSON with units array."
 ```
-Parse `units`, store counts. Fail → Abort w/ error.
+Parse `units`, store counts. Fail -> Abort w/ error.
 
 ### P2: Detailed Analysis
 
@@ -198,7 +204,7 @@ Parse `units`, store counts. Fail → Abort w/ error.
      Return JSON with findings and summary."
    ```
 4. Aggregate findings + summaries
-5. <50% fail → continue | ≥50% fail → abort
+5. <50% fail -> continue | >=50% fail -> abort
 
 ### P3: Synthesis
 
@@ -217,15 +223,15 @@ Parse `units`, store counts. Fail → Abort w/ error.
    ```
 
 3. Extract: `intent_achieved`, `intent_gap`, `cross_file_findings`, `judgment`, `rationale`
-4. Fail → findings-only judgment: Critical→block, High→request_changes, else→approve
+4. Fail -> findings-only judgment: Critical->block, High->request_changes, else->approve
 
 ### P4: Reporting
 
 1. Merge findings: unit + cross_file, dedupe by (path, lines, dimension), keep highest severity
 2. Stats: `{critical: N, high: N, medium: N, low: N}`
-3. Review ID: PR# → `pr-{{number}}` | else → sanitized branch
-4. If `VISUAL_TASK_ID`: check completion → `VISUAL_PATH` or "none"
-5. `git rev-parse {{branch}}` → `HEAD_SHA`
+3. Review ID: PR# -> `pr-{{number}}` | else -> sanitized branch
+4. If `VISUAL_TASK_ID`: check completion -> `VISUAL_PATH` or "none"
+5. `git rev-parse {{branch}}` -> `HEAD_SHA`
 6. Spawn:
    ```
    Task tool:
@@ -242,7 +248,7 @@ Parse `units`, store counts. Fail → Abort w/ error.
      REVIEW_ID: {{review_id}}
      Return JSON with path."
    ```
-7. Fail → output findings inline
+7. Fail -> output findings inline
 8. Store `REPORTER_FINDINGS` for P5 (CI mode)
 
 ### P5: Comment Posting (CI Only)
@@ -254,7 +260,7 @@ Skip if `CI_MODE=false`.
    echo '{"owner":"{{CI_CONTEXT.owner}}","repo":"{{CI_CONTEXT.repo}}","pr_number":{{CI_CONTEXT.pr_number}}}' | \
      rp1 agent-tools github-pr fetch-comments
    ```
-   Parse → `existing_bot_comments`, `existing_human_comments`
+   Parse -> `existing_bot_comments`, `existing_human_comments`
 
 2. **Transform findings** to deduplicator fmt:
    `[{"id": "f1", "path": "...", "line": N, "line_end": N, "body": "...", "severity": "...", "dimension": "..."}]`
@@ -324,7 +330,7 @@ Skip if `CI_MODE=false`.
    {{IF STASHED}}Restored stashed changes{{/IF}}
    ```
 
-Emoji: approve→✅ | request_changes→⚠️ | block→🛑
+Emoji: approve->check, request_changes->warning, block->stop
 
 §ERR
 

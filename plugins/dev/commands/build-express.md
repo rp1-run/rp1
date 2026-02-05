@@ -5,7 +5,6 @@ description: Interactive builder loop with optional review. Deploy task-builder 
 allowed-tools:
   - Bash(echo *)
   - Bash(rp1 *)
-  - Bash(printf *)
 argument-hint: "[request...]"
 tags:
   - core
@@ -28,9 +27,16 @@ Interactive builder loop. Orchestrates build-fast-executor for each task.
 | REQUEST | $ARGUMENTS | `""` | Initial request (may be empty) |
 | RP1_ROOT | prompt | `.rp1/` | Root dir |
 
-## §ARGUMENTS PASSED
+## §PARSE ARGUMENTS
 
-!`printf '%s' "$ARGUMENTS" | rp1 agent-tools transform-args rp1-dev:build-express - || echo "RP1_VERSION=0.3.2"`
+Before executing this command's logic, run the Bash tool with:
+
+```bash
+rp1 agent-tools transform-args rp1-dev:build-express -
+```
+
+**Stdin**: The exact content from $ARGUMENTS (pass verbatim, preserving any special characters).
+**Parse output**: Extract VARIABLE=value pairs.
 
 <request>$ARGUMENTS</request>
 

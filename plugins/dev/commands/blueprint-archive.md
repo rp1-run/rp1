@@ -5,7 +5,6 @@ description: Archives a completed PRD to {RP1_ROOT}/work/archives/prds/ with ass
 allowed-tools:
   - Bash(echo *)
   - Bash(rp1 *)
-  - Bash(printf *)
 argument-hint: "prd-name"
 tags: [blueprint, prd, archive, lifecycle]
 created: 2025-12-31
@@ -24,9 +23,16 @@ Archives completed PRD docs from active -> archives dir with associated features
 
 **Params**: `prd-name` (req) - PRD filename without extension
 
-## §ARGUMENTS PASSED
+## §PARSE ARGUMENTS
 
-!`printf '%s' "$ARGUMENTS" | rp1 agent-tools transform-args rp1-dev:blueprint-archive - || echo "RP1_VERSION=0.3.2"`
+Before executing this command's logic, run the Bash tool with:
+
+```bash
+rp1 agent-tools transform-args rp1-dev:blueprint-archive -
+```
+
+**Stdin**: The exact content from $ARGUMENTS (pass verbatim, preserving any special characters).
+**Parse output**: Extract VARIABLE=value pairs.
 
 ## Behavior
 

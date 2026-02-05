@@ -5,7 +5,6 @@ description: Synchronizes user documentation with knowledge base using two-phase
 allowed-tools:
   - Bash(echo *)
   - Bash(rp1 *)
-  - Bash(printf *)
 argument-hint: ""
 tags:
   - documentation
@@ -19,9 +18,16 @@ author: cloud-on-prem/rp1
 
 # Generate User Docs - Two-Phase Map-Reduce Orchestrator
 
-## §ARGUMENTS PASSED
+## §PARSE ARGUMENTS
 
-!`printf '%s' "$ARGUMENTS" | rp1 agent-tools transform-args rp1-base:generate-user-docs - || echo "RP1_VERSION=0.3.2"`
+Before executing this command's logic, run the Bash tool with:
+
+```bash
+rp1 agent-tools transform-args rp1-base:generate-user-docs -
+```
+
+**Stdin**: The exact content from $ARGUMENTS (pass verbatim, preserving any special characters).
+**Parse output**: Extract VARIABLE=value pairs.
 
 This command orchestrates user documentation synchronization with the auto-generated knowledge base using a two-phase map-reduce architecture.
 
@@ -36,12 +42,12 @@ This command orchestrates user documentation synchronization with the auto-gener
 ## Architecture Overview
 
 ```
-Phase 0   (Sequential):  KB Sync Validation → Block if stale
+Phase 0   (Sequential):  KB Sync Validation -> Block if stale
 Phase 1   (Sequential):  Doc Discovery + Style Sampling
-Phase 2   (Parallel):    N x scribe agents (mode=scan) → Classifications
-Phase 3   (Sequential):  Scan Aggregation → scan_results.json → User Approval
-Phase 4   (Parallel):    N x scribe agents (mode=process) → Direct Edits
-Phase 5   (Sequential):  Result Aggregation → Final Report
+Phase 2   (Parallel):    N x scribe agents (mode=scan) -> Classifications
+Phase 3   (Sequential):  Scan Aggregation -> scan_results.json -> User Approval
+Phase 4   (Parallel):    N x scribe agents (mode=process) -> Direct Edits
+Phase 5   (Sequential):  Result Aggregation -> Final Report
 ```
 
 **Key Design**: External state (`scan_results.json`) bridges the two phases, keeping orchestrator context minimal (~3KB).
