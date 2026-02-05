@@ -2,8 +2,8 @@
 
 **Type**: Single Project
 **Languages**: TypeScript, Markdown, Shell, Python
-**Version**: 0.3.0
-**Updated**: 2026-01-19
+**Version**: 0.4.4
+**Updated**: 2026-02-05
 
 ## Project Summary
 
@@ -23,10 +23,10 @@ rp1 is a Claude Code plugin system that automates development workflows through 
 
 | File | Lines | Load For |
 |------|-------|----------|
-| architecture.md | ~371 | System design, component relationships, data flows |
-| modules.md | ~340 | Component breakdown, module responsibilities |
-| patterns.md | ~169 | Code conventions, implementation patterns |
-| concept_map.md | ~275 | Domain terminology, business concepts |
+| architecture.md | ~260 | System design, component relationships, data flows |
+| modules.md | ~213 | Component breakdown, module responsibilities |
+| patterns.md | ~150 | Code conventions, implementation patterns |
+| concept_map.md | ~198 | Domain terminology, business concepts |
 
 ## Task-Based Loading
 
@@ -49,7 +49,7 @@ Read: .rp1/context/{filename}
 ```
 rp1/
 ├── plugins/
-│   ├── base/                  # Foundation plugin (9 commands, 12 agents, 5 skills)
+│   ├── base/                  # Foundation plugin (9 commands, 12 agents, 6 skills)
 │   │   ├── .claude-plugin/    # Plugin metadata
 │   │   ├── agents/            # Constitutional agents
 │   │   ├── commands/          # Slash commands (thin wrappers)
@@ -59,24 +59,20 @@ rp1/
 │   │   ├── agents/            # Constitutional agents
 │   │   ├── commands/          # Slash commands
 │   │   └── skills/            # worktree-workflow skill
-│   └── utils/                 # Utility plugin (1 command, 1 agent, 1 skill)
+│   └── utils/                 # Utility plugin (2 commands, 3 agents, 2 skills)
 │       └── ...
 ├── cli/                       # Cross-platform CLI
 │   ├── src/                   # TypeScript source (fp-ts patterns)
-│   │   ├── commands/          # CLI commands (init, install, view, update, verify)
+│   │   ├── commands/          # CLI commands (init, install, view, update)
 │   │   ├── init/              # Project initialization
 │   │   ├── install/           # Plugin installation
-│   │   └── agent-tools/       # AI agent tools (mmd-validate, worktree, rp1-root-dir, comment-extract)
-│   └── web-ui/                # React documentation viewer
-├── packages/                  # NPM packages
-│   └── catppuccin-mermaid/    # Mermaid theme library
+│   │   └── agent-tools/       # AI agent tools (worktree, mmd-validate, transform-args)
+│   └── web-ui/                # React documentation viewer + V2 status dashboard
 ├── docs/                      # MkDocs Material site
 ├── evals/                     # Promptfoo evaluation suites
 │   ├── src/attestation/       # Content-addressable prompt tracking
 │   ├── providers/             # Custom promptfoo providers (claude-with-tools)
 │   └── suites/                # Test suites (mirrors plugins structure)
-│       ├── shared/            # Shared assertions and hooks
-│       └── rp1-dev/           # Dev plugin evals
 ├── .github/workflows/         # CI/CD (release-please, GoReleaser)
 └── .rp1/context/              # Auto-generated knowledge base
 ```

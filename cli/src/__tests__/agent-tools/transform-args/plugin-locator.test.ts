@@ -203,15 +203,14 @@ describe("extractArgumentHint", () => {
 		expect(result).toBe("");
 	});
 
-	test("rejects missing argument-hint", () => {
+	test("accepts missing argument-hint as empty string", () => {
 		const metadata = {
 			name: "build",
 		};
 
-		const error = expectLeft(extractArgumentHint(metadata, "test.md"));
+		const result = expectRight(extractArgumentHint(metadata, "test.md"));
 
-		expect(error.reason).toBe("no-argument-hint");
-		expect(error.message).toContain("No argument-hint");
+		expect(result).toBe("");
 	});
 
 	test("rejects non-string argument-hint", () => {
@@ -302,7 +301,7 @@ argument-hint: "<feature-id> [requirements...] [--afk]"
 		expect(error.reason).toBe("invalid-frontmatter");
 	});
 
-	test("returns error for missing argument-hint", async () => {
+	test("returns empty string for missing argument-hint", async () => {
 		const commandPath = path.join(
 			tempDir,
 			"plugins",
@@ -319,11 +318,12 @@ name: nohint
 # No Hint`,
 		);
 
-		const error = await expectTaskLeft(
+		const result = await expectTaskRight(
 			lookupPluginCommand("rp1-dev:nohint", tempDir),
 		);
 
-		expect(error.reason).toBe("no-argument-hint");
+		expect(result.argumentHint).toBe("");
+		expect(result.pluginCommand).toBe("rp1-dev:nohint");
 	});
 });
 

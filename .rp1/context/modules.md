@@ -1,14 +1,14 @@
 # Module & Component Breakdown
 
 **Project**: rp1 Plugin System
-**Analysis Date**: 2026-01-18
+**Analysis Date**: 2026-02-05
 **Total Components**: 100+ (32 commands, 36 agents, 6 skills, 27+ CLI modules)
 
 ## Plugin Modules
 
 ### plugins/base
 **Purpose**: Foundation plugin for knowledge management, documentation, strategy, and security
-**Components**: 9 commands, 12 agents, 5 skills
+**Components**: 9 commands, 12 agents, 6 skills
 
 **Commands**:
 | Command | Agent | Purpose |
@@ -23,22 +23,6 @@
 | fix-mermaid | mermaid-fixer | Diagram validation and repair |
 | self-update | None (direct) | Update rp1 to latest version |
 
-**Agents**:
-| Agent | Purpose |
-|-------|---------|
-| kb-spatial-analyzer | File scanning and categorization (0-5 ranking) |
-| kb-concept-extractor | Domain concept extraction |
-| kb-architecture-mapper | Architecture pattern mapping |
-| kb-module-analyzer | Module dependency analysis |
-| kb-pattern-extractor | Implementation pattern extraction |
-| research-explorer | Deep research exploration |
-| research-reporter | Structured research report generation |
-| strategic-advisor | Multi-dimensional trade-off analysis |
-| security-validator | Comprehensive security auditing |
-| project-documenter | 12-section project documentation |
-| mermaid-fixer | Mermaid diagram validation and repair |
-| scribe | Documentation scanning and processing |
-
 **Skills**:
 | Skill | Purpose |
 |-------|---------|
@@ -47,33 +31,22 @@
 | markdown-preview | HTML preview generation |
 | knowledge-base-templates | KB document templates |
 | code-comments | Comment extraction and management |
+| work-status | Workflow progress reporting |
 
 ### plugins/dev
 **Purpose**: Development workflow automation for features, code quality, and PR management
 **Components**: 15 commands, 24 agents, 1 skill
 **Dependency**: Requires rp1-base >= 2.0.0
 
-**Build Helper Agents** (leaf executors with JSON output):
-| Agent | Purpose |
-|-------|---------|
-| build-artifact-detector | Determines workflow start_step by checking existing artifacts |
-| build-task-parser | Extracts structured task information from tasks.md |
-| build-task-grouper | Batches tasks into execution units by complexity |
-| build-verify-aggregator | Aggregates verification results into final status |
-| build-fast-executor | Quick-iteration workflow executor with scope gating |
-
 **Feature Workflow Commands**:
 | Command | Agent | Purpose |
 |---------|-------|---------|
 | build | Orchestrator (10+ agents) | End-to-end 6-step workflow |
-| build-fast | build-fast-executor | Quick iteration development |
+| build-fast | build-fast-planner + executor | Quick iteration development |
 | blueprint | blueprint-wizard | Charter and PRD creation |
-| blueprint-archive | prd-archiver | Archive completed PRDs with features |
 | bootstrap | bootstrap-scaffolder | Greenfield project scaffolding |
 | feature-edit | feature-editor | Mid-stream change propagation |
 | feature-archive | feature-archiver | Archive completed features |
-| feature-unarchive | feature-archiver | Restore archived features |
-| validate-hypothesis | hypothesis-tester | Design assumption testing |
 
 **Code Quality Commands**:
 | Command | Agent | Purpose |
@@ -88,12 +61,7 @@
 |---------|-------|---------|
 | pr-review | Orchestrator (4 agents) | Map-reduce PR review |
 | pr-visual | pr-visualizer | Diff visualization |
-| address-pr-feedback | pr-feedback-collector | Unified collect, triage, fix workflow |
-
-**Skill**:
-| Skill | Purpose |
-|-------|---------|
-| worktree-workflow | Isolated git worktree workflow for coding agents |
+| address-pr-feedback | pr-feedback-collector | Unified collect, triage, fix |
 
 ### plugins/utils
 **Purpose**: Utility plugin for prompt optimization and eval generation
@@ -102,78 +70,7 @@
 | Command | Agent | Purpose |
 |---------|-------|---------|
 | tersify-prompt | prompt-tersifier | Prompt compression |
-| build-prompt-evals | prompt-eval-extractor + eval-prompt-writer | Parallel eval assertion and test prompt generation |
-
-| Skill | Purpose |
-|-------|---------|
-| prompt-writer | Terse prompt authoring patterns |
-| prompt-eval-builder | Eval extraction patterns, templates, and validation |
-
-## Evaluation Suites
-
-### evals/
-**Purpose**: Promptfoo-based evaluation system for testing agent instruction-following behavior
-**Framework**: Promptfoo with custom `claude-with-tools` provider wrapping `@anthropic-ai/claude-agent-sdk`
-
-**Directory Structure** (mirrors plugins):
-```
-evals/
-├── package.json              # Dependencies: promptfoo ^0.120.0, @anthropic-ai/claude-agent-sdk
-├── attestation.json          # Content-addressable tracking manifest
-├── providers/
-│   └── claude-with-tools.ts  # Custom provider with tool call capture
-├── src/
-│   ├── index.ts              # Entry point
-│   ├── harness.ts            # Test environment setup/teardown
-│   ├── types.ts              # Type definitions
-│   └── attestation/          # Attestation system
-│       ├── index.ts          # Public exports
-│       ├── types.ts          # Domain types
-│       ├── cli.ts            # CLI (attest, verify, status)
-│       ├── commands.ts       # Core logic (fp-ts TaskEither)
-│       ├── deps-graph.ts     # Dependency graph builder
-│       ├── manifest.ts       # Manifest I/O
-│       └── prompt-hash.ts    # SHA-256 hashing
-└── suites/
-    ├── shared/               # Reusable across suites
-    │   ├── extension.ts      # beforeEach/afterEach hooks for workspace isolation
-    │   └── assertions/
-    │       ├── git.ts        # Deterministic git state assertions
-    │       └── tool-calls.ts # Tool call inspection assertions
-    └── rp1-dev/
-        └── build-fast/       # Suite for /build-fast command
-            ├── config.yaml   # Promptfoo config with scenarios
-            └── prompt.txt    # Slash command template
-```
-
-**Key Components**:
-| Component | Purpose |
-|-----------|---------|
-| claude-with-tools.ts | Custom provider wrapping claude-agent-sdk with tool call capture |
-| attestation/ | Content-addressable tracking of prompt files for merge-gate validation |
-| extension.ts | Workspace isolation - resets `/tmp/rp1-eval-workspace` before each test |
-| git.ts assertions | Deterministic verification of git state (commit count, HEAD changes) |
-| tool-calls.ts | Tool call assertions for inspecting agent behavior via metadata |
-| harness.ts | Test environment setup/teardown with isolated git repos |
-
-**Attestation CLI**:
-```bash
-# Two-phase workflow (recommended)
-just run-evals rp1-dev/build verbose=true    # Phase 1: Run evals, output to file
-just attest-evals output/rp1-dev-build-*.json # Phase 2: Generate attestation
-
-# Verification commands
-just verify-evals                            # Check all attestations current
-just show-evals-status                       # Show commands needing attention
-```
-
-**Key Components** (eval-attestation-fix):
-| Component | Purpose |
-|-----------|---------|
-| attestFromOutput | Generate attestation from existing eval output without running evals |
-| extractSuiteFromFilename | Parse suite path from output filename by removing timestamp |
-| detectPassRate | Determine 100% pass rate from promptfoo output JSON |
-| attest-from-output CLI | CLI command invoking attestFromOutput function |
+| build-prompt-evals | prompt-eval-extractor | Eval assertion generation |
 
 ## CLI Modules
 
@@ -182,7 +79,7 @@ just show-evals-status                       # Show commands needing attention
 
 | Module | Purpose |
 |--------|---------|
-| main.ts | CLI entry point with lazy loading for agent-tools |
+| main.ts | CLI entry point with lazy loading |
 | init.ts | Initialize rp1 in a project |
 | install/index.ts | Install plugins to OpenCode/Claude Code |
 | view.ts | Launch web-based documentation viewer |
@@ -197,8 +94,6 @@ just show-evals-status                       # Show commands needing attention
 | git-root.ts | Git repository detection |
 | tool-detector.ts | Detect agentic tools (Claude Code, OpenCode) |
 | context-detector.ts | Classify project as greenfield or brownfield |
-| comment-fence.ts | Fenced content injection into CLAUDE.md |
-| steps/*.ts | Modular init steps (verification, plugin-installation, health-check) |
 | ui/*.tsx | React/Ink UI components for wizard |
 
 ### cli/src/install/
@@ -206,9 +101,8 @@ just show-evals-status                       # Show commands needing attention
 
 | Module | Purpose |
 |--------|---------|
-| installer.ts | Copy artifacts to target directories with backup |
-| manifest.ts | Plugin manifest parsing and discovery |
-| verifier.ts | Installation verification |
+| installer.ts | Copy artifacts to target directories |
+| manifest.ts | Plugin manifest parsing |
 | claudecode/index.ts | Claude Code specific installation |
 
 ### cli/src/agent-tools/
@@ -217,46 +111,35 @@ just show-evals-status                       # Show commands needing attention
 | Module | Purpose |
 |--------|---------|
 | index.ts | Tool registry (register, get, list) |
-| command.ts | Commander.js integration |
-| models.ts | Type definitions (ToolResult) |
 | git.ts | Shared git utilities with GitContext pattern |
-| worktree/ | Git worktree management for isolated execution |
-| github-pr/ | GitHub PR operations (submit-review, fetch-comments) |
+| worktree/ | Git worktree management |
+| github-pr/ | GitHub PR operations |
 | mmd-validate/ | Mermaid validation tool |
 | work/ | Workflow status tracking |
 | comment-extract/ | Comment extraction from source files |
+| transform-args/ | Argument transformation for commands |
 
 ### cli/web-ui/
-**Purpose**: React-based documentation viewer with Mermaid support and V2 status dashboard
+**Purpose**: React-based documentation viewer with V2 status dashboard
 
 | Component | Purpose |
 |-----------|---------|
-| src/server.ts | Server factory with WebSocket and file watching |
-| src/main.tsx | React entry point |
-| src/server/http.ts | Bun HTTP server |
+| src/server.ts | Server factory with WebSocket |
 | src/server/websocket.ts | WebSocket hub for live reload |
-| src/server/routes/v2-api.ts | V2 API endpoints for runs and projects |
-| src/pages/StatusDashboard.tsx | Real-time work status display |
+| src/server/routes/v2-api.ts | V2 API endpoints for runs |
+| src/pages/v2/*.tsx | V2 dashboard pages |
 | src/components/MarkdownViewer/ | Markdown rendering with Mermaid |
 
-**V2 Dashboard** (`/v2/` routes):
+## Evaluation Modules
+
+### evals/
+**Purpose**: Promptfoo-based evaluation system
+
 | Component | Purpose |
 |-----------|---------|
-| src/app/V2Layout.tsx | V2 shell with collapsible sidebar |
-| src/app/v2-routes.tsx | V2 route configuration |
-| src/pages/v2/HomePage.tsx | Attention-grouped run overview |
-| src/pages/v2/RunsListPage.tsx | Filtered runs list with keyboard nav |
-| src/pages/v2/RunDetailPage.tsx | Run timeline, artifacts, event stream |
-| src/components/v2/StatusBadge.tsx | Status indicator with Catppuccin colors |
-| src/components/v2/RunCard.tsx | Run summary card for lists |
-| src/components/v2/StepTimeline.tsx | Horizontal workflow progression |
-| src/components/v2/AttentionSection.tsx | Collapsible attention group |
-| src/components/v2/FilterBar.tsx | Status/project/date filters |
-| src/hooks/useKeyboardNav.ts | Roving tabindex list navigation |
-| src/hooks/useAttention.ts | Fetch attention-grouped runs |
-| src/hooks/useRuns.ts | Fetch filtered runs with WebSocket |
-| src/types/runs.ts | V2 data types (Run, Step, Artifact, Event) |
-| src/types/websocket.ts | WebSocket message types for run events |
+| providers/claude-with-tools.ts | Custom provider with tool call capture |
+| src/attestation/ | Content-addressable tracking system |
+| suites/shared/assertions/ | Reusable test assertions |
 
 ## Module Dependencies
 
@@ -264,7 +147,6 @@ just show-evals-status                       # Show commands needing attention
 graph TD
     subgraph "Plugin Dependencies"
         Dev[rp1-dev] -->|depends on| Base[rp1-base]
-        DevAgents[Dev Agents] -.->|may invoke| BaseCmds[Base Commands]
     end
 
     subgraph "KB Generation"
@@ -276,10 +158,7 @@ graph TD
     end
 
     subgraph "Build Workflow"
-        Build[/build] --> ReqGatherer[feature-requirement-gatherer]
-        Build --> Architect[feature-architect]
-        Build --> Tasker[feature-tasker]
-        Build --> Builder[task-builder]
+        Build[/build] --> Builder[task-builder]
         Build --> Reviewer[task-reviewer]
         Build --> Verifier[feature-verifier]
     end
@@ -289,9 +168,7 @@ graph TD
         Main --> Install[install/]
         Main -.->|lazy| AgentTools[agent-tools/]
         AgentTools --> Worktree[worktree/]
-        AgentTools --> GitHubPR[github-pr/]
-        AgentTools --> Work[work/]
-        Worktree --> Git[git.ts]
+        AgentTools --> Git[git.ts]
     end
 ```
 
@@ -299,7 +176,7 @@ graph TD
 
 | Module | Commands | Agents | Skills | Lines (est.) |
 |--------|----------|--------|--------|--------------|
-| plugins/base | 9 | 12 | 5 | ~5,500 |
+| plugins/base | 9 | 12 | 6 | ~5,500 |
 | plugins/dev | 15 | 24 | 1 | ~9,200 |
 | plugins/utils | 2 | 3 | 2 | ~1,200 |
 | cli/src | 8 | - | - | ~3,000 |
@@ -308,67 +185,27 @@ graph TD
 | cli/src/agent-tools | - | - | - | ~1,800 |
 | cli/web-ui | - | - | - | ~2,800 |
 | evals | - | - | - | ~1,500 |
-| evals/src/attestation | - | - | - | ~530 |
-| evals/providers | - | - | - | ~345 |
 
 ## Cross-Module Patterns
 
 ### Command-Agent Delegation
-Commands are thin wrappers (~50-100 lines) that delegate to constitutional agents (~200-350 lines) via Task tool. Separation enables reusability, testability, and independent evolution.
+Commands are thin wrappers (~50-100 lines) that delegate to constitutional agents (~200-350 lines) via Task tool.
 
 ### Map-Reduce Orchestration
-Both KB generation and PR review use map-reduce pattern:
 - KB: spatial analyzer -> 4 parallel agents -> orchestrator merge
 - PR: splitter -> N sub-reviewers -> synthesizer -> reporter
 
 ### Builder-Reviewer Loop
-Feature build uses paired agents:
-- task-builder implements changes with atomic commits
-- task-reviewer verifies (SUCCESS/FAILURE with feedback)
-- Retry on failure with feedback (max 3 attempts)
+Feature build uses paired agents: task-builder implements, task-reviewer verifies with retry on failure.
 
 ### GitContext Safety Pattern
-All git mutations use GitContext.repoRoot to ensure operations target main repo, not nested worktree. Prevents cross-repo bugs when running from inside worktree.
-
-### Worktree Isolation
-Feature builds and quick builds use git worktrees for isolated execution without affecting user's working directory. Clean rollback on failure.
+All git mutations use GitContext.repoRoot to ensure operations target main repo, not worktree.
 
 ### fp-ts Functional Error Handling
-CLI modules use Either/TaskEither for type-safe error handling:
-- `E.left()` for errors, `E.right()` for success
-- `pipe()` for function composition
-- `TE.tryCatch()` wraps async operations
-
-### Lazy Loading
-Heavy dependencies are lazy-loaded:
-- main.ts lazy-loads agent-tools/command.ts
-- Reduces CLI startup time for non-agent-tools commands
+CLI modules use Either/TaskEither for type-safe error handling with pipe() composition.
 
 ### Progressive KB Loading
-Agents load KB selectively based on task type:
-- Code review -> patterns.md
-- Bug investigation -> architecture.md, modules.md
-- Feature implementation -> modules.md, patterns.md
-- Strategic analysis -> ALL files
-
-### Content-Addressable Attestation
-Attestation system hashes prompt file content (excluding frontmatter) and dependency graphs to detect changes requiring re-evaluation:
-- SHA-256 hashing with sha256: prefix
-- Transitive dependency resolution (command -> agents -> skills)
-- Manifest tracking in evals/attestation.json
-
-### Execution-Attestation Separation
-Feature eval-attestation-fix separates eval execution from attestation generation:
-- `evals-run`: Runs promptfoo with timestamped output file (spawns Claude processes)
-- `evals-attest`: Reads output, validates 100% pass, updates attestation (no process spawning)
-- Enables parallel eval runs followed by sequential attestation updates
-- Config-based concurrency via `evaluateOptions.maxConcurrency` in suite evals.yaml
-
-### Tool Call Capture Provider
-Custom promptfoo provider intercepts claude-agent-sdk streaming to capture tool calls for assertion-based validation:
-- Captures tool_use blocks from stream events
-- Exposes toolCalls, bashCommands via metadata
-- Enables behavioral assertions on tool usage patterns
+Agents load KB selectively: code review -> patterns.md, bug -> architecture.md + modules.md.
 
 ## Cross-References
 - **Domain Concepts**: See [concept_map.md](concept_map.md)

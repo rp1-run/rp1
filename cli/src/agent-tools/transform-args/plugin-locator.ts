@@ -210,27 +210,24 @@ export const extractFrontmatter = (
 
 /**
  * Extract argument-hint field from frontmatter.
+ * Returns empty string if argument-hint is not present (valid for commands with no arguments).
  */
 export const extractArgumentHint = (
 	metadata: Record<string, unknown>,
-	filePath: string,
+	_filePath: string,
 ): E.Either<PluginLookupError, string> => {
 	const argumentHint = metadata["argument-hint"];
 
+	// Missing argument-hint is valid - command has no arguments
 	if (argumentHint === undefined || argumentHint === null) {
-		return E.left(
-			pluginLookupError(
-				"no-argument-hint",
-				`No argument-hint field found in frontmatter of ${filePath}`,
-			),
-		);
+		return E.right("");
 	}
 
 	if (typeof argumentHint !== "string") {
 		return E.left(
 			pluginLookupError(
 				"invalid-frontmatter",
-				`argument-hint field must be a string in ${filePath}, got ${typeof argumentHint}`,
+				`argument-hint field must be a string, got ${typeof argumentHint}`,
 			),
 		);
 	}

@@ -42,6 +42,24 @@ export const readFromStdin = (): TE.TaskEither<CLIError, string> =>
 	);
 
 /**
+ * Read input from stdin, allowing empty content.
+ * Use this for tools that accept optional stdin input (e.g., transform-args).
+ * Returns a TaskEither that resolves to the stdin content (may be empty string).
+ */
+export const readFromStdinAllowEmpty = (): TE.TaskEither<CLIError, string> =>
+	TE.tryCatch(
+		async () => {
+			const content = await Bun.stdin.text();
+			return content;
+		},
+		() =>
+			usageError(
+				"Failed to read stdin",
+				"Check stdin availability and try again",
+			),
+	);
+
+/**
  * Determine input source and read content.
  * Auto-selects file reading if filePath is provided, otherwise reads from stdin.
  * Returns the content along with the source type for downstream processing.
