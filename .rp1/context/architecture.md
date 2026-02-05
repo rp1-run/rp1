@@ -2,7 +2,7 @@
 
 **Project**: rp1 Plugin System
 **Architecture Pattern**: Plugin Architecture with Map-Reduce Orchestration
-**Last Updated**: 2026-01-18
+**Last Updated**: 2026-02-05
 
 ## High-Level Architecture
 
@@ -107,31 +107,27 @@ graph TB
 
 ### Map-Reduce Orchestration
 **Evidence**: `knowledge-build` spawns parallel agents, `pr-review` uses splitter/sub-reviewers/synthesizer
-**Description**: Complex workflows split into units, processed in parallel by specialized agents, then merged by orchestrator. Enables scalability for large codebases.
+**Description**: Complex workflows split into units, processed in parallel by specialized agents, then merged by orchestrator.
 
 ### Content-Addressable Attestation
 **Evidence**: `evals/src/attestation/` module with SHA-256 hashing and dependency graph derivation
 **Description**: Prompt files tracked via content hashes with dependency graphs. Changes require eval suite re-attestation before merge.
 
 ### Two-Phase Eval Workflow
-**Evidence**: `Justfile` run-evals and attest-evals recipes, `evals/src/attestation/commands.ts` attestFromOutput function
-**Description**: Eval execution separated from attestation generation. Phase 1 (run-evals) runs promptfoo with fixed output file per suite (overwrites on each run). Phase 2 (attest-evals) reads output, validates 100% pass, updates attestation without spawning Claude processes. Prevents fork-bomb behavior from concurrent eval execution.
+**Evidence**: `Justfile` run-evals and attest-evals recipes, `evals/src/attestation/commands.ts`
+**Description**: Eval execution separated from attestation generation. Phase 1 runs promptfoo with fixed output file. Phase 2 reads output, validates 100% pass, updates attestation without spawning Claude.
 
 ### Multi-Platform Distribution
-**Evidence**: `.goreleaser.yml` (darwin-arm64/x64, linux-arm64/x64, windows-x64), homebrew_casks, scoops config
-**Description**: Targets Claude Code (native plugins), OpenCode (tarballs), and standalone CLI via GoReleaser binaries with Homebrew/Scoop distribution.
+**Evidence**: `.goreleaser.yml` (darwin-arm64/x64, linux-arm64/x64, windows-x64)
+**Description**: Targets Claude Code (native plugins), OpenCode (tarballs), and standalone CLI via GoReleaser binaries.
 
 ### Embedded Asset Bundling
 **Evidence**: `cli/src/assets/embedded.ts`, goreleaser.yml verification of IS_BUNDLED flag
-**Description**: Plugin assets embedded at build time into single executable binary via Bun compiler with compile-time verification.
-
-### Monorepo with Synchronized Versioning
-**Evidence**: `release-please-config.json` updates plugins/base, plugins/dev, cli/package.json simultaneously
-**Description**: Single repository containing CLI, plugins, and docs with synchronized semantic versioning via release-please.
+**Description**: Plugin assets embedded at build time into single executable binary via Bun compiler.
 
 ### Git Worktree Isolation
 **Evidence**: `.rp1/work/worktrees/` directory structure, worktree CLI command
-**Description**: Agents execute in isolated git worktrees with disabled hooks (core.hooksPath=/dev/null), protecting user's uncommitted work during build-fast workflows.
+**Description**: Agents execute in isolated git worktrees with disabled hooks, protecting user's uncommitted work.
 
 ### Tool Registry Pattern
 **Evidence**: `cli/src/config/supported-tools.yaml`, `cli/src/agent-tools/index.ts`
@@ -141,14 +137,14 @@ graph TB
 
 | Layer | Purpose | Components |
 |-------|---------|------------|
-| **Interface** | User-facing entry points for AI assistants | `plugins/*/commands/*.md` |
+| **Interface** | User-facing entry points | `plugins/*/commands/*.md` |
 | **Agent** | Autonomous workflow execution | `plugins/*/agents/*.md` |
 | **Skill** | Reusable shared capabilities | `plugins/base/skills/*.md` |
-| **CLI** | Cross-platform tooling and agent tools | `cli/src/main.ts`, `cli/web-ui/*`, `agent-tools` |
-| **Config** | Tool registry and configuration | `cli/src/config/supported-tools.*`, `cli/bunfig.toml` |
-| **Knowledge** | Persistent codebase knowledge | `.rp1/context/*.md`, `.rp1/context/state.json` |
-| **Build/Release** | CI/CD automation and quality gates | `.github/workflows/*`, `.goreleaser.yml`, `Justfile` |
-| **Evaluation** | Prompt evaluation, attestation, and instruction-following tests | `evals/promptfooconfig.yaml`, `evals/suites/*`, `evals/src/attestation/*`, `evals/providers/*` |
+| **CLI** | Cross-platform tooling | `cli/src/main.ts`, `cli/web-ui/*`, `agent-tools` |
+| **Config** | Tool registry | `cli/src/config/supported-tools.*` |
+| **Knowledge** | Persistent codebase docs | `.rp1/context/*.md`, `state.json` |
+| **Build/Release** | CI/CD automation | `.github/workflows/*`, `.goreleaser.yml` |
+| **Evaluation** | Prompt testing | `evals/`, `evals/src/attestation/*` |
 
 ## Key Workflows
 
@@ -176,21 +172,16 @@ sequenceDiagram
 sequenceDiagram
     participant User
     participant Build as /build
-    participant ArtDet as build-artifact-detector
-    participant Parser as build-task-parser
     participant Builder as task-builder
     participant Reviewer as task-reviewer
     participant Files as Source Files
 
     User->>Build: Invoke with feature-id
-    Build->>ArtDet: Detect artifacts
-    ArtDet-->>Build: start_step, artifacts
-    Build->>Parser: Parse tasks.md
-    Parser-->>Build: tasks, summary
+    Build->>Build: Detect artifacts, parse tasks
     loop For each task unit
         Build->>Builder: Implement task(s)
         Builder->>Files: Write code
-        Builder-->>Build: Implementation summary
+        Builder-->>Build: Summary
         Build->>Reviewer: Verify work
         Reviewer-->>Build: SUCCESS or FAILURE
         alt FAILURE
@@ -208,7 +199,6 @@ sequenceDiagram
     participant Splitter as pr-review-splitter
     participant SubReviewer as pr-sub-reviewer
     participant Synth as pr-review-synthesizer
-    participant Reporter as pr-review-reporter
 
     User->>PR: invoke with PR/branch
     PR->>Splitter: segment diff
@@ -222,149 +212,16 @@ sequenceDiagram
 
     SubReviewer-->>PR: findings with confidence
     PR->>Synth: synthesize cross-file issues
-    Synth-->>PR: fitness judgment
-    PR->>Reporter: format report
-    Reporter-->>User: markdown review
-```
-
-### Build-Fast (Worktree) Flow
-```mermaid
-sequenceDiagram
-    participant User
-    participant Command as /build-fast
-    participant CLI as rp1 worktree CLI
-    participant Planner as build-fast-planner
-    participant Artifact as quick-build artifact
-    participant TB as task-builder
-    participant TR as task-reviewer
-    participant Git as Git Repository
-
-    User->>Command: Invoke with task [--confirm-plan] [--review]
-    Command->>CLI: Create worktree
-    CLI->>Git: git worktree add
-    CLI-->>Command: Worktree path + branch
-
-    Command->>Planner: Generate plan + tasks
-    Planner->>Artifact: Write Plan + Tasks sections
-    Planner-->>Command: {path, scope, summary, task_ids}
-
-    opt --confirm-plan flag
-        Command->>User: Plan review (Continue/Revise/Stop)
-        User-->>Command: Continue
-    end
-
-    Command->>TB: QUICK_BUILD_PATH, TASK_IDS (all tasks)
-    TB->>Artifact: Read tasks
-    TB->>TB: Implement all tasks (single pass)
-    TB->>Artifact: Write Implementation Summary
-    TB-->>Command: Builder Complete
-
-    opt --review flag
-        Command->>TR: QUICK_BUILD_PATH, TASK_IDS
-        TR->>Artifact: Verify implementation
-        TR->>Artifact: Write Verification section
-        TR-->>Command: SUCCESS or FAILURE
-        alt FAILURE
-            Command->>TB: Retry with feedback (once)
-        end
-    end
-
-    opt --confirm-plan flag
-        Command->>User: Post-impl review (Add-Edit/Done)
-    end
-
-    alt Success
-        Command->>Git: Push branch
-        Command->>User: Merge instructions
-    else Failure
-        Command->>User: Worktree preserved for investigation
-    end
-```
-
-### Eval Attestation Flow (Two-Phase)
-```mermaid
-sequenceDiagram
-    participant Dev as Developer
-    participant Just as Justfile
-    participant PF as Promptfoo
-    participant CLI as Attestation CLI
-    participant Graph as deps-graph
-    participant Manifest as attestation.json
-
-    Note over Dev,Manifest: Phase 1: Run Evals
-    Dev->>Just: evals-run rp1-dev/build
-    Just->>PF: promptfoo eval --output file.json
-    PF->>PF: Execute tests (spawns Claude)
-    PF-->>Just: Output file path
-    Just-->>Dev: evals/output/rp1-dev-build-*.json
-
-    Note over Dev,Manifest: Phase 2: Attestation (No Claude)
-    Dev->>Just: evals-attest output/file.json
-    Just->>CLI: attest-from-output file.json
-    CLI->>CLI: Read output, check pass rate
-    alt 100% Pass
-        CLI->>Graph: Build dependency graph
-        Graph-->>CLI: command + agents + skills
-        CLI->>Manifest: Update attestation
-        CLI-->>Dev: Attestation updated
-    else Failures
-        CLI-->>Dev: Not updated (failures)
-    end
+    Synth-->>User: fitness judgment + report
 ```
 
 ## Integration Points
 
 ### GitHub Actions
-**Purpose**: CI/CD automation for testing, releases, and binary distribution
-- `ci.yml`: lint, typecheck, tests via Bun and `just` task runner
-- `release-please.yml`: versioning + OpenCode artifact builds + Cloudflare Pages deploy
+- `ci.yml`: lint, typecheck, tests via Bun
+- `release-please.yml`: versioning + OpenCode artifact builds
 - `goreleaser.yml`: binary builds triggered by tag
 - `rp1-pr-review.yml`: automated PR review workflow
-
-### GoReleaser
-**Purpose**: Cross-platform binary builds using Bun compiler
-**Targets**: darwin-arm64/x64, linux-arm64/x64, windows-x64
-**Distribution**: Homebrew cask (rp1-run/homebrew-tap), Scoop bucket (rp1-run/scoop-bucket)
-
-### Release-Please
-**Purpose**: Automated semantic versioning from conventional commits
-**Configuration**: Syncs versions across plugins/base, plugins/dev, cli/package.json
-**Strategy**: Rolling release PR that accumulates changes until merged
-
-### Cloudflare Pages
-**Purpose**: Documentation site hosting at rp1.run
-**Trigger**: Deploy hook on release
-
-### Claude Code Plugin Marketplace
-**Purpose**: Native plugin distribution
-**Usage**: `/plugin install rp1-base`, `/plugin install rp1-dev`
-
-### OpenCode
-**Purpose**: Alternative AI coding assistant support
-**Distribution**: Tarball in GitHub releases with AGENTS.md instruction file
-**Minimum Version**: 0.8.0
-
-### Promptfoo
-**Purpose**: Evaluation framework for agent instruction-following tests
-**Location**: `evals/`
-**Provider**: Custom `claude-with-tools` wrapping `@anthropic-ai/claude-agent-sdk`
-
-### claude-agent-sdk
-**Purpose**: Programmatic access to Claude Code for eval execution
-**Integration**: Streaming query API with tool capture via content_block events
-**Usage**: Wrapped by custom promptfoo provider for tool call inspection
-
-### Attestation System
-**Purpose**: Content-addressable tracking of prompt file changes
-**Location**: `evals/src/attestation/`
-**Components**:
-- `cli.ts`: CLI entry point (attest, verify, status commands)
-- `deps-graph.ts`: Dependency graph builder
-- `prompt-hash.ts`: SHA-256 hashing with frontmatter stripping
-- `manifest.ts`: attestation.json I/O
-- `commands.ts`: Core logic using fp-ts TaskEither
-
-## Deployment Architecture
 
 ### Distribution Channels
 | Channel | Target | Method |
@@ -375,18 +232,11 @@ sequenceDiagram
 | Windows | Scoop | `scoop install rp1` |
 | Linux | curl script | `curl -fsSL https://rp1.run/install.sh \| bash` |
 
-### Build Pipeline
-1. Release-please creates version tag from conventional commits
-2. GoReleaser workflow triggers on tag
-3. Bun compiles embedded assets with IS_BUNDLED=true
-4. GoReleaser builds cross-platform binaries
-5. Artifacts uploaded to GitHub Releases
-6. Homebrew/Scoop formulas updated automatically
-
-### Versioning Strategy
-- Semantic versioning via release-please
-- All components synchronized (plugins, CLI share version)
-- Conventional commits drive version bumps
+### External Services
+- **GoReleaser**: Cross-platform binary builds (darwin/linux/windows)
+- **Release-Please**: Semantic versioning from conventional commits
+- **Cloudflare Pages**: Documentation site at rp1.run
+- **Promptfoo**: Evaluation framework with custom provider
 
 ## Performance Considerations
 
