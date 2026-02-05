@@ -14,7 +14,7 @@ import {
 	executeSubmitReview,
 } from "./github-pr/index.js";
 import { getTool, type ToolOptions } from "./index.js";
-import { readInput } from "./input.js";
+import { readFromStdinAllowEmpty, readInput } from "./input.js";
 import { formatOutput } from "./output.js";
 import {
 	closeDatabase,
@@ -962,16 +962,19 @@ Examples:
 
 		let finalArgs = args;
 
-		// If single arg is "-", read from stdin
+		// If single arg is "-", read from stdin (empty stdin is valid - means no args)
 		if (args.length === 1 && args[0] === "-") {
-			const inputResult = await readInput()();
+			const inputResult = await readFromStdinAllowEmpty()();
 			if (E.isLeft(inputResult)) {
 				console.error(`Error: ${formatError(inputResult.left, false)}`);
 				process.exit(1);
 			}
-			finalArgs = parseShellArgs(inputResult.right.content).filter(
-				(arg): arg is string => typeof arg === "string",
-			);
+			const stdinContent = inputResult.right.trim();
+			finalArgs = stdinContent
+				? parseShellArgs(stdinContent).filter(
+						(arg): arg is string => typeof arg === "string",
+					)
+				: [];
 		}
 
 		const result = await executeTransform(pluginCommand, finalArgs)();
