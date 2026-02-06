@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.6](https://github.com/rp1-run/rp1/compare/v0.4.5...v0.4.6) (2026-02-06)
+
+
+### Bug Fixes
+
+* **evals:** update build attestations and fix eval workspace setup ([#257](https://github.com/rp1-run/rp1/issues/257)) ([907ee1e](https://github.com/rp1-run/rp1/commit/907ee1eea43ceb76c93b62a9b3d9e135c7f7d7e0))
+
 ## [0.4.5](https://github.com/rp1-run/rp1/compare/v0.4.4...v0.4.5) (2026-02-05)
 
 
