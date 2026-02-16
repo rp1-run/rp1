@@ -1,24 +1,30 @@
 import { AlertCircle, FolderOpen, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ProjectCard } from "@/components/v2/ProjectCard";
+import { useKeyboardNav } from "@/hooks/useKeyboardNav";
 import { useProjects, type V2Project } from "@/hooks/useProjects";
 import { cn } from "@/lib/utils";
 
 function LoadingSkeleton() {
 	return (
-		<div className="rounded-lg border border-border divide-y divide-border">
-			{Array.from({ length: 5 }, (_, i) => (
+		<div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+			{Array.from({ length: 6 }, (_, i) => (
 				<div
 					key={`skeleton-${i}`}
-					className="animate-pulse bg-muted/20 py-3 px-3"
+					className="animate-pulse rounded-lg border border-border p-4 space-y-3"
 				>
-					<div className="flex items-center justify-between gap-4">
-						<div className="flex-1 space-y-2">
-							<div className="h-5 w-40 rounded bg-muted" />
-							<div className="h-4 w-64 rounded bg-muted" />
+					<div className="flex justify-between">
+						<div className="h-5 w-32 rounded bg-muted" />
+						<div className="h-5 w-20 rounded-full bg-muted" />
+					</div>
+					<div className="h-4 w-48 rounded bg-muted" />
+					<div className="flex justify-between">
+						<div className="h-4 w-24 rounded bg-muted" />
+						<div className="flex gap-2">
+							<div className="h-5 w-5 rounded bg-muted" />
+							<div className="h-5 w-5 rounded bg-muted" />
 						</div>
-						<div className="h-6 w-20 rounded-full bg-muted" />
 					</div>
 				</div>
 			))}
@@ -81,16 +87,22 @@ function KeyboardHints() {
 export function ProjectsPage() {
 	const navigate = useNavigate();
 	const { projects, isLoading, error, refetch } = useProjects();
-	const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
-	const handleSelectProject = useCallback(
+	const handleCardClick = useCallback(
 		(project: V2Project) => {
-			navigate(`/v2/projects/${project.id}/runs`);
+			navigate(`/project/${project.id}`);
 		},
 		[navigate],
 	);
 
-	const handleDrillIn = useCallback(
+	const handleArtifactsClick = useCallback(
+		(project: V2Project) => {
+			navigate(`/project/${project.id}/view/.rp1/work/features`);
+		},
+		[navigate],
+	);
+
+	const handleRunsClick = useCallback(
 		(project: V2Project) => {
 			navigate(`/v2/projects/${project.id}/runs`);
 		},
@@ -100,6 +112,14 @@ export function ProjectsPage() {
 	const handleDrillOut = useCallback(() => {
 		navigate("/v2");
 	}, [navigate]);
+
+	const { selectedIndex, setSelectedIndex } = useKeyboardNav({
+		items: projects,
+		onSelect: handleCardClick,
+		onDrillIn: handleCardClick,
+		onDrillOut: handleDrillOut,
+		enabled: projects.length > 0,
+	});
 
 	useEffect(() => {
 		if (projects.length === 0) return;
@@ -137,7 +157,7 @@ export function ProjectsPage() {
 				case "Enter":
 					if (selectedIndex !== null && projects[selectedIndex]) {
 						e.preventDefault();
-						handleDrillIn(projects[selectedIndex]);
+						handleCardClick(projects[selectedIndex]);
 					}
 					break;
 				case "h":
@@ -150,7 +170,13 @@ export function ProjectsPage() {
 
 		document.addEventListener("keydown", handleKeyDown);
 		return () => document.removeEventListener("keydown", handleKeyDown);
-	}, [projects, selectedIndex, handleDrillIn, handleDrillOut]);
+	}, [
+		projects,
+		selectedIndex,
+		setSelectedIndex,
+		handleCardClick,
+		handleDrillOut,
+	]);
 
 	return (
 		<div className="space-y-6">
@@ -192,17 +218,17 @@ export function ProjectsPage() {
 			) : (
 				<>
 					<div
-						className="rounded-lg border border-border divide-y divide-border"
-						role="listbox"
-						aria-label="Projects list"
+						className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
+						role="list"
+						aria-label="Projects"
 					>
 						{projects.map((project, index) => (
 							<ProjectCard
 								key={project.id}
 								project={project}
-								onCardClick={() => handleSelectProject(project)}
-								onArtifactsClick={() => handleSelectProject(project)}
-								onRunsClick={() => navigate(`/v2/projects/${project.id}/runs`)}
+								onCardClick={() => handleCardClick(project)}
+								onArtifactsClick={() => handleArtifactsClick(project)}
+								onRunsClick={() => handleRunsClick(project)}
 								selected={selectedIndex === index}
 							/>
 						))}
