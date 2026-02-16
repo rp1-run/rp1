@@ -796,4 +796,73 @@ export const queryStatusUpdateById = (
 		),
 	);
 
+/**
+ * Run statistics for a single project.
+ */
+export interface ProjectRunStats {
+	readonly runCount: number;
+	readonly lastActivityAt: string | null;
+}
+
+/**
+ * Get run statistics (distinct feature count and last activity) for multiple projects
+ * in a single GROUP BY query. Avoids N+1 per-project queries.
+ *
+ * @param projectPaths - Array of absolute project paths to query
+ * @param dbPath - Database file path (optional, defaults to ~/.rp1/status.db)
+ * @returns TaskEither with Map of project path to run stats, or CLIError
+ */
+export const getProjectRunStats = (
+	projectPaths: readonly string[],
+	dbPath?: string,
+): TE.TaskEither<CLIError, Map<string, ProjectRunStats>> =>
+	pipe(
+		getDatabase(dbPath),
+		TE.chain((db) =>
+			TE.tryCatch(
+				async () => {
+					if (projectPaths.length === 0) {
+						return new Map<string, ProjectRunStats>();
+					}
+
+					const placeholders = projectPaths.map((_, i) => `$p${i}`).join(", ");
+					const sql = `
+						SELECT
+							project_path,
+							COUNT(DISTINCT feature) as run_count,
+							MAX(created_at) as last_activity_at
+						FROM status_updates
+						WHERE project_path IN (${placeholders})
+						GROUP BY project_path
+					`;
+
+					const params: Record<string, string> = {};
+					projectPaths.forEach((p, i) => {
+						params[`$p${i}`] = p;
+					});
+
+					const rows = db.prepare(sql).all(params) as Array<{
+						project_path: string;
+						run_count: number;
+						last_activity_at: string | null;
+					}>;
+
+					const result = new Map<string, ProjectRunStats>();
+					for (const row of rows) {
+						result.set(row.project_path, {
+							runCount: row.run_count,
+							lastActivityAt: row.last_activity_at,
+						});
+					}
+
+					return result;
+				},
+				(error) =>
+					runtimeError(
+						`Failed to get project run stats: ${error instanceof Error ? error.message : String(error)}`,
+					),
+			),
+		),
+	);
+
 export { DEFAULT_DB_PATH };

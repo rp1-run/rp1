@@ -9,6 +9,7 @@ import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import { formatError } from "../../../../shared/errors.js";
 import {
+	getProjectRunStats,
 	queryAllLatestStatuses,
 	queryAllStatusUpdatesForFeature,
 	queryStatusUpdateById,
@@ -17,6 +18,7 @@ import type {
 	StatusUpdateRecord,
 	StatusValue,
 } from "../../../../src/agent-tools/work/models.js";
+import type { V2Project } from "../../types/projects";
 import type {
 	Artifact,
 	ArtifactType,
@@ -1021,27 +1023,33 @@ export async function handleV2ArtifactContentRequest(
 }
 
 /**
- * V2 Project type including availability status.
- */
-interface V2Project {
-	readonly id: string;
-	readonly name: string;
-	readonly path: string;
-	readonly available: boolean;
-}
-
-/**
- * GET /api/v2/projects - list registered projects.
+ * GET /api/v2/projects - list registered projects enriched with run statistics.
+ * Merges registry data with aggregated run stats from status.db.
  */
 export async function handleV2ProjectsListRequest(): Promise<Response> {
 	try {
 		const projects = await getAllProjects();
-		const v2Projects: V2Project[] = projects.map((p) => ({
-			id: p.id,
-			name: p.name,
-			path: p.path,
-			available: p.available,
-		}));
+		const projectPaths = projects.map((p) => p.path);
+
+		// Fetch run stats for all projects in a single query
+		const statsResult = await pipe(getProjectRunStats(projectPaths))();
+
+		const statsMap = E.isRight(statsResult)
+			? statsResult.right
+			: new Map<string, { runCount: number; lastActivityAt: string | null }>();
+
+		const v2Projects: V2Project[] = projects.map((p) => {
+			const stats = statsMap.get(p.path);
+			return {
+				id: p.id,
+				name: p.name,
+				path: p.path,
+				available: p.available,
+				runCount: stats?.runCount ?? 0,
+				lastActivityAt: stats?.lastActivityAt ?? null,
+			};
+		});
+
 		return jsonResponse({ projects: v2Projects });
 	} catch (error) {
 		return errorResponse(`Failed to load projects: ${String(error)}`);
@@ -1049,7 +1057,7 @@ export async function handleV2ProjectsListRequest(): Promise<Response> {
 }
 
 /**
- * GET /api/v2/projects/:id - single project.
+ * GET /api/v2/projects/:id - single project enriched with run statistics.
  */
 export async function handleV2ProjectDetailRequest(
 	projectId: string,
@@ -1061,11 +1069,19 @@ export async function handleV2ProjectDetailRequest(
 			return errorResponse(`Project not found: ${projectId}`, 404);
 		}
 
+		const statsResult = await pipe(getProjectRunStats([project.path]))();
+		const statsMap = E.isRight(statsResult)
+			? statsResult.right
+			: new Map<string, { runCount: number; lastActivityAt: string | null }>();
+		const stats = statsMap.get(project.path);
+
 		const v2Project: V2Project = {
 			id: project.id,
 			name: project.name,
 			path: project.path,
 			available: project.available,
+			runCount: stats?.runCount ?? 0,
+			lastActivityAt: stats?.lastActivityAt ?? null,
 		};
 
 		return jsonResponse(v2Project);

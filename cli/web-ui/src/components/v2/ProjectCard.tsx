@@ -1,15 +1,6 @@
 import { Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-/**
- * V2 Project type for ProjectCard component.
- */
-export interface V2Project {
-	readonly id: string;
-	readonly name: string;
-	readonly path: string;
-	readonly available: boolean;
-}
+import type { V2Project } from "@/types/projects";
 
 export interface ProjectCardProps {
 	project: V2Project;

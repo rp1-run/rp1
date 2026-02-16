@@ -4,16 +4,9 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
+import type { V2Project } from "@/types/projects";
 
-/**
- * V2 Project type for the projects list.
- */
-export interface V2Project {
-	readonly id: string;
-	readonly name: string;
-	readonly path: string;
-	readonly available: boolean;
-}
+export type { V2Project };
 
 interface ProjectsResponse {
 	projects: V2Project[];
