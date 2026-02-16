@@ -144,6 +144,30 @@ const TERMINAL_STATUSES: ReadonlySet<StatusValue> = new Set([
 ]);
 
 /**
+ * Canonical step sequence for the /build workflow.
+ * The /build command executes 6 phases in order.
+ */
+const BUILD_WORKFLOW_STEPS: readonly {
+	readonly id: string;
+	readonly name: string;
+}[] = [
+	{ id: "requirements", name: "Requirements" },
+	{ id: "design", name: "Design" },
+	{ id: "tasks", name: "Tasks" },
+	{ id: "build", name: "Build" },
+	{ id: "verify", name: "Verify" },
+	{ id: "archive", name: "Archive" },
+];
+
+/**
+ * Detect whether a run uses the /build workflow based on the command field.
+ * Only exact "/build" matches; "/build-fast" and others are excluded.
+ */
+function isBuildWorkflow(command: string): boolean {
+	return command === "/build";
+}
+
+/**
  * Classify a file extension to an ArtifactType.
  */
 function classifyArtifactType(filename: string): ArtifactType {
@@ -275,57 +299,142 @@ function parseMetadataSafe(
 }
 
 /**
- * Derive Step[] from the full timeline of StatusUpdateRecords.
- * Groups records by their task field and tracks status transitions to determine
- * each step's current status, start time, and completion time.
+ * Map a StatusUpdateRecord's status to a StepStatus.
  */
-function deriveSteps(records: readonly StatusUpdateRecord[]): readonly Step[] {
-	const taskMap = new Map<
-		string,
-		{ records: StatusUpdateRecord[]; order: number }
-	>();
-	let orderCounter = 0;
+function mapRecordStatusToStepStatus(status: StatusValue): StepStatus {
+	switch (status) {
+		case "started":
+		case "in_progress":
+		case "waiting-input":
+		case "needs-review":
+			return "running";
+		case "completed":
+			return "completed";
+		case "failed":
+			return "failed";
+	}
+}
 
+/**
+ * Build a lookup of task-level records grouped by task ID.
+ */
+function buildTaskRecordMap(
+	records: readonly StatusUpdateRecord[],
+): Map<string, StatusUpdateRecord[]> {
+	const taskMap = new Map<string, StatusUpdateRecord[]>();
 	for (const record of records) {
 		if (!record.task) continue;
-
 		const existing = taskMap.get(record.task);
 		if (existing) {
-			existing.records.push(record);
+			existing.push(record);
 		} else {
-			taskMap.set(record.task, {
-				records: [record],
-				order: orderCounter++,
-			});
+			taskMap.set(record.task, [record]);
+		}
+	}
+	return taskMap;
+}
+
+/**
+ * Derive steps for /build workflow runs by merging DB records with the
+ * canonical 6-step sequence. Steps with DB records get their actual status;
+ * steps without records are marked pending.
+ *
+ * Edge cases (T4):
+ * - Stopped mid-workflow: last active step retains its DB status, remaining are pending.
+ * - Feature-level "waiting-input"/"needs-review": the last active step reflects that
+ *   status as "running" (StepStatus has no waiting/review variant).
+ */
+function deriveBuildWorkflowSteps(
+	records: readonly StatusUpdateRecord[],
+): readonly Step[] {
+	const taskMap = buildTaskRecordMap(records);
+
+	// Find the latest feature-level record (no task) for edge case handling
+	const featureLevelRecords = records.filter((r) => !r.task);
+	const latestFeatureRecord =
+		featureLevelRecords.length > 0
+			? featureLevelRecords[featureLevelRecords.length - 1]
+			: null;
+
+	// Find the last step index that has any DB records
+	let lastActiveIndex = -1;
+	for (let i = BUILD_WORKFLOW_STEPS.length - 1; i >= 0; i--) {
+		if (taskMap.has(BUILD_WORKFLOW_STEPS[i].id)) {
+			lastActiveIndex = i;
+			break;
 		}
 	}
 
-	const steps: Step[] = [];
+	return BUILD_WORKFLOW_STEPS.map(({ id, name }, index) => {
+		const taskRecords = taskMap.get(id);
 
-	for (const [taskId, { records: taskRecords }] of taskMap) {
-		const firstRecord = taskRecords[0];
-		const lastRecord = taskRecords[taskRecords.length - 1];
+		if (taskRecords && taskRecords.length > 0) {
+			const firstRecord = taskRecords[0];
+			const lastRecord = taskRecords[taskRecords.length - 1];
 
-		let stepStatus: StepStatus;
-		switch (lastRecord.status) {
-			case "started":
-			case "in_progress":
+			let stepStatus = mapRecordStatusToStepStatus(lastRecord.status);
+
+			// T4: If this is the last active step and the latest feature-level
+			// record indicates waiting-input or needs-review, reflect that as running
+			if (
+				index === lastActiveIndex &&
+				latestFeatureRecord &&
+				(latestFeatureRecord.status === "waiting-input" ||
+					latestFeatureRecord.status === "needs-review") &&
+				stepStatus === "completed"
+			) {
 				stepStatus = "running";
-				break;
-			case "completed":
-				stepStatus = "completed";
-				break;
-			case "failed":
-				stepStatus = "failed";
-				break;
-			case "waiting-input":
-			case "needs-review":
-				stepStatus = "running";
-				break;
-			default:
-				stepStatus = "pending";
+			}
+
+			const completedAt = TERMINAL_STATUSES.has(lastRecord.status)
+				? lastRecord.createdAt
+				: null;
+
+			return {
+				id,
+				name,
+				status: stepStatus,
+				startedAt: firstRecord.createdAt,
+				completedAt,
+				taskCount: null,
+				completedTaskCount: null,
+			};
 		}
 
+		// No DB records for this step - pending
+		return {
+			id,
+			name,
+			status: "pending" as StepStatus,
+			startedAt: null,
+			completedAt: null,
+			taskCount: null,
+			completedTaskCount: null,
+		};
+	});
+}
+
+/**
+ * Derive Step[] from the full timeline of StatusUpdateRecords.
+ * For /build commands, always emits all 6 canonical steps.
+ * For other commands, groups records by task field (existing behavior).
+ */
+function deriveSteps(
+	records: readonly StatusUpdateRecord[],
+	command: string,
+): readonly Step[] {
+	if (isBuildWorkflow(command)) {
+		return deriveBuildWorkflowSteps(records);
+	}
+
+	// Non-/build commands: existing behavior, group by task field
+	const taskMap = buildTaskRecordMap(records);
+	const steps: Step[] = [];
+
+	for (const [taskId, taskRecords] of taskMap) {
+		const firstRecord = taskRecords[0];
+		const lastRecord = taskRecords[taskRecords.length - 1];
+		const stepStatus = mapRecordStatusToStepStatus(lastRecord.status);
 		const completedAt = TERMINAL_STATUSES.has(lastRecord.status)
 			? lastRecord.createdAt
 			: null;
@@ -345,9 +454,69 @@ function deriveSteps(records: readonly StatusUpdateRecord[]): readonly Step[] {
 }
 
 /**
+ * Derive the overall RunStatus for a /build workflow.
+ *
+ * A /build run is only "completed" when:
+ * - The final canonical step (archive) has a completed record, OR
+ * - A feature-level "completed" record (no task) exists.
+ *
+ * A /build run is "failed" if any record reports failure.
+ *
+ * T4 edge cases:
+ * - "waiting-input"/"needs-review" feature-level records propagate directly.
+ * - Stopped mid-workflow: no completed/failed terminal -> "running".
+ */
+function deriveBuildRunStatus(
+	allRecords: readonly StatusUpdateRecord[],
+): RunStatus {
+	const taskRecordMap = buildTaskRecordMap(allRecords);
+	const featureLevelRecords = allRecords.filter((r) => !r.task);
+	const latestFeatureRecord =
+		featureLevelRecords.length > 0
+			? featureLevelRecords[featureLevelRecords.length - 1]
+			: null;
+
+	// Check for any failed record (task-level or feature-level)
+	const hasFailed = allRecords.some((r) => r.status === "failed");
+	if (hasFailed) {
+		return "failed";
+	}
+
+	// T4: Feature-level waiting-input or needs-review takes priority
+	if (latestFeatureRecord) {
+		if (latestFeatureRecord.status === "waiting-input") {
+			return "waiting-input";
+		}
+		if (latestFeatureRecord.status === "needs-review") {
+			return "needs-review";
+		}
+		// Feature-level "completed" means the orchestrator declared the run done
+		if (latestFeatureRecord.status === "completed") {
+			return "completed";
+		}
+	}
+
+	// Check if the final canonical step (archive) has a completed record
+	const finalStepId = BUILD_WORKFLOW_STEPS[BUILD_WORKFLOW_STEPS.length - 1].id;
+	const finalStepRecords = taskRecordMap.get(finalStepId);
+	if (finalStepRecords && finalStepRecords.length > 0) {
+		const lastFinalRecord = finalStepRecords[finalStepRecords.length - 1];
+		if (lastFinalRecord.status === "completed") {
+			return "completed";
+		}
+	}
+
+	// Workflow still in progress
+	return "running";
+}
+
+/**
  * Build a fully-populated Run object for the detail view.
  * Uses the full timeline of status records to derive events, steps,
  * and proper duration timestamps.
+ *
+ * For /build runs, the overall status is derived from workflow completion
+ * rather than the latest DB record's status (T3).
  */
 function buildDetailedRun(
 	record: StatusUpdateRecord,
@@ -355,20 +524,27 @@ function buildDetailedRun(
 	project: ProjectEntry,
 	artifacts: readonly Artifact[],
 ): Run {
-	const latestRecord = allRecords[allRecords.length - 1] ?? record;
-	const status = mapStatusValueToRunStatus(latestRecord.status);
+	const command = extractCommand(record.metadata);
 	const events = deriveEvents(allRecords);
-	const steps = deriveSteps(allRecords);
+	const steps = deriveSteps(allRecords, command);
 
-	// T5: startedAt from earliest record, completedAt from latest terminal record
+	// T3: For /build workflows, derive status from workflow completion state
+	const status = isBuildWorkflow(command)
+		? deriveBuildRunStatus(allRecords)
+		: mapStatusValueToRunStatus(
+				(allRecords[allRecords.length - 1] ?? record).status,
+			);
+
 	const startedAt =
 		allRecords.length > 0 ? allRecords[0].createdAt : record.createdAt;
 
 	let completedAt: string | null = null;
-	for (let i = allRecords.length - 1; i >= 0; i--) {
-		if (TERMINAL_STATUSES.has(allRecords[i].status)) {
-			completedAt = allRecords[i].createdAt;
-			break;
+	if (status === "completed" || status === "failed") {
+		for (let i = allRecords.length - 1; i >= 0; i--) {
+			if (TERMINAL_STATUSES.has(allRecords[i].status)) {
+				completedAt = allRecords[i].createdAt;
+				break;
+			}
 		}
 	}
 
@@ -398,7 +574,7 @@ function buildDetailedRun(
 		projectName: project.name,
 		featureId: record.feature,
 		featureName: humanizeFeatureName(record.feature),
-		command: extractCommand(record.metadata),
+		command,
 		status,
 		currentStep,
 		steps,
