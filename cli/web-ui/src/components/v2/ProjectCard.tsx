@@ -73,11 +73,9 @@ export function ProjectCard({
 			onClick={onClick}
 			onKeyDown={handleKeyDown}
 			className={cn(
-				"group flex items-center justify-between gap-4 rounded-lg border p-4 transition-colors",
-				"cursor-pointer hover:border-primary/50 hover:bg-muted/50",
-				selected
-					? "border-primary bg-primary/5 ring-2 ring-primary/20"
-					: "border-border",
+				"group flex items-center justify-between gap-4 py-3 px-3 transition-colors",
+				"cursor-pointer hover:bg-muted/40",
+				selected && "bg-primary/5 border-l-2 border-l-primary",
 				className,
 			)}
 		>

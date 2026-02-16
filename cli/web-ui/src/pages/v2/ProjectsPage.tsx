@@ -7,11 +7,11 @@ import { cn } from "@/lib/utils";
 
 function LoadingSkeleton() {
 	return (
-		<div className="space-y-3">
+		<div className="rounded-lg border border-border divide-y divide-border">
 			{Array.from({ length: 5 }, (_, i) => (
 				<div
 					key={`skeleton-${i}`}
-					className="animate-pulse rounded-lg border border-border bg-muted/20 p-4"
+					className="animate-pulse bg-muted/20 py-3 px-3"
 				>
 					<div className="flex items-center justify-between gap-4">
 						<div className="flex-1 space-y-2">
@@ -192,7 +192,7 @@ export function ProjectsPage() {
 			) : (
 				<>
 					<div
-						className="space-y-2 rounded-lg border border-border p-2"
+						className="rounded-lg border border-border divide-y divide-border"
 						role="listbox"
 						aria-label="Projects list"
 					>
