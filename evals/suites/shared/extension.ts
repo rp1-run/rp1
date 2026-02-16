@@ -140,13 +140,17 @@ function resetWorkspace(workspaceDir: string, remoteDir: string): void {
 		);
 	}
 
-	// Initialize git repo
-	execSync("git init", { cwd: workspaceDir, stdio: "pipe" });
+	// Initialize git repo with main as default branch
+	execSync("git init -b main", { cwd: workspaceDir, stdio: "pipe" });
 	execSync('git config user.email "test@rp1-eval.local"', {
 		cwd: workspaceDir,
 		stdio: "pipe",
 	});
 	execSync('git config user.name "rp1-eval"', {
+		cwd: workspaceDir,
+		stdio: "pipe",
+	});
+	execSync("git config commit.gpgsign false", {
 		cwd: workspaceDir,
 		stdio: "pipe",
 	});
