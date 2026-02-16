@@ -200,7 +200,9 @@ export function ProjectsPage() {
 							<ProjectCard
 								key={project.id}
 								project={project}
-								onClick={() => handleSelectProject(project)}
+								onCardClick={() => handleSelectProject(project)}
+								onArtifactsClick={() => handleSelectProject(project)}
+								onRunsClick={() => navigate(`/v2/projects/${project.id}/runs`)}
 								selected={selectedIndex === index}
 							/>
 						))}

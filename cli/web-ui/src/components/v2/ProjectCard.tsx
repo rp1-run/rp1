@@ -1,10 +1,13 @@
-import { Check, X } from "lucide-react";
+import { Check, FileText, Play, X } from "lucide-react";
+import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { V2Project } from "@/types/projects";
 
 export interface ProjectCardProps {
 	project: V2Project;
-	onClick: () => void;
+	onCardClick: () => void;
+	onRunsClick: () => void;
+	onArtifactsClick: () => void;
 	selected?: boolean;
 	className?: string;
 }
@@ -22,7 +25,7 @@ function AvailabilityIndicator({ available }: { available: boolean }) {
 	if (available) {
 		return (
 			<span
-				className="inline-flex items-center gap-1 rounded-full bg-status-completed/15 px-2 py-0.5 text-xs font-medium text-status-completed"
+				className="inline-flex shrink-0 items-center gap-1 rounded-full bg-status-completed/15 px-2 py-0.5 text-xs font-medium text-status-completed"
 				role="status"
 				aria-label="Available"
 			>
@@ -33,7 +36,7 @@ function AvailabilityIndicator({ available }: { available: boolean }) {
 	}
 	return (
 		<span
-			className="inline-flex items-center gap-1 rounded-full bg-status-failed/15 px-2 py-0.5 text-xs font-medium text-status-failed"
+			className="inline-flex shrink-0 items-center gap-1 rounded-full bg-status-failed/15 px-2 py-0.5 text-xs font-medium text-status-failed"
 			role="status"
 			aria-label="Unavailable"
 		>
@@ -45,42 +48,103 @@ function AvailabilityIndicator({ available }: { available: boolean }) {
 
 export function ProjectCard({
 	project,
-	onClick,
+	onCardClick,
+	onRunsClick,
+	onArtifactsClick,
 	selected,
 	className,
 }: ProjectCardProps) {
 	const handleKeyDown = (event: React.KeyboardEvent) => {
 		if (event.key === "Enter" || event.key === " ") {
 			event.preventDefault();
-			onClick();
+			onCardClick();
 		}
 	};
+
+	const handleArtifactsClick = (e: React.MouseEvent) => {
+		e.stopPropagation();
+		e.preventDefault();
+		onArtifactsClick();
+	};
+
+	const handleRunsClick = (e: React.MouseEvent) => {
+		e.stopPropagation();
+		e.preventDefault();
+		onRunsClick();
+	};
+
+	const lastActivity = project.lastActivityAt
+		? formatRelativeTime(project.lastActivityAt)
+		: "No activity";
+
+	const runCountLabel = `${project.runCount} run${project.runCount === 1 ? "" : "s"}`;
 
 	return (
 		// biome-ignore lint/a11y/useSemanticElements: conditionally interactive card
 		<div
 			role="button"
 			tabIndex={0}
-			onClick={onClick}
+			onClick={onCardClick}
 			onKeyDown={handleKeyDown}
+			data-selected={selected || undefined}
 			className={cn(
-				"group flex items-center justify-between gap-4 py-3 px-3 transition-colors",
+				"group flex flex-col gap-3 rounded-lg border border-border p-4 transition-colors",
 				"cursor-pointer hover:bg-muted/40",
-				selected && "bg-primary/5 border-l-2 border-l-primary",
+				selected && "ring-2 ring-primary",
+				!project.available && "opacity-60",
 				className,
 			)}
 		>
-			<div className="min-w-0 flex-1">
+			<div className="flex items-start justify-between gap-2">
 				<h3 className="truncate font-medium text-foreground">{project.name}</h3>
-				<p
-					className="mt-0.5 truncate text-sm text-muted-foreground"
-					title={project.path}
-				>
-					{truncatePath(project.path)}
-				</p>
+				<AvailabilityIndicator available={project.available} />
 			</div>
 
-			<AvailabilityIndicator available={project.available} />
+			<p
+				className="truncate text-sm text-muted-foreground"
+				title={project.path}
+			>
+				{truncatePath(project.path)}
+			</p>
+
+			<div className="flex items-center justify-between gap-2">
+				<div className="flex items-center gap-3 text-sm text-muted-foreground">
+					<span>{runCountLabel}</span>
+					<span aria-hidden="true" className="text-border">
+						|
+					</span>
+					<span>{lastActivity}</span>
+				</div>
+
+				<div className="flex items-center gap-1">
+					<button
+						type="button"
+						onClick={handleArtifactsClick}
+						className={cn(
+							"rounded p-1.5 text-muted-foreground transition-colors",
+							"hover:bg-muted hover:text-foreground",
+							"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+						)}
+						aria-label="View artifacts"
+						title="Artifacts"
+					>
+						<FileText className="h-4 w-4" aria-hidden="true" />
+					</button>
+					<button
+						type="button"
+						onClick={handleRunsClick}
+						className={cn(
+							"rounded p-1.5 text-muted-foreground transition-colors",
+							"hover:bg-muted hover:text-foreground",
+							"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+						)}
+						aria-label="View runs"
+						title="Runs"
+					>
+						<Play className="h-4 w-4" aria-hidden="true" />
+					</button>
+				</div>
+			</div>
 		</div>
 	);
 }
