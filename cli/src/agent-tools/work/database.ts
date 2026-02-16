@@ -702,4 +702,47 @@ export const queryAllLatestStatuses = (
 		),
 	);
 
+/**
+ * Query a single status update record by its numeric ID.
+ *
+ * @param id - The auto-incremented row ID
+ * @param dbPath - Database file path (optional, defaults to ~/.rp1/status.db)
+ * @returns TaskEither with StatusUpdateRecord or null if not found, or CLIError
+ */
+export const queryStatusUpdateById = (
+	id: number,
+	dbPath?: string,
+): TE.TaskEither<CLIError, StatusUpdateRecord | null> =>
+	pipe(
+		getDatabase(dbPath),
+		TE.chain((db) =>
+			TE.tryCatch(
+				async () => {
+					const stmt = db.prepare(`
+						SELECT id, project_path, feature, task, status, message, metadata, created_at
+						FROM status_updates
+						WHERE id = $id
+					`);
+
+					const row = stmt.get({ $id: id }) as {
+						id: number;
+						project_path: string;
+						feature: string;
+						task: string | null;
+						status: string;
+						message: string | null;
+						metadata: string | null;
+						created_at: string;
+					} | null;
+
+					return row ? rowToRecord(row) : null;
+				},
+				(error) =>
+					runtimeError(
+						`Failed to query status update by ID: ${error instanceof Error ? error.message : String(error)}`,
+					),
+			),
+		),
+	);
+
 export { DEFAULT_DB_PATH };
