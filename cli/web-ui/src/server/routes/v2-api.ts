@@ -3,19 +3,31 @@
  * Integrates with status.db for real run data via database queries.
  */
 
-import { resolve } from "node:path";
+import { readdir, stat } from "node:fs/promises";
+import { join, resolve } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import { formatError } from "../../../../shared/errors.js";
 import {
 	queryAllLatestStatuses,
+	queryAllStatusUpdatesForFeature,
 	queryStatusUpdateById,
 } from "../../../../src/agent-tools/work/database.js";
 import type {
 	StatusUpdateRecord,
 	StatusValue,
 } from "../../../../src/agent-tools/work/models.js";
-import type { AttentionData, Run, RunStatus } from "../../types/runs";
+import type {
+	Artifact,
+	ArtifactType,
+	AttentionData,
+	EventType,
+	Run,
+	RunEvent,
+	RunStatus,
+	Step,
+	StepStatus,
+} from "../../types/runs";
 import { getAllProjects, getProject, type ProjectEntry } from "../registry";
 
 function jsonResponse(data: unknown, status = 200): Response {
@@ -100,6 +112,7 @@ function parseDbRecordId(compositeRunId: string): number | null {
 /**
  * Convert a StatusUpdateRecord from the database to a Run type for the frontend.
  * Fields not available in status.db are set to empty arrays or null.
+ * Used for list views where full detail is not needed.
  */
 function recordToRun(record: StatusUpdateRecord, project: ProjectEntry): Run {
 	const status = mapStatusValueToRunStatus(record.status);
@@ -119,6 +132,281 @@ function recordToRun(record: StatusUpdateRecord, project: ProjectEntry): Run {
 		completedAt:
 			status === "completed" || status === "failed" ? record.createdAt : null,
 		error: status === "failed" ? record.message : null,
+	};
+}
+
+/**
+ * Terminal statuses that indicate a run has finished.
+ */
+const TERMINAL_STATUSES: ReadonlySet<StatusValue> = new Set([
+	"completed",
+	"failed",
+]);
+
+/**
+ * Classify a file extension to an ArtifactType.
+ */
+function classifyArtifactType(filename: string): ArtifactType {
+	if (filename.endsWith(".md")) return "markdown";
+	if (filename.endsWith(".mmd") || filename.endsWith(".mermaid"))
+		return "diagram";
+	if (filename.endsWith(".diff") || filename.endsWith(".patch")) return "diff";
+	if (
+		filename.endsWith(".ts") ||
+		filename.endsWith(".js") ||
+		filename.endsWith(".tsx")
+	)
+		return "code";
+	return "other";
+}
+
+/**
+ * Discover artifacts for a feature by scanning the project's .rp1 work directories.
+ * Checks both `.rp1/work/features/{featureId}/` and `.rp1/work/quick-builds/` for
+ * files matching the feature name.
+ */
+async function discoverArtifacts(
+	projectPath: string,
+	featureId: string,
+): Promise<readonly Artifact[]> {
+	const artifacts: Artifact[] = [];
+
+	// Scan .rp1/work/features/{featureId}/
+	const featureDir = join(projectPath, ".rp1", "work", "features", featureId);
+	try {
+		const dirStat = await stat(featureDir);
+		if (dirStat.isDirectory()) {
+			const files = await readdir(featureDir);
+			for (const file of files) {
+				const filePath = join(featureDir, file);
+				const fileStat = await stat(filePath);
+				if (fileStat.isFile()) {
+					artifacts.push({
+						path: `.rp1/work/features/${featureId}/${file}`,
+						type: classifyArtifactType(file),
+						updatedDuringRun: true,
+						isNew: false,
+					});
+				}
+			}
+		}
+	} catch {
+		// Directory doesn't exist - that's fine
+	}
+
+	// Scan .rp1/work/quick-builds/ for files matching the feature name
+	const quickBuildsDir = join(projectPath, ".rp1", "work", "quick-builds");
+	try {
+		const dirStat = await stat(quickBuildsDir);
+		if (dirStat.isDirectory()) {
+			const files = await readdir(quickBuildsDir);
+			for (const file of files) {
+				if (file.includes(featureId)) {
+					const filePath = join(quickBuildsDir, file);
+					const fileStat = await stat(filePath);
+					if (fileStat.isFile()) {
+						artifacts.push({
+							path: `.rp1/work/quick-builds/${file}`,
+							type: classifyArtifactType(file),
+							updatedDuringRun: true,
+							isNew: false,
+						});
+					}
+				}
+			}
+		}
+	} catch {
+		// Directory doesn't exist - that's fine
+	}
+
+	return artifacts;
+}
+
+/**
+ * Map a StatusValue to an EventType for the event stream.
+ */
+function mapStatusToEventType(status: StatusValue): EventType {
+	switch (status) {
+		case "started":
+			return "step-start";
+		case "in_progress":
+			return "step-start";
+		case "completed":
+			return "step-complete";
+		case "failed":
+			return "error";
+		case "waiting-input":
+			return "warning";
+		case "needs-review":
+			return "step-complete";
+	}
+}
+
+/**
+ * Derive RunEvent[] from the full timeline of StatusUpdateRecords.
+ * Each status update becomes a RunEvent with appropriate type mapping.
+ */
+function deriveEvents(
+	records: readonly StatusUpdateRecord[],
+): readonly RunEvent[] {
+	return records.map((record) => ({
+		id: `evt-${record.id}`,
+		type: mapStatusToEventType(record.status),
+		message:
+			record.message ??
+			`${record.task ? `[${record.task}] ` : ""}Status: ${record.status}`,
+		timestamp: record.createdAt,
+		stepId: record.task ?? null,
+		metadata: record.metadata ? parseMetadataSafe(record.metadata) : null,
+	}));
+}
+
+/**
+ * Safely parse a JSON metadata string, returning null on failure.
+ */
+function parseMetadataSafe(
+	metadata: string,
+): Readonly<Record<string, unknown>> | null {
+	try {
+		return JSON.parse(metadata) as Record<string, unknown>;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Derive Step[] from the full timeline of StatusUpdateRecords.
+ * Groups records by their task field and tracks status transitions to determine
+ * each step's current status, start time, and completion time.
+ */
+function deriveSteps(records: readonly StatusUpdateRecord[]): readonly Step[] {
+	const taskMap = new Map<
+		string,
+		{ records: StatusUpdateRecord[]; order: number }
+	>();
+	let orderCounter = 0;
+
+	for (const record of records) {
+		if (!record.task) continue;
+
+		const existing = taskMap.get(record.task);
+		if (existing) {
+			existing.records.push(record);
+		} else {
+			taskMap.set(record.task, {
+				records: [record],
+				order: orderCounter++,
+			});
+		}
+	}
+
+	const steps: Step[] = [];
+
+	for (const [taskId, { records: taskRecords }] of taskMap) {
+		const firstRecord = taskRecords[0];
+		const lastRecord = taskRecords[taskRecords.length - 1];
+
+		let stepStatus: StepStatus;
+		switch (lastRecord.status) {
+			case "started":
+			case "in_progress":
+				stepStatus = "running";
+				break;
+			case "completed":
+				stepStatus = "completed";
+				break;
+			case "failed":
+				stepStatus = "failed";
+				break;
+			case "waiting-input":
+			case "needs-review":
+				stepStatus = "running";
+				break;
+			default:
+				stepStatus = "pending";
+		}
+
+		const completedAt = TERMINAL_STATUSES.has(lastRecord.status)
+			? lastRecord.createdAt
+			: null;
+
+		steps.push({
+			id: taskId,
+			name: humanizeFeatureName(taskId),
+			status: stepStatus,
+			startedAt: firstRecord.createdAt,
+			completedAt,
+			taskCount: null,
+			completedTaskCount: null,
+		});
+	}
+
+	return steps;
+}
+
+/**
+ * Build a fully-populated Run object for the detail view.
+ * Uses the full timeline of status records to derive events, steps,
+ * and proper duration timestamps.
+ */
+function buildDetailedRun(
+	record: StatusUpdateRecord,
+	allRecords: readonly StatusUpdateRecord[],
+	project: ProjectEntry,
+	artifacts: readonly Artifact[],
+): Run {
+	const latestRecord = allRecords[allRecords.length - 1] ?? record;
+	const status = mapStatusValueToRunStatus(latestRecord.status);
+	const events = deriveEvents(allRecords);
+	const steps = deriveSteps(allRecords);
+
+	// T5: startedAt from earliest record, completedAt from latest terminal record
+	const startedAt =
+		allRecords.length > 0 ? allRecords[0].createdAt : record.createdAt;
+
+	let completedAt: string | null = null;
+	for (let i = allRecords.length - 1; i >= 0; i--) {
+		if (TERMINAL_STATUSES.has(allRecords[i].status)) {
+			completedAt = allRecords[i].createdAt;
+			break;
+		}
+	}
+
+	// Find the currently active step (last task with non-terminal status)
+	let currentStep: string | null = null;
+	for (let i = allRecords.length - 1; i >= 0; i--) {
+		if (allRecords[i].task && !TERMINAL_STATUSES.has(allRecords[i].status)) {
+			currentStep = allRecords[i].task;
+			break;
+		}
+	}
+
+	// Error message from the latest failed record
+	let error: string | null = null;
+	if (status === "failed") {
+		for (let i = allRecords.length - 1; i >= 0; i--) {
+			if (allRecords[i].status === "failed" && allRecords[i].message) {
+				error = allRecords[i].message;
+				break;
+			}
+		}
+	}
+
+	return {
+		id: `${project.id}-${record.feature}-${record.id}`,
+		projectId: project.id,
+		projectName: project.name,
+		featureId: record.feature,
+		featureName: humanizeFeatureName(record.feature),
+		command: extractCommand(record.metadata),
+		status,
+		currentStep,
+		steps,
+		artifacts,
+		events,
+		startedAt,
+		completedAt,
+		error,
 	};
 }
 
@@ -298,7 +586,8 @@ export async function handleV2RunsAttentionRequest(): Promise<Response> {
 /**
  * GET /api/v2/runs/:id - single run with steps, artifacts, events.
  * Parses the composite run ID to extract the DB record ID,
- * queries the database, and returns real run data.
+ * queries the database for the full feature timeline,
+ * and returns a fully-populated run with events, steps, artifacts, and duration.
  */
 export async function handleV2RunDetailRequest(
 	runId: string,
@@ -328,7 +617,22 @@ export async function handleV2RunDetailRequest(
 			return errorResponse(`Project not found for run: ${runId}`, 404);
 		}
 
-		const run = recordToRun(record, project);
+		// Fetch full timeline for this feature to build events, steps, and duration
+		const timelineResult = await pipe(
+			queryAllStatusUpdatesForFeature(record.projectPath, record.feature),
+		)();
+
+		const allRecords = E.isRight(timelineResult)
+			? timelineResult.right
+			: [record];
+
+		// Discover artifacts on disk
+		const artifacts = await discoverArtifacts(
+			record.projectPath,
+			record.feature,
+		);
+
+		const run = buildDetailedRun(record, allRecords, project, artifacts);
 		return jsonResponse(run);
 	} catch (error) {
 		return errorResponse(`Failed to fetch run: ${String(error)}`);

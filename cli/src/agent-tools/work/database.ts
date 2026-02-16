@@ -703,6 +703,57 @@ export const queryAllLatestStatuses = (
 	);
 
 /**
+ * Query all status updates for a specific project+feature combination.
+ * Returns the full timeline ordered chronologically (ASC) for building
+ * detailed run views with events, steps, and duration.
+ *
+ * @param projectPath - Absolute path to the project
+ * @param feature - Feature identifier (kebab-case)
+ * @param dbPath - Database file path (optional, defaults to ~/.rp1/status.db)
+ * @returns TaskEither with array of StatusUpdateRecord ordered by created_at ASC, or CLIError
+ */
+export const queryAllStatusUpdatesForFeature = (
+	projectPath: string,
+	feature: string,
+	dbPath?: string,
+): TE.TaskEither<CLIError, readonly StatusUpdateRecord[]> =>
+	pipe(
+		getDatabase(dbPath),
+		TE.chain((db) =>
+			TE.tryCatch(
+				async () => {
+					const stmt = db.prepare(`
+						SELECT id, project_path, feature, task, status, message, metadata, created_at
+						FROM status_updates
+						WHERE project_path = $projectPath AND feature = $feature
+						ORDER BY created_at ASC
+					`);
+
+					const rows = stmt.all({
+						$projectPath: projectPath,
+						$feature: feature,
+					}) as Array<{
+						id: number;
+						project_path: string;
+						feature: string;
+						task: string | null;
+						status: string;
+						message: string | null;
+						metadata: string | null;
+						created_at: string;
+					}>;
+
+					return rows.map(rowToRecord);
+				},
+				(error) =>
+					runtimeError(
+						`Failed to query status updates for feature: ${error instanceof Error ? error.message : String(error)}`,
+					),
+			),
+		),
+	);
+
+/**
  * Query a single status update record by its numeric ID.
  *
  * @param id - The auto-incremented row ID
