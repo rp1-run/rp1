@@ -168,6 +168,26 @@ function isBuildWorkflow(command: string): boolean {
 }
 
 /**
+ * Canonical step sequence for the /build-fast workflow.
+ * The /build-fast command executes 3 phases in order.
+ */
+const BUILD_FAST_WORKFLOW_STEPS: readonly {
+	readonly id: string;
+	readonly name: string;
+}[] = [
+	{ id: "plan", name: "Plan" },
+	{ id: "build", name: "Build" },
+	{ id: "review", name: "Review" },
+];
+
+/**
+ * Detect whether a run uses the /build-fast workflow based on the command field.
+ */
+function isBuildFastWorkflow(command: string): boolean {
+	return command === "/build-fast";
+}
+
+/**
  * Classify a file extension to an ArtifactType.
  */
 function classifyArtifactType(filename: string): ArtifactType {
@@ -415,6 +435,78 @@ function deriveBuildWorkflowSteps(
 }
 
 /**
+ * Derive steps for /build-fast workflow runs by merging DB records with the
+ * canonical 3-step sequence. Steps with DB records get their actual status;
+ * steps without records are marked pending.
+ *
+ * Mirrors deriveBuildWorkflowSteps logic for the /build-fast 3-phase workflow.
+ */
+function deriveBuildFastWorkflowSteps(
+	records: readonly StatusUpdateRecord[],
+): readonly Step[] {
+	const taskMap = buildTaskRecordMap(records);
+
+	const featureLevelRecords = records.filter((r) => !r.task);
+	const latestFeatureRecord =
+		featureLevelRecords.length > 0
+			? featureLevelRecords[featureLevelRecords.length - 1]
+			: null;
+
+	let lastActiveIndex = -1;
+	for (let i = BUILD_FAST_WORKFLOW_STEPS.length - 1; i >= 0; i--) {
+		if (taskMap.has(BUILD_FAST_WORKFLOW_STEPS[i].id)) {
+			lastActiveIndex = i;
+			break;
+		}
+	}
+
+	return BUILD_FAST_WORKFLOW_STEPS.map(({ id, name }, index) => {
+		const taskRecords = taskMap.get(id);
+
+		if (taskRecords && taskRecords.length > 0) {
+			const firstRecord = taskRecords[0];
+			const lastRecord = taskRecords[taskRecords.length - 1];
+
+			let stepStatus = mapRecordStatusToStepStatus(lastRecord.status);
+
+			if (
+				index === lastActiveIndex &&
+				latestFeatureRecord &&
+				(latestFeatureRecord.status === "waiting-input" ||
+					latestFeatureRecord.status === "needs-review") &&
+				stepStatus === "completed"
+			) {
+				stepStatus = "running";
+			}
+
+			const completedAt = TERMINAL_STATUSES.has(lastRecord.status)
+				? lastRecord.createdAt
+				: null;
+
+			return {
+				id,
+				name,
+				status: stepStatus,
+				startedAt: firstRecord.createdAt,
+				completedAt,
+				taskCount: null,
+				completedTaskCount: null,
+			};
+		}
+
+		return {
+			id,
+			name,
+			status: "pending" as StepStatus,
+			startedAt: null,
+			completedAt: null,
+			taskCount: null,
+			completedTaskCount: null,
+		};
+	});
+}
+
+/**
  * Derive Step[] from the full timeline of StatusUpdateRecords.
  * For /build commands, always emits all 6 canonical steps.
  * For other commands, groups records by task field (existing behavior).
@@ -425,6 +517,10 @@ function deriveSteps(
 ): readonly Step[] {
 	if (isBuildWorkflow(command)) {
 		return deriveBuildWorkflowSteps(records);
+	}
+
+	if (isBuildFastWorkflow(command)) {
+		return deriveBuildFastWorkflowSteps(records);
 	}
 
 	// Non-/build commands: existing behavior, group by task field
@@ -511,6 +607,55 @@ function deriveBuildRunStatus(
 }
 
 /**
+ * Derive the overall RunStatus for a /build-fast workflow.
+ *
+ * A /build-fast run is "completed" when:
+ * - The final canonical step (review) has a completed record, OR
+ * - A feature-level "completed" record (no task) exists.
+ *
+ * Mirrors deriveBuildRunStatus logic for the /build-fast 3-phase workflow.
+ */
+function deriveBuildFastRunStatus(
+	allRecords: readonly StatusUpdateRecord[],
+): RunStatus {
+	const taskRecordMap = buildTaskRecordMap(allRecords);
+	const featureLevelRecords = allRecords.filter((r) => !r.task);
+	const latestFeatureRecord =
+		featureLevelRecords.length > 0
+			? featureLevelRecords[featureLevelRecords.length - 1]
+			: null;
+
+	const hasFailed = allRecords.some((r) => r.status === "failed");
+	if (hasFailed) {
+		return "failed";
+	}
+
+	if (latestFeatureRecord) {
+		if (latestFeatureRecord.status === "waiting-input") {
+			return "waiting-input";
+		}
+		if (latestFeatureRecord.status === "needs-review") {
+			return "needs-review";
+		}
+		if (latestFeatureRecord.status === "completed") {
+			return "completed";
+		}
+	}
+
+	const finalStepId =
+		BUILD_FAST_WORKFLOW_STEPS[BUILD_FAST_WORKFLOW_STEPS.length - 1].id;
+	const finalStepRecords = taskRecordMap.get(finalStepId);
+	if (finalStepRecords && finalStepRecords.length > 0) {
+		const lastFinalRecord = finalStepRecords[finalStepRecords.length - 1];
+		if (lastFinalRecord.status === "completed") {
+			return "completed";
+		}
+	}
+
+	return "running";
+}
+
+/**
  * Build a fully-populated Run object for the detail view.
  * Uses the full timeline of status records to derive events, steps,
  * and proper duration timestamps.
@@ -528,12 +673,14 @@ function buildDetailedRun(
 	const events = deriveEvents(allRecords);
 	const steps = deriveSteps(allRecords, command);
 
-	// T3: For /build workflows, derive status from workflow completion state
+	// For workflow commands, derive status from workflow completion state
 	const status = isBuildWorkflow(command)
 		? deriveBuildRunStatus(allRecords)
-		: mapStatusValueToRunStatus(
-				(allRecords[allRecords.length - 1] ?? record).status,
-			);
+		: isBuildFastWorkflow(command)
+			? deriveBuildFastRunStatus(allRecords)
+			: mapStatusValueToRunStatus(
+					(allRecords[allRecords.length - 1] ?? record).status,
+				);
 
 	const startedAt =
 		allRecords.length > 0 ? allRecords[0].createdAt : record.createdAt;

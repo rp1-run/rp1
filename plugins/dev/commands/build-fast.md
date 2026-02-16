@@ -62,7 +62,17 @@ Or in the terminal: `rp1 update`
 - `CONFIRM_PLAN` → `false` (forced)
 - All checkpoints → SKIP (no AskUserQuestion)
 
+## §SKILL-LOADING
+
+**Load skill**: `rp1-base:work-status` - enables workflow progress reporting to Status Dashboard.
+
+**CRITICAL**: ALL status updates for this command MUST include `--metadata '{"command":"/build-fast"}'` so the V2 dashboard correctly identifies the 3-phase workflow (plan, build, review).
+
 ## §PHASE-1: Planning
+
+**Report status: started** (metadata: `{"command":"/build-fast"}`) - "Starting build-fast workflow"
+
+**Report status: in_progress** (task: plan, metadata: `{"command":"/build-fast"}`) - "Planning changes"
 
 **Spawn agent**:
 
@@ -109,6 +119,8 @@ AskUserQuestion: |
 
 ## §PHASE-2: Execution
 
+**Report status: in_progress** (task: build, metadata: `{"command":"/build-fast"}`) - "Executing build phase"
+
 ### §2.1 Worktree Setup
 
 **Skip if**: `GIT_WORKTREE=false`
@@ -141,6 +153,8 @@ prompt: |
 ## §PHASE-3: Review (Optional)
 
 **Skip if**: `REVIEW=false`
+
+**Report status: in_progress** (task: review, metadata: `{"command":"/build-fast"}`) - "Running review phase"
 
 ### §3.1 Task Review
 
@@ -221,6 +235,8 @@ AskUserQuestion: |
 **On "Done"**: Continue to output.
 
 ## §OUTPUT
+
+**Report status: completed** (metadata: `{"command":"/build-fast"}`) - "Build-fast workflow completed"
 
 ```markdown
 ## Build Fast Complete
