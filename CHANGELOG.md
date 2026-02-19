@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.7](https://github.com/rp1-run/rp1/compare/v0.4.6...v0.4.7) (2026-02-19)
+
+
+### Bug Fixes
+
+* **release:** guard xattr quarantine removal for macOS only ([#259](https://github.com/rp1-run/rp1/issues/259)) ([4f4e19b](https://github.com/rp1-run/rp1/commit/4f4e19bd0570bb6820ac4c25a90009a0006dff29))
+
 ## [0.4.6](https://github.com/rp1-run/rp1/compare/v0.4.5...v0.4.6) (2026-02-06)
 
 
