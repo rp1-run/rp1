@@ -14,6 +14,7 @@ import {
 	lookupPluginCommand,
 	lookupPluginCommandWithFallback,
 	parsePluginCommand,
+	resolveFromInstalledPlugins,
 	resolvePluginDir,
 	resolvePluginPath,
 } from "../../../agent-tools/transform-args/plugin-locator.js";
@@ -226,8 +227,259 @@ describe("extractArgumentHint", () => {
 	});
 });
 
+describe("resolveFromInstalledPlugins", () => {
+	let tempHome: string;
+
+	beforeEach(async () => {
+		tempHome = path.join(
+			import.meta.dir,
+			".test-fixtures",
+			`test-installed-${Date.now()}`,
+		);
+		await mkdir(path.join(tempHome, ".claude", "plugins"), {
+			recursive: true,
+		});
+	});
+
+	afterEach(async () => {
+		try {
+			await rm(tempHome, { recursive: true, force: true });
+		} catch {
+			// Ignore cleanup errors
+		}
+	});
+
+	test("resolves command from installed_plugins.json", async () => {
+		const installPath = path.join(
+			tempHome,
+			"cache",
+			"rp1-local",
+			"rp1-dev",
+			"0.4.7-dev",
+		);
+		await mkdir(path.join(installPath, "commands"), { recursive: true });
+		await writeFile(
+			path.join(installPath, "commands", "build.md"),
+			`---\nname: build\nargument-hint: "<id>"\n---\n# Build`,
+		);
+
+		const installedPlugins = {
+			version: 2,
+			plugins: {
+				"rp1-dev@rp1-local": [
+					{
+						installPath,
+						scope: "local",
+						version: "0.4.7-dev",
+						installedAt: "",
+						lastUpdated: "",
+					},
+				],
+			},
+		};
+		await writeFile(
+			path.join(tempHome, ".claude", "plugins", "installed_plugins.json"),
+			JSON.stringify(installedPlugins),
+		);
+
+		const result = await expectTaskRight(
+			resolveFromInstalledPlugins("rp1-dev:build", tempHome),
+		);
+
+		expect(result).toBe(path.join(installPath, "commands", "build.md"));
+	});
+
+	test("matches plugin with @rp1-run marketplace suffix", async () => {
+		const installPath = path.join(
+			tempHome,
+			"cache",
+			"rp1-run",
+			"rp1-base",
+			"0.4.5",
+		);
+		await mkdir(path.join(installPath, "commands"), { recursive: true });
+		await writeFile(
+			path.join(installPath, "commands", "knowledge-load.md"),
+			`---\nname: knowledge-load\n---\n# KL`,
+		);
+
+		const installedPlugins = {
+			version: 2,
+			plugins: {
+				"rp1-base@rp1-run": [
+					{
+						installPath,
+						scope: "marketplace",
+						version: "0.4.5",
+						installedAt: "",
+						lastUpdated: "",
+					},
+				],
+			},
+		};
+		await writeFile(
+			path.join(tempHome, ".claude", "plugins", "installed_plugins.json"),
+			JSON.stringify(installedPlugins),
+		);
+
+		const result = await expectTaskRight(
+			resolveFromInstalledPlugins("rp1-base:knowledge-load", tempHome),
+		);
+
+		expect(result).toBe(
+			path.join(installPath, "commands", "knowledge-load.md"),
+		);
+	});
+
+	test("returns error when installed_plugins.json is missing", async () => {
+		// Remove the plugins directory to ensure no json file exists
+		await rm(path.join(tempHome, ".claude", "plugins"), {
+			recursive: true,
+			force: true,
+		});
+
+		const error = await expectTaskLeft(
+			resolveFromInstalledPlugins("rp1-dev:build", tempHome),
+		);
+
+		expect(error._tag).toBe("PluginLookupError");
+		expect(error.reason).toBe("file-not-found");
+		expect(error.message).toContain("No Claude Code plugins directory found");
+	});
+
+	test("returns error when plugin is not in installed_plugins.json", async () => {
+		const installedPlugins = {
+			version: 2,
+			plugins: {
+				"rp1-base@rp1-run": [
+					{
+						installPath: "/some/path",
+						scope: "marketplace",
+						version: "0.4.5",
+						installedAt: "",
+						lastUpdated: "",
+					},
+				],
+			},
+		};
+		await writeFile(
+			path.join(tempHome, ".claude", "plugins", "installed_plugins.json"),
+			JSON.stringify(installedPlugins),
+		);
+
+		const error = await expectTaskLeft(
+			resolveFromInstalledPlugins("rp1-dev:build", tempHome),
+		);
+
+		expect(error._tag).toBe("PluginLookupError");
+		expect(error.reason).toBe("file-not-found");
+		expect(error.message).toContain('Plugin "rp1-dev" not found');
+	});
+
+	test("returns error when command file does not exist at install path", async () => {
+		const installPath = path.join(
+			tempHome,
+			"cache",
+			"rp1-local",
+			"rp1-dev",
+			"0.4.7-dev",
+		);
+		// Do NOT create the commands directory or file
+
+		const installedPlugins = {
+			version: 2,
+			plugins: {
+				"rp1-dev@rp1-local": [
+					{
+						installPath,
+						scope: "local",
+						version: "0.4.7-dev",
+						installedAt: "",
+						lastUpdated: "",
+					},
+				],
+			},
+		};
+		await writeFile(
+			path.join(tempHome, ".claude", "plugins", "installed_plugins.json"),
+			JSON.stringify(installedPlugins),
+		);
+
+		const error = await expectTaskLeft(
+			resolveFromInstalledPlugins("rp1-dev:nonexistent", tempHome),
+		);
+
+		expect(error._tag).toBe("PluginLookupError");
+		expect(error.reason).toBe("file-not-found");
+		expect(error.message).toContain("Command file not found");
+	});
+
+	test("returns error for invalid plugin-command format", async () => {
+		const error = await expectTaskLeft(
+			resolveFromInstalledPlugins("invalid-format", tempHome),
+		);
+
+		expect(error._tag).toBe("PluginLookupError");
+		expect(error.reason).toBe("invalid-format");
+	});
+
+	test("picks first matching entry when multiple marketplace entries exist", async () => {
+		const localPath = path.join(
+			tempHome,
+			"cache",
+			"rp1-local",
+			"rp1-dev",
+			"0.4.7-dev",
+		);
+		await mkdir(path.join(localPath, "commands"), { recursive: true });
+		await writeFile(
+			path.join(localPath, "commands", "build.md"),
+			`---\nname: build\n---\n# Build`,
+		);
+
+		const installedPlugins = {
+			version: 2,
+			plugins: {
+				"rp1-dev@rp1-local": [
+					{
+						installPath: localPath,
+						scope: "local",
+						version: "0.4.7-dev",
+						installedAt: "",
+						lastUpdated: "",
+					},
+				],
+				"rp1-dev@rp1-run": [
+					{
+						installPath: "/other/path",
+						scope: "marketplace",
+						version: "0.4.5",
+						installedAt: "",
+						lastUpdated: "",
+					},
+				],
+			},
+		};
+		await writeFile(
+			path.join(tempHome, ".claude", "plugins", "installed_plugins.json"),
+			JSON.stringify(installedPlugins),
+		);
+
+		const result = await expectTaskRight(
+			resolveFromInstalledPlugins("rp1-dev:build", tempHome),
+		);
+
+		expect(result).toBe(path.join(localPath, "commands", "build.md"));
+	});
+});
+
 describe("lookupPluginCommand", () => {
 	let tempDir: string;
+	const fakeHome = path.join(
+		import.meta.dir,
+		".test-fixtures",
+		"nonexistent-home",
+	);
 
 	beforeEach(async () => {
 		tempDir = path.join(
@@ -248,7 +500,7 @@ describe("lookupPluginCommand", () => {
 		}
 	});
 
-	test("successfully looks up valid command", async () => {
+	test("successfully looks up valid command via project-local fallback", async () => {
 		const commandPath = path.join(
 			tempDir,
 			"plugins",
@@ -267,7 +519,7 @@ argument-hint: "<feature-id> [requirements...] [--afk]"
 		);
 
 		const result = await expectTaskRight(
-			lookupPluginCommand("rp1-dev:build", tempDir),
+			lookupPluginCommand("rp1-dev:build", tempDir, fakeHome),
 		);
 
 		expect(result.argumentHint).toBe("<feature-id> [requirements...] [--afk]");
@@ -277,7 +529,7 @@ argument-hint: "<feature-id> [requirements...] [--afk]"
 
 	test("returns error for missing file", async () => {
 		const error = await expectTaskLeft(
-			lookupPluginCommand("rp1-dev:nonexistent", tempDir),
+			lookupPluginCommand("rp1-dev:nonexistent", tempDir, fakeHome),
 		);
 
 		expect(error._tag).toBe("PluginLookupError");
@@ -295,7 +547,7 @@ argument-hint: "<feature-id> [requirements...] [--afk]"
 		await writeFile(commandPath, "# No frontmatter here");
 
 		const error = await expectTaskLeft(
-			lookupPluginCommand("rp1-dev:broken", tempDir),
+			lookupPluginCommand("rp1-dev:broken", tempDir, fakeHome),
 		);
 
 		expect(error.reason).toBe("invalid-frontmatter");
@@ -319,7 +571,7 @@ name: nohint
 		);
 
 		const result = await expectTaskRight(
-			lookupPluginCommand("rp1-dev:nohint", tempDir),
+			lookupPluginCommand("rp1-dev:nohint", tempDir, fakeHome),
 		);
 
 		expect(result.argumentHint).toBe("");
@@ -329,6 +581,11 @@ name: nohint
 
 describe("lookupPluginCommandWithFallback", () => {
 	let tempDir: string;
+	const fakeHome = path.join(
+		import.meta.dir,
+		".test-fixtures",
+		"nonexistent-home",
+	);
 
 	beforeEach(async () => {
 		tempDir = path.join(
@@ -368,7 +625,7 @@ argument-hint: "<id>"
 		);
 
 		const outcome = await expectTaskRight(
-			lookupPluginCommandWithFallback("rp1-dev:build", tempDir),
+			lookupPluginCommandWithFallback("rp1-dev:build", tempDir, fakeHome),
 		);
 
 		expect(isResult(outcome)).toBe(true);
@@ -379,7 +636,7 @@ argument-hint: "<id>"
 
 	test("returns fallback for missing command", async () => {
 		const outcome = await expectTaskRight(
-			lookupPluginCommandWithFallback("rp1-dev:missing", tempDir),
+			lookupPluginCommandWithFallback("rp1-dev:missing", tempDir, fakeHome),
 		);
 
 		expect(isFallback(outcome)).toBe(true);
@@ -391,7 +648,7 @@ argument-hint: "<id>"
 
 	test("returns fallback for invalid format", async () => {
 		const outcome = await expectTaskRight(
-			lookupPluginCommandWithFallback("invalid-format", tempDir),
+			lookupPluginCommandWithFallback("invalid-format", tempDir, fakeHome),
 		);
 
 		expect(isFallback(outcome)).toBe(true);
@@ -402,7 +659,7 @@ argument-hint: "<id>"
 
 	test("returns fallback for unknown plugin", async () => {
 		const outcome = await expectTaskRight(
-			lookupPluginCommandWithFallback("rp1-unknown:cmd", tempDir),
+			lookupPluginCommandWithFallback("rp1-unknown:cmd", tempDir, fakeHome),
 		);
 
 		expect(isFallback(outcome)).toBe(true);
