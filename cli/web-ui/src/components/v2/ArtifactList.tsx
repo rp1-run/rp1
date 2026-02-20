@@ -95,6 +95,7 @@ function ArtifactItem({
 	};
 
 	return (
+		// biome-ignore lint/a11y/noStaticElementInteractions: role is conditionally set based on onClick
 		<div
 			role={onClick ? "button" : undefined}
 			tabIndex={onClick ? 0 : undefined}

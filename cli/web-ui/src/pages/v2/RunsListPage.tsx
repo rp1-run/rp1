@@ -41,9 +41,9 @@ function parseFiltersFromParams(
 function LoadingSkeleton() {
 	return (
 		<div className="space-y-3">
-			{Array.from({ length: 5 }, (_, i) => (
+			{["s1", "s2", "s3", "s4", "s5"].map((id) => (
 				<div
-					key={`skeleton-${i}`}
+					key={id}
 					className="animate-pulse rounded-lg border border-border bg-muted/20 p-4"
 				>
 					<div className="flex items-center gap-3">
