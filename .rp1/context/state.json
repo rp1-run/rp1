@@ -2,13 +2,13 @@
   "strategy": "parallel-map-reduce",
   "repo_type": "single-project",
   "monorepo_projects": [],
-  "generated_at": "2026-02-05T00:00:00Z",
-  "git_commit": "1adaadfd137f17b9b5d67e5a21c0eaba0ff20cf1",
-  "files_analyzed": 312,
-  "languages": ["TypeScript", "Markdown", "YAML", "Python", "Shell"],
+  "generated_at": "2026-02-20T00:00:00Z",
+  "git_commit": "c5f73188c79295870865beb2bc3e38ae85ed59ea",
+  "files_analyzed": 334,
+  "languages": ["TypeScript", "Markdown", "YAML", "Shell"],
   "metrics": {
-    "modules": 12,
-    "components": 100,
-    "concepts": 45
+    "modules": 10,
+    "components": 105,
+    "concepts": 48
   }
 }

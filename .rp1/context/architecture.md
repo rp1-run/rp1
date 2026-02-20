@@ -1,8 +1,8 @@
 # System Architecture
 
 **Project**: rp1 Plugin System
-**Architecture Pattern**: Plugin Architecture with Map-Reduce Orchestration
-**Last Updated**: 2026-02-05
+**Architecture Pattern**: Layered Plugin Architecture with Map-Reduce Orchestration
+**Last Updated**: 2026-02-20
 
 ## High-Level Architecture
 
@@ -25,8 +25,12 @@ graph TB
         BaseCmd[Commands]
         BaseAgents[Agents]
         Skills[Skills]
+        TC[task-coordination]
+        WS[work-status]
         BaseCmd --> BaseAgents
         BaseAgents --> Skills
+        Skills --> TC
+        Skills --> WS
     end
 
     subgraph "Dev Plugin"
@@ -36,11 +40,21 @@ graph TB
         DevAgents -.->|cross-plugin| BaseCmd
     end
 
-    subgraph "CLI"
+    subgraph "CLI Core"
         CLIMain[main.ts]
         ToolRegistry[Tool Registry]
+        SharedPaths[shared/paths.ts]
+        PluginLocator[plugin-locator]
         WebUI[web-ui React/Vite]
         AgentTools[agent-tools]
+        PluginLocator --> SharedPaths
+    end
+
+    subgraph "Plugin Resolution"
+        IPJson[installed_plugins.json]
+        ProjLocal[project-local plugins/]
+        PluginLocator -->|primary| IPJson
+        PluginLocator -->|fallback| ProjLocal
     end
 
     subgraph "Knowledge Base"
@@ -58,203 +72,101 @@ graph TB
         GR --> Bun
     end
 
-    subgraph "Distribution"
-        Marketplace[Plugin Marketplace]
-        Tarball[OpenCode Tarball]
-        Homebrew[Homebrew Cask]
-        Scoop[Scoop Bucket]
-        Curl[curl install.sh]
-    end
-
     subgraph "Quality"
         Evals[Promptfoo Evals]
         Attest[Attestation System]
-        Provider[claude-with-tools]
         Biome[Biome Linter]
-        Evals --> Provider
-        Attest --> Evals
+        Evals --> Attest
     end
 
     CC --> Base
     CC --> Dev
-    OC --> Tarball
+    OC --> Dev
     CLI --> CLIMain
-
+    TC -->|available| CC
+    TC -.->|no-op| OC
     BaseAgents --> KB
     DevAgents --> KB
-
-    Bun --> Homebrew
-    Bun --> Scoop
-    Bun --> Curl
-    Base --> Marketplace
-    Dev --> Marketplace
-    RP --> Tarball
 ```
 
-## Architectural Patterns
-
-### Plugin Architecture
-**Evidence**: `plugins/base/.claude-plugin/plugin.json`, `plugins/dev/.claude-plugin/plugin.json`
-**Description**: Three independent plugins (base, dev, utils) with explicit dependencies. Dev depends on base for shared capabilities. Each plugin has commands and agents; base owns all skills.
-
-### Constitutional Agent Pattern
-**Evidence**: `plugins/*/agents/*.md` structure with YAML frontmatter, parameter tables, anti-loop directives
-**Description**: Agents follow structured format: parameter tables, numbered workflow sections, JSON output contracts. Single-pass execution without iteration.
-
-### Command-Agent Delegation
-**Evidence**: `plugins/*/commands/*.md` spawn agents via Task tool
-**Description**: Commands are thin wrappers (50-100 lines) that parse parameters and spawn constitutional agents (200-350 lines) for workflow execution.
-
-### Map-Reduce Orchestration
-**Evidence**: `knowledge-build` spawns parallel agents, `pr-review` uses splitter/sub-reviewers/synthesizer
-**Description**: Complex workflows split into units, processed in parallel by specialized agents, then merged by orchestrator.
-
-### Content-Addressable Attestation
-**Evidence**: `evals/src/attestation/` module with SHA-256 hashing and dependency graph derivation
-**Description**: Prompt files tracked via content hashes with dependency graphs. Changes require eval suite re-attestation before merge.
-
-### Two-Phase Eval Workflow
-**Evidence**: `Justfile` run-evals and attest-evals recipes, `evals/src/attestation/commands.ts`
-**Description**: Eval execution separated from attestation generation. Phase 1 runs promptfoo with fixed output file. Phase 2 reads output, validates 100% pass, updates attestation without spawning Claude.
-
-### Multi-Platform Distribution
-**Evidence**: `.goreleaser.yml` (darwin-arm64/x64, linux-arm64/x64, windows-x64)
-**Description**: Targets Claude Code (native plugins), OpenCode (tarballs), and standalone CLI via GoReleaser binaries.
-
-### Embedded Asset Bundling
-**Evidence**: `cli/src/assets/embedded.ts`, goreleaser.yml verification of IS_BUNDLED flag
-**Description**: Plugin assets embedded at build time into single executable binary via Bun compiler.
-
-### Git Worktree Isolation
-**Evidence**: `.rp1/work/worktrees/` directory structure, worktree CLI command
-**Description**: Agents execute in isolated git worktrees with disabled hooks, protecting user's uncommitted work.
-
-### Tool Registry Pattern
-**Evidence**: `cli/src/config/supported-tools.yaml`, `cli/src/agent-tools/index.ts`
-**Description**: Centralized registry for agent tools with registration, lookup, and listing.
-
-## Layer Architecture
+## Architectural Layers
 
 | Layer | Purpose | Components |
-|-------|---------|------------|
-| **Interface** | User-facing entry points | `plugins/*/commands/*.md` |
-| **Agent** | Autonomous workflow execution | `plugins/*/agents/*.md` |
-| **Skill** | Reusable shared capabilities | `plugins/base/skills/*.md` |
-| **CLI** | Cross-platform tooling | `cli/src/main.ts`, `cli/web-ui/*`, `agent-tools` |
-| **Config** | Tool registry | `cli/src/config/supported-tools.*` |
-| **Knowledge** | Persistent codebase docs | `.rp1/context/*.md`, `state.json` |
-| **Build/Release** | CI/CD automation | `.github/workflows/*`, `.goreleaser.yml` |
-| **Evaluation** | Prompt testing | `evals/`, `evals/src/attestation/*` |
+|-------|---------|-----------|
+| Interface | User-facing entry points (slash commands) | `plugins/*/commands/*.md` |
+| Agent | Autonomous workflow execution | `plugins/*/agents/*.md` |
+| Skill | Reusable shared capabilities | `plugins/base/skills/*/SKILL.md` |
+| CLI | Cross-platform tooling, plugin resolution | `cli/src/main.ts`, `cli/src/agent-tools/`, `cli/src/shared/` |
+| Config | Tool registry, plugin metadata | `cli/src/config/supported-tools.*`, `plugins/*/.claude-plugin/` |
+| Knowledge | Persistent codebase documentation | `.rp1/context/*.md`, `.rp1/context/state.json` |
+| Build/Release | CI/CD automation, binary builds | `.github/workflows/*`, `.goreleaser.yml` |
+| Evaluation | Prompt testing and attestation | `evals/` |
 
-## Key Workflows
+## Key Architectural Patterns
+
+### Command-Agent Delegation
+Commands are thin wrappers (~50-150 lines) that delegate to constitutional agents (~200-350 lines) via Task tool. Commands handle user interface/routing; agents handle business logic.
+
+### Map-Reduce Orchestration
+- **KB Generation**: spatial analyzer -> 4 parallel agents -> orchestrator merge
+- **PR Review**: splitter -> N sub-reviewers -> synthesizer -> reporter
+
+### Two-Tier Plugin Resolution
+Plugin commands resolved first from Claude Code's `installed_plugins.json` (marketplace installs), falling back to project-local `plugins/` directory. Uses fp-ts `TE.orElse` for graceful degradation.
+
+### Platform-Agnostic Task Coordination
+Skill abstracts Claude Code Task tools with first-call feature detection and silent no-op fallback for non-Claude-Code platforms.
+
+### Content-Addressable Attestation
+Prompt files tracked via SHA-256 hashes with dependency graphs. Changes require eval suite re-attestation before merge.
+
+### Embedded Asset Bundling
+Plugin assets embedded at build time into single executable binary via Bun compiler.
+
+### Git Worktree Isolation
+Agents execute in isolated git worktrees with disabled hooks, protecting user's uncommitted work.
+
+## Data Flows
 
 ### KB Generation Flow
-```mermaid
-sequenceDiagram
-    participant User
-    participant Command as /knowledge-build
-    participant Spatial as kb-spatial-analyzer
-    participant Agents as 4 Analysis Agents
-    participant KB as .rp1/context/
-
-    User->>Command: Invoke
-    Command->>Command: Check state.json vs git commit
-    Command->>Spatial: Categorize files
-    Spatial-->>Command: File lists by category
-    Command->>Agents: Spawn in parallel
-    Agents-->>Command: JSON results
-    Command->>KB: Merge and write files
-    Command-->>User: Success report
-```
+1. User invokes `/rp1-base:knowledge-build`
+2. Command checks state.json vs git commit for incremental detection
+3. Spawns kb-spatial-analyzer to categorize files
+4. Creates 4 parallel Task Coordination tasks (if available)
+5. Spawns 4 analysis agents in parallel (concept, architecture, module, pattern)
+6. Agents return JSON results; tasks marked completed/failed
+7. Command merges results and writes KB files
 
 ### Feature Build Flow
-```mermaid
-sequenceDiagram
-    participant User
-    participant Build as /build
-    participant Builder as task-builder
-    participant Reviewer as task-reviewer
-    participant Files as Source Files
+1. User invokes `/rp1-dev:build` with feature-id
+2. Command detects artifacts, parses tasks
+3. For each task unit: spawn task-builder, then task-reviewer
+4. On reviewer FAILURE: retry builder with feedback
+5. Task coordination tracks 6 steps in Claude Code task UI
 
-    User->>Build: Invoke with feature-id
-    Build->>Build: Detect artifacts, parse tasks
-    loop For each task unit
-        Build->>Builder: Implement task(s)
-        Builder->>Files: Write code
-        Builder-->>Build: Summary
-        Build->>Reviewer: Verify work
-        Reviewer-->>Build: SUCCESS or FAILURE
-        alt FAILURE
-            Build->>Builder: Retry with feedback
-        end
-    end
-    Build-->>User: Build complete
-```
-
-### PR Review Flow
-```mermaid
-sequenceDiagram
-    participant User
-    participant PR as /pr-review
-    participant Splitter as pr-review-splitter
-    participant SubReviewer as pr-sub-reviewer
-    participant Synth as pr-review-synthesizer
-
-    User->>PR: invoke with PR/branch
-    PR->>Splitter: segment diff
-    Splitter-->>PR: review units
-
-    par Parallel Review
-        PR->>SubReviewer: analyze unit 1
-        PR->>SubReviewer: analyze unit 2
-        PR->>SubReviewer: analyze unit N
-    end
-
-    SubReviewer-->>PR: findings with confidence
-    PR->>Synth: synthesize cross-file issues
-    Synth-->>User: fitness judgment + report
-```
+### Plugin Command Resolution Flow
+1. CLI receives plugin-command identifier (e.g., `rp1-dev:build`)
+2. Attempts resolution from `installed_plugins.json` via `getClaudePluginDirs`
+3. If not found, falls back to project-local `plugins/` directory
+4. Extracts YAML frontmatter and argument-hint from resolved command file
 
 ## Integration Points
 
-### GitHub Actions
-- `ci.yml`: lint, typecheck, tests via Bun
-- `release-please.yml`: versioning + OpenCode artifact builds
-- `goreleaser.yml`: binary builds triggered by tag
-- `rp1-pr-review.yml`: automated PR review workflow
+| Service | Purpose | Type |
+|---------|---------|------|
+| GitHub Actions | CI/CD for linting, testing, releases, PR review | Workflow automation |
+| GoReleaser | Cross-platform binaries (darwin/linux/windows) with Bun compiler | Build pipeline |
+| Release-Please | Semantic versioning from conventional commits | Release management |
+| Cloudflare Pages | Documentation site at rp1.run via MkDocs Material | Docs hosting |
+| Promptfoo | Evaluation framework with custom claude-with-tools provider | Testing/validation |
+| Claude Code Tasks | Native task UI for real-time workflow progress | Platform integration |
 
-### Distribution Channels
-| Channel | Target | Method |
-|---------|--------|--------|
-| Claude Code | Plugin marketplace | `/plugin install` |
-| OpenCode | GitHub releases | Tarball download |
-| macOS | Homebrew | `brew install --cask rp1-run/tap/rp1` |
-| Windows | Scoop | `scoop install rp1` |
-| Linux | curl script | `curl -fsSL https://rp1.run/install.sh \| bash` |
+## Deployment & Distribution
 
-### External Services
-- **GoReleaser**: Cross-platform binary builds (darwin/linux/windows)
-- **Release-Please**: Semantic versioning from conventional commits
-- **Cloudflare Pages**: Documentation site at rp1.run
-- **Promptfoo**: Evaluation framework with custom provider
-
-## Performance Considerations
-
-### Lazy Loading
-- Agent-tools lazy-loaded to reduce CLI startup time
-- Heavy dependencies only loaded when needed
-
-### Parallel Execution
-- KB generation uses 4 parallel agents
-- PR review uses parallel sub-reviewers
-- mmd-validate uses shared browser instance for batch validation
-
-### Incremental Updates
-- KB tracks git commit in state.json
-- Only changed files analyzed on subsequent runs
-- 2-5 min incremental vs 10-15 min full build
-
-## Cross-References
-- **Domain Concepts**: See [concept_map.md](concept_map.md)
-- **Module Breakdown**: See [modules.md](modules.md)
-- **Implementation Patterns**: See [patterns.md](patterns.md)
+| Channel | Method |
+|---------|--------|
+| Claude Code | Plugin marketplace (`/plugin install`) |
+| OpenCode | GitHub release tarballs |
+| macOS | Homebrew cask (`rp1-run/tap/rp1`) with macOS-only xattr quarantine removal |
+| Windows | Scoop bucket (`rp1-run/scoop-bucket`) |
+| Linux | `curl install.sh` from rp1.run |

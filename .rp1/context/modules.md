@@ -1,213 +1,129 @@
 # Module & Component Breakdown
 
 **Project**: rp1 Plugin System
-**Analysis Date**: 2026-02-05
-**Total Components**: 100+ (32 commands, 36 agents, 6 skills, 27+ CLI modules)
+**Analysis Date**: 2026-02-20
+**Modules Analyzed**: 10
 
-## Plugin Modules
+## Core Modules
 
 ### plugins/base
 **Purpose**: Foundation plugin for knowledge management, documentation, strategy, and security
-**Components**: 9 commands, 12 agents, 6 skills
+**Files**: ~27 | **Components**: 28
+**Key Files**: `commands/knowledge-build.md`, `skills/task-coordination/SKILL.md`
 
-**Commands**:
-| Command | Agent | Purpose |
-|---------|-------|---------|
-| knowledge-build | Orchestrator (5 agents) | Parallel KB generation |
-| knowledge-load | None (direct) | Load KB context (deprecated) |
-| deep-research | research-explorer + reporter | Autonomous research with reports |
-| strategize | strategic-advisor | Holistic system analysis |
-| analyse-security | security-validator | Security validation |
-| project-birds-eye-view | project-documenter | Project overview generation |
-| write-content | None (interactive) | Technical document creation |
-| fix-mermaid | mermaid-fixer | Diagram validation and repair |
-| self-update | None (direct) | Update rp1 to latest version |
-
-**Skills**:
-| Skill | Purpose |
-|-------|---------|
-| maestro | Skill creation and updates |
-| mermaid | Diagram creation and validation |
-| markdown-preview | HTML preview generation |
-| knowledge-base-templates | KB document templates |
-| code-comments | Comment extraction and management |
-| work-status | Workflow progress reporting |
+**Commands**: knowledge-build, knowledge-load, deep-research, strategize, analyse-security, project-birds-eye-view, write-content, fix-mermaid, self-update
+**Skills**: maestro, mermaid, markdown-preview, knowledge-base-templates, code-comments, work-status, task-coordination
+**Contract**: Namespace `/rp1-base:*`. Skills referenced as `rp1-base:skill-name`. Task-coordination uses lazy feature detection.
 
 ### plugins/dev
 **Purpose**: Development workflow automation for features, code quality, and PR management
-**Components**: 15 commands, 24 agents, 1 skill
-**Dependency**: Requires rp1-base >= 2.0.0
+**Files**: ~40 | **Components**: 40 | **Depends on**: plugins/base
+**Key Files**: `commands/build.md`, `commands/pr-review.md`, `agents/pr-sub-reviewer.md`
 
-**Feature Workflow Commands**:
-| Command | Agent | Purpose |
-|---------|-------|---------|
-| build | Orchestrator (10+ agents) | End-to-end 6-step workflow |
-| build-fast | build-fast-planner + executor | Quick iteration development |
-| blueprint | blueprint-wizard | Charter and PRD creation |
-| bootstrap | bootstrap-scaffolder | Greenfield project scaffolding |
-| feature-edit | feature-editor | Mid-stream change propagation |
-| feature-archive | feature-archiver | Archive completed features |
-
-**Code Quality Commands**:
-| Command | Agent | Purpose |
-|---------|-------|---------|
-| code-check | code-checker | Fast hygiene validation |
-| code-audit | code-auditor | Pattern consistency analysis |
-| code-investigate | bug-investigator | Evidence-based bug investigation |
-| code-clean-comments | comment-cleaner | Comment removal |
-
-**PR Review Commands**:
-| Command | Agent | Purpose |
-|---------|-------|---------|
-| pr-review | Orchestrator (4 agents) | Map-reduce PR review |
-| pr-visual | pr-visualizer | Diff visualization |
-| address-pr-feedback | pr-feedback-collector | Unified collect, triage, fix |
+**Commands**: build, build-fast, blueprint, bootstrap, feature-edit, feature-archive, code-check, code-audit, code-investigate, code-clean-comments, pr-review, pr-visual, address-pr-feedback
+**Contract**: Namespace `/rp1-dev:*`. Requires rp1-base >= 2.0.0. pr-sub-reviewer accepts optional `TASK_ID` ($4) for task status reporting.
 
 ### plugins/utils
 **Purpose**: Utility plugin for prompt optimization and eval generation
-**Components**: 2 commands, 3 agents, 2 skills
+**Files**: ~7 | **Components**: 7
+**Commands**: tersify-prompt, build-prompt-evals
 
-| Command | Agent | Purpose |
-|---------|-------|---------|
-| tersify-prompt | prompt-tersifier | Prompt compression |
-| build-prompt-evals | prompt-eval-extractor | Eval assertion generation |
+### cli/src/shared
+**Purpose**: Shared utilities extracted for cross-module reuse within the CLI
+**Files**: 1 | **Key File**: `paths.ts`
+**Exports**: `getClaudePluginDirs(home?)`, `CLAUDE_PLUGIN_DIRS`
+**Consumers**: plugin-locator, verification
 
-## CLI Modules
+### cli/src/agent-tools
+**Purpose**: Framework for AI agent tools with registry and plugin resolution
+**Files**: ~15 | **Components**: 8 | **Depends on**: shared/paths, fp-ts, yaml
+**Key File**: `transform-args/plugin-locator.ts`
+**Key Functions**: `resolveFromInstalledPlugins()`, `lookupPluginCommand()`, `lookupPluginCommandWithFallback()`
 
-### cli/src/commands/
-**Purpose**: CLI entry point with Commander.js
+### cli/src/init
+**Purpose**: Project initialization with multi-step workflow and TTY-aware interactivity
+**Files**: ~10 | **Components**: 6 | **Depends on**: shared/paths
+**Key File**: `steps/verification.ts`
 
-| Module | Purpose |
-|--------|---------|
-| main.ts | CLI entry point with lazy loading |
-| init.ts | Initialize rp1 in a project |
-| install/index.ts | Install plugins to OpenCode/Claude Code |
-| view.ts | Launch web-based documentation viewer |
-| self-update.ts | Update CLI to latest version |
+### cli/src/commands
+**Purpose**: CLI entry point with Commander.js and lazy-loaded subcommands
+**Files**: ~5
+**Key Files**: `main.ts`, `init.ts`, `install/index.ts`
 
-### cli/src/init/
-**Purpose**: Project initialization with 11-step workflow
-
-| Module | Purpose |
-|--------|---------|
-| index.ts | Init orchestration with TTY-aware interactivity |
-| git-root.ts | Git repository detection |
-| tool-detector.ts | Detect agentic tools (Claude Code, OpenCode) |
-| context-detector.ts | Classify project as greenfield or brownfield |
-| ui/*.tsx | React/Ink UI components for wizard |
-
-### cli/src/install/
+### cli/src/install
 **Purpose**: Plugin installation logic with fp-ts patterns
+**Files**: ~5 | **Depends on**: fp-ts
+**Key Files**: `installer.ts`, `manifest.ts`, `claudecode/index.ts`
 
-| Module | Purpose |
-|--------|---------|
-| installer.ts | Copy artifacts to target directories |
-| manifest.ts | Plugin manifest parsing |
-| claudecode/index.ts | Claude Code specific installation |
-
-### cli/src/agent-tools/
-**Purpose**: Framework for AI agent tools with registry
-
-| Module | Purpose |
-|--------|---------|
-| index.ts | Tool registry (register, get, list) |
-| git.ts | Shared git utilities with GitContext pattern |
-| worktree/ | Git worktree management |
-| github-pr/ | GitHub PR operations |
-| mmd-validate/ | Mermaid validation tool |
-| work/ | Workflow status tracking |
-| comment-extract/ | Comment extraction from source files |
-| transform-args/ | Argument transformation for commands |
-
-### cli/web-ui/
+### cli/web-ui
 **Purpose**: React-based documentation viewer with V2 status dashboard
+**Files**: ~15
+**Key Files**: `src/server.ts`, `src/pages/v2/*.tsx`
 
-| Component | Purpose |
-|-----------|---------|
-| src/server.ts | Server factory with WebSocket |
-| src/server/websocket.ts | WebSocket hub for live reload |
-| src/server/routes/v2-api.ts | V2 API endpoints for runs |
-| src/pages/v2/*.tsx | V2 dashboard pages |
-| src/components/MarkdownViewer/ | Markdown rendering with Mermaid |
+### evals
+**Purpose**: Promptfoo-based evaluation system with workspace isolation
+**Files**: ~10
+**Key Files**: `providers/claude-with-tools.ts`, `suites/shared/extension.ts`, `src/attestation/`
 
-## Evaluation Modules
+## Key Components
 
-### evals/
-**Purpose**: Promptfoo-based evaluation system
+### shared/paths
+**File**: `cli/src/shared/paths.ts`
+**Responsibilities**: Resolve platform-specific Claude Code plugin directories (macOS/Linux/Windows); export `getClaudePluginDirs()` with injectable home dir; export `CLAUDE_PLUGIN_DIRS` constant.
+**Dependencies**: `node:os`, `node:path`
 
-| Component | Purpose |
-|-----------|---------|
-| providers/claude-with-tools.ts | Custom provider with tool call capture |
-| src/attestation/ | Content-addressable tracking system |
-| suites/shared/assertions/ | Reusable test assertions |
+### plugin-locator
+**File**: `cli/src/agent-tools/transform-args/plugin-locator.ts`
+**Responsibilities**: Parse plugin-command format; resolve from `installed_plugins.json` (primary) then project-local (fallback); extract YAML frontmatter and argument-hint; provide graceful fallback via `lookupPluginCommandWithFallback`.
+**Dependencies**: shared/paths, fp-ts, yaml
+
+### task-coordination
+**File**: `plugins/base/skills/task-coordination/SKILL.md`
+**Responsibilities**: Create/update tasks in Claude Code native task UI; feature detection on first call; silent no-op on non-Claude-Code platforms; coexist with work-status skill.
+**Dependencies**: None (platform-provided Task tools)
+
+### pr-sub-reviewer
+**File**: `plugins/dev/agents/pr-sub-reviewer.md`
+**Responsibilities**: Analyze one PR review unit across 5 dimensions (correctness, security, design, completeness, performance); apply confidence gating (>=65%); generate cross-file change summary; report task status via `TaskUpdate` when `TASK_ID` provided.
+**Dependencies**: KB patterns.md, architecture.md
 
 ## Module Dependencies
 
 ```mermaid
 graph TD
-    subgraph "Plugin Dependencies"
-        Dev[rp1-dev] -->|depends on| Base[rp1-base]
-    end
-
-    subgraph "KB Generation"
-        KBBuild[knowledge-build] --> Spatial[kb-spatial-analyzer]
-        KBBuild --> Concept[kb-concept-extractor]
-        KBBuild --> Arch[kb-architecture-mapper]
-        KBBuild --> Module[kb-module-analyzer]
-        KBBuild --> Pattern[kb-pattern-extractor]
-    end
-
-    subgraph "Build Workflow"
-        Build[/build] --> Builder[task-builder]
-        Build --> Reviewer[task-reviewer]
-        Build --> Verifier[feature-verifier]
-    end
-
-    subgraph "CLI Modules"
-        Main[main.ts] --> Init[init/]
-        Main --> Install[install/]
-        Main -.->|lazy| AgentTools[agent-tools/]
-        AgentTools --> Worktree[worktree/]
-        AgentTools --> Git[git.ts]
-    end
+    Dev[plugins/dev] -->|runtime| Base[plugins/base]
+    PL[plugin-locator] -->|import| SP[shared/paths]
+    VER[verification] -->|import| SP
+    KB[knowledge-build] -->|skill| TC[task-coordination]
+    BUILD[build] -->|skill| TC
+    BUILD -->|skill| WS[work-status]
+    PR[pr-review] -->|skill| TC
+    PR -->|spawns| SUB[pr-sub-reviewer]
+    SUB -->|optional| TC
 ```
-
-## Module Metrics
-
-| Module | Commands | Agents | Skills | Lines (est.) |
-|--------|----------|--------|--------|--------------|
-| plugins/base | 9 | 12 | 6 | ~5,500 |
-| plugins/dev | 15 | 24 | 1 | ~9,200 |
-| plugins/utils | 2 | 3 | 2 | ~1,200 |
-| cli/src | 8 | - | - | ~3,000 |
-| cli/src/init | - | - | - | ~2,500 |
-| cli/src/install | - | - | - | ~1,200 |
-| cli/src/agent-tools | - | - | - | ~1,800 |
-| cli/web-ui | - | - | - | ~2,800 |
-| evals | - | - | - | ~1,500 |
 
 ## Cross-Module Patterns
 
-### Command-Agent Delegation
-Commands are thin wrappers (~50-100 lines) that delegate to constitutional agents (~200-350 lines) via Task tool.
+| Pattern | Description | Modules |
+|---------|-------------|---------|
+| Command-Agent Delegation | Commands (50-150 lines) delegate to agents (200-350 lines) via Task tool | all plugins |
+| Map-Reduce Orchestration | Split -> parallel agents -> merge results | knowledge-build, pr-review |
+| Task Coordination | Load skill at step boundaries, create/update tasks, sub-agents receive TASK_ID | build, pr-review, knowledge-build |
+| Shared Path Extraction | Utilities in `cli/src/shared/` for single-source-of-truth reuse | plugin-locator, verification |
+| Installed Plugin Resolution | `installed_plugins.json` primary, project-local fallback via fp-ts `TE.orElse` | plugin-locator |
+| Builder-Reviewer Loop | task-builder implements, task-reviewer verifies, max 3 attempts | build |
+| fp-ts Error Handling | Either/TaskEither with pipe(), tagged union errors | agent-tools, install |
 
-### Map-Reduce Orchestration
-- KB: spatial analyzer -> 4 parallel agents -> orchestrator merge
-- PR: splitter -> N sub-reviewers -> synthesizer -> reporter
+## Module Metrics
 
-### Builder-Reviewer Loop
-Feature build uses paired agents: task-builder implements, task-reviewer verifies with retry on failure.
-
-### GitContext Safety Pattern
-All git mutations use GitContext.repoRoot to ensure operations target main repo, not worktree.
-
-### fp-ts Functional Error Handling
-CLI modules use Either/TaskEither for type-safe error handling with pipe() composition.
-
-### Progressive KB Loading
-Agents load KB selectively: code review -> patterns.md, bug -> architecture.md + modules.md.
-
-## Cross-References
-- **Domain Concepts**: See [concept_map.md](concept_map.md)
-- **Architecture**: See [architecture.md](architecture.md)
-- **Implementation Patterns**: See [patterns.md](patterns.md)
+| Module | Files | ~Lines | Components | Dependencies |
+|--------|-------|--------|------------|-------------|
+| plugins/base | 27 | 5,800 | 28 | 1 internal |
+| plugins/dev | 40 | 9,500 | 40 | 5 internal |
+| plugins/utils | 7 | 1,200 | 7 | 0 |
+| cli/src/shared | 1 | 38 | 1 | 0 |
+| cli/src/agent-tools | 15 | 2,000 | 8 | 1 internal, 2 external |
+| cli/src/init | 10 | 2,500 | 6 | 1 internal |
+| cli/src/install | 5 | 1,200 | 3 | 1 external |
+| cli/web-ui | 15 | 2,800 | 5 | 0 |
+| evals | 10 | 1,500 | 3 | 0 |
