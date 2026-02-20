@@ -70,6 +70,14 @@ Understanding the core ideas behind rp1 helps you get the most out of its workfl
 
     [:octicons-arrow-right-24: Learn more](eval-system.md)
 
+-   :material-progress-check: **Task Coordination**
+
+    ---
+
+    See how rp1 surfaces real-time workflow progress in Claude Code's native task UI with platform-agnostic fallback.
+
+    [:octicons-arrow-right-24: Learn more](task-coordination.md)
+
 </div>
 
 ---
@@ -86,6 +94,7 @@ Understanding the core ideas behind rp1 helps you get the most out of its workfl
 | [Parallel Worktrees](parallel-worktrees.md) | Git worktree isolation | Run multiple tasks at once |
 | [Builder-Reviewer Agents](builder-reviewer-agents.md) | Adversarial agent cooperation | Higher quality, reliable code |
 | [Eval System](eval-system.md) | Content-addressable attestation | Deterministic, traceable releases |
+| [Task Coordination](task-coordination.md) | Platform-agnostic progress visibility | Real-time workflow tracking in Claude Code |
 
 ---
 
@@ -106,3 +115,5 @@ Understanding the core ideas behind rp1 helps you get the most out of its workfl
 **Want reliable implementations?** See [Builder-Reviewer Agents](builder-reviewer-agents.md) for adversarial cooperation.
 
 **Building evals for prompts?** See [Eval System](eval-system.md) for content-addressable attestation.
+
+**Want workflow progress visibility?** See [Task Coordination](task-coordination.md) for Claude Code task UI integration.

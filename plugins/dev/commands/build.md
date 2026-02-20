@@ -75,6 +75,8 @@ Agents handle their own context. You orchestrate.
 
 **Load skill**: `rp1-base:work-status` - enables workflow progress reporting to Status Dashboard.
 
+**Load skill**: `rp1-base:task-coordination` - enables real-time task progress in Claude Code's native task UI. Silently skips on platforms without Task tools.
+
 ## §FLAG-VALIDATION
 
 **Implication chain**:
@@ -125,10 +127,14 @@ Steps 1-3 foundational -> ABORT on fail. Steps 4-6 -> retry/prompt. NEVER delete
 
 **Report status: in_progress** (task: requirements) - "Gathering requirements"
 
+**Task coordination**: `step1_task_id = createWorkflowTask(subject: "Step 1/6: Requirements", description: "Execute requirements phase of build workflow")`. Then `updateTaskProgress(step1_task_id, "in_progress", activeForm: "Gathering requirements for {FEATURE_ID}")`.
+
 ```
 Task: rp1-dev:feature-requirement-gatherer
 prompt: FEATURE_ID={FEATURE_ID}, REQUIREMENTS={REQUIREMENTS}, AFK={AFK}, RP1_ROOT={RP1_ROOT}
 ```
+
+**On success**: `updateTaskProgress(step1_task_id, "completed")`. **On failure**: `updateTaskProgress(step1_task_id, "failed")`.
 
 ### §1.1 Requirements Review Checkpoint
 
@@ -159,6 +165,8 @@ AskUserQuestion: |
 
 **Report status: in_progress** (task: design) - "Creating technical design"
 
+**Task coordination**: `step2_task_id = createWorkflowTask(subject: "Step 2/6: Design", description: "Execute design phase of build workflow")`. Then `updateTaskProgress(step2_task_id, "in_progress", activeForm: "Creating technical design")`.
+
 ```
 Task: rp1-dev:feature-architect
 prompt: FEATURE_ID={FEATURE_ID}, AFK={AFK}, UPDATE_MODE={design.md exists}, RP1_ROOT={RP1_ROOT}
@@ -175,6 +183,8 @@ prompt: Validate hypotheses for feature {FEATURE_ID}
 Task: rp1-dev:feature-tasker
 prompt: FEATURE_ID={FEATURE_ID}, UPDATE_MODE={UPDATE_MODE}, RP1_ROOT={RP1_ROOT}
 ```
+
+**On success**: `updateTaskProgress(step2_task_id, "completed")`. **On failure**: `updateTaskProgress(step2_task_id, "failed")`.
 
 ### §2.1 Design Review Checkpoint
 
@@ -207,10 +217,14 @@ AskUserQuestion: |
 
 **Report status: in_progress** (task: tasks) - "Generating implementation tasks"
 
+**Task coordination**: `step3_task_id = createWorkflowTask(subject: "Step 3/6: Tasks", description: "Execute task generation phase of build workflow")`. Then `updateTaskProgress(step3_task_id, "in_progress", activeForm: "Generating implementation tasks")`.
+
 ```
 Task: rp1-dev:feature-tasker
 prompt: FEATURE_ID={FEATURE_ID}, UPDATE_MODE=false, RP1_ROOT={RP1_ROOT}
 ```
+
+**On success**: `updateTaskProgress(step3_task_id, "completed")`. **On failure**: `updateTaskProgress(step3_task_id, "failed")`.
 
 ### §3.1 Tasks Review Checkpoint
 
@@ -240,6 +254,8 @@ AskUserQuestion: |
 **Skip if**: start_step > 4
 
 **Report status: in_progress** (task: build) - "Implementing tasks"
+
+**Task coordination**: `step4_task_id = createWorkflowTask(subject: "Step 4/6: Build", description: "Execute build phase of build workflow")`. Then `updateTaskProgress(step4_task_id, "in_progress", activeForm: "Implementing tasks")`.
 
 ### §4.1 Worktree Setup
 
@@ -332,11 +348,15 @@ AskUserQuestion: |
 
 **On "Stop"**: Output summary of completed steps (Steps 1-4 done), branch name, merge instructions: `git checkout main && git merge {branch}`. Provide resume instruction: `/build {FEATURE_ID}`. Exit.
 
+**On build phase complete**: `updateTaskProgress(step4_task_id, "completed")`. **On failure**: `updateTaskProgress(step4_task_id, "failed")`.
+
 ## §STEP-5: Verify
 
 **Skip if**: start_step > 5
 
 **Report status: in_progress** (task: verify) - "Running verification checks"
+
+**Task coordination**: `step5_task_id = createWorkflowTask(subject: "Step 5/6: Verify", description: "Execute verification phase of build workflow")`. Then `updateTaskProgress(step5_task_id, "in_progress", activeForm: "Running verification checks")`.
 
 ### §5.1 Parallel Phases
 
@@ -379,6 +399,8 @@ If `GIT_PUSH`: push branch to remote.
 If `GIT_PR`: create PR.
 If `GIT_WORKTREE`: cleanup worktree.
 
+**On verify phase complete**: `updateTaskProgress(step5_task_id, "completed")`. **On failure**: `updateTaskProgress(step5_task_id, "failed")`.
+
 ## §6 SUMMARY
 
 Output: Feature ID, step status table (1-6), artifacts created.
@@ -395,10 +417,14 @@ AskUserQuestion: "Add task" -> spawn builder/reviewer. "Archive" -> Step 6. "Do 
 
 **Report status: in_progress** (task: archive) - "Archiving feature"
 
+**Task coordination**: `step6_task_id = createWorkflowTask(subject: "Step 6/6: Archive", description: "Execute archive phase of build workflow")`. Then `updateTaskProgress(step6_task_id, "in_progress", activeForm: "Archiving feature")`.
+
 ```
 Task: rp1-dev:feature-archiver
 prompt: MODE=archive, FEATURE_ID={FEATURE_ID}, SKIP_DOC_CHECK=false
 ```
+
+**On success**: `updateTaskProgress(step6_task_id, "completed")`. **On failure**: `updateTaskProgress(step6_task_id, "failed")`.
 
 **Report status: completed** - "Feature workflow completed successfully"
 

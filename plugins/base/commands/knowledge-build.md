@@ -33,6 +33,10 @@ This command orchestrates parallel knowledge base generation using a map-reduce 
 
 **CRITICAL**: This is an ORCHESTRATOR command, not a thin wrapper. This command must handle parallel execution coordination, result aggregation, and state management.
 
+## §SKILL-LOADING
+
+**Load skill**: `rp1-base:task-coordination` - enables real-time task progress in Claude Code's native task UI. Silently skips on platforms without Task tools.
+
 ## Arguments
 
 <feature_id>
@@ -246,6 +250,8 @@ If `FEATURE_ID` ($1) is provided, this is a **feature learning build** that capt
 
 ### Phase 1: Spatial Analysis (Sequential)
 
+**Task coordination**: `spatial_task_id = createWorkflowTask(subject: "KB: Spatial Analysis", description: "Categorize repository files by KB section")`. Then `updateTaskProgress(spatial_task_id, "in_progress", activeForm: "Categorizing repository files")`.
+
 1. **Spawn spatial analyzer agent**:
 
    **For full build (CASE B)**:
@@ -273,11 +279,25 @@ If `FEATURE_ID` ($1) is provided, this is a **feature learning build** that capt
    - Check that at least one category has files (some categories may be empty in incremental)
 
 3. **Handle spatial analyzer failure**:
-   - If agent crashes or returns invalid JSON: Log error with details
-   - If categorization is completely empty: Log error
+   - If agent crashes or returns invalid JSON: Log error with details, `updateTaskProgress(spatial_task_id, "failed")`
+   - If categorization is completely empty: Log error, `updateTaskProgress(spatial_task_id, "failed")`
    - Provide troubleshooting guidance
 
+**On spatial analysis success**: `updateTaskProgress(spatial_task_id, "completed")`.
+
 ### Phase 2: Map Phase (Parallel Execution)
+
+**Task coordination**: Create 4 tasks before spawning parallel agents:
+- `concept_task_id = createWorkflowTask(subject: "KB: Concept Extraction", description: "Extract domain concepts for concept_map.md")`
+- `arch_task_id = createWorkflowTask(subject: "KB: Architecture Mapping", description: "Map system architecture for architecture.md")`
+- `module_task_id = createWorkflowTask(subject: "KB: Module Analysis", description: "Analyze module structure for modules.md")`
+- `pattern_task_id = createWorkflowTask(subject: "KB: Pattern Extraction", description: "Extract implementation patterns for patterns.md")`
+
+Then update all to in_progress:
+- `updateTaskProgress(concept_task_id, "in_progress", activeForm: "Extracting domain concepts")`
+- `updateTaskProgress(arch_task_id, "in_progress", activeForm: "Mapping system architecture")`
+- `updateTaskProgress(module_task_id, "in_progress", activeForm: "Analyzing module structure")`
+- `updateTaskProgress(pattern_task_id, "in_progress", activeForm: "Extracting implementation patterns")`
 
 1. **Spawn 4 analysis agents in parallel** (CRITICAL: Use a SINGLE message with 4 Task tool calls):
 
@@ -317,6 +337,7 @@ If `FEATURE_ID` ($1) is provided, this is a **feature learning build** that capt
    - Wait for all 4 agents to complete
    - Parse JSON from each agent response
    - Validate JSON structure for each output
+   - **Task coordination**: For each agent that succeeds, `updateTaskProgress({task_id}, "completed")`. For each agent that fails, `updateTaskProgress({task_id}, "failed")`. Map: concept-extractor -> `concept_task_id`, architecture-mapper -> `arch_task_id`, module-analyzer -> `module_task_id`, pattern-extractor -> `pattern_task_id`.
 
 3. **Handle partial failures**:
 

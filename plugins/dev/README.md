@@ -85,6 +85,8 @@ The `/build` command orchestrates the complete 6-step feature development pipeli
 5. **Archive** - Archive completed feature artifacts
 6. **Follow-up** - Handle documentation updates and remaining tasks
 
+**Claude Code Task Progress**: On Claude Code, each step surfaces real-time progress in the native task UI with descriptive status text (e.g., "Gathering requirements for my-feature"). On OpenCode, this is silently skipped with no behavior change.
+
 **Smart Resumption**: `/build` detects existing artifacts and resumes from the appropriate step. If requirements.md exists, it skips to design. If design.md exists, it skips to build.
 
 **Note**: Individual step commands (`/feature-requirements`, `/feature-design`, `/feature-tasks`, `/feature-build`, `/feature-verify`, `/feature-archive`) are no longer available as standalone commands. Use `/build` which orchestrates all steps automatically.
@@ -118,7 +120,7 @@ The `/build` command orchestrates the complete 6-step feature development pipeli
 - `--afk`: Non-interactive mode (skips all confirmation prompts)
 
 ### PR Management (3)
-- `/pr-review` - Comprehensive pull request review (supports CI/CD mode)
+- `/pr-review` - Comprehensive pull request review (supports CI/CD mode). On Claude Code, surfaces phase-level task progress (splitting, analysis, synthesis, reporting) in the native task UI. When Task tools are available, failed sub-reviewers are retried individually for more complete reviews.
 - `/address-pr-feedback [pr-number | pr-url | branch]` - Unified PR feedback workflow: collect, triage, and fix review comments
 - `/pr-visual` - Visualize pull request changes
 

@@ -40,6 +40,10 @@ rp1 agent-tools transform-args rp1-dev:pr-review -
 <base_branch>$2</base_branch>
 <skip_visual>$3</skip_visual>
 
+## §SKILL-LOADING
+
+**Load skill**: `rp1-base:task-coordination` - enables real-time task progress in Claude Code's native task UI. Silently skips on platforms without Task tools.
+
 §ARCH
 
 ```
@@ -176,6 +180,8 @@ CI: capture `VISUAL_CONTENT` | Local: store `VISUAL_TASK_ID`, continue
 
 ### P1: Splitting
 
+**Task coordination**: `p1_task_id = createWorkflowTask(subject: "PR Review: Splitting", description: "Segment PR diff into review units")`. Then `updateTaskProgress(p1_task_id, "in_progress", activeForm: "Segmenting diff into review units")`.
+
 ```
 Task tool:
 subagent_type: rp1-dev:pr-review-splitter
@@ -185,15 +191,58 @@ prompt: "Split PR diff into review units.
   THRESHOLD: 100
   Return JSON with units array."
 ```
-Parse `units`, store counts. Fail -> Abort w/ error.
+Parse `units`, store counts. Fail -> `updateTaskProgress(p1_task_id, "failed")`, Abort w/ error.
+
+**On success**: `updateTaskProgress(p1_task_id, "completed")`.
 
 ### P2: Detailed Analysis
+
+**Task coordination**: `p2_task_id = createWorkflowTask(subject: "PR Review: Detailed Analysis", description: "Analyze review units across 5 dimensions")`. Then `updateTaskProgress(p2_task_id, "in_progress", activeForm: "Analyzing {N} review units")` (where N = number of units).
 
 **CRITICAL**: Spawn ALL sub-reviewers in SINGLE message.
 
 1. For each unit: `git diff {{base}}..{{branch}} -- {{unit.path}}`
 2. Build `file_list`
-3. Spawn N sub-reviewers (one msg):
+
+#### Per-Unit Task Tracking (Conditional)
+
+**IF `TASK_TOOLS_AVAILABLE = true`**:
+
+3a. Create a task for each review unit:
+   ```
+   For each unit in units:
+     unit_task_id = createWorkflowTask(
+       subject: "Review: {unit.path}",
+       description: "Analyze review unit {unit.id}",
+       metadata: { unit_id: unit.id, path: unit.path, type: unit.type }
+     )
+     Store: unit.task_id = unit_task_id
+   ```
+
+3b. Create synthesis task with dependencies (used by P3):
+   ```
+   synth_task_id = createWorkflowTask(
+     subject: "PR Review: Synthesis",
+     description: "Synthesize cross-file findings",
+     blockedBy: [all unit_task_ids]
+   )
+   ```
+
+3c. Spawn N sub-reviewers (one msg) **with TASK_ID**:
+   ```
+   Task tool:
+   subagent_type: rp1-dev:pr-sub-reviewer
+   prompt: "Analyze review unit across 5 dimensions.
+     UNIT_JSON: {{stringify(unit_with_diff)}}
+     INTENT_JSON: {{stringify(intent_model)}}
+     PR_FILES: {{stringify(file_list)}}
+     TASK_ID: {{unit.task_id}}
+     Return JSON with findings and summary."
+   ```
+
+**IF `TASK_TOOLS_AVAILABLE = false`** (fallback -- current behavior):
+
+3c. Spawn N sub-reviewers (one msg) **without TASK_ID**:
    ```
    Task tool:
    subagent_type: rp1-dev:pr-sub-reviewer
@@ -203,10 +252,45 @@ Parse `units`, store counts. Fail -> Abort w/ error.
      PR_FILES: {{stringify(file_list)}}
      Return JSON with findings and summary."
    ```
+
 4. Aggregate findings + summaries
-5. <50% fail -> continue | >=50% fail -> abort
+
+#### Failure Detection + Retry (Conditional)
+
+**IF `TASK_TOOLS_AVAILABLE = true`**:
+
+5a. Check for failed review units:
+   ```
+   tasks = listTasks()
+   failed_units = tasks where status == "failed" AND metadata has unit_id
+   ```
+
+5b. Retry each failed unit (max 1 retry per unit):
+   ```
+   For each failed_unit in failed_units:
+     updateTaskProgress(failed_unit.id, "pending")
+     Spawn replacement sub-reviewer:
+       Task tool:
+       subagent_type: rp1-dev:pr-sub-reviewer
+       prompt: "Analyze review unit across 5 dimensions.
+         UNIT_JSON: {{stringify(original unit data for failed_unit)}}
+         INTENT_JSON: {{stringify(intent_model)}}
+         PR_FILES: {{stringify(file_list)}}
+         TASK_ID: {{failed_unit.id}}
+         Return JSON with findings and summary."
+   ```
+
+5c. After retries complete, re-aggregate: merge retry results into findings + summaries. Units that failed twice are dropped (current behavior).
+
+5d. Final threshold: <50% total fail -> `updateTaskProgress(p2_task_id, "completed")`, continue | >=50% total fail -> `updateTaskProgress(p2_task_id, "failed")`, abort
+
+**IF `TASK_TOOLS_AVAILABLE = false`** (fallback -- current behavior):
+
+5. <50% fail -> `updateTaskProgress(p2_task_id, "completed")`, continue | >=50% fail -> `updateTaskProgress(p2_task_id, "failed")`, abort
 
 ### P3: Synthesis
+
+**Task coordination**: **IF `synth_task_id` exists** (created in P2 per-unit tracking path with blockedBy dependencies): `p3_task_id = synth_task_id`. **ELSE**: `p3_task_id = createWorkflowTask(subject: "PR Review: Synthesis", description: "Synthesize cross-file findings and produce judgment")`. Then `updateTaskProgress(p3_task_id, "in_progress", activeForm: "Synthesizing cross-file findings")`.
 
 1. Prep summary: `{"critical": N, "high": N, "medium": N, "low": N, "needs_human_review": N, "details": [...]}`
 
@@ -223,9 +307,13 @@ Parse `units`, store counts. Fail -> Abort w/ error.
    ```
 
 3. Extract: `intent_achieved`, `intent_gap`, `cross_file_findings`, `judgment`, `rationale`
-4. Fail -> findings-only judgment: Critical->block, High->request_changes, else->approve
+4. Fail -> `updateTaskProgress(p3_task_id, "failed")`, findings-only judgment: Critical->block, High->request_changes, else->approve
+
+**On success**: `updateTaskProgress(p3_task_id, "completed")`.
 
 ### P4: Reporting
+
+**Task coordination**: `p4_task_id = createWorkflowTask(subject: "PR Review: Reporting", description: "Generate markdown review report")`. Then `updateTaskProgress(p4_task_id, "in_progress", activeForm: "Generating review report")`.
 
 1. Merge findings: unit + cross_file, dedupe by (path, lines, dimension), keep highest severity
 2. Stats: `{critical: N, high: N, medium: N, low: N}`
@@ -248,8 +336,10 @@ Parse `units`, store counts. Fail -> Abort w/ error.
      REVIEW_ID: {{review_id}}
      Return JSON with path."
    ```
-7. Fail -> output findings inline
+7. Fail -> `updateTaskProgress(p4_task_id, "failed")`, output findings inline
 8. Store `REPORTER_FINDINGS` for P5 (CI mode)
+
+**On success**: `updateTaskProgress(p4_task_id, "completed")`.
 
 ### P5: Comment Posting (CI Only)
 

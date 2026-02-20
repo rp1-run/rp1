@@ -146,6 +146,7 @@ nav:
     - Builder-Reviewer Agents: concepts/builder-reviewer-agents.md
     - Skills: concepts/skills.md
     - Eval System: concepts/eval-system.md
+    - Task Coordination: concepts/task-coordination.md
 
 extra:
   social:

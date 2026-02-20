@@ -15,12 +15,12 @@ The `rp1-base` plugin provides core knowledge and documentation capabilities tha
 
 **Agents**: 12 specialized agents (6 for KB generation, 2 for deep research, 4 for docs/strategy/security/validation)
 **Commands**: 9 user-facing commands
-**Skills**: 3 shared capabilities (1 retired)
+**Skills**: 4 shared capabilities (1 retired)
 
 ## Commands (9)
 
 ### Knowledge Management
-- `/knowledge-build` - Parallel KB generation using map-reduce architecture with 6 agents (includes pattern extraction)
+- `/knowledge-build` - Parallel KB generation using map-reduce architecture with 6 agents (includes pattern extraction). On Claude Code, surfaces real-time task progress for spatial analysis and each of the 4 KB section analyses in the native task UI.
 - `/knowledge-load` - **DEPRECATED** - Commands now load KB automatically. See [Progressive Loading](../../docs/concepts/knowledge-aware-agents.md)
 
 ### Research
@@ -66,7 +66,20 @@ rp1 automatically checks for updates when you start a new session in Claude Code
 - Run `/self-update` to update rp1 when a new version is available
 - Restart Claude Code or OpenCode after updating to use the new version
 
-## Skills (3)
+## Skills (4)
+
+### task-coordination
+Platform-agnostic task coordination using Claude Code's native Task tools (TaskCreate, TaskUpdate, TaskList, TaskGet) for real-time workflow progress visibility. On platforms without Task tools (OpenCode), all operations silently skip with zero errors. Used by orchestrator commands (`build`, `pr-review`, `knowledge-build`) to surface structured step/phase progress in Claude Code's task UI.
+
+**Invocation**: Use the Skill tool with `skill: "rp1-base:task-coordination"`
+
+**Operations**:
+- `createWorkflowTask` - Create a task with subject, description, optional dependencies
+- `updateTaskProgress` - Update task status (pending/in_progress/completed/failed) with activity text
+- `listTasks` - List all tasks in current session
+- `getTask` - Retrieve a single task by ID
+
+**Feature Detection**: Automatic on first call. No configuration needed.
 
 ### maestro (Retired)
 
