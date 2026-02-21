@@ -2,13 +2,13 @@
   "schema_version": "1.0.0",
   "commands": {
     "rp1-dev:build": {
-      "prompt_hash": "sha256:48b174039cd70a8910673d55767d0adf0b69899ec0df35cc48edca3f21c0351e",
-      "deps_hash": "sha256:fab57b52a664c75f400780f8040bff848d9a2a6e84779b20a92827c600826568",
+      "prompt_hash": "sha256:c4bbe1c92b7400827350a1705e07fedc8463250868ee8ca0c661ac9ebe065fbe",
+      "deps_hash": "sha256:e14494b7bd0082503817f3f43f12870aabd2bd036ca05181f4729b497c69b733",
       "version": "3.0.0",
       "last_eval": {
         "passed": true,
-        "timestamp": "2026-02-03T08:08:24.346Z",
-        "git_commit": "d7386bb",
+        "timestamp": "2026-02-21T00:38:52.889Z",
+        "git_commit": "a4c0d1d",
         "result_file": "evals/output/rp1-dev-build.json"
       }
     },
@@ -26,7 +26,7 @@
   },
   "files": {
     "plugins/dev/skills/worktree-workflow/SKILL.md": "sha256:c0f5beca9cba362eba543220df679b8016c8710390adcf8a61c95b0c10b06f48",
-    "plugins/dev/commands/build.md": "sha256:48b174039cd70a8910673d55767d0adf0b69899ec0df35cc48edca3f21c0351e",
+    "plugins/dev/commands/build.md": "sha256:c4bbe1c92b7400827350a1705e07fedc8463250868ee8ca0c661ac9ebe065fbe",
     "plugins/dev/agents/build-artifact-detector.md": "sha256:4338c2daef255cc7547f723e056c4bfcabc6bb44fced8a8640c21ef43eb0f710",
     "plugins/dev/agents/feature-requirement-gatherer.md": "sha256:a4a8f0c13ba18b7b9ab1cb56c26d02fda5a09f1ea92055b37a1fa2a36f7fb809",
     "plugins/dev/agents/feature-architect.md": "sha256:ee0ecf8a8bf78792123cbaac7c349e59e0cc166abdb760379584df5f1702fd58",
