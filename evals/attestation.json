@@ -8,7 +8,7 @@
       "last_eval": {
         "passed": true,
         "timestamp": "2026-02-21T00:38:52.889Z",
-        "git_commit": "a4c0d1d",
+        "git_commit": "0ad6efc",
         "result_file": "evals/output/rp1-dev-build.json"
       }
     },

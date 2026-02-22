@@ -7,7 +7,8 @@ providers:
   - id: file://../../../providers/claude-with-tools.ts
     label: rp1-agentic-eval
     config:
-      model: claude-opus-4-5
+      model: claude-haiku-4-5
+      workers: 8
       # working_dir is set dynamically by extension via WORKSPACE_DIR var
       # This enables parallel test execution with isolated workspaces
       permission_mode: bypassPermissions
