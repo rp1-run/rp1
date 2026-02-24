@@ -27,25 +27,19 @@ function LoadingSkeleton() {
 				<div className="h-6 w-48 rounded bg-muted" />
 				<div className="mt-2 h-4 w-72 rounded bg-muted" />
 			</div>
-			<div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-				<div className="lg:col-span-2 space-y-3">
-					{Array.from({ length: 3 }, (_, i) => (
-						<div
-							key={`skeleton-run-${i}`}
-							className="animate-pulse rounded-lg border border-border py-3 px-3"
-						>
-							<div className="flex items-center gap-3">
-								<div className="h-5 w-5 rounded-full bg-muted" />
-								<div className="h-5 w-40 rounded bg-muted" />
-								<div className="ml-auto h-5 w-16 rounded bg-muted" />
-							</div>
+			<div className="space-y-3">
+				{Array.from({ length: 3 }, (_, i) => (
+					<div
+						key={`skeleton-run-${i}`}
+						className="animate-pulse rounded-lg border border-border py-3 px-3"
+					>
+						<div className="flex items-center gap-3">
+							<div className="h-5 w-5 rounded-full bg-muted" />
+							<div className="h-5 w-40 rounded bg-muted" />
+							<div className="ml-auto h-5 w-16 rounded bg-muted" />
 						</div>
-					))}
-				</div>
-				<div className="animate-pulse rounded-lg border border-border p-6">
-					<div className="h-5 w-32 rounded bg-muted" />
-					<div className="mt-3 h-4 w-48 rounded bg-muted" />
-				</div>
+					</div>
+				))}
 			</div>
 		</div>
 	);
@@ -258,23 +252,35 @@ export function ProjectOverviewPage() {
 					</p>
 				</div>
 
-				<button
-					type="button"
-					onClick={refetch}
-					disabled={isLoading}
-					className={cn(
-						"inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium transition-colors",
-						"hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-						"disabled:cursor-not-allowed disabled:opacity-50",
-					)}
-					aria-label="Refresh project"
-				>
-					<RefreshCw
-						className={cn("h-4 w-4", isLoading && "animate-spin")}
-						aria-hidden="true"
-					/>
-					<span className="sr-only sm:not-sr-only">Refresh</span>
-				</button>
+				<div className="flex items-center gap-2">
+					<Link
+						to={`/projects/${projectId}/files`}
+						className={cn(
+							"inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium transition-colors",
+							"hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+						)}
+					>
+						<FolderOpen className="h-4 w-4" aria-hidden="true" />
+						<span className="sr-only sm:not-sr-only">Browse Files</span>
+					</Link>
+					<button
+						type="button"
+						onClick={refetch}
+						disabled={isLoading}
+						className={cn(
+							"inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium transition-colors",
+							"hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+							"disabled:cursor-not-allowed disabled:opacity-50",
+						)}
+						aria-label="Refresh project"
+					>
+						<RefreshCw
+							className={cn("h-4 w-4", isLoading && "animate-spin")}
+							aria-hidden="true"
+						/>
+						<span className="sr-only sm:not-sr-only">Refresh</span>
+					</button>
+				</div>
 			</header>
 
 			<div className="flex items-center gap-3 text-sm text-muted-foreground">
@@ -297,94 +303,45 @@ export function ProjectOverviewPage() {
 				<span>{lastActivity}</span>
 			</div>
 
-			<div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-				<div className="lg:col-span-2 space-y-4">
-					<div className="flex items-center justify-between">
-						<h2 className="text-lg font-medium text-foreground">Recent Runs</h2>
-						{runs.length > 0 && (
-							<Link
-								to={`/projects/${projectId}/runs`}
-								className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-							>
-								View all runs
-								<ChevronRight className="h-4 w-4" />
-							</Link>
-						)}
-					</div>
-
-					{runs.length === 0 ? (
-						<div className="flex flex-col items-center justify-center rounded-lg border border-border bg-muted/10 px-8 py-12">
-							<div className="mb-3 rounded-full bg-muted/50 p-3">
-								<Play className="h-6 w-6 text-muted-foreground" />
-							</div>
-							<p className="text-sm text-muted-foreground">
-								No runs recorded for this project yet.
-							</p>
-						</div>
-					) : (
-						<div
-							className="rounded-lg border border-border divide-y divide-border"
-							role="list"
-							aria-label="Recent runs"
-						>
-							{runs.map((run, index) => (
-								<RunCard
-									key={run.id}
-									run={run}
-									onClick={() => handleRunClick(run)}
-									selected={selectedIndex === index}
-								/>
-							))}
-						</div>
-					)}
-				</div>
-
-				<div className="space-y-4">
-					<Link
-						to={`/projects/${projectId}/files`}
-						className="group flex flex-col gap-3 rounded-lg border border-border p-6 transition-colors hover:bg-muted/40"
-					>
-						<div className="flex items-center gap-3">
-							<div className="rounded-md bg-muted/50 p-2">
-								<FolderOpen className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
-							</div>
-							<h2 className="text-lg font-medium text-foreground">
-								Browse Files
-							</h2>
-						</div>
-						<p className="text-sm text-muted-foreground">
-							Explore PRDs, feature specs, knowledge base, and other artifacts
-							in the{" "}
-							<code className="rounded bg-muted px-1 py-0.5 text-xs">
-								.rp1/
-							</code>{" "}
-							directory.
-						</p>
-						<span className="inline-flex items-center gap-1 text-sm text-muted-foreground group-hover:text-foreground transition-colors">
-							Open file browser
-							<ChevronRight className="h-4 w-4" />
-						</span>
-					</Link>
-
+			<div className="space-y-4">
+				<div className="flex items-center justify-between">
+					<h2 className="text-lg font-medium text-foreground">Recent Runs</h2>
 					{runs.length > 0 && (
 						<Link
 							to={`/projects/${projectId}/runs`}
-							className="group flex items-center gap-3 rounded-lg border border-border p-4 transition-colors hover:bg-muted/40"
+							className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
 						>
-							<div className="rounded-md bg-muted/50 p-2">
-								<Play className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
-							</div>
-							<div>
-								<h3 className="font-medium text-foreground">All Runs</h3>
-								<p className="text-sm text-muted-foreground">
-									{project.runCount} run
-									{project.runCount === 1 ? "" : "s"} total
-								</p>
-							</div>
-							<ChevronRight className="ml-auto h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+							View all runs
+							<ChevronRight className="h-4 w-4" />
 						</Link>
 					)}
 				</div>
+
+				{runs.length === 0 ? (
+					<div className="flex flex-col items-center justify-center rounded-lg border border-border bg-muted/10 px-8 py-12">
+						<div className="mb-3 rounded-full bg-muted/50 p-3">
+							<Play className="h-6 w-6 text-muted-foreground" />
+						</div>
+						<p className="text-sm text-muted-foreground">
+							No runs recorded for this project yet.
+						</p>
+					</div>
+				) : (
+					<div
+						className="rounded-lg border border-border divide-y divide-border"
+						role="list"
+						aria-label="Recent runs"
+					>
+						{runs.map((run, index) => (
+							<RunCard
+								key={run.id}
+								run={run}
+								onClick={() => handleRunClick(run)}
+								selected={selectedIndex === index}
+							/>
+						))}
+					</div>
+				)}
 			</div>
 
 			<p className="text-xs text-muted-foreground">
