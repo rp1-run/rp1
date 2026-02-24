@@ -6,10 +6,8 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import {
-	getClaudePluginDirs,
-	verifyClaudeCodePlugins,
-} from "../../../init/steps/verification.js";
+import { verifyClaudeCodePlugins } from "../../../init/steps/verification.js";
+import { getClaudePluginDirs } from "../../../shared/paths.js";
 import { cleanupTempDir, createTempDir } from "../../helpers/index.js";
 
 /**

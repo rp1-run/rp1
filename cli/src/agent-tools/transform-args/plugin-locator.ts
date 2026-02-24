@@ -8,6 +8,7 @@ import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import { parse as parseYaml } from "yaml";
+import { getClaudePluginDirs } from "../../shared/paths.js";
 
 /**
  * Error types for plugin lookup operations.
@@ -160,6 +161,106 @@ export const resolvePluginPath = (
 	);
 
 /**
+ * Structure of installed_plugins.json used by Claude Code.
+ */
+interface InstalledPluginsJson {
+	readonly version: number;
+	readonly plugins: Record<
+		string,
+		ReadonlyArray<{
+			readonly installPath: string;
+			readonly [key: string]: unknown;
+		}>
+	>;
+}
+
+/**
+ * Resolve a plugin command path from Claude Code's installed_plugins.json.
+ *
+ * Searches for the plugin by prefix match (e.g., "rp1-dev" matches "rp1-dev@rp1-local")
+ * and constructs the command file path from the first matching entry's installPath.
+ * Verifies the resolved command file exists before returning.
+ *
+ * @param pluginCommand - Plugin-command identifier (e.g., "rp1-dev:build")
+ * @param home - Home directory override (for testing)
+ * @returns TaskEither with resolved file path or error
+ */
+export const resolveFromInstalledPlugins = (
+	pluginCommand: string,
+	home?: string,
+): TE.TaskEither<PluginLookupError, string> =>
+	pipe(
+		parsePluginCommand(pluginCommand),
+		TE.fromEither,
+		TE.chain(({ pluginId, commandName }) =>
+			TE.tryCatch(
+				async () => {
+					const dirs = getClaudePluginDirs(home);
+
+					let pluginsDir: string | null = null;
+					for (const dir of dirs) {
+						const jsonFile = Bun.file(path.join(dir, "installed_plugins.json"));
+						if (await jsonFile.exists()) {
+							pluginsDir = dir;
+							break;
+						}
+					}
+
+					if (!pluginsDir) {
+						throw new Error("No Claude Code plugins directory found");
+					}
+
+					const jsonFile = Bun.file(
+						path.join(pluginsDir, "installed_plugins.json"),
+					);
+					const content = await jsonFile.text();
+					const data = JSON.parse(content) as InstalledPluginsJson;
+
+					const prefix = `${pluginId}@`;
+					const matchingKey = Object.keys(data.plugins).find((key) =>
+						key.startsWith(prefix),
+					);
+
+					if (!matchingKey) {
+						throw new Error(
+							`Plugin "${pluginId}" not found in installed_plugins.json`,
+						);
+					}
+
+					const entries = data.plugins[matchingKey];
+					if (!entries || entries.length === 0) {
+						throw new Error(
+							`Plugin "${pluginId}" has no entries in installed_plugins.json`,
+						);
+					}
+
+					const installPath = entries[0].installPath;
+					const filePath = path.join(
+						installPath,
+						"commands",
+						`${commandName}.md`,
+					);
+
+					const commandFile = Bun.file(filePath);
+					if (!(await commandFile.exists())) {
+						throw new Error(
+							`Command file not found at installed plugin path: ${filePath}`,
+						);
+					}
+
+					return filePath;
+				},
+				(e): PluginLookupError =>
+					pluginLookupError(
+						"file-not-found",
+						e instanceof Error ? e.message : String(e),
+						pluginCommand,
+					),
+			),
+		),
+	);
+
+/**
  * Extract YAML frontmatter from markdown content.
  */
 export const extractFrontmatter = (
@@ -271,15 +372,23 @@ const readFile = (filePath: string): TE.TaskEither<PluginLookupError, string> =>
  *
  * @param pluginCommand - Plugin-command identifier (e.g., "rp1-dev:build")
  * @param projectRoot - Project root directory (defaults to cwd)
+ * @param home - Home directory override for installed plugins resolution (for testing)
  * @returns TaskEither with lookup result or error
  */
 export const lookupPluginCommand = (
 	pluginCommand: string,
 	projectRoot: string = process.cwd(),
-): TE.TaskEither<PluginLookupError, PluginLookupResult> =>
-	pipe(
-		resolvePluginPath(pluginCommand, projectRoot),
-		TE.fromEither,
+	home?: string,
+): TE.TaskEither<PluginLookupError, PluginLookupResult> => {
+	const resolveFilePath: TE.TaskEither<PluginLookupError, string> = pipe(
+		resolveFromInstalledPlugins(pluginCommand, home),
+		TE.orElse(() =>
+			pipe(resolvePluginPath(pluginCommand, projectRoot), TE.fromEither),
+		),
+	);
+
+	return pipe(
+		resolveFilePath,
 		TE.chain((filePath) =>
 			pipe(
 				readFile(filePath),
@@ -300,6 +409,7 @@ export const lookupPluginCommand = (
 			),
 		),
 	);
+};
 
 /**
  * Look up a plugin command with graceful fallback.
@@ -310,14 +420,16 @@ export const lookupPluginCommand = (
  *
  * @param pluginCommand - Plugin-command identifier (e.g., "rp1-dev:build")
  * @param projectRoot - Project root directory (defaults to cwd)
+ * @param home - Home directory override for installed plugins resolution (for testing)
  * @returns TaskEither that always succeeds with either result or fallback
  */
 export const lookupPluginCommandWithFallback = (
 	pluginCommand: string,
 	projectRoot: string = process.cwd(),
+	home?: string,
 ): TE.TaskEither<never, PluginLookupOutcome> =>
 	pipe(
-		lookupPluginCommand(pluginCommand, projectRoot),
+		lookupPluginCommand(pluginCommand, projectRoot, home),
 		TE.fold(
 			(error) =>
 				TE.right<never, PluginLookupOutcome>(

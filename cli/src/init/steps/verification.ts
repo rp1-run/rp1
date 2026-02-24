@@ -4,8 +4,9 @@
  */
 
 import { readFile, stat } from "node:fs/promises";
-import { homedir, platform } from "node:os";
+import { homedir } from "node:os";
 import { join } from "node:path";
+import { CLAUDE_PLUGIN_DIRS } from "../../shared/paths.js";
 import type {
 	PluginStatus,
 	StepCallbacks,
@@ -253,37 +254,6 @@ export async function verifyOpenCodePlugins(
 		issues,
 	};
 }
-
-/**
- * Get Claude Code plugin directory locations.
- * Returns directories ordered by preference - first found directory is used.
- *
- * macOS/Linux: ~/.claude/plugins
- * XDG fallback: ~/.config/claude-code/plugins
- * Windows: %APPDATA%\claude\plugins (via homedir() + AppData path)
- *
- * @param home - Home directory (defaults to os.homedir())
- * @returns Array of potential plugin directory paths
- */
-export function getClaudePluginDirs(
-	home: string = homedir(),
-): readonly string[] {
-	return platform() === "win32"
-		? [
-				join(home, "AppData", "Roaming", "claude", "plugins"),
-				join(home, ".claude", "plugins"),
-			]
-		: [
-				join(home, ".claude", "plugins"),
-				join(home, ".config", "claude-code", "plugins"),
-			];
-}
-
-/**
- * Claude Code plugin directory locations.
- * Uses system homedir() for production use.
- */
-export const CLAUDE_PLUGIN_DIRS: readonly string[] = getClaudePluginDirs();
 
 /**
  * Expected plugin names that should be installed.
