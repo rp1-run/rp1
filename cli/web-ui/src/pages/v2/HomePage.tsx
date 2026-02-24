@@ -84,7 +84,7 @@ export function HomePage() {
 
 	const handleRunClick = useCallback(
 		(run: Run) => {
-			navigate(`/v2/runs/${run.id}`);
+			navigate(`/runs/${run.id}`);
 		},
 		[navigate],
 	);

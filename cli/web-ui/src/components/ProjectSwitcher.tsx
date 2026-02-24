@@ -149,7 +149,7 @@ export function ProjectSwitcher() {
 	const handleProjectSelect = (project: ProjectEntry) => {
 		if (!project.available) return;
 		setIsOpen(false);
-		navigate(`/project/${project.id}/status`);
+		navigate(`/projects/${project.id}`);
 	};
 
 	const currentProject = projects.find((p) => p.id === currentProjectId);

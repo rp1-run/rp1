@@ -90,27 +90,27 @@ export function ProjectsPage() {
 
 	const handleCardClick = useCallback(
 		(project: V2Project) => {
-			navigate(`/project/${project.id}`);
+			navigate(`/projects/${project.id}`);
 		},
 		[navigate],
 	);
 
 	const handleArtifactsClick = useCallback(
 		(project: V2Project) => {
-			navigate(`/project/${project.id}/view/.rp1/work/features`);
+			navigate(`/projects/${project.id}/files`);
 		},
 		[navigate],
 	);
 
 	const handleRunsClick = useCallback(
 		(project: V2Project) => {
-			navigate(`/v2/projects/${project.id}/runs`);
+			navigate(`/projects/${project.id}/runs`);
 		},
 		[navigate],
 	);
 
 	const handleDrillOut = useCallback(() => {
-		navigate("/v2");
+		navigate("/");
 	}, [navigate]);
 
 	const { selectedIndex, setSelectedIndex } = useKeyboardNav({

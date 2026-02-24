@@ -223,20 +223,20 @@ export function RunsListPage() {
 
 	const handleSelectRun = useCallback(
 		(run: Run) => {
-			navigate(`/v2/runs/${run.id}`);
+			navigate(`/runs/${run.id}`);
 		},
 		[navigate],
 	);
 
 	const handleDrillIn = useCallback(
 		(run: Run) => {
-			navigate(`/v2/runs/${run.id}`);
+			navigate(`/runs/${run.id}`);
 		},
 		[navigate],
 	);
 
 	const handleDrillOut = useCallback(() => {
-		navigate(projectIdFromRoute ? "/v2/projects" : "/v2");
+		navigate(projectIdFromRoute ? "/projects" : "/");
 	}, [navigate, projectIdFromRoute]);
 
 	const { selectedIndex, setSelectedIndex } = useKeyboardNav({
