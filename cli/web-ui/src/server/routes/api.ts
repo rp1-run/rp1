@@ -366,7 +366,7 @@ export async function handleProjectRegisterRequest(
 		const project = await registerProject(projectPath);
 		ctx.websocketHub?.broadcastProjectsChanged();
 
-		const url = `http://127.0.0.1:${ctx.port}/project/${project.id}`;
+		const url = `http://127.0.0.1:${ctx.port}/projects/${project.id}`;
 
 		return jsonResponse({ project, url });
 	} catch (error) {
