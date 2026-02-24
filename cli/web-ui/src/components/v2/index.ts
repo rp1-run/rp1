@@ -26,6 +26,7 @@ export {
 	type FollowModeToggleProps,
 } from "./FollowModeToggle";
 export { NewUpdatesChip, type NewUpdatesChipProps } from "./NewUpdatesChip";
+export { ProjectCard, type ProjectCardProps } from "./ProjectCard";
 export { RunCard, type RunCardProps } from "./RunCard";
 export {
 	SelectionPopover,

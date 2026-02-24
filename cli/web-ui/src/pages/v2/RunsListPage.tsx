@@ -40,11 +40,11 @@ function parseFiltersFromParams(
 
 function LoadingSkeleton() {
 	return (
-		<div className="space-y-3">
+		<div className="rounded-lg border border-border divide-y divide-border">
 			{Array.from({ length: 5 }, (_, i) => (
 				<div
 					key={`skeleton-${i}`}
-					className="animate-pulse rounded-lg border border-border bg-muted/20 p-4"
+					className="animate-pulse bg-muted/20 py-3 px-3"
 				>
 					<div className="flex items-center gap-3">
 						<div className="h-5 w-5 rounded-full bg-muted" />
@@ -223,21 +223,21 @@ export function RunsListPage() {
 
 	const handleSelectRun = useCallback(
 		(run: Run) => {
-			navigate(`/v2/runs/${run.id}`);
+			navigate(`/runs/${run.id}`);
 		},
 		[navigate],
 	);
 
 	const handleDrillIn = useCallback(
 		(run: Run) => {
-			navigate(`/v2/runs/${run.id}`);
+			navigate(`/runs/${run.id}`);
 		},
 		[navigate],
 	);
 
 	const handleDrillOut = useCallback(() => {
-		navigate("/v2");
-	}, [navigate]);
+		navigate(projectIdFromRoute ? "/projects" : "/");
+	}, [navigate, projectIdFromRoute]);
 
 	const { selectedIndex, setSelectedIndex } = useKeyboardNav({
 		items: runs,
@@ -377,7 +377,7 @@ export function RunsListPage() {
 						onSelect={handleSelectRun}
 						selectedIndex={selectedIndex}
 						className="h-[600px] rounded-lg border border-border"
-						itemClassName="p-1"
+						itemClassName=""
 						aria-label="Runs list"
 					/>
 
@@ -393,6 +393,13 @@ export function RunsListPage() {
 							{total} runs
 						</p>
 					)}
+
+					<p className="text-center text-xs text-muted-foreground">
+						<kbd className="rounded bg-muted px-1.5 py-0.5">j</kbd>/
+						<kbd className="rounded bg-muted px-1.5 py-0.5">k</kbd> navigate,{" "}
+						<kbd className="rounded bg-muted px-1.5 py-0.5">l</kbd> open,{" "}
+						<kbd className="rounded bg-muted px-1.5 py-0.5">h</kbd> back
+					</p>
 				</>
 			)}
 		</div>

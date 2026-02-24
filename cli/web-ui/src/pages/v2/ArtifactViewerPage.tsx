@@ -305,7 +305,7 @@ export function ArtifactViewerPage() {
 
 	const handleArtifactSelect = useCallback(
 		(path: string) => {
-			navigate(`/v2/runs/${runId}/artifacts/${path}`);
+			navigate(`/runs/${runId}/artifacts/${path}`);
 			if (isMobile) {
 				setSidebarDrawerOpen(false);
 			}
@@ -489,7 +489,7 @@ export function ArtifactViewerPage() {
 
 			if (!isTextInput && (event.key === "h" || event.key === "ArrowLeft")) {
 				event.preventDefault();
-				navigate(`/v2/runs/${runId}`);
+				navigate(`/runs/${runId}`);
 			}
 		},
 		[navigate, runId],
@@ -519,7 +519,7 @@ export function ArtifactViewerPage() {
 				<div className="flex gap-2">
 					<button
 						type="button"
-						onClick={() => navigate("/v2/runs")}
+						onClick={() => navigate("/runs")}
 						className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm hover:bg-muted/50 transition-colors"
 					>
 						<ArrowLeft className="h-4 w-4" />
@@ -543,7 +543,7 @@ export function ArtifactViewerPage() {
 				<p className="text-muted-foreground">Run not found</p>
 				<button
 					type="button"
-					onClick={() => navigate("/v2/runs")}
+					onClick={() => navigate("/runs")}
 					className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm hover:bg-muted/50 transition-colors"
 				>
 					<ArrowLeft className="h-4 w-4" />
@@ -616,7 +616,7 @@ export function ArtifactViewerPage() {
 					<ol className="flex items-center gap-2">
 						<li>
 							<Link
-								to="/v2/projects"
+								to="/projects"
 								className="hover:text-foreground transition-colors"
 							>
 								{run.projectName}
@@ -627,7 +627,7 @@ export function ArtifactViewerPage() {
 						</li>
 						<li>
 							<Link
-								to={`/v2/runs/${runId}`}
+								to={`/runs/${runId}`}
 								className="hover:text-foreground transition-colors"
 							>
 								{run.featureName}
@@ -796,7 +796,7 @@ export function ArtifactViewerPage() {
 				<ol className="flex items-center gap-2">
 					<li>
 						<Link
-							to="/v2/projects"
+							to="/projects"
 							className="hover:text-foreground transition-colors"
 						>
 							{run.projectName}
@@ -807,7 +807,7 @@ export function ArtifactViewerPage() {
 					</li>
 					<li>
 						<Link
-							to={`/v2/runs/${runId}`}
+							to={`/runs/${runId}`}
 							className="hover:text-foreground transition-colors"
 						>
 							{run.featureName}

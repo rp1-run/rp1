@@ -1,33 +1,7 @@
+import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { Run } from "@/types/runs";
 import { StatusBadge } from "./StatusBadge";
-
-function formatRelativeTime(dateString: string): string {
-	const date = new Date(dateString);
-	const now = new Date();
-	const diffMs = now.getTime() - date.getTime();
-	const diffSeconds = Math.floor(diffMs / 1000);
-	const diffMinutes = Math.floor(diffSeconds / 60);
-	const diffHours = Math.floor(diffMinutes / 60);
-	const diffDays = Math.floor(diffHours / 24);
-
-	if (diffSeconds < 60) {
-		return "just now";
-	}
-	if (diffMinutes < 60) {
-		return `${diffMinutes} min ago`;
-	}
-	if (diffHours < 24) {
-		return `${diffHours} hr ago`;
-	}
-	if (diffDays === 1) {
-		return "yesterday";
-	}
-	if (diffDays < 7) {
-		return `${diffDays} days ago`;
-	}
-	return date.toLocaleDateString();
-}
 
 export interface RunCardProps {
 	run: Run;
@@ -59,11 +33,9 @@ export function RunCard({
 			onClick={onClick}
 			onKeyDown={onClick ? handleKeyDown : undefined}
 			className={cn(
-				"group flex items-center gap-4 rounded-lg border p-3 transition-colors",
+				"group flex items-center gap-4 py-3 px-3 transition-colors",
 				onClick && "cursor-pointer hover:bg-muted/50",
-				selected
-					? "border-l-2 border-l-primary border-t-border border-r-border border-b-border bg-muted/30"
-					: "border-border",
+				selected && "bg-muted/30 border-l-2 border-l-primary",
 				className,
 			)}
 		>

@@ -35,19 +35,19 @@ interface NavItem {
 
 const navItems: NavItem[] = [
 	{
-		to: "/v2",
+		to: "/",
 		label: "Home",
 		icon: <Home className="h-5 w-5" />,
 		badgeKey: "home",
 	},
 	{
-		to: "/v2/runs",
+		to: "/runs",
 		label: "Runs",
 		icon: <ListTodo className="h-5 w-5" />,
 		badgeKey: "runs",
 	},
 	{
-		to: "/v2/projects",
+		to: "/projects",
 		label: "Projects",
 		icon: <FolderKanban className="h-5 w-5" />,
 		badgeKey: "projects",
@@ -102,9 +102,7 @@ function SidebarNavItem({
 }: SidebarNavItemProps) {
 	const location = useLocation();
 	const isActive =
-		to === "/v2"
-			? location.pathname === "/v2"
-			: location.pathname.startsWith(to);
+		to === "/" ? location.pathname === "/" : location.pathname.startsWith(to);
 
 	const content = (
 		<NavLink

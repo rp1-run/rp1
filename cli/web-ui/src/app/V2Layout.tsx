@@ -5,12 +5,16 @@ import { V2Header } from "@/components/v2/V2Header";
 import { V2Sidebar } from "@/components/v2/V2Sidebar";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 
-// Routes that manage their own scrolling and don't need the layout's ScrollArea
-const FULL_HEIGHT_ROUTES = ["/v2/runs/"];
+const FULL_HEIGHT_ROUTES = ["/runs/"];
 function isFullHeightRoute(pathname: string): boolean {
-	return FULL_HEIGHT_ROUTES.some(
-		(route) => pathname.startsWith(route) && pathname.includes("/artifacts/"),
-	);
+	if (
+		FULL_HEIGHT_ROUTES.some(
+			(route) => pathname.startsWith(route) && pathname.includes("/artifacts/"),
+		)
+	)
+		return true;
+	if (/^\/projects\/[^/]+\/files/.test(pathname)) return true;
+	return false;
 }
 
 const V2_SIDEBAR_COLLAPSED_KEY = "rp1-v2-sidebar-collapsed";

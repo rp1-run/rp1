@@ -65,7 +65,7 @@ export function AttentionSection({
 
 	const handleRunClick = useCallback(
 		(run: Run) => {
-			navigate(`/v2/runs/${run.id}`);
+			navigate(`/runs/${run.id}`);
 		},
 		[navigate],
 	);
@@ -164,7 +164,7 @@ export function AttentionSection({
 					isExpanded ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0",
 				)}
 			>
-				<div className="space-y-2 p-4 pt-0">
+				<div className="p-4 pt-0 space-y-2">
 					{hasItems ? (
 						<>
 							{useVirtualization ? (
@@ -182,11 +182,11 @@ export function AttentionSection({
 									aria-label={`${title} runs`}
 								/>
 							) : (
-								<ul className="space-y-2">
+								<ul className="divide-y divide-border">
 									{visibleRuns.map((run, index) => (
 										<li
 											key={run.id}
-											className="animate-in fade-in slide-in-from-top-1 duration-200"
+											className="animate-in fade-in duration-200"
 										>
 											<RunCard
 												run={run}

@@ -24,6 +24,11 @@ providers:
         - project
         - local
         - user
+      plugins:
+        - type: local
+          path: plugins/dev
+        - type: local
+          path: plugins/base
       tools:
         - Read
         - Write
