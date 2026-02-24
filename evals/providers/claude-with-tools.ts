@@ -10,8 +10,11 @@ import {
 	type PermissionMode,
 	type PermissionResult,
 	query,
+	type SdkPluginConfig,
 	type SettingSource,
 } from "@anthropic-ai/claude-agent-sdk";
+import { dirname, isAbsolute, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 // OpenTelemetry imports for tracing
 import {
@@ -26,6 +29,10 @@ import {
 	BatchSpanProcessor,
 	NodeTracerProvider,
 } from "@opentelemetry/sdk-trace-node";
+
+// Resolve repo root from this provider file's location (evals/providers/)
+const __providerDir = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = resolve(__providerDir, "..", "..");
 
 // Initialize OpenTelemetry tracer provider
 // Tracing is always enabled; forceFlush errors are non-fatal if no collector is running
@@ -76,6 +83,7 @@ interface ProviderConfig {
 	readonly max_turns?: number;
 	readonly setting_sources?: readonly SettingSource[];
 	readonly tools?: readonly string[];
+	readonly plugins?: readonly SdkPluginConfig[];
 	readonly include_partial_messages?: boolean;
 	readonly ask_user_behavior?: AskUserBehavior;
 	readonly [key: string]: unknown;
@@ -289,6 +297,14 @@ export default class ClaudeWithToolCapture {
 							: undefined,
 						allowedTools: this.config.tools
 							? [...this.config.tools]
+							: undefined,
+						plugins: this.config.plugins
+							? this.config.plugins.map((p) => ({
+									...p,
+									path: isAbsolute(p.path)
+										? p.path
+										: resolve(REPO_ROOT, p.path),
+								}))
 							: undefined,
 						includePartialMessages: true,
 						canUseTool,
