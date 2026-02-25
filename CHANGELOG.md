@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.8](https://github.com/rp1-run/rp1/compare/v0.4.7...v0.4.8) (2026-02-24)
+
+
+### Features
+
+* new v2 for webui ([#264](https://github.com/rp1-run/rp1/issues/264)) ([7b6abd9](https://github.com/rp1-run/rp1/commit/7b6abd95677a9449ed6734e6620f109f0dc0cdfc))
+
+
+### Code Refactoring
+
+* **shared:** extract getClaudePluginDirs into shared/paths module ([#262](https://github.com/rp1-run/rp1/issues/262)) ([5fb84e3](https://github.com/rp1-run/rp1/commit/5fb84e3bd9dbec094a05713fcb64cbebbc68e1ca))
+
 ## [0.4.7](https://github.com/rp1-run/rp1/compare/v0.4.6...v0.4.7) (2026-02-19)
 
 
