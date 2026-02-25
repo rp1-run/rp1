@@ -1,3 +1,4 @@
+import { motion } from "framer-motion";
 import { ChevronDown, ChevronRight, type LucideIcon } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -5,6 +6,13 @@ import {
 	type VirtualizedListRef as KeyboardNavListRef,
 	useKeyboardNav,
 } from "@/hooks/useKeyboardNav";
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
+import {
+	staggerContainer,
+	staggerContainerReduced,
+	staggerItem,
+	staggerItemReduced,
+} from "@/lib/motion-config";
 import { cn } from "@/lib/utils";
 import type { Run } from "@/types/runs";
 import { RunCard } from "./RunCard";
@@ -56,6 +64,7 @@ export function AttentionSection({
 	const [showAll, setShowAll] = useState(false);
 	const navigate = useNavigate();
 	const virtualizedListRef = useRef<VirtualizedListRef>(null);
+	const reducedMotion = usePrefersReducedMotion();
 
 	const hasItems = runs.length > 0;
 	const visibleRuns = showAll ? runs : runs.slice(0, maxVisible);
@@ -182,11 +191,20 @@ export function AttentionSection({
 									aria-label={`${title} runs`}
 								/>
 							) : (
-								<ul className="divide-y divide-border">
+								<motion.ul
+									className="divide-y divide-border"
+									variants={
+										reducedMotion ? staggerContainerReduced : staggerContainer
+									}
+									initial="initial"
+									animate="animate"
+								>
 									{visibleRuns.map((run, index) => (
-										<li
+										<motion.li
 											key={run.id}
-											className="animate-in fade-in duration-200"
+											variants={
+												reducedMotion ? staggerItemReduced : staggerItem
+											}
 										>
 											<RunCard
 												run={run}
@@ -194,9 +212,9 @@ export function AttentionSection({
 												showStatus={false}
 												selected={selectedIndex === index}
 											/>
-										</li>
+										</motion.li>
 									))}
-								</ul>
+								</motion.ul>
 							)}
 
 							{hasMore && (

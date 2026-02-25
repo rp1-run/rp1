@@ -1,4 +1,7 @@
+import { motion } from "framer-motion";
 import { Check, FileText, Play, X } from "lucide-react";
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
+import { cardHover, cardTap } from "@/lib/motion-config";
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { V2Project } from "@/types/projects";
@@ -56,6 +59,8 @@ export function ProjectCard({
 	selected,
 	className,
 }: ProjectCardProps) {
+	const reducedMotion = usePrefersReducedMotion();
+
 	const handleKeyDown = (event: React.KeyboardEvent) => {
 		if (event.key === "Enter" || event.key === " ") {
 			event.preventDefault();
@@ -82,13 +87,14 @@ export function ProjectCard({
 	const runCountLabel = `${project.runCount} run${project.runCount === 1 ? "" : "s"}`;
 
 	return (
-		// biome-ignore lint/a11y/useSemanticElements: conditionally interactive card
-		<div
+		<motion.div
 			role="button"
 			tabIndex={0}
 			onClick={onCardClick}
 			onKeyDown={handleKeyDown}
 			data-selected={selected || undefined}
+			whileHover={reducedMotion ? undefined : cardHover}
+			whileTap={reducedMotion ? undefined : cardTap}
 			className={cn(
 				"group flex flex-col gap-3 rounded-lg border border-border p-4 transition-colors",
 				"cursor-pointer hover:bg-muted/40",
@@ -147,6 +153,6 @@ export function ProjectCard({
 					</button>
 				</div>
 			</div>
-		</div>
+		</motion.div>
 	);
 }

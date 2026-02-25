@@ -1,9 +1,17 @@
+import { motion } from "framer-motion";
 import { AlertCircle, FolderOpen, RefreshCw } from "lucide-react";
 import { useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ProjectCard } from "@/components/v2/ProjectCard";
 import { useKeyboardNav } from "@/hooks/useKeyboardNav";
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { useProjects, type V2Project } from "@/hooks/useProjects";
+import {
+	staggerContainer,
+	staggerContainerReduced,
+	staggerItem,
+	staggerItemReduced,
+} from "@/lib/motion-config";
 import { cn } from "@/lib/utils";
 
 const SKELETON_KEYS = ["sk-a", "sk-b", "sk-c", "sk-d", "sk-e", "sk-f"];
@@ -89,6 +97,7 @@ function KeyboardHints() {
 export function ProjectsPage() {
 	const navigate = useNavigate();
 	const { projects, isLoading, error, refetch } = useProjects();
+	const reducedMotion = usePrefersReducedMotion();
 
 	const handleCardClick = useCallback(
 		(project: V2Project) => {
@@ -220,22 +229,31 @@ export function ProjectsPage() {
 			) : (
 				<>
 					{/* biome-ignore lint/a11y/useSemanticElements: div with role="list" used for grid layout incompatible with ul/li */}
-					<div
+					<motion.div
 						className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
 						role="list"
 						aria-label="Projects"
+						variants={
+							reducedMotion ? staggerContainerReduced : staggerContainer
+						}
+						initial="initial"
+						animate="animate"
 					>
 						{projects.map((project, index) => (
-							<ProjectCard
+							<motion.div
 								key={project.id}
-								project={project}
-								onCardClick={() => handleCardClick(project)}
-								onArtifactsClick={() => handleArtifactsClick(project)}
-								onRunsClick={() => handleRunsClick(project)}
-								selected={selectedIndex === index}
-							/>
+								variants={reducedMotion ? staggerItemReduced : staggerItem}
+							>
+								<ProjectCard
+									project={project}
+									onCardClick={() => handleCardClick(project)}
+									onArtifactsClick={() => handleArtifactsClick(project)}
+									onRunsClick={() => handleRunsClick(project)}
+									selected={selectedIndex === index}
+								/>
+							</motion.div>
 						))}
-					</div>
+					</motion.div>
 
 					<KeyboardHints />
 				</>

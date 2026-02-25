@@ -1,3 +1,6 @@
+import { motion } from "framer-motion";
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
+import { cardHover, cardTap } from "@/lib/motion-config";
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { Run } from "@/types/runs";
@@ -18,6 +21,8 @@ export function RunCard({
 	showStatus = true,
 	className,
 }: RunCardProps) {
+	const reducedMotion = usePrefersReducedMotion();
+
 	const handleKeyDown = (event: React.KeyboardEvent) => {
 		if (onClick && (event.key === "Enter" || event.key === " ")) {
 			event.preventDefault();
@@ -26,12 +31,13 @@ export function RunCard({
 	};
 
 	return (
-		// biome-ignore lint/a11y/useSemanticElements: conditionally interactive card
-		<div
+		<motion.div
 			role="button"
 			tabIndex={onClick ? 0 : undefined}
 			onClick={onClick}
 			onKeyDown={onClick ? handleKeyDown : undefined}
+			whileHover={reducedMotion ? undefined : cardHover}
+			whileTap={reducedMotion ? undefined : cardTap}
 			className={cn(
 				"group flex items-center gap-4 py-3 px-3 transition-colors",
 				onClick && "cursor-pointer hover:bg-muted/50",
@@ -79,6 +85,6 @@ export function RunCard({
 			>
 				{formatRelativeTime(run.startedAt)}
 			</time>
-		</div>
+		</motion.div>
 	);
 }
