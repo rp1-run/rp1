@@ -260,13 +260,15 @@ function LineGutter({
 									"absolute inset-0 flex items-center justify-end pr-1 transition-colors",
 									allResolved
 										? "text-terminal-green/70 hover:text-terminal-green"
-										: "text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300",
+										: "text-annotation-open hover:text-annotation-open/80",
 								)}
 							>
 								<div
 									className={cn(
 										"flex items-center justify-center rounded px-1 py-0.5",
-										allResolved ? "bg-terminal-green/20" : "bg-amber-500/20",
+										allResolved
+											? "bg-terminal-green/20"
+											: "bg-annotation-open/20",
 									)}
 								>
 									<MessageSquare
@@ -285,7 +287,7 @@ function LineGutter({
 
 						{!hasAnnotations && isHovered && (
 							<div className="absolute inset-0 flex items-center justify-end pr-1 transition-colors">
-								<div className="flex items-center justify-center rounded px-1 py-0.5 bg-amber-500/20 text-amber-600 dark:text-amber-400">
+								<div className="flex items-center justify-center rounded px-1 py-0.5 bg-annotation-open/20 text-annotation-open">
 									<MessageSquare
 										className="h-3 w-3"
 										fill="currentColor"

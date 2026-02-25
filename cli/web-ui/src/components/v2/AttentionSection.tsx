@@ -20,10 +20,10 @@ const accentColors: Record<AccentColor, string> = {
 };
 
 const accentBgColors: Record<AccentColor, string> = {
-	peach: "",
-	mauve: "",
-	red: "",
-	blue: "",
+	peach: "bg-status-waiting/10",
+	mauve: "bg-status-needs-review/10",
+	red: "bg-status-failed/10",
+	blue: "bg-status-running/10",
 };
 
 const RUN_CARD_HEIGHT = 72;

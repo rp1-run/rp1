@@ -153,7 +153,7 @@ export function AnnotationIndicator({
 								"absolute right-2 top-5 bottom-0 w-0.5 rounded-full transition-all",
 								isResolved
 									? "bg-terminal-green group-hover:bg-terminal-green/80"
-									: "bg-amber-500 group-hover:bg-amber-600",
+									: "bg-annotation-open group-hover:bg-annotation-open/80",
 							)}
 						/>
 						{/* Chat bubble icon - same style as CodeBlock */}
@@ -162,7 +162,7 @@ export function AnnotationIndicator({
 								"absolute right-0.5 top-0 flex items-center justify-center rounded px-1 py-0.5 transition-colors",
 								isResolved
 									? "bg-terminal-green/20 text-terminal-green/70 group-hover:text-terminal-green"
-									: "bg-amber-500/20 text-amber-600 dark:text-amber-400 group-hover:text-amber-700 dark:group-hover:text-amber-300",
+									: "bg-annotation-open/20 text-annotation-open group-hover:text-annotation-open/80",
 							)}
 						>
 							<MessageSquare

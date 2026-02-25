@@ -130,7 +130,7 @@ export function SelectionIndicator({
 						aria-label="Add annotation to selected text"
 					>
 						{/* Chat bubble icon - same style as CodeBlock */}
-						<div className="absolute right-0.5 top-0 flex items-center justify-center rounded px-1 py-0.5 transition-all bg-amber-500/20 text-amber-600 dark:text-amber-400 hover:bg-amber-500/30 hover:scale-110">
+						<div className="absolute right-0.5 top-0 flex items-center justify-center rounded px-1 py-0.5 transition-all bg-annotation-open/20 text-annotation-open hover:bg-annotation-open/30 hover:scale-110">
 							<MessageSquare
 								className="h-3 w-3"
 								fill="currentColor"

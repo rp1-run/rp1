@@ -173,7 +173,7 @@ function AnnotationItem({
 					<div
 						className={cn(
 							"mt-1.5 h-2 w-2 shrink-0 rounded-full",
-							isResolved ? "bg-terminal-green" : "bg-yellow-400",
+							isResolved ? "bg-terminal-green" : "bg-annotation-open",
 						)}
 						role="img"
 						aria-label={isResolved ? "Resolved" : "Open"}

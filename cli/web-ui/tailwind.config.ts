@@ -56,6 +56,10 @@ const config: Config = {
 					completed: "hsl(var(--status-completed))",
 					failed: "hsl(var(--status-failed))",
 					"needs-review": "hsl(var(--status-needs-review))",
+					warning: "hsl(var(--status-warning))",
+				},
+				annotation: {
+					open: "hsl(var(--annotation-open))",
 				},
 				surface: {
 					void: "hsl(var(--bg-void))",
