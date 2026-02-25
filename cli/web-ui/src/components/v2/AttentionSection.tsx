@@ -60,7 +60,9 @@ export function AttentionSection({
 	selectedIndex: externalSelectedIndex,
 	className,
 }: AttentionSectionProps) {
-	const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+	const [isExpanded, setIsExpanded] = useState(
+		defaultExpanded && runs.length > 0,
+	);
 	const [showAll, setShowAll] = useState(false);
 	const navigate = useNavigate();
 	const virtualizedListRef = useRef<VirtualizedListRef>(null);
