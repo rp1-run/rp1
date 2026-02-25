@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { useCallback, useState } from "react";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { CommandPalette } from "@/components/v2/CommandPalette";
+import { ShortcutHelpOverlay } from "@/components/v2/ShortcutHelpOverlay";
 import { V2Header } from "@/components/v2/V2Header";
 import { V2Sidebar } from "@/components/v2/V2Sidebar";
+import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 
 const FULL_HEIGHT_ROUTES = ["/runs/"];
@@ -38,9 +41,14 @@ function saveSidebarCollapsed(collapsed: boolean): void {
 export function V2Layout() {
 	const [sidebarCollapsed, setSidebarCollapsed] =
 		useState(loadSidebarCollapsed);
+	const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+	const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
 	const { status: wsStatus } = useWebSocket();
 	const location = useLocation();
+	const navigate = useNavigate();
 	const isFullHeight = isFullHeightRoute(location.pathname);
+
+	const isOverlayOpen = commandPaletteOpen || shortcutHelpOpen;
 
 	const toggleSidebar = useCallback(() => {
 		setSidebarCollapsed((prev) => {
@@ -50,17 +58,32 @@ export function V2Layout() {
 		});
 	}, []);
 
-	useEffect(() => {
-		const handleKeyDown = (e: KeyboardEvent) => {
-			if ((e.metaKey || e.ctrlKey) && e.key === "b") {
-				e.preventDefault();
-				toggleSidebar();
-			}
-		};
+	const handleOpenCommandPalette = useCallback(() => {
+		setCommandPaletteOpen(true);
+	}, []);
 
-		window.addEventListener("keydown", handleKeyDown);
-		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, [toggleSidebar]);
+	const handleCloseCommandPalette = useCallback(() => {
+		setCommandPaletteOpen(false);
+		setShortcutHelpOpen(false);
+	}, []);
+
+	const handleToggleShortcutHelp = useCallback(() => {
+		setShortcutHelpOpen((prev) => !prev);
+	}, []);
+
+	const handleFocusSearch = useCallback(() => {
+		window.dispatchEvent(new CustomEvent("rp1:focus-search"));
+	}, []);
+
+	useGlobalShortcuts({
+		onOpenCommandPalette: handleOpenCommandPalette,
+		onCloseCommandPalette: handleCloseCommandPalette,
+		onToggleShortcutHelp: handleToggleShortcutHelp,
+		onToggleSidebar: toggleSidebar,
+		onFocusSearch: handleFocusSearch,
+		isOverlayOpen,
+		navigate,
+	});
 
 	return (
 		<div className="flex h-screen flex-col bg-background">
@@ -81,6 +104,14 @@ export function V2Layout() {
 					</main>
 				)}
 			</div>
+			<CommandPalette
+				open={commandPaletteOpen}
+				onOpenChange={setCommandPaletteOpen}
+			/>
+			<ShortcutHelpOverlay
+				open={shortcutHelpOpen}
+				onOpenChange={setShortcutHelpOpen}
+			/>
 		</div>
 	);
 }

@@ -200,7 +200,9 @@ function CollapseButton({ collapsed, onToggle }: CollapseButtonProps) {
 					</Button>
 				</TooltipTrigger>
 				<TooltipContent side={collapsed ? "right" : "top"}>
-					{collapsed ? "Expand sidebar (Cmd/Ctrl+B)" : "Collapse (Cmd/Ctrl+B)"}
+					{collapsed
+						? "Expand sidebar (Cmd/Ctrl+\\)"
+						: "Collapse (Cmd/Ctrl+\\)"}
 				</TooltipContent>
 			</Tooltip>
 		</TooltipProvider>
