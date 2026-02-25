@@ -54,6 +54,27 @@
     --input: 225 14% 77%;
     --ring: 266 85% 58%;
 
+    /* Surface depth hierarchy -- 4 levels from deepest to elevated */
+    --bg-void: 220 23% 92%;
+    --bg-base: 220 23% 95%;
+    --bg-surface: 220 23% 98%;
+    --bg-elevated: 0 0% 100%;
+
+    /* Border hierarchy -- 3 tiers from subtle to accent glow */
+    --border-subtle: 225 14% 90%;
+    --border-default: 225 14% 77%;
+    --border-glow: 266 85% 58%;
+
+    /* Glow accent variants -- used in box-shadow contexts */
+    --glow-primary: 266 85% 58% / 0.15;
+    --glow-success: 109 58% 40% / 0.15;
+    --glow-info: 220 91% 54% / 0.15;
+
+    /* Annotation and warning colors */
+    --annotation-open: 22 99% 52%;
+    --status-warning: 22 99% 52%;
+    --bg-terminal-yellow: 35 77% 49%;
+
     /* Terminal aesthetic - Catppuccin Latte */
     --terminal-green: 109 58% 40%;
     --terminal-cursor: 109 58% 40%;
@@ -91,6 +112,27 @@
     --border: 234 13% 31%;
     --input: 234 13% 31%;
     --ring: 267 83% 80%;
+
+    /* Surface depth hierarchy -- 4 levels from deepest to elevated */
+    --bg-void: 240 50% 4%;
+    --bg-base: 240 30% 9%;
+    --bg-surface: 240 25% 14%;
+    --bg-elevated: 240 20% 18%;
+
+    /* Border hierarchy -- 3 tiers from subtle to accent glow */
+    --border-subtle: 240 20% 18%;
+    --border-default: 234 13% 31%;
+    --border-glow: 267 83% 80%;
+
+    /* Glow accent variants -- used in box-shadow contexts */
+    --glow-primary: 267 83% 80% / 0.3;
+    --glow-success: 115 54% 76% / 0.3;
+    --glow-info: 217 92% 76% / 0.3;
+
+    /* Annotation and warning colors */
+    --annotation-open: 23 92% 75%;
+    --status-warning: 23 92% 75%;
+    --bg-terminal-yellow: 40 62% 73%;
 
     /* Terminal aesthetic - Catppuccin Mocha */
     --terminal-green: 115 54% 76%;
