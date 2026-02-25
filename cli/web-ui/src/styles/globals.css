@@ -112,6 +112,14 @@
     --status-completed: 109 58% 40%;
     --status-failed: 347 87% 44%;
     --status-needs-review: 266 85% 58%;
+
+    /* Status accent bar colors - lighter, luminous tones for border accents */
+    --status-accent-queued: 228 15% 72%;
+    --status-accent-running: 217 82% 62%;
+    --status-accent-waiting: 25 90% 58%;
+    --status-accent-completed: 142 48% 50%;
+    --status-accent-failed: 350 72% 56%;
+    --status-accent-needs-review: 267 68% 62%;
   }
 
   /* Catppuccin Mocha (Dark Theme) */
@@ -171,6 +179,14 @@
     --status-completed: 115 54% 76%;
     --status-failed: 343 81% 75%;
     --status-needs-review: 267 83% 80%;
+
+    /* Status accent bar colors - vivid, saturated tones for dark mode accents */
+    --status-accent-queued: 230 25% 52%;
+    --status-accent-running: 217 92% 72%;
+    --status-accent-waiting: 23 92% 70%;
+    --status-accent-completed: 142 50% 65%;
+    --status-accent-failed: 343 81% 70%;
+    --status-accent-needs-review: 267 83% 76%;
   }
 }
 
@@ -559,29 +575,29 @@
     background-color: hsl(var(--bg-terminal-yellow));
   }
 
-  /* Status glow utilities -- box-shadow variants per status */
+  /* Status glow utilities -- box-shadow variants per status using accent palette */
   .glow-status-running {
-    box-shadow: 0 0 16px 2px hsl(var(--status-running) / 0.3);
+    box-shadow: 0 0 12px 1px hsl(var(--status-accent-running) / 0.2);
   }
 
   .glow-status-failed {
-    box-shadow: 0 0 16px 2px hsl(var(--status-failed) / 0.3);
+    box-shadow: 0 0 12px 1px hsl(var(--status-accent-failed) / 0.2);
   }
 
   .glow-status-completed {
-    box-shadow: 0 0 16px 2px hsl(var(--status-completed) / 0.3);
+    box-shadow: 0 0 12px 1px hsl(var(--status-accent-completed) / 0.2);
   }
 
   .glow-status-waiting {
-    box-shadow: 0 0 16px 2px hsl(var(--status-waiting) / 0.3);
+    box-shadow: 0 0 12px 1px hsl(var(--status-accent-waiting) / 0.2);
   }
 
   .glow-status-needs-review {
-    box-shadow: 0 0 16px 2px hsl(var(--status-needs-review) / 0.3);
+    box-shadow: 0 0 12px 1px hsl(var(--status-accent-needs-review) / 0.2);
   }
 
   .glow-status-queued {
-    box-shadow: 0 0 16px 2px hsl(var(--status-queued) / 0.15);
+    box-shadow: 0 0 12px 1px hsl(var(--status-accent-queued) / 0.1);
   }
 
   /* Glow pulse keyframes -- uses CSS custom property --glow-color set inline */
@@ -598,29 +614,29 @@
     animation: glow-pulse 2s ease-in-out infinite;
   }
 
-  /* Border color utilities for status accent bars */
+  /* Border color utilities for status accent bars -- use dedicated accent palette */
   .border-l-status-running {
-    border-left-color: hsl(var(--status-running));
+    border-left-color: hsl(var(--status-accent-running));
   }
 
   .border-l-status-failed {
-    border-left-color: hsl(var(--status-failed));
+    border-left-color: hsl(var(--status-accent-failed));
   }
 
   .border-l-status-completed {
-    border-left-color: hsl(var(--status-completed));
+    border-left-color: hsl(var(--status-accent-completed));
   }
 
   .border-l-status-waiting {
-    border-left-color: hsl(var(--status-waiting));
+    border-left-color: hsl(var(--status-accent-waiting));
   }
 
   .border-l-status-needs-review {
-    border-left-color: hsl(var(--status-needs-review));
+    border-left-color: hsl(var(--status-accent-needs-review));
   }
 
   .border-l-status-queued {
-    border-left-color: hsl(var(--status-queued));
+    border-left-color: hsl(var(--status-accent-queued));
   }
 }
 

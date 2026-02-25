@@ -58,7 +58,7 @@ export function RunCard({
 			style={accentStyle}
 			className={cn(
 				"group flex items-center gap-4 py-3 px-3 transition-colors",
-				"border-l-[3px]",
+				"border-l-2",
 				borderColorClass,
 				onClick && "cursor-pointer hover:bg-muted/50",
 				selected && "bg-muted/30",

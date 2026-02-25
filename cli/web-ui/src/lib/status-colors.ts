@@ -10,10 +10,10 @@ export const statusBorderColors: Record<RunStatus, string> = {
 };
 
 export const statusGlowColors: Record<RunStatus, string> = {
-	running: "hsl(var(--status-running) / 0.25)",
-	failed: "hsl(var(--status-failed) / 0.25)",
-	completed: "hsl(var(--status-completed) / 0.25)",
-	"waiting-input": "hsl(var(--status-waiting) / 0.25)",
-	"needs-review": "hsl(var(--status-needs-review) / 0.25)",
-	queued: "hsl(var(--status-queued) / 0.15)",
+	running: "hsl(var(--status-accent-running) / 0.2)",
+	failed: "hsl(var(--status-accent-failed) / 0.2)",
+	completed: "hsl(var(--status-accent-completed) / 0.2)",
+	"waiting-input": "hsl(var(--status-accent-waiting) / 0.2)",
+	"needs-review": "hsl(var(--status-accent-needs-review) / 0.2)",
+	queued: "hsl(var(--status-accent-queued) / 0.1)",
 };
