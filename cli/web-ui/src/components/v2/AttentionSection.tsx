@@ -185,7 +185,9 @@ export function AttentionSection({
 				id={`section-content-${title.toLowerCase().replace(/\s+/g, "-")}`}
 				className={cn(
 					"overflow-hidden transition-all duration-200 ease-in-out",
-					isExpanded ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0",
+					isExpanded
+						? "max-h-[2000px] opacity-100 border-t border-border/50"
+						: "max-h-0 opacity-0",
 				)}
 			>
 				<div>
