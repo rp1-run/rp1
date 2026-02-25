@@ -1,3 +1,4 @@
+import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -6,6 +7,13 @@ import { ShortcutHelpOverlay } from "@/components/v2/ShortcutHelpOverlay";
 import { V2Header } from "@/components/v2/V2Header";
 import { V2Sidebar } from "@/components/v2/V2Sidebar";
 import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
+import {
+	pageTransition,
+	pageTransitionReduced,
+	pageVariants,
+	pageVariantsReduced,
+} from "@/lib/motion-config";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 
 const FULL_HEIGHT_ROUTES = ["/runs/"];
@@ -48,6 +56,9 @@ export function V2Layout() {
 	const navigate = useNavigate();
 	const isFullHeight = isFullHeightRoute(location.pathname);
 
+	const reducedMotion = usePrefersReducedMotion();
+	const variants = reducedMotion ? pageVariantsReduced : pageVariants;
+	const transition = reducedMotion ? pageTransitionReduced : pageTransition;
 	const isOverlayOpen = commandPaletteOpen || shortcutHelpOpen;
 
 	const toggleSidebar = useCallback(() => {
@@ -92,14 +103,36 @@ export function V2Layout() {
 				<V2Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
 				{isFullHeight ? (
 					<main className="flex-1 overflow-hidden">
-						<Outlet />
+						<AnimatePresence mode="wait">
+							<motion.div
+								key={location.pathname}
+								variants={variants}
+								initial="initial"
+								animate="animate"
+								exit="exit"
+								transition={transition}
+								className="h-full"
+							>
+								<Outlet />
+							</motion.div>
+						</AnimatePresence>
 					</main>
 				) : (
 					<main className="flex-1 overflow-hidden">
 						<ScrollArea className="h-full">
-							<div className="p-6">
-								<Outlet />
-							</div>
+							<AnimatePresence mode="wait">
+								<motion.div
+									key={location.pathname}
+									variants={variants}
+									initial="initial"
+									animate="animate"
+									exit="exit"
+									transition={transition}
+									className="p-6"
+								>
+									<Outlet />
+								</motion.div>
+							</AnimatePresence>
 						</ScrollArea>
 					</main>
 				)}
