@@ -36,6 +36,10 @@ export {
 	SelectionPopover,
 	type SelectionPopoverProps,
 } from "./SelectionPopover";
+export {
+	ShortcutHelpOverlay,
+	type ShortcutHelpOverlayProps,
+} from "./ShortcutHelpOverlay";
 export { StatusBadge, type StatusBadgeProps } from "./StatusBadge";
 export { StepTimeline, type StepTimelineProps } from "./StepTimeline";
 export {
