@@ -55,7 +55,7 @@ export function RunCard({
 				</div>
 
 				<div className="mt-0.5 flex items-center gap-2 text-sm text-muted-foreground">
-					<code className="rounded bg-muted px-1.5 py-0.5 text-xs">
+					<code className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono">
 						{run.command}
 					</code>
 					{run.currentStep && (
@@ -75,7 +75,7 @@ export function RunCard({
 
 			<time
 				dateTime={run.startedAt}
-				className="shrink-0 text-sm text-muted-foreground"
+				className="shrink-0 text-sm text-muted-foreground tabular-nums"
 			>
 				{formatRelativeTime(run.startedAt)}
 			</time>

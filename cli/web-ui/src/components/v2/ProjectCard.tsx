@@ -111,11 +111,11 @@ export function ProjectCard({
 
 			<div className="flex items-center justify-between gap-2">
 				<div className="flex items-center gap-3 text-sm text-muted-foreground">
-					<span>{runCountLabel}</span>
+					<span className="tabular-nums">{runCountLabel}</span>
 					<span aria-hidden="true" className="text-border">
 						|
 					</span>
-					<span>{lastActivity}</span>
+					<span className="tabular-nums">{lastActivity}</span>
 				</div>
 
 				<div className="flex items-center gap-1">

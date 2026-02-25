@@ -45,7 +45,7 @@ function Logo({ wsStatus }: LogoProps) {
 			}
 			aria-label={`rp1 - Connection status: ${wsStatus}`}
 		>
-			<span className="text-lg font-medium">rp1</span>
+			<span className="text-lg font-medium font-mono">rp1</span>
 			<span
 				className={cn(
 					"animate-blink",
