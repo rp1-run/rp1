@@ -2,6 +2,7 @@ import { ArrowLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArtifactList } from "@/components/v2/ArtifactList";
+import { DETAIL_HINTS, KeyHints } from "@/components/v2/KeyHints";
 import { EventStream } from "@/components/v2/EventStream";
 import { StatusBadge } from "@/components/v2/StatusBadge";
 import { StepTimeline } from "@/components/v2/StepTimeline";
@@ -255,12 +256,7 @@ export function RunDetailPage() {
 				</section>
 			</div>
 
-			<p className="text-xs text-muted-foreground">
-				<kbd className="rounded bg-muted px-1.5 py-0.5">j</kbd>/
-				<kbd className="rounded bg-muted px-1.5 py-0.5">k</kbd> navigate
-				artifacts, <kbd className="rounded bg-muted px-1.5 py-0.5">l</kbd> open,{" "}
-				<kbd className="rounded bg-muted px-1.5 py-0.5">h</kbd> back to runs
-			</p>
+			<KeyHints hints={DETAIL_HINTS} />
 		</div>
 	);
 }

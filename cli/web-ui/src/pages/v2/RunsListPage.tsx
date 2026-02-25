@@ -8,6 +8,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { FilterBar } from "@/components/v2/FilterBar";
+import { KeyHints, NAV_HINTS } from "@/components/v2/KeyHints";
 import { RunCard } from "@/components/v2/RunCard";
 import {
 	VirtualizedList,
@@ -406,12 +407,7 @@ export function RunsListPage() {
 						</p>
 					)}
 
-					<p className="text-center text-xs text-muted-foreground">
-						<kbd className="rounded bg-muted px-1.5 py-0.5">j</kbd>/
-						<kbd className="rounded bg-muted px-1.5 py-0.5">k</kbd> navigate,{" "}
-						<kbd className="rounded bg-muted px-1.5 py-0.5">l</kbd> open,{" "}
-						<kbd className="rounded bg-muted px-1.5 py-0.5">h</kbd> back
-					</p>
+					<KeyHints hints={NAV_HINTS} />
 				</>
 			)}
 		</div>

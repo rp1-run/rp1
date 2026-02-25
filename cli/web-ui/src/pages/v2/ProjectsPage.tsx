@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { AlertCircle, FolderOpen, RefreshCw } from "lucide-react";
 import { useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { KeyHints, NAV_HINTS } from "@/components/v2/KeyHints";
 import { ProjectCard } from "@/components/v2/ProjectCard";
 import { useKeyboardNav } from "@/hooks/useKeyboardNav";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
@@ -80,17 +81,6 @@ function ErrorState({ error, onRetry }: { error: Error; onRetry: () => void }) {
 				Try again
 			</button>
 		</div>
-	);
-}
-
-function KeyboardHints() {
-	return (
-		<p className="text-center text-xs text-muted-foreground">
-			<kbd className="rounded bg-muted px-1.5 py-0.5">j</kbd>/
-			<kbd className="rounded bg-muted px-1.5 py-0.5">k</kbd> navigate,{" "}
-			<kbd className="rounded bg-muted px-1.5 py-0.5">l</kbd> open,{" "}
-			<kbd className="rounded bg-muted px-1.5 py-0.5">h</kbd> back
-		</p>
 	);
 }
 
@@ -255,7 +245,7 @@ export function ProjectsPage() {
 						))}
 					</motion.div>
 
-					<KeyboardHints />
+					<KeyHints hints={NAV_HINTS} />
 				</>
 			)}
 		</div>

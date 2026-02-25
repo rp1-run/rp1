@@ -1,4 +1,5 @@
 import { AlertCircle, Eye, Hand, Loader2, RefreshCw } from "lucide-react";
+import { KeyHints, NAV_HINTS_NO_BACK } from "@/components/v2/KeyHints";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AttentionSection } from "@/components/v2/AttentionSection";
@@ -245,11 +246,7 @@ export function HomePage() {
 							/>
 						</div>
 
-						<p className="text-xs text-muted-foreground">
-							<kbd className="rounded bg-muted px-1.5 py-0.5">j</kbd>/
-							<kbd className="rounded bg-muted px-1.5 py-0.5">k</kbd> navigate,{" "}
-							<kbd className="rounded bg-muted px-1.5 py-0.5">l</kbd> open run
-						</p>
+						<KeyHints hints={NAV_HINTS_NO_BACK} />
 					</>
 				)
 			)}
