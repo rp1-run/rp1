@@ -78,6 +78,14 @@ Understanding the core ideas behind rp1 helps you get the most out of its workfl
 
     [:octicons-arrow-right-24: Learn more](skill-format.md)
 
+-   :material-keyboard: **WebUI Interaction**
+
+    ---
+
+    Navigate the rp1 WebUI with keyboard shortcuts, a command palette, and vim-style navigation.
+
+    [:octicons-arrow-right-24: Learn more](webui.md)
+
 </div>
 
 ---
@@ -95,6 +103,7 @@ Understanding the core ideas behind rp1 helps you get the most out of its workfl
 | [Builder-Reviewer Agents](builder-reviewer-agents.md) | Adversarial agent cooperation | Higher quality, reliable code |
 | [Eval System](eval-system.md) | Content-addressable attestation | Deterministic, traceable releases |
 | [SKILL.md Format](skill-format.md) | Canonical format for all rp1 prompts | Single source of truth, cross-platform |
+| [WebUI Interaction](webui.md) | Keyboard-first WebUI navigation | Fast navigation without a mouse |
 
 ---
 
@@ -116,4 +125,7 @@ Understanding the core ideas behind rp1 helps you get the most out of its workfl
 
 **Building evals for prompts?** See [Eval System](eval-system.md) for content-addressable attestation.
 
+
 **Migrating commands to skills?** See [SKILL.md Format](skill-format.md) for the canonical format specification.
+
+**Using the WebUI?** See [WebUI Interaction](webui.md) for keyboard shortcuts and the command palette.
