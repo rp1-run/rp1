@@ -329,7 +329,7 @@ export function ProjectOverviewPage() {
 				) : (
 					// biome-ignore lint/a11y/useSemanticElements: div with role="list" used for custom divide-y styling incompatible with ul/li
 					<div
-						className="rounded-lg border border-border divide-y divide-border"
+						className="rounded-lg border border-border divide-y divide-border/50"
 						role="list"
 						aria-label="Recent runs"
 					>

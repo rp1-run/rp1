@@ -43,7 +43,7 @@ const SKELETON_KEYS = ["sk-a", "sk-b", "sk-c", "sk-d", "sk-e"];
 
 function LoadingSkeleton() {
 	return (
-		<div className="rounded-lg border border-border divide-y divide-border">
+		<div className="rounded-lg border border-border divide-y divide-border/50">
 			{SKELETON_KEYS.map((key) => (
 				<div key={key} className="animate-pulse bg-muted/20 py-3 px-3">
 					<div className="flex items-center gap-3">

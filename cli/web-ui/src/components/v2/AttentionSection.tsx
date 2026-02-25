@@ -208,7 +208,7 @@ export function AttentionSection({
 								/>
 							) : (
 								<motion.ul
-									className="divide-y divide-border"
+									className="divide-y divide-border/50"
 									variants={
 										reducedMotion ? staggerContainerReduced : staggerContainer
 									}
