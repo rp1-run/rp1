@@ -136,7 +136,6 @@ export function AttentionSection({
 		<section
 			className={cn(
 				"rounded-lg border border-border overflow-hidden transition-all duration-200",
-				accentBgColors[accentColor],
 				className,
 			)}
 			aria-labelledby={`section-${title.toLowerCase().replace(/\s+/g, "-")}`}
@@ -189,7 +188,7 @@ export function AttentionSection({
 					isExpanded ? "max-h-[2000px] opacity-100" : "max-h-0 opacity-0",
 				)}
 			>
-				<div className="p-4 pt-0 space-y-2">
+				<div>
 					{hasItems ? (
 						<>
 							{useVirtualization ? (
@@ -202,13 +201,13 @@ export function AttentionSection({
 									getItemKey={getRunKey}
 									onSelect={handleRunClick}
 									selectedIndex={selectedIndex}
-									className="h-[400px] rounded-lg"
-									itemClassName="px-1 py-0.5"
+									className="h-[400px]"
+									itemClassName=""
 									aria-label={`${title} runs`}
 								/>
 							) : (
 								<motion.ul
-									className="divide-y divide-border"
+									className="divide-y divide-border/50"
 									variants={
 										reducedMotion ? staggerContainerReduced : staggerContainer
 									}
@@ -234,7 +233,7 @@ export function AttentionSection({
 							)}
 
 							{hasMore && (
-								<div className="pt-2">
+								<div className="px-4 py-2">
 									{!showAll ? (
 										<button
 											type="button"
