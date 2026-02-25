@@ -2,7 +2,7 @@
 
 **Feature ID**: modern-ui-phase-3
 **Status**: In Progress
-**Progress**: 36% (4 of 11 tasks)
+**Progress**: 55% (6 of 11 tasks)
 **Estimated Effort**: 5 days
 **Started**: 2026-02-25
 
@@ -143,7 +143,14 @@ Phase 3 adds motion design and visual effects to the rp1 WebUI: framer-motion pa
     | Commit | ✅ PASS |
     | Comments | ✅ PASS |
 
-- [ ] **T4**: Add staggered entrance animations to AttentionSection run lists and ProjectsPage project grid `[complexity:medium]`
+- [x] **T4**: Add staggered entrance animations to AttentionSection run lists and ProjectsPage project grid `[complexity:medium]`
+
+    **Implementation Summary**:
+
+    - **Files**: `cli/web-ui/src/components/v2/AttentionSection.tsx`, `cli/web-ui/src/pages/v2/ProjectsPage.tsx`
+    - **Approach**: Wrapped non-virtualized ul/li in AttentionSection with motion.ul/motion.li using staggerContainer/staggerItem variants (40ms staggerChildren); wrapped project grid div and each ProjectCard in motion.div with same stagger variants; removed animate-in fade-in duration-200 CSS class from list items; virtualized list path unchanged; conditionally uses reduced-motion variants when usePrefersReducedMotion returns true
+    - **Deviations**: None
+    - **Tests**: N/A (animation wiring; no testable business logic)
 
     **Reference**: [design.md#32-modified-files](design.md#32-modified-files)
 
@@ -151,13 +158,13 @@ Phase 3 adds motion design and visual effects to the rp1 WebUI: framer-motion pa
 
     **Acceptance Criteria**:
 
-    - [ ] `cli/web-ui/src/components/v2/AttentionSection.tsx` wraps the non-virtualized `<ul>` with `<motion.ul>` using staggerContainer variants and each `<li>` with `<motion.li>` using staggerItem variants
-    - [ ] `cli/web-ui/src/pages/v2/ProjectsPage.tsx` wraps the project grid `<div>` with `<motion.div>` using staggerContainer variants and each ProjectCard in a `<motion.div>` with staggerItem variants
-    - [ ] Stagger delay is 40ms between children (staggerChildren: 0.04)
-    - [ ] Each item animates from opacity 0 + translateY 8px to opacity 1 + translateY 0
-    - [ ] Virtualized list path in AttentionSection remains unchanged (no stagger applied)
-    - [ ] Existing `animate-in fade-in duration-200` class on list items is removed (framer-motion handles entrance)
-    - [ ] When prefers-reduced-motion is active, staggerContainerReduced and staggerItemReduced are used (all items appear immediately)
+    - [x] `cli/web-ui/src/components/v2/AttentionSection.tsx` wraps the non-virtualized `<ul>` with `<motion.ul>` using staggerContainer variants and each `<li>` with `<motion.li>` using staggerItem variants
+    - [x] `cli/web-ui/src/pages/v2/ProjectsPage.tsx` wraps the project grid `<div>` with `<motion.div>` using staggerContainer variants and each ProjectCard in a `<motion.div>` with staggerItem variants
+    - [x] Stagger delay is 40ms between children (staggerChildren: 0.04)
+    - [x] Each item animates from opacity 0 + translateY 8px to opacity 1 + translateY 0
+    - [x] Virtualized list path in AttentionSection remains unchanged (no stagger applied)
+    - [x] Existing `animate-in fade-in duration-200` class on list items is removed (framer-motion handles entrance)
+    - [x] When prefers-reduced-motion is active, staggerContainerReduced and staggerItemReduced are used (all items appear immediately)
 
 - [x] **T5**: Add whileHover and whileTap micro-interactions to RunCard and ProjectCard using framer-motion `[complexity:medium]`
 
@@ -199,7 +206,14 @@ Phase 3 adds motion design and visual effects to the rp1 WebUI: framer-motion pa
     - [ ] When prefers-reduced-motion is active, palette appears and disappears instantly (no animation) but glass effect remains
     - [ ] Radix Dialog accessibility features (focus-trap, aria attributes, Escape to close) remain fully functional
 
-- [ ] **T8**: Replace spinning Loader2 icon on running status in StatusBadge with a glow-pulsing filled circle indicator `[complexity:simple]`
+- [x] **T8**: Replace spinning Loader2 icon on running status in StatusBadge with a glow-pulsing filled circle indicator `[complexity:simple]`
+
+    **Implementation Summary**:
+
+    - **Files**: `cli/web-ui/src/components/v2/StatusBadge.tsx`, `cli/web-ui/src/styles/globals.css`
+    - **Approach**: Removed Loader2 import; replaced `animate?: boolean` with `glowPulse?: boolean` in StatusConfig interface; changed running status config to use Circle icon with glowPulse: true; rendering conditionally shows a filled 8x8 dot with bg-status-running, rounded-full, animate-glow-pulse class, and --glow-color inline style when glowPulse is true; updated reduced-motion CSS override to include static box-shadow at prominent intensity
+    - **Deviations**: Added `box-shadow: 0 0 24px 4px var(--glow-color)` to the reduced-motion override in globals.css (not in original T1 CSS) to ensure static glow at prominent intensity when animation is disabled
+    - **Tests**: Biome lint passes; TypeScript type check passes (no new errors beyond pre-existing framer-motion module resolution)
 
     **Reference**: [design.md#32-modified-files](design.md#32-modified-files)
 
@@ -207,12 +221,12 @@ Phase 3 adds motion design and visual effects to the rp1 WebUI: framer-motion pa
 
     **Acceptance Criteria**:
 
-    - [ ] `cli/web-ui/src/components/v2/StatusBadge.tsx` no longer imports or renders Loader2 for the running status
-    - [ ] Running status renders a small filled circle (8x8px or matching icon size) with `bg-status-running rounded-full` styling
-    - [ ] The filled circle has `animate-glow-pulse` class and inline `--glow-color: hsl(var(--status-running) / 0.5)` style
-    - [ ] The status config replaces `animate: true` (spin trigger) with a `glowPulse: true` field
-    - [ ] Glow pulse cycles over 2 seconds, smoothly transitioning between subtle and prominent intensity
-    - [ ] With prefers-reduced-motion active, the glow is static at prominent intensity (no animation, CSS media query handles this)
+    - [x] `cli/web-ui/src/components/v2/StatusBadge.tsx` no longer imports or renders Loader2 for the running status
+    - [x] Running status renders a small filled circle (8x8px or matching icon size) with `bg-status-running rounded-full` styling
+    - [x] The filled circle has `animate-glow-pulse` class and inline `--glow-color: hsl(var(--status-running) / 0.5)` style
+    - [x] The status config replaces `animate: true` (spin trigger) with a `glowPulse: true` field
+    - [x] Glow pulse cycles over 2 seconds, smoothly transitioning between subtle and prominent intensity
+    - [x] With prefers-reduced-motion active, the glow is static at prominent intensity (no animation, CSS media query handles this)
 
 ### Dependent Enhancements
 
