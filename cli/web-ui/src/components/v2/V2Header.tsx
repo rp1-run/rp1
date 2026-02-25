@@ -1,5 +1,4 @@
 import { HelpCircle } from "lucide-react";
-import { ProjectSwitcher } from "@/components/ProjectSwitcher";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,8 +20,6 @@ export function V2Header({ wsStatus }: V2HeaderProps) {
 		<header className="flex h-12 shrink-0 items-center justify-between border-b px-4">
 			<div className="flex items-center gap-2">
 				<Logo wsStatus={wsStatus} />
-				<span className="text-muted-foreground">/</span>
-				<ProjectSwitcher />
 			</div>
 			<div className="flex items-center gap-2">
 				<ThemeToggle />
