@@ -494,4 +494,74 @@
     clip: auto;
     white-space: normal;
   }
+
+  /* Glassmorphic utility */
+  .glass {
+    backdrop-filter: blur(12px) saturate(140%);
+    -webkit-backdrop-filter: blur(12px) saturate(140%);
+    background-color: hsl(var(--bg-surface) / 0.6);
+    border: 1px solid hsl(var(--border-subtle));
+  }
+
+  /* Glow accent utilities */
+  .glow-primary {
+    box-shadow: 0 0 16px 2px hsl(var(--glow-primary));
+  }
+
+  .glow-success {
+    box-shadow: 0 0 16px 2px hsl(var(--glow-success));
+  }
+
+  .glow-info {
+    box-shadow: 0 0 16px 2px hsl(var(--glow-info));
+  }
+
+  /* Grain texture utility */
+  .grain {
+    position: relative;
+  }
+
+  .grain::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.04;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    z-index: 1;
+  }
+
+  /* Tabular numbers for numerical alignment */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Annotation color utilities */
+  .text-annotation-open {
+    color: hsl(var(--annotation-open));
+  }
+
+  .bg-annotation-open {
+    background-color: hsl(var(--annotation-open));
+  }
+
+  /* Status warning utilities */
+  .text-status-warning {
+    color: hsl(var(--status-warning));
+  }
+
+  .bg-status-warning {
+    background-color: hsl(var(--status-warning));
+  }
+
+  /* Terminal yellow background utility */
+  .bg-terminal-yellow {
+    background-color: hsl(var(--bg-terminal-yellow));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grain::after {
+    display: none;
+  }
 }
