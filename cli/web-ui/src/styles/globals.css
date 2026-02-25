@@ -558,10 +558,78 @@
   .bg-terminal-yellow {
     background-color: hsl(var(--bg-terminal-yellow));
   }
+
+  /* Status glow utilities -- box-shadow variants per status */
+  .glow-status-running {
+    box-shadow: 0 0 16px 2px hsl(var(--status-running) / 0.3);
+  }
+
+  .glow-status-failed {
+    box-shadow: 0 0 16px 2px hsl(var(--status-failed) / 0.3);
+  }
+
+  .glow-status-completed {
+    box-shadow: 0 0 16px 2px hsl(var(--status-completed) / 0.3);
+  }
+
+  .glow-status-waiting {
+    box-shadow: 0 0 16px 2px hsl(var(--status-waiting) / 0.3);
+  }
+
+  .glow-status-needs-review {
+    box-shadow: 0 0 16px 2px hsl(var(--status-needs-review) / 0.3);
+  }
+
+  .glow-status-queued {
+    box-shadow: 0 0 16px 2px hsl(var(--status-queued) / 0.15);
+  }
+
+  /* Glow pulse keyframes -- uses CSS custom property --glow-color set inline */
+  @keyframes glow-pulse {
+    0%, 100% {
+      box-shadow: 0 0 8px 1px var(--glow-color);
+    }
+    50% {
+      box-shadow: 0 0 24px 4px var(--glow-color);
+    }
+  }
+
+  .animate-glow-pulse {
+    animation: glow-pulse 2s ease-in-out infinite;
+  }
+
+  /* Border color utilities for status accent bars */
+  .border-l-status-running {
+    border-left-color: hsl(var(--status-running));
+  }
+
+  .border-l-status-failed {
+    border-left-color: hsl(var(--status-failed));
+  }
+
+  .border-l-status-completed {
+    border-left-color: hsl(var(--status-completed));
+  }
+
+  .border-l-status-waiting {
+    border-left-color: hsl(var(--status-waiting));
+  }
+
+  .border-l-status-needs-review {
+    border-left-color: hsl(var(--status-needs-review));
+  }
+
+  .border-l-status-queued {
+    border-left-color: hsl(var(--status-queued));
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .grain::after {
     display: none;
+  }
+
+  .animate-glow-pulse {
+    animation: none;
   }
 }
