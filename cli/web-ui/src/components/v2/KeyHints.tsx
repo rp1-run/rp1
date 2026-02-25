@@ -9,7 +9,7 @@ function Kbd({ children }: { children: React.ReactNode }) {
 }
 
 interface KeyHintsProps {
-	hints: ReadonlyArray<{ keys: string[]; label: string }>;
+	hints: ReadonlyArray<{ keys: readonly string[]; label: string }>;
 	className?: string;
 }
 
