@@ -404,7 +404,6 @@ export function CodeBlock({
 			});
 		}
 
-		// Clear selection after handling
 		selectAnnotation(null);
 	}, [selectedAnnotationId, annotations, enableAnnotations, selectAnnotation]);
 
