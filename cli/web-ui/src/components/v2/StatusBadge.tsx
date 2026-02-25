@@ -1,14 +1,5 @@
 import { cva, type VariantProps } from "class-variance-authority";
-import {
-	Check,
-	Circle,
-	Clock,
-	Eye,
-	Hand,
-	Loader2,
-	MinusCircle,
-	X,
-} from "lucide-react";
+import { Check, Circle, Clock, Eye, Hand, MinusCircle, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { RunStatus, StepStatus } from "@/types/runs";
 
@@ -41,7 +32,7 @@ interface StatusConfig {
 	label: string;
 	colorClass: string;
 	bgClass: string;
-	animate?: boolean;
+	glowPulse?: boolean;
 }
 
 const statusConfigs: Record<Status, StatusConfig> = {
@@ -53,11 +44,11 @@ const statusConfigs: Record<Status, StatusConfig> = {
 		bgClass: "bg-status-queued/15",
 	},
 	running: {
-		icon: Loader2,
+		icon: Circle,
 		label: "Running",
 		colorClass: "text-status-running",
 		bgClass: "bg-status-running/15",
-		animate: true,
+		glowPulse: true,
 	},
 	"waiting-input": {
 		icon: Hand,
@@ -127,10 +118,23 @@ export function StatusBadge({
 			role="status"
 			aria-label={config.label}
 		>
-			<Icon
-				className={cn(iconSize, config.animate && "animate-spin")}
-				aria-hidden="true"
-			/>
+			{config.glowPulse ? (
+				<span
+					className={cn("flex items-center justify-center", iconSize)}
+					aria-hidden="true"
+				>
+					<span
+						className="h-2 w-2 rounded-full bg-status-running animate-glow-pulse"
+						style={
+							{
+								"--glow-color": "hsl(var(--status-running) / 0.5)",
+							} as React.CSSProperties
+						}
+					/>
+				</span>
+			) : (
+				<Icon className={cn(iconSize)} aria-hidden="true" />
+			)}
 			{showLabel && <span>{config.label}</span>}
 		</span>
 	);

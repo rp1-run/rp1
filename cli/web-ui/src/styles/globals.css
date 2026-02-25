@@ -631,5 +631,6 @@
 
   .animate-glow-pulse {
     animation: none;
+    box-shadow: 0 0 24px 4px var(--glow-color);
   }
 }
