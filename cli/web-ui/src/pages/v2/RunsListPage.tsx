@@ -18,6 +18,7 @@ import {
 	useKeyboardNav,
 } from "@/hooks/useKeyboardNav";
 import { useRuns } from "@/hooks/useRuns";
+import { isTextInputElement } from "@/lib/keyboard";
 import { cn } from "@/lib/utils";
 import type { Run, RunStatus, RunsFilter } from "@/types/runs";
 
@@ -252,13 +253,9 @@ export function RunsListPage() {
 		if (runs.length === 0) return;
 
 		const handleKeyDown = (e: KeyboardEvent) => {
-			const target = e.target as HTMLElement;
-			const isTextInput =
-				target.tagName === "INPUT" ||
-				target.tagName === "TEXTAREA" ||
-				target.isContentEditable;
+			if (document.querySelector('[role="dialog"][data-state="open"]')) return;
 
-			if (isTextInput) return;
+			if (isTextInputElement(e.target as Element)) return;
 
 			switch (e.key) {
 				case "j":
@@ -298,6 +295,22 @@ export function RunsListPage() {
 		document.addEventListener("keydown", handleKeyDown);
 		return () => document.removeEventListener("keydown", handleKeyDown);
 	}, [runs, selectedIndex, setSelectedIndex, handleDrillIn, handleDrillOut]);
+
+	useEffect(() => {
+		const handleRefresh = () => {
+			refetch();
+		};
+		window.addEventListener("rp1:refresh", handleRefresh);
+		return () => window.removeEventListener("rp1:refresh", handleRefresh);
+	}, [refetch]);
+
+	// TODO: Focus FilterBar search input once it gains a text input field
+	useEffect(() => {
+		const handleFocusSearch = () => {};
+		window.addEventListener("rp1:focus-search", handleFocusSearch);
+		return () =>
+			window.removeEventListener("rp1:focus-search", handleFocusSearch);
+	}, []);
 
 	const renderRunItem = useCallback(
 		(run: Run, _index: number, isSelected: boolean) => (
