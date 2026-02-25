@@ -2,7 +2,7 @@
 
 **Feature ID**: modern-ui-phase-3
 **Status**: In Progress
-**Progress**: 54% (6 of 11 tasks)
+**Progress**: 72% (8 of 11 tasks)
 **Estimated Effort**: 5 days
 **Started**: 2026-02-25
 
@@ -274,7 +274,7 @@ Phase 3 adds motion design and visual effects to the rp1 WebUI: framer-motion pa
 
 ### Dependent Enhancements
 
-- [x] **T7**: Add status-colored left accent bar to RunCard with glow effect on hover and selected states `[complexity:medium]`
+- [ ] **T7**: Add status-colored left accent bar to RunCard with glow effect on hover and selected states `[complexity:medium]`
 
     **Implementation Summary**:
 
@@ -282,6 +282,13 @@ Phase 3 adds motion design and visual effects to the rp1 WebUI: framer-motion pa
     - **Approach**: Imported statusBorderColors and statusGlowColors from status-colors.ts; always apply border-l-[3px] with status-colored border class from statusBorderColors mapping; removed old border-l-2 border-l-primary selected state; extended whileHover config to include left-offset box-shadow glow (-4px 0 12px -2px) using statusGlowColors; on selected state, applied max-intensity glow (-4px 0 16px 0px) at 0.6 opacity via inline style; when both selected and hovered, whileHover maintains max-intensity glow to avoid visual regression
     - **Deviations**: None
     - **Tests**: Biome lint/format passes; TypeScript type check has pre-existing framer-motion module resolution error (VPN install issue from T1)
+
+    **Review Feedback** (Attempt 1):
+    - **Status**: FAILURE
+    - **Issues**:
+      - [discipline] T7 commit (eaaead3) includes `cli/web-ui/src/components/v2/ProjectCard.tsx` which belongs to T9 scope (glassmorphic hover). T7 implementation summary only claims RunCard.tsx. The ProjectCard.tsx diff shows T9 changes: backdrop-blur-[0px], hover:bg-[hsl(var(--bg-surface)_/_0.6)], hover:backdrop-blur-[8px], hover:border-[hsl(var(--border-glow))].
+      - [commit] Commit eaaead3 is not atomic for T7 -- it bundles T9 code changes (ProjectCard.tsx glassmorphic hover). There is no separate T9 commit in the git history. The T9 task is marked as needing a separate commit but its code lives in this T7 commit.
+    - **Guidance**: Fix the commit history so T7's commit only contains T7-scoped files (RunCard.tsx, tasks.md). Move ProjectCard.tsx changes to a separate T9 commit. Steps: (1) `git reset --soft HEAD~1` to undo the T7 commit, (2) stage and commit only T7 files: `git add cli/web-ui/src/components/v2/RunCard.tsx .rp1/work/features/modern-ui-phase-3/tasks.md` with message `feat(modern-ui-phase-3): implement T7 - add status-colored accent bar to RunCard`, (3) stage and commit T9 files: `git add cli/web-ui/src/components/v2/ProjectCard.tsx .rp1/work/features/modern-ui-phase-3/tasks.md` with message `feat(modern-ui-phase-3): implement T9 - add glassmorphic hover to ProjectCard`. The T7 code implementation itself is correct -- only the commit atomicity needs fixing.
 
     **Reference**: [design.md#32-modified-files](design.md#32-modified-files), [design.md#33-status-color-mapping-utility](design.md#33-status-color-mapping-utility)
 
@@ -296,7 +303,7 @@ Phase 3 adds motion design and visual effects to the rp1 WebUI: framer-motion pa
     - [x] On selected state (keyboard navigation or click), the accent bar glow is at maximum intensity
     - [x] Accent bars are always visible on all RunCards (not only on selected state)
 
-- [x] **T9**: Add glassmorphic background transition on hover to ProjectCard, layered on top of framer-motion whileHover `[complexity:simple]`
+- [ ] **T9**: Add glassmorphic background transition on hover to ProjectCard, layered on top of framer-motion whileHover `[complexity:simple]`
 
     **Implementation Summary**:
 
@@ -304,6 +311,12 @@ Phase 3 adds motion design and visual effects to the rp1 WebUI: framer-motion pa
     - **Approach**: Replaced transition-colors + hover:bg-muted/40 with glassmorphic CSS transitions; added backdrop-blur-[0px] base state for smooth interpolation; on hover transitions to semi-transparent bg-surface/0.6, backdrop-blur 8px, and border-glow via CSS transition-property list (background-color, border-color, backdrop-filter) at 200ms ease-out; framer-motion whileHover scale/translate from T5 remains unchanged and handles transform independently; uses --bg-surface and --border-glow CSS variables that are themed for both dark and light modes
     - **Deviations**: None
     - **Tests**: Biome lint passes (pre-existing warnings only); TypeScript has pre-existing framer-motion module resolution error (VPN install issue from T1)
+
+    **Review Feedback** (Attempt 1):
+    - **Status**: FAILURE
+    - **Issues**:
+      - [commit] No separate T9 commit exists. The T9 code changes to `ProjectCard.tsx` (glassmorphic hover) were bundled into the T7 commit (eaaead3, "feat(modern-ui-phase-3): implement T7 - add status-colored accent bar to RunCard"). T9 requires its own atomic commit.
+    - **Guidance**: Create a separate T9 commit. The code implementation itself is correct and complete -- only the commit is missing. Steps: (1) `git reset --soft HEAD~1` to undo the T7 commit, (2) stage and commit only T7-scoped files: `RunCard.tsx` and `tasks.md` with message `feat(modern-ui-phase-3): implement T7 - add status-colored accent bar to RunCard`, (3) stage and commit T9-scoped files: `ProjectCard.tsx` and `tasks.md` with message `feat(modern-ui-phase-3): implement T9 - add glassmorphic hover to ProjectCard`.
 
     **Reference**: [design.md#32-modified-files](design.md#32-modified-files)
 
@@ -320,7 +333,14 @@ Phase 3 adds motion design and visual effects to the rp1 WebUI: framer-motion pa
 
 ### User Docs
 
-- [ ] **TD1**: Update modules.md - Web UI components `[complexity:simple]`
+- [x] **TD1**: Update modules.md - Web UI components `[complexity:simple]`
+
+    **Implementation Summary**:
+
+    - **Files**: `.rp1/context/modules.md`
+    - **Approach**: Added 11 new entries to the cli/web-ui/ component table: 3 new infrastructure modules (motion-config.ts, status-colors.ts, usePrefersReducedMotion.ts), 1 new component (StatusGlow.tsx), and 7 modified components (V2Layout, RunCard, ProjectCard, StatusBadge, AttentionSection, CommandPalette, ShortcutHelpOverlay) with updated purpose descriptions reflecting Phase 3 changes
+    - **Deviations**: None
+    - **Tests**: N/A (documentation)
 
     **Reference**: [design.md#documentation-impact](design.md#documentation-impact)
 
@@ -336,10 +356,17 @@ Phase 3 adds motion design and visual effects to the rp1 WebUI: framer-motion pa
 
     **Acceptance Criteria**:
 
-    - [ ] Section reflects the new StatusGlow component and updated component list (modified RunCard, ProjectCard, StatusBadge, AttentionSection, CommandPalette, ShortcutHelpOverlay, V2Layout)
-    - [ ] New motion-config.ts, usePrefersReducedMotion.ts, and status-colors.ts modules are documented
+    - [x] Section reflects the new StatusGlow component and updated component list (modified RunCard, ProjectCard, StatusBadge, AttentionSection, CommandPalette, ShortcutHelpOverlay, V2Layout)
+    - [x] New motion-config.ts, usePrefersReducedMotion.ts, and status-colors.ts modules are documented
 
-- [ ] **TD2**: Update patterns.md - Frontend patterns `[complexity:simple]`
+- [x] **TD2**: Update patterns.md - Frontend patterns `[complexity:simple]`
+
+    **Implementation Summary**:
+
+    - **Files**: `.rp1/context/patterns.md`
+    - **Approach**: Added two new pattern sections: "Motion & Animation (Web UI)" documenting centralized variants, reduced-motion hook, conditional variant selection, CSS glow pulse, and status color mapping; "Framer-Motion + Radix Dialog Integration" documenting the forceMount + AnimatePresence pattern with glass effect approach. Updated Last Updated date to 2026-02-25.
+    - **Deviations**: None
+    - **Tests**: N/A (documentation)
 
     **Reference**: [design.md#documentation-impact](design.md#documentation-impact)
 
@@ -355,8 +382,8 @@ Phase 3 adds motion design and visual effects to the rp1 WebUI: framer-motion pa
 
     **Acceptance Criteria**:
 
-    - [ ] Section documents the motion/animation pattern: centralized variants in motion-config.ts, reduced-motion hook usage, conditional variant selection pattern
-    - [ ] Pattern for framer-motion integration with Radix Dialog (Option B: forceMount + AnimatePresence) is documented
+    - [x] Section documents the motion/animation pattern: centralized variants in motion-config.ts, reduced-motion hook usage, conditional variant selection pattern
+    - [x] Pattern for framer-motion integration with Radix Dialog (Option B: forceMount + AnimatePresence) is documented
 
 ## Acceptance Criteria Checklist
 

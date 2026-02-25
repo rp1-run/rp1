@@ -96,3 +96,62 @@ Evidence: plugins/base/agents/kb-spatial-analyzer.md, plugins/dev/skills/build/S
 **Lazy Loading**: Agent-tools module lazily loaded only when `agent-tools` subcommand invoked to avoid puppeteer at startup
 
 Evidence: cli/src/agent-tools/index.ts, cli/src/agent-tools/models.ts
+
+## Builder-Reviewer Loop
+
+**Builder**: task-builder implements with full context; writes implementation summary to tasks.md
+**Reviewer**: task-reviewer verifies 7 dimensions: discipline, accuracy, completeness, quality, testing, commit, comments
+**Output**: Explicit SUCCESS or FAILURE JSON with confidence score (0-100) and actionable feedback
+**Retry**: On failure, builder retries with reviewer feedback; max 3 attempts
+
+Evidence: `plugins/dev/agents/task-builder.md`, `plugins/dev/agents/task-reviewer.md`
+
+## Stateless Agent Pattern
+
+**Purpose**: Enable resumable, transparent interview workflows by externalizing state to scratch pad
+**Response Types**: next_question | success | skip | error - agent returns JSON, caller handles user interaction
+**Scratch Pad**: File-based state with Q&A format; removed on success, preserved on error
+
+Evidence: `docs/concepts/stateless-agents.md`, `plugins/dev/agents/charter-interviewer.md`
+
+## Content-Addressable Hashing
+
+**Algorithm**: SHA-256 with sha256: prefix convention for all content hashes
+**Frontmatter Handling**: Strip YAML frontmatter before hashing so metadata changes don't invalidate
+**Deps Hash**: Combined hash from lexicographically sorted file hashes joined with pipe separator
+
+Evidence: `evals/src/attestation/prompt-hash.ts`, `evals/src/attestation/deps-graph.ts`
+
+## Two-Phase Eval Workflow
+
+**Phase 1 (Execution)**: Run promptfoo externally via Just recipe; outputs to fixed JSON file per suite
+**Phase 2 (Attestation)**: Read output, validate 100% pass, update attestation manifest (no process spawning)
+**Rationale**: Prevents fork-bomb behavior when attestCommand runs with concurrency > 1
+
+Evidence: `Justfile`, `evals/src/attestation/commands.ts`
+
+## Motion & Animation (Web UI)
+
+**Centralized Variants**: All framer-motion variant definitions live in `motion-config.ts` (page, stagger, card, overlay). Components import variants rather than defining inline.
+**Reduced-Motion Hook**: `usePrefersReducedMotion()` wraps `useMediaQuery("(prefers-reduced-motion: reduce)")`. Decoupled from framer-motion; returns boolean.
+**Conditional Variant Selection**: Components select between animated and reduced variants based on the hook: `reducedMotion ? pageVariantsReduced : pageVariants`. Reduced variants set zero duration and final-state values.
+**CSS Glow Pulse**: Status glow animations use CSS `@keyframes glow-pulse` with `--glow-color` custom property for GPU-composited box-shadow cycling. `@media (prefers-reduced-motion: reduce)` disables animation with static fallback.
+**Status Color Mapping**: `status-colors.ts` provides `statusBorderColors` and `statusGlowColors` Record<RunStatus, string> for consistent status-to-visual mapping across components.
+
+Evidence: `cli/web-ui/src/lib/motion-config.ts`, `cli/web-ui/src/hooks/usePrefersReducedMotion.ts`, `cli/web-ui/src/lib/status-colors.ts`
+
+## Framer-Motion + Radix Dialog Integration
+
+**Pattern**: Keep Radix Dialog for accessibility (focus-trap, aria, Escape-to-close). Override built-in CSS animations with framer-motion via `forceMount` on Portal/Overlay/Content + `AnimatePresence` wrapping.
+**Implementation**: Custom `AnimatedCommandDialog` composes Radix Dialog primitives directly with `motion.div` wrappers. Backdrop uses `overlayBackdropVariants` (150ms fade); panel uses `overlayPanelVariants` (scale 0.95->1.0 + opacity). Results list uses `staggerContainer`/`staggerItem` with `delayChildren` after panel animation.
+**Glass Effect**: Applied via `.glass` CSS utility class on dialog surfaces. Combined with framer-motion scale animation using flexbox centering (not translate-based) to avoid transform conflicts.
+
+Evidence: `cli/web-ui/src/components/v2/CommandPalette.tsx`, `cli/web-ui/src/components/v2/ShortcutHelpOverlay.tsx`
+
+## Terse Prompt Authoring
+
+**Structure-First**: Sections over prose; tables for decision matrices
+**Compression-by-Default**: Every word must earn its place
+**Safe Abbreviations**: req, impl, cfg, ctx, msg, fn, var, auth, config, env, ref, src
+
+Evidence: `plugins/utils/skills/prompt-writer/SKILL.md`
