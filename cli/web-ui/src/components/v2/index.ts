@@ -19,6 +19,10 @@ export {
 	AttentionSection,
 	type AttentionSectionProps,
 } from "./AttentionSection";
+export {
+	CommandPalette,
+	type CommandPaletteProps,
+} from "./CommandPalette";
 export { EventStream, type EventStreamProps } from "./EventStream";
 export { FilterBar, type FilterBarProps } from "./FilterBar";
 export {
