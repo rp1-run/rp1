@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { ChevronDown, ChevronRight, type LucideIcon } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
 	type VirtualizedListRef as KeyboardNavListRef,
@@ -64,6 +64,20 @@ export function AttentionSection({
 		defaultExpanded && runs.length > 0,
 	);
 	const [showAll, setShowAll] = useState(false);
+
+	// Auto-expand when data arrives (handles async loading)
+	useEffect(() => {
+		if (runs.length > 0 && defaultExpanded) {
+			setIsExpanded(true);
+		}
+	}, [runs.length, defaultExpanded]);
+
+	// Auto-expand when keyboard navigation enters this section
+	useEffect(() => {
+		if (externalSelectedIndex != null && externalSelectedIndex >= 0) {
+			setIsExpanded(true);
+		}
+	}, [externalSelectedIndex]);
 	const navigate = useNavigate();
 	const virtualizedListRef = useRef<VirtualizedListRef>(null);
 	const reducedMotion = usePrefersReducedMotion();

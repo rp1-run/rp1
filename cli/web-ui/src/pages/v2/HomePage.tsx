@@ -94,6 +94,8 @@ export function HomePage() {
 		if (allRuns.length === 0) return;
 
 		const handleKeyDown = (event: KeyboardEvent) => {
+			if (document.querySelector('[role="dialog"][data-state="open"]')) return;
+
 			const target = event.target as HTMLElement;
 			const isTextInput =
 				target.tagName === "INPUT" ||
@@ -231,7 +233,7 @@ export function HomePage() {
 								title="Running"
 								icon={Loader2}
 								runs={data.running}
-								defaultExpanded={false}
+								defaultExpanded={true}
 								accentColor="blue"
 								emptyMessage="No runs currently active"
 								selectedIndex={getSelectionForSection(
