@@ -143,7 +143,7 @@ export function ShortcutHelpOverlay({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-w-md gap-6">
+			<DialogContent className="max-w-md gap-6 glass">
 				<DialogHeader>
 					<DialogTitle>Keyboard Shortcuts</DialogTitle>
 				</DialogHeader>

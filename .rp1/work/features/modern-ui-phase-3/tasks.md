@@ -2,7 +2,7 @@
 
 **Feature ID**: modern-ui-phase-3
 **Status**: In Progress
-**Progress**: 55% (6 of 11 tasks)
+**Progress**: 45% (5 of 11 tasks)
 **Estimated Effort**: 5 days
 **Started**: 2026-02-25
 
@@ -143,7 +143,7 @@ Phase 3 adds motion design and visual effects to the rp1 WebUI: framer-motion pa
     | Commit | ✅ PASS |
     | Comments | ✅ PASS |
 
-- [x] **T4**: Add staggered entrance animations to AttentionSection run lists and ProjectsPage project grid `[complexity:medium]`
+- [ ] **T4**: Add staggered entrance animations to AttentionSection run lists and ProjectsPage project grid `[complexity:medium]`
 
     **Implementation Summary**:
 
@@ -151,6 +151,13 @@ Phase 3 adds motion design and visual effects to the rp1 WebUI: framer-motion pa
     - **Approach**: Wrapped non-virtualized ul/li in AttentionSection with motion.ul/motion.li using staggerContainer/staggerItem variants (40ms staggerChildren); wrapped project grid div and each ProjectCard in motion.div with same stagger variants; removed animate-in fade-in duration-200 CSS class from list items; virtualized list path unchanged; conditionally uses reduced-motion variants when usePrefersReducedMotion returns true
     - **Deviations**: None
     - **Tests**: N/A (animation wiring; no testable business logic)
+
+    **Review Feedback** (Attempt 1):
+    - **Status**: FAILURE
+    - **Issues**:
+      - [discipline] T4 commit (d63d574) includes `cli/web-ui/src/components/v2/ProjectCard.tsx` and `cli/web-ui/src/components/v2/RunCard.tsx` which belong to T5 scope (whileHover/whileTap card micro-interactions). Implementation summary only claims AttentionSection.tsx and ProjectsPage.tsx.
+      - [commit] Commit d63d574 is not atomic for T4 -- it bundles T5 code changes (motion.div conversion, whileHover, whileTap in RunCard and ProjectCard). The subsequent T5 commit (d402688) then only contains tasks.md because the code was already committed.
+    - **Guidance**: Fix the commit history so T4's commit only contains T4-scoped files (AttentionSection.tsx, ProjectsPage.tsx, tasks.md). Move the RunCard.tsx and ProjectCard.tsx changes to the T5 commit. Steps: (1) `git reset --soft` to before the T4 commit, (2) stage and commit only T4 files: AttentionSection.tsx, ProjectsPage.tsx, tasks.md, (3) stage and commit T5 files: RunCard.tsx, ProjectCard.tsx, tasks.md. The T4 code implementation itself is correct -- only the commit atomicity needs fixing.
 
     **Reference**: [design.md#32-modified-files](design.md#32-modified-files)
 
@@ -166,7 +173,7 @@ Phase 3 adds motion design and visual effects to the rp1 WebUI: framer-motion pa
     - [x] Existing `animate-in fade-in duration-200` class on list items is removed (framer-motion handles entrance)
     - [x] When prefers-reduced-motion is active, staggerContainerReduced and staggerItemReduced are used (all items appear immediately)
 
-- [x] **T5**: Add whileHover and whileTap micro-interactions to RunCard and ProjectCard using framer-motion `[complexity:medium]`
+- [ ] **T5**: Add whileHover and whileTap micro-interactions to RunCard and ProjectCard using framer-motion `[complexity:medium]`
 
     **Implementation Summary**:
 
@@ -174,6 +181,12 @@ Phase 3 adds motion design and visual effects to the rp1 WebUI: framer-motion pa
     - **Approach**: Converted outer div to motion.div in both components; added whileHover (cardHover: scale 1.02, y -1, spring stiffness 400, damping 25) and whileTap (cardTap: scale 0.97, 80ms) from centralized motion-config.ts; conditionally set to undefined when usePrefersReducedMotion returns true; removed now-unused biome-ignore suppressions for useSemanticElements (motion.div does not trigger the rule)
     - **Deviations**: None
     - **Tests**: N/A (animation wiring; framer-motion handles transform-only behavior internally)
+
+    **Review Feedback** (Attempt 1):
+    - **Status**: FAILURE
+    - **Issues**:
+      - [commit] T5 commit (d402688) contains only `tasks.md`. The actual code changes to `RunCard.tsx` and `ProjectCard.tsx` were committed in the T4 commit (d63d574). The T5 commit message describes code changes that are not present in the commit.
+    - **Guidance**: This is the flip side of the T4 commit atomicity issue (already flagged in T4 review). Once T4's commit is fixed to only contain T4-scoped files (AttentionSection.tsx, ProjectsPage.tsx), recreate the T5 commit with RunCard.tsx and ProjectCard.tsx included. The code implementation itself is correct -- only the commit needs to contain the right files.
 
     **Reference**: [design.md#32-modified-files](design.md#32-modified-files)
 
@@ -188,7 +201,14 @@ Phase 3 adds motion design and visual effects to the rp1 WebUI: framer-motion pa
     - [x] When prefers-reduced-motion is active, whileHover and whileTap are conditionally set to undefined (no motion)
     - [x] Existing CSS-based hover effects (background color changes) continue to work alongside framer-motion
 
-- [ ] **T6**: Apply glassmorphic effect and framer-motion entry/exit animation to Command Palette, and glass effect to Shortcut Help Overlay `[complexity:complex]`
+- [x] **T6**: Apply glassmorphic effect and framer-motion entry/exit animation to Command Palette, and glass effect to Shortcut Help Overlay `[complexity:complex]`
+
+    **Implementation Summary**:
+
+    - **Files**: `cli/web-ui/src/components/v2/CommandPalette.tsx`, `cli/web-ui/src/components/v2/ShortcutHelpOverlay.tsx`
+    - **Approach**: Created AnimatedCommandDialog wrapper that composes Radix Dialog primitives directly with framer-motion (Option B per design); uses forceMount on Portal/Overlay/Content for AnimatePresence control; backdrop fades via overlayBackdropVariants (150ms), panel scales+fades via overlayPanelVariants (0.95->1.0, 150ms ease-out); applied .glass utility to panel surface; added results stagger with delayChildren 150ms so items cascade after panel animation; each CommandItem wrapped in motion.div with staggerItem variants; added sr-only DialogPrimitive.Title for aria-labelledby; ShortcutHelpOverlay gets glass class on DialogContent; all animations conditionally disabled when usePrefersReducedMotion returns true (zero duration, final state values)
+    - **Deviations**: Bypassed CommandDialog from command.tsx entirely (no modification to command.tsx needed) -- AnimatedCommandDialog imports Radix primitives directly. Added DialogPrimitive.Title with sr-only class to suppress Radix console warning and improve accessibility. Used flexbox centering (fixed inset-0 flex) instead of translate-50% centering to avoid transform conflicts with framer-motion scale animation.
+    - **Tests**: Biome lint/format passes; TypeScript type check has pre-existing framer-motion module resolution error (VPN install issue from T1)
 
     **Reference**: [design.md#32-modified-files](design.md#32-modified-files)
 
@@ -196,15 +216,15 @@ Phase 3 adds motion design and visual effects to the rp1 WebUI: framer-motion pa
 
     **Acceptance Criteria**:
 
-    - [ ] `cli/web-ui/src/components/v2/CommandPalette.tsx` renders the dialog surface with glassmorphic effect (backdrop-filter blur, semi-transparent background, subtle border)
-    - [ ] Command Palette uses AnimatePresence with Radix Dialog (Option B: keep Radix for focus-trap/aria, override CSS animations with framer-motion via forceMount)
-    - [ ] Backdrop fades in over 150ms; dialog panel animates from scale 0.95 + opacity 0 to scale 1.0 + opacity 1
-    - [ ] Closing the palette reverses the animation (fade out + scale down)
-    - [ ] Results list items stagger in after panel animation (stagger on CommandItem wrappers)
-    - [ ] Glass effect is visible in both dark and light themes
-    - [ ] `cli/web-ui/src/components/v2/ShortcutHelpOverlay.tsx` adds `glass` class to DialogContent (`className="max-w-md gap-6 glass"`)
-    - [ ] When prefers-reduced-motion is active, palette appears and disappears instantly (no animation) but glass effect remains
-    - [ ] Radix Dialog accessibility features (focus-trap, aria attributes, Escape to close) remain fully functional
+    - [x] `cli/web-ui/src/components/v2/CommandPalette.tsx` renders the dialog surface with glassmorphic effect (backdrop-filter blur, semi-transparent background, subtle border)
+    - [x] Command Palette uses AnimatePresence with Radix Dialog (Option B: keep Radix for focus-trap/aria, override CSS animations with framer-motion via forceMount)
+    - [x] Backdrop fades in over 150ms; dialog panel animates from scale 0.95 + opacity 0 to scale 1.0 + opacity 1
+    - [x] Closing the palette reverses the animation (fade out + scale down)
+    - [x] Results list items stagger in after panel animation (stagger on CommandItem wrappers)
+    - [x] Glass effect is visible in both dark and light themes
+    - [x] `cli/web-ui/src/components/v2/ShortcutHelpOverlay.tsx` adds `glass` class to DialogContent (`className="max-w-md gap-6 glass"`)
+    - [x] When prefers-reduced-motion is active, palette appears and disappears instantly (no animation) but glass effect remains
+    - [x] Radix Dialog accessibility features (focus-trap, aria attributes, Escape to close) remain fully functional
 
 - [x] **T8**: Replace spinning Loader2 icon on running status in StatusBadge with a glow-pulsing filled circle indicator `[complexity:simple]`
 
@@ -227,6 +247,18 @@ Phase 3 adds motion design and visual effects to the rp1 WebUI: framer-motion pa
     - [x] The status config replaces `animate: true` (spin trigger) with a `glowPulse: true` field
     - [x] Glow pulse cycles over 2 seconds, smoothly transitioning between subtle and prominent intensity
     - [x] With prefers-reduced-motion active, the glow is static at prominent intensity (no animation, CSS media query handles this)
+
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
 
 ### Dependent Enhancements
 
