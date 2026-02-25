@@ -6,6 +6,7 @@ const config: Config = {
 	theme: {
 		extend: {
 			fontFamily: {
+				sans: ["Geist Sans", "system-ui", "sans-serif"],
 				mono: ["JetBrains Mono", "monospace"],
 			},
 			colors: {
@@ -55,6 +56,12 @@ const config: Config = {
 					completed: "hsl(var(--status-completed))",
 					failed: "hsl(var(--status-failed))",
 					"needs-review": "hsl(var(--status-needs-review))",
+				},
+				surface: {
+					void: "hsl(var(--bg-void))",
+					base: "hsl(var(--bg-base))",
+					DEFAULT: "hsl(var(--bg-surface))",
+					elevated: "hsl(var(--bg-elevated))",
 				},
 			},
 			borderRadius: {
