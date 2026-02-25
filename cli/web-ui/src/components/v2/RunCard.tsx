@@ -1,6 +1,8 @@
 import { motion } from "framer-motion";
+import type React from "react";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { cardHover, cardTap } from "@/lib/motion-config";
+import { statusBorderColors, statusGlowColors } from "@/lib/status-colors";
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { Run } from "@/types/runs";
@@ -23,6 +25,23 @@ export function RunCard({
 }: RunCardProps) {
 	const reducedMotion = usePrefersReducedMotion();
 
+	const borderColorClass = statusBorderColors[run.status];
+	const glowColor = statusGlowColors[run.status];
+	const selectedGlowColor = glowColor.replace(/\/ [\d.]+\)$/, "/ 0.6)");
+
+	const hoverWithGlow = reducedMotion
+		? undefined
+		: {
+				...cardHover,
+				boxShadow: selected
+					? `-4px 0 16px 0px ${selectedGlowColor}`
+					: `-4px 0 12px -2px ${glowColor}`,
+			};
+
+	const accentStyle: React.CSSProperties | undefined = selected
+		? { boxShadow: `-4px 0 16px 0px ${selectedGlowColor}` }
+		: undefined;
+
 	const handleKeyDown = (event: React.KeyboardEvent) => {
 		if (onClick && (event.key === "Enter" || event.key === " ")) {
 			event.preventDefault();
@@ -36,12 +55,15 @@ export function RunCard({
 			tabIndex={onClick ? 0 : undefined}
 			onClick={onClick}
 			onKeyDown={onClick ? handleKeyDown : undefined}
-			whileHover={reducedMotion ? undefined : cardHover}
+			whileHover={hoverWithGlow}
 			whileTap={reducedMotion ? undefined : cardTap}
+			style={accentStyle}
 			className={cn(
 				"group flex items-center gap-4 py-3 px-3 transition-colors",
+				"border-l-[3px]",
+				borderColorClass,
 				onClick && "cursor-pointer hover:bg-muted/50",
-				selected && "bg-muted/30 border-l-2 border-l-primary",
+				selected && "bg-muted/30",
 				className,
 			)}
 		>

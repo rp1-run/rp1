@@ -96,8 +96,10 @@ export function ProjectCard({
 			whileHover={reducedMotion ? undefined : cardHover}
 			whileTap={reducedMotion ? undefined : cardTap}
 			className={cn(
-				"group flex flex-col gap-3 rounded-lg border border-border p-4 transition-colors",
-				"cursor-pointer hover:bg-muted/40",
+				"group flex flex-col gap-3 rounded-lg border border-border p-4",
+				"cursor-pointer backdrop-blur-[0px]",
+				"transition-[background-color,border-color,backdrop-filter] duration-200 ease-out",
+				"hover:bg-[hsl(var(--bg-surface)_/_0.6)] hover:backdrop-blur-[8px] hover:border-[hsl(var(--border-glow))]",
 				selected && "ring-2 ring-primary",
 				!project.available && "opacity-60",
 				className,

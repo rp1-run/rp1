@@ -2,7 +2,7 @@
 
 **Feature ID**: modern-ui-phase-3
 **Status**: In Progress
-**Progress**: 45% (5 of 11 tasks)
+**Progress**: 54% (6 of 11 tasks)
 **Estimated Effort**: 5 days
 **Started**: 2026-02-25
 
@@ -226,6 +226,18 @@ Phase 3 adds motion design and visual effects to the rp1 WebUI: framer-motion pa
     - [x] When prefers-reduced-motion is active, palette appears and disappears instantly (no animation) but glass effect remains
     - [x] Radix Dialog accessibility features (focus-trap, aria attributes, Escape to close) remain fully functional
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
 - [x] **T8**: Replace spinning Loader2 icon on running status in StatusBadge with a glow-pulsing filled circle indicator `[complexity:simple]`
 
     **Implementation Summary**:
@@ -262,7 +274,14 @@ Phase 3 adds motion design and visual effects to the rp1 WebUI: framer-motion pa
 
 ### Dependent Enhancements
 
-- [ ] **T7**: Add status-colored left accent bar to RunCard with glow effect on hover and selected states `[complexity:medium]`
+- [x] **T7**: Add status-colored left accent bar to RunCard with glow effect on hover and selected states `[complexity:medium]`
+
+    **Implementation Summary**:
+
+    - **Files**: `cli/web-ui/src/components/v2/RunCard.tsx`
+    - **Approach**: Imported statusBorderColors and statusGlowColors from status-colors.ts; always apply border-l-[3px] with status-colored border class from statusBorderColors mapping; removed old border-l-2 border-l-primary selected state; extended whileHover config to include left-offset box-shadow glow (-4px 0 12px -2px) using statusGlowColors; on selected state, applied max-intensity glow (-4px 0 16px 0px) at 0.6 opacity via inline style; when both selected and hovered, whileHover maintains max-intensity glow to avoid visual regression
+    - **Deviations**: None
+    - **Tests**: Biome lint/format passes; TypeScript type check has pre-existing framer-motion module resolution error (VPN install issue from T1)
 
     **Reference**: [design.md#32-modified-files](design.md#32-modified-files), [design.md#33-status-color-mapping-utility](design.md#33-status-color-mapping-utility)
 
@@ -270,14 +289,21 @@ Phase 3 adds motion design and visual effects to the rp1 WebUI: framer-motion pa
 
     **Acceptance Criteria**:
 
-    - [ ] Every RunCard renders a left border accent bar (3px wide via `border-l-[3px]`) colored by run status using the statusBorderColors mapping from status-colors.ts
-    - [ ] Status-to-border mapping: running=border-l-status-running, failed=border-l-status-failed, completed=border-l-status-completed, waiting=border-l-status-waiting, needs-review=border-l-status-needs-review, queued=border-l-status-queued
-    - [ ] The previous `border-l-2 border-l-primary` selected state is replaced with the status-colored accent bar
-    - [ ] On hover, the accent bar gains a subtle left-side glow via `box-shadow: -4px 0 12px -2px hsl(var(--status-{color}) / 0.4)`
-    - [ ] On selected state (keyboard navigation or click), the accent bar glow is at maximum intensity
-    - [ ] Accent bars are always visible on all RunCards (not only on selected state)
+    - [x] Every RunCard renders a left border accent bar (3px wide via `border-l-[3px]`) colored by run status using the statusBorderColors mapping from status-colors.ts
+    - [x] Status-to-border mapping: running=border-l-status-running, failed=border-l-status-failed, completed=border-l-status-completed, waiting=border-l-status-waiting, needs-review=border-l-status-needs-review, queued=border-l-status-queued
+    - [x] The previous `border-l-2 border-l-primary` selected state is replaced with the status-colored accent bar
+    - [x] On hover, the accent bar gains a subtle left-side glow via `box-shadow: -4px 0 12px -2px hsl(var(--status-{color}) / 0.4)`
+    - [x] On selected state (keyboard navigation or click), the accent bar glow is at maximum intensity
+    - [x] Accent bars are always visible on all RunCards (not only on selected state)
 
-- [ ] **T9**: Add glassmorphic background transition on hover to ProjectCard, layered on top of framer-motion whileHover `[complexity:simple]`
+- [x] **T9**: Add glassmorphic background transition on hover to ProjectCard, layered on top of framer-motion whileHover `[complexity:simple]`
+
+    **Implementation Summary**:
+
+    - **Files**: `cli/web-ui/src/components/v2/ProjectCard.tsx`
+    - **Approach**: Replaced transition-colors + hover:bg-muted/40 with glassmorphic CSS transitions; added backdrop-blur-[0px] base state for smooth interpolation; on hover transitions to semi-transparent bg-surface/0.6, backdrop-blur 8px, and border-glow via CSS transition-property list (background-color, border-color, backdrop-filter) at 200ms ease-out; framer-motion whileHover scale/translate from T5 remains unchanged and handles transform independently; uses --bg-surface and --border-glow CSS variables that are themed for both dark and light modes
+    - **Deviations**: None
+    - **Tests**: Biome lint passes (pre-existing warnings only); TypeScript has pre-existing framer-motion module resolution error (VPN install issue from T1)
 
     **Reference**: [design.md#32-modified-files](design.md#32-modified-files)
 
@@ -285,12 +311,12 @@ Phase 3 adds motion design and visual effects to the rp1 WebUI: framer-motion pa
 
     **Acceptance Criteria**:
 
-    - [ ] `cli/web-ui/src/components/v2/ProjectCard.tsx` applies a glassmorphic background effect on hover via CSS transition (not framer-motion) on background-color, backdrop-filter, and border-color
-    - [ ] On hover, card transitions to semi-transparent background, backdrop-filter blur(8px), and brighter border
-    - [ ] The glass hover is combined with the framer-motion whileHover scale/translate from T5
-    - [ ] Transition from normal to glass state is smooth (CSS transition timing, not instant)
-    - [ ] On mouse-out, the card returns to its normal non-glass appearance
-    - [ ] Glass hover effect is visible in both dark and light themes
+    - [x] `cli/web-ui/src/components/v2/ProjectCard.tsx` applies a glassmorphic background effect on hover via CSS transition (not framer-motion) on background-color, backdrop-filter, and border-color
+    - [x] On hover, card transitions to semi-transparent background, backdrop-filter blur(8px), and brighter border
+    - [x] The glass hover is combined with the framer-motion whileHover scale/translate from T5
+    - [x] Transition from normal to glass state is smooth (CSS transition timing, not instant)
+    - [x] On mouse-out, the card returns to its normal non-glass appearance
+    - [x] Glass hover effect is visible in both dark and light themes
 
 ### User Docs
 
