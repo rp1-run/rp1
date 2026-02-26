@@ -352,15 +352,15 @@ export function RunsListPage() {
 	});
 
 	const renderRunItem = useCallback(
-	(run: Run, _index: number, isSelected: boolean) => (
-		<RunCard
-			run={run}
-			onClick={() => handleSelectRun(run)}
-			selected={isSelected}
-		/>
-	),
-	[handleSelectRun],
-);
+		(run: Run, _index: number, isSelected: boolean) => (
+			<RunCard
+				run={run}
+				onClick={() => handleSelectRun(run)}
+				selected={isSelected}
+			/>
+		),
+		[handleSelectRun],
+	);
 
 	const getRunKey = useCallback((run: Run) => run.id, []);
 

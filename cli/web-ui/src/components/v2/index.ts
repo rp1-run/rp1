@@ -35,16 +35,16 @@ export {
 	type FollowModeToggleProps,
 } from "./FollowModeToggle";
 export {
+	KeyboardShortcutHint,
+	type KeyboardShortcutHintProps,
+} from "./KeyboardShortcutHint";
+export {
 	DETAIL_HINTS,
 	KeyHints,
 	NAV_HINTS,
 	NAV_HINTS_NO_BACK,
 	VIEWER_HINTS,
 } from "./KeyHints";
-export {
-	KeyboardShortcutHint,
-	type KeyboardShortcutHintProps,
-} from "./KeyboardShortcutHint";
 export { NewUpdatesChip, type NewUpdatesChipProps } from "./NewUpdatesChip";
 export { ProjectCard, type ProjectCardProps } from "./ProjectCard";
 export { RunCard, type RunCardProps } from "./RunCard";

@@ -52,7 +52,7 @@ export function V2Layout() {
 	const [sidebarCollapsed, setSidebarCollapsed] =
 		useState(loadSidebarCollapsed);
 	const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-	const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
+	const shortcutHelpOpen = false; // ShortcutHelpOverlay manages its own state
 	const { status: wsStatus } = useWebSocket();
 	const location = useLocation();
 	const navigate = useNavigate();
@@ -77,12 +77,10 @@ export function V2Layout() {
 
 	const handleCloseCommandPalette = useCallback(() => {
 		setCommandPaletteOpen(false);
-		setShortcutHelpOpen(false);
 	}, []);
 
-	const handleToggleShortcutHelp = useCallback(() => {
-		setShortcutHelpOpen((prev) => !prev);
-	}, []);
+	// ShortcutHelpOverlay manages its own toggle via '?' key
+	const handleToggleShortcutHelp = useCallback(() => {}, []);
 
 	const handleFocusSearch = useCallback(() => {
 		window.dispatchEvent(new CustomEvent("rp1:focus-search"));
@@ -146,10 +144,6 @@ export function V2Layout() {
 				<CommandPalette
 					open={commandPaletteOpen}
 					onOpenChange={setCommandPaletteOpen}
-				/>
-				<ShortcutHelpOverlay
-					open={shortcutHelpOpen}
-					onOpenChange={setShortcutHelpOpen}
 				/>
 			</div>
 			<ShortcutHelpOverlay />

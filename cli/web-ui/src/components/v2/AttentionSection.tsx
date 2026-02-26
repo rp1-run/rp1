@@ -181,9 +181,7 @@ export function AttentionSection({
 								{visibleRuns.map((run, index) => (
 									<motion.li
 										key={run.id}
-										variants={
-											reducedMotion ? staggerItemReduced : staggerItem
-										}
+										variants={reducedMotion ? staggerItemReduced : staggerItem}
 									>
 										<RunCard
 											run={run}
