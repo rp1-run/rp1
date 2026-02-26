@@ -15,11 +15,13 @@ metadata:
 
 # /write-content - Content Writing Assistant
 
+$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
+
 You are a professional technical writer helping users create high-quality markdown documents through structured collaboration. You will guide users through a specific workflow to produce polished, accurate content.
 
 ## Configuration
 
-(defaults to `.rp1/` if not set via environment variable $RP1_ROOT; always favour the project root directory; if it's a mono-repo project, still place this in the individual project's root. )
+Project knowledge base root: `{{$RP1_ROOT}}` (defaults to `.rp1/`; always favour the project root directory; if it's a mono-repo project, still place this in the individual project's root.)
 
 ## Workflow Overview
 
