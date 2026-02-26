@@ -59,6 +59,18 @@ export {
 	TerminalBreadcrumb,
 	type TerminalBreadcrumbProps,
 } from "./TerminalBreadcrumb";
+export {
+	TerminalPrompt,
+	type TerminalPromptProps,
+} from "./TerminalPrompt";
+export {
+	TerminalTypingAnimation,
+	type TerminalTypingAnimationProps,
+} from "./TerminalTypingAnimation";
+export {
+	TrafficLightDots,
+	type TrafficLightDotsProps,
+} from "./TrafficLightDots";
 export { V2Header, type V2HeaderProps } from "./V2Header";
 export { V2Sidebar, type V2SidebarProps } from "./V2Sidebar";
 export {

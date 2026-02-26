@@ -669,4 +669,37 @@
     animation: none;
     box-shadow: 0 0 24px 4px var(--glow-color);
   }
+
+  @keyframes terminal-typing {
+    from { max-width: 0; }
+    to { max-width: calc(var(--char-count) * 1ch + 2ch); }
+  }
+
+  .terminal-typing {
+    overflow: hidden;
+    white-space: nowrap;
+    animation: terminal-typing var(--typing-duration, 1500ms) steps(var(--char-count), end) forwards;
+  }
+
+  .terminal-typing .terminal-typing-cursor {
+    visibility: hidden;
+    animation: blink 1s ease-in-out infinite, terminal-cursor-reveal var(--typing-duration, 1500ms) step-end forwards;
+  }
+
+  @keyframes terminal-cursor-reveal {
+    from { visibility: hidden; }
+    to { visibility: visible; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .terminal-typing {
+      animation: none;
+      max-width: none;
+    }
+
+    .terminal-typing .terminal-typing-cursor {
+      visibility: visible;
+      animation: none;
+    }
+  }
 }
