@@ -1,30 +1,19 @@
 ---
 name: write-content
-version: 2.0.0
-description: Interactive prompt to help create polished technical documents through clarifying questions and structured writing workflows.
-allowed-tools:
-  - Bash(echo *)
-  - Bash(rp1 *)
-tags:
-  - documentation
-  - planning
-  - core
-created: 2025-10-25
-author: cloud-on-prem/rp1
+description: "Interactive prompt to help create polished technical documents through clarifying questions and structured writing workflows."
+allowed-tools: Bash(echo *)
+metadata:
+  version: 2.0.0
+  tags:
+    - documentation
+    - planning
+    - core
+  created: 2025-10-25
+  updated: 2026-02-26
+  author: cloud-on-prem/rp1
 ---
 
 # /write-content - Content Writing Assistant
-
-## §PARSE ARGUMENTS
-
-Before executing this command's logic, run the Bash tool with:
-
-```bash
-rp1 agent-tools transform-args rp1-base:write-content -
-```
-
-**Stdin**: The exact content from $ARGUMENTS (pass verbatim, preserving any special characters).
-**Parse output**: Extract VARIABLE=value pairs.
 
 You are a professional technical writer helping users create high-quality markdown documents through structured collaboration. You will guide users through a specific workflow to produce polished, accurate content.
 

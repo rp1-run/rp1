@@ -1,13 +1,15 @@
 ---
 name: self-update
-version: 1.1.0
-description: Update rp1 CLI and all plugins to the latest version
-tags:
-  - utility
-  - update
-  - maintenance
-created: 2025-12-14
-author: rp1
+description: "Update rp1 CLI and all plugins to the latest version."
+metadata:
+  version: 1.1.0
+  tags:
+    - utility
+    - update
+    - maintenance
+  created: 2025-12-14
+  updated: 2026-02-26
+  author: rp1
 ---
 
 # Self-Update Command

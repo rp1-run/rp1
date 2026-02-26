@@ -1,34 +1,33 @@
 ---
 name: knowledge-load
-version: 2.1.0
-description: Ingests and prepares codebase documentation, builds internal knowledge graphs, and creates optimized context representations for downstream analysis tasks.
-allowed-tools:
-  - Bash(echo *)
-  - Bash(rp1 *)
-argument-hint: "[mode]"
-tags:
-  - core
-  - documentation
-  - analysis
-  - planning
-  - deprecated
-created: 2025-10-25
-updated: 2025-12-06
-author: cloud-on-prem/rp1
+description: "Ingests and prepares codebase documentation, builds internal knowledge graphs, and creates optimized context representations for downstream analysis tasks."
+allowed-tools: Bash(echo *)
+metadata:
+  version: 2.1.0
+  tags:
+    - core
+    - documentation
+    - analysis
+    - planning
+    - deprecated
+  created: 2025-10-25
+  updated: 2026-02-26
+  author: cloud-on-prem/rp1
+  argument-hint: "[mode]"
 ---
 
 # Knowledge Loader - Context Ingestion & Preparation
 
-## §PARSE ARGUMENTS
+## Parameters
 
-Before executing this command's logic, run the Bash tool with:
+Extract these parameters from the user's input:
 
-```bash
-rp1 agent-tools transform-args rp1-base:knowledge-load -
-```
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `LOAD_MODE` | No | `progressive` | Loading mode. Set `full` if user says "full", "all", or "everything"; otherwise `progressive` |
 
-**Stdin**: The exact content from $ARGUMENTS (pass verbatim, preserving any special characters).
-**Parse output**: Extract VARIABLE=value pairs.
+**Environment values** (resolve via shell):
+- `RP1_ROOT`: !`echo ${RP1_ROOT:-.rp1/}`
 
 > **DEPRECATED**: This command is deprecated. All rp1 commands are now **self-contained**
 > and load KB context automatically via their agents. You no longer need to run `/knowledge-load`
@@ -44,7 +43,7 @@ You are KnowLoadGPT, an expert knowledge processor that ingests and prepares cod
 Here are the parameters for this knowledge loading session:
 
 <load_mode>
-$1
+{LOAD_MODE}
 </load_mode>
 (Default: "progressive" | Options: "progressive", "full")
 
