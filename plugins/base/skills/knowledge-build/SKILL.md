@@ -1,44 +1,37 @@
 ---
 name: knowledge-build
-version: 2.1.0
-description: Orchestrates parallel KB generation using spatial analysis and a map-reduce architecture
-allowed-tools:
-  - Bash(echo *)
-  - Bash(rp1 *)
-tags:
-  - documentation
-  - analysis
-  - planning
-  - core
-  - parallel
-created: 2025-10-25
-updated: 2025-11-18
-author: cloud-on-prem/rp1
+description: "Orchestrates parallel KB generation using spatial analysis and a map-reduce architecture with incremental update support."
+allowed-tools: Bash(echo *)
+metadata:
+  version: 2.1.0
+  tags:
+    - documentation
+    - analysis
+    - planning
+    - core
+    - parallel
+  created: 2025-10-25
+  updated: 2026-02-26
+  author: cloud-on-prem/rp1
+  argument-hint: "[feature-id]"
 ---
 
 # Knowledge Builder - Parallel KB Generation Orchestrator
 
-## §PARSE ARGUMENTS
+## Parameters
 
-Before executing this command's logic, run the Bash tool with:
+Extract these parameters from the user's input:
 
-```bash
-rp1 agent-tools transform-args rp1-base:knowledge-build -
-```
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `FEATURE_ID` | No | - | Feature ID to incorporate learnings from an archived feature into KB |
 
-**Stdin**: The exact content from $ARGUMENTS (pass verbatim, preserving any special characters).
-**Parse output**: Extract VARIABLE=value pairs.
+**Environment values** (resolve via shell):
+- `RP1_ROOT`: !`echo ${RP1_ROOT:-.rp1/}`
 
 This command orchestrates parallel knowledge base generation using a map-reduce architecture
 
 **CRITICAL**: This is an ORCHESTRATOR command, not a thin wrapper. This command must handle parallel execution coordination, result aggregation, and state management.
-
-## Arguments
-
-<feature_id>
-$1
-</feature_id>
-(optional - if provided, incorporates learnings from archived feature into KB)
 
 ## Architecture Overview
 
@@ -60,7 +53,7 @@ Phase 3 (Sequential):  Command -> Merge JSON -> Generate index.md -> Write KB fi
 
 ### Feature Learning Mode
 
-If `FEATURE_ID` ($1) is provided, this is a **feature learning build** that captures knowledge from an archived feature. **Skip Phase 0 entirely** (no git commit parsing needed).
+If `FEATURE_ID` is provided, this is a **feature learning build** that captures knowledge from an archived feature. **Skip Phase 0 entirely** (no git commit parsing needed).
 
 1. **Locate archived feature**:
 
@@ -523,11 +516,10 @@ The knowledge from feature "{{FEATURE_ID}}" has been captured into the KB.
 Future agents will benefit from these learnings.
 ```
 
-## Parameters
+## Additional Parameters
 
 | Parameter | Default | Purpose |
 |-----------|---------|---------|
-| FEATURE_ID | (none) | Optional feature ID to incorporate learnings from archived feature |
 | RP1_ROOT | `.rp1/` | Root directory for KB artifacts |
 | CODEBASE_ROOT | `.` | Repository root to analyze |
 | EXCLUDE_PATTERNS | `node_modules/,.git/,build/,dist/` | Patterns to exclude from scanning |

@@ -1,45 +1,39 @@
 ---
 name: build-fast
-version: 3.0.0
-description: Quick-iteration development for small/medium scope changes with persistent artifacts and optional review.
-allowed-tools:
-  - Bash(echo *)
-  - Bash(rp1 *)
-argument-hint: "[development-request...] [--afk] [--confirm-plan] [--review] [--git-worktree] [--git-commit] [--git-push]"
-tags:
-  - core
-  - code
-  - feature
-created: 2026-01-01
-author: cloud-on-prem/rp1
+description: "Quick-iteration development for small/medium scope changes with persistent artifacts and optional review."
+allowed-tools: Bash(echo *), Bash(rp1 *)
+metadata:
+  version: 3.0.0
+  tags:
+    - core
+    - code
+    - feature
+  created: 2026-01-01
+  updated: 2026-02-26
+  author: cloud-on-prem/rp1
+  argument-hint: "[development-request...] [--afk] [--confirm-plan] [--review] [--git-worktree] [--git-commit] [--git-push]"
 ---
 
 # Build Fast Command
 
 Quick-iteration workflow for focused changes. Three-phase execution: plan -> build -> [review].
 
-## §ARGUMENTS
+## Parameters
 
-| Key | Description |
-|-----|-------------|
-| `DEVELOPMENT_REQUEST` | Freeform development request (required) |
-| `AFK` | Non-interactive mode flag |
-| `CONFIRM_PLAN` | Enable plan review checkpoint and post-implementation review |
-| `REVIEW` | Enable task-reviewer validation after implementation |
-| `GIT_WORKTREE` | Use isolated git worktree |
-| `GIT_COMMIT` | Commit changes |
-| `GIT_PUSH` | Push branch to remote |
+Extract these parameters from the user's input:
 
-## §PARSE ARGUMENTS
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `DEVELOPMENT_REQUEST` | Yes | - | The freeform development request text |
+| `AFK` | No | `false` | Non-interactive mode. Set `true` if user says "afk", "no prompts", or "unattended" |
+| `CONFIRM_PLAN` | No | `false` | Enable plan review checkpoint and post-implementation review. Set `true` if user says "confirm", "review plan", or "confirm-plan" |
+| `REVIEW` | No | `false` | Enable task-reviewer validation after implementation. Set `true` if user says "review", "verify", or "check" |
+| `GIT_WORKTREE` | No | `false` | Use isolated git worktree. Set `true` if user says "worktree" or "isolated" |
+| `GIT_COMMIT` | No | `false` | Commit changes. Set `true` if user says "commit" |
+| `GIT_PUSH` | No | `false` | Push branch to remote. Set `true` if user says "push" |
 
-Before executing this command's logic, run the Bash tool with:
-
-```bash
-rp1 agent-tools transform-args rp1-dev:build-fast -
-```
-
-**Stdin**: The exact content from $ARGUMENTS (pass verbatim, preserving any special characters).
-**Parse output**: Extract VARIABLE=value pairs.
+**Environment values** (resolve via shell):
+- `RP1_ROOT`: !`echo ${RP1_ROOT:-.rp1/}`
 
 ## §VERSION-GATE
 
@@ -59,8 +53,8 @@ Or in the terminal: `rp1 update`
 
 **Effective values when AFK=true**:
 
-- `CONFIRM_PLAN` → `false` (forced)
-- All checkpoints → SKIP (no AskUserQuestion)
+- `CONFIRM_PLAN` -> `false` (forced)
+- All checkpoints -> SKIP (no AskUserQuestion)
 
 ## §SKILL-LOADING
 
@@ -78,7 +72,7 @@ Or in the terminal: `rp1 update`
 
 ```
 Task: rp1-dev:build-fast-planner
-prompt: DEVELOPMENT_REQUEST={DEVELOPMENT_REQUEST}, RP1_ROOT={RP1_ROOT}
+prompt: DEVELOPMENT_REQUEST={DEVELOPMENT_REQUEST}, RP1_ROOT={{$RP1_ROOT}}
 ```
 
 **Parse response**: Extract `scope`, `plan_summary`, `files_affected`, `reasoning`, `artifact_path`, `task_count`, `task_ids`.
@@ -145,7 +139,7 @@ prompt: |
   TASK_IDS={task_ids}
   WORKTREE_PATH={worktree_path}
   GIT_COMMIT={GIT_COMMIT}
-  RP1_ROOT={RP1_ROOT}
+  RP1_ROOT={{$RP1_ROOT}}
 ```
 
 **Parse response**: Verify "Builder Complete" in output.
@@ -167,7 +161,7 @@ prompt: |
   TASK_IDS={task_ids}
   WORKTREE_PATH={worktree_path}
   GIT_COMMIT={GIT_COMMIT}
-  RP1_ROOT={RP1_ROOT}
+  RP1_ROOT={{$RP1_ROOT}}
 ```
 
 **Parse response**: Extract `status` (SUCCESS or FAILURE).
@@ -186,7 +180,7 @@ prompt: |
   TASK_IDS={task_ids}
   WORKTREE_PATH={worktree_path}
   GIT_COMMIT={GIT_COMMIT}
-  RP1_ROOT={RP1_ROOT}
+  RP1_ROOT={{$RP1_ROOT}}
   PREVIOUS_FEEDBACK={reviewer summary and issues}
 ```
 

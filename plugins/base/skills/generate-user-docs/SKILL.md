@@ -1,43 +1,32 @@
 ---
 name: generate-user-docs
-version: 1.0.0
-description: Synchronizes user documentation with knowledge base using two-phase map-reduce orchestration
-allowed-tools:
-  - Bash(echo *)
-  - Bash(rp1 *)
-argument-hint: ""
-tags:
-  - documentation
-  - sync
-  - analysis
-  - parallel
-created: 2025-12-28
-updated: 2025-12-28
-author: cloud-on-prem/rp1
+description: "Synchronizes user documentation with knowledge base using two-phase map-reduce orchestration with scan and process phases."
+allowed-tools: Bash(echo *)
+metadata:
+  version: 1.0.0
+  tags:
+    - documentation
+    - sync
+    - analysis
+    - parallel
+  created: 2025-12-28
+  updated: 2026-02-26
+  author: cloud-on-prem/rp1
+  argument-hint: ""
 ---
 
 # Generate User Docs - Two-Phase Map-Reduce Orchestrator
 
-## §PARSE ARGUMENTS
+## Parameters
 
-Before executing this command's logic, run the Bash tool with:
+This command takes no user parameters.
 
-```bash
-rp1 agent-tools transform-args rp1-base:generate-user-docs -
-```
-
-**Stdin**: The exact content from $ARGUMENTS (pass verbatim, preserving any special characters).
-**Parse output**: Extract VARIABLE=value pairs.
+**Environment values** (resolve via shell):
+- `RP1_ROOT`: !`echo ${RP1_ROOT:-.rp1/}`
 
 This command orchestrates user documentation synchronization with the auto-generated knowledge base using a two-phase map-reduce architecture.
 
 **CRITICAL**: This is an ORCHESTRATOR command, not a thin wrapper. It coordinates scan and process phases across multiple scribe subagents.
-
-## Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| RP1_ROOT | Environment | `.rp1/` | Root directory for KB and state artifacts |
 
 ## Architecture Overview
 

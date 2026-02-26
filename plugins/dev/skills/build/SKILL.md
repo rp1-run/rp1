@@ -1,59 +1,41 @@
 ---
 name: build
-version: 3.0.0
-description: End-to-end feature workflow (requirements -> design -> tasks -> build -> verify -> archive) in a single command.
-allowed-tools:
-  - Bash(echo *)
-  - Bash(rp1 *)
-argument-hint: "<feature-id> [requirements...] [--afk] [--git-worktree] [--git-commit] [--git-push] [--git-pr]"
-tags:
-  - core
-  - feature
-  - orchestration
-created: 2025-12-30
-author: cloud-on-prem/rp1
+description: "End-to-end feature workflow (requirements -> design -> tasks -> build -> verify -> archive) in a single command."
+allowed-tools: Bash(echo *)
+metadata:
+  version: 3.0.0
+  tags:
+    - core
+    - feature
+    - orchestration
+  created: 2025-12-30
+  updated: 2026-02-26
+  author: cloud-on-prem/rp1
+  argument-hint: "<feature-id> [requirements...] [--afk] [--git-worktree] [--git-commit] [--git-push] [--git-pr]"
 ---
 
 # Build Command
 
 6-step workflow orchestrator. Delegates to specialized agents.
 
-## §ARGUMENTS
+## Parameters
 
-| Key | Description |
-|-----|-------------|
-| `FEATURE_ID` | Feature identifier (required) |
-| `REQUIREMENTS` | Raw requirements text |
-| `AFK` | Non-interactive mode flag |
-| `GIT_WORKTREE` | Use isolated git worktree |
-| `GIT_COMMIT` | Commit changes after build |
-| `GIT_PUSH` | Push branch to remote |
-| `GIT_PR` | Create PR (implies push, commit) |
+Extract these parameters from the user's input:
 
-## §PARSE ARGUMENTS
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `FEATURE_ID` | Yes | - | Feature identifier (kebab-case) |
+| `REQUIREMENTS` | No | `""` | Raw requirements text describing what to build |
+| `AFK` | No | `false` | Non-interactive mode. Set `true` if user says "afk", "no prompts", or "unattended" |
+| `GIT_WORKTREE` | No | `false` | Use isolated git worktree. Set `true` if user says "worktree" or "isolated" |
+| `GIT_COMMIT` | No | `false` | Commit changes after build. Set `true` if user says "commit" |
+| `GIT_PUSH` | No | `false` | Push branch to remote. Set `true` if user says "push" |
+| `GIT_PR` | No | `false` | Create PR (implies push and commit). Set `true` if user says "pr" or "pull request" |
 
-Before executing this command's logic, run the Bash tool with:
+**Environment values** (resolve via shell):
+- `RP1_ROOT`: !`echo ${RP1_ROOT:-.rp1/}`
 
-```bash
-rp1 agent-tools transform-args rp1-dev:build -
-```
-
-**Stdin**: The exact content from $ARGUMENTS (pass verbatim, preserving any special characters).
-**Parse output**: Extract VARIABLE=value pairs.
-
-## §VERSION-GATE
-
-**If** `RP1_VERSION` < 0.3.3 **then** STOP execution with message:
-
-```
-Your rp1 CLI needs to be updated.
-
-Please run `/rp1-base:self-update` to update, then retry this command.
-
-Or in the terminal: `rp1 update`
-```
-
-**Feature dir**: `{RP1_ROOT}/work/features/{FEATURE_ID}/`
+**Feature dir**: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`
 
 ## §0-FIRST-ACTION
 
@@ -61,7 +43,7 @@ Or in the terminal: `rp1 update`
 
 ```
 Task: rp1-dev:build-artifact-detector
-prompt: FEATURE_ID={FEATURE_ID}, RP1_ROOT={RP1_ROOT}
+prompt: FEATURE_ID={FEATURE_ID}, RP1_ROOT={{$RP1_ROOT}}
 ```
 
 **DO NOT** before this completes:
@@ -127,7 +109,7 @@ Steps 1-3 foundational -> ABORT on fail. Steps 4-6 -> retry/prompt. NEVER delete
 
 ```
 Task: rp1-dev:feature-requirement-gatherer
-prompt: FEATURE_ID={FEATURE_ID}, REQUIREMENTS={REQUIREMENTS}, AFK={AFK}, RP1_ROOT={RP1_ROOT}
+prompt: FEATURE_ID={FEATURE_ID}, REQUIREMENTS={REQUIREMENTS}, AFK={AFK}, RP1_ROOT={{$RP1_ROOT}}
 ```
 
 ### §1.1 Requirements Review Checkpoint
@@ -139,7 +121,7 @@ After requirements completes, pause for user review:
 ```
 AskUserQuestion: |
   Requirements phase complete. Review artifact:
-  - {RP1_ROOT}/work/features/{FEATURE_ID}/requirements.md
+  - {{$RP1_ROOT}}/work/features/{FEATURE_ID}/requirements.md
 
   Summary: Generated requirements specification with functional requirements,
   user stories, and defined scope boundaries.
@@ -161,7 +143,7 @@ AskUserQuestion: |
 
 ```
 Task: rp1-dev:feature-architect
-prompt: FEATURE_ID={FEATURE_ID}, AFK={AFK}, UPDATE_MODE={design.md exists}, RP1_ROOT={RP1_ROOT}
+prompt: FEATURE_ID={FEATURE_ID}, AFK={AFK}, UPDATE_MODE={design.md exists}, RP1_ROOT={{$RP1_ROOT}}
 ```
 
 If `flagged_hypotheses` non-empty:
@@ -173,7 +155,7 @@ prompt: Validate hypotheses for feature {FEATURE_ID}
 
 ```
 Task: rp1-dev:feature-tasker
-prompt: FEATURE_ID={FEATURE_ID}, UPDATE_MODE={UPDATE_MODE}, RP1_ROOT={RP1_ROOT}
+prompt: FEATURE_ID={FEATURE_ID}, UPDATE_MODE={UPDATE_MODE}, RP1_ROOT={{$RP1_ROOT}}
 ```
 
 ### §2.1 Design Review Checkpoint
@@ -185,8 +167,8 @@ After design completes, pause for user review:
 ```
 AskUserQuestion: |
   Design phase complete. Review artifacts:
-  - {RP1_ROOT}/work/features/{FEATURE_ID}/design.md
-  - {RP1_ROOT}/work/features/{FEATURE_ID}/tasks.md
+  - {{$RP1_ROOT}}/work/features/{FEATURE_ID}/design.md
+  - {{$RP1_ROOT}}/work/features/{FEATURE_ID}/tasks.md
 
   Summary: Generated technical design with architecture decisions, component
   specifications, and implementation approach. Tasks file includes initial
@@ -209,7 +191,7 @@ AskUserQuestion: |
 
 ```
 Task: rp1-dev:feature-tasker
-prompt: FEATURE_ID={FEATURE_ID}, UPDATE_MODE=false, RP1_ROOT={RP1_ROOT}
+prompt: FEATURE_ID={FEATURE_ID}, UPDATE_MODE=false, RP1_ROOT={{$RP1_ROOT}}
 ```
 
 ### §3.1 Tasks Review Checkpoint
@@ -221,7 +203,7 @@ After tasks completes, pause for user review:
 ```
 AskUserQuestion: |
   Tasks phase complete. Review artifact:
-  - {RP1_ROOT}/work/features/{FEATURE_ID}/tasks.md
+  - {{$RP1_ROOT}}/work/features/{FEATURE_ID}/tasks.md
 
   Summary: Generated implementation tasks with dependency ordering
   and complexity assessment. Tasks are ready for build phase execution.
@@ -258,7 +240,7 @@ Store: `worktree_path`, `branch`, `basedOn`
 
 ```
 Task: rp1-dev:build-task-parser
-prompt: TASKS_PATH={RP1_ROOT}/work/features/{FEATURE_ID}/tasks.md
+prompt: TASKS_PATH={{$RP1_ROOT}}/work/features/{FEATURE_ID}/tasks.md
 ```
 
 **Parse response**: Extract `implementation_tasks`, `doc_tasks`, `summary`.

@@ -1,17 +1,17 @@
 ---
 name: build-express
-version: 1.0.0
-description: Interactive builder loop with optional review. Deploy task-builder per request, prompt for verify/new-task/exit.
-allowed-tools:
-  - Bash(echo *)
-  - Bash(rp1 *)
-argument-hint: "[request...]"
-tags:
-  - core
-  - code
-  - feature
-created: 2026-01-15
-author: cloud-on-prem/rp1
+description: "Interactive builder loop with optional review. Deploy task-builder per request, prompt for verify/new-task/exit."
+allowed-tools: Bash(echo *)
+metadata:
+  version: 1.0.0
+  tags:
+    - core
+    - code
+    - feature
+  created: 2026-01-15
+  updated: 2026-02-26
+  author: cloud-on-prem/rp1
+  argument-hint: "[request...]"
 ---
 
 # Build Express
@@ -20,25 +20,16 @@ Interactive builder loop. Orchestrates build-fast-executor for each task.
 
 **This command ONLY orchestrates. It does NOT implement code.**
 
-## PARAMS
+## Parameters
 
-| Name | Pos | Default | Purpose |
-|------|-----|---------|---------|
-| REQUEST | $ARGUMENTS | `""` | Initial request (may be empty) |
-| RP1_ROOT | prompt | `.rp1/` | Root dir |
+Extract these parameters from the user's input:
 
-## §PARSE ARGUMENTS
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `REQUEST` | No | `""` | Initial development request (may be empty; will prompt if missing) |
 
-Before executing this command's logic, run the Bash tool with:
-
-```bash
-rp1 agent-tools transform-args rp1-dev:build-express -
-```
-
-**Stdin**: The exact content from $ARGUMENTS (pass verbatim, preserving any special characters).
-**Parse output**: Extract VARIABLE=value pairs.
-
-<request>$ARGUMENTS</request>
+**Environment values** (resolve via shell):
+- `RP1_ROOT`: !`echo ${RP1_ROOT:-.rp1/}`
 
 ## 1. Main Loop
 

@@ -1,39 +1,35 @@
 ---
 name: bootstrap
-version: 1.0.0
-description: Bootstrap a new project with charter discovery and tech stack scaffolding for greenfield development
-allowed-tools:
-  - Bash(echo *)
-  - Bash(rp1 *)
-argument-hint: "[project-name]"
-tags: [greenfield, scaffolding, project, onboarding, core]
-created: 2025-12-26
-author: cloud-on-prem/rp1
+description: "Bootstrap a new project with charter discovery and tech stack scaffolding for greenfield development."
+allowed-tools: Bash(echo *)
+metadata:
+  version: 1.0.0
+  tags:
+    - greenfield
+    - scaffolding
+    - project
+    - onboarding
+    - core
+  created: 2025-12-26
+  updated: 2026-02-26
+  author: cloud-on-prem/rp1
+  argument-hint: "[project-name]"
 ---
 
 # Bootstrap Command - Greenfield Project Creation
 
 Minimal coordinator: pre-flight checks -> charter-interviewer -> bootstrap-scaffolder.
 
-## §PARSE ARGUMENTS
+## Parameters
 
-Before executing this command's logic, run the Bash tool with:
+Extract these parameters from the user's input:
 
-```bash
-rp1 agent-tools transform-args rp1-dev:bootstrap -
-```
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `PROJECT_NAME` | No | (prompted) | New project directory name (lowercase, hyphens allowed) |
 
-**Stdin**: The exact content from $ARGUMENTS (pass verbatim, preserving any special characters).
-**Parse output**: Extract VARIABLE=value pairs.
-
-<project_name>$1</project_name>
-
-## §0 Params
-
-| Name | Pos | Default | Purpose |
-|------|-----|---------|---------|
-| PROJECT_NAME | $1 | (prompted) | New project dir name |
-| RP1_ROOT | prompt | `.rp1/` | Root dir |
+**Environment values** (resolve via shell):
+- `RP1_ROOT`: !`echo ${RP1_ROOT:-.rp1/}`
 
 ## §1 Pre-Flight
 
@@ -51,11 +47,11 @@ Classify directory state:
 
 ## §2 Project Name
 
-**$1 provided**: Validate (no spaces, valid dir chars). PROJECT_NAME = $1
+**PROJECT_NAME provided**: Validate (no spaces, valid dir chars). PROJECT_NAME = PROJECT_NAME
 
-**$1 empty + rp1-initialized**: PROJECT_NAME = CURRENT_DIR_NAME (auto-extracted from directory basename)
+**PROJECT_NAME empty + rp1-initialized**: PROJECT_NAME = CURRENT_DIR_NAME (auto-extracted from directory basename)
 
-**$1 empty + Empty/Non-empty**: AskUserQuestion: "What would you like to name your project? Use lowercase, numbers, hyphens (e.g., my-awesome-app)."
+**PROJECT_NAME empty + Empty/Non-empty**: AskUserQuestion: "What would you like to name your project? Use lowercase, numbers, hyphens (e.g., my-awesome-app)."
 
 Max 2 attempts for validation, then abort.
 

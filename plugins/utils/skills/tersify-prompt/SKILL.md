@@ -1,29 +1,39 @@
 ---
 name: tersify-prompt
-version: 1.0.0
-description: Rewrites agent-instruction prompts to be maximally terse while preserving full intent
-argument-hint: "<file-path-or-prompt>"
-tags:
-  - prompt-engineering
-  - refactoring
-created: 2025-12-21
-author: cloud-on-prem/rp1
+description: "Rewrites agent-instruction prompts to be maximally terse while preserving full intent."
+metadata:
+  version: 1.0.0
+  tags:
+    - prompt-engineering
+    - refactoring
+  created: 2025-12-21
+  updated: 2026-02-26
+  author: cloud-on-prem/rp1
+  argument-hint: "<file-path-or-prompt>"
 ---
 
 # Tersify Prompt
 
 Compresses agent-instruction prompts to be maximally terse while preserving full intent.
 
+## Parameters
+
+Extract these parameters from the user's input:
+
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `INPUT` | Yes | - | File path to a prompt file, or raw prompt text to compress |
+
 ## Modes
 
-**File Mode** (when $1 is a valid file path):
+**File Mode** (when INPUT is a valid file path):
 1. Read the file content
 2. Pass to tersifier agent
 3. Extract compressed prompt from output
 4. Update the file with compressed version
 5. Display change summary
 
-**Inline Mode** (when $1 is prompt text):
+**Inline Mode** (when INPUT is prompt text):
 1. Pass prompt directly to tersifier agent
 2. Display compressed prompt and change log
 
@@ -31,9 +41,9 @@ Compresses agent-instruction prompts to be maximally terse while preserving full
 
 ### Step 1: Detect Mode
 
-Check if `$1` is a file path:
+Check if INPUT is a file path:
 ```
-Use Bash: test -f "$1" && echo "file" || echo "inline"
+Use Bash: test -f "{INPUT}" && echo "file" || echo "inline"
 ```
 
 ### Step 2: Prepare Input
@@ -44,7 +54,7 @@ Use Bash: test -f "$1" && echo "file" || echo "inline"
 - Extract file content as INPUT_PROMPT
 
 **If inline mode:**
-- Use $1 directly as INPUT_PROMPT
+- Use INPUT directly as INPUT_PROMPT
 
 ### Step 3: Spawn Tersifier Agent
 

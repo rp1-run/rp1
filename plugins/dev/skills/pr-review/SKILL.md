@@ -1,44 +1,38 @@
 ---
 name: pr-review
-version: 4.0.0
-description: Intent-aware map-reduce PR review with CI/CD support, confidence gating, and intelligent comment deduplication
-allowed-tools:
-  - Bash(echo *)
-  - Bash(rp1 *)
-argument-hint: "[target] [base-branch] [skip-visual]"
-tags: [review, pr, security, analysis, map-reduce, ci]
-created: 2025-10-25
-updated: 2026-01-11
-author: cloud-on-prem/rp1
+description: "Intent-aware map-reduce PR review with CI/CD support, confidence gating, and intelligent comment deduplication."
+allowed-tools: Bash(echo *), Bash(rp1 *)
+metadata:
+  version: 4.0.0
+  tags:
+    - review
+    - pr
+    - security
+    - analysis
+    - map-reduce
+    - ci
+  created: 2025-10-25
+  updated: 2026-02-26
+  author: cloud-on-prem/rp1
+  argument-hint: "[target] [base-branch] [skip-visual]"
 ---
 
 # PR Review Orchestrator
 
 §ROLE: Map-reduce PR review orchestrator. 6 phases, local + CI modes, comment deduplication.
 
-## 0. Parameters
+## Parameters
 
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| TARGET | $1 | current branch | PR#, URL, branch, or empty |
-| BASE_BRANCH | $2 | from PR or 'main' | Diff base |
-| SKIP_VISUAL | $3 | (none) | `skip-visual` disables viz |
-| RP1_ROOT | Environment | `.rp1/` | Artifact root |
+Extract these parameters from the user's input:
 
-## §PARSE ARGUMENTS
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `TARGET` | No | current branch | PR number, PR URL, branch name, or empty for current branch |
+| `BASE_BRANCH` | No | from PR or `main` | Diff base branch |
+| `SKIP_VISUAL` | No | `false` | Set `true` if user says "skip-visual" or "no visual" |
 
-Before executing this command's logic, run the Bash tool with:
-
-```bash
-rp1 agent-tools transform-args rp1-dev:pr-review -
-```
-
-**Stdin**: The exact content from $ARGUMENTS (pass verbatim, preserving any special characters).
-**Parse output**: Extract VARIABLE=value pairs.
-
-<target>$1</target>
-<base_branch>$2</base_branch>
-<skip_visual>$3</skip_visual>
+**Environment values** (resolve via shell):
+- `RP1_ROOT`: !`echo ${RP1_ROOT:-.rp1/}`
 
 §ARCH
 
@@ -112,7 +106,7 @@ Skip if `CI_MODE=true`.
 
 #### CI Mode
 
-1. From CI_CONTEXT: `pr_branch`, `base_branch` ($2 if provided), `pr_number`
+1. From CI_CONTEXT: `pr_branch`, `base_branch` (BASE_BRANCH if provided), `pr_number`
 2. `gh pr view {{pr_number}} --json title,body,url 2>/dev/null`
 3. Parse title -> `problem_statement`, body -> `expected_changes`, `acceptance_criteria`
    Parse fails -> `mode="ci_minimal"`, `problem_statement="Review PR #{{pr_number}}"`
@@ -124,7 +118,7 @@ Skip if `CI_MODE=true`.
 
    | Input | Detection | Resolution |
    |-------|-----------|------------|
-   | Empty | No $1 | `git branch --show-current` |
+   | Empty | No TARGET | `git branch --show-current` |
    | PR# | Numeric | `gh pr view {{target}} --json headRefName,baseRefName,title,body` |
    | PR URL | `/pull/` | Extract #, fetch above |
    | Branch | Non-numeric | Use directly |
@@ -141,7 +135,7 @@ Skip if `CI_MODE=true`.
 
 4. Add: `git log {{base}}..{{branch}} --oneline --no-decorate` -> `commit_summaries`
 
-5. Base: PR metadata > $2 > 'main'
+5. Base: PR metadata > BASE_BRANCH > 'main'
 
 **Intent Model**: `{"mode": "...", "problem_statement": "", "expected_changes": "", "should_not_change": "", "acceptance_criteria": [], "commit_summaries": []}`
 
@@ -149,7 +143,7 @@ Skip if `CI_MODE=true`.
 
 **Skip conditions**:
 - CI mode + `NOT config.visualize`
-- $3 == "skip-visual"
+- SKIP_VISUAL == true
 - Trivial: <=3 files, same dir, <100 lines
 
 **Detect** (local):

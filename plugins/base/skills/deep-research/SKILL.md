@@ -1,47 +1,36 @@
 ---
 name: deep-research
-version: 1.1.0
-description: Autonomous deep research on codebases and technical topics with structured report output
-allowed-tools:
-  - Bash(echo *)
-  - Bash(rp1 *)
-argument-hint: "<research-topic>"
-tags:
-  - research
-  - analysis
-  - exploration
-  - core
-created: 2025-12-16
-author: cloud-on-prem/rp1
+description: "Autonomous deep research on codebases and technical topics with structured report output via map-reduce explorer architecture."
+allowed-tools: Bash(echo *)
+metadata:
+  version: 1.1.0
+  tags:
+    - research
+    - analysis
+    - exploration
+    - core
+  created: 2025-12-16
+  updated: 2026-02-26
+  author: cloud-on-prem/rp1
+  argument-hint: "<research-topic>"
 ---
 
 # Deep Research - Orchestration Command
 
-## §PARSE ARGUMENTS
+## Parameters
 
-Before executing this command's logic, run the Bash tool with:
+Extract these parameters from the user's input:
 
-```bash
-rp1 agent-tools transform-args rp1-base:deep-research -
-```
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `RESEARCH_TOPIC` | Yes | - | The user's research topic or questions (freeform text) |
 
-**Stdin**: The exact content from $ARGUMENTS (pass verbatim, preserving any special characters).
-**Parse output**: Extract VARIABLE=value pairs.
+**Environment values** (resolve via shell):
+- `RP1_ROOT`: !`echo ${RP1_ROOT:-.rp1/}`
 
 You are executing the Deep Research workflow. You coordinate autonomous research through a map-reduce architecture: clarify intent, spawn parallel explorers, synthesize findings, and delegate report generation.
 
 **CRITICAL**: Commands CAN spawn agents. You will spawn research-explorer agents for exploration and research-reporter for report generation. Do NOT delegate orchestration to another agent.
-
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| RESEARCH_TOPIC | $ARGUMENTS | (required) | User's research topic or questions |
-| RP1_ROOT | Environment | `.rp1/` | Root directory for artifacts |
-
-<research_topic>
-$ARGUMENTS
-</research_topic>
 
 ## 1. Intent Clarification (~15% effort)
 

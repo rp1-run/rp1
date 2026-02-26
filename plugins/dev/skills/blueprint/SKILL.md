@@ -1,36 +1,35 @@
 ---
 name: blueprint
-version: 2.0.0
-description: Guided wizard for project vision via two-tier docs (charter + PRDs)
-allowed-tools:
-  - Bash(echo *)
-  - Bash(rp1 *)
-argument-hint: "[prd-name]"
-tags: [planning, project, charter, prd, onboarding, core]
-created: 2025-11-30
-author: cloud-on-prem/rp1
+description: "Guided wizard for project vision via two-tier docs (charter + PRDs) with stateless interview loops."
+allowed-tools: Bash(echo *)
+metadata:
+  version: 2.0.0
+  tags:
+    - planning
+    - project
+    - charter
+    - prd
+    - onboarding
+    - core
+  created: 2025-11-30
+  updated: 2026-02-26
+  author: cloud-on-prem/rp1
+  argument-hint: "[prd-name]"
 ---
 
 # Project Blueprint
 
-## §PARAMS
+## Parameters
 
-| Name | Pos | Default | Purpose |
-|------|-----|---------|---------|
-| PRD_NAME | $1 | (none) | PRD name (omit for default flow) |
-| EXTRA_CONTEXT | $ARGUMENTS | `""` | Additional context |
-| RP1_ROOT | Env | `.rp1/` | Root dir |
+Extract these parameters from the user's input:
 
-## §PARSE ARGUMENTS
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `PRD_NAME` | No | - | PRD name to create (omit for default charter + main PRD flow) |
+| `EXTRA_CONTEXT` | No | `""` | Additional context provided by the user |
 
-Before executing this command's logic, run the Bash tool with:
-
-```bash
-rp1 agent-tools transform-args rp1-dev:blueprint -
-```
-
-**Stdin**: The exact content from $ARGUMENTS (pass verbatim, preserving any special characters).
-**Parse output**: Extract VARIABLE=value pairs.
+**Environment values** (resolve via shell):
+- `RP1_ROOT`: !`echo ${RP1_ROOT:-.rp1/}`
 
 ## §CTX
 
@@ -142,7 +141,7 @@ loop:
 ### Step 4: PRD Creation
 
 #### 4.1 PRD Name
-`PRD_NAME = $1 || "main"`
+`PRD_NAME = PRD_NAME || "main"`
 
 #### 4.2 Init PRD
 Create `{{$RP1_ROOT}}/work/prds/{PRD_NAME}.md`:
@@ -173,7 +172,7 @@ question_count = 0
 loop:
   Task tool:
     subagent_type: rp1-dev:blueprint-wizard
-    prompt: PRD_NAME={PRD_NAME}, EXTRA_CONTEXT=$ARGUMENTS, RP1_ROOT={{$RP1_ROOT}}
+    prompt: PRD_NAME={PRD_NAME}, EXTRA_CONTEXT={EXTRA_CONTEXT}, RP1_ROOT={{$RP1_ROOT}}
 
   Parse JSON response
 

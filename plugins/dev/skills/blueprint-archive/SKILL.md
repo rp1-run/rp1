@@ -1,19 +1,34 @@
 ---
 name: blueprint-archive
-version: 1.0.0
-description: Archives a completed PRD to {RP1_ROOT}/work/archives/prds/ with associated features
-allowed-tools:
-  - Bash(echo *)
-  - Bash(rp1 *)
-argument-hint: "prd-name"
-tags: [blueprint, prd, archive, lifecycle]
-created: 2025-12-31
-author: cloud-on-prem/rp1
+description: "Archives a completed PRD to the archives directory with associated features and closure summary."
+allowed-tools: Bash(echo *)
+metadata:
+  version: 1.0.0
+  tags:
+    - blueprint
+    - prd
+    - archive
+    - lifecycle
+  created: 2025-12-31
+  updated: 2026-02-26
+  author: cloud-on-prem/rp1
+  argument-hint: "<prd-name>"
 ---
 
 # PRD Archive
 
 Archives completed PRD docs from active -> archives dir with associated features.
+
+## Parameters
+
+Extract these parameters from the user's input:
+
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `PRD_NAME` | Yes | - | PRD filename without extension (kebab-case) |
+
+**Environment values** (resolve via shell):
+- `RP1_ROOT`: !`echo ${RP1_ROOT:-.rp1/}`
 
 ## Usage
 
@@ -21,22 +36,9 @@ Archives completed PRD docs from active -> archives dir with associated features
 /rp1-dev:blueprint-archive <prd-name>
 ```
 
-**Params**: `prd-name` (req) - PRD filename without extension
-
-## §PARSE ARGUMENTS
-
-Before executing this command's logic, run the Bash tool with:
-
-```bash
-rp1 agent-tools transform-args rp1-dev:blueprint-archive -
-```
-
-**Stdin**: The exact content from $ARGUMENTS (pass verbatim, preserving any special characters).
-**Parse output**: Extract VARIABLE=value pairs.
-
 ## Behavior
 
-- Moves `{{$RP1_ROOT}}/work/prds/<prd-name>.md` -> `{{$RP1_ROOT}}/work/archives/prds/<prd-name>/prd.md`
+- Moves `{{$RP1_ROOT}}/work/prds/<PRD_NAME>.md` -> `{{$RP1_ROOT}}/work/archives/prds/<PRD_NAME>/prd.md`
 - Archives associated completed features to `{{$RP1_ROOT}}/work/archives/features/`
 - Generates `closure_summary.md` with archive metadata
 - Checks KB staleness and suggests `/knowledge-build` if needed
@@ -53,7 +55,7 @@ Task tool:
 
 ```
 MODE: scan
-PRD_NAME: $1
+PRD_NAME: {PRD_NAME}
 ```
 
 ### Step 2: Handle Scan Response
@@ -85,7 +87,7 @@ AskUserQuestion:
 
 ```
 questions:
-  - question: "Archive PRD '{prd_name}' ({prd_title})? {message}"
+  - question: "Archive PRD '{PRD_NAME}' ({prd_title})? {message}"
     header: "PRD Archive"
     options:
       - label: "Yes - Objectives fully met"
@@ -124,7 +126,7 @@ Task tool:
 
 ```
 MODE: archive
-PRD_NAME: $1
+PRD_NAME: {PRD_NAME}
 CLOSURE_STATUS: {complete|partial}
 GAPS: {user-provided gaps or empty}
 ```
