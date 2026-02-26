@@ -149,6 +149,7 @@ export function HomePage() {
 
 		const handleKeyDown = (event: KeyboardEvent) => {
 			if (document.querySelector('[role="dialog"][data-state="open"]')) return;
+			if (document.body.dataset.chordPending) return;
 
 			const target = event.target as HTMLElement;
 			const isTextInput =

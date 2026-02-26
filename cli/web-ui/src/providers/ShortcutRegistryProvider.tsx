@@ -50,6 +50,12 @@ const GLOBAL_SHORTCUTS: ShortcutDefinition[] = [
 		action: () => {},
 	},
 	{
+		key: "Cmd+\\",
+		label: "Toggle Sidebar",
+		description: "Show or hide the sidebar (alternate)",
+		action: () => {},
+	},
+	{
 		key: "?",
 		label: "Shortcuts",
 		description: "Show keyboard shortcuts",

@@ -34,6 +34,7 @@ export function useGlobalShortcuts({
 
 	const clearChord = useCallback(() => {
 		pendingChordRef.current = null;
+		delete document.body.dataset.chordPending;
 		if (chordTimerRef.current !== null) {
 			clearTimeout(chordTimerRef.current);
 			chordTimerRef.current = null;
@@ -62,7 +63,7 @@ export function useGlobalShortcuts({
 				return;
 			}
 
-			if (isMod && e.key === "\\") {
+			if (isMod && (e.key === "\\" || e.key === "b")) {
 				e.preventDefault();
 				onToggleSidebar();
 				return;
@@ -94,8 +95,10 @@ export function useGlobalShortcuts({
 				case "g":
 					e.preventDefault();
 					pendingChordRef.current = "g";
+					document.body.dataset.chordPending = "g";
 					chordTimerRef.current = setTimeout(() => {
 						pendingChordRef.current = null;
+						delete document.body.dataset.chordPending;
 						chordTimerRef.current = null;
 					}, CHORD_TIMEOUT_MS);
 					break;

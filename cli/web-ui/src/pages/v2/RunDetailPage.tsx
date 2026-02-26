@@ -70,6 +70,9 @@ export function RunDetailPage() {
 		if (!run) return;
 
 		const handleKeyDown = (event: KeyboardEvent) => {
+			if (document.querySelector('[role="dialog"][data-state="open"]')) return;
+			if (document.body.dataset.chordPending) return;
+
 			const target = event.target as HTMLElement;
 			const isTextInput =
 				target.tagName === "INPUT" ||
@@ -278,13 +281,21 @@ export function RunDetailPage() {
 						type="button"
 						onClick={refetch}
 						className={cn(
-							"inline-flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-muted/50 transition-colors",
-							isActive && "text-muted-foreground",
+							"inline-flex items-center gap-2 rounded-md border border-border bg-muted/30 px-4 py-2 font-mono text-sm transition-colors",
+							"hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 						)}
-						title="Refresh"
+						aria-label={isActive ? "Live updating" : "Refresh run"}
 					>
-						<RefreshCw className={cn("h-4 w-4", isActive && "animate-spin")} />
-						{isActive ? "Live" : "Refresh"}
+						<span className="text-terminal-green" aria-hidden="true">
+							$
+						</span>
+						<span>{isActive ? "live" : "refresh"}</span>
+						{isActive && (
+							<RefreshCw
+								className="h-3.5 w-3.5 animate-spin"
+								aria-hidden="true"
+							/>
+						)}
 					</button>
 				</div>
 			</header>

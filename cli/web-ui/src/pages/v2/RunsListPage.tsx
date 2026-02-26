@@ -250,12 +250,12 @@ export function RunsListPage() {
 		listRef: virtualizedListRef as React.RefObject<KeyboardNavListRef | null>,
 	});
 
-	// Document-level keyboard listener for vim navigation
 	useEffect(() => {
 		if (runs.length === 0) return;
 
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if (document.querySelector('[role="dialog"][data-state="open"]')) return;
+			if (document.body.dataset.chordPending) return;
 
 			if (isTextInputElement(e.target as Element)) return;
 
@@ -391,17 +391,22 @@ export function RunsListPage() {
 					onClick={refetch}
 					disabled={isLoading}
 					className={cn(
-						"inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium transition-colors",
-						"hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+						"inline-flex items-center gap-2 rounded-md border border-border bg-muted/30 px-4 py-2 font-mono text-sm transition-colors",
+						"hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 						"disabled:cursor-not-allowed disabled:opacity-50",
 					)}
 					aria-label="Refresh runs"
 				>
-					<RefreshCw
-						className={cn("h-4 w-4", isLoading && "animate-spin")}
-						aria-hidden="true"
-					/>
-					<span className="sr-only sm:not-sr-only">Refresh</span>
+					<span className="text-terminal-green" aria-hidden="true">
+						$
+					</span>
+					<span>refresh</span>
+					{isLoading && (
+						<RefreshCw
+							className="h-3.5 w-3.5 animate-spin"
+							aria-hidden="true"
+						/>
+					)}
 				</button>
 			</header>
 

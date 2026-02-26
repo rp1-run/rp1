@@ -37,6 +37,12 @@ export const shortcuts: readonly ShortcutDef[] = [
 		category: "Global",
 	},
 	{
+		id: "cmd-b",
+		keys: "{mod}+B",
+		description: "Toggle sidebar",
+		category: "Global",
+	},
+	{
 		id: "j-k",
 		keys: "j / k",
 		description: "Move down / up in list",
