@@ -508,6 +508,16 @@
     animation: pulse-gentle 1.3s ease-in-out infinite;
   }
 
+  @media (prefers-reduced-motion: reduce) {
+    .animate-blink {
+      animation: none;
+    }
+
+    .animate-pulse-gentle {
+      animation: none;
+    }
+  }
+
   .sr-only {
     position: absolute;
     width: 1px;
