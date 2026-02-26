@@ -2,6 +2,7 @@ import {
 	ChevronLeft,
 	ChevronRight,
 	Clock,
+	FileBox,
 	FolderKanban,
 	Home,
 	Keyboard,
@@ -9,10 +10,11 @@ import {
 	Moon,
 	Pin,
 	Search,
+	Settings,
 	Sun,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, NavLink, useLocation, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +31,7 @@ import { cn } from "@/lib/utils";
 import { useTheme } from "@/providers/ThemeProvider";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 import { Collapsible } from "./Collapsible";
+import { KeyboardShortcutHint } from "./KeyboardShortcutHint";
 
 const APP_VERSION = "0.1.0";
 
@@ -46,35 +49,58 @@ interface NavItem {
 	to: string;
 	label: string;
 	icon: ReactNode;
-	badgeKey: keyof NonNullable<V2SidebarProps["badgeCounts"]>;
+	shortcutHint: string;
+	badgeKey: "home" | "runs" | "projects";
+	conditionalRoute?: string;
 }
 
-const navItems: NavItem[] = [
+const ENABLED_ROUTES = new Set(["/", "/runs", "/projects"]);
+
+const allNavItems: NavItem[] = [
 	{
 		to: "/",
 		label: "Home",
 		icon: <Home className="h-5 w-5" />,
+		shortcutHint: "g h",
 		badgeKey: "home",
 	},
 	{
 		to: "/runs",
 		label: "Runs",
 		icon: <ListTodo className="h-5 w-5" />,
+		shortcutHint: "g r",
 		badgeKey: "runs",
 	},
 	{
 		to: "/projects",
 		label: "Projects",
 		icon: <FolderKanban className="h-5 w-5" />,
+		shortcutHint: "g p",
 		badgeKey: "projects",
+	},
+	{
+		to: "/artifacts",
+		label: "Artifacts",
+		icon: <FileBox className="h-5 w-5" />,
+		shortcutHint: "g a",
+		badgeKey: "home",
+		conditionalRoute: "/artifacts",
+	},
+	{
+		to: "/settings",
+		label: "Settings",
+		icon: <Settings className="h-5 w-5" />,
+		shortcutHint: "g s",
+		badgeKey: "home",
+		conditionalRoute: "/settings",
 	},
 ];
 
-export function V2Sidebar({
-	collapsed,
-	onToggle,
-	badgeCounts,
-}: V2SidebarProps) {
+const navItems = allNavItems.filter(
+	(item) => !item.conditionalRoute || ENABLED_ROUTES.has(item.conditionalRoute),
+);
+
+export function V2Sidebar({ collapsed, onToggle }: V2SidebarProps) {
 	return (
 		<aside
 			className={cn(
@@ -84,23 +110,7 @@ export function V2Sidebar({
 		>
 			<SidebarHeader collapsed={collapsed} />
 			<SidebarQuickAccess collapsed={collapsed} />
-			<nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-2">
-				{!collapsed && (
-					<span className="px-3 pb-1 pt-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-						Navigation
-					</span>
-				)}
-				{navItems.map((item) => (
-					<SidebarNavItem
-						key={item.to}
-						to={item.to}
-						label={item.label}
-						icon={item.icon}
-						collapsed={collapsed}
-						badgeCount={badgeCounts?.[item.badgeKey]}
-					/>
-				))}
-			</nav>
+			<SidebarNavigation collapsed={collapsed} />
 			<SidebarFooter collapsed={collapsed} onToggle={onToggle} />
 		</aside>
 	);
@@ -458,10 +468,58 @@ function SidebarQuickAccess({ collapsed }: SidebarQuickAccessProps) {
 	);
 }
 
+interface SidebarNavigationProps {
+	collapsed: boolean;
+}
+
+function SidebarNavigation({ collapsed }: SidebarNavigationProps) {
+	const { data: attentionData } = useAttention();
+
+	const badgeCounts = useMemo(() => {
+		if (!attentionData) return { home: 0, runs: 0, projects: 0 };
+
+		const { waiting, needsReview, failed, running } = attentionData;
+		const totalAttention =
+			waiting.length + needsReview.length + failed.length + running.length;
+		const runsCount = running.length + waiting.length;
+
+		const activeProjectIds = new Set(running.map((r) => r.projectId));
+		const projectsCount = activeProjectIds.size;
+
+		return {
+			home: totalAttention,
+			runs: runsCount,
+			projects: projectsCount,
+		};
+	}, [attentionData]);
+
+	return (
+		<nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-2">
+			{!collapsed && (
+				<span className="px-3 pb-1 pt-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+					Navigation
+				</span>
+			)}
+			{navItems.map((item) => (
+				<SidebarNavItem
+					key={item.to}
+					to={item.to}
+					label={item.label}
+					icon={item.icon}
+					shortcutHint={item.shortcutHint}
+					collapsed={collapsed}
+					badgeCount={badgeCounts[item.badgeKey]}
+				/>
+			))}
+		</nav>
+	);
+}
+
 interface SidebarNavItemProps {
 	to: string;
 	label: string;
 	icon: ReactNode;
+	shortcutHint: string;
 	collapsed: boolean;
 	badgeCount?: number;
 }
@@ -470,6 +528,7 @@ function SidebarNavItem({
 	to,
 	label,
 	icon,
+	shortcutHint,
 	collapsed,
 	badgeCount,
 }: SidebarNavItemProps) {
@@ -481,10 +540,11 @@ function SidebarNavItem({
 		<NavLink
 			to={to}
 			className={cn(
-				"flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+				"group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-all",
 				"hover:bg-accent hover:text-accent-foreground",
 				"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-				isActive && "bg-accent text-accent-foreground",
+				isActive &&
+					"bg-accent/50 text-accent-foreground shadow-[0_0_8px_hsl(var(--primary)/0.3)]",
 				collapsed && "justify-center px-2",
 			)}
 			aria-current={isActive ? "page" : undefined}
@@ -495,8 +555,13 @@ function SidebarNavItem({
 			{!collapsed && (
 				<>
 					<span className="flex-1">{label}</span>
+					<span className="hidden shrink-0 group-hover:inline-flex">
+						<KeyboardShortcutHint keys={shortcutHint} />
+					</span>
 					{badgeCount !== undefined && badgeCount > 0 && (
-						<Badge count={badgeCount} />
+						<span className="shrink-0 group-hover:hidden">
+							<Badge count={badgeCount} />
+						</span>
 					)}
 				</>
 			)}
@@ -513,6 +578,7 @@ function SidebarNavItem({
 					<TooltipTrigger asChild>{content}</TooltipTrigger>
 					<TooltipContent side="right" className="flex items-center gap-2">
 						{label}
+						<KeyboardShortcutHint keys={shortcutHint} />
 						{badgeCount !== undefined && badgeCount > 0 && (
 							<Badge count={badgeCount} />
 						)}

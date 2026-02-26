@@ -2,7 +2,7 @@
 
 **Feature ID**: modern-ui-phase-4
 **Status**: Not Started
-**Progress**: 62% (13 of 21 tasks)
+**Progress**: 66% (14 of 21 tasks)
 **Estimated Effort**: 10 days
 **Started**: 2026-02-26
 
@@ -460,7 +460,19 @@ Phase 4 delivers five workstreams: component consolidation (SharedSelect, Shared
     - **Deviations**: None
     - **Tests**: N/A (presentational sidebar component; hooks are already tested in T11; verified via type-check and lint)
 
-- [ ] **T14**: Refactor V2Sidebar -- SidebarNavigation section with badges, hints, and active glow `[complexity:medium]`
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
+- [x] **T14**: Refactor V2Sidebar -- SidebarNavigation section with badges, hints, and active glow `[complexity:medium]`
 
     **Reference**: [design.md#343-sidebarnavigation](design.md#343-sidebarnavigation)
 
@@ -468,11 +480,30 @@ Phase 4 delivers five workstreams: component consolidation (SharedSelect, Shared
 
     **Acceptance Criteria**:
 
-    - [ ] `SidebarNavigation` sub-component created with nav items: Home (g h), Runs (g r), Projects (g p), Artifacts (g a, conditional), Settings (g s)
-    - [ ] Badge counts sourced from attention data: Home=total attention, Runs=running+waiting, Projects=active count (REQ-03)
-    - [ ] `<KeyboardShortcutHint>` (from T10) visible on nav item hover via `group-hover` (REQ-03)
-    - [ ] Active nav item uses glow effect: `box-shadow: 0 0 8px hsl(var(--primary) / 0.3)` + `bg-accent/50` instead of flat `bg-accent` (REQ-05)
-    - [ ] Artifacts nav item renders conditionally based on route existence (Design Decision D8)
+    - [x] `SidebarNavigation` sub-component created with nav items: Home (g h), Runs (g r), Projects (g p), Artifacts (g a, conditional), Settings (g s)
+    - [x] Badge counts sourced from attention data: Home=total attention, Runs=running+waiting, Projects=active count (REQ-03)
+    - [x] `<KeyboardShortcutHint>` (from T10) visible on nav item hover via `group-hover` (REQ-03)
+    - [x] Active nav item uses glow effect: `box-shadow: 0 0 8px hsl(var(--primary) / 0.3)` + `bg-accent/50` instead of flat `bg-accent` (REQ-05)
+    - [x] Artifacts nav item renders conditionally based on route existence (Design Decision D8)
+
+    **Implementation Summary**:
+
+    - **Files**: `cli/web-ui/src/components/v2/V2Sidebar.tsx`
+    - **Approach**: Extracted SidebarNavigation sub-component from inline nav in V2Sidebar. Added shortcutHint field to NavItem interface and KeyboardShortcutHint display on hover via group-hover (hint shows, badge hides). Badge counts computed from useAttention() data: Home=total attention count, Runs=running+waiting, Projects=unique active project IDs from running items. Active nav item styled with bg-accent/50 and shadow-[0_0_8px_hsl(var(--primary)/0.3)] glow instead of flat bg-accent. Artifacts and Settings nav items defined as conditional via ENABLED_ROUTES set, filtered out when no matching route exists. Collapsed tooltip includes both shortcut hint and badge count.
+    - **Deviations**: None
+    - **Tests**: N/A (presentational sidebar component with no standalone business logic; attention data hook and KeyboardShortcutHint are tested separately; verified via type-check and lint)
+
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | N/A |
+    | Commit | PASS |
+    | Comments | PASS |
 
 - [ ] **T15**: Create AnimatedCounter component `[complexity:medium]`
 
