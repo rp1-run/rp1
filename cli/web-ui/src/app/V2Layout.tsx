@@ -4,6 +4,7 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { CommandPalette } from "@/components/v2/CommandPalette";
 import { ShortcutHelpOverlay } from "@/components/v2/ShortcutHelpOverlay";
+import { TerminalBreadcrumb } from "@/components/v2/TerminalBreadcrumb";
 import { V2Header } from "@/components/v2/V2Header";
 import { V2Sidebar } from "@/components/v2/V2Sidebar";
 import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
@@ -101,25 +102,10 @@ export function V2Layout() {
 			<V2Header wsStatus={wsStatus} />
 			<div className="flex flex-1 overflow-hidden">
 				<V2Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
-				{isFullHeight ? (
-					<main className="flex-1 overflow-hidden">
-						<AnimatePresence mode="wait">
-							<motion.div
-								key={location.pathname}
-								variants={variants}
-								initial="initial"
-								animate="animate"
-								exit="exit"
-								transition={transition}
-								className="h-full"
-							>
-								<Outlet />
-							</motion.div>
-						</AnimatePresence>
-					</main>
-				) : (
-					<main className="flex-1 overflow-hidden">
-						<ScrollArea className="h-full">
+				<div className="flex flex-1 flex-col overflow-hidden">
+					<TerminalBreadcrumb />
+					{isFullHeight ? (
+						<main className="flex-1 overflow-hidden">
 							<AnimatePresence mode="wait">
 								<motion.div
 									key={location.pathname}
@@ -128,14 +114,32 @@ export function V2Layout() {
 									animate="animate"
 									exit="exit"
 									transition={transition}
-									className="p-6"
+									className="h-full"
 								>
 									<Outlet />
 								</motion.div>
 							</AnimatePresence>
-						</ScrollArea>
-					</main>
-				)}
+						</main>
+					) : (
+						<main className="flex-1 overflow-hidden">
+							<ScrollArea className="h-full">
+								<AnimatePresence mode="wait">
+									<motion.div
+										key={location.pathname}
+										variants={variants}
+										initial="initial"
+										animate="animate"
+										exit="exit"
+										transition={transition}
+										className="p-6"
+									>
+										<Outlet />
+									</motion.div>
+								</AnimatePresence>
+							</ScrollArea>
+						</main>
+					)}
+				</div>
 			</div>
 			<CommandPalette
 				open={commandPaletteOpen}
