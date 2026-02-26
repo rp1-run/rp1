@@ -49,10 +49,7 @@ Examples:
 `,
 	)
 	.action(async () => {
-		// Lazy-load validateSettings to avoid loading transform-args module on every CLI startup
-		const { validateSettings } = await import(
-			"../agent-tools/transform-args/index.js"
-		);
+		const { validateSettings } = await import("../settings/validator.js");
 
 		const result = await validateSettings();
 

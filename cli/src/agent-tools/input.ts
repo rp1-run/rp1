@@ -43,7 +43,7 @@ export const readFromStdin = (): TE.TaskEither<CLIError, string> =>
 
 /**
  * Read input from stdin, allowing empty content.
- * Use this for tools that accept optional stdin input (e.g., transform-args).
+ * Use this for tools that accept optional stdin input.
  * Returns a TaskEither that resolves to the stdin content (may be empty string).
  */
 export const readFromStdinAllowEmpty = (): TE.TaskEither<CLIError, string> =>
