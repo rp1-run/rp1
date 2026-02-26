@@ -203,7 +203,7 @@ export function ArtifactViewerPage() {
 		() => {
 			if (typeof window === "undefined") return false;
 			const stored = sessionStorage.getItem(STORAGE_KEY_ANNOTATIONS_COLLAPSED);
-			return stored !== "true"; // Default to open
+			return stored !== "true";
 		},
 	);
 	const [sidebarDrawerOpen, setSidebarDrawerOpen] = useState(false);
@@ -270,7 +270,6 @@ export function ArtifactViewerPage() {
 					break;
 				}
 				case "line": {
-					// Line annotations are in code blocks - find the line element
 					const lineElements = document.querySelectorAll(
 						`[data-line-number="${anchor.lineNumber}"]`,
 					);
@@ -280,8 +279,6 @@ export function ArtifactViewerPage() {
 					break;
 				}
 				case "text-selection": {
-					// For text selections, we try to find the text in the document
-					// The annotation highlight should already be visible
 					const highlightElements = document.querySelectorAll(
 						`[data-annotation-id="${annotation.id}"]`,
 					);
@@ -296,7 +293,6 @@ export function ArtifactViewerPage() {
 				targetElement.scrollIntoView({ behavior: "smooth", block: "center" });
 			}
 
-			// Close mobile drawer if open
 			if (isMobile) {
 				setAnnotationDrawerOpen(false);
 			}
@@ -771,7 +767,6 @@ export function ArtifactViewerPage() {
 			</div>
 		);
 
-		// Wrap mobile content with AnnotationProvider when annotations are enabled
 		if (ANNOTATIONS_ENABLED) {
 			return (
 				<AnnotationProvider artifactPath={selectedArtifactPath}>
@@ -783,7 +778,6 @@ export function ArtifactViewerPage() {
 		return mobileContent;
 	}
 
-	// Desktop content
 	const desktopContent = (
 		<div className="flex h-full flex-col">
 			{liveRegion}
@@ -969,7 +963,6 @@ export function ArtifactViewerPage() {
 		</div>
 	);
 
-	// Wrap desktop content with AnnotationProvider when annotations are enabled
 	if (ANNOTATIONS_ENABLED) {
 		return (
 			<AnnotationProvider artifactPath={selectedArtifactPath}>

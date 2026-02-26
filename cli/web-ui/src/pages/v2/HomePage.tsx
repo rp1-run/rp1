@@ -72,7 +72,6 @@ export function HomePage() {
 	const navigate = useNavigate();
 	const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
-	// Combine all runs into a flat list for keyboard navigation
 	const allRuns = useMemo(() => {
 		if (!data) return [];
 		return [
@@ -90,7 +89,6 @@ export function HomePage() {
 		[navigate],
 	);
 
-	// Document-level keyboard navigation
 	useEffect(() => {
 		if (allRuns.length === 0) return;
 
@@ -135,7 +133,6 @@ export function HomePage() {
 		return () => document.removeEventListener("keydown", handleKeyDown);
 	}, [allRuns, selectedIndex, handleRunClick]);
 
-	// Calculate which section the selected index falls into
 	const getSelectionForSection = useCallback(
 		(sectionRuns: readonly Run[], sectionStart: number) => {
 			if (selectedIndex === null) return null;

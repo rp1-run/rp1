@@ -36,7 +36,6 @@ interface StatusConfig {
 }
 
 const statusConfigs: Record<Status, StatusConfig> = {
-	// Run statuses
 	queued: {
 		icon: Clock,
 		label: "Queued",
@@ -74,7 +73,6 @@ const statusConfigs: Record<Status, StatusConfig> = {
 		colorClass: "text-status-needs-review",
 		bgClass: "bg-status-needs-review/15",
 	},
-	// Step statuses
 	pending: {
 		icon: Circle,
 		label: "Pending",

@@ -95,7 +95,6 @@ export function AttentionSection({
 		[navigate],
 	);
 
-	// Use external selectedIndex if provided
 	const { selectedIndex: internalSelectedIndex } = useKeyboardNav({
 		items: visibleRuns,
 		onSelect: handleRunClick,

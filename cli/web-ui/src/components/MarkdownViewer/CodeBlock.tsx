@@ -378,11 +378,9 @@ export function CodeBlock({
 	useEffect(() => {
 		if (!selectedAnnotationId || !enableAnnotations) return;
 
-		// Find the annotation in our list
 		const annotation = annotations.find((a) => a.id === selectedAnnotationId);
 		if (!annotation || annotation.anchor.type !== "line") return;
 
-		// Find the gutter button for this line
 		const lineNumber = annotation.anchor.lineNumber;
 		const gutterButton = document.querySelector(
 			`button[aria-label*="line ${lineNumber}"]`,

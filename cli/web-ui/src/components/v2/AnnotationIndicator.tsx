@@ -110,7 +110,6 @@ export function AnnotationIndicator({
 		const gutterRect = gutterRef.current?.getBoundingClientRect();
 		if (!gutterRect) return;
 
-		// Position popover to the right of the gutter
 		onClick(annotation, {
 			x: gutterRect.right + 8,
 			y: gutterRect.top + indicatorPos.top,
@@ -130,7 +129,6 @@ export function AnnotationIndicator({
 		? `View resolved comment${replyCount > 0 ? ` (${replyCount} ${replyCount === 1 ? "reply" : "replies"})` : ""}`
 		: `View comment${replyCount > 0 ? ` (${replyCount} ${replyCount === 1 ? "reply" : "replies"})` : ""}`;
 
-	// Use portal to render inside the gutter element
 	return createPortal(
 		<TooltipProvider>
 			<Tooltip>
@@ -147,7 +145,6 @@ export function AnnotationIndicator({
 						}}
 						aria-label={`Annotation: ${annotation.content.slice(0, 50)}${annotation.content.length > 50 ? "..." : ""}`}
 					>
-						{/* Ultrathin vertical line indicator - detached from icon */}
 						<div
 							className={cn(
 								"absolute right-2 top-5 bottom-0 w-0.5 rounded-full transition-all",

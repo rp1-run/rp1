@@ -114,7 +114,6 @@ export function SelectionIndicator({
 		onClick();
 	};
 
-	// Use portal to render inside the gutter element
 	return createPortal(
 		<TooltipProvider>
 			<Tooltip>

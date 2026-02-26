@@ -330,7 +330,6 @@ export function AnnotationSidebar({
 
 	const handleAnnotationClick = useCallback(
 		(annotation: Annotation) => {
-			// First scroll to the annotation
 			onNavigateToAnnotation?.(annotation);
 			// Then select it to open the popover (with delay for scroll to complete)
 			setTimeout(() => {
