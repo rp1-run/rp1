@@ -1,5 +1,4 @@
 import { HelpCircle } from "lucide-react";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import {
 	Tooltip,
@@ -24,7 +23,6 @@ export function V2Header({ wsStatus }: V2HeaderProps) {
 				<Logo wsStatus={wsStatus} />
 			</div>
 			<div className="flex items-center gap-2">
-				<ThemeToggle />
 				<HelpButton />
 			</div>
 		</header>

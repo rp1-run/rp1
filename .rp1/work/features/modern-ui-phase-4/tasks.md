@@ -2,7 +2,7 @@
 
 **Feature ID**: modern-ui-phase-4
 **Status**: Not Started
-**Progress**: 52% (11 of 21 tasks)
+**Progress**: 57% (12 of 21 tasks)
 **Estimated Effort**: 10 days
 **Started**: 2026-02-26
 
@@ -393,7 +393,19 @@ Phase 4 delivers five workstreams: component consolidation (SharedSelect, Shared
     - **Deviations**: None
     - **Tests**: 17/17 passing (8 useRecentRuns tests + 9 usePinnedProjects tests covering max enforcement, dedup, ordering, toggle, persistence, clear, and corrupted localStorage)
 
-- [ ] **T12**: Refactor V2Sidebar -- SidebarHeader and SidebarFooter sections `[complexity:medium]`
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ✅ PASS |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
+- [x] **T12**: Refactor V2Sidebar -- SidebarHeader and SidebarFooter sections `[complexity:medium]`
 
     **Reference**: [design.md#341-sidebarheader](design.md#341-sidebarheader)
 
@@ -401,12 +413,19 @@ Phase 4 delivers five workstreams: component consolidation (SharedSelect, Shared
 
     **Acceptance Criteria**:
 
-    - [ ] `SidebarHeader` sub-component created: rp1 logo with blinking cursor, project context (name + branch + status dot), Cmd+K search trigger
-    - [ ] `SidebarFooter` sub-component created: theme toggle (moved from V2Header), `?` shortcut trigger button, version text in `text-muted-foreground text-xs`
-    - [ ] V2Header updated: theme toggle removed (relocated to sidebar footer)
-    - [ ] Sidebar width changed from `w-[200px]` to `w-[240px]` when expanded; collapsed state remains `w-16` (64px)
-    - [ ] V2Sidebar external props interface (`V2SidebarProps`) unchanged
-    - [ ] Sidebar collapsed state persistence in localStorage maintained (NFR-U4)
+    - [x] `SidebarHeader` sub-component created: rp1 logo with blinking cursor, project context (name + branch + status dot), Cmd+K search trigger
+    - [x] `SidebarFooter` sub-component created: theme toggle (moved from V2Header), `?` shortcut trigger button, version text in `text-muted-foreground text-xs`
+    - [x] V2Header updated: theme toggle removed (relocated to sidebar footer)
+    - [x] Sidebar width changed from `w-[200px]` to `w-[240px]` when expanded; collapsed state remains `w-16` (64px)
+    - [x] V2Sidebar external props interface (`V2SidebarProps`) unchanged
+    - [x] Sidebar collapsed state persistence in localStorage maintained (NFR-U4)
+
+    **Implementation Summary**:
+
+    - **Files**: `cli/web-ui/src/components/v2/V2Sidebar.tsx`, `cli/web-ui/src/components/v2/V2Header.tsx`
+    - **Approach**: Created SidebarHeader sub-component with rp1 logo (blinking cursor), project context (name fetched via /api/v2/projects + connection status dot from useWebSocket), and Cmd+K search trigger button that dispatches keyboard event to existing ProjectSwitcher handler. Created SidebarFooter sub-component with theme toggle (useTheme), keyboard shortcut trigger button (dispatches ? key event to existing ShortcutHelpOverlay), version text, and collapse button. Removed ThemeToggle from V2Header. Changed sidebar width from w-[200px] to w-[240px]. Added "Navigation" section label when expanded. Both header and footer handle collapsed state with minimal icon-only views and tooltips.
+    - **Deviations**: Branch name omitted from project context -- V2Project type has no branch field; can be added when API supports it. Version hardcoded as constant (no Vite define injection) for simplicity.
+    - **Tests**: N/A (presentational sidebar restructuring; no business logic to unit test; type-check and lint pass)
 
 - [ ] **T13**: Refactor V2Sidebar -- SidebarQuickAccess section `[complexity:medium]`
 
