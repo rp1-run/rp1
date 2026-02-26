@@ -2,7 +2,7 @@
 
 **Feature ID**: modern-ui-phase-4
 **Status**: Not Started
-**Progress**: 71% (15 of 21 tasks)
+**Progress**: 76% (16 of 21 tasks)
 **Estimated Effort**: 10 days
 **Started**: 2026-02-26
 
@@ -527,7 +527,19 @@ Phase 4 delivers five workstreams: component consolidation (SharedSelect, Shared
     - **Deviations**: None
     - **Tests**: 12/12 passing (3 initial mount, 3 snap-on-update, 2 reduced motion, 4 easeOutCubic math)
 
-- [ ] **T16**: HomePage uplift -- status summary bar, attention glow, terminal buttons `[complexity:medium]`
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ✅ PASS |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
+- [x] **T16**: HomePage uplift -- status summary bar, attention glow, terminal buttons `[complexity:medium]`
 
     **Reference**: [design.md#362-status-summary-bar](design.md#362-status-summary-bar)
 
@@ -535,11 +547,18 @@ Phase 4 delivers five workstreams: component consolidation (SharedSelect, Shared
 
     **Acceptance Criteria**:
 
-    - [ ] Status Summary Bar added to HomePage: 3-column grid with Running (blue glow), Need Attention (red glow), Completed Today (green glow) cards using `<AnimatedCounter>` and `<StatusGlow>`
-    - [ ] Non-zero counters have glow enabled; zero counters have glow disabled (REQ-23)
-    - [ ] Each `<AttentionSection>` wrapped with `<StatusGlow>`: Failed=red static, Waiting=amber pulse, Running=blue animated, Needs Review=purple static (REQ-24)
-    - [ ] Refresh button replaced with terminal-styled button: monospace font, `$` prefix in `text-terminal-green`, `border-border bg-muted/30` styling (REQ-25)
-    - [ ] Layout responsive within the content area (3-column grid collapses gracefully)
+    - [x] Status Summary Bar added to HomePage: 3-column grid with Running (blue glow), Need Attention (red glow), Completed Today (green glow) cards using `<AnimatedCounter>` and `<StatusGlow>`
+    - [x] Non-zero counters have glow enabled; zero counters have glow disabled (REQ-23)
+    - [x] Each `<AttentionSection>` wrapped with `<StatusGlow>`: Failed=red static, Waiting=amber pulse, Running=blue animated, Needs Review=purple static (REQ-24)
+    - [x] Refresh button replaced with terminal-styled button: monospace font, `$` prefix in `text-terminal-green`, `border-border bg-muted/30` styling (REQ-25)
+    - [x] Layout responsive within the content area (3-column grid collapses gracefully)
+
+    **Implementation Summary**:
+
+    - **Files**: `cli/web-ui/src/pages/v2/HomePage.tsx`
+    - **Approach**: Added StatusSummaryCard component using AnimatedCounter and StatusGlow with 3-column responsive grid (grid-cols-1 sm:grid-cols-3). Wrapped each AttentionSection with StatusGlow per category (Waiting=amber pulse, Needs Review=purple static, Failed=red static, Running=blue pulse). Replaced the existing refresh button with terminal-styled button using font-mono, green $ prefix, and bg-muted/30 styling. Added useCompletedTodayCount hook that fetches from existing /api/v2/runs endpoint with status=completed&dateRange=today filter.
+    - **Deviations**: "Completed Today" count fetched via separate API call to /api/v2/runs since AttentionData only contains active/attention runs. Running section glow uses pulse (animated) rather than a separate "animated border" effect, consistent with StatusGlow's pulse prop.
+    - **Tests**: N/A (presentational changes; AnimatedCounter and StatusGlow are tested separately; verified via type-check and lint)
 
 - [ ] **T17**: Register Tier 3 contextual shortcuts on RunsListPage, RunDetailPage, ArtifactViewerPage `[complexity:medium]`
 

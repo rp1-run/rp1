@@ -1,11 +1,65 @@
 import { AlertCircle, Eye, Hand, Loader2, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { AnimatedCounter } from "@/components/v2/AnimatedCounter";
 import { AttentionSection } from "@/components/v2/AttentionSection";
 import { KeyHints, NAV_HINTS_NO_BACK } from "@/components/v2/KeyHints";
+import type { GlowColor } from "@/components/v2/StatusGlow";
+import { StatusGlow } from "@/components/v2/StatusGlow";
 import { useAttention } from "@/hooks/useAttention";
 import { cn } from "@/lib/utils";
 import type { Run } from "@/types/runs";
+
+function useCompletedTodayCount(): number {
+	const [count, setCount] = useState(0);
+
+	useEffect(() => {
+		let cancelled = false;
+		async function fetchCompleted() {
+			try {
+				const response = await fetch(
+					"/api/v2/runs?status=completed&dateRange=today&limit=0",
+				);
+				if (!response.ok) return;
+				const json = (await response.json()) as { total: number };
+				if (!cancelled) {
+					setCount(json.total);
+				}
+			} catch {
+				// Silently ignore - counter will show 0
+			}
+		}
+		fetchCompleted();
+		return () => {
+			cancelled = true;
+		};
+	}, []);
+
+	return count;
+}
+
+interface StatusSummaryCardProps {
+	label: string;
+	count: number;
+	glowColor: GlowColor;
+}
+
+function StatusSummaryCard({
+	label,
+	count,
+	glowColor,
+}: StatusSummaryCardProps) {
+	return (
+		<StatusGlow color={glowColor} enabled={count > 0}>
+			<div className="rounded-lg border border-border bg-background/50 p-4">
+				<p className="text-sm text-muted-foreground">{label}</p>
+				<p className="mt-1 text-2xl font-semibold text-foreground">
+					<AnimatedCounter value={count} />
+				</p>
+			</div>
+		</StatusGlow>
+	);
+}
 
 function LoadingSkeleton() {
 	return (
@@ -69,6 +123,7 @@ function ErrorState({ error, onRetry }: { error: Error; onRetry: () => void }) {
 
 export function HomePage() {
 	const { data, isLoading, error, refetch } = useAttention();
+	const completedTodayCount = useCompletedTodayCount();
 	const navigate = useNavigate();
 	const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
@@ -152,6 +207,12 @@ export function HomePage() {
 		data.failed.length === 0 &&
 		data.running.length === 0;
 
+	const needAttentionCount = data
+		? data.waiting.length + data.needsReview.length + data.failed.length
+		: 0;
+
+	const runningCount = data ? data.running.length : 0;
+
 	return (
 		<div className="space-y-6">
 			<header className="flex items-center justify-between">
@@ -167,17 +228,22 @@ export function HomePage() {
 					onClick={refetch}
 					disabled={isLoading}
 					className={cn(
-						"inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium transition-colors",
-						"hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+						"inline-flex items-center gap-2 rounded-md border border-border bg-muted/30 px-4 py-2 font-mono text-sm transition-colors",
+						"hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 						"disabled:cursor-not-allowed disabled:opacity-50",
 					)}
 					aria-label="Refresh dashboard"
 				>
-					<RefreshCw
-						className={cn("h-4 w-4", isLoading && "animate-spin")}
-						aria-hidden="true"
-					/>
-					<span className="sr-only sm:not-sr-only">Refresh</span>
+					<span className="text-terminal-green" aria-hidden="true">
+						$
+					</span>
+					<span>refresh</span>
+					{isLoading && (
+						<RefreshCw
+							className="h-3.5 w-3.5 animate-spin"
+							aria-hidden="true"
+						/>
+					)}
 				</button>
 			</header>
 
@@ -190,57 +256,83 @@ export function HomePage() {
 			) : (
 				data && (
 					<>
+						<div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+							<StatusSummaryCard
+								label="Running"
+								count={runningCount}
+								glowColor="blue"
+							/>
+							<StatusSummaryCard
+								label="Need Attention"
+								count={needAttentionCount}
+								glowColor="red"
+							/>
+							<StatusSummaryCard
+								label="Completed Today"
+								count={completedTodayCount}
+								glowColor="green"
+							/>
+						</div>
+
 						<div className="space-y-4">
-							<AttentionSection
-								title="Waiting for you"
-								icon={Hand}
-								runs={data.waiting}
-								defaultExpanded={true}
-								accentColor="peach"
-								emptyMessage="No runs waiting for input"
-								selectedIndex={getSelectionForSection(data.waiting, 0)}
-							/>
+							<StatusGlow color="amber" enabled={data.waiting.length > 0} pulse>
+								<AttentionSection
+									title="Waiting for you"
+									icon={Hand}
+									runs={data.waiting}
+									defaultExpanded={true}
+									accentColor="peach"
+									emptyMessage="No runs waiting for input"
+									selectedIndex={getSelectionForSection(data.waiting, 0)}
+								/>
+							</StatusGlow>
 
-							<AttentionSection
-								title="Needs review"
-								icon={Eye}
-								runs={data.needsReview}
-								defaultExpanded={true}
-								accentColor="mauve"
-								emptyMessage="No runs need review"
-								selectedIndex={getSelectionForSection(
-									data.needsReview,
-									data.waiting.length,
-								)}
-							/>
+							<StatusGlow color="purple" enabled={data.needsReview.length > 0}>
+								<AttentionSection
+									title="Needs review"
+									icon={Eye}
+									runs={data.needsReview}
+									defaultExpanded={true}
+									accentColor="mauve"
+									emptyMessage="No runs need review"
+									selectedIndex={getSelectionForSection(
+										data.needsReview,
+										data.waiting.length,
+									)}
+								/>
+							</StatusGlow>
 
-							<AttentionSection
-								title="Failed"
-								icon={AlertCircle}
-								runs={data.failed}
-								defaultExpanded={true}
-								accentColor="red"
-								emptyMessage="No failed runs"
-								selectedIndex={getSelectionForSection(
-									data.failed,
-									data.waiting.length + data.needsReview.length,
-								)}
-							/>
+							<StatusGlow color="red" enabled={data.failed.length > 0}>
+								<AttentionSection
+									title="Failed"
+									icon={AlertCircle}
+									runs={data.failed}
+									defaultExpanded={true}
+									accentColor="red"
+									emptyMessage="No failed runs"
+									selectedIndex={getSelectionForSection(
+										data.failed,
+										data.waiting.length + data.needsReview.length,
+									)}
+								/>
+							</StatusGlow>
 
-							<AttentionSection
-								title="Running"
-								icon={Loader2}
-								runs={data.running}
-								defaultExpanded={true}
-								accentColor="blue"
-								emptyMessage="No runs currently active"
-								selectedIndex={getSelectionForSection(
-									data.running,
-									data.waiting.length +
-										data.needsReview.length +
-										data.failed.length,
-								)}
-							/>
+							<StatusGlow color="blue" enabled={data.running.length > 0} pulse>
+								<AttentionSection
+									title="Running"
+									icon={Loader2}
+									runs={data.running}
+									defaultExpanded={true}
+									accentColor="blue"
+									emptyMessage="No runs currently active"
+									selectedIndex={getSelectionForSection(
+										data.running,
+										data.waiting.length +
+											data.needsReview.length +
+											data.failed.length,
+									)}
+								/>
+							</StatusGlow>
 						</div>
 
 						<KeyHints hints={NAV_HINTS_NO_BACK} />
