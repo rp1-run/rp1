@@ -1,7 +1,5 @@
 import {
 	AlertTriangle,
-	Check,
-	ChevronDown,
 	Filter,
 	MessageSquare,
 	PanelRightClose,
@@ -13,6 +11,7 @@ import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { useAnnotationContext } from "@/providers/AnnotationProvider";
 import type { Annotation, AnnotationFilter } from "@/types/annotations";
+import { Select } from "./Select";
 
 export interface AnnotationSidebarProps {
 	artifactPath: string;
@@ -39,101 +38,6 @@ const DATE_OPTIONS: { value: DateRangeValue; label: string }[] = [
 ];
 
 const ALL_AUTHORS_VALUE = "__all__";
-
-interface FilterDropdownProps<T extends string> {
-	value: T;
-	options: { value: T; label: string }[];
-	onChange: (value: T) => void;
-	label: string;
-}
-
-function FilterDropdown<T extends string>({
-	value,
-	options,
-	onChange,
-	label,
-}: FilterDropdownProps<T>) {
-	const [open, setOpen] = useState(false);
-	const selectedOption = options.find((o) => o.value === value);
-
-	return (
-		<div className="relative">
-			<button
-				type="button"
-				onClick={() => setOpen(!open)}
-				className={cn(
-					"inline-flex h-8 items-center justify-between gap-1 rounded-md border border-border bg-background px-2 text-xs transition-colors",
-					"hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-					"min-w-[80px]",
-				)}
-				aria-label={label}
-				aria-expanded={open}
-				aria-haspopup="listbox"
-			>
-				<span>{selectedOption?.label ?? value}</span>
-				<ChevronDown
-					className={cn(
-						"h-3 w-3 text-muted-foreground transition-transform",
-						open && "rotate-180",
-					)}
-					aria-hidden="true"
-				/>
-			</button>
-
-			{open && (
-				<>
-					{/* biome-ignore lint/a11y/noStaticElementInteractions: backdrop click handler */}
-					<div
-						className="fixed inset-0 z-40"
-						onClick={() => setOpen(false)}
-						onKeyDown={(e) => e.key === "Escape" && setOpen(false)}
-						role="presentation"
-					/>
-					<div
-						role="listbox"
-						aria-label={label}
-						className="absolute left-0 top-full z-50 mt-1 min-w-full overflow-hidden rounded-md border border-border bg-background shadow-lg"
-					>
-						{options.map((option) => (
-							<div
-								key={option.value}
-								role="option"
-								aria-selected={option.value === value}
-								className={cn(
-									"flex cursor-pointer items-center gap-1 px-2 py-1.5 text-xs transition-colors",
-									"hover:bg-muted",
-									option.value === value && "bg-muted/50",
-								)}
-								onClick={() => {
-									onChange(option.value);
-									setOpen(false);
-								}}
-								onKeyDown={(e) => {
-									if (e.key === "Enter" || e.key === " ") {
-										e.preventDefault();
-										onChange(option.value);
-										setOpen(false);
-									}
-								}}
-								tabIndex={0}
-							>
-								{option.value === value && (
-									<Check
-										className="h-3 w-3 text-foreground"
-										aria-hidden="true"
-									/>
-								)}
-								<span className={option.value !== value ? "pl-4" : ""}>
-									{option.label}
-								</span>
-							</div>
-						))}
-					</div>
-				</>
-			)}
-		</div>
-	);
-}
 
 interface AnnotationItemProps {
 	annotation: Annotation;
@@ -389,19 +293,22 @@ export function AnnotationSidebar({
 
 			{showFilters && (
 				<div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
-					<FilterDropdown
+					<Select
+						size="sm"
 						value={filter.status}
 						options={STATUS_OPTIONS}
 						onChange={handleStatusChange}
 						label="Filter by status"
 					/>
-					<FilterDropdown
+					<Select
+						size="sm"
 						value={filter.author ?? ALL_AUTHORS_VALUE}
 						options={authorOptions}
 						onChange={handleAuthorChange}
 						label="Filter by author"
 					/>
-					<FilterDropdown
+					<Select
+						size="sm"
 						value={filter.dateRange}
 						options={DATE_OPTIONS}
 						onChange={handleDateRangeChange}

@@ -39,6 +39,7 @@ export {
 export { NewUpdatesChip, type NewUpdatesChipProps } from "./NewUpdatesChip";
 export { ProjectCard, type ProjectCardProps } from "./ProjectCard";
 export { RunCard, type RunCardProps } from "./RunCard";
+export { Select, type SelectProps } from "./Select";
 export {
 	SelectionPopover,
 	type SelectionPopoverProps,
