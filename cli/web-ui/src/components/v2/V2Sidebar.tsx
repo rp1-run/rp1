@@ -1,17 +1,19 @@
 import {
 	ChevronLeft,
 	ChevronRight,
+	Clock,
 	FolderKanban,
 	Home,
 	Keyboard,
 	ListTodo,
 	Moon,
+	Pin,
 	Search,
 	Sun,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useState } from "react";
-import { NavLink, useLocation, useParams } from "react-router-dom";
+import { Link, NavLink, useLocation, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
 	Tooltip,
@@ -19,9 +21,14 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useAttention } from "@/hooks/useAttention";
+import { usePinnedProjects } from "@/hooks/usePinnedProjects";
+import { useRecentRuns } from "@/hooks/useRecentRuns";
+import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/providers/ThemeProvider";
 import { useWebSocket } from "@/providers/WebSocketProvider";
+import { Collapsible } from "./Collapsible";
 
 const APP_VERSION = "0.1.0";
 
@@ -76,6 +83,7 @@ export function V2Sidebar({
 			)}
 		>
 			<SidebarHeader collapsed={collapsed} />
+			<SidebarQuickAccess collapsed={collapsed} />
 			<nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-2">
 				{!collapsed && (
 					<span className="px-3 pb-1 pt-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
@@ -328,6 +336,124 @@ function SidebarFooter({ collapsed, onToggle }: SidebarFooterProps) {
 				</span>
 			</div>
 			<CollapseButton collapsed={collapsed} onToggle={onToggle} />
+		</div>
+	);
+}
+
+interface SidebarQuickAccessProps {
+	collapsed: boolean;
+}
+
+function SidebarQuickAccess({ collapsed }: SidebarQuickAccessProps) {
+	const { recentRuns } = useRecentRuns();
+	const { pinnedProjects } = usePinnedProjects();
+	const { data: attentionData } = useAttention();
+
+	if (collapsed) return null;
+
+	const runningItems = attentionData?.running ?? [];
+	const hasRecents = recentRuns.length > 0;
+	const hasPinned = pinnedProjects.length > 0;
+	const hasRunning = runningItems.length > 0;
+	const hasAny = hasRecents || hasPinned || hasRunning;
+
+	if (!hasAny) return null;
+
+	return (
+		<div className="px-2">
+			<Collapsible
+				title="Quick Access"
+				defaultExpanded={true}
+				className="border-0 rounded-none"
+			>
+				<div className="space-y-3 px-2 pb-2">
+					{hasRunning && (
+						<div>
+							<span className="px-2 text-[0.625rem] font-medium uppercase tracking-wider text-muted-foreground">
+								Running
+							</span>
+							<ul className="mt-1 space-y-0.5">
+								{runningItems.map((run) => (
+									<li key={run.id}>
+										<Link
+											to={`/runs/${run.id}`}
+											className={cn(
+												"flex items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors",
+												"hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+											)}
+										>
+											<span className="relative flex h-2 w-2 shrink-0">
+												<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-status-running opacity-75" />
+												<span className="relative inline-flex h-2 w-2 rounded-full bg-status-running" />
+											</span>
+											<span className="flex-1 truncate text-foreground">
+												{run.featureName || run.projectName}
+											</span>
+										</Link>
+									</li>
+								))}
+							</ul>
+						</div>
+					)}
+
+					{hasRecents && (
+						<div>
+							<span className="px-2 text-[0.625rem] font-medium uppercase tracking-wider text-muted-foreground">
+								Recent
+							</span>
+							<ul className="mt-1 space-y-0.5">
+								{recentRuns.map((run) => (
+									<li key={run.id}>
+										<Link
+											to={`/runs/${run.id}`}
+											className={cn(
+												"flex items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors",
+												"hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+											)}
+										>
+											<Clock className="h-3 w-3 shrink-0 text-muted-foreground" />
+											<span className="flex-1 truncate text-foreground">
+												{run.featureName || run.projectName}
+											</span>
+											<span className="shrink-0 text-[0.625rem] text-muted-foreground">
+												{formatRelativeTime(
+													new Date(run.timestamp).toISOString(),
+												)}
+											</span>
+										</Link>
+									</li>
+								))}
+							</ul>
+						</div>
+					)}
+
+					{hasPinned && (
+						<div>
+							<span className="px-2 text-[0.625rem] font-medium uppercase tracking-wider text-muted-foreground">
+								Pinned
+							</span>
+							<ul className="mt-1 space-y-0.5">
+								{pinnedProjects.map((projectId) => (
+									<li key={projectId}>
+										<Link
+											to={`/projects/${projectId}`}
+											className={cn(
+												"flex items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors",
+												"hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+											)}
+										>
+											<Pin className="h-3 w-3 shrink-0 text-muted-foreground" />
+											<span className="flex-1 truncate text-foreground">
+												{projectId}
+											</span>
+										</Link>
+									</li>
+								))}
+							</ul>
+						</div>
+					)}
+				</div>
+			</Collapsible>
 		</div>
 	);
 }

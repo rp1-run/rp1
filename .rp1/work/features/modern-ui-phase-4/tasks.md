@@ -2,7 +2,7 @@
 
 **Feature ID**: modern-ui-phase-4
 **Status**: Not Started
-**Progress**: 57% (12 of 21 tasks)
+**Progress**: 62% (13 of 21 tasks)
 **Estimated Effort**: 10 days
 **Started**: 2026-02-26
 
@@ -427,7 +427,19 @@ Phase 4 delivers five workstreams: component consolidation (SharedSelect, Shared
     - **Deviations**: Branch name omitted from project context -- V2Project type has no branch field; can be added when API supports it. Version hardcoded as constant (no Vite define injection) for simplicity.
     - **Tests**: N/A (presentational sidebar restructuring; no business logic to unit test; type-check and lint pass)
 
-- [ ] **T13**: Refactor V2Sidebar -- SidebarQuickAccess section `[complexity:medium]`
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
+- [x] **T13**: Refactor V2Sidebar -- SidebarQuickAccess section `[complexity:medium]`
 
     **Reference**: [design.md#342-sidebarquickaccess](design.md#342-sidebarquickaccess)
 
@@ -435,11 +447,18 @@ Phase 4 delivers five workstreams: component consolidation (SharedSelect, Shared
 
     **Acceptance Criteria**:
 
-    - [ ] `SidebarQuickAccess` sub-component created using `<Collapsible>` (shared from T2) with "Quick Access" label in `text-muted-foreground text-xs uppercase tracking-wider` (REQ-06)
-    - [ ] Recent runs section: displays up to 5 items from `useRecentRuns()`, each clickable to navigate to run detail
-    - [ ] Pinned projects section: displays items from `usePinnedProjects()`, each clickable
-    - [ ] Running items: sourced from `useAttention()`, shows items with `status === "running"` with animated status dots
-    - [ ] Section renders correctly when all sub-sections are empty (graceful empty states)
+    - [x] `SidebarQuickAccess` sub-component created using `<Collapsible>` (shared from T2) with "Quick Access" label in `text-muted-foreground text-xs uppercase tracking-wider` (REQ-06)
+    - [x] Recent runs section: displays up to 5 items from `useRecentRuns()`, each clickable to navigate to run detail
+    - [x] Pinned projects section: displays items from `usePinnedProjects()`, each clickable
+    - [x] Running items: sourced from `useAttention()`, shows items with `status === "running"` with animated status dots
+    - [x] Section renders correctly when all sub-sections are empty (graceful empty states)
+
+    **Implementation Summary**:
+
+    - **Files**: `cli/web-ui/src/components/v2/V2Sidebar.tsx`
+    - **Approach**: Created SidebarQuickAccess sub-component using shared Collapsible with "Quick Access" title, integrated between SidebarHeader and navigation. Three sub-sections: Running items from useAttention() with animated ping status dots, Recent runs from useRecentRuns() with Clock icon and relative timestamps, Pinned projects from usePinnedProjects() with Pin icon. Each item is a Link to the relevant detail page. Component returns null when collapsed or when all sections are empty (graceful empty state).
+    - **Deviations**: None
+    - **Tests**: N/A (presentational sidebar component; hooks are already tested in T11; verified via type-check and lint)
 
 - [ ] **T14**: Refactor V2Sidebar -- SidebarNavigation section with badges, hints, and active glow `[complexity:medium]`
 
