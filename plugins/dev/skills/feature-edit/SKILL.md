@@ -1,26 +1,35 @@
 ---
 name: feature-edit
-version: 1.0.0
-description: Incorporates mid-stream changes into feature documentation with validation and propagation
-argument-hint: "<feature-id> <edit-description>"
-tags: [feature, documentation, workflow]
-created: 2025-11-29
-author: cloud-on-prem/rp1
+description: "Incorporates mid-stream changes into feature documentation with validation and propagation."
+metadata:
+  version: 1.0.0
+  tags:
+    - feature
+    - documentation
+    - workflow
+  created: 2025-11-29
+  updated: 2026-02-26
+  author: cloud-on-prem/rp1
+  argument-hint: "<feature-id> <edit-description>"
 ---
 
 # Feature Edit Command Router
 
 Route to feature-editor agent after param validation.
 
-## 0. Parameters
+## Parameters
 
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| FEATURE_ID | $1 | (required) | Feature identifier |
-| EDIT_DESCRIPTION | $ARGUMENTS | (required) | Edit description |
-| RP1_ROOT | Environment | `.rp1/` | Root directory |
+Extract these parameters from the user's input:
 
-## §ERR
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `FEATURE_ID` | Yes | - | Feature identifier (kebab-case, e.g., `auth-flow`) |
+| `EDIT_DESCRIPTION` | Yes | - | Freeform edit description text |
+
+**Environment values** (resolve via shell):
+- `RP1_ROOT`: !`echo ${RP1_ROOT:-.rp1/}`
+
+## Error Handling
 
 **Missing FEATURE_ID**:
 ```
@@ -44,7 +53,7 @@ Edit types:
 - Pivots: "Pivot: Focus on mobile-first instead of desktop"
 ```
 
-## §PROC
+## Execution
 
 ### 1. Initial Invocation
 
@@ -52,8 +61,8 @@ Task tool config:
 - `subagent_type`: `rp1-dev:feature-editor`
 - `prompt`:
 ```
-FEATURE_ID: $1
-EDIT_DESCRIPTION: $ARGUMENTS
+FEATURE_ID: {FEATURE_ID}
+EDIT_DESCRIPTION: {EDIT_DESCRIPTION}
 DECISIONS: {}
 
 Analyze and process this edit.
@@ -73,8 +82,8 @@ Parse agent response:
 
 2. Re-invoke agent w/ accumulated decisions:
 ```
-FEATURE_ID: $1
-EDIT_DESCRIPTION: $ARGUMENTS
+FEATURE_ID: {FEATURE_ID}
+EDIT_DESCRIPTION: {EDIT_DESCRIPTION}
 DECISIONS: {"classification": "...", "scope_action": "...", ...}
 ```
 

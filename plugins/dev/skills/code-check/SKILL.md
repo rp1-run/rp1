@@ -1,10 +1,16 @@
 ---
 name: code-check
-version: 2.0.0
-description: Fast code hygiene validation (lints, formatters, tests, coverage) for quick development loop feedback
-tags: [testing, code, quality, development]
-created: 2025-11-08
-author: cloud-on-prem/rp1
+description: "Fast code hygiene validation (lints, formatters, tests, coverage) for quick development loop feedback."
+metadata:
+  version: 2.0.0
+  tags:
+    - testing
+    - code
+    - quality
+    - development
+  created: 2025-11-08
+  updated: 2026-02-26
+  author: cloud-on-prem/rp1
 ---
 
 # Code Check - Fast Code Quality Validation

@@ -1,13 +1,15 @@
 ---
 name: strategize
-version: 2.0.0
-description: Analyzes systems holistically to provide strategic recommendations balancing cost, quality, performance, complexity, and business objectives with quantified trade-offs.
-tags:
-  - planning
-  - analysis
-  - core
-created: 2025-10-25
-author: cloud-on-prem/rp1
+description: "Analyzes systems holistically to provide strategic recommendations balancing cost, quality, performance, complexity, and business objectives with quantified trade-offs."
+metadata:
+  version: 2.0.0
+  tags:
+    - planning
+    - analysis
+    - core
+  created: 2025-10-25
+  updated: 2026-02-26
+  author: cloud-on-prem/rp1
 ---
 
 # Strategic Technical Advisor

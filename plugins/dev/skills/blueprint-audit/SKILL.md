@@ -1,24 +1,37 @@
 ---
 name: blueprint-audit
-version: 1.0.0
-description: Audits a PRD against implementation status and guides lifecycle decisions
-argument-hint: "prd-name"
-tags: [blueprint, prd, audit, lifecycle, housekeeping]
-created: 2026-01-27
-author: cloud-on-prem/rp1
+description: "Audits a PRD against implementation status and guides lifecycle decisions."
+metadata:
+  version: 1.0.0
+  tags:
+    - blueprint
+    - prd
+    - audit
+    - lifecycle
+    - housekeeping
+  created: 2026-01-27
+  updated: 2026-02-26
+  author: cloud-on-prem/rp1
+  argument-hint: "<prd-name>"
 ---
 
 # Blueprint Audit
 
 Audits PRD documents against implementation evidence, identifies stale or completed blueprints, and guides disposition decisions (archive, modify scope, defer).
 
+## Parameters
+
+Extract these parameters from the user's input:
+
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `PRD_NAME` | Yes | - | PRD filename without extension |
+
 ## Usage
 
 ```
 /rp1-dev:blueprint-audit <prd-name>
 ```
-
-**Params**: `prd-name` (req) - PRD filename without extension
 
 ## Behavior
 
@@ -38,7 +51,7 @@ Task tool:
 - `prompt`:
 ```
 MODE: audit
-PRD_NAME: $1
+PRD_NAME: {PRD_NAME}
 ```
 
 ### Step 2: Handle Audit Response

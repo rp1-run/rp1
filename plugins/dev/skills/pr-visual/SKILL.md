@@ -1,15 +1,17 @@
 ---
 name: pr-visual
-description: Transform pull request diffs into comprehensive Mermaid diagrams for visual code review and change understanding.
-argument-hint: "[pr-branch] [base-branch] [review-depth] [focus-areas]"
-tags:
-  - pr
-  - review
-  - analysis
-  - code
-created: 2025-10-25
-author: cloud-on-prem/rp1
-version: 2.0.0
+description: "Transform pull request diffs into comprehensive Mermaid diagrams for visual code review and change understanding."
+metadata:
+  version: 2.0.0
+  tags:
+    - pr
+    - review
+    - analysis
+    - code
+  created: 2025-10-25
+  updated: 2026-02-26
+  author: cloud-on-prem/rp1
+  argument-hint: "[pr-branch] [base-branch] [review-depth] [focus-areas]"
 ---
 
 # Visual PR Analyzer

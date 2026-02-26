@@ -1,14 +1,16 @@
 ---
 name: code-audit
-version: 2.0.0
-description: Analyzes implemented code for pattern consistency, maintainability, code duplication, comment quality, and documentation drift.
-tags:
-  - analysis
-  - review
-  - code
-  - documentation
-created: 2025-10-25
-author: cloud-on-prem/rp1
+description: "Analyzes implemented code for pattern consistency, maintainability, code duplication, comment quality, and documentation drift."
+metadata:
+  version: 2.0.0
+  tags:
+    - analysis
+    - review
+    - code
+    - documentation
+  created: 2025-10-25
+  updated: 2026-02-26
+  author: cloud-on-prem/rp1
 ---
 
 # Code Quality Auditor

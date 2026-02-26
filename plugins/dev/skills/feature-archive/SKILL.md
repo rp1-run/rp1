@@ -1,19 +1,33 @@
 ---
 name: feature-archive
-version: 1.0.0
-description: Archives a completed feature to {RP1_ROOT}/work/archives/features/
-allowed-tools:
-  - Bash(echo *)
-  - Bash(rp1 *)
-argument-hint: "feature-id"
-tags: [feature, archive, lifecycle]
-created: 2025-11-29
-author: cloud-on-prem/rp1
+description: "Archives a completed feature to the archives directory with optional documentation validation."
+allowed-tools: Bash(echo *)
+metadata:
+  version: 1.0.0
+  tags:
+    - feature
+    - archive
+    - lifecycle
+  created: 2025-11-29
+  updated: 2026-02-26
+  author: cloud-on-prem/rp1
+  argument-hint: "<feature-id>"
 ---
 
 # Feature Archive
 
 Archives completed feature docs from active -> archives dir.
+
+## Parameters
+
+Extract these parameters from the user's input:
+
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `FEATURE_ID` | Yes | - | Feature ID to archive (kebab-case) |
+
+**Environment values** (resolve via shell):
+- `RP1_ROOT`: !`echo ${RP1_ROOT:-.rp1/}`
 
 ## Usage
 
@@ -21,22 +35,9 @@ Archives completed feature docs from active -> archives dir.
 /rp1-dev:feature-archive <feature-id>
 ```
 
-**Params**: `feature-id` (req) - Feature ID to archive
-
-## §PARSE ARGUMENTS
-
-Before executing this command's logic, run the Bash tool with:
-
-```bash
-rp1 agent-tools transform-args rp1-dev:feature-archive -
-```
-
-**Stdin**: The exact content from $ARGUMENTS (pass verbatim, preserving any special characters).
-**Parse output**: Extract VARIABLE=value pairs.
-
 ## Behavior
 
-- Moves `{{$RP1_ROOT}}/work/features/<feature-id>/` -> `{{$RP1_ROOT}}/work/archives/features/<feature-id>/`
+- Moves `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/` -> `{{$RP1_ROOT}}/work/archives/features/{FEATURE_ID}/`
 - Creates archives/features/ if missing
 - Existing archive ID -> appends timestamp suffix
 - Validates docs exist before archiving
@@ -52,7 +53,7 @@ Task tool:
 
 ```
 MODE: archive
-FEATURE_ID: $1
+FEATURE_ID: {FEATURE_ID}
 SKIP_DOC_CHECK: false
 ```
 
@@ -68,7 +69,7 @@ AskUserQuestion:
 
 ```
 questions:
-  - question: "Feature '{feature_id}' has minimal documentation (no requirements.md or design.md). Archive anyway?"
+  - question: "Feature '{FEATURE_ID}' has minimal documentation (no requirements.md or design.md). Archive anyway?"
     header: "Confirm"
     options:
       - label: "Yes - Archive anyway"

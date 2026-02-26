@@ -1,14 +1,16 @@
 ---
 name: analyse-security
-version: 2.0.0
-description: Performs thorough security validation of features including vulnerability scans, authentication/authorization verification, compliance assessment, and penetration testing.
-tags:
-  - security
-  - analysis
-  - review
-  - testing
-created: 2025-10-25
-author: cloud-on-prem/rp1
+description: "Performs thorough security validation of features including vulnerability scans, authentication/authorization verification, compliance assessment, and penetration testing."
+metadata:
+  version: 2.0.0
+  tags:
+    - security
+    - analysis
+    - review
+    - testing
+  created: 2025-10-25
+  updated: 2026-02-26
+  author: cloud-on-prem/rp1
 ---
 
 # Security Validator

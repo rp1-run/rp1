@@ -1,13 +1,15 @@
 ---
 name: code-investigate
-version: 2.0.0
-description: Systematic investigation of bugs and issues to identify root causes through evidence-based analysis, hypothesis testing, and comprehensive documentation without permanent code changes.
-tags:
-  - analysis
-  - code
-  - core
-created: 2025-10-25
-author: cloud-on-prem/rp1
+description: "Systematic investigation of bugs and issues to identify root causes through evidence-based analysis, hypothesis testing, and comprehensive documentation without permanent code changes."
+metadata:
+  version: 2.0.0
+  tags:
+    - analysis
+    - code
+    - core
+  created: 2025-10-25
+  updated: 2026-02-26
+  author: cloud-on-prem/rp1
 ---
 
 # Root Cause Investigator

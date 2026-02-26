@@ -1,14 +1,16 @@
 ---
 name: project-birds-eye-view
-version: 2.0.0
-description: Generates comprehensive project overview documents with diagrams for new developers using internal knowledge base and codebase context.
-tags:
-  - documentation
-  - analysis
-  - onboarding
-  - visualization
-created: 2025-10-29
-author: cloud-on-prem/rp1
+description: "Generates comprehensive project overview documents with diagrams for new developers using internal knowledge base and codebase context."
+metadata:
+  version: 2.0.0
+  tags:
+    - documentation
+    - analysis
+    - onboarding
+    - visualization
+  created: 2025-10-29
+  updated: 2026-02-26
+  author: cloud-on-prem/rp1
 ---
 
 # Project Bird's-Eye View Generator
