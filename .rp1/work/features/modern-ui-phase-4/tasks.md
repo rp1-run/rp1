@@ -2,7 +2,7 @@
 
 **Feature ID**: modern-ui-phase-4
 **Status**: Not Started
-**Progress**: 76% (16 of 21 tasks)
+**Progress**: 81% (17 of 21 tasks)
 **Estimated Effort**: 10 days
 **Started**: 2026-02-26
 
@@ -560,7 +560,19 @@ Phase 4 delivers five workstreams: component consolidation (SharedSelect, Shared
     - **Deviations**: "Completed Today" count fetched via separate API call to /api/v2/runs since AttentionData only contains active/attention runs. Running section glow uses pulse (animated) rather than a separate "animated border" effect, consistent with StatusGlow's pulse prop.
     - **Tests**: N/A (presentational changes; AnimatedCounter and StatusGlow are tested separately; verified via type-check and lint)
 
-- [ ] **T17**: Register Tier 3 contextual shortcuts on RunsListPage, RunDetailPage, ArtifactViewerPage `[complexity:medium]`
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
+- [x] **T17**: Register Tier 3 contextual shortcuts on RunsListPage, RunDetailPage, ArtifactViewerPage `[complexity:medium]`
 
     **Reference**: [design.md#353-per-view-shortcut-registrations](design.md#353-per-view-shortcut-registrations)
 
@@ -568,11 +580,18 @@ Phase 4 delivers five workstreams: component consolidation (SharedSelect, Shared
 
     **Acceptance Criteria**:
 
-    - [ ] RunsListPage registers: `f` (focus filter bar), `s` (open sort dropdown), `r` (refresh data) via `useContextualShortcuts` (REQ-12)
-    - [ ] RunDetailPage registers: `a` (focus artifacts panel), `l` (show logs/events), `t` (show timeline) via `useContextualShortcuts` (REQ-13)
-    - [ ] ArtifactViewerPage registers: `e` (toggle expand), `c` (copy content), `[` (prev artifact), `]` (next artifact) via `useContextualShortcuts` (REQ-14)
-    - [ ] All registered shortcuts appear in the `?` overlay under the appropriate view section (REQ-15)
-    - [ ] Shortcuts do not fire when text input is focused (REQ-16)
+    - [x] RunsListPage registers: `f` (focus filter bar), `s` (open sort dropdown), `r` (refresh data) via `useContextualShortcuts` (REQ-12)
+    - [x] RunDetailPage registers: `a` (focus artifacts panel), `l` (show logs/events), `t` (show timeline) via `useContextualShortcuts` (REQ-13)
+    - [x] ArtifactViewerPage registers: `e` (toggle expand), `c` (copy content), `[` (prev artifact), `]` (next artifact) via `useContextualShortcuts` (REQ-14)
+    - [x] All registered shortcuts appear in the `?` overlay under the appropriate view section (REQ-15)
+    - [x] Shortcuts do not fire when text input is focused (REQ-16)
+
+    **Implementation Summary**:
+
+    - **Files**: `cli/web-ui/src/pages/v2/RunsListPage.tsx`, `cli/web-ui/src/pages/v2/RunDetailPage.tsx`, `cli/web-ui/src/pages/v2/ArtifactViewerPage.tsx`
+    - **Approach**: Registered Tier 3 contextual shortcuts on all three pages via useContextualShortcuts hook. RunsListPage: f focuses filter tablist, s opens first Select dropdown, r calls refetch. RunDetailPage: a scrolls to and focuses artifacts section, l scrolls to and expands EventStream collapsible, t scrolls to step timeline; added section refs for DOM targeting. ArtifactViewerPage: e toggles ToC panel, c copies content to clipboard, [ and ] navigate between artifacts by index. All shortcuts are text-input-safe via the hook's isTextInputElement guard and appear in the ? overlay under their view-specific section.
+    - **Deviations**: Removed 'l' key from RunDetailPage's existing vim-style keyboard handler to avoid conflict with the new 'l' contextual shortcut (logs/events). ArrowRight and Enter remain for opening selected artifacts, preserving equivalent functionality.
+    - **Tests**: N/A (shortcut registration is declarative configuration using the already-tested useContextualShortcuts hook; text-input suppression verified by existing 15 hook tests; type-check and lint pass)
 
 ### Group 4: Integration and Quality (Depends on All)
 

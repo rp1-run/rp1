@@ -38,6 +38,7 @@ import { KeyHints, VIEWER_HINTS } from "@/components/v2/KeyHints";
 import { NewUpdatesChip } from "@/components/v2/NewUpdatesChip";
 import { TableOfContents } from "@/components/v2/TableOfContents";
 import { useAnnotations } from "@/hooks/useAnnotations";
+import { useContextualShortcuts } from "@/hooks/useContextualShortcuts";
 import { useFollowMode } from "@/hooks/useFollowMode";
 import type { HeadingEntry } from "@/hooks/useHeadingExtraction";
 import { useIsMobile } from "@/hooks/useMediaQuery";
@@ -498,6 +499,60 @@ export function ArtifactViewerPage() {
 			document.removeEventListener("keydown", handleKeyDown);
 		};
 	}, [handleKeyDown]);
+
+	useContextualShortcuts({
+		viewId: "artifact-viewer",
+		viewLabel: "Artifact Viewer",
+		shortcuts: [
+			{
+				key: "e",
+				label: "Expand",
+				description: "Toggle table of contents",
+				action: () => {
+					handleToggleTocCollapse();
+				},
+			},
+			{
+				key: "c",
+				label: "Copy",
+				description: "Copy artifact content",
+				action: () => {
+					if (artifactContent?.content) {
+						navigator.clipboard.writeText(artifactContent.content);
+					}
+				},
+			},
+			{
+				key: "[",
+				label: "Previous",
+				description: "Previous artifact",
+				action: () => {
+					if (!run) return;
+					const currentIndex = run.artifacts.findIndex(
+						(a) => a.path === selectedArtifactPath,
+					);
+					if (currentIndex > 0) {
+						handleArtifactSelect(run.artifacts[currentIndex - 1].path);
+					}
+				},
+			},
+			{
+				key: "]",
+				label: "Next",
+				description: "Next artifact",
+				action: () => {
+					if (!run) return;
+					const currentIndex = run.artifacts.findIndex(
+						(a) => a.path === selectedArtifactPath,
+					);
+					if (currentIndex >= 0 && currentIndex < run.artifacts.length - 1) {
+						handleArtifactSelect(run.artifacts[currentIndex + 1].path);
+					}
+				},
+			},
+		],
+		enabled: !!run,
+	});
 
 	if (isLoading) {
 		return (

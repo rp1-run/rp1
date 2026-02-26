@@ -1,11 +1,12 @@
 import { ArrowLeft, ChevronRight, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArtifactList } from "@/components/v2/ArtifactList";
 import { EventStream } from "@/components/v2/EventStream";
 import { DETAIL_HINTS, KeyHints } from "@/components/v2/KeyHints";
 import { StatusBadge } from "@/components/v2/StatusBadge";
 import { StepTimeline } from "@/components/v2/StepTimeline";
+import { useContextualShortcuts } from "@/hooks/useContextualShortcuts";
 import { useRunDetail } from "@/hooks/useRunDetail";
 import { cn } from "@/lib/utils";
 import type { Artifact } from "@/types/runs";
@@ -54,6 +55,10 @@ export function RunDetailPage() {
 		number | null
 	>(null);
 
+	const artifactsSectionRef = useRef<HTMLElement>(null);
+	const eventStreamSectionRef = useRef<HTMLElement>(null);
+	const timelineSectionRef = useRef<HTMLElement>(null);
+
 	const handleArtifactClick = useCallback(
 		(artifact: Artifact) => {
 			navigate(`/runs/${runId}/artifacts/${artifact.path}`);
@@ -99,7 +104,6 @@ export function RunDetailPage() {
 						);
 					}
 					break;
-				case "l":
 				case "ArrowRight":
 				case "Enter":
 					if (
@@ -116,6 +120,57 @@ export function RunDetailPage() {
 		document.addEventListener("keydown", handleKeyDown);
 		return () => document.removeEventListener("keydown", handleKeyDown);
 	}, [run, navigate, selectedArtifactIndex, handleArtifactClick]);
+
+	useContextualShortcuts({
+		viewId: "run-detail",
+		viewLabel: "Run Detail",
+		shortcuts: [
+			{
+				key: "a",
+				label: "Artifacts",
+				description: "Focus artifacts panel",
+				action: () => {
+					artifactsSectionRef.current?.scrollIntoView({
+						behavior: "smooth",
+						block: "start",
+					});
+					const firstArtifact =
+						artifactsSectionRef.current?.querySelector<HTMLElement>(
+							"[role='button'], a, button",
+						);
+					firstArtifact?.focus();
+				},
+			},
+			{
+				key: "l",
+				label: "Logs",
+				description: "Show logs and events",
+				action: () => {
+					eventStreamSectionRef.current?.scrollIntoView({
+						behavior: "smooth",
+						block: "start",
+					});
+					const trigger =
+						eventStreamSectionRef.current?.querySelector<HTMLElement>(
+							'button[aria-expanded="false"]',
+						);
+					trigger?.click();
+				},
+			},
+			{
+				key: "t",
+				label: "Timeline",
+				description: "Show step timeline",
+				action: () => {
+					timelineSectionRef.current?.scrollIntoView({
+						behavior: "smooth",
+						block: "start",
+					});
+				},
+			},
+		],
+		enabled: !!run,
+	});
 
 	if (isLoading) {
 		return (
@@ -235,14 +290,20 @@ export function RunDetailPage() {
 			</header>
 
 			{run.steps.length > 0 && (
-				<section className="rounded-lg border border-border bg-card p-6">
+				<section
+					ref={timelineSectionRef}
+					className="rounded-lg border border-border bg-card p-6"
+				>
 					<h2 className="sr-only">Workflow Progress</h2>
 					<StepTimeline steps={run.steps} orientation="horizontal" />
 				</section>
 			)}
 
 			<div className="grid gap-6 lg:grid-cols-2">
-				<section className="rounded-lg border border-border bg-card p-4">
+				<section
+					ref={artifactsSectionRef}
+					className="rounded-lg border border-border bg-card p-4"
+				>
 					<h2 className="mb-4 font-medium text-foreground">Artifacts</h2>
 					<ArtifactList
 						artifacts={run.artifacts}
@@ -251,7 +312,7 @@ export function RunDetailPage() {
 					/>
 				</section>
 
-				<section>
+				<section ref={eventStreamSectionRef}>
 					<EventStream events={run.events} defaultExpanded={false} />
 				</section>
 			</div>

@@ -14,6 +14,7 @@ import {
 	VirtualizedList,
 	type VirtualizedListRef,
 } from "@/components/v2/VirtualizedList";
+import { useContextualShortcuts } from "@/hooks/useContextualShortcuts";
 import {
 	type VirtualizedListRef as KeyboardNavListRef,
 	useKeyboardNav,
@@ -313,16 +314,53 @@ export function RunsListPage() {
 			window.removeEventListener("rp1:focus-search", handleFocusSearch);
 	}, []);
 
+	useContextualShortcuts({
+		viewId: "runs-list",
+		viewLabel: "Runs List",
+		shortcuts: [
+			{
+				key: "f",
+				label: "Filter",
+				description: "Focus the filter bar",
+				action: () => {
+					const tab = document.querySelector<HTMLElement>(
+						'[role="tablist"] [role="tab"]',
+					);
+					tab?.focus();
+				},
+			},
+			{
+				key: "s",
+				label: "Sort",
+				description: "Open sort/filter dropdown",
+				action: () => {
+					const trigger = document.querySelector<HTMLElement>(
+						'[aria-haspopup="listbox"]',
+					);
+					trigger?.click();
+				},
+			},
+			{
+				key: "r",
+				label: "Refresh",
+				description: "Refresh runs data",
+				action: () => {
+					refetch();
+				},
+			},
+		],
+	});
+
 	const renderRunItem = useCallback(
-		(run: Run, _index: number, isSelected: boolean) => (
-			<RunCard
-				run={run}
-				onClick={() => handleSelectRun(run)}
-				selected={isSelected}
-			/>
-		),
-		[handleSelectRun],
-	);
+	(run: Run, _index: number, isSelected: boolean) => (
+		<RunCard
+			run={run}
+			onClick={() => handleSelectRun(run)}
+			selected={isSelected}
+		/>
+	),
+	[handleSelectRun],
+);
 
 	const getRunKey = useCallback((run: Run) => run.id, []);
 
