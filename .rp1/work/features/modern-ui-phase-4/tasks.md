@@ -2,7 +2,7 @@
 
 **Feature ID**: modern-ui-phase-4
 **Status**: Not Started
-**Progress**: 66% (14 of 21 tasks)
+**Progress**: 71% (15 of 21 tasks)
 **Estimated Effort**: 10 days
 **Started**: 2026-02-26
 
@@ -497,15 +497,15 @@ Phase 4 delivers five workstreams: component consolidation (SharedSelect, Shared
 
     | Dimension | Status |
     |-----------|--------|
-    | Discipline | PASS |
-    | Accuracy | PASS |
-    | Completeness | PASS |
-    | Quality | PASS |
-    | Testing | N/A |
-    | Commit | PASS |
-    | Comments | PASS |
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
 
-- [ ] **T15**: Create AnimatedCounter component `[complexity:medium]`
+- [x] **T15**: Create AnimatedCounter component `[complexity:medium]`
 
     **Reference**: [design.md#361-animatedcounter](design.md#361-animatedcounter)
 
@@ -513,12 +513,19 @@ Phase 4 delivers five workstreams: component consolidation (SharedSelect, Shared
 
     **Acceptance Criteria**:
 
-    - [ ] `components/v2/AnimatedCounter.tsx` created with `value`, `duration` (default 500ms), `className` props
-    - [ ] Uses `useRef` + `useEffect` + `requestAnimationFrame` with `easeOutCubic` easing
-    - [ ] Animates from 0 to target value on initial mount only; subsequent value changes snap instantly (BR-06)
-    - [ ] `prefers-reduced-motion` renders value directly without animation (NFR-U1)
-    - [ ] Renders at 60fps on modern desktop hardware (NFR-P1)
-    - [ ] Component exported from `components/v2/index.ts` barrel
+    - [x] `components/v2/AnimatedCounter.tsx` created with `value`, `duration` (default 500ms), `className` props
+    - [x] Uses `useRef` + `useEffect` + `requestAnimationFrame` with `easeOutCubic` easing
+    - [x] Animates from 0 to target value on initial mount only; subsequent value changes snap instantly (BR-06)
+    - [x] `prefers-reduced-motion` renders value directly without animation (NFR-U1)
+    - [x] Renders at 60fps on modern desktop hardware (NFR-P1)
+    - [x] Component exported from `components/v2/index.ts` barrel
+
+    **Implementation Summary**:
+
+    - **Files**: `cli/web-ui/src/components/v2/AnimatedCounter.tsx`, `cli/web-ui/src/components/v2/index.ts`, `cli/web-ui/src/__tests__/components/v2/AnimatedCounter.test.ts`
+    - **Approach**: Created AnimatedCounter with useRef + useEffect + requestAnimationFrame pattern. Uses easeOutCubic easing for natural deceleration. isInitialMount ref flag distinguishes first render (animate from 0) from subsequent updates (snap instantly per BR-06). prefers-reduced-motion detected via window.matchMedia on mount and bypasses animation entirely. Uses tabular-nums for stable digit width during animation. Cleanup cancels in-flight requestAnimationFrame on unmount.
+    - **Deviations**: None
+    - **Tests**: 12/12 passing (3 initial mount, 3 snap-on-update, 2 reduced motion, 4 easeOutCubic math)
 
 - [ ] **T16**: HomePage uplift -- status summary bar, attention glow, terminal buttons `[complexity:medium]`
 

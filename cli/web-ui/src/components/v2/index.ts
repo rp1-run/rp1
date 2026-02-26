@@ -1,4 +1,8 @@
 export {
+	AnimatedCounter,
+	type AnimatedCounterProps,
+} from "./AnimatedCounter";
+export {
 	AnnotationIndicator,
 	type AnnotationIndicatorProps,
 } from "./AnnotationIndicator";
