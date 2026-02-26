@@ -104,11 +104,13 @@
     --terminal-cursor: 109 58% 40%;
     --terminal-mauve: 266 85% 58%;
     --terminal-red: 347 87% 44%;
+    --terminal-yellow: 35 77% 49%;
 
     /* Status colors - Catppuccin Latte */
     --status-queued: 228 11% 65%;
     --status-running: 220 91% 54%;
     --status-waiting: 22 99% 52%;
+    --status-warning: 22 99% 52%;
     --status-completed: 109 58% 40%;
     --status-failed: 347 87% 44%;
     --status-needs-review: 266 85% 58%;
@@ -171,11 +173,13 @@
     --terminal-cursor: 115 54% 76%;
     --terminal-mauve: 267 83% 80%;
     --terminal-red: 343 81% 75%;
+    --terminal-yellow: 41 86% 83%;
 
     /* Status colors - Catppuccin Mocha */
     --status-queued: 230 25% 44%;
     --status-running: 217 92% 76%;
     --status-waiting: 23 92% 75%;
+    --status-warning: 23 92% 75%;
     --status-completed: 115 54% 76%;
     --status-failed: 343 81% 75%;
     --status-needs-review: 267 83% 80%;
@@ -421,6 +425,14 @@
     color: hsl(var(--terminal-red));
   }
 
+  .text-terminal-yellow {
+    color: hsl(var(--terminal-yellow));
+  }
+
+  .bg-terminal-yellow {
+    background-color: hsl(var(--terminal-yellow));
+  }
+
   /* Status color utilities */
   .text-status-queued {
     color: hsl(var(--status-queued));
@@ -468,6 +480,14 @@
 
   .bg-status-needs-review {
     background-color: hsl(var(--status-needs-review));
+  }
+
+  .text-status-warning {
+    color: hsl(var(--status-warning));
+  }
+
+  .bg-status-warning {
+    background-color: hsl(var(--status-warning));
   }
 
   @keyframes blink {
