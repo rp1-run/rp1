@@ -40,19 +40,17 @@ export interface VerificationReport {
 /**
  * Check if installation is healthy.
  * Installation is healthy if we have at least the expected number of components.
- * Skills and plugins are optional enhancements, so missing skills/plugins
- * don't make installation unhealthy.
+ * Skills are primary artifacts (critical); plugins are optional enhancements.
  */
 export const isHealthy = (report: VerificationReport): boolean => {
 	const criticalIssues = report.issues.filter(
-		(i) =>
-			!i.toLowerCase().includes("skills") &&
-			!i.toLowerCase().includes("plugin"),
+		(i) => !i.toLowerCase().includes("plugin"),
 	);
 	return (
 		criticalIssues.length === 0 &&
 		report.commandsFound >= report.commandsExpected &&
-		report.agentsFound >= report.agentsExpected
+		report.agentsFound >= report.agentsExpected &&
+		report.skillsFound >= report.skillsExpected
 	);
 };
 
