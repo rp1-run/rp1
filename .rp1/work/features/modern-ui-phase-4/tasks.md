@@ -2,7 +2,7 @@
 
 **Feature ID**: modern-ui-phase-4
 **Status**: Not Started
-**Progress**: 48% (10 of 21 tasks)
+**Progress**: 52% (11 of 21 tasks)
 **Estimated Effort**: 10 days
 **Started**: 2026-02-26
 
@@ -357,9 +357,21 @@ Phase 4 delivers five workstreams: component consolidation (SharedSelect, Shared
     - **Deviations**: None
     - **Tests**: N/A (presentational component with no business logic; verified via type-check and lint)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
 ### Group 3: Feature Assembly (Depends on Groups 1 + 2)
 
-- [ ] **T11**: Create useRecentRuns and usePinnedProjects localStorage hooks `[complexity:medium]`
+- [x] **T11**: Create useRecentRuns and usePinnedProjects localStorage hooks `[complexity:medium]`
 
     **Reference**: [design.md#342-sidebarquickaccess](design.md#342-sidebarquickaccess)
 
@@ -367,12 +379,19 @@ Phase 4 delivers five workstreams: component consolidation (SharedSelect, Shared
 
     **Acceptance Criteria**:
 
-    - [ ] `hooks/useRecentRuns.ts` stores `{ id, projectName, featureName, timestamp }[]` in localStorage key `rp1-recent-runs`
-    - [ ] Max 5 items enforced, deduplicated by run ID, sorted by most recent (BR-01)
-    - [ ] `trackVisit(run)` function exposed for run detail page to call on mount
-    - [ ] `hooks/usePinnedProjects.ts` stores `string[]` in localStorage key `rp1-pinned-projects`
-    - [ ] `togglePin(projectId)` and `isPinned(projectId)` functions exposed (BR-02)
-    - [ ] Unit tests cover: max 5 enforcement, dedup, ordering, toggle, persistence
+    - [x] `hooks/useRecentRuns.ts` stores `{ id, projectName, featureName, timestamp }[]` in localStorage key `rp1-recent-runs`
+    - [x] Max 5 items enforced, deduplicated by run ID, sorted by most recent (BR-01)
+    - [x] `trackVisit(run)` function exposed for run detail page to call on mount
+    - [x] `hooks/usePinnedProjects.ts` stores `string[]` in localStorage key `rp1-pinned-projects`
+    - [x] `togglePin(projectId)` and `isPinned(projectId)` functions exposed (BR-02)
+    - [x] Unit tests cover: max 5 enforcement, dedup, ordering, toggle, persistence
+
+    **Implementation Summary**:
+
+    - **Files**: `cli/web-ui/src/hooks/useRecentRuns.ts`, `cli/web-ui/src/hooks/usePinnedProjects.ts`, `cli/web-ui/src/__tests__/hooks/useRecentRuns.test.ts`, `cli/web-ui/src/__tests__/hooks/usePinnedProjects.test.ts`
+    - **Approach**: Both hooks use useSyncExternalStore with module-level cached snapshots for referential stability. useRecentRuns stores up to 5 RecentRun entries in localStorage, deduplicating by ID, prepending new visits, and slicing to MAX_ITEMS. usePinnedProjects stores a string[] of project IDs with togglePin (add/remove), isPinned (membership check), and clearPins. Both include clearX utility for cleanup. readX helper functions provide mutable copies for write operations.
+    - **Deviations**: None
+    - **Tests**: 17/17 passing (8 useRecentRuns tests + 9 usePinnedProjects tests covering max enforcement, dedup, ordering, toggle, persistence, clear, and corrupted localStorage)
 
 - [ ] **T12**: Refactor V2Sidebar -- SidebarHeader and SidebarFooter sections `[complexity:medium]`
 
