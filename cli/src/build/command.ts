@@ -320,7 +320,7 @@ const getOpenCodePluginName = (pluginName: string): string => {
 /**
  * Extended build result with asset paths for bundle manifest.
  */
-interface PluginBuildResult {
+export interface PluginBuildResult {
 	summary: BuildSummary;
 	assets: BundlePluginAssets;
 	hasOpenCodePlugin: boolean;
@@ -328,8 +328,10 @@ interface PluginBuildResult {
 
 /**
  * Build a single plugin.
+ * Processes skills first (preferred source), then commands (fallback with deduplication).
+ * When a skill and command share the same name, the skill wins.
  */
-const buildPlugin = async (
+export const buildPlugin = async (
 	pluginName: string,
 	projectRoot: string,
 	outputPath: string,
@@ -368,7 +370,62 @@ const buildPlugin = async (
 		spinner.start(`Building ${pluginName} plugin...`);
 	}
 
-	// Process commands
+	// Process skills first (preferred source per dual-source strategy)
+	// Skills are processed for all plugins, not just base.
+	const skillsDir = join(pluginDir, "skills");
+	const skillDirs = await getSkillDirs(skillsDir);
+	const processedSkillNames = new Set<string>();
+
+	for (const skillDir of skillDirs) {
+		const parseResult = await parseSkill(skillDir)();
+		if (E.isLeft(parseResult)) {
+			errors.push(formatError(parseResult.left, false));
+			continue;
+		}
+		const ccSkill = parseResult.right;
+
+		const transformResult = transformSkill(ccSkill, defaultRegistry);
+		if (E.isLeft(transformResult)) {
+			errors.push(formatError(transformResult.left, false));
+			continue;
+		}
+		const ocSkill = transformResult.right;
+
+		const generateResult = generateSkillFile(ocSkill);
+		if (E.isLeft(generateResult)) {
+			errors.push(formatError(generateResult.left, false));
+			continue;
+		}
+		const {
+			skillDir: outSkillDir,
+			skillMdContent,
+			supportingFiles,
+		} = generateResult.right;
+
+		// Validate generated content
+		const validateResult = validateSkill(
+			skillMdContent,
+			`${outSkillDir}/SKILL.md`,
+		);
+		if (E.isLeft(validateResult)) {
+			errors.push(formatError(validateResult.left, false));
+			continue;
+		}
+
+		// Write SKILL.md
+		const skillOutputDir = join(pluginOutputDir, "skill", outSkillDir);
+		const relativePath = `${pluginName}/skill/${outSkillDir}/SKILL.md`;
+		await mkdir(skillOutputDir, { recursive: true });
+		await writeFile(join(skillOutputDir, "SKILL.md"), skillMdContent);
+
+		// Copy supporting files
+		await copySupportingFiles(skillDir, skillOutputDir, supportingFiles);
+
+		skillEntries.push({ name: ccSkill.name, path: relativePath });
+		processedSkillNames.add(ccSkill.name);
+	}
+
+	// Process commands (fallback source -- skip commands that have a matching skill)
 	const commandsDir = join(pluginDir, "commands");
 	const commandFiles = await getMarkdownFiles(commandsDir);
 
@@ -379,6 +436,11 @@ const buildPlugin = async (
 			continue;
 		}
 		const ccCmd = parseResult.right;
+
+		// Deduplicate: skill wins when both a skill and command share the same name
+		if (processedSkillNames.has(ccCmd.name)) {
+			continue;
+		}
 
 		const transformResult = transformCommand(ccCmd, defaultRegistry);
 		if (E.isLeft(transformResult)) {
@@ -446,60 +508,6 @@ const buildPlugin = async (
 		const outputFile = join(outputPath, relativePath);
 		await writeFile(outputFile, content);
 		agentEntries.push({ name: ccAgent.name, path: relativePath });
-	}
-
-	// Process skills (only in base plugin)
-	if (pluginName === "base") {
-		const skillsDir = join(pluginDir, "skills");
-		const skillDirs = await getSkillDirs(skillsDir);
-
-		for (const skillDir of skillDirs) {
-			const parseResult = await parseSkill(skillDir)();
-			if (E.isLeft(parseResult)) {
-				errors.push(formatError(parseResult.left, false));
-				continue;
-			}
-			const ccSkill = parseResult.right;
-
-			const transformResult = transformSkill(ccSkill, defaultRegistry);
-			if (E.isLeft(transformResult)) {
-				errors.push(formatError(transformResult.left, false));
-				continue;
-			}
-			const ocSkill = transformResult.right;
-
-			const generateResult = generateSkillFile(ocSkill);
-			if (E.isLeft(generateResult)) {
-				errors.push(formatError(generateResult.left, false));
-				continue;
-			}
-			const {
-				skillDir: outSkillDir,
-				skillMdContent,
-				supportingFiles,
-			} = generateResult.right;
-
-			// Validate generated content
-			const validateResult = validateSkill(
-				skillMdContent,
-				`${outSkillDir}/SKILL.md`,
-			);
-			if (E.isLeft(validateResult)) {
-				errors.push(formatError(validateResult.left, false));
-				continue;
-			}
-
-			// Write SKILL.md
-			const skillOutputDir = join(pluginOutputDir, "skill", outSkillDir);
-			const relativePath = `${pluginName}/skill/${outSkillDir}/SKILL.md`;
-			await mkdir(skillOutputDir, { recursive: true });
-			await writeFile(join(skillOutputDir, "SKILL.md"), skillMdContent);
-
-			// Copy supporting files
-			await copySupportingFiles(skillDir, skillOutputDir, supportingFiles);
-
-			skillEntries.push({ name: ccSkill.name, path: relativePath });
-		}
 	}
 
 	// Copy OpenCode plugin if present
