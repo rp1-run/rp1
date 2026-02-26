@@ -131,7 +131,7 @@ export function AttentionSection({
 	return (
 		<Collapsible
 			title={title}
-			defaultExpanded={defaultExpanded}
+			defaultExpanded={defaultExpanded && runs.length > 0}
 			icon={
 				<Icon
 					className={cn("h-5 w-5", accentColors[accentColor])}
@@ -171,7 +171,7 @@ export function AttentionSection({
 							/>
 						) : (
 							<motion.ul
-								className="divide-y divide-border/50"
+								className="divide-y divide-border/50 border-t border-border/50"
 								variants={
 									reducedMotion ? staggerContainerReduced : staggerContainer
 								}
