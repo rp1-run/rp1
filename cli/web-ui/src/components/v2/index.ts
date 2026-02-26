@@ -24,18 +24,18 @@ export {
 	type CommandPaletteProps,
 } from "./CommandPalette";
 export { EventStream, type EventStreamProps } from "./EventStream";
-export {
-	KeyHints,
-	NAV_HINTS,
-	NAV_HINTS_NO_BACK,
-	DETAIL_HINTS,
-	VIEWER_HINTS,
-} from "./KeyHints";
 export { FilterBar, type FilterBarProps } from "./FilterBar";
 export {
 	FollowModeToggle,
 	type FollowModeToggleProps,
 } from "./FollowModeToggle";
+export {
+	DETAIL_HINTS,
+	KeyHints,
+	NAV_HINTS,
+	NAV_HINTS_NO_BACK,
+	VIEWER_HINTS,
+} from "./KeyHints";
 export { NewUpdatesChip, type NewUpdatesChipProps } from "./NewUpdatesChip";
 export { ProjectCard, type ProjectCardProps } from "./ProjectCard";
 export { RunCard, type RunCardProps } from "./RunCard";

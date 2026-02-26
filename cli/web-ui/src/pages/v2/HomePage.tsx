@@ -1,8 +1,8 @@
 import { AlertCircle, Eye, Hand, Loader2, RefreshCw } from "lucide-react";
-import { KeyHints, NAV_HINTS_NO_BACK } from "@/components/v2/KeyHints";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AttentionSection } from "@/components/v2/AttentionSection";
+import { KeyHints, NAV_HINTS_NO_BACK } from "@/components/v2/KeyHints";
 import { useAttention } from "@/hooks/useAttention";
 import { cn } from "@/lib/utils";
 import type { Run } from "@/types/runs";

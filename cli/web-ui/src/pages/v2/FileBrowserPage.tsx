@@ -8,7 +8,6 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { FileTree } from "@/components/FileTree";
-import { KeyHints, VIEWER_HINTS } from "@/components/v2/KeyHints";
 import { MarkdownViewer } from "@/components/MarkdownViewer";
 import { CodeBlock } from "@/components/MarkdownViewer/CodeBlock";
 import {
@@ -17,6 +16,7 @@ import {
 	ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { KeyHints, VIEWER_HINTS } from "@/components/v2/KeyHints";
 import { useProjectFileTree } from "@/hooks/useProjectFileTree";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 import type { V2Project } from "@/types/projects";

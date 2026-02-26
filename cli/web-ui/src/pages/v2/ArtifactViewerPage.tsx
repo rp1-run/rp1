@@ -16,7 +16,6 @@ import {
 } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { MarkdownViewer } from "@/components/MarkdownViewer";
-import { KeyHints, VIEWER_HINTS } from "@/components/v2/KeyHints";
 import { CodeBlock } from "@/components/MarkdownViewer/CodeBlock";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
@@ -35,6 +34,7 @@ import {
 import { AnnotationSidebar } from "@/components/v2/AnnotationSidebar";
 import { ArtifactSidebar } from "@/components/v2/ArtifactSidebar";
 import { FollowModeToggle } from "@/components/v2/FollowModeToggle";
+import { KeyHints, VIEWER_HINTS } from "@/components/v2/KeyHints";
 import { NewUpdatesChip } from "@/components/v2/NewUpdatesChip";
 import { TableOfContents } from "@/components/v2/TableOfContents";
 import { useAnnotations } from "@/hooks/useAnnotations";
