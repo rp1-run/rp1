@@ -126,7 +126,7 @@
 | mmd-validate/ | Mermaid validation tool |
 | work/ | Workflow status tracking |
 | comment-extract/ | Comment extraction from source files |
-| transform-args/ | Argument transformation for commands |
+| settings/ | Settings validation |
 
 ### cli/web-ui/
 **Purpose**: React-based documentation viewer with V2 status dashboard

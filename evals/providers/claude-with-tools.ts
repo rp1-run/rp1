@@ -6,6 +6,8 @@
  * Includes OpenTelemetry instrumentation for tracing.
  */
 
+import { dirname, isAbsolute, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
 	type PermissionMode,
 	type PermissionResult,
@@ -13,8 +15,6 @@ import {
 	type SdkPluginConfig,
 	type SettingSource,
 } from "@anthropic-ai/claude-agent-sdk";
-import { dirname, isAbsolute, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 
 // OpenTelemetry imports for tracing
 import {

@@ -66,7 +66,7 @@ rp1/
 │   │   ├── commands/          # CLI commands (init, install, view, update)
 │   │   ├── init/              # Project initialization
 │   │   ├── install/           # Plugin installation
-│   │   └── agent-tools/       # AI agent tools (worktree, mmd-validate, transform-args)
+│   │   └── agent-tools/       # AI agent tools (worktree, mmd-validate, work, github-pr)
 │   └── web-ui/                # React documentation viewer + V2 status dashboard
 ├── docs/                      # MkDocs Material site
 ├── evals/                     # Promptfoo evaluation suites
