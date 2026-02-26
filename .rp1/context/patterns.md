@@ -68,17 +68,17 @@ Evidence: `cli/src/agent-tools/git.ts`, `evals/src/attestation/commands.ts`
 
 Evidence: `cli/src/agent-tools/mmd-validate/validator.ts`
 
-## Command-Agent Pattern
+## Skill-Agent Pattern
 
-**Commands**: Thin wrappers (50-100 lines): parse parameters, load context, spawn agent via Task tool
+**Skills**: SKILL.md entry points that extract parameters via model-driven parsing and spawn agents via Task tool. Defined in `plugins/{plugin}/skills/{name}/SKILL.md` using the canonical format (frontmatter with `name`, `description`, `allowed-tools` at top level; rp1-specific fields in `metadata` map).
 **Agents**: Autonomous workers (200-350 lines): constitutional structure, anti-loop directives, output contracts
-**Separation**: Commands handle user interface/routing; agents handle business logic/workflow execution
+**Separation**: Skills handle user interface/routing; agents handle business logic/workflow execution
 
-Evidence: `docs/concepts/command-agent-pattern.md`, `plugins/dev/agents/task-builder.md`
+Evidence: `docs/concepts/command-agent-pattern.md`, `docs/concepts/skill-format.md`, `plugins/dev/agents/task-builder.md`
 
 ## Constitutional Prompting
 
-**Structure**: YAML frontmatter + Parameters table (Section 0) + Numbered workflow sections + Anti-loop + Output contract
+**Structure**: YAML frontmatter + Parameters section + Numbered workflow sections + Anti-loop + Output contract
 **Execution**: Single-pass with anti-loop: "Do NOT ask for clarification or wait for feedback"
 **Workflow Sections**: Context Loading -> Analysis -> Implementation -> Output
 
@@ -102,7 +102,7 @@ Evidence: `docs/concepts/map-reduce-workflows.md`
 
 ## Builder-Reviewer Loop
 
-**Builder**: task-builder implements with full context; writes implementation summary to tasks.md
+**Builder**: task-builder implements with full context; writes implementation summary to task file
 **Reviewer**: task-reviewer verifies 7 dimensions: discipline, accuracy, completeness, quality, testing, commit, comments
 **Output**: Explicit SUCCESS or FAILURE JSON with confidence score (0-100) and actionable feedback
 **Retry**: On failure, builder retries with reviewer feedback; max 3 attempts

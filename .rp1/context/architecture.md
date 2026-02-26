@@ -22,18 +22,16 @@ graph TB
     end
 
     subgraph "Base Plugin"
-        BaseCmd[Commands]
+        BaseSkills[Skills]
         BaseAgents[Agents]
-        Skills[Skills]
-        BaseCmd --> BaseAgents
-        BaseAgents --> Skills
+        BaseSkills --> BaseAgents
     end
 
     subgraph "Dev Plugin"
-        DevCmd[Commands]
+        DevSkills[Skills]
         DevAgents[Agents]
-        DevCmd --> DevAgents
-        DevAgents -.->|cross-plugin| BaseCmd
+        DevSkills --> DevAgents
+        DevAgents -.->|cross-plugin| BaseSkills
     end
 
     subgraph "CLI"
@@ -95,18 +93,18 @@ graph TB
 
 ### Plugin Architecture
 **Evidence**: `plugins/base/.claude-plugin/plugin.json`, `plugins/dev/.claude-plugin/plugin.json`
-**Description**: Three independent plugins (base, dev, utils) with explicit dependencies. Dev depends on base for shared capabilities. Each plugin has commands and agents; base owns all skills.
+**Description**: Three independent plugins (base, dev, utils) with explicit dependencies. Dev depends on base for shared capabilities. Each plugin has skills (SKILL.md) and agents; skills are the single artifact type for all invocable prompts.
 
 ### Constitutional Agent Pattern
 **Evidence**: `plugins/*/agents/*.md` structure with YAML frontmatter, parameter tables, anti-loop directives
 **Description**: Agents follow structured format: parameter tables, numbered workflow sections, JSON output contracts. Single-pass execution without iteration.
 
-### Command-Agent Delegation
-**Evidence**: `plugins/*/commands/*.md` spawn agents via Task tool
-**Description**: Commands are thin wrappers (50-100 lines) that parse parameters and spawn constitutional agents (200-350 lines) for workflow execution.
+### Skill-Agent Delegation
+**Evidence**: `plugins/*/skills/*/SKILL.md` spawn agents via Task tool
+**Description**: Skills (SKILL.md files) are entry points that extract parameters via model-driven parsing and spawn constitutional agents (200-350 lines) for workflow execution. All 31 invocable prompts use the SKILL.md canonical format.
 
 ### Map-Reduce Orchestration
-**Evidence**: `knowledge-build` spawns parallel agents, `pr-review` uses splitter/sub-reviewers/synthesizer
+**Evidence**: `skills/knowledge-build` spawns parallel agents, `skills/pr-review` uses splitter/sub-reviewers/synthesizer
 **Description**: Complex workflows split into units, processed in parallel by specialized agents, then merged by orchestrator.
 
 ### Content-Addressable Attestation
@@ -137,9 +135,8 @@ graph TB
 
 | Layer | Purpose | Components |
 |-------|---------|------------|
-| **Interface** | User-facing entry points | `plugins/*/commands/*.md` |
+| **Interface (Skills)** | User-facing entry points | `plugins/*/skills/*/SKILL.md` |
 | **Agent** | Autonomous workflow execution | `plugins/*/agents/*.md` |
-| **Skill** | Reusable shared capabilities | `plugins/base/skills/*.md` |
 | **CLI** | Cross-platform tooling | `cli/src/main.ts`, `cli/web-ui/*`, `agent-tools` |
 | **Config** | Tool registry | `cli/src/config/supported-tools.*` |
 | **Knowledge** | Persistent codebase docs | `.rp1/context/*.md`, `state.json` |

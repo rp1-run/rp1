@@ -1,20 +1,23 @@
-# Command-Agent Pattern
+# Skill-Agent Pattern
 
-The command-agent pattern is rp1's architectural approach where **thin wrapper commands** delegate to **autonomous agents**. Commands handle user interaction and routing; agents handle the actual work. This separation enables reusable, testable, and maintainable AI workflows.
+The skill-agent pattern is rp1's architectural approach where **skills** (defined in [SKILL.md format](skill-format.md)) delegate to **autonomous agents**. Skills handle user interaction and routing; agents handle the actual work. This separation enables reusable, testable, and maintainable AI workflows.
+
+!!! note "Terminology Update"
+    This pattern was previously called the "command-agent pattern." All rp1 commands have been migrated to the SKILL.md canonical format. Skills are now the single artifact type for all invocable prompts.
 
 ---
 
 ## How It Works
 
-When you run an rp1 command, two things happen:
+When you invoke an rp1 skill, two things happen:
 
-1. The **command** (50-100 lines) parses your input and routes to the appropriate agent
+1. The **skill** (SKILL.md file) parses your input and routes to the appropriate agent
 2. The **agent** (200-350 lines) executes the complete workflow autonomously
 
 ```mermaid
 flowchart TB
-    User[User] -->|/build| Command[Command]
-    Command -->|Task tool| Agent[Feature Builder Agent]
+    User[User] -->|/build| Skill["Skill (SKILL.md)"]
+    Skill -->|Task tool| Agent[Feature Builder Agent]
 
     subgraph "Agent Interactions"
         Agent -->|Reads| KB[Knowledge Base]
@@ -23,42 +26,50 @@ flowchart TB
         Agent -->|Updates| Tasks[Task Tracker]
     end
 
-    style Command fill:#1565c0,color:#fff
+    style Skill fill:#1565c0,color:#fff
     style Agent fill:#2e7d32,color:#fff
 ```
 
 ---
 
-## Commands: The Thin Wrapper
+## Skills: The Entry Point
 
-Commands are intentionally minimal. They:
+Skills are defined as SKILL.md files in the [canonical format](skill-format.md). They are intentionally minimal wrappers that:
 
-- Parse user-provided parameters
+- Extract parameters from user input via model-driven parsing (the `## Parameters` section)
 - Load any required context
 - Spawn the appropriate agent via the Task tool
 - Return the agent's output to the user
 
-**Example command structure:**
+**Example skill structure** (`plugins/dev/skills/build/SKILL.md`):
+
+```yaml
+---
+name: build
+description: "End-to-end feature development workflow with 6 steps."
+allowed-tools: Bash(echo *), Read, Write, Edit, Glob, Grep, Task
+metadata:
+  version: 3.0.0
+  argument-hint: "<feature-id> [requirements] [--afk]"
+---
+```
 
 ```markdown
-# feature-build
-
-Implements features from task lists and design specs.
-
 ## Parameters
-| Name | Position | Required | Description |
-|------|----------|----------|-------------|
-| FEATURE_ID | $1 | Yes | Feature identifier |
-| MILESTONE_ID | $2 | No | Specific milestone |
+
+Extract these parameters from the user's input:
+
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `FEATURE_ID` | Yes | - | Feature identifier |
+| `MILESTONE_ID` | No | - | Specific milestone |
 
 ## Execution
 
-Spawn the feature-builder agent:
-
-Task tool with subagent_type: rp1-dev:feature-builder
+Spawn the feature-builder agent via Task tool with subagent_type: rp1-dev:feature-builder
 ```
 
-Commands contain **no business logic**—they're pure routing.
+Skills contain **no business logic** -- they are pure routing.
 
 ---
 
@@ -109,18 +120,18 @@ For each task:
 
 | Component | Responsibility |
 |-----------|----------------|
-| Command | User interface, parameter parsing, routing |
+| Skill (SKILL.md) | User interface, parameter extraction, routing |
 | Agent | Business logic, workflow execution, output |
 
 This means:
-- Commands can change (new parameters) without touching agent logic
+- Skills can change (new parameters) without touching agent logic
 - Agents can be improved without changing the user interface
-- Multiple commands can share the same agent
+- Multiple skills can share the same agent
 
 ### Reusability
 
 The same agent can be invoked by:
-- Different commands with different parameters
+- Different skills with different parameters
 - Other agents that need the capability
 - Test harnesses for validation
 
@@ -135,7 +146,7 @@ Agents are self-contained workflows that can be:
 
 ## Example: The Feature Workflow
 
-The feature development workflow demonstrates multiple command-agent pairs working together. The `/build` command orchestrates all steps automatically:
+The feature development workflow demonstrates multiple skill-agent pairs working together. The `/build` skill orchestrates all steps automatically:
 
 ```mermaid
 flowchart TB
@@ -193,7 +204,7 @@ flowchart TB
     style A5 fill:#2e7d32,color:#fff
 ```
 
-Each step spawns its agent, which produces artifacts used by subsequent steps. The `/build` command handles resumption automatically based on which artifacts exist.
+Each step spawns its agent, which produces artifacts used by subsequent steps. The `/build` skill handles resumption automatically based on which artifacts exist.
 
 ---
 
@@ -223,7 +234,7 @@ Each step spawns its agent, which produces artifacts used by subsequent steps. T
 
     ---
 
-    Commands and agents can change without affecting each other.
+    Skills and agents can change without affecting each other.
 
 </div>
 
@@ -231,10 +242,11 @@ Each step spawns its agent, which produces artifacts used by subsequent steps. T
 
 ## Related Concepts
 
+- [SKILL.md Format](skill-format.md) - The canonical format for all rp1 skills
 - [Constitutional Prompting](constitutional-prompting.md) - How agents are structured
 - [Map-Reduce Workflows](map-reduce-workflows.md) - How agents parallelize work
 
 ## Learn More
 
-- [Command Reference](../reference/index.md) - All 21 commands
+- [Skill Reference](../reference/index.md) - All 31 skills across base, dev, and utils plugins
 - [Feature Development Tutorial](../guides/feature-development.md) - See the pattern in action

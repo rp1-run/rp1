@@ -22,11 +22,11 @@ Understanding the core ideas behind rp1 helps you get the most out of its workfl
 
     [:octicons-arrow-right-24: Learn more](knowledge-aware-agents.md)
 
--   :material-layers: **Command-Agent Pattern**
+-   :material-layers: **Skill-Agent Pattern**
 
     ---
 
-    Understand the architecture where thin wrapper commands delegate to autonomous agents.
+    Understand the architecture where skills (SKILL.md) delegate to autonomous agents.
 
     [:octicons-arrow-right-24: Learn more](command-agent-pattern.md)
 
@@ -88,7 +88,7 @@ Understanding the core ideas behind rp1 helps you get the most out of its workfl
 |---------|-----------|----------------|
 | [Constitutional Prompting](constitutional-prompting.md) | Expert knowledge encoded in prompts | No iteration loops, consistent output |
 | [Knowledge-Aware Agents](knowledge-aware-agents.md) | Agents that understand your codebase | Output fits your architecture |
-| [Command-Agent Pattern](command-agent-pattern.md) | Commands delegate to agents | Clean, reusable workflows |
+| [Skill-Agent Pattern](command-agent-pattern.md) | Skills delegate to agents | Clean, reusable workflows |
 | [Map-Reduce Workflows](map-reduce-workflows.md) | Parallel processing pattern | Fast KB and PR analysis |
 | [Stateless Agents](stateless-agents.md) | Resumable interview workflows | Robust, transparent state |
 | [Parallel Worktrees](parallel-worktrees.md) | Git worktree isolation | Run multiple tasks at once |
@@ -104,7 +104,7 @@ Understanding the core ideas behind rp1 helps you get the most out of its workfl
 
 **Want context-aware output?** Read [Knowledge-Aware Agents](knowledge-aware-agents.md) to learn about the knowledge base.
 
-**Curious about architecture?** See [Command-Agent Pattern](command-agent-pattern.md) for the technical design.
+**Curious about architecture?** See [Skill-Agent Pattern](command-agent-pattern.md) for the technical design.
 
 **Need performance?** Check [Map-Reduce Workflows](map-reduce-workflows.md) for parallelization patterns.
 
