@@ -44,7 +44,6 @@ describe("AnimatedCounter", () => {
 			const { result } = renderHook(() =>
 				useAnimatedCounterLogic(10, 500, true),
 			);
-			// After effect, reduced motion snaps to value
 			expect(result.current.displayValue).toBe(10);
 		});
 
@@ -133,7 +132,6 @@ describe("AnimatedCounter", () => {
 	});
 
 	describe("easeOutCubic", () => {
-		// Import and test the easing function shape
 		function easeOutCubic(t: number): number {
 			return 1 - (1 - t) ** 3;
 		}

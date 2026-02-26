@@ -713,7 +713,6 @@
     }
   }
 
-  /* StatusGlow color classes */
   .glow-red { --glow-color: hsl(var(--status-failed) / 0.4); }
   .glow-amber { --glow-color: hsl(var(--status-warning) / 0.4); }
   .glow-blue { --glow-color: hsl(var(--status-running) / 0.4); }
