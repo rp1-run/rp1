@@ -7,7 +7,6 @@ import {
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { TrafficLightDots } from "./TrafficLightDots";
 
 type ConnectionStatus = "connecting" | "connected" | "disconnected";
 
@@ -19,7 +18,6 @@ export function V2Header({ wsStatus }: V2HeaderProps) {
 	return (
 		<header className="flex h-12 shrink-0 items-center justify-between border-b px-4">
 			<div className="flex items-center gap-2">
-				<TrafficLightDots />
 				<Logo wsStatus={wsStatus} />
 			</div>
 			<div className="flex items-center gap-2">

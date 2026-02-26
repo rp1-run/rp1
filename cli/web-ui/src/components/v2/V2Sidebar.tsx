@@ -198,24 +198,6 @@ function SidebarHeader({ collapsed }: SidebarHeaderProps) {
 
 	return (
 		<div className="flex flex-col gap-3 border-b p-3">
-			<div className="flex items-center justify-between">
-				{/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-label for screen reader context */}
-				<span
-					aria-label={`rp1 - Connection status: ${wsStatus}`}
-					title={isConnected ? "Live updates active" : "Reconnecting..."}
-				>
-					<span className="text-lg font-semibold">rp1</span>
-					<span
-						className={cn(
-							"animate-blink",
-							isConnected ? "text-terminal-green" : "text-terminal-red",
-						)}
-					>
-						_
-					</span>
-				</span>
-			</div>
-
 			{projectName && (
 				<div className="flex items-center gap-2 text-xs text-muted-foreground">
 					<span
