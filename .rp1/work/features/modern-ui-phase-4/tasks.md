@@ -2,7 +2,7 @@
 
 **Feature ID**: modern-ui-phase-4
 **Status**: Not Started
-**Progress**: 33% (7 of 21 tasks)
+**Progress**: 38% (8 of 21 tasks)
 **Estimated Effort**: 10 days
 **Started**: 2026-02-26
 
@@ -256,7 +256,19 @@ Phase 4 delivers five workstreams: component consolidation (SharedSelect, Shared
     - **Deviations**: Design specified single ShortcutRegistryContext; split into two contexts (API + Data) to prevent circular re-render dependency. The public API is equivalent -- consumers use the same provider wrapper and read the same data shape.
     - **Tests**: 15/15 passing (7 isTextInputElement unit tests + 8 useContextualShortcuts hook tests covering key matching, text-input suppression, modifier key suppression, disabled state, cleanup on unmount, and multiple shortcuts)
 
-- [ ] **T8**: Create ShortcutHelpOverlay component `[complexity:medium]`
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | PASS |
+    | Commit | PASS |
+    | Comments | PASS |
+
+- [x] **T8**: Create ShortcutHelpOverlay component `[complexity:medium]`
 
     **Reference**: [design.md#354-shortcuthelpoverlay](design.md#354-shortcuthelpoverlay)
 
@@ -264,12 +276,19 @@ Phase 4 delivers five workstreams: component consolidation (SharedSelect, Shared
 
     **Acceptance Criteria**:
 
-    - [ ] `components/v2/ShortcutHelpOverlay.tsx` created; modal overlay triggered by `?` key
-    - [ ] Renders three sections: Global (Cmd+K, Cmd+B, ?), Navigation (g h, g r, g p, j/k, l, h), and current view contextual shortcuts
-    - [ ] Reads registered shortcuts from `ShortcutRegistryContext`
-    - [ ] Styled with `bg-background/95 backdrop-blur-sm` overlay, centered card with `border border-border rounded-lg`
-    - [ ] Dismissible via Escape key or clicking outside
-    - [ ] Uses `<KeyboardShortcutHint>` component for key rendering (depends on T10, but can stub initially)
+    - [x] `components/v2/ShortcutHelpOverlay.tsx` created; modal overlay triggered by `?` key
+    - [x] Renders three sections: Global (Cmd+K, Cmd+B, ?), Navigation (g h, g r, g p, j/k, l, h), and current view contextual shortcuts
+    - [x] Reads registered shortcuts from `ShortcutRegistryContext`
+    - [x] Styled with `bg-background/95 backdrop-blur-sm` overlay, centered card with `border border-border rounded-lg`
+    - [x] Dismissible via Escape key or clicking outside
+    - [x] Uses `<KeyboardShortcutHint>` component for key rendering (depends on T10, but can stub initially)
+
+    **Implementation Summary**:
+
+    - **Files**: `cli/web-ui/src/components/v2/ShortcutHelpOverlay.tsx`, `cli/web-ui/src/components/v2/index.ts`, `cli/web-ui/src/app/V2Layout.tsx`
+    - **Approach**: Created ShortcutHelpOverlay as a self-contained modal component that manages its own open/close state via `?` key listener (with isTextInputElement guard and modifier key suppression). Reads global, navigation, and contextual shortcuts from ShortcutRegistryProvider via useShortcutRegistry hook. Renders three sections with ShortcutKey inline component that parses key strings (e.g., "Cmd+K", "g h") into styled kbd elements. Dismissible via Escape key or clicking outside the card (mousedown listener). Uses terminal design language ($ prefix, monospace heading). Integrated into V2Layout inside ShortcutRegistryProvider.
+    - **Deviations**: Stubbed KeyboardShortcutHint inline as ShortcutKey component since T10 is not yet implemented. When T10 is done, the inline ShortcutKey can be replaced with the shared component.
+    - **Tests**: N/A (presentational overlay component; keyboard behavior relies on isTextInputElement which is already tested in useContextualShortcuts tests)
 
 ### Group 2: Utility Components (Depends on T4)
 

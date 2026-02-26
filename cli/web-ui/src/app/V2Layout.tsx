@@ -152,6 +152,7 @@ export function V2Layout() {
 					onOpenChange={setShortcutHelpOpen}
 				/>
 			</div>
+			<ShortcutHelpOverlay />
 		</ShortcutRegistryProvider>
 	);
 }
