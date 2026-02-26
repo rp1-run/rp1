@@ -206,7 +206,7 @@ No agent references here.
 		}
 	});
 
-	test("extracts command name from path", async () => {
+	test("extracts command name from legacy command path", async () => {
 		const commandPath = join(tempDir, "commands/my-test-command.md");
 		await writeFile(
 			commandPath,
@@ -222,6 +222,29 @@ Content.
 		expect(E.isRight(result)).toBe(true);
 		if (E.isRight(result)) {
 			expect(result.right.command).toBe("my-test-command");
+		}
+	});
+
+	test("extracts command name from SKILL.md path", async () => {
+		const skillDir = join(tempDir, "skills/my-skill");
+		await mkdir(skillDir, { recursive: true });
+		const skillPath = join(skillDir, "SKILL.md");
+		await writeFile(
+			skillPath,
+			`---
+name: my-skill
+description: A test skill
+---
+Content.
+`,
+		);
+
+		const result = await buildDependencyGraph(skillPath)();
+
+		expect(E.isRight(result)).toBe(true);
+		if (E.isRight(result)) {
+			expect(result.right.command).toBe("my-skill");
+			expect(result.right.commandPath).toBe(skillPath);
 		}
 	});
 

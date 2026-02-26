@@ -75,21 +75,22 @@ export function parseSkillRefs(content: string): readonly string[] {
 }
 
 /**
- * Build complete dependency graph for a command.
- * Parses the command file for agent references, then each agent for skill references.
+ * Build complete dependency graph for a prompt source file.
+ * Parses the file for agent references, then each agent for skill references.
+ * Supports both SKILL.md paths (skills/{name}/SKILL.md) and legacy command paths (commands/{name}.md).
  *
- * @param commandPath - Path to the command file
+ * @param promptPath - Path to the prompt source file (SKILL.md or command .md)
  * @returns TaskEither with dependency graph or error
  */
 export function buildDependencyGraph(
-	commandPath: string,
+	promptPath: string,
 ): TE.TaskEither<Error, DependencyGraph> {
 	return pipe(
 		TE.tryCatch(
 			async () => {
-				const commandFile = Bun.file(commandPath);
-				const commandContent = await commandFile.text();
-				const agentPaths = parseAgentRefs(commandContent);
+				const promptFile = Bun.file(promptPath);
+				const promptContent = await promptFile.text();
+				const agentPaths = parseAgentRefs(promptContent);
 
 				const skillPaths: string[] = [];
 				for (const agentPath of agentPaths) {
@@ -100,12 +101,17 @@ export function buildDependencyGraph(
 					}
 				}
 
-				const match = commandPath.match(/commands\/(.+)\.md$/);
-				const commandName = match ? match[1] : commandPath;
+				const skillMatch = promptPath.match(/skills\/([^/]+)\/SKILL\.md$/);
+				const commandMatch = promptPath.match(/commands\/(.+)\.md$/);
+				const commandName = skillMatch
+					? skillMatch[1]
+					: commandMatch
+						? commandMatch[1]
+						: promptPath;
 
 				return {
 					command: commandName,
-					commandPath,
+					commandPath: promptPath,
 					agents: agentPaths,
 					skills: [...new Set(skillPaths)],
 				};

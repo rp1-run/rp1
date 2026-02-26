@@ -97,13 +97,13 @@ export function detectPassRate(output: PromptfooOutput): boolean {
 }
 
 /**
- * Map suite path to command file path (relative to repo root).
- * e.g., "rp1-dev/build-fast" -> "plugins/dev/commands/build-fast.md"
+ * Map suite path to skill file path (relative to repo root).
+ * e.g., "rp1-dev/build-fast" -> "plugins/dev/skills/build-fast/SKILL.md"
  */
-function suiteToCommandPath(suite: string): string {
+function suiteToSkillPath(suite: string): string {
 	const [plugin, command] = suite.split("/");
 	const pluginDir = plugin.replace("rp1-", "");
-	return `plugins/${pluginDir}/commands/${command}.md`;
+	return `plugins/${pluginDir}/skills/${command}/SKILL.md`;
 }
 
 /**
@@ -119,13 +119,21 @@ async function getGitCommit(): Promise<string> {
 }
 
 /**
- * Get command version from frontmatter.
+ * Get skill version from frontmatter metadata map.
+ * Looks for `metadata.version` in SKILL.md frontmatter.
+ * Falls back to top-level `version:` for backward compat.
  */
-async function getCommandVersion(commandPath: string): Promise<string> {
-	const file = Bun.file(commandPath);
+async function getSkillVersion(skillPath: string): Promise<string> {
+	const file = Bun.file(skillPath);
 	const content = await file.text();
-	const match = content.match(/^---[\s\S]*?version:\s*([^\n]+)/);
-	return match ? match[1].trim() : "0.0.0";
+	const metadataMatch = content.match(
+		/^---[\s\S]*?metadata:\s*\n[\s\S]*?version:\s*([^\n]+)/,
+	);
+	if (metadataMatch) {
+		return metadataMatch[1].trim();
+	}
+	const topLevelMatch = content.match(/^---[\s\S]*?version:\s*([^\n]+)/);
+	return topLevelMatch ? topLevelMatch[1].trim() : "0.0.0";
 }
 
 /**
@@ -193,7 +201,7 @@ export function attestCommand(
 	concurrency = 1,
 ): TE.TaskEither<Error, { updated: boolean; message: string }> {
 	const commandKey = suiteToCommandKey(suite);
-	const commandPath = suiteToCommandPath(suite);
+	const commandPath = suiteToSkillPath(suite);
 	const timestamp = new Date().toISOString();
 	// Fixed filename per suite (no timestamp accumulation)
 	const resultFile = `output/${suite.replace("/", "-")}.json`;
@@ -224,7 +232,7 @@ export function attestCommand(
 					TE.bind("hashes", ({ graph }) => computeAllHashes(graph)),
 					TE.bind("version", () =>
 						TE.tryCatch(
-							() => getCommandVersion(commandPath),
+							() => getSkillVersion(commandPath),
 							(e) => new Error(`Failed to get version: ${e}`),
 						),
 					),
@@ -297,7 +305,7 @@ export function attestFromOutput(
 			const passed = detectPassRate(output);
 			const suite = extractSuiteFromFilename(outputPath);
 			const commandKey = suiteToCommandKey(suite);
-			const commandPath = suiteToCommandPath(suite);
+			const commandPath = suiteToSkillPath(suite);
 			const timestamp = output.results.timestamp;
 
 			if (!passed) {
@@ -314,7 +322,7 @@ export function attestFromOutput(
 				TE.bind("hashes", ({ graph }) => computeAllHashes(graph)),
 				TE.bind("version", () =>
 					TE.tryCatch(
-						() => getCommandVersion(commandPath),
+						() => getSkillVersion(commandPath),
 						(e) => new Error(`Failed to get version: ${e}`),
 					),
 				),
@@ -364,7 +372,7 @@ function verifyCommand(
 	attestation: CommandAttestation,
 ): TE.TaskEither<Error, VerificationResult> {
 	const suite = commandKey.replace(":", "/");
-	const commandPath = suiteToCommandPath(suite);
+	const commandPath = suiteToSkillPath(suite);
 
 	return pipe(
 		buildDependencyGraph(commandPath),
