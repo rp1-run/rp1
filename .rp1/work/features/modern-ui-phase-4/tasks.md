@@ -2,7 +2,7 @@
 
 **Feature ID**: modern-ui-phase-4
 **Status**: Not Started
-**Progress**: 43% (9 of 21 tasks)
+**Progress**: 48% (10 of 21 tasks)
 **Estimated Effort**: 10 days
 **Started**: 2026-02-26
 
@@ -325,7 +325,19 @@ Phase 4 delivers five workstreams: component consolidation (SharedSelect, Shared
     - **Deviations**: None
     - **Tests**: N/A (presentational wrapper component; glow behavior is CSS-only; verified via type-check and lint)
 
-- [ ] **T10**: Create KeyboardShortcutHint badge component `[complexity:simple]`
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | N/A |
+    | Commit | PASS |
+    | Comments | PASS |
+
+- [x] **T10**: Create KeyboardShortcutHint badge component `[complexity:simple]`
 
     **Reference**: [design.md#322-keyboardshorthint](design.md#322-keyboardshorthint)
 
@@ -333,10 +345,17 @@ Phase 4 delivers five workstreams: component consolidation (SharedSelect, Shared
 
     **Acceptance Criteria**:
 
-    - [ ] `components/v2/KeyboardShortcutHint.tsx` created with `keys` and `className` props
-    - [ ] Renders `<kbd>` element with `rounded bg-muted/70 px-1.5 py-0.5 font-mono text-xs text-muted-foreground` styling
-    - [ ] Component exported from `components/v2/index.ts` barrel
-    - [ ] Renders correctly for single keys ("f"), combos ("Cmd+K"), and sequences ("g h")
+    - [x] `components/v2/KeyboardShortcutHint.tsx` created with `keys` and `className` props
+    - [x] Renders `<kbd>` element with `rounded bg-muted/70 px-1.5 py-0.5 font-mono text-xs text-muted-foreground` styling
+    - [x] Component exported from `components/v2/index.ts` barrel
+    - [x] Renders correctly for single keys ("f"), combos ("Cmd+K"), and sequences ("g h")
+
+    **Implementation Summary**:
+
+    - **Files**: `cli/web-ui/src/components/v2/KeyboardShortcutHint.tsx`, `cli/web-ui/src/components/v2/index.ts`, `cli/web-ui/src/components/v2/ShortcutHelpOverlay.tsx`
+    - **Approach**: Created shared KeyboardShortcutHint component that parses key strings on `+` and ` ` delimiters, rendering each key segment as a styled `<kbd>` element with separators. Supports single keys ("f"), combos ("Cmd+K"), and sequences ("g h"). Accepts className prop for custom styling via cn(). Updated ShortcutHelpOverlay to replace the inline ShortcutKey stub with the shared component.
+    - **Deviations**: None
+    - **Tests**: N/A (presentational component with no business logic; verified via type-check and lint)
 
 ### Group 3: Feature Assembly (Depends on Groups 1 + 2)
 

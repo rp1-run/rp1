@@ -4,42 +4,17 @@ import type { ShortcutDefinition } from "@/hooks/useContextualShortcuts";
 import { isTextInputElement } from "@/hooks/useContextualShortcuts";
 import { cn } from "@/lib/utils";
 import { useShortcutRegistry } from "@/providers/ShortcutRegistryProvider";
+import { KeyboardShortcutHint } from "./KeyboardShortcutHint";
 
 export interface ShortcutHelpOverlayProps {
 	className?: string;
-}
-
-function ShortcutKey({ keys }: { keys: string }) {
-	const parts = keys.split(/(\+| )/);
-	return (
-		<span className="inline-flex items-center gap-0.5">
-			{parts.map((part, i) => {
-				const key = `${part}-${i}`;
-				if (part === "+" || part === " ") {
-					return (
-						<span key={key} className="text-muted-foreground text-xs">
-							{part === " " ? " " : "+"}
-						</span>
-					);
-				}
-				return (
-					<kbd
-						key={key}
-						className="inline-flex h-5 min-w-5 items-center justify-center rounded bg-muted/70 px-1.5 py-0.5 font-mono text-xs text-muted-foreground"
-					>
-						{part}
-					</kbd>
-				);
-			})}
-		</span>
-	);
 }
 
 function ShortcutRow({ shortcut }: { shortcut: ShortcutDefinition }) {
 	return (
 		<div className="flex items-center justify-between gap-4 py-1">
 			<span className="text-sm text-foreground">{shortcut.description}</span>
-			<ShortcutKey keys={shortcut.key} />
+			<KeyboardShortcutHint keys={shortcut.key} />
 		</div>
 	);
 }
