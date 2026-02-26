@@ -171,5 +171,108 @@ Content.`,
 
 			expect(result.supportingFiles).toContain("templates/example.md");
 		});
+
+		test("extracts metadata map from frontmatter", async () => {
+			const tempDir = await createTempDir("parser-skill-meta");
+			try {
+				const skillDir = `${tempDir}/meta-skill`;
+				await writeFixture(
+					tempDir,
+					"meta-skill/SKILL.md",
+					`---
+name: meta-skill
+description: "A skill with full rp1 metadata for testing extraction"
+allowed-tools: Bash(echo *), Read, Write
+metadata:
+  version: 2.0.0
+  tags:
+    - core
+    - workflow
+  created: 2026-01-15
+  updated: 2026-02-20
+  author: cloud-on-prem/rp1
+  argument-hint: "<feature-id> [context]"
+---
+Skill content with metadata.`,
+				);
+
+				const result = await expectTaskRight(parseSkill(skillDir));
+
+				expect(result.name).toBe("meta-skill");
+				expect(result.allowedTools).toBe("Bash(echo *), Read, Write");
+				expect(result.metadata).toBeDefined();
+				expect(result.metadata?.version).toBe("2.0.0");
+				expect(result.metadata?.tags).toEqual(["core", "workflow"]);
+				expect(result.metadata?.created).toBe("2026-01-15");
+				expect(result.metadata?.updated).toBe("2026-02-20");
+				expect(result.metadata?.author).toBe("cloud-on-prem/rp1");
+				expect(result.metadata?.argumentHint).toBe("<feature-id> [context]");
+			} finally {
+				await cleanupTempDir(tempDir);
+			}
+		});
+
+		test("backward compat: skills without metadata map parse without error", async () => {
+			const fixturePath = getFixturePath("valid-plugin", "skill/sample-skill");
+			const result = await expectTaskRight(parseSkill(fixturePath));
+
+			expect(result.name).toBe("sample-skill");
+			expect(result.description).toContain("sample skill");
+			expect(result.metadata).toBeUndefined();
+		});
+
+		test("parses allowed-tools as comma-separated string", async () => {
+			const tempDir = await createTempDir("parser-skill-tools");
+			try {
+				const skillDir = `${tempDir}/tools-skill`;
+				await writeFixture(
+					tempDir,
+					"tools-skill/SKILL.md",
+					`---
+name: tools-skill
+description: "A skill testing allowed-tools string format parsing"
+allowed-tools: Read, Write, Edit, Glob, Grep, Task
+---
+Skill content.`,
+				);
+
+				const result = await expectTaskRight(parseSkill(skillDir));
+
+				expect(result.allowedTools).toBe("Read, Write, Edit, Glob, Grep, Task");
+			} finally {
+				await cleanupTempDir(tempDir);
+			}
+		});
+
+		test("handles partial metadata (only some fields present)", async () => {
+			const tempDir = await createTempDir("parser-skill-partial");
+			try {
+				const skillDir = `${tempDir}/partial-skill`;
+				await writeFixture(
+					tempDir,
+					"partial-skill/SKILL.md",
+					`---
+name: partial-skill
+description: "A skill with only version and author in metadata"
+metadata:
+  version: 1.0.0
+  author: test-author
+---
+Partial metadata content.`,
+				);
+
+				const result = await expectTaskRight(parseSkill(skillDir));
+
+				expect(result.metadata).toBeDefined();
+				expect(result.metadata?.version).toBe("1.0.0");
+				expect(result.metadata?.author).toBe("test-author");
+				expect(result.metadata?.tags).toBeUndefined();
+				expect(result.metadata?.created).toBeUndefined();
+				expect(result.metadata?.updated).toBeUndefined();
+				expect(result.metadata?.argumentHint).toBeUndefined();
+			} finally {
+				await cleanupTempDir(tempDir);
+			}
+		});
 	});
 });

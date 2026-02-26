@@ -14,6 +14,7 @@ import type {
 	ClaudeCodeAgent,
 	ClaudeCodeCommand,
 	ClaudeCodeSkill,
+	SkillMetadata,
 } from "./models.js";
 
 /**
@@ -175,6 +176,39 @@ export const parseAgent = (
 	);
 
 /**
+ * Extract rp1-specific metadata from the frontmatter `metadata` map.
+ * Returns undefined when the metadata map is absent or not an object,
+ * preserving backward compatibility with pre-migration skills.
+ */
+const extractSkillMetadata = (raw: unknown): SkillMetadata | undefined => {
+	if (
+		raw === null ||
+		raw === undefined ||
+		typeof raw !== "object" ||
+		Array.isArray(raw)
+	) {
+		return undefined;
+	}
+
+	const meta = raw as Record<string, unknown>;
+	const result: SkillMetadata = {
+		version: typeof meta.version === "string" ? meta.version : undefined,
+		tags: Array.isArray(meta.tags) ? meta.tags.map(String) : undefined,
+		created: meta.created != null ? normalizeDate(meta.created) : undefined,
+		updated: meta.updated != null ? normalizeDate(meta.updated) : undefined,
+		author: typeof meta.author === "string" ? meta.author : undefined,
+		argumentHint:
+			typeof meta["argument-hint"] === "string"
+				? meta["argument-hint"]
+				: undefined,
+	};
+
+	// Return undefined if all fields are undefined (no meaningful metadata)
+	const hasAnyField = Object.values(result).some((v) => v !== undefined);
+	return hasAnyField ? result : undefined;
+};
+
+/**
  * Parse Claude Code skill from SKILL.md + supporting files.
  */
 export const parseSkill = (
@@ -228,14 +262,18 @@ export const parseSkill = (
 			const allowedToolsStr =
 				typeof allowedTools === "string" ? allowedTools : undefined;
 
+			// Extract rp1-specific metadata from the nested `metadata` map
+			const skillMetadata = extractSkillMetadata(metadata.metadata);
+
 			return TE.right({
 				name: String(name),
 				description: descStr,
 				allowedTools: allowedToolsStr,
+				skillMetadata,
 				body,
 			});
 		}),
-		TE.chain(({ name, description, allowedTools, body }) =>
+		TE.chain(({ name, description, allowedTools, skillMetadata, body }) =>
 			pipe(
 				TE.tryCatch(
 					async () => {
@@ -255,6 +293,7 @@ export const parseSkill = (
 					allowedTools,
 					content: body,
 					supportingFiles,
+					metadata: skillMetadata,
 				})),
 			),
 		),

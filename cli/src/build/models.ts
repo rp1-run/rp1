@@ -33,9 +33,27 @@ export interface ClaudeCodeAgent {
 }
 
 /**
+ * rp1-specific metadata from the SKILL.md `metadata` map.
+ * These fields are nested under `metadata` in frontmatter to comply
+ * with the Agent Skills v1.0 whitelist (name, description, allowed-tools, metadata).
+ */
+export interface SkillMetadata {
+	readonly version?: string;
+	readonly tags?: readonly string[];
+	readonly created?: string;
+	readonly updated?: string;
+	readonly author?: string;
+	readonly argumentHint?: string;
+}
+
+/**
  * Parsed Claude Code skill (SKILL.md).
  * Represents a skill from Claude Code's .claude-plugin/skills/ directory
  * with SKILL.md file and optional supporting files (templates, scripts).
+ *
+ * The optional `metadata` field contains rp1-specific fields extracted from
+ * the frontmatter `metadata` map. Skills without a `metadata` map (e.g.,
+ * pre-migration pure skills) continue to parse without error.
  */
 export interface ClaudeCodeSkill {
 	readonly name: string;
@@ -43,6 +61,7 @@ export interface ClaudeCodeSkill {
 	readonly allowedTools?: string; // Comma-separated string in Claude Code format
 	readonly content: string;
 	readonly supportingFiles: readonly string[];
+	readonly metadata?: SkillMetadata;
 }
 
 /**
