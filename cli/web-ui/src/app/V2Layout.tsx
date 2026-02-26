@@ -15,6 +15,7 @@ import {
 	pageVariants,
 	pageVariantsReduced,
 } from "@/lib/motion-config";
+import { ShortcutRegistryProvider } from "@/providers/ShortcutRegistryProvider";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 
 const FULL_HEIGHT_ROUTES = ["/runs/"];
@@ -98,31 +99,15 @@ export function V2Layout() {
 	});
 
 	return (
-		<div className="flex h-screen flex-col bg-background">
-			<V2Header wsStatus={wsStatus} />
-			<div className="flex flex-1 overflow-hidden">
-				<V2Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
-				<div className="flex flex-1 flex-col overflow-hidden">
-					<TerminalBreadcrumb />
-					{isFullHeight ? (
-						<main className="flex-1 overflow-hidden">
-							<AnimatePresence mode="wait">
-								<motion.div
-									key={location.pathname}
-									variants={variants}
-									initial="initial"
-									animate="animate"
-									exit="exit"
-									transition={transition}
-									className="h-full"
-								>
-									<Outlet />
-								</motion.div>
-							</AnimatePresence>
-						</main>
-					) : (
-						<main className="flex-1 overflow-hidden">
-							<ScrollArea className="h-full">
+		<ShortcutRegistryProvider>
+			<div className="flex h-screen flex-col bg-background">
+				<V2Header wsStatus={wsStatus} />
+				<div className="flex flex-1 overflow-hidden">
+					<V2Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
+					<div className="flex flex-1 flex-col overflow-hidden">
+						<TerminalBreadcrumb />
+						{isFullHeight ? (
+							<main className="flex-1 overflow-hidden">
 								<AnimatePresence mode="wait">
 									<motion.div
 										key={location.pathname}
@@ -131,24 +116,42 @@ export function V2Layout() {
 										animate="animate"
 										exit="exit"
 										transition={transition}
-										className="p-6"
+										className="h-full"
 									>
 										<Outlet />
 									</motion.div>
 								</AnimatePresence>
-							</ScrollArea>
-						</main>
-					)}
+							</main>
+						) : (
+							<main className="flex-1 overflow-hidden">
+								<ScrollArea className="h-full">
+									<AnimatePresence mode="wait">
+										<motion.div
+											key={location.pathname}
+											variants={variants}
+											initial="initial"
+											animate="animate"
+											exit="exit"
+											transition={transition}
+											className="p-6"
+										>
+											<Outlet />
+										</motion.div>
+									</AnimatePresence>
+								</ScrollArea>
+							</main>
+						)}
+					</div>
 				</div>
+				<CommandPalette
+					open={commandPaletteOpen}
+					onOpenChange={setCommandPaletteOpen}
+				/>
+				<ShortcutHelpOverlay
+					open={shortcutHelpOpen}
+					onOpenChange={setShortcutHelpOpen}
+				/>
 			</div>
-			<CommandPalette
-				open={commandPaletteOpen}
-				onOpenChange={setCommandPaletteOpen}
-			/>
-			<ShortcutHelpOverlay
-				open={shortcutHelpOpen}
-				onOpenChange={setShortcutHelpOpen}
-			/>
-		</div>
+		</ShortcutRegistryProvider>
 	);
 }
