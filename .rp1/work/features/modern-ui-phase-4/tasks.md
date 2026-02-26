@@ -590,8 +590,17 @@ Phase 4 delivers five workstreams: component consolidation (SharedSelect, Shared
 
     - **Files**: `cli/web-ui/src/pages/v2/RunsListPage.tsx`, `cli/web-ui/src/pages/v2/RunDetailPage.tsx`, `cli/web-ui/src/pages/v2/ArtifactViewerPage.tsx`
     - **Approach**: Registered Tier 3 contextual shortcuts on all three pages via useContextualShortcuts hook. RunsListPage: f focuses filter tablist, s opens first Select dropdown, r calls refetch. RunDetailPage: a scrolls to and focuses artifacts section, l scrolls to and expands EventStream collapsible, t scrolls to step timeline; added section refs for DOM targeting. ArtifactViewerPage: e toggles ToC panel, c copies content to clipboard, [ and ] navigate between artifacts by index. All shortcuts are text-input-safe via the hook's isTextInputElement guard and appear in the ? overlay under their view-specific section.
-    - **Deviations**: Removed 'l' key from RunDetailPage's existing vim-style keyboard handler to avoid conflict with the new 'l' contextual shortcut (logs/events). ArrowRight and Enter remain for opening selected artifacts, preserving equivalent functionality.
+    - **Deviations**: Removed 'l' key from RunDetailPage's existing vim-style keyboard handler to avoid conflict with the new 'l' contextual shortcut (logs/events). ArrowRight and Enter remain for opening selected artifacts, preserving equivalent functionality. Updated footer hint text to replace 'l open' with 'Enter open' and added '? all shortcuts' hint for discoverability.
     - **Tests**: N/A (shortcut registration is declarative configuration using the already-tested useContextualShortcuts hook; text-input suppression verified by existing 15 hook tests; type-check and lint pass)
+
+    **Review Feedback** (Attempt 1):
+    - **Status**: FAILURE
+    - **Issues**:
+        - [accuracy] RunDetailPage footer hint text (line 319-323) still shows `l` as "open" but `l` was removed from the vim handler and reassigned to "Show logs and events" via useContextualShortcuts. The footer text `<kbd>l</kbd> open` is now incorrect and misleading to users.
+    - **Guidance**: Update the footer hint in `RunDetailPage.tsx` (lines 319-324) to remove the `l open` reference. The correct vim-style hints should be: `j/k navigate artifacts, Enter open, h back to runs` (since ArrowRight/Enter still handle "open" after `l` was removed). Alternatively, remove the static footer entirely since the `?` overlay now documents all shortcuts.
+
+    **Review Feedback Resolution** (Attempt 2):
+    - Updated footer hint text: replaced `l open` with `Enter open` (correct since Enter/ArrowRight handle artifact opening after `l` was reassigned). Added `? all shortcuts` hint to guide users to the full shortcut overlay for discoverability.
 
 ### Group 4: Integration and Quality (Depends on All)
 
