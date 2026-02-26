@@ -22,7 +22,7 @@
 | Understand a pattern | Read KB files + sample agent code |
 | Fix broken skill | Check namespace prefix rules below |
 | Test changes | See "Testing" section below |
-| Working with Browser features | use skill: agent-browser    |
+| Working with Browser features | use skill: playwright-cli   |
 
 ---
 
@@ -262,6 +262,8 @@ If command fails, inform user to install:
 3. When using fp-ts, use monads and functional patterns where appropriate, but avoid overcomplicating simple logic. This includes using `match`, `map`, `flatmap`, `isLeft` etc
 
 4. Use appropriate lsps when writing or looking for code.
+
+5. **Frontend development**: When working on frontend code (especially `cli/web-ui/`), use the `frontend-design` skill for building/styling UI components and the `playwright-cli` skill to visually verify changes, test interactions, and capture screenshots. Run `just serve-web-ui` first, then use playwright-cli to validate UI behavior at `http://localhost:5173`.
 
 ### Adding a New Skill
 
