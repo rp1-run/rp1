@@ -70,6 +70,14 @@ Understanding the core ideas behind rp1 helps you get the most out of its workfl
 
     [:octicons-arrow-right-24: Learn more](eval-system.md)
 
+-   :material-file-document-edit: **SKILL.md Format**
+
+    ---
+
+    The canonical format specification for all rp1 invocable prompts, replacing the legacy command format.
+
+    [:octicons-arrow-right-24: Learn more](skill-format.md)
+
 </div>
 
 ---
@@ -86,6 +94,7 @@ Understanding the core ideas behind rp1 helps you get the most out of its workfl
 | [Parallel Worktrees](parallel-worktrees.md) | Git worktree isolation | Run multiple tasks at once |
 | [Builder-Reviewer Agents](builder-reviewer-agents.md) | Adversarial agent cooperation | Higher quality, reliable code |
 | [Eval System](eval-system.md) | Content-addressable attestation | Deterministic, traceable releases |
+| [SKILL.md Format](skill-format.md) | Canonical format for all rp1 prompts | Single source of truth, cross-platform |
 
 ---
 
@@ -106,3 +115,5 @@ Understanding the core ideas behind rp1 helps you get the most out of its workfl
 **Want reliable implementations?** See [Builder-Reviewer Agents](builder-reviewer-agents.md) for adversarial cooperation.
 
 **Building evals for prompts?** See [Eval System](eval-system.md) for content-addressable attestation.
+
+**Migrating commands to skills?** See [SKILL.md Format](skill-format.md) for the canonical format specification.
