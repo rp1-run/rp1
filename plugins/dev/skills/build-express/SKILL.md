@@ -1,7 +1,7 @@
 ---
 name: build-express
 description: "Interactive builder loop with optional review. Deploy task-builder per request, prompt for verify/new-task/exit."
-allowed-tools: Bash(echo *)
+allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
   version: 1.0.0
   tags:

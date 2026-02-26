@@ -1,7 +1,7 @@
 ---
 name: build
 description: "End-to-end feature workflow (requirements -> design -> tasks -> build -> verify -> archive) in a single command."
-allowed-tools: Bash(echo *)
+allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
   version: 3.0.0
   tags:

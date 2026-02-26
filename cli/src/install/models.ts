@@ -59,7 +59,6 @@ export const isHealthy = (report: VerificationReport): boolean => {
  */
 export interface InstallConfig {
 	readonly artifactsDir: string;
-	readonly skipSkills: boolean;
 	readonly dryRun: boolean;
 }
 
@@ -68,7 +67,6 @@ export interface InstallConfig {
  */
 export const defaultInstallConfig: InstallConfig = {
 	artifactsDir: "dist/opencode",
-	skipSkills: false,
 	dryRun: false,
 };
 

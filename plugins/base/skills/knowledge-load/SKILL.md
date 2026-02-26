@@ -1,7 +1,7 @@
 ---
 name: knowledge-load
 description: "Ingests and prepares codebase documentation, builds internal knowledge graphs, and creates optimized context representations for downstream analysis tasks."
-allowed-tools: Bash(echo *)
+allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
   version: 2.1.0
   tags:

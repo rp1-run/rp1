@@ -183,7 +183,6 @@ export const deprecatedInstallOpencode = createDeprecatedCommand(
 		const result = await installOpenCodePlugins(
 			{
 				artifactsDir: opts.artifactsDir ?? null,
-				skipSkills: opts.skipSkills ?? false,
 			},
 			ctx,
 		)();
@@ -208,7 +207,6 @@ export const deprecatedInstallOpencode = createDeprecatedCommand(
 
 deprecatedInstallOpencode
 	.option("-a, --artifacts-dir <path>", "Path to artifacts directory")
-	.option("--skip-skills", "Skip skills installation")
 	.option("--dry-run", "Show what would be installed without installing")
 	.option("-y, --yes", "Skip confirmation prompts");
 

@@ -1,7 +1,7 @@
 ---
 name: blueprint
 description: "Guided wizard for project vision via two-tier docs (charter + PRDs) with stateless interview loops."
-allowed-tools: Bash(echo *)
+allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
   version: 2.0.0
   tags:

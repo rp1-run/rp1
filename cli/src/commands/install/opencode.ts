@@ -23,10 +23,6 @@ const { green, dim, bold } = colorFns;
 export const installOpenCodeSubcommand = new Command("opencode")
 	.description("Install rp1 plugins to OpenCode platform")
 	.option("-a, --artifacts-dir <path>", "Path to artifacts directory")
-	.option(
-		"--skip-skills",
-		"Skip skills installation (skills are primary artifacts)",
-	)
 	.option("--dry-run", "Show what would be installed without installing")
 	.option("-y, --yes", "Skip confirmation prompts")
 	.addHelpText(
@@ -77,7 +73,6 @@ Examples:
 		const result = await installOpenCodePlugins(
 			{
 				artifactsDir: options.artifactsDir ?? null,
-				skipSkills: options.skipSkills ?? false,
 			},
 			ctx,
 		)();

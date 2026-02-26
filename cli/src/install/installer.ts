@@ -977,7 +977,6 @@ export const cleanupStaging = (
  */
 const performInstallation = (
 	pluginDirs: readonly string[],
-	skipSkills: boolean,
 	backup: BackupManifest,
 	onProgress?: (message: string) => void,
 	onOverwrite?: (path: string) => void,
@@ -1057,10 +1056,6 @@ const performInstallation = (
 				}
 			}
 
-			if (skipSkills) {
-				warnings.push("Skills installation skipped (--skip-skills flag)");
-			}
-
 			return {
 				pluginsInstalled,
 				filesInstalled: totalFiles,
@@ -1087,7 +1082,6 @@ const performInstallation = (
  */
 export const installRp1 = (
 	pluginDirs: readonly string[],
-	skipSkills: boolean = false,
 	onProgress?: (message: string) => void,
 	onOverwrite?: (path: string) => void,
 	logger?: { debug: (msg: string) => void },
@@ -1101,7 +1095,6 @@ export const installRp1 = (
 			return pipe(
 				performInstallation(
 					pluginDirs,
-					skipSkills,
 					backup,
 					onProgress,
 					onOverwrite,

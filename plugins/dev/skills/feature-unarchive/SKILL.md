@@ -1,7 +1,7 @@
 ---
 name: feature-unarchive
 description: "Restores an archived feature from the archives directory back to the active features directory."
-allowed-tools: Bash(echo *)
+allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
   version: 1.0.0
   tags:

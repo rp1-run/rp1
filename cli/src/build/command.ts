@@ -27,7 +27,6 @@ import { colorFns } from "../lib/colors.js";
 import {
 	generateAgentFile,
 	generateBundleManifest,
-	generateCommandFile,
 	generateManifest,
 	generateSkillFile,
 } from "./generator.js";
@@ -38,14 +37,10 @@ import type {
 	BundlePluginAssets,
 	OpenCodePluginAsset,
 } from "./models.js";
-import { parseAgent, parseCommand, parseSkill } from "./parser.js";
+import { parseAgent, parseSkill } from "./parser.js";
 import { defaultRegistry } from "./registry.js";
-import {
-	transformAgent,
-	transformCommand,
-	transformSkill,
-} from "./transformations.js";
-import { validateAgent, validateCommand, validateSkill } from "./validator.js";
+import { transformAgent, transformSkill } from "./transformations.js";
+import { validateAgent, validateSkill } from "./validator.js";
 
 /**
  * Parse build command arguments.
@@ -328,8 +323,7 @@ export interface PluginBuildResult {
 
 /**
  * Build a single plugin.
- * Processes skills first (preferred source), then commands (fallback with deduplication).
- * When a skill and command share the same name, the skill wins.
+ * Processes skills from all plugins.
  */
 export const buildPlugin = async (
 	pluginName: string,
@@ -357,10 +351,7 @@ export const buildPlugin = async (
 		// Directory might not exist
 	}
 
-	// Create namespaced subdirectories: command/rp1-base/, agent/rp1-base/
-	await mkdir(join(pluginOutputDir, "command", `rp1-${pluginName}`), {
-		recursive: true,
-	});
+	// Create namespaced subdirectories: agent/rp1-{plugin}/, skill/
 	await mkdir(join(pluginOutputDir, "agent", `rp1-${pluginName}`), {
 		recursive: true,
 	});
@@ -370,11 +361,9 @@ export const buildPlugin = async (
 		spinner.start(`Building ${pluginName} plugin...`);
 	}
 
-	// Process skills first (preferred source per dual-source strategy)
-	// Skills are processed for all plugins, not just base.
+	// Process skills from all plugins
 	const skillsDir = join(pluginDir, "skills");
 	const skillDirs = await getSkillDirs(skillsDir);
-	const processedSkillNames = new Set<string>();
 
 	for (const skillDir of skillDirs) {
 		const parseResult = await parseSkill(skillDir)();
@@ -422,52 +411,6 @@ export const buildPlugin = async (
 		await copySupportingFiles(skillDir, skillOutputDir, supportingFiles);
 
 		skillEntries.push({ name: ccSkill.name, path: relativePath });
-		processedSkillNames.add(ccSkill.name);
-	}
-
-	// Process commands (fallback source -- skip commands that have a matching skill)
-	const commandsDir = join(pluginDir, "commands");
-	const commandFiles = await getMarkdownFiles(commandsDir);
-
-	for (const cmdFile of commandFiles) {
-		const parseResult = await parseCommand(cmdFile)();
-		if (E.isLeft(parseResult)) {
-			errors.push(formatError(parseResult.left, false));
-			continue;
-		}
-		const ccCmd = parseResult.right;
-
-		// Deduplicate: skill wins when both a skill and command share the same name
-		if (processedSkillNames.has(ccCmd.name)) {
-			continue;
-		}
-
-		const transformResult = transformCommand(ccCmd, defaultRegistry);
-		if (E.isLeft(transformResult)) {
-			errors.push(formatError(transformResult.left, false));
-			continue;
-		}
-		const ocCmd = transformResult.right;
-
-		const generateResult = generateCommandFile(ocCmd, ccCmd.name);
-		if (E.isLeft(generateResult)) {
-			errors.push(formatError(generateResult.left, false));
-			continue;
-		}
-		const { filename, content } = generateResult.right;
-
-		// Validate generated content
-		const validateResult = validateCommand(content, filename);
-		if (E.isLeft(validateResult)) {
-			errors.push(formatError(validateResult.left, false));
-			continue;
-		}
-
-		// Write to namespaced subdirectory
-		const relativePath = `${pluginName}/command/rp1-${pluginName}/${filename}`;
-		const outputFile = join(outputPath, relativePath);
-		await writeFile(outputFile, content);
-		commandEntries.push({ name: ccCmd.name, path: relativePath });
 	}
 
 	// Process agents
@@ -553,7 +496,7 @@ export const buildPlugin = async (
 	if (!jsonOutput) {
 		const hasErrors = errors.length > 0;
 		const ocPluginNote = hasOpenCodePlugin ? " + OpenCode plugin" : "";
-		const summary = `${pluginName}: ${commandEntries.length} commands, ${agentEntries.length} agents, ${skillEntries.length} skills${ocPluginNote}`;
+		const summary = `${pluginName}: ${agentEntries.length} agents, ${skillEntries.length} skills${ocPluginNote}`;
 		if (hasErrors) {
 			spinner.fail(`${summary} (${errors.length} errors)`);
 		} else {

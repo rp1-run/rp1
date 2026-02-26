@@ -1,7 +1,7 @@
 ---
 name: feature-archive
 description: "Archives a completed feature to the archives directory with optional documentation validation."
-allowed-tools: Bash(echo *)
+allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
   version: 1.0.0
   tags:

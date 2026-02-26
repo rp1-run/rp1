@@ -35,7 +35,6 @@ const { green, yellow, red, dim, bold, cyan } = colorFns;
 
 export interface InstallArgs {
 	artifactsDir: string | null;
-	skipSkills: boolean;
 	dryRun: boolean;
 	yes: boolean;
 	strict: boolean;
@@ -50,7 +49,6 @@ export const parseInstallArgs = (
 	args: string[],
 ): InstallArgs & { showHelp: boolean } => {
 	let artifactsDir: string | null = null;
-	let skipSkills = false;
 	let dryRun = false;
 	let showHelp = false;
 	let yes = false;
@@ -71,8 +69,6 @@ export const parseInstallArgs = (
 				continue;
 			}
 			artifactsDir = args[++i];
-		} else if (arg === "--skip-skills") {
-			skipSkills = true;
 		} else if (arg === "--dry-run") {
 			dryRun = true;
 		} else if (arg === "--yes" || arg === "-y") {
@@ -86,7 +82,7 @@ export const parseInstallArgs = (
 		}
 	}
 
-	return { artifactsDir, skipSkills, dryRun, showHelp, yes, strict };
+	return { artifactsDir, dryRun, showHelp, yes, strict };
 };
 
 /**
@@ -315,11 +311,11 @@ export const executeInstall = (
 				checkWritePermissions(targetDir),
 				TE.map((result) => {
 					spinner.succeed(result.message);
-					return { skipSkills: config.skipSkills };
+					return undefined;
 				}),
 			);
 		}),
-		TE.chain((state) => {
+		TE.chain(() => {
 			if (config.dryRun) {
 				spinner.stop();
 				console.log(yellow("\nDRY RUN MODE - No files will be modified\n"));
@@ -351,7 +347,6 @@ export const executeInstall = (
 					return pipe(
 						installRp1(
 							pluginDirs,
-							state.skipSkills,
 							(msg) => {
 								spinner.text = msg;
 							},

@@ -1,7 +1,7 @@
 ---
 name: validate-hypothesis
 description: "Validate design hypotheses via code experiments, codebase analysis, and external research."
-allowed-tools: Bash(echo *)
+allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
   version: 1.0.0
   tags:

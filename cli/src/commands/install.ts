@@ -14,10 +14,6 @@ import { colorFns } from "../lib/colors.js";
 export const installCommand = new Command("install:opencode")
 	.description("Install rp1 plugins to OpenCode platform")
 	.option("-a, --artifacts-dir <path>", "Path to artifacts directory")
-	.option(
-		"--skip-skills",
-		"Skip skills installation (skills are primary artifacts)",
-	)
 	.option("--dry-run", "Show what would be installed without installing")
 	.option("-y, --yes", "Skip confirmation prompts")
 	.addHelpText(
@@ -42,9 +38,6 @@ Examples:
 		const args: string[] = [];
 		if (options.artifactsDir) {
 			args.push("--artifacts-dir", options.artifactsDir);
-		}
-		if (options.skipSkills) {
-			args.push("--skip-skills");
 		}
 		if (options.dryRun) {
 			args.push("--dry-run");

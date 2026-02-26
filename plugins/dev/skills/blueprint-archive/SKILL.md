@@ -1,7 +1,7 @@
 ---
 name: blueprint-archive
 description: "Archives a completed PRD to the archives directory with associated features and closure summary."
-allowed-tools: Bash(echo *)
+allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
   version: 1.0.0
   tags:

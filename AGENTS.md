@@ -187,7 +187,7 @@ argument-hint: "<feature-id> [requirements] [--afk] [--git-worktree]"
 | `Bash(rp1 *)` | rp1 CLI invocations (e.g., `rp1 agent-tools worktree`, `rp1 agent-tools work`) | `rp1 agent-tools work update` |
 | `Bash(printf *)` | Formatted output with special characters | `printf '%s\n' "$VAR"` |
 
-**Note**: `Bash(rp1 *)` is no longer needed for `transform-args` (removed). Only include it if the skill makes other `rp1 agent-tools` calls (e.g., worktree, mmd-validate, work, github-pr).
+**Default**: All rp1 skills should include both `Bash(echo *)` and `Bash(rp1 *)` in `allowed-tools`. `Bash(echo *)` enables environment variable resolution; `Bash(rp1 *)` enables rp1 agent-tools calls (work update, worktree, mmd-validate, github-pr, etc.).
 
 **Frontmatter Example** (SKILL.md format):
 

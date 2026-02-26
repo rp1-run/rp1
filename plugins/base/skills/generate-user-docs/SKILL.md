@@ -1,7 +1,7 @@
 ---
 name: generate-user-docs
 description: "Synchronizes user documentation with knowledge base using two-phase map-reduce orchestration with scan and process phases."
-allowed-tools: Bash(echo *)
+allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
   version: 1.0.0
   tags:

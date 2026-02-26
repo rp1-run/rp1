@@ -1,7 +1,7 @@
 ---
 name: bootstrap
 description: "Bootstrap a new project with charter discovery and tech stack scaffolding for greenfield development."
-allowed-tools: Bash(echo *)
+allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
   version: 1.0.0
   tags:
