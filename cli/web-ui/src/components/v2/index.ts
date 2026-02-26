@@ -50,6 +50,11 @@ export {
 	type ShortcutHelpOverlayProps,
 } from "./ShortcutHelpOverlay";
 export { StatusBadge, type StatusBadgeProps } from "./StatusBadge";
+export {
+	type GlowColor,
+	StatusGlow,
+	type StatusGlowProps,
+} from "./StatusGlow";
 export { StepTimeline, type StepTimelineProps } from "./StepTimeline";
 export {
 	TableOfContents,

@@ -702,4 +702,31 @@
       animation: none;
     }
   }
+
+  /* StatusGlow color classes */
+  .glow-red { --glow-color: hsl(var(--status-failed) / 0.4); }
+  .glow-amber { --glow-color: hsl(var(--status-warning) / 0.4); }
+  .glow-blue { --glow-color: hsl(var(--status-running) / 0.4); }
+  .glow-green { --glow-color: hsl(var(--status-completed) / 0.4); }
+  .glow-purple { --glow-color: hsl(var(--status-needs-review) / 0.4); }
+
+  .status-glow {
+    box-shadow: 0 0 8px 2px var(--glow-color);
+  }
+
+  @keyframes glow-pulse {
+    0%, 100% { box-shadow: 0 0 8px 2px var(--glow-color); }
+    50% { box-shadow: 0 0 16px 4px var(--glow-color); }
+  }
+
+  .status-glow-pulse {
+    animation: glow-pulse 2s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .status-glow-pulse {
+      animation: none;
+      border: 1px solid var(--glow-color);
+    }
+  }
 }

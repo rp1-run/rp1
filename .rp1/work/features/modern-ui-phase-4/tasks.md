@@ -2,7 +2,7 @@
 
 **Feature ID**: modern-ui-phase-4
 **Status**: Not Started
-**Progress**: 38% (8 of 21 tasks)
+**Progress**: 43% (9 of 21 tasks)
 **Estimated Effort**: 10 days
 **Started**: 2026-02-26
 
@@ -290,9 +290,21 @@ Phase 4 delivers five workstreams: component consolidation (SharedSelect, Shared
     - **Deviations**: Stubbed KeyboardShortcutHint inline as ShortcutKey component since T10 is not yet implemented. When T10 is done, the inline ShortcutKey can be replaced with the shared component.
     - **Tests**: N/A (presentational overlay component; keyboard behavior relies on isTextInputElement which is already tested in useContextualShortcuts tests)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | PASS |
+    | Accuracy | PASS |
+    | Completeness | PASS |
+    | Quality | PASS |
+    | Testing | N/A |
+    | Commit | PASS |
+    | Comments | PASS |
+
 ### Group 2: Utility Components (Depends on T4)
 
-- [ ] **T9**: Create StatusGlow wrapper component with glow CSS animations `[complexity:medium]`
+- [x] **T9**: Create StatusGlow wrapper component with glow CSS animations `[complexity:medium]`
 
     **Reference**: [design.md#321-statusglow](design.md#321-statusglow)
 
@@ -300,11 +312,18 @@ Phase 4 delivers five workstreams: component consolidation (SharedSelect, Shared
 
     **Acceptance Criteria**:
 
-    - [ ] `components/v2/StatusGlow.tsx` created with `color` (red/amber/blue/green/purple), `enabled`, `pulse`, `children` props
-    - [ ] `@keyframes glow-pulse` animation added to `globals.css` with 0%/50%/100% box-shadow transitions
-    - [ ] Glow color classes (`.glow-red`, `.glow-amber`, `.glow-blue`, `.glow-green`, `.glow-purple`) use CSS custom properties referencing status color variables from T4
-    - [ ] `prefers-reduced-motion: reduce` replaces animation with static border-color (NFR-U1)
-    - [ ] Component exported from `components/v2/index.ts` barrel
+    - [x] `components/v2/StatusGlow.tsx` created with `color` (red/amber/blue/green/purple), `enabled`, `pulse`, `children` props
+    - [x] `@keyframes glow-pulse` animation added to `globals.css` with 0%/50%/100% box-shadow transitions
+    - [x] Glow color classes (`.glow-red`, `.glow-amber`, `.glow-blue`, `.glow-green`, `.glow-purple`) use CSS custom properties referencing status color variables from T4
+    - [x] `prefers-reduced-motion: reduce` replaces animation with static border-color (NFR-U1)
+    - [x] Component exported from `components/v2/index.ts` barrel
+
+    **Implementation Summary**:
+
+    - **Files**: `cli/web-ui/src/components/v2/StatusGlow.tsx`, `cli/web-ui/src/styles/globals.css`, `cli/web-ui/src/components/v2/index.ts`
+    - **Approach**: Created StatusGlow wrapper component with GlowColor type (red/amber/blue/green/purple), enabled (default true), pulse (default false), children, and className props. Uses cn() for class composition with a glowClassMap lookup. When disabled, renders a plain div wrapper. Added glow-pulse keyframes (0%/100% 8px 2px, 50% 16px 4px) and 5 glow color classes referencing status CSS variables at 0.4 opacity. prefers-reduced-motion media query replaces pulse animation with a static 1px solid border.
+    - **Deviations**: None
+    - **Tests**: N/A (presentational wrapper component; glow behavior is CSS-only; verified via type-check and lint)
 
 - [ ] **T10**: Create KeyboardShortcutHint badge component `[complexity:simple]`
 
