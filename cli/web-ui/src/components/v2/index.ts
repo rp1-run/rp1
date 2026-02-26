@@ -19,6 +19,7 @@ export {
 	AttentionSection,
 	type AttentionSectionProps,
 } from "./AttentionSection";
+export { Collapsible, type CollapsibleProps } from "./Collapsible";
 export {
 	CommandPalette,
 	type CommandPaletteProps,

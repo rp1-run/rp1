@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { ChevronDown, ChevronRight, type LucideIcon } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -15,6 +15,7 @@ import {
 } from "@/lib/motion-config";
 import { cn } from "@/lib/utils";
 import type { Run } from "@/types/runs";
+import { Collapsible } from "./Collapsible";
 import { RunCard } from "./RunCard";
 import { VirtualizedList, type VirtualizedListRef } from "./VirtualizedList";
 
@@ -105,10 +106,6 @@ export function AttentionSection({
 
 	const selectedIndex = externalSelectedIndex ?? internalSelectedIndex;
 
-	const handleToggleExpand = () => {
-		setIsExpanded((prev) => !prev);
-	};
-
 	const handleShowMore = () => {
 		setShowAll(true);
 	};
@@ -132,43 +129,16 @@ export function AttentionSection({
 	const getRunKey = useCallback((run: Run) => run.id, []);
 
 	return (
-		<section
-			className={cn(
-				"rounded-lg border border-border overflow-hidden transition-all duration-200",
-				className,
-			)}
-			aria-labelledby={`section-${title.toLowerCase().replace(/\s+/g, "-")}`}
-		>
-			<button
-				type="button"
-				onClick={handleToggleExpand}
-				className={cn(
-					"flex w-full items-center gap-3 px-4 py-3 text-left transition-colors",
-					"hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
-				)}
-				aria-expanded={isExpanded}
-				aria-controls={`section-content-${title.toLowerCase().replace(/\s+/g, "-")}`}
-			>
-				<span className={cn("transition-transform", isExpanded && "rotate-0")}>
-					{isExpanded ? (
-						<ChevronDown className="h-4 w-4 text-muted-foreground" />
-					) : (
-						<ChevronRight className="h-4 w-4 text-muted-foreground" />
-					)}
-				</span>
-
+		<Collapsible
+			title={title}
+			defaultExpanded={defaultExpanded}
+			icon={
 				<Icon
 					className={cn("h-5 w-5", accentColors[accentColor])}
 					aria-hidden="true"
 				/>
-
-				<h2
-					id={`section-${title.toLowerCase().replace(/\s+/g, "-")}`}
-					className="flex-1 font-medium text-foreground"
-				>
-					{title}
-				</h2>
-
+			}
+			badge={
 				<span
 					className={cn(
 						"rounded-full px-2.5 py-0.5 text-sm font-medium",
@@ -178,98 +148,90 @@ export function AttentionSection({
 				>
 					{runs.length}
 				</span>
-			</button>
+			}
+			className={cn(accentBgColors[accentColor], className)}
+			onExpandedChange={setIsExpanded}
+		>
+			<div className="p-4 pt-0 space-y-2">
+				{hasItems ? (
+					<>
+						{useVirtualization ? (
+							<VirtualizedList
+								ref={virtualizedListRef}
+								items={runs}
+								estimateSize={RUN_CARD_HEIGHT}
+								overscan={3}
+								renderItem={renderRunItem}
+								getItemKey={getRunKey}
+								onSelect={handleRunClick}
+								selectedIndex={selectedIndex}
+								className="h-[400px] rounded-lg"
+								itemClassName="px-1 py-0.5"
+								aria-label={`${title} runs`}
+							/>
+						) : (
+							<motion.ul
+								className="divide-y divide-border/50"
+								variants={
+									reducedMotion ? staggerContainerReduced : staggerContainer
+								}
+								initial="initial"
+								animate="animate"
+							>
+								{visibleRuns.map((run, index) => (
+									<motion.li
+										key={run.id}
+										variants={
+											reducedMotion ? staggerItemReduced : staggerItem
+										}
+									>
+										<RunCard
+											run={run}
+											onClick={() => handleRunClick(run)}
+											showStatus={false}
+											selected={selectedIndex === index}
+										/>
+									</motion.li>
+								))}
+							</motion.ul>
+						)}
 
-			<div
-				id={`section-content-${title.toLowerCase().replace(/\s+/g, "-")}`}
-				className={cn(
-					"overflow-hidden transition-all duration-200 ease-in-out",
-					isExpanded
-						? "max-h-[2000px] opacity-100 border-t border-border/50"
-						: "max-h-0 opacity-0",
+						{hasMore && (
+							<div className="pt-2">
+								{!showAll ? (
+									<button
+										type="button"
+										onClick={handleShowMore}
+										className={cn(
+											"w-full rounded-md py-2 text-sm font-medium transition-colors",
+											"hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+											accentColors[accentColor],
+										)}
+									>
+										Show more ({hiddenCount} hidden)
+									</button>
+								) : (
+									<button
+										type="button"
+										onClick={handleShowLess}
+										className={cn(
+											"w-full rounded-md py-2 text-sm font-medium transition-colors",
+											"hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+											"text-muted-foreground",
+										)}
+									>
+										Show less
+									</button>
+								)}
+							</div>
+						)}
+					</>
+				) : (
+					<p className="py-4 text-center text-sm text-muted-foreground">
+						{emptyMessage}
+					</p>
 				)}
-			>
-				<div>
-					{hasItems ? (
-						<>
-							{useVirtualization ? (
-								<VirtualizedList
-									ref={virtualizedListRef}
-									items={runs}
-									estimateSize={RUN_CARD_HEIGHT}
-									overscan={3}
-									renderItem={renderRunItem}
-									getItemKey={getRunKey}
-									onSelect={handleRunClick}
-									selectedIndex={selectedIndex}
-									className="h-[400px]"
-									itemClassName=""
-									aria-label={`${title} runs`}
-								/>
-							) : (
-								<motion.ul
-									className="divide-y divide-border/50"
-									variants={
-										reducedMotion ? staggerContainerReduced : staggerContainer
-									}
-									initial="initial"
-									animate="animate"
-								>
-									{visibleRuns.map((run, index) => (
-										<motion.li
-											key={run.id}
-											variants={
-												reducedMotion ? staggerItemReduced : staggerItem
-											}
-										>
-											<RunCard
-												run={run}
-												onClick={() => handleRunClick(run)}
-												showStatus={false}
-												selected={selectedIndex === index}
-											/>
-										</motion.li>
-									))}
-								</motion.ul>
-							)}
-
-							{hasMore && (
-								<div className="px-4 py-2">
-									{!showAll ? (
-										<button
-											type="button"
-											onClick={handleShowMore}
-											className={cn(
-												"w-full rounded-md py-2 text-sm font-medium transition-colors",
-												"hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-												accentColors[accentColor],
-											)}
-										>
-											Show more ({hiddenCount} hidden)
-										</button>
-									) : (
-										<button
-											type="button"
-											onClick={handleShowLess}
-											className={cn(
-												"w-full rounded-md py-2 text-sm font-medium transition-colors",
-												"hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-												"text-muted-foreground",
-											)}
-										>
-											Show less
-										</button>
-									)}
-								</div>
-							)}
-						</>
-					) : (
-						<p className="py-4 text-center text-sm text-muted-foreground">
-							{emptyMessage}
-						</p>
-					)}
-				</div>
 			</div>
-		</section>
+		</Collapsible>
 	);
 }
