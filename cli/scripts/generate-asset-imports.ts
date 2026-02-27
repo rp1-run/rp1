@@ -263,6 +263,10 @@ async function generate(): Promise<void> {
 		.filter((a) => a.category === "agent" && a.plugin === "dev")
 		.map((a) => `{ name: "${a.outputName}", path: ${a.varName} }`);
 
+	const devSkills = pluginAssets
+		.filter((a) => a.category === "skill" && a.plugin === "dev")
+		.map((a) => `{ name: "${a.outputName}", path: ${a.varName} }`);
+
 	// OpenCode plugin files (only base plugin has this currently)
 	const basePluginFiles = pluginAssets
 		.filter((a) => a.category === "opencode-plugin" && a.plugin === "base")
@@ -300,7 +304,7 @@ export const EMBEDDED_MANIFEST = {
       name: "rp1-dev",
       commands: [${devCommands.join(", ")}],
       agents: [${devAgents.join(", ")}],
-      skills: [],
+      skills: [${devSkills.join(", ")}],
     },
   },
   webui: [${webuiEntries.join(", ")}],
@@ -320,7 +324,7 @@ export const IS_BUNDLED = true;
 		console.log(`  Base OpenCode Plugin: ${basePluginFiles.length} files`);
 	}
 	console.log(
-		`  Dev: ${devCommands.length} commands, ${devAgents.length} agents`,
+		`  Dev: ${devCommands.length} commands, ${devAgents.length} agents, ${devSkills.length} skills`,
 	);
 	console.log(`  Web-UI: ${webuiAssets.length} files`);
 	console.log(`  Version: ${manifest.version}`);

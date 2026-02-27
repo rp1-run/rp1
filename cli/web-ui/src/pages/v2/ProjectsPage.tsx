@@ -6,12 +6,14 @@ import { useKeyboardNav } from "@/hooks/useKeyboardNav";
 import { useProjects, type V2Project } from "@/hooks/useProjects";
 import { cn } from "@/lib/utils";
 
+const SKELETON_KEYS = ["sk-a", "sk-b", "sk-c", "sk-d", "sk-e", "sk-f"];
+
 function LoadingSkeleton() {
 	return (
 		<div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-			{Array.from({ length: 6 }, (_, i) => (
+			{SKELETON_KEYS.map((key) => (
 				<div
-					key={`skeleton-${i}`}
+					key={key}
 					className="animate-pulse rounded-lg border border-border p-4 space-y-3"
 				>
 					<div className="flex justify-between">
@@ -217,6 +219,7 @@ export function ProjectsPage() {
 				<EmptyState />
 			) : (
 				<>
+					{/* biome-ignore lint/a11y/useSemanticElements: div with role="list" used for grid layout incompatible with ul/li */}
 					<div
 						className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
 						role="list"
