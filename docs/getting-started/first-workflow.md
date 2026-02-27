@@ -36,6 +36,9 @@ The first step with any existing codebase is building a **knowledge base**. This
     /rp1-base/knowledge-build
     ```
 
+    !!! tip "Discovering Skills"
+        You can also type `/skills` in OpenCode to browse and select from all available rp1 skills.
+
 ### Expected Output
 
 After the command completes, you'll see:
@@ -54,12 +57,12 @@ READY [single-project]
 
 ## What Just Happened?
 
-The `knowledge-build` command analyzed your codebase and created knowledge base files in `.rp1/context/`.
+The `knowledge-build` skill analyzed your codebase and created knowledge base files in `.rp1/context/`.
 
 !!! info "KB File Reference"
     See [What's in the Knowledge Base?](../concepts/knowledge-aware-agents.md#whats-in-the-knowledge-base) for the complete list of generated files and their purposes.
 
-Future rp1 commands use this knowledge base to understand your codebase context, making their outputs more accurate and relevant.
+Future rp1 skills use this knowledge base to understand your codebase context, making their outputs more accurate and relevant.
 
 !!! tip "Incremental Updates"
     First builds take 10-15 minutes for large projects. Subsequent runs are incremental and complete in 2-5 minutes.
@@ -130,7 +133,7 @@ Now that rp1 understands your codebase, try these workflows:
 
     ---
 
-    Complete documentation for all commands.
+    Complete documentation for all skills.
 
 -   :material-lightbulb: **[Concepts](../concepts/index.md)**
 

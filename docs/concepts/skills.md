@@ -1,14 +1,15 @@
 # Skills
 
-Skills are reusable capabilities that agents can invoke to perform specialized tasks. Unlike commands (which users invoke) or agents (which perform complete workflows), skills are building blocks that agents use to accomplish specific subtasks.
+Skills are the primary unit of functionality in rp1. All rp1 capabilities -- from building features to reviewing PRs -- are implemented as skills that both users and agents can invoke.
 
 ---
 
 ## What Are Skills?
 
-Skills encapsulate domain expertise into a form that agents can leverage. They provide:
+Skills encapsulate domain expertise into invocable units. They provide:
 
-- **Specialized knowledge**: Deep expertise in a specific area (e.g., Mermaid diagrams, git worktrees)
+- **User-facing workflows**: Invoke directly from your AI assistant to run complete workflows
+- **Specialized knowledge**: Deep expertise in a specific area (e.g., feature development, code quality, security)
 - **Consistent behavior**: Same approach every time, reducing variability
 - **Reusable patterns**: Multiple agents can share the same skill
 - **Progressive disclosure**: Main skill file as hub, supporting files for details
@@ -120,14 +121,48 @@ Create a skill when you have:
 
 Skills are NOT for:
 - Simple one-off operations (just include in agent)
-- User-facing workflows (use commands instead)
-- Complete autonomous tasks (use agents instead)
+- Complete autonomous tasks with no user interaction (use agents instead)
 
 ---
 
-## Skill Invocation
+## Invoking Skills
 
-Agents invoke skills using the Skill tool:
+Skills can be invoked by users directly from their AI assistant, or by agents programmatically.
+
+### User Invocation
+
+=== "Claude Code"
+
+    Type `/` to get autocomplete suggestions, then select a skill. You can also type the skill name directly:
+
+    ```bash
+    /build my-feature
+    /knowledge-build
+    /build-fast "Add dark mode toggle"
+    ```
+
+    If a skill name conflicts with another plugin, use the prefixed form: `/rp1-dev:build` or `/rp1-base:knowledge-build`.
+
+=== "OpenCode"
+
+    There are two ways to invoke rp1 skills:
+
+    1. **Type the skill name directly** if you know it (e.g., `/build`, `/knowledge-build`)
+    2. **Type `/skills`** to browse and select from a dropdown of all available skills
+
+    The full namespaced syntax also works:
+
+    ```bash
+    /rp1-dev/build my-feature
+    /rp1-base/knowledge-build
+    ```
+
+    !!! note "Autocomplete support"
+        OpenCode does not currently offer autocomplete for skill names (unlike Claude Code's `/` autocomplete). This is tracked in [opencode#14506](https://github.com/anomalyco/opencode/issues/14506) and may be supported in a future release.
+
+### Agent Invocation
+
+Agents invoke skills programmatically using the Skill tool:
 
 ```markdown
 Use the Skill tool with:

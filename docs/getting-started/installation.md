@@ -245,7 +245,12 @@ Documentation: https://rp1.run
 
 === "OpenCode"
 
-    Type `/` to see available commands. You should see rp1 commands listed (look for `/rp1-base/` and `/rp1-dev/`).
+    You can invoke rp1 skills in two ways:
+
+    1. **Type the skill name directly** if you know it (e.g., `/knowledge-build`, `/build`)
+    2. **Type `/skills`** to browse and select from a dropdown of all available skills
+
+    *Autocomplete for skill names is coming soon — see [opencode#14506](https://github.com/anomalyco/opencode/issues/14506).*
 
     **Quick test:**
 
@@ -281,10 +286,10 @@ You're ready to go! Continue to [Your First Workflow](first-workflow.md) to run 
 
     ---
 
-    **Commands not appearing after plugin installation?**
+    **Skills not appearing after plugin installation?**
 
     - **Claude Code**: Make sure you completely restarted Claude Code
-    - **OpenCode**: Verify plugins exist at `~/.opencode/prompts/rp1-base/`
+    - **OpenCode**: Verify plugins exist at `~/.opencode/prompts/rp1-base/`. You can type `/skills` to check if rp1 skills are listed.
 
     ---
 

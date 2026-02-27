@@ -13,7 +13,7 @@ Common issues, solutions, and debugging strategies for rp1.
 | Agent stuck in loop | Anti-loop directive missing | Check agent spec for exit conditions |
 | KB generation fails | Large codebase or timeout | Use incremental build |
 | KB content stale | Code changed after build | Rebuild KB |
-| Commands not found | Plugins not installed | Run `rp1 init` |
+| Skills not found | Plugins not installed | Run `rp1 init` |
 | Slow operations | Large context window | Break into smaller operations |
 
 ---
@@ -609,28 +609,29 @@ Common issues, solutions, and debugging strategies for rp1.
 
 ### OpenCode
 
-??? question "rp1 commands not working in OpenCode"
+??? question "rp1 skills not working in OpenCode"
 
     **Symptoms:**
 
-    - Commands not recognized
+    - Skills not recognized
     - Different syntax required
     - Missing functionality
 
     **Solutions:**
 
-    1. **Use correct command syntax:**
+    1. **Use correct skill invocation:**
 
-        OpenCode uses namespaced commands:
+        OpenCode supports two ways to invoke rp1 skills:
+
+        - **Type the skill name directly** if you know it (e.g., `/build`, `/knowledge-build`)
+        - **Type `/skills`** to browse and select from a dropdown of all available skills
+
+        *Note: Autocomplete for skill names is not yet available ([opencode#14506](https://github.com/anomalyco/opencode/issues/14506)) but may be supported soon.*
+
+        The full namespaced syntax also works:
 
         ```
-        @rp1-dev/build
-        ```
-
-        vs Claude Code:
-
-        ```
-        /rp1-dev:build
+        /rp1-dev/build
         ```
 
     2. **Verify plugin installation:**
@@ -661,15 +662,17 @@ Common issues, solutions, and debugging strategies for rp1.
 
     1. **Check platform-specific documentation:**
 
-        Some commands have platform-specific notes in their reference pages.
+        Some skills have platform-specific notes in their reference pages.
 
-    2. **Use core commands:**
+    2. **Use core skills:**
 
-        Stick to well-tested commands like:
+        Stick to well-tested skills like:
 
         - `/knowledge-build`
         - `/build` (orchestrates feature workflow)
         - `/build-fast` (quick tasks)
+
+        Use `/skills` to browse all available skills in OpenCode.
 
     3. **Report discrepancies:**
 

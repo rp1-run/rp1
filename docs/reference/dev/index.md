@@ -7,15 +7,15 @@ The `rp1-dev` plugin provides development workflow capabilities for the complete
 
 ---
 
-## Commands by Category
+## Skills by Category
 
 ### Feature Development
 
 Build features with full workflow orchestration.
 
-| Command | Description |
+| Skill | Description |
 |---------|-------------|
-| [`build`](build.md) | **Primary command** — End-to-end feature workflow (requirements → design → build → verify → archive) |
+| [`build`](build.md) | **Primary skill** -- End-to-end feature workflow (requirements -> design -> build -> verify -> archive) |
 | [`build-fast`](build-fast.md) | Quick iteration for small, well-scoped tasks |
 | [`validate-hypothesis`](validate-hypothesis.md) | Test design assumptions through experiments |
 
@@ -23,7 +23,7 @@ Build features with full workflow orchestration.
 
 Start projects with structured documentation.
 
-| Command | Description |
+| Skill | Description |
 |---------|-------------|
 | [`blueprint`](blueprint.md) | Create project charter and PRD documents |
 | [`blueprint-archive`](blueprint-archive.md) | Archive completed blueprints |
@@ -33,7 +33,7 @@ Start projects with structured documentation.
 
 Manage features during and after development.
 
-| Command | Description |
+| Skill | Description |
 |---------|-------------|
 | [`feature-edit`](feature-edit.md) | Propagate mid-stream changes across documents |
 | [`feature-archive`](feature-archive.md) | Archive completed features |
@@ -43,7 +43,7 @@ Manage features during and after development.
 
 Maintain code health with automated checks and analysis.
 
-| Command | Description |
+| Skill | Description |
 |---------|-------------|
 | [`code-check`](code-check.md) | Fast hygiene validation (lint, test, coverage) |
 | [`code-audit`](code-audit.md) | Pattern consistency and maintainability audit |
@@ -54,7 +54,7 @@ Maintain code health with automated checks and analysis.
 
 Review and manage pull requests effectively.
 
-| Command | Description |
+| Skill | Description |
 |---------|-------------|
 | [`pr-review`](pr-review.md) | Map-reduce PR review with confidence gating |
 | [`pr-visual`](pr-visual.md) | Generate Mermaid diagrams from PR diffs |
@@ -64,7 +64,7 @@ Review and manage pull requests effectively.
 
 ## Feature Development Workflow
 
-Use `/build` as your **single entry point** for feature development:
+Use `/build` as your **single entry point** for feature development (in OpenCode, type `/build` directly or use `/skills` to find it):
 
 ```mermaid
 flowchart LR
@@ -77,7 +77,7 @@ flowchart LR
     UR -->|Done| A[Archive]
 ```
 
-The command handles all steps automatically with smart resumption — it detects existing artifacts and continues from where you left off.
+The skill handles all steps automatically with smart resumption -- it detects existing artifacts and continues from where you left off.
 
 | Step | What Happens | Artifact |
 |------|--------------|----------|
@@ -89,9 +89,9 @@ The command handles all steps automatically with smart resumption — it detects
 | Follow-up | Add more work if needed | Loops to Build |
 | Archive | Store completed feature | Archived artifacts |
 
-**When to use which command:**
+**When to use which skill:**
 
-| Use Case | Command |
+| Use Case | Skill |
 |----------|---------|
 | Multi-component features, architectural changes | `/build` |
 | Bug fixes, small enhancements, isolated changes | `/build-fast` |
@@ -134,4 +134,6 @@ After installation, start a new feature:
     /rp1-dev/build my-feature
     ```
 
-This runs the complete feature workflow — collecting requirements, generating design, implementing with builder-reviewer, and verifying the result.
+    You can also type `/skills` to browse all available skills, or type the skill name directly (e.g., `/build`).
+
+This runs the complete feature workflow -- collecting requirements, generating design, implementing with builder-reviewer, and verifying the result.
