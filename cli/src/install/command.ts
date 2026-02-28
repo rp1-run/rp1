@@ -177,8 +177,17 @@ const executeInstallFromBundled = (
 						}),
 						TE.chain(() => {
 							spinner.start("Verifying installation...");
+							// Pass actual counts from bundled manifest
+							const bundledCounts = {
+								agents:
+									assets.plugins.base.agents.length +
+									assets.plugins.dev.agents.length,
+								skills:
+									assets.plugins.base.skills.length +
+									assets.plugins.dev.skills.length,
+							};
 							return pipe(
-								verifyInstallation(undefined),
+								verifyInstallation(undefined, bundledCounts),
 								TE.map((report) => {
 									spinner.stop();
 									if (isHealthy(report)) {

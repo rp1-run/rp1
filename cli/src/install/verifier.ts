@@ -72,8 +72,18 @@ const checkFileHealth = async (filePath: string): Promise<string[]> => {
 /**
  * Verify rp1 installation health.
  */
+/**
+ * Expected artifact counts for verification.
+ * Pass these from the bundled manifest or let the verifier discover them from disk.
+ */
+export interface ExpectedCounts {
+	readonly agents: number;
+	readonly skills: number;
+}
+
 export const verifyInstallation = (
 	artifactsDir?: string,
+	expectedCounts?: ExpectedCounts,
 ): TE.TaskEither<CLIError, VerificationReport> =>
 	TE.tryCatch(
 		async () => {
@@ -89,7 +99,7 @@ export const verifyInstallation = (
 
 			const issues: string[] = [];
 
-			// Discover expected artifacts from manifests
+			// Discover expected artifacts from manifests or use provided counts
 			let expectedAgents: Set<string> = new Set();
 			let expectedSkills: Set<string> = new Set();
 
@@ -102,15 +112,19 @@ export const verifyInstallation = (
 						expectedSkills = names.skills;
 					}
 				} catch {
-					// Can't read manifests, use fallback counts
+					// Can't read manifests, fall through to counts below
 				}
 			}
 
-			// Fallback expected counts when no manifest is available.
-			// Commands are deprecated (migrated to skills).
-			// Use conservative minimums to avoid false warnings on bundled installs.
-			const agentsExpected = expectedAgents.size > 0 ? expectedAgents.size : 25;
-			const skillsExpected = expectedSkills.size > 0 ? expectedSkills.size : 30;
+			// Resolve expected counts: manifest names > explicit counts > fallback (1)
+			const agentsExpected =
+				expectedAgents.size > 0
+					? expectedAgents.size
+					: (expectedCounts?.agents ?? 1);
+			const skillsExpected =
+				expectedSkills.size > 0
+					? expectedSkills.size
+					: (expectedCounts?.skills ?? 1);
 
 			// Check agents
 			const agentDir = join(configDir, "agent");
