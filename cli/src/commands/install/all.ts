@@ -111,7 +111,7 @@ Examples:
 		console.log("");
 		console.log(
 			dim(
-				"Restart your agentic tools and run /help to see available rp1 commands.",
+				"Restart your agentic tools and run /help to see available rp1 skills.",
 			),
 		);
 	});

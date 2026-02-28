@@ -77,7 +77,6 @@ Examples:
 		console.log("Installed plugins:");
 		console.log("  - rp1-base");
 		console.log("  - rp1-dev");
-		console.log("  - rp1-utils");
 		console.log("");
 		console.log(
 			"Restart OpenCode and run /skills to see available rp1 skills.",

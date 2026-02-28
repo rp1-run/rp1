@@ -134,11 +134,7 @@ const displaySuccess = (
 		logger.info(color.dim(`  • ${plugin}`));
 	}
 	logger.info("");
-	logger.info(
-		color.dim(
-			"Restart Claude Code and run /help to see available rp1 commands.",
-		),
-	);
+	logger.info(color.dim("Restart Claude Code to load updated plugins."));
 };
 
 /**

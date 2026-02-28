@@ -92,7 +92,7 @@ Examples:
 	});
 
 export const listCommand = new Command("list")
-	.description("List installed rp1 commands")
+	.description("List installed rp1 skills")
 	.addHelpText(
 		"after",
 		`

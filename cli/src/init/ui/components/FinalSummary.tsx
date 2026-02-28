@@ -183,7 +183,7 @@ const NextStepsList: React.FC<NextStepsListProps> = ({ steps }) => {
 				<Box marginTop={spacing.small} marginLeft={spacing.small}>
 					<Text color={colors.success}>{figures.tick} </Text>
 					<Text color={colors.dim}>
-						All set! Start using rp1 commands in your AI tool.
+						All set! Start using rp1 skills in your AI tool.
 					</Text>
 				</Box>
 			</Box>

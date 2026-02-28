@@ -442,7 +442,7 @@ export const executeVerify = (
 				console.log(red(bold("\nInstallation incomplete")));
 				console.log(dim("\nRemediation:"));
 				console.log(dim("  Install missing components with:"));
-				console.log(cyan("    rp1 install:opencode"));
+				console.log(cyan("    rp1 install opencode"));
 				process.exit(1);
 			}
 		}),

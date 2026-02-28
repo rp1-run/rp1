@@ -15,7 +15,7 @@ const { green, yellow, red, dim, bold, cyan } = colorFns;
 
 /**
  * Execute OpenCode verification.
- * Checks that rp1 commands, agents, skills, and plugins are installed.
+ * Checks that rp1 skills, agents, and hooks are installed.
  */
 export const executeVerifyOpenCode = async (
 	artifactsDir: string | undefined,
