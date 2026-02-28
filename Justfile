@@ -97,6 +97,9 @@ prepare-dev-plugins:
 
 # Install dev plugins to Claude Code
 install-claude: prepare-dev-plugins
+    @echo ""
+    @echo "━━━ Claude Code ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    @echo ""
     -claude plugin marketplace rm rp1-local 2>/dev/null
     claude plugin marketplace add ./.dev-marketplace/
     claude plugin install rp1-base@rp1-local
@@ -105,6 +108,9 @@ install-claude: prepare-dev-plugins
 
 # Install to OpenCode
 install-opencode:
+    @echo ""
+    @echo "━━━ OpenCode ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    @echo ""
     ./bin/rp1 install opencode
 
 # Remove stable rp1 from both platforms
