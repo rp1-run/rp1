@@ -58,4 +58,8 @@ export {
 	registerRp1HooksPlugin,
 } from "./prerequisites.js";
 // Verifier
-export { listInstalledCommands, verifyInstallation } from "./verifier.js";
+export {
+	listInstalledCommands,
+	listInstalledSkills,
+	verifyInstallation,
+} from "./verifier.js";

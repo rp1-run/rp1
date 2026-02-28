@@ -15,7 +15,7 @@ See what your PR changes at a glance with auto-generated architecture and flow d
 === "OpenCode"
 
     ```bash
-    /rp1-dev/pr-visual [pr-branch] [base-branch] [review-depth] [focus-areas]
+    /rp1-pr-visual [pr-branch] [base-branch] [review-depth] [focus-areas]
     ```
 
 ## Description
@@ -53,7 +53,7 @@ The `pr-visual` command generates Mermaid diagrams from PR diffs to help underst
 === "OpenCode"
 
     ```bash
-    /rp1-dev/pr-visual
+    /rp1-pr-visual
     ```
 
 ### Visualize Specific PR
@@ -67,7 +67,7 @@ The `pr-visual` command generates Mermaid diagrams from PR diffs to help underst
 === "OpenCode"
 
     ```bash
-    /rp1-dev/pr-visual feature/auth main
+    /rp1-pr-visual feature/auth main
     ```
 
 **Example output:**

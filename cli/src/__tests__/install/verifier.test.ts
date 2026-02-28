@@ -22,12 +22,12 @@ describe("verifier", () => {
 	describe("isHealthy", () => {
 		test("returns true when all counts match and no critical issues", () => {
 			const report: VerificationReport = {
-				commandsFound: 10,
-				commandsExpected: 10,
+				commandsFound: 0,
+				commandsExpected: 0,
 				agentsFound: 5,
 				agentsExpected: 5,
-				skillsFound: 3,
-				skillsExpected: 3,
+				skillsFound: 35,
+				skillsExpected: 35,
 				pluginsFound: 1,
 				pluginsExpected: 1,
 				issues: [],
@@ -36,30 +36,30 @@ describe("verifier", () => {
 			expect(isHealthy(report)).toBe(true);
 		});
 
-		test("returns false when commands are missing", () => {
+		test("commands fields are ignored in health check (deprecated)", () => {
 			const report: VerificationReport = {
-				commandsFound: 5,
-				commandsExpected: 10,
+				commandsFound: 0,
+				commandsExpected: 0,
 				agentsFound: 5,
 				agentsExpected: 5,
-				skillsFound: 3,
-				skillsExpected: 3,
+				skillsFound: 35,
+				skillsExpected: 35,
 				pluginsFound: 1,
 				pluginsExpected: 1,
 				issues: [],
 			};
 
-			expect(isHealthy(report)).toBe(false);
+			expect(isHealthy(report)).toBe(true);
 		});
 
 		test("returns false when agents are missing", () => {
 			const report: VerificationReport = {
-				commandsFound: 10,
-				commandsExpected: 10,
+				commandsFound: 0,
+				commandsExpected: 0,
 				agentsFound: 2,
 				agentsExpected: 5,
-				skillsFound: 3,
-				skillsExpected: 3,
+				skillsFound: 35,
+				skillsExpected: 35,
 				pluginsFound: 1,
 				pluginsExpected: 1,
 				issues: [],
@@ -70,31 +70,31 @@ describe("verifier", () => {
 
 		test("returns false when skills are missing (skills are critical)", () => {
 			const report: VerificationReport = {
-				commandsFound: 10,
-				commandsExpected: 10,
+				commandsFound: 0,
+				commandsExpected: 0,
 				agentsFound: 5,
 				agentsExpected: 5,
 				skillsFound: 0,
-				skillsExpected: 3,
+				skillsExpected: 35,
 				pluginsFound: 1,
 				pluginsExpected: 1,
-				issues: ["Missing skills (3): skill1, skill2, skill3"],
+				issues: ["Missing skills (35): rp1-build, rp1-build-fast..."],
 			};
 
 			expect(isHealthy(report)).toBe(false);
 		});
 
-		test("returns false when critical issues exist (non-skills)", () => {
+		test("returns false when critical issues exist", () => {
 			const report: VerificationReport = {
-				commandsFound: 10,
-				commandsExpected: 10,
+				commandsFound: 0,
+				commandsExpected: 0,
 				agentsFound: 5,
 				agentsExpected: 5,
-				skillsFound: 3,
-				skillsExpected: 3,
+				skillsFound: 35,
+				skillsExpected: 35,
 				pluginsFound: 1,
 				pluginsExpected: 1,
-				issues: ["Invalid YAML in sample-command.md"],
+				issues: ["Invalid YAML in rp1-build/SKILL.md"],
 			};
 
 			expect(isHealthy(report)).toBe(false);
@@ -102,16 +102,16 @@ describe("verifier", () => {
 
 		test("returns false when skill-related issues exist (skills are critical)", () => {
 			const report: VerificationReport = {
-				commandsFound: 10,
-				commandsExpected: 10,
+				commandsFound: 0,
+				commandsExpected: 0,
 				agentsFound: 5,
 				agentsExpected: 5,
-				skillsFound: 2,
-				skillsExpected: 3,
+				skillsFound: 30,
+				skillsExpected: 35,
 				pluginsFound: 1,
 				pluginsExpected: 1,
 				issues: [
-					"Missing skills (1): skill3. Note: Skills require opencode-skills plugin.",
+					"Missing skills (5): rp1-build, rp1-build-fast, rp1-build-express, rp1-pr-review, rp1-pr-visual",
 				],
 			};
 
@@ -120,31 +120,31 @@ describe("verifier", () => {
 
 		test("returns false when mixed critical and skill issues exist", () => {
 			const report: VerificationReport = {
-				commandsFound: 10,
-				commandsExpected: 10,
+				commandsFound: 0,
+				commandsExpected: 0,
 				agentsFound: 5,
 				agentsExpected: 5,
-				skillsFound: 2,
-				skillsExpected: 3,
+				skillsFound: 30,
+				skillsExpected: 35,
 				pluginsFound: 1,
 				pluginsExpected: 1,
 				issues: [
-					"Missing skills (1): skill3",
-					"Cannot read command1.md: ENOENT",
+					"Missing skills (5): rp1-build...",
+					"Cannot read agent.md: ENOENT",
 				],
 			};
 
 			expect(isHealthy(report)).toBe(false);
 		});
 
-		test("returns true when skills count meets expected even with no issues", () => {
+		test("returns true when skills count exceeds expected", () => {
 			const report: VerificationReport = {
-				commandsFound: 10,
-				commandsExpected: 10,
+				commandsFound: 0,
+				commandsExpected: 0,
 				agentsFound: 5,
 				agentsExpected: 5,
-				skillsFound: 5,
-				skillsExpected: 3,
+				skillsFound: 40,
+				skillsExpected: 35,
 				pluginsFound: 1,
 				pluginsExpected: 1,
 				issues: [],
@@ -155,12 +155,12 @@ describe("verifier", () => {
 
 		test("returns false when only skillsFound is below skillsExpected and no issues", () => {
 			const report: VerificationReport = {
-				commandsFound: 10,
-				commandsExpected: 10,
+				commandsFound: 0,
+				commandsExpected: 0,
 				agentsFound: 5,
 				agentsExpected: 5,
-				skillsFound: 2,
-				skillsExpected: 3,
+				skillsFound: 20,
+				skillsExpected: 35,
 				pluginsFound: 1,
 				pluginsExpected: 1,
 				issues: [],
@@ -171,12 +171,12 @@ describe("verifier", () => {
 
 		test("returns true when only plugins are missing (plugins are optional)", () => {
 			const report: VerificationReport = {
-				commandsFound: 10,
-				commandsExpected: 10,
+				commandsFound: 0,
+				commandsExpected: 0,
 				agentsFound: 5,
 				agentsExpected: 5,
-				skillsFound: 3,
-				skillsExpected: 3,
+				skillsFound: 35,
+				skillsExpected: 35,
 				pluginsFound: 0,
 				pluginsExpected: 1,
 				issues: [
@@ -189,12 +189,12 @@ describe("verifier", () => {
 
 		test("returns true when only plugin-related issues exist", () => {
 			const report: VerificationReport = {
-				commandsFound: 10,
-				commandsExpected: 10,
+				commandsFound: 0,
+				commandsExpected: 0,
 				agentsFound: 5,
 				agentsExpected: 5,
-				skillsFound: 3,
-				skillsExpected: 3,
+				skillsFound: 35,
+				skillsExpected: 35,
 				pluginsFound: 0,
 				pluginsExpected: 1,
 				issues: [
@@ -207,16 +207,16 @@ describe("verifier", () => {
 
 		test("returns false when both skills and plugins are missing (skills are critical)", () => {
 			const report: VerificationReport = {
-				commandsFound: 10,
-				commandsExpected: 10,
+				commandsFound: 0,
+				commandsExpected: 0,
 				agentsFound: 5,
 				agentsExpected: 5,
 				skillsFound: 0,
-				skillsExpected: 3,
+				skillsExpected: 35,
 				pluginsFound: 0,
 				pluginsExpected: 1,
 				issues: [
-					"Missing skills (3): skill1, skill2, skill3",
+					"Missing skills (35): rp1-build, rp1-build-fast...",
 					"Missing plugins (1): rp1-base-hooks. Note: Plugins provide session hooks.",
 				],
 			};
@@ -255,12 +255,12 @@ describe("verifier", () => {
 	describe("plugin verification", () => {
 		test("reports missing plugins as issues", () => {
 			const report: VerificationReport = {
-				commandsFound: 10,
-				commandsExpected: 10,
+				commandsFound: 0,
+				commandsExpected: 0,
 				agentsFound: 5,
 				agentsExpected: 5,
-				skillsFound: 3,
-				skillsExpected: 3,
+				skillsFound: 35,
+				skillsExpected: 35,
 				pluginsFound: 0,
 				pluginsExpected: 1,
 				issues: [
@@ -280,12 +280,12 @@ describe("verifier", () => {
 
 		test("correctly counts installed plugins", () => {
 			const report: VerificationReport = {
-				commandsFound: 10,
-				commandsExpected: 10,
+				commandsFound: 0,
+				commandsExpected: 0,
 				agentsFound: 5,
 				agentsExpected: 5,
-				skillsFound: 3,
-				skillsExpected: 3,
+				skillsFound: 35,
+				skillsExpected: 35,
 				pluginsFound: 1,
 				pluginsExpected: 1,
 				issues: [],
@@ -298,12 +298,12 @@ describe("verifier", () => {
 
 		test("handles missing plugin directory gracefully", () => {
 			const report: VerificationReport = {
-				commandsFound: 10,
-				commandsExpected: 10,
+				commandsFound: 0,
+				commandsExpected: 0,
 				agentsFound: 5,
 				agentsExpected: 5,
-				skillsFound: 3,
-				skillsExpected: 3,
+				skillsFound: 35,
+				skillsExpected: 35,
 				pluginsFound: 0,
 				pluginsExpected: 1,
 				issues: [

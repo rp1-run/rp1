@@ -391,10 +391,19 @@ export const buildPlugin = async (
 			supportingFiles,
 		} = generateResult.right;
 
+		// Namespace skill directories with rp1- prefix to avoid collisions with user skills
+		const namespacedSkillDir = `rp1-${outSkillDir}`;
+
+		// Update the name field in SKILL.md frontmatter to match the namespaced directory
+		const namespacedSkillMdContent = skillMdContent.replace(
+			/^(name:\s*).+$/m,
+			`$1${namespacedSkillDir}`,
+		);
+
 		// Validate generated content
 		const validateResult = validateSkill(
-			skillMdContent,
-			`${outSkillDir}/SKILL.md`,
+			namespacedSkillMdContent,
+			`${namespacedSkillDir}/SKILL.md`,
 		);
 		if (E.isLeft(validateResult)) {
 			errors.push(formatError(validateResult.left, false));
@@ -402,15 +411,15 @@ export const buildPlugin = async (
 		}
 
 		// Write SKILL.md
-		const skillOutputDir = join(pluginOutputDir, "skill", outSkillDir);
-		const relativePath = `${pluginName}/skill/${outSkillDir}/SKILL.md`;
+		const skillOutputDir = join(pluginOutputDir, "skill", namespacedSkillDir);
+		const relativePath = `${pluginName}/skill/${namespacedSkillDir}/SKILL.md`;
 		await mkdir(skillOutputDir, { recursive: true });
-		await writeFile(join(skillOutputDir, "SKILL.md"), skillMdContent);
+		await writeFile(join(skillOutputDir, "SKILL.md"), namespacedSkillMdContent);
 
 		// Copy supporting files
 		await copySupportingFiles(skillDir, skillOutputDir, supportingFiles);
 
-		skillEntries.push({ name: ccSkill.name, path: relativePath });
+		skillEntries.push({ name: namespacedSkillDir, path: relativePath });
 	}
 
 	// Process agents
@@ -537,16 +546,15 @@ const printSummary = (summaries: BuildSummary[], outputPath: string): void => {
 	// Header
 	console.log(
 		bold(
-			`${"Plugin".padEnd(pluginCol)}${"Commands".padStart(numCol)}${"Agents".padStart(numCol)}${"Skills".padStart(numCol)}`,
+			`${"Plugin".padEnd(pluginCol)}${"Agents".padStart(numCol)}${"Skills".padStart(numCol)}`,
 		),
 	);
-	console.log("-".repeat(pluginCol + numCol * 3));
+	console.log("-".repeat(pluginCol + numCol * 2));
 
 	// Rows
 	for (const summary of summaries) {
 		console.log(
 			cyan(`rp1-${summary.plugin.padEnd(pluginCol - 4)}`) +
-				green(String(summary.commands).padStart(numCol)) +
 				green(String(summary.agents).padStart(numCol)) +
 				green(String(summary.skills).padStart(numCol)),
 		);

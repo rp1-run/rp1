@@ -29,7 +29,7 @@ import {
 	getOpenCodeConfigDir,
 	registerRp1HooksPlugin,
 } from "./prerequisites.js";
-import { listInstalledCommands, verifyInstallation } from "./verifier.js";
+import { listInstalledSkills, verifyInstallation } from "./verifier.js";
 
 const { green, yellow, red, dim, bold, cyan } = colorFns;
 
@@ -138,10 +138,10 @@ const executeInstallFromBundled = (
 						const basePlugin = assets.plugins.base;
 						const hasBaseHooks = basePlugin.openCodePlugin !== undefined;
 						console.log(
-							`  • rp1-base: ${basePlugin.commands.length} commands, ${basePlugin.agents.length} agents, ${basePlugin.skills.length} skills`,
+							`  • rp1-base: ${basePlugin.agents.length} agents, ${basePlugin.skills.length} skills`,
 						);
 						console.log(
-							`  • rp1-dev: ${assets.plugins.dev.commands.length} commands, ${assets.plugins.dev.agents.length} agents`,
+							`  • rp1-dev: ${assets.plugins.dev.agents.length} agents, ${assets.plugins.dev.skills.length} skills`,
 						);
 						if (hasBaseHooks) {
 							console.log(
@@ -187,17 +187,12 @@ const executeInstallFromBundled = (
 										);
 										console.log(
 											dim(
-												`\nCommands: ${report.commandsFound}/${report.commandsExpected}`,
+												`\nSkills: ${report.skillsFound}/${report.skillsExpected}`,
 											),
 										);
 										console.log(
 											dim(
 												`Agents: ${report.agentsFound}/${report.agentsExpected}`,
-											),
-										);
-										console.log(
-											dim(
-												`Skills: ${report.skillsFound}/${report.skillsExpected}`,
 											),
 										);
 										console.log(
@@ -320,8 +315,8 @@ export const executeInstall = (
 				spinner.stop();
 				console.log(yellow("\nDRY RUN MODE - No files will be modified\n"));
 				console.log(`Would install from: ${artifactsDir}`);
-				console.log("  • Base plugin: commands, agents, skills");
-				console.log("  • Dev plugin: commands, agents");
+				console.log("  • Base plugin: agents, skills");
+				console.log("  • Dev plugin: agents, skills");
 				console.log("  • Plugins: rp1-base-hooks (OpenCode session hooks)");
 				return TE.right(undefined);
 			}
@@ -404,17 +399,12 @@ export const executeInstall = (
 										);
 										console.log(
 											dim(
-												`\nCommands: ${report.commandsFound}/${report.commandsExpected}`,
+												`\nSkills: ${report.skillsFound}/${report.skillsExpected}`,
 											),
 										);
 										console.log(
 											dim(
 												`Agents: ${report.agentsFound}/${report.agentsExpected}`,
-											),
-										);
-										console.log(
-											dim(
-												`Skills: ${report.skillsFound}/${report.skillsExpected}`,
 											),
 										);
 										console.log(
@@ -464,11 +454,11 @@ export const executeVerify = (
 			console.log("| Component | Found/Expect | Status |");
 			console.log("+-----------+--------------+--------+");
 
-			const cmdOk = report.commandsFound >= report.commandsExpected;
-			const cmdCount =
-				`${report.commandsFound}/${report.commandsExpected}`.padEnd(12);
+			const skillOk = report.skillsFound >= report.skillsExpected;
+			const skillCount =
+				`${report.skillsFound}/${report.skillsExpected}`.padEnd(12);
 			console.log(
-				`| Commands  | ${cmdCount} | ${cmdOk ? green("  OK  ") : red(" MISS ")} |`,
+				`| Skills    | ${skillCount} | ${skillOk ? green("  OK  ") : red(" MISS ")} |`,
 			);
 
 			const agentOk = report.agentsFound >= report.agentsExpected;
@@ -476,13 +466,6 @@ export const executeVerify = (
 				`${report.agentsFound}/${report.agentsExpected}`.padEnd(12);
 			console.log(
 				`| Agents    | ${agentCount} | ${agentOk ? green("  OK  ") : red(" MISS ")} |`,
-			);
-
-			const skillOk = report.skillsFound >= report.skillsExpected;
-			const skillCount =
-				`${report.skillsFound}/${report.skillsExpected}`.padEnd(12);
-			console.log(
-				`| Skills    | ${skillCount} | ${skillOk ? green("  OK  ") : yellow(" WARN ")} |`,
 			);
 
 			const pluginOk = report.pluginsFound >= report.pluginsExpected;
@@ -518,37 +501,36 @@ export const executeList = (
 	_args: string[],
 	_logger: Logger,
 ): TE.TaskEither<CLIError, void> => {
-	console.log(bold("\n📋 Installed rp1 Commands\n"));
+	console.log(bold("\n📋 Installed rp1 Skills\n"));
 
 	return pipe(
-		listInstalledCommands(),
-		TE.map((commands) => {
-			if (commands.length === 0) {
-				console.log(yellow("No rp1 commands found"));
+		listInstalledSkills(),
+		TE.map((skills) => {
+			if (skills.length === 0) {
+				console.log(yellow("No rp1 skills found"));
 				return;
 			}
 
 			console.log(
-				"┌────────┬─────────────────────────────────────┬────────────────────────────────────────────────────────────┐",
+				"┌─────────────────────────────────────────┬────────────────────────────────────────────────────────────┐",
 			);
 			console.log(
-				"│ Plugin │ Command                             │ Description                                                │",
+				"│ Skill                                   │ Description                                                │",
 			);
 			console.log(
-				"├────────┼─────────────────────────────────────┼────────────────────────────────────────────────────────────┤",
+				"├─────────────────────────────────────────┼────────────────────────────────────────────────────────────┤",
 			);
 
-			for (const cmd of commands) {
-				const plugin = cmd.plugin.padEnd(6);
-				const name = cmd.name.padEnd(35);
-				const desc = cmd.description.slice(0, 58).padEnd(58);
-				console.log(`│ ${plugin} │ ${name} │ ${desc} │`);
+			for (const skill of skills) {
+				const name = skill.name.padEnd(39);
+				const desc = skill.description.slice(0, 58).padEnd(58);
+				console.log(`│ ${name} │ ${desc} │`);
 			}
 
 			console.log(
-				"└────────┴─────────────────────────────────────┴────────────────────────────────────────────────────────────┘",
+				"└─────────────────────────────────────────┴────────────────────────────────────────────────────────────┘",
 			);
-			console.log(dim(`\nTotal: ${commands.length} commands`));
+			console.log(dim(`\nTotal: ${skills.length} skills`));
 		}),
 	);
 };

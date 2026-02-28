@@ -54,7 +54,11 @@ describe("staging", () => {
 				"command/rp1-test/test-cmd.md",
 				"Command content",
 			);
-			await writeFixture(pluginDir, "skill/my-skill/SKILL.md", "Skill content");
+			await writeFixture(
+				pluginDir,
+				"skill/rp1-my-skill/SKILL.md",
+				"Skill content",
+			);
 
 			const result = await expectTaskRight(copyToStaging([pluginDir]));
 

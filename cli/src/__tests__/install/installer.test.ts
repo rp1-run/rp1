@@ -52,8 +52,8 @@ describe("installer", () => {
 			);
 			await writeFixture(
 				sourceDir,
-				"skill/sample-skill/SKILL.md",
-				"---\nname: sample-skill\n---\nSkill content",
+				"skill/rp1-sample-skill/SKILL.md",
+				"---\nname: rp1-sample-skill\n---\nSkill content",
 			);
 
 			const result = await copyArtifacts(sourceDir, targetDir)();
@@ -76,10 +76,35 @@ describe("installer", () => {
 			expect(agentContent).toContain("Agent content");
 
 			const skillContent = await readFile(
-				join(targetDir, "skill/sample-skill/SKILL.md"),
+				join(targetDir, "skill/rp1-sample-skill/SKILL.md"),
 				"utf-8",
 			);
 			expect(skillContent).toContain("Skill content");
+		});
+
+		test("skips non-namespaced skill directories", async () => {
+			const sourceDir = join(tempDir, "source");
+			const targetDir = join(tempDir, "target");
+
+			// Create a non-namespaced skill (should be skipped)
+			await writeFixture(
+				sourceDir,
+				"skill/user-skill/SKILL.md",
+				"---\nname: user-skill\n---\nUser skill content",
+			);
+			// Create a namespaced skill (should be copied)
+			await writeFixture(
+				sourceDir,
+				"skill/rp1-build/SKILL.md",
+				"---\nname: rp1-build\n---\nBuild content",
+			);
+
+			const result = await copyArtifacts(sourceDir, targetDir)();
+
+			expect(E.isRight(result)).toBe(true);
+			if (E.isRight(result)) {
+				expect(result.right).toBe(1); // Only the rp1- skill file
+			}
 		});
 
 		// Security: verifies files aren't world-writable (prevents injection)
@@ -124,17 +149,17 @@ describe("installer", () => {
 
 			await writeFixture(
 				sourceDir,
-				"skill/my-skill/SKILL.md",
-				"---\nname: my-skill\n---\nSkill main",
+				"skill/rp1-my-skill/SKILL.md",
+				"---\nname: rp1-my-skill\n---\nSkill main",
 			);
 			await writeFixture(
 				sourceDir,
-				"skill/my-skill/templates/template1.md",
+				"skill/rp1-my-skill/templates/template1.md",
 				"Template 1 content",
 			);
 			await writeFixture(
 				sourceDir,
-				"skill/my-skill/templates/nested/template2.md",
+				"skill/rp1-my-skill/templates/nested/template2.md",
 				"Template 2 content",
 			);
 
@@ -143,13 +168,13 @@ describe("installer", () => {
 			expect(E.isRight(result)).toBe(true);
 
 			const template1 = await readFile(
-				join(targetDir, "skill/my-skill/templates/template1.md"),
+				join(targetDir, "skill/rp1-my-skill/templates/template1.md"),
 				"utf-8",
 			);
 			expect(template1).toBe("Template 1 content");
 
 			const template2 = await readFile(
-				join(targetDir, "skill/my-skill/templates/nested/template2.md"),
+				join(targetDir, "skill/rp1-my-skill/templates/nested/template2.md"),
 				"utf-8",
 			);
 			expect(template2).toBe("Template 2 content");

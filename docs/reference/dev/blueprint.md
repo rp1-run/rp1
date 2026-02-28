@@ -16,8 +16,8 @@ Guided wizard that captures project vision through a two-tier document hierarchy
 === "OpenCode"
 
     ```bash
-    /rp1-dev/blueprint
-    /rp1-dev/blueprint <prd-name>
+    /rp1-blueprint
+    /rp1-blueprint <prd-name>
     ```
 
 ## Description
@@ -48,7 +48,7 @@ Creates both charter and main PRD together:
 === "OpenCode"
 
     ```bash
-    /rp1-dev/blueprint
+    /rp1-blueprint
     ```
 
 ### Named PRD Flow (Requires Existing Charter)
@@ -65,8 +65,8 @@ Creates additional PRD for a specific surface:
 === "OpenCode"
 
     ```bash
-    /rp1-dev/blueprint mobile-app
-    /rp1-dev/blueprint api
+    /rp1-blueprint mobile-app
+    /rp1-blueprint api
     ```
 
 ## Output
@@ -89,7 +89,7 @@ Creates additional PRD for a specific surface:
 === "OpenCode"
 
     ```bash
-    /rp1-dev/blueprint
+    /rp1-blueprint
     ```
 
 The wizard guides you through:
@@ -113,7 +113,7 @@ After creating a charter, add additional PRDs:
 === "OpenCode"
 
     ```bash
-    /rp1-dev/blueprint mobile
+    /rp1-blueprint mobile
     ```
 
 This creates `.rp1/work/prds/mobile.md` linked to the existing charter.

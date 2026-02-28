@@ -231,8 +231,8 @@ describe("integration: lifecycle", () => {
 			);
 			await writeFixture(
 				sourceDir,
-				"skill/lifecycle-skill/SKILL.md",
-				"---\nname: lifecycle-skill\ndescription: Lifecycle test skill here\n---\nSkill body",
+				"skill/rp1-lifecycle-skill/SKILL.md",
+				"---\nname: rp1-lifecycle-skill\ndescription: Lifecycle test skill here\n---\nSkill body",
 			);
 
 			const installResult = await copyArtifacts(sourceDir, targetDir)();
@@ -254,7 +254,7 @@ describe("integration: lifecycle", () => {
 			expect(agentStat.isFile()).toBe(true);
 
 			const skillStat = await stat(
-				join(targetDir, "skill/lifecycle-skill/SKILL.md"),
+				join(targetDir, "skill/rp1-lifecycle-skill/SKILL.md"),
 			);
 			expect(skillStat.isFile()).toBe(true);
 

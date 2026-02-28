@@ -184,22 +184,30 @@ export const copyArtifacts = (
 
 					const entries = await readdir(skillsSrc, { withFileTypes: true });
 					for (const entry of entries) {
-						if (entry.isDirectory()) {
-							const srcSkillDir = join(skillsSrc, entry.name);
-							const dstSkillDir = join(skillsDst, entry.name);
+						if (!entry.isDirectory()) continue;
 
-							try {
-								await stat(dstSkillDir);
-								onOverwrite?.(`skill/${entry.name}`);
-								await rm(dstSkillDir, { recursive: true });
-							} catch (e) {
-								logger?.debug(
-									`Skill directory does not exist (will create): ${dstSkillDir}: ${e}`,
-								);
-							}
-
-							filesCopied += await copyDir(srcSkillDir, dstSkillDir);
+						// Safety: only install rp1-namespaced skills to avoid clobbering user skills
+						if (!entry.name.startsWith("rp1-")) {
+							logger?.debug(
+								`Skipping non-namespaced skill directory: ${entry.name}`,
+							);
+							continue;
 						}
+
+						const srcSkillDir = join(skillsSrc, entry.name);
+						const dstSkillDir = join(skillsDst, entry.name);
+
+						try {
+							await stat(dstSkillDir);
+							onOverwrite?.(`skill/${entry.name}`);
+							await rm(dstSkillDir, { recursive: true });
+						} catch (e) {
+							logger?.debug(
+								`Skill directory does not exist (will create): ${dstSkillDir}: ${e}`,
+							);
+						}
+
+						filesCopied += await copyDir(srcSkillDir, dstSkillDir);
 					}
 				}
 			} catch (e) {
@@ -286,27 +294,27 @@ export const backupExistingInstallation = (logger?: {
 			}
 
 			const skillsDir = join(configDir, "skill");
-			const rp1Skills = [
-				"mermaid",
-				"markdown-preview",
-				"knowledge-base-templates",
-				"code-comments",
-			];
 			try {
 				const stats = await stat(skillsDir);
 				if (stats.isDirectory()) {
 					const backupSkillsDir = join(backupPath, "skill");
-					for (const skillName of rp1Skills) {
-						const skillDir = join(skillsDir, skillName);
+					// Back up all rp1-namespaced skills
+					const skillEntries = await readdir(skillsDir, {
+						withFileTypes: true,
+					});
+					for (const entry of skillEntries) {
+						if (!entry.isDirectory() || !entry.name.startsWith("rp1-")) {
+							continue;
+						}
+						const skillDir = join(skillsDir, entry.name);
 						try {
-							await stat(skillDir);
 							filesBackedUp += await copyDir(
 								skillDir,
-								join(backupSkillsDir, skillName),
+								join(backupSkillsDir, entry.name),
 							);
 						} catch (e) {
 							logger?.debug(
-								`Skill ${skillName} does not exist at ${skillDir}: ${e}`,
+								`Skill ${entry.name} backup failed at ${skillDir}: ${e}`,
 							);
 						}
 					}
@@ -691,7 +699,7 @@ export const copyToStaging = (
 
 						const entries = await readdir(skillsSrc, { withFileTypes: true });
 						for (const entry of entries) {
-							if (entry.isDirectory()) {
+							if (entry.isDirectory() && entry.name.startsWith("rp1-")) {
 								const srcSkillDir = join(skillsSrc, entry.name);
 								const dstSkillDir = join(skillsDst, entry.name);
 								totalFilesCopied += await copyDir(srcSkillDir, dstSkillDir);

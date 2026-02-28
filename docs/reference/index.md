@@ -132,20 +132,18 @@ Skills can be invoked differently depending on your AI assistant:
 
 === "OpenCode"
 
-    There are two ways to invoke rp1 skills:
+    rp1 skills are installed with an `rp1-` prefix to avoid collisions with your own skills:
 
-    1. **Type the skill name directly** if you know it (e.g., `/build`, `/knowledge-build`)
-    2. **Type `/skills`** to browse and select from a dropdown of all available skills
+    1. **Type the skill name directly** (e.g., `/rp1-build`, `/rp1-knowledge-build`)
+    2. **Type `/skills`** to browse and select — look for skills prefixed with `rp1-`
+
+    ```bash
+    /rp1-build my-feature [arguments]
+    /rp1-knowledge-build
+    ```
 
     !!! note
         Autocomplete for skill names is not yet available in OpenCode — see [opencode#14506](https://github.com/anomalyco/opencode/issues/14506). This may be supported soon.
-
-    The full namespaced syntax also works:
-
-    ```bash
-    /rp1-base/skill-name [arguments]
-    /rp1-dev/skill-name [arguments]
-    ```
 
 ---
 

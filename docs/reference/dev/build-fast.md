@@ -15,7 +15,7 @@ Quick-iteration development for small, well-scoped tasks using the [command-agen
 === "OpenCode"
 
     ```bash
-    /rp1-dev/build-fast [development-request...] [--afk] [--confirm-plan] [--review] [--git-worktree] [--git-commit] [--git-push]
+    /rp1-build-fast [development-request...] [--afk] [--confirm-plan] [--review] [--git-worktree] [--git-commit] [--git-push]
     ```
 
 ## Description
@@ -69,7 +69,7 @@ For automation scenarios (CI, scripts), use the `--afk` flag:
 === "OpenCode"
 
     ```bash
-    /rp1-dev/build-fast "update dependency versions" --afk
+    /rp1-build-fast "update dependency versions" --afk
     ```
 
 **AFK mode behavior**:
@@ -97,7 +97,7 @@ For interactive review of plans before execution, use the `--confirm-plan` flag:
 === "OpenCode"
 
     ```bash
-    /rp1-dev/build-fast "refactor the payment module" --confirm-plan
+    /rp1-build-fast "refactor the payment module" --confirm-plan
     ```
 
 **Confirm mode adds two checkpoints**:
@@ -157,7 +157,7 @@ Review the changes, then:
 === "OpenCode"
 
     ```bash
-    /rp1-dev/build-fast "Fix the authentication bug when token expires"
+    /rp1-build-fast "Fix the authentication bug when token expires"
     ```
 
 ### Small Enhancement
@@ -171,7 +171,7 @@ Review the changes, then:
 === "OpenCode"
 
     ```bash
-    /rp1-dev/build-fast "Add a date formatting utility to utils/date.ts"
+    /rp1-build-fast "Add a date formatting utility to utils/date.ts"
     ```
 
 ### Performance Optimization
@@ -185,7 +185,7 @@ Review the changes, then:
 === "OpenCode"
 
     ```bash
-    /rp1-dev/build-fast "Optimize the database query in reports module"
+    /rp1-build-fast "Optimize the database query in reports module"
     ```
 
 ### With Plan Review
@@ -199,7 +199,7 @@ Review the changes, then:
 === "OpenCode"
 
     ```bash
-    /rp1-dev/build-fast "add user preferences API endpoint" --confirm-plan --review
+    /rp1-build-fast "add user preferences API endpoint" --confirm-plan --review
     ```
 
 ## Workflow

@@ -90,7 +90,6 @@ export const verifyInstallation = (
 			const issues: string[] = [];
 
 			// Discover expected artifacts from manifests
-			let expectedCommands: Set<string> = new Set();
 			let expectedAgents: Set<string> = new Set();
 			let expectedSkills: Set<string> = new Set();
 
@@ -99,7 +98,6 @@ export const verifyInstallation = (
 					const result = await discoverPlugins(artifactsDir)();
 					if (result._tag === "Right") {
 						const names = getAllArtifactNames(result.right);
-						expectedCommands = names.commands;
 						expectedAgents = names.agents;
 						expectedSkills = names.skills;
 					}
@@ -108,42 +106,10 @@ export const verifyInstallation = (
 				}
 			}
 
-			// Fallback expected counts (6 base + 19 dev = 25 commands, 9 base + 16 dev = 25 agents)
-			const commandsExpected =
-				expectedCommands.size > 0 ? expectedCommands.size : 25;
+			// Fallback expected counts (agents: ~25, skills: ~35)
+			// Commands are deprecated (migrated to skills)
 			const agentsExpected = expectedAgents.size > 0 ? expectedAgents.size : 25;
-			const skillsExpected = expectedSkills.size > 0 ? expectedSkills.size : 4;
-
-			// Check commands
-			const commandDir = join(configDir, "command");
-			const rp1Commands = await findFiles(commandDir, /\.md$/);
-			const commandsFound = rp1Commands.length;
-
-			if (expectedCommands.size > 0) {
-				const installedCommandNames = new Set(
-					rp1Commands.map(
-						(cmd) => cmd.split("/").pop()?.replace(".md", "") ?? "",
-					),
-				);
-				const missingCommands = [...expectedCommands].filter(
-					(cmd) => !installedCommandNames.has(cmd),
-				);
-				if (missingCommands.length > 0) {
-					issues.push(
-						`Missing commands (${missingCommands.length}): ${missingCommands.slice(0, 5).join(", ")}${missingCommands.length > 5 ? "..." : ""}. Re-run installation to fix.`,
-					);
-				}
-			} else if (commandsFound < commandsExpected) {
-				issues.push(
-					`Missing commands: found ${commandsFound}, expected ${commandsExpected}. Re-run installation to fix.`,
-				);
-			}
-
-			// Validate command files
-			for (const cmdFile of rp1Commands) {
-				const fileIssues = await checkFileHealth(cmdFile);
-				issues.push(...fileIssues);
-			}
+			const skillsExpected = expectedSkills.size > 0 ? expectedSkills.size : 35;
 
 			// Check agents
 			const agentDir = join(configDir, "agent");
@@ -176,39 +142,53 @@ export const verifyInstallation = (
 				issues.push(...fileIssues);
 			}
 
-			// Check skills
+			// Check skills (namespaced under rp1-* directories)
 			const skillsDir = join(configDir, "skill");
 			let skillsFound = 0;
 			const missingSkillNames: string[] = [];
 
-			const skillNamesToCheck =
-				expectedSkills.size > 0
-					? expectedSkills
-					: new Set([
-							"mermaid",
-							"markdown-preview",
-							"knowledge-base-templates",
-							"code-comments",
-						]);
+			if (expectedSkills.size > 0) {
+				// Check each expected skill from manifest
+				for (const skillName of expectedSkills) {
+					const skillDir = join(skillsDir, skillName);
+					const skillFile = join(skillDir, "SKILL.md");
 
-			for (const skillName of skillNamesToCheck) {
-				const skillDir = join(skillsDir, skillName);
-				const skillFile = join(skillDir, "SKILL.md");
+					try {
+						await stat(skillFile);
+						skillsFound++;
 
+						const fileIssues = await checkFileHealth(skillFile);
+						issues.push(...fileIssues);
+					} catch {
+						missingSkillNames.push(skillName);
+					}
+				}
+			} else {
+				// Fallback: count all rp1-* skill directories
 				try {
-					await stat(skillFile);
-					skillsFound++;
+					const entries = await readdir(skillsDir, { withFileTypes: true });
+					for (const entry of entries) {
+						if (entry.isDirectory() && entry.name.startsWith("rp1-")) {
+							const skillFile = join(skillsDir, entry.name, "SKILL.md");
+							try {
+								await stat(skillFile);
+								skillsFound++;
 
-					const fileIssues = await checkFileHealth(skillFile);
-					issues.push(...fileIssues);
+								const fileIssues = await checkFileHealth(skillFile);
+								issues.push(...fileIssues);
+							} catch {
+								// Skill directory exists but no SKILL.md
+							}
+						}
+					}
 				} catch {
-					missingSkillNames.push(skillName);
+					// Skills directory doesn't exist
 				}
 			}
 
 			if (missingSkillNames.length > 0) {
 				issues.push(
-					`Missing skills (${missingSkillNames.length}): ${missingSkillNames.join(", ")}. Note: Skills require opencode-skills plugin. Re-run installation to fix.`,
+					`Missing skills (${missingSkillNames.length}): ${missingSkillNames.slice(0, 5).join(", ")}${missingSkillNames.length > 5 ? "..." : ""}. Re-run installation to fix.`,
 				);
 			}
 
@@ -237,8 +217,9 @@ export const verifyInstallation = (
 			const pluginsExpected = expectedPlugins.length;
 
 			return {
-				commandsFound,
-				commandsExpected,
+				// Commands deprecated (migrated to skills) - always 0/0
+				commandsFound: 0,
+				commandsExpected: 0,
 				agentsFound,
 				agentsExpected,
 				skillsFound,
@@ -252,59 +233,66 @@ export const verifyInstallation = (
 	);
 
 /**
- * List installed rp1 commands with their metadata.
+ * List installed rp1 skills with their metadata.
  */
-export const listInstalledCommands = (): TE.TaskEither<
+export const listInstalledSkills = (): TE.TaskEither<
 	CLIError,
 	Array<{ plugin: string; name: string; description: string }>
 > =>
 	TE.tryCatch(
 		async () => {
-			const commandDir = join(homedir(), ".config", "opencode", "command");
-			const commands: Array<{
+			const skillsDir = join(homedir(), ".config", "opencode", "skill");
+			const skills: Array<{
 				plugin: string;
 				name: string;
 				description: string;
 			}> = [];
 
-			const files = await findFiles(commandDir, /\.md$/);
+			try {
+				const entries = await readdir(skillsDir, { withFileTypes: true });
 
-			for (const file of files) {
-				const name = file.split("/").pop()?.replace(".md", "") ?? "";
-				let plugin = "unknown";
-				let description = "No description";
-
-				// Determine plugin from path
-				if (file.includes("rp1-base")) {
-					plugin = "base";
-				} else if (file.includes("rp1-dev")) {
-					plugin = "dev";
-				}
-
-				// Try to read description from frontmatter
-				try {
-					const content = await readFile(file, "utf-8");
-					if (content.startsWith("---")) {
-						const parts = content.split("---", 3);
-						if (parts.length >= 3) {
-							const frontmatter = parseYaml(parts[1]) as Record<
-								string,
-								unknown
-							>;
-							description = String(frontmatter.description ?? "No description");
-						}
+				for (const entry of entries) {
+					if (!entry.isDirectory() || !entry.name.startsWith("rp1-")) {
+						continue;
 					}
-				} catch {
-					// Keep default description
-				}
 
-				commands.push({ plugin, name, description });
+					const skillFile = join(skillsDir, entry.name, "SKILL.md");
+					let description = "No description";
+
+					try {
+						const content = await readFile(skillFile, "utf-8");
+						if (content.startsWith("---")) {
+							const parts = content.split("---", 3);
+							if (parts.length >= 3) {
+								const frontmatter = parseYaml(parts[1]) as Record<
+									string,
+									unknown
+								>;
+								description = String(
+									frontmatter.description ?? "No description",
+								);
+							}
+						}
+					} catch {
+						continue;
+					}
+
+					// Determine plugin from skill name prefix pattern
+					// Skills are prefixed rp1-{name}, plugin is inferred from available metadata
+					const plugin = "rp1";
+
+					skills.push({ plugin, name: entry.name, description });
+				}
+			} catch {
+				// Skills directory doesn't exist
 			}
 
-			return commands.sort((a, b) => {
-				if (a.plugin !== b.plugin) return a.plugin.localeCompare(b.plugin);
-				return a.name.localeCompare(b.name);
-			});
+			return skills.sort((a, b) => a.name.localeCompare(b.name));
 		},
-		(e) => verificationError(`Failed to list commands: ${e}`, []),
+		(e) => verificationError(`Failed to list skills: ${e}`, []),
 	);
+
+/**
+ * @deprecated Use listInstalledSkills instead. Commands have been migrated to skills.
+ */
+export const listInstalledCommands = listInstalledSkills;

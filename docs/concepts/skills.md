@@ -145,16 +145,15 @@ Skills can be invoked by users directly from their AI assistant, or by agents pr
 
 === "OpenCode"
 
-    There are two ways to invoke rp1 skills:
+    rp1 skills are installed with an `rp1-` prefix to avoid collisions with your own skills. There are two ways to invoke them:
 
-    1. **Type the skill name directly** if you know it (e.g., `/build`, `/knowledge-build`)
-    2. **Type `/skills`** to browse and select from a dropdown of all available skills
-
-    The full namespaced syntax also works:
+    1. **Type the skill name directly** (e.g., `/rp1-build`, `/rp1-knowledge-build`)
+    2. **Type `/skills`** to browse and select from a dropdown — look for skills prefixed with `rp1-`
 
     ```bash
-    /rp1-dev/build my-feature
-    /rp1-base/knowledge-build
+    /rp1-build my-feature
+    /rp1-knowledge-build
+    /rp1-build-fast "Add dark mode toggle"
     ```
 
     !!! note "Autocomplete support"

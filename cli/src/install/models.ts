@@ -41,6 +41,7 @@ export interface VerificationReport {
  * Check if installation is healthy.
  * Installation is healthy if we have at least the expected number of components.
  * Skills are primary artifacts (critical); plugins are optional enhancements.
+ * Note: Commands are deprecated (migrated to skills). commandsFound/Expected kept for interface compat.
  */
 export const isHealthy = (report: VerificationReport): boolean => {
 	const criticalIssues = report.issues.filter(
@@ -48,7 +49,6 @@ export const isHealthy = (report: VerificationReport): boolean => {
 	);
 	return (
 		criticalIssues.length === 0 &&
-		report.commandsFound >= report.commandsExpected &&
 		report.agentsFound >= report.agentsExpected &&
 		report.skillsFound >= report.skillsExpected
 	);

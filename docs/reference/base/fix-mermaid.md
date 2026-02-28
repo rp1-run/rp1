@@ -16,8 +16,8 @@ Validates and repairs Mermaid diagrams in markdown files using mermaid-cli for s
 === "OpenCode"
 
     ```bash
-    /rp1-base/fix-mermaid path/to/file.md
-    /rp1-base/fix-mermaid -
+    /rp1-fix-mermaid path/to/file.md
+    /rp1-fix-mermaid -
     ```
 
 ## Description
@@ -64,7 +64,7 @@ Process a markdown file in-place:
 === "OpenCode"
 
     ```bash
-    /rp1-base/fix-mermaid docs/architecture.md
+    /rp1-fix-mermaid docs/architecture.md
     ```
 
 The file is updated in-place with repaired diagrams.
@@ -82,7 +82,7 @@ Process a single diagram from stdin (outputs to stdout):
 === "OpenCode"
 
     ```bash
-    /rp1-base/fix-mermaid -
+    /rp1-fix-mermaid -
     ```
 
 When using stdin mode, provide a single Mermaid diagram (without code fences). The repaired diagram is output to stdout.
@@ -161,7 +161,7 @@ The command produces a JSON summary of repairs:
 === "OpenCode"
 
     ```bash
-    /rp1-base/fix-mermaid docs/guides/architecture.md
+    /rp1-fix-mermaid docs/guides/architecture.md
     ```
 
 **Expected output:**

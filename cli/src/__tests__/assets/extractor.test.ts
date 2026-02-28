@@ -39,7 +39,7 @@ describe("extractor", () => {
 						name: "rp1-base",
 						commands: [{ name: "test-cmd", path: mockCommandPath }],
 						agents: [{ name: "test-agent", path: mockAgentPath }],
-						skills: [{ name: "test-skill", path: mockSkillPath }],
+						skills: [{ name: "rp1-test-skill", path: mockSkillPath }],
 					},
 					dev: {
 						name: "rp1-dev",
@@ -70,7 +70,12 @@ describe("extractor", () => {
 					"test-cmd.md",
 				);
 				const agentPath = join(targetDir, "agent", "rp1-base", "test-agent.md");
-				const skillPath = join(targetDir, "skill", "test-skill", "SKILL.md");
+				const skillPath = join(
+					targetDir,
+					"skill",
+					"rp1-test-skill",
+					"SKILL.md",
+				);
 
 				const cmdStat = await stat(commandPath);
 				const agentStat = await stat(agentPath);

@@ -61,8 +61,8 @@ Examples:
 			console.log(dim("[dry-run] Installation preview:"));
 			console.log("");
 			console.log(dim("Would install rp1 plugins to OpenCode configuration."));
-			console.log(dim("  - rp1-base: commands, agents, skills"));
-			console.log(dim("  - rp1-dev: commands, agents"));
+			console.log(dim("  - rp1-base: agents, skills (rp1-* namespaced)"));
+			console.log(dim("  - rp1-dev: agents, skills (rp1-* namespaced)"));
 			console.log("");
 			console.log(dim("Run without --dry-run to execute installation."));
 			return;
@@ -90,6 +90,6 @@ Examples:
 		console.log(dim("  - rp1-dev"));
 		console.log("");
 		console.log(
-			dim("Restart OpenCode and run /help to see available rp1 commands."),
+			dim("Restart OpenCode and run /skills to see available rp1 skills."),
 		);
 	});

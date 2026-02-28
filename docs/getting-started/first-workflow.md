@@ -33,11 +33,11 @@ The first step with any existing codebase is building a **knowledge base**. This
 === "OpenCode"
 
     ```bash
-    /rp1-base/knowledge-build
+    /rp1-knowledge-build
     ```
 
     !!! tip "Discovering Skills"
-        You can also type `/skills` in OpenCode to browse and select from all available rp1 skills.
+        Type `/skills` in OpenCode to browse all available skills. rp1 skills are prefixed with `rp1-` (e.g., `rp1-knowledge-build`, `rp1-build`).
 
 ### Expected Output
 

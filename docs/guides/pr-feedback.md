@@ -70,13 +70,13 @@ After your PR has been reviewed on GitHub, run the unified command:
 === "OpenCode"
 
     ```bash
-    /rp1-dev/address-pr-feedback
+    /rp1-address-pr-feedback
     ```
 
     Or with a specific PR:
 
     ```bash
-    /rp1-dev/address-pr-feedback 42
+    /rp1-address-pr-feedback 42
     ```
 
 ---
