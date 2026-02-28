@@ -60,12 +60,9 @@ Examples:
 		const registry = await loadToolsRegistry();
 		spinner.succeed("Tools registry loaded");
 
-		spinner.start("Detecting installed tools...");
-
 		const result = await installAllDetectedTools(registry, ctx)();
 
 		if (E.isLeft(result)) {
-			spinner.stop();
 			console.error(formatError(result.left, process.stderr.isTTY ?? false));
 			process.exit(getExitCode(result.left));
 		}
