@@ -215,6 +215,7 @@ export const generateManifest = (
 export const generateBundleManifest = (
 	baseAssets: BundlePluginAssets,
 	devAssets: BundlePluginAssets,
+	utilsAssets: BundlePluginAssets,
 	version: string,
 ): E.Either<CLIError, string> => {
 	try {
@@ -222,6 +223,7 @@ export const generateBundleManifest = (
 			plugins: {
 				base: baseAssets,
 				dev: devAssets,
+				utils: utilsAssets,
 			},
 			version,
 			buildTimestamp: new Date().toISOString(),

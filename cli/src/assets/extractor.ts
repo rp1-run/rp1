@@ -161,28 +161,33 @@ export const extractPlugins = (
 			);
 			plugins.push(assets.plugins.dev.name);
 
-			// Extract OpenCode plugins (TypeScript hooks)
-			const basePluginFiles = await extractOpenCodePlugin(
-				assets.plugins.base,
+			// Extract utils plugin
+			filesExtracted += await extractPlugin(
+				assets.plugins.utils,
+				targetDir,
 				onProgress,
 			);
-			filesExtracted += basePluginFiles;
+			plugins.push(assets.plugins.utils.name);
 
-			const devPluginFiles = await extractOpenCodePlugin(
+			// Extract OpenCode plugins (TypeScript hooks)
+			const allPlugins = [
+				assets.plugins.base,
 				assets.plugins.dev,
-				onProgress,
-			);
-			filesExtracted += devPluginFiles;
+				assets.plugins.utils,
+			];
+
+			for (const plugin of allPlugins) {
+				filesExtracted += await extractOpenCodePlugin(plugin, onProgress);
+			}
 
 			// Register OpenCode plugins in user's opencode.json config
 			const configPath = getConfigPath();
 			const pluginsToRegister: string[] = [];
 
-			if (assets.plugins.base.openCodePlugin) {
-				pluginsToRegister.push(assets.plugins.base.openCodePlugin.name);
-			}
-			if (assets.plugins.dev.openCodePlugin) {
-				pluginsToRegister.push(assets.plugins.dev.openCodePlugin.name);
+			for (const plugin of allPlugins) {
+				if (plugin.openCodePlugin) {
+					pluginsToRegister.push(plugin.openCodePlugin.name);
+				}
 			}
 
 			for (const pluginName of pluginsToRegister) {

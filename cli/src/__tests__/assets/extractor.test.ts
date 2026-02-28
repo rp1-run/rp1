@@ -47,6 +47,12 @@ describe("extractor", () => {
 						agents: [],
 						skills: [],
 					},
+					utils: {
+						name: "rp1-utils",
+						commands: [],
+						agents: [],
+						skills: [],
+					},
 				},
 				webui: [],
 				version: "1.0.0",
@@ -105,6 +111,12 @@ describe("extractor", () => {
 						agents: [],
 						skills: [],
 					},
+					utils: {
+						name: "rp1-utils",
+						commands: [],
+						agents: [],
+						skills: [],
+					},
 				},
 				webui: [],
 				version: "1.0.0",
@@ -144,6 +156,12 @@ describe("extractor", () => {
 					},
 					dev: {
 						name: "rp1-dev",
+						commands: [],
+						agents: [],
+						skills: [],
+					},
+					utils: {
+						name: "rp1-utils",
 						commands: [],
 						agents: [],
 						skills: [],

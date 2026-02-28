@@ -69,21 +69,27 @@ export const parseBuildArgs = (
 			);
 		} else if (arg === "--plugin" || arg === "-p") {
 			const value = args[++i];
-			if (!value || !["base", "dev", "all"].includes(value)) {
-				return E.left(usageError("--plugin must be 'base', 'dev', or 'all'"));
+			if (!value || !["base", "dev", "utils", "all"].includes(value)) {
+				return E.left(
+					usageError("--plugin must be 'base', 'dev', 'utils', or 'all'"),
+				);
 			}
-			(config as { plugin: "base" | "dev" | "all" }).plugin = value as
+			(config as { plugin: "base" | "dev" | "utils" | "all" }).plugin = value as
 				| "base"
 				| "dev"
+				| "utils"
 				| "all";
 		} else if (arg.startsWith("--plugin=")) {
 			const value = arg.slice("--plugin=".length);
-			if (!["base", "dev", "all"].includes(value)) {
-				return E.left(usageError("--plugin must be 'base', 'dev', or 'all'"));
+			if (!["base", "dev", "utils", "all"].includes(value)) {
+				return E.left(
+					usageError("--plugin must be 'base', 'dev', 'utils', or 'all'"),
+				);
 			}
-			(config as { plugin: "base" | "dev" | "all" }).plugin = value as
+			(config as { plugin: "base" | "dev" | "utils" | "all" }).plugin = value as
 				| "base"
 				| "dev"
+				| "utils"
 				| "all";
 		} else if (arg === "--json") {
 			(config as { jsonOutput: boolean }).jsonOutput = true;
@@ -108,7 +114,7 @@ ${bold("Usage:")}
 
 ${bold("Options:")}
   -o, --output-dir <dir>   Output directory (default: dist/opencode/)
-  -p, --plugin <name>      Build specific plugin (base, dev, or all)
+  -p, --plugin <name>      Build specific plugin (base, dev, utils, or all)
   --json                   Output results as JSON for CI/CD
   -h, --help               Show this help message
 
@@ -599,7 +605,9 @@ export const executeBuild = (
 
 					// Determine which plugins to build
 					const pluginsToBuild =
-						config.plugin === "all" ? ["base", "dev"] : [config.plugin];
+						config.plugin === "all"
+							? ["base", "dev", "utils"]
+							: [config.plugin];
 
 					// Build each plugin
 					const summaries: BuildSummary[] = [];
@@ -621,8 +629,9 @@ export const executeBuild = (
 					if (config.plugin === "all") {
 						const baseAssets = pluginAssets.get("base");
 						const devAssets = pluginAssets.get("dev");
+						const utilsAssets = pluginAssets.get("utils");
 
-						if (baseAssets && devAssets) {
+						if (baseAssets && devAssets && utilsAssets) {
 							// Read version from CLI package.json
 							const pkgPath = join(projectRoot, "cli", "package.json");
 							let version = "0.0.0";
@@ -636,6 +645,7 @@ export const executeBuild = (
 							const bundleManifestResult = generateBundleManifest(
 								baseAssets,
 								devAssets,
+								utilsAssets,
 								version,
 							);
 							if (E.isRight(bundleManifestResult)) {

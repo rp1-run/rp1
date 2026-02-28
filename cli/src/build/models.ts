@@ -146,7 +146,7 @@ export interface PluginManifest {
  */
 export interface BuildConfig {
 	readonly outputDir: string;
-	readonly plugin: "base" | "dev" | "all";
+	readonly plugin: "base" | "dev" | "utils" | "all";
 	readonly jsonOutput: boolean;
 }
 
@@ -208,6 +208,7 @@ export interface BundleManifest {
 	readonly plugins: {
 		readonly base: BundlePluginAssets;
 		readonly dev: BundlePluginAssets;
+		readonly utils: BundlePluginAssets;
 	};
 	readonly version: string;
 	readonly buildTimestamp: string;

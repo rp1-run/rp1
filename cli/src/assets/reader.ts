@@ -40,6 +40,7 @@ export interface BundledAssets {
 	plugins: {
 		base: BundledPlugin;
 		dev: BundledPlugin;
+		utils: BundledPlugin;
 	};
 	webui: AssetEntry[];
 	version: string;

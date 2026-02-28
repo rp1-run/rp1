@@ -63,7 +63,7 @@ interface AssetImport {
 	importPath: string;
 	outputName: string;
 	category: "command" | "agent" | "skill" | "webui" | "opencode-plugin";
-	plugin?: "base" | "dev";
+	plugin?: "base" | "dev" | "utils";
 }
 
 /**
@@ -105,7 +105,7 @@ async function collectPluginAssets(
 	const imports: AssetImport[] = [];
 
 	for (const [pluginKey, plugin] of Object.entries(manifest.plugins)) {
-		const pluginName = pluginKey as "base" | "dev";
+		const pluginName = pluginKey as "base" | "dev" | "utils";
 
 		// Commands
 		for (const cmd of plugin.commands) {
@@ -267,6 +267,18 @@ async function generate(): Promise<void> {
 		.filter((a) => a.category === "skill" && a.plugin === "dev")
 		.map((a) => `{ name: "${a.outputName}", path: ${a.varName} }`);
 
+	const utilsCommands = pluginAssets
+		.filter((a) => a.category === "command" && a.plugin === "utils")
+		.map((a) => `{ name: "${a.outputName}", path: ${a.varName} }`);
+
+	const utilsAgents = pluginAssets
+		.filter((a) => a.category === "agent" && a.plugin === "utils")
+		.map((a) => `{ name: "${a.outputName}", path: ${a.varName} }`);
+
+	const utilsSkills = pluginAssets
+		.filter((a) => a.category === "skill" && a.plugin === "utils")
+		.map((a) => `{ name: "${a.outputName}", path: ${a.varName} }`);
+
 	// OpenCode plugin files (only base plugin has this currently)
 	const basePluginFiles = pluginAssets
 		.filter((a) => a.category === "opencode-plugin" && a.plugin === "base")
@@ -306,6 +318,12 @@ export const EMBEDDED_MANIFEST = {
       agents: [${devAgents.join(", ")}],
       skills: [${devSkills.join(", ")}],
     },
+    utils: {
+      name: "rp1-utils",
+      commands: [${utilsCommands.join(", ")}],
+      agents: [${utilsAgents.join(", ")}],
+      skills: [${utilsSkills.join(", ")}],
+    },
   },
   webui: [${webuiEntries.join(", ")}],
   version: "${manifest.version}",
@@ -325,6 +343,9 @@ export const IS_BUNDLED = true;
 	}
 	console.log(
 		`  Dev: ${devCommands.length} commands, ${devAgents.length} agents, ${devSkills.length} skills`,
+	);
+	console.log(
+		`  Utils: ${utilsCommands.length} commands, ${utilsAgents.length} agents, ${utilsSkills.length} skills`,
 	);
 	console.log(`  Web-UI: ${webuiAssets.length} files`);
 	console.log(`  Version: ${manifest.version}`);

@@ -126,17 +126,13 @@ const executeInstallFromBundled = (
 						spinner.stop();
 						console.log(yellow("\nDRY RUN MODE - No files will be modified\n"));
 						console.log("Would install from bundled assets:");
-						const basePlugin = assets.plugins.base;
-						const hasBaseHooks = basePlugin.openCodePlugin !== undefined;
-						console.log(
-							`  • rp1-base: ${basePlugin.agents.length} agents, ${basePlugin.skills.length} skills`,
-						);
-						console.log(
-							`  • rp1-dev: ${assets.plugins.dev.agents.length} agents, ${assets.plugins.dev.skills.length} skills`,
-						);
-						if (hasBaseHooks) {
+						for (const p of [
+							assets.plugins.base,
+							assets.plugins.dev,
+							assets.plugins.utils,
+						]) {
 							console.log(
-								`  • Hooks: ${basePlugin.openCodePlugin?.name ?? "rp1-base-hooks"} (OpenCode session hooks)`,
+								`  • ${p.name}: ${p.agents.length} agents, ${p.skills.length} skills`,
 							);
 						}
 						return TE.right(undefined);
@@ -168,13 +164,14 @@ const executeInstallFromBundled = (
 						}),
 						TE.chain(() => {
 							spinner.start("Verifying installation...");
+							const allPlugins = [
+								assets.plugins.base,
+								assets.plugins.dev,
+								assets.plugins.utils,
+							];
 							const bundledCounts = {
-								agents:
-									assets.plugins.base.agents.length +
-									assets.plugins.dev.agents.length,
-								skills:
-									assets.plugins.base.skills.length +
-									assets.plugins.dev.skills.length,
+								agents: allPlugins.reduce((sum, p) => sum + p.agents.length, 0),
+								skills: allPlugins.reduce((sum, p) => sum + p.skills.length, 0),
 							};
 							return pipe(
 								verifyInstallation(undefined, bundledCounts),
