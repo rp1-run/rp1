@@ -100,11 +100,16 @@ install-claude: prepare-dev-plugins
     @echo ""
     @echo "━━━ Claude Code ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     @echo ""
-    -claude plugin marketplace rm rp1-local 2>/dev/null
-    claude plugin marketplace add ./.dev-marketplace/
-    claude plugin install rp1-base@rp1-local
-    claude plugin install rp1-dev@rp1-local
-    claude plugin install rp1-utils@rp1-local
+    @-claude plugin marketplace rm rp1-local 2>/dev/null
+    @claude plugin marketplace add ./.dev-marketplace/ 2>&1 | grep -v "^Adding"
+    @claude plugin install rp1-base@rp1-local 2>&1 | grep -v "^Installing"
+    @claude plugin install rp1-dev@rp1-local 2>&1 | grep -v "^Installing"
+    @claude plugin install rp1-utils@rp1-local 2>&1 | grep -v "^Installing"
+    @echo ""
+    @echo "Installed plugins:"
+    @echo "  - rp1-base"
+    @echo "  - rp1-dev"
+    @echo "  - rp1-utils"
 
 # Install to OpenCode
 install-opencode:
