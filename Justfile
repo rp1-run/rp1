@@ -110,13 +110,15 @@ install-claude: prepare-dev-plugins
     @echo "  - rp1-base"
     @echo "  - rp1-dev"
     @echo "  - rp1-utils"
+    @echo ""
+    @echo "Restart Claude Code to load updated plugins."
 
 # Install to OpenCode
 install-opencode:
     @echo ""
     @echo "━━━ OpenCode ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     @echo ""
-    ./bin/rp1 install opencode
+    @./bin/rp1 install opencode
 
 # Remove stable rp1 from both platforms
 rm-stable:

@@ -7,14 +7,13 @@ import { Command } from "commander";
 import * as E from "fp-ts/lib/Either.js";
 import { formatError, getExitCode } from "../../../shared/errors.js";
 import type { Logger } from "../../../shared/logger.js";
-import { createSpinner } from "../../../shared/spinner.js";
 import { colorFns } from "../../lib/colors.js";
 import {
 	type InstallContext,
 	installOpenCodePlugins,
 } from "../../shared/install-core.js";
 
-const { green, dim, bold } = colorFns;
+const { dim } = colorFns;
 
 /**
  * Subcommand: rp1 install opencode
@@ -38,7 +37,6 @@ Examples:
 	.action(async (options, command) => {
 		const logger = command.parent?.parent?._logger as Logger;
 		const isTTY = command.parent?.parent?._isTTY ?? false;
-		const spinner = createSpinner(isTTY);
 
 		if (!logger) {
 			console.error("Logger not initialized");
@@ -52,11 +50,6 @@ Examples:
 			skipPrompt: options.yes ?? false,
 		};
 
-		// Display header
-		console.log("");
-		console.log(bold("Installing rp1 plugins to OpenCode"));
-		console.log("");
-
 		if (ctx.dryRun) {
 			console.log(dim("[dry-run] Installation preview:"));
 			console.log("");
@@ -68,8 +61,6 @@ Examples:
 			return;
 		}
 
-		spinner.start("Installing plugins...");
-
 		const result = await installOpenCodePlugins(
 			{
 				artifactsDir: options.artifactsDir ?? null,
@@ -78,18 +69,16 @@ Examples:
 		)();
 
 		if (E.isLeft(result)) {
-			spinner.stop();
 			console.error(formatError(result.left, process.stderr.isTTY ?? false));
 			process.exit(getExitCode(result.left));
 		}
 
-		spinner.succeed(green("rp1 plugins installed successfully to OpenCode!"));
 		console.log("");
-		console.log(dim("Installed plugins:"));
-		console.log(dim("  - rp1-base"));
-		console.log(dim("  - rp1-dev"));
+		console.log("Installed plugins:");
+		console.log("  - rp1-base");
+		console.log("  - rp1-dev");
 		console.log("");
 		console.log(
-			dim("Restart OpenCode and run /skills to see available rp1 skills."),
+			"Restart OpenCode and run /skills to see available rp1 skills.",
 		);
 	});

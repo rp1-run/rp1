@@ -99,36 +99,27 @@ const executeInstallFromBundled = (
 	return pipe(
 		TE.fromEither(getBundledAssets()),
 		TE.chain((assets) => {
-			console.log(
-				bold("\n🚀 rp1-opencode Installation (from bundled assets)\n"),
-			);
-			console.log(dim(`Version: ${assets.version}\n`));
-
 			spinner.start("Checking prerequisites...");
 			return pipe(
 				checkOpenCodeInstalled(),
-				TE.chainFirst((result) => {
-					spinner.succeed(result.message);
-					return TE.right(undefined);
-				}),
 				TE.chain((result) => {
 					const versionResult = checkOpenCodeVersion(result.value ?? "");
 					if (E.isLeft(versionResult)) {
 						spinner.fail("Version check failed");
 						return TE.left(versionResult.left);
 					}
-					spinner.succeed(versionResult.right.message);
 					return TE.right(undefined);
 				}),
 				TE.chain(() => {
 					const targetDir = getOpenCodeConfigDir();
 					return pipe(
 						checkWritePermissions(targetDir),
-						TE.map((result) => {
-							spinner.succeed(result.message);
-							return { targetDir };
-						}),
+						TE.map(() => ({ targetDir })),
 					);
+				}),
+				TE.chainFirst(() => {
+					spinner.succeed("Prerequisites OK");
+					return TE.right(undefined);
 				}),
 				TE.chain(({ targetDir }) => {
 					if (config.dryRun) {
@@ -145,13 +136,13 @@ const executeInstallFromBundled = (
 						);
 						if (hasBaseHooks) {
 							console.log(
-								`  • Plugins: ${basePlugin.openCodePlugin?.name ?? "rp1-base-hooks"} (OpenCode session hooks)`,
+								`  • Hooks: ${basePlugin.openCodePlugin?.name ?? "rp1-base-hooks"} (OpenCode session hooks)`,
 							);
 						}
 						return TE.right(undefined);
 					}
 
-					spinner.start("Extracting bundled plugins...");
+					spinner.start("Installing plugins...");
 					return pipe(
 						extractPlugins(assets, targetDir, (msg) => {
 							spinner.text = msg;
@@ -161,23 +152,22 @@ const executeInstallFromBundled = (
 								`Installed ${result.filesExtracted} files from ${result.plugins.length} plugins`,
 							);
 
-							spinner.start("Validating configuration...");
+							spinner.start("Registering hooks...");
 
 							return pipe(
 								registerRp1HooksPlugin(),
 								TE.map((registered) => {
 									if (registered) {
-										spinner.succeed("rp1-base-hooks plugin registered");
-										spinner.start("Validating configuration...");
+										spinner.succeed("Hooks registered");
+									} else {
+										spinner.succeed("Hooks OK");
 									}
-									spinner.succeed("Configuration validated");
 									return { targetDir };
 								}),
 							);
 						}),
 						TE.chain(() => {
 							spinner.start("Verifying installation...");
-							// Pass actual counts from bundled manifest
 							const bundledCounts = {
 								agents:
 									assets.plugins.base.agents.length +
@@ -189,27 +179,12 @@ const executeInstallFromBundled = (
 							return pipe(
 								verifyInstallation(undefined, bundledCounts),
 								TE.map((report) => {
-									spinner.stop();
 									if (isHealthy(report)) {
-										console.log(
-											green(bold("\n✓ Installation complete and verified!")),
-										);
-										console.log(
-											dim(
-												`\nSkills: ${report.skillsFound}/${report.skillsExpected}`,
-											),
-										);
-										console.log(
-											dim(
-												`Agents: ${report.agentsFound}/${report.agentsExpected}`,
-											),
-										);
-										console.log(
-											dim(
-												`Hooks: ${report.pluginsFound}/${report.pluginsExpected}`,
-											),
+										spinner.succeed(
+											`Verified: ${report.skillsFound} skills, ${report.agentsFound} agents`,
 										);
 									} else {
+										spinner.stop();
 										console.log(
 											yellow("\n⚠ Installation complete with warnings"),
 										);
@@ -296,28 +271,24 @@ export const executeInstall = (
 			spinner.start("Checking prerequisites...");
 			return checkOpenCodeInstalled();
 		}),
-		TE.chainFirst((result) => {
-			spinner.succeed(result.message);
-			return TE.right(undefined);
-		}),
 		TE.chain((result) => {
 			const versionResult = checkOpenCodeVersion(result.value ?? "");
 			if (E.isLeft(versionResult)) {
 				spinner.fail("Version check failed");
 				return TE.left(versionResult.left);
 			}
-			spinner.succeed(versionResult.right.message);
 			return TE.right(undefined);
 		}),
 		TE.chain(() => {
 			const targetDir = getOpenCodeConfigDir();
 			return pipe(
 				checkWritePermissions(targetDir),
-				TE.map((result) => {
-					spinner.succeed(result.message);
-					return undefined;
-				}),
+				TE.map(() => undefined),
 			);
+		}),
+		TE.chainFirst(() => {
+			spinner.succeed("Prerequisites OK");
+			return TE.right(undefined);
 		}),
 		TE.chain(() => {
 			if (config.dryRun) {
@@ -326,24 +297,14 @@ export const executeInstall = (
 				console.log(`Would install from: ${artifactsDir}`);
 				console.log("  • Base plugin: agents, skills");
 				console.log("  • Dev plugin: agents, skills");
-				console.log("  • Plugins: rp1-base-hooks (OpenCode session hooks)");
+				console.log("  • Hooks: rp1-base-hooks (OpenCode session hooks)");
 				return TE.right(undefined);
 			}
 
-			spinner.start("Discovering plugins...");
+			spinner.start("Installing plugins...");
 			return pipe(
 				discoverPlugins(artifactsDir),
 				TE.chain((plugins) => {
-					const pluginNames = plugins.map((p) => p.plugin).join(", ");
-					spinner.succeed(`Found ${plugins.length} plugin(s): ${pluginNames}`);
-
-					const allSkills = plugins.flatMap((p) => [...p.skills]);
-					if (allSkills.length > 0) {
-						console.log(dim(`  Skills to install: ${allSkills.join(", ")}`));
-					}
-
-					spinner.start("Installing rp1 artifacts...");
-
 					const pluginDirs = plugins.map((p) =>
 						join(artifactsDir, p.plugin.replace("rp1-", "")),
 					);
@@ -363,10 +324,10 @@ export const executeInstall = (
 									);
 									if (!proceed) {
 										console.log(yellow(`  Skipped: ${path}`));
-										spinner.start("Installing rp1 artifacts...");
+										spinner.start("Installing plugins...");
 										return;
 									}
-									spinner.start("Installing rp1 artifacts...");
+									spinner.start("Installing plugins...");
 								}
 								console.log(yellow(`  ⚠ Overwriting: ${path}`));
 							},
@@ -375,23 +336,23 @@ export const executeInstall = (
 						),
 						TE.chain((result) => {
 							spinner.succeed(
-								`Installed ${result.filesInstalled} total files across ${result.pluginsInstalled.length} plugins`,
+								`Installed ${result.filesInstalled} files from ${result.pluginsInstalled.length} plugins`,
 							);
 
 							for (const warning of result.warnings) {
 								console.log(yellow(`⚠ ${warning}`));
 							}
 
-							spinner.start("Validating configuration...");
+							spinner.start("Registering hooks...");
 
 							return pipe(
 								registerRp1HooksPlugin(),
 								TE.map((registered) => {
 									if (registered) {
-										spinner.succeed("rp1-base-hooks plugin registered");
-										spinner.start("Validating configuration...");
+										spinner.succeed("Hooks registered");
+									} else {
+										spinner.succeed("Hooks OK");
 									}
-									spinner.succeed("Configuration validated");
 									return { artifactsDir };
 								}),
 							);
@@ -401,27 +362,12 @@ export const executeInstall = (
 							return pipe(
 								verifyInstallation(verifyDir),
 								TE.map((report) => {
-									spinner.stop();
 									if (isHealthy(report)) {
-										console.log(
-											green(bold("\n✓ Installation complete and verified!")),
-										);
-										console.log(
-											dim(
-												`\nSkills: ${report.skillsFound}/${report.skillsExpected}`,
-											),
-										);
-										console.log(
-											dim(
-												`Agents: ${report.agentsFound}/${report.agentsExpected}`,
-											),
-										);
-										console.log(
-											dim(
-												`Hooks: ${report.pluginsFound}/${report.pluginsExpected}`,
-											),
+										spinner.succeed(
+											`Verified: ${report.skillsFound} skills, ${report.agentsFound} agents`,
 										);
 									} else {
+										spinner.stop();
 										console.log(
 											yellow("\n⚠ Installation complete with warnings"),
 										);
