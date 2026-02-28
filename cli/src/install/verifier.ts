@@ -106,10 +106,11 @@ export const verifyInstallation = (
 				}
 			}
 
-			// Fallback expected counts (agents: ~25, skills: ~35)
-			// Commands are deprecated (migrated to skills)
+			// Fallback expected counts when no manifest is available.
+			// Commands are deprecated (migrated to skills).
+			// Use conservative minimums to avoid false warnings on bundled installs.
 			const agentsExpected = expectedAgents.size > 0 ? expectedAgents.size : 25;
-			const skillsExpected = expectedSkills.size > 0 ? expectedSkills.size : 35;
+			const skillsExpected = expectedSkills.size > 0 ? expectedSkills.size : 30;
 
 			// Check agents
 			const agentDir = join(configDir, "agent");
@@ -183,6 +184,12 @@ export const verifyInstallation = (
 					}
 				} catch {
 					// Skills directory doesn't exist
+				}
+
+				if (skillsFound < skillsExpected) {
+					issues.push(
+						`Missing skills: found ${skillsFound}, expected ${skillsExpected}. Re-run installation to fix.`,
+					);
 				}
 			}
 
