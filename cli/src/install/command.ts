@@ -206,7 +206,7 @@ const executeInstallFromBundled = (
 										);
 										console.log(
 											dim(
-												`Plugins: ${report.pluginsFound}/${report.pluginsExpected}`,
+												`Hooks: ${report.pluginsFound}/${report.pluginsExpected}`,
 											),
 										);
 									} else {
@@ -418,7 +418,7 @@ export const executeInstall = (
 										);
 										console.log(
 											dim(
-												`Plugins: ${report.pluginsFound}/${report.pluginsExpected}`,
+												`Hooks: ${report.pluginsFound}/${report.pluginsExpected}`,
 											),
 										);
 									} else {
@@ -481,7 +481,7 @@ export const executeVerify = (
 			const pluginCount =
 				`${report.pluginsFound}/${report.pluginsExpected}`.padEnd(12);
 			console.log(
-				`| Plugins   | ${pluginCount} | ${pluginOk ? green("  OK  ") : yellow(" WARN ")} |`,
+				`| Hooks     | ${pluginCount} | ${pluginOk ? green("  OK  ") : yellow(" WARN ")} |`,
 			);
 
 			console.log("+-----------+--------------+--------+");
