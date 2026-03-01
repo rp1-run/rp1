@@ -2,7 +2,7 @@
 
 **Feature ID**: state-management
 **Status**: In Progress
-**Progress**: 65% (13 of 20 tasks)
+**Progress**: 70% (14 of 20 tasks)
 **Estimated Effort**: 9 days
 **Started**: 2026-03-01
 
@@ -474,6 +474,18 @@ Introduces declarative state machines co-located with skills as the single sourc
     - **Deviations**: None
     - **Tests**: All 1161 CLI tests + 172 web-ui tests passing (no regressions)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
     **Reference**: [design.md#312-dashboard-steptimeline-changes](design.md#312-dashboard-steptimeline-changes)
 
     **Effort**: 6 hours
@@ -488,7 +500,14 @@ Introduces declarative state machines co-located with skills as the single sourc
     - [x] When no workflow is available (no state.mmd), gracefully falls back to existing behavior (no step timeline or task-based grouping)
     - [x] Dashboard step timeline updates under 100ms after WebSocket event
 
-- [ ] **T11**: Create state.mmd files for additional multi-phase skills `[complexity:simple]`
+- [x] **T11**: Create state.mmd files for additional multi-phase skills `[complexity:simple]`
+
+    **Implementation Summary**:
+
+    - **Files**: `plugins/base/skills/deep-research/state.mmd`, `plugins/dev/skills/blueprint/state.mmd`, `plugins/base/skills/deep-research/SKILL.md`, `plugins/dev/skills/blueprint/SKILL.md`, `cli/src/__tests__/agent-tools/state-machine/loader.test.ts`
+    - **Approach**: Created state.mmd files for deep-research (5 states: clarify -> plan -> explore -> synthesize -> report) and blueprint (3 states with branching: detect -> charter/prd -> prd). Added STATE-MACHINE sections to both SKILL.md files following the established pattern. Updated loader test to include new workflows in positive assertions and replaced stale negative assertion (blueprint now has state.mmd).
+    - **Deviations**: None
+    - **Tests**: 1161/1161 CLI tests + 172/172 web-ui tests passing (no regressions)
 
     **Reference**: [design.md#5-implementation-plan](design.md#5-implementation-plan)
 
@@ -496,11 +515,11 @@ Introduces declarative state machines co-located with skills as the single sourc
 
     **Acceptance Criteria**:
 
-    - [ ] Create state.mmd files for at least 2 additional skills (e.g., blueprint, code-audit, code-investigate, deep-research, or build-express)
-    - [ ] Add STATE-MACHINE sections to the corresponding SKILL.md files
-    - [ ] All new state.mmd files use valid stateDiagram-v2 syntax and parse successfully through the mermaid-ast + transform pipeline
-    - [ ] New skills become visible in the dashboard automatically without API or UI code changes
-    - [ ] Total dashboard-visible skills reaches at least 5 (success metric target)
+    - [x] Create state.mmd files for at least 2 additional skills (e.g., blueprint, code-audit, code-investigate, deep-research, or build-express)
+    - [x] Add STATE-MACHINE sections to the corresponding SKILL.md files
+    - [x] All new state.mmd files use valid stateDiagram-v2 syntax and parse successfully through the mermaid-ast + transform pipeline
+    - [x] New skills become visible in the dashboard automatically without API or UI code changes
+    - [x] Total dashboard-visible skills reaches at least 5 (success metric target)
 
 ### Visual Enhancement
 

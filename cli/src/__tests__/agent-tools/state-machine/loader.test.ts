@@ -76,13 +76,15 @@ describe("loader", () => {
 			expect(workflows).toContain("build");
 			expect(workflows).toContain("build-fast");
 			expect(workflows).toContain("pr-review");
+			expect(workflows).toContain("deep-research");
+			expect(workflows).toContain("blueprint");
 		});
 
 		test("does not include skills without state.mmd", async () => {
 			const workflows = await expectTaskRight(listWorkflows());
 
 			expect(workflows).not.toContain("code-check");
-			expect(workflows).not.toContain("blueprint");
+			expect(workflows).not.toContain("code-audit");
 		});
 	});
 
