@@ -87,8 +87,6 @@ describe("daemon manager", () => {
 		test("returns false after process exits naturally", async () => {
 			const { pid, child } = spawnSleepProcess(0.1);
 			childrenToCleanup.push(child);
-
-			// Wait for the child to actually exit and be reaped
 			await new Promise<void>((resolve) => {
 				child.on("exit", () => resolve());
 			});
@@ -146,7 +144,6 @@ describe("daemon manager", () => {
 
 			forceKillProcess(pid);
 
-			// Wait for the child to be reaped
 			await new Promise<void>((resolve) => {
 				child.on("exit", () => resolve());
 			});
@@ -168,18 +165,15 @@ describe("daemon manager", () => {
 			await new Promise((r) => setTimeout(r, 200));
 			expect(isProcessRunning(pid)).toBe(true);
 
-			// Send SIGTERM (process ignores it)
 			try {
 				process.kill(pid, "SIGTERM");
 			} catch {
 				// Process may already be dead
 			}
 
-			// Wait briefly - process should still be running
 			await new Promise((r) => setTimeout(r, 300));
 			expect(isProcessRunning(pid)).toBe(true);
 
-			// Escalate to force kill (SIGKILL)
 			forceKillProcess(pid);
 			const exited = await waitForProcessExit(pid, 2000);
 
@@ -193,18 +187,15 @@ describe("daemon manager", () => {
 			await new Promise((r) => setTimeout(r, 200));
 			expect(isProcessRunning(pid)).toBe(true);
 
-			// SIGTERM (process ignores)
 			try {
 				process.kill(pid, "SIGTERM");
 			} catch {
 				// Already dead
 			}
 
-			// Wait with short timeout (simulates STOP_GRACEFUL_TIMEOUT_MS)
 			const exitedGracefully = await waitForProcessExit(pid, 500);
 			expect(exitedGracefully).toBe(false);
 
-			// Escalate to SIGKILL
 			forceKillProcess(pid);
 			const exitedAfterKill = await waitForProcessExit(pid, 2000);
 			expect(exitedAfterKill).toBe(true);
