@@ -235,7 +235,6 @@ Install rp1 plugins to the OpenCode platform.
 rp1 install:opencode                    # Install from default artifacts
 rp1 install:opencode --dry-run          # Preview installation
 rp1 install:opencode -a ./my-artifacts  # Install from custom path
-rp1 install:opencode --skip-skills      # Skip skills installation
 rp1 install:opencode -y                 # Skip confirmation prompts
 ```
 

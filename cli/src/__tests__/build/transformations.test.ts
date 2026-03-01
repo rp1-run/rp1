@@ -181,5 +181,40 @@ After block /rp1-dev:other should change.`,
 				"scripts/bar.sh",
 			]);
 		});
+
+		test("applies namespace separator transform to skill content", () => {
+			const skill = {
+				...createMinimalSkill(),
+				content: "Load rp1-base:knowledge-load then run rp1-dev:build-fast.",
+			};
+
+			const result = expectRight(transformSkill(skill, defaultRegistry));
+			expect(result.content).toContain("rp1-base/knowledge-load");
+			expect(result.content).toContain("rp1-dev/build-fast");
+			expect(result.content).not.toContain("rp1-base:");
+			expect(result.content).not.toContain("rp1-dev:");
+		});
+
+		test("converts allowed-tools from comma-separated string to array", () => {
+			const skill = {
+				...createMinimalSkill(),
+				allowedTools: "Bash(echo *), Read, Write, Edit",
+			};
+
+			const result = expectRight(transformSkill(skill, defaultRegistry));
+			expect(result.allowedTools).toEqual([
+				"Bash(echo *)",
+				"Read",
+				"Write",
+				"Edit",
+			]);
+		});
+
+		test("leaves allowedTools undefined when source has none", () => {
+			const skill = createMinimalSkill();
+
+			const result = expectRight(transformSkill(skill, defaultRegistry));
+			expect(result.allowedTools).toBeUndefined();
+		});
 	});
 });

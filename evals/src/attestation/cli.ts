@@ -32,7 +32,7 @@ Commands:
   verify                         Verify all attestations are current
                                  Exit code 0 if all current, 1 if any stale/missing
 
-  status                         Show commands needing re-attestation
+  status                         Show skills needing re-attestation
                                  Displays summary of current/stale/missing counts
 `;
 
@@ -62,10 +62,10 @@ function formatSummary(summary: {
 	lines.push("");
 
 	if (summary.stale > 0 || summary.missing > 0) {
-		lines.push("Commands needing attention:");
+		lines.push("Skills needing attention:");
 		for (const result of summary.results) {
 			if (result.status !== "current") {
-				lines.push(`  - ${result.command} [${result.status}]`);
+				lines.push(`  - ${result.skill} [${result.status}]`);
 				if (result.reason) {
 					lines.push(`    Reason: ${result.reason}`);
 				}

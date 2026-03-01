@@ -1,6 +1,6 @@
-# Command Reference
+# Skill Reference
 
-Complete documentation for all 21 rp1 commands across both plugins, plus CLI tools.
+Complete documentation for all rp1 skills across both plugins, plus CLI tools.
 
 ---
 
@@ -53,11 +53,11 @@ The rp1 web UI provides browser-based documentation viewing and agent activity m
 
 ---
 
-## Base Plugin (6 commands)
+## Base Plugin Skills
 
 The base plugin provides foundation capabilities: knowledge management, documentation generation, strategic analysis, and security validation.
 
-| Command | Description |
+| Skill | Description |
 |---------|-------------|
 | [`knowledge-build`](base/knowledge-build.md) | Generate knowledge base using parallel map-reduce architecture |
 | [`knowledge-load`](base/knowledge-load.md) | Load KB context for downstream agents |
@@ -70,28 +70,28 @@ The base plugin provides foundation capabilities: knowledge management, document
 
 ---
 
-## Dev Plugin
+## Dev Plugin Skills
 
 The dev plugin provides development workflow capabilities: feature lifecycle, code quality, and PR management.
 
 ### Feature Development
 
-| Command | Description |
+| Skill | Description |
 |---------|-------------|
-| [`build`](dev/build.md) | **Primary command** — End-to-end feature workflow (requirements → design → build → verify → archive) |
+| [`build`](dev/build.md) | **Primary skill** -- End-to-end feature workflow (requirements -> design -> build -> verify -> archive) |
 | [`build-fast`](dev/build-fast.md) | Quick iteration for small, well-scoped tasks |
 | [`validate-hypothesis`](dev/validate-hypothesis.md) | Test design assumptions through experiments |
 
 ### Blueprint & Planning
 
-| Command | Description |
+| Skill | Description |
 |---------|-------------|
 | [`blueprint`](dev/blueprint.md) | Create project charter and PRD documents |
 | [`blueprint-archive`](dev/blueprint-archive.md) | Archive completed blueprints |
 
 ### Feature Management
 
-| Command | Description |
+| Skill | Description |
 |---------|-------------|
 | [`feature-edit`](dev/feature-edit.md) | Propagate mid-stream changes across documents |
 | [`feature-archive`](dev/feature-archive.md) | Archive completed features |
@@ -99,7 +99,7 @@ The dev plugin provides development workflow capabilities: feature lifecycle, co
 
 ### Code Quality
 
-| Command | Description |
+| Skill | Description |
 |---------|-------------|
 | [`code-check`](dev/code-check.md) | Fast hygiene validation (lint, test, coverage) |
 | [`code-audit`](dev/code-audit.md) | Pattern consistency and maintainability audit |
@@ -108,7 +108,7 @@ The dev plugin provides development workflow capabilities: feature lifecycle, co
 
 ### PR Management
 
-| Command | Description |
+| Skill | Description |
 |---------|-------------|
 | [`pr-review`](dev/pr-review.md) | Map-reduce PR review with confidence gating |
 | [`pr-visual`](dev/pr-visual.md) | Generate Mermaid diagrams from PR diffs |
@@ -118,24 +118,32 @@ The dev plugin provides development workflow capabilities: feature lifecycle, co
 
 ---
 
-## Command Syntax
+## Skill Invocation
 
-Commands differ slightly between platforms:
+Skills can be invoked differently depending on your AI assistant:
 
 === "Claude Code"
 
     ```bash
-    /command-name [arguments]
+    /skill-name [arguments]
     ```
 
-    Use the short form without prefix. If you have a command name conflict with another plugin, use the prefixed form: `/rp1-base:command-name` or `/rp1-dev:command-name`.
+    Type `/` to get autocomplete suggestions. Use the short form without prefix. If you have a name conflict with another plugin, use the prefixed form: `/rp1-base:skill-name` or `/rp1-dev:skill-name`.
 
 === "OpenCode"
 
+    rp1 skills are installed with an `rp1-` prefix to avoid collisions with your own skills:
+
+    1. **Type the skill name directly** (e.g., `/rp1-build`, `/rp1-knowledge-build`)
+    2. **Type `/skills`** to browse and select — look for skills prefixed with `rp1-`
+
     ```bash
-    /rp1-base/command-name [arguments]
-    /rp1-dev/command-name [arguments]
+    /rp1-build my-feature [arguments]
+    /rp1-knowledge-build
     ```
+
+    !!! note
+        Autocomplete for skill names is not yet available in OpenCode — see [opencode#14506](https://github.com/anomalyco/opencode/issues/14506). This may be supported soon.
 
 ---
 

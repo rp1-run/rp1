@@ -15,7 +15,7 @@ Analyzes systems holistically to provide strategic recommendations balancing cos
 === "OpenCode"
 
     ```bash
-    /rp1-base/strategize
+    /rp1-strategize
     ```
 
 ## Description
@@ -62,7 +62,7 @@ The command produces a detailed strategy report covering:
 === "OpenCode"
 
     ```bash
-    /rp1-base/strategize
+    /rp1-strategize
     ```
 
 **Example output:**

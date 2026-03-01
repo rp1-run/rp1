@@ -26,10 +26,10 @@ export {
 } from "./prompt-hash.js";
 export type {
 	AttestationManifest,
-	CommandAttestation,
 	DependencyGraph,
 	EvalRecord,
 	HashResult,
+	SkillAttestation,
 	VerificationResult,
 	VerificationSummary,
 } from "./types.js";

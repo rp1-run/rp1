@@ -15,7 +15,7 @@ End-to-end feature workflow orchestrator. Runs the complete 6-step lifecycle (re
 === "OpenCode"
 
     ```bash
-    /rp1-dev/build <feature-id> [requirements...] [--afk] [--git-worktree] [--git-commit] [--git-push] [--git-pr]
+    /rp1-build <feature-id> [requirements...] [--afk] [--git-worktree] [--git-commit] [--git-push] [--git-pr]
     ```
 
 ## Description
@@ -133,7 +133,7 @@ If you stopped at a gate, resuming `/build` continues from the next stage.
 === "OpenCode"
 
     ```bash
-    /rp1-dev/build user-authentication
+    /rp1-build user-authentication
     ```
 
 ### With Initial Requirements
@@ -147,7 +147,7 @@ If you stopped at a gate, resuming `/build` continues from the next stage.
 === "OpenCode"
 
     ```bash
-    /rp1-dev/build dark-mode "Add dark mode toggle to settings page with system preference detection"
+    /rp1-build dark-mode "Add dark mode toggle to settings page with system preference detection"
     ```
 
 ### AFK Mode (Autonomous)
@@ -161,7 +161,7 @@ If you stopped at a gate, resuming `/build` continues from the next stage.
 === "OpenCode"
 
     ```bash
-    /rp1-dev/build api-refactor --afk
+    /rp1-build api-refactor --afk
     ```
 
 !!! note "Your code is safe"
@@ -178,7 +178,7 @@ If you stopped at a gate, resuming `/build` continues from the next stage.
 === "OpenCode"
 
     ```bash
-    /rp1-dev/build new-feature --git-pr
+    /rp1-build new-feature --git-pr
     ```
 
 ### With Git Commit Only
@@ -192,7 +192,7 @@ If you stopped at a gate, resuming `/build` continues from the next stage.
 === "OpenCode"
 
     ```bash
-    /rp1-dev/build new-feature --git-commit
+    /rp1-build new-feature --git-commit
     ```
 
 ## Output

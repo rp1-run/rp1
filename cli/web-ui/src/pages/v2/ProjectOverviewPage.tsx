@@ -28,9 +28,9 @@ function LoadingSkeleton() {
 				<div className="mt-2 h-4 w-72 rounded bg-muted" />
 			</div>
 			<div className="space-y-3">
-				{Array.from({ length: 3 }, (_, i) => (
+				{["skeleton-run-a", "skeleton-run-b", "skeleton-run-c"].map((key) => (
 					<div
-						key={`skeleton-run-${i}`}
+						key={key}
 						className="animate-pulse rounded-lg border border-border py-3 px-3"
 					>
 						<div className="flex items-center gap-3">
@@ -327,6 +327,7 @@ export function ProjectOverviewPage() {
 						</p>
 					</div>
 				) : (
+					// biome-ignore lint/a11y/useSemanticElements: div with role="list" used for custom divide-y styling incompatible with ul/li
 					<div
 						className="rounded-lg border border-border divide-y divide-border"
 						role="list"

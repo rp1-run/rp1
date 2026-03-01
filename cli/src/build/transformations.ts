@@ -247,10 +247,13 @@ export const transformSkill = (
 ): E.Either<CLIError, OpenCodeSkill> => {
 	try {
 		// Transform skill invocation in content (native -> skills_{name})
-		const transformedContent = transformSkillInvocations(
+		let transformedContent = transformSkillInvocations(
 			ccSkill.content,
 			ccSkill.name,
 		);
+
+		// Transform namespace separator: rp1-base: -> rp1-base/, rp1-dev: -> rp1-dev/
+		transformedContent = transformNamespaceSeparator(transformedContent);
 
 		// Transform allowed-tools from comma-separated string to array (OpenCode format)
 		const allowedTools = ccSkill.allowedTools

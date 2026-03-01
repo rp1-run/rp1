@@ -42,7 +42,7 @@ describe("integration: dependencies", () => {
 				generated_at: new Date().toISOString(),
 				opencode_version_tested: "0.9.0",
 				artifacts: {
-					commands: ["knowledge-build", "knowledge-load"],
+					commands: [],
 					agents: ["kb-spatial-analyzer"],
 					skills: ["mermaid"],
 				},
@@ -51,22 +51,12 @@ describe("integration: dependencies", () => {
 
 		await writeFixture(
 			baseDir,
-			"command/rp1-base/knowledge-build.md",
-			"---\ndescription: Build knowledge base\n---\nKB build content",
-		);
-		await writeFixture(
-			baseDir,
-			"command/rp1-base/knowledge-load.md",
-			"---\ndescription: Load knowledge base\n---\nKB load content",
-		);
-		await writeFixture(
-			baseDir,
-			"agent/rp1-base/kb-spatial-analyzer.md",
+			"agents/rp1-base/kb-spatial-analyzer.md",
 			"---\ndescription: Spatial analyzer\nmode: subagent\ntools:\n  bash: true\n  write: false\n  edit: false\n---\nAgent content",
 		);
 		await writeFixture(
 			baseDir,
-			"skill/mermaid/SKILL.md",
+			"skills/mermaid/SKILL.md",
 			"---\nname: mermaid\ndescription: Mermaid diagram validation and generation\n---\nMermaid skill content",
 		);
 
@@ -88,7 +78,7 @@ describe("integration: dependencies", () => {
 				generated_at: new Date().toISOString(),
 				opencode_version_tested: "0.9.0",
 				artifacts: {
-					commands: ["feature-build", "feature-verify"],
+					commands: [],
 					agents: ["feature-builder"],
 					skills: [],
 				},
@@ -97,18 +87,8 @@ describe("integration: dependencies", () => {
 
 		await writeFixture(
 			devDir,
-			"command/rp1-dev/feature-build.md",
-			"---\ndescription: Build features\n---\nRun /rp1-base/knowledge-load first\nFeature build content",
-		);
-		await writeFixture(
-			devDir,
-			"command/rp1-dev/feature-verify.md",
-			"---\ndescription: Verify features\n---\nFeature verify content",
-		);
-		await writeFixture(
-			devDir,
-			"agent/rp1-dev/feature-builder.md",
-			"---\ndescription: Feature builder agent\nmode: subagent\ntools:\n  bash: true\n  write: true\n  edit: true\n---\nAgent content",
+			"agents/rp1-dev/feature-builder.md",
+			"---\ndescription: Feature builder agent\nmode: subagent\ntools:\n  bash: true\n  write: true\n  edit: true\n---\nRun /rp1-base/knowledge-load first\nAgent content",
 		);
 
 		return devDir;
@@ -129,10 +109,10 @@ describe("integration: dependencies", () => {
 				expect(baseResult.right).toBeGreaterThan(0);
 			}
 
-			const baseKbBuildStat = await stat(
-				join(targetDir, "command/rp1-base/knowledge-build.md"),
+			const baseAgentStat = await stat(
+				join(targetDir, "agents/rp1-base/kb-spatial-analyzer.md"),
 			);
-			expect(baseKbBuildStat.isFile()).toBe(true);
+			expect(baseAgentStat.isFile()).toBe(true);
 
 			const devResult = await copyArtifacts(devDir, targetDir)();
 			expect(E.isRight(devResult)).toBe(true);
@@ -140,24 +120,24 @@ describe("integration: dependencies", () => {
 				expect(devResult.right).toBeGreaterThan(0);
 			}
 
-			const devFeatureBuildStat = await stat(
-				join(targetDir, "command/rp1-dev/feature-build.md"),
+			const devAgentStat = await stat(
+				join(targetDir, "agents/rp1-dev/feature-builder.md"),
 			);
-			expect(devFeatureBuildStat.isFile()).toBe(true);
+			expect(devAgentStat.isFile()).toBe(true);
 
-			const baseCmdExists = await stat(
-				join(targetDir, "command/rp1-base/knowledge-load.md"),
+			const baseAgentExists = await stat(
+				join(targetDir, "agents/rp1-base/kb-spatial-analyzer.md"),
 			)
 				.then(() => true)
 				.catch(() => false);
-			const devCmdExists = await stat(
-				join(targetDir, "command/rp1-dev/feature-verify.md"),
+			const devAgentExists = await stat(
+				join(targetDir, "agents/rp1-dev/feature-builder.md"),
 			)
 				.then(() => true)
 				.catch(() => false);
 
-			expect(baseCmdExists).toBe(true);
-			expect(devCmdExists).toBe(true);
+			expect(baseAgentExists).toBe(true);
+			expect(devAgentExists).toBe(true);
 		},
 		{ timeout: 60000 },
 	);
@@ -174,20 +154,20 @@ describe("integration: dependencies", () => {
 			await copyArtifacts(baseDir, targetDir)();
 			await copyArtifacts(devDir, targetDir)();
 
-			const featureBuildContent = await readFile(
-				join(targetDir, "command/rp1-dev/feature-build.md"),
+			const featureBuilderContent = await readFile(
+				join(targetDir, "agents/rp1-dev/feature-builder.md"),
 				"utf-8",
 			);
 
-			expect(featureBuildContent).toContain("rp1-base/knowledge-load");
+			expect(featureBuilderContent).toContain("rp1-base/knowledge-load");
 
-			const knowledgeLoadExists = await stat(
-				join(targetDir, "command/rp1-base/knowledge-load.md"),
+			const baseAgentExists = await stat(
+				join(targetDir, "agents/rp1-base/kb-spatial-analyzer.md"),
 			)
 				.then(() => true)
 				.catch(() => false);
 
-			expect(knowledgeLoadExists).toBe(true);
+			expect(baseAgentExists).toBe(true);
 		},
 		{ timeout: 60000 },
 	);
@@ -213,11 +193,11 @@ describe("integration: dependencies", () => {
 
 				// Verify artifact counts
 				const basePlugin = plugins.find((p) => p.plugin === "rp1-base");
-				expect(basePlugin?.commands.length).toBe(2);
+				expect(basePlugin?.commands.length).toBe(0);
 				expect(basePlugin?.skills.length).toBe(1);
 
 				const devPlugin = plugins.find((p) => p.plugin === "rp1-dev");
-				expect(devPlugin?.commands.length).toBe(2);
+				expect(devPlugin?.commands.length).toBe(0);
 				expect(devPlugin?.skills.length).toBe(0);
 			}
 		},

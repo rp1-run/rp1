@@ -96,7 +96,5 @@ Examples:
 			console.log(dim(`  - ${plugin}`));
 		}
 		console.log("");
-		console.log(
-			dim("Restart Claude Code and run /help to see available rp1 commands."),
-		);
+		console.log(dim("Restart Claude Code to load updated plugins."));
 	});

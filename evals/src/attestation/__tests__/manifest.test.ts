@@ -7,8 +7,8 @@ import { describe, expect, test } from "bun:test";
 import { emptyManifest, updateManifest } from "../manifest.js";
 import type {
 	AttestationManifest,
-	CommandAttestation,
 	HashResult,
+	SkillAttestation,
 } from "../types.js";
 
 describe("manifest", () => {
@@ -19,11 +19,11 @@ describe("manifest", () => {
 			expect(manifest.schema_version).toBe("1.0.0");
 		});
 
-		test("returns empty commands object", () => {
+		test("returns empty skills object", () => {
 			const manifest = emptyManifest();
 
-			expect(manifest.commands).toEqual({});
-			expect(Object.keys(manifest.commands)).toHaveLength(0);
+			expect(manifest.skills).toEqual({});
+			expect(Object.keys(manifest.skills)).toHaveLength(0);
 		});
 
 		test("returns empty files object", () => {
@@ -37,7 +37,7 @@ describe("manifest", () => {
 			const manifest = emptyManifest();
 
 			expect(manifest).toHaveProperty("schema_version");
-			expect(manifest).toHaveProperty("commands");
+			expect(manifest).toHaveProperty("skills");
 			expect(manifest).toHaveProperty("files");
 		});
 
@@ -50,7 +50,7 @@ describe("manifest", () => {
 	});
 
 	describe("updateManifest", () => {
-		const sampleAttestation: CommandAttestation = {
+		const sampleAttestation: SkillAttestation = {
 			prompt_hash: "sha256:abc123",
 			deps_hash: "sha256:def456",
 			version: "1.0.0",
@@ -64,7 +64,7 @@ describe("manifest", () => {
 
 		const sampleHashes: readonly HashResult[] = [
 			{
-				path: "plugins/dev/commands/build-fast.md",
+				path: "plugins/dev/skills/build-fast/SKILL.md",
 				hash: "sha256:abc123",
 				content_length: 1000,
 			},
@@ -75,7 +75,7 @@ describe("manifest", () => {
 			},
 		];
 
-		test("adds new command attestation to empty manifest", () => {
+		test("adds new skill attestation to empty manifest", () => {
 			const manifest = emptyManifest();
 			const updated = updateManifest(
 				manifest,
@@ -84,11 +84,11 @@ describe("manifest", () => {
 				sampleHashes,
 			);
 
-			expect(updated.commands["rp1-dev:build-fast"]).toEqual(sampleAttestation);
+			expect(updated.skills["rp1-dev:build-fast"]).toEqual(sampleAttestation);
 		});
 
-		test("preserves existing commands when adding new one", () => {
-			const existingAttestation: CommandAttestation = {
+		test("preserves existing skills when adding new one", () => {
+			const existingAttestation: SkillAttestation = {
 				prompt_hash: "sha256:existing",
 				deps_hash: "sha256:existing-deps",
 				version: "0.9.0",
@@ -102,8 +102,10 @@ describe("manifest", () => {
 
 			const manifest: AttestationManifest = {
 				schema_version: "1.0.0",
-				commands: { "rp1-dev:existing-command": existingAttestation },
-				files: { "plugins/dev/commands/existing.md": "sha256:old" },
+				skills: { "rp1-dev:existing-skill": existingAttestation },
+				files: {
+					"plugins/dev/skills/existing/SKILL.md": "sha256:old",
+				},
 			};
 
 			const updated = updateManifest(
@@ -113,15 +115,15 @@ describe("manifest", () => {
 				sampleHashes,
 			);
 
-			expect(updated.commands["rp1-dev:existing-command"]).toEqual(
+			expect(updated.skills["rp1-dev:existing-skill"]).toEqual(
 				existingAttestation,
 			);
-			expect(updated.commands["rp1-dev:build-fast"]).toEqual(sampleAttestation);
-			expect(Object.keys(updated.commands)).toHaveLength(2);
+			expect(updated.skills["rp1-dev:build-fast"]).toEqual(sampleAttestation);
+			expect(Object.keys(updated.skills)).toHaveLength(2);
 		});
 
-		test("updates existing command attestation", () => {
-			const oldAttestation: CommandAttestation = {
+		test("updates existing skill attestation", () => {
+			const oldAttestation: SkillAttestation = {
 				prompt_hash: "sha256:old",
 				deps_hash: "sha256:old-deps",
 				version: "0.9.0",
@@ -135,7 +137,7 @@ describe("manifest", () => {
 
 			const manifest: AttestationManifest = {
 				schema_version: "1.0.0",
-				commands: { "rp1-dev:build-fast": oldAttestation },
+				skills: { "rp1-dev:build-fast": oldAttestation },
 				files: {},
 			};
 
@@ -146,10 +148,8 @@ describe("manifest", () => {
 				sampleHashes,
 			);
 
-			expect(updated.commands["rp1-dev:build-fast"]).toEqual(sampleAttestation);
-			expect(updated.commands["rp1-dev:build-fast"]).not.toEqual(
-				oldAttestation,
-			);
+			expect(updated.skills["rp1-dev:build-fast"]).toEqual(sampleAttestation);
+			expect(updated.skills["rp1-dev:build-fast"]).not.toEqual(oldAttestation);
 		});
 
 		test("adds file hashes to manifest", () => {
@@ -161,7 +161,7 @@ describe("manifest", () => {
 				sampleHashes,
 			);
 
-			expect(updated.files["plugins/dev/commands/build-fast.md"]).toBe(
+			expect(updated.files["plugins/dev/skills/build-fast/SKILL.md"]).toBe(
 				"sha256:abc123",
 			);
 			expect(updated.files["plugins/dev/agents/fast-builder.md"]).toBe(
@@ -172,8 +172,10 @@ describe("manifest", () => {
 		test("preserves existing file hashes when adding new ones", () => {
 			const manifest: AttestationManifest = {
 				schema_version: "1.0.0",
-				commands: {},
-				files: { "plugins/base/commands/existing.md": "sha256:preserved" },
+				skills: {},
+				files: {
+					"plugins/base/skills/existing/SKILL.md": "sha256:preserved",
+				},
 			};
 
 			const updated = updateManifest(
@@ -183,10 +185,10 @@ describe("manifest", () => {
 				sampleHashes,
 			);
 
-			expect(updated.files["plugins/base/commands/existing.md"]).toBe(
+			expect(updated.files["plugins/base/skills/existing/SKILL.md"]).toBe(
 				"sha256:preserved",
 			);
-			expect(updated.files["plugins/dev/commands/build-fast.md"]).toBe(
+			expect(updated.files["plugins/dev/skills/build-fast/SKILL.md"]).toBe(
 				"sha256:abc123",
 			);
 		});
@@ -194,8 +196,10 @@ describe("manifest", () => {
 		test("updates existing file hash with new value", () => {
 			const manifest: AttestationManifest = {
 				schema_version: "1.0.0",
-				commands: {},
-				files: { "plugins/dev/commands/build-fast.md": "sha256:old-hash" },
+				skills: {},
+				files: {
+					"plugins/dev/skills/build-fast/SKILL.md": "sha256:old-hash",
+				},
 			};
 
 			const updated = updateManifest(
@@ -205,7 +209,7 @@ describe("manifest", () => {
 				sampleHashes,
 			);
 
-			expect(updated.files["plugins/dev/commands/build-fast.md"]).toBe(
+			expect(updated.files["plugins/dev/skills/build-fast/SKILL.md"]).toBe(
 				"sha256:abc123",
 			);
 		});
@@ -232,7 +236,7 @@ describe("manifest", () => {
 			);
 
 			expect(updated).not.toBe(manifest);
-			expect(updated.commands).not.toBe(manifest.commands);
+			expect(updated.skills).not.toBe(manifest.skills);
 			expect(updated.files).not.toBe(manifest.files);
 		});
 
@@ -245,7 +249,7 @@ describe("manifest", () => {
 				[],
 			);
 
-			expect(updated.commands["rp1-dev:build-fast"]).toEqual(sampleAttestation);
+			expect(updated.skills["rp1-dev:build-fast"]).toEqual(sampleAttestation);
 			expect(Object.keys(updated.files)).toHaveLength(0);
 		});
 	});
@@ -254,7 +258,7 @@ describe("manifest", () => {
 		test("JSON serialization preserves manifest structure", () => {
 			const original: AttestationManifest = {
 				schema_version: "1.0.0",
-				commands: {
+				skills: {
 					"rp1-dev:build-fast": {
 						prompt_hash: "sha256:abc123",
 						deps_hash: "sha256:def456",
@@ -268,7 +272,7 @@ describe("manifest", () => {
 					},
 				},
 				files: {
-					"plugins/dev/commands/build-fast.md": "sha256:abc123",
+					"plugins/dev/skills/build-fast/SKILL.md": "sha256:abc123",
 					"plugins/dev/agents/fast-builder.md": "sha256:xyz789",
 				},
 			};
@@ -289,7 +293,7 @@ describe("manifest", () => {
 		});
 
 		test("JSON serialization preserves updated manifest", () => {
-			const attestation: CommandAttestation = {
+			const attestation: SkillAttestation = {
 				prompt_hash: "sha256:test",
 				deps_hash: "sha256:deps",
 				version: "2.0.0",
@@ -311,7 +315,7 @@ describe("manifest", () => {
 
 			const original = updateManifest(
 				emptyManifest(),
-				"test:command",
+				"test:skill",
 				attestation,
 				hashes,
 			);
@@ -320,14 +324,14 @@ describe("manifest", () => {
 			const deserialized = JSON.parse(serialized) as AttestationManifest;
 
 			expect(deserialized).toEqual(original);
-			expect(deserialized.commands["test:command"]).toEqual(attestation);
+			expect(deserialized.skills["test:skill"]).toEqual(attestation);
 			expect(deserialized.files["path/to/file.md"]).toBe("sha256:filehash");
 		});
 
 		test("multiple updates followed by serialization preserves all data", () => {
 			let manifest = emptyManifest();
 
-			const attestation1: CommandAttestation = {
+			const attestation1: SkillAttestation = {
 				prompt_hash: "sha256:first",
 				deps_hash: "sha256:first-deps",
 				version: "1.0.0",
@@ -339,7 +343,7 @@ describe("manifest", () => {
 				},
 			};
 
-			const attestation2: CommandAttestation = {
+			const attestation2: SkillAttestation = {
 				prompt_hash: "sha256:second",
 				deps_hash: "sha256:second-deps",
 				version: "1.1.0",
@@ -351,23 +355,19 @@ describe("manifest", () => {
 				},
 			};
 
-			manifest = updateManifest(manifest, "rp1-dev:command-one", attestation1, [
+			manifest = updateManifest(manifest, "rp1-dev:skill-one", attestation1, [
 				{ path: "file1.md", hash: "sha256:hash1", content_length: 100 },
 			]);
 
-			manifest = updateManifest(manifest, "rp1-dev:command-two", attestation2, [
+			manifest = updateManifest(manifest, "rp1-dev:skill-two", attestation2, [
 				{ path: "file2.md", hash: "sha256:hash2", content_length: 200 },
 			]);
 
 			const serialized = JSON.stringify(manifest, null, 2);
 			const deserialized = JSON.parse(serialized) as AttestationManifest;
 
-			expect(deserialized.commands["rp1-dev:command-one"]).toEqual(
-				attestation1,
-			);
-			expect(deserialized.commands["rp1-dev:command-two"]).toEqual(
-				attestation2,
-			);
+			expect(deserialized.skills["rp1-dev:skill-one"]).toEqual(attestation1);
+			expect(deserialized.skills["rp1-dev:skill-two"]).toEqual(attestation2);
 			expect(deserialized.files["file1.md"]).toBe("sha256:hash1");
 			expect(deserialized.files["file2.md"]).toBe("sha256:hash2");
 		});

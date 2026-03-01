@@ -88,10 +88,6 @@ const buildOpenCodeArgs = (
 		args.push("--artifacts-dir", config.artifactsDir);
 	}
 
-	if (config.skipSkills) {
-		args.push("--skip-skills");
-	}
-
 	if (ctx.dryRun) {
 		args.push("--dry-run");
 	}

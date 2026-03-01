@@ -22,11 +22,11 @@ Understanding the core ideas behind rp1 helps you get the most out of its workfl
 
     [:octicons-arrow-right-24: Learn more](knowledge-aware-agents.md)
 
--   :material-layers: **Command-Agent Pattern**
+-   :material-layers: **Skill-Agent Pattern**
 
     ---
 
-    Understand the architecture where thin wrapper commands delegate to autonomous agents.
+    Understand the architecture where skills (SKILL.md) delegate to autonomous agents.
 
     [:octicons-arrow-right-24: Learn more](command-agent-pattern.md)
 
@@ -70,6 +70,14 @@ Understanding the core ideas behind rp1 helps you get the most out of its workfl
 
     [:octicons-arrow-right-24: Learn more](eval-system.md)
 
+-   :material-file-document-edit: **SKILL.md Format**
+
+    ---
+
+    The canonical format specification for all rp1 invocable prompts, replacing the legacy command format.
+
+    [:octicons-arrow-right-24: Learn more](skill-format.md)
+
 </div>
 
 ---
@@ -80,12 +88,13 @@ Understanding the core ideas behind rp1 helps you get the most out of its workfl
 |---------|-----------|----------------|
 | [Constitutional Prompting](constitutional-prompting.md) | Expert knowledge encoded in prompts | No iteration loops, consistent output |
 | [Knowledge-Aware Agents](knowledge-aware-agents.md) | Agents that understand your codebase | Output fits your architecture |
-| [Command-Agent Pattern](command-agent-pattern.md) | Commands delegate to agents | Clean, reusable workflows |
+| [Skill-Agent Pattern](command-agent-pattern.md) | Skills delegate to agents | Clean, reusable workflows |
 | [Map-Reduce Workflows](map-reduce-workflows.md) | Parallel processing pattern | Fast KB and PR analysis |
 | [Stateless Agents](stateless-agents.md) | Resumable interview workflows | Robust, transparent state |
 | [Parallel Worktrees](parallel-worktrees.md) | Git worktree isolation | Run multiple tasks at once |
 | [Builder-Reviewer Agents](builder-reviewer-agents.md) | Adversarial agent cooperation | Higher quality, reliable code |
 | [Eval System](eval-system.md) | Content-addressable attestation | Deterministic, traceable releases |
+| [SKILL.md Format](skill-format.md) | Canonical format for all rp1 prompts | Single source of truth, cross-platform |
 
 ---
 
@@ -95,7 +104,7 @@ Understanding the core ideas behind rp1 helps you get the most out of its workfl
 
 **Want context-aware output?** Read [Knowledge-Aware Agents](knowledge-aware-agents.md) to learn about the knowledge base.
 
-**Curious about architecture?** See [Command-Agent Pattern](command-agent-pattern.md) for the technical design.
+**Curious about architecture?** See [Skill-Agent Pattern](command-agent-pattern.md) for the technical design.
 
 **Need performance?** Check [Map-Reduce Workflows](map-reduce-workflows.md) for parallelization patterns.
 
@@ -106,3 +115,5 @@ Understanding the core ideas behind rp1 helps you get the most out of its workfl
 **Want reliable implementations?** See [Builder-Reviewer Agents](builder-reviewer-agents.md) for adversarial cooperation.
 
 **Building evals for prompts?** See [Eval System](eval-system.md) for content-addressable attestation.
+
+**Migrating commands to skills?** See [SKILL.md Format](skill-format.md) for the canonical format specification.

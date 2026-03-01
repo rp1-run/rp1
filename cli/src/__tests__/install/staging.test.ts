@@ -51,10 +51,14 @@ describe("staging", () => {
 			const pluginDir = join(tempDir, "plugin");
 			await writeFixture(
 				pluginDir,
-				"command/rp1-test/test-cmd.md",
-				"Command content",
+				"agents/rp1-test/test-agent.md",
+				"Agent content",
 			);
-			await writeFixture(pluginDir, "skill/my-skill/SKILL.md", "Skill content");
+			await writeFixture(
+				pluginDir,
+				"skills/rp1-my-skill/SKILL.md",
+				"Skill content",
+			);
 
 			const result = await expectTaskRight(copyToStaging([pluginDir]));
 
@@ -62,17 +66,17 @@ describe("staging", () => {
 			expect(result.filesCopied).toBeGreaterThan(0);
 
 			// Verify nested structure preserved
-			const cmdContent = await readFile(
-				join(stagingPath, "command/rp1-test/test-cmd.md"),
+			const agentContent = await readFile(
+				join(stagingPath, "agents/rp1-test/test-agent.md"),
 				"utf-8",
 			);
-			expect(cmdContent).toContain("Command content");
+			expect(agentContent).toContain("Agent content");
 		});
 
 		// Security requirement: staging dir must have restricted permissions
 		test("creates staging with user-only permissions (0o700)", async () => {
 			const pluginDir = join(tempDir, "plugin");
-			await writeFixture(pluginDir, "command/rp1-test/test.md", "content");
+			await writeFixture(pluginDir, "agents/rp1-test/test.md", "content");
 
 			await expectTaskRight(copyToStaging([pluginDir]));
 
@@ -93,7 +97,7 @@ describe("staging", () => {
 	describe("verifyStagingContents", () => {
 		// Core verification: expected plugins present
 		test("validates expected plugins exist", async () => {
-			await writeFixture(stagingPath, "command/rp1-test/cmd.md", "content");
+			await writeFixture(stagingPath, "agents/rp1-test/agent.md", "content");
 
 			const result = await expectTaskRight(
 				verifyStagingContents(stagingPath, ["test"]),

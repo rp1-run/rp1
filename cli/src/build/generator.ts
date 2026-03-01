@@ -190,9 +190,8 @@ export const generateManifest = (
 				skills: [...skills],
 			},
 			installation: {
-				commandsDir: "~/.config/opencode/command/",
-				agentsDir: "~/.config/opencode/agent/",
-				skillsDir: "~/.config/opencode/skill/",
+				agentsDir: "~/.config/opencode/agents/",
+				skillsDir: "~/.config/opencode/skills/",
 			},
 			requirements: {
 				opencodeVersion: ">=0.8.0",
@@ -215,6 +214,7 @@ export const generateManifest = (
 export const generateBundleManifest = (
 	baseAssets: BundlePluginAssets,
 	devAssets: BundlePluginAssets,
+	utilsAssets: BundlePluginAssets,
 	version: string,
 ): E.Either<CLIError, string> => {
 	try {
@@ -222,6 +222,7 @@ export const generateBundleManifest = (
 			plugins: {
 				base: baseAssets,
 				dev: devAssets,
+				utils: utilsAssets,
 			},
 			version,
 			buildTimestamp: new Date().toISOString(),

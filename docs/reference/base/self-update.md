@@ -15,7 +15,7 @@ Updates rp1 to the latest version using the appropriate package manager.
 === "OpenCode"
 
     ```bash
-    /rp1-base/self-update
+    /rp1-self-update
     ```
 
 ## Description
@@ -53,7 +53,7 @@ The command returns specific exit codes to indicate the result:
 === "OpenCode"
 
     ```bash
-    /rp1-base/self-update
+    /rp1-self-update
     ```
 
 **Expected output:**

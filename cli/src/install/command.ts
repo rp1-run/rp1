@@ -29,13 +29,12 @@ import {
 	getOpenCodeConfigDir,
 	registerRp1HooksPlugin,
 } from "./prerequisites.js";
-import { listInstalledCommands, verifyInstallation } from "./verifier.js";
+import { listInstalledSkills, verifyInstallation } from "./verifier.js";
 
 const { green, yellow, red, dim, bold, cyan } = colorFns;
 
 export interface InstallArgs {
 	artifactsDir: string | null;
-	skipSkills: boolean;
 	dryRun: boolean;
 	yes: boolean;
 	strict: boolean;
@@ -50,7 +49,6 @@ export const parseInstallArgs = (
 	args: string[],
 ): InstallArgs & { showHelp: boolean } => {
 	let artifactsDir: string | null = null;
-	let skipSkills = false;
 	let dryRun = false;
 	let showHelp = false;
 	let yes = false;
@@ -71,8 +69,6 @@ export const parseInstallArgs = (
 				continue;
 			}
 			artifactsDir = args[++i];
-		} else if (arg === "--skip-skills") {
-			skipSkills = true;
 		} else if (arg === "--dry-run") {
 			dryRun = true;
 		} else if (arg === "--yes" || arg === "-y") {
@@ -86,7 +82,7 @@ export const parseInstallArgs = (
 		}
 	}
 
-	return { artifactsDir, skipSkills, dryRun, showHelp, yes, strict };
+	return { artifactsDir, dryRun, showHelp, yes, strict };
 };
 
 /**
@@ -103,59 +99,46 @@ const executeInstallFromBundled = (
 	return pipe(
 		TE.fromEither(getBundledAssets()),
 		TE.chain((assets) => {
-			console.log(
-				bold("\n🚀 rp1-opencode Installation (from bundled assets)\n"),
-			);
-			console.log(dim(`Version: ${assets.version}\n`));
-
 			spinner.start("Checking prerequisites...");
 			return pipe(
 				checkOpenCodeInstalled(),
-				TE.chainFirst((result) => {
-					spinner.succeed(result.message);
-					return TE.right(undefined);
-				}),
 				TE.chain((result) => {
 					const versionResult = checkOpenCodeVersion(result.value ?? "");
 					if (E.isLeft(versionResult)) {
 						spinner.fail("Version check failed");
 						return TE.left(versionResult.left);
 					}
-					spinner.succeed(versionResult.right.message);
 					return TE.right(undefined);
 				}),
 				TE.chain(() => {
 					const targetDir = getOpenCodeConfigDir();
 					return pipe(
 						checkWritePermissions(targetDir),
-						TE.map((result) => {
-							spinner.succeed(result.message);
-							return { targetDir };
-						}),
+						TE.map(() => ({ targetDir })),
 					);
+				}),
+				TE.chainFirst(() => {
+					spinner.succeed("Prerequisites OK");
+					return TE.right(undefined);
 				}),
 				TE.chain(({ targetDir }) => {
 					if (config.dryRun) {
 						spinner.stop();
 						console.log(yellow("\nDRY RUN MODE - No files will be modified\n"));
 						console.log("Would install from bundled assets:");
-						const basePlugin = assets.plugins.base;
-						const hasBaseHooks = basePlugin.openCodePlugin !== undefined;
-						console.log(
-							`  • rp1-base: ${basePlugin.commands.length} commands, ${basePlugin.agents.length} agents, ${basePlugin.skills.length} skills`,
-						);
-						console.log(
-							`  • rp1-dev: ${assets.plugins.dev.commands.length} commands, ${assets.plugins.dev.agents.length} agents`,
-						);
-						if (hasBaseHooks) {
+						for (const p of [
+							assets.plugins.base,
+							assets.plugins.dev,
+							assets.plugins.utils,
+						]) {
 							console.log(
-								`  • Plugins: ${basePlugin.openCodePlugin?.name ?? "rp1-base-hooks"} (OpenCode session hooks)`,
+								`  • ${p.name}: ${p.agents.length} agents, ${p.skills.length} skills`,
 							);
 						}
 						return TE.right(undefined);
 					}
 
-					spinner.start("Extracting bundled plugins...");
+					spinner.start("Installing plugins...");
 					return pipe(
 						extractPlugins(assets, targetDir, (msg) => {
 							spinner.text = msg;
@@ -165,51 +148,46 @@ const executeInstallFromBundled = (
 								`Installed ${result.filesExtracted} files from ${result.plugins.length} plugins`,
 							);
 
-							spinner.start("Validating configuration...");
+							spinner.start("Registering hooks...");
 
 							return pipe(
 								registerRp1HooksPlugin(),
 								TE.map((registered) => {
 									if (registered) {
-										spinner.succeed("rp1-base-hooks plugin registered");
-										spinner.start("Validating configuration...");
+										spinner.succeed("Hooks registered");
+									} else {
+										spinner.succeed("Hooks OK");
 									}
-									spinner.succeed("Configuration validated");
 									return { targetDir };
 								}),
 							);
 						}),
 						TE.chain(() => {
 							spinner.start("Verifying installation...");
+							const allPlugins = [
+								assets.plugins.base,
+								assets.plugins.dev,
+								assets.plugins.utils,
+							];
+							// Count unique skill directories (entries are file-level, e.g. "rp1-build/SKILL.md")
+							const uniqueSkillDirs = new Set(
+								allPlugins.flatMap((p) =>
+									p.skills.map((s) => s.name.split("/")[0]),
+								),
+							);
+							const bundledCounts = {
+								agents: allPlugins.reduce((sum, p) => sum + p.agents.length, 0),
+								skills: uniqueSkillDirs.size,
+							};
 							return pipe(
-								verifyInstallation(undefined),
+								verifyInstallation(undefined, bundledCounts),
 								TE.map((report) => {
-									spinner.stop();
 									if (isHealthy(report)) {
-										console.log(
-											green(bold("\n✓ Installation complete and verified!")),
-										);
-										console.log(
-											dim(
-												`\nCommands: ${report.commandsFound}/${report.commandsExpected}`,
-											),
-										);
-										console.log(
-											dim(
-												`Agents: ${report.agentsFound}/${report.agentsExpected}`,
-											),
-										);
-										console.log(
-											dim(
-												`Skills: ${report.skillsFound}/${report.skillsExpected}`,
-											),
-										);
-										console.log(
-											dim(
-												`Plugins: ${report.pluginsFound}/${report.pluginsExpected}`,
-											),
+										spinner.succeed(
+											`Verified: ${report.skillsFound} skills, ${report.agentsFound} agents`,
 										);
 									} else {
+										spinner.stop();
 										console.log(
 											yellow("\n⚠ Installation complete with warnings"),
 										);
@@ -296,54 +274,40 @@ export const executeInstall = (
 			spinner.start("Checking prerequisites...");
 			return checkOpenCodeInstalled();
 		}),
-		TE.chainFirst((result) => {
-			spinner.succeed(result.message);
-			return TE.right(undefined);
-		}),
 		TE.chain((result) => {
 			const versionResult = checkOpenCodeVersion(result.value ?? "");
 			if (E.isLeft(versionResult)) {
 				spinner.fail("Version check failed");
 				return TE.left(versionResult.left);
 			}
-			spinner.succeed(versionResult.right.message);
 			return TE.right(undefined);
 		}),
 		TE.chain(() => {
 			const targetDir = getOpenCodeConfigDir();
 			return pipe(
 				checkWritePermissions(targetDir),
-				TE.map((result) => {
-					spinner.succeed(result.message);
-					return { skipSkills: config.skipSkills };
-				}),
+				TE.map(() => undefined),
 			);
 		}),
-		TE.chain((state) => {
+		TE.chainFirst(() => {
+			spinner.succeed("Prerequisites OK");
+			return TE.right(undefined);
+		}),
+		TE.chain(() => {
 			if (config.dryRun) {
 				spinner.stop();
 				console.log(yellow("\nDRY RUN MODE - No files will be modified\n"));
 				console.log(`Would install from: ${artifactsDir}`);
-				console.log("  • Base plugin: commands, agents, skills");
-				console.log("  • Dev plugin: commands, agents");
-				console.log("  • Plugins: rp1-base-hooks (OpenCode session hooks)");
+				console.log("  • Base plugin: agents, skills");
+				console.log("  • Dev plugin: agents, skills");
+				console.log("  • Hooks: rp1-base-hooks (OpenCode session hooks)");
 				return TE.right(undefined);
 			}
 
-			spinner.start("Discovering plugins...");
+			spinner.start("Installing plugins...");
 			return pipe(
 				discoverPlugins(artifactsDir),
 				TE.chain((plugins) => {
-					const pluginNames = plugins.map((p) => p.plugin).join(", ");
-					spinner.succeed(`Found ${plugins.length} plugin(s): ${pluginNames}`);
-
-					const allSkills = plugins.flatMap((p) => [...p.skills]);
-					if (allSkills.length > 0) {
-						console.log(dim(`  Skills to install: ${allSkills.join(", ")}`));
-					}
-
-					spinner.start("Installing rp1 artifacts...");
-
 					const pluginDirs = plugins.map((p) =>
 						join(artifactsDir, p.plugin.replace("rp1-", "")),
 					);
@@ -351,7 +315,6 @@ export const executeInstall = (
 					return pipe(
 						installRp1(
 							pluginDirs,
-							state.skipSkills,
 							(msg) => {
 								spinner.text = msg;
 							},
@@ -364,10 +327,10 @@ export const executeInstall = (
 									);
 									if (!proceed) {
 										console.log(yellow(`  Skipped: ${path}`));
-										spinner.start("Installing rp1 artifacts...");
+										spinner.start("Installing plugins...");
 										return;
 									}
-									spinner.start("Installing rp1 artifacts...");
+									spinner.start("Installing plugins...");
 								}
 								console.log(yellow(`  ⚠ Overwriting: ${path}`));
 							},
@@ -376,23 +339,23 @@ export const executeInstall = (
 						),
 						TE.chain((result) => {
 							spinner.succeed(
-								`Installed ${result.filesInstalled} total files across ${result.pluginsInstalled.length} plugins`,
+								`Installed ${result.filesInstalled} files from ${result.pluginsInstalled.length} plugins`,
 							);
 
 							for (const warning of result.warnings) {
 								console.log(yellow(`⚠ ${warning}`));
 							}
 
-							spinner.start("Validating configuration...");
+							spinner.start("Registering hooks...");
 
 							return pipe(
 								registerRp1HooksPlugin(),
 								TE.map((registered) => {
 									if (registered) {
-										spinner.succeed("rp1-base-hooks plugin registered");
-										spinner.start("Validating configuration...");
+										spinner.succeed("Hooks registered");
+									} else {
+										spinner.succeed("Hooks OK");
 									}
-									spinner.succeed("Configuration validated");
 									return { artifactsDir };
 								}),
 							);
@@ -402,32 +365,12 @@ export const executeInstall = (
 							return pipe(
 								verifyInstallation(verifyDir),
 								TE.map((report) => {
-									spinner.stop();
 									if (isHealthy(report)) {
-										console.log(
-											green(bold("\n✓ Installation complete and verified!")),
-										);
-										console.log(
-											dim(
-												`\nCommands: ${report.commandsFound}/${report.commandsExpected}`,
-											),
-										);
-										console.log(
-											dim(
-												`Agents: ${report.agentsFound}/${report.agentsExpected}`,
-											),
-										);
-										console.log(
-											dim(
-												`Skills: ${report.skillsFound}/${report.skillsExpected}`,
-											),
-										);
-										console.log(
-											dim(
-												`Plugins: ${report.pluginsFound}/${report.pluginsExpected}`,
-											),
+										spinner.succeed(
+											`Verified: ${report.skillsFound} skills, ${report.agentsFound} agents`,
 										);
 									} else {
+										spinner.stop();
 										console.log(
 											yellow("\n⚠ Installation complete with warnings"),
 										);
@@ -469,11 +412,11 @@ export const executeVerify = (
 			console.log("| Component | Found/Expect | Status |");
 			console.log("+-----------+--------------+--------+");
 
-			const cmdOk = report.commandsFound >= report.commandsExpected;
-			const cmdCount =
-				`${report.commandsFound}/${report.commandsExpected}`.padEnd(12);
+			const skillOk = report.skillsFound >= report.skillsExpected;
+			const skillCount =
+				`${report.skillsFound}/${report.skillsExpected}`.padEnd(12);
 			console.log(
-				`| Commands  | ${cmdCount} | ${cmdOk ? green("  OK  ") : red(" MISS ")} |`,
+				`| Skills    | ${skillCount} | ${skillOk ? green("  OK  ") : red(" MISS ")} |`,
 			);
 
 			const agentOk = report.agentsFound >= report.agentsExpected;
@@ -483,18 +426,11 @@ export const executeVerify = (
 				`| Agents    | ${agentCount} | ${agentOk ? green("  OK  ") : red(" MISS ")} |`,
 			);
 
-			const skillOk = report.skillsFound >= report.skillsExpected;
-			const skillCount =
-				`${report.skillsFound}/${report.skillsExpected}`.padEnd(12);
-			console.log(
-				`| Skills    | ${skillCount} | ${skillOk ? green("  OK  ") : yellow(" WARN ")} |`,
-			);
-
 			const pluginOk = report.pluginsFound >= report.pluginsExpected;
 			const pluginCount =
 				`${report.pluginsFound}/${report.pluginsExpected}`.padEnd(12);
 			console.log(
-				`| Plugins   | ${pluginCount} | ${pluginOk ? green("  OK  ") : yellow(" WARN ")} |`,
+				`| Hooks     | ${pluginCount} | ${pluginOk ? green("  OK  ") : yellow(" WARN ")} |`,
 			);
 
 			console.log("+-----------+--------------+--------+");
@@ -512,7 +448,7 @@ export const executeVerify = (
 				console.log(red(bold("\nInstallation incomplete")));
 				console.log(dim("\nRemediation:"));
 				console.log(dim("  Install missing components with:"));
-				console.log(cyan("    rp1 install:opencode"));
+				console.log(cyan("    rp1 install opencode"));
 				process.exit(1);
 			}
 		}),
@@ -523,37 +459,36 @@ export const executeList = (
 	_args: string[],
 	_logger: Logger,
 ): TE.TaskEither<CLIError, void> => {
-	console.log(bold("\n📋 Installed rp1 Commands\n"));
+	console.log(bold("\n📋 Installed rp1 Skills\n"));
 
 	return pipe(
-		listInstalledCommands(),
-		TE.map((commands) => {
-			if (commands.length === 0) {
-				console.log(yellow("No rp1 commands found"));
+		listInstalledSkills(),
+		TE.map((skills) => {
+			if (skills.length === 0) {
+				console.log(yellow("No rp1 skills found"));
 				return;
 			}
 
 			console.log(
-				"┌────────┬─────────────────────────────────────┬────────────────────────────────────────────────────────────┐",
+				"┌─────────────────────────────────────────┬────────────────────────────────────────────────────────────┐",
 			);
 			console.log(
-				"│ Plugin │ Command                             │ Description                                                │",
+				"│ Skill                                   │ Description                                                │",
 			);
 			console.log(
-				"├────────┼─────────────────────────────────────┼────────────────────────────────────────────────────────────┤",
+				"├─────────────────────────────────────────┼────────────────────────────────────────────────────────────┤",
 			);
 
-			for (const cmd of commands) {
-				const plugin = cmd.plugin.padEnd(6);
-				const name = cmd.name.padEnd(35);
-				const desc = cmd.description.slice(0, 58).padEnd(58);
-				console.log(`│ ${plugin} │ ${name} │ ${desc} │`);
+			for (const skill of skills) {
+				const name = skill.name.padEnd(39);
+				const desc = skill.description.slice(0, 58).padEnd(58);
+				console.log(`│ ${name} │ ${desc} │`);
 			}
 
 			console.log(
-				"└────────┴─────────────────────────────────────┴────────────────────────────────────────────────────────────┘",
+				"└─────────────────────────────────────────┴────────────────────────────────────────────────────────────┘",
 			);
-			console.log(dim(`\nTotal: ${commands.length} commands`));
+			console.log(dim(`\nTotal: ${skills.length} skills`));
 		}),
 	);
 };

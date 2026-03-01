@@ -15,7 +15,7 @@ Incorporates mid-stream changes into feature documentation with validation and p
 === "OpenCode"
 
     ```bash
-    /rp1-dev/feature-edit <feature-id> <edit-description>
+    /rp1-feature-edit <feature-id> <edit-description>
     ```
 
 ## Description
@@ -51,7 +51,7 @@ The command validates edits against:
 === "OpenCode"
 
     ```bash
-    /rp1-dev/feature-edit user-auth "Add remember-me checkbox option"
+    /rp1-feature-edit user-auth "Add remember-me checkbox option"
     ```
 
 **Example interaction:**

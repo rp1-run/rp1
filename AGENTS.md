@@ -5,10 +5,10 @@
 **What is this?** Multi Agentic Tool plugins that automate development workflows through constitutional prompting.
 **Plugins**:
 
-- **rp1-base**: Knowledge management, documentation, strategy, security (6 commands, 9 agents, 4 skills)
-- **rp1-dev**: Feature workflows, code quality, PR management, testing (15 commands, 9 agents)
-- rp1-utils: Shared utilities (no commands/agents)
-**Key Concept**: Commands delegate to agents that execute complete workflows autonomously (no iterative refinement).
+- **rp1-base**: Knowledge management, documentation, strategy, security (15 skills, 13 agents)
+- **rp1-dev**: Feature workflows, code quality, PR management, testing (19 skills, 32 agents)
+- **rp1-utils**: Prompt utilities (5 skills, 4 agents)
+**Key Concept**: Skills delegate to agents that execute complete workflows autonomously (no iterative refinement).
 
 ---
 
@@ -18,9 +18,9 @@
 
 | Task | Action |
 |------|--------|
-| Add new command | See "Development Patterns" below |
+| Add new skill | See "Development Patterns" below |
 | Understand a pattern | Read KB files + sample agent code |
-| Fix broken command | Check namespace prefix rules below |
+| Fix broken skill | Check namespace prefix rules below |
 | Test changes | See "Testing" section below |
 | Working with Browser features | use skill: agent-browser    |
 
@@ -164,59 +164,58 @@ argument-hint: "<feature-id> [requirements] [--afk] [--git-worktree]"
 
 ### Namespace Prefixes (ALWAYS USE THESE)
 
-**Commands**:
+**Skills** (invocable via slash commands -- all commands are now skills in SKILL.md format):
 
-- ✅ `/rp1-base:command-name` - Base plugin commands
-- ✅ `/rp1-dev:command-name` - Dev plugin commands
-
-**Skills** (all in base):
-
-- ✅ `rp1-base:skill-name` - Always use base prefix
+- ✅ `/rp1-base:skill-name` - Base plugin skills
+- ✅ `/rp1-dev:skill-name` - Dev plugin skills
+- ✅ `/rp1-utils:skill-name` - Utils plugin skills
 
 **Agent References**:
 
-- ✅ `subagent_type: rp1-base:agent-name` - For claude code
+- ✅ `subagent_type: rp1-base:agent-name` - For Claude Code
 - ✅ `subagent_type: @rp1-dev/agent-name` - For OpenCode
 
 ### Allowed-Tools Pattern (Claude Code)
 
-**Purpose**: Pre-authorize Bash commands in command frontmatter to avoid permission prompts during execution.
+**Purpose**: Pre-authorize Bash commands in SKILL.md frontmatter to avoid permission prompts during execution.
 
-**When to Use**: Add `allowed-tools` to command files that use:
+**When to Use**: Add `allowed-tools` to skill files that use:
 
 | Pattern | Use Case | Example |
 |---------|----------|---------|
 | `Bash(echo *)` | Shell parameter expansion with `${}` syntax | `!`echo ${RP1_ROOT:-.rp1/}`` |
-| `Bash(rp1 *)` | rp1 CLI invocations | `rp1 agent-tools work update` |
+| `Bash(rp1 *)` | rp1 CLI invocations (e.g., `rp1 agent-tools worktree`, `rp1 agent-tools work`) | `rp1 agent-tools work update` |
 | `Bash(printf *)` | Formatted output with special characters | `printf '%s\n' "$VAR"` |
 
-**Frontmatter Example**:
+**Default**: All rp1 skills should include both `Bash(echo *)` and `Bash(rp1 *)` in `allowed-tools`. `Bash(echo *)` enables environment variable resolution; `Bash(rp1 *)` enables rp1 agent-tools calls (work update, worktree, mmd-validate, github-pr, etc.).
+
+**Frontmatter Example** (SKILL.md format):
 
 ```yaml
 ---
-name: my-command
-version: 1.0.0
-description: Command that uses parameter expansion
-allowed-tools:
-  - Bash(echo *)
-  - Bash(rp1 *)
-argument-hint: "[args]"
-tags:
-  - workflow
+name: my-skill
+description: "Skill that uses parameter expansion and rp1 CLI tools."
+allowed-tools: Bash(echo *), Bash(rp1 *), Read, Write, Edit, Glob, Grep, Task
+metadata:
+  version: 1.0.0
+  tags:
+    - workflow
+  created: 2026-01-01
+  author: cloud-on-prem/rp1
+  argument-hint: "[args]"
 ---
 ```
 
-**Placement Rule**: `allowed-tools` appears after `description`, before `argument-hint` or other metadata fields.
+**Placement Rule**: `allowed-tools` is a top-level field in SKILL.md frontmatter (comma-separated string for Claude Code). The build pipeline converts it to a YAML list for OpenCode.
 
 **Agent Files Do NOT Need This**:
 
-Subagents automatically inherit Bash permissions from their parent commands per Claude Code documentation. Only command files require `allowed-tools` frontmatter.
+Subagents automatically inherit Bash permissions from their parent skills per Claude Code documentation. Only skill files (entry points) require `allowed-tools` frontmatter.
 
 | File Type | Requires allowed-tools | Reason |
 |-----------|------------------------|--------|
-| Commands (`commands/*.md`) | Yes, if using Bash patterns | Entry point for permission grants |
-| Agents (`agents/*.md`) | No | Inherits from parent command |
-| Skills (`skills/*.md`) | No | Loaded by commands/agents |
+| Skills (`skills/*/SKILL.md`) | Yes, if using Bash patterns | Entry point for permission grants |
+| Agents (`agents/*.md`) | No | Inherits from parent skill |
 
 **OpenCode Compatibility**: OpenCode ignores unknown frontmatter fields, so `allowed-tools` has no effect but causes no errors.
 
@@ -239,14 +238,16 @@ If command fails, inform user to install:
 
 | Plugin | Contains |
 |--------|----------|
-| **base** | Knowledge, docs, strategy, security, content writing, **all skills** |
-| **dev** | Features, code quality, PRs, testing (depends on base) |
+| **base** | Knowledge, docs, strategy, security, content writing (15 skills, 13 agents) |
+| **dev** | Features, code quality, PRs, testing (19 skills, 32 agents; depends on base) |
+| **utils** | Prompt optimization, eval generation (5 skills, 4 agents) |
 
 **Decision Guide**:
 
 - Foundation/utility → base
 - Development workflow → dev
-- Shared capability → skill in base
+- Prompt tooling → utils
+- Shared capability (reusable by other skills/agents) → skill in base
 
 ---
 
@@ -262,7 +263,9 @@ If command fails, inform user to install:
 
 4. Use appropriate lsps when writing or looking for code.
 
-### Adding a New Command
+### Adding a New Skill
+
+All rp1 invocable prompts use the [SKILL.md canonical format](docs/concepts/skill-format.md).
 
 1. **Choose plugin**: base or dev or utils?
 2. **Create agent** (if needed):
@@ -271,23 +274,26 @@ If command fails, inform user to install:
    touch plugins/{plugin}/agents/my-agent.md
    ```
 
-3. **Create command**:
+3. **Create skill directory and SKILL.md**:
 
    ```bash
-   touch plugins/{plugin}/commands/my-command.md
+   mkdir -p plugins/{plugin}/skills/my-skill/
+   touch plugins/{plugin}/skills/my-skill/SKILL.md
    ```
+
+   Use the SKILL.md frontmatter schema: `name`, `description`, `allowed-tools` at top level; rp1-specific fields (`version`, `tags`, `created`, `author`, `argument-hint`) in the `metadata` map. See [SKILL.md Format Spec](docs/concepts/skill-format.md) for details.
 
 4. **Update README**:
 
    ```bash
    # Add to plugins/{plugin}/README.md
-   - `/rp1-{plugin}:my-command` - Description
+   - `/rp1-{plugin}:my-skill` - Description
    ```
 
 5. **Commit with conventional format**:
 
    ```bash
-   git commit -m "feat(plugin): add my-command"
+   git commit -m "feat(plugin): add my-skill"
    ```
 
 ### Constitutional Agent Pattern
@@ -312,21 +318,21 @@ just # run just to read about various test/lint commands
 
 **After making changes**:
 
-- [ ] Command references use proper namespace prefix
+- [ ] Skill references use proper namespace prefix
 - [ ] Agent follows constitutional pattern
 - [ ] Anti-loop directives present
 - [ ] **Agent prompt is crisp and concise (200-300 lines max)**
 - [ ] **No verbose explanations or inline examples**
 - [ ] Cross-plugin calls have error handling
-- [ ] README updated (if new command)
+- [ ] README updated (if new skill)
 - [ ] Conventional commit format used
 - [ ] When modifying cli, tests pass with format/lint checks (use just)
 
 **Before merging**:
 
 - [ ] Both plugins install successfully
-- [ ] Commands appear in `/help`
-- [ ] Test command execution
+- [ ] Skills appear in `/help`
+- [ ] Test skill execution
 - [ ] Cross-plugin KB loading works (if KB-aware)
 
 ### Documentation

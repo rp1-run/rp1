@@ -8,8 +8,8 @@ import { pipe } from "fp-ts/function";
 import * as TE from "fp-ts/TaskEither";
 import type {
 	AttestationManifest,
-	CommandAttestation,
 	HashResult,
+	SkillAttestation,
 } from "./types.js";
 
 const MANIFEST_PATH = "evals/attestation.json";
@@ -21,7 +21,7 @@ const SCHEMA_VERSION = "1.0.0";
 export function emptyManifest(): AttestationManifest {
 	return {
 		schema_version: SCHEMA_VERSION,
-		commands: {},
+		skills: {},
 		files: {},
 	};
 }
@@ -64,12 +64,12 @@ export function saveManifest(
 }
 
 /**
- * Update manifest with new attestation for a command.
+ * Update manifest with new attestation for a skill.
  */
 export function updateManifest(
 	manifest: AttestationManifest,
-	commandKey: string,
-	attestation: CommandAttestation,
+	skillKey: string,
+	attestation: SkillAttestation,
 	fileHashes: readonly HashResult[],
 ): AttestationManifest {
 	const updatedFiles = { ...manifest.files };
@@ -79,9 +79,9 @@ export function updateManifest(
 
 	return {
 		...manifest,
-		commands: {
-			...manifest.commands,
-			[commandKey]: attestation,
+		skills: {
+			...manifest.skills,
+			[skillKey]: attestation,
 		},
 		files: updatedFiles,
 	};

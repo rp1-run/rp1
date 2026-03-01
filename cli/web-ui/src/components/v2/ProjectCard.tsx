@@ -24,6 +24,7 @@ function truncatePath(path: string, maxLength = 50): string {
 function AvailabilityIndicator({ available }: { available: boolean }) {
 	if (available) {
 		return (
+			// biome-ignore lint/a11y/useSemanticElements: span with role="status" is preferred over output element for inline status badges
 			<span
 				className="inline-flex shrink-0 items-center gap-1 rounded-full bg-status-completed/15 px-2 py-0.5 text-xs font-medium text-status-completed"
 				role="status"
@@ -35,6 +36,7 @@ function AvailabilityIndicator({ available }: { available: boolean }) {
 		);
 	}
 	return (
+		// biome-ignore lint/a11y/useSemanticElements: span with role="status" is preferred over output element for inline status badges
 		<span
 			className="inline-flex shrink-0 items-center gap-1 rounded-full bg-status-failed/15 px-2 py-0.5 text-xs font-medium text-status-failed"
 			role="status"

@@ -15,7 +15,7 @@ Thorough code review that understands what your PR is trying to accomplish and c
 === "OpenCode"
 
     ```bash
-    /rp1-dev/pr-review [target] [base-branch]
+    /rp1-pr-review [target] [base-branch]
     ```
 
 ## Description
@@ -123,7 +123,7 @@ Findings are filtered by confidence level:
 === "OpenCode"
 
     ```bash
-    /rp1-dev/pr-review
+    /rp1-pr-review
     ```
 
 ### Review Specific PR
@@ -137,7 +137,7 @@ Findings are filtered by confidence level:
 === "OpenCode"
 
     ```bash
-    /rp1-dev/pr-review 123
+    /rp1-pr-review 123
     ```
 
 **Example output:**

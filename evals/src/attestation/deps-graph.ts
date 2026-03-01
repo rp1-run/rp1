@@ -8,7 +8,7 @@ import * as TE from "fp-ts/TaskEither";
 import type { DependencyGraph } from "./types.js";
 
 /**
- * Pattern for detecting agent references in command files.
+ * Pattern for detecting agent references in skill files.
  * Matches: Task: plugin:agent-name
  */
 const TASK_PATTERN = /Task:\s*(\w+-\w+):(\w[\w-]*)/g;
@@ -34,9 +34,9 @@ export const PLUGIN_SUFFIXES = Object.keys(PLUGIN_PATHS).map((k) =>
 );
 
 /**
- * Parse a command file to extract agent dependencies.
+ * Parse a skill file to extract agent dependencies.
  *
- * @param content - The command file content to parse
+ * @param content - The skill file content to parse
  * @returns Array of agent file paths (deduplicated)
  */
 export function parseAgentRefs(content: string): readonly string[] {
@@ -75,21 +75,21 @@ export function parseSkillRefs(content: string): readonly string[] {
 }
 
 /**
- * Build complete dependency graph for a command.
- * Parses the command file for agent references, then each agent for skill references.
+ * Build complete dependency graph for a skill source file.
+ * Parses the SKILL.md for agent references, then each agent for skill references.
  *
- * @param commandPath - Path to the command file
+ * @param promptPath - Path to the skill source file (skills/{name}/SKILL.md)
  * @returns TaskEither with dependency graph or error
  */
 export function buildDependencyGraph(
-	commandPath: string,
+	promptPath: string,
 ): TE.TaskEither<Error, DependencyGraph> {
 	return pipe(
 		TE.tryCatch(
 			async () => {
-				const commandFile = Bun.file(commandPath);
-				const commandContent = await commandFile.text();
-				const agentPaths = parseAgentRefs(commandContent);
+				const promptFile = Bun.file(promptPath);
+				const promptContent = await promptFile.text();
+				const agentPaths = parseAgentRefs(promptContent);
 
 				const skillPaths: string[] = [];
 				for (const agentPath of agentPaths) {
@@ -100,12 +100,12 @@ export function buildDependencyGraph(
 					}
 				}
 
-				const match = commandPath.match(/commands\/(.+)\.md$/);
-				const commandName = match ? match[1] : commandPath;
+				const skillMatch = promptPath.match(/skills\/([^/]+)\/SKILL\.md$/);
+				const skillName = skillMatch ? skillMatch[1] : promptPath;
 
 				return {
-					command: commandName,
-					commandPath,
+					skill: skillName,
+					skillPath: promptPath,
 					agents: agentPaths,
 					skills: [...new Set(skillPaths)],
 				};

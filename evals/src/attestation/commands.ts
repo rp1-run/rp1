@@ -12,9 +12,9 @@ import { buildDependencyGraph, PLUGIN_SUFFIXES } from "./deps-graph.js";
 import { loadManifest, saveManifest, updateManifest } from "./manifest.js";
 import { computeDepsHash, computePromptHash } from "./prompt-hash.js";
 import type {
-	CommandAttestation,
 	DependencyGraph,
 	HashResult,
+	SkillAttestation,
 	VerificationResult,
 	VerificationSummary,
 } from "./types.js";
@@ -40,10 +40,10 @@ interface PromptfooOutput {
 }
 
 /**
- * Map suite path to command key.
+ * Map suite path to skill key.
  * e.g., "rp1-dev/build-fast" -> "rp1-dev:build-fast"
  */
-function suiteToCommandKey(suite: string): string {
+function suiteToSkillKey(suite: string): string {
 	return suite.replace("/", ":");
 }
 
@@ -54,7 +54,7 @@ function suiteToCommandKey(suite: string): string {
  * - "rp1-dev-build-fast-2026-01-22T10-30-00.json" -> "rp1-dev/build-fast" (legacy)
  *
  * @param outputPath - Path to the output file
- * @returns Suite path in format "plugin/command"
+ * @returns Suite path in format "plugin/skill"
  */
 export function extractSuiteFromFilename(outputPath: string): string {
 	const filename = path.basename(outputPath, ".json");
@@ -65,7 +65,7 @@ export function extractSuiteFromFilename(outputPath: string): string {
 		"",
 	);
 	// Convert plugin prefix separator to slash
-	// Pattern: rp1-{plugin}-{command} -> rp1-{plugin}/{command}
+	// Pattern: rp1-{plugin}-{skill} -> rp1-{plugin}/{skill}
 	// Use PLUGIN_SUFFIXES as single source of truth
 	const pluginPattern = new RegExp(
 		`^(rp1-(?:${PLUGIN_SUFFIXES.join("|")}))-(.+)$`,
@@ -97,13 +97,13 @@ export function detectPassRate(output: PromptfooOutput): boolean {
 }
 
 /**
- * Map suite path to command file path (relative to repo root).
- * e.g., "rp1-dev/build-fast" -> "plugins/dev/commands/build-fast.md"
+ * Map suite path to skill file path (relative to repo root).
+ * e.g., "rp1-dev/build-fast" -> "plugins/dev/skills/build-fast/SKILL.md"
  */
-function suiteToCommandPath(suite: string): string {
-	const [plugin, command] = suite.split("/");
+function suiteToSkillPath(suite: string): string {
+	const [plugin, skill] = suite.split("/");
 	const pluginDir = plugin.replace("rp1-", "");
-	return `plugins/${pluginDir}/commands/${command}.md`;
+	return `plugins/${pluginDir}/skills/${skill}/SKILL.md`;
 }
 
 /**
@@ -119,13 +119,21 @@ async function getGitCommit(): Promise<string> {
 }
 
 /**
- * Get command version from frontmatter.
+ * Get skill version from frontmatter metadata map.
+ * Looks for `metadata.version` in SKILL.md frontmatter.
+ * Falls back to top-level `version:` for backward compat.
  */
-async function getCommandVersion(commandPath: string): Promise<string> {
-	const file = Bun.file(commandPath);
+async function getSkillVersion(skillPath: string): Promise<string> {
+	const file = Bun.file(skillPath);
 	const content = await file.text();
-	const match = content.match(/^---[\s\S]*?version:\s*([^\n]+)/);
-	return match ? match[1].trim() : "0.0.0";
+	const metadataMatch = content.match(
+		/^---[\s\S]*?metadata:\s*\n[\s\S]*?version:\s*([^\n]+)/,
+	);
+	if (metadataMatch) {
+		return metadataMatch[1].trim();
+	}
+	const topLevelMatch = content.match(/^---[\s\S]*?version:\s*([^\n]+)/);
+	return topLevelMatch ? topLevelMatch[1].trim() : "0.0.0";
 }
 
 /**
@@ -171,7 +179,7 @@ function runEvalSuite(
 function computeAllHashes(
 	graph: DependencyGraph,
 ): TE.TaskEither<Error, readonly HashResult[]> {
-	const allPaths = [graph.commandPath, ...graph.agents, ...graph.skills];
+	const allPaths = [graph.skillPath, ...graph.agents, ...graph.skills];
 	return pipe(
 		allPaths,
 		A.map(computePromptHash),
@@ -180,7 +188,7 @@ function computeAllHashes(
 }
 
 /**
- * Attest a command after running its eval suite.
+ * Attest a skill after running its eval suite.
  * Only updates attestation on 100% pass.
  * Uses a fixed output filename per suite (overwrites on each run).
  *
@@ -192,8 +200,8 @@ export function attestCommand(
 	suite: string,
 	concurrency = 1,
 ): TE.TaskEither<Error, { updated: boolean; message: string }> {
-	const commandKey = suiteToCommandKey(suite);
-	const commandPath = suiteToCommandPath(suite);
+	const skillKey = suiteToSkillKey(suite);
+	const skillPath = suiteToSkillPath(suite);
 	const timestamp = new Date().toISOString();
 	// Fixed filename per suite (no timestamp accumulation)
 	const resultFile = `output/${suite.replace("/", "-")}.json`;
@@ -220,11 +228,11 @@ export function attestCommand(
 				return pipe(
 					TE.Do,
 					TE.bind("manifest", () => loadManifest()),
-					TE.bind("graph", () => buildDependencyGraph(commandPath)),
+					TE.bind("graph", () => buildDependencyGraph(skillPath)),
 					TE.bind("hashes", ({ graph }) => computeAllHashes(graph)),
 					TE.bind("version", () =>
 						TE.tryCatch(
-							() => getCommandVersion(commandPath),
+							() => getSkillVersion(skillPath),
 							(e) => new Error(`Failed to get version: ${e}`),
 						),
 					),
@@ -235,9 +243,8 @@ export function attestCommand(
 						),
 					),
 					TE.chain(({ manifest, hashes, version, gitCommit }) => {
-						const attestation: CommandAttestation = {
-							prompt_hash:
-								hashes.find((h) => h.path === commandPath)?.hash || "",
+						const attestation: SkillAttestation = {
+							prompt_hash: hashes.find((h) => h.path === skillPath)?.hash || "",
 							deps_hash: computeDepsHash(hashes),
 							version,
 							last_eval: {
@@ -250,7 +257,7 @@ export function attestCommand(
 
 						const updatedManifest = updateManifest(
 							manifest,
-							commandKey,
+							skillKey,
 							attestation,
 							hashes,
 						);
@@ -258,7 +265,7 @@ export function attestCommand(
 							saveManifest(updatedManifest),
 							TE.map(() => ({
 								updated: true as boolean,
-								message: `Attestation updated for ${commandKey}`,
+								message: `Attestation updated for ${skillKey}`,
 							})),
 						);
 					}),
@@ -296,8 +303,8 @@ export function attestFromOutput(
 		TE.chain(({ output }) => {
 			const passed = detectPassRate(output);
 			const suite = extractSuiteFromFilename(outputPath);
-			const commandKey = suiteToCommandKey(suite);
-			const commandPath = suiteToCommandPath(suite);
+			const skillKey = suiteToSkillKey(suite);
+			const skillPath = suiteToSkillPath(suite);
 			const timestamp = output.results.timestamp;
 
 			if (!passed) {
@@ -310,11 +317,11 @@ export function attestFromOutput(
 			return pipe(
 				TE.Do,
 				TE.bind("manifest", () => loadManifest()),
-				TE.bind("graph", () => buildDependencyGraph(commandPath)),
+				TE.bind("graph", () => buildDependencyGraph(skillPath)),
 				TE.bind("hashes", ({ graph }) => computeAllHashes(graph)),
 				TE.bind("version", () =>
 					TE.tryCatch(
-						() => getCommandVersion(commandPath),
+						() => getSkillVersion(skillPath),
 						(e) => new Error(`Failed to get version: ${e}`),
 					),
 				),
@@ -325,8 +332,8 @@ export function attestFromOutput(
 					),
 				),
 				TE.chain(({ manifest, hashes, version, gitCommit }) => {
-					const attestation: CommandAttestation = {
-						prompt_hash: hashes.find((h) => h.path === commandPath)?.hash || "",
+					const attestation: SkillAttestation = {
+						prompt_hash: hashes.find((h) => h.path === skillPath)?.hash || "",
 						deps_hash: computeDepsHash(hashes),
 						version,
 						last_eval: {
@@ -339,7 +346,7 @@ export function attestFromOutput(
 
 					const updatedManifest = updateManifest(
 						manifest,
-						commandKey,
+						skillKey,
 						attestation,
 						hashes,
 					);
@@ -347,7 +354,7 @@ export function attestFromOutput(
 						saveManifest(updatedManifest),
 						TE.map(() => ({
 							updated: true as boolean,
-							message: `Attestation updated for ${commandKey}`,
+							message: `Attestation updated for ${skillKey}`,
 						})),
 					);
 				}),
@@ -357,24 +364,24 @@ export function attestFromOutput(
 }
 
 /**
- * Verify a single command's attestation against current file hashes.
+ * Verify a single skill's attestation against current file hashes.
  */
-function verifyCommand(
-	commandKey: string,
-	attestation: CommandAttestation,
+function verifySkill(
+	skillKey: string,
+	attestation: SkillAttestation,
 ): TE.TaskEither<Error, VerificationResult> {
-	const suite = commandKey.replace(":", "/");
-	const commandPath = suiteToCommandPath(suite);
+	const suite = skillKey.replace(":", "/");
+	const skillPath = suiteToSkillPath(suite);
 
 	return pipe(
-		buildDependencyGraph(commandPath),
+		buildDependencyGraph(skillPath),
 		TE.chain((graph) => computeAllHashes(graph)),
 		TE.map((hashes): VerificationResult => {
 			const currentDepsHash = computeDepsHash(hashes);
 
 			if (currentDepsHash !== attestation.deps_hash) {
 				return {
-					command: commandKey,
+					skill: skillKey,
 					status: "stale",
 					reason: "Dependency hash mismatch",
 					expected_hash: attestation.deps_hash,
@@ -383,13 +390,13 @@ function verifyCommand(
 			}
 
 			return {
-				command: commandKey,
+				skill: skillKey,
 				status: "current",
 			};
 		}),
 		TE.orElse((error) =>
 			TE.right<Error, VerificationResult>({
-				command: commandKey,
+				skill: skillKey,
 				status: "missing",
 				reason: error.message,
 			}),
@@ -398,10 +405,10 @@ function verifyCommand(
 }
 
 /**
- * Verify attestation currency for all commands in manifest.
+ * Verify attestation currency for all skills in manifest.
  * Compares current file hashes against stored attestations.
  *
- * @returns TaskEither with VerificationSummary containing results for all commands
+ * @returns TaskEither with VerificationSummary containing results for all skills
  */
 export function verifyAttestations(): TE.TaskEither<
 	Error,
@@ -411,8 +418,8 @@ export function verifyAttestations(): TE.TaskEither<
 		loadManifest(),
 		TE.chain((manifest) =>
 			pipe(
-				Object.entries(manifest.commands),
-				A.map(([key, attestation]) => verifyCommand(key, attestation)),
+				Object.entries(manifest.skills),
+				A.map(([key, attestation]) => verifySkill(key, attestation)),
 				A.sequence(TE.ApplicativePar),
 			),
 		),
@@ -434,7 +441,7 @@ export function verifyAttestations(): TE.TaskEither<
 }
 
 /**
- * Get status of all commands needing re-attestation.
+ * Get status of all skills needing re-attestation.
  * Alias for verifyAttestations with same output format.
  *
  * @returns TaskEither with VerificationSummary showing current/stale/missing counts

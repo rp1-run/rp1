@@ -27,7 +27,6 @@ import { colorFns } from "../lib/colors.js";
 import {
 	generateAgentFile,
 	generateBundleManifest,
-	generateCommandFile,
 	generateManifest,
 	generateSkillFile,
 } from "./generator.js";
@@ -38,14 +37,10 @@ import type {
 	BundlePluginAssets,
 	OpenCodePluginAsset,
 } from "./models.js";
-import { parseAgent, parseCommand, parseSkill } from "./parser.js";
+import { parseAgent, parseSkill } from "./parser.js";
 import { defaultRegistry } from "./registry.js";
-import {
-	transformAgent,
-	transformCommand,
-	transformSkill,
-} from "./transformations.js";
-import { validateAgent, validateCommand, validateSkill } from "./validator.js";
+import { transformAgent, transformSkill } from "./transformations.js";
+import { validateAgent, validateSkill } from "./validator.js";
 
 /**
  * Parse build command arguments.
@@ -74,21 +69,27 @@ export const parseBuildArgs = (
 			);
 		} else if (arg === "--plugin" || arg === "-p") {
 			const value = args[++i];
-			if (!value || !["base", "dev", "all"].includes(value)) {
-				return E.left(usageError("--plugin must be 'base', 'dev', or 'all'"));
+			if (!value || !["base", "dev", "utils", "all"].includes(value)) {
+				return E.left(
+					usageError("--plugin must be 'base', 'dev', 'utils', or 'all'"),
+				);
 			}
-			(config as { plugin: "base" | "dev" | "all" }).plugin = value as
+			(config as { plugin: "base" | "dev" | "utils" | "all" }).plugin = value as
 				| "base"
 				| "dev"
+				| "utils"
 				| "all";
 		} else if (arg.startsWith("--plugin=")) {
 			const value = arg.slice("--plugin=".length);
-			if (!["base", "dev", "all"].includes(value)) {
-				return E.left(usageError("--plugin must be 'base', 'dev', or 'all'"));
+			if (!["base", "dev", "utils", "all"].includes(value)) {
+				return E.left(
+					usageError("--plugin must be 'base', 'dev', 'utils', or 'all'"),
+				);
 			}
-			(config as { plugin: "base" | "dev" | "all" }).plugin = value as
+			(config as { plugin: "base" | "dev" | "utils" | "all" }).plugin = value as
 				| "base"
 				| "dev"
+				| "utils"
 				| "all";
 		} else if (arg === "--json") {
 			(config as { jsonOutput: boolean }).jsonOutput = true;
@@ -113,7 +114,7 @@ ${bold("Usage:")}
 
 ${bold("Options:")}
   -o, --output-dir <dir>   Output directory (default: dist/opencode/)
-  -p, --plugin <name>      Build specific plugin (base, dev, or all)
+  -p, --plugin <name>      Build specific plugin (base, dev, utils, or all)
   --json                   Output results as JSON for CI/CD
   -h, --help               Show this help message
 
@@ -199,6 +200,27 @@ const getSkillDirs = async (skillsDir: string): Promise<string[]> => {
 	} catch {
 		return [];
 	}
+};
+
+/**
+ * Recursively collect all file paths relative to a directory.
+ */
+const collectAllFiles = async (dir: string, prefix = ""): Promise<string[]> => {
+	const files: string[] = [];
+	try {
+		const entries = await readdir(dir, { withFileTypes: true });
+		for (const entry of entries) {
+			const relPath = prefix ? `${prefix}/${entry.name}` : entry.name;
+			if (entry.isDirectory()) {
+				files.push(...(await collectAllFiles(join(dir, entry.name), relPath)));
+			} else if (entry.isFile()) {
+				files.push(relPath);
+			}
+		}
+	} catch {
+		// Directory doesn't exist
+	}
+	return files;
 };
 
 /**
@@ -320,7 +342,7 @@ const getOpenCodePluginName = (pluginName: string): string => {
 /**
  * Extended build result with asset paths for bundle manifest.
  */
-interface PluginBuildResult {
+export interface PluginBuildResult {
 	summary: BuildSummary;
 	assets: BundlePluginAssets;
 	hasOpenCodePlugin: boolean;
@@ -328,8 +350,9 @@ interface PluginBuildResult {
 
 /**
  * Build a single plugin.
+ * Processes skills from all plugins.
  */
-const buildPlugin = async (
+export const buildPlugin = async (
 	pluginName: string,
 	projectRoot: string,
 	outputPath: string,
@@ -340,6 +363,7 @@ const buildPlugin = async (
 	const commandEntries: BundleAssetEntry[] = [];
 	const agentEntries: BundleAssetEntry[] = [];
 	const skillEntries: BundleAssetEntry[] = [];
+	const skillFileEntries: BundleAssetEntry[] = [];
 
 	const pluginDir = join(projectRoot, "plugins", pluginName);
 	const pluginOutputDir = join(outputPath, pluginName);
@@ -355,57 +379,86 @@ const buildPlugin = async (
 		// Directory might not exist
 	}
 
-	// Create namespaced subdirectories: command/rp1-base/, agent/rp1-base/
-	await mkdir(join(pluginOutputDir, "command", `rp1-${pluginName}`), {
+	// Create namespaced subdirectories: agents/rp1-{plugin}/, skills/
+	await mkdir(join(pluginOutputDir, "agents", `rp1-${pluginName}`), {
 		recursive: true,
 	});
-	await mkdir(join(pluginOutputDir, "agent", `rp1-${pluginName}`), {
-		recursive: true,
-	});
-	await mkdir(join(pluginOutputDir, "skill"), { recursive: true });
+	await mkdir(join(pluginOutputDir, "skills"), { recursive: true });
 
 	if (!jsonOutput) {
 		spinner.start(`Building ${pluginName} plugin...`);
 	}
 
-	// Process commands
-	const commandsDir = join(pluginDir, "commands");
-	const commandFiles = await getMarkdownFiles(commandsDir);
+	// Process skills from all plugins
+	const skillsDir = join(pluginDir, "skills");
+	const skillDirs = await getSkillDirs(skillsDir);
 
-	for (const cmdFile of commandFiles) {
-		const parseResult = await parseCommand(cmdFile)();
+	for (const skillDir of skillDirs) {
+		const parseResult = await parseSkill(skillDir)();
 		if (E.isLeft(parseResult)) {
 			errors.push(formatError(parseResult.left, false));
 			continue;
 		}
-		const ccCmd = parseResult.right;
+		const ccSkill = parseResult.right;
 
-		const transformResult = transformCommand(ccCmd, defaultRegistry);
+		const transformResult = transformSkill(ccSkill, defaultRegistry);
 		if (E.isLeft(transformResult)) {
 			errors.push(formatError(transformResult.left, false));
 			continue;
 		}
-		const ocCmd = transformResult.right;
+		const ocSkill = transformResult.right;
 
-		const generateResult = generateCommandFile(ocCmd, ccCmd.name);
+		const generateResult = generateSkillFile(ocSkill);
 		if (E.isLeft(generateResult)) {
 			errors.push(formatError(generateResult.left, false));
 			continue;
 		}
-		const { filename, content } = generateResult.right;
+		const {
+			skillDir: outSkillDir,
+			skillMdContent,
+			supportingFiles,
+		} = generateResult.right;
+
+		// Namespace skill directories with rp1- prefix to avoid collisions with user skills
+		const namespacedSkillDir = `rp1-${outSkillDir}`;
+
+		// Update the name field in SKILL.md frontmatter to match the namespaced directory
+		const namespacedSkillMdContent = skillMdContent.replace(
+			/^(name:\s*).+$/m,
+			`$1${namespacedSkillDir}`,
+		);
 
 		// Validate generated content
-		const validateResult = validateCommand(content, filename);
+		const validateResult = validateSkill(
+			namespacedSkillMdContent,
+			`${namespacedSkillDir}/SKILL.md`,
+		);
 		if (E.isLeft(validateResult)) {
 			errors.push(formatError(validateResult.left, false));
 			continue;
 		}
 
-		// Write to namespaced subdirectory
-		const relativePath = `${pluginName}/command/rp1-${pluginName}/${filename}`;
-		const outputFile = join(outputPath, relativePath);
-		await writeFile(outputFile, content);
-		commandEntries.push({ name: ccCmd.name, path: relativePath });
+		// Write SKILL.md
+		const skillOutputDir = join(pluginOutputDir, "skills", namespacedSkillDir);
+		await mkdir(skillOutputDir, { recursive: true });
+		await writeFile(join(skillOutputDir, "SKILL.md"), namespacedSkillMdContent);
+
+		// Copy supporting files
+		await copySupportingFiles(skillDir, skillOutputDir, supportingFiles);
+
+		// Track skill directory name for manifest
+		const relativePath = `${pluginName}/skills/${namespacedSkillDir}/SKILL.md`;
+		skillEntries.push({ name: namespacedSkillDir, path: relativePath });
+
+		// Collect all files in skill dir for bundle embedding (SKILL.md + supporting files)
+		const allSkillFiles = await collectAllFiles(skillOutputDir);
+		for (const file of allSkillFiles) {
+			const fileRelPath = `${pluginName}/skills/${namespacedSkillDir}/${file}`;
+			skillFileEntries.push({
+				name: `${namespacedSkillDir}/${file}`,
+				path: fileRelPath,
+			});
+		}
 	}
 
 	// Process agents
@@ -442,64 +495,10 @@ const buildPlugin = async (
 		}
 
 		// Write to namespaced subdirectory
-		const relativePath = `${pluginName}/agent/rp1-${pluginName}/${filename}`;
+		const relativePath = `${pluginName}/agents/rp1-${pluginName}/${filename}`;
 		const outputFile = join(outputPath, relativePath);
 		await writeFile(outputFile, content);
 		agentEntries.push({ name: ccAgent.name, path: relativePath });
-	}
-
-	// Process skills (only in base plugin)
-	if (pluginName === "base") {
-		const skillsDir = join(pluginDir, "skills");
-		const skillDirs = await getSkillDirs(skillsDir);
-
-		for (const skillDir of skillDirs) {
-			const parseResult = await parseSkill(skillDir)();
-			if (E.isLeft(parseResult)) {
-				errors.push(formatError(parseResult.left, false));
-				continue;
-			}
-			const ccSkill = parseResult.right;
-
-			const transformResult = transformSkill(ccSkill, defaultRegistry);
-			if (E.isLeft(transformResult)) {
-				errors.push(formatError(transformResult.left, false));
-				continue;
-			}
-			const ocSkill = transformResult.right;
-
-			const generateResult = generateSkillFile(ocSkill);
-			if (E.isLeft(generateResult)) {
-				errors.push(formatError(generateResult.left, false));
-				continue;
-			}
-			const {
-				skillDir: outSkillDir,
-				skillMdContent,
-				supportingFiles,
-			} = generateResult.right;
-
-			// Validate generated content
-			const validateResult = validateSkill(
-				skillMdContent,
-				`${outSkillDir}/SKILL.md`,
-			);
-			if (E.isLeft(validateResult)) {
-				errors.push(formatError(validateResult.left, false));
-				continue;
-			}
-
-			// Write SKILL.md
-			const skillOutputDir = join(pluginOutputDir, "skill", outSkillDir);
-			const relativePath = `${pluginName}/skill/${outSkillDir}/SKILL.md`;
-			await mkdir(skillOutputDir, { recursive: true });
-			await writeFile(join(skillOutputDir, "SKILL.md"), skillMdContent);
-
-			// Copy supporting files
-			await copySupportingFiles(skillDir, skillOutputDir, supportingFiles);
-
-			skillEntries.push({ name: ccSkill.name, path: relativePath });
-		}
 	}
 
 	// Copy OpenCode plugin if present
@@ -545,7 +544,7 @@ const buildPlugin = async (
 	if (!jsonOutput) {
 		const hasErrors = errors.length > 0;
 		const ocPluginNote = hasOpenCodePlugin ? " + OpenCode plugin" : "";
-		const summary = `${pluginName}: ${commandEntries.length} commands, ${agentEntries.length} agents, ${skillEntries.length} skills${ocPluginNote}`;
+		const summary = `${pluginName}: ${agentEntries.length} agents, ${skillEntries.length} skills${ocPluginNote}`;
 		if (hasErrors) {
 			spinner.fail(`${summary} (${errors.length} errors)`);
 		} else {
@@ -565,7 +564,7 @@ const buildPlugin = async (
 			name: `rp1-${pluginName}`,
 			commands: commandEntries,
 			agents: agentEntries,
-			skills: skillEntries,
+			skills: skillFileEntries,
 			openCodePlugin: openCodePluginAsset,
 		},
 		hasOpenCodePlugin,
@@ -586,16 +585,15 @@ const printSummary = (summaries: BuildSummary[], outputPath: string): void => {
 	// Header
 	console.log(
 		bold(
-			`${"Plugin".padEnd(pluginCol)}${"Commands".padStart(numCol)}${"Agents".padStart(numCol)}${"Skills".padStart(numCol)}`,
+			`${"Plugin".padEnd(pluginCol)}${"Agents".padStart(numCol)}${"Skills".padStart(numCol)}`,
 		),
 	);
-	console.log("-".repeat(pluginCol + numCol * 3));
+	console.log("-".repeat(pluginCol + numCol * 2));
 
 	// Rows
 	for (const summary of summaries) {
 		console.log(
 			cyan(`rp1-${summary.plugin.padEnd(pluginCol - 4)}`) +
-				green(String(summary.commands).padStart(numCol)) +
 				green(String(summary.agents).padStart(numCol)) +
 				green(String(summary.skills).padStart(numCol)),
 		);
@@ -640,7 +638,9 @@ export const executeBuild = (
 
 					// Determine which plugins to build
 					const pluginsToBuild =
-						config.plugin === "all" ? ["base", "dev"] : [config.plugin];
+						config.plugin === "all"
+							? ["base", "dev", "utils"]
+							: [config.plugin];
 
 					// Build each plugin
 					const summaries: BuildSummary[] = [];
@@ -662,8 +662,9 @@ export const executeBuild = (
 					if (config.plugin === "all") {
 						const baseAssets = pluginAssets.get("base");
 						const devAssets = pluginAssets.get("dev");
+						const utilsAssets = pluginAssets.get("utils");
 
-						if (baseAssets && devAssets) {
+						if (baseAssets && devAssets && utilsAssets) {
 							// Read version from CLI package.json
 							const pkgPath = join(projectRoot, "cli", "package.json");
 							let version = "0.0.0";
@@ -677,6 +678,7 @@ export const executeBuild = (
 							const bundleManifestResult = generateBundleManifest(
 								baseAssets,
 								devAssets,
+								utilsAssets,
 								version,
 							);
 							if (E.isRight(bundleManifestResult)) {

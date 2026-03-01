@@ -3,15 +3,15 @@
 The `rp1-base` plugin provides foundation capabilities for knowledge management, deep research, documentation, strategic analysis, security validation, and self-maintenance.
 
 **Version**: 4.1.0
-**Commands**: 9
+**Skills**: 9
 **Agents**: 12
 **Dependencies**: None (base plugin)
 
 ---
 
-## Commands
+## Skills
 
-| Command | Description |
+| Skill | Description |
 |---------|-------------|
 | [`knowledge-build`](knowledge-build.md) | Generate knowledge base using parallel map-reduce architecture |
 | [`knowledge-load`](knowledge-load.md) | Load KB context for downstream agents |
@@ -25,7 +25,7 @@ The `rp1-base` plugin provides foundation capabilities for knowledge management,
 
 ---
 
-## Command Categories
+## Skill Categories
 
 ### Knowledge Management
 
@@ -115,7 +115,9 @@ After installation, generate a knowledge base:
 === "OpenCode"
 
     ```bash
-    /rp1-base/knowledge-build
+    /rp1-knowledge-build
     ```
 
-This creates `.rp1/context/` with documentation files that other commands use for context-aware execution.
+    You can also type `/skills` to browse all available skills — rp1 skills are prefixed with `rp1-` (e.g., `/rp1-knowledge-build`, `/rp1-strategize`).
+
+This creates `.rp1/context/` with documentation files that other skills use for context-aware execution.

@@ -9,7 +9,7 @@ export const buildCommand = new Command("build:opencode")
 	.option("-o, --output-dir <dir>", "Output directory", "dist/opencode")
 	.option(
 		"-p, --plugin <name>",
-		"Build specific plugin (base, dev, all)",
+		"Build specific plugin (base, dev, utils, all)",
 		"all",
 	)
 	.option("--json", "Output results as JSON for CI/CD")

@@ -33,9 +33,27 @@ export interface ClaudeCodeAgent {
 }
 
 /**
+ * rp1-specific metadata from the SKILL.md `metadata` map.
+ * These fields are nested under `metadata` in frontmatter to comply
+ * with the Agent Skills v1.0 whitelist (name, description, allowed-tools, metadata).
+ */
+export interface SkillMetadata {
+	readonly version?: string;
+	readonly tags?: readonly string[];
+	readonly created?: string;
+	readonly updated?: string;
+	readonly author?: string;
+	readonly argumentHint?: string;
+}
+
+/**
  * Parsed Claude Code skill (SKILL.md).
  * Represents a skill from Claude Code's .claude-plugin/skills/ directory
  * with SKILL.md file and optional supporting files (templates, scripts).
+ *
+ * The optional `metadata` field contains rp1-specific fields extracted from
+ * the frontmatter `metadata` map. Skills without a `metadata` map (e.g.,
+ * pre-migration pure skills) continue to parse without error.
  */
 export interface ClaudeCodeSkill {
 	readonly name: string;
@@ -43,6 +61,7 @@ export interface ClaudeCodeSkill {
 	readonly allowedTools?: string; // Comma-separated string in Claude Code format
 	readonly content: string;
 	readonly supportingFiles: readonly string[];
+	readonly metadata?: SkillMetadata;
 }
 
 /**
@@ -112,7 +131,6 @@ export interface PluginManifest {
 		readonly skills: readonly string[];
 	};
 	readonly installation: {
-		readonly commandsDir: string;
 		readonly agentsDir: string;
 		readonly skillsDir: string;
 	};
@@ -127,7 +145,7 @@ export interface PluginManifest {
  */
 export interface BuildConfig {
 	readonly outputDir: string;
-	readonly plugin: "base" | "dev" | "all";
+	readonly plugin: "base" | "dev" | "utils" | "all";
 	readonly jsonOutput: boolean;
 }
 
@@ -135,7 +153,7 @@ export interface BuildConfig {
  * Build result for a single artifact.
  */
 export interface ArtifactResult {
-	readonly type: "command" | "agent" | "skill";
+	readonly type: "agent" | "skill";
 	readonly name: string;
 	readonly filename: string;
 	readonly success: boolean;
@@ -189,6 +207,7 @@ export interface BundleManifest {
 	readonly plugins: {
 		readonly base: BundlePluginAssets;
 		readonly dev: BundlePluginAssets;
+		readonly utils: BundlePluginAssets;
 	};
 	readonly version: string;
 	readonly buildTimestamp: string;

@@ -205,7 +205,7 @@ describe("findHiddenAnchorById", () => {
 		const result = findHiddenAnchorById(container, "anchor-2");
 
 		expect(result).not.toBeNull();
-		expect(result!.anchor.anchorId).toBe("anchor-2");
+		expect(result?.anchor.anchorId).toBe("anchor-2");
 	});
 
 	test("returns null when anchor not found", () => {
@@ -230,7 +230,7 @@ describe("findHiddenAnchorById", () => {
 		const result = findHiddenAnchorById(container, "section.1");
 
 		expect(result).not.toBeNull();
-		expect(result!.anchor.anchorId).toBe("section.1");
+		expect(result?.anchor.anchorId).toBe("section.1");
 	});
 
 	test("returns anchor with context text", () => {
@@ -239,7 +239,7 @@ describe("findHiddenAnchorById", () => {
 		const result = findHiddenAnchorById(container, "test-anchor");
 
 		expect(result).not.toBeNull();
-		expect(result!.anchor.anchorText).toBe("Context text here");
+		expect(result?.anchor.anchorText).toBe("Context text here");
 	});
 
 	test("returns anchor with position data", () => {
@@ -248,8 +248,8 @@ describe("findHiddenAnchorById", () => {
 		const result = findHiddenAnchorById(container, "test-anchor");
 
 		expect(result).not.toBeNull();
-		expect(result!.position).toHaveProperty("x");
-		expect(result!.position).toHaveProperty("y");
+		expect(result?.position).toHaveProperty("x");
+		expect(result?.position).toHaveProperty("y");
 	});
 
 	test("returns anchor element reference", () => {
@@ -258,7 +258,7 @@ describe("findHiddenAnchorById", () => {
 		const result = findHiddenAnchorById(container, "test-anchor");
 
 		expect(result).not.toBeNull();
-		expect(result!.element).toBeInstanceOf(HTMLAnchorElement);
-		expect(result!.element.id).toBe("test-anchor");
+		expect(result?.element).toBeInstanceOf(HTMLAnchorElement);
+		expect(result?.element.id).toBe("test-anchor");
 	});
 });
