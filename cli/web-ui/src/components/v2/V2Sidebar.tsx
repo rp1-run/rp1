@@ -242,10 +242,8 @@ function SidebarFooter({ collapsed, onToggle }: SidebarFooterProps) {
 	}
 
 	return (
-		<div className="flex flex-col gap-1 border-t p-2">
-			<div className="flex items-center justify-between px-1">
-				<span className="text-xs text-muted-foreground">v{APP_VERSION}</span>
-			</div>
+		<div className="flex items-center justify-between border-t p-2">
+			<span className="px-1 text-xs text-muted-foreground">v{APP_VERSION}</span>
 			<CollapseButton collapsed={collapsed} onToggle={onToggle} />
 		</div>
 	);
@@ -521,21 +519,15 @@ function CollapseButton({ collapsed, onToggle }: CollapseButtonProps) {
 				<TooltipTrigger asChild>
 					<Button
 						variant="ghost"
-						size="sm"
+						size="icon"
+						className="h-8 w-8"
 						onClick={onToggle}
-						className={cn(
-							"w-full",
-							collapsed ? "justify-center" : "justify-start",
-						)}
 						aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
 					>
 						{collapsed ? (
 							<ChevronRight className="h-4 w-4" />
 						) : (
-							<>
-								<ChevronLeft className="h-4 w-4 mr-2" />
-								<span>Collapse</span>
-							</>
+							<ChevronLeft className="h-4 w-4" />
 						)}
 					</Button>
 				</TooltipTrigger>
