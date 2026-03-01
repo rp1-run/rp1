@@ -110,7 +110,7 @@ async function removePidFile(): Promise<void> {
  * Check if a process is running by PID.
  * Uses kill -0 which checks if process exists without sending a signal.
  */
-function isProcessRunning(pid: number): boolean {
+export function isProcessRunning(pid: number): boolean {
 	try {
 		process.kill(pid, 0);
 		return true;
@@ -123,7 +123,7 @@ function isProcessRunning(pid: number): boolean {
  * Wait for a process to exit by actively polling.
  * Returns true if the process exited within the timeout, false otherwise.
  */
-async function waitForProcessExit(
+export async function waitForProcessExit(
 	pid: number,
 	timeoutMs: number,
 ): Promise<boolean> {
@@ -140,7 +140,7 @@ async function waitForProcessExit(
 /**
  * Force-kill a process. Uses SIGKILL on Unix, taskkill /F on Windows.
  */
-function forceKillProcess(pid: number): void {
+export function forceKillProcess(pid: number): void {
 	try {
 		if (process.platform === "win32") {
 			execSync(`taskkill /F /PID ${pid}`, { stdio: "ignore" });

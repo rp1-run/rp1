@@ -102,10 +102,13 @@ const writeSettings = (
 		},
 	);
 
-export const installSessionHook = (logger?: {
-	debug: (msg: string) => void;
-}): TE.TaskEither<CLIError, boolean> => {
-	const settingsPath = getClaudeSettingsPath();
+export const installSessionHook = (
+	logger?: {
+		debug: (msg: string) => void;
+	},
+	overrideSettingsPath?: string,
+): TE.TaskEither<CLIError, boolean> => {
+	const settingsPath = overrideSettingsPath ?? getClaudeSettingsPath();
 
 	return pipe(
 		readSettings(settingsPath),
