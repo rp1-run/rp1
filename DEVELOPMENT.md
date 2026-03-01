@@ -183,15 +183,15 @@ bun run build
 
 ### CLI Commands
 
-#### `rp1 view` - Documentation Viewer
+#### `rp1 arcade` - Web Dashboard
 
-Launch a web-based documentation viewer for browsing `.rp1/` artifacts.
+Launch a web-based dashboard for browsing `.rp1/` artifacts and monitoring agent activity.
 
 ```bash
-rp1 view                        # View current project
-rp1 view /path/to/project       # View specific project
-rp1 view --port 8080            # Use custom port (default: 7710)
-rp1 view --no-open              # Don't auto-open browser
+rp1 arcade                        # View current project
+rp1 arcade /path/to/project       # View specific project
+rp1 arcade --port 8080            # Use custom port (default: 7710)
+rp1 arcade --no-open              # Don't auto-open browser
 ```
 
 Features:

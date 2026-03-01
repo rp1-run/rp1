@@ -8,10 +8,10 @@ The V2 dashboard provides a glanceable status view for monitoring AI agent runs 
 
 ## Accessing the Dashboard
 
-Start the web UI with `rp1 view`, then navigate to `/v2/` in your browser:
+Start the web UI with `rp1 arcade`, then navigate to `/v2/` in your browser:
 
 ```bash
-rp1 view
+rp1 arcade
 # Opens http://localhost:3000
 
 # Navigate to V2 dashboard

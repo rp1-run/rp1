@@ -135,18 +135,16 @@ This runs the standalone build script at `scripts/build-opencode.ts`.
 
 **Purpose**: Transforms Claude Code plugins into OpenCode-compatible format for release artifacts. This command is used by GitHub Actions during the release process and by contributors building OpenCode tarballs locally.
 
-### view
+### arcade
 
-Launches a web-based documentation viewer for knowledge base files.
+Launches a web-based dashboard for knowledge base files and agent activity monitoring.
 
 **Invocation**:
 ```bash
-rp1 view [path]
+rp1 arcade [path]
 ```
 
-**Purpose**: Development utility for previewing knowledge base documentation. Hidden from help output but functional when invoked directly.
-
-**Why Hidden**: These commands serve internal/development purposes and would confuse end users who have no use for them. The `build:opencode` command is only needed during releases and development. The `view` command requires Bun runtime and is primarily for contributors debugging KB generation.
+**Purpose**: Development utility for previewing knowledge base documentation and monitoring agent workflows. The `arcade` command requires Bun runtime.
 
 ## Questions?
 

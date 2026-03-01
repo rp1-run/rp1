@@ -130,7 +130,7 @@ If a settings file has a version higher than supported, the server logs a warnin
 Settings are loaded at server startup. To apply changes:
 
 1. Edit the settings JSON file
-2. Restart the web UI (`rp1 view`)
+2. Restart the web UI (`rp1 arcade`)
 
 Changes take effect immediately on restart.
 
