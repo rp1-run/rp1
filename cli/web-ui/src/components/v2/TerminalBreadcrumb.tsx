@@ -65,7 +65,7 @@ export function TerminalBreadcrumb({ className }: TerminalBreadcrumbProps) {
 					);
 				})}
 				<li aria-hidden="true">
-					<span className="animate-blink ml-0.5 text-terminal-green">_</span>
+					<span className="ml-0.5 text-terminal-green">_</span>
 				</li>
 			</ol>
 		</nav>
