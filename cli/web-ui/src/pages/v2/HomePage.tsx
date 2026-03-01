@@ -161,13 +161,6 @@ export function HomePage() {
 					</span>
 					<span className="animate-blink text-3xl text-terminal-green">_</span>
 				</div>
-
-				<div className="flex flex-col items-center gap-1">
-					<h1 className="text-2xl font-light text-foreground/80">
-						Ready Player One
-					</h1>
-					<p className="font-mono text-sm text-muted-foreground">Insert Coin</p>
-				</div>
 			</div>
 
 			<div className="mx-auto w-full max-w-2xl">
