@@ -156,10 +156,10 @@ export function HomePage() {
 					<span className="font-mono text-3xl font-semibold text-foreground">
 						rp1
 					</span>
-					<span className="animate-blink text-3xl text-terminal-green">_</span>
-					<span className="ml-1 font-mono text-3xl font-light text-foreground/50">
+					<span className="font-mono text-3xl font-light text-foreground/50">
 						arcade
 					</span>
+					<span className="animate-blink text-3xl text-terminal-green">_</span>
 				</div>
 
 				<div className="flex flex-col items-center gap-1">
