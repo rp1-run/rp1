@@ -5,13 +5,10 @@ import {
 	FileBox,
 	FolderKanban,
 	Home,
-	Keyboard,
 	ListTodo,
-	Moon,
 	Pin,
 	Search,
 	Settings,
-	Sun,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -28,7 +25,6 @@ import { usePinnedProjects } from "@/hooks/usePinnedProjects";
 import { useRecentRuns } from "@/hooks/useRecentRuns";
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
-import { useTheme } from "@/providers/ThemeProvider";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 import { Collapsible } from "./Collapsible";
 import { KeyboardShortcutHint } from "./KeyboardShortcutHint";
@@ -108,7 +104,7 @@ export function V2Sidebar({ collapsed, onToggle }: V2SidebarProps) {
 				collapsed ? "w-16" : "w-[240px]",
 			)}
 		>
-			<SidebarHeader collapsed={collapsed} onToggle={onToggle} />
+			<SidebarHeader collapsed={collapsed} />
 			<SidebarQuickAccess collapsed={collapsed} />
 			<SidebarNavigation collapsed={collapsed} />
 			<SidebarFooter collapsed={collapsed} onToggle={onToggle} />
@@ -118,12 +114,10 @@ export function V2Sidebar({ collapsed, onToggle }: V2SidebarProps) {
 
 interface SidebarHeaderProps {
 	collapsed: boolean;
-	onToggle: () => void;
 }
 
-function SidebarHeader({ collapsed, onToggle }: SidebarHeaderProps) {
+function SidebarHeader({ collapsed }: SidebarHeaderProps) {
 	const { status: wsStatus } = useWebSocket();
-	const { theme, toggleTheme } = useTheme();
 	const params = useParams();
 	const [projectName, setProjectName] = useState<string | null>(null);
 
@@ -166,15 +160,6 @@ function SidebarHeader({ collapsed, onToggle }: SidebarHeaderProps) {
 		);
 	}, []);
 
-	const openShortcutHelp = useCallback(() => {
-		window.dispatchEvent(
-			new KeyboardEvent("keydown", {
-				key: "?",
-				bubbles: true,
-			}),
-		);
-	}, []);
-
 	const isConnected = wsStatus === "connected";
 
 	if (collapsed) {
@@ -209,78 +194,18 @@ function SidebarHeader({ collapsed, onToggle }: SidebarHeaderProps) {
 
 	return (
 		<div className="flex flex-col gap-3 border-b p-3">
-			<div className="flex items-center justify-between">
-				{projectName ? (
-					<div className="flex items-center gap-2 text-xs text-muted-foreground">
-						<span
-							className={cn(
-								"h-2 w-2 shrink-0 rounded-full",
-								isConnected ? "bg-terminal-green" : "bg-terminal-red",
-							)}
-							aria-hidden="true"
-						/>
-						<span className="truncate font-mono">{projectName}</span>
-					</div>
-				) : (
-					<span className="text-sm font-semibold text-foreground">rp1</span>
-				)}
-				<div className="flex items-center gap-0.5">
-					<TooltipProvider>
-						<Tooltip delayDuration={0}>
-							<TooltipTrigger asChild>
-								<Button
-									variant="ghost"
-									size="icon"
-									className="h-7 w-7"
-									onClick={toggleTheme}
-									aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
-								>
-									{theme === "dark" ? (
-										<Sun className="h-3.5 w-3.5" />
-									) : (
-										<Moon className="h-3.5 w-3.5" />
-									)}
-								</Button>
-							</TooltipTrigger>
-							<TooltipContent>
-								{theme === "dark" ? "Light mode" : "Dark mode"}
-							</TooltipContent>
-						</Tooltip>
-					</TooltipProvider>
-					<TooltipProvider>
-						<Tooltip delayDuration={0}>
-							<TooltipTrigger asChild>
-								<Button
-									variant="ghost"
-									size="icon"
-									className="h-7 w-7"
-									onClick={openShortcutHelp}
-									aria-label="Keyboard shortcuts"
-								>
-									<Keyboard className="h-3.5 w-3.5" />
-								</Button>
-							</TooltipTrigger>
-							<TooltipContent>Keyboard shortcuts (?)</TooltipContent>
-						</Tooltip>
-					</TooltipProvider>
-					<TooltipProvider>
-						<Tooltip delayDuration={0}>
-							<TooltipTrigger asChild>
-								<Button
-									variant="ghost"
-									size="icon"
-									className="h-7 w-7"
-									onClick={onToggle}
-									aria-label="Collapse sidebar"
-								>
-									<ChevronLeft className="h-3.5 w-3.5" />
-								</Button>
-							</TooltipTrigger>
-							<TooltipContent>Collapse (Cmd/Ctrl+\)</TooltipContent>
-						</Tooltip>
-					</TooltipProvider>
+			{projectName && (
+				<div className="flex items-center gap-2 text-xs text-muted-foreground">
+					<span
+						className={cn(
+							"h-2 w-2 shrink-0 rounded-full",
+							isConnected ? "bg-terminal-green" : "bg-terminal-red",
+						)}
+						aria-hidden="true"
+					/>
+					<span className="truncate font-mono">{projectName}</span>
 				</div>
-			</div>
+			)}
 
 			<button
 				type="button"
@@ -317,8 +242,11 @@ function SidebarFooter({ collapsed, onToggle }: SidebarFooterProps) {
 	}
 
 	return (
-		<div className="flex items-center justify-center border-t p-2">
-			<span className="text-xs text-muted-foreground">v{APP_VERSION}</span>
+		<div className="flex flex-col gap-1 border-t p-2">
+			<div className="flex items-center justify-between px-1">
+				<span className="text-xs text-muted-foreground">v{APP_VERSION}</span>
+			</div>
+			<CollapseButton collapsed={collapsed} onToggle={onToggle} />
 		</div>
 	);
 }
