@@ -18,6 +18,7 @@ import { readInput } from "./input.js";
 import { formatOutput } from "./output.js";
 import {
 	closeDatabase,
+	executeCleanup as executeWorkCleanup,
 	executeUpdate as executeWorkUpdate,
 } from "./work/index.js";
 import { VALID_STATUSES } from "./work/models.js";
@@ -647,6 +648,86 @@ Examples:
 			}
 
 			const result = await executeWorkUpdate(validationResult.right)();
+
+			if (E.isLeft(result)) {
+				console.error(
+					createErrorResponse(toolName, formatError(result.left, false)),
+				);
+				process.exit(1);
+			}
+
+			console.log(formatOutput(result.right));
+			process.exit(0);
+		},
+	);
+
+/**
+ * work cleanup subcommand.
+ * Deletes expired runs (all rows for runs whose latest row has expired).
+ */
+workCommand
+	.command("cleanup")
+	.description("Delete expired workflow runs from the status database")
+	.option(
+		"--dry-run",
+		"Report stale rows and affected runs without deleting",
+		false,
+	)
+	.option(
+		"--older-than <hours>",
+		"Only delete runs whose expires_at is at least N hours in the past (0 = any expired)",
+		"0",
+	)
+	.addHelpText(
+		"after",
+		`
+Description:
+  Deletes entire expired runs (all rows sharing a run_id) from the status database.
+  A run is considered expired when its latest row has an expires_at timestamp in the past.
+  Rows with NULL run_id or NULL expires_at are never touched.
+
+Options:
+  --dry-run              Report stale rows without deleting (default: false)
+  --older-than <hours>   Only delete runs expired at least N hours ago (default: 0 = any expired)
+
+Output:
+  JSON with cleanup results:
+  - deletedRows: Number of rows deleted (or would be deleted in dry-run)
+  - affectedRuns: Number of distinct runs affected
+
+Examples:
+  # Delete all expired runs
+  rp1 agent-tools work cleanup
+
+  # Preview what would be deleted
+  rp1 agent-tools work cleanup --dry-run
+
+  # Delete only runs expired more than 24 hours ago
+  rp1 agent-tools work cleanup --older-than 24
+
+  # Preview runs expired more than 48 hours ago
+  rp1 agent-tools work cleanup --dry-run --older-than 48
+`,
+	)
+	.action(
+		async (options: { dryRun: boolean; olderThan: string }): Promise<void> => {
+			const toolName = "work";
+
+			const olderThan = parseInt(options.olderThan, 10);
+			if (Number.isNaN(olderThan) || olderThan < 0) {
+				console.error(
+					createErrorResponse(
+						toolName,
+						`Invalid --older-than value: ${options.olderThan}. Must be a non-negative integer (hours).`,
+					),
+				);
+				process.exit(1);
+			}
+
+			const result = await executeWorkCleanup({
+				dryRun: options.dryRun,
+				olderThan,
+			})();
 
 			if (E.isLeft(result)) {
 				console.error(

@@ -948,4 +948,136 @@ export const getCurrentWorkflowState = (
 		),
 	);
 
+/**
+ * Result of a cleanup operation.
+ * Contains the number of deleted rows and affected runs.
+ */
+export interface CleanupResult {
+	readonly deletedRows: number;
+	readonly affectedRuns: number;
+}
+
+/**
+ * Count expired runs for dry-run reporting.
+ * A run is considered expired when its latest row has expired.
+ *
+ * @param olderThanHours - Only count runs whose expires_at is at least N hours in the past (0 = any expired)
+ * @param dbPath - Database file path (optional)
+ * @returns TaskEither with CleanupResult (count only, no deletion)
+ */
+export const countExpiredRuns = (
+	olderThanHours: number,
+	dbPath?: string,
+): TE.TaskEither<CLIError, CleanupResult> =>
+	pipe(
+		getDatabase(dbPath),
+		TE.chain((db) =>
+			TE.tryCatch(
+				async () => {
+					const hoursClause =
+						olderThanHours > 0 ? `'-${olderThanHours} hours'` : "'0 seconds'";
+
+					const countRunsSql = `
+						SELECT COUNT(DISTINCT run_id) as run_count
+						FROM status_updates
+						WHERE run_id IS NOT NULL
+						AND expires_at IS NOT NULL
+						AND expires_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ${hoursClause})
+					`;
+
+					const countRowsSql = `
+						SELECT COUNT(*) as row_count
+						FROM status_updates
+						WHERE run_id IN (
+							SELECT DISTINCT run_id FROM status_updates
+							WHERE run_id IS NOT NULL
+							AND expires_at IS NOT NULL
+							AND expires_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ${hoursClause})
+						)
+					`;
+
+					const runResult = db.prepare(countRunsSql).get() as {
+						run_count: number;
+					};
+					const rowResult = db.prepare(countRowsSql).get() as {
+						row_count: number;
+					};
+
+					return {
+						deletedRows: rowResult.row_count,
+						affectedRuns: runResult.run_count,
+					};
+				},
+				(error) =>
+					runtimeError(
+						`Failed to count expired runs: ${error instanceof Error ? error.message : String(error)}`,
+					),
+			),
+		),
+	);
+
+/**
+ * Delete all rows belonging to expired runs.
+ * A run is expired when its latest row has an expires_at in the past.
+ * Deletes entire runs (all rows sharing a run_id), not individual rows.
+ *
+ * Rows with NULL run_id or NULL expires_at are never touched.
+ *
+ * @param olderThanHours - Only delete runs whose expires_at is at least N hours in the past (0 = any expired)
+ * @param dbPath - Database file path (optional)
+ * @returns TaskEither with CleanupResult
+ */
+export const deleteExpiredRuns = (
+	olderThanHours: number,
+	dbPath?: string,
+): TE.TaskEither<CLIError, CleanupResult> =>
+	pipe(
+		getDatabase(dbPath),
+		TE.chain((db) =>
+			TE.tryCatch(
+				async () => {
+					const hoursClause =
+						olderThanHours > 0 ? `'-${olderThanHours} hours'` : "'0 seconds'";
+
+					const countRunsSql = `
+						SELECT COUNT(DISTINCT run_id) as run_count
+						FROM status_updates
+						WHERE run_id IS NOT NULL
+						AND expires_at IS NOT NULL
+						AND expires_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ${hoursClause})
+					`;
+
+					const runResult = db.prepare(countRunsSql).get() as {
+						run_count: number;
+					};
+					const affectedRuns = runResult.run_count;
+
+					const deleteSql = `
+						DELETE FROM status_updates
+						WHERE run_id IN (
+							SELECT DISTINCT run_id FROM status_updates
+							WHERE run_id IS NOT NULL
+							AND expires_at IS NOT NULL
+							AND expires_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ${hoursClause})
+						)
+					`;
+
+					const stmt = db.prepare(deleteSql);
+					const result = stmt.run();
+					const deletedRows =
+						typeof result.changes === "number" ? result.changes : 0;
+
+					return {
+						deletedRows,
+						affectedRuns,
+					};
+				},
+				(error) =>
+					runtimeError(
+						`Failed to delete expired runs: ${error instanceof Error ? error.message : String(error)}`,
+					),
+			),
+		),
+	);
+
 export { DEFAULT_DB_PATH };

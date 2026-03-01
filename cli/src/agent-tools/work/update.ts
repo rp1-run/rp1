@@ -60,6 +60,7 @@ interface WorkflowValidationResult {
 	readonly workflow?: string;
 	readonly runId?: string;
 	readonly expiresAt?: string;
+	readonly previousState?: string | null;
 }
 
 /**
@@ -245,6 +246,7 @@ const validateWorkflowUpdate = (
 								workflow: workflowName,
 								runId,
 								expiresAt,
+								previousState: currentState,
 							} as WorkflowValidationResult);
 						}),
 					),
@@ -354,6 +356,7 @@ export const validateUpdateOptions = (
 				runId: workflowResult.runId,
 				workflow: workflowResult.workflow,
 				expiresAt: workflowResult.expiresAt,
+				previousState: workflowResult.previousState,
 			}),
 		),
 	);

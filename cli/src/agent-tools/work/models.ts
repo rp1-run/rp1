@@ -50,6 +50,8 @@ export interface StatusUpdateInput {
 	readonly workflow?: string;
 	/** ISO 8601 expiry timestamp for stale row cleanup (optional) */
 	readonly expiresAt?: string;
+	/** Previous workflow state before this transition (transient, not persisted) */
+	readonly previousState?: string | null;
 }
 
 /**
