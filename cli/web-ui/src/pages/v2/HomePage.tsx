@@ -1,16 +1,9 @@
 import { motion } from "framer-motion";
-import {
-	Activity,
-	ChevronDown,
-	FolderOpen,
-	Play,
-	Terminal,
-} from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Activity, FolderOpen, Play, Terminal } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { KeyHints, NAV_HINTS_NO_BACK } from "@/components/v2/KeyHints";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
-import { useProjects } from "@/hooks/useProjects";
 import {
 	cardHover,
 	cardTap,
@@ -54,102 +47,6 @@ const SUGGESTIONS: readonly SuggestionCard[] = [
 		iconColor: "text-status-running",
 	},
 ] as const;
-
-function ProjectSelector() {
-	const { projects, isLoading } = useProjects();
-	const navigate = useNavigate();
-	const [open, setOpen] = useState(false);
-	const ref = useRef<HTMLDivElement>(null);
-
-	useEffect(() => {
-		if (!open) return;
-		function handleClickOutside(e: MouseEvent) {
-			if (ref.current && !ref.current.contains(e.target as Node)) {
-				setOpen(false);
-			}
-		}
-		document.addEventListener("mousedown", handleClickOutside);
-		return () => document.removeEventListener("mousedown", handleClickOutside);
-	}, [open]);
-
-	if (isLoading) {
-		return (
-			<div className="inline-flex items-center gap-2 rounded-lg border border-border bg-muted/20 px-4 py-2 text-sm text-muted-foreground">
-				<span className="animate-pulse-gentle">Loading projects...</span>
-			</div>
-		);
-	}
-
-	if (projects.length === 0) {
-		return (
-			<div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
-				No projects registered
-			</div>
-		);
-	}
-
-	return (
-		<div className="relative" ref={ref}>
-			<button
-				type="button"
-				onClick={() => setOpen((v) => !v)}
-				className={cn(
-					"inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm transition-colors",
-					"hover:bg-muted/30 hover:border-[hsl(var(--border-glow))]",
-					"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-					open && "border-[hsl(var(--border-glow))] bg-muted/30",
-				)}
-			>
-				<FolderOpen className="h-4 w-4 text-muted-foreground" />
-				<span className="text-foreground">
-					{projects.length} project{projects.length === 1 ? "" : "s"}
-				</span>
-				<ChevronDown
-					className={cn(
-						"h-3.5 w-3.5 text-muted-foreground transition-transform duration-200",
-						open && "rotate-180",
-					)}
-				/>
-			</button>
-			{open && (
-				<div className="glass absolute left-1/2 z-50 mt-2 w-64 -translate-x-1/2 overflow-hidden rounded-lg shadow-lg">
-					{projects.map((project) => (
-						<button
-							type="button"
-							key={project.id}
-							onClick={() => {
-								navigate(`/projects/${project.id}`);
-								setOpen(false);
-							}}
-							className={cn(
-								"flex w-full items-center gap-3 px-4 py-3 text-left text-sm transition-colors",
-								"hover:bg-muted/40",
-								!project.available && "opacity-50",
-							)}
-						>
-							<div
-								className={cn(
-									"h-2 w-2 shrink-0 rounded-full",
-									project.available
-										? "bg-status-completed"
-										: "bg-status-failed",
-								)}
-							/>
-							<div className="min-w-0 flex-1">
-								<p className="truncate font-medium text-foreground">
-									{project.name}
-								</p>
-								<p className="truncate text-xs text-muted-foreground">
-									{project.runCount} run{project.runCount === 1 ? "" : "s"}
-								</p>
-							</div>
-						</button>
-					))}
-				</div>
-			)}
-		</div>
-	);
-}
 
 function SuggestionCardComponent({
 	card,
@@ -252,25 +149,24 @@ export function HomePage() {
 	}, [selectedIndex, handleCardClick]);
 
 	return (
-		<div className="grid h-full grid-rows-[1fr_auto] items-center px-6 pb-6">
-			<div className="flex flex-col items-center justify-center gap-10">
-				<div className="flex flex-col items-center gap-2">
-					<div className="flex items-baseline gap-1">
-						<Terminal className="h-5 w-5 text-terminal-green" />
-						<span className="font-mono text-3xl font-semibold text-foreground">
-							rp1
-						</span>
-						<span className="animate-blink text-3xl text-terminal-green">
-							_
-						</span>
-					</div>
+		<div className="flex h-full flex-col items-center justify-center gap-8 px-6 pb-6">
+			<div className="flex flex-col items-center gap-6">
+				<div className="flex items-baseline gap-1">
+					<Terminal className="h-5 w-5 text-terminal-green" />
+					<span className="font-mono text-3xl font-semibold text-foreground">
+						rp1
+					</span>
+					<span className="animate-blink text-3xl text-terminal-green">_</span>
+					<span className="ml-1 font-mono text-3xl font-light text-foreground/50">
+						arcade
+					</span>
 				</div>
 
-				<div className="flex flex-col items-center gap-6">
+				<div className="flex flex-col items-center gap-1">
 					<h1 className="text-2xl font-light text-foreground/80">
-						Let's build
+						Ready Player One
 					</h1>
-					<ProjectSelector />
+					<p className="font-mono text-sm text-muted-foreground">Insert Coin</p>
 				</div>
 			</div>
 
