@@ -91,3 +91,7 @@ export {
 	type VirtualizedListProps,
 	type VirtualizedListRef,
 } from "./VirtualizedList";
+export {
+	WorkflowDiagram,
+	type WorkflowDiagramProps,
+} from "./WorkflowDiagram";

@@ -6,6 +6,7 @@ import { EventStream } from "@/components/v2/EventStream";
 import { DETAIL_HINTS, KeyHints } from "@/components/v2/KeyHints";
 import { StatusBadge } from "@/components/v2/StatusBadge";
 import { StepTimeline } from "@/components/v2/StepTimeline";
+import { WorkflowDiagram } from "@/components/v2/WorkflowDiagram";
 import { useContextualShortcuts } from "@/hooks/useContextualShortcuts";
 import { useRunDetail } from "@/hooks/useRunDetail";
 import {
@@ -123,6 +124,7 @@ export function RunDetailPage() {
 	const artifactsSectionRef = useRef<HTMLElement>(null);
 	const eventStreamSectionRef = useRef<HTMLElement>(null);
 	const timelineSectionRef = useRef<HTMLElement>(null);
+	const diagramSectionRef = useRef<HTMLElement>(null);
 
 	const handleArtifactClick = useCallback(
 		(artifact: Artifact) => {
@@ -236,6 +238,26 @@ export function RunDetailPage() {
 					});
 				},
 			},
+			...(workflow
+				? [
+						{
+							key: "d",
+							label: "Diagram",
+							description: "Show workflow diagram",
+							action: () => {
+								diagramSectionRef.current?.scrollIntoView({
+									behavior: "smooth",
+									block: "start",
+								});
+								const trigger =
+									diagramSectionRef.current?.querySelector<HTMLElement>(
+										'button[aria-expanded="false"]',
+									);
+								trigger?.click();
+							},
+						},
+					]
+				: []),
 		],
 		enabled: !!run,
 	});
@@ -372,6 +394,12 @@ export function RunDetailPage() {
 				>
 					<h2 className="sr-only">Workflow Progress</h2>
 					<StepTimeline steps={displaySteps} orientation="horizontal" />
+				</section>
+			)}
+
+			{workflow && (
+				<section ref={diagramSectionRef}>
+					<WorkflowDiagram workflow={workflow} steps={displaySteps} />
 				</section>
 			)}
 

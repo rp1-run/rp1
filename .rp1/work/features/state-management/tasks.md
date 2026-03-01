@@ -2,7 +2,7 @@
 
 **Feature ID**: state-management
 **Status**: In Progress
-**Progress**: 70% (14 of 20 tasks)
+**Progress**: 75% (15 of 20 tasks)
 **Estimated Effort**: 9 days
 **Started**: 2026-03-01
 
@@ -509,6 +509,18 @@ Introduces declarative state machines co-located with skills as the single sourc
     - **Deviations**: None
     - **Tests**: 1161/1161 CLI tests + 172/172 web-ui tests passing (no regressions)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ✅ PASS |
+    | Commit | ✅ PASS |
+    | Comments | ⏭️ N/A |
+
     **Reference**: [design.md#5-implementation-plan](design.md#5-implementation-plan)
 
     **Effort**: 2 hours
@@ -523,7 +535,14 @@ Introduces declarative state machines co-located with skills as the single sourc
 
 ### Visual Enhancement
 
-- [ ] **T13**: Implement optional visual state machine diagram component `[complexity:medium]`
+- [x] **T13**: Implement optional visual state machine diagram component `[complexity:medium]`
+
+    **Implementation Summary**:
+
+    - **Files**: `cli/web-ui/src/components/v2/WorkflowDiagram.tsx`, `cli/web-ui/src/components/v2/index.ts`, `cli/web-ui/src/pages/v2/RunDetailPage.tsx`
+    - **Approach**: Created WorkflowDiagram component that reconstructs Mermaid stateDiagram-v2 source from workflow API data (states, transitions) with classDef styling for current/completed/failed/pending states using Catppuccin theme colors. Reuses existing MermaidDiagram component for rendering (zoom, pan, fullscreen, theme awareness). Wrapped in Collapsible section with state count badge and color legend. Added to RunDetailPage after StepTimeline, only shown when workflow data exists. Added keyboard shortcut (d) for diagram section navigation.
+    - **Deviations**: None
+    - **Tests**: All 1161 CLI tests + 172 web-ui tests passing (no regressions)
 
     **Reference**: [design.md#312-dashboard-steptimeline-changes](design.md#312-dashboard-steptimeline-changes)
 
@@ -531,12 +550,12 @@ Introduces declarative state machines co-located with skills as the single sourc
 
     **Acceptance Criteria**:
 
-    - [ ] Create MermaidDiagram component (or extend existing) with current state highlighting
-    - [ ] Run detail page includes an expandable section showing the full Mermaid state diagram
-    - [ ] Current state node is highlighted with distinct color/border
-    - [ ] Completed states are visually distinguished from pending states
-    - [ ] Section is not shown for runs from workflows without state.mmd
-    - [ ] Diagram renders the raw state.mmd content fetched from the workflows API
+    - [x] Create MermaidDiagram component (or extend existing) with current state highlighting
+    - [x] Run detail page includes an expandable section showing the full Mermaid state diagram
+    - [x] Current state node is highlighted with distinct color/border
+    - [x] Completed states are visually distinguished from pending states
+    - [x] Section is not shown for runs from workflows without state.mmd
+    - [x] Diagram renders the raw state.mmd content fetched from the workflows API
 
 ### User Docs
 
