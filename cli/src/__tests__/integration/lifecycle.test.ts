@@ -142,35 +142,26 @@ describe("integration: lifecycle", () => {
 			// Set up a mock build output directory
 			const buildDir = join(tempDir, "build-output");
 
-			// Create expected structure: command/, agent/, skill/
+			// Create expected structure: agents/, skills/
 			await writeFixture(
 				buildDir,
-				"command/rp1-base/test-command.md",
-				"---\ndescription: Test\n---\nContent",
-			);
-			await writeFixture(
-				buildDir,
-				"agent/rp1-base/test-agent.md",
+				"agents/rp1-base/test-agent.md",
 				"---\ndescription: Test\nmode: subagent\ntools:\n  bash: true\n  write: false\n  edit: false\n---\nContent",
 			);
 			await writeFixture(
 				buildDir,
-				"skill/test-skill/SKILL.md",
+				"skills/test-skill/SKILL.md",
 				"---\nname: test-skill\ndescription: A test skill for testing\n---\nContent",
 			);
 
 			const entries = await readdir(buildDir);
-			expect(entries).toContain("command");
-			expect(entries).toContain("agent");
-			expect(entries).toContain("skill");
+			expect(entries).toContain("agents");
+			expect(entries).toContain("skills");
 
-			const commandEntries = await readdir(join(buildDir, "command"));
-			expect(commandEntries).toContain("rp1-base");
-
-			const agentEntries = await readdir(join(buildDir, "agent"));
+			const agentEntries = await readdir(join(buildDir, "agents"));
 			expect(agentEntries).toContain("rp1-base");
 
-			const skillEntries = await readdir(join(buildDir, "skill"));
+			const skillEntries = await readdir(join(buildDir, "skills"));
 			expect(skillEntries).toContain("test-skill");
 		},
 		{ timeout: 60000 },
@@ -221,17 +212,12 @@ describe("integration: lifecycle", () => {
 
 			await writeFixture(
 				sourceDir,
-				"command/rp1-base/lifecycle-cmd.md",
-				"---\ndescription: Lifecycle test command\n---\nCommand body",
-			);
-			await writeFixture(
-				sourceDir,
-				"agent/rp1-base/lifecycle-agent.md",
+				"agents/rp1-base/lifecycle-agent.md",
 				"---\ndescription: Lifecycle test agent\nmode: subagent\ntools:\n  bash: true\n  write: false\n  edit: false\n---\nAgent body",
 			);
 			await writeFixture(
 				sourceDir,
-				"skill/rp1-lifecycle-skill/SKILL.md",
+				"skills/rp1-lifecycle-skill/SKILL.md",
 				"---\nname: rp1-lifecycle-skill\ndescription: Lifecycle test skill here\n---\nSkill body",
 			);
 
@@ -241,28 +227,23 @@ describe("integration: lifecycle", () => {
 			if (!E.isRight(installResult)) return;
 
 			const filesCopied = installResult.right;
-			expect(filesCopied).toBe(3);
-
-			const cmdStat = await stat(
-				join(targetDir, "command/rp1-base/lifecycle-cmd.md"),
-			);
-			expect(cmdStat.isFile()).toBe(true);
+			expect(filesCopied).toBe(2);
 
 			const agentStat = await stat(
-				join(targetDir, "agent/rp1-base/lifecycle-agent.md"),
+				join(targetDir, "agents/rp1-base/lifecycle-agent.md"),
 			);
 			expect(agentStat.isFile()).toBe(true);
 
 			const skillStat = await stat(
-				join(targetDir, "skill/rp1-lifecycle-skill/SKILL.md"),
+				join(targetDir, "skills/rp1-lifecycle-skill/SKILL.md"),
 			);
 			expect(skillStat.isFile()).toBe(true);
 
-			const cmdContent = await readFile(
-				join(targetDir, "command/rp1-base/lifecycle-cmd.md"),
+			const agentContent = await readFile(
+				join(targetDir, "agents/rp1-base/lifecycle-agent.md"),
 				"utf-8",
 			);
-			expect(cmdContent).toContain("Lifecycle test command");
+			expect(agentContent).toContain("Lifecycle test agent");
 		},
 		{ timeout: 60000 },
 	);

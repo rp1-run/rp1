@@ -67,11 +67,13 @@ Worktree workflow skill content.
 
 		expect(result.summary.skills).toBeGreaterThanOrEqual(1);
 		expect(
-			result.assets.skills.some((s) => s.name === "rp1-worktree-workflow"),
+			result.assets.skills.some((s) =>
+				s.name.startsWith("rp1-worktree-workflow/"),
+			),
 		).toBe(true);
 	});
 
-	test("skills produce output in skill/{name}/ directory", async () => {
+	test("skills produce output in skills/{name}/ directory", async () => {
 		const projectRoot = join(tempDir, "project-skill-output");
 
 		await writeFixture(
@@ -102,7 +104,9 @@ Skill version of knowledge-load content.
 		);
 
 		expect(
-			result.assets.skills.some((s) => s.name === "rp1-knowledge-load"),
+			result.assets.skills.some((s) =>
+				s.name.startsWith("rp1-knowledge-load/"),
+			),
 		).toBe(true);
 		expect(result.summary.skills).toBe(1);
 		expect(result.summary.commands).toBe(0);
@@ -111,7 +115,7 @@ Skill version of knowledge-load content.
 		const skillOutputPath = join(
 			out,
 			"base",
-			"skill",
+			"skills",
 			"rp1-knowledge-load",
 			"SKILL.md",
 		);
@@ -207,7 +211,7 @@ Prompt writer skill content.
 
 		expect(result.summary.skills).toBe(1);
 		expect(
-			result.assets.skills.some((s) => s.name === "rp1-prompt-writer"),
+			result.assets.skills.some((s) => s.name.startsWith("rp1-prompt-writer/")),
 		).toBe(true);
 	});
 });

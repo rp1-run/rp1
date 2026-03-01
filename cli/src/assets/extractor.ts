@@ -3,7 +3,7 @@
  * Assets are pre-transformed to OpenCode format during build.
  */
 
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
@@ -55,9 +55,8 @@ const extractAsset = async (
 /**
  * Extract a plugin's assets to the target directory.
  * Creates the correct OpenCode directory structure:
- * - command/rp1-{plugin}/{cmd}.md
- * - agent/rp1-{plugin}/{agent}.md
- * - skill/{skill}/SKILL.md
+ * - agents/rp1-{plugin}/{agent}.md
+ * - skills/{skill}/SKILL.md
  *
  * Assets are already in OpenCode format (pre-transformed during build).
  */
@@ -69,23 +68,16 @@ const extractPlugin = async (
 	let filesExtracted = 0;
 	const pluginName = plugin.name; // e.g., "rp1-base"
 
-	// Extract commands
-	for (const cmd of plugin.commands) {
-		const destPath = join(targetDir, "command", pluginName, `${cmd.name}.md`);
-		await extractAsset(cmd, destPath);
-		filesExtracted++;
-	}
-
 	// Extract agents
 	for (const agent of plugin.agents) {
-		const destPath = join(targetDir, "agent", pluginName, `${agent.name}.md`);
+		const destPath = join(targetDir, "agents", pluginName, `${agent.name}.md`);
 		await extractAsset(agent, destPath);
 		filesExtracted++;
 	}
 
-	// Extract skills
+	// Extract skills (each entry is a file path relative to skills/, e.g. "rp1-my-skill/SKILL.md")
 	for (const skill of plugin.skills) {
-		const destPath = join(targetDir, "skill", skill.name, "SKILL.md");
+		const destPath = join(targetDir, "skills", skill.name);
 		await extractAsset(skill, destPath);
 		filesExtracted++;
 	}
@@ -130,6 +122,45 @@ const extractOpenCodePlugin = async (
 };
 
 /**
+ * Remove legacy singular-form rp1 directories (command/, agent/, skill/).
+ * Only removes rp1-namespaced entries to preserve user files.
+ * Called during install to clean up artifacts from pre-plural versions.
+ */
+const removeLegacyDirs = async (
+	targetDir: string,
+	onProgress?: (msg: string) => void,
+): Promise<number> => {
+	let filesRemoved = 0;
+
+	// Legacy singular directories to clean up
+	const legacyDirs = ["command", "agent", "skill"];
+
+	for (const dirName of legacyDirs) {
+		const legacyDir = join(targetDir, dirName);
+		try {
+			const legacyStat = await stat(legacyDir);
+			if (legacyStat.isDirectory()) {
+				const entries = await readdir(legacyDir, { withFileTypes: true });
+				for (const entry of entries) {
+					if (!entry.name.startsWith("rp1")) continue;
+					const entryPath = join(legacyDir, entry.name);
+					await rm(entryPath, { recursive: true });
+					filesRemoved++;
+				}
+			}
+		} catch {
+			// Directory doesn't exist
+		}
+	}
+
+	if (filesRemoved > 0) {
+		onProgress?.(`  Cleaned up ${filesRemoved} legacy directories`);
+	}
+
+	return filesRemoved;
+};
+
+/**
  * Extract all plugin files to OpenCode config directory.
  * This is the main entry point for `install:opencode` from bundled assets.
  */
@@ -142,6 +173,9 @@ export const extractPlugins = (
 		async () => {
 			let filesExtracted = 0;
 			const plugins: string[] = [];
+
+			// Clean up legacy singular-form directories before extracting
+			await removeLegacyDirs(targetDir, onProgress);
 
 			onProgress?.("Extracting bundled plugins...");
 

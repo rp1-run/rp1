@@ -83,7 +83,7 @@ const copyDir = async (src: string, dst: string): Promise<number> => {
 
 /**
  * Copy rp1 artifacts from source to target directory.
- * Handles subdirectory namespacing (command/rp1-base/, agent/rp1-base/).
+ * Handles subdirectory namespacing (agents/rp1-base/).
  *
  * When strict mode is enabled (REQ-013), missing source directories cause
  * installation failure instead of logging a warning and continuing.
@@ -99,49 +99,11 @@ export const copyArtifacts = (
 		async () => {
 			let filesCopied = 0;
 
-			const commandSrc = join(sourceDir, "command");
-			try {
-				const stats = await stat(commandSrc);
-				if (stats.isDirectory()) {
-					const commandDst = join(targetDir, "command");
-					await mkdir(commandDst, { recursive: true });
-
-					const commandFiles = await findFiles(commandSrc, /\.md$/);
-					for (const srcFile of commandFiles) {
-						const relPath = relative(commandSrc, srcFile);
-						const dstFile = join(commandDst, relPath);
-
-						await mkdir(join(dstFile, ".."), { recursive: true });
-
-						try {
-							await stat(dstFile);
-							onOverwrite?.(`command/${relPath}`);
-						} catch (e) {
-							logger?.debug(
-								`Command file does not exist (will create): ${dstFile}: ${e}`,
-							);
-						}
-
-						await copyFile(srcFile, dstFile);
-						await chmod(dstFile, 0o644);
-						filesCopied++;
-					}
-				}
-			} catch (e) {
-				if (strict) {
-					throw strictModeError(
-						commandSrc,
-						`Missing source directory: ${commandSrc}`,
-					);
-				}
-				logger?.debug(`Command directory not found at ${commandSrc}: ${e}`);
-			}
-
-			const agentSrc = join(sourceDir, "agent");
+			const agentSrc = join(sourceDir, "agents");
 			try {
 				const stats = await stat(agentSrc);
 				if (stats.isDirectory()) {
-					const agentDst = join(targetDir, "agent");
+					const agentDst = join(targetDir, "agents");
 					await mkdir(agentDst, { recursive: true });
 
 					const agentFiles = await findFiles(agentSrc, /\.md$/);
@@ -153,7 +115,7 @@ export const copyArtifacts = (
 
 						try {
 							await stat(dstFile);
-							onOverwrite?.(`agent/${relPath}`);
+							onOverwrite?.(`agents/${relPath}`);
 						} catch (e) {
 							logger?.debug(
 								`Agent file does not exist (will create): ${dstFile}: ${e}`,
@@ -175,11 +137,11 @@ export const copyArtifacts = (
 				logger?.debug(`Agent directory not found at ${agentSrc}: ${e}`);
 			}
 
-			const skillsSrc = join(sourceDir, "skill");
+			const skillsSrc = join(sourceDir, "skills");
 			try {
 				const stats = await stat(skillsSrc);
 				if (stats.isDirectory()) {
-					const skillsDst = join(targetDir, "skill");
+					const skillsDst = join(targetDir, "skills");
 					await mkdir(skillsDst, { recursive: true });
 
 					const entries = await readdir(skillsSrc, { withFileTypes: true });
@@ -199,7 +161,7 @@ export const copyArtifacts = (
 
 						try {
 							await stat(dstSkillDir);
-							onOverwrite?.(`skill/${entry.name}`);
+							onOverwrite?.(`skills/${entry.name}`);
 							await rm(dstSkillDir, { recursive: true });
 						} catch (e) {
 							logger?.debug(
@@ -257,29 +219,11 @@ export const backupExistingInstallation = (logger?: {
 				};
 			}
 
-			const commandDir = join(configDir, "command");
-			try {
-				const stats = await stat(commandDir);
-				if (stats.isDirectory()) {
-					const backupCommandDir = join(backupPath, "command");
-					const commandFiles = await findFiles(commandDir, /\.md$/);
-					for (const srcFile of commandFiles) {
-						const relPath = relative(commandDir, srcFile);
-						const dstFile = join(backupCommandDir, relPath);
-						await mkdir(join(dstFile, ".."), { recursive: true });
-						await copyFile(srcFile, dstFile);
-						filesBackedUp++;
-					}
-				}
-			} catch (e) {
-				logger?.debug(`No commands to backup at ${commandDir}: ${e}`);
-			}
-
-			const agentDir = join(configDir, "agent");
+			const agentDir = join(configDir, "agents");
 			try {
 				const stats = await stat(agentDir);
 				if (stats.isDirectory()) {
-					const backupAgentDir = join(backupPath, "agent");
+					const backupAgentDir = join(backupPath, "agents");
 					const agentFiles = await findFiles(agentDir, /\.md$/);
 					for (const srcFile of agentFiles) {
 						const relPath = relative(agentDir, srcFile);
@@ -293,11 +237,11 @@ export const backupExistingInstallation = (logger?: {
 				logger?.debug(`No agents to backup at ${agentDir}: ${e}`);
 			}
 
-			const skillsDir = join(configDir, "skill");
+			const skillsDir = join(configDir, "skills");
 			try {
 				const stats = await stat(skillsDir);
 				if (stats.isDirectory()) {
-					const backupSkillsDir = join(backupPath, "skill");
+					const backupSkillsDir = join(backupPath, "skills");
 					// Back up all rp1-namespaced skills
 					const skillEntries = await readdir(skillsDir, {
 						withFileTypes: true,
@@ -394,52 +338,11 @@ export const restoreFromBackup = (
 				throw new Error(`Backup path does not exist: ${backupPath}`);
 			}
 
-			const backupCommandDir = join(backupPath, "command");
-			try {
-				const stats = await stat(backupCommandDir);
-				if (stats.isDirectory()) {
-					const targetCommandDir = join(configDir, "command");
-
-					try {
-						const entries = await readdir(targetCommandDir, {
-							withFileTypes: true,
-						});
-						for (const entry of entries) {
-							if (entry.isDirectory() && entry.name.startsWith("rp1-")) {
-								await rm(join(targetCommandDir, entry.name), {
-									recursive: true,
-								});
-								logger?.debug(
-									`Removed existing command directory: ${entry.name}`,
-								);
-							}
-						}
-					} catch (e) {
-						logger?.debug(
-							`Target command directory may not exist at ${targetCommandDir}: ${e}`,
-						);
-					}
-
-					const commandFiles = await findFiles(backupCommandDir, /\.md$/);
-					for (const srcFile of commandFiles) {
-						const relPath = relative(backupCommandDir, srcFile);
-						const dstFile = join(targetCommandDir, relPath);
-						await mkdir(dirname(dstFile), { recursive: true });
-						await copyFile(srcFile, dstFile);
-						await chmod(dstFile, 0o644);
-						filesRestored++;
-						logger?.debug(`Restored command: ${relPath}`);
-					}
-				}
-			} catch (e) {
-				logger?.debug(`No commands to restore from backup: ${e}`);
-			}
-
-			const backupAgentDir = join(backupPath, "agent");
+			const backupAgentDir = join(backupPath, "agents");
 			try {
 				const stats = await stat(backupAgentDir);
 				if (stats.isDirectory()) {
-					const targetAgentDir = join(configDir, "agent");
+					const targetAgentDir = join(configDir, "agents");
 
 					try {
 						const entries = await readdir(targetAgentDir, {
@@ -474,11 +377,11 @@ export const restoreFromBackup = (
 				logger?.debug(`No agents to restore from backup: ${e}`);
 			}
 
-			const backupSkillsDir = join(backupPath, "skill");
+			const backupSkillsDir = join(backupPath, "skills");
 			try {
 				const stats = await stat(backupSkillsDir);
 				if (stats.isDirectory()) {
-					const targetSkillsDir = join(configDir, "skill");
+					const targetSkillsDir = join(configDir, "skills");
 					const entries = await readdir(backupSkillsDir, {
 						withFileTypes: true,
 					});
@@ -648,32 +551,11 @@ export const copyToStaging = (
 				const pluginName = pluginDir.split("/").pop() ?? "unknown";
 				onProgress?.(`Staging ${pluginName}...`);
 
-				const commandSrc = join(pluginDir, "command");
-				try {
-					const stats = await stat(commandSrc);
-					if (stats.isDirectory()) {
-						const commandDst = join(stagingPath, "command");
-						await mkdir(commandDst, { recursive: true });
-
-						const commandFiles = await findFiles(commandSrc, /\.md$/);
-						for (const srcFile of commandFiles) {
-							const relPath = relative(commandSrc, srcFile);
-							const dstFile = join(commandDst, relPath);
-							await mkdir(dirname(dstFile), { recursive: true });
-							await copyFile(srcFile, dstFile);
-							await chmod(dstFile, 0o644);
-							totalFilesCopied++;
-						}
-					}
-				} catch (e) {
-					logger?.debug(`Command directory not found at ${commandSrc}: ${e}`);
-				}
-
-				const agentSrc = join(pluginDir, "agent");
+				const agentSrc = join(pluginDir, "agents");
 				try {
 					const stats = await stat(agentSrc);
 					if (stats.isDirectory()) {
-						const agentDst = join(stagingPath, "agent");
+						const agentDst = join(stagingPath, "agents");
 						await mkdir(agentDst, { recursive: true });
 
 						const agentFiles = await findFiles(agentSrc, /\.md$/);
@@ -690,11 +572,11 @@ export const copyToStaging = (
 					logger?.debug(`Agent directory not found at ${agentSrc}: ${e}`);
 				}
 
-				const skillsSrc = join(pluginDir, "skill");
+				const skillsSrc = join(pluginDir, "skills");
 				try {
 					const stats = await stat(skillsSrc);
 					if (stats.isDirectory()) {
-						const skillsDst = join(stagingPath, "skill");
+						const skillsDst = join(stagingPath, "skills");
 						await mkdir(skillsDst, { recursive: true });
 
 						const entries = await readdir(skillsSrc, { withFileTypes: true });
@@ -800,19 +682,11 @@ export const verifyStagingContents = (
 
 			const missingPlugins: string[] = [];
 			for (const pluginName of expectedPlugins) {
-				// Check for at least one of: command/, agent/, skill/ subdirectories with plugin content
-				const commandDir = join(stagingPath, "command", `rp1-${pluginName}`);
-				const agentDir = join(stagingPath, "agent", `rp1-${pluginName}`);
-				const skillDir = join(stagingPath, "skill");
+				// Check for at least one of: agents/, skills/ subdirectories with plugin content
+				const agentDir = join(stagingPath, "agents", `rp1-${pluginName}`);
+				const skillDir = join(stagingPath, "skills");
 
 				let hasContent = false;
-				try {
-					await stat(commandDir);
-					hasContent = true;
-				} catch {
-					// Command dir doesn't exist
-				}
-
 				try {
 					await stat(agentDir);
 					hasContent = true;

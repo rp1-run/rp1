@@ -36,23 +36,18 @@ describe("installer", () => {
 
 	describe("copyArtifacts", () => {
 		// Core functionality: verifies all artifact types reach correct destinations
-		test("copies files to correct subdirectories (command/, agent/, skill/)", async () => {
+		test("copies files to correct subdirectories (agents/, skills/)", async () => {
 			const sourceDir = join(tempDir, "source");
 			const targetDir = join(tempDir, "target");
 
 			await writeFixture(
 				sourceDir,
-				"command/rp1-base/sample-command.md",
-				"---\nname: sample-command\n---\nCommand content",
-			);
-			await writeFixture(
-				sourceDir,
-				"agent/rp1-base/sample-agent.md",
+				"agents/rp1-base/sample-agent.md",
 				"---\nname: sample-agent\n---\nAgent content",
 			);
 			await writeFixture(
 				sourceDir,
-				"skill/rp1-sample-skill/SKILL.md",
+				"skills/rp1-sample-skill/SKILL.md",
 				"---\nname: rp1-sample-skill\n---\nSkill content",
 			);
 
@@ -63,20 +58,14 @@ describe("installer", () => {
 				expect(result.right).toBeGreaterThan(0);
 			}
 
-			const commandContent = await readFile(
-				join(targetDir, "command/rp1-base/sample-command.md"),
-				"utf-8",
-			);
-			expect(commandContent).toContain("Command content");
-
 			const agentContent = await readFile(
-				join(targetDir, "agent/rp1-base/sample-agent.md"),
+				join(targetDir, "agents/rp1-base/sample-agent.md"),
 				"utf-8",
 			);
 			expect(agentContent).toContain("Agent content");
 
 			const skillContent = await readFile(
-				join(targetDir, "skill/rp1-sample-skill/SKILL.md"),
+				join(targetDir, "skills/rp1-sample-skill/SKILL.md"),
 				"utf-8",
 			);
 			expect(skillContent).toContain("Skill content");
@@ -89,13 +78,13 @@ describe("installer", () => {
 			// Create a non-namespaced skill (should be skipped)
 			await writeFixture(
 				sourceDir,
-				"skill/user-skill/SKILL.md",
+				"skills/user-skill/SKILL.md",
 				"---\nname: user-skill\n---\nUser skill content",
 			);
 			// Create a namespaced skill (should be copied)
 			await writeFixture(
 				sourceDir,
-				"skill/rp1-build/SKILL.md",
+				"skills/rp1-build/SKILL.md",
 				"---\nname: rp1-build\n---\nBuild content",
 			);
 
@@ -114,13 +103,13 @@ describe("installer", () => {
 
 			await writeFixture(
 				sourceDir,
-				"command/rp1-base/test.md",
+				"agents/rp1-base/test.md",
 				"---\nname: test\n---\nContent",
 			);
 
 			await copyArtifacts(sourceDir, targetDir)();
 
-			const targetFile = join(targetDir, "command/rp1-base/test.md");
+			const targetFile = join(targetDir, "agents/rp1-base/test.md");
 			const fileStat = await stat(targetFile);
 
 			const mode = fileStat.mode & 0o777;
@@ -149,17 +138,17 @@ describe("installer", () => {
 
 			await writeFixture(
 				sourceDir,
-				"skill/rp1-my-skill/SKILL.md",
+				"skills/rp1-my-skill/SKILL.md",
 				"---\nname: rp1-my-skill\n---\nSkill main",
 			);
 			await writeFixture(
 				sourceDir,
-				"skill/rp1-my-skill/templates/template1.md",
+				"skills/rp1-my-skill/templates/template1.md",
 				"Template 1 content",
 			);
 			await writeFixture(
 				sourceDir,
-				"skill/rp1-my-skill/templates/nested/template2.md",
+				"skills/rp1-my-skill/templates/nested/template2.md",
 				"Template 2 content",
 			);
 
@@ -168,13 +157,13 @@ describe("installer", () => {
 			expect(E.isRight(result)).toBe(true);
 
 			const template1 = await readFile(
-				join(targetDir, "skill/rp1-my-skill/templates/template1.md"),
+				join(targetDir, "skills/rp1-my-skill/templates/template1.md"),
 				"utf-8",
 			);
 			expect(template1).toBe("Template 1 content");
 
 			const template2 = await readFile(
-				join(targetDir, "skill/rp1-my-skill/templates/nested/template2.md"),
+				join(targetDir, "skills/rp1-my-skill/templates/nested/template2.md"),
 				"utf-8",
 			);
 			expect(template2).toBe("Template 2 content");
@@ -293,12 +282,12 @@ describe("installer", () => {
 		});
 
 		// Core restore functionality - verifies backup data actually overwrites corrupted target
-		test("restores command files from backup (P0)", async () => {
-			// Setup backup with commands
+		test("restores agent files from backup (P0)", async () => {
+			// Setup backup with agents
 			await writeFixture(
 				backupDir,
-				"command/rp1-base/test-cmd.md",
-				"Original command content",
+				"agents/rp1-base/test-agent.md",
+				"Original agent content",
 			);
 			await writeFixture(join(backupDir, "manifest.json"), "", "");
 
@@ -312,10 +301,10 @@ describe("installer", () => {
 
 			// Simulate target with corrupted content
 			const configDir = join(homedir(), ".config", "opencode");
-			await mkdir(join(configDir, "command", "rp1-base"), { recursive: true });
+			await mkdir(join(configDir, "agents", "rp1-base"), { recursive: true });
 			await writeFixture(
 				configDir,
-				"command/rp1-base/test-cmd.md",
+				"agents/rp1-base/test-agent.md",
 				"Corrupted content",
 			);
 
@@ -325,13 +314,13 @@ describe("installer", () => {
 
 			// Verify content was restored
 			const restoredContent = await readFile(
-				join(configDir, "command/rp1-base/test-cmd.md"),
+				join(configDir, "agents/rp1-base/test-agent.md"),
 				"utf-8",
 			);
-			expect(restoredContent).toBe("Original command content");
+			expect(restoredContent).toBe("Original agent content");
 
 			// Cleanup
-			await rm(join(configDir, "command/rp1-base"), {
+			await rm(join(configDir, "agents/rp1-base"), {
 				recursive: true,
 				force: true,
 			});
@@ -340,7 +329,7 @@ describe("installer", () => {
 		// Critical: manifest deletion prevents accidental double-restore on retry
 		test("deletes manifest.json after successful restore (prevents duplicate)", async () => {
 			// Setup backup with minimal content
-			await writeFixture(backupDir, "command/rp1-base/cmd.md", "content");
+			await writeFixture(backupDir, "agents/rp1-base/agent.md", "content");
 			const manifest: BackupManifest = {
 				timestamp: "2026-01-25T10-00-00",
 				backupPath: backupDir,
@@ -350,7 +339,7 @@ describe("installer", () => {
 
 			// Setup target
 			const configDir = join(homedir(), ".config", "opencode");
-			await mkdir(join(configDir, "command", "rp1-base"), { recursive: true });
+			await mkdir(join(configDir, "agents", "rp1-base"), { recursive: true });
 
 			const result = await expectTaskRight(restoreFromBackup(manifest));
 
@@ -366,7 +355,7 @@ describe("installer", () => {
 			expect(manifestExists).toBe(false);
 
 			// Cleanup
-			await rm(join(configDir, "command/rp1-base"), {
+			await rm(join(configDir, "agents/rp1-base"), {
 				recursive: true,
 				force: true,
 			});

@@ -62,7 +62,7 @@ interface AssetImport {
 	varName: string;
 	importPath: string;
 	outputName: string;
-	category: "command" | "agent" | "skill" | "webui" | "opencode-plugin";
+	category: "agent" | "skill" | "webui" | "opencode-plugin";
 	plugin?: "base" | "dev" | "utils";
 }
 
@@ -106,18 +106,6 @@ async function collectPluginAssets(
 
 	for (const [pluginKey, plugin] of Object.entries(manifest.plugins)) {
 		const pluginName = pluginKey as "base" | "dev" | "utils";
-
-		// Commands
-		for (const cmd of plugin.commands) {
-			const fullPath = join(OPENCODE_DIST, cmd.path);
-			imports.push({
-				varName: toVarName(`${pluginName}_cmd`, cmd.name),
-				importPath: getImportPath(fullPath),
-				outputName: cmd.name,
-				category: "command",
-				plugin: pluginName,
-			});
-		}
 
 		// Agents
 		for (const agent of plugin.agents) {
@@ -243,10 +231,6 @@ async function generate(): Promise<void> {
 		.join("\n");
 
 	// Generate manifest arrays
-	const baseCommands = pluginAssets
-		.filter((a) => a.category === "command" && a.plugin === "base")
-		.map((a) => `{ name: "${a.outputName}", path: ${a.varName} }`);
-
 	const baseAgents = pluginAssets
 		.filter((a) => a.category === "agent" && a.plugin === "base")
 		.map((a) => `{ name: "${a.outputName}", path: ${a.varName} }`);
@@ -255,20 +239,12 @@ async function generate(): Promise<void> {
 		.filter((a) => a.category === "skill" && a.plugin === "base")
 		.map((a) => `{ name: "${a.outputName}", path: ${a.varName} }`);
 
-	const devCommands = pluginAssets
-		.filter((a) => a.category === "command" && a.plugin === "dev")
-		.map((a) => `{ name: "${a.outputName}", path: ${a.varName} }`);
-
 	const devAgents = pluginAssets
 		.filter((a) => a.category === "agent" && a.plugin === "dev")
 		.map((a) => `{ name: "${a.outputName}", path: ${a.varName} }`);
 
 	const devSkills = pluginAssets
 		.filter((a) => a.category === "skill" && a.plugin === "dev")
-		.map((a) => `{ name: "${a.outputName}", path: ${a.varName} }`);
-
-	const utilsCommands = pluginAssets
-		.filter((a) => a.category === "command" && a.plugin === "utils")
 		.map((a) => `{ name: "${a.outputName}", path: ${a.varName} }`);
 
 	const utilsAgents = pluginAssets
@@ -307,20 +283,20 @@ export const EMBEDDED_MANIFEST = {
   plugins: {
     base: {
       name: "rp1-base",
-      commands: [${baseCommands.join(", ")}],
+      commands: [],
       agents: [${baseAgents.join(", ")}],
       skills: [${baseSkills.join(", ")}],
       ${baseOpenCodePlugin}
     },
     dev: {
       name: "rp1-dev",
-      commands: [${devCommands.join(", ")}],
+      commands: [],
       agents: [${devAgents.join(", ")}],
       skills: [${devSkills.join(", ")}],
     },
     utils: {
       name: "rp1-utils",
-      commands: [${utilsCommands.join(", ")}],
+      commands: [],
       agents: [${utilsAgents.join(", ")}],
       skills: [${utilsSkills.join(", ")}],
     },
@@ -336,16 +312,14 @@ export const IS_BUNDLED = true;
 	await writeFile(OUTPUT_FILE, content);
 	console.log(`Generated ${OUTPUT_FILE}`);
 	console.log(
-		`  Base: ${baseCommands.length} commands, ${baseAgents.length} agents, ${baseSkills.length} skills`,
+		`  Base: ${baseAgents.length} agents, ${baseSkills.length} skills`,
 	);
 	if (basePluginFiles.length > 0) {
 		console.log(`  Base OpenCode Plugin: ${basePluginFiles.length} files`);
 	}
+	console.log(`  Dev: ${devAgents.length} agents, ${devSkills.length} skills`);
 	console.log(
-		`  Dev: ${devCommands.length} commands, ${devAgents.length} agents, ${devSkills.length} skills`,
-	);
-	console.log(
-		`  Utils: ${utilsCommands.length} commands, ${utilsAgents.length} agents, ${utilsSkills.length} skills`,
+		`  Utils: ${utilsAgents.length} agents, ${utilsSkills.length} skills`,
 	);
 	console.log(`  Web-UI: ${webuiAssets.length} files`);
 	console.log(`  Version: ${manifest.version}`);

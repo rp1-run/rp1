@@ -36,16 +36,13 @@ describe("registry", () => {
 	});
 
 	describe("getDirectoryMapping", () => {
-		test("maps 'agents' to 'agent'", () => {
-			expect(getDirectoryMapping(defaultRegistry, "agents")).toBe("agent");
-		});
-
-		test("maps 'commands' to 'command'", () => {
-			expect(getDirectoryMapping(defaultRegistry, "commands")).toBe("command");
+		test("maps 'agents' to 'agents'", () => {
+			expect(getDirectoryMapping(defaultRegistry, "agents")).toBe("agents");
 		});
 
 		test("returns original for unmapped directories", () => {
 			expect(getDirectoryMapping(defaultRegistry, "skills")).toBe("skills");
+			expect(getDirectoryMapping(defaultRegistry, "commands")).toBe("commands");
 			expect(getDirectoryMapping(defaultRegistry, "unknown")).toBe("unknown");
 		});
 	});
@@ -80,7 +77,6 @@ describe("registry", () => {
 
 		test("contains directory mappings", () => {
 			expect(defaultRegistry.directoryMappings).toHaveProperty("agents");
-			expect(defaultRegistry.directoryMappings).toHaveProperty("commands");
 		});
 
 		test("contains metadata mappings", () => {

@@ -169,9 +169,15 @@ const executeInstallFromBundled = (
 								assets.plugins.dev,
 								assets.plugins.utils,
 							];
+							// Count unique skill directories (entries are file-level, e.g. "rp1-build/SKILL.md")
+							const uniqueSkillDirs = new Set(
+								allPlugins.flatMap((p) =>
+									p.skills.map((s) => s.name.split("/")[0]),
+								),
+							);
 							const bundledCounts = {
 								agents: allPlugins.reduce((sum, p) => sum + p.agents.length, 0),
-								skills: allPlugins.reduce((sum, p) => sum + p.skills.length, 0),
+								skills: uniqueSkillDirs.size,
 							};
 							return pipe(
 								verifyInstallation(undefined, bundledCounts),

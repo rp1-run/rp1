@@ -104,8 +104,8 @@ describe("integration: error-recovery", () => {
 			);
 			await writeFixture(
 				targetDir,
-				"command/user/custom-command.md",
-				"User's custom command",
+				"agents/user/custom-agent.md",
+				"User's custom agent",
 			);
 
 			// Run installation with empty source
@@ -120,12 +120,12 @@ describe("integration: error-recovery", () => {
 			);
 			expect(existingContent).toBe("Original content that should remain");
 
-			// Verify user's custom command is preserved
-			const customCmd = await readFile(
-				join(targetDir, "command/user/custom-command.md"),
+			// Verify user's custom agent is preserved
+			const customAgent = await readFile(
+				join(targetDir, "agents/user/custom-agent.md"),
 				"utf-8",
 			);
-			expect(customCmd).toBe("User's custom command");
+			expect(customAgent).toBe("User's custom agent");
 		},
 		{ timeout: 60000 },
 	);
@@ -190,14 +190,14 @@ describe("integration: error-recovery", () => {
 			// Create source artifact
 			await writeFixture(
 				sourceDir,
-				"command/rp1-base/test-cmd.md",
+				"agents/rp1-base/test-agent.md",
 				"---\ndescription: New version\n---\nNew content",
 			);
 
 			// Create existing file in target with old content
 			await writeFixture(
 				targetDir,
-				"command/rp1-base/test-cmd.md",
+				"agents/rp1-base/test-agent.md",
 				"---\ndescription: Old version\n---\nOld content",
 			);
 
@@ -210,11 +210,11 @@ describe("integration: error-recovery", () => {
 
 			// Callback should have been called
 			expect(overwrites.length).toBe(1);
-			expect(overwrites[0]).toContain("test-cmd.md");
+			expect(overwrites[0]).toContain("test-agent.md");
 
 			// File should contain new content (was overwritten)
 			const content = await readFile(
-				join(targetDir, "command/rp1-base/test-cmd.md"),
+				join(targetDir, "agents/rp1-base/test-agent.md"),
 				"utf-8",
 			);
 			expect(content).toContain("New version");

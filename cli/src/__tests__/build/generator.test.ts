@@ -231,7 +231,8 @@ describe("generator", () => {
 			expect(manifest.artifacts.commands).toEqual(["cmd1"]);
 			expect(manifest.artifacts.agents).toEqual(["agent1"]);
 			expect(manifest.artifacts.skills).toEqual(["skill1"]);
-			expect(manifest.installation.commandsDir).toBeDefined();
+			expect(manifest.installation.agentsDir).toBeDefined();
+			expect(manifest.installation.skillsDir).toBeDefined();
 			expect(manifest.requirements.opencodeVersion).toBe(">=0.8.0");
 		});
 	});

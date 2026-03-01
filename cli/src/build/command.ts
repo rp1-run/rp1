@@ -203,6 +203,27 @@ const getSkillDirs = async (skillsDir: string): Promise<string[]> => {
 };
 
 /**
+ * Recursively collect all file paths relative to a directory.
+ */
+const collectAllFiles = async (dir: string, prefix = ""): Promise<string[]> => {
+	const files: string[] = [];
+	try {
+		const entries = await readdir(dir, { withFileTypes: true });
+		for (const entry of entries) {
+			const relPath = prefix ? `${prefix}/${entry.name}` : entry.name;
+			if (entry.isDirectory()) {
+				files.push(...(await collectAllFiles(join(dir, entry.name), relPath)));
+			} else if (entry.isFile()) {
+				files.push(relPath);
+			}
+		}
+	} catch {
+		// Directory doesn't exist
+	}
+	return files;
+};
+
+/**
  * Recursively copy supporting files.
  */
 const copySupportingFiles = async (
@@ -342,6 +363,7 @@ export const buildPlugin = async (
 	const commandEntries: BundleAssetEntry[] = [];
 	const agentEntries: BundleAssetEntry[] = [];
 	const skillEntries: BundleAssetEntry[] = [];
+	const skillFileEntries: BundleAssetEntry[] = [];
 
 	const pluginDir = join(projectRoot, "plugins", pluginName);
 	const pluginOutputDir = join(outputPath, pluginName);
@@ -357,11 +379,11 @@ export const buildPlugin = async (
 		// Directory might not exist
 	}
 
-	// Create namespaced subdirectories: agent/rp1-{plugin}/, skill/
-	await mkdir(join(pluginOutputDir, "agent", `rp1-${pluginName}`), {
+	// Create namespaced subdirectories: agents/rp1-{plugin}/, skills/
+	await mkdir(join(pluginOutputDir, "agents", `rp1-${pluginName}`), {
 		recursive: true,
 	});
-	await mkdir(join(pluginOutputDir, "skill"), { recursive: true });
+	await mkdir(join(pluginOutputDir, "skills"), { recursive: true });
 
 	if (!jsonOutput) {
 		spinner.start(`Building ${pluginName} plugin...`);
@@ -417,15 +439,26 @@ export const buildPlugin = async (
 		}
 
 		// Write SKILL.md
-		const skillOutputDir = join(pluginOutputDir, "skill", namespacedSkillDir);
-		const relativePath = `${pluginName}/skill/${namespacedSkillDir}/SKILL.md`;
+		const skillOutputDir = join(pluginOutputDir, "skills", namespacedSkillDir);
 		await mkdir(skillOutputDir, { recursive: true });
 		await writeFile(join(skillOutputDir, "SKILL.md"), namespacedSkillMdContent);
 
 		// Copy supporting files
 		await copySupportingFiles(skillDir, skillOutputDir, supportingFiles);
 
+		// Track skill directory name for manifest
+		const relativePath = `${pluginName}/skills/${namespacedSkillDir}/SKILL.md`;
 		skillEntries.push({ name: namespacedSkillDir, path: relativePath });
+
+		// Collect all files in skill dir for bundle embedding (SKILL.md + supporting files)
+		const allSkillFiles = await collectAllFiles(skillOutputDir);
+		for (const file of allSkillFiles) {
+			const fileRelPath = `${pluginName}/skills/${namespacedSkillDir}/${file}`;
+			skillFileEntries.push({
+				name: `${namespacedSkillDir}/${file}`,
+				path: fileRelPath,
+			});
+		}
 	}
 
 	// Process agents
@@ -462,7 +495,7 @@ export const buildPlugin = async (
 		}
 
 		// Write to namespaced subdirectory
-		const relativePath = `${pluginName}/agent/rp1-${pluginName}/${filename}`;
+		const relativePath = `${pluginName}/agents/rp1-${pluginName}/${filename}`;
 		const outputFile = join(outputPath, relativePath);
 		await writeFile(outputFile, content);
 		agentEntries.push({ name: ccAgent.name, path: relativePath });
@@ -531,7 +564,7 @@ export const buildPlugin = async (
 			name: `rp1-${pluginName}`,
 			commands: commandEntries,
 			agents: agentEntries,
-			skills: skillEntries,
+			skills: skillFileEntries,
 			openCodePlugin: openCodePluginAsset,
 		},
 		hasOpenCodePlugin,

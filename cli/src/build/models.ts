@@ -131,7 +131,6 @@ export interface PluginManifest {
 		readonly skills: readonly string[];
 	};
 	readonly installation: {
-		readonly commandsDir: string;
 		readonly agentsDir: string;
 		readonly skillsDir: string;
 	};
@@ -154,7 +153,7 @@ export interface BuildConfig {
  * Build result for a single artifact.
  */
 export interface ArtifactResult {
-	readonly type: "command" | "agent" | "skill";
+	readonly type: "agent" | "skill";
 	readonly name: string;
 	readonly filename: string;
 	readonly success: boolean;

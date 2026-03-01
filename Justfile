@@ -123,9 +123,8 @@ install-opencode:
 # Remove stable rp1 from both platforms (only rp1-namespaced, preserves user files)
 rm-stable:
     rm -rf ~/.config/opencode/plugin/rp1*
-    rm -rf ~/.config/opencode/command/rp1*
-    rm -rf ~/.config/opencode/agent/rp1*
-    rm -rf ~/.config/opencode/skill/rp1-*/
+    rm -rf ~/.config/opencode/agents/rp1*
+    rm -rf ~/.config/opencode/skills/rp1-*/
     -claude plugin marketplace rm rp1-run 2>/dev/null
 
 # ─────────────────────────────────────────────────────────────────────────────

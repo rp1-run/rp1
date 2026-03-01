@@ -190,9 +190,8 @@ export const generateManifest = (
 				skills: [...skills],
 			},
 			installation: {
-				commandsDir: "~/.config/opencode/command/",
-				agentsDir: "~/.config/opencode/agent/",
-				skillsDir: "~/.config/opencode/skill/",
+				agentsDir: "~/.config/opencode/agents/",
+				skillsDir: "~/.config/opencode/skills/",
 			},
 			requirements: {
 				opencodeVersion: ">=0.8.0",

@@ -9,8 +9,7 @@ import type { PlatformRegistry } from "./models.js";
  */
 export const defaultRegistry: PlatformRegistry = {
 	directoryMappings: {
-		agents: "agent",
-		commands: "command",
+		agents: "agents",
 	},
 
 	toolMappings: {

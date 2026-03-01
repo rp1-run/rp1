@@ -127,7 +127,7 @@ export const verifyInstallation = (
 					: (expectedCounts?.skills ?? 1);
 
 			// Check agents
-			const agentDir = join(configDir, "agent");
+			const agentDir = join(configDir, "agents");
 			const rp1Agents = await findFiles(agentDir, /\.md$/);
 			const agentsFound = rp1Agents.length;
 
@@ -158,7 +158,7 @@ export const verifyInstallation = (
 			}
 
 			// Check skills (namespaced under rp1-* directories)
-			const skillsDir = join(configDir, "skill");
+			const skillsDir = join(configDir, "skills");
 			let skillsFound = 0;
 			const missingSkillNames: string[] = [];
 
@@ -262,7 +262,7 @@ export const listInstalledSkills = (): TE.TaskEither<
 > =>
 	TE.tryCatch(
 		async () => {
-			const skillsDir = join(homedir(), ".config", "opencode", "skill");
+			const skillsDir = join(homedir(), ".config", "opencode", "skills");
 			const skills: Array<{
 				plugin: string;
 				name: string;
