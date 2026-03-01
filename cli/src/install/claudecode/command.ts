@@ -16,6 +16,7 @@ import type {
 	ClaudeCodePrerequisiteResult,
 } from "./models.js";
 import { runAllPrerequisiteChecks } from "./prerequisites.js";
+import { installSessionHook } from "./settings.js";
 
 /**
  * Parsed CLI arguments for Claude Code installation.
@@ -109,6 +110,9 @@ const displayDryRunPlan = (
 	logger.info(
 		`${color.dim("3.")} claude plugin install rp1-dev@rp1-run --scope ${config.scope}`,
 	);
+	logger.info(
+		`${color.dim("4.")} Install SessionStart hook in ~/.claude/settings.json`,
+	);
 	logger.info("");
 	logger.info(color.dim("Run without --dry-run to execute these commands."));
 };
@@ -183,7 +187,26 @@ const executeNormalInstall = (
 		TE.chain(() =>
 			installAllPlugins(config.scope, logger, config.dryRun, isTTY),
 		),
-		// Step 2: Display success message
+		// Step 2: Install SessionStart hook
+		TE.chain((installResult: ClaudeCodeInstallResult) =>
+			pipe(
+				TE.Do,
+				TE.tap(() => {
+					spinner.start("Configuring session hook...");
+					return TE.right(undefined);
+				}),
+				TE.chain(() => installSessionHook(logger)),
+				TE.map((hookAdded) => {
+					if (hookAdded) {
+						spinner.succeed("SessionStart hook installed");
+					} else {
+						spinner.succeed("SessionStart hook already configured");
+					}
+					return installResult;
+				}),
+			),
+		),
+		// Step 3: Display success message
 		TE.map((installResult: ClaudeCodeInstallResult) => {
 			displaySuccess(installResult, spinner, logger, isTTY);
 		}),

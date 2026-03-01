@@ -32,3 +32,11 @@ export {
 	parseClaudeCodeVersion,
 	runAllPrerequisiteChecks,
 } from "./prerequisites.js";
+// Settings
+export {
+	type ClaudeCodeSettings,
+	ensureArcadeHook,
+	getClaudeSettingsPath,
+	installSessionHook,
+	type SessionStartHook,
+} from "./settings.js";
