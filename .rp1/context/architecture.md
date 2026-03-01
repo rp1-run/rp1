@@ -1,8 +1,8 @@
 # System Architecture
 
-**Project**: rp1 Plugin System
-**Architecture Pattern**: Plugin Architecture with Map-Reduce Orchestration
-**Last Updated**: 2026-02-05
+**Project**: rp1
+**Architecture Pattern**: Plugin-based CLI with Skill-Agent Delegation
+**Last Updated**: 2026-03-01
 
 ## High-Level Architecture
 
@@ -11,247 +11,121 @@ graph TB
     subgraph "User Interfaces"
         CC[Claude Code CLI]
         OC[OpenCode]
-        CLI[rp1 CLI]
+        CLI[rp1 CLI Binary]
     end
 
     subgraph "Plugin System"
-        Base[rp1-base]
-        Dev[rp1-dev]
-        Utils[rp1-utils]
+        Base["rp1-base<br/>15 skills, 13 agents"]
+        Dev["rp1-dev<br/>19 skills, 32 agents"]
+        Utils["rp1-utils<br/>5 skills, 4 agents"]
         Dev -->|depends on| Base
     end
 
-    subgraph "Base Plugin"
-        BaseSkills[Skills]
-        BaseAgents[Agents]
-        BaseSkills --> BaseAgents
+    subgraph "Skill-Agent Architecture"
+        Skills[SKILL.md Entry Points]
+        Agents[Constitutional Agents]
+        Skills -->|Task tool| Agents
     end
 
-    subgraph "Dev Plugin"
-        DevSkills[Skills]
-        DevAgents[Agents]
-        DevSkills --> DevAgents
-        DevAgents -.->|cross-plugin| BaseSkills
-    end
-
-    subgraph "CLI"
-        CLIMain[main.ts]
-        ToolRegistry[Tool Registry]
-        WebUI[web-ui React/Vite]
-        AgentTools[agent-tools]
+    subgraph "CLI Core"
+        Main[main.ts / Commander]
+        AgentTools[Agent Tools Registry]
+        WebUI["Web UI Dashboard<br/>React/Vite/Tailwind"]
+        SQLite[SQLite Work Status]
+        Main --> AgentTools
+        Main --> WebUI
+        AgentTools --> SQLite
     end
 
     subgraph "Knowledge Base"
-        KB[.rp1/context/]
+        KB[".rp1/context/*.md"]
         State[state.json]
     end
 
     subgraph "Build Pipeline"
-        GHActions[GitHub Actions]
-        RP[release-please]
-        GR[GoReleaser]
-        Bun[Bun Compiler]
-        GHActions --> RP
+        RP[Release-Please]
+        GR[GoReleaser + Bun]
+        AssetGen[Asset Import Generator]
         RP -->|tag| GR
-        GR --> Bun
-    end
-
-    subgraph "Distribution"
-        Marketplace[Plugin Marketplace]
-        Tarball[OpenCode Tarball]
-        Homebrew[Homebrew Cask]
-        Scoop[Scoop Bucket]
-        Curl[curl install.sh]
-    end
-
-    subgraph "Quality"
-        Evals[Promptfoo Evals]
-        Attest[Attestation System]
-        Provider[claude-with-tools]
-        Biome[Biome Linter]
-        Evals --> Provider
-        Attest --> Evals
+        AssetGen -->|embedded.ts| GR
     end
 
     CC --> Base
     CC --> Dev
-    OC --> Tarball
-    CLI --> CLIMain
-
-    BaseAgents --> KB
-    DevAgents --> KB
-
-    Bun --> Homebrew
-    Bun --> Scoop
-    Bun --> Curl
-    Base --> Marketplace
-    Dev --> Marketplace
-    RP --> Tarball
+    CC --> Utils
+    OC --> Dev
+    CLI --> Main
+    Agents --> KB
+    Agents --> AgentTools
 ```
 
-## Architectural Patterns
-
-### Plugin Architecture
-**Evidence**: `plugins/base/.claude-plugin/plugin.json`, `plugins/dev/.claude-plugin/plugin.json`
-**Description**: Three independent plugins (base, dev, utils) with explicit dependencies. Dev depends on base for shared capabilities. Each plugin has skills (SKILL.md) and agents; skills are the single artifact type for all invocable prompts.
-
-### Constitutional Agent Pattern
-**Evidence**: `plugins/*/agents/*.md` structure with YAML frontmatter, parameter tables, anti-loop directives
-**Description**: Agents follow structured format: parameter tables, numbered workflow sections, JSON output contracts. Single-pass execution without iteration.
-
-### Skill-Agent Delegation
-**Evidence**: `plugins/*/skills/*/SKILL.md` spawn agents via Task tool
-**Description**: Skills (SKILL.md files) are entry points that extract parameters via model-driven parsing and spawn constitutional agents (200-350 lines) for workflow execution. All 31 invocable prompts use the SKILL.md canonical format.
-
-### Map-Reduce Orchestration
-**Evidence**: `skills/knowledge-build` spawns parallel agents, `skills/pr-review` uses splitter/sub-reviewers/synthesizer
-**Description**: Complex workflows split into units, processed in parallel by specialized agents, then merged by orchestrator.
-
-### Content-Addressable Attestation
-**Evidence**: `evals/src/attestation/` module with SHA-256 hashing and dependency graph derivation
-**Description**: Prompt files tracked via content hashes with dependency graphs. Changes require eval suite re-attestation before merge.
-
-### Two-Phase Eval Workflow
-**Evidence**: `Justfile` run-evals and attest-evals recipes, `evals/src/attestation/commands.ts`
-**Description**: Eval execution separated from attestation generation. Phase 1 runs promptfoo with fixed output file. Phase 2 reads output, validates 100% pass, updates attestation without spawning Claude.
-
-### Multi-Platform Distribution
-**Evidence**: `.goreleaser.yml` (darwin-arm64/x64, linux-arm64/x64, windows-x64)
-**Description**: Targets Claude Code (native plugins), OpenCode (tarballs), and standalone CLI via GoReleaser binaries.
-
-### Embedded Asset Bundling
-**Evidence**: `cli/src/assets/embedded.ts`, goreleaser.yml verification of IS_BUNDLED flag
-**Description**: Plugin assets embedded at build time into single executable binary via Bun compiler.
-
-### Git Worktree Isolation
-**Evidence**: `.rp1/work/worktrees/` directory structure, worktree CLI command
-**Description**: Agents execute in isolated git worktrees with disabled hooks, protecting user's uncommitted work.
-
-### Tool Registry Pattern
-**Evidence**: `cli/src/config/supported-tools.yaml`, `cli/src/agent-tools/index.ts`
-**Description**: Centralized registry for agent tools with registration, lookup, and listing.
-
-## Layer Architecture
+## Architectural Layers
 
 | Layer | Purpose | Components |
 |-------|---------|------------|
-| **Interface (Skills)** | User-facing entry points | `plugins/*/skills/*/SKILL.md` |
-| **Agent** | Autonomous workflow execution | `plugins/*/agents/*.md` |
-| **CLI** | Cross-platform tooling | `cli/src/main.ts`, `cli/web-ui/*`, `agent-tools` |
-| **Config** | Tool registry | `cli/src/config/supported-tools.*` |
-| **Knowledge** | Persistent codebase docs | `.rp1/context/*.md`, `state.json` |
-| **Build/Release** | CI/CD automation | `.github/workflows/*`, `.goreleaser.yml` |
-| **Evaluation** | Prompt testing | `evals/`, `evals/src/attestation/*` |
+| **Interface (Skills)** | User-facing entry points via slash commands | `plugins/*/skills/*/SKILL.md` |
+| **Agent** | Autonomous constitutional agents for single-pass execution | `plugins/*/agents/*.md` |
+| **CLI** | Cross-platform tooling, agent-tools, web dashboard | `cli/src/main.ts`, `commands/`, `agent-tools/`, `install/`, `build/` |
+| **Web UI** | Read-only markdown viewer and status dashboard | `cli/web-ui/src/` (React/Vite/Tailwind) |
+| **Config** | Tool registry and project configuration | `cli/src/config/supported-tools.yaml`, `.rp1/config/` |
+| **Knowledge** | Persistent codebase documentation | `.rp1/context/*.md`, `state.json` |
+| **Data** | SQLite-based work status tracking | `cli/src/agent-tools/work/migrations/*.sql` |
+| **Build/Release** | CI/CD, binary compilation, asset bundling | `.github/workflows/`, `.goreleaser.yml`, `Justfile` |
+| **Evaluation** | Prompt testing with content-addressable attestation | `evals/src/attestation/`, `evals/suites/` |
 
-## Key Workflows
+## Key Interaction Flows
 
-### KB Generation Flow
-```mermaid
-sequenceDiagram
-    participant User
-    participant Command as /knowledge-build
-    participant Spatial as kb-spatial-analyzer
-    participant Agents as 4 Analysis Agents
-    participant KB as .rp1/context/
+### KB Generation (Map-Reduce)
+1. User invokes `/rp1-base:knowledge-build`
+2. Skill checks state.json for incremental vs full mode
+3. Spawns `kb-spatial-analyzer` to categorize files
+4. Spawns 4 parallel analysis agents (architecture, modules, patterns, concepts)
+5. Orchestrator merges results → writes `.rp1/context/*.md` + `state.json`
 
-    User->>Command: Invoke
-    Command->>Command: Check state.json vs git commit
-    Command->>Spatial: Categorize files
-    Spatial-->>Command: File lists by category
-    Command->>Agents: Spawn in parallel
-    Agents-->>Command: JSON results
-    Command->>KB: Merge and write files
-    Command-->>User: Success report
-```
+### Feature Build (Builder-Reviewer Loop)
+1. User invokes `/rp1-dev:build` with feature-id
+2. Detects artifacts and parses task DAG
+3. For each task: spawns `task-builder` → `task-reviewer`
+4. On FAILURE: re-spawns builder with feedback (single retry)
+5. On SUCCESS: proceeds to next task
 
-### Feature Build Flow
-```mermaid
-sequenceDiagram
-    participant User
-    participant Build as /build
-    participant Builder as task-builder
-    participant Reviewer as task-reviewer
-    participant Files as Source Files
+### PR Review (Map-Reduce)
+1. User invokes `/rp1-dev:pr-review`
+2. `pr-review-splitter` segments diff into review units
+3. N parallel `pr-sub-reviewer` agents analyze units with confidence scoring
+4. `pr-review-synthesizer` merges cross-file issues → fitness judgment
+5. Posts comments to GitHub PR
 
-    User->>Build: Invoke with feature-id
-    Build->>Build: Detect artifacts, parse tasks
-    loop For each task unit
-        Build->>Builder: Implement task(s)
-        Builder->>Files: Write code
-        Builder-->>Build: Summary
-        Build->>Reviewer: Verify work
-        Reviewer-->>Build: SUCCESS or FAILURE
-        alt FAILURE
-            Build->>Builder: Retry with feedback
-        end
-    end
-    Build-->>User: Build complete
-```
+### Binary Build Pipeline
+1. `bun run build:opencode` generates OpenCode artifacts from plugin sources
+2. `bun run build:web-ui` compiles React dashboard via Vite
+3. `generate-asset-imports.ts` reads bundle-manifest.json → generates `embedded.ts`
+4. `bun build --compile` produces single-file executable with all assets
 
-### PR Review Flow
-```mermaid
-sequenceDiagram
-    participant User
-    participant PR as /pr-review
-    participant Splitter as pr-review-splitter
-    participant SubReviewer as pr-sub-reviewer
-    participant Synth as pr-review-synthesizer
+### Release Pipeline
+1. Conventional commits merged to main → release-please creates rolling release PR
+2. Merging release PR creates git tag → triggers GoReleaser
+3. GoReleaser builds Bun binaries for 5 platform targets (darwin-arm64/x64, linux-arm64/x64, windows-x64)
+4. Publishes to GitHub Releases, Homebrew tap, Scoop bucket, OpenCode tarballs
 
-    User->>PR: invoke with PR/branch
-    PR->>Splitter: segment diff
-    Splitter-->>PR: review units
+## External Integrations
 
-    par Parallel Review
-        PR->>SubReviewer: analyze unit 1
-        PR->>SubReviewer: analyze unit 2
-        PR->>SubReviewer: analyze unit N
-    end
+| Service | Purpose |
+|---------|---------|
+| **GitHub Actions** | CI/CD: lint/typecheck/test, release versioning, binary builds, PR review |
+| **GoReleaser** | Cross-platform binary compilation via Bun for 5 targets |
+| **Release-Please** | Semantic versioning from conventional commits |
+| **Cloudflare Pages** | Documentation hosting at rp1.run |
+| **Promptfoo** | Eval framework with custom claude-with-tools provider |
+| **SQLite (Bun native)** | Work status tracking for agent task progress |
+| **Lefthook** | Git hooks: pre-commit (lint, format), pre-push (typecheck, test) |
 
-    SubReviewer-->>PR: findings with confidence
-    PR->>Synth: synthesize cross-file issues
-    Synth-->>User: fitness judgment + report
-```
+## Deployment
 
-## Integration Points
-
-### GitHub Actions
-- `ci.yml`: lint, typecheck, tests via Bun
-- `release-please.yml`: versioning + OpenCode artifact builds
-- `goreleaser.yml`: binary builds triggered by tag
-- `rp1-pr-review.yml`: automated PR review workflow
-
-### Distribution Channels
-| Channel | Target | Method |
-|---------|--------|--------|
-| Claude Code | Plugin marketplace | `/plugin install` |
-| OpenCode | GitHub releases | Tarball download |
-| macOS | Homebrew | `brew install --cask rp1-run/tap/rp1` |
-| Windows | Scoop | `scoop install rp1` |
-| Linux | curl script | `curl -fsSL https://rp1.run/install.sh \| bash` |
-
-### External Services
-- **GoReleaser**: Cross-platform binary builds (darwin/linux/windows)
-- **Release-Please**: Semantic versioning from conventional commits
-- **Cloudflare Pages**: Documentation site at rp1.run
-- **Promptfoo**: Evaluation framework with custom provider
-
-## Performance Considerations
-
-### Lazy Loading
-- Agent-tools lazy-loaded to reduce CLI startup time
-- Heavy dependencies only loaded when needed
-
-### Parallel Execution
-- KB generation uses 4 parallel agents
-- PR review uses parallel sub-reviewers
-- mmd-validate uses shared browser instance for batch validation
-
-### Incremental Updates
-- KB tracks git commit in state.json
-- Only changed files analyzed on subsequent runs
-- 2-5 min incremental vs 10-15 min full build
-
-## Cross-References
-- **Domain Concepts**: See [concept_map.md](concept_map.md)
-- **Module Breakdown**: See [modules.md](modules.md)
-- **Implementation Patterns**: See [patterns.md](patterns.md)
+- **Claude Code**: Plugin marketplace via `plugin install` (3 plugins)
+- **OpenCode**: GitHub release tarballs, installed via `rp1 install opencode`
+- **Homebrew**: `brew install rp1-run/tap/rp1` (macOS cask)
+- **Scoop**: Windows package via GoReleaser
+- **curl**: `curl -fsSL https://rp1.run/install.sh | sh`
+- **npm**: `@rp1-run/rp1` package
+- **Current Version**: 0.4.8

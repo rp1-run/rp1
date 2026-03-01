@@ -2,20 +2,20 @@
 
 **Type**: Single Project
 **Languages**: TypeScript, Markdown, Shell, Python
-**Version**: 0.4.4
-**Updated**: 2026-02-05
+**Version**: 0.4.8
+**Updated**: 2026-03-01
 
 ## Project Summary
 
-rp1 is a Claude Code plugin system that automates development workflows through constitutional prompting. It provides three plugins: rp1-base (foundation: knowledge management, documentation, strategy, security), rp1-dev (workflows: features, code quality, PR management), and rp1-utils (prompt utilities).
+rp1 is a multi-agentic tool plugin system that automates development workflows through constitutional prompting. It provides 39 skills and 49 agents across three plugins (base, dev, utils) that run on Claude Code and OpenCode platforms, compiled into a single cross-platform CLI binary with embedded assets.
 
 ## Quick Reference
 
 | Aspect | Value |
 |--------|-------|
-| Entry Point | `/build`, `/knowledge-build` |
-| Key Pattern | Constitutional Agents with Map-Reduce Orchestration |
-| Tech Stack | TypeScript CLI, Markdown Prompts, fp-ts, Bun, GoReleaser |
+| Entry Point | `cli/src/main.ts` (Commander.js CLI) |
+| Key Pattern | Skill-Agent Delegation (SKILL.md → constitutional agents) |
+| Tech Stack | Bun, TypeScript, fp-ts, React/Vite (web-ui), SQLite |
 
 ## KB File Manifest
 
@@ -23,10 +23,10 @@ rp1 is a Claude Code plugin system that automates development workflows through 
 
 | File | Lines | Load For |
 |------|-------|----------|
-| architecture.md | ~260 | System design, component relationships, data flows |
-| modules.md | ~213 | Component breakdown, module responsibilities |
-| patterns.md | ~150 | Code conventions, implementation patterns |
-| concept_map.md | ~198 | Domain terminology, business concepts |
+| architecture.md | ~131 | System design, component relationships, deployment |
+| modules.md | ~120 | Component breakdown, module responsibilities, dependencies |
+| patterns.md | ~98 | Code conventions, error handling, implementation patterns |
+| concept_map.md | ~100 | Domain terminology, business concepts, relationships |
 
 ## Task-Based Loading
 
@@ -36,7 +36,6 @@ rp1 is a Claude Code plugin system that automates development workflows through 
 | Bug investigation | `architecture.md`, `modules.md` |
 | Feature implementation | `modules.md`, `patterns.md` |
 | Strategic analysis | ALL files |
-| Security audit | `architecture.md` |
 
 ## How to Load
 
@@ -44,74 +43,34 @@ rp1 is a Claude Code plugin system that automates development workflows through 
 Read: .rp1/context/{filename}
 ```
 
-## Repository Structure
+## Project Structure
 
 ```
-rp1/
-├── plugins/
-│   ├── base/                  # Foundation plugin (9 commands, 12 agents, 6 skills)
-│   │   ├── .claude-plugin/    # Plugin metadata
-│   │   ├── agents/            # Constitutional agents
-│   │   ├── commands/          # Slash commands (thin wrappers)
-│   │   └── skills/            # Reusable capabilities
-│   ├── dev/                   # Development plugin (15 commands, 24 agents, 1 skill)
-│   │   ├── .claude-plugin/    # Plugin metadata (depends on base)
-│   │   ├── agents/            # Constitutional agents
-│   │   ├── commands/          # Slash commands
-│   │   └── skills/            # worktree-workflow skill
-│   └── utils/                 # Utility plugin (2 commands, 3 agents, 2 skills)
-│       └── ...
-├── cli/                       # Cross-platform CLI
-│   ├── src/                   # TypeScript source (fp-ts patterns)
-│   │   ├── commands/          # CLI commands (init, install, view, update)
-│   │   ├── init/              # Project initialization
-│   │   ├── install/           # Plugin installation
-│   │   └── agent-tools/       # AI agent tools (worktree, mmd-validate, work, github-pr)
-│   └── web-ui/                # React documentation viewer + V2 status dashboard
-├── docs/                      # MkDocs Material site
-├── evals/                     # Promptfoo evaluation suites
-│   ├── src/attestation/       # Content-addressable prompt tracking
-│   ├── providers/             # Custom promptfoo providers (claude-with-tools)
-│   └── suites/                # Test suites (mirrors plugins structure)
-├── .github/workflows/         # CI/CD (release-please, GoReleaser)
-└── .rp1/context/              # Auto-generated knowledge base
-```
-
-## Key Commands
-
-```bash
-# End-to-end feature workflow (6-step)
-/build my-feature             # Full workflow: requirements -> design -> tasks -> build -> verify -> archive
-/build-fast "task"            # Quick iteration development with scope gating
-
-# Individual feature steps
-/blueprint my-prd
-/feature-edit my-feature
-/feature-archive my-feature
-
-# KB generation
-/knowledge-build              # Full: 10-15 min, Incremental: 2-5 min
-
-# Code quality
-/code-check                   # Fast hygiene (lint, test)
-/code-audit                   # Pattern analysis
-/code-investigate             # Bug investigation
-
-# PR review
-/pr-review                    # Map-reduce review with confidence gating
-/address-pr-feedback          # Collect, triage, fix PR comments
-
-# Evaluations (two-phase workflow)
-just run-evals rp1-dev/build verbose=true   # Run evals (overwrites output file)
-just attest-evals rp1-dev-build.json        # Generate attestation from output
-just verify-evals                           # Check all attestations current
+plugins/
+├── base/           # Foundation: KB, docs, strategy, security (15 skills, 13 agents)
+├── dev/            # Development: features, code quality, PR review (19 skills, 32 agents)
+└── utils/          # Prompt utilities: eval gen, optimization (5 skills, 4 agents)
+cli/
+├── src/
+│   ├── main.ts           # CLI entry point (Commander.js)
+│   ├── commands/         # CLI commands (init, install, verify, build, settings)
+│   ├── install/          # OpenCode + Claude Code plugin installation
+│   ├── build/            # OpenCode artifact build pipeline
+│   ├── assets/           # Embedded asset bundling/extraction
+│   ├── agent-tools/      # Runtime tools for AI agents (worktree, github-pr, work)
+│   ├── init/             # Project initialization wizard
+│   └── shared/           # Errors, logger, prompts, spinner (fp-ts)
+├── web-ui/               # React/Vite status dashboard
+└── scripts/              # Build scripts (generate-asset-imports, postinstall)
+evals/
+├── src/attestation/      # Content-addressable prompt tracking
+├── providers/            # Custom promptfoo provider (claude-with-tools)
+└── suites/               # Eval suite configs (rp1-dev/build, build-fast)
 ```
 
 ## Navigation
 
-- **[architecture.md](architecture.md)**: System design and diagrams
-- **[modules.md](modules.md)**: Component breakdown
-- **[patterns.md](patterns.md)**: Code conventions
-- **[concept_map.md](concept_map.md)**: Domain terminology
-- **Documentation**: https://rp1.run
-- **GitHub**: https://github.com/rp1-run/rp1
+- **[architecture.md](architecture.md)**: System design, layers, interaction flows, deployment
+- **[modules.md](modules.md)**: 17 modules with dependencies, metrics, cross-module patterns
+- **[patterns.md](patterns.md)**: fp-ts error handling, constitutional agents, build pipeline, atomic install
+- **[concept_map.md](concept_map.md)**: Core concepts (Plugin, Skill, Agent, KB, Worktree), terminology glossary

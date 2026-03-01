@@ -1,150 +1,98 @@
 # Implementation Patterns
 
-**Project**: rp1 Plugin System
-**Last Updated**: 2026-02-05
+**Project**: rp1
+**Last Updated**: 2026-03-01
 
 ## Naming & Organization
 
-**Files**: kebab-case for all files (commands, agents, skills, TypeScript modules)
-**Functions**: camelCase for functions/methods; PascalCase for interfaces/types
-**Imports**: Absolute imports with .js extension; fp-ts uses namespace pattern (E, TE, pipe)
-**Agents**: kebab-case with descriptive suffixes (kb-spatial-analyzer, task-builder)
+**Files**: kebab-case (TypeScript modules, agent .md files, skill directories); `SKILL.md` canonical entry
+**Functions**: camelCase for functions (copyArtifacts, parseBuildArgs); PascalCase for interfaces (CLIError, ToolResult)
+**Imports**: Absolute with .js extension; fp-ts namespace: `import * as E from 'fp-ts/lib/Either.js'`, `import { pipe } from 'fp-ts/lib/function.js'`
+**Directory**: By-layer in CLI (build/, install/, agent-tools/); by-plugin in prompts (plugins/{name}/skills/, agents/)
 
-Evidence: `cli/src/main.ts`, `plugins/base/agents/kb-spatial-analyzer.md`
+Evidence: cli/src/build/command.ts, cli/shared/errors.ts
 
 ## Type & Data Modeling
 
-**Data Representation**: TypeScript interfaces with readonly properties; discriminated unions for errors (_tag field)
-**Type Strictness**: Strict typing throughout CLI; all interfaces use readonly modifiers
-**Immutability**: Enforced via readonly arrays and readonly properties on all model interfaces
+**Data Representation**: TypeScript interfaces with `readonly` properties throughout; discriminated unions with `_tag` field for error types (CLIError: 13 variants)
+**Type Strictness**: Strict typing; all interface fields use `readonly`; `readonly string[]` for collections
+**Immutability**: Enforced on every interface field (InstallResult, BackupManifest, ToolResult); no mutable model types
+**Result Envelopes**: `ToolResult<T>` with `{success, tool, data, errors?}` for agent tool output
 
-Evidence: `cli/src/agent-tools/models.ts`, `cli/src/install/models.ts`
+Evidence: cli/shared/errors.ts:12-38, cli/src/agent-tools/models.ts
 
 ## Error Handling
 
-**Strategy**: Functional Either/TaskEither pattern via fp-ts; no thrown exceptions in business logic
-**Propagation**: Errors lifted to Either and composed through pipe(); caught at CLI boundary with formatError
-**Common Types**: ParseError, ValidationError, PrerequisiteError, RuntimeError, UsageError, NotFoundError
+**Strategy**: Functional Either/TaskEither from fp-ts; no thrown exceptions in business logic; errors are values in Left channel
+**Propagation**: Composed via `pipe()` with `TE.chain` (happy path), `TE.orElse` (recovery); caught at CLI boundary with `formatError()`
+**Common Types**: ParseError, TransformError, ValidationError, GenerationError, InstallError, BackupError, PrerequisiteError, RuntimeError, UsageError, StrictModeError, VerificationError
+**Recovery**: Installer uses `TE.orElse` for automatic rollback: on failure → restoreFromBackup → re-throw original
 
-Evidence: `cli/src/agent-tools/command.ts`, `cli/src/agent-tools/worktree/create.ts`
+Evidence: cli/shared/errors.ts, cli/src/install/installer.ts:970-1022
 
 ## Validation & Boundaries
 
-**Location**: API boundary validation in CLI; fail-fast with Left returns
-**Method**: Two-level validation: fencing validation (syntax) then field validation (schema); TE.tryCatch wraps async
+**Location**: Two-level in build pipeline: L1 (syntax/frontmatter) then L2 (schema/required fields); fail-fast with `E.left`
+**Method**: YAML frontmatter extraction returning Either; field-level schema checks; generated output re-validated before write
 
-Evidence: `cli/src/build/parser.ts`
+Evidence: cli/src/build/validator.ts, cli/src/build/parser.ts
 
 ## Observability
 
-**Logging**: Custom Logger with LogLevel enum (TRACE, DEBUG, INFO); TTY-aware color formatting
-**Metrics**: Confidence scoring (0-100) in agents for verification quality
-**Tracing**: Silent execution with `<thinking>` tags in agents; progress callbacks in installers
+**Logging**: Optional logger injection via `logger?: { debug: (msg: string) => void }`; progress callbacks via `onProgress?: (message: string) => void`
+**Tracing**: Silent execution with `<thinking>` tags in agents; spinner-based progress for TTY-aware output
 
-Evidence: `cli/src/main.ts`, `plugins/dev/agents/task-reviewer.md`
+Evidence: cli/src/install/installer.ts:91-97
 
 ## Testing Idioms
 
-**Organization**: Tests in `cli/src/__tests__/` mirroring src/ structure
-**Fixtures**: Helper functions (getFixturePath, createTempDir); realistic test data
-**Levels**: Unit tests dominant; integration tests for CLI flows
-**Evals**: Promptfoo-based instruction-following tests with custom provider for tool call capture
+**Organization**: Tests in `cli/src/__tests__/` mirroring `src/` structure
+**Fixtures**: Helper functions (getFixturePath, createTempDir, writeFixture); realistic test data with temp dir isolation
+**Levels**: Unit tests dominant (1062 CLI tests); integration tests for full lifecycle; promptfoo-based evals for agent quality
 
-Evidence: `cli/src/__tests__/`, `evals/providers/claude-with-tools.ts`
+Evidence: cli/src/__tests__/
 
 ## I/O & Integration
 
-**Filesystem**: Node.js fs/promises + Bun APIs; TE.tryCatch wraps all I/O; Bun.file() for reads
-**Git Operations**: Shared git.ts utilities with GitContext pattern; getIsolatedGitEnv() clears env vars
-**Worktree Safety**: Always use GitContext.repoRoot for mutations; cwd for read-only queries
-**Process Spawning**: Bun spawn() with stdout:'pipe' for capture; exit code for success/failure
+**Filesystem**: All fs operations wrapped in `TE.tryCatch()`; recursive helpers (findFiles, copyDir, countFiles); atomic rename via `fs.rename` with copy+delete fallback
+**Database**: SQLite (Bun native) for work status tracking; migration-based schema; no ORM
 
-Evidence: `cli/src/agent-tools/git.ts`, `evals/src/attestation/commands.ts`
+Evidence: cli/src/install/installer.ts:42-82, cli/src/assets/extractor.ts:39-53
 
 ## Concurrency & Async
 
-**Async Usage**: Async/await throughout CLI; TaskEither for composable async with error handling
-**Parallelism**: Sequential loops in installers; parallel via A.sequence(TE.ApplicativePar) for batch operations
+**Async Usage**: async/await throughout CLI; TaskEither for composable async chains; sequential loops for installers
+**Parallelism**: Parallel agent spawning in prompt orchestrators (single message with multiple Task calls); sequential in TypeScript CLI code
 
-Evidence: `cli/src/agent-tools/mmd-validate/validator.ts`
+Evidence: plugins/dev/skills/build/SKILL.md:325-331
 
-## Skill-Agent Pattern
+## Build Pipeline (rp1-specific)
 
-**Skills**: SKILL.md entry points that extract parameters via model-driven parsing and spawn agents via Task tool. Defined in `plugins/{plugin}/skills/{name}/SKILL.md` using the canonical format (frontmatter with `name`, `description`, `allowed-tools` at top level; rp1-specific fields in `metadata` map).
-**Agents**: Autonomous workers (200-350 lines): constitutional structure, anti-loop directives, output contracts
-**Separation**: Skills handle user interface/routing; agents handle business logic/workflow execution
+**Stages**: parse → transform → generate → validate. Each stage returns `Either<CLIError, T>`; errors collected, pipeline continues for other files
+**Namespace Rewriting**: Build prepends `rp1-` prefix to skill directories; updates name field in generated frontmatter
+**Bundle Embedding**: `generate-asset-imports.ts` reads bundle-manifest.json → generates `embedded.ts` with `{ type: "file" }` imports for Bun bundler
 
-Evidence: `docs/concepts/command-agent-pattern.md`, `docs/concepts/skill-format.md`, `plugins/dev/agents/task-builder.md`
+Evidence: cli/src/build/command.ts:396-501, cli/scripts/generate-asset-imports.ts
 
-## Constitutional Prompting
+## Atomic Installation (rp1-specific)
 
-**Structure**: YAML frontmatter + Parameters section + Numbered workflow sections + Anti-loop + Output contract
-**Execution**: Single-pass with anti-loop: "Do NOT ask for clarification or wait for feedback"
-**Workflow Sections**: Context Loading -> Analysis -> Implementation -> Output
+**Pattern**: backup existing → stage to `.rp1-staging` → verify contents → commit via atomic rename → cleanup. On failure: restore from backup + re-throw
+**Namespace Safety**: Only `rp1-*` artifacts installed/removed; user files preserved. Check: `entry.name.startsWith('rp1-')`
+**Legacy Cleanup**: Removes old singular-form dirs (command/, agent/, skill/) during install
 
-Evidence: `plugins/dev/agents/task-builder.md`, `plugins/dev/agents/feature-architect.md`
+Evidence: cli/src/install/installer.ts:522-828, cli/src/assets/extractor.ts
 
-## Progressive KB Loading
+## Constitutional Agent (rp1-specific)
 
-**Entry Point**: index.md serves as jump-off point; agents read index.md first always
-**Selective Loading**: Load additional files based on task: code review->patterns.md, bug->architecture.md+modules.md
-**Subagent Constraint**: Use Read tool directly in subagents; SlashCommand causes early exit
+**Structure**: YAML frontmatter → Parameters table → Numbered workflow sections → Anti-loop directives → Output contract (JSON)
+**Anti-Loop**: Every agent ends with: "Do NOT ask for clarification", "Execute ONCE", "STOP after output"
+**Silent Execution**: Work in `<thinking>` tags; output ONLY final JSON; parent orchestrator handles user communication
 
-Evidence: `docs/concepts/knowledge-aware-agents.md`, AGENTS.md
+Evidence: plugins/base/agents/kb-spatial-analyzer.md, plugins/dev/skills/build/SKILL.md
 
-## Map-Reduce Orchestration
+## Tool Registry (rp1-specific)
 
-**KB Generation**: Spatial analyzer maps files -> 4 parallel agents -> Orchestrator merges + writes files
-**PR Review**: Splitter segments diff -> N sub-reviewers analyze -> Synthesizer produces judgment
-**Benefits**: Parallelization, scalability, specialized agents, holistic results
+**Pattern**: `Map<string, ToolEntry>` with registerTool/getTool/listTools; `ToolExecutor<T>` returns `TE.TaskEither<CLIError, ToolResult<T>>`
+**Lazy Loading**: Agent-tools module lazily loaded only when `agent-tools` subcommand invoked to avoid puppeteer at startup
 
-Evidence: `docs/concepts/map-reduce-workflows.md`
-
-## Builder-Reviewer Loop
-
-**Builder**: task-builder implements with full context; writes implementation summary to task file
-**Reviewer**: task-reviewer verifies 7 dimensions: discipline, accuracy, completeness, quality, testing, commit, comments
-**Output**: Explicit SUCCESS or FAILURE JSON with confidence score (0-100) and actionable feedback
-**Retry**: On failure, builder retries with reviewer feedback; max 3 attempts
-
-Evidence: `plugins/dev/agents/task-builder.md`, `plugins/dev/agents/task-reviewer.md`
-
-## Tool Registration
-
-**Pattern**: Registry pattern with Map; registerTool at module load; getTool/listTools for access
-**Tool Result**: Standard ToolResult<T> envelope with success, tool, data, errors fields
-**Lazy Loading**: Tools lazy-loaded via import statements in command.ts
-
-Evidence: `cli/src/agent-tools/index.ts`, `cli/src/agent-tools/command.ts`
-
-## Stateless Agent Pattern
-
-**Purpose**: Enable resumable, transparent interview workflows by externalizing state to scratch pad
-**Response Types**: next_question | success | skip | error - agent returns JSON, caller handles user interaction
-**Scratch Pad**: File-based state with Q&A format; removed on success, preserved on error
-
-Evidence: `docs/concepts/stateless-agents.md`, `plugins/dev/agents/charter-interviewer.md`
-
-## Content-Addressable Hashing
-
-**Algorithm**: SHA-256 with sha256: prefix convention for all content hashes
-**Frontmatter Handling**: Strip YAML frontmatter before hashing so metadata changes don't invalidate
-**Deps Hash**: Combined hash from lexicographically sorted file hashes joined with pipe separator
-
-Evidence: `evals/src/attestation/prompt-hash.ts`, `evals/src/attestation/deps-graph.ts`
-
-## Two-Phase Eval Workflow
-
-**Phase 1 (Execution)**: Run promptfoo externally via Just recipe; outputs to fixed JSON file per suite
-**Phase 2 (Attestation)**: Read output, validate 100% pass, update attestation manifest (no process spawning)
-**Rationale**: Prevents fork-bomb behavior when attestCommand runs with concurrency > 1
-
-Evidence: `Justfile`, `evals/src/attestation/commands.ts`
-
-## Terse Prompt Authoring
-
-**Structure-First**: Sections over prose; tables for decision matrices
-**Compression-by-Default**: Every word must earn its place
-**Safe Abbreviations**: req, impl, cfg, ctx, msg, fn, var, auth, config, env, ref, src
-
-Evidence: `plugins/utils/skills/prompt-writer/SKILL.md`
+Evidence: cli/src/agent-tools/index.ts, cli/src/agent-tools/models.ts
