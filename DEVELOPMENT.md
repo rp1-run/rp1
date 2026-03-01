@@ -269,7 +269,7 @@ rp1 --help, -h         # Show help message
 ```bash
 # Run CLI in development mode
 cd cli
-bun run dev view /path/to/project
+bun run dev arcade /path/to/project
 
 # Type checking
 bun run typecheck
@@ -316,7 +316,7 @@ The rp1 CLI supports bundling all plugin and web-ui assets into a single binary 
 
 - Generates `src/assets/embedded.ts` with all assets imported via Bun's `with { type: "file" }` syntax
 - `install:opencode` extracts plugins from bundled assets
-- `view` command extracts and caches web-ui at `~/.rp1/web-ui/{version}/`
+- `arcade` command extracts and caches web-ui at `~/.rp1/web-ui/{version}/`
 
 ### Build Scripts
 
@@ -350,7 +350,7 @@ bun build src/main.ts --compile --outfile dist/rp1-bundled
 
 # 4. Test the bundled binary
 ./dist/rp1-bundled install:opencode --dry-run
-./dist/rp1-bundled view
+./dist/rp1-bundled arcade
 
 # 5. Restore placeholder for development
 git checkout src/assets/embedded.ts
