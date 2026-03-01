@@ -26,6 +26,7 @@ package-lock.json
 cli/dist/
 cli/web-ui/.vite/
 cli/web-ui/dist/
+cli/web-ui/.playwright-cli/
 
 # Generated files (created by build:release / generate:assets)
 cli/src/assets/embedded.ts
