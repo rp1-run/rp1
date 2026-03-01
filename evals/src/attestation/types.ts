@@ -9,14 +9,14 @@
  */
 export interface AttestationManifest {
 	readonly schema_version: string;
-	readonly commands: Record<string, CommandAttestation>;
+	readonly skills: Record<string, SkillAttestation>;
 	readonly files: Record<string, string>; // path -> hash
 }
 
 /**
- * Attestation record for a single command.
+ * Attestation record for a single skill.
  */
-export interface CommandAttestation {
+export interface SkillAttestation {
 	readonly prompt_hash: string;
 	readonly deps_hash: string;
 	readonly version: string;
@@ -34,11 +34,11 @@ export interface EvalRecord {
 }
 
 /**
- * Dependency graph for a command.
+ * Dependency graph for a skill.
  */
 export interface DependencyGraph {
-	readonly command: string;
-	readonly commandPath: string;
+	readonly skill: string;
+	readonly skillPath: string;
 	readonly agents: readonly string[];
 	readonly skills: readonly string[];
 }
@@ -53,10 +53,10 @@ export interface HashResult {
 }
 
 /**
- * Verification result for a single command.
+ * Verification result for a single skill.
  */
 export interface VerificationResult {
-	readonly command: string;
+	readonly skill: string;
 	readonly status: "current" | "stale" | "missing";
 	readonly reason?: string;
 	readonly expected_hash?: string;

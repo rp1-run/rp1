@@ -8,7 +8,7 @@ import * as TE from "fp-ts/TaskEither";
 import type { DependencyGraph } from "./types.js";
 
 /**
- * Pattern for detecting agent references in command files.
+ * Pattern for detecting agent references in skill files.
  * Matches: Task: plugin:agent-name
  */
 const TASK_PATTERN = /Task:\s*(\w+-\w+):(\w[\w-]*)/g;
@@ -34,9 +34,9 @@ export const PLUGIN_SUFFIXES = Object.keys(PLUGIN_PATHS).map((k) =>
 );
 
 /**
- * Parse a command file to extract agent dependencies.
+ * Parse a skill file to extract agent dependencies.
  *
- * @param content - The command file content to parse
+ * @param content - The skill file content to parse
  * @returns Array of agent file paths (deduplicated)
  */
 export function parseAgentRefs(content: string): readonly string[] {
@@ -75,11 +75,10 @@ export function parseSkillRefs(content: string): readonly string[] {
 }
 
 /**
- * Build complete dependency graph for a prompt source file.
- * Parses the file for agent references, then each agent for skill references.
- * Supports both SKILL.md paths (skills/{name}/SKILL.md) and legacy command paths (commands/{name}.md).
+ * Build complete dependency graph for a skill source file.
+ * Parses the SKILL.md for agent references, then each agent for skill references.
  *
- * @param promptPath - Path to the prompt source file (SKILL.md or command .md)
+ * @param promptPath - Path to the skill source file (skills/{name}/SKILL.md)
  * @returns TaskEither with dependency graph or error
  */
 export function buildDependencyGraph(
@@ -102,16 +101,11 @@ export function buildDependencyGraph(
 				}
 
 				const skillMatch = promptPath.match(/skills\/([^/]+)\/SKILL\.md$/);
-				const commandMatch = promptPath.match(/commands\/(.+)\.md$/);
-				const commandName = skillMatch
-					? skillMatch[1]
-					: commandMatch
-						? commandMatch[1]
-						: promptPath;
+				const skillName = skillMatch ? skillMatch[1] : promptPath;
 
 				return {
-					command: commandName,
-					commandPath: promptPath,
+					skill: skillName,
+					skillPath: promptPath,
 					agents: agentPaths,
 					skills: [...new Set(skillPaths)],
 				};

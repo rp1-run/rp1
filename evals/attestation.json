@@ -1,6 +1,6 @@
 {
 	"schema_version": "1.0.0",
-	"commands": {
+	"skills": {
 		"rp1-dev:build": {
 			"prompt_hash": "sha256:0f376e121cb07c2a60ce5b2b5140fd48fba3a3b10187c15eccc18bad3809f44f",
 			"deps_hash": "sha256:fd77d9dd1c7a87e83572d0c62f9fc54e9350e0a7d8952b3b3c36cc3a650ee98f",

@@ -27,7 +27,7 @@ afterAll(async () => {
 describe("parseAgentRefs", () => {
 	test("extracts single Task reference", () => {
 		const content = `
-# Command
+# Skill
 
 Task: rp1-dev:build-fast-executor
 prompt: Build fast
@@ -39,7 +39,7 @@ prompt: Build fast
 
 	test("extracts multiple Task references", () => {
 		const content = `
-# Command
+# Skill
 
 Task: rp1-dev:feature-architect
 prompt: Design
@@ -79,7 +79,7 @@ prompt: test
 
 	test("returns empty array when no Task references found", () => {
 		const content = `
-# Simple Command
+# Simple Skill
 
 No agent references here.
 `;
@@ -180,52 +180,35 @@ skill: unknown-plugin:some-skill
 });
 
 describe("buildDependencyGraph", () => {
-	test("handles command with no dependencies", async () => {
-		const commandPath = join(tempDir, "commands/simple-command.md");
-		await mkdir(join(tempDir, "commands"), { recursive: true });
+	test("handles skill with no dependencies", async () => {
+		const skillDir = join(tempDir, "skills/simple-skill");
+		await mkdir(skillDir, { recursive: true });
+		const skillPath = join(skillDir, "SKILL.md");
 		await writeFile(
-			commandPath,
+			skillPath,
 			`---
-name: simple-command
+name: simple-skill
+description: A simple skill
 ---
 
-# Simple Command
+# Simple Skill
 
 No agent references here.
 `,
 		);
 
-		const result = await buildDependencyGraph(commandPath)();
+		const result = await buildDependencyGraph(skillPath)();
 
 		expect(E.isRight(result)).toBe(true);
 		if (E.isRight(result)) {
-			expect(result.right.command).toBe("simple-command");
-			expect(result.right.commandPath).toBe(commandPath);
+			expect(result.right.skill).toBe("simple-skill");
+			expect(result.right.skillPath).toBe(skillPath);
 			expect(result.right.agents).toEqual([]);
 			expect(result.right.skills).toEqual([]);
 		}
 	});
 
-	test("extracts command name from legacy command path", async () => {
-		const commandPath = join(tempDir, "commands/my-test-command.md");
-		await writeFile(
-			commandPath,
-			`---
-name: my-test-command
----
-Content.
-`,
-		);
-
-		const result = await buildDependencyGraph(commandPath)();
-
-		expect(E.isRight(result)).toBe(true);
-		if (E.isRight(result)) {
-			expect(result.right.command).toBe("my-test-command");
-		}
-	});
-
-	test("extracts command name from SKILL.md path", async () => {
+	test("extracts skill name from SKILL.md path", async () => {
 		const skillDir = join(tempDir, "skills/my-skill");
 		await mkdir(skillDir, { recursive: true });
 		const skillPath = join(skillDir, "SKILL.md");
@@ -243,8 +226,8 @@ Content.
 
 		expect(E.isRight(result)).toBe(true);
 		if (E.isRight(result)) {
-			expect(result.right.command).toBe("my-skill");
-			expect(result.right.commandPath).toBe(skillPath);
+			expect(result.right.skill).toBe("my-skill");
+			expect(result.right.skillPath).toBe(skillPath);
 		}
 	});
 
@@ -254,17 +237,18 @@ Content.
 		const pluginsDev = join(tempDir, "plugins/dev");
 		await mkdir(join(pluginsBase, "agents"), { recursive: true });
 		await mkdir(join(pluginsBase, "skills/mermaid"), { recursive: true });
-		await mkdir(join(pluginsDev, "commands"), { recursive: true });
+		await mkdir(join(pluginsDev, "skills/build-cmd"), { recursive: true });
 
-		// Create command that references an agent
-		const commandPath = join(pluginsDev, "commands/build-cmd.md");
+		// Create skill that references an agent
+		const skillPath = join(pluginsDev, "skills/build-cmd/SKILL.md");
 		await writeFile(
-			commandPath,
+			skillPath,
 			`---
 name: build-cmd
+description: Build skill
 ---
 
-# Build Command
+# Build Skill
 
 Task: rp1-base:kb-builder
 `,
@@ -285,9 +269,9 @@ Use skill: rp1-base:mermaid for diagrams.
 		);
 
 		// Create skill file
-		const skillPath = join(pluginsBase, "skills/mermaid/SKILL.md");
+		const mermaidPath = join(pluginsBase, "skills/mermaid/SKILL.md");
 		await writeFile(
-			skillPath,
+			mermaidPath,
 			`---
 name: mermaid
 description: Mermaid diagram skill
@@ -296,29 +280,21 @@ Content.
 `,
 		);
 
-		// Need to temporarily change how the graph builder resolves paths
-		// Since buildDependencyGraph uses absolute paths from PLUGIN_PATHS,
-		// we need to test against real plugin files for transitive deps
-		// This test verifies the logic works with our fixture structure
-
-		const result = await buildDependencyGraph(commandPath)();
+		const result = await buildDependencyGraph(skillPath)();
 
 		expect(E.isRight(result)).toBe(true);
 		if (E.isRight(result)) {
-			expect(result.right.command).toBe("build-cmd");
-			expect(result.right.commandPath).toBe(commandPath);
+			expect(result.right.skill).toBe("build-cmd");
+			expect(result.right.skillPath).toBe(skillPath);
 			// Agent path is derived from PLUGIN_PATHS, not temp dir
 			expect(result.right.agents).toEqual([
 				"plugins/base/agents/kb-builder.md",
 			]);
-			// Skills are only found if agent file exists at the derived path
-			// Since we're using temp dir, the agent file won't be found at plugins/base/agents
-			// This correctly tests the "agent not found" path
 		}
 	});
 
-	test("returns error for non-existent command file", async () => {
-		const nonExistentPath = join(tempDir, "commands/does-not-exist.md");
+	test("returns error for non-existent skill file", async () => {
+		const nonExistentPath = join(tempDir, "skills/does-not-exist/SKILL.md");
 
 		const result = await buildDependencyGraph(nonExistentPath)();
 
@@ -328,7 +304,7 @@ Content.
 		}
 	});
 
-	test("uses full path when command name cannot be extracted", async () => {
+	test("uses full path when skill name cannot be extracted", async () => {
 		const weirdPath = join(tempDir, "weird-location.md");
 		await writeFile(
 			weirdPath,
@@ -343,7 +319,7 @@ Content.
 
 		expect(E.isRight(result)).toBe(true);
 		if (E.isRight(result)) {
-			expect(result.right.command).toBe(weirdPath);
+			expect(result.right.skill).toBe(weirdPath);
 		}
 	});
 });
