@@ -37,6 +37,7 @@ export {
 	type ClaudeCodeSettings,
 	ensureArcadeHook,
 	getClaudeSettingsPath,
+	type HookCommand,
 	installSessionHook,
-	type SessionStartHook,
+	type SessionStartEntry,
 } from "./settings.js";

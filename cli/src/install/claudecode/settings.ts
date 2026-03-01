@@ -6,14 +6,19 @@ import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../../shared/errors.js";
 import { installError } from "../../../shared/errors.js";
 
-export interface SessionStartHook {
+export interface HookCommand {
 	readonly type: "command";
 	readonly command: string;
 }
 
+export interface SessionStartEntry {
+	readonly matcher?: Record<string, unknown>;
+	readonly hooks: readonly HookCommand[];
+}
+
 export interface ClaudeCodeSettings {
 	readonly hooks?: {
-		readonly SessionStart?: readonly SessionStartHook[];
+		readonly SessionStart?: readonly SessionStartEntry[];
 		readonly [key: string]: unknown;
 	};
 	readonly [key: string]: unknown;
@@ -52,9 +57,11 @@ const readSettings = (
 		}),
 	);
 
-const hasArcadeHook = (hooks: readonly SessionStartHook[]): boolean =>
-	hooks.some(
-		(hook) => hook.type === "command" && hook.command === ARCADE_HOOK_COMMAND,
+const hasArcadeHook = (entries: readonly SessionStartEntry[]): boolean =>
+	entries.some((entry) =>
+		entry.hooks.some(
+			(hook) => hook.type === "command" && hook.command === ARCADE_HOOK_COMMAND,
+		),
 	);
 
 export const ensureArcadeHook = (
@@ -62,22 +69,26 @@ export const ensureArcadeHook = (
 ): { readonly settings: ClaudeCodeSettings; readonly added: boolean } => {
 	const existingHooks = settings.hooks ?? {};
 	const existingSessionStart = (existingHooks.SessionStart ??
-		[]) as readonly SessionStartHook[];
+		[]) as readonly SessionStartEntry[];
 
 	if (hasArcadeHook(existingSessionStart)) {
 		return { settings, added: false };
 	}
 
-	const newHook: SessionStartHook = {
-		type: "command",
-		command: ARCADE_HOOK_COMMAND,
+	const newEntry: SessionStartEntry = {
+		hooks: [
+			{
+				type: "command",
+				command: ARCADE_HOOK_COMMAND,
+			},
+		],
 	};
 
 	const updatedSettings: ClaudeCodeSettings = {
 		...settings,
 		hooks: {
 			...existingHooks,
-			SessionStart: [...existingSessionStart, newHook],
+			SessionStart: [...existingSessionStart, newEntry],
 		},
 	};
 

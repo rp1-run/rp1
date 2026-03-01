@@ -4,7 +4,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import {
@@ -18,7 +18,7 @@ const ARCADE_HOOK_COMMAND = "rp1 arcade --no-open 2>/dev/null || true";
 
 describe("claudecode/settings", () => {
 	describe("ensureArcadeHook", () => {
-		test("empty settings adds hook", () => {
+		test("empty settings adds hook with matcher format", () => {
 			const settings: ClaudeCodeSettings = {};
 
 			const result = ensureArcadeHook(settings);
@@ -27,18 +27,20 @@ describe("claudecode/settings", () => {
 			expect(result.settings.hooks).toBeDefined();
 
 			const sessionStart = result.settings.hooks?.SessionStart as readonly {
-				type: string;
-				command: string;
+				hooks: readonly { type: string; command: string }[];
 			}[];
 			expect(sessionStart).toHaveLength(1);
-			expect(sessionStart[0].type).toBe("command");
-			expect(sessionStart[0].command).toBe(ARCADE_HOOK_COMMAND);
+			expect(sessionStart[0].hooks).toHaveLength(1);
+			expect(sessionStart[0].hooks[0].type).toBe("command");
+			expect(sessionStart[0].hooks[0].command).toBe(ARCADE_HOOK_COMMAND);
 		});
 
 		test("existing hooks without SessionStart adds SessionStart array", () => {
 			const settings: ClaudeCodeSettings = {
 				hooks: {
-					PreToolUse: [{ type: "command", command: "echo pre" }],
+					PreToolUse: [
+						{ hooks: [{ type: "command", command: "echo pre" }] },
+					],
 				},
 			};
 
@@ -47,25 +49,28 @@ describe("claudecode/settings", () => {
 			expect(result.added).toBe(true);
 
 			const sessionStart = result.settings.hooks?.SessionStart as readonly {
-				type: string;
-				command: string;
+				hooks: readonly { type: string; command: string }[];
 			}[];
 			expect(sessionStart).toHaveLength(1);
-			expect(sessionStart[0].command).toBe(ARCADE_HOOK_COMMAND);
+			expect(sessionStart[0].hooks[0].command).toBe(ARCADE_HOOK_COMMAND);
 
 			expect(result.settings.hooks?.PreToolUse).toEqual([
-				{ type: "command", command: "echo pre" },
+				{ hooks: [{ type: "command", command: "echo pre" }] },
 			]);
 		});
 
-		test("existing SessionStart with other hooks appends arcade hook", () => {
-			const existingHook = {
-				type: "command" as const,
-				command: "echo other-tool-hook",
+		test("existing SessionStart with other hooks appends arcade entry", () => {
+			const existingEntry = {
+				hooks: [
+					{
+						type: "command" as const,
+						command: "echo other-tool-hook",
+					},
+				],
 			};
 			const settings: ClaudeCodeSettings = {
 				hooks: {
-					SessionStart: [existingHook],
+					SessionStart: [existingEntry],
 				},
 			};
 
@@ -74,18 +79,23 @@ describe("claudecode/settings", () => {
 			expect(result.added).toBe(true);
 
 			const sessionStart = result.settings.hooks?.SessionStart as readonly {
-				type: string;
-				command: string;
+				hooks: readonly { type: string; command: string }[];
 			}[];
 			expect(sessionStart).toHaveLength(2);
-			expect(sessionStart[0].command).toBe("echo other-tool-hook");
-			expect(sessionStart[1].command).toBe(ARCADE_HOOK_COMMAND);
+			expect(sessionStart[0].hooks[0].command).toBe("echo other-tool-hook");
+			expect(sessionStart[1].hooks[0].command).toBe(ARCADE_HOOK_COMMAND);
 		});
 
 		test("arcade hook already present is a no-op (idempotent)", () => {
 			const settings: ClaudeCodeSettings = {
 				hooks: {
-					SessionStart: [{ type: "command", command: ARCADE_HOOK_COMMAND }],
+					SessionStart: [
+						{
+							hooks: [
+								{ type: "command", command: ARCADE_HOOK_COMMAND },
+							],
+						},
+					],
 				},
 			};
 
@@ -95,8 +105,7 @@ describe("claudecode/settings", () => {
 			expect(result.settings).toBe(settings);
 
 			const sessionStart = result.settings.hooks?.SessionStart as readonly {
-				type: string;
-				command: string;
+				hooks: readonly { type: string; command: string }[];
 			}[];
 			expect(sessionStart).toHaveLength(1);
 		});
@@ -106,8 +115,12 @@ describe("claudecode/settings", () => {
 				preferredNotifChannel: "terminal",
 				autoUpdaterStatus: "enabled",
 				hooks: {
-					PreToolUse: [{ type: "command", command: "lint" }],
-					PostToolUse: [{ type: "command", command: "test" }],
+					PreToolUse: [
+						{ hooks: [{ type: "command", command: "lint" }] },
+					],
+					PostToolUse: [
+						{ hooks: [{ type: "command", command: "test" }] },
+					],
 				},
 			};
 
@@ -117,10 +130,10 @@ describe("claudecode/settings", () => {
 			expect(result.settings.preferredNotifChannel).toBe("terminal");
 			expect(result.settings.autoUpdaterStatus).toBe("enabled");
 			expect(result.settings.hooks?.PreToolUse).toEqual([
-				{ type: "command", command: "lint" },
+				{ hooks: [{ type: "command", command: "lint" }] },
 			]);
 			expect(result.settings.hooks?.PostToolUse).toEqual([
-				{ type: "command", command: "test" },
+				{ hooks: [{ type: "command", command: "test" }] },
 			]);
 		});
 
@@ -162,7 +175,9 @@ describe("claudecode/settings", () => {
 			const content = await readFile(settingsPath(), "utf-8");
 			const settings = JSON.parse(content);
 			expect(settings.hooks.SessionStart).toHaveLength(1);
-			expect(settings.hooks.SessionStart[0].command).toBe(ARCADE_HOOK_COMMAND);
+			expect(settings.hooks.SessionStart[0].hooks[0].command).toBe(
+				ARCADE_HOOK_COMMAND,
+			);
 		});
 
 		test("handles malformed JSON in settings file", async () => {
@@ -207,8 +222,12 @@ describe("claudecode/settings", () => {
 					hooks: {
 						SessionStart: [
 							{
-								type: "command",
-								command: ARCADE_HOOK_COMMAND,
+								hooks: [
+									{
+										type: "command",
+										command: ARCADE_HOOK_COMMAND,
+									},
+								],
 							},
 						],
 					},
