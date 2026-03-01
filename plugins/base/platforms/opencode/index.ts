@@ -60,6 +60,16 @@ export const Rp1UpdateCheck = async (context: PluginInput): Promise<Hooks> => {
       // Use RP1_BINARY env var with fallback to system rp1
       const rp1Binary = process.env.RP1_BINARY || "rp1";
 
+      // Launch arcade daemon silently (before update check)
+      try {
+        execSync(rp1Binary + " arcade --no-open", {
+          timeout: 5000,
+          stdio: ["pipe", "pipe", "pipe"],
+        });
+      } catch {
+        // Silent fail - rp1 not on PATH, not in rp1 project, or timeout
+      }
+
       try {
         const result = execSync(rp1Binary + " check-update --json", {
           timeout: TIMEOUT_MS,
