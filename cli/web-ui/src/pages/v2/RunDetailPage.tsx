@@ -1,5 +1,5 @@
 import { ArrowLeft, ChevronRight, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArtifactList } from "@/components/v2/ArtifactList";
 import { EventStream } from "@/components/v2/EventStream";
@@ -8,8 +8,12 @@ import { StatusBadge } from "@/components/v2/StatusBadge";
 import { StepTimeline } from "@/components/v2/StepTimeline";
 import { useContextualShortcuts } from "@/hooks/useContextualShortcuts";
 import { useRunDetail } from "@/hooks/useRunDetail";
+import {
+	commandToWorkflowName,
+	useWorkflowSteps,
+} from "@/hooks/useWorkflowSteps";
 import { cn } from "@/lib/utils";
-import type { Artifact } from "@/types/runs";
+import type { Artifact, Step } from "@/types/runs";
 
 function formatDuration(startedAt: string, completedAt: string | null): string {
 	const start = new Date(startedAt);
@@ -47,6 +51,53 @@ function formatStartTime(dateString: string): string {
 	});
 }
 
+/**
+ * Humanize a kebab-case step ID to Title Case.
+ */
+function humanizeStepLabel(id: string): string {
+	return id
+		.split("-")
+		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+		.join(" ");
+}
+
+/**
+ * Merge workflow ordered steps with run step data.
+ * Uses the workflow definition as the authoritative step list, filling in
+ * status and timestamps from the run's step records. Steps not yet seen
+ * in the run are marked as pending.
+ *
+ * Handles branching workflows (e.g., verify->build retry loop) correctly
+ * because the workflow's orderedSteps are derived via BFS which produces
+ * a linear ordering with cycles handled via visited-set.
+ */
+function mergeWorkflowSteps(
+	workflowOrderedSteps: readonly { id: string; label: string; index: number }[],
+	runSteps: readonly Step[],
+): readonly Step[] {
+	const runStepMap = new Map<string, Step>();
+	for (const step of runSteps) {
+		runStepMap.set(step.id, step);
+	}
+
+	return workflowOrderedSteps.map(({ id, label }) => {
+		const runStep = runStepMap.get(id);
+		if (runStep) {
+			return runStep;
+		}
+
+		return {
+			id,
+			name: humanizeStepLabel(label),
+			status: "pending" as const,
+			startedAt: null,
+			completedAt: null,
+			taskCount: null,
+			completedTaskCount: null,
+		};
+	});
+}
+
 export function RunDetailPage() {
 	const { runId } = useParams();
 	const navigate = useNavigate();
@@ -54,6 +105,20 @@ export function RunDetailPage() {
 	const [selectedArtifactIndex, setSelectedArtifactIndex] = useState<
 		number | null
 	>(null);
+
+	const workflowName = useMemo(
+		() => (run ? commandToWorkflowName(run.command) : null),
+		[run],
+	);
+	const { workflow } = useWorkflowSteps(workflowName);
+
+	const displaySteps = useMemo<readonly Step[]>(() => {
+		if (!run) return [];
+		if (workflow && workflow.orderedSteps.length > 0) {
+			return mergeWorkflowSteps(workflow.orderedSteps, run.steps);
+		}
+		return run.steps;
+	}, [run, workflow]);
 
 	const artifactsSectionRef = useRef<HTMLElement>(null);
 	const eventStreamSectionRef = useRef<HTMLElement>(null);
@@ -300,13 +365,13 @@ export function RunDetailPage() {
 				</div>
 			</header>
 
-			{run.steps.length > 0 && (
+			{displaySteps.length > 0 && (
 				<section
 					ref={timelineSectionRef}
 					className="rounded-lg border border-border bg-card p-6"
 				>
 					<h2 className="sr-only">Workflow Progress</h2>
-					<StepTimeline steps={run.steps} orientation="horizontal" />
+					<StepTimeline steps={displaySteps} orientation="horizontal" />
 				</section>
 			)}
 
