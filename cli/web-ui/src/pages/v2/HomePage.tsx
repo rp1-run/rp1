@@ -1,152 +1,213 @@
-import { AlertCircle, Eye, Hand, Loader2, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { motion } from "framer-motion";
+import {
+	Activity,
+	ChevronDown,
+	FolderOpen,
+	Play,
+	Terminal,
+} from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AnimatedCounter } from "@/components/v2/AnimatedCounter";
-import { AttentionSection } from "@/components/v2/AttentionSection";
 import { KeyHints, NAV_HINTS_NO_BACK } from "@/components/v2/KeyHints";
-import type { GlowColor } from "@/components/v2/StatusGlow";
-import { StatusGlow } from "@/components/v2/StatusGlow";
-import { useAttention } from "@/hooks/useAttention";
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
+import { useProjects } from "@/hooks/useProjects";
+import {
+	cardHover,
+	cardTap,
+	staggerContainer,
+	staggerItem,
+} from "@/lib/motion-config";
 import { cn } from "@/lib/utils";
-import type { Run } from "@/types/runs";
 
-function useCompletedTodayCount(): number {
-	const [count, setCount] = useState(0);
+interface SuggestionCard {
+	readonly label: string;
+	readonly description: string;
+	readonly icon: React.ComponentType<{ className?: string }>;
+	readonly path: string;
+	readonly accent: string;
+	readonly iconColor: string;
+}
+
+const SUGGESTIONS: readonly SuggestionCard[] = [
+	{
+		label: "View Runs",
+		description: "Monitor active and recent agent runs",
+		icon: Play,
+		path: "/runs",
+		accent: "hover:border-[hsl(var(--terminal-green))]",
+		iconColor: "text-terminal-green",
+	},
+	{
+		label: "Browse Projects",
+		description: "Explore registered projects and artifacts",
+		icon: FolderOpen,
+		path: "/projects",
+		accent: "hover:border-[hsl(var(--terminal-mauve))]",
+		iconColor: "text-terminal-mauve",
+	},
+	{
+		label: "Recent Activity",
+		description: "Review completed runs and results",
+		icon: Activity,
+		path: "/runs?status=completed",
+		accent: "hover:border-[hsl(var(--status-running))]",
+		iconColor: "text-status-running",
+	},
+] as const;
+
+function ProjectSelector() {
+	const { projects, isLoading } = useProjects();
+	const navigate = useNavigate();
+	const [open, setOpen] = useState(false);
+	const ref = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
-		let cancelled = false;
-		async function fetchCompleted() {
-			try {
-				const response = await fetch(
-					"/api/v2/runs?status=completed&dateRange=today&limit=0",
-				);
-				if (!response.ok) return;
-				const json = (await response.json()) as { total: number };
-				if (!cancelled) {
-					setCount(json.total);
-				}
-			} catch {
-				// Silently ignore - counter will show 0
+		if (!open) return;
+		function handleClickOutside(e: MouseEvent) {
+			if (ref.current && !ref.current.contains(e.target as Node)) {
+				setOpen(false);
 			}
 		}
-		fetchCompleted();
-		return () => {
-			cancelled = true;
-		};
-	}, []);
+		document.addEventListener("mousedown", handleClickOutside);
+		return () => document.removeEventListener("mousedown", handleClickOutside);
+	}, [open]);
 
-	return count;
-}
-
-interface StatusSummaryCardProps {
-	label: string;
-	count: number;
-	glowColor: GlowColor;
-}
-
-function StatusSummaryCard({
-	label,
-	count,
-	glowColor,
-}: StatusSummaryCardProps) {
-	return (
-		<StatusGlow color={glowColor} enabled={count > 0}>
-			<div className="rounded-lg border border-border bg-background/50 p-4">
-				<p className="text-sm text-muted-foreground">{label}</p>
-				<p className="mt-1 text-2xl font-semibold text-foreground">
-					<AnimatedCounter value={count} />
-				</p>
+	if (isLoading) {
+		return (
+			<div className="inline-flex items-center gap-2 rounded-lg border border-border bg-muted/20 px-4 py-2 text-sm text-muted-foreground">
+				<span className="animate-pulse-gentle">Loading projects...</span>
 			</div>
-		</StatusGlow>
-	);
-}
+		);
+	}
 
-function LoadingSkeleton() {
-	return (
-		<div className="space-y-4">
-			{[1, 2, 3, 4].map((i) => (
-				<div
-					key={i}
-					className="animate-pulse rounded-lg border border-border bg-muted/20 p-4"
-				>
-					<div className="flex items-center gap-3">
-						<div className="h-5 w-5 rounded bg-muted" />
-						<div className="h-5 w-32 rounded bg-muted" />
-						<div className="ml-auto h-5 w-8 rounded-full bg-muted" />
-					</div>
-				</div>
-			))}
-		</div>
-	);
-}
-
-function EmptyState() {
-	return (
-		<div className="flex flex-col items-center justify-center rounded-lg border border-border bg-muted/10 px-8 py-16">
-			<div className="mb-4 rounded-full bg-muted/50 p-4">
-				<Eye className="h-8 w-8 text-muted-foreground" />
+	if (projects.length === 0) {
+		return (
+			<div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+				No projects registered
 			</div>
-			<h2 className="mb-2 text-lg font-medium text-foreground">
-				Nothing needs your attention
-			</h2>
-			<p className="text-center text-sm text-muted-foreground">
-				All your agent runs are proceeding smoothly. Check back later or start a
-				new run.
-			</p>
-		</div>
-	);
-}
+		);
+	}
 
-function ErrorState({ error, onRetry }: { error: Error; onRetry: () => void }) {
 	return (
-		<div className="flex flex-col items-center justify-center rounded-lg border border-status-failed/30 bg-status-failed/10 px-8 py-16">
-			<div className="mb-4 rounded-full bg-status-failed/20 p-4">
-				<AlertCircle className="h-8 w-8 text-status-failed" />
-			</div>
-			<h2 className="mb-2 text-lg font-medium text-foreground">
-				Failed to load dashboard
-			</h2>
-			<p className="mb-4 text-center text-sm text-muted-foreground">
-				{error.message}
-			</p>
+		<div className="relative" ref={ref}>
 			<button
 				type="button"
-				onClick={onRetry}
-				className="inline-flex items-center gap-2 rounded-md bg-muted px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted/80"
+				onClick={() => setOpen((v) => !v)}
+				className={cn(
+					"inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm transition-colors",
+					"hover:bg-muted/30 hover:border-[hsl(var(--border-glow))]",
+					"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+					open && "border-[hsl(var(--border-glow))] bg-muted/30",
+				)}
 			>
-				<RefreshCw className="h-4 w-4" />
-				Try again
+				<FolderOpen className="h-4 w-4 text-muted-foreground" />
+				<span className="text-foreground">
+					{projects.length} project{projects.length === 1 ? "" : "s"}
+				</span>
+				<ChevronDown
+					className={cn(
+						"h-3.5 w-3.5 text-muted-foreground transition-transform duration-200",
+						open && "rotate-180",
+					)}
+				/>
 			</button>
+			{open && (
+				<div className="glass absolute left-1/2 z-50 mt-2 w-64 -translate-x-1/2 overflow-hidden rounded-lg shadow-lg">
+					{projects.map((project) => (
+						<button
+							type="button"
+							key={project.id}
+							onClick={() => {
+								navigate(`/projects/${project.id}`);
+								setOpen(false);
+							}}
+							className={cn(
+								"flex w-full items-center gap-3 px-4 py-3 text-left text-sm transition-colors",
+								"hover:bg-muted/40",
+								!project.available && "opacity-50",
+							)}
+						>
+							<div
+								className={cn(
+									"h-2 w-2 shrink-0 rounded-full",
+									project.available
+										? "bg-status-completed"
+										: "bg-status-failed",
+								)}
+							/>
+							<div className="min-w-0 flex-1">
+								<p className="truncate font-medium text-foreground">
+									{project.name}
+								</p>
+								<p className="truncate text-xs text-muted-foreground">
+									{project.runCount} run{project.runCount === 1 ? "" : "s"}
+								</p>
+							</div>
+						</button>
+					))}
+				</div>
+			)}
 		</div>
+	);
+}
+
+function SuggestionCardComponent({
+	card,
+	selected,
+	onClick,
+}: {
+	card: SuggestionCard;
+	selected: boolean;
+	onClick: () => void;
+}) {
+	const reducedMotion = usePrefersReducedMotion();
+	const Icon = card.icon;
+
+	return (
+		<motion.button
+			type="button"
+			onClick={onClick}
+			whileHover={reducedMotion ? undefined : cardHover}
+			whileTap={reducedMotion ? undefined : cardTap}
+			className={cn(
+				"group flex flex-col items-center gap-3 rounded-lg border border-border p-6",
+				"cursor-pointer backdrop-blur-[0px] text-center",
+				"transition-[background-color,border-color,backdrop-filter,box-shadow] duration-200 ease-out",
+				"hover:bg-[hsl(var(--bg-surface)_/_0.6)] hover:backdrop-blur-[8px]",
+				card.accent,
+				selected && "ring-2 ring-primary bg-[hsl(var(--bg-surface)_/_0.4)]",
+				"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+			)}
+		>
+			<div
+				className={cn(
+					"rounded-full bg-muted/30 p-3 transition-colors",
+					"group-hover:bg-muted/50",
+				)}
+			>
+				<Icon className={cn("h-5 w-5", card.iconColor)} />
+			</div>
+			<div>
+				<p className="text-sm font-medium text-foreground">{card.label}</p>
+				<p className="mt-1 text-xs text-muted-foreground">{card.description}</p>
+			</div>
+		</motion.button>
 	);
 }
 
 export function HomePage() {
-	const { data, isLoading, error, refetch } = useAttention();
-	const completedTodayCount = useCompletedTodayCount();
 	const navigate = useNavigate();
 	const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+	const reducedMotion = usePrefersReducedMotion();
 
-	const allRuns = useMemo(() => {
-		if (!data) return [];
-		return [
-			...data.waiting,
-			...data.needsReview,
-			...data.failed,
-			...data.running,
-		];
-	}, [data]);
-
-	const handleRunClick = useCallback(
-		(run: Run) => {
-			navigate(`/runs/${run.id}`);
+	const handleCardClick = useCallback(
+		(path: string) => {
+			navigate(path);
 		},
 		[navigate],
 	);
 
 	useEffect(() => {
-		if (allRuns.length === 0) return;
-
 		const handleKeyDown = (event: KeyboardEvent) => {
 			if (document.querySelector('[role="dialog"][data-state="open"]')) return;
 			if (document.body.dataset.chordPending) return;
@@ -162,24 +223,25 @@ export function HomePage() {
 			switch (event.key) {
 				case "j":
 				case "ArrowDown":
+				case "ArrowRight":
 					event.preventDefault();
 					setSelectedIndex((prev) =>
-						prev === null ? 0 : Math.min(prev + 1, allRuns.length - 1),
+						prev === null ? 0 : Math.min(prev + 1, SUGGESTIONS.length - 1),
 					);
 					break;
 				case "k":
 				case "ArrowUp":
+				case "ArrowLeft":
 					event.preventDefault();
 					setSelectedIndex((prev) =>
-						prev === null ? allRuns.length - 1 : Math.max(prev - 1, 0),
+						prev === null ? SUGGESTIONS.length - 1 : Math.max(prev - 1, 0),
 					);
 					break;
 				case "l":
-				case "ArrowRight":
 				case "Enter":
-					if (selectedIndex !== null && allRuns[selectedIndex]) {
+					if (selectedIndex !== null && SUGGESTIONS[selectedIndex]) {
 						event.preventDefault();
-						handleRunClick(allRuns[selectedIndex]);
+						handleCardClick(SUGGESTIONS[selectedIndex].path);
 					}
 					break;
 			}
@@ -187,159 +249,55 @@ export function HomePage() {
 
 		document.addEventListener("keydown", handleKeyDown);
 		return () => document.removeEventListener("keydown", handleKeyDown);
-	}, [allRuns, selectedIndex, handleRunClick]);
-
-	const getSelectionForSection = useCallback(
-		(sectionRuns: readonly Run[], sectionStart: number) => {
-			if (selectedIndex === null) return null;
-			const localIndex = selectedIndex - sectionStart;
-			if (localIndex >= 0 && localIndex < sectionRuns.length) {
-				return localIndex;
-			}
-			return null;
-		},
-		[selectedIndex],
-	);
-
-	const isEmpty =
-		data &&
-		data.waiting.length === 0 &&
-		data.needsReview.length === 0 &&
-		data.failed.length === 0 &&
-		data.running.length === 0;
-
-	const needAttentionCount = data
-		? data.waiting.length + data.needsReview.length + data.failed.length
-		: 0;
-
-	const runningCount = data ? data.running.length : 0;
+	}, [selectedIndex, handleCardClick]);
 
 	return (
-		<div className="space-y-6">
-			<header className="flex items-center justify-between">
-				<div>
-					<h1 className="text-2xl font-semibold text-foreground">Now</h1>
-					<p className="mt-1 text-sm text-muted-foreground">
-						What needs your attention across all projects
-					</p>
+		<div className="grid h-full grid-rows-[1fr_auto] items-center px-6 pb-6">
+			<div className="flex flex-col items-center justify-center gap-10">
+				<div className="flex flex-col items-center gap-2">
+					<div className="flex items-baseline gap-1">
+						<Terminal className="h-5 w-5 text-terminal-green" />
+						<span className="font-mono text-3xl font-semibold text-foreground">
+							rp1
+						</span>
+						<span className="animate-blink text-3xl text-terminal-green">
+							_
+						</span>
+					</div>
 				</div>
 
-				<button
-					type="button"
-					onClick={refetch}
-					disabled={isLoading}
-					className={cn(
-						"inline-flex items-center gap-2 rounded-md border border-border bg-muted/30 px-4 py-2 font-mono text-sm transition-colors",
-						"hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-						"disabled:cursor-not-allowed disabled:opacity-50",
-					)}
-					aria-label="Refresh dashboard"
+				<div className="flex flex-col items-center gap-6">
+					<h1 className="text-2xl font-light text-foreground/80">
+						Let's build
+					</h1>
+					<ProjectSelector />
+				</div>
+			</div>
+
+			<div className="mx-auto w-full max-w-2xl">
+				<motion.div
+					className="grid w-full grid-cols-1 gap-4 sm:grid-cols-3"
+					variants={reducedMotion ? undefined : staggerContainer}
+					initial="initial"
+					animate="animate"
 				>
-					<span className="text-terminal-green" aria-hidden="true">
-						$
-					</span>
-					<span>refresh</span>
-					{isLoading && (
-						<RefreshCw
-							className="h-3.5 w-3.5 animate-spin"
-							aria-hidden="true"
-						/>
-					)}
-				</button>
-			</header>
-
-			{isLoading && !data ? (
-				<LoadingSkeleton />
-			) : error ? (
-				<ErrorState error={error} onRetry={refetch} />
-			) : isEmpty ? (
-				<EmptyState />
-			) : (
-				data && (
-					<>
-						<div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-							<StatusSummaryCard
-								label="Running"
-								count={runningCount}
-								glowColor="blue"
+					{SUGGESTIONS.map((card, index) => (
+						<motion.div
+							key={card.label}
+							variants={reducedMotion ? undefined : staggerItem}
+						>
+							<SuggestionCardComponent
+								card={card}
+								selected={selectedIndex === index}
+								onClick={() => handleCardClick(card.path)}
 							/>
-							<StatusSummaryCard
-								label="Need Attention"
-								count={needAttentionCount}
-								glowColor="red"
-							/>
-							<StatusSummaryCard
-								label="Completed Today"
-								count={completedTodayCount}
-								glowColor="green"
-							/>
-						</div>
-
-						<div className="space-y-4">
-							<StatusGlow color="amber" enabled={data.waiting.length > 0} pulse>
-								<AttentionSection
-									title="Waiting for you"
-									icon={Hand}
-									runs={data.waiting}
-									defaultExpanded={true}
-									accentColor="peach"
-									emptyMessage="No runs waiting for input"
-									selectedIndex={getSelectionForSection(data.waiting, 0)}
-								/>
-							</StatusGlow>
-
-							<StatusGlow color="purple" enabled={data.needsReview.length > 0}>
-								<AttentionSection
-									title="Needs review"
-									icon={Eye}
-									runs={data.needsReview}
-									defaultExpanded={true}
-									accentColor="mauve"
-									emptyMessage="No runs need review"
-									selectedIndex={getSelectionForSection(
-										data.needsReview,
-										data.waiting.length,
-									)}
-								/>
-							</StatusGlow>
-
-							<StatusGlow color="red" enabled={data.failed.length > 0}>
-								<AttentionSection
-									title="Failed"
-									icon={AlertCircle}
-									runs={data.failed}
-									defaultExpanded={true}
-									accentColor="red"
-									emptyMessage="No failed runs"
-									selectedIndex={getSelectionForSection(
-										data.failed,
-										data.waiting.length + data.needsReview.length,
-									)}
-								/>
-							</StatusGlow>
-
-							<StatusGlow color="blue" enabled={data.running.length > 0} pulse>
-								<AttentionSection
-									title="Running"
-									icon={Loader2}
-									runs={data.running}
-									defaultExpanded={true}
-									accentColor="blue"
-									emptyMessage="No runs currently active"
-									selectedIndex={getSelectionForSection(
-										data.running,
-										data.waiting.length +
-											data.needsReview.length +
-											data.failed.length,
-									)}
-								/>
-							</StatusGlow>
-						</div>
-
-						<KeyHints hints={NAV_HINTS_NO_BACK} />
-					</>
-				)
-			)}
+						</motion.div>
+					))}
+				</motion.div>
+				<div className="mt-4 flex justify-center">
+					<KeyHints hints={NAV_HINTS_NO_BACK} />
+				</div>
+			</div>
 		</div>
 	);
 }

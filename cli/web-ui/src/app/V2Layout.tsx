@@ -20,6 +20,7 @@ import { useWebSocket } from "@/providers/WebSocketProvider";
 
 const FULL_HEIGHT_ROUTES = ["/runs/"];
 function isFullHeightRoute(pathname: string): boolean {
+	if (pathname === "/") return true;
 	if (
 		FULL_HEIGHT_ROUTES.some(
 			(route) => pathname.startsWith(route) && pathname.includes("/artifacts/"),
