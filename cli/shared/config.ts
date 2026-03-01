@@ -11,7 +11,7 @@ export interface CLIConfig {
 	trace: boolean;
 }
 
-export interface ViewConfig extends CLIConfig {
+export interface ArcadeConfig extends CLIConfig {
 	port: number;
 	openBrowser: boolean;
 }
@@ -50,10 +50,10 @@ const parsePort = (portStr: string): E.Either<CLIError, number> => {
 		: E.right(port);
 };
 
-export const parseViewArgs = (
+export const parseArcadeArgs = (
 	args: string[],
-): E.Either<CLIError, ViewConfig> => {
-	const config: ViewConfig = {
+): E.Either<CLIError, ArcadeConfig> => {
+	const config: ArcadeConfig = {
 		rp1Root: process.env.RP1_ROOT || "",
 		port: 7710,
 		openBrowser: true,
@@ -87,8 +87,8 @@ export const parseViewArgs = (
 };
 
 export const resolveRp1Root = (
-	config: ViewConfig,
-): E.Either<CLIError, ViewConfig> =>
+	config: ArcadeConfig,
+): E.Either<CLIError, ArcadeConfig> =>
 	pipe(
 		config.rp1Root,
 		O.fromPredicate((root) => root.length > 0),
@@ -97,12 +97,12 @@ export const resolveRp1Root = (
 		E.fromOption(() =>
 			notFoundError(
 				".rp1 directory",
-				"Run this command from an rp1 project directory, or specify a path: rp1 view /path/to/project",
+				"Run this command from an rp1 project directory, or specify a path: rp1 arcade /path/to/project",
 			),
 		),
 	);
 
-export const loadViewConfig = (
+export const loadArcadeConfig = (
 	args: string[],
-): E.Either<CLIError, ViewConfig> =>
-	pipe(parseViewArgs(args), E.chain(resolveRp1Root));
+): E.Either<CLIError, ArcadeConfig> =>
+	pipe(parseArcadeArgs(args), E.chain(resolveRp1Root));

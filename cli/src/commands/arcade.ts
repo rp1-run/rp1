@@ -7,7 +7,7 @@ import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import type * as T from "fp-ts/lib/Task.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
-import { loadViewConfig, type ViewConfig } from "../../shared/config.js";
+import { type ArcadeConfig, loadArcadeConfig } from "../../shared/config.js";
 import {
 	type CLIError,
 	formatError,
@@ -89,7 +89,7 @@ const openBrowser =
  * Execute with daemon support - start daemon if needed, register project, open browser.
  */
 const executeWithDaemon = (
-	config: ViewConfig,
+	config: ArcadeConfig,
 	logger: Logger,
 ): TE.TaskEither<CLIError, void> =>
 	tryCatchTE(
@@ -123,7 +123,7 @@ const executeWithDaemon = (
 				logger.info(`Server running at ${url}`);
 			}
 		},
-		(e) => runtimeError(`Failed to start viewer: ${e}`),
+		(e) => runtimeError(`Failed to start arcade: ${e}`),
 	);
 
 /**
@@ -216,14 +216,14 @@ const execute = (
 
 	if (options.restart) {
 		return pipe(
-			loadViewConfig(args),
+			loadArcadeConfig(args),
 			TE.fromEither,
 			TE.chain((config) => restartDaemonCommand(config.port, logger)),
 		);
 	}
 
 	return pipe(
-		loadViewConfig(args),
+		loadArcadeConfig(args),
 		TE.fromEither,
 		TE.chainFirst((config) => {
 			logger.debug(
@@ -241,10 +241,8 @@ const execute = (
 	);
 };
 
-export const viewCommand = new Command("view")
-	.description(
-		"Launch the web-based documentation viewer with background daemon",
-	)
+export const arcadeCommand = new Command("arcade")
+	.description("Launch the web-based dashboard with background daemon")
 	.argument("[path]", "Path to project directory", process.cwd())
 	.option("-p, --port <port>", "Port to run server on", "7710")
 	.option("--no-open", "Start server without opening browser")
@@ -255,17 +253,17 @@ export const viewCommand = new Command("view")
 		"after",
 		`
 Examples:
-  rp1 view                      View current project
-  rp1 view /path/to/project     View specific project
-  rp1 view --port 8080          Use custom port
-  rp1 view --no-open            Don't auto-open browser
-  rp1 view --stop               Stop the daemon
-  rp1 view --status             Show daemon status
-  rp1 view --restart            Restart the daemon
+  rp1 arcade                      Launch dashboard for current project
+  rp1 arcade /path/to/project     Launch dashboard for specific project
+  rp1 arcade --port 8080          Use custom port
+  rp1 arcade --no-open            Don't auto-open browser
+  rp1 arcade --stop               Stop the daemon
+  rp1 arcade --status             Show daemon status
+  rp1 arcade --restart            Restart the daemon
 
 Daemon:
-  The viewer runs as a background daemon. Multiple projects can be viewed
-  by running 'rp1 view' in different directories. Use the project switcher
+  The dashboard runs as a background daemon. Multiple projects can be viewed
+  by running 'rp1 arcade' in different directories. Use the project switcher
   in the web UI to navigate between projects.
 
 Environment:
@@ -278,7 +276,7 @@ Note: This command requires Bun runtime. Install from https://bun.sh
 		// Check for Bun runtime early - the web-ui server requires Bun APIs
 		if (!isBun()) {
 			console.error(
-				chalk.red("Error: The 'view' command requires Bun runtime."),
+				chalk.red("Error: The 'arcade' command requires Bun runtime."),
 			);
 			console.error(
 				"\nThe web UI server uses Bun-specific APIs that are not available in Node.js.",
@@ -287,7 +285,7 @@ Note: This command requires Bun runtime. Install from https://bun.sh
 			console.error(
 				"  1. Install Bun: curl -fsSL https://bun.sh/install | bash",
 			);
-			console.error("  2. Run with Bun: bun rp1 view");
+			console.error("  2. Run with Bun: bun rp1 arcade");
 			console.error("\nOther rp1 commands work with Node.js.");
 			process.exit(1);
 		}
