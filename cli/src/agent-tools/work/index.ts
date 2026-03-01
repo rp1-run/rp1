@@ -12,6 +12,7 @@ import { successResult } from "../output.js";
 import {
 	closeDatabase,
 	DEFAULT_DB_PATH,
+	getCurrentWorkflowState,
 	getLatestStatusByFeature,
 	insertStatusUpdate,
 	isValidStatus,
@@ -164,6 +165,7 @@ registerTool({
 export {
 	closeDatabase,
 	DEFAULT_DB_PATH,
+	getCurrentWorkflowState,
 	isValidStatus,
 	resetDatabaseInstance,
 	TOOL_NAME,

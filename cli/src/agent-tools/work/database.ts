@@ -889,4 +889,63 @@ export const getProjectRunStats = (
 		),
 	);
 
+/**
+ * Query the current workflow state for a feature/run combination.
+ * Used by transition validation to determine the current position in a state machine.
+ *
+ * Filters out expired rows (on-read pruning) so stale runs from crashed agents
+ * are invisible. NULL expires_at rows are always included (backward compat).
+ *
+ * @param projectPath - Project path to filter by
+ * @param feature - Feature identifier
+ * @param runId - Optional run ID for per-invocation isolation (BR-007: no runId = latest-by-timestamp)
+ * @param dbPath - Database file path (optional)
+ * @returns TaskEither with current task (workflow state) or null if no current state
+ */
+export const getCurrentWorkflowState = (
+	projectPath: string,
+	feature: string,
+	runId?: string,
+	dbPath?: string,
+): TE.TaskEither<CLIError, string | null> =>
+	pipe(
+		getDatabase(dbPath),
+		TE.chain((db) =>
+			TE.tryCatch(
+				async () => {
+					const params: Record<string, string> = {
+						$projectPath: projectPath,
+						$feature: feature,
+					};
+
+					let runIdClause: string;
+					if (runId) {
+						runIdClause = "AND (run_id = $runId OR run_id IS NULL)";
+						params.$runId = runId;
+					} else {
+						runIdClause = "";
+					}
+
+					const sql = `
+						SELECT task FROM status_updates
+						WHERE project_path = $projectPath
+						AND feature = $feature
+						${runIdClause}
+						AND (expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now') OR expires_at IS NULL)
+						ORDER BY created_at DESC LIMIT 1
+					`;
+
+					const row = db.prepare(sql).get(params) as {
+						task: string | null;
+					} | null;
+					return row?.task ?? null;
+				},
+				(error) =>
+					runtimeError(
+						`Failed to query current workflow state: ${error instanceof Error ? error.message : String(error)}`,
+					),
+			),
+		),
+	);
+
 export { DEFAULT_DB_PATH };

@@ -537,6 +537,18 @@ workCommand
 	)
 	.option("-m, --message <text>", "Human-readable status message")
 	.option("--metadata <json>", "JSON string for additional context")
+	.option(
+		"-w, --workflow <name>",
+		"State machine workflow to validate against (skill name with state.mmd)",
+	)
+	.option(
+		"--run-id <id>",
+		"Workflow run isolation ID (UUID) for tracking separate invocations",
+	)
+	.option(
+		"--ttl <seconds>",
+		"TTL in seconds for expires_at timestamp (default: 28800 = 8 hours)",
+	)
 	.addHelpText(
 		"after",
 		`
@@ -544,19 +556,30 @@ Description:
   Records a status update to the global status database (~/.rp1/status.db).
   Creates the database file automatically on first invocation.
 
+  When --workflow is provided, the command loads the skill's state machine
+  (state.mmd), validates that the transition is permitted, computes an
+  expires_at timestamp for stale row cleanup, and inserts the record with
+  run isolation via --run-id.
+
 Arguments:
   --project <path>     Absolute path to project root (required)
   --feature <name>     Feature identifier in kebab-case (required)
-  --task <id>          Task identifier within feature (optional)
+  --task <id>          Task/workflow state identifier (required when --workflow is set)
   --status <status>    Status state: ${VALID_STATUSES.join(", ")} (required)
   --message <text>     Human-readable status message (optional)
   --metadata <json>    JSON string for additional context (optional)
+  --workflow <name>    Skill name whose state.mmd to validate against (optional)
+  --run-id <id>        UUID grouping updates into a discrete workflow run (optional)
+  --ttl <seconds>      TTL for expires_at in seconds (default: 28800 = 8h, only with --workflow)
 
 Validation:
   - Project path must be absolute
   - Feature name must match pattern ^[a-z0-9-]+$
   - Status must be one of the valid states
   - Metadata must be valid JSON if provided
+  - When --workflow is set: --task must be a valid state in the state machine
+  - Transitions are validated against the state machine graph
+  - First update must target an initial state
 
 Output:
   JSON with the recorded status update:
@@ -569,21 +592,32 @@ Output:
   - createdAt: ISO 8601 UTC timestamp
 
 Examples:
-  # Record feature start
+  # Record feature start (no workflow validation)
   rp1 agent-tools work update \\
     --project /Users/dev/myapp \\
     --feature auth-refactor \\
     --status started \\
     --message "Starting feature implementation"
 
-  # Record task progress with metadata
+  # Record workflow transition with validation
   rp1 agent-tools work update \\
     --project /Users/dev/myapp \\
     --feature auth-refactor \\
-    --task T1 \\
+    --workflow build \\
+    --run-id "550e8400-e29b-41d4-a716-446655440000" \\
+    --task requirements \\
     --status in_progress \\
-    --message "Gathering requirements" \\
-    --metadata '{"step":"requirements","progress":50}'
+    --message "Gathering requirements"
+
+  # Record transition with custom TTL
+  rp1 agent-tools work update \\
+    --project /Users/dev/myapp \\
+    --feature auth-refactor \\
+    --workflow build \\
+    --run-id "550e8400-e29b-41d4-a716-446655440000" \\
+    --task design \\
+    --status in_progress \\
+    --ttl 3600
 `,
 	)
 	.action(
@@ -594,6 +628,9 @@ Examples:
 			status: string;
 			message?: string;
 			metadata?: string;
+			workflow?: string;
+			runId?: string;
+			ttl?: string;
 		}): Promise<void> => {
 			const toolName = "work";
 
