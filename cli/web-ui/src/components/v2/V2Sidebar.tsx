@@ -163,33 +163,7 @@ function SidebarHeader({ collapsed }: SidebarHeaderProps) {
 	const isConnected = wsStatus === "connected";
 
 	if (collapsed) {
-		return (
-			<div className="flex flex-col items-center gap-2 border-b p-2 pb-3">
-				<TooltipProvider>
-					<Tooltip delayDuration={0}>
-						<TooltipTrigger asChild>
-							<span
-								className="flex items-center"
-								aria-label={`rp1 - ${wsStatus}`}
-							>
-								<span className="text-sm font-semibold">rp1</span>
-								<span
-									className={cn(
-										"ml-0.5 text-xs",
-										isConnected ? "text-terminal-green" : "text-terminal-red",
-									)}
-								>
-									_
-								</span>
-							</span>
-						</TooltipTrigger>
-						<TooltipContent side="right">
-							{projectName ?? "rp1"} - {wsStatus}
-						</TooltipContent>
-					</Tooltip>
-				</TooltipProvider>
-			</div>
-		);
+		return null;
 	}
 
 	return (
