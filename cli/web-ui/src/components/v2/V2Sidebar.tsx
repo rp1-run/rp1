@@ -108,7 +108,7 @@ export function V2Sidebar({ collapsed, onToggle }: V2SidebarProps) {
 				collapsed ? "w-16" : "w-[240px]",
 			)}
 		>
-			<SidebarHeader collapsed={collapsed} />
+			<SidebarHeader collapsed={collapsed} onToggle={onToggle} />
 			<SidebarQuickAccess collapsed={collapsed} />
 			<SidebarNavigation collapsed={collapsed} />
 			<SidebarFooter collapsed={collapsed} onToggle={onToggle} />
@@ -118,10 +118,12 @@ export function V2Sidebar({ collapsed, onToggle }: V2SidebarProps) {
 
 interface SidebarHeaderProps {
 	collapsed: boolean;
+	onToggle: () => void;
 }
 
-function SidebarHeader({ collapsed }: SidebarHeaderProps) {
+function SidebarHeader({ collapsed, onToggle }: SidebarHeaderProps) {
 	const { status: wsStatus } = useWebSocket();
+	const { theme, toggleTheme } = useTheme();
 	const params = useParams();
 	const [projectName, setProjectName] = useState<string | null>(null);
 
@@ -164,6 +166,15 @@ function SidebarHeader({ collapsed }: SidebarHeaderProps) {
 		);
 	}, []);
 
+	const openShortcutHelp = useCallback(() => {
+		window.dispatchEvent(
+			new KeyboardEvent("keydown", {
+				key: "?",
+				bubbles: true,
+			}),
+		);
+	}, []);
+
 	const isConnected = wsStatus === "connected";
 
 	if (collapsed) {
@@ -198,18 +209,78 @@ function SidebarHeader({ collapsed }: SidebarHeaderProps) {
 
 	return (
 		<div className="flex flex-col gap-3 border-b p-3">
-			{projectName && (
-				<div className="flex items-center gap-2 text-xs text-muted-foreground">
-					<span
-						className={cn(
-							"h-2 w-2 shrink-0 rounded-full",
-							isConnected ? "bg-terminal-green" : "bg-terminal-red",
-						)}
-						aria-hidden="true"
-					/>
-					<span className="truncate font-mono">{projectName}</span>
+			<div className="flex items-center justify-between">
+				{projectName ? (
+					<div className="flex items-center gap-2 text-xs text-muted-foreground">
+						<span
+							className={cn(
+								"h-2 w-2 shrink-0 rounded-full",
+								isConnected ? "bg-terminal-green" : "bg-terminal-red",
+							)}
+							aria-hidden="true"
+						/>
+						<span className="truncate font-mono">{projectName}</span>
+					</div>
+				) : (
+					<span className="text-sm font-semibold text-foreground">rp1</span>
+				)}
+				<div className="flex items-center gap-0.5">
+					<TooltipProvider>
+						<Tooltip delayDuration={0}>
+							<TooltipTrigger asChild>
+								<Button
+									variant="ghost"
+									size="icon"
+									className="h-7 w-7"
+									onClick={toggleTheme}
+									aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
+								>
+									{theme === "dark" ? (
+										<Sun className="h-3.5 w-3.5" />
+									) : (
+										<Moon className="h-3.5 w-3.5" />
+									)}
+								</Button>
+							</TooltipTrigger>
+							<TooltipContent>
+								{theme === "dark" ? "Light mode" : "Dark mode"}
+							</TooltipContent>
+						</Tooltip>
+					</TooltipProvider>
+					<TooltipProvider>
+						<Tooltip delayDuration={0}>
+							<TooltipTrigger asChild>
+								<Button
+									variant="ghost"
+									size="icon"
+									className="h-7 w-7"
+									onClick={openShortcutHelp}
+									aria-label="Keyboard shortcuts"
+								>
+									<Keyboard className="h-3.5 w-3.5" />
+								</Button>
+							</TooltipTrigger>
+							<TooltipContent>Keyboard shortcuts (?)</TooltipContent>
+						</Tooltip>
+					</TooltipProvider>
+					<TooltipProvider>
+						<Tooltip delayDuration={0}>
+							<TooltipTrigger asChild>
+								<Button
+									variant="ghost"
+									size="icon"
+									className="h-7 w-7"
+									onClick={onToggle}
+									aria-label="Collapse sidebar"
+								>
+									<ChevronLeft className="h-3.5 w-3.5" />
+								</Button>
+							</TooltipTrigger>
+							<TooltipContent>Collapse (Cmd/Ctrl+\)</TooltipContent>
+						</Tooltip>
+					</TooltipProvider>
 				</div>
-			)}
+			</div>
 
 			<button
 				type="button"
@@ -237,97 +308,17 @@ interface SidebarFooterProps {
 }
 
 function SidebarFooter({ collapsed, onToggle }: SidebarFooterProps) {
-	const { theme, toggleTheme } = useTheme();
-
-	const openShortcutHelp = useCallback(() => {
-		window.dispatchEvent(
-			new KeyboardEvent("keydown", {
-				key: "?",
-				bubbles: true,
-			}),
-		);
-	}, []);
-
 	if (collapsed) {
 		return (
 			<div className="flex flex-col items-center gap-1 border-t p-2">
-				<TooltipProvider>
-					<Tooltip delayDuration={0}>
-						<TooltipTrigger asChild>
-							<Button
-								variant="ghost"
-								size="icon"
-								className="h-8 w-8"
-								onClick={toggleTheme}
-								aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
-							>
-								{theme === "dark" ? (
-									<Sun className="h-4 w-4" />
-								) : (
-									<Moon className="h-4 w-4" />
-								)}
-							</Button>
-						</TooltipTrigger>
-						<TooltipContent side="right">
-							{theme === "dark" ? "Light mode" : "Dark mode"}
-						</TooltipContent>
-					</Tooltip>
-				</TooltipProvider>
 				<CollapseButton collapsed={collapsed} onToggle={onToggle} />
 			</div>
 		);
 	}
 
 	return (
-		<div className="flex flex-col gap-1 border-t p-2">
-			<div className="flex items-center gap-1">
-				<TooltipProvider>
-					<Tooltip>
-						<TooltipTrigger asChild>
-							<Button
-								variant="ghost"
-								size="icon"
-								className="h-8 w-8"
-								onClick={toggleTheme}
-								aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
-							>
-								{theme === "dark" ? (
-									<Sun className="h-4 w-4" />
-								) : (
-									<Moon className="h-4 w-4" />
-								)}
-							</Button>
-						</TooltipTrigger>
-						<TooltipContent>
-							{theme === "dark"
-								? "Switch to light mode"
-								: "Switch to dark mode"}
-						</TooltipContent>
-					</Tooltip>
-				</TooltipProvider>
-
-				<TooltipProvider>
-					<Tooltip>
-						<TooltipTrigger asChild>
-							<Button
-								variant="ghost"
-								size="icon"
-								className="h-8 w-8"
-								onClick={openShortcutHelp}
-								aria-label="Keyboard shortcuts"
-							>
-								<Keyboard className="h-4 w-4" />
-							</Button>
-						</TooltipTrigger>
-						<TooltipContent>Keyboard shortcuts (?)</TooltipContent>
-					</Tooltip>
-				</TooltipProvider>
-
-				<span className="ml-auto pr-1 text-xs text-muted-foreground">
-					v{APP_VERSION}
-				</span>
-			</div>
-			<CollapseButton collapsed={collapsed} onToggle={onToggle} />
+		<div className="flex items-center justify-center border-t p-2">
+			<span className="text-xs text-muted-foreground">v{APP_VERSION}</span>
 		</div>
 	);
 }
