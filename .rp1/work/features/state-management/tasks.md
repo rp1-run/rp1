@@ -2,7 +2,7 @@
 
 **Feature ID**: state-management
 **Status**: In Progress
-**Progress**: 75% (15 of 20 tasks)
+**Progress**: 100% (20 of 20 tasks)
 **Estimated Effort**: 9 days
 **Started**: 2026-03-01
 
@@ -544,6 +544,18 @@ Introduces declarative state machines co-located with skills as the single sourc
     - **Deviations**: None
     - **Tests**: All 1161 CLI tests + 172 web-ui tests passing (no regressions)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
     **Reference**: [design.md#312-dashboard-steptimeline-changes](design.md#312-dashboard-steptimeline-changes)
 
     **Effort**: 6 hours
@@ -559,7 +571,14 @@ Introduces declarative state machines co-located with skills as the single sourc
 
 ### User Docs
 
-- [ ] **TD1**: Create documentation for state machine module in KB `[complexity:simple]`
+- [x] **TD1**: Create documentation for state machine module in KB `[complexity:simple]`
+
+    **Implementation Summary**:
+
+    - **Files**: `.rp1/context/modules.md`
+    - **Approach**: Added State Machine module section under CLI Modules describing models.ts, transform.ts, adapter.ts, loader.ts with their responsibilities and parse pipeline. Updated Agent Tools sub-tools list to include state-machine. Added state-machine to module dependency graph (WebUI -> StateMachine, Work -> StateMachine). Updated module metrics for agent-tools (32 files, ~6,800 lines, 8 tools).
+    - **Deviations**: None
+    - **Tests**: N/A (documentation)
 
     **Reference**: [design.md#documentation-impact](design.md#9-documentation-impact)
 
@@ -575,10 +594,17 @@ Introduces declarative state machines co-located with skills as the single sourc
 
     **Acceptance Criteria**:
 
-    - [ ] New State Machine module section added to modules.md describing models, mermaid-ast transform layer, adapter, loader, and their responsibilities
-    - [ ] Module dependencies documented (consumed by work/, v2-api.ts, skills at runtime)
+    - [x] New State Machine module section added to modules.md describing models, mermaid-ast transform layer, adapter, loader, and their responsibilities
+    - [x] Module dependencies documented (consumed by work/, v2-api.ts, skills at runtime)
 
-- [ ] **TD2**: Update patterns KB with State Machine Pattern `[complexity:simple]`
+- [x] **TD2**: Update patterns KB with State Machine Pattern `[complexity:simple]`
+
+    **Implementation Summary**:
+
+    - **Files**: `.rp1/context/patterns.md`
+    - **Approach**: Added "Declarative State Machine (Co-location + Validation)" section covering co-location pattern, two-layer state model, parse pipeline, transition validation, run isolation with TTL, STATE-MACHINE section pattern, and dynamic step derivation. Placed before "Terse Prompt Authoring" section.
+    - **Deviations**: None
+    - **Tests**: N/A (documentation)
 
     **Reference**: [design.md#documentation-impact](design.md#9-documentation-impact)
 
@@ -594,9 +620,16 @@ Introduces declarative state machines co-located with skills as the single sourc
 
     **Acceptance Criteria**:
 
-    - [ ] Section reflects the co-location pattern (state.mmd alongside SKILL.md) and transition validation pattern
+    - [x] Section reflects the co-location pattern (state.mmd alongside SKILL.md) and transition validation pattern
 
-- [ ] **TD3**: Update architecture KB with data layer changes `[complexity:simple]`
+- [x] **TD3**: Update architecture KB with data layer changes `[complexity:simple]`
+
+    **Implementation Summary**:
+
+    - **Files**: `.rp1/context/architecture.md`
+    - **Approach**: Updated Data layer description to mention run isolation and TTL-based expiry with 3 migrations. Added State Machine layer to Architectural Layers table. Updated architecture diagram CLI Core subgraph to include State Machine Module node with connections from AgentTools and WebUI. Updated SQLite entry in External Integrations to describe run_id, expires_at, and state machine transition validation.
+    - **Deviations**: None
+    - **Tests**: N/A (documentation)
 
     **Reference**: [design.md#documentation-impact](design.md#9-documentation-impact)
 
@@ -612,9 +645,16 @@ Introduces declarative state machines co-located with skills as the single sourc
 
     **Acceptance Criteria**:
 
-    - [ ] Section reflects run_id and expires_at column additions, on-read pruning semantics, and state machine integration with the data layer
+    - [x] Section reflects run_id and expires_at column additions, on-read pruning semantics, and state machine integration with the data layer
 
-- [ ] **TD4**: Create user-facing state machines concept guide `[complexity:simple]`
+- [x] **TD4**: Create user-facing state machines concept guide `[complexity:simple]`
+
+    **Implementation Summary**:
+
+    - **Files**: `docs/concepts/state-machines.md`, `docs/concepts/index.md`
+    - **Approach**: Created comprehensive concept guide covering: overview of how state machines work, creating state.mmd files (supported/unsupported syntax, rules), STATE-MACHINE section template, two-layer state model explanation, CLI usage (reporting transitions, validation errors, run isolation, cleanup), examples table of existing state machines, step-by-step guide for adding state tracking to a new skill. Also updated docs/concepts/index.md to include the new page in the card grid, quick overview table, and "Where to Start" section.
+    - **Deviations**: None
+    - **Tests**: N/A (documentation)
 
     **Reference**: [design.md#documentation-impact](design.md#9-documentation-impact)
 
@@ -630,9 +670,16 @@ Introduces declarative state machines co-located with skills as the single sourc
 
     **Acceptance Criteria**:
 
-    - [ ] New file created covering: what state machines are, how to create a state.mmd, the STATE-MACHINE section pattern, and how skills opt in to state tracking
+    - [x] New file created covering: what state machines are, how to create a state.mmd, the STATE-MACHINE section pattern, and how skills opt in to state tracking
 
-- [ ] **TD5**: Update AGENTS.md with STATE-MACHINE section pattern `[complexity:simple]`
+- [x] **TD5**: Update AGENTS.md with STATE-MACHINE section pattern `[complexity:simple]`
+
+    **Implementation Summary**:
+
+    - **Files**: `AGENTS.md`
+    - **Approach**: Added "STATE-MACHINE Section Pattern (Workflow State Tracking)" subsection under Development Patterns, before "Constitutional Agent Pattern". Includes state.mmd example, STATE-MACHINE section template, rules for state ID matching, mandatory --workflow flag, and transition validation. Links to the full concept guide at docs/concepts/state-machines.md.
+    - **Deviations**: None
+    - **Tests**: N/A (documentation)
 
     **Reference**: [design.md#documentation-impact](design.md#9-documentation-impact)
 
@@ -648,7 +695,7 @@ Introduces declarative state machines co-located with skills as the single sourc
 
     **Acceptance Criteria**:
 
-    - [ ] Development Patterns section includes the STATE-MACHINE section pattern guidance for new skills
+    - [x] Development Patterns section includes the STATE-MACHINE section pattern guidance for new skills
 
 ## Acceptance Criteria Checklist
 

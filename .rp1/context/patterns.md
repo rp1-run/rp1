@@ -148,6 +148,18 @@ Evidence: `cli/web-ui/src/lib/motion-config.ts`, `cli/web-ui/src/hooks/usePrefer
 
 Evidence: `cli/web-ui/src/components/v2/CommandPalette.tsx`, `cli/web-ui/src/components/v2/ShortcutHelpOverlay.tsx`
 
+## Declarative State Machine (Co-location + Validation)
+
+**Co-location**: Skills opt in to state management by placing a `state.mmd` (Mermaid stateDiagram-v2) alongside `SKILL.md` in the skill directory. Presence of this file is the sole opt-in; absence means no state tracking, no validation, no dashboard visibility.
+**Two-Layer State Model**: StatusValue (activity: started, in_progress, waiting-input, needs-review, completed, failed) and WorkflowState (phase: e.g., requirements, design, build) are orthogonal dimensions. StatusValue is unchanged; WorkflowState is carried in the existing `task` field, validated against state.mmd.
+**Parse Pipeline**: `raw text -> mermaid-ast parseStateDiagram() -> transformAstToStateMachine() -> StateMachine`. Transform rejects unsupported features (nested states, fork/join). Returns `Either<CLIError, StateMachine>`.
+**Transition Validation**: CLI `--workflow` flag loads the state machine; adapter's `validateTransition()` checks edge existence; invalid transitions are rejected with error listing valid next states. First update must target an initial state.
+**Run Isolation**: `--run-id` (UUID) groups status updates per workflow invocation. `--ttl` (default 28800s/8h) sets `expires_at` on each row. Expired rows are filtered on read (on-read pruning), not deleted automatically. Manual cleanup via `rp1 agent-tools work cleanup`.
+**STATE-MACHINE Section**: Skills with state.mmd include a standard section (under 15 lines) instructing agents to read the graph, generate a run-id UUID, and report transitions via `work update --workflow --run-id --task --status`.
+**Dynamic Step Derivation**: v2 API loads state machines via loader, calls `deriveOrderedSteps()` (BFS from initial states) to replace hardcoded step arrays. New skills with state.mmd appear in dashboard automatically.
+
+Evidence: `cli/src/agent-tools/state-machine/`, `plugins/dev/skills/build/state.mmd`, `cli/web-ui/src/server/routes/v2-api.ts`
+
 ## Terse Prompt Authoring
 
 **Structure-First**: Sections over prose; tables for decision matrices

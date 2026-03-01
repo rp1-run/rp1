@@ -86,6 +86,14 @@ Understanding the core ideas behind rp1 helps you get the most out of its workfl
 
     [:octicons-arrow-right-24: Learn more](webui.md)
 
+-   :material-state-machine: **State Machines**
+
+    ---
+
+    Declarative workflow state management via co-located Mermaid state diagrams for validated transitions and dashboard visibility.
+
+    [:octicons-arrow-right-24: Learn more](state-machines.md)
+
 </div>
 
 ---
@@ -104,6 +112,7 @@ Understanding the core ideas behind rp1 helps you get the most out of its workfl
 | [Eval System](eval-system.md) | Content-addressable attestation | Deterministic, traceable releases |
 | [SKILL.md Format](skill-format.md) | Canonical format for all rp1 prompts | Single source of truth, cross-platform |
 | [WebUI Interaction](webui.md) | Keyboard-first WebUI navigation | Fast navigation without a mouse |
+| [State Machines](state-machines.md) | Declarative workflow state management | Validated transitions, automatic dashboard visibility |
 
 ---
 
@@ -129,3 +138,5 @@ Understanding the core ideas behind rp1 helps you get the most out of its workfl
 **Migrating commands to skills?** See [SKILL.md Format](skill-format.md) for the canonical format specification.
 
 **Using the WebUI?** See [WebUI Interaction](webui.md) for keyboard shortcuts and the command palette.
+
+**Adding workflow tracking to a skill?** See [State Machines](state-machines.md) for the declarative state management pattern.
