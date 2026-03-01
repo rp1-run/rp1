@@ -266,6 +266,19 @@ async function handleV2ApiRequest(
 		return handleV2ProjectsListRequest();
 	}
 
+	// Workflow state machine API routes
+	const workflowDetailMatch = pathname.match(/^\/api\/v2\/workflows\/([^/]+)$/);
+	if (workflowDetailMatch && method === "GET") {
+		const { handleV2WorkflowDetailRequest } = await import("./routes/v2-api");
+		const name = decodeURIComponent(workflowDetailMatch[1]);
+		return handleV2WorkflowDetailRequest(name);
+	}
+
+	if (pathname === "/api/v2/workflows" && method === "GET") {
+		const { handleV2WorkflowsListRequest } = await import("./routes/v2-api");
+		return handleV2WorkflowsListRequest();
+	}
+
 	// Annotation API routes
 	const annotationApiContext = {
 		projectPath,

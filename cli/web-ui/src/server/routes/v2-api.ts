@@ -14,6 +14,7 @@ import { pipe } from "fp-ts/lib/function.js";
 import { formatError } from "../../../../shared/errors.js";
 import {
 	deriveOrderedSteps,
+	listWorkflows,
 	loadStateMachine,
 } from "../../../../src/agent-tools/state-machine/index.js";
 import type {
@@ -989,5 +990,91 @@ export async function handleV2ProjectDetailRequest(
 		return jsonResponse(v2Project);
 	} catch (error) {
 		return errorResponse(`Failed to get project: ${String(error)}`);
+	}
+}
+
+/**
+ * GET /api/v2/workflows - list all state-machine-enabled workflows.
+ * Returns name, state count, and description for each workflow that
+ * has a co-located state.mmd file. Workflows without state.mmd are excluded.
+ */
+export async function handleV2WorkflowsListRequest(): Promise<Response> {
+	try {
+		const namesResult = await listWorkflows()();
+		if (E.isLeft(namesResult)) {
+			return errorResponse(
+				`Failed to list workflows: ${formatError(namesResult.left, false)}`,
+			);
+		}
+
+		const workflowNames = namesResult.right;
+		const workflows: {
+			name: string;
+			stateCount: number;
+			description: string | null;
+		}[] = [];
+
+		for (const name of workflowNames) {
+			const machineResult = await loadStateMachine(name)();
+			if (E.isRight(machineResult)) {
+				const machine = machineResult.right;
+				workflows.push({
+					name: machine.id,
+					stateCount: machine.states.size,
+					description: null,
+				});
+			}
+		}
+
+		return jsonResponse({ workflows });
+	} catch (error) {
+		return errorResponse(`Failed to list workflows: ${String(error)}`);
+	}
+}
+
+/**
+ * GET /api/v2/workflows/:name - full state machine definition as JSON.
+ * Returns states, transitions, and ordered steps for the specified workflow.
+ * Returns 404 when no state.mmd exists for the requested workflow.
+ */
+export async function handleV2WorkflowDetailRequest(
+	workflowName: string,
+): Promise<Response> {
+	try {
+		const machineResult = await loadStateMachine(workflowName)();
+		if (E.isLeft(machineResult)) {
+			return errorResponse(`Workflow not found: ${workflowName}`, 404);
+		}
+
+		const machine = machineResult.right;
+		const orderedSteps = deriveOrderedSteps(machine);
+
+		const states = Array.from(machine.states.values()).map((s) => ({
+			id: s.id,
+			label: s.label,
+			isInitial: s.isInitial,
+			isTerminal: s.isTerminal,
+		}));
+
+		const transitions = machine.transitions.map((t) => ({
+			sourceId: t.sourceId,
+			targetId: t.targetId,
+			label: t.label,
+		}));
+
+		const steps = orderedSteps.map((s) => ({
+			id: s.id,
+			label: s.label,
+			index: s.index,
+		}));
+
+		return jsonResponse({
+			name: machine.id,
+			states,
+			transitions,
+			orderedSteps: steps,
+		});
+	} catch (error) {
+		return errorResponse(`Failed to get workflow: ${String(error)}`);
 	}
 }

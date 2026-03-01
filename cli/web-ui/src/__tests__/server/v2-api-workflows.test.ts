@@ -1,7 +1,9 @@
 /**
- * Tests for dynamic state machine step derivation and stale row filtering
- * in the v2 API. Verifies that state-machine-driven step derivation produces
- * output matching the legacy hardcoded step arrays for build and build-fast.
+ * Tests for dynamic state machine step derivation, stale row filtering,
+ * and workflows API endpoints in the v2 API. Verifies that state-machine-driven
+ * step derivation produces output matching the legacy hardcoded step arrays
+ * for build and build-fast, and that the workflows API endpoints return
+ * correct listing, detail, and 404 responses.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -20,6 +22,8 @@ import {
 	deriveWorkflowRunStatus,
 	deriveWorkflowStepsFromMachine,
 	filterNonExpiredRecords,
+	handleV2WorkflowDetailRequest,
+	handleV2WorkflowsListRequest,
 } from "../../server/routes/v2-api.js";
 
 const buildMmd = `stateDiagram-v2
@@ -526,5 +530,197 @@ describe("deriveTaskBasedSteps", () => {
 
 		const steps = deriveTaskBasedSteps(records);
 		expect(steps).toHaveLength(0);
+	});
+});
+
+describe("handleV2WorkflowsListRequest", () => {
+	test("returns a list of workflows with names and state counts", async () => {
+		const response = await handleV2WorkflowsListRequest();
+		expect(response.status).toBe(200);
+
+		const body = (await response.json()) as {
+			workflows: {
+				name: string;
+				stateCount: number;
+				description: string | null;
+			}[];
+		};
+		expect(body.workflows).toBeDefined();
+		expect(Array.isArray(body.workflows)).toBe(true);
+		expect(body.workflows.length).toBeGreaterThanOrEqual(3);
+
+		const names = body.workflows.map((w) => w.name);
+		expect(names).toContain("build");
+		expect(names).toContain("build-fast");
+		expect(names).toContain("pr-review");
+
+		const buildWorkflow = body.workflows.find((w) => w.name === "build");
+		expect(buildWorkflow).toBeDefined();
+		expect(buildWorkflow?.stateCount).toBe(6);
+
+		const buildFastWorkflow = body.workflows.find(
+			(w) => w.name === "build-fast",
+		);
+		expect(buildFastWorkflow).toBeDefined();
+		expect(buildFastWorkflow?.stateCount).toBe(3);
+
+		const prReviewWorkflow = body.workflows.find((w) => w.name === "pr-review");
+		expect(prReviewWorkflow).toBeDefined();
+		expect(prReviewWorkflow?.stateCount).toBe(4);
+	});
+
+	test("each workflow entry has the expected shape", async () => {
+		const response = await handleV2WorkflowsListRequest();
+		const body = (await response.json()) as {
+			workflows: {
+				name: string;
+				stateCount: number;
+				description: string | null;
+			}[];
+		};
+
+		for (const workflow of body.workflows) {
+			expect(typeof workflow.name).toBe("string");
+			expect(workflow.name.length).toBeGreaterThan(0);
+			expect(typeof workflow.stateCount).toBe("number");
+			expect(workflow.stateCount).toBeGreaterThan(0);
+		}
+	});
+});
+
+describe("handleV2WorkflowDetailRequest", () => {
+	test("returns full state machine definition for 'build'", async () => {
+		const response = await handleV2WorkflowDetailRequest("build");
+		expect(response.status).toBe(200);
+
+		const body = (await response.json()) as {
+			name: string;
+			states: {
+				id: string;
+				label: string | null;
+				isInitial: boolean;
+				isTerminal: boolean;
+			}[];
+			transitions: {
+				sourceId: string;
+				targetId: string;
+				label: string | null;
+			}[];
+			orderedSteps: { id: string; label: string; index: number }[];
+		};
+
+		expect(body.name).toBe("build");
+
+		expect(body.states).toHaveLength(6);
+		const stateIds = body.states.map((s) => s.id);
+		expect(stateIds).toContain("requirements");
+		expect(stateIds).toContain("design");
+		expect(stateIds).toContain("tasks");
+		expect(stateIds).toContain("build");
+		expect(stateIds).toContain("verify");
+		expect(stateIds).toContain("archive");
+
+		const reqState = body.states.find((s) => s.id === "requirements");
+		expect(reqState?.isInitial).toBe(true);
+		expect(reqState?.isTerminal).toBe(false);
+
+		const archiveState = body.states.find((s) => s.id === "archive");
+		expect(archiveState?.isInitial).toBe(false);
+		expect(archiveState?.isTerminal).toBe(true);
+
+		expect(body.transitions.length).toBeGreaterThanOrEqual(6);
+		const reqToDesign = body.transitions.find(
+			(t) => t.sourceId === "requirements" && t.targetId === "design",
+		);
+		expect(reqToDesign).toBeDefined();
+		expect(reqToDesign?.label).toBe("reqs_complete");
+
+		const retryLoop = body.transitions.find(
+			(t) => t.sourceId === "verify" && t.targetId === "build",
+		);
+		expect(retryLoop).toBeDefined();
+		expect(retryLoop?.label).toBe("verify_failed");
+
+		expect(body.orderedSteps).toHaveLength(6);
+		expect(body.orderedSteps.map((s) => s.id)).toEqual([
+			"requirements",
+			"design",
+			"tasks",
+			"build",
+			"verify",
+			"archive",
+		]);
+		expect(body.orderedSteps[0].index).toBe(0);
+		expect(body.orderedSteps[5].index).toBe(5);
+	});
+
+	test("returns full state machine definition for 'build-fast'", async () => {
+		const response = await handleV2WorkflowDetailRequest("build-fast");
+		expect(response.status).toBe(200);
+
+		const body = (await response.json()) as {
+			name: string;
+			states: { id: string }[];
+			transitions: { sourceId: string; targetId: string }[];
+			orderedSteps: { id: string; label: string; index: number }[];
+		};
+
+		expect(body.name).toBe("build-fast");
+		expect(body.states).toHaveLength(3);
+		expect(body.orderedSteps.map((s) => s.id)).toEqual([
+			"plan",
+			"build",
+			"review",
+		]);
+	});
+
+	test("returns full state machine definition for 'pr-review'", async () => {
+		const response = await handleV2WorkflowDetailRequest("pr-review");
+		expect(response.status).toBe(200);
+
+		const body = (await response.json()) as {
+			name: string;
+			states: { id: string }[];
+			orderedSteps: { id: string }[];
+		};
+
+		expect(body.name).toBe("pr-review");
+		expect(body.states).toHaveLength(4);
+		expect(body.orderedSteps.map((s) => s.id)).toEqual([
+			"split",
+			"review",
+			"synthesize",
+			"post",
+		]);
+	});
+
+	test("returns 404 for nonexistent workflow", async () => {
+		const response = await handleV2WorkflowDetailRequest(
+			"nonexistent-workflow",
+		);
+		expect(response.status).toBe(404);
+
+		const body = (await response.json()) as { error: string };
+		expect(body.error).toContain("nonexistent-workflow");
+	});
+
+	test("returns 404 for workflow without state.mmd", async () => {
+		const response = await handleV2WorkflowDetailRequest("code-check");
+		expect(response.status).toBe(404);
+
+		const body = (await response.json()) as { error: string };
+		expect(body.error).toContain("code-check");
+	});
+
+	test("response time is under 100ms for cached lookups", async () => {
+		// First call primes the cache
+		await handleV2WorkflowDetailRequest("build");
+
+		// Second call should be cached and fast
+		const start = performance.now();
+		await handleV2WorkflowDetailRequest("build");
+		const elapsed = performance.now() - start;
+
+		expect(elapsed).toBeLessThan(100);
 	});
 });
