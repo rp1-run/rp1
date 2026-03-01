@@ -64,9 +64,6 @@ export function TerminalBreadcrumb({ className }: TerminalBreadcrumbProps) {
 						</li>
 					);
 				})}
-				<li aria-hidden="true">
-					<span className="ml-0.5 text-terminal-green">_</span>
-				</li>
 			</ol>
 		</nav>
 	);
