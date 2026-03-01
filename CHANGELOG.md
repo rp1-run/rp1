@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.5.0](https://github.com/rp1-run/rp1/compare/v0.4.8...v0.5.0) (2026-03-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* commands are now fully migrated to skills ([#265](https://github.com/rp1-run/rp1/issues/265))
+
+### Features
+
+* commands are now fully migrated to skills ([#265](https://github.com/rp1-run/rp1/issues/265)) ([1cfa1ad](https://github.com/rp1-run/rp1/commit/1cfa1ad06583b3985b0cdb5961fc85ee2589431b))
+
 ## [0.4.8](https://github.com/rp1-run/rp1/compare/v0.4.7...v0.4.8) (2026-02-24)
 
 
