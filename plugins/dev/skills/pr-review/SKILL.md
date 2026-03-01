@@ -34,6 +34,25 @@ Extract these parameters from the user's input:
 **Environment values** (resolve via shell):
 - `RP1_ROOT`: !`echo ${RP1_ROOT:-.rp1/}`
 
+## §STATE-MACHINE
+
+Read the co-located `state.mmd` file in this skill's directory. This defines the workflow graph.
+
+**On each phase transition**, report via:
+```
+rp1 agent-tools work update \
+  --project "$(pwd)" \
+  --feature {FEATURE_ID} \
+  --workflow pr-review \
+  --run-id {RUN_ID} \
+  --task {CURRENT_STATE} \
+  --status {STATUS_VALUE}
+```
+
+- Generate `RUN_ID` as a UUID at workflow start; derive `FEATURE_ID` from the PR branch or number
+- Follow transition edges in the graph; do not skip states
+- On error, follow failure transitions defined in the graph
+
 §ARCH
 
 ```
