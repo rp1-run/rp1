@@ -11,8 +11,8 @@ import {
 	Settings,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, NavLink, useLocation, useParams } from "react-router-dom";
+import { useCallback, useMemo } from "react";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
 	Tooltip,
@@ -25,7 +25,6 @@ import { usePinnedProjects } from "@/hooks/usePinnedProjects";
 import { useRecentRuns } from "@/hooks/useRecentRuns";
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
-import { useWebSocket } from "@/providers/WebSocketProvider";
 import { Collapsible } from "./Collapsible";
 import { KeyboardShortcutHint } from "./KeyboardShortcutHint";
 
@@ -117,39 +116,6 @@ interface SidebarHeaderProps {
 }
 
 function SidebarHeader({ collapsed }: SidebarHeaderProps) {
-	const { status: wsStatus } = useWebSocket();
-	const params = useParams();
-	const [projectName, setProjectName] = useState<string | null>(null);
-
-	const projectId = params.projectId ?? null;
-
-	useEffect(() => {
-		if (!projectId) {
-			setProjectName(null);
-			return;
-		}
-
-		let cancelled = false;
-		async function fetchProject() {
-			try {
-				const response = await fetch("/api/v2/projects");
-				if (!response.ok) return;
-				const data = (await response.json()) as {
-					projects: Array<{ id: string; name: string }>;
-				};
-				if (cancelled) return;
-				const match = data.projects.find((p) => p.id === projectId);
-				setProjectName(match?.name ?? projectId);
-			} catch {
-				if (!cancelled) setProjectName(projectId);
-			}
-		}
-		fetchProject();
-		return () => {
-			cancelled = true;
-		};
-	}, [projectId]);
-
 	const triggerCommandPalette = useCallback(() => {
 		window.dispatchEvent(
 			new KeyboardEvent("keydown", {
@@ -160,27 +126,12 @@ function SidebarHeader({ collapsed }: SidebarHeaderProps) {
 		);
 	}, []);
 
-	const isConnected = wsStatus === "connected";
-
 	if (collapsed) {
 		return null;
 	}
 
 	return (
 		<div className="flex flex-col gap-3 border-b p-3">
-			{projectName && (
-				<div className="flex items-center gap-2 text-xs text-muted-foreground">
-					<span
-						className={cn(
-							"h-2 w-2 shrink-0 rounded-full",
-							isConnected ? "bg-terminal-green" : "bg-terminal-red",
-						)}
-						aria-hidden="true"
-					/>
-					<span className="truncate font-mono">{projectName}</span>
-				</div>
-			)}
-
 			<button
 				type="button"
 				onClick={triggerCommandPalette}
