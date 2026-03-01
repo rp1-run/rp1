@@ -364,6 +364,7 @@ export const buildPlugin = async (
 	const agentEntries: BundleAssetEntry[] = [];
 	const skillEntries: BundleAssetEntry[] = [];
 	const skillFileEntries: BundleAssetEntry[] = [];
+	const stateMachineEntries: BundleAssetEntry[] = [];
 
 	const pluginDir = join(projectRoot, "plugins", pluginName);
 	const pluginOutputDir = join(outputPath, pluginName);
@@ -458,6 +459,20 @@ export const buildPlugin = async (
 				name: `${namespacedSkillDir}/${file}`,
 				path: fileRelPath,
 			});
+		}
+
+		// Copy co-located state.mmd file if present (for state machine bundling)
+		const sourceStateMmd = join(skillDir, "state.mmd");
+		try {
+			await stat(sourceStateMmd);
+			await copyFile(sourceStateMmd, join(skillOutputDir, "state.mmd"));
+			const stateMmdRelPath = `${pluginName}/skills/${namespacedSkillDir}/state.mmd`;
+			stateMachineEntries.push({
+				name: outSkillDir,
+				path: stateMmdRelPath,
+			});
+		} catch {
+			// No state.mmd file for this skill -- expected for most skills
 		}
 	}
 
@@ -565,6 +580,7 @@ export const buildPlugin = async (
 			commands: commandEntries,
 			agents: agentEntries,
 			skills: skillFileEntries,
+			stateMachines: stateMachineEntries,
 			openCodePlugin: openCodePluginAsset,
 		},
 		hasOpenCodePlugin,

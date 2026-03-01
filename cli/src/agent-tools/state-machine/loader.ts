@@ -17,7 +17,6 @@ import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../../shared/errors.js";
 import { notFoundError, runtimeError } from "../../../shared/errors.js";
 import {
-	type BundledPlugin,
 	getBundledAssets,
 	hasBundledAssets,
 	readEmbeddedFile,
@@ -93,11 +92,9 @@ const loadFromBundle = (
 		TE.fromEither(getBundledAssets()),
 		TE.chain((assets) => {
 			for (const pluginKey of PLUGIN_NAMES) {
-				const plugin = assets.plugins[pluginKey] as BundledPlugin & {
-					stateMachines?: Array<{ name: string; path: string }>;
-				};
+				const plugin = assets.plugins[pluginKey];
 				const stateMachines = plugin.stateMachines;
-				if (!stateMachines) continue;
+				if (!stateMachines || stateMachines.length === 0) continue;
 
 				const entry = stateMachines.find((sm) => sm.name === workflowName);
 				if (entry) {
@@ -191,11 +188,9 @@ const listFromBundle = (): TE.TaskEither<CLIError, readonly string[]> =>
 		TE.map((assets) => {
 			const workflows: string[] = [];
 			for (const pluginKey of PLUGIN_NAMES) {
-				const plugin = assets.plugins[pluginKey] as BundledPlugin & {
-					stateMachines?: Array<{ name: string; path: string }>;
-				};
+				const plugin = assets.plugins[pluginKey];
 				const stateMachines = plugin.stateMachines;
-				if (!stateMachines) continue;
+				if (!stateMachines || stateMachines.length === 0) continue;
 				for (const sm of stateMachines) {
 					workflows.push(sm.name);
 				}
