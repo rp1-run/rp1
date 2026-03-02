@@ -139,6 +139,35 @@ serve-web-ui:
     cd cli/web-ui && rm -rf dist && bunx concurrently -k -n server,client -c blue,green "NODE_ENV=development bun run src/cli.ts ../.. --port 7710" "bun run dev:client"
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Database
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Delete all rows from the local status database (for testing)
+db-clean:
+    #!/usr/bin/env bash
+    set -e
+    db_path="$HOME/.rp1/status.db"
+    if [ ! -f "$db_path" ]; then
+        echo "No database found at $db_path"
+        exit 0
+    fi
+    count=$(sqlite3 "$db_path" "SELECT COUNT(*) FROM status_updates;")
+    sqlite3 "$db_path" "DELETE FROM status_updates;"
+    echo "Deleted $count rows from status_updates"
+
+# Delete the entire local status database file (for testing)
+db-reset:
+    #!/usr/bin/env bash
+    set -e
+    db_path="$HOME/.rp1/status.db"
+    if [ ! -f "$db_path" ]; then
+        echo "No database found at $db_path"
+        exit 0
+    fi
+    rm -f "$db_path" "${db_path}-wal" "${db_path}-shm"
+    echo "Removed $db_path (and WAL/SHM files)"
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Documentation
 # ─────────────────────────────────────────────────────────────────────────────
 
