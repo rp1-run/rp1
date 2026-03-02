@@ -1,9 +1,9 @@
 import { useMemo } from "react";
 import { MermaidDiagram } from "@/components/MarkdownViewer/MermaidDiagram";
 import type { WorkflowDefinition } from "@/hooks/useWorkflowSteps";
+import { cn } from "@/lib/utils";
 import { useTheme } from "@/providers/ThemeProvider";
 import type { Step, StepStatus } from "@/types/runs";
-import { Collapsible } from "./Collapsible";
 
 interface ThemeColors {
 	readonly current: { fill: string; stroke: string; color: string };
@@ -160,18 +160,21 @@ export function WorkflowDiagram({
 	const stateCount = workflow.states.length;
 
 	return (
-		<Collapsible
-			title="Workflow Diagram"
-			defaultExpanded={false}
-			badge={
+		<section
+			className={cn(
+				"rounded-lg border border-border bg-card overflow-hidden",
+				className,
+			)}
+			aria-label="Workflow State"
+		>
+			<div className="flex items-center gap-2 px-4 py-3">
+				<h2 className="font-medium text-foreground">Workflow State</h2>
 				<span className="text-sm text-muted-foreground">
 					({stateCount} states)
 				</span>
-			}
-			className={className}
-		>
+			</div>
 			<div className="border-t border-border">
-				<MermaidDiagram code={mermaidCode} />
+				<MermaidDiagram code={mermaidCode} title="Workflow State" />
 				{legendItems.length > 0 && (
 					<div className="flex items-center justify-center gap-4 border-t border-border px-4 py-2">
 						{legendItems.map((item) => {
@@ -201,6 +204,6 @@ export function WorkflowDiagram({
 					</div>
 				)}
 			</div>
-		</Collapsible>
+		</section>
 	);
 }
