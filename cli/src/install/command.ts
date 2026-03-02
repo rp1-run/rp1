@@ -27,7 +27,6 @@ import {
 	checkOpenCodeVersion,
 	checkWritePermissions,
 	getOpenCodeConfigDir,
-	registerRp1HooksPlugin,
 } from "./prerequisites.js";
 import { listInstalledSkills, verifyInstallation } from "./verifier.js";
 
@@ -148,19 +147,8 @@ const executeInstallFromBundled = (
 								`Installed ${result.filesExtracted} files from ${result.plugins.length} plugins`,
 							);
 
-							spinner.start("Registering hooks...");
-
-							return pipe(
-								registerRp1HooksPlugin(),
-								TE.map((registered) => {
-									if (registered) {
-										spinner.succeed("Hooks registered");
-									} else {
-										spinner.succeed("Hooks OK");
-									}
-									return { targetDir };
-								}),
-							);
+							spinner.succeed("Hooks installed via plugins directory");
+							return TE.right({ targetDir });
 						}),
 						TE.chain(() => {
 							spinner.start("Verifying installation...");
@@ -346,19 +334,8 @@ export const executeInstall = (
 								console.log(yellow(`⚠ ${warning}`));
 							}
 
-							spinner.start("Registering hooks...");
-
-							return pipe(
-								registerRp1HooksPlugin(),
-								TE.map((registered) => {
-									if (registered) {
-										spinner.succeed("Hooks registered");
-									} else {
-										spinner.succeed("Hooks OK");
-									}
-									return { artifactsDir };
-								}),
-							);
+							spinner.succeed("Hooks installed via plugins directory");
+							return TE.right({ artifactsDir });
 						}),
 						TE.chain(({ artifactsDir: verifyDir }) => {
 							spinner.start("Verifying installation...");

@@ -6,12 +6,10 @@
 import { mkdir, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../shared/errors.js";
 import { installError, runtimeError } from "../../shared/errors.js";
-import { getConfigPath, registerOpenCodePlugin } from "../install/config.js";
 import type { AssetEntry, BundledAssets, BundledPlugin } from "./reader.js";
 
 /**
@@ -100,25 +98,22 @@ const extractOpenCodePlugin = async (
 		return 0;
 	}
 
-	const targetDir = join(
-		homedir(),
-		".config",
-		"opencode",
-		"plugin",
-		plugin.openCodePlugin.name,
+	const pluginsDir = join(homedir(), ".config", "opencode", "plugins");
+	await mkdir(pluginsDir, { recursive: true });
+
+	// OpenCode auto-discovers flat .ts files in ~/.config/opencode/plugins/
+	const mainFile = plugin.openCodePlugin.files.find((f) =>
+		f.name.endsWith("index.ts"),
 	);
-
-	await mkdir(targetDir, { recursive: true });
-	let filesExtracted = 0;
-
-	for (const file of plugin.openCodePlugin.files) {
-		const destPath = join(targetDir, file.name);
-		await extractAsset(file, destPath);
-		filesExtracted++;
+	if (!mainFile) {
+		return 0;
 	}
 
-	onProgress?.(`  ${plugin.openCodePlugin.name}: ${filesExtracted} files`);
-	return filesExtracted;
+	const targetFile = join(pluginsDir, `${plugin.openCodePlugin.name}.ts`);
+	await extractAsset(mainFile, targetFile);
+
+	onProgress?.(`  ${plugin.openCodePlugin.name}: 1 file`);
+	return 1;
 };
 
 /**
@@ -212,23 +207,6 @@ export const extractPlugins = (
 
 			for (const plugin of allPlugins) {
 				filesExtracted += await extractOpenCodePlugin(plugin, onProgress);
-			}
-
-			// Register OpenCode plugins in user's opencode.json config
-			const configPath = getConfigPath();
-			const pluginsToRegister: string[] = [];
-
-			for (const plugin of allPlugins) {
-				if (plugin.openCodePlugin) {
-					pluginsToRegister.push(plugin.openCodePlugin.name);
-				}
-			}
-
-			for (const pluginName of pluginsToRegister) {
-				const result = await registerOpenCodePlugin(configPath, pluginName)();
-				if (E.isRight(result) && result.right) {
-					onProgress?.(`  Registered ${pluginName} in opencode.json`);
-				}
 			}
 
 			return { filesExtracted, targetDir, plugins };

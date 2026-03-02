@@ -220,7 +220,7 @@ export const verifyInstallation = (
 			const missingPluginNames: string[] = [];
 
 			for (const pluginName of expectedPlugins) {
-				const pluginPath = join(pluginDir, pluginName);
+				const pluginPath = join(pluginDir, `${pluginName}.ts`);
 				try {
 					await stat(pluginPath);
 					pluginsFound++;

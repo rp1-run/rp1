@@ -17,7 +17,6 @@ import {
 import { homedir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../shared/errors.js";
@@ -27,7 +26,6 @@ import {
 	installError,
 	strictModeError,
 } from "../../shared/errors.js";
-import { getConfigPath, registerOpenCodePlugin } from "./config.js";
 import type {
 	BackupManifest,
 	InstallResult,
@@ -479,6 +477,39 @@ export const restoreFromBackup = (
  * Target: ~/.config/opencode/plugin/{plugin-name}/
  * Returns the number of files copied, or 0 if no plugin exists at source.
  */
+/**
+ * Remove all rp1-* plugins from OpenCode plugins directory.
+ * Cleans up both old-style subdirectories and new-style flat files.
+ */
+export const cleanRp1Plugins = async (logger?: {
+	debug: (msg: string) => void;
+}): Promise<void> => {
+	const pluginsDir = join(homedir(), ".config", "opencode", "plugins");
+	const legacyDir = join(homedir(), ".config", "opencode", "plugin");
+
+	// Clean legacy plugin/ directory (singular)
+	try {
+		await rm(legacyDir, { recursive: true, force: true });
+		logger?.debug(`Removed legacy plugin directory: ${legacyDir}`);
+	} catch {
+		// May not exist
+	}
+
+	// Clean rp1-* entries from plugins/ directory
+	try {
+		const entries = await readdir(pluginsDir);
+		for (const entry of entries) {
+			if (entry.startsWith("rp1-")) {
+				const fullPath = join(pluginsDir, entry);
+				await rm(fullPath, { recursive: true, force: true });
+				logger?.debug(`Removed old plugin: ${fullPath}`);
+			}
+		}
+	} catch {
+		// Directory may not exist yet
+	}
+};
+
 export const copyOpenCodePlugin = (
 	sourceDir: string,
 	pluginName: string,
@@ -487,14 +518,9 @@ export const copyOpenCodePlugin = (
 ): TE.TaskEither<CLIError, number> =>
 	TE.tryCatch(
 		async () => {
-			const opencodeSrc = join(sourceDir, "platforms", "opencode");
-			const targetDir = join(
-				homedir(),
-				".config",
-				"opencode",
-				"plugins",
-				pluginName,
-			);
+			const opencodeSrc = join(sourceDir, "platforms", "opencode", "index.ts");
+			const pluginsDir = join(homedir(), ".config", "opencode", "plugins");
+			const targetFile = join(pluginsDir, `${pluginName}.ts`);
 
 			try {
 				await stat(opencodeSrc);
@@ -505,13 +531,13 @@ export const copyOpenCodePlugin = (
 				return 0;
 			}
 
-			await mkdir(targetDir, { recursive: true });
-			await chmod(targetDir, 0o755);
+			await mkdir(pluginsDir, { recursive: true });
 
-			const filesCopied = await copyDir(opencodeSrc, targetDir);
-			onProgress?.(`Installed ${pluginName} plugin: ${filesCopied} files`);
+			const content = await readFile(opencodeSrc, "utf-8");
+			await writeFile(targetFile, content);
+			onProgress?.(`Installed ${pluginName} plugin`);
 
-			return filesCopied;
+			return 1;
 		},
 		(e) => installError("copy-plugin", `Failed to copy plugin: ${e}`),
 	);
@@ -611,14 +637,24 @@ export const copyToStaging = (
 				}
 
 				if (openCodePluginName) {
-					const opencodeSrc = join(pluginDir, "platforms", "opencode");
+					const opencodeSrc = join(
+						pluginDir,
+						"platforms",
+						"opencode",
+						"index.ts",
+					);
 					try {
 						await stat(opencodeSrc);
-						const pluginDst = join(stagingPath, "plugins", openCodePluginName);
-						await mkdir(pluginDst, { recursive: true });
-						totalFilesCopied += await copyDir(opencodeSrc, pluginDst);
+						const pluginsDst = join(stagingPath, "plugins");
+						await mkdir(pluginsDst, { recursive: true });
+						const content = await readFile(opencodeSrc, "utf-8");
+						await writeFile(
+							join(pluginsDst, `${openCodePluginName}.ts`),
+							content,
+						);
+						totalFilesCopied += 1;
 						logger?.debug(
-							`Copied OpenCode plugin ${openCodePluginName} to staging`,
+							`Copied OpenCode plugin ${openCodePluginName}.ts to staging`,
 						);
 					} catch (e) {
 						logger?.debug(
@@ -924,16 +960,6 @@ const performInstallation = (
 						);
 					} else if (pluginResult.right > 0) {
 						totalFiles += pluginResult.right;
-
-						// Register plugin in opencode.json config
-						const configPath = getConfigPath();
-						const regResult = await registerOpenCodePlugin(
-							configPath,
-							openCodePluginName,
-						)();
-						if (E.isRight(regResult) && regResult.right) {
-							onProgress?.(`Registered ${openCodePluginName} in opencode.json`);
-						}
 					}
 				}
 			}
@@ -975,13 +1001,20 @@ export const installRp1 = (
 			onProgress?.(`Backup created: ${backup.backupPath}`);
 
 			return pipe(
-				performInstallation(
-					pluginDirs,
-					backup,
-					onProgress,
-					onOverwrite,
-					logger,
-					strict,
+				TE.tryCatch(
+					() => cleanRp1Plugins(logger),
+					(e) =>
+						installError("clean-plugins", `Failed to clean old plugins: ${e}`),
+				),
+				TE.chain(() =>
+					performInstallation(
+						pluginDirs,
+						backup,
+						onProgress,
+						onOverwrite,
+						logger,
+						strict,
+					),
 				),
 				// On installation failure, attempt to restore from backup
 				TE.orElse(
