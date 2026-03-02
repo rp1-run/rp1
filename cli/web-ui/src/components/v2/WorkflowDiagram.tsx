@@ -39,6 +39,24 @@ function stepStatusToClass(status: StepStatus): string {
 	}
 }
 
+/**
+ * Find the single active (frontier) state: the last "running" state in workflow order.
+ * All other "running" states are treated as completed for visual purposes.
+ */
+function findActiveStateId(
+	workflow: WorkflowDefinition,
+	stepStatusMap: Map<string, StepStatus>,
+): string | null {
+	// Walk states in workflow order; the last one with "running" status is the active frontier
+	let activeId: string | null = null;
+	for (const state of workflow.states) {
+		if (stepStatusMap.get(state.id) === "running") {
+			activeId = state.id;
+		}
+	}
+	return activeId;
+}
+
 function buildMermaidSource(
 	workflow: WorkflowDefinition,
 	steps: readonly Step[],
@@ -48,6 +66,8 @@ function buildMermaidSource(
 	for (const step of steps) {
 		stepStatusMap.set(step.id, step.status);
 	}
+
+	const activeStateId = findActiveStateId(workflow, stepStatusMap);
 
 	const lines: string[] = ["stateDiagram-v2"];
 
@@ -98,7 +118,16 @@ function buildMermaidSource(
 
 	for (const state of workflow.states) {
 		const status = stepStatusMap.get(state.id) ?? "pending";
-		const className = stepStatusToClass(status);
+		let className: string;
+		if (state.id === activeStateId) {
+			// Only the frontier running state gets currentState (with glow)
+			className = "currentState";
+		} else if (status === "running") {
+			// Other running states are visually completed (they finished before the active one started)
+			className = "completedState";
+		} else {
+			className = stepStatusToClass(status);
+		}
 		lines.push(`    class ${state.id} ${className}`);
 	}
 
