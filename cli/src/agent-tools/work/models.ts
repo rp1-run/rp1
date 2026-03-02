@@ -36,8 +36,8 @@ export interface StatusUpdateInput {
 	readonly projectPath: string;
 	/** Feature identifier (kebab-case) */
 	readonly feature: string;
-	/** Task identifier within feature (optional) */
-	readonly task?: string;
+	/** Workflow step identifier within feature (optional) */
+	readonly step?: string;
 	/** Current status state */
 	readonly status: StatusValue;
 	/** Human-readable status message (optional) */
@@ -65,8 +65,8 @@ export interface StatusUpdateRecord {
 	readonly projectPath: string;
 	/** Feature identifier */
 	readonly feature: string;
-	/** Task identifier (null if not specified) */
-	readonly task: string | null;
+	/** Workflow step identifier (null if not specified) */
+	readonly step: string | null;
 	/** Status state */
 	readonly status: StatusValue;
 	/** Human-readable message (null if not specified) */

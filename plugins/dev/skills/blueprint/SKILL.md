@@ -42,7 +42,7 @@ rp1 agent-tools work update \
   --feature {FEATURE_ID} \
   --workflow blueprint \
   --run-id {RUN_ID} \
-  --task {CURRENT_STATE} \
+  --step {CURRENT_STATE} \
   --status {STATUS_VALUE}
 ```
 

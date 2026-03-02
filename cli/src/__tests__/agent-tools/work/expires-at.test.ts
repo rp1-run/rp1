@@ -62,7 +62,7 @@ describe("expires_at handling", () => {
 			const options: UpdateCommandOptions = {
 				project: "/test/project",
 				feature: "default-ttl-test",
-				task: "requirements",
+				step: "requirements",
 				status: "in_progress",
 				workflow: "build",
 				runId: "run-default-ttl",
@@ -85,7 +85,7 @@ describe("expires_at handling", () => {
 			const options: UpdateCommandOptions = {
 				project: "/test/project",
 				feature: "no-workflow-ttl",
-				task: "T1",
+				step: "T1",
 				status: "started",
 			};
 
@@ -102,7 +102,7 @@ describe("expires_at handling", () => {
 			const options: UpdateCommandOptions = {
 				project: "/test/project",
 				feature: "custom-ttl-test",
-				task: "requirements",
+				step: "requirements",
 				status: "in_progress",
 				workflow: "build",
 				runId: "run-custom-ttl",
@@ -126,7 +126,7 @@ describe("expires_at handling", () => {
 			const options: UpdateCommandOptions = {
 				project: "/test/project",
 				feature: "invalid-ttl-test",
-				task: "requirements",
+				step: "requirements",
 				status: "in_progress",
 				workflow: "build",
 				runId: "run-bad-ttl",
@@ -146,7 +146,7 @@ describe("expires_at handling", () => {
 			const options: UpdateCommandOptions = {
 				project: "/test/project",
 				feature: "zero-ttl-test",
-				task: "requirements",
+				step: "requirements",
 				status: "in_progress",
 				workflow: "build",
 				runId: "run-zero-ttl",
@@ -163,7 +163,7 @@ describe("expires_at handling", () => {
 			const options: UpdateCommandOptions = {
 				project: "/test/project",
 				feature: "neg-ttl-test",
-				task: "requirements",
+				step: "requirements",
 				status: "in_progress",
 				workflow: "build",
 				runId: "run-neg-ttl",
@@ -182,7 +182,7 @@ describe("expires_at handling", () => {
 			const expiredInput: StatusUpdateInput = {
 				projectPath: "/test/project",
 				feature: "expired-state-test",
-				task: "requirements",
+				step: "requirements",
 				status: "in_progress",
 				runId: "run-expired",
 				expiresAt: new Date(Date.now() - 1000).toISOString(),
@@ -205,7 +205,7 @@ describe("expires_at handling", () => {
 			const validInput: StatusUpdateInput = {
 				projectPath: "/test/project",
 				feature: "valid-state-test",
-				task: "design",
+				step: "design",
 				status: "in_progress",
 				runId: "run-valid",
 				expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
@@ -230,7 +230,7 @@ describe("expires_at handling", () => {
 			const legacyInput: StatusUpdateInput = {
 				projectPath: "/test/project",
 				feature: "legacy-test",
-				task: "some-task",
+				step: "some-step",
 				status: "in_progress",
 			};
 			await expectTaskRight(insertStatusUpdate(legacyInput, testDbPath));
@@ -244,7 +244,7 @@ describe("expires_at handling", () => {
 				),
 			);
 
-			expect(currentState).toBe("some-task");
+			expect(currentState).toBe("some-step");
 		});
 	});
 
@@ -253,7 +253,7 @@ describe("expires_at handling", () => {
 			const expiredInput: StatusUpdateInput = {
 				projectPath: "/test/project",
 				feature: "stale-run-test",
-				task: "design",
+				step: "design",
 				status: "in_progress",
 				runId: "run-stale",
 				expiresAt: new Date(Date.now() - 1000).toISOString(),
@@ -263,7 +263,7 @@ describe("expires_at handling", () => {
 			const options: UpdateCommandOptions = {
 				project: "/test/project",
 				feature: "stale-run-test",
-				task: "requirements",
+				step: "requirements",
 				status: "in_progress",
 				workflow: "build",
 				runId: "run-stale",
@@ -272,14 +272,14 @@ describe("expires_at handling", () => {
 			const result = await expectTaskRight(
 				validateUpdateOptions(options, testDbPath),
 			);
-			expect(result.task).toBe("requirements");
+			expect(result.step).toBe("requirements");
 		});
 
 		test("expired run rejects non-initial state as first update", async () => {
 			const expiredInput: StatusUpdateInput = {
 				projectPath: "/test/project",
 				feature: "stale-reject-test",
-				task: "design",
+				step: "design",
 				status: "in_progress",
 				runId: "run-stale-reject",
 				expiresAt: new Date(Date.now() - 1000).toISOString(),
@@ -289,7 +289,7 @@ describe("expires_at handling", () => {
 			const options: UpdateCommandOptions = {
 				project: "/test/project",
 				feature: "stale-reject-test",
-				task: "build",
+				step: "build",
 				status: "in_progress",
 				workflow: "build",
 				runId: "run-stale-reject",
@@ -308,7 +308,7 @@ describe("expires_at handling", () => {
 			const options1: UpdateCommandOptions = {
 				project: "/test/project",
 				feature: "refresh-test",
-				task: "requirements",
+				step: "requirements",
 				status: "in_progress",
 				workflow: "build",
 				runId: "run-refresh",
@@ -325,7 +325,7 @@ describe("expires_at handling", () => {
 			const options2: UpdateCommandOptions = {
 				project: "/test/project",
 				feature: "refresh-test",
-				task: "design",
+				step: "design",
 				status: "in_progress",
 				workflow: "build",
 				runId: "run-refresh",

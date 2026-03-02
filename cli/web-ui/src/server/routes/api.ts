@@ -32,7 +32,7 @@ export interface FileContent {
 
 export interface StatusUpdate {
 	id: number;
-	task: string | null;
+	step: string | null;
 	status: string;
 	message: string | null;
 	createdAt: string;
@@ -47,15 +47,15 @@ export interface FeatureStatus {
 		| "needs-review"
 		| "completed"
 		| "failed";
-	currentTask: string | null;
+	currentStep: string | null;
 	message: string | null;
 	lastUpdate: string;
 	updates: StatusUpdate[];
 }
 
-export interface CompletedTask {
+export interface CompletedStep {
 	feature: string;
-	task: string;
+	step: string;
 	message: string | null;
 	completedAt: string;
 }
@@ -65,7 +65,7 @@ export interface StatusResponse {
 	projectName: string;
 	active: FeatureStatus[];
 	recentlyCompleted: FeatureStatus[];
-	recentlyCompletedTasks: CompletedTask[];
+	recentlyCompletedSteps: CompletedStep[];
 	lastUpdated: string | null;
 }
 
@@ -657,7 +657,7 @@ export async function handleProjectStatusRequest(
 		const {
 			getLatestStatusByFeature,
 			queryStatusUpdatesForFeatures,
-			getRecentlyCompletedTasks,
+			getRecentlyCompletedSteps,
 		} = await import("../../../../src/agent-tools/work/database");
 		const { isLeft } = await import("fp-ts/lib/Either.js");
 
@@ -672,17 +672,17 @@ export async function handleProjectStatusRequest(
 
 		const latestStatuses = latestResult.right;
 
-		// Fetch recently completed tasks (task-level granularity)
-		const completedTasksResult = await getRecentlyCompletedTasks(
+		// Fetch recently completed steps (step-level granularity)
+		const completedTasksResult = await getRecentlyCompletedSteps(
 			project.path,
 			24,
 		)();
 
-		const recentlyCompletedTasks: CompletedTask[] = isLeft(completedTasksResult)
+		const recentlyCompletedSteps: CompletedStep[] = isLeft(completedTasksResult)
 			? []
 			: completedTasksResult.right.map((record) => ({
 					feature: record.feature,
-					task: record.task as string, // task is guaranteed non-null from query
+					step: record.step as string, // step is guaranteed non-null from query
 					message: record.message,
 					completedAt: record.createdAt,
 				}));
@@ -694,7 +694,7 @@ export async function handleProjectStatusRequest(
 				projectName: project.name,
 				active: [],
 				recentlyCompleted: [],
-				recentlyCompletedTasks,
+				recentlyCompletedSteps,
 				lastUpdated: null,
 			};
 			return jsonResponse(response);
@@ -721,7 +721,7 @@ export async function handleProjectStatusRequest(
 			const rawUpdates = updatesMap.get(record.feature) ?? [];
 			const updates: StatusUpdate[] = rawUpdates.map((update) => ({
 				id: update.id,
-				task: update.task,
+				step: update.step,
 				status: update.status,
 				message: update.message,
 				createdAt: update.createdAt,
@@ -730,7 +730,7 @@ export async function handleProjectStatusRequest(
 			featureMap.set(record.feature, {
 				feature: record.feature,
 				status: record.status,
-				currentTask: record.task,
+				currentStep: record.step,
 				message: record.message,
 				lastUpdate: record.createdAt,
 				updates,
@@ -765,7 +765,7 @@ export async function handleProjectStatusRequest(
 			projectName: project.name,
 			active,
 			recentlyCompleted,
-			recentlyCompletedTasks,
+			recentlyCompletedSteps,
 			lastUpdated: latestStatuses[0].createdAt,
 		};
 

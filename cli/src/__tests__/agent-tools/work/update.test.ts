@@ -292,16 +292,16 @@ describe("validateUpdateOptions", () => {
 	});
 
 	describe("optional fields", () => {
-		test("passes through optional task field", async () => {
+		test("passes through optional step field", async () => {
 			const options: UpdateCommandOptions = {
 				project: "/path/to/project",
 				feature: "my-feature",
 				status: "started",
-				task: "T1",
+				step: "T1",
 			};
 
 			const result = await expectTaskRight(validateUpdateOptions(options));
-			expect(result.task).toBe("T1");
+			expect(result.step).toBe("T1");
 		});
 
 		test("passes through optional message field", async () => {
@@ -321,7 +321,7 @@ describe("validateUpdateOptions", () => {
 				project: "/path/to/project",
 				feature: "my-feature",
 				status: "in_progress",
-				task: "T2",
+				step: "T2",
 				message: "Implementing feature",
 				metadata: '{"progress": 50}',
 			};
@@ -330,7 +330,7 @@ describe("validateUpdateOptions", () => {
 			expect(result.projectPath).toBe("/path/to/project");
 			expect(result.feature).toBe("my-feature");
 			expect(result.status).toBe("in_progress");
-			expect(result.task).toBe("T2");
+			expect(result.step).toBe("T2");
 			expect(result.message).toBe("Implementing feature");
 			expect(result.metadata).toBe('{"progress": 50}');
 		});
