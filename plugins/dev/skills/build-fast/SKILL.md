@@ -56,17 +56,26 @@ Or in the terminal: `rp1 update`
 - `CONFIRM_PLAN` -> `false` (forced)
 - All checkpoints -> SKIP (no AskUserQuestion)
 
-## §SKILL-LOADING
+## §STATE-MACHINE
 
-**Load skill**: `rp1-base:work-status` - enables workflow progress reporting to Status Dashboard.
+Read the co-located `state.mmd` file in this skill's directory. This defines the workflow graph.
 
-**CRITICAL**: ALL status updates for this command MUST include `--metadata '{"command":"/build-fast"}'` so the V2 dashboard correctly identifies the 3-phase workflow (plan, build, review).
+**On each phase transition**, report via:
+```
+rp1 agent-tools work update \
+  --project "$(pwd)" \
+  --feature {FEATURE_ID} \
+  --workflow build-fast \
+  --run-id {RUN_ID} \
+  --task {CURRENT_STATE} \
+  --status {STATUS_VALUE}
+```
+
+- Generate `RUN_ID` as a UUID at workflow start
+- Follow transition edges in the graph; do not skip states
+- On error, follow failure transitions defined in the graph
 
 ## §PHASE-1: Planning
-
-**Report status: started** (metadata: `{"command":"/build-fast"}`) - "Starting build-fast workflow"
-
-**Report status: in_progress** (task: plan, metadata: `{"command":"/build-fast"}`) - "Planning changes"
 
 **Spawn agent**:
 
@@ -113,8 +122,6 @@ AskUserQuestion: |
 
 ## §PHASE-2: Execution
 
-**Report status: in_progress** (task: build, metadata: `{"command":"/build-fast"}`) - "Executing build phase"
-
 ### §2.1 Worktree Setup
 
 **Skip if**: `GIT_WORKTREE=false`
@@ -147,8 +154,6 @@ prompt: |
 ## §PHASE-3: Review (Optional)
 
 **Skip if**: `REVIEW=false`
-
-**Report status: in_progress** (task: review, metadata: `{"command":"/build-fast"}`) - "Running review phase"
 
 ### §3.1 Task Review
 
@@ -229,8 +234,6 @@ AskUserQuestion: |
 **On "Done"**: Continue to output.
 
 ## §OUTPUT
-
-**Report status: completed** (metadata: `{"command":"/build-fast"}`) - "Build-fast workflow completed"
 
 ```markdown
 ## Build Fast Complete

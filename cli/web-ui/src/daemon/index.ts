@@ -22,6 +22,7 @@ export {
 	type RegisterResponse,
 	registerProjectWithDaemon,
 	stopDaemon as stopDaemonViaIpc,
+	type WorkflowNotifyContext,
 } from "./ipc";
 
 export {

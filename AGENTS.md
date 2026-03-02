@@ -22,7 +22,7 @@
 | Understand a pattern | Read KB files + sample agent code |
 | Fix broken skill | Check namespace prefix rules below |
 | Test changes | See "Testing" section below |
-| Working with Browser features | use skill: agent-browser    |
+| Working with Browser features | use skill: playwright-cli   |
 
 ---
 
@@ -86,6 +86,7 @@ $RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
 ```
 
 This pattern:
+
 - `$` prefix marks it as a variable
 - `!` prefix with backticks executes shell command
 - `{{ }}` ensures the agent knows it's a template variable when interpolated
@@ -263,6 +264,9 @@ If command fails, inform user to install:
 
 4. Use appropriate lsps when writing or looking for code.
 
+5. **Frontend development**: When working on frontend code (especially `cli/web-ui/`), use the `frontend-design` skill for building/styling UI components and the `playwright-cli` skill to visually verify changes, test interactions, and capture screenshots. Run `just serve-web-ui` first, then use playwright-cli to validate UI behavior at `http://localhost:5173`.
+Use /tmp directory for any temporary screenshots or playwright-related files needed during frontend development, as this avoids issues with file watching and hot reload in the web UI.
+
 ### Adding a New Skill
 
 All rp1 invocable prompts use the [SKILL.md canonical format](docs/concepts/skill-format.md).
@@ -295,6 +299,50 @@ All rp1 invocable prompts use the [SKILL.md canonical format](docs/concepts/skil
    ```bash
    git commit -m "feat(plugin): add my-skill"
    ```
+
+### STATE-MACHINE Section Pattern (Workflow State Tracking)
+
+Skills with multi-step workflows can opt in to state management by:
+
+1. **Create `state.mmd`** in the skill directory (co-located with `SKILL.md`) using Mermaid stateDiagram-v2 syntax
+2. **Add STATE-MACHINE section** to the `SKILL.md` replacing scattered "Report status" directives
+
+**state.mmd example**:
+```mermaid
+stateDiagram-v2
+    [*] --> plan
+    plan --> build : plan_ready
+    build --> review : build_complete
+    review --> [*] : done
+```
+
+**STATE-MACHINE section template** (add to SKILL.md):
+```markdown
+## STATE-MACHINE
+
+Read the co-located `state.mmd` file in this skill's directory. This defines the workflow graph.
+
+**On each phase transition**, report via:
+rp1 agent-tools work update \
+  --project {PROJECT_PATH} \
+  --feature {FEATURE_ID} \
+  --workflow {SKILL_NAME} \
+  --run-id {RUN_ID} \
+  --task {CURRENT_STATE} \
+  --status {STATUS_VALUE}
+
+- Generate `RUN_ID` as a UUID at workflow start
+- Follow transition edges in the graph; do not skip states
+- On error, follow failure transitions defined in the graph
+```
+
+**Rules**:
+- State IDs in state.mmd must match `--task` values used in work update commands
+- The `--workflow` flag is mandatory for state-machine-enabled skills
+- Invalid transitions are rejected with an error listing valid next states
+- Skills without state.mmd are unaffected (no tracking, no validation)
+
+See [State Machines concept guide](docs/concepts/state-machines.md) for full details.
 
 ### Constitutional Agent Pattern
 
@@ -362,6 +410,7 @@ just # run just to read about various test/lint commands
 Location: `.rp1/context/`
 
 Files:
+
 - index.md (always load first)
 - architecture.md
 - modules.md
@@ -369,6 +418,7 @@ Files:
 - concept_map.md
 
 Loading rules:
+
 1. Always read index.md first.
 2. Then load based on task type:
    - Code review: patterns.md

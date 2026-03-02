@@ -1,0 +1,9 @@
+stateDiagram-v2
+    [*] --> requirements
+    requirements --> design : reqs_complete
+    design --> tasks : design_complete
+    tasks --> build : tasks_ready
+    build --> verify : build_complete
+    verify --> build : verify_failed
+    verify --> archive : verify_passed
+    archive --> [*] : done

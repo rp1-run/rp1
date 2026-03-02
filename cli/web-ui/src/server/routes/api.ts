@@ -556,6 +556,10 @@ export async function handleStatusNotifyRequest(
 			projectPath?: string;
 			feature?: string;
 			status?: string;
+			workflow?: string;
+			runId?: string;
+			previousState?: string | null;
+			newState?: string;
 		};
 
 		if (!body.projectPath || !body.feature || !body.status) {
@@ -577,16 +581,66 @@ export async function handleStatusNotifyRequest(
 			});
 		}
 
-		// Broadcast the status change to WebSocket clients
+		// Broadcast the legacy status change to WebSocket clients
 		ctx.websocketHub?.broadcastStatusChange(
 			project.id,
 			body.feature,
 			body.status,
 		);
 
+		// For state-machine-enabled workflows, also broadcast run:step and run:status
+		if (body.workflow && body.newState && ctx.websocketHub) {
+			const runId = body.runId ?? body.feature;
+			const runStatus = mapStatusToRunStatus(body.status);
+			const stepStatus = mapStatusToStepStatus(body.status);
+
+			ctx.websocketHub.broadcastRunStatus(runId, runStatus, body.newState);
+			ctx.websocketHub.broadcastRunStep(runId, body.newState, stepStatus);
+		}
+
 		return jsonResponse({ notified: true, projectId: project.id });
 	} catch (error) {
 		return errorResponse(`Failed to process notification: ${String(error)}`);
+	}
+}
+
+/**
+ * Map StatusValue to RunStatus for WebSocket run:status messages.
+ */
+function mapStatusToRunStatus(status: string): string {
+	switch (status) {
+		case "started":
+		case "in_progress":
+			return "running";
+		case "waiting-input":
+			return "waiting-input";
+		case "needs-review":
+			return "needs-review";
+		case "completed":
+			return "completed";
+		case "failed":
+			return "failed";
+		default:
+			return "running";
+	}
+}
+
+/**
+ * Map StatusValue to StepStatus for WebSocket run:step messages.
+ */
+function mapStatusToStepStatus(status: string): string {
+	switch (status) {
+		case "started":
+		case "in_progress":
+		case "waiting-input":
+		case "needs-review":
+			return "running";
+		case "completed":
+			return "completed";
+		case "failed":
+			return "failed";
+		default:
+			return "running";
 	}
 }
 

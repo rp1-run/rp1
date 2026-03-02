@@ -18,6 +18,7 @@ import { readInput } from "./input.js";
 import { formatOutput } from "./output.js";
 import {
 	closeDatabase,
+	executeCleanup as executeWorkCleanup,
 	executeUpdate as executeWorkUpdate,
 } from "./work/index.js";
 import { VALID_STATUSES } from "./work/models.js";
@@ -537,6 +538,18 @@ workCommand
 	)
 	.option("-m, --message <text>", "Human-readable status message")
 	.option("--metadata <json>", "JSON string for additional context")
+	.option(
+		"-w, --workflow <name>",
+		"State machine workflow to validate against (skill name with state.mmd)",
+	)
+	.option(
+		"--run-id <id>",
+		"Workflow run isolation ID (UUID) for tracking separate invocations",
+	)
+	.option(
+		"--ttl <seconds>",
+		"TTL in seconds for expires_at timestamp (default: 28800 = 8 hours)",
+	)
 	.addHelpText(
 		"after",
 		`
@@ -544,19 +557,30 @@ Description:
   Records a status update to the global status database (~/.rp1/status.db).
   Creates the database file automatically on first invocation.
 
+  When --workflow is provided, the command loads the skill's state machine
+  (state.mmd), validates that the transition is permitted, computes an
+  expires_at timestamp for stale row cleanup, and inserts the record with
+  run isolation via --run-id.
+
 Arguments:
   --project <path>     Absolute path to project root (required)
   --feature <name>     Feature identifier in kebab-case (required)
-  --task <id>          Task identifier within feature (optional)
+  --task <id>          Task/workflow state identifier (required when --workflow is set)
   --status <status>    Status state: ${VALID_STATUSES.join(", ")} (required)
   --message <text>     Human-readable status message (optional)
   --metadata <json>    JSON string for additional context (optional)
+  --workflow <name>    Skill name whose state.mmd to validate against (optional)
+  --run-id <id>        UUID grouping updates into a discrete workflow run (optional)
+  --ttl <seconds>      TTL for expires_at in seconds (default: 28800 = 8h, only with --workflow)
 
 Validation:
   - Project path must be absolute
   - Feature name must match pattern ^[a-z0-9-]+$
   - Status must be one of the valid states
   - Metadata must be valid JSON if provided
+  - When --workflow is set: --task must be a valid state in the state machine
+  - Transitions are validated against the state machine graph
+  - First update must target an initial state
 
 Output:
   JSON with the recorded status update:
@@ -569,21 +593,32 @@ Output:
   - createdAt: ISO 8601 UTC timestamp
 
 Examples:
-  # Record feature start
+  # Record feature start (no workflow validation)
   rp1 agent-tools work update \\
     --project /Users/dev/myapp \\
     --feature auth-refactor \\
     --status started \\
     --message "Starting feature implementation"
 
-  # Record task progress with metadata
+  # Record workflow transition with validation
   rp1 agent-tools work update \\
     --project /Users/dev/myapp \\
     --feature auth-refactor \\
-    --task T1 \\
+    --workflow build \\
+    --run-id "550e8400-e29b-41d4-a716-446655440000" \\
+    --task requirements \\
     --status in_progress \\
-    --message "Gathering requirements" \\
-    --metadata '{"step":"requirements","progress":50}'
+    --message "Gathering requirements"
+
+  # Record transition with custom TTL
+  rp1 agent-tools work update \\
+    --project /Users/dev/myapp \\
+    --feature auth-refactor \\
+    --workflow build \\
+    --run-id "550e8400-e29b-41d4-a716-446655440000" \\
+    --task design \\
+    --status in_progress \\
+    --ttl 3600
 `,
 	)
 	.action(
@@ -594,6 +629,9 @@ Examples:
 			status: string;
 			message?: string;
 			metadata?: string;
+			workflow?: string;
+			runId?: string;
+			ttl?: string;
 		}): Promise<void> => {
 			const toolName = "work";
 
@@ -610,6 +648,86 @@ Examples:
 			}
 
 			const result = await executeWorkUpdate(validationResult.right)();
+
+			if (E.isLeft(result)) {
+				console.error(
+					createErrorResponse(toolName, formatError(result.left, false)),
+				);
+				process.exit(1);
+			}
+
+			console.log(formatOutput(result.right));
+			process.exit(0);
+		},
+	);
+
+/**
+ * work cleanup subcommand.
+ * Deletes expired runs (all rows for runs whose latest row has expired).
+ */
+workCommand
+	.command("cleanup")
+	.description("Delete expired workflow runs from the status database")
+	.option(
+		"--dry-run",
+		"Report stale rows and affected runs without deleting",
+		false,
+	)
+	.option(
+		"--older-than <hours>",
+		"Only delete runs whose expires_at is at least N hours in the past (0 = any expired)",
+		"0",
+	)
+	.addHelpText(
+		"after",
+		`
+Description:
+  Deletes entire expired runs (all rows sharing a run_id) from the status database.
+  A run is considered expired when its latest row has an expires_at timestamp in the past.
+  Rows with NULL run_id or NULL expires_at are never touched.
+
+Options:
+  --dry-run              Report stale rows without deleting (default: false)
+  --older-than <hours>   Only delete runs expired at least N hours ago (default: 0 = any expired)
+
+Output:
+  JSON with cleanup results:
+  - deletedRows: Number of rows deleted (or would be deleted in dry-run)
+  - affectedRuns: Number of distinct runs affected
+
+Examples:
+  # Delete all expired runs
+  rp1 agent-tools work cleanup
+
+  # Preview what would be deleted
+  rp1 agent-tools work cleanup --dry-run
+
+  # Delete only runs expired more than 24 hours ago
+  rp1 agent-tools work cleanup --older-than 24
+
+  # Preview runs expired more than 48 hours ago
+  rp1 agent-tools work cleanup --dry-run --older-than 48
+`,
+	)
+	.action(
+		async (options: { dryRun: boolean; olderThan: string }): Promise<void> => {
+			const toolName = "work";
+
+			const olderThan = parseInt(options.olderThan, 10);
+			if (Number.isNaN(olderThan) || olderThan < 0) {
+				console.error(
+					createErrorResponse(
+						toolName,
+						`Invalid --older-than value: ${options.olderThan}. Must be a non-negative integer (hours).`,
+					),
+				);
+				process.exit(1);
+			}
+
+			const result = await executeWorkCleanup({
+				dryRun: options.dryRun,
+				olderThan,
+			})();
 
 			if (E.isLeft(result)) {
 				console.error(

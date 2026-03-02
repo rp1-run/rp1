@@ -14,6 +14,7 @@ import {
 	useState,
 } from "react";
 import type { SelectionPosition } from "@/hooks/useTextSelection";
+import { formatRelativeTime } from "@/lib/time";
 import {
 	calculatePopoverPosition,
 	cn,
@@ -86,22 +87,6 @@ function ReplyItem({ reply, isExpanded, onToggleExpand }: ReplyItemProps) {
 	);
 }
 
-function formatRelativeTime(dateString: string): string {
-	const date = new Date(dateString);
-	const now = new Date();
-	const diffMs = now.getTime() - date.getTime();
-	const diffMins = Math.floor(diffMs / (1000 * 60));
-	const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-	const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-	if (diffMins < 1) return "just now";
-	if (diffMins < 60) return `${diffMins}m ago`;
-	if (diffHours < 24) return `${diffHours}h ago`;
-	if (diffDays < 7) return `${diffDays}d ago`;
-
-	return date.toLocaleDateString();
-}
-
 export function AnnotationPopover({
 	annotation,
 	position,
@@ -120,7 +105,7 @@ export function AnnotationPopover({
 	const [isPositioned, setIsPositioned] = useState(false);
 	const [popoverPosition, setPopoverPosition] = useState<PopoverPosition>({
 		// Initial position at left of anchor (since we prefer left side)
-		x: position.anchorRect.left - 320 - 8, // w-80 = 320px
+		x: position.anchorRect.left - 320 - 8,
 		y: position.anchorRect.top,
 		side: "left",
 	});
@@ -168,12 +153,10 @@ export function AnnotationPopover({
 			const handleDrag = (moveEvent: MouseEvent) => {
 				if (!isDraggingRef.current) return;
 
-				// Cancel any pending animation frame
 				if (rafRef.current) {
 					cancelAnimationFrame(rafRef.current);
 				}
 
-				// Use requestAnimationFrame for smooth updates
 				rafRef.current = requestAnimationFrame(() => {
 					const newX = moveEvent.clientX - dragOffsetRef.current.x;
 					const newY = moveEvent.clientY - dragOffsetRef.current.y;
@@ -184,7 +167,6 @@ export function AnnotationPopover({
 						popoverRef.current.style.top = `${newY}px`;
 					}
 
-					// Store position for when drag ends
 					dragOffsetRef.current.lastX = newX;
 					dragOffsetRef.current.lastY = newY;
 				});
@@ -198,7 +180,6 @@ export function AnnotationPopover({
 					rafRef.current = null;
 				}
 
-				// Commit final position to state
 				const finalX =
 					dragOffsetRef.current.lastX ?? e.clientX - dragOffsetRef.current.x;
 				const finalY =
@@ -222,7 +203,6 @@ export function AnnotationPopover({
 		],
 	);
 
-	// Cleanup RAF on unmount
 	useEffect(() => {
 		return () => {
 			if (rafRef.current) {
@@ -231,7 +211,6 @@ export function AnnotationPopover({
 		};
 	}, []);
 
-	// Calculate viewport-aware position
 	useEffect(() => {
 		if (!popoverRef.current) return;
 
@@ -246,7 +225,6 @@ export function AnnotationPopover({
 		setIsPositioned(true);
 	}, [position.anchorRect]);
 
-	// Click outside handler
 	useEffect(() => {
 		const handleClickOutside = (e: MouseEvent) => {
 			if (
@@ -362,7 +340,6 @@ export function AnnotationPopover({
 		[handleSubmitReply],
 	);
 
-	// Use dragged position if user has dragged, otherwise use calculated position
 	const displayX = hasBeenDragged ? draggedPosition.x : popoverPosition.x;
 	const displayY = hasBeenDragged ? draggedPosition.y : popoverPosition.y;
 
@@ -383,7 +360,6 @@ export function AnnotationPopover({
 			role="dialog"
 			aria-label="Annotation details"
 		>
-			{/* Top bar with drag handle and actions */}
 			{/* biome-ignore lint/a11y/noStaticElementInteractions: drag handle for mouse-based repositioning */}
 			<header
 				onMouseDown={handleDragStart}
@@ -402,7 +378,6 @@ export function AnnotationPopover({
 					className="flex items-center gap-0.5"
 					onMouseDown={(e) => e.stopPropagation()}
 				>
-					{/* Resolve/Reopen toggle */}
 					<button
 						type="button"
 						onClick={isResolved ? handleReopenClick : handleResolveClick}
@@ -418,7 +393,6 @@ export function AnnotationPopover({
 					>
 						<Check className="h-4 w-4" aria-hidden="true" />
 					</button>
-					{/* Delete button */}
 					<button
 						type="button"
 						onClick={handleDeleteClick}
@@ -432,7 +406,6 @@ export function AnnotationPopover({
 					>
 						<Trash2 className="h-4 w-4" aria-hidden="true" />
 					</button>
-					{/* Close button */}
 					<button
 						type="button"
 						onClick={onClose}
@@ -447,7 +420,6 @@ export function AnnotationPopover({
 				</div>
 			</header>
 
-			{/* Confirmation dialog */}
 			{confirmAction && (
 				<div className="border-b border-border bg-muted/30 px-3 py-2">
 					<p className="mb-2 text-xs text-muted-foreground">
@@ -488,7 +460,6 @@ export function AnnotationPopover({
 			)}
 
 			<div className="max-h-80 overflow-y-auto p-3">
-				{/* Author and time metadata */}
 				<div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
 					<span className="font-medium text-foreground">
 						{annotation.author}

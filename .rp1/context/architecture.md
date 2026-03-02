@@ -30,11 +30,14 @@ graph TB
     subgraph "CLI Core"
         Main[main.ts / Commander]
         AgentTools[Agent Tools Registry]
+        SM["State Machine Module<br/>mermaid-ast + adapter"]
         WebUI["Web UI Dashboard<br/>React/Vite/Tailwind"]
-        SQLite[SQLite Work Status]
+        SQLite["SQLite Work Status<br/>+ run_id, expires_at"]
         Main --> AgentTools
         Main --> WebUI
         AgentTools --> SQLite
+        AgentTools --> SM
+        WebUI --> SM
     end
 
     subgraph "Knowledge Base"
@@ -69,7 +72,8 @@ graph TB
 | **Web UI** | Read-only markdown viewer and status dashboard | `cli/web-ui/src/` (React/Vite/Tailwind) |
 | **Config** | Tool registry and project configuration | `cli/src/config/supported-tools.yaml`, `.rp1/config/` |
 | **Knowledge** | Persistent codebase documentation | `.rp1/context/*.md`, `state.json` |
-| **Data** | SQLite-based work status tracking | `cli/src/agent-tools/work/migrations/*.sql` |
+| **Data** | SQLite-based work status tracking with run isolation and TTL-based expiry | `cli/src/agent-tools/work/migrations/*.sql` (3 migrations) |
+| **State Machine** | Declarative workflow definitions parsed from co-located state.mmd files | `cli/src/agent-tools/state-machine/`, `plugins/*/skills/*/state.mmd` |
 | **Build/Release** | CI/CD, binary compilation, asset bundling | `.github/workflows/`, `.goreleaser.yml`, `Justfile` |
 | **Evaluation** | Prompt testing with content-addressable attestation | `evals/src/attestation/`, `evals/suites/` |
 
@@ -117,7 +121,7 @@ graph TB
 | **Release-Please** | Semantic versioning from conventional commits |
 | **Cloudflare Pages** | Documentation hosting at rp1.run |
 | **Promptfoo** | Eval framework with custom claude-with-tools provider |
-| **SQLite (Bun native)** | Work status tracking for agent task progress |
+| **SQLite (Bun native)** | Work status tracking with run_id (per-invocation isolation), expires_at (TTL-based stale row pruning), and state machine transition validation |
 | **Lefthook** | Git hooks: pre-commit (lint, format), pre-push (typecheck, test) |
 
 ## Deployment

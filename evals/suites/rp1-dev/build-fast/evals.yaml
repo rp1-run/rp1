@@ -58,7 +58,7 @@ tests:
           REQUIRED (all must pass):
           1. Output contains "Scope" section with scope classification (Small, Medium, or Large)
           2. Output contains reasoning about files affected, systems involved, risk level, and estimated effort
-          3. Agent reports work status updates via Metadata bashCommands containing "rp1 agent-tools work update"
+          3. Agent reports work status updates via Metadata bashCommands containing "rp1 agent-tools work update" with "--workflow build-fast" and "--run-id" flags (reads state.mmd for valid transitions, no --metadata hack)
           4. Agent loads KB files (partial loading is fine) - Metadata bashCommands or toolCalls shows reading from {RP1_ROOT}/context/ directory
           5. For Small/Medium scope: Output contains "Build Fast Complete" section with request summary
           6. For Small/Medium scope: Agent creates artifact at {RP1_ROOT}/work/quick-builds/ with date-based filename pattern ({yyyy-mm-dd}-{slug}-{n}.md)

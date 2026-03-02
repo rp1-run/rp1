@@ -32,6 +32,25 @@ You are executing the Deep Research workflow. You coordinate autonomous research
 
 **CRITICAL**: Commands CAN spawn agents. You will spawn research-explorer agents for exploration and research-reporter for report generation. Do NOT delegate orchestration to another agent.
 
+## §STATE-MACHINE
+
+Read the co-located `state.mmd` file in this skill's directory. This defines the workflow graph.
+
+**On each phase transition**, report via:
+```
+rp1 agent-tools work update \
+  --project "$(pwd)" \
+  --feature {FEATURE_ID} \
+  --workflow deep-research \
+  --run-id {RUN_ID} \
+  --task {CURRENT_STATE} \
+  --status {STATUS_VALUE}
+```
+
+- Generate `RUN_ID` as a UUID at workflow start; derive `FEATURE_ID` by slugifying the research topic (e.g., "auth-flow-analysis")
+- Follow transition edges in the graph; do not skip states
+- On error, follow failure transitions defined in the graph
+
 ## 1. Intent Clarification (~15% effort)
 
 **Goal**: Understand exactly what the user wants to research before spawning explorers.

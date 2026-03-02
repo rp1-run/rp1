@@ -1,13 +1,20 @@
 import { ArrowLeft, ChevronRight, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArtifactList } from "@/components/v2/ArtifactList";
 import { EventStream } from "@/components/v2/EventStream";
+import { DETAIL_HINTS, KeyHints } from "@/components/v2/KeyHints";
 import { StatusBadge } from "@/components/v2/StatusBadge";
 import { StepTimeline } from "@/components/v2/StepTimeline";
+import { WorkflowDiagram } from "@/components/v2/WorkflowDiagram";
+import { useContextualShortcuts } from "@/hooks/useContextualShortcuts";
 import { useRunDetail } from "@/hooks/useRunDetail";
+import {
+	commandToWorkflowName,
+	useWorkflowSteps,
+} from "@/hooks/useWorkflowSteps";
 import { cn } from "@/lib/utils";
-import type { Artifact } from "@/types/runs";
+import type { Artifact, Step } from "@/types/runs";
 
 function formatDuration(startedAt: string, completedAt: string | null): string {
 	const start = new Date(startedAt);
@@ -45,6 +52,53 @@ function formatStartTime(dateString: string): string {
 	});
 }
 
+/**
+ * Humanize a kebab-case step ID to Title Case.
+ */
+function humanizeStepLabel(id: string): string {
+	return id
+		.split("-")
+		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+		.join(" ");
+}
+
+/**
+ * Merge workflow ordered steps with run step data.
+ * Uses the workflow definition as the authoritative step list, filling in
+ * status and timestamps from the run's step records. Steps not yet seen
+ * in the run are marked as pending.
+ *
+ * Handles branching workflows (e.g., verify->build retry loop) correctly
+ * because the workflow's orderedSteps are derived via BFS which produces
+ * a linear ordering with cycles handled via visited-set.
+ */
+function mergeWorkflowSteps(
+	workflowOrderedSteps: readonly { id: string; label: string; index: number }[],
+	runSteps: readonly Step[],
+): readonly Step[] {
+	const runStepMap = new Map<string, Step>();
+	for (const step of runSteps) {
+		runStepMap.set(step.id, step);
+	}
+
+	return workflowOrderedSteps.map(({ id, label }) => {
+		const runStep = runStepMap.get(id);
+		if (runStep) {
+			return runStep;
+		}
+
+		return {
+			id,
+			name: humanizeStepLabel(label),
+			status: "pending" as const,
+			startedAt: null,
+			completedAt: null,
+			taskCount: null,
+			completedTaskCount: null,
+		};
+	});
+}
+
 export function RunDetailPage() {
 	const { runId } = useParams();
 	const navigate = useNavigate();
@@ -52,6 +106,25 @@ export function RunDetailPage() {
 	const [selectedArtifactIndex, setSelectedArtifactIndex] = useState<
 		number | null
 	>(null);
+
+	const workflowName = useMemo(
+		() => (run ? commandToWorkflowName(run.command) : null),
+		[run],
+	);
+	const { workflow } = useWorkflowSteps(workflowName);
+
+	const displaySteps = useMemo<readonly Step[]>(() => {
+		if (!run) return [];
+		if (workflow && workflow.orderedSteps.length > 0) {
+			return mergeWorkflowSteps(workflow.orderedSteps, run.steps);
+		}
+		return run.steps;
+	}, [run, workflow]);
+
+	const artifactsSectionRef = useRef<HTMLElement>(null);
+	const eventStreamSectionRef = useRef<HTMLElement>(null);
+	const timelineSectionRef = useRef<HTMLElement>(null);
+	const diagramSectionRef = useRef<HTMLElement>(null);
 
 	const handleArtifactClick = useCallback(
 		(artifact: Artifact) => {
@@ -64,6 +137,9 @@ export function RunDetailPage() {
 		if (!run) return;
 
 		const handleKeyDown = (event: KeyboardEvent) => {
+			if (document.querySelector('[role="dialog"][data-state="open"]')) return;
+			if (document.body.dataset.chordPending) return;
+
 			const target = event.target as HTMLElement;
 			const isTextInput =
 				target.tagName === "INPUT" ||
@@ -98,7 +174,6 @@ export function RunDetailPage() {
 						);
 					}
 					break;
-				case "l":
 				case "ArrowRight":
 				case "Enter":
 					if (
@@ -115,6 +190,77 @@ export function RunDetailPage() {
 		document.addEventListener("keydown", handleKeyDown);
 		return () => document.removeEventListener("keydown", handleKeyDown);
 	}, [run, navigate, selectedArtifactIndex, handleArtifactClick]);
+
+	useContextualShortcuts({
+		viewId: "run-detail",
+		viewLabel: "Run Detail",
+		shortcuts: [
+			{
+				key: "a",
+				label: "Artifacts",
+				description: "Focus artifacts panel",
+				action: () => {
+					artifactsSectionRef.current?.scrollIntoView({
+						behavior: "smooth",
+						block: "start",
+					});
+					const firstArtifact =
+						artifactsSectionRef.current?.querySelector<HTMLElement>(
+							"[role='button'], a, button",
+						);
+					firstArtifact?.focus();
+				},
+			},
+			{
+				key: "l",
+				label: "Logs",
+				description: "Show logs and events",
+				action: () => {
+					eventStreamSectionRef.current?.scrollIntoView({
+						behavior: "smooth",
+						block: "start",
+					});
+					const trigger =
+						eventStreamSectionRef.current?.querySelector<HTMLElement>(
+							'button[aria-expanded="false"]',
+						);
+					trigger?.click();
+				},
+			},
+			{
+				key: "t",
+				label: "Timeline",
+				description: "Show step timeline",
+				action: () => {
+					timelineSectionRef.current?.scrollIntoView({
+						behavior: "smooth",
+						block: "start",
+					});
+				},
+			},
+			...(workflow
+				? [
+						{
+							key: "d",
+							label: "Diagram",
+							description: "Show workflow diagram",
+							action: () => {
+								diagramSectionRef.current?.scrollIntoView({
+									behavior: "smooth",
+									block: "start",
+								});
+								const trigger =
+									diagramSectionRef.current?.querySelector<HTMLElement>(
+										'button[aria-expanded="false"]',
+									);
+								trigger?.click();
+							},
+						},
+					]
+				: []),
+		],
+		enabled: !!run,
+	});
 
 	if (isLoading) {
 		return (
@@ -222,26 +368,46 @@ export function RunDetailPage() {
 						type="button"
 						onClick={refetch}
 						className={cn(
-							"inline-flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm hover:bg-muted/50 transition-colors",
-							isActive && "text-muted-foreground",
+							"inline-flex items-center gap-2 rounded-md border border-border bg-muted/30 px-4 py-2 font-mono text-sm transition-colors",
+							"hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 						)}
-						title="Refresh"
+						aria-label={isActive ? "Live updating" : "Refresh run"}
 					>
-						<RefreshCw className={cn("h-4 w-4", isActive && "animate-spin")} />
-						{isActive ? "Live" : "Refresh"}
+						<span className="text-terminal-green" aria-hidden="true">
+							$
+						</span>
+						<span>{isActive ? "live" : "refresh"}</span>
+						{isActive && (
+							<RefreshCw
+								className="h-3.5 w-3.5 animate-spin"
+								aria-hidden="true"
+							/>
+						)}
 					</button>
 				</div>
 			</header>
 
-			{run.steps.length > 0 && (
-				<section className="rounded-lg border border-border bg-card p-6">
+			{displaySteps.length > 0 && (
+				<section
+					ref={timelineSectionRef}
+					className="rounded-lg border border-border bg-card p-6"
+				>
 					<h2 className="sr-only">Workflow Progress</h2>
-					<StepTimeline steps={run.steps} orientation="horizontal" />
+					<StepTimeline steps={displaySteps} orientation="horizontal" />
+				</section>
+			)}
+
+			{workflow && (
+				<section ref={diagramSectionRef}>
+					<WorkflowDiagram workflow={workflow} steps={displaySteps} />
 				</section>
 			)}
 
 			<div className="grid gap-6 lg:grid-cols-2">
-				<section className="rounded-lg border border-border bg-card p-4">
+				<section
+					ref={artifactsSectionRef}
+					className="rounded-lg border border-border bg-card p-4"
+				>
 					<h2 className="mb-4 font-medium text-foreground">Artifacts</h2>
 					<ArtifactList
 						artifacts={run.artifacts}
@@ -250,17 +416,12 @@ export function RunDetailPage() {
 					/>
 				</section>
 
-				<section>
+				<section ref={eventStreamSectionRef}>
 					<EventStream events={run.events} defaultExpanded={false} />
 				</section>
 			</div>
 
-			<p className="text-xs text-muted-foreground">
-				<kbd className="rounded bg-muted px-1.5 py-0.5">j</kbd>/
-				<kbd className="rounded bg-muted px-1.5 py-0.5">k</kbd> navigate
-				artifacts, <kbd className="rounded bg-muted px-1.5 py-0.5">l</kbd> open,{" "}
-				<kbd className="rounded bg-muted px-1.5 py-0.5">h</kbd> back to runs
-			</p>
+			<KeyHints hints={DETAIL_HINTS} />
 		</div>
 	);
 }

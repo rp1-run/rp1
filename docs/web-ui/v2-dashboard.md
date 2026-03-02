@@ -196,20 +196,34 @@ The header displays:
 
 ## Keyboard Shortcuts
 
+The V2 dashboard supports a comprehensive keyboard-first interaction model. See [Keyboard Shortcuts](keyboard-shortcuts.md) for the full reference.
+
 ### Global
 
 | Shortcut | Action |
 |----------|--------|
-| `Cmd/Ctrl + B` | Toggle sidebar collapse |
+| `Cmd/Ctrl + K` | Open command palette |
+| `?` | Toggle shortcut help overlay |
+| `/` | Focus search input |
+| `Escape` | Dismiss overlay or blur focus |
+| `Cmd/Ctrl + \` | Toggle sidebar collapse |
+
+### Go-To Chords
+
+| Chord | Destination |
+|-------|-------------|
+| `g` then `h` | Home |
+| `g` then `r` | Runs |
+| `g` then `p` | Projects |
 
 ### List Navigation
 
 | Key | Action |
 |-----|--------|
-| `Arrow Up` | Select previous item |
-| `Arrow Down` | Select next item |
-| `Home` | Jump to first item |
-| `End` | Jump to last item |
+| `j` / `Arrow Down` | Select next item |
+| `k` / `Arrow Up` | Select previous item |
+| `l` / `Arrow Right` | Drill into item |
+| `h` / `Arrow Left` | Drill out to parent |
 | `Enter` | Open selected item |
 | `Escape` | Clear selection |
 

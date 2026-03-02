@@ -1,7 +1,5 @@
 import {
 	AlertTriangle,
-	Check,
-	ChevronDown,
 	Filter,
 	MessageSquare,
 	PanelRightClose,
@@ -9,9 +7,11 @@ import {
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useAnnotations } from "@/hooks/useAnnotations";
+import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { useAnnotationContext } from "@/providers/AnnotationProvider";
 import type { Annotation, AnnotationFilter } from "@/types/annotations";
+import { Select } from "./Select";
 
 export interface AnnotationSidebarProps {
 	artifactPath: string;
@@ -38,101 +38,6 @@ const DATE_OPTIONS: { value: DateRangeValue; label: string }[] = [
 ];
 
 const ALL_AUTHORS_VALUE = "__all__";
-
-interface FilterDropdownProps<T extends string> {
-	value: T;
-	options: { value: T; label: string }[];
-	onChange: (value: T) => void;
-	label: string;
-}
-
-function FilterDropdown<T extends string>({
-	value,
-	options,
-	onChange,
-	label,
-}: FilterDropdownProps<T>) {
-	const [open, setOpen] = useState(false);
-	const selectedOption = options.find((o) => o.value === value);
-
-	return (
-		<div className="relative">
-			<button
-				type="button"
-				onClick={() => setOpen(!open)}
-				className={cn(
-					"inline-flex h-8 items-center justify-between gap-1 rounded-md border border-border bg-background px-2 text-xs transition-colors",
-					"hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-					"min-w-[80px]",
-				)}
-				aria-label={label}
-				aria-expanded={open}
-				aria-haspopup="listbox"
-			>
-				<span>{selectedOption?.label ?? value}</span>
-				<ChevronDown
-					className={cn(
-						"h-3 w-3 text-muted-foreground transition-transform",
-						open && "rotate-180",
-					)}
-					aria-hidden="true"
-				/>
-			</button>
-
-			{open && (
-				<>
-					{/* biome-ignore lint/a11y/noStaticElementInteractions: backdrop click handler */}
-					<div
-						className="fixed inset-0 z-40"
-						onClick={() => setOpen(false)}
-						onKeyDown={(e) => e.key === "Escape" && setOpen(false)}
-						role="presentation"
-					/>
-					<div
-						role="listbox"
-						aria-label={label}
-						className="absolute left-0 top-full z-50 mt-1 min-w-full overflow-hidden rounded-md border border-border bg-background shadow-lg"
-					>
-						{options.map((option) => (
-							<div
-								key={option.value}
-								role="option"
-								aria-selected={option.value === value}
-								className={cn(
-									"flex cursor-pointer items-center gap-1 px-2 py-1.5 text-xs transition-colors",
-									"hover:bg-muted",
-									option.value === value && "bg-muted/50",
-								)}
-								onClick={() => {
-									onChange(option.value);
-									setOpen(false);
-								}}
-								onKeyDown={(e) => {
-									if (e.key === "Enter" || e.key === " ") {
-										e.preventDefault();
-										onChange(option.value);
-										setOpen(false);
-									}
-								}}
-								tabIndex={0}
-							>
-								{option.value === value && (
-									<Check
-										className="h-3 w-3 text-foreground"
-										aria-hidden="true"
-									/>
-								)}
-								<span className={option.value !== value ? "pl-4" : ""}>
-									{option.label}
-								</span>
-							</div>
-						))}
-					</div>
-				</>
-			)}
-		</div>
-	);
-}
 
 interface AnnotationItemProps {
 	annotation: Annotation;
@@ -172,7 +77,7 @@ function AnnotationItem({
 					<div
 						className={cn(
 							"mt-1.5 h-2 w-2 shrink-0 rounded-full",
-							isResolved ? "bg-terminal-green" : "bg-yellow-400",
+							isResolved ? "bg-terminal-green" : "bg-annotation-open",
 						)}
 						role="img"
 						aria-label={isResolved ? "Resolved" : "Open"}
@@ -228,22 +133,6 @@ function getAnchorPreview(annotation: Annotation): string {
 		default:
 			return "Unknown anchor";
 	}
-}
-
-function formatRelativeTime(dateString: string): string {
-	const date = new Date(dateString);
-	const now = new Date();
-	const diffMs = now.getTime() - date.getTime();
-	const diffMins = Math.floor(diffMs / (1000 * 60));
-	const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-	const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-	if (diffMins < 1) return "just now";
-	if (diffMins < 60) return `${diffMins}m ago`;
-	if (diffHours < 24) return `${diffHours}h ago`;
-	if (diffDays < 7) return `${diffDays}d ago`;
-
-	return date.toLocaleDateString();
 }
 
 const TRUNCATION_LINES = 3;
@@ -345,7 +234,6 @@ export function AnnotationSidebar({
 
 	const handleAnnotationClick = useCallback(
 		(annotation: Annotation) => {
-			// First scroll to the annotation
 			onNavigateToAnnotation?.(annotation);
 			// Then select it to open the popover (with delay for scroll to complete)
 			setTimeout(() => {
@@ -405,19 +293,22 @@ export function AnnotationSidebar({
 
 			{showFilters && (
 				<div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
-					<FilterDropdown
+					<Select
+						size="sm"
 						value={filter.status}
 						options={STATUS_OPTIONS}
 						onChange={handleStatusChange}
 						label="Filter by status"
 					/>
-					<FilterDropdown
+					<Select
+						size="sm"
 						value={filter.author ?? ALL_AUTHORS_VALUE}
 						options={authorOptions}
 						onChange={handleAuthorChange}
 						label="Filter by author"
 					/>
-					<FilterDropdown
+					<Select
+						size="sm"
 						value={filter.dateRange}
 						options={DATE_OPTIONS}
 						onChange={handleDateRangeChange}

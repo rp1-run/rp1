@@ -62,7 +62,7 @@ interface AssetImport {
 	varName: string;
 	importPath: string;
 	outputName: string;
-	category: "agent" | "skill" | "webui" | "opencode-plugin";
+	category: "agent" | "skill" | "state-machine" | "webui" | "opencode-plugin";
 	plugin?: "base" | "dev" | "utils";
 }
 
@@ -129,6 +129,20 @@ async function collectPluginAssets(
 				category: "skill",
 				plugin: pluginName,
 			});
+		}
+
+		// State machines (co-located state.mmd files)
+		if (plugin.stateMachines) {
+			for (const sm of plugin.stateMachines) {
+				const fullPath = join(OPENCODE_DIST, sm.path);
+				imports.push({
+					varName: toVarName(`${pluginName}_statemachine`, sm.name),
+					importPath: getImportPath(fullPath),
+					outputName: sm.name,
+					category: "state-machine",
+					plugin: pluginName,
+				});
+			}
 		}
 
 		// OpenCode Plugin (TypeScript plugin responding to OpenCode events)
@@ -255,6 +269,19 @@ async function generate(): Promise<void> {
 		.filter((a) => a.category === "skill" && a.plugin === "utils")
 		.map((a) => `{ name: "${a.outputName}", path: ${a.varName} }`);
 
+	// State machines (co-located state.mmd files bundled for runtime access)
+	const baseStateMachines = pluginAssets
+		.filter((a) => a.category === "state-machine" && a.plugin === "base")
+		.map((a) => `{ name: "${a.outputName}", path: ${a.varName} }`);
+
+	const devStateMachines = pluginAssets
+		.filter((a) => a.category === "state-machine" && a.plugin === "dev")
+		.map((a) => `{ name: "${a.outputName}", path: ${a.varName} }`);
+
+	const utilsStateMachines = pluginAssets
+		.filter((a) => a.category === "state-machine" && a.plugin === "utils")
+		.map((a) => `{ name: "${a.outputName}", path: ${a.varName} }`);
+
 	// OpenCode plugin files (only base plugin has this currently)
 	const basePluginFiles = pluginAssets
 		.filter((a) => a.category === "opencode-plugin" && a.plugin === "base")
@@ -286,6 +313,7 @@ export const EMBEDDED_MANIFEST = {
       commands: [],
       agents: [${baseAgents.join(", ")}],
       skills: [${baseSkills.join(", ")}],
+      stateMachines: [${baseStateMachines.join(", ")}],
       ${baseOpenCodePlugin}
     },
     dev: {
@@ -293,12 +321,14 @@ export const EMBEDDED_MANIFEST = {
       commands: [],
       agents: [${devAgents.join(", ")}],
       skills: [${devSkills.join(", ")}],
+      stateMachines: [${devStateMachines.join(", ")}],
     },
     utils: {
       name: "rp1-utils",
       commands: [],
       agents: [${utilsAgents.join(", ")}],
       skills: [${utilsSkills.join(", ")}],
+      stateMachines: [${utilsStateMachines.join(", ")}],
     },
   },
   webui: [${webuiEntries.join(", ")}],
@@ -321,6 +351,13 @@ export const IS_BUNDLED = true;
 	console.log(
 		`  Utils: ${utilsAgents.length} agents, ${utilsSkills.length} skills`,
 	);
+	const totalStateMachines =
+		baseStateMachines.length +
+		devStateMachines.length +
+		utilsStateMachines.length;
+	if (totalStateMachines > 0) {
+		console.log(`  State Machines: ${totalStateMachines} files`);
+	}
 	console.log(`  Web-UI: ${webuiAssets.length} files`);
 	console.log(`  Version: ${manifest.version}`);
 

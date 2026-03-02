@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 import type { Artifact, Run, RunEvent, Step } from "@/types/runs";
-import type { RunMessage } from "@/types/websocket";
+import type { RunMessage, StatusChangedMessage } from "@/types/websocket";
 
 interface UseRunDetailResult {
 	run: Run | null;
@@ -14,7 +14,8 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 	const [run, setRun] = useState<Run | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<Error | null>(null);
-	const { subscribeToRun } = useWebSocket();
+	const { subscribeToRun, onStatusChange } = useWebSocket();
+	const runRef = useRef<Run | null>(null);
 
 	const fetchRun = useCallback(async () => {
 		if (!runId) {
@@ -33,10 +34,12 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 			}
 			const runData = (await response.json()) as Run;
 			setRun(runData);
+			runRef.current = runData;
 			setError(null);
 		} catch (err) {
 			setError(err instanceof Error ? err : new Error(String(err)));
 			setRun(null);
+			runRef.current = null;
 		} finally {
 			setIsLoading(false);
 		}
@@ -103,6 +106,29 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 		const unsubscribe = subscribeToRun(runId, handleRunMessage);
 		return unsubscribe;
 	}, [runId, subscribeToRun]);
+
+	// Subscribe to status_changed events to trigger refetch when the matching
+	// feature receives a status update. This handles state-machine-enabled
+	// workflows where the WebSocket run:step/run:status messages use a
+	// different runId format than the frontend composite ID.
+	useEffect(() => {
+		if (!runId) return;
+
+		const handleStatusChange = (msg: StatusChangedMessage) => {
+			const currentRun = runRef.current;
+			if (!currentRun) return;
+
+			if (
+				msg.feature === currentRun.featureId &&
+				msg.projectId === currentRun.projectId
+			) {
+				fetchRun();
+			}
+		};
+
+		const unsubscribe = onStatusChange(handleStatusChange);
+		return unsubscribe;
+	}, [runId, onStatusChange, fetchRun]);
 
 	const refetch = useCallback(() => {
 		setIsLoading(true);

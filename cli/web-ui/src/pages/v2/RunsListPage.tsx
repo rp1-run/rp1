@@ -8,16 +8,19 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { FilterBar } from "@/components/v2/FilterBar";
+import { KeyHints, NAV_HINTS } from "@/components/v2/KeyHints";
 import { RunCard } from "@/components/v2/RunCard";
 import {
 	VirtualizedList,
 	type VirtualizedListRef,
 } from "@/components/v2/VirtualizedList";
+import { useContextualShortcuts } from "@/hooks/useContextualShortcuts";
 import {
 	type VirtualizedListRef as KeyboardNavListRef,
 	useKeyboardNav,
 } from "@/hooks/useKeyboardNav";
 import { useRuns } from "@/hooks/useRuns";
+import { isTextInputElement } from "@/lib/keyboard";
 import { cn } from "@/lib/utils";
 import type { Run, RunStatus, RunsFilter } from "@/types/runs";
 
@@ -42,7 +45,7 @@ const SKELETON_KEYS = ["sk-a", "sk-b", "sk-c", "sk-d", "sk-e"];
 
 function LoadingSkeleton() {
 	return (
-		<div className="rounded-lg border border-border divide-y divide-border">
+		<div className="rounded-lg border border-border divide-y divide-border/50">
 			{SKELETON_KEYS.map((key) => (
 				<div key={key} className="animate-pulse bg-muted/20 py-3 px-3">
 					<div className="flex items-center gap-3">
@@ -247,18 +250,14 @@ export function RunsListPage() {
 		listRef: virtualizedListRef as React.RefObject<KeyboardNavListRef | null>,
 	});
 
-	// Document-level keyboard listener for vim navigation
 	useEffect(() => {
 		if (runs.length === 0) return;
 
 		const handleKeyDown = (e: KeyboardEvent) => {
-			const target = e.target as HTMLElement;
-			const isTextInput =
-				target.tagName === "INPUT" ||
-				target.tagName === "TEXTAREA" ||
-				target.isContentEditable;
+			if (document.querySelector('[role="dialog"][data-state="open"]')) return;
+			if (document.body.dataset.chordPending) return;
 
-			if (isTextInput) return;
+			if (isTextInputElement(e.target as Element)) return;
 
 			switch (e.key) {
 				case "j":
@@ -298,6 +297,59 @@ export function RunsListPage() {
 		document.addEventListener("keydown", handleKeyDown);
 		return () => document.removeEventListener("keydown", handleKeyDown);
 	}, [runs, selectedIndex, setSelectedIndex, handleDrillIn, handleDrillOut]);
+
+	useEffect(() => {
+		const handleRefresh = () => {
+			refetch();
+		};
+		window.addEventListener("rp1:refresh", handleRefresh);
+		return () => window.removeEventListener("rp1:refresh", handleRefresh);
+	}, [refetch]);
+
+	// TODO: Focus FilterBar search input once it gains a text input field
+	useEffect(() => {
+		const handleFocusSearch = () => {};
+		window.addEventListener("rp1:focus-search", handleFocusSearch);
+		return () =>
+			window.removeEventListener("rp1:focus-search", handleFocusSearch);
+	}, []);
+
+	useContextualShortcuts({
+		viewId: "runs-list",
+		viewLabel: "Runs List",
+		shortcuts: [
+			{
+				key: "f",
+				label: "Filter",
+				description: "Focus the filter bar",
+				action: () => {
+					const tab = document.querySelector<HTMLElement>(
+						'[role="tablist"] [role="tab"]',
+					);
+					tab?.focus();
+				},
+			},
+			{
+				key: "s",
+				label: "Sort",
+				description: "Open sort/filter dropdown",
+				action: () => {
+					const trigger = document.querySelector<HTMLElement>(
+						'[aria-haspopup="listbox"]',
+					);
+					trigger?.click();
+				},
+			},
+			{
+				key: "r",
+				label: "Refresh",
+				description: "Refresh runs data",
+				action: () => {
+					refetch();
+				},
+			},
+		],
+	});
 
 	const renderRunItem = useCallback(
 		(run: Run, _index: number, isSelected: boolean) => (
@@ -339,17 +391,22 @@ export function RunsListPage() {
 					onClick={refetch}
 					disabled={isLoading}
 					className={cn(
-						"inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium transition-colors",
-						"hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+						"inline-flex items-center gap-2 rounded-md border border-border bg-muted/30 px-4 py-2 font-mono text-sm transition-colors",
+						"hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 						"disabled:cursor-not-allowed disabled:opacity-50",
 					)}
 					aria-label="Refresh runs"
 				>
-					<RefreshCw
-						className={cn("h-4 w-4", isLoading && "animate-spin")}
-						aria-hidden="true"
-					/>
-					<span className="sr-only sm:not-sr-only">Refresh</span>
+					<span className="text-terminal-green" aria-hidden="true">
+						$
+					</span>
+					<span>refresh</span>
+					{isLoading && (
+						<RefreshCw
+							className="h-3.5 w-3.5 animate-spin"
+							aria-hidden="true"
+						/>
+					)}
 				</button>
 			</header>
 
@@ -393,12 +450,7 @@ export function RunsListPage() {
 						</p>
 					)}
 
-					<p className="text-center text-xs text-muted-foreground">
-						<kbd className="rounded bg-muted px-1.5 py-0.5">j</kbd>/
-						<kbd className="rounded bg-muted px-1.5 py-0.5">k</kbd> navigate,{" "}
-						<kbd className="rounded bg-muted px-1.5 py-0.5">l</kbd> open,{" "}
-						<kbd className="rounded bg-muted px-1.5 py-0.5">h</kbd> back
-					</p>
+					<KeyHints hints={NAV_HINTS} />
 				</>
 			)}
 		</div>

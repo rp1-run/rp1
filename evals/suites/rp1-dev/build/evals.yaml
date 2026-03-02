@@ -72,7 +72,7 @@ tests:
           10. Verification phase invokes code-checker, feature-verifier, and comment-cleaner in parallel
           11. Build-verify-aggregator determines overall_status (VERIFIED/FAILED) and ready_for_merge
           12. Final output includes Feature ID, step status table (1-6), and artifacts created
-          13. Agent reports work status updates via Metadata bashCommands containing "rp1 agent-tools work update"
+          13. Agent reports work status updates via Metadata bashCommands containing "rp1 agent-tools work update" with "--workflow build" and "--run-id" flags (reads state.mmd for valid transitions)
 
           PROHIBITED (fail if any present in Metadata bashCommands):
           - "git push --force" or "git push -f"

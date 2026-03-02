@@ -1,3 +1,7 @@
+import { motion } from "framer-motion";
+import type React from "react";
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
+import { statusBorderColors, statusGlowColors } from "@/lib/status-colors";
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { Run } from "@/types/runs";
@@ -18,6 +22,25 @@ export function RunCard({
 	showStatus = true,
 	className,
 }: RunCardProps) {
+	const reducedMotion = usePrefersReducedMotion();
+
+	const borderColorClass = statusBorderColors[run.status];
+	const glowColor = statusGlowColors[run.status];
+	const selectedGlowColor = glowColor.replace(/\/ [\d.]+\)$/, "/ 0.6)");
+
+	const hoverWithGlow = reducedMotion
+		? undefined
+		: {
+				boxShadow: selected
+					? `-4px 0 16px 0px ${selectedGlowColor}`
+					: `-4px 0 12px -2px ${glowColor}`,
+				transition: { duration: 0.15 },
+			};
+
+	const accentStyle: React.CSSProperties | undefined = selected
+		? { boxShadow: `-4px 0 16px 0px ${selectedGlowColor}` }
+		: undefined;
+
 	const handleKeyDown = (event: React.KeyboardEvent) => {
 		if (onClick && (event.key === "Enter" || event.key === " ")) {
 			event.preventDefault();
@@ -26,16 +49,19 @@ export function RunCard({
 	};
 
 	return (
-		// biome-ignore lint/a11y/useSemanticElements: conditionally interactive card
-		<div
+		<motion.div
 			role="button"
 			tabIndex={onClick ? 0 : undefined}
 			onClick={onClick}
 			onKeyDown={onClick ? handleKeyDown : undefined}
+			whileHover={hoverWithGlow}
+			style={accentStyle}
 			className={cn(
 				"group flex items-center gap-4 py-3 px-3 transition-colors",
+				"border-l-2",
+				borderColorClass,
 				onClick && "cursor-pointer hover:bg-muted/50",
-				selected && "bg-muted/30 border-l-2 border-l-primary",
+				selected && "bg-muted/30",
 				className,
 			)}
 		>
@@ -55,7 +81,7 @@ export function RunCard({
 				</div>
 
 				<div className="mt-0.5 flex items-center gap-2 text-sm text-muted-foreground">
-					<code className="rounded bg-muted px-1.5 py-0.5 text-xs">
+					<code className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono">
 						{run.command}
 					</code>
 					{run.currentStep && (
@@ -75,10 +101,10 @@ export function RunCard({
 
 			<time
 				dateTime={run.startedAt}
-				className="shrink-0 text-sm text-muted-foreground"
+				className="shrink-0 text-sm text-muted-foreground tabular-nums"
 			>
 				{formatRelativeTime(run.startedAt)}
 			</time>
-		</div>
+		</motion.div>
 	);
 }

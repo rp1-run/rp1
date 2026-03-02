@@ -1,6 +1,10 @@
 /**
  * V2 API endpoints for runs and projects.
  * Integrates with status.db for real run data via database queries.
+ *
+ * Step derivation uses dynamic state machine loading from co-located
+ * state.mmd files. Workflows without state.mmd fall back to task-based
+ * grouping. Stale rows (expired via expires_at) are filtered on read.
  */
 
 import { readdir, stat } from "node:fs/promises";
@@ -8,6 +12,15 @@ import { join, resolve } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import { formatError } from "../../../../shared/errors.js";
+import {
+	deriveOrderedSteps,
+	listWorkflows,
+	loadStateMachine,
+} from "../../../../src/agent-tools/state-machine/index.js";
+import type {
+	OrderedStep,
+	StateMachine,
+} from "../../../../src/agent-tools/state-machine/models.js";
 import {
 	getProjectRunStats,
 	queryAllLatestStatuses,
@@ -94,6 +107,28 @@ function extractCommand(metadata: string | null): string {
 }
 
 /**
+ * Map a command string (e.g., "/build") to a workflow name (e.g., "build").
+ * Returns null for commands that cannot map to a workflow name.
+ */
+export function commandToWorkflowName(command: string): string | null {
+	if (!command || !command.startsWith("/")) return null;
+	const name = command.slice(1);
+	return name.length > 0 ? name : null;
+}
+
+/**
+ * Filter out expired status update records (on-read pruning).
+ * Records with NULL expires_at are never filtered (backward compat).
+ * Records with expires_at in the past are considered stale.
+ */
+export function filterNonExpiredRecords(
+	records: readonly StatusUpdateRecord[],
+): readonly StatusUpdateRecord[] {
+	const now = new Date().toISOString();
+	return records.filter((r) => r.expiresAt === null || r.expiresAt > now);
+}
+
+/**
  * Parse the trailing numeric DB record ID from a composite run ID.
  * The run ID format is `{projectId}-{featureId}-{dbRecordId}`.
  * Since both projectId and featureId may contain hyphens, we extract only
@@ -144,50 +179,6 @@ const TERMINAL_STATUSES: ReadonlySet<StatusValue> = new Set([
 	"completed",
 	"failed",
 ]);
-
-/**
- * Canonical step sequence for the /build workflow.
- * The /build command executes 6 phases in order.
- */
-const BUILD_WORKFLOW_STEPS: readonly {
-	readonly id: string;
-	readonly name: string;
-}[] = [
-	{ id: "requirements", name: "Requirements" },
-	{ id: "design", name: "Design" },
-	{ id: "tasks", name: "Tasks" },
-	{ id: "build", name: "Build" },
-	{ id: "verify", name: "Verify" },
-	{ id: "archive", name: "Archive" },
-];
-
-/**
- * Detect whether a run uses the /build workflow based on the command field.
- * Only exact "/build" matches; "/build-fast" and others are excluded.
- */
-function isBuildWorkflow(command: string): boolean {
-	return command === "/build";
-}
-
-/**
- * Canonical step sequence for the /build-fast workflow.
- * The /build-fast command executes 3 phases in order.
- */
-const BUILD_FAST_WORKFLOW_STEPS: readonly {
-	readonly id: string;
-	readonly name: string;
-}[] = [
-	{ id: "plan", name: "Plan" },
-	{ id: "build", name: "Build" },
-	{ id: "review", name: "Review" },
-];
-
-/**
- * Detect whether a run uses the /build-fast workflow based on the command field.
- */
-function isBuildFastWorkflow(command: string): boolean {
-	return command === "/build-fast";
-}
 
 /**
  * Classify a file extension to an ArtifactType.
@@ -357,94 +348,18 @@ function buildTaskRecordMap(
 }
 
 /**
- * Derive steps for /build workflow runs by merging DB records with the
- * canonical 6-step sequence. Steps with DB records get their actual status;
+ * Derive steps from a state machine definition by merging ordered steps
+ * with database records. Steps with DB records get their actual status;
  * steps without records are marked pending.
  *
- * Edge cases (T4):
+ * Edge cases:
  * - Stopped mid-workflow: last active step retains its DB status, remaining are pending.
  * - Feature-level "waiting-input"/"needs-review": the last active step reflects that
  *   status as "running" (StepStatus has no waiting/review variant).
  */
-function deriveBuildWorkflowSteps(
+export function deriveWorkflowStepsFromMachine(
 	records: readonly StatusUpdateRecord[],
-): readonly Step[] {
-	const taskMap = buildTaskRecordMap(records);
-
-	// Find the latest feature-level record (no task) for edge case handling
-	const featureLevelRecords = records.filter((r) => !r.task);
-	const latestFeatureRecord =
-		featureLevelRecords.length > 0
-			? featureLevelRecords[featureLevelRecords.length - 1]
-			: null;
-
-	// Find the last step index that has any DB records
-	let lastActiveIndex = -1;
-	for (let i = BUILD_WORKFLOW_STEPS.length - 1; i >= 0; i--) {
-		if (taskMap.has(BUILD_WORKFLOW_STEPS[i].id)) {
-			lastActiveIndex = i;
-			break;
-		}
-	}
-
-	return BUILD_WORKFLOW_STEPS.map(({ id, name }, index) => {
-		const taskRecords = taskMap.get(id);
-
-		if (taskRecords && taskRecords.length > 0) {
-			const firstRecord = taskRecords[0];
-			const lastRecord = taskRecords[taskRecords.length - 1];
-
-			let stepStatus = mapRecordStatusToStepStatus(lastRecord.status);
-
-			// T4: If this is the last active step and the latest feature-level
-			// record indicates waiting-input or needs-review, reflect that as running
-			if (
-				index === lastActiveIndex &&
-				latestFeatureRecord &&
-				(latestFeatureRecord.status === "waiting-input" ||
-					latestFeatureRecord.status === "needs-review") &&
-				stepStatus === "completed"
-			) {
-				stepStatus = "running";
-			}
-
-			const completedAt = TERMINAL_STATUSES.has(lastRecord.status)
-				? lastRecord.createdAt
-				: null;
-
-			return {
-				id,
-				name,
-				status: stepStatus,
-				startedAt: firstRecord.createdAt,
-				completedAt,
-				taskCount: null,
-				completedTaskCount: null,
-			};
-		}
-
-		// No DB records for this step - pending
-		return {
-			id,
-			name,
-			status: "pending" as StepStatus,
-			startedAt: null,
-			completedAt: null,
-			taskCount: null,
-			completedTaskCount: null,
-		};
-	});
-}
-
-/**
- * Derive steps for /build-fast workflow runs by merging DB records with the
- * canonical 3-step sequence. Steps with DB records get their actual status;
- * steps without records are marked pending.
- *
- * Mirrors deriveBuildWorkflowSteps logic for the /build-fast 3-phase workflow.
- */
-function deriveBuildFastWorkflowSteps(
-	records: readonly StatusUpdateRecord[],
+	orderedSteps: readonly OrderedStep[],
 ): readonly Step[] {
 	const taskMap = buildTaskRecordMap(records);
 
@@ -455,14 +370,14 @@ function deriveBuildFastWorkflowSteps(
 			: null;
 
 	let lastActiveIndex = -1;
-	for (let i = BUILD_FAST_WORKFLOW_STEPS.length - 1; i >= 0; i--) {
-		if (taskMap.has(BUILD_FAST_WORKFLOW_STEPS[i].id)) {
+	for (let i = orderedSteps.length - 1; i >= 0; i--) {
+		if (taskMap.has(orderedSteps[i].id)) {
 			lastActiveIndex = i;
 			break;
 		}
 	}
 
-	return BUILD_FAST_WORKFLOW_STEPS.map(({ id, name }, index) => {
+	return orderedSteps.map(({ id, label }, index) => {
 		const taskRecords = taskMap.get(id);
 
 		if (taskRecords && taskRecords.length > 0) {
@@ -487,7 +402,7 @@ function deriveBuildFastWorkflowSteps(
 
 			return {
 				id,
-				name,
+				name: humanizeFeatureName(label),
 				status: stepStatus,
 				startedAt: firstRecord.createdAt,
 				completedAt,
@@ -498,7 +413,7 @@ function deriveBuildFastWorkflowSteps(
 
 		return {
 			id,
-			name,
+			name: humanizeFeatureName(label),
 			status: "pending" as StepStatus,
 			startedAt: null,
 			completedAt: null,
@@ -509,23 +424,12 @@ function deriveBuildFastWorkflowSteps(
 }
 
 /**
- * Derive Step[] from the full timeline of StatusUpdateRecords.
- * For /build commands, always emits all 6 canonical steps.
- * For other commands, groups records by task field (existing behavior).
+ * Derive steps from records using task-based grouping.
+ * Used as fallback when no state machine is available for a workflow.
  */
-function deriveSteps(
+export function deriveTaskBasedSteps(
 	records: readonly StatusUpdateRecord[],
-	command: string,
 ): readonly Step[] {
-	if (isBuildWorkflow(command)) {
-		return deriveBuildWorkflowSteps(records);
-	}
-
-	if (isBuildFastWorkflow(command)) {
-		return deriveBuildFastWorkflowSteps(records);
-	}
-
-	// Non-/build commands: existing behavior, group by task field
 	const taskMap = buildTaskRecordMap(records);
 	const steps: Step[] = [];
 
@@ -552,20 +456,44 @@ function deriveSteps(
 }
 
 /**
- * Derive the overall RunStatus for a /build workflow.
+ * Derive Step[] from the full timeline of StatusUpdateRecords.
+ * Attempts to load a state machine for the command; if found, uses
+ * dynamic step derivation from the machine. Otherwise falls back to
+ * task-based grouping.
+ */
+async function deriveSteps(
+	records: readonly StatusUpdateRecord[],
+	command: string,
+): Promise<readonly Step[]> {
+	const workflowName = commandToWorkflowName(command);
+	if (workflowName) {
+		const machineResult = await loadStateMachine(workflowName)();
+		if (E.isRight(machineResult)) {
+			const machine = machineResult.right;
+			const orderedSteps = deriveOrderedSteps(machine);
+			return deriveWorkflowStepsFromMachine(records, orderedSteps);
+		}
+	}
+
+	return deriveTaskBasedSteps(records);
+}
+
+/**
+ * Derive the overall RunStatus for a workflow with a state machine.
  *
- * A /build run is only "completed" when:
- * - The final canonical step (archive) has a completed record, OR
+ * A workflow run is "completed" when:
+ * - Any terminal state has a completed record, OR
  * - A feature-level "completed" record (no task) exists.
  *
- * A /build run is "failed" if any record reports failure.
+ * A workflow run is "failed" if any record reports failure.
  *
- * T4 edge cases:
+ * Edge cases:
  * - "waiting-input"/"needs-review" feature-level records propagate directly.
  * - Stopped mid-workflow: no completed/failed terminal -> "running".
  */
-function deriveBuildRunStatus(
+export function deriveWorkflowRunStatus(
 	allRecords: readonly StatusUpdateRecord[],
+	machine: StateMachine,
 ): RunStatus {
 	const taskRecordMap = buildTaskRecordMap(allRecords);
 	const featureLevelRecords = allRecords.filter((r) => !r.task);
@@ -574,13 +502,11 @@ function deriveBuildRunStatus(
 			? featureLevelRecords[featureLevelRecords.length - 1]
 			: null;
 
-	// Check for any failed record (task-level or feature-level)
 	const hasFailed = allRecords.some((r) => r.status === "failed");
 	if (hasFailed) {
 		return "failed";
 	}
 
-	// T4: Feature-level waiting-input or needs-review takes priority
 	if (latestFeatureRecord) {
 		if (latestFeatureRecord.status === "waiting-input") {
 			return "waiting-input";
@@ -588,73 +514,47 @@ function deriveBuildRunStatus(
 		if (latestFeatureRecord.status === "needs-review") {
 			return "needs-review";
 		}
-		// Feature-level "completed" means the orchestrator declared the run done
 		if (latestFeatureRecord.status === "completed") {
 			return "completed";
 		}
 	}
 
-	// Check if the final canonical step (archive) has a completed record
-	const finalStepId = BUILD_WORKFLOW_STEPS[BUILD_WORKFLOW_STEPS.length - 1].id;
-	const finalStepRecords = taskRecordMap.get(finalStepId);
-	if (finalStepRecords && finalStepRecords.length > 0) {
-		const lastFinalRecord = finalStepRecords[finalStepRecords.length - 1];
-		if (lastFinalRecord.status === "completed") {
-			return "completed";
+	// Check if any terminal state has a completed record
+	for (const terminalStateId of machine.terminalStates) {
+		const terminalRecords = taskRecordMap.get(terminalStateId);
+		if (terminalRecords && terminalRecords.length > 0) {
+			const lastRecord = terminalRecords[terminalRecords.length - 1];
+			if (lastRecord.status === "completed") {
+				return "completed";
+			}
 		}
 	}
 
-	// Workflow still in progress
 	return "running";
 }
 
 /**
- * Derive the overall RunStatus for a /build-fast workflow.
- *
- * A /build-fast run is "completed" when:
- * - The final canonical step (review) has a completed record, OR
- * - A feature-level "completed" record (no task) exists.
- *
- * Mirrors deriveBuildRunStatus logic for the /build-fast 3-phase workflow.
+ * Derive the overall RunStatus for a run, dynamically loading the
+ * state machine when available. Falls back to latest record status.
  */
-function deriveBuildFastRunStatus(
+async function deriveRunStatus(
 	allRecords: readonly StatusUpdateRecord[],
-): RunStatus {
-	const taskRecordMap = buildTaskRecordMap(allRecords);
-	const featureLevelRecords = allRecords.filter((r) => !r.task);
-	const latestFeatureRecord =
-		featureLevelRecords.length > 0
-			? featureLevelRecords[featureLevelRecords.length - 1]
-			: null;
-
-	const hasFailed = allRecords.some((r) => r.status === "failed");
-	if (hasFailed) {
-		return "failed";
-	}
-
-	if (latestFeatureRecord) {
-		if (latestFeatureRecord.status === "waiting-input") {
-			return "waiting-input";
-		}
-		if (latestFeatureRecord.status === "needs-review") {
-			return "needs-review";
-		}
-		if (latestFeatureRecord.status === "completed") {
-			return "completed";
+	command: string,
+): Promise<RunStatus> {
+	const workflowName = commandToWorkflowName(command);
+	if (workflowName) {
+		const machineResult = await loadStateMachine(workflowName)();
+		if (E.isRight(machineResult)) {
+			return deriveWorkflowRunStatus(allRecords, machineResult.right);
 		}
 	}
 
-	const finalStepId =
-		BUILD_FAST_WORKFLOW_STEPS[BUILD_FAST_WORKFLOW_STEPS.length - 1].id;
-	const finalStepRecords = taskRecordMap.get(finalStepId);
-	if (finalStepRecords && finalStepRecords.length > 0) {
-		const lastFinalRecord = finalStepRecords[finalStepRecords.length - 1];
-		if (lastFinalRecord.status === "completed") {
-			return "completed";
-		}
-	}
-
-	return "running";
+	// Fallback: use latest record's status
+	const latestRecord =
+		allRecords.length > 0 ? allRecords[allRecords.length - 1] : null;
+	return latestRecord
+		? mapStatusValueToRunStatus(latestRecord.status)
+		: "running";
 }
 
 /**
@@ -662,27 +562,19 @@ function deriveBuildFastRunStatus(
  * Uses the full timeline of status records to derive events, steps,
  * and proper duration timestamps.
  *
- * For /build runs, the overall status is derived from workflow completion
- * rather than the latest DB record's status (T3).
+ * For workflows with state machines, the overall status is derived from
+ * workflow completion rather than the latest DB record's status.
  */
-function buildDetailedRun(
+async function buildDetailedRun(
 	record: StatusUpdateRecord,
 	allRecords: readonly StatusUpdateRecord[],
 	project: ProjectEntry,
 	artifacts: readonly Artifact[],
-): Run {
+): Promise<Run> {
 	const command = extractCommand(record.metadata);
 	const events = deriveEvents(allRecords);
-	const steps = deriveSteps(allRecords, command);
-
-	// For workflow commands, derive status from workflow completion state
-	const status = isBuildWorkflow(command)
-		? deriveBuildRunStatus(allRecords)
-		: isBuildFastWorkflow(command)
-			? deriveBuildFastRunStatus(allRecords)
-			: mapStatusValueToRunStatus(
-					(allRecords[allRecords.length - 1] ?? record).status,
-				);
+	const steps = await deriveSteps(allRecords, command);
+	const status = await deriveRunStatus(allRecords, command);
 
 	const startedAt =
 		allRecords.length > 0 ? allRecords[0].createdAt : record.createdAt;
@@ -764,6 +656,7 @@ function mapRunStatusToStatusValue(
 /**
  * GET /api/v2/runs - paginated list with filters.
  * Queries status.db for real run data.
+ * Filters out stale records (expired via expires_at) before returning.
  */
 export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 	const url = new URL(req.url);
@@ -821,18 +714,23 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 			);
 		}
 
-		const { records, total: dbTotal } = result.right;
+		const { records: rawRecords, total: dbTotal } = result.right;
+
+		// Filter out stale records (on-read pruning for expires_at)
+		const nonExpiredRecords = filterNonExpiredRecords(rawRecords);
 
 		let runs: Run[] = [];
-		for (const record of records) {
+		for (const record of nonExpiredRecords) {
 			const project = projectByPath.get(record.projectPath);
 			if (project) {
 				runs.push(recordToRun(record, project));
 			}
 		}
 
+		// Adjust total for filtered records
+		let total = dbTotal - (rawRecords.length - nonExpiredRecords.length);
+
 		// Post-filter for "running" status (includes both started and in_progress)
-		let total = dbTotal;
 		if (statusFilter === "running") {
 			runs = runs.filter((r) => r.status === "running");
 			total = runs.length;
@@ -865,6 +763,7 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 /**
  * GET /api/v2/runs/attention - grouped by attention state.
  * Queries status.db for real run data and groups by status category.
+ * Filters out stale records (expired via expires_at) before grouping.
  */
 export async function handleV2RunsAttentionRequest(): Promise<Response> {
 	try {
@@ -881,10 +780,13 @@ export async function handleV2RunsAttentionRequest(): Promise<Response> {
 			);
 		}
 
-		const { records } = result.right;
+		const { records: rawRecords } = result.right;
+
+		// Filter out stale records (on-read pruning for expires_at)
+		const nonExpiredRecords = filterNonExpiredRecords(rawRecords);
 
 		const allRuns: Run[] = [];
-		for (const record of records) {
+		for (const record of nonExpiredRecords) {
 			const project = projectByPath.get(record.projectPath);
 			if (project) {
 				allRuns.push(recordToRun(record, project));
@@ -910,6 +812,7 @@ export async function handleV2RunsAttentionRequest(): Promise<Response> {
  * Parses the composite run ID to extract the DB record ID,
  * queries the database for the full feature timeline,
  * and returns a fully-populated run with events, steps, artifacts, and duration.
+ * Stale records (expired via expires_at) are filtered from the timeline.
  */
 export async function handleV2RunDetailRequest(
 	runId: string,
@@ -944,9 +847,12 @@ export async function handleV2RunDetailRequest(
 			queryAllStatusUpdatesForFeature(record.projectPath, record.feature),
 		)();
 
-		const allRecords = E.isRight(timelineResult)
+		const rawRecords = E.isRight(timelineResult)
 			? timelineResult.right
 			: [record];
+
+		// Filter out stale records (on-read pruning for expires_at)
+		const allRecords = filterNonExpiredRecords(rawRecords);
 
 		// Discover artifacts on disk
 		const artifacts = await discoverArtifacts(
@@ -954,7 +860,7 @@ export async function handleV2RunDetailRequest(
 			record.feature,
 		);
 
-		const run = buildDetailedRun(record, allRecords, project, artifacts);
+		const run = await buildDetailedRun(record, allRecords, project, artifacts);
 		return jsonResponse(run);
 	} catch (error) {
 		return errorResponse(`Failed to fetch run: ${String(error)}`);
@@ -1084,5 +990,91 @@ export async function handleV2ProjectDetailRequest(
 		return jsonResponse(v2Project);
 	} catch (error) {
 		return errorResponse(`Failed to get project: ${String(error)}`);
+	}
+}
+
+/**
+ * GET /api/v2/workflows - list all state-machine-enabled workflows.
+ * Returns name, state count, and description for each workflow that
+ * has a co-located state.mmd file. Workflows without state.mmd are excluded.
+ */
+export async function handleV2WorkflowsListRequest(): Promise<Response> {
+	try {
+		const namesResult = await listWorkflows()();
+		if (E.isLeft(namesResult)) {
+			return errorResponse(
+				`Failed to list workflows: ${formatError(namesResult.left, false)}`,
+			);
+		}
+
+		const workflowNames = namesResult.right;
+		const workflows: {
+			name: string;
+			stateCount: number;
+			description: string | null;
+		}[] = [];
+
+		for (const name of workflowNames) {
+			const machineResult = await loadStateMachine(name)();
+			if (E.isRight(machineResult)) {
+				const machine = machineResult.right;
+				workflows.push({
+					name: machine.id,
+					stateCount: machine.states.size,
+					description: null,
+				});
+			}
+		}
+
+		return jsonResponse({ workflows });
+	} catch (error) {
+		return errorResponse(`Failed to list workflows: ${String(error)}`);
+	}
+}
+
+/**
+ * GET /api/v2/workflows/:name - full state machine definition as JSON.
+ * Returns states, transitions, and ordered steps for the specified workflow.
+ * Returns 404 when no state.mmd exists for the requested workflow.
+ */
+export async function handleV2WorkflowDetailRequest(
+	workflowName: string,
+): Promise<Response> {
+	try {
+		const machineResult = await loadStateMachine(workflowName)();
+		if (E.isLeft(machineResult)) {
+			return errorResponse(`Workflow not found: ${workflowName}`, 404);
+		}
+
+		const machine = machineResult.right;
+		const orderedSteps = deriveOrderedSteps(machine);
+
+		const states = Array.from(machine.states.values()).map((s) => ({
+			id: s.id,
+			label: s.label,
+			isInitial: s.isInitial,
+			isTerminal: s.isTerminal,
+		}));
+
+		const transitions = machine.transitions.map((t) => ({
+			sourceId: t.sourceId,
+			targetId: t.targetId,
+			label: t.label,
+		}));
+
+		const steps = orderedSteps.map((s) => ({
+			id: s.id,
+			label: s.label,
+			index: s.index,
+		}));
+
+		return jsonResponse({
+			name: machine.id,
+			states,
+			transitions,
+			orderedSteps: steps,
+		});
+	} catch (error) {
+		return errorResponse(`Failed to get workflow: ${String(error)}`);
 	}
 }

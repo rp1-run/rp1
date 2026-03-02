@@ -16,6 +16,7 @@ import {
 	ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { KeyHints, VIEWER_HINTS } from "@/components/v2/KeyHints";
 import { useProjectFileTree } from "@/hooks/useProjectFileTree";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 import type { V2Project } from "@/types/projects";
@@ -323,10 +324,8 @@ export function FileBrowserPage() {
 				</ResizablePanel>
 			</ResizablePanelGroup>
 
-			<footer className="border-t px-4 py-2 text-xs text-muted-foreground">
-				Press <kbd className="rounded bg-muted px-1.5 py-0.5 font-mono">h</kbd>{" "}
-				or <kbd className="rounded bg-muted px-1.5 py-0.5 font-mono">←</kbd> to
-				return to project overview
+			<footer className="border-t px-4 py-2">
+				<KeyHints hints={VIEWER_HINTS} />
 			</footer>
 		</div>
 	);

@@ -10,8 +10,12 @@ import { registerTool, type ToolOptions } from "../index.js";
 import type { ToolResult } from "../models.js";
 import { successResult } from "../output.js";
 import {
+	type CleanupResult,
 	closeDatabase,
+	countExpiredRuns,
 	DEFAULT_DB_PATH,
+	deleteExpiredRuns,
+	getCurrentWorkflowState,
 	getLatestStatusByFeature,
 	insertStatusUpdate,
 	isValidStatus,
@@ -44,13 +48,29 @@ export interface WorkUpdateResult {
 }
 
 /**
+ * Workflow context for enriched daemon notifications.
+ * Allows broadcasting run:step and run:status WebSocket events
+ * for state-machine-enabled workflows.
+ */
+interface WorkflowNotifyContext {
+	readonly workflow: string;
+	readonly runId?: string;
+	readonly previousState?: string | null;
+	readonly newState: string;
+}
+
+/**
  * Notify the daemon of a status change for immediate WebSocket broadcast.
  * This is a best-effort operation - if the daemon is not running, we don't care.
+ *
+ * When workflow context is provided (state-machine-enabled workflows),
+ * the daemon also broadcasts run:step and run:status events.
  */
 const notifyDaemon = async (
 	projectPath: string,
 	feature: string,
 	status: string,
+	workflowCtx?: WorkflowNotifyContext,
 ): Promise<void> => {
 	try {
 		// Dynamic import to avoid bundling issues with the daemon module
@@ -60,7 +80,7 @@ const notifyDaemon = async (
 
 		const conn = await connectToDaemon();
 		if (conn) {
-			await notifyStatusChange(conn, projectPath, feature, status);
+			await notifyStatusChange(conn, projectPath, feature, status, workflowCtx);
 		}
 	} catch {
 		// Daemon not available - this is fine, polling will pick up the change
@@ -95,8 +115,21 @@ export const executeUpdate = (
 		),
 		TE.chainFirst((data) =>
 			TE.fromTask(async () => {
-				// Fire and forget - notify daemon but don't wait or fail on errors
-				await notifyDaemon(data.projectPath, data.feature, data.status);
+				const workflowCtx =
+					input.workflow && input.task
+						? {
+								workflow: input.workflow,
+								runId: input.runId,
+								previousState: input.previousState,
+								newState: input.task,
+							}
+						: undefined;
+				await notifyDaemon(
+					data.projectPath,
+					data.feature,
+					data.status,
+					workflowCtx,
+				);
 			}),
 		),
 		TE.map((data) => successResult(TOOL_NAME, data)),
@@ -137,6 +170,34 @@ export const executeStatus = (
 	);
 
 /**
+ * Options for the cleanup subcommand.
+ */
+export interface CleanupOptions {
+	readonly dryRun: boolean;
+	readonly olderThan: number;
+}
+
+/**
+ * Execute work cleanup subcommand.
+ * Deletes expired runs (all rows for runs whose latest row has expired).
+ * In dry-run mode, reports counts without deleting.
+ *
+ * @param options - Cleanup options (dryRun, olderThan)
+ * @param dbPath - Optional database path override
+ * @returns TaskEither with ToolResult containing CleanupResult
+ */
+export const executeCleanup = (
+	options: CleanupOptions,
+	dbPath?: string,
+): TE.TaskEither<CLIError, ToolResult<CleanupResult>> =>
+	pipe(
+		options.dryRun
+			? countExpiredRuns(options.olderThan, dbPath)
+			: deleteExpiredRuns(options.olderThan, dbPath),
+		TE.map((data) => successResult(TOOL_NAME, data)),
+	);
+
+/**
  * Main execute function for tool registration.
  * Note: This tool uses subcommands, so this execute function is a placeholder
  * for the registry. The actual execution is done via executeUpdate, executeQuery,
@@ -164,6 +225,7 @@ registerTool({
 export {
 	closeDatabase,
 	DEFAULT_DB_PATH,
+	getCurrentWorkflowState,
 	isValidStatus,
 	resetDatabaseInstance,
 	TOOL_NAME,

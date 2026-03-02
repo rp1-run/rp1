@@ -108,20 +108,45 @@ export async function stopDaemon(conn: DaemonConnection): Promise<boolean> {
 }
 
 /**
+ * Workflow context for enriched status notifications.
+ * When present, the daemon broadcasts run:step and run:status WebSocket events.
+ */
+export interface WorkflowNotifyContext {
+	readonly workflow: string;
+	readonly runId?: string;
+	readonly previousState?: string | null;
+	readonly newState: string;
+}
+
+/**
  * Notify the daemon of a status update for immediate WebSocket broadcast.
  * Fails silently if daemon is not running - this is expected behavior.
+ *
+ * When workflowCtx is provided (state-machine-enabled workflows),
+ * the daemon also broadcasts run:step and run:status events.
  */
 export async function notifyStatusChange(
 	conn: DaemonConnection,
 	projectPath: string,
 	feature: string,
 	status: string,
+	workflowCtx?: WorkflowNotifyContext,
 ): Promise<boolean> {
 	try {
 		const response = await fetch(`${conn.baseUrl}/api/status/notify`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ projectPath, feature, status }),
+			body: JSON.stringify({
+				projectPath,
+				feature,
+				status,
+				...(workflowCtx && {
+					workflow: workflowCtx.workflow,
+					runId: workflowCtx.runId,
+					previousState: workflowCtx.previousState,
+					newState: workflowCtx.newState,
+				}),
+			}),
 			signal: AbortSignal.timeout(1000), // Short timeout - fire and forget
 		});
 		return response.ok;

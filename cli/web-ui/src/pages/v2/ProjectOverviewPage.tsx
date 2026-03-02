@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { KeyHints, NAV_HINTS } from "@/components/v2/KeyHints";
 import { RunCard } from "@/components/v2/RunCard";
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -157,6 +158,9 @@ export function ProjectOverviewPage() {
 		if (runs.length === 0) return;
 
 		const handleKeyDown = (event: KeyboardEvent) => {
+			if (document.querySelector('[role="dialog"][data-state="open"]')) return;
+			if (document.body.dataset.chordPending) return;
+
 			const target = event.target as HTMLElement;
 			const isTextInput =
 				target.tagName === "INPUT" ||
@@ -268,17 +272,22 @@ export function ProjectOverviewPage() {
 						onClick={refetch}
 						disabled={isLoading}
 						className={cn(
-							"inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium transition-colors",
-							"hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+							"inline-flex items-center gap-2 rounded-md border border-border bg-muted/30 px-4 py-2 font-mono text-sm transition-colors",
+							"hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 							"disabled:cursor-not-allowed disabled:opacity-50",
 						)}
 						aria-label="Refresh project"
 					>
-						<RefreshCw
-							className={cn("h-4 w-4", isLoading && "animate-spin")}
-							aria-hidden="true"
-						/>
-						<span className="sr-only sm:not-sr-only">Refresh</span>
+						<span className="text-terminal-green" aria-hidden="true">
+							$
+						</span>
+						<span>refresh</span>
+						{isLoading && (
+							<RefreshCw
+								className="h-3.5 w-3.5 animate-spin"
+								aria-hidden="true"
+							/>
+						)}
 					</button>
 				</div>
 			</header>
@@ -329,7 +338,7 @@ export function ProjectOverviewPage() {
 				) : (
 					// biome-ignore lint/a11y/useSemanticElements: div with role="list" used for custom divide-y styling incompatible with ul/li
 					<div
-						className="rounded-lg border border-border divide-y divide-border"
+						className="rounded-lg border border-border divide-y divide-border/50"
 						role="list"
 						aria-label="Recent runs"
 					>
@@ -345,12 +354,7 @@ export function ProjectOverviewPage() {
 				)}
 			</div>
 
-			<p className="text-xs text-muted-foreground">
-				<kbd className="rounded bg-muted px-1.5 py-0.5">j</kbd>/
-				<kbd className="rounded bg-muted px-1.5 py-0.5">k</kbd> navigate,{" "}
-				<kbd className="rounded bg-muted px-1.5 py-0.5">l</kbd> open run,{" "}
-				<kbd className="rounded bg-muted px-1.5 py-0.5">h</kbd> back
-			</p>
+			<KeyHints hints={NAV_HINTS} />
 		</div>
 	);
 }

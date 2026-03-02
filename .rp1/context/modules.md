@@ -44,9 +44,16 @@
 
 ### Agent Tools (`cli/src/agent-tools/`)
 **Purpose**: Runtime tools framework for AI agents with registry pattern
-**Sub-tools**: worktree, github-pr, comment-extract, mmd-validate, work (SQLite status), rp1-root-dir, transform-args
+**Sub-tools**: worktree, github-pr, comment-extract, mmd-validate, work (SQLite status), rp1-root-dir, transform-args, state-machine
 **Pattern**: ToolExecutor returns `TE.TaskEither<CLIError, ToolResult<T>>`
 **Dependencies**: shared/errors, git utilities
+
+### State Machine (`cli/src/agent-tools/state-machine/`)
+**Purpose**: Declarative workflow state management via co-located Mermaid stateDiagram-v2 definitions
+**Key Components**: models.ts (SMState, SMTransition, StateMachine, TransitionValidation, OrderedStep), transform.ts (mermaid-ast AST to domain model conversion), adapter.ts (graph queries: transition validation, BFS step ordering, reachability), loader.ts (filesystem + bundled asset discovery with in-memory cache)
+**Pattern**: `parseAndTransform()` pipeline: raw text -> mermaid-ast `parseStateDiagram()` -> `transformAstToStateMachine()` -> `StateMachine`. Loader returns `TE.TaskEither<CLIError, StateMachine>`. Adapter functions are pure, operating on the `StateMachine` domain model.
+**Consumers**: work/ (CLI transition validation with --workflow/--run-id/--ttl flags), v2-api.ts (dynamic step derivation replacing hardcoded arrays), skills at runtime (agents read state.mmd for workflow awareness)
+**Dependencies**: mermaid-ast (npm), shared/errors, assets/reader (for bundled binary)
 
 ### Build (`cli/src/build/`)
 **Purpose**: OpenCode artifact build pipeline: parse → transform → validate → generate
@@ -87,6 +94,8 @@ graph TD
     Init --> Install
     Uninstall[uninstall/] --> Init
     WebUI --> Work[agent-tools/work/]
+    WebUI --> StateMachine[agent-tools/state-machine/]
+    Work --> StateMachine
     Worktree[agent-tools/worktree/] --> Git[agent-tools/git]
     CommentExtract[agent-tools/comment-extract/] --> Git
     All[All Modules] --> Shared[shared/]
@@ -103,7 +112,7 @@ graph TD
 | cli/src/commands | 18 | ~3,200 | 10 commands |
 | cli/src/init | 21 | ~7,100 | 12 steps |
 | cli/src/install | 12 | ~3,700 | 7 services |
-| cli/src/agent-tools | 28 | ~6,000 | 7 tools |
+| cli/src/agent-tools | 32 | ~6,800 | 8 tools (incl. state-machine sub-module) |
 | cli/src/build | 8 | ~2,200 | 6 pipeline stages |
 | cli/src/assets | 5 | ~3,500 | 3 services |
 | cli/shared | 8 | ~825 | 6 utilities |

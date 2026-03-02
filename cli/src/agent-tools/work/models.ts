@@ -44,6 +44,14 @@ export interface StatusUpdateInput {
 	readonly message?: string;
 	/** JSON string for additional context (optional) */
 	readonly metadata?: string;
+	/** Workflow run isolation ID (optional, UUID) */
+	readonly runId?: string;
+	/** State machine identifier / skill name (optional) */
+	readonly workflow?: string;
+	/** ISO 8601 expiry timestamp for stale row cleanup (optional) */
+	readonly expiresAt?: string;
+	/** Previous workflow state before this transition (transient, not persisted) */
+	readonly previousState?: string | null;
 }
 
 /**
@@ -67,6 +75,10 @@ export interface StatusUpdateRecord {
 	readonly metadata: string | null;
 	/** ISO 8601 UTC timestamp */
 	readonly createdAt: string;
+	/** Workflow run isolation ID (null if not specified) */
+	readonly runId: string | null;
+	/** ISO 8601 expiry timestamp (null means row never expires) */
+	readonly expiresAt: string | null;
 }
 
 /**

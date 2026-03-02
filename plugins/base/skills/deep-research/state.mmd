@@ -1,0 +1,7 @@
+stateDiagram-v2
+    [*] --> clarify
+    clarify --> plan : intent_clear
+    plan --> explore : plan_ready
+    explore --> synthesize : exploration_complete
+    synthesize --> report : synthesis_complete
+    report --> [*] : done

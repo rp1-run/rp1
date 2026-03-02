@@ -1,47 +1,47 @@
 {
-  "schema_version": "1.0.0",
-  "skills": {
-    "rp1-dev:build": {
-      "prompt_hash": "sha256:0f376e121cb07c2a60ce5b2b5140fd48fba3a3b10187c15eccc18bad3809f44f",
-      "deps_hash": "sha256:fd77d9dd1c7a87e83572d0c62f9fc54e9350e0a7d8952b3b3c36cc3a650ee98f",
-      "version": "3.0.0",
-      "last_eval": {
-        "passed": true,
-        "timestamp": "2026-03-01T01:17:41.201Z",
-        "git_commit": "b4cdef7",
-        "result_file": "evals/output/rp1-dev-build.json"
-      }
-    },
-    "rp1-dev:build-fast": {
-      "prompt_hash": "sha256:c594fce62418ac2005eec5e82ae86c204d426058197e996b8b26d2d0d1f0cfef",
-      "deps_hash": "sha256:99703f91402948b09f8978180d72e9a4ff3bff8191a90f94fc7b15afd04cbe86",
-      "version": "3.0.0",
-      "last_eval": {
-        "passed": true,
-        "timestamp": "2026-03-01T01:06:01.053Z",
-        "git_commit": "1dc4fa7",
-        "result_file": "evals/output/rp1-dev-build-fast.json"
-      }
-    }
-  },
-  "files": {
-    "plugins/dev/skills/worktree-workflow/SKILL.md": "sha256:c0f5beca9cba362eba543220df679b8016c8710390adcf8a61c95b0c10b06f48",
-    "plugins/dev/agents/build-artifact-detector.md": "sha256:4338c2daef255cc7547f723e056c4bfcabc6bb44fced8a8640c21ef43eb0f710",
-    "plugins/dev/agents/feature-requirement-gatherer.md": "sha256:a4a8f0c13ba18b7b9ab1cb56c26d02fda5a09f1ea92055b37a1fa2a36f7fb809",
-    "plugins/dev/agents/feature-architect.md": "sha256:ee0ecf8a8bf78792123cbaac7c349e59e0cc166abdb760379584df5f1702fd58",
-    "plugins/dev/agents/hypothesis-tester.md": "sha256:1d2331b7f48910beb02c40938a8ad9d77ac88fc533aed67aeffe48ad70a2ed55",
-    "plugins/dev/agents/feature-tasker.md": "sha256:80a60658363ef48a26f0a933df438ffebe5349921588403d28e954524d6618d4",
-    "plugins/dev/agents/build-task-parser.md": "sha256:b326879c3104c764a34781a3c5c969112a16071aa276b201f6ad7e046ee68ec1",
-    "plugins/dev/agents/build-task-grouper.md": "sha256:283d0887ea35aa46652ff5497b95b1e6a4e52eab63c7583a472644b7891613d6",
-    "plugins/dev/agents/task-builder.md": "sha256:56a8b433231092127de470909a26cb4db414f2d99b82e846cc6a6af06b9f3310",
-    "plugins/dev/agents/task-reviewer.md": "sha256:e63b39b18e156a460935d4ec1c80ca93c087c9e38f3490069a767a2a3e3753ad",
-    "plugins/dev/agents/code-checker.md": "sha256:c7e2fc15d3da2fa7b4a08d910e41c2fe951a2e0b2073778bce3fc92b8edc363f",
-    "plugins/dev/agents/feature-verifier.md": "sha256:949af84aa13def1e1b3e2e2c33ac37ddc95cdb60e61ea372d18f03cba17aea69",
-    "plugins/dev/agents/comment-cleaner.md": "sha256:9ecf78cfd8735bea49439e3c1d57d376d08168e6293a2a7f689a2ecfcf959824",
-    "plugins/dev/agents/build-verify-aggregator.md": "sha256:84740753ac1ba9c6b7ef189bf47500a00fe96b32a663fbe77e0417829c30b80f",
-    "plugins/dev/agents/feature-archiver.md": "sha256:7ac30f4ddb02a0565ec73552349de099cacfd01bed7d2658ed6fcb0020629517",
-    "plugins/dev/agents/build-fast-planner.md": "sha256:61144db4872852fb661aceedcd9a778eb8b90f14d4938d22f7a848152ed5c7bc",
-    "plugins/dev/skills/build/SKILL.md": "sha256:0f376e121cb07c2a60ce5b2b5140fd48fba3a3b10187c15eccc18bad3809f44f",
-    "plugins/dev/skills/build-fast/SKILL.md": "sha256:c594fce62418ac2005eec5e82ae86c204d426058197e996b8b26d2d0d1f0cfef"
-  }
+	"schema_version": "1.0.0",
+	"skills": {
+		"rp1-dev:build": {
+			"prompt_hash": "sha256:d60b2cb120ec1877280dbb885b1b9e68e37f13bc0892fe5356410482adb29b08",
+			"deps_hash": "sha256:976321b98dc2e1b537ae6d04f8b78b465e7377c42343c99a2dc6ac15eef4ef64",
+			"version": "3.0.0",
+			"last_eval": {
+				"passed": true,
+				"timestamp": "2026-03-01T22:33:23.326Z",
+				"git_commit": "7bf2538",
+				"result_file": "evals/output/rp1-dev-build.json"
+			}
+		},
+		"rp1-dev:build-fast": {
+			"prompt_hash": "sha256:82693da2f52f3703fed136589af46b2fc3ed328637dc795bf8014e1e72b61a4d",
+			"deps_hash": "sha256:0d51dab5140202dc42b8aa7e4b4e07ecb285128fbaa76fdc3bbc9aa0e9a5d968",
+			"version": "3.0.0",
+			"last_eval": {
+				"passed": true,
+				"timestamp": "2026-03-01T23:21:30.549Z",
+				"git_commit": "1c24866",
+				"result_file": "evals/output/rp1-dev-build-fast.json"
+			}
+		}
+	},
+	"files": {
+		"plugins/dev/skills/worktree-workflow/SKILL.md": "sha256:c0f5beca9cba362eba543220df679b8016c8710390adcf8a61c95b0c10b06f48",
+		"plugins/dev/agents/build-artifact-detector.md": "sha256:4338c2daef255cc7547f723e056c4bfcabc6bb44fced8a8640c21ef43eb0f710",
+		"plugins/dev/agents/feature-requirement-gatherer.md": "sha256:a4a8f0c13ba18b7b9ab1cb56c26d02fda5a09f1ea92055b37a1fa2a36f7fb809",
+		"plugins/dev/agents/feature-architect.md": "sha256:ee0ecf8a8bf78792123cbaac7c349e59e0cc166abdb760379584df5f1702fd58",
+		"plugins/dev/agents/hypothesis-tester.md": "sha256:1d2331b7f48910beb02c40938a8ad9d77ac88fc533aed67aeffe48ad70a2ed55",
+		"plugins/dev/agents/feature-tasker.md": "sha256:80a60658363ef48a26f0a933df438ffebe5349921588403d28e954524d6618d4",
+		"plugins/dev/agents/build-task-parser.md": "sha256:b326879c3104c764a34781a3c5c969112a16071aa276b201f6ad7e046ee68ec1",
+		"plugins/dev/agents/build-task-grouper.md": "sha256:283d0887ea35aa46652ff5497b95b1e6a4e52eab63c7583a472644b7891613d6",
+		"plugins/dev/agents/task-builder.md": "sha256:56a8b433231092127de470909a26cb4db414f2d99b82e846cc6a6af06b9f3310",
+		"plugins/dev/agents/task-reviewer.md": "sha256:e63b39b18e156a460935d4ec1c80ca93c087c9e38f3490069a767a2a3e3753ad",
+		"plugins/dev/agents/code-checker.md": "sha256:c7e2fc15d3da2fa7b4a08d910e41c2fe951a2e0b2073778bce3fc92b8edc363f",
+		"plugins/dev/agents/feature-verifier.md": "sha256:949af84aa13def1e1b3e2e2c33ac37ddc95cdb60e61ea372d18f03cba17aea69",
+		"plugins/dev/agents/comment-cleaner.md": "sha256:9ecf78cfd8735bea49439e3c1d57d376d08168e6293a2a7f689a2ecfcf959824",
+		"plugins/dev/agents/build-verify-aggregator.md": "sha256:84740753ac1ba9c6b7ef189bf47500a00fe96b32a663fbe77e0417829c30b80f",
+		"plugins/dev/agents/feature-archiver.md": "sha256:7ac30f4ddb02a0565ec73552349de099cacfd01bed7d2658ed6fcb0020629517",
+		"plugins/dev/agents/build-fast-planner.md": "sha256:61144db4872852fb661aceedcd9a778eb8b90f14d4938d22f7a848152ed5c7bc",
+		"plugins/dev/skills/build/SKILL.md": "sha256:d60b2cb120ec1877280dbb885b1b9e68e37f13bc0892fe5356410482adb29b08",
+		"plugins/dev/skills/build-fast/SKILL.md": "sha256:82693da2f52f3703fed136589af46b2fc3ed328637dc795bf8014e1e72b61a4d"
+	}
 }

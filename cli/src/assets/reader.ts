@@ -30,6 +30,7 @@ export interface BundledPlugin {
 	commands: AssetEntry[];
 	agents: AssetEntry[];
 	skills: AssetEntry[];
+	stateMachines: AssetEntry[];
 	openCodePlugin?: OpenCodePluginAsset;
 }
 

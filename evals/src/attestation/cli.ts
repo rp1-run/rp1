@@ -46,7 +46,7 @@ function formatSummary(summary: {
 	stale: number;
 	missing: number;
 	results: readonly {
-		command: string;
+		skill: string;
 		status: string;
 		reason?: string;
 	}[];

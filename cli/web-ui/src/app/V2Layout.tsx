@@ -1,12 +1,26 @@
-import { useCallback, useEffect, useState } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
+import { useCallback, useState } from "react";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { CommandPalette } from "@/components/v2/CommandPalette";
+import { ShortcutHelpOverlay } from "@/components/v2/ShortcutHelpOverlay";
+import { TerminalBreadcrumb } from "@/components/v2/TerminalBreadcrumb";
 import { V2Header } from "@/components/v2/V2Header";
 import { V2Sidebar } from "@/components/v2/V2Sidebar";
+import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
+import {
+	pageTransition,
+	pageTransitionReduced,
+	pageVariants,
+	pageVariantsReduced,
+} from "@/lib/motion-config";
+import { ShortcutRegistryProvider } from "@/providers/ShortcutRegistryProvider";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 
 const FULL_HEIGHT_ROUTES = ["/runs/"];
 function isFullHeightRoute(pathname: string): boolean {
+	if (pathname === "/") return true;
 	if (
 		FULL_HEIGHT_ROUTES.some(
 			(route) => pathname.startsWith(route) && pathname.includes("/artifacts/"),
@@ -38,9 +52,17 @@ function saveSidebarCollapsed(collapsed: boolean): void {
 export function V2Layout() {
 	const [sidebarCollapsed, setSidebarCollapsed] =
 		useState(loadSidebarCollapsed);
+	const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+	const shortcutHelpOpen = false; // ShortcutHelpOverlay manages its own state
 	const { status: wsStatus } = useWebSocket();
 	const location = useLocation();
+	const navigate = useNavigate();
 	const isFullHeight = isFullHeightRoute(location.pathname);
+
+	const reducedMotion = usePrefersReducedMotion();
+	const variants = reducedMotion ? pageVariantsReduced : pageVariants;
+	const transition = reducedMotion ? pageTransitionReduced : pageTransition;
+	const isOverlayOpen = commandPaletteOpen || shortcutHelpOpen;
 
 	const toggleSidebar = useCallback(() => {
 		setSidebarCollapsed((prev) => {
@@ -50,37 +72,82 @@ export function V2Layout() {
 		});
 	}, []);
 
-	useEffect(() => {
-		const handleKeyDown = (e: KeyboardEvent) => {
-			if ((e.metaKey || e.ctrlKey) && e.key === "b") {
-				e.preventDefault();
-				toggleSidebar();
-			}
-		};
+	const handleOpenCommandPalette = useCallback(() => {
+		setCommandPaletteOpen(true);
+	}, []);
 
-		window.addEventListener("keydown", handleKeyDown);
-		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, [toggleSidebar]);
+	const handleCloseCommandPalette = useCallback(() => {
+		setCommandPaletteOpen(false);
+	}, []);
+
+	// ShortcutHelpOverlay manages its own toggle via '?' key
+	const handleToggleShortcutHelp = useCallback(() => {}, []);
+
+	const handleFocusSearch = useCallback(() => {
+		window.dispatchEvent(new CustomEvent("rp1:focus-search"));
+	}, []);
+
+	useGlobalShortcuts({
+		onOpenCommandPalette: handleOpenCommandPalette,
+		onCloseCommandPalette: handleCloseCommandPalette,
+		onToggleShortcutHelp: handleToggleShortcutHelp,
+		onToggleSidebar: toggleSidebar,
+		onFocusSearch: handleFocusSearch,
+		isOverlayOpen,
+		navigate,
+	});
 
 	return (
-		<div className="flex h-screen flex-col bg-background">
-			<V2Header wsStatus={wsStatus} />
-			<div className="flex flex-1 overflow-hidden">
-				<V2Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
-				{isFullHeight ? (
-					<main className="flex-1 overflow-hidden">
-						<Outlet />
-					</main>
-				) : (
-					<main className="flex-1 overflow-hidden">
-						<ScrollArea className="h-full">
-							<div className="p-6">
-								<Outlet />
-							</div>
-						</ScrollArea>
-					</main>
-				)}
+		<ShortcutRegistryProvider>
+			<div className="flex h-screen flex-col bg-background">
+				<V2Header wsStatus={wsStatus} />
+				<div className="flex flex-1 overflow-hidden">
+					<V2Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
+					<div className="flex flex-1 flex-col overflow-hidden">
+						<TerminalBreadcrumb />
+						{isFullHeight ? (
+							<main className="flex-1 overflow-hidden">
+								<AnimatePresence mode="wait">
+									<motion.div
+										key={location.pathname}
+										variants={variants}
+										initial="initial"
+										animate="animate"
+										exit="exit"
+										transition={transition}
+										className="h-full"
+									>
+										<Outlet />
+									</motion.div>
+								</AnimatePresence>
+							</main>
+						) : (
+							<main className="flex-1 overflow-hidden">
+								<ScrollArea className="h-full">
+									<AnimatePresence mode="wait">
+										<motion.div
+											key={location.pathname}
+											variants={variants}
+											initial="initial"
+											animate="animate"
+											exit="exit"
+											transition={transition}
+											className="p-6"
+										>
+											<Outlet />
+										</motion.div>
+									</AnimatePresence>
+								</ScrollArea>
+							</main>
+						)}
+					</div>
+				</div>
+				<CommandPalette
+					open={commandPaletteOpen}
+					onOpenChange={setCommandPaletteOpen}
+				/>
 			</div>
-		</div>
+			<ShortcutHelpOverlay />
+		</ShortcutRegistryProvider>
 	);
 }

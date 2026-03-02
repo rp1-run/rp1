@@ -1,7 +1,8 @@
-import { Check, ChevronDown, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import type { RunStatus, RunsFilter } from "@/types/runs";
+import { Select } from "./Select";
 
 interface Project {
 	id: string;
@@ -32,101 +33,6 @@ const DATE_RANGES: { value: RunsFilter["dateRange"]; label: string }[] = [
 	{ value: "week", label: "This Week" },
 	{ value: "month", label: "This Month" },
 ];
-
-function Dropdown<T extends string>({
-	value,
-	options,
-	onChange,
-	placeholder,
-	className,
-}: {
-	value: T | null;
-	options: { value: T; label: string }[];
-	onChange: (value: T | null) => void;
-	placeholder: string;
-	className?: string;
-}) {
-	const [open, setOpen] = useState(false);
-	const selectedOption = options.find((o) => o.value === value);
-
-	return (
-		<div className={cn("relative", className)}>
-			<button
-				type="button"
-				onClick={() => setOpen(!open)}
-				className={cn(
-					"inline-flex h-9 items-center justify-between gap-2 rounded-md border border-border bg-background px-3 text-sm transition-colors",
-					"hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-					"min-w-[140px]",
-				)}
-				aria-expanded={open}
-				aria-haspopup="listbox"
-			>
-				<span className={cn(!selectedOption && "text-muted-foreground")}>
-					{selectedOption?.label ?? placeholder}
-				</span>
-				<ChevronDown
-					className={cn(
-						"h-4 w-4 text-muted-foreground transition-transform",
-						open && "rotate-180",
-					)}
-					aria-hidden="true"
-				/>
-			</button>
-
-			{open && (
-				<>
-					{/* biome-ignore lint/a11y/noStaticElementInteractions: backdrop click handler */}
-					<div
-						className="fixed inset-0 z-40"
-						onClick={() => setOpen(false)}
-						onKeyDown={(e) => e.key === "Escape" && setOpen(false)}
-						role="presentation"
-					/>
-					<div
-						role="listbox"
-						className="absolute left-0 top-full z-50 mt-1 min-w-full overflow-hidden rounded-md border border-border bg-background shadow-lg"
-					>
-						{options.map((option) => (
-							<div
-								key={option.value}
-								role="option"
-								aria-selected={option.value === value}
-								className={cn(
-									"flex cursor-pointer items-center gap-2 px-3 py-2 text-sm transition-colors",
-									"hover:bg-muted",
-									option.value === value && "bg-muted/50",
-								)}
-								onClick={() => {
-									onChange(option.value);
-									setOpen(false);
-								}}
-								onKeyDown={(e) => {
-									if (e.key === "Enter" || e.key === " ") {
-										e.preventDefault();
-										onChange(option.value);
-										setOpen(false);
-									}
-								}}
-								tabIndex={0}
-							>
-								{option.value === value && (
-									<Check
-										className="h-4 w-4 text-foreground"
-										aria-hidden="true"
-									/>
-								)}
-								<span className={option.value !== value ? "pl-6" : ""}>
-									{option.label}
-								</span>
-							</div>
-						))}
-					</div>
-				</>
-			)}
-		</div>
-	);
-}
 
 export function FilterBar({
 	filters,
@@ -214,18 +120,22 @@ export function FilterBar({
 				))}
 			</div>
 
-			<Dropdown
+			<Select
+				size="md"
 				value={filters.projectId ?? ""}
 				options={projectOptions}
 				onChange={(val) => handleProjectChange(val === "" ? null : val)}
 				placeholder="All Projects"
+				label="Filter by project"
 			/>
 
-			<Dropdown
+			<Select
+				size="md"
 				value={filters.dateRange}
 				options={DATE_RANGES}
 				onChange={(val) => handleDateRangeChange(val)}
 				placeholder="All Time"
+				label="Filter by date range"
 			/>
 
 			{hasActiveFilters && (

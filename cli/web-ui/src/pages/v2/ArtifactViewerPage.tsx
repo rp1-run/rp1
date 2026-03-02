@@ -34,9 +34,11 @@ import {
 import { AnnotationSidebar } from "@/components/v2/AnnotationSidebar";
 import { ArtifactSidebar } from "@/components/v2/ArtifactSidebar";
 import { FollowModeToggle } from "@/components/v2/FollowModeToggle";
+import { KeyHints, VIEWER_HINTS } from "@/components/v2/KeyHints";
 import { NewUpdatesChip } from "@/components/v2/NewUpdatesChip";
 import { TableOfContents } from "@/components/v2/TableOfContents";
 import { useAnnotations } from "@/hooks/useAnnotations";
+import { useContextualShortcuts } from "@/hooks/useContextualShortcuts";
 import { useFollowMode } from "@/hooks/useFollowMode";
 import type { HeadingEntry } from "@/hooks/useHeadingExtraction";
 import { useIsMobile } from "@/hooks/useMediaQuery";
@@ -202,7 +204,7 @@ export function ArtifactViewerPage() {
 		() => {
 			if (typeof window === "undefined") return false;
 			const stored = sessionStorage.getItem(STORAGE_KEY_ANNOTATIONS_COLLAPSED);
-			return stored !== "true"; // Default to open
+			return stored !== "true";
 		},
 	);
 	const [sidebarDrawerOpen, setSidebarDrawerOpen] = useState(false);
@@ -269,7 +271,6 @@ export function ArtifactViewerPage() {
 					break;
 				}
 				case "line": {
-					// Line annotations are in code blocks - find the line element
 					const lineElements = document.querySelectorAll(
 						`[data-line-number="${anchor.lineNumber}"]`,
 					);
@@ -279,8 +280,6 @@ export function ArtifactViewerPage() {
 					break;
 				}
 				case "text-selection": {
-					// For text selections, we try to find the text in the document
-					// The annotation highlight should already be visible
 					const highlightElements = document.querySelectorAll(
 						`[data-annotation-id="${annotation.id}"]`,
 					);
@@ -295,7 +294,6 @@ export function ArtifactViewerPage() {
 				targetElement.scrollIntoView({ behavior: "smooth", block: "center" });
 			}
 
-			// Close mobile drawer if open
 			if (isMobile) {
 				setAnnotationDrawerOpen(false);
 			}
@@ -501,6 +499,60 @@ export function ArtifactViewerPage() {
 			document.removeEventListener("keydown", handleKeyDown);
 		};
 	}, [handleKeyDown]);
+
+	useContextualShortcuts({
+		viewId: "artifact-viewer",
+		viewLabel: "Artifact Viewer",
+		shortcuts: [
+			{
+				key: "e",
+				label: "Expand",
+				description: "Toggle table of contents",
+				action: () => {
+					handleToggleTocCollapse();
+				},
+			},
+			{
+				key: "c",
+				label: "Copy",
+				description: "Copy artifact content",
+				action: () => {
+					if (artifactContent?.content) {
+						navigator.clipboard.writeText(artifactContent.content);
+					}
+				},
+			},
+			{
+				key: "[",
+				label: "Previous",
+				description: "Previous artifact",
+				action: () => {
+					if (!run) return;
+					const currentIndex = run.artifacts.findIndex(
+						(a) => a.path === selectedArtifactPath,
+					);
+					if (currentIndex > 0) {
+						handleArtifactSelect(run.artifacts[currentIndex - 1].path);
+					}
+				},
+			},
+			{
+				key: "]",
+				label: "Next",
+				description: "Next artifact",
+				action: () => {
+					if (!run) return;
+					const currentIndex = run.artifacts.findIndex(
+						(a) => a.path === selectedArtifactPath,
+					);
+					if (currentIndex >= 0 && currentIndex < run.artifacts.length - 1) {
+						handleArtifactSelect(run.artifacts[currentIndex + 1].path);
+					}
+				},
+			},
+		],
+		enabled: !!run,
+	});
 
 	if (isLoading) {
 		return (
@@ -764,16 +816,12 @@ export function ArtifactViewerPage() {
 					</Drawer>
 				)}
 
-				<footer className="border-t px-4 py-2 text-xs text-muted-foreground">
-					Press{" "}
-					<kbd className="rounded bg-muted px-1.5 py-0.5 font-mono">h</kbd> or{" "}
-					<kbd className="rounded bg-muted px-1.5 py-0.5 font-mono">←</kbd> to
-					return to run details
+				<footer className="border-t px-4 py-2">
+					<KeyHints hints={VIEWER_HINTS} />
 				</footer>
 			</div>
 		);
 
-		// Wrap mobile content with AnnotationProvider when annotations are enabled
 		if (ANNOTATIONS_ENABLED) {
 			return (
 				<AnnotationProvider artifactPath={selectedArtifactPath}>
@@ -785,7 +833,6 @@ export function ArtifactViewerPage() {
 		return mobileContent;
 	}
 
-	// Desktop content
 	const desktopContent = (
 		<div className="flex h-full flex-col">
 			{liveRegion}
@@ -965,15 +1012,12 @@ export function ArtifactViewerPage() {
 				)}
 			</ResizablePanelGroup>
 
-			<footer className="border-t px-4 py-2 text-xs text-muted-foreground">
-				Press <kbd className="rounded bg-muted px-1.5 py-0.5 font-mono">h</kbd>{" "}
-				or <kbd className="rounded bg-muted px-1.5 py-0.5 font-mono">←</kbd> to
-				return to run details
+			<footer className="border-t px-4 py-2">
+				<KeyHints hints={VIEWER_HINTS} />
 			</footer>
 		</div>
 	);
 
-	// Wrap desktop content with AnnotationProvider when annotations are enabled
 	if (ANNOTATIONS_ENABLED) {
 		return (
 			<AnnotationProvider artifactPath={selectedArtifactPath}>

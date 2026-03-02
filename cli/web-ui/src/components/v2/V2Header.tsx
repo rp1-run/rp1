@@ -1,6 +1,5 @@
-import { HelpCircle } from "lucide-react";
-import { ProjectSwitcher } from "@/components/ProjectSwitcher";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { HelpCircle, Keyboard, Moon, Sun } from "lucide-react";
+import { useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	Tooltip,
@@ -9,6 +8,7 @@ import {
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { useTheme } from "@/providers/ThemeProvider";
 
 type ConnectionStatus = "connecting" | "connected" | "disconnected";
 
@@ -21,11 +21,10 @@ export function V2Header({ wsStatus }: V2HeaderProps) {
 		<header className="flex h-12 shrink-0 items-center justify-between border-b px-4">
 			<div className="flex items-center gap-2">
 				<Logo wsStatus={wsStatus} />
-				<span className="text-muted-foreground">/</span>
-				<ProjectSwitcher />
 			</div>
-			<div className="flex items-center gap-2">
-				<ThemeToggle />
+			<div className="flex items-center gap-1">
+				<ThemeButton />
+				<KeyboardButton />
 				<HelpButton />
 			</div>
 		</header>
@@ -45,7 +44,7 @@ function Logo({ wsStatus }: LogoProps) {
 			}
 			aria-label={`rp1 - Connection status: ${wsStatus}`}
 		>
-			<span className="text-lg font-medium">rp1</span>
+			<span className="text-lg font-medium font-mono">rp1</span>
 			<span
 				className={cn(
 					"animate-blink",
@@ -57,6 +56,64 @@ function Logo({ wsStatus }: LogoProps) {
 				_
 			</span>
 		</span>
+	);
+}
+
+function ThemeButton() {
+	const { theme, toggleTheme } = useTheme();
+	return (
+		<TooltipProvider>
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<Button
+						variant="ghost"
+						size="icon"
+						className="h-8 w-8"
+						onClick={toggleTheme}
+						aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
+					>
+						{theme === "dark" ? (
+							<Sun className="h-4 w-4" />
+						) : (
+							<Moon className="h-4 w-4" />
+						)}
+					</Button>
+				</TooltipTrigger>
+				<TooltipContent>
+					{theme === "dark" ? "Light mode" : "Dark mode"}
+				</TooltipContent>
+			</Tooltip>
+		</TooltipProvider>
+	);
+}
+
+function KeyboardButton() {
+	const openShortcutHelp = useCallback(() => {
+		window.dispatchEvent(
+			new KeyboardEvent("keydown", {
+				key: "?",
+				bubbles: true,
+			}),
+		);
+	}, []);
+
+	return (
+		<TooltipProvider>
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<Button
+						variant="ghost"
+						size="icon"
+						className="h-8 w-8"
+						onClick={openShortcutHelp}
+						aria-label="Keyboard shortcuts"
+					>
+						<Keyboard className="h-4 w-4" />
+					</Button>
+				</TooltipTrigger>
+				<TooltipContent>Keyboard shortcuts (?)</TooltipContent>
+			</Tooltip>
+		</TooltipProvider>
 	);
 }
 

@@ -1,9 +1,18 @@
+import { motion } from "framer-motion";
 import { AlertCircle, FolderOpen, RefreshCw } from "lucide-react";
 import { useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { KeyHints, NAV_HINTS } from "@/components/v2/KeyHints";
 import { ProjectCard } from "@/components/v2/ProjectCard";
 import { useKeyboardNav } from "@/hooks/useKeyboardNav";
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { useProjects, type V2Project } from "@/hooks/useProjects";
+import {
+	staggerContainer,
+	staggerContainerReduced,
+	staggerItem,
+	staggerItemReduced,
+} from "@/lib/motion-config";
 import { cn } from "@/lib/utils";
 
 const SKELETON_KEYS = ["sk-a", "sk-b", "sk-c", "sk-d", "sk-e", "sk-f"];
@@ -75,20 +84,10 @@ function ErrorState({ error, onRetry }: { error: Error; onRetry: () => void }) {
 	);
 }
 
-function KeyboardHints() {
-	return (
-		<p className="text-center text-xs text-muted-foreground">
-			<kbd className="rounded bg-muted px-1.5 py-0.5">j</kbd>/
-			<kbd className="rounded bg-muted px-1.5 py-0.5">k</kbd> navigate,{" "}
-			<kbd className="rounded bg-muted px-1.5 py-0.5">l</kbd> open,{" "}
-			<kbd className="rounded bg-muted px-1.5 py-0.5">h</kbd> back
-		</p>
-	);
-}
-
 export function ProjectsPage() {
 	const navigate = useNavigate();
 	const { projects, isLoading, error, refetch } = useProjects();
+	const reducedMotion = usePrefersReducedMotion();
 
 	const handleCardClick = useCallback(
 		(project: V2Project) => {
@@ -127,6 +126,9 @@ export function ProjectsPage() {
 		if (projects.length === 0) return;
 
 		const handleKeyDown = (e: KeyboardEvent) => {
+			if (document.querySelector('[role="dialog"][data-state="open"]')) return;
+			if (document.body.dataset.chordPending) return;
+
 			const target = e.target as HTMLElement;
 			const isTextInput =
 				target.tagName === "INPUT" ||
@@ -197,17 +199,22 @@ export function ProjectsPage() {
 					onClick={refetch}
 					disabled={isLoading}
 					className={cn(
-						"inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium transition-colors",
-						"hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+						"inline-flex items-center gap-2 rounded-md border border-border bg-muted/30 px-4 py-2 font-mono text-sm transition-colors",
+						"hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 						"disabled:cursor-not-allowed disabled:opacity-50",
 					)}
 					aria-label="Refresh projects"
 				>
-					<RefreshCw
-						className={cn("h-4 w-4", isLoading && "animate-spin")}
-						aria-hidden="true"
-					/>
-					<span className="sr-only sm:not-sr-only">Refresh</span>
+					<span className="text-terminal-green" aria-hidden="true">
+						$
+					</span>
+					<span>refresh</span>
+					{isLoading && (
+						<RefreshCw
+							className="h-3.5 w-3.5 animate-spin"
+							aria-hidden="true"
+						/>
+					)}
 				</button>
 			</header>
 
@@ -219,25 +226,33 @@ export function ProjectsPage() {
 				<EmptyState />
 			) : (
 				<>
-					{/* biome-ignore lint/a11y/useSemanticElements: div with role="list" used for grid layout incompatible with ul/li */}
-					<div
+					<motion.div
 						className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
 						role="list"
 						aria-label="Projects"
+						variants={
+							reducedMotion ? staggerContainerReduced : staggerContainer
+						}
+						initial="initial"
+						animate="animate"
 					>
 						{projects.map((project, index) => (
-							<ProjectCard
+							<motion.div
 								key={project.id}
-								project={project}
-								onCardClick={() => handleCardClick(project)}
-								onArtifactsClick={() => handleArtifactsClick(project)}
-								onRunsClick={() => handleRunsClick(project)}
-								selected={selectedIndex === index}
-							/>
+								variants={reducedMotion ? staggerItemReduced : staggerItem}
+							>
+								<ProjectCard
+									project={project}
+									onCardClick={() => handleCardClick(project)}
+									onArtifactsClick={() => handleArtifactsClick(project)}
+									onRunsClick={() => handleRunsClick(project)}
+									selected={selectedIndex === index}
+								/>
+							</motion.div>
 						))}
-					</div>
+					</motion.div>
 
-					<KeyboardHints />
+					<KeyHints hints={NAV_HINTS} />
 				</>
 			)}
 		</div>

@@ -136,7 +136,7 @@ function VirtualizedListInner<T>(
 							onClick={() => handleItemClick(item, virtualItem.index)}
 							onKeyDown={(e) => handleKeyDown(e, item, virtualItem.index)}
 							className={cn(
-								"absolute left-0 top-0 w-full cursor-pointer",
+								"absolute left-0 top-0 w-full cursor-pointer border-b border-border/50",
 								itemClassName,
 							)}
 							style={{

@@ -22,7 +22,7 @@ import type {
 import { VALID_STATUSES } from "./models.js";
 
 /** Current schema version - must match highest migration number */
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 3;
 
 /** Default database file location */
 const DEFAULT_DB_PATH = join(homedir(), ".rp1", "status.db");
@@ -37,7 +37,7 @@ const FEATURE_PATTERN = /^[a-z0-9-]+$/;
 const isValidFeatureName = (name: string): boolean =>
 	FEATURE_PATTERN.test(name);
 
-/** SQL schema for status_updates table (version 2 with extended statuses) */
+/** SQL schema for status_updates table (version 3 with run_id and expires_at) */
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS status_updates (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -47,12 +47,16 @@ CREATE TABLE IF NOT EXISTS status_updates (
     status TEXT NOT NULL CHECK(status IN ('started', 'in_progress', 'waiting-input', 'needs-review', 'completed', 'failed')),
     message TEXT,
     metadata TEXT,
-    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    run_id TEXT,
+    expires_at TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_status_project ON status_updates(project_path);
 CREATE INDEX IF NOT EXISTS idx_status_created ON status_updates(created_at);
 CREATE INDEX IF NOT EXISTS idx_status_feature ON status_updates(project_path, feature);
+CREATE INDEX IF NOT EXISTS idx_status_run_id ON status_updates(project_path, feature, run_id);
+CREATE INDEX IF NOT EXISTS idx_status_expires_at ON status_updates(expires_at);
 `;
 
 /** Get migrations directory path */
@@ -202,6 +206,8 @@ const rowToRecord = (row: {
 	message: string | null;
 	metadata: string | null;
 	created_at: string;
+	run_id: string | null;
+	expires_at: string | null;
 }): StatusUpdateRecord => ({
 	id: row.id,
 	projectPath: row.project_path,
@@ -211,6 +217,8 @@ const rowToRecord = (row: {
 	message: row.message,
 	metadata: row.metadata,
 	createdAt: row.created_at,
+	runId: row.run_id,
+	expiresAt: row.expires_at,
 });
 
 /**
@@ -230,8 +238,8 @@ export const insertStatusUpdate = (
 			TE.tryCatch(
 				async () => {
 					const stmt = db.prepare(`
-						INSERT INTO status_updates (project_path, feature, task, status, message, metadata)
-						VALUES ($projectPath, $feature, $task, $status, $message, $metadata)
+						INSERT INTO status_updates (project_path, feature, task, status, message, metadata, run_id, expires_at)
+						VALUES ($projectPath, $feature, $task, $status, $message, $metadata, $runId, $expiresAt)
 						RETURNING id, created_at
 					`);
 
@@ -242,6 +250,8 @@ export const insertStatusUpdate = (
 						$status: input.status,
 						$message: input.message ?? null,
 						$metadata: input.metadata ?? null,
+						$runId: input.runId ?? null,
+						$expiresAt: input.expiresAt ?? null,
 					}) as { id: number; created_at: string };
 
 					return {
@@ -274,7 +284,7 @@ export const queryStatusUpdates = (
 			TE.tryCatch(
 				async () => {
 					let sql = `
-						SELECT id, project_path, feature, task, status, message, metadata, created_at
+						SELECT id, project_path, feature, task, status, message, metadata, created_at, run_id, expires_at
 						FROM status_updates
 						WHERE project_path = $projectPath
 					`;
@@ -304,6 +314,8 @@ export const queryStatusUpdates = (
 						message: string | null;
 						metadata: string | null;
 						created_at: string;
+						run_id: string | null;
+						expires_at: string | null;
 					}>;
 
 					return rows.map(rowToRecord);
@@ -354,7 +366,7 @@ export const queryStatusUpdatesForFeatures = (
 					// Use window function to rank updates per feature
 					const placeholders = features.map((_, i) => `$f${i}`).join(", ");
 					const sql = `
-						SELECT id, project_path, feature, task, status, message, metadata, created_at
+						SELECT id, project_path, feature, task, status, message, metadata, created_at, run_id, expires_at
 						FROM (
 							SELECT *,
 								ROW_NUMBER() OVER (PARTITION BY feature ORDER BY created_at DESC) as rn
@@ -384,6 +396,8 @@ export const queryStatusUpdatesForFeatures = (
 						message: string | null;
 						metadata: string | null;
 						created_at: string;
+						run_id: string | null;
+						expires_at: string | null;
 					}>;
 
 					const result = new Map<string, StatusUpdateRecord[]>();
@@ -424,7 +438,7 @@ export const getLatestStatusByFeature = (
 			TE.tryCatch(
 				async () => {
 					const stmt = db.prepare(`
-						SELECT s.id, s.project_path, s.feature, s.task, s.status, s.message, s.metadata, s.created_at
+						SELECT s.id, s.project_path, s.feature, s.task, s.status, s.message, s.metadata, s.created_at, s.run_id, s.expires_at
 						FROM status_updates s
 						INNER JOIN (
 							SELECT feature, MAX(created_at) as max_created
@@ -445,6 +459,8 @@ export const getLatestStatusByFeature = (
 						message: string | null;
 						metadata: string | null;
 						created_at: string;
+						run_id: string | null;
+						expires_at: string | null;
 					}>;
 
 					return rows.map(rowToRecord);
@@ -496,7 +512,7 @@ export const getRecentlyCompletedTasks = (
 			TE.tryCatch(
 				async () => {
 					const stmt = db.prepare(`
-						SELECT id, project_path, feature, task, status, message, metadata, created_at
+						SELECT id, project_path, feature, task, status, message, metadata, created_at, run_id, expires_at
 						FROM status_updates
 						WHERE project_path = $projectPath
 						AND status = 'completed'
@@ -517,6 +533,8 @@ export const getRecentlyCompletedTasks = (
 						message: string | null;
 						metadata: string | null;
 						created_at: string;
+						run_id: string | null;
+						expires_at: string | null;
 					}>;
 
 					return rows.map(rowToRecord);
@@ -654,7 +672,7 @@ export const queryAllLatestStatuses = (
 
 					// Then, get paginated records
 					let dataSql = `
-						SELECT s.id, s.project_path, s.feature, s.task, s.status, s.message, s.metadata, s.created_at
+						SELECT s.id, s.project_path, s.feature, s.task, s.status, s.message, s.metadata, s.created_at, s.run_id, s.expires_at
 						FROM status_updates s
 						INNER JOIN (
 							SELECT project_path, feature, MAX(created_at) as max_created
@@ -687,6 +705,8 @@ export const queryAllLatestStatuses = (
 						message: string | null;
 						metadata: string | null;
 						created_at: string;
+						run_id: string | null;
+						expires_at: string | null;
 					}>;
 
 					return {
@@ -723,7 +743,7 @@ export const queryAllStatusUpdatesForFeature = (
 			TE.tryCatch(
 				async () => {
 					const stmt = db.prepare(`
-						SELECT id, project_path, feature, task, status, message, metadata, created_at
+						SELECT id, project_path, feature, task, status, message, metadata, created_at, run_id, expires_at
 						FROM status_updates
 						WHERE project_path = $projectPath AND feature = $feature
 						ORDER BY created_at ASC
@@ -741,6 +761,8 @@ export const queryAllStatusUpdatesForFeature = (
 						message: string | null;
 						metadata: string | null;
 						created_at: string;
+						run_id: string | null;
+						expires_at: string | null;
 					}>;
 
 					return rows.map(rowToRecord);
@@ -770,7 +792,7 @@ export const queryStatusUpdateById = (
 			TE.tryCatch(
 				async () => {
 					const stmt = db.prepare(`
-						SELECT id, project_path, feature, task, status, message, metadata, created_at
+						SELECT id, project_path, feature, task, status, message, metadata, created_at, run_id, expires_at
 						FROM status_updates
 						WHERE id = $id
 					`);
@@ -784,6 +806,8 @@ export const queryStatusUpdateById = (
 						message: string | null;
 						metadata: string | null;
 						created_at: string;
+						run_id: string | null;
+						expires_at: string | null;
 					} | null;
 
 					return row ? rowToRecord(row) : null;
@@ -860,6 +884,197 @@ export const getProjectRunStats = (
 				(error) =>
 					runtimeError(
 						`Failed to get project run stats: ${error instanceof Error ? error.message : String(error)}`,
+					),
+			),
+		),
+	);
+
+/**
+ * Query the current workflow state for a feature/run combination.
+ * Used by transition validation to determine the current position in a state machine.
+ *
+ * Filters out expired rows (on-read pruning) so stale runs from crashed agents
+ * are invisible. NULL expires_at rows are always included (backward compat).
+ *
+ * @param projectPath - Project path to filter by
+ * @param feature - Feature identifier
+ * @param runId - Optional run ID for per-invocation isolation (BR-007: no runId = latest-by-timestamp)
+ * @param dbPath - Database file path (optional)
+ * @returns TaskEither with current task (workflow state) or null if no current state
+ */
+export const getCurrentWorkflowState = (
+	projectPath: string,
+	feature: string,
+	runId?: string,
+	dbPath?: string,
+): TE.TaskEither<CLIError, string | null> =>
+	pipe(
+		getDatabase(dbPath),
+		TE.chain((db) =>
+			TE.tryCatch(
+				async () => {
+					const params: Record<string, string> = {
+						$projectPath: projectPath,
+						$feature: feature,
+					};
+
+					let runIdClause: string;
+					if (runId) {
+						runIdClause = "AND (run_id = $runId OR run_id IS NULL)";
+						params.$runId = runId;
+					} else {
+						runIdClause = "";
+					}
+
+					const sql = `
+						SELECT task FROM status_updates
+						WHERE project_path = $projectPath
+						AND feature = $feature
+						${runIdClause}
+						AND (expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now') OR expires_at IS NULL)
+						ORDER BY created_at DESC LIMIT 1
+					`;
+
+					const row = db.prepare(sql).get(params) as {
+						task: string | null;
+					} | null;
+					return row?.task ?? null;
+				},
+				(error) =>
+					runtimeError(
+						`Failed to query current workflow state: ${error instanceof Error ? error.message : String(error)}`,
+					),
+			),
+		),
+	);
+
+/**
+ * Result of a cleanup operation.
+ * Contains the number of deleted rows and affected runs.
+ */
+export interface CleanupResult {
+	readonly deletedRows: number;
+	readonly affectedRuns: number;
+}
+
+/**
+ * Count expired runs for dry-run reporting.
+ * A run is considered expired when its latest row has expired.
+ *
+ * @param olderThanHours - Only count runs whose expires_at is at least N hours in the past (0 = any expired)
+ * @param dbPath - Database file path (optional)
+ * @returns TaskEither with CleanupResult (count only, no deletion)
+ */
+export const countExpiredRuns = (
+	olderThanHours: number,
+	dbPath?: string,
+): TE.TaskEither<CLIError, CleanupResult> =>
+	pipe(
+		getDatabase(dbPath),
+		TE.chain((db) =>
+			TE.tryCatch(
+				async () => {
+					const hoursClause =
+						olderThanHours > 0 ? `'-${olderThanHours} hours'` : "'0 seconds'";
+
+					const countRunsSql = `
+						SELECT COUNT(DISTINCT run_id) as run_count
+						FROM status_updates
+						WHERE run_id IS NOT NULL
+						AND expires_at IS NOT NULL
+						AND expires_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ${hoursClause})
+					`;
+
+					const countRowsSql = `
+						SELECT COUNT(*) as row_count
+						FROM status_updates
+						WHERE run_id IN (
+							SELECT DISTINCT run_id FROM status_updates
+							WHERE run_id IS NOT NULL
+							AND expires_at IS NOT NULL
+							AND expires_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ${hoursClause})
+						)
+					`;
+
+					const runResult = db.prepare(countRunsSql).get() as {
+						run_count: number;
+					};
+					const rowResult = db.prepare(countRowsSql).get() as {
+						row_count: number;
+					};
+
+					return {
+						deletedRows: rowResult.row_count,
+						affectedRuns: runResult.run_count,
+					};
+				},
+				(error) =>
+					runtimeError(
+						`Failed to count expired runs: ${error instanceof Error ? error.message : String(error)}`,
+					),
+			),
+		),
+	);
+
+/**
+ * Delete all rows belonging to expired runs.
+ * A run is expired when its latest row has an expires_at in the past.
+ * Deletes entire runs (all rows sharing a run_id), not individual rows.
+ *
+ * Rows with NULL run_id or NULL expires_at are never touched.
+ *
+ * @param olderThanHours - Only delete runs whose expires_at is at least N hours in the past (0 = any expired)
+ * @param dbPath - Database file path (optional)
+ * @returns TaskEither with CleanupResult
+ */
+export const deleteExpiredRuns = (
+	olderThanHours: number,
+	dbPath?: string,
+): TE.TaskEither<CLIError, CleanupResult> =>
+	pipe(
+		getDatabase(dbPath),
+		TE.chain((db) =>
+			TE.tryCatch(
+				async () => {
+					const hoursClause =
+						olderThanHours > 0 ? `'-${olderThanHours} hours'` : "'0 seconds'";
+
+					const countRunsSql = `
+						SELECT COUNT(DISTINCT run_id) as run_count
+						FROM status_updates
+						WHERE run_id IS NOT NULL
+						AND expires_at IS NOT NULL
+						AND expires_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ${hoursClause})
+					`;
+
+					const runResult = db.prepare(countRunsSql).get() as {
+						run_count: number;
+					};
+					const affectedRuns = runResult.run_count;
+
+					const deleteSql = `
+						DELETE FROM status_updates
+						WHERE run_id IN (
+							SELECT DISTINCT run_id FROM status_updates
+							WHERE run_id IS NOT NULL
+							AND expires_at IS NOT NULL
+							AND expires_at < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ${hoursClause})
+						)
+					`;
+
+					const stmt = db.prepare(deleteSql);
+					const result = stmt.run();
+					const deletedRows =
+						typeof result.changes === "number" ? result.changes : 0;
+
+					return {
+						deletedRows,
+						affectedRuns,
+					};
+				},
+				(error) =>
+					runtimeError(
+						`Failed to delete expired runs: ${error instanceof Error ? error.message : String(error)}`,
 					),
 			),
 		),
