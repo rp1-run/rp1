@@ -4,10 +4,9 @@
  */
 
 import { Database } from "bun:sqlite";
-import { mkdir, readdir } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../../shared/errors.js";
@@ -60,10 +59,48 @@ CREATE INDEX IF NOT EXISTS idx_status_run_id ON status_updates(project_path, fea
 CREATE INDEX IF NOT EXISTS idx_status_expires_at ON status_updates(expires_at);
 `;
 
-/** Get migrations directory path */
-const getMigrationsDir = (): string => {
-	const currentDir = dirname(fileURLToPath(import.meta.url));
-	return join(currentDir, "migrations");
+/**
+ * Inline migration SQL registry.
+ * Embedded as constants so they work in Bun-compiled binaries where
+ * runtime filesystem reads against import.meta.url resolve to $bunfs
+ * and the .sql files don't exist.
+ *
+ * Version 1 is the initial schema created by SCHEMA_SQL above.
+ */
+const MIGRATIONS: Record<number, string> = {
+	2: `-- Migration: Add waiting-input and needs-review status values
+CREATE TABLE status_updates_new (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_path TEXT NOT NULL,
+    feature TEXT NOT NULL,
+    task TEXT,
+    status TEXT NOT NULL CHECK(status IN ('started', 'in_progress', 'waiting-input', 'needs-review', 'completed', 'failed')),
+    message TEXT,
+    metadata TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+INSERT INTO status_updates_new (id, project_path, feature, task, status, message, metadata, created_at)
+SELECT id, project_path, feature, task, status, message, metadata, created_at
+FROM status_updates;
+
+DROP TABLE status_updates;
+
+ALTER TABLE status_updates_new RENAME TO status_updates;
+
+CREATE INDEX idx_status_project ON status_updates(project_path);
+CREATE INDEX idx_status_created ON status_updates(created_at);
+CREATE INDEX idx_status_feature ON status_updates(project_path, feature);`,
+
+	3: `-- Migration: Add run_id and expires_at columns
+ALTER TABLE status_updates ADD COLUMN run_id TEXT;
+ALTER TABLE status_updates ADD COLUMN expires_at TEXT;
+
+CREATE INDEX idx_status_run_id ON status_updates(project_path, feature, run_id);
+CREATE INDEX idx_status_expires_at ON status_updates(expires_at);`,
+
+	4: `-- Migration: Add workflow column
+ALTER TABLE status_updates ADD COLUMN workflow TEXT;`,
 };
 
 /** Get current database schema version from PRAGMA user_version */
@@ -82,36 +119,27 @@ const setSchemaVersion = (db: Database, version: number): void => {
 /**
  * Run all pending migrations atomically.
  * Each migration runs in a transaction for atomicity.
+ * Reads SQL from the inline MIGRATIONS map (no filesystem access).
  *
  * @param db - Database connection
- * @returns Promise that resolves when all migrations complete
  */
-const runMigrations = async (db: Database): Promise<void> => {
+const runMigrations = (db: Database): void => {
 	const currentVersion = getSchemaVersion(db);
 
 	if (currentVersion >= CURRENT_SCHEMA_VERSION) {
 		return;
 	}
 
-	const migrationsDir = getMigrationsDir();
-	const files = await readdir(migrationsDir);
-	const migrationFiles = files.filter((f) => f.endsWith(".sql")).sort();
-
 	for (let v = currentVersion + 1; v <= CURRENT_SCHEMA_VERSION; v++) {
-		const migrationFile = migrationFiles.find((f) =>
-			f.startsWith(`${v.toString().padStart(3, "0")}_`),
-		);
-
-		if (!migrationFile) {
-			throw new Error(`Migration file for version ${v} not found`);
+		const migrationSql = MIGRATIONS[v];
+		if (!migrationSql) {
+			throw new Error(
+				`Migration SQL for version ${v} not found in MIGRATIONS map`,
+			);
 		}
 
 		console.log(`Running migration to schema version ${v}...`);
 
-		const migrationPath = join(migrationsDir, migrationFile);
-		const migrationSql = await Bun.file(migrationPath).text();
-
-		// Execute migration atomically in a transaction
 		db.transaction(() => {
 			db.exec(migrationSql);
 			setSchemaVersion(db, v);
@@ -182,7 +210,7 @@ const getDatabase = (
 				setSchemaVersion(db, CURRENT_SCHEMA_VERSION);
 			} else {
 				// Existing database - run any pending migrations
-				await runMigrations(db);
+				runMigrations(db);
 			}
 
 			dbInstance = db;
