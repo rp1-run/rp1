@@ -3,7 +3,7 @@
  * Handles starting, stopping, and connecting to the background daemon service.
  */
 
-import { spawn } from "node:child_process";
+import { execSync, spawn } from "node:child_process";
 import { readFile, unlink, writeFile } from "node:fs/promises";
 import { ensureConfigDir, getPidFilePath } from "./config-dir";
 import {
@@ -45,6 +45,21 @@ const HEALTH_CHECK_TIMEOUT_MS = 5000;
  * Interval between health check polls.
  */
 const HEALTH_CHECK_INTERVAL_MS = 100;
+
+/**
+ * Time to wait for graceful exit after SIGTERM before escalating to SIGKILL.
+ */
+const STOP_GRACEFUL_TIMEOUT_MS = 3000;
+
+/**
+ * Time to wait for process exit after SIGKILL.
+ */
+const STOP_KILL_TIMEOUT_MS = 2000;
+
+/**
+ * Interval between process exit polls.
+ */
+const PROCESS_EXIT_POLL_INTERVAL_MS = 100;
 
 /**
  * Read and parse the PID file.
@@ -95,12 +110,45 @@ async function removePidFile(): Promise<void> {
  * Check if a process is running by PID.
  * Uses kill -0 which checks if process exists without sending a signal.
  */
-function isProcessRunning(pid: number): boolean {
+export function isProcessRunning(pid: number): boolean {
 	try {
 		process.kill(pid, 0);
 		return true;
 	} catch {
 		return false;
+	}
+}
+
+/**
+ * Wait for a process to exit by actively polling.
+ * Returns true if the process exited within the timeout, false otherwise.
+ */
+export async function waitForProcessExit(
+	pid: number,
+	timeoutMs: number,
+): Promise<boolean> {
+	const start = Date.now();
+	while (Date.now() - start < timeoutMs) {
+		if (!isProcessRunning(pid)) return true;
+		await new Promise((resolve) =>
+			setTimeout(resolve, PROCESS_EXIT_POLL_INTERVAL_MS),
+		);
+	}
+	return !isProcessRunning(pid);
+}
+
+/**
+ * Force-kill a process. Uses SIGKILL on Unix, taskkill /F on Windows.
+ */
+export function forceKillProcess(pid: number): void {
+	try {
+		if (process.platform === "win32") {
+			execSync(`taskkill /F /PID ${pid}`, { stdio: "ignore" });
+		} else {
+			process.kill(pid, "SIGKILL");
+		}
+	} catch {
+		// Process may have already exited
 	}
 }
 
@@ -199,11 +247,21 @@ export async function ensureDaemon(
 			const health = await checkHealth(conn);
 
 			if (health) {
+				if (pidData.port !== port) {
+					console.error(
+						`[rp1] Daemon already running on port ${pidData.port} (requested ${port}). Using existing daemon.`,
+					);
+				}
 				return { connection: conn, wasRunning: true };
 			}
 
 			const healthy = await waitForHealth(conn, 2000);
 			if (healthy) {
+				if (pidData.port !== port) {
+					console.error(
+						`[rp1] Daemon already running on port ${pidData.port} (requested ${port}). Using existing daemon.`,
+					);
+				}
 				return { connection: conn, wasRunning: true };
 			}
 		}
@@ -242,30 +300,37 @@ export async function ensureDaemon(
 }
 
 /**
- * Stop the running daemon.
+ * Stop the running daemon with SIGTERM -> SIGKILL escalation.
  */
 export async function stopDaemon(): Promise<boolean> {
 	const pidData = await readPidFile();
 
 	if (!pidData) {
-		return false; // No daemon running
+		return false;
 	}
 
 	const conn = createConnection(pidData.port);
+	await stopDaemonIpc(conn);
 
-	const stopped = await stopDaemonIpc(conn);
-
-	if (!stopped && isProcessRunning(pidData.pid)) {
+	if (isProcessRunning(pidData.pid)) {
 		try {
 			process.kill(pidData.pid, "SIGTERM");
 		} catch {
-			// Ignore kill errors
+			// Process may have already exited
+		}
+
+		const exited = await waitForProcessExit(
+			pidData.pid,
+			STOP_GRACEFUL_TIMEOUT_MS,
+		);
+
+		if (!exited) {
+			forceKillProcess(pidData.pid);
+			await waitForProcessExit(pidData.pid, STOP_KILL_TIMEOUT_MS);
 		}
 	}
 
-	await new Promise((resolve) => setTimeout(resolve, 500));
 	await removePidFile();
-
 	return true;
 }
 
@@ -289,13 +354,18 @@ export async function getStatus(): Promise<DaemonStatus> {
 }
 
 /**
- * Restart the daemon.
+ * Restart the daemon. Ensures old process is fully terminated before starting new one.
  */
 export async function restartDaemon(
 	port: number = DEFAULT_PORT,
 ): Promise<DaemonStartResult> {
+	const pidData = await readPidFile();
 	await stopDaemon();
-	await new Promise((resolve) => setTimeout(resolve, 1000));
+
+	if (pidData && isProcessRunning(pidData.pid)) {
+		await waitForProcessExit(pidData.pid, STOP_KILL_TIMEOUT_MS);
+	}
+
 	return ensureDaemon(port);
 }
 

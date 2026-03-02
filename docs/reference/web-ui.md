@@ -5,10 +5,10 @@ The rp1 web UI provides a browser-based interface for viewing documentation and 
 ## Launching the Web UI
 
 ```bash
-rp1 view
+rp1 arcade
 ```
 
-This opens the documentation viewer at `http://localhost:7710`.
+This opens the dashboard at `http://localhost:7710`.
 
 ---
 

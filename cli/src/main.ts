@@ -13,6 +13,7 @@ const version =
 
 import { createLogger, type Logger, LogLevel } from "../shared/logger.js";
 import { detectRuntime } from "../shared/runtime.js";
+import { arcadeCommand } from "./commands/arcade.js";
 import { allDeprecatedCommands } from "./commands/deprecated/index.js";
 import { initCommand } from "./commands/init.js";
 import { installParentCommand } from "./commands/install/index.js";
@@ -21,7 +22,6 @@ import { settingsCommand } from "./commands/settings.js";
 import { uninstallCommand } from "./commands/uninstall.js";
 import { updateCommand } from "./commands/update/index.js";
 import { verifyCommand } from "./commands/verify/index.js";
-import { viewCommand } from "./commands/view.js";
 
 /**
  * Check if agent-tools command is being invoked.
@@ -193,7 +193,7 @@ program.hook("preAction", (thisCommand) => {
 	thisCommand._isTTY = isTTY;
 });
 
-program.addCommand(viewCommand, { hidden: true });
+program.addCommand(arcadeCommand);
 
 program.addCommand(installParentCommand);
 program.addCommand(verifyCommand);

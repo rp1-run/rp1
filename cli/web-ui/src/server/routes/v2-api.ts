@@ -823,7 +823,6 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 
 		const { records, total: dbTotal } = result.right;
 
-		// Convert records to Run objects
 		let runs: Run[] = [];
 		for (const record of records) {
 			const project = projectByPath.get(record.projectPath);
@@ -837,7 +836,6 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 		if (statusFilter === "running") {
 			runs = runs.filter((r) => r.status === "running");
 			total = runs.length;
-			// Apply pagination after filtering
 			runs = runs.slice(offset, offset + limit);
 		}
 
@@ -885,7 +883,6 @@ export async function handleV2RunsAttentionRequest(): Promise<Response> {
 
 		const { records } = result.right;
 
-		// Convert records to Run objects
 		const allRuns: Run[] = [];
 		for (const record of records) {
 			const project = projectByPath.get(record.projectPath);

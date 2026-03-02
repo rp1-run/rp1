@@ -127,13 +127,20 @@ export const checkWritePermissions = (
 
 /**
  * Register rp1-base-hooks plugin in opencode.json.
- * Adds "./plugin/rp1-base-hooks" to the plugin array.
+ * Uses file:// URL with absolute path (required by OpenCode's plugin loader).
  */
 export const registerRp1HooksPlugin = (): TE.TaskEither<CLIError, boolean> =>
 	TE.tryCatch(
 		async () => {
 			const configDir = join(homedir(), ".config", "opencode");
 			const configPath = join(configDir, "opencode.json");
+			const pluginPath = join(
+				configDir,
+				"plugins",
+				"rp1-base-hooks",
+				"index.ts",
+			);
+			const pluginRef = `file://${pluginPath}`;
 
 			await mkdir(configDir, { recursive: true });
 
@@ -154,7 +161,19 @@ export const registerRp1HooksPlugin = (): TE.TaskEither<CLIError, boolean> =>
 			}
 
 			const plugins = config.plugin as string[];
-			const pluginRef = "./plugin/rp1-base-hooks";
+
+			// Migrate old-style references to file:// URLs
+			const oldIndex = plugins.findIndex(
+				(p) =>
+					String(p).includes("rp1-base-hooks") &&
+					!String(p).startsWith("file://"),
+			);
+			if (oldIndex >= 0) {
+				plugins[oldIndex] = pluginRef;
+				await writeFile(configPath, JSON.stringify(config, null, 2));
+				return true;
+			}
+
 			const alreadyPresent = plugins.some((p) =>
 				String(p).includes("rp1-base-hooks"),
 			);
@@ -171,7 +190,7 @@ export const registerRp1HooksPlugin = (): TE.TaskEither<CLIError, boolean> =>
 			prerequisiteError(
 				"register-hooks-plugin",
 				`Failed to register rp1-base-hooks: ${e}`,
-				"Manually add './plugin/rp1-base-hooks' to ~/.config/opencode/opencode.json plugins array",
+				"Manually add 'file:///path/to/plugins/rp1-base-hooks/index.ts' to ~/.config/opencode/opencode.json plugins array",
 			),
 	);
 

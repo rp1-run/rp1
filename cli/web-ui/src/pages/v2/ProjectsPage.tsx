@@ -44,8 +44,8 @@ function EmptyState() {
 				No projects registered
 			</h2>
 			<p className="text-center text-sm text-muted-foreground">
-				Run <code className="rounded bg-muted px-1.5 py-0.5">rp1 view</code> in
-				a project directory to register it.
+				Run <code className="rounded bg-muted px-1.5 py-0.5">rp1 arcade</code>{" "}
+				in a project directory to register it.
 			</p>
 		</div>
 	);

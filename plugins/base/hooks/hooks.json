@@ -1,5 +1,5 @@
 {
-  "description": "rp1 version update notification hook",
+  "description": "rp1 session hooks: update check and arcade daemon",
   "hooks": {
     "SessionStart": [
       {
@@ -7,6 +7,15 @@
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/check-update.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "rp1 arcade --no-open 2>/dev/null || true",
             "timeout": 10
           }
         ]

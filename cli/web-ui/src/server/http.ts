@@ -41,6 +41,7 @@ export function startServer(config: ServerConfig): AppServer {
 		startTime,
 		websocketHub,
 		fileWatcherPool,
+		webUIDir,
 		shutdownCallback: () => {
 			serverInstance.stop();
 		},

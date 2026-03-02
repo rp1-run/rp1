@@ -199,7 +199,7 @@ export const formatError = (error: CLIError, color = true): string => {
 		case "PortInUseError":
 			return format(
 				`Port ${error.port} is already in use`,
-				`Try using a different port: rp1 view --port ${error.port + 1}`,
+				`Try using a different port: rp1 arcade --port ${error.port + 1}`,
 			);
 		case "RuntimeError":
 			return format(error.message);

@@ -1,10 +1,10 @@
 export {
+	type ArcadeConfig,
 	type CLIConfig,
 	findRp1Root,
-	loadViewConfig,
-	parseViewArgs,
+	loadArcadeConfig,
+	parseArcadeArgs,
 	resolveRp1Root,
-	type ViewConfig,
 } from "./config.js";
 
 export {

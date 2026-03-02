@@ -214,13 +214,13 @@ export const verifyInstallation = (
 			}
 
 			// Check plugins
-			const pluginDir = join(configDir, "plugin");
+			const pluginDir = join(configDir, "plugins");
 			const expectedPlugins = ["rp1-base-hooks"];
 			let pluginsFound = 0;
 			const missingPluginNames: string[] = [];
 
 			for (const pluginName of expectedPlugins) {
-				const pluginPath = join(pluginDir, pluginName);
+				const pluginPath = join(pluginDir, `${pluginName}.ts`);
 				try {
 					await stat(pluginPath);
 					pluginsFound++;

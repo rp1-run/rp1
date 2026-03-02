@@ -15,7 +15,7 @@ The rp1 CLI provides tools for setup and management outside of AI assistant sess
 | `install:opencode` | Install plugins for OpenCode |
 | `build` | Build plugin packages from source |
 | `self-update` | Update the rp1 CLI to the latest version |
-| `view` | View documentation in web browser |
+| `arcade` | Launch web dashboard |
 
 [:octicons-arrow-right-24: CLI Reference](cli/init.md)
 

@@ -6,7 +6,7 @@ React-based web interface for the rp1 plugin system. Provides documentation view
 
 ```bash
 # From project root, launch the web UI
-rp1 view
+rp1 arcade
 
 # Opens http://localhost:3000
 ```

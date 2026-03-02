@@ -28,7 +28,10 @@ export {
 	connectToDaemon,
 	type DaemonStartResult,
 	ensureDaemon,
+	forceKillProcess,
 	getStatus,
+	isProcessRunning,
 	restartDaemon,
 	stopDaemon,
+	waitForProcessExit,
 } from "./manager";
