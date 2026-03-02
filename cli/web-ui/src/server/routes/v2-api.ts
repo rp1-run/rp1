@@ -88,10 +88,17 @@ function humanizeFeatureName(featureId: string): string {
 }
 
 /**
- * Extract command from metadata JSON if present.
- * Falls back to "/build" as the default command.
+ * Extract command from workflow column or metadata JSON.
+ * Prefers the persisted workflow column; falls back to metadata JSON parsing;
+ * ultimately defaults to "/build".
  */
-function extractCommand(metadata: string | null): string {
+function extractCommand(
+	metadata: string | null,
+	workflow?: string | null,
+): string {
+	if (workflow) {
+		return `/${workflow}`;
+	}
 	if (!metadata) {
 		return "/build";
 	}
@@ -159,7 +166,7 @@ function recordToRun(record: StatusUpdateRecord, project: ProjectEntry): Run {
 		projectName: project.name,
 		featureId: record.feature,
 		featureName: humanizeFeatureName(record.feature),
-		command: extractCommand(record.metadata),
+		command: extractCommand(record.metadata, record.workflow),
 		status,
 		currentStep: null,
 		steps: [],
@@ -571,7 +578,7 @@ async function buildDetailedRun(
 	project: ProjectEntry,
 	artifacts: readonly Artifact[],
 ): Promise<Run> {
-	const command = extractCommand(record.metadata);
+	const command = extractCommand(record.metadata, record.workflow);
 	const events = deriveEvents(allRecords);
 	const steps = await deriveSteps(allRecords, command);
 	const status = await deriveRunStatus(allRecords, command);
