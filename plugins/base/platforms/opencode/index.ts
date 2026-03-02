@@ -1,8 +1,8 @@
 /**
- * rp1 version check plugin for OpenCode
+ * rp1 session plugin for OpenCode
  *
- * Checks for rp1 updates on session startup and shows a toast notification
- * when an update is available.
+ * Launches arcade daemon and checks for updates on session startup.
+ * Auto-discovered from ~/.config/opencode/plugins/ directory.
  *
  * Environment variables:
  *   RP1_BINARY - Path to rp1 binary (default: "rp1" from PATH)
@@ -10,66 +10,28 @@
 
 import { execSync } from "child_process";
 
-interface PluginInput {
-  client: {
-    tui: {
-      showToast: (options: {
-        body: {
-          title?: string;
-          message: string;
-          variant: "info" | "success" | "warning" | "error";
-          duration?: number;
-        };
-      }) => Promise<boolean>;
-    };
-  };
-  project: {
-    id: string;
-    worktree: string;
-  };
-  directory: string;
-  worktree: string;
-}
-
-interface Event {
-  type: string;
-}
-
-interface Hooks {
-  event?: (input: { event: Event }) => Promise<void>;
-}
-
-interface CheckUpdateResponse {
-  current_version: string;
-  latest_version: string | null;
-  update_available: boolean;
-}
-
 const TIMEOUT_MS = 8000;
 
-export const Rp1UpdateCheck = async (context: PluginInput): Promise<Hooks> => {
-  const client = context.client;
-
+export const Rp1Plugin = async (_ctx: any) => {
   return {
-    event: async (input: { event: Event }) => {
-      // Only check on session.created
+    event: async (input: { event: { type: string } }) => {
       if (input.event.type !== "session.created") {
         return;
       }
 
-      // Use RP1_BINARY env var with fallback to system rp1
       const rp1Binary = process.env.RP1_BINARY || "rp1";
 
-      // Launch arcade daemon silently (before update check)
+      // Launch arcade daemon silently
       try {
         execSync(rp1Binary + " arcade --no-open", {
           timeout: 5000,
           stdio: ["pipe", "pipe", "pipe"],
         });
       } catch {
-        // Silent fail - rp1 not on PATH, not in rp1 project, or timeout
+        // Silent fail
       }
 
+      // Check for updates
       try {
         const result = execSync(rp1Binary + " check-update --json", {
           timeout: TIMEOUT_MS,
@@ -77,21 +39,16 @@ export const Rp1UpdateCheck = async (context: PluginInput): Promise<Hooks> => {
           stdio: ["pipe", "pipe", "pipe"],
         });
 
-        const data: CheckUpdateResponse = JSON.parse(result);
+        const data = JSON.parse(result);
 
         if (data.update_available && data.latest_version) {
-          await client.tui.showToast({
-            body: {
-              title: "rp1 Update Available",
-              message: "v" + data.current_version + " → v" + data.latest_version + ". Run /self-update",
-              variant: "info",
-              duration: 8000,
-            },
-          });
+          // Use console to show update notice (visible in OpenCode logs)
+          console.log(
+            `[rp1] Update available: v${data.current_version} → v${data.latest_version}. Run /self-update`,
+          );
         }
       } catch {
-        // Graceful degradation - don't block session on errors
-        // Errors: rp1 not found, network timeout, JSON parse failure
+        // Graceful degradation
       }
     },
   };
