@@ -22,7 +22,7 @@ import type {
 import { VALID_STATUSES } from "./models.js";
 
 /** Current schema version - must match highest migration number */
-export const CURRENT_SCHEMA_VERSION = 3;
+export const CURRENT_SCHEMA_VERSION = 4;
 
 /** Default database file location */
 const DEFAULT_DB_PATH = join(homedir(), ".rp1", "status.db");
@@ -37,7 +37,7 @@ const FEATURE_PATTERN = /^[a-z0-9-]+$/;
 const isValidFeatureName = (name: string): boolean =>
 	FEATURE_PATTERN.test(name);
 
-/** SQL schema for status_updates table (version 3 with run_id and expires_at) */
+/** SQL schema for status_updates table (version 4 with workflow column) */
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS status_updates (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -49,7 +49,8 @@ CREATE TABLE IF NOT EXISTS status_updates (
     metadata TEXT,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     run_id TEXT,
-    expires_at TEXT
+    expires_at TEXT,
+    workflow TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_status_project ON status_updates(project_path);
@@ -208,6 +209,7 @@ const rowToRecord = (row: {
 	created_at: string;
 	run_id: string | null;
 	expires_at: string | null;
+	workflow: string | null;
 }): StatusUpdateRecord => ({
 	id: row.id,
 	projectPath: row.project_path,
@@ -219,6 +221,7 @@ const rowToRecord = (row: {
 	createdAt: row.created_at,
 	runId: row.run_id,
 	expiresAt: row.expires_at,
+	workflow: row.workflow,
 });
 
 /**
@@ -238,8 +241,8 @@ export const insertStatusUpdate = (
 			TE.tryCatch(
 				async () => {
 					const stmt = db.prepare(`
-						INSERT INTO status_updates (project_path, feature, task, status, message, metadata, run_id, expires_at)
-						VALUES ($projectPath, $feature, $task, $status, $message, $metadata, $runId, $expiresAt)
+						INSERT INTO status_updates (project_path, feature, task, status, message, metadata, run_id, expires_at, workflow)
+						VALUES ($projectPath, $feature, $task, $status, $message, $metadata, $runId, $expiresAt, $workflow)
 						RETURNING id, created_at
 					`);
 
@@ -252,6 +255,7 @@ export const insertStatusUpdate = (
 						$metadata: input.metadata ?? null,
 						$runId: input.runId ?? null,
 						$expiresAt: input.expiresAt ?? null,
+						$workflow: input.workflow ?? null,
 					}) as { id: number; created_at: string };
 
 					return {
@@ -284,7 +288,7 @@ export const queryStatusUpdates = (
 			TE.tryCatch(
 				async () => {
 					let sql = `
-						SELECT id, project_path, feature, task, status, message, metadata, created_at, run_id, expires_at
+						SELECT id, project_path, feature, task, status, message, metadata, created_at, run_id, expires_at, workflow
 						FROM status_updates
 						WHERE project_path = $projectPath
 					`;
@@ -316,6 +320,7 @@ export const queryStatusUpdates = (
 						created_at: string;
 						run_id: string | null;
 						expires_at: string | null;
+						workflow: string | null;
 					}>;
 
 					return rows.map(rowToRecord);
@@ -366,7 +371,7 @@ export const queryStatusUpdatesForFeatures = (
 					// Use window function to rank updates per feature
 					const placeholders = features.map((_, i) => `$f${i}`).join(", ");
 					const sql = `
-						SELECT id, project_path, feature, task, status, message, metadata, created_at, run_id, expires_at
+						SELECT id, project_path, feature, task, status, message, metadata, created_at, run_id, expires_at, workflow
 						FROM (
 							SELECT *,
 								ROW_NUMBER() OVER (PARTITION BY feature ORDER BY created_at DESC) as rn
@@ -398,6 +403,7 @@ export const queryStatusUpdatesForFeatures = (
 						created_at: string;
 						run_id: string | null;
 						expires_at: string | null;
+						workflow: string | null;
 					}>;
 
 					const result = new Map<string, StatusUpdateRecord[]>();
@@ -438,7 +444,7 @@ export const getLatestStatusByFeature = (
 			TE.tryCatch(
 				async () => {
 					const stmt = db.prepare(`
-						SELECT s.id, s.project_path, s.feature, s.task, s.status, s.message, s.metadata, s.created_at, s.run_id, s.expires_at
+						SELECT s.id, s.project_path, s.feature, s.task, s.status, s.message, s.metadata, s.created_at, s.run_id, s.expires_at, s.workflow
 						FROM status_updates s
 						INNER JOIN (
 							SELECT feature, MAX(created_at) as max_created
@@ -461,6 +467,7 @@ export const getLatestStatusByFeature = (
 						created_at: string;
 						run_id: string | null;
 						expires_at: string | null;
+						workflow: string | null;
 					}>;
 
 					return rows.map(rowToRecord);
@@ -512,7 +519,7 @@ export const getRecentlyCompletedTasks = (
 			TE.tryCatch(
 				async () => {
 					const stmt = db.prepare(`
-						SELECT id, project_path, feature, task, status, message, metadata, created_at, run_id, expires_at
+						SELECT id, project_path, feature, task, status, message, metadata, created_at, run_id, expires_at, workflow
 						FROM status_updates
 						WHERE project_path = $projectPath
 						AND status = 'completed'
@@ -535,6 +542,7 @@ export const getRecentlyCompletedTasks = (
 						created_at: string;
 						run_id: string | null;
 						expires_at: string | null;
+						workflow: string | null;
 					}>;
 
 					return rows.map(rowToRecord);
@@ -672,7 +680,7 @@ export const queryAllLatestStatuses = (
 
 					// Then, get paginated records
 					let dataSql = `
-						SELECT s.id, s.project_path, s.feature, s.task, s.status, s.message, s.metadata, s.created_at, s.run_id, s.expires_at
+						SELECT s.id, s.project_path, s.feature, s.task, s.status, s.message, s.metadata, s.created_at, s.run_id, s.expires_at, s.workflow
 						FROM status_updates s
 						INNER JOIN (
 							SELECT project_path, feature, MAX(created_at) as max_created
@@ -707,6 +715,7 @@ export const queryAllLatestStatuses = (
 						created_at: string;
 						run_id: string | null;
 						expires_at: string | null;
+						workflow: string | null;
 					}>;
 
 					return {
@@ -743,7 +752,7 @@ export const queryAllStatusUpdatesForFeature = (
 			TE.tryCatch(
 				async () => {
 					const stmt = db.prepare(`
-						SELECT id, project_path, feature, task, status, message, metadata, created_at, run_id, expires_at
+						SELECT id, project_path, feature, task, status, message, metadata, created_at, run_id, expires_at, workflow
 						FROM status_updates
 						WHERE project_path = $projectPath AND feature = $feature
 						ORDER BY created_at ASC
@@ -763,6 +772,7 @@ export const queryAllStatusUpdatesForFeature = (
 						created_at: string;
 						run_id: string | null;
 						expires_at: string | null;
+						workflow: string | null;
 					}>;
 
 					return rows.map(rowToRecord);
@@ -792,7 +802,7 @@ export const queryStatusUpdateById = (
 			TE.tryCatch(
 				async () => {
 					const stmt = db.prepare(`
-						SELECT id, project_path, feature, task, status, message, metadata, created_at, run_id, expires_at
+						SELECT id, project_path, feature, task, status, message, metadata, created_at, run_id, expires_at, workflow
 						FROM status_updates
 						WHERE id = $id
 					`);
@@ -808,6 +818,7 @@ export const queryStatusUpdateById = (
 						created_at: string;
 						run_id: string | null;
 						expires_at: string | null;
+						workflow: string | null;
 					} | null;
 
 					return row ? rowToRecord(row) : null;

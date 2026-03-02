@@ -79,6 +79,8 @@ export interface StatusUpdateRecord {
 	readonly runId: string | null;
 	/** ISO 8601 expiry timestamp (null means row never expires) */
 	readonly expiresAt: string | null;
+	/** State machine identifier / skill name (null if not specified) */
+	readonly workflow: string | null;
 }
 
 /**
