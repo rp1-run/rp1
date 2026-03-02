@@ -78,6 +78,7 @@ export interface ApiContext {
 	readonly websocketHub?: WebSocketHub;
 	readonly fileWatcherPool?: FileWatcherPool;
 	readonly shutdownCallback?: () => void;
+	readonly webUIDir?: string;
 }
 
 function jsonResponse(data: unknown, status = 200): Response {
@@ -280,6 +281,17 @@ function parseFrontmatter(content: string): {
  * Handle GET /api/health - daemon health check.
  */
 export async function handleHealthRequest(ctx: ApiContext): Promise<Response> {
+	if (ctx.webUIDir) {
+		const indexPath = join(ctx.webUIDir, "client", "index.html");
+		const file = Bun.file(indexPath);
+		if (!(await file.exists())) {
+			return jsonResponse(
+				{ status: "starting", reason: "assets not ready" },
+				503,
+			);
+		}
+	}
+
 	const registry = await loadRegistry();
 	const projectCount = Object.keys(registry.projects).length;
 	const uptime = Math.floor((Date.now() - ctx.startTime) / 1000);
