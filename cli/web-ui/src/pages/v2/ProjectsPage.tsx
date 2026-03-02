@@ -226,7 +226,6 @@ export function ProjectsPage() {
 				<EmptyState />
 			) : (
 				<>
-					{/* biome-ignore lint/a11y/useSemanticElements: div with role="list" used for grid layout incompatible with ul/li */}
 					<motion.div
 						className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
 						role="list"
