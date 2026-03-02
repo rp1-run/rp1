@@ -215,7 +215,6 @@ async function discoverArtifacts(
 ): Promise<readonly Artifact[]> {
 	const artifacts: Artifact[] = [];
 
-	// Scan .rp1/work/features/{featureId}/
 	const featureDir = join(projectPath, ".rp1", "work", "features", featureId);
 	try {
 		const dirStat = await stat(featureDir);
@@ -238,7 +237,6 @@ async function discoverArtifacts(
 		// Directory doesn't exist - that's fine
 	}
 
-	// Scan .rp1/work/quick-builds/ for files matching the feature name
 	const quickBuildsDir = join(projectPath, ".rp1", "work", "quick-builds");
 	try {
 		const dirStat = await stat(quickBuildsDir);
@@ -526,7 +524,6 @@ export function deriveWorkflowRunStatus(
 		}
 	}
 
-	// Check if any terminal state has a completed record
 	for (const terminalStateId of machine.terminalStates) {
 		const terminalRecords = taskRecordMap.get(terminalStateId);
 		if (terminalRecords && terminalRecords.length > 0) {
@@ -596,7 +593,6 @@ async function buildDetailedRun(
 		}
 	}
 
-	// Find the currently active step (last task with non-terminal status)
 	let currentStep: string | null = null;
 	for (let i = allRecords.length - 1; i >= 0; i--) {
 		if (allRecords[i].task && !TERMINAL_STATUSES.has(allRecords[i].status)) {
@@ -605,7 +601,6 @@ async function buildDetailedRun(
 		}
 	}
 
-	// Error message from the latest failed record
 	let error: string | null = null;
 	if (status === "failed") {
 		for (let i = allRecords.length - 1; i >= 0; i--) {
@@ -644,7 +639,6 @@ function mapRunStatusToStatusValue(
 	switch (runStatus) {
 		case "running":
 			// Database query handles started/in_progress via multiple OR conditions
-			// Return undefined to indicate special handling needed
 			return undefined;
 		case "queued":
 			// No direct mapping - queued is not in status.db
@@ -676,24 +670,20 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 	const dateRange = params.get("dateRange") ?? "all";
 
 	try {
-		// Load all projects to create a lookup map
 		const projects = await getAllProjects();
 		const projectByPath = new Map(projects.map((p) => [p.path, p]));
 		const projectById = new Map(projects.map((p) => [p.id, p]));
 
-		// Determine project path filter if projectId is specified
 		let projectPathFilter: string | undefined;
 		if (projectIdFilter) {
 			const project = projectById.get(projectIdFilter);
 			if (project) {
 				projectPathFilter = project.path;
 			} else {
-				// Project not found - return empty results
 				return jsonResponse({ runs: [], total: 0 });
 			}
 		}
 
-		// Determine status filter for database query
 		let dbStatusFilter: StatusValue | undefined;
 		if (statusFilter && statusFilter !== "all") {
 			dbStatusFilter = mapRunStatusToStatusValue(statusFilter);
@@ -704,7 +694,6 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 			}
 		}
 
-		// Query database for latest statuses
 		const result = await pipe(
 			queryAllLatestStatuses({
 				status: dbStatusFilter,
@@ -734,7 +723,6 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 			}
 		}
 
-		// Adjust total for filtered records
 		let total = dbTotal - (rawRecords.length - nonExpiredRecords.length);
 
 		// Post-filter for "running" status (includes both started and in_progress)
@@ -744,7 +732,6 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 			runs = runs.slice(offset, offset + limit);
 		}
 
-		// Apply date range filter
 		if (dateRange !== "all") {
 			const now = Date.now();
 			const ranges: Record<string, number> = {
@@ -774,11 +761,9 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
  */
 export async function handleV2RunsAttentionRequest(): Promise<Response> {
 	try {
-		// Load all projects to create a lookup map
 		const projects = await getAllProjects();
 		const projectByPath = new Map(projects.map((p) => [p.path, p]));
 
-		// Query all latest statuses (no filter)
 		const result = await pipe(queryAllLatestStatuses({}))();
 
 		if (E.isLeft(result)) {
@@ -800,7 +785,6 @@ export async function handleV2RunsAttentionRequest(): Promise<Response> {
 			}
 		}
 
-		// Group runs by attention category
 		const attention: AttentionData = {
 			waiting: allRuns.filter((r) => r.status === "waiting-input"),
 			needsReview: allRuns.filter((r) => r.status === "needs-review"),
@@ -849,7 +833,6 @@ export async function handleV2RunDetailRequest(
 			return errorResponse(`Project not found for run: ${runId}`, 404);
 		}
 
-		// Fetch full timeline for this feature to build events, steps, and duration
 		const timelineResult = await pipe(
 			queryAllStatusUpdatesForFeature(record.projectPath, record.feature),
 		)();
@@ -861,7 +844,6 @@ export async function handleV2RunDetailRequest(
 		// Filter out stale records (on-read pruning for expires_at)
 		const allRecords = filterNonExpiredRecords(rawRecords);
 
-		// Discover artifacts on disk
 		const artifacts = await discoverArtifacts(
 			record.projectPath,
 			record.feature,
@@ -941,7 +923,6 @@ export async function handleV2ProjectsListRequest(): Promise<Response> {
 		const projects = await getAllProjects();
 		const projectPaths = projects.map((p) => p.path);
 
-		// Fetch run stats for all projects in a single query
 		const statsResult = await pipe(getProjectRunStats(projectPaths))();
 
 		const statsMap = E.isRight(statsResult)

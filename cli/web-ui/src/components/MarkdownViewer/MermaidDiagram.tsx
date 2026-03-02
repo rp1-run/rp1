@@ -270,19 +270,15 @@ export function MermaidDiagram({
 	const renderCountRef = useRef(0);
 	const codeRef = useRef(code);
 
-	// Track if this diagram instance opened the fullscreen
 	const openedFullscreenRef = useRef(false);
 
-	// Update code ref
 	useEffect(() => {
 		codeRef.current = code;
-		// If this diagram opened fullscreen, update the fullscreen code
 		if (openedFullscreenRef.current && isFullscreen) {
 			updateCode(code);
 		}
 	}, [code, isFullscreen, updateCode]);
 
-	// Reset tracking when fullscreen closes
 	useEffect(() => {
 		if (!isFullscreen) {
 			openedFullscreenRef.current = false;
