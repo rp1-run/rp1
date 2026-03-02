@@ -172,50 +172,41 @@ describe("installer", () => {
 
 	describe("copyOpenCodePlugin", () => {
 		const testPluginName = "rp1-test-plugin";
-		const testPluginDir = join(
+		const testPluginFile = join(
 			homedir(),
 			".config",
 			"opencode",
 			"plugins",
-			testPluginName,
+			`${testPluginName}.ts`,
 		);
 
 		afterEach(async () => {
-			// Clean up test plugin directory
 			try {
-				await rm(testPluginDir, { recursive: true, force: true });
+				await rm(testPluginFile, { force: true });
 			} catch {
-				// Directory may not exist
+				// File may not exist
 			}
 		});
 
-		// Security: plugin dirs need execute bit for traversal, but not world-writable
-		test("creates target directory with correct permissions (0o755)", async () => {
+		test("copies index.ts as flat file to plugins directory", async () => {
 			const sourceDir = join(tempDir, "source");
-
-			await writeFixture(
-				sourceDir,
-				"platforms/opencode/opencode.json",
-				JSON.stringify({ name: testPluginName, version: "1.0.0" }),
-			);
 			await writeFixture(
 				sourceDir,
 				"platforms/opencode/index.ts",
-				"export default {};",
+				"export const MyPlugin = async () => ({});",
 			);
 
 			const result = await copyOpenCodePlugin(sourceDir, testPluginName)();
 
 			expect(E.isRight(result)).toBe(true);
+			if (E.isRight(result)) {
+				expect(result.right).toBe(1);
+			}
 
-			const dirStat = await stat(testPluginDir);
-			expect(dirStat.isDirectory()).toBe(true);
-
-			const mode = dirStat.mode & 0o777;
-			expect(mode & 0o755).toBe(0o755);
+			const content = await readFile(testPluginFile, "utf-8");
+			expect(content).toBe("export const MyPlugin = async () => ({});");
 		});
 
-		// Boundary: missing plugin source shouldn't fail - valid on partial installs
 		test("returns 0 when no source plugin exists", async () => {
 			const sourceDir = join(tempDir, "empty-source");
 			await mkdir(sourceDir, { recursive: true });
@@ -226,30 +217,6 @@ describe("installer", () => {
 			if (E.isRight(result)) {
 				expect(result.right).toBe(0);
 			}
-		});
-
-		// Critical: OpenCode plugins can have nested subdirs (e.g., plugin/index.ts)
-		test("copies nested directory structure correctly", async () => {
-			const sourceDir = join(tempDir, "source");
-
-			await writeFixture(
-				sourceDir,
-				"platforms/opencode/opencode.json",
-				JSON.stringify({ name: testPluginName, version: "1.0.0" }),
-			);
-			await writeFixture(
-				sourceDir,
-				"platforms/opencode/plugin/index.ts",
-				"export default {};",
-			);
-
-			const result = await copyOpenCodePlugin(sourceDir, testPluginName)();
-
-			expect(E.isRight(result)).toBe(true);
-
-			const nestedFile = join(testPluginDir, "plugin/index.ts");
-			const content = await readFile(nestedFile, "utf-8");
-			expect(content).toBe("export default {};");
 		});
 	});
 
