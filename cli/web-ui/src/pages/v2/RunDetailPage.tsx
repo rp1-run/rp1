@@ -5,7 +5,6 @@ import { ArtifactList } from "@/components/v2/ArtifactList";
 import { EventStream } from "@/components/v2/EventStream";
 import { DETAIL_HINTS, KeyHints } from "@/components/v2/KeyHints";
 import { StatusBadge } from "@/components/v2/StatusBadge";
-import { StepTimeline } from "@/components/v2/StepTimeline";
 import { WorkflowDiagram } from "@/components/v2/WorkflowDiagram";
 import { useContextualShortcuts } from "@/hooks/useContextualShortcuts";
 import { useRunDetail } from "@/hooks/useRunDetail";
@@ -13,7 +12,6 @@ import {
 	commandToWorkflowName,
 	useWorkflowSteps,
 } from "@/hooks/useWorkflowSteps";
-import { cn } from "@/lib/utils";
 import type { Artifact, Step } from "@/types/runs";
 
 function formatDuration(startedAt: string, completedAt: string | null): string {
@@ -123,7 +121,6 @@ export function RunDetailPage() {
 
 	const artifactsSectionRef = useRef<HTMLElement>(null);
 	const eventStreamSectionRef = useRef<HTMLElement>(null);
-	const timelineSectionRef = useRef<HTMLElement>(null);
 	const diagramSectionRef = useRef<HTMLElement>(null);
 
 	const handleArtifactClick = useCallback(
@@ -227,17 +224,6 @@ export function RunDetailPage() {
 					trigger?.click();
 				},
 			},
-			{
-				key: "t",
-				label: "Timeline",
-				description: "Show step timeline",
-				action: () => {
-					timelineSectionRef.current?.scrollIntoView({
-						behavior: "smooth",
-						block: "start",
-					});
-				},
-			},
 			...(workflow
 				? [
 						{
@@ -336,66 +322,33 @@ export function RunDetailPage() {
 			</nav>
 
 			<header className="rounded-lg border border-border bg-card p-6">
-				<div className="flex flex-wrap items-start justify-between gap-4">
-					<div className="flex items-start gap-4">
-						<StatusBadge status={run.status} size="lg" />
+				<div className="flex items-start gap-4">
+					<StatusBadge status={run.status} size="lg" />
 
-						<div>
-							<h1 className="text-xl font-semibold text-foreground">
-								{run.featureName}
-							</h1>
+					<div>
+						<h1 className="text-xl font-semibold text-foreground">
+							{run.featureName}
+						</h1>
 
-							<div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-								<code className="rounded bg-muted px-2 py-0.5">
-									{run.command}
-								</code>
-								<span aria-hidden="true">-</span>
-								<span>{formatStartTime(run.startedAt)}</span>
-								<span aria-hidden="true">-</span>
-								<span>
-									{isActive ? "Elapsed: " : "Duration: "}
-									{formatDuration(run.startedAt, run.completedAt)}
-								</span>
-							</div>
-
-							{run.error && (
-								<p className="mt-2 text-sm text-status-failed">{run.error}</p>
-							)}
+						<div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+							<code className="rounded bg-muted px-2 py-0.5">
+								{run.command}
+							</code>
+							<span aria-hidden="true">-</span>
+							<span>{formatStartTime(run.startedAt)}</span>
+							<span aria-hidden="true">-</span>
+							<span>
+								{isActive ? "Elapsed: " : "Duration: "}
+								{formatDuration(run.startedAt, run.completedAt)}
+							</span>
 						</div>
-					</div>
 
-					<button
-						type="button"
-						onClick={refetch}
-						className={cn(
-							"inline-flex items-center gap-2 rounded-md border border-border bg-muted/30 px-4 py-2 font-mono text-sm transition-colors",
-							"hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+						{run.error && (
+							<p className="mt-2 text-sm text-status-failed">{run.error}</p>
 						)}
-						aria-label={isActive ? "Live updating" : "Refresh run"}
-					>
-						<span className="text-terminal-green" aria-hidden="true">
-							$
-						</span>
-						<span>{isActive ? "live" : "refresh"}</span>
-						{isActive && (
-							<RefreshCw
-								className="h-3.5 w-3.5 animate-spin"
-								aria-hidden="true"
-							/>
-						)}
-					</button>
+					</div>
 				</div>
 			</header>
-
-			{displaySteps.length > 0 && (
-				<section
-					ref={timelineSectionRef}
-					className="rounded-lg border border-border bg-card p-6"
-				>
-					<h2 className="sr-only">Workflow Progress</h2>
-					<StepTimeline steps={displaySteps} orientation="horizontal" />
-				</section>
-			)}
 
 			{workflow && (
 				<section ref={diagramSectionRef}>
