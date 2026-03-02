@@ -228,18 +228,14 @@ export function RunDetailPage() {
 				? [
 						{
 							key: "d",
-							label: "Diagram",
-							description: "Show workflow diagram",
+							label: "Workflow State",
+							description: "Focus workflow state panel",
 							action: () => {
 								diagramSectionRef.current?.scrollIntoView({
 									behavior: "smooth",
 									block: "start",
 								});
-								const trigger =
-									diagramSectionRef.current?.querySelector<HTMLElement>(
-										'button[aria-expanded="false"]',
-									);
-								trigger?.click();
+								diagramSectionRef.current?.focus();
 							},
 						},
 					]
@@ -251,12 +247,14 @@ export function RunDetailPage() {
 	if (isLoading) {
 		return (
 			<div className="space-y-6 animate-pulse">
-				<div className="h-8 w-48 rounded bg-muted" />
+				<div className="h-5 w-48 rounded bg-muted" />
 				<div className="h-24 rounded-lg bg-muted" />
-				<div className="h-16 rounded-lg bg-muted" />
-				<div className="grid grid-cols-2 gap-6">
-					<div className="h-64 rounded-lg bg-muted" />
-					<div className="h-64 rounded-lg bg-muted" />
+				<div className="flex flex-col lg:grid lg:grid-cols-5 gap-6">
+					<div className="lg:col-span-3 h-80 rounded-lg bg-muted" />
+					<div className="lg:col-span-2 space-y-6">
+						<div className="h-48 rounded-lg bg-muted" />
+						<div className="h-48 rounded-lg bg-muted" />
+					</div>
 				</div>
 			</div>
 		);
@@ -350,29 +348,53 @@ export function RunDetailPage() {
 				</div>
 			</header>
 
-			{workflow && (
-				<section ref={diagramSectionRef}>
-					<WorkflowDiagram workflow={workflow} steps={displaySteps} />
-				</section>
+			{workflow ? (
+				<div className="flex flex-col lg:grid lg:grid-cols-5 gap-6">
+					<section
+						ref={diagramSectionRef}
+						className="lg:col-span-3"
+						tabIndex={-1}
+					>
+						<WorkflowDiagram workflow={workflow} steps={displaySteps} />
+					</section>
+
+					<div className="lg:col-span-2 space-y-6">
+						<section
+							ref={artifactsSectionRef}
+							className="rounded-lg border border-border bg-card p-4"
+						>
+							<h2 className="mb-4 font-medium text-foreground">Artifacts</h2>
+							<ArtifactList
+								artifacts={run.artifacts}
+								onArtifactClick={handleArtifactClick}
+								selectedIndex={selectedArtifactIndex}
+							/>
+						</section>
+
+						<section ref={eventStreamSectionRef}>
+							<EventStream events={run.events} defaultExpanded={false} />
+						</section>
+					</div>
+				</div>
+			) : (
+				<div className="space-y-6">
+					<section
+						ref={artifactsSectionRef}
+						className="rounded-lg border border-border bg-card p-4"
+					>
+						<h2 className="mb-4 font-medium text-foreground">Artifacts</h2>
+						<ArtifactList
+							artifacts={run.artifacts}
+							onArtifactClick={handleArtifactClick}
+							selectedIndex={selectedArtifactIndex}
+						/>
+					</section>
+
+					<section ref={eventStreamSectionRef}>
+						<EventStream events={run.events} defaultExpanded={false} />
+					</section>
+				</div>
 			)}
-
-			<div className="grid gap-6 lg:grid-cols-2">
-				<section
-					ref={artifactsSectionRef}
-					className="rounded-lg border border-border bg-card p-4"
-				>
-					<h2 className="mb-4 font-medium text-foreground">Artifacts</h2>
-					<ArtifactList
-						artifacts={run.artifacts}
-						onArtifactClick={handleArtifactClick}
-						selectedIndex={selectedArtifactIndex}
-					/>
-				</section>
-
-				<section ref={eventStreamSectionRef}>
-					<EventStream events={run.events} defaultExpanded={false} />
-				</section>
-			</div>
 
 			<KeyHints hints={DETAIL_HINTS} />
 		</div>
