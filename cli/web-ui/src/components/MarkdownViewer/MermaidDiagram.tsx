@@ -246,9 +246,14 @@ mermaid.initialize({
 interface MermaidDiagramProps {
 	code: string;
 	className?: string;
+	title?: string;
 }
 
-export function MermaidDiagram({ code, className }: MermaidDiagramProps) {
+export function MermaidDiagram({
+	code,
+	className,
+	title,
+}: MermaidDiagramProps) {
 	const [svg, setSvg] = useState<string>("");
 	const [error, setError] = useState<string | null>(null);
 	const [showSource, setShowSource] = useState(false);
@@ -510,7 +515,9 @@ export function MermaidDiagram({ code, className }: MermaidDiagramProps) {
 			)}
 		>
 			<div className="flex items-center justify-between border-b bg-muted/80 px-4 py-2">
-				<span className="text-xs text-muted-foreground">Mermaid Diagram</span>
+				<span className="text-xs text-muted-foreground">
+					{title ?? "Mermaid Diagram"}
+				</span>
 				<div className="flex items-center gap-1">
 					{toolbar}
 					<div className="w-px h-4 bg-border mx-1" />

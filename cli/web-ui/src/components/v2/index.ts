@@ -63,7 +63,6 @@ export {
 	StatusGlow,
 	type StatusGlowProps,
 } from "./StatusGlow";
-export { StepTimeline, type StepTimelineProps } from "./StepTimeline";
 export {
 	TableOfContents,
 	type TableOfContentsProps,
