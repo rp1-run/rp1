@@ -19,11 +19,11 @@ Report agent workflow progress for real-time visibility in the Status Dashboard.
 Activate this skill when:
 
 - Starting a feature implementation
-- Transitioning between tasks within a feature
+- Transitioning between steps within a feature
 - Completing or failing a workflow step
 - Running multi-step workflows that benefit from visibility
 
-**Trigger phrases**: "report status", "report progress", "update status", "track workflow", "feature started", "task complete"
+**Trigger phrases**: "report status", "report progress", "update status", "track workflow", "feature started", "step complete"
 
 ## Command Reference
 
@@ -43,7 +43,7 @@ rp1 agent-tools work update [options]
 
 | Option | Type | Description |
 |--------|------|-------------|
-| `--task`, `-t` | string | Task identifier within feature |
+| `--step`, `-t` | string | Workflow step identifier within feature |
 | `--message`, `-m` | string | Human-readable status message |
 | `--metadata` | json | JSON string for additional context |
 
@@ -79,19 +79,19 @@ rp1 agent-tools work update \
   --status started \
   --message "Beginning feature implementation"
 
-# 2. Task in progress
+# 2. Step in progress
 rp1 agent-tools work update \
   --project "$(pwd)" \
   --feature my-feature \
-  --task requirements \
+  --step requirements \
   --status in_progress \
   --message "Gathering requirements"
 
-# 3. Task completed
+# 3. Step completed
 rp1 agent-tools work update \
   --project "$(pwd)" \
   --feature my-feature \
-  --task requirements \
+  --step requirements \
   --status completed \
   --message "Requirements documented"
 
@@ -119,7 +119,7 @@ rp1 agent-tools work update \
 rp1 agent-tools work update \
   --project "$(pwd)" \
   --feature my-feature \
-  --task build \
+  --step build \
   --status failed \
   --message "Test suite failed" \
   --metadata '{"exitCode":1,"failedTests":["test_auth","test_login"]}'
@@ -134,7 +134,7 @@ Use `waiting-input` when the agent needs user response to proceed:
 rp1 agent-tools work update \
   --project "$(pwd)" \
   --feature my-feature \
-  --task requirements \
+  --step requirements \
   --status waiting-input \
   --message "Need clarification: should auth support OAuth or just JWT?"
 
@@ -142,7 +142,7 @@ rp1 agent-tools work update \
 rp1 agent-tools work update \
   --project "$(pwd)" \
   --feature my-feature \
-  --task design \
+  --step design \
   --status waiting-input \
   --message "Design ready for approval - awaiting user confirmation"
 
@@ -164,7 +164,7 @@ Use `needs-review` when work is complete but requires human review:
 rp1 agent-tools work update \
   --project "$(pwd)" \
   --feature my-feature \
-  --task implementation \
+  --step implementation \
   --status needs-review \
   --message "Implementation complete - ready for code review"
 
@@ -180,7 +180,7 @@ rp1 agent-tools work update \
 rp1 agent-tools work update \
   --project "$(pwd)" \
   --feature my-feature \
-  --task verification \
+  --step verification \
   --status needs-review \
   --message "All tests passing - needs QA review before merge"
 ```
@@ -193,10 +193,10 @@ Include structured context for dashboard/tooling:
 rp1 agent-tools work update \
   --project "$(pwd)" \
   --feature auth-refactor \
-  --task T1 \
+  --step T1 \
   --status in_progress \
   --message "Implementing JWT validation" \
-  --metadata '{"step":"implementation","progress":75,"filesChanged":3}'
+  --metadata '{"currentStep":"implementation","progress":75,"filesChanged":3}'
 ```
 
 ## Output Format
@@ -211,7 +211,7 @@ Returns JSON ToolResult envelope:
     "id": 42,
     "projectPath": "/Users/dev/myapp",
     "feature": "auth-refactor",
-    "task": "T1",
+    "step": "T1",
     "status": "in_progress",
     "message": "Implementing JWT validation",
     "createdAt": "2026-01-15T10:30:00.000Z"
@@ -226,7 +226,7 @@ Returns JSON ToolResult envelope:
 DO report:
 
 - Start of feature
-- Task transitions (started, in_progress, completed)
+- Step transitions (started, in_progress, completed)
 - Completion or failure of feature
 
 DO NOT report:
@@ -246,15 +246,15 @@ Messages should provide context about current activity:
 --message "Working"
 ```
 
-### 3. Include Task Identifiers
+### 3. Include Step Identifiers
 
-When working on specific tasks within a feature, always include `--task`:
+When working on specific steps within a feature, always include `--step`:
 
 ```bash
-# With task - enables granular tracking
---feature my-feature --task T1-requirements
+# With step - enables granular tracking
+--feature my-feature --step T1-requirements
 
-# Without task - feature-level only
+# Without step - feature-level only
 --feature my-feature
 ```
 
@@ -308,26 +308,26 @@ Integrate status updates into agent workflows:
 
 ## Phase 2: Implementation
 
-1. For each task in the feature:
+1. For each step in the feature:
 
    ```bash
-   # Report task start
+   # Report step start
    rp1 agent-tools work update \
      --project "$(pwd)" \
      --feature {feature_id} \
-     --task {task_id} \
+     --step {step_id} \
      --status in_progress \
-     --message "Working on {task_description}"
+     --message "Working on {step_description}"
 
    # ... do the work ...
 
-   # Report task completion
+   # Report step completion
    rp1 agent-tools work update \
      --project "$(pwd)" \
      --feature {feature_id} \
-     --task {task_id} \
+     --step {step_id} \
      --status completed \
-     --message "{task_id} completed successfully"
+     --message "{step_id} completed successfully"
    ```
 
 ## Phase 3: Finalization
@@ -382,8 +382,8 @@ Integrate status updates into agent workflows:
 # Minimal - feature start
 rp1 agent-tools work update -p "$(pwd)" -f my-feature -s started
 
-# With task
-rp1 agent-tools work update -p "$(pwd)" -f my-feature -t T1 -s in_progress -m "Working on task"
+# With step
+rp1 agent-tools work update -p "$(pwd)" -f my-feature -t T1 -s in_progress -m "Working on step"
 
 # Waiting for user input
 rp1 agent-tools work update -p "$(pwd)" -f my-feature -s waiting-input -m "Need user decision"

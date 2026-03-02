@@ -3,7 +3,7 @@
  * Integrates with status.db for real run data via database queries.
  *
  * Step derivation uses dynamic state machine loading from co-located
- * state.mmd files. Workflows without state.mmd fall back to task-based
+ * state.mmd files. Workflows without state.mmd fall back to step-based
  * grouping. Stale rows (expired via expires_at) are filtered on read.
  */
 
@@ -296,9 +296,9 @@ function deriveEvents(
 		type: mapStatusToEventType(record.status),
 		message:
 			record.message ??
-			`${record.task ? `[${record.task}] ` : ""}Status: ${record.status}`,
+			`${record.step ? `[${record.step}] ` : ""}Status: ${record.status}`,
 		timestamp: record.createdAt,
-		stepId: record.task ?? null,
+		stepId: record.step ?? null,
 		metadata: record.metadata ? parseMetadataSafe(record.metadata) : null,
 	}));
 }
@@ -334,22 +334,22 @@ function mapRecordStatusToStepStatus(status: StatusValue): StepStatus {
 }
 
 /**
- * Build a lookup of task-level records grouped by task ID.
+ * Build a lookup of step-level records grouped by step ID.
  */
-function buildTaskRecordMap(
+function buildStepRecordMap(
 	records: readonly StatusUpdateRecord[],
 ): Map<string, StatusUpdateRecord[]> {
-	const taskMap = new Map<string, StatusUpdateRecord[]>();
+	const stepMap = new Map<string, StatusUpdateRecord[]>();
 	for (const record of records) {
-		if (!record.task) continue;
-		const existing = taskMap.get(record.task);
+		if (!record.step) continue;
+		const existing = stepMap.get(record.step);
 		if (existing) {
 			existing.push(record);
 		} else {
-			taskMap.set(record.task, [record]);
+			stepMap.set(record.step, [record]);
 		}
 	}
-	return taskMap;
+	return stepMap;
 }
 
 /**
@@ -366,9 +366,9 @@ export function deriveWorkflowStepsFromMachine(
 	records: readonly StatusUpdateRecord[],
 	orderedSteps: readonly OrderedStep[],
 ): readonly Step[] {
-	const taskMap = buildTaskRecordMap(records);
+	const stepMap = buildStepRecordMap(records);
 
-	const featureLevelRecords = records.filter((r) => !r.task);
+	const featureLevelRecords = records.filter((r) => !r.step);
 	const latestFeatureRecord =
 		featureLevelRecords.length > 0
 			? featureLevelRecords[featureLevelRecords.length - 1]
@@ -376,18 +376,18 @@ export function deriveWorkflowStepsFromMachine(
 
 	let lastActiveIndex = -1;
 	for (let i = orderedSteps.length - 1; i >= 0; i--) {
-		if (taskMap.has(orderedSteps[i].id)) {
+		if (stepMap.has(orderedSteps[i].id)) {
 			lastActiveIndex = i;
 			break;
 		}
 	}
 
 	return orderedSteps.map(({ id, label }, index) => {
-		const taskRecords = taskMap.get(id);
+		const stepRecords = stepMap.get(id);
 
-		if (taskRecords && taskRecords.length > 0) {
-			const firstRecord = taskRecords[0];
-			const lastRecord = taskRecords[taskRecords.length - 1];
+		if (stepRecords && stepRecords.length > 0) {
+			const firstRecord = stepRecords[0];
+			const lastRecord = stepRecords[stepRecords.length - 1];
 
 			let stepStatus = mapRecordStatusToStepStatus(lastRecord.status);
 
@@ -429,26 +429,26 @@ export function deriveWorkflowStepsFromMachine(
 }
 
 /**
- * Derive steps from records using task-based grouping.
+ * Derive steps from records using step-based grouping.
  * Used as fallback when no state machine is available for a workflow.
  */
 export function deriveTaskBasedSteps(
 	records: readonly StatusUpdateRecord[],
 ): readonly Step[] {
-	const taskMap = buildTaskRecordMap(records);
+	const stepMap = buildStepRecordMap(records);
 	const steps: Step[] = [];
 
-	for (const [taskId, taskRecords] of taskMap) {
-		const firstRecord = taskRecords[0];
-		const lastRecord = taskRecords[taskRecords.length - 1];
+	for (const [stepId, stepRecords] of stepMap) {
+		const firstRecord = stepRecords[0];
+		const lastRecord = stepRecords[stepRecords.length - 1];
 		const stepStatus = mapRecordStatusToStepStatus(lastRecord.status);
 		const completedAt = TERMINAL_STATUSES.has(lastRecord.status)
 			? lastRecord.createdAt
 			: null;
 
 		steps.push({
-			id: taskId,
-			name: humanizeFeatureName(taskId),
+			id: stepId,
+			name: humanizeFeatureName(stepId),
 			status: stepStatus,
 			startedAt: firstRecord.createdAt,
 			completedAt,
@@ -464,7 +464,7 @@ export function deriveTaskBasedSteps(
  * Derive Step[] from the full timeline of StatusUpdateRecords.
  * Attempts to load a state machine for the command; if found, uses
  * dynamic step derivation from the machine. Otherwise falls back to
- * task-based grouping.
+ * step-based grouping.
  */
 async function deriveSteps(
 	records: readonly StatusUpdateRecord[],
@@ -488,7 +488,7 @@ async function deriveSteps(
  *
  * A workflow run is "completed" when:
  * - Any terminal state has a completed record, OR
- * - A feature-level "completed" record (no task) exists.
+ * - A feature-level "completed" record (no step) exists.
  *
  * A workflow run is "failed" if any record reports failure.
  *
@@ -500,8 +500,8 @@ export function deriveWorkflowRunStatus(
 	allRecords: readonly StatusUpdateRecord[],
 	machine: StateMachine,
 ): RunStatus {
-	const taskRecordMap = buildTaskRecordMap(allRecords);
-	const featureLevelRecords = allRecords.filter((r) => !r.task);
+	const stepRecordMap = buildStepRecordMap(allRecords);
+	const featureLevelRecords = allRecords.filter((r) => !r.step);
 	const latestFeatureRecord =
 		featureLevelRecords.length > 0
 			? featureLevelRecords[featureLevelRecords.length - 1]
@@ -525,7 +525,7 @@ export function deriveWorkflowRunStatus(
 	}
 
 	for (const terminalStateId of machine.terminalStates) {
-		const terminalRecords = taskRecordMap.get(terminalStateId);
+		const terminalRecords = stepRecordMap.get(terminalStateId);
 		if (terminalRecords && terminalRecords.length > 0) {
 			const lastRecord = terminalRecords[terminalRecords.length - 1];
 			if (lastRecord.status === "completed") {
@@ -595,8 +595,8 @@ async function buildDetailedRun(
 
 	let currentStep: string | null = null;
 	for (let i = allRecords.length - 1; i >= 0; i--) {
-		if (allRecords[i].task && !TERMINAL_STATUSES.has(allRecords[i].status)) {
-			currentStep = allRecords[i].task;
+		if (allRecords[i].step && !TERMINAL_STATUSES.has(allRecords[i].status)) {
+			currentStep = allRecords[i].step;
 			break;
 		}
 	}

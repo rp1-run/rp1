@@ -22,11 +22,11 @@ import { VALID_STATUSES } from "./models.js";
 /** Sentinel error used by detectStateMachineConflict to signal a match */
 class WorkflowConflictError extends Error {
 	readonly workflowName: string;
-	readonly task: string;
-	constructor(workflowName: string, task: string) {
-		super(`Workflow conflict: ${task} matches ${workflowName}`);
+	readonly step: string;
+	constructor(workflowName: string, step: string) {
+		super(`Workflow conflict: ${step} matches ${workflowName}`);
 		this.workflowName = workflowName;
-		this.task = task;
+		this.step = step;
 	}
 }
 
@@ -43,7 +43,7 @@ const DEFAULT_TTL_SECONDS = 28800;
 export interface UpdateCommandOptions {
 	readonly project: string;
 	readonly feature: string;
-	readonly task?: string;
+	readonly step?: string;
 	readonly status: string;
 	readonly message?: string;
 	readonly metadata?: string;
@@ -169,25 +169,25 @@ const parseTtl = (ttl: string | undefined): E.Either<CLIError, number> => {
  * Validate a workflow transition when --workflow is provided.
  *
  * 1. Load state machine for the workflow
- * 2. Validate --task is provided and is a valid state
+ * 2. Validate --step is provided and is a valid state
  * 3. Compute expires_at from TTL
  * 4. Query current state from DB (with stale filtering)
- * 5. If first update: validate --task is an initial state
- * 6. If subsequent: validate transition from current to --task
+ * 5. If first update: validate --step is an initial state
+ * 6. If subsequent: validate transition from current to --step
  */
 const validateWorkflowUpdate = (
 	workflowName: string,
 	projectPath: string,
 	feature: string,
-	task: string | undefined,
+	step: string | undefined,
 	runId: string | undefined,
 	ttl: string | undefined,
 	dbPath?: string,
 ): TE.TaskEither<CLIError, WorkflowValidationResult> => {
-	if (!task) {
+	if (!step) {
 		return TE.left(
 			usageError(
-				"--task is required when --workflow is provided. The task value must be a valid state in the workflow state machine.",
+				"--step is required when --workflow is provided. The step value must be a valid state in the workflow state machine.",
 			),
 		);
 	}
@@ -203,10 +203,10 @@ const validateWorkflowUpdate = (
 			return err;
 		}),
 		TE.chain((machine) => {
-			if (!machine.states.has(task)) {
+			if (!machine.states.has(step)) {
 				return TE.left(
 					usageError(
-						`'${task}' is not a valid state in the '${workflowName}' workflow. Valid states: ${[...machine.states.keys()].join(", ")}`,
+						`'${step}' is not a valid state in the '${workflowName}' workflow. Valid states: ${[...machine.states.keys()].join(", ")}`,
 					),
 				);
 			}
@@ -218,10 +218,10 @@ const validateWorkflowUpdate = (
 						getCurrentWorkflowState(projectPath, feature, runId, dbPath),
 						TE.chain((currentState) => {
 							if (currentState === null) {
-								if (!machine.initialStates.includes(task)) {
+								if (!machine.initialStates.includes(step)) {
 									return TE.left(
 										usageError(
-											`First update for this workflow run must be an initial state. '${task}' is not an initial state. Valid initial states: ${machine.initialStates.join(", ")}`,
+											`First update for this workflow run must be an initial state. '${step}' is not an initial state. Valid initial states: ${machine.initialStates.join(", ")}`,
 										),
 									);
 								}
@@ -229,13 +229,13 @@ const validateWorkflowUpdate = (
 								const validation = validateTransition(
 									machine,
 									currentState,
-									task,
+									step,
 								);
 								if (!validation.valid) {
 									return TE.left(
 										usageError(
 											validation.error ??
-												`Invalid transition from '${currentState}' to '${task}'.`,
+												`Invalid transition from '${currentState}' to '${step}'.`,
 										),
 									);
 								}
@@ -257,14 +257,14 @@ const validateWorkflowUpdate = (
 };
 
 /**
- * FR-006: Detect when --workflow is omitted but task matches a state-machine-enabled workflow's state.
+ * FR-006: Detect when --workflow is omitted but step matches a state-machine-enabled workflow's state.
  * Best-effort heuristic that checks all loaded workflows.
  *
  * If the listing/loading phase fails (e.g., no state.mmd files found), we silently
  * allow the update through. But if we successfully find a match, we reject.
  */
 const detectStateMachineConflict = (
-	task: string,
+	step: string,
 ): TE.TaskEither<CLIError, WorkflowValidationResult> =>
 	TE.tryCatch(
 		async () => {
@@ -276,8 +276,8 @@ const detectStateMachineConflict = (
 			for (const workflowName of workflowsResult.right) {
 				const machineResult = await loadStateMachine(workflowName)();
 				if (E.isRight(machineResult)) {
-					if (machineResult.right.states.has(task)) {
-						throw new WorkflowConflictError(workflowName, task);
+					if (machineResult.right.states.has(step)) {
+						throw new WorkflowConflictError(workflowName, step);
 					}
 				}
 			}
@@ -287,7 +287,7 @@ const detectStateMachineConflict = (
 		(err): CLIError => {
 			if (err instanceof WorkflowConflictError) {
 				return usageError(
-					`Task '${err.task}' matches a state in the '${err.workflowName}' workflow which requires the --workflow flag. ` +
+					`Step '${err.step}' matches a state in the '${err.workflowName}' workflow which requires the --workflow flag. ` +
 						`Please specify: --workflow ${err.workflowName}`,
 				);
 			}
@@ -302,7 +302,7 @@ const detectStateMachineConflict = (
  * loads the state machine, queries current state, validates the transition,
  * and computes expires_at from TTL.
  *
- * When --workflow is omitted but --task matches a known workflow state (FR-006),
+ * When --workflow is omitted but --step matches a known workflow state (FR-006),
  * rejects with an error directing the caller to specify --workflow.
  *
  * @param options - CLI command options
@@ -330,13 +330,13 @@ export const validateUpdateOptions = (
 						options.workflow,
 						projectPath,
 						feature,
-						options.task,
+						options.step,
 						options.runId,
 						options.ttl,
 						dbPath,
 					)
-				: options.task
-					? detectStateMachineConflict(options.task)
+				: options.step
+					? detectStateMachineConflict(options.step)
 					: TE.right({} as WorkflowValidationResult),
 		),
 		TE.map(
@@ -349,7 +349,7 @@ export const validateUpdateOptions = (
 			}): StatusUpdateInput => ({
 				projectPath,
 				feature,
-				task: options.task,
+				step: options.step,
 				status,
 				message: options.message,
 				metadata,

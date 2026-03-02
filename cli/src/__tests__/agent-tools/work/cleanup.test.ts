@@ -60,7 +60,7 @@ describe("work cleanup", () => {
 			projectPath: "/test/project",
 			feature: "test-feature",
 			status: "in_progress",
-			task: "build",
+			step: "build",
 			...overrides,
 		};
 		await expectTaskRight(insertStatusUpdate(input, testDbPath));
@@ -79,19 +79,19 @@ describe("work cleanup", () => {
 			await insertRow({
 				runId: "expired-run-1",
 				expiresAt: "2020-01-01T00:00:00.000Z",
-				task: "requirements",
+				step: "requirements",
 			});
 			await insertRow({
 				runId: "expired-run-1",
 				expiresAt: "2020-01-01T00:00:00.000Z",
-				task: "design",
+				step: "design",
 			});
 
 			// Insert a non-expired run
 			await insertRow({
 				runId: "active-run-1",
 				expiresAt: "2099-12-31T23:59:59.999Z",
-				task: "build",
+				step: "build",
 			});
 
 			const before = await countAllRows();
@@ -112,12 +112,12 @@ describe("work cleanup", () => {
 			await insertRow({
 				runId: "dry-run-test-1",
 				expiresAt: "2020-01-01T00:00:00.000Z",
-				task: "plan",
+				step: "plan",
 			});
 			await insertRow({
 				runId: "dry-run-test-1",
 				expiresAt: "2020-01-01T00:00:00.000Z",
-				task: "build",
+				step: "build",
 			});
 
 			const before = await countAllRows();
@@ -159,7 +159,7 @@ describe("work cleanup", () => {
 			await insertRow({
 				runId: "recent-expired-1",
 				expiresAt: recentExpiry,
-				task: "plan",
+				step: "plan",
 			});
 
 			// Insert a run that expired 50 hours ago
@@ -169,7 +169,7 @@ describe("work cleanup", () => {
 			await insertRow({
 				runId: "old-expired-1",
 				expiresAt: oldExpiry,
-				task: "build",
+				step: "build",
 			});
 
 			// With --older-than 24: only the 50h-old run should be deleted
@@ -189,7 +189,7 @@ describe("work cleanup", () => {
 			await insertRow({
 				runId: "active-future-1",
 				expiresAt: "2099-12-31T23:59:59.999Z",
-				task: "verify",
+				step: "verify",
 			});
 
 			const result = await expectTaskRight(deleteExpiredRuns(0, testDbPath));
@@ -208,11 +208,11 @@ describe("work cleanup", () => {
 			await insertRow({
 				runId: "null-expiry-1",
 				expiresAt: undefined,
-				task: "plan",
+				step: "plan",
 			});
 			await insertRow({
 				expiresAt: undefined,
-				task: "build",
+				step: "build",
 			}); // Also NULL run_id
 
 			const result = await expectTaskRight(deleteExpiredRuns(0, testDbPath));
@@ -229,7 +229,7 @@ describe("work cleanup", () => {
 			await insertRow({
 				runId: undefined,
 				expiresAt: "2020-01-01T00:00:00.000Z",
-				task: "archive",
+				step: "archive",
 			});
 
 			const result = await expectTaskRight(deleteExpiredRuns(0, testDbPath));
@@ -247,12 +247,12 @@ describe("work cleanup", () => {
 			await insertRow({
 				runId: "exec-delete-1",
 				expiresAt: "2020-01-01T00:00:00.000Z",
-				task: "plan",
+				step: "plan",
 			});
 			await insertRow({
 				runId: "exec-delete-1",
 				expiresAt: "2020-01-01T00:00:00.000Z",
-				task: "build",
+				step: "build",
 			});
 
 			const result = await expectTaskRight(

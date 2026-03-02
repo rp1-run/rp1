@@ -41,7 +41,7 @@ export interface WorkUpdateResult {
 	readonly id: number;
 	readonly projectPath: string;
 	readonly feature: string;
-	readonly task: string | null;
+	readonly step: string | null;
 	readonly status: StatusValue;
 	readonly message: string | null;
 	readonly createdAt: string;
@@ -107,7 +107,7 @@ export const executeUpdate = (
 				id: result.id,
 				projectPath: input.projectPath,
 				feature: input.feature,
-				task: input.task ?? null,
+				step: input.step ?? null,
 				status: input.status,
 				message: input.message ?? null,
 				createdAt: result.createdAt,
@@ -116,12 +116,12 @@ export const executeUpdate = (
 		TE.chainFirst((data) =>
 			TE.fromTask(async () => {
 				const workflowCtx =
-					input.workflow && input.task
+					input.workflow && input.step
 						? {
 								workflow: input.workflow,
 								runId: input.runId,
 								previousState: input.previousState,
-								newState: input.task,
+								newState: input.step,
 							}
 						: undefined;
 				await notifyDaemon(

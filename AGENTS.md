@@ -328,7 +328,7 @@ rp1 agent-tools work update \
   --feature {FEATURE_ID} \
   --workflow {SKILL_NAME} \
   --run-id {RUN_ID} \
-  --task {CURRENT_STATE} \
+  --step {CURRENT_STATE} \
   --status {STATUS_VALUE}
 
 - Generate `RUN_ID` as a UUID at workflow start
@@ -337,7 +337,7 @@ rp1 agent-tools work update \
 ```
 
 **Rules**:
-- State IDs in state.mmd must match `--task` values used in work update commands
+- State IDs in state.mmd must match `--step` values used in work update commands
 - The `--workflow` flag is mandatory for state-machine-enabled skills
 - Invalid transitions are rejected with an error listing valid next states
 - Skills without state.mmd are unaffected (no tracking, no validation)

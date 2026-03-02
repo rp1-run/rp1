@@ -57,7 +57,7 @@ These features are intentionally out of scope:
 
 ### Rules
 
-1. **State IDs must match task field values** used in `rp1 agent-tools work update --task` commands
+1. **State IDs must match step field values** used in `rp1 agent-tools work update --step` commands
 2. **At least one initial state** is required (`[*] --> state_id`)
 3. **Terminal states** are optional but recommended (`state_id --> [*]`)
 4. **Transition labels** are informational -- validation operates on state-to-state edges, not labels
@@ -80,7 +80,7 @@ rp1 agent-tools work update \
   --feature {FEATURE_ID} \
   --workflow {SKILL_NAME} \
   --run-id {RUN_ID} \
-  --task {CURRENT_STATE} \
+  --step {CURRENT_STATE} \
   --status {STATUS_VALUE}
 ```
 
@@ -100,7 +100,7 @@ The system maintains two orthogonal state dimensions for state-machine-enabled w
 | Dimension | What it represents | Values | Storage |
 |-----------|--------------------|--------|---------|
 | **StatusValue** | Activity category (WHAT is happening) | started, in_progress, waiting-input, needs-review, completed, failed | `status` column |
-| **WorkflowState** | Workflow phase (WHERE in the workflow) | Defined by state.mmd (e.g., requirements, design, build) | `task` column |
+| **WorkflowState** | Workflow phase (WHERE in the workflow) | Defined by state.mmd (e.g., requirements, design, build) | `step` column |
 
 These are independent: a workflow can be "in_progress" at the "design" phase, or "waiting-input" at the "requirements" phase.
 
@@ -116,7 +116,7 @@ rp1 agent-tools work update \
   --feature my-feature \
   --workflow build \
   --run-id "550e8400-e29b-41d4-a716-446655440000" \
-  --task design \
+  --step design \
   --status in_progress
 ```
 
@@ -124,7 +124,7 @@ rp1 agent-tools work update \
 |------|----------|-------------|
 | `--workflow` | Yes (for state-machine skills) | Skill name whose state.mmd to validate against |
 | `--run-id` | Optional | UUID grouping updates into a discrete workflow run |
-| `--task` | Yes | The workflow state (must be a valid state ID from state.mmd) |
+| `--step` | Yes | The workflow state (must be a valid state ID from state.mmd) |
 | `--status` | Yes | Activity status (started, in_progress, etc.) |
 | `--ttl` | Optional | TTL in seconds for expiry (default: 28800 = 8 hours) |
 
@@ -145,10 +145,10 @@ Each `--run-id` creates an independent workflow invocation. Multiple concurrent 
 
 ```bash
 # Run A at "verify" phase
-rp1 agent-tools work update --workflow build --run-id run-A --task verify --status in_progress
+rp1 agent-tools work update --workflow build --run-id run-A --step verify --status in_progress
 
 # Run B at "design" phase (independent)
-rp1 agent-tools work update --workflow build --run-id run-B --task design --status in_progress
+rp1 agent-tools work update --workflow build --run-id run-B --step design --status in_progress
 ```
 
 ### Cleaning Up Stale Runs

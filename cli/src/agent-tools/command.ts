@@ -514,11 +514,11 @@ Description:
   Status updates are stored in a global SQLite database at ~/.rp1/status.db.
 
 Subcommands:
-  update    Record a status update for a feature/task
+  update    Record a status update for a feature/step
 
 Examples:
   rp1 agent-tools work update --project /path/to/project --feature my-feature --status started
-  rp1 agent-tools work update --project /path/to/project --feature my-feature --task T1 --status in_progress --message "Working on requirements"
+  rp1 agent-tools work update --project /path/to/project --feature my-feature --step T1 --status in_progress --message "Working on requirements"
 `,
 	);
 
@@ -528,10 +528,10 @@ Examples:
  */
 workCommand
 	.command("update")
-	.description("Record a status update for a feature/task")
+	.description("Record a status update for a feature/step")
 	.requiredOption("-p, --project <path>", "Absolute path to project root")
 	.requiredOption("-f, --feature <name>", "Feature identifier (kebab-case)")
-	.option("-t, --task <id>", "Task identifier within feature")
+	.option("-t, --step <id>", "Workflow step identifier within feature")
 	.requiredOption(
 		"-s, --status <status>",
 		`Status state (${VALID_STATUSES.join(", ")})`,
@@ -565,7 +565,7 @@ Description:
 Arguments:
   --project <path>     Absolute path to project root (required)
   --feature <name>     Feature identifier in kebab-case (required)
-  --task <id>          Task/workflow state identifier (required when --workflow is set)
+  --step <id>          Workflow step/state identifier (required when --workflow is set)
   --status <status>    Status state: ${VALID_STATUSES.join(", ")} (required)
   --message <text>     Human-readable status message (optional)
   --metadata <json>    JSON string for additional context (optional)
@@ -578,7 +578,7 @@ Validation:
   - Feature name must match pattern ^[a-z0-9-]+$
   - Status must be one of the valid states
   - Metadata must be valid JSON if provided
-  - When --workflow is set: --task must be a valid state in the state machine
+  - When --workflow is set: --step must be a valid state in the state machine
   - Transitions are validated against the state machine graph
   - First update must target an initial state
 
@@ -587,7 +587,7 @@ Output:
   - id: Auto-generated record ID
   - projectPath: Project path
   - feature: Feature name
-  - task: Task identifier (null if not specified)
+  - step: Step identifier (null if not specified)
   - status: Status state
   - message: Status message (null if not specified)
   - createdAt: ISO 8601 UTC timestamp
@@ -606,7 +606,7 @@ Examples:
     --feature auth-refactor \\
     --workflow build \\
     --run-id "550e8400-e29b-41d4-a716-446655440000" \\
-    --task requirements \\
+    --step requirements \\
     --status in_progress \\
     --message "Gathering requirements"
 
@@ -616,7 +616,7 @@ Examples:
     --feature auth-refactor \\
     --workflow build \\
     --run-id "550e8400-e29b-41d4-a716-446655440000" \\
-    --task design \\
+    --step design \\
     --status in_progress \\
     --ttl 3600
 `,
@@ -625,7 +625,7 @@ Examples:
 		async (options: {
 			project: string;
 			feature: string;
-			task?: string;
+			step?: string;
 			status: string;
 			message?: string;
 			metadata?: string;

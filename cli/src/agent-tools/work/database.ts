@@ -21,7 +21,7 @@ import type {
 import { VALID_STATUSES } from "./models.js";
 
 /** Current schema version - must match highest migration number */
-export const CURRENT_SCHEMA_VERSION = 4;
+export const CURRENT_SCHEMA_VERSION = 5;
 
 /** Default database file location */
 const DEFAULT_DB_PATH = join(homedir(), ".rp1", "status.db");
@@ -36,13 +36,13 @@ const FEATURE_PATTERN = /^[a-z0-9-]+$/;
 const isValidFeatureName = (name: string): boolean =>
 	FEATURE_PATTERN.test(name);
 
-/** SQL schema for status_updates table (version 4 with workflow column) */
+/** SQL schema for status_updates table (version 5 with step column) */
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS status_updates (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     project_path TEXT NOT NULL,
     feature TEXT NOT NULL,
-    task TEXT,
+    step TEXT,
     status TEXT NOT NULL CHECK(status IN ('started', 'in_progress', 'waiting-input', 'needs-review', 'completed', 'failed')),
     message TEXT,
     metadata TEXT,
@@ -101,6 +101,9 @@ CREATE INDEX idx_status_expires_at ON status_updates(expires_at);`,
 
 	4: `-- Migration: Add workflow column
 ALTER TABLE status_updates ADD COLUMN workflow TEXT;`,
+
+	5: `-- Migration: Rename task column to step
+ALTER TABLE status_updates RENAME COLUMN task TO step;`,
 };
 
 /** Get current database schema version from PRAGMA user_version */
@@ -227,7 +230,7 @@ const rowToRecord = (row: {
 	id: number;
 	project_path: string;
 	feature: string;
-	task: string | null;
+	step: string | null;
 	status: string;
 	message: string | null;
 	metadata: string | null;
@@ -239,7 +242,7 @@ const rowToRecord = (row: {
 	id: row.id,
 	projectPath: row.project_path,
 	feature: row.feature,
-	task: row.task,
+	step: row.step,
 	status: row.status as StatusValue,
 	message: row.message,
 	metadata: row.metadata,
@@ -266,15 +269,15 @@ export const insertStatusUpdate = (
 			TE.tryCatch(
 				async () => {
 					const stmt = db.prepare(`
-						INSERT INTO status_updates (project_path, feature, task, status, message, metadata, run_id, expires_at, workflow)
-						VALUES ($projectPath, $feature, $task, $status, $message, $metadata, $runId, $expiresAt, $workflow)
+						INSERT INTO status_updates (project_path, feature, step, status, message, metadata, run_id, expires_at, workflow)
+						VALUES ($projectPath, $feature, $step, $status, $message, $metadata, $runId, $expiresAt, $workflow)
 						RETURNING id, created_at
 					`);
 
 					const result = stmt.get({
 						$projectPath: input.projectPath,
 						$feature: input.feature,
-						$task: input.task ?? null,
+						$step: input.step ?? null,
 						$status: input.status,
 						$message: input.message ?? null,
 						$metadata: input.metadata ?? null,
@@ -313,7 +316,7 @@ export const queryStatusUpdates = (
 			TE.tryCatch(
 				async () => {
 					let sql = `
-						SELECT id, project_path, feature, task, status, message, metadata, created_at, run_id, expires_at, workflow
+						SELECT id, project_path, feature, step, status, message, metadata, created_at, run_id, expires_at, workflow
 						FROM status_updates
 						WHERE project_path = $projectPath
 					`;
@@ -338,7 +341,7 @@ export const queryStatusUpdates = (
 						id: number;
 						project_path: string;
 						feature: string;
-						task: string | null;
+						step: string | null;
 						status: string;
 						message: string | null;
 						metadata: string | null;
@@ -396,7 +399,7 @@ export const queryStatusUpdatesForFeatures = (
 					// Use window function to rank updates per feature
 					const placeholders = features.map((_, i) => `$f${i}`).join(", ");
 					const sql = `
-						SELECT id, project_path, feature, task, status, message, metadata, created_at, run_id, expires_at, workflow
+						SELECT id, project_path, feature, step, status, message, metadata, created_at, run_id, expires_at, workflow
 						FROM (
 							SELECT *,
 								ROW_NUMBER() OVER (PARTITION BY feature ORDER BY created_at DESC) as rn
@@ -421,7 +424,7 @@ export const queryStatusUpdatesForFeatures = (
 						id: number;
 						project_path: string;
 						feature: string;
-						task: string | null;
+						step: string | null;
 						status: string;
 						message: string | null;
 						metadata: string | null;
@@ -469,7 +472,7 @@ export const getLatestStatusByFeature = (
 			TE.tryCatch(
 				async () => {
 					const stmt = db.prepare(`
-						SELECT s.id, s.project_path, s.feature, s.task, s.status, s.message, s.metadata, s.created_at, s.run_id, s.expires_at, s.workflow
+						SELECT s.id, s.project_path, s.feature, s.step, s.status, s.message, s.metadata, s.created_at, s.run_id, s.expires_at, s.workflow
 						FROM status_updates s
 						INNER JOIN (
 							SELECT feature, MAX(created_at) as max_created
@@ -485,7 +488,7 @@ export const getLatestStatusByFeature = (
 						id: number;
 						project_path: string;
 						feature: string;
-						task: string | null;
+						step: string | null;
 						status: string;
 						message: string | null;
 						metadata: string | null;
@@ -525,15 +528,15 @@ export const resetDatabaseInstance = (): void => {
 };
 
 /**
- * Get recently completed tasks (task-level granularity).
- * Returns all task completions within the given time window.
+ * Get recently completed steps (step-level granularity).
+ * Returns all step completions within the given time window.
  *
  * @param projectPath - Project path to filter by
  * @param hoursAgo - Number of hours to look back (default: 24)
  * @param dbPath - Database file path (optional, defaults to ~/.rp1/status.db)
- * @returns TaskEither with array of StatusUpdateRecord for completed tasks
+ * @returns TaskEither with array of StatusUpdateRecord for completed steps
  */
-export const getRecentlyCompletedTasks = (
+export const getRecentlyCompletedSteps = (
 	projectPath: string,
 	hoursAgo = 24,
 	dbPath?: string,
@@ -544,11 +547,11 @@ export const getRecentlyCompletedTasks = (
 			TE.tryCatch(
 				async () => {
 					const stmt = db.prepare(`
-						SELECT id, project_path, feature, task, status, message, metadata, created_at, run_id, expires_at, workflow
+						SELECT id, project_path, feature, step, status, message, metadata, created_at, run_id, expires_at, workflow
 						FROM status_updates
 						WHERE project_path = $projectPath
 						AND status = 'completed'
-						AND task IS NOT NULL
+						AND step IS NOT NULL
 						AND created_at >= datetime('now', $hoursOffset)
 						ORDER BY created_at DESC
 					`);
@@ -560,7 +563,7 @@ export const getRecentlyCompletedTasks = (
 						id: number;
 						project_path: string;
 						feature: string;
-						task: string | null;
+						step: string | null;
 						status: string;
 						message: string | null;
 						metadata: string | null;
@@ -574,7 +577,7 @@ export const getRecentlyCompletedTasks = (
 				},
 				(error) =>
 					runtimeError(
-						`Failed to get recently completed tasks: ${error instanceof Error ? error.message : String(error)}`,
+						`Failed to get recently completed steps: ${error instanceof Error ? error.message : String(error)}`,
 					),
 			),
 		),
@@ -700,7 +703,7 @@ export const queryAllLatestStatuses = (
 					const total = countResult.total;
 
 					let dataSql = `
-						SELECT s.id, s.project_path, s.feature, s.task, s.status, s.message, s.metadata, s.created_at, s.run_id, s.expires_at, s.workflow
+						SELECT s.id, s.project_path, s.feature, s.step, s.status, s.message, s.metadata, s.created_at, s.run_id, s.expires_at, s.workflow
 						FROM status_updates s
 						INNER JOIN (
 							SELECT project_path, feature, MAX(created_at) as max_created
@@ -728,7 +731,7 @@ export const queryAllLatestStatuses = (
 						id: number;
 						project_path: string;
 						feature: string;
-						task: string | null;
+						step: string | null;
 						status: string;
 						message: string | null;
 						metadata: string | null;
@@ -772,7 +775,7 @@ export const queryAllStatusUpdatesForFeature = (
 			TE.tryCatch(
 				async () => {
 					const stmt = db.prepare(`
-						SELECT id, project_path, feature, task, status, message, metadata, created_at, run_id, expires_at, workflow
+						SELECT id, project_path, feature, step, status, message, metadata, created_at, run_id, expires_at, workflow
 						FROM status_updates
 						WHERE project_path = $projectPath AND feature = $feature
 						ORDER BY created_at ASC
@@ -785,7 +788,7 @@ export const queryAllStatusUpdatesForFeature = (
 						id: number;
 						project_path: string;
 						feature: string;
-						task: string | null;
+						step: string | null;
 						status: string;
 						message: string | null;
 						metadata: string | null;
@@ -822,7 +825,7 @@ export const queryStatusUpdateById = (
 			TE.tryCatch(
 				async () => {
 					const stmt = db.prepare(`
-						SELECT id, project_path, feature, task, status, message, metadata, created_at, run_id, expires_at, workflow
+						SELECT id, project_path, feature, step, status, message, metadata, created_at, run_id, expires_at, workflow
 						FROM status_updates
 						WHERE id = $id
 					`);
@@ -831,7 +834,7 @@ export const queryStatusUpdateById = (
 						id: number;
 						project_path: string;
 						feature: string;
-						task: string | null;
+						step: string | null;
 						status: string;
 						message: string | null;
 						metadata: string | null;
@@ -931,7 +934,7 @@ export const getProjectRunStats = (
  * @param feature - Feature identifier
  * @param runId - Optional run ID for per-invocation isolation (BR-007: no runId = latest-by-timestamp)
  * @param dbPath - Database file path (optional)
- * @returns TaskEither with current task (workflow state) or null if no current state
+ * @returns TaskEither with current step (workflow state) or null if no current state
  */
 export const getCurrentWorkflowState = (
 	projectPath: string,
@@ -958,7 +961,7 @@ export const getCurrentWorkflowState = (
 					}
 
 					const sql = `
-						SELECT task FROM status_updates
+						SELECT step FROM status_updates
 						WHERE project_path = $projectPath
 						AND feature = $feature
 						${runIdClause}
@@ -967,9 +970,9 @@ export const getCurrentWorkflowState = (
 					`;
 
 					const row = db.prepare(sql).get(params) as {
-						task: string | null;
+						step: string | null;
 					} | null;
-					return row?.task ?? null;
+					return row?.step ?? null;
 				},
 				(error) =>
 					runtimeError(

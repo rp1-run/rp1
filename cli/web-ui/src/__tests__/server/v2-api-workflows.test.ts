@@ -71,7 +71,7 @@ function makeRecord(
 ): StatusUpdateRecord {
 	return {
 		projectPath: "/test/project",
-		task: null,
+		step: null,
 		message: null,
 		metadata: null,
 		createdAt: "2026-03-01T00:00:00.000Z",
@@ -241,21 +241,21 @@ describe("deriveWorkflowStepsFromMachine", () => {
 				makeRecord({
 					id: 1,
 					feature: "f1",
-					task: "requirements",
+					step: "requirements",
 					status: "started",
 					createdAt: "2026-03-01T00:00:00.000Z",
 				}),
 				makeRecord({
 					id: 2,
 					feature: "f1",
-					task: "requirements",
+					step: "requirements",
 					status: "completed",
 					createdAt: "2026-03-01T00:01:00.000Z",
 				}),
 				makeRecord({
 					id: 3,
 					feature: "f1",
-					task: "design",
+					step: "design",
 					status: "in_progress",
 					createdAt: "2026-03-01T00:02:00.000Z",
 				}),
@@ -278,14 +278,14 @@ describe("deriveWorkflowStepsFromMachine", () => {
 				makeRecord({
 					id: 1,
 					feature: "f1",
-					task: "requirements",
+					step: "requirements",
 					status: "completed",
 					createdAt: "2026-03-01T00:00:00.000Z",
 				}),
 				makeRecord({
 					id: 2,
 					feature: "f1",
-					task: "design",
+					step: "design",
 					status: "completed",
 					createdAt: "2026-03-01T00:01:00.000Z",
 				}),
@@ -332,14 +332,14 @@ describe("deriveWorkflowStepsFromMachine", () => {
 				makeRecord({
 					id: 1,
 					feature: "f1",
-					task: "plan",
+					step: "plan",
 					status: "completed",
 					createdAt: "2026-03-01T00:00:00.000Z",
 				}),
 				makeRecord({
 					id: 2,
 					feature: "f1",
-					task: "build",
+					step: "build",
 					status: "in_progress",
 					createdAt: "2026-03-01T00:01:00.000Z",
 				}),
@@ -377,7 +377,7 @@ describe("deriveWorkflowRunStatus", () => {
 			makeRecord({
 				id: 1,
 				feature: "f1",
-				task: "requirements",
+				step: "requirements",
 				status: "in_progress",
 			}),
 		];
@@ -389,10 +389,10 @@ describe("deriveWorkflowRunStatus", () => {
 			makeRecord({
 				id: 1,
 				feature: "f1",
-				task: "requirements",
+				step: "requirements",
 				status: "completed",
 			}),
-			makeRecord({ id: 2, feature: "f1", task: "design", status: "failed" }),
+			makeRecord({ id: 2, feature: "f1", step: "design", status: "failed" }),
 		];
 		expect(deriveWorkflowRunStatus(records, buildMachine)).toBe("failed");
 	});
@@ -402,17 +402,17 @@ describe("deriveWorkflowRunStatus", () => {
 			makeRecord({
 				id: 1,
 				feature: "f1",
-				task: "requirements",
+				step: "requirements",
 				status: "completed",
 			}),
-			makeRecord({ id: 2, feature: "f1", task: "design", status: "completed" }),
-			makeRecord({ id: 3, feature: "f1", task: "tasks", status: "completed" }),
-			makeRecord({ id: 4, feature: "f1", task: "build", status: "completed" }),
-			makeRecord({ id: 5, feature: "f1", task: "verify", status: "completed" }),
+			makeRecord({ id: 2, feature: "f1", step: "design", status: "completed" }),
+			makeRecord({ id: 3, feature: "f1", step: "tasks", status: "completed" }),
+			makeRecord({ id: 4, feature: "f1", step: "build", status: "completed" }),
+			makeRecord({ id: 5, feature: "f1", step: "verify", status: "completed" }),
 			makeRecord({
 				id: 6,
 				feature: "f1",
-				task: "archive",
+				step: "archive",
 				status: "completed",
 			}),
 		];
@@ -424,7 +424,7 @@ describe("deriveWorkflowRunStatus", () => {
 			makeRecord({
 				id: 1,
 				feature: "f1",
-				task: "requirements",
+				step: "requirements",
 				status: "completed",
 			}),
 			makeRecord({ id: 2, feature: "f1", status: "completed" }),
@@ -437,7 +437,7 @@ describe("deriveWorkflowRunStatus", () => {
 			makeRecord({
 				id: 1,
 				feature: "f1",
-				task: "requirements",
+				step: "requirements",
 				status: "completed",
 			}),
 			makeRecord({ id: 2, feature: "f1", status: "waiting-input" }),
@@ -449,7 +449,7 @@ describe("deriveWorkflowRunStatus", () => {
 
 	test("returns 'needs-review' from feature-level record", () => {
 		const records = [
-			makeRecord({ id: 1, feature: "f1", task: "build", status: "completed" }),
+			makeRecord({ id: 1, feature: "f1", step: "build", status: "completed" }),
 			makeRecord({ id: 2, feature: "f1", status: "needs-review" }),
 		];
 		expect(deriveWorkflowRunStatus(records, buildMachine)).toBe("needs-review");
@@ -457,9 +457,9 @@ describe("deriveWorkflowRunStatus", () => {
 
 	test("build-fast: completed when review step is completed", () => {
 		const records = [
-			makeRecord({ id: 1, feature: "f1", task: "plan", status: "completed" }),
-			makeRecord({ id: 2, feature: "f1", task: "build", status: "completed" }),
-			makeRecord({ id: 3, feature: "f1", task: "review", status: "completed" }),
+			makeRecord({ id: 1, feature: "f1", step: "plan", status: "completed" }),
+			makeRecord({ id: 2, feature: "f1", step: "build", status: "completed" }),
+			makeRecord({ id: 3, feature: "f1", step: "review", status: "completed" }),
 		];
 		expect(deriveWorkflowRunStatus(records, buildFastMachine)).toBe(
 			"completed",
@@ -468,11 +468,11 @@ describe("deriveWorkflowRunStatus", () => {
 
 	test("build-fast: running when mid-workflow", () => {
 		const records = [
-			makeRecord({ id: 1, feature: "f1", task: "plan", status: "completed" }),
+			makeRecord({ id: 1, feature: "f1", step: "plan", status: "completed" }),
 			makeRecord({
 				id: 2,
 				feature: "f1",
-				task: "build",
+				step: "build",
 				status: "in_progress",
 			}),
 		];
@@ -481,19 +481,19 @@ describe("deriveWorkflowRunStatus", () => {
 });
 
 describe("deriveTaskBasedSteps", () => {
-	test("groups records by task ID", () => {
+	test("groups records by step ID", () => {
 		const records: StatusUpdateRecord[] = [
 			makeRecord({
 				id: 1,
 				feature: "f1",
-				task: "T1",
+				step: "T1",
 				status: "completed",
 				createdAt: "2026-03-01T00:00:00.000Z",
 			}),
 			makeRecord({
 				id: 2,
 				feature: "f1",
-				task: "T2",
+				step: "T2",
 				status: "in_progress",
 				createdAt: "2026-03-01T00:01:00.000Z",
 			}),
@@ -507,13 +507,13 @@ describe("deriveTaskBasedSteps", () => {
 		expect(steps[1].status).toBe("running");
 	});
 
-	test("skips records without task", () => {
+	test("skips records without step", () => {
 		const records: StatusUpdateRecord[] = [
 			makeRecord({ id: 1, feature: "f1", status: "started" }),
 			makeRecord({
 				id: 2,
 				feature: "f1",
-				task: "T1",
+				step: "T1",
 				status: "completed",
 				createdAt: "2026-03-01T00:00:00.000Z",
 			}),
@@ -524,7 +524,7 @@ describe("deriveTaskBasedSteps", () => {
 		expect(steps[0].id).toBe("T1");
 	});
 
-	test("returns empty array for no task records", () => {
+	test("returns empty array for no step records", () => {
 		const records: StatusUpdateRecord[] = [
 			makeRecord({ id: 1, feature: "f1", status: "started" }),
 		];
