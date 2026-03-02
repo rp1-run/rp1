@@ -197,7 +197,6 @@ const getDatabase = (
 			// Enable WAL mode for better concurrent write performance
 			db.exec("PRAGMA journal_mode = WAL;");
 
-			// Check if this is a fresh database (no tables exist)
 			const tableCheck = db
 				.prepare(
 					"SELECT name FROM sqlite_master WHERE type='table' AND name='status_updates'",
@@ -205,11 +204,9 @@ const getDatabase = (
 				.get();
 
 			if (!tableCheck) {
-				// Fresh database - create schema with latest version
 				db.exec(SCHEMA_SQL);
 				setSchemaVersion(db, CURRENT_SCHEMA_VERSION);
 			} else {
-				// Existing database - run any pending migrations
 				runMigrations(db);
 			}
 
@@ -599,7 +596,6 @@ export const getActiveFeatureCount = (
 		TE.chain((db) =>
 			TE.tryCatch(
 				async () => {
-					// Count distinct features where the latest status is not 'completed'
 					const stmt = db.prepare(`
 						SELECT COUNT(DISTINCT s.feature) as count
 						FROM status_updates s
@@ -657,7 +653,6 @@ export const queryAllLatestStatuses = (
 		TE.chain((db) =>
 			TE.tryCatch(
 				async () => {
-					// Build WHERE clause for the inner subquery
 					const innerConditions: string[] = [];
 					const params: Record<string, string | number> = {};
 
@@ -671,7 +666,6 @@ export const queryAllLatestStatuses = (
 							? `WHERE ${innerConditions.join(" AND ")}`
 							: "";
 
-					// Build WHERE clause for the outer query (includes status filter)
 					const outerConditions: string[] = [];
 					if (options.projectPath) {
 						outerConditions.push("s.project_path = $projectPath");
@@ -686,7 +680,6 @@ export const queryAllLatestStatuses = (
 							? `WHERE ${outerConditions.join(" AND ")}`
 							: "";
 
-					// First, get total count (without pagination)
 					const countSql = `
 						SELECT COUNT(*) as total
 						FROM status_updates s
@@ -706,7 +699,6 @@ export const queryAllLatestStatuses = (
 					};
 					const total = countResult.total;
 
-					// Then, get paginated records
 					let dataSql = `
 						SELECT s.id, s.project_path, s.feature, s.task, s.status, s.message, s.metadata, s.created_at, s.run_id, s.expires_at, s.workflow
 						FROM status_updates s
