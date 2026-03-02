@@ -275,7 +275,7 @@ export const backupExistingInstallation = (logger?: {
 				logger?.debug(`No config file to backup at ${configFile}: ${e}`);
 			}
 
-			const pluginDir = join(configDir, "plugin");
+			const pluginDir = join(configDir, "plugins");
 			const rp1Plugins = ["rp1-base-hooks"];
 			try {
 				const pluginStats = await stat(pluginDir);
@@ -413,7 +413,7 @@ export const restoreFromBackup = (
 			try {
 				const stats = await stat(backupPluginDir);
 				if (stats.isDirectory()) {
-					const targetPluginDir = join(configDir, "plugin");
+					const targetPluginDir = join(configDir, "plugins");
 					const entries = await readdir(backupPluginDir, {
 						withFileTypes: true,
 					});
@@ -492,7 +492,7 @@ export const copyOpenCodePlugin = (
 				homedir(),
 				".config",
 				"opencode",
-				"plugin",
+				"plugins",
 				pluginName,
 			);
 
@@ -614,7 +614,7 @@ export const copyToStaging = (
 					const opencodeSrc = join(pluginDir, "platforms", "opencode");
 					try {
 						await stat(opencodeSrc);
-						const pluginDst = join(stagingPath, "plugin", openCodePluginName);
+						const pluginDst = join(stagingPath, "plugins", openCodePluginName);
 						await mkdir(pluginDst, { recursive: true });
 						totalFilesCopied += await copyDir(opencodeSrc, pluginDst);
 						logger?.debug(

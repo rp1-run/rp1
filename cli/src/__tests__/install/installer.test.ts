@@ -176,7 +176,7 @@ describe("installer", () => {
 			homedir(),
 			".config",
 			"opencode",
-			"plugin",
+			"plugins",
 			testPluginName,
 		);
 

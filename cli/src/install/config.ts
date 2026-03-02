@@ -60,7 +60,7 @@ export const readOpenCodeConfig = (
 
 /**
  * Register an OpenCode plugin in the user's opencode.json config.
- * Adds the plugin path to the plugin array if not already present.
+ * Uses file:// URL with absolute path (required by OpenCode's plugin loader).
  *
  * @param configPath - Path to opencode.json
  * @param pluginName - Plugin name (e.g., "rp1-base-hooks")
@@ -86,24 +86,37 @@ export const registerOpenCodePlugin = (
 				config.plugin = [];
 			}
 
-			// Plugin path relative to ~/.config/opencode/
-			const pluginPath = `./plugin/${pluginName}`;
+			const pluginFilePath = join(
+				dirname(configPath),
+				"plugins",
+				pluginName,
+				"index.ts",
+			);
+			const pluginRef = `file://${pluginFilePath}`;
 
-			// Check if already registered
 			const plugins = config.plugin as string[];
-			if (plugins.includes(pluginPath)) {
-				return false; // Already registered
+
+			// Migrate old-style references (without file://) to new format
+			const oldIndex = plugins.findIndex(
+				(p) =>
+					String(p).includes(pluginName) && !String(p).startsWith("file://"),
+			);
+			if (oldIndex >= 0) {
+				plugins[oldIndex] = pluginRef;
+				await mkdir(dirname(configPath), { recursive: true });
+				await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`);
+				return true;
 			}
 
-			// Add plugin to array
-			plugins.push(pluginPath);
+			// Check if already registered with file:// URL
+			if (plugins.some((p) => String(p).includes(pluginName))) {
+				return false;
+			}
 
-			// Ensure parent directory exists
+			plugins.push(pluginRef);
 			await mkdir(dirname(configPath), { recursive: true });
-
-			// Write config (preserving existing keys)
 			await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`);
-			return true; // Newly registered
+			return true;
 		},
 		(e) => configError(`Failed to register plugin: ${e}`),
 	);

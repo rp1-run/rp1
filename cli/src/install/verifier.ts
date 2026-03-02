@@ -214,7 +214,7 @@ export const verifyInstallation = (
 			}
 
 			// Check plugins
-			const pluginDir = join(configDir, "plugin");
+			const pluginDir = join(configDir, "plugins");
 			const expectedPlugins = ["rp1-base-hooks"];
 			let pluginsFound = 0;
 			const missingPluginNames: string[] = [];

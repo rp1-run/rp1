@@ -15,6 +15,9 @@ import {
 } from "../../install/config.js";
 import { cleanupTempDir, createTempDir } from "../helpers/index.js";
 
+const hasPluginRef = (plugins: string[], name: string) =>
+	plugins.some((p) => p.includes(name));
+
 describe("config", () => {
 	let tempDir: string;
 
@@ -74,7 +77,6 @@ describe("config", () => {
 
 			expect(E.isRight(result)).toBe(true);
 
-			// Verify parent directories were created
 			const parentDir = join(tempDir, "nested", "deep");
 			const dirStat = await stat(parentDir);
 			expect(dirStat.isDirectory()).toBe(true);
@@ -102,29 +104,30 @@ describe("config", () => {
 			expect(updatedConfig.customKey).toBe("should-be-preserved");
 			expect(updatedConfig.model).toBe("claude-3");
 			expect(updatedConfig.plugin).toContain("existing-plugin");
-			expect(updatedConfig.plugin).toContain("./plugin/rp1-base-hooks");
+			expect(hasPluginRef(updatedConfig.plugin, "rp1-base-hooks")).toBe(true);
 		});
 
-		test("creates plugin array if missing", async () => {
+		test("writes file:// URL for plugin reference", async () => {
 			const configPath = join(tempDir, "opencode.json");
-			await writeFile(configPath, JSON.stringify({ customKey: "value" }));
+			await writeFile(configPath, JSON.stringify({ plugin: [] }));
 
-			const result = await registerOpenCodePlugin(
+			await registerOpenCodePlugin(configPath, "rp1-base-hooks")();
+
+			const content = await readFile(configPath, "utf-8");
+			const config = JSON.parse(content);
+			const ref = config.plugin.find((p: string) =>
+				p.includes("rp1-base-hooks"),
+			);
+			expect(ref).toStartWith("file://");
+			expect(ref).toEndWith("index.ts");
+		});
+
+		test("migrates old-style reference to file:// URL", async () => {
+			const configPath = join(tempDir, "opencode.json");
+			await writeFile(
 				configPath,
-				"rp1-base-hooks",
-			)();
-
-			expect(E.isRight(result)).toBe(true);
-
-			const updatedContent = await readFile(configPath, "utf-8");
-			const updatedConfig = JSON.parse(updatedContent);
-
-			expect(Array.isArray(updatedConfig.plugin)).toBe(true);
-			expect(updatedConfig.plugin).toContain("./plugin/rp1-base-hooks");
-		});
-
-		test("creates new config file when none exists", async () => {
-			const configPath = join(tempDir, "opencode.json");
+				JSON.stringify({ plugin: ["./plugin/rp1-base-hooks"] }),
+			);
 
 			const result = await registerOpenCodePlugin(
 				configPath,
@@ -133,20 +136,19 @@ describe("config", () => {
 
 			expect(E.isRight(result)).toBe(true);
 			if (E.isRight(result)) {
-				expect(result.right).toBe(true); // Newly registered
+				expect(result.right).toBe(true);
 			}
 
 			const content = await readFile(configPath, "utf-8");
 			const config = JSON.parse(content);
-			expect(config.plugin).toContain("./plugin/rp1-base-hooks");
+			expect(config.plugin).toHaveLength(1);
+			expect(config.plugin[0]).toStartWith("file://");
 		});
 
-		test("returns false when plugin already registered", async () => {
+		test("returns false when plugin already registered with file:// URL", async () => {
 			const configPath = join(tempDir, "opencode.json");
-			const existingConfig = {
-				plugin: ["./plugin/rp1-base-hooks"],
-			};
-			await writeFile(configPath, JSON.stringify(existingConfig));
+			const pluginRef = `file://${join(tempDir, "plugins", "rp1-base-hooks", "index.ts")}`;
+			await writeFile(configPath, JSON.stringify({ plugin: [pluginRef] }));
 
 			const result = await registerOpenCodePlugin(
 				configPath,
@@ -155,7 +157,7 @@ describe("config", () => {
 
 			expect(E.isRight(result)).toBe(true);
 			if (E.isRight(result)) {
-				expect(result.right).toBe(false); // Already registered
+				expect(result.right).toBe(false);
 			}
 		});
 
@@ -170,7 +172,7 @@ describe("config", () => {
 
 			expect(E.isRight(result)).toBe(true);
 			if (E.isRight(result)) {
-				expect(result.right).toBe(true); // Newly registered
+				expect(result.right).toBe(true);
 			}
 		});
 	});
@@ -188,7 +190,6 @@ describe("config", () => {
 		});
 
 		test("creates timestamped backup file for existing config", async () => {
-			// Create a config file to backup
 			const configPath = join(tempDir, "opencode.json");
 			const configContent = { plugin: ["test"], key: "value" };
 			await writeFile(configPath, JSON.stringify(configContent));
@@ -200,7 +201,6 @@ describe("config", () => {
 				const backupPath = result.right;
 				expect(backupPath).toContain("opencode.json.backup.");
 
-				// Verify backup file exists and has correct content
 				const backupContent = await readFile(backupPath, "utf-8");
 				expect(JSON.parse(backupContent)).toEqual(configContent);
 			}
@@ -214,7 +214,6 @@ describe("config", () => {
 
 			expect(E.isRight(result)).toBe(true);
 			if (E.isRight(result) && result.right !== null) {
-				// Timestamp format: YYYY-MM-DDTHH-MM-SS
 				const timestampPattern = /\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}/;
 				expect(result.right).toMatch(timestampPattern);
 			}
