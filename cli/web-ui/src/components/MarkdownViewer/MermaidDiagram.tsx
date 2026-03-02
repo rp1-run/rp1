@@ -246,7 +246,7 @@ mermaid.initialize({
 interface MermaidDiagramProps {
 	code: string;
 	className?: string;
-	title?: string;
+	title?: string | null;
 }
 
 export function MermaidDiagram({
@@ -514,10 +514,12 @@ export function MermaidDiagram({
 				className,
 			)}
 		>
-			<div className="flex items-center justify-between border-b bg-muted/80 px-4 py-2">
-				<span className="text-xs text-muted-foreground">
-					{title ?? "Mermaid Diagram"}
-				</span>
+			<div className="flex items-center justify-end border-b bg-muted/80 px-4 py-2">
+				{title !== null && (
+					<span className="mr-auto text-xs text-muted-foreground">
+						{title ?? "Mermaid Diagram"}
+					</span>
+				)}
 				<div className="flex items-center gap-1">
 					{toolbar}
 					<div className="w-px h-4 bg-border mx-1" />
