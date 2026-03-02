@@ -174,7 +174,7 @@ export function WorkflowDiagram({
 				</span>
 			</div>
 			<div className="border-t border-border">
-				<MermaidDiagram code={mermaidCode} title="Workflow State" />
+				<MermaidDiagram code={mermaidCode} title={null} />
 				{legendItems.length > 0 && (
 					<div className="flex items-center justify-center gap-4 border-t border-border px-4 py-2">
 						{legendItems.map((item) => {
