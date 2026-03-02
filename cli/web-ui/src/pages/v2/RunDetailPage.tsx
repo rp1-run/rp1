@@ -363,7 +363,9 @@ export function RunDetailPage() {
 							ref={artifactsSectionRef}
 							className="rounded-lg border border-border bg-card p-4"
 						>
-							<h2 className="mb-4 font-medium text-foreground">Artifacts</h2>
+							<h2 className="mb-4 pb-3 border-b border-border font-medium text-foreground">
+								Artifacts
+							</h2>
 							<ArtifactList
 								artifacts={run.artifacts}
 								onArtifactClick={handleArtifactClick}
@@ -372,7 +374,7 @@ export function RunDetailPage() {
 						</section>
 
 						<section ref={eventStreamSectionRef}>
-							<EventStream events={run.events} defaultExpanded={false} />
+							<EventStream events={run.events} defaultExpanded />
 						</section>
 					</div>
 				</div>
@@ -382,7 +384,9 @@ export function RunDetailPage() {
 						ref={artifactsSectionRef}
 						className="rounded-lg border border-border bg-card p-4"
 					>
-						<h2 className="mb-4 font-medium text-foreground">Artifacts</h2>
+						<h2 className="mb-4 pb-3 border-b border-border font-medium text-foreground">
+							Artifacts
+						</h2>
 						<ArtifactList
 							artifacts={run.artifacts}
 							onArtifactClick={handleArtifactClick}
@@ -391,7 +395,7 @@ export function RunDetailPage() {
 					</section>
 
 					<section ref={eventStreamSectionRef}>
-						<EventStream events={run.events} defaultExpanded={false} />
+						<EventStream events={run.events} defaultExpanded />
 					</section>
 				</div>
 			)}
