@@ -13,13 +13,13 @@
       }
     },
     "rp1-dev:build-fast": {
-      "prompt_hash": "sha256:c594fce62418ac2005eec5e82ae86c204d426058197e996b8b26d2d0d1f0cfef",
-      "deps_hash": "sha256:99703f91402948b09f8978180d72e9a4ff3bff8191a90f94fc7b15afd04cbe86",
+      "prompt_hash": "sha256:82693da2f52f3703fed136589af46b2fc3ed328637dc795bf8014e1e72b61a4d",
+      "deps_hash": "sha256:0d51dab5140202dc42b8aa7e4b4e07ecb285128fbaa76fdc3bbc9aa0e9a5d968",
       "version": "3.0.0",
       "last_eval": {
         "passed": true,
-        "timestamp": "2026-03-01T01:06:01.053Z",
-        "git_commit": "1dc4fa7",
+        "timestamp": "2026-03-01T23:21:30.549Z",
+        "git_commit": "1c24866",
         "result_file": "evals/output/rp1-dev-build-fast.json"
       }
     }
@@ -42,6 +42,6 @@
     "plugins/dev/agents/feature-archiver.md": "sha256:7ac30f4ddb02a0565ec73552349de099cacfd01bed7d2658ed6fcb0020629517",
     "plugins/dev/agents/build-fast-planner.md": "sha256:61144db4872852fb661aceedcd9a778eb8b90f14d4938d22f7a848152ed5c7bc",
     "plugins/dev/skills/build/SKILL.md": "sha256:d60b2cb120ec1877280dbb885b1b9e68e37f13bc0892fe5356410482adb29b08",
-    "plugins/dev/skills/build-fast/SKILL.md": "sha256:c594fce62418ac2005eec5e82ae86c204d426058197e996b8b26d2d0d1f0cfef"
+    "plugins/dev/skills/build-fast/SKILL.md": "sha256:82693da2f52f3703fed136589af46b2fc3ed328637dc795bf8014e1e72b61a4d"
   }
 }
