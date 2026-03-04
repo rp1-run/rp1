@@ -78,6 +78,8 @@ function makeRecord(
 		runId: null,
 		expiresAt: null,
 		workflow: null,
+		agent: null,
+		task: null,
 		...overrides,
 	};
 }

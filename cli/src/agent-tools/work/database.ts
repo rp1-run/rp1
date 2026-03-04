@@ -1173,4 +1173,66 @@ export const deleteExpiredRuns = (
 		),
 	);
 
+/**
+ * Query all agent-level status updates for a specific project+feature+run combination.
+ * Returns records WHERE agent IS NOT NULL, ordered chronologically (ASC).
+ * Used by the v2 API to build agent sub-state data for hierarchical rendering.
+ *
+ * @param projectPath - Absolute path to the project
+ * @param feature - Feature identifier (kebab-case)
+ * @param runId - Workflow run ID for isolation
+ * @param dbPath - Database file path (optional, defaults to ~/.rp1/status.db)
+ * @returns TaskEither with array of StatusUpdateRecord for agent updates, or CLIError
+ */
+export const queryAgentUpdatesForRun = (
+	projectPath: string,
+	feature: string,
+	runId: string,
+	dbPath?: string,
+): TE.TaskEither<CLIError, readonly StatusUpdateRecord[]> =>
+	pipe(
+		getDatabase(dbPath),
+		TE.chain((db) =>
+			TE.tryCatch(
+				async () => {
+					const stmt = db.prepare(`
+						SELECT id, project_path, feature, step, status, message, metadata, created_at, run_id, expires_at, workflow, agent, task
+						FROM status_updates
+						WHERE project_path = $projectPath
+						AND feature = $feature
+						AND run_id = $runId
+						AND agent IS NOT NULL
+						ORDER BY created_at ASC
+					`);
+
+					const rows = stmt.all({
+						$projectPath: projectPath,
+						$feature: feature,
+						$runId: runId,
+					}) as Array<{
+						id: number;
+						project_path: string;
+						feature: string;
+						step: string | null;
+						status: string;
+						message: string | null;
+						metadata: string | null;
+						created_at: string;
+						run_id: string | null;
+						expires_at: string | null;
+						workflow: string | null;
+						agent: string | null;
+						task: string | null;
+					}>;
+
+					return rows.map(rowToRecord);
+				},
+				(error) =>
+					runtimeError(
+						`Failed to query agent updates for run: ${error instanceof Error ? error.message : String(error)}`,
+					),
+			),
+		),
+	);
+
 export { DEFAULT_DB_PATH };
