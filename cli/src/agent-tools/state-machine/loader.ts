@@ -120,15 +120,21 @@ const loadFromBundle = (
 
 				const entry = stateMachines.find((sm) => sm.name === workflowName);
 				if (entry) {
-					return pipe(
-						TE.tryCatch(
-							() => readEmbeddedFile(entry.path),
-							(err) =>
-								runtimeError(
-									`Failed to read bundled state machine for '${workflowName}': ${err}`,
+					const getContent: TE.TaskEither<CLIError, string> = entry.content
+						? TE.right(entry.content)
+						: pipe(
+								TE.tryCatch(
+									() => readEmbeddedFile(entry.path),
+									(err) =>
+										runtimeError(
+											`Failed to read bundled state machine for '${workflowName}': ${err}`,
+										),
 								),
-						),
-						TE.chain((readResult) => TE.fromEither(readResult)),
+								TE.chain((readResult) => TE.fromEither(readResult)),
+							);
+
+					return pipe(
+						getContent,
 						TE.chain((content) =>
 							TE.fromEither(parseAndTransform(workflowName, content)),
 						),
