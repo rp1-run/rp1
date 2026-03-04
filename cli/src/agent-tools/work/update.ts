@@ -50,6 +50,8 @@ export interface UpdateCommandOptions {
 	readonly workflow?: string;
 	readonly runId?: string;
 	readonly ttl?: string;
+	readonly agent?: string;
+	readonly task?: string;
 }
 
 /**
@@ -139,6 +141,35 @@ const validateMetadata = (
 };
 
 /**
+ * Validate agent and task flag dependencies.
+ * --agent requires --workflow (BR-005).
+ * --task requires --agent.
+ */
+const validateAgentTaskFlags = (
+	agent: string | undefined,
+	task: string | undefined,
+	workflow: string | undefined,
+): E.Either<CLIError, void> => {
+	if (agent && !workflow) {
+		return E.left(
+			usageError(
+				"--workflow is required when --agent is provided. The workflow determines which run the update is attributed to.",
+			),
+		);
+	}
+
+	if (task && !agent) {
+		return E.left(
+			usageError(
+				"--agent is required when --task is provided. Per-task tracking requires an agent context.",
+			),
+		);
+	}
+
+	return E.right(undefined);
+};
+
+/**
  * Compute ISO 8601 expires_at timestamp from a TTL in seconds.
  */
 const computeExpiresAt = (ttlSeconds: number): string => {
@@ -182,6 +213,8 @@ const validateWorkflowUpdate = (
 	step: string | undefined,
 	runId: string | undefined,
 	ttl: string | undefined,
+	agentName: string | undefined,
+	taskId: string | undefined,
 	dbPath?: string,
 ): TE.TaskEither<CLIError, WorkflowValidationResult> => {
 	if (!step) {
@@ -192,21 +225,47 @@ const validateWorkflowUpdate = (
 		);
 	}
 
+	const machineTarget = agentName ?? workflowName;
+
 	return pipe(
-		loadStateMachine(workflowName),
-		TE.mapLeft((err) => {
+		loadStateMachine(machineTarget),
+		TE.orElse((err) => {
 			if (err._tag === "NotFoundError") {
-				return usageError(
-					`No state machine defined for workflow '${workflowName}'. Ensure a state.mmd file exists in the skill directory.`,
+				if (agentName) {
+					return pipe(
+						listWorkflows(),
+						TE.chain((available) =>
+							TE.left(
+								usageError(
+									`No state machine defined for agent '${agentName}'. Available state machines: ${available.join(", ")}`,
+								),
+							),
+						),
+						TE.orElse(() =>
+							TE.left(
+								usageError(
+									`No state machine defined for agent '${agentName}'.`,
+								),
+							),
+						),
+					);
+				}
+				return TE.left(
+					usageError(
+						`No state machine defined for workflow '${workflowName}'. Ensure a ## STATE-MACHINE section exists in the skill's SKILL.md file.`,
+					),
 				);
 			}
-			return err;
+			return TE.left(err);
 		}),
 		TE.chain((machine) => {
 			if (!machine.states.has(step)) {
+				const label = agentName
+					? `agent '${agentName}'`
+					: `workflow '${workflowName}'`;
 				return TE.left(
 					usageError(
-						`'${step}' is not a valid state in the '${workflowName}' workflow. Valid states: ${[...machine.states.keys()].join(", ")}`,
+						`'${step}' is not a valid state in the ${label}. Valid states: ${[...machine.states.keys()].join(", ")}`,
 					),
 				);
 			}
@@ -215,7 +274,14 @@ const validateWorkflowUpdate = (
 				TE.fromEither(parseTtl(ttl)),
 				TE.chain((ttlSeconds) =>
 					pipe(
-						getCurrentWorkflowState(projectPath, feature, runId, dbPath),
+						getCurrentWorkflowState(
+							projectPath,
+							feature,
+							runId,
+							agentName,
+							taskId,
+							dbPath,
+						),
 						TE.chain((currentState) => {
 							if (currentState === null) {
 								if (!machine.initialStates.includes(step)) {
@@ -324,6 +390,11 @@ export const validateUpdateOptions = (
 		TE.bind("metadata", () =>
 			TE.fromEither(validateMetadata(options.metadata)),
 		),
+		TE.bind("agentTask", () =>
+			TE.fromEither(
+				validateAgentTaskFlags(options.agent, options.task, options.workflow),
+			),
+		),
 		TE.bind("workflowResult", ({ projectPath, feature }) =>
 			options.workflow
 				? validateWorkflowUpdate(
@@ -333,6 +404,8 @@ export const validateUpdateOptions = (
 						options.step,
 						options.runId,
 						options.ttl,
+						options.agent,
+						options.task,
 						dbPath,
 					)
 				: options.step
@@ -357,6 +430,8 @@ export const validateUpdateOptions = (
 				workflow: workflowResult.workflow,
 				expiresAt: workflowResult.expiresAt,
 				previousState: workflowResult.previousState,
+				agent: options.agent,
+				task: options.task,
 			}),
 		),
 	);

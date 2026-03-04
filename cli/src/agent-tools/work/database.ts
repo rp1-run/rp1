@@ -961,9 +961,15 @@ export const getProjectRunStats = (
  * Filters out expired rows (on-read pruning) so stale runs from crashed agents
  * are invisible. NULL expires_at rows are always included (backward compat).
  *
+ * When agent is provided, only matches rows with that agent value.
+ * When agent is not provided, only matches rows with agent IS NULL.
+ * Same logic applies to task when agent is set.
+ *
  * @param projectPath - Project path to filter by
  * @param feature - Feature identifier
  * @param runId - Optional run ID for per-invocation isolation (BR-007: no runId = latest-by-timestamp)
+ * @param agent - Optional agent name for agent-scoped state tracking
+ * @param task - Optional task identifier for per-task state isolation
  * @param dbPath - Database file path (optional)
  * @returns TaskEither with current step (workflow state) or null if no current state
  */
@@ -971,6 +977,8 @@ export const getCurrentWorkflowState = (
 	projectPath: string,
 	feature: string,
 	runId?: string,
+	agent?: string,
+	task?: string,
 	dbPath?: string,
 ): TE.TaskEither<CLIError, string | null> =>
 	pipe(
@@ -991,11 +999,31 @@ export const getCurrentWorkflowState = (
 						runIdClause = "";
 					}
 
+					let agentClause: string;
+					if (agent) {
+						agentClause = "AND agent = $agent";
+						params.$agent = agent;
+					} else {
+						agentClause = "AND agent IS NULL";
+					}
+
+					let taskClause: string;
+					if (agent && task) {
+						taskClause = "AND task = $task";
+						params.$task = task;
+					} else if (agent) {
+						taskClause = "AND task IS NULL";
+					} else {
+						taskClause = "";
+					}
+
 					const sql = `
 						SELECT step FROM status_updates
 						WHERE project_path = $projectPath
 						AND feature = $feature
 						${runIdClause}
+						${agentClause}
+						${taskClause}
 						AND (expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now') OR expires_at IS NULL)
 						ORDER BY created_at DESC LIMIT 1
 					`;

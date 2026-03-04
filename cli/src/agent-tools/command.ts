@@ -540,7 +540,7 @@ workCommand
 	.option("--metadata <json>", "JSON string for additional context")
 	.option(
 		"-w, --workflow <name>",
-		"State machine workflow to validate against (skill name with state.mmd)",
+		"State machine workflow to validate against (skill name with embedded state machine)",
 	)
 	.option(
 		"--run-id <id>",
@@ -550,6 +550,14 @@ workCommand
 		"--ttl <seconds>",
 		"TTL in seconds for expires_at timestamp (default: 28800 = 8 hours)",
 	)
+	.option(
+		"--agent <name>",
+		"Agent name for agent-scoped state machine validation (requires --workflow)",
+	)
+	.option(
+		"--task <task-id>",
+		"Task identifier for per-task state tracking (requires --agent)",
+	)
 	.addHelpText(
 		"after",
 		`
@@ -557,10 +565,18 @@ Description:
   Records a status update to the global status database (~/.rp1/status.db).
   Creates the database file automatically on first invocation.
 
-  When --workflow is provided, the command loads the skill's state machine
-  (state.mmd), validates that the transition is permitted, computes an
-  expires_at timestamp for stale row cleanup, and inserts the record with
-  run isolation via --run-id.
+  When --workflow is provided, the command loads the state machine,
+  validates that the transition is permitted, computes an expires_at
+  timestamp for stale row cleanup, and inserts the record with run
+  isolation via --run-id.
+
+  When --agent is provided alongside --workflow, validation uses the
+  agent's embedded state machine instead of the workflow's. The update
+  is still attributed to the parent workflow run.
+
+  When --task is provided alongside --agent, per-task state tracking
+  is enabled. Each task progresses through the agent's state machine
+  independently.
 
 Arguments:
   --project <path>     Absolute path to project root (required)
@@ -569,9 +585,11 @@ Arguments:
   --status <status>    Status state: ${VALID_STATUSES.join(", ")} (required)
   --message <text>     Human-readable status message (optional)
   --metadata <json>    JSON string for additional context (optional)
-  --workflow <name>    Skill name whose state.mmd to validate against (optional)
+  --workflow <name>    Skill name whose state machine to validate against (optional)
   --run-id <id>        UUID grouping updates into a discrete workflow run (optional)
   --ttl <seconds>      TTL for expires_at in seconds (default: 28800 = 8h, only with --workflow)
+  --agent <name>       Agent name for agent-scoped validation (requires --workflow)
+  --task <task-id>     Task identifier for per-task tracking (requires --agent)
 
 Validation:
   - Project path must be absolute
@@ -581,6 +599,8 @@ Validation:
   - When --workflow is set: --step must be a valid state in the state machine
   - Transitions are validated against the state machine graph
   - First update must target an initial state
+  - --agent requires --workflow (determines run attribution)
+  - --task requires --agent (determines agent context)
 
 Output:
   JSON with the recorded status update:
@@ -610,6 +630,18 @@ Examples:
     --status in_progress \\
     --message "Gathering requirements"
 
+  # Record agent state transition with per-task tracking
+  rp1 agent-tools work update \\
+    --project /Users/dev/myapp \\
+    --feature auth-refactor \\
+    --workflow build \\
+    --agent task-builder \\
+    --task T1 \\
+    --run-id "550e8400-e29b-41d4-a716-446655440000" \\
+    --step building \\
+    --status in_progress \\
+    --message "Building task T1"
+
   # Record transition with custom TTL
   rp1 agent-tools work update \\
     --project /Users/dev/myapp \\
@@ -632,6 +664,8 @@ Examples:
 			workflow?: string;
 			runId?: string;
 			ttl?: string;
+			agent?: string;
+			task?: string;
 		}): Promise<void> => {
 			const toolName = "work";
 
