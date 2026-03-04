@@ -262,6 +262,30 @@ async function discoverArtifacts(
 		// Directory doesn't exist - that's fine
 	}
 
+	const researchDir = join(projectPath, ".rp1", "work", "research");
+	try {
+		const dirStat = await stat(researchDir);
+		if (dirStat.isDirectory()) {
+			const files = await readdir(researchDir);
+			for (const file of files) {
+				if (file.includes(featureId)) {
+					const filePath = join(researchDir, file);
+					const fileStat = await stat(filePath);
+					if (fileStat.isFile()) {
+						artifacts.push({
+							path: `.rp1/work/research/${file}`,
+							type: classifyArtifactType(file),
+							updatedDuringRun: true,
+							isNew: false,
+						});
+					}
+				}
+			}
+		}
+	} catch {
+		// Directory doesn't exist - that's fine
+	}
+
 	return artifacts;
 }
 

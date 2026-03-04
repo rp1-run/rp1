@@ -58,9 +58,9 @@ rp1 agent-tools work update \
 - Generate `RUN_ID` as a UUID at workflow start; derive `FEATURE_ID` by slugifying the research topic (e.g., "auth-flow-analysis")
 
 **State Progression Protocol**:
-1. Report each `--step` exactly ONCE with `--status started` when you enter that state
-2. When a phase's work finishes, move to the NEXT state in the graph. DO NOT re-report the current state with `--status completed`
-3. DO NOT report the same `--step` value twice. Each step is reported once when you enter it.
+1. Report each `--step` with `--status started` when you enter that state
+2. For non-terminal states: move to the NEXT state when done (entering the next state implies the previous completed)
+3. For terminal states (those with `→ [*]` transitions): report `--status completed` when the step's work finishes
 4. On error, transition to the appropriate failure state in the graph
 
 **Example sequence**:
@@ -70,6 +70,7 @@ rp1 agent-tools work update \
 --step explore --status started      # plan ready, entering explore phase
 --step synthesize --status started   # exploration done, entering synthesize phase
 --step report --status started       # synthesis done, entering report phase
+--step report --status completed     # report work finished, workflow done
 ```
 
 ## 1. Intent Clarification (~15% effort)

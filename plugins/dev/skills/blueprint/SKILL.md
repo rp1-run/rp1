@@ -56,9 +56,9 @@ rp1 agent-tools work update \
 - Generate `RUN_ID` as a UUID at workflow start; use `FEATURE_ID` = "blueprint" or derive from `PRD_NAME` if provided
 
 **State Progression Protocol**:
-1. Report each `--step` exactly ONCE with `--status started` when you enter that state
-2. When a phase's work finishes, move to the NEXT state in the graph. DO NOT re-report the current state with `--status completed`
-3. DO NOT report the same `--step` value twice. Each step is reported once when you enter it.
+1. Report each `--step` with `--status started` when you enter that state
+2. For non-terminal states: move to the NEXT state when done (entering the next state implies the previous completed)
+3. For terminal states (those with `→ [*]` transitions): report `--status completed` when the step's work finishes
 4. On error, transition to the appropriate failure state in the graph
 
 **Example sequence** (with charter):
@@ -66,6 +66,7 @@ rp1 agent-tools work update \
 --step detect --status started    # entering detect phase
 --step charter --status started   # needs charter, entering charter phase
 --step prd --status started       # charter done, entering prd phase
+--step prd --status completed     # prd done, workflow complete
 ```
 
 ## §CTX
