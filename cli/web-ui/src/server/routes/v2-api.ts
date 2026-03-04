@@ -33,6 +33,7 @@ import type {
 } from "../../../../src/agent-tools/work/models.js";
 import type { V2Project } from "../../types/projects";
 import type {
+	AgentSubState,
 	Artifact,
 	ArtifactType,
 	AttentionData,
@@ -562,12 +563,97 @@ async function deriveRunStatus(
 }
 
 /**
+ * Attach agent sub-states to parent workflow steps.
+ *
+ * Groups agent-level records by agent+task, derives sub-state status for each
+ * group, and attaches them to the parent Step whose time range contains the
+ * agent group's first record. Steps without agent activity are returned
+ * unchanged.
+ */
+function attachAgentSubStatesToSteps(
+	steps: readonly Step[],
+	skillRecords: readonly StatusUpdateRecord[],
+	agentRecords: readonly StatusUpdateRecord[],
+): readonly Step[] {
+	if (agentRecords.length === 0) return steps;
+
+	const stepTimeline: { stepId: string; startedAt: string }[] = [];
+	const seenSteps = new Set<string>();
+	for (const record of skillRecords) {
+		if (record.step && !seenSteps.has(record.step)) {
+			stepTimeline.push({ stepId: record.step, startedAt: record.createdAt });
+			seenSteps.add(record.step);
+		}
+	}
+
+	const agentGroups = new Map<string, StatusUpdateRecord[]>();
+	for (const record of agentRecords) {
+		const key = `${record.agent}|${record.task ?? ""}`;
+		const existing = agentGroups.get(key);
+		if (existing) {
+			existing.push(record);
+		} else {
+			agentGroups.set(key, [record]);
+		}
+	}
+
+	const parentStepSubStates = new Map<string, AgentSubState[]>();
+	for (const [, records] of agentGroups) {
+		const firstRecord = records[0];
+		const lastRecord = records[records.length - 1];
+		if (!firstRecord.agent) continue;
+
+		const subState: AgentSubState = {
+			agentName: firstRecord.agent,
+			step: lastRecord.step ?? "unknown",
+			status: mapRecordStatusToStepStatus(lastRecord.status),
+			task: firstRecord.task,
+			startedAt: firstRecord.createdAt,
+			completedAt: TERMINAL_STATUSES.has(lastRecord.status)
+				? lastRecord.createdAt
+				: null,
+		};
+
+		let parentStepId: string | null = null;
+		for (const timeline of stepTimeline) {
+			if (timeline.startedAt <= firstRecord.createdAt) {
+				parentStepId = timeline.stepId;
+			} else {
+				break;
+			}
+		}
+
+		if (parentStepId) {
+			const existing = parentStepSubStates.get(parentStepId);
+			if (existing) {
+				existing.push(subState);
+			} else {
+				parentStepSubStates.set(parentStepId, [subState]);
+			}
+		}
+	}
+
+	return steps.map((step) => {
+		const subStates = parentStepSubStates.get(step.id);
+		if (subStates && subStates.length > 0) {
+			return { ...step, agentSubStates: subStates };
+		}
+		return step;
+	});
+}
+
+/**
  * Build a fully-populated Run object for the detail view.
  * Uses the full timeline of status records to derive events, steps,
  * and proper duration timestamps.
  *
  * For workflows with state machines, the overall status is derived from
  * workflow completion rather than the latest DB record's status.
+ *
+ * Records are split into skill-level (agent IS NULL) and agent-level
+ * (agent IS NOT NULL). Skill-level records drive workflow step derivation
+ * and run status. Agent-level records are grouped and attached as
+ * agentSubStates on the corresponding parent steps.
  */
 async function buildDetailedRun(
 	record: StatusUpdateRecord,
@@ -576,36 +662,49 @@ async function buildDetailedRun(
 	artifacts: readonly Artifact[],
 ): Promise<Run> {
 	const command = extractCommand(record.metadata, record.workflow);
+
+	const skillRecords = allRecords.filter((r) => r.agent === null);
+	const agentRecords = allRecords.filter((r) => r.agent !== null);
+
 	const events = deriveEvents(allRecords);
-	const steps = await deriveSteps(allRecords, command);
-	const status = await deriveRunStatus(allRecords, command);
+	const steps = await deriveSteps(skillRecords, command);
+	const status = await deriveRunStatus(skillRecords, command);
+
+	const stepsWithAgentSubStates = attachAgentSubStatesToSteps(
+		steps,
+		skillRecords,
+		agentRecords,
+	);
 
 	const startedAt =
-		allRecords.length > 0 ? allRecords[0].createdAt : record.createdAt;
+		skillRecords.length > 0 ? skillRecords[0].createdAt : record.createdAt;
 
 	let completedAt: string | null = null;
 	if (status === "completed" || status === "failed") {
-		for (let i = allRecords.length - 1; i >= 0; i--) {
-			if (TERMINAL_STATUSES.has(allRecords[i].status)) {
-				completedAt = allRecords[i].createdAt;
+		for (let i = skillRecords.length - 1; i >= 0; i--) {
+			if (TERMINAL_STATUSES.has(skillRecords[i].status)) {
+				completedAt = skillRecords[i].createdAt;
 				break;
 			}
 		}
 	}
 
 	let currentStep: string | null = null;
-	for (let i = allRecords.length - 1; i >= 0; i--) {
-		if (allRecords[i].step && !TERMINAL_STATUSES.has(allRecords[i].status)) {
-			currentStep = allRecords[i].step;
+	for (let i = skillRecords.length - 1; i >= 0; i--) {
+		if (
+			skillRecords[i].step &&
+			!TERMINAL_STATUSES.has(skillRecords[i].status)
+		) {
+			currentStep = skillRecords[i].step;
 			break;
 		}
 	}
 
 	let error: string | null = null;
 	if (status === "failed") {
-		for (let i = allRecords.length - 1; i >= 0; i--) {
-			if (allRecords[i].status === "failed" && allRecords[i].message) {
-				error = allRecords[i].message;
+		for (let i = skillRecords.length - 1; i >= 0; i--) {
+			if (skillRecords[i].status === "failed" && skillRecords[i].message) {
+				error = skillRecords[i].message;
 				break;
 			}
 		}
@@ -620,7 +719,7 @@ async function buildDetailedRun(
 		command,
 		status,
 		currentStep,
-		steps,
+		steps: stepsWithAgentSubStates,
 		artifacts,
 		events,
 		startedAt,
