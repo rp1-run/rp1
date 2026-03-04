@@ -64,6 +64,7 @@ interface AssetImport {
 	outputName: string;
 	category: "agent" | "skill" | "state-machine" | "webui" | "opencode-plugin";
 	plugin?: "base" | "dev" | "utils";
+	inlineContent?: string;
 }
 
 /**
@@ -131,17 +132,25 @@ async function collectPluginAssets(
 			});
 		}
 
-		// State machines (co-located state.mmd files)
+		// State machines (embedded inline content or file-based)
 		if (plugin.stateMachines) {
 			for (const sm of plugin.stateMachines) {
-				const fullPath = join(OPENCODE_DIST, sm.path);
-				imports.push({
+				const smEntry: AssetImport = {
 					varName: toVarName(`${pluginName}_statemachine`, sm.name),
-					importPath: getImportPath(fullPath),
+					importPath: "",
 					outputName: sm.name,
 					category: "state-machine",
 					plugin: pluginName,
-				});
+				};
+
+				if ((sm as { content?: string }).content) {
+					smEntry.inlineContent = (sm as { content?: string }).content;
+				} else if (sm.path) {
+					const fullPath = join(OPENCODE_DIST, sm.path);
+					smEntry.importPath = getImportPath(fullPath);
+				}
+
+				imports.push(smEntry);
 			}
 		}
 
@@ -236,13 +245,24 @@ async function generate(): Promise<void> {
 	const pluginAssets = await collectPluginAssets(manifest);
 	const webuiAssets = await collectWebUIAssets();
 
-	// Generate import statements
-	const imports = [...pluginAssets, ...webuiAssets]
+	// Separate file-based imports from inline content declarations
+	const allAssets = [...pluginAssets, ...webuiAssets];
+	const fileImports = allAssets
+		.filter((a) => !a.inlineContent)
 		.map(
 			(a) =>
 				`import ${a.varName} from "${a.importPath}" with { type: "file" };`,
 		)
 		.join("\n");
+
+	const inlineDeclarations = allAssets
+		.filter((a) => a.inlineContent)
+		.map((a) => `const ${a.varName} = ${JSON.stringify(a.inlineContent)};`)
+		.join("\n");
+
+	const imports = [fileImports, inlineDeclarations]
+		.filter(Boolean)
+		.join("\n\n");
 
 	// Generate manifest arrays
 	const baseAgents = pluginAssets
@@ -269,18 +289,23 @@ async function generate(): Promise<void> {
 		.filter((a) => a.category === "skill" && a.plugin === "utils")
 		.map((a) => `{ name: "${a.outputName}", path: ${a.varName} }`);
 
-	// State machines (co-located state.mmd files bundled for runtime access)
+	// State machines (inline content or file-based, bundled for runtime access)
+	const formatStateMachineEntry = (a: AssetImport): string =>
+		a.inlineContent
+			? `{ name: "${a.outputName}", path: "", content: ${a.varName} }`
+			: `{ name: "${a.outputName}", path: ${a.varName} }`;
+
 	const baseStateMachines = pluginAssets
 		.filter((a) => a.category === "state-machine" && a.plugin === "base")
-		.map((a) => `{ name: "${a.outputName}", path: ${a.varName} }`);
+		.map(formatStateMachineEntry);
 
 	const devStateMachines = pluginAssets
 		.filter((a) => a.category === "state-machine" && a.plugin === "dev")
-		.map((a) => `{ name: "${a.outputName}", path: ${a.varName} }`);
+		.map(formatStateMachineEntry);
 
 	const utilsStateMachines = pluginAssets
 		.filter((a) => a.category === "state-machine" && a.plugin === "utils")
-		.map((a) => `{ name: "${a.outputName}", path: ${a.varName} }`);
+		.map(formatStateMachineEntry);
 
 	// OpenCode plugin files (only base plugin has this currently)
 	const basePluginFiles = pluginAssets
