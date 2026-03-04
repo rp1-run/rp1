@@ -194,6 +194,8 @@ describe("expires_at handling", () => {
 					"/test/project",
 					"expired-state-test",
 					"run-expired",
+					undefined,
+					undefined,
 					testDbPath,
 				),
 			);
@@ -217,6 +219,8 @@ describe("expires_at handling", () => {
 					"/test/project",
 					"valid-state-test",
 					"run-valid",
+					undefined,
+					undefined,
 					testDbPath,
 				),
 			);
@@ -239,6 +243,8 @@ describe("expires_at handling", () => {
 				getCurrentWorkflowState(
 					"/test/project",
 					"legacy-test",
+					undefined,
+					undefined,
 					undefined,
 					testDbPath,
 				),
