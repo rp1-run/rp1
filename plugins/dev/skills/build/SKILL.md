@@ -75,12 +75,26 @@ rp1 agent-tools work update \
   --workflow build \
   --run-id {RUN_ID} \
   --step {CURRENT_STATE} \
-  --status {STATUS_VALUE}
+  --status started
 ```
 
 - Generate `RUN_ID` as a UUID at workflow start
-- Follow transition edges in the graph; do not skip states
-- On error, follow failure transitions defined in the graph
+
+**State Progression Protocol**:
+1. Report each `--step` exactly ONCE with `--status started` when you enter that state
+2. When a phase's work finishes, move to the NEXT state in the graph. DO NOT re-report the current state with `--status completed`
+3. DO NOT report the same `--step` value twice. Each step is reported once when you enter it.
+4. On error, transition to the appropriate failure/retry state in the graph
+
+**Example sequence**:
+```
+--step requirements --status started   # entering requirements
+--step design --status started         # requirements done, entering design
+--step tasks --status started          # design done, entering tasks
+--step build --status started          # tasks done, entering build
+--step verify --status started         # build done, entering verify
+--step archive --status started        # verify passed, entering archive
+```
 
 ## §FLAG-VALIDATION
 

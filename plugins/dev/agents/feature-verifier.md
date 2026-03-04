@@ -313,6 +313,11 @@ stateDiagram-v2
     failed --> [*]
 ```
 
+**State Progression Protocol**:
+1. Report each `--step` exactly ONCE with `--status started` when you enter that state
+2. When work completes, transition to the NEXT state in the graph. DO NOT re-report the current state with `--status completed`
+3. DO NOT report the same `--step` value twice. Each step is reported once when you enter it.
+
 **On each transition**, report via:
 ```
 rp1 agent-tools work update \
@@ -324,6 +329,13 @@ rp1 agent-tools work update \
   --step {CURRENT_STATE} \
   --status started
 ```
+
+**Example sequence**:
+```
+--step verifying --status started   # entering verifying state
+--step completed --status started   # verification passed, entering completed state
+```
+On failure: `--step failed --status started` (instead of completed)
 
 Skip all state reporting if WORKFLOW is empty (standalone invocation).
 

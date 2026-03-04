@@ -52,12 +52,25 @@ rp1 agent-tools work update \
   --workflow deep-research \
   --run-id {RUN_ID} \
   --step {CURRENT_STATE} \
-  --status {STATUS_VALUE}
+  --status started
 ```
 
 - Generate `RUN_ID` as a UUID at workflow start; derive `FEATURE_ID` by slugifying the research topic (e.g., "auth-flow-analysis")
-- Follow transition edges in the graph; do not skip states
-- On error, follow failure transitions defined in the graph
+
+**State Progression Protocol**:
+1. Report each `--step` exactly ONCE with `--status started` when you enter that state
+2. When a phase's work finishes, move to the NEXT state in the graph. DO NOT re-report the current state with `--status completed`
+3. DO NOT report the same `--step` value twice. Each step is reported once when you enter it.
+4. On error, transition to the appropriate failure state in the graph
+
+**Example sequence**:
+```
+--step clarify --status started      # entering clarify phase
+--step plan --status started         # intent clear, entering plan phase
+--step explore --status started      # plan ready, entering explore phase
+--step synthesize --status started   # exploration done, entering synthesize phase
+--step report --status started       # synthesis done, entering report phase
+```
 
 ## 1. Intent Clarification (~15% effort)
 
