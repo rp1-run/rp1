@@ -50,12 +50,23 @@ rp1 agent-tools work update \
   --workflow blueprint \
   --run-id {RUN_ID} \
   --step {CURRENT_STATE} \
-  --status {STATUS_VALUE}
+  --status started
 ```
 
 - Generate `RUN_ID` as a UUID at workflow start; use `FEATURE_ID` = "blueprint" or derive from `PRD_NAME` if provided
-- Follow transition edges in the graph; do not skip states
-- On error, follow failure transitions defined in the graph
+
+**State Progression Protocol**:
+1. Report each `--step` exactly ONCE with `--status started` when you enter that state
+2. When a phase's work finishes, move to the NEXT state in the graph. DO NOT re-report the current state with `--status completed`
+3. DO NOT report the same `--step` value twice. Each step is reported once when you enter it.
+4. On error, transition to the appropriate failure state in the graph
+
+**Example sequence** (with charter):
+```
+--step detect --status started    # entering detect phase
+--step charter --status started   # needs charter, entering charter phase
+--step prd --status started       # charter done, entering prd phase
+```
 
 ## §CTX
 
