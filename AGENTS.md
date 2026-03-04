@@ -326,7 +326,9 @@ rp1 agent-tools work update \
   --status started
 
 - Generate `RUN_ID` as a UUID at workflow start
-- Report each step once when entering it; do not re-report the same step
+- Report each step with `--status started` when entering it
+- For non-terminal states: moving to the next state implies the previous completed
+- For terminal states (those with `→ [*]` transitions): report `--status completed` when the step's work finishes
 - Follow transition edges in the graph; do not skip states
 ````
 

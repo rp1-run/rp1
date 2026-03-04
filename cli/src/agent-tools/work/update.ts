@@ -291,7 +291,7 @@ const validateWorkflowUpdate = (
 										),
 									);
 								}
-							} else {
+							} else if (currentState !== step) {
 								const validation = validateTransition(
 									machine,
 									currentState,
