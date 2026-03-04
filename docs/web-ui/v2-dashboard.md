@@ -59,7 +59,7 @@ The dashboard groups runs into attention sections based on these mapped statuses
 
 If your dashboard shows no runs, ensure that:
 
-1. Agents are using the `work-status` skill to report progress
+1. Agents are reporting progress via `rp1 agent-tools work update` with validated state machine transitions
 2. The status database exists at `~/.rp1/status.db`
 3. The project is registered (runs are filtered by registered projects)
 
@@ -140,6 +140,26 @@ Horizontal timeline showing workflow progression:
 | Current | Blue filled circle (animated for running) |
 | Pending | Gray empty circle |
 | Failed | Red X |
+
+### Agent Sub-State Panel
+
+When a workflow step has associated agent activity, the step timeline displays a nested agent activity panel below the workflow diagram. This provides hierarchical visibility into what agents are doing within each phase.
+
+**What it shows**:
+- Agent name (humanized, e.g., "Task Builder" for `task-builder`)
+- Current agent step and status badge
+- Per-task tracking: individual task IDs (e.g., T1, T2) with independent state per task
+
+**Behavior**:
+- Steps with active (running) agents are auto-expanded
+- Steps without agent activity render identically to before (no visual change)
+- Updates in real-time via the existing WebSocket mechanism
+- Each task within an agent progresses through the agent's state machine independently
+
+**Example**: During a `build` workflow's "build" phase, you might see:
+- `task-builder`: building (T2) -- with T1 shown as completed
+
+See [State Machines](../concepts/state-machines.md) for how agents define and report state machine transitions.
 
 ### Artifacts Panel
 
