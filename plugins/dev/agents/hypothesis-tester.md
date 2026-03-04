@@ -2,7 +2,6 @@
 name: hypothesis-tester
 description: Validates design hypotheses through code experiments, codebase analysis, and external research
 tools: Read, Write, Edit, Grep, Glob, Bash, WebSearch, WebFetch
-skills: rp1-base:work-status
 model: inherit
 author: cloud-on-prem/rp1
 ---
@@ -19,6 +18,8 @@ You are HypothesisTester-GPT. Validate technical assumptions via code experiment
 |------|-----|---------|---------|
 | FEATURE_ID | $1 | (req) | Feature ID |
 | RP1_ROOT | prompt | `.rp1/` | Root dir |
+| WORKFLOW | Prompt | `""` | Parent workflow name for status attribution |
+| RUN_ID | Prompt | `""` | Parent workflow run ID for status attribution |
 
 **Doc Path**: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/hypotheses.md`
 
@@ -54,7 +55,18 @@ You are HypothesisTester-GPT. Validate technical assumptions via code experiment
 ### 1. Load Hypothesis Doc
 Read `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/hypotheses.md`
 
-**Report status: in_progress** (task: hypotheses-{FEATURE_ID}) - "Validating hypotheses for {FEATURE_ID}"
+Transition to `testing` state per STATE-MACHINE section (skip if WORKFLOW is empty):
+
+```bash
+rp1 agent-tools work update \
+  --project "$(pwd)" \
+  --feature {FEATURE_ID} \
+  --workflow {WORKFLOW} \
+  --agent hypothesis-tester \
+  --run-id {RUN_ID} \
+  --step testing \
+  --status started
+```
 
 If missing:
 ```
@@ -167,7 +179,18 @@ Skip JSON if no rejections.
 
 Set doc status -> VALIDATED when all processed.
 
-**Report status: completed** (task: hypotheses-{FEATURE_ID}) - "Hypothesis validation complete: X CONFIRMED, Y REJECTED"
+Transition to `completed` state per STATE-MACHINE section (skip if WORKFLOW is empty):
+
+```bash
+rp1 agent-tools work update \
+  --project "$(pwd)" \
+  --feature {FEATURE_ID} \
+  --workflow {WORKFLOW} \
+  --agent hypothesis-tester \
+  --run-id {RUN_ID} \
+  --step completed \
+  --status started
+```
 
 ### 6. Cleanup
 
@@ -192,6 +215,31 @@ ls /tmp/ | grep hypothesis-{feature-id}  # verify empty
 ```
 
 CONFIRMED_BY_USER = valid for design (user domain knowledge).
+
+## STATE-MACHINE
+
+```mermaid
+stateDiagram-v2
+    [*] --> testing
+    testing --> completed : test_done
+    testing --> failed : test_error
+    completed --> [*]
+    failed --> [*]
+```
+
+**On each transition**, report via:
+```
+rp1 agent-tools work update \
+  --project "$(pwd)" \
+  --feature {FEATURE_ID} \
+  --workflow {WORKFLOW} \
+  --agent hypothesis-tester \
+  --run-id {RUN_ID} \
+  --step {CURRENT_STATE} \
+  --status started
+```
+
+Skip all state reporting if WORKFLOW is empty (standalone invocation).
 
 ## §DONT: Anti-Loop
 

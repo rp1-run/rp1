@@ -153,6 +153,8 @@ prompt: |
   WORKTREE_PATH={worktree_path}
   GIT_COMMIT={GIT_COMMIT}
   RP1_ROOT={{$RP1_ROOT}}
+  WORKFLOW=build-fast
+  RUN_ID={RUN_ID}
 ```
 
 **Parse response**: Verify "Builder Complete" in output.
@@ -173,6 +175,8 @@ prompt: |
   WORKTREE_PATH={worktree_path}
   GIT_COMMIT={GIT_COMMIT}
   RP1_ROOT={{$RP1_ROOT}}
+  WORKFLOW=build-fast
+  RUN_ID={RUN_ID}
 ```
 
 **Parse response**: Extract `status` (SUCCESS or FAILURE).
@@ -193,6 +197,8 @@ prompt: |
   GIT_COMMIT={GIT_COMMIT}
   RP1_ROOT={{$RP1_ROOT}}
   PREVIOUS_FEEDBACK={reviewer summary and issues}
+  WORKFLOW=build-fast
+  RUN_ID={RUN_ID}
 ```
 
 3. Do NOT retry reviewer after retry builder (max 1 retry total)

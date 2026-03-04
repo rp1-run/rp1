@@ -169,7 +169,7 @@ If `flagged_hypotheses` non-empty:
 
 ```
 Task: rp1-dev:hypothesis-tester
-prompt: Validate hypotheses for feature {FEATURE_ID}
+prompt: FEATURE_ID={FEATURE_ID}, WORKFLOW=build, RUN_ID={RUN_ID}
 ```
 
 ```
@@ -280,8 +280,8 @@ prompt: |
 for unit in task_units:
   attempt=1, max=2, feedback=null
   while attempt <= max:
-    Task: rp1-dev:task-builder (FEATURE_ID, TASK_IDS, WORKTREE_PATH, GIT_COMMIT, feedback)
-    Task: rp1-dev:task-reviewer (FEATURE_ID, TASK_IDS, WORKTREE_PATH, GIT_COMMIT)
+    Task: rp1-dev:task-builder (FEATURE_ID, TASK_IDS, WORKTREE_PATH, GIT_COMMIT, feedback, WORKFLOW=build, RUN_ID={RUN_ID})
+    Task: rp1-dev:task-reviewer (FEATURE_ID, TASK_IDS, WORKTREE_PATH, GIT_COMMIT, WORKFLOW=build, RUN_ID={RUN_ID})
     if SUCCESS: break
     elif attempt < max: feedback=result, attempt++
     else: escalate (AFK: mark blocked; Interactive: prompt)
@@ -319,10 +319,10 @@ AskUserQuestion: |
 
    ```
    Task: rp1-dev:task-builder
-   prompt: FEATURE_ID={FEATURE_ID}, TASK_IDS=[TX-{timestamp}], WORKTREE_PATH={worktree_path}, GIT_COMMIT={GIT_COMMIT}, PREVIOUS_FEEDBACK={task_description}
+   prompt: FEATURE_ID={FEATURE_ID}, TASK_IDS=[TX-{timestamp}], WORKTREE_PATH={worktree_path}, GIT_COMMIT={GIT_COMMIT}, PREVIOUS_FEEDBACK={task_description}, WORKFLOW=build, RUN_ID={RUN_ID}
 
    Task: rp1-dev:task-reviewer
-   prompt: FEATURE_ID={FEATURE_ID}, TASK_IDS=[TX-{timestamp}], WORKTREE_PATH={worktree_path}, GIT_COMMIT={GIT_COMMIT}
+   prompt: FEATURE_ID={FEATURE_ID}, TASK_IDS=[TX-{timestamp}], WORKTREE_PATH={worktree_path}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
    ```
 
 4. Return to §4.6 checkpoint (loop until "Continue" or "Stop")
@@ -339,7 +339,7 @@ AskUserQuestion: |
 
 ```
 Task: rp1-dev:code-checker (FEATURE_ID, branch, WORKTREE_PATH=worktree_path)
-Task: rp1-dev:feature-verifier (FEATURE_ID, RP1_ROOT, WORKTREE_PATH=worktree_path)
+Task: rp1-dev:feature-verifier (FEATURE_ID, RP1_ROOT, WORKTREE_PATH=worktree_path, WORKFLOW=build, RUN_ID={RUN_ID})
 Task: rp1-dev:comment-cleaner (MODE=clean, SCOPE=branch, COMMIT_CHANGES={GIT_COMMIT}, WORKTREE_PATH=worktree_path)
 ```
 
