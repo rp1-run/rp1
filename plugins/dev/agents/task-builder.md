@@ -2,7 +2,6 @@
 name: task-builder
 description: Implements assigned task(s) w/ full context, writes summaries to tasks.md. Uses extended thinking (or ultrathink).
 tools: Read, Write, Edit, Bash, Glob, Grep
-skills: rp1-base:work-status
 model: inherit
 ---
 
@@ -23,6 +22,8 @@ Expert dev implementing tasks from feature task list. Load context (KB, PRD, des
 | WORKTREE_PATH | Prompt | `""` | Worktree directory (if any) |
 | GIT_COMMIT | Prompt | `false` | Whether to commit changes |
 | PREVIOUS_FEEDBACK | Prompt | `None` | Review feedback from prior attempt |
+| WORKFLOW | Prompt | `""` | Parent workflow name for status attribution |
+| RUN_ID | Prompt | `""` | Parent workflow run ID for status attribution |
 
 <feature_id>
 {{FEATURE_ID from prompt}}
@@ -100,7 +101,21 @@ If PREVIOUS_FEEDBACK != "None": parse to understand prior failures + needed corr
 
 ### 1.4 Report Status
 
-**Report status: in_progress** (task: {TASK_IDS}) - "Building task(s) {TASK_IDS}"
+Transition to `building` state per STATE-MACHINE section:
+
+```bash
+rp1 agent-tools work update \
+  --project "$(pwd)" \
+  --feature {FEATURE_ID} \
+  --workflow {WORKFLOW} \
+  --agent task-builder \
+  --task {TASK_IDS} \
+  --run-id {RUN_ID} \
+  --step building \
+  --status started
+```
+
+Skip if WORKFLOW is empty.
 
 ## 2. Task Analysis
 
@@ -274,7 +289,21 @@ Update progress % in header if present (feature mode only).
 
 ## 5. Output Contract
 
-**Report status: completed** (task: {TASK_IDS}) - "Task(s) {TASK_IDS} implemented"
+Transition to `completed` state per STATE-MACHINE section:
+
+```bash
+rp1 agent-tools work update \
+  --project "$(pwd)" \
+  --feature {FEATURE_ID} \
+  --workflow {WORKFLOW} \
+  --agent task-builder \
+  --task {TASK_IDS} \
+  --run-id {RUN_ID} \
+  --step completed \
+  --status started
+```
+
+Skip if WORKFLOW is empty.
 
 **IF QUICK_BUILD_PATH is not empty** (Quick-build mode):
 
@@ -319,7 +348,18 @@ Update progress % in header if present (feature mode only).
 
 Blocking issue:
 
-1. **Report status: failed** (task: {TASK_IDS}) - "Task(s) {TASK_IDS} failed: {error context}"
+1. Transition to `failed` state per STATE-MACHINE section (skip if WORKFLOW is empty):
+   ```bash
+   rp1 agent-tools work update \
+     --project "$(pwd)" \
+     --feature {FEATURE_ID} \
+     --workflow {WORKFLOW} \
+     --agent task-builder \
+     --task {TASK_IDS} \
+     --run-id {RUN_ID} \
+     --step failed \
+     --status started
+   ```
 2. Document clearly
 3. Mark partial if possible
 4. Exit w/ error
@@ -339,5 +379,31 @@ Violations (reviewer rejection):
 - Implementation comments (use summary instead)
 
 When in doubt: conservative interpretation.
+
+## STATE-MACHINE
+
+```mermaid
+stateDiagram-v2
+    [*] --> building
+    building --> completed : build_success
+    building --> failed : build_error
+    completed --> [*]
+    failed --> [*]
+```
+
+**On each transition**, report via:
+```
+rp1 agent-tools work update \
+  --project "$(pwd)" \
+  --feature {FEATURE_ID} \
+  --workflow {WORKFLOW} \
+  --agent task-builder \
+  --task {TASK_IDS} \
+  --run-id {RUN_ID} \
+  --step {CURRENT_STATE} \
+  --status started
+```
+
+Skip all state reporting if WORKFLOW is empty (standalone invocation).
 
 Begin: load context -> implement -> output Builder Complete.
