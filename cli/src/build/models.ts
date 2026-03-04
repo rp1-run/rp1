@@ -173,10 +173,12 @@ export interface BuildSummary {
 
 /**
  * Asset entry with name and relative path for bundling.
+ * State machines use inline content (path: "", content: "...") instead of file paths.
  */
 export interface BundleAssetEntry {
 	readonly name: string;
 	readonly path: string;
+	readonly content?: string;
 }
 
 /**
