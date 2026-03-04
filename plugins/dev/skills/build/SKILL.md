@@ -53,9 +53,19 @@ prompt: FEATURE_ID={FEATURE_ID}, RP1_ROOT={{$RP1_ROOT}}
 
 Agents handle their own context. You orchestrate.
 
-## §STATE-MACHINE
+## STATE-MACHINE
 
-Read the co-located `state.mmd` file in this skill's directory. This defines the workflow graph.
+```mermaid
+stateDiagram-v2
+    [*] --> requirements
+    requirements --> design : reqs_complete
+    design --> tasks : design_complete
+    tasks --> build : tasks_ready
+    build --> verify : build_complete
+    verify --> build : verify_failed
+    verify --> archive : verify_passed
+    archive --> [*] : done
+```
 
 **On each phase transition**, report via:
 ```

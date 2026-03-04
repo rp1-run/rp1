@@ -34,9 +34,16 @@ Extract these parameters from the user's input:
 **Environment values** (resolve via shell):
 - `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 
-## §STATE-MACHINE
+## STATE-MACHINE
 
-Read the co-located `state.mmd` file in this skill's directory. This defines the workflow graph.
+```mermaid
+stateDiagram-v2
+    [*] --> split
+    split --> review : split_complete
+    review --> synthesize : review_complete
+    synthesize --> post : synthesis_complete
+    post --> [*] : done
+```
 
 **On each phase transition**, report via:
 ```

@@ -32,9 +32,17 @@ You are executing the Deep Research workflow. You coordinate autonomous research
 
 **CRITICAL**: Commands CAN spawn agents. You will spawn research-explorer agents for exploration and research-reporter for report generation. Do NOT delegate orchestration to another agent.
 
-## §STATE-MACHINE
+## STATE-MACHINE
 
-Read the co-located `state.mmd` file in this skill's directory. This defines the workflow graph.
+```mermaid
+stateDiagram-v2
+    [*] --> clarify
+    clarify --> plan : intent_clear
+    plan --> explore : plan_ready
+    explore --> synthesize : exploration_complete
+    synthesize --> report : synthesis_complete
+    report --> [*] : done
+```
 
 **On each phase transition**, report via:
 ```
