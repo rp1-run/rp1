@@ -47,7 +47,6 @@ function findActiveStateId(
 	workflow: WorkflowDefinition,
 	stepStatusMap: Map<string, StepStatus>,
 ): string | null {
-	// Walk states in workflow order; the last one with "running" status is the active frontier
 	let activeId: string | null = null;
 	for (const state of workflow.states) {
 		if (stepStatusMap.get(state.id) === "running") {
@@ -120,10 +119,8 @@ function buildMermaidSource(
 		const status = stepStatusMap.get(state.id) ?? "pending";
 		let className: string;
 		if (state.id === activeStateId) {
-			// Only the frontier running state gets currentState (with glow)
 			className = "currentState";
 		} else if (status === "running") {
-			// Other running states are visually completed (they finished before the active one started)
 			className = "completedState";
 		} else {
 			className = stepStatusToClass(status);
@@ -201,11 +198,8 @@ export function WorkflowDiagram({
 				<span className="text-sm text-muted-foreground">
 					({stateCount} states)
 				</span>
-			</div>
-			<div className="border-t border-border">
-				<MermaidDiagram code={mermaidCode} title={null} />
 				{legendItems.length > 0 && (
-					<div className="flex items-center justify-center gap-4 border-t border-border px-4 py-2">
+					<div className="ml-auto flex items-center gap-3">
 						{legendItems.map((item) => {
 							const color = legendColorForStatus(item.status, colors);
 							return (
@@ -214,7 +208,7 @@ export function WorkflowDiagram({
 									className="flex items-center gap-1.5 text-xs text-muted-foreground"
 								>
 									<span
-										className="inline-block h-3 w-3 rounded-sm"
+										className="inline-block h-2.5 w-2.5 rounded-sm"
 										style={{
 											backgroundColor: color.fill,
 											border: `1.5px solid ${color.border}`,
@@ -232,6 +226,9 @@ export function WorkflowDiagram({
 						})}
 					</div>
 				)}
+			</div>
+			<div className="border-t border-border">
+				<MermaidDiagram code={mermaidCode} title={null} />
 			</div>
 		</section>
 	);
