@@ -5,7 +5,7 @@
 **What is this?** Multi Agentic Tool plugins that automate development workflows through constitutional prompting.
 **Plugins**:
 
-- **rp1-base**: Knowledge management, documentation, strategy, security (15 skills, 13 agents)
+- **rp1-base**: Knowledge management, documentation, strategy, security (14 skills, 13 agents)
 - **rp1-dev**: Feature workflows, code quality, PR management, testing (19 skills, 32 agents)
 - **rp1-utils**: Prompt utilities (5 skills, 4 agents)
 **Key Concept**: Skills delegate to agents that execute complete workflows autonomously (no iterative refinement).
@@ -239,7 +239,7 @@ If command fails, inform user to install:
 
 | Plugin | Contains |
 |--------|----------|
-| **base** | Knowledge, docs, strategy, security, content writing (15 skills, 13 agents) |
+| **base** | Knowledge, docs, strategy, security, content writing (14 skills, 13 agents) |
 | **dev** | Features, code quality, PRs, testing (19 skills, 32 agents; depends on base) |
 | **utils** | Prompt optimization, eval generation (5 skills, 4 agents) |
 
@@ -302,12 +302,12 @@ All rp1 invocable prompts use the [SKILL.md canonical format](docs/concepts/skil
 
 ### STATE-MACHINE Section Pattern (Workflow State Tracking)
 
-Skills with multi-step workflows can opt in to state management by:
+Skills and agents with multi-step workflows can opt in to state management by embedding a `stateDiagram-v2` mermaid block directly in their markdown file inside a `## STATE-MACHINE` section. No separate files needed.
 
-1. **Create `state.mmd`** in the skill directory (co-located with `SKILL.md`) using Mermaid stateDiagram-v2 syntax
-2. **Add STATE-MACHINE section** to the `SKILL.md` replacing scattered "Report status" directives
+**Skill STATE-MACHINE section** (add to SKILL.md):
+````markdown
+## STATE-MACHINE
 
-**state.mmd example**:
 ```mermaid
 stateDiagram-v2
     [*] --> plan
@@ -316,31 +316,52 @@ stateDiagram-v2
     review --> [*] : done
 ```
 
-**STATE-MACHINE section template** (add to SKILL.md):
-```markdown
-## STATE-MACHINE
-
-Read the co-located `state.mmd` file in this skill's directory. This defines the workflow graph.
-
 **On each phase transition**, report via:
 rp1 agent-tools work update \
-  --project {PROJECT_PATH} \
+  --project "$(pwd)" \
   --feature {FEATURE_ID} \
   --workflow {SKILL_NAME} \
   --run-id {RUN_ID} \
   --step {CURRENT_STATE} \
-  --status {STATUS_VALUE}
+  --status started
 
 - Generate `RUN_ID` as a UUID at workflow start
+- Report each step once when entering it; do not re-report the same step
 - Follow transition edges in the graph; do not skip states
-- On error, follow failure transitions defined in the graph
+````
+
+**Agent STATE-MACHINE section** (add to agent .md files):
+````markdown
+## STATE-MACHINE
+
+```mermaid
+stateDiagram-v2
+    [*] --> building
+    building --> completed : build_success
+    building --> failed : build_error
+    completed --> [*]
+    failed --> [*]
 ```
 
+**On each transition**, report via:
+rp1 agent-tools work update \
+  --project "$(pwd)" \
+  --feature {FEATURE_ID} \
+  --workflow {WORKFLOW} \
+  --agent {AGENT_NAME} \
+  --task {TASK_ID} \
+  --run-id {RUN_ID} \
+  --step {CURRENT_STATE} \
+  --status started
+````
+
 **Rules**:
-- State IDs in state.mmd must match `--step` values used in work update commands
-- The `--workflow` flag is mandatory for state-machine-enabled skills
+- State IDs must match `--step` values used in work update commands
+- The `--workflow` flag is mandatory for state-machine-enabled skills and agents
+- The `--agent` flag routes validation to the agent's state machine (not the workflow's)
+- The `--task` flag enables per-task state tracking (each task progresses independently)
 - Invalid transitions are rejected with an error listing valid next states
-- Skills without state.mmd are unaffected (no tracking, no validation)
+- Skills/agents without a `## STATE-MACHINE` section are unaffected (no tracking, no validation)
 
 See [State Machines concept guide](docs/concepts/state-machines.md) for full details.
 

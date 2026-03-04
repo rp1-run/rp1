@@ -8,7 +8,7 @@
 
 ### rp1-base (`plugins/base/`)
 **Purpose**: Foundation plugin for knowledge management, documentation, strategy, security
-**Skills**: knowledge-build, knowledge-load, deep-research, strategize, analyse-security, project-birds-eye-view, write-content, fix-mermaid, self-update, mermaid, markdown-preview, knowledge-base-templates, code-comments, work-status, generate-user-docs
+**Skills**: knowledge-build, knowledge-load, deep-research, strategize, analyse-security, project-birds-eye-view, write-content, fix-mermaid, self-update, mermaid, markdown-preview, knowledge-base-templates, code-comments, generate-user-docs
 **Agents**: kb-spatial-analyzer, kb-concept-extractor, kb-architecture-mapper, kb-module-analyzer, kb-pattern-extractor, kb-index-builder, strategic-advisor, research-explorer, research-reporter, project-documenter, security-validator, mermaid-fixer, scribe
 **Dependencies**: None (independent)
 
@@ -49,10 +49,10 @@
 **Dependencies**: shared/errors, git utilities
 
 ### State Machine (`cli/src/agent-tools/state-machine/`)
-**Purpose**: Declarative workflow state management via co-located Mermaid stateDiagram-v2 definitions
-**Key Components**: models.ts (SMState, SMTransition, StateMachine, TransitionValidation, OrderedStep), transform.ts (mermaid-ast AST to domain model conversion), adapter.ts (graph queries: transition validation, BFS step ordering, reachability), loader.ts (filesystem + bundled asset discovery with in-memory cache)
-**Pattern**: `parseAndTransform()` pipeline: raw text -> mermaid-ast `parseStateDiagram()` -> `transformAstToStateMachine()` -> `StateMachine`. Loader returns `TE.TaskEither<CLIError, StateMachine>`. Adapter functions are pure, operating on the `StateMachine` domain model.
-**Consumers**: work/ (CLI transition validation with --workflow/--run-id/--ttl flags), v2-api.ts (dynamic step derivation replacing hardcoded arrays), skills at runtime (agents read state.mmd for workflow awareness)
+**Purpose**: Declarative workflow state management via embedded Mermaid stateDiagram-v2 definitions in SKILL.md and agent .md files
+**Key Components**: models.ts (SMState, SMTransition, StateMachine, TransitionValidation, OrderedStep), transform.ts (mermaid-ast AST to domain model conversion), adapter.ts (graph queries: transition validation, BFS step ordering, reachability), loader.ts (filesystem + bundled asset discovery with in-memory cache), extractor.ts (extracts mermaid blocks from `## STATE-MACHINE` sections)
+**Pattern**: `extractStateMachineMermaid()` extracts raw mermaid from markdown. `parseAndTransform()` pipeline: raw text -> mermaid-ast `parseStateDiagram()` -> `transformAstToStateMachine()` -> `StateMachine`. Loader returns `TE.TaskEither<CLIError, StateMachine>`. Adapter functions are pure, operating on the `StateMachine` domain model.
+**Consumers**: work/ (CLI transition validation with --workflow/--agent/--task/--run-id/--ttl flags), v2-api.ts (dynamic step derivation + agent sub-state grouping), skills and agents at runtime (read embedded state machine for workflow awareness)
 **Dependencies**: mermaid-ast (npm), shared/errors, assets/reader (for bundled binary)
 
 ### Build (`cli/src/build/`)
