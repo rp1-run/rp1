@@ -52,6 +52,10 @@ export interface StatusUpdateInput {
 	readonly expiresAt?: string;
 	/** Previous workflow state before this transition (transient, not persisted) */
 	readonly previousState?: string | null;
+	/** Agent name for agent-scoped state tracking (optional) */
+	readonly agent?: string;
+	/** Task identifier for per-task state tracking (optional) */
+	readonly task?: string;
 }
 
 /**
@@ -81,6 +85,10 @@ export interface StatusUpdateRecord {
 	readonly expiresAt: string | null;
 	/** State machine identifier / skill name (null if not specified) */
 	readonly workflow: string | null;
+	/** Agent name for agent-scoped state tracking (null for skill-level updates) */
+	readonly agent: string | null;
+	/** Task identifier for per-task state tracking (null for non-per-task updates) */
+	readonly task: string | null;
 }
 
 /**

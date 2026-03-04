@@ -80,7 +80,7 @@ describe("loader", () => {
 			expect(workflows).toContain("blueprint");
 		});
 
-		test("does not include skills without state.mmd", async () => {
+		test("does not include skills without embedded state machines", async () => {
 			const workflows = await expectTaskRight(listWorkflows());
 
 			expect(workflows).not.toContain("code-check");

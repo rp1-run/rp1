@@ -56,9 +56,15 @@ Or in the terminal: `rp1 update`
 - `CONFIRM_PLAN` -> `false` (forced)
 - All checkpoints -> SKIP (no AskUserQuestion)
 
-## §STATE-MACHINE
+## STATE-MACHINE
 
-Read the co-located `state.mmd` file in this skill's directory. This defines the workflow graph.
+```mermaid
+stateDiagram-v2
+    [*] --> plan
+    plan --> build : plan_ready
+    build --> review : build_complete
+    review --> [*] : done
+```
 
 **On each phase transition**, report via:
 ```

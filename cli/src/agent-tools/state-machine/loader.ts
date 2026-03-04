@@ -7,10 +7,13 @@
  * 3. Filesystem scan (dev/source mode)
  *
  * Parse pipeline: read raw text -> parseAndTransform() -> cache -> return
+ *
+ * Filesystem mode extracts embedded stateDiagram-v2 blocks from
+ * SKILL.md and agent .md files via extractStateMachineMermaid().
  */
 
 import { readdir } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
@@ -21,6 +24,7 @@ import {
 	hasBundledAssets,
 	readEmbeddedFile,
 } from "../../assets/reader.js";
+import { extractStateMachineMermaid } from "./extractor.js";
 import type { StateMachine } from "./models.js";
 import { parseAndTransform } from "./transform.js";
 
@@ -38,7 +42,25 @@ const getProjectRoot = (): string => {
 };
 
 /**
- * Load a state machine by workflow name (skill name).
+ * Try to extract a state machine mermaid block from a file on disk.
+ * Returns the extracted mermaid content or null if file doesn't exist
+ * or has no embedded state machine.
+ */
+const tryExtractFromFile = async (filePath: string): Promise<string | null> => {
+	try {
+		const file = Bun.file(filePath);
+		if (await file.exists()) {
+			const content = await file.text();
+			return extractStateMachineMermaid(content);
+		}
+	} catch {
+		/* skip */
+	}
+	return null;
+};
+
+/**
+ * Load a state machine by name (skill or agent name).
  *
  * Checks cache first, then tries bundled assets, then filesystem.
  * Parsed result is cached for subsequent lookups.
@@ -62,7 +84,7 @@ export const loadStateMachine = (
 };
 
 /**
- * List all available workflows (skills with state.mmd files).
+ * List all available workflows (skills and agents with embedded state machines).
  */
 export const listWorkflows = (): TE.TaskEither<CLIError, readonly string[]> => {
 	if (hasBundledAssets()) {
@@ -103,7 +125,7 @@ const loadFromBundle = (
 							() => readEmbeddedFile(entry.path),
 							(err) =>
 								runtimeError(
-									`Failed to read bundled state.mmd for '${workflowName}': ${err}`,
+									`Failed to read bundled state machine for '${workflowName}': ${err}`,
 								),
 						),
 						TE.chain((readResult) => TE.fromEither(readResult)),
@@ -119,8 +141,8 @@ const loadFromBundle = (
 			}
 			return TE.left(
 				notFoundError(
-					`state.mmd for workflow '${workflowName}'`,
-					"No bundled state machine found. Check that the workflow name matches a skill with a state.mmd file.",
+					`state machine for '${workflowName}'`,
+					"No bundled state machine found. Check that the name matches a skill or agent with an embedded state machine.",
 				),
 			);
 		}),
@@ -128,6 +150,7 @@ const loadFromBundle = (
 
 /**
  * Load a state machine from the filesystem by scanning plugin directories.
+ * Searches SKILL.md files for skills and agent .md files for agents.
  */
 const loadFromFilesystem = (
 	workflowName: string,
@@ -136,36 +159,50 @@ const loadFromFilesystem = (
 		async () => {
 			const projectRoot = getProjectRoot();
 
+			// Try skills first: plugins/*/skills/{name}/SKILL.md
 			for (const pluginName of PLUGIN_NAMES) {
-				const filePath = join(
+				const skillPath = join(
 					projectRoot,
 					"plugins",
 					pluginName,
 					"skills",
 					workflowName,
-					"state.mmd",
+					"SKILL.md",
 				);
 
-				try {
-					const file = Bun.file(filePath);
-					if (await file.exists()) {
-						const content = await file.text();
-						const result = parseAndTransform(workflowName, content);
-						if (result._tag === "Left") {
-							throw new Error(`Parse error: ${JSON.stringify(result.left)}`);
-						}
-						cache.set(workflowName, result.right);
-						return result.right;
+				const extracted = await tryExtractFromFile(skillPath);
+				if (extracted) {
+					const result = parseAndTransform(workflowName, extracted);
+					if (result._tag === "Left") {
+						throw new Error(`Parse error: ${JSON.stringify(result.left)}`);
 					}
-				} catch (err) {
-					if (err instanceof Error && err.message.startsWith("Parse error:")) {
-						throw err;
-					}
-					// File not found in this plugin, try next
+					cache.set(workflowName, result.right);
+					return result.right;
 				}
 			}
 
-			throw new Error(`No state.mmd found for workflow '${workflowName}'`);
+			// Try agents: plugins/*/agents/{name}.md
+			for (const pluginName of PLUGIN_NAMES) {
+				const agentPath = join(
+					projectRoot,
+					"plugins",
+					pluginName,
+					"agents",
+					`${workflowName}.md`,
+				);
+
+				const extracted = await tryExtractFromFile(agentPath);
+				if (extracted) {
+					const result = parseAndTransform(workflowName, extracted);
+					if (result._tag === "Left") {
+						throw new Error(`Parse error: ${JSON.stringify(result.left)}`);
+					}
+					cache.set(workflowName, result.right);
+					return result.right;
+				}
+			}
+
+			throw new Error(`No embedded state machine found for '${workflowName}'`);
 		},
 		(err): CLIError => {
 			const message = err instanceof Error ? err.message : String(err);
@@ -173,8 +210,8 @@ const loadFromFilesystem = (
 				return runtimeError(message);
 			}
 			return notFoundError(
-				`state.mmd for workflow '${workflowName}'`,
-				"Ensure a state.mmd file exists in the skill directory (e.g., plugins/dev/skills/{name}/state.mmd).",
+				`state machine for '${workflowName}'`,
+				"Ensure a ## STATE-MACHINE section with a stateDiagram-v2 mermaid block exists in the SKILL.md or agent .md file.",
 			);
 		},
 	);
@@ -200,7 +237,8 @@ const listFromBundle = (): TE.TaskEither<CLIError, readonly string[]> =>
 	);
 
 /**
- * List workflows from filesystem by scanning plugin skill directories for state.mmd files.
+ * List workflows from filesystem by scanning SKILL.md and agent .md files
+ * for embedded state machines.
  */
 const listFromFilesystem = (): TE.TaskEither<CLIError, readonly string[]> =>
 	TE.tryCatch(
@@ -209,24 +247,39 @@ const listFromFilesystem = (): TE.TaskEither<CLIError, readonly string[]> =>
 			const workflows: string[] = [];
 
 			for (const pluginName of PLUGIN_NAMES) {
+				// Scan skills: plugins/*/skills/*/SKILL.md
 				const skillsDir = join(projectRoot, "plugins", pluginName, "skills");
-
 				let skillDirs: string[];
 				try {
 					skillDirs = await readdir(skillsDir);
 				} catch {
-					continue;
+					skillDirs = [];
 				}
 
 				for (const skillDir of skillDirs) {
-					const stateMmdPath = join(skillsDir, skillDir, "state.mmd");
-					try {
-						const file = Bun.file(stateMmdPath);
-						if (await file.exists()) {
-							workflows.push(skillDir);
-						}
-					} catch {
-						// Skip inaccessible entries
+					const skillMdPath = join(skillsDir, skillDir, "SKILL.md");
+					const extracted = await tryExtractFromFile(skillMdPath);
+					if (extracted) {
+						workflows.push(skillDir);
+					}
+				}
+
+				// Scan agents: plugins/*/agents/*.md
+				const agentsDir = join(projectRoot, "plugins", pluginName, "agents");
+				let agentFiles: string[];
+				try {
+					agentFiles = await readdir(agentsDir);
+				} catch {
+					agentFiles = [];
+				}
+
+				for (const agentFile of agentFiles) {
+					if (!agentFile.endsWith(".md")) continue;
+					const agentPath = join(agentsDir, agentFile);
+					const extracted = await tryExtractFromFile(agentPath);
+					if (extracted) {
+						const agentName = basename(agentFile, ".md");
+						workflows.push(agentName);
 					}
 				}
 			}
