@@ -361,16 +361,18 @@ export function RunDetailPage() {
 					<div className="lg:col-span-2 space-y-6">
 						<section
 							ref={artifactsSectionRef}
-							className="rounded-lg border border-border bg-card p-4"
+							className="rounded-lg border border-border bg-card overflow-hidden"
 						>
-							<h2 className="mb-4 pb-3 border-b border-border font-medium text-foreground">
-								Artifacts
-							</h2>
-							<ArtifactList
-								artifacts={run.artifacts}
-								onArtifactClick={handleArtifactClick}
-								selectedIndex={selectedArtifactIndex}
-							/>
+							<div className="px-4 py-3">
+								<h2 className="font-medium text-foreground">Artifacts</h2>
+							</div>
+							<div className="border-t border-border p-4">
+								<ArtifactList
+									artifacts={run.artifacts}
+									onArtifactClick={handleArtifactClick}
+									selectedIndex={selectedArtifactIndex}
+								/>
+							</div>
 						</section>
 
 						<section ref={eventStreamSectionRef}>
@@ -382,16 +384,18 @@ export function RunDetailPage() {
 				<div className="space-y-6">
 					<section
 						ref={artifactsSectionRef}
-						className="rounded-lg border border-border bg-card p-4"
+						className="rounded-lg border border-border bg-card overflow-hidden"
 					>
-						<h2 className="mb-4 pb-3 border-b border-border font-medium text-foreground">
-							Artifacts
-						</h2>
-						<ArtifactList
-							artifacts={run.artifacts}
-							onArtifactClick={handleArtifactClick}
-							selectedIndex={selectedArtifactIndex}
-						/>
+						<div className="px-4 py-3">
+							<h2 className="font-medium text-foreground">Artifacts</h2>
+						</div>
+						<div className="border-t border-border p-4">
+							<ArtifactList
+								artifacts={run.artifacts}
+								onArtifactClick={handleArtifactClick}
+								selectedIndex={selectedArtifactIndex}
+							/>
+						</div>
 					</section>
 
 					<section ref={eventStreamSectionRef}>
