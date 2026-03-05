@@ -27,7 +27,7 @@ Extract these parameters from the user's input:
 | `FEATURE_ID` | Yes | - | Feature identifier whose hypotheses to validate (kebab-case) |
 
 **Environment values** (resolve via shell):
-- `RP1_ROOT`: !`echo ${RP1_ROOT:-.rp1/}`
+- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 
 ## Prerequisites
 - `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/hypotheses.md` MUST exist
