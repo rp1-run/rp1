@@ -17,18 +17,22 @@ import {
 	deleteExpiredRuns,
 	getCurrentWorkflowState,
 	getLatestStatusByFeature,
+	insertArtifact,
 	insertStatusUpdate,
 	isValidStatus,
 	queryStatusUpdates,
 	resetDatabaseInstance,
 } from "./database.js";
 import type {
+	ArtifactInput,
+	ArtifactRecord,
+	ArtifactTypeValue,
 	QueryOptions,
 	StatusUpdateInput,
 	StatusUpdateRecord,
 	StatusValue,
 } from "./models.js";
-import { VALID_STATUSES } from "./models.js";
+import { VALID_ARTIFACT_TYPES, VALID_STATUSES } from "./models.js";
 
 /** Tool name used for registration and output */
 const TOOL_NAME = "work";
@@ -46,6 +50,48 @@ export interface WorkUpdateResult {
 	readonly message: string | null;
 	readonly createdAt: string;
 }
+
+/**
+ * Result type for the artifact subcommand.
+ * Contains inserted artifact details.
+ */
+export interface WorkArtifactResult {
+	readonly id: number;
+	readonly projectPath: string;
+	readonly feature: string;
+	readonly runId: string | null;
+	readonly path: string;
+	readonly type: ArtifactTypeValue;
+	readonly createdAt: string;
+}
+
+/**
+ * Execute work artifact subcommand.
+ * Registers a new artifact in the database.
+ *
+ * @param input - Artifact registration data
+ * @param dbPath - Optional database path override
+ * @returns TaskEither with ToolResult containing WorkArtifactResult
+ */
+export const executeArtifact = (
+	input: ArtifactInput,
+	dbPath?: string,
+): TE.TaskEither<CLIError, ToolResult<WorkArtifactResult>> =>
+	pipe(
+		insertArtifact(input, dbPath),
+		TE.map(
+			(result): WorkArtifactResult => ({
+				id: result.id,
+				projectPath: input.projectPath,
+				feature: input.feature,
+				runId: input.runId ?? null,
+				path: input.path,
+				type: input.type,
+				createdAt: result.createdAt,
+			}),
+		),
+		TE.map((data) => successResult(TOOL_NAME, data)),
+	);
 
 /**
  * Workflow context for enriched daemon notifications.
@@ -229,9 +275,13 @@ export {
 	isValidStatus,
 	resetDatabaseInstance,
 	TOOL_NAME,
+	VALID_ARTIFACT_TYPES,
 	VALID_STATUSES,
 };
 export type {
+	ArtifactInput,
+	ArtifactRecord,
+	ArtifactTypeValue,
 	QueryOptions,
 	StatusUpdateInput,
 	StatusUpdateRecord,

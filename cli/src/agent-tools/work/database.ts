@@ -12,6 +12,9 @@ import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../../shared/errors.js";
 import { runtimeError } from "../../../shared/errors.js";
 import type {
+	ArtifactInput,
+	ArtifactRecord,
+	ArtifactTypeValue,
 	InsertResult,
 	QueryOptions,
 	StatusUpdateInput,
@@ -21,7 +24,7 @@ import type {
 import { VALID_STATUSES } from "./models.js";
 
 /** Current schema version - must match highest migration number */
-export const CURRENT_SCHEMA_VERSION = 6;
+export const CURRENT_SCHEMA_VERSION = 7;
 
 /** Default database file location */
 const DEFAULT_DB_PATH = join(homedir(), ".rp1", "status.db");
@@ -115,6 +118,19 @@ ALTER TABLE status_updates ADD COLUMN task TEXT;
 
 CREATE INDEX idx_status_updates_agent ON status_updates(agent);
 CREATE INDEX idx_status_updates_agent_task ON status_updates(agent, task);`,
+
+	7: `-- Migration: Add artifacts table for explicit artifact registration
+CREATE TABLE artifacts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_path TEXT NOT NULL,
+    feature TEXT NOT NULL,
+    run_id TEXT,
+    path TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT 'other',
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX idx_artifacts_run ON artifacts(project_path, feature, run_id);`,
 };
 
 /** Get current database schema version from PRAGMA user_version */
@@ -526,6 +542,117 @@ export const getLatestStatusByFeature = (
 				(error) =>
 					runtimeError(
 						`Failed to get latest status by feature: ${error instanceof Error ? error.message : String(error)}`,
+					),
+			),
+		),
+	);
+
+/**
+ * Insert a new artifact record.
+ *
+ * @param input - Artifact registration data
+ * @param dbPath - Database file path (optional, defaults to ~/.rp1/status.db)
+ * @returns TaskEither with InsertResult or CLIError
+ */
+export const insertArtifact = (
+	input: ArtifactInput,
+	dbPath?: string,
+): TE.TaskEither<CLIError, InsertResult> =>
+	pipe(
+		getDatabase(dbPath),
+		TE.chain((db) =>
+			TE.tryCatch(
+				async () => {
+					const stmt = db.prepare(`
+						INSERT INTO artifacts (project_path, feature, run_id, path, type)
+						VALUES ($projectPath, $feature, $runId, $path, $type)
+						RETURNING id, created_at
+					`);
+
+					const result = stmt.get({
+						$projectPath: input.projectPath,
+						$feature: input.feature,
+						$runId: input.runId ?? null,
+						$path: input.path,
+						$type: input.type,
+					}) as { id: number; created_at: string };
+
+					return {
+						id: result.id,
+						createdAt: result.created_at,
+					};
+				},
+				(error) =>
+					runtimeError(
+						`Failed to insert artifact: ${error instanceof Error ? error.message : String(error)}`,
+					),
+			),
+		),
+	);
+
+/**
+ * Query artifacts for a specific project+feature combination.
+ * Optionally scoped by run_id.
+ *
+ * @param projectPath - Absolute path to the project
+ * @param feature - Feature identifier (kebab-case)
+ * @param runId - Optional run ID for scoping
+ * @param dbPath - Database file path (optional, defaults to ~/.rp1/status.db)
+ * @returns TaskEither with array of ArtifactRecord or CLIError
+ */
+export const queryArtifactsForFeature = (
+	projectPath: string,
+	feature: string,
+	runId?: string,
+	dbPath?: string,
+): TE.TaskEither<CLIError, readonly ArtifactRecord[]> =>
+	pipe(
+		getDatabase(dbPath),
+		TE.chain((db) =>
+			TE.tryCatch(
+				async () => {
+					let sql = `
+						SELECT id, project_path, feature, run_id, path, type, created_at
+						FROM artifacts
+						WHERE project_path = $projectPath AND feature = $feature
+					`;
+					const params: Record<string, string> = {
+						$projectPath: projectPath,
+						$feature: feature,
+					};
+
+					if (runId) {
+						sql += " AND run_id = $runId";
+						params.$runId = runId;
+					}
+
+					sql += " ORDER BY created_at ASC";
+
+					const rows = db.prepare(sql).all(params) as Array<{
+						id: number;
+						project_path: string;
+						feature: string;
+						run_id: string | null;
+						path: string;
+						type: string;
+						created_at: string;
+					}>;
+
+					return rows.map(
+						(row): ArtifactRecord => ({
+							id: row.id,
+							projectPath: row.project_path,
+							feature: row.feature,
+							runId: row.run_id,
+							path: row.path,
+							type: row.type as ArtifactTypeValue,
+							createdAt: row.created_at,
+						}),
+					);
+				},
+				(error) =>
+					runtimeError(
+						`Failed to query artifacts: ${error instanceof Error ? error.message : String(error)}`,
 					),
 			),
 		),

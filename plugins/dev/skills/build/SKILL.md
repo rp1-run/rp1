@@ -391,6 +391,18 @@ If `GIT_WORKTREE`: cleanup worktree.
 
 ## §6 SUMMARY
 
+Register all produced artifacts. For each file that exists in `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`, run:
+
+```bash
+rp1 agent-tools work artifact \
+  --project "$(pwd)" \
+  --feature {FEATURE_ID} \
+  --run-id {RUN_ID} \
+  --path {relative_path_to_artifact}
+```
+
+Common artifacts: `requirements.md`, `design.md`, `tasks.md` in `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`.
+
 Output: Feature ID, step status table (1-6), artifacts created.
 
 ### §6.1 Post-Verify (Interactive Only)

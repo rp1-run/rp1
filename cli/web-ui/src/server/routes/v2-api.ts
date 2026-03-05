@@ -7,8 +7,7 @@
  * grouping. Stale rows (expired via expires_at) are filtered on read.
  */
 
-import { readdir, stat } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { resolve } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import { formatError } from "../../../../shared/errors.js";
@@ -25,6 +24,7 @@ import {
 	getProjectRunStats,
 	queryAllLatestStatuses,
 	queryAllStatusUpdatesForFeature,
+	queryArtifactsForFeature,
 	queryStatusUpdateById,
 } from "../../../../src/agent-tools/work/database.js";
 import type {
@@ -189,104 +189,25 @@ const TERMINAL_STATUSES: ReadonlySet<StatusValue> = new Set([
 ]);
 
 /**
- * Classify a file extension to an ArtifactType.
+ * Query registered artifacts for a feature from the database.
+ * Returns artifacts registered via `rp1 agent-tools work artifact`.
  */
-function classifyArtifactType(filename: string): ArtifactType {
-	if (filename.endsWith(".md")) return "markdown";
-	if (filename.endsWith(".mmd") || filename.endsWith(".mermaid"))
-		return "diagram";
-	if (filename.endsWith(".diff") || filename.endsWith(".patch")) return "diff";
-	if (
-		filename.endsWith(".ts") ||
-		filename.endsWith(".js") ||
-		filename.endsWith(".tsx")
-	)
-		return "code";
-	return "other";
-}
-
-/**
- * Discover artifacts for a feature by scanning the project's .rp1 work directories.
- * Checks both `.rp1/work/features/{featureId}/` and `.rp1/work/quick-builds/` for
- * files matching the feature name.
- */
-async function discoverArtifacts(
+async function getRegisteredArtifacts(
 	projectPath: string,
 	featureId: string,
 ): Promise<readonly Artifact[]> {
-	const artifacts: Artifact[] = [];
+	const result = await pipe(queryArtifactsForFeature(projectPath, featureId))();
 
-	const featureDir = join(projectPath, ".rp1", "work", "features", featureId);
-	try {
-		const dirStat = await stat(featureDir);
-		if (dirStat.isDirectory()) {
-			const files = await readdir(featureDir);
-			for (const file of files) {
-				const filePath = join(featureDir, file);
-				const fileStat = await stat(filePath);
-				if (fileStat.isFile()) {
-					artifacts.push({
-						path: `.rp1/work/features/${featureId}/${file}`,
-						type: classifyArtifactType(file),
-						updatedDuringRun: true,
-						isNew: false,
-					});
-				}
-			}
-		}
-	} catch {
-		// Directory doesn't exist - that's fine
+	if (E.isLeft(result)) {
+		return [];
 	}
 
-	const quickBuildsDir = join(projectPath, ".rp1", "work", "quick-builds");
-	try {
-		const dirStat = await stat(quickBuildsDir);
-		if (dirStat.isDirectory()) {
-			const files = await readdir(quickBuildsDir);
-			for (const file of files) {
-				if (file.includes(featureId)) {
-					const filePath = join(quickBuildsDir, file);
-					const fileStat = await stat(filePath);
-					if (fileStat.isFile()) {
-						artifacts.push({
-							path: `.rp1/work/quick-builds/${file}`,
-							type: classifyArtifactType(file),
-							updatedDuringRun: true,
-							isNew: false,
-						});
-					}
-				}
-			}
-		}
-	} catch {
-		// Directory doesn't exist - that's fine
-	}
-
-	const researchDir = join(projectPath, ".rp1", "work", "research");
-	try {
-		const dirStat = await stat(researchDir);
-		if (dirStat.isDirectory()) {
-			const files = await readdir(researchDir);
-			for (const file of files) {
-				if (file.includes(featureId)) {
-					const filePath = join(researchDir, file);
-					const fileStat = await stat(filePath);
-					if (fileStat.isFile()) {
-						artifacts.push({
-							path: `.rp1/work/research/${file}`,
-							type: classifyArtifactType(file),
-							updatedDuringRun: true,
-							isNew: false,
-						});
-					}
-				}
-			}
-		}
-	} catch {
-		// Directory doesn't exist - that's fine
-	}
-
-	return artifacts;
+	return result.right.map((record) => ({
+		path: record.path,
+		type: record.type as ArtifactType,
+		updatedDuringRun: true,
+		isNew: false,
+	}));
 }
 
 /**
@@ -967,7 +888,7 @@ export async function handleV2RunDetailRequest(
 		// Filter out stale records (on-read pruning for expires_at)
 		const allRecords = filterNonExpiredRecords(rawRecords);
 
-		const artifacts = await discoverArtifacts(
+		const artifacts = await getRegisteredArtifacts(
 			record.projectPath,
 			record.feature,
 		);

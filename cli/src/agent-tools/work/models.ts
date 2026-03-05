@@ -113,3 +113,59 @@ export interface QueryOptions {
 	/** Maximum number of records to return (optional) */
 	readonly limit?: number;
 }
+
+/**
+ * Valid artifact type values.
+ */
+export type ArtifactTypeValue =
+	| "markdown"
+	| "code"
+	| "diagram"
+	| "diff"
+	| "report"
+	| "other";
+
+export const VALID_ARTIFACT_TYPES: readonly ArtifactTypeValue[] = [
+	"markdown",
+	"code",
+	"diagram",
+	"diff",
+	"report",
+	"other",
+] as const;
+
+/**
+ * Input for registering a new artifact.
+ */
+export interface ArtifactInput {
+	/** Absolute path to project root */
+	readonly projectPath: string;
+	/** Feature identifier (kebab-case) */
+	readonly feature: string;
+	/** Workflow run ID (optional) */
+	readonly runId?: string;
+	/** Relative path to the artifact file */
+	readonly path: string;
+	/** Artifact type classification */
+	readonly type: ArtifactTypeValue;
+}
+
+/**
+ * Stored artifact record with auto-generated fields.
+ */
+export interface ArtifactRecord {
+	/** Auto-incremented row ID */
+	readonly id: number;
+	/** Absolute path to project root */
+	readonly projectPath: string;
+	/** Feature identifier */
+	readonly feature: string;
+	/** Workflow run ID (null if not specified) */
+	readonly runId: string | null;
+	/** Relative path to the artifact file */
+	readonly path: string;
+	/** Artifact type classification */
+	readonly type: ArtifactTypeValue;
+	/** ISO 8601 UTC timestamp */
+	readonly createdAt: string;
+}
