@@ -37,6 +37,8 @@ describe("work cleanup", () => {
 	});
 
 	beforeEach(() => {
+		closeDatabase();
+		resetDatabaseInstance();
 		testDbPath = join(
 			tempDir,
 			`test-cleanup-${Date.now()}-${Math.random().toString(36).slice(2)}.db`,
