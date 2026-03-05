@@ -99,7 +99,7 @@ Examples:
   rp1 agent-tools comment-extract branch main
   rp1 agent-tools comment-extract unstaged main
   echo '{"owner":"org","repo":"repo","pr_number":123}' | rp1 agent-tools github-pr fetch-comments
-  rp1 agent-tools work update --project /path/to/project --feature my-feature --status in_progress
+  rp1 agent-tools work update --project /path/to/project --feature my-feature --workflow build --step requirements --status started
 `,
 	);
 
@@ -520,8 +520,8 @@ Subcommands:
   cleanup   Delete expired workflow runs
 
 Examples:
-  rp1 agent-tools work update --project /path/to/project --feature my-feature --status started
-  rp1 agent-tools work update --project /path/to/project --feature my-feature --step T1 --status in_progress --message "Working on requirements"
+  rp1 agent-tools work update --project /path/to/project --feature my-feature --workflow build --step requirements --status started
+  rp1 agent-tools work update --project /path/to/project --feature my-feature --workflow build --step design --status started --message "Starting design"
   rp1 agent-tools work artifact --project /path/to/project --feature my-feature --path .rp1/work/research/report.md
 `,
 	);
@@ -535,14 +535,17 @@ workCommand
 	.description("Record a status update for a feature/step")
 	.requiredOption("-p, --project <path>", "Absolute path to project root")
 	.requiredOption("-f, --feature <name>", "Feature identifier (kebab-case)")
-	.option("-t, --step <id>", "Workflow step identifier within feature")
+	.requiredOption(
+		"-t, --step <id>",
+		"Workflow step/state identifier (must match a state in the workflow's state machine)",
+	)
 	.requiredOption(
 		"-s, --status <status>",
 		`Status state (${VALID_STATUSES.join(", ")})`,
 	)
 	.option("-m, --message <text>", "Human-readable status message")
 	.option("--metadata <json>", "JSON string for additional context")
-	.option(
+	.requiredOption(
 		"-w, --workflow <name>",
 		"State machine workflow to validate against (skill name with embedded state machine)",
 	)
@@ -569,10 +572,11 @@ Description:
   Records a status update to the global status database (~/.rp1/status.db).
   Creates the database file automatically on first invocation.
 
-  When --workflow is provided, the command loads the state machine,
-  validates that the transition is permitted, computes an expires_at
-  timestamp for stale row cleanup, and inserts the record with run
-  isolation via --run-id.
+  Both --workflow and --step are REQUIRED. Every status update must specify
+  which workflow state machine step is being reported. The command loads the
+  state machine, validates that the transition is permitted, computes an
+  expires_at timestamp for stale row cleanup, and inserts the record with
+  run isolation via --run-id.
 
   When --agent is provided alongside --workflow, validation uses the
   agent's embedded state machine instead of the workflow's. The update
@@ -585,22 +589,23 @@ Description:
 Arguments:
   --project <path>     Absolute path to project root (required)
   --feature <name>     Feature identifier in kebab-case (required)
-  --step <id>          Workflow step/state identifier (required when --workflow is set)
+  --workflow <name>    Skill name whose state machine to validate against (required)
+  --step <id>          Workflow step/state identifier (required)
   --status <status>    Status state: ${VALID_STATUSES.join(", ")} (required)
   --message <text>     Human-readable status message (optional)
   --metadata <json>    JSON string for additional context (optional)
-  --workflow <name>    Skill name whose state machine to validate against (optional)
-  --run-id <id>        UUID grouping updates into a discrete workflow run (optional)
-  --ttl <seconds>      TTL for expires_at in seconds (default: 28800 = 8h, only with --workflow)
+  --run-id <id>        UUID grouping updates into a discrete workflow run (recommended)
+  --ttl <seconds>      TTL for expires_at in seconds (default: 28800 = 8h)
   --agent <name>       Agent name for agent-scoped validation (requires --workflow)
   --task <task-id>     Task identifier for per-task tracking (requires --agent)
 
 Validation:
   - Project path must be absolute
   - Feature name must match pattern ^[a-z0-9-]+$
+  - --workflow and --step are both required
+  - --step must be a valid state in the workflow's state machine
   - Status must be one of the valid states
   - Metadata must be valid JSON if provided
-  - When --workflow is set: --step must be a valid state in the state machine
   - Transitions are validated against the state machine graph
   - First update must target an initial state
   - --agent requires --workflow (determines run attribution)
@@ -611,27 +616,20 @@ Output:
   - id: Auto-generated record ID
   - projectPath: Project path
   - feature: Feature name
-  - step: Step identifier (null if not specified)
+  - step: Step identifier
   - status: Status state
   - message: Status message (null if not specified)
   - createdAt: ISO 8601 UTC timestamp
 
 Examples:
-  # Record feature start (no workflow validation)
-  rp1 agent-tools work update \\
-    --project /Users/dev/myapp \\
-    --feature auth-refactor \\
-    --status started \\
-    --message "Starting feature implementation"
-
-  # Record workflow transition with validation
+  # Record workflow step transition
   rp1 agent-tools work update \\
     --project /Users/dev/myapp \\
     --feature auth-refactor \\
     --workflow build \\
     --run-id "550e8400-e29b-41d4-a716-446655440000" \\
     --step requirements \\
-    --status in_progress \\
+    --status started \\
     --message "Gathering requirements"
 
   # Record agent state transition with per-task tracking
@@ -643,7 +641,7 @@ Examples:
     --task T1 \\
     --run-id "550e8400-e29b-41d4-a716-446655440000" \\
     --step building \\
-    --status in_progress \\
+    --status started \\
     --message "Building task T1"
 
   # Record transition with custom TTL
@@ -653,7 +651,7 @@ Examples:
     --workflow build \\
     --run-id "550e8400-e29b-41d4-a716-446655440000" \\
     --step design \\
-    --status in_progress \\
+    --status started \\
     --ttl 3600
 `,
 	)
@@ -661,11 +659,11 @@ Examples:
 		async (options: {
 			project: string;
 			feature: string;
-			step?: string;
+			step: string;
 			status: string;
 			message?: string;
 			metadata?: string;
-			workflow?: string;
+			workflow: string;
 			runId?: string;
 			ttl?: string;
 			agent?: string;

@@ -377,18 +377,20 @@ describe("workflow transition validation", () => {
 			expect(result.expiresAt).toBeUndefined();
 		});
 
-		test("allows updates without --step and without --workflow", async () => {
+		test("rejects updates without --step and without --workflow", async () => {
 			const options: UpdateCommandOptions = {
 				project: "/test/project",
 				feature: "no-task-no-workflow",
 				status: "started",
 			};
 
-			const result = await expectTaskRight(
+			const error = await expectTaskLeft(
 				validateUpdateOptions(options, testDbPath),
 			);
-			expect(result.workflow).toBeUndefined();
-			expect(result.expiresAt).toBeUndefined();
+			expect(error._tag).toBe("UsageError");
+			const msg = getErrorMessage(error);
+			expect(msg).toContain("--workflow and --step are required");
+			expect(msg).toContain("STATE-MACHINE");
 		});
 	});
 });

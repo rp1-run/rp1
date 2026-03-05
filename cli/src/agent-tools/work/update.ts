@@ -362,6 +362,54 @@ const detectStateMachineConflict = (
 	);
 
 /**
+ * Reject updates that omit both --workflow and --step.
+ * Lists available workflows so the agent knows which --workflow value to use.
+ * Provides the correct command format to guide correction.
+ */
+const rejectMissingWorkflowAndStep = (): TE.TaskEither<
+	CLIError,
+	WorkflowValidationResult
+> =>
+	TE.tryCatch(
+		async () => {
+			const workflowsResult = await listWorkflows()();
+			const availableWorkflows = E.isRight(workflowsResult)
+				? workflowsResult.right
+				: [];
+
+			const workflowList =
+				availableWorkflows.length > 0
+					? availableWorkflows.join(", ")
+					: "(none found)";
+
+			throw new Error(
+				`--workflow and --step are required. Every status update must specify which workflow step is being reported.\n\n` +
+					`Available workflows: ${workflowList}\n\n` +
+					`For skills (workflow-level reporting):\n` +
+					`  rp1 agent-tools work update \\\n` +
+					`    --project "$(pwd)" \\\n` +
+					`    --feature <feature-id> \\\n` +
+					`    --workflow <workflow-name> \\\n` +
+					`    --run-id <uuid> \\\n` +
+					`    --step <state-name> \\\n` +
+					`    --status started\n\n` +
+					`For agents (agent-level reporting):\n` +
+					`  rp1 agent-tools work update \\\n` +
+					`    --project "$(pwd)" \\\n` +
+					`    --feature <feature-id> \\\n` +
+					`    --workflow <parent-workflow-name> \\\n` +
+					`    --agent <agent-name> \\\n` +
+					`    --run-id <uuid> \\\n` +
+					`    --step <state-name> \\\n` +
+					`    --status started\n\n` +
+					`Refer to the ## STATE-MACHINE section in your SKILL.md (for skills) or agent .md file (for agents) for valid --step values.`,
+			);
+		},
+		(err): CLIError =>
+			usageError(err instanceof Error ? err.message : String(err)),
+	);
+
+/**
  * Validate all update command options and produce StatusUpdateInput.
  *
  * When --workflow is provided, performs state machine transition validation:
@@ -410,7 +458,7 @@ export const validateUpdateOptions = (
 					)
 				: options.step
 					? detectStateMachineConflict(options.step)
-					: TE.right({} as WorkflowValidationResult),
+					: rejectMissingWorkflowAndStep(),
 		),
 		TE.map(
 			({

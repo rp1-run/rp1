@@ -14,13 +14,24 @@ import {
 	getErrorMessage,
 } from "../../helpers/index.js";
 
+/**
+ * Base valid options that satisfy all required fields.
+ * Tests override specific fields to test their validation.
+ */
+const validBase: UpdateCommandOptions = {
+	project: "/path/to/project",
+	feature: "my-feature",
+	status: "started",
+	workflow: "build",
+	step: "requirements",
+};
+
 describe("validateUpdateOptions", () => {
 	describe("project path validation (BR-002)", () => {
 		test("accepts absolute paths", async () => {
 			const options: UpdateCommandOptions = {
+				...validBase,
 				project: "/Users/dev/myapp",
-				feature: "my-feature",
-				status: "started",
 			};
 
 			const result = await expectTaskRight(validateUpdateOptions(options));
@@ -29,9 +40,8 @@ describe("validateUpdateOptions", () => {
 
 		test("rejects relative paths", async () => {
 			const options: UpdateCommandOptions = {
+				...validBase,
 				project: "./relative/path",
-				feature: "my-feature",
-				status: "started",
 			};
 
 			const error = await expectTaskLeft(validateUpdateOptions(options));
@@ -41,9 +51,8 @@ describe("validateUpdateOptions", () => {
 
 		test("rejects empty project path", async () => {
 			const options: UpdateCommandOptions = {
+				...validBase,
 				project: "",
-				feature: "my-feature",
-				status: "started",
 			};
 
 			const error = await expectTaskLeft(validateUpdateOptions(options));
@@ -53,9 +62,8 @@ describe("validateUpdateOptions", () => {
 
 		test("rejects whitespace-only project path", async () => {
 			const options: UpdateCommandOptions = {
+				...validBase,
 				project: "   ",
-				feature: "my-feature",
-				status: "started",
 			};
 
 			const error = await expectTaskLeft(validateUpdateOptions(options));
@@ -66,9 +74,8 @@ describe("validateUpdateOptions", () => {
 	describe("feature name validation (BR-003)", () => {
 		test("accepts lowercase kebab-case names", async () => {
 			const options: UpdateCommandOptions = {
-				project: "/path/to/project",
+				...validBase,
 				feature: "auth-refactor",
-				status: "started",
 			};
 
 			const result = await expectTaskRight(validateUpdateOptions(options));
@@ -77,9 +84,8 @@ describe("validateUpdateOptions", () => {
 
 		test("accepts lowercase alphanumeric names", async () => {
 			const options: UpdateCommandOptions = {
-				project: "/path/to/project",
+				...validBase,
 				feature: "feature123",
-				status: "started",
 			};
 
 			const result = await expectTaskRight(validateUpdateOptions(options));
@@ -88,9 +94,8 @@ describe("validateUpdateOptions", () => {
 
 		test("accepts single-word lowercase names", async () => {
 			const options: UpdateCommandOptions = {
-				project: "/path/to/project",
+				...validBase,
 				feature: "auth",
-				status: "started",
 			};
 
 			const result = await expectTaskRight(validateUpdateOptions(options));
@@ -99,9 +104,8 @@ describe("validateUpdateOptions", () => {
 
 		test("rejects uppercase letters", async () => {
 			const options: UpdateCommandOptions = {
-				project: "/path/to/project",
+				...validBase,
 				feature: "Auth-Refactor",
-				status: "started",
 			};
 
 			const error = await expectTaskLeft(validateUpdateOptions(options));
@@ -111,9 +115,8 @@ describe("validateUpdateOptions", () => {
 
 		test("rejects underscores", async () => {
 			const options: UpdateCommandOptions = {
-				project: "/path/to/project",
+				...validBase,
 				feature: "auth_refactor",
-				status: "started",
 			};
 
 			const error = await expectTaskLeft(validateUpdateOptions(options));
@@ -122,9 +125,8 @@ describe("validateUpdateOptions", () => {
 
 		test("rejects spaces", async () => {
 			const options: UpdateCommandOptions = {
-				project: "/path/to/project",
+				...validBase,
 				feature: "auth refactor",
-				status: "started",
 			};
 
 			const error = await expectTaskLeft(validateUpdateOptions(options));
@@ -133,9 +135,8 @@ describe("validateUpdateOptions", () => {
 
 		test("rejects empty feature name", async () => {
 			const options: UpdateCommandOptions = {
-				project: "/path/to/project",
+				...validBase,
 				feature: "",
-				status: "started",
 			};
 
 			const error = await expectTaskLeft(validateUpdateOptions(options));
@@ -147,8 +148,7 @@ describe("validateUpdateOptions", () => {
 	describe("status validation (REQ-004)", () => {
 		test("accepts 'started' status", async () => {
 			const options: UpdateCommandOptions = {
-				project: "/path/to/project",
-				feature: "my-feature",
+				...validBase,
 				status: "started",
 			};
 
@@ -158,8 +158,7 @@ describe("validateUpdateOptions", () => {
 
 		test("accepts 'in_progress' status", async () => {
 			const options: UpdateCommandOptions = {
-				project: "/path/to/project",
-				feature: "my-feature",
+				...validBase,
 				status: "in_progress",
 			};
 
@@ -169,8 +168,7 @@ describe("validateUpdateOptions", () => {
 
 		test("accepts 'completed' status", async () => {
 			const options: UpdateCommandOptions = {
-				project: "/path/to/project",
-				feature: "my-feature",
+				...validBase,
 				status: "completed",
 			};
 
@@ -180,8 +178,7 @@ describe("validateUpdateOptions", () => {
 
 		test("accepts 'failed' status", async () => {
 			const options: UpdateCommandOptions = {
-				project: "/path/to/project",
-				feature: "my-feature",
+				...validBase,
 				status: "failed",
 			};
 
@@ -191,8 +188,7 @@ describe("validateUpdateOptions", () => {
 
 		test("rejects invalid status with error listing valid values", async () => {
 			const options: UpdateCommandOptions = {
-				project: "/path/to/project",
-				feature: "my-feature",
+				...validBase,
 				status: "pending",
 			};
 
@@ -206,8 +202,7 @@ describe("validateUpdateOptions", () => {
 
 		test("rejects empty status", async () => {
 			const options: UpdateCommandOptions = {
-				project: "/path/to/project",
-				feature: "my-feature",
+				...validBase,
 				status: "",
 			};
 
@@ -220,9 +215,7 @@ describe("validateUpdateOptions", () => {
 	describe("metadata validation (REQ-006)", () => {
 		test("accepts valid JSON object", async () => {
 			const options: UpdateCommandOptions = {
-				project: "/path/to/project",
-				feature: "my-feature",
-				status: "started",
+				...validBase,
 				metadata: '{"key": "value", "count": 42}',
 			};
 
@@ -232,9 +225,7 @@ describe("validateUpdateOptions", () => {
 
 		test("accepts valid JSON array", async () => {
 			const options: UpdateCommandOptions = {
-				project: "/path/to/project",
-				feature: "my-feature",
-				status: "started",
+				...validBase,
 				metadata: '["item1", "item2"]',
 			};
 
@@ -243,21 +234,13 @@ describe("validateUpdateOptions", () => {
 		});
 
 		test("accepts undefined metadata", async () => {
-			const options: UpdateCommandOptions = {
-				project: "/path/to/project",
-				feature: "my-feature",
-				status: "started",
-			};
-
-			const result = await expectTaskRight(validateUpdateOptions(options));
+			const result = await expectTaskRight(validateUpdateOptions(validBase));
 			expect(result.metadata).toBeUndefined();
 		});
 
 		test("accepts empty string metadata as undefined", async () => {
 			const options: UpdateCommandOptions = {
-				project: "/path/to/project",
-				feature: "my-feature",
-				status: "started",
+				...validBase,
 				metadata: "",
 			};
 
@@ -267,9 +250,7 @@ describe("validateUpdateOptions", () => {
 
 		test("rejects invalid JSON", async () => {
 			const options: UpdateCommandOptions = {
-				project: "/path/to/project",
-				feature: "my-feature",
-				status: "started",
+				...validBase,
 				metadata: "{invalid json}",
 			};
 
@@ -280,9 +261,7 @@ describe("validateUpdateOptions", () => {
 
 		test("rejects malformed JSON", async () => {
 			const options: UpdateCommandOptions = {
-				project: "/path/to/project",
-				feature: "my-feature",
-				status: "started",
+				...validBase,
 				metadata: '{"key": }',
 			};
 
@@ -291,64 +270,41 @@ describe("validateUpdateOptions", () => {
 		});
 	});
 
-	describe("optional fields", () => {
-		test("passes through optional step field", async () => {
+	describe("workflow and step required", () => {
+		test("rejects missing workflow and step", async () => {
 			const options: UpdateCommandOptions = {
 				project: "/path/to/project",
 				feature: "my-feature",
 				status: "started",
-				step: "T1",
 			};
 
-			const result = await expectTaskRight(validateUpdateOptions(options));
-			expect(result.step).toBe("T1");
+			const error = await expectTaskLeft(validateUpdateOptions(options));
+			expect(error._tag).toBe("UsageError");
+			const msg = getErrorMessage(error);
+			expect(msg).toContain("--workflow and --step are required");
+			expect(msg).toContain("STATE-MACHINE");
 		});
 
-		test("passes through optional message field", async () => {
+		test("passes through message field with workflow and step", async () => {
 			const options: UpdateCommandOptions = {
-				project: "/path/to/project",
-				feature: "my-feature",
-				status: "started",
+				...validBase,
 				message: "Working on requirements",
 			};
 
 			const result = await expectTaskRight(validateUpdateOptions(options));
 			expect(result.message).toBe("Working on requirements");
 		});
-
-		test("handles all optional fields together", async () => {
-			const options: UpdateCommandOptions = {
-				project: "/path/to/project",
-				feature: "my-feature",
-				status: "in_progress",
-				step: "T2",
-				message: "Implementing feature",
-				metadata: '{"progress": 50}',
-			};
-
-			const result = await expectTaskRight(validateUpdateOptions(options));
-			expect(result.projectPath).toBe("/path/to/project");
-			expect(result.feature).toBe("my-feature");
-			expect(result.status).toBe("in_progress");
-			expect(result.step).toBe("T2");
-			expect(result.message).toBe("Implementing feature");
-			expect(result.metadata).toBe('{"progress": 50}');
-		});
 	});
 
 	describe("output format (REQ-005)", () => {
 		test("returns StatusUpdateInput shape", async () => {
-			const options: UpdateCommandOptions = {
-				project: "/path/to/project",
-				feature: "my-feature",
-				status: "started",
-			};
-
-			const result = await expectTaskRight(validateUpdateOptions(options));
+			const result = await expectTaskRight(validateUpdateOptions(validBase));
 
 			expect(result).toHaveProperty("projectPath");
 			expect(result).toHaveProperty("feature");
 			expect(result).toHaveProperty("status");
+			expect(result).toHaveProperty("step");
+			expect(result).toHaveProperty("workflow");
 		});
 	});
 });
