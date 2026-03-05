@@ -18,10 +18,11 @@ import { readInput } from "./input.js";
 import { formatOutput } from "./output.js";
 import {
 	closeDatabase,
+	executeArtifact as executeWorkArtifact,
 	executeCleanup as executeWorkCleanup,
 	executeUpdate as executeWorkUpdate,
 } from "./work/index.js";
-import { VALID_STATUSES } from "./work/models.js";
+import { VALID_ARTIFACT_TYPES, VALID_STATUSES } from "./work/models.js";
 import { validateUpdateOptions } from "./work/update.js";
 
 // Register process exit handlers for graceful cleanup
@@ -85,7 +86,7 @@ Available Tools:
   worktree          Manage git worktrees for isolated agent execution
   comment-extract   Extract comments from git-changed files
   github-pr         GitHub PR operations (submit-review, add-reaction, reply-comment, fetch-comments)
-  work              Track agent workflow progress with status updates
+  work              Track agent workflow progress with status updates and artifacts
 
 Examples:
   rp1 agent-tools mmd-validate ./document.md
@@ -510,15 +511,18 @@ const workCommand = agentToolsCommand
 		"after",
 		`
 Description:
-  Provides subcommands for tracking agent workflow progress via status updates.
-  Status updates are stored in a global SQLite database at ~/.rp1/status.db.
+  Provides subcommands for tracking agent workflow progress via status updates
+  and artifact registration. Data is stored in a global SQLite database at ~/.rp1/status.db.
 
 Subcommands:
   update    Record a status update for a feature/step
+  artifact  Register an artifact for a feature/run
+  cleanup   Delete expired workflow runs
 
 Examples:
   rp1 agent-tools work update --project /path/to/project --feature my-feature --status started
   rp1 agent-tools work update --project /path/to/project --feature my-feature --step T1 --status in_progress --message "Working on requirements"
+  rp1 agent-tools work artifact --project /path/to/project --feature my-feature --path .rp1/work/research/report.md
 `,
 	);
 
@@ -761,6 +765,156 @@ Examples:
 			const result = await executeWorkCleanup({
 				dryRun: options.dryRun,
 				olderThan,
+			})();
+
+			if (E.isLeft(result)) {
+				console.error(
+					createErrorResponse(toolName, formatError(result.left, false)),
+				);
+				process.exit(1);
+			}
+
+			console.log(formatOutput(result.right));
+			process.exit(0);
+		},
+	);
+
+/**
+ * Classify a file path to an artifact type based on extension.
+ */
+function classifyArtifactType(
+	filePath: string,
+): "markdown" | "code" | "diagram" | "diff" | "report" | "other" {
+	if (filePath.endsWith(".md")) return "markdown";
+	if (filePath.endsWith(".mmd") || filePath.endsWith(".mermaid"))
+		return "diagram";
+	if (filePath.endsWith(".diff") || filePath.endsWith(".patch")) return "diff";
+	if (
+		filePath.endsWith(".ts") ||
+		filePath.endsWith(".js") ||
+		filePath.endsWith(".tsx")
+	)
+		return "code";
+	return "other";
+}
+
+/**
+ * work artifact subcommand.
+ * Registers an artifact in the database for a feature/run.
+ */
+workCommand
+	.command("artifact")
+	.description("Register an artifact for a feature/run")
+	.requiredOption("-p, --project <path>", "Absolute path to project root")
+	.requiredOption("-f, --feature <name>", "Feature identifier (kebab-case)")
+	.option(
+		"--run-id <id>",
+		"Workflow run isolation ID (UUID) for scoping artifacts",
+	)
+	.requiredOption("--path <path>", "Relative path to the artifact file")
+	.option(
+		"--type <type>",
+		`Artifact type (${VALID_ARTIFACT_TYPES.join(", ")}). Auto-classified from extension if omitted.`,
+	)
+	.addHelpText(
+		"after",
+		`
+Description:
+  Registers an artifact in the status database (~/.rp1/status.db).
+  Artifacts are files produced by agent workflows (reports, diffs, etc.).
+  If --type is not specified, it is auto-classified from the file extension.
+
+Arguments:
+  --project <path>     Absolute path to project root (required)
+  --feature <name>     Feature identifier in kebab-case (required)
+  --run-id <id>        UUID grouping artifacts into a discrete workflow run (optional)
+  --path <path>        Relative path to the artifact file (required)
+  --type <type>        Artifact type: ${VALID_ARTIFACT_TYPES.join(", ")} (optional, auto-classified)
+
+Validation:
+  - Project path must be absolute
+  - Feature name must match pattern ^[a-z0-9-]+$
+  - Type must be one of the valid artifact types if provided
+
+Output:
+  JSON with the registered artifact:
+  - id: Auto-generated record ID
+  - projectPath: Project path
+  - feature: Feature name
+  - runId: Run ID (null if not specified)
+  - path: Artifact path
+  - type: Artifact type
+  - createdAt: ISO 8601 UTC timestamp
+
+Examples:
+  rp1 agent-tools work artifact \\
+    --project /Users/dev/myapp \\
+    --feature auth-refactor \\
+    --run-id "550e8400-e29b-41d4-a716-446655440000" \\
+    --path .rp1/work/research/2026-03-05-auth-report.md
+
+  rp1 agent-tools work artifact \\
+    --project /Users/dev/myapp \\
+    --feature my-feature \\
+    --path .rp1/work/features/my-feature/tasks.md \\
+    --type markdown
+`,
+	)
+	.action(
+		async (options: {
+			project: string;
+			feature: string;
+			runId?: string;
+			path: string;
+			type?: string;
+		}): Promise<void> => {
+			const toolName = "work";
+
+			// Validate project path is absolute
+			if (!options.project || !options.project.startsWith("/")) {
+				console.error(
+					createErrorResponse(
+						toolName,
+						`Project path must be absolute. Received: ${options.project}`,
+					),
+				);
+				process.exit(1);
+			}
+
+			// Validate feature name is kebab-case
+			if (!options.feature || !/^[a-z0-9-]+$/.test(options.feature)) {
+				console.error(
+					createErrorResponse(
+						toolName,
+						`Feature name must match pattern ^[a-z0-9-]+$ (lowercase alphanumeric with hyphens). Received: ${options.feature}`,
+					),
+				);
+				process.exit(1);
+			}
+
+			// Determine artifact type
+			const artifactType = options.type ?? classifyArtifactType(options.path);
+
+			if (
+				!VALID_ARTIFACT_TYPES.includes(
+					artifactType as (typeof VALID_ARTIFACT_TYPES)[number],
+				)
+			) {
+				console.error(
+					createErrorResponse(
+						toolName,
+						`Invalid artifact type: ${artifactType}. Must be one of: ${VALID_ARTIFACT_TYPES.join(", ")}`,
+					),
+				);
+				process.exit(1);
+			}
+
+			const result = await executeWorkArtifact({
+				projectPath: options.project,
+				feature: options.feature,
+				runId: options.runId,
+				path: options.path,
+				type: artifactType as (typeof VALID_ARTIFACT_TYPES)[number],
 			})();
 
 			if (E.isLeft(result)) {

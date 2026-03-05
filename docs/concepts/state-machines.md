@@ -333,6 +333,24 @@ stateDiagram-v2
 
 3. Agent state transitions appear nested within the parent workflow's phase on the dashboard.
 
+### Registering Artifacts
+
+Skills that produce output files (reports, design docs, task files) should register them explicitly so the dashboard can display them:
+
+```bash
+rp1 agent-tools work artifact \
+  --project "$(pwd)" \
+  --feature {FEATURE_ID} \
+  --run-id {RUN_ID} \
+  --path {relative_path_to_artifact} \
+  [--type markdown|code|diagram|diff|report|other]
+```
+
+- `--path` is relative to the project root (e.g., `.rp1/work/features/my-feature/tasks.md`)
+- `--type` is auto-classified from the file extension if omitted
+- Artifacts are stored in the `artifacts` table in `~/.rp1/status.db`
+- The dashboard queries this table instead of scanning the filesystem
+
 ---
 
 ## Related Concepts

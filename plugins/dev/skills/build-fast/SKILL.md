@@ -259,6 +259,16 @@ AskUserQuestion: |
 
 ## §OUTPUT
 
+Register the artifact in the database:
+
+```bash
+rp1 agent-tools work artifact \
+  --project "$(pwd)" \
+  --feature {FEATURE_ID} \
+  --run-id {RUN_ID} \
+  --path {artifact_path}
+```
+
 ```markdown
 ## Build Fast Complete
 

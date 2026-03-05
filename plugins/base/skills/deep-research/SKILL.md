@@ -306,6 +306,18 @@ Parse JSON output:
 Handle failure:
 - If reporter fails: Log error, provide synthesis summary directly to user
 
+### Step 3: Register Artifact
+
+After extracting report_path, register it in the artifact database:
+
+```bash
+rp1 agent-tools work artifact \
+  --project "$(pwd)" \
+  --feature {FEATURE_ID} \
+  --run-id {RUN_ID} \
+  --path {report_path}
+```
+
 ## 6. Final Summary (~15% effort)
 
 Output a concise summary to the user:
