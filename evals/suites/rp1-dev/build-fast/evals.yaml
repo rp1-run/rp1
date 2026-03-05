@@ -65,6 +65,7 @@ tests:
           7. For Small/Medium scope: Output contains "Quality" section (or similarly worded) showing format/lint/test status
           8. Output indicates changes are uncommitted in working directory
           9. For Small/Medium scope: Agent spawns task-builder (NOT build-fast-executor) for implementation
+          10. For Small/Medium scope: Agent registers the artifact via Metadata bashCommands containing "rp1 agent-tools work artifact" with "--project", "--feature", "--run-id", and "--path" flags
 
           PROHIBITED (fail if any present in Metadata bashCommands):
           - "git init" (creates orphan repo, corrupts history)
@@ -99,6 +100,7 @@ tests:
           - Agent should NOT proceed to implementation phase for large scope
           - No source code files should be created or modified (check Metadata toolCalls for Write/Edit)
           - No git commits should be created for the request itself
+          - No artifact registration calls (no "rp1 agent-tools work artifact" in Metadata bashCommands)
 
           PASS if: Agent stops after redirect, provides actionable alternatives
           FAIL if: Agent attempts to implement the large-scope request
@@ -131,9 +133,10 @@ tests:
              - Contains "## Implementation Summary" section (added by task-builder)
              - Contains "## Verification" section (added by task-reviewer)
           9. Output contains "Build Fast Complete" with artifact path
+          10. Agent registers the artifact via Metadata bashCommands containing "rp1 agent-tools work artifact" with "--project", "--feature", "--run-id", and "--path" flags
 
-          PASS if: Both checkpoints fire, reviewer invoked, artifact structure correct
-          FAIL if: Missing checkpoints, no reviewer invocation, or incorrect artifact structure
+          PASS if: Both checkpoints fire, reviewer invoked, artifact structure correct, artifact registered
+          FAIL if: Missing checkpoints, no reviewer invocation, incorrect artifact structure, or missing artifact registration
   - description: "worktree_commits_and_push"
     vars:
       DEVELOPMENT_REQUEST: "add a simple hello world script"
@@ -159,9 +162,10 @@ tests:
           6. Metadata bashCommands contains "rp1 agent-tools worktree cleanup"
           7. Agent spawns task-builder (NOT build-fast-executor) for implementation
           8. Agent creates artifact at {RP1_ROOT}/work/quick-builds/ with date-based filename
+          9. Agent registers the artifact via Metadata bashCommands containing "rp1 agent-tools work artifact" with "--project", "--feature", "--run-id", and "--path" flags
 
-          PASS if: Changes made, committed, pushed, used worktree, task-builder invoked
-          FAIL if: Missing commits, push, worktree operations, or uses build-fast-executor
+          PASS if: Changes made, committed, pushed, used worktree, task-builder invoked, artifact registered
+          FAIL if: Missing commits, push, worktree operations, uses build-fast-executor, or missing artifact registration
   - description: "in_afk_mode_bypasses_confirm"
     vars:
       DEVELOPMENT_REQUEST: "add a json validation script that's ultra performant"
@@ -184,11 +188,12 @@ tests:
           3. Agent uses conventional commit format (feat:, fix:, refactor:, etc.) in any git commits
           4. Agent spawns task-builder (NOT build-fast-executor) for implementation
           5. Agent creates artifact at {RP1_ROOT}/work/quick-builds/ with date-based filename
+          6. Agent registers the artifact via Metadata bashCommands containing "rp1 agent-tools work artifact" with "--project", "--feature", "--run-id", and "--path" flags
 
           PROHIBITED:
           - Agent should NOT use AskUserQuestion tool despite --confirm-plan being set (AFK overrides)
           - No plan review checkpoint
           - No post-implementation checkpoint
 
-          PASS if: Changes made, committed, no user prompts despite --confirm-plan flag
+          PASS if: Changes made, committed, no user prompts despite --confirm-plan flag, artifact registered
           FAIL if: Agent waits for user input or AskUserQuestion appears in toolCalls

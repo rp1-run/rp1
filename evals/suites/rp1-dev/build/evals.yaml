@@ -73,6 +73,7 @@ tests:
           11. Build-verify-aggregator determines overall_status (VERIFIED/FAILED) and ready_for_merge
           12. Final output includes Feature ID, step status table (1-6), and artifacts created
           13. Agent reports work status updates via Metadata bashCommands containing "rp1 agent-tools work update" with "--workflow build" and "--run-id" flags (reads state.mmd for valid transitions)
+          14. Agent registers produced artifacts via Metadata bashCommands containing "rp1 agent-tools work artifact" with "--project", "--feature", "--run-id", and "--path" flags pointing to files in {RP1_ROOT}/work/features/{FEATURE_ID}/
 
           PROHIBITED (fail if any present in Metadata bashCommands):
           - "git push --force" or "git push -f"
