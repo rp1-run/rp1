@@ -64,6 +64,18 @@ CREATE INDEX IF NOT EXISTS idx_status_run_id ON status_updates(project_path, fea
 CREATE INDEX IF NOT EXISTS idx_status_expires_at ON status_updates(expires_at);
 CREATE INDEX IF NOT EXISTS idx_status_updates_agent ON status_updates(agent);
 CREATE INDEX IF NOT EXISTS idx_status_updates_agent_task ON status_updates(agent, task);
+
+CREATE TABLE IF NOT EXISTS artifacts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_path TEXT NOT NULL,
+    feature TEXT NOT NULL,
+    run_id TEXT,
+    path TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT 'other',
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_artifacts_run ON artifacts(project_path, feature, run_id);
 `;
 
 /**
