@@ -32,7 +32,8 @@ Extract these parameters from the user's input:
 | `GIT_COMMIT` | No | `false` | Commit changes. Set `true` if user says "commit" |
 | `GIT_PUSH` | No | `false` | Push branch to remote. Set `true` if user says "push" |
 
-**Resolve `RP1_ROOT`** by running: `rp1 agent-tools rp1-root-dir` — use the `root` value from the JSON response.
+**Environment values** (resolve via shell):
+- `RP1_ROOT`: !`echo ${RP1_ROOT:-.rp1/}`
 
 ## §VERSION-GATE
 
