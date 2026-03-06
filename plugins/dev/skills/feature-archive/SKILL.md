@@ -26,8 +26,7 @@ Extract these parameters from the user's input:
 |-----------|----------|---------|-------------|
 | `FEATURE_ID` | Yes | - | Feature ID to archive (kebab-case) |
 
-**Environment values** (resolve via shell):
-- `RP1_ROOT`: !`echo ${RP1_ROOT:-.rp1/}`
+**Resolve `RP1_ROOT`** by running: `rp1 agent-tools rp1-root-dir` — use the `root` value from the JSON response.
 
 ## Usage
 
