@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.5.1](https://github.com/rp1-run/rp1/compare/v0.5.0...v0.5.1) (2026-03-06)
+
+
+### Features
+
+* rename rp1 view to rp1 arcade with singleton hardening and session hooks ([#267](https://github.com/rp1-run/rp1/issues/267)) ([48ecf70](https://github.com/rp1-run/rp1/commit/48ecf70a6b03fc7645fc2a208cf7bec9da1eb842))
+* **webui:** redesign dashboard with design system, keyboard nav, and state machines ([#269](https://github.com/rp1-run/rp1/issues/269)) ([7501e30](https://github.com/rp1-run/rp1/commit/7501e30c2d5de75ec837765acd16a76f484d3faf))
+
+
+### Bug Fixes
+
+* replace ${} shell expansion with rp1-root-dir CLI in all skills ([#272](https://github.com/rp1-run/rp1/issues/272)) ([12c432f](https://github.com/rp1-run/rp1/commit/12c432fd3a6364fca2197dad8928afd1b636a39b))
+
 ## [0.5.0](https://github.com/rp1-run/rp1/compare/v0.4.8...v0.5.0) (2026-03-01)
 
 
