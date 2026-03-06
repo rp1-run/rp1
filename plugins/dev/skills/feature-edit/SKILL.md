@@ -27,7 +27,7 @@ Extract these parameters from the user's input:
 | `EDIT_DESCRIPTION` | Yes | - | Freeform edit description text |
 
 **Environment values** (resolve via shell):
-- `RP1_ROOT`: !`echo ${RP1_ROOT:-.rp1/}`
+- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 
 ## Error Handling
 

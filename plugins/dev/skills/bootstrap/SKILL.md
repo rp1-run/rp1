@@ -29,7 +29,7 @@ Extract these parameters from the user's input:
 | `PROJECT_NAME` | No | (prompted) | New project directory name (lowercase, hyphens allowed) |
 
 **Environment values** (resolve via shell):
-- `RP1_ROOT`: !`echo ${RP1_ROOT:-.rp1/}`
+- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 
 ## §1 Pre-Flight
 

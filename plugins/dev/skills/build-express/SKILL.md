@@ -29,7 +29,7 @@ Extract these parameters from the user's input:
 | `REQUEST` | No | `""` | Initial development request (may be empty; will prompt if missing) |
 
 **Environment values** (resolve via shell):
-- `RP1_ROOT`: !`echo ${RP1_ROOT:-.rp1/}`
+- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 
 ## 1. Main Loop
 
