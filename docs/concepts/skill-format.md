@@ -47,8 +47,10 @@ metadata:
 
 rp1 skills that resolve environment variables or call rp1 CLI tools should include both `Bash(echo *)` and `Bash(rp1 *)`:
 
-- `Bash(echo *)` -- Shell parameter expansion for `!`echo ${RP1_ROOT:-.rp1/}`` syntax
-- `Bash(rp1 *)` -- rp1 CLI invocations (`rp1 agent-tools worktree`, `rp1 agent-tools work update`, `rp1 agent-tools mmd-validate`, etc.)
+- `Bash(echo *)` -- Shell echo commands
+- `Bash(rp1 *)` -- rp1 CLI invocations including RP1_ROOT resolution (`rp1 agent-tools rp1-root-dir`, `rp1 agent-tools worktree`, `rp1 agent-tools work update`, `rp1 agent-tools mmd-validate`, etc.)
+
+**Important**: Do NOT use `echo ${VAR:-default}` syntax in skills. Claude Code blocks `${}` parameter substitution in Bash commands. Use `rp1 agent-tools rp1-root-dir` instead.
 
 ### Argument-Hint Notation
 
@@ -78,7 +80,7 @@ Extract these parameters from the user's input:
 | `AFK` | No | `false` | Non-interactive mode. Set `true` if user says "afk", "no prompts", or "unattended" |
 
 **Environment values** (resolve via shell):
-- `RP1_ROOT`: !`echo ${RP1_ROOT:-.rp1/}`
+- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 ```
 
 ### Rules
@@ -94,7 +96,7 @@ Extract these parameters from the user's input:
 Omit the `## Parameters` section entirely. Environment values can appear inline:
 
 ```markdown
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
+$RP1_ROOT = !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 ```
 
 ---

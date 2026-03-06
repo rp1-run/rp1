@@ -82,13 +82,13 @@ argument-hint: "feature-id [extra-context]"
 **Template Variable Assignment** (canonical pattern):
 
 ```markdown
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
+$RP1_ROOT = !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 ```
 
 This pattern:
 
 - `$` prefix marks it as a variable
-- `!` prefix with backticks executes shell command
+- `!` prefix with backticks executes shell command (uses `rp1 agent-tools rp1-root-dir` to avoid `${}` parameter substitution which Claude Code blocks)
 - `{{ }}` ensures the agent knows it's a template variable when interpolated
 
 **Template Interpolation** (in paths):
@@ -108,7 +108,7 @@ This pattern:
 **Variable Assignment + XML Tag Example** (subagent spawning):
 
 ```markdown
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
+$RP1_ROOT = !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 
 <feature_id>$1</feature_id>
 
@@ -184,11 +184,11 @@ argument-hint: "<feature-id> [requirements] [--afk] [--git-worktree]"
 
 | Pattern | Use Case | Example |
 |---------|----------|---------|
-| `Bash(echo *)` | Shell parameter expansion with `${}` syntax | `!`echo ${RP1_ROOT:-.rp1/}`` |
-| `Bash(rp1 *)` | rp1 CLI invocations (e.g., `rp1 agent-tools worktree`, `rp1 agent-tools work`) | `rp1 agent-tools work update` |
+| `Bash(echo *)` | Shell echo commands | `echo "hello"` |
+| `Bash(rp1 *)` | rp1 CLI invocations (RP1_ROOT resolution, worktree, work update, etc.) | `!`rp1 agent-tools rp1-root-dir`` |
 | `Bash(printf *)` | Formatted output with special characters | `printf '%s\n' "$VAR"` |
 
-**Default**: All rp1 skills should include both `Bash(echo *)` and `Bash(rp1 *)` in `allowed-tools`. `Bash(echo *)` enables environment variable resolution; `Bash(rp1 *)` enables rp1 agent-tools calls (work update, worktree, mmd-validate, github-pr, etc.).
+**Default**: All rp1 skills should include both `Bash(echo *)` and `Bash(rp1 *)` in `allowed-tools`. `Bash(rp1 *)` enables RP1_ROOT resolution via `rp1 agent-tools rp1-root-dir` and other rp1 agent-tools calls (work update, worktree, mmd-validate, github-pr, etc.). **Do NOT use `echo ${VAR:-default}` syntax** as Claude Code blocks `${}` parameter substitution in Bash commands.
 
 **Frontmatter Example** (SKILL.md format):
 
