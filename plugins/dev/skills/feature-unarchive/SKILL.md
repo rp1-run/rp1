@@ -27,8 +27,7 @@ Extract these parameters from the user's input:
 |-----------|----------|---------|-------------|
 | `FEATURE_ID` | Yes | - | The feature identifier or timestamped archive name to restore (e.g., `my-feature` or `my-feature_20251129_143022`) |
 
-**Environment values** (resolve via shell):
-- `RP1_ROOT`: !`echo ${RP1_ROOT:-.rp1/}`
+**Resolve `RP1_ROOT`** by running: `rp1 agent-tools rp1-root-dir` — use the `root` value from the JSON response.
 
 ## Usage
 
