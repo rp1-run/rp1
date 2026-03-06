@@ -32,7 +32,8 @@ Extract these parameters from the user's input:
 | `GIT_PUSH` | No | `false` | Push branch to remote. Set `true` if user says "push" |
 | `GIT_PR` | No | `false` | Create PR (implies push and commit). Set `true` if user says "pr" or "pull request" |
 
-**Resolve `RP1_ROOT`** by running: `rp1 agent-tools rp1-root-dir` — use the `root` value from the JSON response.
+**Environment values** (resolve via shell):
+- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 
 **Feature dir**: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`
 

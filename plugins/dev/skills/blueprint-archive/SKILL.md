@@ -27,7 +27,8 @@ Extract these parameters from the user's input:
 |-----------|----------|---------|-------------|
 | `PRD_NAME` | Yes | - | PRD filename without extension (kebab-case) |
 
-**Resolve `RP1_ROOT`** by running: `rp1 agent-tools rp1-root-dir` — use the `root` value from the JSON response.
+**Environment values** (resolve via shell):
+- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 
 ## Usage
 

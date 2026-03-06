@@ -28,7 +28,8 @@ Extract these parameters from the user's input:
 |-----------|----------|---------|-------------|
 | `REQUEST` | No | `""` | Initial development request (may be empty; will prompt if missing) |
 
-**Resolve `RP1_ROOT`** by running: `rp1 agent-tools rp1-root-dir` — use the `root` value from the JSON response.
+**Environment values** (resolve via shell):
+- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 
 ## 1. Main Loop
 

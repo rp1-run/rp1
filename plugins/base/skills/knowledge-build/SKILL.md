@@ -26,7 +26,8 @@ Extract these parameters from the user's input:
 |-----------|----------|---------|-------------|
 | `FEATURE_ID` | No | - | Feature ID to incorporate learnings from an archived feature into KB |
 
-**Resolve `RP1_ROOT`** by running: `rp1 agent-tools rp1-root-dir` — use the `root` value from the JSON response.
+**Environment values** (resolve via shell):
+- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 
 This command orchestrates parallel knowledge base generation using a map-reduce architecture
 
