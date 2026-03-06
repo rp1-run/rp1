@@ -31,7 +31,8 @@ Extract these parameters from the user's input:
 | `BASE_BRANCH` | No | from PR or `main` | Diff base branch |
 | `SKIP_VISUAL` | No | `false` | Set `true` if user says "skip-visual" or "no visual" |
 
-**Resolve `RP1_ROOT`** by running: `rp1 agent-tools rp1-root-dir` — use the `root` value from the JSON response.
+**Environment values** (resolve via shell):
+- `RP1_ROOT`: !`echo ${RP1_ROOT:-.rp1/}`
 
 ## §STATE-MACHINE
 

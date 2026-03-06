@@ -28,7 +28,8 @@ Extract these parameters from the user's input:
 | `PRD_NAME` | No | - | PRD name to create (omit for default charter + main PRD flow) |
 | `EXTRA_CONTEXT` | No | `""` | Additional context provided by the user |
 
-**Resolve `RP1_ROOT`** by running: `rp1 agent-tools rp1-root-dir` — use the `root` value from the JSON response.
+**Environment values** (resolve via shell):
+- `RP1_ROOT`: !`echo ${RP1_ROOT:-.rp1/}`
 
 ## §STATE-MACHINE
 

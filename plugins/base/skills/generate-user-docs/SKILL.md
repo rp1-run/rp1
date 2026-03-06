@@ -21,7 +21,8 @@ metadata:
 
 This command takes no user parameters.
 
-**Resolve `RP1_ROOT`** by running: `rp1 agent-tools rp1-root-dir` — use the `root` value from the JSON response.
+**Environment values** (resolve via shell):
+- `RP1_ROOT`: !`echo ${RP1_ROOT:-.rp1/}`
 
 This command orchestrates user documentation synchronization with the auto-generated knowledge base using a two-phase map-reduce architecture.
 
