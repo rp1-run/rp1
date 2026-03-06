@@ -29,8 +29,7 @@ Extract these parameters from the user's input:
 | `FEATURE_ID` | No | - | Feature ID (derived from PR if not provided) |
 | `AFK` | No | `false` | Non-interactive mode. Set `true` if user says "afk", "no prompts", or "unattended" |
 
-**Environment values** (resolve via shell):
-- `RP1_ROOT`: !`echo ${RP1_ROOT:-.rp1/}`
+**Resolve `RP1_ROOT`** by running: `rp1 agent-tools rp1-root-dir` — use the `root` value from the JSON response.
 
 ## Phase 1: Collection
 

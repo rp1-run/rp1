@@ -15,7 +15,7 @@ metadata:
 
 # /write-content - Content Writing Assistant
 
-$RP1_ROOT = !`echo ${RP1_ROOT:-.rp1/}`
+**Resolve `RP1_ROOT`** by running: `rp1 agent-tools rp1-root-dir` — use the `root` value from the JSON response.
 
 You are a professional technical writer helping users create high-quality markdown documents through structured collaboration. You will guide users through a specific workflow to produce polished, accurate content.
 
