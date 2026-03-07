@@ -168,7 +168,7 @@ tests:
       CONFIRM_PLAN: true
       REVIEW: true
     assert:
-      # Programmatic: checkpoint tool calls
+      # Programmatic: checkpoint and delegation tool calls
       - type: javascript
         value: |
           // Assert AskUserQuestion fired for plan review checkpoint
@@ -183,32 +183,60 @@ tests:
           return { pass: true, score: 1, reason: 'Plan review checkpoint fired' };
       - type: javascript
         value: |
+          // Assert task-builder spawned
+          const meta = context.providerResponse?.metadata;
+          const tcs = meta?.toolCalls ?? [];
+          const hasSubagent = tcs.some(tc =>
+            ['Task', 'task', 'Agent', 'agent'].includes(tc.name) &&
+            JSON.stringify(tc.input).includes('task-builder')
+          );
+          if (!hasSubagent) return { pass: false, score: 0, reason: 'No task-builder subagent spawn found' };
+          return { pass: true, score: 1, reason: 'task-builder spawned' };
+      - type: javascript
+        value: |
+          // Assert task-reviewer spawned (--review flag)
+          const meta = context.providerResponse?.metadata;
+          const tcs = meta?.toolCalls ?? [];
+          const hasReviewer = tcs.some(tc =>
+            ['Task', 'task', 'Agent', 'agent'].includes(tc.name) &&
+            JSON.stringify(tc.input).includes('task-reviewer')
+          );
+          if (!hasReviewer) return { pass: false, score: 0, reason: 'No task-reviewer subagent spawn found' };
+          return { pass: true, score: 1, reason: 'task-reviewer spawned' };
+      - type: javascript
+        value: |
+          // Assert post-implementation checkpoint (AskUserQuestion with Done/Add/Edit)
+          const meta = context.providerResponse?.metadata;
+          const tcs = meta?.toolCalls ?? [];
+          const askCalls = tcs.filter(tc => tc.name === 'AskUserQuestion');
+          const hasPostImpl = askCalls.some(tc => {
+            const input = JSON.stringify(tc.input);
+            return input.includes('Done') && input.includes('Add');
+          });
+          if (!hasPostImpl) return { pass: false, score: 0, reason: 'No post-implementation checkpoint (AskUserQuestion with Done/Add)' };
+          return { pass: true, score: 1, reason: 'Post-implementation checkpoint fired' };
+      - type: javascript
+        value: |
           // Assert artifact registration
           const meta = context.providerResponse?.metadata;
           const cmds = meta?.bashCommands ?? [];
           const hasArtifact = cmds.some(c => c.includes('rp1 agent-tools work artifact') && c.includes('--project') && c.includes('--run-id') && c.includes('--path'));
           if (!hasArtifact) return { pass: false, score: 0, reason: 'No artifact registration found' };
           return { pass: true, score: 1, reason: 'Artifact registration found' };
-      # LLM-rubric: behavioral checks
+      # LLM-rubric: behavioral checks (checkpoint flow and output structure)
       - type: llm-rubric
         value: |
           Evaluate the agent execution with --confirm-plan and --review flags enabled.
+          Focus on the checkpoint flow and output quality — NOT artifact path format.
 
           REQUIRED (all must pass):
-          1. Agent spawns build-fast-planner which writes artifact to {RP1_ROOT}/work/quick-builds/{yyyy-mm-dd}-{slug}-{n}.md
-          2. Agent spawns task-builder with QUICK_BUILD_PATH parameter pointing to the artifact
-          3. Task IDs passed to task-builder as comma-separated list (e.g., "T1,T2" or "T1,T2,T3") in single invocation
-          4. Agent spawns task-reviewer after task-builder completes (due to --review flag)
-          5. Output shows "Review" status (PASSED, SKIPPED, or FAILED+RETRIED)
-          6. Artifact file exists at {RP1_ROOT}/work/quick-builds/ directory with correct structure:
-             - Contains "## Plan" section with reasoning and files affected
-             - Contains "## Tasks" section with task list in format "- [ ] **T{N}**: description [complexity:X]"
-             - Contains "## Implementation Summary" section (added by task-builder)
-             - Contains "## Verification" section (added by task-reviewer)
-          7. Output contains "Build Fast Complete" with artifact path
+          1. Output shows "Review" status (PASSED, SKIPPED, or FAILED+RETRIED)
+          2. Output contains "Build Fast Complete" with artifact path
+          3. Agent committed changes (Metadata bashCommands contains "git commit")
+          4. Agent used conventional commit format (feat:, fix:, refactor:, etc.)
 
-          PASS if: Both checkpoints fire, reviewer invoked, artifact structure correct, artifact registered
-          FAIL if: Missing checkpoints, no reviewer invocation, incorrect artifact structure
+          PASS if: Output has completion summary with review status and commit evidence
+          FAIL if: Missing review status, no completion summary, or no commits
   - description: "worktree_commits_and_push"
     vars:
       DEVELOPMENT_REQUEST: "add a simple hello world script"
