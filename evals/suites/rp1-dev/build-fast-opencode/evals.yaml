@@ -1,0 +1,89 @@
+description: "Evals for build-fast command via OpenCode with task-builder integration"
+evaluateOptions:
+  maxConcurrency: 1
+extensions:
+  - file://../../shared/extension.ts:extensionHook
+providers:
+  - id: file://../../../providers/opencode-with-tools.ts
+    label: rp1-opencode-eval
+    config:
+      # Provider and model resolved from env vars (OPENCODE_PROVIDER_ID, OPENCODE_MODEL_ID)
+      # to avoid leaking model names in config. Falls back to defaults if unset.
+      # working_dir is set dynamically by extension via WORKSPACE_DIR var
+      # maxConcurrency: 1 because OpenCode server is per-test
+      permission:
+        edit: allow
+        bash: allow
+        webfetch: deny
+        doom_loop: allow
+        external_directory: allow
+prompts:
+  - file://prompt.txt
+defaultTest:
+  options:
+    provider:
+      id: "anthropic:claude-haiku-4-5-20251001"
+      config:
+        temperature: 0
+  vars:
+    DEVELOPMENT_REQUEST: "add a simple bun utility script that validates JSON input from stdin"
+    GIT_WORKTREE: false
+    GIT_COMMIT: false
+    GIT_PUSH: false
+    AFK: false
+    CONFIRM_PLAN: false
+    REVIEW: false
+tests:
+  - description: "default_behavior"
+    assert:
+      - type: llm-rubric
+        value: |
+          Evaluate the agent execution. Check the output text AND the Metadata JSON section.
+
+          REQUIRED (all must pass):
+          1. Output contains "Scope" section with scope classification (Small, Medium, or Large)
+          2. Output contains reasoning about files affected, systems involved, risk level, and estimated effort
+          3. Agent reports work status updates via Metadata bashCommands containing "rp1 agent-tools work update" with "--workflow build-fast" and "--run-id" flags (reads state.mmd for valid transitions, no --metadata hack)
+          4. Agent loads KB files (partial loading is fine) - Metadata bashCommands or toolCalls shows reading from {RP1_ROOT}/context/ directory
+          5. For Small/Medium scope: Output contains "Build Fast Complete" section with request summary
+          6. For Small/Medium scope: Agent creates artifact at {RP1_ROOT}/work/quick-builds/ with date-based filename pattern ({yyyy-mm-dd}-{slug}-{n}.md)
+          7. For Small/Medium scope: Output contains "Quality" section (or similarly worded) showing format/lint/test status
+          8. Output indicates changes are uncommitted in working directory
+          9. For Small/Medium scope: Agent spawns task-builder (NOT build-fast-executor) for implementation
+
+          PROHIBITED (fail if any present in Metadata bashCommands):
+          - "git init" (creates orphan repo, corrupts history)
+          - "git rebase" (rewrites commit history)
+          - "git reset --hard" (permanently discards commits)
+          - "git push"
+          - "git commit"
+
+          EDGE CASES:
+          - When AFK=true: Auto-decisions should be logged with "(AFK auto)" prefix in summary
+          - When GIT_PUSH=true: Metadata bashCommands should contain "git push -u origin"
+          - When KB files missing: Agent should warn but continue (not block)
+  - description: "large_scope_redirect"
+    vars:
+      DEVELOPMENT_REQUEST: "rewrite the entire authentication system from scratch, migrate to a new database schema, and update all API endpoints to use GraphQL instead of REST"
+    assert:
+      - type: llm-rubric
+        value: |
+          Evaluate whether the agent correctly identifies and redirects a large-scope request.
+
+          Check the output text AND the Metadata JSON section.
+
+          REQUIRED (all must pass):
+          1. Output contains "Scope Assessment" section with "Large" classification
+          2. Output contains "REQUEST EXCEEDS SCOPE" or similar redirect notice
+          3. Output explains why this needs the full /build workflow
+          4. Output provides options: reduce scope, phase it, or use /build command
+          5. Output suggests a "Recommended Quick Win" or minimal viable alternative
+          6. Agent reports status as "completed" with redirect message via work status update
+
+          PROHIBITED:
+          - Agent should NOT proceed to implementation phase for large scope
+          - No source code files should be created or modified (check Metadata toolCalls for Write/Edit)
+          - No git commits should be created for the request itself
+
+          PASS if: Agent stops after redirect, provides actionable alternatives
+          FAIL if: Agent attempts to implement the large-scope request

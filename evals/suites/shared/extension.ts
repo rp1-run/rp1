@@ -91,6 +91,10 @@ function resetWorkspace(workspaceDir: string, remoteDir: string): void {
 	// Copy fixture project if it exists, otherwise create minimal structure
 	try {
 		copyDirSync(FIXTURE_DIR, workspaceDir);
+
+		// Ensure .rp1 work directories exist (may be gitignored in fixture)
+		mkdirSync(`${workspaceDir}/.rp1/work/quick-builds`, { recursive: true });
+		mkdirSync(`${workspaceDir}/.rp1/work/features`, { recursive: true });
 	} catch {
 		// Fallback: create minimal bun project structure
 		mkdirSync(`${workspaceDir}/src`, { recursive: true });
