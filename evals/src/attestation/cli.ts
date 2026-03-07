@@ -13,7 +13,6 @@ import * as E from "fp-ts/Either";
 import {
 	attestCommand,
 	attestFromOutput,
-	getStatus,
 	verifyAttestations,
 } from "./commands.js";
 
@@ -153,7 +152,7 @@ async function main(): Promise<void> {
 		console.log(formatSummary(result.right));
 		process.exit(result.right.passed ? 0 : 1);
 	} else if (command === "status") {
-		const result = await getStatus()();
+		const result = await verifyAttestations()();
 
 		if (E.isLeft(result)) {
 			console.error(`Error: ${result.left.message}`);

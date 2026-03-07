@@ -20,8 +20,7 @@ providers:
       # This enables parallel test execution with isolated workspaces
       permission_mode: bypassPermissions
       allow_dangerously_skip_permissions: true
-      ask_user_question:
-        behavior: first_option
+      ask_user_behavior: first_option
       max_turns: 50
       setting_sources:
         - project

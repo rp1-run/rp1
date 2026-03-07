@@ -7,7 +7,11 @@
  * @module attestation
  */
 
-export { attestCommand, getStatus, verifyAttestations } from "./commands.js";
+export {
+	attestCommand,
+	attestFromOutput,
+	verifyAttestations,
+} from "./commands.js";
 export {
 	buildDependencyGraph,
 	parseAgentRefs,

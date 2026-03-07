@@ -296,6 +296,15 @@ export async function extensionHook(
 			`[rp1-eval] After "${context.test.description}": HEAD=${headAfter.slice(0, 7)}, commits=${countAfter}, new=${countAfter - countBefore}, pushed=${remotePushed}`,
 		);
 
+		// Preserve workspace on failure for debugging (opt-in via env var)
+		const preserveOnFail = process.env.PRESERVE_EVAL_WORKSPACES === "true";
+		if (preserveOnFail && context.result && !context.result.success) {
+			console.log(
+				`[rp1-eval] PRESERVING failed workspace for debugging: ${baseDir}`,
+			);
+			return;
+		}
+
 		// Cleanup the workspace
 		if (baseDir) {
 			console.log(`[rp1-eval] Cleaning up ${baseDir}`);

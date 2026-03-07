@@ -4,6 +4,7 @@
  */
 
 import { execSync } from "node:child_process";
+import type { CanonicalTool } from "../tool-names.js";
 
 interface GradingResult {
 	pass: boolean;
@@ -112,8 +113,9 @@ export type Matcher<T> = string | RegExp | ((input: T) => boolean);
 export interface ToolCall {
 	readonly id: string;
 	readonly name: string;
+	readonly canonical?: CanonicalTool;
 	input: unknown;
-	readonly source?: "stream_event" | "assistant";
+	readonly source?: "stream_event" | "assistant" | "opencode";
 }
 
 /**
@@ -159,7 +161,7 @@ function matchesToolCall<T extends ToolName>(
 	toolName: T,
 	matcher?: Matcher<ToolInputMap[T]>,
 ): boolean {
-	if (toolCall.name !== toolName) {
+	if (toolCall.name.toLowerCase() !== toolName.toLowerCase()) {
 		return false;
 	}
 
@@ -230,7 +232,9 @@ export function assertToolCall<T extends ToolName>(
 			};
 		}
 
-		const toolNameCalls = toolCalls.filter((tc) => tc.name === toolName);
+		const toolNameCalls = toolCalls.filter(
+			(tc) => tc.name.toLowerCase() === toolName.toLowerCase(),
+		);
 		const matcherDesc =
 			matcher !== undefined ? ` matching ${String(matcher)}` : "";
 
@@ -309,7 +313,9 @@ export function assertToolCallCount<T extends ToolName>(
 ): AssertionFunction {
 	return (_output: string, context: ToolCallEvalContext): GradingResult => {
 		const toolCalls = getToolCalls(context);
-		const toolNameCalls = toolCalls.filter((tc) => tc.name === toolName);
+		const toolNameCalls = toolCalls.filter(
+			(tc) => tc.name.toLowerCase() === toolName.toLowerCase(),
+		);
 		const actualCount = toolNameCalls.length;
 
 		if (actualCount === count) {
@@ -430,3 +436,117 @@ export const assertWorktreeCreateToolCall = assertToolCall(
 	"Bash",
 	/rp1\s+agent-tools\s+worktree\s+create/,
 );
+
+/**
+ * Assert that a tool was called using its canonical name.
+ * Matches across providers (e.g., "shell" matches Bash, bash, functions.exec_command).
+ */
+export function assertCanonicalToolCall(
+	canonicalName: CanonicalTool,
+	matcher?: Matcher<Record<string, unknown>>,
+): AssertionFunction {
+	return (_output: string, context: ToolCallEvalContext): GradingResult => {
+		const toolCalls = getToolCalls(context);
+
+		if (toolCalls.length === 0) {
+			return {
+				pass: false,
+				score: 0,
+				reason: "No tool calls captured in provider metadata",
+			};
+		}
+
+		const matchingCall = toolCalls.find((tc) => {
+			if (tc.canonical !== canonicalName) return false;
+			if (matcher === undefined) return true;
+
+			const input = tc.input as Record<string, unknown>;
+			if (typeof matcher === "function") return matcher(input);
+
+			const targetString =
+				canonicalName === "shell"
+					? ((input as { command?: string }).command ?? "")
+					: JSON.stringify(input);
+
+			if (typeof matcher === "string") return targetString.includes(matcher);
+			return matcher.test(targetString);
+		});
+
+		if (matchingCall) {
+			const matcherDesc =
+				matcher !== undefined ? ` matching ${String(matcher)}` : "";
+			return {
+				pass: true,
+				score: 1,
+				reason: `Found canonical ${canonicalName} tool call${matcherDesc}`,
+			};
+		}
+
+		const canonicalCalls = toolCalls.filter(
+			(tc) => tc.canonical === canonicalName,
+		);
+		const matcherDesc =
+			matcher !== undefined ? ` matching ${String(matcher)}` : "";
+
+		if (canonicalCalls.length === 0) {
+			return {
+				pass: false,
+				score: 0,
+				reason: `No canonical ${canonicalName} tool calls found. Total tool calls: ${toolCalls.length}`,
+			};
+		}
+
+		return {
+			pass: false,
+			score: 0,
+			reason: `Found ${canonicalCalls.length} canonical ${canonicalName} call(s), but none${matcherDesc}`,
+		};
+	};
+}
+
+/**
+ * Assert that a tool was NOT called using its canonical name.
+ * Matches across providers (e.g., "ask_user" matches AskUserQuestion, question).
+ */
+export function assertNoCanonicalToolCall(
+	canonicalName: CanonicalTool,
+	matcher?: Matcher<Record<string, unknown>>,
+): AssertionFunction {
+	return (_output: string, context: ToolCallEvalContext): GradingResult => {
+		const toolCalls = getToolCalls(context);
+
+		const matchingCall = toolCalls.find((tc) => {
+			if (tc.canonical !== canonicalName) return false;
+			if (matcher === undefined) return true;
+
+			const input = tc.input as Record<string, unknown>;
+			if (typeof matcher === "function") return matcher(input);
+
+			const targetString =
+				canonicalName === "shell"
+					? ((input as { command?: string }).command ?? "")
+					: JSON.stringify(input);
+
+			if (typeof matcher === "string") return targetString.includes(matcher);
+			return matcher.test(targetString);
+		});
+
+		if (!matchingCall) {
+			const matcherDesc =
+				matcher !== undefined ? ` matching ${String(matcher)}` : "";
+			return {
+				pass: true,
+				score: 1,
+				reason: `No canonical ${canonicalName} tool call${matcherDesc} found as expected`,
+			};
+		}
+
+		const matcherDesc =
+			matcher !== undefined ? ` matching ${String(matcher)}` : "";
+		return {
+			pass: false,
+			score: 0,
+			reason: `Found canonical ${canonicalName} tool call${matcherDesc} when none was expected`,
+		};
+	};
+}

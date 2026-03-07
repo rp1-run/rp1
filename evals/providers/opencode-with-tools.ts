@@ -19,6 +19,38 @@ import {
 	type ToolPart,
 } from "@opencode-ai/sdk/v2";
 
+// Canonical tool name mapping (inlined to avoid cross-module TS import issues with Node.js runtime)
+// Source of truth: suites/shared/tool-names.ts
+type CanonicalTool =
+	| "shell"
+	| "read"
+	| "write"
+	| "edit"
+	| "ask_user"
+	| "subagent"
+	| "skill";
+const CANONICAL_MAP: Record<string, CanonicalTool> = {
+	Bash: "shell",
+	Read: "read",
+	Write: "write",
+	Edit: "edit",
+	AskUserQuestion: "ask_user",
+	Agent: "subagent",
+	Skill: "skill",
+	bash: "shell",
+	read: "read",
+	write: "write",
+	edit: "edit",
+	question: "ask_user",
+	skill: "skill",
+	"functions.exec_command": "shell",
+	"functions.apply_patch": "edit",
+	"functions.request_user_input": "ask_user",
+};
+function toCanonical(rawName: string): CanonicalTool | undefined {
+	return CANONICAL_MAP[rawName];
+}
+
 /**
  * Recursively collect parts from a session and all its child sessions.
  * OpenCode spawns child sessions for subagents (task tool), so we must
@@ -119,6 +151,7 @@ async function runAutoResponder(
 interface ToolCall {
 	readonly id: string;
 	readonly name: string;
+	readonly canonical?: CanonicalTool;
 	readonly input: unknown;
 	readonly source: "opencode";
 }
@@ -311,6 +344,7 @@ export default class OpenCodeWithToolCapture {
 					toolCalls.push({
 						id: part.callID,
 						name: part.tool,
+						canonical: toCanonical(part.tool),
 						input: part.state.input,
 						source: "opencode",
 					});

@@ -52,6 +52,8 @@ tests:
           8. Output indicates changes are uncommitted in working directory
           9. For Small/Medium scope: Agent spawns task-builder (NOT build-fast-executor) for implementation - Metadata toolCalls shows Task/task call with subagent_type or prompt referencing "task-builder"
 
+          10. For Small/Medium scope: Agent registers the artifact via Metadata bashCommands containing "rp1 agent-tools work artifact" with "--project", "--feature", "--run-id", and "--path" flags
+
           PROHIBITED (fail if any present in Metadata bashCommands):
           - "git init" (creates orphan repo, corrupts history)
           - "git rebase" (rewrites commit history)

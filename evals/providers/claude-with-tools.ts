@@ -15,7 +15,6 @@ import {
 	type SdkPluginConfig,
 	type SettingSource,
 } from "@anthropic-ai/claude-agent-sdk";
-
 // OpenTelemetry imports for tracing
 import {
 	context,
@@ -29,6 +28,38 @@ import {
 	BatchSpanProcessor,
 	NodeTracerProvider,
 } from "@opentelemetry/sdk-trace-node";
+
+// Canonical tool name mapping (inlined to avoid cross-module TS import issues with Node.js runtime)
+// Source of truth: suites/shared/tool-names.ts
+type CanonicalTool =
+	| "shell"
+	| "read"
+	| "write"
+	| "edit"
+	| "ask_user"
+	| "subagent"
+	| "skill";
+const CANONICAL_MAP: Record<string, CanonicalTool> = {
+	Bash: "shell",
+	Read: "read",
+	Write: "write",
+	Edit: "edit",
+	AskUserQuestion: "ask_user",
+	Agent: "subagent",
+	Skill: "skill",
+	bash: "shell",
+	read: "read",
+	write: "write",
+	edit: "edit",
+	question: "ask_user",
+	skill: "skill",
+	"functions.exec_command": "shell",
+	"functions.apply_patch": "edit",
+	"functions.request_user_input": "ask_user",
+};
+function toCanonical(rawName: string): CanonicalTool | undefined {
+	return CANONICAL_MAP[rawName];
+}
 
 // Resolve repo root from this provider file's location (evals/providers/)
 const __providerDir = dirname(fileURLToPath(import.meta.url));
@@ -51,8 +82,9 @@ const tracer = trace.getTracer("claude-with-tools", "1.0.0");
 interface ToolCall {
 	readonly id: string;
 	readonly name: string;
+	readonly canonical?: CanonicalTool;
 	readonly input: unknown;
-	readonly source?: "stream_event" | "assistant";
+	readonly source?: "stream_event" | "assistant" | "opencode";
 }
 
 interface ProviderMetadata {
@@ -193,6 +225,7 @@ function createAskUserQuestionCanUseTool(
 		toolCallsRef.push({
 			id: options.toolUseID,
 			name: "AskUserQuestion",
+			canonical: toCanonical("AskUserQuestion"),
 			input,
 			source: "stream_event",
 		});
@@ -339,6 +372,7 @@ export default class ClaudeWithToolCapture {
 								toolCalls.push({
 									id: block.id,
 									name: block.name,
+									canonical: toCanonical(block.name),
 									input: block.input ?? {},
 									source: "stream_event",
 								});
@@ -372,9 +406,11 @@ export default class ClaudeWithToolCapture {
 										input: block.input,
 									};
 								} else {
+									const name = block.name ?? "unknown";
 									toolCalls.push({
 										id: block.id,
-										name: block.name ?? "unknown",
+										name,
+										canonical: toCanonical(name),
 										input: block.input,
 										source: "assistant",
 									});

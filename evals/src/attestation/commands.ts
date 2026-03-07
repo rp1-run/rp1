@@ -286,6 +286,11 @@ export function attestCommand(
 export function attestFromOutput(
 	outputPath: string,
 ): TE.TaskEither<Error, { updated: boolean; message: string }> {
+	// Normalize result_file to be consistent with attestCommand format (relative to evals/)
+	const normalizedResultFile = outputPath.startsWith("evals/")
+		? outputPath.slice("evals/".length)
+		: outputPath;
+
 	return pipe(
 		TE.Do,
 		TE.bind("output", () =>
@@ -340,7 +345,7 @@ export function attestFromOutput(
 							passed: true,
 							timestamp,
 							git_commit: gitCommit,
-							result_file: outputPath,
+							result_file: normalizedResultFile,
 						},
 					};
 
@@ -438,14 +443,4 @@ export function verifyAttestations(): TE.TaskEither<
 			};
 		}),
 	);
-}
-
-/**
- * Get status of all skills needing re-attestation.
- * Alias for verifyAttestations with same output format.
- *
- * @returns TaskEither with VerificationSummary showing current/stale/missing counts
- */
-export function getStatus(): TE.TaskEither<Error, VerificationSummary> {
-	return verifyAttestations();
 }
