@@ -37,8 +37,12 @@ async function collectAllParts(
 	});
 
 	if (messagesResult.data) {
+		// Only collect parts from assistant messages.
+		// User messages contain the echoed prompt text which pollutes the output.
 		for (const msg of messagesResult.data) {
-			parts.push(...msg.parts);
+			if (msg.info.role === "assistant") {
+				parts.push(...msg.parts);
+			}
 		}
 	}
 
