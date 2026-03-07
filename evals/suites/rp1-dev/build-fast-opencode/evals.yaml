@@ -12,11 +12,7 @@ providers:
       # working_dir is set dynamically by extension via WORKSPACE_DIR var
       # maxConcurrency: 1 because OpenCode server is per-test
       permission:
-        edit: allow
-        bash: allow
-        webfetch: deny
-        doom_loop: allow
-        external_directory: allow
+        "*": allow
 prompts:
   - file://prompt.txt
 defaultTest:
@@ -87,3 +83,93 @@ tests:
 
           PASS if: Agent stops after redirect, provides actionable alternatives
           FAIL if: Agent attempts to implement the large-scope request
+  - description: "confirm_plan_and_review_flags"
+    vars:
+      DEVELOPMENT_REQUEST: "add a simple greeting utility function"
+      GIT_WORKTREE: false
+      GIT_COMMIT: true
+      GIT_PUSH: false
+      AFK: false
+      CONFIRM_PLAN: true
+      REVIEW: true
+    assert:
+      - type: llm-rubric
+        value: |
+          Evaluate the agent execution with --confirm-plan and --review flags enabled.
+          Check the output text AND the Metadata JSON section.
+
+          REQUIRED (all must pass):
+          1. Agent spawns build-fast-planner which writes artifact to {RP1_ROOT}/work/quick-builds/{yyyy-mm-dd}-{slug}-{n}.md
+          2. Plan review checkpoint fires: Metadata toolCalls contains AskUserQuestion with options including "Continue", "Revise", "Stop"
+          3. Post-implementation checkpoint fires: Metadata toolCalls contains AskUserQuestion with options including "Done", "Add/Edit"
+          4. Agent spawns task-builder with QUICK_BUILD_PATH parameter pointing to the artifact
+          5. Task IDs passed to task-builder as comma-separated list (e.g., "T1,T2" or "T1,T2,T3") in single invocation
+          6. Agent spawns task-reviewer after task-builder completes (due to --review flag)
+          7. Output shows "Review" status (PASSED, SKIPPED, or FAILED+RETRIED)
+          8. Artifact file exists at {RP1_ROOT}/work/quick-builds/ directory with correct structure:
+             - Contains "## Plan" section with reasoning and files affected
+             - Contains "## Tasks" section with task list in format "- [ ] **T{N}**: description [complexity:X]"
+             - Contains "## Implementation Summary" section (added by task-builder)
+             - Contains "## Verification" section (added by task-reviewer)
+          9. Output contains "Build Fast Complete" with artifact path
+
+          PASS if: Both checkpoints fire, reviewer invoked, artifact structure correct
+          FAIL if: Missing checkpoints, no reviewer invocation, or incorrect artifact structure
+  - description: "worktree_commits_and_push"
+    vars:
+      DEVELOPMENT_REQUEST: "add a simple hello world script"
+      GIT_WORKTREE: true
+      GIT_COMMIT: true
+      GIT_PUSH: true
+      AFK: false
+      CONFIRM_PLAN: false
+      REVIEW: false
+    assert:
+      - type: llm-rubric
+        value: |
+          Evaluate whether the agent respects GIT_COMMIT=true, GIT_WORKTREE=true, and GIT_PUSH=true flags.
+
+          Check the Metadata JSON section for bashCommands and toolCalls.
+
+          REQUIRED:
+          1. Agent implements the requested change (creates/modifies files)
+          2. Metadata bashCommands contains "git commit"
+          3. Metadata bashCommands contains "git push"
+          4. Agent uses conventional commit format (feat:, fix:, refactor:, etc.) in any git commits
+          5. Metadata bashCommands contains "rp1 agent-tools worktree create"
+          6. Metadata bashCommands contains "rp1 agent-tools worktree cleanup"
+          7. Agent spawns task-builder (NOT build-fast-executor) for implementation
+          8. Agent creates artifact at {RP1_ROOT}/work/quick-builds/ with date-based filename
+
+          PASS if: Changes made, committed, pushed, used worktree, task-builder invoked
+          FAIL if: Missing commits, push, worktree operations, or uses build-fast-executor
+  - description: "in_afk_mode_bypasses_confirm"
+    vars:
+      DEVELOPMENT_REQUEST: "add a json validation script that's ultra performant"
+      GIT_WORKTREE: false
+      GIT_COMMIT: true
+      GIT_PUSH: false
+      AFK: true
+      CONFIRM_PLAN: true
+      REVIEW: false
+    assert:
+      - type: llm-rubric
+        value: |
+          Evaluate whether AFK=true bypasses --confirm-plan checkpoints.
+
+          Check the Metadata JSON section for bashCommands and toolCalls.
+
+          REQUIRED:
+          1. Agent implements the requested change (creates/modifies files)
+          2. Metadata bashCommands contains "git commit"
+          3. Agent uses conventional commit format (feat:, fix:, refactor:, etc.) in any git commits
+          4. Agent spawns task-builder (NOT build-fast-executor) for implementation
+          5. Agent creates artifact at {RP1_ROOT}/work/quick-builds/ with date-based filename
+
+          PROHIBITED:
+          - Agent should NOT use AskUserQuestion tool despite --confirm-plan being set (AFK overrides)
+          - No plan review checkpoint
+          - No post-implementation checkpoint
+
+          PASS if: Changes made, committed, no user prompts despite --confirm-plan flag
+          FAIL if: Agent waits for user input or AskUserQuestion appears in toolCalls

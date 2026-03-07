@@ -1,9 +1,13 @@
 /**
- * Custom Promptfoo provider that wraps @opencode-ai/sdk
+ * Custom Promptfoo provider that wraps @opencode-ai/sdk (v2)
  * and captures ToolPart entries from session responses.
  *
  * Exposes tool calls via metadata for assertion inspection,
  * matching the same format as claude-with-tools.ts.
+ *
+ * Runs a background auto-responder that handles:
+ * - Permission requests (auto-approve with "always")
+ * - Question requests (auto-select first option, like claude-with-tools)
  */
 
 import {
@@ -13,7 +17,7 @@ import {
 	type StepFinishPart,
 	type TextPart,
 	type ToolPart,
-} from "@opencode-ai/sdk";
+} from "@opencode-ai/sdk/v2";
 
 /**
  * Recursively collect parts from a session and all its child sessions.
@@ -28,8 +32,8 @@ async function collectAllParts(
 	const parts: Part[] = [];
 
 	const messagesResult = await client.session.messages({
-		path: { id: sessionId },
-		query: { directory },
+		sessionID: sessionId,
+		directory,
 	});
 
 	if (messagesResult.data) {
@@ -38,10 +42,9 @@ async function collectAllParts(
 		}
 	}
 
-	// Recurse into child sessions (subagents)
 	const childrenResult = await client.session.children({
-		path: { id: sessionId },
-		query: { directory },
+		sessionID: sessionId,
+		directory,
 	});
 
 	if (childrenResult.data && childrenResult.data.length > 0) {
@@ -52,6 +55,61 @@ async function collectAllParts(
 	}
 
 	return parts;
+}
+
+/**
+ * Poll for pending permission and question requests and auto-respond.
+ * Mirrors claude-with-tools.ts AskUserQuestion behavior (first_option).
+ */
+async function runAutoResponder(
+	client: OpencodeClient,
+	directory: string,
+	signal: AbortSignal,
+): Promise<void> {
+	while (!signal.aborted) {
+		try {
+			// Auto-approve pending permissions
+			const permissions = await client.permission.list({ directory });
+			if (permissions.data) {
+				for (const perm of permissions.data) {
+					await client.permission.reply({
+						requestID: perm.id,
+						directory,
+						reply: "always",
+					});
+				}
+			}
+
+			// Auto-answer pending questions (select first option)
+			const questions = await client.question.list({ directory });
+			if (questions.data) {
+				for (const q of questions.data) {
+					const answers = q.questions.map((qi) => {
+						if (qi.options.length > 0) {
+							return [qi.options[0].label];
+						}
+						return [];
+					});
+					await client.question.reply({
+						requestID: q.id,
+						directory,
+						answers,
+					});
+				}
+			}
+		} catch {
+			// Ignore errors during polling (server may be shutting down)
+		}
+
+		// Poll interval
+		await new Promise<void>((resolve) => {
+			const timer = setTimeout(resolve, 500);
+			signal.addEventListener("abort", () => {
+				clearTimeout(timer);
+				resolve();
+			});
+		});
+	}
 }
 
 interface ToolCall {
@@ -81,15 +139,7 @@ interface ProviderConfig {
 	readonly output_limit?: number;
 	readonly opencode_port?: number;
 	readonly opencode_timeout?: number;
-	readonly permission?: {
-		readonly edit?: "ask" | "allow" | "deny";
-		readonly bash?:
-			| ("ask" | "allow" | "deny")
-			| { readonly [key: string]: "ask" | "allow" | "deny" };
-		readonly webfetch?: "ask" | "allow" | "deny";
-		readonly doom_loop?: "ask" | "allow" | "deny";
-		readonly external_directory?: "ask" | "allow" | "deny";
-	};
+	readonly permission?: Record<string, unknown>;
 	readonly tools?: { readonly [key: string]: boolean };
 	readonly [key: string]: unknown;
 }
@@ -147,7 +197,6 @@ export default class OpenCodeWithToolCapture {
 		providerContext: ProviderContext,
 		_options: CallApiOptions,
 	): Promise<ProviderResponse> {
-		// Resolution order: config > env var (required if no config)
 		const providerID =
 			this.config.provider_id ?? process.env.OPENCODE_PROVIDER_ID;
 		const modelID = this.config.model_id ?? process.env.OPENCODE_MODEL_ID;
@@ -161,16 +210,15 @@ export default class OpenCodeWithToolCapture {
 			};
 		}
 
-		// Use WORKSPACE_DIR from vars (set by extension) or fall back to config
 		const workingDir =
 			providerContext.vars?.WORKSPACE_DIR ?? this.config.working_dir;
 
-		// Pick a random port to avoid collisions in parallel execution
 		const port =
 			this.config.opencode_port ?? Math.floor(Math.random() * 10000) + 10000;
 		const timeout = this.config.opencode_timeout ?? 30000;
 
 		let server: { url: string; close(): void } | undefined;
+		const autoResponderAbort = new AbortController();
 
 		try {
 			const opencode = await createOpencode({
@@ -193,13 +241,10 @@ export default class OpenCodeWithToolCapture {
 							},
 						},
 					},
-					permission: this.config.permission ?? {
-						edit: "allow",
-						bash: "allow",
-						webfetch: "deny",
-						doom_loop: "allow",
-						external_directory: "allow",
-					},
+					permission: (this.config.permission as Record<
+						string,
+						"allow" | "ask" | "deny"
+					>) ?? { "*": "allow" },
 				},
 			});
 
@@ -211,74 +256,51 @@ export default class OpenCodeWithToolCapture {
 					output: "",
 					error:
 						"No working directory specified (WORKSPACE_DIR or working_dir config)",
-					metadata: {
-						toolCalls: [],
-						bashCommands: [],
-						toolCallCount: 0,
-					},
+					metadata: { toolCalls: [], bashCommands: [], toolCallCount: 0 },
 				};
 			}
 
-			// Create session with directory context
-			// OpenCode auto-discovers AGENTS.md from the project root via this directory
 			const sessionResult = await client.session.create({
-				query: { directory: workingDir },
+				directory: workingDir,
 			});
 
 			if (!sessionResult.data) {
 				return {
 					output: "",
 					error: `Failed to create session: ${JSON.stringify(sessionResult.error)}`,
-					metadata: {
-						toolCalls: [],
-						bashCommands: [],
-						toolCallCount: 0,
-					},
+					metadata: { toolCalls: [], bashCommands: [], toolCallCount: 0 },
 				};
 			}
 
 			const sessionId = sessionResult.data.id;
 
+			// Start auto-responder for permissions and questions in background
+			runAutoResponder(client, workingDir, autoResponderAbort.signal);
+
 			// Send prompt and wait for completion
 			const promptResult = await client.session.prompt({
-				path: { id: sessionId },
-				query: { directory: workingDir },
-				body: {
-					model: {
-						providerID,
-						modelID,
-					},
-					parts: [
-						{
-							type: "text" as const,
-							text: prompt,
-						},
-					],
-				},
+				sessionID: sessionId,
+				directory: workingDir,
+				model: { providerID, modelID },
+				parts: [{ type: "text" as const, text: prompt }],
 			});
 
 			if (!promptResult.data) {
 				return {
 					output: "",
 					error: `Prompt failed: ${JSON.stringify(promptResult.error)}`,
-					metadata: {
-						toolCalls: [],
-						bashCommands: [],
-						toolCallCount: 0,
-					},
+					metadata: { toolCalls: [], bashCommands: [], toolCallCount: 0 },
 				};
 			}
 
-			// Recursively collect parts from the session and all child sessions.
-			// OpenCode spawns child sessions for subagents (task tool calls),
-			// so we must traverse the full session tree to capture all tool calls.
+			// Recursively collect parts from the session and all child sessions
 			const allParts = await collectAllParts(client, sessionId, workingDir);
 
 			if (allParts.length === 0) {
 				allParts.push(...promptResult.data.parts);
 			}
 
-			// Extract tool calls from ToolParts across all messages
+			// Extract tool calls
 			const toolCalls: ToolCall[] = [];
 			for (const part of allParts) {
 				if (isToolPart(part)) {
@@ -291,7 +313,7 @@ export default class OpenCodeWithToolCapture {
 				}
 			}
 
-			// Extract bash commands from tool calls where tool is "bash"
+			// Extract bash commands
 			const bashCommands = toolCalls
 				.filter((t) => t.name.toLowerCase() === "bash" || t.name === "Bash")
 				.map((t) => {
@@ -300,12 +322,11 @@ export default class OpenCodeWithToolCapture {
 				})
 				.filter((cmd) => cmd.length > 0);
 
-			// Aggregate text from ALL assistant messages across the full conversation,
-			// not just the final message — multi-turn agents produce output across turns
+			// Aggregate text from all assistant messages
 			const allTextParts = allParts.filter(isTextPart);
 			const finalResult = allTextParts.map((p) => p.text).join("\n") || "";
 
-			// Aggregate token usage from StepFinishParts across all messages
+			// Aggregate token usage
 			let totalInputTokens = 0;
 			let totalOutputTokens = 0;
 			let totalCost = 0;
@@ -318,7 +339,6 @@ export default class OpenCodeWithToolCapture {
 				}
 			}
 
-			// Fallback to assistant message level tokens
 			const assistantMessage = promptResult.data.info;
 			if (assistantMessage.tokens && totalInputTokens === 0) {
 				totalInputTokens = assistantMessage.tokens.input;
@@ -342,11 +362,7 @@ ${JSON.stringify({ toolCalls, bashCommands, toolCallCount: toolCalls.length }, n
 					total: totalInputTokens + totalOutputTokens,
 				},
 				cost: totalCost,
-				metadata: {
-					toolCalls,
-					bashCommands,
-					toolCallCount: toolCalls.length,
-				},
+				metadata: { toolCalls, bashCommands, toolCallCount: toolCalls.length },
 			};
 		} catch (error) {
 			const errorMessage =
@@ -354,13 +370,10 @@ ${JSON.stringify({ toolCalls, bashCommands, toolCallCount: toolCalls.length }, n
 			return {
 				output: "",
 				error: `Provider error: ${errorMessage}`,
-				metadata: {
-					toolCalls: [],
-					bashCommands: [],
-					toolCallCount: 0,
-				},
+				metadata: { toolCalls: [], bashCommands: [], toolCallCount: 0 },
 			};
 		} finally {
+			autoResponderAbort.abort();
 			if (server) {
 				server.close();
 			}
