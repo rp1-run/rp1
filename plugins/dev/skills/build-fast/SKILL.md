@@ -295,9 +295,11 @@ rp1 agent-tools work artifact \
 - Use AskUserQuestion for user interactions (when not AFK)
 
 **DO NOT**:
-- Read/write/edit source code files directly — task-builder does all implementation
+- Write/edit ANY files directly — planner writes the artifact, task-builder writes code
+- Read source code files to understand the task — subagents handle their own context
 - Implement anything yourself — you are a workflow orchestrator
 - Skip the task-builder spawn — it is mandatory for Small/Medium scope
+- Write the plan artifact yourself if the planner fails — retry the planner instead
 
 ## §ANTI-LOOP
 
