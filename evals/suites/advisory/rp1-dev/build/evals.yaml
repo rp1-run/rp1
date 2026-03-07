@@ -122,6 +122,14 @@ tests:
           return { pass: true, score: 1, reason: `${askCalls.length} review checkpoint(s) fired` };
       - type: javascript
         value: |
+          // Assert artifact registration (§6 SUMMARY)
+          const meta = context.providerResponse?.metadata;
+          const cmds = meta?.bashCommands ?? [];
+          const hasArtifact = cmds.some(c => c.includes('rp1 agent-tools work artifact') && c.includes('--project') && c.includes('--feature') && c.includes('--run-id') && c.includes('--path'));
+          if (!hasArtifact) return { pass: false, score: 0, reason: 'No artifact registration found — §6 requires rp1 agent-tools work artifact calls' };
+          return { pass: true, score: 1, reason: 'Artifact registration found' };
+      - type: javascript
+        value: |
           // Assert PROHIBITED commands not present
           const meta = context.providerResponse?.metadata;
           const cmds = meta?.bashCommands ?? [];
@@ -209,6 +217,14 @@ tests:
           );
           if (!hasBuilder) return { pass: false, score: 0, reason: 'No task-builder subagent spawn found' };
           return { pass: true, score: 1, reason: 'task-builder spawned' };
+      - type: javascript
+        value: |
+          // Assert artifact registration (§6 SUMMARY)
+          const meta = context.providerResponse?.metadata;
+          const cmds = meta?.bashCommands ?? [];
+          const hasArtifact = cmds.some(c => c.includes('rp1 agent-tools work artifact') && c.includes('--project') && c.includes('--feature') && c.includes('--run-id') && c.includes('--path'));
+          if (!hasArtifact) return { pass: false, score: 0, reason: 'No artifact registration found — §6 requires rp1 agent-tools work artifact calls' };
+          return { pass: true, score: 1, reason: 'Artifact registration found' };
       - type: javascript
         value: |
           // Assert PROHIBITED commands not present
