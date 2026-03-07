@@ -68,7 +68,7 @@ tests:
           const meta = context.providerResponse?.metadata;
           const tcs = meta?.toolCalls ?? [];
           const hasSubagent = tcs.some(tc =>
-            (tc.name === 'Agent' || tc.name === 'agent') &&
+            ['Task', 'task', 'Agent', 'agent'].includes(tc.name) &&
             JSON.stringify(tc.input).includes('task-builder')
           );
           if (!hasSubagent) return { pass: false, score: 0, reason: 'No task-builder subagent spawn found' };
@@ -252,7 +252,7 @@ tests:
           const meta = context.providerResponse?.metadata;
           const tcs = meta?.toolCalls ?? [];
           const hasSubagent = tcs.some(tc =>
-            (tc.name === 'Agent' || tc.name === 'agent') &&
+            ['Task', 'task', 'Agent', 'agent'].includes(tc.name) &&
             JSON.stringify(tc.input).includes('task-builder')
           );
           if (!hasSubagent) return { pass: false, score: 0, reason: 'No task-builder subagent spawn found' };
@@ -310,7 +310,7 @@ tests:
           const meta = context.providerResponse?.metadata;
           const tcs = meta?.toolCalls ?? [];
           const hasSubagent = tcs.some(tc =>
-            (tc.name === 'Agent' || tc.name === 'agent') &&
+            ['Task', 'task', 'Agent', 'agent'].includes(tc.name) &&
             JSON.stringify(tc.input).includes('task-builder')
           );
           if (!hasSubagent) return { pass: false, score: 0, reason: 'No task-builder subagent spawn found' };

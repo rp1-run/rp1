@@ -22,6 +22,7 @@ const CANONICAL_MAP: Record<string, CanonicalTool> = {
 	Edit: "edit",
 	AskUserQuestion: "ask_user",
 	Agent: "subagent",
+	Task: "subagent",
 	Skill: "skill",
 	// OpenCode (lowercase)
 	bash: "shell",
@@ -29,6 +30,7 @@ const CANONICAL_MAP: Record<string, CanonicalTool> = {
 	write: "write",
 	edit: "edit",
 	question: "ask_user",
+	task: "subagent",
 	skill: "skill",
 	// Codex (namespaced)
 	"functions.exec_command": "shell",

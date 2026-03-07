@@ -140,6 +140,8 @@ AskUserQuestion: |
 
 ## §PHASE-2: Execution
 
+**CRITICAL**: You are an orchestrator. You MUST delegate implementation to `task-builder` via the Task tool. Do NOT write, edit, or create source code files yourself. Do NOT implement the plan directly. Your only job is to spawn agents and parse their responses.
+
 ### §2.1 Worktree Setup
 
 **Skip if**: `GIT_WORKTREE=false`
@@ -155,7 +157,7 @@ Parse JSON: `path` (worktree_path), `branch`, `basedOn`. Store with `original_cw
 
 ### §2.2 Task Execution
 
-**Spawn agent**:
+**You MUST spawn task-builder here.** Do not implement the tasks yourself.
 
 ```
 Task: rp1-dev:task-builder
@@ -285,6 +287,18 @@ rp1 agent-tools work artifact \
 **Review**: {PASSED | SKIPPED | FAILED+RETRIED} (based on REVIEW flag)
 ```
 
+## §ORCHESTRATOR-RULES
+
+**DO**:
+- Spawn agents via Task tool for every phase (planner, task-builder, reviewer)
+- Wait for each Task to complete before proceeding
+- Use AskUserQuestion for user interactions (when not AFK)
+
+**DO NOT**:
+- Read/write/edit source code files directly — task-builder does all implementation
+- Implement anything yourself — you are a workflow orchestrator
+- Skip the task-builder spawn — it is mandatory for Small/Medium scope
+
 ## §ANTI-LOOP
 
-Single-pass per phase. Parse args -> plan -> [checkpoint] -> execute -> [review] -> [checkpoint] -> STOP.
+Single-pass per phase. Parse args -> plan -> [checkpoint] -> execute via task-builder -> [review] -> [checkpoint] -> STOP.
