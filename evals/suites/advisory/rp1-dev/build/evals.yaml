@@ -2,7 +2,7 @@
 #
 # Tests the /rp1-dev:build command behavior
 #
-# Run: just run-evals rp1-dev/build
+# Run: just run-evals advisory/rp1-dev/build
 description: "rp1-dev:build instruction-following evaluation"
 evaluateOptions:
   maxConcurrency: 4
@@ -57,36 +57,99 @@ defaultTest:
 tests:
   - description: "default_behavior"
     assert:
+      # Programmatic: tool-call presence checks
+      - type: javascript
+        value: |
+          // Assert artifact-detector spawned as first subagent
+          const meta = context.providerResponse?.metadata;
+          const tcs = meta?.toolCalls ?? [];
+          const subagentCalls = tcs.filter(tc => ['Task', 'task', 'Agent', 'agent'].includes(tc.name));
+          const firstSubagent = subagentCalls[0];
+          if (!firstSubagent) return { pass: false, score: 0, reason: 'No subagent calls found' };
+          const input = JSON.stringify(firstSubagent.input);
+          if (!input.includes('artifact-detector')) return { pass: false, score: 0, reason: `First subagent was ${firstSubagent.input?.subagent_type}, expected build-artifact-detector` };
+          return { pass: true, score: 1, reason: 'artifact-detector spawned first' };
+      - type: javascript
+        value: |
+          // Assert task-builder spawned at least once
+          const meta = context.providerResponse?.metadata;
+          const tcs = meta?.toolCalls ?? [];
+          const hasBuilder = tcs.some(tc =>
+            ['Task', 'task', 'Agent', 'agent'].includes(tc.name) &&
+            JSON.stringify(tc.input).includes('task-builder')
+          );
+          if (!hasBuilder) return { pass: false, score: 0, reason: 'No task-builder subagent spawn found' };
+          return { pass: true, score: 1, reason: 'task-builder spawned' };
+      - type: javascript
+        value: |
+          // Assert task-reviewer spawned at least once
+          const meta = context.providerResponse?.metadata;
+          const tcs = meta?.toolCalls ?? [];
+          const hasReviewer = tcs.some(tc =>
+            ['Task', 'task', 'Agent', 'agent'].includes(tc.name) &&
+            JSON.stringify(tc.input).includes('task-reviewer')
+          );
+          if (!hasReviewer) return { pass: false, score: 0, reason: 'No task-reviewer subagent spawn found' };
+          return { pass: true, score: 1, reason: 'task-reviewer spawned' };
+      - type: javascript
+        value: |
+          // Assert verification agents spawned (code-checker, feature-verifier, comment-cleaner)
+          const meta = context.providerResponse?.metadata;
+          const tcs = meta?.toolCalls ?? [];
+          const subagents = tcs.filter(tc => ['Task', 'task', 'Agent', 'agent'].includes(tc.name));
+          const types = subagents.map(tc => tc.input?.subagent_type || '');
+          const hasChecker = types.some(t => t.includes('code-checker'));
+          const hasVerifier = types.some(t => t.includes('feature-verifier'));
+          if (!hasChecker && !hasVerifier) return { pass: false, score: 0, reason: 'No verification agents spawned (expected code-checker or feature-verifier)' };
+          return { pass: true, score: 1, reason: 'Verification agents spawned' };
+      - type: javascript
+        value: |
+          // Assert work status updates present
+          const meta = context.providerResponse?.metadata;
+          const cmds = meta?.bashCommands ?? [];
+          const hasWorkUpdate = cmds.some(c => c.includes('rp1 agent-tools work update') && c.includes('--workflow') && c.includes('--run-id'));
+          if (!hasWorkUpdate) return { pass: false, score: 0, reason: 'No work status update found in bash commands' };
+          return { pass: true, score: 1, reason: 'Work status update found' };
+      - type: javascript
+        value: |
+          // Assert user review checkpoints fired (non-AFK mode)
+          const meta = context.providerResponse?.metadata;
+          const tcs = meta?.toolCalls ?? [];
+          const askCalls = tcs.filter(tc => tc.name === 'AskUserQuestion');
+          if (askCalls.length === 0) return { pass: false, score: 0, reason: 'No AskUserQuestion calls — expected review checkpoints in non-AFK mode' };
+          const hasContinue = askCalls.some(tc => JSON.stringify(tc.input).includes('Continue'));
+          if (!hasContinue) return { pass: false, score: 0, reason: 'AskUserQuestion calls found but none with Continue option' };
+          return { pass: true, score: 1, reason: `${askCalls.length} review checkpoint(s) fired` };
+      - type: javascript
+        value: |
+          // Assert PROHIBITED commands not present
+          const meta = context.providerResponse?.metadata;
+          const cmds = meta?.bashCommands ?? [];
+          const prohibited = [
+            { pattern: /git push (--force|-f)/, label: 'git push --force' },
+            { pattern: /\bgit\b.*\bcommit\b/, label: 'git commit (not expected without GIT_COMMIT flag)' },
+            { pattern: /\bgit\s+reset\s+--hard\b/, label: 'git reset --hard' },
+            { pattern: /\bgit\s+rebase\b/, label: 'git rebase' },
+            { pattern: /\bgit\s+init\b/, label: 'git init' },
+          ];
+          for (const { pattern, label } of prohibited) {
+            const found = cmds.find(c => pattern.test(c));
+            if (found) return { pass: false, score: 0, reason: `Prohibited command found: ${label}` };
+          }
+          return { pass: true, score: 1, reason: 'No prohibited commands found' };
+      # LLM-rubric: behavioral/output checks only
       - type: llm-rubric
         value: |
-          Evaluate the agent execution. Check the output text AND the Metadata JSON section.
+          Evaluate the agent's output text for behavioral correctness.
 
           REQUIRED (all must pass):
-          1. Spawns build-artifact-detector agent to determine start_step (1-6)
-          2. Executes workflow steps in order: Requirements -> Design -> Tasks -> Build -> Verify -> Archive
-          3. For each step, spawns the appropriate agent(s) as defined in the progress table
-          4. Outputs step status table using symbols: [ ]=PENDING, [~]=RUNNING, [x]=COMPLETED, [-]=SKIPPED, [!]=FAILED
-          5. Creates feature artifacts in {RP1_ROOT}/work/features/{FEATURE_ID}/ directory
-          6. After requirements step completes, pauses for user review with Continue/Revise/Stop options (when not AFK)
-          7. After design step completes, pauses for user review with Continue/Revise/Stop options (when not AFK)
-          8. After build step completes, pauses for user review with Continue/Add Task/Stop options (when not AFK)
-          9. Builder-reviewer loop runs for each task unit with max 2 attempts before escalation
-          10. Verification phase invokes code-checker, feature-verifier, and comment-cleaner in parallel
-          11. Build-verify-aggregator determines overall_status (VERIFIED/FAILED) and ready_for_merge
-          12. Final output includes Feature ID, step status table (1-6), and artifacts created
-          13. Agent reports work status updates via Metadata bashCommands containing "rp1 agent-tools work update" with "--workflow build" and "--run-id" flags (reads state.mmd for valid transitions)
-          14. Agent registers produced artifacts via Metadata bashCommands containing "rp1 agent-tools work artifact" with "--project", "--feature", "--run-id", and "--path" flags pointing to files in {RP1_ROOT}/work/features/{FEATURE_ID}/
+          1. Executes workflow steps in order: Requirements -> Design -> Tasks -> Build -> Verify -> Archive
+          2. Outputs step status table using symbols: [ ]=PENDING, [~]=RUNNING, [x]=COMPLETED, [-]=SKIPPED, [!]=FAILED
+          3. Creates feature artifacts in {RP1_ROOT}/work/features/{FEATURE_ID}/ directory
+          4. Final output includes Feature ID and step status table
 
-          PROHIBITED (fail if any present in Metadata bashCommands):
-          - "git push --force" or "git push -f"
-          - "git commit"
-          - "git reset --hard"
-          - "git rebase"
-          - "git init" inside worktree
-          - Deleting feature artifacts during error handling
-          - Skipping foundational steps (1-3) on failure without ABORT
-          - Modifying code outside assigned task scope in task-builder
-          - Does not create git worktree (does not use rp1 agent-tools worktree create)
+          PASS if: Full workflow executes with status tracking and feature artifacts
+          FAIL if: Steps skipped out of order, no status table, or no feature artifacts
   - description: "git_worktree_workflow"
     vars:
       GIT_WORKTREE: true
@@ -94,53 +157,83 @@ tests:
       GIT_PR: true
       AFK: true
     assert:
+      # Programmatic: git/worktree/AFK tool-call checks
+      - type: javascript
+        value: |
+          // Assert worktree create
+          const meta = context.providerResponse?.metadata;
+          const cmds = meta?.bashCommands ?? [];
+          const hasCreate = cmds.some(c => c.includes('rp1 agent-tools worktree create') || c.includes('worktree add'));
+          if (!hasCreate) return { pass: false, score: 0, reason: 'No worktree create found' };
+          return { pass: true, score: 1, reason: 'Worktree create found' };
+      - type: javascript
+        value: |
+          // Assert git commit present
+          const meta = context.providerResponse?.metadata;
+          const cmds = meta?.bashCommands ?? [];
+          const hasCommit = cmds.some(c => /\bgit\b.*\bcommit\b/.test(c));
+          if (!hasCommit) return { pass: false, score: 0, reason: 'No git commit found (GIT_COMMIT=true)' };
+          return { pass: true, score: 1, reason: 'git commit found' };
+      - type: javascript
+        value: |
+          // Assert git push present
+          const meta = context.providerResponse?.metadata;
+          const cmds = meta?.bashCommands ?? [];
+          const hasPush = cmds.some(c => /\bgit\b.*\bpush\b/.test(c));
+          if (!hasPush) return { pass: false, score: 0, reason: 'No git push found (GIT_PR implies GIT_PUSH)' };
+          return { pass: true, score: 1, reason: 'git push found' };
+      - type: javascript
+        value: |
+          // Assert gh pr create present (GIT_PR=true)
+          const meta = context.providerResponse?.metadata;
+          const cmds = meta?.bashCommands ?? [];
+          const hasPR = cmds.some(c => c.includes('gh pr create') || c.includes('github-pr'));
+          if (!hasPR) return { pass: false, score: 0, reason: 'No PR creation found (GIT_PR=true)' };
+          return { pass: true, score: 1, reason: 'PR creation found' };
+      - type: javascript
+        value: |
+          // Assert NO AskUserQuestion calls (AFK mode)
+          const meta = context.providerResponse?.metadata;
+          const tcs = meta?.toolCalls ?? [];
+          const askCall = tcs.find(tc => tc.name === 'AskUserQuestion');
+          if (askCall) return { pass: false, score: 0, reason: 'Found AskUserQuestion in AFK mode — should be bypassed' };
+          return { pass: true, score: 1, reason: 'No AskUserQuestion calls in AFK mode' };
+      - type: javascript
+        value: |
+          // Assert task-builder spawned
+          const meta = context.providerResponse?.metadata;
+          const tcs = meta?.toolCalls ?? [];
+          const hasBuilder = tcs.some(tc =>
+            ['Task', 'task', 'Agent', 'agent'].includes(tc.name) &&
+            JSON.stringify(tc.input).includes('task-builder')
+          );
+          if (!hasBuilder) return { pass: false, score: 0, reason: 'No task-builder subagent spawn found' };
+          return { pass: true, score: 1, reason: 'task-builder spawned' };
+      - type: javascript
+        value: |
+          // Assert PROHIBITED commands not present
+          const meta = context.providerResponse?.metadata;
+          const cmds = meta?.bashCommands ?? [];
+          const prohibited = [
+            { pattern: /git push (--force|-f)/, label: 'git push --force' },
+            { pattern: /\bgit\s+reset\s+--hard\b/, label: 'git reset --hard' },
+            { pattern: /\bgit\s+init\b/, label: 'git init' },
+          ];
+          for (const { pattern, label } of prohibited) {
+            const found = cmds.find(c => pattern.test(c));
+            if (found) return { pass: false, score: 0, reason: `Prohibited command found: ${label}` };
+          }
+          return { pass: true, score: 1, reason: 'No prohibited commands found' };
+      # LLM-rubric: behavioral checks
       - type: llm-rubric
         value: |
-          Evaluate the agent execution with GIT_WORKTREE=true. Check the output text AND the Metadata JSON section.
+          Evaluate the agent execution with GIT_WORKTREE=true, GIT_PR=true, and AFK=true.
 
           REQUIRED (all must pass):
-          1. Creates isolated git worktree using worktree-workflow skill
-          2. Stores worktree_path, branch, and basedOn from worktree creation
-          3. All build phase operations occur in worktree directory
-          4. Task-builder creates atomic commits with conventional format: feat({FEATURE_ID}): implement {TASK_ID}
-          5. Cleans up worktree after verification phase
+          1. Full workflow executes without user interaction (AFK mode)
+          2. Task-builder creates commits with conventional format (feat:, fix:, etc.)
+          3. Agent uses flag implication chain: GIT_PR sets GIT_PUSH=true and GIT_COMMIT=true
+          4. Archives feature on successful completion
 
-          PROHIBITED (fail if any present in Metadata bashCommands):
-          - "git checkout" to switch branches (breaks worktree isolation)
-          - "git switch" to change branches
-          - "git init" (creates orphan repo)
-
-          EDGE CASES:
-          - When worktree creation fails: STOP and report error, do not proceed with partial state
-      - type: llm-rubric
-        value: |
-          Evaluate the agent execution with AFK=true. Check the output text AND the Metadata JSON section.
-
-          REQUIRED (all must pass):
-          1. Skips all user prompts and review checkpoints
-          2. Auto-selects defaults for all decision points
-          3. On step failure, retries once before marking as failed
-          4. Auto-archives feature on successful completion
-          5. Logs all auto-selected decisions in output
-          6. Does not invoke AskUserQuestion tool at any point
-
-          PROHIBITED (fail if any present):
-          - Any AskUserQuestion tool calls in Metadata toolCalls
-          - Waiting for user input or confirmation
-          - Interactive prompts for revision feedback
-
-          EDGE CASES:
-          - When ambiguity detected: infers conservative defaults and documents in output
-          - When PRD selection needed: auto-matches FEATURE_ID against PRD filenames
-      - type: llm-rubric
-        value: |
-          Evaluate the agent execution with GIT_PR=true flag. Check the output text AND the Metadata JSON section.
-
-          REQUIRED (all must pass):
-          1. Flag implication chain: GIT_PR sets GIT_PUSH=true and GIT_COMMIT=true
-          2. Commits changes after build phase
-          3. Pushes branch to remote
-          4. Creates PR using gh pr create
-
-          EDGE CASES:
-          - When GIT_PUSH=true without GIT_COMMIT (after implication): should NOT error (implication chain sets both)
+          PASS if: Full workflow, worktree isolation, commits, push, PR creation, no user prompts
+          FAIL if: Missing workflow steps, user interaction in AFK mode, or no PR creation
