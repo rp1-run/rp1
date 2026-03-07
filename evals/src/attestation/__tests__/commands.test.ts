@@ -65,6 +65,28 @@ describe("extractSuiteFromFilename", () => {
 		);
 		expect(result).toBe("rp1-dev/feature-architect");
 	});
+
+	// Tier-prefixed filenames (from run-core-evals / run-advisory-evals)
+	test("strips core- tier prefix", () => {
+		const result = extractSuiteFromFilename(
+			"evals/output/core-rp1-dev-build-fast.json",
+		);
+		expect(result).toBe("rp1-dev/build-fast");
+	});
+
+	test("strips advisory- tier prefix", () => {
+		const result = extractSuiteFromFilename(
+			"output/advisory-rp1-dev-build-fast.json",
+		);
+		expect(result).toBe("rp1-dev/build-fast");
+	});
+
+	test("strips core- tier prefix with absolute path", () => {
+		const result = extractSuiteFromFilename(
+			"/Users/prem/Development/rp1/evals/output/core-rp1-base-knowledge-load.json",
+		);
+		expect(result).toBe("rp1-base/knowledge-load");
+	});
 });
 
 describe("detectPassRate", () => {
