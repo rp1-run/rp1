@@ -7,7 +7,12 @@ providers:
   - id: file://../../../providers/claude-with-tools.ts
     label: rp1-agentic-eval
     config:
-      model: claude-opus-4-5
+      model: claude-opus-4-6
+      # Fast mode: 2.5x faster output tokens/sec at premium pricing
+      betas:
+        - fast-mode-2026-02-01
+      extra_args:
+        speed: fast
       # working_dir is set dynamically by extension via WORKSPACE_DIR var
       # This enables parallel test execution with isolated workspaces
       permission_mode: bypassPermissions

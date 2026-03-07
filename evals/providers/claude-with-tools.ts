@@ -86,6 +86,8 @@ interface ProviderConfig {
 	readonly plugins?: readonly SdkPluginConfig[];
 	readonly include_partial_messages?: boolean;
 	readonly ask_user_behavior?: AskUserBehavior;
+	readonly betas?: readonly string[];
+	readonly extra_args?: Record<string, string | null>;
 	readonly [key: string]: unknown;
 }
 
@@ -308,6 +310,14 @@ export default class ClaudeWithToolCapture {
 							: undefined,
 						includePartialMessages: true,
 						canUseTool,
+						betas: this.config.betas
+							? ([
+									...this.config.betas,
+								] as import("@anthropic-ai/claude-agent-sdk").SdkBeta[])
+							: undefined,
+						extraArgs: this.config.extra_args
+							? { ...this.config.extra_args }
+							: undefined,
 					},
 				};
 
