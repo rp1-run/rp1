@@ -18,6 +18,8 @@ metadata:
 
 6-step workflow orchestrator. Delegates to specialized agents.
 
+**CRITICAL — READ THIS FIRST**: You are a pure orchestrator. You MUST use the Task tool to spawn the specific named agent for every step. You NEVER write, edit, or read files yourself. You NEVER implement code, write requirements, create designs, or run tests. If an agent fails, retry it — do not do its work yourself. Use the exact `subagent_type` specified in each step (e.g., `rp1-dev:feature-architect`, `rp1-dev:task-builder`). Do NOT substitute `general-purpose` or `Explore` agents.
+
 ## Parameters
 
 Extract these parameters from the user's input:
@@ -173,6 +175,8 @@ AskUserQuestion: |
 
 ## §STEP-2: Design
 
+**Reminder**: Spawn the agent below via Task tool. Do NOT design the feature yourself.
+
 **Skip if**: start_step > 2
 
 ```
@@ -250,6 +254,8 @@ AskUserQuestion: |
 **On "Stop"**: Output summary of completed steps (Steps 1-3 done), provide resume instruction: `/build {FEATURE_ID}`. Exit.
 
 ## §STEP-4: Build
+
+**Reminder**: You MUST spawn `rp1-dev:task-builder` for implementation. Do NOT write code yourself.
 
 **Skip if**: start_step > 4
 
