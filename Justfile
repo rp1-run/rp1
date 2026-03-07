@@ -213,4 +213,4 @@ show-evals-status:
 
 # View eval results in browser
 view-evals:
-    cd evals && bunx promptfoo view
+    cd evals && bunx promptfoo view -n
