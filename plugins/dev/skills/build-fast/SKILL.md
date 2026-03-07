@@ -179,7 +179,7 @@ prompt: |
 
 ### §3.1 Task Review
 
-**Spawn agent**:
+**You MUST use `subagent_type: rp1-dev:task-reviewer`** — do not use `general-purpose` or any other agent type.
 
 ```
 Task: rp1-dev:task-reviewer

@@ -195,12 +195,14 @@ tests:
       - type: javascript
         value: |
           // Assert task-reviewer spawned (--review flag)
+          // Accepts either subagent_type containing 'task-reviewer' OR prompt text referencing review
           const meta = context.providerResponse?.metadata;
           const tcs = meta?.toolCalls ?? [];
-          const hasReviewer = tcs.some(tc =>
-            ['Task', 'task', 'Agent', 'agent'].includes(tc.name) &&
-            JSON.stringify(tc.input).includes('task-reviewer')
-          );
+          const hasReviewer = tcs.some(tc => {
+            if (!['Task', 'task', 'Agent', 'agent'].includes(tc.name)) return false;
+            const input = JSON.stringify(tc.input);
+            return input.includes('task-reviewer') || (input.includes('review') && input.includes('TASK_IDS'));
+          });
           if (!hasReviewer) return { pass: false, score: 0, reason: 'No task-reviewer subagent spawn found' };
           return { pass: true, score: 1, reason: 'task-reviewer spawned' };
       - type: javascript

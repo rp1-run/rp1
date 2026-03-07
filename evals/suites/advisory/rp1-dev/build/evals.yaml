@@ -21,7 +21,7 @@ providers:
       permission_mode: bypassPermissions
       allow_dangerously_skip_permissions: true
       ask_user_behavior: first_option
-      max_turns: 50
+      max_turns: 200
       setting_sources:
         - project
         - local

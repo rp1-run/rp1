@@ -422,26 +422,34 @@ prompt: MODE=archive, FEATURE_ID={FEATURE_ID}, SKIP_DOC_CHECK=false
 
 ## §ORCHESTRATOR-RULES
 
+**CRITICAL**: You are a workflow orchestrator. You MUST delegate ALL work to specialized agents via the Task tool. You do NOT implement anything yourself.
+
 **DO**:
-- Spawn agents via Task tool for every step
+- Spawn agents via Task tool for every step — use the exact `subagent_type` specified (e.g., `rp1-dev:feature-architect`, `rp1-dev:task-builder`)
 - Wait for each Task to complete before proceeding
-- Use AskUserQuestion for user interactions
+- Use AskUserQuestion for user interactions (when not AFK)
+- Parse agent responses to extract structured data for the next phase
 
 **DO NOT**:
-- Read/write/edit files directly
-- Implement anything yourself
-- Load KB (agents handle their own context)
- ## §FIRST-ACTION (MANDATORY)
+- Write/edit ANY files directly — agents handle all file creation and modification
+- Read source code files to understand the codebase — agents handle their own context
+- Implement code, write requirements, create designs, or run tests yourself
+- Use `general-purpose` or `Explore` agents — always use the specific agent named in each step
+- Skip steps or combine phases — follow the workflow sequentially
+- Retry a failed agent by doing the work yourself — retry the same agent instead
 
-  Your FIRST tool call MUST be spawning `rp1-dev:build-artifact-detector`.
+## §FIRST-ACTION (MANDATORY)
 
-  DO NOT:
-  - Read any files
-  - Load KB context
-  - Analyze the requirements
-  - Do anything else first
+Your FIRST tool call MUST be spawning `rp1-dev:build-artifact-detector`.
 
-  Agents handle their own context loading.
+DO NOT:
+- Read any files
+- Load KB context
+- Analyze the requirements
+- Do anything else first
+
+Agents handle their own context loading.
+
 ## §ANTI-LOOP
 
 Single-pass execution. No clarification mid-workflow. Parse -> detect -> run steps -> STOP.
