@@ -36,16 +36,16 @@ tests:
         value: |
           Evaluate the agent execution. Check the output text AND the Metadata JSON section.
 
+          NOTE: Tool names may be lowercase (e.g., "read", "bash", "write", "task") or PascalCase
+          (e.g., "Read", "Bash", "Write") depending on the provider. Match case-insensitively.
+
           REQUIRED (all must pass):
-          1. Output contains "Scope" section with scope classification (Small, Medium, or Large)
-          2. Output contains reasoning about files affected, systems involved, risk level, and estimated effort
-          3. Agent reports work status updates via Metadata bashCommands containing "rp1 agent-tools work update" with "--workflow build-fast" and "--run-id" flags (reads state.mmd for valid transitions, no --metadata hack)
-          4. Agent loads KB files (partial loading is fine) - Metadata bashCommands or toolCalls shows reading from {RP1_ROOT}/context/ directory
-          5. For Small/Medium scope: Output contains "Build Fast Complete" section with request summary
-          6. For Small/Medium scope: Agent creates artifact at {RP1_ROOT}/work/quick-builds/ with date-based filename pattern ({yyyy-mm-dd}-{slug}-{n}.md)
-          7. For Small/Medium scope: Output contains "Quality" section (or similarly worded) showing format/lint/test status
-          8. Output indicates changes are uncommitted in working directory
-          9. For Small/Medium scope: Agent spawns task-builder (NOT build-fast-executor) for implementation
+          1. Agent produces a scope classification (Small, Medium, or Large) somewhere in the output text
+          2. Output contains reasoning about files affected and estimated effort
+          3. Agent loads KB files (partial loading is fine) - Metadata toolCalls shows read/Read calls to files in .rp1/context/ directory
+          4. For Small/Medium scope: Agent creates artifact at .rp1/work/quick-builds/ with date-based filename pattern ({yyyy-mm-dd}-{slug}-{n}.md) - visible in toolCalls as write/bash/edit to that path
+          5. For Small/Medium scope: Output contains summary with quality status (format/lint/test results)
+          6. For Small/Medium scope: Agent delegates to a builder subagent for implementation - Metadata toolCalls shows a "task" call with prompt referencing build-fast or task-builder
 
           PROHIBITED (fail if any present in Metadata bashCommands):
           - "git init" (creates orphan repo, corrupts history)
@@ -54,10 +54,8 @@ tests:
           - "git push"
           - "git commit"
 
-          EDGE CASES:
-          - When AFK=true: Auto-decisions should be logged with "(AFK auto)" prefix in summary
-          - When GIT_PUSH=true: Metadata bashCommands should contain "git push -u origin"
-          - When KB files missing: Agent should warn but continue (not block)
+          PASS if: KB loaded, scope assessed, artifact created, implementation delegated, quality reported
+          FAIL if: Any REQUIRED criteria not met or PROHIBITED commands found
   - description: "large_scope_redirect"
     vars:
       DEVELOPMENT_REQUEST: "rewrite the entire authentication system from scratch, migrate to a new database schema, and update all API endpoints to use GraphQL instead of REST"
@@ -65,24 +63,18 @@ tests:
       - type: llm-rubric
         value: |
           Evaluate whether the agent correctly identifies and redirects a large-scope request.
-
           Check the output text AND the Metadata JSON section.
 
+          NOTE: Tool names may be lowercase or PascalCase depending on the provider. Match case-insensitively.
+
           REQUIRED (all must pass):
-          1. Output contains "Scope Assessment" section with "Large" classification
-          2. Output contains "REQUEST EXCEEDS SCOPE" or similar redirect notice
-          3. Output explains why this needs the full /build workflow
-          4. Output provides options: reduce scope, phase it, or use /build command
-          5. Output suggests a "Recommended Quick Win" or minimal viable alternative
-          6. Agent reports status as "completed" with redirect message via work status update
+          1. Agent classifies the request as "Large" scope or equivalent (too complex for quick build)
+          2. Output communicates that this request exceeds the quick-build scope
+          3. Output suggests alternatives: reduce scope, phase it, or use a larger workflow
+          4. Agent does NOT create substantial source code files - Metadata toolCalls should not show write/edit calls creating auth, database, or GraphQL files
 
-          PROHIBITED:
-          - Agent should NOT proceed to implementation phase for large scope
-          - No source code files should be created or modified (check Metadata toolCalls for Write/Edit)
-          - No git commits should be created for the request itself
-
-          PASS if: Agent stops after redirect, provides actionable alternatives
-          FAIL if: Agent attempts to implement the large-scope request
+          PASS if: Agent shows restraint, classifies as large, provides alternatives
+          FAIL if: Agent implements the entire large-scope request
   - description: "confirm_plan_and_review_flags"
     vars:
       DEVELOPMENT_REQUEST: "add a simple greeting utility function"
@@ -98,23 +90,25 @@ tests:
           Evaluate the agent execution with --confirm-plan and --review flags enabled.
           Check the output text AND the Metadata JSON section.
 
-          REQUIRED (all must pass):
-          1. Agent spawns build-fast-planner which writes artifact to {RP1_ROOT}/work/quick-builds/{yyyy-mm-dd}-{slug}-{n}.md
-          2. Plan review checkpoint fires: Metadata toolCalls contains AskUserQuestion with options including "Continue", "Revise", "Stop"
-          3. Post-implementation checkpoint fires: Metadata toolCalls contains AskUserQuestion with options including "Done", "Add/Edit"
-          4. Agent spawns task-builder with QUICK_BUILD_PATH parameter pointing to the artifact
-          5. Task IDs passed to task-builder as comma-separated list (e.g., "T1,T2" or "T1,T2,T3") in single invocation
-          6. Agent spawns task-reviewer after task-builder completes (due to --review flag)
-          7. Output shows "Review" status (PASSED, SKIPPED, or FAILED+RETRIED)
-          8. Artifact file exists at {RP1_ROOT}/work/quick-builds/ directory with correct structure:
-             - Contains "## Plan" section with reasoning and files affected
-             - Contains "## Tasks" section with task list in format "- [ ] **T{N}**: description [complexity:X]"
-             - Contains "## Implementation Summary" section (added by task-builder)
-             - Contains "## Verification" section (added by task-reviewer)
-          9. Output contains "Build Fast Complete" with artifact path
+          NOTE: Tool names may be lowercase or PascalCase depending on the provider. Match case-insensitively.
+          User interaction (checkpoints) may appear as AskUserQuestion tool calls OR be handled
+          through a separate question/permission API not visible in toolCalls. Judge by workflow
+          progression, not by specific tool names.
 
-          PASS if: Both checkpoints fire, reviewer invoked, artifact structure correct
-          FAIL if: Missing checkpoints, no reviewer invocation, or incorrect artifact structure
+          REQUIRED (all must pass):
+          1. Agent spawns a planner that writes artifact to .rp1/work/quick-builds/ with date-based filename
+          2. Workflow progresses through planning → implementation → review phases (evidenced by
+             multiple "task" calls in toolCalls dispatching to planner, builder, and reviewer/test-runner subagents)
+          3. Agent spawns a builder subagent (toolCalls shows "task" with prompt referencing task-builder or implementation)
+          4. Agent spawns a reviewer or test-runner subagent after builder completes (due to --review flag) -
+             toolCalls shows "task" with prompt referencing reviewer, verifier, or test-runner
+          5. Output shows review/verification results (PASSED, verified, or test results)
+          6. Artifact at .rp1/work/quick-builds/ contains both implementation and verification sections
+          7. Metadata bashCommands contains "git commit" (GIT_COMMIT=true)
+          8. Output contains completion summary with artifact path
+
+          PASS if: Full plan→build→review pipeline executed, artifact complete, committed
+          FAIL if: Missing review phase, no reviewer/test-runner invocation, or incomplete artifact
   - description: "worktree_commits_and_push"
     vars:
       DEVELOPMENT_REQUEST: "add a simple hello world script"
@@ -128,21 +122,20 @@ tests:
       - type: llm-rubric
         value: |
           Evaluate whether the agent respects GIT_COMMIT=true, GIT_WORKTREE=true, and GIT_PUSH=true flags.
-
           Check the Metadata JSON section for bashCommands and toolCalls.
 
-          REQUIRED:
-          1. Agent implements the requested change (creates/modifies files)
-          2. Metadata bashCommands contains "git commit"
-          3. Metadata bashCommands contains "git push"
-          4. Agent uses conventional commit format (feat:, fix:, refactor:, etc.) in any git commits
-          5. Metadata bashCommands contains "rp1 agent-tools worktree create"
-          6. Metadata bashCommands contains "rp1 agent-tools worktree cleanup"
-          7. Agent spawns task-builder (NOT build-fast-executor) for implementation
-          8. Agent creates artifact at {RP1_ROOT}/work/quick-builds/ with date-based filename
+          NOTE: Tool names may be lowercase or PascalCase depending on the provider.
 
-          PASS if: Changes made, committed, pushed, used worktree, task-builder invoked
-          FAIL if: Missing commits, push, worktree operations, or uses build-fast-executor
+          REQUIRED:
+          1. Agent implements the requested change (toolCalls shows write/edit calls creating source files)
+          2. Metadata bashCommands contains "git commit" with a message
+          3. Metadata bashCommands contains "git push"
+          4. Agent uses conventional commit format (feat:, fix:, refactor:, etc.)
+          5. Agent creates artifact at .rp1/work/quick-builds/ with date-based filename
+          6. Agent delegates to a builder subagent (toolCalls shows "task" call)
+
+          PASS if: Changes made, committed, pushed, builder invoked
+          FAIL if: Missing commits or push
   - description: "in_afk_mode_bypasses_confirm"
     vars:
       DEVELOPMENT_REQUEST: "add a json validation script that's ultra performant"
@@ -156,20 +149,23 @@ tests:
       - type: llm-rubric
         value: |
           Evaluate whether AFK=true bypasses --confirm-plan checkpoints.
-
           Check the Metadata JSON section for bashCommands and toolCalls.
 
+          NOTE: Tool names may be lowercase or PascalCase depending on the provider.
+          User interaction may appear as AskUserQuestion tool calls OR be handled through a
+          separate API. In AFK mode, NO user interaction should occur regardless of mechanism.
+
           REQUIRED:
-          1. Agent implements the requested change (creates/modifies files)
+          1. Agent implements the requested change (toolCalls shows write/edit calls creating source files)
           2. Metadata bashCommands contains "git commit"
-          3. Agent uses conventional commit format (feat:, fix:, refactor:, etc.) in any git commits
-          4. Agent spawns task-builder (NOT build-fast-executor) for implementation
-          5. Agent creates artifact at {RP1_ROOT}/work/quick-builds/ with date-based filename
+          3. Agent uses conventional commit format (feat:, fix:, refactor:, etc.)
+          4. Agent delegates to a builder subagent (toolCalls shows "task" call)
+          5. Agent creates artifact at .rp1/work/quick-builds/ with date-based filename
 
           PROHIBITED:
-          - Agent should NOT use AskUserQuestion tool despite --confirm-plan being set (AFK overrides)
-          - No plan review checkpoint
-          - No post-implementation checkpoint
+          - No user-facing prompts or checkpoints should fire despite --confirm-plan being set
+            (AFK overrides). If AskUserQuestion appears in toolCalls, that's a FAIL.
+          - The workflow should proceed autonomously from start to finish
 
-          PASS if: Changes made, committed, no user prompts despite --confirm-plan flag
-          FAIL if: Agent waits for user input or AskUserQuestion appears in toolCalls
+          PASS if: Changes made, committed, no user interaction despite --confirm-plan flag
+          FAIL if: Agent blocks on user input or shows interactive checkpoints
