@@ -7,9 +7,9 @@ description: "rp1-dev:build instruction-following evaluation"
 evaluateOptions:
   maxConcurrency: 4
 extensions:
-  - file://../../shared/extension.ts:extensionHook
+  - file://../../../shared/extension.ts:extensionHook
 providers:
-  - id: file://../../../providers/claude-with-tools.ts
+  - id: file://../../../../providers/claude-with-tools.ts
     label: rp1-agentic-eval
     config:
       model: claude-opus-4-6

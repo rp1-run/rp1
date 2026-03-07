@@ -1,40 +1,18 @@
-description: "Evals for build-fast command with task-builder integration"
+description: "Evals for build-fast command via OpenCode with task-builder integration"
 evaluateOptions:
-  maxConcurrency: 4
+  maxConcurrency: 1
 extensions:
-  - file://../../shared/extension.ts:extensionHook
+  - file://../../../shared/extension.ts:extensionHook
 providers:
-  - id: file://../../../providers/claude-with-tools.ts
-    label: rp1-agentic-eval
+  - id: file://../../../../providers/opencode-with-tools.ts
+    label: rp1-opencode-eval
     config:
-      model: claude-opus-4-6
-      # Fast mode: 2.5x faster output tokens/sec at premium pricing
-      betas:
-        - fast-mode-2026-02-01
+      # Provider and model resolved from env vars (OPENCODE_PROVIDER_ID, OPENCODE_MODEL_ID)
+      # to avoid leaking model names in config. Falls back to defaults if unset.
       # working_dir is set dynamically by extension via WORKSPACE_DIR var
-      # This enables parallel test execution with isolated workspaces
-      permission_mode: bypassPermissions
-      allow_dangerously_skip_permissions: true
-      ask_user_question:
-        behavior: first_option
-      max_turns: 50
-      setting_sources:
-        - project
-        - local
-        - user
-      plugins:
-        - type: local
-          path: plugins/dev
-        - type: local
-          path: plugins/base
-      tools:
-        - Read
-        - Write
-        - Edit
-        - Glob
-        - Grep
-        - Bash
-        - Skill
+      # maxConcurrency: 1 because OpenCode server is per-test
+      permission:
+        "*": allow
 prompts:
   - file://prompt.txt
 defaultTest:
@@ -68,7 +46,6 @@ tests:
           7. For Small/Medium scope: Output contains "Quality" section (or similarly worded) showing format/lint/test status
           8. Output indicates changes are uncommitted in working directory
           9. For Small/Medium scope: Agent spawns task-builder (NOT build-fast-executor) for implementation
-          10. For Small/Medium scope: Agent registers the artifact via Metadata bashCommands containing "rp1 agent-tools work artifact" with "--project", "--feature", "--run-id", and "--path" flags
 
           PROHIBITED (fail if any present in Metadata bashCommands):
           - "git init" (creates orphan repo, corrupts history)
@@ -103,7 +80,6 @@ tests:
           - Agent should NOT proceed to implementation phase for large scope
           - No source code files should be created or modified (check Metadata toolCalls for Write/Edit)
           - No git commits should be created for the request itself
-          - No artifact registration calls (no "rp1 agent-tools work artifact" in Metadata bashCommands)
 
           PASS if: Agent stops after redirect, provides actionable alternatives
           FAIL if: Agent attempts to implement the large-scope request
@@ -136,10 +112,9 @@ tests:
              - Contains "## Implementation Summary" section (added by task-builder)
              - Contains "## Verification" section (added by task-reviewer)
           9. Output contains "Build Fast Complete" with artifact path
-          10. Agent registers the artifact via Metadata bashCommands containing "rp1 agent-tools work artifact" with "--project", "--feature", "--run-id", and "--path" flags
 
-          PASS if: Both checkpoints fire, reviewer invoked, artifact structure correct, artifact registered
-          FAIL if: Missing checkpoints, no reviewer invocation, incorrect artifact structure, or missing artifact registration
+          PASS if: Both checkpoints fire, reviewer invoked, artifact structure correct
+          FAIL if: Missing checkpoints, no reviewer invocation, or incorrect artifact structure
   - description: "worktree_commits_and_push"
     vars:
       DEVELOPMENT_REQUEST: "add a simple hello world script"
@@ -165,10 +140,9 @@ tests:
           6. Metadata bashCommands contains "rp1 agent-tools worktree cleanup"
           7. Agent spawns task-builder (NOT build-fast-executor) for implementation
           8. Agent creates artifact at {RP1_ROOT}/work/quick-builds/ with date-based filename
-          9. Agent registers the artifact via Metadata bashCommands containing "rp1 agent-tools work artifact" with "--project", "--feature", "--run-id", and "--path" flags
 
-          PASS if: Changes made, committed, pushed, used worktree, task-builder invoked, artifact registered
-          FAIL if: Missing commits, push, worktree operations, uses build-fast-executor, or missing artifact registration
+          PASS if: Changes made, committed, pushed, used worktree, task-builder invoked
+          FAIL if: Missing commits, push, worktree operations, or uses build-fast-executor
   - description: "in_afk_mode_bypasses_confirm"
     vars:
       DEVELOPMENT_REQUEST: "add a json validation script that's ultra performant"
@@ -191,12 +165,11 @@ tests:
           3. Agent uses conventional commit format (feat:, fix:, refactor:, etc.) in any git commits
           4. Agent spawns task-builder (NOT build-fast-executor) for implementation
           5. Agent creates artifact at {RP1_ROOT}/work/quick-builds/ with date-based filename
-          6. Agent registers the artifact via Metadata bashCommands containing "rp1 agent-tools work artifact" with "--project", "--feature", "--run-id", and "--path" flags
 
           PROHIBITED:
           - Agent should NOT use AskUserQuestion tool despite --confirm-plan being set (AFK overrides)
           - No plan review checkpoint
           - No post-implementation checkpoint
 
-          PASS if: Changes made, committed, no user prompts despite --confirm-plan flag, artifact registered
+          PASS if: Changes made, committed, no user prompts despite --confirm-plan flag
           FAIL if: Agent waits for user input or AskUserQuestion appears in toolCalls

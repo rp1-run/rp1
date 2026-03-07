@@ -183,12 +183,16 @@ serve-docs:
 setup-evals:
     cd evals && bun install --frozen-lockfile
 
-# Run evaluation suite (e.g., just run-evals rp1-dev/build)
-# Output file is overwritten on each run (no timestamp accumulation)
+# Eval tiers:
+#   core/     - Blocking evals (OpenCode-based). Must pass before merge.
+#   advisory/ - Informational evals (Claude Code-based). Failures don't block.
+#
+# Directory structure: evals/suites/{tier}/{plugin}/{suite}/evals.yaml
+
+# Run a specific eval suite by path (e.g., just run-evals core/rp1-dev/build-fast)
 run-evals suite verbose="false":
     #!/usr/bin/env bash
     set -e
-    # Add local rp1 bin to PATH so agents can use the dev version
     export PATH="$(pwd)/bin:$PATH"
     suite_filename=$(echo "{{suite}}" | tr '/' '-')
     output_file="output/${suite_filename}.json"
@@ -197,9 +201,43 @@ run-evals suite verbose="false":
     cd evals && bunx promptfoo eval -c "suites/{{suite}}/evals.yaml" --output "${output_file}" $verbose_flag
     echo "Output written to: evals/${output_file}"
 
+# Run all core (blocking) evals. Fails if any suite fails.
+run-core-evals verbose="false":
+    #!/usr/bin/env bash
+    set -e
+    export PATH="$(pwd)/bin:$PATH"
+    verbose_flag=""
+    if [ "{{verbose}}" = "true" ]; then verbose_flag="--verbose"; fi
+    failed=0
+    for config in evals/suites/core/*/*/evals.yaml; do
+        suite_path="${config#evals/suites/}"
+        suite_path="${suite_path%/evals.yaml}"
+        suite_filename=$(echo "${suite_path}" | tr '/' '-')
+        output_file="output/${suite_filename}.json"
+        echo "=== CORE: ${suite_path} ==="
+        cd evals && bunx promptfoo eval -c "suites/${suite_path}/evals.yaml" --output "${output_file}" $verbose_flag && cd .. || { echo "FAILED: ${suite_path}"; failed=1; cd ..; }
+    done
+    if [ "$failed" = "1" ]; then echo "Core evals FAILED"; exit 1; fi
+    echo "All core evals PASSED"
+
+# Run all advisory (informational) evals. Never fails the pipeline.
+run-advisory-evals verbose="false":
+    #!/usr/bin/env bash
+    set -e
+    export PATH="$(pwd)/bin:$PATH"
+    verbose_flag=""
+    if [ "{{verbose}}" = "true" ]; then verbose_flag="--verbose"; fi
+    for config in evals/suites/advisory/*/*/evals.yaml; do
+        suite_path="${config#evals/suites/}"
+        suite_path="${suite_path%/evals.yaml}"
+        suite_filename=$(echo "${suite_path}" | tr '/' '-')
+        output_file="output/${suite_filename}.json"
+        echo "=== ADVISORY: ${suite_path} ==="
+        cd evals && bunx promptfoo eval -c "suites/${suite_path}/evals.yaml" --output "${output_file}" $verbose_flag && cd .. || { echo "ADVISORY FAIL (non-blocking): ${suite_path}"; cd ..; }
+    done
+    echo "Advisory evals complete"
+
 # Generate attestation from eval output file
-# For new-style fixed filenames: just attest-evals rp1-dev-build-fast.json
-# For legacy timestamped files: just attest-evals rp1-dev-build-fast-2026-01-24T05-00-44.json
 attest-evals output-file:
     bun run evals/src/attestation/cli.ts attest-from-output evals/output/{{output-file}}
 
