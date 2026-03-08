@@ -295,8 +295,6 @@ export function MermaidDiagram({
 		) {
 			return;
 		}
-		previousCodeRef.current = code;
-		previousThemeRef.current = theme;
 
 		let cancelled = false;
 
@@ -317,6 +315,8 @@ export function MermaidDiagram({
 				const { svg: renderedSvg } = await mermaid.render(diagramId, code);
 
 				if (!cancelled) {
+					previousCodeRef.current = code;
+					previousThemeRef.current = theme;
 					setSvg(renderedSvg);
 					setError(null);
 				}
