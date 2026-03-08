@@ -1,5 +1,5 @@
 import { Bot, ChevronDown, ChevronRight } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import type { AgentSubState, Step } from "@/types/runs";
 import { StatusBadge } from "./StatusBadge";
@@ -51,6 +51,35 @@ export function AgentActivityPanel({ steps }: { steps: readonly Step[] }) {
 		}
 		return initial;
 	});
+
+	const prevStepStatusRef = useRef<Map<string, string>>(new Map());
+
+	useEffect(() => {
+		const prevStatuses = prevStepStatusRef.current;
+		const nextStatuses = new Map<string, string>();
+
+		setExpandedSteps((prev) => {
+			const next = new Set(prev);
+			for (const step of stepsWithAgents) {
+				nextStatuses.set(step.id, step.status);
+				const prevStatus = prevStatuses.get(step.id);
+
+				if (step.status === "running") {
+					next.add(step.id);
+				}
+
+				if (
+					prevStatus === "running" &&
+					(step.status === "completed" || step.status === "failed")
+				) {
+					next.add(step.id);
+				}
+			}
+			return next;
+		});
+
+		prevStepStatusRef.current = nextStatuses;
+	}, [stepsWithAgents]);
 
 	if (stepsWithAgents.length === 0) return null;
 

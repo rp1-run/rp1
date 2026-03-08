@@ -82,6 +82,12 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 
 				clearTimeout(debouncedFetchRef.current);
 				debouncedFetchRef.current = setTimeout(fetchRun, 500);
+
+				const isTerminal =
+					msg.runStatus === "completed" || msg.runStatus === "failed";
+				if (isTerminal) {
+					setTimeout(fetchRun, 1000);
+				}
 			}
 		};
 
