@@ -374,7 +374,7 @@ export const queryStatusUpdates = (
 			TE.tryCatch(
 				async () => {
 					let sql = `
-						SELECT id, project_path, feature, step, status, message, metadata, created_at, run_id, expires_at, workflow, agent, task, worktree_path, worktree_path
+						SELECT id, project_path, feature, step, status, message, metadata, created_at, run_id, expires_at, workflow, agent, task, worktree_path
 						FROM status_updates
 						WHERE project_path = $projectPath
 					`;
