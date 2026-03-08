@@ -55,7 +55,7 @@ export async function checkHealth(
 	conn: DaemonConnection,
 ): Promise<HealthResponse | null> {
 	try {
-		const response = await fetch(`${conn.baseUrl}/api/health`, {
+		const response = await fetch(`${conn.baseUrl}/api/v2/health`, {
 			method: "GET",
 			signal: AbortSignal.timeout(2000),
 		});
@@ -77,7 +77,7 @@ export async function registerProjectWithDaemon(
 	conn: DaemonConnection,
 	projectPath: string,
 ): Promise<RegisterResponse> {
-	const response = await fetch(`${conn.baseUrl}/api/projects/register`, {
+	const response = await fetch(`${conn.baseUrl}/api/v2/projects`, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify({ path: projectPath }),
@@ -97,7 +97,7 @@ export async function registerProjectWithDaemon(
  */
 export async function stopDaemon(conn: DaemonConnection): Promise<boolean> {
 	try {
-		const response = await fetch(`${conn.baseUrl}/api/shutdown`, {
+		const response = await fetch(`${conn.baseUrl}/api/v2/shutdown`, {
 			method: "POST",
 			signal: AbortSignal.timeout(5000),
 		});
@@ -133,7 +133,7 @@ export async function notifyStatusChange(
 	workflowCtx?: WorkflowNotifyContext,
 ): Promise<boolean> {
 	try {
-		const response = await fetch(`${conn.baseUrl}/api/status/notify`, {
+		const response = await fetch(`${conn.baseUrl}/api/v2/status/notify`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({

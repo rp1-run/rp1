@@ -47,9 +47,13 @@ import {
 	getAllProjects,
 	getProject,
 	isValidProject,
+	loadRegistry,
 	type ProjectEntry,
+	registerProject,
+	removeProject,
 } from "../registry";
 import {
+	type ApiContext,
 	buildFileTree,
 	errorResponse,
 	type FileContent,
@@ -1222,5 +1226,180 @@ export async function handleV2ProjectContentRequest(
 		return jsonResponse(response);
 	} catch (error) {
 		return errorResponse(`Failed to read file: ${String(error)}`);
+	}
+}
+
+/**
+ * GET /api/v2/health - daemon health check.
+ */
+export async function handleV2HealthRequest(
+	ctx: ApiContext,
+): Promise<Response> {
+	if (ctx.webUIDir) {
+		const indexPath = join(ctx.webUIDir, "client", "index.html");
+		const file = Bun.file(indexPath);
+		if (!(await file.exists())) {
+			return jsonResponse(
+				{ status: "starting", reason: "assets not ready" },
+				503,
+			);
+		}
+	}
+
+	const registry = await loadRegistry();
+	const projectCount = Object.keys(registry.projects).length;
+	const uptime = Math.floor((Date.now() - ctx.startTime) / 1000);
+
+	return jsonResponse({
+		status: "ok",
+		uptime,
+		port: ctx.port,
+		projectCount,
+	});
+}
+
+/**
+ * POST /api/v2/shutdown - graceful daemon shutdown.
+ */
+export async function handleV2ShutdownRequest(
+	ctx: ApiContext,
+): Promise<Response> {
+	if (ctx.shutdownCallback) {
+		setTimeout(() => ctx.shutdownCallback?.(), 100);
+	}
+	return jsonResponse({ status: "shutting_down" });
+}
+
+/**
+ * POST /api/v2/status/notify - notify WebSocket clients of a status change.
+ * Called by CLI after writing status update to trigger immediate broadcast.
+ */
+export async function handleV2StatusNotifyRequest(
+	req: Request,
+	ctx: ApiContext,
+): Promise<Response> {
+	try {
+		const body = (await req.json()) as {
+			projectPath?: string;
+			feature?: string;
+			status?: string;
+			workflow?: string;
+			runId?: string;
+			previousState?: string | null;
+			newState?: string;
+		};
+
+		if (!body.projectPath || !body.feature || !body.status) {
+			return errorResponse(
+				"Missing required fields: projectPath, feature, status",
+				400,
+			);
+		}
+
+		const projects = await getAllProjects();
+		const project = projects.find((p) => p.path === body.projectPath);
+
+		if (!project) {
+			return jsonResponse({
+				notified: false,
+				reason: "project_not_registered",
+			});
+		}
+
+		const step = body.newState ?? undefined;
+		const runStatus =
+			body.workflow && body.status
+				? mapNotifyStatusToRunStatus(body.status)
+				: undefined;
+
+		ctx.websocketHub?.broadcastStatusChange(
+			project.id,
+			body.feature,
+			body.status,
+			step,
+			runStatus,
+		);
+
+		return jsonResponse({ notified: true, projectId: project.id });
+	} catch (error) {
+		return errorResponse(`Failed to process notification: ${String(error)}`);
+	}
+}
+
+/**
+ * Map raw status string to frontend RunStatus for optimistic WebSocket updates.
+ */
+function mapNotifyStatusToRunStatus(status: string): string {
+	switch (status) {
+		case "started":
+		case "in_progress":
+			return "running";
+		case "waiting-input":
+			return "waiting-input";
+		case "needs-review":
+			return "needs-review";
+		case "completed":
+			return "completed";
+		case "failed":
+			return "failed";
+		default:
+			return "running";
+	}
+}
+
+/**
+ * POST /api/v2/projects - register a new project.
+ */
+export async function handleV2ProjectRegisterRequest(
+	req: Request,
+	ctx: ApiContext,
+): Promise<Response> {
+	try {
+		const body = (await req.json()) as { path?: string };
+
+		if (!body.path || typeof body.path !== "string") {
+			return errorResponse("Missing required field: path", 400);
+		}
+
+		const projectPath = body.path;
+
+		const valid = await isValidProject(projectPath);
+		if (!valid) {
+			return errorResponse(
+				`Invalid project: ${projectPath} does not contain .rp1/ directory`,
+				400,
+			);
+		}
+
+		const project = await registerProject(projectPath);
+		ctx.websocketHub?.broadcastProjectsChanged();
+
+		const url = `http://127.0.0.1:${ctx.port}/projects/${project.id}`;
+
+		return jsonResponse({ project, url });
+	} catch (error) {
+		return errorResponse(`Failed to register project: ${String(error)}`);
+	}
+}
+
+/**
+ * DELETE /api/v2/projects/:id - remove project from registry.
+ */
+export async function handleV2ProjectDeleteRequest(
+	projectId: string,
+	ctx: ApiContext,
+): Promise<Response> {
+	try {
+		const removed = await removeProject(projectId);
+
+		if (!removed) {
+			return errorResponse(`Project not found: ${projectId}`, 404);
+		}
+
+		ctx.websocketHub?.broadcastProjectsChanged();
+
+		return jsonResponse({ removed: true });
+	} catch (error) {
+		return errorResponse(`Failed to remove project: ${String(error)}`);
 	}
 }

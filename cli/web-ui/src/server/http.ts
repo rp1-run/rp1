@@ -114,64 +114,16 @@ async function handleApiRequest(
 	const pathname = url.pathname;
 	const method = req.method;
 
-	// GET /api/health - daemon health check
-	if (pathname === "/api/health" && method === "GET") {
-		const { handleHealthRequest } = await import("./routes/api");
-		return handleHealthRequest(apiContext);
-	}
-
-	// POST /api/shutdown - graceful shutdown
-	if (pathname === "/api/shutdown" && method === "POST") {
-		const { handleShutdownRequest } = await import("./routes/api");
-		return handleShutdownRequest(apiContext);
-	}
-
-	// POST /api/status/notify - immediate WebSocket broadcast for status changes
-	if (pathname === "/api/status/notify" && method === "POST") {
-		const { handleStatusNotifyRequest } = await import("./routes/api");
-		return handleStatusNotifyRequest(req, apiContext);
-	}
-
-	// GET /api/projects - list all projects
-	if (pathname === "/api/projects" && method === "GET") {
-		const { handleProjectsListRequest } = await import("./routes/api");
-		return handleProjectsListRequest();
-	}
-
-	// POST /api/projects/register - register a new project
-	if (pathname === "/api/projects/register" && method === "POST") {
-		const { handleProjectRegisterRequest } = await import("./routes/api");
-		return handleProjectRegisterRequest(req, apiContext);
-	}
-
-	// Routes with project ID parameter: /api/projects/:id/*
+	// V1 file browsing routes kept temporarily (T6 will migrate frontend to V2)
 	const projectsMatch = pathname.match(/^\/api\/projects\/([^/]+)(.*)$/);
 	if (projectsMatch) {
 		const projectId = decodeURIComponent(projectsMatch[1]);
 		const subPath = projectsMatch[2];
 
-		// GET /api/projects/:id - get single project metadata
-		if (subPath === "" && method === "GET") {
-			const { handleProjectGetRequest } = await import("./routes/api");
-			return handleProjectGetRequest(projectId);
-		}
-
-		// DELETE /api/projects/:id - remove project from registry
-		if (subPath === "" && method === "DELETE") {
-			const { handleProjectDeleteRequest } = await import("./routes/api");
-			return handleProjectDeleteRequest(projectId, apiContext);
-		}
-
 		// GET /api/projects/:id/files - get file tree for project
 		if (subPath === "/files" && method === "GET") {
 			const { handleProjectFilesRequest } = await import("./routes/api");
 			return handleProjectFilesRequest(projectId);
-		}
-
-		// GET /api/projects/:id/status - get status updates for project
-		if (subPath === "/status" && method === "GET") {
-			const { handleProjectStatusRequest } = await import("./routes/api");
-			return handleProjectStatusRequest(projectId);
 		}
 
 		// GET /api/projects/:id/content/* - get file content
@@ -184,22 +136,6 @@ async function handleApiRequest(
 
 	if (pathname.startsWith("/api/v2/")) {
 		return handleV2ApiRequest(req, pathname, method, projectPath, apiContext);
-	}
-
-	if (pathname === "/api/project") {
-		const { handleProjectRequest } = await import("./routes/api");
-		return handleProjectRequest(projectPath);
-	}
-
-	if (pathname === "/api/files") {
-		const { handleFilesRequest } = await import("./routes/api");
-		return handleFilesRequest(projectPath);
-	}
-
-	if (pathname.startsWith("/api/content/")) {
-		const { handleContentRequest } = await import("./routes/api");
-		const filePath = decodeURIComponent(pathname.slice("/api/content/".length));
-		return handleContentRequest(projectPath, filePath);
 	}
 
 	return new Response(JSON.stringify({ error: "Not found" }), {
@@ -226,6 +162,24 @@ async function handleV2ApiRequest(
 	projectPath: string,
 	apiContext: ApiContext,
 ): Promise<Response> {
+	// GET /api/v2/health - daemon health check
+	if (pathname === "/api/v2/health" && method === "GET") {
+		const { handleV2HealthRequest } = await import("./routes/v2-api");
+		return handleV2HealthRequest(apiContext);
+	}
+
+	// POST /api/v2/shutdown - graceful shutdown
+	if (pathname === "/api/v2/shutdown" && method === "POST") {
+		const { handleV2ShutdownRequest } = await import("./routes/v2-api");
+		return handleV2ShutdownRequest(apiContext);
+	}
+
+	// POST /api/v2/status/notify - WebSocket broadcast for status changes
+	if (pathname === "/api/v2/status/notify" && method === "POST") {
+		const { handleV2StatusNotifyRequest } = await import("./routes/v2-api");
+		return handleV2StatusNotifyRequest(req, apiContext);
+	}
+
 	if (pathname === "/api/v2/runs/attention" && method === "GET") {
 		const { handleV2RunsAttentionRequest } = await import("./routes/v2-api");
 		return handleV2RunsAttentionRequest();
@@ -275,15 +229,30 @@ async function handleV2ApiRequest(
 	}
 
 	const projectDetailMatch = pathname.match(/^\/api\/v2\/projects\/([^/]+)$/);
-	if (projectDetailMatch && method === "GET") {
-		const { handleV2ProjectDetailRequest } = await import("./routes/v2-api");
+	if (projectDetailMatch) {
 		const projectId = decodeURIComponent(projectDetailMatch[1]);
-		return handleV2ProjectDetailRequest(projectId);
+
+		if (method === "GET") {
+			const { handleV2ProjectDetailRequest } = await import("./routes/v2-api");
+			return handleV2ProjectDetailRequest(projectId);
+		}
+
+		// DELETE /api/v2/projects/:id - remove project from registry
+		if (method === "DELETE") {
+			const { handleV2ProjectDeleteRequest } = await import("./routes/v2-api");
+			return handleV2ProjectDeleteRequest(projectId, apiContext);
+		}
 	}
 
 	if (pathname === "/api/v2/projects" && method === "GET") {
 		const { handleV2ProjectsListRequest } = await import("./routes/v2-api");
 		return handleV2ProjectsListRequest();
+	}
+
+	// POST /api/v2/projects - register a new project
+	if (pathname === "/api/v2/projects" && method === "POST") {
+		const { handleV2ProjectRegisterRequest } = await import("./routes/v2-api");
+		return handleV2ProjectRegisterRequest(req, apiContext);
 	}
 
 	// Workflow state machine API routes
