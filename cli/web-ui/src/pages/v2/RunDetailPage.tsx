@@ -350,9 +350,7 @@ export function RunDetailPage() {
 						</div>
 					</section>
 
-					<section className="rounded-lg border border-border bg-card overflow-hidden">
-						<AgentActivityPanel steps={displaySteps} />
-					</section>
+					<AgentActivityPanel steps={displaySteps} />
 
 					<section ref={eventStreamSectionRef}>
 						<EventStream events={run.events} defaultExpanded />
