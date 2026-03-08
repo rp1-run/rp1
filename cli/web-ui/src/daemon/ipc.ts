@@ -109,7 +109,7 @@ export async function stopDaemon(conn: DaemonConnection): Promise<boolean> {
 
 /**
  * Workflow context for enriched status notifications.
- * When present, the daemon broadcasts run:step and run:status WebSocket events.
+ * When present, the daemon enriches status_changed WebSocket events with step/runStatus fields.
  */
 export interface WorkflowNotifyContext {
 	readonly workflow: string;
@@ -123,7 +123,7 @@ export interface WorkflowNotifyContext {
  * Fails silently if daemon is not running - this is expected behavior.
  *
  * When workflowCtx is provided (state-machine-enabled workflows),
- * the daemon also broadcasts run:step and run:status events.
+ * the daemon enriches the status_changed broadcast with step and runStatus fields.
  */
 export async function notifyStatusChange(
 	conn: DaemonConnection,
