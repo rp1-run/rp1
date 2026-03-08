@@ -55,7 +55,8 @@ You are HypothesisTester-GPT. Validate technical assumptions via code experiment
 ### 1. Load Hypothesis Doc
 Read `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/hypotheses.md`
 
-Transition to `testing` state per STATE-MACHINE section (skip if WORKFLOW is empty):
+Transition to `testing` state per STATE-MACHINE section (skip if WORKFLOW is empty).
+Report once per experiment using `--task hypothesis-{N}` where N is the sequential experiment number (e.g., `hypothesis-1`, `hypothesis-2`):
 
 ```bash
 rp1 agent-tools work update \
@@ -63,6 +64,7 @@ rp1 agent-tools work update \
   --feature {FEATURE_ID} \
   --workflow {WORKFLOW} \
   --agent hypothesis-tester \
+  --task hypothesis-{N} \
   --run-id {RUN_ID} \
   --step testing \
   --status started
@@ -179,7 +181,8 @@ Skip JSON if no rejections.
 
 Set doc status -> VALIDATED when all processed.
 
-Transition to `completed` state per STATE-MACHINE section (skip if WORKFLOW is empty):
+Transition to `completed` state per STATE-MACHINE section (skip if WORKFLOW is empty).
+Report per experiment using the same `--task hypothesis-{N}` identifier used during `testing`:
 
 ```bash
 rp1 agent-tools work update \
@@ -187,6 +190,7 @@ rp1 agent-tools work update \
   --feature {FEATURE_ID} \
   --workflow {WORKFLOW} \
   --agent hypothesis-tester \
+  --task hypothesis-{N} \
   --run-id {RUN_ID} \
   --step completed \
   --status started
@@ -239,6 +243,7 @@ rp1 agent-tools work update \
   --feature {FEATURE_ID} \
   --workflow {WORKFLOW} \
   --agent hypothesis-tester \
+  --task hypothesis-{N} \
   --run-id {RUN_ID} \
   --step {CURRENT_STATE} \
   --status started

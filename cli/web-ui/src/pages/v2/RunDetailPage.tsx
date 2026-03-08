@@ -50,53 +50,6 @@ function formatStartTime(dateString: string): string {
 	});
 }
 
-/**
- * Humanize a kebab-case step ID to Title Case.
- */
-function humanizeStepLabel(id: string): string {
-	return id
-		.split("-")
-		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-		.join(" ");
-}
-
-/**
- * Merge workflow ordered steps with run step data.
- * Uses the workflow definition as the authoritative step list, filling in
- * status and timestamps from the run's step records. Steps not yet seen
- * in the run are marked as pending.
- *
- * Handles branching workflows (e.g., verify->build retry loop) correctly
- * because the workflow's orderedSteps are derived via BFS which produces
- * a linear ordering with cycles handled via visited-set.
- */
-function mergeWorkflowSteps(
-	workflowOrderedSteps: readonly { id: string; label: string; index: number }[],
-	runSteps: readonly Step[],
-): readonly Step[] {
-	const runStepMap = new Map<string, Step>();
-	for (const step of runSteps) {
-		runStepMap.set(step.id, step);
-	}
-
-	return workflowOrderedSteps.map(({ id, label }) => {
-		const runStep = runStepMap.get(id);
-		if (runStep) {
-			return runStep;
-		}
-
-		return {
-			id,
-			name: humanizeStepLabel(label),
-			status: "pending" as const,
-			startedAt: null,
-			completedAt: null,
-			taskCount: null,
-			completedTaskCount: null,
-		};
-	});
-}
-
 export function RunDetailPage() {
 	const { runId } = useParams();
 	const navigate = useNavigate();
@@ -112,12 +65,8 @@ export function RunDetailPage() {
 	const { workflow } = useWorkflowSteps(workflowName);
 
 	const displaySteps = useMemo<readonly Step[]>(() => {
-		if (!run) return [];
-		if (workflow && workflow.orderedSteps.length > 0) {
-			return mergeWorkflowSteps(workflow.orderedSteps, run.steps);
-		}
-		return run.steps;
-	}, [run, workflow]);
+		return run ? run.steps : [];
+	}, [run]);
 
 	const artifactsSectionRef = useRef<HTMLElement>(null);
 	const eventStreamSectionRef = useRef<HTMLElement>(null);
