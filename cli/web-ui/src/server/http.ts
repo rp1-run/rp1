@@ -114,26 +114,6 @@ async function handleApiRequest(
 	const pathname = url.pathname;
 	const method = req.method;
 
-	// V1 file browsing routes kept temporarily until frontend migrates to V2 endpoints
-	const projectsMatch = pathname.match(/^\/api\/projects\/([^/]+)(.*)$/);
-	if (projectsMatch) {
-		const projectId = decodeURIComponent(projectsMatch[1]);
-		const subPath = projectsMatch[2];
-
-		// GET /api/projects/:id/files - get file tree for project
-		if (subPath === "/files" && method === "GET") {
-			const { handleProjectFilesRequest } = await import("./routes/api");
-			return handleProjectFilesRequest(projectId);
-		}
-
-		// GET /api/projects/:id/content/* - get file content
-		if (subPath.startsWith("/content/") && method === "GET") {
-			const { handleProjectContentRequest } = await import("./routes/api");
-			const filePath = decodeURIComponent(subPath.slice("/content/".length));
-			return handleProjectContentRequest(projectId, filePath);
-		}
-	}
-
 	if (pathname.startsWith("/api/v2/")) {
 		return handleV2ApiRequest(req, pathname, method, projectPath, apiContext);
 	}

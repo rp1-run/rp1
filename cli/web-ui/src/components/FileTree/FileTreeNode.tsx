@@ -1,7 +1,7 @@
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { type KeyboardEvent, useCallback, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
-import type { FileNode } from "../../server/routes/api";
+import type { FileNode } from "../../server/routes/content-utils";
 import { getFileIcon, getFolderIcon } from "./icons";
 
 interface FileTreeNodeProps {
