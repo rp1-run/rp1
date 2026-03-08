@@ -188,8 +188,62 @@ const TERMINAL_STATUSES: ReadonlySet<StatusValue> = new Set([
 ]);
 
 /**
+ * Normalize an artifact path. If the path is a bare filename (no directory
+ * separators), resolve it relative to the feature's work directory.
+ */
+function normalizeArtifactPath(
+	artifactPath: string,
+	featureId: string,
+): string {
+	if (!artifactPath.includes("/")) {
+		return `.rp1/work/features/${featureId}/${artifactPath}`;
+	}
+	return artifactPath;
+}
+
+/**
+ * Discover artifact files from the feature directory on the filesystem.
+ * Used as a fallback when no artifacts are registered in the database.
+ */
+async function discoverArtifactsFromFilesystem(
+	projectPath: string,
+	featureId: string,
+): Promise<readonly Artifact[]> {
+	const featureDir = resolve(projectPath, `.rp1/work/features/${featureId}`);
+	const archiveDir = resolve(
+		projectPath,
+		`.rp1/work/archives/features/${featureId}`,
+	);
+
+	const { existsSync } = await import("node:fs");
+	const dir = existsSync(featureDir)
+		? featureDir
+		: existsSync(archiveDir)
+			? archiveDir
+			: null;
+
+	if (!dir) return [];
+
+	const glob = new Bun.Glob("*.md");
+	const artifacts: Artifact[] = [];
+	for await (const entry of glob.scan({ cwd: dir })) {
+		const relativePath = dir.startsWith(resolve(projectPath))
+			? `${dir.slice(resolve(projectPath).length + 1)}/${entry}`
+			: entry;
+		artifacts.push({
+			path: relativePath,
+			type: "markdown",
+			updatedDuringRun: true,
+			isNew: false,
+		});
+	}
+
+	return artifacts;
+}
+
+/**
  * Query registered artifacts for a feature from the database.
- * Returns artifacts registered via `rp1 agent-tools work artifact`.
+ * Falls back to filesystem discovery when no DB records exist.
  */
 async function getRegisteredArtifacts(
 	projectPath: string,
@@ -197,12 +251,12 @@ async function getRegisteredArtifacts(
 ): Promise<readonly Artifact[]> {
 	const result = await pipe(queryArtifactsForFeature(projectPath, featureId))();
 
-	if (E.isLeft(result)) {
-		return [];
+	if (E.isLeft(result) || result.right.length === 0) {
+		return discoverArtifactsFromFilesystem(projectPath, featureId);
 	}
 
 	return result.right.map((record) => ({
-		path: record.path,
+		path: normalizeArtifactPath(record.path, featureId),
 		type: record.type as ArtifactType,
 		updatedDuringRun: true,
 		isNew: false,
@@ -875,19 +929,22 @@ export async function handleV2ArtifactContentRequest(
 		const exists = await file.exists();
 
 		if (!exists) {
+			// Try archive path (features/ -> archives/features/)
 			const archivePath = artifactPath.replace(
 				".rp1/work/features/",
 				".rp1/work/archives/features/",
 			);
 
-			if (archivePath !== artifactPath) {
-				const archiveFullPath = resolve(projectRoot, archivePath);
-				if (archiveFullPath.startsWith(`${projectRoot}/`)) {
-					const archiveFile = Bun.file(archiveFullPath);
-					if (await archiveFile.exists()) {
-						const content = await archiveFile.text();
-						return jsonResponse({ content });
-					}
+			const candidates = archivePath !== artifactPath ? [archivePath] : [];
+
+			for (const candidate of candidates) {
+				const candidateFullPath = resolve(projectRoot, candidate);
+				if (
+					candidateFullPath.startsWith(`${projectRoot}/`) &&
+					(await Bun.file(candidateFullPath).exists())
+				) {
+					const content = await Bun.file(candidateFullPath).text();
+					return jsonResponse({ content });
 				}
 			}
 
