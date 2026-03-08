@@ -33,7 +33,6 @@ import type {
 } from "../../../../src/agent-tools/work/models.js";
 import type { V2Project } from "../../types/projects";
 import type {
-	AgentSubState,
 	Artifact,
 	ArtifactType,
 	AttentionData,
@@ -237,16 +236,32 @@ function mapStatusToEventType(status: StatusValue): EventType {
 function deriveEvents(
 	records: readonly StatusUpdateRecord[],
 ): readonly RunEvent[] {
-	return records.map((record) => ({
-		id: `evt-${record.id}`,
-		type: mapStatusToEventType(record.status),
-		message:
-			record.message ??
-			`${record.step ? `[${record.step}] ` : ""}Status: ${record.status}`,
-		timestamp: record.createdAt,
-		stepId: record.step ?? null,
-		metadata: record.metadata ? parseMetadataSafe(record.metadata) : null,
-	}));
+	return records.map((record) => {
+		const isAgent = record.agent !== null;
+		const type: EventType = isAgent
+			? "agent-update"
+			: mapStatusToEventType(record.status);
+
+		let message: string;
+		if (record.message) {
+			message = record.message;
+		} else if (isAgent) {
+			const agentLabel = humanizeFeatureName(record.agent ?? "");
+			const taskSuffix = record.task ? ` (${record.task})` : "";
+			message = `${agentLabel}${taskSuffix}: ${record.status}`;
+		} else {
+			message = `${record.step ? `[${record.step}] ` : ""}Status: ${record.status}`;
+		}
+
+		return {
+			id: `evt-${record.id}`,
+			type,
+			message,
+			timestamp: record.createdAt,
+			stepId: record.step ?? null,
+			metadata: record.metadata ? parseMetadataSafe(record.metadata) : null,
+		};
+	});
 }
 
 /**
@@ -508,163 +523,6 @@ async function deriveRunStatus(
 }
 
 /**
- * Compute taskCount and completedTaskCount from agent sub-states.
- *
- * Returns null for both counts when no sub-states have a task ID (BR-003).
- * A task is considered "done" when its status is completed or failed (BR-001).
- */
-export function computeTaskCounts(subStates: readonly AgentSubState[]): {
-	taskCount: number | null;
-	completedTaskCount: number | null;
-} {
-	const taskIds = new Set<string>();
-	const completedTaskIds = new Set<string>();
-
-	for (const sub of subStates) {
-		if (sub.task === null) continue;
-		taskIds.add(sub.task);
-		if (sub.status === "completed" || sub.status === "failed") {
-			completedTaskIds.add(sub.task);
-		}
-	}
-
-	if (taskIds.size === 0) {
-		return { taskCount: null, completedTaskCount: null };
-	}
-
-	return { taskCount: taskIds.size, completedTaskCount: completedTaskIds.size };
-}
-
-/**
- * Attach agent sub-states to parent workflow steps.
- *
- * Groups agent-level records by agent+task, derives sub-state status for each
- * group, and attaches them to the parent Step whose time range contains the
- * agent group's first record. Steps without agent activity are returned
- * unchanged.
- */
-export function attachAgentSubStatesToSteps(
-	steps: readonly Step[],
-	skillRecords: readonly StatusUpdateRecord[],
-	agentRecords: readonly StatusUpdateRecord[],
-	runStatus: RunStatus = "running",
-): readonly Step[] {
-	if (agentRecords.length === 0) return steps;
-
-	const stepTimeline: { stepId: string; startedAt: string }[] = [];
-	const seenSteps = new Set<string>();
-	for (const record of skillRecords) {
-		if (record.step && !seenSteps.has(record.step)) {
-			stepTimeline.push({ stepId: record.step, startedAt: record.createdAt });
-			seenSteps.add(record.step);
-		}
-	}
-
-	const agentGroups = new Map<string, StatusUpdateRecord[]>();
-	for (const record of agentRecords) {
-		const key = `${record.agent}|${record.task ?? ""}`;
-		const existing = agentGroups.get(key);
-		if (existing) {
-			existing.push(record);
-		} else {
-			agentGroups.set(key, [record]);
-		}
-	}
-
-	const parentStepSubStates = new Map<string, AgentSubState[]>();
-	for (const [, records] of agentGroups) {
-		const firstRecord = records[0];
-		const lastRecord = records[records.length - 1];
-		if (!firstRecord.agent) continue;
-
-		const subState: AgentSubState = {
-			agentName: firstRecord.agent,
-			step: lastRecord.step ?? "unknown",
-			status: mapRecordStatusToStepStatus(lastRecord.status),
-			task: firstRecord.task,
-			startedAt: firstRecord.createdAt,
-			completedAt: TERMINAL_STATUSES.has(lastRecord.status)
-				? lastRecord.createdAt
-				: null,
-		};
-
-		let parentStepId: string | null = null;
-		for (const timeline of stepTimeline) {
-			if (timeline.startedAt <= firstRecord.createdAt) {
-				parentStepId = timeline.stepId;
-			} else {
-				break;
-			}
-		}
-
-		if (parentStepId) {
-			const existing = parentStepSubStates.get(parentStepId);
-			if (existing) {
-				existing.push(subState);
-			} else {
-				parentStepSubStates.set(parentStepId, [subState]);
-			}
-		}
-	}
-
-	// Build a set of step IDs that have a subsequent step started after them,
-	// meaning they are implicitly completed (agents under them should resolve).
-	const stepOrder = steps.map((s) => s.id);
-	const activeStepIds = new Set(stepTimeline.map((t) => t.stepId));
-	const implicitlyCompletedSteps = new Set<string>();
-	for (let i = 0; i < stepOrder.length; i++) {
-		if (!activeStepIds.has(stepOrder[i])) continue;
-		// If any later step has been started, this step is implicitly done
-		const hasLaterStep = stepOrder
-			.slice(i + 1)
-			.some((sid) => activeStepIds.has(sid));
-		if (hasLaterStep) {
-			implicitlyCompletedSteps.add(stepOrder[i]);
-		}
-	}
-	const runIsTerminal = runStatus === "completed" || runStatus === "failed";
-
-	return steps.map((step) => {
-		const subStates = parentStepSubStates.get(step.id);
-		if (subStates && subStates.length > 0) {
-			// Infer agent terminal status when:
-			// 1. The parent step is explicitly terminal, OR
-			// 2. A subsequent workflow step has been started (implying this one finished), OR
-			// 3. The entire run has reached a terminal status
-			const stepIsTerminal =
-				step.status === "completed" ||
-				step.status === "failed" ||
-				implicitlyCompletedSteps.has(step.id) ||
-				runIsTerminal;
-			const inferredStatus: StepStatus =
-				step.status === "failed" || runStatus === "failed"
-					? "failed"
-					: "completed";
-			const resolvedSubStates = stepIsTerminal
-				? subStates.map((s) =>
-						s.status === "running"
-							? {
-									...s,
-									status: inferredStatus,
-									completedAt: s.completedAt ?? step.completedAt,
-								}
-							: s,
-					)
-				: subStates;
-			const { taskCount, completedTaskCount } =
-				computeTaskCounts(resolvedSubStates);
-			return {
-				...step,
-				taskCount,
-				completedTaskCount,
-				agentSubStates: resolvedSubStates,
-			};
-		}
-		return step;
-	});
-}
-
-/**
  * Build a fully-populated Run object for the detail view.
  * Uses the full timeline of status records to derive events, steps,
  * and proper duration timestamps.
@@ -672,10 +530,9 @@ export function attachAgentSubStatesToSteps(
  * For workflows with state machines, the overall status is derived from
  * workflow completion rather than the latest DB record's status.
  *
- * Records are split into skill-level (agent IS NULL) and agent-level
- * (agent IS NOT NULL). Skill-level records drive workflow step derivation
- * and run status. Agent-level records are grouped and attached as
- * agentSubStates on the corresponding parent steps.
+ * All records (skill-level and agent-level) are included in the event
+ * stream. Agent events are tagged with type "agent-update" for distinct
+ * rendering in the UI.
  */
 async function buildDetailedRun(
 	record: StatusUpdateRecord,
@@ -686,18 +543,10 @@ async function buildDetailedRun(
 	const command = extractCommand(record.metadata, record.workflow);
 
 	const skillRecords = allRecords.filter((r) => r.agent === null);
-	const agentRecords = allRecords.filter((r) => r.agent !== null);
 
 	const events = deriveEvents(allRecords);
 	const steps = await deriveSteps(skillRecords, command);
 	const status = await deriveRunStatus(skillRecords, command);
-
-	const stepsWithAgentSubStates = attachAgentSubStatesToSteps(
-		steps,
-		skillRecords,
-		agentRecords,
-		status,
-	);
 
 	const startedAt =
 		skillRecords.length > 0 ? skillRecords[0].createdAt : record.createdAt;
@@ -742,7 +591,7 @@ async function buildDetailedRun(
 		command,
 		status,
 		currentStep,
-		steps: stepsWithAgentSubStates,
+		steps,
 		artifacts,
 		events,
 		startedAt,

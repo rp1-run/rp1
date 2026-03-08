@@ -36,17 +36,8 @@ export type EventType =
 	| "warning"
 	| "error"
 	| "artifact-updated"
-	| "task-batch";
-
-/** Agent sub-state within a workflow step */
-export interface AgentSubState {
-	readonly agentName: string;
-	readonly step: string;
-	readonly status: StepStatus;
-	readonly task: string | null;
-	readonly startedAt: string;
-	readonly completedAt: string | null;
-}
+	| "task-batch"
+	| "agent-update";
 
 /** A workflow step within a run */
 export interface Step {
@@ -57,7 +48,6 @@ export interface Step {
 	readonly completedAt: string | null;
 	readonly taskCount: number | null;
 	readonly completedTaskCount: number | null;
-	readonly agentSubStates?: readonly AgentSubState[];
 }
 
 /** An artifact produced or updated by a run */
