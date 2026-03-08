@@ -114,7 +114,7 @@ async function handleApiRequest(
 	const pathname = url.pathname;
 	const method = req.method;
 
-	// V1 file browsing routes kept temporarily (T6 will migrate frontend to V2)
+	// V1 file browsing routes kept temporarily until frontend migrates to V2 endpoints
 	const projectsMatch = pathname.match(/^\/api\/projects\/([^/]+)(.*)$/);
 	if (projectsMatch) {
 		const projectId = decodeURIComponent(projectsMatch[1]);
