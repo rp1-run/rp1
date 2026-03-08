@@ -2,7 +2,7 @@
 name: build-task-grouper
 description: Batches parsed tasks into execution units based on complexity rules
 tools: []
-model: haiku
+model: inherit
 ---
 
 # Build Task Grouper

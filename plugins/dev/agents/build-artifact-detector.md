@@ -2,7 +2,7 @@
 name: build-artifact-detector
 description: Determines workflow start_step by checking existing feature artifacts
 tools: Read
-model: haiku
+model: inherit
 ---
 
 # Build Artifact Detector
