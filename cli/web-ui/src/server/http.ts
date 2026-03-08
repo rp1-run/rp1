@@ -254,6 +254,26 @@ async function handleV2ApiRequest(
 		return handleV2RunsListRequest(req);
 	}
 
+	// V2 project file browsing routes (must match before project detail)
+	const projectFilesMatch = pathname.match(
+		/^\/api\/v2\/projects\/([^/]+)\/files$/,
+	);
+	if (projectFilesMatch && method === "GET") {
+		const { handleV2ProjectFilesRequest } = await import("./routes/v2-api");
+		const projectId = decodeURIComponent(projectFilesMatch[1]);
+		return handleV2ProjectFilesRequest(projectId);
+	}
+
+	const projectContentMatch = pathname.match(
+		/^\/api\/v2\/projects\/([^/]+)\/content\/(.+)$/,
+	);
+	if (projectContentMatch && method === "GET") {
+		const { handleV2ProjectContentRequest } = await import("./routes/v2-api");
+		const projectId = decodeURIComponent(projectContentMatch[1]);
+		const filePath = decodeURIComponent(projectContentMatch[2]);
+		return handleV2ProjectContentRequest(projectId, filePath);
+	}
+
 	const projectDetailMatch = pathname.match(/^\/api\/v2\/projects\/([^/]+)$/);
 	if (projectDetailMatch && method === "GET") {
 		const { handleV2ProjectDetailRequest } = await import("./routes/v2-api");

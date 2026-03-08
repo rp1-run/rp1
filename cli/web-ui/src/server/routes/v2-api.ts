@@ -7,7 +7,7 @@
  * grouping. Stale rows (expired via expires_at) are filtered on read.
  */
 
-import { resolve } from "node:path";
+import { extname, join, resolve } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import { formatError } from "../../../../shared/errors.js";
@@ -43,8 +43,23 @@ import type {
 	Step,
 	StepStatus,
 } from "../../types/runs";
-import { getAllProjects, getProject, type ProjectEntry } from "../registry";
-import { errorResponse, jsonResponse } from "./content-utils";
+import {
+	getAllProjects,
+	getProject,
+	isValidProject,
+	type ProjectEntry,
+} from "../registry";
+import {
+	buildFileTree,
+	errorResponse,
+	type FileContent,
+	type FileNode,
+	getMimeType,
+	jsonResponse,
+	parseFrontmatter,
+	resolveWithArchiveFallback,
+	validateFilePath,
+} from "./content-utils";
 
 /**
  * Map database StatusValue to frontend RunStatus.
@@ -1111,5 +1126,101 @@ export async function handleV2WorkflowDetailRequest(
 		});
 	} catch (error) {
 		return errorResponse(`Failed to get workflow: ${String(error)}`);
+	}
+}
+
+/**
+ * GET /api/v2/projects/:id/files - get file tree for a project.
+ * Returns FileNode[] for the project's .rp1/ work and context directories.
+ */
+export async function handleV2ProjectFilesRequest(
+	projectId: string,
+): Promise<Response> {
+	try {
+		const project = await getProject(projectId);
+
+		if (!project) {
+			return errorResponse(`Project not found: ${projectId}`, 404);
+		}
+
+		const available = await isValidProject(project.path);
+		if (!available) {
+			return errorResponse(`Project unavailable: ${projectId}`, 410);
+		}
+
+		const rp1Path = join(project.path, ".rp1");
+		const sections: FileNode[] = [];
+
+		const workPath = join(rp1Path, "work");
+		const workTree = await buildFileTree(workPath, "work");
+		if (workTree) {
+			sections.push(workTree);
+		}
+
+		const contextPath = join(rp1Path, "context");
+		const contextTree = await buildFileTree(contextPath, "context");
+		if (contextTree) {
+			sections.push(contextTree);
+		}
+
+		return jsonResponse(sections);
+	} catch (error) {
+		return errorResponse(`Failed to read file tree: ${String(error)}`);
+	}
+}
+
+/**
+ * GET /api/v2/projects/:id/content/* - get file content for a project.
+ * Returns FileContent with path, content, mimeType, and optional frontmatter.
+ * Uses validateFilePath for security and resolveWithArchiveFallback for archive lookup.
+ */
+export async function handleV2ProjectContentRequest(
+	projectId: string,
+	filePath: string,
+): Promise<Response> {
+	try {
+		const project = await getProject(projectId);
+
+		if (!project) {
+			return errorResponse(`Project not found: ${projectId}`, 404);
+		}
+
+		const available = await isValidProject(project.path);
+		if (!available) {
+			return errorResponse(`Project unavailable: ${projectId}`, 410);
+		}
+
+		const validationError = validateFilePath(filePath);
+		if (validationError) {
+			const status = validationError.includes("Access denied") ? 403 : 400;
+			return errorResponse(validationError, status);
+		}
+
+		const rp1Path = resolve(project.path, ".rp1");
+
+		const resolvedPath = await resolveWithArchiveFallback(rp1Path, filePath);
+		if (!resolvedPath) {
+			return errorResponse("File not found", 404);
+		}
+
+		const content = await Bun.file(resolvedPath).text();
+		const mimeType = getMimeType(filePath);
+
+		let frontmatter: Record<string, unknown> | undefined;
+		if (extname(filePath) === ".md") {
+			const parsed = parseFrontmatter(content);
+			frontmatter = parsed.frontmatter;
+		}
+
+		const response: FileContent = {
+			path: filePath,
+			content,
+			mimeType,
+			frontmatter,
+		};
+
+		return jsonResponse(response);
+	} catch (error) {
+		return errorResponse(`Failed to read file: ${String(error)}`);
 	}
 }
