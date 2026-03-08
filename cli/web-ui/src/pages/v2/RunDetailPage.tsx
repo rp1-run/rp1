@@ -1,6 +1,7 @@
 import { ArrowLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { AgentActivityPanel } from "@/components/v2/AgentActivityPanel";
 import { ArtifactList } from "@/components/v2/ArtifactList";
 import { EventStream } from "@/components/v2/EventStream";
 import { DETAIL_HINTS, KeyHints } from "@/components/v2/KeyHints";
@@ -324,6 +325,8 @@ export function RunDetailPage() {
 							</div>
 						</section>
 
+						<AgentActivityPanel steps={displaySteps} />
+
 						<section ref={eventStreamSectionRef}>
 							<EventStream events={run.events} defaultExpanded />
 						</section>
@@ -345,6 +348,10 @@ export function RunDetailPage() {
 								selectedIndex={selectedArtifactIndex}
 							/>
 						</div>
+					</section>
+
+					<section className="rounded-lg border border-border bg-card overflow-hidden">
+						<AgentActivityPanel steps={displaySteps} />
 					</section>
 
 					<section ref={eventStreamSectionRef}>
