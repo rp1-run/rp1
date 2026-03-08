@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Check, FileText, Play, X } from "lucide-react";
+import { Check, FolderOpen, Play, X } from "lucide-react";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { cardHover, cardTap } from "@/lib/motion-config";
 import { formatRelativeTime } from "@/lib/time";
@@ -10,7 +10,7 @@ export interface ProjectCardProps {
 	project: V2Project;
 	onCardClick: () => void;
 	onRunsClick: () => void;
-	onArtifactsClick: () => void;
+	onBrowseFilesClick: () => void;
 	selected?: boolean;
 	className?: string;
 }
@@ -55,7 +55,7 @@ export function ProjectCard({
 	project,
 	onCardClick,
 	onRunsClick,
-	onArtifactsClick,
+	onBrowseFilesClick,
 	selected,
 	className,
 }: ProjectCardProps) {
@@ -68,10 +68,10 @@ export function ProjectCard({
 		}
 	};
 
-	const handleArtifactsClick = (e: React.MouseEvent) => {
+	const handleBrowseFilesClick = (e: React.MouseEvent) => {
 		e.stopPropagation();
 		e.preventDefault();
-		onArtifactsClick();
+		onBrowseFilesClick();
 	};
 
 	const handleRunsClick = (e: React.MouseEvent) => {
@@ -129,16 +129,16 @@ export function ProjectCard({
 				<div className="flex items-center gap-1">
 					<button
 						type="button"
-						onClick={handleArtifactsClick}
+						onClick={handleBrowseFilesClick}
 						className={cn(
 							"rounded p-1.5 text-muted-foreground transition-colors",
 							"hover:bg-muted hover:text-foreground",
 							"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 						)}
-						aria-label="View artifacts"
-						title="Artifacts"
+						aria-label="Browse files"
+						title="Browse Files"
 					>
-						<FileText className="h-4 w-4" aria-hidden="true" />
+						<FolderOpen className="h-4 w-4" aria-hidden="true" />
 					</button>
 					<button
 						type="button"

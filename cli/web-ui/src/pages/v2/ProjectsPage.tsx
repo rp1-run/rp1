@@ -96,7 +96,7 @@ export function ProjectsPage() {
 		[navigate],
 	);
 
-	const handleArtifactsClick = useCallback(
+	const handleBrowseFilesClick = useCallback(
 		(project: V2Project) => {
 			navigate(`/projects/${project.id}/files`);
 		},
@@ -244,7 +244,7 @@ export function ProjectsPage() {
 								<ProjectCard
 									project={project}
 									onCardClick={() => handleCardClick(project)}
-									onArtifactsClick={() => handleArtifactsClick(project)}
+									onBrowseFilesClick={() => handleBrowseFilesClick(project)}
 									onRunsClick={() => handleRunsClick(project)}
 									selected={selectedIndex === index}
 								/>
