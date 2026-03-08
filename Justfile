@@ -154,6 +154,18 @@ db-clean:
     count=$(sqlite3 "$db_path" "SELECT COUNT(*) FROM status_updates;")
     sqlite3 "$db_path" "DELETE FROM status_updates;"
     echo "Deleted $count rows from status_updates"
+    # Clean project registry
+    if [ "$(uname)" = "Darwin" ]; then
+        registry_path="$HOME/Library/Application Support/rp1/projects.json"
+    else
+        registry_path="${XDG_CONFIG_HOME:-$HOME/.config}/rp1/projects.json"
+    fi
+    if [ -f "$registry_path" ]; then
+        rm "$registry_path"
+        echo "Deleted project registry at $registry_path"
+    else
+        echo "No project registry found at $registry_path"
+    fi
 
 # Delete the entire local status database file (for testing)
 db-reset:
