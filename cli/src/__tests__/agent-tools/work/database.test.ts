@@ -18,7 +18,7 @@ import {
 	closeDatabase,
 	DEFAULT_DB_PATH,
 	getLatestStatusByFeature,
-	getRecentlyCompletedTasks,
+	getRecentlyCompletedSteps,
 	insertStatusUpdate,
 	isValidStatus,
 	queryStatusUpdates,
@@ -99,10 +99,10 @@ describe("work database", () => {
 			const input: StatusUpdateInput = {
 				projectPath: "/test/project",
 				feature: "feature-a",
-				task: "task-1",
+				step: "step-1",
 				status: "in_progress",
 				message: "Working on requirements",
-				metadata: '{"step": 1}',
+				metadata: '{"currentStep": 1}',
 			};
 
 			const insertResult = await expectTaskRight(
@@ -117,10 +117,10 @@ describe("work database", () => {
 			expect(record).toBeDefined();
 			expect(record?.projectPath).toBe("/test/project");
 			expect(record?.feature).toBe("feature-a");
-			expect(record?.task).toBe("task-1");
+			expect(record?.step).toBe("step-1");
 			expect(record?.status).toBe("in_progress");
 			expect(record?.message).toBe("Working on requirements");
-			expect(record?.metadata).toBe('{"step": 1}');
+			expect(record?.metadata).toBe('{"currentStep": 1}');
 		});
 
 		test("stores null for optional fields when not provided", async () => {
@@ -139,7 +139,7 @@ describe("work database", () => {
 			);
 
 			const record = records.find((r) => r.id === insertResult.id);
-			expect(record?.task).toBeNull();
+			expect(record?.step).toBeNull();
 			expect(record?.message).toBeNull();
 			expect(record?.metadata).toBeNull();
 		});
@@ -370,19 +370,18 @@ describe("work database", () => {
 		});
 	});
 
-	describe("getRecentlyCompletedTasks", () => {
-		test("returns completed tasks with task field", async () => {
-			const projectPath = "/completed-tasks-test";
+	describe("getRecentlyCompletedSteps", () => {
+		test("returns completed steps with step field", async () => {
+			const projectPath = "/completed-steps-test";
 
-			// Insert completed tasks for the same feature
 			await expectTaskRight(
 				insertStatusUpdate(
 					{
 						projectPath,
 						feature: "my-feature",
-						task: "T1",
+						step: "T1",
 						status: "completed",
-						message: "Task 1 done",
+						message: "Step 1 done",
 					},
 					testDbPath,
 				),
@@ -393,9 +392,9 @@ describe("work database", () => {
 					{
 						projectPath,
 						feature: "my-feature",
-						task: "T2",
+						step: "T2",
 						status: "completed",
-						message: "Task 2 done",
+						message: "Step 2 done",
 					},
 					testDbPath,
 				),
@@ -406,7 +405,7 @@ describe("work database", () => {
 					{
 						projectPath,
 						feature: "my-feature",
-						task: "T3",
+						step: "T3",
 						status: "completed",
 					},
 					testDbPath,
@@ -414,17 +413,17 @@ describe("work database", () => {
 			);
 
 			const results = await expectTaskRight(
-				getRecentlyCompletedTasks(projectPath, 24, testDbPath),
+				getRecentlyCompletedSteps(projectPath, 24, testDbPath),
 			);
 
 			expect(results.length).toBe(3);
-			expect(results[0].task).toBe("T3");
-			expect(results[1].task).toBe("T2");
-			expect(results[2].task).toBe("T1");
+			expect(results[0].step).toBe("T3");
+			expect(results[1].step).toBe("T2");
+			expect(results[2].step).toBe("T1");
 		});
 
-		test("excludes tasks without task field", async () => {
-			const projectPath = "/completed-no-task";
+		test("excludes records without step field", async () => {
+			const projectPath = "/completed-no-step";
 
 			await expectTaskRight(
 				insertStatusUpdate(
@@ -438,21 +437,21 @@ describe("work database", () => {
 			);
 
 			const results = await expectTaskRight(
-				getRecentlyCompletedTasks(projectPath, 24, testDbPath),
+				getRecentlyCompletedSteps(projectPath, 24, testDbPath),
 			);
 
 			expect(results.length).toBe(0);
 		});
 
-		test("excludes non-completed tasks", async () => {
-			const projectPath = "/incomplete-tasks";
+		test("excludes non-completed steps", async () => {
+			const projectPath = "/incomplete-steps";
 
 			await expectTaskRight(
 				insertStatusUpdate(
 					{
 						projectPath,
 						feature: "in-progress",
-						task: "T1",
+						step: "T1",
 						status: "in_progress",
 					},
 					testDbPath,
@@ -460,15 +459,15 @@ describe("work database", () => {
 			);
 
 			const results = await expectTaskRight(
-				getRecentlyCompletedTasks(projectPath, 24, testDbPath),
+				getRecentlyCompletedSteps(projectPath, 24, testDbPath),
 			);
 
 			expect(results.length).toBe(0);
 		});
 
-		test("returns empty array for project with no completed tasks", async () => {
+		test("returns empty array for project with no completed steps", async () => {
 			const results = await expectTaskRight(
-				getRecentlyCompletedTasks("/no-completed-tasks", 24, testDbPath),
+				getRecentlyCompletedSteps("/no-completed-steps", 24, testDbPath),
 			);
 
 			expect(results).toEqual([]);

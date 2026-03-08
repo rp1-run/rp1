@@ -34,9 +34,16 @@ Extract these parameters from the user's input:
 **Environment values** (resolve via shell):
 - `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 
-## §STATE-MACHINE
+## STATE-MACHINE
 
-Read the co-located `state.mmd` file in this skill's directory. This defines the workflow graph.
+```mermaid
+stateDiagram-v2
+    [*] --> split
+    split --> review : split_complete
+    review --> synthesize : review_complete
+    synthesize --> post : synthesis_complete
+    post --> [*] : done
+```
 
 **On each phase transition**, report via:
 ```
@@ -45,13 +52,26 @@ rp1 agent-tools work update \
   --feature {FEATURE_ID} \
   --workflow pr-review \
   --run-id {RUN_ID} \
-  --task {CURRENT_STATE} \
-  --status {STATUS_VALUE}
+  --step {CURRENT_STATE} \
+  --status started
 ```
 
 - Generate `RUN_ID` as a UUID at workflow start; derive `FEATURE_ID` from the PR branch or number
-- Follow transition edges in the graph; do not skip states
-- On error, follow failure transitions defined in the graph
+
+**State Progression Protocol**:
+1. Report each `--step` with `--status started` when you enter that state
+2. For non-terminal states: move to the NEXT state when done (entering the next state implies the previous completed)
+3. For terminal states (those with `→ [*]` transitions): report `--status completed` when the step's work finishes
+4. On error, transition to the appropriate failure state in the graph
+
+**Example sequence**:
+```
+--step split --status started       # entering split phase
+--step review --status started      # split done, entering review phase
+--step synthesize --status started  # review done, entering synthesize phase
+--step post --status started        # synthesize done, entering post phase
+--step post --status completed      # post done, workflow complete
+```
 
 §ARCH
 

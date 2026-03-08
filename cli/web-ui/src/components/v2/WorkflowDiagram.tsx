@@ -1,9 +1,9 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { MermaidDiagram } from "@/components/MarkdownViewer/MermaidDiagram";
 import type { WorkflowDefinition } from "@/hooks/useWorkflowSteps";
+import { cn } from "@/lib/utils";
 import { useTheme } from "@/providers/ThemeProvider";
 import type { Step, StepStatus } from "@/types/runs";
-import { Collapsible } from "./Collapsible";
 
 interface ThemeColors {
 	readonly current: { fill: string; stroke: string; color: string };
@@ -39,6 +39,23 @@ function stepStatusToClass(status: StepStatus): string {
 	}
 }
 
+/**
+ * Find the single active (frontier) state: the last "running" state in workflow order.
+ * All other "running" states are treated as completed for visual purposes.
+ */
+function findActiveStateId(
+	workflow: WorkflowDefinition,
+	stepStatusMap: Map<string, StepStatus>,
+): string | null {
+	let activeId: string | null = null;
+	for (const state of workflow.states) {
+		if (stepStatusMap.get(state.id) === "running") {
+			activeId = state.id;
+		}
+	}
+	return activeId;
+}
+
 function buildMermaidSource(
 	workflow: WorkflowDefinition,
 	steps: readonly Step[],
@@ -48,6 +65,8 @@ function buildMermaidSource(
 	for (const step of steps) {
 		stepStatusMap.set(step.id, step.status);
 	}
+
+	const activeStateId = findActiveStateId(workflow, stepStatusMap);
 
 	const lines: string[] = ["stateDiagram-v2"];
 
@@ -98,7 +117,14 @@ function buildMermaidSource(
 
 	for (const state of workflow.states) {
 		const status = stepStatusMap.get(state.id) ?? "pending";
-		const className = stepStatusToClass(status);
+		let className: string;
+		if (state.id === activeStateId) {
+			className = "currentState";
+		} else if (status === "running") {
+			className = "completedState";
+		} else {
+			className = stepStatusToClass(status);
+		}
 		lines.push(`    class ${state.id} ${className}`);
 	}
 
@@ -150,30 +176,43 @@ export function WorkflowDiagram({
 	const { theme } = useTheme();
 	const colors = theme === "dark" ? darkColors : lightColors;
 
-	const mermaidCode = useMemo(
-		() => buildMermaidSource(workflow, steps, colors),
-		[workflow, steps, colors],
+	const stepsRef = useRef(steps);
+	stepsRef.current = steps;
+
+	const stepStatusKey = useMemo(
+		() => steps.map((s) => `${s.id}:${s.status}`).join("|"),
+		[steps],
 	);
 
-	const legendItems = useMemo(() => buildLegendItems(steps), [steps]);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: stepStatusKey is an intentional stable proxy for steps status changes to avoid re-rendering on every new steps array reference
+	const mermaidCode = useMemo(
+		() => buildMermaidSource(workflow, stepsRef.current, colors),
+		[workflow, stepStatusKey, colors],
+	);
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: stepStatusKey captures all relevant status changes
+	const legendItems = useMemo(
+		() => buildLegendItems(stepsRef.current),
+		[stepStatusKey],
+	);
 
 	const stateCount = workflow.states.length;
 
 	return (
-		<Collapsible
-			title="Workflow Diagram"
-			defaultExpanded={false}
-			badge={
+		<section
+			className={cn(
+				"rounded-lg border border-border bg-card overflow-hidden",
+				className,
+			)}
+			aria-label="Workflow State"
+		>
+			<div className="flex items-center gap-2 px-4 py-3">
+				<h2 className="font-medium text-foreground">Workflow State</h2>
 				<span className="text-sm text-muted-foreground">
 					({stateCount} states)
 				</span>
-			}
-			className={className}
-		>
-			<div className="border-t border-border">
-				<MermaidDiagram code={mermaidCode} />
 				{legendItems.length > 0 && (
-					<div className="flex items-center justify-center gap-4 border-t border-border px-4 py-2">
+					<div className="ml-auto flex items-center gap-3">
 						{legendItems.map((item) => {
 							const color = legendColorForStatus(item.status, colors);
 							return (
@@ -182,7 +221,7 @@ export function WorkflowDiagram({
 									className="flex items-center gap-1.5 text-xs text-muted-foreground"
 								>
 									<span
-										className="inline-block h-3 w-3 rounded-sm"
+										className="inline-block h-2.5 w-2.5 rounded-sm"
 										style={{
 											backgroundColor: color.fill,
 											border: `1.5px solid ${color.border}`,
@@ -201,6 +240,9 @@ export function WorkflowDiagram({
 					</div>
 				)}
 			</div>
-		</Collapsible>
+			<div className="border-t border-border">
+				<MermaidDiagram code={mermaidCode} title={null} />
+			</div>
+		</section>
 	);
 }

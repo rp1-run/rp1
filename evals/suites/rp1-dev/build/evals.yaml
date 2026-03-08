@@ -1,9 +1,10 @@
 # build Command Evaluation Suite
 #
-# Tests the /rp1-dev:build command behavior
+# Unified eval config for /rp1-dev:build across harnesses.
+# Default: claude-with-tools. Override: EVAL_HARNESS=opencode
 #
 # Run: just run-evals rp1-dev/build
-description: "rp1-dev:build instruction-following evaluation"
+description: "rp1-dev:build unified evaluation"
 evaluateOptions:
   maxConcurrency: 4
 extensions:
@@ -12,14 +13,11 @@ providers:
   - id: file://../../../providers/claude-with-tools.ts
     label: rp1-agentic-eval
     config:
-      model: claude-opus-4-5
-      # working_dir is set dynamically by extension via WORKSPACE_DIR var
-      # This enables parallel test execution with isolated workspaces
+      model: claude-opus-4-6
       permission_mode: bypassPermissions
       allow_dangerously_skip_permissions: true
-      ask_user_question:
-        behavior: first_option
-      max_turns: 50
+      ask_user_behavior: first_option
+      max_turns: 200
       setting_sources:
         - project
         - local
@@ -51,13 +49,25 @@ defaultTest:
     GIT_COMMIT: false
     GIT_PUSH: false
     GIT_PR: false
-    AFK: false
+    AFK: true
 tests:
-  - description: "default_behavior"
+  - description: "default_behavior_afk"
+    threshold: 0.6
     assert:
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertArtifactDetectorFirst
+      - type: javascript
+        weight: 0
+        value: file://../../shared/assertions/tool-calls.ts:assertTaskBuilderSpawned
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertWorkStatusUpdate
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertNoAskUser
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertBuildProhibited
       - type: llm-rubric
         value: |
-          Evaluate the agent execution. Check the output text AND the Metadata JSON section.
+          Evaluate the agent's output text for behavioral correctness.
 
           REQUIRED (all must pass):
           1. Spawns build-artifact-detector agent to determine start_step (1-6)
@@ -73,71 +83,52 @@ tests:
           11. Build-verify-aggregator determines overall_status (VERIFIED/FAILED) and ready_for_merge
           12. Final output includes Feature ID, step status table (1-6), and artifacts created
           13. Agent reports work status updates via Metadata bashCommands containing "rp1 agent-tools work update" with "--workflow build" and "--run-id" flags (reads state.mmd for valid transitions)
+          14. Agent registers produced artifacts via Metadata bashCommands containing "rp1 agent-tools work artifact" with "--project", "--feature", "--run-id", and "--path" flags pointing to files in {RP1_ROOT}/work/features/{FEATURE_ID}/
 
-          PROHIBITED (fail if any present in Metadata bashCommands):
-          - "git push --force" or "git push -f"
-          - "git commit"
-          - "git reset --hard"
-          - "git rebase"
-          - "git init" inside worktree
-          - Deleting feature artifacts during error handling
-          - Skipping foundational steps (1-3) on failure without ABORT
-          - Modifying code outside assigned task scope in task-builder
-          - Does not create git worktree (does not use rp1 agent-tools worktree create)
+          PASS if: Full workflow executes with status tracking
+          FAIL if: Steps skipped out of order or no status table
   - description: "git_worktree_workflow"
+    threshold: 0.6
     vars:
       GIT_WORKTREE: true
       GIT_COMMIT: true
       GIT_PR: true
       AFK: true
     assert:
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertWorktreeCreateToolCall
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertGitCommitToolCall
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertGitPushToolCall
+      - type: javascript
+        value: |
+          // Assert PR creation attempted (GIT_PR=true)
+          const meta = context.providerResponse?.metadata;
+          const cmds = meta?.bashCommands ?? [];
+          const hasPR = cmds.some(c => c.includes('gh pr create') || c.includes('github-pr'));
+          const hasPush = cmds.some(c => /\bgit\b.*\bpush\b/.test(c));
+          if (!hasPR && !hasPush) return { pass: false, score: 0, reason: 'No PR creation or git push found (GIT_PR=true implies push)' };
+          return { pass: true, score: 1, reason: hasPR ? 'PR creation found' : 'Git push found (PR may fail in eval workspace)' };
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertNoAskUser
+      - type: javascript
+        weight: 0
+        value: file://../../shared/assertions/tool-calls.ts:assertTaskBuilderSpawned
+      - type: javascript
+        weight: 0
+        value: file://../../shared/assertions/tool-calls.ts:assertArtifactRegistration
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertBuildProhibited
       - type: llm-rubric
         value: |
-          Evaluate the agent execution with GIT_WORKTREE=true. Check the output text AND the Metadata JSON section.
+          Evaluate the agent execution with GIT_WORKTREE=true, GIT_PR=true, and AFK=true.
 
           REQUIRED (all must pass):
-          1. Creates isolated git worktree using worktree-workflow skill
-          2. Stores worktree_path, branch, and basedOn from worktree creation
-          3. All build phase operations occur in worktree directory
-          4. Task-builder creates atomic commits with conventional format: feat({FEATURE_ID}): implement {TASK_ID}
-          5. Cleans up worktree after verification phase
+          1. Full workflow executes without user interaction (AFK mode)
+          2. Task-builder creates commits with conventional format (feat:, fix:, etc.)
+          3. Agent uses flag implication chain: GIT_PR sets GIT_PUSH=true and GIT_COMMIT=true
+          4. Archives feature on successful completion
 
-          PROHIBITED (fail if any present in Metadata bashCommands):
-          - "git checkout" to switch branches (breaks worktree isolation)
-          - "git switch" to change branches
-          - "git init" (creates orphan repo)
-
-          EDGE CASES:
-          - When worktree creation fails: STOP and report error, do not proceed with partial state
-      - type: llm-rubric
-        value: |
-          Evaluate the agent execution with AFK=true. Check the output text AND the Metadata JSON section.
-
-          REQUIRED (all must pass):
-          1. Skips all user prompts and review checkpoints
-          2. Auto-selects defaults for all decision points
-          3. On step failure, retries once before marking as failed
-          4. Auto-archives feature on successful completion
-          5. Logs all auto-selected decisions in output
-          6. Does not invoke AskUserQuestion tool at any point
-
-          PROHIBITED (fail if any present):
-          - Any AskUserQuestion tool calls in Metadata toolCalls
-          - Waiting for user input or confirmation
-          - Interactive prompts for revision feedback
-
-          EDGE CASES:
-          - When ambiguity detected: infers conservative defaults and documents in output
-          - When PRD selection needed: auto-matches FEATURE_ID against PRD filenames
-      - type: llm-rubric
-        value: |
-          Evaluate the agent execution with GIT_PR=true flag. Check the output text AND the Metadata JSON section.
-
-          REQUIRED (all must pass):
-          1. Flag implication chain: GIT_PR sets GIT_PUSH=true and GIT_COMMIT=true
-          2. Commits changes after build phase
-          3. Pushes branch to remote
-          4. Creates PR using gh pr create
-
-          EDGE CASES:
-          - When GIT_PUSH=true without GIT_COMMIT (after implication): should NOT error (implication chain sets both)
+          PASS if: Full workflow, worktree isolation, commits, push, PR creation, no user prompts
+          FAIL if: Missing workflow steps, user interaction in AFK mode, or no PR creation

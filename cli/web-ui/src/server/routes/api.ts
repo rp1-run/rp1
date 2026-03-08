@@ -32,7 +32,7 @@ export interface FileContent {
 
 export interface StatusUpdate {
 	id: number;
-	task: string | null;
+	step: string | null;
 	status: string;
 	message: string | null;
 	createdAt: string;
@@ -47,15 +47,15 @@ export interface FeatureStatus {
 		| "needs-review"
 		| "completed"
 		| "failed";
-	currentTask: string | null;
+	currentStep: string | null;
 	message: string | null;
 	lastUpdate: string;
 	updates: StatusUpdate[];
 }
 
-export interface CompletedTask {
+export interface CompletedStep {
 	feature: string;
-	task: string;
+	step: string;
 	message: string | null;
 	completedAt: string;
 }
@@ -65,7 +65,7 @@ export interface StatusResponse {
 	projectName: string;
 	active: FeatureStatus[];
 	recentlyCompleted: FeatureStatus[];
-	recentlyCompletedTasks: CompletedTask[];
+	recentlyCompletedSteps: CompletedStep[];
 	lastUpdated: string | null;
 }
 
@@ -197,14 +197,36 @@ export async function handleContentRequest(
 	const fullPath = join(projectPath, ".rp1", filePath);
 
 	try {
+		let resolvedPath = fullPath;
 		const file = Bun.file(fullPath);
 		const exists = await file.exists();
 
 		if (!exists) {
-			return errorResponse("File not found", 404);
+			// Try archive fallback for archivable paths:
+			// work/features/X -> work/archives/features/X
+			// work/prds/X -> work/archives/prds/X
+			const archivablePrefixes = ["work/features/", "work/prds/"];
+			let found = false;
+			for (const prefix of archivablePrefixes) {
+				if (filePath.startsWith(prefix)) {
+					const archivePath = filePath.replace(
+						prefix,
+						`work/archives/${prefix.slice("work/".length)}`,
+					);
+					const archiveFullPath = join(projectPath, ".rp1", archivePath);
+					if (await Bun.file(archiveFullPath).exists()) {
+						resolvedPath = archiveFullPath;
+						found = true;
+						break;
+					}
+				}
+			}
+			if (!found) {
+				return errorResponse("File not found", 404);
+			}
 		}
 
-		const content = await file.text();
+		const content = await Bun.file(resolvedPath).text();
 		const mimeType = getMimeType(filePath);
 
 		let frontmatter: Record<string, unknown> | undefined;
@@ -511,14 +533,36 @@ export async function handleProjectContentRequest(
 			return errorResponse("Access denied: path traversal detected", 403);
 		}
 
+		let resolvedPath = fullPath;
 		const file = Bun.file(fullPath);
 		const exists = await file.exists();
 
 		if (!exists) {
-			return errorResponse("File not found", 404);
+			const archivablePrefixes = ["work/features/", "work/prds/"];
+			let found = false;
+			for (const prefix of archivablePrefixes) {
+				if (filePath.startsWith(prefix)) {
+					const archivePath = filePath.replace(
+						prefix,
+						`work/archives/${prefix.slice("work/".length)}`,
+					);
+					const archiveFullPath = resolve(rp1Path, archivePath);
+					if (
+						archiveFullPath.startsWith(`${rp1Path}/`) &&
+						(await Bun.file(archiveFullPath).exists())
+					) {
+						resolvedPath = archiveFullPath;
+						found = true;
+						break;
+					}
+				}
+			}
+			if (!found) {
+				return errorResponse("File not found", 404);
+			}
 		}
 
-		const content = await file.text();
+		const content = await Bun.file(resolvedPath).text();
 		const mimeType = getMimeType(filePath);
 
 		let frontmatter: Record<string, unknown> | undefined;
@@ -581,22 +625,21 @@ export async function handleStatusNotifyRequest(
 			});
 		}
 
-		// Broadcast the legacy status change to WebSocket clients
+		// Broadcast status change to WebSocket clients, including step/runStatus
+		// when available for optimistic UI updates
+		const step = body.newState ?? undefined;
+		const runStatus =
+			body.workflow && body.status
+				? mapStatusToRunStatus(body.status)
+				: undefined;
+
 		ctx.websocketHub?.broadcastStatusChange(
 			project.id,
 			body.feature,
 			body.status,
+			step,
+			runStatus,
 		);
-
-		// For state-machine-enabled workflows, also broadcast run:step and run:status
-		if (body.workflow && body.newState && ctx.websocketHub) {
-			const runId = body.runId ?? body.feature;
-			const runStatus = mapStatusToRunStatus(body.status);
-			const stepStatus = mapStatusToStepStatus(body.status);
-
-			ctx.websocketHub.broadcastRunStatus(runId, runStatus, body.newState);
-			ctx.websocketHub.broadcastRunStep(runId, body.newState, stepStatus);
-		}
 
 		return jsonResponse({ notified: true, projectId: project.id });
 	} catch (error) {
@@ -605,7 +648,7 @@ export async function handleStatusNotifyRequest(
 }
 
 /**
- * Map StatusValue to RunStatus for WebSocket run:status messages.
+ * Map raw StatusValue to frontend RunStatus for optimistic WebSocket updates.
  */
 function mapStatusToRunStatus(status: string): string {
 	switch (status) {
@@ -616,25 +659,6 @@ function mapStatusToRunStatus(status: string): string {
 			return "waiting-input";
 		case "needs-review":
 			return "needs-review";
-		case "completed":
-			return "completed";
-		case "failed":
-			return "failed";
-		default:
-			return "running";
-	}
-}
-
-/**
- * Map StatusValue to StepStatus for WebSocket run:step messages.
- */
-function mapStatusToStepStatus(status: string): string {
-	switch (status) {
-		case "started":
-		case "in_progress":
-		case "waiting-input":
-		case "needs-review":
-			return "running";
 		case "completed":
 			return "completed";
 		case "failed":
@@ -657,7 +681,7 @@ export async function handleProjectStatusRequest(
 		const {
 			getLatestStatusByFeature,
 			queryStatusUpdatesForFeatures,
-			getRecentlyCompletedTasks,
+			getRecentlyCompletedSteps,
 		} = await import("../../../../src/agent-tools/work/database");
 		const { isLeft } = await import("fp-ts/lib/Either.js");
 
@@ -672,17 +696,16 @@ export async function handleProjectStatusRequest(
 
 		const latestStatuses = latestResult.right;
 
-		// Fetch recently completed tasks (task-level granularity)
-		const completedTasksResult = await getRecentlyCompletedTasks(
+		const completedTasksResult = await getRecentlyCompletedSteps(
 			project.path,
 			24,
 		)();
 
-		const recentlyCompletedTasks: CompletedTask[] = isLeft(completedTasksResult)
+		const recentlyCompletedSteps: CompletedStep[] = isLeft(completedTasksResult)
 			? []
 			: completedTasksResult.right.map((record) => ({
 					feature: record.feature,
-					task: record.task as string, // task is guaranteed non-null from query
+					step: record.step as string, // step is guaranteed non-null from query
 					message: record.message,
 					completedAt: record.createdAt,
 				}));
@@ -694,7 +717,7 @@ export async function handleProjectStatusRequest(
 				projectName: project.name,
 				active: [],
 				recentlyCompleted: [],
-				recentlyCompletedTasks,
+				recentlyCompletedSteps,
 				lastUpdated: null,
 			};
 			return jsonResponse(response);
@@ -721,7 +744,7 @@ export async function handleProjectStatusRequest(
 			const rawUpdates = updatesMap.get(record.feature) ?? [];
 			const updates: StatusUpdate[] = rawUpdates.map((update) => ({
 				id: update.id,
-				task: update.task,
+				step: update.step,
 				status: update.status,
 				message: update.message,
 				createdAt: update.createdAt,
@@ -730,7 +753,7 @@ export async function handleProjectStatusRequest(
 			featureMap.set(record.feature, {
 				feature: record.feature,
 				status: record.status,
-				currentTask: record.task,
+				currentStep: record.step,
 				message: record.message,
 				lastUpdate: record.createdAt,
 				updates,
@@ -765,7 +788,7 @@ export async function handleProjectStatusRequest(
 			projectName: project.name,
 			active,
 			recentlyCompleted,
-			recentlyCompletedTasks,
+			recentlyCompletedSteps,
 			lastUpdated: latestStatuses[0].createdAt,
 		};
 

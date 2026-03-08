@@ -76,7 +76,8 @@ export function parseSkillRefs(content: string): readonly string[] {
 
 /**
  * Build complete dependency graph for a skill source file.
- * Parses the SKILL.md for agent references, then each agent for skill references.
+ * Recursively traverses all agent and skill references using BFS
+ * with cycle detection to capture transitive dependencies.
  *
  * @param promptPath - Path to the skill source file (skills/{name}/SKILL.md)
  * @returns TaskEither with dependency graph or error
@@ -88,15 +89,40 @@ export function buildDependencyGraph(
 		TE.tryCatch(
 			async () => {
 				const promptFile = Bun.file(promptPath);
-				const promptContent = await promptFile.text();
-				const agentPaths = parseAgentRefs(promptContent);
+				if (!(await promptFile.exists())) {
+					throw new Error(
+						`Skill file not found: ${promptPath}. Ensure CWD is the repository root.`,
+					);
+				}
 
-				const skillPaths: string[] = [];
-				for (const agentPath of agentPaths) {
-					const agentFile = Bun.file(agentPath);
-					if (await agentFile.exists()) {
-						const agentContent = await agentFile.text();
-						skillPaths.push(...parseSkillRefs(agentContent));
+				const visited = new Set<string>();
+				const allAgents: string[] = [];
+				const allSkills: string[] = [];
+				const queue: string[] = [promptPath];
+
+				while (queue.length > 0) {
+					const current = queue.shift() as string;
+					if (visited.has(current)) continue;
+					visited.add(current);
+
+					const file = Bun.file(current);
+					if (!(await file.exists())) continue;
+					const content = await file.text();
+
+					const agentRefs = parseAgentRefs(content);
+					for (const ref of agentRefs) {
+						if (!visited.has(ref)) {
+							allAgents.push(ref);
+							queue.push(ref);
+						}
+					}
+
+					const skillRefs = parseSkillRefs(content);
+					for (const ref of skillRefs) {
+						if (!visited.has(ref)) {
+							allSkills.push(ref);
+							queue.push(ref);
+						}
 					}
 				}
 
@@ -106,8 +132,8 @@ export function buildDependencyGraph(
 				return {
 					skill: skillName,
 					skillPath: promptPath,
-					agents: agentPaths,
-					skills: [...new Set(skillPaths)],
+					agents: [...new Set(allAgents)],
+					skills: [...new Set(allSkills)],
 				};
 			},
 			(error: unknown) => new Error(`Failed to build dep graph: ${error}`),

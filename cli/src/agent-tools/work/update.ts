@@ -22,11 +22,11 @@ import { VALID_STATUSES } from "./models.js";
 /** Sentinel error used by detectStateMachineConflict to signal a match */
 class WorkflowConflictError extends Error {
 	readonly workflowName: string;
-	readonly task: string;
-	constructor(workflowName: string, task: string) {
-		super(`Workflow conflict: ${task} matches ${workflowName}`);
+	readonly step: string;
+	constructor(workflowName: string, step: string) {
+		super(`Workflow conflict: ${step} matches ${workflowName}`);
 		this.workflowName = workflowName;
-		this.task = task;
+		this.step = step;
 	}
 }
 
@@ -43,13 +43,15 @@ const DEFAULT_TTL_SECONDS = 28800;
 export interface UpdateCommandOptions {
 	readonly project: string;
 	readonly feature: string;
-	readonly task?: string;
+	readonly step?: string;
 	readonly status: string;
 	readonly message?: string;
 	readonly metadata?: string;
 	readonly workflow?: string;
 	readonly runId?: string;
 	readonly ttl?: string;
+	readonly agent?: string;
+	readonly task?: string;
 }
 
 /**
@@ -139,6 +141,35 @@ const validateMetadata = (
 };
 
 /**
+ * Validate agent and task flag dependencies.
+ * --agent requires --workflow (BR-005).
+ * --task requires --agent.
+ */
+const validateAgentTaskFlags = (
+	agent: string | undefined,
+	task: string | undefined,
+	workflow: string | undefined,
+): E.Either<CLIError, void> => {
+	if (agent && !workflow) {
+		return E.left(
+			usageError(
+				"--workflow is required when --agent is provided. The workflow determines which run the update is attributed to.",
+			),
+		);
+	}
+
+	if (task && !agent) {
+		return E.left(
+			usageError(
+				"--agent is required when --task is provided. Per-task tracking requires an agent context.",
+			),
+		);
+	}
+
+	return E.right(undefined);
+};
+
+/**
  * Compute ISO 8601 expires_at timestamp from a TTL in seconds.
  */
 const computeExpiresAt = (ttlSeconds: number): string => {
@@ -169,44 +200,72 @@ const parseTtl = (ttl: string | undefined): E.Either<CLIError, number> => {
  * Validate a workflow transition when --workflow is provided.
  *
  * 1. Load state machine for the workflow
- * 2. Validate --task is provided and is a valid state
+ * 2. Validate --step is provided and is a valid state
  * 3. Compute expires_at from TTL
  * 4. Query current state from DB (with stale filtering)
- * 5. If first update: validate --task is an initial state
- * 6. If subsequent: validate transition from current to --task
+ * 5. If first update: validate --step is an initial state
+ * 6. If subsequent: validate transition from current to --step
  */
 const validateWorkflowUpdate = (
 	workflowName: string,
 	projectPath: string,
 	feature: string,
-	task: string | undefined,
+	step: string | undefined,
 	runId: string | undefined,
 	ttl: string | undefined,
+	agentName: string | undefined,
+	taskId: string | undefined,
 	dbPath?: string,
 ): TE.TaskEither<CLIError, WorkflowValidationResult> => {
-	if (!task) {
+	if (!step) {
 		return TE.left(
 			usageError(
-				"--task is required when --workflow is provided. The task value must be a valid state in the workflow state machine.",
+				"--step is required when --workflow is provided. The step value must be a valid state in the workflow state machine.",
 			),
 		);
 	}
 
+	const machineTarget = agentName ?? workflowName;
+
 	return pipe(
-		loadStateMachine(workflowName),
-		TE.mapLeft((err) => {
+		loadStateMachine(machineTarget),
+		TE.orElse((err) => {
 			if (err._tag === "NotFoundError") {
-				return usageError(
-					`No state machine defined for workflow '${workflowName}'. Ensure a state.mmd file exists in the skill directory.`,
-				);
-			}
-			return err;
-		}),
-		TE.chain((machine) => {
-			if (!machine.states.has(task)) {
+				if (agentName) {
+					return pipe(
+						listWorkflows(),
+						TE.chain((available) =>
+							TE.left(
+								usageError(
+									`No state machine defined for agent '${agentName}'. Available state machines: ${available.join(", ")}`,
+								),
+							),
+						),
+						TE.orElse(() =>
+							TE.left(
+								usageError(
+									`No state machine defined for agent '${agentName}'.`,
+								),
+							),
+						),
+					);
+				}
 				return TE.left(
 					usageError(
-						`'${task}' is not a valid state in the '${workflowName}' workflow. Valid states: ${[...machine.states.keys()].join(", ")}`,
+						`No state machine defined for workflow '${workflowName}'. Ensure a ## STATE-MACHINE section exists in the skill's SKILL.md file.`,
+					),
+				);
+			}
+			return TE.left(err);
+		}),
+		TE.chain((machine) => {
+			if (!machine.states.has(step)) {
+				const label = agentName
+					? `agent '${agentName}'`
+					: `workflow '${workflowName}'`;
+				return TE.left(
+					usageError(
+						`'${step}' is not a valid state in the ${label}. Valid states: ${[...machine.states.keys()].join(", ")}`,
 					),
 				);
 			}
@@ -215,27 +274,34 @@ const validateWorkflowUpdate = (
 				TE.fromEither(parseTtl(ttl)),
 				TE.chain((ttlSeconds) =>
 					pipe(
-						getCurrentWorkflowState(projectPath, feature, runId, dbPath),
+						getCurrentWorkflowState(
+							projectPath,
+							feature,
+							runId,
+							agentName,
+							taskId,
+							dbPath,
+						),
 						TE.chain((currentState) => {
 							if (currentState === null) {
-								if (!machine.initialStates.includes(task)) {
+								if (!machine.initialStates.includes(step)) {
 									return TE.left(
 										usageError(
-											`First update for this workflow run must be an initial state. '${task}' is not an initial state. Valid initial states: ${machine.initialStates.join(", ")}`,
+											`First update for this workflow run must be an initial state. '${step}' is not an initial state. Valid initial states: ${machine.initialStates.join(", ")}`,
 										),
 									);
 								}
-							} else {
+							} else if (currentState !== step) {
 								const validation = validateTransition(
 									machine,
 									currentState,
-									task,
+									step,
 								);
 								if (!validation.valid) {
 									return TE.left(
 										usageError(
 											validation.error ??
-												`Invalid transition from '${currentState}' to '${task}'.`,
+												`Invalid transition from '${currentState}' to '${step}'.`,
 										),
 									);
 								}
@@ -257,14 +323,14 @@ const validateWorkflowUpdate = (
 };
 
 /**
- * FR-006: Detect when --workflow is omitted but task matches a state-machine-enabled workflow's state.
+ * FR-006: Detect when --workflow is omitted but step matches a state-machine-enabled workflow's state.
  * Best-effort heuristic that checks all loaded workflows.
  *
  * If the listing/loading phase fails (e.g., no state.mmd files found), we silently
  * allow the update through. But if we successfully find a match, we reject.
  */
 const detectStateMachineConflict = (
-	task: string,
+	step: string,
 ): TE.TaskEither<CLIError, WorkflowValidationResult> =>
 	TE.tryCatch(
 		async () => {
@@ -276,8 +342,8 @@ const detectStateMachineConflict = (
 			for (const workflowName of workflowsResult.right) {
 				const machineResult = await loadStateMachine(workflowName)();
 				if (E.isRight(machineResult)) {
-					if (machineResult.right.states.has(task)) {
-						throw new WorkflowConflictError(workflowName, task);
+					if (machineResult.right.states.has(step)) {
+						throw new WorkflowConflictError(workflowName, step);
 					}
 				}
 			}
@@ -287,12 +353,60 @@ const detectStateMachineConflict = (
 		(err): CLIError => {
 			if (err instanceof WorkflowConflictError) {
 				return usageError(
-					`Task '${err.task}' matches a state in the '${err.workflowName}' workflow which requires the --workflow flag. ` +
+					`Step '${err.step}' matches a state in the '${err.workflowName}' workflow which requires the --workflow flag. ` +
 						`Please specify: --workflow ${err.workflowName}`,
 				);
 			}
 			return usageError(`Unexpected error during workflow detection: ${err}`);
 		},
+	);
+
+/**
+ * Reject updates that omit both --workflow and --step.
+ * Lists available workflows so the agent knows which --workflow value to use.
+ * Provides the correct command format to guide correction.
+ */
+const rejectMissingWorkflowAndStep = (): TE.TaskEither<
+	CLIError,
+	WorkflowValidationResult
+> =>
+	TE.tryCatch(
+		async () => {
+			const workflowsResult = await listWorkflows()();
+			const availableWorkflows = E.isRight(workflowsResult)
+				? workflowsResult.right
+				: [];
+
+			const workflowList =
+				availableWorkflows.length > 0
+					? availableWorkflows.join(", ")
+					: "(none found)";
+
+			throw new Error(
+				`--workflow and --step are required. Every status update must specify which workflow step is being reported.\n\n` +
+					`Available workflows: ${workflowList}\n\n` +
+					`For skills (workflow-level reporting):\n` +
+					`  rp1 agent-tools work update \\\n` +
+					`    --project "$(pwd)" \\\n` +
+					`    --feature <feature-id> \\\n` +
+					`    --workflow <workflow-name> \\\n` +
+					`    --run-id <uuid> \\\n` +
+					`    --step <state-name> \\\n` +
+					`    --status started\n\n` +
+					`For agents (agent-level reporting):\n` +
+					`  rp1 agent-tools work update \\\n` +
+					`    --project "$(pwd)" \\\n` +
+					`    --feature <feature-id> \\\n` +
+					`    --workflow <parent-workflow-name> \\\n` +
+					`    --agent <agent-name> \\\n` +
+					`    --run-id <uuid> \\\n` +
+					`    --step <state-name> \\\n` +
+					`    --status started\n\n` +
+					`Refer to the ## STATE-MACHINE section in your SKILL.md (for skills) or agent .md file (for agents) for valid --step values.`,
+			);
+		},
+		(err): CLIError =>
+			usageError(err instanceof Error ? err.message : String(err)),
 	);
 
 /**
@@ -302,7 +416,7 @@ const detectStateMachineConflict = (
  * loads the state machine, queries current state, validates the transition,
  * and computes expires_at from TTL.
  *
- * When --workflow is omitted but --task matches a known workflow state (FR-006),
+ * When --workflow is omitted but --step matches a known workflow state (FR-006),
  * rejects with an error directing the caller to specify --workflow.
  *
  * @param options - CLI command options
@@ -324,20 +438,27 @@ export const validateUpdateOptions = (
 		TE.bind("metadata", () =>
 			TE.fromEither(validateMetadata(options.metadata)),
 		),
+		TE.bind("agentTask", () =>
+			TE.fromEither(
+				validateAgentTaskFlags(options.agent, options.task, options.workflow),
+			),
+		),
 		TE.bind("workflowResult", ({ projectPath, feature }) =>
 			options.workflow
 				? validateWorkflowUpdate(
 						options.workflow,
 						projectPath,
 						feature,
-						options.task,
+						options.step,
 						options.runId,
 						options.ttl,
+						options.agent,
+						options.task,
 						dbPath,
 					)
-				: options.task
-					? detectStateMachineConflict(options.task)
-					: TE.right({} as WorkflowValidationResult),
+				: options.step
+					? detectStateMachineConflict(options.step)
+					: rejectMissingWorkflowAndStep(),
 		),
 		TE.map(
 			({
@@ -349,7 +470,7 @@ export const validateUpdateOptions = (
 			}): StatusUpdateInput => ({
 				projectPath,
 				feature,
-				task: options.task,
+				step: options.step,
 				status,
 				message: options.message,
 				metadata,
@@ -357,6 +478,8 @@ export const validateUpdateOptions = (
 				workflow: workflowResult.workflow,
 				expiresAt: workflowResult.expiresAt,
 				previousState: workflowResult.previousState,
+				agent: options.agent,
+				task: options.task,
 			}),
 		),
 	);

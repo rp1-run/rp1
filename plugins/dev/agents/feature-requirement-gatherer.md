@@ -17,6 +17,8 @@ Transforms high-level reqs into detailed specs. Invoked by `/build` workflow.
 | REQUIREMENTS | $2 | "" | Raw requirements |
 | AFK_MODE | $3 | `false` | Skip user prompts, auto-select defaults |
 | RP1_ROOT | prompt | `.rp1/` | Root directory |
+| WORKFLOW | Prompt | `""` | Parent workflow name for status/artifact attribution |
+| RUN_ID | Prompt | `""` | Parent workflow run ID for artifact attribution |
 
 <feature_id>$1</feature_id>
 <afk_mode>$2</afk_mode>
@@ -162,7 +164,21 @@ Write to `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/requirements.md`:
 | {vague term/gap} | {inference} | {KB/PRD/default} |
 ```
 
-## 6. Completion Output
+## 6. Artifact Registration
+
+After writing `requirements.md`, register it so the Web UI can display it. Skip if WORKFLOW is empty (standalone invocation).
+
+```bash
+rp1 agent-tools work artifact \
+  --project "$(pwd)" \
+  --feature {FEATURE_ID} \
+  --run-id {RUN_ID} \
+  --path .rp1/work/features/{FEATURE_ID}/requirements.md
+```
+
+If the command fails, log a warning (`[feature-requirement-gatherer] Failed to register artifact .rp1/work/features/{FEATURE_ID}/requirements.md: {error}`) and continue without blocking.
+
+## 7. Completion Output
 
 Return JSON completion contract:
 
@@ -194,7 +210,7 @@ Return JSON completion contract:
 Requirements completed: {{$RP1_ROOT}}/work/features/{FEATURE_ID}/requirements.md
 ```
 
-## 7. Anti-Loop Directive
+## 8. Anti-Loop Directive
 
 **EXECUTE IMMEDIATELY**: NO clarification requests, NO iteration, NO waiting.
 

@@ -36,8 +36,8 @@ export interface StatusUpdateInput {
 	readonly projectPath: string;
 	/** Feature identifier (kebab-case) */
 	readonly feature: string;
-	/** Task identifier within feature (optional) */
-	readonly task?: string;
+	/** Workflow step identifier within feature (optional) */
+	readonly step?: string;
 	/** Current status state */
 	readonly status: StatusValue;
 	/** Human-readable status message (optional) */
@@ -52,6 +52,10 @@ export interface StatusUpdateInput {
 	readonly expiresAt?: string;
 	/** Previous workflow state before this transition (transient, not persisted) */
 	readonly previousState?: string | null;
+	/** Agent name for agent-scoped state tracking (optional) */
+	readonly agent?: string;
+	/** Task identifier for per-task state tracking (optional) */
+	readonly task?: string;
 }
 
 /**
@@ -65,8 +69,8 @@ export interface StatusUpdateRecord {
 	readonly projectPath: string;
 	/** Feature identifier */
 	readonly feature: string;
-	/** Task identifier (null if not specified) */
-	readonly task: string | null;
+	/** Workflow step identifier (null if not specified) */
+	readonly step: string | null;
 	/** Status state */
 	readonly status: StatusValue;
 	/** Human-readable message (null if not specified) */
@@ -79,6 +83,12 @@ export interface StatusUpdateRecord {
 	readonly runId: string | null;
 	/** ISO 8601 expiry timestamp (null means row never expires) */
 	readonly expiresAt: string | null;
+	/** State machine identifier / skill name (null if not specified) */
+	readonly workflow: string | null;
+	/** Agent name for agent-scoped state tracking (null for skill-level updates) */
+	readonly agent: string | null;
+	/** Task identifier for per-task state tracking (null for non-per-task updates) */
+	readonly task: string | null;
 }
 
 /**
@@ -102,4 +112,60 @@ export interface QueryOptions {
 	readonly feature?: string;
 	/** Maximum number of records to return (optional) */
 	readonly limit?: number;
+}
+
+/**
+ * Valid artifact type values.
+ */
+export type ArtifactTypeValue =
+	| "markdown"
+	| "code"
+	| "diagram"
+	| "diff"
+	| "report"
+	| "other";
+
+export const VALID_ARTIFACT_TYPES: readonly ArtifactTypeValue[] = [
+	"markdown",
+	"code",
+	"diagram",
+	"diff",
+	"report",
+	"other",
+] as const;
+
+/**
+ * Input for registering a new artifact.
+ */
+export interface ArtifactInput {
+	/** Absolute path to project root */
+	readonly projectPath: string;
+	/** Feature identifier (kebab-case) */
+	readonly feature: string;
+	/** Workflow run ID (optional) */
+	readonly runId?: string;
+	/** Relative path to the artifact file */
+	readonly path: string;
+	/** Artifact type classification */
+	readonly type: ArtifactTypeValue;
+}
+
+/**
+ * Stored artifact record with auto-generated fields.
+ */
+export interface ArtifactRecord {
+	/** Auto-incremented row ID */
+	readonly id: number;
+	/** Absolute path to project root */
+	readonly projectPath: string;
+	/** Feature identifier */
+	readonly feature: string;
+	/** Workflow run ID (null if not specified) */
+	readonly runId: string | null;
+	/** Relative path to the artifact file */
+	readonly path: string;
+	/** Artifact type classification */
+	readonly type: ArtifactTypeValue;
+	/** ISO 8601 UTC timestamp */
+	readonly createdAt: string;
 }

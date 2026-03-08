@@ -401,6 +401,28 @@
 
   .mermaid-svg svg {
     max-width: none;
+    overflow: visible;
+  }
+}
+
+/* Active state glow animation — outside @layer for maximum specificity over mermaid's internal <style> */
+@keyframes active-state-glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 4px hsl(var(--status-running) / 0.4));
+  }
+  50% {
+    filter: drop-shadow(0 0 12px hsl(var(--status-running) / 0.6));
+  }
+}
+
+.mermaid-svg .currentState {
+  animation: active-state-glow 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mermaid-svg .currentState {
+    animation: none;
+    filter: drop-shadow(0 0 8px hsl(var(--status-running) / 0.5));
   }
 }
 

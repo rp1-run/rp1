@@ -1,5 +1,6 @@
 import {
 	AlertTriangle,
+	Bot,
 	Check,
 	FilePlus,
 	Layers,
@@ -40,6 +41,10 @@ const eventConfigs: Record<EventType, EventConfig> = {
 	"task-batch": {
 		icon: Layers,
 		colorClass: "text-muted-foreground",
+	},
+	"agent-update": {
+		icon: Bot,
+		colorClass: "text-accent-foreground",
 	},
 };
 

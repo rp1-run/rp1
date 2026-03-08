@@ -20,6 +20,8 @@ skils: rp1-base:mermaid
 | AFK_MODE | $2 | `false` | Skip user prompts |
 | UPDATE_MODE | $3 | `false` | Design iteration mode |
 | RP1_ROOT | prompt | `.rp1/` | Root dir |
+| WORKFLOW | Prompt | `""` | Parent workflow name for status/artifact attribution |
+| RUN_ID | Prompt | `""` | Parent workflow run ID for artifact attribution |
 
 <feature_id>$1</feature_id>
 <afk_mode>$2</afk_mode>
@@ -226,7 +228,27 @@ Log of all major technology/architecture decisions w/ rationales.
 | {decision} | {choice} | {KB/codebase/default} | {why} |
 ```
 
-## §9 Scope Changes (Addendum)
+## §9 Artifact Registration
+
+After writing `design.md` and `design-decisions.md`, register them so the Web UI can display them. Skip if WORKFLOW is empty (standalone invocation).
+
+```bash
+rp1 agent-tools work artifact \
+  --project "$(pwd)" \
+  --feature {FEATURE_ID} \
+  --run-id {RUN_ID} \
+  --path .rp1/work/features/{FEATURE_ID}/design.md
+
+rp1 agent-tools work artifact \
+  --project "$(pwd)" \
+  --feature {FEATURE_ID} \
+  --run-id {RUN_ID} \
+  --path .rp1/work/features/{FEATURE_ID}/design-decisions.md
+```
+
+If either command fails, log a warning (`[feature-architect] Failed to register artifact {path}: {error}`) and continue without blocking.
+
+## §10 Scope Changes (Addendum)
 
 When user requests scope changes during session:
 
@@ -245,11 +267,11 @@ When user requests scope changes during session:
 - **Rationale**: [Why needed]
 ```
 
-## §10 Validate Mermaid
+## §11 Validate Mermaid
 
 Before finalizing design.md, validate all Mermaid diagrams via rp1-base:mermaid skill.
 
-## §11 Completion Output
+## §12 Completion Output
 
 Output JSON completion contract:
 
@@ -295,7 +317,7 @@ Output JSON completion contract:
 
 **CRITICAL**: This agent does NOT spawn hypothesis-tester. Caller (build.md) handles hypothesis validation based on `flagged_hypotheses` array.
 
-## §11 Anti-Loop
+## §13 Anti-Loop
 
 **EXECUTE IMMEDIATELY**: Single-pass execution. NO clarification, NO iteration.
 

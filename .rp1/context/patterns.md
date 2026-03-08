@@ -148,17 +148,19 @@ Evidence: `cli/web-ui/src/lib/motion-config.ts`, `cli/web-ui/src/hooks/usePrefer
 
 Evidence: `cli/web-ui/src/components/v2/CommandPalette.tsx`, `cli/web-ui/src/components/v2/ShortcutHelpOverlay.tsx`
 
-## Declarative State Machine (Co-location + Validation)
+## Declarative State Machine (Embedded + Validation)
 
-**Co-location**: Skills opt in to state management by placing a `state.mmd` (Mermaid stateDiagram-v2) alongside `SKILL.md` in the skill directory. Presence of this file is the sole opt-in; absence means no state tracking, no validation, no dashboard visibility.
-**Two-Layer State Model**: StatusValue (activity: started, in_progress, waiting-input, needs-review, completed, failed) and WorkflowState (phase: e.g., requirements, design, build) are orthogonal dimensions. StatusValue is unchanged; WorkflowState is carried in the existing `task` field, validated against state.mmd.
+**Embedded Convention**: Skills and agents opt in to state management by adding a `## STATE-MACHINE` section with a `stateDiagram-v2` mermaid block directly in their markdown file (SKILL.md or agent .md). Presence of this section is the sole opt-in; absence means no state tracking, no validation, no dashboard visibility.
+**Two-Layer State Model**: StatusValue (activity: started, in_progress, waiting-input, needs-review, completed, failed) and WorkflowState (phase: e.g., requirements, design, build) are orthogonal dimensions. StatusValue is unchanged; WorkflowState is carried in the `step` field, validated against the embedded state diagram.
+**Extraction**: `extractStateMachineMermaid(markdownContent)` finds `## STATE-MACHINE` section, extracts first `stateDiagram-v2` mermaid fence block. Returns content or null.
 **Parse Pipeline**: `raw text -> mermaid-ast parseStateDiagram() -> transformAstToStateMachine() -> StateMachine`. Transform rejects unsupported features (nested states, fork/join). Returns `Either<CLIError, StateMachine>`.
 **Transition Validation**: CLI `--workflow` flag loads the state machine; adapter's `validateTransition()` checks edge existence; invalid transitions are rejected with error listing valid next states. First update must target an initial state.
+**Agent State Machines**: `--agent` flag routes validation to the named agent's state machine. `--task` flag enables per-task state tracking where each task progresses independently through the agent's state diagram.
 **Run Isolation**: `--run-id` (UUID) groups status updates per workflow invocation. `--ttl` (default 28800s/8h) sets `expires_at` on each row. Expired rows are filtered on read (on-read pruning), not deleted automatically. Manual cleanup via `rp1 agent-tools work cleanup`.
-**STATE-MACHINE Section**: Skills with state.mmd include a standard section (under 15 lines) instructing agents to read the graph, generate a run-id UUID, and report transitions via `work update --workflow --run-id --task --status`.
-**Dynamic Step Derivation**: v2 API loads state machines via loader, calls `deriveOrderedSteps()` (BFS from initial states) to replace hardcoded step arrays. New skills with state.mmd appear in dashboard automatically.
+**STATE-MACHINE Section**: Contains the embedded mermaid state diagram and a CLI command template instructing agents to generate a run-id UUID and report transitions via `work update --workflow --run-id --step --status`.
+**Dynamic Step Derivation**: v2 API loads state machines via loader, calls `deriveOrderedSteps()` (BFS from initial states) to replace hardcoded step arrays. New skills/agents with embedded state machines appear in dashboard automatically. Agent sub-states are grouped within parent workflow steps.
 
-Evidence: `cli/src/agent-tools/state-machine/`, `plugins/dev/skills/build/state.mmd`, `cli/web-ui/src/server/routes/v2-api.ts`
+Evidence: `cli/src/agent-tools/state-machine/`, `plugins/dev/skills/build/SKILL.md`, `cli/web-ui/src/server/routes/v2-api.ts`
 
 ## Terse Prompt Authoring
 

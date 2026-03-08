@@ -4,6 +4,7 @@
  */
 
 import { execSync } from "node:child_process";
+import type { CanonicalTool } from "../tool-names.js";
 
 interface GradingResult {
 	pass: boolean;
@@ -112,8 +113,9 @@ export type Matcher<T> = string | RegExp | ((input: T) => boolean);
 export interface ToolCall {
 	readonly id: string;
 	readonly name: string;
+	readonly canonical?: CanonicalTool;
 	input: unknown;
-	readonly source?: "stream_event" | "assistant";
+	readonly source?: "stream_event" | "assistant" | "opencode";
 }
 
 /**
@@ -159,7 +161,7 @@ function matchesToolCall<T extends ToolName>(
 	toolName: T,
 	matcher?: Matcher<ToolInputMap[T]>,
 ): boolean {
-	if (toolCall.name !== toolName) {
+	if (toolCall.name.toLowerCase() !== toolName.toLowerCase()) {
 		return false;
 	}
 
@@ -230,7 +232,9 @@ export function assertToolCall<T extends ToolName>(
 			};
 		}
 
-		const toolNameCalls = toolCalls.filter((tc) => tc.name === toolName);
+		const toolNameCalls = toolCalls.filter(
+			(tc) => tc.name.toLowerCase() === toolName.toLowerCase(),
+		);
 		const matcherDesc =
 			matcher !== undefined ? ` matching ${String(matcher)}` : "";
 
@@ -309,7 +313,9 @@ export function assertToolCallCount<T extends ToolName>(
 ): AssertionFunction {
 	return (_output: string, context: ToolCallEvalContext): GradingResult => {
 		const toolCalls = getToolCalls(context);
-		const toolNameCalls = toolCalls.filter((tc) => tc.name === toolName);
+		const toolNameCalls = toolCalls.filter(
+			(tc) => tc.name.toLowerCase() === toolName.toLowerCase(),
+		);
 		const actualCount = toolNameCalls.length;
 
 		if (actualCount === count) {
@@ -430,3 +436,331 @@ export const assertWorktreeCreateToolCall = assertToolCall(
 	"Bash",
 	/rp1\s+agent-tools\s+worktree\s+create/,
 );
+
+/**
+ * Assert that a tool was called using its canonical name.
+ * Matches across providers (e.g., "shell" matches Bash, bash, functions.exec_command).
+ */
+export function assertCanonicalToolCall(
+	canonicalName: CanonicalTool,
+	matcher?: Matcher<Record<string, unknown>>,
+): AssertionFunction {
+	return (_output: string, context: ToolCallEvalContext): GradingResult => {
+		const toolCalls = getToolCalls(context);
+
+		if (toolCalls.length === 0) {
+			return {
+				pass: false,
+				score: 0,
+				reason: "No tool calls captured in provider metadata",
+			};
+		}
+
+		const matchingCall = toolCalls.find((tc) => {
+			if (tc.canonical !== canonicalName) return false;
+			if (matcher === undefined) return true;
+
+			const input = tc.input as Record<string, unknown>;
+			if (typeof matcher === "function") return matcher(input);
+
+			const targetString =
+				canonicalName === "shell"
+					? ((input as { command?: string }).command ?? "")
+					: JSON.stringify(input);
+
+			if (typeof matcher === "string") return targetString.includes(matcher);
+			return matcher.test(targetString);
+		});
+
+		if (matchingCall) {
+			const matcherDesc =
+				matcher !== undefined ? ` matching ${String(matcher)}` : "";
+			return {
+				pass: true,
+				score: 1,
+				reason: `Found canonical ${canonicalName} tool call${matcherDesc}`,
+			};
+		}
+
+		const canonicalCalls = toolCalls.filter(
+			(tc) => tc.canonical === canonicalName,
+		);
+		const matcherDesc =
+			matcher !== undefined ? ` matching ${String(matcher)}` : "";
+
+		if (canonicalCalls.length === 0) {
+			return {
+				pass: false,
+				score: 0,
+				reason: `No canonical ${canonicalName} tool calls found. Total tool calls: ${toolCalls.length}`,
+			};
+		}
+
+		return {
+			pass: false,
+			score: 0,
+			reason: `Found ${canonicalCalls.length} canonical ${canonicalName} call(s), but none${matcherDesc}`,
+		};
+	};
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Domain-specific assertions (rp1 workflow patterns)
+// ─────────────────────────────────────────────────────────────────────
+
+/** Assert work status update was called with --workflow and --run-id flags. */
+export const assertWorkStatusUpdate = assertToolCall(
+	"Bash",
+	(input) =>
+		input.command.includes("rp1 agent-tools work update") &&
+		input.command.includes("--workflow") &&
+		input.command.includes("--run-id"),
+);
+
+/** Assert artifact registration was called via bash. */
+export const assertArtifactRegistration = assertToolCall(
+	"Bash",
+	(input) =>
+		input.command.includes("rp1 agent-tools work artifact") &&
+		input.command.includes("--project") &&
+		input.command.includes("--run-id") &&
+		input.command.includes("--path"),
+);
+
+/** Assert no artifact registration (e.g., large scope redirects). */
+export const assertNoArtifactRegistration = assertNoToolCall(
+	"Bash",
+	/rp1\s+agent-tools\s+work\s+artifact/,
+);
+
+/** Assert a specific subagent was spawned (name in tool call input). */
+export function assertSubagentSpawned(agentName: string): AssertionFunction {
+	return (_output, context) => {
+		const tcs = getToolCalls(context);
+		const subagentNames = ["Task", "task", "Agent", "agent"];
+		const found = tcs.some(
+			(tc) =>
+				subagentNames.includes(tc.name) &&
+				JSON.stringify(tc.input).includes(agentName),
+		);
+		if (!found)
+			return {
+				pass: false,
+				score: 0,
+				reason: `No ${agentName} subagent spawn found`,
+			};
+		return { pass: true, score: 1, reason: `${agentName} spawned` };
+	};
+}
+
+/** Assert first subagent spawned matches expected name. */
+export function assertFirstSubagent(expectedName: string): AssertionFunction {
+	return (_output, context) => {
+		const tcs = getToolCalls(context);
+		const subagentNames = ["Task", "task", "Agent", "agent"];
+		const subagentCalls = tcs.filter((tc) => subagentNames.includes(tc.name));
+		const first = subagentCalls[0];
+		if (!first)
+			return { pass: false, score: 0, reason: "No subagent calls found" };
+		const input = JSON.stringify(first.input);
+		if (!input.includes(expectedName))
+			return {
+				pass: false,
+				score: 0,
+				reason: `First subagent did not match ${expectedName}`,
+			};
+		return { pass: true, score: 1, reason: `${expectedName} spawned first` };
+	};
+}
+
+/** Assert no Write/Edit tool calls (e.g., large scope redirects). */
+export const assertNoWriteEdit: AssertionFunction = (_output, context) => {
+	const tcs = getToolCalls(context);
+	const found = tcs.find((tc) =>
+		["write", "edit"].includes(tc.name.toLowerCase()),
+	);
+	if (found)
+		return {
+			pass: false,
+			score: 0,
+			reason: `Found ${found.name} tool call — should not implement`,
+		};
+	return { pass: true, score: 1, reason: "No Write/Edit tool calls found" };
+};
+
+/** Assert no AskUserQuestion calls (AFK mode). Cross-provider: matches both AskUserQuestion and question. */
+export const assertNoAskUser: AssertionFunction = (_output, context) => {
+	const tcs = getToolCalls(context);
+	const found = tcs.find(
+		(tc) => tc.name === "AskUserQuestion" || tc.canonical === "ask_user",
+	);
+	if (found)
+		return {
+			pass: false,
+			score: 0,
+			reason: `Found ${found.name} tool call when none was expected (AFK mode)`,
+		};
+	return { pass: true, score: 1, reason: "No AskUserQuestion calls found" };
+};
+
+/** Assert AskUserQuestion checkpoint with Continue/Revise/Stop options. Cross-provider: matches both AskUserQuestion and question. */
+export const assertAskUserCheckpoint: AssertionFunction = (
+	_output,
+	context,
+) => {
+	const tcs = getToolCalls(context);
+	const askCalls = tcs.filter(
+		(tc) => tc.name === "AskUserQuestion" || tc.canonical === "ask_user",
+	);
+	const hasPlanReview = askCalls.some((tc) => {
+		const input = JSON.stringify(tc.input);
+		return (
+			input.includes("Continue") &&
+			(input.includes("Revise") || input.includes("Stop"))
+		);
+	});
+	if (!hasPlanReview)
+		return {
+			pass: false,
+			score: 0,
+			reason:
+				"No plan review checkpoint (AskUserQuestion with Continue/Revise/Stop)",
+		};
+	return { pass: true, score: 1, reason: "Plan review checkpoint fired" };
+};
+
+/** Assert post-implementation checkpoint (Done/Add options). Cross-provider: matches both AskUserQuestion and question. */
+export const assertPostImplCheckpoint: AssertionFunction = (
+	_output,
+	context,
+) => {
+	const tcs = getToolCalls(context);
+	const askCalls = tcs.filter(
+		(tc) => tc.name === "AskUserQuestion" || tc.canonical === "ask_user",
+	);
+	const hasPostImpl = askCalls.some((tc) => {
+		const input = JSON.stringify(tc.input);
+		return input.includes("Done") && input.includes("Add");
+	});
+	if (!hasPostImpl)
+		return {
+			pass: false,
+			score: 0,
+			reason:
+				"No post-implementation checkpoint (AskUserQuestion with Done/Add)",
+		};
+	return {
+		pass: true,
+		score: 1,
+		reason: "Post-implementation checkpoint fired",
+	};
+};
+
+/** Assert worktree cleanup was called. */
+export const assertWorktreeCleanupToolCall = assertToolCall(
+	"Bash",
+	/rp1\s+agent-tools\s+worktree\s+cleanup/,
+);
+
+/**
+ * Assert PROHIBITED git commands not present.
+ * Configurable list of prohibited patterns.
+ */
+export function assertNoProhibitedCommands(
+	prohibited?: Array<{ pattern: RegExp; label: string }>,
+): AssertionFunction {
+	const defaults = [
+		{ pattern: /\bgit\s+init\b/, label: "git init" },
+		{ pattern: /\bgit\s+rebase\b/, label: "git rebase" },
+		{ pattern: /\bgit\s+reset\s+--hard\b/, label: "git reset --hard" },
+		{ pattern: /\bgit\s+push\b/, label: "git push" },
+		{ pattern: /\bgit\b.*\bcommit\b/, label: "git commit" },
+	];
+	const rules = prohibited ?? defaults;
+
+	return (_output, context) => {
+		const cmds = context.providerResponse?.metadata?.bashCommands ?? [];
+		for (const { pattern, label } of rules) {
+			const found = cmds.find((c) => pattern.test(c));
+			if (found)
+				return {
+					pass: false,
+					score: 0,
+					reason: `Prohibited command found: ${label}`,
+				};
+		}
+		return { pass: true, score: 1, reason: "No prohibited commands found" };
+	};
+}
+
+/**
+ * Assert that a tool was NOT called using its canonical name.
+ * Matches across providers (e.g., "ask_user" matches AskUserQuestion, question).
+ */
+export function assertNoCanonicalToolCall(
+	canonicalName: CanonicalTool,
+	matcher?: Matcher<Record<string, unknown>>,
+): AssertionFunction {
+	return (_output: string, context: ToolCallEvalContext): GradingResult => {
+		const toolCalls = getToolCalls(context);
+
+		const matchingCall = toolCalls.find((tc) => {
+			if (tc.canonical !== canonicalName) return false;
+			if (matcher === undefined) return true;
+
+			const input = tc.input as Record<string, unknown>;
+			if (typeof matcher === "function") return matcher(input);
+
+			const targetString =
+				canonicalName === "shell"
+					? ((input as { command?: string }).command ?? "")
+					: JSON.stringify(input);
+
+			if (typeof matcher === "string") return targetString.includes(matcher);
+			return matcher.test(targetString);
+		});
+
+		if (!matchingCall) {
+			const matcherDesc =
+				matcher !== undefined ? ` matching ${String(matcher)}` : "";
+			return {
+				pass: true,
+				score: 1,
+				reason: `No canonical ${canonicalName} tool call${matcherDesc} found as expected`,
+			};
+		}
+
+		const matcherDesc =
+			matcher !== undefined ? ` matching ${String(matcher)}` : "";
+		return {
+			pass: false,
+			score: 0,
+			reason: `Found canonical ${canonicalName} tool call${matcherDesc} when none was expected`,
+		};
+	};
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Pre-built instances for YAML file:// references
+// ─────────────────────────────────────────────────────────────────────
+
+/** Assert task-builder subagent was spawned. */
+export const assertTaskBuilderSpawned = assertSubagentSpawned("task-builder");
+
+/** Assert task-reviewer subagent was spawned. */
+export const assertTaskReviewerSpawned = assertSubagentSpawned("task-reviewer");
+
+/** Assert artifact-detector spawned first. */
+export const assertArtifactDetectorFirst =
+	assertFirstSubagent("artifact-detector");
+
+/** Default prohibited commands (no git init/rebase/reset --hard/push/commit). */
+export const assertDefaultProhibited = assertNoProhibitedCommands();
+
+/** Prohibited commands for build workflow (allows commit/push when flags set). */
+export const assertBuildProhibited = assertNoProhibitedCommands([
+	{ pattern: /git push (--force|-f)/, label: "git push --force" },
+	{ pattern: /\bgit\s+reset\s+--hard\b/, label: "git reset --hard" },
+	{ pattern: /\bgit\s+rebase\b/, label: "git rebase" },
+	{ pattern: /\bgit\s+init\b/, label: "git init" },
+]);

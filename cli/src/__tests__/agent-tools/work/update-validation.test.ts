@@ -61,7 +61,7 @@ describe("workflow transition validation", () => {
 			const options: UpdateCommandOptions = {
 				project: "/test/project",
 				feature: "test-feature",
-				task: "requirements",
+				step: "requirements",
 				status: "in_progress",
 				workflow: "build",
 				runId: "run-001",
@@ -73,7 +73,7 @@ describe("workflow transition validation", () => {
 
 			expect(result.projectPath).toBe("/test/project");
 			expect(result.feature).toBe("test-feature");
-			expect(result.task).toBe("requirements");
+			expect(result.step).toBe("requirements");
 			expect(result.status).toBe("in_progress");
 			expect(result.workflow).toBe("build");
 			expect(result.runId).toBe("run-001");
@@ -84,7 +84,7 @@ describe("workflow transition validation", () => {
 			const seed: StatusUpdateInput = {
 				projectPath: "/test/project",
 				feature: "transition-test",
-				task: "requirements",
+				step: "requirements",
 				status: "in_progress",
 				runId: "run-002",
 				expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
@@ -94,7 +94,7 @@ describe("workflow transition validation", () => {
 			const options: UpdateCommandOptions = {
 				project: "/test/project",
 				feature: "transition-test",
-				task: "design",
+				step: "design",
 				status: "in_progress",
 				workflow: "build",
 				runId: "run-002",
@@ -104,7 +104,7 @@ describe("workflow transition validation", () => {
 				validateUpdateOptions(options, testDbPath),
 			);
 
-			expect(result.task).toBe("design");
+			expect(result.step).toBe("design");
 			expect(result.workflow).toBe("build");
 			expect(result.expiresAt).toBeDefined();
 		});
@@ -113,7 +113,7 @@ describe("workflow transition validation", () => {
 			const seed: StatusUpdateInput = {
 				projectPath: "/test/project",
 				feature: "retry-test",
-				task: "verify",
+				step: "verify",
 				status: "in_progress",
 				runId: "run-retry",
 				expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
@@ -123,7 +123,7 @@ describe("workflow transition validation", () => {
 			const options: UpdateCommandOptions = {
 				project: "/test/project",
 				feature: "retry-test",
-				task: "build",
+				step: "build",
 				status: "in_progress",
 				workflow: "build",
 				runId: "run-retry",
@@ -133,14 +133,14 @@ describe("workflow transition validation", () => {
 				validateUpdateOptions(options, testDbPath),
 			);
 
-			expect(result.task).toBe("build");
+			expect(result.step).toBe("build");
 		});
 
 		test("includes expiresAt with default 8h TTL", async () => {
 			const options: UpdateCommandOptions = {
 				project: "/test/project",
 				feature: "ttl-test",
-				task: "plan",
+				step: "plan",
 				status: "in_progress",
 				workflow: "build-fast",
 				runId: "run-ttl",
@@ -167,7 +167,7 @@ describe("workflow transition validation", () => {
 			const seed: StatusUpdateInput = {
 				projectPath: "/test/project",
 				feature: "invalid-test",
-				task: "requirements",
+				step: "requirements",
 				status: "in_progress",
 				runId: "run-invalid",
 				expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
@@ -177,7 +177,7 @@ describe("workflow transition validation", () => {
 			const options: UpdateCommandOptions = {
 				project: "/test/project",
 				feature: "invalid-test",
-				task: "verify",
+				step: "verify",
 				status: "in_progress",
 				workflow: "build",
 				runId: "run-invalid",
@@ -198,7 +198,7 @@ describe("workflow transition validation", () => {
 			const options: UpdateCommandOptions = {
 				project: "/test/project",
 				feature: "non-initial-test",
-				task: "design",
+				step: "design",
 				status: "in_progress",
 				workflow: "build",
 				runId: "run-non-initial",
@@ -217,7 +217,7 @@ describe("workflow transition validation", () => {
 			const options: UpdateCommandOptions = {
 				project: "/test/project",
 				feature: "unknown-state-test",
-				task: "nonexistent-state",
+				step: "nonexistent-state",
 				status: "in_progress",
 				workflow: "build",
 				runId: "run-unknown",
@@ -236,7 +236,7 @@ describe("workflow transition validation", () => {
 			const options: UpdateCommandOptions = {
 				project: "/test/project",
 				feature: "no-workflow-test",
-				task: "something",
+				step: "something",
 				status: "in_progress",
 				workflow: "nonexistent-workflow",
 			};
@@ -250,7 +250,7 @@ describe("workflow transition validation", () => {
 			expect(msg).toContain("nonexistent-workflow");
 		});
 
-		test("rejects --workflow without --task", async () => {
+		test("rejects --workflow without --step", async () => {
 			const options: UpdateCommandOptions = {
 				project: "/test/project",
 				feature: "no-task-test",
@@ -262,7 +262,7 @@ describe("workflow transition validation", () => {
 				validateUpdateOptions(options, testDbPath),
 			);
 			expect(error._tag).toBe("UsageError");
-			expect(getErrorMessage(error)).toContain("--task is required");
+			expect(getErrorMessage(error)).toContain("--step is required");
 		});
 	});
 
@@ -271,7 +271,7 @@ describe("workflow transition validation", () => {
 			const seedRunA: StatusUpdateInput = {
 				projectPath: "/test/project",
 				feature: "isolation-test",
-				task: "requirements",
+				step: "requirements",
 				status: "in_progress",
 				runId: "run-a",
 				expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
@@ -281,7 +281,7 @@ describe("workflow transition validation", () => {
 			const seedRunB: StatusUpdateInput = {
 				projectPath: "/test/project",
 				feature: "isolation-test",
-				task: "plan",
+				step: "plan",
 				status: "in_progress",
 				runId: "run-b",
 				expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
@@ -291,7 +291,7 @@ describe("workflow transition validation", () => {
 			const optionsA: UpdateCommandOptions = {
 				project: "/test/project",
 				feature: "isolation-test",
-				task: "design",
+				step: "design",
 				status: "in_progress",
 				workflow: "build",
 				runId: "run-a",
@@ -299,12 +299,12 @@ describe("workflow transition validation", () => {
 			const resultA = await expectTaskRight(
 				validateUpdateOptions(optionsA, testDbPath),
 			);
-			expect(resultA.task).toBe("design");
+			expect(resultA.step).toBe("design");
 
 			const optionsB: UpdateCommandOptions = {
 				project: "/test/project",
 				feature: "isolation-test",
-				task: "build",
+				step: "build",
 				status: "in_progress",
 				workflow: "build-fast",
 				runId: "run-b",
@@ -312,14 +312,14 @@ describe("workflow transition validation", () => {
 			const resultB = await expectTaskRight(
 				validateUpdateOptions(optionsB, testDbPath),
 			);
-			expect(resultB.task).toBe("build");
+			expect(resultB.step).toBe("build");
 		});
 
 		test("run-a transition fails for run-b's current state", async () => {
 			const seedRunA: StatusUpdateInput = {
 				projectPath: "/test/project",
 				feature: "cross-run-test",
-				task: "requirements",
+				step: "requirements",
 				status: "in_progress",
 				runId: "run-x",
 				expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
@@ -329,7 +329,7 @@ describe("workflow transition validation", () => {
 			const options: UpdateCommandOptions = {
 				project: "/test/project",
 				feature: "cross-run-test",
-				task: "verify",
+				step: "verify",
 				status: "in_progress",
 				workflow: "build",
 				runId: "run-x",
@@ -344,11 +344,11 @@ describe("workflow transition validation", () => {
 	});
 
 	describe("FR-006: missing --workflow detection", () => {
-		test("rejects task matching a workflow state without --workflow flag", async () => {
+		test("rejects step matching a workflow state without --workflow flag", async () => {
 			const options: UpdateCommandOptions = {
 				project: "/test/project",
 				feature: "fr006-test",
-				task: "requirements",
+				step: "requirements",
 				status: "in_progress",
 			};
 
@@ -361,34 +361,36 @@ describe("workflow transition validation", () => {
 			expect(msg).toContain("build");
 		});
 
-		test("allows task not matching any workflow state without --workflow", async () => {
+		test("allows step not matching any workflow state without --workflow", async () => {
 			const options: UpdateCommandOptions = {
 				project: "/test/project",
 				feature: "no-conflict-test",
-				task: "T1",
+				step: "T1",
 				status: "in_progress",
 			};
 
 			const result = await expectTaskRight(
 				validateUpdateOptions(options, testDbPath),
 			);
-			expect(result.task).toBe("T1");
+			expect(result.step).toBe("T1");
 			expect(result.workflow).toBeUndefined();
 			expect(result.expiresAt).toBeUndefined();
 		});
 
-		test("allows updates without --task and without --workflow", async () => {
+		test("rejects updates without --step and without --workflow", async () => {
 			const options: UpdateCommandOptions = {
 				project: "/test/project",
 				feature: "no-task-no-workflow",
 				status: "started",
 			};
 
-			const result = await expectTaskRight(
+			const error = await expectTaskLeft(
 				validateUpdateOptions(options, testDbPath),
 			);
-			expect(result.workflow).toBeUndefined();
-			expect(result.expiresAt).toBeUndefined();
+			expect(error._tag).toBe("UsageError");
+			const msg = getErrorMessage(error);
+			expect(msg).toContain("--workflow and --step are required");
+			expect(msg).toContain("STATE-MACHINE");
 		});
 	});
 });

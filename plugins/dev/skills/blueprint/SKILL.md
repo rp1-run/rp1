@@ -31,9 +31,16 @@ Extract these parameters from the user's input:
 **Environment values** (resolve via shell):
 - `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 
-## §STATE-MACHINE
+## STATE-MACHINE
 
-Read the co-located `state.mmd` file in this skill's directory. This defines the workflow graph.
+```mermaid
+stateDiagram-v2
+    [*] --> detect
+    detect --> charter : needs_charter
+    detect --> prd : charter_exists
+    charter --> prd : charter_complete
+    prd --> [*] : done
+```
 
 **On each phase transition**, report via:
 ```
@@ -42,13 +49,25 @@ rp1 agent-tools work update \
   --feature {FEATURE_ID} \
   --workflow blueprint \
   --run-id {RUN_ID} \
-  --task {CURRENT_STATE} \
-  --status {STATUS_VALUE}
+  --step {CURRENT_STATE} \
+  --status started
 ```
 
 - Generate `RUN_ID` as a UUID at workflow start; use `FEATURE_ID` = "blueprint" or derive from `PRD_NAME` if provided
-- Follow transition edges in the graph; do not skip states
-- On error, follow failure transitions defined in the graph
+
+**State Progression Protocol**:
+1. Report each `--step` with `--status started` when you enter that state
+2. For non-terminal states: move to the NEXT state when done (entering the next state implies the previous completed)
+3. For terminal states (those with `→ [*]` transitions): report `--status completed` when the step's work finishes
+4. On error, transition to the appropriate failure state in the graph
+
+**Example sequence** (with charter):
+```
+--step detect --status started    # entering detect phase
+--step charter --status started   # needs charter, entering charter phase
+--step prd --status started       # charter done, entering prd phase
+--step prd --status completed     # prd done, workflow complete
+```
 
 ## §CTX
 

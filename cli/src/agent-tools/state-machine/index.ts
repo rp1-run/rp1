@@ -12,6 +12,7 @@ export {
 	isReachable,
 	validateTransition,
 } from "./adapter.js";
+export { extractStateMachineMermaid } from "./extractor.js";
 export { clearCache, listWorkflows, loadStateMachine } from "./loader.js";
 export type {
 	OrderedStep,

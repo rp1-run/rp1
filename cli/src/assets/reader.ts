@@ -8,10 +8,12 @@ import { runtimeError, usageError } from "../../shared/errors.js";
 
 /**
  * Single embedded asset entry.
+ * State machines use inline content (path: "", content: "...") instead of file paths.
  */
 export interface AssetEntry {
 	name: string;
 	path: string;
+	content?: string;
 }
 
 /**

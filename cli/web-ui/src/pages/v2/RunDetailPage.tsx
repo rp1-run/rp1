@@ -5,7 +5,6 @@ import { ArtifactList } from "@/components/v2/ArtifactList";
 import { EventStream } from "@/components/v2/EventStream";
 import { DETAIL_HINTS, KeyHints } from "@/components/v2/KeyHints";
 import { StatusBadge } from "@/components/v2/StatusBadge";
-import { StepTimeline } from "@/components/v2/StepTimeline";
 import { WorkflowDiagram } from "@/components/v2/WorkflowDiagram";
 import { useContextualShortcuts } from "@/hooks/useContextualShortcuts";
 import { useRunDetail } from "@/hooks/useRunDetail";
@@ -13,7 +12,6 @@ import {
 	commandToWorkflowName,
 	useWorkflowSteps,
 } from "@/hooks/useWorkflowSteps";
-import { cn } from "@/lib/utils";
 import type { Artifact, Step } from "@/types/runs";
 
 function formatDuration(startedAt: string, completedAt: string | null): string {
@@ -52,53 +50,6 @@ function formatStartTime(dateString: string): string {
 	});
 }
 
-/**
- * Humanize a kebab-case step ID to Title Case.
- */
-function humanizeStepLabel(id: string): string {
-	return id
-		.split("-")
-		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-		.join(" ");
-}
-
-/**
- * Merge workflow ordered steps with run step data.
- * Uses the workflow definition as the authoritative step list, filling in
- * status and timestamps from the run's step records. Steps not yet seen
- * in the run are marked as pending.
- *
- * Handles branching workflows (e.g., verify->build retry loop) correctly
- * because the workflow's orderedSteps are derived via BFS which produces
- * a linear ordering with cycles handled via visited-set.
- */
-function mergeWorkflowSteps(
-	workflowOrderedSteps: readonly { id: string; label: string; index: number }[],
-	runSteps: readonly Step[],
-): readonly Step[] {
-	const runStepMap = new Map<string, Step>();
-	for (const step of runSteps) {
-		runStepMap.set(step.id, step);
-	}
-
-	return workflowOrderedSteps.map(({ id, label }) => {
-		const runStep = runStepMap.get(id);
-		if (runStep) {
-			return runStep;
-		}
-
-		return {
-			id,
-			name: humanizeStepLabel(label),
-			status: "pending" as const,
-			startedAt: null,
-			completedAt: null,
-			taskCount: null,
-			completedTaskCount: null,
-		};
-	});
-}
-
 export function RunDetailPage() {
 	const { runId } = useParams();
 	const navigate = useNavigate();
@@ -114,16 +65,11 @@ export function RunDetailPage() {
 	const { workflow } = useWorkflowSteps(workflowName);
 
 	const displaySteps = useMemo<readonly Step[]>(() => {
-		if (!run) return [];
-		if (workflow && workflow.orderedSteps.length > 0) {
-			return mergeWorkflowSteps(workflow.orderedSteps, run.steps);
-		}
-		return run.steps;
-	}, [run, workflow]);
+		return run ? run.steps : [];
+	}, [run]);
 
 	const artifactsSectionRef = useRef<HTMLElement>(null);
 	const eventStreamSectionRef = useRef<HTMLElement>(null);
-	const timelineSectionRef = useRef<HTMLElement>(null);
 	const diagramSectionRef = useRef<HTMLElement>(null);
 
 	const handleArtifactClick = useCallback(
@@ -227,33 +173,18 @@ export function RunDetailPage() {
 					trigger?.click();
 				},
 			},
-			{
-				key: "t",
-				label: "Timeline",
-				description: "Show step timeline",
-				action: () => {
-					timelineSectionRef.current?.scrollIntoView({
-						behavior: "smooth",
-						block: "start",
-					});
-				},
-			},
 			...(workflow
 				? [
 						{
 							key: "d",
-							label: "Diagram",
-							description: "Show workflow diagram",
+							label: "Workflow State",
+							description: "Focus workflow state panel",
 							action: () => {
 								diagramSectionRef.current?.scrollIntoView({
 									behavior: "smooth",
 									block: "start",
 								});
-								const trigger =
-									diagramSectionRef.current?.querySelector<HTMLElement>(
-										'button[aria-expanded="false"]',
-									);
-								trigger?.click();
+								diagramSectionRef.current?.focus();
 							},
 						},
 					]
@@ -265,12 +196,14 @@ export function RunDetailPage() {
 	if (isLoading) {
 		return (
 			<div className="space-y-6 animate-pulse">
-				<div className="h-8 w-48 rounded bg-muted" />
+				<div className="h-5 w-48 rounded bg-muted" />
 				<div className="h-24 rounded-lg bg-muted" />
-				<div className="h-16 rounded-lg bg-muted" />
-				<div className="grid grid-cols-2 gap-6">
-					<div className="h-64 rounded-lg bg-muted" />
-					<div className="h-64 rounded-lg bg-muted" />
+				<div className="flex flex-col lg:grid lg:grid-cols-5 gap-6">
+					<div className="lg:col-span-3 h-80 rounded-lg bg-muted" />
+					<div className="lg:col-span-2 space-y-6">
+						<div className="h-48 rounded-lg bg-muted" />
+						<div className="h-48 rounded-lg bg-muted" />
+					</div>
 				</div>
 			</div>
 		);
@@ -336,90 +269,89 @@ export function RunDetailPage() {
 			</nav>
 
 			<header className="rounded-lg border border-border bg-card p-6">
-				<div className="flex flex-wrap items-start justify-between gap-4">
-					<div className="flex items-start gap-4">
-						<StatusBadge status={run.status} size="lg" />
+				<div className="flex items-start gap-4">
+					<StatusBadge status={run.status} size="lg" />
 
-						<div>
-							<h1 className="text-xl font-semibold text-foreground">
-								{run.featureName}
-							</h1>
+					<div>
+						<h1 className="text-xl font-semibold text-foreground">
+							{run.featureName}
+						</h1>
 
-							<div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-								<code className="rounded bg-muted px-2 py-0.5">
-									{run.command}
-								</code>
-								<span aria-hidden="true">-</span>
-								<span>{formatStartTime(run.startedAt)}</span>
-								<span aria-hidden="true">-</span>
-								<span>
-									{isActive ? "Elapsed: " : "Duration: "}
-									{formatDuration(run.startedAt, run.completedAt)}
-								</span>
-							</div>
-
-							{run.error && (
-								<p className="mt-2 text-sm text-status-failed">{run.error}</p>
-							)}
+						<div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+							<code className="rounded bg-muted px-2 py-0.5">
+								{run.command}
+							</code>
+							<span aria-hidden="true">-</span>
+							<span>{formatStartTime(run.startedAt)}</span>
+							<span aria-hidden="true">-</span>
+							<span>
+								{isActive ? "Elapsed: " : "Duration: "}
+								{formatDuration(run.startedAt, run.completedAt)}
+							</span>
 						</div>
-					</div>
 
-					<button
-						type="button"
-						onClick={refetch}
-						className={cn(
-							"inline-flex items-center gap-2 rounded-md border border-border bg-muted/30 px-4 py-2 font-mono text-sm transition-colors",
-							"hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+						{run.error && (
+							<p className="mt-2 text-sm text-status-failed">{run.error}</p>
 						)}
-						aria-label={isActive ? "Live updating" : "Refresh run"}
-					>
-						<span className="text-terminal-green" aria-hidden="true">
-							$
-						</span>
-						<span>{isActive ? "live" : "refresh"}</span>
-						{isActive && (
-							<RefreshCw
-								className="h-3.5 w-3.5 animate-spin"
-								aria-hidden="true"
-							/>
-						)}
-					</button>
+					</div>
 				</div>
 			</header>
 
-			{displaySteps.length > 0 && (
-				<section
-					ref={timelineSectionRef}
-					className="rounded-lg border border-border bg-card p-6"
-				>
-					<h2 className="sr-only">Workflow Progress</h2>
-					<StepTimeline steps={displaySteps} orientation="horizontal" />
-				</section>
+			{workflow ? (
+				<div className="flex flex-col lg:grid lg:grid-cols-5 gap-6">
+					<section
+						ref={diagramSectionRef}
+						className="lg:col-span-3"
+						tabIndex={-1}
+					>
+						<WorkflowDiagram workflow={workflow} steps={displaySteps} />
+					</section>
+
+					<div className="lg:col-span-2 space-y-6">
+						<section
+							ref={artifactsSectionRef}
+							className="rounded-lg border border-border bg-card overflow-hidden"
+						>
+							<div className="px-4 py-3">
+								<h2 className="font-medium text-foreground">Artifacts</h2>
+							</div>
+							<div className="border-t border-border p-4">
+								<ArtifactList
+									artifacts={run.artifacts}
+									onArtifactClick={handleArtifactClick}
+									selectedIndex={selectedArtifactIndex}
+								/>
+							</div>
+						</section>
+
+						<section ref={eventStreamSectionRef}>
+							<EventStream events={run.events} defaultExpanded />
+						</section>
+					</div>
+				</div>
+			) : (
+				<div className="space-y-6">
+					<section
+						ref={artifactsSectionRef}
+						className="rounded-lg border border-border bg-card overflow-hidden"
+					>
+						<div className="px-4 py-3">
+							<h2 className="font-medium text-foreground">Artifacts</h2>
+						</div>
+						<div className="border-t border-border p-4">
+							<ArtifactList
+								artifacts={run.artifacts}
+								onArtifactClick={handleArtifactClick}
+								selectedIndex={selectedArtifactIndex}
+							/>
+						</div>
+					</section>
+
+					<section ref={eventStreamSectionRef}>
+						<EventStream events={run.events} defaultExpanded />
+					</section>
+				</div>
 			)}
-
-			{workflow && (
-				<section ref={diagramSectionRef}>
-					<WorkflowDiagram workflow={workflow} steps={displaySteps} />
-				</section>
-			)}
-
-			<div className="grid gap-6 lg:grid-cols-2">
-				<section
-					ref={artifactsSectionRef}
-					className="rounded-lg border border-border bg-card p-4"
-				>
-					<h2 className="mb-4 font-medium text-foreground">Artifacts</h2>
-					<ArtifactList
-						artifacts={run.artifacts}
-						onArtifactClick={handleArtifactClick}
-						selectedIndex={selectedArtifactIndex}
-					/>
-				</section>
-
-				<section ref={eventStreamSectionRef}>
-					<EventStream events={run.events} defaultExpanded={false} />
-				</section>
-			</div>
 
 			<KeyHints hints={DETAIL_HINTS} />
 		</div>

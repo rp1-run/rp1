@@ -3,12 +3,11 @@
  * Integrates with status.db for real run data via database queries.
  *
  * Step derivation uses dynamic state machine loading from co-located
- * state.mmd files. Workflows without state.mmd fall back to task-based
+ * state.mmd files. Workflows without state.mmd fall back to step-based
  * grouping. Stale rows (expired via expires_at) are filtered on read.
  */
 
-import { readdir, stat } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { resolve } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import { formatError } from "../../../../shared/errors.js";
@@ -25,6 +24,7 @@ import {
 	getProjectRunStats,
 	queryAllLatestStatuses,
 	queryAllStatusUpdatesForFeature,
+	queryArtifactsForFeature,
 	queryStatusUpdateById,
 } from "../../../../src/agent-tools/work/database.js";
 import type {
@@ -88,10 +88,17 @@ function humanizeFeatureName(featureId: string): string {
 }
 
 /**
- * Extract command from metadata JSON if present.
- * Falls back to "/build" as the default command.
+ * Extract command from workflow column or metadata JSON.
+ * Prefers the persisted workflow column; falls back to metadata JSON parsing;
+ * ultimately defaults to "/build".
  */
-function extractCommand(metadata: string | null): string {
+function extractCommand(
+	metadata: string | null,
+	workflow?: string | null,
+): string {
+	if (workflow) {
+		return `/${workflow}`;
+	}
 	if (!metadata) {
 		return "/build";
 	}
@@ -159,7 +166,7 @@ function recordToRun(record: StatusUpdateRecord, project: ProjectEntry): Run {
 		projectName: project.name,
 		featureId: record.feature,
 		featureName: humanizeFeatureName(record.feature),
-		command: extractCommand(record.metadata),
+		command: extractCommand(record.metadata, record.workflow),
 		status,
 		currentStep: null,
 		steps: [],
@@ -181,82 +188,79 @@ const TERMINAL_STATUSES: ReadonlySet<StatusValue> = new Set([
 ]);
 
 /**
- * Classify a file extension to an ArtifactType.
+ * Normalize an artifact path. If the path is a bare filename (no directory
+ * separators), resolve it relative to the feature's work directory.
  */
-function classifyArtifactType(filename: string): ArtifactType {
-	if (filename.endsWith(".md")) return "markdown";
-	if (filename.endsWith(".mmd") || filename.endsWith(".mermaid"))
-		return "diagram";
-	if (filename.endsWith(".diff") || filename.endsWith(".patch")) return "diff";
-	if (
-		filename.endsWith(".ts") ||
-		filename.endsWith(".js") ||
-		filename.endsWith(".tsx")
-	)
-		return "code";
-	return "other";
+function normalizeArtifactPath(
+	artifactPath: string,
+	featureId: string,
+): string {
+	if (!artifactPath.includes("/")) {
+		return `.rp1/work/features/${featureId}/${artifactPath}`;
+	}
+	return artifactPath;
 }
 
 /**
- * Discover artifacts for a feature by scanning the project's .rp1 work directories.
- * Checks both `.rp1/work/features/{featureId}/` and `.rp1/work/quick-builds/` for
- * files matching the feature name.
+ * Discover artifact files from the feature directory on the filesystem.
+ * Used as a fallback when no artifacts are registered in the database.
  */
-async function discoverArtifacts(
+async function discoverArtifactsFromFilesystem(
 	projectPath: string,
 	featureId: string,
 ): Promise<readonly Artifact[]> {
+	const featureDir = resolve(projectPath, `.rp1/work/features/${featureId}`);
+	const archiveDir = resolve(
+		projectPath,
+		`.rp1/work/archives/features/${featureId}`,
+	);
+
+	const { existsSync } = await import("node:fs");
+	const dir = existsSync(featureDir)
+		? featureDir
+		: existsSync(archiveDir)
+			? archiveDir
+			: null;
+
+	if (!dir) return [];
+
+	const glob = new Bun.Glob("*.md");
 	const artifacts: Artifact[] = [];
-
-	// Scan .rp1/work/features/{featureId}/
-	const featureDir = join(projectPath, ".rp1", "work", "features", featureId);
-	try {
-		const dirStat = await stat(featureDir);
-		if (dirStat.isDirectory()) {
-			const files = await readdir(featureDir);
-			for (const file of files) {
-				const filePath = join(featureDir, file);
-				const fileStat = await stat(filePath);
-				if (fileStat.isFile()) {
-					artifacts.push({
-						path: `.rp1/work/features/${featureId}/${file}`,
-						type: classifyArtifactType(file),
-						updatedDuringRun: true,
-						isNew: false,
-					});
-				}
-			}
-		}
-	} catch {
-		// Directory doesn't exist - that's fine
-	}
-
-	// Scan .rp1/work/quick-builds/ for files matching the feature name
-	const quickBuildsDir = join(projectPath, ".rp1", "work", "quick-builds");
-	try {
-		const dirStat = await stat(quickBuildsDir);
-		if (dirStat.isDirectory()) {
-			const files = await readdir(quickBuildsDir);
-			for (const file of files) {
-				if (file.includes(featureId)) {
-					const filePath = join(quickBuildsDir, file);
-					const fileStat = await stat(filePath);
-					if (fileStat.isFile()) {
-						artifacts.push({
-							path: `.rp1/work/quick-builds/${file}`,
-							type: classifyArtifactType(file),
-							updatedDuringRun: true,
-							isNew: false,
-						});
-					}
-				}
-			}
-		}
-	} catch {
-		// Directory doesn't exist - that's fine
+	for await (const entry of glob.scan({ cwd: dir })) {
+		const relativePath = dir.startsWith(resolve(projectPath))
+			? `${dir.slice(resolve(projectPath).length + 1)}/${entry}`
+			: entry;
+		artifacts.push({
+			path: relativePath,
+			type: "markdown",
+			updatedDuringRun: true,
+			isNew: false,
+		});
 	}
 
 	return artifacts;
+}
+
+/**
+ * Query registered artifacts for a feature from the database.
+ * Falls back to filesystem discovery when no DB records exist.
+ */
+async function getRegisteredArtifacts(
+	projectPath: string,
+	featureId: string,
+): Promise<readonly Artifact[]> {
+	const result = await pipe(queryArtifactsForFeature(projectPath, featureId))();
+
+	if (E.isLeft(result) || result.right.length === 0) {
+		return discoverArtifactsFromFilesystem(projectPath, featureId);
+	}
+
+	return result.right.map((record) => ({
+		path: normalizeArtifactPath(record.path, featureId),
+		type: record.type as ArtifactType,
+		updatedDuringRun: true,
+		isNew: false,
+	}));
 }
 
 /**
@@ -286,16 +290,32 @@ function mapStatusToEventType(status: StatusValue): EventType {
 function deriveEvents(
 	records: readonly StatusUpdateRecord[],
 ): readonly RunEvent[] {
-	return records.map((record) => ({
-		id: `evt-${record.id}`,
-		type: mapStatusToEventType(record.status),
-		message:
-			record.message ??
-			`${record.task ? `[${record.task}] ` : ""}Status: ${record.status}`,
-		timestamp: record.createdAt,
-		stepId: record.task ?? null,
-		metadata: record.metadata ? parseMetadataSafe(record.metadata) : null,
-	}));
+	return records.map((record) => {
+		const isAgent = record.agent !== null;
+		const type: EventType = isAgent
+			? "agent-update"
+			: mapStatusToEventType(record.status);
+
+		let message: string;
+		if (record.message) {
+			message = record.message;
+		} else if (isAgent) {
+			const agentLabel = humanizeFeatureName(record.agent ?? "");
+			const taskSuffix = record.task ? ` (${record.task})` : "";
+			message = `${agentLabel}${taskSuffix}: ${record.status}`;
+		} else {
+			message = `${record.step ? `[${record.step}] ` : ""}Status: ${record.status}`;
+		}
+
+		return {
+			id: `evt-${record.id}`,
+			type,
+			message,
+			timestamp: record.createdAt,
+			stepId: record.step ?? null,
+			metadata: record.metadata ? parseMetadataSafe(record.metadata) : null,
+		};
+	});
 }
 
 /**
@@ -329,22 +349,22 @@ function mapRecordStatusToStepStatus(status: StatusValue): StepStatus {
 }
 
 /**
- * Build a lookup of task-level records grouped by task ID.
+ * Build a lookup of step-level records grouped by step ID.
  */
-function buildTaskRecordMap(
+function buildStepRecordMap(
 	records: readonly StatusUpdateRecord[],
 ): Map<string, StatusUpdateRecord[]> {
-	const taskMap = new Map<string, StatusUpdateRecord[]>();
+	const stepMap = new Map<string, StatusUpdateRecord[]>();
 	for (const record of records) {
-		if (!record.task) continue;
-		const existing = taskMap.get(record.task);
+		if (!record.step) continue;
+		const existing = stepMap.get(record.step);
 		if (existing) {
 			existing.push(record);
 		} else {
-			taskMap.set(record.task, [record]);
+			stepMap.set(record.step, [record]);
 		}
 	}
-	return taskMap;
+	return stepMap;
 }
 
 /**
@@ -361,9 +381,9 @@ export function deriveWorkflowStepsFromMachine(
 	records: readonly StatusUpdateRecord[],
 	orderedSteps: readonly OrderedStep[],
 ): readonly Step[] {
-	const taskMap = buildTaskRecordMap(records);
+	const stepMap = buildStepRecordMap(records);
 
-	const featureLevelRecords = records.filter((r) => !r.task);
+	const featureLevelRecords = records.filter((r) => !r.step);
 	const latestFeatureRecord =
 		featureLevelRecords.length > 0
 			? featureLevelRecords[featureLevelRecords.length - 1]
@@ -371,18 +391,18 @@ export function deriveWorkflowStepsFromMachine(
 
 	let lastActiveIndex = -1;
 	for (let i = orderedSteps.length - 1; i >= 0; i--) {
-		if (taskMap.has(orderedSteps[i].id)) {
+		if (stepMap.has(orderedSteps[i].id)) {
 			lastActiveIndex = i;
 			break;
 		}
 	}
 
 	return orderedSteps.map(({ id, label }, index) => {
-		const taskRecords = taskMap.get(id);
+		const stepRecords = stepMap.get(id);
 
-		if (taskRecords && taskRecords.length > 0) {
-			const firstRecord = taskRecords[0];
-			const lastRecord = taskRecords[taskRecords.length - 1];
+		if (stepRecords && stepRecords.length > 0) {
+			const firstRecord = stepRecords[0];
+			const lastRecord = stepRecords[stepRecords.length - 1];
 
 			let stepStatus = mapRecordStatusToStepStatus(lastRecord.status);
 
@@ -424,26 +444,26 @@ export function deriveWorkflowStepsFromMachine(
 }
 
 /**
- * Derive steps from records using task-based grouping.
+ * Derive steps from records using step-based grouping.
  * Used as fallback when no state machine is available for a workflow.
  */
 export function deriveTaskBasedSteps(
 	records: readonly StatusUpdateRecord[],
 ): readonly Step[] {
-	const taskMap = buildTaskRecordMap(records);
+	const stepMap = buildStepRecordMap(records);
 	const steps: Step[] = [];
 
-	for (const [taskId, taskRecords] of taskMap) {
-		const firstRecord = taskRecords[0];
-		const lastRecord = taskRecords[taskRecords.length - 1];
+	for (const [stepId, stepRecords] of stepMap) {
+		const firstRecord = stepRecords[0];
+		const lastRecord = stepRecords[stepRecords.length - 1];
 		const stepStatus = mapRecordStatusToStepStatus(lastRecord.status);
 		const completedAt = TERMINAL_STATUSES.has(lastRecord.status)
 			? lastRecord.createdAt
 			: null;
 
 		steps.push({
-			id: taskId,
-			name: humanizeFeatureName(taskId),
+			id: stepId,
+			name: humanizeFeatureName(stepId),
 			status: stepStatus,
 			startedAt: firstRecord.createdAt,
 			completedAt,
@@ -459,7 +479,7 @@ export function deriveTaskBasedSteps(
  * Derive Step[] from the full timeline of StatusUpdateRecords.
  * Attempts to load a state machine for the command; if found, uses
  * dynamic step derivation from the machine. Otherwise falls back to
- * task-based grouping.
+ * step-based grouping.
  */
 async function deriveSteps(
 	records: readonly StatusUpdateRecord[],
@@ -483,7 +503,7 @@ async function deriveSteps(
  *
  * A workflow run is "completed" when:
  * - Any terminal state has a completed record, OR
- * - A feature-level "completed" record (no task) exists.
+ * - A feature-level "completed" record (no step) exists.
  *
  * A workflow run is "failed" if any record reports failure.
  *
@@ -495,8 +515,8 @@ export function deriveWorkflowRunStatus(
 	allRecords: readonly StatusUpdateRecord[],
 	machine: StateMachine,
 ): RunStatus {
-	const taskRecordMap = buildTaskRecordMap(allRecords);
-	const featureLevelRecords = allRecords.filter((r) => !r.task);
+	const stepRecordMap = buildStepRecordMap(allRecords);
+	const featureLevelRecords = allRecords.filter((r) => !r.step);
 	const latestFeatureRecord =
 		featureLevelRecords.length > 0
 			? featureLevelRecords[featureLevelRecords.length - 1]
@@ -519,9 +539,8 @@ export function deriveWorkflowRunStatus(
 		}
 	}
 
-	// Check if any terminal state has a completed record
 	for (const terminalStateId of machine.terminalStates) {
-		const terminalRecords = taskRecordMap.get(terminalStateId);
+		const terminalRecords = stepRecordMap.get(terminalStateId);
 		if (terminalRecords && terminalRecords.length > 0) {
 			const lastRecord = terminalRecords[terminalRecords.length - 1];
 			if (lastRecord.status === "completed") {
@@ -564,6 +583,10 @@ async function deriveRunStatus(
  *
  * For workflows with state machines, the overall status is derived from
  * workflow completion rather than the latest DB record's status.
+ *
+ * All records (skill-level and agent-level) are included in the event
+ * stream. Agent events are tagged with type "agent-update" for distinct
+ * rendering in the UI.
  */
 async function buildDetailedRun(
 	record: StatusUpdateRecord,
@@ -571,39 +594,43 @@ async function buildDetailedRun(
 	project: ProjectEntry,
 	artifacts: readonly Artifact[],
 ): Promise<Run> {
-	const command = extractCommand(record.metadata);
+	const command = extractCommand(record.metadata, record.workflow);
+
+	const skillRecords = allRecords.filter((r) => r.agent === null);
+
 	const events = deriveEvents(allRecords);
-	const steps = await deriveSteps(allRecords, command);
-	const status = await deriveRunStatus(allRecords, command);
+	const steps = await deriveSteps(skillRecords, command);
+	const status = await deriveRunStatus(skillRecords, command);
 
 	const startedAt =
-		allRecords.length > 0 ? allRecords[0].createdAt : record.createdAt;
+		skillRecords.length > 0 ? skillRecords[0].createdAt : record.createdAt;
 
 	let completedAt: string | null = null;
 	if (status === "completed" || status === "failed") {
-		for (let i = allRecords.length - 1; i >= 0; i--) {
-			if (TERMINAL_STATUSES.has(allRecords[i].status)) {
-				completedAt = allRecords[i].createdAt;
+		for (let i = skillRecords.length - 1; i >= 0; i--) {
+			if (TERMINAL_STATUSES.has(skillRecords[i].status)) {
+				completedAt = skillRecords[i].createdAt;
 				break;
 			}
 		}
 	}
 
-	// Find the currently active step (last task with non-terminal status)
 	let currentStep: string | null = null;
-	for (let i = allRecords.length - 1; i >= 0; i--) {
-		if (allRecords[i].task && !TERMINAL_STATUSES.has(allRecords[i].status)) {
-			currentStep = allRecords[i].task;
+	for (let i = skillRecords.length - 1; i >= 0; i--) {
+		if (
+			skillRecords[i].step &&
+			!TERMINAL_STATUSES.has(skillRecords[i].status)
+		) {
+			currentStep = skillRecords[i].step;
 			break;
 		}
 	}
 
-	// Error message from the latest failed record
 	let error: string | null = null;
 	if (status === "failed") {
-		for (let i = allRecords.length - 1; i >= 0; i--) {
-			if (allRecords[i].status === "failed" && allRecords[i].message) {
-				error = allRecords[i].message;
+		for (let i = skillRecords.length - 1; i >= 0; i--) {
+			if (skillRecords[i].status === "failed" && skillRecords[i].message) {
+				error = skillRecords[i].message;
 				break;
 			}
 		}
@@ -637,7 +664,6 @@ function mapRunStatusToStatusValue(
 	switch (runStatus) {
 		case "running":
 			// Database query handles started/in_progress via multiple OR conditions
-			// Return undefined to indicate special handling needed
 			return undefined;
 		case "queued":
 			// No direct mapping - queued is not in status.db
@@ -669,24 +695,20 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 	const dateRange = params.get("dateRange") ?? "all";
 
 	try {
-		// Load all projects to create a lookup map
 		const projects = await getAllProjects();
 		const projectByPath = new Map(projects.map((p) => [p.path, p]));
 		const projectById = new Map(projects.map((p) => [p.id, p]));
 
-		// Determine project path filter if projectId is specified
 		let projectPathFilter: string | undefined;
 		if (projectIdFilter) {
 			const project = projectById.get(projectIdFilter);
 			if (project) {
 				projectPathFilter = project.path;
 			} else {
-				// Project not found - return empty results
 				return jsonResponse({ runs: [], total: 0 });
 			}
 		}
 
-		// Determine status filter for database query
 		let dbStatusFilter: StatusValue | undefined;
 		if (statusFilter && statusFilter !== "all") {
 			dbStatusFilter = mapRunStatusToStatusValue(statusFilter);
@@ -697,7 +719,6 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 			}
 		}
 
-		// Query database for latest statuses
 		const result = await pipe(
 			queryAllLatestStatuses({
 				status: dbStatusFilter,
@@ -727,7 +748,6 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 			}
 		}
 
-		// Adjust total for filtered records
 		let total = dbTotal - (rawRecords.length - nonExpiredRecords.length);
 
 		// Post-filter for "running" status (includes both started and in_progress)
@@ -737,7 +757,6 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 			runs = runs.slice(offset, offset + limit);
 		}
 
-		// Apply date range filter
 		if (dateRange !== "all") {
 			const now = Date.now();
 			const ranges: Record<string, number> = {
@@ -767,11 +786,9 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
  */
 export async function handleV2RunsAttentionRequest(): Promise<Response> {
 	try {
-		// Load all projects to create a lookup map
 		const projects = await getAllProjects();
 		const projectByPath = new Map(projects.map((p) => [p.path, p]));
 
-		// Query all latest statuses (no filter)
 		const result = await pipe(queryAllLatestStatuses({}))();
 
 		if (E.isLeft(result)) {
@@ -793,7 +810,6 @@ export async function handleV2RunsAttentionRequest(): Promise<Response> {
 			}
 		}
 
-		// Group runs by attention category
 		const attention: AttentionData = {
 			waiting: allRuns.filter((r) => r.status === "waiting-input"),
 			needsReview: allRuns.filter((r) => r.status === "needs-review"),
@@ -842,7 +858,6 @@ export async function handleV2RunDetailRequest(
 			return errorResponse(`Project not found for run: ${runId}`, 404);
 		}
 
-		// Fetch full timeline for this feature to build events, steps, and duration
 		const timelineResult = await pipe(
 			queryAllStatusUpdatesForFeature(record.projectPath, record.feature),
 		)();
@@ -854,8 +869,7 @@ export async function handleV2RunDetailRequest(
 		// Filter out stale records (on-read pruning for expires_at)
 		const allRecords = filterNonExpiredRecords(rawRecords);
 
-		// Discover artifacts on disk
-		const artifacts = await discoverArtifacts(
+		const artifacts = await getRegisteredArtifacts(
 			record.projectPath,
 			record.feature,
 		);
@@ -905,21 +919,53 @@ export async function handleV2ArtifactContentRequest(
 		}
 
 		const projectRoot = resolve(project.path);
-		const fullPath = resolve(projectRoot, artifactPath);
 
-		if (!fullPath.startsWith(`${projectRoot}/`)) {
-			return errorResponse("Access denied: path traversal detected", 403);
+		// Build candidate paths to try in order
+		const candidates: string[] = [];
+
+		// 1. Exact path as given
+		candidates.push(resolve(projectRoot, artifactPath));
+
+		// 2. Archive fallback: features/ -> archives/features/, prds/ -> archives/prds/
+		const archivablePrefixes = [".rp1/work/features/", ".rp1/work/prds/"];
+		for (const prefix of archivablePrefixes) {
+			if (artifactPath.startsWith(prefix)) {
+				candidates.push(
+					resolve(
+						projectRoot,
+						artifactPath.replace(
+							prefix,
+							`.rp1/work/archives/${prefix.slice(".rp1/work/".length)}`,
+						),
+					),
+				);
+			}
 		}
 
-		const file = Bun.file(fullPath);
-		const exists = await file.exists();
-
-		if (!exists) {
-			return errorResponse(`Artifact not found: ${artifactPath}`, 404);
+		// 3. Bare filename: resolve relative to feature's work and archive dirs
+		if (!artifactPath.includes("/")) {
+			const featureId = record.feature;
+			candidates.push(
+				resolve(projectRoot, `.rp1/work/features/${featureId}/${artifactPath}`),
+				resolve(
+					projectRoot,
+					`.rp1/work/archives/features/${featureId}/${artifactPath}`,
+				),
+			);
 		}
 
-		const content = await file.text();
-		return jsonResponse({ content });
+		for (const candidate of candidates) {
+			if (!candidate.startsWith(`${projectRoot}/`)) continue;
+			if (await Bun.file(candidate).exists()) {
+				const content = await Bun.file(candidate).text();
+				return jsonResponse({ content });
+			}
+		}
+
+		return errorResponse(
+			`Artifact not found: ${artifactPath}. The file may have been deleted.`,
+			404,
+		);
 	} catch (error) {
 		return errorResponse(`Failed to fetch artifact: ${String(error)}`);
 	}
@@ -934,7 +980,6 @@ export async function handleV2ProjectsListRequest(): Promise<Response> {
 		const projects = await getAllProjects();
 		const projectPaths = projects.map((p) => p.path);
 
-		// Fetch run stats for all projects in a single query
 		const statsResult = await pipe(getProjectRunStats(projectPaths))();
 
 		const statsMap = E.isRight(statsResult)

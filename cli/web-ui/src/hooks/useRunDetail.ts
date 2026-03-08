@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useWebSocket } from "@/providers/WebSocketProvider";
-import type { Artifact, Run, RunEvent, Step } from "@/types/runs";
-import type { RunMessage, StatusChangedMessage } from "@/types/websocket";
+import type { Run, RunStatus } from "@/types/runs";
+import type { StatusChangedMessage } from "@/types/websocket";
 
 interface UseRunDetailResult {
 	run: Run | null;
@@ -14,7 +14,7 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 	const [run, setRun] = useState<Run | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<Error | null>(null);
-	const { subscribeToRun, onStatusChange } = useWebSocket();
+	const { onStatusChange } = useWebSocket();
 	const runRef = useRef<Run | null>(null);
 
 	const fetchRun = useCallback(async () => {
@@ -50,67 +50,12 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 		fetchRun();
 	}, [fetchRun]);
 
-	useEffect(() => {
-		if (!runId) return;
+	// Subscribe to status_changed events for optimistic updates and
+	// debounced reconciliation refetch. When step/runStatus fields are
+	// present, apply them immediately to local state. Full refetch is
+	// debounced with a 500ms quiet window to batch rapid status changes.
+	const debouncedFetchRef = useRef<ReturnType<typeof setTimeout>>();
 
-		const handleRunMessage = (message: RunMessage) => {
-			setRun((currentRun) => {
-				if (!currentRun) return null;
-
-				switch (message.type) {
-					case "run:status":
-						return {
-							...currentRun,
-							status: message.status,
-							currentStep: message.currentStep,
-						};
-
-					case "run:step": {
-						const updatedSteps = currentRun.steps.map((step) =>
-							step.id === message.stepId
-								? { ...step, status: message.status }
-								: step,
-						) as readonly Step[];
-						return { ...currentRun, steps: updatedSteps };
-					}
-
-					case "run:artifact": {
-						const existingIndex = currentRun.artifacts.findIndex(
-							(a) => a.path === message.artifact.path,
-						);
-						let updatedArtifacts: readonly Artifact[];
-						if (existingIndex >= 0) {
-							updatedArtifacts = currentRun.artifacts.map((a, i) =>
-								i === existingIndex ? message.artifact : a,
-							) as readonly Artifact[];
-						} else {
-							updatedArtifacts = [...currentRun.artifacts, message.artifact];
-						}
-						return { ...currentRun, artifacts: updatedArtifacts };
-					}
-
-					case "run:event": {
-						const updatedEvents = [
-							...currentRun.events,
-							message.event,
-						] as readonly RunEvent[];
-						return { ...currentRun, events: updatedEvents };
-					}
-
-					default:
-						return currentRun;
-				}
-			});
-		};
-
-		const unsubscribe = subscribeToRun(runId, handleRunMessage);
-		return unsubscribe;
-	}, [runId, subscribeToRun]);
-
-	// Subscribe to status_changed events to trigger refetch when the matching
-	// feature receives a status update. This handles state-machine-enabled
-	// workflows where the WebSocket run:step/run:status messages use a
-	// different runId format than the frontend composite ID.
 	useEffect(() => {
 		if (!runId) return;
 
@@ -122,12 +67,35 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 				msg.feature === currentRun.featureId &&
 				msg.projectId === currentRun.projectId
 			) {
-				fetchRun();
+				if (msg.step || msg.runStatus) {
+					setRun((prev) => {
+						if (!prev) return null;
+						return {
+							...prev,
+							...(msg.step !== undefined && { currentStep: msg.step }),
+							...(msg.runStatus !== undefined && {
+								status: msg.runStatus as RunStatus,
+							}),
+						};
+					});
+				}
+
+				clearTimeout(debouncedFetchRef.current);
+				debouncedFetchRef.current = setTimeout(fetchRun, 500);
+
+				const isTerminal =
+					msg.runStatus === "completed" || msg.runStatus === "failed";
+				if (isTerminal) {
+					setTimeout(fetchRun, 1000);
+				}
 			}
 		};
 
 		const unsubscribe = onStatusChange(handleStatusChange);
-		return unsubscribe;
+		return () => {
+			unsubscribe();
+			clearTimeout(debouncedFetchRef.current);
+		};
 	}, [runId, onStatusChange, fetchRun]);
 
 	const refetch = useCallback(() => {

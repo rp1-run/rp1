@@ -36,7 +36,8 @@ export type EventType =
 	| "warning"
 	| "error"
 	| "artifact-updated"
-	| "task-batch";
+	| "task-batch"
+	| "agent-update";
 
 /** A workflow step within a run */
 export interface Step {

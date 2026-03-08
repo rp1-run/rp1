@@ -4,15 +4,17 @@
  */
 
 import { Database } from "bun:sqlite";
-import { mkdir, readdir } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../../shared/errors.js";
 import { runtimeError } from "../../../shared/errors.js";
 import type {
+	ArtifactInput,
+	ArtifactRecord,
+	ArtifactTypeValue,
 	InsertResult,
 	QueryOptions,
 	StatusUpdateInput,
@@ -22,10 +24,11 @@ import type {
 import { VALID_STATUSES } from "./models.js";
 
 /** Current schema version - must match highest migration number */
-export const CURRENT_SCHEMA_VERSION = 3;
+export const CURRENT_SCHEMA_VERSION = 7;
 
-/** Default database file location */
-const DEFAULT_DB_PATH = join(homedir(), ".rp1", "status.db");
+/** Default database file location. Override with RP1_STATUS_DB env var (used by evals to avoid polluting local DB). */
+const DEFAULT_DB_PATH =
+	process.env.RP1_STATUS_DB ?? join(homedir(), ".rp1", "status.db");
 
 /** Valid feature name pattern (kebab-case with alphanumeric) */
 const FEATURE_PATTERN = /^[a-z0-9-]+$/;
@@ -37,19 +40,22 @@ const FEATURE_PATTERN = /^[a-z0-9-]+$/;
 const isValidFeatureName = (name: string): boolean =>
 	FEATURE_PATTERN.test(name);
 
-/** SQL schema for status_updates table (version 3 with run_id and expires_at) */
+/** SQL schema for status_updates table (version 6 with agent and task columns) */
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS status_updates (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     project_path TEXT NOT NULL,
     feature TEXT NOT NULL,
-    task TEXT,
+    step TEXT,
     status TEXT NOT NULL CHECK(status IN ('started', 'in_progress', 'waiting-input', 'needs-review', 'completed', 'failed')),
     message TEXT,
     metadata TEXT,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     run_id TEXT,
-    expires_at TEXT
+    expires_at TEXT,
+    workflow TEXT,
+    agent TEXT,
+    task TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_status_project ON status_updates(project_path);
@@ -57,12 +63,87 @@ CREATE INDEX IF NOT EXISTS idx_status_created ON status_updates(created_at);
 CREATE INDEX IF NOT EXISTS idx_status_feature ON status_updates(project_path, feature);
 CREATE INDEX IF NOT EXISTS idx_status_run_id ON status_updates(project_path, feature, run_id);
 CREATE INDEX IF NOT EXISTS idx_status_expires_at ON status_updates(expires_at);
+CREATE INDEX IF NOT EXISTS idx_status_updates_agent ON status_updates(agent);
+CREATE INDEX IF NOT EXISTS idx_status_updates_agent_task ON status_updates(agent, task);
+
+CREATE TABLE IF NOT EXISTS artifacts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_path TEXT NOT NULL,
+    feature TEXT NOT NULL,
+    run_id TEXT,
+    path TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT 'other',
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_artifacts_run ON artifacts(project_path, feature, run_id);
 `;
 
-/** Get migrations directory path */
-const getMigrationsDir = (): string => {
-	const currentDir = dirname(fileURLToPath(import.meta.url));
-	return join(currentDir, "migrations");
+/**
+ * Inline migration SQL registry.
+ * Embedded as constants so they work in Bun-compiled binaries where
+ * runtime filesystem reads against import.meta.url resolve to $bunfs
+ * and the .sql files don't exist.
+ *
+ * Version 1 is the initial schema created by SCHEMA_SQL above.
+ */
+const MIGRATIONS: Record<number, string> = {
+	2: `-- Migration: Add waiting-input and needs-review status values
+CREATE TABLE status_updates_new (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_path TEXT NOT NULL,
+    feature TEXT NOT NULL,
+    task TEXT,
+    status TEXT NOT NULL CHECK(status IN ('started', 'in_progress', 'waiting-input', 'needs-review', 'completed', 'failed')),
+    message TEXT,
+    metadata TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+INSERT INTO status_updates_new (id, project_path, feature, task, status, message, metadata, created_at)
+SELECT id, project_path, feature, task, status, message, metadata, created_at
+FROM status_updates;
+
+DROP TABLE status_updates;
+
+ALTER TABLE status_updates_new RENAME TO status_updates;
+
+CREATE INDEX idx_status_project ON status_updates(project_path);
+CREATE INDEX idx_status_created ON status_updates(created_at);
+CREATE INDEX idx_status_feature ON status_updates(project_path, feature);`,
+
+	3: `-- Migration: Add run_id and expires_at columns
+ALTER TABLE status_updates ADD COLUMN run_id TEXT;
+ALTER TABLE status_updates ADD COLUMN expires_at TEXT;
+
+CREATE INDEX idx_status_run_id ON status_updates(project_path, feature, run_id);
+CREATE INDEX idx_status_expires_at ON status_updates(expires_at);`,
+
+	4: `-- Migration: Add workflow column
+ALTER TABLE status_updates ADD COLUMN workflow TEXT;`,
+
+	5: `-- Migration: Rename task column to step
+ALTER TABLE status_updates RENAME COLUMN task TO step;`,
+
+	6: `-- Migration: Add agent and task columns for hierarchical state tracking
+ALTER TABLE status_updates ADD COLUMN agent TEXT;
+ALTER TABLE status_updates ADD COLUMN task TEXT;
+
+CREATE INDEX idx_status_updates_agent ON status_updates(agent);
+CREATE INDEX idx_status_updates_agent_task ON status_updates(agent, task);`,
+
+	7: `-- Migration: Add artifacts table for explicit artifact registration
+CREATE TABLE artifacts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_path TEXT NOT NULL,
+    feature TEXT NOT NULL,
+    run_id TEXT,
+    path TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT 'other',
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX idx_artifacts_run ON artifacts(project_path, feature, run_id);`,
 };
 
 /** Get current database schema version from PRAGMA user_version */
@@ -81,36 +162,27 @@ const setSchemaVersion = (db: Database, version: number): void => {
 /**
  * Run all pending migrations atomically.
  * Each migration runs in a transaction for atomicity.
+ * Reads SQL from the inline MIGRATIONS map (no filesystem access).
  *
  * @param db - Database connection
- * @returns Promise that resolves when all migrations complete
  */
-const runMigrations = async (db: Database): Promise<void> => {
+const runMigrations = (db: Database): void => {
 	const currentVersion = getSchemaVersion(db);
 
 	if (currentVersion >= CURRENT_SCHEMA_VERSION) {
 		return;
 	}
 
-	const migrationsDir = getMigrationsDir();
-	const files = await readdir(migrationsDir);
-	const migrationFiles = files.filter((f) => f.endsWith(".sql")).sort();
-
 	for (let v = currentVersion + 1; v <= CURRENT_SCHEMA_VERSION; v++) {
-		const migrationFile = migrationFiles.find((f) =>
-			f.startsWith(`${v.toString().padStart(3, "0")}_`),
-		);
-
-		if (!migrationFile) {
-			throw new Error(`Migration file for version ${v} not found`);
+		const migrationSql = MIGRATIONS[v];
+		if (!migrationSql) {
+			throw new Error(
+				`Migration SQL for version ${v} not found in MIGRATIONS map`,
+			);
 		}
 
 		console.log(`Running migration to schema version ${v}...`);
 
-		const migrationPath = join(migrationsDir, migrationFile);
-		const migrationSql = await Bun.file(migrationPath).text();
-
-		// Execute migration atomically in a transaction
 		db.transaction(() => {
 			db.exec(migrationSql);
 			setSchemaVersion(db, v);
@@ -168,7 +240,6 @@ const getDatabase = (
 			// Enable WAL mode for better concurrent write performance
 			db.exec("PRAGMA journal_mode = WAL;");
 
-			// Check if this is a fresh database (no tables exist)
 			const tableCheck = db
 				.prepare(
 					"SELECT name FROM sqlite_master WHERE type='table' AND name='status_updates'",
@@ -176,12 +247,10 @@ const getDatabase = (
 				.get();
 
 			if (!tableCheck) {
-				// Fresh database - create schema with latest version
 				db.exec(SCHEMA_SQL);
 				setSchemaVersion(db, CURRENT_SCHEMA_VERSION);
 			} else {
-				// Existing database - run any pending migrations
-				await runMigrations(db);
+				runMigrations(db);
 			}
 
 			dbInstance = db;
@@ -201,24 +270,30 @@ const rowToRecord = (row: {
 	id: number;
 	project_path: string;
 	feature: string;
-	task: string | null;
+	step: string | null;
 	status: string;
 	message: string | null;
 	metadata: string | null;
 	created_at: string;
 	run_id: string | null;
 	expires_at: string | null;
+	workflow: string | null;
+	agent: string | null;
+	task: string | null;
 }): StatusUpdateRecord => ({
 	id: row.id,
 	projectPath: row.project_path,
 	feature: row.feature,
-	task: row.task,
+	step: row.step,
 	status: row.status as StatusValue,
 	message: row.message,
 	metadata: row.metadata,
 	createdAt: row.created_at,
 	runId: row.run_id,
 	expiresAt: row.expires_at,
+	workflow: row.workflow,
+	agent: row.agent,
+	task: row.task,
 });
 
 /**
@@ -238,20 +313,23 @@ export const insertStatusUpdate = (
 			TE.tryCatch(
 				async () => {
 					const stmt = db.prepare(`
-						INSERT INTO status_updates (project_path, feature, task, status, message, metadata, run_id, expires_at)
-						VALUES ($projectPath, $feature, $task, $status, $message, $metadata, $runId, $expiresAt)
+						INSERT INTO status_updates (project_path, feature, step, status, message, metadata, run_id, expires_at, workflow, agent, task)
+						VALUES ($projectPath, $feature, $step, $status, $message, $metadata, $runId, $expiresAt, $workflow, $agent, $task)
 						RETURNING id, created_at
 					`);
 
 					const result = stmt.get({
 						$projectPath: input.projectPath,
 						$feature: input.feature,
-						$task: input.task ?? null,
+						$step: input.step ?? null,
 						$status: input.status,
 						$message: input.message ?? null,
 						$metadata: input.metadata ?? null,
 						$runId: input.runId ?? null,
 						$expiresAt: input.expiresAt ?? null,
+						$workflow: input.workflow ?? null,
+						$agent: input.agent ?? null,
+						$task: input.task ?? null,
 					}) as { id: number; created_at: string };
 
 					return {
@@ -284,7 +362,7 @@ export const queryStatusUpdates = (
 			TE.tryCatch(
 				async () => {
 					let sql = `
-						SELECT id, project_path, feature, task, status, message, metadata, created_at, run_id, expires_at
+						SELECT id, project_path, feature, step, status, message, metadata, created_at, run_id, expires_at, workflow, agent, task
 						FROM status_updates
 						WHERE project_path = $projectPath
 					`;
@@ -309,13 +387,16 @@ export const queryStatusUpdates = (
 						id: number;
 						project_path: string;
 						feature: string;
-						task: string | null;
+						step: string | null;
 						status: string;
 						message: string | null;
 						metadata: string | null;
 						created_at: string;
 						run_id: string | null;
 						expires_at: string | null;
+						workflow: string | null;
+						agent: string | null;
+						task: string | null;
 					}>;
 
 					return rows.map(rowToRecord);
@@ -366,7 +447,7 @@ export const queryStatusUpdatesForFeatures = (
 					// Use window function to rank updates per feature
 					const placeholders = features.map((_, i) => `$f${i}`).join(", ");
 					const sql = `
-						SELECT id, project_path, feature, task, status, message, metadata, created_at, run_id, expires_at
+						SELECT id, project_path, feature, step, status, message, metadata, created_at, run_id, expires_at, workflow, agent, task
 						FROM (
 							SELECT *,
 								ROW_NUMBER() OVER (PARTITION BY feature ORDER BY created_at DESC) as rn
@@ -391,13 +472,16 @@ export const queryStatusUpdatesForFeatures = (
 						id: number;
 						project_path: string;
 						feature: string;
-						task: string | null;
+						step: string | null;
 						status: string;
 						message: string | null;
 						metadata: string | null;
 						created_at: string;
 						run_id: string | null;
 						expires_at: string | null;
+						workflow: string | null;
+						agent: string | null;
+						task: string | null;
 					}>;
 
 					const result = new Map<string, StatusUpdateRecord[]>();
@@ -438,7 +522,7 @@ export const getLatestStatusByFeature = (
 			TE.tryCatch(
 				async () => {
 					const stmt = db.prepare(`
-						SELECT s.id, s.project_path, s.feature, s.task, s.status, s.message, s.metadata, s.created_at, s.run_id, s.expires_at
+						SELECT s.id, s.project_path, s.feature, s.step, s.status, s.message, s.metadata, s.created_at, s.run_id, s.expires_at, s.workflow, s.agent, s.task
 						FROM status_updates s
 						INNER JOIN (
 							SELECT feature, MAX(created_at) as max_created
@@ -454,13 +538,16 @@ export const getLatestStatusByFeature = (
 						id: number;
 						project_path: string;
 						feature: string;
-						task: string | null;
+						step: string | null;
 						status: string;
 						message: string | null;
 						metadata: string | null;
 						created_at: string;
 						run_id: string | null;
 						expires_at: string | null;
+						workflow: string | null;
+						agent: string | null;
+						task: string | null;
 					}>;
 
 					return rows.map(rowToRecord);
@@ -468,6 +555,117 @@ export const getLatestStatusByFeature = (
 				(error) =>
 					runtimeError(
 						`Failed to get latest status by feature: ${error instanceof Error ? error.message : String(error)}`,
+					),
+			),
+		),
+	);
+
+/**
+ * Insert a new artifact record.
+ *
+ * @param input - Artifact registration data
+ * @param dbPath - Database file path (optional, defaults to ~/.rp1/status.db)
+ * @returns TaskEither with InsertResult or CLIError
+ */
+export const insertArtifact = (
+	input: ArtifactInput,
+	dbPath?: string,
+): TE.TaskEither<CLIError, InsertResult> =>
+	pipe(
+		getDatabase(dbPath),
+		TE.chain((db) =>
+			TE.tryCatch(
+				async () => {
+					const stmt = db.prepare(`
+						INSERT INTO artifacts (project_path, feature, run_id, path, type)
+						VALUES ($projectPath, $feature, $runId, $path, $type)
+						RETURNING id, created_at
+					`);
+
+					const result = stmt.get({
+						$projectPath: input.projectPath,
+						$feature: input.feature,
+						$runId: input.runId ?? null,
+						$path: input.path,
+						$type: input.type,
+					}) as { id: number; created_at: string };
+
+					return {
+						id: result.id,
+						createdAt: result.created_at,
+					};
+				},
+				(error) =>
+					runtimeError(
+						`Failed to insert artifact: ${error instanceof Error ? error.message : String(error)}`,
+					),
+			),
+		),
+	);
+
+/**
+ * Query artifacts for a specific project+feature combination.
+ * Optionally scoped by run_id.
+ *
+ * @param projectPath - Absolute path to the project
+ * @param feature - Feature identifier (kebab-case)
+ * @param runId - Optional run ID for scoping
+ * @param dbPath - Database file path (optional, defaults to ~/.rp1/status.db)
+ * @returns TaskEither with array of ArtifactRecord or CLIError
+ */
+export const queryArtifactsForFeature = (
+	projectPath: string,
+	feature: string,
+	runId?: string,
+	dbPath?: string,
+): TE.TaskEither<CLIError, readonly ArtifactRecord[]> =>
+	pipe(
+		getDatabase(dbPath),
+		TE.chain((db) =>
+			TE.tryCatch(
+				async () => {
+					let sql = `
+						SELECT id, project_path, feature, run_id, path, type, created_at
+						FROM artifacts
+						WHERE project_path = $projectPath AND feature = $feature
+					`;
+					const params: Record<string, string> = {
+						$projectPath: projectPath,
+						$feature: feature,
+					};
+
+					if (runId) {
+						sql += " AND run_id = $runId";
+						params.$runId = runId;
+					}
+
+					sql += " ORDER BY created_at ASC";
+
+					const rows = db.prepare(sql).all(params) as Array<{
+						id: number;
+						project_path: string;
+						feature: string;
+						run_id: string | null;
+						path: string;
+						type: string;
+						created_at: string;
+					}>;
+
+					return rows.map(
+						(row): ArtifactRecord => ({
+							id: row.id,
+							projectPath: row.project_path,
+							feature: row.feature,
+							runId: row.run_id,
+							path: row.path,
+							type: row.type as ArtifactTypeValue,
+							createdAt: row.created_at,
+						}),
+					);
+				},
+				(error) =>
+					runtimeError(
+						`Failed to query artifacts: ${error instanceof Error ? error.message : String(error)}`,
 					),
 			),
 		),
@@ -493,15 +691,15 @@ export const resetDatabaseInstance = (): void => {
 };
 
 /**
- * Get recently completed tasks (task-level granularity).
- * Returns all task completions within the given time window.
+ * Get recently completed steps (step-level granularity).
+ * Returns all step completions within the given time window.
  *
  * @param projectPath - Project path to filter by
  * @param hoursAgo - Number of hours to look back (default: 24)
  * @param dbPath - Database file path (optional, defaults to ~/.rp1/status.db)
- * @returns TaskEither with array of StatusUpdateRecord for completed tasks
+ * @returns TaskEither with array of StatusUpdateRecord for completed steps
  */
-export const getRecentlyCompletedTasks = (
+export const getRecentlyCompletedSteps = (
 	projectPath: string,
 	hoursAgo = 24,
 	dbPath?: string,
@@ -512,11 +710,11 @@ export const getRecentlyCompletedTasks = (
 			TE.tryCatch(
 				async () => {
 					const stmt = db.prepare(`
-						SELECT id, project_path, feature, task, status, message, metadata, created_at, run_id, expires_at
+						SELECT id, project_path, feature, step, status, message, metadata, created_at, run_id, expires_at, workflow, agent, task
 						FROM status_updates
 						WHERE project_path = $projectPath
 						AND status = 'completed'
-						AND task IS NOT NULL
+						AND step IS NOT NULL
 						AND created_at >= datetime('now', $hoursOffset)
 						ORDER BY created_at DESC
 					`);
@@ -528,20 +726,23 @@ export const getRecentlyCompletedTasks = (
 						id: number;
 						project_path: string;
 						feature: string;
-						task: string | null;
+						step: string | null;
 						status: string;
 						message: string | null;
 						metadata: string | null;
 						created_at: string;
 						run_id: string | null;
 						expires_at: string | null;
+						workflow: string | null;
+						agent: string | null;
+						task: string | null;
 					}>;
 
 					return rows.map(rowToRecord);
 				},
 				(error) =>
 					runtimeError(
-						`Failed to get recently completed tasks: ${error instanceof Error ? error.message : String(error)}`,
+						`Failed to get recently completed steps: ${error instanceof Error ? error.message : String(error)}`,
 					),
 			),
 		),
@@ -563,7 +764,6 @@ export const getActiveFeatureCount = (
 		TE.chain((db) =>
 			TE.tryCatch(
 				async () => {
-					// Count distinct features where the latest status is not 'completed'
 					const stmt = db.prepare(`
 						SELECT COUNT(DISTINCT s.feature) as count
 						FROM status_updates s
@@ -621,7 +821,6 @@ export const queryAllLatestStatuses = (
 		TE.chain((db) =>
 			TE.tryCatch(
 				async () => {
-					// Build WHERE clause for the inner subquery
 					const innerConditions: string[] = [];
 					const params: Record<string, string | number> = {};
 
@@ -635,7 +834,6 @@ export const queryAllLatestStatuses = (
 							? `WHERE ${innerConditions.join(" AND ")}`
 							: "";
 
-					// Build WHERE clause for the outer query (includes status filter)
 					const outerConditions: string[] = [];
 					if (options.projectPath) {
 						outerConditions.push("s.project_path = $projectPath");
@@ -650,7 +848,6 @@ export const queryAllLatestStatuses = (
 							? `WHERE ${outerConditions.join(" AND ")}`
 							: "";
 
-					// First, get total count (without pagination)
 					const countSql = `
 						SELECT COUNT(*) as total
 						FROM status_updates s
@@ -670,9 +867,8 @@ export const queryAllLatestStatuses = (
 					};
 					const total = countResult.total;
 
-					// Then, get paginated records
 					let dataSql = `
-						SELECT s.id, s.project_path, s.feature, s.task, s.status, s.message, s.metadata, s.created_at, s.run_id, s.expires_at
+						SELECT s.id, s.project_path, s.feature, s.step, s.status, s.message, s.metadata, s.created_at, s.run_id, s.expires_at, s.workflow, s.agent, s.task
 						FROM status_updates s
 						INNER JOIN (
 							SELECT project_path, feature, MAX(created_at) as max_created
@@ -700,13 +896,16 @@ export const queryAllLatestStatuses = (
 						id: number;
 						project_path: string;
 						feature: string;
-						task: string | null;
+						step: string | null;
 						status: string;
 						message: string | null;
 						metadata: string | null;
 						created_at: string;
 						run_id: string | null;
 						expires_at: string | null;
+						workflow: string | null;
+						agent: string | null;
+						task: string | null;
 					}>;
 
 					return {
@@ -743,7 +942,7 @@ export const queryAllStatusUpdatesForFeature = (
 			TE.tryCatch(
 				async () => {
 					const stmt = db.prepare(`
-						SELECT id, project_path, feature, task, status, message, metadata, created_at, run_id, expires_at
+						SELECT id, project_path, feature, step, status, message, metadata, created_at, run_id, expires_at, workflow, agent, task
 						FROM status_updates
 						WHERE project_path = $projectPath AND feature = $feature
 						ORDER BY created_at ASC
@@ -756,13 +955,16 @@ export const queryAllStatusUpdatesForFeature = (
 						id: number;
 						project_path: string;
 						feature: string;
-						task: string | null;
+						step: string | null;
 						status: string;
 						message: string | null;
 						metadata: string | null;
 						created_at: string;
 						run_id: string | null;
 						expires_at: string | null;
+						workflow: string | null;
+						agent: string | null;
+						task: string | null;
 					}>;
 
 					return rows.map(rowToRecord);
@@ -792,7 +994,7 @@ export const queryStatusUpdateById = (
 			TE.tryCatch(
 				async () => {
 					const stmt = db.prepare(`
-						SELECT id, project_path, feature, task, status, message, metadata, created_at, run_id, expires_at
+						SELECT id, project_path, feature, step, status, message, metadata, created_at, run_id, expires_at, workflow, agent, task
 						FROM status_updates
 						WHERE id = $id
 					`);
@@ -801,13 +1003,16 @@ export const queryStatusUpdateById = (
 						id: number;
 						project_path: string;
 						feature: string;
-						task: string | null;
+						step: string | null;
 						status: string;
 						message: string | null;
 						metadata: string | null;
 						created_at: string;
 						run_id: string | null;
 						expires_at: string | null;
+						workflow: string | null;
+						agent: string | null;
+						task: string | null;
 					} | null;
 
 					return row ? rowToRecord(row) : null;
@@ -896,16 +1101,24 @@ export const getProjectRunStats = (
  * Filters out expired rows (on-read pruning) so stale runs from crashed agents
  * are invisible. NULL expires_at rows are always included (backward compat).
  *
+ * When agent is provided, only matches rows with that agent value.
+ * When agent is not provided, only matches rows with agent IS NULL.
+ * Same logic applies to task when agent is set.
+ *
  * @param projectPath - Project path to filter by
  * @param feature - Feature identifier
  * @param runId - Optional run ID for per-invocation isolation (BR-007: no runId = latest-by-timestamp)
+ * @param agent - Optional agent name for agent-scoped state tracking
+ * @param task - Optional task identifier for per-task state isolation
  * @param dbPath - Database file path (optional)
- * @returns TaskEither with current task (workflow state) or null if no current state
+ * @returns TaskEither with current step (workflow state) or null if no current state
  */
 export const getCurrentWorkflowState = (
 	projectPath: string,
 	feature: string,
 	runId?: string,
+	agent?: string,
+	task?: string,
 	dbPath?: string,
 ): TE.TaskEither<CLIError, string | null> =>
 	pipe(
@@ -926,19 +1139,39 @@ export const getCurrentWorkflowState = (
 						runIdClause = "";
 					}
 
+					let agentClause: string;
+					if (agent) {
+						agentClause = "AND agent = $agent";
+						params.$agent = agent;
+					} else {
+						agentClause = "AND agent IS NULL";
+					}
+
+					let taskClause: string;
+					if (agent && task) {
+						taskClause = "AND task = $task";
+						params.$task = task;
+					} else if (agent) {
+						taskClause = "AND task IS NULL";
+					} else {
+						taskClause = "";
+					}
+
 					const sql = `
-						SELECT task FROM status_updates
+						SELECT step FROM status_updates
 						WHERE project_path = $projectPath
 						AND feature = $feature
 						${runIdClause}
+						${agentClause}
+						${taskClause}
 						AND (expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now') OR expires_at IS NULL)
 						ORDER BY created_at DESC LIMIT 1
 					`;
 
 					const row = db.prepare(sql).get(params) as {
-						task: string | null;
+						step: string | null;
 					} | null;
-					return row?.task ?? null;
+					return row?.step ?? null;
 				},
 				(error) =>
 					runtimeError(
@@ -1075,6 +1308,68 @@ export const deleteExpiredRuns = (
 				(error) =>
 					runtimeError(
 						`Failed to delete expired runs: ${error instanceof Error ? error.message : String(error)}`,
+					),
+			),
+		),
+	);
+
+/**
+ * Query all agent-level status updates for a specific project+feature+run combination.
+ * Returns records WHERE agent IS NOT NULL, ordered chronologically (ASC).
+ * Used by the v2 API to build agent sub-state data for hierarchical rendering.
+ *
+ * @param projectPath - Absolute path to the project
+ * @param feature - Feature identifier (kebab-case)
+ * @param runId - Workflow run ID for isolation
+ * @param dbPath - Database file path (optional, defaults to ~/.rp1/status.db)
+ * @returns TaskEither with array of StatusUpdateRecord for agent updates, or CLIError
+ */
+export const queryAgentUpdatesForRun = (
+	projectPath: string,
+	feature: string,
+	runId: string,
+	dbPath?: string,
+): TE.TaskEither<CLIError, readonly StatusUpdateRecord[]> =>
+	pipe(
+		getDatabase(dbPath),
+		TE.chain((db) =>
+			TE.tryCatch(
+				async () => {
+					const stmt = db.prepare(`
+						SELECT id, project_path, feature, step, status, message, metadata, created_at, run_id, expires_at, workflow, agent, task
+						FROM status_updates
+						WHERE project_path = $projectPath
+						AND feature = $feature
+						AND run_id = $runId
+						AND agent IS NOT NULL
+						ORDER BY created_at ASC
+					`);
+
+					const rows = stmt.all({
+						$projectPath: projectPath,
+						$feature: feature,
+						$runId: runId,
+					}) as Array<{
+						id: number;
+						project_path: string;
+						feature: string;
+						step: string | null;
+						status: string;
+						message: string | null;
+						metadata: string | null;
+						created_at: string;
+						run_id: string | null;
+						expires_at: string | null;
+						workflow: string | null;
+						agent: string | null;
+						task: string | null;
+					}>;
+
+					return rows.map(rowToRecord);
+				},
+				(error) =>
+					runtimeError(
+						`Failed to query agent updates for run: ${error instanceof Error ? error.message : String(error)}`,
 					),
 			),
 		),

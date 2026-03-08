@@ -4,7 +4,7 @@
  */
 
 import type { Annotation, AnnotationReply } from "./annotations";
-import type { Artifact, RunEvent, RunStatus, StepStatus } from "./runs";
+import type { Artifact, RunEvent } from "./runs";
 
 /** File change notification */
 export interface FileChangedMessage {
@@ -26,30 +26,14 @@ export interface HeartbeatMessage {
 	timestamp: string;
 }
 
-/** Legacy status change notification */
+/** Status change notification with optional optimistic update fields */
 export interface StatusChangedMessage {
 	type: "status_changed";
 	projectId: string;
 	feature: string;
 	status: string;
-	timestamp: string;
-}
-
-/** Run status change notification */
-export interface RunStatusMessage {
-	type: "run:status";
-	runId: string;
-	status: RunStatus;
-	currentStep: string | null;
-	timestamp: string;
-}
-
-/** Run step status change notification */
-export interface RunStepMessage {
-	type: "run:step";
-	runId: string;
-	stepId: string;
-	status: StepStatus;
+	step?: string;
+	runStatus?: string;
 	timestamp: string;
 }
 
@@ -70,11 +54,7 @@ export interface RunEventMessage {
 }
 
 /** Union of all run-related messages */
-export type RunMessage =
-	| RunStatusMessage
-	| RunStepMessage
-	| RunArtifactMessage
-	| RunEventMessage;
+export type RunMessage = RunArtifactMessage | RunEventMessage;
 
 /** Annotation created notification */
 export interface AnnotationCreatedMessage {
@@ -126,8 +106,6 @@ export type ServerMessage =
 	| TreeChangedMessage
 	| HeartbeatMessage
 	| StatusChangedMessage
-	| RunStatusMessage
-	| RunStepMessage
 	| RunArtifactMessage
 	| RunEventMessage
 	| AnnotationCreatedMessage
@@ -138,9 +116,6 @@ export type ServerMessage =
 
 /** WebSocket connection status */
 export type ConnectionStatus = "connecting" | "connected" | "disconnected";
-
-/** Callback type for run subscriptions */
-export type RunSubscriptionCallback = (message: RunMessage) => void;
 
 /** Callback type for attention updates */
 export type AttentionCallback = () => void;

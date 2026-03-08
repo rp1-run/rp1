@@ -14,6 +14,8 @@ Analyze request, load KB, assess scope, generate task breakdown. Write combined 
 |------|----------|---------|---------|
 | REQUEST | Prompt | (req) | Freeform development request |
 | RP1_ROOT | Prompt | `.rp1/` | Root directory |
+| WORKFLOW | Prompt | `""` | Parent workflow name for status/artifact attribution |
+| RUN_ID | Prompt | `""` | Parent workflow run ID for artifact attribution |
 
 <request>
 {{REQUEST from prompt}}
@@ -133,6 +135,20 @@ Write file with this structure:
 
 {To be added by task-reviewer if --review flag used}
 ```
+
+### 4.4 Artifact Registration
+
+After writing the artifact, register it so the Web UI can display it. Skip if WORKFLOW is empty (standalone invocation).
+
+```bash
+rp1 agent-tools work artifact \
+  --project "$(pwd)" \
+  --feature quick-build \
+  --run-id {RUN_ID} \
+  --path {artifact_path}
+```
+
+If the command fails, log a warning (`[build-fast-planner] Failed to register artifact {artifact_path}: {error}`) and continue without blocking.
 
 ## 5. Output
 

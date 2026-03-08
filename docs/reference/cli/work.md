@@ -44,7 +44,7 @@ rp1 agent-tools work update --project <path> --feature <name> --status <status> 
 | `--project` | string | Yes | Absolute path to project root |
 | `--feature` | string | Yes | Feature identifier (kebab-case, pattern: `^[a-z0-9-]+$`) |
 | `--status` | enum | Yes | One of: `started`, `in_progress`, `completed`, `failed` |
-| `--task` | string | No | Task identifier within the feature |
+| `--step` | string | No | Workflow step identifier within the feature |
 | `--message` | string | No | Human-readable status message |
 | `--metadata` | string | No | JSON string for additional context |
 
@@ -69,7 +69,7 @@ Returns a ToolResult JSON envelope:
     "id": 42,
     "projectPath": "/Users/dev/myapp",
     "feature": "auth-refactor",
-    "task": "requirements",
+    "step": "requirements",
     "status": "in_progress",
     "message": "Gathering requirements from PRD",
     "createdAt": "2026-01-11T10:30:00Z"
@@ -82,7 +82,7 @@ Returns a ToolResult JSON envelope:
 | `id` | Auto-generated database row ID |
 | `projectPath` | Project path that was recorded |
 | `feature` | Feature identifier |
-| `task` | Task identifier (null if not specified) |
+| `step` | Step identifier (null if not specified) |
 | `status` | Recorded status |
 | `message` | Status message (null if not specified) |
 | `createdAt` | ISO 8601 UTC timestamp when record was created |
@@ -106,11 +106,11 @@ $ rp1 agent-tools work update \
     --status started \
     --message "Starting feature implementation"
 
-# Record task in progress
+# Record step in progress
 $ rp1 agent-tools work update \
     --project /Users/dev/myapp \
     --feature auth-refactor \
-    --task requirements \
+    --step requirements \
     --status in_progress \
     --message "Gathering requirements from PRD"
 
@@ -156,7 +156,7 @@ Status updates are stored in `~/.rp1/status.db`:
 The primary use case is enabling agents to report their progress:
 
 1. Agent starts feature work: records `started` status
-2. Agent begins task: records `in_progress` with task identifier
+2. Agent begins step: records `in_progress` with step identifier
 3. Agent completes or fails: records final status
 
 ### Dashboard Integration

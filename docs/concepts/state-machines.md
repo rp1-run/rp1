@@ -1,32 +1,42 @@
 # Declarative State Machines
 
-rp1 supports declarative workflow state management via co-located Mermaid state diagrams. Skills that define a `state.mmd` file get validated state transitions, dashboard visibility with step timelines, and run isolation -- without any changes to CLI, API, or UI code.
+rp1 supports declarative workflow state management via embedded Mermaid state diagrams. Skills and agents that include a `## STATE-MACHINE` section with a `stateDiagram-v2` block get validated state transitions, dashboard visibility with step timelines, and run isolation -- without any changes to CLI, API, or UI code.
 
 ---
 
 ## How It Works
 
-A skill opts in to state management by placing a `state.mmd` file alongside its `SKILL.md`:
+A skill or agent opts in to state management by embedding a `stateDiagram-v2` mermaid block inside a `## STATE-MACHINE` section in its markdown file:
 
-```
-plugins/dev/skills/build/
-  SKILL.md
-  state.mmd        <-- opt-in to state management
+```markdown
+## STATE-MACHINE
+
+```mermaid
+stateDiagram-v2
+    [*] --> plan
+    plan --> build : plan_ready
+    build --> review : build_complete
+    review --> [*] : done
 ```
 
-The system parses the state diagram into a typed model and uses it for:
+**On each phase transition**, report via:
+...
+```
+
+The system extracts and parses the state diagram into a typed model and uses it for:
 - **Transition validation**: The CLI rejects invalid state transitions
 - **Dashboard step timelines**: Steps are derived dynamically from the state machine
 - **Run isolation**: Each workflow invocation is tracked independently via run IDs
 - **WebSocket events**: Real-time progress updates pushed to the dashboard
+- **Agent sub-state tracking**: Agents report state validated against their own state machine, nested within the parent workflow
 
-Skills without `state.mmd` are completely unaffected -- no tracking, no validation, no dashboard presence.
+Skills and agents without a `## STATE-MACHINE` section are completely unaffected -- no tracking, no validation, no dashboard presence.
 
 ---
 
-## Creating a state.mmd File
+## Defining a State Machine
 
-Use standard [Mermaid stateDiagram-v2](https://mermaid.js.org/syntax/stateDiagram.html) syntax:
+Embed a standard [Mermaid stateDiagram-v2](https://mermaid.js.org/syntax/stateDiagram.html) block inside a `## STATE-MACHINE` section:
 
 ```mermaid
 stateDiagram-v2
@@ -57,39 +67,125 @@ These features are intentionally out of scope:
 
 ### Rules
 
-1. **State IDs must match task field values** used in `rp1 agent-tools work update --task` commands
+1. **State IDs must match step field values** used in `rp1 agent-tools work update --step` commands
 2. **At least one initial state** is required (`[*] --> state_id`)
 3. **Terminal states** are optional but recommended (`state_id --> [*]`)
 4. **Transition labels** are informational -- validation operates on state-to-state edges, not labels
+5. **One state machine per file** -- the extractor uses the first `stateDiagram-v2` block in the `## STATE-MACHINE` section
 
 ---
 
-## Adding the STATE-MACHINE Section
+## Skill State Machines
 
-Skills with a `state.mmd` file must include a `STATE-MACHINE` section in their `SKILL.md`. This section replaces scattered "Report status" directives and instructs the agent to follow the state graph:
+Skills define their state machine directly in `SKILL.md`:
 
 ```markdown
 ## STATE-MACHINE
 
-Read the co-located `state.mmd` file in this skill's directory. This defines the workflow graph.
+```mermaid
+stateDiagram-v2
+    [*] --> plan
+    plan --> build : plan_ready
+    build --> review : build_complete
+    review --> [*] : done
+```
 
 **On each phase transition**, report via:
-```
 rp1 agent-tools work update \
-  --project {PROJECT_PATH} \
+  --project "$(pwd)" \
   --feature {FEATURE_ID} \
   --workflow {SKILL_NAME} \
   --run-id {RUN_ID} \
-  --task {CURRENT_STATE} \
-  --status {STATUS_VALUE}
-```
+  --step {CURRENT_STATE} \
+  --status started
 
 - Generate `RUN_ID` as a UUID at workflow start
+- Report each step with `--status started` when entering it
+- For non-terminal states: moving to the next state implies the previous completed
+- For terminal states (those with `→ [*]` transitions): report `--status completed` when the step's work finishes
 - Follow transition edges in the graph; do not skip states
-- On error, follow failure transitions defined in the graph
 ```
 
-The section is under 15 lines and provides the agent with everything it needs to report validated transitions.
+---
+
+## Agent State Machines
+
+Agents can also define state machines, enabling validated state tracking at the agent level. Agent state machines are embedded in the agent `.md` file:
+
+```markdown
+## STATE-MACHINE
+
+```mermaid
+stateDiagram-v2
+    [*] --> building
+    building --> completed : build_success
+    building --> failed : build_error
+    completed --> [*]
+    failed --> [*]
+```
+
+**On each transition**, report via:
+rp1 agent-tools work update \
+  --project "$(pwd)" \
+  --feature {FEATURE_ID} \
+  --workflow {WORKFLOW} \
+  --agent {AGENT_NAME} \
+  --task {TASK_ID} \
+  --run-id {RUN_ID} \
+  --step {CURRENT_STATE} \
+  --status started
+```
+
+### The `--agent` Flag
+
+When an agent reports status, it uses the `--agent` flag to route validation to its own state machine instead of the parent workflow's:
+
+```bash
+rp1 agent-tools work update \
+  --project "$(pwd)" \
+  --feature auth-refactor \
+  --workflow build \
+  --agent task-builder \
+  --run-id "550e8400-e29b-41d4-a716-446655440000" \
+  --step building \
+  --status started
+```
+
+- `--workflow` remains required -- it determines which run the update is attributed to
+- `--agent` determines which state machine to validate against
+- If the named agent has no embedded state machine, the CLI returns an error listing available agent state machines
+
+### Per-Task Tracking with `--task`
+
+When an agent processes multiple tasks (e.g., task-builder implementing T1, T2, T3), each task's state is tracked independently using the `--task` flag:
+
+```bash
+# T1 starts building
+rp1 agent-tools work update --workflow build --agent task-builder --task T1 \
+  --run-id run-1 --step building --status started
+
+# T1 completes
+rp1 agent-tools work update --workflow build --agent task-builder --task T1 \
+  --run-id run-1 --step completed --status started
+
+# T2 starts building (independent of T1)
+rp1 agent-tools work update --workflow build --agent task-builder --task T2 \
+  --run-id run-1 --step building --status started
+```
+
+- `--task` requires `--agent` (error if used alone)
+- Each task progresses through the agent's state machine independently
+- The dashboard shows per-task state within the agent's nested view
+
+### Parent Skill Context
+
+Parent skills that spawn agents with state machines must pass workflow context so agent updates are attributed to the correct run:
+
+| Parameter | Purpose |
+|-----------|---------|
+| WORKFLOW | Parent skill name (e.g., "build") |
+| RUN_ID | Parent workflow's run UUID |
+| FEATURE_ID | Feature identifier |
 
 ---
 
@@ -100,7 +196,7 @@ The system maintains two orthogonal state dimensions for state-machine-enabled w
 | Dimension | What it represents | Values | Storage |
 |-----------|--------------------|--------|---------|
 | **StatusValue** | Activity category (WHAT is happening) | started, in_progress, waiting-input, needs-review, completed, failed | `status` column |
-| **WorkflowState** | Workflow phase (WHERE in the workflow) | Defined by state.mmd (e.g., requirements, design, build) | `task` column |
+| **WorkflowState** | Workflow phase (WHERE in the workflow) | Defined by state diagram (e.g., requirements, design, build) | `step` column |
 
 These are independent: a workflow can be "in_progress" at the "design" phase, or "waiting-input" at the "requirements" phase.
 
@@ -108,7 +204,7 @@ These are independent: a workflow can be "in_progress" at the "design" phase, or
 
 ## CLI Usage
 
-### Reporting State Transitions
+### Reporting State Transitions (Skills)
 
 ```bash
 rp1 agent-tools work update \
@@ -116,15 +212,33 @@ rp1 agent-tools work update \
   --feature my-feature \
   --workflow build \
   --run-id "550e8400-e29b-41d4-a716-446655440000" \
-  --task design \
-  --status in_progress
+  --step design \
+  --status started
 ```
+
+### Reporting State Transitions (Agents)
+
+```bash
+rp1 agent-tools work update \
+  --project "$(pwd)" \
+  --feature my-feature \
+  --workflow build \
+  --agent task-builder \
+  --task T1 \
+  --run-id "550e8400-e29b-41d4-a716-446655440000" \
+  --step building \
+  --status started
+```
+
+### CLI Flags
 
 | Flag | Required | Description |
 |------|----------|-------------|
-| `--workflow` | Yes (for state-machine skills) | Skill name whose state.mmd to validate against |
+| `--workflow` | Yes (for state-machine skills/agents) | Skill name whose state machine to validate against (or parent workflow for agents) |
+| `--agent` | No | Agent name -- routes validation to agent's state machine |
+| `--task` | No | Task identifier for per-task tracking (requires `--agent`) |
 | `--run-id` | Optional | UUID grouping updates into a discrete workflow run |
-| `--task` | Yes | The workflow state (must be a valid state ID from state.mmd) |
+| `--step` | Yes | The workflow/agent state (must be a valid state ID) |
 | `--status` | Yes | Activity status (started, in_progress, etc.) |
 | `--ttl` | Optional | TTL in seconds for expiry (default: 28800 = 8 hours) |
 
@@ -145,10 +259,10 @@ Each `--run-id` creates an independent workflow invocation. Multiple concurrent 
 
 ```bash
 # Run A at "verify" phase
-rp1 agent-tools work update --workflow build --run-id run-A --task verify --status in_progress
+rp1 agent-tools work update --workflow build --run-id run-A --step verify --status in_progress
 
 # Run B at "design" phase (independent)
-rp1 agent-tools work update --workflow build --run-id run-B --task design --status in_progress
+rp1 agent-tools work update --workflow build --run-id run-B --step design --status in_progress
 ```
 
 ### Cleaning Up Stale Runs
@@ -172,6 +286,8 @@ rp1 agent-tools work cleanup --older-than 24
 
 ### Existing State Machines
 
+**Skills**:
+
 | Skill | States | Shape |
 |-------|--------|-------|
 | build | requirements, design, tasks, build, verify, archive | Linear with verify->build retry loop |
@@ -180,13 +296,21 @@ rp1 agent-tools work cleanup --older-than 24
 | deep-research | clarify, plan, explore, synthesize, report | Linear (5 steps) |
 | blueprint | detect, charter, prd | Branching (detect -> charter or prd) |
 
+**Agents**:
+
+| Agent | States | Shape |
+|-------|--------|-------|
+| task-builder | building, completed, failed | Linear with error branch |
+| task-reviewer | reviewing, completed, failed | Linear with error branch |
+| feature-verifier | verifying, completed, failed | Linear with error branch |
+| hypothesis-tester | testing, completed, failed | Linear with error branch |
+
 ### Adding State Tracking to a New Skill
 
-1. Create `state.mmd` in the skill directory:
+1. Add a `## STATE-MACHINE` section to your `SKILL.md`:
 
-```
-plugins/dev/skills/code-audit/state.mmd
-```
+```markdown
+## STATE-MACHINE
 
 ```mermaid
 stateDiagram-v2
@@ -195,10 +319,37 @@ stateDiagram-v2
     analyze --> report : analysis_complete
     report --> [*] : done
 ```
+```
 
-2. Add the `STATE-MACHINE` section to `SKILL.md` (see template above)
+2. Include the CLI command template for reporting transitions (see template above).
 
 3. The skill now appears in the dashboard with a 3-step timeline -- no API or UI code changes needed.
+
+### Adding State Tracking to an Agent
+
+1. Add a `## STATE-MACHINE` section to the agent `.md` file with the state diagram and CLI template using `--agent`.
+
+2. Ensure the parent skill passes `WORKFLOW`, `RUN_ID`, and `FEATURE_ID` to the agent.
+
+3. Agent state transitions appear nested within the parent workflow's phase on the dashboard.
+
+### Registering Artifacts
+
+Skills that produce output files (reports, design docs, task files) should register them explicitly so the dashboard can display them:
+
+```bash
+rp1 agent-tools work artifact \
+  --project "$(pwd)" \
+  --feature {FEATURE_ID} \
+  --run-id {RUN_ID} \
+  --path {relative_path_to_artifact} \
+  [--type markdown|code|diagram|diff|report|other]
+```
+
+- `--path` is relative to the project root (e.g., `.rp1/work/features/my-feature/tasks.md`)
+- `--type` is auto-classified from the file extension if omitted
+- Artifacts are stored in the `artifacts` table in `~/.rp1/status.db`
+- The dashboard queries this table instead of scanning the filesystem
 
 ---
 
@@ -206,4 +357,4 @@ stateDiagram-v2
 
 - [SKILL.md Format](skill-format.md) -- How skills are structured
 - [Skill-Agent Pattern](command-agent-pattern.md) -- How skills delegate to agents
-- [Web UI Dashboard](webui.md) -- Where workflow progress is displayed
+- [Web UI Dashboard](../web-ui/v2-dashboard.md) -- Where workflow progress is displayed

@@ -2,7 +2,6 @@
 name: task-reviewer
 description: Verifies builder's work for discipline, accuracy, completeness, and commit quality. Returns SUCCESS or FAILURE with actionable feedback. Uses extended thinking for careful verification.
 tools: Read, Grep, Glob, Edit, Bash
-skills: rp1-base:work-status
 model: inherit
 ---
 
@@ -22,6 +21,8 @@ You are **TaskReviewer**, an expert code reviewer that verifies the builder's im
 | RP1_ROOT | Prompt | `.rp1/` | Root directory |
 | WORKTREE_PATH | Prompt | `""` | Worktree directory (if any) |
 | GIT_COMMIT | Prompt | `false` | Whether commits were requested |
+| WORKFLOW | Prompt | `""` | Parent workflow name for status attribution |
+| RUN_ID | Prompt | `""` | Parent workflow run ID for status attribution |
 
 **Mode Detection**: If QUICK_BUILD_PATH is not empty, operate in quick-build mode. Otherwise, use FEATURE_ID mode.
 
@@ -104,7 +105,21 @@ This is your primary input for verification.
 
 ### 1.4 Report Status
 
-**Report status: in_progress** (task: review-{TASK_IDS}) - "Reviewing task(s) {TASK_IDS}"
+Transition to `reviewing` state per STATE-MACHINE section:
+
+```bash
+rp1 agent-tools work update \
+  --project "$(pwd)" \
+  --feature {FEATURE_ID} \
+  --workflow {WORKFLOW} \
+  --agent task-reviewer \
+  --task {TASK_IDS} \
+  --run-id {RUN_ID} \
+  --step reviewing \
+  --status started
+```
+
+Skip if WORKFLOW is empty.
 
 ## 2. Changeset Examination
 
@@ -455,7 +470,21 @@ If no manual items, return empty array: `"manual_verification": []`
 
 ### On SUCCESS
 
-**Report status: completed** (task: review-{TASK_IDS}) - "Review passed for {TASK_IDS}"
+Transition to `completed` state per STATE-MACHINE section:
+
+```bash
+rp1 agent-tools work update \
+  --project "$(pwd)" \
+  --feature {FEATURE_ID} \
+  --workflow {WORKFLOW} \
+  --agent task-reviewer \
+  --task {TASK_IDS} \
+  --run-id {RUN_ID} \
+  --step completed \
+  --status started
+```
+
+Skip if WORKFLOW is empty.
 
 ```json
 {
@@ -484,7 +513,21 @@ If no manual items, return empty array: `"manual_verification": []`
 
 ### On FAILURE
 
-**Report status: in_progress** (task: review-{TASK_IDS}) - "Review failed for {TASK_IDS}, requesting rework"
+Transition to `failed` state per STATE-MACHINE section:
+
+```bash
+rp1 agent-tools work update \
+  --project "$(pwd)" \
+  --feature {FEATURE_ID} \
+  --workflow {WORKFLOW} \
+  --agent task-reviewer \
+  --task {TASK_IDS} \
+  --run-id {RUN_ID} \
+  --step failed \
+  --status started
+```
+
+Skip if WORKFLOW is empty.
 
 ```json
 {
@@ -536,5 +579,43 @@ Score your confidence (0-100) based on:
 | Limited visibility into changes | -15 |
 
 Confidence < 70 suggests need for more careful review in future attempts.
+
+## STATE-MACHINE
+
+```mermaid
+stateDiagram-v2
+    [*] --> reviewing
+    reviewing --> completed : review_pass
+    reviewing --> failed : review_fail
+    completed --> [*]
+    failed --> [*]
+```
+
+**State Progression Protocol**:
+1. Report each `--step` with `--status started` when you enter that state
+2. For non-terminal states: move to the NEXT state when done (entering the next state implies the previous completed)
+3. For terminal states (those with `→ [*]` transitions): report `--status completed` when the step's work finishes
+
+**On each transition**, report via:
+```
+rp1 agent-tools work update \
+  --project "$(pwd)" \
+  --feature {FEATURE_ID} \
+  --workflow {WORKFLOW} \
+  --agent task-reviewer \
+  --task {TASK_IDS} \
+  --run-id {RUN_ID} \
+  --step {CURRENT_STATE} \
+  --status started
+```
+
+**Example sequence**:
+```
+--step reviewing --status started   # entering reviewing state
+--step completed --status started   # review passed, entering completed state
+```
+On failure: `--step failed --status started` (instead of completed)
+
+Skip all state reporting if WORKFLOW is empty (standalone invocation).
 
 Begin by loading context, examining the changeset, then verifying across all dimensions. Your output MUST be the JSON verdict.

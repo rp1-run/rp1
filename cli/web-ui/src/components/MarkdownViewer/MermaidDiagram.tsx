@@ -246,9 +246,14 @@ mermaid.initialize({
 interface MermaidDiagramProps {
 	code: string;
 	className?: string;
+	title?: string | null;
 }
 
-export function MermaidDiagram({ code, className }: MermaidDiagramProps) {
+export function MermaidDiagram({
+	code,
+	className,
+	title,
+}: MermaidDiagramProps) {
 	const [svg, setSvg] = useState<string>("");
 	const [error, setError] = useState<string | null>(null);
 	const [showSource, setShowSource] = useState(false);
@@ -265,26 +270,32 @@ export function MermaidDiagram({ code, className }: MermaidDiagramProps) {
 	const renderCountRef = useRef(0);
 	const codeRef = useRef(code);
 
-	// Track if this diagram instance opened the fullscreen
 	const openedFullscreenRef = useRef(false);
 
-	// Update code ref
 	useEffect(() => {
 		codeRef.current = code;
-		// If this diagram opened fullscreen, update the fullscreen code
 		if (openedFullscreenRef.current && isFullscreen) {
 			updateCode(code);
 		}
 	}, [code, isFullscreen, updateCode]);
 
-	// Reset tracking when fullscreen closes
 	useEffect(() => {
 		if (!isFullscreen) {
 			openedFullscreenRef.current = false;
 		}
 	}, [isFullscreen]);
 
+	const previousCodeRef = useRef<string>("");
+	const previousThemeRef = useRef<string>(theme);
+
 	useEffect(() => {
+		if (
+			code === previousCodeRef.current &&
+			theme === previousThemeRef.current
+		) {
+			return;
+		}
+
 		let cancelled = false;
 
 		async function renderDiagram() {
@@ -298,13 +309,14 @@ export function MermaidDiagram({ code, className }: MermaidDiagramProps) {
 					themeVariables: isDark ? catppuccinMocha : catppuccinLatte,
 				});
 
-				// Generate a unique ID for each render to avoid Mermaid's internal caching
 				renderCountRef.current += 1;
 				const diagramId = `mermaid-${uniqueId.replace(/:/g, "")}-${renderCountRef.current}`;
 
 				const { svg: renderedSvg } = await mermaid.render(diagramId, code);
 
 				if (!cancelled) {
+					previousCodeRef.current = code;
+					previousThemeRef.current = theme;
 					setSvg(renderedSvg);
 					setError(null);
 				}
@@ -489,7 +501,7 @@ export function MermaidDiagram({ code, className }: MermaidDiagramProps) {
 			{svg ? (
 				<div
 					ref={svgContainerRef}
-					className="mermaid-svg transition-transform duration-100 [&_svg]:max-w-none"
+					className="mermaid-svg transition-[transform,opacity] duration-200 [&_svg]:max-w-none"
 					style={{
 						transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
 					}}
@@ -509,8 +521,12 @@ export function MermaidDiagram({ code, className }: MermaidDiagramProps) {
 				className,
 			)}
 		>
-			<div className="flex items-center justify-between border-b bg-muted/80 px-4 py-2">
-				<span className="text-xs text-muted-foreground">Mermaid Diagram</span>
+			<div className="flex items-center justify-end border-b bg-muted/80 px-4 py-2">
+				{title !== null && (
+					<span className="mr-auto text-xs text-muted-foreground">
+						{title ?? "Mermaid Diagram"}
+					</span>
+				)}
 				<div className="flex items-center gap-1">
 					{toolbar}
 					<div className="w-px h-4 bg-border mx-1" />

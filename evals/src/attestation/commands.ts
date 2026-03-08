@@ -49,9 +49,11 @@ function suiteToSkillKey(suite: string): string {
 
 /**
  * Extract suite name from output filename.
- * Handles both fixed and legacy timestamped filenames:
+ * Handles fixed, legacy timestamped, and tier-prefixed filenames:
  * - "rp1-dev-build-fast.json" -> "rp1-dev/build-fast" (fixed)
  * - "rp1-dev-build-fast-2026-01-22T10-30-00.json" -> "rp1-dev/build-fast" (legacy)
+ * - "core-rp1-dev-build-fast.json" -> "rp1-dev/build-fast" (tier-prefixed)
+ * - "advisory-rp1-dev-build-fast.json" -> "rp1-dev/build-fast" (tier-prefixed)
  *
  * @param outputPath - Path to the output file
  * @returns Suite path in format "plugin/skill"
@@ -59,23 +61,24 @@ function suiteToSkillKey(suite: string): string {
 export function extractSuiteFromFilename(outputPath: string): string {
 	const filename = path.basename(outputPath, ".json");
 	// Remove timestamp suffix if present (pattern: -YYYY-MM-DDTHH-MM-SS)
-	// This handles legacy timestamped files while fixed filenames pass through unchanged
 	const withoutTimestamp = filename.replace(
 		/-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}$/,
 		"",
 	);
+	// Strip eval tier prefix (core-, advisory-) added by run-core-evals/run-advisory-evals
+	const withoutTier = withoutTimestamp.replace(/^(?:core|advisory)-/, "");
 	// Convert plugin prefix separator to slash
 	// Pattern: rp1-{plugin}-{skill} -> rp1-{plugin}/{skill}
 	// Use PLUGIN_SUFFIXES as single source of truth
 	const pluginPattern = new RegExp(
 		`^(rp1-(?:${PLUGIN_SUFFIXES.join("|")}))-(.+)$`,
 	);
-	const pluginMatch = withoutTimestamp.match(pluginPattern);
+	const pluginMatch = withoutTier.match(pluginPattern);
 	if (pluginMatch) {
 		return `${pluginMatch[1]}/${pluginMatch[2]}`;
 	}
 	// Fallback: convert first dash to slash
-	return withoutTimestamp.replace("-", "/");
+	return withoutTier.replace("-", "/");
 }
 
 /**
@@ -286,6 +289,11 @@ export function attestCommand(
 export function attestFromOutput(
 	outputPath: string,
 ): TE.TaskEither<Error, { updated: boolean; message: string }> {
+	// Normalize result_file to be consistent with attestCommand format (relative to evals/)
+	const normalizedResultFile = outputPath.startsWith("evals/")
+		? outputPath.slice("evals/".length)
+		: outputPath;
+
 	return pipe(
 		TE.Do,
 		TE.bind("output", () =>
@@ -340,7 +348,7 @@ export function attestFromOutput(
 							passed: true,
 							timestamp,
 							git_commit: gitCommit,
-							result_file: outputPath,
+							result_file: normalizedResultFile,
 						},
 					};
 
@@ -438,14 +446,4 @@ export function verifyAttestations(): TE.TaskEither<
 			};
 		}),
 	);
-}
-
-/**
- * Get status of all skills needing re-attestation.
- * Alias for verifyAttestations with same output format.
- *
- * @returns TaskEither with VerificationSummary showing current/stale/missing counts
- */
-export function getStatus(): TE.TaskEither<Error, VerificationSummary> {
-	return verifyAttestations();
 }

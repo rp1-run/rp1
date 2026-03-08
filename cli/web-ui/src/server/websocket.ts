@@ -30,6 +30,8 @@ export interface StatusChangedMessage {
 	projectId: string;
 	feature: string;
 	status: string;
+	step?: string;
+	runStatus?: string;
 }
 
 export interface AnnotationCreatedMessage {
@@ -63,22 +65,6 @@ export interface AnnotationReplyAddedMessage {
 	timestamp: string;
 }
 
-export interface RunStatusMessage {
-	type: "run:status";
-	runId: string;
-	status: string;
-	currentStep: string | null;
-	timestamp: string;
-}
-
-export interface RunStepMessage {
-	type: "run:step";
-	runId: string;
-	stepId: string;
-	status: string;
-	timestamp: string;
-}
-
 export interface SubscribeMessage {
 	type: "subscribe";
 	path: string;
@@ -100,8 +86,6 @@ export type ServerMessage =
 	| HeartbeatMessage
 	| ProjectsChangedMessage
 	| StatusChangedMessage
-	| RunStatusMessage
-	| RunStepMessage
 	| AnnotationCreatedMessage
 	| AnnotationUpdatedMessage
 	| AnnotationResolvedMessage
@@ -263,12 +247,16 @@ export class WebSocketHub {
 		projectId: string,
 		feature: string,
 		status: string,
+		step?: string,
+		runStatus?: string,
 	): void {
 		const message: StatusChangedMessage = {
 			type: "status_changed",
 			projectId,
 			feature,
 			status,
+			...(step !== undefined && { step }),
+			...(runStatus !== undefined && { runStatus }),
 		};
 
 		const data = JSON.stringify(message);
@@ -419,32 +407,6 @@ export class WebSocketHub {
 			}
 		}
 		return count;
-	}
-
-	broadcastRunStatus(
-		runId: string,
-		status: string,
-		currentStep: string | null,
-	): void {
-		const message: RunStatusMessage = {
-			type: "run:status",
-			runId,
-			status,
-			currentStep,
-			timestamp: new Date().toISOString(),
-		};
-		this.broadcast(message);
-	}
-
-	broadcastRunStep(runId: string, stepId: string, status: string): void {
-		const message: RunStepMessage = {
-			type: "run:step",
-			runId,
-			stepId,
-			status,
-			timestamp: new Date().toISOString(),
-		};
-		this.broadcast(message);
 	}
 
 	broadcastAnnotationCreated(annotation: Annotation): void {

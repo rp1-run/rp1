@@ -32,9 +32,17 @@ You are executing the Deep Research workflow. You coordinate autonomous research
 
 **CRITICAL**: Commands CAN spawn agents. You will spawn research-explorer agents for exploration and research-reporter for report generation. Do NOT delegate orchestration to another agent.
 
-## §STATE-MACHINE
+## STATE-MACHINE
 
-Read the co-located `state.mmd` file in this skill's directory. This defines the workflow graph.
+```mermaid
+stateDiagram-v2
+    [*] --> clarify
+    clarify --> plan : intent_clear
+    plan --> explore : plan_ready
+    explore --> synthesize : exploration_complete
+    synthesize --> report : synthesis_complete
+    report --> [*] : done
+```
 
 **On each phase transition**, report via:
 ```
@@ -43,13 +51,27 @@ rp1 agent-tools work update \
   --feature {FEATURE_ID} \
   --workflow deep-research \
   --run-id {RUN_ID} \
-  --task {CURRENT_STATE} \
-  --status {STATUS_VALUE}
+  --step {CURRENT_STATE} \
+  --status started
 ```
 
 - Generate `RUN_ID` as a UUID at workflow start; derive `FEATURE_ID` by slugifying the research topic (e.g., "auth-flow-analysis")
-- Follow transition edges in the graph; do not skip states
-- On error, follow failure transitions defined in the graph
+
+**State Progression Protocol**:
+1. Report each `--step` with `--status started` when you enter that state
+2. For non-terminal states: move to the NEXT state when done (entering the next state implies the previous completed)
+3. For terminal states (those with `→ [*]` transitions): report `--status completed` when the step's work finishes
+4. On error, transition to the appropriate failure state in the graph
+
+**Example sequence**:
+```
+--step clarify --status started      # entering clarify phase
+--step plan --status started         # intent clear, entering plan phase
+--step explore --status started      # plan ready, entering explore phase
+--step synthesize --status started   # exploration done, entering synthesize phase
+--step report --status started       # synthesis done, entering report phase
+--step report --status completed     # report work finished, workflow done
+```
 
 ## 1. Intent Clarification (~15% effort)
 
@@ -283,6 +305,18 @@ Parse JSON output:
 
 Handle failure:
 - If reporter fails: Log error, provide synthesis summary directly to user
+
+### Step 3: Register Artifact
+
+After extracting report_path, register it in the artifact database:
+
+```bash
+rp1 agent-tools work artifact \
+  --project "$(pwd)" \
+  --feature {FEATURE_ID} \
+  --run-id {RUN_ID} \
+  --path {report_path}
+```
 
 ## 6. Final Summary (~15% effort)
 

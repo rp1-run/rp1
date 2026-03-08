@@ -23,6 +23,7 @@ import {
 } from "../../shared/errors.js";
 import type { Logger } from "../../shared/logger.js";
 import { createSpinner } from "../../shared/spinner.js";
+import { extractStateMachineMermaid } from "../agent-tools/state-machine/extractor.js";
 import { colorFns } from "../lib/colors.js";
 import {
 	generateAgentFile,
@@ -461,18 +462,15 @@ export const buildPlugin = async (
 			});
 		}
 
-		// Copy co-located state.mmd file if present (for state machine bundling)
-		const sourceStateMmd = join(skillDir, "state.mmd");
-		try {
-			await stat(sourceStateMmd);
-			await copyFile(sourceStateMmd, join(skillOutputDir, "state.mmd"));
-			const stateMmdRelPath = `${pluginName}/skills/${namespacedSkillDir}/state.mmd`;
+		const extractedSkillMermaid = extractStateMachineMermaid(
+			namespacedSkillMdContent,
+		);
+		if (extractedSkillMermaid) {
 			stateMachineEntries.push({
 				name: outSkillDir,
-				path: stateMmdRelPath,
+				path: "",
+				content: extractedSkillMermaid,
 			});
-		} catch {
-			// No state.mmd file for this skill -- expected for most skills
 		}
 	}
 
@@ -514,6 +512,15 @@ export const buildPlugin = async (
 		const outputFile = join(outputPath, relativePath);
 		await writeFile(outputFile, content);
 		agentEntries.push({ name: ccAgent.name, path: relativePath });
+
+		const extractedAgentMermaid = extractStateMachineMermaid(ccAgent.content);
+		if (extractedAgentMermaid) {
+			stateMachineEntries.push({
+				name: ccAgent.name,
+				path: "",
+				content: extractedAgentMermaid,
+			});
+		}
 	}
 
 	// Copy OpenCode plugin if present

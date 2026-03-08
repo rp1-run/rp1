@@ -12,8 +12,6 @@ import type {
 	AttentionCallback,
 	ConnectionStatus,
 	FileChangedMessage,
-	RunMessage,
-	RunSubscriptionCallback,
 	ServerMessage,
 	StatusChangedMessage,
 	TreeChangedMessage,
@@ -35,10 +33,6 @@ interface WebSocketContextValue {
 	onFileChange: (callback: (msg: FileChangedMessage) => void) => () => void;
 	onTreeChange: (callback: (msg: TreeChangedMessage) => void) => () => void;
 	onStatusChange: (callback: (msg: StatusChangedMessage) => void) => () => void;
-	subscribeToRun: (
-		runId: string,
-		callback: RunSubscriptionCallback,
-	) => () => void;
 	subscribeToAttention: (callback: AttentionCallback) => () => void;
 }
 
@@ -81,9 +75,6 @@ export function WebSocketProvider({
 	>(new Set());
 	const subscriptionsRef = useRef<Set<string>>(new Set());
 
-	const runSubscriptionsRef = useRef<Map<string, Set<RunSubscriptionCallback>>>(
-		new Map(),
-	);
 	const attentionListenersRef = useRef<Set<AttentionCallback>>(new Set());
 
 	const startPollingFallback = useCallback(() => {
@@ -132,10 +123,6 @@ export function WebSocketProvider({
 				for (const path of subscriptionsRef.current) {
 					ws.send(JSON.stringify({ type: "subscribe", path }));
 				}
-
-				for (const runId of runSubscriptionsRef.current.keys()) {
-					ws.send(JSON.stringify({ type: "subscribe:run", runId }));
-				}
 			};
 
 			ws.onclose = () => {
@@ -163,11 +150,6 @@ export function WebSocketProvider({
 		}
 
 		function routeMessage(message: ServerMessage) {
-			if (message.type.startsWith("run:")) {
-				routeRunMessage(message as RunMessage);
-				return;
-			}
-
 			switch (message.type) {
 				case "file:changed":
 					for (const listener of fileChangeListenersRef.current) {
@@ -183,25 +165,12 @@ export function WebSocketProvider({
 					for (const listener of statusChangeListenersRef.current) {
 						listener(message);
 					}
+					for (const callback of attentionListenersRef.current) {
+						callback();
+					}
 					break;
 				case "heartbeat":
 					break;
-			}
-		}
-
-		function routeRunMessage(message: RunMessage) {
-			const runId = message.runId;
-			const listeners = runSubscriptionsRef.current.get(runId);
-			if (listeners) {
-				for (const callback of listeners) {
-					callback(message);
-				}
-			}
-
-			if (message.type === "run:status") {
-				for (const callback of attentionListenersRef.current) {
-					callback();
-				}
 			}
 		}
 
@@ -280,34 +249,6 @@ export function WebSocketProvider({
 		[],
 	);
 
-	const subscribeToRun = useCallback(
-		(runId: string, callback: RunSubscriptionCallback) => {
-			if (!runSubscriptionsRef.current.has(runId)) {
-				runSubscriptionsRef.current.set(runId, new Set());
-				if (wsRef.current?.readyState === WebSocket.OPEN) {
-					wsRef.current.send(JSON.stringify({ type: "subscribe:run", runId }));
-				}
-			}
-			runSubscriptionsRef.current.get(runId)?.add(callback);
-
-			return () => {
-				const listeners = runSubscriptionsRef.current.get(runId);
-				if (listeners) {
-					listeners.delete(callback);
-					if (listeners.size === 0) {
-						runSubscriptionsRef.current.delete(runId);
-						if (wsRef.current?.readyState === WebSocket.OPEN) {
-							wsRef.current.send(
-								JSON.stringify({ type: "unsubscribe:run", runId }),
-							);
-						}
-					}
-				}
-			};
-		},
-		[],
-	);
-
 	const subscribeToAttention = useCallback((callback: AttentionCallback) => {
 		attentionListenersRef.current.add(callback);
 		return () => {
@@ -330,7 +271,6 @@ export function WebSocketProvider({
 				onFileChange,
 				onTreeChange,
 				onStatusChange,
-				subscribeToRun,
 				subscribeToAttention,
 			}}
 		>
