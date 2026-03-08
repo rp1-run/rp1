@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import type { FileNode } from "../server/routes/api";
+import type { FileNode } from "../server/routes/content-utils";
 
 export type { FileNode };
 
@@ -29,7 +29,7 @@ export function useProjectFileTree(
 
 		try {
 			const response = await fetch(
-				`/api/projects/${encodeURIComponent(projectId)}/files`,
+				`/api/v2/projects/${encodeURIComponent(projectId)}/files`,
 			);
 			if (!response.ok) {
 				if (response.status === 410) {
