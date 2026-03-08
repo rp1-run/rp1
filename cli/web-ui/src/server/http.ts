@@ -1,6 +1,6 @@
 import type { ServerWebSocket } from "bun";
 import type { FileWatcherPool } from "./file-watcher";
-import type { ApiContext } from "./routes/api";
+import type { ApiContext } from "./routes/content-utils";
 import type { WebSocketHub } from "./websocket";
 
 interface WebSocketData {

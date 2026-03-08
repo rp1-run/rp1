@@ -44,17 +44,7 @@ import type {
 	StepStatus,
 } from "../../types/runs";
 import { getAllProjects, getProject, type ProjectEntry } from "../registry";
-
-function jsonResponse(data: unknown, status = 200): Response {
-	return new Response(JSON.stringify(data), {
-		status,
-		headers: { "Content-Type": "application/json" },
-	});
-}
-
-function errorResponse(message: string, status = 500): Response {
-	return jsonResponse({ error: message }, status);
-}
+import { errorResponse, jsonResponse } from "./content-utils";
 
 /**
  * Map database StatusValue to frontend RunStatus.
