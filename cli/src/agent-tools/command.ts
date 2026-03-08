@@ -868,7 +868,6 @@ Examples:
 		}): Promise<void> => {
 			const toolName = "work";
 
-			// Validate project path is absolute
 			if (!options.project || !options.project.startsWith("/")) {
 				console.error(
 					createErrorResponse(
@@ -879,7 +878,6 @@ Examples:
 				process.exit(1);
 			}
 
-			// Validate feature name is kebab-case
 			if (!options.feature || !/^[a-z0-9-]+$/.test(options.feature)) {
 				console.error(
 					createErrorResponse(
@@ -890,7 +888,6 @@ Examples:
 				process.exit(1);
 			}
 
-			// Determine artifact type
 			const artifactType = options.type ?? classifyArtifactType(options.path);
 
 			if (

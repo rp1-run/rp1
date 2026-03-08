@@ -106,7 +106,6 @@ async function runAutoResponder(
 ): Promise<void> {
 	while (!signal.aborted) {
 		try {
-			// Auto-approve pending permissions
 			const permissions = await client.permission.list({ directory });
 			if (permissions.data) {
 				for (const perm of permissions.data) {
@@ -118,7 +117,6 @@ async function runAutoResponder(
 				}
 			}
 
-			// Auto-answer pending questions (select first option)
 			const questions = await client.question.list({ directory });
 			if (questions.data) {
 				for (const q of questions.data) {
@@ -139,7 +137,6 @@ async function runAutoResponder(
 			// Ignore errors during polling (server may be shutting down)
 		}
 
-		// Poll interval
 		await new Promise<void>((resolve) => {
 			const timer = setTimeout(resolve, 500);
 			signal.addEventListener("abort", () => {
@@ -313,10 +310,8 @@ export default class OpenCodeWithToolCapture {
 
 			const sessionId = sessionResult.data.id;
 
-			// Start auto-responder for permissions and questions in background
 			runAutoResponder(client, workingDir, autoResponderAbort.signal);
 
-			// Send prompt and wait for completion
 			const promptResult = await client.session.prompt({
 				sessionID: sessionId,
 				directory: workingDir,
@@ -332,14 +327,12 @@ export default class OpenCodeWithToolCapture {
 				};
 			}
 
-			// Recursively collect parts from the session and all child sessions
 			const allParts = await collectAllParts(client, sessionId, workingDir);
 
 			if (allParts.length === 0) {
 				allParts.push(...promptResult.data.parts);
 			}
 
-			// Extract tool calls
 			const toolCalls: ToolCall[] = [];
 			for (const part of allParts) {
 				if (isToolPart(part)) {
@@ -353,7 +346,6 @@ export default class OpenCodeWithToolCapture {
 				}
 			}
 
-			// Extract bash commands
 			const bashCommands = toolCalls
 				.filter((t) => t.name.toLowerCase() === "bash" || t.name === "Bash")
 				.map((t) => {
@@ -362,11 +354,9 @@ export default class OpenCodeWithToolCapture {
 				})
 				.filter((cmd) => cmd.length > 0);
 
-			// Aggregate text from all assistant messages
 			const allTextParts = allParts.filter(isTextPart);
 			const finalResult = allTextParts.map((p) => p.text).join("\n") || "";
 
-			// Aggregate token usage
 			let totalInputTokens = 0;
 			let totalOutputTokens = 0;
 			let totalCost = 0;

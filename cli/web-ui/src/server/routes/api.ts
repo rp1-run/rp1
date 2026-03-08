@@ -652,7 +652,6 @@ export async function handleProjectStatusRequest(
 
 		const latestStatuses = latestResult.right;
 
-		// Fetch recently completed steps (step-level granularity)
 		const completedTasksResult = await getRecentlyCompletedSteps(
 			project.path,
 			24,

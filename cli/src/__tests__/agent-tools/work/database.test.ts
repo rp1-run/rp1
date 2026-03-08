@@ -374,7 +374,6 @@ describe("work database", () => {
 		test("returns completed steps with step field", async () => {
 			const projectPath = "/completed-steps-test";
 
-			// Insert completed steps for the same feature
 			await expectTaskRight(
 				insertStatusUpdate(
 					{
