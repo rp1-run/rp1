@@ -264,6 +264,10 @@ export async function extensionHook(
 		const count = getCommitCount(workspaceDir);
 		const remoteHead = getRemoteHead(remoteDir);
 
+		// Isolate eval DB writes from production ~/.rp1/status.db
+		// Single shared DB for all eval runs (no per-test DB needed)
+		process.env.RP1_STATUS_DB = join(EVAL_BASE_DIR, "status.db");
+
 		// Inject paths into vars - provider will use WORKSPACE_DIR
 		context.test.vars.EVAL_BASE_DIR = baseDir;
 		context.test.vars.WORKSPACE_DIR = workspaceDir;

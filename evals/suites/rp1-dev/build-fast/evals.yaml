@@ -1,0 +1,202 @@
+# build-fast Command Evaluation Suite
+#
+# Unified eval config for /rp1-dev:build-fast across harnesses.
+# Default: claude-with-tools. Override: EVAL_HARNESS=opencode
+#
+# Run: just run-evals rp1-dev/build-fast
+# Run with opencode: just run-evals rp1-dev/build-fast --harness=opencode
+description: "rp1-dev:build-fast unified evaluation"
+evaluateOptions:
+  maxConcurrency: 4
+extensions:
+  - file://../../shared/extension.ts:extensionHook
+providers:
+  - id: file://../../../providers/claude-with-tools.ts
+    label: rp1-agentic-eval
+    config:
+      model: claude-opus-4-6
+      betas:
+        - fast-mode-2026-02-01
+      permission_mode: bypassPermissions
+      allow_dangerously_skip_permissions: true
+      ask_user_behavior: first_option
+      max_turns: 50
+      setting_sources:
+        - project
+        - local
+        - user
+      plugins:
+        - type: local
+          path: plugins/dev
+        - type: local
+          path: plugins/base
+      tools:
+        - Read
+        - Write
+        - Edit
+        - Glob
+        - Grep
+        - Bash
+        - Skill
+prompts:
+  - file://prompt.txt
+defaultTest:
+  options:
+    provider:
+      id: "anthropic:claude-haiku-4-5-20251001"
+      config:
+        temperature: 0
+  vars:
+    DEVELOPMENT_REQUEST: "add a simple bun utility script that validates JSON input from stdin"
+    GIT_WORKTREE: false
+    GIT_COMMIT: false
+    GIT_PUSH: false
+    AFK: false
+    CONFIRM_PLAN: false
+    REVIEW: false
+tests:
+  - description: "default_behavior"
+    assert:
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertWorkStatusUpdate
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertTaskBuilderSpawned
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertArtifactRegistration
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertDefaultProhibited
+      - type: llm-rubric
+        value: |
+          Evaluate the agent's output text for behavioral correctness.
+
+          REQUIRED (all must pass):
+          1. Output contains "Scope" section with scope classification (Small, Medium, or Large)
+          2. Output contains reasoning about files affected, systems involved, risk level, and estimated effort
+          3. For Small/Medium scope: Output contains "Build Fast Complete" section with request summary
+          4. For Small/Medium scope: Output contains "Quality" section (or similarly worded) showing format/lint/test status
+          5. Output indicates changes are uncommitted in working directory
+
+          EDGE CASES:
+          - When AFK=true: Auto-decisions should be logged with "(AFK auto)" prefix in summary
+          - When GIT_PUSH=true: Metadata bashCommands should contain "git push -u origin"
+          - When KB files missing: Agent should warn but continue (not block)
+  - description: "large_scope_redirect"
+    vars:
+      DEVELOPMENT_REQUEST: "rewrite the entire authentication system from scratch, migrate to a new database schema, and update all API endpoints to use GraphQL instead of REST"
+    assert:
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertNoWriteEdit
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertNoGitCommitToolCall
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertNoArtifactRegistration
+      - type: llm-rubric
+        value: |
+          Evaluate whether the agent correctly identifies and redirects a large-scope request.
+
+          REQUIRED (all must pass):
+          1. Output contains "Scope Assessment" section with "Large" classification
+          2. Output contains "REQUEST EXCEEDS SCOPE" or similar redirect notice
+          3. Output explains why this needs the full /build workflow
+          4. Output provides options: reduce scope, phase it, or use /build command
+          5. Output suggests a "Recommended Quick Win" or minimal viable alternative
+          6. Agent reports status as "completed" with redirect message via work status update
+
+          PASS if: Agent stops after redirect, provides actionable alternatives
+          FAIL if: Agent attempts to implement the large-scope request
+  - description: "confirm_plan_and_review_flags"
+    vars:
+      DEVELOPMENT_REQUEST: "add a simple greeting utility function"
+      GIT_WORKTREE: false
+      GIT_COMMIT: true
+      GIT_PUSH: false
+      AFK: false
+      CONFIRM_PLAN: true
+      REVIEW: true
+    assert:
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertAskUserCheckpoint
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertTaskBuilderSpawned
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertTaskReviewerSpawned
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertPostImplCheckpoint
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertArtifactRegistration
+      - type: llm-rubric
+        value: |
+          Evaluate the agent execution with --confirm-plan and --review flags enabled.
+          Focus on the checkpoint flow and output quality — NOT artifact path format.
+
+          REQUIRED (all must pass):
+          1. Output shows "Review" status (PASSED, SKIPPED, or FAILED+RETRIED)
+          2. Output contains "Build Fast Complete" with artifact path
+          3. Agent committed changes (Metadata bashCommands contains "git commit")
+          4. Agent used conventional commit format (feat:, fix:, refactor:, etc.)
+
+          PASS if: Output has completion summary with review status and commit evidence
+          FAIL if: Missing review status, no completion summary, or no commits
+  - description: "worktree_commits_and_push"
+    vars:
+      DEVELOPMENT_REQUEST: "add a simple hello world script"
+      GIT_WORKTREE: true
+      GIT_COMMIT: true
+      GIT_PUSH: true
+      AFK: false
+      CONFIRM_PLAN: false
+      REVIEW: false
+    assert:
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertGitCommitToolCall
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertGitPushToolCall
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertWorktreeCreateToolCall
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertWorktreeCleanupToolCall
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertTaskBuilderSpawned
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertArtifactRegistration
+      - type: llm-rubric
+        value: |
+          Evaluate whether the agent respects GIT_COMMIT=true, GIT_WORKTREE=true, and GIT_PUSH=true flags.
+
+          REQUIRED:
+          1. Agent implements the requested change (creates/modifies files)
+          2. Agent uses conventional commit format (feat:, fix:, refactor:, etc.) in any git commits
+          3. Agent creates artifact at {RP1_ROOT}/work/quick-builds/ with date-based filename
+
+          PASS if: Changes made, committed, pushed, used worktree, task-builder invoked, artifact registered
+          FAIL if: Missing commits, push, worktree operations, uses build-fast-executor, or missing artifact registration
+  - description: "in_afk_mode_bypasses_confirm"
+    vars:
+      DEVELOPMENT_REQUEST: "add a json validation script that's ultra performant"
+      GIT_WORKTREE: false
+      GIT_COMMIT: true
+      GIT_PUSH: false
+      AFK: true
+      CONFIRM_PLAN: true
+      REVIEW: false
+    assert:
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertGitCommitToolCall
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertNoAskUser
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertTaskBuilderSpawned
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertArtifactRegistration
+      - type: llm-rubric
+        value: |
+          Evaluate whether AFK=true bypasses --confirm-plan checkpoints.
+
+          REQUIRED:
+          1. Agent implements the requested change (creates/modifies files)
+          2. Agent uses conventional commit format (feat:, fix:, refactor:, etc.) in any git commits
+          3. Agent creates artifact at {RP1_ROOT}/work/quick-builds/ with date-based filename
+          4. No plan review or post-implementation checkpoints fire
+
+          PASS if: Changes made, committed, no user prompts despite --confirm-plan flag, artifact registered
+          FAIL if: Agent waits for user input

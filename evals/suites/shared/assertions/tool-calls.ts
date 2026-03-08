@@ -504,6 +504,179 @@ export function assertCanonicalToolCall(
 	};
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// Domain-specific assertions (rp1 workflow patterns)
+// ─────────────────────────────────────────────────────────────────────
+
+/** Assert work status update was called with --workflow and --run-id flags. */
+export const assertWorkStatusUpdate = assertToolCall(
+	"Bash",
+	(input) =>
+		input.command.includes("rp1 agent-tools work update") &&
+		input.command.includes("--workflow") &&
+		input.command.includes("--run-id"),
+);
+
+/** Assert artifact registration was called via bash. */
+export const assertArtifactRegistration = assertToolCall(
+	"Bash",
+	(input) =>
+		input.command.includes("rp1 agent-tools work artifact") &&
+		input.command.includes("--project") &&
+		input.command.includes("--run-id") &&
+		input.command.includes("--path"),
+);
+
+/** Assert no artifact registration (e.g., large scope redirects). */
+export const assertNoArtifactRegistration = assertNoToolCall(
+	"Bash",
+	/rp1\s+agent-tools\s+work\s+artifact/,
+);
+
+/** Assert a specific subagent was spawned (name in tool call input). */
+export function assertSubagentSpawned(agentName: string): AssertionFunction {
+	return (_output, context) => {
+		const tcs = getToolCalls(context);
+		const subagentNames = ["Task", "task", "Agent", "agent"];
+		const found = tcs.some(
+			(tc) =>
+				subagentNames.includes(tc.name) &&
+				JSON.stringify(tc.input).includes(agentName),
+		);
+		if (!found)
+			return {
+				pass: false,
+				score: 0,
+				reason: `No ${agentName} subagent spawn found`,
+			};
+		return { pass: true, score: 1, reason: `${agentName} spawned` };
+	};
+}
+
+/** Assert first subagent spawned matches expected name. */
+export function assertFirstSubagent(expectedName: string): AssertionFunction {
+	return (_output, context) => {
+		const tcs = getToolCalls(context);
+		const subagentNames = ["Task", "task", "Agent", "agent"];
+		const subagentCalls = tcs.filter((tc) => subagentNames.includes(tc.name));
+		const first = subagentCalls[0];
+		if (!first)
+			return { pass: false, score: 0, reason: "No subagent calls found" };
+		const input = JSON.stringify(first.input);
+		if (!input.includes(expectedName))
+			return {
+				pass: false,
+				score: 0,
+				reason: `First subagent did not match ${expectedName}`,
+			};
+		return { pass: true, score: 1, reason: `${expectedName} spawned first` };
+	};
+}
+
+/** Assert no Write/Edit tool calls (e.g., large scope redirects). */
+export const assertNoWriteEdit: AssertionFunction = (_output, context) => {
+	const tcs = getToolCalls(context);
+	const found = tcs.find((tc) =>
+		["write", "edit"].includes(tc.name.toLowerCase()),
+	);
+	if (found)
+		return {
+			pass: false,
+			score: 0,
+			reason: `Found ${found.name} tool call — should not implement`,
+		};
+	return { pass: true, score: 1, reason: "No Write/Edit tool calls found" };
+};
+
+/** Assert no AskUserQuestion calls (AFK mode). */
+export const assertNoAskUser = assertNoToolCall("AskUserQuestion" as ToolName);
+
+/** Assert AskUserQuestion checkpoint with Continue/Revise/Stop options. */
+export const assertAskUserCheckpoint: AssertionFunction = (
+	_output,
+	context,
+) => {
+	const tcs = getToolCalls(context);
+	const askCalls = tcs.filter((tc) => tc.name === "AskUserQuestion");
+	const hasPlanReview = askCalls.some((tc) => {
+		const input = JSON.stringify(tc.input);
+		return (
+			input.includes("Continue") &&
+			(input.includes("Revise") || input.includes("Stop"))
+		);
+	});
+	if (!hasPlanReview)
+		return {
+			pass: false,
+			score: 0,
+			reason:
+				"No plan review checkpoint (AskUserQuestion with Continue/Revise/Stop)",
+		};
+	return { pass: true, score: 1, reason: "Plan review checkpoint fired" };
+};
+
+/** Assert post-implementation checkpoint (Done/Add options). */
+export const assertPostImplCheckpoint: AssertionFunction = (
+	_output,
+	context,
+) => {
+	const tcs = getToolCalls(context);
+	const askCalls = tcs.filter((tc) => tc.name === "AskUserQuestion");
+	const hasPostImpl = askCalls.some((tc) => {
+		const input = JSON.stringify(tc.input);
+		return input.includes("Done") && input.includes("Add");
+	});
+	if (!hasPostImpl)
+		return {
+			pass: false,
+			score: 0,
+			reason:
+				"No post-implementation checkpoint (AskUserQuestion with Done/Add)",
+		};
+	return {
+		pass: true,
+		score: 1,
+		reason: "Post-implementation checkpoint fired",
+	};
+};
+
+/** Assert worktree cleanup was called. */
+export const assertWorktreeCleanupToolCall = assertToolCall(
+	"Bash",
+	/rp1\s+agent-tools\s+worktree\s+cleanup/,
+);
+
+/**
+ * Assert PROHIBITED git commands not present.
+ * Configurable list of prohibited patterns.
+ */
+export function assertNoProhibitedCommands(
+	prohibited?: Array<{ pattern: RegExp; label: string }>,
+): AssertionFunction {
+	const defaults = [
+		{ pattern: /\bgit\s+init\b/, label: "git init" },
+		{ pattern: /\bgit\s+rebase\b/, label: "git rebase" },
+		{ pattern: /\bgit\s+reset\s+--hard\b/, label: "git reset --hard" },
+		{ pattern: /\bgit\s+push\b/, label: "git push" },
+		{ pattern: /\bgit\b.*\bcommit\b/, label: "git commit" },
+	];
+	const rules = prohibited ?? defaults;
+
+	return (_output, context) => {
+		const cmds = context.providerResponse?.metadata?.bashCommands ?? [];
+		for (const { pattern, label } of rules) {
+			const found = cmds.find((c) => pattern.test(c));
+			if (found)
+				return {
+					pass: false,
+					score: 0,
+					reason: `Prohibited command found: ${label}`,
+				};
+		}
+		return { pass: true, score: 1, reason: "No prohibited commands found" };
+	};
+}
+
 /**
  * Assert that a tool was NOT called using its canonical name.
  * Matches across providers (e.g., "ask_user" matches AskUserQuestion, question).
@@ -550,3 +723,28 @@ export function assertNoCanonicalToolCall(
 		};
 	};
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// Pre-built instances for YAML file:// references
+// ─────────────────────────────────────────────────────────────────────
+
+/** Assert task-builder subagent was spawned. */
+export const assertTaskBuilderSpawned = assertSubagentSpawned("task-builder");
+
+/** Assert task-reviewer subagent was spawned. */
+export const assertTaskReviewerSpawned = assertSubagentSpawned("task-reviewer");
+
+/** Assert artifact-detector spawned first. */
+export const assertArtifactDetectorFirst =
+	assertFirstSubagent("artifact-detector");
+
+/** Default prohibited commands (no git init/rebase/reset --hard/push/commit). */
+export const assertDefaultProhibited = assertNoProhibitedCommands();
+
+/** Prohibited commands for build workflow (allows commit/push when flags set). */
+export const assertBuildProhibited = assertNoProhibitedCommands([
+	{ pattern: /git push (--force|-f)/, label: "git push --force" },
+	{ pattern: /\bgit\s+reset\s+--hard\b/, label: "git reset --hard" },
+	{ pattern: /\bgit\s+rebase\b/, label: "git rebase" },
+	{ pattern: /\bgit\s+init\b/, label: "git init" },
+]);

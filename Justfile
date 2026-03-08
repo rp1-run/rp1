@@ -195,59 +195,95 @@ serve-docs:
 setup-evals:
     cd evals && bun install --frozen-lockfile
 
-# Eval tiers:
-#   core/     - Blocking evals (OpenCode-based). Must pass before merge.
-#   advisory/ - Informational evals (Claude Code-based). Failures don't block.
+# Directory structure: evals/suites/{plugin}/{suite}/evals.yaml
+# Default harness: claude code. Override with --harness=opencode.
 #
-# Directory structure: evals/suites/{tier}/{plugin}/{suite}/evals.yaml
+# Examples:
+#   just run-evals                          # run all suites (claude harness)
+#   just run-evals rp1-dev/build-fast       # run specific suite
+#   just run-evals --harness=opencode       # run all with opencode
+#   just run-evals --attest --commit        # run all, attest passing, commit
 
-# Run a specific eval suite by path (e.g., just run-evals core/rp1-dev/build-fast)
-run-evals suite verbose="false":
+# Run eval suites. Optional: suite path, --harness=opencode, --attest, --commit, --verbose
+run-evals *args:
     #!/usr/bin/env bash
     set -e
     export PATH="$(pwd)/bin:$PATH"
-    suite_filename=$(echo "{{suite}}" | tr '/' '-')
-    output_file="output/${suite_filename}.json"
-    verbose_flag=""
-    if [ "{{verbose}}" = "true" ]; then verbose_flag="--verbose"; fi
-    cd evals && bunx promptfoo eval -c "suites/{{suite}}/evals.yaml" --output "${output_file}" $verbose_flag
-    echo "Output written to: evals/${output_file}"
 
-# Run all core (blocking) evals. Fails if any suite fails.
-run-core-evals verbose="false":
-    #!/usr/bin/env bash
-    set -e
-    export PATH="$(pwd)/bin:$PATH"
+    # Parse flags
+    suite=""
+    harness="claude"
+    attest=false
+    do_commit=false
     verbose_flag=""
-    if [ "{{verbose}}" = "true" ]; then verbose_flag="--verbose"; fi
+    for arg in {{args}}; do
+        case "$arg" in
+            --harness=*) harness="${arg#--harness=}" ;;
+            --attest) attest=true ;;
+            --commit) do_commit=true ;;
+            --verbose) verbose_flag="--verbose" ;;
+            *) suite="$arg" ;;
+        esac
+    done
+
+    # Collect suite configs to run
+    if [ -n "$suite" ]; then
+        configs="evals/suites/${suite}/evals.yaml"
+        if [ ! -f "$configs" ]; then
+            echo "Error: Suite not found: $configs"
+            exit 1
+        fi
+        configs_list="$configs"
+    else
+        configs_list=$(find evals/suites -path "*/evals.yaml" -not -path "*/shared/*" -not -path "*/node_modules/*" | sort)
+    fi
+
     failed=0
-    for config in evals/suites/core/*/*/evals.yaml; do
-        suite_path="${config#evals/suites/}"
-        suite_path="${suite_path%/evals.yaml}"
-        suite_filename=$(echo "${suite_path}" | tr '/' '-')
-        output_file="output/${suite_filename}.json"
-        echo "=== CORE: ${suite_path} ==="
-        cd evals && bunx promptfoo eval -c "suites/${suite_path}/evals.yaml" --output "${output_file}" $verbose_flag && cd .. || { echo "FAILED: ${suite_path}"; failed=1; cd ..; }
-    done
-    if [ "$failed" = "1" ]; then echo "Core evals FAILED"; exit 1; fi
-    echo "All core evals PASSED"
+    passed_suites=""
 
-# Run all advisory (informational) evals. Never fails the pipeline.
-run-advisory-evals verbose="false":
-    #!/usr/bin/env bash
-    set -e
-    export PATH="$(pwd)/bin:$PATH"
-    verbose_flag=""
-    if [ "{{verbose}}" = "true" ]; then verbose_flag="--verbose"; fi
-    for config in evals/suites/advisory/*/*/evals.yaml; do
+    for config in $configs_list; do
         suite_path="${config#evals/suites/}"
         suite_path="${suite_path%/evals.yaml}"
         suite_filename=$(echo "${suite_path}" | tr '/' '-')
         output_file="output/${suite_filename}.json"
-        echo "=== ADVISORY: ${suite_path} ==="
-        cd evals && bunx promptfoo eval -c "suites/${suite_path}/evals.yaml" --output "${output_file}" $verbose_flag && cd .. || { echo "ADVISORY FAIL (non-blocking): ${suite_path}"; cd ..; }
+        provider_flag=""
+        if [ "$harness" = "opencode" ]; then
+            provider_flag="--providers file://providers/opencode-with-tools.ts"
+        fi
+        echo "=== ${suite_path} (harness: ${harness}) ==="
+        if cd evals && bunx promptfoo eval -c "suites/${suite_path}/evals.yaml" --output "${output_file}" $verbose_flag $provider_flag; then
+            passed_suites="${passed_suites} ${output_file}"
+            cd ..
+        else
+            echo "FAILED: ${suite_path}"
+            failed=1
+            cd ..
+        fi
     done
-    echo "Advisory evals complete"
+
+    # Attest passing suites
+    if [ "$attest" = "true" ] && [ -n "$passed_suites" ]; then
+        echo ""
+        echo "=== Attesting passing suites ==="
+        for output in $passed_suites; do
+            echo "Attesting: $output"
+            bun run evals/src/attestation/cli.ts attest-from-output "evals/${output}" || echo "Attestation failed for ${output}"
+        done
+    fi
+
+    # Commit attestation changes
+    if [ "$do_commit" = "true" ] && [ "$attest" = "true" ]; then
+        if git diff --quiet evals/attestation.json 2>/dev/null; then
+            echo "No attestation changes to commit"
+        else
+            git add evals/attestation.json
+            git commit -m "$(printf 'chore: attest evals\n\nGenerated with AI\n\nCo-Authored-By: rp1 <bot@rp1.run>')"
+            echo "Attestation committed"
+        fi
+    fi
+
+    if [ "$failed" = "1" ]; then echo "Some evals FAILED"; exit 1; fi
+    echo "All evals PASSED"
 
 # Generate attestation from eval output file
 attest-evals output-file:
