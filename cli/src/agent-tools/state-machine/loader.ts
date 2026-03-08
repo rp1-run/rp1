@@ -165,7 +165,6 @@ const loadFromFilesystem = (
 		async () => {
 			const projectRoot = getProjectRoot();
 
-			// Try skills first: plugins/*/skills/{name}/SKILL.md
 			for (const pluginName of PLUGIN_NAMES) {
 				const skillPath = join(
 					projectRoot,
@@ -187,7 +186,6 @@ const loadFromFilesystem = (
 				}
 			}
 
-			// Try agents: plugins/*/agents/{name}.md
 			for (const pluginName of PLUGIN_NAMES) {
 				const agentPath = join(
 					projectRoot,
@@ -253,7 +251,6 @@ const listFromFilesystem = (): TE.TaskEither<CLIError, readonly string[]> =>
 			const workflows: string[] = [];
 
 			for (const pluginName of PLUGIN_NAMES) {
-				// Scan skills: plugins/*/skills/*/SKILL.md
 				const skillsDir = join(projectRoot, "plugins", pluginName, "skills");
 				let skillDirs: string[];
 				try {
@@ -270,7 +267,6 @@ const listFromFilesystem = (): TE.TaskEither<CLIError, readonly string[]> =>
 					}
 				}
 
-				// Scan agents: plugins/*/agents/*.md
 				const agentsDir = join(projectRoot, "plugins", pluginName, "agents");
 				let agentFiles: string[];
 				try {

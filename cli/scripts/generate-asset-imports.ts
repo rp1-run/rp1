@@ -132,7 +132,6 @@ async function collectPluginAssets(
 			});
 		}
 
-		// State machines (embedded inline content or file-based)
 		if (plugin.stateMachines) {
 			for (const sm of plugin.stateMachines) {
 				const smEntry: AssetImport = {
@@ -245,7 +244,6 @@ async function generate(): Promise<void> {
 	const pluginAssets = await collectPluginAssets(manifest);
 	const webuiAssets = await collectWebUIAssets();
 
-	// Separate file-based imports from inline content declarations
 	const allAssets = [...pluginAssets, ...webuiAssets];
 	const fileImports = allAssets
 		.filter((a) => !a.inlineContent)
@@ -289,7 +287,6 @@ async function generate(): Promise<void> {
 		.filter((a) => a.category === "skill" && a.plugin === "utils")
 		.map((a) => `{ name: "${a.outputName}", path: ${a.varName} }`);
 
-	// State machines (inline content or file-based, bundled for runtime access)
 	const formatStateMachineEntry = (a: AssetImport): string =>
 		a.inlineContent
 			? `{ name: "${a.outputName}", path: "", content: ${a.varName} }`

@@ -462,7 +462,6 @@ export const buildPlugin = async (
 			});
 		}
 
-		// Extract embedded state machine from SKILL.md (inline, no .mmd file written)
 		const extractedSkillMermaid = extractStateMachineMermaid(
 			namespacedSkillMdContent,
 		);
@@ -514,7 +513,6 @@ export const buildPlugin = async (
 		await writeFile(outputFile, content);
 		agentEntries.push({ name: ccAgent.name, path: relativePath });
 
-		// Extract embedded state machine from agent source (inline, no .mmd file written)
 		const extractedAgentMermaid = extractStateMachineMermaid(ccAgent.content);
 		if (extractedAgentMermaid) {
 			stateMachineEntries.push({

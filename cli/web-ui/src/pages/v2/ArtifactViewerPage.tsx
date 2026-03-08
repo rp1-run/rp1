@@ -380,7 +380,7 @@ export function ArtifactViewerPage() {
 							errorMessage = errorData.error;
 						}
 					} catch {
-						// Use default error message if response body is not JSON
+						// fall through: use default error message
 					}
 					throw new Error(errorMessage);
 				}
