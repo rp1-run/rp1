@@ -197,14 +197,36 @@ export async function handleContentRequest(
 	const fullPath = join(projectPath, ".rp1", filePath);
 
 	try {
+		let resolvedPath = fullPath;
 		const file = Bun.file(fullPath);
 		const exists = await file.exists();
 
 		if (!exists) {
-			return errorResponse("File not found", 404);
+			// Try archive fallback for archivable paths:
+			// work/features/X -> work/archives/features/X
+			// work/prds/X -> work/archives/prds/X
+			const archivablePrefixes = ["work/features/", "work/prds/"];
+			let found = false;
+			for (const prefix of archivablePrefixes) {
+				if (filePath.startsWith(prefix)) {
+					const archivePath = filePath.replace(
+						prefix,
+						`work/archives/${prefix.slice("work/".length)}`,
+					);
+					const archiveFullPath = join(projectPath, ".rp1", archivePath);
+					if (await Bun.file(archiveFullPath).exists()) {
+						resolvedPath = archiveFullPath;
+						found = true;
+						break;
+					}
+				}
+			}
+			if (!found) {
+				return errorResponse("File not found", 404);
+			}
 		}
 
-		const content = await file.text();
+		const content = await Bun.file(resolvedPath).text();
 		const mimeType = getMimeType(filePath);
 
 		let frontmatter: Record<string, unknown> | undefined;
@@ -511,14 +533,36 @@ export async function handleProjectContentRequest(
 			return errorResponse("Access denied: path traversal detected", 403);
 		}
 
+		let resolvedPath = fullPath;
 		const file = Bun.file(fullPath);
 		const exists = await file.exists();
 
 		if (!exists) {
-			return errorResponse("File not found", 404);
+			const archivablePrefixes = ["work/features/", "work/prds/"];
+			let found = false;
+			for (const prefix of archivablePrefixes) {
+				if (filePath.startsWith(prefix)) {
+					const archivePath = filePath.replace(
+						prefix,
+						`work/archives/${prefix.slice("work/".length)}`,
+					);
+					const archiveFullPath = resolve(rp1Path, archivePath);
+					if (
+						archiveFullPath.startsWith(`${rp1Path}/`) &&
+						(await Bun.file(archiveFullPath).exists())
+					) {
+						resolvedPath = archiveFullPath;
+						found = true;
+						break;
+					}
+				}
+			}
+			if (!found) {
+				return errorResponse("File not found", 404);
+			}
 		}
 
-		const content = await file.text();
+		const content = await Bun.file(resolvedPath).text();
 		const mimeType = getMimeType(filePath);
 
 		let frontmatter: Record<string, unknown> | undefined;

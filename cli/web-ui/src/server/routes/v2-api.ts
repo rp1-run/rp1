@@ -929,22 +929,22 @@ export async function handleV2ArtifactContentRequest(
 		const exists = await file.exists();
 
 		if (!exists) {
-			// Try archive path (features/ -> archives/features/)
-			const archivePath = artifactPath.replace(
-				".rp1/work/features/",
-				".rp1/work/archives/features/",
-			);
-
-			const candidates = archivePath !== artifactPath ? [archivePath] : [];
-
-			for (const candidate of candidates) {
-				const candidateFullPath = resolve(projectRoot, candidate);
-				if (
-					candidateFullPath.startsWith(`${projectRoot}/`) &&
-					(await Bun.file(candidateFullPath).exists())
-				) {
-					const content = await Bun.file(candidateFullPath).text();
-					return jsonResponse({ content });
+			// Try archive fallback for archivable paths
+			const archivablePrefixes = [".rp1/work/features/", ".rp1/work/prds/"];
+			for (const prefix of archivablePrefixes) {
+				if (artifactPath.startsWith(prefix)) {
+					const archivePath = artifactPath.replace(
+						prefix,
+						`.rp1/work/archives/${prefix.slice(".rp1/work/".length)}`,
+					);
+					const archiveFullPath = resolve(projectRoot, archivePath);
+					if (
+						archiveFullPath.startsWith(`${projectRoot}/`) &&
+						(await Bun.file(archiveFullPath).exists())
+					) {
+						const content = await Bun.file(archiveFullPath).text();
+						return jsonResponse({ content });
+					}
 				}
 			}
 
