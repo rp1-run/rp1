@@ -11,7 +11,7 @@ import {
 	stat,
 	writeFile,
 } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
@@ -25,6 +25,17 @@ import type { Logger } from "../../shared/logger.js";
 import { createSpinner } from "../../shared/spinner.js";
 import { extractStateMachineMermaid } from "../agent-tools/state-machine/extractor.js";
 import { colorFns } from "../lib/colors.js";
+import {
+	generateAgentToml,
+	generateCodexManifest,
+	generateCodexSkillDir,
+	generateOpenaiYaml,
+	transformAgentForCodex,
+	transformSkillForCodex,
+	validateCodexSkill,
+	validateCodexToml,
+} from "./codex/index.js";
+import type { CodexAgent } from "./codex/models.js";
 import {
 	generateAgentFile,
 	generateBundleManifest,
@@ -593,17 +604,207 @@ export const buildPlugin = async (
 };
 
 /**
+ * Derive the Codex output directory from the OpenCode output directory.
+ * If outputDir is "dist/opencode", codex goes to "dist/codex".
+ * If custom (e.g., "./output"), codex goes to "./output-codex".
+ */
+const deriveCodexOutputDir = (opencodeOutputDir: string): string => {
+	const dir = basename(opencodeOutputDir);
+	const parent = dirname(opencodeOutputDir);
+	if (dir === "opencode") {
+		return join(parent, "codex");
+	}
+	return `${opencodeOutputDir}-codex`;
+};
+
+/**
+ * Build Codex artifacts for a single plugin.
+ * Orchestrates: parse -> transform -> generate -> validate for skills and agents.
+ */
+export const buildCodexPlugin = async (
+	pluginName: string,
+	projectRoot: string,
+	outputPath: string,
+	_logger: Logger,
+	jsonOutput: boolean,
+): Promise<BuildSummary> => {
+	const errors: string[] = [];
+	const skillNames: string[] = [];
+	const agentNames: string[] = [];
+
+	const pluginDir = join(projectRoot, "plugins", pluginName);
+	const pluginOutputDir = join(outputPath, pluginName);
+	const pluginVersion = await readPluginVersion(pluginDir);
+
+	const spinner = createSpinner(!jsonOutput && (process.stdout.isTTY ?? false));
+
+	try {
+		await rm(pluginOutputDir, { recursive: true, force: true });
+	} catch {
+		// Directory might not exist
+	}
+
+	await mkdir(join(pluginOutputDir, "skills"), { recursive: true });
+
+	if (!jsonOutput) {
+		spinner.start(`Building ${pluginName} plugin (codex)...`);
+	}
+
+	// Process skills
+	const skillsDir = join(pluginDir, "skills");
+	const skillDirs = await getSkillDirs(skillsDir);
+
+	for (const skillDir of skillDirs) {
+		const parseResult = await parseSkill(skillDir)();
+		if (E.isLeft(parseResult)) {
+			errors.push(`[codex] ${formatError(parseResult.left, false)}`);
+			continue;
+		}
+		const ccSkill = parseResult.right;
+
+		const transformResult = transformSkillForCodex(ccSkill);
+		if (E.isLeft(transformResult)) {
+			errors.push(`[codex] ${formatError(transformResult.left, false)}`);
+			continue;
+		}
+		const codexSkill = transformResult.right;
+
+		const generateResult = generateCodexSkillDir(codexSkill);
+		if (E.isLeft(generateResult)) {
+			errors.push(`[codex] ${formatError(generateResult.left, false)}`);
+			continue;
+		}
+		const {
+			skillDir: outSkillDir,
+			skillMdContent,
+			supportingFiles,
+		} = generateResult.right;
+
+		const namespacedSkillDir = `rp1-${outSkillDir}`;
+		const namespacedSkillMdContent = skillMdContent.replace(
+			/^(name:\s*).+$/m,
+			`$1${namespacedSkillDir}`,
+		);
+
+		const validateResult = validateCodexSkill(
+			namespacedSkillMdContent,
+			`${namespacedSkillDir}/SKILL.md`,
+		);
+		if (E.isLeft(validateResult)) {
+			errors.push(`[codex] ${formatError(validateResult.left, false)}`);
+			continue;
+		}
+
+		const skillOutputDir = join(pluginOutputDir, "skills", namespacedSkillDir);
+		await mkdir(skillOutputDir, { recursive: true });
+		await writeFile(join(skillOutputDir, "SKILL.md"), namespacedSkillMdContent);
+
+		// Generate agents/openai.yaml
+		const yamlResult = generateOpenaiYaml(namespacedSkillDir);
+		if (E.isRight(yamlResult)) {
+			const agentsDir = join(skillOutputDir, "agents");
+			await mkdir(agentsDir, { recursive: true });
+			await writeFile(join(agentsDir, "openai.yaml"), yamlResult.right);
+		}
+
+		// Copy supporting files
+		await copySupportingFiles(skillDir, skillOutputDir, supportingFiles);
+
+		skillNames.push(namespacedSkillDir);
+	}
+
+	// Process agents
+	const agentsDir = join(pluginDir, "agents");
+	const agentFiles = await getMarkdownFiles(agentsDir);
+	const codexAgents: CodexAgent[] = [];
+
+	for (const agentFile of agentFiles) {
+		const parseResult = await parseAgent(agentFile)();
+		if (E.isLeft(parseResult)) {
+			errors.push(`[codex] ${formatError(parseResult.left, false)}`);
+			continue;
+		}
+		const ccAgent = parseResult.right;
+
+		const transformResult = transformAgentForCodex(ccAgent);
+		if (E.isLeft(transformResult)) {
+			errors.push(`[codex] ${formatError(transformResult.left, false)}`);
+			continue;
+		}
+		const codexAgent = transformResult.right;
+		codexAgents.push(codexAgent);
+		agentNames.push(codexAgent.name);
+	}
+
+	// Generate rp1-agents.toml
+	if (codexAgents.length > 0) {
+		const tomlResult = generateAgentToml(codexAgents);
+		if (E.isRight(tomlResult)) {
+			const tomlContent = tomlResult.right;
+			const validateTomlResult = validateCodexToml(
+				tomlContent,
+				`${pluginName}/rp1-agents.toml`,
+			);
+			if (E.isLeft(validateTomlResult)) {
+				errors.push(`[codex] ${formatError(validateTomlResult.left, false)}`);
+			} else {
+				await writeFile(join(pluginOutputDir, "rp1-agents.toml"), tomlContent);
+			}
+		} else {
+			errors.push(`[codex] ${formatError(tomlResult.left, false)}`);
+		}
+	}
+
+	// Generate manifest.json
+	const manifestResult = generateCodexManifest(
+		`rp1-${pluginName}`,
+		pluginVersion,
+		skillNames,
+		agentNames,
+	);
+	if (E.isRight(manifestResult)) {
+		await writeFile(
+			join(pluginOutputDir, "manifest.json"),
+			manifestResult.right,
+		);
+	}
+
+	if (!jsonOutput) {
+		const hasErrors = errors.length > 0;
+		const summary = `${pluginName} (codex): ${agentNames.length} agents, ${skillNames.length} skills`;
+		if (hasErrors) {
+			spinner.fail(`${summary} (${errors.length} errors)`);
+		} else {
+			spinner.succeed(summary);
+		}
+	}
+
+	return {
+		plugin: pluginName,
+		commands: 0,
+		agents: agentNames.length,
+		skills: skillNames.length,
+		errors,
+	};
+};
+
+/**
  * Print build summary table.
  */
-const printSummary = (summaries: BuildSummary[], outputPath: string): void => {
+const printSummary = (
+	summaries: BuildSummary[],
+	outputPath: string,
+	codexSummaries?: BuildSummary[],
+	codexOutputPath?: string,
+): void => {
 	const { bold, green, cyan, yellow, boldGreen } = colorFns;
 	console.log(`\n${boldGreen("✓ Build complete!")}\n`);
 
-	// Calculate column widths
 	const pluginCol = 12;
 	const numCol = 10;
 
-	// Header
+	// OpenCode summary
+	console.log(bold("OpenCode"));
 	console.log(
 		bold(
 			`${"Plugin".padEnd(pluginCol)}${"Agents".padStart(numCol)}${"Skills".padStart(numCol)}`,
@@ -611,7 +812,6 @@ const printSummary = (summaries: BuildSummary[], outputPath: string): void => {
 	);
 	console.log("-".repeat(pluginCol + numCol * 2));
 
-	// Rows
 	for (const summary of summaries) {
 		console.log(
 			cyan(`rp1-${summary.plugin.padEnd(pluginCol - 4)}`) +
@@ -620,10 +820,36 @@ const printSummary = (summaries: BuildSummary[], outputPath: string): void => {
 		);
 	}
 
-	console.log(`\nOutput directory: ${cyan(resolve(outputPath))}`);
+	console.log(`Output: ${cyan(resolve(outputPath))}`);
 
-	// Show errors if any
-	const allErrors = summaries.flatMap((s) => s.errors);
+	// Codex summary
+	if (codexSummaries && codexSummaries.length > 0) {
+		console.log(`\n${bold("Codex")}`);
+		console.log(
+			bold(
+				`${"Plugin".padEnd(pluginCol)}${"Agents".padStart(numCol)}${"Skills".padStart(numCol)}`,
+			),
+		);
+		console.log("-".repeat(pluginCol + numCol * 2));
+
+		for (const summary of codexSummaries) {
+			console.log(
+				cyan(`rp1-${summary.plugin.padEnd(pluginCol - 4)}`) +
+					green(String(summary.agents).padStart(numCol)) +
+					green(String(summary.skills).padStart(numCol)),
+			);
+		}
+
+		if (codexOutputPath) {
+			console.log(`Output: ${cyan(resolve(codexOutputPath))}`);
+		}
+	}
+
+	// Show errors if any (from both platforms)
+	const allErrors = [
+		...summaries.flatMap((s) => s.errors),
+		...(codexSummaries ?? []).flatMap((s) => s.errors),
+	];
 	if (allErrors.length > 0) {
 		console.log(`\n${yellow(`⚠ ${allErrors.length} errors occurred:`)}`);
 		for (const error of allErrors.slice(0, 5)) {
@@ -647,23 +873,23 @@ export const executeBuild = (
 		TE.chain((config) =>
 			TE.tryCatch(
 				async () => {
-					// Find project root
 					const projectRoot = await findProjectRoot(process.cwd());
-
-					// Determine output directory
 					const outputPath = resolve(config.outputDir);
+					const codexOutputPath = resolve(
+						deriveCodexOutputDir(config.outputDir),
+					);
 
 					if (!config.jsonOutput) {
-						logger.debug(`Output directory: ${outputPath}`);
+						logger.debug(`OpenCode output: ${outputPath}`);
+						logger.debug(`Codex output: ${codexOutputPath}`);
 					}
 
-					// Determine which plugins to build
 					const pluginsToBuild =
 						config.plugin === "all"
 							? ["base", "dev", "utils"]
 							: [config.plugin];
 
-					// Build each plugin
+					// Build OpenCode artifacts
 					const summaries: BuildSummary[] = [];
 					const pluginAssets: Map<string, BundlePluginAssets> = new Map();
 
@@ -679,21 +905,44 @@ export const executeBuild = (
 						pluginAssets.set(pluginName, result.assets);
 					}
 
-					// Generate bundle manifest if building all plugins
+					// Build Codex artifacts (errors do not block OpenCode output)
+					const codexSummaries: BuildSummary[] = [];
+
+					for (const pluginName of pluginsToBuild) {
+						try {
+							const codexResult = await buildCodexPlugin(
+								pluginName,
+								projectRoot,
+								codexOutputPath,
+								logger,
+								config.jsonOutput,
+							);
+							codexSummaries.push(codexResult);
+						} catch (e) {
+							codexSummaries.push({
+								plugin: pluginName,
+								commands: 0,
+								agents: 0,
+								skills: 0,
+								errors: [`[codex] Build failed for ${pluginName}: ${e}`],
+							});
+						}
+					}
+
+					// Generate bundle manifest if building all plugins (OpenCode only)
 					if (config.plugin === "all") {
 						const baseAssets = pluginAssets.get("base");
 						const devAssets = pluginAssets.get("dev");
 						const utilsAssets = pluginAssets.get("utils");
 
 						if (baseAssets && devAssets && utilsAssets) {
-							// Read version from CLI package.json
 							const pkgPath = join(projectRoot, "cli", "package.json");
 							let version = "0.0.0";
 							try {
 								const pkg = JSON.parse(await readFile(pkgPath, "utf-8"));
 								version = pkg.version ?? "0.0.0";
 							} catch {
-								// Fallback to version from plugin
+								// Fallback
 							}
 
 							const bundleManifestResult = generateBundleManifest(
@@ -716,21 +965,35 @@ export const executeBuild = (
 
 					// Output results
 					if (config.jsonOutput) {
-						const allErrors = summaries.flatMap((s) => s.errors);
+						const allErrors = [
+							...summaries.flatMap((s) => s.errors),
+							...codexSummaries.flatMap((s) => s.errors),
+						];
 						const result = {
 							status: allErrors.length === 0 ? "success" : "partial",
-							commands: summaries.reduce((sum, s) => sum + s.commands, 0),
-							agents: summaries.reduce((sum, s) => sum + s.agents, 0),
-							skills: summaries.reduce((sum, s) => sum + s.skills, 0),
+							opencode: {
+								commands: summaries.reduce((sum, s) => sum + s.commands, 0),
+								agents: summaries.reduce((sum, s) => sum + s.agents, 0),
+								skills: summaries.reduce((sum, s) => sum + s.skills, 0),
+							},
+							codex: {
+								agents: codexSummaries.reduce((sum, s) => sum + s.agents, 0),
+								skills: codexSummaries.reduce((sum, s) => sum + s.skills, 0),
+							},
 							errors: allErrors,
 						};
 						console.log(JSON.stringify(result, null, 2));
 					} else {
-						printSummary(summaries, outputPath);
+						printSummary(
+							summaries,
+							outputPath,
+							codexSummaries,
+							codexOutputPath,
+						);
 					}
 
 					// Exit with error if there were errors
-					const totalErrors = summaries.reduce(
+					const totalErrors = [...summaries, ...codexSummaries].reduce(
 						(sum, s) => sum + s.errors.length,
 						0,
 					);
