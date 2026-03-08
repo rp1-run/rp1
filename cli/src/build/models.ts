@@ -147,6 +147,7 @@ export interface BuildConfig {
 	readonly outputDir: string;
 	readonly plugin: "base" | "dev" | "utils" | "all";
 	readonly jsonOutput: boolean;
+	readonly platform: "opencode" | "codex" | "all";
 }
 
 /**

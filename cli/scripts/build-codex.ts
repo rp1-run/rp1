@@ -1,14 +1,16 @@
 #!/usr/bin/env bun
 
 /**
- * Standalone script to build OpenCode artifacts.
- * This is the internal build script used by CI and contributors.
+ * Standalone script to build Codex artifacts.
+ * Runs the full build pipeline which produces both OpenCode and Codex output,
+ * with Codex artifacts written to dist/codex/ (derived from OpenCode output dir).
  *
  * Usage:
- *   bun run scripts/build-opencode.ts [options]
+ *   bun run scripts/build-codex.ts [options]
  *
  * Options:
- *   -o, --output-dir <dir>   Output directory (default: dist/opencode/)
+ *   -o, --output-dir <dir>   OpenCode output directory (default: dist/opencode/)
+ *                             Codex output is derived as sibling (dist/codex/)
  *   -p, --plugin <name>      Build specific plugin (base, dev, or all)
  *   --json                   Output results as JSON for CI/CD
  *   -h, --help               Show this help message
@@ -24,10 +26,7 @@ const logger = createLogger({
 });
 
 const args = process.argv.slice(2);
-const result = await executeBuild(
-	[...args, "--platform", "opencode"],
-	logger,
-)();
+const result = await executeBuild([...args, "--platform", "codex"], logger)();
 
 if (E.isLeft(result)) {
 	process.exit(1);

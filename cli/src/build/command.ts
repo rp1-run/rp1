@@ -65,6 +65,7 @@ export const parseBuildArgs = (
 		outputDir: "dist/opencode",
 		plugin: "all",
 		jsonOutput: false,
+		platform: "all",
 	};
 
 	for (let i = 0; i < args.length; i++) {
@@ -104,6 +105,28 @@ export const parseBuildArgs = (
 				| "dev"
 				| "utils"
 				| "all";
+		} else if (arg === "--platform") {
+			const value = args[++i];
+			if (!value || !["opencode", "codex", "all"].includes(value)) {
+				return E.left(
+					usageError("--platform must be 'opencode', 'codex', or 'all'"),
+				);
+			}
+			(config as { platform: "opencode" | "codex" | "all" }).platform = value as
+				| "opencode"
+				| "codex"
+				| "all";
+		} else if (arg.startsWith("--platform=")) {
+			const value = arg.slice("--platform=".length);
+			if (!["opencode", "codex", "all"].includes(value)) {
+				return E.left(
+					usageError("--platform must be 'opencode', 'codex', or 'all'"),
+				);
+			}
+			(config as { platform: "opencode" | "codex" | "all" }).platform = value as
+				| "opencode"
+				| "codex"
+				| "all";
 		} else if (arg === "--json") {
 			(config as { jsonOutput: boolean }).jsonOutput = true;
 		} else if (arg === "--help" || arg === "-h") {
@@ -128,12 +151,15 @@ ${bold("Usage:")}
 ${bold("Options:")}
   -o, --output-dir <dir>   Output directory (default: dist/opencode/)
   -p, --plugin <name>      Build specific plugin (base, dev, utils, or all)
+  --platform <name>        Target platform: opencode, codex, or all (default: all)
   --json                   Output results as JSON for CI/CD
   -h, --help               Show this help message
 
 ${bold("Examples:")}
-  rp1 build:opencode                    # Build all plugins
-  rp1 build:opencode --plugin dev       # Build only dev plugin
+  rp1 build:opencode                         # Build all plugins for all platforms
+  rp1 build:opencode --platform opencode     # Build only OpenCode artifacts
+  rp1 build:opencode --platform codex        # Build only Codex artifacts
+  rp1 build:opencode --plugin dev            # Build only dev plugin
   rp1 build:opencode -o ./output        # Custom output directory
   rp1 build:opencode --json             # JSON output for CI
 `);
@@ -815,23 +841,25 @@ const printSummary = (
 	const numCol = 10;
 
 	// OpenCode summary
-	console.log(bold("OpenCode"));
-	console.log(
-		bold(
-			`${"Plugin".padEnd(pluginCol)}${"Agents".padStart(numCol)}${"Skills".padStart(numCol)}`,
-		),
-	);
-	console.log("-".repeat(pluginCol + numCol * 2));
-
-	for (const summary of summaries) {
+	if (summaries.length > 0) {
+		console.log(bold("OpenCode"));
 		console.log(
-			cyan(`rp1-${summary.plugin.padEnd(pluginCol - 4)}`) +
-				green(String(summary.agents).padStart(numCol)) +
-				green(String(summary.skills).padStart(numCol)),
+			bold(
+				`${"Plugin".padEnd(pluginCol)}${"Agents".padStart(numCol)}${"Skills".padStart(numCol)}`,
+			),
 		);
-	}
+		console.log("-".repeat(pluginCol + numCol * 2));
 
-	console.log(`Output: ${cyan(resolve(outputPath))}`);
+		for (const summary of summaries) {
+			console.log(
+				cyan(`rp1-${summary.plugin.padEnd(pluginCol - 4)}`) +
+					green(String(summary.agents).padStart(numCol)) +
+					green(String(summary.skills).padStart(numCol)),
+			);
+		}
+
+		console.log(`Output: ${cyan(resolve(outputPath))}`);
+	}
 
 	// Codex summary
 	if (codexSummaries && codexSummaries.length > 0) {
@@ -890,9 +918,14 @@ export const executeBuild = (
 						deriveCodexOutputDir(config.outputDir),
 					);
 
+					const buildOpenCode =
+						config.platform === "opencode" || config.platform === "all";
+					const buildCodex =
+						config.platform === "codex" || config.platform === "all";
+
 					if (!config.jsonOutput) {
-						logger.debug(`OpenCode output: ${outputPath}`);
-						logger.debug(`Codex output: ${codexOutputPath}`);
+						if (buildOpenCode) logger.debug(`OpenCode output: ${outputPath}`);
+						if (buildCodex) logger.debug(`Codex output: ${codexOutputPath}`);
 					}
 
 					const pluginsToBuild =
@@ -904,44 +937,48 @@ export const executeBuild = (
 					const summaries: BuildSummary[] = [];
 					const pluginAssets: Map<string, BundlePluginAssets> = new Map();
 
-					for (const pluginName of pluginsToBuild) {
-						const result = await buildPlugin(
-							pluginName,
-							projectRoot,
-							outputPath,
-							logger,
-							config.jsonOutput,
-						);
-						summaries.push(result.summary);
-						pluginAssets.set(pluginName, result.assets);
+					if (buildOpenCode) {
+						for (const pluginName of pluginsToBuild) {
+							const result = await buildPlugin(
+								pluginName,
+								projectRoot,
+								outputPath,
+								logger,
+								config.jsonOutput,
+							);
+							summaries.push(result.summary);
+							pluginAssets.set(pluginName, result.assets);
+						}
 					}
 
 					// Build Codex artifacts (errors do not block OpenCode output)
 					const codexSummaries: BuildSummary[] = [];
 
-					for (const pluginName of pluginsToBuild) {
-						try {
-							const codexResult = await buildCodexPlugin(
-								pluginName,
-								projectRoot,
-								codexOutputPath,
-								logger,
-								config.jsonOutput,
-							);
-							codexSummaries.push(codexResult);
-						} catch (e) {
-							codexSummaries.push({
-								plugin: pluginName,
-								commands: 0,
-								agents: 0,
-								skills: 0,
-								errors: [`[codex] Build failed for ${pluginName}: ${e}`],
-							});
+					if (buildCodex) {
+						for (const pluginName of pluginsToBuild) {
+							try {
+								const codexResult = await buildCodexPlugin(
+									pluginName,
+									projectRoot,
+									codexOutputPath,
+									logger,
+									config.jsonOutput,
+								);
+								codexSummaries.push(codexResult);
+							} catch (e) {
+								codexSummaries.push({
+									plugin: pluginName,
+									commands: 0,
+									agents: 0,
+									skills: 0,
+									errors: [`[codex] Build failed for ${pluginName}: ${e}`],
+								});
+							}
 						}
 					}
 
 					// Generate bundle manifest if building all plugins (OpenCode only)
-					if (config.plugin === "all") {
+					if (config.plugin === "all" && buildOpenCode) {
 						const baseAssets = pluginAssets.get("base");
 						const devAssets = pluginAssets.get("dev");
 						const utilsAssets = pluginAssets.get("utils");

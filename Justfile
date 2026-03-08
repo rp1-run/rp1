@@ -15,6 +15,10 @@ build: build-local-dev
 build-opencode:
     cd cli && bun run build:opencode
 
+# Build the Codex plugins
+build-codex:
+    cd cli && bun run build:codex
+
 # Build the web-ui
 build-web-ui:
     cd cli/web-ui && bun run build
