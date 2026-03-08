@@ -371,10 +371,18 @@ export function ArtifactViewerPage() {
 					`/api/v2/runs/${runId}/artifacts/${encodeURIComponent(selectedArtifactPath)}`,
 				);
 				if (!response.ok) {
-					if (response.status === 404) {
-						throw new Error("Artifact content not found");
+					let errorMessage = `Failed to fetch artifact: ${response.statusText}`;
+					try {
+						const errorData = (await response.json()) as {
+							error?: string;
+						};
+						if (errorData.error) {
+							errorMessage = errorData.error;
+						}
+					} catch {
+						// Use default error message if response body is not JSON
 					}
-					throw new Error(`Failed to fetch artifact: ${response.statusText}`);
+					throw new Error(errorMessage);
 				}
 				const data = (await response.json()) as { content: string };
 				setArtifactContent({

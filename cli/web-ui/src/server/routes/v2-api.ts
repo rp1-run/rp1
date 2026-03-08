@@ -982,7 +982,26 @@ export async function handleV2ArtifactContentRequest(
 		const exists = await file.exists();
 
 		if (!exists) {
-			return errorResponse(`Artifact not found: ${artifactPath}`, 404);
+			const archivePath = artifactPath.replace(
+				".rp1/work/features/",
+				".rp1/work/archives/features/",
+			);
+
+			if (archivePath !== artifactPath) {
+				const archiveFullPath = resolve(projectRoot, archivePath);
+				if (archiveFullPath.startsWith(`${projectRoot}/`)) {
+					const archiveFile = Bun.file(archiveFullPath);
+					if (await archiveFile.exists()) {
+						const content = await archiveFile.text();
+						return jsonResponse({ content });
+					}
+				}
+			}
+
+			return errorResponse(
+				`Artifact not found: ${artifactPath}. The file may have been deleted.`,
+				404,
+			);
 		}
 
 		const content = await file.text();
