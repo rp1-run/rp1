@@ -609,12 +609,30 @@ export function attachAgentSubStatesToSteps(
 	return steps.map((step) => {
 		const subStates = parentStepSubStates.get(step.id);
 		if (subStates && subStates.length > 0) {
-			const { taskCount, completedTaskCount } = computeTaskCounts(subStates);
+			// When a parent step has reached a terminal status, infer that any
+			// agent sub-states still showing "running" have also completed.
+			// Agents only report --status started per convention; completion is
+			// implied by the parent step finishing.
+			const stepIsTerminal =
+				step.status === "completed" || step.status === "failed";
+			const resolvedSubStates = stepIsTerminal
+				? subStates.map((s) =>
+						s.status === "running"
+							? {
+									...s,
+									status: step.status as StepStatus,
+									completedAt: s.completedAt ?? step.completedAt,
+								}
+							: s,
+					)
+				: subStates;
+			const { taskCount, completedTaskCount } =
+				computeTaskCounts(resolvedSubStates);
 			return {
 				...step,
 				taskCount,
 				completedTaskCount,
-				agentSubStates: subStates,
+				agentSubStates: resolvedSubStates,
 			};
 		}
 		return step;
