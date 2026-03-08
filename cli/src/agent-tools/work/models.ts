@@ -56,6 +56,8 @@ export interface StatusUpdateInput {
 	readonly agent?: string;
 	/** Task identifier for per-task state tracking (optional) */
 	readonly task?: string;
+	/** Original worktree path when project path was normalized to main repo root (optional) */
+	readonly worktreePath?: string;
 }
 
 /**
@@ -89,6 +91,8 @@ export interface StatusUpdateRecord {
 	readonly agent: string | null;
 	/** Task identifier for per-task state tracking (null for non-per-task updates) */
 	readonly task: string | null;
+	/** Original worktree path when project path was normalized (null if not from worktree) */
+	readonly worktreePath: string | null;
 }
 
 /**
@@ -148,6 +152,8 @@ export interface ArtifactInput {
 	readonly path: string;
 	/** Artifact type classification */
 	readonly type: ArtifactTypeValue;
+	/** Original worktree path when project path was normalized to main repo root (optional) */
+	readonly worktreePath?: string;
 }
 
 /**
@@ -168,4 +174,6 @@ export interface ArtifactRecord {
 	readonly type: ArtifactTypeValue;
 	/** ISO 8601 UTC timestamp */
 	readonly createdAt: string;
+	/** Original worktree path when project path was normalized (null if not from worktree) */
+	readonly worktreePath: string | null;
 }

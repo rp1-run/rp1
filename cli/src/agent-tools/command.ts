@@ -7,6 +7,7 @@ import { Command } from "commander";
 import * as E from "fp-ts/lib/Either.js";
 import { formatError } from "../../shared/errors.js";
 import { executeExtract } from "./comment-extract/index.js";
+import { resolveProjectPath } from "./git.js";
 import {
 	executeAddReaction,
 	executeFetchComments,
@@ -904,12 +905,25 @@ Examples:
 				process.exit(1);
 			}
 
+			const resolvedResult = await resolveProjectPath(options.project)();
+			if (E.isLeft(resolvedResult)) {
+				console.error(
+					createErrorResponse(
+						toolName,
+						formatError(resolvedResult.left, false),
+					),
+				);
+				process.exit(1);
+			}
+
+			const resolved = resolvedResult.right;
 			const result = await executeWorkArtifact({
-				projectPath: options.project,
+				projectPath: resolved.projectPath,
 				feature: options.feature,
 				runId: options.runId,
 				path: options.path,
 				type: artifactType as (typeof VALID_ARTIFACT_TYPES)[number],
+				worktreePath: resolved.worktreePath,
 			})();
 
 			if (E.isLeft(result)) {

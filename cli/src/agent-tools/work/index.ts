@@ -63,6 +63,7 @@ export interface WorkArtifactResult {
 	readonly path: string;
 	readonly type: ArtifactTypeValue;
 	readonly createdAt: string;
+	readonly worktreePath: string | null;
 }
 
 /**
@@ -88,6 +89,7 @@ export const executeArtifact = (
 				path: input.path,
 				type: input.type,
 				createdAt: result.createdAt,
+				worktreePath: input.worktreePath ?? null,
 			}),
 		),
 		TE.map((data) => successResult(TOOL_NAME, data)),

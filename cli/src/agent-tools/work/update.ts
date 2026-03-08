@@ -10,6 +10,7 @@ import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../../shared/errors.js";
 import { usageError } from "../../../shared/errors.js";
+import { type ResolvedProjectPath, resolveProjectPath } from "../git.js";
 import {
 	listWorkflows,
 	loadStateMachine,
@@ -66,20 +67,24 @@ interface WorkflowValidationResult {
 }
 
 /**
- * Validate that the project path is absolute.
+ * Validate that the project path is absolute and resolve worktree paths.
+ * When the path is inside a git worktree, normalizes to the main repo root
+ * and preserves the original worktree path for separate tracking.
  */
-const validateProjectPath = (path: string): E.Either<CLIError, string> => {
+const validateProjectPath = (
+	path: string,
+): TE.TaskEither<CLIError, ResolvedProjectPath> => {
 	if (!path || path.trim() === "") {
-		return E.left(usageError("Project path is required"));
+		return TE.left(usageError("Project path is required"));
 	}
 
 	if (!isAbsolute(path)) {
-		return E.left(
+		return TE.left(
 			usageError(`Project path must be absolute. Received: ${path}`),
 		);
 	}
 
-	return E.right(path);
+	return resolveProjectPath(path);
 };
 
 /**
@@ -428,9 +433,7 @@ export const validateUpdateOptions = (
 ): TE.TaskEither<CLIError, StatusUpdateInput> =>
 	pipe(
 		TE.Do,
-		TE.bind("projectPath", () =>
-			TE.fromEither(validateProjectPath(options.project)),
-		),
+		TE.bind("resolved", () => validateProjectPath(options.project)),
 		TE.bind("feature", () =>
 			TE.fromEither(validateFeatureName(options.feature)),
 		),
@@ -443,11 +446,11 @@ export const validateUpdateOptions = (
 				validateAgentTaskFlags(options.agent, options.task, options.workflow),
 			),
 		),
-		TE.bind("workflowResult", ({ projectPath, feature }) =>
+		TE.bind("workflowResult", ({ resolved, feature }) =>
 			options.workflow
 				? validateWorkflowUpdate(
 						options.workflow,
-						projectPath,
+						resolved.projectPath,
 						feature,
 						options.step,
 						options.runId,
@@ -462,13 +465,13 @@ export const validateUpdateOptions = (
 		),
 		TE.map(
 			({
-				projectPath,
+				resolved,
 				feature,
 				status,
 				metadata,
 				workflowResult,
 			}): StatusUpdateInput => ({
-				projectPath,
+				projectPath: resolved.projectPath,
 				feature,
 				step: options.step,
 				status,
@@ -480,6 +483,7 @@ export const validateUpdateOptions = (
 				previousState: workflowResult.previousState,
 				agent: options.agent,
 				task: options.task,
+				worktreePath: resolved.worktreePath,
 			}),
 		),
 	);
