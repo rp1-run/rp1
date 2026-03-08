@@ -1,5 +1,5 @@
 import { Bot, ChevronDown, ChevronRight } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { MermaidDiagram } from "@/components/MarkdownViewer/MermaidDiagram";
 import type { WorkflowDefinition } from "@/hooks/useWorkflowSteps";
 import { cn } from "@/lib/utils";
@@ -294,12 +294,25 @@ export function WorkflowDiagram({
 	const { theme } = useTheme();
 	const colors = theme === "dark" ? darkColors : lightColors;
 
-	const mermaidCode = useMemo(
-		() => buildMermaidSource(workflow, steps, colors),
-		[workflow, steps, colors],
+	const stepsRef = useRef(steps);
+	stepsRef.current = steps;
+
+	const stepStatusKey = useMemo(
+		() => steps.map((s) => `${s.id}:${s.status}`).join("|"),
+		[steps],
 	);
 
-	const legendItems = useMemo(() => buildLegendItems(steps), [steps]);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: stepStatusKey is an intentional stable proxy for steps status changes to avoid re-rendering on every new steps array reference
+	const mermaidCode = useMemo(
+		() => buildMermaidSource(workflow, stepsRef.current, colors),
+		[workflow, stepStatusKey, colors],
+	);
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: stepStatusKey captures all relevant status changes
+	const legendItems = useMemo(
+		() => buildLegendItems(stepsRef.current),
+		[stepStatusKey],
+	);
 
 	const stateCount = workflow.states.length;
 

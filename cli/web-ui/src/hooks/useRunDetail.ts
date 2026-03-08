@@ -51,9 +51,11 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 	}, [fetchRun]);
 
 	// Subscribe to status_changed events for optimistic updates and
-	// reconciliation refetch. When step/runStatus fields are present,
-	// apply them immediately to local state before triggering a full
-	// refetch for eventual consistency.
+	// debounced reconciliation refetch. When step/runStatus fields are
+	// present, apply them immediately to local state. Full refetch is
+	// debounced with a 500ms quiet window to batch rapid status changes.
+	const debouncedFetchRef = useRef<ReturnType<typeof setTimeout>>();
+
 	useEffect(() => {
 		if (!runId) return;
 
@@ -78,12 +80,16 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 					});
 				}
 
-				fetchRun();
+				clearTimeout(debouncedFetchRef.current);
+				debouncedFetchRef.current = setTimeout(fetchRun, 500);
 			}
 		};
 
 		const unsubscribe = onStatusChange(handleStatusChange);
-		return unsubscribe;
+		return () => {
+			unsubscribe();
+			clearTimeout(debouncedFetchRef.current);
+		};
 	}, [runId, onStatusChange, fetchRun]);
 
 	const refetch = useCallback(() => {

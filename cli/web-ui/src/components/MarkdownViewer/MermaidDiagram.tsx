@@ -285,7 +285,19 @@ export function MermaidDiagram({
 		}
 	}, [isFullscreen]);
 
+	const previousCodeRef = useRef<string>("");
+	const previousThemeRef = useRef<string>(theme);
+
 	useEffect(() => {
+		if (
+			code === previousCodeRef.current &&
+			theme === previousThemeRef.current
+		) {
+			return;
+		}
+		previousCodeRef.current = code;
+		previousThemeRef.current = theme;
+
 		let cancelled = false;
 
 		async function renderDiagram() {
@@ -299,7 +311,6 @@ export function MermaidDiagram({
 					themeVariables: isDark ? catppuccinMocha : catppuccinLatte,
 				});
 
-				// Generate a unique ID for each render to avoid Mermaid's internal caching
 				renderCountRef.current += 1;
 				const diagramId = `mermaid-${uniqueId.replace(/:/g, "")}-${renderCountRef.current}`;
 
@@ -490,7 +501,7 @@ export function MermaidDiagram({
 			{svg ? (
 				<div
 					ref={svgContainerRef}
-					className="mermaid-svg transition-transform duration-100 [&_svg]:max-w-none"
+					className="mermaid-svg transition-[transform,opacity] duration-200 [&_svg]:max-w-none"
 					style={{
 						transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
 					}}
