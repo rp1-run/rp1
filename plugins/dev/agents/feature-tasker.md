@@ -16,6 +16,8 @@ model: inherit
 | FEATURE_ID | $1 | (req) | Feature identifier |
 | UPDATE_MODE | $2 | `false` | Incremental update mode |
 | RP1_ROOT | prompt | `.rp1/` | Root dir |
+| WORKFLOW | Prompt | `""` | Parent workflow name for status/artifact attribution |
+| RUN_ID | Prompt | `""` | Parent workflow run ID for artifact attribution |
 
 <feature_id>$1</feature_id>
 <update_mode>$2</update_mode>
@@ -319,7 +321,43 @@ List uncovered design sections -> new tasks: T{max_id + 1}...
 [Completion criteria]
 ```
 
-## §6 Completion Output
+## §6 Artifact Registration
+
+After writing task artifacts, register them so the Web UI can display them. Skip if WORKFLOW is empty (standalone invocation).
+
+**Small scope** (tasks.md):
+
+```bash
+rp1 agent-tools work artifact \
+  --project "$(pwd)" \
+  --feature {FEATURE_ID} \
+  --run-id {RUN_ID} \
+  --path .rp1/work/features/{FEATURE_ID}/tasks.md
+```
+
+**Large scope** (tracker.md + milestone files):
+
+```bash
+rp1 agent-tools work artifact \
+  --project "$(pwd)" \
+  --feature {FEATURE_ID} \
+  --run-id {RUN_ID} \
+  --path .rp1/work/features/{FEATURE_ID}/tracker.md
+```
+
+Also register each `milestone-{N}.md` written:
+
+```bash
+rp1 agent-tools work artifact \
+  --project "$(pwd)" \
+  --feature {FEATURE_ID} \
+  --run-id {RUN_ID} \
+  --path .rp1/work/features/{FEATURE_ID}/milestone-{N}.md
+```
+
+If any command fails, log a warning (`[feature-tasker] Failed to register artifact {path}: {error}`) and continue without blocking.
+
+## §7 Completion Output
 
 ### Fresh (UPDATE_MODE=false)
 ```
@@ -353,7 +391,7 @@ Task update completed: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`
 **Next**: Review flagged, then proceed to build phase
 ```
 
-## §7 Anti-Loop
+## §8 Anti-Loop
 
 **EXECUTE IMMEDIATELY**: NO clarification, NO iteration. Analyze ONCE in thinking -> generate -> write -> output -> STOP.
 

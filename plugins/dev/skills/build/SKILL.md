@@ -86,7 +86,7 @@ AFK mode: skip all prompts, auto-select defaults, retry once on failure, auto-ar
 
 ```
 Task: rp1-dev:feature-requirement-gatherer
-prompt: FEATURE_ID={FEATURE_ID}, REQUIREMENTS={REQUIREMENTS}, AFK={AFK}, RP1_ROOT={{$RP1_ROOT}}
+prompt: FEATURE_ID={FEATURE_ID}, REQUIREMENTS={REQUIREMENTS}, AFK={AFK}, RP1_ROOT={{$RP1_ROOT}}, WORKFLOW=build, RUN_ID={RUN_ID}
 ```
 
 **Checkpoint** (skip if AFK): AskUserQuestion with options "Continue" / "Revise" / "Stop".
@@ -99,7 +99,7 @@ On Stop: output summary, exit with `/build {FEATURE_ID}` resume instruction.
 
 ```
 Task: rp1-dev:feature-architect
-prompt: FEATURE_ID={FEATURE_ID}, AFK={AFK}, UPDATE_MODE={design.md exists}, RP1_ROOT={{$RP1_ROOT}}
+prompt: FEATURE_ID={FEATURE_ID}, AFK={AFK}, UPDATE_MODE={design.md exists}, RP1_ROOT={{$RP1_ROOT}}, WORKFLOW=build, RUN_ID={RUN_ID}
 ```
 
 If `flagged_hypotheses` non-empty:
@@ -110,7 +110,7 @@ prompt: FEATURE_ID={FEATURE_ID}, WORKFLOW=build, RUN_ID={RUN_ID}
 
 ```
 Task: rp1-dev:feature-tasker
-prompt: FEATURE_ID={FEATURE_ID}, UPDATE_MODE={UPDATE_MODE}, RP1_ROOT={{$RP1_ROOT}}
+prompt: FEATURE_ID={FEATURE_ID}, UPDATE_MODE={UPDATE_MODE}, RP1_ROOT={{$RP1_ROOT}}, WORKFLOW=build, RUN_ID={RUN_ID}
 ```
 
 **Checkpoint** (skip if AFK): AskUserQuestion with options "Continue" / "Revise" / "Stop".
@@ -123,7 +123,7 @@ On Stop: output summary (steps 1-2 done), exit with `/build {FEATURE_ID}`.
 
 ```
 Task: rp1-dev:feature-tasker
-prompt: FEATURE_ID={FEATURE_ID}, UPDATE_MODE=false, RP1_ROOT={{$RP1_ROOT}}
+prompt: FEATURE_ID={FEATURE_ID}, UPDATE_MODE=false, RP1_ROOT={{$RP1_ROOT}}, WORKFLOW=build, RUN_ID={RUN_ID}
 ```
 
 **Checkpoint** (skip if AFK): AskUserQuestion with options "Continue" / "Revise" / "Stop".
