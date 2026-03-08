@@ -919,43 +919,53 @@ export async function handleV2ArtifactContentRequest(
 		}
 
 		const projectRoot = resolve(project.path);
-		const fullPath = resolve(projectRoot, artifactPath);
 
-		if (!fullPath.startsWith(`${projectRoot}/`)) {
-			return errorResponse("Access denied: path traversal detected", 403);
+		// Build candidate paths to try in order
+		const candidates: string[] = [];
+
+		// 1. Exact path as given
+		candidates.push(resolve(projectRoot, artifactPath));
+
+		// 2. Archive fallback: features/ -> archives/features/, prds/ -> archives/prds/
+		const archivablePrefixes = [".rp1/work/features/", ".rp1/work/prds/"];
+		for (const prefix of archivablePrefixes) {
+			if (artifactPath.startsWith(prefix)) {
+				candidates.push(
+					resolve(
+						projectRoot,
+						artifactPath.replace(
+							prefix,
+							`.rp1/work/archives/${prefix.slice(".rp1/work/".length)}`,
+						),
+					),
+				);
+			}
 		}
 
-		const file = Bun.file(fullPath);
-		const exists = await file.exists();
-
-		if (!exists) {
-			// Try archive fallback for archivable paths
-			const archivablePrefixes = [".rp1/work/features/", ".rp1/work/prds/"];
-			for (const prefix of archivablePrefixes) {
-				if (artifactPath.startsWith(prefix)) {
-					const archivePath = artifactPath.replace(
-						prefix,
-						`.rp1/work/archives/${prefix.slice(".rp1/work/".length)}`,
-					);
-					const archiveFullPath = resolve(projectRoot, archivePath);
-					if (
-						archiveFullPath.startsWith(`${projectRoot}/`) &&
-						(await Bun.file(archiveFullPath).exists())
-					) {
-						const content = await Bun.file(archiveFullPath).text();
-						return jsonResponse({ content });
-					}
-				}
-			}
-
-			return errorResponse(
-				`Artifact not found: ${artifactPath}. The file may have been deleted.`,
-				404,
+		// 3. Bare filename: resolve relative to feature's work and archive dirs
+		if (!artifactPath.includes("/")) {
+			const featureId = record.feature;
+			candidates.push(
+				resolve(projectRoot, `.rp1/work/features/${featureId}/${artifactPath}`),
+				resolve(
+					projectRoot,
+					`.rp1/work/archives/features/${featureId}/${artifactPath}`,
+				),
 			);
 		}
 
-		const content = await file.text();
-		return jsonResponse({ content });
+		for (const candidate of candidates) {
+			if (!candidate.startsWith(`${projectRoot}/`)) continue;
+			if (await Bun.file(candidate).exists()) {
+				const content = await Bun.file(candidate).text();
+				return jsonResponse({ content });
+			}
+		}
+
+		return errorResponse(
+			`Artifact not found: ${artifactPath}. The file may have been deleted.`,
+			404,
+		);
 	} catch (error) {
 		return errorResponse(`Failed to fetch artifact: ${String(error)}`);
 	}

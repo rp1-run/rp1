@@ -342,9 +342,9 @@ export function ArtifactViewerPage() {
 				return;
 			}
 
-			const artifact = run.artifacts.find(
-				(a) => a.path === selectedArtifactPath,
-			);
+			const artifact =
+				run.artifacts.find((a) => a.path === selectedArtifactPath) ??
+				run.artifacts.find((a) => a.path.endsWith(`/${selectedArtifactPath}`));
 			if (!artifact) {
 				setContentError("Artifact not found");
 				setArtifactContent(null);
@@ -368,7 +368,7 @@ export function ArtifactViewerPage() {
 
 			try {
 				const response = await fetch(
-					`/api/v2/runs/${runId}/artifacts/${encodeURIComponent(selectedArtifactPath)}`,
+					`/api/v2/runs/${runId}/artifacts/${encodeURIComponent(artifact.path)}`,
 				);
 				if (!response.ok) {
 					let errorMessage = `Failed to fetch artifact: ${response.statusText}`;
