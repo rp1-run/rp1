@@ -74,8 +74,9 @@ Generate `RUN_ID` as UUID at start. Terminal states (`→ [*]`): report `--statu
 | 5 Verify | code-checker, feature-verifier, comment-cleaner, build-verify-aggregator |
 | 6 Archive | feature-archiver |
 
+Symbols: `[ ]`=PENDING `[~]`=RUNNING `[x]`=COMPLETED `[-]`=SKIPPED `[!]`=FAILED
 Steps 1-3 foundational → ABORT on fail. Steps 4-6 → retry/prompt. NEVER delete artifacts.
-AFK mode: skip all prompts, auto-select defaults, auto-archive.
+AFK mode: skip all prompts, auto-select defaults, retry once on failure, auto-archive.
 
 ---
 
@@ -113,6 +114,8 @@ prompt: FEATURE_ID={FEATURE_ID}, UPDATE_MODE={UPDATE_MODE}, RP1_ROOT={{$RP1_ROOT
 ```
 
 **Checkpoint** (skip if AFK): AskUserQuestion with options "Continue" / "Revise" / "Stop".
+On Revise: get feedback, re-invoke §STEP-2 with UPDATE_MODE=true.
+On Stop: output summary (steps 1-2 done), exit with `/build {FEATURE_ID}`.
 
 ## §STEP-3: Tasks
 
@@ -124,6 +127,8 @@ prompt: FEATURE_ID={FEATURE_ID}, UPDATE_MODE=false, RP1_ROOT={{$RP1_ROOT}}
 ```
 
 **Checkpoint** (skip if AFK): AskUserQuestion with options "Continue" / "Revise" / "Stop".
+On Revise: get feedback, re-invoke §STEP-3 with UPDATE_MODE=true and feedback as UPDATE_CONTEXT.
+On Stop: output summary (steps 1-3 done), exit with `/build {FEATURE_ID}`.
 
 ## §STEP-4: Build
 
