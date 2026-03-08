@@ -208,7 +208,9 @@ setup-evals:
 run-evals *args:
     #!/usr/bin/env bash
     set -e
-    export PATH="$(pwd)/bin:$PATH"
+    repo_root="$(pwd)"
+    export PATH="${repo_root}/bin:$PATH"
+    evals_dir="${repo_root}/evals"
 
     # Parse flags
     suite=""
@@ -228,36 +230,36 @@ run-evals *args:
 
     # Collect suite configs to run
     if [ -n "$suite" ]; then
-        configs="evals/suites/${suite}/evals.yaml"
-        if [ ! -f "$configs" ]; then
-            echo "Error: Suite not found: $configs"
+        config_file="${evals_dir}/suites/${suite}/evals.yaml"
+        if [ ! -f "$config_file" ]; then
+            echo "Error: Suite not found: $config_file"
             exit 1
         fi
-        configs_list="$configs"
+        configs_list="$config_file"
     else
-        configs_list=$(find evals/suites -path "*/evals.yaml" -not -path "*/shared/*" -not -path "*/node_modules/*" | sort)
+        configs_list=$(find "${evals_dir}/suites" -path "*/evals.yaml" -not -path "*/shared/*" -not -path "*/node_modules/*" | sort)
     fi
 
     failed=0
     passed_suites=""
 
     for config in $configs_list; do
-        suite_path="${config#evals/suites/}"
+        suite_path="${config#${evals_dir}/suites/}"
         suite_path="${suite_path%/evals.yaml}"
         suite_filename=$(echo "${suite_path}" | tr '/' '-')
         output_file="output/${suite_filename}.json"
         provider_flag=""
         if [ "$harness" = "opencode" ]; then
-            provider_flag="--providers file://providers/opencode-with-tools.ts"
+            provider_flag="--providers file://${evals_dir}/providers/opencode-with-tools.ts"
         fi
         echo "=== ${suite_path} (harness: ${harness}) ==="
-        if cd evals && bunx promptfoo eval -c "suites/${suite_path}/evals.yaml" --output "${output_file}" $verbose_flag $provider_flag; then
+        if cd "${evals_dir}" && bunx promptfoo eval -c "suites/${suite_path}/evals.yaml" --output "${output_file}" $verbose_flag $provider_flag; then
             passed_suites="${passed_suites} ${output_file}"
-            cd ..
+            cd "${repo_root}"
         else
             echo "FAILED: ${suite_path}"
             failed=1
-            cd ..
+            cd "${repo_root}"
         fi
     done
 
