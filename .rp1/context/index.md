@@ -1,21 +1,21 @@
 # rp1 - Knowledge Base
 
 **Type**: Single Project
-**Languages**: TypeScript, Markdown, Shell, Python
-**Version**: 0.4.8
-**Updated**: 2026-03-01
+**Languages**: TypeScript, TSX, Markdown
+**Version**: 0.5.1
+**Updated**: 2026-03-08
 
 ## Project Summary
 
-rp1 is a multi-agentic tool plugin system that automates development workflows through constitutional prompting. It provides 39 skills and 49 agents across three plugins (base, dev, utils) that run on Claude Code and OpenCode platforms, compiled into a single cross-platform CLI binary with embedded assets.
+rp1 is a multi-agentic plugin system that automates development workflows through constitutional prompting. It provides skills (slash commands) and autonomous agents for knowledge management, feature development, PR review, and code quality — distributed as plugins for Claude Code and OpenCode platforms, with a real-time status dashboard.
 
 ## Quick Reference
 
 | Aspect | Value |
 |--------|-------|
-| Entry Point | `cli/src/main.ts` (Commander.js CLI) |
-| Key Pattern | Skill-Agent Delegation (SKILL.md → constitutional agents) |
-| Tech Stack | Bun, TypeScript, fp-ts, React/Vite (web-ui), SQLite |
+| Entry Point | `cli/src/main.ts` (CLI), `cli/web-ui/src/main.tsx` (Dashboard) |
+| Key Pattern | Skill-Agent Delegation (SKILL.md -> constitutional agents via Task tool) |
+| Tech Stack | Bun, TypeScript, fp-ts, React, Vite, Tailwind, SQLite, Commander |
 
 ## KB File Manifest
 
@@ -23,10 +23,10 @@ rp1 is a multi-agentic tool plugin system that automates development workflows t
 
 | File | Lines | Load For |
 |------|-------|----------|
-| architecture.md | ~131 | System design, component relationships, deployment |
-| modules.md | ~120 | Component breakdown, module responsibilities, dependencies |
-| patterns.md | ~98 | Code conventions, error handling, implementation patterns |
-| concept_map.md | ~100 | Domain terminology, business concepts, relationships |
+| architecture.md | ~189 | System design, component relationships, data flows |
+| modules.md | ~144 | Component breakdown, module responsibilities |
+| patterns.md | ~65 | Code conventions, implementation patterns |
+| concept_map.md | ~156 | Domain terminology, business concepts |
 
 ## Task-Based Loading
 
@@ -40,37 +40,37 @@ rp1 is a multi-agentic tool plugin system that automates development workflows t
 ## How to Load
 
 ```
-Read: .rp1/context/{filename}
+Read: {{$RP1_ROOT}}/context/{filename}
 ```
 
 ## Project Structure
 
 ```
-plugins/
-├── base/           # Foundation: KB, docs, strategy, security (15 skills, 13 agents)
-├── dev/            # Development: features, code quality, PR review (19 skills, 32 agents)
-└── utils/          # Prompt utilities: eval gen, optimization (5 skills, 4 agents)
 cli/
-├── src/
-│   ├── main.ts           # CLI entry point (Commander.js)
-│   ├── commands/         # CLI commands (init, install, verify, build, settings)
-│   ├── install/          # OpenCode + Claude Code plugin installation
-│   ├── build/            # OpenCode artifact build pipeline
-│   ├── assets/           # Embedded asset bundling/extraction
-│   ├── agent-tools/      # Runtime tools for AI agents (worktree, github-pr, work)
-│   ├── init/             # Project initialization wizard
-│   └── shared/           # Errors, logger, prompts, spinner (fp-ts)
-├── web-ui/               # React/Vite status dashboard
-└── scripts/              # Build scripts (generate-asset-imports, postinstall)
-evals/
-├── src/attestation/      # Content-addressable prompt tracking
-├── providers/            # Custom promptfoo provider (claude-with-tools)
-└── suites/               # Eval suite configs (rp1-dev/build, build-fast)
+├── src/                  # CLI core (main.ts, commands/, agent-tools/)
+│   ├── agent-tools/      # Runtime tools for AI agents (work, worktree, state-machine, github-pr, mmd-validate)
+│   ├── commands/          # Commander.js CLI commands
+│   ├── install/           # Plugin installation with backup/restore
+│   ├── init/              # 12-step project initialization wizard
+│   ├── build/             # OpenCode artifact build pipeline
+│   └── assets/            # Embedded asset bundling
+├── shared/               # Cross-cutting: errors (CLIError), fp-ts re-exports, logger
+├── web-ui/               # React/Vite status dashboard (server + frontend)
+│   ├── src/server/       # Bun HTTP + WebSocket server (port 7710)
+│   └── src/components/v2/ # Dashboard UI components
+├── scripts/              # Build and development scripts
+plugins/
+├── base/                 # Foundation: KB, docs, strategy, security (17 skills, 13 agents)
+├── dev/                  # Development: features, code quality, PRs (21 skills, 32 agents)
+└── utils/                # Meta: prompt engineering, evals (5 skills, 4 agents)
+evals/                    # Promptfoo evals with content-addressable attestation
+packages/
+└── catppuccin-mermaid/   # Mermaid theme library
 ```
 
 ## Navigation
 
-- **[architecture.md](architecture.md)**: System design, layers, interaction flows, deployment
-- **[modules.md](modules.md)**: 17 modules with dependencies, metrics, cross-module patterns
-- **[patterns.md](patterns.md)**: fp-ts error handling, constitutional agents, build pipeline, atomic install
-- **[concept_map.md](concept_map.md)**: Core concepts (Plugin, Skill, Agent, KB, Worktree), terminology glossary
+- **[architecture.md](architecture.md)**: System design, layer architecture, data flows, integration points
+- **[modules.md](modules.md)**: 19 modules with components, dependencies, metrics
+- **[patterns.md](patterns.md)**: Naming, types, error handling, validation, testing idioms
+- **[concept_map.md](concept_map.md)**: 17 core concepts, terminology glossary, concept relationships

@@ -1,8 +1,8 @@
 # System Architecture
 
 **Project**: rp1
-**Architecture Pattern**: Plugin-based CLI with Skill-Agent Delegation
-**Last Updated**: 2026-03-01
+**Architecture Pattern**: Plugin-based Skill-Agent Delegation with Map-Reduce Workflows
+**Last Updated**: 2026-03-08
 
 ## High-Level Architecture
 
@@ -15,8 +15,8 @@ graph TB
     end
 
     subgraph "Plugin System"
-        Base["rp1-base<br/>15 skills, 13 agents"]
-        Dev["rp1-dev<br/>19 skills, 32 agents"]
+        Base["rp1-base<br/>17 skills, 13 agents"]
+        Dev["rp1-dev<br/>21 skills, 32 agents"]
         Utils["rp1-utils<br/>5 skills, 4 agents"]
         Dev -->|depends on| Base
     end
@@ -32,12 +32,11 @@ graph TB
         AgentTools[Agent Tools Registry]
         SM["State Machine Module<br/>mermaid-ast + adapter"]
         WebUI["Web UI Dashboard<br/>React/Vite/Tailwind"]
-        SQLite["SQLite Work Status<br/>+ run_id, expires_at"]
+        SQLite["SQLite Work Status<br/>run_id, expires_at"]
         Main --> AgentTools
         Main --> WebUI
         AgentTools --> SQLite
         AgentTools --> SM
-        WebUI --> SM
     end
 
     subgraph "Knowledge Base"
@@ -45,12 +44,17 @@ graph TB
         State[state.json]
     end
 
-    subgraph "Build Pipeline"
+    subgraph "Build & Release"
         RP[Release-Please]
         GR[GoReleaser + Bun]
         AssetGen[Asset Import Generator]
         RP -->|tag| GR
         AssetGen -->|embedded.ts| GR
+    end
+
+    subgraph "Quality"
+        Evals["Promptfoo Evals<br/>+ Attestation"]
+        LHCI[Lighthouse CI]
     end
 
     CC --> Base
@@ -60,76 +64,126 @@ graph TB
     CLI --> Main
     Agents --> KB
     Agents --> AgentTools
+    WebUI -->|API :7710| SQLite
 ```
 
-## Architectural Layers
+## Architectural Patterns
 
-| Layer | Purpose | Components |
-|-------|---------|------------|
-| **Interface (Skills)** | User-facing entry points via slash commands | `plugins/*/skills/*/SKILL.md` |
-| **Agent** | Autonomous constitutional agents for single-pass execution | `plugins/*/agents/*.md` |
-| **CLI** | Cross-platform tooling, agent-tools, web dashboard | `cli/src/main.ts`, `commands/`, `agent-tools/`, `install/`, `build/` |
-| **Web UI** | Read-only markdown viewer and status dashboard | `cli/web-ui/src/` (React/Vite/Tailwind) |
-| **Config** | Tool registry and project configuration | `cli/src/config/supported-tools.yaml`, `.rp1/config/` |
-| **Knowledge** | Persistent codebase documentation | `.rp1/context/*.md`, `state.json` |
-| **Data** | SQLite-based work status tracking with run isolation and TTL-based expiry | `cli/src/agent-tools/work/migrations/*.sql` (3 migrations) |
-| **State Machine** | Declarative workflow definitions parsed from co-located state.mmd files | `cli/src/agent-tools/state-machine/`, `plugins/*/skills/*/state.mmd` |
-| **Build/Release** | CI/CD, binary compilation, asset bundling | `.github/workflows/`, `.goreleaser.yml`, `Justfile` |
-| **Evaluation** | Prompt testing with content-addressable attestation | `evals/src/attestation/`, `evals/suites/` |
+| Pattern | Description | Evidence |
+|---------|-------------|----------|
+| Plugin Architecture | Three plugins (base, dev, utils) with .claude-plugin manifests; dev depends on base | `plugins/*/` |
+| Skill-Agent Delegation | SKILL.md entry points spawn single-pass constitutional agents via Task tool | `plugins/*/skills/`, `plugins/*/agents/` |
+| Map-Reduce Workflows | Complex tasks split into parallel agent invocations, results merged by orchestrator | KB generation (5 agents), PR review (N sub-reviewers) |
+| Builder-Reviewer Loop | Builder agent produces work, reviewer validates with single-retry on failure | `/build`, `/build-fast` workflows |
+| Single-File Executable | GoReleaser + bun build --compile with embedded web-ui and OpenCode artifacts | `.goreleaser.yml`, `cli/scripts/generate-asset-imports.ts` |
+| Constitutional Prompting | Agents defined as declarative markdown with parameter tables, anti-loop directives, output contracts | All agent .md files |
 
-## Key Interaction Flows
+## Layer Architecture
+
+| Layer | Purpose | Key Components |
+|-------|---------|---------------|
+| Interface (Skills) | User-facing entry points via slash commands | `plugins/*/skills/*/SKILL.md` |
+| Agent Layer | Autonomous constitutional agents for single-pass execution | `plugins/*/agents/*.md` |
+| CLI Core | Commander-based CLI, agent-tools registry, state machine, build pipeline | `cli/src/main.ts`, `cli/src/commands/`, `cli/src/agent-tools/` |
+| Web UI | React/Vite/Tailwind status dashboard on port 7710 | `cli/web-ui/src/` |
+| Data Layer | SQLite work status tracking with run isolation and TTL expiry | `cli/src/agent-tools/work/`, `~/.rp1/status.db` |
+| Knowledge Layer | Persistent codebase documentation | `.rp1/context/*.md` |
+| Build/Release | CI/CD, binary compilation, asset bundling | `.github/workflows/`, `.goreleaser.yml`, `Justfile` |
+| Evaluation | Promptfoo evals with content-addressable attestation | `evals/src/` |
+| Shared Packages | Reusable internal libraries | `packages/catppuccin-mermaid/`, `cli/shared/` |
+
+## Key Data Flows
 
 ### KB Generation (Map-Reduce)
-1. User invokes `/rp1-base:knowledge-build`
-2. Skill checks state.json for incremental vs full mode
-3. Spawns `kb-spatial-analyzer` to categorize files
-4. Spawns 4 parallel analysis agents (architecture, modules, patterns, concepts)
-5. Orchestrator merges results → writes `.rp1/context/*.md` + `state.json`
+```mermaid
+sequenceDiagram
+    participant User
+    participant Orchestrator as /knowledge-build
+    participant SA as Spatial Analyzer
+    participant Agents as 4 Analysis Agents
+    participant FS as .rp1/context/
 
-### Feature Build (Builder-Reviewer Loop)
-1. User invokes `/rp1-dev:build` with feature-id
-2. Detects artifacts and parses task DAG
-3. For each task: spawns `task-builder` → `task-reviewer`
-4. On FAILURE: re-spawns builder with feedback (single retry)
-5. On SUCCESS: proceeds to next task
+    User->>Orchestrator: Invoke
+    Orchestrator->>Orchestrator: Check state.json (incremental?)
+    Orchestrator->>SA: Categorize repository files
+    SA-->>Orchestrator: Categorized file lists
+    par Parallel Analysis
+        Orchestrator->>Agents: Concept Extractor
+        Orchestrator->>Agents: Architecture Mapper
+        Orchestrator->>Agents: Module Analyzer
+        Orchestrator->>Agents: Pattern Extractor
+    end
+    Agents-->>Orchestrator: JSON outputs
+    Orchestrator->>FS: Write KB files + state.json
+```
 
-### PR Review (Map-Reduce)
-1. User invokes `/rp1-dev:pr-review`
-2. `pr-review-splitter` segments diff into review units
-3. N parallel `pr-sub-reviewer` agents analyze units with confidence scoring
-4. `pr-review-synthesizer` merges cross-file issues → fitness judgment
-5. Posts comments to GitHub PR
+### Feature Build (Builder-Reviewer)
+```mermaid
+sequenceDiagram
+    participant User
+    participant Build as /build
+    participant Builder as task-builder
+    participant Reviewer as task-reviewer
 
-### Binary Build Pipeline
-1. `bun run build:opencode` generates OpenCode artifacts from plugin sources
-2. `bun run build:web-ui` compiles React dashboard via Vite
-3. `generate-asset-imports.ts` reads bundle-manifest.json → generates `embedded.ts`
-4. `bun build --compile` produces single-file executable with all assets
+    User->>Build: feature-id
+    Build->>Build: Parse task DAG
+    loop Each Task
+        Build->>Builder: Implement task
+        Builder-->>Build: Code changes
+        Build->>Reviewer: Verify task
+        alt SUCCESS
+            Reviewer-->>Build: Approved
+        else FAILURE
+            Reviewer-->>Build: Feedback
+            Build->>Builder: Retry with feedback
+        end
+    end
+```
 
-### Release Pipeline
-1. Conventional commits merged to main → release-please creates rolling release PR
-2. Merging release PR creates git tag → triggers GoReleaser
-3. GoReleaser builds Bun binaries for 5 platform targets (darwin-arm64/x64, linux-arm64/x64, windows-x64)
-4. Publishes to GitHub Releases, Homebrew tap, Scoop bucket, OpenCode tarballs
+### Work Status Tracking
+```mermaid
+sequenceDiagram
+    participant Agent
+    participant CLI as rp1 agent-tools
+    participant SM as State Machine
+    participant DB as SQLite
+    participant WS as WebSocket
+    participant UI as Dashboard
 
-## External Integrations
+    Agent->>CLI: work update --step X --status started
+    CLI->>SM: Validate transition
+    SM-->>CLI: Valid
+    CLI->>DB: Insert status record
+    CLI->>WS: Notify daemon
+    WS->>UI: Push status_changed
+```
 
-| Service | Purpose |
-|---------|---------|
-| **GitHub Actions** | CI/CD: lint/typecheck/test, release versioning, binary builds, PR review |
-| **GoReleaser** | Cross-platform binary compilation via Bun for 5 targets |
-| **Release-Please** | Semantic versioning from conventional commits |
-| **Cloudflare Pages** | Documentation hosting at rp1.run |
-| **Promptfoo** | Eval framework with custom claude-with-tools provider |
-| **SQLite (Bun native)** | Work status tracking with run_id (per-invocation isolation), expires_at (TTL-based stale row pruning), and state machine transition validation |
-| **Lefthook** | Git hooks: pre-commit (lint, format), pre-push (typecheck, test) |
+## Integration Points
 
-## Deployment
+| Service | Purpose | Type |
+|---------|---------|------|
+| GitHub Actions | CI/CD: lint/test, release versioning, binary builds, PR review | Workflow automation |
+| GoReleaser | Cross-platform binary compilation (darwin/linux/windows, arm64/x64) | Build automation |
+| Release-Please | Semantic versioning from conventional commits | Version management |
+| Cloudflare Pages | Documentation hosting at rp1.run (MkDocs Material) | Static hosting |
+| Promptfoo | Eval framework for agent prompt testing with attestation | Testing framework |
+| SQLite (Bun native) | Work status tracking with WAL mode and TTL | Embedded database |
+| Lefthook | Git hooks: pre-commit (lint, format), pre-push (typecheck, test) | Developer tooling |
+| Claude Code Plugin System | Primary distribution via plugin marketplace | Plugin marketplace |
+| OpenCode | Secondary platform via tarball artifacts | Platform integration |
+| Lighthouse CI | Performance/accessibility auditing for docs site | Quality assurance |
 
-- **Claude Code**: Plugin marketplace via `plugin install` (3 plugins)
-- **OpenCode**: GitHub release tarballs, installed via `rp1 install opencode`
-- **Homebrew**: `brew install rp1-run/tap/rp1` (macOS cask)
-- **Scoop**: Windows package via GoReleaser
-- **curl**: `curl -fsSL https://rp1.run/install.sh | sh`
-- **npm**: `@rp1-run/rp1` package
-- **Current Version**: 0.4.8
+## Deployment Architecture
+
+**Distribution Channels**:
+- Claude Code: Plugin marketplace install (3 plugins)
+- OpenCode: GitHub release tarballs via `rp1 install opencode`
+- Homebrew: `brew install rp1-run/tap/rp1` (macOS cask)
+- Scoop: Windows package via GoReleaser
+- curl: `curl -fsSL https://rp1.run/install.sh | sh`
+- npm: `@rp1-run/rp1` (public registry)
+- Docs: Cloudflare Pages at rp1.run
+
+**Target Platforms**: darwin-arm64, darwin-x64, linux-arm64, linux-x64, windows-x64
+
+**Current Version**: 0.5.1

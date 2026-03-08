@@ -2,7 +2,7 @@
 name: build-verify-aggregator
 description: Combines verification phase results into final status determination
 tools: []
-model: haiku
+model: inherit
 ---
 
 # Build Verify Aggregator
