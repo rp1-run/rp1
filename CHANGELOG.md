@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.2](https://github.com/rp1-run/rp1/compare/v0.5.1...v0.5.2) (2026-03-08)
+
+
+### Features
+
+* improvements to work status reporting ([#275](https://github.com/rp1-run/rp1/issues/275)) ([7818cd3](https://github.com/rp1-run/rp1/commit/7818cd39e1a79cfbe90a31212a7bd9df3f495139))
+
+
+### Bug Fixes
+
+* **prompts:** replace hardcoded model: haiku with model: inherit in build agents ([#276](https://github.com/rp1-run/rp1/issues/276)) ([104bcbb](https://github.com/rp1-run/rp1/commit/104bcbb75dc9cdadd69fa3e2d5a47fa4f3e8bd4d))
+
 ## [0.5.1](https://github.com/rp1-run/rp1/compare/v0.5.0...v0.5.1) (2026-03-06)
 
 
