@@ -581,22 +581,21 @@ export async function handleStatusNotifyRequest(
 			});
 		}
 
-		// Broadcast the legacy status change to WebSocket clients
+		// Broadcast status change to WebSocket clients, including step/runStatus
+		// when available for optimistic UI updates
+		const step = body.newState ?? undefined;
+		const runStatus =
+			body.workflow && body.status
+				? mapStatusToRunStatus(body.status)
+				: undefined;
+
 		ctx.websocketHub?.broadcastStatusChange(
 			project.id,
 			body.feature,
 			body.status,
+			step,
+			runStatus,
 		);
-
-		// For state-machine-enabled workflows, also broadcast run:step and run:status
-		if (body.workflow && body.newState && ctx.websocketHub) {
-			const runId = body.runId ?? body.feature;
-			const runStatus = mapStatusToRunStatus(body.status);
-			const stepStatus = mapStatusToStepStatus(body.status);
-
-			ctx.websocketHub.broadcastRunStatus(runId, runStatus, body.newState);
-			ctx.websocketHub.broadcastRunStep(runId, body.newState, stepStatus);
-		}
 
 		return jsonResponse({ notified: true, projectId: project.id });
 	} catch (error) {
@@ -605,7 +604,7 @@ export async function handleStatusNotifyRequest(
 }
 
 /**
- * Map StatusValue to RunStatus for WebSocket run:status messages.
+ * Map raw StatusValue to frontend RunStatus for optimistic WebSocket updates.
  */
 function mapStatusToRunStatus(status: string): string {
 	switch (status) {
@@ -616,25 +615,6 @@ function mapStatusToRunStatus(status: string): string {
 			return "waiting-input";
 		case "needs-review":
 			return "needs-review";
-		case "completed":
-			return "completed";
-		case "failed":
-			return "failed";
-		default:
-			return "running";
-	}
-}
-
-/**
- * Map StatusValue to StepStatus for WebSocket run:step messages.
- */
-function mapStatusToStepStatus(status: string): string {
-	switch (status) {
-		case "started":
-		case "in_progress":
-		case "waiting-input":
-		case "needs-review":
-			return "running";
 		case "completed":
 			return "completed";
 		case "failed":
