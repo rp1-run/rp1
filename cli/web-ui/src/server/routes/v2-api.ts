@@ -508,6 +508,34 @@ async function deriveRunStatus(
 }
 
 /**
+ * Compute taskCount and completedTaskCount from agent sub-states.
+ *
+ * Returns null for both counts when no sub-states have a task ID (BR-003).
+ * A task is considered "done" when its status is completed or failed (BR-001).
+ */
+export function computeTaskCounts(subStates: readonly AgentSubState[]): {
+	taskCount: number | null;
+	completedTaskCount: number | null;
+} {
+	const taskIds = new Set<string>();
+	const completedTaskIds = new Set<string>();
+
+	for (const sub of subStates) {
+		if (sub.task === null) continue;
+		taskIds.add(sub.task);
+		if (sub.status === "completed" || sub.status === "failed") {
+			completedTaskIds.add(sub.task);
+		}
+	}
+
+	if (taskIds.size === 0) {
+		return { taskCount: null, completedTaskCount: null };
+	}
+
+	return { taskCount: taskIds.size, completedTaskCount: completedTaskIds.size };
+}
+
+/**
  * Attach agent sub-states to parent workflow steps.
  *
  * Groups agent-level records by agent+task, derives sub-state status for each
@@ -515,7 +543,7 @@ async function deriveRunStatus(
  * agent group's first record. Steps without agent activity are returned
  * unchanged.
  */
-function attachAgentSubStatesToSteps(
+export function attachAgentSubStatesToSteps(
 	steps: readonly Step[],
 	skillRecords: readonly StatusUpdateRecord[],
 	agentRecords: readonly StatusUpdateRecord[],
@@ -581,7 +609,13 @@ function attachAgentSubStatesToSteps(
 	return steps.map((step) => {
 		const subStates = parentStepSubStates.get(step.id);
 		if (subStates && subStates.length > 0) {
-			return { ...step, agentSubStates: subStates };
+			const { taskCount, completedTaskCount } = computeTaskCounts(subStates);
+			return {
+				...step,
+				taskCount,
+				completedTaskCount,
+				agentSubStates: subStates,
+			};
 		}
 		return step;
 	});
