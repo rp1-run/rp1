@@ -43,6 +43,7 @@ import { useFollowMode } from "@/hooks/useFollowMode";
 import type { HeadingEntry } from "@/hooks/useHeadingExtraction";
 import { useIsMobile } from "@/hooks/useMediaQuery";
 import { useRunDetail } from "@/hooks/useRunDetail";
+import { getCodeLanguageFromPath } from "@/lib/code-language";
 import { AnnotationProvider } from "@/providers/AnnotationProvider";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 import type { Annotation } from "@/types/annotations";
@@ -53,49 +54,6 @@ const ANNOTATIONS_ENABLED =
 
 const STORAGE_KEY_TOC_COLLAPSED = "rp1-toc-collapsed";
 const STORAGE_KEY_ANNOTATIONS_COLLAPSED = "rp1-annotations-collapsed";
-
-/**
- * Map file extensions to syntax highlighting languages.
- * Returns null for markdown files (which use MarkdownViewer).
- */
-function getCodeLanguageFromPath(path: string): string | null {
-	const ext = path.split(".").pop()?.toLowerCase();
-	if (!ext) return null;
-
-	const extToLang: Record<string, string> = {
-		ts: "typescript",
-		tsx: "tsx",
-		js: "javascript",
-		jsx: "jsx",
-		py: "python",
-		go: "go",
-		rs: "rust",
-		java: "java",
-		c: "c",
-		cpp: "cpp",
-		cc: "cpp",
-		cxx: "cpp",
-		h: "c",
-		hpp: "cpp",
-		rb: "ruby",
-		sh: "bash",
-		bash: "bash",
-		zsh: "bash",
-		json: "json",
-		yaml: "yaml",
-		yml: "yaml",
-		sql: "sql",
-		html: "html",
-		css: "css",
-		xml: "xml",
-		toml: "toml",
-		txt: "text",
-	};
-
-	if (ext === "md" || ext === "mdx") return null;
-
-	return extToLang[ext] ?? null;
-}
 
 interface ArtifactContent {
 	path: string;
