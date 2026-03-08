@@ -7,6 +7,7 @@ import { describe, expect, test } from "bun:test";
 import { parse as parseToml } from "smol-toml";
 import {
 	generateAgentToml,
+	generateCodexAgentsMd,
 	generateCodexManifest,
 	generateCodexSkillDir,
 	generateOpenaiYaml,
@@ -180,6 +181,40 @@ describe("generateAgentToml", () => {
 		expect(agentSection.developer_instructions).toBe("Build tasks carefully.");
 	});
 
+	test("includes tools array in TOML output", () => {
+		const agents: CodexAgent[] = [
+			createTestCodexAgent({
+				name: "task-builder",
+				tools: ["functions.exec_command", "functions.apply_patch"],
+			}),
+		];
+
+		const tomlContent = expectRight(generateAgentToml(agents));
+		const parsed = parseToml(tomlContent) as Record<string, unknown>;
+		const agentSection = (parsed.agents as Record<string, unknown>)[
+			"task-builder"
+		] as Record<string, unknown>;
+
+		expect(agentSection.tools).toEqual([
+			"functions.exec_command",
+			"functions.apply_patch",
+		]);
+	});
+
+	test("includes empty tools array when agent has no tools", () => {
+		const agents: CodexAgent[] = [
+			createTestCodexAgent({ name: "no-tools-agent", tools: [] }),
+		];
+
+		const tomlContent = expectRight(generateAgentToml(agents));
+		const parsed = parseToml(tomlContent) as Record<string, unknown>;
+		const agentSection = (parsed.agents as Record<string, unknown>)[
+			"no-tools-agent"
+		] as Record<string, unknown>;
+
+		expect(agentSection.tools).toEqual([]);
+	});
+
 	test("handles multiline developer_instructions", () => {
 		const instructions = [
 			"# Task Builder Agent",
@@ -276,5 +311,49 @@ describe("generateCodexManifest", () => {
 		const manifest = JSON.parse(content);
 		expect(manifest.generatedAt).toBeDefined();
 		expect(new Date(manifest.generatedAt).getTime()).not.toBeNaN();
+	});
+});
+
+describe("generateCodexAgentsMd", () => {
+	test("produces markdown table with agent details", () => {
+		const agents: CodexAgent[] = [
+			createTestCodexAgent({
+				name: "task-builder",
+				description: "Builds tasks from feature list",
+				roleType: "worker",
+			}),
+			createTestCodexAgent({
+				name: "task-reviewer",
+				description: "Reviews completed tasks",
+				roleType: "reviewer",
+			}),
+		];
+
+		const content = expectRight(generateCodexAgentsMd("dev", agents));
+
+		expect(content).toContain("# rp1-dev Agents");
+		expect(content).toContain("| Agent | Role | Description |");
+		expect(content).toContain(
+			"| task-builder | worker | Builds tasks from feature list |",
+		);
+		expect(content).toContain(
+			"| task-reviewer | reviewer | Reviews completed tasks |",
+		);
+	});
+
+	test("produces valid markdown table header", () => {
+		const agents: CodexAgent[] = [
+			createTestCodexAgent({ name: "agent-a", roleType: "default" }),
+		];
+
+		const content = expectRight(generateCodexAgentsMd("base", agents));
+
+		expect(content).toContain("|-------|------|-------------|");
+	});
+
+	test("uses plugin name in heading", () => {
+		const content = expectRight(generateCodexAgentsMd("utils", []));
+
+		expect(content).toContain("# rp1-utils Agents");
 	});
 });

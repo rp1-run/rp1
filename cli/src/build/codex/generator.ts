@@ -120,7 +120,12 @@ export const generateAgentToml = (
 			string,
 			Record<
 				string,
-				{ model: string; role: string; developer_instructions: string }
+				{
+					model: string;
+					role: string;
+					tools: readonly string[];
+					developer_instructions: string;
+				}
 			>
 		> = { agents: {} };
 
@@ -128,6 +133,7 @@ export const generateAgentToml = (
 			agentsMap.agents[agent.name] = {
 				model: agent.model,
 				role: agent.roleType,
+				tools: agent.tools,
 				developer_instructions: agent.developerInstructions,
 			};
 		}
@@ -137,6 +143,38 @@ export const generateAgentToml = (
 	} catch (e) {
 		return E.left(
 			generationError("rp1-agents.toml", `Agent TOML generation failed: ${e}`),
+		);
+	}
+};
+
+/**
+ * Generate AGENTS.md listing all agents with descriptions and role types.
+ * Uses Codex $ syntax for any cross-references.
+ */
+export const generateCodexAgentsMd = (
+	pluginName: string,
+	agents: readonly CodexAgent[],
+): E.Either<CLIError, string> => {
+	try {
+		const lines: string[] = [
+			`# rp1-${pluginName} Agents`,
+			"",
+			"| Agent | Role | Description |",
+			"|-------|------|-------------|",
+		];
+
+		for (const agent of agents) {
+			lines.push(
+				`| ${agent.name} | ${agent.roleType} | ${agent.description} |`,
+			);
+		}
+
+		lines.push("");
+
+		return E.right(lines.join("\n"));
+	} catch (e) {
+		return E.left(
+			generationError(pluginName, `Codex AGENTS.md generation failed: ${e}`),
 		);
 	}
 };

@@ -5,6 +5,7 @@
 
 export {
 	generateAgentToml,
+	generateCodexAgentsMd,
 	generateCodexManifest,
 	generateCodexSkillDir,
 	generateOpenaiYaml,

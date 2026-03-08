@@ -137,6 +137,43 @@ describe("buildCodexPlugin integration", () => {
 		expect(foundTransformedRef).toBe(true);
 	}, 30000);
 
+	test("produces AGENTS.md listing all agents", async () => {
+		const outputPath = join(tempDir, "agentsmd-output");
+		await buildCodexPlugin("base", projectRoot, outputPath, logger, true);
+
+		const agentsMdPath = join(outputPath, "base", "AGENTS.md");
+		const agentsMdContent = await readFile(agentsMdPath, "utf-8");
+
+		expect(agentsMdContent).toContain("# rp1-base Agents");
+		expect(agentsMdContent).toContain("| Agent | Role | Description |");
+
+		const lines = agentsMdContent
+			.split("\n")
+			.filter(
+				(l) =>
+					l.startsWith("| ") &&
+					!l.startsWith("| Agent") &&
+					!l.startsWith("|---"),
+			);
+		expect(lines.length).toBeGreaterThan(0);
+	}, 30000);
+
+	test("rp1-agents.toml includes tools arrays for agents", async () => {
+		const outputPath = join(tempDir, "tools-output");
+		await buildCodexPlugin("base", projectRoot, outputPath, logger, true);
+
+		const tomlPath = join(outputPath, "base", "rp1-agents.toml");
+		const tomlContent = await readFile(tomlPath, "utf-8");
+		const parsed = parseToml(tomlContent) as Record<string, unknown>;
+		const agents = parsed.agents as Record<string, unknown>;
+
+		for (const name of Object.keys(agents)) {
+			const section = agents[name] as Record<string, unknown>;
+			expect(section).toHaveProperty("tools");
+			expect(Array.isArray(section.tools)).toBe(true);
+		}
+	}, 30000);
+
 	test("builds dev plugin without errors", async () => {
 		const outputPath = join(tempDir, "dev-output");
 		const result = await buildCodexPlugin(

@@ -27,6 +27,7 @@ import { extractStateMachineMermaid } from "../agent-tools/state-machine/extract
 import { colorFns } from "../lib/colors.js";
 import {
 	generateAgentToml,
+	generateCodexAgentsMd,
 	generateCodexManifest,
 	generateCodexSkillDir,
 	generateOpenaiYaml,
@@ -752,6 +753,16 @@ export const buildCodexPlugin = async (
 			}
 		} else {
 			errors.push(`[codex] ${formatError(tomlResult.left, false)}`);
+		}
+	}
+
+	// Generate AGENTS.md
+	if (codexAgents.length > 0) {
+		const agentsMdResult = generateCodexAgentsMd(pluginName, codexAgents);
+		if (E.isRight(agentsMdResult)) {
+			await writeFile(join(pluginOutputDir, "AGENTS.md"), agentsMdResult.right);
+		} else {
+			errors.push(`[codex] ${formatError(agentsMdResult.left, false)}`);
 		}
 	}
 
