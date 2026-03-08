@@ -80,6 +80,7 @@ function makeRecord(
 		workflow: null,
 		agent: null,
 		task: null,
+		worktreePath: null,
 		...overrides,
 	};
 }
