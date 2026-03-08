@@ -547,6 +547,7 @@ export function attachAgentSubStatesToSteps(
 	steps: readonly Step[],
 	skillRecords: readonly StatusUpdateRecord[],
 	agentRecords: readonly StatusUpdateRecord[],
+	runStatus: RunStatus = "running",
 ): readonly Step[] {
 	if (agentRecords.length === 0) return steps;
 
@@ -606,21 +607,45 @@ export function attachAgentSubStatesToSteps(
 		}
 	}
 
+	// Build a set of step IDs that have a subsequent step started after them,
+	// meaning they are implicitly completed (agents under them should resolve).
+	const stepOrder = steps.map((s) => s.id);
+	const activeStepIds = new Set(stepTimeline.map((t) => t.stepId));
+	const implicitlyCompletedSteps = new Set<string>();
+	for (let i = 0; i < stepOrder.length; i++) {
+		if (!activeStepIds.has(stepOrder[i])) continue;
+		// If any later step has been started, this step is implicitly done
+		const hasLaterStep = stepOrder
+			.slice(i + 1)
+			.some((sid) => activeStepIds.has(sid));
+		if (hasLaterStep) {
+			implicitlyCompletedSteps.add(stepOrder[i]);
+		}
+	}
+	const runIsTerminal = runStatus === "completed" || runStatus === "failed";
+
 	return steps.map((step) => {
 		const subStates = parentStepSubStates.get(step.id);
 		if (subStates && subStates.length > 0) {
-			// When a parent step has reached a terminal status, infer that any
-			// agent sub-states still showing "running" have also completed.
-			// Agents only report --status started per convention; completion is
-			// implied by the parent step finishing.
+			// Infer agent terminal status when:
+			// 1. The parent step is explicitly terminal, OR
+			// 2. A subsequent workflow step has been started (implying this one finished), OR
+			// 3. The entire run has reached a terminal status
 			const stepIsTerminal =
-				step.status === "completed" || step.status === "failed";
+				step.status === "completed" ||
+				step.status === "failed" ||
+				implicitlyCompletedSteps.has(step.id) ||
+				runIsTerminal;
+			const inferredStatus: StepStatus =
+				step.status === "failed" || runStatus === "failed"
+					? "failed"
+					: "completed";
 			const resolvedSubStates = stepIsTerminal
 				? subStates.map((s) =>
 						s.status === "running"
 							? {
 									...s,
-									status: step.status as StepStatus,
+									status: inferredStatus,
 									completedAt: s.completedAt ?? step.completedAt,
 								}
 							: s,
@@ -671,6 +696,7 @@ async function buildDetailedRun(
 		steps,
 		skillRecords,
 		agentRecords,
+		status,
 	);
 
 	const startedAt =
