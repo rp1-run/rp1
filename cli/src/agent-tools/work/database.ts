@@ -26,8 +26,9 @@ import { VALID_STATUSES } from "./models.js";
 /** Current schema version - must match highest migration number */
 export const CURRENT_SCHEMA_VERSION = 7;
 
-/** Default database file location */
-const DEFAULT_DB_PATH = join(homedir(), ".rp1", "status.db");
+/** Default database file location. Override with RP1_STATUS_DB env var (used by evals to avoid polluting local DB). */
+const DEFAULT_DB_PATH =
+	process.env.RP1_STATUS_DB ?? join(homedir(), ".rp1", "status.db");
 
 /** Valid feature name pattern (kebab-case with alphanumeric) */
 const FEATURE_PATTERN = /^[a-z0-9-]+$/;

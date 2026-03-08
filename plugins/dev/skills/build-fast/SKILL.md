@@ -104,6 +104,8 @@ prompt: DEVELOPMENT_REQUEST={DEVELOPMENT_REQUEST}, RP1_ROOT={{$RP1_ROOT}}
 
 **Parse response**: Extract `scope`, `plan_summary`, `files_affected`, `reasoning`, `artifact_path`, `task_count`, `task_ids`.
 
+**If planner fails or returns an error**: Retry the planner once. If it fails again, use a `general-purpose` agent with the same prompt to generate the plan and artifact. Never skip planning — always produce an artifact before §PHASE-2.
+
 ### §1.1 Large Scope Redirect
 
 If `scope` = "Large":
@@ -140,6 +142,8 @@ AskUserQuestion: |
 
 ## §PHASE-2: Execution
 
+**CRITICAL**: You are an orchestrator. You MUST delegate implementation to `task-builder` via the Task tool. Do NOT write, edit, or create source code files yourself. Do NOT implement the plan directly. Your only job is to spawn agents and parse their responses.
+
 ### §2.1 Worktree Setup
 
 **Skip if**: `GIT_WORKTREE=false`
@@ -155,7 +159,7 @@ Parse JSON: `path` (worktree_path), `branch`, `basedOn`. Store with `original_cw
 
 ### §2.2 Task Execution
 
-**Spawn agent**:
+**You MUST spawn task-builder here.** Do not implement the tasks yourself.
 
 ```
 Task: rp1-dev:task-builder
@@ -177,7 +181,7 @@ prompt: |
 
 ### §3.1 Task Review
 
-**Spawn agent**:
+**You MUST use `subagent_type: rp1-dev:task-reviewer`** — do not use `general-purpose` or any other agent type.
 
 ```
 Task: rp1-dev:task-reviewer
@@ -285,6 +289,24 @@ rp1 agent-tools work artifact \
 **Review**: {PASSED | SKIPPED | FAILED+RETRIED} (based on REVIEW flag)
 ```
 
+## §ORCHESTRATOR-RULES
+
+**MANDATORY — violations cause eval failure**:
+
+**DO**:
+- Spawn agents via Task/Agent tool for every phase (planner, task-builder, reviewer)
+- Wait for each Task to complete before proceeding
+- Use AskUserQuestion for user interactions (when not AFK)
+- Register artifact via `rp1 agent-tools work artifact` in §OUTPUT — this is REQUIRED
+
+**DO NOT** (hard constraints — never violate these):
+- Write/edit ANY source code files directly — planner writes the artifact, task-builder writes code
+- Read source code files to understand the task — subagents handle their own context
+- Implement anything yourself — you are ONLY a workflow orchestrator, not an implementer
+- Skip the task-builder spawn — it is MANDATORY for Small/Medium scope
+- Write the plan artifact yourself if the planner fails — retry the planner instead
+- Fall back to manual implementation if any agent fails — retry once, then STOP with error
+
 ## §ANTI-LOOP
 
-Single-pass per phase. Parse args -> plan -> [checkpoint] -> execute -> [review] -> [checkpoint] -> STOP.
+Single-pass per phase. Parse args -> plan -> [checkpoint] -> execute via task-builder -> [review] -> [checkpoint] -> STOP.

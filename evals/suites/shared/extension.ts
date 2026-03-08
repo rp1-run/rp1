@@ -91,6 +91,10 @@ function resetWorkspace(workspaceDir: string, remoteDir: string): void {
 	// Copy fixture project if it exists, otherwise create minimal structure
 	try {
 		copyDirSync(FIXTURE_DIR, workspaceDir);
+
+		// Ensure .rp1 work directories exist (may be gitignored in fixture)
+		mkdirSync(`${workspaceDir}/.rp1/work/quick-builds`, { recursive: true });
+		mkdirSync(`${workspaceDir}/.rp1/work/features`, { recursive: true });
 	} catch {
 		// Fallback: create minimal bun project structure
 		mkdirSync(`${workspaceDir}/src`, { recursive: true });
@@ -260,6 +264,10 @@ export async function extensionHook(
 		const count = getCommitCount(workspaceDir);
 		const remoteHead = getRemoteHead(remoteDir);
 
+		// Isolate eval DB writes from production ~/.rp1/status.db
+		// Single shared DB for all eval runs (no per-test DB needed)
+		process.env.RP1_STATUS_DB = join(EVAL_BASE_DIR, "status.db");
+
 		// Inject paths into vars - provider will use WORKSPACE_DIR
 		context.test.vars.EVAL_BASE_DIR = baseDir;
 		context.test.vars.WORKSPACE_DIR = workspaceDir;
@@ -291,6 +299,15 @@ export async function extensionHook(
 		console.log(
 			`[rp1-eval] After "${context.test.description}": HEAD=${headAfter.slice(0, 7)}, commits=${countAfter}, new=${countAfter - countBefore}, pushed=${remotePushed}`,
 		);
+
+		// Preserve workspace on failure for debugging (opt-in via env var)
+		const preserveOnFail = process.env.PRESERVE_EVAL_WORKSPACES === "true";
+		if (preserveOnFail && context.result && !context.result.success) {
+			console.log(
+				`[rp1-eval] PRESERVING failed workspace for debugging: ${baseDir}`,
+			);
+			return;
+		}
 
 		// Cleanup the workspace
 		if (baseDir) {

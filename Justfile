@@ -154,6 +154,18 @@ db-clean:
     count=$(sqlite3 "$db_path" "SELECT COUNT(*) FROM status_updates;")
     sqlite3 "$db_path" "DELETE FROM status_updates;"
     echo "Deleted $count rows from status_updates"
+    # Clean project registry
+    if [ "$(uname)" = "Darwin" ]; then
+        registry_path="$HOME/Library/Application Support/rp1/projects.json"
+    else
+        registry_path="${XDG_CONFIG_HOME:-$HOME/.config}/rp1/projects.json"
+    fi
+    if [ -f "$registry_path" ]; then
+        rm "$registry_path"
+        echo "Deleted project registry at $registry_path"
+    else
+        echo "No project registry found at $registry_path"
+    fi
 
 # Delete the entire local status database file (for testing)
 db-reset:
@@ -183,23 +195,99 @@ serve-docs:
 setup-evals:
     cd evals && bun install --frozen-lockfile
 
-# Run evaluation suite (e.g., just run-evals rp1-dev/build)
-# Output file is overwritten on each run (no timestamp accumulation)
-run-evals suite verbose="false":
+# Directory structure: evals/suites/{plugin}/{suite}/evals.yaml
+# Default harness: claude code. Override with --harness=opencode.
+#
+# Examples:
+#   just run-evals                          # run all suites (claude harness)
+#   just run-evals rp1-dev/build-fast       # run specific suite
+#   just run-evals --harness=opencode       # run all with opencode
+#   just run-evals --attest --commit        # run all, attest passing, commit
+
+# Run eval suites. Optional: suite path, --harness=opencode, --attest, --commit, --verbose
+run-evals *args:
     #!/usr/bin/env bash
     set -e
-    # Add local rp1 bin to PATH so agents can use the dev version
-    export PATH="$(pwd)/bin:$PATH"
-    suite_filename=$(echo "{{suite}}" | tr '/' '-')
-    output_file="output/${suite_filename}.json"
+    repo_root="$(pwd)"
+    export PATH="${repo_root}/bin:$PATH"
+    evals_dir="${repo_root}/evals"
+
+    # Parse flags
+    suite=""
+    harness="claude"
+    attest=false
+    do_commit=false
     verbose_flag=""
-    if [ "{{verbose}}" = "true" ]; then verbose_flag="--verbose"; fi
-    cd evals && bunx promptfoo eval -c "suites/{{suite}}/evals.yaml" --output "${output_file}" $verbose_flag
-    echo "Output written to: evals/${output_file}"
+    for arg in {{args}}; do
+        case "$arg" in
+            --harness=*) harness="${arg#--harness=}" ;;
+            --attest) attest=true ;;
+            --commit) do_commit=true ;;
+            --verbose) verbose_flag="--verbose" ;;
+            *) suite="$arg" ;;
+        esac
+    done
+
+    # Collect suite configs to run
+    if [ -n "$suite" ]; then
+        config_file="${evals_dir}/suites/${suite}/evals.yaml"
+        if [ ! -f "$config_file" ]; then
+            echo "Error: Suite not found: $config_file"
+            exit 1
+        fi
+        configs_list="$config_file"
+    else
+        configs_list=$(find "${evals_dir}/suites" -path "*/evals.yaml" -not -path "*/shared/*" -not -path "*/node_modules/*" | sort)
+    fi
+
+    failed=0
+    passed_suites=""
+
+    for config in $configs_list; do
+        suite_path="${config#${evals_dir}/suites/}"
+        suite_path="${suite_path%/evals.yaml}"
+        suite_filename=$(echo "${suite_path}" | tr '/' '-')
+        output_file="output/${suite_filename}.json"
+        provider_flag=""
+        if [ "$harness" = "opencode" ]; then
+            provider_flag="--providers file://${evals_dir}/providers/opencode-with-tools.ts"
+        fi
+        echo "=== ${suite_path} (harness: ${harness}) ==="
+        if cd "${evals_dir}" && bunx promptfoo eval -c "suites/${suite_path}/evals.yaml" --output "${output_file}" $verbose_flag $provider_flag; then
+            passed_suites="${passed_suites} ${output_file}"
+            cd "${repo_root}"
+        else
+            echo "FAILED: ${suite_path}"
+            failed=1
+            cd "${repo_root}"
+        fi
+    done
+
+    # Attest passing suites
+    if [ "$attest" = "true" ] && [ -n "$passed_suites" ]; then
+        echo ""
+        echo "=== Attesting passing suites ==="
+        for output in $passed_suites; do
+            echo "Attesting: $output"
+            bun run evals/src/attestation/cli.ts attest-from-output "evals/${output}" || echo "Attestation failed for ${output}"
+        done
+    fi
+
+    # Commit attestation changes
+    if [ "$do_commit" = "true" ] && [ "$attest" = "true" ]; then
+        if git diff --quiet evals/attestation.json 2>/dev/null; then
+            echo "No attestation changes to commit"
+        else
+            git add evals/attestation.json
+            git commit -m "$(printf 'chore: attest evals\n\nGenerated with AI\n\nCo-Authored-By: rp1 <bot@rp1.run>')"
+            echo "Attestation committed"
+        fi
+    fi
+
+    if [ "$failed" = "1" ]; then echo "Some evals FAILED"; exit 1; fi
+    echo "All evals PASSED"
 
 # Generate attestation from eval output file
-# For new-style fixed filenames: just attest-evals rp1-dev-build-fast.json
-# For legacy timestamped files: just attest-evals rp1-dev-build-fast-2026-01-24T05-00-44.json
 attest-evals output-file:
     bun run evals/src/attestation/cli.ts attest-from-output evals/output/{{output-file}}
 
@@ -213,4 +301,4 @@ show-evals-status:
 
 # View eval results in browser
 view-evals:
-    cd evals && bunx promptfoo view
+    cd evals && bunx promptfoo view -n

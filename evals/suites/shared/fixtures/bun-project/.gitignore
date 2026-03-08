@@ -20,5 +20,6 @@ bun.lockb
 .DS_Store
 Thumbs.db
 
-# rp1
-.rp1/
+# rp1 work outputs (context is kept for KB loading)
+.rp1/work/quick-builds/
+.rp1/work/features/

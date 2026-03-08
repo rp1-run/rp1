@@ -1,4 +1,11 @@
-description: "Evals for build-fast command with task-builder integration"
+# build-fast Command Evaluation Suite
+#
+# Unified eval config for /rp1-dev:build-fast across harnesses.
+# Default: claude-with-tools. Override: EVAL_HARNESS=opencode
+#
+# Run: just run-evals rp1-dev/build-fast
+# Run with opencode: just run-evals rp1-dev/build-fast --harness=opencode
+description: "rp1-dev:build-fast unified evaluation"
 evaluateOptions:
   maxConcurrency: 4
 extensions:
@@ -7,13 +14,12 @@ providers:
   - id: file://../../../providers/claude-with-tools.ts
     label: rp1-agentic-eval
     config:
-      model: claude-opus-4-5
-      # working_dir is set dynamically by extension via WORKSPACE_DIR var
-      # This enables parallel test execution with isolated workspaces
+      model: claude-opus-4-6
+      betas:
+        - fast-mode-2026-02-01
       permission_mode: bypassPermissions
       allow_dangerously_skip_permissions: true
-      ask_user_question:
-        behavior: first_option
+      ask_user_behavior: first_option
       max_turns: 50
       setting_sources:
         - project
@@ -51,9 +57,17 @@ defaultTest:
 tests:
   - description: "default_behavior"
     assert:
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertWorkStatusUpdate
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertTaskBuilderSpawned
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertArtifactRegistration
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertDefaultProhibited
       - type: llm-rubric
         value: |
-          Evaluate the agent execution. Check the output text AND the Metadata JSON section.
+          Evaluate the agent's output text for behavioral correctness.
 
           REQUIRED (all must pass):
           1. Output contains "Scope" section with scope classification (Small, Medium, or Large)
@@ -82,11 +96,15 @@ tests:
     vars:
       DEVELOPMENT_REQUEST: "rewrite the entire authentication system from scratch, migrate to a new database schema, and update all API endpoints to use GraphQL instead of REST"
     assert:
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertNoWriteEdit
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertNoGitCommitToolCall
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertNoArtifactRegistration
       - type: llm-rubric
         value: |
           Evaluate whether the agent correctly identifies and redirects a large-scope request.
-
-          Check the output text AND the Metadata JSON section.
 
           REQUIRED (all must pass):
           1. Output contains "Scope Assessment" section with "Large" classification
@@ -114,10 +132,20 @@ tests:
       CONFIRM_PLAN: true
       REVIEW: true
     assert:
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertAskUserCheckpoint
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertTaskBuilderSpawned
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertTaskReviewerSpawned
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertPostImplCheckpoint
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertArtifactRegistration
       - type: llm-rubric
         value: |
           Evaluate the agent execution with --confirm-plan and --review flags enabled.
-          Check the output text AND the Metadata JSON section.
+          Focus on the checkpoint flow and output quality — NOT artifact path format.
 
           REQUIRED (all must pass):
           1. Agent spawns build-fast-planner which writes artifact to {RP1_ROOT}/work/quick-builds/{yyyy-mm-dd}-{slug}-{n}.md
@@ -147,11 +175,21 @@ tests:
       CONFIRM_PLAN: false
       REVIEW: false
     assert:
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertGitCommitToolCall
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertGitPushToolCall
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertWorktreeCreateToolCall
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertWorktreeCleanupToolCall
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertTaskBuilderSpawned
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertArtifactRegistration
       - type: llm-rubric
         value: |
           Evaluate whether the agent respects GIT_COMMIT=true, GIT_WORKTREE=true, and GIT_PUSH=true flags.
-
-          Check the Metadata JSON section for bashCommands and toolCalls.
 
           REQUIRED:
           1. Agent implements the requested change (creates/modifies files)
@@ -176,11 +214,17 @@ tests:
       CONFIRM_PLAN: true
       REVIEW: false
     assert:
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertGitCommitToolCall
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertNoAskUser
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertTaskBuilderSpawned
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertArtifactRegistration
       - type: llm-rubric
         value: |
           Evaluate whether AFK=true bypasses --confirm-plan checkpoints.
-
-          Check the Metadata JSON section for bashCommands and toolCalls.
 
           REQUIRED:
           1. Agent implements the requested change (creates/modifies files)
