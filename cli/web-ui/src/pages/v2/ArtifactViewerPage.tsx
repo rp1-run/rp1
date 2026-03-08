@@ -15,8 +15,6 @@ import {
 	useState,
 } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { MarkdownViewer } from "@/components/MarkdownViewer";
-import { CodeBlock } from "@/components/MarkdownViewer/CodeBlock";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
 import {
@@ -37,13 +35,14 @@ import { FollowModeToggle } from "@/components/v2/FollowModeToggle";
 import { KeyHints, VIEWER_HINTS } from "@/components/v2/KeyHints";
 import { NewUpdatesChip } from "@/components/v2/NewUpdatesChip";
 import { TableOfContents } from "@/components/v2/TableOfContents";
+import { UnifiedContentRenderer } from "@/components/v2/UnifiedContentRenderer";
 import { useAnnotations } from "@/hooks/useAnnotations";
 import { useContextualShortcuts } from "@/hooks/useContextualShortcuts";
 import { useFollowMode } from "@/hooks/useFollowMode";
 import type { HeadingEntry } from "@/hooks/useHeadingExtraction";
 import { useIsMobile } from "@/hooks/useMediaQuery";
 import { useRunDetail } from "@/hooks/useRunDetail";
-import { getCodeLanguageFromPath } from "@/lib/code-language";
+
 import { AnnotationProvider } from "@/providers/AnnotationProvider";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 import type { Annotation } from "@/types/annotations";
@@ -591,27 +590,12 @@ export function ArtifactViewerPage() {
 					<p className="text-lg">Select an artifact from the sidebar</p>
 				</div>
 			) : artifactContent ? (
-				(() => {
-					const codeLanguage = getCodeLanguageFromPath(artifactContent.path);
-					if (codeLanguage) {
-						return (
-							<CodeBlock
-								code={artifactContent.content}
-								language={codeLanguage}
-								artifactPath={artifactContent.path}
-								enableAnnotations={ANNOTATIONS_ENABLED}
-							/>
-						);
-					}
-					return (
-						<MarkdownViewer
-							content={artifactContent.content}
-							path={artifactContent.path}
-							onHeadingsExtracted={handleHeadingsExtracted}
-							enableAnnotations={ANNOTATIONS_ENABLED}
-						/>
-					);
-				})()
+				<UnifiedContentRenderer
+					content={artifactContent.content}
+					path={artifactContent.path}
+					onHeadingsExtracted={handleHeadingsExtracted}
+					enableAnnotations={ANNOTATIONS_ENABLED}
+				/>
 			) : null}
 		</>
 	);
