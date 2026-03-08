@@ -1,1 +1,1 @@
-/rp1-dev/build-fast "{{DEVELOPMENT_REQUEST}}"{% if GIT_WORKTREE %} --git-worktree{% endif %}{% if GIT_COMMIT %} --git-commit{% endif %}{% if GIT_PUSH %} --git-push{% endif %}{% if AFK %} --afk{% endif %}{% if CONFIRM_PLAN %} --confirm-plan{% endif %}{% if REVIEW %} --review{% endif %}
+/rp1-dev:build-fast "{{DEVELOPMENT_REQUEST}}"{% if GIT_WORKTREE %} --git-worktree{% endif %}{% if GIT_COMMIT %} --git-commit{% endif %}{% if GIT_PUSH %} --git-push{% endif %}{% if AFK %} --afk{% endif %}{% if CONFIRM_PLAN %} --confirm-plan{% endif %}{% if REVIEW %} --review{% endif %}

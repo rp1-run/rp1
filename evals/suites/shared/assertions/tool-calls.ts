@@ -588,16 +588,30 @@ export const assertNoWriteEdit: AssertionFunction = (_output, context) => {
 	return { pass: true, score: 1, reason: "No Write/Edit tool calls found" };
 };
 
-/** Assert no AskUserQuestion calls (AFK mode). */
-export const assertNoAskUser = assertNoToolCall("AskUserQuestion" as ToolName);
+/** Assert no AskUserQuestion calls (AFK mode). Cross-provider: matches both AskUserQuestion and question. */
+export const assertNoAskUser: AssertionFunction = (_output, context) => {
+	const tcs = getToolCalls(context);
+	const found = tcs.find(
+		(tc) => tc.name === "AskUserQuestion" || tc.canonical === "ask_user",
+	);
+	if (found)
+		return {
+			pass: false,
+			score: 0,
+			reason: `Found ${found.name} tool call when none was expected (AFK mode)`,
+		};
+	return { pass: true, score: 1, reason: "No AskUserQuestion calls found" };
+};
 
-/** Assert AskUserQuestion checkpoint with Continue/Revise/Stop options. */
+/** Assert AskUserQuestion checkpoint with Continue/Revise/Stop options. Cross-provider: matches both AskUserQuestion and question. */
 export const assertAskUserCheckpoint: AssertionFunction = (
 	_output,
 	context,
 ) => {
 	const tcs = getToolCalls(context);
-	const askCalls = tcs.filter((tc) => tc.name === "AskUserQuestion");
+	const askCalls = tcs.filter(
+		(tc) => tc.name === "AskUserQuestion" || tc.canonical === "ask_user",
+	);
 	const hasPlanReview = askCalls.some((tc) => {
 		const input = JSON.stringify(tc.input);
 		return (
@@ -615,13 +629,15 @@ export const assertAskUserCheckpoint: AssertionFunction = (
 	return { pass: true, score: 1, reason: "Plan review checkpoint fired" };
 };
 
-/** Assert post-implementation checkpoint (Done/Add options). */
+/** Assert post-implementation checkpoint (Done/Add options). Cross-provider: matches both AskUserQuestion and question. */
 export const assertPostImplCheckpoint: AssertionFunction = (
 	_output,
 	context,
 ) => {
 	const tcs = getToolCalls(context);
-	const askCalls = tcs.filter((tc) => tc.name === "AskUserQuestion");
+	const askCalls = tcs.filter(
+		(tc) => tc.name === "AskUserQuestion" || tc.canonical === "ask_user",
+	);
 	const hasPostImpl = askCalls.some((tc) => {
 		const input = JSON.stringify(tc.input);
 		return input.includes("Done") && input.includes("Add");
