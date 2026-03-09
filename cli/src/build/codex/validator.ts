@@ -97,10 +97,11 @@ export const validateCodexSkill = (
 };
 
 /**
- * Validate generated TOML content for agent definitions.
+ * Validate generated TOML content for agent config entries.
  *
  * Parses TOML with smol-toml to confirm syntactic validity, then checks
- * each [agents.<name>] section has required developer_instructions and role fields.
+ * each [agents.<name>] section has required description and config_file fields
+ * (two-tier architecture: slim main config + per-agent TOML files).
  */
 export const validateCodexToml = (
 	content: string,
@@ -143,22 +144,30 @@ export const validateCodexToml = (
 
 		const agentSection = section as Record<string, unknown>;
 
-		if (!("developer_instructions" in agentSection)) {
+		if (
+			!("description" in agentSection) ||
+			typeof agentSection.description !== "string" ||
+			agentSection.description.length === 0
+		) {
 			return E.left(
 				validationError(
 					file,
 					"L2",
-					`[agents.${agentName}] missing required field: developer_instructions`,
+					`[agents.${agentName}] missing or empty required field: description`,
 				),
 			);
 		}
 
-		if (!("role" in agentSection)) {
+		if (
+			!("config_file" in agentSection) ||
+			typeof agentSection.config_file !== "string" ||
+			agentSection.config_file.length === 0
+		) {
 			return E.left(
 				validationError(
 					file,
 					"L2",
-					`[agents.${agentName}] missing required field: role`,
+					`[agents.${agentName}] missing or empty required field: config_file`,
 				),
 			);
 		}

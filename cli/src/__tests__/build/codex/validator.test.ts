@@ -127,19 +127,18 @@ Content.`;
 });
 
 describe("validateCodexToml", () => {
-	test("accepts valid TOML with agents table", () => {
+	test("accepts valid TOML with description and config_file", () => {
 		const toml = `[agents.my-agent]
-model = "inherit"
-role = "worker"
-developer_instructions = "You are a worker agent."
+description = "A worker agent that builds things."
+config_file = "./agents/rp1/my-agent.toml"
 `;
-		const result = validateCodexToml(toml, "rp1-agents.toml");
+		const result = validateCodexToml(toml, "config.toml");
 		expect(E.isRight(result)).toBe(true);
 	});
 
 	test("rejects invalid TOML syntax", () => {
 		const toml = "this is not valid toml [[[";
-		const error = expectLeft(validateCodexToml(toml, "rp1-agents.toml"));
+		const error = expectLeft(validateCodexToml(toml, "config.toml"));
 
 		expect(error._tag).toBe("ValidationError");
 		if (error._tag === "ValidationError") {
@@ -152,7 +151,7 @@ developer_instructions = "You are a worker agent."
 		const toml = `[config]
 key = "value"
 `;
-		const error = expectLeft(validateCodexToml(toml, "rp1-agents.toml"));
+		const error = expectLeft(validateCodexToml(toml, "config.toml"));
 
 		expect(error._tag).toBe("ValidationError");
 		if (error._tag === "ValidationError") {
@@ -164,7 +163,7 @@ key = "value"
 	test("rejects empty agents table", () => {
 		const toml = `[agents]
 `;
-		const error = expectLeft(validateCodexToml(toml, "rp1-agents.toml"));
+		const error = expectLeft(validateCodexToml(toml, "config.toml"));
 
 		expect(error._tag).toBe("ValidationError");
 		if (error._tag === "ValidationError") {
@@ -173,46 +172,70 @@ key = "value"
 		}
 	});
 
-	test("rejects agent section missing developer_instructions", () => {
+	test("rejects agent section missing description", () => {
 		const toml = `[agents.my-agent]
-model = "inherit"
-role = "worker"
+config_file = "./agents/rp1/my-agent.toml"
 `;
-		const error = expectLeft(validateCodexToml(toml, "rp1-agents.toml"));
+		const error = expectLeft(validateCodexToml(toml, "config.toml"));
 
 		expect(error._tag).toBe("ValidationError");
 		if (error._tag === "ValidationError") {
 			expect(error.level).toBe("L2");
-			expect(error.message).toContain("developer_instructions");
+			expect(error.message).toContain("description");
 		}
 	});
 
-	test("rejects agent section missing role", () => {
+	test("rejects agent section with empty description", () => {
 		const toml = `[agents.my-agent]
-model = "inherit"
-developer_instructions = "Instructions here."
+description = ""
+config_file = "./agents/rp1/my-agent.toml"
 `;
-		const error = expectLeft(validateCodexToml(toml, "rp1-agents.toml"));
+		const error = expectLeft(validateCodexToml(toml, "config.toml"));
 
 		expect(error._tag).toBe("ValidationError");
 		if (error._tag === "ValidationError") {
 			expect(error.level).toBe("L2");
-			expect(error.message).toContain("role");
+			expect(error.message).toContain("description");
+		}
+	});
+
+	test("rejects agent section missing config_file", () => {
+		const toml = `[agents.my-agent]
+description = "A worker agent that builds things."
+`;
+		const error = expectLeft(validateCodexToml(toml, "config.toml"));
+
+		expect(error._tag).toBe("ValidationError");
+		if (error._tag === "ValidationError") {
+			expect(error.level).toBe("L2");
+			expect(error.message).toContain("config_file");
+		}
+	});
+
+	test("rejects agent section with empty config_file", () => {
+		const toml = `[agents.my-agent]
+description = "A worker agent that builds things."
+config_file = ""
+`;
+		const error = expectLeft(validateCodexToml(toml, "config.toml"));
+
+		expect(error._tag).toBe("ValidationError");
+		if (error._tag === "ValidationError") {
+			expect(error.level).toBe("L2");
+			expect(error.message).toContain("config_file");
 		}
 	});
 
 	test("accepts multiple valid agent sections", () => {
 		const toml = `[agents.builder]
-model = "inherit"
-role = "worker"
-developer_instructions = "Build things."
+description = "Builds features from task specifications."
+config_file = "./agents/rp1/builder.toml"
 
 [agents.reviewer]
-model = "inherit"
-role = "reviewer"
-developer_instructions = "Review things."
+description = "Reviews code changes for quality."
+config_file = "./agents/rp1/reviewer.toml"
 `;
-		const result = validateCodexToml(toml, "rp1-agents.toml");
+		const result = validateCodexToml(toml, "config.toml");
 		expect(E.isRight(result)).toBe(true);
 	});
 });
