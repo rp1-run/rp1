@@ -4,8 +4,11 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { join } from "node:path";
 import {
+	discoverSkillMap,
 	transformAgentForCodex,
+	transformPlainSlashCommands,
 	transformSkillForCodex,
 } from "../../../build/codex/transformations.js";
 import {
@@ -13,6 +16,8 @@ import {
 	createMinimalSkill,
 	expectRight,
 } from "../../helpers/index.js";
+
+const projectRoot = join(import.meta.dir, "..", "..", "..", "..", "..");
 
 describe("transformSkillForCodex", () => {
 	describe("namespace transformation", () => {
@@ -253,5 +258,126 @@ describe("transformAgentForCodex", () => {
 
 		const result = expectRight(transformAgentForCodex(agent));
 		expect(result.developerInstructions).toContain("$rp1-dev-build-fast");
+	});
+});
+
+describe("transformPlainSlashCommands", () => {
+	const skillMap: ReadonlyMap<string, string> = new Map([
+		["build", "dev"],
+		["build-fast", "dev"],
+		["build-express", "dev"],
+		["knowledge-build", "base"],
+		["knowledge-load", "base"],
+		["tersify-prompt", "utils"],
+		["pr-review", "dev"],
+	]);
+
+	test("transforms plain /skill to $rp1-{plugin}-{skill}", () => {
+		const content = "Run /knowledge-build to build KB.";
+		const result = transformPlainSlashCommands(content, skillMap);
+		expect(result).toBe("Run $rp1-base-knowledge-build to build KB.");
+	});
+
+	test("transforms multiple plain references", () => {
+		const content = "Use /build then /pr-review.";
+		const result = transformPlainSlashCommands(content, skillMap);
+		expect(result).toBe("Use $rp1-dev-build then $rp1-dev-pr-review.");
+	});
+
+	test("longest-match-first prevents /build from matching inside /build-fast", () => {
+		const content = "Use /build-fast for speed, /build for full.";
+		const result = transformPlainSlashCommands(content, skillMap);
+		expect(result).toBe(
+			"Use $rp1-dev-build-fast for speed, $rp1-dev-build for full.",
+		);
+	});
+
+	test("negative lookahead prevents /build from matching when followed by -express", () => {
+		const content = "Use /build-express here.";
+		const result = transformPlainSlashCommands(content, skillMap);
+		expect(result).toBe("Use $rp1-dev-build-express here.");
+		expect(result.match(/\$rp1-dev-build/g)?.length).toBe(1);
+	});
+
+	test("preserves references inside code blocks", () => {
+		const content = [
+			"Use /build outside.",
+			"```",
+			"/build inside code block",
+			"```",
+			"And /pr-review here.",
+		].join("\n");
+
+		const result = transformPlainSlashCommands(content, skillMap);
+		expect(result).toContain("$rp1-dev-build");
+		expect(result).toContain("/build inside code block");
+		expect(result).toContain("$rp1-dev-pr-review");
+	});
+
+	test("no double-transform: already-transformed $rp1- references are not re-matched", () => {
+		const content = "Use $rp1-dev-build (already transformed).";
+		const result = transformPlainSlashCommands(content, skillMap);
+		expect(result).toBe("Use $rp1-dev-build (already transformed).");
+	});
+
+	test("no double-transform when combined with namespace transform", () => {
+		const skill = {
+			...createMinimalSkill(),
+			content: "Run /rp1-dev:build for full. Run /knowledge-load for KB.",
+		};
+
+		const result = expectRight(transformSkillForCodex(skill, skillMap));
+		expect(result.content).toBe(
+			"Run $rp1-dev-build for full. Run $rp1-base-knowledge-load for KB.",
+		);
+		expect(result.content.match(/\$rp1-dev-build/g)?.length).toBe(1);
+	});
+
+	test("returns content unchanged when skill map is empty", () => {
+		const content = "Use /build for builds.";
+		const result = transformPlainSlashCommands(
+			content,
+			new Map() as ReadonlyMap<string, string>,
+		);
+		expect(result).toBe("Use /build for builds.");
+	});
+
+	test("does not transform unknown skill names", () => {
+		const content = "Use /unknown-skill here.";
+		const result = transformPlainSlashCommands(content, skillMap);
+		expect(result).toBe("Use /unknown-skill here.");
+	});
+});
+
+describe("discoverSkillMap", () => {
+	test("discovers skill names from real plugin directories", () => {
+		const map = discoverSkillMap(projectRoot);
+
+		expect(map.size).toBeGreaterThan(0);
+		expect(map.get("build")).toBe("dev");
+		expect(map.get("knowledge-build")).toBe("base");
+		expect(map.get("tersify-prompt")).toBe("utils");
+	});
+
+	test("only includes directories with SKILL.md", async () => {
+		const map = discoverSkillMap(projectRoot);
+
+		for (const [name, plugin] of map) {
+			const skillMdPath = join(
+				projectRoot,
+				"plugins",
+				plugin,
+				"skills",
+				name,
+				"SKILL.md",
+			);
+			const size = await Bun.file(skillMdPath).size;
+			expect(size).toBeGreaterThan(0);
+		}
+	});
+
+	test("returns empty map for nonexistent root", () => {
+		const map = discoverSkillMap("/nonexistent/path/to/project");
+		expect(map.size).toBe(0);
 	});
 });
