@@ -2,6 +2,8 @@
  * Transformation engine for converting Claude Code artifacts to Codex format.
  */
 
+import { readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import type { CLIError } from "../../../shared/errors.js";
 import { transformError } from "../../../shared/errors.js";
@@ -71,6 +73,88 @@ const transformAllowedTools = (allowedTools: string): string | undefined => {
 	}
 
 	return mapped.length > 0 ? mapped.join(", ") : undefined;
+};
+
+/**
+ * Auto-discover all skill names from plugin directories.
+ * Scans plugins/{base,dev,utils}/skills/* and returns a map of skill name to plugin name.
+ * Only directories containing a SKILL.md file are included.
+ */
+export const discoverSkillMap = (
+	projectRoot: string,
+): ReadonlyMap<string, string> => {
+	const map = new Map<string, string>();
+	const plugins = ["base", "dev", "utils"];
+
+	for (const plugin of plugins) {
+		const skillsDir = join(projectRoot, "plugins", plugin, "skills");
+		let entries: string[];
+		try {
+			entries = readdirSync(skillsDir);
+		} catch {
+			continue;
+		}
+
+		for (const entry of entries) {
+			const entryPath = join(skillsDir, entry);
+			try {
+				if (!statSync(entryPath).isDirectory()) continue;
+				statSync(join(entryPath, "SKILL.md"));
+				map.set(entry, plugin);
+			} catch {}
+		}
+	}
+
+	return map;
+};
+
+/**
+ * Transform plain slash-command references to Codex $ mention syntax.
+ * /build       -> $rp1-dev-build
+ * /knowledge-build -> $rp1-base-knowledge-build
+ *
+ * Uses longest-match-first sorting to prevent partial matches
+ * (e.g., /build does not match inside /build-fast).
+ * Negative lookahead (?![a-z0-9-]) prevents matching when followed
+ * by additional name characters.
+ * Only transforms references outside code blocks.
+ */
+export const transformPlainSlashCommands = (
+	content: string,
+	skillMap: ReadonlyMap<string, string>,
+): string => {
+	if (skillMap.size === 0) return content;
+
+	const skillNames = Array.from(skillMap.keys()).sort(
+		(a, b) => b.length - a.length,
+	);
+
+	const escapedNames = skillNames.map((name) =>
+		name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+	);
+	const pattern = new RegExp(
+		`\\/(${escapedNames.join("|")})(?![a-z0-9-])`,
+		"g",
+	);
+
+	const matches = findMatchesOutsideCodeBlocks(pattern, content);
+
+	let result = content;
+	for (let i = matches.length - 1; i >= 0; i--) {
+		const match = matches[i];
+		const matchIndex = match.index;
+		if (matchIndex === undefined) continue;
+		const skillName = match[1];
+		const plugin = skillMap.get(skillName);
+		if (!plugin) continue;
+		const replacement = `$rp1-${plugin}-${skillName}`;
+		result =
+			result.slice(0, matchIndex) +
+			replacement +
+			result.slice(matchIndex + match[0].length);
+	}
+
+	return result;
 };
 
 /**
