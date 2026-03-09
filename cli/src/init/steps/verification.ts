@@ -3,7 +3,7 @@
  * Verifies that Claude Code and OpenCode plugins are correctly installed.
  */
 
-import { readFile, stat } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { CLAUDE_PLUGIN_DIRS } from "../../shared/paths.js";
@@ -441,6 +441,82 @@ export async function verifyClaudeCodePlugins(
 
 	return {
 		verified: allInstalled,
+		plugins,
+		issues,
+	};
+}
+
+/**
+ * Get the Codex agents skills directory path.
+ *
+ * @param home - Home directory (defaults to os.homedir())
+ * @returns Path to Codex agents skills directory
+ */
+export function getCodexSkillsDir(home: string = homedir()): string {
+	return join(home, ".agents", "skills");
+}
+
+/**
+ * Verify Codex CLI plugin installation.
+ * Checks for the existence of ~/.agents/skills/ and lists any rp1 skill directories found.
+ *
+ * NOTE: This is a stub -- full Codex plugin installation is an open item for M2.3.
+ * Currently returns an informational result so the init flow continues cleanly.
+ *
+ * @param home - Home directory (for testing, defaults to os.homedir())
+ * @param callbacks - Optional callbacks for reporting progress to UI
+ * @returns VerificationResult with informational status
+ */
+export async function verifyCodexPlugins(
+	home?: string,
+	callbacks?: StepCallbacks,
+): Promise<VerificationResult> {
+	const plugins: PluginStatus[] = [];
+	const issues: string[] = [];
+
+	callbacks?.onActivity("Checking Codex CLI skills directory", "info");
+
+	const skillsDir = getCodexSkillsDir(home);
+
+	try {
+		const dirStat = await stat(skillsDir);
+		if (dirStat.isDirectory()) {
+			const entries = await readdir(skillsDir);
+			const rp1Dirs = entries.filter((e) => e.startsWith("rp1-"));
+
+			for (const dir of rp1Dirs) {
+				plugins.push({
+					name: dir,
+					installed: true,
+					version: "unknown",
+					location: join(skillsDir, dir),
+				});
+			}
+
+			if (rp1Dirs.length > 0) {
+				callbacks?.onActivity(
+					`Found ${rp1Dirs.length} rp1 skill(s) in Codex agents directory`,
+					"info",
+				);
+			}
+		}
+	} catch {
+		// Skills directory doesn't exist
+		issues.push("Codex agents skills directory not found");
+		callbacks?.onActivity("Codex agents skills directory not found", "warning");
+	}
+
+	// M2.3 open item: full Codex plugin installation and verification
+	issues.push(
+		"Codex plugin installation not yet available -- coming in a future release",
+	);
+	callbacks?.onActivity(
+		"Codex plugin installation not yet available -- coming in a future release",
+		"info",
+	);
+
+	return {
+		verified: false,
 		plugins,
 		issues,
 	};

@@ -29,3 +29,14 @@ tools:
       - plugins
       - slash-commands
       - agents
+
+  - id: codex
+    name: Codex CLI
+    binary: codex
+    min_version: "0.110.0"
+    instruction_file: AGENTS.md
+    install_url: https://github.com/openai/codex
+    plugin_install_cmd: null
+    capabilities:
+      - skills
+      - agents
