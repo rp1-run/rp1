@@ -99,6 +99,13 @@ describe("codex config", () => {
 			expect(result).toContain("rp1 managed section");
 		});
 
+		test("includes features section with multi_agent enabled", async () => {
+			const result = await expectTaskRight(buildConfigPatch([]));
+
+			expect(result).toContain("[features]");
+			expect(result).toContain("multi_agent = true");
+		});
+
 		test("concatenates multiple TOML files", async () => {
 			const basePath = await writeFixture(
 				tempDir,

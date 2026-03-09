@@ -58,6 +58,10 @@ export const buildConfigPatch = (
 			sections.push(MANAGED_SECTION_HEADER);
 			sections.push("");
 
+			sections.push("[features]");
+			sections.push("multi_agent = true");
+			sections.push("");
+
 			const agentSections: string[] = [];
 			for (const tomlPath of agentTomlPaths) {
 				try {
