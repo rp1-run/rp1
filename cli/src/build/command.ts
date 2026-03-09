@@ -31,7 +31,7 @@ import { colorFns } from "../lib/colors.js";
 import { claudeCodeRegistry } from "./claude-code/registry.js";
 import { codexRegistry } from "./codex/registry.js";
 import { mapAgentToRoleType } from "./codex/role-mapper.js";
-import { discoverSkillMap } from "./codex/transformations.js";
+import { discoverSkillMap } from "./codex/skill-map.js";
 import type {
 	BuildConfig,
 	BuildSummary,
@@ -44,7 +44,6 @@ import { preprocessConditionals } from "./preprocessor.js";
 import { defaultRegistry } from "./registry.js";
 import type { BuildPlatform } from "./template-context.js";
 import { buildTemplateContext } from "./template-context.js";
-import type { TemplateEngine } from "./template-engine.js";
 import { createTemplateEngine } from "./template-engine.js";
 import { validateAgent, validateSkill } from "./validator.js";
 

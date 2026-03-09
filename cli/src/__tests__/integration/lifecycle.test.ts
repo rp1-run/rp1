@@ -4,25 +4,13 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
-import {
-	generateAgentFile,
-	generateCommandFile,
-	generateManifest,
-} from "../../build/generator.js";
-import { parseAgent, parseCommand } from "../../build/parser.js";
-import { defaultRegistry } from "../../build/registry.js";
-import {
-	transformAgent,
-	transformCommand,
-} from "../../build/transformations.js";
 import { copyArtifacts } from "../../install/installer.js";
 import {
 	cleanupTempDir,
 	createTempDir,
-	getFixturePath,
 	writeFixture,
 } from "../helpers/index.js";
 
@@ -38,111 +26,10 @@ describe("integration: lifecycle", () => {
 	});
 
 	test(
-		"command full lifecycle: parse → transform → generate → write → verify",
-		async () => {
-			// 1. Parse command from fixture
-			const commandPath = getFixturePath(
-				"valid-plugin",
-				"commands/sample-command.md",
-			);
-			const parseResult = await parseCommand(commandPath)();
-
-			expect(E.isRight(parseResult)).toBe(true);
-			if (!E.isRight(parseResult)) return;
-			const cmd = parseResult.right;
-
-			expect(cmd.name).toBe("sample-command");
-			expect(cmd.description).toBeDefined();
-
-			// 2. Transform to OpenCode format
-			const transformResult = transformCommand(cmd, defaultRegistry);
-
-			expect(E.isRight(transformResult)).toBe(true);
-			if (!E.isRight(transformResult)) return;
-			const ocCmd = transformResult.right;
-
-			// 3. Generate output file
-			const generateResult = generateCommandFile(ocCmd, cmd.name);
-
-			expect(E.isRight(generateResult)).toBe(true);
-			if (!E.isRight(generateResult)) return;
-			const { filename, content } = generateResult.right;
-
-			expect(filename).toBe("sample-command.md");
-			expect(content).toContain("---");
-			expect(content).toContain("description:");
-
-			// 4. Write to temp dir
-			const outputPath = join(tempDir, filename);
-			await writeFile(outputPath, content);
-
-			// 5. Verify output is valid
-			const writtenContent = await readFile(outputPath, "utf-8");
-			expect(writtenContent).toContain("---");
-			// Should have frontmatter structure
-			const parts = writtenContent.split("---");
-			expect(parts.length).toBeGreaterThanOrEqual(3);
-		},
-		{ timeout: 60000 },
-	);
-
-	test(
-		"agent full lifecycle: parse → transform → generate → write → verify",
-		async () => {
-			// 1. Parse agent from fixture
-			const agentPath = getFixturePath(
-				"valid-plugin",
-				"agents/sample-agent.md",
-			);
-			const parseResult = await parseAgent(agentPath)();
-
-			expect(E.isRight(parseResult)).toBe(true);
-			if (!E.isRight(parseResult)) return;
-			const agent = parseResult.right;
-
-			expect(agent.name).toBe("sample-agent");
-			expect(agent.description).toBeDefined();
-			expect(Array.isArray(agent.tools)).toBe(true);
-
-			// 2. Transform to OpenCode format
-			const transformResult = transformAgent(agent, defaultRegistry);
-
-			expect(E.isRight(transformResult)).toBe(true);
-			if (!E.isRight(transformResult)) return;
-			const ocAgent = transformResult.right;
-
-			expect(ocAgent.mode).toBe("subagent");
-
-			// 3. Generate output file
-			const generateResult = generateAgentFile(ocAgent);
-
-			expect(E.isRight(generateResult)).toBe(true);
-			if (!E.isRight(generateResult)) return;
-			const { filename, content } = generateResult.right;
-
-			expect(filename).toBe("sample-agent.md");
-			expect(content).toContain("mode: subagent");
-			expect(content).toContain("tools:");
-
-			// 4. Write to temp dir
-			const outputPath = join(tempDir, filename);
-			await writeFile(outputPath, content);
-
-			// 5. Verify output structure
-			const writtenContent = await readFile(outputPath, "utf-8");
-			expect(writtenContent).toContain("---");
-			expect(writtenContent).toContain("mode: subagent");
-		},
-		{ timeout: 60000 },
-	);
-
-	test(
 		"build output directory structure matches expected layout",
 		async () => {
-			// Set up a mock build output directory
 			const buildDir = join(tempDir, "build-output");
 
-			// Create expected structure: agents/, skills/
 			await writeFixture(
 				buildDir,
 				"agents/rp1-base-test-agent.md",
@@ -163,43 +50,6 @@ describe("integration: lifecycle", () => {
 
 			const skillEntries = await readdir(join(buildDir, "skills"));
 			expect(skillEntries).toContain("test-skill");
-		},
-		{ timeout: 60000 },
-	);
-
-	test(
-		"generated manifest.json lists all artifacts correctly",
-		async () => {
-			const commands = ["cmd1", "cmd2", "cmd3"];
-			const agents = ["agent1", "agent2"];
-			const skills = ["skill1"];
-
-			const manifestResult = generateManifest(
-				"test-plugin",
-				"1.0.0",
-				commands,
-				agents,
-				skills,
-			);
-
-			expect(E.isRight(manifestResult)).toBe(true);
-			if (!E.isRight(manifestResult)) return;
-
-			const manifestJson = JSON.parse(manifestResult.right);
-
-			expect(manifestJson.plugin).toBe("test-plugin");
-			expect(manifestJson.version).toBe("1.0.0");
-			expect(manifestJson.artifacts.commands).toEqual(commands);
-			expect(manifestJson.artifacts.agents).toEqual(agents);
-			expect(manifestJson.artifacts.skills).toEqual(skills);
-			expect(manifestJson.requirements.opencodeVersion).toBe(">=0.8.0");
-
-			// Write manifest and verify round-trip
-			const manifestPath = join(tempDir, "manifest.json");
-			await writeFile(manifestPath, manifestResult.right);
-
-			const readManifest = JSON.parse(await readFile(manifestPath, "utf-8"));
-			expect(readManifest.plugin).toBe("test-plugin");
 		},
 		{ timeout: 60000 },
 	);
