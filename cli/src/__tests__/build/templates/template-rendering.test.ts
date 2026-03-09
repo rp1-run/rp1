@@ -49,6 +49,7 @@ const createTestEngine = () => {
 		strictVariables: true,
 		strictFilters: true,
 		greedy: false,
+		lenientIf: true,
 	});
 
 	engine.registerFilter("escape_yaml", (value: string) => {

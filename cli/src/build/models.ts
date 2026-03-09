@@ -44,6 +44,7 @@ export interface SkillMetadata {
 	readonly updated?: string;
 	readonly author?: string;
 	readonly argumentHint?: string;
+	readonly subAgents?: readonly string[];
 }
 
 /**

@@ -22,7 +22,7 @@ export type BuildPlatform = "opencode" | "codex" | "claude-code";
 // ---------------------------------------------------------------------------
 
 /** Codex role-type heuristic values for agent classification. */
-export type CodexRoleType = "developer" | "researcher" | "reviewer" | "default";
+export type CodexRoleType = "worker" | "explorer" | "reviewer" | "default";
 
 // ---------------------------------------------------------------------------
 // Artifact data models
@@ -71,7 +71,7 @@ export interface ManifestArtifactData {
  * parsed artifact data, platform registry mappings, and build metadata
  * into a single well-typed object.
  */
-export interface BuildTemplateContext {
+export interface BuildTemplateContext extends Record<string, unknown> {
 	// Platform
 	readonly platform: BuildPlatform;
 	readonly platformConfig: SupportedTool; // from supported-tools.yaml
