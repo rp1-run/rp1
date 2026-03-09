@@ -165,9 +165,16 @@ export const transformPlainSlashCommands = (
  */
 export const transformSkillForCodex = (
 	ccSkill: ClaudeCodeSkill,
+	skillMap?: ReadonlyMap<string, string>,
 ): E.Either<CLIError, CodexSkill> => {
 	try {
-		const transformedContent = transformNamespaceToCodex(ccSkill.content);
+		let transformedContent = transformNamespaceToCodex(ccSkill.content);
+		if (skillMap) {
+			transformedContent = transformPlainSlashCommands(
+				transformedContent,
+				skillMap,
+			);
+		}
 
 		const transformedAllowedTools = ccSkill.allowedTools
 			? transformAllowedTools(ccSkill.allowedTools)
@@ -198,9 +205,16 @@ export const transformSkillForCodex = (
  */
 export const transformAgentForCodex = (
 	ccAgent: ClaudeCodeAgent,
+	skillMap?: ReadonlyMap<string, string>,
 ): E.Either<CLIError, CodexAgent> => {
 	try {
-		const transformedContent = transformNamespaceToCodex(ccAgent.content);
+		let transformedContent = transformNamespaceToCodex(ccAgent.content);
+		if (skillMap) {
+			transformedContent = transformPlainSlashCommands(
+				transformedContent,
+				skillMap,
+			);
+		}
 		const roleType = mapAgentToRoleType(ccAgent.name, ccAgent.description);
 
 		const codexAgent: CodexAgent = {

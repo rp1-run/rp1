@@ -35,8 +35,11 @@ import {
 	transformAgentForCodex,
 	transformSkillForCodex,
 	validateCodexSkill,
+	validateCodexToml,
 } from "./codex/index.js";
 import type { CodexAgent } from "./codex/models.js";
+import { validateSubAgents } from "./codex/sub-agent-validator.js";
+import { discoverSkillMap } from "./codex/transformations.js";
 import {
 	generateAgentFile,
 	generateBundleManifest,
@@ -48,6 +51,7 @@ import type {
 	BuildSummary,
 	BundleAssetEntry,
 	BundlePluginAssets,
+	ClaudeCodeSkill,
 	OpenCodePluginAsset,
 } from "./models.js";
 import { parseAgent, parseSkill } from "./parser.js";
@@ -677,8 +681,12 @@ export const buildCodexPlugin = async (
 		spinner.start(`Building ${pluginName} plugin (codex)...`);
 	}
 
+	const skillMap = discoverSkillMap(projectRoot);
+
 	const skillsDir = join(pluginDir, "skills");
 	const skillDirs = await getSkillDirs(skillsDir);
+
+	const parsedSkills: ClaudeCodeSkill[] = [];
 
 	for (const skillDir of skillDirs) {
 		const parseResult = await parseSkill(skillDir)();
@@ -687,8 +695,9 @@ export const buildCodexPlugin = async (
 			continue;
 		}
 		const ccSkill = parseResult.right;
+		parsedSkills.push(ccSkill);
 
-		const transformResult = transformSkillForCodex(ccSkill);
+		const transformResult = transformSkillForCodex(ccSkill, skillMap);
 		if (E.isLeft(transformResult)) {
 			errors.push(`[codex] ${formatError(transformResult.left, false)}`);
 			continue;
@@ -737,6 +746,21 @@ export const buildCodexPlugin = async (
 		skillNames.push(namespacedSkillDir);
 	}
 
+	const subAgentValidation = validateSubAgents(projectRoot, parsedSkills);
+	if (subAgentValidation.errors.length > 0) {
+		for (const error of subAgentValidation.errors) {
+			errors.push(`[codex] Sub-agent validation error: ${error}`);
+		}
+	}
+	if (!jsonOutput) {
+		for (const warning of subAgentValidation.warnings) {
+			console.warn(`[codex] Sub-agent warning: ${warning}`);
+		}
+		for (const infoMsg of subAgentValidation.info) {
+			console.log(`[codex] Sub-agent info: ${infoMsg}`);
+		}
+	}
+
 	const agentsDir = join(pluginDir, "agents");
 	const agentFiles = await getMarkdownFiles(agentsDir);
 	const codexAgents: CodexAgent[] = [];
@@ -749,7 +773,7 @@ export const buildCodexPlugin = async (
 		}
 		const ccAgent = parseResult.right;
 
-		const transformResult = transformAgentForCodex(ccAgent);
+		const transformResult = transformAgentForCodex(ccAgent, skillMap);
 		if (E.isLeft(transformResult)) {
 			errors.push(`[codex] ${formatError(transformResult.left, false)}`);
 			continue;
@@ -762,21 +786,27 @@ export const buildCodexPlugin = async (
 	if (codexAgents.length > 0) {
 		const configEntriesResult = generateAgentConfigEntries(codexAgents);
 		if (E.isRight(configEntriesResult)) {
-			await writeFile(
-				join(pluginOutputDir, "rp1-agents.toml"),
+			const configTomlPath = join(pluginOutputDir, "rp1-agents.toml");
+			await writeFile(configTomlPath, configEntriesResult.right);
+
+			const tomlValidation = validateCodexToml(
 				configEntriesResult.right,
+				configTomlPath,
 			);
+			if (E.isLeft(tomlValidation)) {
+				errors.push(`[codex] ${formatError(tomlValidation.left, false)}`);
+			}
 		} else {
 			errors.push(`[codex] ${formatError(configEntriesResult.left, false)}`);
 		}
 
-		const agentsDir = join(pluginOutputDir, "agents");
-		await mkdir(agentsDir, { recursive: true });
+		const agentsOutputDir = join(pluginOutputDir, "agents");
+		await mkdir(agentsOutputDir, { recursive: true });
 		for (const agent of codexAgents) {
 			const perAgentResult = generatePerAgentToml(agent);
 			if (E.isRight(perAgentResult)) {
 				await writeFile(
-					join(agentsDir, perAgentResult.right.filename),
+					join(agentsOutputDir, perAgentResult.right.filename),
 					perAgentResult.right.content,
 				);
 			} else {
