@@ -197,15 +197,25 @@ const TERMINAL_STATUSES: ReadonlySet<StatusValue> = new Set([
 ]);
 
 /**
- * Normalize an artifact path. If the path is a bare filename (no directory
- * separators), resolve it relative to the feature's work directory.
+ * Normalize an artifact path to always be relative to the project root.
+ * - Bare filenames → resolve relative to feature's work directory
+ * - Absolute paths → strip project prefix to make relative
+ * - Already relative → pass through
  */
 function normalizeArtifactPath(
 	artifactPath: string,
 	featureId: string,
+	projectPath?: string,
 ): string {
 	if (!artifactPath.includes("/")) {
 		return `.rp1/work/features/${featureId}/${artifactPath}`;
+	}
+	// If it's an absolute path, make it relative to project root
+	if (projectPath && artifactPath.startsWith("/")) {
+		const prefix = projectPath.endsWith("/") ? projectPath : `${projectPath}/`;
+		if (artifactPath.startsWith(prefix)) {
+			return artifactPath.slice(prefix.length);
+		}
 	}
 	return artifactPath;
 }
@@ -235,12 +245,14 @@ async function discoverArtifactsFromFilesystem(
 
 	const glob = new Bun.Glob("*.md");
 	const artifacts: Artifact[] = [];
+	const resolvedProjectPath = resolve(projectPath);
 	for await (const entry of glob.scan({ cwd: dir })) {
-		const relativePath = dir.startsWith(resolve(projectPath))
-			? `${dir.slice(resolve(projectPath).length + 1)}/${entry}`
+		const relativePath = dir.startsWith(resolvedProjectPath)
+			? `${dir.slice(resolvedProjectPath.length + 1)}/${entry}`
 			: entry;
 		artifacts.push({
 			path: relativePath,
+			absolutePath: resolve(dir, entry),
 			type: "markdown",
 			updatedDuringRun: true,
 			isNew: false,
@@ -264,12 +276,20 @@ async function getRegisteredArtifacts(
 		return discoverArtifactsFromFilesystem(projectPath, featureId);
 	}
 
-	return result.right.map((record) => ({
-		path: normalizeArtifactPath(record.path, featureId),
-		type: record.type as ArtifactType,
-		updatedDuringRun: true,
-		isNew: false,
-	}));
+	return result.right.map((record) => {
+		const relativePath = normalizeArtifactPath(
+			record.path,
+			featureId,
+			projectPath,
+		);
+		return {
+			path: relativePath,
+			absolutePath: resolve(projectPath, relativePath),
+			type: record.type as ArtifactType,
+			updatedDuringRun: true,
+			isNew: false,
+		};
+	});
 }
 
 /**

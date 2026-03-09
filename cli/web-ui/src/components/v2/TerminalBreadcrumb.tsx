@@ -32,34 +32,45 @@ export function buildSegments(pathname: string): BreadcrumbSegment[] {
  * Resolve the real filesystem path for known URL patterns.
  *
  * - /projects/{projectId}/files/{filePath} → {project.path}/.rp1/{filePath}
- * - /runs/{runId}/artifacts/{artifactPath} → {project.path}/{artifactPath}
- *   (requires fetching run data to discover project)
+ * - /runs/{runId}/artifacts/{artifactPath} → looks up absolutePath from the
+ *   run's artifact list (server-resolved, no client-side path reconstruction)
  *
- * Returns null for unrecognized patterns or when project data isn't available yet.
+ * Returns null for unrecognized patterns or when data isn't available yet.
  */
 function useFilesystemPath(pathname: string): string | null {
 	const { projects } = useProjects();
-	const [runProjectPath, setRunProjectPath] = useState<string | null>(null);
+	const [artifactAbsolutePath, setArtifactAbsolutePath] = useState<
+		string | null
+	>(null);
 
 	const filesMatch = pathname.match(/^\/projects\/([^/]+)\/files\/(.+)$/);
 	const artifactMatch = pathname.match(/^\/runs\/([^/]+)\/artifacts\/(.+)$/);
 	const runId = artifactMatch?.[1] ?? null;
+	const artifactUrlPath = artifactMatch?.[2] ?? null;
 
-	// For artifact URLs, fetch the run to discover its project
+	// For artifact URLs, fetch the run and look up the artifact's absolutePath
 	useEffect(() => {
-		if (!runId) {
-			setRunProjectPath(null);
+		if (!runId || !artifactUrlPath) {
+			setArtifactAbsolutePath(null);
 			return;
 		}
 		fetch(`/api/v2/runs/${runId}`)
 			.then((res) => (res.ok ? res.json() : null))
-			.then((run: { projectId?: string } | null) => {
-				if (!run?.projectId) return;
-				const project = projects.find((p) => p.id === run.projectId);
-				setRunProjectPath(project?.path ?? null);
-			})
-			.catch(() => setRunProjectPath(null));
-	}, [runId, projects]);
+			.then(
+				(
+					run: {
+						artifacts?: readonly { path: string; absolutePath: string }[];
+					} | null,
+				) => {
+					if (!run?.artifacts) return;
+					const artifact =
+						run.artifacts.find((a) => a.path === artifactUrlPath) ??
+						run.artifacts.find((a) => a.path.endsWith(`/${artifactUrlPath}`));
+					setArtifactAbsolutePath(artifact?.absolutePath ?? null);
+				},
+			)
+			.catch(() => setArtifactAbsolutePath(null));
+	}, [runId, artifactUrlPath]);
 
 	// Pattern 1: File browser — /projects/{id}/files/{path}
 	if (filesMatch) {
@@ -67,9 +78,9 @@ function useFilesystemPath(pathname: string): string | null {
 		if (project) return `${project.path}/.rp1/${filesMatch[2]}`;
 	}
 
-	// Pattern 2: Artifact viewer — /runs/{runId}/artifacts/{path}
-	if (runProjectPath && artifactMatch) {
-		return `${runProjectPath}/${artifactMatch[2]}`;
+	// Pattern 2: Artifact viewer — server-resolved absolute path
+	if (artifactAbsolutePath) {
+		return artifactAbsolutePath;
 	}
 
 	return null;
