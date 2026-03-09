@@ -5,7 +5,6 @@
 
 import { existsSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
-import { join } from "node:path";
 import { Command } from "commander";
 import * as E from "fp-ts/lib/Either.js";
 import type { Logger } from "../../../shared/logger.js";

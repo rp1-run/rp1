@@ -24,142 +24,20 @@ export function getOpenCodeConfigDir(home: string = homedir()): string {
 }
 
 /**
- * Get the OpenCode plugin directory path.
+ * Get the OpenCode skills directory path.
  *
  * @param home - Home directory (defaults to os.homedir())
- * @returns Path to OpenCode plugin directory
+ * @returns Path to OpenCode skills directory
  */
-export function getOpenCodePluginDir(home: string = homedir()): string {
-	return join(getOpenCodeConfigDir(home), "plugin");
+export function getOpenCodeSkillsDir(home: string = homedir()): string {
+	return join(getOpenCodeConfigDir(home), "skills");
 }
 
 /**
- * Expected OpenCode plugin names (hooks plugins).
+ * Expected OpenCode skill directory prefixes.
+ * Skills are installed as rp1-{plugin}-{skill} directories.
  */
-const EXPECTED_OPENCODE_PLUGINS = ["rp1-base-hooks"] as const;
-
-/**
- * Read and parse OpenCode config file.
- *
- * @param configDir - OpenCode config directory
- * @returns Parsed config or null if not found/invalid
- */
-async function readOpenCodeConfig(
-	configDir: string,
-): Promise<{ plugin?: string[] } | null> {
-	try {
-		const configPath = join(configDir, "opencode.json");
-		const content = await readFile(configPath, "utf-8");
-		return JSON.parse(content) as { plugin?: string[] };
-	} catch {
-		return null;
-	}
-}
-
-/**
- * Verify a single OpenCode plugin installation.
- *
- * @param pluginDir - Base plugin directory (~/.config/opencode/plugin/)
- * @param pluginName - Name of the plugin to verify (e.g., "rp1-base-hooks")
- * @param registeredPlugins - List of plugins registered in opencode.json
- * @returns PluginStatus with installation details
- */
-async function verifyOpenCodePlugin(
-	pluginDir: string,
-	pluginName: string,
-	registeredPlugins: string[],
-): Promise<{ status: PluginStatus; issue: string | null }> {
-	const pluginPath = join(pluginDir, pluginName);
-	const expectedConfigEntry = `./plugin/${pluginName}`;
-
-	// Check if registered in config
-	const isRegistered = registeredPlugins.includes(expectedConfigEntry);
-
-	try {
-		const pluginStat = await stat(pluginPath);
-
-		if (!pluginStat.isDirectory()) {
-			return {
-				status: {
-					name: pluginName,
-					installed: false,
-					version: null,
-					location: null,
-				},
-				issue: `${pluginName} path exists but is not a directory`,
-			};
-		}
-
-		// Plugin directory exists - check for index.ts or index.js
-		let version: string | null = null;
-		try {
-			const packagePath = join(pluginPath, "package.json");
-			const packageContent = await readFile(packagePath, "utf-8");
-			const pkg = JSON.parse(packageContent) as { version?: string };
-			version = pkg.version ?? null;
-		} catch {
-			// No package.json, that's ok for OpenCode plugins
-		}
-
-		if (!isRegistered) {
-			return {
-				status: {
-					name: pluginName,
-					installed: true,
-					version: version ?? "unknown",
-					location: pluginPath,
-				},
-				issue: `${pluginName} exists but not registered in opencode.json`,
-			};
-		}
-
-		return {
-			status: {
-				name: pluginName,
-				installed: true,
-				version: version ?? "unknown",
-				location: pluginPath,
-			},
-			issue: null,
-		};
-	} catch (error) {
-		if (error instanceof Error && "code" in error) {
-			const nodeError = error as NodeJS.ErrnoException;
-			if (nodeError.code === "ENOENT") {
-				return {
-					status: {
-						name: pluginName,
-						installed: false,
-						version: null,
-						location: null,
-					},
-					issue: `${pluginName} not found at expected location`,
-				};
-			}
-			if (nodeError.code === "EACCES") {
-				return {
-					status: {
-						name: pluginName,
-						installed: false,
-						version: null,
-						location: null,
-					},
-					issue: `${pluginName}: permission denied`,
-				};
-			}
-		}
-
-		return {
-			status: {
-				name: pluginName,
-				installed: false,
-				version: null,
-				location: null,
-			},
-			issue: `${pluginName}: error checking plugin directory`,
-		};
-	}
-}
+const EXPECTED_OPENCODE_PREFIXES = ["rp1-base-", "rp1-dev-"] as const;
 
 /**
  * Verify OpenCode plugin installation.
@@ -176,74 +54,54 @@ export async function verifyOpenCodePlugins(
 	const plugins: PluginStatus[] = [];
 	const issues: string[] = [];
 
-	callbacks?.onActivity("Checking OpenCode plugin directory", "info");
+	callbacks?.onActivity("Checking OpenCode skills directory", "info");
 
-	const configDir = getOpenCodeConfigDir(home);
-	const pluginDir = getOpenCodePluginDir(home);
+	const skillsDir = getOpenCodeSkillsDir(home);
 
-	// Read OpenCode config to check plugin registration
-	const config = await readOpenCodeConfig(configDir);
-	const registeredPlugins = config?.plugin ?? [];
-
-	// Check if plugin directory exists
+	// Check if skills directory exists and has rp1 skill dirs
+	let rp1Dirs: string[] = [];
 	try {
-		const dirStat = await stat(pluginDir);
-		if (!dirStat.isDirectory()) {
-			issues.push("OpenCode plugin directory is not a directory");
-			callbacks?.onActivity(
-				"OpenCode plugin directory is not valid",
-				"warning",
-			);
-			return {
-				verified: false,
-				plugins: EXPECTED_OPENCODE_PLUGINS.map((name) => ({
-					name,
-					installed: false,
-					version: null,
-					location: null,
-				})),
-				issues,
-			};
+		const dirStat = await stat(skillsDir);
+		if (dirStat.isDirectory()) {
+			const entries = await readdir(skillsDir);
+			rp1Dirs = entries.filter((e) => e.startsWith("rp1-"));
 		}
 	} catch {
-		// Plugin directory doesn't exist - plugins not installed
-		issues.push("OpenCode plugin directory not found");
-		callbacks?.onActivity("OpenCode plugin directory not found", "warning");
-		return {
-			verified: false,
-			plugins: EXPECTED_OPENCODE_PLUGINS.map((name) => ({
-				name,
+		issues.push("OpenCode skills directory not found");
+		callbacks?.onActivity("OpenCode skills directory not found", "warning");
+	}
+
+	// Check each expected prefix has matching skill directories
+	for (const prefix of EXPECTED_OPENCODE_PREFIXES) {
+		const matchingDirs = rp1Dirs.filter((d) => d.startsWith(prefix));
+		const pluginLabel = prefix.replace(/^rp1-/, "").replace(/-$/, "");
+
+		if (matchingDirs.length > 0) {
+			plugins.push({
+				name: `rp1-${pluginLabel}`,
+				installed: true,
+				version: `${matchingDirs.length} skills`,
+				location: skillsDir,
+			});
+		} else {
+			plugins.push({
+				name: `rp1-${pluginLabel}`,
 				installed: false,
 				version: null,
 				location: null,
-			})),
-			issues,
-		};
-	}
-
-	// Verify each expected plugin
-	for (const pluginName of EXPECTED_OPENCODE_PLUGINS) {
-		const result = await verifyOpenCodePlugin(
-			pluginDir,
-			pluginName,
-			registeredPlugins,
-		);
-		plugins.push(result.status);
-		if (result.issue) {
-			issues.push(result.issue);
+			});
+			issues.push(`No rp1-${pluginLabel}-* skills found in ${skillsDir}`);
 		}
 	}
 
-	// Verification passes if all plugins are installed
 	const allInstalled = plugins.every((p) => p.installed);
 
-	// Report result
 	if (allInstalled) {
 		callbacks?.onActivity("OpenCode plugins verified", "success");
 	} else {
 		const missingCount = plugins.filter((p) => !p.installed).length;
 		callbacks?.onActivity(
-			`${missingCount} OpenCode plugin(s) not found`,
+			`${missingCount} OpenCode plugin group(s) not found`,
 			"warning",
 		);
 	}
@@ -261,10 +119,10 @@ export async function verifyOpenCodePlugins(
 const EXPECTED_PLUGINS = ["rp1-base", "rp1-dev"] as const;
 
 /**
- * Plugin directory name suffix used by Claude Code.
- * Plugins are installed as <name>@<marketplace>.
+ * Plugin directory name suffixes used by Claude Code.
+ * Stable: <name>@rp1-run, Dev: <name>@rp1-local.
  */
-const PLUGIN_SUFFIX = "@rp1-run";
+const PLUGIN_SUFFIXES = ["@rp1-run", "@rp1-local"] as const;
 
 /**
  * Structure of installed_plugins.json
@@ -335,8 +193,6 @@ function verifyPluginFromJson(
 	pluginName: string,
 	installedPlugins: InstalledPluginsJson | null,
 ): { status: PluginStatus; issue: string | null } {
-	const fullPluginId = `${pluginName}${PLUGIN_SUFFIX}`;
-
 	if (!installedPlugins) {
 		return {
 			status: {
@@ -349,30 +205,33 @@ function verifyPluginFromJson(
 		};
 	}
 
-	const pluginEntries = installedPlugins.plugins[fullPluginId];
+	// Check all known marketplace suffixes (stable and dev)
+	for (const suffix of PLUGIN_SUFFIXES) {
+		const fullPluginId = `${pluginName}${suffix}`;
+		const pluginEntries = installedPlugins.plugins[fullPluginId];
 
-	if (!pluginEntries || pluginEntries.length === 0) {
-		return {
-			status: {
-				name: pluginName,
-				installed: false,
-				version: null,
-				location: null,
-			},
-			issue: `${pluginName} not found in installed plugins`,
-		};
+		if (pluginEntries && pluginEntries.length > 0) {
+			const latestEntry = pluginEntries[0];
+			return {
+				status: {
+					name: pluginName,
+					installed: true,
+					version: latestEntry.version ?? "unknown",
+					location: latestEntry.installPath,
+				},
+				issue: null,
+			};
+		}
 	}
-
-	const latestEntry = pluginEntries[0];
 
 	return {
 		status: {
 			name: pluginName,
-			installed: true,
-			version: latestEntry.version ?? "unknown",
-			location: latestEntry.installPath,
+			installed: false,
+			version: null,
+			location: null,
 		},
-		issue: null,
+		issue: `${pluginName} not found in installed plugins`,
 	};
 }
 
@@ -494,13 +353,8 @@ export async function verifyCodexPlugins(
 		if (dirStat.isDirectory()) {
 			const entries = await readdir(skillsDir);
 			const rp1Dirs = entries.filter((e) => e.startsWith("rp1-"));
-			hasBaseSkills = rp1Dirs.some((entry) =>
-				entry.startsWith("rp1-knowledge-"),
-			);
-			hasDevSkills = rp1Dirs.some(
-				(entry) =>
-					entry.startsWith("rp1-build") || entry.startsWith("rp1-code-"),
-			);
+			hasBaseSkills = rp1Dirs.some((entry) => entry.startsWith("rp1-base-"));
+			hasDevSkills = rp1Dirs.some((entry) => entry.startsWith("rp1-dev-"));
 
 			if (rp1Dirs.length > 0) {
 				callbacks?.onActivity(

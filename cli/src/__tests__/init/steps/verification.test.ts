@@ -289,8 +289,10 @@ describe("verification step", () => {
 			const skillsDir = join(tempDir, ".agents", "skills");
 			const configDir = join(tempDir, ".codex");
 
-			await mkdir(join(skillsDir, "rp1-knowledge-build"), { recursive: true });
-			await mkdir(join(skillsDir, "rp1-build-fast"), { recursive: true });
+			await mkdir(join(skillsDir, "rp1-base-knowledge-build"), {
+				recursive: true,
+			});
+			await mkdir(join(skillsDir, "rp1-dev-build-fast"), { recursive: true });
 			await mkdir(configDir, { recursive: true });
 			await writeFile(
 				join(configDir, "config.toml"),
@@ -320,8 +322,10 @@ describe("verification step", () => {
 			const skillsDir = join(tempDir, ".agents", "skills");
 			const configDir = join(tempDir, ".codex");
 
-			await mkdir(join(skillsDir, "rp1-knowledge-build"), { recursive: true });
-			await mkdir(join(skillsDir, "rp1-build-fast"), { recursive: true });
+			await mkdir(join(skillsDir, "rp1-base-knowledge-build"), {
+				recursive: true,
+			});
+			await mkdir(join(skillsDir, "rp1-dev-build-fast"), { recursive: true });
 			await mkdir(configDir, { recursive: true });
 			await writeFile(join(configDir, "config.toml"), 'model = "gpt-5"\n');
 
@@ -337,7 +341,9 @@ describe("verification step", () => {
 			const skillsDir = join(tempDir, ".agents", "skills");
 			const configDir = join(tempDir, ".codex");
 
-			await mkdir(join(skillsDir, "rp1-knowledge-build"), { recursive: true });
+			await mkdir(join(skillsDir, "rp1-base-knowledge-build"), {
+				recursive: true,
+			});
 			await mkdir(configDir, { recursive: true });
 			await writeFile(
 				join(configDir, "config.toml"),
