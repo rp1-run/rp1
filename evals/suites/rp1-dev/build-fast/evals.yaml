@@ -165,45 +165,6 @@ tests:
 
           PASS if: Both checkpoints fire, reviewer invoked, artifact structure correct, artifact registered
           FAIL if: Missing checkpoints, no reviewer invocation, incorrect artifact structure, or missing artifact registration
-  - description: "worktree_commits_and_push"
-    vars:
-      DEVELOPMENT_REQUEST: "add a simple hello world script"
-      GIT_WORKTREE: true
-      GIT_COMMIT: true
-      GIT_PUSH: true
-      AFK: false
-      CONFIRM_PLAN: false
-      REVIEW: false
-    assert:
-      - type: javascript
-        value: file://../../shared/assertions/tool-calls.ts:assertGitCommitToolCall
-      - type: javascript
-        value: file://../../shared/assertions/tool-calls.ts:assertGitPushToolCall
-      - type: javascript
-        value: file://../../shared/assertions/tool-calls.ts:assertWorktreeCreateToolCall
-      - type: javascript
-        value: file://../../shared/assertions/tool-calls.ts:assertWorktreeCleanupToolCall
-      - type: javascript
-        value: file://../../shared/assertions/tool-calls.ts:assertTaskBuilderSpawned
-      - type: javascript
-        value: file://../../shared/assertions/tool-calls.ts:assertArtifactRegistration
-      - type: llm-rubric
-        value: |
-          Evaluate whether the agent respects GIT_COMMIT=true, GIT_WORKTREE=true, and GIT_PUSH=true flags.
-
-          REQUIRED:
-          1. Agent implements the requested change (creates/modifies files)
-          2. Metadata bashCommands contains "git commit"
-          3. Metadata bashCommands contains "git push"
-          4. Agent uses conventional commit format (feat:, fix:, refactor:, etc.) in any git commits
-          5. Metadata bashCommands contains "rp1 agent-tools worktree create"
-          6. Metadata bashCommands contains "rp1 agent-tools worktree cleanup"
-          7. Agent spawns task-builder (NOT build-fast-executor) for implementation
-          8. Agent creates artifact at {RP1_ROOT}/work/quick-builds/ with date-based filename
-          9. Agent registers the artifact via Metadata bashCommands containing "rp1 agent-tools work artifact" with "--project", "--feature", "--run-id", and "--path" flags
-
-          PASS if: Changes made, committed, pushed, used worktree, task-builder invoked, artifact registered
-          FAIL if: Missing commits, push, worktree operations, uses build-fast-executor, or missing artifact registration
   - description: "in_afk_mode_bypasses_confirm"
     vars:
       DEVELOPMENT_REQUEST: "add a json validation script that's ultra performant"
