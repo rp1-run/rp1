@@ -619,6 +619,8 @@ export const getDefaultCodexArtifactsDir = (): string | null => {
 		join(moduleDir, "..", "..", "..", "dist", "codex"), // From src/install/codex/ -> dist/codex
 		join(moduleDir, "..", "..", "dist", "codex"),
 		join(moduleDir, "..", "dist", "codex"),
+		join(moduleDir, "..", "cli", "dist", "codex"), // From bin/ -> cli/dist/codex (compiled binary)
+		join(process.cwd(), "cli", "dist", "codex"), // CWD-relative for dev usage
 	];
 
 	for (const candidate of candidates) {

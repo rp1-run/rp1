@@ -28,7 +28,7 @@ clean-web-ui-cache:
     rm -rf ~/.rp1/web-ui/
 
 # Build the local binary with -dev version suffix
-build-local-dev: build-opencode build-web-ui clean-web-ui-cache
+build-local-dev: build-opencode build-codex build-web-ui clean-web-ui-cache
     cd cli && bun run generate:assets && bun build ./src/main.ts --compile --outfile ../bin/rp1 --define __RP1_DEV_BUILD__=true
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -88,8 +88,8 @@ fix-evals:
 # Local Installation
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Full local install: build + remove stable + install to both platforms
-install: build rm-stable install-claude install-opencode
+# Full local install: build + remove stable + install to all platforms
+install: build rm-stable install-claude install-opencode install-codex
 
 # Run local binary with args
 run *args: build
@@ -124,11 +124,19 @@ install-opencode:
     @echo ""
     @./bin/rp1 install opencode
 
-# Remove stable rp1 from both platforms (only rp1-namespaced, preserves user files)
+# Install to Codex CLI
+install-codex:
+    @echo ""
+    @echo "━━━ Codex CLI ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    @echo ""
+    @./bin/rp1 install codex -y
+
+# Remove stable rp1 from all platforms (only rp1-namespaced, preserves user files)
 rm-stable:
     rm -rf ~/.config/opencode/plugin/rp1*
     rm -rf ~/.config/opencode/agents/rp1*
     rm -rf ~/.config/opencode/skills/rp1-*/
+    rm -rf ~/.agents/skills/rp1-*/
     -claude plugin marketplace rm rp1-run 2>/dev/null
 
 # ─────────────────────────────────────────────────────────────────────────────
