@@ -409,11 +409,54 @@ export const installCodex = (
 
 											spinner.succeed("Config.toml updated");
 
+											spinner.start("Verifying installation...");
+											const verifyWarnings: string[] = [];
+
+											try {
+												const skillEntries = await readdir(paths.skillsDir, {
+													withFileTypes: true,
+												});
+												const rp1Skills = skillEntries.filter(
+													(e) => e.isDirectory() && e.name.startsWith("rp1-"),
+												);
+												if (rp1Skills.length === 0) {
+													verifyWarnings.push(
+														`No rp1-* skill directories found in ${paths.skillsDir}`,
+													);
+												}
+											} catch {
+												verifyWarnings.push(
+													`Could not read skills directory: ${paths.skillsDir}`,
+												);
+											}
+
+											try {
+												const configContent = await readFile(
+													paths.configFile,
+													"utf-8",
+												);
+												if (!hasShellFencedContent(configContent)) {
+													verifyWarnings.push(
+														"config.toml does not contain rp1 fenced section",
+													);
+												}
+											} catch {
+												verifyWarnings.push(
+													`Could not read config file: ${paths.configFile}`,
+												);
+											}
+
+											if (verifyWarnings.length > 0) {
+												spinner.warn("Installation completed with warnings");
+											} else {
+												spinner.succeed("Installation verified");
+											}
+
 											return {
 												skillsCopied,
 												configMerged: true,
 												backupPath,
-												warnings: [],
+												warnings: verifyWarnings,
 											} satisfies CodexInstallResult;
 										},
 										(e) => {
