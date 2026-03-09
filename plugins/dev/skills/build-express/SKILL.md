@@ -1,22 +1,22 @@
 ---
 name: build-express
-description: "Interactive builder loop with optional review. Deploy task-builder per request, prompt for verify/new-task/exit."
-allowed-tools: Bash(echo *), Bash(rp1 *)
+description: "Interactive builder loop for small, low-risk changes. Delegates each request to a general sub-agent. Redirects larger work to /build-fast or /build."
+allowed-tools: Bash(echo *), Bash(rp1 *), Bash(git *)
 metadata:
-  version: 1.0.0
+  version: 1.1.0
   tags:
     - core
     - code
     - feature
   created: 2026-01-15
-  updated: 2026-02-26
+  updated: 2026-03-09
   author: cloud-on-prem/rp1
   argument-hint: "[request...]"
 ---
 
 # Build Express
 
-Interactive builder loop. Orchestrates build-fast-executor for each task.
+Interactive builder loop for rapid, small changes. Delegates each request to a single general sub-agent.
 
 **This command ONLY orchestrates. It does NOT implement code.**
 
@@ -37,11 +37,17 @@ Extract these parameters from the user's input:
 stateDiagram-v2
   [*] --> GetRequest
   GetRequest --> Clarify: vague
-  GetRequest --> Build: clear
-  Clarify --> Build: clarified
+  GetRequest --> ScopeCheck: clear
+  Clarify --> ScopeCheck: clarified
+  ScopeCheck --> Redirect: medium_or_large
+  ScopeCheck --> Build: small
+  Redirect --> Prompt
   Build --> Prompt
+  Prompt --> Commit: user=commit
+  Prompt --> Build: user=refine
   Prompt --> GetRequest: user=new
   Prompt --> [*]: user=exit
+  Commit --> GetRequest
 ```
 
 ### 1.1 Get Request
@@ -61,22 +67,50 @@ If REQUEST empty: use AskUserQuestion to get task from user.
 
 If vague: ask ONE clarifying question. Do NOT over-interrogate.
 
-### 1.3 Deploy Builder
+### 1.3 Scope Gate
 
-**Spawn build-fast-executor**:
+Before delegating, assess the request:
+
+| Factor | Small (proceed) | Medium/Large (redirect) |
+|--------|-----------------|------------------------|
+| Files | 1-3 | >3 |
+| Systems | 1 | >1 |
+| Risk | Low | Medium or High |
+| Estimated effort | <2h | >2h |
+
+**If Medium or Large**: Do NOT delegate. Instead output:
+
+```markdown
+## This request is better suited for a structured workflow
+
+**Request**: {summary}
+**Why**: {brief reason — e.g. touches multiple systems, high risk, many files}
+
+**Recommended**:
+- For medium work (2-8h): `/rp1-dev:build-fast "{REQUEST}"`
+- For large work (>8h): `/rp1-dev:build "{feature-id}"`
+```
+
+Then loop to §1.5 (Post-Build Prompt) so the user can submit a smaller request or exit.
+
+### 1.4 Deploy Builder
+
+Spawn a single general sub-agent to implement the request:
 
 ```
-Task: rp1-dev:build-fast-executor
+Agent: (default)
 prompt: |
-  REQUEST={REQUEST}
-  AFK_MODE=false
-  USE_WORKTREE=false
-  RP1_ROOT={{$RP1_ROOT}}
+  Implement the following change in the codebase:
+
+  {REQUEST}
+
+  Keep changes minimal and focused. Run any relevant lint/format/test
+  checks after making changes. Do NOT commit.
 ```
 
 **Wait for completion. Do NOT implement anything yourself.**
 
-### 1.4 Post-Build Prompt
+### 1.5 Post-Build Prompt
 
 After builder completes, use AskUserQuestion:
 
@@ -85,10 +119,22 @@ After builder completes, use AskUserQuestion:
 **Options**:
 | Option | Action |
 |--------|--------|
-| Work on new task | Loop to 1.1 |
+| Commit & move on | Commit current changes (conventional commit), then loop to 1.1 |
+| Refine | Ask what to change, re-invoke §1.4 with refinement as REQUEST |
+| New task (no commit) | Loop to 1.1 without committing |
 | Exit | STOP |
 
-### 1.5 New Task
+After a scope redirect (§1.3), show only "New task" and "Exit" options.
+
+### 1.6 Commit
+
+When user chooses "Commit & move on":
+1. Stage all changed files (prefer specific files over `git add -A`)
+2. Generate a concise conventional commit message summarizing the change
+3. Create the commit
+4. Loop to 1.1 (Get Request)
+
+### 1.7 New Task
 
 Clear REQUEST, loop to 1.1 (Get Request).
 
@@ -107,8 +153,9 @@ Express session ended.
 ## 3. Orchestrator Rules
 
 **YOU MUST**:
-- Only use AskUserQuestion and Task tools
-- Delegate ALL implementation to build-fast-executor
+- Only use AskUserQuestion and Agent tools
+- Delegate ALL implementation to the sub-agent
+- Scope-gate every request before delegating
 - Track task count
 
 **YOU MUST NOT**:
@@ -116,3 +163,4 @@ Express session ended.
 - Load KB files
 - Run quality checks
 - Make any implementation decisions
+- Delegate medium or large scope work
