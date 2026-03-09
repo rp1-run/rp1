@@ -142,19 +142,16 @@ async function handleV2ApiRequest(
 	projectPath: string,
 	apiContext: ApiContext,
 ): Promise<Response> {
-	// GET /api/v2/health - daemon health check
 	if (pathname === "/api/v2/health" && method === "GET") {
 		const { handleV2HealthRequest } = await import("./routes/v2-api");
 		return handleV2HealthRequest(apiContext);
 	}
 
-	// POST /api/v2/shutdown - graceful shutdown
 	if (pathname === "/api/v2/shutdown" && method === "POST") {
 		const { handleV2ShutdownRequest } = await import("./routes/v2-api");
 		return handleV2ShutdownRequest(apiContext);
 	}
 
-	// POST /api/v2/status/notify - WebSocket broadcast for status changes
 	if (pathname === "/api/v2/status/notify" && method === "POST") {
 		const { handleV2StatusNotifyRequest } = await import("./routes/v2-api");
 		return handleV2StatusNotifyRequest(req, apiContext);
@@ -217,7 +214,6 @@ async function handleV2ApiRequest(
 			return handleV2ProjectDetailRequest(projectId);
 		}
 
-		// DELETE /api/v2/projects/:id - remove project from registry
 		if (method === "DELETE") {
 			const { handleV2ProjectDeleteRequest } = await import("./routes/v2-api");
 			return handleV2ProjectDeleteRequest(projectId, apiContext);
@@ -229,7 +225,6 @@ async function handleV2ApiRequest(
 		return handleV2ProjectsListRequest();
 	}
 
-	// POST /api/v2/projects - register a new project
 	if (pathname === "/api/v2/projects" && method === "POST") {
 		const { handleV2ProjectRegisterRequest } = await import("./routes/v2-api");
 		return handleV2ProjectRegisterRequest(req, apiContext);
