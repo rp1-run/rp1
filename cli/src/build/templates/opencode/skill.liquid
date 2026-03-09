@@ -1,0 +1,13 @@
+---
+name: {{ artifact.namespacedName | escape_yaml }}
+description: {{ artifact.description | escape_yaml }}
+{%- if artifact.allowedTools %}
+{%- assign tools = artifact.allowedTools | allowed_tools: platform %}
+allowed-tools:
+{%- for tool in tools %}
+  - {{ tool }}
+{%- endfor %}
+{%- endif %}
+---
+
+{{ artifact.content | namespace_ref: platform | slash_commands: platform }}

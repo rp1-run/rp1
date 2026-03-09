@@ -83,7 +83,7 @@
 		"@types/react": "^18.3.0",
 		"@types/shell-quote": "^1.7.5",
 		"ink-testing-library": "^4.0.0",
-		"liquidjs": "10.20.3",
+		"liquidjs": "^10.20.3",
 		"typescript": "^5.7.2"
 	},
 	"publishConfig": {

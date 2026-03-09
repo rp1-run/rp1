@@ -1,0 +1,7 @@
+# rp1-{{ pluginName }} Agents
+
+| Agent | Role | Description |
+|-------|------|-------------|
+{%- for agent in artifact.agents %}
+| {{ agent.name }} | {{ agent.roleType }} | {{ agent.description }} |
+{%- endfor %}
