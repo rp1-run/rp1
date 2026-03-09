@@ -1,21 +1,34 @@
 # rp1 - Knowledge Base
 
-**Type**: Single Project
-**Languages**: TypeScript, TSX, Markdown
-**Version**: 0.5.1
+**Type**: Monorepo
+**Languages**: TypeScript, TSX, Markdown, JSON, YAML, TOML, Shell, Python, CSS, HTML
+**Version**: 0.5.2
 **Updated**: 2026-03-09
+**Projects**: 7 (`cli`, `cli/web-ui`, `plugins/base`, `plugins/dev`, `plugins/utils`, `evals`, `packages/catppuccin-mermaid`)
 
 ## Project Summary
 
-rp1 is a multi-agentic plugin system that automates development workflows through constitutional prompting. It provides skills and agents for Claude Code, OpenCode, and Codex CLI platforms, covering knowledge management, feature development, code quality, PR review, and more. The CLI includes a real-time Web UI dashboard, SQLite-backed work tracking, and cross-platform binary distribution.
+rp1 is an AI-assisted development workflow system built around a Bun and TypeScript CLI, markdown-authored skills and agents, a live Web UI dashboard, and supporting evaluation and documentation tooling. The repository is organized as a plugin-driven monorepo where `base` provides foundational knowledge and utility workflows, `dev` builds higher-level implementation and review workflows on top of that base, and shared runtime services track execution state through local SQLite-backed agent tools.
 
 ## Quick Reference
 
 | Aspect | Value |
 |--------|-------|
-| Entry Point | `cli/src/main.ts` (Commander CLI) |
-| Key Pattern | Skill-Agent Delegation (SKILL.md -> constitutional agents) |
-| Tech Stack | Bun, TypeScript, fp-ts, React, Vite, Tailwind, SQLite |
+| Entry Point | `cli/src/main.ts` |
+| Key Pattern | Plugin architecture with skill-agent delegation |
+| Tech Stack | Bun, TypeScript, React, Vite, Tailwind CSS, Commander, fp-ts, SQLite |
+
+## Projects Overview
+
+| Project | Purpose | Language | Entry Point |
+|---------|---------|----------|-------------|
+| `cli` | Main executable and shared runtime | TypeScript | `cli/src/main.ts` |
+| `cli/web-ui` | Live project and run dashboard | TSX | `cli/web-ui/src/app/App.tsx` |
+| `plugins/base` | KB, docs, strategy, and utility workflows | Markdown | `plugins/base/skills/` |
+| `plugins/dev` | Build, review, and delivery workflows | Markdown | `plugins/dev/skills/` |
+| `plugins/utils` | Prompt and helper workflows | Markdown | `plugins/utils/skills/` |
+| `evals` | Prompt and artifact attestation tooling | TypeScript | `evals/src/index.ts` |
+| `packages/catppuccin-mermaid` | Mermaid theming package | TypeScript | `packages/catppuccin-mermaid/src/index.ts` |
 
 ## KB File Manifest
 
@@ -23,10 +36,12 @@ rp1 is a multi-agentic plugin system that automates development workflows throug
 
 | File | Lines | Load For |
 |------|-------|----------|
-| architecture.md | ~165 | System design, component relationships, data flows |
-| modules.md | ~153 | Component breakdown, module responsibilities |
-| patterns.md | ~65 | Code conventions, implementation patterns |
-| concept_map.md | ~172 | Domain terminology, business concepts |
+| architecture.md | ~189 | System design, component relationships, data flows |
+| modules.md | ~144 | Component breakdown, module responsibilities |
+| patterns.md | ~84 | Code conventions, implementation patterns |
+| concept_map.md | ~101 | Domain terminology, business concepts |
+| dependencies.md | ~100 | Inter-project dependencies, shared code |
+| technology-matrix.md | ~84 | Technology decisions, framework choices |
 
 ## Task-Based Loading
 
@@ -36,6 +51,7 @@ rp1 is a multi-agentic plugin system that automates development workflows throug
 | Bug investigation | `architecture.md`, `modules.md` |
 | Feature implementation | `modules.md`, `patterns.md` |
 | Strategic analysis | ALL files |
+| Security audit | `architecture.md`, `dependencies.md` |
 
 ## How to Load
 
@@ -43,36 +59,24 @@ rp1 is a multi-agentic plugin system that automates development workflows throug
 Read: {{$RP1_ROOT}}/context/{filename}
 ```
 
-## Project Structure
+## Repository Structure
 
-```
-cli/
-├── src/
-│   ├── main.ts              # CLI entry point (Commander)
-│   ├── commands/             # CLI commands (install, init, build, uninstall)
-│   ├── agent-tools/          # Agent runtime tools (work, worktree, state-machine, github-pr)
-│   ├── install/              # Multi-platform installers (claudecode, codex, opencode)
-│   ├── init/                 # Project initialization wizard
-│   ├── build/                # Artifact build pipeline (codex, opencode)
-│   └── __tests__/            # Test suite (1062+ tests)
-├── shared/                   # CLIError, fp-ts re-exports, logger
-├── web-ui/                   # React/Vite status dashboard
-│   ├── src/server/           # Bun HTTP + WebSocket server
-│   └── src/pages/            # Dashboard pages
-├── scripts/                  # Build scripts (build-codex.ts, build-opencode.ts)
-plugins/
-├── base/                     # KB management, docs, strategy, security (17 skills, 13 agents)
-├── dev/                      # Feature workflows, code quality, PRs (21 skills, 32 agents)
-└── utils/                    # Prompt utilities (5 skills, 4 agents)
-evals/                        # Promptfoo evals with attestation
-packages/
-└── catppuccin-mermaid/       # Mermaid theme library
-docs/                         # User documentation (MkDocs Material)
+```text
+rp1/
+├── cli/                         # Main CLI, runtime services, and Web UI server
+├── plugins/base/                # Foundational KB and utility workflows
+├── plugins/dev/                 # Feature and PR workflows
+├── plugins/utils/               # Prompt utility workflows
+├── evals/                       # Prompt and artifact evaluation tooling
+├── packages/catppuccin-mermaid/ # Mermaid theming package
+└── docs/                        # Published documentation site
 ```
 
 ## Navigation
 
-- **[architecture.md](architecture.md)**: System design, layers, data flows, integrations
-- **[modules.md](modules.md)**: Component breakdown, dependencies, metrics
-- **[patterns.md](patterns.md)**: Code conventions, error handling, testing idioms
-- **[concept_map.md](concept_map.md)**: Domain terminology, concept relationships
+- **[architecture.md](architecture.md)**: System design and diagrams
+- **[modules.md](modules.md)**: Component breakdown
+- **[patterns.md](patterns.md)**: Code conventions
+- **[concept_map.md](concept_map.md)**: Domain terminology
+- **[dependencies.md](dependencies.md)**: Inter-project dependencies
+- **[technology-matrix.md](technology-matrix.md)**: Technology decisions
