@@ -216,9 +216,50 @@ If you stopped at a gate, resuming `/build` continues from the next stage.
 | [`feature-unarchive`](feature-unarchive.md) | Restore archived features |
 | [`validate-hypothesis`](validate-hypothesis.md) | Test risky design assumptions |
 
+## Codex Build Output
+
+When building for Codex (`rp1 build:opencode --platform codex`), rp1 produces a **two-tier output** architecture:
+
+### Main Config Entries
+
+Slim `[agents.*]` sections are generated for inclusion in `~/.codex/config.toml`. Each entry contains only two fields:
+
+```toml
+[agents.task-builder]
+description = "Implements tasks from feature task lists"
+config_file = "./agents/rp1/task-builder.toml"
+```
+
+### Per-Agent TOML Files
+
+Individual agent configuration files are generated at `~/.codex/agents/rp1/{name}.toml`. Each file contains the agent's model and full instructions using multiline syntax:
+
+```toml
+model = "o4-mini"
+developer_instructions = """
+Agent instructions here...
+"""
+```
+
+### Content Transformations
+
+During the Codex build, agent and skill content undergoes three transformations in order:
+
+| Step | Input | Output | Example |
+|------|-------|--------|---------|
+| Namespace transform | `/rp1-dev:build` | `$rp1-dev-build` | Explicit plugin-qualified references |
+| Plain slash-command transform | `/build` | `$rp1-dev-build` | Auto-discovered from `plugins/*/skills/*/` |
+| Sub-agent ref translation | `rp1-dev:task-builder` | Codex role name | Agent name mapping |
+
+The plain slash-command transformation auto-discovers all skill names from plugin directories. Adding a new skill is automatically picked up on the next build without any configuration.
+
+### Installation
+
+Running `rp1 install codex` copies per-agent TOML files to `~/.codex/agents/rp1/` and merges the slim config entries into `~/.codex/config.toml`. Uninstallation removes the entire `~/.codex/agents/rp1/` directory.
+
 ## See Also
 
 - [Feature Development Guide](../../guides/feature-development.md) - Complete tutorial
-- [Interactive Build Guide](../../guides/interactive-build.md) - Gate interaction patterns and feedback workflows
+- [Feature Development Guide](../../guides/feature-development.md) - End-to-end feature workflow and build guidance
 - [Builder-Reviewer Agents](../../concepts/builder-reviewer-agents.md) - How the build step works
 - [Parallel Development](../../guides/parallel-development.md) - Worktree isolation details

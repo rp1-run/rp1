@@ -57,8 +57,9 @@ This command:
 
 1. Verifies Codex CLI is installed
 2. Copies rp1 skill directories to `~/.agents/skills/`
-3. Merges rp1-managed agent definitions and shell approvals into `~/.codex/config.toml`
-4. Confirms installation success
+3. Copies per-agent TOML configuration files to `~/.codex/agents/rp1/`
+4. Merges slim agent entries and shell approvals into `~/.codex/config.toml`
+5. Confirms installation success
 
 ### `install all`
 
