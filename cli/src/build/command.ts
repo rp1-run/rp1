@@ -11,7 +11,7 @@ import {
 	stat,
 	writeFile,
 } from "node:fs/promises";
-import { basename, dirname, join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
@@ -26,21 +26,6 @@ import { createSpinner } from "../../shared/spinner.js";
 import { extractStateMachineMermaid } from "../agent-tools/state-machine/extractor.js";
 import { colorFns } from "../lib/colors.js";
 import {
-	generateAgentConfigEntries,
-	generateCodexAgentsMd,
-	generateCodexManifest,
-	generateCodexSkillDir,
-	generateOpenaiYaml,
-	generatePerAgentToml,
-	transformAgentForCodex,
-	transformSkillForCodex,
-	validateCodexSkill,
-	validateCodexToml,
-} from "./codex/index.js";
-import type { CodexAgent } from "./codex/models.js";
-import { validateSubAgents } from "./codex/sub-agent-validator.js";
-import { discoverSkillMap } from "./codex/transformations.js";
-import {
 	generateAgentFile,
 	generateBundleManifest,
 	generateManifest,
@@ -51,7 +36,6 @@ import type {
 	BuildSummary,
 	BundleAssetEntry,
 	BundlePluginAssets,
-	ClaudeCodeSkill,
 	OpenCodePluginAsset,
 } from "./models.js";
 import { parseAgent, parseSkill } from "./parser.js";
@@ -68,8 +52,8 @@ export const parseBuildArgs = (
 	const config: BuildConfig = {
 		outputDir: "dist/opencode",
 		plugin: "all",
+		platform: "opencode",
 		jsonOutput: false,
-		platform: "all",
 	};
 
 	for (let i = 0; i < args.length; i++) {
@@ -111,26 +95,22 @@ export const parseBuildArgs = (
 				| "all";
 		} else if (arg === "--platform") {
 			const value = args[++i];
-			if (!value || !["opencode", "codex", "all"].includes(value)) {
+			if (!value || !["opencode", "claude-code", "all"].includes(value)) {
 				return E.left(
-					usageError("--platform must be 'opencode', 'codex', or 'all'"),
+					usageError("--platform must be 'opencode', 'claude-code', or 'all'"),
 				);
 			}
-			(config as { platform: "opencode" | "codex" | "all" }).platform = value as
-				| "opencode"
-				| "codex"
-				| "all";
+			(config as { platform: "opencode" | "claude-code" | "all" }).platform =
+				value as "opencode" | "claude-code" | "all";
 		} else if (arg.startsWith("--platform=")) {
 			const value = arg.slice("--platform=".length);
-			if (!["opencode", "codex", "all"].includes(value)) {
+			if (!["opencode", "claude-code", "all"].includes(value)) {
 				return E.left(
-					usageError("--platform must be 'opencode', 'codex', or 'all'"),
+					usageError("--platform must be 'opencode', 'claude-code', or 'all'"),
 				);
 			}
-			(config as { platform: "opencode" | "codex" | "all" }).platform = value as
-				| "opencode"
-				| "codex"
-				| "all";
+			(config as { platform: "opencode" | "claude-code" | "all" }).platform =
+				value as "opencode" | "claude-code" | "all";
 		} else if (arg === "--json") {
 			(config as { jsonOutput: boolean }).jsonOutput = true;
 		} else if (arg === "--help" || arg === "-h") {
@@ -147,25 +127,25 @@ export const parseBuildArgs = (
 const printBuildHelp = (): void => {
 	const { bold } = colorFns;
 	console.log(`
-${bold("rp1 build:opencode")} - Build OpenCode artifacts from Claude Code sources
+${bold("rp1 build:opencode")} - Build platform artifacts from Claude Code sources
 
 ${bold("Usage:")}
   rp1 build:opencode [options]
 
 ${bold("Options:")}
-  -o, --output-dir <dir>   Output directory (default: dist/opencode/)
-  -p, --plugin <name>      Build specific plugin (base, dev, utils, or all)
-  --platform <name>        Target platform: opencode, codex, or all (default: all)
-  --json                   Output results as JSON for CI/CD
-  -h, --help               Show this help message
+  -o, --output-dir <dir>       Output directory (default: dist/opencode/)
+  -p, --plugin <name>          Build specific plugin (base, dev, utils, or all)
+  --platform <name>            Target platform (opencode, claude-code, or all)
+  --json                       Output results as JSON for CI/CD
+  -h, --help                   Show this help message
 
 ${bold("Examples:")}
-  rp1 build:opencode                         # Build all plugins for all platforms
-  rp1 build:opencode --platform opencode     # Build only OpenCode artifacts
-  rp1 build:opencode --platform codex        # Build only Codex artifacts
-  rp1 build:opencode --plugin dev            # Build only dev plugin
-  rp1 build:opencode -o ./output        # Custom output directory
-  rp1 build:opencode --json             # JSON output for CI
+  rp1 build:opencode                              # Build all plugins for OpenCode
+  rp1 build:opencode --plugin dev                  # Build only dev plugin
+  rp1 build:opencode --platform claude-code        # Build for Claude Code
+  rp1 build:opencode --platform all                # Build for all platforms
+  rp1 build:opencode -o ./output                   # Custom output directory
+  rp1 build:opencode --json                        # JSON output for CI
 `);
 };
 
@@ -461,9 +441,8 @@ export const buildPlugin = async (
 			supportingFiles,
 		} = generateResult.right;
 
-		// Include plugin name so skill dirs match slash command syntax:
-		// rp1-base-knowledge-build, rp1-dev-build-fast, etc.
-		const namespacedSkillDir = `rp1-${pluginName}-${outSkillDir}`;
+		// Namespace skill directories with rp1- prefix to avoid collisions with user skills
+		const namespacedSkillDir = `rp1-${outSkillDir}`;
 
 		// Update the name field in SKILL.md frontmatter to match the namespaced directory
 		const namespacedSkillMdContent = skillMdContent.replace(
@@ -636,24 +615,23 @@ export const buildPlugin = async (
 };
 
 /**
- * Derive the Codex output directory from the OpenCode output directory.
- * If outputDir is "dist/opencode", codex goes to "dist/codex".
- * If custom (e.g., "./output"), codex goes to "./output-codex".
+ * Derive Claude Code output directory from the OpenCode output directory.
+ * Maps "dist/opencode" to "dist/claude-code".
  */
-const deriveCodexOutputDir = (opencodeOutputDir: string): string => {
-	const dir = basename(opencodeOutputDir);
-	const parent = dirname(opencodeOutputDir);
-	if (dir === "opencode") {
-		return join(parent, "codex");
-	}
-	return `${opencodeOutputDir}-codex`;
+export const deriveCCOutputDir = (opencodeOutputDir: string): string => {
+	const normalized = opencodeOutputDir.replace(/\/+$/, "");
+	const parent = dirname(normalized);
+	return join(parent, "claude-code");
 };
 
 /**
- * Build Codex artifacts for a single plugin.
- * Orchestrates: parse -> transform -> generate -> validate for skills and agents.
+ * Build a single plugin for the Claude Code platform.
+ * Follows the same pattern as buildPlugin() but targets dist/claude-code/.
+ *
+ * Currently sets up the output structure. Template rendering will be
+ * wired in by T8 (generator replacement integration).
  */
-export const buildCodexPlugin = async (
+export const buildCCPlugin = async (
 	pluginName: string,
 	projectRoot: string,
 	outputPath: string,
@@ -661,8 +639,6 @@ export const buildCodexPlugin = async (
 	jsonOutput: boolean,
 ): Promise<BuildSummary> => {
 	const errors: string[] = [];
-	const skillNames: string[] = [];
-	const agentNames: string[] = [];
 
 	const pluginDir = join(projectRoot, "plugins", pluginName);
 	const pluginOutputDir = join(outputPath, pluginName);
@@ -670,6 +646,7 @@ export const buildCodexPlugin = async (
 
 	const spinner = createSpinner(!jsonOutput && (process.stdout.isTTY ?? false));
 
+	// Clean and create output directories
 	try {
 		await rm(pluginOutputDir, { recursive: true, force: true });
 	} catch {
@@ -677,161 +654,87 @@ export const buildCodexPlugin = async (
 	}
 
 	await mkdir(join(pluginOutputDir, "skills"), { recursive: true });
+	await mkdir(join(pluginOutputDir, "agents"), { recursive: true });
 
 	if (!jsonOutput) {
-		spinner.start(`Building ${pluginName} plugin (codex)...`);
+		spinner.start(`Building ${pluginName} plugin (claude-code)...`);
 	}
 
-	const skillMap = discoverSkillMap(projectRoot);
-
+	// Process skills
 	const skillsDir = join(pluginDir, "skills");
 	const skillDirs = await getSkillDirs(skillsDir);
-
-	const parsedSkills: ClaudeCodeSkill[] = [];
+	let skillCount = 0;
 
 	for (const skillDir of skillDirs) {
 		const parseResult = await parseSkill(skillDir)();
 		if (E.isLeft(parseResult)) {
-			errors.push(`[codex] ${formatError(parseResult.left, false)}`);
+			errors.push(formatError(parseResult.left, false));
 			continue;
 		}
 		const ccSkill = parseResult.right;
-		parsedSkills.push(ccSkill);
 
-		const transformResult = transformSkillForCodex(ccSkill, skillMap);
-		if (E.isLeft(transformResult)) {
-			errors.push(`[codex] ${formatError(transformResult.left, false)}`);
-			continue;
-		}
-		const codexSkill = transformResult.right;
-
-		const generateResult = generateCodexSkillDir(codexSkill);
-		if (E.isLeft(generateResult)) {
-			errors.push(`[codex] ${formatError(generateResult.left, false)}`);
-			continue;
-		}
-		const {
-			skillDir: outSkillDir,
-			skillMdContent,
-			supportingFiles,
-		} = generateResult.right;
-
-		// Include plugin name so skill dirs match $ mention syntax:
-		// rp1-base-knowledge-build, rp1-dev-build-fast, etc.
-		const namespacedSkillDir = `rp1-${pluginName}-${outSkillDir}`;
-		const namespacedSkillMdContent = skillMdContent.replace(
-			/^(name:\s*).+$/m,
-			`$1${namespacedSkillDir}`,
-		);
-
-		const validateResult = validateCodexSkill(
-			namespacedSkillMdContent,
-			`${namespacedSkillDir}/SKILL.md`,
-		);
-		if (E.isLeft(validateResult)) {
-			errors.push(`[codex] ${formatError(validateResult.left, false)}`);
-			continue;
-		}
-
+		// Namespace skill directories with rp1- prefix
+		const namespacedSkillDir = `rp1-${ccSkill.name}`;
 		const skillOutputDir = join(pluginOutputDir, "skills", namespacedSkillDir);
 		await mkdir(skillOutputDir, { recursive: true });
-		await writeFile(join(skillOutputDir, "SKILL.md"), namespacedSkillMdContent);
 
-		const yamlResult = generateOpenaiYaml(namespacedSkillDir);
-		if (E.isRight(yamlResult)) {
-			const agentsDir = join(skillOutputDir, "agents");
-			await mkdir(agentsDir, { recursive: true });
-			await writeFile(join(agentsDir, "openai.yaml"), yamlResult.right);
+		// TODO(T8): Replace with template engine render call
+		// For now, write a CC-format SKILL.md preserving the source format
+		// with namespaced name in frontmatter
+		const frontmatterLines = [
+			"---",
+			`name: ${namespacedSkillDir}`,
+			`description: ${ccSkill.description}`,
+		];
+		if (ccSkill.allowedTools) {
+			frontmatterLines.push(`allowed-tools: ${ccSkill.allowedTools}`);
 		}
+		frontmatterLines.push("---");
+		const skillContent = `${frontmatterLines.join("\n")}\n\n${ccSkill.content}`;
 
-		await copySupportingFiles(skillDir, skillOutputDir, supportingFiles);
+		await writeFile(join(skillOutputDir, "SKILL.md"), skillContent);
 
-		skillNames.push(namespacedSkillDir);
+		// Copy supporting files
+		await copySupportingFiles(
+			skillDir,
+			skillOutputDir,
+			ccSkill.supportingFiles,
+		);
+
+		skillCount++;
 	}
 
-	const subAgentValidation = validateSubAgents(projectRoot, parsedSkills);
-	if (subAgentValidation.errors.length > 0) {
-		for (const error of subAgentValidation.errors) {
-			errors.push(`[codex] Sub-agent validation error: ${error}`);
-		}
-	}
-	if (!jsonOutput) {
-		for (const warning of subAgentValidation.warnings) {
-			console.warn(`[codex] Sub-agent warning: ${warning}`);
-		}
-		for (const infoMsg of subAgentValidation.info) {
-			console.log(`[codex] Sub-agent info: ${infoMsg}`);
-		}
-	}
-
+	// Process agents
 	const agentsDir = join(pluginDir, "agents");
 	const agentFiles = await getMarkdownFiles(agentsDir);
-	const codexAgents: CodexAgent[] = [];
+	let agentCount = 0;
 
 	for (const agentFile of agentFiles) {
 		const parseResult = await parseAgent(agentFile)();
 		if (E.isLeft(parseResult)) {
-			errors.push(`[codex] ${formatError(parseResult.left, false)}`);
+			errors.push(formatError(parseResult.left, false));
 			continue;
 		}
 		const ccAgent = parseResult.right;
 
-		const transformResult = transformAgentForCodex(ccAgent, skillMap);
-		if (E.isLeft(transformResult)) {
-			errors.push(`[codex] ${formatError(transformResult.left, false)}`);
-			continue;
-		}
-		const codexAgent = transformResult.right;
-		codexAgents.push(codexAgent);
-		agentNames.push(codexAgent.name);
+		// TODO(T8): Replace with template engine render call
+		// For now, write agent content preserving the source format
+		const outputFile = join(pluginOutputDir, "agents", `${ccAgent.name}.md`);
+		await writeFile(outputFile, ccAgent.content);
+
+		agentCount++;
 	}
 
-	if (codexAgents.length > 0) {
-		const configEntriesResult = generateAgentConfigEntries(codexAgents);
-		if (E.isRight(configEntriesResult)) {
-			const configTomlPath = join(pluginOutputDir, "rp1-agents.toml");
-			await writeFile(configTomlPath, configEntriesResult.right);
-
-			const tomlValidation = validateCodexToml(
-				configEntriesResult.right,
-				configTomlPath,
-			);
-			if (E.isLeft(tomlValidation)) {
-				errors.push(`[codex] ${formatError(tomlValidation.left, false)}`);
-			}
-		} else {
-			errors.push(`[codex] ${formatError(configEntriesResult.left, false)}`);
-		}
-
-		const agentsOutputDir = join(pluginOutputDir, "agents");
-		await mkdir(agentsOutputDir, { recursive: true });
-		for (const agent of codexAgents) {
-			const perAgentResult = generatePerAgentToml(agent);
-			if (E.isRight(perAgentResult)) {
-				await writeFile(
-					join(agentsOutputDir, perAgentResult.right.filename),
-					perAgentResult.right.content,
-				);
-			} else {
-				errors.push(`[codex] ${formatError(perAgentResult.left, false)}`);
-			}
-		}
-	}
-
-	if (codexAgents.length > 0) {
-		const agentsMdResult = generateCodexAgentsMd(pluginName, codexAgents);
-		if (E.isRight(agentsMdResult)) {
-			await writeFile(join(pluginOutputDir, "AGENTS.md"), agentsMdResult.right);
-		} else {
-			errors.push(`[codex] ${formatError(agentsMdResult.left, false)}`);
-		}
-	}
-
-	const manifestResult = generateCodexManifest(
+	// Generate manifest
+	const manifestResult = generateManifest(
 		`rp1-${pluginName}`,
 		pluginVersion,
-		skillNames,
-		agentNames,
+		[],
+		agentFiles.map((f) => {
+			const name = f.split("/").pop()?.replace(".md", "") ?? "";
+			return name;
+		}),
+		skillDirs.map((d) => `rp1-${d.split("/").pop() ?? ""}`),
 	);
 	if (E.isRight(manifestResult)) {
 		await writeFile(
@@ -840,9 +743,10 @@ export const buildCodexPlugin = async (
 		);
 	}
 
+	// Complete spinner
 	if (!jsonOutput) {
 		const hasErrors = errors.length > 0;
-		const summary = `${pluginName} (codex): ${agentNames.length} agents, ${skillNames.length} skills`;
+		const summary = `${pluginName} (claude-code): ${agentCount} agents, ${skillCount} skills`;
 		if (hasErrors) {
 			spinner.fail(`${summary} (${errors.length} errors)`);
 		} else {
@@ -853,8 +757,8 @@ export const buildCodexPlugin = async (
 	return {
 		plugin: pluginName,
 		commands: 0,
-		agents: agentNames.length,
-		skills: skillNames.length,
+		agents: agentCount,
+		skills: skillCount,
 		errors,
 	};
 };
@@ -862,64 +766,35 @@ export const buildCodexPlugin = async (
 /**
  * Print build summary table.
  */
-const printSummary = (
-	summaries: BuildSummary[],
-	outputPath: string,
-	codexSummaries?: BuildSummary[],
-	codexOutputPath?: string,
-): void => {
+const printSummary = (summaries: BuildSummary[], outputPath: string): void => {
 	const { bold, green, cyan, yellow, boldGreen } = colorFns;
 	console.log(`\n${boldGreen("✓ Build complete!")}\n`);
 
+	// Calculate column widths
 	const pluginCol = 12;
 	const numCol = 10;
 
-	if (summaries.length > 0) {
-		console.log(bold("OpenCode"));
+	// Header
+	console.log(
+		bold(
+			`${"Plugin".padEnd(pluginCol)}${"Agents".padStart(numCol)}${"Skills".padStart(numCol)}`,
+		),
+	);
+	console.log("-".repeat(pluginCol + numCol * 2));
+
+	// Rows
+	for (const summary of summaries) {
 		console.log(
-			bold(
-				`${"Plugin".padEnd(pluginCol)}${"Agents".padStart(numCol)}${"Skills".padStart(numCol)}`,
-			),
+			cyan(`rp1-${summary.plugin.padEnd(pluginCol - 4)}`) +
+				green(String(summary.agents).padStart(numCol)) +
+				green(String(summary.skills).padStart(numCol)),
 		);
-		console.log("-".repeat(pluginCol + numCol * 2));
-
-		for (const summary of summaries) {
-			console.log(
-				cyan(`rp1-${summary.plugin.padEnd(pluginCol - 4)}`) +
-					green(String(summary.agents).padStart(numCol)) +
-					green(String(summary.skills).padStart(numCol)),
-			);
-		}
-
-		console.log(`Output: ${cyan(resolve(outputPath))}`);
 	}
 
-	if (codexSummaries && codexSummaries.length > 0) {
-		console.log(`\n${bold("Codex")}`);
-		console.log(
-			bold(
-				`${"Plugin".padEnd(pluginCol)}${"Agents".padStart(numCol)}${"Skills".padStart(numCol)}`,
-			),
-		);
-		console.log("-".repeat(pluginCol + numCol * 2));
+	console.log(`\nOutput directory: ${cyan(resolve(outputPath))}`);
 
-		for (const summary of codexSummaries) {
-			console.log(
-				cyan(`rp1-${summary.plugin.padEnd(pluginCol - 4)}`) +
-					green(String(summary.agents).padStart(numCol)) +
-					green(String(summary.skills).padStart(numCol)),
-			);
-		}
-
-		if (codexOutputPath) {
-			console.log(`Output: ${cyan(resolve(codexOutputPath))}`);
-		}
-	}
-
-	const allErrors = [
-		...summaries.flatMap((s) => s.errors),
-		...(codexSummaries ?? []).flatMap((s) => s.errors),
-	];
+	// Show errors if any
+	const allErrors = summaries.flatMap((s) => s.errors);
 	if (allErrors.length > 0) {
 		console.log(`\n${yellow(`⚠ ${allErrors.length} errors occurred:`)}`);
 		for (const error of allErrors.slice(0, 5)) {
@@ -929,6 +804,97 @@ const printSummary = (
 			console.log(`  ... and ${allErrors.length - 5} more`);
 		}
 	}
+};
+
+/**
+ * Build OpenCode artifacts for the given plugins.
+ */
+const buildOpenCodeArtifacts = async (
+	pluginsToBuild: string[],
+	projectRoot: string,
+	outputPath: string,
+	config: BuildConfig,
+	logger: Logger,
+): Promise<{
+	summaries: BuildSummary[];
+	pluginAssets: Map<string, BundlePluginAssets>;
+}> => {
+	const summaries: BuildSummary[] = [];
+	const pluginAssets: Map<string, BundlePluginAssets> = new Map();
+
+	for (const pluginName of pluginsToBuild) {
+		const result = await buildPlugin(
+			pluginName,
+			projectRoot,
+			outputPath,
+			logger,
+			config.jsonOutput,
+		);
+		summaries.push(result.summary);
+		pluginAssets.set(pluginName, result.assets);
+	}
+
+	// Generate bundle manifest if building all plugins
+	if (config.plugin === "all") {
+		const baseAssets = pluginAssets.get("base");
+		const devAssets = pluginAssets.get("dev");
+		const utilsAssets = pluginAssets.get("utils");
+
+		if (baseAssets && devAssets && utilsAssets) {
+			const pkgPath = join(projectRoot, "cli", "package.json");
+			let version = "0.0.0";
+			try {
+				const pkg = JSON.parse(await readFile(pkgPath, "utf-8"));
+				version = pkg.version ?? "0.0.0";
+			} catch {
+				// Fallback
+			}
+
+			const bundleManifestResult = generateBundleManifest(
+				baseAssets,
+				devAssets,
+				utilsAssets,
+				version,
+			);
+			if (E.isRight(bundleManifestResult)) {
+				await writeFile(
+					join(outputPath, "bundle-manifest.json"),
+					bundleManifestResult.right,
+				);
+				if (!config.jsonOutput) {
+					logger.debug("Generated bundle-manifest.json");
+				}
+			}
+		}
+	}
+
+	return { summaries, pluginAssets };
+};
+
+/**
+ * Build Claude Code artifacts for the given plugins.
+ */
+const buildClaudeCodeArtifacts = async (
+	pluginsToBuild: string[],
+	projectRoot: string,
+	outputPath: string,
+	config: BuildConfig,
+	logger: Logger,
+): Promise<BuildSummary[]> => {
+	const summaries: BuildSummary[] = [];
+
+	for (const pluginName of pluginsToBuild) {
+		const result = await buildCCPlugin(
+			pluginName,
+			projectRoot,
+			outputPath,
+			logger,
+			config.jsonOutput,
+		);
+		summaries.push(result);
+	}
+
+	return summaries;
 };
 
 /**
@@ -943,135 +909,72 @@ export const executeBuild = (
 		TE.chain((config) =>
 			TE.tryCatch(
 				async () => {
+					// Find project root
 					const projectRoot = await findProjectRoot(process.cwd());
-					const outputPath = resolve(config.outputDir);
-					const codexOutputPath = resolve(
-						deriveCodexOutputDir(config.outputDir),
-					);
 
-					const buildOpenCode =
-						config.platform === "opencode" || config.platform === "all";
-					const buildCodex =
-						config.platform === "codex" || config.platform === "all";
+					// Determine output directory (OpenCode base path)
+					const outputPath = resolve(config.outputDir);
+					const ccOutputPath = deriveCCOutputDir(outputPath);
 
 					if (!config.jsonOutput) {
-						if (buildOpenCode) logger.debug(`OpenCode output: ${outputPath}`);
-						if (buildCodex) logger.debug(`Codex output: ${codexOutputPath}`);
+						logger.debug(`Output directory: ${outputPath}`);
+						if (
+							config.platform === "claude-code" ||
+							config.platform === "all"
+						) {
+							logger.debug(`Claude Code output directory: ${ccOutputPath}`);
+						}
 					}
 
+					// Determine which plugins to build
 					const pluginsToBuild =
 						config.plugin === "all"
 							? ["base", "dev", "utils"]
 							: [config.plugin];
 
-					const summaries: BuildSummary[] = [];
-					const pluginAssets: Map<string, BundlePluginAssets> = new Map();
+					const allSummaries: BuildSummary[] = [];
 
-					if (buildOpenCode) {
-						for (const pluginName of pluginsToBuild) {
-							const result = await buildPlugin(
-								pluginName,
-								projectRoot,
-								outputPath,
-								logger,
-								config.jsonOutput,
-							);
-							summaries.push(result.summary);
-							pluginAssets.set(pluginName, result.assets);
-						}
+					// Build OpenCode artifacts
+					if (config.platform === "opencode" || config.platform === "all") {
+						const { summaries } = await buildOpenCodeArtifacts(
+							pluginsToBuild,
+							projectRoot,
+							outputPath,
+							config,
+							logger,
+						);
+						allSummaries.push(...summaries);
 					}
 
-					// Build Codex artifacts (errors do not block OpenCode output)
-					const codexSummaries: BuildSummary[] = [];
-
-					if (buildCodex) {
-						for (const pluginName of pluginsToBuild) {
-							try {
-								const codexResult = await buildCodexPlugin(
-									pluginName,
-									projectRoot,
-									codexOutputPath,
-									logger,
-									config.jsonOutput,
-								);
-								codexSummaries.push(codexResult);
-							} catch (e) {
-								codexSummaries.push({
-									plugin: pluginName,
-									commands: 0,
-									agents: 0,
-									skills: 0,
-									errors: [`[codex] Build failed for ${pluginName}: ${e}`],
-								});
-							}
-						}
-					}
-
-					// Generate bundle manifest if building all plugins (OpenCode only)
-					if (config.plugin === "all" && buildOpenCode) {
-						const baseAssets = pluginAssets.get("base");
-						const devAssets = pluginAssets.get("dev");
-						const utilsAssets = pluginAssets.get("utils");
-
-						if (baseAssets && devAssets && utilsAssets) {
-							const pkgPath = join(projectRoot, "cli", "package.json");
-							let version = "0.0.0";
-							try {
-								const pkg = JSON.parse(await readFile(pkgPath, "utf-8"));
-								version = pkg.version ?? "0.0.0";
-							} catch {
-								// version defaults to "0.0.0"
-							}
-
-							const bundleManifestResult = generateBundleManifest(
-								baseAssets,
-								devAssets,
-								utilsAssets,
-								version,
-							);
-							if (E.isRight(bundleManifestResult)) {
-								await writeFile(
-									join(outputPath, "bundle-manifest.json"),
-									bundleManifestResult.right,
-								);
-								if (!config.jsonOutput) {
-									logger.debug("Generated bundle-manifest.json");
-								}
-							}
-						}
+					// Build Claude Code artifacts
+					if (config.platform === "claude-code" || config.platform === "all") {
+						const ccSummaries = await buildClaudeCodeArtifacts(
+							pluginsToBuild,
+							projectRoot,
+							ccOutputPath,
+							config,
+							logger,
+						);
+						allSummaries.push(...ccSummaries);
 					}
 
 					// Output results
 					if (config.jsonOutput) {
-						const allErrors = [
-							...summaries.flatMap((s) => s.errors),
-							...codexSummaries.flatMap((s) => s.errors),
-						];
+						const allErrors = allSummaries.flatMap((s) => s.errors);
 						const result = {
 							status: allErrors.length === 0 ? "success" : "partial",
-							opencode: {
-								commands: summaries.reduce((sum, s) => sum + s.commands, 0),
-								agents: summaries.reduce((sum, s) => sum + s.agents, 0),
-								skills: summaries.reduce((sum, s) => sum + s.skills, 0),
-							},
-							codex: {
-								agents: codexSummaries.reduce((sum, s) => sum + s.agents, 0),
-								skills: codexSummaries.reduce((sum, s) => sum + s.skills, 0),
-							},
+							commands: allSummaries.reduce((sum, s) => sum + s.commands, 0),
+							agents: allSummaries.reduce((sum, s) => sum + s.agents, 0),
+							skills: allSummaries.reduce((sum, s) => sum + s.skills, 0),
 							errors: allErrors,
 						};
 						console.log(JSON.stringify(result, null, 2));
 					} else {
-						printSummary(
-							summaries,
-							outputPath,
-							codexSummaries,
-							codexOutputPath,
-						);
+						printSummary(allSummaries, outputPath);
 					}
 
 					// Exit with error if there were errors
-					const totalErrors = [...summaries, ...codexSummaries].reduce(
+					const totalErrors = allSummaries.reduce(
 						(sum, s) => sum + s.errors.length,
 						0,
 					);

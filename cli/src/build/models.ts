@@ -44,7 +44,6 @@ export interface SkillMetadata {
 	readonly updated?: string;
 	readonly author?: string;
 	readonly argumentHint?: string;
-	readonly subAgents?: readonly string[];
 }
 
 /**
@@ -147,8 +146,8 @@ export interface PluginManifest {
 export interface BuildConfig {
 	readonly outputDir: string;
 	readonly plugin: "base" | "dev" | "utils" | "all";
+	readonly platform: "opencode" | "claude-code" | "all";
 	readonly jsonOutput: boolean;
-	readonly platform: "opencode" | "codex" | "all";
 }
 
 /**

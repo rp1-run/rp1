@@ -15,9 +15,9 @@ build: build-local-dev
 build-opencode:
     cd cli && bun run build:opencode
 
-# Build the Codex plugins
-build-codex:
-    cd cli && bun run build:codex
+# Build the Claude Code plugins
+build-claude-code:
+    cd cli && bun run build:opencode -- --platform claude-code
 
 # Build the web-ui
 build-web-ui:
@@ -28,7 +28,7 @@ clean-web-ui-cache:
     rm -rf ~/.rp1/web-ui/
 
 # Build the local binary with -dev version suffix
-build-local-dev: build-opencode build-codex build-web-ui clean-web-ui-cache
+build-local-dev: build-opencode build-web-ui clean-web-ui-cache
     cd cli && bun run generate:assets && bun build ./src/main.ts --compile --outfile ../bin/rp1 --define __RP1_DEV_BUILD__=true
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -88,8 +88,8 @@ fix-evals:
 # Local Installation
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Full local install: build + remove stable + install to all platforms
-install: build rm-stable install-claude install-opencode install-codex
+# Full local install: build + remove stable + install to both platforms
+install: build rm-stable install-claude install-opencode
 
 # Run local binary with args
 run *args: build
@@ -124,38 +124,12 @@ install-opencode:
     @echo ""
     @./bin/rp1 install opencode
 
-# Install to Codex CLI
-install-codex:
-    @echo ""
-    @echo "━━━ Codex CLI ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    @echo ""
-    @./bin/rp1 install codex -y
-
-# Verify installations across all platforms
-verify:
-    @echo ""
-    @echo "━━━ Verification ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    -./bin/rp1 verify claude-code 2>/dev/null || true
-    -./bin/rp1 verify opencode 2>/dev/null || true
-    -./bin/rp1 verify codex 2>/dev/null || true
-
-# Remove stable rp1 from all platforms (only rp1-namespaced, preserves user files)
+# Remove stable rp1 from both platforms (only rp1-namespaced, preserves user files)
 rm-stable:
-    @echo "Removing stable rp1 installations..."
-    @# Claude Code: remove stable marketplace
-    -claude plugin marketplace rm rp1-run 2>/dev/null
-    @# OpenCode: remove rp1 skills and agents
+    rm -rf ~/.config/opencode/plugin/rp1*
+    rm -rf ~/.config/opencode/agents/rp1*
     rm -rf ~/.config/opencode/skills/rp1-*/
-    rm -rf ~/.config/opencode/agents/rp1-*/
-    @# Codex CLI: remove rp1 skills, agent TOMLs, and config fence
-    rm -rf ~/.agents/skills/rp1-*/
-    rm -rf ~/.codex/agents/rp1/
-    @# Codex config.toml: remove rp1 fenced section (if sed available)
-    @if [ -f ~/.codex/config.toml ]; then \
-        sed '/^# rp1:start/,/^# rp1:end/d' ~/.codex/config.toml > ~/.codex/config.toml.tmp && \
-        mv ~/.codex/config.toml.tmp ~/.codex/config.toml && \
-        echo "  Cleaned rp1 section from ~/.codex/config.toml"; \
-    fi
+    -claude plugin marketplace rm rp1-run 2>/dev/null
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Web-UI Development

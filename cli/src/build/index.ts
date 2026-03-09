@@ -2,8 +2,15 @@
  * Build module exports.
  */
 
+// Claude Code registry
+export { claudeCodeRegistry } from "./claude-code/registry.js";
 // Command
-export { executeBuild, parseBuildArgs } from "./command.js";
+export {
+	buildCCPlugin,
+	deriveCCOutputDir,
+	executeBuild,
+	parseBuildArgs,
+} from "./command.js";
 // Generator
 export {
 	generateAgentFile,
