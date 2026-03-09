@@ -5,6 +5,7 @@ import * as E from "fp-ts/lib/Either.js";
 
 import {
 	buildConfigPatch,
+	deduplicatePatch,
 	generateApprovalEntries,
 	generateConfigDiff,
 	mergeCodexConfig,
@@ -166,6 +167,78 @@ describe("codex config", () => {
 			expect(result).toContain('key = "value"');
 			expect(result).toContain("updated");
 			expect(result).not.toContain("old");
+		});
+	});
+
+	describe("deduplicatePatch", () => {
+		test("skips [features] table when user already has it", () => {
+			const userContent = "[features]\nmulti_agent = true\n";
+			const patch =
+				'# managed\n\n[features]\nmulti_agent = true\n\n[agents.rp1-build]\nmodel = "o3"\n';
+			const { patch: result, skipped } = deduplicatePatch(patch, userContent);
+
+			expect(result).not.toContain("[features]");
+			expect(result).toContain("[agents.rp1-build]");
+			expect(skipped).toContain("features");
+		});
+
+		test("keeps all content when no conflicts", () => {
+			const userContent = 'model = "o3"\n';
+			const patch =
+				'[features]\nmulti_agent = true\n\n[agents.rp1-build]\nmodel = "o3"\n';
+			const { patch: result, skipped } = deduplicatePatch(patch, userContent);
+
+			expect(result).toContain("[features]");
+			expect(result).toContain("[agents.rp1-build]");
+			expect(skipped).toHaveLength(0);
+		});
+
+		test("returns patch unchanged when user content is unparseable", () => {
+			const userContent = "[broken\ninvalid";
+			const patch = "[features]\nmulti_agent = true\n";
+			const { patch: result } = deduplicatePatch(patch, userContent);
+
+			expect(result).toBe(patch);
+		});
+	});
+
+	describe("mergeCodexConfig deduplication", () => {
+		test("skips duplicate [features] table from patch", () => {
+			const existing = "[features]\nmulti_agent = true\n";
+			const patch =
+				'[features]\nmulti_agent = true\n\n[[shell.approved]]\npattern = "echo *"\n';
+			const result = mergeCodexConfig(existing, patch);
+
+			// The merged result should be valid TOML (no duplicate [features])
+			const error = validateToml(result);
+			expect(error).toBeNull();
+			expect(result).toContain("[[shell.approved]]");
+		});
+
+		test("skips duplicate [[shell.approved]] patterns", () => {
+			const existing =
+				'[[shell.approved]]\npattern = "echo *"\n\n[[shell.approved]]\npattern = "git *"\n';
+			const patch =
+				'[[shell.approved]]\npattern = "echo *"\n\n[[shell.approved]]\npattern = "rp1 agent-tools *"\n';
+			const result = mergeCodexConfig(existing, patch);
+
+			const error = validateToml(result);
+			expect(error).toBeNull();
+			// Should only have one "echo *" total (user's), plus the new rp1 one
+			const echoCount = (result.match(/pattern = "echo \*"/g) || []).length;
+			expect(echoCount).toBe(1);
+			expect(result).toContain('pattern = "rp1 agent-tools *"');
+		});
+
+		test("produces valid TOML when user has [features] and we add agents", () => {
+			const existing = 'model = "o3"\n\n[features]\nmulti_agent = true\n';
+			const patch =
+				'[features]\nmulti_agent = true\n\n[agents.rp1-build]\ndescription = "builder"\nconfig_file = "./agents/rp1/rp1-build.toml"\n';
+			const result = mergeCodexConfig(existing, patch);
+
+			const error = validateToml(result);
+			expect(error).toBeNull();
+			expect(result).toContain("[agents.rp1-build]");
 		});
 	});
 

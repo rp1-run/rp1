@@ -10,6 +10,7 @@ import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../../shared/errors.js";
 import { configError, installError } from "../../../shared/errors.js";
 import {
+	findShellFencedContent,
 	hasShellFencedContent,
 	replaceShellFencedContent,
 } from "../../init/shell-fence.js";
@@ -106,15 +107,172 @@ export const buildConfigPatch = (
 	);
 
 /**
+ * Extract user-owned content (everything outside the rp1 fence).
+ * Used to detect tables the user already defines so we can skip them in our patch.
+ */
+const getUserContent = (content: string): string => {
+	const position = findShellFencedContent(content);
+	if (!position) return content;
+	return content.slice(0, position.start) + content.slice(position.end);
+};
+
+/**
+ * Collect top-level TOML table names from parsed TOML data.
+ * Returns table names like "features", "agents.rp1-build", etc.
+ */
+const getTableNames = (
+	parsed: Record<string, unknown>,
+	prefix = "",
+): Set<string> => {
+	const names = new Set<string>();
+	for (const key of Object.keys(parsed)) {
+		const fullKey = prefix ? `${prefix}.${key}` : key;
+		names.add(fullKey);
+		const value = parsed[key];
+		if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+			for (const sub of getTableNames(
+				value as Record<string, unknown>,
+				fullKey,
+			)) {
+				names.add(sub);
+			}
+		}
+	}
+	return names;
+};
+
+/**
+ * Remove TOML sections from patch text that would duplicate tables the user
+ * already defines outside the rp1 fence. Operates on the raw patch string
+ * by dropping lines between conflicting [table] headers.
+ */
+export const deduplicatePatch = (
+	patch: string,
+	userContent: string,
+): { patch: string; skipped: readonly string[] } => {
+	// Parse user content to discover existing tables
+	let userTables: Set<string>;
+	try {
+		const parsed = Bun.TOML.parse(userContent) as Record<string, unknown>;
+		userTables = getTableNames(parsed);
+	} catch {
+		// User content doesn't parse (shouldn't happen), skip dedup
+		return { patch, skipped: [] };
+	}
+
+	if (userTables.size === 0) return { patch, skipped: [] };
+
+	const lines = patch.split("\n");
+	const outputLines: string[] = [];
+	const skipped: string[] = [];
+	let skippingTable: string | null = null;
+
+	for (const line of lines) {
+		const trimmed = line.trim();
+
+		// Detect [table] or [table.subtable] headers (not [[array]])
+		const tableMatch = trimmed.match(/^\[([^[\]]+)\]$/);
+		if (tableMatch) {
+			const tableName = tableMatch[1].trim();
+			if (userTables.has(tableName)) {
+				skippingTable = tableName;
+				skipped.push(tableName);
+				continue;
+			}
+			skippingTable = null;
+		}
+
+		// Detect [[array.table]] headers - these are safe (additive)
+		const arrayMatch = trimmed.match(/^\[\[([^[\]]+)\]\]$/);
+		if (arrayMatch) {
+			// Check if user has the same pattern value for shell.approved
+			skippingTable = null;
+		}
+
+		if (skippingTable !== null) {
+			// Skip lines belonging to the duplicate table (until next header or blank)
+			if (trimmed.length === 0) {
+				skippingTable = null;
+			}
+			continue;
+		}
+
+		outputLines.push(line);
+	}
+
+	return { patch: outputLines.join("\n"), skipped };
+};
+
+/**
+ * Deduplicate [[shell.approved]] entries that already exist in user content.
+ * Returns patch with redundant approval patterns removed.
+ */
+const deduplicateShellApprovals = (
+	patch: string,
+	userContent: string,
+): string => {
+	let userParsed: Record<string, unknown>;
+	try {
+		userParsed = Bun.TOML.parse(userContent) as Record<string, unknown>;
+	} catch {
+		return patch;
+	}
+
+	const userShell = userParsed.shell as
+		| { approved?: Array<{ pattern?: string }> }
+		| undefined;
+	if (!userShell?.approved || userShell.approved.length === 0) return patch;
+
+	const existingPatterns = new Set(
+		userShell.approved.map((a) => a.pattern).filter(Boolean),
+	);
+	if (existingPatterns.size === 0) return patch;
+
+	// Remove [[shell.approved]] blocks whose pattern already exists
+	const lines = patch.split("\n");
+	const outputLines: string[] = [];
+	let i = 0;
+
+	while (i < lines.length) {
+		if (lines[i].trim() === "[[shell.approved]]") {
+			// Look ahead for the pattern line
+			const patternLine = i + 1 < lines.length ? lines[i + 1] : "";
+			const patternMatch = patternLine.match(/^pattern\s*=\s*"(.+)"$/);
+			if (patternMatch && existingPatterns.has(patternMatch[1])) {
+				// Skip this entire [[shell.approved]] block
+				i += 2;
+				// Skip trailing blank line
+				if (i < lines.length && lines[i].trim() === "") i++;
+				continue;
+			}
+		}
+		outputLines.push(lines[i]);
+		i++;
+	}
+
+	return outputLines.join("\n");
+};
+
+/**
  * Merge a config patch into existing config.toml content using shell fencing.
  * If fenced content already exists, it is replaced. Otherwise, it is appended.
  * Non-rp1 content is always preserved.
+ *
+ * Deduplicates the patch against user content to prevent TOML conflicts:
+ * - Regular tables ([features], [agents.X]) that the user already defines are skipped
+ * - [[shell.approved]] entries with patterns the user already has are skipped
  */
 export const mergeCodexConfig = (
 	existingContent: string,
 	patch: string,
 ): string => {
-	return replaceShellFencedContent(existingContent, patch);
+	const userContent = getUserContent(existingContent);
+
+	// Deduplicate regular tables and shell approvals
+	const { patch: dedupedPatch } = deduplicatePatch(patch, userContent);
+	const finalPatch = deduplicateShellApprovals(dedupedPatch, userContent);
+
+	return replaceShellFencedContent(existingContent, finalPatch);
 };
 
 /**
