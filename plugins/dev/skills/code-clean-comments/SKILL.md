@@ -11,6 +11,8 @@ metadata:
   updated: 2026-02-26
   author: cloud-on-prem/rp1
   argument-hint: "[scope] [base-branch]"
+  sub_agents:
+    - "rp1-dev:comment-cleaner"
 ---
 
 # Comment Cleaner

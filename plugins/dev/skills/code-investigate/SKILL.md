@@ -10,6 +10,8 @@ metadata:
   created: 2025-10-25
   updated: 2026-02-26
   author: cloud-on-prem/rp1
+  sub_agents:
+    - "rp1-dev:bug-investigator"
 ---
 
 # Root Cause Investigator

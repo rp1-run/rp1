@@ -11,6 +11,8 @@ metadata:
   created: 2025-11-08
   updated: 2026-02-26
   author: cloud-on-prem/rp1
+  sub_agents:
+    - "rp1-dev:code-checker"
 ---
 
 # Code Check - Fast Code Quality Validation

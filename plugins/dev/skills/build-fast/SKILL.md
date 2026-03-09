@@ -12,6 +12,10 @@ metadata:
   updated: 2026-02-26
   author: cloud-on-prem/rp1
   argument-hint: "[development-request...] [--afk] [--confirm-plan] [--review] [--git-worktree] [--git-commit] [--git-push]"
+  sub_agents:
+    - "rp1-dev:build-fast-planner"
+    - "rp1-dev:task-builder"
+    - "rp1-dev:task-reviewer"
 ---
 
 # Build Fast Command

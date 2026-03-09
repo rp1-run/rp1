@@ -11,6 +11,8 @@ metadata:
   updated: 2026-02-26
   author: cloud-on-prem/rp1
   argument-hint: "<feature-id> <edit-description>"
+  sub_agents:
+    - "rp1-dev:feature-editor"
 ---
 
 # Feature Edit Command Router

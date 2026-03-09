@@ -13,6 +13,9 @@ metadata:
   updated: 2026-02-26
   author: cloud-on-prem/rp1
   argument-hint: "<research-topic>"
+  sub_agents:
+    - "rp1-base:research-explorer"
+    - "rp1-base:research-reporter"
 ---
 
 # Deep Research - Orchestration Command

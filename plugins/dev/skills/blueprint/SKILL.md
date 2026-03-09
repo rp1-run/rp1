@@ -15,6 +15,9 @@ metadata:
   updated: 2026-02-26
   author: cloud-on-prem/rp1
   argument-hint: "[prd-name]"
+  sub_agents:
+    - "rp1-dev:charter-interviewer"
+    - "rp1-dev:blueprint-wizard"
 ---
 
 # Project Blueprint

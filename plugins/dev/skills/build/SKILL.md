@@ -12,6 +12,21 @@ metadata:
   updated: 2026-02-26
   author: cloud-on-prem/rp1
   argument-hint: "<feature-id> [requirements...] [--afk] [--git-worktree] [--git-commit] [--git-push] [--git-pr]"
+  sub_agents:
+    - "rp1-dev:build-artifact-detector"
+    - "rp1-dev:feature-requirement-gatherer"
+    - "rp1-dev:feature-architect"
+    - "rp1-dev:hypothesis-tester"
+    - "rp1-dev:feature-tasker"
+    - "rp1-dev:task-builder"
+    - "rp1-dev:task-reviewer"
+    - "rp1-dev:code-checker"
+    - "rp1-dev:feature-verifier"
+    - "rp1-dev:comment-cleaner"
+    - "rp1-dev:build-task-parser"
+    - "rp1-dev:build-task-grouper"
+    - "rp1-dev:build-verify-aggregator"
+    - "rp1-dev:feature-archiver"
 ---
 
 # Build Command

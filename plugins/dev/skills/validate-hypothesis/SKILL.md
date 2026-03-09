@@ -12,6 +12,8 @@ metadata:
   updated: 2026-02-26
   author: cloud-on-prem/rp1
   argument-hint: "<feature-id>"
+  sub_agents:
+    - "rp1-dev:hypothesis-tester"
 ---
 
 # Hypothesis Validator

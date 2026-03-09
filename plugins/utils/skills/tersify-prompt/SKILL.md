@@ -10,6 +10,8 @@ metadata:
   updated: 2026-02-26
   author: cloud-on-prem/rp1
   argument-hint: "<file-path-or-prompt>"
+  sub_agents:
+    - "rp1-utils:prompt-tersifier"
 ---
 
 # Tersify Prompt

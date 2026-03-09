@@ -11,6 +11,8 @@ metadata:
   created: 2025-10-29
   updated: 2026-02-26
   author: cloud-on-prem/rp1
+  sub_agents:
+    - "rp1-base:project-documenter"
 ---
 
 # Project Bird's-Eye View Generator

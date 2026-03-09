@@ -14,6 +14,12 @@ metadata:
   updated: 2026-02-26
   author: cloud-on-prem/rp1
   argument-hint: "[feature-id]"
+  sub_agents:
+    - "rp1-base:kb-spatial-analyzer"
+    - "rp1-base:kb-concept-extractor"
+    - "rp1-base:kb-architecture-mapper"
+    - "rp1-base:kb-module-analyzer"
+    - "rp1-base:kb-pattern-extractor"
 ---
 
 # Knowledge Builder - Parallel KB Generation Orchestrator

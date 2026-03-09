@@ -10,6 +10,10 @@ metadata:
   updated: 2026-02-26
   author: cloud-on-prem/rp1
   argument-hint: "<file-or-prompt> [--output <dir>]"
+  sub_agents:
+    - "rp1-utils:dependency-chain-analyzer"
+    - "rp1-utils:prompt-eval-extractor"
+    - "rp1-utils:prompt-assertion-specialist"
 ---
 
 # Build Prompt Evals

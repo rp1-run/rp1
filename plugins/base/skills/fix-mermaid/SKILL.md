@@ -11,6 +11,8 @@ metadata:
   updated: 2026-02-26
   author: cloud-on-prem/rp1
   argument-hint: "<file-path>"
+  sub_agents:
+    - "rp1-base:mermaid-fixer"
 ---
 
 # Mermaid Diagram Fixer

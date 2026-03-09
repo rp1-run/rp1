@@ -13,6 +13,8 @@ metadata:
   updated: 2026-02-26
   author: cloud-on-prem/rp1
   argument-hint: "[pr-number | pr-url | branch] [--afk]"
+  sub_agents:
+    - "rp1-dev:pr-feedback-collector"
 ---
 
 # Unified PR Feedback Workflow

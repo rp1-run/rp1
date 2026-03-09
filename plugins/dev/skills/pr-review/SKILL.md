@@ -15,6 +15,14 @@ metadata:
   updated: 2026-02-26
   author: cloud-on-prem/rp1
   argument-hint: "[target] [base-branch] [skip-visual]"
+  sub_agents:
+    - "rp1-dev:pr-visualizer"
+    - "rp1-dev:pr-review-splitter"
+    - "rp1-dev:pr-sub-reviewer"
+    - "rp1-dev:pr-review-synthesizer"
+    - "rp1-dev:pr-review-reporter"
+    - "rp1-dev:pr-comment-deduplicator"
+    - "rp1-dev:pr-comment-poster"
 ---
 
 # PR Review Orchestrator
