@@ -1,4 +1,11 @@
-import { ArrowLeft, ChevronRight, RefreshCw } from "lucide-react";
+import {
+	ArrowLeft,
+	Calendar,
+	ChevronRight,
+	Clock,
+	RefreshCw,
+	Terminal,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArtifactList } from "@/components/v2/ArtifactList";
@@ -269,32 +276,34 @@ export function RunDetailPage() {
 			</nav>
 
 			<header className="rounded-lg border border-border bg-card p-6">
-				<div className="flex items-start gap-4">
-					<StatusBadge status={run.status} size="lg" />
-
-					<div>
-						<h1 className="text-xl font-semibold text-foreground">
-							{run.featureName}
-						</h1>
-
-						<div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-							<code className="rounded bg-muted px-2 py-0.5">
-								{run.command}
-							</code>
-							<span aria-hidden="true">-</span>
-							<span>{formatStartTime(run.startedAt)}</span>
-							<span aria-hidden="true">-</span>
-							<span>
-								{isActive ? "Elapsed: " : "Duration: "}
-								{formatDuration(run.startedAt, run.completedAt)}
-							</span>
-						</div>
-
-						{run.error && (
-							<p className="mt-2 text-sm text-status-failed">{run.error}</p>
-						)}
-					</div>
+				<div className="flex items-center gap-3">
+					<h1 className="text-xl font-semibold text-foreground">
+						{run.featureName}
+					</h1>
+					<StatusBadge status={run.status} size="md" />
 				</div>
+
+				<div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+					<span className="inline-flex items-center gap-1.5">
+						<Terminal className="h-3.5 w-3.5" aria-hidden="true" />
+						<code className="rounded bg-muted px-2 py-0.5 font-mono text-xs">
+							{run.command}
+						</code>
+					</span>
+					<span className="inline-flex items-center gap-1.5">
+						<Calendar className="h-3.5 w-3.5" aria-hidden="true" />
+						{formatStartTime(run.startedAt)}
+					</span>
+					<span className="inline-flex items-center gap-1.5">
+						<Clock className="h-3.5 w-3.5" aria-hidden="true" />
+						{isActive ? "Elapsed " : "Duration "}
+						{formatDuration(run.startedAt, run.completedAt)}
+					</span>
+				</div>
+
+				{run.error && (
+					<p className="mt-3 text-sm text-status-failed">{run.error}</p>
+				)}
 			</header>
 
 			{workflow ? (
