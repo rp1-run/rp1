@@ -4,13 +4,13 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { parse as parseToml } from "smol-toml";
 import {
-	generateAgentToml,
+	generateAgentConfigEntries,
 	generateCodexAgentsMd,
 	generateCodexManifest,
 	generateCodexSkillDir,
 	generateOpenaiYaml,
+	generatePerAgentToml,
 } from "../../../build/codex/generator.js";
 import type { CodexAgent, CodexSkill } from "../../../build/codex/models.js";
 import { expectRight } from "../../helpers/index.js";
@@ -145,53 +145,95 @@ describe("generateOpenaiYaml", () => {
 	});
 });
 
-describe("generateAgentToml", () => {
-	test("produces valid TOML with [agents.<name>] sections", () => {
+describe("generateAgentConfigEntries", () => {
+	test("produces [agents.<name>] sections with description and config_file only", () => {
 		const agents: CodexAgent[] = [
-			createTestCodexAgent({ name: "my-agent", roleType: "worker" }),
+			createTestCodexAgent({ name: "my-agent", description: "My agent desc" }),
 		];
 
-		const tomlContent = expectRight(generateAgentToml(agents));
-		const parsed = parseToml(tomlContent) as Record<string, unknown>;
+		const content = expectRight(generateAgentConfigEntries(agents));
 
-		expect(parsed).toHaveProperty("agents");
-		const agentsTable = parsed.agents as Record<string, unknown>;
-		expect(agentsTable).toHaveProperty("my-agent");
+		expect(content).toContain("[agents.my-agent]");
+		expect(content).toContain('description = "My agent desc"');
+		expect(content).toContain('config_file = "./agents/rp1/my-agent.toml"');
 	});
 
-	test("includes model, role, and developer_instructions", () => {
+	test("does not include role, tools, or developer_instructions in config entries", () => {
 		const agents: CodexAgent[] = [
 			createTestCodexAgent({
 				name: "task-builder",
-				model: "inherit",
 				roleType: "worker",
 				developerInstructions: "Build tasks carefully.",
 			}),
 		];
 
-		const tomlContent = expectRight(generateAgentToml(agents));
-		const parsed = parseToml(tomlContent) as Record<string, unknown>;
-		const agentSection = (parsed.agents as Record<string, unknown>)[
-			"task-builder"
-		] as Record<string, unknown>;
+		const content = expectRight(generateAgentConfigEntries(agents));
 
-		expect(agentSection.model).toBe("inherit");
-		expect(agentSection.role).toBe("worker");
-		expect(agentSection.developer_instructions).toBe("Build tasks carefully.");
+		expect(content).not.toContain("role");
+		expect(content).not.toContain("tools");
+		expect(content).not.toContain("developer_instructions");
 	});
 
-	test("does not include tools field in TOML output", () => {
+	test("generates multiple agent sections separated by blank lines", () => {
 		const agents: CodexAgent[] = [
-			createTestCodexAgent({ name: "task-builder" }),
+			createTestCodexAgent({ name: "builder", roleType: "worker" }),
+			createTestCodexAgent({ name: "reviewer", roleType: "reviewer" }),
+			createTestCodexAgent({ name: "analyzer", roleType: "explorer" }),
 		];
 
-		const tomlContent = expectRight(generateAgentToml(agents));
-		const parsed = parseToml(tomlContent) as Record<string, unknown>;
-		const agentSection = (parsed.agents as Record<string, unknown>)[
-			"task-builder"
-		] as Record<string, unknown>;
+		const content = expectRight(generateAgentConfigEntries(agents));
 
-		expect(agentSection).not.toHaveProperty("tools");
+		expect(content).toContain("[agents.builder]");
+		expect(content).toContain("[agents.reviewer]");
+		expect(content).toContain("[agents.analyzer]");
+		expect(content).toContain('config_file = "./agents/rp1/builder.toml"');
+		expect(content).toContain('config_file = "./agents/rp1/reviewer.toml"');
+		expect(content).toContain('config_file = "./agents/rp1/analyzer.toml"');
+	});
+
+	test("escapes special characters in description", () => {
+		const agents: CodexAgent[] = [
+			createTestCodexAgent({
+				name: "test-agent",
+				description: 'Agent with "quotes" and \\backslash',
+			}),
+		];
+
+		const content = expectRight(generateAgentConfigEntries(agents));
+
+		expect(content).toContain(
+			'description = "Agent with \\"quotes\\" and \\\\backslash"',
+		);
+	});
+});
+
+describe("generatePerAgentToml", () => {
+	test("produces model and multiline developer_instructions with triple-quote syntax", () => {
+		const agent = createTestCodexAgent({
+			name: "task-builder",
+			model: "inherit",
+			developerInstructions: "You are a test agent.",
+		});
+
+		const result = expectRight(generatePerAgentToml(agent));
+
+		expect(result.filename).toBe("task-builder.toml");
+		expect(result.content).toContain('model = "inherit"');
+		expect(result.content).toContain('developer_instructions = """');
+		expect(result.content).toContain("You are a test agent.");
+		expect(result.content).toContain('"""');
+	});
+
+	test("does not include role or tools in per-agent file", () => {
+		const agent = createTestCodexAgent({
+			name: "task-builder",
+			roleType: "worker",
+		});
+
+		const result = expectRight(generatePerAgentToml(agent));
+
+		expect(result.content).not.toContain("role");
+		expect(result.content).not.toContain("tools");
 	});
 
 	test("handles multiline developer_instructions", () => {
@@ -206,37 +248,24 @@ describe("generateAgentToml", () => {
 			'2. Use `code blocks` and "quotes"',
 		].join("\n");
 
-		const agents: CodexAgent[] = [
-			createTestCodexAgent({
-				name: "task-builder",
-				developerInstructions: instructions,
-			}),
-		];
+		const agent = createTestCodexAgent({
+			name: "task-builder",
+			developerInstructions: instructions,
+		});
 
-		const tomlContent = expectRight(generateAgentToml(agents));
-		const parsed = parseToml(tomlContent) as Record<string, unknown>;
-		const agentSection = (parsed.agents as Record<string, unknown>)[
-			"task-builder"
-		] as Record<string, unknown>;
+		const result = expectRight(generatePerAgentToml(agent));
 
-		expect(agentSection.developer_instructions).toBe(instructions);
+		expect(result.content).toContain(instructions);
+		expect(result.content).toMatch(/developer_instructions = """\n/);
+		expect(result.content).toMatch(/\n"""\n$/);
 	});
 
-	test("generates multiple agent sections", () => {
-		const agents: CodexAgent[] = [
-			createTestCodexAgent({ name: "builder", roleType: "worker" }),
-			createTestCodexAgent({ name: "reviewer", roleType: "reviewer" }),
-			createTestCodexAgent({ name: "analyzer", roleType: "explorer" }),
-		];
+	test("returns correct filename based on agent name", () => {
+		const agent = createTestCodexAgent({ name: "code-checker" });
 
-		const tomlContent = expectRight(generateAgentToml(agents));
-		const parsed = parseToml(tomlContent) as Record<string, unknown>;
-		const agentsTable = parsed.agents as Record<string, unknown>;
+		const result = expectRight(generatePerAgentToml(agent));
 
-		expect(Object.keys(agentsTable)).toHaveLength(3);
-		expect(agentsTable).toHaveProperty("builder");
-		expect(agentsTable).toHaveProperty("reviewer");
-		expect(agentsTable).toHaveProperty("analyzer");
+		expect(result.filename).toBe("code-checker.toml");
 	});
 });
 
@@ -279,7 +308,7 @@ describe("generateCodexManifest", () => {
 
 		const manifest = JSON.parse(content);
 		expect(manifest.installation.skillsDir).toBe(".agents/skills/");
-		expect(manifest.installation.configFile).toBe("codex.toml");
+		expect(manifest.installation.configFile).toBe("~/.codex/config.toml");
 	});
 
 	test("includes generatedAt timestamp", () => {

@@ -26,15 +26,15 @@ import { createSpinner } from "../../shared/spinner.js";
 import { extractStateMachineMermaid } from "../agent-tools/state-machine/extractor.js";
 import { colorFns } from "../lib/colors.js";
 import {
-	generateAgentToml,
+	generateAgentConfigEntries,
 	generateCodexAgentsMd,
 	generateCodexManifest,
 	generateCodexSkillDir,
 	generateOpenaiYaml,
+	generatePerAgentToml,
 	transformAgentForCodex,
 	transformSkillForCodex,
 	validateCodexSkill,
-	validateCodexToml,
 } from "./codex/index.js";
 import type { CodexAgent } from "./codex/models.js";
 import {
@@ -760,20 +760,28 @@ export const buildCodexPlugin = async (
 	}
 
 	if (codexAgents.length > 0) {
-		const tomlResult = generateAgentToml(codexAgents);
-		if (E.isRight(tomlResult)) {
-			const tomlContent = tomlResult.right;
-			const validateTomlResult = validateCodexToml(
-				tomlContent,
-				`${pluginName}/rp1-agents.toml`,
+		const configEntriesResult = generateAgentConfigEntries(codexAgents);
+		if (E.isRight(configEntriesResult)) {
+			await writeFile(
+				join(pluginOutputDir, "rp1-agents.toml"),
+				configEntriesResult.right,
 			);
-			if (E.isLeft(validateTomlResult)) {
-				errors.push(`[codex] ${formatError(validateTomlResult.left, false)}`);
-			} else {
-				await writeFile(join(pluginOutputDir, "rp1-agents.toml"), tomlContent);
-			}
 		} else {
-			errors.push(`[codex] ${formatError(tomlResult.left, false)}`);
+			errors.push(`[codex] ${formatError(configEntriesResult.left, false)}`);
+		}
+
+		const agentsDir = join(pluginOutputDir, "agents");
+		await mkdir(agentsDir, { recursive: true });
+		for (const agent of codexAgents) {
+			const perAgentResult = generatePerAgentToml(agent);
+			if (E.isRight(perAgentResult)) {
+				await writeFile(
+					join(agentsDir, perAgentResult.right.filename),
+					perAgentResult.right.content,
+				);
+			} else {
+				errors.push(`[codex] ${formatError(perAgentResult.left, false)}`);
+			}
 		}
 	}
 

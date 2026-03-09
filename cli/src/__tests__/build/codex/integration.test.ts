@@ -62,7 +62,7 @@ describe("buildCodexPlugin integration", () => {
 		expect(yamlContent).toContain("allow_implicit_invocation: false");
 	}, 30000);
 
-	test("produces rp1-agents.toml with valid TOML", async () => {
+	test("produces rp1-agents.toml with slim config entries", async () => {
 		const outputPath = join(tempDir, "toml-output");
 		await buildCodexPlugin("base", projectRoot, outputPath, logger, true);
 
@@ -77,9 +77,30 @@ describe("buildCodexPlugin integration", () => {
 
 		for (const name of agentNames) {
 			const section = agents[name] as Record<string, unknown>;
-			expect(section).toHaveProperty("model");
-			expect(section).toHaveProperty("role");
-			expect(section).toHaveProperty("developer_instructions");
+			expect(section).toHaveProperty("description");
+			expect(section).toHaveProperty("config_file");
+			expect(section).not.toHaveProperty("role");
+			expect(section).not.toHaveProperty("developer_instructions");
+			expect(section).not.toHaveProperty("tools");
+		}
+	}, 30000);
+
+	test("produces per-agent TOML files with model and developer_instructions", async () => {
+		const outputPath = join(tempDir, "per-agent-output");
+		await buildCodexPlugin("base", projectRoot, outputPath, logger, true);
+
+		const agentsDir = join(outputPath, "base", "agents");
+		const agentsStat = await stat(agentsDir);
+		expect(agentsStat.isDirectory()).toBe(true);
+
+		const agentFiles = await readdir(agentsDir);
+		expect(agentFiles.length).toBeGreaterThan(0);
+
+		for (const file of agentFiles) {
+			expect(file).toMatch(/\.toml$/);
+			const content = await readFile(join(agentsDir, file), "utf-8");
+			expect(content).toContain("model =");
+			expect(content).toContain('developer_instructions = """');
 		}
 	}, 30000);
 
@@ -101,7 +122,7 @@ describe("buildCodexPlugin integration", () => {
 		expect(manifest.artifacts.skills.length).toBe(result.skills);
 		expect(manifest.artifacts.agents.length).toBe(result.agents);
 		expect(manifest.installation.skillsDir).toBe(".agents/skills/");
-		expect(manifest.installation.configFile).toBe("codex.toml");
+		expect(manifest.installation.configFile).toBe("~/.codex/config.toml");
 	}, 30000);
 
 	test("transforms namespace references in skill content outside code blocks", async () => {
@@ -158,8 +179,8 @@ describe("buildCodexPlugin integration", () => {
 		expect(lines.length).toBeGreaterThan(0);
 	}, 30000);
 
-	test("rp1-agents.toml does not include tools arrays for agents", async () => {
-		const outputPath = join(tempDir, "tools-output");
+	test("slim config entries do not include tools, role, or inline developer_instructions", async () => {
+		const outputPath = join(tempDir, "no-tools-output");
 		await buildCodexPlugin("base", projectRoot, outputPath, logger, true);
 
 		const tomlPath = join(outputPath, "base", "rp1-agents.toml");
@@ -170,6 +191,8 @@ describe("buildCodexPlugin integration", () => {
 		for (const name of Object.keys(agents)) {
 			const section = agents[name] as Record<string, unknown>;
 			expect(section).not.toHaveProperty("tools");
+			expect(section).not.toHaveProperty("role");
+			expect(section).not.toHaveProperty("developer_instructions");
 		}
 	}, 30000);
 

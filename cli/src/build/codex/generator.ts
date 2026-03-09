@@ -4,7 +4,6 @@
  */
 
 import * as E from "fp-ts/lib/Either.js";
-import { stringify } from "smol-toml";
 import type { CLIError } from "../../../shared/errors.js";
 import { generationError } from "../../../shared/errors.js";
 import type { CodexAgent, CodexManifest, CodexSkill } from "./models.js";
@@ -106,41 +105,73 @@ export const generateOpenaiYaml = (
 };
 
 /**
- * Generate rp1-agents.toml content for a plugin's agents.
+ * Generate slim [agents.*] config entries for the main config.toml.
  *
- * Produces a single TOML file with [agents.<name>] sections for each agent,
- * containing model, role, and developer_instructions fields.
- * Uses smol-toml for correct multiline string escaping.
+ * Each entry contains only `description` and `config_file` fields,
+ * referencing a per-agent TOML file in ./agents/rp1/.
+ * Uses string templating for precise control of output format.
  */
-export const generateAgentToml = (
+export const generateAgentConfigEntries = (
 	agents: readonly CodexAgent[],
 ): E.Either<CLIError, string> => {
 	try {
-		const agentsMap: Record<
-			string,
-			Record<
-				string,
-				{
-					model: string;
-					role: string;
-					developer_instructions: string;
-				}
-			>
-		> = { agents: {} };
+		const sections: string[] = [];
 
 		for (const agent of agents) {
-			agentsMap.agents[agent.name] = {
-				model: agent.model,
-				role: agent.roleType,
-				developer_instructions: agent.developerInstructions,
-			};
+			const escapedDescription = agent.description
+				.replace(/\\/g, "\\\\")
+				.replace(/"/g, '\\"');
+			sections.push(
+				[
+					`[agents.${agent.name}]`,
+					`description = "${escapedDescription}"`,
+					`config_file = "./agents/rp1/${agent.name}.toml"`,
+				].join("\n"),
+			);
 		}
 
-		const tomlContent = stringify(agentsMap);
-		return E.right(tomlContent);
+		return E.right(sections.join("\n\n"));
 	} catch (e) {
 		return E.left(
-			generationError("rp1-agents.toml", `Agent TOML generation failed: ${e}`),
+			generationError(
+				"agent-config-entries",
+				`Agent config entry generation failed: ${e}`,
+			),
+		);
+	}
+};
+
+/**
+ * Generate a per-agent TOML file with model and developer_instructions.
+ *
+ * Produces individual TOML files using multiline triple-quote syntax
+ * for developer_instructions. Uses string templating (not smol-toml)
+ * to ensure exact control of the multiline """...""" format.
+ */
+export const generatePerAgentToml = (
+	agent: CodexAgent,
+): E.Either<
+	CLIError,
+	{ readonly filename: string; readonly content: string }
+> => {
+	try {
+		const escapedModel = agent.model
+			.replace(/\\/g, "\\\\")
+			.replace(/"/g, '\\"');
+
+		const content = [
+			`model = "${escapedModel}"`,
+			`developer_instructions = """\n${agent.developerInstructions}\n"""`,
+			"",
+		].join("\n");
+
+		return E.right({
+			filename: `${agent.name}.toml`,
+			content,
+		});
+	} catch (e) {
+		return E.left(
+			generationError(agent.name, `Per-agent TOML generation failed: ${e}`),
 		);
 	}
 };
@@ -203,7 +234,7 @@ export const generateCodexManifest = (
 			},
 			installation: {
 				skillsDir: ".agents/skills/",
-				configFile: "codex.toml",
+				configFile: "~/.codex/config.toml",
 			},
 		};
 

@@ -4,11 +4,12 @@
  */
 
 export {
-	generateAgentToml,
+	generateAgentConfigEntries,
 	generateCodexAgentsMd,
 	generateCodexManifest,
 	generateCodexSkillDir,
 	generateOpenaiYaml,
+	generatePerAgentToml,
 } from "./generator.js";
 export type {
 	CodexAgent,
