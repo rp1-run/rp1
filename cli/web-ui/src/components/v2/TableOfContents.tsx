@@ -11,12 +11,12 @@ export interface TableOfContentsProps {
 }
 
 const LEVEL_INDENT: Record<1 | 2 | 3 | 4 | 5 | 6, string> = {
-	1: "pl-0",
-	2: "pl-2",
-	3: "pl-4",
-	4: "pl-6",
-	5: "pl-8",
-	6: "pl-10",
+	1: "pl-2",
+	2: "pl-4",
+	3: "pl-6",
+	4: "pl-8",
+	5: "pl-10",
+	6: "pl-12",
 };
 
 export function TableOfContents({
@@ -82,7 +82,7 @@ export function TableOfContents({
 			className="flex h-full flex-col border-l bg-background"
 			aria-label="Table of contents"
 		>
-			<header className="shrink-0 flex h-10 items-center justify-between border-b bg-background px-3">
+			<header className="shrink-0 flex h-10 items-center justify-between border-b bg-background px-4">
 				<div className="flex items-center gap-2">
 					<h2 className="text-sm font-semibold">On this page</h2>
 					{headings.length > 0 && (
@@ -120,7 +120,7 @@ export function TableOfContents({
 						focusedIndex !== null ? `toc-item-${focusedIndex}` : undefined
 					}
 				>
-					<div className="space-y-0.5 p-2">
+					<div className="space-y-0.5 px-2 py-2">
 						{headings.map((heading, index) => {
 							const isActive = heading.id === activeId;
 							const isFocused = focusedIndex === index;
@@ -143,7 +143,7 @@ export function TableOfContents({
 										onFocus={() => setFocusedIndex(index)}
 										className={cn(
 											"w-full text-left text-sm transition-colors",
-											"rounded-md px-2 py-1",
+											"rounded-md pr-2 py-1",
 											"hover:bg-muted/50",
 											"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
 											LEVEL_INDENT[heading.level],

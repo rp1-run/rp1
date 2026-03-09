@@ -650,7 +650,7 @@ export function ArtifactViewerPage() {
 
 				<main className="relative flex h-full flex-1 flex-col">
 					<div
-						className="flex items-center justify-between gap-2 border-b px-4 py-2"
+						className="flex h-10 items-center justify-between gap-2 border-b px-4"
 						role="toolbar"
 						aria-label="Artifact viewer controls"
 					>
@@ -862,7 +862,7 @@ export function ArtifactViewerPage() {
 				>
 					<main className="relative flex h-full flex-col overflow-hidden">
 						<div
-							className="flex items-center justify-end gap-2 border-b px-4 py-2"
+							className="flex h-10 items-center justify-end gap-2 border-b px-4"
 							role="toolbar"
 							aria-label="Artifact viewer controls"
 						>
