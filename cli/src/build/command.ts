@@ -934,6 +934,19 @@ export const buildCCPlugin = async (
 		);
 	}
 
+	// Copy plugin metadata and hooks for marketplace installation
+	for (const dir of [".claude-plugin", "hooks"]) {
+		const srcDir = join(pluginDir, dir);
+		try {
+			const dirStat = await stat(srcDir);
+			if (dirStat.isDirectory()) {
+				await copyDirectory(srcDir, join(pluginOutputDir, dir));
+			}
+		} catch {
+			// Directory doesn't exist — skip
+		}
+	}
+
 	if (!jsonOutput) {
 		const hasErrors = errors.length > 0;
 		const summary = `${pluginName} (claude-code): ${agentCount} agents, ${skillCount} skills`;

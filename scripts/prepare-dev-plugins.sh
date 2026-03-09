@@ -2,9 +2,11 @@
 set -e
 
 # Prepares dev versions of plugins in a temp marketplace directory
-# Creates .dev-marketplace/ with plugin copies that have -dev version suffix
+# Uses built CC artifacts from cli/dist/claude-code/ when available,
+# falls back to raw source plugins if not built yet.
 
 DEV_MARKETPLACE=".dev-marketplace"
+CC_DIST="cli/dist/claude-code"
 PLUGINS=("base" "dev" "utils")
 
 # Clean and create dev marketplace directory
@@ -21,16 +23,22 @@ jq '.plugins = [.plugins[] | .source = "./" + (.name | sub("^rp1-"; "")) + "/"]'
 
 # Copy each plugin and add -dev suffix to version
 for plugin in "${PLUGINS[@]}"; do
-  src="plugins/$plugin"
   dest="$DEV_MARKETPLACE/$plugin"
 
-  if [ ! -d "$src" ]; then
-    echo "Warning: $src not found, skipping"
+  if [ -d "$CC_DIST/$plugin" ]; then
+    # Use built CC artifacts (includes .claude-plugin/, hooks/, agents/, skills/)
+    src="$CC_DIST/$plugin"
+    cp -r "$src" "$dest"
+    echo "✓ $plugin: using built artifacts from $CC_DIST/$plugin"
+  elif [ -d "plugins/$plugin" ]; then
+    # Fall back to raw source
+    src="plugins/$plugin"
+    cp -r "$src" "$dest"
+    echo "⚠ $plugin: using raw source (run 'just build-claude-code' first for built artifacts)"
+  else
+    echo "Warning: $plugin not found, skipping"
     continue
   fi
-
-  # Copy plugin directory
-  cp -r "$src" "$dest"
 
   # Update version in plugin.json
   plugin_json="$dest/.claude-plugin/plugin.json"
@@ -39,7 +47,7 @@ for plugin in "${PLUGINS[@]}"; do
     if [[ "$current_version" != *"-dev"* ]]; then
       jq --arg v "${current_version}-dev" '.version = $v' "$plugin_json" > "$plugin_json.tmp" \
         && mv "$plugin_json.tmp" "$plugin_json"
-      echo "✓ $plugin: $current_version → ${current_version}-dev"
+      echo "  version: $current_version → ${current_version}-dev"
     fi
   fi
 done

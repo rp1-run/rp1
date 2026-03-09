@@ -95,8 +95,8 @@ install: build rm-stable install-claude install-opencode
 run *args: build
     ./bin/rp1 {{args}}
 
-# Prepare dev marketplace with -dev version plugins
-prepare-dev-plugins:
+# Prepare dev marketplace with -dev version plugins (builds CC artifacts first)
+prepare-dev-plugins: build-claude-code
     ./scripts/prepare-dev-plugins.sh
 
 # Install dev plugins to Claude Code
