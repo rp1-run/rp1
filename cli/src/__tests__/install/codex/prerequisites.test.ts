@@ -131,6 +131,8 @@ describe("codex prerequisites", () => {
 			expect(paths.configDir).toContain(".codex");
 			expect(paths.configFile).toContain("config.toml");
 			expect(paths.backupDir).toContain("codex-rp1-backups");
+			expect(paths.agentsDir).toContain("agents");
+			expect(paths.agentsDir).toContain("rp1");
 		});
 
 		test("resolves paths relative to home directory", () => {
@@ -142,6 +144,7 @@ describe("codex prerequisites", () => {
 			expect(paths.configDir).toStartWith(home);
 			expect(paths.configFile).toStartWith(home);
 			expect(paths.backupDir).toStartWith(home);
+			expect(paths.agentsDir).toStartWith(home);
 		});
 	});
 });

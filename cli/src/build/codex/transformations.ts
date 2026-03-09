@@ -107,30 +107,9 @@ export const transformSkillForCodex = (
 };
 
 /**
- * Map agent tools through the Codex registry.
- * Tools mapped to null are filtered out. Unmapped tools are kept as-is.
- */
-const mapAgentTools = (tools: readonly string[]): readonly string[] => {
-	const mapped: string[] = [];
-	for (const tool of tools) {
-		const mappedTool = codexRegistry.toolMappings[tool];
-		if (mappedTool === null) {
-			continue;
-		}
-		if (mappedTool === undefined) {
-			mapped.push(tool);
-		} else {
-			mapped.push(mappedTool);
-		}
-	}
-	return mapped;
-};
-
-/**
  * Transform a Claude Code agent to Codex format.
  *
- * Applies namespace transformation (/ -> $) to content,
- * maps tools through the Codex registry, and assigns a role type
+ * Applies namespace transformation (/ -> $) to content and assigns a role type
  * based on the agent's name and description.
  */
 export const transformAgentForCodex = (
@@ -138,7 +117,6 @@ export const transformAgentForCodex = (
 ): E.Either<CLIError, CodexAgent> => {
 	try {
 		const transformedContent = transformNamespaceToCodex(ccAgent.content);
-		const mappedTools = mapAgentTools(ccAgent.tools);
 		const roleType = mapAgentToRoleType(ccAgent.name, ccAgent.description);
 
 		const codexAgent: CodexAgent = {
@@ -147,7 +125,6 @@ export const transformAgentForCodex = (
 			model: ccAgent.model,
 			roleType,
 			developerInstructions: transformedContent,
-			tools: mappedTools,
 		};
 
 		return E.right(codexAgent);

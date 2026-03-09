@@ -122,6 +122,7 @@ describe("codex installer", () => {
 				configDir: join(tempDir, "codex"),
 				configFile: join(tempDir, "codex", "config.toml"),
 				backupDir: join(tempDir, "backups"),
+				agentsDir: join(tempDir, "codex", "agents", "rp1"),
 			};
 
 			const result = await expectTaskRight(backupCodexInstallation(paths));
@@ -134,6 +135,7 @@ describe("codex installer", () => {
 				configDir: join(tempDir, "codex"),
 				configFile: join(tempDir, "codex", "config.toml"),
 				backupDir: join(tempDir, "backups"),
+				agentsDir: join(tempDir, "codex", "agents", "rp1"),
 			};
 
 			await writeFixture(tempDir, "codex/config.toml", "existing config");
@@ -155,6 +157,7 @@ describe("codex installer", () => {
 				configDir: join(tempDir, "codex"),
 				configFile: join(tempDir, "codex", "config.toml"),
 				backupDir: join(tempDir, "backups"),
+				agentsDir: join(tempDir, "codex", "agents", "rp1"),
 			};
 
 			await writeFixture(
@@ -179,6 +182,7 @@ describe("codex installer", () => {
 				configDir: join(tempDir, "codex"),
 				configFile: join(tempDir, "codex", "config.toml"),
 				backupDir: join(tempDir, "backups"),
+				agentsDir: join(tempDir, "codex", "agents", "rp1"),
 			};
 
 			await writeFixture(tempDir, "codex/config.toml", "content");
@@ -314,6 +318,7 @@ describe("codex installer", () => {
 				configDir: join(tempDir, "codex"),
 				configFile: join(tempDir, "codex", "config.toml"),
 				backupDir: join(tempDir, "backups"),
+				agentsDir: join(tempDir, "codex", "agents", "rp1"),
 			};
 
 			await writeFixture(
@@ -341,6 +346,7 @@ describe("codex installer", () => {
 				configDir: join(tempDir, "codex"),
 				configFile: join(tempDir, "codex", "config.toml"),
 				backupDir: join(tempDir, "backups"),
+				agentsDir: join(tempDir, "codex", "agents", "rp1"),
 			};
 
 			await writeFixture(join(tempDir, "skills"), "rp1-build/SKILL.md", "rp1");
@@ -363,6 +369,7 @@ describe("codex installer", () => {
 				configDir: join(tempDir, "codex"),
 				configFile: join(tempDir, "codex", "config.toml"),
 				backupDir: join(tempDir, "backups"),
+				agentsDir: join(tempDir, "codex", "agents", "rp1"),
 			};
 
 			await mkdir(join(tempDir, "skills"), { recursive: true });
@@ -385,6 +392,7 @@ describe("codex installer", () => {
 				configDir: join(tempDir, "codex"),
 				configFile: join(tempDir, "codex", "config.toml"),
 				backupDir: join(tempDir, "backups"),
+				agentsDir: join(tempDir, "codex", "agents", "rp1"),
 			};
 
 			await writeFixture(
@@ -412,6 +420,7 @@ describe("codex installer", () => {
 				configDir: join(tempDir, "codex"),
 				configFile: join(tempDir, "codex", "config.toml"),
 				backupDir: join(tempDir, "backups"),
+				agentsDir: join(tempDir, "codex", "agents", "rp1"),
 			};
 
 			await mkdir(join(tempDir, "skills"), { recursive: true });
@@ -427,6 +436,7 @@ describe("codex installer", () => {
 				configDir: join(tempDir, "codex"),
 				configFile: join(tempDir, "codex", "config.toml"),
 				backupDir: join(tempDir, "backups"),
+				agentsDir: join(tempDir, "codex", "agents", "rp1"),
 			};
 
 			await mkdir(join(tempDir, "skills"), { recursive: true });

@@ -166,6 +166,7 @@ export const getCodexPaths = (): CodexPaths => {
 		configDir: join(home, ".codex"),
 		configFile: join(home, ".codex", "config.toml"),
 		backupDir: join(home, ".codex-rp1-backups"),
+		agentsDir: join(home, ".codex", "agents", "rp1"),
 	};
 };
 

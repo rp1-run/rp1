@@ -29,7 +29,6 @@ const createTestCodexAgent = (overrides?: Partial<CodexAgent>): CodexAgent => ({
 	model: "inherit",
 	roleType: "default",
 	developerInstructions: "You are a test agent.",
-	tools: ["functions.exec_command"],
 	...overrides,
 });
 
@@ -181,12 +180,9 @@ describe("generateAgentToml", () => {
 		expect(agentSection.developer_instructions).toBe("Build tasks carefully.");
 	});
 
-	test("includes tools array in TOML output", () => {
+	test("does not include tools field in TOML output", () => {
 		const agents: CodexAgent[] = [
-			createTestCodexAgent({
-				name: "task-builder",
-				tools: ["functions.exec_command", "functions.apply_patch"],
-			}),
+			createTestCodexAgent({ name: "task-builder" }),
 		];
 
 		const tomlContent = expectRight(generateAgentToml(agents));
@@ -195,24 +191,7 @@ describe("generateAgentToml", () => {
 			"task-builder"
 		] as Record<string, unknown>;
 
-		expect(agentSection.tools).toEqual([
-			"functions.exec_command",
-			"functions.apply_patch",
-		]);
-	});
-
-	test("includes empty tools array when agent has no tools", () => {
-		const agents: CodexAgent[] = [
-			createTestCodexAgent({ name: "no-tools-agent", tools: [] }),
-		];
-
-		const tomlContent = expectRight(generateAgentToml(agents));
-		const parsed = parseToml(tomlContent) as Record<string, unknown>;
-		const agentSection = (parsed.agents as Record<string, unknown>)[
-			"no-tools-agent"
-		] as Record<string, unknown>;
-
-		expect(agentSection.tools).toEqual([]);
+		expect(agentSection).not.toHaveProperty("tools");
 	});
 
 	test("handles multiline developer_instructions", () => {

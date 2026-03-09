@@ -29,4 +29,5 @@ export interface CodexPaths {
 	readonly configDir: string;
 	readonly configFile: string;
 	readonly backupDir: string;
+	readonly agentsDir: string;
 }

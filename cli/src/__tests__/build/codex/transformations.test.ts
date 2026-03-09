@@ -192,18 +192,11 @@ describe("transformAgentForCodex", () => {
 		expect(result.developerInstructions).toContain("$rp1-dev-build");
 	});
 
-	test("maps tools through Codex registry", () => {
-		const agent = {
-			...createMinimalAgent(),
-			tools: ["Read", "Write", "Bash", "Grep", "Edit"],
-		};
+	test("does not include tools in transformed agent", () => {
+		const agent = createMinimalAgent();
 
 		const result = expectRight(transformAgentForCodex(agent));
-		expect(result.tools).toContain("functions.exec_command");
-		expect(result.tools).toContain("functions.apply_patch");
-		expect(result.tools).not.toContain("Read");
-		expect(result.tools).not.toContain("Write");
-		expect(result.tools).not.toContain("Grep");
+		expect(result).not.toHaveProperty("tools");
 	});
 
 	test("assigns role type based on agent name", () => {
@@ -252,14 +245,13 @@ describe("transformAgentForCodex", () => {
 		expect(result.description).toBe(agent.description);
 	});
 
-	test("passes through unknown tools as-is", () => {
+	test("preserves content transformation without tools mapping", () => {
 		const agent = {
 			...createMinimalAgent(),
-			tools: ["Bash", "SomeCustomTool"],
+			content: "Run /rp1-dev:build-fast for quick builds.",
 		};
 
 		const result = expectRight(transformAgentForCodex(agent));
-		expect(result.tools).toContain("functions.exec_command");
-		expect(result.tools).toContain("SomeCustomTool");
+		expect(result.developerInstructions).toContain("$rp1-dev-build-fast");
 	});
 });

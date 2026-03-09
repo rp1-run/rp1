@@ -12,6 +12,7 @@ export {
 } from "./generator.js";
 export type {
 	CodexAgent,
+	CodexConfigEntry,
 	CodexManifest,
 	CodexRoleType,
 	CodexSkill,

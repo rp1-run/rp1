@@ -21,7 +21,13 @@ export interface CodexAgent {
 	readonly model: string;
 	readonly roleType: CodexRoleType;
 	readonly developerInstructions: string;
-	readonly tools: readonly string[];
+}
+
+/** Slim config entry for main config.toml [agents.*] sections. */
+export interface CodexConfigEntry {
+	readonly name: string;
+	readonly description: string;
+	readonly configFile: string;
 }
 
 /** Codex role types for agent categorization. */

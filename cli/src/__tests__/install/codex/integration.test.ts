@@ -34,6 +34,7 @@ describe("codex integration", () => {
 			configDir: join(tempDir, "home", ".codex"),
 			configFile: join(tempDir, "home", ".codex", "config.toml"),
 			backupDir: join(tempDir, "home", ".codex-rp1-backups"),
+			agentsDir: join(tempDir, "home", ".codex", "agents", "rp1"),
 		};
 		artifactsDir = join(tempDir, "artifacts");
 	});

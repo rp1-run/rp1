@@ -158,7 +158,7 @@ describe("buildCodexPlugin integration", () => {
 		expect(lines.length).toBeGreaterThan(0);
 	}, 30000);
 
-	test("rp1-agents.toml includes tools arrays for agents", async () => {
+	test("rp1-agents.toml does not include tools arrays for agents", async () => {
 		const outputPath = join(tempDir, "tools-output");
 		await buildCodexPlugin("base", projectRoot, outputPath, logger, true);
 
@@ -169,8 +169,7 @@ describe("buildCodexPlugin integration", () => {
 
 		for (const name of Object.keys(agents)) {
 			const section = agents[name] as Record<string, unknown>;
-			expect(section).toHaveProperty("tools");
-			expect(Array.isArray(section.tools)).toBe(true);
+			expect(section).not.toHaveProperty("tools");
 		}
 	}, 30000);
 

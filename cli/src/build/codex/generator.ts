@@ -123,7 +123,6 @@ export const generateAgentToml = (
 				{
 					model: string;
 					role: string;
-					tools: readonly string[];
 					developer_instructions: string;
 				}
 			>
@@ -133,7 +132,6 @@ export const generateAgentToml = (
 			agentsMap.agents[agent.name] = {
 				model: agent.model,
 				role: agent.roleType,
-				tools: agent.tools,
 				developer_instructions: agent.developerInstructions,
 			};
 		}
