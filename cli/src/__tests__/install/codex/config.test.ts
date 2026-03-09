@@ -9,6 +9,7 @@ import {
 	generateConfigDiff,
 	mergeCodexConfig,
 	readCodexConfig,
+	validateToml,
 	writeCodexConfig,
 } from "../../../install/codex/config.js";
 import {
@@ -195,21 +196,58 @@ describe("codex config", () => {
 		});
 	});
 
+	describe("validateToml", () => {
+		test("returns null for valid TOML", () => {
+			const valid = 'model = "o3"\n\n[features]\nmulti_agent = true\n';
+			expect(validateToml(valid)).toBeNull();
+		});
+
+		test("returns null for empty string", () => {
+			expect(validateToml("")).toBeNull();
+		});
+
+		test("returns null for TOML with comments", () => {
+			const withComments =
+				"# rp1:start\n# managed\n[features]\nmulti_agent = true\n# rp1:end\n";
+			expect(validateToml(withComments)).toBeNull();
+		});
+
+		test("returns error message for invalid TOML", () => {
+			const invalid = "[broken\nkey = ";
+			const result = validateToml(invalid);
+			expect(result).not.toBeNull();
+			expect(typeof result).toBe("string");
+		});
+	});
+
 	describe("writeCodexConfig", () => {
-		test("writes content to file", async () => {
+		test("writes valid TOML content to file", async () => {
 			const configPath = join(tempDir, "config.toml");
-			await expectTaskRight(writeCodexConfig(configPath, "test content"));
+			const validToml = 'model = "o3"\n';
+			await expectTaskRight(writeCodexConfig(configPath, validToml));
 
 			const content = await readFile(configPath, "utf-8");
-			expect(content).toBe("test content");
+			expect(content).toBe(validToml);
 		});
 
 		test("creates parent directories if missing", async () => {
 			const configPath = join(tempDir, "nested", "deep", "config.toml");
-			await expectTaskRight(writeCodexConfig(configPath, "content"));
+			const validToml = 'key = "value"\n';
+			await expectTaskRight(writeCodexConfig(configPath, validToml));
 
 			const content = await readFile(configPath, "utf-8");
-			expect(content).toBe("content");
+			expect(content).toBe(validToml);
+		});
+
+		test("rejects invalid TOML to protect user config", async () => {
+			const configPath = join(tempDir, "config.toml");
+			const invalidToml = "[broken\nkey = ";
+			const result = await writeCodexConfig(configPath, invalidToml)();
+
+			expect(E.isLeft(result)).toBe(true);
+			if (E.isLeft(result)) {
+				expect(result.left._tag).toBe("ConfigError");
+			}
 		});
 	});
 });

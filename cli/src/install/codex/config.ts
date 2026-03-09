@@ -249,7 +249,22 @@ export const generateConfigDiff = (
 };
 
 /**
+ * Validate that a string is syntactically valid TOML.
+ * Uses Bun's built-in TOML parser. Returns the parse error message on failure.
+ */
+export const validateToml = (content: string): string | null => {
+	try {
+		Bun.TOML.parse(content);
+		return null;
+	} catch (e) {
+		return e instanceof Error ? e.message : String(e);
+	}
+};
+
+/**
  * Write config.toml content to disk, creating parent directories if needed.
+ * Validates the content as syntactically valid TOML before writing to prevent
+ * corrupting the user's Codex configuration.
  */
 export const writeCodexConfig = (
 	configPath: string,
@@ -257,9 +272,29 @@ export const writeCodexConfig = (
 ): TE.TaskEither<CLIError, void> =>
 	TE.tryCatch(
 		async () => {
+			const tomlError = validateToml(content);
+			if (tomlError) {
+				throw configError(
+					`Refusing to write invalid TOML to ${configPath}. ` +
+						`This would break your Codex CLI configuration.\n` +
+						`Parse error: ${tomlError}\n` +
+						`No changes were made to your config file.`,
+				);
+			}
+
 			await mkdir(dirname(configPath), { recursive: true });
 			const { writeFile: fsWriteFile } = await import("node:fs/promises");
 			await fsWriteFile(configPath, content, "utf-8");
 		},
-		(e) => configError(`Failed to write Codex config: ${e}`),
+		(e) => {
+			if (
+				typeof e === "object" &&
+				e !== null &&
+				"_tag" in e &&
+				(e as CLIError)._tag === "ConfigError"
+			) {
+				return e as CLIError;
+			}
+			return configError(`Failed to write Codex config: ${e}`);
+		},
 	);
