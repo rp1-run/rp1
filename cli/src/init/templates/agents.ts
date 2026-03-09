@@ -22,4 +22,10 @@ Loading rules:
    - Code review: patterns.md
    - Bug investigation: architecture.md, modules.md
    - Feature work: modules.md, patterns.md
-   - Strategic or system-wide analysis: all files`;
+   - Strategic or system-wide analysis: all files
+
+## Codex agent conventions
+
+**Task shorthand**: \`Task: <sub-agent-name>\` means spawn that sub-agent. Treat it as an execution directive, not descriptive text.
+
+**Subagent waiting**: Do not assume a subagent failed because it is slow. Wait for completion before declaring it stalled. Check for expected side effects (artifact files, DB writes) before concluding it is stuck. Prefer patient polling over short timeouts for critical-path subagents.`;
