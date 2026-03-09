@@ -318,7 +318,7 @@ export const installAllDetectedTools = (
  * Install plugins for a specific tool by ID.
  * Useful for `rp1 install <tool>` commands.
  *
- * @param toolId - The tool ID ("claude-code" or "opencode")
+ * @param toolId - The tool ID ("claude-code", "opencode", or "codex")
  * @param registry - The tools registry to get tool metadata
  * @param ctx - Installation context
  * @returns TaskEither with ToolInstallResult
@@ -334,7 +334,7 @@ export const installForSpecificTool = (
 		return TE.left(
 			installError(
 				"invalid-tool",
-				`Unknown tool: ${toolId}. Use "claude-code" or "opencode".`,
+				`Unknown tool: ${toolId}. Use "claude-code", "opencode", or "codex".`,
 			),
 		);
 	}
