@@ -78,7 +78,7 @@ const copyDir = async (src: string, dst: string): Promise<number> => {
 
 /**
  * Verify that Codex build artifacts exist at the given directory.
- * Checks for dist/codex/{base,dev}/ with skills/ and rp1-agents.toml.
+ * Checks for dist/codex/{base,dev}/ with skills/ and agents/ directories.
  */
 export const validateCodexArtifacts = (
 	artifactsDir: string,
@@ -108,12 +108,12 @@ export const validateCodexArtifacts = (
 					);
 				}
 
-				const agentsToml = join(pluginDir, "rp1-agents.toml");
+				const agentsDir = join(pluginDir, "agents");
 				try {
-					await stat(agentsToml);
+					await stat(agentsDir);
 				} catch {
 					throw usageError(
-						`Agent definitions not found at ${agentsToml}`,
+						`Agents directory not found at ${agentsDir}`,
 						"Build artifacts first with: rp1 build",
 					);
 				}
@@ -168,6 +168,13 @@ export const backupCodexInstallation = (
 				// no skills dir
 			}
 
+			try {
+				await stat(paths.agentsDir);
+				hasContent = true;
+			} catch {
+				// no agents dir
+			}
+
 			if (!hasContent) {
 				return null;
 			}
@@ -202,6 +209,14 @@ export const backupCodexInstallation = (
 				}
 			} catch {
 				// skills dir may not exist
+			}
+
+			try {
+				await stat(paths.agentsDir);
+				const dstAgentsDir = join(backupPath, "agents");
+				await copyDir(paths.agentsDir, dstAgentsDir);
+			} catch {
+				// agents dir may not exist
 			}
 
 			const manifest = { timestamp, backupPath };
@@ -259,6 +274,45 @@ export const copyCodexSkills = (
 			return totalCopied;
 		},
 		(e) => installError("copy-skills", `Failed to copy Codex skills: ${e}`),
+	);
+
+/**
+ * Copy per-agent TOML files from build output to ~/.codex/agents/rp1/.
+ * Creates the target directory if it does not exist.
+ */
+export const copyCodexAgents = (
+	pluginDirs: readonly string[],
+	targetDir: string,
+): TE.TaskEither<CLIError, number> =>
+	TE.tryCatch(
+		async () => {
+			await mkdir(targetDir, { recursive: true });
+			let totalCopied = 0;
+
+			for (const pluginDir of pluginDirs) {
+				const agentsSrc = join(pluginDir, "agents");
+
+				try {
+					await stat(agentsSrc);
+				} catch {
+					continue;
+				}
+
+				const entries = await readdir(agentsSrc, { withFileTypes: true });
+				for (const entry of entries) {
+					if (entry.isDirectory() || !entry.name.endsWith(".toml")) continue;
+
+					const srcFile = join(agentsSrc, entry.name);
+					const dstFile = join(targetDir, entry.name);
+					await copyFile(srcFile, dstFile);
+					totalCopied++;
+				}
+			}
+
+			return totalCopied;
+		},
+		(e) =>
+			installError("copy-agents", `Failed to copy per-agent TOML files: ${e}`),
 	);
 
 /**
@@ -356,6 +410,19 @@ export const installCodex = (
 				}),
 				TE.chain(({ backupPath, skillsCopied }) => {
 					spinner.succeed(`Copied ${skillsCopied} skill files`);
+
+					spinner.start("Copying per-agent TOML files...");
+					return pipe(
+						copyCodexAgents(pluginDirs, paths.agentsDir),
+						TE.map((agentsCopied) => ({
+							backupPath,
+							skillsCopied,
+							agentsCopied,
+						})),
+					);
+				}),
+				TE.chain(({ backupPath, skillsCopied, agentsCopied }) => {
+					spinner.succeed(`Copied ${agentsCopied} per-agent TOML files`);
 
 					spinner.start("Building config patch...");
 					return pipe(
@@ -509,7 +576,7 @@ export const installCodex = (
 };
 
 /**
- * Remove rp1 content from Codex: skill directories and fenced config sections.
+ * Remove rp1 content from Codex: skill directories, per-agent TOML files, and fenced config sections.
  */
 export const uninstallCodex = (
 	paths: CodexPaths,
@@ -534,6 +601,14 @@ export const uninstallCodex = (
 				// skills dir may not exist
 			}
 
+			let hasAgentsDir = false;
+			try {
+				await stat(paths.agentsDir);
+				hasAgentsDir = true;
+			} catch {
+				// agents dir may not exist
+			}
+
 			let hasFencedConfig = false;
 			try {
 				const configContent = await readFile(paths.configFile, "utf-8");
@@ -549,10 +624,13 @@ export const uninstallCodex = (
 						console.log(`  - ${join(paths.skillsDir, dir)}`);
 					}
 				}
+				if (hasAgentsDir) {
+					console.log(`Would remove agents directory: ${paths.agentsDir}`);
+				}
 				if (hasFencedConfig) {
 					console.log("Would remove rp1 sections from config.toml");
 				}
-				if (rp1SkillDirs.length === 0 && !hasFencedConfig) {
+				if (rp1SkillDirs.length === 0 && !hasAgentsDir && !hasFencedConfig) {
 					console.log("No rp1 content found to remove.");
 				}
 				return { skillsRemoved: 0, configCleaned: false };
@@ -561,6 +639,10 @@ export const uninstallCodex = (
 			for (const dirName of rp1SkillDirs) {
 				await rm(join(paths.skillsDir, dirName), { recursive: true });
 				skillsRemoved++;
+			}
+
+			if (hasAgentsDir) {
+				await rm(paths.agentsDir, { recursive: true });
 			}
 
 			if (hasFencedConfig) {
@@ -604,6 +686,23 @@ export const previewCodexInstallation = (
 					}
 				} catch {
 					// skills dir may not exist for this plugin
+				}
+			}
+
+			console.log("\nPer-agent TOML files to install:");
+			for (const plugin of CODEX_PLUGINS) {
+				const agentsSrc = join(artifactsDir, plugin, "agents");
+				try {
+					const entries = await readdir(agentsSrc, { withFileTypes: true });
+					for (const entry of entries) {
+						if (!entry.isDirectory() && entry.name.endsWith(".toml")) {
+							console.log(
+								`  - ${entry.name} -> ${join(paths.agentsDir, entry.name)}`,
+							);
+						}
+					}
+				} catch {
+					// agents dir may not exist for this plugin
 				}
 			}
 

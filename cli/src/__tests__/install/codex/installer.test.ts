@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 import {
 	backupCodexInstallation,
+	copyCodexAgents,
 	copyCodexSkills,
 	uninstallCodex,
 	validateCodexArtifacts,
@@ -39,8 +40,8 @@ describe("codex installer", () => {
 			);
 			await writeFixture(
 				join(artifactsDir, "base"),
-				"rp1-agents.toml",
-				"[agents]",
+				"agents/task-builder.toml",
+				'model = "o4-mini"',
 			);
 			await writeFixture(
 				join(artifactsDir, "dev"),
@@ -49,8 +50,8 @@ describe("codex installer", () => {
 			);
 			await writeFixture(
 				join(artifactsDir, "dev"),
-				"rp1-agents.toml",
-				"[agents]",
+				"agents/task-reviewer.toml",
+				'model = "o4-mini"',
 			);
 
 			const result = await expectTaskRight(
@@ -74,8 +75,8 @@ describe("codex installer", () => {
 			const artifactsDir = join(tempDir, "artifacts");
 			await writeFixture(
 				join(artifactsDir, "base"),
-				"rp1-agents.toml",
-				"[agents]",
+				"agents/task-builder.toml",
+				'model = "o4-mini"',
 			);
 			await writeFixture(
 				join(artifactsDir, "dev"),
@@ -84,15 +85,15 @@ describe("codex installer", () => {
 			);
 			await writeFixture(
 				join(artifactsDir, "dev"),
-				"rp1-agents.toml",
-				"[agents]",
+				"agents/task-reviewer.toml",
+				'model = "o4-mini"',
 			);
 
 			const error = await expectTaskLeft(validateCodexArtifacts(artifactsDir));
 			expect(getErrorMessage(error)).toContain("Skills directory not found");
 		});
 
-		test("fails when rp1-agents.toml missing", async () => {
+		test("fails when agents directory missing", async () => {
 			const artifactsDir = join(tempDir, "artifacts");
 			await writeFixture(
 				join(artifactsDir, "base"),
@@ -106,12 +107,12 @@ describe("codex installer", () => {
 			);
 			await writeFixture(
 				join(artifactsDir, "dev"),
-				"rp1-agents.toml",
-				"[agents]",
+				"agents/task-reviewer.toml",
+				'model = "o4-mini"',
 			);
 
 			const error = await expectTaskLeft(validateCodexArtifacts(artifactsDir));
-			expect(getErrorMessage(error)).toContain("Agent definitions not found");
+			expect(getErrorMessage(error)).toContain("Agents directory not found");
 		});
 	});
 
@@ -311,6 +312,110 @@ describe("codex installer", () => {
 		});
 	});
 
+	describe("copyCodexAgents", () => {
+		test("copies per-agent TOML files to target", async () => {
+			const pluginDir = join(tempDir, "artifacts", "base");
+			const targetDir = join(tempDir, "codex", "agents", "rp1");
+
+			await writeFixture(
+				pluginDir,
+				"agents/task-builder.toml",
+				'model = "o4-mini"\ndeveloper_instructions = """instructions"""',
+			);
+			await writeFixture(
+				pluginDir,
+				"agents/task-reviewer.toml",
+				'model = "o4-mini"\ndeveloper_instructions = """review"""',
+			);
+
+			const result = await expectTaskRight(
+				copyCodexAgents([pluginDir], targetDir),
+			);
+			expect(result).toBe(2);
+
+			const content = await readFile(
+				join(targetDir, "task-builder.toml"),
+				"utf-8",
+			);
+			expect(content).toContain('model = "o4-mini"');
+		});
+
+		test("creates target directory if missing", async () => {
+			const pluginDir = join(tempDir, "artifacts", "base");
+			const targetDir = join(tempDir, "nonexistent", "agents", "rp1");
+
+			await writeFixture(
+				pluginDir,
+				"agents/task-builder.toml",
+				'model = "o4-mini"',
+			);
+
+			await expectTaskRight(copyCodexAgents([pluginDir], targetDir));
+
+			const dirStat = await stat(targetDir);
+			expect(dirStat.isDirectory()).toBe(true);
+		});
+
+		test("handles multiple plugin directories", async () => {
+			const baseDir = join(tempDir, "artifacts", "base");
+			const devDir = join(tempDir, "artifacts", "dev");
+			const targetDir = join(tempDir, "codex", "agents", "rp1");
+
+			await writeFixture(
+				baseDir,
+				"agents/kb-analyzer.toml",
+				'model = "o4-mini"',
+			);
+			await writeFixture(
+				devDir,
+				"agents/task-builder.toml",
+				'model = "o4-mini"',
+			);
+
+			const result = await expectTaskRight(
+				copyCodexAgents([baseDir, devDir], targetDir),
+			);
+			expect(result).toBe(2);
+
+			const entries = await readdir(targetDir);
+			expect(entries).toContain("kb-analyzer.toml");
+			expect(entries).toContain("task-builder.toml");
+		});
+
+		test("skips non-toml files", async () => {
+			const pluginDir = join(tempDir, "artifacts", "base");
+			const targetDir = join(tempDir, "codex", "agents", "rp1");
+
+			await writeFixture(
+				pluginDir,
+				"agents/task-builder.toml",
+				'model = "o4-mini"',
+			);
+			await writeFixture(pluginDir, "agents/README.md", "docs");
+
+			const result = await expectTaskRight(
+				copyCodexAgents([pluginDir], targetDir),
+			);
+			expect(result).toBe(1);
+
+			const entries = await readdir(targetDir);
+			expect(entries).toContain("task-builder.toml");
+			expect(entries).not.toContain("README.md");
+		});
+
+		test("skips plugin dirs without agents directory", async () => {
+			const pluginDir = join(tempDir, "artifacts", "base");
+			const targetDir = join(tempDir, "codex", "agents", "rp1");
+
+			await writeFixture(pluginDir, "skills/rp1-build/SKILL.md", "content");
+
+			const result = await expectTaskRight(
+				copyCodexAgents([pluginDir], targetDir),
+			);
+			expect(result).toBe(0);
+		});
+	});
+
 	describe("uninstallCodex", () => {
 		test("removes rp1 skill directories", async () => {
 			const paths: CodexPaths = {
@@ -415,6 +520,54 @@ describe("codex installer", () => {
 		});
 
 		test("handles no rp1 content gracefully", async () => {
+			const paths: CodexPaths = {
+				skillsDir: join(tempDir, "skills"),
+				configDir: join(tempDir, "codex"),
+				configFile: join(tempDir, "codex", "config.toml"),
+				backupDir: join(tempDir, "backups"),
+				agentsDir: join(tempDir, "codex", "agents", "rp1"),
+			};
+
+			await mkdir(join(tempDir, "skills"), { recursive: true });
+
+			const result = await expectTaskRight(uninstallCodex(paths, false));
+			expect(result.skillsRemoved).toBe(0);
+			expect(result.configCleaned).toBe(false);
+		});
+
+		test("removes agents directory on uninstall", async () => {
+			const paths: CodexPaths = {
+				skillsDir: join(tempDir, "skills"),
+				configDir: join(tempDir, "codex"),
+				configFile: join(tempDir, "codex", "config.toml"),
+				backupDir: join(tempDir, "backups"),
+				agentsDir: join(tempDir, "codex", "agents", "rp1"),
+			};
+
+			await mkdir(join(tempDir, "skills"), { recursive: true });
+			await writeFixture(
+				paths.agentsDir,
+				"task-builder.toml",
+				'model = "o4-mini"',
+			);
+			await writeFixture(
+				paths.agentsDir,
+				"task-reviewer.toml",
+				'model = "o4-mini"',
+			);
+
+			await expectTaskRight(uninstallCodex(paths, false));
+
+			let agentsDirExists = true;
+			try {
+				await stat(paths.agentsDir);
+			} catch {
+				agentsDirExists = false;
+			}
+			expect(agentsDirExists).toBe(false);
+		});
+
+		test("does not error when agents directory does not exist", async () => {
 			const paths: CodexPaths = {
 				skillsDir: join(tempDir, "skills"),
 				configDir: join(tempDir, "codex"),

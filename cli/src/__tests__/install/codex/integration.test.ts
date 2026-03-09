@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import {
@@ -10,6 +10,7 @@ import {
 } from "../../../install/codex/config.js";
 import {
 	backupCodexInstallation,
+	copyCodexAgents,
 	copyCodexSkills,
 	uninstallCodex,
 	validateCodexArtifacts,
@@ -57,7 +58,12 @@ describe("codex integration", () => {
 		await writeFixture(
 			join(artifactsDir, "base"),
 			"rp1-agents.toml",
-			'[agents.rp1-build]\nmodel = "o4-mini"\nrole = "worker"',
+			'[agents.rp1-build]\ndescription = "Build agent"\nconfig_file = "./agents/rp1/rp1-build.toml"',
+		);
+		await writeFixture(
+			join(artifactsDir, "base"),
+			"agents/rp1-build.toml",
+			'model = "o4-mini"\ndeveloper_instructions = """Build instructions"""',
 		);
 		await writeFixture(
 			join(artifactsDir, "dev"),
@@ -72,7 +78,12 @@ describe("codex integration", () => {
 		await writeFixture(
 			join(artifactsDir, "dev"),
 			"rp1-agents.toml",
-			'[agents.rp1-review]\nmodel = "o3"\nrole = "reviewer"',
+			'[agents.rp1-review]\ndescription = "Review agent"\nconfig_file = "./agents/rp1/rp1-review.toml"',
+		);
+		await writeFixture(
+			join(artifactsDir, "dev"),
+			"agents/rp1-review.toml",
+			'model = "o3"\ndeveloper_instructions = """Review instructions"""',
 		);
 
 		const validated = await expectTaskRight(
@@ -94,6 +105,15 @@ describe("codex integration", () => {
 		const skillEntries = await readdir(paths.skillsDir);
 		expect(skillEntries).toContain("rp1-build");
 		expect(skillEntries).toContain("rp1-review");
+
+		const agentsCopied = await expectTaskRight(
+			copyCodexAgents(pluginDirs, paths.agentsDir),
+		);
+		expect(agentsCopied).toBe(2);
+
+		const agentEntries = await readdir(paths.agentsDir);
+		expect(agentEntries).toContain("rp1-build.toml");
+		expect(agentEntries).toContain("rp1-review.toml");
 
 		const tomlPaths = pluginDirs.map((d) => join(d, "rp1-agents.toml"));
 		const patch = await expectTaskRight(buildConfigPatch(tomlPaths));
@@ -117,6 +137,14 @@ describe("codex integration", () => {
 		const postEntries = await readdir(paths.skillsDir);
 		expect(postEntries).not.toContain("rp1-build");
 		expect(postEntries).not.toContain("rp1-review");
+
+		let agentsDirExists = true;
+		try {
+			await stat(paths.agentsDir);
+		} catch {
+			agentsDirExists = false;
+		}
+		expect(agentsDirExists).toBe(false);
 
 		const postConfig = await readFile(paths.configFile, "utf-8");
 		expect(postConfig).not.toContain("[agents.rp1-build]");
