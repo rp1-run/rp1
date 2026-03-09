@@ -616,9 +616,9 @@ export const previewCodexInstallation = (
 export const getDefaultCodexArtifactsDir = (): string | null => {
 	const moduleDir = dirname(fileURLToPath(import.meta.url));
 	const candidates = [
+		join(moduleDir, "..", "..", "..", "dist", "codex"), // From src/install/codex/ -> dist/codex
 		join(moduleDir, "..", "..", "dist", "codex"),
 		join(moduleDir, "..", "dist", "codex"),
-		join(moduleDir, "dist", "codex"),
 	];
 
 	for (const candidate of candidates) {
