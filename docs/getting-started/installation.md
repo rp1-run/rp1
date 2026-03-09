@@ -101,7 +101,7 @@ rp1 init
 This interactive command will:
 
 - Create the `.rp1/` directory structure
-- Detect your AI assistant (Claude Code or OpenCode)
+- Detect your AI assistant (Claude Code, OpenCode, or Codex CLI)
 - Inject rp1 instructions into `CLAUDE.md` or `AGENTS.md`
 - Configure `.gitignore` for rp1 artifacts
 - **Install plugins automatically** (for Claude Code)
@@ -167,7 +167,7 @@ Documentation: https://rp1.run
 ```
 
 !!! note "Multi-Tool Detection"
-    If you have both Claude Code and OpenCode installed, rp1 will detect and configure plugins for **both tools** automatically. The summary will show all detected tools and their configuration status.
+    If you have multiple supported tools installed, rp1 will detect and configure plugins for all of them automatically. The summary will show all detected tools and their configuration status.
 
 ??? tip "CI/Automation"
     For non-interactive environments (CI pipelines, Docker builds, scripts), use `rp1 init --yes` to accept all defaults and install plugins automatically.
@@ -220,6 +220,12 @@ Documentation: https://rp1.run
         rp1 install opencode
         ```
 
+    === "Codex CLI"
+
+        ```bash
+        rp1 install codex
+        ```
+
     === "All Detected Tools"
 
         ```bash
@@ -257,6 +263,31 @@ Documentation: https://rp1.run
     ```
     /rp1-knowledge-build
     ```
+
+=== "Codex CLI"
+
+    rp1 installs Codex skills into `~/.agents/skills/` and merges rp1-managed
+    agent definitions plus shell approvals into `~/.codex/config.toml`.
+
+    Invoke skills with Codex mentions:
+
+    ```text
+    $rp1-knowledge-build
+    $rp1-build-fast fix the authentication bug
+    ```
+
+    **Verification checks:**
+
+    ```bash
+    rp1 verify codex
+    rg -n "rp1:start|shell.approved" ~/.codex/config.toml
+    ```
+
+    **Platform limitations:**
+
+    - Codex uses `$skill-name` mentions instead of slash commands
+    - Tool approvals are configured globally in `~/.codex/config.toml`, not per skill
+    - Some rp1 workflows depend on Codex-native delegation behavior; unsupported capabilities should fail with an explicit message
 
 If successful, you'll see output like `READY [single-project]` or `READY [monorepo: N projects]`.
 

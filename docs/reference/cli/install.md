@@ -12,7 +12,7 @@ rp1 install <subcommand> [options]
 
 ## Description
 
-The `install` command installs rp1 plugins (rp1-base and rp1-dev) for your AI coding assistant. It supports Claude Code, OpenCode, and can auto-detect all installed tools.
+The `install` command installs rp1 plugins (rp1-base and rp1-dev) for your AI coding assistant. It supports Claude Code, OpenCode, Codex CLI, and can auto-detect all installed tools.
 
 ## Subcommands
 
@@ -45,6 +45,21 @@ This command:
 2. Copies plugin files to OpenCode prompts directory
 3. Confirms installation success
 
+### `install codex`
+
+Install plugins to Codex CLI.
+
+```bash
+rp1 install codex [options]
+```
+
+This command:
+
+1. Verifies Codex CLI is installed
+2. Copies rp1 skill directories to `~/.agents/skills/`
+3. Merges rp1-managed agent definitions and shell approvals into `~/.codex/config.toml`
+4. Confirms installation success
+
 ### `install all`
 
 Install plugins to all detected AI tools.
@@ -55,7 +70,7 @@ rp1 install all [options]
 
 This command:
 
-1. Detects installed AI tools (Claude Code, OpenCode)
+1. Detects installed AI tools (Claude Code, OpenCode, Codex CLI)
 2. Installs plugins for each detected tool
 3. Reports results for all tools
 
@@ -103,6 +118,7 @@ rp1 install all
 Detecting AI tools...
   Found: Claude Code v2.0.75
   Found: OpenCode v0.8.0
+  Found: Codex CLI v0.110.0
 
 Installing plugins for all detected tools...
 
@@ -113,6 +129,10 @@ Claude Code:
 OpenCode:
   Copying plugins to ~/.opencode/prompts/...
 
+Codex CLI:
+  Copying skills to ~/.agents/skills/...
+  Updating ~/.codex/config.toml...
+
 All plugins installed successfully.
 ```
 
@@ -120,6 +140,12 @@ All plugins installed successfully.
 
 ```bash
 rp1 install claude-code --dry-run
+```
+
+For Codex:
+
+```bash
+rp1 install codex --dry-run
 ```
 
 **Expected output:**
@@ -170,6 +196,9 @@ rp1 verify claude-code
 
 # Verify OpenCode installation
 rp1 verify opencode
+
+# Verify Codex installation
+rp1 verify codex
 ```
 
 **Example output:**
@@ -183,6 +212,8 @@ rp1-dev          OK        ~/.claude/commands/rp1-dev
 
 All plugins verified successfully.
 ```
+
+For Codex, verification checks both rp1 skill directories in `~/.agents/skills/` and the rp1-managed fenced section in `~/.codex/config.toml`.
 
 ## Reliability Features
 
@@ -219,6 +250,9 @@ For OpenCode installations, plugins are first copied to a staging directory (`~/
 
     # Check OpenCode
     which opencode
+
+    # Check Codex CLI
+    which codex
     ```
 
     If the binary is installed but not in PATH, add it to your shell configuration.
@@ -226,10 +260,45 @@ For OpenCode installations, plugins are first copied to a staging directory (`~/
 ??? question "Plugins not appearing after installation"
 
     1. **Restart your AI tool** - Plugins are only loaded at startup
-    2. **Verify installation** - Run `rp1 verify claude-code` or `rp1 verify opencode`
+    2. **Verify installation** - Run `rp1 verify claude-code`, `rp1 verify opencode`, or `rp1 verify codex`
     3. **Check plugin directory** - Ensure plugins exist in the expected location:
         - Claude Code: `~/.claude/commands/`
         - OpenCode: `~/.opencode/prompts/`
+        - Codex CLI: `~/.agents/skills/`
+
+??? question "Codex prompts for shell approval too often"
+
+    `rp1 install codex` writes an rp1-managed fenced section into `~/.codex/config.toml`
+    with agent definitions and `[[shell.approved]]` entries for rp1 shell usage.
+
+    Verify the managed section exists:
+
+    ```bash
+    rg -n "rp1:start|shell.approved" ~/.codex/config.toml
+    ```
+
+    If it is missing or outdated, rerun:
+
+    ```bash
+    rp1 install codex
+    ```
+
+??? question "How do I invoke rp1 skills from Codex?"
+
+    Use Codex skill mentions with the `$` prefix, for example:
+
+    ```text
+    $rp1-build-fast fix the authentication bug
+    $rp1-knowledge-build
+    ```
+
+??? question "Codex limitations"
+
+    Current Codex support differs from Claude Code and OpenCode in a few ways:
+
+    - Skill invocation uses `$skill-name` mentions rather than slash commands
+    - Codex does not support per-skill `allowed-tools`; approvals are configured globally in `~/.codex/config.toml`
+    - If a platform capability required by a workflow is unavailable, rp1 should surface an explicit message instead of silently degrading
 
 ??? question "Permission denied during installation"
 
@@ -241,6 +310,9 @@ For OpenCode installations, plugins are first copied to a staging directory (`~/
 
     # OpenCode
     ls -la ~/.opencode/
+
+    # Codex CLI
+    ls -la ~/.agents/
     ```
 
     Ensure your user has write access to these directories.
@@ -254,6 +326,7 @@ For OpenCode installations, plugins are first copied to a staging directory (`~/
     |------------|-------------|
     | `rp1 install:claude-code` | `rp1 install claude-code` |
     | `rp1 install:opencode` | `rp1 install opencode` |
+    | `rp1 install:codex` | `rp1 install codex` |
 
     The deprecated commands still work but display a warning message.
 
