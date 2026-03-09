@@ -32,6 +32,16 @@ For Codex agents, interpret any instruction in the form `Task: <sub-agent-name>`
 
 Treat this as an execution directive, not as descriptive text.
 
+### Codex subagent waiting
+
+When Codex agents spawn subagents in this repo:
+
+- Do not assume a subagent failed just because it does not answer quickly.
+- Use longer wait windows for artifact-producing or workflow-heavy subagents.
+- Prefer waiting for the spawned subagent to complete before declaring it stalled or rerouting around it, unless the user explicitly wants parallel speculative work.
+- Check for expected side effects such as artifact files before concluding the subagent is stuck.
+- If the subagent is on the critical path, babysit it with patient polling instead of replacing it after a short timeout.
+
 ### Cross-plugin dependency rule
 
 - Dev agents may depend on base.
