@@ -5,7 +5,8 @@
  */
 
 import { mkdir, readFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { homedir } from "node:os";
+import { dirname, join } from "node:path";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../../shared/errors.js";
 import { configError, installError } from "../../../shared/errors.js";
@@ -23,6 +24,41 @@ const SHELL_APPROVAL_PATTERNS = [
 ] as const;
 
 const MANAGED_SECTION_HEADER = "# rp1 managed section - do not edit manually";
+
+/**
+ * Build the platform-specific writable_roots paths that rp1 needs
+ * outside the project directory (status DB, project registry, settings).
+ */
+export const getWritableRoots = (): readonly string[] => {
+	const home = homedir();
+	const roots: string[] = [join(home, ".rp1")];
+
+	const platform = process.platform;
+	if (platform === "darwin") {
+		roots.push(join(home, "Library", "Application Support", "rp1"));
+	} else if (platform === "win32") {
+		const appData = process.env.APPDATA;
+		roots.push(
+			appData ? join(appData, "rp1") : join(home, "AppData", "Roaming", "rp1"),
+		);
+	} else {
+		const xdgConfig = process.env.XDG_CONFIG_HOME;
+		roots.push(
+			xdgConfig ? join(xdgConfig, "rp1") : join(home, ".config", "rp1"),
+		);
+	}
+
+	return roots;
+};
+
+/**
+ * Generate the [sandbox_workspace_write] TOML section with platform-specific writable roots.
+ */
+const generateWritableRootsSection = (): string => {
+	const roots = getWritableRoots();
+	const entries = roots.map((r) => `"${r}"`).join(", ");
+	return `[sandbox_workspace_write]\nwritable_roots = [${entries}]`;
+};
 
 /**
  * Read existing Codex config.toml content.
@@ -61,6 +97,12 @@ export const buildConfigPatch = (
 
 			sections.push("[features]");
 			sections.push("multi_agent = true");
+			sections.push("");
+
+			sections.push(
+				"# Allow rp1 to write status DB, project registry, and settings",
+			);
+			sections.push(generateWritableRootsSection());
 			sections.push("");
 
 			const agentSections: string[] = [];
