@@ -24,6 +24,7 @@ import {
 } from "../../shared/install-core.js";
 import { installAllSubcommand } from "./all.js";
 import { installClaudeCodeSubcommand } from "./claude-code.js";
+import { installCodexSubcommand } from "./codex.js";
 import { installOpenCodeSubcommand } from "./opencode.js";
 
 const { green, yellow, red, dim, bold } = colorFns;
@@ -103,6 +104,7 @@ Use --platform to target a specific platform.
 Subcommands:
   claude-code    Install plugins to Claude Code
   opencode       Install plugins to OpenCode
+  codex          Install plugins to Codex CLI
   all            Install plugins to all detected tools
 
 Examples:
@@ -110,6 +112,7 @@ Examples:
   rp1 install --platform claude-code     Install to Claude Code only
   rp1 install claude-code                Install to Claude Code (subcommand)
   rp1 install opencode                   Install to OpenCode (subcommand)
+  rp1 install codex                      Install to Codex CLI (subcommand)
   rp1 install all                        Install to all detected tools
   rp1 install --dry-run                  Preview installation
   rp1 install -y                         Skip confirmation prompts
@@ -247,9 +250,10 @@ Examples:
 
 installParentCommand.addCommand(installClaudeCodeSubcommand);
 installParentCommand.addCommand(installOpenCodeSubcommand);
+installParentCommand.addCommand(installCodexSubcommand);
 installParentCommand.addCommand(installAllSubcommand);
 
 export { installAllSubcommand } from "./all.js";
-// Re-export subcommands for direct use if needed
 export { installClaudeCodeSubcommand } from "./claude-code.js";
+export { installCodexSubcommand } from "./codex.js";
 export { installOpenCodeSubcommand } from "./opencode.js";
