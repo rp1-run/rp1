@@ -24,7 +24,7 @@ import {
 	installError,
 	usageError,
 } from "../../../shared/errors.js";
-import { confirmAction } from "../../../shared/prompts.js";
+import { confirmAction, selectOption } from "../../../shared/prompts.js";
 import { createSpinner } from "../../../shared/spinner.js";
 import {
 	hasShellFencedContent,
@@ -377,20 +377,42 @@ export const installCodex = (
 
 									spinner.stop();
 
-									if (!config.yes) {
-										console.log("\nConfig changes to apply:\n");
-										console.log(diff);
-										console.log("");
-									}
-
 									return TE.tryCatch(
 										async () => {
 											if (!config.yes) {
-												const proceed = await confirmAction(
-													"Apply these config.toml changes?",
-													{ isTTY, defaultOnNonTTY: false },
+												const diffLines = diff.split("\n").length;
+												console.log(
+													`\nConfig.toml will be updated (${diffLines} lines changed)`,
 												);
-												if (!proceed) {
+
+												const choice = await selectOption(
+													"How would you like to proceed?",
+													[
+														{ value: "apply" as const, name: "Apply changes" },
+														{ value: "diff" as const, name: "View diff first" },
+														{
+															value: "skip" as const,
+															name: "Skip config changes",
+														},
+													],
+													{ isTTY },
+												);
+
+												if (choice === "diff") {
+													console.log(`\n${diff}\n`);
+													const proceed = await confirmAction(
+														"Apply these changes?",
+														{ isTTY, defaultOnNonTTY: false },
+													);
+													if (!proceed) {
+														return {
+															skillsCopied,
+															configMerged: false,
+															backupPath,
+															warnings: ["Config merge skipped by user"],
+														} satisfies CodexInstallResult;
+													}
+												} else if (choice === "skip" || choice === null) {
 													return {
 														skillsCopied,
 														configMerged: false,
