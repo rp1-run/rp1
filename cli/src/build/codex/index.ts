@@ -21,8 +21,12 @@ export type {
 } from "./models.js";
 export { codexRegistry } from "./registry.js";
 export { mapAgentToRoleType } from "./role-mapper.js";
+export type { SubAgentValidationResult } from "./sub-agent-validator.js";
+export { validateSubAgents } from "./sub-agent-validator.js";
 export {
+	discoverSkillMap,
 	transformAgentForCodex,
+	transformPlainSlashCommands,
 	transformSkillForCodex,
 } from "./transformations.js";
 export { validateCodexSkill, validateCodexToml } from "./validator.js";
