@@ -145,8 +145,9 @@ describe("codex installer", () => {
 			expect(result).not.toBeNull();
 			expect(result).toContain("backup_");
 
+			const backupPath = result as string;
 			const backupConfig = await readFile(
-				join(result!, "config", "config.toml"),
+				join(backupPath, "config", "config.toml"),
 				"utf-8",
 			);
 			expect(backupConfig).toBe("existing config");
@@ -170,8 +171,9 @@ describe("codex installer", () => {
 			const result = await expectTaskRight(backupCodexInstallation(paths));
 			expect(result).not.toBeNull();
 
+			const backupPath = result as string;
 			const backedUpSkill = await readFile(
-				join(result!, "skills", "rp1-build", "SKILL.md"),
+				join(backupPath, "skills", "rp1-build", "SKILL.md"),
 				"utf-8",
 			);
 			expect(backedUpSkill).toBe("skill content");
@@ -189,8 +191,9 @@ describe("codex installer", () => {
 			await writeFixture(tempDir, "codex/config.toml", "content");
 
 			const result = await expectTaskRight(backupCodexInstallation(paths));
+			const backupPath = result as string;
 			const manifest = JSON.parse(
-				await readFile(join(result!, "manifest.json"), "utf-8"),
+				await readFile(join(backupPath, "manifest.json"), "utf-8"),
 			);
 			expect(manifest).toHaveProperty("timestamp");
 			expect(manifest).toHaveProperty("backupPath");

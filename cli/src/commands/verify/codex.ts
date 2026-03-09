@@ -17,8 +17,6 @@ import { colorFns } from "../../lib/colors.js";
 
 const { green, yellow, red, dim, bold, cyan } = colorFns;
 
-const FENCE_ID = "rp1";
-
 interface CodexVerifyReport {
 	readonly codexInstalled: boolean;
 	readonly codexVersion: string;
@@ -92,7 +90,7 @@ export const executeVerifyCodex = async (_logger: Logger): Promise<void> => {
 	if (existsSync(paths.configFile)) {
 		try {
 			const content = await readFile(paths.configFile, "utf-8");
-			configHasFence = hasShellFencedContent(content, FENCE_ID);
+			configHasFence = hasShellFencedContent(content);
 			if (!configHasFence) {
 				issues.push("config.toml missing rp1-managed fenced section");
 			}
