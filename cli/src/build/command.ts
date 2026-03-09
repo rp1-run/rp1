@@ -814,7 +814,7 @@ export const buildCCPlugin = async (
 		}
 		const processedContent = preprocessResult.right;
 
-		const namespacedSkillDir = `rp1-${ccSkill.name}`;
+		const namespacedSkillDir = `rp1-${pluginName}-${ccSkill.name}`;
 
 		const ctx = buildTemplateContext(
 			platform,
