@@ -58,7 +58,6 @@ export const buildConfigPatch = (
 			sections.push(MANAGED_SECTION_HEADER);
 			sections.push("");
 
-			// Concatenate agent definitions from each plugin
 			const agentSections: string[] = [];
 			for (const tomlPath of agentTomlPaths) {
 				try {
@@ -81,7 +80,6 @@ export const buildConfigPatch = (
 				sections.push("");
 			}
 
-			// Append shell command approval entries
 			sections.push("# Shell command approvals for rp1 skills");
 			sections.push(generateApprovalEntries());
 
@@ -140,21 +138,18 @@ export const generateConfigDiff = (
 	lines.push("");
 
 	if (existingContent.trim().length === 0) {
-		// New file: show all content as additions
 		lines.push("(new file will be created)");
 		lines.push("");
 		for (const line of newContent.split("\n")) {
 			lines.push(`+ ${line}`);
 		}
 	} else if (!hasShellFencedContent(existingContent)) {
-		// No existing rp1 section: show appended content
 		lines.push("(rp1 section will be appended)");
 		lines.push("");
 
 		const existingLines = existingContent.split("\n");
 		const newLines = newContent.split("\n");
 
-		// Find where the new content diverges (the appended portion)
 		let diffStart = 0;
 		for (let i = 0; i < existingLines.length; i++) {
 			if (i < newLines.length && existingLines[i] === newLines[i]) {
@@ -164,7 +159,6 @@ export const generateConfigDiff = (
 			}
 		}
 
-		// Show context from existing file (last few lines)
 		const contextStart = Math.max(0, diffStart - 2);
 		for (let i = contextStart; i < diffStart; i++) {
 			if (i < existingLines.length) {
@@ -172,12 +166,10 @@ export const generateConfigDiff = (
 			}
 		}
 
-		// Show added lines
 		for (let i = diffStart; i < newLines.length; i++) {
 			lines.push(`+ ${newLines[i]}`);
 		}
 	} else {
-		// Existing rp1 section: show replacement
 		lines.push("(rp1 section will be replaced)");
 		lines.push("");
 
@@ -203,7 +195,6 @@ export const generateConfigDiff = (
 			}
 
 			if (inOldFence && !inNewFence) {
-				// Show removed old content
 				if (existingLine !== null) {
 					lines.push(`- ${existingLine}`);
 					existingIdx++;
@@ -212,7 +203,6 @@ export const generateConfigDiff = (
 					}
 				}
 			} else if (inNewFence && !inOldFence) {
-				// Show added new content
 				if (newLine !== null) {
 					lines.push(`+ ${newLine}`);
 					newIdx++;
@@ -221,7 +211,6 @@ export const generateConfigDiff = (
 					}
 				}
 			} else if (inOldFence && inNewFence) {
-				// Both in fence: show old as removed, new as added
 				if (existingLine !== null) {
 					lines.push(`- ${existingLine}`);
 					existingIdx++;
@@ -237,7 +226,6 @@ export const generateConfigDiff = (
 					}
 				}
 			} else {
-				// Outside fence: show as context
 				if (existingLine !== null && newLine !== null) {
 					lines.push(`  ${newLine}`);
 					existingIdx++;
