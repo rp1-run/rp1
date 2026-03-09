@@ -789,7 +789,11 @@ export const assertGeneralSubagentSpawned: AssertionFunction = (
 			reason: "Used named build-fast agents instead of general sub-agent",
 		};
 	}
-	return { pass: true, score: 1, reason: "General sub-agent spawned correctly" };
+	return {
+		pass: true,
+		score: 1,
+		reason: "General sub-agent spawned correctly",
+	};
 };
 
 /** Assert no sub-agent was spawned for implementation (scope redirect case). */
