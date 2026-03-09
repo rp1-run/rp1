@@ -177,4 +177,4 @@ This attribution ensures that when an assertion fails, developers can trace it b
 
 ## Learn More
 
-- [rp1-utils Plugin](../../plugins/utils/README.md) - Full command and agent reference
+- [rp1-utils Plugin README](https://github.com/rp1-run/rp1/blob/main/plugins/utils/README.md) - Full command and agent reference

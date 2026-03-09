@@ -98,12 +98,14 @@ nav:
     - DAG Format: reference/dag-format.md
     - PR Review Config: reference/pr-review-config.md
     - Agent Tools: reference/agent-tools.md
+    - Web UI: reference/web-ui.md
     - CLI:
       - Overview: reference/cli/index.md
       - init: reference/cli/init.md
       - install: reference/cli/install.md
       - update: reference/cli/update.md
       - rp1-root-dir: reference/cli/rp1-root-dir.md
+      - work: reference/cli/work.md
       - worktree: reference/cli/worktree.md
     - Base Plugin:
       - Overview: reference/base/index.md
@@ -134,7 +136,15 @@ nav:
       - pr-review: reference/dev/pr-review.md
       - pr-visual: reference/dev/pr-visual.md
       - address-pr-feedback: reference/dev/address-pr-feedback.md
+    - Web UI:
+      - V2 Dashboard: web-ui/v2-dashboard.md
+      - Annotations: web-ui/annotations.md
+      - Artifact Viewer: web-ui/artifact-viewer.md
+      - Keyboard Shortcuts: web-ui/keyboard-shortcuts.md
+      - Settings: web-ui/settings.md
   - Troubleshooting: troubleshooting/index.md
+  - Troubleshooting Details:
+    - Installation: troubleshooting/installation.md
   - Concepts:
     - Overview: concepts/index.md
     - Constitutional Prompting: concepts/constitutional-prompting.md
@@ -145,7 +155,9 @@ nav:
     - Parallel Worktrees: concepts/parallel-worktrees.md
     - Builder-Reviewer Agents: concepts/builder-reviewer-agents.md
     - Skills: concepts/skills.md
+    - SKILL.md Format: concepts/skill-format.md
     - Eval System: concepts/eval-system.md
+    - State Machines: concepts/state-machines.md
     - WebUI Interaction: concepts/webui.md
 
 extra:
