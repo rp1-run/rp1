@@ -1,6 +1,6 @@
 # SKILL.md Format (rp1)
 
-rp1 uses the [Agent Skills open standard](https://agentskills.io) for all 31 invocable prompts. Each skill is a SKILL.md file that works natively on Claude Code and generates platform-specific artifacts for OpenCode via the build pipeline.
+rp1 uses the [Agent Skills open standard](https://agentskills.io) for all 31 invocable prompts. Each skill is a SKILL.md file that works natively on Claude Code and generates platform-specific artifacts for OpenCode and Codex CLI via the build pipeline.
 
 For the full standard specification (directory layout, frontmatter fields, tool permissions, etc.), see [agentskills.io](https://agentskills.io).
 

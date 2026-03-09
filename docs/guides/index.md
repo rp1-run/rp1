@@ -96,5 +96,5 @@ rp1 guides are designed to be:
 
 - **Practical** - Real tasks you'll actually do
 - **Complete** - Start to finish, no gaps
-- **Platform-aware** - Syntax for both Claude Code and OpenCode
+- **Platform-aware** - Syntax for Claude Code, OpenCode, and Codex CLI
 - **Checkpoint-driven** - Verify progress at each step

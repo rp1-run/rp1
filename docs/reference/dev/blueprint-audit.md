@@ -15,7 +15,13 @@ Audits PRD documents against implementation evidence and guides lifecycle decisi
 === "OpenCode"
 
     ```bash
-    /rp1-blueprint-audit <prd-name>
+    /rp1-dev-blueprint-audit <prd-name>
+    ```
+
+=== "Codex CLI"
+
+    ```text
+    $rp1-dev-blueprint-audit <prd-name>
     ```
 
 ## Description
@@ -97,7 +103,7 @@ Each phase is classified based on evidence:
 === "OpenCode"
 
     ```bash
-    /rp1-blueprint-audit web-ui
+    /rp1-dev-blueprint-audit web-ui
     ```
 
 **Example output:**
@@ -142,7 +148,7 @@ After presenting results, you're asked about PRD relevance:
 === "OpenCode"
 
     ```bash
-    /rp1-blueprint-audit non-existent
+    /rp1-dev-blueprint-audit non-existent
     ```
 
 **Example output:**

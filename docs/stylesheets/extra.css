@@ -165,6 +165,14 @@
   margin-bottom: 0.5rem;
 }
 
+/* Light/dark mode image switching for platform logos */
+[data-md-color-scheme="default"] .only-dark {
+  display: none;
+}
+[data-md-color-scheme="slate"] .only-light {
+  display: none;
+}
+
 .md-typeset .platform-card p {
   margin: 0.25rem 0;
 }

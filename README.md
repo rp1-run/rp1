@@ -24,7 +24,7 @@
 <p align="center">
   Professional development workflows for AI coding assistants.<br>
   21 commands. 18 specialized agents. Single-pass execution.<br>
-  Works today with <strong>Claude Code</strong>. Experimental support for <strong>OpenCode</strong>.
+  Works today with <strong>Claude Code</strong>. Experimental support for <strong>OpenCode</strong> and <strong>Codex CLI</strong>.
 </p>
 
 ---
@@ -66,7 +66,7 @@ cd your-project
 rp1 init
 ```
 
-This will set up rp1 and install plugins for your AI assistant (Claude Code or OpenCode).
+This will set up rp1 and install plugins for your AI assistant (Claude Code, OpenCode, or Codex CLI).
 
 ### 3. Restart your AI tool and run
 
@@ -116,7 +116,7 @@ This will set up rp1 and install plugins for your AI assistant (Claude Code or O
 | **Always Open Source** | Fully pluggable into existing agentic tools. Your workflows, your control. |
 | **Visual-First** | Heavily leans on visual language — diagrams, charts, and structured outputs for clarity. |
 | **Continuous Evolution** | Keep improving and adapting as frontier models mature. Today's best, tomorrow's baseline. |
-| **Model/Tool Agnostic** | No lock-in to any frontier lab or platform. Works with Claude Code, OpenCode, and more coming. |
+| **Model/Tool Agnostic** | No lock-in to any frontier lab or platform. Works with Claude Code, OpenCode, Codex CLI, and more coming. |
 
 ---
 
@@ -126,6 +126,7 @@ This will set up rp1 and install plugins for your AI assistant (Claude Code or O
 |----------|--------|
 | [Claude Code](https://claude.ai/code) | Available |
 | [OpenCode](https://opencode.ai) | Experimental |
+| [Codex CLI](https://github.com/openai/codex) | Experimental |
 | Cursor, Goose, Amp | Coming Soon |
 
 ---

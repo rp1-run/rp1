@@ -289,8 +289,8 @@ For OpenCode installations, plugins are first copied to a staging directory (`~/
     Use Codex skill mentions with the `$` prefix, for example:
 
     ```text
-    $rp1-build-fast fix the authentication bug
-    $rp1-knowledge-build
+    $rp1-dev-build-fast fix the authentication bug
+    $rp1-base-knowledge-build
     ```
 
 ??? question "Codex limitations"

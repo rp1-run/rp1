@@ -64,7 +64,7 @@ Review and manage pull requests effectively.
 
 ## Feature Development Workflow
 
-Use `/build` as your **single entry point** for feature development (in OpenCode, use `/rp1-build` or type `/skills` to find it):
+Use `/build` as your **single entry point** for feature development (in OpenCode, use `/rp1-dev-build` or type `/skills` to find it):
 
 ```mermaid
 flowchart LR
@@ -116,6 +116,12 @@ The skill handles all steps automatically with smart resumption -- it detects ex
     curl -fsSL https://raw.githubusercontent.com/rp1-run/rp1/main/scripts/install-for-opencode.sh | bash
     ```
 
+=== "Codex CLI"
+
+    ```bash
+    rp1 install codex
+    ```
+
 ---
 
 ## Quick Start
@@ -131,9 +137,15 @@ After installation, start a new feature:
 === "OpenCode"
 
     ```bash
-    /rp1-build my-feature
+    /rp1-dev-build my-feature
     ```
 
-    You can also type `/skills` to browse all available skills — rp1 skills are prefixed with `rp1-` (e.g., `/rp1-build`, `/rp1-build-fast`).
+    You can also type `/skills` to browse all available skills — rp1 skills are prefixed with `rp1-` (e.g., `/rp1-dev-build`, `/rp1-dev-build-fast`).
+
+=== "Codex CLI"
+
+    ```text
+    $rp1-dev-build my-feature
+    ```
 
 This runs the complete feature workflow -- collecting requirements, generating design, implementing with builder-reviewer, and verifying the result.

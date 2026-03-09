@@ -79,20 +79,39 @@ Start the automated review analysis:
 === "OpenCode"
 
     ```bash
-    /rp1-pr-review
+    /rp1-dev-pr-review
     ```
 
     Or specify a target:
 
     ```bash
     # By branch
-    /rp1-pr-review feature/user-auth main
+    /rp1-dev-pr-review feature/user-auth main
 
     # By PR number
-    /rp1-pr-review 42
+    /rp1-dev-pr-review 42
 
     # By GitHub URL
-    /rp1-pr-review https://github.com/owner/repo/pull/42
+    /rp1-dev-pr-review https://github.com/owner/repo/pull/42
+    ```
+
+=== "Codex CLI"
+
+    ```text
+    $rp1-dev-pr-review
+    ```
+
+    Or specify a target:
+
+    ```text
+    # By branch
+    $rp1-dev-pr-review feature/user-auth main
+
+    # By PR number
+    $rp1-dev-pr-review 42
+
+    # By GitHub URL
+    $rp1-dev-pr-review https://github.com/owner/repo/pull/42
     ```
 
 **What happens:**
@@ -258,7 +277,13 @@ Visualizations are **automatically generated** during `pr-review` for complex PR
 === "OpenCode"
 
     ```bash
-    /rp1-pr-visual
+    /rp1-dev-pr-visual
+    ```
+
+=== "Codex CLI"
+
+    ```text
+    $rp1-dev-pr-visual
     ```
 
 **What happens:**

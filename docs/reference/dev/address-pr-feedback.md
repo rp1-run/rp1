@@ -13,7 +13,13 @@ Unified PR feedback workflow - collect, triage, and fix review comments in a sin
 === "OpenCode"
 
     ```bash
-    /rp1-address-pr-feedback [pr-number | pr-url | branch] [--afk]
+    /rp1-dev-address-pr-feedback [pr-number | pr-url | branch] [--afk]
+    ```
+
+=== "Codex CLI"
+
+    ```text
+    $rp1-dev-address-pr-feedback [pr-number | pr-url | branch] [--afk]
     ```
 
 ## Description

@@ -423,6 +423,7 @@ rp1 init
 Detected Tools:
   ✓ Claude Code v2.0.75
   ✓ OpenCode v0.8.0
+  ✓ Codex CLI v0.110.0
 
 Setup Status:
   ✓ .rp1/ directory
@@ -430,6 +431,7 @@ Setup Status:
   ✓ .gitignore configured
   ✓ Plugins installed (Claude Code)
   ✓ Plugins installed (OpenCode - manual)
+  ✓ Plugins installed (Codex CLI)
 ```
 
 ## Non-Interactive Mode
@@ -600,18 +602,28 @@ The init command automatically detects installed AI assistants:
     - Shows manual plugin installation steps
     - Uses namespaced command syntax in examples
 
+=== "Codex CLI"
+
+    When Codex CLI is detected:
+
+    - Injects instructions into `AGENTS.md`
+    - Installs skills to `~/.agents/skills/`
+    - Merges agent config into `~/.codex/config.toml`
+    - Uses `$skill-name` mention syntax in examples
+
 ### No Tool Detected
 
-If neither Claude Code nor OpenCode is found:
+If no supported tool (Claude Code, OpenCode, or Codex CLI) is found:
 
 ```
 ℹ No supported agentic tool detected.
 
 Next Steps:
-  1. → Install Claude Code or OpenCode (required)
+  1. → Install Claude Code, OpenCode, or Codex CLI (required)
 
 Claude Code: https://docs.anthropic.com/en/docs/claude-code/getting-started
 OpenCode: https://opencode.ai/docs/installation
+Codex CLI: https://github.com/openai/codex
 ```
 
 ??? info "Multi-Tool Environments"
@@ -866,8 +878,8 @@ Content outside fenced sections is never modified.
 
     If your AI tool is installed but not detected:
 
-    1. Verify the binary is in your PATH: `which claude` or `which opencode`
-    2. Check the version: `claude --version` or `opencode --version`
+    1. Verify the binary is in your PATH: `which claude`, `which opencode`, or `which codex`
+    2. Check the version: `claude --version`, `opencode --version`, or `codex --version`
     3. If using Homebrew Cask, ensure the symlink exists in `/opt/homebrew/bin/`
 
 ??? question "Multi-tool setup not working correctly"

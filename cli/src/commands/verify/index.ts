@@ -5,6 +5,7 @@
 
 import { Command } from "commander";
 import { verifyClaudeCodeSubcommand } from "./claude-code.js";
+import { verifyCodexSubcommand } from "./codex.js";
 import { verifyOpenCodeSubcommand } from "./opencode.js";
 
 /**
@@ -19,19 +20,23 @@ export const verifyCommand = new Command("verify")
 Subcommands:
   claude-code    Verify plugins in Claude Code
   opencode       Verify plugins in OpenCode
+  codex          Verify plugins in Codex CLI
 
 Examples:
   rp1 verify claude-code    Verify Claude Code installation
   rp1 verify opencode       Verify OpenCode installation
+  rp1 verify codex          Verify Codex CLI installation
 `,
 	);
 
 verifyCommand.addCommand(verifyClaudeCodeSubcommand);
 verifyCommand.addCommand(verifyOpenCodeSubcommand);
+verifyCommand.addCommand(verifyCodexSubcommand);
 
 // Export subcommands for direct access if needed
 export {
 	executeVerifyClaudeCode,
 	verifyClaudeCodeSubcommand,
 } from "./claude-code.js";
+export { executeVerifyCodex, verifyCodexSubcommand } from "./codex.js";
 export { executeVerifyOpenCode, verifyOpenCodeSubcommand } from "./opencode.js";

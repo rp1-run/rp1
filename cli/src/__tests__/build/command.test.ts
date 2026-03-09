@@ -68,7 +68,7 @@ Worktree workflow skill content.
 		expect(result.summary.skills).toBeGreaterThanOrEqual(1);
 		expect(
 			result.assets.skills.some((s) =>
-				s.name.startsWith("rp1-worktree-workflow/"),
+				s.name.startsWith("rp1-dev-worktree-workflow/"),
 			),
 		).toBe(true);
 	});
@@ -105,7 +105,7 @@ Skill version of knowledge-load content.
 
 		expect(
 			result.assets.skills.some((s) =>
-				s.name.startsWith("rp1-knowledge-load/"),
+				s.name.startsWith("rp1-base-knowledge-load/"),
 			),
 		).toBe(true);
 		expect(result.summary.skills).toBe(1);
@@ -116,11 +116,11 @@ Skill version of knowledge-load content.
 			out,
 			"base",
 			"skills",
-			"rp1-knowledge-load",
+			"rp1-base-knowledge-load",
 			"SKILL.md",
 		);
 		const skillContent = await readFile(skillOutputPath, "utf-8");
-		expect(skillContent).toContain("rp1-knowledge-load");
+		expect(skillContent).toContain("rp1-base-knowledge-load");
 	});
 
 	test("manifest reflects accurate skill counts", async () => {
@@ -174,8 +174,8 @@ Skill B content.
 		const manifestPath = join(out, "base", "manifest.json");
 		const manifestContent = JSON.parse(await readFile(manifestPath, "utf-8"));
 		expect(manifestContent.artifacts.skills).toEqual([
-			"rp1-skill-a",
-			"rp1-skill-b",
+			"rp1-base-skill-a",
+			"rp1-base-skill-b",
 		]);
 		expect(manifestContent.artifacts.commands).toEqual([]);
 	});
@@ -211,7 +211,9 @@ Prompt writer skill content.
 
 		expect(result.summary.skills).toBe(1);
 		expect(
-			result.assets.skills.some((s) => s.name.startsWith("rp1-prompt-writer/")),
+			result.assets.skills.some((s) =>
+				s.name.startsWith("rp1-utils-prompt-writer/"),
+			),
 		).toBe(true);
 	});
 });

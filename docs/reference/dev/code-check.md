@@ -15,7 +15,13 @@ Fast code hygiene validation including linters, formatters, tests, and coverage 
 === "OpenCode"
 
     ```bash
-    /rp1-code-check
+    /rp1-dev-code-check
+    ```
+
+=== "Codex CLI"
+
+    ```text
+    $rp1-dev-code-check
     ```
 
 ## Description
@@ -44,7 +50,7 @@ The `code-check` command runs your project's standard code quality tools in sequ
 === "OpenCode"
 
     ```bash
-    /rp1-code-check
+    /rp1-dev-code-check
     ```
 
 **Example output:**

@@ -15,7 +15,13 @@ Restores archived features back to the active features directory.
 === "OpenCode"
 
     ```bash
-    /rp1-feature-unarchive <feature-id>
+    /rp1-dev-feature-unarchive <feature-id>
+    ```
+
+=== "Codex CLI"
+
+    ```text
+    $rp1-dev-feature-unarchive <feature-id>
     ```
 
 ## Description
@@ -41,7 +47,7 @@ The `feature-unarchive` command moves feature documentation from the archives ba
 === "OpenCode"
 
     ```bash
-    /rp1-feature-unarchive user-auth
+    /rp1-dev-feature-unarchive user-auth
     ```
 
 **Example output:**

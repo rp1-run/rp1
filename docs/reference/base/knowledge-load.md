@@ -20,7 +20,13 @@ Loads and prepares knowledge base context for downstream agents.
 === "OpenCode"
 
     ```bash
-    /rp1-knowledge-load
+    /rp1-base-knowledge-load
+    ```
+
+=== "Codex CLI"
+
+    ```text
+    $rp1-base-knowledge-load
     ```
 
 ## Description
@@ -82,7 +88,13 @@ The command adapts its loading strategy based on repository type:
 === "OpenCode"
 
     ```bash
-    /rp1-knowledge-load
+    /rp1-base-knowledge-load
+    ```
+
+=== "Codex CLI"
+
+    ```text
+    $rp1-base-knowledge-load
     ```
 
 **Expected output (single project):**

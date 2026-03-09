@@ -15,7 +15,13 @@ Archives a completed PRD to the archive directory with associated features.
 === "OpenCode"
 
     ```bash
-    /rp1-blueprint-archive <prd-name>
+    /rp1-dev-blueprint-archive <prd-name>
+    ```
+
+=== "Codex CLI"
+
+    ```text
+    $rp1-dev-blueprint-archive <prd-name>
     ```
 
 ## Description
@@ -81,7 +87,7 @@ When selecting "Partial", you'll be prompted to document what objectives weren't
 === "OpenCode"
 
     ```bash
-    /rp1-blueprint-archive mobile-app
+    /rp1-dev-blueprint-archive mobile-app
     ```
 
 **Example output:**
@@ -113,7 +119,7 @@ When selecting "Partial", you'll be prompted to document what objectives weren't
 === "OpenCode"
 
     ```bash
-    /rp1-blueprint-archive api
+    /rp1-dev-blueprint-archive api
     ```
 
 When prompted, select "Partial - Some objectives met" and document the gaps:
@@ -134,7 +140,7 @@ Document the gaps or unmet objectives:
 === "OpenCode"
 
     ```bash
-    /rp1-blueprint-archive non-existent
+    /rp1-dev-blueprint-archive non-existent
     ```
 
 **Example output:**

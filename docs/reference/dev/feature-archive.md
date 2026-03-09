@@ -15,7 +15,13 @@ Archives completed features to a dedicated archives directory.
 === "OpenCode"
 
     ```bash
-    /rp1-feature-archive <feature-id>
+    /rp1-dev-feature-archive <feature-id>
+    ```
+
+=== "Codex CLI"
+
+    ```text
+    $rp1-dev-feature-archive <feature-id>
     ```
 
 ## Description
@@ -89,7 +95,7 @@ This preserves institutional knowledge so future features benefit from past lear
 === "OpenCode"
 
     ```bash
-    /rp1-feature-archive user-auth
+    /rp1-dev-feature-archive user-auth
     ```
 
 **Example output:**

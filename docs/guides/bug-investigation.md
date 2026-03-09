@@ -68,7 +68,13 @@ Launch the bug investigator with a description of the issue:
 === "OpenCode"
 
     ```bash
-    /rp1-code-investigate "API timeout on /api/orders endpoint during peak hours, returning 504 errors intermittently"
+    /rp1-dev-code-investigate "API timeout on /api/orders endpoint during peak hours, returning 504 errors intermittently"
+    ```
+
+=== "Codex CLI"
+
+    ```text
+    $rp1-dev-code-investigate "API timeout on /api/orders endpoint during peak hours, returning 504 errors intermittently"
     ```
 
 **What happens:**

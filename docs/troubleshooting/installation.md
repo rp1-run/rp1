@@ -105,6 +105,9 @@ In CI environments, graceful shutdown via SIGTERM is handled identically to SIGI
         ```bash
         ls -la ~/.claude/
         ls -la ~/.config/opencode/
+        # Codex CLI
+        ls -la ~/.agents/
+        ls -la ~/.codex/
         ```
 
     2. **Fix permissions:**
@@ -115,6 +118,9 @@ In CI environments, graceful shutdown via SIGTERM is handled identically to SIGI
 
         # For OpenCode
         sudo chown -R $(whoami) ~/.config/opencode/
+
+        # Codex CLI
+        sudo chown -R $(whoami) ~/.agents/
         ```
 
     3. **If using brew-installed Claude:**
@@ -142,6 +148,8 @@ In CI environments, graceful shutdown via SIGTERM is handled identically to SIGI
         rp1 install claude-code --force
         # or
         rp1 install opencode --force
+        # or
+        rp1 install codex --force
         ```
 
     3. **Report the issue:**
@@ -173,6 +181,9 @@ In CI environments, graceful shutdown via SIGTERM is handled identically to SIGI
         # OpenCode
         rm -rf ~/.config/opencode/command/rp1-*
         rm -rf ~/.config/opencode/agent/rp1-*
+
+        # Codex CLI
+        rm -rf ~/.agents/skills/rp1-*
         ```
 
 ### Staging Directory Cleanup

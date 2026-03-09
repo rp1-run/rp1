@@ -15,7 +15,13 @@ Generates comprehensive project overview documents with architecture diagrams fo
 === "OpenCode"
 
     ```bash
-    /rp1-project-birds-eye-view
+    /rp1-base-project-birds-eye-view
+    ```
+
+=== "Codex CLI"
+
+    ```text
+    $rp1-base-project-birds-eye-view
     ```
 
 ## Description
@@ -67,7 +73,13 @@ The command generates a comprehensive markdown document:
 === "OpenCode"
 
     ```bash
-    /rp1-project-birds-eye-view
+    /rp1-base-project-birds-eye-view
+    ```
+
+=== "Codex CLI"
+
+    ```text
+    $rp1-base-project-birds-eye-view
     ```
 
 **Expected output:**

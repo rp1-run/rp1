@@ -1,67 +1,57 @@
 # Domain Concepts & Terminology
 
 **Project**: rp1
-**Domain**: AI-Powered Development Workflow Automation
+**Domain**: AI-Assisted Development Tooling (Plugin System for Agentic Coding Platforms)
 
-## Core Concepts
+## Core Business Concepts
 
 ### Plugin
-**Definition**: Self-contained unit providing skills, agents, and commands for Claude Code/OpenCode platforms.
-**Implementation**: `plugins/{base,dev,utils}/`
-**Variants**:
-- **rp1-base**: Foundation (knowledge management, documentation, strategy, security)
-- **rp1-dev**: Development workflows (feature lifecycle, code quality, PR management)
-- **rp1-utils**: Meta-tooling (prompt engineering, eval generation)
-
-**Rules**: Dev depends on base (one-way); base is independent; utils is independent.
+**Definition**: Self-contained unit providing skills, agents, and commands for Claude Code/OpenCode/Codex platforms.
+**Implementation**: `plugins/base/`, `plugins/dev/`, `plugins/utils/`
+**Key Properties**:
+- base: Foundation (KB management, documentation, strategy, security)
+- dev: Development workflows (feature lifecycle, code quality, PRs, testing; depends on base)
+- utils: Prompt utilities (eval generation, prompt optimization)
 
 ### Skill
 **Definition**: Primary invocable unit in SKILL.md canonical format (Agent Skills open standard). Minimal wrapper parsing parameters via model-driven extraction, delegating to agents via Task tool.
-**Implementation**: `plugins/{plugin}/skills/{name}/SKILL.md`
-**Key Properties**:
-- Frontmatter: name, description, allowed-tools, metadata
-- Thin wrapper pattern: no business logic, only parameter parsing + agent routing
+**Implementation**: `plugins/*/skills/*/SKILL.md`
+**Business Rules**:
+- Thin wrapper with no business logic
+- Parameters inferred by AI model from `## Parameters` table
+- Invoked via `/rp1-{plugin}:{skill-name}`
 
 ### Agent
 **Definition**: Autonomous worker (200-350 lines) with constitutional structure. Executes complete workflows in single-pass with anti-loop directives and JSON output contracts.
-**Implementation**: `plugins/{plugin}/agents/{name}.md`
-**Key Properties**:
-- Constitutional structure: parameter table, execution instructions, output contract
-- Single-pass execution: no iteration or feedback loops
+**Implementation**: `plugins/*/agents/*.md`
+**Business Rules**:
+- Single-pass execution (no iteration)
 - Cannot spawn other agents (subagent limitation)
+- Structured markdown with parameter tables, anti-loop directives, output contracts
 
 ### Knowledge Base (KB)
-**Definition**: Auto-generated codebase documentation in `.rp1/context/` built via map-reduce with 5 parallel agents. Supports progressive loading.
-**Implementation**: `.rp1/context/{index,concept_map,architecture,modules,patterns}.md`
+**Definition**: Auto-generated codebase documentation in `.rp1/context/` built via map-reduce with parallel agents. Supports progressive loading.
+**Implementation**: `.rp1/context/*.md`
 **Key Properties**:
-- Progressive disclosure: load index.md first, then task-specific files
-- Incremental updates via git commit comparison
-- State tracked in state.json
+- index.md: Entry point (always load first)
+- Progressive disclosure reduces context 50-70%
+- Tracks git commit for staleness detection
 
 ### Feature Workflow
 **Definition**: Six-step development process: requirements -> design -> tasks -> build -> verify -> archive.
-**Implementation**: `.rp1/work/features/{FEATURE_ID}/`
-**Artifacts**: requirements.md, design.md, tasks.md, field-notes.md
-**State tracking**: Via embedded Mermaid stateDiagram-v2 and SQLite status DB
+**Implementation**: `/rp1-dev:build` skill orchestrates all steps
 
 ### ToolResult
 **Definition**: Standard JSON envelope for all agent tools: `{ success, tool, data, errors? }`.
 **Implementation**: `cli/src/agent-tools/models.ts`
 
-### RP1_ROOT
-**Definition**: Root directory for rp1 artifacts. Resolution-aware: env override, git-common-dir (linked worktree), or cwd.
-**Implementation**: `cli/src/agent-tools/rp1-root-dir/`
-**Contains**: `context/` (KB) and `work/` (features, worktrees)
-
 ### StatusUpdate
 **Definition**: Work status record in SQLite (`~/.rp1/status.db`) with project path, feature, step, workflow, agent, task, run-id, status value, and metadata.
-**Implementation**: `cli/src/agent-tools/work/models.ts`, `cli/src/agent-tools/work/database.ts`
-**Two-layer state model**: StatusValue (activity category) x WorkflowState (phase from state diagram)
+**Implementation**: `cli/src/agent-tools/work/models.ts`
 
 ### StateMachine
-**Definition**: Declarative workflow state management via embedded Mermaid stateDiagram-v2 blocks in skill/agent markdown.
+**Definition**: Declarative workflow state management via embedded Mermaid stateDiagram-v2 blocks in skill/agent markdown. CLI validates transitions at runtime.
 **Implementation**: `cli/src/agent-tools/state-machine/`
-**Provides**: Transition validation, dashboard step timelines, run isolation, agent sub-state tracking
 
 ### Run
 **Definition**: Agent execution instance tracked by Status Dashboard with status (queued/running/waiting-input/completed/failed/needs-review), steps, artifacts, and events.
@@ -74,15 +64,18 @@
 ### Worktree
 **Definition**: Isolated git workspace for parallel agent work. Created via CLI tool with branch name and basedOn commit SHA. Hooks disabled for agent safety.
 **Implementation**: `cli/src/agent-tools/worktree/`
-**Lifecycle**: setup -> implementation -> publish -> cleanup
 
-### Annotation
-**Definition**: Inline comment on an artifact with anchor (text-selection, hidden-anchor, or line), threaded replies, and resolution status.
-**Implementation**: `cli/web-ui/src/types/annotations.ts`
+### SupportedTool
+**Definition**: Agentic platform that can host rp1 plugins (Claude Code, OpenCode, Codex). Defined in supported-tools.yaml with binary, min version, instruction file, and capabilities.
+**Implementation**: `cli/src/config/supported-tools.yaml`
 
 ### CLIError
 **Definition**: Tagged union error type with 14 variants (usage, not-found, config, runtime, port-in-use, parse, transform, validation, generation, prerequisite, install, backup, verification, strict-mode). Each maps to an exit code.
 **Implementation**: `cli/shared/errors.ts`
+
+### Annotation
+**Definition**: Inline comment on an artifact with anchor (text-selection, hidden-anchor, or line), threaded replies, and resolution status.
+**Implementation**: `cli/web-ui/src/types/annotations.ts`
 
 ### PRReviewConfig
 **Definition**: Configuration for automated PR review from `.rp1/config/pr-review.yaml`. Controls AI harness, verdict mode, inline comments, CI platform, and confidence gating thresholds.
@@ -92,65 +85,88 @@
 **Definition**: Content-addressable tracking of skill attestations (prompt_hash, deps_hash, version, last_eval). SHA-256 hashes detect prompt changes requiring re-evaluation.
 **Implementation**: `evals/src/attestation/types.ts`
 
+## Technical Concepts
+
+### Constitutional Prompting
+**Purpose**: Agent behavior defined through structured markdown with rules and constraints, enabling consistent single-pass execution.
+**Aliases**: constitutional pattern
+
+### Model-Driven Parameter Parsing
+**Purpose**: AI model infers parameters from natural language using `## Parameters` table instead of CLI round-trip.
+
+### Map-Reduce Workflows
+**Purpose**: Split work into independent units, process N agents in parallel, merge results.
+**Usage**: KB generation (4 parallel analyzers), PR review (N sub-reviewers)
+
+### Builder-Reviewer (Adversarial Cooperation)
+**Purpose**: Two agents work together: builder implements, reviewer critiques with one retry before escalation.
+**Usage**: Feature implementation via `/rp1-dev:build`
+
+### Stateless Agent Pattern
+**Purpose**: Resumable workflow where agent reads state from file-based scratch pad, not conversation memory.
+**Usage**: Multi-session interviews (blueprint/charter)
+
+### Progressive KB Loading
+**Purpose**: Load index.md first, then selectively load additional KB files based on task type (reduces context 50-70%).
+
+### Confidence Gating
+**Purpose**: PR review filtering: 65%+ include, 40-64% investigate critical only, below 40% exclude.
+
+### Content Fencing
+**Purpose**: Idempotent content injection using `<!-- rp1:start -->` / `<!-- rp1:end -->` markers in markdown and `# rp1:start` / `# rp1:end` in shell configs.
+
+### Two-Layer State Model
+**Purpose**: Orthogonal state dimensions: StatusValue (what activity) x WorkflowState (where in workflow).
+
+### Content-Addressable Attestation
+**Purpose**: SHA-256 hashes create cryptographic links between prompt content and test results for release gates.
+
 ## Terminology Glossary
 
-### Design Patterns
-- **Constitutional Prompting**: Agent behavior defined through structured markdown with rules and constraints, enabling consistent single-pass execution
-- **Single-Pass Execution**: Agent completes workflow in one run without iteration or feedback loops
+### Business Terms
+- **RP1_ROOT**: Root directory for rp1 artifacts. Resolution-aware: env override, git-common-dir (linked worktree), or cwd
+- **Run Isolation**: Each `--run-id` UUID creates an independent workflow invocation tracked separately
+- **Attention Status**: Work status values (waiting-input, needs-review) signaling human attention needed
+- **Review Unit**: Segmented piece of PR diff for focused sub-reviewer analysis
+- **Spatial Analysis**: KB phase that scans repository and categorizes files with importance scores (0-5)
+
+### Technical Terms
+- **SKILL.md Format**: Canonical format based on Agent Skills open standard replacing legacy command format
 - **Anti-Loop Directive**: Explicit instruction preventing iteration loops, forcing autonomous completion
 - **Thin Wrapper**: Skill pattern with no business logic, only parameter parsing and agent routing via Task tool
-- **Model-Driven Parameter Parsing**: AI model infers parameters from natural language using ## Parameters table
-- **Adversarial Cooperation (Builder-Reviewer)**: Two agents work together: builder implements, reviewer critiques with one retry before escalation
-- **Map-Reduce**: Split work into independent units, process N agents in parallel, merge results
-- **Stateless Agent Pattern**: Resumable workflow where agent reads state from file-based scratch pad, not conversation memory
-
-### Workflow Terms
-- **Progressive KB Loading**: Load index.md first, then selectively load additional KB files based on task type (reduces context 50-70%)
-- **SKILL.md Format**: Canonical format based on Agent Skills open standard replacing legacy command format
-- **Confidence Gating**: PR review filtering: 65%+ include, 40-64% investigate critical only, below 40% exclude
-- **Review Unit**: Segmented piece of PR diff for focused sub-reviewer analysis
-- **Attention Status**: Work status values (waiting-input, needs-review) signaling human attention needed
-- **Two-Layer State Model**: Orthogonal state dimensions: StatusValue (what) x WorkflowState (where)
-- **Run Isolation**: Each --run-id UUID creates an independent workflow invocation
-- **Spatial Analysis**: KB phase that scans repository and categorizes files with importance scores (0-5)
-- **basedOn Commit**: SHA from which worktree branch was created; used for commit ownership validation
-- **Scratch Pad**: File-based state storage for stateless agents; visible markdown persisted across sessions
 - **Allowed-Tools**: SKILL.md frontmatter field pre-authorizing Bash commands to avoid permission prompts
-- **Content-Addressable Attestation**: SHA-256 hashes create cryptographic links between prompt content and test results
+- **Scratch Pad**: File-based state storage for stateless agents; visible markdown persisted across sessions
+- **basedOn Commit**: SHA from which worktree branch was created; used for commit ownership validation
+- **Sub-Agent Inventory**: metadata.sub_agents field in SKILL.md declaring agent references for build-time validation
 
 ## Concept Relationships
 
-```mermaid
-graph LR
-    Plugin -->|contains| Skill
-    Plugin -->|contains| Agent
-    Skill -->|"delegates via Task"| Agent
-    Agent -->|reads| KB[Knowledge Base]
-    Agent -->|reports| StatusUpdate
-    StatusUpdate -->|tracked in| SQLite[(SQLite DB)]
-    StateMachine -->|validates| StatusUpdate
-    Run -->|contains| Step
-    Run -->|produces| Artifact
-    Annotation -->|anchored to| Artifact
-    Skill -->|embeds| StateMachine
-    WebSocket -->|pushes updates| Run
-```
+| From | To | Relationship |
+|------|----|-------------|
+| Plugin | Skill | contains (plugins/{plugin}/skills/{name}/SKILL.md) |
+| Plugin | Agent | contains (plugins/{plugin}/agents/{name}.md) |
+| Skill | Agent | delegates via Task tool |
+| Agent | KB | reads for codebase context |
+| Agent | StatusUpdate | reports workflow progress |
+| StatusUpdate | StateMachine | validated by (transition legality) |
+| Run | Artifact | produces (typed outputs) |
+| Annotation | Artifact | anchored to (text-selection, hidden-anchor, line) |
+| SupportedTool | Plugin | hosts (Claude Code, OpenCode, Codex) |
+| AttestationManifest | Skill | attests (hash-verified eval results) |
+| Worktree | Run | isolates (parallel agent workspaces) |
 
-## Concept Boundaries
+## Bounded Contexts
 
-| Context | Scope | Key Concepts |
-|---------|-------|--------------|
-| Base Plugin | Foundation/utilities | KB management, documentation, strategy, security |
-| Dev Plugin | Development workflows | Feature lifecycle, code quality, PR review, builder-reviewer |
-| Utils Plugin | Prompt utilities | Eval generation, prompt optimization, attestation |
-| CLI Agent-Tools | Agent-facing utilities | Worktree, mermaid validation, comment extraction, work status, state machine, GitHub PR, RP1_ROOT |
-| Installation System | Plugin lifecycle | Manifests, prerequisites, staging, backup/restore, verification |
-| Web UI | Real-time dashboard | Projects, runs, steps, artifacts, annotations, WebSocket events, attention grouping |
-| Status Database | SQLite persistence | Status updates, artifacts table, migrations, WAL mode, TTL expiry, run isolation |
+- **Base Plugin**: KB management, documentation, strategy, security, content writing
+- **Dev Plugin**: Feature lifecycle, code quality, PR review, builder-reviewer, worktree workflows
+- **Utils Plugin**: Eval generation, prompt optimization, attestation
+- **CLI Agent-Tools**: Worktree, mermaid validation, comment extraction, work status, state machine, GitHub PR, RP1_ROOT
+- **Installation System**: Manifests, prerequisites, staging, backup/restore, verification, supported tools registry
+- **Web UI**: Projects, runs, steps, artifacts, annotations, WebSocket events, attention grouping
+- **Status Database**: Status updates, artifacts table, migrations, WAL mode, TTL expiry, run isolation
+- **Eval System**: Content-addressable attestation, dependency-aware extraction, assertion generation
 
-## Cross-Cutting Concerns
-
-- **Error Handling**: Tagged union CLIError with fp-ts TaskEither pipelines across CLI, agent tools, and installation
-- **State Management**: SQLite + state machine validation + WebSocket push for real-time dashboard updates
-- **Platform Compatibility**: SKILL.md format works on Claude Code and generates OpenCode artifacts via build pipeline
-- **Real-time Communication**: WebSocket with typed ServerMessage union (status_changed, run:event, run:artifact, annotation:*)
+## Cross-References
+- **Architecture patterns**: See [architecture.md](architecture.md)
+- **Module breakdown**: See [modules.md](modules.md)
+- **Implementation patterns**: See [patterns.md](patterns.md)

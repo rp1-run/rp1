@@ -15,7 +15,13 @@ Orchestrates parallel knowledge base generation using spatial analysis and a map
 === "OpenCode"
 
     ```bash
-    /rp1-knowledge-build
+    /rp1-base-knowledge-build
+    ```
+
+=== "Codex CLI"
+
+    ```text
+    $rp1-base-knowledge-build
     ```
 
 ## Description
@@ -68,7 +74,13 @@ The command generates knowledge base files in `.rp1/context/`.
 === "OpenCode"
 
     ```bash
-    /rp1-knowledge-build
+    /rp1-base-knowledge-build
+    ```
+
+=== "Codex CLI"
+
+    ```text
+    $rp1-base-knowledge-build
     ```
 
 **Expected output:**

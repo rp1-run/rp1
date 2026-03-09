@@ -15,7 +15,13 @@ Tests design assumptions through code experiments, codebase analysis, and extern
 === "OpenCode"
 
     ```bash
-    /rp1-validate-hypothesis <feature-id>
+    /rp1-dev-validate-hypothesis <feature-id>
+    ```
+
+=== "Codex CLI"
+
+    ```text
+    $rp1-dev-validate-hypothesis <feature-id>
     ```
 
 ## Description
@@ -65,7 +71,7 @@ This is an **optional** step in the feature workflow, recommended when:
 === "OpenCode"
 
     ```bash
-    /rp1-validate-hypothesis caching-layer
+    /rp1-dev-validate-hypothesis caching-layer
     ```
 
 **Example output:**

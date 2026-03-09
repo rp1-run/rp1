@@ -131,13 +131,31 @@ install-codex:
     @echo ""
     @./bin/rp1 install codex -y
 
+# Verify installations across all platforms
+verify:
+    @echo ""
+    @echo "━━━ Verification ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    -./bin/rp1 verify claude-code 2>/dev/null || true
+    -./bin/rp1 verify opencode 2>/dev/null || true
+    -./bin/rp1 verify codex 2>/dev/null || true
+
 # Remove stable rp1 from all platforms (only rp1-namespaced, preserves user files)
 rm-stable:
-    rm -rf ~/.config/opencode/plugin/rp1*
-    rm -rf ~/.config/opencode/agents/rp1*
-    rm -rf ~/.config/opencode/skills/rp1-*/
-    rm -rf ~/.agents/skills/rp1-*/
+    @echo "Removing stable rp1 installations..."
+    @# Claude Code: remove stable marketplace
     -claude plugin marketplace rm rp1-run 2>/dev/null
+    @# OpenCode: remove rp1 skills and agents
+    rm -rf ~/.config/opencode/skills/rp1-*/
+    rm -rf ~/.config/opencode/agents/rp1-*/
+    @# Codex CLI: remove rp1 skills, agent TOMLs, and config fence
+    rm -rf ~/.agents/skills/rp1-*/
+    rm -rf ~/.codex/agents/rp1/
+    @# Codex config.toml: remove rp1 fenced section (if sed available)
+    @if [ -f ~/.codex/config.toml ]; then \
+        sed '/^# rp1:start/,/^# rp1:end/d' ~/.codex/config.toml > ~/.codex/config.toml.tmp && \
+        mv ~/.codex/config.toml.tmp ~/.codex/config.toml && \
+        echo "  Cleaned rp1 section from ~/.codex/config.toml"; \
+    fi
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Web-UI Development

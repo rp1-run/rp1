@@ -203,7 +203,7 @@ Documentation: https://rp1.run
 ## Step 4: Restart Your AI Tool
 
 !!! warning "Required: Restart Your AI Assistant"
-    You **must restart** your AI assistant (Claude Code or OpenCode) to load the newly installed plugins. Without restarting, rp1 commands will not be available.
+    You **must restart** your AI assistant (Claude Code, OpenCode, or Codex CLI) to load the newly installed plugins. Without restarting, rp1 commands will not be available.
 
 ??? note "Manual Plugin Installation"
     If init couldn't install plugins (e.g., OpenCode, or if you skipped installation), you can install them manually:
@@ -253,7 +253,7 @@ Documentation: https://rp1.run
 
     rp1 skills are prefixed with `rp1-` to avoid collisions with your own skills:
 
-    1. **Type the skill name directly** (e.g., `/rp1-knowledge-build`, `/rp1-build`)
+    1. **Type the skill name directly** (e.g., `/rp1-base-knowledge-build`, `/rp1-dev-build`)
     2. **Type `/skills`** to browse and select — look for skills prefixed with `rp1-`
 
     *Autocomplete for skill names is coming soon — see [opencode#14506](https://github.com/anomalyco/opencode/issues/14506).*
@@ -261,7 +261,7 @@ Documentation: https://rp1.run
     **Quick test:**
 
     ```
-    /rp1-knowledge-build
+    /rp1-base-knowledge-build
     ```
 
 === "Codex CLI"
@@ -272,8 +272,8 @@ Documentation: https://rp1.run
     Invoke skills with Codex mentions:
 
     ```text
-    $rp1-knowledge-build
-    $rp1-build-fast fix the authentication bug
+    $rp1-base-knowledge-build
+    $rp1-dev-build-fast fix the authentication bug
     ```
 
     **Verification checks:**
@@ -321,6 +321,7 @@ You're ready to go! Continue to [Your First Workflow](first-workflow.md) to run 
 
     - **Claude Code**: Make sure you completely restarted Claude Code
     - **OpenCode**: Verify plugins exist at `~/.opencode/prompts/rp1-base/`. You can type `/skills` to check if rp1 skills are listed.
+    - **Codex CLI**: Verify skills exist at `~/.agents/skills/`. Run `rp1 verify codex` to check installation.
 
     ---
 

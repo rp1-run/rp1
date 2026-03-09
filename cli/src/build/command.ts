@@ -461,8 +461,9 @@ export const buildPlugin = async (
 			supportingFiles,
 		} = generateResult.right;
 
-		// Namespace skill directories with rp1- prefix to avoid collisions with user skills
-		const namespacedSkillDir = `rp1-${outSkillDir}`;
+		// Include plugin name so skill dirs match slash command syntax:
+		// rp1-base-knowledge-build, rp1-dev-build-fast, etc.
+		const namespacedSkillDir = `rp1-${pluginName}-${outSkillDir}`;
 
 		// Update the name field in SKILL.md frontmatter to match the namespaced directory
 		const namespacedSkillMdContent = skillMdContent.replace(
@@ -715,7 +716,9 @@ export const buildCodexPlugin = async (
 			supportingFiles,
 		} = generateResult.right;
 
-		const namespacedSkillDir = `rp1-${outSkillDir}`;
+		// Include plugin name so skill dirs match $ mention syntax:
+		// rp1-base-knowledge-build, rp1-dev-build-fast, etc.
+		const namespacedSkillDir = `rp1-${pluginName}-${outSkillDir}`;
 		const namespacedSkillMdContent = skillMdContent.replace(
 			/^(name:\s*).+$/m,
 			`$1${namespacedSkillDir}`,

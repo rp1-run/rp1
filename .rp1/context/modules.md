@@ -1,144 +1,153 @@
 # Module & Component Breakdown
 
 **Project**: rp1
-**Analysis Date**: 2026-03-08
-**Modules Analyzed**: 19
+**Analysis Date**: 2026-03-09
+**Modules Analyzed**: 14
 
 ## Core Modules
 
-### CLI Entry (`cli/src/main.ts`)
-**Purpose**: Commander-based CLI with lazy-loaded agent-tools and daemon server
-**Responsibilities**: Register CLI commands, lazy-load agent-tools (avoid puppeteer at startup), handle daemon server, error formatting and exit code mapping
-**Dependencies**: commands/*, agent-tools/command, web-ui/server, shared/errors
+### CLI Entry Point (`cli/src/main.ts`)
+**Purpose**: Commander-based CLI entry point with lazy-loaded agent-tools and daemon server
+**Key Files**: `main.ts`
+**Dependencies**: commands, agent-tools (lazy), web-ui (lazy)
 
-### Agent Tools Framework (`cli/src/agent-tools/`)
-**Purpose**: Runtime tools framework for AI agents with registry pattern
-**Key Files**: `index.ts` (registry), `command.ts` (Commander integration), `git.ts` (git utilities)
-**Components**: 7 sub-tool modules (work, worktree, state-machine, github-pr, mmd-validate, comment-extract, rp1-root-dir)
-**Public API**: `registerTool()`, `getTool()`, `listTools()` returning `TE.TaskEither<CLIError, ToolResult<T>>`
+### Agent Tools (`cli/src/agent-tools/`)
+**Purpose**: Runtime tools framework for AI agents with registry pattern and 7 sub-tool modules
+**Files**: 43 | **LOC**: ~7,763
+**Key Components**:
+- **tool-registry** (`index.ts`): Map-based registration with `registerTool()`, `getTool()`, `listTools()`
+- **command** (`command.ts`): Commander.js integration dispatching CLI subcommands
+- **work** (`work/`): SQLite-backed workflow progress tracking with state machine validation
+- **state-machine** (`state-machine/`): Mermaid stateDiagram-v2 parsing and transition validation
+- **worktree** (`worktree/`): Git worktree creation, cleanup, status for isolated agent execution
+- **github-pr** (`github-pr/`): GitHub PR operations (submit-review, add-reaction, reply-comment)
+- **comment-extract** (`comment-extract/`): Code comment extraction with git diff support
+- **mmd-validate** (`mmd-validate/`): Mermaid diagram validation via browser
+- **rp1-root-dir** (`rp1-root-dir/`): RP1_ROOT resolution (env, git-common-dir, cwd)
 
-### Work Status (`cli/src/agent-tools/work/`)
-**Purpose**: SQLite-backed workflow progress tracking with state machine validation and daemon notifications
-**Key Files**: `database.ts` (singleton WAL-mode connection, migrations v1-v7), `update.ts` (validation + state machine), `models.ts` (StatusUpdateRecord, ArtifactRecord)
-**Behavior**: Insert status updates, query by project/feature, notify daemon for WebSocket broadcast, cleanup expired runs
+**Contract**: All tools return `TE.TaskEither<CLIError, ToolResult<T>>`
 
-### State Machine (`cli/src/agent-tools/state-machine/`)
-**Purpose**: Declarative workflow state management via embedded Mermaid stateDiagram-v2
-**Pipeline**: extract (from markdown) -> parse (mermaid-ast) -> transform (domain model) -> query (BFS)
-**Key Files**: `adapter.ts`, `extractor.ts`, `loader.ts`, `transform.ts`
-
-### Worktree Management (`cli/src/agent-tools/worktree/`)
-**Purpose**: Git worktree creation, cleanup, and status for isolated agent execution
-**Key Files**: `create.ts`, `cleanup.ts`, `status.ts`, `slug.ts`
-**Dependencies**: agent-tools/git
-
-### GitHub PR (`cli/src/agent-tools/github-pr/`)
-**Purpose**: GitHub PR operations for AI agents via GitHub API
-**Operations**: submit-review, add-reaction, reply-comment, fetch-comments
-**Key Files**: `client.ts`, `submit-review.ts`, `fetch-comments.ts`
+### Commands (`cli/src/commands/`)
+**Purpose**: Commander.js CLI command definitions
+**Files**: 24 | **LOC**: ~4,273
+**Key Commands**: install (claude-code, opencode, codex), init, build, uninstall, settings, self-update, arcade
 
 ### Installation System (`cli/src/install/`)
-**Purpose**: Plugin installation with fp-ts pipelines, backup/restore, atomic staging
-**Key Files**: `installer.ts` (OpenCode), `manifest.ts`, `command.ts`, `claudecode/installer.ts`
-**Behavior**: Transactional: backup -> stage -> commit (or backup -> stage -> fail -> restore)
+**Purpose**: Multi-platform plugin installation with fp-ts pipelines, backup/restore, atomic staging
+**Files**: 18 | **LOC**: ~5,016
+**Key Components**:
+- **opencode-installer** (`installer.ts`): Transactional install with backup/restore and atomic staging
+- **claudecode-installer** (`claudecode/installer.ts`): Claude Code plugin install via marketplace CLI
+- **codex-installer** (`codex/installer.ts`): Codex CLI install with skill copying, agent TOML files, config.toml merging
+- **manifest** (`manifest.ts`): Plugin manifest loading and verification
 
 ### Init Wizard (`cli/src/init/`)
-**Purpose**: 12-step TTY-aware project initialization with reinit detection
-**Key Files**: `index.ts`, `context-detector.ts` (greenfield/brownfield), `tool-detector.ts`
-**Dependencies**: config/supported-tools, install, shared
+**Purpose**: 12-step TTY-aware project initialization with reinit detection, tool detection, plugin installation
+**Files**: 26 | **LOC**: ~7,229
+**Key Components**: context-detector, tool-detector, comment-fence, shell-fence, progress, templates
+**UI**: Ink-based React TUI components (InitWizard, StepList, ActivityLog, FinalSummary)
 
 ### Build Pipeline (`cli/src/build/`)
-**Purpose**: OpenCode artifact generation: parse, transform, validate, generate
-**Key Files**: `command.ts`, `parser.ts`, `transformations.ts`, `generator.ts`
+**Purpose**: Multi-target artifact build pipeline: parse SKILL.md, transform, validate, generate for OpenCode and Codex
+**Files**: 17 | **LOC**: ~3,575
+**Key Components**:
+- **codex** (`codex/`): Generator for Codex SKILL.md, per-agent TOML files, openai.yaml metadata, config.toml entries
 
-### Shared Utilities (`cli/shared/`)
-**Purpose**: Cross-cutting: error types, fp-ts re-exports, logger, prompts, runtime detection
-**Key Files**: `errors.ts` (CLIError 14-variant tagged union), `fp.ts` (fp-ts re-exports), `config.ts`, `logger.ts`
-**Boundary**: Foundation layer with zero internal dependencies
+### Shared (`cli/shared/`)
+**Purpose**: Cross-cutting foundation: CLIError tagged union (14 variants), fp-ts re-exports, logger, prompts
+**Files**: 8 | **LOC**: ~848
+**Key Exports**: errors.ts (CLIError), fp.ts (Either/TaskEither re-exports), config.ts, logger.ts
+
+### Web UI (`cli/web-ui/`)
+**Purpose**: React/Vite status dashboard with Bun HTTP server, WebSocket live-reload, file watching, annotation system
+**Files**: 139 | **LOC**: ~26,446
+**Key Components**:
+- **Server**: Bun HTTP + WebSocket server (`server/http.ts`, `server/websocket.ts`)
+- **Frontend**: React SPA with React Router, Tailwind, shadcn/ui (`app/App.tsx`, `pages/v2/`)
+- **Daemon**: Background process management (`daemon/manager.ts`)
+- **API**: `/api/v2/runs`, `/api/v2/projects`, `/api/v2/workflows`, `/api/v2/annotations`
 
 ## Plugin Modules
 
 ### rp1-base (`plugins/base/`)
-**Purpose**: Foundation plugin for knowledge management, documentation, strategy, security
-**Skills**: 17 (knowledge-build, knowledge-load, strategize, deep-research, analyse-security, project-birds-eye-view, mermaid, markdown-preview, etc.)
-**Agents**: 13 (kb-spatial-analyzer, kb-concept-extractor, kb-architecture-mapper, kb-module-analyzer, kb-pattern-extractor, etc.)
-**Boundary**: Independent, no cross-plugin dependencies
+**Purpose**: Foundation plugin: knowledge management, documentation, strategy, security
+**Skills**: 17 | **Agents**: 13 | **LOC**: ~12,849
+**Key Skills**: knowledge-build, knowledge-load, strategize, deep-research, analyse-security, mermaid, generate-user-docs
 
 ### rp1-dev (`plugins/dev/`)
-**Purpose**: Development workflow automation for feature lifecycle, code quality, PR management
-**Skills**: 21 (build, build-fast, build-express, blueprint, bootstrap, pr-review, code-check, code-audit, worktree-workflow, etc.)
-**Agents**: 32 (task-builder, task-reviewer, feature-architect, build-fast-planner, pr-review-splitter, pr-sub-reviewer, etc.)
-**Boundary**: Depends on rp1-base for KB loading
+**Purpose**: Development workflow plugin: feature lifecycle, code quality, PRs, testing
+**Skills**: 21 | **Agents**: 32 | **LOC**: ~11,026
+**Dependencies**: rp1-base (for KB loading)
+**Key Skills**: build, build-fast, build-express, blueprint, bootstrap, pr-review, code-check, code-audit
 
 ### rp1-utils (`plugins/utils/`)
-**Purpose**: Meta-tooling for prompt engineering and eval generation
-**Skills**: 5 (tersify-prompt, build-prompt-evals, prompt-eval-builder, prompt-writer, tester)
-**Agents**: 4 (prompt-tersifier, prompt-eval-extractor, prompt-assertion-specialist, dependency-chain-analyzer)
+**Purpose**: Meta-tooling plugin: prompt engineering and eval generation
+**Skills**: 5 | **Agents**: 4 | **LOC**: ~2,740
+**Key Skills**: tersify-prompt, prompt-writer, build-prompt-evals
 
-## Web UI Module
-
-### Web UI (`cli/web-ui/`)
-**Purpose**: React/Vite status dashboard with Bun HTTP server, WebSocket live-reload, and file watching
-**Server**: `src/server.ts`, `src/server/http.ts` (Bun.serve), `src/server/websocket.ts` (WebSocketHub)
-**API Routes**: `src/server/routes/v2-api.ts` (runs, projects, artifacts), `src/server/routes/api.ts` (legacy)
-**Frontend**: `src/app/App.tsx` (React Router), `src/app/V2Layout.tsx`, pages in `src/pages/v2/`
-**Components**: EventStream, CommandPalette, WorkflowDiagram, ArtifactList, FilterBar, StatusBadge, AnnotationSidebar
-**Providers**: WebSocketProvider, ProjectProvider, ThemeProvider, AnnotationProvider
-
-## Evaluation Module
+## Support Modules
 
 ### Evals (`evals/`)
 **Purpose**: Promptfoo-based evaluation with content-addressable attestation
-**Key Files**: `src/attestation/commands.ts`, `src/attestation/deps-graph.ts`, `providers/claude-with-tools.ts`
-**Attestation**: SHA-256 hashes of prompt content + dependency chain -> verified in CI
+**Files**: 12 | **LOC**: ~2,243
+**Key Components**: attestation CLI, dependency graph, manifest management, prompt hashing
+
+### Catppuccin Mermaid (`packages/catppuccin-mermaid/`)
+**Purpose**: Catppuccin theme library for Mermaid diagrams
+**Key Exports**: theme generation, CSS output, MkDocs integration
 
 ## Module Dependencies
 
 ```mermaid
 graph TD
-    Main[cli/src/main.ts] -->|lazy| AT[Agent Tools]
-    Main -->|lazy| WebUI[Web UI Server]
-    AT --> Work[Work Status]
-    AT --> WT[Worktree]
-    AT --> SM[State Machine]
-    AT --> PR[GitHub PR]
-    AT --> MMD[Mermaid Validate]
-    AT --> CE[Comment Extract]
-    AT --> RD[RP1 Root Dir]
+    Main[cli/src/main] --> Commands[cli/src/commands]
+    Main -->|lazy| AgentTools[cli/src/agent-tools]
+    Main -->|lazy| WebUI[cli/web-ui]
+
+    Commands --> Install[cli/src/install]
+    Commands --> Init[cli/src/init]
+    Commands --> Build[cli/src/build]
+
+    AgentTools --> Work[agent-tools/work]
+    AgentTools --> Worktree[agent-tools/worktree]
+    AgentTools --> SM[agent-tools/state-machine]
+    AgentTools --> GitPR[agent-tools/github-pr]
+
     Work --> SM
-    Work -->|notify| Daemon[Web UI Daemon]
-    WebUI --> Work
-    WebUI --> SM
-    WT --> Git[Git Utilities]
-    CE --> Git
-    Init[Init Wizard] --> Install[Installation]
-    Install --> Assets[Embedded Assets]
-    All[All CLI Modules] --> Shared[cli/shared]
+    Work -->|notify| WebUI
+    Worktree --> Git[agent-tools/git]
+    Install --> Shared[cli/shared]
+    Init --> Install
+    Init --> ToolDetect[config/supported-tools]
+
+    WebUI -->|poll| Work
+
     DevPlugin[plugins/dev] -->|KB loading| BasePlugin[plugins/base]
 ```
 
 ## Module Metrics
 
-| Module | Files | Est. Lines | Components |
-|--------|-------|-----------|------------|
-| plugins/base | 46 | ~12,775 | 28 |
-| plugins/dev | 53 | ~10,925 | 51 |
-| plugins/utils | 15 | ~2,660 | 9 |
-| cli/src/commands | 22 | ~4,084 | 10 |
-| cli/src/init | 19 | ~5,480 | 12 |
-| cli/src/install | 13 | ~3,739 | 7 |
-| cli/src/agent-tools | 43 | ~7,790 | 10 |
-| cli/src/build | 8 | ~2,225 | 6 |
-| cli/src/assets | 5 | ~3,581 | 3 |
-| cli/shared | 8 | ~825 | 6 |
-| cli/web-ui | 138 | ~13,523 | 15 |
-| evals | 12 | ~2,243 | 6 |
+| Module | Files | LOC | Components | Complexity |
+|--------|-------|-----|------------|------------|
+| cli/src/agent-tools | 43 | 7,763 | 6 | High |
+| cli/src/commands | 24 | 4,273 | 10 | Medium |
+| cli/src/install | 18 | 5,016 | 3 | High |
+| cli/src/init | 26 | 7,229 | 1 | High |
+| cli/src/build | 17 | 3,575 | 1 | Medium |
+| cli/src/pr-review | 4 | 851 | 1 | Low |
+| cli/shared | 8 | 848 | 6 | Low |
+| cli/web-ui | 139 | 26,446 | 3 | High |
+| plugins/base | 52 | 12,849 | 30 | Medium |
+| plugins/dev | 54 | 11,026 | 53 | Medium |
+| plugins/utils | 17 | 2,740 | 9 | Low |
+| evals | 12 | 2,243 | 1 | Low |
 
 ## Cross-Module Patterns
 
-- **Skill-Agent Delegation**: Skills spawn agents via Task tool; agents execute autonomously without iteration
-- **Tool Registry**: Agent tools self-register via `registerTool()` at module load; command.ts dispatches via `getTool()`
-- **fp-ts Error Handling**: All CLI modules use Either/TaskEither with pipe() composition; CLIError tagged union with factories
-- **State Machine Integration**: Embedded Mermaid stateDiagram-v2 drives runtime transition validation and web UI step rendering
+- **Skill-Agent Delegation**: Skills spawn agents via Task tool; agents execute autonomously
+- **Tool Registry**: Agent tools self-register via `registerTool()` at module load; `command.ts` dispatches via `getTool()`
+- **fp-ts Error Pipeline**: All CLI modules use Either/TaskEither with `pipe()` composition; CLIError 14-variant tagged union
+- **State Machine Integration**: Embedded Mermaid stateDiagram drives runtime validation, work tracking, and UI rendering
 - **Content Fencing**: Init/uninstall use `<!-- rp1:start/end -->` (markdown) and `# rp1:start/end` (shell) for idempotent injection
-- **Lazy Loading**: Main CLI lazy-loads agent-tools and daemon server to avoid heavy dependencies at startup
+- **Lazy Loading**: Main CLI lazy-loads agent-tools and daemon to avoid heavy deps (puppeteer) at startup
+- **Multi-Platform Installation**: Separate installer modules for OpenCode (atomic staging), Claude Code (marketplace), Codex (TOML + config.toml)

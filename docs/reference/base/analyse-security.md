@@ -15,7 +15,13 @@ Performs comprehensive security validation including vulnerability scanning, aut
 === "OpenCode"
 
     ```bash
-    /rp1-analyse-security
+    /rp1-base-analyse-security
+    ```
+
+=== "Codex CLI"
+
+    ```text
+    $rp1-base-analyse-security
     ```
 
 ## Description
@@ -79,7 +85,13 @@ Findings are classified by severity:
 === "OpenCode"
 
     ```bash
-    /rp1-analyse-security
+    /rp1-base-analyse-security
+    ```
+
+=== "Codex CLI"
+
+    ```text
+    $rp1-base-analyse-security
     ```
 
 **Example output:**

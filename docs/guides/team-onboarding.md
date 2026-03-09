@@ -67,7 +67,13 @@ Build the knowledge base for your project:
 === "OpenCode"
 
     ```bash
-    /rp1-knowledge-build
+    /rp1-base-knowledge-build
+    ```
+
+=== "Codex CLI"
+
+    ```text
+    $rp1-base-knowledge-build
     ```
 
 **What happens:**
@@ -177,7 +183,13 @@ The KB is automatically loaded when you run rp1 commands. You can also explicitl
 === "OpenCode"
 
     ```bash
-    /rp1-knowledge-load
+    /rp1-base-knowledge-load
+    ```
+
+=== "Codex CLI"
+
+    ```text
+    $rp1-base-knowledge-load
     ```
 
 **What happens:**
@@ -222,7 +234,13 @@ Create a comprehensive overview document for new developers:
 === "OpenCode"
 
     ```bash
-    /rp1-project-birds-eye-view
+    /rp1-base-project-birds-eye-view
+    ```
+
+=== "Codex CLI"
+
+    ```text
+    $rp1-base-project-birds-eye-view
     ```
 
 **What happens:**

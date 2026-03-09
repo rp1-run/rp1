@@ -11,8 +11,7 @@ The rp1 CLI provides tools for setup and management outside of AI assistant sess
 | Command | Description |
 |---------|-------------|
 | [`init`](cli/init.md) | Initialize rp1 in a project with guided setup |
-| `install:claude-code` | Install plugins for Claude Code |
-| `install:opencode` | Install plugins for OpenCode |
+| [`install`](cli/install.md) | Install plugins for Claude Code, OpenCode, or Codex CLI |
 | `build` | Build plugin packages from source |
 | `self-update` | Update the rp1 CLI to the latest version |
 | `arcade` | Launch web dashboard |
@@ -134,16 +133,28 @@ Skills can be invoked differently depending on your AI assistant:
 
     rp1 skills are installed with an `rp1-` prefix to avoid collisions with your own skills:
 
-    1. **Type the skill name directly** (e.g., `/rp1-build`, `/rp1-knowledge-build`)
+    1. **Type the skill name directly** (e.g., `/rp1-dev-build`, `/rp1-base-knowledge-build`)
     2. **Type `/skills`** to browse and select — look for skills prefixed with `rp1-`
 
     ```bash
-    /rp1-build my-feature [arguments]
-    /rp1-knowledge-build
+    /rp1-dev-build my-feature [arguments]
+    /rp1-base-knowledge-build
     ```
 
     !!! note
         Autocomplete for skill names is not yet available in OpenCode — see [opencode#14506](https://github.com/anomalyco/opencode/issues/14506). This may be supported soon.
+
+=== "Codex CLI"
+
+    In Codex CLI, rp1 skills are invoked using `$` mentions:
+
+    ```text
+    $rp1-dev-build my-feature [arguments]
+    $rp1-base-knowledge-build
+    ```
+
+    !!! note
+        Codex CLI uses `$skill-name` mentions instead of `/` slash commands. Tool approvals are configured globally in `~/.codex/config.toml`.
 
 ---
 
