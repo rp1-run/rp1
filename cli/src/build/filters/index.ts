@@ -77,9 +77,14 @@ export function registerFilters(liquid: Liquid): void {
 	liquid.registerFilter(
 		"slash_commands",
 		function (content: string, platform: BuildPlatform) {
-			const skillMap = this.context.get(["skillMap"]) as
-				| ReadonlyMap<string, string>
-				| undefined;
+			let skillMap: ReadonlyMap<string, string> | undefined;
+			try {
+				skillMap = this.context.get(["skillMap"]) as
+					| ReadonlyMap<string, string>
+					| undefined;
+			} catch {
+				skillMap = undefined;
+			}
 			return slashCommands(content, platform, skillMap);
 		},
 	);

@@ -16,6 +16,7 @@ import type { CLIError } from "../../shared/errors.js";
 import { generationError } from "../../shared/errors.js";
 
 const PLACEHOLDER_PREFIX = "@@RP1_CODEBLOCK_";
+const OUTPUT_TAG_PREFIX = "@@RP1_OUTPUTTAG_";
 const PLACEHOLDER_SUFFIX = "@@";
 
 /**
@@ -62,6 +63,41 @@ const reinsertCodeBlocks = (content: string, blocks: string[]): string => {
 };
 
 /**
+ * Extract Liquid output tags ({{ ... }}) that are NOT platform-related,
+ * replacing them with unique placeholders. This prevents LiquidJS from
+ * trying to evaluate expressions like {{$RP1_ROOT}} which are not valid
+ * Liquid but are used as template variable references in skill content.
+ */
+const extractOutputTags = (
+	content: string,
+): { processed: string; tags: string[] } => {
+	const tags: string[] = [];
+	const outputTagRegex = /\{\{[^}]*\}\}/g;
+
+	const processed = content.replace(outputTagRegex, (match) => {
+		const index = tags.length;
+		tags.push(match);
+		return `${OUTPUT_TAG_PREFIX}${index}${PLACEHOLDER_SUFFIX}`;
+	});
+
+	return { processed, tags };
+};
+
+/**
+ * Reinsert extracted output tags into content by replacing placeholders.
+ */
+const reinsertOutputTags = (content: string, tags: string[]): string => {
+	let result = content;
+	for (let i = 0; i < tags.length; i++) {
+		result = result.replace(
+			`${OUTPUT_TAG_PREFIX}${i}${PLACEHOLDER_SUFFIX}`,
+			tags[i],
+		);
+	}
+	return result;
+};
+
+/**
  * Create a Liquid instance configured for pre-processing source files.
  * Uses strictVariables: false so that unknown variables (like {{ variable }})
  * in source content are silently ignored rather than throwing errors.
@@ -93,12 +129,14 @@ export const preprocessConditionals = async (
 	platform: "opencode" | "codex" | "claude-code",
 ): Promise<E.Either<CLIError, string>> => {
 	try {
-		const { processed, blocks } = extractCodeBlocks(content);
+		const { processed: withoutCode, blocks } = extractCodeBlocks(content);
+		const { processed, tags } = extractOutputTags(withoutCode);
 
 		const liquid = createPreprocessorLiquid();
 		const rendered = await liquid.parseAndRender(processed, { platform });
 
-		const result = reinsertCodeBlocks(rendered, blocks);
+		const withTags = reinsertOutputTags(rendered, tags);
+		const result = reinsertCodeBlocks(withTags, blocks);
 
 		return E.right(result);
 	} catch (error) {

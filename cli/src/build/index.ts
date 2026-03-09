@@ -7,7 +7,9 @@ export { claudeCodeRegistry } from "./claude-code/registry.js";
 // Command
 export {
 	buildCCPlugin,
+	buildCodexPlugin,
 	deriveCCOutputDir,
+	deriveCodexOutputDir,
 	executeBuild,
 	parseBuildArgs,
 } from "./command.js";

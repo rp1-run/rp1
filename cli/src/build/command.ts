@@ -1,5 +1,7 @@
 /**
  * CLI entry point for build:opencode command.
+ * Uses the LiquidJS template engine for all artifact generation across
+ * OpenCode, Codex, and Claude Code platforms.
  */
 
 import {
@@ -24,13 +26,12 @@ import {
 import type { Logger } from "../../shared/logger.js";
 import { createSpinner } from "../../shared/spinner.js";
 import { extractStateMachineMermaid } from "../agent-tools/state-machine/extractor.js";
+import type { SupportedTool } from "../config/supported-tools.js";
 import { colorFns } from "../lib/colors.js";
-import {
-	generateAgentFile,
-	generateBundleManifest,
-	generateManifest,
-	generateSkillFile,
-} from "./generator.js";
+import { claudeCodeRegistry } from "./claude-code/registry.js";
+import { codexRegistry } from "./codex/registry.js";
+import { mapAgentToRoleType } from "./codex/role-mapper.js";
+import { discoverSkillMap } from "./codex/transformations.js";
 import type {
 	BuildConfig,
 	BuildSummary,
@@ -39,9 +40,68 @@ import type {
 	OpenCodePluginAsset,
 } from "./models.js";
 import { parseAgent, parseSkill } from "./parser.js";
+import { preprocessConditionals } from "./preprocessor.js";
 import { defaultRegistry } from "./registry.js";
-import { transformAgent, transformSkill } from "./transformations.js";
+import type { BuildPlatform } from "./template-context.js";
+import { buildTemplateContext } from "./template-context.js";
+import type { TemplateEngine } from "./template-engine.js";
+import { createTemplateEngine } from "./template-engine.js";
 import { validateAgent, validateSkill } from "./validator.js";
+
+const VALID_PLATFORMS = ["opencode", "codex", "claude-code", "all"];
+
+/**
+ * Stub SupportedTool for platforms when the full registry is not loaded.
+ * Build scripts run from source where supported-tools.generated.js may
+ * not yet exist, so we provide inline defaults.
+ */
+const platformConfigs: Record<BuildPlatform, SupportedTool> = {
+	opencode: {
+		id: "opencode",
+		name: "OpenCode",
+		binary: "opencode",
+		min_version: "0.8.0",
+		instruction_file: "AGENTS.md",
+		install_url: "https://opencode.ai/docs/installation",
+		plugin_install_cmd: null,
+		capabilities: ["plugins", "slash-commands", "agents"],
+	},
+	codex: {
+		id: "codex",
+		name: "Codex CLI",
+		binary: "codex",
+		min_version: "0.110.0",
+		instruction_file: "AGENTS.md",
+		install_url: "https://github.com/openai/codex",
+		plugin_install_cmd: null,
+		capabilities: ["skills", "agents"],
+	},
+	"claude-code": {
+		id: "claude-code",
+		name: "Claude Code",
+		binary: "claude",
+		min_version: "1.0.33",
+		instruction_file: "CLAUDE.md",
+		install_url:
+			"https://docs.anthropic.com/en/docs/claude-code/getting-started",
+		plugin_install_cmd: "claude plugin install {plugin}",
+		capabilities: ["plugins", "slash-commands", "agents", "skills"],
+	},
+};
+
+/**
+ * Get the PlatformRegistry for a given build platform.
+ */
+const getRegistryForPlatform = (platform: BuildPlatform) => {
+	switch (platform) {
+		case "opencode":
+			return defaultRegistry;
+		case "codex":
+			return codexRegistry;
+		case "claude-code":
+			return claudeCodeRegistry;
+	}
+};
 
 /**
  * Parse build command arguments.
@@ -95,22 +155,32 @@ export const parseBuildArgs = (
 				| "all";
 		} else if (arg === "--platform") {
 			const value = args[++i];
-			if (!value || !["opencode", "claude-code", "all"].includes(value)) {
+			if (!value || !VALID_PLATFORMS.includes(value)) {
 				return E.left(
-					usageError("--platform must be 'opencode', 'claude-code', or 'all'"),
+					usageError(
+						"--platform must be 'opencode', 'codex', 'claude-code', or 'all'",
+					),
 				);
 			}
-			(config as { platform: "opencode" | "claude-code" | "all" }).platform =
-				value as "opencode" | "claude-code" | "all";
+			(
+				config as {
+					platform: "opencode" | "codex" | "claude-code" | "all";
+				}
+			).platform = value as "opencode" | "codex" | "claude-code" | "all";
 		} else if (arg.startsWith("--platform=")) {
 			const value = arg.slice("--platform=".length);
-			if (!["opencode", "claude-code", "all"].includes(value)) {
+			if (!VALID_PLATFORMS.includes(value)) {
 				return E.left(
-					usageError("--platform must be 'opencode', 'claude-code', or 'all'"),
+					usageError(
+						"--platform must be 'opencode', 'codex', 'claude-code', or 'all'",
+					),
 				);
 			}
-			(config as { platform: "opencode" | "claude-code" | "all" }).platform =
-				value as "opencode" | "claude-code" | "all";
+			(
+				config as {
+					platform: "opencode" | "codex" | "claude-code" | "all";
+				}
+			).platform = value as "opencode" | "codex" | "claude-code" | "all";
 		} else if (arg === "--json") {
 			(config as { jsonOutput: boolean }).jsonOutput = true;
 		} else if (arg === "--help" || arg === "-h") {
@@ -135,7 +205,7 @@ ${bold("Usage:")}
 ${bold("Options:")}
   -o, --output-dir <dir>       Output directory (default: dist/opencode/)
   -p, --plugin <name>          Build specific plugin (base, dev, utils, or all)
-  --platform <name>            Target platform (opencode, claude-code, or all)
+  --platform <name>            Target platform (opencode, codex, claude-code, or all)
   --json                       Output results as JSON for CI/CD
   -h, --help                   Show this help message
 
@@ -143,6 +213,7 @@ ${bold("Examples:")}
   rp1 build:opencode                              # Build all plugins for OpenCode
   rp1 build:opencode --plugin dev                  # Build only dev plugin
   rp1 build:opencode --platform claude-code        # Build for Claude Code
+  rp1 build:opencode --platform codex              # Build for Codex
   rp1 build:opencode --platform all                # Build for all platforms
   rp1 build:opencode -o ./output                   # Custom output directory
   rp1 build:opencode --json                        # JSON output for CI
@@ -182,6 +253,19 @@ const readPluginVersion = async (pluginDir: string): Promise<string> => {
 		const content = await readFile(pluginJsonPath, "utf-8");
 		const json = JSON.parse(content) as { version?: string };
 		return json.version ?? "0.0.0";
+	} catch {
+		return "0.0.0";
+	}
+};
+
+/**
+ * Read CLI version from cli/package.json.
+ */
+const readCliVersion = async (projectRoot: string): Promise<string> => {
+	try {
+		const pkgPath = join(projectRoot, "cli", "package.json");
+		const pkg = JSON.parse(await readFile(pkgPath, "utf-8"));
+		return pkg.version ?? "0.0.0";
 	} catch {
 		return "0.0.0";
 	}
@@ -372,8 +456,8 @@ export interface PluginBuildResult {
 }
 
 /**
- * Build a single plugin.
- * Processes skills from all plugins.
+ * Build a single plugin for the OpenCode platform.
+ * Uses the template engine for all artifact generation.
  */
 export const buildPlugin = async (
 	pluginName: string,
@@ -392,8 +476,13 @@ export const buildPlugin = async (
 	const pluginDir = join(projectRoot, "plugins", pluginName);
 	const pluginOutputDir = join(outputPath, pluginName);
 	const pluginVersion = await readPluginVersion(pluginDir);
+	const cliVersion = await readCliVersion(projectRoot);
 
-	// Create spinner for progress indication (only in interactive mode)
+	const engine = createTemplateEngine();
+	const platform: BuildPlatform = "opencode";
+	const registry = getRegistryForPlatform(platform);
+	const platformConfig = platformConfigs[platform];
+
 	const spinner = createSpinner(!jsonOutput && (process.stdout.isTTY ?? false));
 
 	// Clean and create output directories
@@ -411,7 +500,6 @@ export const buildPlugin = async (
 		spinner.start(`Building ${pluginName} plugin...`);
 	}
 
-	// Process skills from all plugins
 	const skillsDir = join(pluginDir, "skills");
 	const skillDirs = await getSkillDirs(skillsDir);
 
@@ -423,36 +511,46 @@ export const buildPlugin = async (
 		}
 		const ccSkill = parseResult.right;
 
-		const transformResult = transformSkill(ccSkill, defaultRegistry);
-		if (E.isLeft(transformResult)) {
-			errors.push(formatError(transformResult.left, false));
+		const preprocessResult = await preprocessConditionals(
+			ccSkill.content,
+			platform,
+		);
+		if (E.isLeft(preprocessResult)) {
+			errors.push(formatError(preprocessResult.left, false));
 			continue;
 		}
-		const ocSkill = transformResult.right;
+		const processedContent = preprocessResult.right;
 
-		const generateResult = generateSkillFile(ocSkill);
-		if (E.isLeft(generateResult)) {
-			errors.push(formatError(generateResult.left, false));
-			continue;
-		}
-		const {
-			skillDir: outSkillDir,
-			skillMdContent,
-			supportingFiles,
-		} = generateResult.right;
+		const namespacedSkillDir = `rp1-${ccSkill.name}`;
 
-		// Namespace skill directories with rp1- prefix to avoid collisions with user skills
-		const namespacedSkillDir = `rp1-${outSkillDir}`;
-
-		// Update the name field in SKILL.md frontmatter to match the namespaced directory
-		const namespacedSkillMdContent = skillMdContent.replace(
-			/^(name:\s*).+$/m,
-			`$1${namespacedSkillDir}`,
+		const ctx = buildTemplateContext(
+			platform,
+			pluginName,
+			pluginVersion,
+			{
+				type: "skill",
+				name: ccSkill.name,
+				namespacedName: namespacedSkillDir,
+				description: ccSkill.description,
+				allowedTools: ccSkill.allowedTools,
+				content: processedContent,
+				metadata: ccSkill.metadata,
+				supportingFiles: ccSkill.supportingFiles,
+			},
+			registry,
+			cliVersion,
+			platformConfig,
 		);
 
-		// Validate generated content
+		const renderResult = await engine.render("opencode/skill", ctx);
+		if (E.isLeft(renderResult)) {
+			errors.push(formatError(renderResult.left, false));
+			continue;
+		}
+		const skillMdContent = renderResult.right;
+
 		const validateResult = validateSkill(
-			namespacedSkillMdContent,
+			skillMdContent,
 			`${namespacedSkillDir}/SKILL.md`,
 		);
 		if (E.isLeft(validateResult)) {
@@ -460,19 +558,19 @@ export const buildPlugin = async (
 			continue;
 		}
 
-		// Write SKILL.md
 		const skillOutputDir = join(pluginOutputDir, "skills", namespacedSkillDir);
 		await mkdir(skillOutputDir, { recursive: true });
-		await writeFile(join(skillOutputDir, "SKILL.md"), namespacedSkillMdContent);
+		await writeFile(join(skillOutputDir, "SKILL.md"), skillMdContent);
 
-		// Copy supporting files
-		await copySupportingFiles(skillDir, skillOutputDir, supportingFiles);
+		await copySupportingFiles(
+			skillDir,
+			skillOutputDir,
+			ccSkill.supportingFiles,
+		);
 
-		// Track skill directory name for manifest
 		const relativePath = `${pluginName}/skills/${namespacedSkillDir}/SKILL.md`;
 		skillEntries.push({ name: namespacedSkillDir, path: relativePath });
 
-		// Collect all files in skill dir for bundle embedding (SKILL.md + supporting files)
 		const allSkillFiles = await collectAllFiles(skillOutputDir);
 		for (const file of allSkillFiles) {
 			const fileRelPath = `${pluginName}/skills/${namespacedSkillDir}/${file}`;
@@ -482,19 +580,16 @@ export const buildPlugin = async (
 			});
 		}
 
-		const extractedSkillMermaid = extractStateMachineMermaid(
-			namespacedSkillMdContent,
-		);
+		const extractedSkillMermaid = extractStateMachineMermaid(skillMdContent);
 		if (extractedSkillMermaid) {
 			stateMachineEntries.push({
-				name: outSkillDir,
+				name: ccSkill.name,
 				path: "",
 				content: extractedSkillMermaid,
 			});
 		}
 	}
 
-	// Process agents
 	const agentsDir = join(pluginDir, "agents");
 	const agentFiles = await getMarkdownFiles(agentsDir);
 
@@ -506,21 +601,41 @@ export const buildPlugin = async (
 		}
 		const ccAgent = parseResult.right;
 
-		const transformResult = transformAgent(ccAgent, defaultRegistry);
-		if (E.isLeft(transformResult)) {
-			errors.push(formatError(transformResult.left, false));
+		const preprocessResult = await preprocessConditionals(
+			ccAgent.content,
+			platform,
+		);
+		if (E.isLeft(preprocessResult)) {
+			errors.push(formatError(preprocessResult.left, false));
 			continue;
 		}
-		const ocAgent = transformResult.right;
+		const processedContent = preprocessResult.right;
 
-		const generateResult = generateAgentFile(ocAgent);
-		if (E.isLeft(generateResult)) {
-			errors.push(formatError(generateResult.left, false));
+		const ctx = buildTemplateContext(
+			platform,
+			pluginName,
+			pluginVersion,
+			{
+				type: "agent",
+				name: ccAgent.name,
+				description: ccAgent.description,
+				model: ccAgent.model,
+				tools: ccAgent.tools,
+				content: processedContent,
+			},
+			registry,
+			cliVersion,
+			platformConfig,
+		);
+
+		const renderResult = await engine.render("opencode/agent", ctx);
+		if (E.isLeft(renderResult)) {
+			errors.push(formatError(renderResult.left, false));
 			continue;
 		}
-		const { filename, content } = generateResult.right;
+		const content = renderResult.right;
+		const filename = `${ccAgent.name}.md`;
 
-		// Validate generated content
 		const validateResult = validateAgent(content, filename);
 		if (E.isLeft(validateResult)) {
 			errors.push(formatError(validateResult.left, false));
@@ -543,13 +658,11 @@ export const buildPlugin = async (
 		}
 	}
 
-	// Copy OpenCode plugin if present
 	const hasOpenCodePlugin = await copyOpenCodePlugin(
 		pluginDir,
 		pluginOutputDir,
 	);
 
-	// Collect OpenCode plugin files for bundle manifest
 	let openCodePluginAsset: OpenCodePluginAsset | undefined;
 	if (hasOpenCodePlugin) {
 		const pluginFiles = await collectOpenCodePluginFiles(
@@ -562,19 +675,27 @@ export const buildPlugin = async (
 		};
 	}
 
-	// Generate manifest
 	const commandNames = commandEntries.map((e) => e.name);
 	const agentNames = agentEntries.map((e) => e.name);
 	const skillNames = skillEntries.map((e) => e.name);
 
-	const manifestResult = generateManifest(
+	const manifestCtx = buildTemplateContext(
+		platform,
 		`rp1-${pluginName}`,
 		pluginVersion,
-		commandNames,
-		agentNames,
-		skillNames,
-		hasOpenCodePlugin || undefined,
+		{
+			type: "manifest",
+			skills: skillNames,
+			agents: agentNames,
+			commands: commandNames,
+			hasOpenCodePlugin: hasOpenCodePlugin || undefined,
+		},
+		registry,
+		cliVersion,
+		platformConfig,
 	);
+
+	const manifestResult = await engine.render("opencode/manifest", manifestCtx);
 	if (E.isRight(manifestResult)) {
 		await writeFile(
 			join(pluginOutputDir, "manifest.json"),
@@ -582,7 +703,6 @@ export const buildPlugin = async (
 		);
 	}
 
-	// Complete spinner
 	if (!jsonOutput) {
 		const hasErrors = errors.length > 0;
 		const ocPluginNote = hasOpenCodePlugin ? " + OpenCode plugin" : "";
@@ -625,11 +745,18 @@ export const deriveCCOutputDir = (opencodeOutputDir: string): string => {
 };
 
 /**
+ * Derive Codex output directory from the OpenCode output directory.
+ * Maps "dist/opencode" to "dist/codex".
+ */
+export const deriveCodexOutputDir = (opencodeOutputDir: string): string => {
+	const normalized = opencodeOutputDir.replace(/\/+$/, "");
+	const parent = dirname(normalized);
+	return join(parent, "codex");
+};
+
+/**
  * Build a single plugin for the Claude Code platform.
- * Follows the same pattern as buildPlugin() but targets dist/claude-code/.
- *
- * Currently sets up the output structure. Template rendering will be
- * wired in by T8 (generator replacement integration).
+ * Uses the template engine for all artifact generation.
  */
 export const buildCCPlugin = async (
 	pluginName: string,
@@ -643,10 +770,15 @@ export const buildCCPlugin = async (
 	const pluginDir = join(projectRoot, "plugins", pluginName);
 	const pluginOutputDir = join(outputPath, pluginName);
 	const pluginVersion = await readPluginVersion(pluginDir);
+	const cliVersion = await readCliVersion(projectRoot);
+
+	const engine = createTemplateEngine();
+	const platform: BuildPlatform = "claude-code";
+	const registry = getRegistryForPlatform(platform);
+	const platformConfig = platformConfigs[platform];
 
 	const spinner = createSpinner(!jsonOutput && (process.stdout.isTTY ?? false));
 
-	// Clean and create output directories
 	try {
 		await rm(pluginOutputDir, { recursive: true, force: true });
 	} catch {
@@ -660,10 +792,10 @@ export const buildCCPlugin = async (
 		spinner.start(`Building ${pluginName} plugin (claude-code)...`);
 	}
 
-	// Process skills
 	const skillsDir = join(pluginDir, "skills");
 	const skillDirs = await getSkillDirs(skillsDir);
 	let skillCount = 0;
+	const skillNames: string[] = [];
 
 	for (const skillDir of skillDirs) {
 		const parseResult = await parseSkill(skillDir)();
@@ -673,41 +805,61 @@ export const buildCCPlugin = async (
 		}
 		const ccSkill = parseResult.right;
 
-		// Namespace skill directories with rp1- prefix
+		const preprocessResult = await preprocessConditionals(
+			ccSkill.content,
+			platform,
+		);
+		if (E.isLeft(preprocessResult)) {
+			errors.push(formatError(preprocessResult.left, false));
+			continue;
+		}
+		const processedContent = preprocessResult.right;
+
 		const namespacedSkillDir = `rp1-${ccSkill.name}`;
+
+		const ctx = buildTemplateContext(
+			platform,
+			pluginName,
+			pluginVersion,
+			{
+				type: "skill",
+				name: ccSkill.name,
+				namespacedName: namespacedSkillDir,
+				description: ccSkill.description,
+				allowedTools: ccSkill.allowedTools,
+				content: processedContent,
+				metadata: ccSkill.metadata,
+				supportingFiles: ccSkill.supportingFiles,
+			},
+			registry,
+			cliVersion,
+			platformConfig,
+		);
+
+		const renderResult = await engine.render("claude-code/skill", ctx);
+		if (E.isLeft(renderResult)) {
+			errors.push(formatError(renderResult.left, false));
+			continue;
+		}
+
 		const skillOutputDir = join(pluginOutputDir, "skills", namespacedSkillDir);
 		await mkdir(skillOutputDir, { recursive: true });
+		await writeFile(join(skillOutputDir, "SKILL.md"), renderResult.right);
 
-		// TODO(T8): Replace with template engine render call
-		// For now, write a CC-format SKILL.md preserving the source format
-		// with namespaced name in frontmatter
-		const frontmatterLines = [
-			"---",
-			`name: ${namespacedSkillDir}`,
-			`description: ${ccSkill.description}`,
-		];
-		if (ccSkill.allowedTools) {
-			frontmatterLines.push(`allowed-tools: ${ccSkill.allowedTools}`);
-		}
-		frontmatterLines.push("---");
-		const skillContent = `${frontmatterLines.join("\n")}\n\n${ccSkill.content}`;
-
-		await writeFile(join(skillOutputDir, "SKILL.md"), skillContent);
-
-		// Copy supporting files
 		await copySupportingFiles(
 			skillDir,
 			skillOutputDir,
 			ccSkill.supportingFiles,
 		);
 
+		skillNames.push(namespacedSkillDir);
 		skillCount++;
 	}
 
-	// Process agents
 	const agentsDir = join(pluginDir, "agents");
 	const agentFiles = await getMarkdownFiles(agentsDir);
 	let agentCount = 0;
+	const agentNames: string[] = [];
 
 	for (const agentFile of agentFiles) {
 		const parseResult = await parseAgent(agentFile)();
@@ -717,24 +869,64 @@ export const buildCCPlugin = async (
 		}
 		const ccAgent = parseResult.right;
 
-		// TODO(T8): Replace with template engine render call
-		// For now, write agent content preserving the source format
-		const outputFile = join(pluginOutputDir, "agents", `${ccAgent.name}.md`);
-		await writeFile(outputFile, ccAgent.content);
+		const preprocessResult = await preprocessConditionals(
+			ccAgent.content,
+			platform,
+		);
+		if (E.isLeft(preprocessResult)) {
+			errors.push(formatError(preprocessResult.left, false));
+			continue;
+		}
+		const processedContent = preprocessResult.right;
 
+		const ctx = buildTemplateContext(
+			platform,
+			pluginName,
+			pluginVersion,
+			{
+				type: "agent",
+				name: ccAgent.name,
+				description: ccAgent.description,
+				model: ccAgent.model,
+				tools: ccAgent.tools,
+				content: processedContent,
+			},
+			registry,
+			cliVersion,
+			platformConfig,
+		);
+
+		const renderResult = await engine.render("claude-code/agent", ctx);
+		if (E.isLeft(renderResult)) {
+			errors.push(formatError(renderResult.left, false));
+			continue;
+		}
+
+		const outputFile = join(pluginOutputDir, "agents", `${ccAgent.name}.md`);
+		await writeFile(outputFile, renderResult.right);
+
+		agentNames.push(ccAgent.name);
 		agentCount++;
 	}
 
-	// Generate manifest
-	const manifestResult = generateManifest(
+	const manifestCtx = buildTemplateContext(
+		platform,
 		`rp1-${pluginName}`,
 		pluginVersion,
-		[],
-		agentFiles.map((f) => {
-			const name = f.split("/").pop()?.replace(".md", "") ?? "";
-			return name;
-		}),
-		skillDirs.map((d) => `rp1-${d.split("/").pop() ?? ""}`),
+		{
+			type: "manifest",
+			skills: skillNames,
+			agents: agentNames,
+			commands: [],
+		},
+		registry,
+		cliVersion,
+		platformConfig,
+	);
+
+	const manifestResult = await engine.render(
+		"claude-code/manifest",
+		manifestCtx,
 	);
 	if (E.isRight(manifestResult)) {
 		await writeFile(
@@ -743,10 +935,290 @@ export const buildCCPlugin = async (
 		);
 	}
 
-	// Complete spinner
 	if (!jsonOutput) {
 		const hasErrors = errors.length > 0;
 		const summary = `${pluginName} (claude-code): ${agentCount} agents, ${skillCount} skills`;
+		if (hasErrors) {
+			spinner.fail(`${summary} (${errors.length} errors)`);
+		} else {
+			spinner.succeed(summary);
+		}
+	}
+
+	return {
+		plugin: pluginName,
+		commands: 0,
+		agents: agentCount,
+		skills: skillCount,
+		errors,
+	};
+};
+
+/**
+ * Build a single plugin for the Codex platform.
+ * Uses the template engine for all artifact generation.
+ * Produces: skill dirs with SKILL.md + agents/openai.yaml, per-agent TOML files,
+ * rp1-agents.toml config, AGENTS.md listing, and manifest.json.
+ */
+export const buildCodexPlugin = async (
+	pluginName: string,
+	projectRoot: string,
+	outputPath: string,
+	_logger: Logger,
+	jsonOutput: boolean,
+): Promise<BuildSummary> => {
+	const errors: string[] = [];
+
+	const pluginDir = join(projectRoot, "plugins", pluginName);
+	const pluginOutputDir = join(outputPath, pluginName);
+	const pluginVersion = await readPluginVersion(pluginDir);
+	const cliVersion = await readCliVersion(projectRoot);
+
+	const engine = createTemplateEngine();
+	const platform: BuildPlatform = "codex";
+	const registry = getRegistryForPlatform(platform);
+	const platformConfig = platformConfigs[platform];
+	const skillMap = discoverSkillMap(projectRoot);
+
+	const spinner = createSpinner(!jsonOutput && (process.stdout.isTTY ?? false));
+
+	try {
+		await rm(pluginOutputDir, { recursive: true, force: true });
+	} catch {
+		// Directory might not exist
+	}
+
+	await mkdir(join(pluginOutputDir, "skills"), { recursive: true });
+	await mkdir(join(pluginOutputDir, "agents"), { recursive: true });
+
+	if (!jsonOutput) {
+		spinner.start(`Building ${pluginName} plugin (codex)...`);
+	}
+
+	const skillsDir = join(pluginDir, "skills");
+	const skillDirs = await getSkillDirs(skillsDir);
+	let skillCount = 0;
+	const skillNames: string[] = [];
+
+	for (const skillDir of skillDirs) {
+		const parseResult = await parseSkill(skillDir)();
+		if (E.isLeft(parseResult)) {
+			errors.push(formatError(parseResult.left, false));
+			continue;
+		}
+		const ccSkill = parseResult.right;
+
+		const preprocessResult = await preprocessConditionals(
+			ccSkill.content,
+			platform,
+		);
+		if (E.isLeft(preprocessResult)) {
+			errors.push(formatError(preprocessResult.left, false));
+			continue;
+		}
+		const processedContent = preprocessResult.right;
+
+		const namespacedSkillDir = `rp1-${ccSkill.name}`;
+
+		const ctx = {
+			...buildTemplateContext(
+				platform,
+				pluginName,
+				pluginVersion,
+				{
+					type: "skill" as const,
+					name: ccSkill.name,
+					namespacedName: namespacedSkillDir,
+					description: ccSkill.description,
+					allowedTools: ccSkill.allowedTools,
+					content: processedContent,
+					metadata: ccSkill.metadata,
+					supportingFiles: ccSkill.supportingFiles,
+				},
+				registry,
+				cliVersion,
+				platformConfig,
+			),
+			skillMap,
+		};
+
+		const renderResult = await engine.render("codex/skill", ctx);
+		if (E.isLeft(renderResult)) {
+			errors.push(formatError(renderResult.left, false));
+			continue;
+		}
+
+		const skillOutputDir = join(pluginOutputDir, "skills", namespacedSkillDir);
+		await mkdir(skillOutputDir, { recursive: true });
+		await writeFile(join(skillOutputDir, "SKILL.md"), renderResult.right);
+
+		await copySupportingFiles(
+			skillDir,
+			skillOutputDir,
+			ccSkill.supportingFiles,
+		);
+
+		const agentsSubDir = join(skillOutputDir, "agents");
+		await mkdir(agentsSubDir, { recursive: true });
+
+		const openaiYamlCtx = {
+			...buildTemplateContext(
+				platform,
+				pluginName,
+				pluginVersion,
+				{
+					type: "skill" as const,
+					name: ccSkill.name,
+					namespacedName: namespacedSkillDir,
+					description: ccSkill.description,
+					content: processedContent,
+					supportingFiles: ccSkill.supportingFiles,
+				},
+				registry,
+				cliVersion,
+				platformConfig,
+			),
+		};
+
+		const yamlResult = await engine.render("codex/openai-yaml", openaiYamlCtx);
+		if (E.isRight(yamlResult)) {
+			await writeFile(join(agentsSubDir, "openai.yaml"), yamlResult.right);
+		}
+
+		skillNames.push(namespacedSkillDir);
+		skillCount++;
+	}
+
+	const agentsDir = join(pluginDir, "agents");
+	const agentFiles = await getMarkdownFiles(agentsDir);
+	let agentCount = 0;
+	const agentNames: string[] = [];
+
+	interface CodexAgentInfo {
+		name: string;
+		description: string;
+		roleType: string;
+	}
+	const codexAgents: CodexAgentInfo[] = [];
+
+	for (const agentFile of agentFiles) {
+		const parseResult = await parseAgent(agentFile)();
+		if (E.isLeft(parseResult)) {
+			errors.push(formatError(parseResult.left, false));
+			continue;
+		}
+		const ccAgent = parseResult.right;
+
+		const preprocessResult = await preprocessConditionals(
+			ccAgent.content,
+			platform,
+		);
+		if (E.isLeft(preprocessResult)) {
+			errors.push(formatError(preprocessResult.left, false));
+			continue;
+		}
+		const processedContent = preprocessResult.right;
+
+		const roleTypeValue = mapAgentToRoleType(ccAgent.name, ccAgent.description);
+
+		const agentTomlCtx = {
+			...buildTemplateContext(
+				platform,
+				pluginName,
+				pluginVersion,
+				{
+					type: "agent" as const,
+					name: ccAgent.name,
+					description: ccAgent.description,
+					model: ccAgent.model,
+					tools: ccAgent.tools,
+					content: processedContent,
+					roleType: roleTypeValue,
+				},
+				registry,
+				cliVersion,
+				platformConfig,
+			),
+			skillMap,
+		};
+
+		const tomlResult = await engine.render("codex/agent-toml", agentTomlCtx);
+		if (E.isLeft(tomlResult)) {
+			errors.push(formatError(tomlResult.left, false));
+			continue;
+		}
+
+		const tomlFilename = `${ccAgent.name}.toml`;
+		await writeFile(
+			join(pluginOutputDir, "agents", tomlFilename),
+			tomlResult.right,
+		);
+
+		codexAgents.push({
+			name: ccAgent.name,
+			description: ccAgent.description,
+			roleType: roleTypeValue,
+		});
+		agentNames.push(ccAgent.name);
+		agentCount++;
+	}
+
+	if (codexAgents.length > 0) {
+		const agentConfigCtx = {
+			platform,
+			pluginName,
+			artifact: { agents: codexAgents },
+			registry,
+		};
+		const configResult = await engine.render(
+			"codex/agent-config",
+			agentConfigCtx,
+		);
+		if (E.isRight(configResult)) {
+			await writeFile(
+				join(pluginOutputDir, "rp1-agents.toml"),
+				configResult.right,
+			);
+		}
+
+		const agentsMdCtx = {
+			platform,
+			pluginName,
+			artifact: { agents: codexAgents },
+			registry,
+		};
+		const agentsMdResult = await engine.render("codex/agents-md", agentsMdCtx);
+		if (E.isRight(agentsMdResult)) {
+			await writeFile(join(pluginOutputDir, "AGENTS.md"), agentsMdResult.right);
+		}
+	}
+
+	const manifestCtx = buildTemplateContext(
+		platform,
+		`rp1-${pluginName}`,
+		pluginVersion,
+		{
+			type: "manifest",
+			skills: skillNames,
+			agents: agentNames,
+			commands: [],
+		},
+		registry,
+		cliVersion,
+		platformConfig,
+	);
+
+	const manifestResult = await engine.render("codex/manifest", manifestCtx);
+	if (E.isRight(manifestResult)) {
+		await writeFile(
+			join(pluginOutputDir, "manifest.json"),
+			manifestResult.right,
+		);
+	}
+
+	if (!jsonOutput) {
+		const hasErrors = errors.length > 0;
+		const summary = `${pluginName} (codex): ${agentCount} agents, ${skillCount} skills`;
 		if (hasErrors) {
 			spinner.fail(`${summary} (${errors.length} errors)`);
 		} else {
@@ -834,32 +1306,37 @@ const buildOpenCodeArtifacts = async (
 		pluginAssets.set(pluginName, result.assets);
 	}
 
-	// Generate bundle manifest if building all plugins
 	if (config.plugin === "all") {
 		const baseAssets = pluginAssets.get("base");
 		const devAssets = pluginAssets.get("dev");
 		const utilsAssets = pluginAssets.get("utils");
 
 		if (baseAssets && devAssets && utilsAssets) {
-			const pkgPath = join(projectRoot, "cli", "package.json");
-			let version = "0.0.0";
-			try {
-				const pkg = JSON.parse(await readFile(pkgPath, "utf-8"));
-				version = pkg.version ?? "0.0.0";
-			} catch {
-				// Fallback
-			}
+			const cliVersion = await readCliVersion(projectRoot);
+			const engine = createTemplateEngine();
 
-			const bundleManifestResult = generateBundleManifest(
-				baseAssets,
-				devAssets,
-				utilsAssets,
-				version,
+			const bundleCtx = {
+				platform: "opencode",
+				pluginName: "bundle",
+				version: cliVersion,
+				buildTimestamp: new Date().toISOString(),
+				artifact: {
+					type: "bundle-manifest",
+					baseJson: JSON.stringify(baseAssets, null, 2),
+					devJson: JSON.stringify(devAssets, null, 2),
+					utilsJson: JSON.stringify(utilsAssets, null, 2),
+				},
+				registry: defaultRegistry,
+			};
+
+			const bundleResult = await engine.render(
+				"opencode/bundle-manifest",
+				bundleCtx,
 			);
-			if (E.isRight(bundleManifestResult)) {
+			if (E.isRight(bundleResult)) {
 				await writeFile(
 					join(outputPath, "bundle-manifest.json"),
-					bundleManifestResult.right,
+					bundleResult.right,
 				);
 				if (!config.jsonOutput) {
 					logger.debug("Generated bundle-manifest.json");
@@ -898,6 +1375,32 @@ const buildClaudeCodeArtifacts = async (
 };
 
 /**
+ * Build Codex artifacts for the given plugins.
+ */
+const buildCodexArtifacts = async (
+	pluginsToBuild: string[],
+	projectRoot: string,
+	outputPath: string,
+	config: BuildConfig,
+	logger: Logger,
+): Promise<BuildSummary[]> => {
+	const summaries: BuildSummary[] = [];
+
+	for (const pluginName of pluginsToBuild) {
+		const result = await buildCodexPlugin(
+			pluginName,
+			projectRoot,
+			outputPath,
+			logger,
+			config.jsonOutput,
+		);
+		summaries.push(result);
+	}
+
+	return summaries;
+};
+
+/**
  * Main build command execution.
  */
 export const executeBuild = (
@@ -909,12 +1412,11 @@ export const executeBuild = (
 		TE.chain((config) =>
 			TE.tryCatch(
 				async () => {
-					// Find project root
 					const projectRoot = await findProjectRoot(process.cwd());
 
-					// Determine output directory (OpenCode base path)
 					const outputPath = resolve(config.outputDir);
 					const ccOutputPath = deriveCCOutputDir(outputPath);
+					const codexOutputPath = deriveCodexOutputDir(outputPath);
 
 					if (!config.jsonOutput) {
 						logger.debug(`Output directory: ${outputPath}`);
@@ -924,9 +1426,11 @@ export const executeBuild = (
 						) {
 							logger.debug(`Claude Code output directory: ${ccOutputPath}`);
 						}
+						if (config.platform === "codex" || config.platform === "all") {
+							logger.debug(`Codex output directory: ${codexOutputPath}`);
+						}
 					}
 
-					// Determine which plugins to build
 					const pluginsToBuild =
 						config.plugin === "all"
 							? ["base", "dev", "utils"]
@@ -934,7 +1438,6 @@ export const executeBuild = (
 
 					const allSummaries: BuildSummary[] = [];
 
-					// Build OpenCode artifacts
 					if (config.platform === "opencode" || config.platform === "all") {
 						const { summaries } = await buildOpenCodeArtifacts(
 							pluginsToBuild,
@@ -946,7 +1449,6 @@ export const executeBuild = (
 						allSummaries.push(...summaries);
 					}
 
-					// Build Claude Code artifacts
 					if (config.platform === "claude-code" || config.platform === "all") {
 						const ccSummaries = await buildClaudeCodeArtifacts(
 							pluginsToBuild,
@@ -958,7 +1460,17 @@ export const executeBuild = (
 						allSummaries.push(...ccSummaries);
 					}
 
-					// Output results
+					if (config.platform === "codex" || config.platform === "all") {
+						const codexSummaries = await buildCodexArtifacts(
+							pluginsToBuild,
+							projectRoot,
+							codexOutputPath,
+							config,
+							logger,
+						);
+						allSummaries.push(...codexSummaries);
+					}
+
 					if (config.jsonOutput) {
 						const allErrors = allSummaries.flatMap((s) => s.errors);
 						const result = {
@@ -973,7 +1485,6 @@ export const executeBuild = (
 						printSummary(allSummaries, outputPath);
 					}
 
-					// Exit with error if there were errors
 					const totalErrors = allSummaries.reduce(
 						(sum, s) => sum + s.errors.length,
 						0,

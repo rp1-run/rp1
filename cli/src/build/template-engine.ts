@@ -14,6 +14,7 @@ import * as E from "fp-ts/lib/Either.js";
 import { Liquid } from "liquidjs";
 import type { CLIError } from "../../shared/errors.js";
 import { generationError } from "../../shared/errors.js";
+import { registerFilters } from "./filters/index.js";
 
 /**
  * Configuration for creating a template engine instance.
@@ -61,7 +62,10 @@ export function createTemplateEngine(
 		strictVariables: true,
 		strictFilters: true,
 		greedy: false,
+		lenientIf: true,
 	});
+
+	registerFilters(liquid);
 
 	return {
 		async render(
