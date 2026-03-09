@@ -24,8 +24,7 @@ Internal CLI utilities for AI agent workflows:
 
 | Tool | Description |
 |------|-------------|
-| [`worktree`](cli/worktree.md) | Git worktree management for isolated execution |
-| [`rp1-root-dir`](cli/rp1-root-dir.md) | RP1_ROOT path resolution |
+| [`rp1-root-dir`](cli/rp1-root-dir.md) | RP1_ROOT path resolution with worktree-aware detection |
 | [`github-pr`](agent-tools.md#github-pr) | GitHub PR operations (submit-review, add-reaction, reply-comment, fetch-comments) |
 
 [:octicons-arrow-right-24: Agent Tools Reference](agent-tools.md)

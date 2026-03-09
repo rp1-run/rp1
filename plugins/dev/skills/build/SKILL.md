@@ -11,7 +11,7 @@ metadata:
   created: 2025-12-30
   updated: 2026-02-26
   author: cloud-on-prem/rp1
-  argument-hint: "<feature-id> [requirements...] [--afk] [--git-worktree] [--git-commit] [--git-push] [--git-pr]"
+  argument-hint: "<feature-id> [requirements...] [--afk] [--git-commit] [--git-push] [--git-pr]"
   sub_agents:
     - "rp1-dev:build-artifact-detector"
     - "rp1-dev:feature-requirement-gatherer"
@@ -40,7 +40,6 @@ metadata:
 | `FEATURE_ID` | Yes | - | Feature identifier (kebab-case) |
 | `REQUIREMENTS` | No | `""` | Raw requirements text |
 | `AFK` | No | `false` | Non-interactive mode |
-| `GIT_WORKTREE` | No | `false` | Use isolated git worktree |
 | `GIT_COMMIT` | No | `false` | Commit changes after build |
 | `GIT_PUSH` | No | `false` | Push branch to remote |
 | `GIT_PR` | No | `false` | Create PR (implies push+commit) |
@@ -149,15 +148,7 @@ On Stop: output summary (steps 1-3 done), exit with `/build {FEATURE_ID}`.
 
 **Skip if**: start_step > 4. **You MUST spawn task-builder — do NOT write code yourself.**
 
-### §4.1 Worktree (skip if GIT_WORKTREE=false)
-
-```
-Skill: rp1-dev:worktree-workflow
-args: task_slug={FEATURE_ID}, agent_prefix=feature, create_pr={GIT_PR}
-```
-Store: `worktree_path`, `branch`, `basedOn`
-
-### §4.2 Parse + Group
+### §4.1 Parse + Group
 
 ```
 Task: rp1-dev:build-task-parser
@@ -171,7 +162,7 @@ prompt: TASKS: {implementation_tasks JSON}, MAX_SIMPLE_BATCH: 3, COMPLEX_ISOLATE
 ```
 Extract `task_units` array.
 
-### §4.3 Builder-Reviewer Loop
+### §4.2 Builder-Reviewer Loop
 
 ```
 for unit in task_units:
@@ -184,7 +175,7 @@ for unit in task_units:
     else: escalate (AFK: mark blocked; Interactive: prompt)
 ```
 
-### §4.4 Post-Build
+### §4.3 Post-Build
 
 Doc tasks (TD*): build doc_scan_results.json, spawn scribe.
 
@@ -210,7 +201,7 @@ Extract `overall_status`, `ready_for_merge`, `manual_items`.
 
 ### Git Operations (conditional)
 
-If GIT_COMMIT: stage+commit. If GIT_PUSH: push. If GIT_PR: create PR. If GIT_WORKTREE: cleanup.
+If GIT_COMMIT: stage+commit. If GIT_PUSH: push. If GIT_PR: create PR.
 
 ## §6 SUMMARY
 

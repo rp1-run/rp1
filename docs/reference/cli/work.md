@@ -168,4 +168,3 @@ Status updates appear in the web UI Status Dashboard (`/project/:id/status`), pr
 ## Related
 
 - [Status Dashboard](../web-ui.md) - Web UI for viewing status updates
-- [`worktree`](worktree.md) - Git worktree management for isolated agent execution

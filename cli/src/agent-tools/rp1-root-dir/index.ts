@@ -1,8 +1,9 @@
 /**
  * rp1-root-dir tool entry point.
- * Returns the resolved RP1_ROOT path with worktree awareness,
+ * Resolves the RP1_ROOT path using read-only worktree detection,
  * enabling agents to access KB and work artifacts from the main
  * repository when running in a linked git worktree.
+ * This tool does not create, modify, or remove git worktrees.
  */
 
 import { pipe } from "fp-ts/lib/function.js";
@@ -38,7 +39,7 @@ export const execute = (
 registerTool({
 	name: TOOL_NAME,
 	description:
-		"Resolve RP1_ROOT path with worktree awareness for KB and artifact access",
+		"Resolve RP1_ROOT path with read-only worktree detection for KB and artifact access",
 	execute,
 });
 

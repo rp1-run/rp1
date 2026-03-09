@@ -31,16 +31,16 @@
 - **`OpenCodeInstaller`**: Copies namespaced artifacts, stages updates, and supports rollback semantics.
 
 ### Agent Tools Runtime (`cli/src/agent-tools/`)
-**Purpose**: Deterministic runtime tools for workflow status, worktrees, GitHub PR operations, state machines, and other agent-facing primitives.
+**Purpose**: Deterministic runtime tools for workflow status, root resolution, GitHub PR operations, state machines, and other agent-facing primitives.
 **Complexity**: High
 **Key Files**:
 - `cli/src/agent-tools/work/index.ts`
-- `cli/src/agent-tools/worktree/index.ts`
+- `cli/src/agent-tools/rp1-root-dir/index.ts`
 - `cli/src/agent-tools/github-pr/index.ts`
 
 **Representative Components**:
 - **`WorkTool`**: Stores run state and artifacts, then notifies the UI daemon.
-- **`WorktreeTool`**: Creates and inspects isolated git worktrees.
+- **`Rp1RootDirTool`**: Resolves the authoritative `.rp1` directory with read-only worktree detection.
 - **`GitHubPRTool`**: Wraps PR comments, reactions, and review submission in stable commands.
 
 ### Web UI Dashboard (`cli/web-ui/`)

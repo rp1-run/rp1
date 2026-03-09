@@ -31,8 +31,7 @@ interface ToolResult<T> {
 
 | Module | Description |
 |--------|-------------|
-| [`worktree`](cli/worktree.md) | Git worktree management for isolated execution |
-| [`rp1-root-dir`](cli/rp1-root-dir.md) | RP1_ROOT path resolution with worktree awareness |
+| [`rp1-root-dir`](cli/rp1-root-dir.md) | RP1_ROOT path resolution with worktree-aware detection |
 | [`github-pr`](#github-pr) | GitHub PR operations (review, comments, reactions) |
 
 ---
@@ -341,7 +340,6 @@ All tools return errors in a consistent format:
 
 ## See Also
 
-- [worktree Reference](cli/worktree.md) - Git worktree management
 - [rp1-root-dir Reference](cli/rp1-root-dir.md) - Path resolution
 - [PR Review Config](pr-review-config.md) - Configuration options
 - [Remote PR Review Guide](../guides/remote-pr-review.md) - CI setup tutorial

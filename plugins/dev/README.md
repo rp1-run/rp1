@@ -64,7 +64,7 @@ The bootstrap command creates a complete runnable project from scratch:
 **Non-empty directory handling**: When run in a directory with existing files, bootstrap prompts for confirmation and creates the project in a new subdirectory to avoid conflicts.
 
 ### Feature Development (4)
-- `/build feature-id [--afk] [--git-worktree] [--git-commit] [--git-push] [--git-pr]` - Complete 6-step feature development workflow
+- `/build feature-id [--afk] [--git-commit] [--git-push] [--git-pr]` - Complete 6-step feature development workflow
 - `/feature-edit feature-id <edit-description>` - Incorporate mid-stream changes during build
 - `/feature-unarchive feature-id` - Restore archived feature to active features
 - `/validate-hypothesis feature-id` - Validate design assumptions
@@ -80,7 +80,7 @@ The bootstrap command creates a complete runnable project from scratch:
 The `/build` command orchestrates the complete 6-step feature development pipeline:
 1. **Requirements** - Gather and document requirements
 2. **Design** - Create technical design with auto-generated tasks
-3. **Build** - Implement via builder-reviewer architecture in isolated worktree
+3. **Build** - Implement via builder-reviewer architecture
 4. **Verify** - Validate against acceptance criteria
 5. **Archive** - Archive completed feature artifacts
 6. **Follow-up** - Handle documentation updates and remaining tasks
@@ -101,7 +101,7 @@ The `/build` command orchestrates the complete 6-step feature development pipeli
 - `/code-investigate [problem-description...]` - Bug investigation and root cause analysis
 - `/code-audit [feature-id]` - Code quality and pattern analysis
 - `/code-clean-comments` - Remove unnecessary comments
-- `/build-fast [development-request...] [--afk] [--confirm-plan] [--review] [--git-worktree] [--git-commit] [--git-push]` - Quick iteration development with scope gating and optional review
+- `/build-fast [development-request...] [--afk] [--confirm-plan] [--review] [--git-commit] [--git-push]` - Quick iteration development with scope gating and optional review
 
 **Examples**:
 ```bash
@@ -139,55 +139,9 @@ When running in GitHub Actions (or other CI platforms), the command:
 
 See the [Remote PR Review documentation](https://rp1.run/guides/remote-pr-review/) for setup instructions.
 
-## Skills (1)
-
-### worktree-workflow
-
-Isolated git worktree workflow for coding agents. Handles worktree creation, atomic commits, branch publishing, optional PR creation, and cleanup. Use when implementing code changes that need branch isolation.
-
-**Invocation**: Use the Skill tool with `skill: "rp1-dev:worktree-workflow"`
-
-**Parameters**:
-
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `task_slug` | string | Yes | - | 2-4 word slug for branch naming (e.g., `fix-auth-bug`) |
-| `agent_prefix` | string | No | `quick-build` | Branch prefix (e.g., `feature`, `fix`, `refactor`) |
-| `create_pr` | boolean | No | `false` | Whether to create a PR after pushing |
-| `pr_title` | string | No | - | PR title (required if `create_pr=true`) |
-| `pr_body` | string | No | - | PR body content (markdown supported) |
-
-**Usage in Agents**:
-
-```markdown
-# My Coding Agent
-
-When implementing changes that need branch isolation:
-
-1. Use the Skill tool with `skill: "rp1-dev:worktree-workflow"`
-2. Provide task_slug matching the work being done
-3. The skill handles:
-   - Worktree creation and verification
-   - Atomic commits with conventional format
-   - Commit ownership validation
-   - Branch publishing and optional PR creation
-   - Cleanup with dirty state handling
-```
-
-**Workflow Phases**:
-1. **Setup**: Create worktree, verify git state
-2. **Implementation**: Make changes with atomic commits
-3. **Publish**: Validate commits, push branch, optionally create PR
-4. **Cleanup**: Handle dirty state, remove worktree
-
 ## Builder-Reviewer Architecture (v4.0)
 
-The build step of `/build` uses a **builder-reviewer architecture** with **worktree isolation** for improved accuracy and reliability:
-
-**Workflow Sequence** (worktree mode):
-1. **Setup**: Create isolated worktree with feature branch
-2. **Build**: Builder-reviewer loop implements tasks in worktree
-3. **Finalize**: Validate commits, optionally push/create PR, cleanup worktree
+The build step of `/build` uses a **builder-reviewer architecture** for improved accuracy and reliability:
 
 **Architecture**:
 1. **Minimal Orchestrator**: Coordinates task flow without loading KB or codebase context
@@ -201,7 +155,6 @@ The build step of `/build` uses a **builder-reviewer architecture** with **workt
 - **Complexity Tags**: Tasks can be tagged `[complexity:simple|medium|complex]` for grouping
 
 **Git Operations** (all opt-in):
-- `--git-worktree`: Run in isolated worktree (default: disabled)
 - `--git-commit`: Commit changes atomically with conventional format (default: disabled)
 - `--git-push`: Push branch to remote (default: disabled)
 - `--git-pr`: Create PR (implies --git-push, --git-commit)

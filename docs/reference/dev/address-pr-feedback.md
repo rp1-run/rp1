@@ -116,16 +116,14 @@ Displays summary for review:
 In interactive mode, you can review before proceeding.
 In `--afk` mode, auto-proceeds to fix phase.
 
-### Phase 3: Fix (Worktree Isolated)
+### Phase 3: Fix
 
-Creates an isolated worktree on the PR branch for making changes:
+Addresses comments in the current working directory on the PR branch:
 
-1. Sets up worktree with same branch as PR
-2. Installs dependencies
-3. Processes comments in priority order (blocking → important → suggestions → style)
-4. Commits each fix with conventional commit format
-5. Runs quality checks (lint, typecheck, tests)
-6. Leaves worktree intact for user review
+1. Checks out the PR branch
+2. Processes comments in priority order (blocking -> important -> suggestions -> style)
+3. Commits each fix with conventional commit format
+4. Runs quality checks (lint, typecheck, tests)
 
 For each comment:
 
@@ -135,11 +133,11 @@ For each comment:
 - Updates feedback document with resolution status
 - Runs tests to verify
 
-**Important**: Changes are NOT pushed automatically. The worktree is preserved so you can review before pushing.
+**Important**: Changes are NOT pushed automatically. Review the commits before pushing.
 
 ### Phase 4: Report
 
-Generates consolidated summary with worktree navigation instructions:
+Generates a consolidated summary:
 
 ```markdown
 ## PR Feedback Resolution Summary
@@ -148,23 +146,20 @@ Generates consolidated summary with worktree navigation instructions:
 **Branch**: feature/my-feature
 
 ### Resolution Summary
-- 🚨 Blocking: 1/1
-- ⚠️ Important: 2/2
-- 💡 Suggestions: 3/3
-- 🎨 Style: 2/2
+- Blocking: 1/1
+- Important: 2/2
+- Suggestions: 3/3
+- Style: 2/2
 
 ### Commits Made
-5 commit(s) in worktree
+5 commit(s):
+- abc1234 - fix(feedback): move JWT secret to env var
+- def5678 - fix(feedback): add token expiration check
 
-## 📂 Review Your Changes
-
-**Worktree Location**: /path/to/worktree
+## Review Your Changes
 
 **To push** (after review):
-cd /path/to/worktree && git push origin feature/my-feature
-
-**To discard**:
-rp1 agent-tools worktree cleanup /path/to/worktree
+git push origin feature/my-feature
 ```
 
 ## Related Commands

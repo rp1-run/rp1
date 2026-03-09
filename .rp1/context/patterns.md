@@ -63,10 +63,10 @@ Evidence: `cli/src/agent-tools/work/database.ts`, `cli/src/agent-tools/github-pr
 ## Concurrency & Async
 
 **Async Usage**: Async work is wrapped in `TaskEither` pipelines at the boundary.
-**Parallelism**: Map-reduce fan-out and isolated git worktrees are the main concurrency patterns.
+**Parallelism**: Map-reduce fan-out is the main concurrency pattern.
 **Safety**: Isolation, explicit reduction, and state-machine enforcement are preferred over shared-state coordination.
 
-Evidence: `plugins/base/skills/knowledge-build/SKILL.md`, `plugins/dev/skills/pr-review/SKILL.md`, `cli/src/agent-tools/worktree/`, `cli/src/install/installer.ts`
+Evidence: `plugins/base/skills/knowledge-build/SKILL.md`, `plugins/dev/skills/pr-review/SKILL.md`, `cli/src/install/installer.ts`
 
 ## Dependency & Configuration
 
@@ -81,4 +81,4 @@ Evidence: `cli/src/commands/build.ts`, `cli/src/commands/init.ts`, `cli/src/inst
 **Plugin Pattern**: `base`, `dev`, and `utils` plugins are the main extension boundary.
 **Hook System**: Tool self-registration plus install/build pipelines provide the dominant extension hooks.
 
-Evidence: `plugins/base/`, `plugins/dev/`, `plugins/utils/`, `cli/src/agent-tools/work/index.ts`, `cli/src/agent-tools/worktree/index.ts`, `cli/src/agent-tools/github-pr/index.ts`
+Evidence: `plugins/base/`, `plugins/dev/`, `plugins/utils/`, `cli/src/agent-tools/work/index.ts`, `cli/src/agent-tools/rp1-root-dir/index.ts`, `cli/src/agent-tools/github-pr/index.ts`

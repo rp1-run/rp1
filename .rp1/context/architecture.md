@@ -101,10 +101,10 @@ flowchart TB
 - `docs/concepts/state-machines.md`
 
 ### Runtime Services Layer
-**Purpose**: Provide deterministic tooling for workflow tracking, worktree management, and platform integrations.
+**Purpose**: Provide deterministic tooling for workflow tracking, root resolution, and platform integrations.
 **Key Components**:
 - `cli/src/agent-tools/work/`
-- `cli/src/agent-tools/worktree/`
+- `cli/src/agent-tools/rp1-root-dir/`
 - `cli/src/agent-tools/github-pr/`
 - `cli/src/agent-tools/state-machine/`
 

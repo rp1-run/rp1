@@ -173,7 +173,7 @@ When to use `--afk` mode:
 - When you trust the AI to make reasonable decisions
 
 !!! note "Your code is safe"
-    Even in AFK mode, all changes are isolated to a separate branch. Nothing is merged until you review and approve. See [Parallel Development](parallel-development.md) for details.
+    Even in AFK mode, all changes are isolated to a separate branch. Nothing is merged until you review and approve.
 
 **Resumption scenarios:**
 

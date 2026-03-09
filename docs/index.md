@@ -183,16 +183,6 @@ Understand what is being created, how it's being created, and why. Full transpar
 
 </div>
 
-<div markdown>
-
-:fontawesome-solid-code-branch: **Parallelize work with git worktrees**
-
-Run multiple features simultaneously in isolated worktrees. No branch switching, no stashing — each task gets its own clean working directory.
-
-[Learn about parallel worktrees :material-arrow-right:](concepts/parallel-worktrees.md)
-
-</div>
-
 </div>
 
 ---

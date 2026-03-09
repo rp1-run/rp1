@@ -11,7 +11,7 @@ metadata:
   created: 2026-01-01
   updated: 2026-02-26
   author: cloud-on-prem/rp1
-  argument-hint: "[development-request...] [--afk] [--confirm-plan] [--review] [--git-worktree] [--git-commit] [--git-push]"
+  argument-hint: "[development-request...] [--afk] [--confirm-plan] [--review] [--git-commit] [--git-push]"
   sub_agents:
     - "rp1-dev:build-fast-planner"
     - "rp1-dev:task-builder"
@@ -32,7 +32,6 @@ Extract these parameters from the user's input:
 | `AFK` | No | `false` | Non-interactive mode. Set `true` if user says "afk", "no prompts", or "unattended" |
 | `CONFIRM_PLAN` | No | `false` | Enable plan review checkpoint and post-implementation review. Set `true` if user says "confirm", "review plan", or "confirm-plan" |
 | `REVIEW` | No | `false` | Enable task-reviewer validation after implementation. Set `true` if user says "review", "verify", or "check" |
-| `GIT_WORKTREE` | No | `false` | Use isolated git worktree. Set `true` if user says "worktree" or "isolated" |
 | `GIT_COMMIT` | No | `false` | Commit changes. Set `true` if user says "commit" |
 | `GIT_PUSH` | No | `false` | Push branch to remote. Set `true` if user says "push" |
 
@@ -148,20 +147,7 @@ AskUserQuestion: |
 
 **CRITICAL**: You are an orchestrator. You MUST delegate implementation to `task-builder` via the Task tool. Do NOT write, edit, or create source code files yourself. Do NOT implement the plan directly. Your only job is to spawn agents and parse their responses.
 
-### §2.1 Worktree Setup
-
-**Skip if**: `GIT_WORKTREE=false`
-
-Generate **task_slug** from DEVELOPMENT_REQUEST (2-4 word kebab-case).
-
-```bash
-original_cwd=$(pwd)
-rp1 agent-tools worktree create {task_slug} --prefix quick-build
-```
-
-Parse JSON: `path` (worktree_path), `branch`, `basedOn`. Store with `original_cwd`.
-
-### §2.2 Task Execution
+### §2.1 Task Execution
 
 **You MUST spawn task-builder here.** Do not implement the tasks yourself.
 
@@ -170,7 +156,6 @@ Task: rp1-dev:task-builder
 prompt: |
   QUICK_BUILD_PATH={artifact_path}
   TASK_IDS={task_ids}
-  WORKTREE_PATH={worktree_path}
   GIT_COMMIT={GIT_COMMIT}
   RP1_ROOT={{$RP1_ROOT}}
   WORKFLOW=build-fast
@@ -192,7 +177,6 @@ Task: rp1-dev:task-reviewer
 prompt: |
   QUICK_BUILD_PATH={artifact_path}
   TASK_IDS={task_ids}
-  WORKTREE_PATH={worktree_path}
   GIT_COMMIT={GIT_COMMIT}
   RP1_ROOT={{$RP1_ROOT}}
   WORKFLOW=build-fast
@@ -213,7 +197,6 @@ Task: rp1-dev:task-builder
 prompt: |
   QUICK_BUILD_PATH={artifact_path}
   TASK_IDS={task_ids}
-  WORKTREE_PATH={worktree_path}
   GIT_COMMIT={GIT_COMMIT}
   RP1_ROOT={{$RP1_ROOT}}
   PREVIOUS_FEEDBACK={reviewer summary and issues}
@@ -227,23 +210,13 @@ prompt: |
 
 ### §4.1 Push (Conditional)
 
-**Skip if**: `GIT_PUSH=false` OR `GIT_WORKTREE=false`
+**Skip if**: `GIT_PUSH=false`
 
 ```bash
-cd {worktree_path}
 git push -u origin {branch}
 ```
 
-### §4.2 Worktree Cleanup
-
-**Skip if**: `GIT_WORKTREE=false`
-
-```bash
-cd {original_cwd}
-rp1 agent-tools worktree cleanup {worktree_path} --keep-branch
-```
-
-### §4.3 Post-Implementation Checkpoint
+### §4.2 Post-Implementation Checkpoint
 
 **SKIP ENTIRELY if**: `AFK=true` OR `CONFIRM_PLAN=false`
 
@@ -254,7 +227,6 @@ AskUserQuestion: |
   ## Implementation Complete
 
   **Branch**: {branch}
-  **Worktree**: {worktree_path} (or "current directory" if no worktree)
   **Artifact**: {artifact_path}
 
   Review the changes, then:
