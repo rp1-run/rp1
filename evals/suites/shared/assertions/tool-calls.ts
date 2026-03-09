@@ -764,3 +764,56 @@ export const assertBuildProhibited = assertNoProhibitedCommands([
 	{ pattern: /\bgit\s+rebase\b/, label: "git rebase" },
 	{ pattern: /\bgit\s+init\b/, label: "git init" },
 ]);
+
+/** Assert a general sub-agent was spawned (not a named rp1-dev agent like build-fast-planner or task-builder). */
+export const assertGeneralSubagentSpawned: AssertionFunction = (
+	_output,
+	context,
+) => {
+	const tcs = getToolCalls(context);
+	const subagentNames = ["Task", "task", "Agent", "agent"];
+	const subagentCalls = tcs.filter((tc) => subagentNames.includes(tc.name));
+	if (subagentCalls.length === 0) {
+		return { pass: false, score: 0, reason: "No sub-agent spawned" };
+	}
+	const usesNamedAgent = subagentCalls.some((tc) => {
+		const input = JSON.stringify(tc.input);
+		return (
+			input.includes("build-fast-planner") || input.includes("task-builder")
+		);
+	});
+	if (usesNamedAgent) {
+		return {
+			pass: false,
+			score: 0,
+			reason: "Used named build-fast agents instead of general sub-agent",
+		};
+	}
+	return { pass: true, score: 1, reason: "General sub-agent spawned correctly" };
+};
+
+/** Assert no sub-agent was spawned for implementation (scope redirect case). */
+export const assertNoImplSubagentSpawned: AssertionFunction = (
+	_output,
+	context,
+) => {
+	const tcs = getToolCalls(context);
+	const subagentNames = ["Task", "task", "Agent", "agent"];
+	const implAgents = tcs.filter((tc) => {
+		if (!subagentNames.includes(tc.name)) return false;
+		const input = JSON.stringify(tc.input);
+		return input.toLowerCase().includes("implement");
+	});
+	if (implAgents.length > 0) {
+		return {
+			pass: false,
+			score: 0,
+			reason: "Sub-agent spawned for implementation despite medium/large scope",
+		};
+	}
+	return {
+		pass: true,
+		score: 1,
+		reason: "No implementation sub-agent spawned for medium/large request",
+	};
+};
