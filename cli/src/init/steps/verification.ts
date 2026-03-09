@@ -457,15 +457,23 @@ export function getCodexSkillsDir(home: string = homedir()): string {
 }
 
 /**
- * Verify Codex CLI plugin installation.
- * Checks for the existence of ~/.agents/skills/ and lists any rp1 skill directories found.
+ * Get the Codex config.toml path.
  *
- * NOTE: This is a stub -- full Codex plugin installation is an open item for M2.3.
- * Currently returns an informational result so the init flow continues cleanly.
+ * @param home - Home directory (defaults to os.homedir())
+ * @returns Path to Codex config.toml
+ */
+export function getCodexConfigFile(home: string = homedir()): string {
+	return join(home, ".codex", "config.toml");
+}
+
+/**
+ * Verify Codex CLI plugin installation.
+ * Checks for rp1 skill directories under ~/.agents/skills/ and confirms
+ * rp1-managed config was merged into ~/.codex/config.toml.
  *
  * @param home - Home directory (for testing, defaults to os.homedir())
  * @param callbacks - Optional callbacks for reporting progress to UI
- * @returns VerificationResult with informational status
+ * @returns VerificationResult with plugin-style statuses and any issues found
  */
 export async function verifyCodexPlugins(
 	home?: string,
@@ -477,21 +485,22 @@ export async function verifyCodexPlugins(
 	callbacks?.onActivity("Checking Codex CLI skills directory", "info");
 
 	const skillsDir = getCodexSkillsDir(home);
+	const configFile = getCodexConfigFile(home);
+	let hasBaseSkills = false;
+	let hasDevSkills = false;
 
 	try {
 		const dirStat = await stat(skillsDir);
 		if (dirStat.isDirectory()) {
 			const entries = await readdir(skillsDir);
 			const rp1Dirs = entries.filter((e) => e.startsWith("rp1-"));
-
-			for (const dir of rp1Dirs) {
-				plugins.push({
-					name: dir,
-					installed: true,
-					version: "unknown",
-					location: join(skillsDir, dir),
-				});
-			}
+			hasBaseSkills = rp1Dirs.some((entry) =>
+				entry.startsWith("rp1-knowledge-"),
+			);
+			hasDevSkills = rp1Dirs.some(
+				(entry) =>
+					entry.startsWith("rp1-build") || entry.startsWith("rp1-code-"),
+			);
 
 			if (rp1Dirs.length > 0) {
 				callbacks?.onActivity(
@@ -506,17 +515,61 @@ export async function verifyCodexPlugins(
 		callbacks?.onActivity("Codex agents skills directory not found", "warning");
 	}
 
-	// M2.3 open item: full Codex plugin installation and verification
-	issues.push(
-		"Codex plugin installation not yet available -- coming in a future release",
-	);
-	callbacks?.onActivity(
-		"Codex plugin installation not yet available -- coming in a future release",
-		"info",
-	);
+	if (!hasBaseSkills) {
+		issues.push("Codex base skills not found in ~/.agents/skills");
+	}
+
+	if (!hasDevSkills) {
+		issues.push("Codex dev skills not found in ~/.agents/skills");
+	}
+
+	let configInstalled = false;
+	try {
+		const configContent = await readFile(configFile, "utf-8");
+		configInstalled =
+			configContent.includes("# rp1:start") &&
+			configContent.includes("# rp1:end");
+	} catch {
+		issues.push("Codex config.toml not found");
+	}
+
+	if (!configInstalled) {
+		issues.push("Codex config.toml is missing the rp1 managed section");
+		callbacks?.onActivity(
+			"Codex config.toml is missing the rp1 managed section",
+			"warning",
+		);
+	}
+
+	plugins.push({
+		name: "rp1-base",
+		installed: hasBaseSkills,
+		version: "unknown",
+		location: hasBaseSkills ? skillsDir : null,
+	});
+	plugins.push({
+		name: "rp1-dev",
+		installed: hasDevSkills,
+		version: "unknown",
+		location: hasDevSkills ? skillsDir : null,
+	});
+
+	const verified = hasBaseSkills && hasDevSkills && configInstalled;
+
+	if (verified) {
+		callbacks?.onActivity("Codex plugins verified", "success");
+	} else {
+		const missingCount = plugins.filter((p) => !p.installed).length;
+		callbacks?.onActivity(
+			missingCount > 0
+				? `${missingCount} Codex plugin group(s) not found`
+				: "Codex config verification failed",
+			"warning",
+		);
+	}
 
 	return {
-		verified: false,
+		verified,
 		plugins,
 		issues,
 	};

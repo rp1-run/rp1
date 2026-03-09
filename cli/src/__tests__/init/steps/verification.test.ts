@@ -6,7 +6,10 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { verifyClaudeCodePlugins } from "../../../init/steps/verification.js";
+import {
+	verifyClaudeCodePlugins,
+	verifyCodexPlugins,
+} from "../../../init/steps/verification.js";
 import { getClaudePluginDirs } from "../../../shared/paths.js";
 import { cleanupTempDir, createTempDir } from "../../helpers/index.js";
 
@@ -278,6 +281,81 @@ describe("verification step", () => {
 			expect(Array.isArray(result.plugins)).toBe(true);
 			expect(Array.isArray(result.issues)).toBe(true);
 			expect(result.verified).toBe(true);
+		});
+	});
+
+	describe("verifyCodexPlugins", () => {
+		test("passes when base skills, dev skills, and fenced config exist", async () => {
+			const skillsDir = join(tempDir, ".agents", "skills");
+			const configDir = join(tempDir, ".codex");
+
+			await mkdir(join(skillsDir, "rp1-knowledge-build"), { recursive: true });
+			await mkdir(join(skillsDir, "rp1-build-fast"), { recursive: true });
+			await mkdir(configDir, { recursive: true });
+			await writeFile(
+				join(configDir, "config.toml"),
+				[
+					'model = "gpt-5"',
+					"# rp1:start",
+					"# rp1 managed section",
+					"# rp1:end",
+					"",
+				].join("\n"),
+			);
+
+			const result = await verifyCodexPlugins(tempDir);
+
+			expect(result.verified).toBe(true);
+			expect(result.issues).toHaveLength(0);
+			expect(result.plugins).toHaveLength(2);
+			expect(result.plugins.find((p) => p.name === "rp1-base")?.installed).toBe(
+				true,
+			);
+			expect(result.plugins.find((p) => p.name === "rp1-dev")?.installed).toBe(
+				true,
+			);
+		});
+
+		test("fails when config exists but rp1 fenced section is missing", async () => {
+			const skillsDir = join(tempDir, ".agents", "skills");
+			const configDir = join(tempDir, ".codex");
+
+			await mkdir(join(skillsDir, "rp1-knowledge-build"), { recursive: true });
+			await mkdir(join(skillsDir, "rp1-build-fast"), { recursive: true });
+			await mkdir(configDir, { recursive: true });
+			await writeFile(join(configDir, "config.toml"), 'model = "gpt-5"\n');
+
+			const result = await verifyCodexPlugins(tempDir);
+
+			expect(result.verified).toBe(false);
+			expect(result.issues).toContain(
+				"Codex config.toml is missing the rp1 managed section",
+			);
+		});
+
+		test("fails when only one plugin group of skills is present", async () => {
+			const skillsDir = join(tempDir, ".agents", "skills");
+			const configDir = join(tempDir, ".codex");
+
+			await mkdir(join(skillsDir, "rp1-knowledge-build"), { recursive: true });
+			await mkdir(configDir, { recursive: true });
+			await writeFile(
+				join(configDir, "config.toml"),
+				"# rp1:start\n# rp1 managed section\n# rp1:end\n",
+			);
+
+			const result = await verifyCodexPlugins(tempDir);
+
+			expect(result.verified).toBe(false);
+			expect(result.plugins.find((p) => p.name === "rp1-base")?.installed).toBe(
+				true,
+			);
+			expect(result.plugins.find((p) => p.name === "rp1-dev")?.installed).toBe(
+				false,
+			);
+			expect(result.issues).toContain(
+				"Codex dev skills not found in ~/.agents/skills",
+			);
 		});
 	});
 });
