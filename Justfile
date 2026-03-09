@@ -17,7 +17,7 @@ build-opencode:
 
 # Build the Claude Code plugins
 build-claude-code:
-    cd cli && bun run build:opencode -- --platform claude-code
+    cd cli && bun run scripts/build-claude-code.ts
 
 # Build the web-ui
 build-web-ui:
