@@ -814,7 +814,8 @@ export const buildCCPlugin = async (
 		}
 		const processedContent = preprocessResult.right;
 
-		const namespacedSkillDir = `rp1-${pluginName}-${ccSkill.name}`;
+		// CC: no prefix — Claude Code already namespaces with the plugin name
+		const skillDirName = ccSkill.name;
 
 		const ctx = buildTemplateContext(
 			platform,
@@ -823,7 +824,7 @@ export const buildCCPlugin = async (
 			{
 				type: "skill",
 				name: ccSkill.name,
-				namespacedName: namespacedSkillDir,
+				namespacedName: skillDirName,
 				description: ccSkill.description,
 				allowedTools: ccSkill.allowedTools,
 				content: processedContent,
@@ -841,7 +842,7 @@ export const buildCCPlugin = async (
 			continue;
 		}
 
-		const skillOutputDir = join(pluginOutputDir, "skills", namespacedSkillDir);
+		const skillOutputDir = join(pluginOutputDir, "skills", skillDirName);
 		await mkdir(skillOutputDir, { recursive: true });
 		await writeFile(join(skillOutputDir, "SKILL.md"), renderResult.right);
 
@@ -851,7 +852,7 @@ export const buildCCPlugin = async (
 			ccSkill.supportingFiles,
 		);
 
-		skillNames.push(namespacedSkillDir);
+		skillNames.push(skillDirName);
 		skillCount++;
 	}
 
