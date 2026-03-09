@@ -376,9 +376,12 @@ export const installCodex = (
 									const diff = generateConfigDiff(existingContent, newContent);
 
 									spinner.stop();
-									console.log("\nConfig changes to apply:\n");
-									console.log(diff);
-									console.log("");
+
+									if (!config.yes) {
+										console.log("\nConfig changes to apply:\n");
+										console.log(diff);
+										console.log("");
+									}
 
 									return TE.tryCatch(
 										async () => {
