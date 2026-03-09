@@ -155,12 +155,9 @@ export const generatePerAgentToml = (
 	{ readonly filename: string; readonly content: string }
 > => {
 	try {
-		const escapedModel = agent.model
-			.replace(/\\/g, "\\\\")
-			.replace(/"/g, '\\"');
-
+		// Omit model field — Codex inherits the model from the parent session.
+		// Writing model = "inherit" causes runtime errors in ChatGPT-backed environments.
 		const content = [
-			`model = "${escapedModel}"`,
 			`developer_instructions = """\n${agent.developerInstructions}\n"""`,
 			"",
 		].join("\n");

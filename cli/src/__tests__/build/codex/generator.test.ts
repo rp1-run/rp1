@@ -208,7 +208,7 @@ describe("generateAgentConfigEntries", () => {
 });
 
 describe("generatePerAgentToml", () => {
-	test("produces model and multiline developer_instructions with triple-quote syntax", () => {
+	test("produces multiline developer_instructions without model field", () => {
 		const agent = createTestCodexAgent({
 			name: "task-builder",
 			model: "inherit",
@@ -218,7 +218,7 @@ describe("generatePerAgentToml", () => {
 		const result = expectRight(generatePerAgentToml(agent));
 
 		expect(result.filename).toBe("task-builder.toml");
-		expect(result.content).toContain('model = "inherit"');
+		expect(result.content).not.toContain("model =");
 		expect(result.content).toContain('developer_instructions = """');
 		expect(result.content).toContain("You are a test agent.");
 		expect(result.content).toContain('"""');
