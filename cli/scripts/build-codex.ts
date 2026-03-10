@@ -2,15 +2,13 @@
 
 /**
  * Standalone script to build Codex artifacts.
- * Runs the full build pipeline which produces both OpenCode and Codex output,
- * with Codex artifacts written to dist/codex/ (derived from OpenCode output dir).
+ * This is the internal build script used by CI and contributors.
  *
  * Usage:
  *   bun run scripts/build-codex.ts [options]
  *
  * Options:
- *   -o, --output-dir <dir>   OpenCode output directory (default: dist/opencode/)
- *                             Codex output is derived as sibling (dist/codex/)
+ *   -o, --output-dir <dir>   Output directory (default: dist/codex/)
  *   -p, --plugin <name>      Build specific plugin (base, dev, or all)
  *   --json                   Output results as JSON for CI/CD
  *   -h, --help               Show this help message

@@ -13,11 +13,15 @@ build: build-local-dev
 
 # Build the OpenCode plugins
 build-opencode:
-    cd cli && bun run build:opencode
+    cd cli && bun run scripts/build-opencode.ts
 
 # Build the Claude Code plugins
 build-claude-code:
     cd cli && bun run scripts/build-claude-code.ts
+
+# Build the Codex plugins
+build-codex:
+    cd cli && bun run scripts/build-codex.ts
 
 # Build the web-ui
 build-web-ui:
@@ -28,7 +32,7 @@ clean-web-ui-cache:
     rm -rf ~/.rp1/web-ui/
 
 # Build the local binary with -dev version suffix
-build-local-dev: build-opencode build-web-ui clean-web-ui-cache
+build-local-dev: build-opencode build-codex build-web-ui clean-web-ui-cache
     cd cli && bun run generate:assets && bun build ./src/main.ts --compile --outfile ../bin/rp1 --define __RP1_DEV_BUILD__=true
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -67,7 +71,7 @@ check-cli:
 
 # Type check web-ui
 check-web-ui:
-    cd cli/web-ui && npx tsc --noEmit
+    cd cli/web-ui && bunx tsc --noEmit
 
 # Lint and type check evals
 check-evals:
@@ -88,8 +92,8 @@ fix-evals:
 # Local Installation
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Full local install: build + remove stable + install to both platforms
-install: build rm-stable install-claude install-opencode
+# Full local install: build + remove stable + install to all platforms
+install: build rm-stable install-claude install-opencode install-codex
 
 # Run local binary with args
 run *args: build
@@ -124,12 +128,20 @@ install-opencode:
     @echo ""
     @./bin/rp1 install opencode
 
-# Remove stable rp1 from both platforms (only rp1-namespaced, preserves user files)
+# Install to Codex
+install-codex:
+    @echo ""
+    @echo "━━━ Codex ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    @echo ""
+    @./bin/rp1 install codex
+
+# Remove stable rp1 from all platforms (only rp1-namespaced, preserves user files)
 rm-stable:
     rm -rf ~/.config/opencode/plugin/rp1*
     rm -rf ~/.config/opencode/agents/rp1*
     rm -rf ~/.config/opencode/skills/rp1-*/
     -claude plugin marketplace rm rp1-run 2>/dev/null
+    rm -rf ~/.agents/skills/rp1-*/
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Web-UI Development
@@ -207,8 +219,9 @@ setup-evals:
 #   just run-evals rp1-dev/build-fast       # run specific suite
 #   just run-evals --harness=opencode       # run all with opencode
 #   just run-evals --attest --commit        # run all, attest passing, commit
+#   just run-evals --platform=opencode      # attest for opencode platform
 
-# Run eval suites. Optional: suite path, --harness=opencode, --attest, --commit, --verbose
+# Run eval suites. Optional: suite path, --harness=opencode, --platform=<platform>, --attest, --commit, --verbose
 run-evals *args:
     #!/usr/bin/env bash
     set -e
@@ -219,12 +232,14 @@ run-evals *args:
     # Parse flags
     suite=""
     harness="claude"
+    platform="claude-code"
     attest=false
     do_commit=false
     verbose_flag=""
     for arg in {{args}}; do
         case "$arg" in
             --harness=*) harness="${arg#--harness=}" ;;
+            --platform=*) platform="${arg#--platform=}" ;;
             --attest) attest=true ;;
             --commit) do_commit=true ;;
             --verbose) verbose_flag="--verbose" ;;
@@ -273,7 +288,7 @@ run-evals *args:
         echo "=== Attesting passing suites ==="
         for output in $passed_suites; do
             echo "Attesting: $output"
-            bun run evals/src/attestation/cli.ts attest-from-output "evals/${output}" || echo "Attestation failed for ${output}"
+            bun run evals/src/attestation/cli.ts attest-from-output "evals/${output}" --platform="${platform}" || echo "Attestation failed for ${output}"
         done
     fi
 

@@ -1,6 +1,7 @@
 /**
  * Core command logic for eval attestation system.
  * Provides attest, verify, and status operations for tracking prompt changes.
+ * All paths resolve from cli/dist/{platform}/ built artifacts.
  */
 
 import path from "node:path";
@@ -13,6 +14,7 @@ import { loadManifest, saveManifest, updateManifest } from "./manifest.js";
 import { computeDepsHash, computePromptHash } from "./prompt-hash.js";
 import type {
 	DependencyGraph,
+	EvalPlatform,
 	HashResult,
 	SkillAttestation,
 	VerificationResult,
@@ -45,6 +47,14 @@ interface PromptfooOutput {
  */
 function suiteToSkillKey(suite: string): string {
 	return suite.replace("/", ":");
+}
+
+/**
+ * Build a platform-qualified manifest key for a skill.
+ * e.g., ("rp1-dev:build-fast", "claude-code") -> "rp1-dev:build-fast@claude-code"
+ */
+function skillManifestKey(skillKey: string, platform: EvalPlatform): string {
+	return `${skillKey}@${platform}`;
 }
 
 /**
@@ -100,13 +110,17 @@ export function detectPassRate(output: PromptfooOutput): boolean {
 }
 
 /**
- * Map suite path to skill file path (relative to repo root).
- * e.g., "rp1-dev/build-fast" -> "plugins/dev/skills/build-fast/SKILL.md"
+ * Map suite path to skill file path in built dist directory.
+ * e.g., ("rp1-dev/build-fast", "claude-code") -> "cli/dist/claude-code/dev/skills/build-fast/SKILL.md"
+ * e.g., ("rp1-dev/build-fast", "opencode") -> "cli/dist/opencode/dev/skills/rp1-build-fast/SKILL.md"
  */
-function suiteToSkillPath(suite: string): string {
+function suiteToSkillPath(suite: string, platform: EvalPlatform): string {
 	const [plugin, skill] = suite.split("/");
 	const pluginDir = plugin.replace("rp1-", "");
-	return `plugins/${pluginDir}/skills/${skill}/SKILL.md`;
+	if (platform === "claude-code") {
+		return `cli/dist/${platform}/${pluginDir}/skills/${skill}/SKILL.md`;
+	}
+	return `cli/dist/${platform}/${pluginDir}/skills/rp1-${skill}/SKILL.md`;
 }
 
 /**
@@ -196,15 +210,18 @@ function computeAllHashes(
  * Uses a fixed output filename per suite (overwrites on each run).
  *
  * @param suite - Suite path (e.g., "rp1-dev/build-fast")
+ * @param platform - Target eval platform (default: "claude-code")
  * @param concurrency - Max concurrent API calls (default: 1)
  * @returns TaskEither with result indicating whether attestation was updated
  */
 export function attestCommand(
 	suite: string,
+	platform: EvalPlatform = "claude-code",
 	concurrency = 1,
 ): TE.TaskEither<Error, { updated: boolean; message: string }> {
 	const skillKey = suiteToSkillKey(suite);
-	const skillPath = suiteToSkillPath(suite);
+	const manifestKey = skillManifestKey(skillKey, platform);
+	const skillPath = suiteToSkillPath(suite, platform);
 	const timestamp = new Date().toISOString();
 	// Fixed filename per suite (no timestamp accumulation)
 	const resultFile = `output/${suite.replace("/", "-")}.json`;
@@ -231,7 +248,7 @@ export function attestCommand(
 				return pipe(
 					TE.Do,
 					TE.bind("manifest", () => loadManifest()),
-					TE.bind("graph", () => buildDependencyGraph(skillPath)),
+					TE.bind("graph", () => buildDependencyGraph(skillPath, platform)),
 					TE.bind("hashes", ({ graph }) => computeAllHashes(graph)),
 					TE.bind("version", () =>
 						TE.tryCatch(
@@ -247,6 +264,7 @@ export function attestCommand(
 					),
 					TE.chain(({ manifest, hashes, version, gitCommit }) => {
 						const attestation: SkillAttestation = {
+							platform,
 							prompt_hash: hashes.find((h) => h.path === skillPath)?.hash || "",
 							deps_hash: computeDepsHash(hashes),
 							version,
@@ -260,7 +278,7 @@ export function attestCommand(
 
 						const updatedManifest = updateManifest(
 							manifest,
-							skillKey,
+							manifestKey,
 							attestation,
 							hashes,
 						);
@@ -268,7 +286,7 @@ export function attestCommand(
 							saveManifest(updatedManifest),
 							TE.map(() => ({
 								updated: true as boolean,
-								message: `Attestation updated for ${skillKey}`,
+								message: `Attestation updated for ${manifestKey}`,
 							})),
 						);
 					}),
@@ -284,10 +302,12 @@ export function attestCommand(
  * Only updates attestation if 100% pass rate detected.
  *
  * @param outputPath - Path to promptfoo output JSON file
+ * @param platform - Target eval platform (default: "claude-code")
  * @returns TaskEither with result indicating whether attestation was updated
  */
 export function attestFromOutput(
 	outputPath: string,
+	platform: EvalPlatform = "claude-code",
 ): TE.TaskEither<Error, { updated: boolean; message: string }> {
 	// Normalize result_file to be consistent with attestCommand format (relative to evals/)
 	const normalizedResultFile = outputPath.startsWith("evals/")
@@ -312,7 +332,8 @@ export function attestFromOutput(
 			const passed = detectPassRate(output);
 			const suite = extractSuiteFromFilename(outputPath);
 			const skillKey = suiteToSkillKey(suite);
-			const skillPath = suiteToSkillPath(suite);
+			const manifestKey = skillManifestKey(skillKey, platform);
+			const skillPath = suiteToSkillPath(suite, platform);
 			const timestamp = output.results.timestamp;
 
 			if (!passed) {
@@ -325,7 +346,7 @@ export function attestFromOutput(
 			return pipe(
 				TE.Do,
 				TE.bind("manifest", () => loadManifest()),
-				TE.bind("graph", () => buildDependencyGraph(skillPath)),
+				TE.bind("graph", () => buildDependencyGraph(skillPath, platform)),
 				TE.bind("hashes", ({ graph }) => computeAllHashes(graph)),
 				TE.bind("version", () =>
 					TE.tryCatch(
@@ -341,6 +362,7 @@ export function attestFromOutput(
 				),
 				TE.chain(({ manifest, hashes, version, gitCommit }) => {
 					const attestation: SkillAttestation = {
+						platform,
 						prompt_hash: hashes.find((h) => h.path === skillPath)?.hash || "",
 						deps_hash: computeDepsHash(hashes),
 						version,
@@ -354,7 +376,7 @@ export function attestFromOutput(
 
 					const updatedManifest = updateManifest(
 						manifest,
-						skillKey,
+						manifestKey,
 						attestation,
 						hashes,
 					);
@@ -362,7 +384,7 @@ export function attestFromOutput(
 						saveManifest(updatedManifest),
 						TE.map(() => ({
 							updated: true as boolean,
-							message: `Attestation updated for ${skillKey}`,
+							message: `Attestation updated for ${manifestKey}`,
 						})),
 					);
 				}),
@@ -372,24 +394,52 @@ export function attestFromOutput(
 }
 
 /**
+ * Extract platform from a manifest key.
+ * e.g., "rp1-dev:build-fast@claude-code" -> "claude-code"
+ * Falls back to "claude-code" for legacy keys without platform suffix.
+ */
+function extractPlatformFromKey(key: string): EvalPlatform {
+	const atIdx = key.lastIndexOf("@");
+	if (atIdx !== -1) {
+		return key.slice(atIdx + 1) as EvalPlatform;
+	}
+	return "claude-code";
+}
+
+/**
+ * Extract skill key from a manifest key (strip platform suffix).
+ * e.g., "rp1-dev:build-fast@claude-code" -> "rp1-dev:build-fast"
+ * Legacy keys without platform suffix are returned as-is.
+ */
+function extractSkillKeyFromManifestKey(key: string): string {
+	const atIdx = key.lastIndexOf("@");
+	if (atIdx !== -1) {
+		return key.slice(0, atIdx);
+	}
+	return key;
+}
+
+/**
  * Verify a single skill's attestation against current file hashes.
  */
 function verifySkill(
-	skillKey: string,
+	manifestKey: string,
 	attestation: SkillAttestation,
 ): TE.TaskEither<Error, VerificationResult> {
+	const skillKey = extractSkillKeyFromManifestKey(manifestKey);
+	const platform = extractPlatformFromKey(manifestKey);
 	const suite = skillKey.replace(":", "/");
-	const skillPath = suiteToSkillPath(suite);
+	const skillPath = suiteToSkillPath(suite, platform);
 
 	return pipe(
-		buildDependencyGraph(skillPath),
+		buildDependencyGraph(skillPath, platform),
 		TE.chain((graph) => computeAllHashes(graph)),
 		TE.map((hashes): VerificationResult => {
 			const currentDepsHash = computeDepsHash(hashes);
 
 			if (currentDepsHash !== attestation.deps_hash) {
 				return {
-					skill: skillKey,
+					skill: manifestKey,
 					status: "stale",
 					reason: "Dependency hash mismatch",
 					expected_hash: attestation.deps_hash,
@@ -398,13 +448,13 @@ function verifySkill(
 			}
 
 			return {
-				skill: skillKey,
+				skill: manifestKey,
 				status: "current",
 			};
 		}),
 		TE.orElse((error) =>
 			TE.right<Error, VerificationResult>({
-				skill: skillKey,
+				skill: manifestKey,
 				status: "missing",
 				reason: error.message,
 			}),
