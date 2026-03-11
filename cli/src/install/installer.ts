@@ -104,6 +104,23 @@ export const copyArtifacts = (
 					const agentDst = join(targetDir, "agents");
 					await mkdir(agentDst, { recursive: true });
 
+					// Clean up legacy agent subdirectories (pre-flat structure)
+					const legacyAgentSubdirs = ["rp1-base", "rp1-dev", "rp1-utils"];
+					for (const subdir of legacyAgentSubdirs) {
+						const subdirPath = join(agentDst, subdir);
+						try {
+							const subdirStat = await stat(subdirPath);
+							if (subdirStat.isDirectory()) {
+								await rm(subdirPath, { recursive: true });
+								logger?.debug(
+									`Removed legacy agent subdirectory: ${subdir}`,
+								);
+							}
+						} catch {
+							// Subdirectory doesn't exist
+						}
+					}
+
 					const agentFiles = await findFiles(agentSrc, /\.md$/);
 					for (const srcFile of agentFiles) {
 						const relPath = relative(agentSrc, srcFile);
