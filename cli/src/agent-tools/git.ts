@@ -298,17 +298,25 @@ export const resolveProjectPath = (
 	projectPath: string,
 ): TE.TaskEither<CLIError, ResolvedProjectPath> =>
 	pipe(
-		getMainRepoRoot(projectPath),
-		TE.map((mainRoot): ResolvedProjectPath => {
-			if (mainRoot !== projectPath) {
+		TE.Do,
+		TE.bind("isWorktree", () =>
+			pipe(
+				isInsideWorktree(projectPath),
+				TE.orElse(() => TE.right(false)),
+			),
+		),
+		TE.bind("mainRoot", () =>
+			pipe(
+				getMainRepoRoot(projectPath),
+				TE.orElse(() => TE.right(projectPath)),
+			),
+		),
+		TE.map(({ isWorktree, mainRoot }): ResolvedProjectPath => {
+			if (isWorktree && mainRoot !== projectPath) {
 				return { projectPath: mainRoot, worktreePath: projectPath };
 			}
 			return { projectPath, worktreePath: undefined };
 		}),
-		TE.orElse(
-			(): TE.TaskEither<CLIError, ResolvedProjectPath> =>
-				TE.right({ projectPath, worktreePath: undefined }),
-		),
 	);
 
 /**
