@@ -81,7 +81,7 @@ const copyDir = async (src: string, dst: string): Promise<number> => {
 
 /**
  * Copy rp1 artifacts from source to target directory.
- * Handles subdirectory namespacing (agents/rp1-base/).
+ * Handles flat namespaced agent files (agents/rp1-base-{agent}.md).
  *
  * When strict mode is enabled (REQ-013), missing source directories cause
  * installation failure instead of logging a warning and continuing.
@@ -348,10 +348,19 @@ export const restoreFromBackup = (
 						});
 						for (const entry of entries) {
 							if (entry.isDirectory() && entry.name.startsWith("rp1-")) {
+								// Remove legacy agent subdirectories
 								await rm(join(targetAgentDir, entry.name), { recursive: true });
 								logger?.debug(
 									`Removed existing agent directory: ${entry.name}`,
 								);
+							} else if (
+								entry.isFile() &&
+								entry.name.startsWith("rp1-") &&
+								entry.name.endsWith(".md")
+							) {
+								// Remove flat agent files
+								await rm(join(targetAgentDir, entry.name));
+								logger?.debug(`Removed existing agent file: ${entry.name}`);
 							}
 						}
 					} catch (e) {
@@ -718,16 +727,22 @@ export const verifyStagingContents = (
 
 			const missingPlugins: string[] = [];
 			for (const pluginName of expectedPlugins) {
-				// Check for at least one of: agents/, skills/ subdirectories with plugin content
-				const agentDir = join(stagingPath, "agents", `rp1-${pluginName}`);
+				// Check for flat agent files (rp1-{plugin}-*.md) or skills/ with content
+				const agentsDir = join(stagingPath, "agents");
 				const skillDir = join(stagingPath, "skills");
 
 				let hasContent = false;
 				try {
-					await stat(agentDir);
-					hasContent = true;
+					const agentEntries = await readdir(agentsDir);
+					const hasAgentFiles = agentEntries.some(
+						(entry) =>
+							entry.startsWith(`rp1-${pluginName}-`) && entry.endsWith(".md"),
+					);
+					if (hasAgentFiles) {
+						hasContent = true;
+					}
 				} catch {
-					// Agent dir doesn't exist
+					// Agents dir doesn't exist
 				}
 
 				try {

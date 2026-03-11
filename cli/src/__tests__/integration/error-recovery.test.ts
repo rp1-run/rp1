@@ -190,14 +190,14 @@ describe("integration: error-recovery", () => {
 			// Create source artifact
 			await writeFixture(
 				sourceDir,
-				"agents/rp1-base/test-agent.md",
+				"agents/rp1-base-test-agent.md",
 				"---\ndescription: New version\n---\nNew content",
 			);
 
 			// Create existing file in target with old content
 			await writeFixture(
 				targetDir,
-				"agents/rp1-base/test-agent.md",
+				"agents/rp1-base-test-agent.md",
 				"---\ndescription: Old version\n---\nOld content",
 			);
 
@@ -214,7 +214,7 @@ describe("integration: error-recovery", () => {
 
 			// File should contain new content (was overwritten)
 			const content = await readFile(
-				join(targetDir, "agents/rp1-base/test-agent.md"),
+				join(targetDir, "agents/rp1-base-test-agent.md"),
 				"utf-8",
 			);
 			expect(content).toContain("New version");

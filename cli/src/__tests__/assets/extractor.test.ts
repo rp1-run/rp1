@@ -73,8 +73,7 @@ describe("extractor", () => {
 				const agentPath = join(
 					targetDir,
 					"agents",
-					"rp1-base",
-					"test-agent.md",
+					"rp1-base-test-agent.md",
 				);
 				const skillPath = join(
 					targetDir,
@@ -184,14 +183,12 @@ describe("extractor", () => {
 				const agent1Path = join(
 					targetDir,
 					"agents",
-					"rp1-base",
-					"agent-one.md",
+					"rp1-base-agent-one.md",
 				);
 				const agent2Path = join(
 					targetDir,
 					"agents",
-					"rp1-base",
-					"agent-two.md",
+					"rp1-base-agent-two.md",
 				);
 
 				const agent1Exists = await stat(agent1Path)

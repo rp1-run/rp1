@@ -374,17 +374,15 @@ export const buildPlugin = async (
 	// Create spinner for progress indication (only in interactive mode)
 	const spinner = createSpinner(!jsonOutput && (process.stdout.isTTY ?? false));
 
-	// Clean and create output directories with subdirectory namespacing
+	// Clean and create output directories
 	try {
 		await rm(pluginOutputDir, { recursive: true, force: true });
 	} catch {
 		// Directory might not exist
 	}
 
-	// Create namespaced subdirectories: agents/rp1-{plugin}/, skills/
-	await mkdir(join(pluginOutputDir, "agents", `rp1-${pluginName}`), {
-		recursive: true,
-	});
+	// Create output directories: agents/ (flat), skills/
+	await mkdir(join(pluginOutputDir, "agents"), { recursive: true });
 	await mkdir(join(pluginOutputDir, "skills"), { recursive: true });
 
 	if (!jsonOutput) {
@@ -507,8 +505,8 @@ export const buildPlugin = async (
 			continue;
 		}
 
-		// Write to namespaced subdirectory
-		const relativePath = `${pluginName}/agents/rp1-${pluginName}/${filename}`;
+		// Write to flat namespaced file: agents/rp1-{plugin}-{filename}
+		const relativePath = `${pluginName}/agents/rp1-${pluginName}-${filename}`;
 		const outputFile = join(outputPath, relativePath);
 		await writeFile(outputFile, content);
 		agentEntries.push({ name: ccAgent.name, path: relativePath });

@@ -53,7 +53,7 @@ const extractAsset = async (
 /**
  * Extract a plugin's assets to the target directory.
  * Creates the correct OpenCode directory structure:
- * - agents/rp1-{plugin}/{agent}.md
+ * - agents/{pluginName}-{agent}.md (flat)
  * - skills/{skill}/SKILL.md
  *
  * Assets are already in OpenCode format (pre-transformed during build).
@@ -66,9 +66,13 @@ const extractPlugin = async (
 	let filesExtracted = 0;
 	const pluginName = plugin.name; // e.g., "rp1-base"
 
-	// Extract agents
+	// Extract agents as flat namespaced files
 	for (const agent of plugin.agents) {
-		const destPath = join(targetDir, "agents", pluginName, `${agent.name}.md`);
+		const destPath = join(
+			targetDir,
+			"agents",
+			`${pluginName}-${agent.name}.md`,
+		);
 		await extractAsset(agent, destPath);
 		filesExtracted++;
 	}
@@ -129,6 +133,29 @@ const removeLegacyDirs = async (
 
 	// Legacy singular directories to clean up
 	const legacyDirs = ["command", "agent", "skill"];
+
+	// Legacy agent subdirectories to clean up (pre-flat structure)
+	const legacyAgentSubdirs = ["rp1-base", "rp1-dev", "rp1-utils"];
+	const agentsDir = join(targetDir, "agents");
+	try {
+		const agentsStat = await stat(agentsDir);
+		if (agentsStat.isDirectory()) {
+			for (const subdir of legacyAgentSubdirs) {
+				const subdirPath = join(agentsDir, subdir);
+				try {
+					const subdirStat = await stat(subdirPath);
+					if (subdirStat.isDirectory()) {
+						await rm(subdirPath, { recursive: true });
+						filesRemoved++;
+					}
+				} catch {
+					// Subdirectory doesn't exist
+				}
+			}
+		}
+	} catch {
+		// agents/ directory doesn't exist
+	}
 
 	for (const dirName of legacyDirs) {
 		const legacyDir = join(targetDir, dirName);

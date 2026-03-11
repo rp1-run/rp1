@@ -42,7 +42,7 @@ describe("installer", () => {
 
 			await writeFixture(
 				sourceDir,
-				"agents/rp1-base/sample-agent.md",
+				"agents/rp1-base-sample-agent.md",
 				"---\nname: sample-agent\n---\nAgent content",
 			);
 			await writeFixture(
@@ -59,7 +59,7 @@ describe("installer", () => {
 			}
 
 			const agentContent = await readFile(
-				join(targetDir, "agents/rp1-base/sample-agent.md"),
+				join(targetDir, "agents/rp1-base-sample-agent.md"),
 				"utf-8",
 			);
 			expect(agentContent).toContain("Agent content");
@@ -103,13 +103,13 @@ describe("installer", () => {
 
 			await writeFixture(
 				sourceDir,
-				"agents/rp1-base/test.md",
+				"agents/rp1-base-test.md",
 				"---\nname: test\n---\nContent",
 			);
 
 			await copyArtifacts(sourceDir, targetDir)();
 
-			const targetFile = join(targetDir, "agents/rp1-base/test.md");
+			const targetFile = join(targetDir, "agents/rp1-base-test.md");
 			const fileStat = await stat(targetFile);
 
 			const mode = fileStat.mode & 0o777;
@@ -253,7 +253,7 @@ describe("installer", () => {
 			// Setup backup with agents
 			await writeFixture(
 				backupDir,
-				"agents/rp1-base/test-agent.md",
+				"agents/rp1-base-test-agent.md",
 				"Original agent content",
 			);
 			await writeFixture(join(backupDir, "manifest.json"), "", "");
@@ -268,10 +268,10 @@ describe("installer", () => {
 
 			// Simulate target with corrupted content
 			const configDir = join(homedir(), ".config", "opencode");
-			await mkdir(join(configDir, "agents", "rp1-base"), { recursive: true });
+			await mkdir(join(configDir, "agents"), { recursive: true });
 			await writeFixture(
 				configDir,
-				"agents/rp1-base/test-agent.md",
+				"agents/rp1-base-test-agent.md",
 				"Corrupted content",
 			);
 
@@ -281,14 +281,13 @@ describe("installer", () => {
 
 			// Verify content was restored
 			const restoredContent = await readFile(
-				join(configDir, "agents/rp1-base/test-agent.md"),
+				join(configDir, "agents/rp1-base-test-agent.md"),
 				"utf-8",
 			);
 			expect(restoredContent).toBe("Original agent content");
 
 			// Cleanup
-			await rm(join(configDir, "agents/rp1-base"), {
-				recursive: true,
+			await rm(join(configDir, "agents/rp1-base-test-agent.md"), {
 				force: true,
 			});
 		});
@@ -296,7 +295,7 @@ describe("installer", () => {
 		// Critical: manifest deletion prevents accidental double-restore on retry
 		test("deletes manifest.json after successful restore (prevents duplicate)", async () => {
 			// Setup backup with minimal content
-			await writeFixture(backupDir, "agents/rp1-base/agent.md", "content");
+			await writeFixture(backupDir, "agents/rp1-base-agent.md", "content");
 			const manifest: BackupManifest = {
 				timestamp: "2026-01-25T10-00-00",
 				backupPath: backupDir,
@@ -306,7 +305,7 @@ describe("installer", () => {
 
 			// Setup target
 			const configDir = join(homedir(), ".config", "opencode");
-			await mkdir(join(configDir, "agents", "rp1-base"), { recursive: true });
+			await mkdir(join(configDir, "agents"), { recursive: true });
 
 			const result = await expectTaskRight(restoreFromBackup(manifest));
 
@@ -322,8 +321,7 @@ describe("installer", () => {
 			expect(manifestExists).toBe(false);
 
 			// Cleanup
-			await rm(join(configDir, "agents/rp1-base"), {
-				recursive: true,
+			await rm(join(configDir, "agents/rp1-base-agent.md"), {
 				force: true,
 			});
 		});
