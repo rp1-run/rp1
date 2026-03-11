@@ -1,13 +1,23 @@
 import {
 	AlertTriangle,
+	Check,
 	Code,
+	Copy,
+	Download,
 	Maximize2,
 	RotateCcw,
 	ZoomIn,
 	ZoomOut,
 } from "lucide-react";
 import mermaid from "mermaid";
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import {
+	useCallback,
+	useEffect,
+	useId,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { Button } from "@/components/ui/button";
 import {
 	Tooltip,
@@ -387,6 +397,158 @@ export function MermaidDiagram({
 		}
 	}, []);
 
+	const [copied, setCopied] = useState(false);
+	const [downloaded, setDownloaded] = useState(false);
+
+	const diagramFilename = useMemo(() => {
+		// Extract diagram type from first non-empty line of mermaid code
+		const firstLine = code.trim().split("\n")[0]?.trim() ?? "";
+		const diagramType = firstLine
+			.replace(/^%%.*%%\s*/, "") // strip directives
+			.split(/[\s{(:]/)[0] // take first word before whitespace/punctuation
+			?.toLowerCase();
+		const typeSlug = diagramType || "diagram";
+
+		// Use title if available, otherwise fall back to type
+		const base = title
+			? title
+					.replace(/[^a-zA-Z0-9]+/g, "-")
+					.replace(/^-|-$/g, "")
+					.toLowerCase()
+			: `mermaid-${typeSlug}`;
+
+		return `${base}.png`;
+	}, [code, title]);
+
+	const svgToPngBlob = useCallback(
+		async (scaleFactor = 2): Promise<Blob> => {
+			const svgEl = svgContainerRef.current?.querySelector("svg");
+			if (!svgEl) throw new Error("No SVG found");
+
+			const svgClone = svgEl.cloneNode(true) as SVGSVGElement;
+
+			// Ensure xmlns is set for standalone SVG serialization
+			svgClone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+			svgClone.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
+
+			// Get intrinsic SVG dimensions from viewBox or attributes (not getBoundingClientRect
+			// which returns the on-screen size constrained by the container)
+			const viewBox = svgEl.viewBox?.baseVal;
+			const attrWidth = Number.parseFloat(svgEl.getAttribute("width") ?? "0");
+			const attrHeight = Number.parseFloat(svgEl.getAttribute("height") ?? "0");
+			const width =
+				viewBox?.width || attrWidth || svgEl.getBoundingClientRect().width;
+			const height =
+				viewBox?.height || attrHeight || svgEl.getBoundingClientRect().height;
+			svgClone.setAttribute("width", String(width));
+			svgClone.setAttribute("height", String(height));
+
+			// Inline computed styles into the SVG so they survive serialization
+			const styleEl = document.createElementNS(
+				"http://www.w3.org/2000/svg",
+				"style",
+			);
+			const styles: string[] = [];
+			for (const sheet of document.styleSheets) {
+				try {
+					for (const rule of sheet.cssRules) {
+						styles.push(rule.cssText);
+					}
+				} catch {
+					// skip cross-origin stylesheets
+				}
+			}
+			styleEl.textContent = styles.join("\n");
+			svgClone.insertBefore(styleEl, svgClone.firstChild);
+
+			// Replace foreignObject elements with basic SVG text to avoid canvas tainting
+			for (const fo of svgClone.querySelectorAll("foreignObject")) {
+				const textContent = fo.textContent?.trim() ?? "";
+				const svgText = document.createElementNS(
+					"http://www.w3.org/2000/svg",
+					"text",
+				);
+				const x = fo.getAttribute("x") ?? "0";
+				const y = fo.getAttribute("y") ?? "0";
+				const foWidth = Number.parseFloat(fo.getAttribute("width") ?? "100");
+				const foHeight = Number.parseFloat(fo.getAttribute("height") ?? "20");
+				svgText.setAttribute("x", String(Number.parseFloat(x) + foWidth / 2));
+				svgText.setAttribute("y", String(Number.parseFloat(y) + foHeight / 2));
+				svgText.setAttribute("text-anchor", "middle");
+				svgText.setAttribute("dominant-baseline", "central");
+				svgText.setAttribute("font-family", "JetBrains Mono, monospace");
+				svgText.setAttribute("font-size", "14");
+				svgText.setAttribute("fill", "currentColor");
+				svgText.textContent = textContent;
+				fo.replaceWith(svgText);
+			}
+
+			const serializer = new XMLSerializer();
+			const svgString = serializer.serializeToString(svgClone);
+			const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgString)}`;
+
+			const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+				const image = new Image();
+				image.onload = () => resolve(image);
+				image.onerror = () => reject(new Error("Failed to load SVG as image"));
+				image.src = dataUrl;
+			});
+
+			const canvas = document.createElement("canvas");
+			canvas.width = width * scaleFactor;
+			canvas.height = height * scaleFactor;
+			const ctx = canvas.getContext("2d");
+			if (!ctx) throw new Error("Canvas context unavailable");
+			ctx.scale(scaleFactor, scaleFactor);
+
+			// Fill background based on current theme
+			const isDark = theme === "dark";
+			ctx.fillStyle = isDark
+				? catppuccinMocha.background
+				: catppuccinLatte.background;
+			ctx.fillRect(0, 0, width, height);
+
+			ctx.drawImage(img, 0, 0, width, height);
+
+			return new Promise<Blob>((resolve, reject) =>
+				canvas.toBlob(
+					(b) => (b ? resolve(b) : reject(new Error("toBlob failed"))),
+					"image/png",
+				),
+			);
+		},
+		[theme],
+	);
+
+	const handleCopyPng = useCallback(async () => {
+		try {
+			const blob = await svgToPngBlob();
+			await navigator.clipboard.write([
+				new ClipboardItem({ "image/png": blob }),
+			]);
+			setCopied(true);
+			setTimeout(() => setCopied(false), 2000);
+		} catch (err) {
+			console.error("Copy as PNG failed:", err);
+		}
+	}, [svgToPngBlob]);
+
+	const handleDownloadPng = useCallback(async () => {
+		try {
+			const blob = await svgToPngBlob();
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement("a");
+			a.href = url;
+			a.download = diagramFilename;
+			a.click();
+			URL.revokeObjectURL(url);
+			setDownloaded(true);
+			setTimeout(() => setDownloaded(false), 2000);
+		} catch (err) {
+			console.error("Download as PNG failed:", err);
+		}
+	}, [svgToPngBlob, diagramFilename]);
+
 	if (error) {
 		return (
 			<div
@@ -479,6 +641,46 @@ export function MermaidDiagram({
 				</TooltipTrigger>
 				<TooltipContent>
 					{showSource ? "Hide source" : "Show source"}
+				</TooltipContent>
+			</Tooltip>
+
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<Button
+						variant="ghost"
+						size="icon"
+						className="h-7 w-7"
+						onClick={handleCopyPng}
+						aria-label="Copy as PNG"
+					>
+						{copied ? (
+							<Check className="h-3.5 w-3.5 text-green-500" />
+						) : (
+							<Copy className="h-3.5 w-3.5" />
+						)}
+					</Button>
+				</TooltipTrigger>
+				<TooltipContent>{copied ? "Copied!" : "Copy as PNG"}</TooltipContent>
+			</Tooltip>
+
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<Button
+						variant="ghost"
+						size="icon"
+						className="h-7 w-7"
+						onClick={handleDownloadPng}
+						aria-label="Download as PNG"
+					>
+						{downloaded ? (
+							<Check className="h-3.5 w-3.5 text-green-500" />
+						) : (
+							<Download className="h-3.5 w-3.5" />
+						)}
+					</Button>
+				</TooltipTrigger>
+				<TooltipContent>
+					{downloaded ? "Downloaded!" : "Download as PNG"}
 				</TooltipContent>
 			</Tooltip>
 		</TooltipProvider>
