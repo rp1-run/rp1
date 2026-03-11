@@ -51,7 +51,7 @@ Non-interactive mode (--yes) behaviors:
   - Injects rp1 instructions into CLAUDE.md/AGENTS.md
   - Uses "recommended" gitignore preset
   - Installs plugins automatically if Claude Code is detected
-  - Skips re-initialization prompts (preserves existing config)
+  - Refreshes rp1 configuration idempotently (fenced content, directories, settings)
   - Silent operation except for errors and final summary
 
 Examples:

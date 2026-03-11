@@ -242,8 +242,7 @@ export type StepId =
 	| "tool-detection"
 	| "instruction-injection"
 	| "gitignore-config"
-	| "plugin-installation"
-	| "verification"
+	| "install-check"
 	| "health-check"
 	| "summary";
 

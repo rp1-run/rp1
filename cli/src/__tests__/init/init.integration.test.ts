@@ -250,14 +250,23 @@ More custom content below.
 				expect(E.isRight(result)).toBe(true);
 				if (!E.isRight(result)) return;
 
-				// In --yes mode with existing setup, init should skip re-initialization
+				// In --yes mode with existing setup, init proceeds with "update" mode
+				// (refreshes fenced content idempotently instead of skipping)
 				const initResult: InitResult = result.right;
+
+				// Should NOT have skipped re-initialization (T6: non-interactive refreshes)
 				const skippedReinit = initResult.actions.find(
 					(a) =>
 						a.type === "skipped" &&
 						a.reason.includes("Re-initialization skipped"),
 				);
-				expect(skippedReinit).toBeDefined();
+				expect(skippedReinit).toBeUndefined();
+
+				// Should have proceeded with file operations (update mode)
+				const fileActions = initResult.actions.filter(
+					(a) => a.type === "created_file" || a.type === "updated_file",
+				);
+				expect(fileActions.length).toBeGreaterThan(0);
 
 				// KB content should be preserved
 				const kbContent = await readFile(join(contextDir, "index.md"), "utf-8");
@@ -377,7 +386,7 @@ This is an existing feature document.
 		);
 
 		test(
-			"skips re-initialization in --yes mode",
+			"refreshes configuration in --yes mode (non-interactive update)",
 			async () => {
 				// Setup existing init
 				const rp1Dir = join(tempDir, ".rp1");
@@ -401,13 +410,19 @@ This is an existing feature document.
 
 				const initResult: InitResult = result.right;
 
-				// Should have skipped re-initialization
+				// Should NOT skip -- non-interactive mode refreshes (T6 behavior change)
 				const skipped = initResult.actions.find(
 					(a) =>
 						a.type === "skipped" &&
 						a.reason.includes("Re-initialization skipped"),
 				);
-				expect(skipped).toBeDefined();
+				expect(skipped).toBeUndefined();
+
+				// Should have file update actions (refreshed fenced content)
+				const updateActions = initResult.actions.filter(
+					(a) => a.type === "updated_file",
+				);
+				expect(updateActions.length).toBeGreaterThan(0);
 
 				// Should log non-interactive mode info
 				const nonInteractiveLog = logger.calls.find(

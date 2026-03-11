@@ -66,8 +66,7 @@ const PROMPTABLE_STEPS: Record<StepId, PromptType> = {
 	"tool-detection": null,
 	"instruction-injection": null,
 	"gitignore-config": "gitignore", // Conditionally shown - see needsPrompt
-	"plugin-installation": null,
-	verification: null,
+	"install-check": null,
 	"health-check": null,
 	summary: null,
 };

@@ -12,6 +12,7 @@ import { formatError } from "../../../shared/errors.js";
 import type { Logger } from "../../../shared/logger.js";
 import { confirmAction, type PromptOptions } from "../../../shared/prompts.js";
 import { createSpinner } from "../../../shared/spinner.js";
+import type { ToolsRegistry } from "../../config/supported-tools.js";
 import { installAllPlugins as defaultInstallAllPlugins } from "../../install/claudecode/installer.js";
 import type {
 	ClaudeCodeInstallResult,
@@ -27,7 +28,11 @@ import type {
 	PluginInstallResult,
 	StepCallbacks,
 } from "../models.js";
-import type { DetectedTool } from "../tool-detector.js";
+import { type DetectedTool, detectTools } from "../tool-detector.js";
+import {
+	verifyClaudeCodePlugins,
+	verifyOpenCodePlugins,
+} from "./verification.js";
 
 /**
  * Configuration for plugin installation.
@@ -69,6 +74,62 @@ export const defaultPluginInstallDeps: PluginInstallDeps = {
 	runPrerequisiteChecks: defaultRunAllPrerequisiteChecks,
 	installPlugins: defaultInstallAllPlugins,
 };
+
+/**
+ * Result of checking whether plugins are installed across detected platforms.
+ */
+export interface PluginsInstalledResult {
+	/** Whether all detected platforms have plugins installed */
+	readonly installed: boolean;
+	/** Tools that were detected on the system */
+	readonly detected: DetectedTool[];
+}
+
+/**
+ * Check whether rp1 plugins are installed on all detected platforms.
+ * Detects available tools via the registry, then runs the corresponding
+ * verification function for each detected tool.
+ *
+ * Used by init to decide whether to trigger the install flow.
+ *
+ * @param registry - The tools registry to detect against
+ * @returns Whether plugins are installed and which tools were detected
+ */
+export async function checkPluginsInstalled(
+	registry: ToolsRegistry,
+): Promise<PluginsInstalledResult> {
+	const detectionResult = await detectTools(registry)();
+
+	// detectTools never fails (returns Right), but handle defensively
+	if (E.isLeft(detectionResult)) {
+		return { installed: false, detected: [] };
+	}
+
+	const { detected } = detectionResult.right;
+
+	if (detected.length === 0) {
+		return { installed: false, detected: [] };
+	}
+
+	let allInstalled = true;
+
+	for (const detectedTool of detected) {
+		if (detectedTool.tool.id === "claude-code") {
+			const result = await verifyClaudeCodePlugins();
+			if (!result.verified) {
+				allInstalled = false;
+			}
+		} else if (detectedTool.tool.id === "opencode") {
+			const result = await verifyOpenCodePlugins();
+			if (!result.verified) {
+				allInstalled = false;
+			}
+		}
+		// Other tools (e.g., codex) don't have verification yet; skip them
+	}
+
+	return { installed: allInstalled, detected: [...detected] };
+}
 
 /**
  * Execute plugin installation for Claude Code.

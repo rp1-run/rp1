@@ -10,6 +10,7 @@ import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../../../shared/errors.js";
 import type { Logger } from "../../../../shared/logger.js";
 import {
+	checkPluginsInstalled,
 	defaultPluginInstallConfig,
 	defaultPluginInstallDeps,
 	executePluginInstallation,
@@ -428,6 +429,65 @@ describe("plugin-installation step", () => {
 				"function",
 			);
 			expect(typeof defaultPluginInstallDeps.installPlugins).toBe("function");
+		});
+	});
+
+	describe("checkPluginsInstalled", () => {
+		test("returns correct shape with installed and detected fields", async () => {
+			// Use the real registry to check against actual environment
+			const { loadToolsRegistry } = await import(
+				"../../../config/supported-tools.js"
+			);
+			const registry = await loadToolsRegistry();
+
+			const result = await checkPluginsInstalled(registry);
+
+			// Should always return the expected shape
+			expect(result).toHaveProperty("installed");
+			expect(result).toHaveProperty("detected");
+			expect(typeof result.installed).toBe("boolean");
+			expect(Array.isArray(result.detected)).toBe(true);
+		});
+
+		test("returns installed=false when no tools are detected", async () => {
+			// Empty registry means no tools will be detected
+			const emptyRegistry = { version: "1.0.0", tools: [] };
+
+			const result = await checkPluginsInstalled(emptyRegistry);
+
+			expect(result.installed).toBe(false);
+			expect(result.detected).toHaveLength(0);
+		});
+
+		test("detected array contains DetectedTool objects with correct shape", async () => {
+			const { loadToolsRegistry } = await import(
+				"../../../config/supported-tools.js"
+			);
+			const registry = await loadToolsRegistry();
+
+			const result = await checkPluginsInstalled(registry);
+
+			// Each detected tool should have correct shape
+			for (const tool of result.detected) {
+				expect(tool).toHaveProperty("tool");
+				expect(tool).toHaveProperty("version");
+				expect(tool).toHaveProperty("meetsMinVersion");
+				expect(tool.tool).toHaveProperty("id");
+				expect(tool.tool).toHaveProperty("name");
+			}
+		});
+
+		test("returns consistent results across multiple calls (idempotent)", async () => {
+			const { loadToolsRegistry } = await import(
+				"../../../config/supported-tools.js"
+			);
+			const registry = await loadToolsRegistry();
+
+			const result1 = await checkPluginsInstalled(registry);
+			const result2 = await checkPluginsInstalled(registry);
+
+			expect(result1.installed).toBe(result2.installed);
+			expect(result1.detected.length).toBe(result2.detected.length);
 		});
 	});
 

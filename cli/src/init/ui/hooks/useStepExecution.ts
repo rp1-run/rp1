@@ -17,6 +17,10 @@ import {
 	type ToolsRegistry,
 } from "../../../config/supported-tools.js";
 import {
+	type InstallContext,
+	installAllDetectedTools,
+} from "../../../shared/install-core.js";
+import {
 	appendFencedContent,
 	hasFencedContent,
 	replaceFencedContent,
@@ -47,7 +51,7 @@ import {
 	validateShellFencing,
 } from "../../shell-fence.js";
 import { performHealthCheck } from "../../steps/health-check.js";
-import { executePluginInstallation } from "../../steps/plugin-installation.js";
+import { checkPluginsInstalled } from "../../steps/plugin-installation.js";
 import {
 	checkRp1Readiness,
 	type ReadinessResult,
@@ -377,7 +381,22 @@ export const useStepExecution = ({
 
 				const choice = state.userChoices.reinitChoice;
 
-				if (choice === undefined && !options.yes && onPromptRequest) {
+				if (choice === undefined && options.yes) {
+					// Non-interactive mode: default to "update" to refresh fenced content idempotently
+					addAct(
+						"reinit-check",
+						"Non-interactive mode: refreshing rp1 configuration",
+						"info",
+					);
+					dispatch({
+						type: "SET_USER_CHOICE",
+						key: "reinitChoice",
+						value: "update",
+					});
+					return;
+				}
+
+				if (choice === undefined && onPromptRequest) {
 					// Interactive mode and no choice yet - request prompt
 					promptRequestedRef.current = true;
 					onPromptRequest({ type: "reinit", resolve: () => {} });
@@ -405,19 +424,6 @@ export const useStepExecution = ({
 			const contextDir = path.join(rp1Dir, "context");
 			const workDir = path.join(rp1Dir, "work");
 
-			// Skip if update mode and directory exists
-			if (
-				ctx.reinitState?.hasRp1Dir &&
-				state.userChoices.reinitChoice === "update"
-			) {
-				addAct(
-					"directory-setup",
-					"Directory structure exists (update mode)",
-					"info",
-				);
-				return;
-			}
-
 			let created = 0;
 
 			if (!(await directoryExists(rp1Dir))) {
@@ -442,7 +448,7 @@ export const useStepExecution = ({
 				addAct("directory-setup", "Directory structure exists", "success");
 			}
 		},
-		[state.userChoices.reinitChoice],
+		[],
 	);
 
 	/**
@@ -453,45 +459,35 @@ export const useStepExecution = ({
 		async (addAct: AddActivityFn): Promise<void> => {
 			const ctx = contextRef.current;
 
-			// Skip if update mode to preserve existing settings
-			if (state.userChoices.reinitChoice === "update") {
-				addAct(
-					"settings-setup",
-					"Settings files preserved (update mode)",
-					"info",
-				);
-				return;
-			}
-
-			let created = 0;
-
-			// Create global settings file
+			// Create or merge global settings file
 			const globalPath = resolveGlobalSettingsPath();
 			const globalDir = path.dirname(globalPath);
 			if (!(await fileExists(globalPath))) {
 				await fs.mkdir(globalDir, { recursive: true });
 				await writeFileContent(globalPath, DEFAULT_SETTINGS_TEMPLATE);
 				addAct("settings-setup", "Created global settings file", "success");
-				created++;
 			} else {
-				addAct("settings-setup", "Global settings file exists", "info");
+				addAct(
+					"settings-setup",
+					"Global settings file exists (user values preserved)",
+					"info",
+				);
 			}
 
-			// Create local settings file
+			// Create or merge local settings file
 			const localPath = resolveLocalSettingsPath(ctx.cwd);
 			if (!(await fileExists(localPath))) {
 				await writeFileContent(localPath, DEFAULT_SETTINGS_TEMPLATE);
 				addAct("settings-setup", "Created local settings file", "success");
-				created++;
 			} else {
-				addAct("settings-setup", "Local settings file exists", "info");
-			}
-
-			if (created === 0) {
-				addAct("settings-setup", "Settings files already exist", "success");
+				addAct(
+					"settings-setup",
+					"Local settings file exists (user values preserved)",
+					"info",
+				);
 			}
 		},
-		[state.userChoices.reinitChoice],
+		[],
 	);
 
 	/**
@@ -687,119 +683,11 @@ export const useStepExecution = ({
 	);
 
 	/**
-	 * Execute the plugin installation step.
+	 * Execute the install check step.
+	 * Checks plugin installation state and delegates to install if needed.
+	 * Mirrors the install-check logic in executeInit().
 	 */
-	const executePluginInstallation_step = useCallback(
-		async (addAct: AddActivityFn): Promise<void> => {
-			const ctx = contextRef.current;
-
-			// Note: We don't skip plugin installation in update mode
-			// because it's idempotent - worst case it updates to latest version
-
-			if (!ctx.primaryTool) {
-				addAct(
-					"plugin-installation",
-					"No AI tool detected - skipping plugin installation",
-					"warning",
-				);
-				dispatch({
-					type: "SKIP_STEP",
-					stepId: "plugin-installation",
-					reason: "No AI tool detected",
-				});
-				return;
-			}
-
-			addAct(
-				"plugin-installation",
-				`Installing plugins for ${ctx.primaryTool.tool.name}...`,
-				"info",
-			);
-
-			// Create a minimal logger that routes to addAct
-			const minimalLogger: Logger = {
-				trace: () => {},
-				debug: () => {},
-				info: (msg: string) => addAct("plugin-installation", msg, "info"),
-				warn: (msg: string) => addAct("plugin-installation", msg, "warning"),
-				error: (msg: string) => addAct("plugin-installation", msg, "error"),
-				start: () => {},
-				success: (msg: string) => addAct("plugin-installation", msg, "success"),
-				fail: (msg: string) => addAct("plugin-installation", msg, "error"),
-				box: () => {},
-			};
-
-			const promptOptions = {
-				isTTY: false, // Non-interactive for now
-			};
-
-			try {
-				const result = await executePluginInstallation(
-					ctx.primaryTool,
-					promptOptions,
-					minimalLogger,
-				);
-
-				if (result.result?.success) {
-					addAct(
-						"plugin-installation",
-						`Installed: ${result.result.pluginsInstalled.join(", ")}`,
-						"success",
-					);
-				} else if (result.result) {
-					// Installation failed - extract error if available
-					const errorObj = result.result.error;
-					const errorMessage = errorObj
-						? errorObj instanceof Error
-							? errorObj.message
-							: typeof errorObj === "object" && errorObj !== null
-								? ((errorObj as { message?: string }).message ??
-									JSON.stringify(errorObj))
-								: String(errorObj)
-						: "Installation failed (unknown reason)";
-					addAct(
-						"plugin-installation",
-						`Installation failed: ${errorMessage}`,
-						"error",
-					);
-					addAct(
-						"plugin-installation",
-						"Try again with: rp1 install:claude-code",
-						"info",
-					);
-					// Store the error for display in final summary
-					dispatch({
-						type: "SET_PLUGIN_INSTALL_ERROR",
-						error: errorMessage,
-					});
-				} else {
-					// No result at all - something went wrong
-					const errorMessage = "Installation did not complete";
-					addAct("plugin-installation", errorMessage, "warning");
-					dispatch({
-						type: "SET_PLUGIN_INSTALL_ERROR",
-						error: errorMessage,
-					});
-				}
-			} catch (error) {
-				const errorMessage =
-					error instanceof Error ? error.message : String(error);
-				addAct("plugin-installation", `Error: ${errorMessage}`, "error");
-				// Store the error for display in final summary
-				dispatch({
-					type: "SET_PLUGIN_INSTALL_ERROR",
-					error: errorMessage,
-				});
-				// Don't throw - plugin installation failures shouldn't block init
-			}
-		},
-		[dispatch],
-	);
-
-	/**
-	 * Execute the verification step.
-	 */
-	const executeVerification = useCallback(
+	const executeInstallCheck = useCallback(
 		async (addAct: AddActivityFn): Promise<void> => {
 			const ctx = contextRef.current;
 
@@ -807,60 +695,155 @@ export const useStepExecution = ({
 				!ctx.toolDetectionResult ||
 				ctx.toolDetectionResult.detected.length === 0
 			) {
-				addAct("verification", "Skipped (no tools detected)", "info");
+				addAct("install-check", "Skipped (no tools detected)", "info");
 				dispatch({
 					type: "SKIP_STEP",
-					stepId: "verification",
+					stepId: "install-check",
 					reason: "No AI tools detected",
 				});
 				return;
 			}
 
-			addAct("verification", "Verifying plugin installation...", "info");
+			if (!ctx.registry) {
+				throw new Error("Registry not loaded");
+			}
 
-			const allPluginStatus: PluginStatus[] = [];
-			let allVerified = true;
+			addAct("install-check", "Checking plugin installation...", "info");
 
-			for (const detected of ctx.toolDetectionResult.detected) {
-				let verificationResult: {
-					verified: boolean;
-					plugins: readonly PluginStatus[];
-					issues: readonly string[];
-				} | null = null;
+			const installStatus = await checkPluginsInstalled(ctx.registry);
 
-				if (detected.tool.id === "claude-code") {
-					verificationResult = await verifyClaudeCodePlugins();
-				} else if (detected.tool.id === "opencode") {
-					verificationResult = await verifyOpenCodePlugins();
-				}
+			if (installStatus.installed) {
+				addAct(
+					"install-check",
+					"Plugins already installed, skipping install step",
+					"success",
+				);
+			} else {
+				addAct(
+					"install-check",
+					"Plugins missing on detected platforms, installing...",
+					"info",
+				);
 
-				if (verificationResult) {
-					allPluginStatus.push(...verificationResult.plugins);
+				const minimalLogger: Logger = {
+					trace: () => {},
+					debug: () => {},
+					info: (msg: string) => addAct("install-check", msg, "info"),
+					warn: (msg: string) => addAct("install-check", msg, "warning"),
+					error: (msg: string) => addAct("install-check", msg, "error"),
+					start: () => {},
+					success: (msg: string) => addAct("install-check", msg, "success"),
+					fail: (msg: string) => addAct("install-check", msg, "error"),
+					box: () => {},
+				};
 
-					if (verificationResult.verified) {
-						addAct(
-							"verification",
-							`${detected.tool.name} plugins verified`,
-							"success",
-						);
+				const installCtx: InstallContext = {
+					logger: minimalLogger,
+					isTTY: false,
+					dryRun: false,
+					skipPrompt: true,
+				};
+
+				try {
+					const installResultEither = await installAllDetectedTools(
+						ctx.registry,
+						installCtx,
+					)();
+
+					if (E.isRight(installResultEither)) {
+						const installResult = installResultEither.right;
+						for (const result of installResult.results) {
+							if (result.success) {
+								addAct(
+									"install-check",
+									`Installed plugins for ${result.toolName}`,
+									"success",
+								);
+							} else {
+								const errorMsg = result.error
+									? "message" in result.error
+										? (result.error as { message: string }).message
+										: String(result.error)
+									: "Unknown error";
+								addAct(
+									"install-check",
+									`Installation failed for ${result.toolName}: ${errorMsg}`,
+									"warning",
+								);
+								dispatch({
+									type: "SET_PLUGIN_INSTALL_ERROR",
+									error: `Installation failed for ${result.toolName}: ${errorMsg}`,
+								});
+							}
+						}
 					} else {
-						allVerified = false;
-						for (const issue of verificationResult.issues) {
-							addAct("verification", issue, "warning");
+						const errorMessage =
+							"message" in installResultEither.left
+								? (installResultEither.left as { message: string }).message
+								: String(installResultEither.left);
+						addAct(
+							"install-check",
+							`Plugin installation failed: ${errorMessage}`,
+							"warning",
+						);
+						dispatch({
+							type: "SET_PLUGIN_INSTALL_ERROR",
+							error: errorMessage,
+						});
+					}
+				} catch (error) {
+					const errorMessage =
+						error instanceof Error ? error.message : String(error);
+					addAct("install-check", `Install error: ${errorMessage}`, "warning");
+					dispatch({
+						type: "SET_PLUGIN_INSTALL_ERROR",
+						error: errorMessage,
+					});
+				}
+			}
+
+			// Run verification to collect plugin status for health check
+			const allPluginStatus: PluginStatus[] = [];
+			try {
+				for (const detected of ctx.toolDetectionResult.detected) {
+					let verificationResult: {
+						verified: boolean;
+						plugins: readonly PluginStatus[];
+						issues: readonly string[];
+					} | null = null;
+
+					if (detected.tool.id === "claude-code") {
+						verificationResult = await verifyClaudeCodePlugins();
+					} else if (detected.tool.id === "opencode") {
+						verificationResult = await verifyOpenCodePlugins();
+					}
+
+					if (verificationResult) {
+						allPluginStatus.push(...verificationResult.plugins);
+						if (verificationResult.verified) {
+							addAct(
+								"install-check",
+								`${detected.tool.name} plugins verified`,
+								"success",
+							);
+						} else {
+							for (const issue of verificationResult.issues) {
+								addAct("install-check", issue, "warning");
+							}
 						}
 					}
 				}
-			}
-
-			ctx.pluginStatus = allPluginStatus;
-
-			if (!allVerified) {
+			} catch (error) {
+				const errorMessage =
+					error instanceof Error ? error.message : String(error);
 				addAct(
-					"verification",
-					"Some plugins may need manual installation",
+					"install-check",
+					`Verification error: ${errorMessage}`,
 					"warning",
 				);
 			}
+
+			ctx.pluginStatus = allPluginStatus;
 		},
 		[dispatch],
 	);
@@ -972,11 +955,8 @@ export const useStepExecution = ({
 					case "gitignore-config":
 						await executeGitignoreConfig(addAct);
 						break;
-					case "plugin-installation":
-						await executePluginInstallation_step(addAct);
-						break;
-					case "verification":
-						await executeVerification(addAct);
+					case "install-check":
+						await executeInstallCheck(addAct);
 						break;
 					case "health-check":
 						await executeHealthCheck(addAct);
@@ -1014,8 +994,7 @@ export const useStepExecution = ({
 			executeToolDetection,
 			executeInstructionInjection,
 			executeGitignoreConfig,
-			executePluginInstallation_step,
-			executeVerification,
+			executeInstallCheck,
 			executeHealthCheck,
 			executeSummary,
 		],

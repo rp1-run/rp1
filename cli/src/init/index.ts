@@ -4,7 +4,6 @@
  */
 
 import * as fs from "node:fs/promises";
-import { homedir } from "node:os";
 import * as path from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
@@ -17,19 +16,16 @@ import {
 	type ToolsRegistry,
 } from "../config/supported-tools.js";
 import {
-	appendFencedContent,
-	hasFencedContent,
-	replaceFencedContent,
-	validateFencing,
-	wrapWithFence,
-} from "./comment-fence.js";
+	type InstallContext,
+	installAllDetectedTools,
+} from "../shared/install-core.js";
+import { hasFencedContent } from "./comment-fence.js";
 import {
 	type ContextDetectionResult,
 	detectProjectContext,
 } from "./context-detector.js";
 import { detectGitRoot, type GitRootResult } from "./git-root.js";
 import type {
-	GitignorePreset,
 	HealthReport,
 	InitAction,
 	InitOptions,
@@ -40,25 +36,22 @@ import type {
 	ReinitChoice,
 	ReinitState,
 } from "./models.js";
-import { GITIGNORE_PRESETS } from "./models.js";
 import { createProgress, type InitProgress } from "./progress.js";
-import {
-	appendShellFencedContent,
-	hasShellFencedContent,
-	replaceShellFencedContent,
-	validateShellFencing,
-} from "./shell-fence.js";
 import { performHealthCheck } from "./steps/health-check.js";
-import { executePluginInstallation } from "./steps/plugin-installation.js";
+import { checkPluginsInstalled } from "./steps/plugin-installation.js";
+import {
+	configureGitignore,
+	createDirectoryStructure,
+	createSettingsFiles,
+	injectInstructions,
+} from "./steps/project-setup.js";
 import { checkRp1Readiness } from "./steps/readiness.js";
 import { displaySummary, generateNextSteps } from "./steps/summary.js";
 import {
 	verifyClaudeCodePlugins,
 	verifyOpenCodePlugins,
 } from "./steps/verification.js";
-import { AGENTS_TEMPLATE, CLAUDE_CODE_TEMPLATE } from "./templates/index.js";
 import {
-	type DetectedTool,
 	detectTools,
 	formatDetectedTool,
 	getOutdatedTools,
@@ -99,16 +92,15 @@ const INIT_STEPS = [
 	{ name: "registry", description: "Loading tools registry..." },
 	{ name: "git-check", description: "Checking git repository..." },
 	{ name: "reinit-check", description: "Checking existing setup..." },
+	{ name: "tool-detection", description: "Detecting agentic tools..." },
+	{ name: "install-check", description: "Checking plugin installation..." },
 	{ name: "directory-setup", description: "Setting up directory structure..." },
 	{ name: "settings-setup", description: "Creating settings files..." },
-	{ name: "tool-detection", description: "Detecting agentic tools..." },
 	{
 		name: "instruction-injection",
 		description: "Configuring instruction file...",
 	},
 	{ name: "gitignore-config", description: "Configuring .gitignore..." },
-	{ name: "plugin-installation", description: "Installing plugins..." },
-	{ name: "verification", description: "Verifying plugin installation..." },
 	{ name: "health-check", description: "Performing health check..." },
 	{ name: "summary", description: "Generating summary..." },
 ] as const;
@@ -159,26 +151,13 @@ async function readFileContent(filePath: string): Promise<string | null> {
 	}
 }
 
-async function writeFileContent(
-	filePath: string,
-	content: string,
-): Promise<void> {
-	const dir = path.dirname(filePath);
-	await fs.mkdir(dir, { recursive: true });
-	await fs.writeFile(filePath, content, "utf-8");
-}
-
-function countLines(content: string): number {
-	return content.split("\n").length;
-}
-
 /**
  * Detect whether interactive mode should be used.
  *
  * Default behaviors in non-interactive mode (--yes):
  * - Plugin installation: Automatically proceeds if AI tool (Claude Code) is detected
  * - Git root prompt: Defaults to continue in current directory
- * - Re-initialization: Defaults to skip (no changes to existing setup)
+ * - Re-initialization: Defaults to update (refreshes fenced content idempotently)
  * - Gitignore preset: Uses "recommended" preset
  * - All prompts: Use sensible defaults without user interaction
  *
@@ -305,8 +284,9 @@ function isAlreadyInitialized(state: ReinitState): boolean {
 /**
  * Handle re-initialization check with user prompt.
  *
- * Non-interactive default: Skips re-initialization to preserve existing config.
- * This is a safe default for CI/automation environments.
+ * Non-interactive default: Proceeds with "update" mode to refresh fenced content
+ * idempotently. This ensures `rp1 init --yes` always brings configuration up to
+ * date, which is safe because all setup operations are idempotent.
  */
 async function handleReinitCheck(
 	state: ReinitState,
@@ -335,8 +315,8 @@ async function handleReinitCheck(
 	}
 
 	if (!promptOptions.isTTY) {
-		logger.info("Non-interactive mode: Skipping re-initialization");
-		return { proceed: false, choice: "skip" };
+		logger.info("Non-interactive mode: Refreshing rp1 configuration");
+		return { proceed: true, choice: "update" };
 	}
 
 	const choice = await selectOption<ReinitChoice>(
@@ -376,214 +356,6 @@ async function handleReinitCheck(
 	}
 
 	return { proceed: true, choice };
-}
-
-async function createDirectoryStructure(
-	cwd: string,
-	logger: Logger,
-): Promise<InitAction[]> {
-	const actions: InitAction[] = [];
-	const rp1Root = process.env.RP1_ROOT || ".rp1";
-	const rp1Dir = path.resolve(cwd, rp1Root);
-	const contextDir = path.join(rp1Dir, "context");
-	const workDir = path.join(rp1Dir, "work");
-
-	if (!(await directoryExists(rp1Dir))) {
-		await fs.mkdir(rp1Dir, { recursive: true });
-		logger.info(`Created: ${rp1Dir}`);
-		actions.push({ type: "created_directory", path: rp1Dir });
-	}
-
-	if (!(await directoryExists(contextDir))) {
-		await fs.mkdir(contextDir, { recursive: true });
-		logger.info(`Created: ${contextDir}`);
-		actions.push({ type: "created_directory", path: contextDir });
-	}
-
-	if (!(await directoryExists(workDir))) {
-		await fs.mkdir(workDir, { recursive: true });
-		logger.info(`Created: ${workDir}`);
-		actions.push({ type: "created_directory", path: workDir });
-	}
-
-	return actions;
-}
-
-/**
- * Default settings with all flags disabled for safety.
- */
-const DEFAULT_SETTINGS: Record<string, boolean> = {
-	git_worktree: false,
-	git_commit: false,
-	git_push: false,
-	afk: false,
-};
-
-/**
- * Generate settings TOML content with comments.
- * Preserves user values while adding any new schema fields.
- */
-function generateSettingsToml(settings: Record<string, boolean>): string {
-	return `# rp1 Settings
-# Documentation: https://rp1.run/configuration/settings
-
-# All settings are disabled by default for safety.
-# Enable features by changing false to true.
-
-# Enable git worktree isolation for build commands
-git_worktree = ${settings.git_worktree ?? false}
-
-# Automatically commit changes after builds
-git_commit = ${settings.git_commit ?? false}
-
-# Automatically push branches to remote
-git_push = ${settings.git_push ?? false}
-
-# Enable AFK (unattended) mode for automated workflows
-afk = ${settings.afk ?? false}
-`;
-}
-
-/**
- * Parse existing settings file and extract known boolean settings.
- */
-async function parseExistingSettings(
-	filePath: string,
-): Promise<Record<string, boolean> | null> {
-	try {
-		const file = Bun.file(filePath);
-		if (!(await file.exists())) {
-			return null;
-		}
-		const content = await file.text();
-		const parsed = Bun.TOML.parse(content) as Record<string, unknown>;
-
-		const settings: Record<string, boolean> = {};
-		for (const key of Object.keys(DEFAULT_SETTINGS)) {
-			if (typeof parsed[key] === "boolean") {
-				settings[key] = parsed[key];
-			}
-		}
-		return settings;
-	} catch {
-		return null;
-	}
-}
-
-/**
- * Merge existing settings with defaults.
- * User values take precedence, new schema fields get defaults.
- */
-function mergeSettings(
-	existing: Record<string, boolean> | null,
-): Record<string, boolean> {
-	if (!existing) {
-		return { ...DEFAULT_SETTINGS };
-	}
-	return { ...DEFAULT_SETTINGS, ...existing };
-}
-
-/**
- * Resolve the global settings file path.
- * Uses ~/.config/rp1/settings.toml to match settings-loader.ts.
- */
-function resolveGlobalSettingsPath(): string {
-	return path.join(homedir(), ".config", "rp1", "settings.toml");
-}
-
-/**
- * Resolve the local settings file path.
- */
-function resolveLocalSettingsPath(cwd: string): string {
-	const rp1Root = process.env.RP1_ROOT || ".rp1";
-	return path.join(cwd, rp1Root, "settings.toml");
-}
-
-/**
- * Create or update a single settings file with merge logic.
- * If file exists, merges with existing settings (user values preserved).
- * New schema fields are added with defaults.
- */
-async function createOrUpdateSettingsFile(
-	filePath: string,
-): Promise<{ action: InitAction; isNew: boolean; addedFields: string[] }> {
-	const existing = await parseExistingSettings(filePath);
-	const merged = mergeSettings(existing);
-	const content = generateSettingsToml(merged);
-
-	// Determine what changed
-	const addedFields: string[] = [];
-	if (existing) {
-		for (const key of Object.keys(DEFAULT_SETTINGS)) {
-			if (!(key in existing)) {
-				addedFields.push(key);
-			}
-		}
-	}
-
-	await writeFileContent(filePath, content);
-
-	if (!existing) {
-		return {
-			action: { type: "created_file", path: filePath },
-			isNew: true,
-			addedFields: [],
-		};
-	}
-
-	return {
-		action: { type: "updated_file", path: filePath },
-		isNew: false,
-		addedFields,
-	};
-}
-
-/**
- * Create settings files in both global and local locations.
- * Safely merges with existing settings - user values are preserved,
- * new schema fields are added with defaults.
- */
-async function createSettingsFiles(
-	cwd: string,
-	logger: Logger,
-): Promise<InitAction[]> {
-	const actions: InitAction[] = [];
-
-	logger.info(
-		"Settings files can be safely re-initialized - your values are preserved",
-	);
-
-	// Process global settings file
-	const globalPath = resolveGlobalSettingsPath();
-	const globalResult = await createOrUpdateSettingsFile(globalPath);
-	actions.push(globalResult.action);
-
-	if (globalResult.isNew) {
-		logger.success(`Created global settings: ${globalPath}`);
-	} else if (globalResult.addedFields.length > 0) {
-		logger.success(
-			`Updated global settings (added: ${globalResult.addedFields.join(", ")})`,
-		);
-	} else {
-		logger.info("Global settings unchanged (already up to date)");
-	}
-
-	// Process local settings file
-	const localPath = resolveLocalSettingsPath(cwd);
-	const localResult = await createOrUpdateSettingsFile(localPath);
-	actions.push(localResult.action);
-
-	if (localResult.isNew) {
-		logger.success(`Created local settings: ${localPath}`);
-	} else if (localResult.addedFields.length > 0) {
-		logger.success(
-			`Updated local settings (added: ${localResult.addedFields.join(", ")})`,
-		);
-	} else {
-		logger.info("Local settings unchanged (already up to date)");
-	}
-
-	return actions;
 }
 
 /**
@@ -667,186 +439,6 @@ async function processToolDetectionResult(
 }
 
 /**
- * Inject rp1 KB instructions into a single instruction file.
- */
-async function injectIntoFile(
-	cwd: string,
-	file: string,
-	template: string,
-	logger: Logger,
-): Promise<InitAction | null> {
-	const filePath = path.resolve(cwd, file);
-	const exists = await fileExists(filePath);
-
-	if (!exists) {
-		return null;
-	}
-
-	const existingContent = await readFileContent(filePath);
-	if (existingContent === null) {
-		throw new Error(`Failed to read file: ${filePath}`);
-	}
-
-	const validation = validateFencing(existingContent);
-	if (!validation.valid) {
-		throw new Error(`Invalid fencing in ${file}: ${validation.error}`);
-	}
-
-	if (hasFencedContent(existingContent)) {
-		logger.info(`Updating: ${filePath}`);
-		const newContent = replaceFencedContent(existingContent, template);
-		await writeFileContent(filePath, newContent);
-		logger.success(`Updated ${file}`);
-		return { type: "updated_file", path: filePath };
-	}
-	logger.info(`Appending to: ${filePath}`);
-	const newContent = appendFencedContent(existingContent, template);
-	await writeFileContent(filePath, newContent);
-	logger.success(`Appended to ${file}`);
-	return { type: "updated_file", path: filePath };
-}
-
-/**
- * Inject rp1 KB instructions into ALL existing instruction files (CLAUDE.md and AGENTS.md).
- */
-async function injectInstructions(
-	cwd: string,
-	detectedTool: DetectedTool | null,
-	logger: Logger,
-): Promise<{ actions: InitAction[]; instructionFile: string | null }> {
-	const actions: InitAction[] = [];
-
-	const claudePath = path.resolve(cwd, "CLAUDE.md");
-	const agentsPath = path.resolve(cwd, "AGENTS.md");
-
-	const claudeExists = await fileExists(claudePath);
-	const agentsExists = await fileExists(agentsPath);
-
-	// If neither exists, create the primary tool's file or default to CLAUDE.md
-	if (!claudeExists && !agentsExists) {
-		const primaryFile = detectedTool?.tool.instruction_file ?? "CLAUDE.md";
-		const template =
-			primaryFile === "CLAUDE.md" ? CLAUDE_CODE_TEMPLATE : AGENTS_TEMPLATE;
-		const filePath = path.resolve(cwd, primaryFile);
-		const linesInjected = countLines(template);
-
-		logger.info(`Creating: ${filePath}`);
-		const content = `${wrapWithFence(template)}\n`;
-		await writeFileContent(filePath, content);
-		actions.push({ type: "created_file", path: filePath });
-		logger.success(`Created ${primaryFile} with ${linesInjected} lines`);
-		return { actions, instructionFile: primaryFile };
-	}
-
-	// Inject into all existing instruction files
-	const instructionFiles: Array<{ file: string; template: string }> = [
-		{ file: "CLAUDE.md", template: CLAUDE_CODE_TEMPLATE },
-		{ file: "AGENTS.md", template: AGENTS_TEMPLATE },
-	];
-
-	let primaryFile: string | null = null;
-
-	for (const { file, template } of instructionFiles) {
-		const action = await injectIntoFile(cwd, file, template, logger);
-		if (action) {
-			actions.push(action);
-			if (!primaryFile) {
-				primaryFile = file;
-			}
-		}
-	}
-
-	return { actions, instructionFile: primaryFile };
-}
-
-async function configureGitignore(
-	cwd: string,
-	promptOptions: PromptOptions,
-	logger: Logger,
-	progress: InitProgress,
-	isUpdateOnly = false,
-): Promise<InitAction[]> {
-	const actions: InitAction[] = [];
-	const gitignorePath = path.resolve(cwd, ".gitignore");
-
-	let preset: GitignorePreset = "recommended";
-
-	// Skip prompt in update mode - use default preset for streamlined experience
-	if (promptOptions.isTTY && !isUpdateOnly) {
-		progress.pauseStep();
-		const choice = await selectOption<GitignorePreset>(
-			"How should rp1 files be tracked in git?",
-			[
-				{
-					value: "recommended",
-					name: "Recommended: Track context, ignore work",
-					description: "Share KB with team, keep work-in-progress local",
-				},
-				{
-					value: "track_all",
-					name: "Track everything except meta.json",
-					description: "Share both KB and work artifacts with team",
-				},
-				{
-					value: "ignore_all",
-					name: "Ignore entire .rp1/ directory",
-					description: "Keep all rp1 data local only",
-				},
-			],
-			promptOptions,
-		);
-
-		if (choice) {
-			preset = choice;
-		}
-	}
-
-	const gitignoreContent = GITIGNORE_PRESETS[preset];
-	const exists = await fileExists(gitignorePath);
-
-	if (!exists) {
-		logger.info(`Creating: ${gitignorePath}`);
-		const content = `# rp1:start\n${gitignoreContent}\n# rp1:end\n`;
-		await writeFileContent(gitignorePath, content);
-		actions.push({ type: "created_file", path: gitignorePath });
-		logger.success("Created .gitignore with rp1 entries");
-		return actions;
-	}
-
-	const existingContent = await readFileContent(gitignorePath);
-	if (existingContent === null) {
-		throw new Error(`Failed to read file: ${gitignorePath}`);
-	}
-
-	const validation = validateShellFencing(existingContent);
-	if (!validation.valid) {
-		throw new Error(`Invalid fencing in ${gitignorePath}: ${validation.error}`);
-	}
-
-	if (hasShellFencedContent(existingContent)) {
-		logger.info(`Updating .gitignore`);
-		const newContent = replaceShellFencedContent(
-			existingContent,
-			gitignoreContent,
-		);
-		await writeFileContent(gitignorePath, newContent);
-		actions.push({ type: "updated_file", path: gitignorePath });
-		logger.success("Updated .gitignore rp1 entries");
-	} else {
-		logger.info(`Appending to .gitignore`);
-		const newContent = appendShellFencedContent(
-			existingContent,
-			gitignoreContent,
-		);
-		await writeFileContent(gitignorePath, newContent);
-		actions.push({ type: "updated_file", path: gitignorePath });
-		logger.success("Added rp1 entries to .gitignore");
-	}
-
-	return actions;
-}
-
-/**
  * Execute the full initialization workflow.
  *
  * Orchestrates all steps:
@@ -854,12 +446,12 @@ async function configureGitignore(
  * 2. Load tools registry
  * 3. Git root detection and handling
  * 4. Re-initialization detection and handling
- * 5. Directory structure creation
- * 6. Tool detection
- * 7. Instruction file injection
- * 8. Gitignore configuration
- * 9. Plugin installation (actual execution)
- * 10. Plugin verification
+ * 5. Tool detection
+ * 6. Plugin install check and delegation
+ * 7. Directory structure creation (project setup)
+ * 8. Settings files (project setup)
+ * 9. Instruction file injection (project setup)
+ * 10. Gitignore configuration (project setup)
  * 11. Health check
  * 12. Summary display
  *
@@ -967,32 +559,7 @@ export function executeInit(
 
 				const isUpdateOnly = reinitCheck.choice === "update";
 
-				progress.startStep("directory-setup");
-				if (!isUpdateOnly || !reinitState.hasRp1Dir) {
-					const dirActions = await createDirectoryStructure(cwd, logger);
-					allActions.push(...dirActions);
-					progress.completeStep();
-				} else {
-					allActions.push({
-						type: "skipped",
-						reason: "Directory structure already exists (update mode)",
-					});
-					progress.skipStep();
-				}
-
-				progress.startStep("settings-setup");
-				if (!isUpdateOnly) {
-					const settingsActions = await createSettingsFiles(cwd, logger);
-					allActions.push(...settingsActions);
-					progress.completeStep();
-				} else {
-					allActions.push({
-						type: "skipped",
-						reason: "Settings files preserved (update mode)",
-					});
-					progress.skipStep();
-				}
-
+				// --- Tool detection ---
 				progress.startStep("tool-detection");
 
 				const [toolResultEither, readinessResult] = await Promise.all([
@@ -1013,6 +580,151 @@ export function executeInit(
 				);
 				allWarnings.push(...toolWarnings);
 				const primaryTool = getPrimaryTool(toolDetectionResult);
+				progress.completeStep();
+
+				// --- Install check and delegation ---
+				progress.startStep("install-check");
+				let pluginStatus: readonly PluginStatus[] = [];
+
+				if (toolDetectionResult.detected.length > 0) {
+					const installStatus = await checkPluginsInstalled(registry);
+
+					if (installStatus.installed) {
+						logger.success("Plugins already installed, skipping install step");
+						allActions.push({
+							type: "skipped",
+							reason: "Plugins already installed on all detected platforms",
+						});
+						progress.completeStep();
+					} else {
+						logger.info("Plugins missing on detected platforms, installing...");
+						const installCtx: InstallContext = {
+							logger,
+							isTTY,
+							dryRun: false,
+							skipPrompt: !isTTY,
+						};
+
+						try {
+							const installResultEither = await installAllDetectedTools(
+								registry,
+								installCtx,
+							)();
+
+							if (E.isRight(installResultEither)) {
+								const installResult = installResultEither.right;
+								for (const result of installResult.results) {
+									if (result.success) {
+										for (const plugin of result.pluginsInstalled) {
+											allActions.push({
+												type: "plugin_installed",
+												name: plugin,
+												version: "latest",
+											});
+										}
+										logger.success(`Installed plugins for ${result.toolName}`);
+									} else {
+										const errorMsg = result.error
+											? "message" in result.error
+												? (result.error as { message: string }).message
+												: String(result.error)
+											: "Unknown error";
+										logger.warn(
+											`Plugin installation failed for ${result.toolName}: ${errorMsg}`,
+										);
+										allWarnings.push(
+											`Plugin installation failed for ${result.toolName}: ${errorMsg}`,
+										);
+									}
+								}
+								progress.completeStep();
+							} else {
+								const errorMessage =
+									"message" in installResultEither.left
+										? (installResultEither.left as { message: string }).message
+										: String(installResultEither.left);
+								logger.warn(`Plugin installation failed: ${errorMessage}`);
+								allActions.push({
+									type: "plugin_install_failed",
+									name: "rp1-plugins",
+									error: errorMessage,
+								});
+								allWarnings.push(`Plugin installation failed: ${errorMessage}`);
+								progress.failStep();
+							}
+						} catch (error) {
+							const errorMessage =
+								error instanceof Error ? error.message : String(error);
+							logger.warn(`Plugin installation error: ${errorMessage}`);
+							allActions.push({
+								type: "plugin_install_failed",
+								name: "rp1-plugins",
+								error: errorMessage,
+							});
+							allWarnings.push(`Plugin installation failed: ${errorMessage}`);
+							progress.failStep();
+						}
+					}
+
+					// Run verification to collect plugin status for health check
+					try {
+						const allPluginStatus: PluginStatus[] = [];
+						for (const detected of toolDetectionResult.detected) {
+							let verificationResult: {
+								verified: boolean;
+								plugins: readonly PluginStatus[];
+								issues: readonly string[];
+							} | null = null;
+
+							if (detected.tool.id === "claude-code") {
+								verificationResult = await verifyClaudeCodePlugins();
+							} else if (detected.tool.id === "opencode") {
+								verificationResult = await verifyOpenCodePlugins();
+							}
+
+							if (verificationResult) {
+								allPluginStatus.push(...verificationResult.plugins);
+								if (verificationResult.verified) {
+									allActions.push({
+										type: "verification_passed",
+										component: `${detected.tool.name} plugins`,
+									});
+								} else {
+									for (const issue of verificationResult.issues) {
+										allActions.push({
+											type: "verification_failed",
+											component: `${detected.tool.name} plugins`,
+											issue,
+										});
+										logger.warn(`${detected.tool.name} verification: ${issue}`);
+									}
+								}
+							}
+						}
+						pluginStatus = allPluginStatus;
+					} catch (error) {
+						const errorMessage =
+							error instanceof Error ? error.message : String(error);
+						logger.warn(`Verification error: ${errorMessage}`);
+						allWarnings.push(`Plugin verification failed: ${errorMessage}`);
+					}
+				} else {
+					allActions.push({
+						type: "skipped",
+						reason: "Plugin install check skipped (no tools detected)",
+					});
+					progress.skipStep();
+				}
+
+				// --- Project setup ---
+				progress.startStep("directory-setup");
+				const dirActions = await createDirectoryStructure(cwd, logger);
+				allActions.push(...dirActions);
+				progress.completeStep();
+
+				progress.startStep("settings-setup");
+				const settingsActions = await createSettingsFiles(cwd, logger);
+				allActions.push(...settingsActions);
 				progress.completeStep();
 
 				progress.startStep("instruction-injection");
@@ -1043,103 +755,11 @@ export function executeInit(
 					progress.skipStep();
 				}
 
-				let pluginStatus: readonly PluginStatus[] = [];
-
-				// Always attempt plugin installation - it's idempotent
-				// Worst case it updates to the latest version
-				progress.startStep("plugin-installation");
-
-				try {
-					const { actions: pluginActions } = await executePluginInstallation(
-						primaryTool || null,
-						promptOptions,
-						logger,
-					);
-					allActions.push(...pluginActions);
-					progress.completeStep();
-				} catch (error) {
-					const errorMessage =
-						error instanceof Error ? error.message : String(error);
-					logger.warn(`Plugin installation error: ${errorMessage}`);
-					allActions.push({
-						type: "plugin_install_failed",
-						name: "rp1-plugins",
-						error: errorMessage,
-					});
-					allWarnings.push(`Plugin installation failed: ${errorMessage}`);
-					progress.failStep();
-				}
-
 				if (isUpdateOnly) {
 					logger.success("rp1 configuration updated!");
 				}
 
-				progress.startStep("verification");
-				if (toolDetectionResult.detected.length > 0) {
-					try {
-						let allVerified = true;
-						const allPluginStatus: PluginStatus[] = [];
-
-						for (const detected of toolDetectionResult.detected) {
-							let verificationResult: {
-								verified: boolean;
-								plugins: readonly PluginStatus[];
-								issues: readonly string[];
-							} | null = null;
-
-							if (detected.tool.id === "claude-code") {
-								verificationResult = await verifyClaudeCodePlugins();
-							} else if (detected.tool.id === "opencode") {
-								verificationResult = await verifyOpenCodePlugins();
-							}
-
-							if (verificationResult) {
-								allPluginStatus.push(...verificationResult.plugins);
-
-								if (verificationResult.verified) {
-									allActions.push({
-										type: "verification_passed",
-										component: `${detected.tool.name} plugins`,
-									});
-									logger.success(
-										`${detected.tool.name} plugin verification passed`,
-									);
-								} else {
-									allVerified = false;
-									for (const issue of verificationResult.issues) {
-										allActions.push({
-											type: "verification_failed",
-											component: `${detected.tool.name} plugins`,
-											issue,
-										});
-										logger.warn(`${detected.tool.name} verification: ${issue}`);
-									}
-								}
-							}
-						}
-
-						pluginStatus = allPluginStatus;
-
-						if (allVerified) {
-							progress.completeStep();
-						} else {
-							progress.failStep();
-						}
-					} catch (error) {
-						const errorMessage =
-							error instanceof Error ? error.message : String(error);
-						logger.warn(`Verification error: ${errorMessage}`);
-						allWarnings.push(`Plugin verification failed: ${errorMessage}`);
-						progress.failStep();
-					}
-				} else {
-					allActions.push({
-						type: "skipped",
-						reason: "Plugin verification skipped (no tools detected)",
-					});
-					progress.skipStep();
-				}
-
+				// --- Health check ---
 				progress.startStep("health-check");
 				let healthReport: HealthReport | null = null;
 				try {
@@ -1168,6 +788,7 @@ export function executeInit(
 					progress.failStep();
 				}
 
+				// --- Summary ---
 				progress.startStep("summary");
 
 				const hasKBContent = reinitState.hasKBContent;
