@@ -104,24 +104,56 @@ export const copyArtifacts = (
 					const agentDst = join(targetDir, "agents");
 					await mkdir(agentDst, { recursive: true });
 
-					// Clean up legacy agent subdirectories (pre-flat structure)
-					const legacyAgentSubdirs = ["rp1-base", "rp1-dev", "rp1-utils"];
-					for (const subdir of legacyAgentSubdirs) {
-						const subdirPath = join(agentDst, subdir);
+					const agentFiles = await findFiles(agentSrc, /\.md$/);
+
+					// Migrate legacy agent layout for the plugin being installed.
+					// Only inspects the matching legacy directory (e.g., agents/rp1-base/).
+					// Only removes known plugin-generated files. Unknown files are preserved.
+					// Removes the legacy directory only when empty after migration.
+					const knownFlatNames = new Set(
+						agentFiles.map((f) => f.split("/").pop() ?? ""),
+					);
+					const pluginPrefixes = new Set<string>();
+					for (const name of knownFlatNames) {
+						const match = name.match(/^(rp1-[^-]+-)/);
+						if (match) pluginPrefixes.add(match[1].slice(0, -1));
+					}
+					for (const pluginPrefix of pluginPrefixes) {
+						const legacyDir = join(agentDst, pluginPrefix);
 						try {
-							const subdirStat = await stat(subdirPath);
-							if (subdirStat.isDirectory()) {
-								await rm(subdirPath, { recursive: true });
-								logger?.debug(
-									`Removed legacy agent subdirectory: ${subdir}`,
-								);
+							const legacyStat = await stat(legacyDir);
+							if (legacyStat.isDirectory()) {
+								const legacyEntries = await readdir(legacyDir);
+								for (const entry of legacyEntries) {
+									const flatEquivalent = `${pluginPrefix}-${entry}`;
+									if (knownFlatNames.has(flatEquivalent)) {
+										await rm(join(legacyDir, entry));
+										logger?.debug(
+											`Migrated legacy agent: ${pluginPrefix}/${entry} -> ${flatEquivalent}`,
+										);
+									} else {
+										logger?.debug(
+											`Preserving unknown file in legacy dir: ${pluginPrefix}/${entry}`,
+										);
+									}
+								}
+								const remaining = await readdir(legacyDir);
+								if (remaining.length === 0) {
+									await rm(legacyDir, { recursive: true });
+									logger?.debug(
+										`Removed empty legacy directory: ${pluginPrefix}`,
+									);
+								} else {
+									logger?.debug(
+										`Legacy dir ${pluginPrefix}/ not empty after migration (${remaining.length} files), preserving`,
+									);
+								}
 							}
 						} catch {
-							// Subdirectory doesn't exist
+							// Legacy directory doesn't exist
 						}
 					}
 
-					const agentFiles = await findFiles(agentSrc, /\.md$/);
 					for (const srcFile of agentFiles) {
 						const relPath = relative(agentSrc, srcFile);
 						const dstFile = join(agentDst, relPath);

@@ -4,7 +4,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { readFile, stat } from "node:fs/promises";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 
@@ -70,11 +70,7 @@ describe("extractor", () => {
 				expect(extraction.plugins).toContain("rp1-base");
 				expect(extraction.plugins).toContain("rp1-dev");
 
-				const agentPath = join(
-					targetDir,
-					"agents",
-					"rp1-base-test-agent.md",
-				);
+				const agentPath = join(targetDir, "agents", "rp1-base-test-agent.md");
 				const skillPath = join(
 					targetDir,
 					"skills",
@@ -180,16 +176,8 @@ describe("extractor", () => {
 			if (E.isRight(result)) {
 				expect(result.right.filesExtracted).toBe(2);
 
-				const agent1Path = join(
-					targetDir,
-					"agents",
-					"rp1-base-agent-one.md",
-				);
-				const agent2Path = join(
-					targetDir,
-					"agents",
-					"rp1-base-agent-two.md",
-				);
+				const agent1Path = join(targetDir, "agents", "rp1-base-agent-one.md");
+				const agent2Path = join(targetDir, "agents", "rp1-base-agent-two.md");
 
 				const agent1Exists = await stat(agent1Path)
 					.then(() => true)
@@ -201,6 +189,195 @@ describe("extractor", () => {
 				expect(agent1Exists).toBe(true);
 				expect(agent2Exists).toBe(true);
 			}
+		});
+
+		test("legacy generated files migrate to flat names during extraction", async () => {
+			const mockAgent = join(tempDir, "mock-agent.md");
+			await Bun.write(mockAgent, "# New Agent");
+
+			const targetDir = join(tempDir, "opencode");
+
+			// Create legacy subdirectory with a known agent
+			await mkdir(join(targetDir, "agents", "rp1-base"), { recursive: true });
+			await writeFile(
+				join(targetDir, "agents", "rp1-base", "test-agent.md"),
+				"Old content",
+			);
+
+			const mockAssets: BundledAssets = {
+				plugins: {
+					base: {
+						name: "rp1-base",
+						commands: [],
+						agents: [{ name: "test-agent", path: mockAgent }],
+						skills: [],
+						stateMachines: [],
+					},
+					dev: {
+						name: "rp1-dev",
+						commands: [],
+						agents: [],
+						skills: [],
+						stateMachines: [],
+					},
+					utils: {
+						name: "rp1-utils",
+						commands: [],
+						agents: [],
+						skills: [],
+						stateMachines: [],
+					},
+				},
+				webui: [],
+				version: "1.0.0",
+				buildTimestamp: new Date().toISOString(),
+			};
+
+			await extractPlugins(mockAssets, targetDir)();
+
+			// Legacy file removed
+			const legacyExists = await stat(
+				join(targetDir, "agents", "rp1-base", "test-agent.md"),
+			)
+				.then(() => true)
+				.catch(() => false);
+			expect(legacyExists).toBe(false);
+
+			// Flat file installed
+			const flatContent = await readFile(
+				join(targetDir, "agents", "rp1-base-test-agent.md"),
+				"utf-8",
+			);
+			expect(flatContent).toContain("New Agent");
+		});
+
+		test("extra user files in legacy dirs survive extraction", async () => {
+			const mockAgent = join(tempDir, "mock-agent.md");
+			await Bun.write(mockAgent, "# Agent");
+
+			const targetDir = join(tempDir, "opencode");
+
+			// Create legacy dir with known + unknown files
+			await mkdir(join(targetDir, "agents", "rp1-base"), { recursive: true });
+			await writeFile(
+				join(targetDir, "agents", "rp1-base", "test-agent.md"),
+				"Known",
+			);
+			await writeFile(
+				join(targetDir, "agents", "rp1-base", "my-custom.md"),
+				"User custom",
+			);
+
+			const mockAssets: BundledAssets = {
+				plugins: {
+					base: {
+						name: "rp1-base",
+						commands: [],
+						agents: [{ name: "test-agent", path: mockAgent }],
+						skills: [],
+						stateMachines: [],
+					},
+					dev: {
+						name: "rp1-dev",
+						commands: [],
+						agents: [],
+						skills: [],
+						stateMachines: [],
+					},
+					utils: {
+						name: "rp1-utils",
+						commands: [],
+						agents: [],
+						skills: [],
+						stateMachines: [],
+					},
+				},
+				webui: [],
+				version: "1.0.0",
+				buildTimestamp: new Date().toISOString(),
+			};
+
+			await extractPlugins(mockAssets, targetDir)();
+
+			// User file survives
+			const userContent = await readFile(
+				join(targetDir, "agents", "rp1-base", "my-custom.md"),
+				"utf-8",
+			);
+			expect(userContent).toBe("User custom");
+
+			// Legacy dir still exists
+			const dirExists = await stat(join(targetDir, "agents", "rp1-base"))
+				.then((s) => s.isDirectory())
+				.catch(() => false);
+			expect(dirExists).toBe(true);
+		});
+
+		test("legacy dir deleted only when empty after migration", async () => {
+			const mockAgent1 = join(tempDir, "a1.md");
+			const mockAgent2 = join(tempDir, "a2.md");
+			await Bun.write(mockAgent1, "# A1");
+			await Bun.write(mockAgent2, "# A2");
+
+			const targetDir = join(tempDir, "opencode");
+
+			// Legacy dir with only known agents
+			await mkdir(join(targetDir, "agents", "rp1-base"), { recursive: true });
+			await writeFile(
+				join(targetDir, "agents", "rp1-base", "agent-a.md"),
+				"Old A",
+			);
+			await writeFile(
+				join(targetDir, "agents", "rp1-base", "agent-b.md"),
+				"Old B",
+			);
+
+			const mockAssets: BundledAssets = {
+				plugins: {
+					base: {
+						name: "rp1-base",
+						commands: [],
+						agents: [
+							{ name: "agent-a", path: mockAgent1 },
+							{ name: "agent-b", path: mockAgent2 },
+						],
+						skills: [],
+						stateMachines: [],
+					},
+					dev: {
+						name: "rp1-dev",
+						commands: [],
+						agents: [],
+						skills: [],
+						stateMachines: [],
+					},
+					utils: {
+						name: "rp1-utils",
+						commands: [],
+						agents: [],
+						skills: [],
+						stateMachines: [],
+					},
+				},
+				webui: [],
+				version: "1.0.0",
+				buildTimestamp: new Date().toISOString(),
+			};
+
+			await extractPlugins(mockAssets, targetDir)();
+
+			// Legacy dir removed (was empty after migration)
+			const dirExists = await stat(join(targetDir, "agents", "rp1-base"))
+				.then(() => true)
+				.catch(() => false);
+			expect(dirExists).toBe(false);
+
+			// Flat files installed
+			const a1 = await readFile(
+				join(targetDir, "agents", "rp1-base-agent-a.md"),
+				"utf-8",
+			);
+			expect(a1).toContain("A1");
 		});
 	});
 

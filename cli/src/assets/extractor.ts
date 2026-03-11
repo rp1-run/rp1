@@ -66,6 +66,31 @@ const extractPlugin = async (
 	let filesExtracted = 0;
 	const pluginName = plugin.name; // e.g., "rp1-base"
 
+	// Migrate legacy agent layout for this plugin before extracting.
+	// Only inspects the matching legacy directory (e.g., agents/rp1-base/).
+	// Only removes known plugin-generated files. Unknown files are preserved.
+	// Removes the legacy directory only when empty after migration.
+	const agentsDir = join(targetDir, "agents");
+	const knownAgentNames = new Set(plugin.agents.map((a) => `${a.name}.md`));
+	const legacyDir = join(agentsDir, pluginName);
+	try {
+		const legacyStat = await stat(legacyDir);
+		if (legacyStat.isDirectory()) {
+			const legacyEntries = await readdir(legacyDir);
+			for (const entry of legacyEntries) {
+				if (knownAgentNames.has(entry)) {
+					await rm(join(legacyDir, entry));
+				}
+			}
+			const remaining = await readdir(legacyDir);
+			if (remaining.length === 0) {
+				await rm(legacyDir, { recursive: true });
+			}
+		}
+	} catch {
+		// Legacy directory doesn't exist
+	}
+
 	// Extract agents as flat namespaced files
 	for (const agent of plugin.agents) {
 		const destPath = join(
@@ -133,29 +158,6 @@ const removeLegacyDirs = async (
 
 	// Legacy singular directories to clean up
 	const legacyDirs = ["command", "agent", "skill"];
-
-	// Legacy agent subdirectories to clean up (pre-flat structure)
-	const legacyAgentSubdirs = ["rp1-base", "rp1-dev", "rp1-utils"];
-	const agentsDir = join(targetDir, "agents");
-	try {
-		const agentsStat = await stat(agentsDir);
-		if (agentsStat.isDirectory()) {
-			for (const subdir of legacyAgentSubdirs) {
-				const subdirPath = join(agentsDir, subdir);
-				try {
-					const subdirStat = await stat(subdirPath);
-					if (subdirStat.isDirectory()) {
-						await rm(subdirPath, { recursive: true });
-						filesRemoved++;
-					}
-				} catch {
-					// Subdirectory doesn't exist
-				}
-			}
-		}
-	} catch {
-		// agents/ directory doesn't exist
-	}
 
 	for (const dirName of legacyDirs) {
 		const legacyDir = join(targetDir, dirName);
