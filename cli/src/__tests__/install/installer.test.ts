@@ -42,7 +42,7 @@ describe("installer", () => {
 
 			await writeFixture(
 				sourceDir,
-				"agents/rp1-base/sample-agent.md",
+				"agents/rp1-base-sample-agent.md",
 				"---\nname: sample-agent\n---\nAgent content",
 			);
 			await writeFixture(
@@ -59,7 +59,7 @@ describe("installer", () => {
 			}
 
 			const agentContent = await readFile(
-				join(targetDir, "agents/rp1-base/sample-agent.md"),
+				join(targetDir, "agents/rp1-base-sample-agent.md"),
 				"utf-8",
 			);
 			expect(agentContent).toContain("Agent content");
@@ -103,13 +103,13 @@ describe("installer", () => {
 
 			await writeFixture(
 				sourceDir,
-				"agents/rp1-base/test.md",
+				"agents/rp1-base-test.md",
 				"---\nname: test\n---\nContent",
 			);
 
 			await copyArtifacts(sourceDir, targetDir)();
 
-			const targetFile = join(targetDir, "agents/rp1-base/test.md");
+			const targetFile = join(targetDir, "agents/rp1-base-test.md");
 			const fileStat = await stat(targetFile);
 
 			const mode = fileStat.mode & 0o777;
@@ -167,6 +167,152 @@ describe("installer", () => {
 				"utf-8",
 			);
 			expect(template2).toBe("Template 2 content");
+		});
+
+		test("installing dev does not delete agents/rp1-base/", async () => {
+			const sourceDir = join(tempDir, "source");
+			const targetDir = join(tempDir, "target");
+
+			// Pre-existing base agent in legacy subdirectory
+			await writeFixture(
+				targetDir,
+				"agents/rp1-base/kb-spatial-analyzer.md",
+				"Base agent content",
+			);
+
+			// Source contains only dev plugin agents (flat)
+			await writeFixture(
+				sourceDir,
+				"agents/rp1-dev-task-builder.md",
+				"---\nname: task-builder\n---\nDev agent",
+			);
+
+			await copyArtifacts(sourceDir, targetDir)();
+
+			// Base legacy dir must survive
+			const baseAgent = await readFile(
+				join(targetDir, "agents/rp1-base/kb-spatial-analyzer.md"),
+				"utf-8",
+			);
+			expect(baseAgent).toBe("Base agent content");
+
+			// Dev flat file installed
+			const devAgent = await readFile(
+				join(targetDir, "agents/rp1-dev-task-builder.md"),
+				"utf-8",
+			);
+			expect(devAgent).toContain("Dev agent");
+		});
+
+		test("legacy generated files migrate to flat names", async () => {
+			const sourceDir = join(tempDir, "source");
+			const targetDir = join(tempDir, "target");
+
+			// Legacy agent in subdirectory
+			await writeFixture(
+				targetDir,
+				"agents/rp1-base/test-agent.md",
+				"Old agent content",
+			);
+
+			// New flat agent being installed
+			await writeFixture(
+				sourceDir,
+				"agents/rp1-base-test-agent.md",
+				"---\nname: test-agent\n---\nNew agent content",
+			);
+
+			await copyArtifacts(sourceDir, targetDir)();
+
+			// Legacy file removed (it was a known agent)
+			const legacyExists = await stat(
+				join(targetDir, "agents/rp1-base/test-agent.md"),
+			)
+				.then(() => true)
+				.catch(() => false);
+			expect(legacyExists).toBe(false);
+
+			// New flat file installed
+			const newContent = await readFile(
+				join(targetDir, "agents/rp1-base-test-agent.md"),
+				"utf-8",
+			);
+			expect(newContent).toContain("New agent content");
+		});
+
+		test("extra user files in legacy dirs survive", async () => {
+			const sourceDir = join(tempDir, "source");
+			const targetDir = join(tempDir, "target");
+
+			// Legacy known agent + user custom file in same subdir
+			await writeFixture(
+				targetDir,
+				"agents/rp1-base/test-agent.md",
+				"Known agent",
+			);
+			await writeFixture(
+				targetDir,
+				"agents/rp1-base/my-custom-agent.md",
+				"User custom content",
+			);
+
+			// Source installs the known agent as flat
+			await writeFixture(
+				sourceDir,
+				"agents/rp1-base-test-agent.md",
+				"---\nname: test-agent\n---\nNew content",
+			);
+
+			await copyArtifacts(sourceDir, targetDir)();
+
+			// User file survives
+			const userFile = await readFile(
+				join(targetDir, "agents/rp1-base/my-custom-agent.md"),
+				"utf-8",
+			);
+			expect(userFile).toBe("User custom content");
+
+			// Legacy dir still exists (not empty)
+			const dirExists = await stat(join(targetDir, "agents/rp1-base"))
+				.then((s) => s.isDirectory())
+				.catch(() => false);
+			expect(dirExists).toBe(true);
+		});
+
+		test("legacy dir is deleted only when empty after migration", async () => {
+			const sourceDir = join(tempDir, "source");
+			const targetDir = join(tempDir, "target");
+
+			// Only known agents in legacy dir (no user files)
+			await writeFixture(targetDir, "agents/rp1-base/agent-a.md", "Agent A");
+			await writeFixture(targetDir, "agents/rp1-base/agent-b.md", "Agent B");
+
+			// Source installs both as flat
+			await writeFixture(
+				sourceDir,
+				"agents/rp1-base-agent-a.md",
+				"---\nname: agent-a\n---\nNew A",
+			);
+			await writeFixture(
+				sourceDir,
+				"agents/rp1-base-agent-b.md",
+				"---\nname: agent-b\n---\nNew B",
+			);
+
+			await copyArtifacts(sourceDir, targetDir)();
+
+			// Legacy dir should be gone (was empty after migration)
+			const dirExists = await stat(join(targetDir, "agents/rp1-base"))
+				.then(() => true)
+				.catch(() => false);
+			expect(dirExists).toBe(false);
+
+			// Flat files installed
+			const newA = await readFile(
+				join(targetDir, "agents/rp1-base-agent-a.md"),
+				"utf-8",
+			);
+			expect(newA).toContain("New A");
 		});
 	});
 
@@ -253,7 +399,7 @@ describe("installer", () => {
 			// Setup backup with agents
 			await writeFixture(
 				backupDir,
-				"agents/rp1-base/test-agent.md",
+				"agents/rp1-base-test-agent.md",
 				"Original agent content",
 			);
 			await writeFixture(join(backupDir, "manifest.json"), "", "");
@@ -268,10 +414,10 @@ describe("installer", () => {
 
 			// Simulate target with corrupted content
 			const configDir = join(homedir(), ".config", "opencode");
-			await mkdir(join(configDir, "agents", "rp1-base"), { recursive: true });
+			await mkdir(join(configDir, "agents"), { recursive: true });
 			await writeFixture(
 				configDir,
-				"agents/rp1-base/test-agent.md",
+				"agents/rp1-base-test-agent.md",
 				"Corrupted content",
 			);
 
@@ -281,14 +427,13 @@ describe("installer", () => {
 
 			// Verify content was restored
 			const restoredContent = await readFile(
-				join(configDir, "agents/rp1-base/test-agent.md"),
+				join(configDir, "agents/rp1-base-test-agent.md"),
 				"utf-8",
 			);
 			expect(restoredContent).toBe("Original agent content");
 
 			// Cleanup
-			await rm(join(configDir, "agents/rp1-base"), {
-				recursive: true,
+			await rm(join(configDir, "agents/rp1-base-test-agent.md"), {
 				force: true,
 			});
 		});
@@ -296,7 +441,7 @@ describe("installer", () => {
 		// Critical: manifest deletion prevents accidental double-restore on retry
 		test("deletes manifest.json after successful restore (prevents duplicate)", async () => {
 			// Setup backup with minimal content
-			await writeFixture(backupDir, "agents/rp1-base/agent.md", "content");
+			await writeFixture(backupDir, "agents/rp1-base-agent.md", "content");
 			const manifest: BackupManifest = {
 				timestamp: "2026-01-25T10-00-00",
 				backupPath: backupDir,
@@ -306,7 +451,7 @@ describe("installer", () => {
 
 			// Setup target
 			const configDir = join(homedir(), ".config", "opencode");
-			await mkdir(join(configDir, "agents", "rp1-base"), { recursive: true });
+			await mkdir(join(configDir, "agents"), { recursive: true });
 
 			const result = await expectTaskRight(restoreFromBackup(manifest));
 
@@ -322,8 +467,7 @@ describe("installer", () => {
 			expect(manifestExists).toBe(false);
 
 			// Cleanup
-			await rm(join(configDir, "agents/rp1-base"), {
-				recursive: true,
+			await rm(join(configDir, "agents/rp1-base-agent.md"), {
 				force: true,
 			});
 		});

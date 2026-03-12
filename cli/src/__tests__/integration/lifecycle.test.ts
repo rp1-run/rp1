@@ -145,7 +145,7 @@ describe("integration: lifecycle", () => {
 			// Create expected structure: agents/, skills/
 			await writeFixture(
 				buildDir,
-				"agents/rp1-base/test-agent.md",
+				"agents/rp1-base-test-agent.md",
 				"---\ndescription: Test\nmode: subagent\ntools:\n  bash: true\n  write: false\n  edit: false\n---\nContent",
 			);
 			await writeFixture(
@@ -159,7 +159,7 @@ describe("integration: lifecycle", () => {
 			expect(entries).toContain("skills");
 
 			const agentEntries = await readdir(join(buildDir, "agents"));
-			expect(agentEntries).toContain("rp1-base");
+			expect(agentEntries).toContain("rp1-base-test-agent.md");
 
 			const skillEntries = await readdir(join(buildDir, "skills"));
 			expect(skillEntries).toContain("test-skill");
@@ -212,7 +212,7 @@ describe("integration: lifecycle", () => {
 
 			await writeFixture(
 				sourceDir,
-				"agents/rp1-base/lifecycle-agent.md",
+				"agents/rp1-base-lifecycle-agent.md",
 				"---\ndescription: Lifecycle test agent\nmode: subagent\ntools:\n  bash: true\n  write: false\n  edit: false\n---\nAgent body",
 			);
 			await writeFixture(
@@ -230,7 +230,7 @@ describe("integration: lifecycle", () => {
 			expect(filesCopied).toBe(2);
 
 			const agentStat = await stat(
-				join(targetDir, "agents/rp1-base/lifecycle-agent.md"),
+				join(targetDir, "agents/rp1-base-lifecycle-agent.md"),
 			);
 			expect(agentStat.isFile()).toBe(true);
 
@@ -240,7 +240,7 @@ describe("integration: lifecycle", () => {
 			expect(skillStat.isFile()).toBe(true);
 
 			const agentContent = await readFile(
-				join(targetDir, "agents/rp1-base/lifecycle-agent.md"),
+				join(targetDir, "agents/rp1-base-lifecycle-agent.md"),
 				"utf-8",
 			);
 			expect(agentContent).toContain("Lifecycle test agent");

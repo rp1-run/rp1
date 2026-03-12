@@ -51,7 +51,7 @@ describe("integration: dependencies", () => {
 
 		await writeFixture(
 			baseDir,
-			"agents/rp1-base/kb-spatial-analyzer.md",
+			"agents/rp1-base-kb-spatial-analyzer.md",
 			"---\ndescription: Spatial analyzer\nmode: subagent\ntools:\n  bash: true\n  write: false\n  edit: false\n---\nAgent content",
 		);
 		await writeFixture(
@@ -87,7 +87,7 @@ describe("integration: dependencies", () => {
 
 		await writeFixture(
 			devDir,
-			"agents/rp1-dev/feature-builder.md",
+			"agents/rp1-dev-feature-builder.md",
 			"---\ndescription: Feature builder agent\nmode: subagent\ntools:\n  bash: true\n  write: true\n  edit: true\n---\nRun /rp1-base/knowledge-load first\nAgent content",
 		);
 
@@ -110,7 +110,7 @@ describe("integration: dependencies", () => {
 			}
 
 			const baseAgentStat = await stat(
-				join(targetDir, "agents/rp1-base/kb-spatial-analyzer.md"),
+				join(targetDir, "agents/rp1-base-kb-spatial-analyzer.md"),
 			);
 			expect(baseAgentStat.isFile()).toBe(true);
 
@@ -121,17 +121,17 @@ describe("integration: dependencies", () => {
 			}
 
 			const devAgentStat = await stat(
-				join(targetDir, "agents/rp1-dev/feature-builder.md"),
+				join(targetDir, "agents/rp1-dev-feature-builder.md"),
 			);
 			expect(devAgentStat.isFile()).toBe(true);
 
 			const baseAgentExists = await stat(
-				join(targetDir, "agents/rp1-base/kb-spatial-analyzer.md"),
+				join(targetDir, "agents/rp1-base-kb-spatial-analyzer.md"),
 			)
 				.then(() => true)
 				.catch(() => false);
 			const devAgentExists = await stat(
-				join(targetDir, "agents/rp1-dev/feature-builder.md"),
+				join(targetDir, "agents/rp1-dev-feature-builder.md"),
 			)
 				.then(() => true)
 				.catch(() => false);
@@ -155,14 +155,14 @@ describe("integration: dependencies", () => {
 			await copyArtifacts(devDir, targetDir)();
 
 			const featureBuilderContent = await readFile(
-				join(targetDir, "agents/rp1-dev/feature-builder.md"),
+				join(targetDir, "agents/rp1-dev-feature-builder.md"),
 				"utf-8",
 			);
 
 			expect(featureBuilderContent).toContain("rp1-base/knowledge-load");
 
 			const baseAgentExists = await stat(
-				join(targetDir, "agents/rp1-base/kb-spatial-analyzer.md"),
+				join(targetDir, "agents/rp1-base-kb-spatial-analyzer.md"),
 			)
 				.then(() => true)
 				.catch(() => false);

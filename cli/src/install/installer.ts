@@ -81,7 +81,7 @@ const copyDir = async (src: string, dst: string): Promise<number> => {
 
 /**
  * Copy rp1 artifacts from source to target directory.
- * Handles subdirectory namespacing (agents/rp1-base/).
+ * Handles flat namespaced agent files (agents/rp1-base-{agent}.md).
  *
  * When strict mode is enabled (REQ-013), missing source directories cause
  * installation failure instead of logging a warning and continuing.
@@ -105,6 +105,55 @@ export const copyArtifacts = (
 					await mkdir(agentDst, { recursive: true });
 
 					const agentFiles = await findFiles(agentSrc, /\.md$/);
+
+					// Migrate legacy agent layout for the plugin being installed.
+					// Only inspects the matching legacy directory (e.g., agents/rp1-base/).
+					// Only removes known plugin-generated files. Unknown files are preserved.
+					// Removes the legacy directory only when empty after migration.
+					const knownFlatNames = new Set(
+						agentFiles.map((f) => f.split("/").pop() ?? ""),
+					);
+					const pluginPrefixes = new Set<string>();
+					for (const name of knownFlatNames) {
+						const match = name.match(/^(rp1-[^-]+-)/);
+						if (match) pluginPrefixes.add(match[1].slice(0, -1));
+					}
+					for (const pluginPrefix of pluginPrefixes) {
+						const legacyDir = join(agentDst, pluginPrefix);
+						try {
+							const legacyStat = await stat(legacyDir);
+							if (legacyStat.isDirectory()) {
+								const legacyEntries = await readdir(legacyDir);
+								for (const entry of legacyEntries) {
+									const flatEquivalent = `${pluginPrefix}-${entry}`;
+									if (knownFlatNames.has(flatEquivalent)) {
+										await rm(join(legacyDir, entry));
+										logger?.debug(
+											`Migrated legacy agent: ${pluginPrefix}/${entry} -> ${flatEquivalent}`,
+										);
+									} else {
+										logger?.debug(
+											`Preserving unknown file in legacy dir: ${pluginPrefix}/${entry}`,
+										);
+									}
+								}
+								const remaining = await readdir(legacyDir);
+								if (remaining.length === 0) {
+									await rm(legacyDir, { recursive: true });
+									logger?.debug(
+										`Removed empty legacy directory: ${pluginPrefix}`,
+									);
+								} else {
+									logger?.debug(
+										`Legacy dir ${pluginPrefix}/ not empty after migration (${remaining.length} files), preserving`,
+									);
+								}
+							}
+						} catch {
+							// Legacy directory doesn't exist
+						}
+					}
+
 					for (const srcFile of agentFiles) {
 						const relPath = relative(agentSrc, srcFile);
 						const dstFile = join(agentDst, relPath);
@@ -348,10 +397,19 @@ export const restoreFromBackup = (
 						});
 						for (const entry of entries) {
 							if (entry.isDirectory() && entry.name.startsWith("rp1-")) {
+								// Remove legacy agent subdirectories
 								await rm(join(targetAgentDir, entry.name), { recursive: true });
 								logger?.debug(
 									`Removed existing agent directory: ${entry.name}`,
 								);
+							} else if (
+								entry.isFile() &&
+								entry.name.startsWith("rp1-") &&
+								entry.name.endsWith(".md")
+							) {
+								// Remove flat agent files
+								await rm(join(targetAgentDir, entry.name));
+								logger?.debug(`Removed existing agent file: ${entry.name}`);
 							}
 						}
 					} catch (e) {
@@ -718,16 +776,22 @@ export const verifyStagingContents = (
 
 			const missingPlugins: string[] = [];
 			for (const pluginName of expectedPlugins) {
-				// Check for at least one of: agents/, skills/ subdirectories with plugin content
-				const agentDir = join(stagingPath, "agents", `rp1-${pluginName}`);
+				// Check for flat agent files (rp1-{plugin}-*.md) or skills/ with content
+				const agentsDir = join(stagingPath, "agents");
 				const skillDir = join(stagingPath, "skills");
 
 				let hasContent = false;
 				try {
-					await stat(agentDir);
-					hasContent = true;
+					const agentEntries = await readdir(agentsDir);
+					const hasAgentFiles = agentEntries.some(
+						(entry) =>
+							entry.startsWith(`rp1-${pluginName}-`) && entry.endsWith(".md"),
+					);
+					if (hasAgentFiles) {
+						hasContent = true;
+					}
 				} catch {
-					// Agent dir doesn't exist
+					// Agents dir doesn't exist
 				}
 
 				try {
