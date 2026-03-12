@@ -19,11 +19,9 @@ metadata:
 
 This command invokes the **security-validator** sub-agent for comprehensive security analysis.
 
-Use the Task tool to invoke the security-validator agent:
+Invoke the security-validator agent:
 
-```
-subagent_type: rp1-base:security-validator
-```
+{% dispatch_agent "rp1-base:security-validator" %}
 
 The agent will:
 

@@ -1,0 +1,92 @@
+/**
+ * Semantic Liquid tag for platform-specific user input instructions.
+ *
+ * Transforms a canonical "ask user" directive into the correct tool name,
+ * parameter format, and constraint notes for each build platform.
+ *
+ * Syntax: {% ask_user "<question>" [, options: "opt1", "opt2", ...] %}
+ *
+ * Output by platform:
+ *   CC:    AskUserQuestion: "<question>" (with options list if provided)
+ *   OC:    ask_user: "<question>" (with options if provided)
+ *   Codex: request_user_input: "<question>" with required options array
+ *          and subagent unavailability note
+ */
+
+import {
+	type Context,
+	type Emitter,
+	type Liquid,
+	Tag,
+	type TagToken,
+	type TopLevelToken,
+} from "liquidjs";
+import type { BuildPlatform } from "../template-context.js";
+import { parseTagArgs } from "./index.js";
+
+function renderClaudeCode(
+	question: string,
+	options: readonly string[],
+): string {
+	let output = `AskUserQuestion: "${question}"`;
+	if (options.length > 0) {
+		output += `\nOptions:\n${options.map((o) => `- ${o}`).join("\n")}`;
+	}
+	return output;
+}
+
+function renderOpenCode(question: string, options: readonly string[]): string {
+	let output = `ask_user: "${question}"`;
+	if (options.length > 0) {
+		output += `\nOptions:\n${options.map((o) => `- ${o}`).join("\n")}`;
+	}
+	return output;
+}
+
+function renderCodex(question: string, options: readonly string[]): string {
+	const optionsList =
+		options.length > 0 ? options : ["(provide appropriate options)"];
+	let output = `request_user_input: "${question}"`;
+	output += `\noptions: [${optionsList.map((o) => `"${o}"`).join(", ")}]`;
+	output += "\nNote: User input is unavailable in subagent contexts on Codex.";
+	return output;
+}
+
+function renderAskUser(
+	question: string,
+	options: readonly string[],
+	platform: BuildPlatform,
+): string {
+	switch (platform) {
+		case "claude-code":
+			return renderClaudeCode(question, options);
+		case "opencode":
+			return renderOpenCode(question, options);
+		case "codex":
+			return renderCodex(question, options);
+	}
+}
+
+export class AskUserTag extends Tag {
+	private readonly question: string;
+	private readonly options: readonly string[];
+
+	constructor(token: TagToken, remainTokens: TopLevelToken[], liquid: Liquid) {
+		super(token, remainTokens, liquid);
+		const parsed = parseTagArgs(token.args);
+		this.question = parsed.positional[0] ?? "";
+		const rawOptions = parsed.named.options;
+		if (rawOptions === undefined) {
+			this.options = [];
+		} else if (typeof rawOptions === "string") {
+			this.options = [rawOptions];
+		} else {
+			this.options = rawOptions;
+		}
+	}
+
+	render(ctx: Context, emitter: Emitter): void {
+		const platform = ctx.getSync(["platform"]) as BuildPlatform;
+		emitter.write(renderAskUser(this.question, this.options, platform));
+	}
+}

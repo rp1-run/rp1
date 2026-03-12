@@ -149,6 +149,7 @@ export interface BuildConfig {
 	readonly plugin: "base" | "dev" | "utils" | "all";
 	readonly platform: "opencode" | "codex" | "claude-code" | "all";
 	readonly jsonOutput: boolean;
+	readonly lintOnly: boolean;
 }
 
 /**

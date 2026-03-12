@@ -20,11 +20,9 @@ metadata:
 
 This command invokes the **pr-visualizer** sub-agent for PR diff visualization.
 
-Use the Task tool to invoke the pr-visualizer agent:
+Invoke the pr-visualizer agent:
 
-```
-subagent_type: rp1-dev:pr-visualizer
-```
+{% dispatch_agent "rp1-dev:pr-visualizer" %}
 
 The agent will:
 - Accept PR URL, branch name, or use current branch

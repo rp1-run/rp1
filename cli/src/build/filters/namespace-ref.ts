@@ -24,6 +24,7 @@ import type { BuildPlatform } from "../template-context.js";
 const transformNamespaceSeparator = (content: string): string => {
 	let result = content.replace(/rp1-base:/g, "rp1-base/");
 	result = result.replace(/rp1-dev:/g, "rp1-dev/");
+	result = result.replace(/rp1-utils:/g, "rp1-utils/");
 	return result;
 };
 

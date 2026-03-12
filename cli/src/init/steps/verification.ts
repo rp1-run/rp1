@@ -58,7 +58,6 @@ export async function verifyOpenCodePlugins(
 
 	const skillsDir = getOpenCodeSkillsDir(home);
 
-	// Check if skills directory exists and has rp1 skill dirs
 	let rp1Dirs: string[] = [];
 	try {
 		const dirStat = await stat(skillsDir);

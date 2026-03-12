@@ -19,11 +19,9 @@ metadata:
 
 Performs fast code hygiene checks during development including linters, formatters, tests, and coverage measurement. Designed for quick feedback in the development loop.
 
-Use the Task tool to invoke the agent:
+Invoke the code-checker agent:
 
-```
-subagent_type: rp1-dev:code-checker
-```
+{% dispatch_agent "rp1-dev:code-checker" %}
 
 The agent will:
 

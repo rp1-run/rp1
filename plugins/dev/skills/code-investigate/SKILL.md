@@ -18,11 +18,9 @@ metadata:
 
 This command invokes the **bug-investigator** sub-agent for systematic issue analysis.
 
-Use the Task tool to invoke the bug-investigator agent:
+Invoke the bug-investigator agent:
 
-```
-subagent_type: rp1-dev:bug-investigator
-```
+{% dispatch_agent "rp1-dev:bug-investigator" %}
 
 The agent will:
 - Analyze problem statement and gather context

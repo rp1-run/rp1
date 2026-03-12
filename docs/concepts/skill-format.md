@@ -202,8 +202,47 @@ Use this checklist when creating a new skill:
 
 ---
 
+## Platform Tags
+
+Skills that reference platform-varying behavior (agent dispatch, user input, planning, web access, file editing, permissions) should use semantic Liquid tags instead of raw `{% if platform %}` conditionals or CC-native tool names.
+
+### Example: Agent Dispatch
+
+Instead of writing CC-native syntax:
+
+```markdown
+Use the Task tool to invoke the code-writer agent:
+
+subagent_type: rp1-dev:code-writer
+```
+
+Use the `dispatch_agent` tag:
+
+```markdown
+{% dispatch_agent "rp1-dev:code-writer", "Write the implementation" %}
+```
+
+The tag produces the correct spawn instructions for each platform, including the full spawn/wait protocol on Codex.
+
+### Example: User Input
+
+```markdown
+{% ask_user "Which approach do you prefer?", options: "Approach A", "Approach B" %}
+```
+
+### Example: File Editing
+
+```markdown
+{% edit_model "update the configuration file" %}
+```
+
+For the full tag reference, see [Platform Tags Reference](../reference/platform-tags.md). For the conceptual guide, see [Platform Tags](platform-tags.md).
+
+---
+
 ## Related Concepts
 
 - [Agent Skills Standard](https://agentskills.io) - The open standard for agent skills
 - [Skill-Agent Pattern](command-agent-pattern.md) - How skills delegate to agents
 - [Constitutional Prompting](constitutional-prompting.md) - How agent prompts are structured
+- [Platform Tags](platform-tags.md) - Semantic tags for platform-varying behavior

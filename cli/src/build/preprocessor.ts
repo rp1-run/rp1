@@ -14,6 +14,8 @@ import * as E from "fp-ts/lib/Either.js";
 import { Liquid } from "liquidjs";
 import type { CLIError } from "../../shared/errors.js";
 import { generationError } from "../../shared/errors.js";
+import type { PlatformRegistry } from "./models.js";
+import { registerTags } from "./tags/index.js";
 
 const PLACEHOLDER_PREFIX = "@@RP1_CODEBLOCK_";
 const OUTPUT_TAG_PREFIX = "@@RP1_OUTPUTTAG_";
@@ -101,12 +103,16 @@ const reinsertOutputTags = (content: string, tags: string[]): string => {
  * Create a Liquid instance configured for pre-processing source files.
  * Uses strictVariables: false so that unknown variables (like {{ variable }})
  * in source content are silently ignored rather than throwing errors.
+ * Registers custom semantic tags for platform-specific rendering.
  */
-const createPreprocessorLiquid = (): Liquid =>
-	new Liquid({
+const createPreprocessorLiquid = (): Liquid => {
+	const liquid = new Liquid({
 		strictVariables: false,
 		strictFilters: false,
 	});
+	registerTags(liquid);
+	return liquid;
+};
 
 /**
  * Pre-process platform conditionals in source file content.
@@ -115,6 +121,7 @@ const createPreprocessorLiquid = (): Liquid =>
  * - {% if platform == "..." %} ... {% endif %}
  * - {% unless platform == "..." %} ... {% endunless %}
  * - {% case platform %} {% when "..." %} ... {% endcase %}
+ * - Custom semantic tags ({% dispatch_agent %}, {% ask_user %}, etc.)
  * - Nested conditionals
  *
  * Code blocks (triple-backtick fenced) are protected from Liquid processing
@@ -122,18 +129,29 @@ const createPreprocessorLiquid = (): Liquid =>
  *
  * @param content - Raw source file content
  * @param platform - Target platform identifier
+ * @param registry - Platform registry for tool/namespace mappings (optional)
+ * @param skillMap - Skill name to path map for Codex resolution (optional)
  * @returns Either a CLIError or the processed content string
  */
 export const preprocessConditionals = async (
 	content: string,
 	platform: "opencode" | "codex" | "claude-code",
+	registry?: PlatformRegistry,
+	skillMap?: ReadonlyMap<string, string>,
 ): Promise<E.Either<CLIError, string>> => {
 	try {
 		const { processed: withoutCode, blocks } = extractCodeBlocks(content);
 		const { processed, tags } = extractOutputTags(withoutCode);
 
 		const liquid = createPreprocessorLiquid();
-		const rendered = await liquid.parseAndRender(processed, { platform });
+		const context: Record<string, unknown> = { platform };
+		if (registry !== undefined) {
+			context.registry = registry;
+		}
+		if (skillMap !== undefined) {
+			context.skillMap = skillMap;
+		}
+		const rendered = await liquid.parseAndRender(processed, context);
 
 		const withTags = reinsertOutputTags(rendered, tags);
 		const result = reinsertCodeBlocks(withTags, blocks);

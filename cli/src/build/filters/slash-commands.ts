@@ -23,7 +23,7 @@ import type { BuildPlatform } from "../template-context.js";
  * Preserves code examples (does not transform inside code blocks).
  */
 const transformSlashCommandCalls = (content: string): string => {
-	const slashPattern = /\/rp1-(base|dev):([a-z-]+)/g;
+	const slashPattern = /\/rp1-(base|dev|utils):([a-z-]+)/g;
 
 	const matches = findMatchesOutsideCodeBlocks(slashPattern, content);
 

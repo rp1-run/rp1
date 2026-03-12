@@ -19,11 +19,9 @@ metadata:
 
 This command invokes the **project-documenter** sub-agent to generate project overview documentation.
 
-Use the Task tool to invoke the project-documenter agent:
+Invoke the project-documenter agent:
 
-```
-subagent_type: rp1-base:project-documenter
-```
+{% dispatch_agent "rp1-base:project-documenter" %}
 
 The agent will:
 

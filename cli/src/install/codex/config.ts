@@ -227,7 +227,6 @@ export const deduplicatePatch = (
 		// Detect [[array.table]] headers - these are safe (additive)
 		const arrayMatch = trimmed.match(/^\[\[([^[\]]+)\]\]$/);
 		if (arrayMatch) {
-			// Check if user has the same pattern value for shell.approved
 			skippingTable = null;
 		}
 

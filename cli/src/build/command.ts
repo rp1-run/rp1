@@ -32,6 +32,7 @@ import { claudeCodeRegistry } from "./claude-code/registry.js";
 import { codexRegistry } from "./codex/registry.js";
 import { mapAgentToRoleType } from "./codex/role-mapper.js";
 import { discoverSkillMap } from "./codex/skill-map.js";
+import { type LintDiagnostic, lintArtifact } from "./lint/index.js";
 import type {
 	BuildConfig,
 	BuildSummary,
@@ -48,6 +49,14 @@ import { createTemplateEngine } from "./template-engine.js";
 import { validateAgent, validateSkill } from "./validator.js";
 
 const VALID_PLATFORMS = ["opencode", "codex", "claude-code", "all"];
+
+/**
+ * Format a lint diagnostic into a human-readable string.
+ */
+const formatLintDiagnostic = (d: LintDiagnostic): string => {
+	const location = d.line ? `${d.file}:${d.line}` : d.file;
+	return `[${d.rule}] ${location} ${d.severity}: ${d.message}`;
+};
 
 /**
  * Stub SupportedTool for platforms when the full registry is not loaded.
@@ -113,6 +122,7 @@ export const parseBuildArgs = (
 		plugin: "all",
 		platform: "opencode",
 		jsonOutput: false,
+		lintOnly: false,
 	};
 
 	for (let i = 0; i < args.length; i++) {
@@ -182,6 +192,8 @@ export const parseBuildArgs = (
 			).platform = value as "opencode" | "codex" | "claude-code" | "all";
 		} else if (arg === "--json") {
 			(config as { jsonOutput: boolean }).jsonOutput = true;
+		} else if (arg === "--lint") {
+			(config as { lintOnly: boolean }).lintOnly = true;
 		} else if (arg === "--help" || arg === "-h") {
 			printBuildHelp();
 			process.exit(0);
@@ -206,6 +218,7 @@ ${bold("Options:")}
   -p, --plugin <name>          Build specific plugin (base, dev, utils, or all)
   --platform <name>            Target platform (opencode, codex, claude-code, or all)
   --json                       Output results as JSON for CI/CD
+  --lint                       Run build pipeline with lint validation only (no file output)
   -h, --help                   Show this help message
 
 ${bold("Examples:")}
@@ -216,6 +229,7 @@ ${bold("Examples:")}
   rp1 build:opencode --platform all                # Build for all platforms
   rp1 build:opencode -o ./output                   # Custom output directory
   rp1 build:opencode --json                        # JSON output for CI
+  rp1 build:opencode --lint                        # Lint-only mode (no file output)
 `);
 };
 
@@ -464,6 +478,7 @@ export const buildPlugin = async (
 	outputPath: string,
 	_logger: Logger,
 	jsonOutput: boolean,
+	lintOnly = false,
 ): Promise<PluginBuildResult> => {
 	const errors: string[] = [];
 	const commandEntries: BundleAssetEntry[] = [];
@@ -484,19 +499,22 @@ export const buildPlugin = async (
 
 	const spinner = createSpinner(!jsonOutput && (process.stdout.isTTY ?? false));
 
-	// Clean and create output directories
-	try {
-		await rm(pluginOutputDir, { recursive: true, force: true });
-	} catch {
-		// Directory might not exist
+	if (!lintOnly) {
+		// Clean and create output directories
+		try {
+			await rm(pluginOutputDir, { recursive: true, force: true });
+		} catch {
+			// Directory might not exist
+		}
+
+		// Create output directories: agents/ (flat), skills/
+		await mkdir(join(pluginOutputDir, "agents"), { recursive: true });
+		await mkdir(join(pluginOutputDir, "skills"), { recursive: true });
 	}
 
-	// Create output directories: agents/ (flat), skills/
-	await mkdir(join(pluginOutputDir, "agents"), { recursive: true });
-	await mkdir(join(pluginOutputDir, "skills"), { recursive: true });
-
 	if (!jsonOutput) {
-		spinner.start(`Building ${pluginName} plugin...`);
+		const mode = lintOnly ? " (lint)" : "";
+		spinner.start(`Building ${pluginName} plugin${mode}...`);
 	}
 
 	const skillsDir = join(pluginDir, "skills");
@@ -557,20 +575,46 @@ export const buildPlugin = async (
 			continue;
 		}
 
-		const skillOutputDir = join(pluginOutputDir, "skills", namespacedSkillDir);
-		await mkdir(skillOutputDir, { recursive: true });
-		await writeFile(join(skillOutputDir, "SKILL.md"), skillMdContent);
-
-		await copySupportingFiles(
-			skillDir,
-			skillOutputDir,
-			ccSkill.supportingFiles,
+		const skillLint = lintArtifact(
+			skillMdContent,
+			platform,
+			`${namespacedSkillDir}/SKILL.md`,
 		);
+		for (const d of skillLint.diagnostics) {
+			if (d.severity === "warning" && !jsonOutput) {
+				console.warn(formatLintDiagnostic(d));
+			}
+		}
+		if (skillLint.hasErrors) {
+			for (const d of skillLint.diagnostics.filter(
+				(d) => d.severity === "error",
+			)) {
+				errors.push(formatLintDiagnostic(d));
+			}
+			continue;
+		}
+
+		if (!lintOnly) {
+			const skillOutputDir = join(
+				pluginOutputDir,
+				"skills",
+				namespacedSkillDir,
+			);
+			await mkdir(skillOutputDir, { recursive: true });
+			await writeFile(join(skillOutputDir, "SKILL.md"), skillMdContent);
+
+			await copySupportingFiles(
+				skillDir,
+				skillOutputDir,
+				ccSkill.supportingFiles,
+			);
+		}
 
 		const relativePath = `${pluginName}/skills/${namespacedSkillDir}/SKILL.md`;
 		skillEntries.push({ name: namespacedSkillDir, path: relativePath });
 
-		const allSkillFiles = await collectAllFiles(skillOutputDir);
+		const skillOutputDir = join(pluginOutputDir, "skills", namespacedSkillDir);
+		const allSkillFiles = lintOnly ? [] : await collectAllFiles(skillOutputDir);
 		for (const file of allSkillFiles) {
 			const fileRelPath = `${pluginName}/skills/${namespacedSkillDir}/${file}`;
 			skillFileEntries.push({
@@ -641,10 +685,27 @@ export const buildPlugin = async (
 			continue;
 		}
 
+		const agentLint = lintArtifact(content, platform, filename);
+		for (const d of agentLint.diagnostics) {
+			if (d.severity === "warning" && !jsonOutput) {
+				console.warn(formatLintDiagnostic(d));
+			}
+		}
+		if (agentLint.hasErrors) {
+			for (const d of agentLint.diagnostics.filter(
+				(d) => d.severity === "error",
+			)) {
+				errors.push(formatLintDiagnostic(d));
+			}
+			continue;
+		}
+
 		// Write to flat namespaced file: agents/rp1-{plugin}-{filename}
 		const relativePath = `${pluginName}/agents/rp1-${pluginName}-${filename}`;
-		const outputFile = join(outputPath, relativePath);
-		await writeFile(outputFile, content);
+		if (!lintOnly) {
+			const outputFile = join(outputPath, relativePath);
+			await writeFile(outputFile, content);
+		}
 		agentEntries.push({ name: ccAgent.name, path: relativePath });
 
 		const extractedAgentMermaid = extractStateMachineMermaid(ccAgent.content);
@@ -657,49 +718,53 @@ export const buildPlugin = async (
 		}
 	}
 
-	const hasOpenCodePlugin = await copyOpenCodePlugin(
-		pluginDir,
-		pluginOutputDir,
-	);
-
+	let hasOpenCodePlugin = false;
 	let openCodePluginAsset: OpenCodePluginAsset | undefined;
-	if (hasOpenCodePlugin) {
-		const pluginFiles = await collectOpenCodePluginFiles(
-			pluginOutputDir,
-			pluginName,
+
+	if (!lintOnly) {
+		hasOpenCodePlugin = await copyOpenCodePlugin(pluginDir, pluginOutputDir);
+
+		if (hasOpenCodePlugin) {
+			const pluginFiles = await collectOpenCodePluginFiles(
+				pluginOutputDir,
+				pluginName,
+			);
+			openCodePluginAsset = {
+				name: getOpenCodePluginName(pluginName),
+				files: pluginFiles,
+			};
+		}
+
+		const commandNames = commandEntries.map((e) => e.name);
+		const agentNames = agentEntries.map((e) => e.name);
+		const skillNames = skillEntries.map((e) => e.name);
+
+		const manifestCtx = buildTemplateContext(
+			platform,
+			`rp1-${pluginName}`,
+			pluginVersion,
+			{
+				type: "manifest",
+				skills: skillNames,
+				agents: agentNames,
+				commands: commandNames,
+				hasOpenCodePlugin: hasOpenCodePlugin || undefined,
+			},
+			registry,
+			cliVersion,
+			platformConfig,
 		);
-		openCodePluginAsset = {
-			name: getOpenCodePluginName(pluginName),
-			files: pluginFiles,
-		};
-	}
 
-	const commandNames = commandEntries.map((e) => e.name);
-	const agentNames = agentEntries.map((e) => e.name);
-	const skillNames = skillEntries.map((e) => e.name);
-
-	const manifestCtx = buildTemplateContext(
-		platform,
-		`rp1-${pluginName}`,
-		pluginVersion,
-		{
-			type: "manifest",
-			skills: skillNames,
-			agents: agentNames,
-			commands: commandNames,
-			hasOpenCodePlugin: hasOpenCodePlugin || undefined,
-		},
-		registry,
-		cliVersion,
-		platformConfig,
-	);
-
-	const manifestResult = await engine.render("opencode/manifest", manifestCtx);
-	if (E.isRight(manifestResult)) {
-		await writeFile(
-			join(pluginOutputDir, "manifest.json"),
-			manifestResult.right,
+		const manifestResult = await engine.render(
+			"opencode/manifest",
+			manifestCtx,
 		);
+		if (E.isRight(manifestResult)) {
+			await writeFile(
+				join(pluginOutputDir, "manifest.json"),
+				manifestResult.right,
+			);
+		}
 	}
 
 	if (!jsonOutput) {
@@ -763,6 +828,7 @@ export const buildCCPlugin = async (
 	outputPath: string,
 	_logger: Logger,
 	jsonOutput: boolean,
+	lintOnly = false,
 ): Promise<BuildSummary> => {
 	const errors: string[] = [];
 
@@ -778,17 +844,20 @@ export const buildCCPlugin = async (
 
 	const spinner = createSpinner(!jsonOutput && (process.stdout.isTTY ?? false));
 
-	try {
-		await rm(pluginOutputDir, { recursive: true, force: true });
-	} catch {
-		// Directory might not exist
+	if (!lintOnly) {
+		try {
+			await rm(pluginOutputDir, { recursive: true, force: true });
+		} catch {
+			// Directory might not exist
+		}
+
+		await mkdir(join(pluginOutputDir, "skills"), { recursive: true });
+		await mkdir(join(pluginOutputDir, "agents"), { recursive: true });
 	}
 
-	await mkdir(join(pluginOutputDir, "skills"), { recursive: true });
-	await mkdir(join(pluginOutputDir, "agents"), { recursive: true });
-
 	if (!jsonOutput) {
-		spinner.start(`Building ${pluginName} plugin (claude-code)...`);
+		const mode = lintOnly ? " (lint)" : "";
+		spinner.start(`Building ${pluginName} plugin (claude-code)${mode}...`);
 	}
 
 	const skillsDir = join(pluginDir, "skills");
@@ -842,15 +911,36 @@ export const buildCCPlugin = async (
 			continue;
 		}
 
-		const skillOutputDir = join(pluginOutputDir, "skills", skillDirName);
-		await mkdir(skillOutputDir, { recursive: true });
-		await writeFile(join(skillOutputDir, "SKILL.md"), renderResult.right);
-
-		await copySupportingFiles(
-			skillDir,
-			skillOutputDir,
-			ccSkill.supportingFiles,
+		const ccSkillLint = lintArtifact(
+			renderResult.right,
+			platform,
+			`${skillDirName}/SKILL.md`,
 		);
+		for (const d of ccSkillLint.diagnostics) {
+			if (d.severity === "warning" && !jsonOutput) {
+				console.warn(formatLintDiagnostic(d));
+			}
+		}
+		if (ccSkillLint.hasErrors) {
+			for (const d of ccSkillLint.diagnostics.filter(
+				(d) => d.severity === "error",
+			)) {
+				errors.push(formatLintDiagnostic(d));
+			}
+			continue;
+		}
+
+		if (!lintOnly) {
+			const skillOutputDir = join(pluginOutputDir, "skills", skillDirName);
+			await mkdir(skillOutputDir, { recursive: true });
+			await writeFile(join(skillOutputDir, "SKILL.md"), renderResult.right);
+
+			await copySupportingFiles(
+				skillDir,
+				skillOutputDir,
+				ccSkill.supportingFiles,
+			);
+		}
 
 		skillNames.push(skillDirName);
 		skillCount++;
@@ -902,55 +992,79 @@ export const buildCCPlugin = async (
 			continue;
 		}
 
-		const outputFile = join(pluginOutputDir, "agents", `${ccAgent.name}.md`);
-		await writeFile(outputFile, renderResult.right);
+		const ccAgentLint = lintArtifact(
+			renderResult.right,
+			platform,
+			`${ccAgent.name}.md`,
+		);
+		for (const d of ccAgentLint.diagnostics) {
+			if (d.severity === "warning" && !jsonOutput) {
+				console.warn(formatLintDiagnostic(d));
+			}
+		}
+		if (ccAgentLint.hasErrors) {
+			for (const d of ccAgentLint.diagnostics.filter(
+				(d) => d.severity === "error",
+			)) {
+				errors.push(formatLintDiagnostic(d));
+			}
+			continue;
+		}
+
+		if (!lintOnly) {
+			const outputFile = join(pluginOutputDir, "agents", `${ccAgent.name}.md`);
+			await writeFile(outputFile, renderResult.right);
+		}
 
 		agentNames.push(ccAgent.name);
 		agentCount++;
 	}
 
-	const manifestCtx = buildTemplateContext(
-		platform,
-		`rp1-${pluginName}`,
-		pluginVersion,
-		{
-			type: "manifest",
-			skills: skillNames,
-			agents: agentNames,
-			commands: [],
-		},
-		registry,
-		cliVersion,
-		platformConfig,
-	);
-
-	const manifestResult = await engine.render(
-		"claude-code/manifest",
-		manifestCtx,
-	);
-	if (E.isRight(manifestResult)) {
-		await writeFile(
-			join(pluginOutputDir, "manifest.json"),
-			manifestResult.right,
+	if (!lintOnly) {
+		const manifestCtx = buildTemplateContext(
+			platform,
+			`rp1-${pluginName}`,
+			pluginVersion,
+			{
+				type: "manifest",
+				skills: skillNames,
+				agents: agentNames,
+				commands: [],
+			},
+			registry,
+			cliVersion,
+			platformConfig,
 		);
-	}
 
-	// Copy plugin metadata and hooks for marketplace installation
-	for (const dir of [".claude-plugin", "hooks"]) {
-		const srcDir = join(pluginDir, dir);
-		try {
-			const dirStat = await stat(srcDir);
-			if (dirStat.isDirectory()) {
-				await copyDirectory(srcDir, join(pluginOutputDir, dir));
+		const manifestResult = await engine.render(
+			"claude-code/manifest",
+			manifestCtx,
+		);
+		if (E.isRight(manifestResult)) {
+			await writeFile(
+				join(pluginOutputDir, "manifest.json"),
+				manifestResult.right,
+			);
+		}
+
+		// Copy plugin metadata and hooks for marketplace installation
+		for (const dir of [".claude-plugin", "hooks"]) {
+			const srcDir = join(pluginDir, dir);
+			try {
+				const dirStat = await stat(srcDir);
+				if (dirStat.isDirectory()) {
+					await copyDirectory(srcDir, join(pluginOutputDir, dir));
+				}
+			} catch {
+				// Directory doesn't exist — skip
 			}
-		} catch {
-			// Directory doesn't exist — skip
 		}
 	}
 
 	if (!jsonOutput) {
 		const hasErrors = errors.length > 0;
-		const summary = `${pluginName} (claude-code): ${agentCount} agents, ${skillCount} skills`;
+		const mode = lintOnly ? " lint" : "";
+		const summary = `${pluginName} (claude-code${mode}): ${agentCount} agents, ${skillCount} skills`;
 		if (hasErrors) {
 			spinner.fail(`${summary} (${errors.length} errors)`);
 		} else {
@@ -979,6 +1093,7 @@ export const buildCodexPlugin = async (
 	outputPath: string,
 	_logger: Logger,
 	jsonOutput: boolean,
+	lintOnly = false,
 ): Promise<BuildSummary> => {
 	const errors: string[] = [];
 
@@ -995,17 +1110,20 @@ export const buildCodexPlugin = async (
 
 	const spinner = createSpinner(!jsonOutput && (process.stdout.isTTY ?? false));
 
-	try {
-		await rm(pluginOutputDir, { recursive: true, force: true });
-	} catch {
-		// Directory might not exist
+	if (!lintOnly) {
+		try {
+			await rm(pluginOutputDir, { recursive: true, force: true });
+		} catch {
+			// Directory might not exist
+		}
+
+		await mkdir(join(pluginOutputDir, "skills"), { recursive: true });
+		await mkdir(join(pluginOutputDir, "agents"), { recursive: true });
 	}
 
-	await mkdir(join(pluginOutputDir, "skills"), { recursive: true });
-	await mkdir(join(pluginOutputDir, "agents"), { recursive: true });
-
 	if (!jsonOutput) {
-		spinner.start(`Building ${pluginName} plugin (codex)...`);
+		const mode = lintOnly ? " (lint)" : "";
+		spinner.start(`Building ${pluginName} plugin (codex)${mode}...`);
 	}
 
 	const skillsDir = join(pluginDir, "skills");
@@ -1061,41 +1179,75 @@ export const buildCodexPlugin = async (
 			continue;
 		}
 
-		const skillOutputDir = join(pluginOutputDir, "skills", namespacedSkillDir);
-		await mkdir(skillOutputDir, { recursive: true });
-		await writeFile(join(skillOutputDir, "SKILL.md"), renderResult.right);
-
-		await copySupportingFiles(
-			skillDir,
-			skillOutputDir,
-			ccSkill.supportingFiles,
+		const codexSkillLint = lintArtifact(
+			renderResult.right,
+			platform,
+			`${namespacedSkillDir}/SKILL.md`,
 		);
+		for (const d of codexSkillLint.diagnostics) {
+			if (d.severity === "warning" && !jsonOutput) {
+				console.warn(formatLintDiagnostic(d));
+			}
+		}
+		if (codexSkillLint.hasErrors) {
+			for (const d of codexSkillLint.diagnostics.filter(
+				(d) => d.severity === "error",
+			)) {
+				errors.push(formatLintDiagnostic(d));
+			}
+			continue;
+		}
 
-		const agentsSubDir = join(skillOutputDir, "agents");
-		await mkdir(agentsSubDir, { recursive: true });
+		if (!lintOnly) {
+			const skillOutputDir = join(
+				pluginOutputDir,
+				"skills",
+				namespacedSkillDir,
+			);
+			await mkdir(skillOutputDir, { recursive: true });
+			await writeFile(join(skillOutputDir, "SKILL.md"), renderResult.right);
 
-		const openaiYamlCtx = {
-			...buildTemplateContext(
-				platform,
-				pluginName,
-				pluginVersion,
-				{
-					type: "skill" as const,
-					name: ccSkill.name,
-					namespacedName: namespacedSkillDir,
-					description: ccSkill.description,
-					content: processedContent,
-					supportingFiles: ccSkill.supportingFiles,
-				},
-				registry,
-				cliVersion,
-				platformConfig,
-			),
-		};
+			await copySupportingFiles(
+				skillDir,
+				skillOutputDir,
+				ccSkill.supportingFiles,
+			);
 
-		const yamlResult = await engine.render("codex/openai-yaml", openaiYamlCtx);
-		if (E.isRight(yamlResult)) {
-			await writeFile(join(agentsSubDir, "openai.yaml"), yamlResult.right);
+			const agentsSubDir = join(skillOutputDir, "agents");
+			await mkdir(agentsSubDir, { recursive: true });
+
+			const openaiYamlCtx = {
+				...buildTemplateContext(
+					platform,
+					pluginName,
+					pluginVersion,
+					{
+						type: "skill" as const,
+						name: ccSkill.name,
+						namespacedName: namespacedSkillDir,
+						description: ccSkill.description,
+						content: processedContent,
+						supportingFiles: ccSkill.supportingFiles,
+					},
+					registry,
+					cliVersion,
+					platformConfig,
+				),
+			};
+
+			const yamlResult = await engine.render(
+				"codex/openai-yaml",
+				openaiYamlCtx,
+			);
+			if (E.isRight(yamlResult)) {
+				const agentsSubDir = join(
+					pluginOutputDir,
+					"skills",
+					namespacedSkillDir,
+					"agents",
+				);
+				await writeFile(join(agentsSubDir, "openai.yaml"), yamlResult.right);
+			}
 		}
 
 		skillNames.push(namespacedSkillDir);
@@ -1161,11 +1313,32 @@ export const buildCodexPlugin = async (
 			continue;
 		}
 
-		const tomlFilename = `${ccAgent.name}.toml`;
-		await writeFile(
-			join(pluginOutputDir, "agents", tomlFilename),
+		const codexAgentLint = lintArtifact(
 			tomlResult.right,
+			platform,
+			`${ccAgent.name}.toml`,
 		);
+		for (const d of codexAgentLint.diagnostics) {
+			if (d.severity === "warning" && !jsonOutput) {
+				console.warn(formatLintDiagnostic(d));
+			}
+		}
+		if (codexAgentLint.hasErrors) {
+			for (const d of codexAgentLint.diagnostics.filter(
+				(d) => d.severity === "error",
+			)) {
+				errors.push(formatLintDiagnostic(d));
+			}
+			continue;
+		}
+
+		if (!lintOnly) {
+			const tomlFilename = `${ccAgent.name}.toml`;
+			await writeFile(
+				join(pluginOutputDir, "agents", tomlFilename),
+				tomlResult.right,
+			);
+		}
 
 		codexAgents.push({
 			name: ccAgent.name,
@@ -1176,7 +1349,7 @@ export const buildCodexPlugin = async (
 		agentCount++;
 	}
 
-	if (codexAgents.length > 0) {
+	if (!lintOnly && codexAgents.length > 0) {
 		const agentConfigCtx = {
 			platform,
 			pluginName,
@@ -1206,32 +1379,35 @@ export const buildCodexPlugin = async (
 		}
 	}
 
-	const manifestCtx = buildTemplateContext(
-		platform,
-		`rp1-${pluginName}`,
-		pluginVersion,
-		{
-			type: "manifest",
-			skills: skillNames,
-			agents: agentNames,
-			commands: [],
-		},
-		registry,
-		cliVersion,
-		platformConfig,
-	);
-
-	const manifestResult = await engine.render("codex/manifest", manifestCtx);
-	if (E.isRight(manifestResult)) {
-		await writeFile(
-			join(pluginOutputDir, "manifest.json"),
-			manifestResult.right,
+	if (!lintOnly) {
+		const manifestCtx = buildTemplateContext(
+			platform,
+			`rp1-${pluginName}`,
+			pluginVersion,
+			{
+				type: "manifest",
+				skills: skillNames,
+				agents: agentNames,
+				commands: [],
+			},
+			registry,
+			cliVersion,
+			platformConfig,
 		);
+
+		const manifestResult = await engine.render("codex/manifest", manifestCtx);
+		if (E.isRight(manifestResult)) {
+			await writeFile(
+				join(pluginOutputDir, "manifest.json"),
+				manifestResult.right,
+			);
+		}
 	}
 
 	if (!jsonOutput) {
 		const hasErrors = errors.length > 0;
-		const summary = `${pluginName} (codex): ${agentCount} agents, ${skillCount} skills`;
+		const mode = lintOnly ? " lint" : "";
+		const summary = `${pluginName} (codex${mode}): ${agentCount} agents, ${skillCount} skills`;
 		if (hasErrors) {
 			spinner.fail(`${summary} (${errors.length} errors)`);
 		} else {
@@ -1314,12 +1490,13 @@ const buildOpenCodeArtifacts = async (
 			outputPath,
 			logger,
 			config.jsonOutput,
+			config.lintOnly,
 		);
 		summaries.push(result.summary);
 		pluginAssets.set(pluginName, result.assets);
 	}
 
-	if (config.plugin === "all") {
+	if (!config.lintOnly && config.plugin === "all") {
 		const baseAssets = pluginAssets.get("base");
 		const devAssets = pluginAssets.get("dev");
 		const utilsAssets = pluginAssets.get("utils");
@@ -1380,6 +1557,7 @@ const buildClaudeCodeArtifacts = async (
 			outputPath,
 			logger,
 			config.jsonOutput,
+			config.lintOnly,
 		);
 		summaries.push(result);
 	}
@@ -1406,6 +1584,7 @@ const buildCodexArtifacts = async (
 			outputPath,
 			logger,
 			config.jsonOutput,
+			config.lintOnly,
 		);
 		summaries.push(result);
 	}

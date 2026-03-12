@@ -259,6 +259,88 @@ describe("preprocessConditionals", () => {
 		});
 	});
 
+	describe("semantic tag integration", () => {
+		test("dispatch_agent tag evaluates during preprocessing", async () => {
+			const content = [
+				"Start.",
+				'{% dispatch_agent "rp1-dev:code-writer", "Write code" %}',
+				"End.",
+			].join("\n");
+
+			const ccResult = expectRight(
+				await preprocessConditionals(content, "claude-code"),
+			);
+			expect(ccResult).toContain("Task tool:");
+			expect(ccResult).toContain("subagent_type: rp1-dev:code-writer");
+			expect(ccResult).not.toContain("dispatch_agent");
+
+			const ocResult = expectRight(
+				await preprocessConditionals(content, "opencode"),
+			);
+			expect(ocResult).toContain("task tool:");
+			expect(ocResult).toContain("@rp1-dev/code-writer");
+
+			const cxResult = expectRight(
+				await preprocessConditionals(content, "codex"),
+			);
+			expect(cxResult).toContain("Spawn agent:");
+			expect(cxResult).toContain("rp1-dev-code-writer");
+		});
+
+		test("semantic tags work alongside platform conditionals", async () => {
+			const content = [
+				"Common intro.",
+				'{% if platform == "codex" %}',
+				"Codex-specific preamble.",
+				"{% endif %}",
+				'{% edit_model "update the config" %}',
+				"Common outro.",
+			].join("\n");
+
+			const ccResult = expectRight(
+				await preprocessConditionals(content, "claude-code"),
+			);
+			expect(ccResult).toContain("Common intro.");
+			expect(ccResult).not.toContain("Codex-specific preamble.");
+			expect(ccResult).toContain("Edit tool");
+			expect(ccResult).toContain("Common outro.");
+
+			const cxResult = expectRight(
+				await preprocessConditionals(content, "codex"),
+			);
+			expect(cxResult).toContain("Codex-specific preamble.");
+			expect(cxResult).toContain("apply_patch tool");
+		});
+
+		test("semantic tags inside code blocks are preserved", async () => {
+			const content = [
+				"Text before.",
+				"```markdown",
+				'{% dispatch_agent "rp1-dev:writer", "example" %}',
+				"```",
+				"Text after.",
+			].join("\n");
+
+			const result = expectRight(
+				await preprocessConditionals(content, "codex"),
+			);
+			expect(result).toContain("{% dispatch_agent");
+			expect(result).toContain("Text before.");
+			expect(result).toContain("Text after.");
+		});
+
+		test("ask_user tag evaluates during preprocessing", async () => {
+			const content = '{% ask_user "Pick one", options: "A", "B" %}';
+
+			const cxResult = expectRight(
+				await preprocessConditionals(content, "codex"),
+			);
+			expect(cxResult).toContain("request_user_input");
+			expect(cxResult).toContain('"A"');
+			expect(cxResult).toContain('"B"');
+		});
+	});
+
 	describe("error handling", () => {
 		test("returns Left on malformed Liquid syntax", async () => {
 			const content = ["Start.", "{% if %}", "Bad syntax.", "{% endif %}"].join(

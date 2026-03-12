@@ -19,11 +19,9 @@ metadata:
 
 This command invokes the **code-auditor** sub-agent for pattern and quality analysis.
 
-Use the Task tool to invoke the code-auditor agent:
+Invoke the code-auditor agent:
 
-```
-subagent_type: rp1-dev:code-auditor
-```
+{% dispatch_agent "rp1-dev:code-auditor" %}
 
 The agent will:
 - Discover existing project patterns and conventions

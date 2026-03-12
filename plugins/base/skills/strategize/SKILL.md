@@ -18,11 +18,9 @@ metadata:
 
 This command invokes the **strategic-advisor** sub-agent for holistic optimization and trade-off analysis.
 
-Use the Task tool to invoke the strategic-advisor agent:
+Invoke the strategic-advisor agent:
 
-```
-subagent_type: rp1-base:strategic-advisor
-```
+{% dispatch_agent "rp1-base:strategic-advisor" %}
 
 The agent will:
 - Analyze system comprehensively (architecture, code, usage, costs)
