@@ -47,7 +47,7 @@ const defaultTemplateRoot = (): string => {
  * Configuration:
  * - strictVariables: true (fail on undefined variables)
  * - strictFilters: true (fail on undefined filters)
- * - greedy: false (whitespace control)
+ * - greedy: true (whitespace control — required for {%- %} to trim properly)
  * - extname: .liquid
  * - root: cli/src/build/templates/ (or custom templateRoot)
  */
@@ -61,7 +61,7 @@ export function createTemplateEngine(
 		extname: ".liquid",
 		strictVariables: true,
 		strictFilters: true,
-		greedy: false,
+		greedy: true,
 		lenientIf: true,
 	});
 
