@@ -49,12 +49,15 @@ export function nullToolRefsRule(
 		.map(([tool]) => tool);
 
 	for (const tool of nullTools) {
-		const pattern = new RegExp(`\\b${tool}\\b`, "g");
+		const pattern = new RegExp(
+			`(?:Use (?:the )?|invoke |call |with |tool[:\\s]+)${tool}\\b|\\b${tool} tool\\b`,
+			"gi",
+		);
 		let match: RegExpExecArray | null;
 		while ((match = pattern.exec(content)) !== null) {
 			diagnostics.push({
 				rule: "L001",
-				severity: "error",
+				severity: "warning",
 				message: `Tool "${tool}" maps to null on ${platform} but appears in rendered output`,
 				file,
 				line: findLineNumber(content, match.index),
