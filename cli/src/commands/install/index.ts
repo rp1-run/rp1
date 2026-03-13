@@ -13,6 +13,7 @@ import { loadToolsRegistry } from "../../config/supported-tools.js";
 import type { VerificationResult } from "../../init/models.js";
 import {
 	verifyClaudeCodePlugins,
+	verifyCodexPlugins,
 	verifyOpenCodePlugins,
 } from "../../init/steps/verification.js";
 import { colorFns } from "../../lib/colors.js";
@@ -49,6 +50,8 @@ async function runPostInstallVerification(
 
 		if (toolId === "claude-code") {
 			result = await verifyClaudeCodePlugins();
+		} else if (toolId === "codex") {
+			result = await verifyCodexPlugins();
 		} else if (toolId === "opencode") {
 			result = await verifyOpenCodePlugins();
 		}
@@ -93,7 +96,7 @@ export const installParentCommand = new Command("install")
 	.option("-y, --yes", "Skip confirmation prompts")
 	.option(
 		"-p, --platform <platform>",
-		"Target a specific platform (claude-code, opencode)",
+		"Target a specific platform (claude-code, codex, opencode)",
 	)
 	.addHelpText(
 		"after",

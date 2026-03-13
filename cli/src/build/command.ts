@@ -32,12 +32,15 @@ import { claudeCodeRegistry } from "./claude-code/registry.js";
 import { codexRegistry } from "./codex/registry.js";
 import { mapAgentToRoleType } from "./codex/role-mapper.js";
 import { discoverSkillMap } from "./codex/skill-map.js";
+import { validateSubAgents } from "./codex/sub-agent-validator.js";
+import { validateCodexToml } from "./codex/validator.js";
 import { type LintDiagnostic, lintArtifact } from "./lint/index.js";
 import type {
 	BuildConfig,
 	BuildSummary,
 	BundleAssetEntry,
 	BundlePluginAssets,
+	ClaudeCodeSkill,
 	OpenCodePluginAsset,
 } from "./models.js";
 import { parseAgent, parseSkill } from "./parser.js";
@@ -1130,6 +1133,7 @@ export const buildCodexPlugin = async (
 	const skillDirs = await getSkillDirs(skillsDir);
 	let skillCount = 0;
 	const skillNames: string[] = [];
+	const parsedSkills: ClaudeCodeSkill[] = [];
 
 	for (const skillDir of skillDirs) {
 		const parseResult = await parseSkill(skillDir)();
@@ -1138,6 +1142,7 @@ export const buildCodexPlugin = async (
 			continue;
 		}
 		const ccSkill = parseResult.right;
+		parsedSkills.push(ccSkill);
 
 		const preprocessResult = await preprocessConditionals(
 			ccSkill.content,
@@ -1240,18 +1245,23 @@ export const buildCodexPlugin = async (
 				openaiYamlCtx,
 			);
 			if (E.isRight(yamlResult)) {
-				const agentsSubDir = join(
-					pluginOutputDir,
-					"skills",
-					namespacedSkillDir,
-					"agents",
-				);
 				await writeFile(join(agentsSubDir, "openai.yaml"), yamlResult.right);
 			}
 		}
 
 		skillNames.push(namespacedSkillDir);
 		skillCount++;
+	}
+
+	const subAgentValidation = validateSubAgents(projectRoot, parsedSkills);
+	errors.push(...subAgentValidation.errors);
+	if (!jsonOutput) {
+		for (const warning of subAgentValidation.warnings) {
+			console.warn(`[sub-agent] ${warning}`);
+		}
+		for (const info of subAgentValidation.info) {
+			console.info(`[sub-agent] ${info}`);
+		}
 	}
 
 	const agentsDir = join(pluginDir, "agents");
@@ -1361,10 +1371,20 @@ export const buildCodexPlugin = async (
 			agentConfigCtx,
 		);
 		if (E.isRight(configResult)) {
-			await writeFile(
-				join(pluginOutputDir, "rp1-agents.toml"),
+			const tomlValidation = validateCodexToml(
 				configResult.right,
+				`${pluginName}/rp1-agents.toml`,
 			);
+			if (E.isLeft(tomlValidation)) {
+				errors.push(formatError(tomlValidation.left, false));
+			} else {
+				await writeFile(
+					join(pluginOutputDir, "rp1-agents.toml"),
+					configResult.right,
+				);
+			}
+		} else {
+			errors.push(formatError(configResult.left, false));
 		}
 
 		const agentsMdCtx = {

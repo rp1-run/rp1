@@ -28,6 +28,12 @@ Renders platform-specific agent spawn instructions.
 ```
 {% dispatch_agent "<agent-ref>", "<prompt>" %}
 {% dispatch_agent "<agent-ref>", "<prompt>", background %}
+{% dispatch_agent "<agent-ref>" %}
+multi-line prompt content
+{% enddispatch_agent %}
+{% dispatch_agent "<agent-ref>", background %}
+multi-line prompt content
+{% enddispatch_agent %}
 ```
 
 **Arguments**:
@@ -35,7 +41,7 @@ Renders platform-specific agent spawn instructions.
 | Position | Name | Required | Description |
 |----------|------|----------|-------------|
 | 1 | agent-ref | Yes | Canonical agent reference (e.g., `rp1-dev:code-writer`) |
-| 2 | prompt | Yes | Prompt text passed to the spawned agent |
+| 2 | prompt | Yes for inline syntax | Prompt text passed to the spawned agent |
 | 3 | mode | No | `background` for non-blocking dispatch. Default: foreground |
 
 **Output by platform**:
@@ -318,11 +324,11 @@ TodoWrite: Create a task list for the implementation
 
 ### What can be migrated today
 
-Simple delegator skills where the dispatch has a single-line prompt or no prompt work well with `{% dispatch_agent %}`.
+Simple delegator skills where the dispatch has a single-line prompt, no prompt, or a single multi-line block prompt work well with `{% dispatch_agent %}`.
 
 ### What cannot be migrated yet
 
-Complex orchestrator skills with multi-line dynamic prompts, template variable interpolation (e.g., `{{stringify(...)}}`), or dispatch inside code blocks cannot use `{% dispatch_agent %}` because the tag accepts only a single-line quoted string. These skills should continue using `{% case platform %}` blocks. See [Known Limitations](#known-limitations) below.
+Complex orchestrator skills that need materially different platform-specific structures or dispatch inside algorithmic code blocks should continue using `{% case platform %}` blocks. Multi-line prompts are supported through block syntax.
 
 ---
 
@@ -374,9 +380,8 @@ The build-time linter validates rendered artifacts per platform. Run it standalo
 
 ## Known Limitations
 
-- **Multi-line prompts**: `{% dispatch_agent %}` accepts a single-line quoted string as the prompt argument. Complex orchestrator skills with multi-line dynamic prompts, template variable interpolation, or dispatch inside algorithmic loops cannot use this tag. Use `{% case platform %}` blocks for these patterns.
+- **Algorithmic orchestration still needs conditionals**: When different platforms need genuinely different control flow or differently structured prompt scaffolding, `{% case platform %}` blocks are still the right tool.
 - **AskUserQuestion in prose**: The `{% ask_user %}` tag produces a structured output format. Existing skills that reference AskUserQuestion as pseudocode, in tool lists, or as prohibitions ("DO NOT call AskUserQuestion") are instructional text, not template directives, and should not be migrated.
-- **No block tag variant**: There is no `{% dispatch_agent %}...{% enddispatch_agent %}` block syntax for embedding multi-line content. This is the primary reason complex skills cannot be migrated yet.
 
 ---
 

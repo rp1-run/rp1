@@ -49,12 +49,14 @@ For syntax, arguments, and per-platform output examples, see the [Platform Tags 
 **Use tags** when:
 
 - You are dispatching an agent with a simple prompt
+- You are dispatching an agent with a multi-line prompt that can be expressed as a single block
 - You reference a platform-varying tool by name
 - You describe a capability that differs across platforms
 
 **Use `{% case platform %}` blocks** when:
 
-- The dispatch prompt is multi-line or contains template variables
+- The platform-specific behavior needs substantially different structure per platform
+- The dispatch appears inside algorithmic control flow that cannot be expressed as a single tag block
 - The platform-varying section has complex structure that does not map to a tag
 - You need control flow around platform-specific behavior
 
