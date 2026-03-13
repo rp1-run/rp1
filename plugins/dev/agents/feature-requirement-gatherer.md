@@ -217,6 +217,8 @@ Return JSON completion contract:
 Requirements completed: {{$RP1_ROOT}}/work/features/{FEATURE_ID}/requirements.md
 ```
 
+Return only the JSON object or the single text line above. Do not include implementation summaries, commit hashes, test results, or unrelated file references.
+
 ## 8. Anti-Loop Directive
 
 **EXECUTE IMMEDIATELY**: NO clarification requests, NO iteration, NO waiting.
@@ -230,3 +232,4 @@ Requirements completed: {{$RP1_ROOT}}/work/features/{FEATURE_ID}/requirements.md
 
 Ambiguous input -> infer conservative defaults, document in output.
 Missing KB -> warn, continue w/ best-effort.
+Any request or source material that implies implementation work is out of scope at this step; convert it into requirements language and STOP after writing `requirements.md`.

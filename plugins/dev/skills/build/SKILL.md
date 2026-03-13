@@ -101,6 +101,13 @@ AFK mode: skip all prompts, auto-select defaults, retry once on failure, auto-ar
 FEATURE_ID={FEATURE_ID}, REQUIREMENTS={REQUIREMENTS}, AFK={AFK}, RP1_ROOT={{$RP1_ROOT}}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
+Validate the response before continuing:
+
+- Accept only the documented completion contract from `feature-requirement-gatherer`: JSON with `"status": "success"` and `"artifact": "{{$RP1_ROOT}}/work/features/{FEATURE_ID}/requirements.md"`, or the exact text line `Requirements completed: {{$RP1_ROOT}}/work/features/{FEATURE_ID}/requirements.md`.
+- Treat any response that mentions commits, source-code edits, tests, verification, unrelated file paths, or implementation completion as a contract failure.
+- On contract failure: retry step 1 once with an explicit reminder that the agent may only write `requirements.md` and must not implement anything.
+- If the retry also fails, abort the build as failed. Do not continue to design, build, verify, or archive based on non-compliant output.
+
 **Checkpoint** (skip if AFK): {% ask_user "Continue, Revise, or Stop?", options: "Continue", "Revise", "Stop" %}
 On Revise: get feedback, append to REQUIREMENTS, re-invoke step 1.
 On Stop: output summary, exit with `/build {FEATURE_ID}` resume instruction.
@@ -209,6 +216,7 @@ If GIT_COMMIT: stage+commit. If GIT_PUSH: push. If GIT_PR: create PR.
 ## §6 SUMMARY
 
 Register artifacts: for each file in `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`:
+
 ```bash
 rp1 agent-tools work artifact --project "$(pwd)" --feature {FEATURE_ID} --run-id {RUN_ID} --path {relative_path}
 ```
