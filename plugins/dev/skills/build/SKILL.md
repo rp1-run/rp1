@@ -31,7 +31,7 @@ metadata:
 
 # Build Command
 
-**YOU ARE A PURE ORCHESTRATOR.** Spawn agents via Task tool. NEVER write/edit/read files yourself. NEVER implement code, requirements, designs, or tests. Use exact `subagent_type` per step — no `general-purpose` or `Explore`. If agent fails, retry it — never do its work.
+**YOU ARE A PURE ORCHESTRATOR.** Spawn agents for all work. NEVER write/edit/read files yourself. NEVER implement code, requirements, designs, or tests. Use exact agent references per step. If agent fails, retry it — never do its work.
 
 ## Parameters
 
@@ -52,10 +52,9 @@ metadata:
 
 **FIRST tool call MUST be:**
 
-```
-Task: rp1-dev:build-artifact-detector
-prompt: FEATURE_ID={FEATURE_ID}, RP1_ROOT={{$RP1_ROOT}}
-```
+{% dispatch_agent "rp1-dev:build-artifact-detector" %}
+FEATURE_ID={FEATURE_ID}, RP1_ROOT={{$RP1_ROOT}}
+{% enddispatch_agent %}
 
 Do NOT read files, load KB, or analyze requirements before this completes.
 Parse response: extract `start_step` (1-6) and `artifacts` status.
@@ -98,12 +97,11 @@ AFK mode: skip all prompts, auto-select defaults, retry once on failure, auto-ar
 
 **Skip if**: start_step > 1. **Spawn agent — do NOT gather requirements yourself:**
 
-```
-Task: rp1-dev:feature-requirement-gatherer
-prompt: FEATURE_ID={FEATURE_ID}, REQUIREMENTS={REQUIREMENTS}, AFK={AFK}, RP1_ROOT={{$RP1_ROOT}}, WORKFLOW=build, RUN_ID={RUN_ID}
-```
+{% dispatch_agent "rp1-dev:feature-requirement-gatherer" %}
+FEATURE_ID={FEATURE_ID}, REQUIREMENTS={REQUIREMENTS}, AFK={AFK}, RP1_ROOT={{$RP1_ROOT}}, WORKFLOW=build, RUN_ID={RUN_ID}
+{% enddispatch_agent %}
 
-**Checkpoint** (skip if AFK): AskUserQuestion with options "Continue" / "Revise" / "Stop".
+**Checkpoint** (skip if AFK): {% ask_user "Continue, Revise, or Stop?", options: "Continue", "Revise", "Stop" %}
 On Revise: get feedback, append to REQUIREMENTS, re-invoke step 1.
 On Stop: output summary, exit with `/build {FEATURE_ID}` resume instruction.
 
@@ -111,23 +109,21 @@ On Stop: output summary, exit with `/build {FEATURE_ID}` resume instruction.
 
 **Skip if**: start_step > 2. **Spawn agent — do NOT design yourself:**
 
-```
-Task: rp1-dev:feature-architect
-prompt: FEATURE_ID={FEATURE_ID}, AFK={AFK}, UPDATE_MODE={design.md exists}, RP1_ROOT={{$RP1_ROOT}}, WORKFLOW=build, RUN_ID={RUN_ID}
-```
+{% dispatch_agent "rp1-dev:feature-architect" %}
+FEATURE_ID={FEATURE_ID}, AFK={AFK}, UPDATE_MODE={design.md exists}, RP1_ROOT={{$RP1_ROOT}}, WORKFLOW=build, RUN_ID={RUN_ID}
+{% enddispatch_agent %}
 
 If `flagged_hypotheses` non-empty:
-```
-Task: rp1-dev:hypothesis-tester
-prompt: FEATURE_ID={FEATURE_ID}, WORKFLOW=build, RUN_ID={RUN_ID}
-```
 
-```
-Task: rp1-dev:feature-tasker
-prompt: FEATURE_ID={FEATURE_ID}, UPDATE_MODE={UPDATE_MODE}, RP1_ROOT={{$RP1_ROOT}}, WORKFLOW=build, RUN_ID={RUN_ID}
-```
+{% dispatch_agent "rp1-dev:hypothesis-tester" %}
+FEATURE_ID={FEATURE_ID}, WORKFLOW=build, RUN_ID={RUN_ID}
+{% enddispatch_agent %}
 
-**Checkpoint** (skip if AFK): AskUserQuestion with options "Continue" / "Revise" / "Stop".
+{% dispatch_agent "rp1-dev:feature-tasker" %}
+FEATURE_ID={FEATURE_ID}, UPDATE_MODE={UPDATE_MODE}, RP1_ROOT={{$RP1_ROOT}}, WORKFLOW=build, RUN_ID={RUN_ID}
+{% enddispatch_agent %}
+
+**Checkpoint** (skip if AFK): {% ask_user "Continue, Revise, or Stop?", options: "Continue", "Revise", "Stop" %}
 On Revise: get feedback, re-invoke §STEP-2 with UPDATE_MODE=true.
 On Stop: output summary (steps 1-2 done), exit with `/build {FEATURE_ID}`.
 
@@ -135,12 +131,11 @@ On Stop: output summary (steps 1-2 done), exit with `/build {FEATURE_ID}`.
 
 **Skip if**: start_step > 3. **Spawn agent:**
 
-```
-Task: rp1-dev:feature-tasker
-prompt: FEATURE_ID={FEATURE_ID}, UPDATE_MODE=false, RP1_ROOT={{$RP1_ROOT}}, WORKFLOW=build, RUN_ID={RUN_ID}
-```
+{% dispatch_agent "rp1-dev:feature-tasker" %}
+FEATURE_ID={FEATURE_ID}, UPDATE_MODE=false, RP1_ROOT={{$RP1_ROOT}}, WORKFLOW=build, RUN_ID={RUN_ID}
+{% enddispatch_agent %}
 
-**Checkpoint** (skip if AFK): AskUserQuestion with options "Continue" / "Revise" / "Stop".
+**Checkpoint** (skip if AFK): {% ask_user "Continue, Revise, or Stop?", options: "Continue", "Revise", "Stop" %}
 On Revise: get feedback, re-invoke §STEP-3 with UPDATE_MODE=true and feedback as UPDATE_CONTEXT.
 On Stop: output summary (steps 1-3 done), exit with `/build {FEATURE_ID}`.
 
@@ -150,53 +145,61 @@ On Stop: output summary (steps 1-3 done), exit with `/build {FEATURE_ID}`.
 
 ### §4.1 Parse + Group
 
-```
-Task: rp1-dev:build-task-parser
-prompt: TASKS_PATH={{$RP1_ROOT}}/work/features/{FEATURE_ID}/tasks.md
-```
+{% dispatch_agent "rp1-dev:build-task-parser" %}
+TASKS_PATH={{$RP1_ROOT}}/work/features/{FEATURE_ID}/tasks.md
+{% enddispatch_agent %}
+
 Extract `implementation_tasks`, `doc_tasks`.
 
-```
-Task: rp1-dev:build-task-grouper
-prompt: TASKS: {implementation_tasks JSON}, MAX_SIMPLE_BATCH: 3, COMPLEX_ISOLATED: true
-```
+{% dispatch_agent "rp1-dev:build-task-grouper" %}
+TASKS: {implementation_tasks JSON}, MAX_SIMPLE_BATCH: 3, COMPLEX_ISOLATED: true
+{% enddispatch_agent %}
+
 Extract `task_units` array.
 
 ### §4.2 Builder-Reviewer Loop
 
-```
-for unit in task_units:
-  attempt=1, max=2, feedback=null
-  while attempt <= max:
-    Task: rp1-dev:task-builder (FEATURE_ID, TASK_IDS, WORKTREE_PATH, GIT_COMMIT, feedback, WORKFLOW=build, RUN_ID={RUN_ID})
-    Task: rp1-dev:task-reviewer (FEATURE_ID, TASK_IDS, WORKTREE_PATH, GIT_COMMIT, WORKFLOW=build, RUN_ID={RUN_ID})
-    if SUCCESS: break
-    elif attempt < max: feedback=result, attempt++
-    else: escalate (AFK: mark blocked; Interactive: prompt)
-```
+For each task unit, run builder then reviewer:
+
+{% dispatch_agent "rp1-dev:task-builder" %}
+FEATURE_ID={FEATURE_ID}, TASK_IDS={TASK_IDS}, WORKTREE_PATH={WORKTREE_PATH}, GIT_COMMIT={GIT_COMMIT}, FEEDBACK={feedback}, WORKFLOW=build, RUN_ID={RUN_ID}
+{% enddispatch_agent %}
+
+{% dispatch_agent "rp1-dev:task-reviewer" %}
+FEATURE_ID={FEATURE_ID}, TASK_IDS={TASK_IDS}, WORKTREE_PATH={WORKTREE_PATH}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
+{% enddispatch_agent %}
+
+Loop logic: attempt=1, max=2. If reviewer reports SUCCESS: move to next unit. If FAILURE and attempt < max: pass feedback to builder, retry. Else: escalate (AFK: mark blocked; Interactive: prompt user).
 
 ### §4.3 Post-Build
 
 Doc tasks (TD*): build doc_scan_results.json, spawn scribe.
 
-**Checkpoint** (skip if AFK): AskUserQuestion with options "Continue" / "Add Task" / "Stop".
+**Checkpoint** (skip if AFK): {% ask_user "Continue, Add Task, or Stop?", options: "Continue", "Add Task", "Stop" %}
 On Add Task: spawn builder+reviewer for ad-hoc TX-{timestamp} task, loop back.
 
 ## §STEP-5: Verify
 
 **Skip if**: start_step > 5. **Invoke ALL THREE in SINGLE response:**
 
-```
-Task: rp1-dev:code-checker (FEATURE_ID, branch, WORKTREE_PATH)
-Task: rp1-dev:feature-verifier (FEATURE_ID, RP1_ROOT, WORKTREE_PATH, WORKFLOW=build, RUN_ID={RUN_ID})
-Task: rp1-dev:comment-cleaner (MODE=clean, SCOPE=branch, COMMIT_CHANGES={GIT_COMMIT}, WORKTREE_PATH)
-```
+{% dispatch_agent "rp1-dev:code-checker" %}
+FEATURE_ID={FEATURE_ID}, BRANCH={branch}, WORKTREE_PATH={WORKTREE_PATH}
+{% enddispatch_agent %}
+
+{% dispatch_agent "rp1-dev:feature-verifier" %}
+FEATURE_ID={FEATURE_ID}, RP1_ROOT={{$RP1_ROOT}}, WORKTREE_PATH={WORKTREE_PATH}, WORKFLOW=build, RUN_ID={RUN_ID}
+{% enddispatch_agent %}
+
+{% dispatch_agent "rp1-dev:comment-cleaner" %}
+MODE=clean, SCOPE=branch, COMMIT_CHANGES={GIT_COMMIT}, WORKTREE_PATH={WORKTREE_PATH}
+{% enddispatch_agent %}
 
 Then aggregate:
-```
-Task: rp1-dev:build-verify-aggregator
-prompt: PHASE_RESULTS: { code_checker: {...}, feature_verifier: {...}, comment_cleaner: {...} }
-```
+
+{% dispatch_agent "rp1-dev:build-verify-aggregator" %}
+PHASE_RESULTS: { code_checker: {...}, feature_verifier: {...}, comment_cleaner: {...} }
+{% enddispatch_agent %}
+
 Extract `overall_status`, `ready_for_merge`, `manual_items`.
 
 ### Git Operations (conditional)
@@ -212,14 +215,13 @@ rp1 agent-tools work artifact --project "$(pwd)" --feature {FEATURE_ID} --run-id
 
 Output: Feature ID, step status table (1-6), artifacts created.
 
-**Post-verify** (skip if AFK): AskUserQuestion: "Add task" / "Archive" / "Do nothing".
+**Post-verify** (skip if AFK): {% ask_user "Add task, Archive, or Do nothing?", options: "Add task", "Archive", "Do nothing" %}
 
 ### Archive (skip if "Do nothing")
 
-```
-Task: rp1-dev:feature-archiver
-prompt: MODE=archive, FEATURE_ID={FEATURE_ID}, SKIP_DOC_CHECK=false
-```
+{% dispatch_agent "rp1-dev:feature-archiver" %}
+MODE=archive, FEATURE_ID={FEATURE_ID}, SKIP_DOC_CHECK=false
+{% enddispatch_agent %}
 
 ## §ANTI-LOOP
 
