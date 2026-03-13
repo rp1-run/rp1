@@ -43,11 +43,12 @@ Examples:
 			process.exit(1);
 		}
 
+		const parentOpts = command.parent?.opts() ?? {};
 		const ctx: InstallContext = {
 			logger,
 			isTTY,
-			dryRun: options.dryRun ?? false,
-			skipPrompt: options.yes ?? false,
+			dryRun: options.dryRun ?? parentOpts.dryRun ?? false,
+			skipPrompt: options.yes ?? parentOpts.yes ?? false,
 		};
 
 		const result = await installCodexPlugins(
