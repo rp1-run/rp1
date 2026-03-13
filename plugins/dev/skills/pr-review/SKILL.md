@@ -145,7 +145,7 @@ P5   (seq):  Comment Posting (CI only) -> GitHub Review
 Skip if `CI_MODE=true`.
 
 1. `git status --porcelain`
-2. If non-empty -> AskUserQuestion: "Stash and continue" / "Abort"
+2. If non-empty -> {% ask_user "Stash and continue?", options: "Stash and continue", "Abort" %}
 3. Stash: `git stash push -m "rp1-pr-review-auto-stash"`, set `STASHED=true`
    Abort: Exit "Review cancelled."
 
@@ -176,7 +176,7 @@ Skip if `CI_MODE=true`.
 
 3. **Build Intent Model**:
    - PR exists (mode=`full`): title -> `problem_statement`, parse body, fetch linked issues
-   - No PR -> AskUserQuestion: "Quick description" / "Skip"
+   - No PR -> {% ask_user "Quick description of the intended changes", options: "Provide description", "Skip" %}
      - Provided (mode=`user_provided`): use description
      - Skip (mode=`branch_only`): `problem_statement="Review changes on {{branch}}"`
 
@@ -201,31 +201,29 @@ git diff --numstat {{base}}..{{branch}}
 `VISUAL_WARRANTED = file_count > 5 OR any file > 200 lines OR multiple dirs OR arch files`
 
 **Spawn** (if warranted):
-```
-OUTPUT_MODE = CI_MODE ? "markdown" : "html"
+`OUTPUT_MODE = CI_MODE ? "markdown" : "html"`
+Background mode: local=true, CI=false
 
-Task tool:
-subagent_type: rp1-dev:pr-visualizer
-run_in_background: local=true, CI=false
-prompt: "Generate PR visualization.
+{% dispatch_agent "rp1-dev:pr-visualizer" %}
+Generate PR visualization.
   PR_BRANCH: {{pr_branch}}
   BASE_BRANCH: {{base_branch}}
   REVIEW_DEPTH: quick
-  OUTPUT_MODE: {{OUTPUT_MODE}}"
-```
+  OUTPUT_MODE: {{OUTPUT_MODE}}
+{% enddispatch_agent %}
+
 CI: capture `VISUAL_CONTENT` | Local: store `VISUAL_TASK_ID`, continue
 
 ### P1: Splitting
 
-```
-Task tool:
-subagent_type: rp1-dev:pr-review-splitter
-prompt: "Split PR diff into review units.
+{% dispatch_agent "rp1-dev:pr-review-splitter" %}
+Split PR diff into review units.
   PR_BRANCH: {{pr_branch}}
   BASE_BRANCH: {{base_branch}}
   THRESHOLD: 100
-  Return JSON with units array."
-```
+  Return JSON with units array.
+{% enddispatch_agent %}
+
 Parse `units`, store counts. Fail -> Abort w/ error.
 
 ### P2: Detailed Analysis
@@ -235,15 +233,15 @@ Parse `units`, store counts. Fail -> Abort w/ error.
 1. For each unit: `git diff {{base}}..{{branch}} -- {{unit.path}}`
 2. Build `file_list`
 3. Spawn N sub-reviewers (one msg):
-   ```
-   Task tool:
-   subagent_type: rp1-dev:pr-sub-reviewer
-   prompt: "Analyze review unit across 5 dimensions.
+
+   {% dispatch_agent "rp1-dev:pr-sub-reviewer" %}
+   Analyze review unit across 5 dimensions.
      UNIT_JSON: {{stringify(unit_with_diff)}}
      INTENT_JSON: {{stringify(intent_model)}}
      PR_FILES: {{stringify(file_list)}}
-     Return JSON with findings and summary."
-   ```
+     Return JSON with findings and summary.
+   {% enddispatch_agent %}
+
 4. Aggregate findings + summaries
 5. <50% fail -> continue | >=50% fail -> abort
 
@@ -252,16 +250,15 @@ Parse `units`, store counts. Fail -> Abort w/ error.
 1. Prep summary: `{"critical": N, "high": N, "medium": N, "low": N, "needs_human_review": N, "details": [...]}`
 
 2. Spawn:
-   ```
-   Task tool:
-   subagent_type: rp1-dev:pr-review-synthesizer
-   prompt: "Perform holistic verification.
+
+   {% dispatch_agent "rp1-dev:pr-review-synthesizer" %}
+   Perform holistic verification.
      INTENT_JSON: {{stringify(intent_model)}}
      FILE_LIST: {{stringify(file_list)}}
      SUMMARIES_JSON: {{stringify(all_summaries)}}
      FINDINGS_SUMMARY: {{stringify(findings_summary)}}
-     Return JSON with intent_achieved, cross_file_findings, judgment, rationale."
-   ```
+     Return JSON with intent_achieved, cross_file_findings, judgment, rationale.
+   {% enddispatch_agent %}
 
 3. Extract: `intent_achieved`, `intent_gap`, `cross_file_findings`, `judgment`, `rationale`
 4. Fail -> findings-only judgment: Critical->block, High->request_changes, else->approve
@@ -274,21 +271,21 @@ Parse `units`, store counts. Fail -> Abort w/ error.
 4. If `VISUAL_TASK_ID`: check completion -> `VISUAL_PATH` or "none"
 5. `git rev-parse {{branch}}` -> `HEAD_SHA`
 6. Spawn:
-   ```
-   Task tool:
-   subagent_type: rp1-dev:pr-review-reporter
-   prompt: "Generate markdown report.
-     PR_INFO: {{stringify({branch, title, base, github_url: GITHUB_URL, head_sha: HEAD_SHA})}}
+
+   {% dispatch_agent "rp1-dev:pr-review-reporter" %}
+   Generate markdown report.
+     PR_INFO: {% raw %}{{stringify({branch, title, base, github_url: GITHUB_URL, head_sha: HEAD_SHA})}}{% endraw %}
      INTENT_JSON: {{stringify(intent_model)}}
-     JUDGMENT_JSON: {{stringify({judgment, rationale, intent_achieved, intent_gap})}}
+     JUDGMENT_JSON: {% raw %}{{stringify({judgment, rationale, intent_achieved, intent_gap})}}{% endraw %}
      FINDINGS_JSON: {{stringify(merged_findings)}}
      CROSS_FILE_JSON: {{stringify(cross_file_findings)}}
      STATS_JSON: {{stringify(stats)}}
      VISUAL_PATH: {{VISUAL_PATH or "none"}}
      OUTPUT_DIR: {{$RP1_ROOT}}/work/pr-reviews
      REVIEW_ID: {{review_id}}
-     Return JSON with path."
-   ```
+     Return JSON with path.
+   {% enddispatch_agent %}
+
 7. Fail -> output findings inline
 8. Store `REPORTER_FINDINGS` for P5 (CI mode)
 
@@ -307,31 +304,29 @@ Skip if `CI_MODE=false`.
    `[{"id": "f1", "path": "...", "line": N, "line_end": N, "body": "...", "severity": "...", "dimension": "..."}]`
 
 3. **Deduplicate**:
-   ```
-   Task tool:
-   subagent_type: rp1-dev:pr-comment-deduplicator
-   prompt: "Deduplicate PR comments.
+
+   {% dispatch_agent "rp1-dev:pr-comment-deduplicator" %}
+   Deduplicate PR comments.
      NEW_COMMENTS: {{stringify(new_comments)}}
      EXISTING_BOT_COMMENTS: {{stringify(existing_bot_comments)}}
      EXISTING_HUMAN_COMMENTS: {{stringify(existing_human_comments)}}
      BOT_MARKER: {{config.bot_marker}}
-     Return JSON with to_post, to_react, to_augment, duplicates_skipped."
-   ```
+     Return JSON with to_post, to_react, to_augment, duplicates_skipped.
+   {% enddispatch_agent %}
 
 4. **Post**:
-   ```
-   Task tool:
-   subagent_type: rp1-dev:pr-comment-poster
-   prompt: "Post PR review to GitHub.
+
+   {% dispatch_agent "rp1-dev:pr-comment-poster" %}
+   Post PR review to GitHub.
      OWNER: {{CI_CONTEXT.owner}}
      REPO: {{CI_CONTEXT.repo}}
      PR_NUMBER: {{CI_CONTEXT.pr_number}}
      DEDUP_OUTPUT: {{stringify(dedup_output)}}
-     CONFIG: {{stringify({verdict: config.verdict, bot_marker: config.bot_marker, max_comments: config.max_comments, add_comments: config.add_comments})}}
+     CONFIG: {% raw %}{{stringify({verdict: config.verdict, bot_marker: config.bot_marker, max_comments: config.max_comments, add_comments: config.add_comments})}}{% endraw %}
      VISUAL_CONTENT: {{VISUAL_CONTENT or ""}}
-     FINDINGS_SUMMARY: {{stringify({critical: N, high: N, medium: N, low: N, total: N})}}
-     Return JSON with success, review, reactions, replies, summary, errors."
-   ```
+     FINDINGS_SUMMARY: {% raw %}{{stringify({critical: N, high: N, medium: N, low: N, total: N})}}{% endraw %}
+     Return JSON with success, review, reactions, replies, summary, errors.
+   {% enddispatch_agent %}
 
 5. Parse: `REVIEW_URL`, `COMMENTS_POSTED`, `REACTIONS_ADDED`, `POSTING_ERRORS`
 

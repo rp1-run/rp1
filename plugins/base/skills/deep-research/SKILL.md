@@ -152,18 +152,17 @@ For each explorer, prepare:
 
 **CRITICAL**: Spawn ALL explorers in a SINGLE message with PARALLEL Task tool calls.
 
-For each explorer, use the Task tool:
-```
-subagent_type: rp1-base:research-explorer
-prompt: |
-  Explore and return JSON findings.
-  EXPLORATION_TARGET: {target}
-  QUESTIONS: {stringify(questions)}
-  EXPLORATION_TYPE: {type}
-  KB_PATH: {kb_path}
+For each explorer:
 
-  Return structured JSON per output contract.
-```
+{% dispatch_agent "rp1-base:research-explorer" %}
+Explore and return JSON findings.
+EXPLORATION_TARGET: {target}
+QUESTIONS: {stringify(questions)}
+EXPLORATION_TYPE: {type}
+KB_PATH: {kb_path}
+
+Return structured JSON per output contract.
+{% enddispatch_agent %}
 
 **Naming convention**: explorer-{n} where n is 1, 2, 3...
 
@@ -287,17 +286,14 @@ Construct the synthesis data JSON for the reporter:
 
 The reporter handles output file naming (slugification, directory creation, deduplication).
 
-Use the Task tool:
-```
-subagent_type: rp1-base:research-reporter
-prompt: |
-  Generate research report.
-  SYNTHESIS_DATA: {stringify(synthesis_data)}
-  RP1_ROOT: {{$RP1_ROOT}}
-  REPORT_TYPE: {standard | comparative}
+{% dispatch_agent "rp1-base:research-reporter" %}
+Generate research report.
+SYNTHESIS_DATA: {stringify(synthesis_data)}
+RP1_ROOT: {{$RP1_ROOT}}
+REPORT_TYPE: {standard | comparative}
 
-  Return JSON with report status and path.
-```
+Return JSON with report status and path.
+{% enddispatch_agent %}
 
 ### Step 2: Collect Reporter Result
 

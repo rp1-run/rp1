@@ -100,10 +100,9 @@ rp1 agent-tools work update \
 
 **Spawn agent**:
 
-```
-Task: rp1-dev:build-fast-planner
-prompt: DEVELOPMENT_REQUEST={DEVELOPMENT_REQUEST}, RP1_ROOT={{$RP1_ROOT}}, WORKFLOW=build-fast, RUN_ID={RUN_ID}
-```
+{% dispatch_agent "rp1-dev:build-fast-planner" %}
+DEVELOPMENT_REQUEST={DEVELOPMENT_REQUEST}, RP1_ROOT={{$RP1_ROOT}}, WORKFLOW=build-fast, RUN_ID={RUN_ID}
+{% enddispatch_agent %}
 
 **Parse response**: Extract `scope`, `plan_summary`, `files_affected`, `reasoning`, `artifact_path`, `task_count`, `task_ids`.
 
@@ -121,24 +120,20 @@ Output the planner's `redirect_message` and STOP.
 
 When skipped: Do NOT call AskUserQuestion. Proceed directly to §PHASE-2.
 
-```
-AskUserQuestion: |
-  ## Plan Review
+Present the plan review to the user:
 
-  **Scope**: {scope}
-  **Estimated Effort**: {estimated_effort from plan}
-  **Artifact**: {artifact_path}
+## Plan Review
 
-  **Tasks**:
-  {list tasks from artifact}
+**Scope**: {scope}
+**Estimated Effort**: {estimated_effort from plan}
+**Artifact**: {artifact_path}
 
-  **Files**: {files_affected}
+**Tasks**:
+{list tasks from artifact}
 
-  Options:
-  1. "Continue" - Proceed with implementation
-  2. "Revise" - Re-plan with your feedback
-  3. "Stop" - Exit (artifact preserved for reference)
-```
+**Files**: {files_affected}
+
+{% ask_user "Proceed with plan?", options: "Continue", "Revise", "Stop" %}
 
 **On "Revise"**: Prompt for feedback, re-invoke §PHASE-1 with feedback appended to DEVELOPMENT_REQUEST.
 **On "Stop"**: Output "Build fast cancelled. Artifact preserved at {artifact_path}" and STOP.
@@ -151,16 +146,14 @@ AskUserQuestion: |
 
 **You MUST spawn task-builder here.** Do not implement the tasks yourself.
 
-```
-Task: rp1-dev:task-builder
-prompt: |
-  QUICK_BUILD_PATH={artifact_path}
-  TASK_IDS={task_ids}
-  GIT_COMMIT={GIT_COMMIT}
-  RP1_ROOT={{$RP1_ROOT}}
-  WORKFLOW=build-fast
-  RUN_ID={RUN_ID}
-```
+{% dispatch_agent "rp1-dev:task-builder" %}
+QUICK_BUILD_PATH={artifact_path}
+TASK_IDS={task_ids}
+GIT_COMMIT={GIT_COMMIT}
+RP1_ROOT={{$RP1_ROOT}}
+WORKFLOW=build-fast
+RUN_ID={RUN_ID}
+{% enddispatch_agent %}
 
 **Parse response**: Verify "Builder Complete" in output.
 
@@ -172,16 +165,14 @@ prompt: |
 
 **You MUST use `subagent_type: rp1-dev:task-reviewer`** — do not use `general-purpose` or any other agent type.
 
-```
-Task: rp1-dev:task-reviewer
-prompt: |
-  QUICK_BUILD_PATH={artifact_path}
-  TASK_IDS={task_ids}
-  GIT_COMMIT={GIT_COMMIT}
-  RP1_ROOT={{$RP1_ROOT}}
-  WORKFLOW=build-fast
-  RUN_ID={RUN_ID}
-```
+{% dispatch_agent "rp1-dev:task-reviewer" %}
+QUICK_BUILD_PATH={artifact_path}
+TASK_IDS={task_ids}
+GIT_COMMIT={GIT_COMMIT}
+RP1_ROOT={{$RP1_ROOT}}
+WORKFLOW=build-fast
+RUN_ID={RUN_ID}
+{% enddispatch_agent %}
 
 **Parse response**: Extract `status` (SUCCESS or FAILURE).
 
@@ -192,17 +183,15 @@ If `status` = "FAILURE":
 1. Extract `issues` and `summary` from reviewer response
 2. Re-invoke task-builder with feedback:
 
-```
-Task: rp1-dev:task-builder
-prompt: |
-  QUICK_BUILD_PATH={artifact_path}
-  TASK_IDS={task_ids}
-  GIT_COMMIT={GIT_COMMIT}
-  RP1_ROOT={{$RP1_ROOT}}
-  PREVIOUS_FEEDBACK={reviewer summary and issues}
-  WORKFLOW=build-fast
-  RUN_ID={RUN_ID}
-```
+{% dispatch_agent "rp1-dev:task-builder" %}
+QUICK_BUILD_PATH={artifact_path}
+TASK_IDS={task_ids}
+GIT_COMMIT={GIT_COMMIT}
+RP1_ROOT={{$RP1_ROOT}}
+PREVIOUS_FEEDBACK={reviewer summary and issues}
+WORKFLOW=build-fast
+RUN_ID={RUN_ID}
+{% enddispatch_agent %}
 
 3. Do NOT retry reviewer after retry builder (max 1 retry total)
 
@@ -222,17 +211,16 @@ git push -u origin {branch}
 
 When skipped: Do NOT call AskUserQuestion. Proceed directly to §OUTPUT.
 
-```
-AskUserQuestion: |
-  ## Implementation Complete
+Present the post-implementation checkpoint to the user:
 
-  **Branch**: {branch}
-  **Artifact**: {artifact_path}
+## Implementation Complete
 
-  Review the changes, then:
-  1. "Done" - Finish workflow
-  2. "Add/Edit" - Describe additional changes needed
-```
+**Branch**: {branch}
+**Artifact**: {artifact_path}
+
+Review the changes.
+
+{% ask_user "Continue or make additional changes?", options: "Done", "Add/Edit" %}
 
 **On "Add/Edit"**: Prompt for additional request, re-invoke §PHASE-2 with new request appended.
 **On "Done"**: Continue to output.

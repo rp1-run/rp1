@@ -60,12 +60,9 @@ Use Bash: test -f "{INPUT}" && echo "file" || echo "inline"
 
 ### Step 3: Spawn Tersifier Agent
 
-Use the Task tool:
-```
-subagent_type: rp1-utils:prompt-tersifier
-prompt: |
-  {INPUT_PROMPT content here}
-```
+{% dispatch_agent "rp1-utils:prompt-tersifier" %}
+{INPUT_PROMPT content here}
+{% enddispatch_agent %}
 
 ### Step 4: Process Output
 

@@ -59,16 +59,13 @@ Edit types:
 
 ### 1. Initial Invocation
 
-Task tool config:
-- `subagent_type`: `rp1-dev:feature-editor`
-- `prompt`:
-```
+{% dispatch_agent "rp1-dev:feature-editor" %}
 FEATURE_ID: {FEATURE_ID}
 EDIT_DESCRIPTION: {EDIT_DESCRIPTION}
 DECISIONS: {}
 
 Analyze and process this edit.
-```
+{% enddispatch_agent %}
 
 ### 2. Decision Loop
 
@@ -76,18 +73,15 @@ Parse agent response:
 
 **If `type: "needs_decision"`** (JSON w/ `decision_key`, `question`, `options`, `context`):
 
-1. AskUserQuestion:
-   - `question`: from JSON
-   - `header`: decision_key
-   - `options`: mapped from JSON
-   - `multiSelect`: false
+1. {% ask_user "{question from JSON}", options: "{options mapped from JSON}" %}
 
 2. Re-invoke agent w/ accumulated decisions:
-```
+
+{% dispatch_agent "rp1-dev:feature-editor" %}
 FEATURE_ID: {FEATURE_ID}
 EDIT_DESCRIPTION: {EDIT_DESCRIPTION}
 DECISIONS: {"classification": "...", "scope_action": "...", ...}
-```
+{% enddispatch_agent %}
 
 3. Repeat until success/error (not decision request)
 

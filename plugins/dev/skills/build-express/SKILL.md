@@ -52,7 +52,9 @@ stateDiagram-v2
 
 ### 1.1 Get Request
 
-If REQUEST empty: use AskUserQuestion to get task from user.
+If REQUEST empty:
+
+{% ask_user "What would you like to build?" %}
 
 ### 1.2 Clarity Check
 
@@ -112,11 +114,10 @@ prompt: |
 
 ### 1.5 Post-Build Prompt
 
-After builder completes, use AskUserQuestion:
+After builder completes:
 
-**Question**: "What would you like to do next?"
+{% ask_user "What would you like to do next?", options: "Commit & move on", "Refine", "New task (no commit)", "Exit" %}
 
-**Options**:
 | Option | Action |
 |--------|--------|
 | Commit & move on | Commit current changes (conventional commit), then loop to 1.1 |

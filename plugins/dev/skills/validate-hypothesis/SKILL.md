@@ -39,14 +39,11 @@ Extract these parameters from the user's input:
 
 ### Step 1: Invoke Agent
 
-Task tool:
-```
-subagent_type: rp1-dev:hypothesis-tester
-prompt: |
-  FEATURE_ID: {FEATURE_ID}
-  RP1_ROOT: {{$RP1_ROOT}}
-  Validate all PENDING hypotheses for this feature.
-```
+{% dispatch_agent "rp1-dev:hypothesis-tester" %}
+FEATURE_ID: {FEATURE_ID}
+RP1_ROOT: {{$RP1_ROOT}}
+Validate all PENDING hypotheses for this feature.
+{% enddispatch_agent %}
 
 Agent actions: load hypotheses.md -> parse PENDING -> validate via experiment/analysis/research -> document findings w/ evidence -> update status CONFIRMED|REJECTED -> cleanup temp artifacts -> report summary
 
@@ -62,18 +59,9 @@ Parse agent output. If JSON block w/ `type: "rejected_hypotheses"`:
 }
 ```
 
-For each rejected, use AskUserQuestion:
-```
-questions:
-  - question: "{id} REJECTED: {statement}. Evidence: {evidence_summary}. Domain knowledge confirms valid?"
-    header: "{id}"
-    options:
-      - label: "Accept rejection"
-        description: "Hypothesis invalid - design adapts"
-      - label: "Override - I confirm valid"
-        description: "Domain knowledge confirms assumption"
-    multiSelect: false
-```
+For each rejected:
+
+{% ask_user "{id} REJECTED: {statement}. Evidence: {evidence_summary}. Domain knowledge confirms valid?", options: "Accept rejection", "Override - I confirm valid" %}
 
 **If "Override"**:
 1. Edit hypotheses.md:

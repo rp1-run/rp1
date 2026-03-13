@@ -461,18 +461,16 @@ For each batch, construct the JSON input matching the scribe agent contract:
 
 Spawn ONE scribe agent per batch in parallel using multiple Task calls in a SINGLE message:
 
-```
 FOR each batch in BATCHES (in parallel):
-    Use Task tool:
-        subagent_type: rp1-base:scribe
-        prompt: |
-            MODE: scan
-            FILES: {{JSON.stringify(batch.files)}}
-            KB_INDEX_PATH: {{$RP1_ROOT}}/context/index.md
 
-            Scan documentation files for classification against KB index.
-            Return JSON with classifications.
-```
+{% dispatch_agent "rp1-base:scribe" %}
+MODE: scan
+FILES: {{JSON.stringify(batch.files)}}
+KB_INDEX_PATH: {{$RP1_ROOT}}/context/index.md
+
+Scan documentation files for classification against KB index.
+Return JSON with classifications.
+{% enddispatch_agent %}
 
 **Task parallelism**: All Task calls in the same message execute in parallel. Do NOT wait between batches.
 
@@ -664,15 +662,7 @@ Breakdown:
 
 Use the AskUserQuestion tool to obtain explicit approval:
 
-```
-Use AskUserQuestion tool:
-    question: "Proceed with documentation updates?"
-    options:
-      - label: "Yes"
-        description: "Apply updates to {{AGGREGATED.summary.total_files}} files"
-      - label: "No"
-        description: "Abort without changes"
-```
+{% ask_user "Proceed with documentation updates?", options: "Yes", "No" %}
 
 **If user selects "No"**:
 ```
@@ -751,21 +741,19 @@ For each batch, construct the JSON input matching the scribe agent process mode 
 
 Spawn ONE scribe agent per batch in parallel using multiple Task calls in a SINGLE message:
 
-```
 FOR each batch in PROCESS_BATCHES (in parallel):
-    Use Task tool:
-        subagent_type: rp1-base:scribe
-        prompt: |
-            MODE: process
-            FILES: {{JSON.stringify(batch.files)}}
-            SCAN_RESULTS_PATH: {{$RP1_ROOT}}/work/features/scribe/scan_results.json
-            STYLE: {{JSON.stringify(STYLE_CONFIG)}}
 
-            Process documentation files and apply edits.
-            Read classifications from scan_results.json for your assigned files.
-            Apply edits directly using Edit tool.
-            Return JSON with results summary.
-```
+{% dispatch_agent "rp1-base:scribe" %}
+MODE: process
+FILES: {{JSON.stringify(batch.files)}}
+SCAN_RESULTS_PATH: {{$RP1_ROOT}}/work/features/scribe/scan_results.json
+STYLE: {{JSON.stringify(STYLE_CONFIG)}}
+
+Process documentation files and apply edits.
+Read classifications from scan_results.json for your assigned files.
+Apply edits directly using Edit tool.
+Return JSON with results summary.
+{% enddispatch_agent %}
 
 **Task parallelism**: All Task calls in the same message execute in parallel. Do NOT wait between batches.
 
