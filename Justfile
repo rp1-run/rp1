@@ -133,7 +133,7 @@ install-codex:
     @echo ""
     @echo "━━━ Codex ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     @echo ""
-    @./bin/rp1 install codex
+    @./bin/rp1 install codex --yes
 
 # Remove stable rp1 from all platforms (only rp1-namespaced, preserves user files)
 rm-stable:
