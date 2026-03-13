@@ -267,7 +267,7 @@ Documentation: https://rp1.run
 === "Codex CLI"
 
     rp1 installs Codex skills into `~/.agents/skills/` and merges rp1-managed
-    agent definitions plus shell approvals into `~/.codex/config.toml`.
+    agent definitions into `~/.codex/config.toml`.
 
     Invoke skills with Codex mentions:
 
@@ -280,7 +280,7 @@ Documentation: https://rp1.run
 
     ```bash
     rp1 verify codex
-    rg -n "rp1:start|shell.approved" ~/.codex/config.toml
+    rg -n "rp1:start" ~/.codex/config.toml
     ```
 
     **Platform limitations:**

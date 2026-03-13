@@ -58,7 +58,7 @@ This command:
 1. Verifies Codex CLI is installed
 2. Copies rp1 skill directories to `~/.agents/skills/`
 3. Copies per-agent TOML configuration files to `~/.codex/agents/rp1/`
-4. Merges slim agent entries and shell approvals into `~/.codex/config.toml`
+4. Merges slim agent entries into `~/.codex/config.toml`
 5. Confirms installation success
 
 ### `install all`
@@ -214,7 +214,7 @@ rp1-dev          OK        ~/.claude/commands/rp1-dev
 All plugins verified successfully.
 ```
 
-For Codex, verification checks both rp1 skill directories in `~/.agents/skills/` and the rp1-managed fenced section in `~/.codex/config.toml`.
+For Codex, verification checks rp1 skill directories in `~/.agents/skills/` and the rp1-managed fenced section in `~/.codex/config.toml`.
 
 ## Reliability Features
 
@@ -267,23 +267,6 @@ For OpenCode installations, plugins are first copied to a staging directory (`~/
         - OpenCode: `~/.opencode/prompts/`
         - Codex CLI: `~/.agents/skills/`
 
-??? question "Codex prompts for shell approval too often"
-
-    `rp1 install codex` writes an rp1-managed fenced section into `~/.codex/config.toml`
-    with agent definitions and `[[shell.approved]]` entries for rp1 shell usage.
-
-    Verify the managed section exists:
-
-    ```bash
-    rg -n "rp1:start|shell.approved" ~/.codex/config.toml
-    ```
-
-    If it is missing or outdated, rerun:
-
-    ```bash
-    rp1 install codex
-    ```
-
 ??? question "How do I invoke rp1 skills from Codex?"
 
     Use Codex skill mentions with the `$` prefix, for example:
@@ -298,7 +281,7 @@ For OpenCode installations, plugins are first copied to a staging directory (`~/
     Current Codex support differs from Claude Code and OpenCode in a few ways:
 
     - Skill invocation uses `$skill-name` mentions rather than slash commands
-    - Codex does not support per-skill `allowed-tools`; approvals are configured globally in `~/.codex/config.toml`
+    - Codex does not support per-skill `allowed-tools`; shell approvals configured in `~/.codex/config.toml` via `[[shell.approved]]` do not actually take effect
     - If a platform capability required by a workflow is unavailable, rp1 should surface an explicit message instead of silently degrading
 
 ??? question "Permission denied during installation"

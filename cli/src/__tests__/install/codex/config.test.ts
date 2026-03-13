@@ -6,7 +6,6 @@ import * as E from "fp-ts/lib/Either.js";
 import {
 	buildConfigPatch,
 	deduplicatePatch,
-	generateApprovalEntries,
 	generateConfigDiff,
 	mergeCodexConfig,
 	readCodexConfig,
@@ -56,24 +55,6 @@ describe("codex config", () => {
 		});
 	});
 
-	describe("generateApprovalEntries", () => {
-		test("generates entries for all required commands", () => {
-			const entries = generateApprovalEntries();
-
-			expect(entries).toContain('pattern = "rp1 agent-tools *"');
-			expect(entries).toContain('pattern = "echo *"');
-			expect(entries).toContain('pattern = "printf *"');
-			expect(entries).toContain('pattern = "git *"');
-		});
-
-		test("uses [[shell.approved]] TOML table syntax", () => {
-			const entries = generateApprovalEntries();
-			const occurrences = entries.split("[[shell.approved]]").length - 1;
-
-			expect(occurrences).toBe(4);
-		});
-	});
-
 	describe("buildConfigPatch", () => {
 		test("includes agent definitions from TOML files", async () => {
 			const tomlPath = await writeFixture(
@@ -86,13 +67,6 @@ describe("codex config", () => {
 
 			expect(result).toContain("[agents.rp1-build]");
 			expect(result).toContain('model = "o4-mini"');
-		});
-
-		test("includes shell approval entries", async () => {
-			const result = await expectTaskRight(buildConfigPatch([]));
-
-			expect(result).toContain("[[shell.approved]]");
-			expect(result).toContain('pattern = "rp1 agent-tools *"');
 		});
 
 		test("includes managed section header", async () => {
@@ -206,28 +180,13 @@ describe("codex config", () => {
 		test("skips duplicate [features] table from patch", () => {
 			const existing = "[features]\nmulti_agent = true\n";
 			const patch =
-				'[features]\nmulti_agent = true\n\n[[shell.approved]]\npattern = "echo *"\n';
+				'[features]\nmulti_agent = true\n\n[agents.rp1-build]\nmodel = "o3"\n';
 			const result = mergeCodexConfig(existing, patch);
 
 			// The merged result should be valid TOML (no duplicate [features])
 			const error = validateToml(result);
 			expect(error).toBeNull();
-			expect(result).toContain("[[shell.approved]]");
-		});
-
-		test("skips duplicate [[shell.approved]] patterns", () => {
-			const existing =
-				'[[shell.approved]]\npattern = "echo *"\n\n[[shell.approved]]\npattern = "git *"\n';
-			const patch =
-				'[[shell.approved]]\npattern = "echo *"\n\n[[shell.approved]]\npattern = "rp1 agent-tools *"\n';
-			const result = mergeCodexConfig(existing, patch);
-
-			const error = validateToml(result);
-			expect(error).toBeNull();
-			// Should only have one "echo *" total (user's), plus the new rp1 one
-			const echoCount = (result.match(/pattern = "echo \*"/g) || []).length;
-			expect(echoCount).toBe(1);
-			expect(result).toContain('pattern = "rp1 agent-tools *"');
+			expect(result).toContain("[agents.rp1-build]");
 		});
 
 		test("produces valid TOML when user has [features] and we add agents", () => {

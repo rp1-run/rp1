@@ -16,13 +16,6 @@ import {
 	replaceShellFencedContent,
 } from "../../init/shell-fence.js";
 
-const SHELL_APPROVAL_PATTERNS = [
-	"rp1 agent-tools *",
-	"echo *",
-	"printf *",
-	"git *",
-] as const;
-
 const MANAGED_SECTION_HEADER = "# rp1 managed section - do not edit manually";
 
 /**
@@ -79,8 +72,8 @@ export const readCodexConfig = (
 	);
 
 /**
- * Read and concatenate all plugin rp1-agents.toml files, append shell approval
- * entries, and wrap the result in # rp1:start / # rp1:end fencing.
+ * Read and concatenate all plugin rp1-agents.toml files and wrap the result
+ * in # rp1:start / # rp1:end fencing.
  *
  * The fencing content is the inner payload (without fence markers); the caller
  * uses mergeCodexConfig to inject it into the full config.
@@ -124,11 +117,7 @@ export const buildConfigPatch = (
 			if (agentSections.length > 0) {
 				sections.push("# Agent definitions from rp1 plugins");
 				sections.push(agentSections.join("\n\n"));
-				sections.push("");
 			}
-
-			sections.push("# Shell command approvals for rp1 skills");
-			sections.push(generateApprovalEntries());
 
 			return sections.join("\n");
 		},
@@ -245,63 +234,12 @@ export const deduplicatePatch = (
 };
 
 /**
- * Deduplicate [[shell.approved]] entries that already exist in user content.
- * Returns patch with redundant approval patterns removed.
- */
-const deduplicateShellApprovals = (
-	patch: string,
-	userContent: string,
-): string => {
-	let userParsed: Record<string, unknown>;
-	try {
-		userParsed = Bun.TOML.parse(userContent) as Record<string, unknown>;
-	} catch {
-		return patch;
-	}
-
-	const userShell = userParsed.shell as
-		| { approved?: Array<{ pattern?: string }> }
-		| undefined;
-	if (!userShell?.approved || userShell.approved.length === 0) return patch;
-
-	const existingPatterns = new Set(
-		userShell.approved.map((a) => a.pattern).filter(Boolean),
-	);
-	if (existingPatterns.size === 0) return patch;
-
-	// Remove [[shell.approved]] blocks whose pattern already exists
-	const lines = patch.split("\n");
-	const outputLines: string[] = [];
-	let i = 0;
-
-	while (i < lines.length) {
-		if (lines[i].trim() === "[[shell.approved]]") {
-			// Look ahead for the pattern line
-			const patternLine = i + 1 < lines.length ? lines[i + 1] : "";
-			const patternMatch = patternLine.match(/^pattern\s*=\s*"(.+)"$/);
-			if (patternMatch && existingPatterns.has(patternMatch[1])) {
-				// Skip this entire [[shell.approved]] block
-				i += 2;
-				// Skip trailing blank line
-				if (i < lines.length && lines[i].trim() === "") i++;
-				continue;
-			}
-		}
-		outputLines.push(lines[i]);
-		i++;
-	}
-
-	return outputLines.join("\n");
-};
-
-/**
  * Merge a config patch into existing config.toml content using shell fencing.
  * If fenced content already exists, it is replaced. Otherwise, it is appended.
  * Non-rp1 content is always preserved.
  *
  * Deduplicates the patch against user content to prevent TOML conflicts:
  * - Regular tables ([features], [agents.X]) that the user already defines are skipped
- * - [[shell.approved]] entries with patterns the user already has are skipped
  */
 export const mergeCodexConfig = (
 	existingContent: string,
@@ -309,21 +247,10 @@ export const mergeCodexConfig = (
 ): string => {
 	const userContent = getUserContent(existingContent);
 
-	// Deduplicate regular tables and shell approvals
+	// Deduplicate regular tables that the user already defines
 	const { patch: dedupedPatch } = deduplicatePatch(patch, userContent);
-	const finalPatch = deduplicateShellApprovals(dedupedPatch, userContent);
 
-	return replaceShellFencedContent(existingContent, finalPatch);
-};
-
-/**
- * Generate [[shell.approved]] TOML entries for commands that rp1 skills execute.
- * These entries prevent Codex from prompting for approval on every shell invocation.
- */
-export const generateApprovalEntries = (): string => {
-	return SHELL_APPROVAL_PATTERNS.map(
-		(pattern) => `[[shell.approved]]\npattern = "${pattern}"`,
-	).join("\n\n");
+	return replaceShellFencedContent(existingContent, dedupedPatch);
 };
 
 /**
