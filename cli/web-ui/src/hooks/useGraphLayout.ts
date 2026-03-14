@@ -25,8 +25,8 @@ export function useGraphLayout(
 	options?: UseGraphLayoutOptions,
 ): UseGraphLayoutResult {
 	const direction = options?.direction ?? "TB";
-	const nodeWidth = options?.nodeWidth ?? 280;
-	const nodeHeight = options?.nodeHeight ?? 80;
+	const nodeWidth = options?.nodeWidth ?? 200;
+	const nodeHeight = options?.nodeHeight ?? 60;
 
 	const layoutNodes = useMemo(() => {
 		if (nodes.length === 0) {

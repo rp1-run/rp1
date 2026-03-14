@@ -108,12 +108,11 @@ export function workflowToReactFlow(
 			id: `edge-${transition.sourceId}-${transition.targetId}`,
 			source: transition.sourceId,
 			target: transition.targetId,
-			type: isBackward ? "bezier" : "smoothstep",
+			type: "floating",
 			animated: isBackward,
 			style: isBackward
 				? { stroke: "hsl(var(--border))", strokeDasharray: "5 3" }
 				: undefined,
-			label: isBackward && transition.label ? transition.label : undefined,
 		});
 	}
 
@@ -142,7 +141,7 @@ export function stepsToReactFlow(steps: readonly Step[]): ReactFlowGraph {
 			id: `edge-${steps[i].id}-${steps[i + 1].id}`,
 			source: steps[i].id,
 			target: steps[i + 1].id,
-			type: "smoothstep",
+			type: "floating",
 		});
 	}
 

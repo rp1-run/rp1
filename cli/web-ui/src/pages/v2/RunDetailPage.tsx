@@ -194,7 +194,7 @@ export function RunDetailPage() {
 
 			<section
 				ref={canvasSectionRef}
-				className="min-h-0 flex-1 rounded-lg border border-border bg-card"
+				className="min-h-[160px] max-h-[280px] flex-1 rounded-lg border border-border bg-card"
 				tabIndex={-1}
 			>
 				<WorkflowCanvas

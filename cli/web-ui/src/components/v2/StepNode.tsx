@@ -102,11 +102,11 @@ export function StepNode({
 			<Handle
 				type="target"
 				position={resolvedTargetPosition}
-				className="!bg-border !w-2 !h-2"
+				className="!bg-transparent !border-0 !w-0 !h-0"
 			/>
 			<div
 				className={cn(
-					"w-[280px] rounded-[var(--radius)] border p-4 transition-colors duration-300",
+					"w-[200px] rounded-[var(--radius)] border px-3 py-2.5 transition-colors duration-300",
 					style.border,
 					style.bg,
 					style.animation,
@@ -120,8 +120,8 @@ export function StepNode({
 						: undefined
 				}
 			>
-				<div className="flex items-center justify-between gap-2">
-					<span className="truncate text-base font-medium text-foreground">
+				<div className="flex items-center justify-between gap-1.5">
+					<span className="truncate text-sm font-medium text-foreground">
 						{data.label || data.stepId}
 					</span>
 					<StatusBadge status={data.status} size="sm" showLabel={false} />
@@ -148,7 +148,7 @@ export function StepNode({
 			<Handle
 				type="source"
 				position={resolvedSourcePosition}
-				className="!bg-border !w-2 !h-2"
+				className="!bg-transparent !border-0 !w-0 !h-0"
 			/>
 		</>
 	);

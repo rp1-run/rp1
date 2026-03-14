@@ -14,16 +14,18 @@ import {
 	workflowToReactFlow,
 } from "@/lib/workflow-converter";
 import type { Step } from "@/types/runs";
+import { FloatingEdge } from "./FloatingEdge";
 import { StepNode } from "./StepNode";
 
 const nodeTypes = { stepNode: StepNode } as const;
+const edgeTypes = { floating: FloatingEdge } as const;
 
 const defaultEdgeOptions: DefaultEdgeOptions = {
-	type: "smoothstep",
+	type: "floating",
 	style: { stroke: "hsl(var(--border))", strokeWidth: 1.5 },
 };
 
-const fitViewOptions = { padding: 0.3, maxZoom: 1.2 } as const;
+const fitViewOptions = { padding: 0.2, maxZoom: 1.5 } as const;
 
 export interface WorkflowCanvasProps {
 	readonly workflow: WorkflowDefinition | null;
@@ -68,6 +70,7 @@ function WorkflowCanvasInner({
 			nodes={layoutNodes}
 			edges={graph.edges}
 			nodeTypes={nodeTypes}
+			edgeTypes={edgeTypes}
 			defaultEdgeOptions={defaultEdgeOptions}
 			fitView
 			fitViewOptions={fitViewOptions}
