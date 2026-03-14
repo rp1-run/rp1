@@ -21,6 +21,8 @@ export function createServer(options: ServerOptions) {
 	} = options;
 	const startTime = Date.now();
 
+	process.title = isDev ? "rp1-dev" : "rp1-daemon";
+
 	const websocketHub = new WebSocketHub();
 	const fileWatcherPool = new FileWatcherPool(websocketHub);
 

@@ -147,12 +147,12 @@ rm-stable:
 # Web-UI Development
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Run web-ui in dev mode with hot reload
+# Run web-ui in dev mode with hot reload (port 7711 to avoid conflicting with production daemon on 7710)
 serve-web-ui:
-    -pkill -f "rp1 _daemon-server" 2>/dev/null || true
-    -lsof -ti:7710 | xargs kill -9 2>/dev/null || true
-    rm -f ~/.rp1/daemon.pid
-    cd cli/web-ui && rm -rf dist && bunx concurrently -k -n server,client -c blue,green "NODE_ENV=development bun run src/cli.ts ../.. --port 7710" "bun run dev:client"
+    -pkill -f "rp1-dev" 2>/dev/null || true
+    -lsof -ti:7711 | xargs kill -9 2>/dev/null || true
+    rm -f ~/Library/Application\ Support/rp1/daemon.pid
+    cd cli/web-ui && rm -rf dist && bunx concurrently -k -n server,client -c blue,green "NODE_ENV=development bun run src/cli.ts ../.. --port 7711" "bun run dev:client"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Database
