@@ -16,12 +16,6 @@ Unified PR feedback workflow - collect, triage, and fix review comments in a sin
     /rp1-dev-address-pr-feedback [pr-number | pr-url | branch] [--afk]
     ```
 
-=== "Codex CLI"
-
-    ```text
-    $rp1-dev-address-pr-feedback [pr-number | pr-url | branch] [--afk]
-    ```
-
 ## Description
 
 The `address-pr-feedback` command handles PR review comments end-to-end: collecting feedback from GitHub, triaging by priority, fixing issues systematically, and reporting what was resolved.

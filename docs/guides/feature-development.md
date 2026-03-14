@@ -116,13 +116,6 @@ The `/build` command is the **single entry point** for feature development. It o
     /rp1-dev-build my-feature --afk        # Autonomous mode
     ```
 
-=== "Codex CLI"
-
-    ```text
-    $rp1-dev-build my-feature              # Interactive mode (default)
-    $rp1-dev-build my-feature --afk        # Autonomous mode
-    ```
-
 !!! note "Individual Step Commands Removed"
     Previous versions exposed individual commands like `/feature-requirements`, `/feature-design`, `/feature-build`, etc. These are no longer available as standalone commands. Use `/build` which orchestrates all steps automatically with smart resumption.
 
@@ -203,12 +196,6 @@ When to use `--afk` mode:
 
         ```bash
         /rp1-dev-blueprint
-        ```
-
-    === "Codex CLI"
-
-        ```text
-        $rp1-dev-blueprint
         ```
 
     **Tip:** You can pass existing context to speed up the process — a public URL, pasted product document, or any relevant background:

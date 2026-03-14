@@ -45,6 +45,7 @@ function createDetectedTool(
 		tool: {
 			id: "claude-code",
 			name,
+			enabled: true,
 			binary: "claude",
 			min_version: "1.0.0",
 			instruction_file: "CLAUDE.md",

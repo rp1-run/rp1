@@ -114,6 +114,11 @@ export async function checkPluginsInstalled(
 	let allInstalled = true;
 
 	for (const detectedTool of detected) {
+		// Skip disabled tools
+		if (detectedTool.tool.enabled === false) {
+			continue;
+		}
+
 		if (detectedTool.tool.id === "claude-code") {
 			const result = await verifyClaudeCodePlugins();
 			if (!result.verified) {
@@ -125,7 +130,6 @@ export async function checkPluginsInstalled(
 				allInstalled = false;
 			}
 		}
-		// Other tools (e.g., codex) don't have verification yet; skip them
 	}
 
 	return { installed: allInstalled, detected: [...detected] };
@@ -212,6 +216,19 @@ export const executePluginInstallation = async (
 		actions.push({
 			type: "skipped",
 			reason: "No agentic tool detected - cannot install plugins",
+		});
+		return { actions, result: null };
+	}
+
+	// Skip disabled tools
+	if (detectedTool.tool.enabled === false) {
+		logger.info(
+			`${detectedTool.tool.name} is disabled - skipping plugin installation`,
+		);
+		callbacks?.onActivity(`${detectedTool.tool.name} is disabled`, "info");
+		actions.push({
+			type: "skipped",
+			reason: `${detectedTool.tool.name} is currently disabled`,
 		});
 		return { actions, result: null };
 	}

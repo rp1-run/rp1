@@ -18,12 +18,6 @@ Systematic bug investigation through evidence-based analysis and hypothesis test
     /rp1-dev-code-investigate
     ```
 
-=== "Codex CLI"
-
-    ```text
-    $rp1-dev-code-investigate
-    ```
-
 ## Description
 
 The `code-investigate` command performs systematic investigation of bugs and issues. It follows an evidence-based approach: gathering information, forming hypotheses, testing them, and documenting findings without making permanent code changes.

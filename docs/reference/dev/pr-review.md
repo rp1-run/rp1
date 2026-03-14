@@ -18,12 +18,6 @@ Thorough code review that understands what your PR is trying to accomplish and c
     /rp1-dev-pr-review [target] [base-branch]
     ```
 
-=== "Codex CLI"
-
-    ```text
-    $rp1-dev-pr-review [target] [base-branch]
-    ```
-
 ## Description
 
 The `pr-review` command performs comprehensive code review by first understanding what your PR is trying to accomplish (from the description or linked issues), then reviewing each changed file against that intent. Findings are synthesized into an overall assessment with specific, actionable feedback.

@@ -18,12 +18,6 @@ Interactive assistant for creating polished technical documents through structur
     /rp1-base-write-content
     ```
 
-=== "Codex CLI"
-
-    ```text
-    $rp1-base-write-content
-    ```
-
 ## Description
 
 The `write-content` command guides you through creating high-quality technical documents. It uses a structured workflow with clarifying questions to ensure accuracy and completeness before generating the final document.
@@ -72,12 +66,6 @@ Documents are written to: `.rp1/work/content/<topic>/<type>.md`
 
     ```bash
     /rp1-base-write-content
-    ```
-
-=== "Codex CLI"
-
-    ```text
-    $rp1-base-write-content
     ```
 
 ### Example Interaction

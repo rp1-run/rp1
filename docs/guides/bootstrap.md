@@ -68,12 +68,6 @@ From an empty directory or your projects folder:
     /rp1-dev-bootstrap my-awesome-app
     ```
 
-=== "Codex CLI"
-
-    ```text
-    $rp1-dev-bootstrap my-awesome-app
-    ```
-
 If you omit the project name, bootstrap will prompt you for one.
 
 ### Step 2: Directory Setup

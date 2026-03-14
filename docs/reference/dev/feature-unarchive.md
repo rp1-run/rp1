@@ -18,12 +18,6 @@ Restores archived features back to the active features directory.
     /rp1-dev-feature-unarchive <feature-id>
     ```
 
-=== "Codex CLI"
-
-    ```text
-    $rp1-dev-feature-unarchive <feature-id>
-    ```
-
 ## Description
 
 The `feature-unarchive` command moves feature documentation from the archives back to the active features directory. Use this when you need to continue work on a previously archived feature.

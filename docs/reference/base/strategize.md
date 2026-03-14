@@ -18,12 +18,6 @@ Analyzes systems holistically to provide strategic recommendations balancing cos
     /rp1-base-strategize
     ```
 
-=== "Codex CLI"
-
-    ```text
-    $rp1-base-strategize
-    ```
-
 ## Description
 
 The `strategize` command performs comprehensive strategic analysis of your system, identifying optimization opportunities and providing quantified recommendations. It evaluates trade-offs across multiple dimensions and prioritizes by impact and effort.
@@ -69,12 +63,6 @@ The command produces a detailed strategy report covering:
 
     ```bash
     /rp1-base-strategize
-    ```
-
-=== "Codex CLI"
-
-    ```text
-    $rp1-base-strategize
     ```
 
 **Example output:**

@@ -8,6 +8,7 @@ export const TOOLS_REGISTRY = {
 		{
 			id: "claude-code",
 			name: "Claude Code",
+			enabled: true,
 			binary: "claude",
 			min_version: "1.0.33",
 			instruction_file: "CLAUDE.md",
@@ -19,6 +20,7 @@ export const TOOLS_REGISTRY = {
 		{
 			id: "opencode",
 			name: "OpenCode",
+			enabled: true,
 			binary: "opencode",
 			min_version: "0.8.0",
 			instruction_file: "AGENTS.md",

@@ -39,15 +39,6 @@ The first step with any existing codebase is building a **knowledge base**. This
     !!! tip "Discovering Skills"
         Type `/skills` in OpenCode to browse all available skills. rp1 skills are prefixed with `rp1-` (e.g., `rp1-base-knowledge-build`, `rp1-dev-build`).
 
-=== "Codex CLI"
-
-    ```text
-    $rp1-base-knowledge-build
-    ```
-
-    !!! tip "Discovering Skills"
-        In Codex CLI, invoke rp1 skills using `$` mentions (e.g., `$rp1-base-knowledge-build`, `$rp1-dev-build`).
-
 ### Expected Output
 
 After the command completes, you'll see:

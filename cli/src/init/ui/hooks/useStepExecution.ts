@@ -806,6 +806,11 @@ export const useStepExecution = ({
 			const allPluginStatus: PluginStatus[] = [];
 			try {
 				for (const detected of ctx.toolDetectionResult.detected) {
+					// Skip disabled tools
+					if (detected.tool.enabled === false) {
+						continue;
+					}
+
 					let verificationResult: {
 						verified: boolean;
 						plugins: readonly PluginStatus[];

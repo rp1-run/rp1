@@ -81,7 +81,7 @@ rp1 automatically checks for updates when you start a new session. If a newer ve
 
 **Cache Location**: `~/.config/rp1/version-cache.json`
 
-**After Updating**: Restart Claude Code, OpenCode, or Codex CLI to use the new version.
+**After Updating**: Restart Claude Code or OpenCode to use the new version.
 
 ---
 
@@ -98,12 +98,6 @@ rp1 automatically checks for updates when you start a new session. If a newer ve
 
     ```bash
     curl -fsSL https://raw.githubusercontent.com/rp1-run/rp1/main/scripts/install-for-opencode.sh | bash
-    ```
-
-=== "Codex CLI"
-
-    ```bash
-    curl -fsSL https://raw.githubusercontent.com/rp1-run/rp1/main/scripts/install-for-codex.sh | bash
     ```
 
 ---
@@ -125,11 +119,5 @@ After installation, generate a knowledge base:
     ```
 
     You can also type `/skills` to browse all available skills — rp1 skills are prefixed with `rp1-` (e.g., `/rp1-base-knowledge-build`, `/rp1-base-strategize`).
-
-=== "Codex CLI"
-
-    ```text
-    $rp1-base-knowledge-build
-    ```
 
 This creates `.rp1/context/` with documentation files that other skills use for context-aware execution.

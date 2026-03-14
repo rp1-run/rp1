@@ -11,7 +11,7 @@ The rp1 CLI provides tools for setup and management outside of AI assistant sess
 | Command | Description |
 |---------|-------------|
 | [`init`](cli/init.md) | Initialize rp1 in a project with guided setup |
-| [`install`](cli/install.md) | Install plugins for Claude Code, OpenCode, or Codex CLI |
+| [`install`](cli/install.md) | Install plugins for Claude Code or OpenCode |
 | `build` | Build plugin packages from source |
 | `self-update` | Update the rp1 CLI to the latest version |
 | `arcade` | Launch web dashboard |
@@ -142,18 +142,6 @@ Skills can be invoked differently depending on your AI assistant:
 
     !!! note
         Autocomplete for skill names is not yet available in OpenCode — see [opencode#14506](https://github.com/anomalyco/opencode/issues/14506). This may be supported soon.
-
-=== "Codex CLI"
-
-    In Codex CLI, rp1 skills are invoked using `$` mentions:
-
-    ```text
-    $rp1-dev-build my-feature [arguments]
-    $rp1-base-knowledge-build
-    ```
-
-    !!! note
-        Codex CLI uses `$skill-name` mentions instead of `/` slash commands. Tool approvals are configured globally in `~/.codex/config.toml`.
 
 ---
 

@@ -14,6 +14,7 @@ import { TOOLS_REGISTRY } from "./supported-tools.generated.js";
 export interface SupportedTool {
 	readonly id: string;
 	readonly name: string;
+	readonly enabled: boolean;
 	readonly binary: string;
 	readonly min_version: string;
 	readonly instruction_file: string;
@@ -53,3 +54,25 @@ export const findToolByBinary = (
 	registry: ToolsRegistry,
 	binary: string,
 ): SupportedTool | undefined => registry.tools.find((t) => t.binary === binary);
+
+/**
+ * Filter registry to only enabled tools.
+ * Tools with `enabled` omitted or undefined are treated as enabled (backward compatibility).
+ */
+export const getEnabledTools = (
+	registry: ToolsRegistry,
+): readonly SupportedTool[] =>
+	registry.tools.filter((t) => t.enabled !== false);
+
+/**
+ * Check if a specific tool is enabled in the registry.
+ * Returns true if the tool is not found (unknown tools are not gated).
+ * Tools with `enabled` omitted or undefined are treated as enabled.
+ */
+export const isToolEnabled = (
+	registry: ToolsRegistry,
+	toolId: string,
+): boolean => {
+	const tool = registry.tools.find((t) => t.id === toolId);
+	return tool?.enabled !== false;
+};

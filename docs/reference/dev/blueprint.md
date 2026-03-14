@@ -20,13 +20,6 @@ Guided wizard that captures project vision through a two-tier document hierarchy
     /rp1-dev-blueprint <prd-name>
     ```
 
-=== "Codex CLI"
-
-    ```text
-    $rp1-dev-blueprint
-    $rp1-dev-blueprint <prd-name>
-    ```
-
 ## Description
 
 The `blueprint` command creates the foundational documentation for your project through guided questioning. It establishes a two-tier hierarchy:

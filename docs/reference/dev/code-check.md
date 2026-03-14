@@ -18,12 +18,6 @@ Fast code hygiene validation including linters, formatters, tests, and coverage 
     /rp1-dev-code-check
     ```
 
-=== "Codex CLI"
-
-    ```text
-    $rp1-dev-code-check
-    ```
-
 ## Description
 
 The `code-check` command runs your project's standard code quality tools in sequence: formatting, linting, testing, and coverage measurement. It auto-detects your build system and runs the appropriate commands.

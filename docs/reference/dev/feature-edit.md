@@ -18,12 +18,6 @@ Incorporates mid-stream changes into feature documentation with validation and p
     /rp1-dev-feature-edit <feature-id> <edit-description>
     ```
 
-=== "Codex CLI"
-
-    ```text
-    $rp1-dev-feature-edit <feature-id> <edit-description>
-    ```
-
 ## Description
 
 The `feature-edit` command handles changes to feature scope or requirements during implementation. It validates the edit, detects conflicts, and propagates approved changes across all feature documentation (requirements, design, tasks).

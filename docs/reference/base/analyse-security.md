@@ -18,12 +18,6 @@ Performs comprehensive security validation including vulnerability scanning, aut
     /rp1-base-analyse-security
     ```
 
-=== "Codex CLI"
-
-    ```text
-    $rp1-base-analyse-security
-    ```
-
 ## Description
 
 The `analyse-security` command performs thorough security validation of your codebase. It automatically detects and runs available security scanning tools, verifies authentication and authorization implementations, and checks for common vulnerabilities.
@@ -86,12 +80,6 @@ Findings are classified by severity:
 
     ```bash
     /rp1-base-analyse-security
-    ```
-
-=== "Codex CLI"
-
-    ```text
-    $rp1-base-analyse-security
     ```
 
 **Example output:**

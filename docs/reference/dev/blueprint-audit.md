@@ -18,12 +18,6 @@ Audits PRD documents against implementation evidence and guides lifecycle decisi
     /rp1-dev-blueprint-audit <prd-name>
     ```
 
-=== "Codex CLI"
-
-    ```text
-    $rp1-dev-blueprint-audit <prd-name>
-    ```
-
 ## Description
 
 The `blueprint-audit` command analyzes a PRD document against actual implementation status. It extracts phases from the PRD, searches for evidence of completion in archives, features, and codebase, then guides you through disposition decisions.

@@ -61,6 +61,7 @@ const createClaudeCodeTool = (version = "1.0.40"): DetectedTool => ({
 	tool: {
 		id: "claude-code",
 		name: "Claude Code",
+		enabled: true,
 		binary: "claude",
 		min_version: "1.0.33",
 		instruction_file: "CLAUDE.md",
@@ -77,6 +78,7 @@ const createUnsupportedTool = (): DetectedTool => ({
 	tool: {
 		id: "cursor",
 		name: "Cursor",
+		enabled: true,
 		binary: "cursor",
 		min_version: "0.1.0",
 		instruction_file: "CURSOR.md",

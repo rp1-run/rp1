@@ -17,7 +17,7 @@ The `init` command provides a comprehensive bootstrap experience for users adopt
 1. **Git Root Detection** - Verifies you're at the repository root (with monorepo support)
 2. **Directory Setup** - Creates `.rp1/`, `.rp1/context/`, and `.rp1/work/` directories
 3. **Settings Setup** - Creates settings files in global (`~/.config/rp1/settings.toml`) and local (`.rp1/settings.toml`) locations with safe defaults
-4. **Tool Detection** - Identifies installed AI assistants (Claude Code, OpenCode, or Codex CLI)
+4. **Tool Detection** - Identifies installed AI assistants (Claude Code or OpenCode)
 5. **Instruction Injection** - Adds rp1 instructions to `CLAUDE.md` or `AGENTS.md`
 6. **Git Configuration** - Configures `.gitignore` for rp1 artifacts
 7. **Plugin Installation** - Installs rp1 plugins for detected AI tools
@@ -76,7 +76,7 @@ rp1 init                                              Step 6 of 12
 | 3 | Checking existing setup | Detects if rp1 is already initialized |
 | 4 | Setting up directories | Creates `.rp1/`, `.rp1/context/`, and `.rp1/work/` |
 | 5 | Creating settings files | Creates settings files with safe defaults (all flags disabled) |
-| 6 | Detecting AI tools | Finds installed AI assistants (Claude Code, OpenCode, Codex CLI) |
+| 6 | Detecting AI tools | Finds installed AI assistants (Claude Code, OpenCode) |
 | 7 | Configuring instruction file | Injects rp1 content into `CLAUDE.md` or `AGENTS.md` |
 | 8 | Configuring .gitignore | Adds rp1 entries with selected preset |
 | 9 | Installing plugins | Installs rp1-base and rp1-dev for all detected tools |
@@ -144,18 +144,6 @@ The init wizard automatically installs rp1 plugins for **all detected AI tools**
       └─ Visit: https://opencode.ai/docs/plugins
     ```
 
-=== "Codex CLI"
-
-    For Codex, init installs built rp1 skills into `~/.agents/skills/` and merges
-    an rp1-managed fenced section into `~/.codex/config.toml`:
-
-    ```
-    ✓ Installing plugins
-      └─ Installing for Codex CLI...
-      └─ Skills copied to ~/.agents/skills/
-      └─ ~/.codex/config.toml updated
-    ```
-
 === "Multiple Tools"
 
     When multiple supported tools are detected, plugins are installed for all of them:
@@ -166,7 +154,6 @@ The init wizard automatically installs rp1 plugins for **all detected AI tools**
       └─ rp1-base installed
       └─ rp1-dev installed
       └─ Manual installation required for OpenCode
-      └─ Installing for Codex CLI...
     ```
 
 === "No Tool Detected"
@@ -423,7 +410,6 @@ rp1 init
 Detected Tools:
   ✓ Claude Code v2.0.75
   ✓ OpenCode v0.8.0
-  ✓ Codex CLI v0.110.0
 
 Setup Status:
   ✓ .rp1/ directory
@@ -431,7 +417,6 @@ Setup Status:
   ✓ .gitignore configured
   ✓ Plugins installed (Claude Code)
   ✓ Plugins installed (OpenCode - manual)
-  ✓ Plugins installed (Codex CLI)
 ```
 
 ## Non-Interactive Mode
@@ -602,28 +587,18 @@ The init command automatically detects installed AI assistants:
     - Shows manual plugin installation steps
     - Uses namespaced command syntax in examples
 
-=== "Codex CLI"
-
-    When Codex CLI is detected:
-
-    - Injects instructions into `AGENTS.md`
-    - Installs skills to `~/.agents/skills/`
-    - Merges agent config into `~/.codex/config.toml`
-    - Uses `$skill-name` mention syntax in examples
-
 ### No Tool Detected
 
-If no supported tool (Claude Code, OpenCode, or Codex CLI) is found:
+If no supported tool (Claude Code or OpenCode) is found:
 
 ```
 ℹ No supported agentic tool detected.
 
 Next Steps:
-  1. → Install Claude Code, OpenCode, or Codex CLI (required)
+  1. → Install Claude Code or OpenCode (required)
 
 Claude Code: https://docs.anthropic.com/en/docs/claude-code/getting-started
 OpenCode: https://opencode.ai/docs/installation
-Codex CLI: https://github.com/openai/codex
 ```
 
 ??? info "Multi-Tool Environments"
@@ -878,8 +853,8 @@ Content outside fenced sections is never modified.
 
     If your AI tool is installed but not detected:
 
-    1. Verify the binary is in your PATH: `which claude`, `which opencode`, or `which codex`
-    2. Check the version: `claude --version`, `opencode --version`, or `codex --version`
+    1. Verify the binary is in your PATH: `which claude` or `which opencode`
+    2. Check the version: `claude --version` or `opencode --version`
     3. If using Homebrew Cask, ensure the symlink exists in `/opt/homebrew/bin/`
 
 ??? question "Multi-tool setup not working correctly"

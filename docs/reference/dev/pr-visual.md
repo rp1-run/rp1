@@ -18,12 +18,6 @@ See what your PR changes at a glance with auto-generated architecture and flow d
     /rp1-dev-pr-visual [pr-branch] [base-branch] [review-depth] [focus-areas]
     ```
 
-=== "Codex CLI"
-
-    ```text
-    $rp1-dev-pr-visual [pr-branch] [base-branch] [review-depth] [focus-areas]
-    ```
-
 ## Description
 
 The `pr-visual` command generates Mermaid diagrams from PR diffs to help understand code changes visually. It creates architecture diagrams, flow charts, and dependency graphs showing what changed and how components interact.

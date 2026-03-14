@@ -18,12 +18,6 @@ Analyzes code for pattern consistency, maintainability, duplication, and documen
     /rp1-dev-code-audit
     ```
 
-=== "Codex CLI"
-
-    ```text
-    $rp1-dev-code-audit
-    ```
-
 ## Description
 
 The `code-audit` command performs a comprehensive audit of your codebase beyond standard linting. It checks for pattern consistency, identifies code duplication, evaluates maintainability, and detects documentation drift.

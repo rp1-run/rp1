@@ -4,7 +4,7 @@ Welcome to rp1! Get professional development workflows for your AI coding assist
 
 ## What is rp1?
 
-rp1 is a plugin system that brings structured, repeatable workflows to AI coding assistants like Claude Code, OpenCode, and Codex CLI. Instead of prompting from scratch each time, rp1 provides constitutional agents that execute complete development workflows - from knowledge base generation to feature implementation to PR review.
+rp1 is a plugin system that brings structured, repeatable workflows to AI coding assistants like Claude Code and OpenCode. Instead of prompting from scratch each time, rp1 provides constitutional agents that execute complete development workflows - from knowledge base generation to feature implementation to PR review.
 
 ## Quick Links
 
@@ -32,5 +32,5 @@ rp1 is a plugin system that brings structured, repeatable workflows to AI coding
 
 Before you begin, you need:
 
-- **An AI coding assistant**: [Claude Code](https://claude.ai/code), [OpenCode](https://github.com/opencode-ai/opencode), or [Codex CLI](https://github.com/openai/codex)
+- **An AI coding assistant**: [Claude Code](https://claude.ai/code) or [OpenCode](https://github.com/opencode-ai/opencode)
 - **A codebase** to enhance with rp1 workflows

@@ -18,12 +18,6 @@ Removes unnecessary comments from code while preserving essential documentation.
     /rp1-dev-code-clean-comments [scope] [base-branch]
     ```
 
-=== "Codex CLI"
-
-    ```text
-    $rp1-dev-code-clean-comments [scope] [base-branch]
-    ```
-
 ## Parameters
 
 | Parameter | Default | Description |

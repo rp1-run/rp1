@@ -95,25 +95,6 @@ Start the automated review analysis:
     /rp1-dev-pr-review https://github.com/owner/repo/pull/42
     ```
 
-=== "Codex CLI"
-
-    ```text
-    $rp1-dev-pr-review
-    ```
-
-    Or specify a target:
-
-    ```text
-    # By branch
-    $rp1-dev-pr-review feature/user-auth main
-
-    # By PR number
-    $rp1-dev-pr-review 42
-
-    # By GitHub URL
-    $rp1-dev-pr-review https://github.com/owner/repo/pull/42
-    ```
-
 **What happens:**
 
 rp1's map-reduce PR review:
@@ -278,12 +259,6 @@ Visualizations are **automatically generated** during `pr-review` for complex PR
 
     ```bash
     /rp1-dev-pr-visual
-    ```
-
-=== "Codex CLI"
-
-    ```text
-    $rp1-dev-pr-visual
     ```
 
 **What happens:**

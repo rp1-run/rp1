@@ -20,13 +20,6 @@ Validates and repairs Mermaid diagrams in markdown files using mermaid-cli for s
     /rp1-base-fix-mermaid -
     ```
 
-=== "Codex CLI"
-
-    ```text
-    $rp1-base-fix-mermaid path/to/file.md
-    $rp1-base-fix-mermaid -
-    ```
-
 ## Description
 
 The `fix-mermaid` command scans markdown files for Mermaid diagram code blocks, validates each diagram using mermaid-cli, and automatically repairs common syntax errors. This helps maintain diagram quality in documentation without manual debugging.
@@ -74,12 +67,6 @@ Process a markdown file in-place:
     /rp1-base-fix-mermaid docs/architecture.md
     ```
 
-=== "Codex CLI"
-
-    ```text
-    $rp1-base-fix-mermaid docs/architecture.md
-    ```
-
 The file is updated in-place with repaired diagrams.
 
 ### Stdin Mode
@@ -96,12 +83,6 @@ Process a single diagram from stdin (outputs to stdout):
 
     ```bash
     /rp1-base-fix-mermaid -
-    ```
-
-=== "Codex CLI"
-
-    ```text
-    $rp1-base-fix-mermaid -
     ```
 
 When using stdin mode, provide a single Mermaid diagram (without code fences). The repaired diagram is output to stdout.
@@ -181,12 +162,6 @@ The command produces a JSON summary of repairs:
 
     ```bash
     /rp1-base-fix-mermaid docs/guides/architecture.md
-    ```
-
-=== "Codex CLI"
-
-    ```text
-    $rp1-base-fix-mermaid docs/guides/architecture.md
     ```
 
 **Expected output:**

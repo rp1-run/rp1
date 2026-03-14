@@ -70,12 +70,6 @@ Build the knowledge base for your project:
     /rp1-base-knowledge-build
     ```
 
-=== "Codex CLI"
-
-    ```text
-    $rp1-base-knowledge-build
-    ```
-
 **What happens:**
 
 rp1's KB generation uses a map-reduce architecture:
@@ -186,12 +180,6 @@ The KB is automatically loaded when you run rp1 commands. You can also explicitl
     /rp1-base-knowledge-load
     ```
 
-=== "Codex CLI"
-
-    ```text
-    $rp1-base-knowledge-load
-    ```
-
 **What happens:**
 
 rp1 reads the KB files and builds an internal knowledge graph. This context is then available to all KB-aware commands.
@@ -235,12 +223,6 @@ Create a comprehensive overview document for new developers:
 
     ```bash
     /rp1-base-project-birds-eye-view
-    ```
-
-=== "Codex CLI"
-
-    ```text
-    $rp1-base-project-birds-eye-view
     ```
 
 **What happens:**

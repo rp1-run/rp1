@@ -70,6 +70,7 @@ const platformConfigs: Record<BuildPlatform, SupportedTool> = {
 	opencode: {
 		id: "opencode",
 		name: "OpenCode",
+		enabled: true,
 		binary: "opencode",
 		min_version: "0.8.0",
 		instruction_file: "AGENTS.md",
@@ -80,6 +81,7 @@ const platformConfigs: Record<BuildPlatform, SupportedTool> = {
 	codex: {
 		id: "codex",
 		name: "Codex CLI",
+		enabled: false,
 		binary: "codex",
 		min_version: "0.110.0",
 		instruction_file: "AGENTS.md",
@@ -90,6 +92,7 @@ const platformConfigs: Record<BuildPlatform, SupportedTool> = {
 	"claude-code": {
 		id: "claude-code",
 		name: "Claude Code",
+		enabled: true,
 		binary: "claude",
 		min_version: "1.0.33",
 		instruction_file: "CLAUDE.md",
@@ -1638,7 +1641,10 @@ export const executeBuild = (
 						) {
 							logger.debug(`Claude Code output directory: ${ccOutputPath}`);
 						}
-						if (config.platform === "codex" || config.platform === "all") {
+						if (
+							(config.platform === "codex" || config.platform === "all") &&
+							platformConfigs.codex.enabled !== false
+						) {
 							logger.debug(`Codex output directory: ${codexOutputPath}`);
 						}
 					}
@@ -1673,14 +1679,20 @@ export const executeBuild = (
 					}
 
 					if (config.platform === "codex" || config.platform === "all") {
-						const codexSummaries = await buildCodexArtifacts(
-							pluginsToBuild,
-							projectRoot,
-							codexOutputPath,
-							config,
-							logger,
-						);
-						allSummaries.push(...codexSummaries);
+						if (platformConfigs.codex.enabled !== false) {
+							const codexSummaries = await buildCodexArtifacts(
+								pluginsToBuild,
+								projectRoot,
+								codexOutputPath,
+								config,
+								logger,
+							);
+							allSummaries.push(...codexSummaries);
+						} else if (config.platform === "codex") {
+							logger.warn(
+								"Codex platform is disabled — skipping artifact generation",
+							);
+						}
 					}
 
 					if (config.jsonOutput) {

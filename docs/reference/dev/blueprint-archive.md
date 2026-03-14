@@ -18,12 +18,6 @@ Archives a completed PRD to the archive directory with associated features.
     /rp1-dev-blueprint-archive <prd-name>
     ```
 
-=== "Codex CLI"
-
-    ```text
-    $rp1-dev-blueprint-archive <prd-name>
-    ```
-
 ## Description
 
 The `blueprint-archive` command moves completed PRD documentation from the active PRDs directory to the archives. It also archives associated completed features, checks KB staleness, and generates a closure summary.

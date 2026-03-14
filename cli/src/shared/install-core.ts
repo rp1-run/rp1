@@ -9,7 +9,11 @@ import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../shared/errors.js";
 import { installError } from "../../shared/errors.js";
 import type { Logger } from "../../shared/logger.js";
-import type { ToolsRegistry } from "../config/supported-tools.js";
+import {
+	getEnabledTools,
+	isToolEnabled,
+	type ToolsRegistry,
+} from "../config/supported-tools.js";
 import {
 	type DetectedTool,
 	detectTools,
@@ -331,10 +335,22 @@ export const installForSpecificTool = (
 	const tool = registry.tools.find((t) => t.id === toolId);
 
 	if (!tool) {
+		const enabledIds = getEnabledTools(registry)
+			.map((t) => `"${t.id}"`)
+			.join(", ");
 		return TE.left(
 			installError(
 				"invalid-tool",
-				`Unknown tool: ${toolId}. Use "claude-code", "opencode", or "codex".`,
+				`Unknown tool: ${toolId}. Available tools: ${enabledIds}.`,
+			),
+		);
+	}
+
+	if (!isToolEnabled(registry, toolId)) {
+		return TE.left(
+			installError(
+				"disabled-tool",
+				`Tool "${toolId}" is currently disabled and cannot be installed.`,
 			),
 		);
 	}

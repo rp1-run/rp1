@@ -116,12 +116,6 @@ The skill handles all steps automatically with smart resumption -- it detects ex
     curl -fsSL https://raw.githubusercontent.com/rp1-run/rp1/main/scripts/install-for-opencode.sh | bash
     ```
 
-=== "Codex CLI"
-
-    ```bash
-    rp1 install codex
-    ```
-
 ---
 
 ## Quick Start
@@ -141,11 +135,5 @@ After installation, start a new feature:
     ```
 
     You can also type `/skills` to browse all available skills — rp1 skills are prefixed with `rp1-` (e.g., `/rp1-dev-build`, `/rp1-dev-build-fast`).
-
-=== "Codex CLI"
-
-    ```text
-    $rp1-dev-build my-feature
-    ```
 
 This runs the complete feature workflow -- collecting requirements, generating design, implementing with builder-reviewer, and verifying the result.

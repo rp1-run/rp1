@@ -79,24 +79,6 @@ After your PR has been reviewed on GitHub, run the unified command:
     /rp1-dev-address-pr-feedback 42
     ```
 
-=== "Codex CLI"
-
-    ```text
-    $rp1-dev-address-pr-feedback
-    ```
-
-    Or with a specific PR:
-
-    ```text
-    $rp1-dev-address-pr-feedback 42
-    ```
-
-    For autonomous mode (no prompts):
-
-    ```text
-    $rp1-dev-address-pr-feedback 42 --afk
-    ```
-
 ---
 
 ## Phase 1: Collection

@@ -93,7 +93,7 @@ fix-evals:
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Full local install: build + remove stable + install to all platforms
-install: build rm-stable install-claude install-opencode install-codex
+install: build rm-stable install-claude install-opencode
 
 # Run local binary with args
 run *args: build
@@ -128,12 +128,12 @@ install-opencode:
     @echo ""
     @./bin/rp1 install opencode
 
-# Install to Codex
-install-codex:
-    @echo ""
-    @echo "━━━ Codex ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    @echo ""
-    @./bin/rp1 install codex --yes
+# Install to Codex (disabled — Codex support is paused)
+# install-codex:
+#     @echo ""
+#     @echo "━━━ Codex ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+#     @echo ""
+#     @./bin/rp1 install codex --yes
 
 # Remove stable rp1 from all platforms (only rp1-namespaced, preserves user files)
 rm-stable:

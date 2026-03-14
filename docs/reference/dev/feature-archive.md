@@ -18,12 +18,6 @@ Archives completed features to a dedicated archives directory.
     /rp1-dev-feature-archive <feature-id>
     ```
 
-=== "Codex CLI"
-
-    ```text
-    $rp1-dev-feature-archive <feature-id>
-    ```
-
 ## Description
 
 The `feature-archive` command moves completed feature documentation from the active features directory to the archives. This keeps your working directory clean while preserving feature history.

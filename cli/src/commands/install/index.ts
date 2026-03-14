@@ -9,7 +9,12 @@ import * as E from "fp-ts/lib/Either.js";
 import { formatError, getExitCode } from "../../../shared/errors.js";
 import type { Logger } from "../../../shared/logger.js";
 import { createSpinner } from "../../../shared/spinner.js";
-import { loadToolsRegistry } from "../../config/supported-tools.js";
+import { TOOLS_REGISTRY } from "../../config/supported-tools.generated.js";
+import {
+	isToolEnabled,
+	loadToolsRegistry,
+	type ToolsRegistry,
+} from "../../config/supported-tools.js";
 import type { VerificationResult } from "../../init/models.js";
 import {
 	verifyClaudeCodePlugins,
@@ -96,7 +101,7 @@ export const installParentCommand = new Command("install")
 	.option("-y, --yes", "Skip confirmation prompts")
 	.option(
 		"-p, --platform <platform>",
-		"Target a specific platform (claude-code, codex, opencode)",
+		"Target a specific platform (claude-code, opencode)",
 	)
 	.addHelpText(
 		"after",
@@ -107,7 +112,6 @@ Use --platform to target a specific platform.
 Subcommands:
   claude-code    Install plugins to Claude Code
   opencode       Install plugins to OpenCode
-  codex          Install plugins to Codex CLI
   all            Install plugins to all detected tools
 
 Examples:
@@ -115,7 +119,6 @@ Examples:
   rp1 install --platform claude-code     Install to Claude Code only
   rp1 install claude-code                Install to Claude Code (subcommand)
   rp1 install opencode                   Install to OpenCode (subcommand)
-  rp1 install codex                      Install to Codex CLI (subcommand)
   rp1 install all                        Install to all detected tools
   rp1 install --dry-run                  Preview installation
   rp1 install -y                         Skip confirmation prompts
@@ -253,7 +256,20 @@ Examples:
 
 installParentCommand.addCommand(installClaudeCodeSubcommand);
 installParentCommand.addCommand(installOpenCodeSubcommand);
-installParentCommand.addCommand(installCodexSubcommand);
+
+const codexInstallEnabled = isToolEnabled(
+	TOOLS_REGISTRY as ToolsRegistry,
+	"codex",
+);
+installParentCommand.addCommand(installCodexSubcommand, {
+	hidden: !codexInstallEnabled,
+});
+if (!codexInstallEnabled) {
+	installCodexSubcommand.action(async () => {
+		process.exit(1);
+	});
+}
+
 installParentCommand.addCommand(installAllSubcommand);
 
 export { installAllSubcommand } from "./all.js";

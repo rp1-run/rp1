@@ -18,12 +18,6 @@ Tests design assumptions through code experiments, codebase analysis, and extern
     /rp1-dev-validate-hypothesis <feature-id>
     ```
 
-=== "Codex CLI"
-
-    ```text
-    $rp1-dev-validate-hypothesis <feature-id>
-    ```
-
 ## Description
 
 The `validate-hypothesis` command tests assumptions made in your technical design before implementation begins. It runs experiments, analyzes the codebase, and researches external sources to validate (or invalidate) design decisions.

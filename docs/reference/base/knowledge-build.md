@@ -18,12 +18,6 @@ Orchestrates parallel knowledge base generation using spatial analysis and a map
     /rp1-base-knowledge-build
     ```
 
-=== "Codex CLI"
-
-    ```text
-    $rp1-base-knowledge-build
-    ```
-
 ## Description
 
 The `knowledge-build` command analyzes your codebase and generates a structured knowledge base in `.rp1/context/`. This KB powers all knowledge-aware agents, enabling them to understand your architecture, patterns, and conventions.
@@ -75,12 +69,6 @@ The command generates knowledge base files in `.rp1/context/`.
 
     ```bash
     /rp1-base-knowledge-build
-    ```
-
-=== "Codex CLI"
-
-    ```text
-    $rp1-base-knowledge-build
     ```
 
 **Expected output:**

@@ -9,7 +9,7 @@ hide:
 Professional development workflows for AI coding assistants.
 Skip the iteration loops — single-pass workflows that get it right the first time.
 21 commands. 18 specialized agents. Careful context management.
-Works today with **Claude Code**, **OpenCode** (experimental), and **Codex CLI** (experimental).
+Works today with **Claude Code** and **OpenCode** (experimental).
 
 
 [:fontawesome-solid-terminal: Get Started](getting-started/installation.md){ .md-button .md-button--primary }
@@ -227,7 +227,7 @@ Keep improving and adapting as frontier models mature. Today's best, tomorrow's 
 
 :fontawesome-solid-shuffle: **Model/Tool Agnostic**
 
-No lock-in to any frontier lab or platform. Works with Claude Code, OpenCode, Codex CLI (experimental), and more tools coming.
+No lock-in to any frontier lab or platform. Works with Claude Code, OpenCode, and more tools coming.
 
 </div>
 
@@ -302,17 +302,6 @@ Get new developers productive on your codebase fast. Knowledge base + guided exp
 <img src="assets/brands/opencode.png" width="32">
 
 **OpenCode** (experimental)
-
-[Setup guide :material-arrow-right:](getting-started/installation.md)
-
-</div>
-
-<div class="platform-card" markdown>
-
-<img src="assets/brands/codex.png" width="32" class="only-light">
-<img src="assets/brands/codex-light.png" width="32" class="only-dark">
-
-**Codex CLI** (experimental)
 
 [Setup guide :material-arrow-right:](getting-started/installation.md)
 

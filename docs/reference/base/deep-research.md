@@ -18,12 +18,6 @@ Autonomous deep research on codebases and technical topics using a map-reduce ar
     /rp1-base-deep-research [research-topic]
     ```
 
-=== "Codex CLI"
-
-    ```text
-    $rp1-base-deep-research [research-topic]
-    ```
-
 ## Description
 
 The `deep-research` command performs comprehensive research on your codebase, multiple projects, or technical topics. It uses a map-reduce architecture to parallelize exploration and produce a synthesized research report.
@@ -102,12 +96,6 @@ Understand the architecture of a specific feature:
     /rp1-base-deep-research Understand the authentication flow in this project
     ```
 
-=== "Codex CLI"
-
-    ```text
-    $rp1-base-deep-research Understand the authentication flow in this project
-    ```
-
 **Expected output:**
 ```
 ## Research Complete
@@ -155,12 +143,6 @@ Compare approaches across multiple codebases:
     /rp1-base-deep-research Compare error handling between ./backend and ./frontend
     ```
 
-=== "Codex CLI"
-
-    ```text
-    $rp1-base-deep-research Compare error handling between ./backend and ./frontend
-    ```
-
 **Expected output:**
 ```
 ## Research Complete
@@ -199,12 +181,6 @@ Research best practices and external knowledge:
 
     ```bash
     /rp1-base-deep-research Best practices for Redis caching with Node.js
-    ```
-
-=== "Codex CLI"
-
-    ```text
-    $rp1-base-deep-research Best practices for Redis caching with Node.js
     ```
 
 **Expected output:**

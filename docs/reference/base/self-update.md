@@ -18,11 +18,6 @@ Updates rp1 to the latest version using the appropriate package manager.
     /rp1-base-self-update
     ```
 
-=== "Codex CLI"
-
-    ```text
-    $rp1-base-self-update
-    ```
 
 ## Description
 
@@ -62,11 +57,6 @@ The command returns specific exit codes to indicate the result:
     /rp1-base-self-update
     ```
 
-=== "Codex CLI"
-
-    ```text
-    $rp1-base-self-update
-    ```
 
 **Expected output:**
 ```
@@ -105,7 +95,7 @@ In this case, check file permissions or try updating manually.
 ## Post-Update Steps
 
 !!! warning "Restart Required"
-    After updating, you must restart Claude Code (or OpenCode or Codex CLI) to use the new version. The updated CLI will not take effect until the IDE is restarted.
+    After updating, you must restart Claude Code (or OpenCode) to use the new version. The updated CLI will not take effect until the IDE is restarted.
 
 ### Verify Update
 

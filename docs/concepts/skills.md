@@ -155,19 +155,6 @@ Skills can be invoked by users directly from their AI assistant, or by agents pr
     !!! note "Autocomplete support"
         OpenCode does not currently offer autocomplete for skill names (unlike Claude Code's `/` autocomplete). This is tracked in [opencode#14506](https://github.com/anomalyco/opencode/issues/14506) and may be supported in a future release.
 
-=== "Codex CLI"
-
-    In Codex CLI, rp1 skills are invoked using `$` mentions rather than slash commands:
-
-    ```text
-    $rp1-dev-build my-feature
-    $rp1-base-knowledge-build
-    $rp1-dev-build-fast Add dark mode toggle
-    ```
-
-    !!! note "Codex differences"
-        Codex CLI uses `$skill-name` mentions instead of `/` slash commands. Tool approvals are configured globally in `~/.codex/config.toml`, not per skill.
-
 ### Agent Invocation
 
 Agents invoke skills programmatically using the Skill tool:

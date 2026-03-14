@@ -18,12 +18,6 @@ Quick-iteration development for small, well-scoped tasks using the [command-agen
     /rp1-dev-build-fast [development-request...] [--afk] [--confirm-plan] [--review] [--git-commit] [--git-push]
     ```
 
-=== "Codex CLI"
-
-    ```text
-    $rp1-dev-build-fast [development-request...] [--afk] [--confirm-plan] [--review] [--git-commit] [--git-push]
-    ```
-
 ## Description
 
 The `build-fast` command handles development requests that don't warrant the full feature workflow. It assesses request scope and either implements the changes (for small/medium scope) or redirects to `/build` (for large scope).

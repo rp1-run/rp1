@@ -101,7 +101,7 @@ rp1 init
 This interactive command will:
 
 - Create the `.rp1/` directory structure
-- Detect your AI assistant (Claude Code, OpenCode, or Codex CLI)
+- Detect your AI assistant (Claude Code or OpenCode)
 - Inject rp1 instructions into `CLAUDE.md` or `AGENTS.md`
 - Configure `.gitignore` for rp1 artifacts
 - **Install plugins automatically** (for Claude Code)
@@ -203,7 +203,7 @@ Documentation: https://rp1.run
 ## Step 4: Restart Your AI Tool
 
 !!! warning "Required: Restart Your AI Assistant"
-    You **must restart** your AI assistant (Claude Code, OpenCode, or Codex CLI) to load the newly installed plugins. Without restarting, rp1 commands will not be available.
+    You **must restart** your AI assistant (Claude Code or OpenCode) to load the newly installed plugins. Without restarting, rp1 commands will not be available.
 
 ??? note "Manual Plugin Installation"
     If init couldn't install plugins (e.g., OpenCode, or if you skipped installation), you can install them manually:
@@ -218,12 +218,6 @@ Documentation: https://rp1.run
 
         ```bash
         rp1 install opencode
-        ```
-
-    === "Codex CLI"
-
-        ```bash
-        rp1 install codex
         ```
 
     === "All Detected Tools"
@@ -264,31 +258,6 @@ Documentation: https://rp1.run
     /rp1-base-knowledge-build
     ```
 
-=== "Codex CLI"
-
-    rp1 installs Codex skills into `~/.agents/skills/` and merges rp1-managed
-    agent definitions into `~/.codex/config.toml`.
-
-    Invoke skills with Codex mentions:
-
-    ```text
-    $rp1-base-knowledge-build
-    $rp1-dev-build-fast fix the authentication bug
-    ```
-
-    **Verification checks:**
-
-    ```bash
-    rp1 verify codex
-    rg -n "rp1:start" ~/.codex/config.toml
-    ```
-
-    **Platform limitations:**
-
-    - Codex uses `$skill-name` mentions instead of slash commands
-    - Tool approvals are configured globally in `~/.codex/config.toml`, not per skill
-    - Some rp1 workflows depend on Codex-native delegation behavior; unsupported capabilities should fail with an explicit message
-
 If successful, you'll see output like `READY [single-project]` or `READY [monorepo: N projects]`.
 
 ---
@@ -321,8 +290,6 @@ You're ready to go! Continue to [Your First Workflow](first-workflow.md) to run 
 
     - **Claude Code**: Make sure you completely restarted Claude Code
     - **OpenCode**: Verify plugins exist at `~/.opencode/prompts/rp1-base/`. You can type `/skills` to check if rp1 skills are listed.
-    - **Codex CLI**: Verify skills exist at `~/.agents/skills/`. Run `rp1 verify codex` to check installation.
-
     ---
 
     **Permission denied during installation?**

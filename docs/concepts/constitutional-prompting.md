@@ -89,12 +89,6 @@ AI: [fixes tests]
     /rp1-dev-build dark-mode
     ```
 
-=== "Codex CLI"
-
-    ```text
-    $rp1-dev-build dark-mode
-    ```
-
 **Result**: Single command orchestrates all steps (requirements, design, build, verify) in single passes, produces documented artifacts
 
 ---

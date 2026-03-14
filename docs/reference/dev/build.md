@@ -18,12 +18,6 @@ End-to-end feature workflow orchestrator. Runs the complete 6-step lifecycle (re
     /rp1-dev-build <feature-id> [requirements...] [--afk] [--git-commit] [--git-push] [--git-pr]
     ```
 
-=== "Codex CLI"
-
-    ```text
-    $rp1-dev-build <feature-id> [requirements...] [--afk] [--git-commit] [--git-push] [--git-pr]
-    ```
-
 ## Description
 
 The `build` command is the **primary entry point** for feature development. It orchestrates all workflow steps automatically with smart resumption — detecting existing artifacts and continuing from where you left off.

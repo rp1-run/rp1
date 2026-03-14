@@ -18,12 +18,6 @@ Generates comprehensive project overview documents with architecture diagrams fo
     /rp1-base-project-birds-eye-view
     ```
 
-=== "Codex CLI"
-
-    ```text
-    $rp1-base-project-birds-eye-view
-    ```
-
 ## Description
 
 The `project-birds-eye-view` command creates a comprehensive overview document of your project, suitable for onboarding new team members or providing executive summaries. It leverages the knowledge base and explores the codebase to produce documentation with validated Mermaid diagrams.
@@ -74,12 +68,6 @@ The command generates a comprehensive markdown document:
 
     ```bash
     /rp1-base-project-birds-eye-view
-    ```
-
-=== "Codex CLI"
-
-    ```text
-    $rp1-base-project-birds-eye-view
     ```
 
 **Expected output:**

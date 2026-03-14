@@ -4,6 +4,11 @@
  */
 
 import { Command } from "commander";
+import { TOOLS_REGISTRY } from "../../config/supported-tools.generated.js";
+import {
+	isToolEnabled,
+	type ToolsRegistry,
+} from "../../config/supported-tools.js";
 import { verifyClaudeCodeSubcommand } from "./claude-code.js";
 import { verifyCodexSubcommand } from "./codex.js";
 import { verifyOpenCodeSubcommand } from "./opencode.js";
@@ -20,18 +25,28 @@ export const verifyCommand = new Command("verify")
 Subcommands:
   claude-code    Verify plugins in Claude Code
   opencode       Verify plugins in OpenCode
-  codex          Verify plugins in Codex CLI
 
 Examples:
   rp1 verify claude-code    Verify Claude Code installation
   rp1 verify opencode       Verify OpenCode installation
-  rp1 verify codex          Verify Codex CLI installation
 `,
 	);
 
 verifyCommand.addCommand(verifyClaudeCodeSubcommand);
 verifyCommand.addCommand(verifyOpenCodeSubcommand);
-verifyCommand.addCommand(verifyCodexSubcommand);
+
+const codexVerifyEnabled = isToolEnabled(
+	TOOLS_REGISTRY as ToolsRegistry,
+	"codex",
+);
+verifyCommand.addCommand(verifyCodexSubcommand, {
+	hidden: !codexVerifyEnabled,
+});
+if (!codexVerifyEnabled) {
+	verifyCodexSubcommand.action(async () => {
+		process.exit(1);
+	});
+}
 
 // Export subcommands for direct access if needed
 export {

@@ -3,6 +3,11 @@ import * as E from "fp-ts/lib/Either.js";
 import { formatError, getExitCode } from "../../shared/errors.js";
 import type { Logger } from "../../shared/logger.js";
 import type { PromptOptions } from "../../shared/prompts.js";
+import { TOOLS_REGISTRY } from "../config/supported-tools.generated.js";
+import {
+	isToolEnabled,
+	type ToolsRegistry,
+} from "../config/supported-tools.js";
 import { colorFns } from "../lib/colors.js";
 import { executeUninstall, type UninstallConfig } from "../uninstall/index.js";
 import { uninstallCodexCommand } from "./uninstall-codex.js";
@@ -26,15 +31,11 @@ Removes rp1 configuration from your project:
   - Removes rp1 entries from .gitignore
   - Uninstalls rp1-base and rp1-dev plugins from Claude Code
 
-Subcommands:
-  codex          Remove rp1 plugins from Codex CLI
-
 The .rp1/ directory is preserved (contains your knowledge base).
 To remove it completely, run: rm -rf .rp1
 
 Examples:
   rp1 uninstall                 Interactive uninstall
-  rp1 uninstall codex           Remove rp1 from Codex CLI
   rp1 uninstall --dry-run       Preview changes without removing
   rp1 uninstall -y              Non-interactive uninstall
   rp1 uninstall -s project      Uninstall project-scoped plugins
@@ -117,4 +118,15 @@ Examples:
 		}
 	});
 
-uninstallCommand.addCommand(uninstallCodexCommand);
+const codexUninstallEnabled = isToolEnabled(
+	TOOLS_REGISTRY as ToolsRegistry,
+	"codex",
+);
+uninstallCommand.addCommand(uninstallCodexCommand, {
+	hidden: !codexUninstallEnabled,
+});
+if (!codexUninstallEnabled) {
+	uninstallCodexCommand.action(async () => {
+		process.exit(1);
+	});
+}
