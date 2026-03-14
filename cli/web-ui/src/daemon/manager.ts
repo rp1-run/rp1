@@ -13,8 +13,23 @@ import {
 	type DaemonConnection,
 	type DaemonStatus,
 	getDaemonStatus,
+	type HealthResponse,
 	stopDaemon as stopDaemonIpc,
 } from "./ipc";
+
+/**
+ * Check if a running daemon needs restart based on version.
+ * Dev versions (containing "-dev") always restart to pick up source changes.
+ * Production versions restart only on mismatch.
+ */
+function shouldRestartForVersion(
+	health: HealthResponse,
+	cliVersion: string,
+): boolean {
+	if (!health.version) return false;
+	if (cliVersion.includes("-dev")) return true;
+	return health.version !== cliVersion;
+}
 
 /**
  * PID file contents.
@@ -235,10 +250,12 @@ async function spawnDaemon(port: number): Promise<number> {
 
 /**
  * Ensure daemon is running, starting it if necessary.
+ * Restarts the daemon if the version has changed or if running a dev build.
  * Returns connection to the daemon.
  */
 export async function ensureDaemon(
 	port: number = DEFAULT_PORT,
+	cliVersion?: string,
 ): Promise<DaemonStartResult> {
 	const pidData = await readPidFile();
 
@@ -248,22 +265,29 @@ export async function ensureDaemon(
 			const health = await checkHealth(conn);
 
 			if (health) {
-				if (pidData.port !== port) {
+				if (cliVersion && shouldRestartForVersion(health, cliVersion)) {
 					console.error(
-						`[rp1] Daemon already running on port ${pidData.port} (requested ${port}). Using existing daemon.`,
+						`[rp1] Daemon version ${health.version} differs from CLI ${cliVersion}. Restarting...`,
 					);
+					await stopDaemon();
+				} else {
+					if (pidData.port !== port) {
+						console.error(
+							`[rp1] Daemon already running on port ${pidData.port} (requested ${port}). Using existing daemon.`,
+						);
+					}
+					return { connection: conn, wasRunning: true };
 				}
-				return { connection: conn, wasRunning: true };
-			}
-
-			const healthy = await waitForHealth(conn, 2000);
-			if (healthy) {
-				if (pidData.port !== port) {
-					console.error(
-						`[rp1] Daemon already running on port ${pidData.port} (requested ${port}). Using existing daemon.`,
-					);
+			} else {
+				const healthy = await waitForHealth(conn, 2000);
+				if (healthy) {
+					if (pidData.port !== port) {
+						console.error(
+							`[rp1] Daemon already running on port ${pidData.port} (requested ${port}). Using existing daemon.`,
+						);
+					}
+					return { connection: conn, wasRunning: true };
 				}
-				return { connection: conn, wasRunning: true };
 			}
 		}
 
@@ -362,6 +386,7 @@ export async function getStatus(): Promise<DaemonStatus> {
  */
 export async function restartDaemon(
 	port: number = DEFAULT_PORT,
+	cliVersion?: string,
 ): Promise<DaemonStartResult> {
 	const pidData = await readPidFile();
 	await stopDaemon();
@@ -370,7 +395,7 @@ export async function restartDaemon(
 		await waitForProcessExit(pidData.pid, STOP_KILL_TIMEOUT_MS);
 	}
 
-	return ensureDaemon(port);
+	return ensureDaemon(port, cliVersion);
 }
 
 /**

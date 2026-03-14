@@ -8,10 +8,17 @@ export interface ServerOptions {
 	projectPath: string;
 	isDev?: boolean;
 	webUIDir?: string;
+	version?: string;
 }
 
 export function createServer(options: ServerOptions) {
-	const { port = 7710, projectPath, isDev = false, webUIDir } = options;
+	const {
+		port = 7710,
+		projectPath,
+		isDev = false,
+		webUIDir,
+		version,
+	} = options;
 	const startTime = Date.now();
 
 	const websocketHub = new WebSocketHub();
@@ -25,6 +32,7 @@ export function createServer(options: ServerOptions) {
 		isDev,
 		webUIDir,
 		startTime,
+		version,
 	});
 
 	websocketHub.startStatusPolling(async () => {

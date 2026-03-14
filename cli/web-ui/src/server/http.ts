@@ -16,6 +16,7 @@ export interface ServerConfig {
 	isDev?: boolean;
 	webUIDir?: string;
 	startTime?: number;
+	version?: string;
 }
 
 export interface AppServer {
@@ -32,6 +33,7 @@ export function startServer(config: ServerConfig): AppServer {
 		isDev = false,
 		webUIDir,
 		startTime = Date.now(),
+		version,
 	} = config;
 
 	let serverInstance: ReturnType<typeof Bun.serve<WebSocketData>>;
@@ -39,6 +41,7 @@ export function startServer(config: ServerConfig): AppServer {
 	const apiContext: ApiContext = {
 		port,
 		startTime,
+		version,
 		websocketHub,
 		fileWatcherPool,
 		webUIDir,

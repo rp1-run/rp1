@@ -93,6 +93,7 @@ const handleDaemonServerCommand = async (): Promise<void> => {
 		projectPath: process.cwd(),
 		isDev: false,
 		webUIDir,
+		version,
 	});
 
 	process.on("SIGINT", () => {

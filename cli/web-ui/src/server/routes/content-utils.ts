@@ -25,6 +25,7 @@ export interface FileContent {
 export interface ApiContext {
 	readonly port: number;
 	readonly startTime: number;
+	readonly version?: string;
 	readonly websocketHub?: WebSocketHub;
 	readonly fileWatcherPool?: FileWatcherPool;
 	readonly shutdownCallback?: () => void;
