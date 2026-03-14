@@ -106,7 +106,7 @@ export function StepNode({
 			/>
 			<div
 				className={cn(
-					"w-[200px] rounded-[var(--radius)] border px-3 py-2.5 transition-colors duration-300",
+					"h-[60px] w-[200px] rounded-[var(--radius)] border px-3 py-2.5 transition-colors duration-300",
 					style.border,
 					style.bg,
 					style.animation,
