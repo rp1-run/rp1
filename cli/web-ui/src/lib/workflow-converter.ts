@@ -94,12 +94,26 @@ export function workflowToReactFlow(
 		});
 	}
 
+	const stateIndex = new Map<string, number>();
+	for (let i = 0; i < workflow.states.length; i++) {
+		stateIndex.set(workflow.states[i].id, i);
+	}
+
 	for (const transition of workflow.transitions) {
+		const srcIdx = stateIndex.get(transition.sourceId) ?? -1;
+		const tgtIdx = stateIndex.get(transition.targetId) ?? -1;
+		const isBackward = srcIdx > tgtIdx && srcIdx >= 0 && tgtIdx >= 0;
+
 		edges.push({
 			id: `edge-${transition.sourceId}-${transition.targetId}`,
 			source: transition.sourceId,
 			target: transition.targetId,
-			type: "smoothstep",
+			type: isBackward ? "bezier" : "smoothstep",
+			animated: isBackward,
+			style: isBackward
+				? { stroke: "hsl(var(--border))", strokeDasharray: "5 3" }
+				: undefined,
+			label: isBackward && transition.label ? transition.label : undefined,
 		});
 	}
 

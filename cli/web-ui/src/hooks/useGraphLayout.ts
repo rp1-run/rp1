@@ -26,7 +26,7 @@ export function useGraphLayout(
 ): UseGraphLayoutResult {
 	const direction = options?.direction ?? "TB";
 	const nodeWidth = options?.nodeWidth ?? 280;
-	const nodeHeight = options?.nodeHeight ?? 120;
+	const nodeHeight = options?.nodeHeight ?? 80;
 
 	const layoutNodes = useMemo(() => {
 		if (nodes.length === 0) {
@@ -36,10 +36,10 @@ export function useGraphLayout(
 		const g = new dagre.graphlib.Graph();
 		g.setGraph({
 			rankdir: direction,
-			nodesep: direction === "LR" ? 60 : 50,
-			ranksep: direction === "LR" ? 100 : 80,
-			marginx: 40,
-			marginy: 40,
+			nodesep: direction === "LR" ? 40 : 50,
+			ranksep: direction === "LR" ? 60 : 80,
+			marginx: 20,
+			marginy: 20,
 		});
 		g.setDefaultEdgeLabel(() => ({}));
 
