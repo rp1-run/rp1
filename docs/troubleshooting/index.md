@@ -623,14 +623,14 @@ Common issues, solutions, and debugging strategies for rp1.
 
         rp1 skills are installed with an `rp1-` prefix to avoid collisions with your own skills:
 
-        - **Type the skill name directly** (e.g., `/rp1-build`, `/rp1-knowledge-build`)
+        - **Type the skill name directly** (e.g., `/rp1-dev-build`, `/rp1-base-knowledge-build`)
         - **Type `/skills`** to browse and select — look for skills prefixed with `rp1-`
 
         *Note: Autocomplete for skill names is not yet available ([opencode#14506](https://github.com/anomalyco/opencode/issues/14506)) but may be supported soon.*
 
         ```
-        /rp1-build my-feature
-        /rp1-knowledge-build
+        /rp1-dev-build my-feature
+        /rp1-base-knowledge-build
         ```
 
     2. **Verify plugin installation:**

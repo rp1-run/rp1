@@ -1,137 +1,63 @@
-# rp1 Plugin System - AI Assistant Guide
+# rp1 Agent Authoring Guide
 
-## Quick Orientation
+This file is intentionally narrow. Use it for agent and skill authoring rules that are specific to rp1.
 
-**What is this?** Multi Agentic Tool plugins that automate development workflows through constitutional prompting.
-**Plugins**:
+1. Read `.rp1/context/index.md` first.
+2. Then load only the KB files needed for the task.
 
-- **rp1-base**: Knowledge management, documentation, strategy, security (14 skills, 13 agents)
-- **rp1-dev**: Feature workflows, code quality, PR management, testing (19 skills, 32 agents)
-- **rp1-utils**: Prompt utilities (5 skills, 4 agents)
-**Key Concept**: Skills delegate to agents that execute complete workflows autonomously (no iterative refinement).
+Project understanding belongs in `.rp1/context/`. This file covers runtime and authoring constraints.
 
----
+## Core Rules
 
-## 🧭 Navigation Guide
+### Namespace prefixes
 
-### "I need to..."
+Use these prefixes exactly:
 
-| Task | Action |
-|------|--------|
-| Add new skill | See "Development Patterns" below |
-| Understand a pattern | Read KB files + sample agent code |
-| Fix broken skill | Check namespace prefix rules below |
-| Test changes | See "Testing" section below |
-| Working with Browser features | use skill: playwright-cli   |
+- Skills: `/rp1-base:skill-name`, `/rp1-dev:skill-name`, `/rp1-utils:skill-name`
+- Agent references: `subagent_type: rp1-base:agent-name` for Claude Code, `subagent_type: @rp1-dev/agent-name` for OpenCode
 
----
+### Subagent limitations
 
-## 🎯 Critical Rules (v2.0.0 Specific)
+Subagents generally cannot spawn other agents. If an agent is designed to run as a subagent:
 
-### Platform Compatibility - Argument Passing
+- Do not use SlashCommand to call other commands.
+- Do not call `/rp1-base:knowledge-load` from inside the subagent.
+- Inline only the prompt text or KB guidance the subagent actually needs.
 
-**OpenCode & Claude Code Support**: All rp1 commands use explicit argument syntax compatible with both platforms.
+### Codex task shorthand
 
-**Subagent Limitations**: Subagents generally cannot spawn other agents. Hence if an agent is designed to act as a subagent, it must not use the SlashCommand tool to call other commands. Intead, just use raw prompts. Example of this to load knowledge base context, do not use the SlashCommand tool to call `/rp1-base:knowledge-load` from a subagent. Instead, just include the relevant prompt text directly. There are examples of this in plugins dir.
+For Codex agents, interpret any instruction in the form `Task: <sub-agent-name>` as:
 
-**Positional Parameters**:
+- spawn `<sub-agent-name>`
 
-- ✅ `$1`, `$2`, `$3` - Fixed, structured arguments
-- ✅ `$ARGUMENTS` - Variable-length, freeform input
+Treat this as an execution directive, not as descriptive text.
 
-**Command Invocation Examples**:
+### Codex subagent waiting
 
-```bash
-# Claude Code (flexible)
-/rp1-dev:feature-requirements my-feature "extra context"
-/rp1-dev:build-fast "Fix the authentication bug"
+When Codex agents spawn subagents in this repo:
 
-# OpenCode (strict positional)
-/rp1-dev/feature-requirements my-feature "extra context"
-/rp1-dev/build-fast "Fix the authentication bug"
-```
+- Do not assume a subagent failed just because it does not answer quickly.
+- Use longer wait windows for artifact-producing or workflow-heavy subagents.
+- Prefer waiting for the spawned subagent to complete before declaring it stalled or rerouting around it, unless the user explicitly wants parallel speculative work.
+- Check for expected side effects such as artifact files before concluding the subagent is stuck.
+- If the subagent is on the critical path, babysit it with patient polling instead of replacing it after a short timeout.
 
-**Argument Hints**: Commands with parameters include `argument-hint` in frontmatter:
+### Cross-plugin dependency rule
 
-```yaml
----
-name: feature-requirements
-argument-hint: "feature-id [extra-context]"
----
-```
+- Dev agents may depend on base.
+- Base agents must not call dev commands.
+- If a dev workflow needs `/rp1-base:knowledge-load` and it is unavailable, tell the user to install `rp1-base`.
 
-**Agent Parameter Tables**: All agents document parameter mappings:
+## Parameters and templating
 
-```markdown
-## 0. Parameters
+### Argument style
 
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| FEATURE_ID | $1 | (required) | Feature identifier |
-| EXTRA_CONTEXT | $2 | `""` | Additional context |
-| RP1_ROOT | Environment | `.rp1/` | Root directory |
-```
+Use explicit positional arguments compatible with both Claude Code and OpenCode:
 
-**When to Use $ARGUMENTS vs Positional**:
+- `$1`, `$2`, `$3` for structured parameters
+- `$ARGUMENTS` for freeform text
 
-- Use `$ARGUMENTS` for freeform text (development requests, problem descriptions)
-- Use `$1`, `$2`, etc. for structured parameters (feature-id, branch names, modes)
-
-### Parameter Passing Conventions
-
-**Template Variable Assignment** (canonical pattern):
-
-```markdown
-$RP1_ROOT = !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
-```
-
-This pattern:
-
-- `$` prefix marks it as a variable
-- `!` prefix with backticks executes shell command (uses `rp1 agent-tools rp1-root-dir` to avoid `${}` parameter substitution which Claude Code blocks)
-- `{{ }}` ensures the agent knows it's a template variable when interpolated
-
-**Template Interpolation** (in paths):
-
-```markdown
-{{$RP1_ROOT}}/work/features/{FEATURE_ID}/
-```
-
-**XML Tags vs Inline Parameters**:
-
-| Use XML Tags When | Use Inline Parameters When |
-|-------------------|---------------------------|
-| Command spawns subagents | Simple delegation to single agent |
-| Parameter needs multi-line content | Parameter is a single value |
-| Parameter requires instructions | Direct positional mapping suffices |
-
-**Variable Assignment + XML Tag Example** (subagent spawning):
-
-```markdown
-$RP1_ROOT = !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
-
-<feature_id>$1</feature_id>
-
-<requirements>$2</requirements>
-
-Feature dir: {{$RP1_ROOT}}/work/features/{FEATURE_ID}/
-```
-
-**Inline Example** (simple delegation):
-
-```markdown
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| TOPIC | $1 | (required) | Research topic |
-
-Analyze the topic: $1
-```
-
-**Standard Parameter Table Format**:
-
-All commands with parameters MUST use this format:
+All commands with parameters must include this section:
 
 ```markdown
 ## 0. Parameters
@@ -143,316 +69,96 @@ All commands with parameters MUST use this format:
 | RP1_ROOT | Environment | `.rp1/` | Root directory |
 ```
 
-**Argument-Hint Notation**:
+Use `argument-hint` in frontmatter with standard notation:
 
-Use in YAML frontmatter to document command usage:
+- `<param>` required
+- `[param]` optional
+- `[param...]` variadic optional
+- `[--flag]` optional flag
 
-| Notation | Meaning | Example |
-|----------|---------|---------|
-| `<param>` | Required parameter | `<feature-id>` |
-| `[param]` | Optional parameter | `[context]` |
-| `[param...]` | Variadic optional | `[files...]` |
-| `[--flag]` | Optional flag | `[--afk]` |
+### Canonical variable assignment
 
-**Example frontmatter**:
-
-```yaml
----
-name: build
-argument-hint: "<feature-id> [requirements] [--afk] [--git-worktree]"
----
-```
-
-### Namespace Prefixes (ALWAYS USE THESE)
-
-**Skills** (invocable via slash commands -- all commands are now skills in SKILL.md format):
-
-- ✅ `/rp1-base:skill-name` - Base plugin skills
-- ✅ `/rp1-dev:skill-name` - Dev plugin skills
-- ✅ `/rp1-utils:skill-name` - Utils plugin skills
-
-**Agent References**:
-
-- ✅ `subagent_type: rp1-base:agent-name` - For Claude Code
-- ✅ `subagent_type: @rp1-dev/agent-name` - For OpenCode
-
-### Allowed-Tools Pattern (Claude Code)
-
-**Purpose**: Pre-authorize Bash commands in SKILL.md frontmatter to avoid permission prompts during execution.
-
-**When to Use**: Add `allowed-tools` to skill files that use:
-
-| Pattern | Use Case | Example |
-|---------|----------|---------|
-| `Bash(echo *)` | Shell echo commands | `echo "hello"` |
-| `Bash(rp1 *)` | rp1 CLI invocations (RP1_ROOT resolution, worktree, work update, etc.) | `!`rp1 agent-tools rp1-root-dir`` |
-| `Bash(printf *)` | Formatted output with special characters | `printf '%s\n' "$VAR"` |
-
-**Default**: All rp1 skills should include both `Bash(echo *)` and `Bash(rp1 *)` in `allowed-tools`. `Bash(rp1 *)` enables RP1_ROOT resolution via `rp1 agent-tools rp1-root-dir` and other rp1 agent-tools calls (work update, worktree, mmd-validate, github-pr, etc.). **Do NOT use `echo ${VAR:-default}` syntax** as Claude Code blocks `${}` parameter substitution in Bash commands.
-
-**Frontmatter Example** (SKILL.md format):
-
-```yaml
----
-name: my-skill
-description: "Skill that uses parameter expansion and rp1 CLI tools."
-allowed-tools: Bash(echo *), Bash(rp1 *), Read, Write, Edit, Glob, Grep, Task
-metadata:
-  version: 1.0.0
-  tags:
-    - workflow
-  created: 2026-01-01
-  author: cloud-on-prem/rp1
-  argument-hint: "[args]"
----
-```
-
-**Placement Rule**: `allowed-tools` is a top-level field in SKILL.md frontmatter (comma-separated string for Claude Code). The build pipeline converts it to a YAML list for OpenCode.
-
-**Agent Files Do NOT Need This**:
-
-Subagents automatically inherit Bash permissions from their parent skills per Claude Code documentation. Only skill files (entry points) require `allowed-tools` frontmatter.
-
-| File Type | Requires allowed-tools | Reason |
-|-----------|------------------------|--------|
-| Skills (`skills/*/SKILL.md`) | Yes, if using Bash patterns | Entry point for permission grants |
-| Agents (`agents/*.md`) | No | Inherits from parent skill |
-
-**OpenCode Compatibility**: OpenCode ignores unknown frontmatter fields, so `allowed-tools` has no effect but causes no errors.
-
-### Cross-Plugin Dependencies
-
-**Dev can call Base**:
+Resolve `RP1_ROOT` with:
 
 ```markdown
-# In dev agents
-Run `/rp1-base:knowledge-load` to load KB context.
-
-**CRITICAL**: This requires rp1-base plugin.
-If command fails, inform user to install:
-/plugin install rp1-base
+$RP1_ROOT = !`rp1 agent-tools rp1-root-dir`
 ```
 
-**Base is independent**: Base agents cannot call dev commands.
+When interpolating paths:
 
-### Plugin Boundaries
-
-| Plugin | Contains |
-|--------|----------|
-| **base** | Knowledge, docs, strategy, security, content writing (14 skills, 13 agents) |
-| **dev** | Features, code quality, PRs, testing (19 skills, 32 agents; depends on base) |
-| **utils** | Prompt optimization, eval generation (5 skills, 4 agents) |
-
-**Decision Guide**:
-
-- Foundation/utility → base
-- Development workflow → dev
-- Prompt tooling → utils
-- Shared capability (reusable by other skills/agents) → skill in base
-
----
-
-## 🏗️ Development Patterns
-
-### Technology choices
-
-1. Always prefer Bun and its ecosystem when writing new code in the repository. Fall back to Node.js only if a Bun ecosystem equivalent is unavailable or not sufficiently mature.
-
-2. We use bun to create an executable of the main CLI. Extra care should be taken to ensure we bundle all assets and any other files properly for this single executable to work.
-
-3. When using fp-ts, use monads and functional patterns where appropriate, but avoid overcomplicating simple logic. This includes using `match`, `map`, `flatmap`, `isLeft` etc
-
-4. Use appropriate lsps when writing or looking for code.
-
-5. **Frontend development**: When working on frontend code (especially `cli/web-ui/`), use the `frontend-design` skill for building/styling UI components and the `playwright-cli` skill to visually verify changes, test interactions, and capture screenshots. Run `just serve-web-ui` first, then use playwright-cli to validate UI behavior at `http://localhost:5173`.
-Use /tmp directory for any temporary screenshots or playwright-related files needed during frontend development, as this avoids issues with file watching and hot reload in the web UI.
-
-### Adding a New Skill
-
-All rp1 invocable prompts use the [SKILL.md canonical format](docs/concepts/skill-format.md).
-
-1. **Choose plugin**: base or dev or utils?
-2. **Create agent** (if needed):
-
-   ```bash
-   touch plugins/{plugin}/agents/my-agent.md
-   ```
-
-3. **Create skill directory and SKILL.md**:
-
-   ```bash
-   mkdir -p plugins/{plugin}/skills/my-skill/
-   touch plugins/{plugin}/skills/my-skill/SKILL.md
-   ```
-
-   Use the SKILL.md frontmatter schema: `name`, `description`, `allowed-tools` at top level; rp1-specific fields (`version`, `tags`, `created`, `author`, `argument-hint`) in the `metadata` map. See [SKILL.md Format Spec](docs/concepts/skill-format.md) for details.
-
-4. **Update README**:
-
-   ```bash
-   # Add to plugins/{plugin}/README.md
-   - `/rp1-{plugin}:my-skill` - Description
-   ```
-
-5. **Commit with conventional format**:
-
-   ```bash
-   git commit -m "feat(plugin): add my-skill"
-   ```
-
-### STATE-MACHINE Section Pattern (Workflow State Tracking)
-
-Skills and agents with multi-step workflows can opt in to state management by embedding a `stateDiagram-v2` mermaid block directly in their markdown file inside a `## STATE-MACHINE` section. No separate files needed.
-
-**Skill STATE-MACHINE section** (add to SKILL.md):
-````markdown
-## STATE-MACHINE
-
-```mermaid
-stateDiagram-v2
-    [*] --> plan
-    plan --> build : plan_ready
-    build --> review : build_complete
-    review --> [*] : done
+```markdown
+{{$RP1_ROOT}}/work/features/{FEATURE_ID}/
 ```
 
-**On each phase transition**, report via:
-rp1 agent-tools work update \
-  --project "$(pwd)" \
-  --feature {FEATURE_ID} \
-  --workflow {SKILL_NAME} \
-  --run-id {RUN_ID} \
-  --step {CURRENT_STATE} \
-  --status started
+Do not use `${}` shell parameter expansion in Bash snippets intended for Claude Code.
 
-- Generate `RUN_ID` as a UUID at workflow start
-- Report each step with `--status started` when entering it
-- For non-terminal states: moving to the next state implies the previous completed
-- For terminal states (those with `→ [*]` transitions): report `--status completed` when the step's work finishes
-- Follow transition edges in the graph; do not skip states
-````
+### XML tags vs inline parameters
 
-**Agent STATE-MACHINE section** (add to agent .md files):
-````markdown
-## STATE-MACHINE
+- Use XML tags when a command spawns subagents, passes multiline content, or needs strongly delimited instructions.
+- Use inline positional parameters for simple single-agent delegation.
 
-```mermaid
-stateDiagram-v2
-    [*] --> building
-    building --> completed : build_success
-    building --> failed : build_error
-    completed --> [*]
-    failed --> [*]
+## Skill frontmatter
+
+All invocable prompts use the canonical `SKILL.md` format described in [docs/concepts/skill-format.md](docs/concepts/skill-format.md).
+
+If a skill executes shell commands, add `allowed-tools` in frontmatter. Default to:
+
+```yaml
+allowed-tools: Bash(echo *), Bash(rp1 *)
 ```
 
-**On each transition**, report via:
-rp1 agent-tools work update \
-  --project "$(pwd)" \
-  --feature {FEATURE_ID} \
-  --workflow {WORKFLOW} \
-  --agent {AGENT_NAME} \
-  --task {TASK_ID} \
-  --run-id {RUN_ID} \
-  --step {CURRENT_STATE} \
-  --status started
-````
+Add `Bash(printf *)` only when the skill actually needs it.
 
-**Rules**:
-- State IDs must match `--step` values used in work update commands
-- The `--workflow` flag is mandatory for state-machine-enabled skills and agents
-- The `--agent` flag routes validation to the agent's state machine (not the workflow's)
-- The `--task` flag enables per-task state tracking (each task progresses independently)
-- Invalid transitions are rejected with an error listing valid next states
-- Skills/agents without a `## STATE-MACHINE` section are unaffected (no tracking, no validation)
+`allowed-tools` is required on skills, not on agent files. Subagents inherit Bash permissions from the invoking skill.
 
-See [State Machines concept guide](docs/concepts/state-machines.md) for full details.
+## State machines
 
-### Constitutional Agent Pattern
+Skills and agents may opt into workflow state tracking by adding a `## STATE-MACHINE` section with a `stateDiagram-v2` Mermaid block.
 
-**All agents follow this structure**:
+Required rules:
 
-If needed, read an example agent spec at: ./plugins/base/agents/kb-spatial-analyzer.md
+- State IDs must match the `--step` values sent to `rp1 agent-tools work update`.
+- `--workflow` is mandatory for state-machine-enabled skills and agents.
+- `--agent` routes validation to the agent state machine.
+- `--task` enables per-task tracking.
+- Follow graph transitions exactly; invalid transitions are rejected.
 
-## Common Issues while development
+For the full pattern and command examples, see [docs/concepts/state-machines.md](docs/concepts/state-machines.md).
 
-If you encounter issues installing uv, bun, or npm packages, it's most probably due to a VPN issue on my machine. Stop and ask for help. It's an easy manual fix.
+## Repo-specific development defaults
 
-## 🧪 Testing
+- Prefer Bun and its ecosystem for new code. Fall back to Node.js only when Bun is not viable.
+- Keep the single-executable CLI build in mind when adding assets or runtime files.
+- Use fp-ts pragmatically; prefer clear `match`, `map`, `flatMap`, and `isLeft` flows over overengineered abstractions.
+- For frontend work in `cli/web-ui/`, use `frontend-design` and `playwright-cli`; run `just serve-web-ui` before browser validation and use `/tmp` for temporary screenshots.
 
-### Testing, formatting, and validating CLI  (must be done after changes)
+## Delivery checklist
 
-```bash
-just # run just to read about various test/lint commands
-```
+After changes:
 
-### Validation Checklist
+- Verify namespace prefixes are correct.
+- Keep agent prompts concise and non-redundant.
+- Ensure cross-plugin calls handle missing dependencies.
+- Update relevant docs in `docs/` when behavior changes.
+- Run `just` to inspect available test, lint, and format commands when code changes require validation.
 
-**After making changes**:
+## Environment note
 
-- [ ] Skill references use proper namespace prefix
-- [ ] Agent follows constitutional pattern
-- [ ] Anti-loop directives present
-- [ ] **Agent prompt is crisp and concise (200-300 lines max)**
-- [ ] **No verbose explanations or inline examples**
-- [ ] Cross-plugin calls have error handling
-- [ ] README updated (if new skill)
-- [ ] Conventional commit format used
-- [ ] When modifying cli, tests pass with format/lint checks (use just)
-
-**Before merging**:
-
-- [ ] Both plugins install successfully
-- [ ] Skills appear in `/help`
-- [ ] Test skill execution
-- [ ] Cross-plugin KB loading works (if KB-aware)
-
-### Documentation
-
-1. When adding new features/commands/agents, update relevant parts of the user-facing docs if relevant. (documentation is in the `docs/` folder at the repo root).
-
-### Don't
-
-- ❌ Create iterative workflows in agents (subagents cannot call other agents)
-- ❌ Forget namespace prefixes
-- ❌ Call dev commands from base agents (one-way dependency)
-
----
-
-## 🔗 Resources
-
-- **GitHub**: <https://github.com/rp1-run/rp1>
-- **Issues**: <https://github.com/rp1-run/rp1/issues>
-
----
+If installing `uv`, `bun`, or npm packages fails unexpectedly, it is likely due to the local VPN setup. Stop and ask the user for help instead of spending time on package-manager retries.
 
 <!-- rp1:start -->
 ## rp1 Knowledge Base
 
-**Use Progressive Disclosure Pattern**
+Use the KB instead of duplicating project reference material in this file.
 
 Location: `.rp1/context/`
 
-Files:
-
-- index.md (always load first)
-- architecture.md
-- modules.md
-- patterns.md
-- concept_map.md
-
 Loading rules:
 
-1. Always read index.md first.
-2. Then load based on task type:
-   - Code review: patterns.md
-   - Bug investigation: architecture.md, modules.md
-   - Feature work: modules.md, patterns.md
+1. Always read `index.md` first.
+2. Then load only the files needed for the task:
+   - Code review: `patterns.md`
+   - Bug investigation: `architecture.md`, `modules.md`
+   - Feature work: `modules.md`, `patterns.md`
    - Strategic or system-wide analysis: all files
 <!-- rp1:end -->
-
-## Useful Skills
-
-Use these two skills when working with frontend code.
-
-- frontend-design@claude-plugins-official
-- agent-browser

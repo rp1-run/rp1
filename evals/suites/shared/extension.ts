@@ -268,6 +268,9 @@ export async function extensionHook(
 		// Single shared DB for all eval runs (no per-test DB needed)
 		process.env.RP1_STATUS_DB = join(EVAL_BASE_DIR, "status.db");
 
+		// Signal eval mode to prevent project registry pollution
+		process.env.RP1_EVAL_MODE = "true";
+
 		// Inject paths into vars - provider will use WORKSPACE_DIR
 		context.test.vars.EVAL_BASE_DIR = baseDir;
 		context.test.vars.WORKSPACE_DIR = workspaceDir;

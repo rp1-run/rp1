@@ -10,6 +10,10 @@ metadata:
   updated: 2026-02-26
   author: cloud-on-prem/rp1
   argument-hint: "<file-or-prompt> [--output <dir>]"
+  sub_agents:
+    - "rp1-utils:dependency-chain-analyzer"
+    - "rp1-utils:prompt-eval-extractor"
+    - "rp1-utils:prompt-assertion-specialist"
 ---
 
 # Build Prompt Evals
@@ -57,11 +61,10 @@ Use Bash: test -f "{INPUT}" && echo "file" || echo "inline"
 **If file mode:**
 
 Spawn dependency-chain-analyzer to discover sub-agent and skill dependencies:
-```
-subagent_type: rp1-utils:dependency-chain-analyzer
-prompt: |
-  $1: {INPUT file path}
-```
+
+{% dispatch_agent "rp1-utils:dependency-chain-analyzer" %}
+$1: {INPUT file path}
+{% enddispatch_agent %}
 
 Capture JSON output as DEPENDENCY_CHAIN variable.
 
@@ -94,15 +97,13 @@ OUTPUT_PROMPT = {OUTPUT_DIR}/{basename}-eval-prompt.txt
 
 Single agent generates both YAML assertions and test prompt:
 
-```
-subagent_type: rp1-utils:prompt-eval-extractor
-prompt: |
-  $1: {PROMPT_TEXT content}
-  $2: {SOURCE_NAME}
-  $3: {OUTPUT_YAML}
-  $4: {DEPENDENCY_CHAIN JSON or empty string}
-  $5: {OUTPUT_PROMPT}
-```
+{% dispatch_agent "rp1-utils:prompt-eval-extractor" %}
+$1: {PROMPT_TEXT content}
+$2: {SOURCE_NAME}
+$3: {OUTPUT_YAML}
+$4: {DEPENDENCY_CHAIN JSON or empty string}
+$5: {OUTPUT_PROMPT}
+{% enddispatch_agent %}
 
 ### Step 6: Extraction Complete (Intermediate)
 
@@ -120,11 +121,9 @@ RP1_ROOT="$(git rev-parse --show-toplevel)/.rp1"
 
 Invoke assertion specialist to optimize the generated eval config:
 
-```
-subagent_type: rp1-utils:prompt-assertion-specialist
-prompt: |
-  $1: {OUTPUT_YAML}
-```
+{% dispatch_agent "rp1-utils:prompt-assertion-specialist" %}
+$1: {OUTPUT_YAML}
+{% enddispatch_agent %}
 
 Capture JSON output as ASSERTION_RESULT variable.
 

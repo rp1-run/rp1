@@ -117,14 +117,24 @@ export const WIZARD_STEPS: readonly Omit<
 		description: "Checking existing setup",
 	},
 	{
+		id: "tool-detection",
+		name: "Tool Detection",
+		description: "Detecting AI tools",
+	},
+	{
+		id: "install-check",
+		name: "Install Check",
+		description: "Checking plugin installation",
+	},
+	{
 		id: "directory-setup",
 		name: "Directory Setup",
 		description: "Setting up directories",
 	},
 	{
-		id: "tool-detection",
-		name: "Tool Detection",
-		description: "Detecting AI tools",
+		id: "settings-setup",
+		name: "Settings",
+		description: "Creating settings files",
 	},
 	{
 		id: "instruction-injection",
@@ -135,16 +145,6 @@ export const WIZARD_STEPS: readonly Omit<
 		id: "gitignore-config",
 		name: "Gitignore",
 		description: "Configuring .gitignore",
-	},
-	{
-		id: "plugin-installation",
-		name: "Plugin Install",
-		description: "Installing plugins",
-	},
-	{
-		id: "verification",
-		name: "Verification",
-		description: "Verifying installation",
 	},
 	{
 		id: "health-check",

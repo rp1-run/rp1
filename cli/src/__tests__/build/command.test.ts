@@ -52,13 +52,13 @@ describe("buildPlugin", () => {
 		);
 		await writeFixture(
 			projectRoot,
-			"plugins/dev/skills/worktree-workflow/SKILL.md",
+			"plugins/dev/skills/build-fast/SKILL.md",
 			`---
-name: worktree-workflow
-description: "Manages git worktree workflows for parallel development branches"
+name: build-fast
+description: "Fast build workflow for rapid iteration on features"
 ---
 
-Worktree workflow skill content.
+Build fast skill content.
 `,
 		);
 
@@ -67,9 +67,7 @@ Worktree workflow skill content.
 
 		expect(result.summary.skills).toBeGreaterThanOrEqual(1);
 		expect(
-			result.assets.skills.some((s) =>
-				s.name.startsWith("rp1-worktree-workflow/"),
-			),
+			result.assets.skills.some((s) => s.name.startsWith("rp1-build-fast/")),
 		).toBe(true);
 	});
 

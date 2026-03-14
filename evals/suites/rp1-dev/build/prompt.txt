@@ -1,1 +1,1 @@
-/rp1-dev:build "{{REQUEST}}"{% if GIT_WORKTREE %} --git-worktree{% endif %}{% if GIT_COMMIT %} --git-commit{% endif %}{% if GIT_PUSH %} --git-push{% endif %}{% if GIT_PR %} --git-pr{% endif %}{% if AFK %} --afk{% endif %}
+/rp1-dev:build "{{REQUEST}}"{% if GIT_COMMIT %} --git-commit{% endif %}{% if GIT_PUSH %} --git-push{% endif %}{% if GIT_PR %} --git-pr{% endif %}{% if AFK %} --afk{% endif %}

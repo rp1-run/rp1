@@ -15,8 +15,6 @@ import {
 	useState,
 } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { MarkdownViewer } from "@/components/MarkdownViewer";
-import { CodeBlock } from "@/components/MarkdownViewer/CodeBlock";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
 import {
@@ -37,12 +35,14 @@ import { FollowModeToggle } from "@/components/v2/FollowModeToggle";
 import { KeyHints, VIEWER_HINTS } from "@/components/v2/KeyHints";
 import { NewUpdatesChip } from "@/components/v2/NewUpdatesChip";
 import { TableOfContents } from "@/components/v2/TableOfContents";
+import { UnifiedContentRenderer } from "@/components/v2/UnifiedContentRenderer";
 import { useAnnotations } from "@/hooks/useAnnotations";
 import { useContextualShortcuts } from "@/hooks/useContextualShortcuts";
 import { useFollowMode } from "@/hooks/useFollowMode";
 import type { HeadingEntry } from "@/hooks/useHeadingExtraction";
 import { useIsMobile } from "@/hooks/useMediaQuery";
 import { useRunDetail } from "@/hooks/useRunDetail";
+
 import { AnnotationProvider } from "@/providers/AnnotationProvider";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 import type { Annotation } from "@/types/annotations";
@@ -53,49 +53,6 @@ const ANNOTATIONS_ENABLED =
 
 const STORAGE_KEY_TOC_COLLAPSED = "rp1-toc-collapsed";
 const STORAGE_KEY_ANNOTATIONS_COLLAPSED = "rp1-annotations-collapsed";
-
-/**
- * Map file extensions to syntax highlighting languages.
- * Returns null for markdown files (which use MarkdownViewer).
- */
-function getCodeLanguageFromPath(path: string): string | null {
-	const ext = path.split(".").pop()?.toLowerCase();
-	if (!ext) return null;
-
-	const extToLang: Record<string, string> = {
-		ts: "typescript",
-		tsx: "tsx",
-		js: "javascript",
-		jsx: "jsx",
-		py: "python",
-		go: "go",
-		rs: "rust",
-		java: "java",
-		c: "c",
-		cpp: "cpp",
-		cc: "cpp",
-		cxx: "cpp",
-		h: "c",
-		hpp: "cpp",
-		rb: "ruby",
-		sh: "bash",
-		bash: "bash",
-		zsh: "bash",
-		json: "json",
-		yaml: "yaml",
-		yml: "yaml",
-		sql: "sql",
-		html: "html",
-		css: "css",
-		xml: "xml",
-		toml: "toml",
-		txt: "text",
-	};
-
-	if (ext === "md" || ext === "mdx") return null;
-
-	return extToLang[ext] ?? null;
-}
 
 interface ArtifactContent {
 	path: string;
@@ -633,27 +590,12 @@ export function ArtifactViewerPage() {
 					<p className="text-lg">Select an artifact from the sidebar</p>
 				</div>
 			) : artifactContent ? (
-				(() => {
-					const codeLanguage = getCodeLanguageFromPath(artifactContent.path);
-					if (codeLanguage) {
-						return (
-							<CodeBlock
-								code={artifactContent.content}
-								language={codeLanguage}
-								artifactPath={artifactContent.path}
-								enableAnnotations={ANNOTATIONS_ENABLED}
-							/>
-						);
-					}
-					return (
-						<MarkdownViewer
-							content={artifactContent.content}
-							path={artifactContent.path}
-							onHeadingsExtracted={handleHeadingsExtracted}
-							enableAnnotations={ANNOTATIONS_ENABLED}
-						/>
-					);
-				})()
+				<UnifiedContentRenderer
+					content={artifactContent.content}
+					path={artifactContent.path}
+					onHeadingsExtracted={handleHeadingsExtracted}
+					enableAnnotations={ANNOTATIONS_ENABLED}
+				/>
 			) : null}
 		</>
 	);
@@ -708,7 +650,7 @@ export function ArtifactViewerPage() {
 
 				<main className="relative flex h-full flex-1 flex-col">
 					<div
-						className="flex items-center justify-between gap-2 border-b px-4 py-2"
+						className="flex h-10 items-center justify-between gap-2 border-b px-4"
 						role="toolbar"
 						aria-label="Artifact viewer controls"
 					>
@@ -920,7 +862,7 @@ export function ArtifactViewerPage() {
 				>
 					<main className="relative flex h-full flex-col overflow-hidden">
 						<div
-							className="flex items-center justify-end gap-2 border-b px-4 py-2"
+							className="flex h-10 items-center justify-end gap-2 border-b px-4"
 							role="toolbar"
 							aria-label="Artifact viewer controls"
 						>

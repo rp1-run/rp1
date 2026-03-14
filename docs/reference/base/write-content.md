@@ -15,7 +15,7 @@ Interactive assistant for creating polished technical documents through structur
 === "OpenCode"
 
     ```bash
-    /rp1-write-content
+    /rp1-base-write-content
     ```
 
 ## Description
@@ -65,7 +65,7 @@ Documents are written to: `.rp1/work/content/<topic>/<type>.md`
 === "OpenCode"
 
     ```bash
-    /rp1-write-content
+    /rp1-base-write-content
     ```
 
 ### Example Interaction

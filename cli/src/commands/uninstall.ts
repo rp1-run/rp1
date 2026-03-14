@@ -3,8 +3,14 @@ import * as E from "fp-ts/lib/Either.js";
 import { formatError, getExitCode } from "../../shared/errors.js";
 import type { Logger } from "../../shared/logger.js";
 import type { PromptOptions } from "../../shared/prompts.js";
+import { TOOLS_REGISTRY } from "../config/supported-tools.generated.js";
+import {
+	isToolEnabled,
+	type ToolsRegistry,
+} from "../config/supported-tools.js";
 import { colorFns } from "../lib/colors.js";
 import { executeUninstall, type UninstallConfig } from "../uninstall/index.js";
+import { uninstallCodexCommand } from "./uninstall-codex.js";
 
 const { bold, dim, cyan } = colorFns;
 
@@ -111,3 +117,16 @@ Examples:
 			}
 		}
 	});
+
+const codexUninstallEnabled = isToolEnabled(
+	TOOLS_REGISTRY as ToolsRegistry,
+	"codex",
+);
+uninstallCommand.addCommand(uninstallCodexCommand, {
+	hidden: !codexUninstallEnabled,
+});
+if (!codexUninstallEnabled) {
+	uninstallCodexCommand.action(async () => {
+		process.exit(1);
+	});
+}

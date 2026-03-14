@@ -7,7 +7,7 @@ import {
 	useState,
 } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import type { FileNode } from "../../server/routes/api";
+import type { FileNode } from "../../server/routes/content-utils";
 import { FileTreeNode } from "./FileTreeNode";
 
 interface FileTreeProps {

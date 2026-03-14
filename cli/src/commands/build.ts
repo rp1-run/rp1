@@ -13,6 +13,10 @@ export const buildCommand = new Command("build:opencode")
 		"all",
 	)
 	.option("--json", "Output results as JSON for CI/CD")
+	.option(
+		"--lint",
+		"Run build pipeline with lint validation only (no file output)",
+	)
 	.addHelpText(
 		"after",
 		`
@@ -21,6 +25,7 @@ Examples:
   rp1 build:opencode --plugin dev       Build only dev plugin
   rp1 build:opencode -o ./output        Custom output directory
   rp1 build:opencode --json             JSON output for CI
+  rp1 build:opencode --lint             Lint-only mode (no file output)
 `,
 	)
 	.action(async (options, command) => {
@@ -39,6 +44,9 @@ Examples:
 		}
 		if (options.json) {
 			args.push("--json");
+		}
+		if (options.lint) {
+			args.push("--lint");
 		}
 
 		const result = await executeBuild(args, logger)();

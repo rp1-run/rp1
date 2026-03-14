@@ -1,65 +1,84 @@
 # Implementation Patterns
 
-**Project**: rp1
-**Last Updated**: 2026-03-08
+**Repository**: rp1
+**Current Project**: .
+**Last Updated**: 2026-03-09
 
 ## Naming & Organization
 
-**Files**: kebab-case for TypeScript modules and agent .md files; SKILL.md as canonical entry point
-**Functions**: camelCase for functions (executeCreate, deriveSteps, mapStatusValueToRunStatus); PascalCase for interfaces/types (CLIError, ToolResult, StateMachine, WebSocketHub)
-**Imports**: Absolute with .js extension; fp-ts namespace imports: `import * as E from 'fp-ts/lib/Either.js'`; shared module re-exports in cli/shared/fp.ts
+**Files**: Kebab-case dominates directories and workflow assets, with `SKILL.md` as the canonical invocable file.
+**Functions**: TypeScript functions use camelCase; React components and types use PascalCase.
+**Imports**: ESM imports use explicit `.js` suffixes in CLI code; frontend code also uses `@/` aliases.
 
-Evidence: cli/shared/fp.ts, cli/src/agent-tools/work/database.ts, cli/web-ui/src/server/routes/v2-api.ts
+Evidence: `docs/concepts/skills.md`, `cli/src/commands/build.ts`, `cli/src/commands/init.ts`, `cli/src/install/installer.ts`, `cli/web-ui/src/app/App.tsx`
 
 ## Type & Data Modeling
 
-**Data Representation**: TypeScript interfaces with readonly properties throughout; discriminated unions with _tag field for CLIError (14 variants); string literal unions for status enums (StatusValue, RunStatus, StepStatus); ReadonlyMap and readonly arrays for collection types
-**Type Strictness**: Strict typing everywhere; all interface fields use readonly; const assertions on arrays (as const)
-**Immutability**: Enforced on every interface field across models (ToolResult, StatusUpdateRecord, SMState, V2Project, Run, Step, Artifact); mutable state only for singleton DB connection (documented deviation)
+**Data Representation**: Strict TypeScript interfaces and typed envelopes, especially `ToolResult<T>` and workflow-specific result shapes.
+**Type Strictness**: Explicit typing is preferred across command, tool, and workflow boundaries.
+**Immutability**: `readonly`-style data flow and pipeline composition are favored over shared mutable state.
 
-Evidence: cli/shared/errors.ts:12-38, cli/src/agent-tools/models.ts, cli/src/agent-tools/work/models.ts, cli/src/agent-tools/state-machine/models.ts, cli/web-ui/src/types/runs.ts
+Evidence: `cli/src/agent-tools/work/index.ts`, `cli/src/pr-review/index.ts`, `plugins/dev/skills/build/SKILL.md`, `plugins/dev/skills/pr-review/SKILL.md`
 
 ## Error Handling
 
-**Strategy**: Functional Either/TaskEither from fp-ts; no thrown exceptions in business logic; errors are values in Left channel; factory functions for each error variant (usageError, runtimeError, parseError, etc.)
-**Propagation**: Composed via pipe() with TE.chain (happy path); caught at CLI boundary with formatError() + process.exit(getExitCode(error)); web API boundary catches with try/catch returning errorResponse()
-**Common Types**: ParseError, TransformError, ValidationError, GenerationError, InstallError, BackupError, PrerequisiteError, RuntimeError, UsageError, StrictModeError, VerificationError, NotFoundError, ConfigError, PortInUseError
+**Strategy**: fp-ts `Either` and `TaskEither` are preferred over exception-driven business logic.
+**Propagation**: Failures are composed through pipelines and normalized at command or tool boundaries.
+**Common Types**: `CLIError` variants such as validation, install, backup, config, and runtime errors are the dominant family.
 
-Evidence: cli/shared/errors.ts, cli/src/agent-tools/command.ts:146-200, cli/web-ui/src/server/routes/v2-api.ts:48-57
+Evidence: `cli/src/commands/build.ts`, `cli/src/commands/init.ts`, `cli/src/install/installer.ts`, `plugins/base/skills/knowledge-build/SKILL.md`
 
 ## Validation & Boundaries
 
-**Location**: Two-level: L1 (syntax/frontmatter) then L2 (schema/required fields) in build pipeline; CLI boundary validation for agent-tools (project path, feature name regex, status enum)
-**Method**: Either-returning validation functions; regex patterns for feature names (^[a-z0-9-]+$); CHECK constraints in SQLite schema; VALID_STATUSES/VALID_ARTIFACT_TYPES const arrays for enum validation
+**Location**: Validation happens at command entry, skill orchestration boundaries, and reduce phases.
+**Method**: Explicit shape checks, parameter tables, state-machine validation, and deterministic parsing.
+**Normalization**: Inputs are normalized early, including derived flags, resolved `RP1_ROOT`, and split `state.json` versus `meta.json`.
 
-Evidence: cli/src/agent-tools/work/database.ts:34-41, cli/src/agent-tools/command.ts:871-889, cli/src/agent-tools/work/models.ts:21-28
+Evidence: `cli/src/agent-tools/work/index.ts`, `cli/src/install/installer.ts`, `plugins/base/skills/knowledge-build/SKILL.md`, `plugins/dev/skills/build/SKILL.md`
 
 ## Observability
 
-**Logging**: createLogger with LogLevel enum (TRACE, DEBUG, INFO); optional logger injection via logger?: { debug: (msg: string) => void }; console.log for WebSocket connection events
-**Metrics**: None detected - no prometheus/statsd integration
-**Tracing**: Silent execution with <thinking> tags in agents; TTY-aware output (process.stdout.isTTY); spinner-based progress for CLI
+**Logging**: Structured logging plus workflow-status events.
+**Metrics**: Lightweight generated/reporting metrics dominate over runtime instrumentation.
+**Tracing**: Run IDs, work updates, daemon notifications, and WebSocket fan-out provide workflow-level traceability.
 
-Evidence: cli/src/main.ts:14,127-138, cli/web-ui/src/server/websocket.ts:129-136
+Evidence: `cli/src/commands/init.ts`, `cli/src/install/installer.ts`, `cli/src/agent-tools/work/index.ts`, `plugins/dev/skills/build-fast/SKILL.md`
 
 ## Testing Idioms
 
-**Organization**: Tests in cli/src/__tests__/ mirroring src/ structure
-**Fixtures**: Helper functions (getFixturePath, createTempDir, writeFixture); realistic test data with temp dir isolation; resetDatabaseInstance() for test cleanup
-**Levels**: Unit tests dominant (1062 CLI tests); integration tests for full lifecycle; promptfoo-based evals for agent quality
+**Organization**: CLI tests mirror source areas; evals cover prompt-driven behavior separately.
+**Fixtures**: Temporary directories, helper utilities, and deterministic tool wrappers are preferred.
+**Levels**: Strong unit coverage, integration flows for lifecycle behavior, and dedicated eval validation.
 
-Evidence: cli/src/__tests__/, cli/src/agent-tools/work/database.ts:689-691
+Evidence: `cli/src/__tests__/`, `evals/`, `docs/concepts/command-agent-pattern.md`, `Justfile`
 
 ## I/O & Integration
 
-**Database**: SQLite via Bun native (bun:sqlite); singleton connection with WAL mode; migration-based schema with inline SQL (MIGRATIONS map, not filesystem); version tracked via PRAGMA user_version; prepared statements with parameterized queries ($-prefixed params); on-read pruning for expired rows
-**HTTP Clients**: Bun.serve for web server; WebSocket via Bun native ServerWebSocket; dynamic route imports for lazy loading API handlers; JSON envelope responses via jsonResponse/errorResponse helpers
+**Database**: SQLite-backed workflow tracking exposed through agent tools.
+**HTTP Clients**: External operations are routed through dedicated tool/runtime surfaces, especially GitHub PR tooling.
+**Resilience**: Backup/restore, atomic staging, best-effort notifications, and partial-success orchestration are common.
 
-Evidence: cli/src/agent-tools/work/database.ts:90-193, cli/web-ui/src/server/http.ts:50-98, cli/web-ui/src/server/routes/v2-api.ts:48-57
+Evidence: `cli/src/agent-tools/work/database.ts`, `cli/src/agent-tools/github-pr/`, `cli/src/install/installer.ts`, `plugins/base/skills/knowledge-build/SKILL.md`
 
 ## Concurrency & Async
 
-**Async Usage**: async/await throughout CLI and server; TaskEither for composable async chains in business logic; WebSocketHub class manages concurrent client connections with Map-based state
-**Patterns**: Sequential execution in CLI tool commands; setTimeout chaining (not setInterval) for serial status polling; heartbeat intervals for WebSocket keepalive with stale connection pruning
+**Async Usage**: Async work is wrapped in `TaskEither` pipelines at the boundary.
+**Parallelism**: Map-reduce fan-out is the main concurrency pattern.
+**Safety**: Isolation, explicit reduction, and state-machine enforcement are preferred over shared-state coordination.
 
-Evidence: cli/web-ui/src/server/websocket.ts:277-327, cli/src/agent-tools/work/database.ts:227-263
+Evidence: `plugins/base/skills/knowledge-build/SKILL.md`, `plugins/dev/skills/pr-review/SKILL.md`, `cli/src/install/installer.ts`
+
+## Dependency & Configuration
+
+**DI Pattern**: Lightweight dependency injection through passed loggers, callbacks, providers, and runtime resolution.
+**Config Loading**: CLI flags, env vars, frontmatter, `.rp1/config/*`, and generated KB state files.
+**Initialization**: Explicit staged startup is preferred over implicit auto-discovery.
+
+Evidence: `cli/src/commands/build.ts`, `cli/src/commands/init.ts`, `cli/src/install/installer.ts`, `cli/web-ui/src/app/App.tsx`, `plugins/base/skills/knowledge-build/SKILL.md`
+
+## Extension Mechanisms
+
+**Plugin Pattern**: `base`, `dev`, and `utils` plugins are the main extension boundary.
+**Hook System**: Tool self-registration plus install/build pipelines provide the dominant extension hooks.
+
+Evidence: `plugins/base/`, `plugins/dev/`, `plugins/utils/`, `cli/src/agent-tools/work/index.ts`, `cli/src/agent-tools/rp1-root-dir/index.ts`, `cli/src/agent-tools/github-pr/index.ts`

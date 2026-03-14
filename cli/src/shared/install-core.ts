@@ -9,7 +9,11 @@ import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../shared/errors.js";
 import { installError } from "../../shared/errors.js";
 import type { Logger } from "../../shared/logger.js";
-import type { ToolsRegistry } from "../config/supported-tools.js";
+import {
+	getEnabledTools,
+	isToolEnabled,
+	type ToolsRegistry,
+} from "../config/supported-tools.js";
 import {
 	type DetectedTool,
 	detectTools,
@@ -18,6 +22,11 @@ import {
 import { installAllPlugins } from "../install/claudecode/installer.js";
 import type { ClaudeCodeInstallResult } from "../install/claudecode/models.js";
 import { runAllPrerequisiteChecks } from "../install/claudecode/prerequisites.js";
+import {
+	getDefaultCodexArtifactsDir,
+	installCodex,
+} from "../install/codex/index.js";
+import type { CodexInstallResult } from "../install/codex/models.js";
 import {
 	executeInstall,
 	type InstallArgs,
@@ -121,6 +130,31 @@ export const installOpenCodePlugins = (
 };
 
 /**
+ * Install rp1 plugins to Codex CLI.
+ * Copies skill directories and merges config.toml with agent definitions.
+ *
+ * @param config - Optional configuration for artifacts directory, etc.
+ * @param ctx - Installation context with logger, TTY info, etc.
+ * @returns TaskEither with CodexInstallResult on success or CLIError on failure
+ */
+export const installCodexPlugins = (
+	config: Partial<{ artifactsDir: string | null }>,
+	ctx: InstallContext,
+): TE.TaskEither<CLIError, CodexInstallResult> => {
+	const artifactsDir =
+		config.artifactsDir ?? getDefaultCodexArtifactsDir() ?? "dist/codex";
+
+	return installCodex(
+		{
+			artifactsDir,
+			dryRun: ctx.dryRun,
+			yes: ctx.skipPrompt,
+		},
+		ctx,
+	);
+};
+
+/**
  * Install plugins for a single detected tool.
  * Routes to the appropriate installation function based on tool ID.
  * This function never fails - errors are captured in the result.
@@ -168,6 +202,30 @@ const installForTool = (
 	if (tool.tool.id === "opencode") {
 		return pipe(
 			installOpenCodePlugins({}, ctx),
+			TE.map(
+				(): ToolInstallResult => ({
+					...baseResult,
+					success: true,
+					pluginsInstalled: ["rp1-base", "rp1-dev"],
+					warnings: [],
+				}),
+			),
+			TE.orElse(
+				(error): TE.TaskEither<CLIError, ToolInstallResult> =>
+					TE.right({
+						...baseResult,
+						success: false,
+						pluginsInstalled: [],
+						warnings: [],
+						error,
+					}),
+			),
+		);
+	}
+
+	if (tool.tool.id === "codex") {
+		return pipe(
+			installCodexPlugins({}, ctx),
 			TE.map(
 				(): ToolInstallResult => ({
 					...baseResult,
@@ -264,7 +322,7 @@ export const installAllDetectedTools = (
  * Install plugins for a specific tool by ID.
  * Useful for `rp1 install <tool>` commands.
  *
- * @param toolId - The tool ID ("claude-code" or "opencode")
+ * @param toolId - The tool ID ("claude-code", "opencode", or "codex")
  * @param registry - The tools registry to get tool metadata
  * @param ctx - Installation context
  * @returns TaskEither with ToolInstallResult
@@ -277,10 +335,22 @@ export const installForSpecificTool = (
 	const tool = registry.tools.find((t) => t.id === toolId);
 
 	if (!tool) {
+		const enabledIds = getEnabledTools(registry)
+			.map((t) => `"${t.id}"`)
+			.join(", ");
 		return TE.left(
 			installError(
 				"invalid-tool",
-				`Unknown tool: ${toolId}. Use "claude-code" or "opencode".`,
+				`Unknown tool: ${toolId}. Available tools: ${enabledIds}.`,
+			),
+		);
+	}
+
+	if (!isToolEnabled(registry, toolId)) {
+		return TE.left(
+			installError(
+				"disabled-tool",
+				`Tool "${toolId}" is currently disabled and cannot be installed.`,
 			),
 		);
 	}

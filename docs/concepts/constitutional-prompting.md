@@ -86,7 +86,7 @@ AI: [fixes tests]
 === "OpenCode"
 
     ```bash
-    /rp1-build dark-mode
+    /rp1-dev-build dark-mode
     ```
 
 **Result**: Single command orchestrates all steps (requirements, design, build, verify) in single passes, produces documented artifacts

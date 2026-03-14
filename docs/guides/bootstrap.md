@@ -65,7 +65,7 @@ From an empty directory or your projects folder:
 === "OpenCode"
 
     ```bash
-    /rp1-bootstrap my-awesome-app
+    /rp1-dev-bootstrap my-awesome-app
     ```
 
 If you omit the project name, bootstrap will prompt you for one.

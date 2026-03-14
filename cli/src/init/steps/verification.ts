@@ -3,7 +3,7 @@
  * Verifies that Claude Code and OpenCode plugins are correctly installed.
  */
 
-import { readFile, stat } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { CLAUDE_PLUGIN_DIRS } from "../../shared/paths.js";
@@ -24,146 +24,19 @@ export function getOpenCodeConfigDir(home: string = homedir()): string {
 }
 
 /**
- * Get the OpenCode plugin directory path.
+ * Get the OpenCode skills directory path.
  *
  * @param home - Home directory (defaults to os.homedir())
- * @returns Path to OpenCode plugin directory
+ * @returns Path to OpenCode skills directory
  */
-export function getOpenCodePluginDir(home: string = homedir()): string {
-	return join(getOpenCodeConfigDir(home), "plugin");
-}
-
-/**
- * Expected OpenCode plugin names (hooks plugins).
- */
-const EXPECTED_OPENCODE_PLUGINS = ["rp1-base-hooks"] as const;
-
-/**
- * Read and parse OpenCode config file.
- *
- * @param configDir - OpenCode config directory
- * @returns Parsed config or null if not found/invalid
- */
-async function readOpenCodeConfig(
-	configDir: string,
-): Promise<{ plugin?: string[] } | null> {
-	try {
-		const configPath = join(configDir, "opencode.json");
-		const content = await readFile(configPath, "utf-8");
-		return JSON.parse(content) as { plugin?: string[] };
-	} catch {
-		return null;
-	}
-}
-
-/**
- * Verify a single OpenCode plugin installation.
- *
- * @param pluginDir - Base plugin directory (~/.config/opencode/plugin/)
- * @param pluginName - Name of the plugin to verify (e.g., "rp1-base-hooks")
- * @param registeredPlugins - List of plugins registered in opencode.json
- * @returns PluginStatus with installation details
- */
-async function verifyOpenCodePlugin(
-	pluginDir: string,
-	pluginName: string,
-	registeredPlugins: string[],
-): Promise<{ status: PluginStatus; issue: string | null }> {
-	const pluginPath = join(pluginDir, pluginName);
-	const expectedConfigEntry = `./plugin/${pluginName}`;
-
-	// Check if registered in config
-	const isRegistered = registeredPlugins.includes(expectedConfigEntry);
-
-	try {
-		const pluginStat = await stat(pluginPath);
-
-		if (!pluginStat.isDirectory()) {
-			return {
-				status: {
-					name: pluginName,
-					installed: false,
-					version: null,
-					location: null,
-				},
-				issue: `${pluginName} path exists but is not a directory`,
-			};
-		}
-
-		// Plugin directory exists - check for index.ts or index.js
-		let version: string | null = null;
-		try {
-			const packagePath = join(pluginPath, "package.json");
-			const packageContent = await readFile(packagePath, "utf-8");
-			const pkg = JSON.parse(packageContent) as { version?: string };
-			version = pkg.version ?? null;
-		} catch {
-			// No package.json, that's ok for OpenCode plugins
-		}
-
-		if (!isRegistered) {
-			return {
-				status: {
-					name: pluginName,
-					installed: true,
-					version: version ?? "unknown",
-					location: pluginPath,
-				},
-				issue: `${pluginName} exists but not registered in opencode.json`,
-			};
-		}
-
-		return {
-			status: {
-				name: pluginName,
-				installed: true,
-				version: version ?? "unknown",
-				location: pluginPath,
-			},
-			issue: null,
-		};
-	} catch (error) {
-		if (error instanceof Error && "code" in error) {
-			const nodeError = error as NodeJS.ErrnoException;
-			if (nodeError.code === "ENOENT") {
-				return {
-					status: {
-						name: pluginName,
-						installed: false,
-						version: null,
-						location: null,
-					},
-					issue: `${pluginName} not found at expected location`,
-				};
-			}
-			if (nodeError.code === "EACCES") {
-				return {
-					status: {
-						name: pluginName,
-						installed: false,
-						version: null,
-						location: null,
-					},
-					issue: `${pluginName}: permission denied`,
-				};
-			}
-		}
-
-		return {
-			status: {
-				name: pluginName,
-				installed: false,
-				version: null,
-				location: null,
-			},
-			issue: `${pluginName}: error checking plugin directory`,
-		};
-	}
+export function getOpenCodeSkillsDir(home: string = homedir()): string {
+	return join(getOpenCodeConfigDir(home), "skills");
 }
 
 /**
  * Verify OpenCode plugin installation.
- * Checks that rp1 hooks plugins are correctly installed and registered.
+ * Checks that rp1 skill directories exist in the OpenCode skills directory.
+ * Skills are installed as flat rp1-{skill} directories (no plugin infix).
  *
  * @param home - Home directory (for testing, defaults to os.homedir())
  * @param callbacks - Optional callbacks for reporting progress to UI
@@ -176,80 +49,43 @@ export async function verifyOpenCodePlugins(
 	const plugins: PluginStatus[] = [];
 	const issues: string[] = [];
 
-	callbacks?.onActivity("Checking OpenCode plugin directory", "info");
+	callbacks?.onActivity("Checking OpenCode skills directory", "info");
 
-	const configDir = getOpenCodeConfigDir(home);
-	const pluginDir = getOpenCodePluginDir(home);
+	const skillsDir = getOpenCodeSkillsDir(home);
 
-	// Read OpenCode config to check plugin registration
-	const config = await readOpenCodeConfig(configDir);
-	const registeredPlugins = config?.plugin ?? [];
-
-	// Check if plugin directory exists
+	let rp1Dirs: string[] = [];
 	try {
-		const dirStat = await stat(pluginDir);
-		if (!dirStat.isDirectory()) {
-			issues.push("OpenCode plugin directory is not a directory");
-			callbacks?.onActivity(
-				"OpenCode plugin directory is not valid",
-				"warning",
-			);
-			return {
-				verified: false,
-				plugins: EXPECTED_OPENCODE_PLUGINS.map((name) => ({
-					name,
-					installed: false,
-					version: null,
-					location: null,
-				})),
-				issues,
-			};
+		const dirStat = await stat(skillsDir);
+		if (dirStat.isDirectory()) {
+			const entries = await readdir(skillsDir);
+			rp1Dirs = entries.filter((e) => e.startsWith("rp1-"));
 		}
 	} catch {
-		// Plugin directory doesn't exist - plugins not installed
-		issues.push("OpenCode plugin directory not found");
-		callbacks?.onActivity("OpenCode plugin directory not found", "warning");
-		return {
-			verified: false,
-			plugins: EXPECTED_OPENCODE_PLUGINS.map((name) => ({
-				name,
-				installed: false,
-				version: null,
-				location: null,
-			})),
-			issues,
-		};
+		issues.push("OpenCode skills directory not found");
+		callbacks?.onActivity("OpenCode skills directory not found", "warning");
 	}
 
-	// Verify each expected plugin
-	for (const pluginName of EXPECTED_OPENCODE_PLUGINS) {
-		const result = await verifyOpenCodePlugin(
-			pluginDir,
-			pluginName,
-			registeredPlugins,
-		);
-		plugins.push(result.status);
-		if (result.issue) {
-			issues.push(result.issue);
-		}
+	const installed = rp1Dirs.length > 0;
+
+	plugins.push({
+		name: "rp1",
+		installed,
+		version: installed ? `${rp1Dirs.length} skills` : null,
+		location: installed ? skillsDir : null,
+	});
+
+	if (!installed && issues.length === 0) {
+		issues.push(`No rp1-* skills found in ${skillsDir}`);
 	}
 
-	// Verification passes if all plugins are installed
-	const allInstalled = plugins.every((p) => p.installed);
-
-	// Report result
-	if (allInstalled) {
+	if (installed) {
 		callbacks?.onActivity("OpenCode plugins verified", "success");
 	} else {
-		const missingCount = plugins.filter((p) => !p.installed).length;
-		callbacks?.onActivity(
-			`${missingCount} OpenCode plugin(s) not found`,
-			"warning",
-		);
+		callbacks?.onActivity("OpenCode skills not found", "warning");
 	}
 
 	return {
-		verified: allInstalled,
+		verified: installed,
 		plugins,
 		issues,
 	};
@@ -261,10 +97,10 @@ export async function verifyOpenCodePlugins(
 const EXPECTED_PLUGINS = ["rp1-base", "rp1-dev"] as const;
 
 /**
- * Plugin directory name suffix used by Claude Code.
- * Plugins are installed as <name>@<marketplace>.
+ * Plugin directory name suffixes used by Claude Code.
+ * Stable: <name>@rp1-run, Dev: <name>@rp1-local.
  */
-const PLUGIN_SUFFIX = "@rp1-run";
+const PLUGIN_SUFFIXES = ["@rp1-run", "@rp1-local"] as const;
 
 /**
  * Structure of installed_plugins.json
@@ -335,8 +171,6 @@ function verifyPluginFromJson(
 	pluginName: string,
 	installedPlugins: InstalledPluginsJson | null,
 ): { status: PluginStatus; issue: string | null } {
-	const fullPluginId = `${pluginName}${PLUGIN_SUFFIX}`;
-
 	if (!installedPlugins) {
 		return {
 			status: {
@@ -349,30 +183,33 @@ function verifyPluginFromJson(
 		};
 	}
 
-	const pluginEntries = installedPlugins.plugins[fullPluginId];
+	// Check all known marketplace suffixes (stable and dev)
+	for (const suffix of PLUGIN_SUFFIXES) {
+		const fullPluginId = `${pluginName}${suffix}`;
+		const pluginEntries = installedPlugins.plugins[fullPluginId];
 
-	if (!pluginEntries || pluginEntries.length === 0) {
-		return {
-			status: {
-				name: pluginName,
-				installed: false,
-				version: null,
-				location: null,
-			},
-			issue: `${pluginName} not found in installed plugins`,
-		};
+		if (pluginEntries && pluginEntries.length > 0) {
+			const latestEntry = pluginEntries[0];
+			return {
+				status: {
+					name: pluginName,
+					installed: true,
+					version: latestEntry.version ?? "unknown",
+					location: latestEntry.installPath,
+				},
+				issue: null,
+			};
+		}
 	}
-
-	const latestEntry = pluginEntries[0];
 
 	return {
 		status: {
 			name: pluginName,
-			installed: true,
-			version: latestEntry.version ?? "unknown",
-			location: latestEntry.installPath,
+			installed: false,
+			version: null,
+			location: null,
 		},
-		issue: null,
+		issue: `${pluginName} not found in installed plugins`,
 	};
 }
 
@@ -441,6 +278,130 @@ export async function verifyClaudeCodePlugins(
 
 	return {
 		verified: allInstalled,
+		plugins,
+		issues,
+	};
+}
+
+/**
+ * Get the Codex agents skills directory path.
+ *
+ * @param home - Home directory (defaults to os.homedir())
+ * @returns Path to Codex agents skills directory
+ */
+export function getCodexSkillsDir(home: string = homedir()): string {
+	return join(home, ".agents", "skills");
+}
+
+/**
+ * Get the Codex config.toml path.
+ *
+ * @param home - Home directory (defaults to os.homedir())
+ * @returns Path to Codex config.toml
+ */
+export function getCodexConfigFile(home: string = homedir()): string {
+	return join(home, ".codex", "config.toml");
+}
+
+/**
+ * Verify Codex CLI plugin installation.
+ * Checks for rp1 skill directories under ~/.agents/skills/ and confirms
+ * rp1-managed config was merged into ~/.codex/config.toml.
+ *
+ * @param home - Home directory (for testing, defaults to os.homedir())
+ * @param callbacks - Optional callbacks for reporting progress to UI
+ * @returns VerificationResult with plugin-style statuses and any issues found
+ */
+export async function verifyCodexPlugins(
+	home?: string,
+	callbacks?: StepCallbacks,
+): Promise<VerificationResult> {
+	const plugins: PluginStatus[] = [];
+	const issues: string[] = [];
+
+	callbacks?.onActivity("Checking Codex CLI skills directory", "info");
+
+	const skillsDir = getCodexSkillsDir(home);
+	const configFile = getCodexConfigFile(home);
+	let hasBaseSkills = false;
+	let hasDevSkills = false;
+
+	try {
+		const dirStat = await stat(skillsDir);
+		if (dirStat.isDirectory()) {
+			const entries = await readdir(skillsDir);
+			const rp1Dirs = entries.filter((e) => e.startsWith("rp1-"));
+			hasBaseSkills = rp1Dirs.some((entry) => entry.startsWith("rp1-base-"));
+			hasDevSkills = rp1Dirs.some((entry) => entry.startsWith("rp1-dev-"));
+
+			if (rp1Dirs.length > 0) {
+				callbacks?.onActivity(
+					`Found ${rp1Dirs.length} rp1 skill(s) in Codex agents directory`,
+					"info",
+				);
+			}
+		}
+	} catch {
+		// Skills directory doesn't exist
+		issues.push("Codex agents skills directory not found");
+		callbacks?.onActivity("Codex agents skills directory not found", "warning");
+	}
+
+	if (!hasBaseSkills) {
+		issues.push("Codex base skills not found in ~/.agents/skills");
+	}
+
+	if (!hasDevSkills) {
+		issues.push("Codex dev skills not found in ~/.agents/skills");
+	}
+
+	let configInstalled = false;
+	try {
+		const configContent = await readFile(configFile, "utf-8");
+		configInstalled =
+			configContent.includes("# rp1:start") &&
+			configContent.includes("# rp1:end");
+	} catch {
+		issues.push("Codex config.toml not found");
+	}
+
+	if (!configInstalled) {
+		issues.push("Codex config.toml is missing the rp1 managed section");
+		callbacks?.onActivity(
+			"Codex config.toml is missing the rp1 managed section",
+			"warning",
+		);
+	}
+
+	plugins.push({
+		name: "rp1-base",
+		installed: hasBaseSkills,
+		version: "unknown",
+		location: hasBaseSkills ? skillsDir : null,
+	});
+	plugins.push({
+		name: "rp1-dev",
+		installed: hasDevSkills,
+		version: "unknown",
+		location: hasDevSkills ? skillsDir : null,
+	});
+
+	const verified = hasBaseSkills && hasDevSkills && configInstalled;
+
+	if (verified) {
+		callbacks?.onActivity("Codex plugins verified", "success");
+	} else {
+		const missingCount = plugins.filter((p) => !p.installed).length;
+		callbacks?.onActivity(
+			missingCount > 0
+				? `${missingCount} Codex plugin group(s) not found`
+				: "Codex config verification failed",
+			"warning",
+		);
+	}
+
+	return {
+		verified,
 		plugins,
 		issues,
 	};

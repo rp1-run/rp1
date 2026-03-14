@@ -46,13 +46,10 @@ Extract these parameters from the user's input:
 
 ### Step 1: Run Audit
 
-Task tool:
-- `subagent_type`: `rp1-dev:blueprint-auditor`
-- `prompt`:
-```
+{% dispatch_agent "rp1-dev:blueprint-auditor" %}
 MODE: audit
 PRD_NAME: {PRD_NAME}
-```
+{% enddispatch_agent %}
 
 ### Step 2: Handle Audit Response
 
@@ -71,16 +68,7 @@ Display the audit table from agent output, then continue to Step 3.
 
 ### Step 3: Ask Relevance Question
 
-Use AskUserQuestion:
-```
-Question: "Is this PRD still relevant to your work?"
-Options:
-- "Archive" - PRD is complete or no longer needed
-- "Add scope" - Add new work items to PRD
-- "Remove scope" - Remove incomplete phases from PRD
-- "Continue" - Keep PRD active, no changes
-- "Defer" - Revisit this decision later
-```
+{% ask_user "Is this PRD still relevant to your work?", options: "Archive", "Add scope", "Remove scope", "Continue", "Defer" %}
 
 ### Step 4: Handle User Choice
 

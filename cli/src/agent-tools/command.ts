@@ -7,6 +7,7 @@ import { Command } from "commander";
 import * as E from "fp-ts/lib/Either.js";
 import { formatError } from "../../shared/errors.js";
 import { executeExtract } from "./comment-extract/index.js";
+import { resolveProjectPath } from "./git.js";
 import {
 	executeAddReaction,
 	executeFetchComments,
@@ -39,15 +40,8 @@ process.on("SIGINT", () => {
 	process.exit(0);
 });
 
-import {
-	executeCleanup,
-	executeCreate,
-	executeStatus,
-} from "./worktree/index.js";
-
 import "./mmd-validate/index.js";
 import "./rp1-root-dir/index.js";
-import "./worktree/index.js";
 import "./comment-extract/index.js";
 import "./github-pr/index.js";
 import "./work/index.js";
@@ -82,8 +76,7 @@ export const agentToolsCommand = new Command("agent-tools")
 		`
 Available Tools:
   mmd-validate      Validate Mermaid diagram syntax
-  rp1-root-dir      Resolve RP1_ROOT path with worktree awareness
-  worktree          Manage git worktrees for isolated agent execution
+  rp1-root-dir      Resolve RP1_ROOT path with read-only worktree detection
   comment-extract   Extract comments from git-changed files
   github-pr         GitHub PR operations (submit-review, add-reaction, reply-comment, fetch-comments)
   work              Track agent workflow progress with status updates and artifacts
@@ -93,9 +86,6 @@ Examples:
   cat diagram.mmd | rp1 agent-tools mmd-validate
   echo "graph TD; A-->B" | rp1 agent-tools mmd-validate
   rp1 agent-tools rp1-root-dir
-  rp1 agent-tools worktree create fix-auth-bug
-  rp1 agent-tools worktree status
-  rp1 agent-tools worktree cleanup /path/to/worktree
   rp1 agent-tools comment-extract branch main
   rp1 agent-tools comment-extract unstaged main
   echo '{"owner":"org","repo":"repo","pr_number":123}' | rp1 agent-tools github-pr fetch-comments
@@ -206,16 +196,25 @@ Examples:
  */
 agentToolsCommand
 	.command("rp1-root-dir")
-	.description("Resolve RP1_ROOT path with worktree awareness")
+	.description("Resolve RP1_ROOT path with read-only worktree detection")
 	.addHelpText(
 		"after",
 		`
 Description:
-  Returns the resolved RP1_ROOT path, enabling agents to access KB and work
-  artifacts from the main repository when running in a linked git worktree.
+  Resolves the RP1_ROOT path so agents can access KB and work artifacts from
+  the correct project root. When running in a linked git worktree, the tool
+  detects this and maps back to the main repository's .rp1 directory.
+
+  This is a read-only detection tool. It does not create, modify, or remove
+  git worktrees. Users manage worktrees directly with native git commands.
+
+Resolution order:
+  1. RP1_ROOT environment variable (if set, used as-is)
+  2. Git worktree detection via git-common-dir (maps to main repo)
+  3. Standard resolution from current working directory
 
 Output:
-  JSON with root path and worktree detection info:
+  JSON with root path and detection metadata:
   - root: Absolute path to RP1_ROOT directory
   - isWorktree: Whether running in a linked git worktree
   - worktreeName: Branch name if in worktree
@@ -237,189 +236,6 @@ Examples:
 		}
 
 		const result = await tool.execute("", { inputSource: "stdin" })();
-
-		if (E.isLeft(result)) {
-			console.error(
-				createErrorResponse(toolName, formatError(result.left, false)),
-			);
-			process.exit(1);
-		}
-
-		console.log(formatOutput(result.right));
-		process.exit(0);
-	});
-
-/**
- * worktree subcommand.
- * Manages git worktrees for isolated agent execution.
- */
-const worktreeCommand = agentToolsCommand
-	.command("worktree")
-	.description("Manage git worktrees for isolated agent execution")
-	.addHelpText(
-		"after",
-		`
-Description:
-  Provides subcommands for creating, cleaning up, and checking status of
-  git worktrees used for isolated agent execution. Worktrees enable agents
-  to make changes without affecting the user's uncommitted work.
-
-Subcommands:
-  create <slug>    Create an isolated worktree for agent execution
-  cleanup <path>   Remove a worktree and optionally delete the branch
-  status           Check if running in a worktree
-
-Examples:
-  rp1 agent-tools worktree create fix-auth-bug
-  rp1 agent-tools worktree create add-feature --prefix feature
-  rp1 agent-tools worktree status
-  rp1 agent-tools worktree cleanup /path/to/worktree
-  rp1 agent-tools worktree cleanup /path/to/worktree --no-keep-branch
-`,
-	);
-
-/**
- * worktree create subcommand.
- * Creates an isolated git worktree for agent execution.
- */
-worktreeCommand
-	.command("create <slug>")
-	.description("Create an isolated worktree for agent execution")
-	.option("-p, --prefix <prefix>", "Branch prefix", "quick-build")
-	.addHelpText(
-		"after",
-		`
-Description:
-  Creates a new git worktree based on HEAD with a new branch named
-  {prefix}-{slug}. The worktree is created in {RP1_ROOT}/work/worktrees/.
-
-Arguments:
-  slug    Task identifier used in branch naming (e.g., "fix-auth-bug")
-
-Options:
-  --prefix <prefix>    Branch prefix (default: "quick-build")
-
-Output:
-  JSON with worktree creation details:
-  - path: Absolute path to the created worktree
-  - branch: Name of the created branch
-  - basedOn: Commit SHA the worktree is based on
-
-Examples:
-  rp1 agent-tools worktree create fix-auth-bug
-  rp1 agent-tools worktree create add-feature --prefix feature
-`,
-	)
-	.action(async (slug: string, options: { prefix: string }): Promise<void> => {
-		const toolName = "worktree";
-
-		const result = await executeCreate({
-			slug,
-			prefix: options.prefix,
-		})();
-
-		if (E.isLeft(result)) {
-			console.error(
-				createErrorResponse(toolName, formatError(result.left, false)),
-			);
-			process.exit(1);
-		}
-
-		console.log(formatOutput(result.right));
-		process.exit(0);
-	});
-
-/**
- * worktree cleanup subcommand.
- * Removes a worktree and optionally deletes the associated branch.
- */
-worktreeCommand
-	.command("cleanup <path>")
-	.description("Remove a worktree and optionally delete the branch")
-	.option("--keep-branch", "Preserve the branch after removing worktree", true)
-	.option("--no-keep-branch", "Delete the branch after removing worktree")
-	.option("-f, --force", "Force removal even if worktree has changes", false)
-	.addHelpText(
-		"after",
-		`
-Description:
-  Removes a git worktree directory and prunes stale references.
-  By default, preserves the associated branch for later use.
-
-Arguments:
-  path    Absolute or relative path to the worktree to remove
-
-Options:
-  --keep-branch        Preserve the branch (default: true)
-  --no-keep-branch     Delete the branch after removing worktree
-  --force, -f          Force removal even if worktree has uncommitted changes
-
-Output:
-  JSON with cleanup results:
-  - removed: Whether the worktree was successfully removed
-  - branchDeleted: Whether the associated branch was deleted
-  - path: Absolute path of the removed worktree
-
-Examples:
-  rp1 agent-tools worktree cleanup /path/to/worktree
-  rp1 agent-tools worktree cleanup /path/to/worktree --no-keep-branch
-  rp1 agent-tools worktree cleanup /path/to/worktree --force
-`,
-	)
-	.action(
-		async (
-			worktreePath: string,
-			options: { keepBranch: boolean; force: boolean },
-		): Promise<void> => {
-			const toolName = "worktree";
-
-			const result = await executeCleanup({
-				path: worktreePath,
-				keepBranch: options.keepBranch,
-				force: options.force,
-			})();
-
-			if (E.isLeft(result)) {
-				console.error(
-					createErrorResponse(toolName, formatError(result.left, false)),
-				);
-				process.exit(1);
-			}
-
-			console.log(formatOutput(result.right));
-			process.exit(0);
-		},
-	);
-
-/**
- * worktree status subcommand.
- * Checks if currently running in a git worktree.
- */
-worktreeCommand
-	.command("status")
-	.description("Check if running in a worktree")
-	.addHelpText(
-		"after",
-		`
-Description:
-  Detects whether the current working directory is inside a linked git worktree
-  and returns information about the worktree if so.
-
-Output:
-  JSON with worktree status:
-  - isWorktree: Whether running in a linked git worktree
-  - path: Worktree path (if in worktree)
-  - branch: Branch name (if in worktree)
-  - mainRepoPath: Path to the main repository (if in worktree)
-
-Examples:
-  rp1 agent-tools worktree status
-`,
-	)
-	.action(async (): Promise<void> => {
-		const toolName = "worktree";
-
-		const result = await executeStatus()();
 
 		if (E.isLeft(result)) {
 			console.error(
@@ -904,12 +720,25 @@ Examples:
 				process.exit(1);
 			}
 
+			const resolvedResult = await resolveProjectPath(options.project)();
+			if (E.isLeft(resolvedResult)) {
+				console.error(
+					createErrorResponse(
+						toolName,
+						formatError(resolvedResult.left, false),
+					),
+				);
+				process.exit(1);
+			}
+
+			const resolved = resolvedResult.right;
 			const result = await executeWorkArtifact({
-				projectPath: options.project,
+				projectPath: resolved.projectPath,
 				feature: options.feature,
 				runId: options.runId,
 				path: options.path,
 				type: artifactType as (typeof VALID_ARTIFACT_TYPES)[number],
+				worktreePath: resolved.worktreePath,
 			})();
 
 			if (E.isLeft(result)) {

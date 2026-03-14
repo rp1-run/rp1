@@ -15,7 +15,7 @@ Removes unnecessary comments from code while preserving essential documentation.
 === "OpenCode"
 
     ```bash
-    /rp1-code-clean-comments [scope] [base-branch]
+    /rp1-dev-code-clean-comments [scope] [base-branch]
     ```
 
 ## Parameters

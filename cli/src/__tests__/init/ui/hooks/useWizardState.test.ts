@@ -76,12 +76,12 @@ describe("useWizardState", () => {
 				"registry",
 				"git-check",
 				"reinit-check",
-				"directory-setup",
 				"tool-detection",
+				"install-check",
+				"directory-setup",
+				"settings-setup",
 				"instruction-injection",
 				"gitignore-config",
-				"plugin-installation",
-				"verification",
 				"health-check",
 				"summary",
 			];
@@ -112,7 +112,7 @@ describe("useWizardState", () => {
 		});
 
 		test("returns correct step for middle index", () => {
-			const state = createTestState({ currentStepIndex: 4 });
+			const state = createTestState({ currentStepIndex: 3 });
 			const current = getCurrentStep(state);
 
 			expect(current?.id).toBe("tool-detection");
@@ -363,18 +363,18 @@ describe("useWizardState", () => {
 
 			let steps = state.steps;
 			steps = addStepActivity(steps, "tool-detection", activity1);
-			steps = addStepActivity(steps, "plugin-installation", activity2);
+			steps = addStepActivity(steps, "install-check", activity2);
 
 			const toolStep = steps.find((s) => s.id === "tool-detection");
-			const pluginStep = steps.find((s) => s.id === "plugin-installation");
+			const installCheckStep = steps.find((s) => s.id === "install-check");
 
 			expect(toolStep?.activities).toHaveLength(1);
 			expect(toolStep?.activities[0].message).toBe(
 				"Activity for tool detection",
 			);
 
-			expect(pluginStep?.activities).toHaveLength(1);
-			expect(pluginStep?.activities[0].message).toBe(
+			expect(installCheckStep?.activities).toHaveLength(1);
+			expect(installCheckStep?.activities[0].message).toBe(
 				"Activity for plugin installation",
 			);
 		});

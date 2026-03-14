@@ -24,7 +24,10 @@ const logger = createLogger({
 });
 
 const args = process.argv.slice(2);
-const result = await executeBuild(args, logger)();
+const result = await executeBuild(
+	[...args, "--platform", "opencode"],
+	logger,
+)();
 
 if (E.isLeft(result)) {
 	process.exit(1);

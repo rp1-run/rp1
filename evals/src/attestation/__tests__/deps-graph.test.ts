@@ -9,6 +9,7 @@ import { join } from "node:path";
 import * as E from "fp-ts/Either";
 import {
 	buildDependencyGraph,
+	getDistPluginPath,
 	parseAgentRefs,
 	parseSkillRefs,
 } from "../deps-graph.js";
@@ -24,17 +25,53 @@ afterAll(async () => {
 	await rm(tempDir, { recursive: true, force: true });
 });
 
+describe("getDistPluginPath", () => {
+	test("returns correct path for claude-code", () => {
+		expect(getDistPluginPath("claude-code", "rp1-dev")).toBe(
+			"cli/dist/claude-code/dev",
+		);
+	});
+
+	test("returns correct path for opencode", () => {
+		expect(getDistPluginPath("opencode", "rp1-base")).toBe(
+			"cli/dist/opencode/base",
+		);
+	});
+
+	test("returns correct path for codex", () => {
+		expect(getDistPluginPath("codex", "rp1-utils")).toBe(
+			"cli/dist/codex/utils",
+		);
+	});
+});
+
 describe("parseAgentRefs", () => {
-	test("extracts single Task reference", () => {
+	test("extracts single Task reference for claude-code", () => {
 		const content = `
 # Skill
 
 Task: rp1-dev:build-fast-executor
 prompt: Build fast
 `;
-		const refs = parseAgentRefs(content);
+		const refs = parseAgentRefs(content, "claude-code");
 
-		expect(refs).toEqual(["plugins/dev/agents/build-fast-executor.md"]);
+		expect(refs).toEqual([
+			"cli/dist/claude-code/dev/agents/build-fast-executor.md",
+		]);
+	});
+
+	test("extracts single Task reference for opencode", () => {
+		const content = `
+# Skill
+
+Task: rp1-dev:build-fast-executor
+prompt: Build fast
+`;
+		const refs = parseAgentRefs(content, "opencode");
+
+		expect(refs).toEqual([
+			"cli/dist/opencode/dev/agents/build-fast-executor.md",
+		]);
 	});
 
 	test("extracts multiple Task references", () => {
@@ -47,10 +84,12 @@ prompt: Design
 Task: rp1-base:kb-analyzer
 prompt: Analyze
 `;
-		const refs = parseAgentRefs(content);
+		const refs = parseAgentRefs(content, "claude-code");
 
-		expect(refs).toContain("plugins/dev/agents/feature-architect.md");
-		expect(refs).toContain("plugins/base/agents/kb-analyzer.md");
+		expect(refs).toContain(
+			"cli/dist/claude-code/dev/agents/feature-architect.md",
+		);
+		expect(refs).toContain("cli/dist/claude-code/base/agents/kb-analyzer.md");
 		expect(refs).toHaveLength(2);
 	});
 
@@ -62,9 +101,9 @@ prompt: First
 Task: rp1-dev:builder
 prompt: Second
 `;
-		const refs = parseAgentRefs(content);
+		const refs = parseAgentRefs(content, "claude-code");
 
-		expect(refs).toEqual(["plugins/dev/agents/builder.md"]);
+		expect(refs).toEqual(["cli/dist/claude-code/dev/agents/builder.md"]);
 	});
 
 	test("ignores unknown plugin names", () => {
@@ -72,7 +111,7 @@ prompt: Second
 Task: unknown-plugin:agent-name
 prompt: test
 `;
-		const refs = parseAgentRefs(content);
+		const refs = parseAgentRefs(content, "claude-code");
 
 		expect(refs).toEqual([]);
 	});
@@ -83,7 +122,7 @@ prompt: test
 
 No agent references here.
 `;
-		const refs = parseAgentRefs(content);
+		const refs = parseAgentRefs(content, "claude-code");
 
 		expect(refs).toEqual([]);
 	});
@@ -94,25 +133,38 @@ Task: rp1-base:base-agent
 Task: rp1-dev:dev-agent
 Task: rp1-utils:utils-agent
 `;
-		const refs = parseAgentRefs(content);
+		const refs = parseAgentRefs(content, "codex");
 
-		expect(refs).toContain("plugins/base/agents/base-agent.md");
-		expect(refs).toContain("plugins/dev/agents/dev-agent.md");
-		expect(refs).toContain("plugins/utils/agents/utils-agent.md");
+		expect(refs).toContain("cli/dist/codex/base/agents/base-agent.md");
+		expect(refs).toContain("cli/dist/codex/dev/agents/dev-agent.md");
+		expect(refs).toContain("cli/dist/codex/utils/agents/utils-agent.md");
 	});
 });
 
 describe("parseSkillRefs", () => {
-	test("extracts skill: prefix reference", () => {
+	test("extracts skill reference for claude-code (bare names)", () => {
 		const content = `
 # Agent
 
 Use the skill: rp1-base:knowledge-base-templates
 `;
-		const refs = parseSkillRefs(content);
+		const refs = parseSkillRefs(content, "claude-code");
 
 		expect(refs).toEqual([
-			"plugins/base/skills/knowledge-base-templates/SKILL.md",
+			"cli/dist/claude-code/base/skills/knowledge-base-templates/SKILL.md",
+		]);
+	});
+
+	test("extracts skill reference for opencode (rp1-prefixed names)", () => {
+		const content = `
+# Agent
+
+Use the skill: rp1-base:knowledge-base-templates
+`;
+		const refs = parseSkillRefs(content, "opencode");
+
+		expect(refs).toEqual([
+			"cli/dist/opencode/base/skills/rp1-knowledge-base-templates/SKILL.md",
 		]);
 	});
 
@@ -120,18 +172,22 @@ Use the skill: rp1-base:knowledge-base-templates
 		const content = `
 Skill rp1-dev:worktree-workflow
 `;
-		const refs = parseSkillRefs(content);
+		const refs = parseSkillRefs(content, "claude-code");
 
-		expect(refs).toEqual(["plugins/dev/skills/worktree-workflow/SKILL.md"]);
+		expect(refs).toEqual([
+			"cli/dist/claude-code/dev/skills/worktree-workflow/SKILL.md",
+		]);
 	});
 
 	test("extracts backtick-quoted skill reference", () => {
 		const content = `
 Use worktree-workflow skill \`rp1-dev:worktree-workflow\`
 `;
-		const refs = parseSkillRefs(content);
+		const refs = parseSkillRefs(content, "codex");
 
-		expect(refs).toEqual(["plugins/dev/skills/worktree-workflow/SKILL.md"]);
+		expect(refs).toEqual([
+			"cli/dist/codex/dev/skills/rp1-worktree-workflow/SKILL.md",
+		]);
 	});
 
 	test("extracts multiple skill references", () => {
@@ -139,11 +195,11 @@ Use worktree-workflow skill \`rp1-dev:worktree-workflow\`
 skill: rp1-base:mermaid
 Skill rp1-base:knowledge-base-templates
 `;
-		const refs = parseSkillRefs(content);
+		const refs = parseSkillRefs(content, "claude-code");
 
-		expect(refs).toContain("plugins/base/skills/mermaid/SKILL.md");
+		expect(refs).toContain("cli/dist/claude-code/base/skills/mermaid/SKILL.md");
 		expect(refs).toContain(
-			"plugins/base/skills/knowledge-base-templates/SKILL.md",
+			"cli/dist/claude-code/base/skills/knowledge-base-templates/SKILL.md",
 		);
 		expect(refs).toHaveLength(2);
 	});
@@ -153,9 +209,9 @@ Skill rp1-base:knowledge-base-templates
 skill: rp1-base:mermaid
 skill: rp1-base:mermaid
 `;
-		const refs = parseSkillRefs(content);
+		const refs = parseSkillRefs(content, "claude-code");
 
-		expect(refs).toEqual(["plugins/base/skills/mermaid/SKILL.md"]);
+		expect(refs).toEqual(["cli/dist/claude-code/base/skills/mermaid/SKILL.md"]);
 	});
 
 	test("returns empty array when no skill references found", () => {
@@ -164,7 +220,7 @@ skill: rp1-base:mermaid
 
 No skills used here.
 `;
-		const refs = parseSkillRefs(content);
+		const refs = parseSkillRefs(content, "claude-code");
 
 		expect(refs).toEqual([]);
 	});
@@ -173,7 +229,7 @@ No skills used here.
 		const content = `
 skill: unknown-plugin:some-skill
 `;
-		const refs = parseSkillRefs(content);
+		const refs = parseSkillRefs(content, "claude-code");
 
 		expect(refs).toEqual([]);
 	});
@@ -197,12 +253,13 @@ No agent references here.
 `,
 		);
 
-		const result = await buildDependencyGraph(skillPath)();
+		const result = await buildDependencyGraph(skillPath, "claude-code")();
 
 		expect(E.isRight(result)).toBe(true);
 		if (E.isRight(result)) {
 			expect(result.right.skill).toBe("simple-skill");
 			expect(result.right.skillPath).toBe(skillPath);
+			expect(result.right.platform).toBe("claude-code");
 			expect(result.right.agents).toEqual([]);
 			expect(result.right.skills).toEqual([]);
 		}
@@ -222,25 +279,26 @@ Content.
 `,
 		);
 
-		const result = await buildDependencyGraph(skillPath)();
+		const result = await buildDependencyGraph(skillPath, "opencode")();
 
 		expect(E.isRight(result)).toBe(true);
 		if (E.isRight(result)) {
 			expect(result.right.skill).toBe("my-skill");
 			expect(result.right.skillPath).toBe(skillPath);
+			expect(result.right.platform).toBe("opencode");
 		}
 	});
 
 	test("handles transitive skill dependencies", async () => {
-		// Create directory structure
-		const pluginsBase = join(tempDir, "plugins/base");
-		const pluginsDev = join(tempDir, "plugins/dev");
-		await mkdir(join(pluginsBase, "agents"), { recursive: true });
-		await mkdir(join(pluginsBase, "skills/mermaid"), { recursive: true });
-		await mkdir(join(pluginsDev, "skills/build-cmd"), { recursive: true });
+		// Create directory structure in dist format
+		const distBase = join(tempDir, "cli/dist/claude-code/base");
+		const distDev = join(tempDir, "cli/dist/claude-code/dev");
+		await mkdir(join(distBase, "agents"), { recursive: true });
+		await mkdir(join(distBase, "skills/mermaid"), { recursive: true });
+		await mkdir(join(distDev, "skills/build-cmd"), { recursive: true });
 
 		// Create skill that references an agent
-		const skillPath = join(pluginsDev, "skills/build-cmd/SKILL.md");
+		const skillPath = join(distDev, "skills/build-cmd/SKILL.md");
 		await writeFile(
 			skillPath,
 			`---
@@ -255,7 +313,7 @@ Task: rp1-base:kb-builder
 		);
 
 		// Create agent that references a skill
-		const agentPath = join(pluginsBase, "agents/kb-builder.md");
+		const agentPath = join(distBase, "agents/kb-builder.md");
 		await writeFile(
 			agentPath,
 			`---
@@ -269,7 +327,7 @@ Use skill: rp1-base:mermaid for diagrams.
 		);
 
 		// Create skill file
-		const mermaidPath = join(pluginsBase, "skills/mermaid/SKILL.md");
+		const mermaidPath = join(distBase, "skills/mermaid/SKILL.md");
 		await writeFile(
 			mermaidPath,
 			`---
@@ -280,40 +338,39 @@ Content.
 `,
 		);
 
-		const result = await buildDependencyGraph(skillPath)();
+		const result = await buildDependencyGraph(skillPath, "claude-code")();
 
 		expect(E.isRight(result)).toBe(true);
 		if (E.isRight(result)) {
 			expect(result.right.skill).toBe("build-cmd");
 			expect(result.right.skillPath).toBe(skillPath);
-			// Agent path is derived from PLUGIN_PATHS, not temp dir
+			expect(result.right.platform).toBe("claude-code");
+			// Agent path is derived from dist paths
 			expect(result.right.agents).toEqual([
-				"plugins/base/agents/kb-builder.md",
+				"cli/dist/claude-code/base/agents/kb-builder.md",
 			]);
 		}
 	});
 
-	test("returns error for non-existent skill file with CWD hint", async () => {
+	test("returns error for non-existent skill file with build hint", async () => {
 		const nonExistentPath = join(tempDir, "skills/does-not-exist/SKILL.md");
 
-		const result = await buildDependencyGraph(nonExistentPath)();
+		const result = await buildDependencyGraph(nonExistentPath, "claude-code")();
 
 		expect(E.isLeft(result)).toBe(true);
 		if (E.isLeft(result)) {
 			expect(result.left.message).toContain("Skill file not found");
-			expect(result.left.message).toContain(
-				"Ensure CWD is the repository root",
-			);
+			expect(result.left.message).toContain("platform has been built");
 		}
 	});
 
 	test("handles cycles without infinite loop", async () => {
 		// Create circular dependency: skill A -> agent B -> skill A
-		const pluginsBase = join(tempDir, "plugins/base");
-		await mkdir(join(pluginsBase, "agents"), { recursive: true });
-		await mkdir(join(pluginsBase, "skills/cyclic-skill"), { recursive: true });
+		const distBase = join(tempDir, "cli/dist/claude-code/base");
+		await mkdir(join(distBase, "agents"), { recursive: true });
+		await mkdir(join(distBase, "skills/cyclic-skill"), { recursive: true });
 
-		const skillPath = join(pluginsBase, "skills/cyclic-skill/SKILL.md");
+		const skillPath = join(distBase, "skills/cyclic-skill/SKILL.md");
 		await writeFile(
 			skillPath,
 			`---
@@ -326,7 +383,7 @@ Task: rp1-base:cyclic-agent
 
 		// Agent references the same skill it was spawned from
 		await writeFile(
-			join(pluginsBase, "agents/cyclic-agent.md"),
+			join(distBase, "agents/cyclic-agent.md"),
 			`---
 name: cyclic-agent
 ---
@@ -335,17 +392,15 @@ Use skill: rp1-base:cyclic-skill
 `,
 		);
 
-		const result = await buildDependencyGraph(skillPath)();
+		const result = await buildDependencyGraph(skillPath, "claude-code")();
 
 		expect(E.isRight(result)).toBe(true);
 		if (E.isRight(result)) {
 			expect(result.right.skill).toBe("cyclic-skill");
+			expect(result.right.platform).toBe("claude-code");
 			expect(result.right.agents).toEqual([
-				"plugins/base/agents/cyclic-agent.md",
+				"cli/dist/claude-code/base/agents/cyclic-agent.md",
 			]);
-			// Agent file at relative path can't be read from test CWD,
-			// but the key assertion is: no infinite loop despite the cycle
-			// In production (CWD=repo root), the cycle would be properly detected
 		}
 	});
 
@@ -360,7 +415,7 @@ Content.
 `,
 		);
 
-		const result = await buildDependencyGraph(weirdPath)();
+		const result = await buildDependencyGraph(weirdPath, "claude-code")();
 
 		expect(E.isRight(result)).toBe(true);
 		if (E.isRight(result)) {

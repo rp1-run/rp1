@@ -9,20 +9,20 @@ Quick-iteration development for small, well-scoped tasks using the [command-agen
 === "Claude Code"
 
     ```bash
-    /build-fast [development-request...] [--afk] [--confirm-plan] [--review] [--git-worktree] [--git-commit] [--git-push]
+    /build-fast [development-request...] [--afk] [--confirm-plan] [--review] [--git-commit] [--git-push]
     ```
 
 === "OpenCode"
 
     ```bash
-    /rp1-build-fast [development-request...] [--afk] [--confirm-plan] [--review] [--git-worktree] [--git-commit] [--git-push]
+    /rp1-dev-build-fast [development-request...] [--afk] [--confirm-plan] [--review] [--git-commit] [--git-push]
     ```
 
 ## Description
 
 The `build-fast` command handles development requests that don't warrant the full feature workflow. It assesses request scope and either implements the changes (for small/medium scope) or redirects to `/build` (for large scope).
 
-By default, changes are made in your current working directory without any git operations. Use `--git-*` flags to enable worktree isolation, commits, or pushing.
+By default, changes are made in your current working directory without any git operations. Use `--git-*` flags to enable commits or pushing.
 
 This command uses the [command-agent pattern](../../concepts/command-agent-pattern.md) with scope gating and AFK mode support.
 
@@ -34,7 +34,6 @@ This command uses the [command-agent pattern](../../concepts/command-agent-patte
 | `--afk` | Flag | No | `false` | AFK (Away From Keyboard) mode — non-interactive for automation |
 | `--confirm-plan` | Flag | No | `false` | Enable plan review checkpoint before implementation |
 | `--review` | Flag | No | `false` | Enable task-reviewer validation after implementation |
-| `--git-worktree` | Flag | No | `false` | Use isolated git worktree |
 | `--git-commit` | Flag | No | `false` | Commit changes |
 | `--git-push` | Flag | No | `false` | Push branch to remote |
 
@@ -69,7 +68,7 @@ For automation scenarios (CI, scripts), use the `--afk` flag:
 === "OpenCode"
 
     ```bash
-    /rp1-build-fast "update dependency versions" --afk
+    /rp1-dev-build-fast "update dependency versions" --afk
     ```
 
 **AFK mode behavior**:
@@ -97,7 +96,7 @@ For interactive review of plans before execution, use the `--confirm-plan` flag:
 === "OpenCode"
 
     ```bash
-    /rp1-build-fast "refactor the payment module" --confirm-plan
+    /rp1-dev-build-fast "refactor the payment module" --confirm-plan
     ```
 
 **Confirm mode adds two checkpoints**:
@@ -157,7 +156,7 @@ Review the changes, then:
 === "OpenCode"
 
     ```bash
-    /rp1-build-fast "Fix the authentication bug when token expires"
+    /rp1-dev-build-fast "Fix the authentication bug when token expires"
     ```
 
 ### Small Enhancement
@@ -171,7 +170,7 @@ Review the changes, then:
 === "OpenCode"
 
     ```bash
-    /rp1-build-fast "Add a date formatting utility to utils/date.ts"
+    /rp1-dev-build-fast "Add a date formatting utility to utils/date.ts"
     ```
 
 ### Performance Optimization
@@ -185,7 +184,7 @@ Review the changes, then:
 === "OpenCode"
 
     ```bash
-    /rp1-build-fast "Optimize the database query in reports module"
+    /rp1-dev-build-fast "Optimize the database query in reports module"
     ```
 
 ### With Plan Review
@@ -199,7 +198,7 @@ Review the changes, then:
 === "OpenCode"
 
     ```bash
-    /rp1-build-fast "add user preferences API endpoint" --confirm-plan --review
+    /rp1-dev-build-fast "add user preferences API endpoint" --confirm-plan --review
     ```
 
 ## Workflow
@@ -215,20 +214,18 @@ The command executes in four phases:
 
 ### Phase 2: Execution
 
-5. **Worktree setup** - Creates isolated git worktree (if `--git-worktree` specified)
-6. **Task execution** - Code changes following codebase patterns
-7. **Quality checks** - Format, lint, test
+5. **Task execution** - Code changes following codebase patterns
+6. **Quality checks** - Format, lint, test
 
 ### Phase 3: Review (Optional)
 
-8. **Task review** - Validates implementation against requirements (if `--review` specified)
-9. **Retry on failure** - Re-executes tasks with reviewer feedback (max 1 retry)
+7. **Task review** - Validates implementation against requirements (if `--review` specified)
+8. **Retry on failure** - Re-executes tasks with reviewer feedback (max 1 retry)
 
 ### Phase 4: Finalization
 
-10. **Push** - Push branch to remote (if `--git-push` specified)
-11. **Worktree cleanup** - Remove worktree, preserve branch (if `--git-worktree` specified)
-12. **Post-implementation checkpoint** - Opportunity for additional changes (if `--confirm-plan` specified)
+9. **Push** - Push branch to remote (if `--git-push` specified)
+10. **Post-implementation checkpoint** - Opportunity for additional changes (if `--confirm-plan` specified)
 
 ## KB Loading
 
@@ -250,32 +247,8 @@ By default, `build-fast` makes changes in your current working directory without
 
 | Flag | Effect |
 |------|--------|
-| `--git-worktree` | Create isolated git worktree for changes |
 | `--git-commit` | Commit changes after implementation |
-| `--git-push` | Push branch to remote (requires --git-commit or --git-worktree) |
-
-### With Worktree Isolation
-
-When using `--git-worktree`:
-
-- **Your changes are safe**: Uncommitted work in your main repository is never touched
-- **Agent works on HEAD**: Changes are based on your last commit
-- **Easy integration**: After completion, you get a branch ready to merge or PR
-
-### After Completion
-
-On success with git operations enabled, you receive integration options:
-
-```bash
-# Merge the branch
-git merge quick-build-fix-auth
-
-# Or cherry-pick specific commits
-git cherry-pick quick-build-fix-auth
-
-# Or create a PR
-git push -u origin quick-build-fix-auth
-```
+| `--git-push` | Push branch to remote (requires --git-commit) |
 
 ## Output
 
@@ -315,9 +288,6 @@ Options:
 
 Recommended Quick Win: [simplest valuable alternative]
 ```
-
-!!! note "Git 2.15+ Required"
-    Worktree isolation requires git 2.15 or later. Check your version with `git --version`.
 
 ## Related Commands
 

@@ -26,7 +26,7 @@ metadata:
   created: 2026-01-01
   updated: 2026-02-26
   author: cloud-on-prem/rp1
-  argument-hint: "[development-request...] [--afk] [--review] [--git-worktree]"
+  argument-hint: "[development-request...] [--afk] [--review] [--git-commit]"
 ---
 ```
 
@@ -40,15 +40,37 @@ metadata:
 | `metadata.updated` | nested | No | Last update date (YYYY-MM-DD) |
 | `metadata.author` | nested | Yes* | Author identifier (e.g., `cloud-on-prem/rp1`) |
 | `metadata.argument-hint` | nested | No | Usage hint string for argument notation |
+| `metadata.sub_agents` | nested | No | List of agent references this skill delegates to |
 
 *Required for the build pipeline to produce valid manifests.
+
+### `metadata.sub_agents`
+
+Skills that delegate work to agents via the Task tool should declare their sub-agent inventory in the `metadata.sub_agents` field. Each entry uses the `rp1-{plugin}:{agent-name}` format, matching the agent's `.md` file in the corresponding plugin's `agents/` directory.
+
+```yaml
+metadata:
+  version: 3.0.0
+  tags:
+    - core
+  sub_agents:
+    - "rp1-dev:task-builder"
+    - "rp1-dev:task-reviewer"
+    - "rp1-dev:code-checker"
+```
+
+**Build-time validation**: The Codex build pipeline validates declared sub-agents against actual agent files. A missing agent `.md` file causes a build error. Undeclared content references and dead declarations produce warnings.
+
+**Format**: `rp1-{plugin}:{agent-name}` where `{plugin}` is `base`, `dev`, or `utils`, and `{agent-name}` matches the filename (without `.md`) in `plugins/{plugin}/agents/`.
+
+**Cross-platform**: The `sub_agents` field is ignored by Claude Code and OpenCode (unknown metadata fields are safely skipped). It is used by the Codex build pipeline for agent name translation and validation.
 
 ### `allowed-tools` Defaults
 
 rp1 skills that resolve environment variables or call rp1 CLI tools should include both `Bash(echo *)` and `Bash(rp1 *)`:
 
 - `Bash(echo *)` -- Shell echo commands
-- `Bash(rp1 *)` -- rp1 CLI invocations including RP1_ROOT resolution (`rp1 agent-tools rp1-root-dir`, `rp1 agent-tools worktree`, `rp1 agent-tools work update`, `rp1 agent-tools mmd-validate`, etc.)
+- `Bash(rp1 *)` -- rp1 CLI invocations including RP1_ROOT resolution (`rp1 agent-tools rp1-root-dir`, `rp1 agent-tools work update`, `rp1 agent-tools mmd-validate`, etc.)
 
 **Important**: Do NOT use `echo ${VAR:-default}` syntax in skills. Claude Code blocks `${}` parameter substitution in Bash commands. Use `rp1 agent-tools rp1-root-dir` instead.
 
@@ -180,8 +202,47 @@ Use this checklist when creating a new skill:
 
 ---
 
+## Platform Tags
+
+Skills that reference platform-varying behavior (agent dispatch, user input, planning, web access, file editing, permissions) should use semantic Liquid tags instead of raw `{% if platform %}` conditionals or CC-native tool names.
+
+### Example: Agent Dispatch
+
+Instead of writing CC-native syntax:
+
+```markdown
+Use the Task tool to invoke the code-writer agent:
+
+subagent_type: rp1-dev:code-writer
+```
+
+Use the `dispatch_agent` tag:
+
+```markdown
+{% dispatch_agent "rp1-dev:code-writer", "Write the implementation" %}
+```
+
+The tag produces the correct spawn instructions for each platform, including the full spawn/wait protocol on Codex.
+
+### Example: User Input
+
+```markdown
+{% ask_user "Which approach do you prefer?", options: "Approach A", "Approach B" %}
+```
+
+### Example: File Editing
+
+```markdown
+{% edit_model "update the configuration file" %}
+```
+
+For the full tag reference, see [Platform Tags Reference](../reference/platform-tags.md). For the conceptual guide, see [Platform Tags](platform-tags.md).
+
+---
+
 ## Related Concepts
 
 - [Agent Skills Standard](https://agentskills.io) - The open standard for agent skills
 - [Skill-Agent Pattern](command-agent-pattern.md) - How skills delegate to agents
 - [Constitutional Prompting](constitutional-prompting.md) - How agent prompts are structured
+- [Platform Tags](platform-tags.md) - Semantic tags for platform-varying behavior

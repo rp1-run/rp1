@@ -119,7 +119,7 @@ During initialization, you're offered three options for configuring `.gitignore`
 
 ## Plugin Installation
 
-The init wizard automatically installs rp1 plugins for **all detected AI tools**. If both Claude Code and OpenCode are installed, plugins are installed for both tools automatically.
+The init wizard automatically installs rp1 plugins for **all detected AI tools**.
 
 === "Claude Code"
 
@@ -146,7 +146,7 @@ The init wizard automatically installs rp1 plugins for **all detected AI tools**
 
 === "Multiple Tools"
 
-    When both Claude Code and OpenCode are detected, plugins are installed for all tools:
+    When multiple supported tools are detected, plugins are installed for all of them:
 
     ```
     ✓ Installing plugins
@@ -589,7 +589,7 @@ The init command automatically detects installed AI assistants:
 
 ### No Tool Detected
 
-If neither Claude Code nor OpenCode is found:
+If no supported tool (Claude Code or OpenCode) is found:
 
 ```
 ℹ No supported agentic tool detected.

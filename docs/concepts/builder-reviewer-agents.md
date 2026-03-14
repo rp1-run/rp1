@@ -106,7 +106,7 @@ Simple tasks like "add a config option" can be batched for efficiency. Complex t
 The builder-reviewer architecture is used in:
 
 - **`/build`** — Feature implementation (Step 3: Build)
-- **`/build-fast`** — Quick iterations (when worktree mode is enabled)
+- **`/build-fast`** — Quick iterations
 
 ---
 

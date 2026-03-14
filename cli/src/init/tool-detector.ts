@@ -151,20 +151,22 @@ export const detectTools = (
 ): TE.TaskEither<never, ToolDetectionResult> =>
 	TE.tryCatch(
 		async () => {
+			const enabledTools = registry.tools.filter((t) => t.enabled !== false);
+
 			// Run all detections in parallel for speed
 			const results = await Promise.all(
-				registry.tools.map((tool) => detectSingleTool(tool)),
+				enabledTools.map((tool) => detectSingleTool(tool)),
 			);
 
 			const detected: DetectedTool[] = [];
 			const missing: SupportedTool[] = [];
 
-			for (let i = 0; i < registry.tools.length; i++) {
+			for (let i = 0; i < enabledTools.length; i++) {
 				const result = results[i];
 				if (result) {
 					detected.push(result);
 				} else {
-					missing.push(registry.tools[i]);
+					missing.push(enabledTools[i]);
 				}
 			}
 
@@ -174,7 +176,7 @@ export const detectTools = (
 		() =>
 			({
 				detected: [],
-				missing: [...registry.tools],
+				missing: [...registry.tools.filter((t) => t.enabled !== false)],
 			}) as never,
 	);
 

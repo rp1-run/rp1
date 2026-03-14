@@ -13,6 +13,8 @@ metadata:
   updated: 2026-02-26
   author: cloud-on-prem/rp1
   argument-hint: "<feature-id>"
+  sub_agents:
+    - "rp1-dev:feature-archiver"
 ---
 
 # Feature Unarchive - Restore Archived Features
@@ -53,13 +55,9 @@ Extract these parameters from the user's input:
 
 ## Execution
 
-Use the Task tool with:
-- `subagent_type`: `rp1-dev:feature-archiver`
-- `prompt`:
-
-```
+{% dispatch_agent "rp1-dev:feature-archiver" %}
 Execute the feature-archiver agent to restore the specified archived feature.
 
 MODE: unarchive
 FEATURE_ID: {FEATURE_ID}
-```
+{% enddispatch_agent %}

@@ -176,12 +176,39 @@ export async function saveRegistry(registry: ProjectRegistry): Promise<void> {
 }
 
 /**
+ * Check if the current process is running in eval mode.
+ * Eval workspaces should not pollute the project registry.
+ */
+function isEvalContext(projectPath: string): boolean {
+	if (process.env.RP1_EVAL_MODE === "true") return true;
+	// Also guard against eval workspace paths directly
+	return (
+		projectPath.startsWith("/tmp/rp1-evals/") ||
+		projectPath.startsWith("/private/tmp/rp1-evals/")
+	);
+}
+
+/**
  * Register a project in the registry.
  * Returns the project entry with its assigned ID.
+ * Skips registration for eval workspaces to prevent registry pollution.
  */
 export async function registerProject(
 	projectPath: string,
 ): Promise<ProjectEntry> {
+	// Prevent eval workspaces from polluting the registry
+	if (isEvalContext(projectPath)) {
+		const now = new Date().toISOString();
+		return {
+			id: "eval-workspace",
+			path: projectPath,
+			name: "eval-workspace",
+			addedAt: now,
+			lastAccessedAt: now,
+			available: false,
+		};
+	}
+
 	const registry = await loadRegistry();
 	const existingIds = new Set(Object.keys(registry.projects));
 
@@ -315,6 +342,38 @@ export async function refreshProjectAvailability(): Promise<void> {
 			projects: updates,
 		});
 	}
+}
+
+/**
+ * Prune projects whose paths no longer exist on disk.
+ * Returns the number of projects removed.
+ */
+export async function pruneStaleProjects(): Promise<number> {
+	const registry = await loadRegistry();
+	const remaining: Record<string, ProjectEntry> = {};
+	let pruned = 0;
+
+	for (const [id, project] of Object.entries(registry.projects)) {
+		const available = await isValidProject(project.path);
+		if (available) {
+			remaining[id] = project;
+		} else {
+			pruned++;
+		}
+	}
+
+	if (pruned > 0) {
+		await saveRegistry({
+			...registry,
+			lastInvoked:
+				registry.lastInvoked && remaining[registry.lastInvoked]
+					? registry.lastInvoked
+					: null,
+			projects: remaining,
+		});
+	}
+
+	return pruned;
 }
 
 /**

@@ -15,7 +15,7 @@ Systematic bug investigation through evidence-based analysis and hypothesis test
 === "OpenCode"
 
     ```bash
-    /rp1-code-investigate
+    /rp1-dev-code-investigate
     ```
 
 ## Description
@@ -55,7 +55,7 @@ The `code-investigate` command performs systematic investigation of bugs and iss
 === "OpenCode"
 
     ```bash
-    /rp1-code-investigate
+    /rp1-dev-code-investigate
     ```
 
 The command will prompt you for:

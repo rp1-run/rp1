@@ -28,11 +28,11 @@ describe("verify command structure", () => {
 			expect(description.toLowerCase()).toContain("verify");
 		});
 
-		test("has two subcommands", async () => {
+		test("has three subcommands", async () => {
 			const { verifyCommand } = await import("../index.js");
 
 			const subcommands = verifyCommand.commands;
-			expect(subcommands.length).toBe(2);
+			expect(subcommands.length).toBe(3);
 		});
 
 		test("includes claude-code subcommand", async () => {
@@ -53,6 +53,15 @@ describe("verify command structure", () => {
 			expect(subcommand).toBeDefined();
 		});
 
+		test("includes codex subcommand", async () => {
+			const { verifyCommand } = await import("../index.js");
+
+			const subcommand = verifyCommand.commands.find(
+				(c) => c.name() === "codex",
+			);
+			expect(subcommand).toBeDefined();
+		});
+
 		test("help text includes subcommand list", async () => {
 			const { verifyCommand } = await import("../index.js");
 
@@ -60,6 +69,7 @@ describe("verify command structure", () => {
 			expect(helpInfo).toContain("Commands:");
 			expect(helpInfo).toContain("claude-code");
 			expect(helpInfo).toContain("opencode");
+			expect(helpInfo).toContain("codex");
 		});
 	});
 

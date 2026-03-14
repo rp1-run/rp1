@@ -201,6 +201,9 @@ const extractSkillMetadata = (raw: unknown): SkillMetadata | undefined => {
 			typeof meta["argument-hint"] === "string"
 				? meta["argument-hint"]
 				: undefined,
+		subAgents: Array.isArray(meta.sub_agents)
+			? meta.sub_agents.map(String)
+			: undefined,
 	};
 
 	// Return undefined if all fields are undefined (no meaningful metadata)

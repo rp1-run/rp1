@@ -15,6 +15,9 @@ metadata:
   updated: 2026-02-26
   author: cloud-on-prem/rp1
   argument-hint: "[prd-name]"
+  sub_agents:
+    - "rp1-dev:charter-interviewer"
+    - "rp1-dev:blueprint-wizard"
 ---
 
 # Project Blueprint
@@ -121,12 +124,11 @@ Read `{{$RP1_ROOT}}/context/charter.md`:
 
 ### Step 3: Charter Interview Loop
 
-```
 question_number = 0
 loop:
-  1. Task tool:
-     - subagent_type: rp1-dev:charter-interviewer
-     - prompt: CHARTER_PATH={{$RP1_ROOT}}/context/charter.md, MODE={mode}, RP1_ROOT={{$RP1_ROOT}}
+  1. {% dispatch_agent "rp1-dev:charter-interviewer" %}
+     CHARTER_PATH={{$RP1_ROOT}}/context/charter.md, MODE={mode}, RP1_ROOT={{$RP1_ROOT}}
+     {% enddispatch_agent %}
 
   2. Parse JSON response
 
@@ -135,11 +137,11 @@ loop:
      next_question:
         question_number = metadata.question_number
         topic = map_gap_to_topic(metadata.gaps_remaining[0])
-        answer = AskUserQuestion(response.next_question)
-        Edit charter.md (insert before <!-- End scratch pad -->):
-           ### Q{N}: {topic}
-           **Asked**: {question}
-           **Answer**: {answer}
+        answer = {% ask_user "response.next_question" %}
+        Edit charter.md (insert before `<!-- End scratch pad -->`):
+           `### Q{N}: {topic}`
+           `**Asked**: {question}`
+           `**Answer**: {answer}`
         continue
 
      success:
@@ -153,14 +155,13 @@ loop:
         question_number = metadata.question_number
         topic = from message
         Edit charter.md:
-           ### Q{N}: {topic}
-           **Skipped**: {message}
+           `### Q{N}: {topic}`
+           `**Skipped**: {message}`
         continue
 
      error:
         Output: "Charter interview encountered an error. Scratch pad state preserved for retry."
         Preserve scratch pad, EXIT (no PRD)
-```
 
 **Topic Map**:
 | Gap | Topic |
@@ -203,34 +204,34 @@ Create `{{$RP1_ROOT}}/work/prds/{PRD_NAME}.md`:
 ```
 
 #### 4.3 PRD Loop
-```
-PRD_PATH = {{$RP1_ROOT}}/work/prds/{PRD_NAME}.md
+
+PRD_PATH = `{{$RP1_ROOT}}/work/prds/{PRD_NAME}.md`
 question_count = 0
 
 loop:
-  Task tool:
-    subagent_type: rp1-dev:blueprint-wizard
-    prompt: PRD_NAME={PRD_NAME}, EXTRA_CONTEXT={EXTRA_CONTEXT}, RP1_ROOT={{$RP1_ROOT}}
+  {% dispatch_agent "rp1-dev:blueprint-wizard" %}
+  PRD_NAME={PRD_NAME}, EXTRA_CONTEXT={EXTRA_CONTEXT}, RP1_ROOT={{$RP1_ROOT}}
+  {% enddispatch_agent %}
 
   Parse JSON response
 
   next_question | validate:
-      answer = AskUserQuestion(response.next_question)
+      answer = {% ask_user "response.next_question" %}
       question_count++
-      Edit PRD (insert before <!-- End scratch pad -->):
-         #### S{section}: {topic}
-         **Asked**: {question}
-         **Answer**: {answer}
+      Edit PRD (insert before `<!-- End scratch pad -->`):
+         `#### S{section}: {topic}`
+         `**Asked**: {question}`
+         `**Answer**: {answer}`
       continue
 
   section_complete:
-      Update section marker: <!-- Section: {N} --> -> <!-- Section: {N+1} -->
+      Update section marker: `<!-- Section: {N} -->` -> `<!-- Section: {N+1} -->`
       Write section content to PRD above scratch pad
       continue
 
   uncertainty:
-      guess = AskUserQuestion(response.message)
-      Add: **Assumption**: {guess}
+      guess = {% ask_user "response.message" %}
+      Add: `**Assumption**: {guess}`
       continue
 
   success:
@@ -243,7 +244,6 @@ loop:
       If metadata.missing == "charter":
          Output: "Please run /blueprint without arguments to create the charter first."
       break
-```
 
 #### 4.4 Success Output
 ```

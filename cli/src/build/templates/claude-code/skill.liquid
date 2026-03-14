@@ -1,0 +1,30 @@
+---
+name: {{ artifact.namespacedName | escape_yaml }}
+description: {{ artifact.description | escape_yaml }}
+{%- if artifact.allowedTools %}
+allowed-tools: {{ artifact.allowedTools | allowed_tools: platform }}
+{%- endif %}
+{%- if artifact.metadata %}
+metadata:
+{%- if artifact.metadata.version %}
+  version: {{ artifact.metadata.version }}
+{%- endif %}
+{%- if artifact.metadata.tags and artifact.metadata.tags.size > 0 %}
+  tags:
+{%- for tag in artifact.metadata.tags %}
+    - {{ tag }}
+{%- endfor %}
+{%- endif %}
+{%- if artifact.metadata.created %}
+  created: {{ artifact.metadata.created }}
+{%- endif %}
+{%- if artifact.metadata.author %}
+  author: {{ artifact.metadata.author }}
+{%- endif %}
+{%- if artifact.metadata.argumentHint %}
+  argument-hint: "{{ artifact.metadata.argumentHint }}"
+{%- endif %}
+{%- endif %}
+---
+
+{{ artifact.content | namespace_ref: platform | slash_commands: platform }}

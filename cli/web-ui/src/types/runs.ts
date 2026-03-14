@@ -53,6 +53,7 @@ export interface Step {
 /** An artifact produced or updated by a run */
 export interface Artifact {
 	readonly path: string;
+	readonly absolutePath: string;
 	readonly type: ArtifactType;
 	readonly updatedDuringRun: boolean;
 	readonly isNew: boolean;

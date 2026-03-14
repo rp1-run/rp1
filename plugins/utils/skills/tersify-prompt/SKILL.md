@@ -10,6 +10,8 @@ metadata:
   updated: 2026-02-26
   author: cloud-on-prem/rp1
   argument-hint: "<file-path-or-prompt>"
+  sub_agents:
+    - "rp1-utils:prompt-tersifier"
 ---
 
 # Tersify Prompt
@@ -58,12 +60,9 @@ Use Bash: test -f "{INPUT}" && echo "file" || echo "inline"
 
 ### Step 3: Spawn Tersifier Agent
 
-Use the Task tool:
-```
-subagent_type: rp1-utils:prompt-tersifier
-prompt: |
-  {INPUT_PROMPT content here}
-```
+{% dispatch_agent "rp1-utils:prompt-tersifier" %}
+{INPUT_PROMPT content here}
+{% enddispatch_agent %}
 
 ### Step 4: Process Output
 

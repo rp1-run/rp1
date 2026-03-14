@@ -15,7 +15,7 @@ Analyzes code for pattern consistency, maintainability, duplication, and documen
 === "OpenCode"
 
     ```bash
-    /rp1-code-audit
+    /rp1-dev-code-audit
     ```
 
 ## Description
@@ -49,7 +49,7 @@ The `code-audit` command performs a comprehensive audit of your codebase beyond 
 === "OpenCode"
 
     ```bash
-    /rp1-code-audit
+    /rp1-dev-code-audit
     ```
 
 **Example output:**

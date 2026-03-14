@@ -11,6 +11,8 @@ metadata:
   updated: 2026-02-26
   author: cloud-on-prem/rp1
   argument-hint: "[scope] [base-branch]"
+  sub_agents:
+    - "rp1-dev:comment-cleaner"
 ---
 
 # Comment Cleaner
@@ -31,11 +33,4 @@ Extract these parameters from the user's input:
 - `unstaged`: Only unstaged files (pre-commit use case)
 - `<commit-range>`: Any valid git commit range (e.g., `HEAD~5..HEAD`, `abc123..def456`)
 
-Use the Task tool:
-
-```
-subagent_type: rp1-dev:comment-cleaner
-prompt: |
-  SCOPE: {SCOPE}
-  BASE_BRANCH: {BASE_BRANCH}
-```
+{% dispatch_agent "rp1-dev:comment-cleaner", "SCOPE: {SCOPE}, BASE_BRANCH: {BASE_BRANCH}" %}

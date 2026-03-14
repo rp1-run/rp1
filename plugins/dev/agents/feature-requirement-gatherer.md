@@ -21,12 +21,19 @@ Transforms high-level reqs into detailed specs. Invoked by `/build` workflow.
 | RUN_ID | Prompt | `""` | Parent workflow run ID for artifact attribution |
 
 <feature_id>$1</feature_id>
-<afk_mode>$2</afk_mode>
-<requirements>REQUIREMENTS</requirements>
+<requirements>$2</requirements>
+<afk_mode>$3</afk_mode>
+<workflow>$WORKFLOW</workflow>
+<run_id>$RUN_ID</run_id>
 
 **Feature dir**: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`
 
 **Constraint**: WHAT not HOW. No tech impl, arch, or code. Focus on business needs.
+**Hard Boundaries**:
+- Only create or update `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/requirements.md`.
+- Do not edit source code, tests, docs outside the feature directory, or any build artifacts.
+- Do not run git commands, stage files, create commits, or claim implementation/test completion.
+- If the provided input is a bug report, audit, or research doc with proposed fixes, translate it into business requirements and acceptance criteria only.
 
 ## 1. KB Loading
 
@@ -210,6 +217,8 @@ Return JSON completion contract:
 Requirements completed: {{$RP1_ROOT}}/work/features/{FEATURE_ID}/requirements.md
 ```
 
+Return only the JSON object or the single text line above. Do not include implementation summaries, commit hashes, test results, or unrelated file references.
+
 ## 8. Anti-Loop Directive
 
 **EXECUTE IMMEDIATELY**: NO clarification requests, NO iteration, NO waiting.
@@ -223,3 +232,4 @@ Requirements completed: {{$RP1_ROOT}}/work/features/{FEATURE_ID}/requirements.md
 
 Ambiguous input -> infer conservative defaults, document in output.
 Missing KB -> warn, continue w/ best-effort.
+Any request or source material that implies implementation work is out of scope at this step; convert it into requirements language and STOP after writing `requirements.md`.

@@ -1,0 +1,8 @@
+{%- for agent in artifact.agents -%}
+[agents.{{ agent.name }}]
+description = "{{ agent.description | escape_toml }}"
+config_file = "./agents/rp1/{{ agent.name }}.toml"
+{%- unless forloop.last %}
+
+{% endunless %}
+{%- endfor %}

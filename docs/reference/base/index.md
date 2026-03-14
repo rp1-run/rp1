@@ -115,9 +115,9 @@ After installation, generate a knowledge base:
 === "OpenCode"
 
     ```bash
-    /rp1-knowledge-build
+    /rp1-base-knowledge-build
     ```
 
-    You can also type `/skills` to browse all available skills — rp1 skills are prefixed with `rp1-` (e.g., `/rp1-knowledge-build`, `/rp1-strategize`).
+    You can also type `/skills` to browse all available skills — rp1 skills are prefixed with `rp1-` (e.g., `/rp1-base-knowledge-build`, `/rp1-base-strategize`).
 
 This creates `.rp1/context/` with documentation files that other skills use for context-aware execution.

@@ -72,6 +72,84 @@ describe("install command structure", () => {
 			expect(helpInfo).toContain("opencode");
 			expect(helpInfo).toContain("all");
 		});
+
+		test("has a default action handler for no-subcommand invocation", async () => {
+			const { installParentCommand } = await import("../index.js");
+
+			// Commander stores action handlers internally via _actionHandler
+			// A command with .action() set will have a non-null _actionHandler
+			expect(
+				(installParentCommand as unknown as { _actionHandler: unknown })
+					._actionHandler,
+			).not.toBeNull();
+		});
+
+		test("accepts --dry-run option on parent command", async () => {
+			const { installParentCommand } = await import("../index.js");
+
+			const dryRunOpt = installParentCommand.options.find(
+				(o) => o.long === "--dry-run",
+			);
+			expect(dryRunOpt).toBeDefined();
+		});
+
+		test("accepts -y/--yes option on parent command", async () => {
+			const { installParentCommand } = await import("../index.js");
+
+			const yesOpt = installParentCommand.options.find(
+				(o) => o.short === "-y" || o.long === "--yes",
+			);
+			expect(yesOpt).toBeDefined();
+		});
+
+		test("accepts -p/--platform option on parent command", async () => {
+			const { installParentCommand } = await import("../index.js");
+
+			const platformOpt = installParentCommand.options.find(
+				(o) => o.short === "-p" || o.long === "--platform",
+			);
+			expect(platformOpt).toBeDefined();
+		});
+
+		test("--platform option expects a value argument", async () => {
+			const { installParentCommand } = await import("../index.js");
+
+			const platformOpt = installParentCommand.options.find(
+				(o) => o.long === "--platform",
+			);
+			expect(platformOpt).toBeDefined();
+			expect(platformOpt?.required).toBe(true);
+		});
+
+		test("subcommands remain accessible alongside default action", async () => {
+			const { installParentCommand } = await import("../index.js");
+
+			const subcommandNames = installParentCommand.commands.map((c) =>
+				c.name(),
+			);
+			expect(subcommandNames).toContain("claude-code");
+			expect(subcommandNames).toContain("opencode");
+			expect(subcommandNames).toContain("all");
+		});
+
+		test("each subcommand has its own action handler", async () => {
+			const { installParentCommand } = await import("../index.js");
+
+			for (const sub of installParentCommand.commands) {
+				expect(
+					(sub as unknown as { _actionHandler: unknown })._actionHandler,
+				).not.toBeNull();
+			}
+		});
+
+		test("parent command options are listed in help output", async () => {
+			const { installParentCommand } = await import("../index.js");
+
+			const helpInfo = installParentCommand.helpInformation();
+			expect(helpInfo).toContain("--platform");
+			expect(helpInfo).toContain("--dry-run");
+			expect(helpInfo).toContain("-y, --yes");
+		});
 	});
 
 	describe("installClaudeCodeSubcommand", () => {

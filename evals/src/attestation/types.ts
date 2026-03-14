@@ -5,6 +5,12 @@
  */
 
 /**
+ * Supported eval platforms.
+ * Skills can have different rendered content per platform due to LiquidJS conditionals.
+ */
+export type EvalPlatform = "claude-code" | "opencode" | "codex";
+
+/**
  * Root attestation manifest structure.
  */
 export interface AttestationManifest {
@@ -17,6 +23,7 @@ export interface AttestationManifest {
  * Attestation record for a single skill.
  */
 export interface SkillAttestation {
+	readonly platform: EvalPlatform;
 	readonly prompt_hash: string;
 	readonly deps_hash: string;
 	readonly version: string;
@@ -39,6 +46,7 @@ export interface EvalRecord {
 export interface DependencyGraph {
 	readonly skill: string;
 	readonly skillPath: string;
+	readonly platform: EvalPlatform;
 	readonly agents: readonly string[];
 	readonly skills: readonly string[];
 }

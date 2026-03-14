@@ -11,8 +11,7 @@ The rp1 CLI provides tools for setup and management outside of AI assistant sess
 | Command | Description |
 |---------|-------------|
 | [`init`](cli/init.md) | Initialize rp1 in a project with guided setup |
-| `install:claude-code` | Install plugins for Claude Code |
-| `install:opencode` | Install plugins for OpenCode |
+| [`install`](cli/install.md) | Install plugins for Claude Code or OpenCode |
 | `build` | Build plugin packages from source |
 | `self-update` | Update the rp1 CLI to the latest version |
 | `arcade` | Launch web dashboard |
@@ -25,8 +24,7 @@ Internal CLI utilities for AI agent workflows:
 
 | Tool | Description |
 |------|-------------|
-| [`worktree`](cli/worktree.md) | Git worktree management for isolated execution |
-| [`rp1-root-dir`](cli/rp1-root-dir.md) | RP1_ROOT path resolution |
+| [`rp1-root-dir`](cli/rp1-root-dir.md) | RP1_ROOT path resolution with worktree-aware detection |
 | [`github-pr`](agent-tools.md#github-pr) | GitHub PR operations (submit-review, add-reaction, reply-comment, fetch-comments) |
 
 [:octicons-arrow-right-24: Agent Tools Reference](agent-tools.md)
@@ -134,12 +132,12 @@ Skills can be invoked differently depending on your AI assistant:
 
     rp1 skills are installed with an `rp1-` prefix to avoid collisions with your own skills:
 
-    1. **Type the skill name directly** (e.g., `/rp1-build`, `/rp1-knowledge-build`)
+    1. **Type the skill name directly** (e.g., `/rp1-dev-build`, `/rp1-base-knowledge-build`)
     2. **Type `/skills`** to browse and select — look for skills prefixed with `rp1-`
 
     ```bash
-    /rp1-build my-feature [arguments]
-    /rp1-knowledge-build
+    /rp1-dev-build my-feature [arguments]
+    /rp1-base-knowledge-build
     ```
 
     !!! note

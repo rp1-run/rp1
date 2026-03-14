@@ -14,6 +14,12 @@ metadata:
   updated: 2026-02-26
   author: cloud-on-prem/rp1
   argument-hint: "[feature-id]"
+  sub_agents:
+    - "rp1-base:kb-spatial-analyzer"
+    - "rp1-base:kb-concept-extractor"
+    - "rp1-base:kb-architecture-mapper"
+    - "rp1-base:kb-module-analyzer"
+    - "rp1-base:kb-pattern-extractor"
 ---
 
 # Knowledge Builder - Parallel KB Generation Orchestrator
@@ -243,19 +249,15 @@ If `FEATURE_ID` is provided, this is a **feature learning build** that captures 
 
    **For full build (CASE B)**:
 
-   ```
-   Use Task tool with:
-   subagent_type: rp1-base:kb-spatial-analyzer
-   prompt: "FULL SCAN mode. Scan all files in repository at {{CODEBASE_ROOT}}, rank files 0-5, categorize by KB section. Return JSON with index_files, concept_files, arch_files, module_files arrays."
-   ```
+   {% dispatch_agent "rp1-base:kb-spatial-analyzer" %}
+   FULL SCAN mode. Scan all files in repository at {{CODEBASE_ROOT}}, rank files 0-5, categorize by KB section. Return JSON with index_files, concept_files, arch_files, module_files arrays.
+   {% enddispatch_agent %}
 
    **For incremental build (CASE C)**:
 
-   ```
-   Use Task tool with:
-   subagent_type: rp1-base:kb-spatial-analyzer
-   prompt: "INCREMENTAL mode. Only categorize these changed files: {{changed_files_list}}. Rank each file 0-5, categorize by KB section (index_files, concept_files, arch_files, module_files). Return JSON with categorized changed files."
-   ```
+   {% dispatch_agent "rp1-base:kb-spatial-analyzer" %}
+   INCREMENTAL mode. Only categorize these changed files: {{changed_files_list}}. Rank each file 0-5, categorize by KB section (index_files, concept_files, arch_files, module_files). Return JSON with categorized changed files.
+   {% enddispatch_agent %}
 
 2. **Parse spatial analyzer output**:
    - Extract JSON from agent response
@@ -276,35 +278,27 @@ If `FEATURE_ID` is provided, this is a **feature learning build** that captures 
 
    **Agent 1 - Concept Extractor**:
 
-   ```
-   Use Task tool with:
-   subagent_type: rp1-base:kb-concept-extractor
-   prompt: "MODE={{mode}}. Extract domain concepts for concept_map.md. Repository type: {{repo_type}}. Files to analyze (JSON): {{stringify(concept_files)}}. {{if mode==INCREMENTAL}}File diffs (JSON): {{stringify(file_diffs_for_concept_files)}}{{endif}}. Return JSON with concepts, terminology, relationships."
-   ```
+   {% dispatch_agent "rp1-base:kb-concept-extractor" %}
+   MODE={{mode}}. Extract domain concepts for concept_map.md. Repository type: {{repo_type}}. Files to analyze (JSON): {{stringify(concept_files)}}. {{if mode==INCREMENTAL}}File diffs (JSON): {{stringify(file_diffs_for_concept_files)}}{{endif}}. Return JSON with concepts, terminology, relationships.
+   {% enddispatch_agent %}
 
    **Agent 2 - Architecture Mapper**:
 
-   ```
-   Use Task tool with:
-   subagent_type: rp1-base:kb-architecture-mapper
-   prompt: "MODE={{mode}}. Map system architecture for architecture.md. Repository type: {{repo_type}}. Files to analyze (JSON): {{stringify(arch_files)}}. {{if mode==INCREMENTAL}}File diffs (JSON): {{stringify(file_diffs_for_arch_files)}}{{endif}}. Return JSON with patterns, layers, diagram."
-   ```
+   {% dispatch_agent "rp1-base:kb-architecture-mapper" %}
+   MODE={{mode}}. Map system architecture for architecture.md. Repository type: {{repo_type}}. Files to analyze (JSON): {{stringify(arch_files)}}. {{if mode==INCREMENTAL}}File diffs (JSON): {{stringify(file_diffs_for_arch_files)}}{{endif}}. Return JSON with patterns, layers, diagram.
+   {% enddispatch_agent %}
 
    **Agent 3 - Module Analyzer**:
 
-   ```
-   Use Task tool with:
-   subagent_type: rp1-base:kb-module-analyzer
-   prompt: "MODE={{mode}}. Analyze modules for modules.md. Repository type: {{repo_type}}. Files to analyze (JSON): {{stringify(module_files)}}. {{if mode==INCREMENTAL}}File diffs (JSON): {{stringify(file_diffs_for_module_files)}}{{endif}}. Return JSON with modules, components, dependencies."
-   ```
+   {% dispatch_agent "rp1-base:kb-module-analyzer" %}
+   MODE={{mode}}. Analyze modules for modules.md. Repository type: {{repo_type}}. Files to analyze (JSON): {{stringify(module_files)}}. {{if mode==INCREMENTAL}}File diffs (JSON): {{stringify(file_diffs_for_module_files)}}{{endif}}. Return JSON with modules, components, dependencies.
+   {% enddispatch_agent %}
 
    **Agent 4 - Pattern Extractor**:
 
-   ```
-   Use Task tool with:
-   subagent_type: rp1-base:kb-pattern-extractor
-   prompt: "MODE={{mode}}. Extract implementation patterns for patterns.md. Repository type: {{repo_type}}. Files to analyze (JSON): {{stringify(concept_files + module_files)}}. {{if mode==INCREMENTAL}}File diffs (JSON): {{stringify(file_diffs_for_pattern_files)}}{{endif}}. Return JSON with patterns (<=150 lines when rendered)."
-   ```
+   {% dispatch_agent "rp1-base:kb-pattern-extractor" %}
+   MODE={{mode}}. Extract implementation patterns for patterns.md. Repository type: {{repo_type}}. Files to analyze (JSON): {{stringify(concept_files + module_files)}}. {{if mode==INCREMENTAL}}File diffs (JSON): {{stringify(file_diffs_for_pattern_files)}}{{endif}}. Return JSON with patterns (<=150 lines when rendered).
+   {% enddispatch_agent %}
 
 2. **Collect agent outputs**:
    - Wait for all 4 agents to complete

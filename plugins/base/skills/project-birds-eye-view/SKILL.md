@@ -11,17 +11,17 @@ metadata:
   created: 2025-10-29
   updated: 2026-02-26
   author: cloud-on-prem/rp1
+  sub_agents:
+    - "rp1-base:project-documenter"
 ---
 
 # Project Bird's-Eye View Generator
 
 This command invokes the **project-documenter** sub-agent to generate project overview documentation.
 
-Use the Task tool to invoke the project-documenter agent:
+Invoke the project-documenter agent:
 
-```
-subagent_type: rp1-base:project-documenter
-```
+{% dispatch_agent "rp1-base:project-documenter" %}
 
 The agent will:
 

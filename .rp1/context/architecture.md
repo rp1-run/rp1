@@ -1,189 +1,210 @@
 # System Architecture
 
 **Project**: rp1
-**Architecture Pattern**: Plugin-based Skill-Agent Delegation with Map-Reduce Workflows
-**Last Updated**: 2026-03-08
+**Architecture Pattern**: Plugin-based layered monorepo
+**Last Updated**: 2026-03-09
 
 ## High-Level Architecture
 
 ```mermaid
-graph TB
-    subgraph "User Interfaces"
-        CC[Claude Code CLI]
+flowchart TB
+    subgraph Platforms[Platform Entry Points]
+        CC[Claude Code]
         OC[OpenCode]
-        CLI[rp1 CLI Binary]
+        CX[Codex CLI]
+        BIN[rp1 CLI Binary]
+        WEB[Web Browser]
     end
 
-    subgraph "Plugin System"
-        Base["rp1-base<br/>17 skills, 13 agents"]
-        Dev["rp1-dev<br/>21 skills, 32 agents"]
-        Utils["rp1-utils<br/>5 skills, 4 agents"]
-        Dev -->|depends on| Base
+    subgraph Plugins[Plugin and Workflow Layer]
+        BASE[rp1-base]
+        DEV[rp1-dev]
+        UTILS[rp1-utils]
+        SKILLS[Skills and Agents]
+        MAPR[Map-Reduce Orchestrators]
+        STM[Declarative State Machines]
     end
 
-    subgraph "Skill-Agent Architecture"
-        Skills[SKILL.md Entry Points]
-        Agents[Constitutional Agents]
-        Skills -->|Task tool| Agents
+    subgraph Runtime[Runtime Services]
+        TOOLS[Agent Tools]
+        DB[(SQLite status.db)]
+        KB[.rp1/context/*.md]
     end
 
-    subgraph "CLI Core"
-        Main[main.ts / Commander]
-        AgentTools[Agent Tools Registry]
-        SM["State Machine Module<br/>mermaid-ast + adapter"]
-        WebUI["Web UI Dashboard<br/>React/Vite/Tailwind"]
-        SQLite["SQLite Work Status<br/>run_id, expires_at"]
-        Main --> AgentTools
-        Main --> WebUI
-        AgentTools --> SQLite
-        AgentTools --> SM
+    subgraph UI[Presentation]
+        WS[Bun HTTP and WebSocket Server :7710]
+        VITE[Vite Dev Server :5173]
+        DASH[React and Tailwind Dashboard]
+        DOCS[MkDocs Docs Site]
     end
 
-    subgraph "Knowledge Base"
-        KB[".rp1/context/*.md"]
-        State[state.json]
+    subgraph External[External Integrations]
+        GH[GitHub API]
+        REL[GoReleaser and Bun]
+        CF[Cloudflare Pages]
     end
 
-    subgraph "Build & Release"
-        RP[Release-Please]
-        GR[GoReleaser + Bun]
-        AssetGen[Asset Import Generator]
-        RP -->|tag| GR
-        AssetGen -->|embedded.ts| GR
-    end
+    CC --> BASE
+    CC --> DEV
+    OC --> DEV
+    CX --> DEV
+    BIN --> TOOLS
+    WEB --> VITE
+    WEB --> WS
 
-    subgraph "Quality"
-        Evals["Promptfoo Evals<br/>+ Attestation"]
-        LHCI[Lighthouse CI]
-    end
+    DEV --> BASE
+    BASE --> SKILLS
+    DEV --> SKILLS
+    UTILS --> SKILLS
+    SKILLS --> MAPR
+    SKILLS --> STM
+    SKILLS --> TOOLS
+    SKILLS --> KB
 
-    CC --> Base
-    CC --> Dev
-    CC --> Utils
-    OC --> Dev
-    CLI --> Main
-    Agents --> KB
-    Agents --> AgentTools
-    WebUI -->|API :7710| SQLite
+    STM --> TOOLS
+    TOOLS --> DB
+    TOOLS --> GH
+    WS --> DB
+    WS --> DASH
+    VITE --> WS
+    DASH --> WS
+
+    REL --> BIN
+    DOCS --> CF
 ```
 
 ## Architectural Patterns
 
-| Pattern | Description | Evidence |
-|---------|-------------|----------|
-| Plugin Architecture | Three plugins (base, dev, utils) with .claude-plugin manifests; dev depends on base | `plugins/*/` |
-| Skill-Agent Delegation | SKILL.md entry points spawn single-pass constitutional agents via Task tool | `plugins/*/skills/`, `plugins/*/agents/` |
-| Map-Reduce Workflows | Complex tasks split into parallel agent invocations, results merged by orchestrator | KB generation (5 agents), PR review (N sub-reviewers) |
-| Builder-Reviewer Loop | Builder agent produces work, reviewer validates with single-retry on failure | `/build`, `/build-fast` workflows |
-| Single-File Executable | GoReleaser + bun build --compile with embedded web-ui and OpenCode artifacts | `.goreleaser.yml`, `cli/scripts/generate-asset-imports.ts` |
-| Constitutional Prompting | Agents defined as declarative markdown with parameter tables, anti-loop directives, output contracts | All agent .md files |
+- **Plugin Architecture**: Capabilities are grouped into `base`, `dev`, and `utils` plugins with explicit namespace and dependency rules.
+- **Skill-Agent Delegation**: Skills are thin orchestration surfaces; agents carry the real execution policy.
+- **Declarative Workflow Control**: State machines live in markdown and are enforced by reusable runtime tooling.
+- **Map-Reduce Orchestration**: Larger jobs such as KB generation and PR review split into parallel specialist passes.
+- **Embedded Local State Store**: Operational workflow state lives in local SQLite instead of a remote service.
+- **Dual-Surface Product**: The CLI is the execution surface, and the Web UI is the live operational view over the same state.
 
-## Layer Architecture
+## System Layers
 
-| Layer | Purpose | Key Components |
-|-------|---------|---------------|
-| Interface (Skills) | User-facing entry points via slash commands | `plugins/*/skills/*/SKILL.md` |
-| Agent Layer | Autonomous constitutional agents for single-pass execution | `plugins/*/agents/*.md` |
-| CLI Core | Commander-based CLI, agent-tools registry, state machine, build pipeline | `cli/src/main.ts`, `cli/src/commands/`, `cli/src/agent-tools/` |
-| Web UI | React/Vite/Tailwind status dashboard on port 7710 | `cli/web-ui/src/` |
-| Data Layer | SQLite work status tracking with run isolation and TTL expiry | `cli/src/agent-tools/work/`, `~/.rp1/status.db` |
-| Knowledge Layer | Persistent codebase documentation | `.rp1/context/*.md` |
-| Build/Release | CI/CD, binary compilation, asset bundling | `.github/workflows/`, `.goreleaser.yml`, `Justfile` |
-| Evaluation | Promptfoo evals with content-addressable attestation | `evals/src/` |
-| Shared Packages | Reusable internal libraries | `packages/catppuccin-mermaid/`, `cli/shared/` |
+### Interaction Layer
 
-## Key Data Flows
+**Purpose**: Expose user and agent entry points.
+**Key Components**:
 
-### KB Generation (Map-Reduce)
-```mermaid
-sequenceDiagram
-    participant User
-    participant Orchestrator as /knowledge-build
-    participant SA as Spatial Analyzer
-    participant Agents as 4 Analysis Agents
-    participant FS as .rp1/context/
+- `cli/src/main.ts`
+- `cli/src/config/supported-tools.yaml`
+- `cli/web-ui/src/server.ts`
+- `docs/reference/agent-tools.md`
 
-    User->>Orchestrator: Invoke
-    Orchestrator->>Orchestrator: Check state.json (incremental?)
-    Orchestrator->>SA: Categorize repository files
-    SA-->>Orchestrator: Categorized file lists
-    par Parallel Analysis
-        Orchestrator->>Agents: Concept Extractor
-        Orchestrator->>Agents: Architecture Mapper
-        Orchestrator->>Agents: Module Analyzer
-        Orchestrator->>Agents: Pattern Extractor
-    end
-    Agents-->>Orchestrator: JSON outputs
-    Orchestrator->>FS: Write KB files + state.json
-```
+### Workflow Layer
 
-### Feature Build (Builder-Reviewer)
-```mermaid
-sequenceDiagram
-    participant User
-    participant Build as /build
-    participant Builder as task-builder
-    participant Reviewer as task-reviewer
+**Purpose**: Define skills, agents, map-reduce flows, and stateful execution rules.
+**Key Components**:
 
-    User->>Build: feature-id
-    Build->>Build: Parse task DAG
-    loop Each Task
-        Build->>Builder: Implement task
-        Builder-->>Build: Code changes
-        Build->>Reviewer: Verify task
-        alt SUCCESS
-            Reviewer-->>Build: Approved
-        else FAILURE
-            Reviewer-->>Build: Feedback
-            Build->>Builder: Retry with feedback
-        end
-    end
-```
+- `plugins/*/skills/`
+- `plugins/*/agents/`
+- `docs/concepts/map-reduce-workflows.md`
+- `docs/concepts/state-machines.md`
 
-### Work Status Tracking
-```mermaid
-sequenceDiagram
-    participant Agent
-    participant CLI as rp1 agent-tools
-    participant SM as State Machine
-    participant DB as SQLite
-    participant WS as WebSocket
-    participant UI as Dashboard
+### Runtime Services Layer
 
-    Agent->>CLI: work update --step X --status started
-    CLI->>SM: Validate transition
-    SM-->>CLI: Valid
-    CLI->>DB: Insert status record
-    CLI->>WS: Notify daemon
-    WS->>UI: Push status_changed
-```
+**Purpose**: Provide deterministic tooling for workflow tracking, root resolution, and platform integrations.
+**Key Components**:
+
+- `cli/src/agent-tools/work/`
+- `cli/src/agent-tools/rp1-root-dir/`
+- `cli/src/agent-tools/github-pr/`
+- `cli/src/agent-tools/state-machine/`
+
+### Persistence Layer
+
+**Purpose**: Persist workflow status, run metadata, artifacts, and TTL cleanup state.
+**Key Components**:
+
+- `cli/src/agent-tools/work/database.ts`
+- `~/.rp1/status.db`
+
+### Presentation Layer
+
+**Purpose**: Serve the dashboard and docs experiences.
+**Key Components**:
+
+- `cli/web-ui/src/`
+- `cli/web-ui/vite.config.ts`
+- `cli/web-ui/tailwind.config.ts`
+- `mkdocs.yml`
+
+### Knowledge Layer
+
+**Purpose**: Store generated project context for knowledge-aware execution.
+**Key Components**:
+
+- `.rp1/context/index.md`
+- `.rp1/context/architecture.md`
+- `.rp1/context/modules.md`
+- `.rp1/context/patterns.md`
+
+## Primary Flows
+
+### Knowledge Base Generation
+
+1. A skill invokes the KB workflow.
+2. A spatial pass categorizes files by KB section.
+3. Specialist agents analyze concepts, architecture, modules, and patterns in parallel.
+4. The orchestrator reduces those outputs into `.rp1/context/*`.
+
+### Workflow State Update
+
+1. A skill or agent reports a step transition.
+2. The state-machine runtime validates the transition.
+3. The work database stores status, run data, and artifacts.
+4. The dashboard receives updates through daemon notifications and WebSocket fan-out.
+
+### Web UI Monitoring
+
+1. The browser loads the React dashboard.
+2. Vite proxies local dev traffic to the Bun server.
+3. The Bun server reads workflow state and exposes API and WebSocket routes.
+4. Operators see project and run status in near real time.
 
 ## Integration Points
 
-| Service | Purpose | Type |
-|---------|---------|------|
-| GitHub Actions | CI/CD: lint/test, release versioning, binary builds, PR review | Workflow automation |
-| GoReleaser | Cross-platform binary compilation (darwin/linux/windows, arm64/x64) | Build automation |
-| Release-Please | Semantic versioning from conventional commits | Version management |
-| Cloudflare Pages | Documentation hosting at rp1.run (MkDocs Material) | Static hosting |
-| Promptfoo | Eval framework for agent prompt testing with attestation | Testing framework |
-| SQLite (Bun native) | Work status tracking with WAL mode and TTL | Embedded database |
-| Lefthook | Git hooks: pre-commit (lint, format), pre-push (typecheck, test) | Developer tooling |
-| Claude Code Plugin System | Primary distribution via plugin marketplace | Plugin marketplace |
-| OpenCode | Secondary platform via tarball artifacts | Platform integration |
-| Lighthouse CI | Performance/accessibility auditing for docs site | Quality assurance |
+- **Claude Code / OpenCode / Codex CLI**: Supported execution platforms declared in `cli/src/config/supported-tools.yaml`. When evaluating a new harness, see `./core-capabilties-matrix.md` for the minimum capability checklist.
+- **GitHub API**: Used by deterministic PR tooling instead of shelling out ad hoc.
+- **SQLite**: The embedded operational store for workflow state and artifacts.
+- **MkDocs Material**: Generates the published documentation site.
+- **Cloudflare Pages**: Hosts the docs site.
+- **GoReleaser + Bun**: Build and distribute standalone binaries.
+
+## Security Architecture
+
+### Authentication
+
+- GitHub PR operations require `GITHUB_TOKEN`.
+- The local CLI and Web UI do not define a separate first-party auth model in the analyzed paths.
+
+### Authorization
+
+- Capability boundaries are namespace- and platform-driven.
+- Cross-plugin calls are constrained by declared dependency rules, especially `dev -> base`.
+
+### Data Protection
+
+- Workflow data is stored locally in SQLite with run isolation and TTL cleanup.
+- The analyzed paths show local-first defaults, not a centralized secrets or encryption subsystem.
 
 ## Deployment Architecture
 
-**Distribution Channels**:
-- Claude Code: Plugin marketplace install (3 plugins)
-- OpenCode: GitHub release tarballs via `rp1 install opencode`
-- Homebrew: `brew install rp1-run/tap/rp1` (macOS cask)
-- Scoop: Windows package via GoReleaser
-- curl: `curl -fsSL https://rp1.run/install.sh | sh`
-- npm: `@rp1-run/rp1` (public registry)
-- Docs: Cloudflare Pages at rp1.run
+### Development
 
-**Target Platforms**: darwin-arm64, darwin-x64, linux-arm64, linux-x64, windows-x64
+- The Web UI runs through Vite on `5173` and proxies to the Bun server on `7710`.
+- Agent workflows operate against local `.rp1` context files and the local SQLite database.
 
-**Current Version**: 0.5.1
+### Production
+
+- rp1 ships as Bun-compiled standalone binaries.
+- Documentation is built separately with MkDocs and deployed to `rp1.run`.
+
+### Infrastructure
+
+- Local runtime state uses embedded SQLite.
+- Browser observability uses the built-in HTTP and WebSocket server.
+- Release and docs delivery rely on GitHub releases, GoReleaser, and Cloudflare Pages.

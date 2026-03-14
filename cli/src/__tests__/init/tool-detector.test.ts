@@ -32,6 +32,7 @@ const createMockTool = (
 ): SupportedTool => ({
 	id: "mock-tool",
 	name: "Mock Tool",
+	enabled: true,
 	binary: "mock-binary-that-does-not-exist",
 	min_version: "1.0.0",
 	instruction_file: "MOCK.md",

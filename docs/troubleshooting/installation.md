@@ -115,6 +115,7 @@ In CI environments, graceful shutdown via SIGTERM is handled identically to SIGI
 
         # For OpenCode
         sudo chown -R $(whoami) ~/.config/opencode/
+
         ```
 
     3. **If using brew-installed Claude:**

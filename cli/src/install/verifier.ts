@@ -116,11 +116,12 @@ export const verifyInstallation = (
 				}
 			}
 
-			// Resolve expected counts: manifest names > explicit counts > fallback (1)
+			// Resolve expected counts: manifest names > explicit counts > fallback
+			// Agents default to 0 (agents are embedded in skills, not separate files)
 			const agentsExpected =
 				expectedAgents.size > 0
 					? expectedAgents.size
-					: (expectedCounts?.agents ?? 1);
+					: (expectedCounts?.agents ?? 0);
 			const skillsExpected =
 				expectedSkills.size > 0
 					? expectedSkills.size

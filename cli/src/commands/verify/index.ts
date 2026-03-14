@@ -4,7 +4,13 @@
  */
 
 import { Command } from "commander";
+import { TOOLS_REGISTRY } from "../../config/supported-tools.generated.js";
+import {
+	isToolEnabled,
+	type ToolsRegistry,
+} from "../../config/supported-tools.js";
 import { verifyClaudeCodeSubcommand } from "./claude-code.js";
+import { verifyCodexSubcommand } from "./codex.js";
 import { verifyOpenCodeSubcommand } from "./opencode.js";
 
 /**
@@ -29,9 +35,23 @@ Examples:
 verifyCommand.addCommand(verifyClaudeCodeSubcommand);
 verifyCommand.addCommand(verifyOpenCodeSubcommand);
 
+const codexVerifyEnabled = isToolEnabled(
+	TOOLS_REGISTRY as ToolsRegistry,
+	"codex",
+);
+verifyCommand.addCommand(verifyCodexSubcommand, {
+	hidden: !codexVerifyEnabled,
+});
+if (!codexVerifyEnabled) {
+	verifyCodexSubcommand.action(async () => {
+		process.exit(1);
+	});
+}
+
 // Export subcommands for direct access if needed
 export {
 	executeVerifyClaudeCode,
 	verifyClaudeCodeSubcommand,
 } from "./claude-code.js";
+export { executeVerifyCodex, verifyCodexSubcommand } from "./codex.js";
 export { executeVerifyOpenCode, verifyOpenCodeSubcommand } from "./opencode.js";

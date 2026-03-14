@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import { statSync } from "node:fs";
 import { resolve } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
@@ -33,6 +34,28 @@ export const findRp1Root = (
 			// Continue searching
 		}
 		current = resolve(current, "..");
+	}
+
+	// Worktree fallback: use git-common-dir to find the main repo root
+	try {
+		const commonDir = execSync("git rev-parse --git-common-dir", {
+			cwd: resolve(startPath),
+			encoding: "utf-8",
+			stdio: ["pipe", "pipe", "pipe"],
+		}).trim();
+
+		const absoluteCommonDir = resolve(startPath, commonDir);
+		const mainRoot = absoluteCommonDir.endsWith(".git")
+			? resolve(absoluteCommonDir, "..")
+			: absoluteCommonDir;
+
+		const rp1Path = resolve(mainRoot, ".rp1");
+		const stat = statSync(rp1Path);
+		if (stat.isDirectory()) {
+			return O.some(mainRoot);
+		}
+	} catch {
+		// Not a git repo or no .rp1 in main root
 	}
 
 	return O.none;

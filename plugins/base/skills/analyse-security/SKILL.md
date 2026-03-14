@@ -11,17 +11,17 @@ metadata:
   created: 2025-10-25
   updated: 2026-02-26
   author: cloud-on-prem/rp1
+  sub_agents:
+    - "rp1-base:security-validator"
 ---
 
 # Security Validator
 
 This command invokes the **security-validator** sub-agent for comprehensive security analysis.
 
-Use the Task tool to invoke the security-validator agent:
+Invoke the security-validator agent:
 
-```
-subagent_type: rp1-base:security-validator
-```
+{% dispatch_agent "rp1-base:security-validator" %}
 
 The agent will:
 

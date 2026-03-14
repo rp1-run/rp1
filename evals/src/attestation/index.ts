@@ -14,12 +14,14 @@ export {
 } from "./commands.js";
 export {
 	buildDependencyGraph,
+	getDistPluginPath,
 	parseAgentRefs,
 	parseSkillRefs,
 } from "./deps-graph.js";
 export {
 	emptyManifest,
 	loadManifest,
+	migrateV1ToV2,
 	saveManifest,
 	updateManifest,
 } from "./manifest.js";
@@ -31,6 +33,7 @@ export {
 export type {
 	AttestationManifest,
 	DependencyGraph,
+	EvalPlatform,
 	EvalRecord,
 	HashResult,
 	SkillAttestation,

@@ -8,7 +8,7 @@ Get rp1 installed in under 5 minutes. This guide covers all platforms and AI ass
 
 Before installing rp1, ensure you have:
 
-- **Git 2.15+**: Required for worktree isolation in `build-fast`. Check with `git --version`.
+- **Git 2.15+**: Required for repository operations. Check with `git --version`.
 
 ??? note "Upgrading Git"
 
@@ -167,7 +167,7 @@ Documentation: https://rp1.run
 ```
 
 !!! note "Multi-Tool Detection"
-    If you have both Claude Code and OpenCode installed, rp1 will detect and configure plugins for **both tools** automatically. The summary will show all detected tools and their configuration status.
+    If you have multiple supported tools installed, rp1 will detect and configure plugins for all of them automatically. The summary will show all detected tools and their configuration status.
 
 ??? tip "CI/Automation"
     For non-interactive environments (CI pipelines, Docker builds, scripts), use `rp1 init --yes` to accept all defaults and install plugins automatically.
@@ -247,7 +247,7 @@ Documentation: https://rp1.run
 
     rp1 skills are prefixed with `rp1-` to avoid collisions with your own skills:
 
-    1. **Type the skill name directly** (e.g., `/rp1-knowledge-build`, `/rp1-build`)
+    1. **Type the skill name directly** (e.g., `/rp1-base-knowledge-build`, `/rp1-dev-build`)
     2. **Type `/skills`** to browse and select — look for skills prefixed with `rp1-`
 
     *Autocomplete for skill names is coming soon — see [opencode#14506](https://github.com/anomalyco/opencode/issues/14506).*
@@ -255,7 +255,7 @@ Documentation: https://rp1.run
     **Quick test:**
 
     ```
-    /rp1-knowledge-build
+    /rp1-base-knowledge-build
     ```
 
 If successful, you'll see output like `READY [single-project]` or `READY [monorepo: N projects]`.
@@ -290,7 +290,6 @@ You're ready to go! Continue to [Your First Workflow](first-workflow.md) to run 
 
     - **Claude Code**: Make sure you completely restarted Claude Code
     - **OpenCode**: Verify plugins exist at `~/.opencode/prompts/rp1-base/`. You can type `/skills` to check if rp1 skills are listed.
-
     ---
 
     **Permission denied during installation?**

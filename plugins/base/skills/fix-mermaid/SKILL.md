@@ -11,6 +11,8 @@ metadata:
   updated: 2026-02-26
   author: cloud-on-prem/rp1
   argument-hint: "<file-path>"
+  sub_agents:
+    - "rp1-base:mermaid-fixer"
 ---
 
 # Mermaid Diagram Fixer
@@ -34,14 +36,7 @@ Extract these parameters from the user's input:
 
 ## Invocation
 
-Use the Task tool to invoke the mermaid-fixer agent:
-
-```
-subagent_type: rp1-base:mermaid-fixer
-prompt: |
-  INPUT_PATH: {FILE_PATH}
-  OUTPUT_MODE: in-place
-```
+{% dispatch_agent "rp1-base:mermaid-fixer", "INPUT_PATH: {FILE_PATH}, OUTPUT_MODE: in-place" %}
 
 The agent will:
 - Scan markdown for all mermaid code blocks

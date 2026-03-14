@@ -70,13 +70,13 @@ After your PR has been reviewed on GitHub, run the unified command:
 === "OpenCode"
 
     ```bash
-    /rp1-address-pr-feedback
+    /rp1-dev-address-pr-feedback
     ```
 
     Or with a specific PR:
 
     ```bash
-    /rp1-address-pr-feedback 42
+    /rp1-dev-address-pr-feedback 42
     ```
 
 ---
@@ -127,18 +127,11 @@ In interactive mode, you can review before proceeding. In `--afk` mode, it auto-
 
 ---
 
-## Phase 3: Fix (Worktree Isolated)
+## Phase 3: Fix
 
-The command creates an isolated worktree to make changes, allowing you to review before pushing.
+The command addresses comments in the current working directory on the PR branch:
 
 ```
-🔧 Setting Up Worktree
-
-Creating isolated workspace...
-✓ Worktree: .rp1/work/worktrees/fix-pr-feedback-fix-abc123
-✓ Branch: feature/user-auth (same as PR)
-✓ Dependencies installed
-
 🔧 Addressing PR Feedback
 
 Fixing Blocking Issues...
@@ -159,14 +152,14 @@ Fixing Important Issues...
 Fixing Suggestions...
 ...
 
-✓ All changes committed to worktree (not pushed)
+✓ All changes committed (not pushed)
 ```
 
 ---
 
 ## Phase 4: Report
 
-Finally, you receive a consolidated summary with instructions for reviewing your changes:
+Finally, you receive a consolidated summary:
 
 ```markdown
 ## PR Feedback Resolution Summary
@@ -176,38 +169,32 @@ Finally, you receive a consolidated summary with instructions for reviewing your
 **Collected**: 2025-01-15T10:30:00Z
 
 ### Resolution Summary
-- 🚨 Blocking: 1/1
-- ⚠️ Important: 2/2
-- 💡 Suggestions: 3/3
-- 🎨 Style: 2/2
+- Blocking: 1/1
+- Important: 2/2
+- Suggestions: 3/3
+- Style: 2/2
 
 ### Commits Made
-5 commit(s) in worktree:
+5 commit(s):
 - `abc1234` - fix(feedback): move JWT secret to env var
 - `def5678` - fix(feedback): add token expiration check
 - ...
 
 ---
 
-## 📂 Review Your Changes
+## Review Your Changes
 
-The fixes have been made in an isolated worktree. **Changes are NOT pushed yet.**
-
-**Worktree Location**:
-/path/to/.rp1/work/worktrees/fix-pr-feedback-fix-abc123
+**Changes are NOT pushed yet.**
 
 **To review the changes**:
-cd /path/to/worktree && git log --oneline -10
+git log --oneline -10
 
 **To push the changes** (after review):
-cd /path/to/worktree && git push origin feature/user-auth
-
-**To discard and cleanup** (if not satisfied):
-rp1 agent-tools worktree cleanup /path/to/worktree
+git push origin feature/user-auth
 ```
 
 !!! tip "Review Before Pushing"
-    Navigate to the worktree to review all changes before pushing. You can run `/pr-review` on the worktree branch to verify fixes.
+    Review all changes before pushing. You can run `/pr-review` on the branch to verify fixes.
 
 ---
 

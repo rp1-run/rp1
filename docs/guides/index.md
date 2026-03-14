@@ -56,14 +56,6 @@ Practical tutorials that walk you through complete rp1 workflows from start to f
 
     [:octicons-arrow-right-24: Start tutorial](team-onboarding.md)
 
--   :material-source-branch: **Parallel Development**
-
-    ---
-
-    Run multiple tasks simultaneously using git worktrees for isolated execution.
-
-    [:octicons-arrow-right-24: Start tutorial](parallel-development.md)
-
 </div>
 
 ---
@@ -96,5 +88,5 @@ rp1 guides are designed to be:
 
 - **Practical** - Real tasks you'll actually do
 - **Complete** - Start to finish, no gaps
-- **Platform-aware** - Syntax for both Claude Code and OpenCode
+- **Platform-aware** - Syntax for Claude Code and OpenCode
 - **Checkpoint-driven** - Verify progress at each step

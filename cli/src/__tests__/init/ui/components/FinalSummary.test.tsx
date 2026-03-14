@@ -24,6 +24,7 @@ function createMockTool(overrides: Partial<DetectedTool> = {}): DetectedTool {
 		tool: {
 			id: "claude-code",
 			name: "Claude Code",
+			enabled: true,
 			binary: "claude",
 			min_version: "1.0.0",
 			instruction_file: "CLAUDE.md",
@@ -138,6 +139,7 @@ describe("FinalSummary", () => {
 				tool: {
 					id: "opencode",
 					name: "OpenCode",
+					enabled: true,
 					binary: "opencode",
 					min_version: "0.8.0",
 					instruction_file: "AGENTS.md",
@@ -163,6 +165,7 @@ describe("FinalSummary", () => {
 				tool: {
 					id: "opencode",
 					name: "OpenCode",
+					enabled: true,
 					binary: "opencode",
 					min_version: "0.8.0",
 					instruction_file: "AGENTS.md",
@@ -215,6 +218,7 @@ describe("FinalSummary", () => {
 				tool: {
 					id: "opencode",
 					name: "OpenCode",
+					enabled: true,
 					binary: "opencode",
 					min_version: "0.8.0",
 					instruction_file: "AGENTS.md",
@@ -250,6 +254,7 @@ describe("FinalSummary", () => {
 				tool: {
 					id: "opencode",
 					name: "OpenCode",
+					enabled: true,
 					binary: "opencode",
 					min_version: "0.8.0",
 					instruction_file: "AGENTS.md",
@@ -508,6 +513,7 @@ describe("FinalSummary", () => {
 				tool: {
 					id: "opencode",
 					name: "OpenCode",
+					enabled: true,
 					binary: "opencode",
 					min_version: "0.8.0",
 					instruction_file: "AGENTS.md",

@@ -12,17 +12,17 @@ metadata:
   updated: 2026-02-26
   author: cloud-on-prem/rp1
   argument-hint: "[pr-branch] [base-branch] [review-depth] [focus-areas]"
+  sub_agents:
+    - "rp1-dev:pr-visualizer"
 ---
 
 # Visual PR Analyzer
 
 This command invokes the **pr-visualizer** sub-agent for PR diff visualization.
 
-Use the Task tool to invoke the pr-visualizer agent:
+Invoke the pr-visualizer agent:
 
-```
-subagent_type: rp1-dev:pr-visualizer
-```
+{% dispatch_agent "rp1-dev:pr-visualizer" %}
 
 The agent will:
 - Accept PR URL, branch name, or use current branch

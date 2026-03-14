@@ -1,144 +1,144 @@
 # Module & Component Breakdown
 
 **Project**: rp1
-**Analysis Date**: 2026-03-08
-**Modules Analyzed**: 19
+**Analysis Date**: 2026-03-09
+**Modules Analyzed**: 9
 
 ## Core Modules
 
-### CLI Entry (`cli/src/main.ts`)
-**Purpose**: Commander-based CLI with lazy-loaded agent-tools and daemon server
-**Responsibilities**: Register CLI commands, lazy-load agent-tools (avoid puppeteer at startup), handle daemon server, error formatting and exit code mapping
-**Dependencies**: commands/*, agent-tools/command, web-ui/server, shared/errors
+### CLI Commands (`cli/src/commands/`)
+**Purpose**: User-facing Commander entry points for build, init, install, update, and related command surfaces.
+**Complexity**: Medium
+**Key Files**:
+- `cli/src/commands/build.ts`
+- `cli/src/commands/init.ts`
+- `cli/src/commands/install/index.ts`
+- `cli/src/commands/update/index.ts`
 
-### Agent Tools Framework (`cli/src/agent-tools/`)
-**Purpose**: Runtime tools framework for AI agents with registry pattern
-**Key Files**: `index.ts` (registry), `command.ts` (Commander integration), `git.ts` (git utilities)
-**Components**: 7 sub-tool modules (work, worktree, state-machine, github-pr, mmd-validate, comment-extract, rp1-root-dir)
-**Public API**: `registerTool()`, `getTool()`, `listTools()` returning `TE.TaskEither<CLIError, ToolResult<T>>`
-
-### Work Status (`cli/src/agent-tools/work/`)
-**Purpose**: SQLite-backed workflow progress tracking with state machine validation and daemon notifications
-**Key Files**: `database.ts` (singleton WAL-mode connection, migrations v1-v7), `update.ts` (validation + state machine), `models.ts` (StatusUpdateRecord, ArtifactRecord)
-**Behavior**: Insert status updates, query by project/feature, notify daemon for WebSocket broadcast, cleanup expired runs
-
-### State Machine (`cli/src/agent-tools/state-machine/`)
-**Purpose**: Declarative workflow state management via embedded Mermaid stateDiagram-v2
-**Pipeline**: extract (from markdown) -> parse (mermaid-ast) -> transform (domain model) -> query (BFS)
-**Key Files**: `adapter.ts`, `extractor.ts`, `loader.ts`, `transform.ts`
-
-### Worktree Management (`cli/src/agent-tools/worktree/`)
-**Purpose**: Git worktree creation, cleanup, and status for isolated agent execution
-**Key Files**: `create.ts`, `cleanup.ts`, `status.ts`, `slug.ts`
-**Dependencies**: agent-tools/git
-
-### GitHub PR (`cli/src/agent-tools/github-pr/`)
-**Purpose**: GitHub PR operations for AI agents via GitHub API
-**Operations**: submit-review, add-reaction, reply-comment, fetch-comments
-**Key Files**: `client.ts`, `submit-review.ts`, `fetch-comments.ts`
+**Representative Components**:
+- **`buildCommand`**: Adapts CLI flags into build-pipeline arguments.
+- **`initCommand`**: Chooses between legacy and UI-driven initialization flows.
+- **`installParentCommand`**: Groups per-platform installers under one stable command.
+- **`updateCommand`**: Coordinates binary and plugin updates.
 
 ### Installation System (`cli/src/install/`)
-**Purpose**: Plugin installation with fp-ts pipelines, backup/restore, atomic staging
-**Key Files**: `installer.ts` (OpenCode), `manifest.ts`, `command.ts`, `claudecode/installer.ts`
-**Behavior**: Transactional: backup -> stage -> commit (or backup -> stage -> fail -> restore)
+**Purpose**: Install rp1 artifacts into supported tools with backup, verification, and restore safety.
+**Complexity**: High
+**Key Files**:
+- `cli/src/install/installer.ts`
 
-### Init Wizard (`cli/src/init/`)
-**Purpose**: 12-step TTY-aware project initialization with reinit detection
-**Key Files**: `index.ts`, `context-detector.ts` (greenfield/brownfield), `tool-detector.ts`
-**Dependencies**: config/supported-tools, install, shared
+**Representative Components**:
+- **`OpenCodeInstaller`**: Copies namespaced artifacts, stages updates, and supports rollback semantics.
 
-### Build Pipeline (`cli/src/build/`)
-**Purpose**: OpenCode artifact generation: parse, transform, validate, generate
-**Key Files**: `command.ts`, `parser.ts`, `transformations.ts`, `generator.ts`
+### Agent Tools Runtime (`cli/src/agent-tools/`)
+**Purpose**: Deterministic runtime tools for workflow status, root resolution, GitHub PR operations, state machines, and other agent-facing primitives.
+**Complexity**: High
+**Key Files**:
+- `cli/src/agent-tools/work/index.ts`
+- `cli/src/agent-tools/rp1-root-dir/index.ts`
+- `cli/src/agent-tools/github-pr/index.ts`
 
-### Shared Utilities (`cli/shared/`)
-**Purpose**: Cross-cutting: error types, fp-ts re-exports, logger, prompts, runtime detection
-**Key Files**: `errors.ts` (CLIError 14-variant tagged union), `fp.ts` (fp-ts re-exports), `config.ts`, `logger.ts`
-**Boundary**: Foundation layer with zero internal dependencies
+**Representative Components**:
+- **`WorkTool`**: Stores run state and artifacts, then notifies the UI daemon.
+- **`Rp1RootDirTool`**: Resolves the authoritative `.rp1` directory with read-only worktree detection.
+- **`GitHubPRTool`**: Wraps PR comments, reactions, and review submission in stable commands.
 
-## Plugin Modules
+### Web UI Dashboard (`cli/web-ui/`)
+**Purpose**: React application plus Bun server for project, run, workflow, and artifact visibility.
+**Complexity**: High
+**Key Files**:
+- `cli/web-ui/src/app/App.tsx`
+- `cli/web-ui/src/server/routes/v2-api.ts`
+- `cli/web-ui/src/pages/v2/HomePage.tsx`
 
-### rp1-base (`plugins/base/`)
-**Purpose**: Foundation plugin for knowledge management, documentation, strategy, security
-**Skills**: 17 (knowledge-build, knowledge-load, strategize, deep-research, analyse-security, project-birds-eye-view, mermaid, markdown-preview, etc.)
-**Agents**: 13 (kb-spatial-analyzer, kb-concept-extractor, kb-architecture-mapper, kb-module-analyzer, kb-pattern-extractor, etc.)
-**Boundary**: Independent, no cross-plugin dependencies
+**Representative Components**:
+- **`App`**: Composes providers and routes for the dashboard shell.
+- **`V2ApiRoutes`**: Serves runs, workflows, projects, health, and file content.
+- **`HomePage`**: Keyboard-navigable dashboard landing view.
 
-### rp1-dev (`plugins/dev/`)
-**Purpose**: Development workflow automation for feature lifecycle, code quality, PR management
-**Skills**: 21 (build, build-fast, build-express, blueprint, bootstrap, pr-review, code-check, code-audit, worktree-workflow, etc.)
-**Agents**: 32 (task-builder, task-reviewer, feature-architect, build-fast-planner, pr-review-splitter, pr-sub-reviewer, etc.)
-**Boundary**: Depends on rp1-base for KB loading
+### Base Knowledge Plugin (`plugins/base/`)
+**Purpose**: Shared skills and agents for KB generation, documentation, mermaid handling, and other foundational workflows.
+**Complexity**: Medium
+**Key Files**:
+- `plugins/base/skills/knowledge-build/SKILL.md`
+- `plugins/base/skills/knowledge-load/SKILL.md`
 
-### rp1-utils (`plugins/utils/`)
-**Purpose**: Meta-tooling for prompt engineering and eval generation
-**Skills**: 5 (tersify-prompt, build-prompt-evals, prompt-eval-builder, prompt-writer, tester)
-**Agents**: 4 (prompt-tersifier, prompt-eval-extractor, prompt-assertion-specialist, dependency-chain-analyzer)
+**Representative Components**:
+- **`knowledge-build`**: Map-reduce KB orchestrator.
+- **`knowledge-load`**: Progressive KB loading contract for downstream agents.
 
-## Web UI Module
+### Dev Workflow Plugin (`plugins/dev/`)
+**Purpose**: Higher-level feature, review, and implementation workflows built on top of base knowledge primitives and agent tools.
+**Complexity**: High
+**Key Files**:
+- `plugins/dev/skills/build/SKILL.md`
+- `plugins/dev/skills/build-fast/SKILL.md`
+- `plugins/dev/skills/pr-review/SKILL.md`
 
-### Web UI (`cli/web-ui/`)
-**Purpose**: React/Vite status dashboard with Bun HTTP server, WebSocket live-reload, and file watching
-**Server**: `src/server.ts`, `src/server/http.ts` (Bun.serve), `src/server/websocket.ts` (WebSocketHub)
-**API Routes**: `src/server/routes/v2-api.ts` (runs, projects, artifacts), `src/server/routes/api.ts` (legacy)
-**Frontend**: `src/app/App.tsx` (React Router), `src/app/V2Layout.tsx`, pages in `src/pages/v2/`
-**Components**: EventStream, CommandPalette, WorkflowDiagram, ArtifactList, FilterBar, StatusBadge, AnnotationSidebar
-**Providers**: WebSocketProvider, ProjectProvider, ThemeProvider, AnnotationProvider
+**Representative Components**:
+- **`build`**: End-to-end feature lifecycle orchestrator.
+- **`build-fast`**: Faster-path implementation workflow with plan and review stages.
+- **`pr-review`**: Map-reduce PR review orchestration.
 
-## Evaluation Module
+### PR Review Runtime (`cli/src/pr-review/`)
+**Purpose**: Shared CI detection, config loading, and model exports for PR review workflows.
+**Complexity**: Medium
+**Key Files**:
+- `cli/src/pr-review/index.ts`
 
-### Evals (`evals/`)
-**Purpose**: Promptfoo-based evaluation with content-addressable attestation
-**Key Files**: `src/attestation/commands.ts`, `src/attestation/deps-graph.ts`, `providers/claude-with-tools.ts`
-**Attestation**: SHA-256 hashes of prompt content + dependency chain -> verified in CI
+### Catppuccin Mermaid Package (`packages/catppuccin-mermaid/`)
+**Purpose**: Mermaid theming utilities and palettes exported as a reusable package.
+**Complexity**: Low
+**Key Files**:
+- `packages/catppuccin-mermaid/src/index.ts`
+
+### Evaluation Attestation (`evals/`)
+**Purpose**: Prompt and artifact attestation support used by the evaluation system.
+**Complexity**: Medium
+**Key Files**:
+- `evals/src/index.ts`
 
 ## Module Dependencies
 
 ```mermaid
 graph TD
-    Main[cli/src/main.ts] -->|lazy| AT[Agent Tools]
-    Main -->|lazy| WebUI[Web UI Server]
-    AT --> Work[Work Status]
-    AT --> WT[Worktree]
-    AT --> SM[State Machine]
-    AT --> PR[GitHub PR]
-    AT --> MMD[Mermaid Validate]
-    AT --> CE[Comment Extract]
-    AT --> RD[RP1 Root Dir]
-    Work --> SM
-    Work -->|notify| Daemon[Web UI Daemon]
-    WebUI --> Work
-    WebUI --> SM
-    WT --> Git[Git Utilities]
-    CE --> Git
-    Init[Init Wizard] --> Install[Installation]
-    Install --> Assets[Embedded Assets]
-    All[All CLI Modules] --> Shared[cli/shared]
-    DevPlugin[plugins/dev] -->|KB loading| BasePlugin[plugins/base]
+    CLI[CLI Commands] --> INSTALL[Installation System]
+    CLI --> TOOLS[Agent Tools Runtime]
+    CLI --> WEB[Web UI Dashboard]
+    INSTALL --> BASE[Base Knowledge Plugin]
+    INSTALL --> DEV[Dev Workflow Plugin]
+    DEV --> BASE
+    DEV --> TOOLS
+    PR[PR Review Runtime] --> DEV
+    TOOLS --> WEB
+    WEB --> TOOLS
+    PKG[Catppuccin Mermaid Package] --> WEB
 ```
 
-## Module Metrics
+## Import and Runtime Analysis
 
-| Module | Files | Est. Lines | Components |
-|--------|-------|-----------|------------|
-| plugins/base | 46 | ~12,775 | 28 |
-| plugins/dev | 53 | ~10,925 | 51 |
-| plugins/utils | 15 | ~2,660 | 9 |
-| cli/src/commands | 22 | ~4,084 | 10 |
-| cli/src/init | 19 | ~5,480 | 12 |
-| cli/src/install | 13 | ~3,739 | 7 |
-| cli/src/agent-tools | 43 | ~7,790 | 10 |
-| cli/src/build | 8 | ~2,225 | 6 |
-| cli/src/assets | 5 | ~3,581 | 3 |
-| cli/shared | 8 | ~825 | 6 |
-| cli/web-ui | 138 | ~13,523 | 15 |
-| evals | 12 | ~2,243 | 6 |
+- **Most central runtime**: `cli/src/agent-tools/` because both workflows and UI depend on it.
+- **Most visible boundary**: `cli/src/commands/` because it fronts the install, init, update, and build flows.
+- **Key cross-plugin dependency**: `plugins/dev` depends on `plugins/base` for shared KB and foundational capabilities.
+- **UI/runtime loop**: Agent tools write workflow state; the Web UI reads and broadcasts it.
 
-## Cross-Module Patterns
+## Metrics
 
-- **Skill-Agent Delegation**: Skills spawn agents via Task tool; agents execute autonomously without iteration
-- **Tool Registry**: Agent tools self-register via `registerTool()` at module load; command.ts dispatches via `getTool()`
-- **fp-ts Error Handling**: All CLI modules use Either/TaskEither with pipe() composition; CLIError tagged union with factories
-- **State Machine Integration**: Embedded Mermaid stateDiagram-v2 drives runtime transition validation and web UI step rendering
-- **Content Fencing**: Init/uninstall use `<!-- rp1:start/end -->` (markdown) and `# rp1:start/end` (shell) for idempotent injection
-- **Lazy Loading**: Main CLI lazy-loads agent-tools and daemon server to avoid heavy dependencies at startup
+| Module | Type | Key Files | Notes |
+|--------|------|-----------|-------|
+| CLI Commands | Application CLI | 4 | Thin command adapters over deeper services |
+| Installation System | Runtime service | 1 | Transactional install and restore behavior |
+| Agent Tools Runtime | Tool runtime | 3 | Shared operational backbone |
+| Web UI Dashboard | Full-stack UI | 3 | Live monitoring over the same workflow state |
+| Base Knowledge Plugin | Plugin | 2 | KB and foundational workflows |
+| Dev Workflow Plugin | Plugin | 3 | Feature and review orchestration |
+| PR Review Runtime | Shared runtime | 1 | CI and config support |
+| Catppuccin Mermaid Package | Library | 1 | Diagram theming |
+| Evaluation Attestation | Library | 1 | Eval integrity and verification |
+
+## Code Quality Insights
+
+- **Well-structured**: The CLI surface stays comparatively thin, which keeps orchestration concerns separate from command registration.
+- **Well-structured**: Agent tools form a reusable runtime seam consumed by both workflows and the dashboard.
+- **Watch area**: Plugin workflows are powerful but prompt-heavy, so behavioral drift needs documentation and tests to stay aligned.
+- **Watch area**: The tight tool/UI loop means changes to run or artifact models can affect both backend and frontend behavior quickly.

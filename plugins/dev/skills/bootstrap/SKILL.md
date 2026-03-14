@@ -14,6 +14,9 @@ metadata:
   updated: 2026-02-26
   author: cloud-on-prem/rp1
   argument-hint: "[project-name]"
+  sub_agents:
+    - "rp1-dev:charter-interviewer"
+    - "rp1-dev:bootstrap-scaffolder"
 ---
 
 # Bootstrap Command - Greenfield Project Creation
@@ -51,7 +54,7 @@ Classify directory state:
 
 **PROJECT_NAME empty + rp1-initialized**: PROJECT_NAME = CURRENT_DIR_NAME (auto-extracted from directory basename)
 
-**PROJECT_NAME empty + Empty/Non-empty**: AskUserQuestion: "What would you like to name your project? Use lowercase, numbers, hyphens (e.g., my-awesome-app)."
+**PROJECT_NAME empty + Empty/Non-empty**: {% ask_user "What would you like to name your project? Use lowercase, numbers, hyphens (e.g., my-awesome-app)." %}
 
 Max 2 attempts for validation, then abort.
 
@@ -59,8 +62,7 @@ Max 2 attempts for validation, then abort.
 
 ### Case A: rp1-initialized
 
-AskUserQuestion: "Directory '{CURRENT_DIR_NAME}' contains rp1 configuration. Create project '{PROJECT_NAME}' here?"
-Options:
+{% ask_user "Directory '{CURRENT_DIR_NAME}' contains rp1 configuration. Create project '{PROJECT_NAME}' here?", options: "Yes, proceed here (Recommended)", "Create subdirectory" %}
 
 - **Yes, proceed here (Recommended)**: "Create the scaffolded project in the current directory"
 - **Create subdirectory**: "Create a new subdirectory '{PROJECT_NAME}' instead"
@@ -70,14 +72,14 @@ Options:
 
 ### Case B: Empty Dir (no rp1 files)
 
-AskUserQuestion: "Current directory is empty. Create files here or subdirectory '{PROJECT_NAME}'? Reply 'here' or 'subdirectory' (1/2)."
+{% ask_user "Current directory is empty. Create files here or subdirectory '{PROJECT_NAME}'?", options: "here", "subdirectory" %}
 
 - here/1: TARGET_DIR = cwd
 - subdirectory/2: TARGET_DIR = `{cwd}/{PROJECT_NAME}`
 
 ### Case C: Non-Empty
 
-AskUserQuestion: "Current dir has files: [list]. Project goes in ./{PROJECT_NAME}/ (won't modify existing). Proceed? (yes/no)"
+{% ask_user "Current dir has files: [list]. Project goes in ./{PROJECT_NAME}/ (won't modify existing). Proceed?", options: "yes", "no" %}
 
 - yes: TARGET_DIR = `{cwd}/{PROJECT_NAME}`
 - no: Abort: "Bootstrap cancelled. cd into empty dir or provide name: /bootstrap my-project"
@@ -122,20 +124,20 @@ _TBD_
 
 ### 4.2 Interview Loop
 
-```
-CHARTER_PATH = {TARGET_DIR}/{{$RP1_ROOT}}/context/charter.md
+CHARTER_PATH = `{TARGET_DIR}/{{$RP1_ROOT}}/context/charter.md`
 question_count = 0
 
 while question_count < 10:
-    Task: subagent_type: rp1-dev:charter-interviewer
-      prompt: CHARTER_PATH: {CHARTER_PATH}, MODE: CREATE, RP1_ROOT: {{$RP1_ROOT}}
+    {% dispatch_agent "rp1-dev:charter-interviewer" %}
+    CHARTER_PATH: {CHARTER_PATH}, MODE: CREATE, RP1_ROOT: {{$RP1_ROOT}}
+    {% enddispatch_agent %}
 
     response = parse_json(output)
 
     if response.type == "next_question":
-        answer = AskUserQuestion(response.next_question)
+        answer = {% ask_user "response.next_question" %}
         question_count++
-        Append to scratch pad: "### Q{n}: {topic}\n**Asked**: {q}\n**Answer**: {answer}"
+        Append to scratch pad: `### Q{n}: {topic}` / `**Asked**: {q}` / `**Answer**: {answer}`
 
     elif response.type == "success":
         Update charter sections w/ response.charter_content
@@ -144,12 +146,11 @@ while question_count < 10:
 
     elif response.type == "skip":
         question_count++
-        Append: "### Q{n}: Skipped\n**Skipped**: {response.message}"
+        Append: `### Q{n}: Skipped` / `**Skipped**: {response.message}`
 
     elif response.type == "error":
         Output: "Charter error: {response.message}. Re-run /bootstrap to retry."
         break
-```
 
 ### 4.3 Verify
 
@@ -181,35 +182,34 @@ Testing: [?] | Build: [?] | Lint: [?] | Format: [?]
 
 ### 5.2 Scaffolder Loop
 
-```
-PREFS_PATH = {TARGET_DIR}/{{$RP1_ROOT}}/context/preferences.md
+PREFS_PATH = `{TARGET_DIR}/{{$RP1_ROOT}}/context/preferences.md`
 question_count = 0, summary_iterations = 0
 
 loop:
-  Task: subagent_type: rp1-dev:bootstrap-scaffolder
-    prompt: PROJECT_NAME, TARGET_DIR, CHARTER_PATH, PREFS_PATH, RP1_ROOT
+  {% dispatch_agent "rp1-dev:bootstrap-scaffolder" %}
+  PROJECT_NAME, TARGET_DIR, CHARTER_PATH, PREFS_PATH, RP1_ROOT
+  {% enddispatch_agent %}
 
   response = parse_json(output)
 
   if "next_question":
-    answer = AskUserQuestion(response.next_question)
+    answer = {% ask_user "response.next_question" %}
     question_count++
-    Append to scratch pad: "### Q{n}: {topic}\n**Asked**: {q}\n**Answer**: {answer}"
+    Append to scratch pad: `### Q{n}: {topic}` / `**Asked**: {q}` / `**Answer**: {answer}`
     continue
   elif "research_ready": update phase to RESEARCH, continue
   elif "summary":
-    answer = AskUserQuestion("{summary}\nProceed? Yes/No")
+    answer = {% ask_user "{summary} Proceed?", options: "Yes", "No" %}
     if Yes: update phase to SCAFFOLD, continue
     else:
       summary_iterations++
       if >= 2: "Max revisions. Re-run /bootstrap." break
-      answer = AskUserQuestion("What would you like to change?")
-      Append to scratch pad: "### Revision: {answer}"
+      answer = {% ask_user "What would you like to change?" %}
+      Append to scratch pad: `### Revision: {answer}`
       continue
   elif "scaffold": continue
   elif "success": Output response.output, break
   elif "error": Output error, break
-```
 
 ### 5.3 Verify
 

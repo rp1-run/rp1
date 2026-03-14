@@ -15,7 +15,7 @@ Autonomous deep research on codebases and technical topics using a map-reduce ar
 === "OpenCode"
 
     ```bash
-    /rp1-deep-research [research-topic]
+    /rp1-base-deep-research [research-topic]
     ```
 
 ## Description
@@ -93,7 +93,7 @@ Understand the architecture of a specific feature:
 === "OpenCode"
 
     ```bash
-    /rp1-deep-research Understand the authentication flow in this project
+    /rp1-base-deep-research Understand the authentication flow in this project
     ```
 
 **Expected output:**
@@ -140,7 +140,7 @@ Compare approaches across multiple codebases:
 === "OpenCode"
 
     ```bash
-    /rp1-deep-research Compare error handling between ./backend and ./frontend
+    /rp1-base-deep-research Compare error handling between ./backend and ./frontend
     ```
 
 **Expected output:**
@@ -180,7 +180,7 @@ Research best practices and external knowledge:
 === "OpenCode"
 
     ```bash
-    /rp1-deep-research Best practices for Redis caching with Node.js
+    /rp1-base-deep-research Best practices for Redis caching with Node.js
     ```
 
 **Expected output:**

@@ -274,6 +274,52 @@ export const branchExists = (
 	);
 
 /**
+ * Result of resolving a project path with worktree awareness.
+ * When running from a worktree, projectPath is normalized to the main repo root
+ * and worktreePath contains the original worktree path.
+ */
+export interface ResolvedProjectPath {
+	/** Normalized project path (main repo root) */
+	readonly projectPath: string;
+	/** Original worktree path if normalization occurred, undefined otherwise */
+	readonly worktreePath: string | undefined;
+}
+
+/**
+ * Resolve a project path to the main worktree root.
+ * When the given path is inside a git worktree, returns the main repo root
+ * as projectPath and the original path as worktreePath.
+ * For non-worktree paths or non-git directories, returns the path unchanged.
+ *
+ * @param projectPath - Absolute path to resolve
+ * @returns ResolvedProjectPath with normalized path and optional worktree path
+ */
+export const resolveProjectPath = (
+	projectPath: string,
+): TE.TaskEither<CLIError, ResolvedProjectPath> =>
+	pipe(
+		TE.Do,
+		TE.bind("isWorktree", () =>
+			pipe(
+				isInsideWorktree(projectPath),
+				TE.orElse(() => TE.right(false)),
+			),
+		),
+		TE.bind("mainRoot", () =>
+			pipe(
+				getMainRepoRoot(projectPath),
+				TE.orElse(() => TE.right(projectPath)),
+			),
+		),
+		TE.map(({ isWorktree, mainRoot }): ResolvedProjectPath => {
+			if (isWorktree && mainRoot !== projectPath) {
+				return { projectPath: mainRoot, worktreePath: projectPath };
+			}
+			return { projectPath, worktreePath: undefined };
+		}),
+	);
+
+/**
  * Derive the repository root from a git directory path.
  * Handles both standard .git directories and paths inside .git.
  *

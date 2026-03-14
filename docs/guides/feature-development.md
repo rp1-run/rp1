@@ -112,8 +112,8 @@ The `/build` command is the **single entry point** for feature development. It o
 === "OpenCode"
 
     ```bash
-    /rp1-build my-feature              # Interactive mode (default)
-    /rp1-build my-feature --afk        # Autonomous mode
+    /rp1-dev-build my-feature              # Interactive mode (default)
+    /rp1-dev-build my-feature --afk        # Autonomous mode
     ```
 
 !!! note "Individual Step Commands Removed"
@@ -166,7 +166,7 @@ When to use `--afk` mode:
 - When you trust the AI to make reasonable decisions
 
 !!! note "Your code is safe"
-    Even in AFK mode, all changes are isolated to a separate branch. Nothing is merged until you review and approve. See [Parallel Development](parallel-development.md) for details.
+    Even in AFK mode, all changes are isolated to a separate branch. Nothing is merged until you review and approve.
 
 **Resumption scenarios:**
 
@@ -195,7 +195,7 @@ When to use `--afk` mode:
     === "OpenCode"
 
         ```bash
-        /rp1-blueprint
+        /rp1-dev-blueprint
         ```
 
     **Tip:** You can pass existing context to speed up the process — a public URL, pasted product document, or any relevant background:

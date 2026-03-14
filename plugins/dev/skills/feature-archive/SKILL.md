@@ -12,6 +12,8 @@ metadata:
   updated: 2026-02-26
   author: cloud-on-prem/rp1
   argument-hint: "<feature-id>"
+  sub_agents:
+    - "rp1-dev:feature-archiver"
 ---
 
 # Feature Archive
@@ -46,16 +48,11 @@ Extract these parameters from the user's input:
 
 ### Step 1: Invoke Agent
 
-Task tool:
-
-- `subagent_type`: `rp1-dev:feature-archiver`
-- `prompt`:
-
-```
+{% dispatch_agent "rp1-dev:feature-archiver" %}
 MODE: archive
 FEATURE_ID: {FEATURE_ID}
 SKIP_DOC_CHECK: false
-```
+{% enddispatch_agent %}
 
 ### Step 2: Handle Response
 
@@ -65,19 +62,7 @@ If agent returns JSON w/ `type: "needs_confirmation"`:
 {"type":"needs_confirmation","reason":"minimal_docs","feature_id":"...","message":"..."}
 ```
 
-AskUserQuestion:
-
-```
-questions:
-  - question: "Feature '{FEATURE_ID}' has minimal documentation (no requirements.md or design.md). Archive anyway?"
-    header: "Confirm"
-    options:
-      - label: "Yes - Archive anyway"
-        description: "Proceed with archiving despite minimal documentation"
-      - label: "No - Cancel"
-        description: "Abort the archive operation"
-    multiSelect: false
-```
+{% ask_user "Feature '{FEATURE_ID}' has minimal documentation (no requirements.md or design.md). Archive anyway?", options: "Yes - Archive anyway", "No - Cancel" %}
 
 - **Yes**: Re-invoke w/ `SKIP_DOC_CHECK: true`
 - **No**: Output `Archive aborted by user` + STOP

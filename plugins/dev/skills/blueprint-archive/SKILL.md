@@ -48,15 +48,10 @@ Extract these parameters from the user's input:
 
 ### Step 1: Scan PRD
 
-Task tool:
-
-- `subagent_type`: `rp1-dev:prd-archiver`
-- `prompt`:
-
-```
+{% dispatch_agent "rp1-dev:prd-archiver" %}
 MODE: scan
 PRD_NAME: {PRD_NAME}
-```
+{% enddispatch_agent %}
 
 ### Step 2: Handle Scan Response
 
@@ -83,21 +78,7 @@ Continue to Step 3.
 
 ### Step 3: Confirm Closure Status
 
-AskUserQuestion:
-
-```
-questions:
-  - question: "Archive PRD '{PRD_NAME}' ({prd_title})? {message}"
-    header: "PRD Archive"
-    options:
-      - label: "Yes - Objectives fully met"
-        description: "Archive with Complete status"
-      - label: "Partial - Some objectives met"
-        description: "Archive with documented gaps"
-      - label: "No - Cancel"
-        description: "Abort archival"
-    multiSelect: false
-```
+{% ask_user "Archive PRD '{PRD_NAME}' ({prd_title})? {message}", options: "Yes - Objectives fully met", "Partial - Some objectives met", "No - Cancel" %}
 
 Handle response:
 
@@ -107,29 +88,18 @@ Handle response:
 
 ### Step 4a: Document Gaps (Partial Only)
 
-AskUserQuestion:
-
-```
-questions:
-  - question: "Document the gaps or unmet objectives:"
-    header: "Gap Documentation"
-```
+{% ask_user "Document the gaps or unmet objectives:" %}
 
 Capture response as `GAPS`.
 
 ### Step 4: Execute Archive
 
-Task tool:
-
-- `subagent_type`: `rp1-dev:prd-archiver`
-- `prompt`:
-
-```
+{% dispatch_agent "rp1-dev:prd-archiver" %}
 MODE: archive
 PRD_NAME: {PRD_NAME}
 CLOSURE_STATUS: {complete|partial}
 GAPS: {user-provided gaps or empty}
-```
+{% enddispatch_agent %}
 
 ### Step 5: Report
 

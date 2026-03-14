@@ -170,6 +170,7 @@ rp1 verify claude-code
 
 # Verify OpenCode installation
 rp1 verify opencode
+
 ```
 
 **Example output:**

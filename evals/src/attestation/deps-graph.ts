@@ -1,11 +1,12 @@
 /**
  * Dependency graph derivation for eval attestation.
  * Parses markdown to extract Task and Skill references from prompt files.
+ * Resolves paths from cli/dist/{platform}/ built artifacts.
  */
 
 import { pipe } from "fp-ts/function";
 import * as TE from "fp-ts/TaskEither";
-import type { DependencyGraph } from "./types.js";
+import type { DependencyGraph, EvalPlatform } from "./types.js";
 
 /**
  * Pattern for detecting agent references in skill files.
@@ -20,7 +21,8 @@ const TASK_PATTERN = /Task:\s*(\w+-\w+):(\w[\w-]*)/g;
 const SKILL_PATTERN = /[Ss]kill[:\s]+`?(\w+-\w+):(\w[\w-]*)`?/g;
 
 /**
- * Map plugin name to path prefix (relative to repo root).
+ * Map plugin name to source path prefix (relative to repo root).
+ * Used for plugin suffix extraction.
  */
 export const PLUGIN_PATHS: Record<string, string> = {
 	"rp1-base": "plugins/base",
@@ -34,19 +36,54 @@ export const PLUGIN_SUFFIXES = Object.keys(PLUGIN_PATHS).map((k) =>
 );
 
 /**
+ * Get the dist directory path for a plugin on a given platform.
+ *
+ * @param platform - Target eval platform
+ * @param pluginName - Plugin name (e.g., "rp1-base")
+ * @returns Relative path to the plugin's dist directory
+ */
+export function getDistPluginPath(
+	platform: EvalPlatform,
+	pluginName: string,
+): string {
+	const pluginDir = pluginName.replace("rp1-", "");
+	return `cli/dist/${platform}/${pluginDir}`;
+}
+
+/**
+ * Get the skill directory name for a given platform.
+ * Claude Code uses bare names; OpenCode and Codex use rp1-prefixed names.
+ *
+ * @param skillName - Bare skill name (e.g., "build-fast")
+ * @param platform - Target eval platform
+ * @returns Directory name for the skill
+ */
+function skillDirName(skillName: string, platform: EvalPlatform): string {
+	if (platform === "claude-code") {
+		return skillName;
+	}
+	return `rp1-${skillName}`;
+}
+
+/**
  * Parse a skill file to extract agent dependencies.
+ * Resolves agent paths to cli/dist/{platform}/{plugin}/agents/{name}.md
  *
  * @param content - The skill file content to parse
+ * @param platform - Target eval platform
  * @returns Array of agent file paths (deduplicated)
  */
-export function parseAgentRefs(content: string): readonly string[] {
+export function parseAgentRefs(
+	content: string,
+	platform: EvalPlatform,
+): readonly string[] {
 	const refs: string[] = [];
 
 	for (const match of content.matchAll(TASK_PATTERN)) {
 		const [, plugin, agent] = match;
-		const basePath = PLUGIN_PATHS[plugin];
-		if (basePath) {
-			refs.push(`${basePath}/agents/${agent}.md`);
+		const distPath = getDistPluginPath(platform, plugin);
+		if (PLUGIN_PATHS[plugin]) {
+			refs.push(`${distPath}/agents/${agent}.md`);
 		}
 	}
 
@@ -55,19 +92,24 @@ export function parseAgentRefs(content: string): readonly string[] {
 
 /**
  * Parse an agent file to extract skill dependencies.
+ * Resolves skill paths to cli/dist/{platform}/{plugin}/skills/{name}/SKILL.md
  *
  * @param content - The agent file content to parse
+ * @param platform - Target eval platform
  * @returns Array of skill file paths (deduplicated)
  */
-export function parseSkillRefs(content: string): readonly string[] {
+export function parseSkillRefs(
+	content: string,
+	platform: EvalPlatform,
+): readonly string[] {
 	const refs: string[] = [];
 	const pattern = new RegExp(SKILL_PATTERN);
 
 	for (const match of content.matchAll(pattern)) {
 		const [, plugin, skill] = match;
-		const basePath = PLUGIN_PATHS[plugin];
-		if (basePath) {
-			refs.push(`${basePath}/skills/${skill}/SKILL.md`);
+		const distPath = getDistPluginPath(platform, plugin);
+		if (PLUGIN_PATHS[plugin]) {
+			refs.push(`${distPath}/skills/${skillDirName(skill, platform)}/SKILL.md`);
 		}
 	}
 
@@ -75,15 +117,17 @@ export function parseSkillRefs(content: string): readonly string[] {
 }
 
 /**
- * Build complete dependency graph for a skill source file.
+ * Build complete dependency graph for a skill built artifact.
  * Recursively traverses all agent and skill references using BFS
  * with cycle detection to capture transitive dependencies.
  *
- * @param promptPath - Path to the skill source file (skills/{name}/SKILL.md)
+ * @param promptPath - Path to the built skill file (cli/dist/{platform}/{plugin}/skills/{name}/SKILL.md)
+ * @param platform - Target eval platform
  * @returns TaskEither with dependency graph or error
  */
 export function buildDependencyGraph(
 	promptPath: string,
+	platform: EvalPlatform,
 ): TE.TaskEither<Error, DependencyGraph> {
 	return pipe(
 		TE.tryCatch(
@@ -91,7 +135,7 @@ export function buildDependencyGraph(
 				const promptFile = Bun.file(promptPath);
 				if (!(await promptFile.exists())) {
 					throw new Error(
-						`Skill file not found: ${promptPath}. Ensure CWD is the repository root.`,
+						`Skill file not found: ${promptPath}. Ensure the platform has been built (run 'just build-all' or 'just build-claude-code').`,
 					);
 				}
 
@@ -109,7 +153,7 @@ export function buildDependencyGraph(
 					if (!(await file.exists())) continue;
 					const content = await file.text();
 
-					const agentRefs = parseAgentRefs(content);
+					const agentRefs = parseAgentRefs(content, platform);
 					for (const ref of agentRefs) {
 						if (!visited.has(ref)) {
 							allAgents.push(ref);
@@ -117,7 +161,7 @@ export function buildDependencyGraph(
 						}
 					}
 
-					const skillRefs = parseSkillRefs(content);
+					const skillRefs = parseSkillRefs(content, platform);
 					for (const ref of skillRefs) {
 						if (!visited.has(ref)) {
 							allSkills.push(ref);
@@ -132,6 +176,7 @@ export function buildDependencyGraph(
 				return {
 					skill: skillName,
 					skillPath: promptPath,
+					platform,
 					agents: [...new Set(allAgents)],
 					skills: [...new Set(allSkills)],
 				};

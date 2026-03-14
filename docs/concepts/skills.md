@@ -48,65 +48,61 @@ The description should include:
 
 The **workflow orchestrator** pattern is used for multi-phase skills that guide agents through complex, stateful processes. The skill defines phases, verification steps, and error recovery procedures.
 
-### Example: worktree-workflow Skill
+### Example: build-fast Skill
 
-The `worktree-workflow` skill demonstrates this pattern. It orchestrates isolated git worktree workflows for coding agents.
+The `build-fast` skill demonstrates this pattern. It orchestrates quick-iteration development through a structured plan-build-review pipeline.
 
 **Invocation**:
 ```
-Use the Skill tool with skill: "rp1-dev:worktree-workflow"
+Use the Skill tool with skill: "rp1-dev:build-fast"
 ```
 
 **Parameters**:
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `task_slug` | string | Yes | Branch naming slug (e.g., `fix-auth-bug`) |
-| `agent_prefix` | string | No | Branch prefix (default: `quick-build`) |
-| `create_pr` | boolean | No | Create PR after pushing (default: `false`) |
+| `DEVELOPMENT_REQUEST` | string | Yes | Freeform development request text |
+| `AFK` | boolean | No | Non-interactive mode (default: `false`) |
+| `REVIEW` | boolean | No | Enable post-build review (default: `false`) |
+| `GIT_COMMIT` | boolean | No | Commit changes (default: `false`) |
 
-**Four-Phase Workflow**:
+**Three-Phase Workflow**:
 
 ```
-Phase 1: Setup
-  - Store original directory
-  - Create worktree via CLI tool
-  - Verify git state (history, branch, basedOn commit)
-  
-Phase 2: Implementation
-  - Install dependencies if needed
-  - Make changes with atomic commits
-  - Follow conventional commit format
-  - Track commit count
-  
-Phase 3: Publish
-  - Validate commit ownership (count, ancestry, author)
-  - Push branch to remote
-  - Create PR if requested
-  
-Phase 4: Cleanup
-  - Detect and resolve dirty state
-  - Restore original directory
-  - Remove worktree, preserve branch
+Phase 1: Plan
+  - Analyze the development request
+  - Identify files to modify and approach
+  - Generate a quick-build artifact with task breakdown
+  - Optional: present plan for user confirmation
+
+Phase 2: Build
+  - Spawn task-builder agent for each task
+  - Implement changes with atomic commits
+  - Run quality checks (lint, typecheck, tests)
+  - Track implementation status
+
+Phase 3: Review
+  - Validate implementation against plan
+  - Run task-reviewer if enabled
+  - Generate resolution summary
 ```
 
-**Verification Safeguards**:
+**State Machine**:
 
-The skill includes verification at each phase to prevent corrupted PRs:
+The skill uses a state machine to track progression through phases:
 
-| Check | Purpose |
-|-------|---------|
-| History exists | Worktree has valid git history |
-| basedOn commit visible | Branch created from expected point |
-| Commit count matches | No orphan commits included |
-| Author matches | No test contamination |
+| State | Transition | Next State |
+|-------|------------|------------|
+| plan | plan_ready | build |
+| build | build_complete | review |
+| review | done | (terminal) |
 
 **Error Recovery**:
 
-Each phase has defined failure protocols in `WORKFLOWS.md`:
-- Worktree creation failure -> cleanup and report
-- Verification failure -> preserve worktree for investigation
-- Dirty state at cleanup -> prompt user for resolution
+Each phase has defined failure protocols:
+- Plan generation failure -> report error and stop
+- Build failure -> mark task as failed, continue remaining tasks
+- Review failure -> report issues for manual resolution
 
 ---
 
@@ -147,13 +143,13 @@ Skills can be invoked by users directly from their AI assistant, or by agents pr
 
     rp1 skills are installed with an `rp1-` prefix to avoid collisions with your own skills. There are two ways to invoke them:
 
-    1. **Type the skill name directly** (e.g., `/rp1-build`, `/rp1-knowledge-build`)
+    1. **Type the skill name directly** (e.g., `/rp1-dev-build`, `/rp1-base-knowledge-build`)
     2. **Type `/skills`** to browse and select from a dropdown — look for skills prefixed with `rp1-`
 
     ```bash
-    /rp1-build my-feature
-    /rp1-knowledge-build
-    /rp1-build-fast "Add dark mode toggle"
+    /rp1-dev-build my-feature
+    /rp1-base-knowledge-build
+    /rp1-dev-build-fast "Add dark mode toggle"
     ```
 
     !!! note "Autocomplete support"
@@ -165,7 +161,7 @@ Agents invoke skills programmatically using the Skill tool:
 
 ```markdown
 Use the Skill tool with:
-- skill: "rp1-dev:worktree-workflow"
+- skill: "rp1-dev:build-fast"
 - Parameters as required by the skill
 ```
 
@@ -191,7 +187,7 @@ The skill content is loaded and the agent follows its instructions.
 
 ### Naming
 
-- Use kebab-case: `worktree-workflow`, `mermaid-validation`
+- Use kebab-case: `build-fast`, `mermaid-validation`
 - Be specific: `pdf-extraction` not `pdf-helper`
 - Use gerund form when applicable: `processing-pdfs`
 

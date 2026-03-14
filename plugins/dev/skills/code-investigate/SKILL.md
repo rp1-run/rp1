@@ -10,17 +10,17 @@ metadata:
   created: 2025-10-25
   updated: 2026-02-26
   author: cloud-on-prem/rp1
+  sub_agents:
+    - "rp1-dev:bug-investigator"
 ---
 
 # Root Cause Investigator
 
 This command invokes the **bug-investigator** sub-agent for systematic issue analysis.
 
-Use the Task tool to invoke the bug-investigator agent:
+Invoke the bug-investigator agent:
 
-```
-subagent_type: rp1-dev:bug-investigator
-```
+{% dispatch_agent "rp1-dev:bug-investigator" %}
 
 The agent will:
 - Analyze problem statement and gather context

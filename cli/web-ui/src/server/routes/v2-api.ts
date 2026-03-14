@@ -7,7 +7,7 @@
  * grouping. Stale rows (expired via expires_at) are filtered on read.
  */
 
-import { resolve } from "node:path";
+import { extname, join, resolve } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import { formatError } from "../../../../shared/errors.js";
@@ -43,18 +43,27 @@ import type {
 	Step,
 	StepStatus,
 } from "../../types/runs";
-import { getAllProjects, getProject, type ProjectEntry } from "../registry";
-
-function jsonResponse(data: unknown, status = 200): Response {
-	return new Response(JSON.stringify(data), {
-		status,
-		headers: { "Content-Type": "application/json" },
-	});
-}
-
-function errorResponse(message: string, status = 500): Response {
-	return jsonResponse({ error: message }, status);
-}
+import {
+	getAllProjects,
+	getProject,
+	isValidProject,
+	loadRegistry,
+	type ProjectEntry,
+	registerProject,
+	removeProject,
+} from "../registry";
+import {
+	type ApiContext,
+	buildFileTree,
+	errorResponse,
+	type FileContent,
+	type FileNode,
+	getMimeType,
+	jsonResponse,
+	parseFrontmatter,
+	resolveWithArchiveFallback,
+	validateFilePath,
+} from "./content-utils";
 
 /**
  * Map database StatusValue to frontend RunStatus.
@@ -188,15 +197,25 @@ const TERMINAL_STATUSES: ReadonlySet<StatusValue> = new Set([
 ]);
 
 /**
- * Normalize an artifact path. If the path is a bare filename (no directory
- * separators), resolve it relative to the feature's work directory.
+ * Normalize an artifact path to always be relative to the project root.
+ * - Bare filenames → resolve relative to feature's work directory
+ * - Absolute paths → strip project prefix to make relative
+ * - Already relative → pass through
  */
 function normalizeArtifactPath(
 	artifactPath: string,
 	featureId: string,
+	projectPath?: string,
 ): string {
 	if (!artifactPath.includes("/")) {
 		return `.rp1/work/features/${featureId}/${artifactPath}`;
+	}
+	// If it's an absolute path, make it relative to project root
+	if (projectPath && artifactPath.startsWith("/")) {
+		const prefix = projectPath.endsWith("/") ? projectPath : `${projectPath}/`;
+		if (artifactPath.startsWith(prefix)) {
+			return artifactPath.slice(prefix.length);
+		}
 	}
 	return artifactPath;
 }
@@ -226,12 +245,14 @@ async function discoverArtifactsFromFilesystem(
 
 	const glob = new Bun.Glob("*.md");
 	const artifacts: Artifact[] = [];
+	const resolvedProjectPath = resolve(projectPath);
 	for await (const entry of glob.scan({ cwd: dir })) {
-		const relativePath = dir.startsWith(resolve(projectPath))
-			? `${dir.slice(resolve(projectPath).length + 1)}/${entry}`
+		const relativePath = dir.startsWith(resolvedProjectPath)
+			? `${dir.slice(resolvedProjectPath.length + 1)}/${entry}`
 			: entry;
 		artifacts.push({
 			path: relativePath,
+			absolutePath: resolve(dir, entry),
 			type: "markdown",
 			updatedDuringRun: true,
 			isNew: false,
@@ -255,12 +276,20 @@ async function getRegisteredArtifacts(
 		return discoverArtifactsFromFilesystem(projectPath, featureId);
 	}
 
-	return result.right.map((record) => ({
-		path: normalizeArtifactPath(record.path, featureId),
-		type: record.type as ArtifactType,
-		updatedDuringRun: true,
-		isNew: false,
-	}));
+	return result.right.map((record) => {
+		const relativePath = normalizeArtifactPath(
+			record.path,
+			featureId,
+			projectPath,
+		);
+		return {
+			path: relativePath,
+			absolutePath: resolve(projectPath, relativePath),
+			type: record.type as ArtifactType,
+			updatedDuringRun: true,
+			isNew: false,
+		};
+	});
 }
 
 /**
@@ -1121,5 +1150,276 @@ export async function handleV2WorkflowDetailRequest(
 		});
 	} catch (error) {
 		return errorResponse(`Failed to get workflow: ${String(error)}`);
+	}
+}
+
+/**
+ * GET /api/v2/projects/:id/files - get file tree for a project.
+ * Returns FileNode[] for the project's .rp1/ work and context directories.
+ */
+export async function handleV2ProjectFilesRequest(
+	projectId: string,
+): Promise<Response> {
+	try {
+		const project = await getProject(projectId);
+
+		if (!project) {
+			return errorResponse(`Project not found: ${projectId}`, 404);
+		}
+
+		const available = await isValidProject(project.path);
+		if (!available) {
+			return errorResponse(`Project unavailable: ${projectId}`, 410);
+		}
+
+		const rp1Path = join(project.path, ".rp1");
+		const sections: FileNode[] = [];
+
+		const workPath = join(rp1Path, "work");
+		const workTree = await buildFileTree(workPath, "work");
+		if (workTree) {
+			sections.push(workTree);
+		}
+
+		const contextPath = join(rp1Path, "context");
+		const contextTree = await buildFileTree(contextPath, "context");
+		if (contextTree) {
+			sections.push(contextTree);
+		}
+
+		return jsonResponse(sections);
+	} catch (error) {
+		return errorResponse(`Failed to read file tree: ${String(error)}`);
+	}
+}
+
+/**
+ * GET /api/v2/projects/:id/content/* - get file content for a project.
+ * Returns FileContent with path, content, mimeType, and optional frontmatter.
+ * Uses validateFilePath for security and resolveWithArchiveFallback for archive lookup.
+ */
+export async function handleV2ProjectContentRequest(
+	projectId: string,
+	filePath: string,
+): Promise<Response> {
+	try {
+		const project = await getProject(projectId);
+
+		if (!project) {
+			return errorResponse(`Project not found: ${projectId}`, 404);
+		}
+
+		const available = await isValidProject(project.path);
+		if (!available) {
+			return errorResponse(`Project unavailable: ${projectId}`, 410);
+		}
+
+		const validationError = validateFilePath(filePath);
+		if (validationError) {
+			const status = validationError.includes("Access denied") ? 403 : 400;
+			return errorResponse(validationError, status);
+		}
+
+		const rp1Path = resolve(project.path, ".rp1");
+
+		const resolvedPath = await resolveWithArchiveFallback(rp1Path, filePath);
+		if (!resolvedPath) {
+			return errorResponse("File not found", 404);
+		}
+
+		const content = await Bun.file(resolvedPath).text();
+		const mimeType = getMimeType(filePath);
+
+		let frontmatter: Record<string, unknown> | undefined;
+		if (extname(filePath) === ".md") {
+			const parsed = parseFrontmatter(content);
+			frontmatter = parsed.frontmatter;
+		}
+
+		const response: FileContent = {
+			path: filePath,
+			content,
+			mimeType,
+			frontmatter,
+		};
+
+		return jsonResponse(response);
+	} catch (error) {
+		return errorResponse(`Failed to read file: ${String(error)}`);
+	}
+}
+
+/**
+ * GET /api/v2/health - daemon health check.
+ */
+export async function handleV2HealthRequest(
+	ctx: ApiContext,
+): Promise<Response> {
+	if (ctx.webUIDir) {
+		const indexPath = join(ctx.webUIDir, "client", "index.html");
+		const file = Bun.file(indexPath);
+		if (!(await file.exists())) {
+			return jsonResponse(
+				{ status: "starting", reason: "assets not ready" },
+				503,
+			);
+		}
+	}
+
+	const registry = await loadRegistry();
+	const projectCount = Object.keys(registry.projects).length;
+	const uptime = Math.floor((Date.now() - ctx.startTime) / 1000);
+
+	return jsonResponse({
+		status: "ok",
+		uptime,
+		port: ctx.port,
+		projectCount,
+	});
+}
+
+/**
+ * POST /api/v2/shutdown - graceful daemon shutdown.
+ */
+export async function handleV2ShutdownRequest(
+	ctx: ApiContext,
+): Promise<Response> {
+	if (ctx.shutdownCallback) {
+		setTimeout(() => ctx.shutdownCallback?.(), 100);
+	}
+	return jsonResponse({ status: "shutting_down" });
+}
+
+/**
+ * POST /api/v2/status/notify - notify WebSocket clients of a status change.
+ * Called by CLI after writing status update to trigger immediate broadcast.
+ */
+export async function handleV2StatusNotifyRequest(
+	req: Request,
+	ctx: ApiContext,
+): Promise<Response> {
+	try {
+		const body = (await req.json()) as {
+			projectPath?: string;
+			feature?: string;
+			status?: string;
+			workflow?: string;
+			runId?: string;
+			previousState?: string | null;
+			newState?: string;
+		};
+
+		if (!body.projectPath || !body.feature || !body.status) {
+			return errorResponse(
+				"Missing required fields: projectPath, feature, status",
+				400,
+			);
+		}
+
+		const projects = await getAllProjects();
+		const project = projects.find((p) => p.path === body.projectPath);
+
+		if (!project) {
+			return jsonResponse({
+				notified: false,
+				reason: "project_not_registered",
+			});
+		}
+
+		const step = body.newState ?? undefined;
+		const runStatus =
+			body.workflow && body.status
+				? mapNotifyStatusToRunStatus(body.status)
+				: undefined;
+
+		ctx.websocketHub?.broadcastStatusChange(
+			project.id,
+			body.feature,
+			body.status,
+			step,
+			runStatus,
+		);
+
+		return jsonResponse({ notified: true, projectId: project.id });
+	} catch (error) {
+		return errorResponse(`Failed to process notification: ${String(error)}`);
+	}
+}
+
+/**
+ * Map raw status string to frontend RunStatus for optimistic WebSocket updates.
+ */
+function mapNotifyStatusToRunStatus(status: string): string {
+	switch (status) {
+		case "started":
+		case "in_progress":
+			return "running";
+		case "waiting-input":
+			return "waiting-input";
+		case "needs-review":
+			return "needs-review";
+		case "completed":
+			return "completed";
+		case "failed":
+			return "failed";
+		default:
+			return "running";
+	}
+}
+
+/**
+ * POST /api/v2/projects - register a new project.
+ */
+export async function handleV2ProjectRegisterRequest(
+	req: Request,
+	ctx: ApiContext,
+): Promise<Response> {
+	try {
+		const body = (await req.json()) as { path?: string };
+
+		if (!body.path || typeof body.path !== "string") {
+			return errorResponse("Missing required field: path", 400);
+		}
+
+		const projectPath = body.path;
+
+		const valid = await isValidProject(projectPath);
+		if (!valid) {
+			return errorResponse(
+				`Invalid project: ${projectPath} does not contain .rp1/ directory`,
+				400,
+			);
+		}
+
+		const project = await registerProject(projectPath);
+		ctx.websocketHub?.broadcastProjectsChanged();
+
+		const url = `http://127.0.0.1:${ctx.port}/projects/${project.id}`;
+
+		return jsonResponse({ project, url });
+	} catch (error) {
+		return errorResponse(`Failed to register project: ${String(error)}`);
+	}
+}
+
+/**
+ * DELETE /api/v2/projects/:id - remove project from registry.
+ */
+export async function handleV2ProjectDeleteRequest(
+	projectId: string,
+	ctx: ApiContext,
+): Promise<Response> {
+	try {
+		const removed = await removeProject(projectId);
+
+		if (!removed) {
+			return errorResponse(`Project not found: ${projectId}`, 404);
+		}
+
+		ctx.websocketHub?.broadcastProjectsChanged();
+
+		return jsonResponse({ removed: true });
+	} catch (error) {
+		return errorResponse(`Failed to remove project: ${String(error)}`);
 	}
 }
