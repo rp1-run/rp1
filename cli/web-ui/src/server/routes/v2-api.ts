@@ -22,6 +22,7 @@ import type {
 } from "../../../../src/agent-tools/state-machine/models.js";
 import {
 	getProjectRunStats,
+	queryAgentUpdatesForRun,
 	queryAllLatestStatuses,
 	queryAllStatusUpdatesForFeature,
 	queryArtifactsForFeature,
@@ -33,6 +34,7 @@ import type {
 } from "../../../../src/agent-tools/work/models.js";
 import type { V2Project } from "../../types/projects";
 import type {
+	AgentTask,
 	Artifact,
 	ArtifactType,
 	AttentionData,
@@ -185,6 +187,7 @@ function recordToRun(record: StatusUpdateRecord, project: ProjectEntry): Run {
 		completedAt:
 			status === "completed" || status === "failed" ? record.createdAt : null,
 		error: status === "failed" ? record.message : null,
+		agentSteps: null,
 	};
 }
 
@@ -256,6 +259,7 @@ async function discoverArtifactsFromFilesystem(
 			type: "markdown",
 			updatedDuringRun: true,
 			isNew: false,
+			step: null,
 		});
 	}
 
@@ -288,6 +292,7 @@ async function getRegisteredArtifacts(
 			type: record.type as ArtifactType,
 			updatedDuringRun: true,
 			isNew: false,
+			step: record.step ?? null,
 		};
 	});
 }
@@ -606,6 +611,51 @@ async function deriveRunStatus(
 }
 
 /**
+ * Derive agent steps grouped by step then by task from agent-level records.
+ * Returns null when no agent records exist. Steps without agent updates
+ * have no entry (no empty arrays).
+ */
+function deriveAgentSteps(
+	agentRecords: readonly StatusUpdateRecord[],
+): Readonly<Record<string, readonly AgentTask[]>> | null {
+	if (agentRecords.length === 0) return null;
+
+	const stepMap = new Map<string, Map<string, AgentTask>>();
+
+	for (const record of agentRecords) {
+		const stepId = record.step;
+		if (!stepId) continue;
+
+		let taskMap = stepMap.get(stepId);
+		if (!taskMap) {
+			taskMap = new Map<string, AgentTask>();
+			stepMap.set(stepId, taskMap);
+		}
+
+		const taskId = record.task ?? record.agent ?? `agent-${record.id}`;
+		const taskName = record.task
+			? humanizeFeatureName(record.task)
+			: humanizeFeatureName(record.agent ?? "unknown");
+
+		taskMap.set(taskId, {
+			id: taskId,
+			name: taskName,
+			status: record.status,
+			agent: record.agent ?? "unknown",
+		});
+	}
+
+	if (stepMap.size === 0) return null;
+
+	const result: Record<string, readonly AgentTask[]> = {};
+	for (const [stepId, taskMap] of stepMap) {
+		result[stepId] = Array.from(taskMap.values());
+	}
+
+	return result;
+}
+
+/**
  * Build a fully-populated Run object for the detail view.
  * Uses the full timeline of status records to derive events, steps,
  * and proper duration timestamps.
@@ -622,6 +672,7 @@ async function buildDetailedRun(
 	allRecords: readonly StatusUpdateRecord[],
 	project: ProjectEntry,
 	artifacts: readonly Artifact[],
+	agentSteps: Readonly<Record<string, readonly AgentTask[]>> | null,
 ): Promise<Run> {
 	const command = extractCommand(record.metadata, record.workflow);
 
@@ -680,6 +731,7 @@ async function buildDetailedRun(
 		startedAt,
 		completedAt,
 		error,
+		agentSteps,
 	};
 }
 
@@ -903,7 +955,28 @@ export async function handleV2RunDetailRequest(
 			record.feature,
 		);
 
-		const run = await buildDetailedRun(record, allRecords, project, artifacts);
+		let agentSteps: Readonly<Record<string, readonly AgentTask[]>> | null =
+			null;
+		if (record.runId) {
+			const agentResult = await pipe(
+				queryAgentUpdatesForRun(
+					record.projectPath,
+					record.feature,
+					record.runId,
+				),
+			)();
+			if (E.isRight(agentResult)) {
+				agentSteps = deriveAgentSteps(agentResult.right);
+			}
+		}
+
+		const run = await buildDetailedRun(
+			record,
+			allRecords,
+			project,
+			artifacts,
+			agentSteps,
+		);
 		return jsonResponse(run);
 	} catch (error) {
 		return errorResponse(`Failed to fetch run: ${String(error)}`);
@@ -1300,6 +1373,7 @@ export async function handleV2StatusNotifyRequest(
 ): Promise<Response> {
 	try {
 		const body = (await req.json()) as {
+			type?: string;
 			projectPath?: string;
 			feature?: string;
 			status?: string;
@@ -1308,7 +1382,40 @@ export async function handleV2StatusNotifyRequest(
 			previousState?: string | null;
 			newState?: string;
 			stepStatus?: string;
+			artifact?: {
+				path: string;
+				type: string;
+				step: string | null;
+				runId: string | null;
+			};
 		};
+
+		if (body.type === "artifact") {
+			if (!body.projectPath || !body.feature || !body.artifact) {
+				return errorResponse(
+					"Missing required fields: projectPath, feature, artifact",
+					400,
+				);
+			}
+
+			const projects = await getAllProjects();
+			const project = projects.find((p) => p.path === body.projectPath);
+
+			if (!project) {
+				return jsonResponse({
+					notified: false,
+					reason: "project_not_registered",
+				});
+			}
+
+			ctx.websocketHub?.broadcastArtifact(
+				project.id,
+				body.feature,
+				body.artifact,
+			);
+
+			return jsonResponse({ notified: true, projectId: project.id });
+		}
 
 		if (!body.projectPath || !body.feature || !body.status) {
 			return errorResponse(

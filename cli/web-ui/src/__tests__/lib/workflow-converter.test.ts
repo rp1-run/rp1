@@ -1,11 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import type { WorkflowDefinition } from "../../hooks/useWorkflowSteps";
 import {
+	buildCanvasGraph,
+	getStepsWithSubFlows,
 	parseMermaidStateDiagram,
 	stepsToReactFlow,
 	workflowToReactFlow,
 } from "../../lib/workflow-converter";
-import type { Step } from "../../types/runs";
+import type { AgentTask, Step } from "../../types/runs";
 
 function makeStep(id: string, overrides: Partial<Step> = {}): Step {
 	return {
@@ -400,5 +402,189 @@ describe("parseMermaidStateDiagram", () => {
 		expect(stateIds).toContain("build");
 		expect(stateIds).toContain("verify");
 		expect(stateIds).toContain("archive");
+	});
+});
+
+function makeAgentTask(
+	id: string,
+	overrides: Partial<AgentTask> = {},
+): AgentTask {
+	return {
+		id,
+		name: overrides.name ?? `Task ${id}`,
+		status: overrides.status ?? "pending",
+		agent: overrides.agent ?? "task-builder",
+	};
+}
+
+describe("buildCanvasGraph", () => {
+	test("without agentSteps returns the same graph as workflowToReactFlow", () => {
+		const workflow = makeWorkflow({
+			states: [
+				{ id: "plan", label: "Plan", isInitial: true, isTerminal: false },
+				{ id: "build", label: "Build", isInitial: false, isTerminal: true },
+			],
+			transitions: [{ sourceId: "plan", targetId: "build", label: null }],
+		});
+
+		const result = buildCanvasGraph(workflow, []);
+
+		expect(result.nodes).toHaveLength(2);
+		expect(result.edges).toHaveLength(1);
+		expect(result.nodes[0].type).toBe("stepNode");
+	});
+
+	test("expanded step with tasks creates groupStepNode with child taskNodes", () => {
+		const workflow = makeWorkflow({
+			states: [
+				{ id: "build", label: "Build", isInitial: true, isTerminal: true },
+			],
+			transitions: [],
+		});
+
+		const agentSteps: Record<string, readonly AgentTask[]> = {
+			build: [
+				makeAgentTask("t1", { name: "Auth module", status: "completed" }),
+				makeAgentTask("t2", { name: "Add tests", status: "running" }),
+			],
+		};
+
+		const expanded = new Set(["build"]);
+		const result = buildCanvasGraph(workflow, [], {
+			agentSteps,
+			expandedSteps: expanded,
+		});
+
+		const groupNode = result.nodes.find((n) => n.id === "build");
+		expect(groupNode?.type).toBe("groupStepNode");
+		expect(groupNode?.data.hasSubFlow).toBe(true);
+		expect(groupNode?.data.isExpanded).toBe(true);
+		expect(groupNode?.style?.width).toBeGreaterThan(0);
+		expect(groupNode?.style?.height).toBeGreaterThan(0);
+
+		const childNodes = result.nodes.filter((n) => n.parentId === "build");
+		expect(childNodes).toHaveLength(2);
+		expect(childNodes[0].type).toBe("taskNode");
+		expect(childNodes[0].extent).toBe("parent");
+		expect(childNodes[0].data.taskId).toBe("t1");
+		expect(childNodes[1].data.taskId).toBe("t2");
+
+		const childEdges = result.edges.filter(
+			(e) => e.source === "build-task-t1" && e.target === "build-task-t2",
+		);
+		expect(childEdges).toHaveLength(1);
+		expect(childEdges[0].type).toBe("floating");
+	});
+
+	test("collapsed step with tasks renders as stepNode with hasSubFlow true", () => {
+		const workflow = makeWorkflow({
+			states: [
+				{ id: "build", label: "Build", isInitial: true, isTerminal: true },
+			],
+			transitions: [],
+		});
+
+		const agentSteps: Record<string, readonly AgentTask[]> = {
+			build: [makeAgentTask("t1")],
+		};
+
+		const collapsed = new Set<string>();
+		const result = buildCanvasGraph(workflow, [], {
+			agentSteps,
+			expandedSteps: collapsed,
+		});
+
+		const node = result.nodes.find((n) => n.id === "build");
+		expect(node?.type).toBe("stepNode");
+		expect(node?.data.hasSubFlow).toBe(true);
+		expect(node?.data.isExpanded).toBe(false);
+
+		const childNodes = result.nodes.filter((n) => n.parentId === "build");
+		expect(childNodes).toHaveLength(0);
+	});
+
+	test("defaults to expanded when expandedSteps is not provided", () => {
+		const workflow = makeWorkflow({
+			states: [
+				{ id: "build", label: "Build", isInitial: true, isTerminal: true },
+			],
+			transitions: [],
+		});
+
+		const agentSteps: Record<string, readonly AgentTask[]> = {
+			build: [makeAgentTask("t1"), makeAgentTask("t2")],
+		};
+
+		const result = buildCanvasGraph(workflow, [], { agentSteps });
+
+		const groupNode = result.nodes.find((n) => n.id === "build");
+		expect(groupNode?.type).toBe("groupStepNode");
+		expect(groupNode?.data.isExpanded).toBe(true);
+	});
+
+	test("steps without agent tasks render as regular stepNode", () => {
+		const workflow = makeWorkflow({
+			states: [
+				{ id: "plan", label: "Plan", isInitial: true, isTerminal: false },
+				{ id: "build", label: "Build", isInitial: false, isTerminal: true },
+			],
+			transitions: [{ sourceId: "plan", targetId: "build", label: null }],
+		});
+
+		const agentSteps: Record<string, readonly AgentTask[]> = {
+			build: [makeAgentTask("t1")],
+		};
+
+		const result = buildCanvasGraph(workflow, [], {
+			agentSteps,
+			expandedSteps: new Set(["build"]),
+		});
+
+		const planNode = result.nodes.find((n) => n.id === "plan");
+		expect(planNode?.type).toBe("stepNode");
+		expect(planNode?.data.hasSubFlow).toBe(false);
+	});
+
+	test("works with stepsToReactFlow fallback when no workflow", () => {
+		const steps: Step[] = [
+			makeStep("s1", { name: "Step 1" }),
+			makeStep("s2", { name: "Step 2" }),
+		];
+
+		const agentSteps: Record<string, readonly AgentTask[]> = {
+			s1: [makeAgentTask("t1")],
+		};
+
+		const result = buildCanvasGraph(null, steps, {
+			agentSteps,
+			expandedSteps: new Set(["s1"]),
+		});
+
+		const groupNode = result.nodes.find((n) => n.id === "s1");
+		expect(groupNode?.type).toBe("groupStepNode");
+
+		const regularNode = result.nodes.find((n) => n.id === "s2");
+		expect(regularNode?.type).toBe("stepNode");
+	});
+});
+
+describe("getStepsWithSubFlows", () => {
+	test("returns step ids that have tasks", () => {
+		const agentSteps: Record<string, readonly AgentTask[]> = {
+			build: [makeAgentTask("t1")],
+			plan: [],
+			verify: [makeAgentTask("t2"), makeAgentTask("t3")],
+		};
+
+		const result = getStepsWithSubFlows(agentSteps);
+
+		expect(result.has("build")).toBe(true);
+		expect(result.has("verify")).toBe(true);
+		expect(result.has("plan")).toBe(false);
+	});
+
+	test("returns empty set for null agentSteps", () => {
+		expect(getStepsWithSubFlows(null).size).toBe(0);
+		expect(getStepsWithSubFlows(undefined).size).toBe(0);
 	});
 });

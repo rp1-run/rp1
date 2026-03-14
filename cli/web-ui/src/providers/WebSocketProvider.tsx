@@ -12,6 +12,7 @@ import type {
 	AttentionCallback,
 	ConnectionStatus,
 	FileChangedMessage,
+	RunArtifactMessage,
 	ServerMessage,
 	StatusChangedMessage,
 	TreeChangedMessage,
@@ -20,6 +21,7 @@ import type {
 export type {
 	ConnectionStatus,
 	FileChangedMessage,
+	RunArtifactMessage,
 	StatusChangedMessage,
 	TreeChangedMessage,
 } from "../types/websocket";
@@ -33,6 +35,7 @@ interface WebSocketContextValue {
 	onFileChange: (callback: (msg: FileChangedMessage) => void) => () => void;
 	onTreeChange: (callback: (msg: TreeChangedMessage) => void) => () => void;
 	onStatusChange: (callback: (msg: StatusChangedMessage) => void) => () => void;
+	onArtifactChange: (callback: (msg: RunArtifactMessage) => void) => () => void;
 	subscribeToAttention: (callback: AttentionCallback) => () => void;
 }
 
@@ -72,6 +75,9 @@ export function WebSocketProvider({
 	);
 	const statusChangeListenersRef = useRef<
 		Set<(msg: StatusChangedMessage) => void>
+	>(new Set());
+	const artifactChangeListenersRef = useRef<
+		Set<(msg: RunArtifactMessage) => void>
 	>(new Set());
 	const subscriptionsRef = useRef<Set<string>>(new Set());
 
@@ -169,6 +175,11 @@ export function WebSocketProvider({
 						callback();
 					}
 					break;
+				case "run:artifact":
+					for (const listener of artifactChangeListenersRef.current) {
+						listener(message);
+					}
+					break;
 				case "heartbeat":
 					break;
 			}
@@ -249,6 +260,16 @@ export function WebSocketProvider({
 		[],
 	);
 
+	const onArtifactChange = useCallback(
+		(callback: (msg: RunArtifactMessage) => void) => {
+			artifactChangeListenersRef.current.add(callback);
+			return () => {
+				artifactChangeListenersRef.current.delete(callback);
+			};
+		},
+		[],
+	);
+
 	const subscribeToAttention = useCallback((callback: AttentionCallback) => {
 		attentionListenersRef.current.add(callback);
 		return () => {
@@ -271,6 +292,7 @@ export function WebSocketProvider({
 				onFileChange,
 				onTreeChange,
 				onStatusChange,
+				onArtifactChange,
 				subscribeToAttention,
 			}}
 		>

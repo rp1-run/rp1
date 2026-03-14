@@ -169,6 +169,8 @@ export interface ArtifactInput {
 	readonly type: ArtifactTypeValue;
 	/** Original worktree path when project path was normalized to main repo root (optional) */
 	readonly worktreePath?: string;
+	/** Workflow step that produced this artifact (optional) */
+	readonly step?: string;
 }
 
 /**
@@ -191,4 +193,6 @@ export interface ArtifactRecord {
 	readonly createdAt: string;
 	/** Original worktree path when project path was normalized (null if not from worktree) */
 	readonly worktreePath: string | null;
+	/** Workflow step that produced this artifact (null if not specified) */
+	readonly step: string | null;
 }

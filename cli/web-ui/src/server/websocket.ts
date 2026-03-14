@@ -35,6 +35,19 @@ export interface StatusChangedMessage {
 	stepStatus?: string;
 }
 
+export interface ArtifactChangedMessage {
+	type: "run:artifact";
+	projectId: string;
+	feature: string;
+	artifact: {
+		path: string;
+		type: string;
+		step: string | null;
+		runId: string | null;
+	};
+	timestamp: string;
+}
+
 export interface AnnotationCreatedMessage {
 	type: "annotation:created";
 	annotation: Annotation;
@@ -87,6 +100,7 @@ export type ServerMessage =
 	| HeartbeatMessage
 	| ProjectsChangedMessage
 	| StatusChangedMessage
+	| ArtifactChangedMessage
 	| AnnotationCreatedMessage
 	| AnnotationUpdatedMessage
 	| AnnotationResolvedMessage
@@ -260,6 +274,39 @@ export class WebSocketHub {
 			...(step !== undefined && { step }),
 			...(runStatus !== undefined && { runStatus }),
 			...(stepStatus !== undefined && { stepStatus }),
+		};
+
+		const data = JSON.stringify(message);
+		for (const state of this.clients.values()) {
+			const isProjectMatch =
+				state.projectId === null || state.projectId === projectId;
+
+			if (isProjectMatch) {
+				try {
+					state.ws.send(data);
+				} catch {
+					this.removeClient(state.ws);
+				}
+			}
+		}
+	}
+
+	broadcastArtifact(
+		projectId: string,
+		feature: string,
+		artifact: {
+			path: string;
+			type: string;
+			step: string | null;
+			runId: string | null;
+		},
+	): void {
+		const message: ArtifactChangedMessage = {
+			type: "run:artifact",
+			projectId,
+			feature,
+			artifact,
+			timestamp: new Date().toISOString(),
 		};
 
 		const data = JSON.stringify(message);

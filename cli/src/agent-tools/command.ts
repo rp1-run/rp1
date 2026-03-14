@@ -630,6 +630,10 @@ workCommand
 		"--type <type>",
 		`Artifact type (${VALID_ARTIFACT_TYPES.join(", ")}). Auto-classified from extension if omitted.`,
 	)
+	.option(
+		"--step <step>",
+		"Workflow step that produced this artifact (associates artifact with a step for canvas display)",
+	)
 	.addHelpText(
 		"after",
 		`
@@ -644,6 +648,7 @@ Arguments:
   --run-id <id>        UUID grouping artifacts into a discrete workflow run (optional)
   --path <path>        Relative path to the artifact file (required)
   --type <type>        Artifact type: ${VALID_ARTIFACT_TYPES.join(", ")} (optional, auto-classified)
+  --step <step>        Workflow step that produced this artifact (optional, for canvas display)
 
 Validation:
   - Project path must be absolute
@@ -659,6 +664,7 @@ Output:
   - path: Artifact path
   - type: Artifact type
   - createdAt: ISO 8601 UTC timestamp
+  - step: Associated workflow step (null if not specified)
 
 Examples:
   rp1 agent-tools work artifact \\
@@ -672,6 +678,13 @@ Examples:
     --feature my-feature \\
     --path .rp1/work/features/my-feature/tasks.md \\
     --type markdown
+
+  rp1 agent-tools work artifact \\
+    --project /Users/dev/myapp \\
+    --feature auth-refactor \\
+    --run-id "550e8400-e29b-41d4-a716-446655440000" \\
+    --step design \\
+    --path .rp1/work/features/auth-refactor/design.md
 `,
 	)
 	.action(
@@ -681,6 +694,7 @@ Examples:
 			runId?: string;
 			path: string;
 			type?: string;
+			step?: string;
 		}): Promise<void> => {
 			const toolName = "work";
 
@@ -739,6 +753,7 @@ Examples:
 				path: options.path,
 				type: artifactType as (typeof VALID_ARTIFACT_TYPES)[number],
 				worktreePath: resolved.worktreePath,
+				step: options.step,
 			})();
 
 			if (E.isLeft(result)) {

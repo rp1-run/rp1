@@ -4,7 +4,7 @@
  */
 
 import type { Annotation, AnnotationReply } from "./annotations";
-import type { Artifact, RunEvent } from "./runs";
+import type { RunEvent } from "./runs";
 
 /** File change notification */
 export interface FileChangedMessage {
@@ -41,8 +41,14 @@ export interface StatusChangedMessage {
 /** Run artifact creation/update notification */
 export interface RunArtifactMessage {
 	type: "run:artifact";
-	runId: string;
-	artifact: Artifact;
+	projectId: string;
+	feature: string;
+	artifact: {
+		readonly path: string;
+		readonly type: string;
+		readonly step: string | null;
+		readonly runId: string | null;
+	};
 	timestamp: string;
 }
 

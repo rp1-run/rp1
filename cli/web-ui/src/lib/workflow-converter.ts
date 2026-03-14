@@ -1,6 +1,7 @@
+import dagre from "@dagrejs/dagre";
 import type { Edge, Node } from "@xyflow/react";
 import type { WorkflowDefinition } from "@/hooks/useWorkflowSteps";
-import type { Step, StepStatus } from "@/types/runs";
+import type { AgentTask, Artifact, Step, StepStatus } from "@/types/runs";
 
 export interface StepNodeData {
 	readonly stepId: string;
@@ -10,7 +11,23 @@ export interface StepNodeData {
 	readonly completedAt: string | null;
 	readonly taskCount: number | null;
 	readonly completedTaskCount: number | null;
+	readonly artifacts: readonly Artifact[];
+	readonly hasSubFlow: boolean;
+	readonly isExpanded: boolean;
 	[key: string]: unknown;
+}
+
+export interface TaskNodeData {
+	readonly taskId: string;
+	readonly label: string;
+	readonly status: string;
+	readonly agent: string;
+	[key: string]: unknown;
+}
+
+export interface CanvasGraph {
+	readonly nodes: Node[];
+	readonly edges: Edge[];
 }
 
 export interface ReactFlowGraph {
@@ -54,6 +71,7 @@ function buildStepNodeData(
 	stepId: string,
 	label: string,
 	step: Step | undefined,
+	stepArtifacts?: readonly Artifact[],
 ): StepNodeData {
 	return {
 		stepId,
@@ -63,7 +81,27 @@ function buildStepNodeData(
 		completedAt: step?.completedAt ?? null,
 		taskCount: step?.taskCount ?? null,
 		completedTaskCount: step?.completedTaskCount ?? null,
+		artifacts: stepArtifacts ?? [],
+		hasSubFlow: false,
+		isExpanded: false,
 	};
+}
+
+function groupArtifactsByStep(
+	artifacts: readonly Artifact[],
+): Map<string, Artifact[]> {
+	const map = new Map<string, Artifact[]>();
+	for (const artifact of artifacts) {
+		if (artifact.step !== null) {
+			const existing = map.get(artifact.step);
+			if (existing) {
+				existing.push(artifact);
+			} else {
+				map.set(artifact.step, [artifact]);
+			}
+		}
+	}
+	return map;
 }
 
 /**
@@ -74,11 +112,16 @@ function buildStepNodeData(
 export function workflowToReactFlow(
 	workflow: WorkflowDefinition,
 	steps: readonly Step[],
+	artifacts?: readonly Artifact[],
 ): ReactFlowGraph {
 	const stepMap = new Map<string, Step>();
 	for (const step of steps) {
 		stepMap.set(step.id, step);
 	}
+
+	const artifactsByStep = artifacts
+		? groupArtifactsByStep(artifacts)
+		: new Map<string, Artifact[]>();
 
 	const nodes: Node<StepNodeData>[] = [];
 	const edges: Edge[] = [];
@@ -90,7 +133,12 @@ export function workflowToReactFlow(
 			id: state.id,
 			type: "stepNode",
 			position: { x: 0, y: 0 },
-			data: buildStepNodeData(state.id, label, step),
+			data: buildStepNodeData(
+				state.id,
+				label,
+				step,
+				artifactsByStep.get(state.id),
+			),
 		});
 	}
 
@@ -123,16 +171,28 @@ export function workflowToReactFlow(
  * Fallback converter for runs without workflow definitions.
  * Produces a sequential vertical chain of step nodes connected by edges.
  */
-export function stepsToReactFlow(steps: readonly Step[]): ReactFlowGraph {
+export function stepsToReactFlow(
+	steps: readonly Step[],
+	artifacts?: readonly Artifact[],
+): ReactFlowGraph {
 	if (steps.length === 0) {
 		return { nodes: [], edges: [] };
 	}
+
+	const artifactsByStep = artifacts
+		? groupArtifactsByStep(artifacts)
+		: new Map<string, Artifact[]>();
 
 	const nodes: Node<StepNodeData>[] = steps.map((step) => ({
 		id: step.id,
 		type: "stepNode",
 		position: { x: 0, y: 0 },
-		data: buildStepNodeData(step.id, step.name, step),
+		data: buildStepNodeData(
+			step.id,
+			step.name,
+			step,
+			artifactsByStep.get(step.id),
+		),
 	}));
 
 	const edges: Edge[] = [];
@@ -316,4 +376,190 @@ export function parseMermaidStateDiagram(source: string): ParsedStateDiagram {
 	} catch {
 		return emptyDiagram();
 	}
+}
+
+const TASK_NODE_WIDTH = 140;
+const TASK_NODE_HEIGHT = 40;
+const STEP_NODE_WIDTH = 200;
+const STEP_NODE_HEIGHT = 60;
+const GROUP_HEADER_HEIGHT = 80;
+const GROUP_PADDING_X = 20;
+const GROUP_PADDING_BOTTOM = 20;
+
+interface SubFlowLayout {
+	readonly width: number;
+	readonly height: number;
+	readonly childNodes: Node<TaskNodeData>[];
+	readonly childEdges: Edge[];
+}
+
+function layoutSubFlow(
+	parentId: string,
+	tasks: readonly AgentTask[],
+): SubFlowLayout {
+	if (tasks.length === 0) {
+		return {
+			width: STEP_NODE_WIDTH,
+			height: STEP_NODE_HEIGHT,
+			childNodes: [],
+			childEdges: [],
+		};
+	}
+
+	const g = new dagre.graphlib.Graph();
+	g.setGraph({
+		rankdir: "TB",
+		nodesep: 20,
+		ranksep: 30,
+		marginx: 10,
+		marginy: 10,
+	});
+	g.setDefaultEdgeLabel(() => ({}));
+
+	for (const task of tasks) {
+		const nodeId = `${parentId}-task-${task.id}`;
+		g.setNode(nodeId, { width: TASK_NODE_WIDTH, height: TASK_NODE_HEIGHT });
+	}
+
+	for (let i = 0; i < tasks.length - 1; i++) {
+		const srcId = `${parentId}-task-${tasks[i].id}`;
+		const tgtId = `${parentId}-task-${tasks[i + 1].id}`;
+		g.setEdge(srcId, tgtId);
+	}
+
+	dagre.layout(g);
+
+	const childNodes: Node<TaskNodeData>[] = [];
+	const childEdges: Edge[] = [];
+
+	let maxX = 0;
+	let maxY = 0;
+
+	for (const task of tasks) {
+		const nodeId = `${parentId}-task-${task.id}`;
+		const dagreNode = g.node(nodeId);
+		const x = dagreNode.x - TASK_NODE_WIDTH / 2 + GROUP_PADDING_X;
+		const y = dagreNode.y - TASK_NODE_HEIGHT / 2 + GROUP_HEADER_HEIGHT;
+
+		maxX = Math.max(maxX, x + TASK_NODE_WIDTH);
+		maxY = Math.max(maxY, y + TASK_NODE_HEIGHT);
+
+		childNodes.push({
+			id: nodeId,
+			type: "taskNode",
+			position: { x, y },
+			parentId,
+			extent: "parent",
+			data: {
+				taskId: task.id,
+				label: task.name,
+				status: task.status,
+				agent: task.agent,
+			},
+		} as Node<TaskNodeData>);
+	}
+
+	for (let i = 0; i < tasks.length - 1; i++) {
+		const srcId = `${parentId}-task-${tasks[i].id}`;
+		const tgtId = `${parentId}-task-${tasks[i + 1].id}`;
+		childEdges.push({
+			id: `edge-${srcId}-${tgtId}`,
+			source: srcId,
+			target: tgtId,
+			type: "floating",
+		});
+	}
+
+	const groupWidth = Math.max(maxX + GROUP_PADDING_X, STEP_NODE_WIDTH);
+	const groupHeight = maxY + GROUP_PADDING_BOTTOM;
+
+	return { width: groupWidth, height: groupHeight, childNodes, childEdges };
+}
+
+export interface BuildCanvasGraphOptions {
+	readonly agentSteps?: Readonly<Record<string, readonly AgentTask[]>> | null;
+	readonly expandedSteps?: ReadonlySet<string>;
+	readonly artifacts?: readonly Artifact[];
+}
+
+/**
+ * Build a full canvas graph from a workflow or steps, with sub-flow support.
+ * Expanded steps with agent tasks become groupStepNode containers with child taskNodes.
+ * Uses a two-pass layout: child sub-graphs first, then top-level with expanded dimensions.
+ */
+export function buildCanvasGraph(
+	workflow: WorkflowDefinition | null,
+	steps: readonly Step[],
+	options: BuildCanvasGraphOptions = {},
+): CanvasGraph {
+	const { agentSteps, expandedSteps, artifacts } = options;
+
+	const base = workflow
+		? workflowToReactFlow(workflow, steps, artifacts)
+		: stepsToReactFlow(steps, artifacts);
+
+	if (!agentSteps || Object.keys(agentSteps).length === 0) {
+		return base;
+	}
+
+	const allNodes: Node[] = [];
+	const allEdges: Edge[] = [...base.edges];
+
+	for (const node of base.nodes) {
+		const stepId = node.data.stepId;
+		const tasks = agentSteps[stepId];
+		const hasTasks = tasks && tasks.length > 0;
+		const isExpanded = expandedSteps ? expandedSteps.has(stepId) : true;
+
+		if (!hasTasks) {
+			allNodes.push(node);
+			continue;
+		}
+
+		if (!isExpanded) {
+			allNodes.push({
+				...node,
+				data: { ...node.data, hasSubFlow: true, isExpanded: false },
+			});
+			continue;
+		}
+
+		const subFlow = layoutSubFlow(stepId, tasks);
+
+		allNodes.push({
+			...node,
+			type: "groupStepNode",
+			data: { ...node.data, hasSubFlow: true, isExpanded: true },
+			style: {
+				width: subFlow.width,
+				height: subFlow.height,
+			},
+		});
+
+		for (const childNode of subFlow.childNodes) {
+			allNodes.push(childNode);
+		}
+		for (const childEdge of subFlow.childEdges) {
+			allEdges.push(childEdge);
+		}
+	}
+
+	return { nodes: allNodes, edges: allEdges };
+}
+
+/**
+ * Determine which steps have agent sub-flows so they can
+ * be expanded by default on initial load.
+ */
+export function getStepsWithSubFlows(
+	agentSteps: Readonly<Record<string, readonly AgentTask[]>> | null | undefined,
+): Set<string> {
+	const result = new Set<string>();
+	if (!agentSteps) return result;
+	for (const [stepId, tasks] of Object.entries(agentSteps)) {
+		if (tasks.length > 0) {
+			result.add(stepId);
+		}
+	}
+	return result;
 }

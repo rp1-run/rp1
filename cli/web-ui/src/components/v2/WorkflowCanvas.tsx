@@ -5,19 +5,25 @@ import {
 	useReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useGraphLayout } from "@/hooks/useGraphLayout";
 import type { WorkflowDefinition } from "@/hooks/useWorkflowSteps";
 import { cn } from "@/lib/utils";
 import {
-	stepsToReactFlow,
-	workflowToReactFlow,
+	buildCanvasGraph,
+	getStepsWithSubFlows,
 } from "@/lib/workflow-converter";
-import type { Step } from "@/types/runs";
+import type { AgentTask, Artifact, Step } from "@/types/runs";
 import { FloatingEdge } from "./FloatingEdge";
+import { GroupStepNode } from "./GroupStepNode";
 import { StepNode } from "./StepNode";
+import { TaskNode } from "./TaskNode";
 
-const nodeTypes = { stepNode: StepNode } as const;
+const nodeTypes = {
+	stepNode: StepNode,
+	taskNode: TaskNode,
+	groupStepNode: GroupStepNode,
+} as const;
 const edgeTypes = { floating: FloatingEdge } as const;
 
 const defaultEdgeOptions: DefaultEdgeOptions = {
@@ -30,24 +36,72 @@ const fitViewOptions = { padding: 0.2, maxZoom: 1.5 } as const;
 export interface WorkflowCanvasProps {
 	readonly workflow: WorkflowDefinition | null;
 	readonly steps: readonly Step[];
+	readonly artifacts?: readonly Artifact[];
+	readonly agentSteps?: Readonly<Record<string, readonly AgentTask[]>> | null;
 	readonly className?: string;
 }
 
 function WorkflowCanvasInner({
 	workflow,
 	steps,
+	artifacts,
+	agentSteps,
 }: Omit<WorkflowCanvasProps, "className">) {
 	const { fitView } = useReactFlow();
+	const containerRef = useRef<HTMLDivElement>(null);
+	const initializedRef = useRef(false);
+
+	const [expandedSteps, setExpandedSteps] = useState<Set<string>>(() =>
+		getStepsWithSubFlows(agentSteps),
+	);
+
+	useEffect(() => {
+		if (!initializedRef.current && agentSteps) {
+			const stepsWithSubFlows = getStepsWithSubFlows(agentSteps);
+			if (stepsWithSubFlows.size > 0) {
+				setExpandedSteps(stepsWithSubFlows);
+				initializedRef.current = true;
+			}
+		}
+	}, [agentSteps]);
+
+	const handleToggle = useCallback((stepId: string) => {
+		setExpandedSteps((prev) => {
+			const next = new Set(prev);
+			if (next.has(stepId)) {
+				next.delete(stepId);
+			} else {
+				next.add(stepId);
+			}
+			return next;
+		});
+	}, []);
+
+	useEffect(() => {
+		const container = containerRef.current;
+		if (!container) return;
+
+		const listener = (e: Event) => {
+			const detail = (e as CustomEvent).detail;
+			if (detail?.stepId) {
+				handleToggle(detail.stepId);
+			}
+		};
+
+		container.addEventListener("stepnode:toggle-expand", listener);
+		return () =>
+			container.removeEventListener("stepnode:toggle-expand", listener);
+	}, [handleToggle]);
 
 	const graph = useMemo(() => {
-		if (workflow) {
-			return workflowToReactFlow(workflow, steps);
-		}
-		if (steps.length > 0) {
-			return stepsToReactFlow(steps);
-		}
-		return null;
-	}, [workflow, steps]);
+		if (!workflow && steps.length === 0) return null;
+
+		return buildCanvasGraph(workflow, steps, {
+			agentSteps,
+			expandedSteps,
+			artifacts,
+		});
+	}, [workflow, steps, artifacts, agentSteps, expandedSteps]);
 
 	const { layoutNodes, isLayoutReady } = useGraphLayout(
 		graph?.nodes ?? [],
@@ -66,38 +120,47 @@ function WorkflowCanvasInner({
 	}
 
 	return (
-		<ReactFlow
-			nodes={layoutNodes}
-			edges={graph.edges}
-			nodeTypes={nodeTypes}
-			edgeTypes={edgeTypes}
-			defaultEdgeOptions={defaultEdgeOptions}
-			fitView
-			fitViewOptions={fitViewOptions}
-			minZoom={0.5}
-			maxZoom={1.5}
-			panOnDrag
-			zoomOnScroll
-			zoomOnPinch
-			nodesDraggable={false}
-			nodesConnectable={false}
-			edgesReconnectable={false}
-			proOptions={{ hideAttribution: true }}
-			style={{ opacity: isLayoutReady ? 1 : 0 }}
-		/>
+		<div ref={containerRef} className="h-full w-full">
+			<ReactFlow
+				nodes={layoutNodes}
+				edges={graph.edges}
+				nodeTypes={nodeTypes}
+				edgeTypes={edgeTypes}
+				defaultEdgeOptions={defaultEdgeOptions}
+				fitView
+				fitViewOptions={fitViewOptions}
+				minZoom={0.5}
+				maxZoom={1.5}
+				panOnDrag
+				zoomOnScroll
+				zoomOnPinch
+				nodesDraggable={false}
+				nodesConnectable={false}
+				edgesReconnectable={false}
+				proOptions={{ hideAttribution: true }}
+				style={{ opacity: isLayoutReady ? 1 : 0 }}
+			/>
+		</div>
 	);
 }
 
 export function WorkflowCanvas({
 	workflow,
 	steps,
+	artifacts,
+	agentSteps,
 	className,
 }: WorkflowCanvasProps) {
 	return (
 		<div className={cn("h-full w-full", className)}>
 			<ReactFlowProvider>
 				{workflow || steps.length > 0 ? (
-					<WorkflowCanvasInner workflow={workflow} steps={steps} />
+					<WorkflowCanvasInner
+						workflow={workflow}
+						steps={steps}
+						artifacts={artifacts}
+						agentSteps={agentSteps}
+					/>
 				) : (
 					<div className="flex h-full items-center justify-center text-muted-foreground">
 						No workflow steps available

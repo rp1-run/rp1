@@ -59,6 +59,15 @@ export interface Artifact {
 	readonly type: ArtifactType;
 	readonly updatedDuringRun: boolean;
 	readonly isNew: boolean;
+	readonly step: string | null;
+}
+
+/** A task within an agent sub-flow */
+export interface AgentTask {
+	readonly id: string;
+	readonly name: string;
+	readonly status: string;
+	readonly agent: string;
 }
 
 /** An event in the run event stream */
@@ -87,6 +96,7 @@ export interface Run {
 	readonly startedAt: string;
 	readonly completedAt: string | null;
 	readonly error: string | null;
+	readonly agentSteps: Readonly<Record<string, readonly AgentTask[]>> | null;
 }
 
 /** Attention groupings for the home dashboard */

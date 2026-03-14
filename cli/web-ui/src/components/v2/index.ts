@@ -34,6 +34,7 @@ export {
 	FollowModeToggle,
 	type FollowModeToggleProps,
 } from "./FollowModeToggle";
+export { GroupStepNode } from "./GroupStepNode";
 export {
 	KeyboardShortcutHint,
 	type KeyboardShortcutHintProps,
@@ -67,6 +68,7 @@ export {
 	TableOfContents,
 	type TableOfContentsProps,
 } from "./TableOfContents";
+export { TaskNode } from "./TaskNode";
 export {
 	TerminalBreadcrumb,
 	type TerminalBreadcrumbProps,

@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useWebSocket } from "@/providers/WebSocketProvider";
-import type { Run, RunStatus, StepStatus } from "@/types/runs";
-import type { ConnectionStatus, StatusChangedMessage } from "@/types/websocket";
+import type { Artifact, Run, RunStatus, StepStatus } from "@/types/runs";
+import type {
+	ConnectionStatus,
+	RunArtifactMessage,
+	StatusChangedMessage,
+} from "@/types/websocket";
 
 interface UseRunDetailResult {
 	run: Run | null;
@@ -14,7 +18,7 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 	const [run, setRun] = useState<Run | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<Error | null>(null);
-	const { onStatusChange, status: wsStatus } = useWebSocket();
+	const { onStatusChange, onArtifactChange, status: wsStatus } = useWebSocket();
 	const prevWsStatusRef = useRef<ConnectionStatus>(wsStatus);
 	const runRef = useRef<Run | null>(null);
 
@@ -109,6 +113,50 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 			clearTimeout(debouncedFetchRef.current);
 		};
 	}, [runId, onStatusChange, fetchRun]);
+
+	// Subscribe to run:artifact events for optimistic artifact insertion
+	// and debounced reconciliation refetch.
+	const debouncedArtifactFetchRef = useRef<ReturnType<typeof setTimeout>>();
+
+	useEffect(() => {
+		if (!runId) return;
+
+		const handleArtifactChange = (msg: RunArtifactMessage) => {
+			const currentRun = runRef.current;
+			if (!currentRun) return;
+
+			if (
+				msg.feature === currentRun.featureId &&
+				msg.projectId === currentRun.projectId
+			) {
+				const newArtifact: Artifact = {
+					path: msg.artifact.path,
+					absolutePath: msg.artifact.path,
+					type: (msg.artifact.type as Artifact["type"]) ?? "other",
+					updatedDuringRun: true,
+					isNew: true,
+					step: msg.artifact.step,
+				};
+
+				setRun((prev) => {
+					if (!prev) return null;
+					return {
+						...prev,
+						artifacts: [...prev.artifacts, newArtifact],
+					};
+				});
+
+				clearTimeout(debouncedArtifactFetchRef.current);
+				debouncedArtifactFetchRef.current = setTimeout(fetchRun, 500);
+			}
+		};
+
+		const unsubscribe = onArtifactChange(handleArtifactChange);
+		return () => {
+			unsubscribe();
+			clearTimeout(debouncedArtifactFetchRef.current);
+		};
+	}, [runId, onArtifactChange, fetchRun]);
 
 	// Reconnection reconciliation: when the WebSocket transitions from
 	// disconnected/connecting to connected, refetch the full run state to

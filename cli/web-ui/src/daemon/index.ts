@@ -11,6 +11,7 @@ export {
 } from "./config-dir";
 
 export {
+	type ArtifactNotifyPayload,
 	checkHealth,
 	createConnection,
 	type DaemonConnection,
@@ -18,6 +19,7 @@ export {
 	type ErrorResponse,
 	getDaemonStatus,
 	type HealthResponse,
+	notifyArtifactChange,
 	notifyStatusChange,
 	type RegisterResponse,
 	registerProjectWithDaemon,

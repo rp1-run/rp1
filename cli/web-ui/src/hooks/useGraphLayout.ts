@@ -1,7 +1,6 @@
 import dagre from "@dagrejs/dagre";
 import type { Edge, Node } from "@xyflow/react";
 import { useMemo } from "react";
-import type { StepNodeData } from "@/lib/workflow-converter";
 
 interface UseGraphLayoutOptions {
 	readonly direction?: "TB" | "LR";
@@ -10,7 +9,7 @@ interface UseGraphLayoutOptions {
 }
 
 interface UseGraphLayoutResult {
-	readonly layoutNodes: Node<StepNodeData>[];
+	readonly layoutNodes: Node[];
 	readonly isLayoutReady: boolean;
 }
 
@@ -18,9 +17,13 @@ interface UseGraphLayoutResult {
  * Compute dagre-based graph layout positions for React Flow nodes.
  * Creates a new dagre graph when nodes or edges change, applies layout,
  * and returns positioned nodes with centered coordinates.
+ *
+ * Child nodes (those with parentId) are excluded from the top-level layout
+ * since their positions are relative to their parent and computed during
+ * the sub-flow layout pass in buildCanvasGraph.
  */
 export function useGraphLayout(
-	nodes: Node<StepNodeData>[],
+	nodes: Node[],
 	edges: Edge[],
 	options?: UseGraphLayoutOptions,
 ): UseGraphLayoutResult {
@@ -33,6 +36,15 @@ export function useGraphLayout(
 			return [];
 		}
 
+		const topLevelNodes = nodes.filter((n) => !n.parentId);
+		const childNodes = nodes.filter((n) => !!n.parentId);
+
+		const topLevelEdges = edges.filter((e) => {
+			const srcIsChild = nodes.some((n) => n.id === e.source && n.parentId);
+			const tgtIsChild = nodes.some((n) => n.id === e.target && n.parentId);
+			return !srcIsChild && !tgtIsChild;
+		});
+
 		const g = new dagre.graphlib.Graph();
 		g.setGraph({
 			rankdir: direction,
@@ -43,19 +55,19 @@ export function useGraphLayout(
 		});
 		g.setDefaultEdgeLabel(() => ({}));
 
-		for (const node of nodes) {
+		for (const node of topLevelNodes) {
 			const w = (node.style?.width as number) ?? nodeWidth;
 			const h = (node.style?.height as number) ?? nodeHeight;
 			g.setNode(node.id, { width: w, height: h });
 		}
 
-		for (const edge of edges) {
+		for (const edge of topLevelEdges) {
 			g.setEdge(edge.source, edge.target);
 		}
 
 		dagre.layout(g);
 
-		return nodes.map((node) => {
+		const positionedTopLevel = topLevelNodes.map((node) => {
 			const dagreNode = g.node(node.id);
 			const w = (node.style?.width as number) ?? nodeWidth;
 			const h = (node.style?.height as number) ?? nodeHeight;
@@ -68,6 +80,8 @@ export function useGraphLayout(
 				},
 			};
 		});
+
+		return [...positionedTopLevel, ...childNodes];
 	}, [nodes, edges, direction, nodeWidth, nodeHeight]);
 
 	return {

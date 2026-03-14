@@ -1,9 +1,19 @@
 import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
-import { Clock, ListChecks } from "lucide-react";
+import {
+	BarChart3,
+	Clock,
+	Code,
+	File,
+	FileText,
+	GitCompare,
+	Image,
+	ListChecks,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import type { StepNodeData } from "@/lib/workflow-converter";
-import type { StepStatus } from "@/types/runs";
+import type { Artifact, ArtifactType, StepStatus } from "@/types/runs";
 import { StatusBadge } from "./StatusBadge";
 
 type StepNodeType = Node<StepNodeData, "stepNode">;
@@ -65,15 +75,84 @@ export function formatDuration(
 	return `${diffSeconds}s`;
 }
 
+const artifactIconMap: Record<ArtifactType, typeof FileText> = {
+	markdown: FileText,
+	code: Code,
+	diff: GitCompare,
+	report: BarChart3,
+	diagram: Image,
+	other: File,
+};
+
+const artifactBorderColor: Record<ArtifactType, string> = {
+	markdown: "border-l-blue-400",
+	code: "border-l-green-400",
+	diff: "border-l-orange-400",
+	report: "border-l-purple-400",
+	diagram: "border-l-cyan-400",
+	other: "border-l-muted-foreground",
+};
+
+function getArtifactFilename(path: string): string {
+	const segments = path.split("/");
+	return segments[segments.length - 1] || path;
+}
+
+function ArtifactBadge({
+	artifact,
+	runId,
+}: {
+	readonly artifact: Artifact;
+	readonly runId: string | undefined;
+}) {
+	const navigate = useNavigate();
+	const Icon = artifactIconMap[artifact.type] || File;
+	const borderClass =
+		artifactBorderColor[artifact.type] || "border-l-muted-foreground";
+
+	const handleClick = (e: React.MouseEvent) => {
+		e.stopPropagation();
+		if (runId) {
+			navigate(`/runs/${runId}/artifacts/${artifact.path}`);
+		}
+	};
+
+	return (
+		<button
+			type="button"
+			onClick={handleClick}
+			className={cn(
+				"flex min-h-[32px] w-full items-center gap-1.5 rounded border-l-2 bg-muted/40 px-2 py-1 text-left text-xs text-muted-foreground transition-colors hover:bg-muted/70",
+				borderClass,
+			)}
+			title={artifact.path}
+		>
+			<Icon className="h-3 w-3 shrink-0" aria-hidden="true" />
+			<span className="min-w-0 truncate">
+				{getArtifactFilename(artifact.path)}
+			</span>
+			{artifact.isNew && (
+				<span
+					className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-status-running"
+					role="img"
+					aria-label="New artifact"
+				/>
+			)}
+		</button>
+	);
+}
+
 export function StepNode({
 	data,
 	sourcePosition,
 	targetPosition,
 }: NodeProps<StepNodeType>) {
+	const { runId } = useParams();
 	const style = statusStyles[data.status];
 	const showDuration = data.startedAt !== null;
 	const showTaskProgress =
 		data.taskCount !== null && data.completedTaskCount !== null;
+	const hasArtifacts = data.artifacts.length > 0;
 
 	const resolvedSourcePosition = sourcePosition ?? Position.Right;
 	const resolvedTargetPosition = targetPosition ?? Position.Left;
@@ -106,7 +185,7 @@ export function StepNode({
 			/>
 			<div
 				className={cn(
-					"h-[60px] w-[200px] rounded-[var(--radius)] border px-3 py-2.5 transition-colors duration-300",
+					"min-h-[60px] w-[200px] rounded-[var(--radius)] border px-3 py-2.5 transition-colors duration-300",
 					style.border,
 					style.bg,
 					style.animation,
@@ -142,6 +221,18 @@ export function StepNode({
 								{data.completedTaskCount} / {data.taskCount}
 							</span>
 						)}
+					</div>
+				)}
+
+				{hasArtifacts && (
+					<div className="mt-2 flex flex-col gap-1">
+						{data.artifacts.map((artifact) => (
+							<ArtifactBadge
+								key={artifact.path}
+								artifact={artifact}
+								runId={runId}
+							/>
+						))}
 					</div>
 				)}
 			</div>

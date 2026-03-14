@@ -24,7 +24,7 @@ import type {
 import { VALID_STATUSES } from "./models.js";
 
 /** Current schema version - must match highest migration number */
-export const CURRENT_SCHEMA_VERSION = 8;
+export const CURRENT_SCHEMA_VERSION = 9;
 
 /** Default database file location. Override with RP1_STATUS_DB env var (used by evals to avoid polluting local DB). */
 const DEFAULT_DB_PATH =
@@ -40,7 +40,7 @@ const FEATURE_PATTERN = /^[a-z0-9-]+$/;
 const isValidFeatureName = (name: string): boolean =>
 	FEATURE_PATTERN.test(name);
 
-/** SQL schema for status_updates table (version 8 with worktree_path column) */
+/** SQL schema for status_updates table (version 9 with artifact step column) */
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS status_updates (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -75,7 +75,8 @@ CREATE TABLE IF NOT EXISTS artifacts (
     path TEXT NOT NULL,
     type TEXT NOT NULL DEFAULT 'other',
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-    worktree_path TEXT
+    worktree_path TEXT,
+    step TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_artifacts_run ON artifacts(project_path, feature, run_id);
@@ -150,6 +151,9 @@ CREATE INDEX idx_artifacts_run ON artifacts(project_path, feature, run_id);`,
 	8: `-- Migration: Add worktree_path column to status_updates and artifacts
 ALTER TABLE status_updates ADD COLUMN worktree_path TEXT;
 ALTER TABLE artifacts ADD COLUMN worktree_path TEXT;`,
+
+	9: `-- Migration: Add step column to artifacts for step-level association
+ALTER TABLE artifacts ADD COLUMN step TEXT;`,
 };
 
 /** Get current database schema version from PRAGMA user_version */
@@ -549,8 +553,8 @@ export const insertArtifact = (
 			TE.tryCatch(
 				async () => {
 					const stmt = db.prepare(`
-						INSERT INTO artifacts (project_path, feature, run_id, path, type, worktree_path)
-						VALUES ($projectPath, $feature, $runId, $path, $type, $worktreePath)
+						INSERT INTO artifacts (project_path, feature, run_id, path, type, worktree_path, step)
+						VALUES ($projectPath, $feature, $runId, $path, $type, $worktreePath, $step)
 						RETURNING id, created_at
 					`);
 
@@ -561,6 +565,7 @@ export const insertArtifact = (
 						$path: input.path,
 						$type: input.type,
 						$worktreePath: input.worktreePath ?? null,
+						$step: input.step ?? null,
 					}) as { id: number; created_at: string };
 
 					return {
@@ -598,7 +603,7 @@ export const queryArtifactsForFeature = (
 			TE.tryCatch(
 				async () => {
 					let sql = `
-						SELECT id, project_path, feature, run_id, path, type, created_at, worktree_path
+						SELECT id, project_path, feature, run_id, path, type, created_at, worktree_path, step
 						FROM artifacts
 						WHERE project_path = $projectPath AND feature = $feature
 					`;
@@ -623,6 +628,7 @@ export const queryArtifactsForFeature = (
 						type: string;
 						created_at: string;
 						worktree_path: string | null;
+						step: string | null;
 					}>;
 
 					return rows.map(
@@ -635,6 +641,7 @@ export const queryArtifactsForFeature = (
 							type: row.type as ArtifactTypeValue,
 							createdAt: row.created_at,
 							worktreePath: row.worktree_path,
+							step: row.step,
 						}),
 					);
 				},

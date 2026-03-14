@@ -159,6 +159,44 @@ export async function notifyStatusChange(
 }
 
 /**
+ * Artifact notification payload for real-time WebSocket broadcast.
+ */
+export interface ArtifactNotifyPayload {
+	readonly path: string;
+	readonly type: string;
+	readonly step: string | null;
+	readonly runId: string | null;
+}
+
+/**
+ * Notify the daemon of an artifact registration for immediate WebSocket broadcast.
+ * Fails silently if daemon is not running - this is expected behavior.
+ */
+export async function notifyArtifactChange(
+	conn: DaemonConnection,
+	projectPath: string,
+	feature: string,
+	artifact: ArtifactNotifyPayload,
+): Promise<boolean> {
+	try {
+		const response = await fetch(`${conn.baseUrl}/api/v2/status/notify`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				type: "artifact",
+				projectPath,
+				feature,
+				artifact,
+			}),
+			signal: AbortSignal.timeout(1000),
+		});
+		return response.ok;
+	} catch {
+		return false;
+	}
+}
+
+/**
  * Get daemon status.
  */
 export interface DaemonStatus {

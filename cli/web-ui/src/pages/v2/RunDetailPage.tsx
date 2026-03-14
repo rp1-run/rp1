@@ -200,6 +200,8 @@ export function RunDetailPage() {
 				<WorkflowCanvas
 					workflow={workflow ?? null}
 					steps={displaySteps}
+					artifacts={run?.artifacts}
+					agentSteps={run?.agentSteps}
 					className="h-full w-full"
 				/>
 			</section>

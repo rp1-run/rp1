@@ -70,6 +70,7 @@ export interface WorkArtifactResult {
 	readonly type: ArtifactTypeValue;
 	readonly createdAt: string;
 	readonly worktreePath: string | null;
+	readonly step: string | null;
 }
 
 /**
@@ -96,10 +97,49 @@ export const executeArtifact = (
 				type: input.type,
 				createdAt: result.createdAt,
 				worktreePath: input.worktreePath ?? null,
+				step: input.step ?? null,
+			}),
+		),
+		TE.chainFirst((data) =>
+			TE.fromTask(async () => {
+				await notifyDaemonArtifact(data.projectPath, data.feature, {
+					path: data.path,
+					type: data.type,
+					step: data.step,
+					runId: data.runId,
+				});
 			}),
 		),
 		TE.map((data) => successResult(TOOL_NAME, data)),
 	);
+
+/**
+ * Notify the daemon of an artifact registration for immediate WebSocket broadcast.
+ * This is a best-effort operation - if the daemon is not running, we don't care.
+ */
+const notifyDaemonArtifact = async (
+	projectPath: string,
+	feature: string,
+	artifact: {
+		path: string;
+		type: string;
+		step: string | null;
+		runId: string | null;
+	},
+): Promise<void> => {
+	try {
+		const { connectToDaemon, notifyArtifactChange } = await import(
+			"../../../web-ui/src/daemon/index.js"
+		);
+
+		const conn = await connectToDaemon();
+		if (conn) {
+			await notifyArtifactChange(conn, projectPath, feature, artifact);
+		}
+	} catch {
+		// Daemon not available - polling will pick up the change
+	}
+};
 
 /**
  * Workflow context for enriched daemon notifications.
