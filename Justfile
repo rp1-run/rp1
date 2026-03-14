@@ -77,6 +77,20 @@ check-web-ui:
 check-evals:
     cd evals && bun run lint && bun run typecheck && bun run format
 
+# Verify cli/dist/claude-code/ is up to date with plugins/ source
+check-plugin-dist:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just build-claude-code > /dev/null 2>&1
+    # Restore manifest.json timestamps (generatedAt changes every build)
+    git checkout -- cli/dist/claude-code/*/manifest.json 2>/dev/null || true
+    if [ -n "$(git diff --name-only cli/dist/claude-code/)" ]; then
+        echo "ERROR: cli/dist/claude-code/ is stale. Run 'just build-claude-code' and commit the changes."
+        git diff --stat cli/dist/claude-code/
+        exit 1
+    fi
+    echo "cli/dist/claude-code/ is up to date."
+
 # Auto-fix lint and format issues
 fix: fix-cli fix-evals
 
