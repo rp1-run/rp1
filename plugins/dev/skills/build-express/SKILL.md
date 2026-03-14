@@ -99,16 +99,14 @@ Then loop to §1.5 (Post-Build Prompt) so the user can submit a smaller request 
 
 Spawn a single general sub-agent to implement the request:
 
-```
-Agent: (default)
-prompt: |
-  Implement the following change in the codebase:
+{% dispatch_agent "rp1-dev:express-builder" %}
+Implement the following change in the codebase:
 
-  {REQUEST}
+{REQUEST}
 
-  Keep changes minimal and focused. Run any relevant lint/format/test
-  checks after making changes. Do NOT commit.
-```
+Keep changes minimal and focused. Run any relevant lint/format/test
+checks after making changes. Do NOT commit.
+{% enddispatch_agent %}
 
 **Wait for completion. Do NOT implement anything yourself.**
 
@@ -154,7 +152,7 @@ Express session ended.
 ## 3. Orchestrator Rules
 
 **YOU MUST**:
-- Only use AskUserQuestion and Agent tools
+- Only use user-input and agent-dispatch tools
 - Delegate ALL implementation to the sub-agent
 - Scope-gate every request before delegating
 - Track task count
