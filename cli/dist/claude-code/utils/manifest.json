@@ -1,0 +1,24 @@
+{
+  "plugin": "rp1-utils",
+  "version": "0.5.2",
+  "generatedAt": "2026-03-14T23:57:14.017Z",
+  "artifacts": {
+    "skills": [
+      "build-prompt-evals",
+      "prompt-eval-builder",
+      "prompt-writer",
+      "tester",
+      "tersify-prompt"
+    ],
+    "agents": [
+      "dependency-chain-analyzer",
+      "prompt-tersifier",
+      "prompt-eval-extractor",
+      "prompt-assertion-specialist"
+    ]
+  },
+  "installation": {
+    "skillsDir": ".claude/skills/",
+    "agentsDir": ".claude/agents/"
+  }
+}

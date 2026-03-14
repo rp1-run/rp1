@@ -12,6 +12,9 @@ pre-commit:
     format:
       glob: "cli/**/*.{ts,tsx,js,jsx}"
       run: cd cli && bun run format
+    plugin-dist:
+      glob: "plugins/**/*.{md,json,yaml,yml,py}"
+      run: just check-plugin-dist
 pre-push:
   parallel: true
   commands:

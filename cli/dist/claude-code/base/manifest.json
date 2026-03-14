@@ -1,0 +1,42 @@
+{
+  "plugin": "rp1-base",
+  "version": "0.5.2",
+  "generatedAt": "2026-03-14T23:57:13.931Z",
+  "artifacts": {
+    "skills": [
+      "analyse-security",
+      "generate-user-docs",
+      "write-content",
+      "deep-research",
+      "knowledge-base-templates",
+      "strategize",
+      "code-comments",
+      "markdown-preview",
+      "self-update",
+      "knowledge-load",
+      "mermaid",
+      "knowledge-build",
+      "fix-mermaid",
+      "project-birds-eye-view"
+    ],
+    "agents": [
+      "strategic-advisor",
+      "research-reporter",
+      "project-documenter",
+      "kb-module-analyzer",
+      "kb-architecture-mapper",
+      "kb-concept-extractor",
+      "security-validator",
+      "kb-pattern-extractor",
+      "scribe",
+      "kb-index-builder",
+      "research-explorer",
+      "kb-spatial-analyzer",
+      "mermaid-fixer"
+    ]
+  },
+  "installation": {
+    "skillsDir": ".claude/skills/",
+    "agentsDir": ".claude/agents/"
+  }
+}
