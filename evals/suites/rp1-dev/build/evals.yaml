@@ -13,7 +13,7 @@ providers:
   - id: file://../../../providers/claude-with-tools.ts
     label: rp1-agentic-eval
     config:
-      model: claude-opus-4-6
+      model: claude-haiku-4-5
       permission_mode: bypassPermissions
       allow_dangerously_skip_permissions: true
       ask_user_behavior: first_option
