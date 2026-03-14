@@ -10,6 +10,10 @@ import { registerTool, type ToolOptions } from "../index.js";
 import type { ToolResult } from "../models.js";
 import { successResult } from "../output.js";
 import {
+	deriveOrderedSteps,
+	loadStateMachine,
+} from "../state-machine/index.js";
+import {
 	type CleanupResult,
 	closeDatabase,
 	countExpiredRuns,
@@ -17,6 +21,7 @@ import {
 	deleteExpiredRuns,
 	getCurrentWorkflowState,
 	getLatestStatusByFeature,
+	getStepStatusValue,
 	insertArtifact,
 	insertStatusUpdate,
 	isValidStatus,
@@ -28,6 +33,7 @@ import type {
 	ArtifactRecord,
 	ArtifactTypeValue,
 	QueryOptions,
+	ReconciliationResult,
 	StatusUpdateInput,
 	StatusUpdateRecord,
 	StatusValue,
@@ -105,6 +111,7 @@ interface WorkflowNotifyContext {
 	readonly runId?: string;
 	readonly previousState?: string | null;
 	readonly newState: string;
+	readonly stepStatus?: string;
 }
 
 /**
@@ -136,9 +143,102 @@ const notifyDaemon = async (
 };
 
 /**
+ * Map raw status value to step-level status for WebSocket broadcast.
+ * This is the canonical mapping from database status values to
+ * the step statuses used by the frontend canvas.
+ */
+const mapStatusToStepStatus = (status: StatusValue): string => {
+	switch (status) {
+		case "started":
+		case "in_progress":
+			return "running";
+		case "waiting-input":
+			return "waiting-input";
+		case "needs-review":
+			return "needs-review";
+		case "completed":
+			return "completed";
+		case "failed":
+			return "failed";
+	}
+};
+
+/**
+ * Auto-correct skipped steps by inserting "completed" records for prior
+ * steps in the state machine that have no status records.
+ *
+ * This ensures the database always has a complete step history even when
+ * intermediate steps were never explicitly reported (e.g., rapid execution
+ * or missed events).
+ */
+const autoCorrectSkippedSteps = async (
+	input: StatusUpdateInput,
+	dbPath?: string,
+): Promise<readonly string[]> => {
+	if (!input.workflow || !input.step || input.status === "failed") {
+		return [];
+	}
+
+	try {
+		const agentOrWorkflow = input.agent ?? input.workflow;
+		const machineResult = await loadStateMachine(agentOrWorkflow)();
+		if (machineResult._tag === "Left") return [];
+
+		const orderedSteps = deriveOrderedSteps(machineResult.right);
+		const currentStepIndex = orderedSteps.findIndex((s) => s.id === input.step);
+		if (currentStepIndex <= 0) return [];
+
+		const corrections: string[] = [];
+		for (let i = 0; i < currentStepIndex; i++) {
+			const priorStep = orderedSteps[i];
+			const priorStatusResult = await getStepStatusValue(
+				input.projectPath,
+				input.feature,
+				priorStep.id,
+				input.runId,
+				dbPath,
+			)();
+
+			if (
+				priorStatusResult._tag === "Right" &&
+				priorStatusResult.right === null
+			) {
+				console.log(
+					`[reconcile] Auto-correcting skipped step ${priorStep.id}: inserting completed status`,
+				);
+				await insertStatusUpdate(
+					{
+						projectPath: input.projectPath,
+						feature: input.feature,
+						step: priorStep.id,
+						status: "completed",
+						message: "Auto-corrected: step was skipped",
+						runId: input.runId,
+						workflow: input.workflow,
+						expiresAt: input.expiresAt,
+						agent: input.agent,
+						task: input.task,
+						worktreePath: input.worktreePath,
+					},
+					dbPath,
+				)();
+				corrections.push(priorStep.id);
+			}
+		}
+
+		return corrections;
+	} catch {
+		return [];
+	}
+};
+
+/**
  * Execute work update subcommand.
  * Inserts a new status update and returns the result.
  * Also notifies the daemon for immediate WebSocket broadcast (best-effort).
+ *
+ * When reconciliation indicates a backward transition (rejected), the insert
+ * and notify are skipped entirely -- the update is a no-op (self-healing).
  *
  * @param input - Status update data
  * @param dbPath - Optional database path override
@@ -147,8 +247,21 @@ const notifyDaemon = async (
 export const executeUpdate = (
 	input: StatusUpdateInput,
 	dbPath?: string,
-): TE.TaskEither<CLIError, ToolResult<WorkUpdateResult>> =>
-	pipe(
+): TE.TaskEither<CLIError, ToolResult<WorkUpdateResult>> => {
+	if (input.reconciliation?.rejected) {
+		const noopResult: WorkUpdateResult = {
+			id: 0,
+			projectPath: input.projectPath,
+			feature: input.feature,
+			step: input.step ?? null,
+			status: input.status,
+			message: input.reconciliation.reason ?? "backward_transition",
+			createdAt: new Date().toISOString(),
+		};
+		return TE.right(successResult(TOOL_NAME, noopResult));
+	}
+
+	return pipe(
 		insertStatusUpdate(input, dbPath),
 		TE.map(
 			(result): WorkUpdateResult => ({
@@ -161,8 +274,14 @@ export const executeUpdate = (
 				createdAt: result.createdAt,
 			}),
 		),
+		TE.chainFirst(() =>
+			TE.fromTask(async () => {
+				await autoCorrectSkippedSteps(input, dbPath);
+			}),
+		),
 		TE.chainFirst((data) =>
 			TE.fromTask(async () => {
+				const stepStatus = mapStatusToStepStatus(input.status);
 				const workflowCtx =
 					input.workflow && input.step
 						? {
@@ -170,6 +289,7 @@ export const executeUpdate = (
 								runId: input.runId,
 								previousState: input.previousState,
 								newState: input.step,
+								stepStatus,
 							}
 						: undefined;
 				await notifyDaemon(
@@ -182,6 +302,7 @@ export const executeUpdate = (
 		),
 		TE.map((data) => successResult(TOOL_NAME, data)),
 	);
+};
 
 /**
  * Execute work query subcommand.
@@ -285,6 +406,7 @@ export type {
 	ArtifactRecord,
 	ArtifactTypeValue,
 	QueryOptions,
+	ReconciliationResult,
 	StatusUpdateInput,
 	StatusUpdateRecord,
 	StatusValue,

@@ -28,6 +28,19 @@ export const VALID_STATUSES: readonly StatusValue[] = [
 ] as const;
 
 /**
+ * Result of insert-time reconciliation for forward-only lifecycle enforcement.
+ * Transient field on StatusUpdateInput, not persisted to the database.
+ */
+export interface ReconciliationResult {
+	/** When true, the update was rejected as a backward transition and should be skipped */
+	readonly rejected?: boolean;
+	/** Reason for rejection */
+	readonly reason?: string;
+	/** Steps that were auto-corrected during this update */
+	readonly autoCorrections?: readonly string[];
+}
+
+/**
  * Input for creating a new status update.
  * Used by the agent tool to insert status records.
  */
@@ -52,6 +65,8 @@ export interface StatusUpdateInput {
 	readonly expiresAt?: string;
 	/** Previous workflow state before this transition (transient, not persisted) */
 	readonly previousState?: string | null;
+	/** Reconciliation result from insert-time validation (transient, not persisted) */
+	readonly reconciliation?: ReconciliationResult;
 	/** Agent name for agent-scoped state tracking (optional) */
 	readonly agent?: string;
 	/** Task identifier for per-task state tracking (optional) */

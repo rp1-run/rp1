@@ -1282,4 +1282,64 @@ export const queryAgentUpdatesForRun = (
 		),
 	);
 
+/**
+ * Query the latest status value for a specific step within a feature/run.
+ * Used by insert-time reconciliation to enforce forward-only lifecycle.
+ *
+ * @param projectPath - Project path to filter by
+ * @param feature - Feature identifier
+ * @param step - Step identifier to query status for
+ * @param runId - Optional run ID for per-invocation isolation
+ * @param dbPath - Database file path (optional)
+ * @returns TaskEither with current status value or null if step has no records
+ */
+export const getStepStatusValue = (
+	projectPath: string,
+	feature: string,
+	step: string,
+	runId?: string,
+	dbPath?: string,
+): TE.TaskEither<CLIError, StatusValue | null> =>
+	pipe(
+		getDatabase(dbPath),
+		TE.chain((db) =>
+			TE.tryCatch(
+				async () => {
+					const params: Record<string, string> = {
+						$projectPath: projectPath,
+						$feature: feature,
+						$step: step,
+					};
+
+					let runIdClause: string;
+					if (runId) {
+						runIdClause = "AND (run_id = $runId OR run_id IS NULL)";
+						params.$runId = runId;
+					} else {
+						runIdClause = "";
+					}
+
+					const sql = `
+						SELECT status FROM status_updates
+						WHERE project_path = $projectPath
+						AND feature = $feature
+						AND step = $step
+						${runIdClause}
+						AND (expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now') OR expires_at IS NULL)
+						ORDER BY created_at DESC, id DESC LIMIT 1
+					`;
+
+					const row = db.prepare(sql).get(params) as {
+						status: string;
+					} | null;
+					return row ? (row.status as StatusValue) : null;
+				},
+				(error) =>
+					runtimeError(
+						`Failed to query step status: ${error instanceof Error ? error.message : String(error)}`,
+					),
+			),
+		),
+	);
+
 export { DEFAULT_DB_PATH };

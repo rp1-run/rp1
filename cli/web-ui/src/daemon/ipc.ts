@@ -116,6 +116,7 @@ export interface WorkflowNotifyContext {
 	readonly runId?: string;
 	readonly previousState?: string | null;
 	readonly newState: string;
+	readonly stepStatus?: string;
 }
 
 /**
@@ -145,6 +146,7 @@ export async function notifyStatusChange(
 					runId: workflowCtx.runId,
 					previousState: workflowCtx.previousState,
 					newState: workflowCtx.newState,
+					stepStatus: workflowCtx.stepStatus,
 				}),
 			}),
 			signal: AbortSignal.timeout(1000), // Short timeout - fire and forget
