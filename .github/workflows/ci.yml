@@ -84,7 +84,13 @@ jobs:
 
       - uses: extractions/setup-just@v2
 
-      - name: Install dependencies
+      - name: Install CLI dependencies
+        run: cd cli && bun install
+
+      - name: Build platform artifacts
+        run: just build-claude-code
+
+      - name: Install eval dependencies
         run: cd evals && bun install
 
       - name: Verify attestations
