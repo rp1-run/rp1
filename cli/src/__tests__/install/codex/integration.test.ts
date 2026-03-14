@@ -128,7 +128,7 @@ describe("codex integration", () => {
 		expect(config).toContain("# rp1:end");
 		expect(config).toContain("[agents.rp1-build]");
 		expect(config).toContain("[agents.rp1-review]");
-		expect(config).toContain('pattern = "rp1 agent-tools *"');
+		expect(config).toContain('config_file = "./agents/rp1/rp1-build.toml"');
 
 		const uninstallResult = await expectTaskRight(uninstallCodex(paths, false));
 		expect(uninstallResult.skillsRemoved).toBe(2);

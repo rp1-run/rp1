@@ -34,14 +34,9 @@ export function getOpenCodeSkillsDir(home: string = homedir()): string {
 }
 
 /**
- * Expected OpenCode skill directory prefixes.
- * Skills are installed as rp1-{plugin}-{skill} directories.
- */
-const EXPECTED_OPENCODE_PREFIXES = ["rp1-base-", "rp1-dev-"] as const;
-
-/**
  * Verify OpenCode plugin installation.
- * Checks that rp1 hooks plugins are correctly installed and registered.
+ * Checks that rp1 skill directories exist in the OpenCode skills directory.
+ * Skills are installed as flat rp1-{skill} directories (no plugin infix).
  *
  * @param home - Home directory (for testing, defaults to os.homedir())
  * @param callbacks - Optional callbacks for reporting progress to UI
@@ -70,43 +65,27 @@ export async function verifyOpenCodePlugins(
 		callbacks?.onActivity("OpenCode skills directory not found", "warning");
 	}
 
-	// Check each expected prefix has matching skill directories
-	for (const prefix of EXPECTED_OPENCODE_PREFIXES) {
-		const matchingDirs = rp1Dirs.filter((d) => d.startsWith(prefix));
-		const pluginLabel = prefix.replace(/^rp1-/, "").replace(/-$/, "");
+	const installed = rp1Dirs.length > 0;
 
-		if (matchingDirs.length > 0) {
-			plugins.push({
-				name: `rp1-${pluginLabel}`,
-				installed: true,
-				version: `${matchingDirs.length} skills`,
-				location: skillsDir,
-			});
-		} else {
-			plugins.push({
-				name: `rp1-${pluginLabel}`,
-				installed: false,
-				version: null,
-				location: null,
-			});
-			issues.push(`No rp1-${pluginLabel}-* skills found in ${skillsDir}`);
-		}
+	plugins.push({
+		name: "rp1",
+		installed,
+		version: installed ? `${rp1Dirs.length} skills` : null,
+		location: installed ? skillsDir : null,
+	});
+
+	if (!installed && issues.length === 0) {
+		issues.push(`No rp1-* skills found in ${skillsDir}`);
 	}
 
-	const allInstalled = plugins.every((p) => p.installed);
-
-	if (allInstalled) {
+	if (installed) {
 		callbacks?.onActivity("OpenCode plugins verified", "success");
 	} else {
-		const missingCount = plugins.filter((p) => !p.installed).length;
-		callbacks?.onActivity(
-			`${missingCount} OpenCode plugin group(s) not found`,
-			"warning",
-		);
+		callbacks?.onActivity("OpenCode skills not found", "warning");
 	}
 
 	return {
-		verified: allInstalled,
+		verified: installed,
 		plugins,
 		issues,
 	};
