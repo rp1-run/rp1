@@ -72,7 +72,6 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 					setRun((prev) => {
 						if (!prev) return null;
 
-						// Step-level optimistic patch: update individual step status
 						let updatedSteps = prev.steps;
 						if (msg.step && msg.stepStatus) {
 							updatedSteps = prev.steps.map((s) =>
