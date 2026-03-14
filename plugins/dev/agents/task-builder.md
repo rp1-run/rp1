@@ -178,7 +178,35 @@ Per task:
 4. Run relevant tests
 5. Verify acceptance criteria
 
-### 3.4 Scope Verification
+### 3.4 Sub-Flow Diagram Generation
+
+After implementing all assigned tasks, generate a `.mmd` stateDiagram-v2 file representing the task execution sub-flow within the current step.
+
+1. Create `{FEATURE_ID}-{TASK_IDS}.mmd` in the feature directory (`{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`):
+
+```mermaid
+stateDiagram-v2
+    [*] --> T1_description
+    T1_description --> T2_description
+    T2_description --> [*]
+```
+
+Use the actual task IDs as state names and task descriptions as labels. For single tasks, produce a simple `[*] --> TaskState --> [*]` diagram.
+
+2. Register as artifact with step association:
+
+```bash
+rp1 agent-tools work artifact \
+  --project "$(pwd)" \
+  --feature {FEATURE_ID} \
+  --run-id {RUN_ID} \
+  --path "work/features/{FEATURE_ID}/{FEATURE_ID}-{TASK_IDS}.mmd" \
+  --step {STEP_NAME}
+```
+
+Where `{STEP_NAME}` is the workflow step these tasks belong to (from the task list context). Skip if WORKFLOW or RUN_ID is empty. Skip in quick-build mode.
+
+### 3.5 Scope Verification
 
 Before summary:
 
@@ -187,7 +215,7 @@ Before summary:
 - [ ] No changes beyond task reqs
 - [ ] Found something unusual or interesting that's not captured in design/current patterns -> update it in `field-notes.md` (if exists) or create it in the same feature dir.
 
-### 3.5 Atomic Commit (Conditional)
+### 3.6 Atomic Commit (Conditional)
 
 **DECISION POINT**: Check `GIT_COMMIT` and `WORKTREE_PATH` parameters before ANY git operations.
 
