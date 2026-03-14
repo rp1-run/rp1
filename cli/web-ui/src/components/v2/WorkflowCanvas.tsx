@@ -46,6 +46,7 @@ export function WorkflowCanvas({
 	const { layoutNodes, isLayoutReady } = useGraphLayout(
 		graph?.nodes ?? [],
 		graph?.edges ?? [],
+		{ direction: "LR" },
 	);
 
 	if (!graph) {

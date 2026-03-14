@@ -32,6 +32,7 @@ export interface StatusChangedMessage {
 	status: string;
 	step?: string;
 	runStatus?: string;
+	stepStatus?: string;
 }
 
 export interface AnnotationCreatedMessage {
@@ -249,6 +250,7 @@ export class WebSocketHub {
 		status: string,
 		step?: string,
 		runStatus?: string,
+		stepStatus?: string,
 	): void {
 		const message: StatusChangedMessage = {
 			type: "status_changed",
@@ -257,6 +259,7 @@ export class WebSocketHub {
 			status,
 			...(step !== undefined && { step }),
 			...(runStatus !== undefined && { runStatus }),
+			...(stepStatus !== undefined && { stepStatus }),
 		};
 
 		const data = JSON.stringify(message);

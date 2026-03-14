@@ -34,6 +34,7 @@ export interface StatusChangedMessage {
 	status: string;
 	step?: string;
 	runStatus?: string;
+	stepStatus?: string;
 	timestamp: string;
 }
 

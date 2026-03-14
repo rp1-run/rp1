@@ -36,8 +36,8 @@ export function useGraphLayout(
 		const g = new dagre.graphlib.Graph();
 		g.setGraph({
 			rankdir: direction,
-			nodesep: 50,
-			ranksep: 80,
+			nodesep: direction === "LR" ? 60 : 50,
+			ranksep: direction === "LR" ? 100 : 80,
 			marginx: 40,
 			marginy: 40,
 		});

@@ -1307,6 +1307,7 @@ export async function handleV2StatusNotifyRequest(
 			runId?: string;
 			previousState?: string | null;
 			newState?: string;
+			stepStatus?: string;
 		};
 
 		if (!body.projectPath || !body.feature || !body.status) {
@@ -1331,6 +1332,7 @@ export async function handleV2StatusNotifyRequest(
 			body.workflow && body.status
 				? mapNotifyStatusToRunStatus(body.status)
 				: undefined;
+		const stepStatus = body.stepStatus ?? undefined;
 
 		ctx.websocketHub?.broadcastStatusChange(
 			project.id,
@@ -1338,6 +1340,7 @@ export async function handleV2StatusNotifyRequest(
 			body.status,
 			step,
 			runStatus,
+			stepStatus,
 		);
 
 		return jsonResponse({ notified: true, projectId: project.id });

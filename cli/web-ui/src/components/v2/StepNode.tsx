@@ -1,5 +1,6 @@
 import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
 import { Clock, ListChecks } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import type { StepNodeData } from "@/lib/workflow-converter";
 import type { StepStatus } from "@/types/runs";
@@ -74,8 +75,27 @@ export function StepNode({
 	const showTaskProgress =
 		data.taskCount !== null && data.completedTaskCount !== null;
 
-	const resolvedSourcePosition = sourcePosition ?? Position.Bottom;
-	const resolvedTargetPosition = targetPosition ?? Position.Top;
+	const resolvedSourcePosition = sourcePosition ?? Position.Right;
+	const resolvedTargetPosition = targetPosition ?? Position.Left;
+
+	const prevStatusRef = useRef<StepStatus>(data.status);
+	const [isTransitioning, setIsTransitioning] = useState(false);
+	const isMountedRef = useRef(false);
+
+	useEffect(() => {
+		if (!isMountedRef.current) {
+			isMountedRef.current = true;
+			prevStatusRef.current = data.status;
+			return;
+		}
+
+		if (prevStatusRef.current !== data.status) {
+			setIsTransitioning(true);
+			prevStatusRef.current = data.status;
+			const timer = setTimeout(() => setIsTransitioning(false), 500);
+			return () => clearTimeout(timer);
+		}
+	}, [data.status]);
 
 	return (
 		<>
@@ -86,10 +106,11 @@ export function StepNode({
 			/>
 			<div
 				className={cn(
-					"w-[280px] rounded-[var(--radius)] border p-4",
+					"w-[280px] rounded-[var(--radius)] border p-4 transition-colors duration-300",
 					style.border,
 					style.bg,
 					style.animation,
+					isTransitioning && "animate-step-transition",
 				)}
 				style={
 					style.animation

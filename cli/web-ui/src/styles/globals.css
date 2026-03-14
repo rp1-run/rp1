@@ -431,6 +431,23 @@
   background-color: hsl(var(--accent));
 }
 
+/* Step node transition animation for live status changes */
+@keyframes step-transition {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
+.animate-step-transition {
+  animation: step-transition 400ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-step-transition {
+    animation: none;
+  }
+}
+
 /* Active state glow animation — outside @layer for maximum specificity over mermaid's internal <style> */
 @keyframes active-state-glow {
   0%, 100% {
