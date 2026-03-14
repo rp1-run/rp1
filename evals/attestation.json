@@ -14,16 +14,16 @@
       "platform": "claude-code"
     },
     "rp1-dev:build-fast@claude-code": {
-      "prompt_hash": "sha256:d25ab4d1b37b1924a724bbc832f3092f9998b866b0a083689ec5f1e381d4343e",
-      "deps_hash": "sha256:9771a80611f046f4f81ec374cc1f87ac9f1d27948abbdb1b6e0314642a3ab62f",
+      "platform": "claude-code",
+      "prompt_hash": "sha256:a8aa0c6cba7875db4ef1cf23b41e513130f4f41912679bbe034a9009211de34c",
+      "deps_hash": "sha256:5bda363f04eb6196f3ae12bac6d16e8d046d223d16891ef4d6594e7a56185e0f",
       "version": "3.0.0",
       "last_eval": {
         "passed": true,
-        "timestamp": "2026-03-08T06:53:18.673Z",
-        "git_commit": "4be7eca",
+        "timestamp": "2026-03-14T03:42:32.310Z",
+        "git_commit": "45aa939",
         "result_file": "output/rp1-dev-build-fast.json"
-      },
-      "platform": "claude-code"
+      }
     },
     "rp1-dev:build-express@claude-code": {
       "platform": "claude-code",
@@ -58,6 +58,7 @@
     "plugins/dev/skills/build/SKILL.md": "sha256:54af99da39fc101f423fb1a4d77bc7c8b38573ad0f1613208b2c4dff1cb4b974",
     "plugins/dev/skills/build-fast/SKILL.md": "sha256:d25ab4d1b37b1924a724bbc832f3092f9998b866b0a083689ec5f1e381d4343e",
     "plugins/dev/skills/build-express/SKILL.md": "sha256:735675c3212885d465f57d18d6decb7dfd310b1cde05d807e841133014d68433",
-    "cli/dist/claude-code/dev/skills/build-express/SKILL.md": "sha256:e95431ea1e472b9c957a7bc43620e4781dbddcdcd0086636dd9469db7d8508b4"
+    "cli/dist/claude-code/dev/skills/build-express/SKILL.md": "sha256:e95431ea1e472b9c957a7bc43620e4781dbddcdcd0086636dd9469db7d8508b4",
+    "cli/dist/claude-code/dev/skills/build-fast/SKILL.md": "sha256:a8aa0c6cba7875db4ef1cf23b41e513130f4f41912679bbe034a9009211de34c"
   }
 }
