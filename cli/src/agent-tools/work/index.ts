@@ -199,12 +199,17 @@ const autoCorrectSkippedSteps = async (
 				dbPath,
 			)();
 
-			if (
-				priorStatusResult._tag === "Right" &&
-				priorStatusResult.right === null
-			) {
+			const priorStatus =
+				priorStatusResult._tag === "Right" ? priorStatusResult.right : null;
+			const isNonTerminal =
+				priorStatus === null ||
+				(priorStatus !== "completed" && priorStatus !== "failed");
+
+			if (priorStatusResult._tag === "Right" && isNonTerminal) {
+				const reason =
+					priorStatus === null ? "skipped" : `stuck in ${priorStatus}`;
 				console.log(
-					`[reconcile] Auto-correcting skipped step ${priorStep.id}: inserting completed status`,
+					`[reconcile] Auto-correcting ${reason} step ${priorStep.id}: inserting completed status`,
 				);
 				await insertStatusUpdate(
 					{
