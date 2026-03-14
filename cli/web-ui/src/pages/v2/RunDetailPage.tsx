@@ -6,20 +6,18 @@ import {
 	RefreshCw,
 	Terminal,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArtifactList } from "@/components/v2/ArtifactList";
-import { EventStream } from "@/components/v2/EventStream";
 import { DETAIL_HINTS, KeyHints } from "@/components/v2/KeyHints";
 import { StatusBadge } from "@/components/v2/StatusBadge";
-import { WorkflowDiagram } from "@/components/v2/WorkflowDiagram";
+import { WorkflowCanvas } from "@/components/v2/WorkflowCanvas";
 import { useContextualShortcuts } from "@/hooks/useContextualShortcuts";
 import { useRunDetail } from "@/hooks/useRunDetail";
 import {
 	commandToWorkflowName,
 	useWorkflowSteps,
 } from "@/hooks/useWorkflowSteps";
-import type { Artifact, Step } from "@/types/runs";
+import type { Step } from "@/types/runs";
 
 function formatDuration(startedAt: string, completedAt: string | null): string {
 	const start = new Date(startedAt);
@@ -61,9 +59,6 @@ export function RunDetailPage() {
 	const { runId } = useParams();
 	const navigate = useNavigate();
 	const { run, isLoading, error, refetch } = useRunDetail(runId);
-	const [selectedArtifactIndex, setSelectedArtifactIndex] = useState<
-		number | null
-	>(null);
 
 	const workflowName = useMemo(
 		() => (run ? commandToWorkflowName(run.command) : null),
@@ -75,127 +70,24 @@ export function RunDetailPage() {
 		return run ? run.steps : [];
 	}, [run]);
 
-	const artifactsSectionRef = useRef<HTMLElement>(null);
-	const eventStreamSectionRef = useRef<HTMLElement>(null);
-	const diagramSectionRef = useRef<HTMLElement>(null);
-
-	const handleArtifactClick = useCallback(
-		(artifact: Artifact) => {
-			navigate(`/runs/${runId}/artifacts/${artifact.path}`);
-		},
-		[navigate, runId],
-	);
-
-	useEffect(() => {
-		if (!run) return;
-
-		const handleKeyDown = (event: KeyboardEvent) => {
-			if (document.querySelector('[role="dialog"][data-state="open"]')) return;
-			if (document.body.dataset.chordPending) return;
-
-			const target = event.target as HTMLElement;
-			const isTextInput =
-				target.tagName === "INPUT" ||
-				target.tagName === "TEXTAREA" ||
-				target.isContentEditable;
-
-			if (isTextInput) return;
-
-			const artifacts = run.artifacts;
-
-			switch (event.key) {
-				case "h":
-				case "ArrowLeft":
-					event.preventDefault();
-					navigate("/runs");
-					break;
-				case "j":
-				case "ArrowDown":
-					if (artifacts.length > 0) {
-						event.preventDefault();
-						setSelectedArtifactIndex((prev) =>
-							prev === null ? 0 : Math.min(prev + 1, artifacts.length - 1),
-						);
-					}
-					break;
-				case "k":
-				case "ArrowUp":
-					if (artifacts.length > 0) {
-						event.preventDefault();
-						setSelectedArtifactIndex((prev) =>
-							prev === null ? artifacts.length - 1 : Math.max(prev - 1, 0),
-						);
-					}
-					break;
-				case "ArrowRight":
-				case "Enter":
-					if (
-						selectedArtifactIndex !== null &&
-						artifacts[selectedArtifactIndex]
-					) {
-						event.preventDefault();
-						handleArtifactClick(artifacts[selectedArtifactIndex]);
-					}
-					break;
-			}
-		};
-
-		document.addEventListener("keydown", handleKeyDown);
-		return () => document.removeEventListener("keydown", handleKeyDown);
-	}, [run, navigate, selectedArtifactIndex, handleArtifactClick]);
+	const canvasSectionRef = useRef<HTMLElement>(null);
 
 	useContextualShortcuts({
 		viewId: "run-detail",
 		viewLabel: "Run Detail",
 		shortcuts: [
 			{
-				key: "a",
-				label: "Artifacts",
-				description: "Focus artifacts panel",
+				key: "d",
+				label: "Workflow State",
+				description: "Focus workflow canvas",
 				action: () => {
-					artifactsSectionRef.current?.scrollIntoView({
+					canvasSectionRef.current?.scrollIntoView({
 						behavior: "smooth",
 						block: "start",
 					});
-					const firstArtifact =
-						artifactsSectionRef.current?.querySelector<HTMLElement>(
-							"[role='button'], a, button",
-						);
-					firstArtifact?.focus();
+					canvasSectionRef.current?.focus();
 				},
 			},
-			{
-				key: "l",
-				label: "Logs",
-				description: "Show logs and events",
-				action: () => {
-					eventStreamSectionRef.current?.scrollIntoView({
-						behavior: "smooth",
-						block: "start",
-					});
-					const trigger =
-						eventStreamSectionRef.current?.querySelector<HTMLElement>(
-							'button[aria-expanded="false"]',
-						);
-					trigger?.click();
-				},
-			},
-			...(workflow
-				? [
-						{
-							key: "d",
-							label: "Workflow State",
-							description: "Focus workflow state panel",
-							action: () => {
-								diagramSectionRef.current?.scrollIntoView({
-									behavior: "smooth",
-									block: "start",
-								});
-								diagramSectionRef.current?.focus();
-							},
-						},
-					]
-				: []),
 		],
 		enabled: !!run,
 	});
@@ -205,13 +97,7 @@ export function RunDetailPage() {
 			<div className="space-y-6 animate-pulse">
 				<div className="h-5 w-48 rounded bg-muted" />
 				<div className="h-24 rounded-lg bg-muted" />
-				<div className="flex flex-col lg:grid lg:grid-cols-5 gap-6">
-					<div className="lg:col-span-3 h-80 rounded-lg bg-muted" />
-					<div className="lg:col-span-2 space-y-6">
-						<div className="h-48 rounded-lg bg-muted" />
-						<div className="h-48 rounded-lg bg-muted" />
-					</div>
-				</div>
+				<div className="h-[600px] rounded-lg bg-muted" />
 			</div>
 		);
 	}
@@ -261,7 +147,7 @@ export function RunDetailPage() {
 	const isActive = run.status === "running" || run.status === "waiting-input";
 
 	return (
-		<div className="space-y-6">
+		<div className="flex h-full flex-col gap-6 p-6">
 			<nav className="flex items-center gap-2 text-sm text-muted-foreground">
 				<Link
 					to="/projects"
@@ -306,61 +192,17 @@ export function RunDetailPage() {
 				)}
 			</header>
 
-			{workflow ? (
-				<div className="flex flex-col lg:grid lg:grid-cols-5 gap-6">
-					<section
-						ref={diagramSectionRef}
-						className="lg:col-span-3"
-						tabIndex={-1}
-					>
-						<WorkflowDiagram workflow={workflow} steps={displaySteps} />
-					</section>
-
-					<div className="lg:col-span-2 space-y-6">
-						<section
-							ref={artifactsSectionRef}
-							className="rounded-lg border border-border bg-card overflow-hidden"
-						>
-							<div className="px-4 py-3">
-								<h2 className="font-medium text-foreground">Artifacts</h2>
-							</div>
-							<div className="border-t border-border p-4">
-								<ArtifactList
-									artifacts={run.artifacts}
-									onArtifactClick={handleArtifactClick}
-									selectedIndex={selectedArtifactIndex}
-								/>
-							</div>
-						</section>
-
-						<section ref={eventStreamSectionRef}>
-							<EventStream events={run.events} defaultExpanded />
-						</section>
-					</div>
-				</div>
-			) : (
-				<div className="space-y-6">
-					<section
-						ref={artifactsSectionRef}
-						className="rounded-lg border border-border bg-card overflow-hidden"
-					>
-						<div className="px-4 py-3">
-							<h2 className="font-medium text-foreground">Artifacts</h2>
-						</div>
-						<div className="border-t border-border p-4">
-							<ArtifactList
-								artifacts={run.artifacts}
-								onArtifactClick={handleArtifactClick}
-								selectedIndex={selectedArtifactIndex}
-							/>
-						</div>
-					</section>
-
-					<section ref={eventStreamSectionRef}>
-						<EventStream events={run.events} defaultExpanded />
-					</section>
-				</div>
-			)}
+			<section
+				ref={canvasSectionRef}
+				className="min-h-0 flex-1 rounded-lg border border-border bg-card"
+				tabIndex={-1}
+			>
+				<WorkflowCanvas
+					workflow={workflow ?? null}
+					steps={displaySteps}
+					className="h-full w-full"
+				/>
+			</section>
 
 			<KeyHints hints={DETAIL_HINTS} />
 		</div>

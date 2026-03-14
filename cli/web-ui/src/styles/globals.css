@@ -405,6 +405,32 @@
   }
 }
 
+/* React Flow style overrides — integrate with Catppuccin design system */
+.react-flow__background {
+  background-color: hsl(var(--bg-surface));
+}
+
+.react-flow__edge-path {
+  stroke: hsl(var(--border));
+}
+
+.react-flow__controls {
+  background-color: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  box-shadow: 0 1px 3px hsl(var(--bg-void) / 0.2);
+}
+
+.react-flow__controls-button {
+  background-color: hsl(var(--card));
+  border-color: hsl(var(--border));
+  fill: hsl(var(--foreground));
+}
+
+.react-flow__controls-button:hover {
+  background-color: hsl(var(--accent));
+}
+
 /* Active state glow animation — outside @layer for maximum specificity over mermaid's internal <style> */
 @keyframes active-state-glow {
   0%, 100% {

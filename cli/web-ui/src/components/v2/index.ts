@@ -91,6 +91,10 @@ export {
 	type VirtualizedListRef,
 } from "./VirtualizedList";
 export {
+	WorkflowCanvas,
+	type WorkflowCanvasProps,
+} from "./WorkflowCanvas";
+export {
 	WorkflowDiagram,
 	type WorkflowDiagramProps,
 } from "./WorkflowDiagram";

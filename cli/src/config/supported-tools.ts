@@ -14,7 +14,7 @@ import { TOOLS_REGISTRY } from "./supported-tools.generated.js";
 export interface SupportedTool {
 	readonly id: string;
 	readonly name: string;
-	readonly enabled: boolean;
+	readonly enabled?: boolean;
 	readonly binary: string;
 	readonly min_version: string;
 	readonly instruction_file: string;

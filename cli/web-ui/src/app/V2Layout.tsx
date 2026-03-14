@@ -27,6 +27,8 @@ function isFullHeightRoute(pathname: string): boolean {
 		)
 	)
 		return true;
+	// Run detail pages need full height for the workflow canvas
+	if (/^\/runs\/[^/]+$/.test(pathname)) return true;
 	if (/^\/projects\/[^/]+\/files/.test(pathname)) return true;
 	return false;
 }

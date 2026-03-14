@@ -18,7 +18,9 @@ export type StepStatus =
 	| "running"
 	| "completed"
 	| "failed"
-	| "skipped";
+	| "skipped"
+	| "waiting-input"
+	| "needs-review";
 
 /** Type of artifact produced by a run */
 export type ArtifactType =
