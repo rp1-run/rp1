@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useWebSocket } from "@/providers/WebSocketProvider";
-import type { Run, RunStatus } from "@/types/runs";
-import type { StatusChangedMessage } from "@/types/websocket";
+import type { Run, RunStatus, StepStatus } from "@/types/runs";
+import type { ConnectionStatus, StatusChangedMessage } from "@/types/websocket";
 
 interface UseRunDetailResult {
 	run: Run | null;
@@ -14,7 +14,8 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 	const [run, setRun] = useState<Run | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<Error | null>(null);
-	const { onStatusChange } = useWebSocket();
+	const { onStatusChange, status: wsStatus } = useWebSocket();
+	const prevWsStatusRef = useRef<ConnectionStatus>(wsStatus);
 	const runRef = useRef<Run | null>(null);
 
 	const fetchRun = useCallback(async () => {
@@ -51,8 +52,8 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 	}, [fetchRun]);
 
 	// Subscribe to status_changed events for optimistic updates and
-	// debounced reconciliation refetch. When step/runStatus fields are
-	// present, apply them immediately to local state. Full refetch is
+	// debounced reconciliation refetch. When step/runStatus/stepStatus fields
+	// are present, apply them immediately to local state. Full refetch is
 	// debounced with a 500ms quiet window to batch rapid status changes.
 	const debouncedFetchRef = useRef<ReturnType<typeof setTimeout>>();
 
@@ -70,8 +71,20 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 				if (msg.step || msg.runStatus) {
 					setRun((prev) => {
 						if (!prev) return null;
+
+						// Step-level optimistic patch: update individual step status
+						let updatedSteps = prev.steps;
+						if (msg.step && msg.stepStatus) {
+							updatedSteps = prev.steps.map((s) =>
+								s.id === msg.step
+									? { ...s, status: msg.stepStatus as StepStatus }
+									: s,
+							);
+						}
+
 						return {
 							...prev,
+							steps: updatedSteps,
 							...(msg.step !== undefined && { currentStep: msg.step }),
 							...(msg.runStatus !== undefined && {
 								status: msg.runStatus as RunStatus,
@@ -97,6 +110,20 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 			clearTimeout(debouncedFetchRef.current);
 		};
 	}, [runId, onStatusChange, fetchRun]);
+
+	// Reconnection reconciliation: when the WebSocket transitions from
+	// disconnected/connecting to connected, refetch the full run state to
+	// reconcile any events missed during the disconnection window.
+	useEffect(() => {
+		if (
+			prevWsStatusRef.current !== "connected" &&
+			wsStatus === "connected" &&
+			runId
+		) {
+			fetchRun();
+		}
+		prevWsStatusRef.current = wsStatus;
+	}, [wsStatus, runId, fetchRun]);
 
 	const refetch = useCallback(() => {
 		setIsLoading(true);
