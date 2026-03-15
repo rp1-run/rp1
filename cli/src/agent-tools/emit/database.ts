@@ -318,8 +318,12 @@ const annotationRowToRecord = (row: AnnotationRow): AnnotationRecord => ({
 const cleanupLegacyDb = (dbPath: string): void => {
 	const legacyPath = join(dirname(dbPath), "status.db");
 	if (existsSync(legacyPath)) {
-		unlinkSync(legacyPath);
-		console.log("Removed legacy status.db");
+		try {
+			unlinkSync(legacyPath);
+			console.log("Removed legacy status.db");
+		} catch {
+			// Best-effort: skip if file is locked by another process
+		}
 	}
 };
 
@@ -374,6 +378,7 @@ export const getEmitDatabase = (
 			const db = new Database(dbPath, { create: true });
 
 			db.exec("PRAGMA journal_mode = WAL;");
+			db.exec("PRAGMA busy_timeout = 5000;");
 			db.exec("PRAGMA foreign_keys = ON;");
 
 			const tableCheck = db

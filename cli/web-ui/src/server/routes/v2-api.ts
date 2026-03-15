@@ -216,9 +216,11 @@ async function discoverArtifactsFromFilesystem(
 async function getSubflowDiagrams(
 	projectPath: string,
 	artifacts: readonly Artifact[],
+	events: readonly EventRecord[],
 ): Promise<Readonly<Record<string, string>>> {
 	const subflows: Record<string, string> = {};
 
+	// Source 1: artifact-based subflow diagrams (requires subflow flag on artifact)
 	for (const artifact of artifacts) {
 		if (!artifact.subflow || !artifact.step) continue;
 		if (!artifact.path.endsWith(".mmd")) continue;
@@ -231,6 +233,30 @@ async function getSubflowDiagrams(
 			}
 		} catch {
 			// Best-effort: skip unreadable subflow files
+		}
+	}
+
+	// Source 2: derive from subflow_registered events (primary path)
+	for (const event of events) {
+		if (event.type !== "subflow_registered" || !event.step) continue;
+		if (subflows[event.step]) continue; // artifact source takes priority
+
+		const data = parseJsonSafe(event.data);
+		const diagram = data?.diagram as string | undefined;
+		const path = data?.path as string | undefined;
+
+		if (diagram) {
+			subflows[event.step] = diagram;
+		} else if (path) {
+			try {
+				const filePath = resolve(projectPath, path);
+				const file = Bun.file(filePath);
+				if (await file.exists()) {
+					subflows[event.step] = await file.text();
+				}
+			} catch {
+				// Best-effort: skip unreadable files
+			}
 		}
 	}
 
@@ -249,8 +275,13 @@ function eventRecordToRunEvent(record: EventRecord): RunEvent {
 		displayMessage = message;
 	} else if (record.type === "status_change") {
 		const status = data?.status as string | undefined;
-		const stepLabel = record.step ? `[${record.step}] ` : "";
-		displayMessage = `${stepLabel}Status: ${status ?? "unknown"}`;
+		const stepLabel = record.step ? humanizeFeatureName(record.step) : "";
+		const statusLabel = status
+			? status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+			: "Unknown";
+		displayMessage = stepLabel
+			? `${stepLabel}: ${statusLabel}`
+			: `Status: ${statusLabel}`;
 	} else if (record.type === "artifact_registered") {
 		const path = data?.path as string | undefined;
 		displayMessage = `Artifact registered: ${path ?? "unknown"}`;
@@ -482,7 +513,11 @@ async function buildDetailedRun(
 	const steps = await deriveSteps(stepStatuses, events, command);
 	const runEvents = events.map(eventRecordToRunEvent);
 	const agentSteps = deriveAgentSteps(events);
-	const subflows = await getSubflowDiagrams(record.projectPath, artifacts);
+	const subflows = await getSubflowDiagrams(
+		record.projectPath,
+		artifacts,
+		events,
+	);
 
 	let currentStep: string | null = null;
 	for (const step of [...steps].reverse()) {

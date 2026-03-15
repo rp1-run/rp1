@@ -290,6 +290,7 @@ export const getDatabase = (
 
 			// Enable WAL mode for better concurrent write performance
 			db.exec("PRAGMA journal_mode = WAL;");
+			db.exec("PRAGMA busy_timeout = 5000;");
 
 			const tableCheck = db
 				.prepare(
