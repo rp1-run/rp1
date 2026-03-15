@@ -14,33 +14,6 @@ function getNodeCenter(node: {
 	return { x: node.position.x + w / 2, y: node.position.y + h / 2, w, h };
 }
 
-function getNodeIntersection(
-	node: { x: number; y: number; w: number; h: number },
-	target: { x: number; y: number },
-) {
-	const dx = target.x - node.x;
-	const dy = target.y - node.y;
-
-	if (dx === 0 && dy === 0) return { x: node.x, y: node.y };
-
-	const slope = Math.abs(dy / dx);
-	const halfW = node.w / 2;
-	const halfH = node.h / 2;
-
-	let ix: number;
-	let iy: number;
-
-	if (slope <= halfH / halfW) {
-		ix = node.x + Math.sign(dx) * halfW;
-		iy = node.y + (dy * halfW) / Math.abs(dx);
-	} else {
-		ix = node.x + (dx * halfH) / Math.abs(dy);
-		iy = node.y + Math.sign(dy) * halfH;
-	}
-
-	return { x: ix, y: iy };
-}
-
 function buildCurvedPath(
 	sx: number,
 	sy: number,
@@ -103,14 +76,19 @@ export function FloatingEdge({
 		);
 	}
 
-	const sourceIntersection = getNodeIntersection(sourceCenter, targetCenter);
-	const targetIntersection = getNodeIntersection(targetCenter, sourceCenter);
+	// For forward (LR) edges, connect at right-center of source
+	// and left-center of target for clean horizontal connections,
+	// especially when nodes have different heights (e.g. group nodes).
+	const sx = sourceCenter.x + sourceCenter.w / 2;
+	const sy = sourceCenter.y;
+	const tx = targetCenter.x - targetCenter.w / 2;
+	const ty = targetCenter.y;
 
 	const [path] = getStraightPath({
-		sourceX: sourceIntersection.x,
-		sourceY: sourceIntersection.y,
-		targetX: targetIntersection.x,
-		targetY: targetIntersection.y,
+		sourceX: sx,
+		sourceY: sy,
+		targetX: tx,
+		targetY: ty,
 	});
 
 	return (
