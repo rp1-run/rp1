@@ -11,18 +11,16 @@ import {
 import type {
 	AttentionCallback,
 	ConnectionStatus,
+	EventNotificationMessage,
 	FileChangedMessage,
-	RunArtifactMessage,
 	ServerMessage,
-	StatusChangedMessage,
 	TreeChangedMessage,
 } from "../types/websocket";
 
 export type {
 	ConnectionStatus,
+	EventNotificationMessage,
 	FileChangedMessage,
-	RunArtifactMessage,
-	StatusChangedMessage,
 	TreeChangedMessage,
 } from "../types/websocket";
 
@@ -34,8 +32,9 @@ interface WebSocketContextValue {
 	unsubscribe: (path: string) => void;
 	onFileChange: (callback: (msg: FileChangedMessage) => void) => () => void;
 	onTreeChange: (callback: (msg: TreeChangedMessage) => void) => () => void;
-	onStatusChange: (callback: (msg: StatusChangedMessage) => void) => () => void;
-	onArtifactChange: (callback: (msg: RunArtifactMessage) => void) => () => void;
+	onEventNotification: (
+		callback: (msg: EventNotificationMessage) => void,
+	) => () => void;
 	subscribeToAttention: (callback: AttentionCallback) => () => void;
 }
 
@@ -73,11 +72,8 @@ export function WebSocketProvider({
 	const treeChangeListenersRef = useRef<Set<(msg: TreeChangedMessage) => void>>(
 		new Set(),
 	);
-	const statusChangeListenersRef = useRef<
-		Set<(msg: StatusChangedMessage) => void>
-	>(new Set());
-	const artifactChangeListenersRef = useRef<
-		Set<(msg: RunArtifactMessage) => void>
+	const eventNotificationListenersRef = useRef<
+		Set<(msg: EventNotificationMessage) => void>
 	>(new Set());
 	const subscriptionsRef = useRef<Set<string>>(new Set());
 
@@ -167,17 +163,12 @@ export function WebSocketProvider({
 						listener(message);
 					}
 					break;
-				case "status_changed":
-					for (const listener of statusChangeListenersRef.current) {
+				case "event:notification":
+					for (const listener of eventNotificationListenersRef.current) {
 						listener(message);
 					}
 					for (const callback of attentionListenersRef.current) {
 						callback();
-					}
-					break;
-				case "run:artifact":
-					for (const listener of artifactChangeListenersRef.current) {
-						listener(message);
 					}
 					break;
 				case "heartbeat":
@@ -250,21 +241,11 @@ export function WebSocketProvider({
 		[],
 	);
 
-	const onStatusChange = useCallback(
-		(callback: (msg: StatusChangedMessage) => void) => {
-			statusChangeListenersRef.current.add(callback);
+	const onEventNotification = useCallback(
+		(callback: (msg: EventNotificationMessage) => void) => {
+			eventNotificationListenersRef.current.add(callback);
 			return () => {
-				statusChangeListenersRef.current.delete(callback);
-			};
-		},
-		[],
-	);
-
-	const onArtifactChange = useCallback(
-		(callback: (msg: RunArtifactMessage) => void) => {
-			artifactChangeListenersRef.current.add(callback);
-			return () => {
-				artifactChangeListenersRef.current.delete(callback);
+				eventNotificationListenersRef.current.delete(callback);
 			};
 		},
 		[],
@@ -291,8 +272,7 @@ export function WebSocketProvider({
 				unsubscribe,
 				onFileChange,
 				onTreeChange,
-				onStatusChange,
-				onArtifactChange,
+				onEventNotification,
 				subscribeToAttention,
 			}}
 		>

@@ -7,13 +7,12 @@ import { statusStyles } from "./StepNode";
 type TaskNodeType = Node<TaskNodeData, "taskNode">;
 
 const taskStatusDot: Record<string, string> = {
-	pending: "bg-muted-foreground/40",
+	not_started: "bg-muted-foreground/40",
 	running: "bg-status-running animate-pulse",
 	completed: "bg-status-completed",
 	failed: "bg-status-failed",
 	skipped: "bg-muted-foreground/40",
-	"waiting-input": "bg-status-waiting",
-	"needs-review": "bg-status-needs-review",
+	waiting: "bg-status-waiting",
 };
 
 export function TaskNode({
@@ -22,12 +21,12 @@ export function TaskNode({
 	targetPosition,
 }: NodeProps<TaskNodeType>) {
 	const status = data.status as StepStatus;
-	const style = statusStyles[status] ?? statusStyles.pending;
+	const style = statusStyles[status] ?? statusStyles.not_started;
 
 	const resolvedSourcePosition = sourcePosition ?? Position.Right;
 	const resolvedTargetPosition = targetPosition ?? Position.Left;
 
-	const dotClass = taskStatusDot[data.status] ?? taskStatusDot.pending;
+	const dotClass = taskStatusDot[data.status] ?? taskStatusDot.not_started;
 
 	return (
 		<>

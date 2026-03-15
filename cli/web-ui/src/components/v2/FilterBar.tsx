@@ -24,7 +24,7 @@ const STATUS_TABS: { value: StatusTab; label: string }[] = [
 	{ value: "running", label: "Running" },
 	{ value: "completed", label: "Completed" },
 	{ value: "failed", label: "Failed" },
-	{ value: "waiting-input", label: "Waiting" },
+	{ value: "waiting", label: "Waiting" },
 ];
 
 const DATE_RANGES: { value: RunsFilter["dateRange"]; label: string }[] = [

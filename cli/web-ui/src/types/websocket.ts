@@ -1,10 +1,9 @@
 /**
  * WebSocket message types for real-time updates.
- * Extends the existing message types with run-specific events.
+ * Uses the unified event:notification format for all status and artifact updates.
  */
 
 import type { Annotation, AnnotationReply } from "./annotations";
-import type { RunEvent } from "./runs";
 
 /** File change notification */
 export interface FileChangedMessage {
@@ -26,42 +25,46 @@ export interface HeartbeatMessage {
 	timestamp: string;
 }
 
-/** Status change notification with optional optimistic update fields */
-export interface StatusChangedMessage {
-	type: "status_changed";
-	projectId: string;
-	feature: string;
-	status: string;
-	step?: string;
-	runStatus?: string;
-	stepStatus?: string;
-	timestamp: string;
-}
-
-/** Run artifact creation/update notification */
-export interface RunArtifactMessage {
-	type: "run:artifact";
-	projectId: string;
-	feature: string;
-	artifact: {
-		readonly path: string;
-		readonly type: string;
-		readonly step: string | null;
-		readonly runId: string | null;
-	};
-	timestamp: string;
-}
-
-/** Run event stream notification */
-export interface RunEventMessage {
-	type: "run:event";
+/** Unified event notification for all status, artifact, and annotation updates */
+export interface EventNotificationMessage {
+	type: "event:notification";
+	eventId: number;
+	eventType: string;
 	runId: string;
-	event: RunEvent;
-	timestamp: string;
+	projectId: string;
+	featureId: string;
+	step: string | null;
+	data: Record<string, unknown> | null;
+	createdAt: string;
 }
 
-/** Union of all run-related messages */
-export type RunMessage = RunArtifactMessage | RunEventMessage;
+/** Replayed event for reconnection recovery */
+export interface EventReplayMessage {
+	type: "event:replay";
+	event: {
+		id: number;
+		runId: string;
+		eventType: string;
+		step: string | null;
+		data: string | null;
+		createdAt: string;
+	};
+}
+
+/** Full state snapshot for reconnection recovery */
+export interface StateSnapshotMessage {
+	type: "state:snapshot";
+	runs: Array<{
+		id: string;
+		flow: string;
+		featureId: string;
+		projectPath: string;
+		status: string;
+		steps: Array<{ step: string; status: string }>;
+		artifacts: Array<{ docId: string; path: string; type: string }>;
+	}>;
+	lastEventId: number;
+}
 
 /** Annotation created notification */
 export interface AnnotationCreatedMessage {
@@ -112,9 +115,9 @@ export type ServerMessage =
 	| FileChangedMessage
 	| TreeChangedMessage
 	| HeartbeatMessage
-	| StatusChangedMessage
-	| RunArtifactMessage
-	| RunEventMessage
+	| EventNotificationMessage
+	| EventReplayMessage
+	| StateSnapshotMessage
 	| AnnotationCreatedMessage
 	| AnnotationUpdatedMessage
 	| AnnotationResolvedMessage

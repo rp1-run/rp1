@@ -14,7 +14,7 @@ function makeStep(id: string, overrides: Partial<Step> = {}): Step {
 	return {
 		id,
 		name: overrides.name ?? id,
-		status: overrides.status ?? "pending",
+		status: overrides.status ?? "not_started",
 		startedAt: overrides.startedAt ?? null,
 		completedAt: overrides.completedAt ?? null,
 		taskCount: overrides.taskCount ?? null,
@@ -117,7 +117,7 @@ describe("workflowToReactFlow", () => {
 		expect(buildNode?.data.startedAt).toBe("2026-01-01T00:05:00Z");
 	});
 
-	test("unmatched states default to pending status", () => {
+	test("unmatched states default to not_started status", () => {
 		const workflow = makeWorkflow({
 			states: [
 				{ id: "plan", label: "Plan", isInitial: true, isTerminal: false },
@@ -132,10 +132,10 @@ describe("workflowToReactFlow", () => {
 		const result = workflowToReactFlow(workflow, steps);
 
 		const buildNode = result.nodes.find((n) => n.id === "build");
-		expect(buildNode?.data.status).toBe("pending");
+		expect(buildNode?.data.status).toBe("not_started");
 
 		const verifyNode = result.nodes.find((n) => n.id === "verify");
-		expect(verifyNode?.data.status).toBe("pending");
+		expect(verifyNode?.data.status).toBe("not_started");
 	});
 
 	test("transition labels are omitted from edges to reduce clutter", () => {
@@ -413,7 +413,7 @@ function makeAgentTask(
 	return {
 		id,
 		name: overrides.name ?? `Task ${id}`,
-		status: overrides.status ?? "pending",
+		status: overrides.status ?? "not_started",
 		agent: overrides.agent ?? "task-builder",
 	};
 }
@@ -580,7 +580,7 @@ describe("layoutSubFlowFromDiagram", () => {
 		const tasks: AgentTask[] = [
 			makeAgentTask("T1", { name: "Auth module", status: "completed" }),
 			makeAgentTask("T2", { name: "Add routes", status: "running" }),
-			makeAgentTask("T3", { name: "Write tests", status: "pending" }),
+			makeAgentTask("T3", { name: "Write tests", status: "not_started" }),
 		];
 
 		const result = layoutSubFlowFromDiagram("build", diagram, tasks);
@@ -658,7 +658,7 @@ describe("layoutSubFlowFromDiagram", () => {
 			}),
 			makeAgentTask("T2", {
 				name: "Second task",
-				status: "pending",
+				status: "not_started",
 				agent: "reviewer",
 			}),
 		];
@@ -670,11 +670,11 @@ describe("layoutSubFlowFromDiagram", () => {
 		expect(t1?.data.agent).toBe("builder");
 
 		const t2 = result.childNodes.find((n) => n.id === "parent-task-T2");
-		expect(t2?.data.status).toBe("pending");
+		expect(t2?.data.status).toBe("not_started");
 		expect(t2?.data.agent).toBe("reviewer");
 	});
 
-	test("defaults to pending status for diagram states with no matching task", () => {
+	test("defaults to not_started status for diagram states with no matching task", () => {
 		const diagram = `stateDiagram-v2
     [*] --> T1
     T1 --> T2
@@ -688,7 +688,7 @@ describe("layoutSubFlowFromDiagram", () => {
 
 		expect(result.childNodes).toHaveLength(2);
 		const t2 = result.childNodes.find((n) => n.id === "step-task-T2");
-		expect(t2?.data.status).toBe("pending");
+		expect(t2?.data.status).toBe("not_started");
 		expect(t2?.data.label).toBe("T2");
 		expect(t2?.data.agent).toBe("");
 	});
@@ -738,7 +738,7 @@ describe("buildCanvasGraph with subflows", () => {
 			build: [
 				makeAgentTask("T1", { name: "Setup", status: "completed" }),
 				makeAgentTask("T2", { name: "Branch A", status: "running" }),
-				makeAgentTask("T3", { name: "Branch B", status: "pending" }),
+				makeAgentTask("T3", { name: "Branch B", status: "not_started" }),
 			],
 		};
 

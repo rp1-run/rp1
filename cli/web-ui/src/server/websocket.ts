@@ -25,16 +25,6 @@ export interface ProjectsChangedMessage {
 	timestamp: string;
 }
 
-export interface StatusChangedMessage {
-	type: "status_changed";
-	projectId: string;
-	feature: string;
-	status: string;
-	step?: string;
-	runStatus?: string;
-	stepStatus?: string;
-}
-
 export interface EventNotificationMessage {
 	type: "event:notification";
 	eventId: number;
@@ -45,19 +35,6 @@ export interface EventNotificationMessage {
 	step: string | null;
 	data: Record<string, unknown> | null;
 	createdAt: string;
-}
-
-export interface ArtifactChangedMessage {
-	type: "run:artifact";
-	projectId: string;
-	feature: string;
-	artifact: {
-		path: string;
-		type: string;
-		step: string | null;
-		runId: string | null;
-	};
-	timestamp: string;
 }
 
 export interface AnnotationCreatedMessage {
@@ -137,9 +114,7 @@ export type ServerMessage =
 	| TreeChangedMessage
 	| HeartbeatMessage
 	| ProjectsChangedMessage
-	| StatusChangedMessage
 	| EventNotificationMessage
-	| ArtifactChangedMessage
 	| AnnotationCreatedMessage
 	| AnnotationUpdatedMessage
 	| AnnotationResolvedMessage
@@ -193,9 +168,6 @@ export interface ReplayProvider {
 export class WebSocketHub {
 	private clients: Map<ServerWebSocket<ClientData>, ClientState> = new Map();
 	private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
-	private statusPollInterval: ReturnType<typeof setInterval> | null = null;
-	private lastStatusSnapshot: Map<string, string> = new Map();
-	private statusPollCallback: (() => Promise<void>) | null = null;
 	private replayProvider: ReplayProvider | null = null;
 
 	private static readonly REPLAY_EVENT_CAP = 100;
@@ -417,39 +389,6 @@ export class WebSocketHub {
 		this.broadcast(message);
 	}
 
-	broadcastStatusChange(
-		projectId: string,
-		feature: string,
-		status: string,
-		step?: string,
-		runStatus?: string,
-		stepStatus?: string,
-	): void {
-		const message: StatusChangedMessage = {
-			type: "status_changed",
-			projectId,
-			feature,
-			status,
-			...(step !== undefined && { step }),
-			...(runStatus !== undefined && { runStatus }),
-			...(stepStatus !== undefined && { stepStatus }),
-		};
-
-		const data = JSON.stringify(message);
-		for (const state of this.clients.values()) {
-			const isProjectMatch =
-				state.projectId === null || state.projectId === projectId;
-
-			if (isProjectMatch) {
-				try {
-					state.ws.send(data);
-				} catch {
-					this.removeClient(state.ws);
-				}
-			}
-		}
-	}
-
 	broadcastEvent(
 		projectId: string,
 		eventId: number,
@@ -486,100 +425,6 @@ export class WebSocketHub {
 				}
 			}
 		}
-	}
-
-	broadcastArtifact(
-		projectId: string,
-		feature: string,
-		artifact: {
-			path: string;
-			type: string;
-			step: string | null;
-			runId: string | null;
-		},
-	): void {
-		const message: ArtifactChangedMessage = {
-			type: "run:artifact",
-			projectId,
-			feature,
-			artifact,
-			timestamp: new Date().toISOString(),
-		};
-
-		const data = JSON.stringify(message);
-		for (const state of this.clients.values()) {
-			const isProjectMatch =
-				state.projectId === null || state.projectId === projectId;
-
-			if (isProjectMatch) {
-				try {
-					state.ws.send(data);
-				} catch {
-					this.removeClient(state.ws);
-				}
-			}
-		}
-	}
-
-	startStatusPolling(
-		pollCallback: () => Promise<
-			Array<{ projectId: string; feature: string; status: string }>
-		>,
-	): void {
-		if (this.statusPollInterval) {
-			return;
-		}
-
-		const STATUS_POLL_INTERVAL = 5_000;
-
-		this.statusPollCallback = async () => {
-			try {
-				const statuses = await pollCallback();
-
-				// Track which keys are still active to clean up stale entries
-				const activeKeys = new Set<string>();
-
-				for (const { projectId, feature, status } of statuses) {
-					const key = `${projectId}:${feature}`;
-					activeKeys.add(key);
-					const lastStatus = this.lastStatusSnapshot.get(key);
-
-					if (lastStatus !== status) {
-						this.lastStatusSnapshot.set(key, status);
-						this.broadcastStatusChange(projectId, feature, status);
-					}
-				}
-
-				// Clean up entries for features no longer in poll results
-				for (const key of this.lastStatusSnapshot.keys()) {
-					if (!activeKeys.has(key)) {
-						this.lastStatusSnapshot.delete(key);
-					}
-				}
-			} catch (error) {
-				console.warn("Status polling error:", error);
-			}
-		};
-
-		// Use setTimeout chaining instead of setInterval to ensure serial execution
-		const schedulePoll = () => {
-			this.statusPollInterval = setTimeout(async () => {
-				await this.statusPollCallback?.();
-				if (this.statusPollInterval) {
-					schedulePoll();
-				}
-			}, STATUS_POLL_INTERVAL) as unknown as ReturnType<typeof setInterval>;
-		};
-		schedulePoll();
-	}
-
-	stopStatusPolling(): void {
-		if (this.statusPollInterval) {
-			clearTimeout(this.statusPollInterval);
-			this.statusPollInterval = null;
-		}
-		this.statusPollCallback = null;
-		this.lastStatusSnapshot.clear();
 	}
 
 	private startHeartbeat(): void {
@@ -620,7 +465,6 @@ export class WebSocketHub {
 			clearInterval(this.heartbeatInterval);
 			this.heartbeatInterval = null;
 		}
-		this.stopStatusPolling();
 		for (const ws of this.clients.keys()) {
 			try {
 				ws.close();

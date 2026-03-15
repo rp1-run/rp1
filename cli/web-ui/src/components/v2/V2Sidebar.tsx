@@ -302,9 +302,8 @@ function SidebarNavigation({ collapsed }: SidebarNavigationProps) {
 	const badgeCounts = useMemo(() => {
 		if (!attentionData) return { home: 0, runs: 0, projects: 0 };
 
-		const { waiting, needsReview, failed, running } = attentionData;
-		const totalAttention =
-			waiting.length + needsReview.length + failed.length + running.length;
+		const { waiting, failed, running } = attentionData;
+		const totalAttention = waiting.length + failed.length + running.length;
 		const runsCount = running.length + waiting.length;
 
 		const activeProjectIds = new Set(running.map((r) => r.projectId));

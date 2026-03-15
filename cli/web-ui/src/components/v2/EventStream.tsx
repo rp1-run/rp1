@@ -1,12 +1,9 @@
 import {
 	AlertTriangle,
-	Bot,
-	Check,
 	FilePlus,
 	Hand,
 	Layers,
 	MessageSquare,
-	Play,
 	RefreshCw,
 	StickyNote,
 	XCircle,
@@ -22,34 +19,6 @@ interface EventConfig {
 }
 
 const eventConfigs: Record<EventType, EventConfig> = {
-	"step-start": {
-		icon: Play,
-		colorClass: "text-status-running",
-	},
-	"step-complete": {
-		icon: Check,
-		colorClass: "text-status-completed",
-	},
-	warning: {
-		icon: AlertTriangle,
-		colorClass: "text-status-waiting",
-	},
-	error: {
-		icon: XCircle,
-		colorClass: "text-status-failed",
-	},
-	"artifact-updated": {
-		icon: FilePlus,
-		colorClass: "text-muted-foreground",
-	},
-	"task-batch": {
-		icon: Layers,
-		colorClass: "text-muted-foreground",
-	},
-	"agent-update": {
-		icon: Bot,
-		colorClass: "text-accent-foreground",
-	},
 	status_change: {
 		icon: RefreshCw,
 		colorClass: "text-muted-foreground",
@@ -76,14 +45,9 @@ const eventConfigs: Record<EventType, EventConfig> = {
 	},
 };
 
-function getTaskBatchSummary(event: RunEvent): string {
-	if (event.type !== "task-batch" || !event.metadata) {
+function getEventSummary(event: RunEvent): string {
+	if (event.type !== "btw_update" || !event.metadata) {
 		return event.message;
-	}
-	const count = event.metadata.taskCount as number | undefined;
-	const stepName = event.metadata.stepName as string | undefined;
-	if (count !== undefined && stepName) {
-		return `${count} tasks completed in ${stepName}`;
 	}
 	return event.message;
 }
@@ -103,8 +67,12 @@ export function EventStream({
 		(a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
 	);
 
-	const errorCount = events.filter((e) => e.type === "error").length;
-	const warningCount = events.filter((e) => e.type === "warning").length;
+	const errorCount = events.filter(
+		(e) => e.type === "status_change" && e.metadata?.status === "failed",
+	).length;
+	const warningCount = events.filter(
+		(e) => e.type === "waiting_for_user",
+	).length;
 
 	return (
 		<Collapsible
@@ -141,10 +109,7 @@ export function EventStream({
 						{sortedEvents.map((event) => {
 							const config = eventConfigs[event.type];
 							const Icon = config.icon;
-							const displayMessage =
-								event.type === "task-batch"
-									? getTaskBatchSummary(event)
-									: event.message;
+							const displayMessage = getEventSummary(event);
 
 							return (
 								<li
@@ -160,8 +125,11 @@ export function EventStream({
 										<p
 											className={cn(
 												"text-foreground",
-												event.type === "error" && "text-status-failed",
-												event.type === "warning" && "text-status-waiting",
+												event.type === "status_change" &&
+													event.metadata?.status === "failed" &&
+													"text-status-failed",
+												event.type === "waiting_for_user" &&
+													"text-status-waiting",
 											)}
 										>
 											{displayMessage}

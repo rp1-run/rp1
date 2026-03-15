@@ -261,7 +261,11 @@ export const executeEmit = (
 							};
 
 							const event = insertEvent(db, eventInput);
-							const runStatus = deriveRunStatus(db, input.runId);
+							const runStatus = deriveRunStatus(
+								db,
+								input.runId,
+								input.closeRun,
+							);
 
 							return { event, runStatus, skippedSteps, docId };
 						}),

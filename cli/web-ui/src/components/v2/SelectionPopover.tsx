@@ -207,6 +207,7 @@ export function SelectionPopover({
 		setIsSubmitting(true);
 		try {
 			await createAnnotation({
+				docId: "",
 				artifactPath,
 				anchor,
 				content: trimmedContent,

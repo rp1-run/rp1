@@ -144,7 +144,7 @@ export function RunDetailPage() {
 		);
 	}
 
-	const isActive = run.status === "running" || run.status === "waiting-input";
+	const isActive = run.status === "running" || run.status === "waiting";
 
 	return (
 		<div className="flex h-full flex-col gap-6 p-6">
@@ -194,7 +194,7 @@ export function RunDetailPage() {
 
 			<section
 				ref={canvasSectionRef}
-				className="min-h-[160px] max-h-[280px] flex-1 rounded-lg border border-border bg-card"
+				className="min-h-[300px] flex-1 rounded-lg border border-border bg-card"
 				tabIndex={-1}
 			>
 				<WorkflowCanvas

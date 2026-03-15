@@ -27,6 +27,7 @@ export interface EmitCommandOptions {
 	readonly unit?: string;
 	readonly data?: string;
 	readonly project?: string;
+	readonly closeRun?: boolean;
 }
 
 const validateEventType = (type: string): E.Either<CLIError, EventType> => {
@@ -267,6 +268,7 @@ export const validateEmitOptions = (
 				unit: options.unit,
 				data,
 				projectPath: resolved.projectPath,
+				closeRun: options.closeRun,
 			}),
 		),
 	);

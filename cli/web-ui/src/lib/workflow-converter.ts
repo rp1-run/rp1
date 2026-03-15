@@ -67,6 +67,17 @@ export interface ParsedStateDiagram {
 	readonly direction: "TB" | "LR";
 }
 
+function computeStepNodeHeight(
+	step: Step | undefined,
+	artifactCount: number,
+): number {
+	let height = STEP_NODE_HEIGHT;
+	if (artifactCount > 0 && step?.status !== "not_started") {
+		height += 8 + artifactCount * ARTIFACT_ROW_HEIGHT;
+	}
+	return height;
+}
+
 function buildStepNodeData(
 	stepId: string,
 	label: string,
@@ -76,7 +87,7 @@ function buildStepNodeData(
 	return {
 		stepId,
 		label,
-		status: step?.status ?? "pending",
+		status: step?.status ?? "not_started",
 		startedAt: step?.startedAt ?? null,
 		completedAt: step?.completedAt ?? null,
 		taskCount: step?.taskCount ?? null,
@@ -129,16 +140,14 @@ export function workflowToReactFlow(
 	for (const state of workflow.states) {
 		const step = stepMap.get(state.id);
 		const label = state.label ?? state.id;
+		const stepArtifacts = artifactsByStep.get(state.id) ?? [];
+		const nodeHeight = computeStepNodeHeight(step, stepArtifacts.length);
 		nodes.push({
 			id: state.id,
 			type: "stepNode",
 			position: { x: 0, y: 0 },
-			data: buildStepNodeData(
-				state.id,
-				label,
-				step,
-				artifactsByStep.get(state.id),
-			),
+			data: buildStepNodeData(state.id, label, step, stepArtifacts),
+			style: { width: STEP_NODE_WIDTH, height: nodeHeight },
 		});
 	}
 
@@ -183,17 +192,17 @@ export function stepsToReactFlow(
 		? groupArtifactsByStep(artifacts)
 		: new Map<string, Artifact[]>();
 
-	const nodes: Node<StepNodeData>[] = steps.map((step) => ({
-		id: step.id,
-		type: "stepNode",
-		position: { x: 0, y: 0 },
-		data: buildStepNodeData(
-			step.id,
-			step.name,
-			step,
-			artifactsByStep.get(step.id),
-		),
-	}));
+	const nodes: Node<StepNodeData>[] = steps.map((step) => {
+		const stepArtifacts = artifactsByStep.get(step.id) ?? [];
+		const nodeHeight = computeStepNodeHeight(step, stepArtifacts.length);
+		return {
+			id: step.id,
+			type: "stepNode",
+			position: { x: 0, y: 0 },
+			data: buildStepNodeData(step.id, step.name, step, stepArtifacts),
+			style: { width: STEP_NODE_WIDTH, height: nodeHeight },
+		};
+	});
 
 	const edges: Edge[] = [];
 	for (let i = 0; i < steps.length - 1; i++) {
@@ -380,8 +389,9 @@ export function parseMermaidStateDiagram(source: string): ParsedStateDiagram {
 
 const TASK_NODE_WIDTH = 140;
 const TASK_NODE_HEIGHT = 40;
-const STEP_NODE_WIDTH = 200;
-const STEP_NODE_HEIGHT = 60;
+const STEP_NODE_WIDTH = 260;
+const STEP_NODE_HEIGHT = 80;
+const ARTIFACT_ROW_HEIGHT = 28;
 const GROUP_HEADER_HEIGHT = 80;
 const GROUP_PADDING_X = 20;
 const GROUP_PADDING_BOTTOM = 20;
@@ -460,7 +470,7 @@ export function layoutSubFlowFromDiagram(
 		const matchedTask = taskStatusMap.get(state.id);
 		const label =
 			state.description ?? state.label ?? matchedTask?.name ?? state.id;
-		const status = matchedTask?.status ?? "pending";
+		const status = matchedTask?.status ?? "not_started";
 		const agent = matchedTask?.agent ?? "";
 
 		childNodes.push({

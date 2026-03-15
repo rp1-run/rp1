@@ -128,6 +128,7 @@ export function AnnotationProvider({
 			const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 			const optimisticAnnotation: Annotation = {
 				id: tempId,
+				docId: request.docId,
 				artifactPath: request.artifactPath,
 				anchor: request.anchor,
 				content: request.content,

@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS schema_version (
     version INTEGER NOT NULL
 );
 
-INSERT INTO schema_version (version) VALUES (1);
+INSERT INTO schema_version (version) VALUES (2);
 
 CREATE TABLE IF NOT EXISTS runs (
     id TEXT PRIMARY KEY NOT NULL,
@@ -89,6 +89,8 @@ CREATE TABLE IF NOT EXISTS annotations (
     content TEXT NOT NULL,
     data TEXT,
     parent_id INTEGER REFERENCES annotations(id),
+    status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open', 'resolved')),
+    author TEXT NOT NULL DEFAULT 'user',
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
@@ -185,7 +187,12 @@ export interface AnnotationInput {
 	readonly content: string;
 	readonly data?: string;
 	readonly parentId?: number;
+	readonly status?: AnnotationStatus;
+	readonly author?: string;
 }
+
+/** Annotation status */
+export type AnnotationStatus = "open" | "resolved";
 
 /** Stored annotation record shape */
 export interface AnnotationRecord {
@@ -195,6 +202,8 @@ export interface AnnotationRecord {
 	readonly content: string;
 	readonly data: string | null;
 	readonly parentId: number | null;
+	readonly status: AnnotationStatus;
+	readonly author: string;
 	readonly createdAt: string;
 	readonly updatedAt: string;
 }
@@ -246,6 +255,8 @@ interface AnnotationRow {
 	content: string;
 	data: string | null;
 	parent_id: number | null;
+	status: string;
+	author: string;
 	created_at: string;
 	updated_at: string;
 }
@@ -295,6 +306,8 @@ const annotationRowToRecord = (row: AnnotationRow): AnnotationRecord => ({
 	content: row.content,
 	data: row.data,
 	parentId: row.parent_id,
+	status: row.status as AnnotationStatus,
+	author: row.author,
 	createdAt: row.created_at,
 	updatedAt: row.updated_at,
 });
@@ -307,6 +320,38 @@ const cleanupLegacyDb = (dbPath: string): void => {
 	if (existsSync(legacyPath)) {
 		unlinkSync(legacyPath);
 		console.log("Removed legacy status.db");
+	}
+};
+
+/**
+ * Apply additive schema migrations based on the current schema version.
+ * Each migration bumps the version to prevent re-application.
+ */
+const applyMigrations = (db: Database): void => {
+	const versionRow = db
+		.prepare("SELECT version FROM schema_version LIMIT 1")
+		.get() as { version: number } | null;
+
+	const currentVersion = versionRow?.version ?? 1;
+
+	if (currentVersion < 2) {
+		const columns = db.prepare("PRAGMA table_info(annotations)").all() as {
+			name: string;
+		}[];
+		const columnNames = columns.map((c) => c.name);
+
+		if (!columnNames.includes("status")) {
+			db.exec(
+				"ALTER TABLE annotations ADD COLUMN status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open', 'resolved'))",
+			);
+		}
+		if (!columnNames.includes("author")) {
+			db.exec(
+				"ALTER TABLE annotations ADD COLUMN author TEXT NOT NULL DEFAULT 'user'",
+			);
+		}
+
+		db.prepare("UPDATE schema_version SET version = 2").run();
 	}
 };
 
@@ -339,10 +384,12 @@ export const getEmitDatabase = (
 
 			if (!tableCheck) {
 				db.exec(SCHEMA_SQL);
+				applyMigrations(db);
 			} else {
 				db.exec(
 					"CREATE INDEX IF NOT EXISTS idx_runs_feature_status ON runs(project_path, feature_id, status);",
 				);
+				applyMigrations(db);
 			}
 
 			cleanupLegacyDb(dbPath);
@@ -358,6 +405,7 @@ export const getEmitDatabase = (
 
 /**
  * Insert a run record or return the existing one if the ID is already present.
+ * If the run exists with "unknown" flow or feature_id, updates them from input.
  */
 export const insertRun = (db: Database, input: RunInput): RunRecord => {
 	const existing = db
@@ -365,6 +413,29 @@ export const insertRun = (db: Database, input: RunInput): RunRecord => {
 		.get({ $id: input.id }) as RunRow | null;
 
 	if (existing) {
+		const updates: string[] = [];
+		const params: Record<string, string> = { $id: input.id };
+
+		if (existing.flow === "unknown" && input.flow !== "unknown") {
+			updates.push("flow = $flow");
+			params.$flow = input.flow;
+		}
+		if (existing.feature_id === "unknown" && input.featureId !== "unknown") {
+			updates.push("feature_id = $featureId");
+			params.$featureId = input.featureId;
+		}
+
+		if (updates.length > 0) {
+			updates.push("updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')");
+			db.prepare(`UPDATE runs SET ${updates.join(", ")} WHERE id = $id`).run(
+				params,
+			);
+			const updated = db
+				.prepare("SELECT * FROM runs WHERE id = $id")
+				.get({ $id: input.id }) as RunRow;
+			return runRowToRecord(updated);
+		}
+
 		return runRowToRecord(existing);
 	}
 
@@ -494,8 +565,8 @@ export const upsertAnnotation = (
 ): AnnotationRecord => {
 	const row = db
 		.prepare(
-			`INSERT INTO annotations (doc_id, run_id, content, data, parent_id)
-			 VALUES ($docId, $runId, $content, $data, $parentId)
+			`INSERT INTO annotations (doc_id, run_id, content, data, parent_id, status, author)
+			 VALUES ($docId, $runId, $content, $data, $parentId, $status, $author)
 			 RETURNING *`,
 		)
 		.get({
@@ -504,6 +575,8 @@ export const upsertAnnotation = (
 			$content: input.content,
 			$data: input.data ?? null,
 			$parentId: input.parentId ?? null,
+			$status: input.status ?? "open",
+			$author: input.author ?? "user",
 		}) as AnnotationRow;
 
 	return annotationRowToRecord(row);
@@ -541,9 +614,36 @@ export const getStepStatuses = (
  * Derive the run status from constituent step statuses using priority rules:
  * failed > running > waiting > not_started > completed/skipped
  *
+ * When closeRun is true, all non-terminal steps (running, waiting, not_started)
+ * are force-completed before derivation, ensuring the run reaches a terminal state.
+ *
  * Updates runs.status and runs.updated_at in place.
  */
-export const deriveRunStatus = (db: Database, runId: string): Status => {
+export const deriveRunStatus = (
+	db: Database,
+	runId: string,
+	closeRun = false,
+): Status => {
+	if (closeRun) {
+		const stepStatuses = getStepStatuses(db, runId);
+		const now = new Date().toISOString();
+		for (const entry of stepStatuses) {
+			if (
+				entry.status === "running" ||
+				entry.status === "waiting" ||
+				entry.status === "not_started"
+			) {
+				insertEvent(db, {
+					runId,
+					type: "status_change",
+					step: entry.step,
+					data: JSON.stringify({ status: "completed" }),
+					createdAt: now,
+				});
+			}
+		}
+	}
+
 	const stepStatuses = getStepStatuses(db, runId);
 
 	if (stepStatuses.length === 0) {
@@ -713,6 +813,301 @@ export const getMaxEventId = (db: Database): number => {
 	};
 
 	return row.max_id ?? 0;
+};
+
+/** Options for listing runs with optional filters and pagination */
+export interface ListRunsOptions {
+	readonly projectPath?: string;
+	readonly status?: Status;
+	readonly limit?: number;
+	readonly offset?: number;
+}
+
+/** Paginated result for run listing */
+export interface ListRunsResult {
+	readonly records: RunRecord[];
+	readonly total: number;
+}
+
+/** Project-level run statistics */
+export interface ProjectRunStats {
+	readonly runCount: number;
+	readonly lastActivityAt: string | null;
+}
+
+/** Runs grouped by attention-requiring status */
+export interface AttentionRuns {
+	readonly waiting: RunRecord[];
+	readonly failed: RunRecord[];
+	readonly running: RunRecord[];
+}
+
+/**
+ * List runs with optional filtering by project path, status, and pagination.
+ */
+export const listRuns = (
+	db: Database,
+	opts: ListRunsOptions = {},
+): ListRunsResult => {
+	const conditions: string[] = [];
+	const filterValues: (string | number)[] = [];
+
+	if (opts.projectPath != null) {
+		conditions.push("project_path = ?");
+		filterValues.push(opts.projectPath);
+	}
+	if (opts.status != null) {
+		conditions.push("status = ?");
+		filterValues.push(opts.status);
+	}
+
+	const whereClause =
+		conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+	const countRow = db
+		.prepare(`SELECT COUNT(*) as count FROM runs ${whereClause}`)
+		.get(...filterValues) as { count: number };
+
+	const limit = opts.limit ?? 100;
+	const offset = opts.offset ?? 0;
+
+	const rows = db
+		.prepare(
+			`SELECT * FROM runs ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+		)
+		.all(...filterValues, limit, offset) as RunRow[];
+
+	return {
+		records: rows.map(runRowToRecord),
+		total: countRow.count,
+	};
+};
+
+/**
+ * Get a single run by its UUID id.
+ */
+export const getRunById = (db: Database, runId: string): RunRecord | null => {
+	const row = db
+		.prepare("SELECT * FROM runs WHERE id = $id")
+		.get({ $id: runId }) as RunRow | null;
+
+	return row ? runRowToRecord(row) : null;
+};
+
+/**
+ * Get all events for a run, ordered chronologically.
+ */
+export const getEventsForRun = (db: Database, runId: string): EventRecord[] => {
+	const rows = db
+		.prepare(
+			"SELECT * FROM events WHERE run_id = $runId ORDER BY created_at ASC, id ASC",
+		)
+		.all({ $runId: runId }) as EventRow[];
+
+	return rows.map(eventRowToRecord);
+};
+
+/**
+ * Get all artifacts for a run.
+ */
+export const getArtifactsForRun = (
+	db: Database,
+	runId: string,
+): ArtifactRecord[] => {
+	const rows = db
+		.prepare(
+			"SELECT * FROM artifacts WHERE run_id = $runId ORDER BY created_at ASC",
+		)
+		.all({ $runId: runId }) as ArtifactRow[];
+
+	return rows.map(artifactRowToRecord);
+};
+
+/**
+ * Get a single artifact by its doc_id.
+ */
+export const getArtifactByDocId = (
+	db: Database,
+	docId: string,
+): ArtifactRecord | null => {
+	const row = db
+		.prepare("SELECT * FROM artifacts WHERE doc_id = $docId")
+		.get({ $docId: docId }) as ArtifactRow | null;
+
+	return row ? artifactRowToRecord(row) : null;
+};
+
+/**
+ * Get annotations for a specific run.
+ */
+export const getAnnotationsForRun = (
+	db: Database,
+	runId: string,
+): AnnotationRecord[] => {
+	const rows = db
+		.prepare(
+			"SELECT * FROM annotations WHERE run_id = $runId ORDER BY created_at ASC",
+		)
+		.all({ $runId: runId }) as AnnotationRow[];
+
+	return rows.map(annotationRowToRecord);
+};
+
+/**
+ * Get annotations for a specific artifact doc_id.
+ */
+export const getAnnotationsForDocId = (
+	db: Database,
+	docId: string,
+): AnnotationRecord[] => {
+	const rows = db
+		.prepare(
+			"SELECT * FROM annotations WHERE doc_id = $docId ORDER BY created_at ASC",
+		)
+		.all({ $docId: docId }) as AnnotationRow[];
+
+	return rows.map(annotationRowToRecord);
+};
+
+/**
+ * Get a single annotation by its ID.
+ */
+export const getAnnotationById = (
+	db: Database,
+	id: number,
+): AnnotationRecord | null => {
+	const row = db
+		.prepare("SELECT * FROM annotations WHERE id = $id")
+		.get({ $id: id }) as AnnotationRow | null;
+
+	return row ? annotationRowToRecord(row) : null;
+};
+
+/**
+ * Update an annotation's content and/or data.
+ * Returns the updated record.
+ */
+export const updateAnnotation = (
+	db: Database,
+	id: number,
+	updates: {
+		readonly content?: string;
+		readonly data?: string;
+		readonly status?: AnnotationStatus;
+	},
+): AnnotationRecord => {
+	const setClauses: string[] = [
+		"updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')",
+	];
+	const values: (string | number)[] = [];
+
+	if (updates.content != null) {
+		setClauses.push("content = ?");
+		values.push(updates.content);
+	}
+	if (updates.data != null) {
+		setClauses.push("data = ?");
+		values.push(updates.data);
+	}
+	if (updates.status != null) {
+		setClauses.push("status = ?");
+		values.push(updates.status);
+	}
+
+	values.push(id);
+
+	const row = db
+		.prepare(
+			`UPDATE annotations SET ${setClauses.join(", ")} WHERE id = ? RETURNING *`,
+		)
+		.get(...values) as AnnotationRow;
+
+	return annotationRowToRecord(row);
+};
+
+/**
+ * Delete an annotation by its ID.
+ */
+export const deleteAnnotation = (db: Database, id: number): void => {
+	db.prepare("DELETE FROM annotations WHERE id = $id").run({ $id: id });
+};
+
+/**
+ * Get run statistics per project path: run count and last activity timestamp.
+ */
+export const getProjectRunStats = (
+	db: Database,
+	projectPaths: string[],
+): Map<string, ProjectRunStats> => {
+	const result = new Map<string, ProjectRunStats>();
+
+	if (projectPaths.length === 0) {
+		return result;
+	}
+
+	const placeholders = projectPaths.map(() => "?").join(", ");
+
+	const rows = db
+		.prepare(
+			`SELECT project_path, COUNT(*) as run_count, MAX(updated_at) as last_activity_at
+			 FROM runs
+			 WHERE project_path IN (${placeholders})
+			 GROUP BY project_path`,
+		)
+		.all(...projectPaths) as {
+		project_path: string;
+		run_count: number;
+		last_activity_at: string | null;
+	}[];
+
+	for (const row of rows) {
+		result.set(row.project_path, {
+			runCount: row.run_count,
+			lastActivityAt: row.last_activity_at,
+		});
+	}
+
+	for (const path of projectPaths) {
+		if (!result.has(path)) {
+			result.set(path, { runCount: 0, lastActivityAt: null });
+		}
+	}
+
+	return result;
+};
+
+/**
+ * Get runs grouped by attention-requiring status (waiting, failed, running).
+ */
+export const getRunsByAttentionStatus = (db: Database): AttentionRuns => {
+	const rows = db
+		.prepare(
+			`SELECT * FROM runs
+			 WHERE status IN ('waiting', 'failed', 'running')
+			 ORDER BY updated_at DESC`,
+		)
+		.all() as RunRow[];
+
+	const waiting: RunRecord[] = [];
+	const failed: RunRecord[] = [];
+	const running: RunRecord[] = [];
+
+	for (const row of rows) {
+		const record = runRowToRecord(row);
+		switch (row.status) {
+			case "waiting":
+				waiting.push(record);
+				break;
+			case "failed":
+				failed.push(record);
+				break;
+			case "running":
+				running.push(record);
+				break;
+		}
+	}
+
+	return { waiting, failed, running };
 };
 
 /**

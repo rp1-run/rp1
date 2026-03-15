@@ -1,14 +1,5 @@
 import { cva, type VariantProps } from "class-variance-authority";
-import {
-	Check,
-	Circle,
-	CircleDot,
-	Clock,
-	Eye,
-	Hand,
-	MinusCircle,
-	X,
-} from "lucide-react";
+import { Check, Circle, CircleDot, Hand, MinusCircle, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { RunStatus, StepStatus } from "@/types/runs";
 
@@ -45,11 +36,11 @@ interface StatusConfig {
 }
 
 const statusConfigs: Record<Status, StatusConfig> = {
-	queued: {
-		icon: Clock,
-		label: "Queued",
-		colorClass: "text-status-queued",
-		bgClass: "bg-status-queued/15",
+	not_started: {
+		icon: CircleDot,
+		label: "Not Started",
+		colorClass: "text-muted-foreground",
+		bgClass: "bg-muted/50",
 	},
 	running: {
 		icon: Circle,
@@ -58,7 +49,7 @@ const statusConfigs: Record<Status, StatusConfig> = {
 		bgClass: "bg-status-running/15",
 		glowPulse: true,
 	},
-	"waiting-input": {
+	waiting: {
 		icon: Hand,
 		label: "Waiting",
 		colorClass: "text-status-waiting",
@@ -76,35 +67,11 @@ const statusConfigs: Record<Status, StatusConfig> = {
 		colorClass: "text-status-failed",
 		bgClass: "bg-status-failed/15",
 	},
-	"needs-review": {
-		icon: Eye,
-		label: "Needs Review",
-		colorClass: "text-status-needs-review",
-		bgClass: "bg-status-needs-review/15",
-	},
-	pending: {
-		icon: Circle,
-		label: "Pending",
-		colorClass: "text-status-queued",
-		bgClass: "bg-status-queued/15",
-	},
 	skipped: {
 		icon: MinusCircle,
 		label: "Skipped",
 		colorClass: "text-muted-foreground",
 		bgClass: "bg-muted/50",
-	},
-	not_started: {
-		icon: CircleDot,
-		label: "Not Started",
-		colorClass: "text-muted-foreground",
-		bgClass: "bg-muted/50",
-	},
-	waiting: {
-		icon: Hand,
-		label: "Waiting",
-		colorClass: "text-status-waiting",
-		bgClass: "bg-status-waiting/15",
 	},
 };
 

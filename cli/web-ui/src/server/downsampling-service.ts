@@ -19,14 +19,13 @@ interface EventAggregate {
 }
 
 const DEFAULT_PRESERVE_TYPES: readonly EventType[] = [
-	"step-start",
-	"step-complete",
-	"error",
+	"status_change",
+	"waiting_for_user",
 ];
 
 const AGGREGATABLE_TYPES: readonly EventType[] = [
-	"task-batch",
-	"artifact-updated",
+	"btw_update",
+	"artifact_registered",
 ];
 
 export class DownsamplingService {
@@ -121,7 +120,7 @@ export class DownsamplingService {
 			return true;
 		}
 
-		if (event.type === "warning" && event.metadata?.isWaitingInput === true) {
+		if (event.type === "waiting_for_user") {
 			return true;
 		}
 
@@ -161,10 +160,10 @@ export class DownsamplingService {
 
 	private formatEventTypeLabel(type: EventType): string {
 		switch (type) {
-			case "task-batch":
-				return "task";
-			case "artifact-updated":
-				return "artifact update";
+			case "btw_update":
+				return "update";
+			case "artifact_registered":
+				return "artifact";
 			default:
 				return type;
 		}

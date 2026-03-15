@@ -6,13 +6,12 @@ describe("StepNode", () => {
 	describe("statusStyles mapping", () => {
 		test("covers all StepStatus values", () => {
 			const allStatuses: StepStatus[] = [
-				"pending",
+				"not_started",
 				"running",
 				"completed",
 				"failed",
 				"skipped",
-				"waiting-input",
-				"needs-review",
+				"waiting",
 			];
 			for (const status of allStatuses) {
 				expect(statusStyles[status]).toBeDefined();
@@ -21,11 +20,11 @@ describe("StepNode", () => {
 			}
 		});
 
-		test("pending uses dashed border and card background", () => {
-			expect(statusStyles.pending.border).toContain("border-dashed");
-			expect(statusStyles.pending.border).toContain("border-border");
-			expect(statusStyles.pending.bg).toBe("bg-card");
-			expect(statusStyles.pending.animation).toBeUndefined();
+		test("not_started uses dashed border and card background", () => {
+			expect(statusStyles.not_started.border).toContain("border-dashed");
+			expect(statusStyles.not_started.border).toContain("border-border");
+			expect(statusStyles.not_started.bg).toBe("bg-card");
+			expect(statusStyles.not_started.animation).toBeUndefined();
 		});
 
 		test("running uses solid border with glow-pulse animation", () => {
@@ -50,20 +49,10 @@ describe("StepNode", () => {
 			expect(statusStyles.failed.bg).toBe("bg-status-failed/10");
 		});
 
-		test("waiting-input uses solid border and waiting background", () => {
-			expect(statusStyles["waiting-input"].border).toContain("border-solid");
-			expect(statusStyles["waiting-input"].border).toContain(
-				"border-status-waiting",
-			);
-			expect(statusStyles["waiting-input"].bg).toBe("bg-status-waiting/10");
-		});
-
-		test("needs-review uses solid border and needs-review background", () => {
-			expect(statusStyles["needs-review"].border).toContain("border-solid");
-			expect(statusStyles["needs-review"].border).toContain(
-				"border-status-needs-review",
-			);
-			expect(statusStyles["needs-review"].bg).toBe("bg-status-needs-review/10");
+		test("waiting uses solid border and waiting background", () => {
+			expect(statusStyles.waiting.border).toContain("border-solid");
+			expect(statusStyles.waiting.border).toContain("border-status-waiting");
+			expect(statusStyles.waiting.bg).toBe("bg-status-waiting/10");
 		});
 
 		test("skipped uses dashed border and muted background", () => {

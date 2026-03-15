@@ -22,7 +22,7 @@ export const statusStyles: Record<
 	StepStatus,
 	{ border: string; bg: string; animation?: string }
 > = {
-	pending: {
+	not_started: {
 		border: "border-dashed border-border",
 		bg: "bg-card",
 	},
@@ -39,25 +39,13 @@ export const statusStyles: Record<
 		border: "border-solid border-status-failed",
 		bg: "bg-status-failed/10",
 	},
-	"waiting-input": {
+	waiting: {
 		border: "border-solid border-status-waiting",
 		bg: "bg-status-waiting/10",
-	},
-	"needs-review": {
-		border: "border-solid border-status-needs-review",
-		bg: "bg-status-needs-review/10",
 	},
 	skipped: {
 		border: "border-dashed border-muted-foreground/40",
 		bg: "bg-muted/30",
-	},
-	not_started: {
-		border: "border-dashed border-border",
-		bg: "bg-card",
-	},
-	waiting: {
-		border: "border-solid border-status-waiting",
-		bg: "bg-status-waiting/10",
 	},
 };
 
@@ -130,7 +118,7 @@ export function ArtifactBadge({
 			type="button"
 			onClick={handleClick}
 			className={cn(
-				"flex min-h-[32px] w-full items-center gap-1.5 rounded border-l-2 bg-muted/40 px-2 py-1 text-left text-xs text-muted-foreground transition-colors hover:bg-muted/70",
+				"flex min-h-[24px] w-full items-center gap-1.5 rounded border-l-2 bg-muted/40 px-2 py-0.5 text-left text-xs text-muted-foreground transition-colors hover:bg-muted/70",
 				borderClass,
 			)}
 			title={artifact.path}
@@ -199,7 +187,10 @@ export function StepNode({
 	const showDuration = data.startedAt !== null;
 	const showTaskProgress =
 		data.taskCount !== null && data.completedTaskCount !== null;
-	const hasArtifacts = data.artifacts.length > 0 && data.status !== "pending";
+	const hasArtifacts =
+		data.artifacts.length > 0 && data.status !== "not_started";
+	const showInlineArtifacts = hasArtifacts && data.artifacts.length <= 5;
+	const showArtifactChip = hasArtifacts && data.artifacts.length > 5;
 
 	const resolvedSourcePosition = sourcePosition ?? Position.Right;
 	const resolvedTargetPosition = targetPosition ?? Position.Left;
@@ -232,7 +223,7 @@ export function StepNode({
 			/>
 			<div
 				className={cn(
-					"min-h-[60px] w-[200px] rounded-[var(--radius)] border px-3 py-2.5 transition-colors duration-300",
+					"h-full w-full rounded-lg border px-4 py-3 transition-colors duration-300",
 					style.border,
 					style.bg,
 					style.animation,
@@ -246,33 +237,48 @@ export function StepNode({
 						: undefined
 				}
 			>
-				<div className="flex items-center justify-between gap-1.5">
-					<span className="truncate text-sm font-medium text-foreground">
+				<div className="flex items-center justify-between gap-2">
+					<span className="truncate text-[15px] font-semibold tracking-tight text-foreground capitalize">
 						{data.label || data.stepId}
 					</span>
 					<StatusBadge status={data.status} size="sm" showLabel={false} />
 				</div>
 
-				{(showDuration || showTaskProgress || hasArtifacts) && (
-					<div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
+				{(showDuration || showTaskProgress) && (
+					<div className="mt-2 flex items-center gap-3 text-[13px] text-muted-foreground">
 						{showDuration && (
 							<span className="inline-flex items-center gap-1 tabular-nums">
-								<Clock className="h-3 w-3" aria-hidden="true" />
+								<Clock className="h-3.5 w-3.5 opacity-60" aria-hidden="true" />
 								{data.startedAt &&
 									formatDuration(data.startedAt, data.completedAt)}
 							</span>
 						)}
 						{showTaskProgress && (
 							<span className="inline-flex items-center gap-1 tabular-nums">
-								<ListChecks className="h-3 w-3" aria-hidden="true" />
+								<ListChecks
+									className="h-3.5 w-3.5 opacity-60"
+									aria-hidden="true"
+								/>
 								{data.completedTaskCount} / {data.taskCount}
 							</span>
 						)}
-						{hasArtifacts && (
+						{showArtifactChip && (
 							<span className="ml-auto">
 								<ArtifactChip artifacts={data.artifacts} runId={runId} />
 							</span>
 						)}
+					</div>
+				)}
+
+				{showInlineArtifacts && (
+					<div className="mt-2 flex flex-col gap-1">
+						{data.artifacts.map((artifact) => (
+							<ArtifactBadge
+								key={artifact.docId || artifact.path}
+								artifact={artifact}
+								runId={runId}
+							/>
+						))}
 					</div>
 				)}
 			</div>

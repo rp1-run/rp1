@@ -1,44 +1,47 @@
 /**
  * V2 API endpoints for runs and projects.
- * Integrates with status.db for real run data via database queries.
+ * Queries rp1.db (runs, events, artifacts, annotations) via the emit database module.
  *
  * Step derivation uses dynamic state machine loading from co-located
  * state.mmd files. Workflows without state.mmd fall back to step-based
- * grouping. Stale rows (expired via expires_at) are filtered on read.
+ * grouping from status_change events.
  */
 
+import type { Database } from "bun:sqlite";
 import { extname, join, resolve } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
-import { pipe } from "fp-ts/lib/function.js";
 import { formatError } from "../../../../shared/errors.js";
+import type {
+	EventRecord,
+	RunRecord,
+	Status,
+} from "../../../../shared/events.js";
+import type {
+	ArtifactRecord,
+	StepStatusEntry,
+} from "../../../../src/agent-tools/emit/database.js";
+import {
+	getArtifactsForRun,
+	getEmitDatabase,
+	getProjectRunStats as getEmitProjectRunStats,
+	getEventsForRun,
+	getRunById,
+	getRunsByAttentionStatus,
+	getStepStatuses,
+	listRuns,
+} from "../../../../src/agent-tools/emit/database.js";
 import {
 	deriveOrderedSteps,
 	listWorkflows,
 	loadStateMachine,
 } from "../../../../src/agent-tools/state-machine/index.js";
-import type {
-	OrderedStep,
-	StateMachine,
-} from "../../../../src/agent-tools/state-machine/models.js";
-import {
-	getProjectRunStats,
-	queryAgentUpdatesForRun,
-	queryAllLatestStatuses,
-	queryAllStatusUpdatesForFeature,
-	queryArtifactsForFeature,
-	queryStatusUpdateById,
-} from "../../../../src/agent-tools/work/database.js";
-import type {
-	StatusUpdateRecord,
-	StatusValue,
-} from "../../../../src/agent-tools/work/models.js";
+import type { OrderedStep } from "../../../../src/agent-tools/state-machine/models.js";
 import type { V2Project } from "../../types/projects";
 import type {
 	AgentTask,
 	Artifact,
 	ArtifactType,
 	AttentionData,
-	EventType,
 	Run,
 	RunEvent,
 	RunStatus,
@@ -68,23 +71,15 @@ import {
 } from "./content-utils";
 
 /**
- * Map database StatusValue to frontend RunStatus.
- * started and in_progress both map to running since they represent active execution.
+ * Acquire the emit database connection.
+ * Uses the singleton pattern from getEmitDatabase.
  */
-function mapStatusValueToRunStatus(status: StatusValue): RunStatus {
-	switch (status) {
-		case "started":
-		case "in_progress":
-			return "running";
-		case "waiting-input":
-			return "waiting-input";
-		case "needs-review":
-			return "needs-review";
-		case "completed":
-			return "completed";
-		case "failed":
-			return "failed";
+async function getDb(): Promise<Database> {
+	const result = await getEmitDatabase()();
+	if (E.isLeft(result)) {
+		throw new Error(`Database unavailable: ${formatError(result.left, false)}`);
 	}
+	return result.right;
 }
 
 /**
@@ -99,32 +94,6 @@ function humanizeFeatureName(featureId: string): string {
 }
 
 /**
- * Extract command from workflow column or metadata JSON.
- * Prefers the persisted workflow column; falls back to metadata JSON parsing;
- * ultimately defaults to "/build".
- */
-function extractCommand(
-	metadata: string | null,
-	workflow?: string | null,
-): string {
-	if (workflow) {
-		return `/${workflow}`;
-	}
-	if (!metadata) {
-		return "/build";
-	}
-	try {
-		const parsed = JSON.parse(metadata) as Record<string, unknown>;
-		if (typeof parsed.command === "string") {
-			return parsed.command;
-		}
-	} catch {
-		// Invalid JSON, use default
-	}
-	return "/build";
-}
-
-/**
  * Map a command string (e.g., "/build") to a workflow name (e.g., "build").
  * Returns null for commands that cannot map to a workflow name.
  */
@@ -135,80 +104,24 @@ export function commandToWorkflowName(command: string): string | null {
 }
 
 /**
- * Filter out expired status update records (on-read pruning).
- * Records with NULL expires_at are never filtered (backward compat).
- * Records with expires_at in the past are considered stale.
+ * Safely parse a JSON string, returning null on failure.
  */
-export function filterNonExpiredRecords(
-	records: readonly StatusUpdateRecord[],
-): readonly StatusUpdateRecord[] {
-	const now = new Date().toISOString();
-	return records.filter(
-		(r) =>
-			r.expiresAt === null ||
-			r.expiresAt > now ||
-			TERMINAL_STATUSES.has(r.status),
-	);
+function parseJsonSafe(
+	json: string | null,
+): Readonly<Record<string, unknown>> | null {
+	if (!json) return null;
+	try {
+		return JSON.parse(json) as Record<string, unknown>;
+	} catch {
+		return null;
+	}
 }
-
-/**
- * Parse the trailing numeric DB record ID from a composite run ID.
- * The run ID format is `{projectId}-{featureId}-{dbRecordId}`.
- * Since both projectId and featureId may contain hyphens, we extract only
- * the trailing numeric segment.
- *
- * @returns The numeric DB record ID, or null if the format is invalid.
- */
-function parseDbRecordId(compositeRunId: string): number | null {
-	const lastDash = compositeRunId.lastIndexOf("-");
-	if (lastDash === -1) return null;
-
-	const trailing = compositeRunId.slice(lastDash + 1);
-	if (!/^\d+$/.test(trailing)) return null;
-
-	return Number.parseInt(trailing, 10);
-}
-
-/**
- * Convert a StatusUpdateRecord from the database to a Run type for the frontend.
- * Fields not available in status.db are set to empty arrays or null.
- * Used for list views where full detail is not needed.
- */
-function recordToRun(record: StatusUpdateRecord, project: ProjectEntry): Run {
-	const status = mapStatusValueToRunStatus(record.status);
-	return {
-		id: `${project.id}-${record.feature}-${record.id}`,
-		projectId: project.id,
-		projectName: project.name,
-		featureId: record.feature,
-		featureName: humanizeFeatureName(record.feature),
-		command: extractCommand(record.metadata, record.workflow),
-		status,
-		currentStep: null,
-		steps: [],
-		artifacts: [],
-		events: [],
-		startedAt: record.createdAt,
-		completedAt:
-			status === "completed" || status === "failed" ? record.createdAt : null,
-		error: status === "failed" ? record.message : null,
-		agentSteps: null,
-	};
-}
-
-/**
- * Terminal statuses that indicate a run has finished.
- */
-const TERMINAL_STATUSES: ReadonlySet<StatusValue> = new Set([
-	"completed",
-	"failed",
-]);
 
 /**
  * Normalize an artifact path to always be relative to the project root.
- * - Bare filenames → resolve relative to feature's work directory
- * - Absolute paths → strip project prefix to make relative
- * - Already relative → pass through
+ * - Bare filenames -> resolve relative to feature's work directory
+ * - Absolute paths -> strip project prefix to make relative
+ * - Already relative -> pass through
  */
 function normalizeArtifactPath(
 	artifactPath: string,
@@ -218,7 +131,6 @@ function normalizeArtifactPath(
 	if (!artifactPath.includes("/")) {
 		return `.rp1/work/features/${featureId}/${artifactPath}`;
 	}
-	// If it's an absolute path, make it relative to project root
 	if (projectPath && artifactPath.startsWith("/")) {
 		const prefix = projectPath.endsWith("/") ? projectPath : `${projectPath}/`;
 		if (artifactPath.startsWith(prefix)) {
@@ -226,6 +138,30 @@ function normalizeArtifactPath(
 		}
 	}
 	return artifactPath;
+}
+
+/**
+ * Convert an ArtifactRecord from the emit database to a frontend Artifact type.
+ */
+function artifactRecordToArtifact(
+	record: ArtifactRecord,
+	projectPath: string,
+	featureId: string,
+): Artifact {
+	const relativePath = normalizeArtifactPath(
+		record.path,
+		featureId,
+		projectPath,
+	);
+	return {
+		docId: record.docId,
+		path: relativePath,
+		absolutePath: resolve(projectPath, relativePath),
+		type: record.type as ArtifactType,
+		updatedDuringRun: true,
+		isNew: false,
+		step: record.step ?? null,
+	};
 }
 
 /**
@@ -259,6 +195,7 @@ async function discoverArtifactsFromFilesystem(
 			? `${dir.slice(resolvedProjectPath.length + 1)}/${entry}`
 			: entry;
 		artifacts.push({
+			docId: `fs:${relativePath}`,
 			path: relativePath,
 			absolutePath: resolve(dir, entry),
 			type: "markdown",
@@ -269,38 +206,6 @@ async function discoverArtifactsFromFilesystem(
 	}
 
 	return artifacts;
-}
-
-/**
- * Query registered artifacts for a feature from the database.
- * Falls back to filesystem discovery when no DB records exist.
- */
-async function getRegisteredArtifacts(
-	projectPath: string,
-	featureId: string,
-): Promise<readonly Artifact[]> {
-	const result = await pipe(queryArtifactsForFeature(projectPath, featureId))();
-
-	if (E.isLeft(result) || result.right.length === 0) {
-		return discoverArtifactsFromFilesystem(projectPath, featureId);
-	}
-
-	return result.right.map((record) => {
-		const relativePath = normalizeArtifactPath(
-			record.path,
-			featureId,
-			projectPath,
-		);
-		return {
-			path: relativePath,
-			absolutePath: resolve(projectPath, relativePath),
-			type: record.type as ArtifactType,
-			updatedDuringRun: true,
-			isNew: false,
-			step: record.step ?? null,
-			subflow: record.subflow,
-		};
-	});
 }
 
 /**
@@ -333,332 +238,52 @@ async function getSubflowDiagrams(
 }
 
 /**
- * Map a StatusValue to an EventType for the event stream.
+ * Convert an EventRecord from the emit database to a frontend RunEvent.
  */
-function mapStatusToEventType(status: StatusValue): EventType {
-	switch (status) {
-		case "started":
-			return "step-start";
-		case "in_progress":
-			return "step-start";
-		case "completed":
-			return "step-complete";
-		case "failed":
-			return "error";
-		case "waiting-input":
-			return "warning";
-		case "needs-review":
-			return "step-complete";
+function eventRecordToRunEvent(record: EventRecord): RunEvent {
+	const data = parseJsonSafe(record.data);
+	const message = data?.message as string | undefined;
+
+	let displayMessage: string;
+	if (message) {
+		displayMessage = message;
+	} else if (record.type === "status_change") {
+		const status = data?.status as string | undefined;
+		const stepLabel = record.step ? `[${record.step}] ` : "";
+		displayMessage = `${stepLabel}Status: ${status ?? "unknown"}`;
+	} else if (record.type === "artifact_registered") {
+		const path = data?.path as string | undefined;
+		displayMessage = `Artifact registered: ${path ?? "unknown"}`;
+	} else {
+		displayMessage = `Event: ${record.type}`;
 	}
+
+	return {
+		id: `evt-${record.id}`,
+		type: record.type,
+		message: displayMessage,
+		timestamp: record.createdAt,
+		stepId: record.step ?? null,
+		metadata: data,
+	};
 }
 
 /**
- * Derive RunEvent[] from the full timeline of StatusUpdateRecords.
- * Each status update becomes a RunEvent with appropriate type mapping.
- */
-function deriveEvents(
-	records: readonly StatusUpdateRecord[],
-): readonly RunEvent[] {
-	return records.map((record) => {
-		const isAgent = record.agent !== null;
-		const type: EventType = isAgent
-			? "agent-update"
-			: mapStatusToEventType(record.status);
-
-		let message: string;
-		if (record.message) {
-			message = record.message;
-		} else if (isAgent) {
-			const agentLabel = humanizeFeatureName(record.agent ?? "");
-			const taskSuffix = record.task ? ` (${record.task})` : "";
-			message = `${agentLabel}${taskSuffix}: ${record.status}`;
-		} else {
-			message = `${record.step ? `[${record.step}] ` : ""}Status: ${record.status}`;
-		}
-
-		return {
-			id: `evt-${record.id}`,
-			type,
-			message,
-			timestamp: record.createdAt,
-			stepId: record.step ?? null,
-			metadata: record.metadata ? parseMetadataSafe(record.metadata) : null,
-		};
-	});
-}
-
-/**
- * Safely parse a JSON metadata string, returning null on failure.
- */
-function parseMetadataSafe(
-	metadata: string,
-): Readonly<Record<string, unknown>> | null {
-	try {
-		return JSON.parse(metadata) as Record<string, unknown>;
-	} catch {
-		return null;
-	}
-}
-
-/**
- * Map a StatusUpdateRecord's status to a StepStatus.
- */
-function mapRecordStatusToStepStatus(status: StatusValue): StepStatus {
-	switch (status) {
-		case "started":
-		case "in_progress":
-		case "waiting-input":
-		case "needs-review":
-			return "running";
-		case "completed":
-			return "completed";
-		case "failed":
-			return "failed";
-	}
-}
-
-/**
- * Build a lookup of step-level records grouped by step ID.
- */
-function buildStepRecordMap(
-	records: readonly StatusUpdateRecord[],
-): Map<string, StatusUpdateRecord[]> {
-	const stepMap = new Map<string, StatusUpdateRecord[]>();
-	for (const record of records) {
-		if (!record.step) continue;
-		const existing = stepMap.get(record.step);
-		if (existing) {
-			existing.push(record);
-		} else {
-			stepMap.set(record.step, [record]);
-		}
-	}
-	return stepMap;
-}
-
-/**
- * Derive steps from a state machine definition by merging ordered steps
- * with database records. Steps with DB records get their actual status;
- * steps without records are marked pending.
- *
- * Edge cases:
- * - Stopped mid-workflow: last active step retains its DB status, remaining are pending.
- * - Feature-level "waiting-input"/"needs-review": the last active step reflects that
- *   status as "running" (StepStatus has no waiting/review variant).
- */
-export function deriveWorkflowStepsFromMachine(
-	records: readonly StatusUpdateRecord[],
-	orderedSteps: readonly OrderedStep[],
-): readonly Step[] {
-	const stepMap = buildStepRecordMap(records);
-
-	const featureLevelRecords = records.filter((r) => !r.step);
-	const latestFeatureRecord =
-		featureLevelRecords.length > 0
-			? featureLevelRecords[featureLevelRecords.length - 1]
-			: null;
-
-	let lastActiveIndex = -1;
-	for (let i = orderedSteps.length - 1; i >= 0; i--) {
-		if (stepMap.has(orderedSteps[i].id)) {
-			lastActiveIndex = i;
-			break;
-		}
-	}
-
-	return orderedSteps.map(({ id, label }, index) => {
-		const stepRecords = stepMap.get(id);
-
-		if (stepRecords && stepRecords.length > 0) {
-			const firstRecord = stepRecords[0];
-			const lastRecord = stepRecords[stepRecords.length - 1];
-
-			let stepStatus = mapRecordStatusToStepStatus(lastRecord.status);
-
-			if (
-				index === lastActiveIndex &&
-				latestFeatureRecord &&
-				(latestFeatureRecord.status === "waiting-input" ||
-					latestFeatureRecord.status === "needs-review") &&
-				stepStatus === "completed"
-			) {
-				stepStatus = "running";
-			}
-
-			const completedAt = TERMINAL_STATUSES.has(lastRecord.status)
-				? lastRecord.createdAt
-				: null;
-
-			return {
-				id,
-				name: humanizeFeatureName(label),
-				status: stepStatus,
-				startedAt: firstRecord.createdAt,
-				completedAt,
-				taskCount: null,
-				completedTaskCount: null,
-			};
-		}
-
-		return {
-			id,
-			name: humanizeFeatureName(label),
-			status: "pending" as StepStatus,
-			startedAt: null,
-			completedAt: null,
-			taskCount: null,
-			completedTaskCount: null,
-		};
-	});
-}
-
-/**
- * Derive steps from records using step-based grouping.
- * Used as fallback when no state machine is available for a workflow.
- */
-export function deriveTaskBasedSteps(
-	records: readonly StatusUpdateRecord[],
-): readonly Step[] {
-	const stepMap = buildStepRecordMap(records);
-	const steps: Step[] = [];
-
-	for (const [stepId, stepRecords] of stepMap) {
-		const firstRecord = stepRecords[0];
-		const lastRecord = stepRecords[stepRecords.length - 1];
-		const stepStatus = mapRecordStatusToStepStatus(lastRecord.status);
-		const completedAt = TERMINAL_STATUSES.has(lastRecord.status)
-			? lastRecord.createdAt
-			: null;
-
-		steps.push({
-			id: stepId,
-			name: humanizeFeatureName(stepId),
-			status: stepStatus,
-			startedAt: firstRecord.createdAt,
-			completedAt,
-			taskCount: null,
-			completedTaskCount: null,
-		});
-	}
-
-	return steps;
-}
-
-/**
- * Derive Step[] from the full timeline of StatusUpdateRecords.
- * Attempts to load a state machine for the command; if found, uses
- * dynamic step derivation from the machine. Otherwise falls back to
- * step-based grouping.
- */
-async function deriveSteps(
-	records: readonly StatusUpdateRecord[],
-	command: string,
-): Promise<readonly Step[]> {
-	const workflowName = commandToWorkflowName(command);
-	if (workflowName) {
-		const machineResult = await loadStateMachine(workflowName)();
-		if (E.isRight(machineResult)) {
-			const machine = machineResult.right;
-			const orderedSteps = deriveOrderedSteps(machine);
-			return deriveWorkflowStepsFromMachine(records, orderedSteps);
-		}
-	}
-
-	return deriveTaskBasedSteps(records);
-}
-
-/**
- * Derive the overall RunStatus for a workflow with a state machine.
- *
- * A workflow run is "completed" when:
- * - Any terminal state has a completed record, OR
- * - A feature-level "completed" record (no step) exists.
- *
- * A workflow run is "failed" if any record reports failure.
- *
- * Edge cases:
- * - "waiting-input"/"needs-review" feature-level records propagate directly.
- * - Stopped mid-workflow: no completed/failed terminal -> "running".
- */
-export function deriveWorkflowRunStatus(
-	allRecords: readonly StatusUpdateRecord[],
-	machine: StateMachine,
-): RunStatus {
-	const stepRecordMap = buildStepRecordMap(allRecords);
-	const featureLevelRecords = allRecords.filter((r) => !r.step);
-	const latestFeatureRecord =
-		featureLevelRecords.length > 0
-			? featureLevelRecords[featureLevelRecords.length - 1]
-			: null;
-
-	const hasFailed = allRecords.some((r) => r.status === "failed");
-	if (hasFailed) {
-		return "failed";
-	}
-
-	if (latestFeatureRecord) {
-		if (latestFeatureRecord.status === "waiting-input") {
-			return "waiting-input";
-		}
-		if (latestFeatureRecord.status === "needs-review") {
-			return "needs-review";
-		}
-		if (latestFeatureRecord.status === "completed") {
-			return "completed";
-		}
-	}
-
-	for (const terminalStateId of machine.terminalStates) {
-		const terminalRecords = stepRecordMap.get(terminalStateId);
-		if (terminalRecords && terminalRecords.length > 0) {
-			const lastRecord = terminalRecords[terminalRecords.length - 1];
-			if (lastRecord.status === "completed") {
-				return "completed";
-			}
-		}
-	}
-
-	return "running";
-}
-
-/**
- * Derive the overall RunStatus for a run, dynamically loading the
- * state machine when available. Falls back to latest record status.
- */
-async function deriveRunStatus(
-	allRecords: readonly StatusUpdateRecord[],
-	command: string,
-): Promise<RunStatus> {
-	const workflowName = commandToWorkflowName(command);
-	if (workflowName) {
-		const machineResult = await loadStateMachine(workflowName)();
-		if (E.isRight(machineResult)) {
-			return deriveWorkflowRunStatus(allRecords, machineResult.right);
-		}
-	}
-
-	// Fallback: use latest record's status
-	const latestRecord =
-		allRecords.length > 0 ? allRecords[allRecords.length - 1] : null;
-	return latestRecord
-		? mapStatusValueToRunStatus(latestRecord.status)
-		: "running";
-}
-
-/**
- * Derive agent steps grouped by step then by task from agent-level records.
- * Returns null when no agent records exist. Steps without agent updates
- * have no entry (no empty arrays).
+ * Derive agent tasks from status_change events that have a unit field.
+ * Groups by step, then by unit (agent task).
  */
 function deriveAgentSteps(
-	agentRecords: readonly StatusUpdateRecord[],
+	events: readonly EventRecord[],
 ): Readonly<Record<string, readonly AgentTask[]>> | null {
-	if (agentRecords.length === 0) return null;
+	const agentEvents = events.filter(
+		(e) => e.type === "status_change" && e.unit != null,
+	);
+	if (agentEvents.length === 0) return null;
 
 	const stepMap = new Map<string, Map<string, AgentTask>>();
 
-	for (const record of agentRecords) {
-		const stepId = record.step;
+	for (const event of agentEvents) {
+		const stepId = event.step;
 		if (!stepId) continue;
 
 		let taskMap = stepMap.get(stepId);
@@ -667,16 +292,15 @@ function deriveAgentSteps(
 			stepMap.set(stepId, taskMap);
 		}
 
-		const taskId = record.task ?? record.agent ?? `agent-${record.id}`;
-		const taskName = record.task
-			? humanizeFeatureName(record.task)
-			: humanizeFeatureName(record.agent ?? "unknown");
+		const data = parseJsonSafe(event.data);
+		const taskId = event.unit ?? `agent-${event.id}`;
+		const status = (data?.status as string) ?? "running";
 
 		taskMap.set(taskId, {
 			id: taskId,
-			name: taskName,
-			status: record.status,
-			agent: record.agent ?? "unknown",
+			name: humanizeFeatureName(taskId),
+			status,
+			agent: event.unit ?? "unknown",
 		});
 	}
 
@@ -691,81 +315,227 @@ function deriveAgentSteps(
 }
 
 /**
+ * Derive steps from a state machine definition merged with step status data.
+ * Steps with status_change events get their actual status;
+ * steps without events are marked not_started.
+ */
+export function deriveStepsFromMachine(
+	stepStatuses: readonly StepStatusEntry[],
+	orderedSteps: readonly OrderedStep[],
+	events: readonly EventRecord[],
+): readonly Step[] {
+	const statusMap = new Map(stepStatuses.map((s) => [s.step, s.status]));
+
+	const stepEvents = new Map<string, EventRecord[]>();
+	for (const event of events) {
+		if (event.type !== "status_change" || !event.step) continue;
+		const existing = stepEvents.get(event.step);
+		if (existing) {
+			existing.push(event);
+		} else {
+			stepEvents.set(event.step, [event]);
+		}
+	}
+
+	return orderedSteps.map(({ id, label }) => {
+		const status: StepStatus = statusMap.get(id) ?? "not_started";
+		const evts = stepEvents.get(id);
+		const startedAt = evts && evts.length > 0 ? evts[0].createdAt : null;
+		const completedAt =
+			status === "completed" || status === "failed" || status === "skipped"
+				? evts && evts.length > 0
+					? evts[evts.length - 1].createdAt
+					: null
+				: null;
+
+		return {
+			id,
+			name: humanizeFeatureName(label),
+			status,
+			startedAt,
+			completedAt,
+			taskCount: null,
+			completedTaskCount: null,
+		};
+	});
+}
+
+/**
+ * Derive steps from events using step-based grouping.
+ * Used as fallback when no state machine is available.
+ */
+export function deriveStepsFromEvents(
+	stepStatuses: readonly StepStatusEntry[],
+	events: readonly EventRecord[],
+): readonly Step[] {
+	const stepEvents = new Map<string, EventRecord[]>();
+	for (const event of events) {
+		if (event.type !== "status_change" || !event.step) continue;
+		const existing = stepEvents.get(event.step);
+		if (existing) {
+			existing.push(event);
+		} else {
+			stepEvents.set(event.step, [event]);
+		}
+	}
+
+	const statusMap = new Map(stepStatuses.map((s) => [s.step, s.status]));
+	const steps: Step[] = [];
+
+	for (const [stepId, evts] of stepEvents) {
+		const status: StepStatus = statusMap.get(stepId) ?? "not_started";
+		const startedAt = evts[0].createdAt;
+		const completedAt =
+			status === "completed" || status === "failed" || status === "skipped"
+				? evts[evts.length - 1].createdAt
+				: null;
+
+		steps.push({
+			id: stepId,
+			name: humanizeFeatureName(stepId),
+			status,
+			startedAt,
+			completedAt,
+			taskCount: null,
+			completedTaskCount: null,
+		});
+	}
+
+	return steps;
+}
+
+/**
+ * Derive steps by attempting to load a state machine for the workflow,
+ * falling back to event-based grouping.
+ */
+async function deriveSteps(
+	stepStatuses: readonly StepStatusEntry[],
+	events: readonly EventRecord[],
+	command: string,
+): Promise<readonly Step[]> {
+	const workflowName = commandToWorkflowName(command);
+	if (workflowName) {
+		const machineResult = await loadStateMachine(workflowName)();
+		if (E.isRight(machineResult)) {
+			const orderedSteps = deriveOrderedSteps(machineResult.right);
+			return deriveStepsFromMachine(stepStatuses, orderedSteps, events);
+		}
+	}
+
+	return deriveStepsFromEvents(stepStatuses, events);
+}
+
+/**
+ * Convert a RunRecord to a lightweight Run for list views.
+ */
+function runRecordToListRun(record: RunRecord, project: ProjectEntry): Run {
+	return {
+		id: record.id,
+		projectId: project.id,
+		projectName: project.name,
+		featureId: record.featureId,
+		featureName: humanizeFeatureName(record.featureId),
+		command: `/${record.flow}`,
+		status: record.status,
+		currentStep: null,
+		steps: [],
+		artifacts: [],
+		events: [],
+		startedAt: record.createdAt,
+		completedAt:
+			record.status === "completed" || record.status === "failed"
+				? record.updatedAt
+				: null,
+		error: null,
+		agentSteps: null,
+	};
+}
+
+/**
  * Build a fully-populated Run object for the detail view.
- * Uses the full timeline of status records to derive events, steps,
- * and proper duration timestamps.
- *
- * For workflows with state machines, the overall status is derived from
- * workflow completion rather than the latest DB record's status.
- *
- * All records (skill-level and agent-level) are included in the event
- * stream. Agent events are tagged with type "agent-update" for distinct
- * rendering in the UI.
+ * Derives steps from status_change events, includes artifacts with docId,
+ * events from the events table, and annotations from the annotations table.
  */
 async function buildDetailedRun(
-	record: StatusUpdateRecord,
-	allRecords: readonly StatusUpdateRecord[],
+	db: Database,
+	record: RunRecord,
 	project: ProjectEntry,
-	artifacts: readonly Artifact[],
-	agentSteps: Readonly<Record<string, readonly AgentTask[]>> | null,
-	subflows?: Readonly<Record<string, string>>,
 ): Promise<Run> {
-	const command = extractCommand(record.metadata, record.workflow);
+	const command = `/${record.flow}`;
 
-	const skillRecords = allRecords.filter((r) => r.agent === null);
+	const stepStatuses = getStepStatuses(db, record.id);
+	const events = getEventsForRun(db, record.id);
+	const artifactRecords = getArtifactsForRun(db, record.id);
 
-	const events = deriveEvents(allRecords);
-	const steps = await deriveSteps(skillRecords, command);
-	const status = await deriveRunStatus(skillRecords, command);
+	let artifacts: readonly Artifact[];
+	if (artifactRecords.length > 0) {
+		artifacts = artifactRecords.map((ar) =>
+			artifactRecordToArtifact(ar, record.projectPath, record.featureId),
+		);
+	} else {
+		artifacts = await discoverArtifactsFromFilesystem(
+			record.projectPath,
+			record.featureId,
+		);
+	}
 
-	const startedAt =
-		skillRecords.length > 0 ? skillRecords[0].createdAt : record.createdAt;
+	const steps = await deriveSteps(stepStatuses, events, command);
+	const runEvents = events.map(eventRecordToRunEvent);
+	const agentSteps = deriveAgentSteps(events);
+	const subflows = await getSubflowDiagrams(record.projectPath, artifacts);
 
-	let completedAt: string | null = null;
-	if (status === "completed" || status === "failed") {
-		for (let i = skillRecords.length - 1; i >= 0; i--) {
-			if (TERMINAL_STATUSES.has(skillRecords[i].status)) {
-				completedAt = skillRecords[i].createdAt;
+	let currentStep: string | null = null;
+	for (const step of [...steps].reverse()) {
+		if (
+			step.status === "running" ||
+			step.status === "waiting" ||
+			step.status === "not_started"
+		) {
+			if (step.status !== "not_started") {
+				currentStep = step.id;
+				break;
+			}
+		}
+	}
+	if (!currentStep) {
+		for (const step of [...steps].reverse()) {
+			if (step.status !== "not_started") {
+				currentStep = step.id;
 				break;
 			}
 		}
 	}
 
-	let currentStep: string | null = null;
-	for (let i = skillRecords.length - 1; i >= 0; i--) {
-		if (
-			skillRecords[i].step &&
-			!TERMINAL_STATUSES.has(skillRecords[i].status)
-		) {
-			currentStep = skillRecords[i].step;
-			break;
-		}
-	}
-
 	let error: string | null = null;
-	if (status === "failed") {
-		for (let i = skillRecords.length - 1; i >= 0; i--) {
-			if (skillRecords[i].status === "failed" && skillRecords[i].message) {
-				error = skillRecords[i].message;
-				break;
+	if (record.status === "failed") {
+		for (const event of [...events].reverse()) {
+			if (event.type === "status_change") {
+				const data = parseJsonSafe(event.data);
+				if (data?.status === "failed" && typeof data?.message === "string") {
+					error = data.message;
+					break;
+				}
 			}
 		}
 	}
 
 	return {
-		id: `${project.id}-${record.feature}-${record.id}`,
+		id: record.id,
 		projectId: project.id,
 		projectName: project.name,
-		featureId: record.feature,
-		featureName: humanizeFeatureName(record.feature),
+		featureId: record.featureId,
+		featureName: humanizeFeatureName(record.featureId),
 		command,
-		status,
+		status: record.status,
 		currentStep,
 		steps,
 		artifacts,
-		events,
-		startedAt,
-		completedAt,
+		events: runEvents,
+		startedAt: record.createdAt,
+		completedAt:
+			record.status === "completed" || record.status === "failed"
+				? record.updatedAt
+				: null,
 		error,
 		agentSteps,
 		subflows:
@@ -774,34 +544,8 @@ async function buildDetailedRun(
 }
 
 /**
- * Map RunStatus filter to StatusValue for database query.
- * "running" maps to multiple database states (started, in_progress).
- */
-function mapRunStatusToStatusValue(
-	runStatus: RunStatus,
-): StatusValue | undefined {
-	switch (runStatus) {
-		case "running":
-			// Database query handles started/in_progress via multiple OR conditions
-			return undefined;
-		case "queued":
-			// No direct mapping - queued is not in status.db
-			return undefined;
-		case "waiting-input":
-			return "waiting-input";
-		case "needs-review":
-			return "needs-review";
-		case "completed":
-			return "completed";
-		case "failed":
-			return "failed";
-	}
-}
-
-/**
  * GET /api/v2/runs - paginated list with filters.
- * Queries status.db for real run data.
- * Filters out stale records (expired via expires_at) before returning.
+ * Queries the runs table in rp1.db for canonical status values.
  */
 export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 	const url = new URL(req.url);
@@ -814,9 +558,10 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 	const dateRange = params.get("dateRange") ?? "all";
 
 	try {
+		const db = await getDb();
 		const projects = await getAllProjects();
-		const projectByPath = new Map(projects.map((p) => [p.path, p]));
 		const projectById = new Map(projects.map((p) => [p.id, p]));
+		const projectByPath = new Map(projects.map((p) => [p.path, p]));
 
 		let projectPathFilter: string | undefined;
 		if (projectIdFilter) {
@@ -828,53 +573,27 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 			}
 		}
 
-		let dbStatusFilter: StatusValue | undefined;
-		if (statusFilter && statusFilter !== "all") {
-			dbStatusFilter = mapRunStatusToStatusValue(statusFilter);
-			// For "running" status, we query without status filter and post-filter
-			// For "queued" status, return empty (not in status.db)
-			if (statusFilter === "queued") {
-				return jsonResponse({ runs: [], total: 0 });
-			}
-		}
+		const dbStatus: Status | undefined =
+			statusFilter && statusFilter !== "all"
+				? (statusFilter as Status)
+				: undefined;
 
-		const result = await pipe(
-			queryAllLatestStatuses({
-				status: dbStatusFilter,
-				projectPath: projectPathFilter,
-				// For "running" filter, we need to fetch more and post-filter
-				limit: statusFilter === "running" ? undefined : limit,
-				offset: statusFilter === "running" ? undefined : offset,
-			}),
-		)();
-
-		if (E.isLeft(result)) {
-			return errorResponse(
-				`Database query failed: ${formatError(result.left, false)}`,
-			);
-		}
-
-		const { records: rawRecords, total: dbTotal } = result.right;
-
-		// Filter out stale records (on-read pruning for expires_at)
-		const nonExpiredRecords = filterNonExpiredRecords(rawRecords);
+		const result = listRuns(db, {
+			projectPath: projectPathFilter,
+			status: dbStatus,
+			limit,
+			offset,
+		});
 
 		let runs: Run[] = [];
-		for (const record of nonExpiredRecords) {
+		for (const record of result.records) {
 			const project = projectByPath.get(record.projectPath);
 			if (project) {
-				runs.push(recordToRun(record, project));
+				runs.push(runRecordToListRun(record, project));
 			}
 		}
 
-		let total = dbTotal - (rawRecords.length - nonExpiredRecords.length);
-
-		// Post-filter for "running" status (includes both started and in_progress)
-		if (statusFilter === "running") {
-			runs = runs.filter((r) => r.status === "running");
-			total = runs.length;
-			runs = runs.slice(offset, offset + limit);
-		}
+		let total = result.total;
 
 		if (dateRange !== "all") {
 			const now = Date.now();
@@ -900,40 +619,31 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 
 /**
  * GET /api/v2/runs/attention - grouped by attention state.
- * Queries status.db for real run data and groups by status category.
- * Filters out stale records (expired via expires_at) before grouping.
+ * Queries the runs table grouped by waiting/failed/running canonical statuses.
  */
 export async function handleV2RunsAttentionRequest(): Promise<Response> {
 	try {
+		const db = await getDb();
 		const projects = await getAllProjects();
 		const projectByPath = new Map(projects.map((p) => [p.path, p]));
 
-		const result = await pipe(queryAllLatestStatuses({}))();
+		const attentionRuns = getRunsByAttentionStatus(db);
 
-		if (E.isLeft(result)) {
-			return errorResponse(
-				`Database query failed: ${formatError(result.left, false)}`,
-			);
-		}
-
-		const { records: rawRecords } = result.right;
-
-		// Filter out stale records (on-read pruning for expires_at)
-		const nonExpiredRecords = filterNonExpiredRecords(rawRecords);
-
-		const allRuns: Run[] = [];
-		for (const record of nonExpiredRecords) {
-			const project = projectByPath.get(record.projectPath);
-			if (project) {
-				allRuns.push(recordToRun(record, project));
+		const toRuns = (records: readonly RunRecord[]): Run[] => {
+			const runs: Run[] = [];
+			for (const record of records) {
+				const project = projectByPath.get(record.projectPath);
+				if (project) {
+					runs.push(runRecordToListRun(record, project));
+				}
 			}
-		}
+			return runs;
+		};
 
 		const attention: AttentionData = {
-			waiting: allRuns.filter((r) => r.status === "waiting-input"),
-			needsReview: allRuns.filter((r) => r.status === "needs-review"),
-			failed: allRuns.filter((r) => r.status === "failed"),
-			running: allRuns.filter((r) => r.status === "running"),
+			waiting: toRuns(attentionRuns.waiting),
+			failed: toRuns(attentionRuns.failed),
+			running: toRuns(attentionRuns.running),
 		};
 
 		return jsonResponse(attention);
@@ -944,29 +654,15 @@ export async function handleV2RunsAttentionRequest(): Promise<Response> {
 
 /**
  * GET /api/v2/runs/:id - single run with steps, artifacts, events.
- * Parses the composite run ID to extract the DB record ID,
- * queries the database for the full feature timeline,
- * and returns a fully-populated run with events, steps, artifacts, and duration.
- * Stale records (expired via expires_at) are filtered from the timeline.
+ * Run ID is a native UUID from the runs table.
  */
 export async function handleV2RunDetailRequest(
 	runId: string,
 ): Promise<Response> {
 	try {
-		const dbRecordId = parseDbRecordId(runId);
-		if (dbRecordId === null) {
-			return errorResponse(`Invalid run ID format: ${runId}`, 400);
-		}
+		const db = await getDb();
+		const record = getRunById(db, runId);
 
-		const result = await pipe(queryStatusUpdateById(dbRecordId))();
-
-		if (E.isLeft(result)) {
-			return errorResponse(
-				`Database query failed: ${formatError(result.left, false)}`,
-			);
-		}
-
-		const record = result.right;
 		if (!record) {
 			return errorResponse(`Run not found: ${runId}`, 404);
 		}
@@ -977,47 +673,7 @@ export async function handleV2RunDetailRequest(
 			return errorResponse(`Project not found for run: ${runId}`, 404);
 		}
 
-		const timelineResult = await pipe(
-			queryAllStatusUpdatesForFeature(record.projectPath, record.feature),
-		)();
-
-		const rawRecords = E.isRight(timelineResult)
-			? timelineResult.right
-			: [record];
-
-		// Filter out stale records (on-read pruning for expires_at)
-		const allRecords = filterNonExpiredRecords(rawRecords);
-
-		const artifacts = await getRegisteredArtifacts(
-			record.projectPath,
-			record.feature,
-		);
-
-		let agentSteps: Readonly<Record<string, readonly AgentTask[]>> | null =
-			null;
-		if (record.runId) {
-			const agentResult = await pipe(
-				queryAgentUpdatesForRun(
-					record.projectPath,
-					record.feature,
-					record.runId,
-				),
-			)();
-			if (E.isRight(agentResult)) {
-				agentSteps = deriveAgentSteps(agentResult.right);
-			}
-		}
-
-		const subflows = await getSubflowDiagrams(record.projectPath, artifacts);
-
-		const run = await buildDetailedRun(
-			record,
-			allRecords,
-			project,
-			artifacts,
-			agentSteps,
-			subflows,
-		);
+		const run = await buildDetailedRun(db, record, project);
 		return jsonResponse(run);
 	} catch (error) {
 		return errorResponse(`Failed to fetch run: ${String(error)}`);
@@ -1026,27 +682,16 @@ export async function handleV2RunDetailRequest(
 
 /**
  * GET /api/v2/runs/:runId/artifacts/:path - fetch artifact content.
- * Reads the actual file from disk using the project path and artifact path.
+ * Reads the actual file from disk using the run's project path.
  */
 export async function handleV2ArtifactContentRequest(
 	runId: string,
 	artifactPath: string,
 ): Promise<Response> {
 	try {
-		const dbRecordId = parseDbRecordId(runId);
-		if (dbRecordId === null) {
-			return errorResponse(`Invalid run ID format: ${runId}`, 400);
-		}
+		const db = await getDb();
+		const record = getRunById(db, runId);
 
-		const result = await pipe(queryStatusUpdateById(dbRecordId))();
-
-		if (E.isLeft(result)) {
-			return errorResponse(
-				`Database query failed: ${formatError(result.left, false)}`,
-			);
-		}
-
-		const record = result.right;
 		if (!record) {
 			return errorResponse(`Run not found: ${runId}`, 404);
 		}
@@ -1063,13 +708,10 @@ export async function handleV2ArtifactContentRequest(
 
 		const projectRoot = resolve(project.path);
 
-		// Build candidate paths to try in order
 		const candidates: string[] = [];
 
-		// 1. Exact path as given
 		candidates.push(resolve(projectRoot, artifactPath));
 
-		// 2. Archive fallback: features/ -> archives/features/, prds/ -> archives/prds/
 		const archivablePrefixes = [".rp1/work/features/", ".rp1/work/prds/"];
 		for (const prefix of archivablePrefixes) {
 			if (artifactPath.startsWith(prefix)) {
@@ -1085,9 +727,8 @@ export async function handleV2ArtifactContentRequest(
 			}
 		}
 
-		// 3. Bare filename: resolve relative to feature's work and archive dirs
 		if (!artifactPath.includes("/")) {
-			const featureId = record.feature;
+			const featureId = record.featureId;
 			candidates.push(
 				resolve(projectRoot, `.rp1/work/features/${featureId}/${artifactPath}`),
 				resolve(
@@ -1116,18 +757,15 @@ export async function handleV2ArtifactContentRequest(
 
 /**
  * GET /api/v2/projects - list registered projects enriched with run statistics.
- * Merges registry data with aggregated run stats from status.db.
+ * Merges registry data with aggregated run stats from rp1.db.
  */
 export async function handleV2ProjectsListRequest(): Promise<Response> {
 	try {
+		const db = await getDb();
 		const projects = await getAllProjects();
 		const projectPaths = projects.map((p) => p.path);
 
-		const statsResult = await pipe(getProjectRunStats(projectPaths))();
-
-		const statsMap = E.isRight(statsResult)
-			? statsResult.right
-			: new Map<string, { runCount: number; lastActivityAt: string | null }>();
+		const statsMap = getEmitProjectRunStats(db, projectPaths);
 
 		const v2Projects: V2Project[] = projects.map((p) => {
 			const stats = statsMap.get(p.path);
@@ -1160,10 +798,8 @@ export async function handleV2ProjectDetailRequest(
 			return errorResponse(`Project not found: ${projectId}`, 404);
 		}
 
-		const statsResult = await pipe(getProjectRunStats([project.path]))();
-		const statsMap = E.isRight(statsResult)
-			? statsResult.right
-			: new Map<string, { runCount: number; lastActivityAt: string | null }>();
+		const db = await getDb();
+		const statsMap = getEmitProjectRunStats(db, [project.path]);
 		const stats = statsMap.get(project.path);
 
 		const v2Project: V2Project = {
@@ -1183,8 +819,6 @@ export async function handleV2ProjectDetailRequest(
 
 /**
  * GET /api/v2/workflows - list all state-machine-enabled workflows.
- * Returns name, state count, and description for each workflow that
- * has a co-located state.mmd file. Workflows without state.mmd are excluded.
  */
 export async function handleV2WorkflowsListRequest(): Promise<Response> {
 	try {
@@ -1222,8 +856,6 @@ export async function handleV2WorkflowsListRequest(): Promise<Response> {
 
 /**
  * GET /api/v2/workflows/:name - full state machine definition as JSON.
- * Returns states, transitions, and ordered steps for the specified workflow.
- * Returns 404 when no state.mmd exists for the requested workflow.
  */
 export async function handleV2WorkflowDetailRequest(
 	workflowName: string,
@@ -1269,7 +901,6 @@ export async function handleV2WorkflowDetailRequest(
 
 /**
  * GET /api/v2/projects/:id/files - get file tree for a project.
- * Returns FileNode[] for the project's .rp1/ work and context directories.
  */
 export async function handleV2ProjectFilesRequest(
 	projectId: string,
@@ -1309,8 +940,6 @@ export async function handleV2ProjectFilesRequest(
 
 /**
  * GET /api/v2/projects/:id/content/* - get file content for a project.
- * Returns FileContent with path, content, mimeType, and optional frontmatter.
- * Uses validateFilePath for security and resolveWithArchiveFallback for archive lookup.
  */
 export async function handleV2ProjectContentRequest(
 	projectId: string,
@@ -1406,8 +1035,10 @@ export async function handleV2ShutdownRequest(
 }
 
 /**
- * POST /api/v2/status/notify - notify WebSocket clients of a status change.
- * Called by CLI after writing status update to trigger immediate broadcast.
+ * POST /api/v2/status/notify - notify WebSocket clients of an event.
+ * Accepts only the event envelope format (type: "event") and broadcasts
+ * via event:notification. Legacy status_changed and artifact formats
+ * are no longer supported.
  */
 export async function handleV2StatusNotifyRequest(
 	req: Request,
@@ -1431,100 +1062,28 @@ export async function handleV2StatusNotifyRequest(
 			return errorResponse("Invalid request body", 400);
 		}
 
-		// New typed event envelope format (type: "event")
-		if (body.type === "event") {
-			const eventType = body.eventType as string | undefined;
-			const eventId = body.eventId as number | undefined;
-			const runId = body.runId as string | undefined;
-			const projectPath = body.projectPath as string | undefined;
-			const featureId = body.featureId as string | undefined;
-			const step = (body.step as string | null) ?? null;
-			const data = (body.data as Record<string, unknown> | null) ?? null;
-			const createdAt = (body.createdAt as string) ?? new Date().toISOString();
-
-			if (
-				!projectPath ||
-				!featureId ||
-				!eventType ||
-				eventId == null ||
-				!runId
-			) {
-				console.warn(
-					"[notify] Malformed event notification, missing required fields, discarding",
-				);
-				return errorResponse(
-					"Missing required fields for event notification: projectPath, featureId, eventType, eventId, runId",
-					400,
-				);
-			}
-
-			const projects = await getAllProjects();
-			const project = projects.find((p) => p.path === projectPath);
-
-			if (!project) {
-				return jsonResponse({
-					notified: false,
-					reason: "project_not_registered",
-				});
-			}
-
-			ctx.websocketHub?.broadcastEvent(
-				project.id,
-				eventId,
-				eventType,
-				runId,
-				featureId,
-				step,
-				data,
-				createdAt,
-			);
-
-			return jsonResponse({ notified: true, projectId: project.id, eventId });
-		}
-
-		// Legacy artifact format
-		if (body.type === "artifact") {
-			const projectPath = body.projectPath as string | undefined;
-			const feature = body.feature as string | undefined;
-			const artifact = body.artifact as
-				| {
-						path: string;
-						type: string;
-						step: string | null;
-						runId: string | null;
-				  }
-				| undefined;
-
-			if (!projectPath || !feature || !artifact) {
-				return errorResponse(
-					"Missing required fields: projectPath, feature, artifact",
-					400,
-				);
-			}
-
-			const projects = await getAllProjects();
-			const project = projects.find((p) => p.path === projectPath);
-
-			if (!project) {
-				return jsonResponse({
-					notified: false,
-					reason: "project_not_registered",
-				});
-			}
-
-			ctx.websocketHub?.broadcastArtifact(project.id, feature, artifact);
-
-			return jsonResponse({ notified: true, projectId: project.id });
-		}
-
-		// Legacy status change format
-		const projectPath = body.projectPath as string | undefined;
-		const feature = body.feature as string | undefined;
-		const status = body.status as string | undefined;
-
-		if (!projectPath || !feature || !status) {
+		if (body.type !== "event") {
 			return errorResponse(
-				"Missing required fields: projectPath, feature, status",
+				`Unsupported notification format: expected type "event", received "${String(body.type ?? "none")}". Legacy status_changed and artifact formats are no longer supported; use the event envelope format.`,
+				400,
+			);
+		}
+
+		const eventType = body.eventType as string | undefined;
+		const eventId = body.eventId as number | undefined;
+		const runId = body.runId as string | undefined;
+		const projectPath = body.projectPath as string | undefined;
+		const featureId = body.featureId as string | undefined;
+		const step = (body.step as string | null) ?? null;
+		const data = (body.data as Record<string, unknown> | null) ?? null;
+		const createdAt = (body.createdAt as string) ?? new Date().toISOString();
+
+		if (!projectPath || !featureId || !eventType || eventId == null || !runId) {
+			console.warn(
+				"[notify] Malformed event notification, missing required fields, discarding",
+			);
+			return errorResponse(
+				"Missing required fields for event notification: projectPath, featureId, eventType, eventId, runId",
 				400,
 			);
 		}
@@ -1539,48 +1098,23 @@ export async function handleV2StatusNotifyRequest(
 			});
 		}
 
-		const step = (body.newState as string) ?? undefined;
-		const workflow = body.workflow as string | undefined;
-		const runStatus =
-			workflow && status ? mapNotifyStatusToRunStatus(status) : undefined;
-		const stepStatus = (body.stepStatus as string) ?? undefined;
-
-		ctx.websocketHub?.broadcastStatusChange(
+		ctx.websocketHub?.broadcastEvent(
 			project.id,
-			feature,
-			status,
+			eventId,
+			eventType,
+			runId,
+			featureId,
 			step,
-			runStatus,
-			stepStatus,
+			data,
+			createdAt,
 		);
 
-		return jsonResponse({ notified: true, projectId: project.id });
+		return jsonResponse({ notified: true, projectId: project.id, eventId });
 	} catch (error) {
 		console.warn(
 			`[notify] Failed to process notification: ${String(error)}, discarding`,
 		);
 		return errorResponse(`Failed to process notification: ${String(error)}`);
-	}
-}
-
-/**
- * Map raw status string to frontend RunStatus for optimistic WebSocket updates.
- */
-function mapNotifyStatusToRunStatus(status: string): string {
-	switch (status) {
-		case "started":
-		case "in_progress":
-			return "running";
-		case "waiting-input":
-			return "waiting-input";
-		case "needs-review":
-			return "needs-review";
-		case "completed":
-			return "completed";
-		case "failed":
-			return "failed";
-		default:
-			return "running";
 	}
 }
 

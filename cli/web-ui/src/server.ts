@@ -171,35 +171,6 @@ export function createServer(options: ServerOptions) {
 		console.warn("[replay] Failed to set up replay provider:", err);
 	});
 
-	websocketHub.startStatusPolling(async () => {
-		const { getLatestStatusByFeature } = await import(
-			"../../src/agent-tools/work/database"
-		);
-		const { isLeft } = await import("fp-ts/lib/Either.js");
-
-		const projects = await getAllProjects();
-		const results: Array<{
-			projectId: string;
-			feature: string;
-			status: string;
-		}> = [];
-
-		for (const project of projects) {
-			const latestResult = await getLatestStatusByFeature(project.path)();
-			if (!isLeft(latestResult)) {
-				for (const record of latestResult.right) {
-					results.push({
-						projectId: project.id,
-						feature: record.feature,
-						status: record.status,
-					});
-				}
-			}
-		}
-
-		return results;
-	});
-
 	runStartupRecovery(websocketHub).catch((err) => {
 		console.warn("[recovery] Startup recovery failed:", err);
 	});

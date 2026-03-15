@@ -32,6 +32,7 @@ export interface EmitInput {
 	readonly unit?: string;
 	readonly data: Record<string, unknown>;
 	readonly projectPath: string;
+	readonly closeRun?: boolean;
 }
 
 /** Result returned from a successful emit operation */

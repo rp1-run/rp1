@@ -47,7 +47,9 @@ export interface AnnotationReply {
 /** Full annotation with thread */
 export interface Annotation {
 	readonly id: string;
-	readonly artifactPath: string;
+	readonly docId: string;
+	readonly artifactPath?: string;
+	readonly runId?: string;
 	readonly anchor: Anchor;
 	readonly content: string;
 	readonly status: AnnotationStatus;
@@ -60,9 +62,11 @@ export interface Annotation {
 
 /** Create annotation request */
 export interface CreateAnnotationRequest {
-	readonly artifactPath: string;
+	readonly docId: string;
+	readonly artifactPath?: string;
 	readonly anchor: Anchor;
 	readonly content: string;
+	readonly runId?: string;
 }
 
 /** Add reply request */

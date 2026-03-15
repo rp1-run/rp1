@@ -1,27 +1,22 @@
 /**
- * Tests for dynamic state machine step derivation, stale row filtering,
- * and workflows API endpoints in the v2 API. Verifies that state-machine-driven
- * step derivation produces output matching the legacy hardcoded step arrays
- * for build and build-fast, and that the workflows API endpoints return
- * correct listing, detail, and 404 responses.
+ * Tests for the v2 API step derivation, state machine integration,
+ * and workflows API endpoints. Verifies that event-sourced step derivation
+ * produces correct output from status_change events, and that the workflows
+ * API endpoints return correct listing, detail, and 404 responses.
  */
 
 import { describe, expect, test } from "bun:test";
+import type { EventRecord } from "../../../../shared/events.js";
+import type { StepStatusEntry } from "../../../../src/agent-tools/emit/database.js";
 import {
 	deriveOrderedSteps,
 	parseAndTransform,
 } from "../../../../src/agent-tools/state-machine/index.js";
 import type { StateMachine } from "../../../../src/agent-tools/state-machine/models.js";
-import type {
-	StatusUpdateRecord,
-	StatusValue,
-} from "../../../../src/agent-tools/work/models.js";
 import {
 	commandToWorkflowName,
-	deriveTaskBasedSteps,
-	deriveWorkflowRunStatus,
-	deriveWorkflowStepsFromMachine,
-	filterNonExpiredRecords,
+	deriveStepsFromEvents,
+	deriveStepsFromMachine,
 	handleV2WorkflowDetailRequest,
 	handleV2WorkflowsListRequest,
 } from "../../server/routes/v2-api.js";
@@ -62,25 +57,17 @@ function parseMachine(id: string, source: string): StateMachine {
 	return result.right;
 }
 
-function makeRecord(
-	overrides: Partial<StatusUpdateRecord> & {
-		id: number;
-		feature: string;
-		status: StatusValue;
-	},
-): StatusUpdateRecord {
+function makeEvent(
+	overrides: Partial<EventRecord> & { id: number },
+): EventRecord {
 	return {
-		projectPath: "/test/project",
+		runId: "test-run-1",
+		type: "status_change",
 		step: null,
-		message: null,
-		metadata: null,
+		unit: null,
+		data: null,
+		parentStepId: null,
 		createdAt: "2026-03-01T00:00:00.000Z",
-		runId: null,
-		expiresAt: null,
-		workflow: null,
-		agent: null,
-		task: null,
-		worktreePath: null,
 		...overrides,
 	};
 }
@@ -99,96 +86,7 @@ describe("commandToWorkflowName", () => {
 	});
 });
 
-describe("filterNonExpiredRecords", () => {
-	test("keeps records with null expiresAt", () => {
-		const records = [
-			makeRecord({ id: 1, feature: "f1", status: "started", expiresAt: null }),
-			makeRecord({
-				id: 2,
-				feature: "f2",
-				status: "completed",
-				expiresAt: null,
-			}),
-		];
-		expect(filterNonExpiredRecords(records)).toHaveLength(2);
-	});
-
-	test("filters out records with expiresAt in the past", () => {
-		const records = [
-			makeRecord({
-				id: 1,
-				feature: "f1",
-				status: "started",
-				expiresAt: "2020-01-01T00:00:00.000Z",
-			}),
-			makeRecord({
-				id: 2,
-				feature: "f2",
-				status: "completed",
-				expiresAt: null,
-			}),
-		];
-		const filtered = filterNonExpiredRecords(records);
-		expect(filtered).toHaveLength(1);
-		expect(filtered[0].id).toBe(2);
-	});
-
-	test("keeps records with expiresAt in the future", () => {
-		const records = [
-			makeRecord({
-				id: 1,
-				feature: "f1",
-				status: "started",
-				expiresAt: "2099-12-31T23:59:59.999Z",
-			}),
-			makeRecord({
-				id: 2,
-				feature: "f2",
-				status: "completed",
-				expiresAt: "2099-01-01T00:00:00.000Z",
-			}),
-		];
-		expect(filterNonExpiredRecords(records)).toHaveLength(2);
-	});
-
-	test("handles empty array", () => {
-		expect(filterNonExpiredRecords([])).toHaveLength(0);
-	});
-
-	test("mixed expired and non-expired records", () => {
-		const records = [
-			makeRecord({
-				id: 1,
-				feature: "f1",
-				status: "started",
-				expiresAt: "2020-01-01T00:00:00.000Z",
-			}),
-			makeRecord({
-				id: 2,
-				feature: "f1",
-				status: "in_progress",
-				expiresAt: "2099-12-31T23:59:59.999Z",
-			}),
-			makeRecord({
-				id: 3,
-				feature: "f2",
-				status: "completed",
-				expiresAt: null,
-			}),
-			makeRecord({
-				id: 4,
-				feature: "f3",
-				status: "failed",
-				expiresAt: "2019-06-15T12:00:00.000Z",
-			}),
-		];
-		const filtered = filterNonExpiredRecords(records);
-		expect(filtered).toHaveLength(2);
-		expect(filtered.map((r) => r.id)).toEqual([2, 3]);
-	});
-});
-
-describe("deriveWorkflowStepsFromMachine", () => {
+describe("deriveStepsFromMachine", () => {
 	describe("build workflow", () => {
 		const machine = parseMachine("build", buildMmd);
 		const orderedSteps = deriveOrderedSteps(machine);
@@ -205,18 +103,18 @@ describe("deriveWorkflowStepsFromMachine", () => {
 			]);
 		});
 
-		test("all steps pending when no records", () => {
-			const steps = deriveWorkflowStepsFromMachine([], orderedSteps);
+		test("all steps not_started when no step statuses", () => {
+			const steps = deriveStepsFromMachine([], orderedSteps, []);
 			expect(steps).toHaveLength(6);
 			for (const step of steps) {
-				expect(step.status).toBe("pending");
+				expect(step.status).toBe("not_started");
 				expect(step.startedAt).toBeNull();
 				expect(step.completedAt).toBeNull();
 			}
 		});
 
-		test("step names match legacy hardcoded names", () => {
-			const steps = deriveWorkflowStepsFromMachine([], orderedSteps);
+		test("step names match expected names", () => {
+			const steps = deriveStepsFromMachine([], orderedSteps, []);
 			expect(steps.map((s) => s.name)).toEqual([
 				"Requirements",
 				"Design",
@@ -227,8 +125,8 @@ describe("deriveWorkflowStepsFromMachine", () => {
 			]);
 		});
 
-		test("step IDs match legacy hardcoded IDs", () => {
-			const steps = deriveWorkflowStepsFromMachine([], orderedSteps);
+		test("step IDs match expected IDs", () => {
+			const steps = deriveStepsFromMachine([], orderedSteps, []);
 			expect(steps.map((s) => s.id)).toEqual([
 				"requirements",
 				"design",
@@ -239,71 +137,68 @@ describe("deriveWorkflowStepsFromMachine", () => {
 			]);
 		});
 
-		test("marks steps with records as running or completed", () => {
-			const records: StatusUpdateRecord[] = [
-				makeRecord({
+		test("marks steps with statuses correctly", () => {
+			const stepStatuses: StepStatusEntry[] = [
+				{ step: "requirements", status: "completed" },
+				{ step: "design", status: "running" },
+			];
+
+			const events: EventRecord[] = [
+				makeEvent({
 					id: 1,
-					feature: "f1",
 					step: "requirements",
-					status: "started",
+					data: JSON.stringify({ status: "running" }),
 					createdAt: "2026-03-01T00:00:00.000Z",
 				}),
-				makeRecord({
+				makeEvent({
 					id: 2,
-					feature: "f1",
 					step: "requirements",
-					status: "completed",
+					data: JSON.stringify({ status: "completed" }),
 					createdAt: "2026-03-01T00:01:00.000Z",
 				}),
-				makeRecord({
+				makeEvent({
 					id: 3,
-					feature: "f1",
 					step: "design",
-					status: "in_progress",
+					data: JSON.stringify({ status: "running" }),
 					createdAt: "2026-03-01T00:02:00.000Z",
 				}),
 			];
 
-			const steps = deriveWorkflowStepsFromMachine(records, orderedSteps);
+			const steps = deriveStepsFromMachine(stepStatuses, orderedSteps, events);
 			expect(steps[0].status).toBe("completed");
 			expect(steps[0].startedAt).toBe("2026-03-01T00:00:00.000Z");
 			expect(steps[0].completedAt).toBe("2026-03-01T00:01:00.000Z");
 			expect(steps[1].status).toBe("running");
 			expect(steps[1].startedAt).toBe("2026-03-01T00:02:00.000Z");
-			expect(steps[2].status).toBe("pending");
-			expect(steps[3].status).toBe("pending");
-			expect(steps[4].status).toBe("pending");
-			expect(steps[5].status).toBe("pending");
+			expect(steps[1].completedAt).toBeNull();
+			expect(steps[2].status).toBe("not_started");
+			expect(steps[3].status).toBe("not_started");
+			expect(steps[4].status).toBe("not_started");
+			expect(steps[5].status).toBe("not_started");
 		});
 
-		test("feature-level waiting-input overrides last active step", () => {
-			const records: StatusUpdateRecord[] = [
-				makeRecord({
-					id: 1,
-					feature: "f1",
-					step: "requirements",
-					status: "completed",
-					createdAt: "2026-03-01T00:00:00.000Z",
-				}),
-				makeRecord({
-					id: 2,
-					feature: "f1",
-					step: "design",
-					status: "completed",
-					createdAt: "2026-03-01T00:01:00.000Z",
-				}),
-				makeRecord({
-					id: 3,
-					feature: "f1",
-					status: "waiting-input",
-					createdAt: "2026-03-01T00:02:00.000Z",
-				}),
+		test("uses only canonical status values", () => {
+			const stepStatuses: StepStatusEntry[] = [
+				{ step: "requirements", status: "completed" },
+				{ step: "design", status: "running" },
+				{ step: "tasks", status: "waiting" },
+				{ step: "build", status: "failed" },
+				{ step: "verify", status: "skipped" },
 			];
 
-			const steps = deriveWorkflowStepsFromMachine(records, orderedSteps);
-			expect(steps[0].status).toBe("completed");
-			// Last active step (design) should be overridden to "running"
-			expect(steps[1].status).toBe("running");
+			const steps = deriveStepsFromMachine(stepStatuses, orderedSteps, []);
+			const statusValues = steps.map((s) => s.status);
+
+			for (const status of statusValues) {
+				expect([
+					"not_started",
+					"running",
+					"waiting",
+					"completed",
+					"failed",
+					"skipped",
+				]).toContain(status);
+			}
 		});
 	});
 
@@ -320,38 +215,21 @@ describe("deriveWorkflowStepsFromMachine", () => {
 			]);
 		});
 
-		test("step names match legacy hardcoded names", () => {
-			const steps = deriveWorkflowStepsFromMachine([], orderedSteps);
+		test("step names match expected names", () => {
+			const steps = deriveStepsFromMachine([], orderedSteps, []);
 			expect(steps.map((s) => s.name)).toEqual(["Plan", "Build", "Review"]);
 		});
 
-		test("step IDs match legacy hardcoded IDs", () => {
-			const steps = deriveWorkflowStepsFromMachine([], orderedSteps);
-			expect(steps.map((s) => s.id)).toEqual(["plan", "build", "review"]);
-		});
-
 		test("marks completed and running steps correctly", () => {
-			const records: StatusUpdateRecord[] = [
-				makeRecord({
-					id: 1,
-					feature: "f1",
-					step: "plan",
-					status: "completed",
-					createdAt: "2026-03-01T00:00:00.000Z",
-				}),
-				makeRecord({
-					id: 2,
-					feature: "f1",
-					step: "build",
-					status: "in_progress",
-					createdAt: "2026-03-01T00:01:00.000Z",
-				}),
+			const stepStatuses: StepStatusEntry[] = [
+				{ step: "plan", status: "completed" },
+				{ step: "build", status: "running" },
 			];
 
-			const steps = deriveWorkflowStepsFromMachine(records, orderedSteps);
+			const steps = deriveStepsFromMachine(stepStatuses, orderedSteps, []);
 			expect(steps[0].status).toBe("completed");
 			expect(steps[1].status).toBe("running");
-			expect(steps[2].status).toBe("pending");
+			expect(steps[2].status).toBe("not_started");
 		});
 	});
 
@@ -371,138 +249,29 @@ describe("deriveWorkflowStepsFromMachine", () => {
 	});
 });
 
-describe("deriveWorkflowRunStatus", () => {
-	const buildMachine = parseMachine("build", buildMmd);
-	const buildFastMachine = parseMachine("build-fast", buildFastMmd);
+describe("deriveStepsFromEvents", () => {
+	test("groups events by step ID", () => {
+		const stepStatuses: StepStatusEntry[] = [
+			{ step: "T1", status: "completed" },
+			{ step: "T2", status: "running" },
+		];
 
-	test("returns 'running' when no terminal records", () => {
-		const records = [
-			makeRecord({
+		const events: EventRecord[] = [
+			makeEvent({
 				id: 1,
-				feature: "f1",
-				step: "requirements",
-				status: "in_progress",
-			}),
-		];
-		expect(deriveWorkflowRunStatus(records, buildMachine)).toBe("running");
-	});
-
-	test("returns 'failed' when any record has failed status", () => {
-		const records = [
-			makeRecord({
-				id: 1,
-				feature: "f1",
-				step: "requirements",
-				status: "completed",
-			}),
-			makeRecord({ id: 2, feature: "f1", step: "design", status: "failed" }),
-		];
-		expect(deriveWorkflowRunStatus(records, buildMachine)).toBe("failed");
-	});
-
-	test("returns 'completed' when terminal state has completed record", () => {
-		const records = [
-			makeRecord({
-				id: 1,
-				feature: "f1",
-				step: "requirements",
-				status: "completed",
-			}),
-			makeRecord({ id: 2, feature: "f1", step: "design", status: "completed" }),
-			makeRecord({ id: 3, feature: "f1", step: "tasks", status: "completed" }),
-			makeRecord({ id: 4, feature: "f1", step: "build", status: "completed" }),
-			makeRecord({ id: 5, feature: "f1", step: "verify", status: "completed" }),
-			makeRecord({
-				id: 6,
-				feature: "f1",
-				step: "archive",
-				status: "completed",
-			}),
-		];
-		expect(deriveWorkflowRunStatus(records, buildMachine)).toBe("completed");
-	});
-
-	test("returns 'completed' via feature-level completed record", () => {
-		const records = [
-			makeRecord({
-				id: 1,
-				feature: "f1",
-				step: "requirements",
-				status: "completed",
-			}),
-			makeRecord({ id: 2, feature: "f1", status: "completed" }),
-		];
-		expect(deriveWorkflowRunStatus(records, buildMachine)).toBe("completed");
-	});
-
-	test("returns 'waiting-input' from feature-level record", () => {
-		const records = [
-			makeRecord({
-				id: 1,
-				feature: "f1",
-				step: "requirements",
-				status: "completed",
-			}),
-			makeRecord({ id: 2, feature: "f1", status: "waiting-input" }),
-		];
-		expect(deriveWorkflowRunStatus(records, buildMachine)).toBe(
-			"waiting-input",
-		);
-	});
-
-	test("returns 'needs-review' from feature-level record", () => {
-		const records = [
-			makeRecord({ id: 1, feature: "f1", step: "build", status: "completed" }),
-			makeRecord({ id: 2, feature: "f1", status: "needs-review" }),
-		];
-		expect(deriveWorkflowRunStatus(records, buildMachine)).toBe("needs-review");
-	});
-
-	test("build-fast: completed when review step is completed", () => {
-		const records = [
-			makeRecord({ id: 1, feature: "f1", step: "plan", status: "completed" }),
-			makeRecord({ id: 2, feature: "f1", step: "build", status: "completed" }),
-			makeRecord({ id: 3, feature: "f1", step: "review", status: "completed" }),
-		];
-		expect(deriveWorkflowRunStatus(records, buildFastMachine)).toBe(
-			"completed",
-		);
-	});
-
-	test("build-fast: running when mid-workflow", () => {
-		const records = [
-			makeRecord({ id: 1, feature: "f1", step: "plan", status: "completed" }),
-			makeRecord({
-				id: 2,
-				feature: "f1",
-				step: "build",
-				status: "in_progress",
-			}),
-		];
-		expect(deriveWorkflowRunStatus(records, buildFastMachine)).toBe("running");
-	});
-});
-
-describe("deriveTaskBasedSteps", () => {
-	test("groups records by step ID", () => {
-		const records: StatusUpdateRecord[] = [
-			makeRecord({
-				id: 1,
-				feature: "f1",
 				step: "T1",
-				status: "completed",
+				data: JSON.stringify({ status: "completed" }),
 				createdAt: "2026-03-01T00:00:00.000Z",
 			}),
-			makeRecord({
+			makeEvent({
 				id: 2,
-				feature: "f1",
 				step: "T2",
-				status: "in_progress",
+				data: JSON.stringify({ status: "running" }),
 				createdAt: "2026-03-01T00:01:00.000Z",
 			}),
 		];
 
-		const steps = deriveTaskBasedSteps(records);
+		const steps = deriveStepsFromEvents(stepStatuses, events);
 		expect(steps).toHaveLength(2);
 		expect(steps[0].id).toBe("T1");
 		expect(steps[0].status).toBe("completed");
@@ -510,30 +279,71 @@ describe("deriveTaskBasedSteps", () => {
 		expect(steps[1].status).toBe("running");
 	});
 
-	test("skips records without step", () => {
-		const records: StatusUpdateRecord[] = [
-			makeRecord({ id: 1, feature: "f1", status: "started" }),
-			makeRecord({
+	test("skips events without step", () => {
+		const stepStatuses: StepStatusEntry[] = [
+			{ step: "T1", status: "completed" },
+		];
+
+		const events: EventRecord[] = [
+			makeEvent({ id: 1, data: JSON.stringify({ status: "running" }) }),
+			makeEvent({
 				id: 2,
-				feature: "f1",
 				step: "T1",
-				status: "completed",
+				data: JSON.stringify({ status: "completed" }),
 				createdAt: "2026-03-01T00:00:00.000Z",
 			}),
 		];
 
-		const steps = deriveTaskBasedSteps(records);
+		const steps = deriveStepsFromEvents(stepStatuses, events);
 		expect(steps).toHaveLength(1);
 		expect(steps[0].id).toBe("T1");
 	});
 
-	test("returns empty array for no step records", () => {
-		const records: StatusUpdateRecord[] = [
-			makeRecord({ id: 1, feature: "f1", status: "started" }),
+	test("returns empty array for no step events", () => {
+		const events: EventRecord[] = [
+			makeEvent({ id: 1, data: JSON.stringify({ status: "running" }) }),
 		];
 
-		const steps = deriveTaskBasedSteps(records);
+		const steps = deriveStepsFromEvents([], events);
 		expect(steps).toHaveLength(0);
+	});
+
+	test("uses only canonical status values", () => {
+		const stepStatuses: StepStatusEntry[] = [
+			{ step: "T1", status: "completed" },
+			{ step: "T2", status: "failed" },
+			{ step: "T3", status: "skipped" },
+		];
+
+		const events: EventRecord[] = [
+			makeEvent({
+				id: 1,
+				step: "T1",
+				data: JSON.stringify({ status: "completed" }),
+			}),
+			makeEvent({
+				id: 2,
+				step: "T2",
+				data: JSON.stringify({ status: "failed" }),
+			}),
+			makeEvent({
+				id: 3,
+				step: "T3",
+				data: JSON.stringify({ status: "skipped" }),
+			}),
+		];
+
+		const steps = deriveStepsFromEvents(stepStatuses, events);
+		for (const step of steps) {
+			expect([
+				"not_started",
+				"running",
+				"waiting",
+				"completed",
+				"failed",
+				"skipped",
+			]).toContain(step.status);
+		}
 	});
 });
 
@@ -717,10 +527,8 @@ describe("handleV2WorkflowDetailRequest", () => {
 	});
 
 	test("response time is under 100ms for cached lookups", async () => {
-		// First call primes the cache
 		await handleV2WorkflowDetailRequest("build");
 
-		// Second call should be cached and fast
 		const start = performance.now();
 		await handleV2WorkflowDetailRequest("build");
 		const elapsed = performance.now() - start;

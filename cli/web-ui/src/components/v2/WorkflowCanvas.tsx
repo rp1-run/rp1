@@ -31,7 +31,7 @@ const defaultEdgeOptions: DefaultEdgeOptions = {
 	style: { stroke: "hsl(var(--border))", strokeWidth: 1.5 },
 };
 
-const fitViewOptions = { padding: 0.2, maxZoom: 1.5 } as const;
+const fitViewOptions = { padding: 0.12, maxZoom: 1.2 } as const;
 
 export interface WorkflowCanvasProps {
 	readonly workflow: WorkflowDefinition | null;

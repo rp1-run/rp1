@@ -19,17 +19,29 @@ import { join } from "node:path";
 import {
 	closeDatabase,
 	countEventsSince,
+	deleteAnnotation,
 	deriveRunStatus,
 	findOrCreateRun,
 	getActiveRunsSnapshot,
+	getAnnotationById,
+	getAnnotationsForDocId,
+	getAnnotationsForRun,
+	getArtifactByDocId,
+	getArtifactsForRun,
 	getEmitDatabase,
+	getEventsForRun,
 	getEventsSince,
 	getMaxEventId,
+	getProjectRunStats,
+	getRunById,
+	getRunsByAttentionStatus,
 	getSkippableSteps,
 	getStepStatuses,
 	insertEvent,
 	insertRun,
+	listRuns,
 	resetInstance,
+	updateAnnotation,
 	upsertAnnotation,
 	upsertArtifact,
 } from "../../../agent-tools/emit/database.js";
@@ -73,7 +85,7 @@ describe("emit database", () => {
 			expect(tableNames).toContain("schema_version");
 		});
 
-		test("schema_version is set to 1", async () => {
+		test("schema_version is set to 2", async () => {
 			const dbPath = join(tempDir, "version-test.db");
 			const db = await expectTaskRight(getEmitDatabase(dbPath));
 
@@ -81,7 +93,100 @@ describe("emit database", () => {
 				version: number;
 			};
 
-			expect(row.version).toBe(1);
+			expect(row.version).toBe(2);
+		});
+
+		test("annotations table includes status and author columns", async () => {
+			const dbPath = join(tempDir, "ann-columns-test.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			const columns = db.prepare("PRAGMA table_info(annotations)").all() as {
+				name: string;
+			}[];
+			const columnNames = columns.map((c) => c.name);
+
+			expect(columnNames).toContain("status");
+			expect(columnNames).toContain("author");
+		});
+
+		test("migrates v1 schema to add status and author columns", async () => {
+			const dbPath = join(tempDir, "migration-v1-test.db");
+
+			const { Database } = await import("bun:sqlite");
+			const rawDb = new Database(dbPath, { create: true });
+			rawDb.exec("PRAGMA journal_mode = WAL;");
+			rawDb.exec("PRAGMA foreign_keys = ON;");
+			rawDb.exec(`
+				CREATE TABLE schema_version (version INTEGER NOT NULL);
+				INSERT INTO schema_version (version) VALUES (1);
+				CREATE TABLE runs (
+					id TEXT PRIMARY KEY NOT NULL,
+					flow TEXT NOT NULL,
+					feature_id TEXT NOT NULL,
+					project_path TEXT NOT NULL,
+					status TEXT NOT NULL DEFAULT 'not_started',
+					created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+					updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+				);
+				CREATE TABLE artifacts (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					doc_id TEXT UNIQUE NOT NULL,
+					run_id TEXT REFERENCES runs(id),
+					path TEXT NOT NULL,
+					type TEXT NOT NULL DEFAULT 'other',
+					project_path TEXT NOT NULL,
+					feature TEXT NOT NULL,
+					step TEXT,
+					created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+				);
+				CREATE TABLE annotations (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					doc_id TEXT NOT NULL REFERENCES artifacts(doc_id),
+					run_id TEXT REFERENCES runs(id),
+					content TEXT NOT NULL,
+					data TEXT,
+					parent_id INTEGER REFERENCES annotations(id),
+					created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+					updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+				);
+				CREATE TABLE events (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					run_id TEXT NOT NULL REFERENCES runs(id),
+					type TEXT NOT NULL,
+					step TEXT,
+					unit TEXT,
+					data TEXT,
+					parent_step_id TEXT,
+					created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+				);
+				CREATE TABLE tasks (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					type TEXT NOT NULL,
+					description TEXT NOT NULL,
+					status TEXT NOT NULL DEFAULT 'pending',
+					payload TEXT,
+					project_path TEXT,
+					result TEXT,
+					created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+					updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+				);
+			`);
+			rawDb.close();
+
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			const columns = db.prepare("PRAGMA table_info(annotations)").all() as {
+				name: string;
+			}[];
+			const columnNames = columns.map((c) => c.name);
+
+			expect(columnNames).toContain("status");
+			expect(columnNames).toContain("author");
+
+			const versionRow = db
+				.prepare("SELECT version FROM schema_version")
+				.get() as { version: number };
+			expect(versionRow.version).toBe(2);
 		});
 
 		test("foreign key constraints are enforced", async () => {
@@ -321,6 +426,40 @@ describe("emit database", () => {
 			expect(annotation.docId).toBe("doc-ann");
 			expect(annotation.content).toBe("Review comment");
 			expect(annotation.data).toBe('{"severity": "high"}');
+			expect(annotation.status).toBe("open");
+			expect(annotation.author).toBe("user");
+		});
+
+		test("inserts annotation with explicit status and author", async () => {
+			const dbPath = join(tempDir, "annotation-status-author.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-sa",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			upsertArtifact(db, {
+				docId: "doc-sa",
+				runId: "run-sa",
+				path: "file.md",
+				type: "markdown",
+				projectPath: "/p",
+				feature: "feat",
+			});
+
+			const annotation = upsertAnnotation(db, {
+				docId: "doc-sa",
+				runId: "run-sa",
+				content: "Resolved comment",
+				status: "resolved",
+				author: "agent",
+			});
+
+			expect(annotation.status).toBe("resolved");
+			expect(annotation.author).toBe("agent");
 		});
 
 		test("rejects annotation with nonexistent doc_id", async () => {
@@ -1191,6 +1330,697 @@ describe("emit database", () => {
 
 			const snapshot = getActiveRunsSnapshot(db);
 			expect(snapshot).toEqual([]);
+		});
+	});
+
+	describe("listRuns", () => {
+		test("returns all runs with pagination metadata", async () => {
+			const dbPath = join(tempDir, "list-runs.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-lr1",
+				flow: "build",
+				featureId: "feat-a",
+				projectPath: "/p/a",
+			});
+			insertRun(db, {
+				id: "run-lr2",
+				flow: "review",
+				featureId: "feat-b",
+				projectPath: "/p/b",
+			});
+
+			const result = listRuns(db);
+
+			expect(result.total).toBe(2);
+			expect(result.records).toHaveLength(2);
+		});
+
+		test("filters by projectPath", async () => {
+			const dbPath = join(tempDir, "list-runs-project.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-lp1",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/project/alpha",
+			});
+			insertRun(db, {
+				id: "run-lp2",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/project/beta",
+			});
+
+			const result = listRuns(db, { projectPath: "/project/alpha" });
+
+			expect(result.total).toBe(1);
+			expect(result.records[0].projectPath).toBe("/project/alpha");
+		});
+
+		test("filters by status", async () => {
+			const dbPath = join(tempDir, "list-runs-status.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-ls1",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+			insertRun(db, {
+				id: "run-ls2",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			insertEvent(db, {
+				runId: "run-ls1",
+				type: "status_change",
+				step: "s1",
+				data: JSON.stringify({ status: "running" }),
+			});
+			deriveRunStatus(db, "run-ls1");
+
+			const result = listRuns(db, { status: "running" });
+
+			expect(result.total).toBe(1);
+			expect(result.records[0].id).toBe("run-ls1");
+		});
+
+		test("supports pagination with limit and offset", async () => {
+			const dbPath = join(tempDir, "list-runs-page.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			for (let i = 0; i < 5; i++) {
+				insertRun(db, {
+					id: `run-pg${i}`,
+					flow: "build",
+					featureId: "feat",
+					projectPath: "/p",
+				});
+			}
+
+			const page1 = listRuns(db, { limit: 2, offset: 0 });
+			const page2 = listRuns(db, { limit: 2, offset: 2 });
+
+			expect(page1.total).toBe(5);
+			expect(page1.records).toHaveLength(2);
+			expect(page2.records).toHaveLength(2);
+			expect(page1.records[0].id).not.toBe(page2.records[0].id);
+		});
+	});
+
+	describe("getRunById", () => {
+		test("returns run record for existing ID", async () => {
+			const dbPath = join(tempDir, "get-run-by-id.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-gbi",
+				flow: "build",
+				featureId: "feat-gbi",
+				projectPath: "/p/gbi",
+			});
+
+			const run = getRunById(db, "run-gbi");
+
+			expect(run).not.toBeNull();
+			expect(run?.id).toBe("run-gbi");
+			expect(run?.flow).toBe("build");
+			expect(run?.featureId).toBe("feat-gbi");
+		});
+
+		test("returns null for missing ID", async () => {
+			const dbPath = join(tempDir, "get-run-missing.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			const run = getRunById(db, "nonexistent");
+
+			expect(run).toBeNull();
+		});
+	});
+
+	describe("getEventsForRun", () => {
+		test("returns events ordered chronologically for a run", async () => {
+			const dbPath = join(tempDir, "events-for-run.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-efr",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+			insertRun(db, {
+				id: "run-efr-other",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			insertEvent(db, {
+				runId: "run-efr",
+				type: "status_change",
+				step: "step1",
+				data: JSON.stringify({ status: "running" }),
+			});
+			insertEvent(db, {
+				runId: "run-efr-other",
+				type: "status_change",
+				step: "step1",
+				data: JSON.stringify({ status: "running" }),
+			});
+			insertEvent(db, {
+				runId: "run-efr",
+				type: "btw_update",
+				data: JSON.stringify({ message: "hello" }),
+			});
+
+			const events = getEventsForRun(db, "run-efr");
+
+			expect(events).toHaveLength(2);
+			expect(events[0].type).toBe("status_change");
+			expect(events[1].type).toBe("btw_update");
+			expect(events[0].id).toBeLessThan(events[1].id);
+		});
+
+		test("returns empty array for run with no events", async () => {
+			const dbPath = join(tempDir, "events-for-run-empty.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-efr-empty",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			const events = getEventsForRun(db, "run-efr-empty");
+
+			expect(events).toHaveLength(0);
+		});
+	});
+
+	describe("getArtifactsForRun", () => {
+		test("returns artifacts scoped by run_id", async () => {
+			const dbPath = join(tempDir, "artifacts-for-run.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-afr",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+			insertRun(db, {
+				id: "run-afr-other",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			upsertArtifact(db, {
+				docId: "doc-afr-1",
+				runId: "run-afr",
+				path: "design.md",
+				type: "markdown",
+				projectPath: "/p",
+				feature: "feat",
+			});
+			upsertArtifact(db, {
+				docId: "doc-afr-2",
+				runId: "run-afr-other",
+				path: "other.md",
+				type: "markdown",
+				projectPath: "/p",
+				feature: "feat",
+			});
+
+			const artifacts = getArtifactsForRun(db, "run-afr");
+
+			expect(artifacts).toHaveLength(1);
+			expect(artifacts[0].docId).toBe("doc-afr-1");
+		});
+	});
+
+	describe("getArtifactByDocId", () => {
+		test("returns artifact for existing doc_id", async () => {
+			const dbPath = join(tempDir, "artifact-by-docid.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-abd",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			upsertArtifact(db, {
+				docId: "doc-abd-1",
+				runId: "run-abd",
+				path: "file.ts",
+				type: "code",
+				projectPath: "/p",
+				feature: "feat",
+			});
+
+			const artifact = getArtifactByDocId(db, "doc-abd-1");
+
+			expect(artifact).not.toBeNull();
+			expect(artifact?.docId).toBe("doc-abd-1");
+			expect(artifact?.path).toBe("file.ts");
+		});
+
+		test("returns null for missing doc_id", async () => {
+			const dbPath = join(tempDir, "artifact-by-docid-miss.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			const artifact = getArtifactByDocId(db, "nonexistent");
+
+			expect(artifact).toBeNull();
+		});
+	});
+
+	describe("getAnnotationsForRun", () => {
+		test("returns annotations scoped by run_id", async () => {
+			const dbPath = join(tempDir, "ann-for-run.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-anr",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+			insertRun(db, {
+				id: "run-anr-other",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			upsertArtifact(db, {
+				docId: "doc-anr",
+				runId: "run-anr",
+				path: "file.md",
+				type: "markdown",
+				projectPath: "/p",
+				feature: "feat",
+			});
+
+			upsertAnnotation(db, {
+				docId: "doc-anr",
+				runId: "run-anr",
+				content: "Comment for run-anr",
+			});
+			upsertAnnotation(db, {
+				docId: "doc-anr",
+				runId: "run-anr-other",
+				content: "Comment for other run",
+			});
+
+			const annotations = getAnnotationsForRun(db, "run-anr");
+
+			expect(annotations).toHaveLength(1);
+			expect(annotations[0].content).toBe("Comment for run-anr");
+		});
+	});
+
+	describe("getAnnotationsForDocId", () => {
+		test("returns annotations scoped by doc_id", async () => {
+			const dbPath = join(tempDir, "ann-for-docid.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-and",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			upsertArtifact(db, {
+				docId: "doc-and-1",
+				runId: "run-and",
+				path: "a.md",
+				type: "markdown",
+				projectPath: "/p",
+				feature: "feat",
+			});
+			upsertArtifact(db, {
+				docId: "doc-and-2",
+				runId: "run-and",
+				path: "b.md",
+				type: "markdown",
+				projectPath: "/p",
+				feature: "feat",
+			});
+
+			upsertAnnotation(db, {
+				docId: "doc-and-1",
+				runId: "run-and",
+				content: "Comment on doc 1",
+			});
+			upsertAnnotation(db, {
+				docId: "doc-and-2",
+				runId: "run-and",
+				content: "Comment on doc 2",
+			});
+
+			const annotations = getAnnotationsForDocId(db, "doc-and-1");
+
+			expect(annotations).toHaveLength(1);
+			expect(annotations[0].content).toBe("Comment on doc 1");
+		});
+	});
+
+	describe("getAnnotationById", () => {
+		test("returns annotation for existing ID", async () => {
+			const dbPath = join(tempDir, "ann-by-id.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-abi",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			upsertArtifact(db, {
+				docId: "doc-abi",
+				runId: "run-abi",
+				path: "file.md",
+				type: "markdown",
+				projectPath: "/p",
+				feature: "feat",
+			});
+
+			const created = upsertAnnotation(db, {
+				docId: "doc-abi",
+				runId: "run-abi",
+				content: "Test annotation",
+			});
+
+			const annotation = getAnnotationById(db, created.id);
+
+			expect(annotation).not.toBeNull();
+			expect(annotation?.content).toBe("Test annotation");
+		});
+
+		test("returns null for missing ID", async () => {
+			const dbPath = join(tempDir, "ann-by-id-miss.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			const annotation = getAnnotationById(db, 99999);
+
+			expect(annotation).toBeNull();
+		});
+	});
+
+	describe("updateAnnotation", () => {
+		test("updates content and returns updated record", async () => {
+			const dbPath = join(tempDir, "update-ann.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-ua",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			upsertArtifact(db, {
+				docId: "doc-ua",
+				runId: "run-ua",
+				path: "file.md",
+				type: "markdown",
+				projectPath: "/p",
+				feature: "feat",
+			});
+
+			const created = upsertAnnotation(db, {
+				docId: "doc-ua",
+				runId: "run-ua",
+				content: "Original",
+			});
+
+			const updated = updateAnnotation(db, created.id, {
+				content: "Updated content",
+			});
+
+			expect(updated.content).toBe("Updated content");
+			expect(updated.id).toBe(created.id);
+		});
+
+		test("updates status to resolved", async () => {
+			const dbPath = join(tempDir, "update-ann-status.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-uas",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			upsertArtifact(db, {
+				docId: "doc-uas",
+				runId: "run-uas",
+				path: "file.md",
+				type: "markdown",
+				projectPath: "/p",
+				feature: "feat",
+			});
+
+			const created = upsertAnnotation(db, {
+				docId: "doc-uas",
+				runId: "run-uas",
+				content: "To resolve",
+			});
+
+			expect(created.status).toBe("open");
+
+			const updated = updateAnnotation(db, created.id, {
+				status: "resolved",
+			});
+
+			expect(updated.status).toBe("resolved");
+			expect(updated.id).toBe(created.id);
+		});
+
+		test("updates data JSON field", async () => {
+			const dbPath = join(tempDir, "update-ann-data.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-uad",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			upsertArtifact(db, {
+				docId: "doc-uad",
+				runId: "run-uad",
+				path: "file.md",
+				type: "markdown",
+				projectPath: "/p",
+				feature: "feat",
+			});
+
+			const created = upsertAnnotation(db, {
+				docId: "doc-uad",
+				runId: "run-uad",
+				content: "Note",
+			});
+
+			const newData = JSON.stringify({ severity: "high" });
+			const updated = updateAnnotation(db, created.id, { data: newData });
+
+			expect(updated.data).toBe(newData);
+		});
+	});
+
+	describe("deleteAnnotation", () => {
+		test("removes annotation from database", async () => {
+			const dbPath = join(tempDir, "delete-ann.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-da",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			upsertArtifact(db, {
+				docId: "doc-da",
+				runId: "run-da",
+				path: "file.md",
+				type: "markdown",
+				projectPath: "/p",
+				feature: "feat",
+			});
+
+			const created = upsertAnnotation(db, {
+				docId: "doc-da",
+				runId: "run-da",
+				content: "To delete",
+			});
+
+			deleteAnnotation(db, created.id);
+
+			const after = getAnnotationById(db, created.id);
+			expect(after).toBeNull();
+		});
+	});
+
+	describe("getProjectRunStats", () => {
+		test("returns run count and last activity per project", async () => {
+			const dbPath = join(tempDir, "project-stats.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-ps1",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/project/alpha",
+			});
+			insertRun(db, {
+				id: "run-ps2",
+				flow: "review",
+				featureId: "feat",
+				projectPath: "/project/alpha",
+			});
+			insertRun(db, {
+				id: "run-ps3",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/project/beta",
+			});
+
+			const stats = getProjectRunStats(db, [
+				"/project/alpha",
+				"/project/beta",
+				"/project/gamma",
+			]);
+
+			expect(stats.get("/project/alpha")?.runCount).toBe(2);
+			expect(stats.get("/project/alpha")?.lastActivityAt).toBeTruthy();
+			expect(stats.get("/project/beta")?.runCount).toBe(1);
+			expect(stats.get("/project/gamma")?.runCount).toBe(0);
+			expect(stats.get("/project/gamma")?.lastActivityAt).toBeNull();
+		});
+
+		test("returns empty map for empty project list", async () => {
+			const dbPath = join(tempDir, "project-stats-empty.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			const stats = getProjectRunStats(db, []);
+
+			expect(stats.size).toBe(0);
+		});
+	});
+
+	describe("getRunsByAttentionStatus", () => {
+		test("groups runs by waiting, failed, and running", async () => {
+			const dbPath = join(tempDir, "attention-runs.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-at1",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+			insertRun(db, {
+				id: "run-at2",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+			insertRun(db, {
+				id: "run-at3",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+			insertRun(db, {
+				id: "run-at4",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			insertEvent(db, {
+				runId: "run-at1",
+				type: "status_change",
+				step: "s1",
+				data: JSON.stringify({ status: "waiting" }),
+			});
+			deriveRunStatus(db, "run-at1");
+
+			insertEvent(db, {
+				runId: "run-at2",
+				type: "status_change",
+				step: "s1",
+				data: JSON.stringify({ status: "failed" }),
+			});
+			deriveRunStatus(db, "run-at2");
+
+			insertEvent(db, {
+				runId: "run-at3",
+				type: "status_change",
+				step: "s1",
+				data: JSON.stringify({ status: "running" }),
+			});
+			deriveRunStatus(db, "run-at3");
+
+			insertEvent(db, {
+				runId: "run-at4",
+				type: "status_change",
+				step: "s1",
+				data: JSON.stringify({ status: "completed" }),
+			});
+			deriveRunStatus(db, "run-at4");
+
+			const attention = getRunsByAttentionStatus(db);
+
+			expect(attention.waiting).toHaveLength(1);
+			expect(attention.waiting[0].id).toBe("run-at1");
+			expect(attention.failed).toHaveLength(1);
+			expect(attention.failed[0].id).toBe("run-at2");
+			expect(attention.running).toHaveLength(1);
+			expect(attention.running[0].id).toBe("run-at3");
+		});
+
+		test("returns empty arrays when no attention runs", async () => {
+			const dbPath = join(tempDir, "attention-empty.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-ae1",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			insertEvent(db, {
+				runId: "run-ae1",
+				type: "status_change",
+				step: "s1",
+				data: JSON.stringify({ status: "completed" }),
+			});
+			deriveRunStatus(db, "run-ae1");
+
+			const attention = getRunsByAttentionStatus(db);
+
+			expect(attention.waiting).toHaveLength(0);
+			expect(attention.failed).toHaveLength(0);
+			expect(attention.running).toHaveLength(0);
 		});
 	});
 

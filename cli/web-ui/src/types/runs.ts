@@ -2,10 +2,8 @@
  * Type definitions for runs, steps, artifacts, and events.
  * Used by the V2 dashboard for monitoring AI agent runs.
  *
- * Canonical types (Status, EventType, ArtifactType) are imported from
- * the shared events module to eliminate drift between CLI and web-ui.
- * RunStatus and StepStatus extend the shared Status with legacy values
- * that will be removed when the API layer migrates in Phase 3.
+ * All status and event types are the canonical shared types from
+ * shared/events.ts with zero legacy values.
  */
 
 import type {
@@ -16,22 +14,14 @@ import type {
 
 export type { ArtifactType };
 
-/** Status of an agent run, derived from the canonical Status type with legacy values preserved for Phase 3 migration */
-export type RunStatus = Status | "queued" | "waiting-input" | "needs-review";
+/** Status of an agent run -- canonical shared Status */
+export type RunStatus = Status;
 
-/** Status of a workflow step within a run, derived from the canonical Status type with legacy values preserved for Phase 3 migration */
-export type StepStatus = Status | "pending" | "waiting-input" | "needs-review";
+/** Status of a workflow step within a run -- canonical shared Status */
+export type StepStatus = Status;
 
-/** Event type for the run event stream, combining shared and legacy UI event types */
-export type EventType =
-	| SharedEventType
-	| "step-start"
-	| "step-complete"
-	| "warning"
-	| "error"
-	| "artifact-updated"
-	| "task-batch"
-	| "agent-update";
+/** Event type for the run event stream -- canonical shared EventType */
+export type EventType = SharedEventType;
 
 /** A workflow step within a run */
 export interface Step {
@@ -46,6 +36,7 @@ export interface Step {
 
 /** An artifact produced or updated by a run */
 export interface Artifact {
+	readonly docId: string;
 	readonly path: string;
 	readonly absolutePath: string;
 	readonly type: ArtifactType;
@@ -96,7 +87,6 @@ export interface Run {
 /** Attention groupings for the home dashboard */
 export interface AttentionData {
 	readonly waiting: readonly Run[];
-	readonly needsReview: readonly Run[];
 	readonly failed: readonly Run[];
 	readonly running: readonly Run[];
 }

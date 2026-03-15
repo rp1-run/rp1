@@ -4,6 +4,7 @@
  * Embeds annotations as HTML comments at anchor positions.
  */
 
+import type { Database } from "bun:sqlite";
 import { readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type {
@@ -157,6 +158,7 @@ export function parseEmbeddedAnnotations(content: string): string[] {
  * Reads annotations from the service and inserts HTML comments at anchor positions.
  */
 export async function embedAnnotations(
+	db: Database,
 	projectPath: string,
 	artifactPath: string,
 ): Promise<void> {
@@ -175,7 +177,7 @@ export async function embedAnnotations(
 	}
 
 	// Get annotations for this artifact
-	const annotations = await getAnnotations(projectPath, artifactPath);
+	const annotations = getAnnotations(db);
 
 	if (annotations.length === 0) {
 		// Remove any stale markers if no annotations exist
@@ -294,8 +296,9 @@ async function writeFileAtomic(
  * This is a convenience function that re-embeds all annotations.
  */
 export async function syncAnnotations(
+	db: Database,
 	projectPath: string,
 	artifactPath: string,
 ): Promise<void> {
-	await embedAnnotations(projectPath, artifactPath);
+	await embedAnnotations(db, projectPath, artifactPath);
 }
