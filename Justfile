@@ -116,6 +116,8 @@ run *args: build
 # Prepare dev marketplace with -dev version plugins (builds CC artifacts first)
 prepare-dev-plugins: build-claude-code
     ./scripts/prepare-dev-plugins.sh
+    @# Restore manifest timestamps so builds don't dirty the working tree
+    @git checkout -- cli/dist/claude-code/*/manifest.json 2>/dev/null || true
 
 # Install dev plugins to Claude Code
 install-claude: prepare-dev-plugins
