@@ -25,7 +25,11 @@ import {
 } from "../../../agent-tools/work/database.js";
 import { executeArtifact } from "../../../agent-tools/work/index.js";
 import type { ArtifactInput } from "../../../agent-tools/work/models.js";
-import { expectTaskLeft, expectTaskRight } from "../../helpers/index.js";
+import {
+	expectTaskLeft,
+	expectTaskRight,
+	getErrorMessage,
+} from "../../helpers/index.js";
 
 describe("artifact step validation", () => {
 	let tempDir: string;
@@ -184,9 +188,10 @@ describe("artifact step validation", () => {
 			};
 
 			const error = await expectTaskLeft(executeArtifact(input, testDbPath));
-			expect(error.message).toContain("Invalid artifact step");
-			expect(error.message).toContain("nonexistent-step");
-			expect(error.message).toContain("Valid steps:");
+			const msg = getErrorMessage(error);
+			expect(msg).toContain("Invalid artifact step");
+			expect(msg).toContain("nonexistent-step");
+			expect(msg).toContain("Valid steps:");
 		});
 
 		test("does not insert artifact when step validation fails", async () => {

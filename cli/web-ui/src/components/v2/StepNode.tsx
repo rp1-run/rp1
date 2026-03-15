@@ -98,7 +98,7 @@ function getArtifactFilename(path: string): string {
 	return segments[segments.length - 1] || path;
 }
 
-function ArtifactBadge({
+export function ArtifactBadge({
 	artifact,
 	runId,
 }: {
@@ -134,6 +134,45 @@ function ArtifactBadge({
 			{artifact.isNew && (
 				<span
 					className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-status-running"
+					role="img"
+					aria-label="New artifact"
+				/>
+			)}
+		</button>
+	);
+}
+
+function ArtifactChip({
+	artifacts,
+	runId,
+}: {
+	readonly artifacts: readonly Artifact[];
+	readonly runId: string | undefined;
+}) {
+	const navigate = useNavigate();
+	const hasNew = artifacts.some((a) => a.isNew);
+	const primary = artifacts[0];
+	const Icon = artifactIconMap[primary.type] || File;
+
+	const handleClick = (e: React.MouseEvent) => {
+		e.stopPropagation();
+		if (runId) {
+			navigate(`/runs/${runId}/artifacts/${primary.path}`);
+		}
+	};
+
+	return (
+		<button
+			type="button"
+			onClick={handleClick}
+			className="inline-flex items-center gap-1 rounded-full bg-muted/50 px-1.5 py-0.5 text-muted-foreground transition-colors hover:bg-muted/80"
+			title={artifacts.map((a) => getArtifactFilename(a.path)).join(", ")}
+		>
+			<Icon className="h-3 w-3 shrink-0" aria-hidden="true" />
+			<span className="text-[11px] tabular-nums">{artifacts.length}</span>
+			{hasNew && (
+				<span
+					className="h-1.5 w-1.5 shrink-0 rounded-full bg-status-running"
 					role="img"
 					aria-label="New artifact"
 				/>
@@ -206,7 +245,7 @@ export function StepNode({
 					<StatusBadge status={data.status} size="sm" showLabel={false} />
 				</div>
 
-				{(showDuration || showTaskProgress) && (
+				{(showDuration || showTaskProgress || hasArtifacts) && (
 					<div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
 						{showDuration && (
 							<span className="inline-flex items-center gap-1 tabular-nums">
@@ -221,18 +260,11 @@ export function StepNode({
 								{data.completedTaskCount} / {data.taskCount}
 							</span>
 						)}
-					</div>
-				)}
-
-				{hasArtifacts && (
-					<div className="mt-2 flex flex-col gap-1">
-						{data.artifacts.map((artifact) => (
-							<ArtifactBadge
-								key={artifact.path}
-								artifact={artifact}
-								runId={runId}
-							/>
-						))}
+						{hasArtifacts && (
+							<span className="ml-auto">
+								<ArtifactChip artifacts={data.artifacts} runId={runId} />
+							</span>
+						)}
 					</div>
 				)}
 			</div>
