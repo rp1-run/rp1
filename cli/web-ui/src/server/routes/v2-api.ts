@@ -278,8 +278,11 @@ async function discoverArtifactsFromFilesystem(
 async function getRegisteredArtifacts(
 	projectPath: string,
 	featureId: string,
+	runId?: string,
 ): Promise<readonly Artifact[]> {
-	const result = await pipe(queryArtifactsForFeature(projectPath, featureId))();
+	const result = await pipe(
+		queryArtifactsForFeature(projectPath, featureId, runId),
+	)();
 
 	if (E.isLeft(result) || result.right.length === 0) {
 		return discoverArtifactsFromFilesystem(projectPath, featureId);
@@ -958,6 +961,7 @@ export async function handleV2RunDetailRequest(
 		const artifacts = await getRegisteredArtifacts(
 			record.projectPath,
 			record.feature,
+			record.runId ?? undefined,
 		);
 
 		let agentSteps: Readonly<Record<string, readonly AgentTask[]>> | null =
