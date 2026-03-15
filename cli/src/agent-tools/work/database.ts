@@ -789,7 +789,7 @@ export const queryAllLatestStatuses = (
 		TE.chain((db) =>
 			TE.tryCatch(
 				async () => {
-					const innerConditions: string[] = [];
+					const innerConditions: string[] = ["agent IS NULL"];
 					const params: Record<string, string | number> = {};
 
 					if (options.projectPath) {
@@ -802,7 +802,7 @@ export const queryAllLatestStatuses = (
 							? `WHERE ${innerConditions.join(" AND ")}`
 							: "";
 
-					const outerConditions: string[] = [];
+					const outerConditions: string[] = ["s.agent IS NULL"];
 					if (options.projectPath) {
 						outerConditions.push("s.project_path = $projectPath");
 					}

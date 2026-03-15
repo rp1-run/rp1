@@ -143,7 +143,12 @@ export function filterNonExpiredRecords(
 	records: readonly StatusUpdateRecord[],
 ): readonly StatusUpdateRecord[] {
 	const now = new Date().toISOString();
-	return records.filter((r) => r.expiresAt === null || r.expiresAt > now);
+	return records.filter(
+		(r) =>
+			r.expiresAt === null ||
+			r.expiresAt > now ||
+			TERMINAL_STATUSES.has(r.status),
+	);
 }
 
 /**
