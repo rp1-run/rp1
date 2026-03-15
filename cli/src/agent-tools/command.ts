@@ -8,7 +8,11 @@ import * as E from "fp-ts/lib/Either.js";
 import { formatError } from "../../shared/errors.js";
 import { VALID_EVENT_TYPES } from "../../shared/events.js";
 import { executeExtract } from "./comment-extract/index.js";
-import { closeDatabase as closeEmitDatabase } from "./emit/database.js";
+import {
+	closeDatabase as closeEmitDatabase,
+	findOrCreateRun,
+	getEmitDatabase,
+} from "./emit/database.js";
 import { executeEmit } from "./emit/index.js";
 import {
 	type EmitCommandOptions,
@@ -342,7 +346,7 @@ Examples:
  * emit subcommand.
  * Records events for the rp1 workflow event system.
  */
-agentToolsCommand
+const emitCommand = agentToolsCommand
 	.command("emit")
 	.description("Record events for the rp1 workflow event system")
 	.requiredOption(
@@ -457,6 +461,111 @@ Examples:
 			}
 
 			console.log(formatOutput(result.right));
+			process.exit(0);
+		},
+	);
+
+/**
+ * emit resume-run subcommand.
+ * Finds or creates a run for a feature, enabling run resumption via DB lookup.
+ */
+emitCommand
+	.command("resume-run")
+	.description("Find or create a run for a feature (run resumption via DB)")
+	.requiredOption("--feature <id>", "Feature identifier")
+	.requiredOption("--flow <name>", "Workflow name (e.g., build, build-fast)")
+	.option("--project <path>", "Project path (defaults to cwd)")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Finds the most recent non-terminal run for the given feature and project,
+  or creates a new one if none exists. This enables skills to resume an
+  existing run rather than creating duplicates.
+
+  Terminal statuses are: completed, failed, skipped.
+  Non-terminal runs are returned in order of most recently created.
+
+Options:
+  --feature <id>     Feature identifier (required)
+  --flow <name>      Workflow name (required, e.g., build, build-fast, blueprint, pr-review)
+  --project <path>   Absolute path to project root (optional, defaults to cwd)
+
+Output:
+  JSON ToolResult with:
+  - runId: The run UUID (existing or newly created)
+  - resumed: true if an existing run was found, false if a new run was created
+  - flow: The workflow name
+  - featureId: The feature identifier
+
+Examples:
+  # Resume or create a run for a feature
+  rp1 agent-tools emit resume-run \\
+    --feature my-feature \\
+    --flow build \\
+    --project /path/to/project
+`,
+	)
+	.action(
+		async (options: {
+			feature: string;
+			flow: string;
+			project?: string;
+		}): Promise<void> => {
+			const toolName = "emit";
+
+			const projectPath = options.project ?? process.cwd();
+
+			if (!projectPath.startsWith("/")) {
+				console.error(
+					createErrorResponse(
+						toolName,
+						`Project path must be absolute. Received: ${projectPath}`,
+					),
+				);
+				process.exit(1);
+			}
+
+			const resolvedResult = await resolveProjectPath(projectPath)();
+
+			if (E.isLeft(resolvedResult)) {
+				console.error(
+					createErrorResponse(
+						toolName,
+						formatError(resolvedResult.left, false),
+					),
+				);
+				process.exit(1);
+			}
+
+			const dbResult = await getEmitDatabase()();
+
+			if (E.isLeft(dbResult)) {
+				console.error(
+					createErrorResponse(toolName, formatError(dbResult.left, false)),
+				);
+				process.exit(1);
+			}
+
+			const db = dbResult.right;
+			const result = findOrCreateRun(db, {
+				flow: options.flow,
+				featureId: options.feature,
+				projectPath: resolvedResult.right.projectPath,
+			});
+
+			console.log(
+				formatOutput({
+					success: true,
+					tool: toolName,
+					data: {
+						runId: result.runId,
+						resumed: result.resumed,
+						flow: options.flow,
+						featureId: options.feature,
+					},
+				}),
+			);
 			process.exit(0);
 		},
 	);

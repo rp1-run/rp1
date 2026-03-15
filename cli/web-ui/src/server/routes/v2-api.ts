@@ -1414,34 +1414,52 @@ export async function handleV2StatusNotifyRequest(
 	ctx: ApiContext,
 ): Promise<Response> {
 	try {
-		const body = (await req.json()) as {
-			type?: string;
-			projectPath?: string;
-			feature?: string;
-			status?: string;
-			workflow?: string;
-			runId?: string;
-			previousState?: string | null;
-			newState?: string;
-			stepStatus?: string;
-			artifact?: {
-				path: string;
-				type: string;
-				step: string | null;
-				runId: string | null;
-			};
-		};
+		let body: Record<string, unknown>;
+		try {
+			body = (await req.json()) as Record<string, unknown>;
+		} catch {
+			console.warn(
+				"[notify] Malformed JSON in status notify request, discarding",
+			);
+			return errorResponse("Malformed JSON body", 400);
+		}
 
-		if (body.type === "artifact") {
-			if (!body.projectPath || !body.feature || !body.artifact) {
+		if (!body || typeof body !== "object") {
+			console.warn(
+				"[notify] Invalid body in status notify request, discarding",
+			);
+			return errorResponse("Invalid request body", 400);
+		}
+
+		// New typed event envelope format (type: "event")
+		if (body.type === "event") {
+			const eventType = body.eventType as string | undefined;
+			const eventId = body.eventId as number | undefined;
+			const runId = body.runId as string | undefined;
+			const projectPath = body.projectPath as string | undefined;
+			const featureId = body.featureId as string | undefined;
+			const step = (body.step as string | null) ?? null;
+			const data = (body.data as Record<string, unknown> | null) ?? null;
+			const createdAt = (body.createdAt as string) ?? new Date().toISOString();
+
+			if (
+				!projectPath ||
+				!featureId ||
+				!eventType ||
+				eventId == null ||
+				!runId
+			) {
+				console.warn(
+					"[notify] Malformed event notification, missing required fields, discarding",
+				);
 				return errorResponse(
-					"Missing required fields: projectPath, feature, artifact",
+					"Missing required fields for event notification: projectPath, featureId, eventType, eventId, runId",
 					400,
 				);
 			}
 
 			const projects = await getAllProjects();
-			const project = projects.find((p) => p.path === body.projectPath);
+			const project = projects.find((p) => p.path === projectPath);
 
 			if (!project) {
 				return jsonResponse({
@@ -1450,16 +1468,61 @@ export async function handleV2StatusNotifyRequest(
 				});
 			}
 
-			ctx.websocketHub?.broadcastArtifact(
+			ctx.websocketHub?.broadcastEvent(
 				project.id,
-				body.feature,
-				body.artifact,
+				eventId,
+				eventType,
+				runId,
+				featureId,
+				step,
+				data,
+				createdAt,
 			);
+
+			return jsonResponse({ notified: true, projectId: project.id, eventId });
+		}
+
+		// Legacy artifact format
+		if (body.type === "artifact") {
+			const projectPath = body.projectPath as string | undefined;
+			const feature = body.feature as string | undefined;
+			const artifact = body.artifact as
+				| {
+						path: string;
+						type: string;
+						step: string | null;
+						runId: string | null;
+				  }
+				| undefined;
+
+			if (!projectPath || !feature || !artifact) {
+				return errorResponse(
+					"Missing required fields: projectPath, feature, artifact",
+					400,
+				);
+			}
+
+			const projects = await getAllProjects();
+			const project = projects.find((p) => p.path === projectPath);
+
+			if (!project) {
+				return jsonResponse({
+					notified: false,
+					reason: "project_not_registered",
+				});
+			}
+
+			ctx.websocketHub?.broadcastArtifact(project.id, feature, artifact);
 
 			return jsonResponse({ notified: true, projectId: project.id });
 		}
 
-		if (!body.projectPath || !body.feature || !body.status) {
+		// Legacy status change format
+		const projectPath = body.projectPath as string | undefined;
+		const feature = body.feature as string | undefined;
+		const status = body.status as string | undefined;
+
+		if (!projectPath || !feature || !status) {
 			return errorResponse(
 				"Missing required fields: projectPath, feature, status",
 				400,
@@ -1467,7 +1530,7 @@ export async function handleV2StatusNotifyRequest(
 		}
 
 		const projects = await getAllProjects();
-		const project = projects.find((p) => p.path === body.projectPath);
+		const project = projects.find((p) => p.path === projectPath);
 
 		if (!project) {
 			return jsonResponse({
@@ -1476,17 +1539,16 @@ export async function handleV2StatusNotifyRequest(
 			});
 		}
 
-		const step = body.newState ?? undefined;
+		const step = (body.newState as string) ?? undefined;
+		const workflow = body.workflow as string | undefined;
 		const runStatus =
-			body.workflow && body.status
-				? mapNotifyStatusToRunStatus(body.status)
-				: undefined;
-		const stepStatus = body.stepStatus ?? undefined;
+			workflow && status ? mapNotifyStatusToRunStatus(status) : undefined;
+		const stepStatus = (body.stepStatus as string) ?? undefined;
 
 		ctx.websocketHub?.broadcastStatusChange(
 			project.id,
-			body.feature,
-			body.status,
+			feature,
+			status,
 			step,
 			runStatus,
 			stepStatus,
@@ -1494,6 +1556,9 @@ export async function handleV2StatusNotifyRequest(
 
 		return jsonResponse({ notified: true, projectId: project.id });
 	} catch (error) {
+		console.warn(
+			`[notify] Failed to process notification: ${String(error)}, discarding`,
+		);
 		return errorResponse(`Failed to process notification: ${String(error)}`);
 	}
 }

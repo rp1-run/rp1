@@ -18,8 +18,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
 	closeDatabase,
+	countEventsSince,
 	deriveRunStatus,
+	findOrCreateRun,
+	getActiveRunsSnapshot,
 	getEmitDatabase,
+	getEventsSince,
+	getMaxEventId,
 	getSkippableSteps,
 	getStepStatuses,
 	insertEvent,
@@ -675,6 +680,168 @@ describe("emit database", () => {
 		});
 	});
 
+	describe("findOrCreateRun", () => {
+		test("returns existing non-terminal run", async () => {
+			const dbPath = join(tempDir, "resume-existing.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-active",
+				flow: "build",
+				featureId: "feat-resume",
+				projectPath: "/project/resume",
+			});
+
+			insertEvent(db, {
+				runId: "run-active",
+				type: "status_change",
+				step: "requirements",
+				data: JSON.stringify({ status: "running" }),
+			});
+			deriveRunStatus(db, "run-active");
+
+			const result = findOrCreateRun(db, {
+				flow: "build",
+				featureId: "feat-resume",
+				projectPath: "/project/resume",
+			});
+
+			expect(result.runId).toBe("run-active");
+			expect(result.resumed).toBe(true);
+		});
+
+		test("returns most recent non-terminal run when multiple exist", async () => {
+			const dbPath = join(tempDir, "resume-multiple.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-older",
+				flow: "build",
+				featureId: "feat-multi",
+				projectPath: "/project/multi",
+			});
+
+			insertEvent(db, {
+				runId: "run-older",
+				type: "status_change",
+				step: "step1",
+				data: JSON.stringify({ status: "running" }),
+			});
+			deriveRunStatus(db, "run-older");
+
+			// Small delay to ensure different created_at timestamps
+			await new Promise((resolve) => setTimeout(resolve, 10));
+
+			insertRun(db, {
+				id: "run-newer",
+				flow: "build",
+				featureId: "feat-multi",
+				projectPath: "/project/multi",
+			});
+
+			insertEvent(db, {
+				runId: "run-newer",
+				type: "status_change",
+				step: "step1",
+				data: JSON.stringify({ status: "running" }),
+			});
+			deriveRunStatus(db, "run-newer");
+
+			const result = findOrCreateRun(db, {
+				flow: "build",
+				featureId: "feat-multi",
+				projectPath: "/project/multi",
+			});
+
+			expect(result.runId).toBe("run-newer");
+			expect(result.resumed).toBe(true);
+		});
+
+		test("creates new run when only terminal runs exist", async () => {
+			const dbPath = join(tempDir, "resume-terminal.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-done",
+				flow: "build",
+				featureId: "feat-terminal",
+				projectPath: "/project/terminal",
+			});
+
+			insertEvent(db, {
+				runId: "run-done",
+				type: "status_change",
+				step: "step1",
+				data: JSON.stringify({ status: "completed" }),
+			});
+			deriveRunStatus(db, "run-done");
+
+			const result = findOrCreateRun(db, {
+				flow: "build",
+				featureId: "feat-terminal",
+				projectPath: "/project/terminal",
+			});
+
+			expect(result.runId).not.toBe("run-done");
+			expect(result.resumed).toBe(false);
+		});
+
+		test("creates new run when no runs exist for feature", async () => {
+			const dbPath = join(tempDir, "resume-none.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			const result = findOrCreateRun(db, {
+				flow: "build",
+				featureId: "feat-new",
+				projectPath: "/project/new",
+			});
+
+			expect(result.runId).toBeTruthy();
+			expect(result.resumed).toBe(false);
+
+			const row = db
+				.prepare("SELECT * FROM runs WHERE id = ?")
+				.get(result.runId) as {
+				id: string;
+				flow: string;
+				feature_id: string;
+			} | null;
+
+			expect(row).not.toBeNull();
+			expect(row?.flow).toBe("build");
+			expect(row?.feature_id).toBe("feat-new");
+		});
+
+		test("does not return run from different project", async () => {
+			const dbPath = join(tempDir, "resume-project-isolation.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-other-project",
+				flow: "build",
+				featureId: "feat-isolated",
+				projectPath: "/project/other",
+			});
+
+			insertEvent(db, {
+				runId: "run-other-project",
+				type: "status_change",
+				step: "step1",
+				data: JSON.stringify({ status: "running" }),
+			});
+			deriveRunStatus(db, "run-other-project");
+
+			const result = findOrCreateRun(db, {
+				flow: "build",
+				featureId: "feat-isolated",
+				projectPath: "/project/this",
+			});
+
+			expect(result.runId).not.toBe("run-other-project");
+			expect(result.resumed).toBe(false);
+		});
+	});
+
 	describe("legacy cleanup", () => {
 		test("deletes status.db when present", async () => {
 			const legacyDir = join(tempDir, "legacy-cleanup");
@@ -698,6 +865,332 @@ describe("emit database", () => {
 			const db = await expectTaskRight(getEmitDatabase(dbPath));
 
 			expect(db).toBeDefined();
+		});
+	});
+
+	describe("getEventsSince", () => {
+		test("returns events after the given ID in chronological order", async () => {
+			const dbPath = join(tempDir, "events-since.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-es",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			const e1 = insertEvent(db, {
+				runId: "run-es",
+				type: "status_change",
+				step: "step1",
+				data: JSON.stringify({ status: "running" }),
+			});
+			const e2 = insertEvent(db, {
+				runId: "run-es",
+				type: "status_change",
+				step: "step2",
+				data: JSON.stringify({ status: "running" }),
+			});
+			const e3 = insertEvent(db, {
+				runId: "run-es",
+				type: "btw_update",
+				data: JSON.stringify({ message: "hello" }),
+			});
+
+			const events = getEventsSince(db, e1.id);
+
+			expect(events).toHaveLength(2);
+			expect(events[0].id).toBe(e2.id);
+			expect(events[1].id).toBe(e3.id);
+			expect(events[0].id).toBeLessThan(events[1].id);
+		});
+
+		test("returns empty array when no events after ID", async () => {
+			const dbPath = join(tempDir, "events-since-empty.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-es2",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			const e1 = insertEvent(db, {
+				runId: "run-es2",
+				type: "status_change",
+				step: "step1",
+				data: JSON.stringify({ status: "running" }),
+			});
+
+			const events = getEventsSince(db, e1.id);
+			expect(events).toHaveLength(0);
+		});
+
+		test("respects limit parameter", async () => {
+			const dbPath = join(tempDir, "events-since-limit.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-es3",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			for (let i = 0; i < 5; i++) {
+				insertEvent(db, {
+					runId: "run-es3",
+					type: "status_change",
+					step: `step${i}`,
+					data: JSON.stringify({ status: "running" }),
+				});
+			}
+
+			const events = getEventsSince(db, 0, 3);
+			expect(events).toHaveLength(3);
+		});
+
+		test("returns all events when afterId is 0", async () => {
+			const dbPath = join(tempDir, "events-since-zero.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-es4",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			insertEvent(db, {
+				runId: "run-es4",
+				type: "status_change",
+				step: "step1",
+				data: JSON.stringify({ status: "running" }),
+			});
+			insertEvent(db, {
+				runId: "run-es4",
+				type: "btw_update",
+				data: JSON.stringify({ message: "hi" }),
+			});
+
+			const events = getEventsSince(db, 0);
+			expect(events).toHaveLength(2);
+		});
+	});
+
+	describe("getMaxEventId", () => {
+		test("returns 0 when no events exist", async () => {
+			const dbPath = join(tempDir, "max-event-empty.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			expect(getMaxEventId(db)).toBe(0);
+		});
+
+		test("returns highest event ID", async () => {
+			const dbPath = join(tempDir, "max-event-id.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-mei",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			insertEvent(db, {
+				runId: "run-mei",
+				type: "status_change",
+				step: "step1",
+				data: JSON.stringify({ status: "running" }),
+			});
+			const e2 = insertEvent(db, {
+				runId: "run-mei",
+				type: "btw_update",
+				data: JSON.stringify({ message: "hi" }),
+			});
+
+			expect(getMaxEventId(db)).toBe(e2.id);
+		});
+	});
+
+	describe("countEventsSince", () => {
+		test("returns correct count of events after given ID", async () => {
+			const dbPath = join(tempDir, "count-since.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-cs",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			const e1 = insertEvent(db, {
+				runId: "run-cs",
+				type: "status_change",
+				step: "step1",
+				data: JSON.stringify({ status: "running" }),
+			});
+			insertEvent(db, {
+				runId: "run-cs",
+				type: "status_change",
+				step: "step2",
+				data: JSON.stringify({ status: "running" }),
+			});
+			insertEvent(db, {
+				runId: "run-cs",
+				type: "btw_update",
+				data: JSON.stringify({ message: "hi" }),
+			});
+
+			expect(countEventsSince(db, e1.id)).toBe(2);
+		});
+
+		test("returns 0 when no events after ID", async () => {
+			const dbPath = join(tempDir, "count-since-zero.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-cs2",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			const e1 = insertEvent(db, {
+				runId: "run-cs2",
+				type: "status_change",
+				step: "step1",
+				data: JSON.stringify({ status: "running" }),
+			});
+
+			expect(countEventsSince(db, e1.id)).toBe(0);
+		});
+
+		test("counts all events when afterId is 0", async () => {
+			const dbPath = join(tempDir, "count-since-all.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-cs3",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			insertEvent(db, {
+				runId: "run-cs3",
+				type: "status_change",
+				step: "step1",
+				data: JSON.stringify({ status: "running" }),
+			});
+			insertEvent(db, {
+				runId: "run-cs3",
+				type: "btw_update",
+				data: JSON.stringify({ message: "hi" }),
+			});
+
+			expect(countEventsSince(db, 0)).toBe(2);
+		});
+	});
+
+	describe("getActiveRunsSnapshot", () => {
+		test("returns non-terminal runs with steps and artifacts", async () => {
+			const dbPath = join(tempDir, "snapshot-active.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-snap-active",
+				flow: "build",
+				featureId: "feat-snap",
+				projectPath: "/p/snap",
+			});
+
+			insertEvent(db, {
+				runId: "run-snap-active",
+				type: "status_change",
+				step: "design",
+				data: JSON.stringify({ status: "running" }),
+			});
+			deriveRunStatus(db, "run-snap-active");
+
+			upsertArtifact(db, {
+				docId: "doc-snap-1",
+				runId: "run-snap-active",
+				path: "design.md",
+				type: "markdown",
+				projectPath: "/p/snap",
+				feature: "feat-snap",
+				step: "design",
+			});
+
+			const snapshot = getActiveRunsSnapshot(db);
+
+			expect(snapshot.length).toBeGreaterThanOrEqual(1);
+			const run = snapshot.find((r) => r.id === "run-snap-active");
+			expect(run).toBeDefined();
+			expect(run?.flow).toBe("build");
+			expect(run?.featureId).toBe("feat-snap");
+			expect(run?.status).toBe("running");
+			expect(run?.steps).toHaveLength(1);
+			expect(run?.steps[0].step).toBe("design");
+			expect(run?.steps[0].status).toBe("running");
+			expect(run?.artifacts).toHaveLength(1);
+			expect(run?.artifacts[0].docId).toBe("doc-snap-1");
+			expect(run?.artifacts[0].path).toBe("design.md");
+		});
+
+		test("excludes terminal runs from snapshot", async () => {
+			const dbPath = join(tempDir, "snapshot-terminal.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-snap-done",
+				flow: "build",
+				featureId: "feat-done",
+				projectPath: "/p/snap",
+			});
+
+			insertEvent(db, {
+				runId: "run-snap-done",
+				type: "status_change",
+				step: "review",
+				data: JSON.stringify({ status: "completed" }),
+			});
+			deriveRunStatus(db, "run-snap-done");
+
+			insertRun(db, {
+				id: "run-snap-active2",
+				flow: "build",
+				featureId: "feat-active",
+				projectPath: "/p/snap",
+			});
+
+			insertEvent(db, {
+				runId: "run-snap-active2",
+				type: "status_change",
+				step: "building",
+				data: JSON.stringify({ status: "running" }),
+			});
+			deriveRunStatus(db, "run-snap-active2");
+
+			const snapshot = getActiveRunsSnapshot(db);
+
+			const doneRun = snapshot.find((r) => r.id === "run-snap-done");
+			const activeRun = snapshot.find((r) => r.id === "run-snap-active2");
+
+			expect(doneRun).toBeUndefined();
+			expect(activeRun).toBeDefined();
+		});
+
+		test("returns empty array when no active runs exist", async () => {
+			const dbPath = join(tempDir, "snapshot-empty.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			const snapshot = getActiveRunsSnapshot(db);
+			expect(snapshot).toEqual([]);
 		});
 	});
 

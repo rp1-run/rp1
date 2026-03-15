@@ -167,47 +167,40 @@ const handleAnnotation = (input: EmitInput): TE.TaskEither<CLIError, void> => {
 };
 
 /**
- * Notify the daemon of a status change for immediate WebSocket broadcast.
+ * Notify the daemon of an event for immediate WebSocket broadcast.
+ * Uses the new typed event envelope format for all 6 event types.
  * Best-effort: failures are silently swallowed.
  */
 const notifyDaemon = async (
 	input: EmitInput,
 	_runStatus: Status,
+	eventId: number,
 ): Promise<void> => {
 	try {
-		const { connectToDaemon, notifyStatusChange } = await import(
+		const { connectToDaemon, notifyEvent } = await import(
 			"../../../web-ui/src/daemon/index.js"
 		);
 
 		const conn = await connectToDaemon();
 		if (conn) {
 			const featureId = (input.data.feature as string) ?? "unknown";
-
-			if (input.type === "status_change" && input.step) {
-				const stepStatus = input.data.status as string;
-				await notifyStatusChange(
-					conn,
-					input.projectPath,
-					featureId,
-					stepStatus,
-					{
-						workflow: "",
-						runId: input.runId,
-						newState: input.step,
-						stepStatus,
-					},
-				);
-			} else if (input.type === "artifact_registered") {
-				const { notifyArtifactChange } = await import(
-					"../../../web-ui/src/daemon/index.js"
-				);
-				await notifyArtifactChange(conn, input.projectPath, featureId, {
-					path: input.data.path as string,
-					type: (input.data.type as string) ?? "other",
-					step: input.step ?? null,
-					runId: input.runId,
-				});
+			let data: Record<string, unknown> | null = null;
+			try {
+				data = { ...input.data };
+			} catch {
+				data = null;
 			}
+
+			await notifyEvent(conn, {
+				eventType: input.type,
+				eventId,
+				runId: input.runId,
+				projectPath: input.projectPath,
+				featureId,
+				step: input.step ?? null,
+				data,
+				createdAt: new Date().toISOString(),
+			});
 		}
 	} catch {
 		// Daemon not available - polling will pick up the change
@@ -274,9 +267,9 @@ export const executeEmit = (
 						}),
 					);
 				}),
-				TE.chainFirst(({ runStatus }) =>
+				TE.chainFirst(({ event, runStatus }) =>
 					TE.fromTask(async () => {
-						await notifyDaemon(input, runStatus);
+						await notifyDaemon(input, runStatus, event.id);
 					}),
 				),
 				TE.map(

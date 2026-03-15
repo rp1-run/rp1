@@ -6,6 +6,7 @@ import type { WebSocketHub } from "./websocket";
 interface WebSocketData {
 	projectPath: string;
 	projectId?: string;
+	lastEventId?: number;
 }
 
 export interface ServerConfig {
@@ -59,8 +60,20 @@ export function startServer(config: ServerConfig): AppServer {
 
 			if (pathname === "/ws") {
 				const projectIdParam = url.searchParams.get("projectId");
+				const lastEventIdParam = url.searchParams.get("lastEventId");
+				const lastEventId =
+					lastEventIdParam != null
+						? Number.parseInt(lastEventIdParam, 10)
+						: undefined;
 				const upgraded = server.upgrade(req, {
-					data: { projectPath, projectId: projectIdParam ?? undefined },
+					data: {
+						projectPath,
+						projectId: projectIdParam ?? undefined,
+						lastEventId:
+							lastEventId != null && !Number.isNaN(lastEventId)
+								? lastEventId
+								: undefined,
+					},
 				});
 				if (!upgraded) {
 					return new Response("WebSocket upgrade failed", { status: 400 });
@@ -77,7 +90,8 @@ export function startServer(config: ServerConfig): AppServer {
 		websocket: {
 			open(ws: ServerWebSocket<WebSocketData>) {
 				const projectId = ws.data.projectId;
-				websocketHub.addClient(ws, projectId);
+				const lastEventId = ws.data.lastEventId;
+				websocketHub.addClient(ws, projectId, lastEventId);
 				if (projectId && fileWatcherPool) {
 					const { getProject } = require("./registry");
 					getProject(projectId).then((project: { path: string } | null) => {

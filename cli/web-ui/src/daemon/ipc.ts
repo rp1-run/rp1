@@ -170,6 +170,22 @@ export interface ArtifactNotifyPayload {
 }
 
 /**
+ * Typed event notification payload for the new event-sourced IPC format.
+ * Uses `type: "event"` as discriminator to distinguish from legacy formats.
+ */
+export interface EventNotificationPayload {
+	readonly type: "event";
+	readonly eventType: string;
+	readonly eventId: number;
+	readonly runId: string;
+	readonly projectPath: string;
+	readonly featureId: string;
+	readonly step: string | null;
+	readonly data: Record<string, unknown> | null;
+	readonly createdAt: string;
+}
+
+/**
  * Notify the daemon of an artifact registration for immediate WebSocket broadcast.
  * Fails silently if daemon is not running - this is expected behavior.
  */
@@ -188,6 +204,31 @@ export async function notifyArtifactChange(
 				projectPath,
 				feature,
 				artifact,
+			}),
+			signal: AbortSignal.timeout(1000),
+		});
+		return response.ok;
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Notify the daemon of a typed event for immediate WebSocket broadcast.
+ * Sends the new event envelope format with `type: "event"` discriminator.
+ * Fails silently if daemon is not running - this is expected behavior.
+ */
+export async function notifyEvent(
+	conn: DaemonConnection,
+	payload: Omit<EventNotificationPayload, "type">,
+): Promise<boolean> {
+	try {
+		const response = await fetch(`${conn.baseUrl}/api/v2/status/notify`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				type: "event",
+				...payload,
 			}),
 			signal: AbortSignal.timeout(1000),
 		});

@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS runs (
 CREATE INDEX IF NOT EXISTS idx_runs_project ON runs(project_path);
 CREATE INDEX IF NOT EXISTS idx_runs_feature ON runs(project_path, feature_id);
 CREATE INDEX IF NOT EXISTS idx_runs_status ON runs(status);
+CREATE INDEX IF NOT EXISTS idx_runs_feature_status ON runs(project_path, feature_id, status);
 
 CREATE TABLE IF NOT EXISTS events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -115,8 +116,24 @@ CREATE INDEX IF NOT EXISTS idx_tasks_project ON tasks(project_path);
 CREATE INDEX IF NOT EXISTS idx_tasks_project_status ON tasks(project_path, status, created_at);
 `;
 
+/** Terminal statuses that indicate a run is no longer active */
+const TERMINAL_STATUSES: readonly Status[] = ["completed", "failed", "skipped"];
+
 /** Cached database connection (singleton pattern). */
 let dbInstance: Database | null = null;
+
+/** Input for finding or creating a run via resume-run */
+export interface ResumeRunInput {
+	readonly flow: string;
+	readonly featureId: string;
+	readonly projectPath: string;
+}
+
+/** Result of a find-or-create run operation */
+export interface ResumeRunResult {
+	readonly runId: string;
+	readonly resumed: boolean;
+}
 
 /** Input for creating or retrieving a run */
 export interface RunInput {
@@ -322,6 +339,10 @@ export const getEmitDatabase = (
 
 			if (!tableCheck) {
 				db.exec(SCHEMA_SQL);
+			} else {
+				db.exec(
+					"CREATE INDEX IF NOT EXISTS idx_runs_feature_status ON runs(project_path, feature_id, status);",
+				);
 			}
 
 			cleanupLegacyDb(dbPath);
@@ -361,6 +382,49 @@ export const insertRun = (db: Database, input: RunInput): RunRecord => {
 		}) as RunRow;
 
 	return runRowToRecord(row);
+};
+
+/**
+ * Find the most recent non-terminal run for a feature, or create a new one.
+ * Uses indexed query on (project_path, feature_id) + status filter.
+ */
+export const findOrCreateRun = (
+	db: Database,
+	input: ResumeRunInput,
+): ResumeRunResult => {
+	const terminalPlaceholders = TERMINAL_STATUSES.map(() => "?").join(", ");
+
+	const existing = db
+		.prepare(
+			`SELECT * FROM runs
+			 WHERE feature_id = ?
+			   AND project_path = ?
+			   AND status NOT IN (${terminalPlaceholders})
+			 ORDER BY created_at DESC
+			 LIMIT 1`,
+		)
+		.get(
+			input.featureId,
+			input.projectPath,
+			...TERMINAL_STATUSES,
+		) as RunRow | null;
+
+	if (existing) {
+		return { runId: existing.id, resumed: true };
+	}
+
+	const newId = crypto.randomUUID();
+	db.prepare(
+		`INSERT INTO runs (id, flow, feature_id, project_path)
+		 VALUES ($id, $flow, $featureId, $projectPath)`,
+	).run({
+		$id: newId,
+		$flow: input.flow,
+		$featureId: input.featureId,
+		$projectPath: input.projectPath,
+	});
+
+	return { runId: newId, resumed: false };
 };
 
 /**
@@ -549,6 +613,106 @@ export const getSkippableSteps = (
 	}
 
 	return skippable;
+};
+
+/**
+ * Get events after a given ID, ordered chronologically.
+ * Used by daemon startup recovery and WebSocket replay.
+ */
+export const getEventsSince = (
+	db: Database,
+	afterId: number,
+	limit?: number,
+): EventRecord[] => {
+	if (limit != null) {
+		const rows = db
+			.prepare(
+				"SELECT * FROM events WHERE id > $afterId ORDER BY id ASC LIMIT $limit",
+			)
+			.all({ $afterId: afterId, $limit: limit }) as EventRow[];
+		return rows.map(eventRowToRecord);
+	}
+
+	const rows = db
+		.prepare("SELECT * FROM events WHERE id > $afterId ORDER BY id ASC")
+		.all({ $afterId: afterId }) as EventRow[];
+	return rows.map(eventRowToRecord);
+};
+
+/**
+ * Count events after a given ID.
+ */
+export const countEventsSince = (db: Database, afterId: number): number => {
+	const row = db
+		.prepare("SELECT COUNT(*) as count FROM events WHERE id > $afterId")
+		.get({ $afterId: afterId }) as { count: number };
+	return row.count;
+};
+
+/** Snapshot of an active run with its steps and artifacts */
+export interface ActiveRunSnapshot {
+	readonly id: string;
+	readonly flow: string;
+	readonly featureId: string;
+	readonly projectPath: string;
+	readonly status: Status;
+	readonly steps: readonly { step: string; status: Status }[];
+	readonly artifacts: readonly {
+		docId: string;
+		path: string;
+		type: string;
+	}[];
+}
+
+/**
+ * Build a snapshot of all active (non-terminal) runs with their steps and artifacts.
+ */
+export const getActiveRunsSnapshot = (db: Database): ActiveRunSnapshot[] => {
+	const terminalPlaceholders = TERMINAL_STATUSES.map(() => "?").join(", ");
+
+	const runRows = db
+		.prepare(
+			`SELECT * FROM runs
+			 WHERE status NOT IN (${terminalPlaceholders})
+			 ORDER BY created_at DESC`,
+		)
+		.all(...TERMINAL_STATUSES) as RunRow[];
+
+	return runRows.map((runRow) => {
+		const steps = getStepStatuses(db, runRow.id);
+
+		const artifactRows = db
+			.prepare("SELECT * FROM artifacts WHERE run_id = $runId")
+			.all({ $runId: runRow.id }) as ArtifactRow[];
+
+		const artifacts = artifactRows.map((a) => ({
+			docId: a.doc_id,
+			path: a.path,
+			type: a.type,
+		}));
+
+		return {
+			id: runRow.id,
+			flow: runRow.flow,
+			featureId: runRow.feature_id,
+			projectPath: runRow.project_path,
+			status: runRow.status as Status,
+			steps,
+			artifacts,
+		};
+	});
+};
+
+/**
+ * Get the highest event ID currently in the database.
+ * Returns 0 if no events exist.
+ */
+export const getMaxEventId = (db: Database): number => {
+	const row = db.prepare("SELECT MAX(id) as max_id FROM events").get() as {
+		max_id: number | null;
+	};
+
+	return row.max_id ?? 0;
 };
 
 /**
