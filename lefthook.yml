@@ -22,6 +22,8 @@ pre-push:
       run: cd cli && bun run typecheck
     typecheck-webui:
       run: cd cli/web-ui && npx tsc --noEmit
+    plugin-dist:
+      run: just check-plugin-dist
     verify-evals:
       run: "just verify-evals || echo 'WARNING: Unattested prompt changes detected. Run: just run-evals <suite> && just attest-evals <output-file>'"
       fail_text: "Advisory: Some prompts need re-attestation"
