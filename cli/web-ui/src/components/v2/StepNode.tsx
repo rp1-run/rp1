@@ -191,7 +191,7 @@ export function StepNode({
 	const showDuration = data.startedAt !== null;
 	const showTaskProgress =
 		data.taskCount !== null && data.completedTaskCount !== null;
-	const hasArtifacts = data.artifacts.length > 0;
+	const hasArtifacts = data.artifacts.length > 0 && data.status !== "pending";
 
 	const resolvedSourcePosition = sourcePosition ?? Position.Right;
 	const resolvedTargetPosition = targetPosition ?? Position.Left;
