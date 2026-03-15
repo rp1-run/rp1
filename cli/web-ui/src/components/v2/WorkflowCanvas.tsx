@@ -38,6 +38,7 @@ export interface WorkflowCanvasProps {
 	readonly steps: readonly Step[];
 	readonly artifacts?: readonly Artifact[];
 	readonly agentSteps?: Readonly<Record<string, readonly AgentTask[]>> | null;
+	readonly subflows?: Readonly<Record<string, string>> | null;
 	readonly className?: string;
 }
 
@@ -46,24 +47,36 @@ function WorkflowCanvasInner({
 	steps,
 	artifacts,
 	agentSteps,
+	subflows,
 }: Omit<WorkflowCanvasProps, "className">) {
 	const { fitView } = useReactFlow();
 	const containerRef = useRef<HTMLDivElement>(null);
 	const initializedRef = useRef(false);
 
-	const [expandedSteps, setExpandedSteps] = useState<Set<string>>(() =>
-		getStepsWithSubFlows(agentSteps),
-	);
+	const [expandedSteps, setExpandedSteps] = useState<Set<string>>(() => {
+		const fromAgents = getStepsWithSubFlows(agentSteps);
+		if (subflows) {
+			for (const stepId of Object.keys(subflows)) {
+				fromAgents.add(stepId);
+			}
+		}
+		return fromAgents;
+	});
 
 	useEffect(() => {
-		if (!initializedRef.current && agentSteps) {
-			const stepsWithSubFlows = getStepsWithSubFlows(agentSteps);
-			if (stepsWithSubFlows.size > 0) {
-				setExpandedSteps(stepsWithSubFlows);
+		if (!initializedRef.current) {
+			const combined = getStepsWithSubFlows(agentSteps);
+			if (subflows) {
+				for (const stepId of Object.keys(subflows)) {
+					combined.add(stepId);
+				}
+			}
+			if (combined.size > 0) {
+				setExpandedSteps(combined);
 				initializedRef.current = true;
 			}
 		}
-	}, [agentSteps]);
+	}, [agentSteps, subflows]);
 
 	const handleToggle = useCallback((stepId: string) => {
 		setExpandedSteps((prev) => {
@@ -100,8 +113,9 @@ function WorkflowCanvasInner({
 			agentSteps,
 			expandedSteps,
 			artifacts,
+			subflows: subflows ?? undefined,
 		});
-	}, [workflow, steps, artifacts, agentSteps, expandedSteps]);
+	}, [workflow, steps, artifacts, agentSteps, expandedSteps, subflows]);
 
 	const { layoutNodes, isLayoutReady } = useGraphLayout(
 		graph?.nodes ?? [],
@@ -149,6 +163,7 @@ export function WorkflowCanvas({
 	steps,
 	artifacts,
 	agentSteps,
+	subflows,
 	className,
 }: WorkflowCanvasProps) {
 	return (
@@ -160,6 +175,7 @@ export function WorkflowCanvas({
 						steps={steps}
 						artifacts={artifacts}
 						agentSteps={agentSteps}
+						subflows={subflows}
 					/>
 				) : (
 					<div className="flex h-full items-center justify-center text-muted-foreground">

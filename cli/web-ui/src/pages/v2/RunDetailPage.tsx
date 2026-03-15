@@ -202,6 +202,7 @@ export function RunDetailPage() {
 					steps={displaySteps}
 					artifacts={run?.artifacts}
 					agentSteps={run?.agentSteps}
+					subflows={run?.subflows}
 					className="h-full w-full"
 				/>
 			</section>
