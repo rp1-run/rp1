@@ -634,6 +634,11 @@ workCommand
 		"--step <step>",
 		"Workflow step that produced this artifact (associates artifact with a step for canvas display)",
 	)
+	.option(
+		"--subflow",
+		"Mark this artifact as a subflow diagram (Mermaid stateDiagram-v2 rendered as expandable child nodes)",
+		false,
+	)
 	.addHelpText(
 		"after",
 		`
@@ -649,6 +654,7 @@ Arguments:
   --path <path>        Relative path to the artifact file (required)
   --type <type>        Artifact type: ${VALID_ARTIFACT_TYPES.join(", ")} (optional, auto-classified)
   --step <step>        Workflow step that produced this artifact (optional, for canvas display)
+  --subflow            Mark as subflow diagram for expandable canvas rendering (optional)
 
 Validation:
   - Project path must be absolute
@@ -695,6 +701,7 @@ Examples:
 			path: string;
 			type?: string;
 			step?: string;
+			subflow: boolean;
 		}): Promise<void> => {
 			const toolName = "work";
 
@@ -754,6 +761,7 @@ Examples:
 				type: artifactType as (typeof VALID_ARTIFACT_TYPES)[number],
 				worktreePath: resolved.worktreePath,
 				step: options.step,
+				subflow: options.subflow,
 			})();
 
 			if (E.isLeft(result)) {

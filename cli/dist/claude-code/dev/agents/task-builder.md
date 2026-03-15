@@ -186,7 +186,7 @@ stateDiagram-v2
 
 Use the actual task IDs as state names and task descriptions as labels. For single tasks, produce a simple `[*] --> TaskState --> [*]` diagram.
 
-2. Register as artifact with step association:
+2. Register as artifact with step association and subflow flag:
 
 ```bash
 rp1 agent-tools work artifact \
@@ -194,7 +194,8 @@ rp1 agent-tools work artifact \
   --feature {FEATURE_ID} \
   --run-id {RUN_ID} \
   --path "work/features/{FEATURE_ID}/{FEATURE_ID}-{TASK_IDS}.mmd" \
-  --step {STEP_NAME}
+  --step {STEP_NAME} \
+  --subflow
 ```
 
 Where `{STEP_NAME}` is the workflow step these tasks belong to (from the task list context). Skip if WORKFLOW or RUN_ID is empty. Skip in quick-build mode.

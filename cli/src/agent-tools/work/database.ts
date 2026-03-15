@@ -24,7 +24,7 @@ import type {
 import { VALID_STATUSES } from "./models.js";
 
 /** Current schema version - must match highest migration number */
-export const CURRENT_SCHEMA_VERSION = 9;
+export const CURRENT_SCHEMA_VERSION = 10;
 
 /** Default database file location. Override with RP1_STATUS_DB env var (used by evals to avoid polluting local DB). */
 const DEFAULT_DB_PATH =
@@ -76,7 +76,8 @@ CREATE TABLE IF NOT EXISTS artifacts (
     type TEXT NOT NULL DEFAULT 'other',
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     worktree_path TEXT,
-    step TEXT
+    step TEXT,
+    subflow INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS idx_artifacts_run ON artifacts(project_path, feature, run_id);
@@ -154,6 +155,9 @@ ALTER TABLE artifacts ADD COLUMN worktree_path TEXT;`,
 
 	9: `-- Migration: Add step column to artifacts for step-level association
 ALTER TABLE artifacts ADD COLUMN step TEXT;`,
+
+	10: `-- Migration: Add subflow boolean column to artifacts for subflow diagram identification
+ALTER TABLE artifacts ADD COLUMN subflow INTEGER NOT NULL DEFAULT 0;`,
 };
 
 /** Get current database schema version from PRAGMA user_version */
@@ -553,8 +557,8 @@ export const insertArtifact = (
 			TE.tryCatch(
 				async () => {
 					const stmt = db.prepare(`
-						INSERT INTO artifacts (project_path, feature, run_id, path, type, worktree_path, step)
-						VALUES ($projectPath, $feature, $runId, $path, $type, $worktreePath, $step)
+						INSERT INTO artifacts (project_path, feature, run_id, path, type, worktree_path, step, subflow)
+						VALUES ($projectPath, $feature, $runId, $path, $type, $worktreePath, $step, $subflow)
 						RETURNING id, created_at
 					`);
 
@@ -566,6 +570,7 @@ export const insertArtifact = (
 						$type: input.type,
 						$worktreePath: input.worktreePath ?? null,
 						$step: input.step ?? null,
+						$subflow: input.subflow ? 1 : 0,
 					}) as { id: number; created_at: string };
 
 					return {
@@ -603,7 +608,7 @@ export const queryArtifactsForFeature = (
 			TE.tryCatch(
 				async () => {
 					let sql = `
-						SELECT id, project_path, feature, run_id, path, type, created_at, worktree_path, step
+						SELECT id, project_path, feature, run_id, path, type, created_at, worktree_path, step, subflow
 						FROM artifacts
 						WHERE project_path = $projectPath AND feature = $feature
 					`;
@@ -629,6 +634,7 @@ export const queryArtifactsForFeature = (
 						created_at: string;
 						worktree_path: string | null;
 						step: string | null;
+						subflow: number;
 					}>;
 
 					return rows.map(
@@ -642,6 +648,7 @@ export const queryArtifactsForFeature = (
 							createdAt: row.created_at,
 							worktreePath: row.worktree_path,
 							step: row.step,
+							subflow: row.subflow === 1,
 						}),
 					);
 				},

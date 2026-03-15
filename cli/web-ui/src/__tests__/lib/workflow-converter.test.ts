@@ -3,6 +3,7 @@ import type { WorkflowDefinition } from "../../hooks/useWorkflowSteps";
 import {
 	buildCanvasGraph,
 	getStepsWithSubFlows,
+	layoutSubFlowFromDiagram,
 	parseMermaidStateDiagram,
 	stepsToReactFlow,
 	workflowToReactFlow,
@@ -565,6 +566,296 @@ describe("buildCanvasGraph", () => {
 
 		const regularNode = result.nodes.find((n) => n.id === "s2");
 		expect(regularNode?.type).toBe("stepNode");
+	});
+});
+
+describe("layoutSubFlowFromDiagram", () => {
+	test("parses a stateDiagram-v2 and produces correct nodes and edges", () => {
+		const diagram = `stateDiagram-v2
+    [*] --> T1
+    T1 --> T2
+    T2 --> T3
+    T3 --> [*]`;
+
+		const tasks: AgentTask[] = [
+			makeAgentTask("T1", { name: "Auth module", status: "completed" }),
+			makeAgentTask("T2", { name: "Add routes", status: "running" }),
+			makeAgentTask("T3", { name: "Write tests", status: "pending" }),
+		];
+
+		const result = layoutSubFlowFromDiagram("build", diagram, tasks);
+
+		expect(result.childNodes).toHaveLength(3);
+		expect(result.childEdges).toHaveLength(2);
+
+		const nodeIds = result.childNodes.map((n) => n.id);
+		expect(nodeIds).toContain("build-task-T1");
+		expect(nodeIds).toContain("build-task-T2");
+		expect(nodeIds).toContain("build-task-T3");
+
+		const t1Node = result.childNodes.find((n) => n.id === "build-task-T1");
+		expect(t1Node?.data.taskId).toBe("T1");
+		expect(t1Node?.data.status).toBe("completed");
+		expect(t1Node?.data.label).toBe("Auth module");
+		expect(t1Node?.parentId).toBe("build");
+		expect(t1Node?.extent).toBe("parent");
+		expect(t1Node?.type).toBe("taskNode");
+
+		const t2Node = result.childNodes.find((n) => n.id === "build-task-T2");
+		expect(t2Node?.data.status).toBe("running");
+
+		const edge1 = result.childEdges.find(
+			(e) => e.source === "build-task-T1" && e.target === "build-task-T2",
+		);
+		expect(edge1).toBeDefined();
+		expect(edge1?.type).toBe("floating");
+
+		const edge2 = result.childEdges.find(
+			(e) => e.source === "build-task-T2" && e.target === "build-task-T3",
+		);
+		expect(edge2).toBeDefined();
+	});
+
+	test("handles branching diagram with non-linear dependencies", () => {
+		const diagram = `stateDiagram-v2
+    [*] --> T1
+    T1 --> T2
+    T1 --> T3
+    T2 --> T4
+    T3 --> T4
+    T4 --> [*]`;
+
+		const tasks: AgentTask[] = [
+			makeAgentTask("T1", { name: "Setup" }),
+			makeAgentTask("T2", { name: "Branch A" }),
+			makeAgentTask("T3", { name: "Branch B" }),
+			makeAgentTask("T4", { name: "Merge" }),
+		];
+
+		const result = layoutSubFlowFromDiagram("step", diagram, tasks);
+
+		expect(result.childNodes).toHaveLength(4);
+		expect(result.childEdges).toHaveLength(4);
+
+		const edgeSources = result.childEdges.map((e) => [e.source, e.target]);
+		expect(edgeSources).toContainEqual(["step-task-T1", "step-task-T2"]);
+		expect(edgeSources).toContainEqual(["step-task-T1", "step-task-T3"]);
+		expect(edgeSources).toContainEqual(["step-task-T2", "step-task-T4"]);
+		expect(edgeSources).toContainEqual(["step-task-T3", "step-task-T4"]);
+	});
+
+	test("merges task status by matching state ID to task ID", () => {
+		const diagram = `stateDiagram-v2
+    [*] --> T1
+    T1 --> T2
+    T2 --> [*]`;
+
+		const tasks: AgentTask[] = [
+			makeAgentTask("T1", {
+				name: "First task",
+				status: "completed",
+				agent: "builder",
+			}),
+			makeAgentTask("T2", {
+				name: "Second task",
+				status: "pending",
+				agent: "reviewer",
+			}),
+		];
+
+		const result = layoutSubFlowFromDiagram("parent", diagram, tasks);
+
+		const t1 = result.childNodes.find((n) => n.id === "parent-task-T1");
+		expect(t1?.data.status).toBe("completed");
+		expect(t1?.data.agent).toBe("builder");
+
+		const t2 = result.childNodes.find((n) => n.id === "parent-task-T2");
+		expect(t2?.data.status).toBe("pending");
+		expect(t2?.data.agent).toBe("reviewer");
+	});
+
+	test("defaults to pending status for diagram states with no matching task", () => {
+		const diagram = `stateDiagram-v2
+    [*] --> T1
+    T1 --> T2
+    T2 --> [*]`;
+
+		const tasks: AgentTask[] = [
+			makeAgentTask("T1", { name: "Known task", status: "completed" }),
+		];
+
+		const result = layoutSubFlowFromDiagram("step", diagram, tasks);
+
+		expect(result.childNodes).toHaveLength(2);
+		const t2 = result.childNodes.find((n) => n.id === "step-task-T2");
+		expect(t2?.data.status).toBe("pending");
+		expect(t2?.data.label).toBe("T2");
+		expect(t2?.data.agent).toBe("");
+	});
+
+	test("falls back to sequential layout for invalid diagram input", () => {
+		const tasks: AgentTask[] = [
+			makeAgentTask("t1", { name: "Task 1" }),
+			makeAgentTask("t2", { name: "Task 2" }),
+		];
+
+		const result = layoutSubFlowFromDiagram("step", "not a diagram", tasks);
+
+		expect(result.childNodes).toHaveLength(2);
+		expect(result.childEdges).toHaveLength(1);
+		expect(result.childEdges[0].source).toBe("step-task-t1");
+		expect(result.childEdges[0].target).toBe("step-task-t2");
+	});
+
+	test("produces positive width and height dimensions", () => {
+		const diagram = `stateDiagram-v2
+    [*] --> T1
+    T1 --> T2
+    T2 --> [*]`;
+
+		const tasks: AgentTask[] = [
+			makeAgentTask("T1", { name: "First" }),
+			makeAgentTask("T2", { name: "Second" }),
+		];
+
+		const result = layoutSubFlowFromDiagram("build", diagram, tasks);
+
+		expect(result.width).toBeGreaterThan(0);
+		expect(result.height).toBeGreaterThan(0);
+	});
+});
+
+describe("buildCanvasGraph with subflows", () => {
+	test("subflow diagram is preferred over flat sequential agentSteps chain", () => {
+		const workflow = makeWorkflow({
+			states: [
+				{ id: "build", label: "Build", isInitial: true, isTerminal: true },
+			],
+			transitions: [],
+		});
+
+		const agentSteps: Record<string, readonly AgentTask[]> = {
+			build: [
+				makeAgentTask("T1", { name: "Setup", status: "completed" }),
+				makeAgentTask("T2", { name: "Branch A", status: "running" }),
+				makeAgentTask("T3", { name: "Branch B", status: "pending" }),
+			],
+		};
+
+		const subflows: Record<string, string> = {
+			build: `stateDiagram-v2
+    [*] --> T1
+    T1 --> T2
+    T1 --> T3
+    T2 --> [*]
+    T3 --> [*]`,
+		};
+
+		const result = buildCanvasGraph(workflow, [], {
+			agentSteps,
+			subflows,
+		});
+
+		const groupNode = result.nodes.find((n) => n.id === "build");
+		expect(groupNode?.type).toBe("groupStepNode");
+		expect(groupNode?.data.hasSubFlow).toBe(true);
+		expect(groupNode?.data.isExpanded).toBe(true);
+
+		const childNodes = result.nodes.filter((n) => n.parentId === "build");
+		expect(childNodes).toHaveLength(3);
+
+		const childEdges = result.edges.filter(
+			(e) =>
+				e.source.startsWith("build-task-") &&
+				e.target.startsWith("build-task-"),
+		);
+		expect(childEdges).toHaveLength(2);
+
+		const edgePairs = childEdges.map((e) => [e.source, e.target]);
+		expect(edgePairs).toContainEqual(["build-task-T1", "build-task-T2"]);
+		expect(edgePairs).toContainEqual(["build-task-T1", "build-task-T3"]);
+
+		const sequentialEdge = childEdges.find(
+			(e) => e.source === "build-task-T2" && e.target === "build-task-T3",
+		);
+		expect(sequentialEdge).toBeUndefined();
+	});
+
+	test("step with subflow but no agentSteps still renders as expanded group", () => {
+		const workflow = makeWorkflow({
+			states: [
+				{ id: "build", label: "Build", isInitial: true, isTerminal: true },
+			],
+			transitions: [],
+		});
+
+		const subflows: Record<string, string> = {
+			build: `stateDiagram-v2
+    [*] --> T1
+    T1 --> T2
+    T2 --> [*]`,
+		};
+
+		const result = buildCanvasGraph(workflow, [], { subflows });
+
+		const groupNode = result.nodes.find((n) => n.id === "build");
+		expect(groupNode?.type).toBe("groupStepNode");
+		expect(groupNode?.data.hasSubFlow).toBe(true);
+
+		const childNodes = result.nodes.filter((n) => n.parentId === "build");
+		expect(childNodes).toHaveLength(2);
+		expect(childNodes[0].data.taskId).toBe("T1");
+		expect(childNodes[1].data.taskId).toBe("T2");
+	});
+
+	test("collapsed step with subflow renders as stepNode", () => {
+		const workflow = makeWorkflow({
+			states: [
+				{ id: "build", label: "Build", isInitial: true, isTerminal: true },
+			],
+			transitions: [],
+		});
+
+		const subflows: Record<string, string> = {
+			build: `stateDiagram-v2
+    [*] --> T1
+    T1 --> [*]`,
+		};
+
+		const result = buildCanvasGraph(workflow, [], {
+			subflows,
+			expandedSteps: new Set<string>(),
+		});
+
+		const node = result.nodes.find((n) => n.id === "build");
+		expect(node?.type).toBe("stepNode");
+		expect(node?.data.hasSubFlow).toBe(true);
+		expect(node?.data.isExpanded).toBe(false);
+	});
+
+	test("steps without subflows remain as regular stepNodes", () => {
+		const workflow = makeWorkflow({
+			states: [
+				{ id: "plan", label: "Plan", isInitial: true, isTerminal: false },
+				{ id: "build", label: "Build", isInitial: false, isTerminal: true },
+			],
+			transitions: [{ sourceId: "plan", targetId: "build", label: null }],
+		});
+
+		const subflows: Record<string, string> = {
+			build: `stateDiagram-v2
+    [*] --> T1
+    T1 --> [*]`,
+		};
+
+		const result = buildCanvasGraph(workflow, [], { subflows });
+
+		const planNode = result.nodes.find((n) => n.id === "plan");
+		expect(planNode?.type).toBe("stepNode");
+		expect(planNode?.data.hasSubFlow).toBe(false);
+
+		const buildNode = result.nodes.find((n) => n.id === "build");
+		expect(buildNode?.type).toBe("groupStepNode");
 	});
 });
 

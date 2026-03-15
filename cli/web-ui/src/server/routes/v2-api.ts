@@ -298,8 +298,38 @@ async function getRegisteredArtifacts(
 			updatedDuringRun: true,
 			isNew: false,
 			step: record.step ?? null,
+			subflow: record.subflow,
 		};
 	});
+}
+
+/**
+ * Read subflow diagram content from disk for subflow artifacts.
+ * Returns a map of step ID to Mermaid diagram source.
+ * Only reads .mmd files marked as subflow artifacts.
+ */
+async function getSubflowDiagrams(
+	projectPath: string,
+	artifacts: readonly Artifact[],
+): Promise<Readonly<Record<string, string>>> {
+	const subflows: Record<string, string> = {};
+
+	for (const artifact of artifacts) {
+		if (!artifact.subflow || !artifact.step) continue;
+		if (!artifact.path.endsWith(".mmd")) continue;
+
+		try {
+			const filePath = resolve(projectPath, artifact.path);
+			const file = Bun.file(filePath);
+			if (await file.exists()) {
+				subflows[artifact.step] = await file.text();
+			}
+		} catch {
+			// Best-effort: skip unreadable subflow files
+		}
+	}
+
+	return subflows;
 }
 
 /**
@@ -678,6 +708,7 @@ async function buildDetailedRun(
 	project: ProjectEntry,
 	artifacts: readonly Artifact[],
 	agentSteps: Readonly<Record<string, readonly AgentTask[]>> | null,
+	subflows?: Readonly<Record<string, string>>,
 ): Promise<Run> {
 	const command = extractCommand(record.metadata, record.workflow);
 
@@ -737,6 +768,8 @@ async function buildDetailedRun(
 		completedAt,
 		error,
 		agentSteps,
+		subflows:
+			subflows && Object.keys(subflows).length > 0 ? subflows : undefined,
 	};
 }
 
@@ -975,12 +1008,15 @@ export async function handleV2RunDetailRequest(
 			}
 		}
 
+		const subflows = await getSubflowDiagrams(record.projectPath, artifacts);
+
 		const run = await buildDetailedRun(
 			record,
 			allRecords,
 			project,
 			artifacts,
 			agentSteps,
+			subflows,
 		);
 		return jsonResponse(run);
 	} catch (error) {

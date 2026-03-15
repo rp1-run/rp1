@@ -325,6 +325,38 @@ List uncovered design sections -> new tasks: T{max_id + 1}...
 
 After writing task artifacts, register them so the Web UI can display them. Skip if WORKFLOW is empty (standalone invocation).
 
+### §6.0 Subflow Diagram
+
+Generate a `tasks-subflow.mmd` file from the task dependency structure:
+
+```mermaid
+stateDiagram-v2
+    [*] --> T1
+    T1 : Task 1 description
+    [*] --> T2
+    T2 : Task 2 description
+    T1 --> T3
+    T2 --> T3
+    T3 : Task 3 description
+    T3 --> [*]
+```
+
+If `DAG_STATE` exists, use the dependency graph to determine transitions. Otherwise, produce a sequential chain. Write to `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/tasks-subflow.mmd`.
+
+Register with `--subflow`:
+
+```bash
+rp1 agent-tools work artifact \
+  --project "$(pwd)" \
+  --feature {FEATURE_ID} \
+  --run-id {RUN_ID} \
+  --path .rp1/work/features/{FEATURE_ID}/tasks-subflow.mmd \
+  --step tasks \
+  --subflow
+```
+
+### §6.1 Task Artifacts
+
 **Small scope** (tasks.md):
 
 ```bash

@@ -393,6 +393,115 @@ interface SubFlowLayout {
 	readonly childEdges: Edge[];
 }
 
+/**
+ * Layout a sub-flow from a Mermaid stateDiagram-v2 source string.
+ * Parses the diagram to produce child TaskNode nodes and edges that respect
+ * the actual dependency graph (rather than a flat sequential chain).
+ * Merges agent task statuses into subflow nodes by matching state ID to task ID.
+ */
+export function layoutSubFlowFromDiagram(
+	parentId: string,
+	diagramSource: string,
+	tasks: readonly AgentTask[],
+): SubFlowLayout {
+	const parsed = parseMermaidStateDiagram(diagramSource);
+
+	if (parsed.states.length === 0) {
+		return layoutSubFlow(parentId, tasks);
+	}
+
+	const taskStatusMap = new Map<string, AgentTask>();
+	for (const task of tasks) {
+		taskStatusMap.set(task.id, task);
+	}
+
+	const g = new dagre.graphlib.Graph();
+	g.setGraph({
+		rankdir: "TB",
+		nodesep: 20,
+		ranksep: 30,
+		marginx: 10,
+		marginy: 10,
+	});
+	g.setDefaultEdgeLabel(() => ({}));
+
+	for (const state of parsed.states) {
+		const nodeId = `${parentId}-task-${state.id}`;
+		g.setNode(nodeId, { width: TASK_NODE_WIDTH, height: TASK_NODE_HEIGHT });
+	}
+
+	for (const transition of parsed.transitions) {
+		if (transition.sourceId === "[*]" || transition.targetId === "[*]")
+			continue;
+		const srcId = `${parentId}-task-${transition.sourceId}`;
+		const tgtId = `${parentId}-task-${transition.targetId}`;
+		if (g.hasNode(srcId) && g.hasNode(tgtId)) {
+			g.setEdge(srcId, tgtId);
+		}
+	}
+
+	dagre.layout(g);
+
+	const childNodes: Node<TaskNodeData>[] = [];
+	const childEdges: Edge[] = [];
+
+	let maxX = 0;
+	let maxY = 0;
+
+	for (const state of parsed.states) {
+		const nodeId = `${parentId}-task-${state.id}`;
+		const dagreNode = g.node(nodeId);
+		const x = dagreNode.x - TASK_NODE_WIDTH / 2 + GROUP_PADDING_X;
+		const y = dagreNode.y - TASK_NODE_HEIGHT / 2 + GROUP_HEADER_HEIGHT;
+
+		maxX = Math.max(maxX, x + TASK_NODE_WIDTH);
+		maxY = Math.max(maxY, y + TASK_NODE_HEIGHT);
+
+		const matchedTask = taskStatusMap.get(state.id);
+		const label =
+			state.description ?? state.label ?? matchedTask?.name ?? state.id;
+		const status = matchedTask?.status ?? "pending";
+		const agent = matchedTask?.agent ?? "";
+
+		childNodes.push({
+			id: nodeId,
+			type: "taskNode",
+			position: { x, y },
+			parentId,
+			extent: "parent",
+			data: {
+				taskId: state.id,
+				label,
+				status,
+				agent,
+			},
+		} as Node<TaskNodeData>);
+	}
+
+	for (const transition of parsed.transitions) {
+		if (transition.sourceId === "[*]" || transition.targetId === "[*]")
+			continue;
+		const srcId = `${parentId}-task-${transition.sourceId}`;
+		const tgtId = `${parentId}-task-${transition.targetId}`;
+		if (
+			childNodes.some((n) => n.id === srcId) &&
+			childNodes.some((n) => n.id === tgtId)
+		) {
+			childEdges.push({
+				id: `edge-${srcId}-${tgtId}`,
+				source: srcId,
+				target: tgtId,
+				type: "floating",
+			});
+		}
+	}
+
+	const groupWidth = Math.max(maxX + GROUP_PADDING_X, STEP_NODE_WIDTH);
+	const groupHeight = maxY + GROUP_PADDING_BOTTOM;
+
+	return { width: groupWidth, height: groupHeight, childNodes, childEdges };
+}
+
 function layoutSubFlow(
 	parentId: string,
 	tasks: readonly AgentTask[],
@@ -480,6 +589,7 @@ export interface BuildCanvasGraphOptions {
 	readonly agentSteps?: Readonly<Record<string, readonly AgentTask[]>> | null;
 	readonly expandedSteps?: ReadonlySet<string>;
 	readonly artifacts?: readonly Artifact[];
+	readonly subflows?: Readonly<Record<string, string>>;
 }
 
 /**
@@ -492,13 +602,16 @@ export function buildCanvasGraph(
 	steps: readonly Step[],
 	options: BuildCanvasGraphOptions = {},
 ): CanvasGraph {
-	const { agentSteps, expandedSteps, artifacts } = options;
+	const { agentSteps, expandedSteps, artifacts, subflows } = options;
 
 	const base = workflow
 		? workflowToReactFlow(workflow, steps, artifacts)
 		: stepsToReactFlow(steps, artifacts);
 
-	if (!agentSteps || Object.keys(agentSteps).length === 0) {
+	const hasAgentSteps = agentSteps && Object.keys(agentSteps).length > 0;
+	const hasSubflows = subflows && Object.keys(subflows).length > 0;
+
+	if (!hasAgentSteps && !hasSubflows) {
 		return base;
 	}
 
@@ -507,11 +620,13 @@ export function buildCanvasGraph(
 
 	for (const node of base.nodes) {
 		const stepId = node.data.stepId;
-		const tasks = agentSteps[stepId];
+		const tasks = agentSteps?.[stepId];
 		const hasTasks = tasks && tasks.length > 0;
+		const hasSubflow = hasSubflows && stepId in subflows;
+		const hasAnySubFlow = hasTasks || hasSubflow;
 		const isExpanded = expandedSteps ? expandedSteps.has(stepId) : true;
 
-		if (!hasTasks) {
+		if (!hasAnySubFlow) {
 			allNodes.push(node);
 			continue;
 		}
@@ -524,7 +639,10 @@ export function buildCanvasGraph(
 			continue;
 		}
 
-		const subFlow = layoutSubFlow(stepId, tasks);
+		const subFlow =
+			hasSubflow && subflows[stepId]
+				? layoutSubFlowFromDiagram(stepId, subflows[stepId], tasks ?? [])
+				: layoutSubFlow(stepId, tasks ?? []);
 
 		allNodes.push({
 			...node,

@@ -171,6 +171,8 @@ export interface ArtifactInput {
 	readonly worktreePath?: string;
 	/** Workflow step that produced this artifact (optional) */
 	readonly step?: string;
+	/** Whether this artifact represents a subflow diagram (optional) */
+	readonly subflow?: boolean;
 }
 
 /**
@@ -195,4 +197,6 @@ export interface ArtifactRecord {
 	readonly worktreePath: string | null;
 	/** Workflow step that produced this artifact (null if not specified) */
 	readonly step: string | null;
+	/** Whether this artifact represents a subflow diagram */
+	readonly subflow: boolean;
 }

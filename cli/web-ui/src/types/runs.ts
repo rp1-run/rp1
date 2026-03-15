@@ -60,6 +60,7 @@ export interface Artifact {
 	readonly updatedDuringRun: boolean;
 	readonly isNew: boolean;
 	readonly step: string | null;
+	readonly subflow?: boolean;
 }
 
 /** A task within an agent sub-flow */
@@ -97,6 +98,7 @@ export interface Run {
 	readonly completedAt: string | null;
 	readonly error: string | null;
 	readonly agentSteps: Readonly<Record<string, readonly AgentTask[]>> | null;
+	readonly subflows?: Readonly<Record<string, string>>;
 }
 
 /** Attention groupings for the home dashboard */

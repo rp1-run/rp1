@@ -73,6 +73,7 @@ export interface WorkArtifactResult {
 	readonly createdAt: string;
 	readonly worktreePath: string | null;
 	readonly step: string | null;
+	readonly subflow: boolean;
 }
 
 /**
@@ -203,6 +204,7 @@ export const executeArtifact = (
 				createdAt: result.createdAt,
 				worktreePath: input.worktreePath ?? null,
 				step: input.step ?? null,
+				subflow: input.subflow ?? false,
 			}),
 		),
 		TE.chainFirst(() =>

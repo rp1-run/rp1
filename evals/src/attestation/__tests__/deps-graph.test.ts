@@ -116,12 +116,8 @@ prompt: Review the build
 `;
 		const refs = parseAgentRefs(content, "claude-code");
 
-		expect(refs).toContain(
-			"cli/dist/claude-code/dev/agents/task-builder.md",
-		);
-		expect(refs).toContain(
-			"cli/dist/claude-code/dev/agents/task-reviewer.md",
-		);
+		expect(refs).toContain("cli/dist/claude-code/dev/agents/task-builder.md");
+		expect(refs).toContain("cli/dist/claude-code/dev/agents/task-reviewer.md");
 		expect(refs).toHaveLength(2);
 	});
 
@@ -138,9 +134,7 @@ prompt: Build
 		expect(refs).toContain(
 			"cli/dist/claude-code/dev/agents/feature-architect.md",
 		);
-		expect(refs).toContain(
-			"cli/dist/claude-code/dev/agents/task-builder.md",
-		);
+		expect(refs).toContain("cli/dist/claude-code/dev/agents/task-builder.md");
 		expect(refs).toHaveLength(2);
 	});
 
