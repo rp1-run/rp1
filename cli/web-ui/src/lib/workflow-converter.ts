@@ -395,6 +395,7 @@ const ARTIFACT_ROW_HEIGHT = 28;
 const GROUP_HEADER_HEIGHT = 80;
 const GROUP_PADDING_X = 20;
 const GROUP_PADDING_BOTTOM = 20;
+const MAX_GROUP_HEIGHT = 300;
 
 interface SubFlowLayout {
 	readonly width: number;
@@ -507,7 +508,7 @@ export function layoutSubFlowFromDiagram(
 	}
 
 	const groupWidth = Math.max(maxX + GROUP_PADDING_X, STEP_NODE_WIDTH);
-	const groupHeight = maxY + GROUP_PADDING_BOTTOM;
+	const groupHeight = Math.min(maxY + GROUP_PADDING_BOTTOM, MAX_GROUP_HEIGHT);
 
 	return { width: groupWidth, height: groupHeight, childNodes, childEdges };
 }
@@ -590,7 +591,7 @@ function layoutSubFlow(
 	}
 
 	const groupWidth = Math.max(maxX + GROUP_PADDING_X, STEP_NODE_WIDTH);
-	const groupHeight = maxY + GROUP_PADDING_BOTTOM;
+	const groupHeight = Math.min(maxY + GROUP_PADDING_BOTTOM, MAX_GROUP_HEIGHT);
 
 	return { width: groupWidth, height: groupHeight, childNodes, childEdges };
 }
@@ -644,6 +645,7 @@ export function buildCanvasGraph(
 		if (!isExpanded) {
 			allNodes.push({
 				...node,
+				type: "groupStepNode",
 				data: { ...node.data, hasSubFlow: true, isExpanded: false },
 			});
 			continue;

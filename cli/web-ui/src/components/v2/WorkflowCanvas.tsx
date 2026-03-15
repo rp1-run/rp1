@@ -9,10 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useGraphLayout } from "@/hooks/useGraphLayout";
 import type { WorkflowDefinition } from "@/hooks/useWorkflowSteps";
 import { cn } from "@/lib/utils";
-import {
-	buildCanvasGraph,
-	getStepsWithSubFlows,
-} from "@/lib/workflow-converter";
+import { buildCanvasGraph } from "@/lib/workflow-converter";
 import type { AgentTask, Artifact, Step } from "@/types/runs";
 import { FloatingEdge } from "./FloatingEdge";
 import { GroupStepNode } from "./GroupStepNode";
@@ -51,32 +48,10 @@ function WorkflowCanvasInner({
 }: Omit<WorkflowCanvasProps, "className">) {
 	const { fitView } = useReactFlow();
 	const containerRef = useRef<HTMLDivElement>(null);
-	const initializedRef = useRef(false);
 
-	const [expandedSteps, setExpandedSteps] = useState<Set<string>>(() => {
-		const fromAgents = getStepsWithSubFlows(agentSteps);
-		if (subflows) {
-			for (const stepId of Object.keys(subflows)) {
-				fromAgents.add(stepId);
-			}
-		}
-		return fromAgents;
-	});
-
-	useEffect(() => {
-		if (!initializedRef.current) {
-			const combined = getStepsWithSubFlows(agentSteps);
-			if (subflows) {
-				for (const stepId of Object.keys(subflows)) {
-					combined.add(stepId);
-				}
-			}
-			if (combined.size > 0) {
-				setExpandedSteps(combined);
-				initializedRef.current = true;
-			}
-		}
-	}, [agentSteps, subflows]);
+	const [expandedSteps, setExpandedSteps] = useState<Set<string>>(
+		() => new Set<string>(),
+	);
 
 	const handleToggle = useCallback((stepId: string) => {
 		setExpandedSteps((prev) => {
@@ -125,7 +100,11 @@ function WorkflowCanvasInner({
 
 	useEffect(() => {
 		if (isLayoutReady && layoutNodes.length > 0) {
-			requestAnimationFrame(() => fitView(fitViewOptions));
+			// Double-RAF: first frame lets React Flow measure the container,
+			// second frame fits the view once dimensions are known.
+			requestAnimationFrame(() => {
+				requestAnimationFrame(() => fitView(fitViewOptions));
+			});
 		}
 	}, [isLayoutReady, layoutNodes, fitView]);
 
