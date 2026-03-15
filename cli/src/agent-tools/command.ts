@@ -18,6 +18,16 @@ import { getTool, type ToolOptions } from "./index.js";
 import { readInput } from "./input.js";
 import { formatOutput } from "./output.js";
 import {
+	executeCancel as executeTaskCancel,
+	executeComplete as executeTaskComplete,
+	executeCreate as executeTaskCreate,
+	executeFail as executeTaskFail,
+	executeGet as executeTaskGet,
+	executeList as executeTaskList,
+	executePickup as executeTaskPickup,
+} from "./task/index.js";
+import { VALID_TASK_STATUSES } from "./task/models.js";
+import {
 	closeDatabase,
 	executeArtifact as executeWorkArtifact,
 	executeCleanup as executeWorkCleanup,
@@ -44,6 +54,7 @@ import "./mmd-validate/index.js";
 import "./rp1-root-dir/index.js";
 import "./comment-extract/index.js";
 import "./github-pr/index.js";
+import "./task/index.js";
 import "./work/index.js";
 
 /** Default timeout for tool execution in milliseconds */
@@ -79,6 +90,7 @@ Available Tools:
   rp1-root-dir      Resolve RP1_ROOT path with read-only worktree detection
   comment-extract   Extract comments from git-changed files
   github-pr         GitHub PR operations (submit-review, add-reaction, reply-comment, fetch-comments)
+  task              Manage task queue (create, list, pickup, complete, fail, cancel, get)
   work              Track agent workflow progress with status updates and artifacts
 
 Examples:
@@ -89,6 +101,8 @@ Examples:
   rp1 agent-tools comment-extract branch main
   rp1 agent-tools comment-extract unstaged main
   echo '{"owner":"org","repo":"repo","pr_number":123}' | rp1 agent-tools github-pr fetch-comments
+  rp1 agent-tools task create --type check-annotations --description "Review open annotations"
+  rp1 agent-tools task list --status pending
   rp1 agent-tools work update --project /path/to/project --feature my-feature --workflow build --step requirements --status started
 `,
 	);
@@ -775,6 +789,473 @@ Examples:
 			process.exit(0);
 		},
 	);
+
+/**
+ * task subcommand.
+ * Manages the persistent FIFO task queue for agents and workflows.
+ */
+const taskCommand = agentToolsCommand
+	.command("task")
+	.description(
+		"Manage task queue (create, list, pickup, complete, fail, cancel, get)",
+	)
+	.addHelpText(
+		"after",
+		`
+Description:
+  Provides subcommands for managing a persistent FIFO task queue.
+  Tasks are stored in the global SQLite database at ~/.rp1/status.db.
+  Agents, workflows, and users can create tasks for later execution.
+
+Subcommands:
+  create     Create a new pending task
+  list       List tasks with optional filters
+  pickup     Pick up the oldest pending task (atomic FIFO)
+  complete   Mark an in-progress task as completed
+  fail       Mark an in-progress task as failed
+  cancel     Cancel a pending or in-progress task
+  get        Get a single task by ID
+
+Examples:
+  rp1 agent-tools task create --type check-annotations --description "Review open annotations"
+  rp1 agent-tools task list --status pending
+  rp1 agent-tools task pickup --project /path/to/project
+  rp1 agent-tools task complete --id 1 --result "All annotations resolved"
+  rp1 agent-tools task fail --id 2 --result "Could not access file"
+  rp1 agent-tools task cancel --id 3
+  rp1 agent-tools task get --id 1
+`,
+	);
+
+/**
+ * task create subcommand.
+ * Creates a new pending task in the queue.
+ */
+taskCommand
+	.command("create")
+	.description("Create a new pending task")
+	.requiredOption(
+		"--type <type>",
+		"Task type (free-form string, e.g. 'check-annotations')",
+	)
+	.requiredOption("--description <text>", "Human-readable task description")
+	.option("--payload <json>", "JSON blob for type-specific data")
+	.option("--project <path>", "Absolute path to project directory for scoping")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Creates a new task in pending state. The task is added to the FIFO queue
+  and will be picked up by agents or harness hooks in creation order.
+
+Options:
+  --type <type>          Task type string (required, must be non-empty)
+  --description <text>   Human-readable description (required, must be non-empty)
+  --payload <json>       Optional JSON blob for type-specific data
+  --project <path>       Optional absolute project path for scoping
+
+Validation:
+  - Type must be a non-empty string
+  - Description must be a non-empty string
+  - Payload must be valid JSON if provided
+  - Project path must be absolute if provided
+
+Output:
+  JSON ToolResult with the created TaskRecord including assigned ID.
+
+Examples:
+  rp1 agent-tools task create --type check-annotations --description "Review open annotations from last audit"
+  rp1 agent-tools task create --type archive-feature --description "Archive auth-refactor" --project /Users/dev/myapp
+  rp1 agent-tools task create --type remediate --description "Fix findings" --payload '{"severity":"high","count":3}'
+`,
+	)
+	.action(
+		async (options: {
+			type: string;
+			description: string;
+			payload?: string;
+			project?: string;
+		}): Promise<void> => {
+			const toolName = "task";
+
+			const result = await executeTaskCreate({
+				type: options.type,
+				description: options.description,
+				payload: options.payload,
+				projectPath: options.project,
+			})();
+
+			if (E.isLeft(result)) {
+				console.error(
+					createErrorResponse(toolName, formatError(result.left, false)),
+				);
+				process.exit(1);
+			}
+
+			console.log(formatOutput(result.right));
+			process.exit(0);
+		},
+	);
+
+/**
+ * task list subcommand.
+ * Lists tasks with optional filters.
+ */
+taskCommand
+	.command("list")
+	.description("List tasks with optional filters")
+	.option(
+		"--status <status>",
+		`Filter by status (${VALID_TASK_STATUSES.join(", ")})`,
+	)
+	.option("--project <path>", "Filter by project path (absolute)")
+	.option("--limit <n>", "Maximum number of tasks to return")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Lists tasks from the queue, optionally filtered by status and/or project.
+  Results are returned in FIFO order (oldest first).
+
+Options:
+  --status <status>   Filter by lifecycle status: ${VALID_TASK_STATUSES.join(", ")}
+  --project <path>    Filter by absolute project path
+  --limit <n>         Maximum number of results (positive integer)
+
+Validation:
+  - Status must be a valid task status if provided
+  - Project path must be absolute if provided
+  - Limit must be a positive integer if provided
+
+Output:
+  JSON ToolResult with array of TaskRecord objects.
+
+Examples:
+  rp1 agent-tools task list
+  rp1 agent-tools task list --status pending
+  rp1 agent-tools task list --project /Users/dev/myapp --limit 10
+`,
+	)
+	.action(
+		async (options: {
+			status?: string;
+			project?: string;
+			limit?: string;
+		}): Promise<void> => {
+			const toolName = "task";
+
+			const limit = options.limit ? parseInt(options.limit, 10) : undefined;
+			if (
+				options.limit !== undefined &&
+				(Number.isNaN(limit) || !limit || limit <= 0)
+			) {
+				console.error(
+					createErrorResponse(
+						toolName,
+						`Invalid --limit value: ${options.limit}. Must be a positive integer.`,
+					),
+				);
+				process.exit(1);
+			}
+
+			const result = await executeTaskList({
+				status: options.status as
+					| import("./task/models.js").TaskStatus
+					| undefined,
+				projectPath: options.project,
+				limit,
+			})();
+
+			if (E.isLeft(result)) {
+				console.error(
+					createErrorResponse(toolName, formatError(result.left, false)),
+				);
+				process.exit(1);
+			}
+
+			console.log(formatOutput(result.right));
+			process.exit(0);
+		},
+	);
+
+/**
+ * task pickup subcommand.
+ * Atomically picks up the oldest pending task.
+ */
+taskCommand
+	.command("pickup")
+	.description("Pick up the oldest pending task (atomic FIFO)")
+	.option("--project <path>", "Filter by project path (absolute)")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Atomically picks up the oldest pending task and transitions it to in_progress.
+  Returns null (with success: true) if no pending tasks exist.
+
+Options:
+  --project <path>   Filter by absolute project path
+
+Validation:
+  - Project path must be absolute if provided
+
+Output:
+  JSON ToolResult with the picked-up TaskRecord, or null if queue is empty.
+
+Examples:
+  rp1 agent-tools task pickup
+  rp1 agent-tools task pickup --project /Users/dev/myapp
+`,
+	)
+	.action(async (options: { project?: string }): Promise<void> => {
+		const toolName = "task";
+
+		const result = await executeTaskPickup(options.project)();
+
+		if (E.isLeft(result)) {
+			console.error(
+				createErrorResponse(toolName, formatError(result.left, false)),
+			);
+			process.exit(1);
+		}
+
+		console.log(formatOutput(result.right));
+		process.exit(0);
+	});
+
+/**
+ * task complete subcommand.
+ * Marks an in-progress task as completed.
+ */
+taskCommand
+	.command("complete")
+	.description("Mark an in-progress task as completed")
+	.requiredOption("--id <id>", "Task ID (positive integer)")
+	.option("--result <text>", "Optional result summary")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Marks an in_progress task as completed with an optional result summary.
+  Only tasks in in_progress state can be completed.
+
+Options:
+  --id <id>          Task ID to complete (required, positive integer)
+  --result <text>    Optional result summary describing what was done
+
+Validation:
+  - ID must be a positive integer
+  - Task must be in in_progress state
+
+Output:
+  JSON ToolResult with the completed TaskRecord.
+
+Examples:
+  rp1 agent-tools task complete --id 1
+  rp1 agent-tools task complete --id 1 --result "All annotations resolved, 3 files updated"
+`,
+	)
+	.action(async (options: { id: string; result?: string }): Promise<void> => {
+		const toolName = "task";
+
+		const id = parseInt(options.id, 10);
+		if (Number.isNaN(id) || id <= 0) {
+			console.error(
+				createErrorResponse(
+					toolName,
+					`Invalid --id value: ${options.id}. Must be a positive integer.`,
+				),
+			);
+			process.exit(1);
+		}
+
+		const result = await executeTaskComplete({
+			id,
+			result: options.result,
+		})();
+
+		if (E.isLeft(result)) {
+			console.error(
+				createErrorResponse(toolName, formatError(result.left, false)),
+			);
+			process.exit(1);
+		}
+
+		console.log(formatOutput(result.right));
+		process.exit(0);
+	});
+
+/**
+ * task fail subcommand.
+ * Marks an in-progress task as failed.
+ */
+taskCommand
+	.command("fail")
+	.description("Mark an in-progress task as failed")
+	.requiredOption("--id <id>", "Task ID (positive integer)")
+	.option("--result <text>", "Optional error description")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Marks an in_progress task as failed with an optional error description.
+  Only tasks in in_progress state can be failed.
+
+Options:
+  --id <id>          Task ID to fail (required, positive integer)
+  --result <text>    Optional error description explaining the failure
+
+Validation:
+  - ID must be a positive integer
+  - Task must be in in_progress state
+
+Output:
+  JSON ToolResult with the failed TaskRecord.
+
+Examples:
+  rp1 agent-tools task fail --id 2
+  rp1 agent-tools task fail --id 2 --result "Could not access required file: permission denied"
+`,
+	)
+	.action(async (options: { id: string; result?: string }): Promise<void> => {
+		const toolName = "task";
+
+		const id = parseInt(options.id, 10);
+		if (Number.isNaN(id) || id <= 0) {
+			console.error(
+				createErrorResponse(
+					toolName,
+					`Invalid --id value: ${options.id}. Must be a positive integer.`,
+				),
+			);
+			process.exit(1);
+		}
+
+		const result = await executeTaskFail({
+			id,
+			result: options.result,
+		})();
+
+		if (E.isLeft(result)) {
+			console.error(
+				createErrorResponse(toolName, formatError(result.left, false)),
+			);
+			process.exit(1);
+		}
+
+		console.log(formatOutput(result.right));
+		process.exit(0);
+	});
+
+/**
+ * task cancel subcommand.
+ * Cancels a pending or in-progress task.
+ */
+taskCommand
+	.command("cancel")
+	.description("Cancel a pending or in-progress task")
+	.requiredOption("--id <id>", "Task ID (positive integer)")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Cancels a task that is in pending or in_progress state.
+  Completed and failed tasks cannot be cancelled.
+
+Options:
+  --id <id>   Task ID to cancel (required, positive integer)
+
+Validation:
+  - ID must be a positive integer
+  - Task must be in pending or in_progress state
+
+Output:
+  JSON ToolResult with the cancelled TaskRecord.
+
+Examples:
+  rp1 agent-tools task cancel --id 3
+`,
+	)
+	.action(async (options: { id: string }): Promise<void> => {
+		const toolName = "task";
+
+		const id = parseInt(options.id, 10);
+		if (Number.isNaN(id) || id <= 0) {
+			console.error(
+				createErrorResponse(
+					toolName,
+					`Invalid --id value: ${options.id}. Must be a positive integer.`,
+				),
+			);
+			process.exit(1);
+		}
+
+		const result = await executeTaskCancel(id)();
+
+		if (E.isLeft(result)) {
+			console.error(
+				createErrorResponse(toolName, formatError(result.left, false)),
+			);
+			process.exit(1);
+		}
+
+		console.log(formatOutput(result.right));
+		process.exit(0);
+	});
+
+/**
+ * task get subcommand.
+ * Retrieves a single task by ID.
+ */
+taskCommand
+	.command("get")
+	.description("Get a single task by ID")
+	.requiredOption("--id <id>", "Task ID (positive integer)")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Retrieves a single task record by its ID.
+
+Options:
+  --id <id>   Task ID to retrieve (required, positive integer)
+
+Validation:
+  - ID must be a positive integer
+
+Output:
+  JSON ToolResult with the TaskRecord.
+
+Examples:
+  rp1 agent-tools task get --id 1
+`,
+	)
+	.action(async (options: { id: string }): Promise<void> => {
+		const toolName = "task";
+
+		const id = parseInt(options.id, 10);
+		if (Number.isNaN(id) || id <= 0) {
+			console.error(
+				createErrorResponse(
+					toolName,
+					`Invalid --id value: ${options.id}. Must be a positive integer.`,
+				),
+			);
+			process.exit(1);
+		}
+
+		const result = await executeTaskGet(id)();
+
+		if (E.isLeft(result)) {
+			console.error(
+				createErrorResponse(toolName, formatError(result.left, false)),
+			);
+			process.exit(1);
+		}
+
+		console.log(formatOutput(result.right));
+		process.exit(0);
+	});
 
 /**
  * github-pr subcommand.

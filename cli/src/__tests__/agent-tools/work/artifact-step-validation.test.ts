@@ -57,7 +57,6 @@ describe("artifact step validation", () => {
 
 	describe("getWorkflowForRun", () => {
 		test("returns workflow name from status_updates for a run", async () => {
-			// Insert a status update with a workflow
 			await expectTaskRight(
 				insertStatusUpdate(
 					{
@@ -134,7 +133,6 @@ describe("artifact step validation", () => {
 
 	describe("executeArtifact with step validation", () => {
 		test("succeeds with valid step matching workflow state machine", async () => {
-			// First, create a status update to associate the run with a workflow
 			await expectTaskRight(
 				insertStatusUpdate(
 					{
@@ -163,7 +161,6 @@ describe("artifact step validation", () => {
 		});
 
 		test("rejects invalid step that does not exist in workflow state machine", async () => {
-			// Create a status update to associate the run with the build workflow
 			await expectTaskRight(
 				insertStatusUpdate(
 					{
@@ -220,7 +217,6 @@ describe("artifact step validation", () => {
 
 			await expectTaskLeft(executeArtifact(input, testDbPath));
 
-			// Verify nothing was inserted
 			const artifacts = await expectTaskRight(
 				queryArtifactsForFeature(
 					"/test/no-insert",

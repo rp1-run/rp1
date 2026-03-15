@@ -24,7 +24,7 @@ import type {
 import { VALID_STATUSES } from "./models.js";
 
 /** Current schema version - must match highest migration number */
-export const CURRENT_SCHEMA_VERSION = 10;
+export const CURRENT_SCHEMA_VERSION = 11;
 
 /** Default database file location. Override with RP1_STATUS_DB env var (used by evals to avoid polluting local DB). */
 const DEFAULT_DB_PATH =
@@ -81,6 +81,24 @@ CREATE TABLE IF NOT EXISTS artifacts (
 );
 
 CREATE INDEX IF NOT EXISTS idx_artifacts_run ON artifacts(project_path, feature, run_id);
+
+CREATE TABLE IF NOT EXISTS tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT NOT NULL,
+    description TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending'
+        CHECK(status IN ('pending', 'in_progress', 'completed', 'failed', 'cancelled')),
+    payload TEXT,
+    project_path TEXT,
+    result TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
+CREATE INDEX IF NOT EXISTS idx_tasks_status_created ON tasks(status, created_at);
+CREATE INDEX IF NOT EXISTS idx_tasks_project ON tasks(project_path);
+CREATE INDEX IF NOT EXISTS idx_tasks_project_status ON tasks(project_path, status, created_at);
 `;
 
 /**
@@ -158,6 +176,25 @@ ALTER TABLE artifacts ADD COLUMN step TEXT;`,
 
 	10: `-- Migration: Add subflow boolean column to artifacts for subflow diagram identification
 ALTER TABLE artifacts ADD COLUMN subflow INTEGER NOT NULL DEFAULT 0;`,
+
+	11: `-- Migration: Add tasks table for persistent FIFO task queue
+CREATE TABLE tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT NOT NULL,
+    description TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending'
+        CHECK(status IN ('pending', 'in_progress', 'completed', 'failed', 'cancelled')),
+    payload TEXT,
+    project_path TEXT,
+    result TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX idx_tasks_status ON tasks(status);
+CREATE INDEX idx_tasks_status_created ON tasks(status, created_at);
+CREATE INDEX idx_tasks_project ON tasks(project_path);
+CREATE INDEX idx_tasks_project_status ON tasks(project_path, status, created_at);`,
 };
 
 /** Get current database schema version from PRAGMA user_version */
@@ -238,7 +275,7 @@ const ensureDbDirectory = async (dbPath: string): Promise<void> => {
  * Get or create database connection.
  * Initializes schema on first connection and runs any pending migrations.
  */
-const getDatabase = (
+export const getDatabase = (
 	dbPath: string = DEFAULT_DB_PATH,
 ): TE.TaskEither<CLIError, Database> =>
 	TE.tryCatch(
