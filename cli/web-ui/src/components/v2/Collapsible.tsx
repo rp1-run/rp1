@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 export interface CollapsibleProps {
 	title: string;
 	defaultExpanded?: boolean;
+	expanded?: boolean;
 	icon?: ReactNode;
 	badge?: ReactNode;
 	rightContent?: ReactNode;
@@ -16,6 +17,7 @@ export interface CollapsibleProps {
 export function Collapsible({
 	title,
 	defaultExpanded = false,
+	expanded: controlledExpanded,
 	icon,
 	badge,
 	rightContent,
@@ -23,14 +25,18 @@ export function Collapsible({
 	className,
 	onExpandedChange,
 }: CollapsibleProps) {
-	const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+	const [internalExpanded, setInternalExpanded] = useState(defaultExpanded);
+	const isControlled = controlledExpanded !== undefined;
+	const isExpanded = isControlled ? controlledExpanded : internalExpanded;
 	const id = useId();
 	const contentId = `collapsible-content-${id}`;
 	const titleId = `collapsible-title-${id}`;
 
 	const handleToggle = () => {
 		const next = !isExpanded;
-		setIsExpanded(next);
+		if (!isControlled) {
+			setInternalExpanded(next);
+		}
 		onExpandedChange?.(next);
 	};
 

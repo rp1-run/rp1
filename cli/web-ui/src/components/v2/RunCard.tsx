@@ -1,7 +1,9 @@
 import { motion } from "framer-motion";
+import { Hand } from "lucide-react";
 import type React from "react";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { statusBorderColors, statusGlowColors } from "@/lib/status-colors";
+import { getStatusLabel } from "@/lib/status-labels";
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { Run } from "@/types/runs";
@@ -67,6 +69,16 @@ export function RunCard({
 		>
 			{showStatus && (
 				<StatusBadge status={run.status} size="sm" showLabel={false} />
+			)}
+
+			{run.status === "waiting" && (
+				<span
+					className="shrink-0 text-status-waiting"
+					role="img"
+					aria-label={getStatusLabel("waiting")}
+				>
+					<Hand className="h-4 w-4" aria-hidden="true" />
+				</span>
 			)}
 
 			<div className="min-w-0 flex-1">

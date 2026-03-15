@@ -8,13 +8,18 @@ import {
 	GitCompare,
 	Image,
 	ListChecks,
+	MessageCircle,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import type { StepNodeData } from "@/lib/workflow-converter";
 import type { Artifact, ArtifactType, StepStatus } from "@/types/runs";
 import { StatusBadge } from "./StatusBadge";
+
+export const AnnotationCountsContext = createContext<
+	Readonly<Record<string, number>>
+>({});
 
 type StepNodeType = Node<StepNodeData, "stepNode">;
 
@@ -102,9 +107,13 @@ export function ArtifactBadge({
 	readonly runId: string | undefined;
 }) {
 	const navigate = useNavigate();
+	const annotationCounts = useContext(AnnotationCountsContext);
 	const Icon = artifactIconMap[artifact.type] || File;
 	const borderClass =
 		artifactBorderColor[artifact.type] || "border-l-muted-foreground";
+	const annotationCount = artifact.docId
+		? (annotationCounts[artifact.docId] ?? 0)
+		: 0;
 
 	const handleClick = (e: React.MouseEvent) => {
 		e.stopPropagation();
@@ -127,7 +136,16 @@ export function ArtifactBadge({
 			<span className="min-w-0 truncate">
 				{getArtifactFilename(artifact.path)}
 			</span>
-			{artifact.isNew && (
+			{annotationCount > 0 && (
+				<span
+					className="ml-auto inline-flex items-center gap-0.5 text-accent-foreground"
+					aria-label={`${annotationCount} annotation${annotationCount !== 1 ? "s" : ""}`}
+				>
+					<MessageCircle className="h-3 w-3" aria-hidden="true" />
+					<span className="tabular-nums">{annotationCount}</span>
+				</span>
+			)}
+			{annotationCount === 0 && artifact.isNew && (
 				<span
 					className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-status-running"
 					role="img"

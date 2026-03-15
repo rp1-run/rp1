@@ -1,6 +1,7 @@
 import { useMemo, useRef } from "react";
 import { MermaidDiagram } from "@/components/MarkdownViewer/MermaidDiagram";
 import type { WorkflowDefinition } from "@/hooks/useWorkflowSteps";
+import { getStatusLabel } from "@/lib/status-labels";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/providers/ThemeProvider";
 import type { Step, StepStatus } from "@/types/runs";
@@ -137,12 +138,14 @@ function buildLegendItems(
 	const hasStatus = (s: StepStatus) => steps.some((step) => step.status === s);
 	const items: { label: string; status: StepStatus }[] = [];
 
-	if (hasStatus("running")) items.push({ label: "Current", status: "running" });
+	if (hasStatus("running"))
+		items.push({ label: getStatusLabel("running"), status: "running" });
 	if (hasStatus("completed"))
-		items.push({ label: "Completed", status: "completed" });
-	if (hasStatus("failed")) items.push({ label: "Failed", status: "failed" });
+		items.push({ label: getStatusLabel("completed"), status: "completed" });
+	if (hasStatus("failed"))
+		items.push({ label: getStatusLabel("failed"), status: "failed" });
 	if (hasStatus("not_started"))
-		items.push({ label: "Not Started", status: "not_started" });
+		items.push({ label: getStatusLabel("not_started"), status: "not_started" });
 
 	return items;
 }

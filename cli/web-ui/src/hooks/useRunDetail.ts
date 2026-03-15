@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useWebSocket } from "@/providers/WebSocketProvider";
-import type { Artifact, Run, RunStatus, StepStatus } from "@/types/runs";
+import type {
+	Artifact,
+	Run,
+	RunEvent,
+	RunStatus,
+	StepStatus,
+} from "@/types/runs";
 import type {
 	ConnectionStatus,
 	EventNotificationMessage,
@@ -118,6 +124,49 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 						return {
 							...prev,
 							artifacts: [...prev.artifacts, newArtifact],
+						};
+					});
+				}
+
+				if (msg.eventType === "waiting_for_user") {
+					const data = msg.data as Record<string, unknown> | null;
+					const prompt = (data?.prompt as string) ?? "";
+					const waitingEvent: RunEvent = {
+						id: `ws-${msg.eventId}`,
+						type: "waiting_for_user",
+						message: prompt,
+						timestamp: msg.createdAt,
+						stepId: msg.step,
+						metadata: data ?? null,
+					};
+
+					setRun((prev) => {
+						if (!prev) return null;
+						return {
+							...prev,
+							status: "waiting" as RunStatus,
+							events: [...prev.events, waitingEvent],
+						};
+					});
+				}
+
+				if (msg.eventType === "btw_update") {
+					const data = msg.data as Record<string, unknown> | null;
+					const message = (data?.message as string) ?? "";
+					const btwEvent: RunEvent = {
+						id: `ws-${msg.eventId}`,
+						type: "btw_update",
+						message,
+						timestamp: msg.createdAt,
+						stepId: msg.step,
+						metadata: data ?? null,
+					};
+
+					setRun((prev) => {
+						if (!prev) return null;
+						return {
+							...prev,
+							events: [...prev.events, btwEvent],
 						};
 					});
 				}

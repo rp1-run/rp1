@@ -6,10 +6,14 @@ import {
 	RefreshCw,
 	Terminal,
 } from "lucide-react";
-import { useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { BtwFeed } from "@/components/v2/BtwFeed";
+import { EventStream } from "@/components/v2/EventStream";
 import { DETAIL_HINTS, KeyHints } from "@/components/v2/KeyHints";
 import { StatusBadge } from "@/components/v2/StatusBadge";
+import { AnnotationCountsContext } from "@/components/v2/StepNode";
+import { WaitingBanner } from "@/components/v2/WaitingBanner";
 import { WorkflowCanvas } from "@/components/v2/WorkflowCanvas";
 import { useContextualShortcuts } from "@/hooks/useContextualShortcuts";
 import { useRunDetail } from "@/hooks/useRunDetail";
@@ -70,7 +74,61 @@ export function RunDetailPage() {
 		return run ? run.steps : [];
 	}, [run]);
 
+	const isActive = run
+		? run.status === "running" || run.status === "waiting"
+		: false;
+	const waitingPrompt = useMemo<string | null>(() => {
+		if (!run || run.status !== "waiting") return null;
+		const waitingEvents = run.events.filter(
+			(e) => e.type === "waiting_for_user",
+		);
+		if (waitingEvents.length === 0) return null;
+		const mostRecent = waitingEvents.reduce((latest, e) =>
+			new Date(e.timestamp).getTime() > new Date(latest.timestamp).getTime()
+				? e
+				: latest,
+		);
+		return mostRecent.message || null;
+	}, [run]);
+
+	const annotationCounts = useMemo<Readonly<Record<string, number>>>(() => {
+		if (!run) return {};
+		const counts: Record<string, number> = {};
+		for (const event of run.events) {
+			if (event.type === "annotation_updated" && event.metadata) {
+				const docId = event.metadata.docId as string | undefined;
+				if (docId) {
+					counts[docId] = (counts[docId] ?? 0) + 1;
+				}
+			}
+		}
+		return counts;
+	}, [run]);
+
+	const [eventStreamExpanded, setEventStreamExpanded] = useState(true);
+	const initialSyncRef = useRef(false);
+
+	useEffect(() => {
+		if (run && !initialSyncRef.current) {
+			initialSyncRef.current = true;
+			const terminal = run.status === "completed" || run.status === "failed";
+			setEventStreamExpanded(!terminal);
+		}
+	}, [run]);
+
 	const canvasSectionRef = useRef<HTMLElement>(null);
+	const btwFeedRef = useRef<HTMLDivElement>(null);
+
+	const toggleEventStream = useCallback(() => {
+		setEventStreamExpanded((prev) => !prev);
+	}, []);
+
+	const scrollToBtwFeed = useCallback(() => {
+		btwFeedRef.current?.scrollIntoView({
+			behavior: "smooth",
+			block: "start",
+		});
+	}, []);
 
 	useContextualShortcuts({
 		viewId: "run-detail",
@@ -87,6 +145,18 @@ export function RunDetailPage() {
 					});
 					canvasSectionRef.current?.focus();
 				},
+			},
+			{
+				key: "e",
+				label: "Event Stream",
+				description: "Toggle event stream expand/collapse",
+				action: toggleEventStream,
+			},
+			{
+				key: "b",
+				label: "Agent Insights",
+				description: "Scroll to BTW feed section",
+				action: scrollToBtwFeed,
 			},
 		],
 		enabled: !!run,
@@ -144,70 +214,83 @@ export function RunDetailPage() {
 		);
 	}
 
-	const isActive = run.status === "running" || run.status === "waiting";
-
 	return (
-		<div className="flex h-full flex-col gap-6 p-6">
-			<nav className="flex items-center gap-2 text-sm text-muted-foreground">
-				<Link
-					to="/projects"
-					className="hover:text-foreground transition-colors"
+		<AnnotationCountsContext.Provider value={annotationCounts}>
+			<div className="flex h-full flex-col gap-6 p-6">
+				<nav className="flex items-center gap-2 text-sm text-muted-foreground">
+					<Link
+						to="/projects"
+						className="hover:text-foreground transition-colors"
+					>
+						{run.projectName}
+					</Link>
+					<ChevronRight className="h-4 w-4" aria-hidden="true" />
+					<span className="text-foreground">{run.featureName}</span>
+					<ChevronRight className="h-4 w-4" aria-hidden="true" />
+					<span className="text-foreground">Run</span>
+				</nav>
+
+				<header className="rounded-lg border border-border bg-card p-6">
+					<div className="flex items-center gap-3">
+						<h1 className="text-xl font-semibold text-foreground">
+							{run.featureName}
+						</h1>
+						<StatusBadge status={run.status} size="md" />
+					</div>
+
+					<div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+						<span className="inline-flex items-center gap-1.5">
+							<Terminal className="h-3.5 w-3.5" aria-hidden="true" />
+							<code className="rounded bg-muted px-2 py-0.5 font-mono text-xs">
+								{run.command}
+							</code>
+						</span>
+						<span className="inline-flex items-center gap-1.5">
+							<Calendar className="h-3.5 w-3.5" aria-hidden="true" />
+							{formatStartTime(run.startedAt)}
+						</span>
+						<span className="inline-flex items-center gap-1.5">
+							<Clock className="h-3.5 w-3.5" aria-hidden="true" />
+							{isActive ? "Elapsed " : "Duration "}
+							{formatDuration(run.startedAt, run.completedAt)}
+						</span>
+					</div>
+
+					{run.error && (
+						<p className="mt-3 text-sm text-status-failed">{run.error}</p>
+					)}
+				</header>
+
+				{waitingPrompt && <WaitingBanner prompt={waitingPrompt} />}
+
+				<section
+					ref={canvasSectionRef}
+					className="min-h-[300px] flex-1 rounded-lg border border-border bg-card"
+					tabIndex={-1}
 				>
-					{run.projectName}
-				</Link>
-				<ChevronRight className="h-4 w-4" aria-hidden="true" />
-				<span className="text-foreground">{run.featureName}</span>
-				<ChevronRight className="h-4 w-4" aria-hidden="true" />
-				<span className="text-foreground">Run</span>
-			</nav>
+					<WorkflowCanvas
+						workflow={workflow ?? null}
+						steps={displaySteps}
+						artifacts={run?.artifacts}
+						agentSteps={run?.agentSteps}
+						subflows={run?.subflows}
+						className="h-full w-full"
+					/>
+				</section>
 
-			<header className="rounded-lg border border-border bg-card p-6">
-				<div className="flex items-center gap-3">
-					<h1 className="text-xl font-semibold text-foreground">
-						{run.featureName}
-					</h1>
-					<StatusBadge status={run.status} size="md" />
-				</div>
-
-				<div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-					<span className="inline-flex items-center gap-1.5">
-						<Terminal className="h-3.5 w-3.5" aria-hidden="true" />
-						<code className="rounded bg-muted px-2 py-0.5 font-mono text-xs">
-							{run.command}
-						</code>
-					</span>
-					<span className="inline-flex items-center gap-1.5">
-						<Calendar className="h-3.5 w-3.5" aria-hidden="true" />
-						{formatStartTime(run.startedAt)}
-					</span>
-					<span className="inline-flex items-center gap-1.5">
-						<Clock className="h-3.5 w-3.5" aria-hidden="true" />
-						{isActive ? "Elapsed " : "Duration "}
-						{formatDuration(run.startedAt, run.completedAt)}
-					</span>
-				</div>
-
-				{run.error && (
-					<p className="mt-3 text-sm text-status-failed">{run.error}</p>
-				)}
-			</header>
-
-			<section
-				ref={canvasSectionRef}
-				className="min-h-[300px] flex-1 rounded-lg border border-border bg-card"
-				tabIndex={-1}
-			>
-				<WorkflowCanvas
-					workflow={workflow ?? null}
-					steps={displaySteps}
-					artifacts={run?.artifacts}
-					agentSteps={run?.agentSteps}
-					subflows={run?.subflows}
-					className="h-full w-full"
+				<EventStream
+					events={run.events}
+					defaultExpanded={isActive}
+					expanded={eventStreamExpanded}
+					onExpandedChange={setEventStreamExpanded}
 				/>
-			</section>
 
-			<KeyHints hints={DETAIL_HINTS} />
-		</div>
+				<div ref={btwFeedRef}>
+					<BtwFeed events={run.events} />
+				</div>
+
+				<KeyHints hints={DETAIL_HINTS} />
+			</div>
+		</AnnotationCountsContext.Provider>
 	);
 }

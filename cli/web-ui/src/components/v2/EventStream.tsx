@@ -55,12 +55,16 @@ function getEventSummary(event: RunEvent): string {
 export interface EventStreamProps {
 	events: readonly RunEvent[];
 	defaultExpanded?: boolean;
+	expanded?: boolean;
+	onExpandedChange?: (expanded: boolean) => void;
 	className?: string;
 }
 
 export function EventStream({
 	events,
 	defaultExpanded = false,
+	expanded,
+	onExpandedChange,
 	className,
 }: EventStreamProps) {
 	const sortedEvents = [...events].sort(
@@ -78,6 +82,8 @@ export function EventStream({
 		<Collapsible
 			title="Event Stream"
 			defaultExpanded={defaultExpanded}
+			expanded={expanded}
+			onExpandedChange={onExpandedChange}
 			badge={
 				<span className="text-sm text-muted-foreground">
 					({events.length} events)
