@@ -113,9 +113,71 @@ const validateArtifactStep = (
 	);
 
 /**
+ * Auto-complete a step when an artifact is registered for it.
+ * If the step has no status records yet, inserts started + completed records
+ * so the step shows as done in the UI. The existing autoCorrectSkippedSteps
+ * mechanism (triggered by executeUpdate) handles marking prior steps as completed.
+ *
+ * Best-effort: failures are logged and swallowed.
+ */
+const autoCompleteStepForArtifact = async (
+	input: ArtifactInput,
+	dbPath?: string,
+): Promise<void> => {
+	const step = input.step;
+	if (!step || !input.runId) return;
+
+	try {
+		const statusResult = await getStepStatusValue(
+			input.projectPath,
+			input.feature,
+			step,
+			input.runId,
+			dbPath,
+		)();
+		if (statusResult._tag === "Right" && statusResult.right !== null) {
+			return; // Step already has a status record
+		}
+
+		const workflowResult = await getWorkflowForRun(
+			input.projectPath,
+			input.feature,
+			input.runId,
+			dbPath,
+		)();
+		const workflow =
+			workflowResult._tag === "Right" ? workflowResult.right : null;
+		if (!workflow) return;
+
+		const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
+
+		// Insert started + completed via executeUpdate so autoCorrectSkippedSteps runs
+		for (const status of ["started", "completed"] as const) {
+			await executeUpdate(
+				{
+					projectPath: input.projectPath,
+					feature: input.feature,
+					step,
+					status,
+					message: `Auto-completed: artifact registered for step`,
+					runId: input.runId,
+					workflow,
+					expiresAt,
+					worktreePath: input.worktreePath,
+				},
+				dbPath,
+			)();
+		}
+	} catch {
+		// Best-effort — don't block artifact registration
+	}
+};
+
+/**
  * Execute work artifact subcommand.
  * Registers a new artifact in the database.
- * When --step is provided, validates the step against the workflow's state machine.
+ * When --step is provided, validates the step against the workflow's state machine
+ * and auto-completes the step if it hasn't started yet.
  *
  * @param input - Artifact registration data
  * @param dbPath - Optional database path override
@@ -142,6 +204,9 @@ export const executeArtifact = (
 				worktreePath: input.worktreePath ?? null,
 				step: input.step ?? null,
 			}),
+		),
+		TE.chainFirst(() =>
+			TE.fromTask(() => autoCompleteStepForArtifact(input, dbPath)),
 		),
 		TE.chainFirst((data) =>
 			TE.fromTask(async () => {
