@@ -312,7 +312,8 @@ rp1 agent-tools work artifact \
   --project "$(pwd)" \
   --feature {FEATURE_ID} \
   --run-id {RUN_ID} \
-  --path {report_path}
+  --path {report_path} \
+  --step report
 ```
 
 ## 6. Final Summary (~15% effort)

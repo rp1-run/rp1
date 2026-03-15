@@ -173,7 +173,8 @@ rp1 agent-tools work artifact \
   --project "$(pwd)" \
   --feature {FEATURE_ID} \
   --run-id {RUN_ID} \
-  --path .rp1/work/features/{FEATURE_ID}/requirements.md
+  --path .rp1/work/features/{FEATURE_ID}/requirements.md \
+  --step requirements
 ```
 
 If the command fails, log a warning (`[feature-requirement-gatherer] Failed to register artifact .rp1/work/features/{FEATURE_ID}/requirements.md: {error}`) and continue without blocking.

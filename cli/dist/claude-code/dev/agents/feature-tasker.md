@@ -325,7 +325,8 @@ rp1 agent-tools work artifact \
   --project "$(pwd)" \
   --feature {FEATURE_ID} \
   --run-id {RUN_ID} \
-  --path .rp1/work/features/{FEATURE_ID}/tasks.md
+  --path .rp1/work/features/{FEATURE_ID}/tasks.md \
+  --step tasks
 ```
 
 **Large scope** (tracker.md + milestone files):
@@ -335,7 +336,8 @@ rp1 agent-tools work artifact \
   --project "$(pwd)" \
   --feature {FEATURE_ID} \
   --run-id {RUN_ID} \
-  --path .rp1/work/features/{FEATURE_ID}/tracker.md
+  --path .rp1/work/features/{FEATURE_ID}/tracker.md \
+  --step tasks
 ```
 
 Also register each `milestone-{N}.md` written:
@@ -345,7 +347,8 @@ rp1 agent-tools work artifact \
   --project "$(pwd)" \
   --feature {FEATURE_ID} \
   --run-id {RUN_ID} \
-  --path .rp1/work/features/{FEATURE_ID}/milestone-{N}.md
+  --path .rp1/work/features/{FEATURE_ID}/milestone-{N}.md \
+  --step tasks
 ```
 
 If any command fails, log a warning (`[feature-tasker] Failed to register artifact {path}: {error}`) and continue without blocking.

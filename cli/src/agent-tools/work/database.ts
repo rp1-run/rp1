@@ -1349,4 +1349,57 @@ export const getStepStatusValue = (
 		),
 	);
 
+/**
+ * Look up the workflow name for a given project+feature+run combination.
+ * Used by artifact step validation to resolve which state machine to validate against.
+ *
+ * @param projectPath - Project path to filter by
+ * @param feature - Feature identifier
+ * @param runId - Optional run ID for scoping
+ * @param dbPath - Database file path (optional)
+ * @returns TaskEither with workflow name or null if not found
+ */
+export const getWorkflowForRun = (
+	projectPath: string,
+	feature: string,
+	runId?: string,
+	dbPath?: string,
+): TE.TaskEither<CLIError, string | null> =>
+	pipe(
+		getDatabase(dbPath),
+		TE.chain((db) =>
+			TE.tryCatch(
+				async () => {
+					const params: Record<string, string> = {
+						$projectPath: projectPath,
+						$feature: feature,
+					};
+
+					let sql = `
+						SELECT workflow FROM status_updates
+						WHERE project_path = $projectPath
+						AND feature = $feature
+						AND workflow IS NOT NULL
+					`;
+
+					if (runId) {
+						sql += " AND run_id = $runId";
+						params.$runId = runId;
+					}
+
+					sql += " ORDER BY created_at DESC LIMIT 1";
+
+					const row = db.prepare(sql).get(params) as {
+						workflow: string;
+					} | null;
+					return row?.workflow ?? null;
+				},
+				(error) =>
+					runtimeError(
+						`Failed to query workflow for run: ${error instanceof Error ? error.message : String(error)}`,
+					),
+			),
+		),
+	);
+
 export { DEFAULT_DB_PATH };

@@ -6,6 +6,7 @@
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../../shared/errors.js";
+import { runtimeError } from "../../../shared/errors.js";
 import { registerTool, type ToolOptions } from "../index.js";
 import type { ToolResult } from "../models.js";
 import { successResult } from "../output.js";
@@ -22,6 +23,7 @@ import {
 	getCurrentWorkflowState,
 	getLatestStatusByFeature,
 	getStepStatusValue,
+	getWorkflowForRun,
 	insertArtifact,
 	insertStatusUpdate,
 	isValidStatus,
@@ -74,8 +76,46 @@ export interface WorkArtifactResult {
 }
 
 /**
+ * Validate that an artifact's step value is a valid state in the associated workflow's
+ * state machine. Looks up the workflow from status_updates for the same project+feature+run.
+ * If no workflow is found (e.g., standalone invocation), validation is skipped.
+ *
+ * @param input - Artifact registration data containing step to validate
+ * @param dbPath - Optional database path override
+ * @returns TaskEither that resolves if valid, or errors with invalid step details
+ */
+const validateArtifactStep = (
+	input: ArtifactInput,
+	dbPath?: string,
+): TE.TaskEither<CLIError, void> =>
+	pipe(
+		getWorkflowForRun(input.projectPath, input.feature, input.runId, dbPath),
+		TE.chain((workflow) => {
+			const step = input.step;
+			if (!workflow || !step) {
+				return TE.right(undefined as undefined);
+			}
+			return pipe(
+				loadStateMachine(workflow),
+				TE.chain((machine) => {
+					if (machine.states.has(step)) {
+						return TE.right(undefined as undefined);
+					}
+					const validSteps = Array.from(machine.states.keys());
+					return TE.left(
+						runtimeError(
+							`Invalid artifact step '${step}' for workflow '${workflow}'. Valid steps: ${validSteps.join(", ")}`,
+						),
+					);
+				}),
+			);
+		}),
+	);
+
+/**
  * Execute work artifact subcommand.
  * Registers a new artifact in the database.
+ * When --step is provided, validates the step against the workflow's state machine.
  *
  * @param input - Artifact registration data
  * @param dbPath - Optional database path override
@@ -86,7 +126,10 @@ export const executeArtifact = (
 	dbPath?: string,
 ): TE.TaskEither<CLIError, ToolResult<WorkArtifactResult>> =>
 	pipe(
-		insertArtifact(input, dbPath),
+		input.step
+			? validateArtifactStep(input, dbPath)
+			: TE.right(undefined as undefined),
+		TE.chain(() => insertArtifact(input, dbPath)),
 		TE.map(
 			(result): WorkArtifactResult => ({
 				id: result.id,

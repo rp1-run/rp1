@@ -139,7 +139,8 @@ rp1 agent-tools work artifact \
   --project "$(pwd)" \
   --feature quick-build \
   --run-id {RUN_ID} \
-  --path {artifact_path}
+  --path {artifact_path} \
+  --step plan
 ```
 
 If the command fails, log a warning (`[build-fast-planner] Failed to register artifact {artifact_path}: {error}`) and continue without blocking.

@@ -240,7 +240,8 @@ rp1 agent-tools work artifact \
   --project "$(pwd)" \
   --feature {FEATURE_ID} \
   --run-id {RUN_ID} \
-  --path {artifact_path}
+  --path {artifact_path} \
+  --step build
 ```
 
 ```markdown

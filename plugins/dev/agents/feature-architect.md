@@ -237,13 +237,15 @@ rp1 agent-tools work artifact \
   --project "$(pwd)" \
   --feature {FEATURE_ID} \
   --run-id {RUN_ID} \
-  --path .rp1/work/features/{FEATURE_ID}/design.md
+  --path .rp1/work/features/{FEATURE_ID}/design.md \
+  --step design
 
 rp1 agent-tools work artifact \
   --project "$(pwd)" \
   --feature {FEATURE_ID} \
   --run-id {RUN_ID} \
-  --path .rp1/work/features/{FEATURE_ID}/design-decisions.md
+  --path .rp1/work/features/{FEATURE_ID}/design-decisions.md \
+  --step design
 ```
 
 If either command fails, log a warning (`[feature-architect] Failed to register artifact {path}: {error}`) and continue without blocking.
