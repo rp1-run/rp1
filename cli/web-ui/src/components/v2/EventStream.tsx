@@ -3,8 +3,12 @@ import {
 	Bot,
 	Check,
 	FilePlus,
+	Hand,
 	Layers,
+	MessageSquare,
 	Play,
+	RefreshCw,
+	StickyNote,
 	XCircle,
 } from "lucide-react";
 import { formatRelativeTime } from "@/lib/time";
@@ -45,6 +49,30 @@ const eventConfigs: Record<EventType, EventConfig> = {
 	"agent-update": {
 		icon: Bot,
 		colorClass: "text-accent-foreground",
+	},
+	status_change: {
+		icon: RefreshCw,
+		colorClass: "text-muted-foreground",
+	},
+	artifact_registered: {
+		icon: FilePlus,
+		colorClass: "text-muted-foreground",
+	},
+	annotation_updated: {
+		icon: StickyNote,
+		colorClass: "text-muted-foreground",
+	},
+	waiting_for_user: {
+		icon: Hand,
+		colorClass: "text-status-waiting",
+	},
+	btw_update: {
+		icon: MessageSquare,
+		colorClass: "text-accent-foreground",
+	},
+	subflow_registered: {
+		icon: Layers,
+		colorClass: "text-muted-foreground",
 	},
 };
 

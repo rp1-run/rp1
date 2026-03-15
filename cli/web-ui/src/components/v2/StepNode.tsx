@@ -51,6 +51,14 @@ export const statusStyles: Record<
 		border: "border-dashed border-muted-foreground/40",
 		bg: "bg-muted/30",
 	},
+	not_started: {
+		border: "border-dashed border-border",
+		bg: "bg-card",
+	},
+	waiting: {
+		border: "border-solid border-status-waiting",
+		bg: "bg-status-waiting/10",
+	},
 };
 
 export function formatDuration(

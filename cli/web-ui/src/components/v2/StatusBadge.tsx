@@ -1,5 +1,14 @@
 import { cva, type VariantProps } from "class-variance-authority";
-import { Check, Circle, Clock, Eye, Hand, MinusCircle, X } from "lucide-react";
+import {
+	Check,
+	Circle,
+	CircleDot,
+	Clock,
+	Eye,
+	Hand,
+	MinusCircle,
+	X,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { RunStatus, StepStatus } from "@/types/runs";
 
@@ -84,6 +93,18 @@ const statusConfigs: Record<Status, StatusConfig> = {
 		label: "Skipped",
 		colorClass: "text-muted-foreground",
 		bgClass: "bg-muted/50",
+	},
+	not_started: {
+		icon: CircleDot,
+		label: "Not Started",
+		colorClass: "text-muted-foreground",
+		bgClass: "bg-muted/50",
+	},
+	waiting: {
+		icon: Hand,
+		label: "Waiting",
+		colorClass: "text-status-waiting",
+		bgClass: "bg-status-waiting/15",
 	},
 };
 

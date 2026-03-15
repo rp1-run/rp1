@@ -7,6 +7,9 @@ export const statusBorderColors: Record<RunStatus, string> = {
 	"waiting-input": "border-l-status-waiting",
 	"needs-review": "border-l-status-needs-review",
 	queued: "border-l-status-queued",
+	not_started: "border-l-muted-foreground",
+	waiting: "border-l-status-waiting",
+	skipped: "border-l-muted-foreground",
 };
 
 export const statusGlowColors: Record<RunStatus, string> = {
@@ -16,4 +19,7 @@ export const statusGlowColors: Record<RunStatus, string> = {
 	"waiting-input": "hsl(var(--status-accent-waiting) / 0.2)",
 	"needs-review": "hsl(var(--status-accent-needs-review) / 0.2)",
 	queued: "hsl(var(--status-accent-queued) / 0.1)",
+	not_started: "hsl(var(--status-accent-queued) / 0.1)",
+	waiting: "hsl(var(--status-accent-waiting) / 0.2)",
+	skipped: "hsl(var(--status-accent-queued) / 0.1)",
 };

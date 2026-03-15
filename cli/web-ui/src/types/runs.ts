@@ -1,38 +1,30 @@
 /**
  * Type definitions for runs, steps, artifacts, and events.
  * Used by the V2 dashboard for monitoring AI agent runs.
+ *
+ * Canonical types (Status, EventType, ArtifactType) are imported from
+ * the shared events module to eliminate drift between CLI and web-ui.
+ * RunStatus and StepStatus extend the shared Status with legacy values
+ * that will be removed when the API layer migrates in Phase 3.
  */
 
-/** Status of an agent run */
-export type RunStatus =
-	| "queued"
-	| "running"
-	| "waiting-input"
-	| "completed"
-	| "failed"
-	| "needs-review";
+import type {
+	ArtifactType,
+	EventType as SharedEventType,
+	Status,
+} from "../../../shared/events";
 
-/** Status of a workflow step within a run */
-export type StepStatus =
-	| "pending"
-	| "running"
-	| "completed"
-	| "failed"
-	| "skipped"
-	| "waiting-input"
-	| "needs-review";
+export type { ArtifactType };
 
-/** Type of artifact produced by a run */
-export type ArtifactType =
-	| "markdown"
-	| "diff"
-	| "diagram"
-	| "report"
-	| "code"
-	| "other";
+/** Status of an agent run, derived from the canonical Status type with legacy values preserved for Phase 3 migration */
+export type RunStatus = Status | "queued" | "waiting-input" | "needs-review";
 
-/** Type of event in the run event stream */
+/** Status of a workflow step within a run, derived from the canonical Status type with legacy values preserved for Phase 3 migration */
+export type StepStatus = Status | "pending" | "waiting-input" | "needs-review";
+
+/** Event type for the run event stream, combining shared and legacy UI event types */
 export type EventType =
+	| SharedEventType
 	| "step-start"
 	| "step-complete"
 	| "warning"
