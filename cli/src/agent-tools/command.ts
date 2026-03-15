@@ -6,7 +6,14 @@
 import { Command } from "commander";
 import * as E from "fp-ts/lib/Either.js";
 import { formatError } from "../../shared/errors.js";
+import { VALID_EVENT_TYPES } from "../../shared/events.js";
 import { executeExtract } from "./comment-extract/index.js";
+import { closeDatabase as closeEmitDatabase } from "./emit/database.js";
+import { executeEmit } from "./emit/index.js";
+import {
+	type EmitCommandOptions,
+	validateEmitOptions,
+} from "./emit/validate.js";
 import { resolveProjectPath } from "./git.js";
 import {
 	executeAddReaction,
@@ -31,14 +38,13 @@ import {
 	closeDatabase,
 	executeArtifact as executeWorkArtifact,
 	executeCleanup as executeWorkCleanup,
-	executeUpdate as executeWorkUpdate,
 } from "./work/index.js";
-import { VALID_ARTIFACT_TYPES, VALID_STATUSES } from "./work/models.js";
-import { validateUpdateOptions } from "./work/update.js";
+import { VALID_ARTIFACT_TYPES } from "./work/models.js";
 
 // Register process exit handlers for graceful cleanup
 const cleanupAndExit = () => {
 	closeDatabase();
+	closeEmitDatabase();
 };
 process.on("exit", cleanupAndExit);
 process.on("SIGTERM", () => {
@@ -53,6 +59,7 @@ process.on("SIGINT", () => {
 import "./mmd-validate/index.js";
 import "./rp1-root-dir/index.js";
 import "./comment-extract/index.js";
+import "./emit/index.js";
 import "./github-pr/index.js";
 import "./task/index.js";
 import "./work/index.js";
@@ -89,9 +96,10 @@ Available Tools:
   mmd-validate      Validate Mermaid diagram syntax
   rp1-root-dir      Resolve RP1_ROOT path with read-only worktree detection
   comment-extract   Extract comments from git-changed files
+  emit              Record events for the rp1 workflow event system
   github-pr         GitHub PR operations (submit-review, add-reaction, reply-comment, fetch-comments)
   task              Manage task queue (create, list, pickup, complete, fail, cancel, get)
-  work              Track agent workflow progress with status updates and artifacts
+  work              Track agent workflow artifacts and cleanup
 
 Examples:
   rp1 agent-tools mmd-validate ./document.md
@@ -103,7 +111,7 @@ Examples:
   echo '{"owner":"org","repo":"repo","pr_number":123}' | rp1 agent-tools github-pr fetch-comments
   rp1 agent-tools task create --type check-annotations --description "Review open annotations"
   rp1 agent-tools task list --status pending
-  rp1 agent-tools work update --project /path/to/project --feature my-feature --workflow build --step requirements --status started
+  rp1 agent-tools emit --type status_change --run-id <uuid> --step requirements --data '{"status": "running"}'
 `,
 	);
 
@@ -331,177 +339,103 @@ Examples:
 	);
 
 /**
- * work subcommand.
- * Tracks agent workflow progress with status updates.
+ * emit subcommand.
+ * Records events for the rp1 workflow event system.
  */
-const workCommand = agentToolsCommand
-	.command("work")
-	.description("Track agent workflow progress with status updates")
+agentToolsCommand
+	.command("emit")
+	.description("Record events for the rp1 workflow event system")
+	.requiredOption(
+		"--type <type>",
+		`Event type (${VALID_EVENT_TYPES.join(", ")})`,
+	)
+	.requiredOption("--run-id <id>", "Workflow run ID (UUID)")
+	.option(
+		"--step <step>",
+		"Workflow step name (required for status_change, subflow_registered)",
+	)
+	.option("--unit <unit>", "Task/unit identifier")
+	.option("--data <json>", "JSON payload for the event")
+	.option("--project <path>", "Project path (defaults to cwd)")
 	.addHelpText(
 		"after",
 		`
 Description:
-  Provides subcommands for tracking agent workflow progress via status updates
-  and artifact registration. Data is stored in a global SQLite database at ~/.rp1/status.db.
+  Records an event to the rp1 event system database (~/.rp1/rp1.db).
+  This is the unified entry point for all event types, replacing the old
+  'work update' command.
 
-Subcommands:
-  update    Record a status update for a feature/step
-  artifact  Register an artifact for a feature/run
-  cleanup   Delete expired workflow runs
+  Supports 6 event types:
+    status_change         Record a workflow step status transition
+    artifact_registered   Register an artifact with stable doc_id identity
+    annotation_updated    Create or update an annotation on an artifact
+    waiting_for_user      Signal that the workflow is waiting for user input
+    btw_update            Send an informational update message
+    subflow_registered    Register a subflow under a parent step
 
-Examples:
-  rp1 agent-tools work update --project /path/to/project --feature my-feature --workflow build --step requirements --status started
-  rp1 agent-tools work update --project /path/to/project --feature my-feature --workflow build --step design --status started --message "Starting design"
-  rp1 agent-tools work artifact --project /path/to/project --feature my-feature --path .rp1/work/research/report.md
-`,
-	);
-
-/**
- * work update subcommand.
- * Records a status update for agent workflow tracking.
- */
-workCommand
-	.command("update")
-	.description("Record a status update for a feature/step")
-	.requiredOption("-p, --project <path>", "Absolute path to project root")
-	.requiredOption("-f, --feature <name>", "Feature identifier (kebab-case)")
-	.requiredOption(
-		"-t, --step <id>",
-		"Workflow step/state identifier (must match a state in the workflow's state machine)",
-	)
-	.requiredOption(
-		"-s, --status <status>",
-		`Status state (${VALID_STATUSES.join(", ")})`,
-	)
-	.option("-m, --message <text>", "Human-readable status message")
-	.option("--metadata <json>", "JSON string for additional context")
-	.requiredOption(
-		"-w, --workflow <name>",
-		"State machine workflow to validate against (skill name with embedded state machine)",
-	)
-	.option(
-		"--run-id <id>",
-		"Workflow run isolation ID (UUID) for tracking separate invocations",
-	)
-	.option(
-		"--ttl <seconds>",
-		"TTL in seconds for expires_at timestamp (default: 28800 = 8 hours)",
-	)
-	.option(
-		"--agent <name>",
-		"Agent name for agent-scoped state machine validation (requires --workflow)",
-	)
-	.option(
-		"--task <task-id>",
-		"Task identifier for per-task state tracking (requires --agent)",
-	)
-	.addHelpText(
-		"after",
-		`
-Description:
-  Records a status update to the global status database (~/.rp1/status.db).
-  Creates the database file automatically on first invocation.
-
-  Both --workflow and --step are REQUIRED. Every status update must specify
-  which workflow state machine step is being reported. The command loads the
-  state machine, validates that the transition is permitted, computes an
-  expires_at timestamp for stale row cleanup, and inserts the record with
-  run isolation via --run-id.
-
-  When --agent is provided alongside --workflow, validation uses the
-  agent's embedded state machine instead of the workflow's. The update
-  is still attributed to the parent workflow run.
-
-  When --task is provided alongside --agent, per-task state tracking
-  is enabled. Each task progresses through the agent's state machine
-  independently.
+  Runs are auto-created on first emit if the run-id does not exist.
+  Skipped-step detection automatically marks prior unreported steps as skipped.
 
 Arguments:
-  --project <path>     Absolute path to project root (required)
-  --feature <name>     Feature identifier in kebab-case (required)
-  --workflow <name>    Skill name whose state machine to validate against (required)
-  --step <id>          Workflow step/state identifier (required)
-  --status <status>    Status state: ${VALID_STATUSES.join(", ")} (required)
-  --message <text>     Human-readable status message (optional)
-  --metadata <json>    JSON string for additional context (optional)
-  --run-id <id>        UUID grouping updates into a discrete workflow run (recommended)
-  --ttl <seconds>      TTL for expires_at in seconds (default: 28800 = 8h)
-  --agent <name>       Agent name for agent-scoped validation (requires --workflow)
-  --task <task-id>     Task identifier for per-task tracking (requires --agent)
-
-Validation:
-  - Project path must be absolute
-  - Feature name must match pattern ^[a-z0-9-]+$
-  - --workflow and --step are both required
-  - --step must be a valid state in the workflow's state machine
-  - Status must be one of the valid states
-  - Metadata must be valid JSON if provided
-  - Transitions are validated against the state machine graph
-  - First update must target an initial state
-  - --agent requires --workflow (determines run attribution)
-  - --task requires --agent (determines agent context)
+  --type <type>        Event type (required): ${VALID_EVENT_TYPES.join(", ")}
+  --run-id <id>        Workflow run UUID (required)
+  --step <step>        Workflow step name (required for status_change, subflow_registered)
+  --unit <unit>        Task/unit identifier (optional)
+  --data <json>        JSON payload (optional, content depends on event type)
+  --project <path>     Absolute path to project root (optional, defaults to cwd)
 
 Output:
-  JSON with the recorded status update:
-  - id: Auto-generated record ID
-  - projectPath: Project path
-  - feature: Feature name
-  - step: Step identifier
-  - status: Status state
-  - message: Status message (null if not specified)
-  - createdAt: ISO 8601 UTC timestamp
+  JSON ToolResult with:
+  - eventId: Auto-generated event ID
+  - runId: Run identifier
+  - type: Event type recorded
+  - docId: Stable document ID (for artifact_registered events)
+  - skippedSteps: Steps auto-marked as skipped (if any)
+  - runStatus: Current derived run status
 
 Examples:
-  # Record workflow step transition
-  rp1 agent-tools work update \\
-    --project /Users/dev/myapp \\
-    --feature auth-refactor \\
-    --workflow build \\
+  # Record a status change
+  rp1 agent-tools emit \\
+    --type status_change \\
     --run-id "550e8400-e29b-41d4-a716-446655440000" \\
     --step requirements \\
-    --status started \\
-    --message "Gathering requirements"
+    --data '{"status": "running"}'
 
-  # Record agent state transition with per-task tracking
-  rp1 agent-tools work update \\
-    --project /Users/dev/myapp \\
-    --feature auth-refactor \\
-    --workflow build \\
-    --agent task-builder \\
-    --task T1 \\
+  # Register an artifact
+  rp1 agent-tools emit \\
+    --type artifact_registered \\
+    --run-id "550e8400-e29b-41d4-a716-446655440000" \\
+    --data '{"path": "work/features/my-feature/design.md", "feature": "my-feature"}'
+
+  # Record a subflow
+  rp1 agent-tools emit \\
+    --type subflow_registered \\
     --run-id "550e8400-e29b-41d4-a716-446655440000" \\
     --step building \\
-    --status started \\
-    --message "Building task T1"
-
-  # Record transition with custom TTL
-  rp1 agent-tools work update \\
-    --project /Users/dev/myapp \\
-    --feature auth-refactor \\
-    --workflow build \\
-    --run-id "550e8400-e29b-41d4-a716-446655440000" \\
-    --step design \\
-    --status started \\
-    --ttl 3600
+    --data '{"parentStepId": "building", "subflowName": "task-builder"}'
 `,
 	)
 	.action(
 		async (options: {
-			project: string;
-			feature: string;
-			step: string;
-			status: string;
-			message?: string;
-			metadata?: string;
-			workflow: string;
-			runId?: string;
-			ttl?: string;
-			agent?: string;
-			task?: string;
+			type: string;
+			runId: string;
+			step?: string;
+			unit?: string;
+			data?: string;
+			project?: string;
 		}): Promise<void> => {
-			const toolName = "work";
+			const toolName = "emit";
 
-			const validationResult = await validateUpdateOptions(options)();
+			const emitOptions: EmitCommandOptions = {
+				type: options.type,
+				runId: options.runId,
+				step: options.step,
+				unit: options.unit,
+				data: options.data,
+				project: options.project,
+			};
+
+			const validationResult = await validateEmitOptions(emitOptions)();
 
 			if (E.isLeft(validationResult)) {
 				console.error(
@@ -513,7 +447,7 @@ Examples:
 				process.exit(1);
 			}
 
-			const result = await executeWorkUpdate(validationResult.right)();
+			const result = await executeEmit(validationResult.right)();
 
 			if (E.isLeft(result)) {
 				console.error(
@@ -525,6 +459,30 @@ Examples:
 			console.log(formatOutput(result.right));
 			process.exit(0);
 		},
+	);
+
+/**
+ * work subcommand.
+ * Tracks agent workflow artifacts and cleanup.
+ */
+const workCommand = agentToolsCommand
+	.command("work")
+	.description("Track agent workflow artifacts and cleanup")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Provides subcommands for artifact registration and run cleanup.
+  Status updates have moved to 'rp1 agent-tools emit'.
+
+Subcommands:
+  artifact  Register an artifact for a feature/run
+  cleanup   Delete expired workflow runs
+
+Examples:
+  rp1 agent-tools work artifact --project /path/to/project --feature my-feature --path .rp1/work/research/report.md
+  rp1 agent-tools work cleanup --dry-run
+`,
 	);
 
 /**
