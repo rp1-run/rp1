@@ -237,7 +237,6 @@ describe("task input validation", () => {
 		test("accepts all valid status values on list", async () => {
 			const dbPath = join(tempDir, "val-good-status.db");
 
-			// Initialize the database
 			await expectTaskRight(
 				executeCreate({ type: "init", description: "Init" }, dbPath),
 			);

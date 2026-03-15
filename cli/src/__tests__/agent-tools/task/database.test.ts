@@ -297,7 +297,6 @@ describe("task database", () => {
 		test("returns null when no pending tasks exist", async () => {
 			const dbPath = join(tempDir, "pickup-empty.db");
 
-			// Force database initialization by creating and picking up a task
 			await expectTaskRight(
 				createTask({ type: "only-task", description: "Only task" }, dbPath),
 			);
@@ -602,7 +601,6 @@ describe("task database", () => {
 		test("returns error for non-existent task ID", async () => {
 			const dbPath = join(tempDir, "get-missing.db");
 
-			// Initialize database by creating a task
 			await expectTaskRight(
 				createTask({ type: "init", description: "Init db" }, dbPath),
 			);

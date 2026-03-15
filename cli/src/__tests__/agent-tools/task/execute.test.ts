@@ -174,7 +174,6 @@ describe("task execute functions", () => {
 		test("returns null data when queue is empty", async () => {
 			const dbPath = join(tempDir, "exec-pickup-empty.db");
 
-			// Initialize the database
 			await expectTaskRight(
 				executeCreate({ type: "init", description: "Init" }, dbPath),
 			);
