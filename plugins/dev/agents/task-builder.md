@@ -104,15 +104,12 @@ If PREVIOUS_FEEDBACK != "None": parse to understand prior failures + needed corr
 Transition to `building` state per STATE-MACHINE section:
 
 ```bash
-rp1 agent-tools work update \
-  --project "$(pwd)" \
-  --feature {FEATURE_ID} \
-  --workflow {WORKFLOW} \
-  --agent task-builder \
-  --task {TASK_IDS} \
+rp1 agent-tools emit \
+  --type status_change \
   --run-id {RUN_ID} \
   --step building \
-  --status started
+  --unit {TASK_IDS} \
+  --data '{"status": "running"}'
 ```
 
 Skip if WORKFLOW is empty.
@@ -321,15 +318,12 @@ Update progress % in header if present (feature mode only).
 Transition to `completed` state per STATE-MACHINE section:
 
 ```bash
-rp1 agent-tools work update \
-  --project "$(pwd)" \
-  --feature {FEATURE_ID} \
-  --workflow {WORKFLOW} \
-  --agent task-builder \
-  --task {TASK_IDS} \
+rp1 agent-tools emit \
+  --type status_change \
   --run-id {RUN_ID} \
   --step completed \
-  --status started
+  --unit {TASK_IDS} \
+  --data '{"status": "completed"}'
 ```
 
 Skip if WORKFLOW is empty.
@@ -379,15 +373,12 @@ Blocking issue:
 
 1. Transition to `failed` state per STATE-MACHINE section (skip if WORKFLOW is empty):
    ```bash
-   rp1 agent-tools work update \
-     --project "$(pwd)" \
-     --feature {FEATURE_ID} \
-     --workflow {WORKFLOW} \
-     --agent task-builder \
-     --task {TASK_IDS} \
+   rp1 agent-tools emit \
+     --type status_change \
      --run-id {RUN_ID} \
      --step failed \
-     --status started
+     --unit {TASK_IDS} \
+     --data '{"status": "failed"}'
    ```
 2. Document clearly
 3. Mark partial if possible
@@ -421,29 +412,26 @@ stateDiagram-v2
 ```
 
 **State Progression Protocol**:
-1. Report each `--step` with `--status started` when you enter that state
+1. Report each `--step` with `--data '{"status": "running"}'` when you enter that state
 2. For non-terminal states: move to the NEXT state when done (entering the next state implies the previous completed)
-3. For terminal states (those with `→ [*]` transitions): report `--status completed` when the step's work finishes
+3. For terminal states (those with `→ [*]` transitions): report with `--data '{"status": "completed"}'` when the step's work finishes
 
 **On each transition**, report via:
 ```
-rp1 agent-tools work update \
-  --project "$(pwd)" \
-  --feature {FEATURE_ID} \
-  --workflow {WORKFLOW} \
-  --agent task-builder \
-  --task {TASK_IDS} \
+rp1 agent-tools emit \
+  --type status_change \
   --run-id {RUN_ID} \
   --step {CURRENT_STATE} \
-  --status started
+  --unit {TASK_IDS} \
+  --data '{"status": "running"}'
 ```
 
 **Example sequence**:
 ```
---step building --status started    # entering building state
---step completed --status started   # build done, entering completed state
+--step building --data '{"status": "running"}'      # entering building state
+--step completed --data '{"status": "completed"}'   # build done, workflow complete
 ```
-On error: `--step failed --status started` (instead of completed)
+On error: `--step failed --data '{"status": "failed"}'`
 
 Skip all state reporting if WORKFLOW is empty (standalone invocation).
 

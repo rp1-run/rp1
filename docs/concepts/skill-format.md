@@ -70,7 +70,7 @@ metadata:
 rp1 skills that resolve environment variables or call rp1 CLI tools should include both `Bash(echo *)` and `Bash(rp1 *)`:
 
 - `Bash(echo *)` -- Shell echo commands
-- `Bash(rp1 *)` -- rp1 CLI invocations including RP1_ROOT resolution (`rp1 agent-tools rp1-root-dir`, `rp1 agent-tools work update`, `rp1 agent-tools mmd-validate`, etc.)
+- `Bash(rp1 *)` -- rp1 CLI invocations including RP1_ROOT resolution (`rp1 agent-tools rp1-root-dir`, `rp1 agent-tools emit`, `rp1 agent-tools mmd-validate`, etc.)
 
 **Important**: Do NOT use `echo ${VAR:-default}` syntax in skills. Claude Code blocks `${}` parameter substitution in Bash commands. Use `rp1 agent-tools rp1-root-dir` instead.
 

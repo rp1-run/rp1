@@ -55,30 +55,28 @@ stateDiagram-v2
 
 **On each phase transition**, report via:
 ```
-rp1 agent-tools work update \
-  --project "$(pwd)" \
-  --feature {FEATURE_ID} \
-  --workflow pr-review \
+rp1 agent-tools emit \
+  --type status_change \
   --run-id {RUN_ID} \
   --step {CURRENT_STATE} \
-  --status started
+  --data '{"status": "running"}'
 ```
 
-- Generate `RUN_ID` as a UUID at workflow start; derive `FEATURE_ID` from the PR branch or number
+- Generate `RUN_ID` as a UUID at workflow start
 
 **State Progression Protocol**:
-1. Report each `--step` with `--status started` when you enter that state
+1. Report each `--step` with `--data '{"status": "running"}'` when you enter that state
 2. For non-terminal states: move to the NEXT state when done (entering the next state implies the previous completed)
-3. For terminal states (those with `→ [*]` transitions): report `--status completed` when the step's work finishes
+3. For terminal states (those with `→ [*]` transitions): report with `--data '{"status": "completed"}'` when the step's work finishes
 4. On error, transition to the appropriate failure state in the graph
 
 **Example sequence**:
 ```
---step split --status started       # entering split phase
---step review --status started      # split done, entering review phase
---step synthesize --status started  # review done, entering synthesize phase
---step post --status started        # synthesize done, entering post phase
---step post --status completed      # post done, workflow complete
+--step split --data '{"status": "running"}'        # entering split phase
+--step review --data '{"status": "running"}'       # split done, entering review phase
+--step synthesize --data '{"status": "running"}'   # review done, entering synthesize phase
+--step post --data '{"status": "running"}'         # synthesize done, entering post phase
+--step post --data '{"status": "completed"}'       # post done, workflow complete
 ```
 
 §ARCH

@@ -108,15 +108,12 @@ This is your primary input for verification.
 Transition to `reviewing` state per STATE-MACHINE section:
 
 ```bash
-rp1 agent-tools work update \
-  --project "$(pwd)" \
-  --feature {FEATURE_ID} \
-  --workflow {WORKFLOW} \
-  --agent task-reviewer \
-  --task {TASK_IDS} \
+rp1 agent-tools emit \
+  --type status_change \
   --run-id {RUN_ID} \
   --step reviewing \
-  --status started
+  --unit {TASK_IDS} \
+  --data '{"status": "running"}'
 ```
 
 Skip if WORKFLOW is empty.
@@ -473,15 +470,12 @@ If no manual items, return empty array: `"manual_verification": []`
 Transition to `completed` state per STATE-MACHINE section:
 
 ```bash
-rp1 agent-tools work update \
-  --project "$(pwd)" \
-  --feature {FEATURE_ID} \
-  --workflow {WORKFLOW} \
-  --agent task-reviewer \
-  --task {TASK_IDS} \
+rp1 agent-tools emit \
+  --type status_change \
   --run-id {RUN_ID} \
   --step completed \
-  --status started
+  --unit {TASK_IDS} \
+  --data '{"status": "completed"}'
 ```
 
 Skip if WORKFLOW is empty.
@@ -516,15 +510,12 @@ Skip if WORKFLOW is empty.
 Transition to `failed` state per STATE-MACHINE section:
 
 ```bash
-rp1 agent-tools work update \
-  --project "$(pwd)" \
-  --feature {FEATURE_ID} \
-  --workflow {WORKFLOW} \
-  --agent task-reviewer \
-  --task {TASK_IDS} \
+rp1 agent-tools emit \
+  --type status_change \
   --run-id {RUN_ID} \
   --step failed \
-  --status started
+  --unit {TASK_IDS} \
+  --data '{"status": "failed"}'
 ```
 
 Skip if WORKFLOW is empty.
@@ -592,29 +583,26 @@ stateDiagram-v2
 ```
 
 **State Progression Protocol**:
-1. Report each `--step` with `--status started` when you enter that state
+1. Report each `--step` with `--data '{"status": "running"}'` when you enter that state
 2. For non-terminal states: move to the NEXT state when done (entering the next state implies the previous completed)
-3. For terminal states (those with `→ [*]` transitions): report `--status completed` when the step's work finishes
+3. For terminal states (those with `→ [*]` transitions): report with `--data '{"status": "completed"}'` when the step's work finishes
 
 **On each transition**, report via:
 ```
-rp1 agent-tools work update \
-  --project "$(pwd)" \
-  --feature {FEATURE_ID} \
-  --workflow {WORKFLOW} \
-  --agent task-reviewer \
-  --task {TASK_IDS} \
+rp1 agent-tools emit \
+  --type status_change \
   --run-id {RUN_ID} \
   --step {CURRENT_STATE} \
-  --status started
+  --unit {TASK_IDS} \
+  --data '{"status": "running"}'
 ```
 
 **Example sequence**:
 ```
---step reviewing --status started   # entering reviewing state
---step completed --status started   # review passed, entering completed state
+--step reviewing --data '{"status": "running"}'     # entering reviewing state
+--step completed --data '{"status": "completed"}'   # review passed, workflow complete
 ```
-On failure: `--step failed --status started` (instead of completed)
+On failure: `--step failed --data '{"status": "failed"}'`
 
 Skip all state reporting if WORKFLOW is empty (standalone invocation).
 

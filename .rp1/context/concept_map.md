@@ -38,7 +38,7 @@ rp1 is a plugin-driven AI development workflow system built around a Bun and Typ
 | `RP1_ROOT` | Resolved `.rp1/` workspace root used by skills and agent tools. |
 | `stateDiagram-v2` | Mermaid syntax used for workflow state-machine definitions. |
 | `run-id` | Identifier for an individual workflow execution. |
-| `work update` | Agent-tools operation that records workflow progress. |
+| `emit` | Agent-tools operation that records workflow events (status changes, artifacts, annotations). |
 | `work artifact` | Agent-tools operation that registers an output file for a run. |
 | `state.json` | Shareable KB generation metadata such as strategy, commit, languages, and metrics. |
 | `meta.json` | Local-only KB metadata such as repo root and project path. |

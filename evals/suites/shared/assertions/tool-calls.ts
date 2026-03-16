@@ -508,12 +508,12 @@ export function assertCanonicalToolCall(
 // Domain-specific assertions (rp1 workflow patterns)
 // ─────────────────────────────────────────────────────────────────────
 
-/** Assert work status update was called with --workflow and --run-id flags. */
+/** Assert emit status_change was called with --run-id flag. */
 export const assertWorkStatusUpdate = assertToolCall(
 	"Bash",
 	(input) =>
-		input.command.includes("rp1 agent-tools work update") &&
-		input.command.includes("--workflow") &&
+		input.command.includes("rp1 agent-tools emit") &&
+		input.command.includes("--type status_change") &&
 		input.command.includes("--run-id"),
 );
 

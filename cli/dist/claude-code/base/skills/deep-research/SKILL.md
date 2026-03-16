@@ -45,31 +45,29 @@ stateDiagram-v2
 
 **On each phase transition**, report via:
 ```
-rp1 agent-tools work update \
-  --project "$(pwd)" \
-  --feature {FEATURE_ID} \
-  --workflow deep-research \
+rp1 agent-tools emit \
+  --type status_change \
   --run-id {RUN_ID} \
   --step {CURRENT_STATE} \
-  --status started
+  --data '{"status": "running"}'
 ```
 
-- Generate `RUN_ID` as a UUID at workflow start; derive `FEATURE_ID` by slugifying the research topic (e.g., "auth-flow-analysis")
+- Generate `RUN_ID` as a UUID at workflow start
 
 **State Progression Protocol**:
-1. Report each `--step` with `--status started` when you enter that state
+1. Report each `--step` with `--data '{"status": "running"}'` when you enter that state
 2. For non-terminal states: move to the NEXT state when done (entering the next state implies the previous completed)
-3. For terminal states (those with `→ [*]` transitions): report `--status completed` when the step's work finishes
+3. For terminal states (those with `→ [*]` transitions): report with `--data '{"status": "completed"}'` when the step's work finishes
 4. On error, transition to the appropriate failure state in the graph
 
 **Example sequence**:
 ```
---step clarify --status started      # entering clarify phase
---step plan --status started         # intent clear, entering plan phase
---step explore --status started      # plan ready, entering explore phase
---step synthesize --status started   # exploration done, entering synthesize phase
---step report --status started       # synthesis done, entering report phase
---step report --status completed     # report work finished, workflow done
+--step clarify --data '{"status": "running"}'       # entering clarify phase
+--step plan --data '{"status": "running"}'          # intent clear, entering plan phase
+--step explore --data '{"status": "running"}'       # plan ready, entering explore phase
+--step synthesize --data '{"status": "running"}'    # exploration done, entering synthesize phase
+--step report --data '{"status": "running"}'        # synthesis done, entering report phase
+--step report --data '{"status": "completed"}'      # report work finished, workflow done
 ```
 
 ## 1. Intent Clarification (~15% effort)
