@@ -4,7 +4,7 @@
  * payload shapes per event type with descriptive error messages.
  */
 
-import { isAbsolute } from "node:path";
+import { dirname, isAbsolute } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
@@ -17,6 +17,7 @@ import {
 	VALID_STATUSES,
 } from "../../../shared/events.js";
 import { type ResolvedProjectPath, resolveProjectPath } from "../git.js";
+import { resolveRp1Root } from "../rp1-root-dir/resolver.js";
 import type { EmitInput } from "./models.js";
 
 /** Raw CLI options before validation */
@@ -215,18 +216,42 @@ export const validatePayloadShape = (
 	}
 };
 
+/**
+ * Resolve the project path for an emit event.
+ *
+ * When --project is explicitly provided, validates and resolves it via git
+ * worktree normalization. When omitted, uses the same resolution chain as
+ * `rp1 agent-tools rp1-root-dir`: RP1_ROOT env var → git common-dir → cwd.
+ * This ensures emit records are attributed to the correct project regardless
+ * of worktree context or env overrides.
+ */
 const validateProjectPath = (
 	project: string | undefined,
 ): TE.TaskEither<CLIError, ResolvedProjectPath> => {
-	const projectPath = project ?? process.cwd();
-
-	if (!isAbsolute(projectPath)) {
-		return TE.left(
-			usageError(`Project path must be absolute. Received: ${projectPath}`),
-		);
+	if (project !== undefined) {
+		if (!isAbsolute(project)) {
+			return TE.left(
+				usageError(`Project path must be absolute. Received: ${project}`),
+			);
+		}
+		return resolveProjectPath(project);
 	}
 
-	return resolveProjectPath(projectPath);
+	return pipe(
+		resolveRp1Root(),
+		TE.map(
+			(result): ResolvedProjectPath => ({
+				projectPath: dirname(result.root),
+				worktreePath: result.isWorktree ? process.cwd() : undefined,
+			}),
+		),
+		TE.orElse(() =>
+			TE.right<CLIError, ResolvedProjectPath>({
+				projectPath: process.cwd(),
+				worktreePath: undefined,
+			}),
+		),
+	);
 };
 
 const validateStepForType = (

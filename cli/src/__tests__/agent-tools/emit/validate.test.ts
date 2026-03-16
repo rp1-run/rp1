@@ -5,12 +5,18 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { dirname } from "node:path";
 import { VALID_EVENT_TYPES } from "../../../../shared/events.js";
-import { validatePayloadShape } from "../../../agent-tools/emit/validate.js";
+import {
+	validateEmitOptions,
+	validatePayloadShape,
+} from "../../../agent-tools/emit/validate.js";
 import {
 	expectLeft,
 	expectRight,
+	expectTaskRight,
 	getErrorMessage,
+	withEnvOverride,
 } from "../../helpers/index.js";
 
 describe("emit validation", () => {
@@ -213,6 +219,46 @@ describe("emit validation", () => {
 					expectRight(result);
 				}
 			});
+		});
+	});
+
+	describe("validateEmitOptions project path resolution", () => {
+		test("uses RP1_ROOT env var to derive project path when --project omitted", async () => {
+			const fakeRp1Root = "/tmp/test-project/.rp1";
+			const restore = withEnvOverride("RP1_ROOT", fakeRp1Root);
+			try {
+				const result = await expectTaskRight(
+					validateEmitOptions({
+						type: "status_change",
+						runId: "test-run-1",
+						step: "plan",
+						data: '{"status": "running"}',
+						// project intentionally omitted
+					}),
+				);
+				expect(result.projectPath).toBe(dirname(fakeRp1Root));
+			} finally {
+				restore();
+			}
+		});
+
+		test("explicit --project takes precedence over RP1_ROOT env var", async () => {
+			const restore = withEnvOverride("RP1_ROOT", "/tmp/env-override/.rp1");
+			try {
+				const result = await expectTaskRight(
+					validateEmitOptions({
+						type: "status_change",
+						runId: "test-run-2",
+						step: "build",
+						data: '{"status": "running"}',
+						project: process.cwd(),
+					}),
+				);
+				// Should use the explicit --project, not the env var
+				expect(result.projectPath).not.toBe("/tmp/env-override");
+			} finally {
+				restore();
+			}
 		});
 	});
 });
