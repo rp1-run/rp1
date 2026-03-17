@@ -52,7 +52,6 @@ export const DETAIL_HINTS = [
 	{ keys: ["l"], label: "open" },
 	{ keys: ["h"], label: "back" },
 	{ keys: ["e"], label: "events" },
-	{ keys: ["b"], label: "insights" },
 	{ keys: ["{mod}+K"], label: "commands" },
 ] as const;
 

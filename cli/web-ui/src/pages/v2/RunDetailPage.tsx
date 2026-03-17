@@ -8,7 +8,6 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { BtwFeed } from "@/components/v2/BtwFeed";
 import { EventStream } from "@/components/v2/EventStream";
 import { DETAIL_HINTS, KeyHints } from "@/components/v2/KeyHints";
 import { StatusBadge } from "@/components/v2/StatusBadge";
@@ -149,14 +148,11 @@ export function RunDetailPage() {
 			{
 				key: "e",
 				label: "Event Stream",
-				description: "Toggle event stream expand/collapse",
-				action: toggleEventStream,
-			},
-			{
-				key: "b",
-				label: "Agent Insights",
-				description: "Scroll to BTW feed section",
-				action: scrollToBtwFeed,
+				description: "Toggle event stream and scroll to it",
+				action: () => {
+					toggleEventStream();
+					scrollToBtwFeed();
+				},
 			},
 		],
 		enabled: !!run,
@@ -278,15 +274,13 @@ export function RunDetailPage() {
 					/>
 				</section>
 
-				<EventStream
-					events={run.events}
-					defaultExpanded={isActive}
-					expanded={eventStreamExpanded}
-					onExpandedChange={setEventStreamExpanded}
-				/>
-
 				<div ref={btwFeedRef}>
-					<BtwFeed events={run.events} />
+					<EventStream
+						events={run.events}
+						defaultExpanded={isActive}
+						expanded={eventStreamExpanded}
+						onExpandedChange={setEventStreamExpanded}
+					/>
 				</div>
 
 				<KeyHints hints={DETAIL_HINTS} />

@@ -1,9 +1,9 @@
 import {
 	AlertTriangle,
+	Bot,
 	FilePlus,
 	Hand,
 	Layers,
-	MessageSquare,
 	RefreshCw,
 	StickyNote,
 	XCircle,
@@ -36,21 +36,14 @@ const eventConfigs: Record<EventType, EventConfig> = {
 		colorClass: "text-status-waiting",
 	},
 	btw_update: {
-		icon: MessageSquare,
-		colorClass: "text-accent-foreground",
+		icon: Bot,
+		colorClass: "text-muted-foreground",
 	},
 	subflow_registered: {
 		icon: Layers,
 		colorClass: "text-muted-foreground",
 	},
 };
-
-function getEventSummary(event: RunEvent): string {
-	if (event.type !== "btw_update" || !event.metadata) {
-		return event.message;
-	}
-	return event.message;
-}
 
 export interface EventStreamProps {
 	events: readonly RunEvent[];
@@ -107,7 +100,7 @@ export function EventStream({
 			}
 			className={className}
 		>
-			<div className="border-t border-border max-h-[400px] overflow-y-auto">
+			<div className="border-t border-border max-h-[240px] overflow-y-auto">
 				{sortedEvents.length === 0 ? (
 					<p className="p-4 text-sm text-muted-foreground">No events yet</p>
 				) : (
@@ -115,7 +108,6 @@ export function EventStream({
 						{sortedEvents.map((event) => {
 							const config = eventConfigs[event.type];
 							const Icon = config.icon;
-							const displayMessage = getEventSummary(event);
 
 							return (
 								<li
@@ -138,9 +130,9 @@ export function EventStream({
 													"text-status-waiting",
 											)}
 										>
-											{displayMessage}
+											{event.message}
 										</p>
-										{event.stepId && (
+										{event.stepId && event.type !== "btw_update" && (
 											<p className="text-xs text-muted-foreground mt-0.5">
 												Step: {event.stepId}
 											</p>
