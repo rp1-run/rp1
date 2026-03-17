@@ -199,6 +199,49 @@ db-clean:
         echo "No project registry found at $registry_path"
     fi
 
+# Delete all fake-prefixed rows from rp1.db (created by `rp1 fake`)
+clean-fake-runs:
+    #!/usr/bin/env bash
+    set -e
+    db_path="${RP1_DB:-$HOME/.rp1/rp1.db}"
+    if [ ! -f "$db_path" ]; then
+        echo "No database found at $db_path"
+        exit 0
+    fi
+
+    echo "Cleaning fake runs from $db_path ..."
+    echo ""
+
+    # Delete in FK-safe order: annotations -> artifacts -> events -> runs
+
+    # Annotations referencing artifacts from fake runs
+    ann_count=$(sqlite3 "$db_path" "SELECT COUNT(*) FROM annotations WHERE doc_id IN (SELECT doc_id FROM artifacts WHERE run_id LIKE 'fake-%');")
+    sqlite3 "$db_path" "DELETE FROM annotations WHERE doc_id IN (SELECT doc_id FROM artifacts WHERE run_id LIKE 'fake-%');"
+    echo "  annotations: $ann_count rows deleted"
+
+    # Artifacts from fake runs
+    art_count=$(sqlite3 "$db_path" "SELECT COUNT(*) FROM artifacts WHERE run_id LIKE 'fake-%';")
+    sqlite3 "$db_path" "DELETE FROM artifacts WHERE run_id LIKE 'fake-%';"
+    echo "  artifacts:   $art_count rows deleted"
+
+    # Events from fake runs
+    evt_count=$(sqlite3 "$db_path" "SELECT COUNT(*) FROM events WHERE run_id LIKE 'fake-%';")
+    sqlite3 "$db_path" "DELETE FROM events WHERE run_id LIKE 'fake-%';"
+    echo "  events:      $evt_count rows deleted"
+
+    # Fake run records
+    run_count=$(sqlite3 "$db_path" "SELECT COUNT(*) FROM runs WHERE id LIKE 'fake-%';")
+    sqlite3 "$db_path" "DELETE FROM runs WHERE id LIKE 'fake-%';"
+    echo "  runs:        $run_count rows deleted"
+
+    echo ""
+    total=$((ann_count + art_count + evt_count + run_count))
+    if [ "$total" -eq 0 ]; then
+        echo "No fake runs found."
+    else
+        echo "Done. Removed $total total rows."
+    fi
+
 # Delete the entire local status database file (for testing)
 db-reset:
     #!/usr/bin/env bash
