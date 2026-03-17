@@ -31,6 +31,7 @@ const defaultEdgeOptions: DefaultEdgeOptions = {
 const fitViewOptions = { padding: 0.12, maxZoom: 1.2 } as const;
 
 export interface WorkflowCanvasProps {
+	readonly runId?: string;
 	readonly workflow: WorkflowDefinition | null;
 	readonly steps: readonly Step[];
 	readonly artifacts?: readonly Artifact[];
@@ -48,6 +49,7 @@ function WorkflowCanvasInner({
 }: Omit<WorkflowCanvasProps, "className">) {
 	const { fitView } = useReactFlow();
 	const containerRef = useRef<HTMLDivElement>(null);
+	const hasInitialFitRef = useRef(false);
 
 	const [expandedSteps, setExpandedSteps] = useState<Set<string>>(
 		() => new Set<string>(),
@@ -99,11 +101,18 @@ function WorkflowCanvasInner({
 	);
 
 	useEffect(() => {
-		if (isLayoutReady && layoutNodes.length > 0) {
-			// Double-RAF: first frame lets React Flow measure the container,
-			// second frame fits the view once dimensions are known.
+		if (!isLayoutReady || layoutNodes.length === 0) return;
+
+		if (!hasInitialFitRef.current) {
+			// First layout: wait for React Flow to measure, then fit.
+			hasInitialFitRef.current = true;
 			requestAnimationFrame(() => {
 				requestAnimationFrame(() => fitView(fitViewOptions));
+			});
+		} else {
+			// Subsequent layouts (expand/collapse): smooth animated fit.
+			requestAnimationFrame(() => {
+				fitView({ ...fitViewOptions, duration: 300 });
 			});
 		}
 	}, [isLayoutReady, layoutNodes, fitView]);
@@ -138,6 +147,7 @@ function WorkflowCanvasInner({
 }
 
 export function WorkflowCanvas({
+	runId,
 	workflow,
 	steps,
 	artifacts,
@@ -147,7 +157,7 @@ export function WorkflowCanvas({
 }: WorkflowCanvasProps) {
 	return (
 		<div className={cn("h-full w-full", className)}>
-			<ReactFlowProvider>
+			<ReactFlowProvider key={runId}>
 				{workflow || steps.length > 0 ? (
 					<WorkflowCanvasInner
 						workflow={workflow}

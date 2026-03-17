@@ -67,7 +67,8 @@ export function RunDetailPage() {
 		() => (run ? commandToWorkflowName(run.command) : null),
 		[run],
 	);
-	const { workflow } = useWorkflowSteps(workflowName);
+	const { workflow, isLoading: isWorkflowLoading } =
+		useWorkflowSteps(workflowName);
 
 	const displaySteps = useMemo<readonly Step[]>(() => {
 		return run ? run.steps : [];
@@ -264,14 +265,21 @@ export function RunDetailPage() {
 					className="min-h-[300px] flex-1 rounded-lg border border-border bg-card"
 					tabIndex={-1}
 				>
-					<WorkflowCanvas
-						workflow={workflow ?? null}
-						steps={displaySteps}
-						artifacts={run?.artifacts}
-						agentSteps={run?.agentSteps}
-						subflows={run?.subflows}
-						className="h-full w-full"
-					/>
+					{isWorkflowLoading ? (
+						<div className="flex h-full items-center justify-center text-muted-foreground">
+							Loading workflow...
+						</div>
+					) : (
+						<WorkflowCanvas
+							runId={runId}
+							workflow={workflow ?? null}
+							steps={displaySteps}
+							artifacts={run?.artifacts}
+							agentSteps={run?.agentSteps}
+							subflows={run?.subflows}
+							className="h-full w-full"
+						/>
+					)}
 				</section>
 
 				<div ref={btwFeedRef}>
