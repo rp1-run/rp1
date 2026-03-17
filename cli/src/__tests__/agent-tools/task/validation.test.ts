@@ -15,6 +15,10 @@ import { mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+	closeDatabase,
+	resetInstance,
+} from "../../../agent-tools/emit/database.js";
+import {
 	executeCancel,
 	executeComplete,
 	executeCreate,
@@ -23,10 +27,6 @@ import {
 	executeList,
 	executePickup,
 } from "../../../agent-tools/task/index.js";
-import {
-	closeDatabase,
-	resetDatabaseInstance,
-} from "../../../agent-tools/work/database.js";
 import { expectTaskRight } from "../../helpers/index.js";
 
 describe("task input validation", () => {
@@ -39,7 +39,7 @@ describe("task input validation", () => {
 
 	afterEach(() => {
 		closeDatabase();
-		resetDatabaseInstance();
+		resetInstance();
 	});
 
 	afterAll(async () => {
@@ -242,7 +242,7 @@ describe("task input validation", () => {
 			);
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			for (const status of [
 				"pending",
@@ -255,7 +255,7 @@ describe("task input validation", () => {
 				expect(result.success).toBe(true);
 
 				closeDatabase();
-				resetDatabaseInstance();
+				resetInstance();
 			}
 		});
 	});
@@ -297,7 +297,7 @@ describe("task input validation", () => {
 			);
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			const getResult = await expectTaskRight(
 				executeGet(createResult.data.id, dbPath),

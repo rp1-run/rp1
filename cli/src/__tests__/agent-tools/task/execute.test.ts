@@ -15,6 +15,10 @@ import { mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+	closeDatabase,
+	resetInstance,
+} from "../../../agent-tools/emit/database.js";
+import {
 	executeCancel,
 	executeComplete,
 	executeCreate,
@@ -23,10 +27,6 @@ import {
 	executeList,
 	executePickup,
 } from "../../../agent-tools/task/index.js";
-import {
-	closeDatabase,
-	resetDatabaseInstance,
-} from "../../../agent-tools/work/database.js";
 import { expectTaskRight } from "../../helpers/index.js";
 
 describe("task execute functions", () => {
@@ -41,7 +41,7 @@ describe("task execute functions", () => {
 
 	afterEach(() => {
 		closeDatabase();
-		resetDatabaseInstance();
+		resetInstance();
 	});
 
 	afterAll(async () => {
@@ -131,7 +131,7 @@ describe("task execute functions", () => {
 			);
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			const result = await expectTaskRight(
 				executeList({ status: "pending" }, dbPath),
@@ -179,12 +179,12 @@ describe("task execute functions", () => {
 			);
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			await expectTaskRight(executePickup(undefined, dbPath));
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			const result = await expectTaskRight(executePickup(undefined, dbPath));
 
@@ -203,7 +203,7 @@ describe("task execute functions", () => {
 			);
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			const result = await expectTaskRight(executePickup(undefined, dbPath));
 
@@ -234,12 +234,12 @@ describe("task execute functions", () => {
 			);
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			await expectTaskRight(executePickup(undefined, dbPath));
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			const result = await expectTaskRight(
 				executeComplete(
@@ -275,12 +275,12 @@ describe("task execute functions", () => {
 			);
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			await expectTaskRight(executePickup(undefined, dbPath));
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			const result = await expectTaskRight(
 				executeFail(
@@ -335,7 +335,7 @@ describe("task execute functions", () => {
 			);
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			const error = await (async () => {
 				const te = executeComplete({ id: createResult.data.id }, dbPath);
