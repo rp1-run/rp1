@@ -1,7 +1,6 @@
 {
   "plugin": "rp1-utils",
   "version": "0.5.2",
-  "generatedAt": "2026-03-15T02:28:57.133Z",
   "artifacts": {
     "skills": [
       "build-prompt-evals",

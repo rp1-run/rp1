@@ -1,7 +1,6 @@
 {
   "plugin": "rp1-base",
   "version": "0.5.2",
-  "generatedAt": "2026-03-15T02:28:57.055Z",
   "artifacts": {
     "skills": [
       "analyse-security",
@@ -11,6 +10,7 @@
       "knowledge-base-templates",
       "strategize",
       "code-comments",
+      "task",
       "markdown-preview",
       "self-update",
       "knowledge-load",

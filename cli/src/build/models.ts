@@ -124,7 +124,6 @@ export interface PlatformRegistry {
 export interface PluginManifest {
 	readonly plugin: string;
 	readonly version: string;
-	readonly generatedAt: string;
 	readonly opencodeVersionTested: string;
 	readonly artifacts: {
 		readonly commands: readonly string[];

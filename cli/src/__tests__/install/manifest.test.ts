@@ -43,7 +43,7 @@ describe("manifest", () => {
 				const manifest = result.right;
 				expect(manifest.plugin).toBe("test-plugin");
 				expect(manifest.version).toBe("1.0.0");
-				expect(manifest.generatedAt).toBe("2025-01-01T00:00:00Z");
+
 				expect(manifest.opencodeVersionTested).toBe("0.9.0");
 				expect(manifest.commands).toContain("sample-command");
 				expect(manifest.agents).toContain("sample-agent");
@@ -236,7 +236,7 @@ describe("manifest", () => {
 				{
 					plugin: "base",
 					version: "1.0.0",
-					generatedAt: "2025-01-01",
+
 					opencodeVersionTested: "0.9.0",
 					commands: ["cmd1", "cmd2"],
 					agents: ["agent1"],
@@ -245,7 +245,7 @@ describe("manifest", () => {
 				{
 					plugin: "dev",
 					version: "1.0.0",
-					generatedAt: "2025-01-01",
+
 					opencodeVersionTested: "0.9.0",
 					commands: ["cmd3"],
 					agents: ["agent2", "agent3"],
@@ -275,7 +275,7 @@ describe("manifest", () => {
 				{
 					plugin: "base",
 					version: "1.0.0",
-					generatedAt: "2025-01-01",
+
 					opencodeVersionTested: "0.9.0",
 					commands: ["cmd1", "shared-cmd"],
 					agents: ["agent1"],
@@ -284,7 +284,7 @@ describe("manifest", () => {
 				{
 					plugin: "dev",
 					version: "1.0.0",
-					generatedAt: "2025-01-01",
+
 					opencodeVersionTested: "0.9.0",
 					commands: ["cmd2", "shared-cmd"], // shared-cmd is duplicate
 					agents: ["agent2"],
