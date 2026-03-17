@@ -83,6 +83,37 @@ const BTW_MESSAGES: Record<string, readonly string[]> = {
 	],
 };
 
+/** Static mapping of steps that produce subflows with simulated tasks. */
+const SUBFLOW_STEPS: Record<
+	string,
+	{
+		readonly name: string;
+		readonly tasks: readonly string[];
+	}
+> = {
+	build: {
+		name: "build-tasks",
+		tasks: ["T-001", "T-002", "T-003"],
+	},
+	verify: {
+		name: "verify-checks",
+		tasks: ["T-001", "T-002"],
+	},
+};
+
+/** Generate a mermaid stateDiagram-v2 for a subflow's tasks. */
+const generateSubflowDiagram = (tasks: readonly string[]): string => {
+	const lines = ["stateDiagram-v2"];
+	if (tasks.length === 0) return lines.join("\n");
+
+	lines.push(`    [*] --> ${tasks[0]}`);
+	for (let i = 0; i < tasks.length - 1; i++) {
+		lines.push(`    ${tasks[i]} --> ${tasks[i + 1]}`);
+	}
+	lines.push(`    ${tasks[tasks.length - 1]} --> [*]`);
+	return lines.join("\n");
+};
+
 /** Static mapping of steps that produce artifacts. */
 const ARTIFACT_STEPS: Record<
 	string,
@@ -219,6 +250,7 @@ const emitSubflowRegistered = async (params: {
 	step: string;
 	parentStepId: string;
 	subflowName: string;
+	diagram: string;
 	workflow: string;
 	feature: string;
 	projectPath: string;
@@ -230,6 +262,7 @@ const emitSubflowRegistered = async (params: {
 		data: {
 			parentStepId: params.parentStepId,
 			subflowName: params.subflowName,
+			diagram: params.diagram,
 			workflow: params.workflow,
 			feature: params.feature,
 		},
@@ -379,19 +412,22 @@ const simulateRun = async (
 			});
 		}
 
-		if (options.withSubflows && step.id === "build") {
+		if (options.withSubflows && SUBFLOW_STEPS[step.id]) {
+			const subflow = SUBFLOW_STEPS[step.id];
+			const diagram = generateSubflowDiagram(subflow.tasks);
+
 			await emitSubflowRegistered({
 				runId,
 				step: step.id,
 				parentStepId: step.id,
-				subflowName: "build-tasks",
+				subflowName: subflow.name,
+				diagram,
 				workflow: workflowName,
 				feature: featureId,
 				projectPath,
 			});
 
-			const taskIds = ["T-001", "T-002", "T-003"];
-			for (const taskId of taskIds) {
+			for (const taskId of subflow.tasks) {
 				await emitStatusChange({
 					runId,
 					step: step.id,
