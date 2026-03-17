@@ -46,6 +46,7 @@ stateDiagram-v2
 **On each phase transition**, report via:
 ```
 rp1 agent-tools emit \
+  --workflow deep-research \
   --type status_change \
   --run-id {RUN_ID} \
   --step {CURRENT_STATE} \
@@ -306,12 +307,12 @@ Handle failure:
 After extracting report_path, register it in the artifact database:
 
 ```bash
-rp1 agent-tools work artifact \
-  --project "$(pwd)" \
-  --feature {FEATURE_ID} \
+rp1 agent-tools emit \
+  --workflow deep-research \
+  --type artifact_registered \
   --run-id {RUN_ID} \
-  --path {report_path} \
-  --step report
+  --step report \
+  --data '{"path": "{report_path}", "feature": "research"}'
 ```
 
 ## 6. Final Summary (~15% effort)
