@@ -2,7 +2,7 @@
 
 **Feature ID**: workflow-audit-fix
 **Status**: Not Started
-**Progress**: 38% (5 of 13 tasks completed)
+**Progress**: 46% (6 of 13 tasks completed)
 **Estimated Effort**: 5 days
 **Started**: 2026-03-17
 
@@ -183,9 +183,21 @@ Consolidate all workflow state persistence onto the single `rp1.db` database, re
     - **Deviations**: None
     - **Tests**: N/A (markdown skill/agent files)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ⏭️ N/A |
+
 ### Legacy Removal (Parallel Group 3)
 
-- [ ] **T6**: Remove legacy work command group source files, test files, and CLI registration `[complexity:medium]`
+- [x] **T6**: Remove legacy work command group source files, test files, and CLI registration `[complexity:medium]`
 
     **Reference**: [design.md#36-remove-legacy-work-command-group](design.md#36-remove-legacy-work-command-group)
 
@@ -193,14 +205,21 @@ Consolidate all workflow state persistence onto the single `rp1.db` database, re
 
     **Acceptance Criteria**:
 
-    - [ ] Source files deleted: `work/database.ts`, `work/index.ts`, `work/models.ts`, `work/update.ts`
-    - [ ] Test files deleted: all 8 test files in `cli/src/__tests__/agent-tools/work/`
-    - [ ] `command.ts` has no imports from `./work/index.js` or `./work/models.js`
-    - [ ] The `work` command group (update, artifact, cleanup) is no longer registered in the CLI
-    - [ ] `VALID_ARTIFACT_TYPES` is moved inline or to `emit/models` if still needed
-    - [ ] `closeDatabase()` call removed from `cleanupAndExit` (only `closeEmitDatabase()` remains)
-    - [ ] `bun run build` in `cli/` succeeds with no dangling imports
-    - [ ] `bun test` passes with no failures related to removed files
+    - [x] Source files deleted: `work/database.ts`, `work/index.ts`, `work/models.ts`, `work/update.ts`
+    - [x] Test files deleted: all 8 test files in `cli/src/__tests__/agent-tools/work/`
+    - [x] `command.ts` has no imports from `./work/index.js` or `./work/models.js`
+    - [x] The `work` command group (update, artifact, cleanup) is no longer registered in the CLI
+    - [x] `VALID_ARTIFACT_TYPES` is moved inline or to `emit/models` if still needed
+    - [x] `closeDatabase()` call removed from `cleanupAndExit` (only `closeEmitDatabase()` remains)
+    - [x] `bun run build` in `cli/` succeeds with no dangling imports
+    - [x] `bun test` passes with no failures related to removed files
+
+    **Implementation Summary**:
+
+    - **Files**: `cli/src/agent-tools/command.ts`, `cli/src/agent-tools/work/` (deleted), `cli/src/__tests__/agent-tools/work/` (deleted)
+    - **Approach**: Deleted all 4 source files and 8 test files in work/ directories; removed work imports, side-effect import, and closeDatabase() call from command.ts; removed entire work command group registration (work, cleanup, artifact subcommands, classifyArtifactType helper); removed unused VALID_ARTIFACT_TYPES import (already exists in emit/models via shared/events)
+    - **Deviations**: None
+    - **Tests**: 1692/1692 passing (125 work tests removed)
 
 ### Documentation and Configuration (Parallel Group 4)
 
