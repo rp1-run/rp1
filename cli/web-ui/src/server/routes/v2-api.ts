@@ -161,6 +161,7 @@ function artifactRecordToArtifact(
 		updatedDuringRun: true,
 		isNew: false,
 		step: record.step ?? null,
+		subflow: record.subflow || undefined,
 	};
 }
 

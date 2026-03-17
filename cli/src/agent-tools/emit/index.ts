@@ -143,6 +143,7 @@ const handleArtifactRegistration = (
 						projectPath: input.projectPath,
 						feature,
 						step: input.step,
+						subflow: input.data.subflow === true,
 					};
 
 					upsertArtifact(db, artifactInput);
