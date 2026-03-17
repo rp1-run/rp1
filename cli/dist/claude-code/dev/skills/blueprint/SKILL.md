@@ -44,6 +44,7 @@ stateDiagram-v2
 **On each phase transition**, report via:
 ```
 rp1 agent-tools emit \
+  --workflow blueprint \
   --type status_change \
   --run-id {RUN_ID} \
   --step {CURRENT_STATE} \
@@ -60,10 +61,10 @@ rp1 agent-tools emit \
 
 **Example sequence** (with charter):
 ```
---step detect --data '{"status": "running"}'     # entering detect phase
---step charter --data '{"status": "running"}'    # needs charter, entering charter phase
---step prd --data '{"status": "running"}'        # charter done, entering prd phase
---step prd --data '{"status": "completed"}'      # prd done, workflow complete
+--workflow blueprint --step detect --data '{"status": "running"}'     # entering detect phase
+--workflow blueprint --step charter --data '{"status": "running"}'    # needs charter, entering charter phase
+--workflow blueprint --step prd --data '{"status": "running"}'        # charter done, entering prd phase
+--workflow blueprint --step prd --data '{"status": "completed"}'      # prd done, workflow complete
 ```
 
 ## §CTX

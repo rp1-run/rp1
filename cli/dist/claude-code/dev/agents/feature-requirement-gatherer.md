@@ -169,12 +169,12 @@ Write to `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/requirements.md`:
 After writing `requirements.md`, register it so the Web UI can display it. Skip if WORKFLOW is empty (standalone invocation).
 
 ```bash
-rp1 agent-tools work artifact \
-  --project "$(pwd)" \
-  --feature {FEATURE_ID} \
+rp1 agent-tools emit \
+  --workflow {WORKFLOW} \
+  --type artifact_registered \
   --run-id {RUN_ID} \
-  --path .rp1/work/features/{FEATURE_ID}/requirements.md \
-  --step requirements
+  --step requirements \
+  --data '{"path": ".rp1/work/features/{FEATURE_ID}/requirements.md", "feature": "{FEATURE_ID}"}'
 ```
 
 If the command fails, log a warning (`[feature-requirement-gatherer] Failed to register artifact .rp1/work/features/{FEATURE_ID}/requirements.md: {error}`) and continue without blocking.

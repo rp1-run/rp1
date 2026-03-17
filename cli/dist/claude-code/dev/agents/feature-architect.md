@@ -225,19 +225,19 @@ Log of all major technology/architecture decisions w/ rationales.
 After writing `design.md` and `design-decisions.md`, register them so the Web UI can display them. Skip if WORKFLOW is empty (standalone invocation).
 
 ```bash
-rp1 agent-tools work artifact \
-  --project "$(pwd)" \
-  --feature {FEATURE_ID} \
+rp1 agent-tools emit \
+  --workflow {WORKFLOW} \
+  --type artifact_registered \
   --run-id {RUN_ID} \
-  --path .rp1/work/features/{FEATURE_ID}/design.md \
-  --step design
+  --step design \
+  --data '{"path": ".rp1/work/features/{FEATURE_ID}/design.md", "feature": "{FEATURE_ID}"}'
 
-rp1 agent-tools work artifact \
-  --project "$(pwd)" \
-  --feature {FEATURE_ID} \
+rp1 agent-tools emit \
+  --workflow {WORKFLOW} \
+  --type artifact_registered \
   --run-id {RUN_ID} \
-  --path .rp1/work/features/{FEATURE_ID}/design-decisions.md \
-  --step design
+  --step design \
+  --data '{"path": ".rp1/work/features/{FEATURE_ID}/design-decisions.md", "feature": "{FEATURE_ID}"}'
 ```
 
 If either command fails, log a warning (`[feature-architect] Failed to register artifact {path}: {error}`) and continue without blocking.

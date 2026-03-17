@@ -102,11 +102,12 @@ Transition to `reviewing` state per STATE-MACHINE section:
 
 ```bash
 rp1 agent-tools emit \
+  --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \
   --step reviewing \
   --unit {TASK_IDS} \
-  --data '{"status": "running"}'
+  --data '{"status": "running", "feature": "{FEATURE_ID}"}'
 ```
 
 Skip if WORKFLOW is empty.
@@ -464,11 +465,12 @@ Transition to `completed` state per STATE-MACHINE section:
 
 ```bash
 rp1 agent-tools emit \
+  --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \
   --step completed \
   --unit {TASK_IDS} \
-  --data '{"status": "completed"}'
+  --data '{"status": "completed", "feature": "{FEATURE_ID}"}'
 ```
 
 Skip if WORKFLOW is empty.
@@ -504,11 +506,12 @@ Transition to `failed` state per STATE-MACHINE section:
 
 ```bash
 rp1 agent-tools emit \
+  --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \
   --step failed \
   --unit {TASK_IDS} \
-  --data '{"status": "failed"}'
+  --data '{"status": "failed", "feature": "{FEATURE_ID}"}'
 ```
 
 Skip if WORKFLOW is empty.
@@ -583,19 +586,20 @@ stateDiagram-v2
 **On each transition**, report via:
 ```
 rp1 agent-tools emit \
+  --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \
   --step {CURRENT_STATE} \
   --unit {TASK_IDS} \
-  --data '{"status": "running"}'
+  --data '{"status": "running", "feature": "{FEATURE_ID}"}'
 ```
 
 **Example sequence**:
 ```
---step reviewing --data '{"status": "running"}'     # entering reviewing state
---step completed --data '{"status": "completed"}'   # review passed, workflow complete
+--workflow {WORKFLOW} --step reviewing --data '{"status": "running", "feature": "{FEATURE_ID}"}'     # entering reviewing state
+--workflow {WORKFLOW} --step completed --data '{"status": "completed", "feature": "{FEATURE_ID}"}'   # review passed, workflow complete
 ```
-On failure: `--step failed --data '{"status": "failed"}'`
+On failure: `--workflow {WORKFLOW} --step failed --data '{"status": "failed", "feature": "{FEATURE_ID}"}'`
 
 Skip all state reporting if WORKFLOW is empty (standalone invocation).
 

@@ -73,8 +73,8 @@ stateDiagram-v2
     archive --> [*] : done
 ```
 
-Report each transition: `rp1 agent-tools emit --type status_change --run-id {RUN_ID} --step {STATE} --data '{"status": "running"}'`
-Generate `RUN_ID` as UUID at start. Terminal states (`→ [*]`): report with `--data '{"status": "completed"}'`.
+Report each transition: `rp1 agent-tools emit --workflow build --type status_change --run-id {RUN_ID} --step {STATE} --data '{"status": "running", "feature": "{FEATURE_ID}"}'`
+Generate `RUN_ID` as UUID at start. Terminal states (`→ [*]`): report with `--data '{"status": "completed", "feature": "{FEATURE_ID}"}'`.
 
 ## §PROGRESS
 
@@ -218,7 +218,12 @@ If GIT_COMMIT: stage+commit. If GIT_PUSH: push. If GIT_PR: create PR.
 Register artifacts: for each file in `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`:
 
 ```bash
-rp1 agent-tools work artifact --project "$(pwd)" --feature {FEATURE_ID} --run-id {RUN_ID} --path {relative_path}
+rp1 agent-tools emit \
+  --workflow build \
+  --type artifact_registered \
+  --run-id {RUN_ID} \
+  --step archive \
+  --data '{"path": "{relative_path}", "feature": "{FEATURE_ID}"}'
 ```
 
 Output: Feature ID, step status table (1-6), artifacts created.

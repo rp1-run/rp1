@@ -58,10 +58,11 @@ Before executing the workflow, you must systematically plan your verification ap
 1. **Parameter Validation**: Confirm all required parameters are provided and valid. Use the RP1_ROOT parameter if provided, otherwise default to `.rp1/`. After validation, transition to `verifying` state per STATE-MACHINE section (skip if WORKFLOW is empty):
    ```bash
    rp1 agent-tools emit \
+     --workflow {WORKFLOW} \
      --type status_change \
      --run-id {RUN_ID} \
      --step verifying \
-     --data '{"status": "running"}'
+     --data '{"status": "running", "feature": "{FEATURE_ID}"}'
    ```
 
 2. **File Path Planning**: Determine exact paths for:
@@ -202,10 +203,11 @@ During verification, identify criteria that CANNOT be automated:
 - Transition to `completed` state per STATE-MACHINE section (skip if WORKFLOW is empty):
   ```bash
   rp1 agent-tools emit \
+    --workflow {WORKFLOW} \
     --type status_change \
     --run-id {RUN_ID} \
     --step completed \
-    --data '{"status": "completed"}'
+    --data '{"status": "completed", "feature": "{FEATURE_ID}"}'
   ```
 
 ## Step 7.5: Manual Verification Return
@@ -315,18 +317,19 @@ stateDiagram-v2
 **On each transition**, report via:
 ```
 rp1 agent-tools emit \
+  --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \
   --step {CURRENT_STATE} \
-  --data '{"status": "running"}'
+  --data '{"status": "running", "feature": "{FEATURE_ID}"}'
 ```
 
 **Example sequence**:
 ```
---step verifying --data '{"status": "running"}'     # entering verifying state
---step completed --data '{"status": "completed"}'   # verification passed, workflow complete
+--workflow {WORKFLOW} --step verifying --data '{"status": "running", "feature": "{FEATURE_ID}"}'     # entering verifying state
+--workflow {WORKFLOW} --step completed --data '{"status": "completed", "feature": "{FEATURE_ID}"}'   # verification passed, workflow complete
 ```
-On failure: `--step failed --data '{"status": "failed"}'`
+On failure: `--workflow {WORKFLOW} --step failed --data '{"status": "failed", "feature": "{FEATURE_ID}"}'`
 
 Skip all state reporting if WORKFLOW is empty (standalone invocation).
 
