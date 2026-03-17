@@ -563,6 +563,7 @@ Examples:
 		const projectPath = await resolveProjectPath();
 
 		if (options.count > 1) {
+			const concurrentStart = Date.now();
 			const promises: Promise<void>[] = [];
 			for (let i = 0; i < options.count; i++) {
 				const stagger = Math.random() * 400 + 100;
@@ -579,7 +580,13 @@ Examples:
 					),
 				);
 			}
-			await Promise.allSettled(promises);
+			const results = await Promise.allSettled(promises);
+			const succeeded = results.filter((r) => r.status === "fulfilled").length;
+			const failed = results.filter((r) => r.status === "rejected").length;
+			const totalElapsed = ((Date.now() - concurrentStart) / 1000).toFixed(1);
+			console.log(
+				`\n${chalk.cyan("All runs finished")}. ${succeeded}/${options.count} succeeded${failed > 0 ? `, ${failed} failed` : ""}. Total time: ${totalElapsed}s`,
+			);
 		} else {
 			await simulateRun(1, 1, workflowName, orderedSteps, options, projectPath);
 		}
