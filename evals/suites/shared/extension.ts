@@ -264,9 +264,9 @@ export async function extensionHook(
 		const count = getCommitCount(workspaceDir);
 		const remoteHead = getRemoteHead(remoteDir);
 
-		// Isolate eval DB writes from production ~/.rp1/status.db
+		// Isolate eval DB writes from production ~/.rp1/rp1.db
 		// Single shared DB for all eval runs (no per-test DB needed)
-		process.env.RP1_STATUS_DB = join(EVAL_BASE_DIR, "status.db");
+		process.env.RP1_DB = join(EVAL_BASE_DIR, "rp1.db");
 
 		// Signal eval mode to prevent project registry pollution
 		process.env.RP1_EVAL_MODE = "true";

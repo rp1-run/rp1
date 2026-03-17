@@ -588,7 +588,7 @@ const taskCommand = agentToolsCommand
 		`
 Description:
   Provides subcommands for managing a persistent FIFO task queue.
-  Tasks are stored in the global SQLite database at ~/.rp1/status.db.
+  Tasks are stored in the global SQLite database at ~/.rp1/rp1.db.
   Agents, workflows, and users can create tasks for later execution.
 
 Subcommands:

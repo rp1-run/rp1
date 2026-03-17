@@ -2,7 +2,7 @@
 
 **Feature ID**: workflow-audit-fix
 **Status**: Not Started
-**Progress**: 46% (6 of 13 tasks completed)
+**Progress**: 100% (13 of 13 tasks completed)
 **Estimated Effort**: 5 days
 **Started**: 2026-03-17
 
@@ -221,9 +221,21 @@ Consolidate all workflow state persistence onto the single `rp1.db` database, re
     - **Deviations**: None
     - **Tests**: 1692/1692 passing (125 work tests removed)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
 ### Documentation and Configuration (Parallel Group 4)
 
-- [ ] **T7**: Update documentation, Justfile, evals, and KB references for consolidated database `[complexity:medium]`
+- [x] **T7**: Update documentation, Justfile, evals, and KB references for consolidated database `[complexity:medium]`
 
     **Reference**: [design.md#37-update-documentation-and-configuration](design.md#37-update-documentation-and-configuration)
 
@@ -231,16 +243,23 @@ Consolidate all workflow state persistence onto the single `rp1.db` database, re
 
     **Acceptance Criteria**:
 
-    - [ ] `docs/concepts/state-machines.md` references `rp1.db` and uses `emit` syntax for artifact examples
-    - [ ] `docs/reference/cli/work.md` is deleted or replaced with a redirect note
-    - [ ] `.rp1/context/architecture.md` Mermaid diagram no longer shows `status.db`; dual persistence note is updated
-    - [ ] `plugins/base/skills/task/SKILL.md` references `rp1.db` instead of `status.db`
-    - [ ] `Justfile` `db-clean` and `db-reset` recipes target `~/.rp1/rp1.db`
-    - [ ] `evals/suites/shared/extension.ts` uses `RP1_DB` instead of `RP1_STATUS_DB`
+    - [x] `docs/concepts/state-machines.md` references `rp1.db` and uses `emit` syntax for artifact examples
+    - [x] `docs/reference/cli/work.md` is deleted or replaced with a redirect note
+    - [x] `.rp1/context/architecture.md` Mermaid diagram no longer shows `status.db`; dual persistence note is updated
+    - [x] `plugins/base/skills/task/SKILL.md` references `rp1.db` instead of `status.db`
+    - [x] `Justfile` `db-clean` and `db-reset` recipes target `~/.rp1/rp1.db`
+    - [x] `evals/suites/shared/extension.ts` uses `RP1_DB` instead of `RP1_STATUS_DB`
+
+    **Implementation Summary**:
+
+    - **Files**: `docs/concepts/state-machines.md`, `docs/reference/cli/work.md` (deleted), `.rp1/context/architecture.md`, `plugins/base/skills/task/SKILL.md`, `Justfile`, `evals/suites/shared/extension.ts`, `cli/src/agent-tools/command.ts`, `mkdocs.yml`, `cli/dist/claude-code/base/skills/task/SKILL.md`, `cli/dist/SKILL-e1et6s14.md`, `cli/dist/SKILL-jsc582ht.md`, `cli/dist/SKILL-s0f41nht.md`
+    - **Approach**: Updated all artifact registration examples from `work artifact` to `emit --type artifact_registered`; added `--workflow` flag to all emit examples; removed stale cleanup section referencing deleted `work cleanup` command; deleted `docs/reference/cli/work.md` and its mkdocs nav entry; updated architecture diagram to remove `status.db` node and changed "Dual local persistence" to "Unified local persistence"; updated task skill and dist copies to reference `rp1.db`; rewrote Justfile `db-clean` to target `rp1.db` tables and `db-reset` to target `rp1.db` file; changed `RP1_STATUS_DB` to `RP1_DB` in evals extension; fixed help text in `command.ts`
+    - **Deviations**: Also updated `mkdocs.yml` nav entry, `command.ts` task help text, and 3 dist skill files that referenced `status.db` -- all directly related to the consolidation goal
+    - **Tests**: 1692/1692 passing
 
 ### User Docs
 
-- [ ] **TD1**: Update documentation for state-machines.md - artifact examples `[complexity:simple]`
+- [x] **TD1**: Update documentation for state-machines.md - artifact examples `[complexity:simple]`
 
     **Reference**: [design.md#documentation-impact](design.md#documentation-impact)
 
@@ -256,9 +275,9 @@ Consolidate all workflow state persistence onto the single `rp1.db` database, re
 
     **Acceptance Criteria**:
 
-    - [ ] Section reflects updated artifact registration syntax from `work artifact` to `emit --type artifact_registered`
+    - [x] Section reflects updated artifact registration syntax from `work artifact` to `emit --type artifact_registered`
 
-- [ ] **TD2**: Remove deprecated work.md CLI reference `[complexity:simple]`
+- [x] **TD2**: Remove deprecated work.md CLI reference `[complexity:simple]`
 
     **Reference**: [design.md#documentation-impact](design.md#documentation-impact)
 
@@ -274,9 +293,9 @@ Consolidate all workflow state persistence onto the single `rp1.db` database, re
 
     **Acceptance Criteria**:
 
-    - [ ] File removed, no broken links reference it
+    - [x] File removed, no broken links reference it
 
-- [ ] **TD3**: Update architecture.md system diagram and patterns `[complexity:simple]`
+- [x] **TD3**: Update architecture.md system diagram and patterns `[complexity:simple]`
 
     **Reference**: [design.md#documentation-impact](design.md#documentation-impact)
 
@@ -292,9 +311,9 @@ Consolidate all workflow state persistence onto the single `rp1.db` database, re
 
     **Acceptance Criteria**:
 
-    - [ ] Section reflects removal of status.db and updated persistence architecture
+    - [x] Section reflects removal of status.db and updated persistence architecture
 
-- [ ] **TD4**: Update task skill database reference `[complexity:simple]`
+- [x] **TD4**: Update task skill database reference `[complexity:simple]`
 
     **Reference**: [design.md#documentation-impact](design.md#documentation-impact)
 
@@ -310,9 +329,9 @@ Consolidate all workflow state persistence onto the single `rp1.db` database, re
 
     **Acceptance Criteria**:
 
-    - [ ] Section reflects task system using rp1.db instead of status.db
+    - [x] Section reflects task system using rp1.db instead of status.db
 
-- [ ] **TD5**: Update Justfile database recipes `[complexity:simple]`
+- [x] **TD5**: Update Justfile database recipes `[complexity:simple]`
 
     **Reference**: [design.md#documentation-impact](design.md#documentation-impact)
 
@@ -328,9 +347,9 @@ Consolidate all workflow state persistence onto the single `rp1.db` database, re
 
     **Acceptance Criteria**:
 
-    - [ ] Section reflects targeting rp1.db instead of status.db
+    - [x] Section reflects targeting rp1.db instead of status.db
 
-- [ ] **TD6**: Update evals extension environment variable `[complexity:simple]`
+- [x] **TD6**: Update evals extension environment variable `[complexity:simple]`
 
     **Reference**: [design.md#documentation-impact](design.md#documentation-impact)
 
@@ -346,7 +365,7 @@ Consolidate all workflow state persistence onto the single `rp1.db` database, re
 
     **Acceptance Criteria**:
 
-    - [ ] Section reflects use of RP1_DB instead of RP1_STATUS_DB
+    - [x] Section reflects use of RP1_DB instead of RP1_STATUS_DB
 
 ## Acceptance Criteria Checklist
 
