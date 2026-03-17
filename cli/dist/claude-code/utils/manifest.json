@@ -6,14 +6,14 @@
       "build-prompt-evals",
       "prompt-eval-builder",
       "prompt-writer",
-      "tester",
-      "tersify-prompt"
+      "tersify-prompt",
+      "tester"
     ],
     "agents": [
       "dependency-chain-analyzer",
-      "prompt-tersifier",
+      "prompt-assertion-specialist",
       "prompt-eval-extractor",
-      "prompt-assertion-specialist"
+      "prompt-tersifier"
     ]
   },
   "installation": {
