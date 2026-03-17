@@ -477,7 +477,7 @@ describe("buildCanvasGraph", () => {
 		expect(childEdges[0].type).toBe("floating");
 	});
 
-	test("collapsed step with tasks renders as stepNode with hasSubFlow true", () => {
+	test("collapsed step with tasks renders as groupStepNode with hasSubFlow true", () => {
 		const workflow = makeWorkflow({
 			states: [
 				{ id: "build", label: "Build", isInitial: true, isTerminal: true },
@@ -496,7 +496,7 @@ describe("buildCanvasGraph", () => {
 		});
 
 		const node = result.nodes.find((n) => n.id === "build");
-		expect(node?.type).toBe("stepNode");
+		expect(node?.type).toBe("groupStepNode");
 		expect(node?.data.hasSubFlow).toBe(true);
 		expect(node?.data.isExpanded).toBe(false);
 
@@ -808,7 +808,7 @@ describe("buildCanvasGraph with subflows", () => {
 		expect(childNodes[1].data.taskId).toBe("T2");
 	});
 
-	test("collapsed step with subflow renders as stepNode", () => {
+	test("collapsed step with subflow renders as groupStepNode", () => {
 		const workflow = makeWorkflow({
 			states: [
 				{ id: "build", label: "Build", isInitial: true, isTerminal: true },
@@ -828,7 +828,7 @@ describe("buildCanvasGraph with subflows", () => {
 		});
 
 		const node = result.nodes.find((n) => n.id === "build");
-		expect(node?.type).toBe("stepNode");
+		expect(node?.type).toBe("groupStepNode");
 		expect(node?.data.hasSubFlow).toBe(true);
 		expect(node?.data.isExpanded).toBe(false);
 	});

@@ -141,11 +141,11 @@ export function GroupStepNode({
 				<Handle
 					type="target"
 					position={resolvedTargetPosition}
-					className="!bg-transparent !border-0 !w-0 !h-0"
+					className="!bg-transparent !border-0 !w-px !h-px"
 				/>
 				<div
 					className={cn(
-						"min-h-[60px] w-[200px] rounded-[var(--radius)] border px-3 py-2.5 transition-colors duration-300",
+						"h-full w-full rounded-[var(--radius)] border px-3 py-2.5 transition-colors duration-300",
 						style.border,
 						style.bg,
 						style.animation,
@@ -207,7 +207,7 @@ export function GroupStepNode({
 				<Handle
 					type="source"
 					position={resolvedSourcePosition}
-					className="!bg-transparent !border-0 !w-0 !h-0"
+					className="!bg-transparent !border-0 !w-px !h-px"
 				/>
 			</>
 		);
@@ -218,7 +218,7 @@ export function GroupStepNode({
 			<Handle
 				type="target"
 				position={resolvedTargetPosition}
-				className="!bg-transparent !border-0 !w-0 !h-0"
+				className="!bg-transparent !border-0 !w-px !h-px"
 			/>
 			<div
 				className={cn(
@@ -289,7 +289,7 @@ export function GroupStepNode({
 			<Handle
 				type="source"
 				position={resolvedSourcePosition}
-				className="!bg-transparent !border-0 !w-0 !h-0"
+				className="!bg-transparent !border-0 !w-px !h-px"
 			/>
 		</>
 	);

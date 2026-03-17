@@ -237,7 +237,7 @@ export function StepNode({
 			<Handle
 				type="target"
 				position={resolvedTargetPosition}
-				className="!bg-transparent !border-0 !w-0 !h-0"
+				className="!bg-transparent !border-0 !w-px !h-px"
 			/>
 			<div
 				className={cn(
@@ -303,7 +303,7 @@ export function StepNode({
 			<Handle
 				type="source"
 				position={resolvedSourcePosition}
-				className="!bg-transparent !border-0 !w-0 !h-0"
+				className="!bg-transparent !border-0 !w-px !h-px"
 			/>
 		</>
 	);

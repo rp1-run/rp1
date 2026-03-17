@@ -26,7 +26,7 @@ import {
 	upsertAnnotation,
 	upsertArtifact,
 } from "./database.js";
-import { resolveDocId } from "./doc-id.js";
+import { type DocIdResult, generateDocId, resolveDocId } from "./doc-id.js";
 import type { EmitInput, EmitResult } from "./models.js";
 
 const TOOL_NAME = "emit";
@@ -103,6 +103,8 @@ const handleSkippedSteps = (
 
 /**
  * Handle artifact registration: resolve doc_id and upsert artifact record.
+ * Falls back to a generated doc_id if the file cannot be read (e.g., not yet
+ * written to disk) so the event pipeline is never blocked by missing files.
  */
 const handleArtifactRegistration = (
 	input: EmitInput,
@@ -116,8 +118,15 @@ const handleArtifactRegistration = (
 		? filePath
 		: `${input.projectPath}/${filePath}`;
 
-	return pipe(
+	const docIdTask = pipe(
 		resolveDocId(absolutePath),
+		TE.orElse(() =>
+			TE.right({ docId: generateDocId(), isNew: true } as DocIdResult),
+		),
+	);
+
+	return pipe(
+		docIdTask,
 		TE.chain((docIdResult) =>
 			pipe(
 				getEmitDatabase(),

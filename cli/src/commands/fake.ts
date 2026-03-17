@@ -391,7 +391,7 @@ const simulateRun = async (
 
 		if (options.withArtifacts && ARTIFACT_STEPS[step.id]) {
 			const artifact = ARTIFACT_STEPS[step.id];
-			const artifactPath = `work/features/${featureId}/${artifact.path}`;
+			const artifactPath = `.rp1/work/features/${featureId}/${artifact.path}`;
 			const fullDir = `${projectPath}/.rp1/work/features/${featureId}`;
 
 			try {
