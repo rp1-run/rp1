@@ -239,7 +239,6 @@ const emitSubflowRegistered = async (params: {
 	await executeEmit(input)();
 };
 
-/** Sleep for a given number of milliseconds. */
 const sleep = (ms: number): Promise<void> =>
 	new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -270,7 +269,6 @@ const simulateRun = async (
 		const step = orderedSteps[i];
 		const stepLabel = `[${i + 1}/${stepCount}] ${step.id}`;
 
-		// Emit running status
 		console.log(`${prefix}  ${stepLabel}: ${chalk.yellow("running")}...`);
 		await emitStatusChange({
 			runId,
@@ -281,7 +279,6 @@ const simulateRun = async (
 			projectPath,
 		});
 
-		// Emit BTW messages if enabled
 		if (options.withBtw) {
 			const messages = BTW_MESSAGES[step.id] ?? [
 				"Processing step...",
@@ -300,10 +297,8 @@ const simulateRun = async (
 			}
 		}
 
-		// Apply speed delay
 		await sleep(getDelayMs(options.speed));
 
-		// Check for failure injection
 		if (options.failAt === step.id) {
 			console.log(`${prefix}  ${stepLabel}: ${chalk.red("failed")} (injected)`);
 			await emitStatusChange({
@@ -329,7 +324,6 @@ const simulateRun = async (
 			return;
 		}
 
-		// Check for pause injection
 		if (options.pauseAt === step.id) {
 			console.log(
 				`${prefix}  ${stepLabel}: ${chalk.yellow("waiting")} (injected)`,
@@ -349,7 +343,6 @@ const simulateRun = async (
 			return;
 		}
 
-		// Emit completed status
 		const stepElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 		console.log(
 			`${prefix}  ${stepLabel}: ${chalk.green("completed")} (${stepElapsed}s)`,
@@ -363,7 +356,6 @@ const simulateRun = async (
 			projectPath,
 		});
 
-		// Create artifact files and emit events if enabled
 		if (options.withArtifacts && ARTIFACT_STEPS[step.id]) {
 			const artifact = ARTIFACT_STEPS[step.id];
 			const artifactPath = `work/features/${featureId}/${artifact.path}`;
@@ -387,7 +379,6 @@ const simulateRun = async (
 			});
 		}
 
-		// Emit subflow events if enabled
 		if (options.withSubflows && step.id === "build") {
 			await emitSubflowRegistered({
 				runId,
@@ -424,7 +415,6 @@ const simulateRun = async (
 		}
 	}
 
-	// Emit run-level completed
 	await emitStatusChange({
 		runId,
 		status: "completed",
@@ -485,7 +475,6 @@ Examples:
 			count: Number.parseInt(rawOptions.count as string, 10) || 1,
 		};
 
-		// Validate speed option
 		if (!["fast", "normal", "slow"].includes(options.speed)) {
 			console.error(
 				chalk.red(
@@ -495,7 +484,6 @@ Examples:
 			process.exit(1);
 		}
 
-		// Parse workflow name from command string
 		const workflowName = parseWorkflowName(commandStr);
 		if (!workflowName) {
 			console.error(
@@ -506,7 +494,6 @@ Examples:
 			process.exit(1);
 		}
 
-		// Load state machine
 		const machineResult = await loadStateMachine(workflowName)();
 		if (E.isLeft(machineResult)) {
 			console.error(
@@ -522,7 +509,6 @@ Examples:
 
 		const machine = machineResult.right;
 
-		// Derive ordered steps
 		const orderedSteps = deriveOrderedSteps(machine);
 		if (orderedSteps.length === 0) {
 			console.error(
@@ -531,7 +517,6 @@ Examples:
 			process.exit(1);
 		}
 
-		// Validate --fail-at and --pause-at step names
 		if (options.failAt) {
 			validateStepName(options.failAt, orderedSteps, "--fail-at");
 		}
@@ -539,10 +524,8 @@ Examples:
 			validateStepName(options.pauseAt, orderedSteps, "--pause-at");
 		}
 
-		// Resolve project path
 		const projectPath = await resolveProjectPath();
 
-		// Launch simulation(s)
 		if (options.count > 1) {
 			const promises: Promise<void>[] = [];
 			for (let i = 0; i < options.count; i++) {
