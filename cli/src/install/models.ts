@@ -9,7 +9,6 @@
 export interface PluginManifest {
 	readonly plugin: string;
 	readonly version: string;
-	readonly generatedAt: string;
 	readonly opencodeVersionTested: string;
 	readonly commands: readonly string[];
 	readonly agents: readonly string[];

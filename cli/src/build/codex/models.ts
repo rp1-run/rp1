@@ -43,7 +43,6 @@ export interface OpenaiYamlConfig {
 export interface CodexManifest {
 	readonly plugin: string;
 	readonly version: string;
-	readonly generatedAt: string;
 	readonly codexVersionTested: string;
 	readonly artifacts: {
 		readonly skills: readonly string[];

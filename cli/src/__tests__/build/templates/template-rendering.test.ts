@@ -311,7 +311,7 @@ describeWithLiquid("template rendering", () => {
 			const manifest = JSON.parse(result);
 			expect(manifest.plugin).toBe("base");
 			expect(manifest.version).toBe("1.0.0");
-			expect(manifest.generatedAt).toBe("2026-01-01T00:00:00.000Z");
+
 			expect(manifest.opencodeVersionTested).toBe("0.9.x");
 			expect(manifest.artifacts.commands).toEqual(["cmd1", "cmd2"]);
 			expect(manifest.artifacts.agents).toEqual(["agent1"]);

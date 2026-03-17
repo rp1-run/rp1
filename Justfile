@@ -82,8 +82,6 @@ check-plugin-dist:
     #!/usr/bin/env bash
     set -euo pipefail
     just build-claude-code > /dev/null 2>&1
-    # Restore manifest.json timestamps (generatedAt changes every build)
-    git checkout -- cli/dist/claude-code/*/manifest.json 2>/dev/null || true
     if [ -n "$(git diff --name-only cli/dist/claude-code/)" ]; then
         echo "ERROR: cli/dist/claude-code/ is stale. Run 'just build-claude-code' and commit the changes."
         git diff --stat cli/dist/claude-code/
@@ -116,8 +114,6 @@ run *args: build
 # Prepare dev marketplace with -dev version plugins (builds CC artifacts first)
 prepare-dev-plugins: build-claude-code
     ./scripts/prepare-dev-plugins.sh
-    @# Restore manifest timestamps so builds don't dirty the working tree
-    @git checkout -- cli/dist/claude-code/*/manifest.json 2>/dev/null || true
 
 # Install dev plugins to Claude Code
 install-claude: prepare-dev-plugins

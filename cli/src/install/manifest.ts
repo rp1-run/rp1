@@ -28,7 +28,6 @@ export const loadManifest = (
 			const requiredFields = [
 				"plugin",
 				"version",
-				"generated_at",
 				"opencode_version_tested",
 				"artifacts",
 			];
@@ -53,7 +52,6 @@ export const loadManifest = (
 			return TE.right({
 				plugin: String(data.plugin),
 				version: String(data.version),
-				generatedAt: String(data.generated_at),
 				opencodeVersionTested: String(data.opencode_version_tested),
 				commands: (artifacts.commands as string[]) ?? [],
 				agents: (artifacts.agents as string[]) ?? [],
@@ -92,7 +90,6 @@ export const discoverPlugins = (
 						plugins.push({
 							plugin: String(data.plugin),
 							version: String(data.version),
-							generatedAt: String(data.generated_at),
 							opencodeVersionTested: String(data.opencode_version_tested),
 							commands: (artifacts.commands as string[]) ?? [],
 							agents: (artifacts.agents as string[]) ?? [],

@@ -1,20 +1,19 @@
 {
   "plugin": "rp1-utils",
   "version": "0.5.2",
-  "generatedAt": "2026-03-15T02:28:57.133Z",
   "artifacts": {
     "skills": [
       "build-prompt-evals",
       "prompt-eval-builder",
       "prompt-writer",
-      "tester",
-      "tersify-prompt"
+      "tersify-prompt",
+      "tester"
     ],
     "agents": [
       "dependency-chain-analyzer",
-      "prompt-tersifier",
+      "prompt-assertion-specialist",
       "prompt-eval-extractor",
-      "prompt-assertion-specialist"
+      "prompt-tersifier"
     ]
   },
   "installation": {

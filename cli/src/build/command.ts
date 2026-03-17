@@ -298,7 +298,8 @@ const getMarkdownFiles = async (dir: string): Promise<string[]> => {
 		const entries = await readdir(dir, { withFileTypes: true });
 		return entries
 			.filter((e) => e.isFile() && e.name.endsWith(".md"))
-			.map((e) => join(dir, e.name));
+			.map((e) => join(dir, e.name))
+			.sort();
 	} catch {
 		return [];
 	}
@@ -322,7 +323,7 @@ const getSkillDirs = async (skillsDir: string): Promise<string[]> => {
 				}
 			}
 		}
-		return dirs;
+		return dirs.sort();
 	} catch {
 		return [];
 	}
