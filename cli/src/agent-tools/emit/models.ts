@@ -28,6 +28,7 @@ import type { EventType, Status } from "../../../shared/events.js";
 export interface EmitInput {
 	readonly type: EventType;
 	readonly runId: string;
+	readonly workflow?: string;
 	readonly step?: string;
 	readonly unit?: string;
 	readonly data: Record<string, unknown>;

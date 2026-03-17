@@ -24,6 +24,7 @@ import type { EmitInput } from "./models.js";
 export interface EmitCommandOptions {
 	readonly type: string;
 	readonly runId: string;
+	readonly workflow: string;
 	readonly step?: string;
 	readonly unit?: string;
 	readonly data?: string;
@@ -53,6 +54,18 @@ const validateRunId = (runId: string): E.Either<CLIError, string> => {
 	}
 
 	return E.right(runId);
+};
+
+const validateWorkflow = (workflow: string): E.Either<CLIError, string> => {
+	if (!workflow || workflow.trim() === "") {
+		return E.left(
+			usageError(
+				'--workflow is required. Specify the workflow name, e.g.: --workflow build\n\nExample:\n  rp1 agent-tools emit --workflow build --type status_change --run-id <id> --step <step> --data \'{"status": "running"}\'',
+			),
+		);
+	}
+
+	return E.right(workflow.trim());
 };
 
 const parseJsonPayload = (
@@ -277,6 +290,9 @@ export const validateEmitOptions = (
 		TE.Do,
 		TE.bind("type", () => TE.fromEither(validateEventType(options.type))),
 		TE.bind("runId", () => TE.fromEither(validateRunId(options.runId))),
+		TE.bind("workflow", () =>
+			TE.fromEither(validateWorkflow(options.workflow)),
+		),
 		TE.bind("rawData", () => TE.fromEither(parseJsonPayload(options.data))),
 		TE.bind("step", ({ type }) =>
 			TE.fromEither(validateStepForType(type, options.step)),
@@ -286,12 +302,13 @@ export const validateEmitOptions = (
 		),
 		TE.bind("resolved", () => validateProjectPath(options.project)),
 		TE.map(
-			({ type, runId, step, data, resolved }): EmitInput => ({
+			({ type, runId, workflow, step, data, resolved }): EmitInput => ({
 				type,
 				runId,
+				workflow,
 				step,
 				unit: options.unit,
-				data,
+				data: { ...data, workflow },
 				projectPath: resolved.projectPath,
 				closeRun: options.closeRun,
 			}),

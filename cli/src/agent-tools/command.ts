@@ -354,6 +354,7 @@ const emitCommand = agentToolsCommand
 		`Event type (${VALID_EVENT_TYPES.join(", ")})`,
 	)
 	.requiredOption("--run-id <id>", "Workflow run ID (UUID)")
+	.requiredOption("--workflow <name>", "Workflow name (e.g., build, pr-review)")
 	.option(
 		"--step <step>",
 		"Workflow step name (required for status_change, subflow_registered)",
@@ -387,6 +388,7 @@ Description:
 Arguments:
   --type <type>        Event type (required): ${VALID_EVENT_TYPES.join(", ")}
   --run-id <id>        Workflow run UUID (required)
+  --workflow <name>    Workflow name (required, e.g., build, pr-review)
   --step <step>        Workflow step name (required for status_change, subflow_registered)
   --unit <unit>        Task/unit identifier (optional)
   --data <json>        JSON payload (optional, content depends on event type)
@@ -404,6 +406,7 @@ Output:
 Examples:
   # Record a status change
   rp1 agent-tools emit \\
+    --workflow build \\
     --type status_change \\
     --run-id "550e8400-e29b-41d4-a716-446655440000" \\
     --step requirements \\
@@ -411,12 +414,14 @@ Examples:
 
   # Register an artifact
   rp1 agent-tools emit \\
+    --workflow build \\
     --type artifact_registered \\
     --run-id "550e8400-e29b-41d4-a716-446655440000" \\
     --data '{"path": "work/features/my-feature/design.md", "feature": "my-feature"}'
 
   # Record a subflow
   rp1 agent-tools emit \\
+    --workflow build \\
     --type subflow_registered \\
     --run-id "550e8400-e29b-41d4-a716-446655440000" \\
     --step building \\
@@ -427,6 +432,7 @@ Examples:
 		async (options: {
 			type: string;
 			runId: string;
+			workflow: string;
 			step?: string;
 			unit?: string;
 			data?: string;
@@ -438,6 +444,7 @@ Examples:
 			const emitOptions: EmitCommandOptions = {
 				type: options.type,
 				runId: options.runId,
+				workflow: options.workflow,
 				step: options.step,
 				unit: options.unit,
 				data: options.data,
