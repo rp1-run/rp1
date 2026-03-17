@@ -6,11 +6,11 @@
   "plugins": [
     {
       "name": "rp1-base",
-      "source": "./plugins/base/"
+      "source": "./cli/dist/claude-code/base/"
     },
     {
       "name": "rp1-dev",
-      "source": "./plugins/dev/"
+      "source": "./cli/dist/claude-code/dev/"
     }
   ]
 }

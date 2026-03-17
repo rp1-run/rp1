@@ -6,7 +6,18 @@
 import { Command } from "commander";
 import * as E from "fp-ts/lib/Either.js";
 import { formatError } from "../../shared/errors.js";
+import { VALID_EVENT_TYPES } from "../../shared/events.js";
 import { executeExtract } from "./comment-extract/index.js";
+import {
+	closeDatabase as closeEmitDatabase,
+	findOrCreateRun,
+	getEmitDatabase,
+} from "./emit/database.js";
+import { executeEmit } from "./emit/index.js";
+import {
+	type EmitCommandOptions,
+	validateEmitOptions,
+} from "./emit/validate.js";
 import { resolveProjectPath } from "./git.js";
 import {
 	executeAddReaction,
@@ -18,17 +29,26 @@ import { getTool, type ToolOptions } from "./index.js";
 import { readInput } from "./input.js";
 import { formatOutput } from "./output.js";
 import {
+	executeCancel as executeTaskCancel,
+	executeComplete as executeTaskComplete,
+	executeCreate as executeTaskCreate,
+	executeFail as executeTaskFail,
+	executeGet as executeTaskGet,
+	executeList as executeTaskList,
+	executePickup as executeTaskPickup,
+} from "./task/index.js";
+import { VALID_TASK_STATUSES } from "./task/models.js";
+import {
 	closeDatabase,
 	executeArtifact as executeWorkArtifact,
 	executeCleanup as executeWorkCleanup,
-	executeUpdate as executeWorkUpdate,
 } from "./work/index.js";
-import { VALID_ARTIFACT_TYPES, VALID_STATUSES } from "./work/models.js";
-import { validateUpdateOptions } from "./work/update.js";
+import { VALID_ARTIFACT_TYPES } from "./work/models.js";
 
 // Register process exit handlers for graceful cleanup
 const cleanupAndExit = () => {
 	closeDatabase();
+	closeEmitDatabase();
 };
 process.on("exit", cleanupAndExit);
 process.on("SIGTERM", () => {
@@ -43,7 +63,9 @@ process.on("SIGINT", () => {
 import "./mmd-validate/index.js";
 import "./rp1-root-dir/index.js";
 import "./comment-extract/index.js";
+import "./emit/index.js";
 import "./github-pr/index.js";
+import "./task/index.js";
 import "./work/index.js";
 
 /** Default timeout for tool execution in milliseconds */
@@ -78,8 +100,10 @@ Available Tools:
   mmd-validate      Validate Mermaid diagram syntax
   rp1-root-dir      Resolve RP1_ROOT path with read-only worktree detection
   comment-extract   Extract comments from git-changed files
+  emit              Record events for the rp1 workflow event system
   github-pr         GitHub PR operations (submit-review, add-reaction, reply-comment, fetch-comments)
-  work              Track agent workflow progress with status updates and artifacts
+  task              Manage task queue (create, list, pickup, complete, fail, cancel, get)
+  work              Track agent workflow artifacts and cleanup
 
 Examples:
   rp1 agent-tools mmd-validate ./document.md
@@ -89,7 +113,9 @@ Examples:
   rp1 agent-tools comment-extract branch main
   rp1 agent-tools comment-extract unstaged main
   echo '{"owner":"org","repo":"repo","pr_number":123}' | rp1 agent-tools github-pr fetch-comments
-  rp1 agent-tools work update --project /path/to/project --feature my-feature --workflow build --step requirements --status started
+  rp1 agent-tools task create --type check-annotations --description "Review open annotations"
+  rp1 agent-tools task list --status pending
+  rp1 agent-tools emit --type status_change --run-id <uuid> --step requirements --data '{"status": "running"}'
 `,
 	);
 
@@ -317,177 +343,109 @@ Examples:
 	);
 
 /**
- * work subcommand.
- * Tracks agent workflow progress with status updates.
+ * emit subcommand.
+ * Records events for the rp1 workflow event system.
  */
-const workCommand = agentToolsCommand
-	.command("work")
-	.description("Track agent workflow progress with status updates")
-	.addHelpText(
-		"after",
-		`
-Description:
-  Provides subcommands for tracking agent workflow progress via status updates
-  and artifact registration. Data is stored in a global SQLite database at ~/.rp1/status.db.
-
-Subcommands:
-  update    Record a status update for a feature/step
-  artifact  Register an artifact for a feature/run
-  cleanup   Delete expired workflow runs
-
-Examples:
-  rp1 agent-tools work update --project /path/to/project --feature my-feature --workflow build --step requirements --status started
-  rp1 agent-tools work update --project /path/to/project --feature my-feature --workflow build --step design --status started --message "Starting design"
-  rp1 agent-tools work artifact --project /path/to/project --feature my-feature --path .rp1/work/research/report.md
-`,
-	);
-
-/**
- * work update subcommand.
- * Records a status update for agent workflow tracking.
- */
-workCommand
-	.command("update")
-	.description("Record a status update for a feature/step")
-	.requiredOption("-p, --project <path>", "Absolute path to project root")
-	.requiredOption("-f, --feature <name>", "Feature identifier (kebab-case)")
+const emitCommand = agentToolsCommand
+	.command("emit")
+	.description("Record events for the rp1 workflow event system")
 	.requiredOption(
-		"-t, --step <id>",
-		"Workflow step/state identifier (must match a state in the workflow's state machine)",
+		"--type <type>",
+		`Event type (${VALID_EVENT_TYPES.join(", ")})`,
 	)
-	.requiredOption(
-		"-s, --status <status>",
-		`Status state (${VALID_STATUSES.join(", ")})`,
-	)
-	.option("-m, --message <text>", "Human-readable status message")
-	.option("--metadata <json>", "JSON string for additional context")
-	.requiredOption(
-		"-w, --workflow <name>",
-		"State machine workflow to validate against (skill name with embedded state machine)",
-	)
+	.requiredOption("--run-id <id>", "Workflow run ID (UUID)")
 	.option(
-		"--run-id <id>",
-		"Workflow run isolation ID (UUID) for tracking separate invocations",
+		"--step <step>",
+		"Workflow step name (required for status_change, subflow_registered)",
 	)
+	.option("--unit <unit>", "Task/unit identifier")
+	.option("--data <json>", "JSON payload for the event")
+	.option("--project <path>", "Project path (defaults to cwd)")
 	.option(
-		"--ttl <seconds>",
-		"TTL in seconds for expires_at timestamp (default: 28800 = 8 hours)",
-	)
-	.option(
-		"--agent <name>",
-		"Agent name for agent-scoped state machine validation (requires --workflow)",
-	)
-	.option(
-		"--task <task-id>",
-		"Task identifier for per-task state tracking (requires --agent)",
+		"--close-run",
+		"Force-close the run by completing all non-terminal steps",
 	)
 	.addHelpText(
 		"after",
 		`
 Description:
-  Records a status update to the global status database (~/.rp1/status.db).
-  Creates the database file automatically on first invocation.
+  Records an event to the rp1 event system database (~/.rp1/rp1.db).
+  This is the unified entry point for all event types, replacing the old
+  'work update' command.
 
-  Both --workflow and --step are REQUIRED. Every status update must specify
-  which workflow state machine step is being reported. The command loads the
-  state machine, validates that the transition is permitted, computes an
-  expires_at timestamp for stale row cleanup, and inserts the record with
-  run isolation via --run-id.
+  Supports 6 event types:
+    status_change         Record a workflow step status transition
+    artifact_registered   Register an artifact with stable doc_id identity
+    annotation_updated    Create or update an annotation on an artifact
+    waiting_for_user      Signal that the workflow is waiting for user input
+    btw_update            Send an informational update message
+    subflow_registered    Register a subflow under a parent step
 
-  When --agent is provided alongside --workflow, validation uses the
-  agent's embedded state machine instead of the workflow's. The update
-  is still attributed to the parent workflow run.
-
-  When --task is provided alongside --agent, per-task state tracking
-  is enabled. Each task progresses through the agent's state machine
-  independently.
+  Runs are auto-created on first emit if the run-id does not exist.
+  Skipped-step detection automatically marks prior unreported steps as skipped.
 
 Arguments:
-  --project <path>     Absolute path to project root (required)
-  --feature <name>     Feature identifier in kebab-case (required)
-  --workflow <name>    Skill name whose state machine to validate against (required)
-  --step <id>          Workflow step/state identifier (required)
-  --status <status>    Status state: ${VALID_STATUSES.join(", ")} (required)
-  --message <text>     Human-readable status message (optional)
-  --metadata <json>    JSON string for additional context (optional)
-  --run-id <id>        UUID grouping updates into a discrete workflow run (recommended)
-  --ttl <seconds>      TTL for expires_at in seconds (default: 28800 = 8h)
-  --agent <name>       Agent name for agent-scoped validation (requires --workflow)
-  --task <task-id>     Task identifier for per-task tracking (requires --agent)
-
-Validation:
-  - Project path must be absolute
-  - Feature name must match pattern ^[a-z0-9-]+$
-  - --workflow and --step are both required
-  - --step must be a valid state in the workflow's state machine
-  - Status must be one of the valid states
-  - Metadata must be valid JSON if provided
-  - Transitions are validated against the state machine graph
-  - First update must target an initial state
-  - --agent requires --workflow (determines run attribution)
-  - --task requires --agent (determines agent context)
+  --type <type>        Event type (required): ${VALID_EVENT_TYPES.join(", ")}
+  --run-id <id>        Workflow run UUID (required)
+  --step <step>        Workflow step name (required for status_change, subflow_registered)
+  --unit <unit>        Task/unit identifier (optional)
+  --data <json>        JSON payload (optional, content depends on event type)
+  --project <path>     Absolute path to project root (optional, defaults to cwd)
 
 Output:
-  JSON with the recorded status update:
-  - id: Auto-generated record ID
-  - projectPath: Project path
-  - feature: Feature name
-  - step: Step identifier
-  - status: Status state
-  - message: Status message (null if not specified)
-  - createdAt: ISO 8601 UTC timestamp
+  JSON ToolResult with:
+  - eventId: Auto-generated event ID
+  - runId: Run identifier
+  - type: Event type recorded
+  - docId: Stable document ID (for artifact_registered events)
+  - skippedSteps: Steps auto-marked as skipped (if any)
+  - runStatus: Current derived run status
 
 Examples:
-  # Record workflow step transition
-  rp1 agent-tools work update \\
-    --project /Users/dev/myapp \\
-    --feature auth-refactor \\
-    --workflow build \\
+  # Record a status change
+  rp1 agent-tools emit \\
+    --type status_change \\
     --run-id "550e8400-e29b-41d4-a716-446655440000" \\
     --step requirements \\
-    --status started \\
-    --message "Gathering requirements"
+    --data '{"status": "running"}'
 
-  # Record agent state transition with per-task tracking
-  rp1 agent-tools work update \\
-    --project /Users/dev/myapp \\
-    --feature auth-refactor \\
-    --workflow build \\
-    --agent task-builder \\
-    --task T1 \\
+  # Register an artifact
+  rp1 agent-tools emit \\
+    --type artifact_registered \\
+    --run-id "550e8400-e29b-41d4-a716-446655440000" \\
+    --data '{"path": "work/features/my-feature/design.md", "feature": "my-feature"}'
+
+  # Record a subflow
+  rp1 agent-tools emit \\
+    --type subflow_registered \\
     --run-id "550e8400-e29b-41d4-a716-446655440000" \\
     --step building \\
-    --status started \\
-    --message "Building task T1"
-
-  # Record transition with custom TTL
-  rp1 agent-tools work update \\
-    --project /Users/dev/myapp \\
-    --feature auth-refactor \\
-    --workflow build \\
-    --run-id "550e8400-e29b-41d4-a716-446655440000" \\
-    --step design \\
-    --status started \\
-    --ttl 3600
+    --data '{"parentStepId": "building", "subflowName": "task-builder"}'
 `,
 	)
 	.action(
 		async (options: {
-			project: string;
-			feature: string;
-			step: string;
-			status: string;
-			message?: string;
-			metadata?: string;
-			workflow: string;
-			runId?: string;
-			ttl?: string;
-			agent?: string;
-			task?: string;
+			type: string;
+			runId: string;
+			step?: string;
+			unit?: string;
+			data?: string;
+			project?: string;
+			closeRun?: boolean;
 		}): Promise<void> => {
-			const toolName = "work";
+			const toolName = "emit";
 
-			const validationResult = await validateUpdateOptions(options)();
+			const emitOptions: EmitCommandOptions = {
+				type: options.type,
+				runId: options.runId,
+				step: options.step,
+				unit: options.unit,
+				data: options.data,
+				project: options.project,
+				closeRun: options.closeRun,
+			};
+
+			const validationResult = await validateEmitOptions(emitOptions)();
 
 			if (E.isLeft(validationResult)) {
 				console.error(
@@ -499,7 +457,7 @@ Examples:
 				process.exit(1);
 			}
 
-			const result = await executeWorkUpdate(validationResult.right)();
+			const result = await executeEmit(validationResult.right)();
 
 			if (E.isLeft(result)) {
 				console.error(
@@ -511,6 +469,135 @@ Examples:
 			console.log(formatOutput(result.right));
 			process.exit(0);
 		},
+	);
+
+/**
+ * emit resume-run subcommand.
+ * Finds or creates a run for a feature, enabling run resumption via DB lookup.
+ */
+emitCommand
+	.command("resume-run")
+	.description("Find or create a run for a feature (run resumption via DB)")
+	.requiredOption("--feature <id>", "Feature identifier")
+	.requiredOption("--flow <name>", "Workflow name (e.g., build, build-fast)")
+	.option("--project <path>", "Project path (defaults to cwd)")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Finds the most recent non-terminal run for the given feature and project,
+  or creates a new one if none exists. This enables skills to resume an
+  existing run rather than creating duplicates.
+
+  Terminal statuses are: completed, failed, skipped.
+  Non-terminal runs are returned in order of most recently created.
+
+Options:
+  --feature <id>     Feature identifier (required)
+  --flow <name>      Workflow name (required, e.g., build, build-fast, blueprint, pr-review)
+  --project <path>   Absolute path to project root (optional, defaults to cwd)
+
+Output:
+  JSON ToolResult with:
+  - runId: The run UUID (existing or newly created)
+  - resumed: true if an existing run was found, false if a new run was created
+  - flow: The workflow name
+  - featureId: The feature identifier
+
+Examples:
+  # Resume or create a run for a feature
+  rp1 agent-tools emit resume-run \\
+    --feature my-feature \\
+    --flow build \\
+    --project /path/to/project
+`,
+	)
+	.action(
+		async (options: {
+			feature: string;
+			flow: string;
+			project?: string;
+		}): Promise<void> => {
+			const toolName = "emit";
+
+			const projectPath = options.project ?? process.cwd();
+
+			if (!projectPath.startsWith("/")) {
+				console.error(
+					createErrorResponse(
+						toolName,
+						`Project path must be absolute. Received: ${projectPath}`,
+					),
+				);
+				process.exit(1);
+			}
+
+			const resolvedResult = await resolveProjectPath(projectPath)();
+
+			if (E.isLeft(resolvedResult)) {
+				console.error(
+					createErrorResponse(
+						toolName,
+						formatError(resolvedResult.left, false),
+					),
+				);
+				process.exit(1);
+			}
+
+			const dbResult = await getEmitDatabase()();
+
+			if (E.isLeft(dbResult)) {
+				console.error(
+					createErrorResponse(toolName, formatError(dbResult.left, false)),
+				);
+				process.exit(1);
+			}
+
+			const db = dbResult.right;
+			const result = findOrCreateRun(db, {
+				flow: options.flow,
+				featureId: options.feature,
+				projectPath: resolvedResult.right.projectPath,
+			});
+
+			console.log(
+				formatOutput({
+					success: true,
+					tool: toolName,
+					data: {
+						runId: result.runId,
+						resumed: result.resumed,
+						flow: options.flow,
+						featureId: options.feature,
+					},
+				}),
+			);
+			process.exit(0);
+		},
+	);
+
+/**
+ * work subcommand.
+ * Tracks agent workflow artifacts and cleanup.
+ */
+const workCommand = agentToolsCommand
+	.command("work")
+	.description("Track agent workflow artifacts and cleanup")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Provides subcommands for artifact registration and run cleanup.
+  Status updates have moved to 'rp1 agent-tools emit'.
+
+Subcommands:
+  artifact  Register an artifact for a feature/run
+  cleanup   Delete expired workflow runs
+
+Examples:
+  rp1 agent-tools work artifact --project /path/to/project --feature my-feature --path .rp1/work/research/report.md
+  rp1 agent-tools work cleanup --dry-run
+`,
 	);
 
 /**
@@ -630,6 +717,15 @@ workCommand
 		"--type <type>",
 		`Artifact type (${VALID_ARTIFACT_TYPES.join(", ")}). Auto-classified from extension if omitted.`,
 	)
+	.option(
+		"--step <step>",
+		"Workflow step that produced this artifact (associates artifact with a step for canvas display)",
+	)
+	.option(
+		"--subflow",
+		"Mark this artifact as a subflow diagram (Mermaid stateDiagram-v2 rendered as expandable child nodes)",
+		false,
+	)
 	.addHelpText(
 		"after",
 		`
@@ -644,6 +740,8 @@ Arguments:
   --run-id <id>        UUID grouping artifacts into a discrete workflow run (optional)
   --path <path>        Relative path to the artifact file (required)
   --type <type>        Artifact type: ${VALID_ARTIFACT_TYPES.join(", ")} (optional, auto-classified)
+  --step <step>        Workflow step that produced this artifact (optional, for canvas display)
+  --subflow            Mark as subflow diagram for expandable canvas rendering (optional)
 
 Validation:
   - Project path must be absolute
@@ -659,6 +757,7 @@ Output:
   - path: Artifact path
   - type: Artifact type
   - createdAt: ISO 8601 UTC timestamp
+  - step: Associated workflow step (null if not specified)
 
 Examples:
   rp1 agent-tools work artifact \\
@@ -672,6 +771,13 @@ Examples:
     --feature my-feature \\
     --path .rp1/work/features/my-feature/tasks.md \\
     --type markdown
+
+  rp1 agent-tools work artifact \\
+    --project /Users/dev/myapp \\
+    --feature auth-refactor \\
+    --run-id "550e8400-e29b-41d4-a716-446655440000" \\
+    --step design \\
+    --path .rp1/work/features/auth-refactor/design.md
 `,
 	)
 	.action(
@@ -681,6 +787,8 @@ Examples:
 			runId?: string;
 			path: string;
 			type?: string;
+			step?: string;
+			subflow: boolean;
 		}): Promise<void> => {
 			const toolName = "work";
 
@@ -739,6 +847,8 @@ Examples:
 				path: options.path,
 				type: artifactType as (typeof VALID_ARTIFACT_TYPES)[number],
 				worktreePath: resolved.worktreePath,
+				step: options.step,
+				subflow: options.subflow,
 			})();
 
 			if (E.isLeft(result)) {
@@ -752,6 +862,473 @@ Examples:
 			process.exit(0);
 		},
 	);
+
+/**
+ * task subcommand.
+ * Manages the persistent FIFO task queue for agents and workflows.
+ */
+const taskCommand = agentToolsCommand
+	.command("task")
+	.description(
+		"Manage task queue (create, list, pickup, complete, fail, cancel, get)",
+	)
+	.addHelpText(
+		"after",
+		`
+Description:
+  Provides subcommands for managing a persistent FIFO task queue.
+  Tasks are stored in the global SQLite database at ~/.rp1/status.db.
+  Agents, workflows, and users can create tasks for later execution.
+
+Subcommands:
+  create     Create a new pending task
+  list       List tasks with optional filters
+  pickup     Pick up the oldest pending task (atomic FIFO)
+  complete   Mark an in-progress task as completed
+  fail       Mark an in-progress task as failed
+  cancel     Cancel a pending or in-progress task
+  get        Get a single task by ID
+
+Examples:
+  rp1 agent-tools task create --type check-annotations --description "Review open annotations"
+  rp1 agent-tools task list --status pending
+  rp1 agent-tools task pickup --project /path/to/project
+  rp1 agent-tools task complete --id 1 --result "All annotations resolved"
+  rp1 agent-tools task fail --id 2 --result "Could not access file"
+  rp1 agent-tools task cancel --id 3
+  rp1 agent-tools task get --id 1
+`,
+	);
+
+/**
+ * task create subcommand.
+ * Creates a new pending task in the queue.
+ */
+taskCommand
+	.command("create")
+	.description("Create a new pending task")
+	.requiredOption(
+		"--type <type>",
+		"Task type (free-form string, e.g. 'check-annotations')",
+	)
+	.requiredOption("--description <text>", "Human-readable task description")
+	.option("--payload <json>", "JSON blob for type-specific data")
+	.option("--project <path>", "Absolute path to project directory for scoping")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Creates a new task in pending state. The task is added to the FIFO queue
+  and will be picked up by agents or harness hooks in creation order.
+
+Options:
+  --type <type>          Task type string (required, must be non-empty)
+  --description <text>   Human-readable description (required, must be non-empty)
+  --payload <json>       Optional JSON blob for type-specific data
+  --project <path>       Optional absolute project path for scoping
+
+Validation:
+  - Type must be a non-empty string
+  - Description must be a non-empty string
+  - Payload must be valid JSON if provided
+  - Project path must be absolute if provided
+
+Output:
+  JSON ToolResult with the created TaskRecord including assigned ID.
+
+Examples:
+  rp1 agent-tools task create --type check-annotations --description "Review open annotations from last audit"
+  rp1 agent-tools task create --type archive-feature --description "Archive auth-refactor" --project /Users/dev/myapp
+  rp1 agent-tools task create --type remediate --description "Fix findings" --payload '{"severity":"high","count":3}'
+`,
+	)
+	.action(
+		async (options: {
+			type: string;
+			description: string;
+			payload?: string;
+			project?: string;
+		}): Promise<void> => {
+			const toolName = "task";
+
+			const result = await executeTaskCreate({
+				type: options.type,
+				description: options.description,
+				payload: options.payload,
+				projectPath: options.project,
+			})();
+
+			if (E.isLeft(result)) {
+				console.error(
+					createErrorResponse(toolName, formatError(result.left, false)),
+				);
+				process.exit(1);
+			}
+
+			console.log(formatOutput(result.right));
+			process.exit(0);
+		},
+	);
+
+/**
+ * task list subcommand.
+ * Lists tasks with optional filters.
+ */
+taskCommand
+	.command("list")
+	.description("List tasks with optional filters")
+	.option(
+		"--status <status>",
+		`Filter by status (${VALID_TASK_STATUSES.join(", ")})`,
+	)
+	.option("--project <path>", "Filter by project path (absolute)")
+	.option("--limit <n>", "Maximum number of tasks to return")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Lists tasks from the queue, optionally filtered by status and/or project.
+  Results are returned in FIFO order (oldest first).
+
+Options:
+  --status <status>   Filter by lifecycle status: ${VALID_TASK_STATUSES.join(", ")}
+  --project <path>    Filter by absolute project path
+  --limit <n>         Maximum number of results (positive integer)
+
+Validation:
+  - Status must be a valid task status if provided
+  - Project path must be absolute if provided
+  - Limit must be a positive integer if provided
+
+Output:
+  JSON ToolResult with array of TaskRecord objects.
+
+Examples:
+  rp1 agent-tools task list
+  rp1 agent-tools task list --status pending
+  rp1 agent-tools task list --project /Users/dev/myapp --limit 10
+`,
+	)
+	.action(
+		async (options: {
+			status?: string;
+			project?: string;
+			limit?: string;
+		}): Promise<void> => {
+			const toolName = "task";
+
+			const limit = options.limit ? parseInt(options.limit, 10) : undefined;
+			if (
+				options.limit !== undefined &&
+				(Number.isNaN(limit) || !limit || limit <= 0)
+			) {
+				console.error(
+					createErrorResponse(
+						toolName,
+						`Invalid --limit value: ${options.limit}. Must be a positive integer.`,
+					),
+				);
+				process.exit(1);
+			}
+
+			const result = await executeTaskList({
+				status: options.status as
+					| import("./task/models.js").TaskStatus
+					| undefined,
+				projectPath: options.project,
+				limit,
+			})();
+
+			if (E.isLeft(result)) {
+				console.error(
+					createErrorResponse(toolName, formatError(result.left, false)),
+				);
+				process.exit(1);
+			}
+
+			console.log(formatOutput(result.right));
+			process.exit(0);
+		},
+	);
+
+/**
+ * task pickup subcommand.
+ * Atomically picks up the oldest pending task.
+ */
+taskCommand
+	.command("pickup")
+	.description("Pick up the oldest pending task (atomic FIFO)")
+	.option("--project <path>", "Filter by project path (absolute)")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Atomically picks up the oldest pending task and transitions it to in_progress.
+  Returns null (with success: true) if no pending tasks exist.
+
+Options:
+  --project <path>   Filter by absolute project path
+
+Validation:
+  - Project path must be absolute if provided
+
+Output:
+  JSON ToolResult with the picked-up TaskRecord, or null if queue is empty.
+
+Examples:
+  rp1 agent-tools task pickup
+  rp1 agent-tools task pickup --project /Users/dev/myapp
+`,
+	)
+	.action(async (options: { project?: string }): Promise<void> => {
+		const toolName = "task";
+
+		const result = await executeTaskPickup(options.project)();
+
+		if (E.isLeft(result)) {
+			console.error(
+				createErrorResponse(toolName, formatError(result.left, false)),
+			);
+			process.exit(1);
+		}
+
+		console.log(formatOutput(result.right));
+		process.exit(0);
+	});
+
+/**
+ * task complete subcommand.
+ * Marks an in-progress task as completed.
+ */
+taskCommand
+	.command("complete")
+	.description("Mark an in-progress task as completed")
+	.requiredOption("--id <id>", "Task ID (positive integer)")
+	.option("--result <text>", "Optional result summary")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Marks an in_progress task as completed with an optional result summary.
+  Only tasks in in_progress state can be completed.
+
+Options:
+  --id <id>          Task ID to complete (required, positive integer)
+  --result <text>    Optional result summary describing what was done
+
+Validation:
+  - ID must be a positive integer
+  - Task must be in in_progress state
+
+Output:
+  JSON ToolResult with the completed TaskRecord.
+
+Examples:
+  rp1 agent-tools task complete --id 1
+  rp1 agent-tools task complete --id 1 --result "All annotations resolved, 3 files updated"
+`,
+	)
+	.action(async (options: { id: string; result?: string }): Promise<void> => {
+		const toolName = "task";
+
+		const id = parseInt(options.id, 10);
+		if (Number.isNaN(id) || id <= 0) {
+			console.error(
+				createErrorResponse(
+					toolName,
+					`Invalid --id value: ${options.id}. Must be a positive integer.`,
+				),
+			);
+			process.exit(1);
+		}
+
+		const result = await executeTaskComplete({
+			id,
+			result: options.result,
+		})();
+
+		if (E.isLeft(result)) {
+			console.error(
+				createErrorResponse(toolName, formatError(result.left, false)),
+			);
+			process.exit(1);
+		}
+
+		console.log(formatOutput(result.right));
+		process.exit(0);
+	});
+
+/**
+ * task fail subcommand.
+ * Marks an in-progress task as failed.
+ */
+taskCommand
+	.command("fail")
+	.description("Mark an in-progress task as failed")
+	.requiredOption("--id <id>", "Task ID (positive integer)")
+	.option("--result <text>", "Optional error description")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Marks an in_progress task as failed with an optional error description.
+  Only tasks in in_progress state can be failed.
+
+Options:
+  --id <id>          Task ID to fail (required, positive integer)
+  --result <text>    Optional error description explaining the failure
+
+Validation:
+  - ID must be a positive integer
+  - Task must be in in_progress state
+
+Output:
+  JSON ToolResult with the failed TaskRecord.
+
+Examples:
+  rp1 agent-tools task fail --id 2
+  rp1 agent-tools task fail --id 2 --result "Could not access required file: permission denied"
+`,
+	)
+	.action(async (options: { id: string; result?: string }): Promise<void> => {
+		const toolName = "task";
+
+		const id = parseInt(options.id, 10);
+		if (Number.isNaN(id) || id <= 0) {
+			console.error(
+				createErrorResponse(
+					toolName,
+					`Invalid --id value: ${options.id}. Must be a positive integer.`,
+				),
+			);
+			process.exit(1);
+		}
+
+		const result = await executeTaskFail({
+			id,
+			result: options.result,
+		})();
+
+		if (E.isLeft(result)) {
+			console.error(
+				createErrorResponse(toolName, formatError(result.left, false)),
+			);
+			process.exit(1);
+		}
+
+		console.log(formatOutput(result.right));
+		process.exit(0);
+	});
+
+/**
+ * task cancel subcommand.
+ * Cancels a pending or in-progress task.
+ */
+taskCommand
+	.command("cancel")
+	.description("Cancel a pending or in-progress task")
+	.requiredOption("--id <id>", "Task ID (positive integer)")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Cancels a task that is in pending or in_progress state.
+  Completed and failed tasks cannot be cancelled.
+
+Options:
+  --id <id>   Task ID to cancel (required, positive integer)
+
+Validation:
+  - ID must be a positive integer
+  - Task must be in pending or in_progress state
+
+Output:
+  JSON ToolResult with the cancelled TaskRecord.
+
+Examples:
+  rp1 agent-tools task cancel --id 3
+`,
+	)
+	.action(async (options: { id: string }): Promise<void> => {
+		const toolName = "task";
+
+		const id = parseInt(options.id, 10);
+		if (Number.isNaN(id) || id <= 0) {
+			console.error(
+				createErrorResponse(
+					toolName,
+					`Invalid --id value: ${options.id}. Must be a positive integer.`,
+				),
+			);
+			process.exit(1);
+		}
+
+		const result = await executeTaskCancel(id)();
+
+		if (E.isLeft(result)) {
+			console.error(
+				createErrorResponse(toolName, formatError(result.left, false)),
+			);
+			process.exit(1);
+		}
+
+		console.log(formatOutput(result.right));
+		process.exit(0);
+	});
+
+/**
+ * task get subcommand.
+ * Retrieves a single task by ID.
+ */
+taskCommand
+	.command("get")
+	.description("Get a single task by ID")
+	.requiredOption("--id <id>", "Task ID (positive integer)")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Retrieves a single task record by its ID.
+
+Options:
+  --id <id>   Task ID to retrieve (required, positive integer)
+
+Validation:
+  - ID must be a positive integer
+
+Output:
+  JSON ToolResult with the TaskRecord.
+
+Examples:
+  rp1 agent-tools task get --id 1
+`,
+	)
+	.action(async (options: { id: string }): Promise<void> => {
+		const toolName = "task";
+
+		const id = parseInt(options.id, 10);
+		if (Number.isNaN(id) || id <= 0) {
+			console.error(
+				createErrorResponse(
+					toolName,
+					`Invalid --id value: ${options.id}. Must be a positive integer.`,
+				),
+			);
+			process.exit(1);
+		}
+
+		const result = await executeTaskGet(id)();
+
+		if (E.isLeft(result)) {
+			console.error(
+				createErrorResponse(toolName, formatError(result.left, false)),
+			);
+			process.exit(1);
+		}
+
+		console.log(formatOutput(result.right));
+		process.exit(0);
+	});
 
 /**
  * github-pr subcommand.

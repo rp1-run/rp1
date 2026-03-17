@@ -697,6 +697,91 @@ This builds and publishes whatever version is currently in `cli/package.json` to
 - `README.md` - version badges
 - `.release-please-manifest.json` - canonical version source
 
+## Simulating Workflow Runs (`rp1 fake`)
+
+A hidden CLI command that emits real events into the rp1 event pipeline without running agents. Useful for testing the Web UI dashboard, step transitions, artifact rendering, and sub-flow expansion.
+
+This command is hidden from `rp1 --help` — it's a developer-only tool.
+
+### Basic Usage
+
+```bash
+# Simulate a /build workflow with default timing (~2-5s per step)
+rp1 fake "/build 'my test feature'"
+
+# Fast mode — finishes in ~3-6s total
+rp1 fake "/build 'test'" --speed fast
+
+# Slow mode — 5-15s per step, good for watching transitions
+rp1 fake "/build 'test'" --speed slow
+```
+
+### Injecting Failures and Pauses
+
+```bash
+# Fail at the build step (run shows as failed, subsequent steps skipped)
+rp1 fake "/build 'test'" --fail-at build
+
+# Pause at design (run shows as waiting, subsequent steps skipped)
+rp1 fake "/build 'test'" --pause-at design
+```
+
+### Rich Simulation
+
+```bash
+# Emit BTW progress messages during each step
+rp1 fake "/build 'test'" --with-btw
+
+# Create fake artifact files and emit artifact_registered events
+rp1 fake "/build 'test'" --with-artifacts
+
+# Emit subflow diagrams and unit-level task events
+rp1 fake "/build 'test'" --with-subflows
+
+# Full simulation with everything enabled
+rp1 fake "/build 'test'" --with-btw --with-artifacts --with-subflows
+```
+
+### Concurrent Runs
+
+```bash
+# Launch 5 concurrent simulated runs (staggered start)
+rp1 fake "/build 'test'" --count 5 --speed fast
+
+# Stress test with 10 runs
+rp1 fake "/build 'test'" --count 10 --speed fast
+```
+
+### Custom Feature ID
+
+```bash
+# Use a specific feature ID instead of auto-generated
+rp1 fake "/build 'test'" --feature my-feature
+```
+
+### All Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `-s, --speed <fast\|normal\|slow>` | `normal` | Delay between steps |
+| `-f, --feature <id>` | auto-generated | Feature ID for the run |
+| `--fail-at <step>` | — | Inject failure at a step |
+| `--pause-at <step>` | — | Inject waiting state at a step |
+| `--with-btw` | `false` | Emit BTW progress messages |
+| `--with-artifacts` | `false` | Create fake artifact files |
+| `--with-subflows` | `false` | Emit subflow and unit events |
+| `-n, --count <n>` | `1` | Number of concurrent runs |
+
+### Cleaning Up Fake Data
+
+All fake runs use a `fake-` prefix on their run IDs, making them easy to identify and purge:
+
+```bash
+just clean-fake-runs
+```
+
+This deletes all `fake-`-prefixed rows from the status database (annotations, artifacts, events, and runs).
+
 ## Troubleshooting
 
 ### Port 7710 already in use

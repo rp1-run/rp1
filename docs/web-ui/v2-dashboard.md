@@ -24,14 +24,14 @@ The V2 dashboard runs alongside the existing documentation viewer at `/`. Both a
 
 ## Data Sources
 
-The V2 dashboard displays real data from your local rp1 installation. All run data is sourced from the status database at `~/.rp1/status.db`, which is populated when AI agents report their progress using the `work update` agent tool.
+The V2 dashboard displays real data from your local rp1 installation. All run data is sourced from the status database at `~/.rp1/rp1.db`, which is populated when AI agents report their progress using the `emit` agent tool.
 
 ### How Runs Are Populated
 
-When an agent (or any workflow) reports status via `rp1 agent-tools work update`, a record is written to `status.db`. The V2 API queries this database to populate the dashboard:
+When an agent (or any workflow) reports status via `rp1 agent-tools emit`, a record is written to `rp1.db`. The V2 API queries this database to populate the dashboard:
 
-1. **Agent executes workflow** - Agents call `rp1 agent-tools work update` at key milestones (feature started, task in progress, completed, failed)
-2. **Status stored in database** - Each update creates a record in `~/.rp1/status.db` with project path, feature name, task, status, and message
+1. **Agent executes workflow** - Agents call `rp1 agent-tools emit` at key milestones (feature started, task in progress, completed, failed)
+2. **Status stored in database** - Each update creates a record in `~/.rp1/rp1.db` with run ID, step, status, and event data
 3. **API queries database** - The `/api/v2/runs` endpoint queries the database for the latest status per feature
 4. **Dashboard displays runs** - The UI renders runs grouped by their current status
 
@@ -59,8 +59,8 @@ The dashboard groups runs into attention sections based on these mapped statuses
 
 If your dashboard shows no runs, ensure that:
 
-1. Agents are reporting progress via `rp1 agent-tools work update` with validated state machine transitions
-2. The status database exists at `~/.rp1/status.db`
+1. Agents are reporting progress via `rp1 agent-tools emit` with validated state machine transitions
+2. The status database exists at `~/.rp1/rp1.db`
 3. The project is registered (runs are filtered by registered projects)
 
 ---

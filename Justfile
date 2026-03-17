@@ -77,6 +77,20 @@ check-web-ui:
 check-evals:
     cd evals && bun run lint && bun run typecheck && bun run format
 
+# Verify cli/dist/claude-code/ is up to date with plugins/ source
+check-plugin-dist:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just build-claude-code > /dev/null 2>&1
+    # Restore manifest.json timestamps (generatedAt changes every build)
+    git checkout -- cli/dist/claude-code/*/manifest.json 2>/dev/null || true
+    if [ -n "$(git diff --name-only cli/dist/claude-code/)" ]; then
+        echo "ERROR: cli/dist/claude-code/ is stale. Run 'just build-claude-code' and commit the changes."
+        git diff --stat cli/dist/claude-code/
+        exit 1
+    fi
+    echo "cli/dist/claude-code/ is up to date."
+
 # Auto-fix lint and format issues
 fix: fix-cli fix-evals
 
@@ -102,6 +116,8 @@ run *args: build
 # Prepare dev marketplace with -dev version plugins (builds CC artifacts first)
 prepare-dev-plugins: build-claude-code
     ./scripts/prepare-dev-plugins.sh
+    @# Restore manifest timestamps so builds don't dirty the working tree
+    @git checkout -- cli/dist/claude-code/*/manifest.json 2>/dev/null || true
 
 # Install dev plugins to Claude Code
 install-claude: prepare-dev-plugins
@@ -147,12 +163,12 @@ rm-stable:
 # Web-UI Development
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Run web-ui in dev mode with hot reload
+# Run web-ui in dev mode with hot reload (port 7711 to avoid conflicting with production daemon on 7710)
 serve-web-ui:
-    -pkill -f "rp1 _daemon-server" 2>/dev/null || true
-    -lsof -ti:7710 | xargs kill -9 2>/dev/null || true
-    rm -f ~/.rp1/daemon.pid
-    cd cli/web-ui && rm -rf dist && bunx concurrently -k -n server,client -c blue,green "NODE_ENV=development bun run src/cli.ts ../.. --port 7710" "bun run dev:client"
+    -pkill -f "rp1-dev" 2>/dev/null || true
+    -lsof -ti:7711 | xargs kill -9 2>/dev/null || true
+    rm -f ~/Library/Application\ Support/rp1/daemon.pid
+    cd cli/web-ui && rm -rf dist && bunx concurrently -k -n server,client -c blue,green "NODE_ENV=development bun run src/cli.ts ../.. --port 7711" "bun run dev:client"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Database
@@ -181,6 +197,67 @@ db-clean:
         echo "Deleted project registry at $registry_path"
     else
         echo "No project registry found at $registry_path"
+    fi
+
+# Delete all fake-prefixed rows from rp1.db (created by `rp1 fake`)
+clean-fake-runs:
+    #!/usr/bin/env bash
+    set -e
+    db_path="${RP1_DB:-$HOME/.rp1/rp1.db}"
+    if [ ! -f "$db_path" ]; then
+        echo "No database found at $db_path"
+        exit 0
+    fi
+
+    echo "Cleaning fake runs from $db_path ..."
+    echo ""
+
+    # Delete in FK-safe order: annotations -> artifacts -> events -> runs
+
+    # Annotations referencing artifacts from fake runs
+    ann_count=$(sqlite3 "$db_path" "SELECT COUNT(*) FROM annotations WHERE doc_id IN (SELECT doc_id FROM artifacts WHERE run_id LIKE 'fake-%');")
+    sqlite3 "$db_path" "DELETE FROM annotations WHERE doc_id IN (SELECT doc_id FROM artifacts WHERE run_id LIKE 'fake-%');"
+    echo "  annotations: $ann_count rows deleted"
+
+    # Artifacts from fake runs
+    art_count=$(sqlite3 "$db_path" "SELECT COUNT(*) FROM artifacts WHERE run_id LIKE 'fake-%';")
+    sqlite3 "$db_path" "DELETE FROM artifacts WHERE run_id LIKE 'fake-%';"
+    echo "  artifacts:   $art_count rows deleted"
+
+    # Events from fake runs
+    evt_count=$(sqlite3 "$db_path" "SELECT COUNT(*) FROM events WHERE run_id LIKE 'fake-%';")
+    sqlite3 "$db_path" "DELETE FROM events WHERE run_id LIKE 'fake-%';"
+    echo "  events:      $evt_count rows deleted"
+
+    # Fake run records
+    run_count=$(sqlite3 "$db_path" "SELECT COUNT(*) FROM runs WHERE id LIKE 'fake-%';")
+    sqlite3 "$db_path" "DELETE FROM runs WHERE id LIKE 'fake-%';"
+    echo "  runs:        $run_count rows deleted"
+
+    echo ""
+    total=$((ann_count + art_count + evt_count + run_count))
+    if [ "$total" -eq 0 ]; then
+        echo "No fake runs found in database."
+    else
+        echo "Done. Removed $total total rows."
+    fi
+
+    # Clean fake artifact files from disk
+    echo ""
+    rp1_root="${RP1_ROOT:-.rp1}"
+    fake_dir="$rp1_root/work/features"
+    file_count=0
+    if [ -d "$fake_dir" ]; then
+        for d in "$fake_dir"/fake-*/; do
+            [ -d "$d" ] || continue
+            rm -rf "$d"
+            file_count=$((file_count + 1))
+        done
+    fi
+    if [ "$file_count" -eq 0 ]; then
+        echo "No fake artifact directories found."
+    else
+        echo "Removed $file_count fake feature directories from $fake_dir."
     fi
 
 # Delete the entire local status database file (for testing)

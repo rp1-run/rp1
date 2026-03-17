@@ -14,18 +14,18 @@ export default defineConfig({
 		emptyOutDir: true,
 	},
 	server: {
-		port: 5173,
+		port: 5711,
 		strictPort: false,
 		hmr: {
-			port: 5173,
+			port: 5711,
 		},
 		proxy: {
 			"/api": {
-				target: "http://127.0.0.1:7710",
+				target: "http://127.0.0.1:7711",
 				changeOrigin: true,
 			},
 			"/ws": {
-				target: "ws://127.0.0.1:7710",
+				target: "ws://127.0.0.1:7711",
 				ws: true,
 			},
 		},

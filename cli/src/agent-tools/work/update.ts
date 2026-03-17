@@ -16,8 +16,12 @@ import {
 	loadStateMachine,
 	validateTransition,
 } from "../state-machine/index.js";
-import { getCurrentWorkflowState } from "./database.js";
-import type { StatusUpdateInput, StatusValue } from "./models.js";
+import { getCurrentWorkflowState, getStepStatusValue } from "./database.js";
+import type {
+	ReconciliationResult,
+	StatusUpdateInput,
+	StatusValue,
+} from "./models.js";
 import { VALID_STATUSES } from "./models.js";
 
 /** Sentinel error used by detectStateMachineConflict to signal a match */
@@ -33,6 +37,45 @@ class WorkflowConflictError extends Error {
 
 /** Feature name pattern: lowercase alphanumeric with hyphens */
 const FEATURE_PATTERN = /^[a-z0-9-]+$/;
+
+/**
+ * Status precedence map for forward-only lifecycle enforcement.
+ * Higher precedence = further along in the lifecycle.
+ * Statuses at the same precedence level can transition laterally.
+ */
+const STATUS_PRECEDENCE: Record<string, number> = {
+	started: 1,
+	in_progress: 1,
+	"waiting-input": 1,
+	"needs-review": 1,
+	completed: 2,
+	failed: 2,
+};
+
+/**
+ * Check if the incoming status update is a forward transition for this step.
+ *
+ * Rules:
+ * - pending (null) -> any status: ACCEPT (first record)
+ * - lower precedence -> higher precedence: ACCEPT (forward)
+ * - higher precedence -> lower precedence: REJECT (backward)
+ * - Same precedence, different status: ACCEPT (lateral, e.g., waiting-input -> needs-review)
+ * - Same status: ACCEPT (idempotent re-report)
+ */
+export const isForwardTransition = (
+	currentStatus: StatusValue | null,
+	incomingStatus: StatusValue,
+): boolean => {
+	if (currentStatus === null) return true;
+
+	const currentPrecedence = STATUS_PRECEDENCE[currentStatus] ?? 0;
+	const incomingPrecedence = STATUS_PRECEDENCE[incomingStatus] ?? 0;
+
+	if (incomingPrecedence > currentPrecedence) return true;
+	if (incomingPrecedence < currentPrecedence) return false;
+
+	return true;
+};
 
 /** Default TTL in seconds (8 hours) for expires_at computation */
 const DEFAULT_TTL_SECONDS = 28800;
@@ -64,6 +107,7 @@ interface WorkflowValidationResult {
 	readonly runId?: string;
 	readonly expiresAt?: string;
 	readonly previousState?: string | null;
+	readonly reconciliation?: ReconciliationResult;
 }
 
 /**
@@ -216,6 +260,7 @@ const validateWorkflowUpdate = (
 	projectPath: string,
 	feature: string,
 	step: string | undefined,
+	status: StatusValue,
 	runId: string | undefined,
 	ttl: string | undefined,
 	agentName: string | undefined,
@@ -313,12 +358,37 @@ const validateWorkflowUpdate = (
 							}
 
 							const expiresAt = computeExpiresAt(ttlSeconds);
-							return TE.right({
-								workflow: workflowName,
-								runId,
-								expiresAt,
-								previousState: currentState,
-							} as WorkflowValidationResult);
+
+							return pipe(
+								getStepStatusValue(projectPath, feature, step, runId, dbPath),
+								TE.map((currentStepStatus): WorkflowValidationResult => {
+									if (
+										currentStepStatus !== null &&
+										!isForwardTransition(currentStepStatus, status)
+									) {
+										console.log(
+											`[reconcile] Rejected backward transition for ${feature}/${step}: ${currentStepStatus} -> ${status}`,
+										);
+										return {
+											workflow: workflowName,
+											runId,
+											expiresAt,
+											previousState: currentState,
+											reconciliation: {
+												rejected: true,
+												reason: "backward_transition",
+											},
+										};
+									}
+
+									return {
+										workflow: workflowName,
+										runId,
+										expiresAt,
+										previousState: currentState,
+									};
+								}),
+							);
 						}),
 					),
 				),
@@ -446,13 +516,14 @@ export const validateUpdateOptions = (
 				validateAgentTaskFlags(options.agent, options.task, options.workflow),
 			),
 		),
-		TE.bind("workflowResult", ({ resolved, feature }) =>
+		TE.bind("workflowResult", ({ resolved, feature, status }) =>
 			options.workflow
 				? validateWorkflowUpdate(
 						options.workflow,
 						resolved.projectPath,
 						feature,
 						options.step,
+						status,
 						options.runId,
 						options.ttl,
 						options.agent,
@@ -481,6 +552,7 @@ export const validateUpdateOptions = (
 				workflow: workflowResult.workflow,
 				expiresAt: workflowResult.expiresAt,
 				previousState: workflowResult.previousState,
+				reconciliation: workflowResult.reconciliation,
 				agent: options.agent,
 				task: options.task,
 				worktreePath: resolved.worktreePath,

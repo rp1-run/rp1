@@ -1,5 +1,6 @@
 import { cva, type VariantProps } from "class-variance-authority";
-import { Check, Circle, Clock, Eye, Hand, MinusCircle, X } from "lucide-react";
+import { Check, Circle, CircleDot, Hand, MinusCircle, X } from "lucide-react";
+import { getStatusLabel } from "@/lib/status-labels";
 import { cn } from "@/lib/utils";
 import type { RunStatus, StepStatus } from "@/types/runs";
 
@@ -29,59 +30,40 @@ type Status = RunStatus | StepStatus;
 
 interface StatusConfig {
 	icon: React.ComponentType<{ className?: string }>;
-	label: string;
 	colorClass: string;
 	bgClass: string;
 	glowPulse?: boolean;
 }
 
 const statusConfigs: Record<Status, StatusConfig> = {
-	queued: {
-		icon: Clock,
-		label: "Queued",
-		colorClass: "text-status-queued",
-		bgClass: "bg-status-queued/15",
+	not_started: {
+		icon: CircleDot,
+		colorClass: "text-muted-foreground",
+		bgClass: "bg-muted/50",
 	},
 	running: {
 		icon: Circle,
-		label: "Running",
 		colorClass: "text-status-running",
 		bgClass: "bg-status-running/15",
 		glowPulse: true,
 	},
-	"waiting-input": {
+	waiting: {
 		icon: Hand,
-		label: "Waiting",
 		colorClass: "text-status-waiting",
 		bgClass: "bg-status-waiting/15",
 	},
 	completed: {
 		icon: Check,
-		label: "Completed",
 		colorClass: "text-status-completed",
 		bgClass: "bg-status-completed/15",
 	},
 	failed: {
 		icon: X,
-		label: "Failed",
 		colorClass: "text-status-failed",
 		bgClass: "bg-status-failed/15",
 	},
-	"needs-review": {
-		icon: Eye,
-		label: "Needs Review",
-		colorClass: "text-status-needs-review",
-		bgClass: "bg-status-needs-review/15",
-	},
-	pending: {
-		icon: Circle,
-		label: "Pending",
-		colorClass: "text-status-queued",
-		bgClass: "bg-status-queued/15",
-	},
 	skipped: {
 		icon: MinusCircle,
-		label: "Skipped",
 		colorClass: "text-muted-foreground",
 		bgClass: "bg-muted/50",
 	},
@@ -101,6 +83,7 @@ export function StatusBadge({
 	className,
 }: StatusBadgeProps) {
 	const config = statusConfigs[status];
+	const label = getStatusLabel(status);
 	const Icon = config.icon;
 	const iconSize = iconSizes[size || "md"];
 
@@ -114,7 +97,7 @@ export function StatusBadge({
 				className,
 			)}
 			role="status"
-			aria-label={config.label}
+			aria-label={label}
 		>
 			{config.glowPulse ? (
 				<span
@@ -133,7 +116,7 @@ export function StatusBadge({
 			) : (
 				<Icon className={cn(iconSize)} aria-hidden="true" />
 			)}
-			{showLabel && <span>{config.label}</span>}
+			{showLabel && <span>{label}</span>}
 		</span>
 	);
 }

@@ -15,6 +15,7 @@ import { createLogger, type Logger, LogLevel } from "../shared/logger.js";
 import { detectRuntime } from "../shared/runtime.js";
 import { arcadeCommand } from "./commands/arcade.js";
 import { allDeprecatedCommands } from "./commands/deprecated/index.js";
+import { fakeCommand } from "./commands/fake.js";
 import { initCommand } from "./commands/init.js";
 import { installParentCommand } from "./commands/install/index.js";
 import { listCommand } from "./commands/install.js";
@@ -93,6 +94,7 @@ const handleDaemonServerCommand = async (): Promise<void> => {
 		projectPath: process.cwd(),
 		isDev: false,
 		webUIDir,
+		version,
 	});
 
 	process.on("SIGINT", () => {
@@ -210,6 +212,8 @@ program.addCommand(settingsCommand);
 for (const deprecatedCommand of allDeprecatedCommands) {
 	program.addCommand(deprecatedCommand, { hidden: true });
 }
+
+program.addCommand(fakeCommand, { hidden: true });
 
 // Add agent-tools stub command for help visibility
 // Actual execution is handled by lazy loading above

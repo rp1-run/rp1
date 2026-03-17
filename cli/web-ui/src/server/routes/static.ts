@@ -78,7 +78,7 @@ export async function handleStaticRequest(
 
 async function proxyToVite(req: Request): Promise<Response> {
 	const viteUrl = new URL(req.url);
-	viteUrl.port = "5173";
+	viteUrl.port = "5711";
 
 	try {
 		const viteReq = new Request(viteUrl.toString(), {

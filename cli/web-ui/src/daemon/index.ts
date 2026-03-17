@@ -4,20 +4,28 @@
  */
 
 export {
+	type DaemonState,
 	ensureConfigDir,
 	getConfigDir,
+	getDaemonStatePath,
 	getPidFilePath,
 	getRegistryPath,
+	readDaemonState,
+	writeDaemonState,
 } from "./config-dir";
 
 export {
+	type ArtifactNotifyPayload,
 	checkHealth,
 	createConnection,
 	type DaemonConnection,
 	type DaemonStatus,
 	type ErrorResponse,
+	type EventNotificationPayload,
 	getDaemonStatus,
 	type HealthResponse,
+	notifyArtifactChange,
+	notifyEvent,
 	notifyStatusChange,
 	type RegisterResponse,
 	registerProjectWithDaemon,

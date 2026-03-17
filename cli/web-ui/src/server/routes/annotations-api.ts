@@ -1,8 +1,13 @@
 /**
  * REST API endpoints for annotation operations.
  * Provides CRUD operations for annotations with WebSocket broadcast on mutations.
+ * All annotation data is stored in SQLite via the emit database module.
  */
 
+import type { Database } from "bun:sqlite";
+import * as E from "fp-ts/lib/Either.js";
+import { formatError } from "../../../../shared/errors.js";
+import { getEmitDatabase } from "../../../../src/agent-tools/emit/database.js";
 import type {
 	AddReplyRequest,
 	Annotation,
@@ -27,6 +32,17 @@ import type { WebSocketHub } from "../websocket";
 export interface AnnotationApiContext {
 	readonly projectPath: string;
 	readonly websocketHub?: WebSocketHub;
+}
+
+/**
+ * Acquire the emit database connection.
+ */
+async function getDb(): Promise<Database> {
+	const result = await getEmitDatabase()();
+	if (E.isLeft(result)) {
+		throw new Error(`Database unavailable: ${formatError(result.left, false)}`);
+	}
+	return result.right;
 }
 
 function jsonResponse(data: unknown, status = 200): Response {
@@ -64,7 +80,7 @@ function handleServiceError(error: unknown): Response {
 				return errorResponse(`Annotation not found: ${error.id}`, 404);
 			case "ValidationError":
 				return errorResponse(error.message, 400);
-			case "FileSystemError":
+			case "DatabaseError":
 				return errorResponse(error.message, 500);
 		}
 	}
@@ -106,6 +122,7 @@ function isValidAnchor(anchor: unknown): boolean {
 
 /**
  * Validate CreateAnnotationRequest body.
+ * Requires docId as the primary artifact identifier.
  */
 function validateCreateRequest(body: unknown): {
 	valid: boolean;
@@ -118,10 +135,10 @@ function validateCreateRequest(body: unknown): {
 
 	const req = body as Record<string, unknown>;
 
-	if (typeof req.artifactPath !== "string" || req.artifactPath.trim() === "") {
+	if (typeof req.docId !== "string" || req.docId.trim() === "") {
 		return {
 			valid: false,
-			error: "artifactPath is required and must be a non-empty string",
+			error: "docId is required and must be a non-empty string",
 		};
 	}
 
@@ -136,29 +153,37 @@ function validateCreateRequest(body: unknown): {
 		return { valid: false, error: "content is required and must be a string" };
 	}
 
+	const artifactPath =
+		typeof req.artifactPath === "string" ? req.artifactPath : undefined;
+	const runId = typeof req.runId === "string" ? req.runId : undefined;
+
 	return {
 		valid: true,
 		request: {
-			artifactPath: req.artifactPath as string,
+			docId: req.docId as string,
+			artifactPath,
 			anchor: req.anchor as CreateAnnotationRequest["anchor"],
 			content: req.content as string,
+			runId,
 		},
 	};
 }
 
 /**
  * GET /api/v2/annotations - list annotations.
- * Query params: artifactPath (optional) - filter by artifact path.
+ * Query params: docId (optional), runId (optional) - filter by artifact doc_id and/or run.
  */
 export async function handleAnnotationsListRequest(
 	req: Request,
-	ctx: AnnotationApiContext,
+	_ctx: AnnotationApiContext,
 ): Promise<Response> {
 	try {
+		const db = await getDb();
 		const url = new URL(req.url);
-		const artifactPath = url.searchParams.get("artifactPath") ?? undefined;
+		const docId = url.searchParams.get("docId") ?? undefined;
+		const runId = url.searchParams.get("runId") ?? undefined;
 
-		const annotations = await getAnnotations(ctx.projectPath, artifactPath);
+		const annotations = getAnnotations(db, { docId, runId });
 		return jsonResponse({ annotations });
 	} catch (error) {
 		return handleServiceError(error);
@@ -170,10 +195,11 @@ export async function handleAnnotationsListRequest(
  */
 export async function handleAnnotationGetRequest(
 	id: string,
-	ctx: AnnotationApiContext,
+	_ctx: AnnotationApiContext,
 ): Promise<Response> {
 	try {
-		const annotation = await getAnnotation(ctx.projectPath, id);
+		const db = await getDb();
+		const annotation = getAnnotation(db, id);
 
 		if (!annotation) {
 			return errorResponse(`Annotation not found: ${id}`, 404);
@@ -193,6 +219,7 @@ export async function handleAnnotationCreateRequest(
 	ctx: AnnotationApiContext,
 ): Promise<Response> {
 	try {
+		const db = await getDb();
 		const body = await req.json();
 		const validation = validateCreateRequest(body);
 
@@ -200,12 +227,8 @@ export async function handleAnnotationCreateRequest(
 			return errorResponse(validation.error ?? "Invalid request", 400);
 		}
 
-		const annotation = await createAnnotation(
-			ctx.projectPath,
-			validation.request,
-		);
+		const annotation = createAnnotation(db, validation.request);
 
-		// Broadcast annotation created
 		ctx.websocketHub?.broadcastAnnotationCreated(annotation);
 
 		return jsonResponse(annotation, 201);
@@ -216,6 +239,7 @@ export async function handleAnnotationCreateRequest(
 
 /**
  * PATCH /api/v2/annotations/:id - update annotation.
+ * Supports content, orphaned, and status updates.
  */
 export async function handleAnnotationUpdateRequest(
 	id: string,
@@ -223,11 +247,12 @@ export async function handleAnnotationUpdateRequest(
 	ctx: AnnotationApiContext,
 ): Promise<Response> {
 	try {
+		const db = await getDb();
 		const body = (await req.json()) as Record<string, unknown>;
 
-		// Validate allowed update fields
-		const allowedFields = ["content", "orphaned"];
+		const allowedFields = ["content", "orphaned", "status"];
 		const updates: Partial<Pick<Annotation, "content" | "orphaned">> = {};
+		let statusUpdate: "open" | "resolved" | undefined;
 
 		for (const field of allowedFields) {
 			if (field in body) {
@@ -237,17 +262,38 @@ export async function handleAnnotationUpdateRequest(
 				if (field === "orphaned" && typeof body.orphaned !== "boolean") {
 					return errorResponse("orphaned must be a boolean", 400);
 				}
+				if (field === "status") {
+					if (body.status !== "open" && body.status !== "resolved") {
+						return errorResponse('status must be "open" or "resolved"', 400);
+					}
+					statusUpdate = body.status as "open" | "resolved";
+					continue;
+				}
 				(updates as Record<string, unknown>)[field] = body[field];
 			}
 		}
 
-		if (Object.keys(updates).length === 0) {
+		if (Object.keys(updates).length === 0 && statusUpdate === undefined) {
 			return errorResponse("No valid update fields provided", 400);
 		}
 
-		const annotation = await updateAnnotation(ctx.projectPath, id, updates);
+		if (statusUpdate === "resolved") {
+			resolveAnnotation(db, id);
+		} else if (statusUpdate === "open") {
+			reopenAnnotation(db, id);
+		}
 
-		// Broadcast annotation updated
+		let annotation: Annotation;
+		if (Object.keys(updates).length > 0) {
+			annotation = updateAnnotation(db, id, updates);
+		} else {
+			const fetched = getAnnotation(db, id);
+			if (!fetched) {
+				return errorResponse(`Annotation not found: ${id}`, 404);
+			}
+			annotation = fetched;
+		}
+
 		ctx.websocketHub?.broadcastAnnotationUpdated(annotation);
 
 		return jsonResponse(annotation);
@@ -264,9 +310,9 @@ export async function handleAnnotationResolveRequest(
 	ctx: AnnotationApiContext,
 ): Promise<Response> {
 	try {
-		await resolveAnnotation(ctx.projectPath, id);
+		const db = await getDb();
+		resolveAnnotation(db, id);
 
-		// Broadcast annotation resolved
 		ctx.websocketHub?.broadcastAnnotationResolved(id);
 
 		return jsonResponse({ resolved: true });
@@ -283,10 +329,10 @@ export async function handleAnnotationReopenRequest(
 	ctx: AnnotationApiContext,
 ): Promise<Response> {
 	try {
-		await reopenAnnotation(ctx.projectPath, id);
+		const db = await getDb();
+		reopenAnnotation(db, id);
 
-		// Fetch updated annotation for broadcast
-		const annotation = await getAnnotation(ctx.projectPath, id);
+		const annotation = getAnnotation(db, id);
 		if (annotation) {
 			ctx.websocketHub?.broadcastAnnotationUpdated(annotation);
 		}
@@ -305,9 +351,9 @@ export async function handleAnnotationDeleteRequest(
 	ctx: AnnotationApiContext,
 ): Promise<Response> {
 	try {
-		await deleteAnnotation(ctx.projectPath, id);
+		const db = await getDb();
+		deleteAnnotation(db, id);
 
-		// Broadcast annotation deleted
 		ctx.websocketHub?.broadcastAnnotationDeleted(id);
 
 		return jsonResponse({ deleted: true });
@@ -325,6 +371,7 @@ export async function handleAnnotationReplyRequest(
 	ctx: AnnotationApiContext,
 ): Promise<Response> {
 	try {
+		const db = await getDb();
 		const body = (await req.json()) as Record<string, unknown>;
 
 		if (typeof body.content !== "string" || body.content.trim() === "") {
@@ -338,9 +385,8 @@ export async function handleAnnotationReplyRequest(
 			content: body.content as string,
 		};
 
-		const reply = await addReply(ctx.projectPath, id, replyRequest);
+		const reply = addReply(db, id, replyRequest);
 
-		// Broadcast reply added
 		ctx.websocketHub?.broadcastAnnotationReplyAdded(id, reply);
 
 		return jsonResponse(reply, 201);

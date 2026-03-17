@@ -1,210 +1,88 @@
-# System Architecture
+# Architecture
 
-**Project**: rp1
-**Architecture Pattern**: Plugin-based layered monorepo
-**Last Updated**: 2026-03-09
+**Repository**: rp1
+**Type**: Monorepo
+**Last Updated**: 2026-03-15
 
-## High-Level Architecture
+## Overview
+
+rp1 is a plugin-driven Bun and TypeScript monorepo for AI-assisted development workflows. A CLI entrypoint dispatches commands and lazy-loads heavy subsystems, markdown-authored skills and agents define orchestration behavior, SQLite-backed runtime services persist workflow data, and a local Web UI daemon exposes APIs and live updates for project and run visibility.
+
+## System Diagram
 
 ```mermaid
 flowchart TB
-    subgraph Platforms[Platform Entry Points]
-        CC[Claude Code]
-        OC[OpenCode]
-        CX[Codex CLI]
-        BIN[rp1 CLI Binary]
-        WEB[Web Browser]
-    end
-
-    subgraph Plugins[Plugin and Workflow Layer]
-        BASE[rp1-base]
-        DEV[rp1-dev]
-        UTILS[rp1-utils]
-        SKILLS[Skills and Agents]
-        MAPR[Map-Reduce Orchestrators]
-        STM[Declarative State Machines]
-    end
-
-    subgraph Runtime[Runtime Services]
-        TOOLS[Agent Tools]
-        DB[(SQLite status.db)]
-        KB[.rp1/context/*.md]
-    end
-
-    subgraph UI[Presentation]
-        WS[Bun HTTP and WebSocket Server :7710]
-        VITE[Vite Dev Server :5173]
-        DASH[React and Tailwind Dashboard]
-        DOCS[MkDocs Docs Site]
-    end
-
-    subgraph External[External Integrations]
-        GH[GitHub API]
-        REL[GoReleaser and Bun]
-        CF[Cloudflare Pages]
-    end
-
-    CC --> BASE
-    CC --> DEV
-    OC --> DEV
-    CX --> DEV
-    BIN --> TOOLS
-    WEB --> VITE
-    WEB --> WS
-
-    DEV --> BASE
-    BASE --> SKILLS
-    DEV --> SKILLS
-    UTILS --> SKILLS
-    SKILLS --> MAPR
-    SKILLS --> STM
-    SKILLS --> TOOLS
-    SKILLS --> KB
-
-    STM --> TOOLS
-    TOOLS --> DB
-    TOOLS --> GH
-    WS --> DB
-    WS --> DASH
-    VITE --> WS
-    DASH --> WS
-
-    REL --> BIN
-    DOCS --> CF
+    Host["Host Tools\nClaude Code / OpenCode / Codex"] --> CLI["rp1 CLI\ncli/src/main.ts"]
+    CLI --> Skills["Plugin Skills and Agents\nplugins/base dev utils"]
+    CLI --> Tools["Agent Tools\nwork emit state-machine"]
+    Skills --> KBBuild["knowledge-build\nmap-reduce orchestrator"]
+    KBBuild --> KBFiles[(".rp1/context/*.md")]
+    Tools --> SM["State Machine Loader"]
+    Tools --> WorkDB[("~/.rp1/status.db")]
+    Tools --> EmitDB[("~/.rp1/rp1.db")]
+    Tools --> Daemon["Web UI Daemon\nBun server + WS"]
+    Daemon --> API["v2 API routes"]
+    API --> EmitDB
+    API --> Registry["Project Registry"]
+    API --> Workspace[".rp1/work and context files"]
+    Browser["Web Browser"] --> Daemon
+    Browser --> WS["WebSocket Hub"]
+    WS --> EmitDB
+    Theme["catppuccin-mermaid"] --> Browser
+    Skills --> GitHub["GitHub API"]
 ```
+
+## Layers
+
+| Layer | Purpose | Contains |
+|------|---------|----------|
+| Interaction Layer | Accepts user and host-tool entrypoints and launches CLI or daemon flows. | `cli/src/main.ts`, `cli/src/commands/`, `cli/src/config/supported-tools.yaml` |
+| Workflow Definition Layer | Defines orchestration, prompts, and state-machine rules in markdown-first assets. | `plugins/base/skills/`, `plugins/dev/skills/`, `plugins/utils/skills/`, agent markdown files |
+| Runtime Services Layer | Provides deterministic agent tools for state tracking, artifacts, validation, and integration. | `cli/src/agent-tools/`, daemon helpers, state-machine loading |
+| Persistence And Knowledge Layer | Stores local operational state and generated repository knowledge. | `~/.rp1/*.db`, `.rp1/context/*.md`, registry/config files |
+| Presentation Layer | Serves the dashboard, APIs, WebSocket streams, and artifact views. | `cli/web-ui/src/server/`, `cli/web-ui/src/app/`, `packages/catppuccin-mermaid` |
+
+## Key Interactions
+
+- Supported-tool metadata defines host capabilities and instruction-file contracts before execution.
+- The CLI launches workflow skills, which delegate implementation or analysis to agents.
+- `knowledge-build` runs a spatial pass, then parallel specialist analyzers, then writes KB artifacts.
+- Workflow definitions call agent tools for root resolution, state updates, artifacts, and validation.
+- The Web UI daemon reads persisted run data, replays events, and pushes live updates over WebSockets.
+- API routes serve workflow metadata, project registry data, and scoped workspace files.
+
+## Integrations
+
+| Integration | Role |
+|------------|------|
+| Bun | Primary runtime for CLI, server, packaging, and local tooling. |
+| SQLite | Embedded local persistence for runs, events, artifacts, annotations, and tasks. |
+| GitHub API | Deterministic repository and PR integration for workflow automation. |
+| React + Vite | Frontend runtime and build path for the Web UI. |
+| MkDocs Material | Published documentation site generation. |
+| Cloudflare Pages | Docs hosting target. |
+| Claude Code / OpenCode / Codex | Supported host agents that consume rp1 plugin artifacts. |
 
 ## Architectural Patterns
 
-- **Plugin Architecture**: Capabilities are grouped into `base`, `dev`, and `utils` plugins with explicit namespace and dependency rules.
-- **Skill-Agent Delegation**: Skills are thin orchestration surfaces; agents carry the real execution policy.
-- **Declarative Workflow Control**: State machines live in markdown and are enforced by reusable runtime tooling.
-- **Map-Reduce Orchestration**: Larger jobs such as KB generation and PR review split into parallel specialist passes.
-- **Embedded Local State Store**: Operational workflow state lives in local SQLite instead of a remote service.
-- **Dual-Surface Product**: The CLI is the execution surface, and the Web UI is the live operational view over the same state.
+- Plugin-based monorepo with explicit namespace and dependency rules.
+- Markdown-first workflow authoring with prompts as source-of-truth assets.
+- Map-reduce orchestration for large analysis jobs such as KB generation and PR review.
+- Dual local persistence: event-oriented runtime tracking in `rp1.db` and legacy status tracking in `status.db`.
+- Local-first observability where agent tools write state and the Web UI rebroadcasts it.
+- Lazy loading to keep the common CLI path lightweight.
 
-## System Layers
+## Security Notes
 
-### Interaction Layer
+- The local daemon binds to loopback, reducing accidental remote exposure.
+- File and artifact reads are path-scoped and validated before serving.
+- Namespace rules, supported-tool contracts, and state-machine validation constrain workflow execution.
+- Project-registry writes are atomic and use local-only storage expectations.
+- External repository actions rely on host-provided credentials such as `GITHUB_TOKEN`.
 
-**Purpose**: Expose user and agent entry points.
-**Key Components**:
+## Performance Notes
 
-- `cli/src/main.ts`
-- `cli/src/config/supported-tools.yaml`
-- `cli/web-ui/src/server.ts`
-- `docs/reference/agent-tools.md`
-
-### Workflow Layer
-
-**Purpose**: Define skills, agents, map-reduce flows, and stateful execution rules.
-**Key Components**:
-
-- `plugins/*/skills/`
-- `plugins/*/agents/`
-- `docs/concepts/map-reduce-workflows.md`
-- `docs/concepts/state-machines.md`
-
-### Runtime Services Layer
-
-**Purpose**: Provide deterministic tooling for workflow tracking, root resolution, and platform integrations.
-**Key Components**:
-
-- `cli/src/agent-tools/work/`
-- `cli/src/agent-tools/rp1-root-dir/`
-- `cli/src/agent-tools/github-pr/`
-- `cli/src/agent-tools/state-machine/`
-
-### Persistence Layer
-
-**Purpose**: Persist workflow status, run metadata, artifacts, and TTL cleanup state.
-**Key Components**:
-
-- `cli/src/agent-tools/work/database.ts`
-- `~/.rp1/status.db`
-
-### Presentation Layer
-
-**Purpose**: Serve the dashboard and docs experiences.
-**Key Components**:
-
-- `cli/web-ui/src/`
-- `cli/web-ui/vite.config.ts`
-- `cli/web-ui/tailwind.config.ts`
-- `mkdocs.yml`
-
-### Knowledge Layer
-
-**Purpose**: Store generated project context for knowledge-aware execution.
-**Key Components**:
-
-- `.rp1/context/index.md`
-- `.rp1/context/architecture.md`
-- `.rp1/context/modules.md`
-- `.rp1/context/patterns.md`
-
-## Primary Flows
-
-### Knowledge Base Generation
-
-1. A skill invokes the KB workflow.
-2. A spatial pass categorizes files by KB section.
-3. Specialist agents analyze concepts, architecture, modules, and patterns in parallel.
-4. The orchestrator reduces those outputs into `.rp1/context/*`.
-
-### Workflow State Update
-
-1. A skill or agent reports a step transition.
-2. The state-machine runtime validates the transition.
-3. The work database stores status, run data, and artifacts.
-4. The dashboard receives updates through daemon notifications and WebSocket fan-out.
-
-### Web UI Monitoring
-
-1. The browser loads the React dashboard.
-2. Vite proxies local dev traffic to the Bun server.
-3. The Bun server reads workflow state and exposes API and WebSocket routes.
-4. Operators see project and run status in near real time.
-
-## Integration Points
-
-- **Claude Code / OpenCode / Codex CLI**: Supported execution platforms declared in `cli/src/config/supported-tools.yaml`. When evaluating a new harness, see `./core-capabilties-matrix.md` for the minimum capability checklist.
-- **GitHub API**: Used by deterministic PR tooling instead of shelling out ad hoc.
-- **SQLite**: The embedded operational store for workflow state and artifacts.
-- **MkDocs Material**: Generates the published documentation site.
-- **Cloudflare Pages**: Hosts the docs site.
-- **GoReleaser + Bun**: Build and distribute standalone binaries.
-
-## Security Architecture
-
-### Authentication
-
-- GitHub PR operations require `GITHUB_TOKEN`.
-- The local CLI and Web UI do not define a separate first-party auth model in the analyzed paths.
-
-### Authorization
-
-- Capability boundaries are namespace- and platform-driven.
-- Cross-plugin calls are constrained by declared dependency rules, especially `dev -> base`.
-
-### Data Protection
-
-- Workflow data is stored locally in SQLite with run isolation and TTL cleanup.
-- The analyzed paths show local-first defaults, not a centralized secrets or encryption subsystem.
-
-## Deployment Architecture
-
-### Development
-
-- The Web UI runs through Vite on `5173` and proxies to the Bun server on `7710`.
-- Agent workflows operate against local `.rp1` context files and the local SQLite database.
-
-### Production
-
-- rp1 ships as Bun-compiled standalone binaries.
-- Documentation is built separately with MkDocs and deployed to `rp1.run`.
-
-### Infrastructure
-
-- Local runtime state uses embedded SQLite.
-- Browser observability uses the built-in HTTP and WebSocket server.
-- Release and docs delivery rely on GitHub releases, GoReleaser, and Cloudflare Pages.
+- CLI startup defers heavyweight modules until special commands are invoked.
+- Web UI handlers use focused route loading and database-backed replay instead of full refreshes.
+- SQLite connections, indexes, and WAL-style local usage support frequent event updates.
+- Incremental KB generation is available for small change sets; large diffs fall back to full analysis for reliability.

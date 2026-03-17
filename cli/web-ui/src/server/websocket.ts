@@ -25,13 +25,16 @@ export interface ProjectsChangedMessage {
 	timestamp: string;
 }
 
-export interface StatusChangedMessage {
-	type: "status_changed";
+export interface EventNotificationMessage {
+	type: "event:notification";
+	eventId: number;
+	eventType: string;
+	runId: string;
 	projectId: string;
-	feature: string;
-	status: string;
-	step?: string;
-	runStatus?: string;
+	featureId: string;
+	step: string | null;
+	data: Record<string, unknown> | null;
+	createdAt: string;
 }
 
 export interface AnnotationCreatedMessage {
@@ -80,17 +83,45 @@ export interface SwitchProjectMessage {
 	projectId: string;
 }
 
+export interface EventReplayMessage {
+	type: "event:replay";
+	event: {
+		id: number;
+		runId: string;
+		eventType: string;
+		step: string | null;
+		data: string | null;
+		createdAt: string;
+	};
+}
+
+export interface StateSnapshotMessage {
+	type: "state:snapshot";
+	runs: Array<{
+		id: string;
+		flow: string;
+		featureId: string;
+		projectPath: string;
+		status: string;
+		steps: Array<{ step: string; status: string }>;
+		artifacts: Array<{ docId: string; path: string; type: string }>;
+	}>;
+	lastEventId: number;
+}
+
 export type ServerMessage =
 	| FileChangedMessage
 	| TreeChangedMessage
 	| HeartbeatMessage
 	| ProjectsChangedMessage
-	| StatusChangedMessage
+	| EventNotificationMessage
 	| AnnotationCreatedMessage
 	| AnnotationUpdatedMessage
 	| AnnotationResolvedMessage
 	| AnnotationDeletedMessage
-	| AnnotationReplyAddedMessage;
+	| AnnotationReplyAddedMessage
+	| EventReplayMessage
+	| StateSnapshotMessage;
 export type ClientMessage =
 	| SubscribeMessage
 	| UnsubscribeMessage
@@ -98,6 +129,7 @@ export type ClientMessage =
 
 interface ClientData {
 	projectPath: string;
+	lastEventId?: number;
 }
 
 interface ClientState {
@@ -105,29 +137,143 @@ interface ClientState {
 	projectId: string | null;
 	subscriptions: Set<string>;
 	lastPing: number;
+	lastEventId: number | null;
+}
+
+export interface ReplayProvider {
+	countEventsSince(afterId: number): number;
+	getEventsSince(
+		afterId: number,
+		limit?: number,
+	): Array<{
+		id: number;
+		runId: string;
+		type: string;
+		step: string | null;
+		data: string | null;
+		createdAt: string;
+	}>;
+	getActiveRunsSnapshot(): Array<{
+		id: string;
+		flow: string;
+		featureId: string;
+		projectPath: string;
+		status: string;
+		steps: readonly { step: string; status: string }[];
+		artifacts: readonly { docId: string; path: string; type: string }[];
+	}>;
+	getMaxEventId(): number;
 }
 
 export class WebSocketHub {
 	private clients: Map<ServerWebSocket<ClientData>, ClientState> = new Map();
 	private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
-	private statusPollInterval: ReturnType<typeof setInterval> | null = null;
-	private lastStatusSnapshot: Map<string, string> = new Map();
-	private statusPollCallback: (() => Promise<void>) | null = null;
+	private replayProvider: ReplayProvider | null = null;
+
+	private static readonly REPLAY_EVENT_CAP = 100;
 
 	constructor() {
 		this.startHeartbeat();
 	}
 
-	addClient(ws: ServerWebSocket<ClientData>, projectId?: string): void {
+	setReplayProvider(provider: ReplayProvider): void {
+		this.replayProvider = provider;
+	}
+
+	addClient(
+		ws: ServerWebSocket<ClientData>,
+		projectId?: string,
+		lastEventId?: number,
+	): void {
 		this.clients.set(ws, {
 			ws,
 			projectId: projectId ?? null,
 			subscriptions: new Set(),
 			lastPing: Date.now(),
+			lastEventId: lastEventId ?? null,
 		});
 		console.log(
 			`WebSocket client connected${projectId ? ` for project ${projectId}` : ""}. Total clients: ${this.clients.size}`,
 		);
+
+		if (lastEventId != null && this.replayProvider) {
+			this.replayEventsForClient(ws, lastEventId);
+		}
+	}
+
+	private replayEventsForClient(
+		ws: ServerWebSocket<ClientData>,
+		lastEventId: number,
+	): void {
+		if (!this.replayProvider) return;
+
+		const state = this.clients.get(ws);
+		if (!state) return;
+
+		try {
+			const missedCount = this.replayProvider.countEventsSince(lastEventId);
+
+			if (missedCount === 0) {
+				return;
+			}
+
+			if (missedCount <= WebSocketHub.REPLAY_EVENT_CAP) {
+				const events = this.replayProvider.getEventsSince(lastEventId);
+				for (const event of events) {
+					const message: EventReplayMessage = {
+						type: "event:replay",
+						event: {
+							id: event.id,
+							runId: event.runId,
+							eventType: event.type,
+							step: event.step,
+							data: event.data,
+							createdAt: event.createdAt,
+						},
+					};
+					try {
+						ws.send(JSON.stringify(message));
+						state.lastEventId = event.id;
+					} catch {
+						this.removeClient(ws);
+						return;
+					}
+				}
+				console.log(`[replay] Replayed ${events.length} events for client`);
+			} else {
+				const runs = this.replayProvider.getActiveRunsSnapshot();
+				const maxEventId = this.replayProvider.getMaxEventId();
+				const message: StateSnapshotMessage = {
+					type: "state:snapshot",
+					runs: runs.map((r) => ({
+						id: r.id,
+						flow: r.flow,
+						featureId: r.featureId,
+						projectPath: r.projectPath,
+						status: r.status,
+						steps: r.steps.map((s) => ({ step: s.step, status: s.status })),
+						artifacts: r.artifacts.map((a) => ({
+							docId: a.docId,
+							path: a.path,
+							type: a.type,
+						})),
+					})),
+					lastEventId: maxEventId,
+				};
+				try {
+					ws.send(JSON.stringify(message));
+					state.lastEventId = maxEventId;
+				} catch {
+					this.removeClient(ws);
+					return;
+				}
+				console.log(
+					`[replay] Sent snapshot to client (${missedCount} events missed)`,
+				);
+			}
+		} catch (error) {
+			console.warn("[replay] Error during event replay:", error);
+		}
 	}
 
 	removeClient(ws: ServerWebSocket<ClientData>): void {
@@ -243,96 +389,42 @@ export class WebSocketHub {
 		this.broadcast(message);
 	}
 
-	broadcastStatusChange(
+	broadcastEvent(
 		projectId: string,
-		feature: string,
-		status: string,
-		step?: string,
-		runStatus?: string,
+		eventId: number,
+		eventType: string,
+		runId: string,
+		featureId: string,
+		step: string | null,
+		data: Record<string, unknown> | null,
+		createdAt: string,
 	): void {
-		const message: StatusChangedMessage = {
-			type: "status_changed",
+		const message: EventNotificationMessage = {
+			type: "event:notification",
+			eventId,
+			eventType,
+			runId,
 			projectId,
-			feature,
-			status,
-			...(step !== undefined && { step }),
-			...(runStatus !== undefined && { runStatus }),
+			featureId,
+			step,
+			data,
+			createdAt,
 		};
 
-		const data = JSON.stringify(message);
+		const serialized = JSON.stringify(message);
 		for (const state of this.clients.values()) {
 			const isProjectMatch =
 				state.projectId === null || state.projectId === projectId;
 
 			if (isProjectMatch) {
 				try {
-					state.ws.send(data);
+					state.ws.send(serialized);
+					state.lastEventId = eventId;
 				} catch {
 					this.removeClient(state.ws);
 				}
 			}
 		}
-	}
-
-	startStatusPolling(
-		pollCallback: () => Promise<
-			Array<{ projectId: string; feature: string; status: string }>
-		>,
-	): void {
-		if (this.statusPollInterval) {
-			return;
-		}
-
-		const STATUS_POLL_INTERVAL = 5_000;
-
-		this.statusPollCallback = async () => {
-			try {
-				const statuses = await pollCallback();
-
-				// Track which keys are still active to clean up stale entries
-				const activeKeys = new Set<string>();
-
-				for (const { projectId, feature, status } of statuses) {
-					const key = `${projectId}:${feature}`;
-					activeKeys.add(key);
-					const lastStatus = this.lastStatusSnapshot.get(key);
-
-					if (lastStatus !== status) {
-						this.lastStatusSnapshot.set(key, status);
-						this.broadcastStatusChange(projectId, feature, status);
-					}
-				}
-
-				// Clean up entries for features no longer in poll results
-				for (const key of this.lastStatusSnapshot.keys()) {
-					if (!activeKeys.has(key)) {
-						this.lastStatusSnapshot.delete(key);
-					}
-				}
-			} catch (error) {
-				console.warn("Status polling error:", error);
-			}
-		};
-
-		// Use setTimeout chaining instead of setInterval to ensure serial execution
-		const schedulePoll = () => {
-			this.statusPollInterval = setTimeout(async () => {
-				await this.statusPollCallback?.();
-				if (this.statusPollInterval) {
-					schedulePoll();
-				}
-			}, STATUS_POLL_INTERVAL) as unknown as ReturnType<typeof setInterval>;
-		};
-		schedulePoll();
-	}
-
-	stopStatusPolling(): void {
-		if (this.statusPollInterval) {
-			clearTimeout(this.statusPollInterval);
-			this.statusPollInterval = null;
-		}
-		this.statusPollCallback = null;
-		this.lastStatusSnapshot.clear();
 	}
 
 	private startHeartbeat(): void {
@@ -373,7 +465,6 @@ export class WebSocketHub {
 			clearInterval(this.heartbeatInterval);
 			this.heartbeatInterval = null;
 		}
-		this.stopStatusPolling();
 		for (const ws of this.clients.keys()) {
 			try {
 				ws.close();

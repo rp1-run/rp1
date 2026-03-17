@@ -73,8 +73,8 @@ stateDiagram-v2
     archive --> [*] : done
 ```
 
-Report each transition: `rp1 agent-tools work update --project "$(pwd)" --feature {FEATURE_ID} --workflow build --run-id {RUN_ID} --step {STATE} --status started`
-Generate `RUN_ID` as UUID at start. Terminal states (`→ [*]`): report `--status completed`.
+Report each transition: `rp1 agent-tools emit --type status_change --run-id {RUN_ID} --step {STATE} --data '{"status": "running"}'`
+Generate `RUN_ID` as UUID at start. Terminal states (`→ [*]`): report with `--data '{"status": "completed"}'`.
 
 ## §PROGRESS
 

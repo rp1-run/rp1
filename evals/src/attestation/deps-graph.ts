@@ -10,9 +10,9 @@ import type { DependencyGraph, EvalPlatform } from "./types.js";
 
 /**
  * Pattern for detecting agent references in skill files.
- * Matches: Task: plugin:agent-name
+ * Matches: Task: plugin:agent-name, subagent_type: plugin:agent-name
  */
-const TASK_PATTERN = /Task:\s*(\w+-\w+):(\w[\w-]*)/g;
+const TASK_PATTERN = /(?:Task|subagent_type):\s*(\w+-\w+):(\w[\w-]*)/g;
 
 /**
  * Pattern for detecting skill references in agent files.

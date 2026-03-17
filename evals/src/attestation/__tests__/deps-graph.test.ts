@@ -106,6 +106,38 @@ prompt: Second
 		expect(refs).toEqual(["cli/dist/claude-code/dev/agents/builder.md"]);
 	});
 
+	test("extracts subagent_type references", () => {
+		const content = `
+subagent_type: rp1-dev:task-builder
+prompt: Build the feature
+
+subagent_type: rp1-dev:task-reviewer
+prompt: Review the build
+`;
+		const refs = parseAgentRefs(content, "claude-code");
+
+		expect(refs).toContain("cli/dist/claude-code/dev/agents/task-builder.md");
+		expect(refs).toContain("cli/dist/claude-code/dev/agents/task-reviewer.md");
+		expect(refs).toHaveLength(2);
+	});
+
+	test("extracts mixed Task and subagent_type references", () => {
+		const content = `
+Task: rp1-dev:feature-architect
+prompt: Design
+
+subagent_type: rp1-dev:task-builder
+prompt: Build
+`;
+		const refs = parseAgentRefs(content, "claude-code");
+
+		expect(refs).toContain(
+			"cli/dist/claude-code/dev/agents/feature-architect.md",
+		);
+		expect(refs).toContain("cli/dist/claude-code/dev/agents/task-builder.md");
+		expect(refs).toHaveLength(2);
+	});
+
 	test("ignores unknown plugin names", () => {
 		const content = `
 Task: unknown-plugin:agent-name

@@ -1,101 +1,64 @@
-# Domain Concepts & Terminology
+# Concept Map
 
-**Project**: rp1
-**Domain**: AI-assisted development workflows for agentic coding platforms
+**Repository**: rp1
+**Type**: Monorepo
+**Last Updated**: 2026-03-15
+
+## Domain Summary
+
+rp1 is a plugin-driven AI development workflow system built around a Bun and TypeScript CLI, markdown-authored skills and agents, local runtime state tracking, a live Web UI dashboard, and eval tooling for prompt attestation. The repository exists to make agent workflows inspectable, reproducible, and easier to ship across multiple host tools.
 
 ## Core Concepts
 
-### Plugin
-**Definition**: A distribution unit that packages skills and agents for a capability area such as `rp1-base`, `rp1-dev`, or `rp1-utils`.
-**Implementation**: `plugins/base/`, `plugins/dev/`, `plugins/utils/`
-**Key Properties**:
-- Namespace-prefixed for cross-platform installation and invocation.
-- Carries the skills and agents that define the user-facing workflow surface.
+| Concept | Kind | Definition | Related |
+|---------|------|------------|---------|
+| Plugin | Core | Capability package such as `rp1-base`, `rp1-dev`, or `rp1-utils` that groups skills and agents. | Skill, Agent |
+| Skill | Core | User-facing workflow entry point defined by `SKILL.md`; handles parameters, sequencing, and delegation. | Agent, SKILL.md Format |
+| Agent | Core | Focused autonomous worker that executes the main body of a workflow in a single pass. | Skill, Knowledge Base |
+| Knowledge Base | Core | Generated context in `.rp1/context/` used by agents for project understanding. | Progressive Loading, Knowledge Build |
+| Progressive Loading | Workflow | Rule that agents read `index.md` first, then load only the KB files needed for the task. | Knowledge Base |
+| Knowledge Build | Workflow | Map-reduce KB generation flow that scans files, runs specialist analysis, and writes durable docs. | Spatial Analysis, Map-Reduce Workflow |
+| Spatial Analysis | Technical | Ranking and categorization step that decides which files matter for each KB section. | Knowledge Build |
+| Map-Reduce Workflow | Workflow | Pattern where rp1 splits work into parallel specialist passes and merges structured outputs. | Knowledge Build, PR Review |
+| Skill-Agent Pattern | Core | Architecture where thin skills orchestrate and agents do the substantive work. | Skill, Agent |
+| SKILL.md Format | Technical | Canonical markdown contract for invocable skills, metadata, and tool permissions. | Skill, Plugin |
+| State Machine | Technical | Mermaid `stateDiagram-v2` embedded in prompts that defines valid workflow steps and transitions. | Run, Agent Tools |
+| Run | Core | A tracked workflow execution with status, steps, events, and artifacts. | Artifact, Web UI Dashboard |
+| Artifact | Core | Typed output file registered against a run, such as docs, code, diagrams, or reports. | Run, Agent Tools |
+| Agent Tools | Technical | CLI-backed runtime utilities for root resolution, run updates, artifact registration, and validation. | Run, State Machine |
+| Web UI Dashboard | Technical | Local dashboard that visualizes projects, runs, workflow state, and artifacts. | Run, Artifact |
+| Attestation | Workflow | Eval mechanism that hashes prompt content and dependencies to prove tested prompt versions. | Eval System |
+| Eval System | Technical | Tooling that extracts assertions, runs suites, and verifies prompt dependencies through attestations. | Attestation |
 
-### Skill
-**Definition**: The invocable entry point defined by `SKILL.md`.
-**Implementation**: `plugins/*/skills/*/SKILL.md`
-**Key Properties**:
-- Parses intent, parameters, and runtime context.
-- Delegates substantial work to agents instead of embedding execution logic.
+## Terminology
 
-### Agent
-**Definition**: A constitutional worker that executes a bounded workflow in one pass.
-**Implementation**: `plugins/*/agents/*.md`
-**Key Properties**:
-- Operates under explicit execution rules and output contracts.
-- Commonly runs as a specialist in a larger orchestration flow.
+| Term | Meaning |
+|------|---------|
+| `SKILL.md` | Canonical file format for an invocable rp1 skill. |
+| `RP1_ROOT` | Resolved `.rp1/` workspace root used by skills and agent tools. |
+| `stateDiagram-v2` | Mermaid syntax used for workflow state-machine definitions. |
+| `run-id` | Identifier for an individual workflow execution. |
+| `emit` | Agent-tools operation that records workflow events (status changes, artifacts, annotations). |
+| `work artifact` | Agent-tools operation that registers an output file for a run. |
+| `state.json` | Shareable KB generation metadata such as strategy, commit, languages, and metrics. |
+| `meta.json` | Local-only KB metadata such as repo root and project path. |
+| `metadata.sub_agents` | Skill metadata field listing delegated agent references. |
+| Event envelope | Notification payload format used by the Web UI daemon. |
 
-### Knowledge Base
-**Definition**: Generated project context under `.rp1/context/` used for progressive loading by agents.
-**Implementation**: `.rp1/context/index.md`, `.rp1/context/architecture.md`, `.rp1/context/modules.md`, `.rp1/context/patterns.md`
-**Key Properties**:
-- Starts with `index.md` and expands only as needed.
-- Encodes reusable project knowledge rather than transient task state.
+## Relationships
 
-### State Machine
-**Definition**: A Mermaid `stateDiagram-v2` model that constrains legal workflow transitions.
-**Implementation**: `docs/concepts/state-machines.md`, `cli/src/agent-tools/state-machine/index.ts`
-**Key Properties**:
-- Validates transitions centrally.
-- Keeps long-running workflows explicit and auditable.
+- Plugins contain skills and agents.
+- Skills delegate execution to agents.
+- Knowledge build starts with spatial analysis, then uses map-reduce passes.
+- Agent tools track runs and register artifacts.
+- State machines govern valid workflow transitions.
+- The Web UI dashboard reads stored run state and artifacts instead of defining workflow rules.
+- The eval system uses attestations to verify prompt changes through dependency chains.
 
-### Run
-**Definition**: A tracked execution record for a workflow, including status, steps, artifacts, and timing.
-**Implementation**: `cli/web-ui/src/types/runs.ts`, `cli/src/agent-tools/work/`
-**Key Properties**:
-- Powers live status in the Web UI.
-- Carries the operational history of agent work.
+## Boundaries
 
-### Artifact
-**Definition**: A typed output created or updated during a run, such as markdown, code, diagrams, or diffs.
-**Implementation**: `cli/web-ui/src/types/runs.ts`
-**Key Properties**:
-- Registered by workflow tooling.
-- Used to connect execution state to durable outputs.
-
-### ToolResult
-**Definition**: The standard JSON envelope returned by agent tools.
-**Implementation**: `cli/src/agent-tools/models.ts`
-**Key Properties**:
-- Wraps success state, tool name, payload, and errors.
-- Gives agents a stable contract across tool surfaces.
-
-## Terminology Glossary
-
-### Workflow Terms
-- **Constitutional Prompting**: Agent behavior encoded as explicit markdown rules, phases, and output contracts.
-- **Progressive Loading**: Load `index.md` first, then only the KB files needed for the current task.
-- **Map-Reduce Workflow**: Split work into specialized parallel units and reduce the outputs into a final artifact set.
-- **Anti-Loop Directive**: Prompt rule that prevents clarification loops and forces bounded autonomous execution.
-
-### Platform Terms
-- **Supported Tool**: An agent platform that can install and run rp1 artifacts, such as Claude Code, OpenCode, or Codex CLI.
-- **Plugin Manifest**: Build-generated metadata describing a plugin version and the shipped skills and agents.
-- **Project Context**: Initialization-time classification of a repository as greenfield or brownfield.
-- **Health Report**: Setup-time verification output covering instruction files, plugin install state, KB presence, and related checks.
-
-## Concept Relationships
-
-- **Plugin contains Skill**: Plugins expose user-facing workflows through skill files.
-- **Plugin contains Agent**: Plugins package the specialist workers those workflows rely on.
-- **Skill delegates to Agent**: The skill handles routing and the agent executes.
-- **Agent loads Knowledge Base**: KB files give agents shared project understanding.
-- **State Machine governs Run**: Workflow transitions are validated against the declared model.
-- **Run produces Artifact**: Execution records point at the files and outputs created during the workflow.
-- **ToolResult wraps tool output**: Agent tooling returns predictable success and error payloads.
-
-## Reusable Domain Patterns
-
-- **Thin Skill Wrapper**: Keep `SKILL.md` focused on parameters, routing, and orchestration setup.
-- **Single-Pass Constitutional Agent**: Encode enough rules that a specialist agent can finish without conversational loops.
-- **Knowledge-Aware Execution**: Load KB context before acting so output follows project terminology and structure.
-- **Validated Workflow Tracking**: Report progress through explicit statuses, step records, and state-machine enforcement.
-- **Typed Tool Contracts**: Standardize agent-tool output around stable JSON envelopes instead of ad hoc text.
-
-## Cross-References
-
-- **Architecture**: See `architecture.md` for layers, interactions, and deployment shape.
-- **Modules**: See `modules.md` for the main runtime, plugin, UI, and package boundaries.
-- **Patterns**: See `patterns.md` for coding and orchestration conventions.
-- **Dependencies**: See `dependencies.md` for inter-project and cross-plugin relationships.
+- Markdown prompt assets define workflow behavior; the TypeScript CLI provides the runtime and enforcement layer.
+- `.rp1/context/` stores durable project knowledge, while run/event databases store transient execution state.
+- State-machine tracking is opt-in and only applies to workflows that declare a `## STATE-MACHINE` section.
+- The Web UI consumes workflow data; it is not the source of truth for transitions or prompt contracts.
+- Eval attestation is release-confidence tooling, separate from run-time workflow tracking.

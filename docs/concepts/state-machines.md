@@ -67,7 +67,7 @@ These features are intentionally out of scope:
 
 ### Rules
 
-1. **State IDs must match step field values** used in `rp1 agent-tools work update --step` commands
+1. **State IDs must match step field values** used in `rp1 agent-tools emit --step` commands
 2. **At least one initial state** is required (`[*] --> state_id`)
 3. **Terminal states** are optional but recommended (`state_id --> [*]`)
 4. **Transition labels** are informational -- validation operates on state-to-state edges, not labels
@@ -91,18 +91,16 @@ stateDiagram-v2
 ```
 
 **On each phase transition**, report via:
-rp1 agent-tools work update \
-  --project "$(pwd)" \
-  --feature {FEATURE_ID} \
-  --workflow {SKILL_NAME} \
+rp1 agent-tools emit \
+  --type status_change \
   --run-id {RUN_ID} \
   --step {CURRENT_STATE} \
-  --status started
+  --data '{"status": "running"}'
 
 - Generate `RUN_ID` as a UUID at workflow start
-- Report each step with `--status started` when entering it
+- Report each step with `--data '{"status": "running"}'` when entering it
 - For non-terminal states: moving to the next state implies the previous completed
-- For terminal states (those with `→ [*]` transitions): report `--status completed` when the step's work finishes
+- For terminal states (those with `→ [*]` transitions): report with `--data '{"status": "completed"}'` when the step's work finishes
 - Follow transition edges in the graph; do not skip states
 ```
 
@@ -125,56 +123,49 @@ stateDiagram-v2
 ```
 
 **On each transition**, report via:
-rp1 agent-tools work update \
-  --project "$(pwd)" \
-  --feature {FEATURE_ID} \
-  --workflow {WORKFLOW} \
-  --agent {AGENT_NAME} \
-  --task {TASK_ID} \
+rp1 agent-tools emit \
+  --type status_change \
   --run-id {RUN_ID} \
   --step {CURRENT_STATE} \
-  --status started
+  --unit {TASK_ID} \
+  --data '{"status": "running"}'
 ```
 
-### The `--agent` Flag
+### Agent Status Reporting
 
-When an agent reports status, it uses the `--agent` flag to route validation to its own state machine instead of the parent workflow's:
+Agents report status using the same `emit` command. The `--unit` flag can be used for per-task tracking:
 
 ```bash
-rp1 agent-tools work update \
-  --project "$(pwd)" \
-  --feature auth-refactor \
-  --workflow build \
-  --agent task-builder \
+rp1 agent-tools emit \
+  --type status_change \
   --run-id "550e8400-e29b-41d4-a716-446655440000" \
   --step building \
-  --status started
+  --unit T1 \
+  --data '{"status": "running"}'
 ```
 
-- `--workflow` remains required -- it determines which run the update is attributed to
-- `--agent` determines which state machine to validate against
-- If the named agent has no embedded state machine, the CLI returns an error listing available agent state machines
+- `--run-id` associates the event with the parent workflow run
+- `--unit` enables per-task tracking within the agent
 
-### Per-Task Tracking with `--task`
+### Per-Task Tracking with `--unit`
 
-When an agent processes multiple tasks (e.g., task-builder implementing T1, T2, T3), each task's state is tracked independently using the `--task` flag:
+When an agent processes multiple tasks (e.g., task-builder implementing T1, T2, T3), each task's state is tracked independently using the `--unit` flag:
 
 ```bash
 # T1 starts building
-rp1 agent-tools work update --workflow build --agent task-builder --task T1 \
-  --run-id run-1 --step building --status started
+rp1 agent-tools emit --type status_change --run-id run-1 \
+  --step building --unit T1 --data '{"status": "running"}'
 
 # T1 completes
-rp1 agent-tools work update --workflow build --agent task-builder --task T1 \
-  --run-id run-1 --step completed --status started
+rp1 agent-tools emit --type status_change --run-id run-1 \
+  --step completed --unit T1 --data '{"status": "completed"}'
 
 # T2 starts building (independent of T1)
-rp1 agent-tools work update --workflow build --agent task-builder --task T2 \
-  --run-id run-1 --step building --status started
+rp1 agent-tools emit --type status_change --run-id run-1 \
+  --step building --unit T2 --data '{"status": "running"}'
 ```
 
-- `--task` requires `--agent` (error if used alone)
-- Each task progresses through the agent's state machine independently
+- Each task progresses through the workflow independently
 - The dashboard shows per-task state within the agent's nested view
 
 ### Parent Skill Context
@@ -195,7 +186,7 @@ The system maintains two orthogonal state dimensions for state-machine-enabled w
 
 | Dimension | What it represents | Values | Storage |
 |-----------|--------------------|--------|---------|
-| **StatusValue** | Activity category (WHAT is happening) | started, in_progress, waiting-input, needs-review, completed, failed | `status` column |
+| **StatusValue** | Activity category (WHAT is happening) | not_started, running, waiting, completed, failed, skipped | `status` column |
 | **WorkflowState** | Workflow phase (WHERE in the workflow) | Defined by state diagram (e.g., requirements, design, build) | `step` column |
 
 These are independent: a workflow can be "in_progress" at the "design" phase, or "waiting-input" at the "requirements" phase.
@@ -207,40 +198,34 @@ These are independent: a workflow can be "in_progress" at the "design" phase, or
 ### Reporting State Transitions (Skills)
 
 ```bash
-rp1 agent-tools work update \
-  --project "$(pwd)" \
-  --feature my-feature \
-  --workflow build \
+rp1 agent-tools emit \
+  --type status_change \
   --run-id "550e8400-e29b-41d4-a716-446655440000" \
   --step design \
-  --status started
+  --data '{"status": "running"}'
 ```
 
 ### Reporting State Transitions (Agents)
 
 ```bash
-rp1 agent-tools work update \
-  --project "$(pwd)" \
-  --feature my-feature \
-  --workflow build \
-  --agent task-builder \
-  --task T1 \
+rp1 agent-tools emit \
+  --type status_change \
   --run-id "550e8400-e29b-41d4-a716-446655440000" \
   --step building \
-  --status started
+  --unit T1 \
+  --data '{"status": "running"}'
 ```
 
 ### CLI Flags
 
 | Flag | Required | Description |
 |------|----------|-------------|
-| `--workflow` | Yes (for state-machine skills/agents) | Skill name whose state machine to validate against (or parent workflow for agents) |
-| `--agent` | No | Agent name -- routes validation to agent's state machine |
-| `--task` | No | Task identifier for per-task tracking (requires `--agent`) |
-| `--run-id` | Optional | UUID grouping updates into a discrete workflow run |
-| `--step` | Yes | The workflow/agent state (must be a valid state ID) |
-| `--status` | Yes | Activity status (started, in_progress, etc.) |
-| `--ttl` | Optional | TTL in seconds for expiry (default: 28800 = 8 hours) |
+| `--type` | Yes | Event type (e.g., `status_change`) |
+| `--run-id` | Yes | UUID grouping events into a discrete workflow run |
+| `--step` | Yes (for status_change) | The workflow/agent state (must be a valid state ID) |
+| `--unit` | No | Task/unit identifier for per-task tracking |
+| `--data` | Yes (for status_change) | JSON payload with status (e.g., `'{"status": "running"}'`) |
+| `--project` | No | Project path (defaults to cwd) |
 
 ### Transition Validation
 
@@ -259,10 +244,10 @@ Each `--run-id` creates an independent workflow invocation. Multiple concurrent 
 
 ```bash
 # Run A at "verify" phase
-rp1 agent-tools work update --workflow build --run-id run-A --step verify --status in_progress
+rp1 agent-tools emit --type status_change --run-id run-A --step verify --data '{"status": "running"}'
 
 # Run B at "design" phase (independent)
-rp1 agent-tools work update --workflow build --run-id run-B --step design --status in_progress
+rp1 agent-tools emit --type status_change --run-id run-B --step design --data '{"status": "running"}'
 ```
 
 ### Cleaning Up Stale Runs

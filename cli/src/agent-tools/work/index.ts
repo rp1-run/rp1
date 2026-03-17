@@ -6,9 +6,14 @@
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../../shared/errors.js";
+import { runtimeError } from "../../../shared/errors.js";
 import { registerTool, type ToolOptions } from "../index.js";
 import type { ToolResult } from "../models.js";
 import { successResult } from "../output.js";
+import {
+	deriveOrderedSteps,
+	loadStateMachine,
+} from "../state-machine/index.js";
 import {
 	type CleanupResult,
 	closeDatabase,
@@ -17,6 +22,8 @@ import {
 	deleteExpiredRuns,
 	getCurrentWorkflowState,
 	getLatestStatusByFeature,
+	getStepStatusValue,
+	getWorkflowForRun,
 	insertArtifact,
 	insertStatusUpdate,
 	isValidStatus,
@@ -28,6 +35,7 @@ import type {
 	ArtifactRecord,
 	ArtifactTypeValue,
 	QueryOptions,
+	ReconciliationResult,
 	StatusUpdateInput,
 	StatusUpdateRecord,
 	StatusValue,
@@ -64,11 +72,113 @@ export interface WorkArtifactResult {
 	readonly type: ArtifactTypeValue;
 	readonly createdAt: string;
 	readonly worktreePath: string | null;
+	readonly step: string | null;
+	readonly subflow: boolean;
 }
+
+/**
+ * Validate that an artifact's step value is a valid state in the associated workflow's
+ * state machine. Looks up the workflow from status_updates for the same project+feature+run.
+ * If no workflow is found (e.g., standalone invocation), validation is skipped.
+ *
+ * @param input - Artifact registration data containing step to validate
+ * @param dbPath - Optional database path override
+ * @returns TaskEither that resolves if valid, or errors with invalid step details
+ */
+const validateArtifactStep = (
+	input: ArtifactInput,
+	dbPath?: string,
+): TE.TaskEither<CLIError, void> =>
+	pipe(
+		getWorkflowForRun(input.projectPath, input.feature, input.runId, dbPath),
+		TE.chain((workflow) => {
+			const step = input.step;
+			if (!workflow || !step) {
+				return TE.right(undefined as undefined);
+			}
+			return pipe(
+				loadStateMachine(workflow),
+				TE.chain((machine) => {
+					if (machine.states.has(step)) {
+						return TE.right(undefined as undefined);
+					}
+					const validSteps = Array.from(machine.states.keys());
+					return TE.left(
+						runtimeError(
+							`Invalid artifact step '${step}' for workflow '${workflow}'. Valid steps: ${validSteps.join(", ")}`,
+						),
+					);
+				}),
+			);
+		}),
+	);
+
+/**
+ * Auto-complete a step when an artifact is registered for it.
+ * If the step has no status records yet, inserts started + completed records
+ * so the step shows as done in the UI. The existing autoCorrectSkippedSteps
+ * mechanism (triggered by executeUpdate) handles marking prior steps as completed.
+ *
+ * Best-effort: failures are logged and swallowed.
+ */
+const autoCompleteStepForArtifact = async (
+	input: ArtifactInput,
+	dbPath?: string,
+): Promise<void> => {
+	const step = input.step;
+	if (!step || !input.runId) return;
+
+	try {
+		const statusResult = await getStepStatusValue(
+			input.projectPath,
+			input.feature,
+			step,
+			input.runId,
+			dbPath,
+		)();
+		if (statusResult._tag === "Right" && statusResult.right !== null) {
+			return; // Step already has a status record
+		}
+
+		const workflowResult = await getWorkflowForRun(
+			input.projectPath,
+			input.feature,
+			input.runId,
+			dbPath,
+		)();
+		const workflow =
+			workflowResult._tag === "Right" ? workflowResult.right : null;
+		if (!workflow) return;
+
+		const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
+
+		// Insert started + completed via executeUpdate so autoCorrectSkippedSteps runs
+		for (const status of ["started", "completed"] as const) {
+			await executeUpdate(
+				{
+					projectPath: input.projectPath,
+					feature: input.feature,
+					step,
+					status,
+					message: `Auto-completed: artifact registered for step`,
+					runId: input.runId,
+					workflow,
+					expiresAt,
+					worktreePath: input.worktreePath,
+				},
+				dbPath,
+			)();
+		}
+	} catch {
+		// Best-effort — don't block artifact registration
+	}
+};
 
 /**
  * Execute work artifact subcommand.
  * Registers a new artifact in the database.
+ * When --step is provided, validates the step against the workflow's state machine
+ * and auto-completes the step if it hasn't started yet.
  *
  * @param input - Artifact registration data
  * @param dbPath - Optional database path override
@@ -79,7 +189,10 @@ export const executeArtifact = (
 	dbPath?: string,
 ): TE.TaskEither<CLIError, ToolResult<WorkArtifactResult>> =>
 	pipe(
-		insertArtifact(input, dbPath),
+		input.step
+			? validateArtifactStep(input, dbPath)
+			: TE.right(undefined as undefined),
+		TE.chain(() => insertArtifact(input, dbPath)),
 		TE.map(
 			(result): WorkArtifactResult => ({
 				id: result.id,
@@ -90,10 +203,53 @@ export const executeArtifact = (
 				type: input.type,
 				createdAt: result.createdAt,
 				worktreePath: input.worktreePath ?? null,
+				step: input.step ?? null,
+				subflow: input.subflow ?? false,
+			}),
+		),
+		TE.chainFirst(() =>
+			TE.fromTask(() => autoCompleteStepForArtifact(input, dbPath)),
+		),
+		TE.chainFirst((data) =>
+			TE.fromTask(async () => {
+				await notifyDaemonArtifact(data.projectPath, data.feature, {
+					path: data.path,
+					type: data.type,
+					step: data.step,
+					runId: data.runId,
+				});
 			}),
 		),
 		TE.map((data) => successResult(TOOL_NAME, data)),
 	);
+
+/**
+ * Notify the daemon of an artifact registration for immediate WebSocket broadcast.
+ * This is a best-effort operation - if the daemon is not running, we don't care.
+ */
+const notifyDaemonArtifact = async (
+	projectPath: string,
+	feature: string,
+	artifact: {
+		path: string;
+		type: string;
+		step: string | null;
+		runId: string | null;
+	},
+): Promise<void> => {
+	try {
+		const { connectToDaemon, notifyArtifactChange } = await import(
+			"../../../web-ui/src/daemon/index.js"
+		);
+
+		const conn = await connectToDaemon();
+		if (conn) {
+			await notifyArtifactChange(conn, projectPath, feature, artifact);
+		}
+	} catch {
+		// Daemon not available - polling will pick up the change
+	}
+};
 
 /**
  * Workflow context for enriched daemon notifications.
@@ -105,6 +261,7 @@ interface WorkflowNotifyContext {
 	readonly runId?: string;
 	readonly previousState?: string | null;
 	readonly newState: string;
+	readonly stepStatus?: string;
 }
 
 /**
@@ -136,9 +293,107 @@ const notifyDaemon = async (
 };
 
 /**
+ * Map raw status value to step-level status for WebSocket broadcast.
+ * This is the canonical mapping from database status values to
+ * the step statuses used by the frontend canvas.
+ */
+const mapStatusToStepStatus = (status: StatusValue): string => {
+	switch (status) {
+		case "started":
+		case "in_progress":
+			return "running";
+		case "waiting-input":
+			return "waiting-input";
+		case "needs-review":
+			return "needs-review";
+		case "completed":
+			return "completed";
+		case "failed":
+			return "failed";
+	}
+};
+
+/**
+ * Auto-correct skipped steps by inserting "completed" records for prior
+ * steps in the state machine that have no status records.
+ *
+ * This ensures the database always has a complete step history even when
+ * intermediate steps were never explicitly reported (e.g., rapid execution
+ * or missed events).
+ */
+const autoCorrectSkippedSteps = async (
+	input: StatusUpdateInput,
+	dbPath?: string,
+): Promise<readonly string[]> => {
+	if (!input.workflow || !input.step || input.status === "failed") {
+		return [];
+	}
+
+	try {
+		const agentOrWorkflow = input.agent ?? input.workflow;
+		const machineResult = await loadStateMachine(agentOrWorkflow)();
+		if (machineResult._tag === "Left") return [];
+
+		const orderedSteps = deriveOrderedSteps(machineResult.right);
+		const currentStepIndex = orderedSteps.findIndex((s) => s.id === input.step);
+		if (currentStepIndex <= 0) return [];
+
+		const corrections: string[] = [];
+		for (let i = 0; i < currentStepIndex; i++) {
+			const priorStep = orderedSteps[i];
+			const priorStatusResult = await getStepStatusValue(
+				input.projectPath,
+				input.feature,
+				priorStep.id,
+				input.runId,
+				dbPath,
+			)();
+
+			const priorStatus =
+				priorStatusResult._tag === "Right" ? priorStatusResult.right : null;
+			const isNonTerminal =
+				priorStatus === null ||
+				(priorStatus !== "completed" && priorStatus !== "failed");
+
+			if (priorStatusResult._tag === "Right" && isNonTerminal) {
+				const reason =
+					priorStatus === null ? "skipped" : `stuck in ${priorStatus}`;
+				console.log(
+					`[reconcile] Auto-correcting ${reason} step ${priorStep.id}: inserting completed status`,
+				);
+				await insertStatusUpdate(
+					{
+						projectPath: input.projectPath,
+						feature: input.feature,
+						step: priorStep.id,
+						status: "completed",
+						message: "Auto-corrected: step was skipped",
+						runId: input.runId,
+						workflow: input.workflow,
+						expiresAt: input.expiresAt,
+						agent: input.agent,
+						task: input.task,
+						worktreePath: input.worktreePath,
+					},
+					dbPath,
+				)();
+				corrections.push(priorStep.id);
+			}
+		}
+
+		return corrections;
+	} catch {
+		return [];
+	}
+};
+
+/**
  * Execute work update subcommand.
  * Inserts a new status update and returns the result.
  * Also notifies the daemon for immediate WebSocket broadcast (best-effort).
+ *
+ * When reconciliation indicates a backward transition (rejected), the insert
+ * and notify are skipped entirely -- the update is a no-op (self-healing).
  *
  * @param input - Status update data
  * @param dbPath - Optional database path override
@@ -147,8 +402,21 @@ const notifyDaemon = async (
 export const executeUpdate = (
 	input: StatusUpdateInput,
 	dbPath?: string,
-): TE.TaskEither<CLIError, ToolResult<WorkUpdateResult>> =>
-	pipe(
+): TE.TaskEither<CLIError, ToolResult<WorkUpdateResult>> => {
+	if (input.reconciliation?.rejected) {
+		const noopResult: WorkUpdateResult = {
+			id: 0,
+			projectPath: input.projectPath,
+			feature: input.feature,
+			step: input.step ?? null,
+			status: input.status,
+			message: input.reconciliation.reason ?? "backward_transition",
+			createdAt: new Date().toISOString(),
+		};
+		return TE.right(successResult(TOOL_NAME, noopResult));
+	}
+
+	return pipe(
 		insertStatusUpdate(input, dbPath),
 		TE.map(
 			(result): WorkUpdateResult => ({
@@ -161,8 +429,14 @@ export const executeUpdate = (
 				createdAt: result.createdAt,
 			}),
 		),
+		TE.chainFirst(() =>
+			TE.fromTask(async () => {
+				await autoCorrectSkippedSteps(input, dbPath);
+			}),
+		),
 		TE.chainFirst((data) =>
 			TE.fromTask(async () => {
+				const stepStatus = mapStatusToStepStatus(input.status);
 				const workflowCtx =
 					input.workflow && input.step
 						? {
@@ -170,6 +444,7 @@ export const executeUpdate = (
 								runId: input.runId,
 								previousState: input.previousState,
 								newState: input.step,
+								stepStatus,
 							}
 						: undefined;
 				await notifyDaemon(
@@ -182,6 +457,7 @@ export const executeUpdate = (
 		),
 		TE.map((data) => successResult(TOOL_NAME, data)),
 	);
+};
 
 /**
  * Execute work query subcommand.
@@ -285,6 +561,7 @@ export type {
 	ArtifactRecord,
 	ArtifactTypeValue,
 	QueryOptions,
+	ReconciliationResult,
 	StatusUpdateInput,
 	StatusUpdateRecord,
 	StatusValue,

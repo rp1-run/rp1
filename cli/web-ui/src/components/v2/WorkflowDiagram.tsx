@@ -1,6 +1,7 @@
 import { useMemo, useRef } from "react";
 import { MermaidDiagram } from "@/components/MarkdownViewer/MermaidDiagram";
 import type { WorkflowDefinition } from "@/hooks/useWorkflowSteps";
+import { getStatusLabel } from "@/lib/status-labels";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/providers/ThemeProvider";
 import type { Step, StepStatus } from "@/types/runs";
@@ -9,21 +10,21 @@ interface ThemeColors {
 	readonly current: { fill: string; stroke: string; color: string };
 	readonly completed: { fill: string; stroke: string; color: string };
 	readonly failed: { fill: string; stroke: string; color: string };
-	readonly pending: { fill: string; stroke: string; color: string };
+	readonly not_started: { fill: string; stroke: string; color: string };
 }
 
 const darkColors: ThemeColors = {
 	current: { fill: "#89b4fa", stroke: "#74c7ec", color: "#11111b" },
 	completed: { fill: "#a6e3a1", stroke: "#94e2d5", color: "#11111b" },
 	failed: { fill: "#f38ba8", stroke: "#eba0ac", color: "#11111b" },
-	pending: { fill: "#45475a", stroke: "#6c7086", color: "#a6adc8" },
+	not_started: { fill: "#45475a", stroke: "#6c7086", color: "#a6adc8" },
 };
 
 const lightColors: ThemeColors = {
 	current: { fill: "#1e66f5", stroke: "#209fb5", color: "#eff1f5" },
 	completed: { fill: "#40a02b", stroke: "#179299", color: "#eff1f5" },
 	failed: { fill: "#d20f39", stroke: "#e64553", color: "#eff1f5" },
-	pending: { fill: "#e6e9ef", stroke: "#9ca0b0", color: "#8c8fa1" },
+	not_started: { fill: "#e6e9ef", stroke: "#9ca0b0", color: "#8c8fa1" },
 };
 
 function stepStatusToClass(status: StepStatus): string {
@@ -80,7 +81,7 @@ function buildMermaidSource(
 		`    classDef failedState fill:${colors.failed.fill},stroke:${colors.failed.stroke},color:${colors.failed.color},stroke-width:2px`,
 	);
 	lines.push(
-		`    classDef pendingState fill:${colors.pending.fill},stroke:${colors.pending.stroke},color:${colors.pending.color},stroke-dasharray:5 5`,
+		`    classDef pendingState fill:${colors.not_started.fill},stroke:${colors.not_started.stroke},color:${colors.not_started.color},stroke-dasharray:5 5`,
 	);
 
 	lines.push("");
@@ -116,7 +117,7 @@ function buildMermaidSource(
 	lines.push("");
 
 	for (const state of workflow.states) {
-		const status = stepStatusMap.get(state.id) ?? "pending";
+		const status = stepStatusMap.get(state.id) ?? ("not_started" as StepStatus);
 		let className: string;
 		if (state.id === activeStateId) {
 			className = "currentState";
@@ -137,11 +138,14 @@ function buildLegendItems(
 	const hasStatus = (s: StepStatus) => steps.some((step) => step.status === s);
 	const items: { label: string; status: StepStatus }[] = [];
 
-	if (hasStatus("running")) items.push({ label: "Current", status: "running" });
+	if (hasStatus("running"))
+		items.push({ label: getStatusLabel("running"), status: "running" });
 	if (hasStatus("completed"))
-		items.push({ label: "Completed", status: "completed" });
-	if (hasStatus("failed")) items.push({ label: "Failed", status: "failed" });
-	if (hasStatus("pending")) items.push({ label: "Pending", status: "pending" });
+		items.push({ label: getStatusLabel("completed"), status: "completed" });
+	if (hasStatus("failed"))
+		items.push({ label: getStatusLabel("failed"), status: "failed" });
+	if (hasStatus("not_started"))
+		items.push({ label: getStatusLabel("not_started"), status: "not_started" });
 
 	return items;
 }
@@ -158,7 +162,10 @@ function legendColorForStatus(
 		case "failed":
 			return { fill: colors.failed.fill, border: colors.failed.stroke };
 		default:
-			return { fill: colors.pending.fill, border: colors.pending.stroke };
+			return {
+				fill: colors.not_started.fill,
+				border: colors.not_started.stroke,
+			};
 	}
 }
 
@@ -225,7 +232,7 @@ export function WorkflowDiagram({
 										style={{
 											backgroundColor: color.fill,
 											border: `1.5px solid ${color.border}`,
-											...(item.status === "pending"
+											...(item.status === "not_started"
 												? {
 														backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 2px, ${color.border} 2px, ${color.border} 3px)`,
 													}

@@ -1,10 +1,22 @@
 /**
- * Annotation persistence service with atomic JSON file operations.
- * Uses open-tasks.json as the single source of truth for annotations.
+ * Annotation persistence service backed by SQLite.
+ * All annotation data is stored in the annotations table of rp1.db,
+ * referenced by doc_id (foreign key to artifacts.doc_id).
  */
 
-import { readFile, rename, unlink, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import type { Database } from "bun:sqlite";
+import type {
+	AnnotationRecord,
+	AnnotationStatus,
+} from "../../../src/agent-tools/emit/database.js";
+import {
+	deleteAnnotation as dbDeleteAnnotation,
+	updateAnnotation as dbUpdateAnnotation,
+	getAnnotationById,
+	getAnnotationsForDocId,
+	getAnnotationsForRun,
+	upsertAnnotation,
+} from "../../../src/agent-tools/emit/database.js";
 import type {
 	AddReplyRequest,
 	Anchor,
@@ -17,349 +29,342 @@ import type {
 } from "../types/annotations";
 
 /**
- * Schema version for the open-tasks.json file.
- */
-const SCHEMA_VERSION = "1.0.0" as const;
-
-/**
- * Root structure for the open-tasks.json file.
- */
-export interface OpenTasksFile {
-	readonly version: typeof SCHEMA_VERSION;
-	readonly lastModified: string;
-	readonly annotations: readonly Annotation[];
-}
-
-/**
  * Error types for annotation operations.
  */
 export type AnnotationServiceError =
 	| { readonly _tag: "NotFound"; readonly id: string }
-	| { readonly _tag: "FileSystemError"; readonly message: string }
+	| { readonly _tag: "DatabaseError"; readonly message: string }
 	| { readonly _tag: "ValidationError"; readonly message: string };
 
 /**
- * Generate a unique annotation ID.
- * Uses ANN prefix with timestamp and random suffix for uniqueness.
+ * Data stored in the annotation's JSON `data` column.
  */
-function generateAnnotationId(): string {
-	const timestamp = Date.now().toString(36);
-	const random = Math.random().toString(36).substring(2, 8);
-	return `ANN-${timestamp}-${random}`;
+interface AnnotationData {
+	readonly anchor: Anchor;
+	readonly orphaned: boolean;
+	readonly artifactPath?: string;
 }
 
 /**
- * Generate a unique reply ID.
+ * Convert an AnnotationRecord from the database into the client-facing Annotation type.
+ * Fetches child replies from the database for threading.
  */
-function generateReplyId(): string {
-	const timestamp = Date.now().toString(36);
-	const random = Math.random().toString(36).substring(2, 6);
-	return `REP-${timestamp}-${random}`;
-}
+function recordToAnnotation(
+	db: Database,
+	record: AnnotationRecord,
+): Annotation {
+	const data: AnnotationData = record.data
+		? (JSON.parse(record.data) as AnnotationData)
+		: {
+				anchor: {
+					type: "text-selection",
+					startOffset: 0,
+					endOffset: 0,
+					selectedText: "",
+					contextBefore: "",
+					contextAfter: "",
+				},
+				orphaned: false,
+			};
 
-/**
- * Get the path to the open-tasks.json file for a project.
- */
-function getOpenTasksPath(projectPath: string): string {
-	return join(projectPath, ".rp1", "open-tasks.json");
-}
+	const replyRows = db
+		.prepare(
+			"SELECT * FROM annotations WHERE parent_id = $parentId ORDER BY created_at ASC",
+		)
+		.all({ $parentId: record.id }) as Array<{
+		id: number;
+		doc_id: string;
+		run_id: string | null;
+		content: string;
+		data: string | null;
+		parent_id: number | null;
+		status: string;
+		author: string;
+		created_at: string;
+		updated_at: string;
+	}>;
 
-/**
- * Create an empty open-tasks file structure.
- */
-function createEmptyOpenTasksFile(): OpenTasksFile {
+	const replies: AnnotationReply[] = replyRows.map((row) => ({
+		id: String(row.id),
+		content: row.content,
+		author: row.author,
+		createdAt: row.created_at,
+	}));
+
 	return {
-		version: SCHEMA_VERSION,
-		lastModified: new Date().toISOString(),
-		annotations: [],
+		id: String(record.id),
+		docId: record.docId,
+		artifactPath: data.artifactPath,
+		runId: record.runId ?? undefined,
+		anchor: data.anchor,
+		content: record.content,
+		status: record.status,
+		author: record.author,
+		createdAt: record.createdAt,
+		updatedAt: record.updatedAt,
+		replies,
+		orphaned: data.orphaned,
 	};
 }
 
 /**
- * Validate the open-tasks file schema.
+ * Serialize anchor and orphaned state into the data JSON column.
  */
-function isValidOpenTasksFile(data: unknown): data is OpenTasksFile {
-	if (typeof data !== "object" || data === null) {
-		return false;
-	}
-
-	const file = data as Record<string, unknown>;
-
-	if (file.version !== SCHEMA_VERSION) {
-		return false;
-	}
-
-	if (typeof file.lastModified !== "string") {
-		return false;
-	}
-
-	if (!Array.isArray(file.annotations)) {
-		return false;
-	}
-
-	return true;
-}
-
-/**
- * Load the open-tasks.json file, creating empty if missing or corrupted.
- */
-async function loadOpenTasksFile(projectPath: string): Promise<OpenTasksFile> {
-	const filePath = getOpenTasksPath(projectPath);
-
-	try {
-		const content = await readFile(filePath, "utf-8");
-		const parsed: unknown = JSON.parse(content);
-
-		if (!isValidOpenTasksFile(parsed)) {
-			console.warn("open-tasks.json has invalid schema, creating new file");
-			return createEmptyOpenTasksFile();
-		}
-
-		return parsed;
-	} catch (error) {
-		if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-			return createEmptyOpenTasksFile();
-		}
-
-		console.warn("Failed to read open-tasks.json, creating new:", error);
-		return createEmptyOpenTasksFile();
-	}
-}
-
-/**
- * Save the open-tasks.json file atomically using temp file + rename.
- */
-async function saveOpenTasksFile(
-	projectPath: string,
-	file: OpenTasksFile,
-): Promise<void> {
-	const filePath = getOpenTasksPath(projectPath);
-	const tempPath = `${filePath}.tmp.${Date.now()}`;
-
-	const updatedFile: OpenTasksFile = {
-		...file,
-		lastModified: new Date().toISOString(),
-	};
-
-	try {
-		await writeFile(tempPath, JSON.stringify(updatedFile, null, 2), {
-			mode: 0o644,
-		});
-
-		await rename(tempPath, filePath);
-	} catch (error) {
-		try {
-			await unlink(tempPath);
-		} catch {
-			// Ignore cleanup errors
-		}
-		throw error;
-	}
-}
-
-/**
- * Get all annotations, optionally filtered by artifact path.
- */
-export async function getAnnotations(
-	projectPath: string,
+function buildDataJson(
+	anchor: Anchor,
+	orphaned: boolean,
 	artifactPath?: string,
-): Promise<Annotation[]> {
-	const file = await loadOpenTasksFile(projectPath);
+): string {
+	const data: AnnotationData = { anchor, orphaned, artifactPath };
+	return JSON.stringify(data);
+}
 
-	if (artifactPath) {
-		return file.annotations.filter(
-			(a) => a.artifactPath === artifactPath,
-		) as Annotation[];
+/**
+ * Get all annotations, optionally filtered by doc_id and/or run_id.
+ */
+export function getAnnotations(
+	db: Database,
+	opts: { docId?: string; runId?: string } = {},
+): Annotation[] {
+	let records: AnnotationRecord[];
+
+	if (opts.docId && opts.runId) {
+		const rows = db
+			.prepare(
+				"SELECT * FROM annotations WHERE doc_id = $docId AND run_id = $runId AND parent_id IS NULL ORDER BY created_at ASC",
+			)
+			.all({ $docId: opts.docId, $runId: opts.runId }) as Array<{
+			id: number;
+			doc_id: string;
+			run_id: string | null;
+			content: string;
+			data: string | null;
+			parent_id: number | null;
+			status: string;
+			author: string;
+			created_at: string;
+			updated_at: string;
+		}>;
+
+		records = rows.map((row) => ({
+			id: row.id,
+			docId: row.doc_id,
+			runId: row.run_id,
+			content: row.content,
+			data: row.data,
+			parentId: row.parent_id,
+			status: row.status as AnnotationStatus,
+			author: row.author,
+			createdAt: row.created_at,
+			updatedAt: row.updated_at,
+		}));
+	} else if (opts.docId) {
+		records = getAnnotationsForDocId(db, opts.docId).filter(
+			(r) => r.parentId === null,
+		);
+	} else if (opts.runId) {
+		records = getAnnotationsForRun(db, opts.runId).filter(
+			(r) => r.parentId === null,
+		);
+	} else {
+		const rows = db
+			.prepare(
+				"SELECT * FROM annotations WHERE parent_id IS NULL ORDER BY created_at ASC",
+			)
+			.all() as Array<{
+			id: number;
+			doc_id: string;
+			run_id: string | null;
+			content: string;
+			data: string | null;
+			parent_id: number | null;
+			status: string;
+			author: string;
+			created_at: string;
+			updated_at: string;
+		}>;
+
+		records = rows.map((row) => ({
+			id: row.id,
+			docId: row.doc_id,
+			runId: row.run_id,
+			content: row.content,
+			data: row.data,
+			parentId: row.parent_id,
+			status: row.status as AnnotationStatus,
+			author: row.author,
+			createdAt: row.created_at,
+			updatedAt: row.updated_at,
+		}));
 	}
 
-	return file.annotations as Annotation[];
+	return records.map((r) => recordToAnnotation(db, r));
 }
 
 /**
  * Get a single annotation by ID.
  */
-export async function getAnnotation(
-	projectPath: string,
-	id: string,
-): Promise<Annotation | null> {
-	const file = await loadOpenTasksFile(projectPath);
-	const annotation = file.annotations.find((a) => a.id === id);
-	return (annotation as Annotation) ?? null;
+export function getAnnotation(db: Database, id: string): Annotation | null {
+	const numId = Number(id);
+	if (Number.isNaN(numId)) {
+		return null;
+	}
+
+	const record = getAnnotationById(db, numId);
+	if (!record || record.parentId !== null) {
+		return null;
+	}
+
+	return recordToAnnotation(db, record);
 }
 
 /**
  * Create a new annotation.
  */
-export async function createAnnotation(
-	projectPath: string,
+export function createAnnotation(
+	db: Database,
 	request: CreateAnnotationRequest,
 	author?: string,
-): Promise<Annotation> {
-	const file = await loadOpenTasksFile(projectPath);
-	const now = new Date().toISOString();
+): Annotation {
+	const dataJson = buildDataJson(request.anchor, false, request.artifactPath);
 
-	const annotation: Annotation = {
-		id: generateAnnotationId(),
-		artifactPath: request.artifactPath,
-		anchor: request.anchor,
+	const record = upsertAnnotation(db, {
+		docId: request.docId,
+		runId: request.runId,
 		content: request.content,
+		data: dataJson,
 		status: "open",
 		author: author ?? "user",
-		createdAt: now,
-		updatedAt: now,
-		replies: [],
-		orphaned: false,
-	};
+	});
 
-	const updatedFile: OpenTasksFile = {
-		...file,
-		annotations: [...file.annotations, annotation],
-	};
-
-	await saveOpenTasksFile(projectPath, updatedFile);
-	return annotation;
+	return recordToAnnotation(db, record);
 }
 
 /**
  * Update an existing annotation.
- * Only allows updating content and orphaned status.
+ * Supports updating content and orphaned status.
  */
-export async function updateAnnotation(
-	projectPath: string,
+export function updateAnnotation(
+	db: Database,
 	id: string,
 	updates: Partial<Pick<Annotation, "content" | "orphaned">>,
-): Promise<Annotation> {
-	const file = await loadOpenTasksFile(projectPath);
-	const index = file.annotations.findIndex((a) => a.id === id);
-
-	if (index === -1) {
+): Annotation {
+	const numId = Number(id);
+	if (Number.isNaN(numId)) {
 		const error: AnnotationServiceError = { _tag: "NotFound", id };
 		throw error;
 	}
 
-	const existing = file.annotations[index];
-	const updated: Annotation = {
-		...existing,
-		...updates,
-		updatedAt: new Date().toISOString(),
-	};
+	const existing = getAnnotationById(db, numId);
+	if (!existing) {
+		const error: AnnotationServiceError = { _tag: "NotFound", id };
+		throw error;
+	}
 
-	const annotations = [...file.annotations];
-	annotations[index] = updated;
+	const updatePayload: { content?: string; data?: string } = {};
 
-	const updatedFile: OpenTasksFile = {
-		...file,
-		annotations,
-	};
+	if (updates.content != null) {
+		updatePayload.content = updates.content;
+	}
 
-	await saveOpenTasksFile(projectPath, updatedFile);
-	return updated;
+	if (updates.orphaned != null) {
+		const existingData: AnnotationData = existing.data
+			? (JSON.parse(existing.data) as AnnotationData)
+			: {
+					anchor: {
+						type: "text-selection",
+						startOffset: 0,
+						endOffset: 0,
+						selectedText: "",
+						contextBefore: "",
+						contextAfter: "",
+					},
+					orphaned: false,
+				};
+
+		updatePayload.data = JSON.stringify({
+			...existingData,
+			orphaned: updates.orphaned,
+		});
+	}
+
+	const record = dbUpdateAnnotation(db, numId, updatePayload);
+	return recordToAnnotation(db, record);
 }
 
 /**
  * Mark an annotation as resolved.
  */
-export async function resolveAnnotation(
-	projectPath: string,
-	id: string,
-): Promise<void> {
-	const file = await loadOpenTasksFile(projectPath);
-	const index = file.annotations.findIndex((a) => a.id === id);
-
-	if (index === -1) {
+export function resolveAnnotation(db: Database, id: string): void {
+	const numId = Number(id);
+	if (Number.isNaN(numId)) {
 		const error: AnnotationServiceError = { _tag: "NotFound", id };
 		throw error;
 	}
 
-	const existing = file.annotations[index];
-	const updated: Annotation = {
-		...existing,
-		status: "resolved",
-		updatedAt: new Date().toISOString(),
-	};
+	const existing = getAnnotationById(db, numId);
+	if (!existing) {
+		const error: AnnotationServiceError = { _tag: "NotFound", id };
+		throw error;
+	}
 
-	const annotations = [...file.annotations];
-	annotations[index] = updated;
-
-	const updatedFile: OpenTasksFile = {
-		...file,
-		annotations,
-	};
-
-	await saveOpenTasksFile(projectPath, updatedFile);
+	dbUpdateAnnotation(db, numId, { status: "resolved" });
 }
 
 /**
  * Reopen a resolved annotation.
  */
-export async function reopenAnnotation(
-	projectPath: string,
-	id: string,
-): Promise<void> {
-	const file = await loadOpenTasksFile(projectPath);
-	const index = file.annotations.findIndex((a) => a.id === id);
-
-	if (index === -1) {
+export function reopenAnnotation(db: Database, id: string): void {
+	const numId = Number(id);
+	if (Number.isNaN(numId)) {
 		const error: AnnotationServiceError = { _tag: "NotFound", id };
 		throw error;
 	}
 
-	const existing = file.annotations[index];
-	const updated: Annotation = {
-		...existing,
-		status: "open",
-		updatedAt: new Date().toISOString(),
-	};
+	const existing = getAnnotationById(db, numId);
+	if (!existing) {
+		const error: AnnotationServiceError = { _tag: "NotFound", id };
+		throw error;
+	}
 
-	const annotations = [...file.annotations];
-	annotations[index] = updated;
-
-	const updatedFile: OpenTasksFile = {
-		...file,
-		annotations,
-	};
-
-	await saveOpenTasksFile(projectPath, updatedFile);
+	dbUpdateAnnotation(db, numId, { status: "open" });
 }
 
 /**
- * Delete an annotation.
+ * Delete an annotation and its replies.
  */
-export async function deleteAnnotation(
-	projectPath: string,
-	id: string,
-): Promise<void> {
-	const file = await loadOpenTasksFile(projectPath);
-	const index = file.annotations.findIndex((a) => a.id === id);
-
-	if (index === -1) {
+export function deleteAnnotation(db: Database, id: string): void {
+	const numId = Number(id);
+	if (Number.isNaN(numId)) {
 		const error: AnnotationServiceError = { _tag: "NotFound", id };
 		throw error;
 	}
 
-	const annotations = file.annotations.filter((a) => a.id !== id);
+	const existing = getAnnotationById(db, numId);
+	if (!existing) {
+		const error: AnnotationServiceError = { _tag: "NotFound", id };
+		throw error;
+	}
 
-	const updatedFile: OpenTasksFile = {
-		...file,
-		annotations,
-	};
+	db.prepare("DELETE FROM annotations WHERE parent_id = $parentId").run({
+		$parentId: numId,
+	});
 
-	await saveOpenTasksFile(projectPath, updatedFile);
+	dbDeleteAnnotation(db, numId);
 }
 
 /**
  * Add a reply to an annotation thread.
+ * Creates a child annotation row with parent_id pointing to the root annotation.
  */
-export async function addReply(
-	projectPath: string,
+export function addReply(
+	db: Database,
 	annotationId: string,
 	request: AddReplyRequest,
 	author?: string,
-): Promise<AnnotationReply> {
-	const file = await loadOpenTasksFile(projectPath);
-	const index = file.annotations.findIndex((a) => a.id === annotationId);
-
-	if (index === -1) {
+): AnnotationReply {
+	const numId = Number(annotationId);
+	if (Number.isNaN(numId)) {
 		const error: AnnotationServiceError = {
 			_tag: "NotFound",
 			id: annotationId,
@@ -367,31 +372,30 @@ export async function addReply(
 		throw error;
 	}
 
-	const now = new Date().toISOString();
-	const reply: AnnotationReply = {
-		id: generateReplyId(),
+	const parent = getAnnotationById(db, numId);
+	if (!parent) {
+		const error: AnnotationServiceError = {
+			_tag: "NotFound",
+			id: annotationId,
+		};
+		throw error;
+	}
+
+	const record = upsertAnnotation(db, {
+		docId: parent.docId,
+		runId: parent.runId ?? undefined,
 		content: request.content,
+		parentId: numId,
+		status: "open",
 		author: author ?? "user",
-		createdAt: now,
+	});
+
+	return {
+		id: String(record.id),
+		content: record.content,
+		author: record.author,
+		createdAt: record.createdAt,
 	};
-
-	const existing = file.annotations[index];
-	const updated: Annotation = {
-		...existing,
-		replies: [...existing.replies, reply],
-		updatedAt: now,
-	};
-
-	const annotations = [...file.annotations];
-	annotations[index] = updated;
-
-	const updatedFile: OpenTasksFile = {
-		...file,
-		annotations,
-	};
-
-	await saveOpenTasksFile(projectPath, updatedFile);
-	return reply;
 }
 
 /**
@@ -433,44 +437,39 @@ function escapeRegex(str: string): string {
 }
 
 /**
- * Detect and mark orphaned annotations for a specific artifact.
+ * Detect and mark orphaned annotations for a specific artifact by doc_id.
  * An annotation is orphaned when its anchor text can no longer be found in the content.
  */
-export async function detectOrphanedAnnotations(
-	projectPath: string,
-	artifactPath: string,
+export function detectOrphanedAnnotations(
+	db: Database,
+	docId: string,
 	content: string,
-): Promise<void> {
-	const file = await loadOpenTasksFile(projectPath);
-	let hasChanges = false;
+): void {
+	const records = getAnnotationsForDocId(db, docId).filter(
+		(r) => r.parentId === null,
+	);
 
-	const updatedAnnotations = file.annotations.map((annotation) => {
-		if (annotation.artifactPath !== artifactPath) {
-			return annotation;
+	for (const record of records) {
+		const data: AnnotationData | null = record.data
+			? (JSON.parse(record.data) as AnnotationData)
+			: null;
+
+		if (!data) {
+			continue;
 		}
 
-		const isValid = isAnchorValid(annotation.anchor, content);
+		const isValid = isAnchorValid(data.anchor, content);
 		const shouldBeOrphaned = !isValid;
 
-		if (annotation.orphaned !== shouldBeOrphaned) {
-			hasChanges = true;
-			return {
-				...annotation,
+		if (data.orphaned !== shouldBeOrphaned) {
+			const updatedData: AnnotationData = {
+				...data,
 				orphaned: shouldBeOrphaned,
-				updatedAt: new Date().toISOString(),
 			};
+			dbUpdateAnnotation(db, record.id, {
+				data: JSON.stringify(updatedData),
+			});
 		}
-
-		return annotation;
-	});
-
-	if (hasChanges) {
-		const updatedFile: OpenTasksFile = {
-			...file,
-			annotations: updatedAnnotations,
-		};
-
-		await saveOpenTasksFile(projectPath, updatedFile);
 	}
 }
 
@@ -483,8 +482,8 @@ export function formatAnnotationServiceError(
 	switch (error._tag) {
 		case "NotFound":
 			return `Annotation not found: ${error.id}`;
-		case "FileSystemError":
-			return `File system error: ${error.message}`;
+		case "DatabaseError":
+			return `Database error: ${error.message}`;
 		case "ValidationError":
 			return `Validation error: ${error.message}`;
 	}

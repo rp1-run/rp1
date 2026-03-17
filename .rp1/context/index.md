@@ -3,32 +3,32 @@
 **Type**: Monorepo
 **Languages**: TypeScript, TSX, Markdown, JSON, YAML, TOML, Shell, Python, CSS, HTML
 **Version**: 0.5.2
-**Updated**: 2026-03-09
+**Updated**: 2026-03-15
 **Projects**: 7 (`cli`, `cli/web-ui`, `plugins/base`, `plugins/dev`, `plugins/utils`, `evals`, `packages/catppuccin-mermaid`)
 
 ## Project Summary
 
-rp1 is an AI-assisted development workflow system built around a Bun and TypeScript CLI, markdown-authored skills and agents, a live Web UI dashboard, and supporting evaluation and documentation tooling. The repository is organized as a plugin-driven monorepo where `base` provides foundational knowledge and utility workflows, `dev` builds higher-level implementation and review workflows on top of that base, and shared runtime services track execution state through local SQLite-backed agent tools.
+rp1 is a plugin-driven AI development workflow system built around a Bun and TypeScript CLI, markdown-authored skills and agents, local workflow state tracking, a live Web UI dashboard, and eval tooling for prompt attestation. The repository exists to make agent workflows inspectable, reproducible, and easier to ship across Claude Code, OpenCode, and Codex.
 
 ## Quick Reference
 
 | Aspect | Value |
 |--------|-------|
 | Entry Point | `cli/src/main.ts` |
-| Key Pattern | Plugin architecture with skill-agent delegation |
+| Key Pattern | Skill-as-orchestrator with agent delegation |
 | Tech Stack | Bun, TypeScript, React, Vite, Tailwind CSS, Commander, fp-ts, SQLite |
 
 ## Projects Overview
 
 | Project | Purpose | Language | Entry Point |
 |---------|---------|----------|-------------|
-| `cli` | Main executable and shared runtime | TypeScript | `cli/src/main.ts` |
-| `cli/web-ui` | Live project and run dashboard | TSX | `cli/web-ui/src/app/App.tsx` |
-| `plugins/base` | KB, docs, strategy, and utility workflows | Markdown | `plugins/base/skills/` |
-| `plugins/dev` | Build, review, and delivery workflows | Markdown | `plugins/dev/skills/` |
-| `plugins/utils` | Prompt and helper workflows | Markdown | `plugins/utils/skills/` |
-| `evals` | Prompt and artifact attestation tooling | TypeScript | `evals/src/index.ts` |
-| `packages/catppuccin-mermaid` | Mermaid theming package | TypeScript | `packages/catppuccin-mermaid/src/index.ts` |
+| `cli` | Main executable, installers, build pipeline, and runtime services | TypeScript | `cli/src/main.ts` |
+| `cli/web-ui` | Local dashboard, daemon server, APIs, and run visualization | TSX | `cli/web-ui/src/server.ts` |
+| `plugins/base` | KB, docs, Mermaid, strategy, and foundational workflows | Markdown | `plugins/base/skills/` |
+| `plugins/dev` | Feature delivery, review, audit, and archive workflows | Markdown | `plugins/dev/skills/` |
+| `plugins/utils` | Prompt utility and eval-helper workflows | Markdown | `plugins/utils/skills/` |
+| `evals` | Prompt evaluation and attestation tooling | TypeScript | `evals/src/index.ts` |
+| `packages/catppuccin-mermaid` | Shared Mermaid theming package | TypeScript | `packages/catppuccin-mermaid/src/index.ts` |
 
 ## KB File Manifest
 
@@ -36,10 +36,10 @@ rp1 is an AI-assisted development workflow system built around a Bun and TypeScr
 
 | File | Lines | Load For |
 |------|-------|----------|
-| architecture.md | ~189 | System design, component relationships, data flows |
-| modules.md | ~144 | Component breakdown, module responsibilities |
+| architecture.md | ~88 | System design, component relationships, data flows |
+| modules.md | ~68 | Component breakdown, module responsibilities |
 | patterns.md | ~84 | Code conventions, implementation patterns |
-| concept_map.md | ~101 | Domain terminology, business concepts |
+| concept_map.md | ~64 | Domain terminology, business concepts |
 | dependencies.md | ~100 | Inter-project dependencies, shared code |
 | technology-matrix.md | ~84 | Technology decisions, framework choices |
 
@@ -63,13 +63,13 @@ Read: {{$RP1_ROOT}}/context/{filename}
 
 ```text
 rp1/
-├── cli/                         # Main CLI, runtime services, and Web UI server
+├── cli/                         # Main CLI, installers, and runtime services
+├── cli/web-ui/                  # Dashboard frontend and Bun daemon server
 ├── plugins/base/                # Foundational KB and utility workflows
-├── plugins/dev/                 # Feature and PR workflows
-├── plugins/utils/               # Prompt utility workflows
-├── evals/                       # Prompt and artifact evaluation tooling
-├── packages/catppuccin-mermaid/ # Mermaid theming package
-└── docs/                        # Published documentation site
+├── plugins/dev/                 # Delivery, review, and archive workflows
+├── plugins/utils/               # Prompt and helper workflows
+├── evals/                       # Prompt evaluation and attestation tooling
+└── packages/catppuccin-mermaid/ # Shared Mermaid theming package
 ```
 
 ## Navigation

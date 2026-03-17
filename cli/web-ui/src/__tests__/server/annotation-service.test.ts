@@ -1,12 +1,10 @@
 /**
- * Unit tests for annotation persistence service.
- * Tests CRUD operations, threading, and orphan detection.
+ * Unit tests for annotation persistence service backed by SQLite.
+ * Tests CRUD operations, threading, status transitions, doc_id/run_id filtering, and orphan detection.
  */
 
+import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdir, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import {
 	addReply,
 	createAnnotation,
@@ -14,81 +12,184 @@ import {
 	detectOrphanedAnnotations,
 	getAnnotation,
 	getAnnotations,
-	type OpenTasksFile,
 	reopenAnnotation,
 	resolveAnnotation,
 	updateAnnotation,
 } from "../../server/annotation-service";
 import type { CreateAnnotationRequest } from "../../types/annotations";
 
-describe("annotation-service", () => {
-	let testProjectPath: string;
+const SCHEMA_SQL = `
+PRAGMA foreign_keys = ON;
 
-	beforeEach(async () => {
-		testProjectPath = join(tmpdir(), `annotation-test-${Date.now()}`);
-		await mkdir(join(testProjectPath, ".rp1"), { recursive: true });
+CREATE TABLE IF NOT EXISTS schema_version (
+    version INTEGER NOT NULL
+);
+INSERT INTO schema_version (version) VALUES (2);
+
+CREATE TABLE IF NOT EXISTS runs (
+    id TEXT PRIMARY KEY NOT NULL,
+    flow TEXT NOT NULL,
+    feature_id TEXT NOT NULL,
+    project_path TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'not_started',
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE TABLE IF NOT EXISTS artifacts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    doc_id TEXT UNIQUE NOT NULL,
+    run_id TEXT REFERENCES runs(id),
+    path TEXT NOT NULL,
+    type TEXT NOT NULL DEFAULT 'other',
+    project_path TEXT NOT NULL,
+    feature TEXT NOT NULL,
+    step TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE TABLE IF NOT EXISTS annotations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    doc_id TEXT NOT NULL REFERENCES artifacts(doc_id),
+    run_id TEXT REFERENCES runs(id),
+    content TEXT NOT NULL,
+    data TEXT,
+    parent_id INTEGER REFERENCES annotations(id),
+    status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open', 'resolved')),
+    author TEXT NOT NULL DEFAULT 'user',
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+`;
+
+function makeTextAnchor(
+	selectedText = "test text",
+): CreateAnnotationRequest["anchor"] {
+	return {
+		type: "text-selection",
+		startOffset: 0,
+		endOffset: selectedText.length,
+		selectedText,
+		contextBefore: "",
+		contextAfter: "",
+	};
+}
+
+describe("annotation-service (SQLite)", () => {
+	let db: Database;
+
+	beforeEach(() => {
+		db = new Database(":memory:");
+		db.exec(SCHEMA_SQL);
+
+		db.prepare(
+			"INSERT INTO runs (id, flow, feature_id, project_path) VALUES (?, ?, ?, ?)",
+		).run("run-1", "build", "feat-1", "/test");
+		db.prepare(
+			"INSERT INTO runs (id, flow, feature_id, project_path) VALUES (?, ?, ?, ?)",
+		).run("run-2", "build", "feat-1", "/test");
+
+		db.prepare(
+			"INSERT INTO artifacts (doc_id, run_id, path, type, project_path, feature) VALUES (?, ?, ?, ?, ?, ?)",
+		).run("doc-1", "run-1", "file1.md", "document", "/test", "feat-1");
+		db.prepare(
+			"INSERT INTO artifacts (doc_id, run_id, path, type, project_path, feature) VALUES (?, ?, ?, ?, ?, ?)",
+		).run("doc-2", "run-1", "file2.md", "document", "/test", "feat-1");
+		db.prepare(
+			"INSERT INTO artifacts (doc_id, run_id, path, type, project_path, feature) VALUES (?, ?, ?, ?, ?, ?)",
+		).run("doc-3", "run-2", "file3.md", "document", "/test", "feat-1");
 	});
 
-	afterEach(async () => {
-		await rm(testProjectPath, { recursive: true, force: true });
+	afterEach(() => {
+		db.close();
 	});
 
 	describe("getAnnotations", () => {
-		test("returns empty array when no annotations exist", async () => {
-			const annotations = await getAnnotations(testProjectPath);
+		test("returns empty array when no annotations exist", () => {
+			const annotations = getAnnotations(db);
 			expect(annotations).toEqual([]);
 		});
 
-		test("filters by artifact path", async () => {
-			const request1: CreateAnnotationRequest = {
-				artifactPath: "file1.md",
-				anchor: {
-					type: "text-selection",
-					startOffset: 0,
-					endOffset: 10,
-					selectedText: "test text",
-					contextBefore: "",
-					contextAfter: "",
-				},
+		test("filters by doc_id", () => {
+			const req1: CreateAnnotationRequest = {
+				docId: "doc-1",
+				anchor: makeTextAnchor("first"),
 				content: "First comment",
 			};
-
-			const request2: CreateAnnotationRequest = {
-				artifactPath: "file2.md",
-				anchor: {
-					type: "text-selection",
-					startOffset: 0,
-					endOffset: 10,
-					selectedText: "other text",
-					contextBefore: "",
-					contextAfter: "",
-				},
+			const req2: CreateAnnotationRequest = {
+				docId: "doc-2",
+				anchor: makeTextAnchor("second"),
 				content: "Second comment",
 			};
 
-			await createAnnotation(testProjectPath, request1);
-			await createAnnotation(testProjectPath, request2);
+			createAnnotation(db, req1);
+			createAnnotation(db, req2);
 
-			const file1Annotations = await getAnnotations(
-				testProjectPath,
-				"file1.md",
-			);
-			expect(file1Annotations).toHaveLength(1);
-			expect(file1Annotations[0].content).toBe("First comment");
+			const doc1Annotations = getAnnotations(db, { docId: "doc-1" });
+			expect(doc1Annotations).toHaveLength(1);
+			expect(doc1Annotations[0].content).toBe("First comment");
 
-			const file2Annotations = await getAnnotations(
-				testProjectPath,
-				"file2.md",
-			);
-			expect(file2Annotations).toHaveLength(1);
-			expect(file2Annotations[0].content).toBe("Second comment");
+			const doc2Annotations = getAnnotations(db, { docId: "doc-2" });
+			expect(doc2Annotations).toHaveLength(1);
+			expect(doc2Annotations[0].content).toBe("Second comment");
+		});
+
+		test("filters by run_id", () => {
+			createAnnotation(db, {
+				docId: "doc-1",
+				anchor: makeTextAnchor(),
+				content: "Run 1 comment",
+				runId: "run-1",
+			});
+			createAnnotation(db, {
+				docId: "doc-3",
+				anchor: makeTextAnchor(),
+				content: "Run 2 comment",
+				runId: "run-2",
+			});
+
+			const run1Annotations = getAnnotations(db, { runId: "run-1" });
+			expect(run1Annotations).toHaveLength(1);
+			expect(run1Annotations[0].content).toBe("Run 1 comment");
+		});
+
+		test("filters by both doc_id and run_id", () => {
+			createAnnotation(db, {
+				docId: "doc-1",
+				anchor: makeTextAnchor(),
+				content: "Comment A",
+				runId: "run-1",
+			});
+			createAnnotation(db, {
+				docId: "doc-1",
+				anchor: makeTextAnchor(),
+				content: "Comment B",
+			});
+
+			const filtered = getAnnotations(db, { docId: "doc-1", runId: "run-1" });
+			expect(filtered).toHaveLength(1);
+			expect(filtered[0].content).toBe("Comment A");
+		});
+
+		test("excludes reply rows from listing", () => {
+			const parent = createAnnotation(db, {
+				docId: "doc-1",
+				anchor: makeTextAnchor(),
+				content: "Parent",
+			});
+			addReply(db, parent.id, { content: "Reply" });
+
+			const all = getAnnotations(db);
+			expect(all).toHaveLength(1);
+			expect(all[0].content).toBe("Parent");
 		});
 	});
 
 	describe("createAnnotation", () => {
-		test("creates annotation with all required fields", async () => {
+		test("creates annotation with all required fields", () => {
 			const request: CreateAnnotationRequest = {
-				artifactPath: "test.md",
+				docId: "doc-1",
+				artifactPath: "file1.md",
 				anchor: {
 					type: "text-selection",
 					startOffset: 0,
@@ -100,10 +201,11 @@ describe("annotation-service", () => {
 				content: "My comment",
 			};
 
-			const annotation = await createAnnotation(testProjectPath, request);
+			const annotation = createAnnotation(db, request);
 
-			expect(annotation.id).toMatch(/^ANN-/);
-			expect(annotation.artifactPath).toBe("test.md");
+			expect(Number(annotation.id)).toBeGreaterThan(0);
+			expect(annotation.docId).toBe("doc-1");
+			expect(annotation.artifactPath).toBe("file1.md");
 			expect(annotation.content).toBe("My comment");
 			expect(annotation.status).toBe("open");
 			expect(annotation.author).toBe("user");
@@ -113,9 +215,9 @@ describe("annotation-service", () => {
 			expect(annotation.updatedAt).toBeTruthy();
 		});
 
-		test("creates annotation with custom author", async () => {
+		test("creates annotation with custom author", () => {
 			const request: CreateAnnotationRequest = {
-				artifactPath: "test.md",
+				docId: "doc-1",
 				anchor: {
 					type: "line",
 					lineNumber: 5,
@@ -124,17 +226,25 @@ describe("annotation-service", () => {
 				content: "Line comment",
 			};
 
-			const annotation = await createAnnotation(
-				testProjectPath,
-				request,
-				"alice",
-			);
+			const annotation = createAnnotation(db, request, "alice");
 			expect(annotation.author).toBe("alice");
 		});
 
-		test("persists annotation to file with correct schema", async () => {
+		test("creates annotation with run_id", () => {
 			const request: CreateAnnotationRequest = {
-				artifactPath: "test.md",
+				docId: "doc-1",
+				anchor: makeTextAnchor(),
+				content: "Run-scoped comment",
+				runId: "run-1",
+			};
+
+			const annotation = createAnnotation(db, request);
+			expect(annotation.runId).toBe("run-1");
+		});
+
+		test("stores anchor data in the database", () => {
+			const request: CreateAnnotationRequest = {
+				docId: "doc-1",
 				anchor: {
 					type: "hidden-anchor",
 					anchorId: "section-1",
@@ -143,247 +253,205 @@ describe("annotation-service", () => {
 				content: "Anchor comment",
 			};
 
-			await createAnnotation(testProjectPath, request);
-
-			const filePath = join(testProjectPath, ".rp1", "open-tasks.json");
-			const content = await readFile(filePath, "utf-8");
-			const file: OpenTasksFile = JSON.parse(content);
-
-			expect(file.version).toBe("1.0.0");
-			expect(file.lastModified).toBeTruthy();
-			expect(file.annotations).toHaveLength(1);
+			const annotation = createAnnotation(db, request);
+			expect(annotation.anchor.type).toBe("hidden-anchor");
+			expect((annotation.anchor as { anchorId: string }).anchorId).toBe(
+				"section-1",
+			);
 		});
 	});
 
 	describe("getAnnotation", () => {
-		test("returns annotation by ID", async () => {
+		test("returns annotation by ID", () => {
 			const request: CreateAnnotationRequest = {
-				artifactPath: "test.md",
-				anchor: {
-					type: "text-selection",
-					startOffset: 0,
-					endOffset: 5,
-					selectedText: "hello",
-					contextBefore: "",
-					contextAfter: "",
-				},
+				docId: "doc-1",
+				anchor: makeTextAnchor("hello"),
 				content: "Get me",
 			};
 
-			const created = await createAnnotation(testProjectPath, request);
-			const fetched = await getAnnotation(testProjectPath, created.id);
+			const created = createAnnotation(db, request);
+			const fetched = getAnnotation(db, created.id);
 
 			expect(fetched).not.toBeNull();
 			expect(fetched?.id).toBe(created.id);
 			expect(fetched?.content).toBe("Get me");
 		});
 
-		test("returns null for non-existent ID", async () => {
-			const result = await getAnnotation(testProjectPath, "nonexistent");
+		test("returns null for non-existent ID", () => {
+			const result = getAnnotation(db, "999");
+			expect(result).toBeNull();
+		});
+
+		test("returns null for reply IDs (only root annotations)", () => {
+			const parent = createAnnotation(db, {
+				docId: "doc-1",
+				anchor: makeTextAnchor(),
+				content: "Parent",
+			});
+			const reply = addReply(db, parent.id, { content: "Reply" });
+
+			const result = getAnnotation(db, reply.id);
 			expect(result).toBeNull();
 		});
 	});
 
 	describe("updateAnnotation", () => {
-		test("updates annotation content", async () => {
-			const request: CreateAnnotationRequest = {
-				artifactPath: "test.md",
-				anchor: {
-					type: "text-selection",
-					startOffset: 0,
-					endOffset: 5,
-					selectedText: "hello",
-					contextBefore: "",
-					contextAfter: "",
-				},
+		test("updates annotation content", () => {
+			const created = createAnnotation(db, {
+				docId: "doc-1",
+				anchor: makeTextAnchor("hello"),
 				content: "Original",
-			};
+			});
 
-			const created = await createAnnotation(testProjectPath, request);
-
-			// Small delay to ensure updatedAt will be different
-			await new Promise((resolve) => setTimeout(resolve, 10));
-
-			const updated = await updateAnnotation(testProjectPath, created.id, {
+			const updated = updateAnnotation(db, created.id, {
 				content: "Updated",
 			});
 
 			expect(updated.content).toBe("Updated");
-			// Verify updatedAt was refreshed (may be same or different depending on timing)
 			expect(updated.updatedAt).toBeTruthy();
 		});
 
-		test("throws for non-existent ID", async () => {
-			await expect(
-				updateAnnotation(testProjectPath, "nonexistent", { content: "test" }),
-			).rejects.toMatchObject({
-				_tag: "NotFound",
-				id: "nonexistent",
+		test("updates orphaned status", () => {
+			const created = createAnnotation(db, {
+				docId: "doc-1",
+				anchor: makeTextAnchor("hello"),
+				content: "Test",
 			});
+
+			const updated = updateAnnotation(db, created.id, {
+				orphaned: true,
+			});
+
+			expect(updated.orphaned).toBe(true);
+		});
+
+		test("throws for non-existent ID", () => {
+			expect(() => updateAnnotation(db, "999", { content: "test" })).toThrow();
 		});
 	});
 
 	describe("resolveAnnotation", () => {
-		test("marks annotation as resolved", async () => {
-			const request: CreateAnnotationRequest = {
-				artifactPath: "test.md",
-				anchor: {
-					type: "text-selection",
-					startOffset: 0,
-					endOffset: 5,
-					selectedText: "hello",
-					contextBefore: "",
-					contextAfter: "",
-				},
+		test("marks annotation as resolved", () => {
+			const created = createAnnotation(db, {
+				docId: "doc-1",
+				anchor: makeTextAnchor("hello"),
 				content: "Resolve me",
-			};
+			});
 
-			const created = await createAnnotation(testProjectPath, request);
-			await resolveAnnotation(testProjectPath, created.id);
+			resolveAnnotation(db, created.id);
 
-			const fetched = await getAnnotation(testProjectPath, created.id);
+			const fetched = getAnnotation(db, created.id);
 			expect(fetched?.status).toBe("resolved");
 		});
 
-		test("throws for non-existent ID", async () => {
-			await expect(
-				resolveAnnotation(testProjectPath, "nonexistent"),
-			).rejects.toMatchObject({
-				_tag: "NotFound",
-			});
+		test("throws for non-existent ID", () => {
+			expect(() => resolveAnnotation(db, "999")).toThrow();
 		});
 	});
 
 	describe("reopenAnnotation", () => {
-		test("reopens resolved annotation", async () => {
-			const request: CreateAnnotationRequest = {
-				artifactPath: "test.md",
-				anchor: {
-					type: "text-selection",
-					startOffset: 0,
-					endOffset: 5,
-					selectedText: "hello",
-					contextBefore: "",
-					contextAfter: "",
-				},
+		test("reopens resolved annotation", () => {
+			const created = createAnnotation(db, {
+				docId: "doc-1",
+				anchor: makeTextAnchor("hello"),
 				content: "Reopen me",
-			};
+			});
 
-			const created = await createAnnotation(testProjectPath, request);
-			await resolveAnnotation(testProjectPath, created.id);
-			await reopenAnnotation(testProjectPath, created.id);
+			resolveAnnotation(db, created.id);
+			reopenAnnotation(db, created.id);
 
-			const fetched = await getAnnotation(testProjectPath, created.id);
+			const fetched = getAnnotation(db, created.id);
 			expect(fetched?.status).toBe("open");
 		});
 	});
 
 	describe("deleteAnnotation", () => {
-		test("removes annotation from file", async () => {
-			const request: CreateAnnotationRequest = {
-				artifactPath: "test.md",
-				anchor: {
-					type: "text-selection",
-					startOffset: 0,
-					endOffset: 5,
-					selectedText: "hello",
-					contextBefore: "",
-					contextAfter: "",
-				},
+		test("removes annotation from database", () => {
+			const created = createAnnotation(db, {
+				docId: "doc-1",
+				anchor: makeTextAnchor("hello"),
 				content: "Delete me",
-			};
+			});
 
-			const created = await createAnnotation(testProjectPath, request);
-			await deleteAnnotation(testProjectPath, created.id);
+			deleteAnnotation(db, created.id);
 
-			const fetched = await getAnnotation(testProjectPath, created.id);
+			const fetched = getAnnotation(db, created.id);
 			expect(fetched).toBeNull();
 
-			const all = await getAnnotations(testProjectPath);
+			const all = getAnnotations(db);
 			expect(all).toHaveLength(0);
 		});
 
-		test("throws for non-existent ID", async () => {
-			await expect(
-				deleteAnnotation(testProjectPath, "nonexistent"),
-			).rejects.toMatchObject({
-				_tag: "NotFound",
+		test("removes replies when deleting parent", () => {
+			const parent = createAnnotation(db, {
+				docId: "doc-1",
+				anchor: makeTextAnchor("hello"),
+				content: "Parent",
 			});
+			addReply(db, parent.id, { content: "Reply 1" });
+			addReply(db, parent.id, { content: "Reply 2" });
+
+			deleteAnnotation(db, parent.id);
+
+			const row = db
+				.prepare("SELECT COUNT(*) as count FROM annotations")
+				.get() as { count: number };
+			expect(row.count).toBe(0);
+		});
+
+		test("throws for non-existent ID", () => {
+			expect(() => deleteAnnotation(db, "999")).toThrow();
 		});
 	});
 
 	describe("addReply", () => {
-		test("adds reply to annotation thread", async () => {
-			const request: CreateAnnotationRequest = {
-				artifactPath: "test.md",
-				anchor: {
-					type: "text-selection",
-					startOffset: 0,
-					endOffset: 5,
-					selectedText: "hello",
-					contextBefore: "",
-					contextAfter: "",
-				},
+		test("adds reply to annotation thread", () => {
+			const created = createAnnotation(db, {
+				docId: "doc-1",
+				anchor: makeTextAnchor("hello"),
 				content: "Original comment",
-			};
+			});
 
-			const created = await createAnnotation(testProjectPath, request);
-			const reply = await addReply(testProjectPath, created.id, {
+			const reply = addReply(db, created.id, {
 				content: "This is a reply",
 			});
 
-			expect(reply.id).toMatch(/^REP-/);
+			expect(Number(reply.id)).toBeGreaterThan(0);
 			expect(reply.content).toBe("This is a reply");
 			expect(reply.author).toBe("user");
 
-			const fetched = await getAnnotation(testProjectPath, created.id);
+			const fetched = getAnnotation(db, created.id);
 			expect(fetched?.replies).toHaveLength(1);
 			expect(fetched?.replies[0].content).toBe("This is a reply");
 		});
 
-		test("supports multiple replies in chronological order", async () => {
-			const request: CreateAnnotationRequest = {
-				artifactPath: "test.md",
-				anchor: {
-					type: "text-selection",
-					startOffset: 0,
-					endOffset: 5,
-					selectedText: "hello",
-					contextBefore: "",
-					contextAfter: "",
-				},
+		test("supports multiple replies in chronological order", () => {
+			const created = createAnnotation(db, {
+				docId: "doc-1",
+				anchor: makeTextAnchor("hello"),
 				content: "Original",
-			};
+			});
 
-			const created = await createAnnotation(testProjectPath, request);
-			await addReply(testProjectPath, created.id, { content: "Reply 1" });
-			await addReply(testProjectPath, created.id, { content: "Reply 2" });
-			await addReply(testProjectPath, created.id, { content: "Reply 3" });
+			addReply(db, created.id, { content: "Reply 1" });
+			addReply(db, created.id, { content: "Reply 2" });
+			addReply(db, created.id, { content: "Reply 3" });
 
-			const fetched = await getAnnotation(testProjectPath, created.id);
+			const fetched = getAnnotation(db, created.id);
 			expect(fetched?.replies).toHaveLength(3);
 			expect(fetched?.replies[0].content).toBe("Reply 1");
 			expect(fetched?.replies[1].content).toBe("Reply 2");
 			expect(fetched?.replies[2].content).toBe("Reply 3");
 		});
 
-		test("reply with custom author", async () => {
-			const request: CreateAnnotationRequest = {
-				artifactPath: "test.md",
-				anchor: {
-					type: "text-selection",
-					startOffset: 0,
-					endOffset: 5,
-					selectedText: "hello",
-					contextBefore: "",
-					contextAfter: "",
-				},
+		test("reply with custom author", () => {
+			const created = createAnnotation(db, {
+				docId: "doc-1",
+				anchor: makeTextAnchor("hello"),
 				content: "Comment",
-			};
+			});
 
-			const created = await createAnnotation(testProjectPath, request);
-			const reply = await addReply(
-				testProjectPath,
+			const reply = addReply(
+				db,
 				created.id,
 				{ content: "Agent reply" },
 				"agent-assistant",
@@ -392,203 +460,132 @@ describe("annotation-service", () => {
 			expect(reply.author).toBe("agent-assistant");
 		});
 
-		test("throws for non-existent annotation", async () => {
-			await expect(
-				addReply(testProjectPath, "nonexistent", { content: "test" }),
-			).rejects.toMatchObject({
-				_tag: "NotFound",
-			});
+		test("throws for non-existent annotation", () => {
+			expect(() => addReply(db, "999", { content: "test" })).toThrow();
 		});
 	});
 
 	describe("detectOrphanedAnnotations", () => {
-		test("marks annotation as orphaned when text no longer found", async () => {
-			const request: CreateAnnotationRequest = {
-				artifactPath: "test.md",
-				anchor: {
-					type: "text-selection",
-					startOffset: 0,
-					endOffset: 10,
-					selectedText: "original text",
-					contextBefore: "",
-					contextAfter: "",
-				},
+		test("marks annotation as orphaned when text no longer found", () => {
+			const created = createAnnotation(db, {
+				docId: "doc-1",
+				anchor: makeTextAnchor("original text"),
 				content: "Comment on original",
-			};
-
-			const created = await createAnnotation(testProjectPath, request);
+			});
 			expect(created.orphaned).toBe(false);
 
-			await detectOrphanedAnnotations(
-				testProjectPath,
-				"test.md",
-				"completely different content",
-			);
+			detectOrphanedAnnotations(db, "doc-1", "completely different content");
 
-			const fetched = await getAnnotation(testProjectPath, created.id);
+			const fetched = getAnnotation(db, created.id);
 			expect(fetched?.orphaned).toBe(true);
 		});
 
-		test("un-orphans annotation when text is restored", async () => {
-			const request: CreateAnnotationRequest = {
-				artifactPath: "test.md",
-				anchor: {
-					type: "text-selection",
-					startOffset: 0,
-					endOffset: 10,
-					selectedText: "target text",
-					contextBefore: "",
-					contextAfter: "",
-				},
+		test("un-orphans annotation when text is restored", () => {
+			const created = createAnnotation(db, {
+				docId: "doc-1",
+				anchor: makeTextAnchor("target text"),
 				content: "Comment",
-			};
+			});
 
-			const created = await createAnnotation(testProjectPath, request);
-
-			// Make orphaned
-			await detectOrphanedAnnotations(testProjectPath, "test.md", "no match");
-			let fetched = await getAnnotation(testProjectPath, created.id);
+			detectOrphanedAnnotations(db, "doc-1", "no match");
+			let fetched = getAnnotation(db, created.id);
 			expect(fetched?.orphaned).toBe(true);
 
-			// Restore text
-			await detectOrphanedAnnotations(
-				testProjectPath,
-				"test.md",
-				"has the target text in it",
-			);
-			fetched = await getAnnotation(testProjectPath, created.id);
+			detectOrphanedAnnotations(db, "doc-1", "has the target text in it");
+			fetched = getAnnotation(db, created.id);
 			expect(fetched?.orphaned).toBe(false);
 		});
 
-		test("validates hidden anchors", async () => {
-			const request: CreateAnnotationRequest = {
-				artifactPath: "test.md",
+		test("validates hidden anchors", () => {
+			const created = createAnnotation(db, {
+				docId: "doc-1",
 				anchor: {
 					type: "hidden-anchor",
 					anchorId: "section-intro",
 					anchorText: "Introduction",
 				},
 				content: "Comment on section",
-			};
+			});
 
-			const created = await createAnnotation(testProjectPath, request);
-
-			// Content with anchor
-			await detectOrphanedAnnotations(
-				testProjectPath,
-				"test.md",
+			detectOrphanedAnnotations(
+				db,
+				"doc-1",
 				'Some text <a id="section-intro"></a> more text',
 			);
-			let fetched = await getAnnotation(testProjectPath, created.id);
+			let fetched = getAnnotation(db, created.id);
 			expect(fetched?.orphaned).toBe(false);
 
-			// Content without anchor
-			await detectOrphanedAnnotations(
-				testProjectPath,
-				"test.md",
-				"No anchor here",
-			);
-			fetched = await getAnnotation(testProjectPath, created.id);
+			detectOrphanedAnnotations(db, "doc-1", "No anchor here");
+			fetched = getAnnotation(db, created.id);
 			expect(fetched?.orphaned).toBe(true);
 		});
 
-		test("validates line anchors", async () => {
-			const request: CreateAnnotationRequest = {
-				artifactPath: "test.ts",
+		test("validates line anchors", () => {
+			const created = createAnnotation(db, {
+				docId: "doc-1",
 				anchor: {
 					type: "line",
 					lineNumber: 2,
 					lineContent: "const x = 1;",
 				},
 				content: "Line comment",
-			};
+			});
 
-			const created = await createAnnotation(testProjectPath, request);
-
-			// Content with matching line
-			await detectOrphanedAnnotations(
-				testProjectPath,
-				"test.ts",
+			detectOrphanedAnnotations(
+				db,
+				"doc-1",
 				"import x;\nconst x = 1;\nexport x;",
 			);
-			let fetched = await getAnnotation(testProjectPath, created.id);
+			let fetched = getAnnotation(db, created.id);
 			expect(fetched?.orphaned).toBe(false);
 
-			// Content with different line
-			await detectOrphanedAnnotations(
-				testProjectPath,
-				"test.ts",
+			detectOrphanedAnnotations(
+				db,
+				"doc-1",
 				"import x;\nconst y = 2;\nexport y;",
 			);
-			fetched = await getAnnotation(testProjectPath, created.id);
+			fetched = getAnnotation(db, created.id);
 			expect(fetched?.orphaned).toBe(true);
 		});
 
-		test("only affects annotations for specified artifact", async () => {
-			const request1: CreateAnnotationRequest = {
-				artifactPath: "file1.md",
-				anchor: {
-					type: "text-selection",
-					startOffset: 0,
-					endOffset: 5,
-					selectedText: "hello",
-					contextBefore: "",
-					contextAfter: "",
-				},
-				content: "File 1 comment",
-			};
+		test("only affects annotations for specified doc_id", () => {
+			const ann1 = createAnnotation(db, {
+				docId: "doc-1",
+				anchor: makeTextAnchor("hello"),
+				content: "Doc 1 comment",
+			});
+			const ann2 = createAnnotation(db, {
+				docId: "doc-2",
+				anchor: makeTextAnchor("world"),
+				content: "Doc 2 comment",
+			});
 
-			const request2: CreateAnnotationRequest = {
-				artifactPath: "file2.md",
-				anchor: {
-					type: "text-selection",
-					startOffset: 0,
-					endOffset: 5,
-					selectedText: "world",
-					contextBefore: "",
-					contextAfter: "",
-				},
-				content: "File 2 comment",
-			};
+			detectOrphanedAnnotations(db, "doc-1", "no match");
 
-			const ann1 = await createAnnotation(testProjectPath, request1);
-			const ann2 = await createAnnotation(testProjectPath, request2);
-
-			// Only check file1 with content that won't match
-			await detectOrphanedAnnotations(testProjectPath, "file1.md", "no match");
-
-			const fetched1 = await getAnnotation(testProjectPath, ann1.id);
-			const fetched2 = await getAnnotation(testProjectPath, ann2.id);
+			const fetched1 = getAnnotation(db, ann1.id);
+			const fetched2 = getAnnotation(db, ann2.id);
 
 			expect(fetched1?.orphaned).toBe(true);
 			expect(fetched2?.orphaned).toBe(false);
 		});
 	});
 
-	describe("atomic writes", () => {
-		test("file is valid after write", async () => {
-			const request: CreateAnnotationRequest = {
-				artifactPath: "test.md",
-				anchor: {
-					type: "text-selection",
-					startOffset: 0,
-					endOffset: 5,
-					selectedText: "hello",
-					contextBefore: "",
-					contextAfter: "",
-				},
-				content: "Test",
-			};
+	describe("status transitions", () => {
+		test("open -> resolved -> open lifecycle", () => {
+			const created = createAnnotation(db, {
+				docId: "doc-1",
+				anchor: makeTextAnchor(),
+				content: "Lifecycle test",
+			});
+			expect(created.status).toBe("open");
 
-			await createAnnotation(testProjectPath, request);
+			resolveAnnotation(db, created.id);
+			let fetched = getAnnotation(db, created.id);
+			expect(fetched?.status).toBe("resolved");
 
-			const filePath = join(testProjectPath, ".rp1", "open-tasks.json");
-			const content = await readFile(filePath, "utf-8");
-			const file: OpenTasksFile = JSON.parse(content);
-
-			expect(file.version).toBe("1.0.0");
-			expect(typeof file.lastModified).toBe("string");
-			expect(Array.isArray(file.annotations)).toBe(true);
+			reopenAnnotation(db, created.id);
+			fetched = getAnnotation(db, created.id);
+			expect(fetched?.status).toBe("open");
 		});
 	});
 });

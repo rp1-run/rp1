@@ -1,5 +1,6 @@
 import { X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { getStatusLabel } from "@/lib/status-labels";
 import { cn } from "@/lib/utils";
 import type { RunStatus, RunsFilter } from "@/types/runs";
 import { Select } from "./Select";
@@ -21,10 +22,10 @@ type StatusTab = RunStatus | "all";
 
 const STATUS_TABS: { value: StatusTab; label: string }[] = [
 	{ value: "all", label: "All" },
-	{ value: "running", label: "Running" },
-	{ value: "completed", label: "Completed" },
-	{ value: "failed", label: "Failed" },
-	{ value: "waiting-input", label: "Waiting" },
+	{ value: "running", label: getStatusLabel("running") },
+	{ value: "completed", label: getStatusLabel("completed") },
+	{ value: "failed", label: getStatusLabel("failed") },
+	{ value: "waiting", label: getStatusLabel("waiting") },
 ];
 
 const DATE_RANGES: { value: RunsFilter["dateRange"]; label: string }[] = [

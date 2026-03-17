@@ -181,6 +181,87 @@ describe("artifact registration", () => {
 			expect(records.length).toBe(3);
 		});
 
+		test("stores subflow=true and round-trips correctly", async () => {
+			const input: ArtifactInput = {
+				projectPath: "/test/subflow",
+				feature: "subflow-feature",
+				runId: "run-subflow",
+				path: ".rp1/work/features/subflow-feature/build-T1.mmd",
+				type: "diagram",
+				step: "build",
+				subflow: true,
+			};
+
+			const insertResult = await expectTaskRight(
+				insertArtifact(input, testDbPath),
+			);
+			expect(insertResult.id).toBeGreaterThan(0);
+
+			const records = await expectTaskRight(
+				queryArtifactsForFeature(
+					"/test/subflow",
+					"subflow-feature",
+					"run-subflow",
+					testDbPath,
+				),
+			);
+
+			expect(records).toHaveLength(1);
+			expect(records[0].subflow).toBe(true);
+			expect(records[0].path).toBe(
+				".rp1/work/features/subflow-feature/build-T1.mmd",
+			);
+			expect(records[0].step).toBe("build");
+			expect(records[0].type).toBe("diagram");
+		});
+
+		test("stores subflow=false by default when not provided", async () => {
+			const input: ArtifactInput = {
+				projectPath: "/test/subflow-default",
+				feature: "no-subflow",
+				path: ".rp1/work/features/no-subflow/report.md",
+				type: "markdown",
+			};
+
+			await expectTaskRight(insertArtifact(input, testDbPath));
+
+			const records = await expectTaskRight(
+				queryArtifactsForFeature(
+					"/test/subflow-default",
+					"no-subflow",
+					undefined,
+					testDbPath,
+				),
+			);
+
+			expect(records).toHaveLength(1);
+			expect(records[0].subflow).toBe(false);
+		});
+
+		test("stores subflow=false when explicitly set to false", async () => {
+			const input: ArtifactInput = {
+				projectPath: "/test/subflow-explicit",
+				feature: "explicit-false",
+				path: ".rp1/work/features/explicit-false/data.md",
+				type: "markdown",
+				subflow: false,
+			};
+
+			await expectTaskRight(insertArtifact(input, testDbPath));
+
+			const records = await expectTaskRight(
+				queryArtifactsForFeature(
+					"/test/subflow-explicit",
+					"explicit-false",
+					undefined,
+					testDbPath,
+				),
+			);
+
+			expect(records).toHaveLength(1);
+			expect(records[0].subflow).toBe(false);
+		});
+
 		test("completes within 100ms under normal conditions", async () => {
 			const input: ArtifactInput = {
 				projectPath: "/test/latency",

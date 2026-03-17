@@ -91,6 +91,7 @@ const openBrowser =
 const executeWithDaemon = (
 	config: ArcadeConfig,
 	logger: Logger,
+	cliVersion?: string,
 ): TE.TaskEither<CLIError, void> =>
 	tryCatchTE(
 		async () => {
@@ -99,7 +100,10 @@ const executeWithDaemon = (
 			);
 
 			logger.debug("Ensuring daemon is running...");
-			const { connection, wasRunning } = await ensureDaemon(config.port);
+			const { connection, wasRunning } = await ensureDaemon(
+				config.port,
+				cliVersion,
+			);
 
 			if (wasRunning) {
 				logger.debug(`Connected to existing daemon on port ${config.port}`);
@@ -205,6 +209,7 @@ const execute = (
 	args: string[],
 	options: { stop?: boolean; status?: boolean; restart?: boolean },
 	logger: Logger,
+	cliVersion?: string,
 ): TE.TaskEither<CLIError, void> => {
 	if (options.stop) {
 		return stopDaemonCommand(logger);
@@ -237,7 +242,7 @@ const execute = (
 				TE.map(() => config),
 			),
 		),
-		TE.chain((config) => executeWithDaemon(config, logger)),
+		TE.chain((config) => executeWithDaemon(config, logger, cliVersion)),
 	);
 };
 
@@ -307,6 +312,8 @@ Note: This command requires Bun runtime. Install from https://bun.sh
 			args.push("--no-open");
 		}
 
+		const cliVersion = command.parent?.version?.() as string | undefined;
+
 		const result = await execute(
 			args,
 			{
@@ -315,6 +322,7 @@ Note: This command requires Bun runtime. Install from https://bun.sh
 				restart: options.restart,
 			},
 			logger,
+			cliVersion,
 		)();
 
 		if (E.isLeft(result)) {

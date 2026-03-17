@@ -73,6 +73,7 @@ function LineAnnotationForm({
 			};
 
 			await createAnnotation({
+				docId: "",
 				artifactPath,
 				anchor,
 				content: trimmedContent,

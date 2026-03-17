@@ -70,7 +70,7 @@ These capabilities are non-negotiable. If an agentic tool lacks **any** of these
 
 **What**: The ability to run arbitrary shell/bash commands from within a skill or agent context.
 
-**Why**: RP1's runtime services are CLI tools invoked via `rp1 agent-tools ...` commands. State tracking (`work update`), artifact registration (`work artifact`), root directory resolution (`rp1-root-dir`), and mermaid validation (`mmd-validate`) all depend on shell execution. Without Bash, agents cannot interact with RP1's runtime layer.
+**Why**: RP1's runtime services are CLI tools invoked via `rp1 agent-tools ...` commands. State tracking (`emit`), artifact registration (`work artifact`), root directory resolution (`rp1-root-dir`), and mermaid validation (`mmd-validate`) all depend on shell execution. Without Bash, agents cannot interact with RP1's runtime layer.
 
 **Minimum Requirements**:
 - Execute shell commands and capture stdout/stderr
@@ -349,7 +349,7 @@ Use this checklist when evaluating a new agentic tool for RP1 support.
 |---|-----------|------|
 | 1 | Sub-agent spawning | Can a skill spawn an agent and get results back? |
 | 2 | Custom prompt / skill loading | Can SKILL.md files be loaded and executed? |
-| 3 | Shell command execution | Can `rp1 agent-tools work update ...` run from within a skill? |
+| 3 | Shell command execution | Can `rp1 agent-tools emit ...` run from within a skill? |
 | 4 | File system read/write | Can agents read KB files and write artifacts? |
 | 5 | Project instruction file | Is there a CLAUDE.md/AGENTS.md equivalent auto-loaded at session start? |
 

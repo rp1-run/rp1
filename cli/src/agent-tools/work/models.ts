@@ -28,6 +28,19 @@ export const VALID_STATUSES: readonly StatusValue[] = [
 ] as const;
 
 /**
+ * Result of insert-time reconciliation for forward-only lifecycle enforcement.
+ * Transient field on StatusUpdateInput, not persisted to the database.
+ */
+export interface ReconciliationResult {
+	/** When true, the update was rejected as a backward transition and should be skipped */
+	readonly rejected?: boolean;
+	/** Reason for rejection */
+	readonly reason?: string;
+	/** Steps that were auto-corrected during this update */
+	readonly autoCorrections?: readonly string[];
+}
+
+/**
  * Input for creating a new status update.
  * Used by the agent tool to insert status records.
  */
@@ -52,6 +65,8 @@ export interface StatusUpdateInput {
 	readonly expiresAt?: string;
 	/** Previous workflow state before this transition (transient, not persisted) */
 	readonly previousState?: string | null;
+	/** Reconciliation result from insert-time validation (transient, not persisted) */
+	readonly reconciliation?: ReconciliationResult;
 	/** Agent name for agent-scoped state tracking (optional) */
 	readonly agent?: string;
 	/** Task identifier for per-task state tracking (optional) */
@@ -154,6 +169,10 @@ export interface ArtifactInput {
 	readonly type: ArtifactTypeValue;
 	/** Original worktree path when project path was normalized to main repo root (optional) */
 	readonly worktreePath?: string;
+	/** Workflow step that produced this artifact (optional) */
+	readonly step?: string;
+	/** Whether this artifact represents a subflow diagram (optional) */
+	readonly subflow?: boolean;
 }
 
 /**
@@ -176,4 +195,8 @@ export interface ArtifactRecord {
 	readonly createdAt: string;
 	/** Original worktree path when project path was normalized (null if not from worktree) */
 	readonly worktreePath: string | null;
+	/** Workflow step that produced this artifact (null if not specified) */
+	readonly step: string | null;
+	/** Whether this artifact represents a subflow diagram */
+	readonly subflow: boolean;
 }

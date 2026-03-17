@@ -117,10 +117,9 @@ Skills and agents may opt into workflow state tracking by adding a `## STATE-MAC
 
 Required rules:
 
-- State IDs must match the `--step` values sent to `rp1 agent-tools work update`.
-- `--workflow` is mandatory for state-machine-enabled skills and agents.
-- `--agent` routes validation to the agent state machine.
-- `--task` enables per-task tracking.
+- State IDs must match the `--step` values sent to `rp1 agent-tools emit`.
+- `--run-id` is mandatory for state-machine-enabled skills and agents.
+- `--unit` enables per-task tracking.
 - Follow graph transitions exactly; invalid transitions are rejected.
 
 For the full pattern and command examples, see [docs/concepts/state-machines.md](docs/concepts/state-machines.md).

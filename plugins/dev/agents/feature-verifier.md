@@ -57,14 +57,11 @@ Before executing the workflow, you must systematically plan your verification ap
 
 1. **Parameter Validation**: Confirm all required parameters are provided and valid. Use the RP1_ROOT parameter if provided, otherwise default to `.rp1/`. After validation, transition to `verifying` state per STATE-MACHINE section (skip if WORKFLOW is empty):
    ```bash
-   rp1 agent-tools work update \
-     --project "$(pwd)" \
-     --feature {FEATURE_ID} \
-     --workflow {WORKFLOW} \
-     --agent feature-verifier \
+   rp1 agent-tools emit \
+     --type status_change \
      --run-id {RUN_ID} \
      --step verifying \
-     --status started
+     --data '{"status": "running"}'
    ```
 
 2. **File Path Planning**: Determine exact paths for:
@@ -204,14 +201,11 @@ During verification, identify criteria that CANNOT be automated:
 - Include an executive summary with key metrics and actionable next steps
 - Transition to `completed` state per STATE-MACHINE section (skip if WORKFLOW is empty):
   ```bash
-  rp1 agent-tools work update \
-    --project "$(pwd)" \
-    --feature {FEATURE_ID} \
-    --workflow {WORKFLOW} \
-    --agent feature-verifier \
+  rp1 agent-tools emit \
+    --type status_change \
     --run-id {RUN_ID} \
     --step completed \
-    --status started
+    --data '{"status": "completed"}'
   ```
 
 ## Step 7.5: Manual Verification Return
@@ -314,28 +308,25 @@ stateDiagram-v2
 ```
 
 **State Progression Protocol**:
-1. Report each `--step` with `--status started` when you enter that state
+1. Report each `--step` with `--data '{"status": "running"}'` when you enter that state
 2. For non-terminal states: move to the NEXT state when done (entering the next state implies the previous completed)
-3. For terminal states (those with `→ [*]` transitions): report `--status completed` when the step's work finishes
+3. For terminal states (those with `→ [*]` transitions): report with `--data '{"status": "completed"}'` when the step's work finishes
 
 **On each transition**, report via:
 ```
-rp1 agent-tools work update \
-  --project "$(pwd)" \
-  --feature {FEATURE_ID} \
-  --workflow {WORKFLOW} \
-  --agent feature-verifier \
+rp1 agent-tools emit \
+  --type status_change \
   --run-id {RUN_ID} \
   --step {CURRENT_STATE} \
-  --status started
+  --data '{"status": "running"}'
 ```
 
 **Example sequence**:
 ```
---step verifying --status started   # entering verifying state
---step completed --status started   # verification passed, entering completed state
+--step verifying --data '{"status": "running"}'     # entering verifying state
+--step completed --data '{"status": "completed"}'   # verification passed, workflow complete
 ```
-On failure: `--step failed --status started` (instead of completed)
+On failure: `--step failed --data '{"status": "failed"}'`
 
 Skip all state reporting if WORKFLOW is empty (standalone invocation).
 

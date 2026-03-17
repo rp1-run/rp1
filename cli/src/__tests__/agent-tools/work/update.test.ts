@@ -3,7 +3,21 @@
  * Tests input validation for project path, feature name, status, and metadata.
  */
 
-import { describe, expect, test } from "bun:test";
+import {
+	afterAll,
+	afterEach,
+	beforeAll,
+	describe,
+	expect,
+	test,
+} from "bun:test";
+import { mkdir, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import {
+	closeDatabase,
+	resetDatabaseInstance,
+} from "../../../agent-tools/work/database.js";
 import {
 	type UpdateCommandOptions,
 	validateUpdateOptions,
@@ -27,6 +41,25 @@ const validBase: UpdateCommandOptions = {
 };
 
 describe("validateUpdateOptions", () => {
+	let tempDir: string;
+	let testDbPath: string;
+
+	beforeAll(async () => {
+		tempDir = join(tmpdir(), `work-update-test-${Date.now()}`);
+		await mkdir(tempDir, { recursive: true });
+		testDbPath = join(tempDir, "test-update.db");
+	});
+
+	afterEach(() => {
+		closeDatabase();
+		resetDatabaseInstance();
+	});
+
+	afterAll(async () => {
+		closeDatabase();
+		await rm(tempDir, { recursive: true, force: true });
+	});
+
 	describe("project path validation (BR-002)", () => {
 		test("accepts absolute paths", async () => {
 			const options: UpdateCommandOptions = {
@@ -34,7 +67,9 @@ describe("validateUpdateOptions", () => {
 				project: "/Users/dev/myapp",
 			};
 
-			const result = await expectTaskRight(validateUpdateOptions(options));
+			const result = await expectTaskRight(
+				validateUpdateOptions(options, testDbPath),
+			);
 			expect(result.projectPath).toBe("/Users/dev/myapp");
 		});
 
@@ -78,7 +113,9 @@ describe("validateUpdateOptions", () => {
 				feature: "auth-refactor",
 			};
 
-			const result = await expectTaskRight(validateUpdateOptions(options));
+			const result = await expectTaskRight(
+				validateUpdateOptions(options, testDbPath),
+			);
 			expect(result.feature).toBe("auth-refactor");
 		});
 
@@ -88,7 +125,9 @@ describe("validateUpdateOptions", () => {
 				feature: "feature123",
 			};
 
-			const result = await expectTaskRight(validateUpdateOptions(options));
+			const result = await expectTaskRight(
+				validateUpdateOptions(options, testDbPath),
+			);
 			expect(result.feature).toBe("feature123");
 		});
 
@@ -98,7 +137,9 @@ describe("validateUpdateOptions", () => {
 				feature: "auth",
 			};
 
-			const result = await expectTaskRight(validateUpdateOptions(options));
+			const result = await expectTaskRight(
+				validateUpdateOptions(options, testDbPath),
+			);
 			expect(result.feature).toBe("auth");
 		});
 
@@ -152,7 +193,9 @@ describe("validateUpdateOptions", () => {
 				status: "started",
 			};
 
-			const result = await expectTaskRight(validateUpdateOptions(options));
+			const result = await expectTaskRight(
+				validateUpdateOptions(options, testDbPath),
+			);
 			expect(result.status).toBe("started");
 		});
 
@@ -162,7 +205,9 @@ describe("validateUpdateOptions", () => {
 				status: "in_progress",
 			};
 
-			const result = await expectTaskRight(validateUpdateOptions(options));
+			const result = await expectTaskRight(
+				validateUpdateOptions(options, testDbPath),
+			);
 			expect(result.status).toBe("in_progress");
 		});
 
@@ -172,7 +217,9 @@ describe("validateUpdateOptions", () => {
 				status: "completed",
 			};
 
-			const result = await expectTaskRight(validateUpdateOptions(options));
+			const result = await expectTaskRight(
+				validateUpdateOptions(options, testDbPath),
+			);
 			expect(result.status).toBe("completed");
 		});
 
@@ -182,7 +229,9 @@ describe("validateUpdateOptions", () => {
 				status: "failed",
 			};
 
-			const result = await expectTaskRight(validateUpdateOptions(options));
+			const result = await expectTaskRight(
+				validateUpdateOptions(options, testDbPath),
+			);
 			expect(result.status).toBe("failed");
 		});
 
@@ -219,7 +268,9 @@ describe("validateUpdateOptions", () => {
 				metadata: '{"key": "value", "count": 42}',
 			};
 
-			const result = await expectTaskRight(validateUpdateOptions(options));
+			const result = await expectTaskRight(
+				validateUpdateOptions(options, testDbPath),
+			);
 			expect(result.metadata).toBe('{"key": "value", "count": 42}');
 		});
 
@@ -229,12 +280,16 @@ describe("validateUpdateOptions", () => {
 				metadata: '["item1", "item2"]',
 			};
 
-			const result = await expectTaskRight(validateUpdateOptions(options));
+			const result = await expectTaskRight(
+				validateUpdateOptions(options, testDbPath),
+			);
 			expect(result.metadata).toBe('["item1", "item2"]');
 		});
 
 		test("accepts undefined metadata", async () => {
-			const result = await expectTaskRight(validateUpdateOptions(validBase));
+			const result = await expectTaskRight(
+				validateUpdateOptions(validBase, testDbPath),
+			);
 			expect(result.metadata).toBeUndefined();
 		});
 
@@ -244,7 +299,9 @@ describe("validateUpdateOptions", () => {
 				metadata: "",
 			};
 
-			const result = await expectTaskRight(validateUpdateOptions(options));
+			const result = await expectTaskRight(
+				validateUpdateOptions(options, testDbPath),
+			);
 			expect(result.metadata).toBeUndefined();
 		});
 
@@ -291,14 +348,18 @@ describe("validateUpdateOptions", () => {
 				message: "Working on requirements",
 			};
 
-			const result = await expectTaskRight(validateUpdateOptions(options));
+			const result = await expectTaskRight(
+				validateUpdateOptions(options, testDbPath),
+			);
 			expect(result.message).toBe("Working on requirements");
 		});
 	});
 
 	describe("output format (REQ-005)", () => {
 		test("returns StatusUpdateInput shape", async () => {
-			const result = await expectTaskRight(validateUpdateOptions(validBase));
+			const result = await expectTaskRight(
+				validateUpdateOptions(validBase, testDbPath),
+			);
 
 			expect(result).toHaveProperty("projectPath");
 			expect(result).toHaveProperty("feature");

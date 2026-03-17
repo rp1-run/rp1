@@ -59,15 +59,12 @@ Transition to `testing` state per STATE-MACHINE section (skip if WORKFLOW is emp
 Report once per experiment using `--task hypothesis-{N}` where N is the sequential experiment number (e.g., `hypothesis-1`, `hypothesis-2`):
 
 ```bash
-rp1 agent-tools work update \
-  --project "$(pwd)" \
-  --feature {FEATURE_ID} \
-  --workflow {WORKFLOW} \
-  --agent hypothesis-tester \
-  --task hypothesis-{N} \
+rp1 agent-tools emit \
+  --type status_change \
   --run-id {RUN_ID} \
   --step testing \
-  --status started
+  --unit hypothesis-{N} \
+  --data '{"status": "running"}'
 ```
 
 If missing:
@@ -185,15 +182,12 @@ Transition to `completed` state per STATE-MACHINE section (skip if WORKFLOW is e
 Report per experiment using the same `--task hypothesis-{N}` identifier used during `testing`:
 
 ```bash
-rp1 agent-tools work update \
-  --project "$(pwd)" \
-  --feature {FEATURE_ID} \
-  --workflow {WORKFLOW} \
-  --agent hypothesis-tester \
-  --task hypothesis-{N} \
+rp1 agent-tools emit \
+  --type status_change \
   --run-id {RUN_ID} \
   --step completed \
-  --status started
+  --unit hypothesis-{N} \
+  --data '{"status": "completed"}'
 ```
 
 ### 6. Cleanup
@@ -232,29 +226,26 @@ stateDiagram-v2
 ```
 
 **State Progression Protocol**:
-1. Report each `--step` with `--status started` when you enter that state
+1. Report each `--step` with `--data '{"status": "running"}'` when you enter that state
 2. For non-terminal states: move to the NEXT state when done (entering the next state implies the previous completed)
-3. For terminal states (those with `→ [*]` transitions): report `--status completed` when the step's work finishes
+3. For terminal states (those with `→ [*]` transitions): report with `--data '{"status": "completed"}'` when the step's work finishes
 
 **On each transition**, report via:
 ```
-rp1 agent-tools work update \
-  --project "$(pwd)" \
-  --feature {FEATURE_ID} \
-  --workflow {WORKFLOW} \
-  --agent hypothesis-tester \
-  --task hypothesis-{N} \
+rp1 agent-tools emit \
+  --type status_change \
   --run-id {RUN_ID} \
   --step {CURRENT_STATE} \
-  --status started
+  --unit hypothesis-{N} \
+  --data '{"status": "running"}'
 ```
 
 **Example sequence**:
 ```
---step testing --status started     # entering testing state
---step completed --status started   # testing done, entering completed state
+--step testing --data '{"status": "running"}'       # entering testing state
+--step completed --data '{"status": "completed"}'   # testing done, workflow complete
 ```
-On error: `--step failed --status started` (instead of completed)
+On error: `--step failed --data '{"status": "failed"}'`
 
 Skip all state reporting if WORKFLOW is empty (standalone invocation).
 

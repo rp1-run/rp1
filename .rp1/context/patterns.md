@@ -1,84 +1,84 @@
 # Implementation Patterns
 
 **Repository**: rp1
-**Current Project**: .
-**Last Updated**: 2026-03-09
+**Current Project**: `.`
+**Last Updated**: 2026-03-15
 
-## Naming & Organization
+## Naming and Organization
 
-**Files**: Kebab-case dominates directories and workflow assets, with `SKILL.md` as the canonical invocable file.
-**Functions**: TypeScript functions use camelCase; React components and types use PascalCase.
-**Imports**: ESM imports use explicit `.js` suffixes in CLI code; frontend code also uses `@/` aliases.
+**Files**: Source-of-truth workflows live in `plugins/*/skills/*/SKILL.md` and `plugins/*/agents/*.md`; generated artifacts stay under `cli/dist/`.
+**Functions**: CLI/runtime code uses descriptive camelCase verbs such as `installRp1`, `executeUpdate`, and `buildDependencyGraph`.
+**Imports**: Keep host- or runtime-heavy imports behind focused modules and lazy-load at command boundaries when possible.
 
-Evidence: `docs/concepts/skills.md`, `cli/src/commands/build.ts`, `cli/src/commands/init.ts`, `cli/src/install/installer.ts`, `cli/web-ui/src/app/App.tsx`
+Evidence: `plugins/base/skills/knowledge-build/SKILL.md`, `plugins/dev/skills/build/SKILL.md`, `cli/src/main.ts`
 
-## Type & Data Modeling
+## Type and Data Modeling
 
-**Data Representation**: Strict TypeScript interfaces and typed envelopes, especially `ToolResult<T>` and workflow-specific result shapes.
-**Type Strictness**: Explicit typing is preferred across command, tool, and workflow boundaries.
-**Immutability**: `readonly`-style data flow and pipeline composition are favored over shared mutable state.
+**Data Representation**: TypeScript models plus structured JSON contracts for skills, state, and generated artifacts.
+**Type Strictness**: Strongly typed; explicit schemas and typed command/runtime boundaries are preferred.
+**Immutability**: Favor transformation pipelines and return new values instead of mutating shared state.
 
-Evidence: `cli/src/agent-tools/work/index.ts`, `cli/src/pr-review/index.ts`, `plugins/dev/skills/build/SKILL.md`, `plugins/dev/skills/pr-review/SKILL.md`
+Evidence: `cli/src/build/`, `cli/src/agent-tools/`, `cli/src/config/supported-tools.yaml`
 
 ## Error Handling
 
-**Strategy**: fp-ts `Either` and `TaskEither` are preferred over exception-driven business logic.
-**Propagation**: Failures are composed through pipelines and normalized at command or tool boundaries.
-**Common Types**: `CLIError` variants such as validation, install, backup, config, and runtime errors are the dominant family.
+**Strategy**: Prefer typed boundary errors and result-oriented flows over deep exception-led control flow.
+**Propagation**: Validate early, normalize at command boundaries, and fail before writing published artifacts.
+**Common Types**: Command and build paths center failures around explicit CLI/runtime validation.
 
-Evidence: `cli/src/commands/build.ts`, `cli/src/commands/init.ts`, `cli/src/install/installer.ts`, `plugins/base/skills/knowledge-build/SKILL.md`
+Evidence: `cli/src/main.ts`, `cli/src/build/command.ts`, `cli/src/agent-tools/work/index.ts`
 
-## Validation & Boundaries
+## Validation and Boundaries
 
-**Location**: Validation happens at command entry, skill orchestration boundaries, and reduce phases.
-**Method**: Explicit shape checks, parameter tables, state-machine validation, and deterministic parsing.
-**Normalization**: Inputs are normalized early, including derived flags, resolved `RP1_ROOT`, and split `state.json` versus `meta.json`.
+**Location**: At skill metadata, parser, build, install, and workflow-state boundaries.
+**Method**: Parse, lint, and validate prompts or diagrams before publishing or executing them.
+**Normalization**: Resolve `RP1_ROOT`, namespace conventions, and step IDs into canonical forms.
 
-Evidence: `cli/src/agent-tools/work/index.ts`, `cli/src/install/installer.ts`, `plugins/base/skills/knowledge-build/SKILL.md`, `plugins/dev/skills/build/SKILL.md`
+Evidence: `docs/concepts/skill-format.md`, `docs/concepts/state-machines.md`, `plugins/base/skills/knowledge-build/SKILL.md`
 
 ## Observability
 
-**Logging**: Structured logging plus workflow-status events.
-**Metrics**: Lightweight generated/reporting metrics dominate over runtime instrumentation.
-**Tracing**: Run IDs, work updates, daemon notifications, and WebSocket fan-out provide workflow-level traceability.
+**Logging**: Runtime state is captured through agent-tools event and work records rather than ad hoc console output.
+**Metrics**: Repository-level metrics are lightweight and usually derived from persisted run data or KB metadata.
+**Tracing**: No general distributed tracing layer is evident; the local event store is the main audit trail.
 
-Evidence: `cli/src/commands/init.ts`, `cli/src/install/installer.ts`, `cli/src/agent-tools/work/index.ts`, `plugins/dev/skills/build-fast/SKILL.md`
+Evidence: `cli/src/agent-tools/emit/`, `cli/src/agent-tools/work/`, `cli/web-ui/src/server/routes/v2-api.ts`
 
 ## Testing Idioms
 
-**Organization**: CLI tests mirror source areas; evals cover prompt-driven behavior separately.
-**Fixtures**: Temporary directories, helper utilities, and deterministic tool wrappers are preferred.
-**Levels**: Strong unit coverage, integration flows for lifecycle behavior, and dedicated eval validation.
+**Organization**: Tests mirror source areas under `cli/src/__tests__/` and `cli/web-ui/src/__tests__/`.
+**Fixtures**: Prefer isolated fixtures, temp directories, and golden outputs for build/render validation.
+**Levels**: Strong unit coverage with focused integration tests around install, build, emit, and workflow behavior.
 
-Evidence: `cli/src/__tests__/`, `evals/`, `docs/concepts/command-agent-pattern.md`, `Justfile`
+Evidence: `cli/src/__tests__/build/`, `cli/src/__tests__/install/`, `cli/web-ui/src/__tests__/`
 
-## I/O & Integration
+## I/O and Integration
 
-**Database**: SQLite-backed workflow tracking exposed through agent tools.
-**HTTP Clients**: External operations are routed through dedicated tool/runtime surfaces, especially GitHub PR tooling.
-**Resilience**: Backup/restore, atomic staging, best-effort notifications, and partial-success orchestration are common.
+**Database**: Local SQLite stores workflow events, annotations, artifacts, and legacy work status.
+**HTTP Clients**: External integrations are explicit and narrow, especially around GitHub workflows.
+**Resilience**: Replay, recovery, and staged install/build flows reduce partial-state failures.
 
-Evidence: `cli/src/agent-tools/work/database.ts`, `cli/src/agent-tools/github-pr/`, `cli/src/install/installer.ts`, `plugins/base/skills/knowledge-build/SKILL.md`
+Evidence: `cli/src/agent-tools/emit/database.ts`, `cli/web-ui/src/server/`, `cli/src/install/installer.ts`
 
-## Concurrency & Async
+## Concurrency and Async
 
-**Async Usage**: Async work is wrapped in `TaskEither` pipelines at the boundary.
-**Parallelism**: Map-reduce fan-out is the main concurrency pattern.
-**Safety**: Isolation, explicit reduction, and state-machine enforcement are preferred over shared-state coordination.
+**Async Usage**: Asynchronous behavior is concentrated in server handlers, file I/O, installation, and workflow orchestration.
+**Parallelism**: Large workflows use map-reduce style fan-out and gather patterns for specialist analysis.
+**Safety**: Persist shared state through the local databases and validate transitions rather than relying on shared in-memory mutation.
 
-Evidence: `plugins/base/skills/knowledge-build/SKILL.md`, `plugins/dev/skills/pr-review/SKILL.md`, `cli/src/install/installer.ts`
+Evidence: `plugins/base/skills/knowledge-build/SKILL.md`, `cli/web-ui/src/server/websocket.ts`, `cli/src/install/installer.ts`
 
-## Dependency & Configuration
+## Dependency and Configuration
 
-**DI Pattern**: Lightweight dependency injection through passed loggers, callbacks, providers, and runtime resolution.
-**Config Loading**: CLI flags, env vars, frontmatter, `.rp1/config/*`, and generated KB state files.
-**Initialization**: Explicit staged startup is preferred over implicit auto-discovery.
+**DI Pattern**: Mostly manual wiring through focused entrypoints and runtime helpers.
+**Config Loading**: Mix of local files, package metadata, supported-tool registries, and environment variables such as `GITHUB_TOKEN`.
+**Initialization**: Favor lazy initialization for expensive services and daemon-only modules.
 
-Evidence: `cli/src/commands/build.ts`, `cli/src/commands/init.ts`, `cli/src/install/installer.ts`, `cli/web-ui/src/app/App.tsx`, `plugins/base/skills/knowledge-build/SKILL.md`
+Evidence: `cli/src/main.ts`, `cli/src/config/supported-tools.yaml`, `cli/web-ui/src/daemon/`
 
 ## Extension Mechanisms
 
-**Plugin Pattern**: `base`, `dev`, and `utils` plugins are the main extension boundary.
-**Hook System**: Tool self-registration plus install/build pipelines provide the dominant extension hooks.
+**Plugin Pattern**: Namespaced plugin directories plus build-time transforms let the same markdown source target multiple host platforms.
+**Hook System**: Semantic tags, registries, and build filters extend prompt behavior without rewriting source assets per platform.
 
-Evidence: `plugins/base/`, `plugins/dev/`, `plugins/utils/`, `cli/src/agent-tools/work/index.ts`, `cli/src/agent-tools/rp1-root-dir/index.ts`, `cli/src/agent-tools/github-pr/index.ts`
+Evidence: `plugins/base/`, `plugins/dev/`, `plugins/utils/`, `cli/src/build/filters/`

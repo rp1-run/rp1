@@ -104,15 +104,12 @@ If PREVIOUS_FEEDBACK != "None": parse to understand prior failures + needed corr
 Transition to `building` state per STATE-MACHINE section:
 
 ```bash
-rp1 agent-tools work update \
-  --project "$(pwd)" \
-  --feature {FEATURE_ID} \
-  --workflow {WORKFLOW} \
-  --agent task-builder \
-  --task {TASK_IDS} \
+rp1 agent-tools emit \
+  --type status_change \
   --run-id {RUN_ID} \
   --step building \
-  --status started
+  --unit {TASK_IDS} \
+  --data '{"status": "running"}'
 ```
 
 Skip if WORKFLOW is empty.
@@ -178,7 +175,36 @@ Per task:
 4. Run relevant tests
 5. Verify acceptance criteria
 
-### 3.4 Scope Verification
+### 3.4 Sub-Flow Diagram Generation
+
+After implementing all assigned tasks, generate a `.mmd` stateDiagram-v2 file representing the task execution sub-flow within the current step.
+
+1. Create `{FEATURE_ID}-{TASK_IDS}.mmd` in the feature directory (`{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`):
+
+```mermaid
+stateDiagram-v2
+    [*] --> T1_description
+    T1_description --> T2_description
+    T2_description --> [*]
+```
+
+Use the actual task IDs as state names and task descriptions as labels. For single tasks, produce a simple `[*] --> TaskState --> [*]` diagram.
+
+2. Register as artifact with step association and subflow flag:
+
+```bash
+rp1 agent-tools work artifact \
+  --project "$(pwd)" \
+  --feature {FEATURE_ID} \
+  --run-id {RUN_ID} \
+  --path "work/features/{FEATURE_ID}/{FEATURE_ID}-{TASK_IDS}.mmd" \
+  --step {STEP_NAME} \
+  --subflow
+```
+
+Where `{STEP_NAME}` is the workflow step these tasks belong to (from the task list context). Skip if WORKFLOW or RUN_ID is empty. Skip in quick-build mode.
+
+### 3.5 Scope Verification
 
 Before summary:
 
@@ -187,7 +213,7 @@ Before summary:
 - [ ] No changes beyond task reqs
 - [ ] Found something unusual or interesting that's not captured in design/current patterns -> update it in `field-notes.md` (if exists) or create it in the same feature dir.
 
-### 3.5 Atomic Commit (Conditional)
+### 3.6 Atomic Commit (Conditional)
 
 **DECISION POINT**: Check `GIT_COMMIT` and `WORKTREE_PATH` parameters before ANY git operations.
 
@@ -292,15 +318,12 @@ Update progress % in header if present (feature mode only).
 Transition to `completed` state per STATE-MACHINE section:
 
 ```bash
-rp1 agent-tools work update \
-  --project "$(pwd)" \
-  --feature {FEATURE_ID} \
-  --workflow {WORKFLOW} \
-  --agent task-builder \
-  --task {TASK_IDS} \
+rp1 agent-tools emit \
+  --type status_change \
   --run-id {RUN_ID} \
   --step completed \
-  --status started
+  --unit {TASK_IDS} \
+  --data '{"status": "completed"}'
 ```
 
 Skip if WORKFLOW is empty.
@@ -350,15 +373,12 @@ Blocking issue:
 
 1. Transition to `failed` state per STATE-MACHINE section (skip if WORKFLOW is empty):
    ```bash
-   rp1 agent-tools work update \
-     --project "$(pwd)" \
-     --feature {FEATURE_ID} \
-     --workflow {WORKFLOW} \
-     --agent task-builder \
-     --task {TASK_IDS} \
+   rp1 agent-tools emit \
+     --type status_change \
      --run-id {RUN_ID} \
      --step failed \
-     --status started
+     --unit {TASK_IDS} \
+     --data '{"status": "failed"}'
    ```
 2. Document clearly
 3. Mark partial if possible
@@ -392,29 +412,26 @@ stateDiagram-v2
 ```
 
 **State Progression Protocol**:
-1. Report each `--step` with `--status started` when you enter that state
+1. Report each `--step` with `--data '{"status": "running"}'` when you enter that state
 2. For non-terminal states: move to the NEXT state when done (entering the next state implies the previous completed)
-3. For terminal states (those with `→ [*]` transitions): report `--status completed` when the step's work finishes
+3. For terminal states (those with `→ [*]` transitions): report with `--data '{"status": "completed"}'` when the step's work finishes
 
 **On each transition**, report via:
 ```
-rp1 agent-tools work update \
-  --project "$(pwd)" \
-  --feature {FEATURE_ID} \
-  --workflow {WORKFLOW} \
-  --agent task-builder \
-  --task {TASK_IDS} \
+rp1 agent-tools emit \
+  --type status_change \
   --run-id {RUN_ID} \
   --step {CURRENT_STATE} \
-  --status started
+  --unit {TASK_IDS} \
+  --data '{"status": "running"}'
 ```
 
 **Example sequence**:
 ```
---step building --status started    # entering building state
---step completed --status started   # build done, entering completed state
+--step building --data '{"status": "running"}'      # entering building state
+--step completed --data '{"status": "completed"}'   # build done, workflow complete
 ```
-On error: `--step failed --status started` (instead of completed)
+On error: `--step failed --data '{"status": "failed"}'`
 
 Skip all state reporting if WORKFLOW is empty (standalone invocation).
 

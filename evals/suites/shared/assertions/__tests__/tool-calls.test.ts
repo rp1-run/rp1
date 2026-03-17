@@ -252,7 +252,7 @@ describe("assertCanonicalToolCall", () => {
 
 	test("matches with regex matcher", () => {
 		const ctx = makeContext([
-			tc("Bash", { command: "rp1 agent-tools work update" }, "shell"),
+			tc("Bash", { command: "rp1 agent-tools emit --type status_change" }, "shell"),
 		]);
 		const result = assertCanonicalToolCall("shell", /rp1\s+agent-tools/)(
 			"",

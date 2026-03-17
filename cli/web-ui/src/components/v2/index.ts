@@ -23,6 +23,7 @@ export {
 	AttentionSection,
 	type AttentionSectionProps,
 } from "./AttentionSection";
+export { BtwFeed, type BtwFeedProps } from "./BtwFeed";
 export { Collapsible, type CollapsibleProps } from "./Collapsible";
 export {
 	CommandPalette,
@@ -34,6 +35,7 @@ export {
 	FollowModeToggle,
 	type FollowModeToggleProps,
 } from "./FollowModeToggle";
+export { GroupStepNode } from "./GroupStepNode";
 export {
 	KeyboardShortcutHint,
 	type KeyboardShortcutHintProps,
@@ -63,10 +65,12 @@ export {
 	StatusGlow,
 	type StatusGlowProps,
 } from "./StatusGlow";
+export { AnnotationCountsContext } from "./StepNode";
 export {
 	TableOfContents,
 	type TableOfContentsProps,
 } from "./TableOfContents";
+export { TaskNode } from "./TaskNode";
 export {
 	TerminalBreadcrumb,
 	type TerminalBreadcrumbProps,
@@ -90,6 +94,7 @@ export {
 	type VirtualizedListProps,
 	type VirtualizedListRef,
 } from "./VirtualizedList";
+export { WaitingBanner, type WaitingBannerProps } from "./WaitingBanner";
 export {
 	WorkflowCanvas,
 	type WorkflowCanvasProps,

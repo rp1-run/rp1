@@ -1,10 +1,11 @@
 import {
 	AlertTriangle,
 	Bot,
-	Check,
 	FilePlus,
+	Hand,
 	Layers,
-	Play,
+	RefreshCw,
+	StickyNote,
 	XCircle,
 } from "lucide-react";
 import { formatRelativeTime } from "@/lib/time";
@@ -18,70 +19,64 @@ interface EventConfig {
 }
 
 const eventConfigs: Record<EventType, EventConfig> = {
-	"step-start": {
-		icon: Play,
-		colorClass: "text-status-running",
+	status_change: {
+		icon: RefreshCw,
+		colorClass: "text-muted-foreground",
 	},
-	"step-complete": {
-		icon: Check,
-		colorClass: "text-status-completed",
-	},
-	warning: {
-		icon: AlertTriangle,
-		colorClass: "text-status-waiting",
-	},
-	error: {
-		icon: XCircle,
-		colorClass: "text-status-failed",
-	},
-	"artifact-updated": {
+	artifact_registered: {
 		icon: FilePlus,
 		colorClass: "text-muted-foreground",
 	},
-	"task-batch": {
+	annotation_updated: {
+		icon: StickyNote,
+		colorClass: "text-muted-foreground",
+	},
+	waiting_for_user: {
+		icon: Hand,
+		colorClass: "text-status-waiting",
+	},
+	btw_update: {
+		icon: Bot,
+		colorClass: "text-muted-foreground",
+	},
+	subflow_registered: {
 		icon: Layers,
 		colorClass: "text-muted-foreground",
 	},
-	"agent-update": {
-		icon: Bot,
-		colorClass: "text-accent-foreground",
-	},
 };
-
-function getTaskBatchSummary(event: RunEvent): string {
-	if (event.type !== "task-batch" || !event.metadata) {
-		return event.message;
-	}
-	const count = event.metadata.taskCount as number | undefined;
-	const stepName = event.metadata.stepName as string | undefined;
-	if (count !== undefined && stepName) {
-		return `${count} tasks completed in ${stepName}`;
-	}
-	return event.message;
-}
 
 export interface EventStreamProps {
 	events: readonly RunEvent[];
 	defaultExpanded?: boolean;
+	expanded?: boolean;
+	onExpandedChange?: (expanded: boolean) => void;
 	className?: string;
 }
 
 export function EventStream({
 	events,
 	defaultExpanded = false,
+	expanded,
+	onExpandedChange,
 	className,
 }: EventStreamProps) {
 	const sortedEvents = [...events].sort(
 		(a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
 	);
 
-	const errorCount = events.filter((e) => e.type === "error").length;
-	const warningCount = events.filter((e) => e.type === "warning").length;
+	const errorCount = events.filter(
+		(e) => e.type === "status_change" && e.metadata?.status === "failed",
+	).length;
+	const warningCount = events.filter(
+		(e) => e.type === "waiting_for_user",
+	).length;
 
 	return (
 		<Collapsible
 			title="Event Stream"
 			defaultExpanded={defaultExpanded}
+			expanded={expanded}
+			onExpandedChange={onExpandedChange}
 			badge={
 				<span className="text-sm text-muted-foreground">
 					({events.length} events)
@@ -105,7 +100,7 @@ export function EventStream({
 			}
 			className={className}
 		>
-			<div className="border-t border-border max-h-[400px] overflow-y-auto">
+			<div className="border-t border-border max-h-[240px] overflow-y-auto">
 				{sortedEvents.length === 0 ? (
 					<p className="p-4 text-sm text-muted-foreground">No events yet</p>
 				) : (
@@ -113,10 +108,6 @@ export function EventStream({
 						{sortedEvents.map((event) => {
 							const config = eventConfigs[event.type];
 							const Icon = config.icon;
-							const displayMessage =
-								event.type === "task-batch"
-									? getTaskBatchSummary(event)
-									: event.message;
 
 							return (
 								<li
@@ -132,13 +123,16 @@ export function EventStream({
 										<p
 											className={cn(
 												"text-foreground",
-												event.type === "error" && "text-status-failed",
-												event.type === "warning" && "text-status-waiting",
+												event.type === "status_change" &&
+													event.metadata?.status === "failed" &&
+													"text-status-failed",
+												event.type === "waiting_for_user" &&
+													"text-status-waiting",
 											)}
 										>
-											{displayMessage}
+											{event.message}
 										</p>
-										{event.stepId && (
+										{event.stepId && event.type !== "btw_update" && (
 											<p className="text-xs text-muted-foreground mt-0.5">
 												Step: {event.stepId}
 											</p>

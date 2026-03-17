@@ -71,29 +71,27 @@ stateDiagram-v2
 
 **On each phase transition**, report via:
 ```
-rp1 agent-tools work update \
-  --project "$(pwd)" \
-  --feature {FEATURE_ID} \
-  --workflow build-fast \
+rp1 agent-tools emit \
+  --type status_change \
   --run-id {RUN_ID} \
   --step {CURRENT_STATE} \
-  --status started
+  --data '{"status": "running"}'
 ```
 
 - Generate `RUN_ID` as a UUID at workflow start
 
 **State Progression Protocol**:
-1. Report each `--step` with `--status started` when you enter that state
+1. Report each `--step` with `--data '{"status": "running"}'` when you enter that state
 2. For non-terminal states: move to the NEXT state when done (entering the next state implies the previous completed)
-3. For terminal states (those with `→ [*]` transitions): report `--status completed` when the step's work finishes
+3. For terminal states (those with `→ [*]` transitions): report with `--data '{"status": "completed"}'` when the step's work finishes
 4. On error, transition to the appropriate failure state in the graph
 
 **Example sequence**:
 ```
---step plan --status started      # entering plan phase
---step build --status started     # plan done, entering build phase
---step review --status started    # build done, entering review phase
---step review --status completed  # review done, workflow complete
+--step plan --data '{"status": "running"}'       # entering plan phase
+--step build --data '{"status": "running"}'      # plan done, entering build phase
+--step review --data '{"status": "running"}'     # build done, entering review phase
+--step review --data '{"status": "completed"}'   # review done, workflow complete
 ```
 
 ## §PHASE-1: Planning
@@ -234,7 +232,8 @@ rp1 agent-tools work artifact \
   --project "$(pwd)" \
   --feature {FEATURE_ID} \
   --run-id {RUN_ID} \
-  --path {artifact_path}
+  --path {artifact_path} \
+  --step build
 ```
 
 ```markdown

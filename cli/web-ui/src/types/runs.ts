@@ -1,45 +1,27 @@
 /**
  * Type definitions for runs, steps, artifacts, and events.
  * Used by the V2 dashboard for monitoring AI agent runs.
+ *
+ * All status and event types are the canonical shared types from
+ * shared/events.ts with zero legacy values.
  */
 
-/** Status of an agent run */
-export type RunStatus =
-	| "queued"
-	| "running"
-	| "waiting-input"
-	| "completed"
-	| "failed"
-	| "needs-review";
+import type {
+	ArtifactType,
+	EventType as SharedEventType,
+	Status,
+} from "../../../shared/events";
 
-/** Status of a workflow step within a run */
-export type StepStatus =
-	| "pending"
-	| "running"
-	| "completed"
-	| "failed"
-	| "skipped"
-	| "waiting-input"
-	| "needs-review";
+export type { ArtifactType };
 
-/** Type of artifact produced by a run */
-export type ArtifactType =
-	| "markdown"
-	| "diff"
-	| "diagram"
-	| "report"
-	| "code"
-	| "other";
+/** Status of an agent run -- canonical shared Status */
+export type RunStatus = Status;
 
-/** Type of event in the run event stream */
-export type EventType =
-	| "step-start"
-	| "step-complete"
-	| "warning"
-	| "error"
-	| "artifact-updated"
-	| "task-batch"
-	| "agent-update";
+/** Status of a workflow step within a run -- canonical shared Status */
+export type StepStatus = Status;
+
+/** Event type for the run event stream -- canonical shared EventType */
+export type EventType = SharedEventType;
 
 /** A workflow step within a run */
 export interface Step {
@@ -54,11 +36,22 @@ export interface Step {
 
 /** An artifact produced or updated by a run */
 export interface Artifact {
+	readonly docId: string;
 	readonly path: string;
 	readonly absolutePath: string;
 	readonly type: ArtifactType;
 	readonly updatedDuringRun: boolean;
 	readonly isNew: boolean;
+	readonly step: string | null;
+	readonly subflow?: boolean;
+}
+
+/** A task within an agent sub-flow */
+export interface AgentTask {
+	readonly id: string;
+	readonly name: string;
+	readonly status: string;
+	readonly agent: string;
 }
 
 /** An event in the run event stream */
@@ -87,12 +80,13 @@ export interface Run {
 	readonly startedAt: string;
 	readonly completedAt: string | null;
 	readonly error: string | null;
+	readonly agentSteps: Readonly<Record<string, readonly AgentTask[]>> | null;
+	readonly subflows?: Readonly<Record<string, string>>;
 }
 
 /** Attention groupings for the home dashboard */
 export interface AttentionData {
 	readonly waiting: readonly Run[];
-	readonly needsReview: readonly Run[];
 	readonly failed: readonly Run[];
 	readonly running: readonly Run[];
 }

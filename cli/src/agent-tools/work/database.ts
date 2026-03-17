@@ -24,7 +24,7 @@ import type {
 import { VALID_STATUSES } from "./models.js";
 
 /** Current schema version - must match highest migration number */
-export const CURRENT_SCHEMA_VERSION = 8;
+export const CURRENT_SCHEMA_VERSION = 11;
 
 /** Default database file location. Override with RP1_STATUS_DB env var (used by evals to avoid polluting local DB). */
 const DEFAULT_DB_PATH =
@@ -40,7 +40,7 @@ const FEATURE_PATTERN = /^[a-z0-9-]+$/;
 const isValidFeatureName = (name: string): boolean =>
 	FEATURE_PATTERN.test(name);
 
-/** SQL schema for status_updates table (version 8 with worktree_path column) */
+/** SQL schema for status_updates table (version 9 with artifact step column) */
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS status_updates (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -75,10 +75,30 @@ CREATE TABLE IF NOT EXISTS artifacts (
     path TEXT NOT NULL,
     type TEXT NOT NULL DEFAULT 'other',
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-    worktree_path TEXT
+    worktree_path TEXT,
+    step TEXT,
+    subflow INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS idx_artifacts_run ON artifacts(project_path, feature, run_id);
+
+CREATE TABLE IF NOT EXISTS tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT NOT NULL,
+    description TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending'
+        CHECK(status IN ('pending', 'in_progress', 'completed', 'failed', 'cancelled')),
+    payload TEXT,
+    project_path TEXT,
+    result TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
+CREATE INDEX IF NOT EXISTS idx_tasks_status_created ON tasks(status, created_at);
+CREATE INDEX IF NOT EXISTS idx_tasks_project ON tasks(project_path);
+CREATE INDEX IF NOT EXISTS idx_tasks_project_status ON tasks(project_path, status, created_at);
 `;
 
 /**
@@ -150,6 +170,31 @@ CREATE INDEX idx_artifacts_run ON artifacts(project_path, feature, run_id);`,
 	8: `-- Migration: Add worktree_path column to status_updates and artifacts
 ALTER TABLE status_updates ADD COLUMN worktree_path TEXT;
 ALTER TABLE artifacts ADD COLUMN worktree_path TEXT;`,
+
+	9: `-- Migration: Add step column to artifacts for step-level association
+ALTER TABLE artifacts ADD COLUMN step TEXT;`,
+
+	10: `-- Migration: Add subflow boolean column to artifacts for subflow diagram identification
+ALTER TABLE artifacts ADD COLUMN subflow INTEGER NOT NULL DEFAULT 0;`,
+
+	11: `-- Migration: Add tasks table for persistent FIFO task queue
+CREATE TABLE tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT NOT NULL,
+    description TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending'
+        CHECK(status IN ('pending', 'in_progress', 'completed', 'failed', 'cancelled')),
+    payload TEXT,
+    project_path TEXT,
+    result TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX idx_tasks_status ON tasks(status);
+CREATE INDEX idx_tasks_status_created ON tasks(status, created_at);
+CREATE INDEX idx_tasks_project ON tasks(project_path);
+CREATE INDEX idx_tasks_project_status ON tasks(project_path, status, created_at);`,
 };
 
 /** Get current database schema version from PRAGMA user_version */
@@ -230,7 +275,7 @@ const ensureDbDirectory = async (dbPath: string): Promise<void> => {
  * Get or create database connection.
  * Initializes schema on first connection and runs any pending migrations.
  */
-const getDatabase = (
+export const getDatabase = (
 	dbPath: string = DEFAULT_DB_PATH,
 ): TE.TaskEither<CLIError, Database> =>
 	TE.tryCatch(
@@ -245,6 +290,7 @@ const getDatabase = (
 
 			// Enable WAL mode for better concurrent write performance
 			db.exec("PRAGMA journal_mode = WAL;");
+			db.exec("PRAGMA busy_timeout = 5000;");
 
 			const tableCheck = db
 				.prepare(
@@ -549,8 +595,8 @@ export const insertArtifact = (
 			TE.tryCatch(
 				async () => {
 					const stmt = db.prepare(`
-						INSERT INTO artifacts (project_path, feature, run_id, path, type, worktree_path)
-						VALUES ($projectPath, $feature, $runId, $path, $type, $worktreePath)
+						INSERT INTO artifacts (project_path, feature, run_id, path, type, worktree_path, step, subflow)
+						VALUES ($projectPath, $feature, $runId, $path, $type, $worktreePath, $step, $subflow)
 						RETURNING id, created_at
 					`);
 
@@ -561,6 +607,8 @@ export const insertArtifact = (
 						$path: input.path,
 						$type: input.type,
 						$worktreePath: input.worktreePath ?? null,
+						$step: input.step ?? null,
+						$subflow: input.subflow ? 1 : 0,
 					}) as { id: number; created_at: string };
 
 					return {
@@ -598,7 +646,7 @@ export const queryArtifactsForFeature = (
 			TE.tryCatch(
 				async () => {
 					let sql = `
-						SELECT id, project_path, feature, run_id, path, type, created_at, worktree_path
+						SELECT id, project_path, feature, run_id, path, type, created_at, worktree_path, step, subflow
 						FROM artifacts
 						WHERE project_path = $projectPath AND feature = $feature
 					`;
@@ -623,6 +671,8 @@ export const queryArtifactsForFeature = (
 						type: string;
 						created_at: string;
 						worktree_path: string | null;
+						step: string | null;
+						subflow: number;
 					}>;
 
 					return rows.map(
@@ -635,6 +685,8 @@ export const queryArtifactsForFeature = (
 							type: row.type as ArtifactTypeValue,
 							createdAt: row.created_at,
 							worktreePath: row.worktree_path,
+							step: row.step,
+							subflow: row.subflow === 1,
 						}),
 					);
 				},
@@ -782,7 +834,7 @@ export const queryAllLatestStatuses = (
 		TE.chain((db) =>
 			TE.tryCatch(
 				async () => {
-					const innerConditions: string[] = [];
+					const innerConditions: string[] = ["agent IS NULL"];
 					const params: Record<string, string | number> = {};
 
 					if (options.projectPath) {
@@ -795,7 +847,7 @@ export const queryAllLatestStatuses = (
 							? `WHERE ${innerConditions.join(" AND ")}`
 							: "";
 
-					const outerConditions: string[] = [];
+					const outerConditions: string[] = ["s.agent IS NULL"];
 					if (options.projectPath) {
 						outerConditions.push("s.project_path = $projectPath");
 					}
@@ -1277,6 +1329,119 @@ export const queryAgentUpdatesForRun = (
 				(error) =>
 					runtimeError(
 						`Failed to query agent updates for run: ${error instanceof Error ? error.message : String(error)}`,
+					),
+			),
+		),
+	);
+
+/**
+ * Query the latest status value for a specific step within a feature/run.
+ * Used by insert-time reconciliation to enforce forward-only lifecycle.
+ *
+ * @param projectPath - Project path to filter by
+ * @param feature - Feature identifier
+ * @param step - Step identifier to query status for
+ * @param runId - Optional run ID for per-invocation isolation
+ * @param dbPath - Database file path (optional)
+ * @returns TaskEither with current status value or null if step has no records
+ */
+export const getStepStatusValue = (
+	projectPath: string,
+	feature: string,
+	step: string,
+	runId?: string,
+	dbPath?: string,
+): TE.TaskEither<CLIError, StatusValue | null> =>
+	pipe(
+		getDatabase(dbPath),
+		TE.chain((db) =>
+			TE.tryCatch(
+				async () => {
+					const params: Record<string, string> = {
+						$projectPath: projectPath,
+						$feature: feature,
+						$step: step,
+					};
+
+					let runIdClause: string;
+					if (runId) {
+						runIdClause = "AND (run_id = $runId OR run_id IS NULL)";
+						params.$runId = runId;
+					} else {
+						runIdClause = "";
+					}
+
+					const sql = `
+						SELECT status FROM status_updates
+						WHERE project_path = $projectPath
+						AND feature = $feature
+						AND step = $step
+						${runIdClause}
+						AND (expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now') OR expires_at IS NULL)
+						ORDER BY created_at DESC, id DESC LIMIT 1
+					`;
+
+					const row = db.prepare(sql).get(params) as {
+						status: string;
+					} | null;
+					return row ? (row.status as StatusValue) : null;
+				},
+				(error) =>
+					runtimeError(
+						`Failed to query step status: ${error instanceof Error ? error.message : String(error)}`,
+					),
+			),
+		),
+	);
+
+/**
+ * Look up the workflow name for a given project+feature+run combination.
+ * Used by artifact step validation to resolve which state machine to validate against.
+ *
+ * @param projectPath - Project path to filter by
+ * @param feature - Feature identifier
+ * @param runId - Optional run ID for scoping
+ * @param dbPath - Database file path (optional)
+ * @returns TaskEither with workflow name or null if not found
+ */
+export const getWorkflowForRun = (
+	projectPath: string,
+	feature: string,
+	runId?: string,
+	dbPath?: string,
+): TE.TaskEither<CLIError, string | null> =>
+	pipe(
+		getDatabase(dbPath),
+		TE.chain((db) =>
+			TE.tryCatch(
+				async () => {
+					const params: Record<string, string> = {
+						$projectPath: projectPath,
+						$feature: feature,
+					};
+
+					let sql = `
+						SELECT workflow FROM status_updates
+						WHERE project_path = $projectPath
+						AND feature = $feature
+						AND workflow IS NOT NULL
+					`;
+
+					if (runId) {
+						sql += " AND run_id = $runId";
+						params.$runId = runId;
+					}
+
+					sql += " ORDER BY created_at DESC LIMIT 1";
+
+					const row = db.prepare(sql).get(params) as {
+						workflow: string;
+					} | null;
+					return row?.workflow ?? null;
+				},
+				(error) =>
+					runtimeError(
+						`Failed to query workflow for run: ${error instanceof Error ? error.message : String(error)}`,
 					),
 			),
 		),

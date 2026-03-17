@@ -47,29 +47,27 @@ stateDiagram-v2
 
 **On each phase transition**, report via:
 ```
-rp1 agent-tools work update \
-  --project "$(pwd)" \
-  --feature {FEATURE_ID} \
-  --workflow blueprint \
+rp1 agent-tools emit \
+  --type status_change \
   --run-id {RUN_ID} \
   --step {CURRENT_STATE} \
-  --status started
+  --data '{"status": "running"}'
 ```
 
-- Generate `RUN_ID` as a UUID at workflow start; use `FEATURE_ID` = "blueprint" or derive from `PRD_NAME` if provided
+- Generate `RUN_ID` as a UUID at workflow start
 
 **State Progression Protocol**:
-1. Report each `--step` with `--status started` when you enter that state
+1. Report each `--step` with `--data '{"status": "running"}'` when you enter that state
 2. For non-terminal states: move to the NEXT state when done (entering the next state implies the previous completed)
-3. For terminal states (those with `→ [*]` transitions): report `--status completed` when the step's work finishes
+3. For terminal states (those with `→ [*]` transitions): report with `--data '{"status": "completed"}'` when the step's work finishes
 4. On error, transition to the appropriate failure state in the graph
 
 **Example sequence** (with charter):
 ```
---step detect --status started    # entering detect phase
---step charter --status started   # needs charter, entering charter phase
---step prd --status started       # charter done, entering prd phase
---step prd --status completed     # prd done, workflow complete
+--step detect --data '{"status": "running"}'     # entering detect phase
+--step charter --data '{"status": "running"}'    # needs charter, entering charter phase
+--step prd --data '{"status": "running"}'        # charter done, entering prd phase
+--step prd --data '{"status": "completed"}'      # prd done, workflow complete
 ```
 
 ## §CTX
