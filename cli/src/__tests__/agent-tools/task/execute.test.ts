@@ -77,7 +77,7 @@ describe("task execute functions", () => {
 
 			expect(result.success).toBe(false);
 			expect(result.errors).toBeDefined();
-			expect(result.errors![0].message).toContain("non-empty");
+			expect(result.errors?.[0].message).toContain("non-empty");
 		});
 
 		test("returns error ToolResult for empty description", async () => {
@@ -86,7 +86,7 @@ describe("task execute functions", () => {
 			);
 
 			expect(result.success).toBe(false);
-			expect(result.errors![0].message).toContain("non-empty");
+			expect(result.errors?.[0].message).toContain("non-empty");
 		});
 
 		test("returns error ToolResult for invalid JSON payload", async () => {
@@ -102,7 +102,7 @@ describe("task execute functions", () => {
 			);
 
 			expect(result.success).toBe(false);
-			expect(result.errors![0].message).toContain("valid JSON");
+			expect(result.errors?.[0].message).toContain("valid JSON");
 		});
 
 		test("returns error ToolResult for non-absolute project path", async () => {
@@ -118,7 +118,7 @@ describe("task execute functions", () => {
 			);
 
 			expect(result.success).toBe(false);
-			expect(result.errors![0].message).toContain("absolute path");
+			expect(result.errors?.[0].message).toContain("absolute path");
 		});
 	});
 
@@ -148,7 +148,7 @@ describe("task execute functions", () => {
 			);
 
 			expect(result.success).toBe(false);
-			expect(result.errors![0].message).toContain("Invalid status");
+			expect(result.errors?.[0].message).toContain("Invalid status");
 		});
 
 		test("returns error ToolResult for non-absolute project path", async () => {
@@ -157,7 +157,7 @@ describe("task execute functions", () => {
 			);
 
 			expect(result.success).toBe(false);
-			expect(result.errors![0].message).toContain("absolute path");
+			expect(result.errors?.[0].message).toContain("absolute path");
 		});
 
 		test("returns error ToolResult for non-positive limit", async () => {
@@ -166,7 +166,7 @@ describe("task execute functions", () => {
 			);
 
 			expect(result.success).toBe(false);
-			expect(result.errors![0].message).toContain("positive integer");
+			expect(result.errors?.[0].message).toContain("positive integer");
 		});
 	});
 
@@ -209,7 +209,7 @@ describe("task execute functions", () => {
 
 			expect(result.success).toBe(true);
 			expect(result.data).not.toBeNull();
-			expect(result.data!.status).toBe("in_progress");
+			expect(result.data?.status).toBe("in_progress");
 		});
 
 		test("returns error ToolResult for non-absolute project path", async () => {
@@ -218,7 +218,7 @@ describe("task execute functions", () => {
 			);
 
 			expect(result.success).toBe(false);
-			expect(result.errors![0].message).toContain("absolute path");
+			expect(result.errors?.[0].message).toContain("absolute path");
 		});
 	});
 
@@ -262,7 +262,7 @@ describe("task execute functions", () => {
 			);
 
 			expect(result.success).toBe(false);
-			expect(result.errors![0].message).toContain("positive integer");
+			expect(result.errors?.[0].message).toContain("positive integer");
 		});
 	});
 
@@ -301,7 +301,7 @@ describe("task execute functions", () => {
 			const result = await expectTaskRight(executeFail({ id: 0 }, testDbPath));
 
 			expect(result.success).toBe(false);
-			expect(result.errors![0].message).toContain("positive integer");
+			expect(result.errors?.[0].message).toContain("positive integer");
 		});
 	});
 
@@ -310,7 +310,7 @@ describe("task execute functions", () => {
 			const result = await expectTaskRight(executeCancel(-5, testDbPath));
 
 			expect(result.success).toBe(false);
-			expect(result.errors![0].message).toContain("positive integer");
+			expect(result.errors?.[0].message).toContain("positive integer");
 		});
 	});
 
@@ -319,7 +319,7 @@ describe("task execute functions", () => {
 			const result = await expectTaskRight(executeGet(0, testDbPath));
 
 			expect(result.success).toBe(false);
-			expect(result.errors![0].message).toContain("positive integer");
+			expect(result.errors?.[0].message).toContain("positive integer");
 		});
 	});
 
@@ -347,7 +347,7 @@ describe("task execute functions", () => {
 			})();
 
 			expect(error).not.toBeNull();
-			expect(error!._tag).toBe("RuntimeError");
+			expect(error?._tag).toBe("RuntimeError");
 		});
 	});
 });

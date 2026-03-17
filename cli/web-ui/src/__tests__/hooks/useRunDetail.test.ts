@@ -98,11 +98,11 @@ describe("useRunDetail", () => {
 			(e: RunEvent) => e.type === "waiting_for_user",
 		);
 		expect(waitingEvents).toHaveLength(1);
-		expect(waitingEvents![0].message).toBe(
+		expect(waitingEvents?.[0].message).toBe(
 			"Should I proceed with the migration?",
 		);
-		expect(waitingEvents![0].id).toBe("ws-100");
-		expect(waitingEvents![0].stepId).toBe("design");
+		expect(waitingEvents?.[0].id).toBe("ws-100");
+		expect(waitingEvents?.[0].stepId).toBe("design");
 	});
 
 	test("btw_update event appends event without changing status", async () => {
@@ -132,8 +132,10 @@ describe("useRunDetail", () => {
 			(e: RunEvent) => e.type === "btw_update",
 		);
 		expect(btwEvents).toHaveLength(1);
-		expect(btwEvents![0].message).toBe("Found 3 unused imports in auth module");
-		expect(btwEvents![0].id).toBe("ws-200");
+		expect(btwEvents?.[0].message).toBe(
+			"Found 3 unused imports in auth module",
+		);
+		expect(btwEvents?.[0].id).toBe("ws-200");
 	});
 
 	test("subflow_registered event triggers refetch without inline handling", async () => {

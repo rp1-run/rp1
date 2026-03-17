@@ -63,7 +63,7 @@ describe("task input validation", () => {
 			);
 
 			expect(result.success).toBe(false);
-			expect(result.errors![0].message).toContain("absolute path");
+			expect(result.errors?.[0].message).toContain("absolute path");
 		});
 
 		test("rejects relative project path on list", async () => {
@@ -74,7 +74,7 @@ describe("task input validation", () => {
 			);
 
 			expect(result.success).toBe(false);
-			expect(result.errors![0].message).toContain("absolute path");
+			expect(result.errors?.[0].message).toContain("absolute path");
 		});
 
 		test("rejects relative project path on pickup", async () => {
@@ -83,7 +83,7 @@ describe("task input validation", () => {
 			const result = await expectTaskRight(executePickup("relative", dbPath));
 
 			expect(result.success).toBe(false);
-			expect(result.errors![0].message).toContain("absolute path");
+			expect(result.errors?.[0].message).toContain("absolute path");
 		});
 
 		test("accepts absolute project path on create", async () => {
@@ -113,8 +113,8 @@ describe("task input validation", () => {
 			);
 
 			expect(result.success).toBe(false);
-			expect(result.errors![0].message).toContain("type");
-			expect(result.errors![0].message).toContain("non-empty");
+			expect(result.errors?.[0].message).toContain("type");
+			expect(result.errors?.[0].message).toContain("non-empty");
 		});
 
 		test("rejects whitespace-only type string", async () => {
@@ -128,7 +128,7 @@ describe("task input validation", () => {
 			);
 
 			expect(result.success).toBe(false);
-			expect(result.errors![0].message).toContain("non-empty");
+			expect(result.errors?.[0].message).toContain("non-empty");
 		});
 
 		test("rejects empty description string", async () => {
@@ -139,8 +139,8 @@ describe("task input validation", () => {
 			);
 
 			expect(result.success).toBe(false);
-			expect(result.errors![0].message).toContain("description");
-			expect(result.errors![0].message).toContain("non-empty");
+			expect(result.errors?.[0].message).toContain("description");
+			expect(result.errors?.[0].message).toContain("non-empty");
 		});
 
 		test("rejects whitespace-only description string", async () => {
@@ -151,7 +151,7 @@ describe("task input validation", () => {
 			);
 
 			expect(result.success).toBe(false);
-			expect(result.errors![0].message).toContain("non-empty");
+			expect(result.errors?.[0].message).toContain("non-empty");
 		});
 	});
 
@@ -171,7 +171,7 @@ describe("task input validation", () => {
 			);
 
 			expect(result.success).toBe(false);
-			expect(result.errors![0].message).toContain("valid JSON");
+			expect(result.errors?.[0].message).toContain("valid JSON");
 		});
 
 		test("rejects truncated JSON payload", async () => {
@@ -189,7 +189,7 @@ describe("task input validation", () => {
 			);
 
 			expect(result.success).toBe(false);
-			expect(result.errors![0].message).toContain("valid JSON");
+			expect(result.errors?.[0].message).toContain("valid JSON");
 		});
 
 		test("accepts valid JSON payload", async () => {
@@ -230,8 +230,8 @@ describe("task input validation", () => {
 			);
 
 			expect(result.success).toBe(false);
-			expect(result.errors![0].message).toContain("Invalid status");
-			expect(result.errors![0].message).toContain("Valid values");
+			expect(result.errors?.[0].message).toContain("Invalid status");
+			expect(result.errors?.[0].message).toContain("Valid values");
 		});
 
 		test("accepts all valid status values on list", async () => {
@@ -265,28 +265,28 @@ describe("task input validation", () => {
 			const result = await expectTaskRight(executeComplete({ id: 0 }));
 
 			expect(result.success).toBe(false);
-			expect(result.errors![0].message).toContain("positive integer");
+			expect(result.errors?.[0].message).toContain("positive integer");
 		});
 
 		test("rejects negative ID on fail", async () => {
 			const result = await expectTaskRight(executeFail({ id: -1 }));
 
 			expect(result.success).toBe(false);
-			expect(result.errors![0].message).toContain("positive integer");
+			expect(result.errors?.[0].message).toContain("positive integer");
 		});
 
 		test("rejects fractional ID on cancel", async () => {
 			const result = await expectTaskRight(executeCancel(1.5));
 
 			expect(result.success).toBe(false);
-			expect(result.errors![0].message).toContain("positive integer");
+			expect(result.errors?.[0].message).toContain("positive integer");
 		});
 
 		test("rejects zero ID on get", async () => {
 			const result = await expectTaskRight(executeGet(0));
 
 			expect(result.success).toBe(false);
-			expect(result.errors![0].message).toContain("positive integer");
+			expect(result.errors?.[0].message).toContain("positive integer");
 		});
 
 		test("accepts valid positive integer ID", async () => {
@@ -313,21 +313,21 @@ describe("task input validation", () => {
 			const result = await expectTaskRight(executeList({ limit: 0 }));
 
 			expect(result.success).toBe(false);
-			expect(result.errors![0].message).toContain("positive integer");
+			expect(result.errors?.[0].message).toContain("positive integer");
 		});
 
 		test("rejects negative limit", async () => {
 			const result = await expectTaskRight(executeList({ limit: -3 }));
 
 			expect(result.success).toBe(false);
-			expect(result.errors![0].message).toContain("positive integer");
+			expect(result.errors?.[0].message).toContain("positive integer");
 		});
 
 		test("rejects fractional limit", async () => {
 			const result = await expectTaskRight(executeList({ limit: 2.5 }));
 
 			expect(result.success).toBe(false);
-			expect(result.errors![0].message).toContain("positive integer");
+			expect(result.errors?.[0].message).toContain("positive integer");
 		});
 	});
 });

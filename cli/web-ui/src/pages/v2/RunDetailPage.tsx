@@ -75,11 +75,11 @@ export function RunDetailPage() {
 	// on init, and during the enter animation the container may have intermediate
 	// dimensions or opacity that produce a broken viewport.
 	const [canvasReady, setCanvasReady] = useState(false);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reset delay on route change
 	useEffect(() => {
 		setCanvasReady(false);
 		const timer = setTimeout(() => setCanvasReady(true), 300);
 		return () => clearTimeout(timer);
-		// biome-ignore lint/correctness/useExhaustiveDependencies: reset delay on route change
 	}, [runId]);
 
 	const displaySteps = useMemo<readonly Step[]>(() => {

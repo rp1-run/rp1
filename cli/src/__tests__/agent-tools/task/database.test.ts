@@ -2,6 +2,7 @@
  * Unit tests for task queue database layer.
  * Tests CRUD operations, FIFO ordering, atomic pickup, and state transitions.
  */
+// biome-ignore-all lint/style/noNonNullAssertion: test assertions after expectTaskRight guarantee non-null
 
 import {
 	afterAll,
@@ -271,7 +272,7 @@ describe("task database", () => {
 			const pickedUp = await expectTaskRight(pickupTask(undefined, dbPath));
 
 			expect(pickedUp).not.toBeNull();
-			expect(pickedUp!.type).toBe("oldest");
+			expect(pickedUp?.type).toBe("oldest");
 		});
 
 		test("atomically transitions task to in_progress", async () => {
@@ -290,8 +291,8 @@ describe("task database", () => {
 			const pickedUp = await expectTaskRight(pickupTask(undefined, dbPath));
 
 			expect(pickedUp).not.toBeNull();
-			expect(pickedUp!.id).toBe(created.id);
-			expect(pickedUp!.status).toBe("in_progress");
+			expect(pickedUp?.id).toBe(created.id);
+			expect(pickedUp?.status).toBe("in_progress");
 		});
 
 		test("returns null when no pending tasks exist", async () => {
@@ -340,8 +341,8 @@ describe("task database", () => {
 
 			const second = await expectTaskRight(pickupTask(undefined, dbPath));
 
-			expect(first!.type).toBe("first");
-			expect(second!.type).toBe("second");
+			expect(first?.type).toBe("first");
+			expect(second?.type).toBe("second");
 		});
 
 		test("filters by project path when provided", async () => {
@@ -378,8 +379,8 @@ describe("task database", () => {
 			const pickedUp = await expectTaskRight(pickupTask("/project-b", dbPath));
 
 			expect(pickedUp).not.toBeNull();
-			expect(pickedUp!.type).toBe("proj-b");
-			expect(pickedUp!.projectPath).toBe("/project-b");
+			expect(pickedUp?.type).toBe("proj-b");
+			expect(pickedUp?.projectPath).toBe("/project-b");
 		});
 	});
 

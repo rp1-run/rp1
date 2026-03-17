@@ -168,13 +168,13 @@ export function ArtifactBadge({
 				{getArtifactFilename(artifact.path)}
 			</span>
 			{annotationCount > 0 && (
-				<span
+				<output
 					className="ml-auto inline-flex items-center gap-0.5 text-accent-foreground"
 					aria-label={`${annotationCount} annotation${annotationCount !== 1 ? "s" : ""}`}
 				>
 					<MessageCircle className="h-3 w-3" aria-hidden="true" />
 					<span className="tabular-nums">{annotationCount}</span>
-				</span>
+				</output>
 			)}
 			{annotationCount === 0 && artifact.isNew && (
 				<span
