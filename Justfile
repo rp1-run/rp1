@@ -237,9 +237,27 @@ clean-fake-runs:
     echo ""
     total=$((ann_count + art_count + evt_count + run_count))
     if [ "$total" -eq 0 ]; then
-        echo "No fake runs found."
+        echo "No fake runs found in database."
     else
         echo "Done. Removed $total total rows."
+    fi
+
+    # Clean fake artifact files from disk
+    echo ""
+    rp1_root="${RP1_ROOT:-.rp1}"
+    fake_dir="$rp1_root/work/features"
+    file_count=0
+    if [ -d "$fake_dir" ]; then
+        for d in "$fake_dir"/fake-*/; do
+            [ -d "$d" ] || continue
+            rm -rf "$d"
+            file_count=$((file_count + 1))
+        done
+    fi
+    if [ "$file_count" -eq 0 ]; then
+        echo "No fake artifact directories found."
+    else
+        echo "Removed $file_count fake feature directories from $fake_dir."
     fi
 
 # Delete the entire local status database file (for testing)
