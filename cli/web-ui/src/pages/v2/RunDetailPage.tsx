@@ -70,6 +70,18 @@ export function RunDetailPage() {
 	const { workflow, isLoading: isWorkflowLoading } =
 		useWorkflowSteps(workflowName);
 
+	// Defer mounting the React Flow canvas until after the framer-motion page
+	// transition animation completes (~200ms). React Flow measures its container
+	// on init, and during the enter animation the container may have intermediate
+	// dimensions or opacity that produce a broken viewport.
+	const [canvasReady, setCanvasReady] = useState(false);
+	useEffect(() => {
+		setCanvasReady(false);
+		const timer = setTimeout(() => setCanvasReady(true), 300);
+		return () => clearTimeout(timer);
+		// biome-ignore lint/correctness/useExhaustiveDependencies: reset delay on route change
+	}, [runId]);
+
 	const displaySteps = useMemo<readonly Step[]>(() => {
 		return run ? run.steps : [];
 	}, [run]);
@@ -265,7 +277,7 @@ export function RunDetailPage() {
 					className="min-h-[300px] flex-1 rounded-lg border border-border bg-card"
 					tabIndex={-1}
 				>
-					{isWorkflowLoading ? (
+					{isWorkflowLoading || !canvasReady ? (
 						<div className="flex h-full items-center justify-center text-muted-foreground">
 							Loading workflow...
 						</div>

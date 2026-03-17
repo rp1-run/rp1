@@ -30,13 +30,40 @@ const artifactIconMap: Record<ArtifactType, typeof FileText> = {
 	other: File,
 };
 
-const artifactBorderColor: Record<ArtifactType, string> = {
-	markdown: "border-l-blue-400",
-	code: "border-l-green-400",
-	diff: "border-l-orange-400",
-	report: "border-l-purple-400",
-	diagram: "border-l-cyan-400",
-	other: "border-l-muted-foreground",
+const artifactTypeStyles: Record<
+	ArtifactType,
+	{ bg: string; hover: string; icon: string }
+> = {
+	markdown: {
+		bg: "bg-blue-500/10 dark:bg-blue-400/20",
+		hover: "hover:bg-blue-500/20 dark:hover:bg-blue-400/30",
+		icon: "text-blue-600 dark:text-blue-400",
+	},
+	code: {
+		bg: "bg-emerald-500/10 dark:bg-emerald-400/20",
+		hover: "hover:bg-emerald-500/20 dark:hover:bg-emerald-400/30",
+		icon: "text-emerald-600 dark:text-emerald-400",
+	},
+	diff: {
+		bg: "bg-amber-500/10 dark:bg-amber-400/20",
+		hover: "hover:bg-amber-500/20 dark:hover:bg-amber-400/30",
+		icon: "text-amber-600 dark:text-amber-400",
+	},
+	report: {
+		bg: "bg-violet-500/10 dark:bg-violet-400/20",
+		hover: "hover:bg-violet-500/20 dark:hover:bg-violet-400/30",
+		icon: "text-violet-600 dark:text-violet-400",
+	},
+	diagram: {
+		bg: "bg-cyan-500/10 dark:bg-cyan-400/20",
+		hover: "hover:bg-cyan-500/20 dark:hover:bg-cyan-400/30",
+		icon: "text-cyan-600 dark:text-cyan-400",
+	},
+	other: {
+		bg: "bg-muted/50",
+		hover: "hover:bg-muted/70",
+		icon: "text-muted-foreground",
+	},
 };
 
 function getArtifactFilename(path: string): string {
@@ -53,8 +80,8 @@ function GroupArtifactBadge({
 }) {
 	const navigate = useNavigate();
 	const Icon = artifactIconMap[artifact.type] || File;
-	const borderClass =
-		artifactBorderColor[artifact.type] || "border-l-muted-foreground";
+	const typeStyle =
+		artifactTypeStyles[artifact.type] || artifactTypeStyles.other;
 
 	const handleClick = (e: React.MouseEvent) => {
 		e.stopPropagation();
@@ -68,12 +95,16 @@ function GroupArtifactBadge({
 			type="button"
 			onClick={handleClick}
 			className={cn(
-				"flex min-h-[32px] w-full items-center gap-1.5 rounded border-l-2 bg-muted/40 px-2 py-1 text-left text-xs text-muted-foreground transition-colors hover:bg-muted/70",
-				borderClass,
+				"flex min-h-[32px] w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-xs text-muted-foreground transition-colors",
+				typeStyle.bg,
+				typeStyle.hover,
 			)}
 			title={artifact.path}
 		>
-			<Icon className="h-3 w-3 shrink-0" aria-hidden="true" />
+			<Icon
+				className={cn("h-3 w-3 shrink-0", typeStyle.icon)}
+				aria-hidden="true"
+			/>
 			<span className="min-w-0 truncate">
 				{getArtifactFilename(artifact.path)}
 			</span>
