@@ -395,7 +395,7 @@ const ARTIFACT_ROW_HEIGHT = 28;
 const GROUP_HEADER_HEIGHT = 80;
 const GROUP_PADDING_X = 20;
 const GROUP_PADDING_BOTTOM = 20;
-const MAX_GROUP_HEIGHT = 300;
+const MAX_GROUP_HEIGHT = 500;
 
 interface SubFlowLayout {
 	readonly width: number;
@@ -414,11 +414,12 @@ export function layoutSubFlowFromDiagram(
 	parentId: string,
 	diagramSource: string,
 	tasks: readonly AgentTask[],
+	artifactCount = 0,
 ): SubFlowLayout {
 	const parsed = parseMermaidStateDiagram(diagramSource);
 
 	if (parsed.states.length === 0) {
-		return layoutSubFlow(parentId, tasks);
+		return layoutSubFlow(parentId, tasks, artifactCount);
 	}
 
 	const taskStatusMap = new Map<string, AgentTask>();
@@ -456,6 +457,10 @@ export function layoutSubFlowFromDiagram(
 	const childNodes: Node<TaskNodeData>[] = [];
 	const childEdges: Edge[] = [];
 
+	const artifactOffset =
+		artifactCount > 0 ? 8 + artifactCount * ARTIFACT_ROW_HEIGHT : 0;
+	const headerHeight = GROUP_HEADER_HEIGHT + artifactOffset;
+
 	let maxX = 0;
 	let maxY = 0;
 
@@ -463,7 +468,7 @@ export function layoutSubFlowFromDiagram(
 		const nodeId = `${parentId}-task-${state.id}`;
 		const dagreNode = g.node(nodeId);
 		const x = dagreNode.x - TASK_NODE_WIDTH / 2 + GROUP_PADDING_X;
-		const y = dagreNode.y - TASK_NODE_HEIGHT / 2 + GROUP_HEADER_HEIGHT;
+		const y = dagreNode.y - TASK_NODE_HEIGHT / 2 + headerHeight;
 
 		maxX = Math.max(maxX, x + TASK_NODE_WIDTH);
 		maxY = Math.max(maxY, y + TASK_NODE_HEIGHT);
@@ -516,6 +521,7 @@ export function layoutSubFlowFromDiagram(
 function layoutSubFlow(
 	parentId: string,
 	tasks: readonly AgentTask[],
+	artifactCount = 0,
 ): SubFlowLayout {
 	if (tasks.length === 0) {
 		return {
@@ -552,6 +558,10 @@ function layoutSubFlow(
 	const childNodes: Node<TaskNodeData>[] = [];
 	const childEdges: Edge[] = [];
 
+	const artifactOffset =
+		artifactCount > 0 ? 8 + artifactCount * ARTIFACT_ROW_HEIGHT : 0;
+	const headerHeight = GROUP_HEADER_HEIGHT + artifactOffset;
+
 	let maxX = 0;
 	let maxY = 0;
 
@@ -559,7 +569,7 @@ function layoutSubFlow(
 		const nodeId = `${parentId}-task-${task.id}`;
 		const dagreNode = g.node(nodeId);
 		const x = dagreNode.x - TASK_NODE_WIDTH / 2 + GROUP_PADDING_X;
-		const y = dagreNode.y - TASK_NODE_HEIGHT / 2 + GROUP_HEADER_HEIGHT;
+		const y = dagreNode.y - TASK_NODE_HEIGHT / 2 + headerHeight;
 
 		maxX = Math.max(maxX, x + TASK_NODE_WIDTH);
 		maxY = Math.max(maxY, y + TASK_NODE_HEIGHT);
@@ -651,10 +661,16 @@ export function buildCanvasGraph(
 			continue;
 		}
 
+		const stepArtifactCount = (node.data as StepNodeData).artifacts.length;
 		const subFlow =
 			hasSubflow && subflows[stepId]
-				? layoutSubFlowFromDiagram(stepId, subflows[stepId], tasks ?? [])
-				: layoutSubFlow(stepId, tasks ?? []);
+				? layoutSubFlowFromDiagram(
+						stepId,
+						subflows[stepId],
+						tasks ?? [],
+						stepArtifactCount,
+					)
+				: layoutSubFlow(stepId, tasks ?? [], stepArtifactCount);
 
 		allNodes.push({
 			...node,
