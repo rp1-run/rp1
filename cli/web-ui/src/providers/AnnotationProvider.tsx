@@ -515,8 +515,7 @@ export function AnnotationProvider({
 	useEffect(() => {
 		if (wsStatus !== "connected") return;
 
-		const port = 7710;
-		const wsUrl = `ws://127.0.0.1:${port}/ws`;
+		const wsUrl = `ws://${window.location.host}/ws`;
 		const ws = new WebSocket(wsUrl);
 
 		ws.onmessage = (event) => {

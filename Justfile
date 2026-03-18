@@ -28,7 +28,24 @@ build-web-ui:
     cd cli/web-ui && bun run build
 
 # Clear web-ui cache (needed when testing local builds)
+# Stops the production daemon first if running, since it serves assets from this cache
 clean-web-ui-cache:
+    #!/usr/bin/env bash
+    set -e
+    pid_file="${HOME}/Library/Application Support/rp1/daemon.pid"
+    if [ -f "$pid_file" ]; then
+        daemon_pid=$(sed -n '2p' "$pid_file")
+        if [ -n "$daemon_pid" ] && kill -0 "$daemon_pid" 2>/dev/null; then
+            echo "Stopping production daemon (PID $daemon_pid) before clearing web-ui cache..."
+            curl -sf -X POST http://127.0.0.1:7710/api/v2/shutdown >/dev/null 2>&1 || true
+            kill "$daemon_pid" 2>/dev/null || true
+            for i in $(seq 1 30); do
+                kill -0 "$daemon_pid" 2>/dev/null || break
+                sleep 0.1
+            done
+            rm -f "$pid_file"
+        fi
+    fi
     rm -rf ~/.rp1/web-ui/
 
 # Build the local binary with -dev version suffix
@@ -163,7 +180,6 @@ rm-stable:
 serve-web-ui:
     -pkill -f "rp1-dev" 2>/dev/null || true
     -lsof -ti:7711 | xargs kill -9 2>/dev/null || true
-    rm -f ~/Library/Application\ Support/rp1/daemon.pid
     cd cli/web-ui && rm -rf dist && bunx concurrently -k -n server,client -c blue,green "NODE_ENV=development bun run src/cli.ts ../.. --port 7711" "bun run dev:client"
 
 # ─────────────────────────────────────────────────────────────────────────────
