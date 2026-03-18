@@ -95,7 +95,7 @@ function GroupArtifactBadge({
 			type="button"
 			onClick={handleClick}
 			className={cn(
-				"flex min-h-[32px] w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-xs text-muted-foreground transition-colors",
+				"flex min-h-[24px] w-full items-center gap-1.5 rounded-md px-2 py-0.5 text-left text-xs text-muted-foreground transition-colors",
 				typeStyle.bg,
 				typeStyle.hover,
 			)}
