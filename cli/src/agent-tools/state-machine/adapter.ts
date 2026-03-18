@@ -104,12 +104,6 @@ export const deriveOrderedSteps = (
 };
 
 /**
- * Check if target state is reachable from source state via graph traversal.
- *
- * Uses BFS to explore all reachable states from the source. Returns true
- * if the target is found in the reachable set.
- */
-/**
  * Get all direct predecessor states that have a transition TO the given state.
  * Inverts the transition graph: for each transition where targetId === stateId,
  * returns the sourceId.
