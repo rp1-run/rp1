@@ -22,4 +22,8 @@ export type {
 	StateMachine,
 	TransitionValidation,
 } from "./models.js";
+export {
+	deserializeStateMachine,
+	serializeStateMachine,
+} from "./serialization.js";
 export { parseAndTransform, transformAstToStateMachine } from "./transform.js";
