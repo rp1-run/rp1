@@ -6,6 +6,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	deriveOrderedSteps,
+	getDirectPredecessors,
 	getTransitionsFrom,
 	getValidNextStates,
 	isReachable,
@@ -318,6 +319,70 @@ describe("adapter", () => {
 			expect(ids.indexOf("path_a")).toBeLessThan(ids.indexOf("merge"));
 			expect(ids.indexOf("path_b")).toBeLessThan(ids.indexOf("merge"));
 			expect(ids.indexOf("merge")).toBeLessThan(ids.indexOf("done"));
+		});
+	});
+
+	describe("getDirectPredecessors", () => {
+		test("returns single predecessor for linear chain", () => {
+			const machine = parseMachine("build", buildWorkflow);
+
+			expect(getDirectPredecessors(machine, "design")).toEqual([
+				"requirements",
+			]);
+			expect(getDirectPredecessors(machine, "tasks")).toEqual(["design"]);
+			expect(getDirectPredecessors(machine, "archive")).toEqual(["verify"]);
+		});
+
+		test("returns multiple predecessors at join points", () => {
+			const machine = parseMachine("multi-init", multiInitWorkflow);
+			const predecessors = getDirectPredecessors(machine, "merge");
+
+			expect(predecessors).toHaveLength(2);
+			expect(predecessors).toContain("path_a");
+			expect(predecessors).toContain("path_b");
+		});
+
+		test("returns empty array for initial states", () => {
+			const machine = parseMachine("build", buildWorkflow);
+
+			expect(getDirectPredecessors(machine, "requirements")).toEqual([]);
+		});
+
+		test("returns empty array for nonexistent state", () => {
+			const machine = parseMachine("build", buildWorkflow);
+
+			expect(getDirectPredecessors(machine, "nonexistent")).toEqual([]);
+		});
+
+		test("handles cycles correctly", () => {
+			const machine = parseMachine("build", buildWorkflow);
+			const predecessors = getDirectPredecessors(machine, "build");
+
+			expect(predecessors).toContain("tasks");
+			expect(predecessors).toContain("verify");
+			expect(predecessors).toHaveLength(2);
+		});
+
+		test("deduplicates predecessors", () => {
+			const machine = parseMachine("build", buildWorkflow);
+			const predecessors = getDirectPredecessors(machine, "build");
+
+			const unique = new Set(predecessors);
+			expect(unique.size).toBe(predecessors.length);
+		});
+
+		test("returns correct predecessors for single state workflow", () => {
+			const machine = parseMachine("single", singleStateWorkflow);
+
+			expect(getDirectPredecessors(machine, "only_state")).toEqual([]);
+		});
+
+		test("returns correct predecessors for each build-fast state", () => {
+			const machine = parseMachine("build-fast", buildFastWorkflow);
+
+			expect(getDirectPredecessors(machine, "plan")).toEqual([]);
+			expect(getDirectPredecessors(machine, "build")).toEqual(["plan"]);
+			expect(getDirectPredecessors(machine, "review")).toEqual(["build"]);
 		});
 	});
 
