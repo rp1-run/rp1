@@ -618,8 +618,11 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 				? (statusFilter as Status)
 				: undefined;
 
+		const knownProjectPaths = [...projectByPath.keys()];
+
 		const result = listRuns(db, {
 			projectPath: projectPathFilter,
+			projectPaths: projectPathFilter ? undefined : knownProjectPaths,
 			status: dbStatus,
 			limit,
 			offset,

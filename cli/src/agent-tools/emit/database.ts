@@ -844,6 +844,7 @@ export const getMaxEventId = (db: Database): number => {
 /** Options for listing runs with optional filters and pagination */
 export interface ListRunsOptions {
 	readonly projectPath?: string;
+	readonly projectPaths?: readonly string[];
 	readonly status?: Status;
 	readonly limit?: number;
 	readonly offset?: number;
@@ -881,6 +882,10 @@ export const listRuns = (
 	if (opts.projectPath != null) {
 		conditions.push("project_path = ?");
 		filterValues.push(opts.projectPath);
+	} else if (opts.projectPaths != null && opts.projectPaths.length > 0) {
+		const placeholders = opts.projectPaths.map(() => "?").join(", ");
+		conditions.push(`project_path IN (${placeholders})`);
+		filterValues.push(...opts.projectPaths);
 	}
 	if (opts.status != null) {
 		conditions.push("status = ?");
