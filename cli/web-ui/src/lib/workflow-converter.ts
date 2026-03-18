@@ -107,7 +107,9 @@ function groupArtifactsByStep(
 		if (artifact.step !== null) {
 			const existing = map.get(artifact.step);
 			if (existing) {
-				existing.push(artifact);
+				if (!existing.some((a) => a.path === artifact.path)) {
+					existing.push(artifact);
+				}
 			} else {
 				map.set(artifact.step, [artifact]);
 			}

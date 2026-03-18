@@ -501,7 +501,11 @@ async function buildDetailedRun(
 
 	let artifacts: readonly Artifact[];
 	if (artifactRecords.length > 0) {
-		artifacts = artifactRecords.map((ar) =>
+		const deduped = new Map<string, ArtifactRecord>();
+		for (const ar of artifactRecords) {
+			deduped.set(ar.path, ar);
+		}
+		artifacts = [...deduped.values()].map((ar) =>
 			artifactRecordToArtifact(ar, record.projectPath, record.featureId),
 		);
 	} else {
