@@ -151,6 +151,21 @@ rp1 agent-tools emit \
 - `--run-id` associates the event with the parent workflow run
 - `--unit` enables per-task tracking within the agent
 
+### Sub-Agent Namespaced Steps
+
+Sub-agents that emit steps into a parent run must prefix their step names with the agent identifier and a colon separator. This prevents sub-agent state IDs from colliding with parent workflow states.
+
+**Format:** `{agent-name}:{step-name}`
+
+| Agent | Namespaced Steps |
+|-------|-----------------|
+| task-builder | `task-builder:building`, `task-builder:completed`, `task-builder:failed` |
+| feature-verifier | `feature-verifier:verifying`, `feature-verifier:completed`, `feature-verifier:failed` |
+| task-reviewer | `task-reviewer:reviewing`, `task-reviewer:completed`, `task-reviewer:failed` |
+| hypothesis-tester | `hypothesis-tester:testing`, `hypothesis-tester:completed`, `hypothesis-tester:failed` |
+
+Namespaced steps are persisted with their full prefixed name and are not validated against the parent workflow's state machine.
+
 ### Per-Task Tracking with `--unit`
 
 When an agent processes multiple tasks (e.g., task-builder implementing T1, T2, T3), each task's state is tracked independently using the `--unit` flag:
@@ -233,6 +248,63 @@ rp1 agent-tools emit \
 | `--unit` | No | Task/unit identifier for per-task tracking |
 | `--data` | Yes (for status_change) | JSON payload with status (e.g., `'{"status": "running"}'`) |
 | `--project` | No | Project path (defaults to cwd) |
+
+### Step Validation
+
+Every `--step` value is validated against the workflow's state machine before the event is persisted. Validation is strict -- there is no lenient mode, no opt-out flag, and no warn-and-persist fallback.
+
+**Rules:**
+
+- If the step name is not a valid state ID in the workflow's state machine, the emit is rejected with a non-zero exit code and the event is not persisted.
+- Workflows without a `## STATE-MACHINE` section skip validation entirely (no error).
+- Namespaced steps (containing a colon, e.g., `task-builder:building`) bypass parent state machine validation. See [Sub-Agent Namespaced Steps](#sub-agent-namespaced-steps).
+
+**Error message format (with known current state):**
+
+```
+Error: step "biulding" is not a valid state in the "build" state machine. Valid states: [requirements, design, tasks, build, verify, archive]. Current state: "tasks". Valid transitions from "tasks": [build].
+```
+
+**Error message format (unknown current state, e.g., first emit):**
+
+```
+Error: step "biulding" is not a valid state in the "build" state machine. Valid states: [requirements, design, tasks, build, verify, archive].
+```
+
+Error messages include valid transitions from the current state so that calling agents can self-correct on retry without consulting external documentation.
+
+### Predecessor Auto-Completion
+
+When a step-level `status_change` event with status `"running"` is emitted (and no `--unit` is set), the system automatically completes direct predecessor steps that are still in `"running"` or `"waiting"` status.
+
+**How it works:**
+
+1. The system uses the state machine's transition graph to identify direct predecessors of the current step. A direct predecessor is any state that has a transition edge leading to the current step.
+2. For each direct predecessor whose latest status is `"running"` or `"waiting"`, a `status_change` event with `{ "status": "completed" }` is automatically inserted, timestamped just before the current event.
+3. Predecessors with other statuses (`"completed"`, `"failed"`, `"skipped"`) are not modified.
+
+**Why graph-based predecessors only:**
+
+Only direct predecessors in the state machine graph are auto-completed -- not all steps currently in `"running"` status. This preserves correctness for parallel workflow branches where multiple steps may legitimately be running concurrently. Sibling branches are never touched.
+
+**Exclusions:**
+
+| Condition | Behavior |
+|-----------|----------|
+| `--unit` is set | No predecessor auto-completion (unit-level events manage their own lifecycle) |
+| Step is namespaced (contains colon) | No predecessor auto-completion |
+| Status is not `"running"` | No predecessor auto-completion |
+
+**Example:**
+
+Given a workflow with transitions `tasks --> build --> verify`, and `tasks` has latest status `"running"`:
+
+```bash
+rp1 agent-tools emit --workflow build --type status_change --run-id run-1 \
+  --step build --data '{"status": "running"}'
+```
+
+The system auto-inserts a `"completed"` event for `tasks` (timestamped just before the `build` event), then persists the `build` running event. The run timeline shows `tasks` as completed and `build` as running.
 
 ### Transition Validation
 

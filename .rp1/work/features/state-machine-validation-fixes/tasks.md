@@ -5,7 +5,7 @@ rp1_doc_id: e5f97faa-c21c-4366-97c7-2e801a5b49c3
 
 **Feature ID**: state-machine-validation-fixes
 **Status**: Not Started
-**Progress**: 70% (7 of 10 tasks)
+**Progress**: 100% (11 of 11 tasks)
 **Estimated Effort**: 5 days
 **Started**: 2026-03-18
 
@@ -235,9 +235,21 @@ Transform the emit pipeline from a permissive write-anything model into a strict
     - **Deviations**: None
     - **Tests**: 1751/1751 passing (59 new tests added)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ✅ PASS |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
 ### User Docs
 
-- [ ] **TD1**: Update state-machines.md - Validation section and predecessor auto-completion `[complexity:simple]`
+- [x] **TD1**: Update state-machines.md - Validation section and predecessor auto-completion `[complexity:simple]`
 
     **Reference**: [design.md#documentation-impact](design.md#documentation-impact)
 
@@ -253,11 +265,18 @@ Transform the emit pipeline from a permissive write-anything model into a strict
 
     **Acceptance Criteria**:
 
-    - [ ] Section documents strict validation behavior (no lenient mode, no opt-out)
-    - [ ] Error message format and self-correction guidance included
-    - [ ] Predecessor auto-completion documented: "running" implies predecessor completed; graph-based predecessor detection explained
+    - [x] Section documents strict validation behavior (no lenient mode, no opt-out)
+    - [x] Error message format and self-correction guidance included
+    - [x] Predecessor auto-completion documented: "running" implies predecessor completed; graph-based predecessor detection explained
 
-- [ ] **TD2**: Update AGENTS.md - State machines subsection `[complexity:simple]`
+    **Implementation Summary**:
+
+    - **Files**: `docs/concepts/state-machines.md`
+    - **Approach**: Added "Step Validation" section documenting strict validation, error message formats with/without current state, and self-correction guidance; added "Predecessor Auto-Completion" section explaining graph-based predecessor detection, exclusions table, and worked example; added "Sub-Agent Namespaced Steps" section with naming convention table
+    - **Deviations**: None
+    - **Tests**: N/A (documentation-only)
+
+- [x] **TD2**: Update AGENTS.md - State machines subsection `[complexity:simple]`
 
     **Reference**: [design.md#documentation-impact](design.md#documentation-impact)
 
@@ -273,10 +292,17 @@ Transform the emit pipeline from a permissive write-anything model into a strict
 
     **Acceptance Criteria**:
 
-    - [ ] Namespace prefix convention for sub-agent steps documented
-    - [ ] Examples of correct namespaced step names included
+    - [x] Namespace prefix convention for sub-agent steps documented
+    - [x] Examples of correct namespaced step names included
 
-- [ ] **TD3**: Update patterns.md - Validation and Boundaries `[complexity:simple]`
+    **Implementation Summary**:
+
+    - **Files**: `AGENTS.md`
+    - **Approach**: Updated state machines section to mention strict rejection with actionable errors; added "Sub-agent step namespacing" subsection with correct/wrong examples and list of namespaced step names for existing agents
+    - **Deviations**: None
+    - **Tests**: N/A (documentation-only)
+
+- [x] **TD3**: Update patterns.md - Validation and Boundaries `[complexity:simple]`
 
     **Reference**: [design.md#documentation-impact](design.md#documentation-impact)
 
@@ -292,9 +318,16 @@ Transform the emit pipeline from a permissive write-anything model into a strict
 
     **Acceptance Criteria**:
 
-    - [ ] Emit step validation added to boundary validation list
+    - [x] Emit step validation added to boundary validation list
 
-- [ ] **TD4**: Update architecture.md - Security Notes `[complexity:simple]`
+    **Implementation Summary**:
+
+    - **Files**: `.rp1/context/patterns.md`
+    - **Approach**: Added emit pipeline to Location list; added emit step validation to Method description; added sub-agent namespace prefix convention to Normalization description
+    - **Deviations**: None
+    - **Tests**: N/A (documentation-only)
+
+- [x] **TD4**: Update architecture.md - Security Notes `[complexity:simple]`
 
     **Reference**: [design.md#documentation-impact](design.md#documentation-impact)
 
@@ -310,7 +343,14 @@ Transform the emit pipeline from a permissive write-anything model into a strict
 
     **Acceptance Criteria**:
 
-    - [ ] Step validation added to constraint list
+    - [x] Step validation added to constraint list
+
+    **Implementation Summary**:
+
+    - **Files**: `.rp1/context/architecture.md`
+    - **Approach**: Extended the state-machine validation bullet in Security Notes to mention strict emit step validation and rejection before persistence
+    - **Deviations**: None
+    - **Tests**: N/A (documentation-only)
 
 ## Acceptance Criteria Checklist
 

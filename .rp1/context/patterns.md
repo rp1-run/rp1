@@ -30,9 +30,9 @@ Evidence: `cli/src/main.ts`, `cli/src/build/command.ts`, `cli/src/agent-tools/wo
 
 ## Validation and Boundaries
 
-**Location**: At skill metadata, parser, build, install, and workflow-state boundaries.
-**Method**: Parse, lint, and validate prompts or diagrams before publishing or executing them.
-**Normalization**: Resolve `RP1_ROOT`, namespace conventions, and step IDs into canonical forms.
+**Location**: At skill metadata, parser, build, install, emit pipeline, and workflow-state boundaries.
+**Method**: Parse, lint, and validate prompts or diagrams before publishing or executing them. Emit step names are validated against the workflow's state machine before event persistence; invalid steps are rejected with actionable error messages.
+**Normalization**: Resolve `RP1_ROOT`, namespace conventions, and step IDs into canonical forms. Sub-agent steps use `{agent}:{step}` namespace prefixes to avoid parent state machine collisions.
 
 Evidence: `docs/concepts/skill-format.md`, `docs/concepts/state-machines.md`, `plugins/base/skills/knowledge-build/SKILL.md`
 

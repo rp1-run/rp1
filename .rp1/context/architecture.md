@@ -75,7 +75,7 @@ flowchart TB
 
 - The local daemon binds to loopback, reducing accidental remote exposure.
 - File and artifact reads are path-scoped and validated before serving.
-- Namespace rules, supported-tool contracts, and state-machine validation constrain workflow execution.
+- Namespace rules, supported-tool contracts, and state-machine validation constrain workflow execution. Emit step names are strictly validated against the workflow's state machine; invalid steps are rejected before persistence, preventing data corruption in run timelines.
 - Project-registry writes are atomic and use local-only storage expectations.
 - External repository actions rely on host-provided credentials such as `GITHUB_TOKEN`.
 

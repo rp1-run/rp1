@@ -120,7 +120,26 @@ Required rules:
 - State IDs must match the `--step` values sent to `rp1 agent-tools emit`.
 - `--run-id` is mandatory for state-machine-enabled skills and agents.
 - `--unit` enables per-task tracking.
-- Follow graph transitions exactly; invalid transitions are rejected.
+- Follow graph transitions exactly; invalid steps are rejected with actionable error messages listing valid states and transitions.
+- Sub-agents emitting into a parent run must namespace their step names with the agent identifier and a colon separator to avoid collision with parent workflow states.
+
+### Sub-agent step namespacing
+
+Sub-agents prefix `--step` values with `{agent-name}:` so their steps are distinguishable from parent workflow states and bypass parent state machine validation:
+
+```bash
+# Correct: namespaced sub-agent step
+rp1 agent-tools emit --workflow build --step task-builder:building ...
+
+# Wrong: bare step collides with parent workflow
+rp1 agent-tools emit --workflow build --step building ...
+```
+
+Examples of correctly namespaced steps:
+
+- `task-builder:building`, `task-builder:completed`, `task-builder:failed`
+- `feature-verifier:verifying`, `feature-verifier:completed`, `feature-verifier:failed`
+- `task-reviewer:reviewing`, `task-reviewer:completed`, `task-reviewer:failed`
 
 For the full pattern and command examples, see [docs/concepts/state-machines.md](docs/concepts/state-machines.md).
 
