@@ -63,7 +63,7 @@ rp1 agent-tools emit \
   --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \
-  --step testing \
+  --step hypothesis-tester:testing \
   --unit hypothesis-{N} \
   --data '{"status": "running", "feature": "{FEATURE_ID}"}'
 ```
@@ -187,7 +187,7 @@ rp1 agent-tools emit \
   --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \
-  --step completed \
+  --step hypothesis-tester:completed \
   --unit hypothesis-{N} \
   --data '{"status": "completed", "feature": "{FEATURE_ID}"}'
 ```
@@ -238,17 +238,17 @@ rp1 agent-tools emit \
   --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \
-  --step {CURRENT_STATE} \
+  --step hypothesis-tester:{CURRENT_STATE} \
   --unit hypothesis-{N} \
   --data '{"status": "running", "feature": "{FEATURE_ID}"}'
 ```
 
 **Example sequence**:
 ```
---workflow {WORKFLOW} --step testing --data '{"status": "running", "feature": "{FEATURE_ID}"}'       # entering testing state
---workflow {WORKFLOW} --step completed --data '{"status": "completed", "feature": "{FEATURE_ID}"}'   # testing done, workflow complete
+--workflow {WORKFLOW} --step hypothesis-tester:testing --data '{"status": "running", "feature": "{FEATURE_ID}"}'       # entering testing state
+--workflow {WORKFLOW} --step hypothesis-tester:completed --data '{"status": "completed", "feature": "{FEATURE_ID}"}'   # testing done, workflow complete
 ```
-On error: `--workflow {WORKFLOW} --step failed --data '{"status": "failed", "feature": "{FEATURE_ID}"}'`
+On error: `--workflow {WORKFLOW} --step hypothesis-tester:failed --data '{"status": "failed", "feature": "{FEATURE_ID}"}'`
 
 Skip all state reporting if WORKFLOW is empty (standalone invocation).
 

@@ -54,7 +54,7 @@ Before executing the workflow, you must systematically plan your verification ap
      --workflow {WORKFLOW} \
      --type status_change \
      --run-id {RUN_ID} \
-     --step verifying \
+     --step feature-verifier:verifying \
      --data '{"status": "running", "feature": "{FEATURE_ID}"}'
    ```
 
@@ -199,7 +199,7 @@ During verification, identify criteria that CANNOT be automated:
     --workflow {WORKFLOW} \
     --type status_change \
     --run-id {RUN_ID} \
-    --step completed \
+    --step feature-verifier:completed \
     --data '{"status": "completed", "feature": "{FEATURE_ID}"}'
   ```
 
@@ -313,16 +313,16 @@ rp1 agent-tools emit \
   --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \
-  --step {CURRENT_STATE} \
+  --step feature-verifier:{CURRENT_STATE} \
   --data '{"status": "running", "feature": "{FEATURE_ID}"}'
 ```
 
 **Example sequence**:
 ```
---workflow {WORKFLOW} --step verifying --data '{"status": "running", "feature": "{FEATURE_ID}"}'     # entering verifying state
---workflow {WORKFLOW} --step completed --data '{"status": "completed", "feature": "{FEATURE_ID}"}'   # verification passed, workflow complete
+--workflow {WORKFLOW} --step feature-verifier:verifying --data '{"status": "running", "feature": "{FEATURE_ID}"}'     # entering verifying state
+--workflow {WORKFLOW} --step feature-verifier:completed --data '{"status": "completed", "feature": "{FEATURE_ID}"}'   # verification passed, workflow complete
 ```
-On failure: `--workflow {WORKFLOW} --step failed --data '{"status": "failed", "feature": "{FEATURE_ID}"}'`
+On failure: `--workflow {WORKFLOW} --step feature-verifier:failed --data '{"status": "failed", "feature": "{FEATURE_ID}"}'`
 
 Skip all state reporting if WORKFLOW is empty (standalone invocation).
 

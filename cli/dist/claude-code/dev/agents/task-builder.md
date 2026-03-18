@@ -101,7 +101,7 @@ rp1 agent-tools emit \
   --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \
-  --step building \
+  --step task-builder:building \
   --unit {TASK_IDS} \
   --data '{"status": "running", "feature": "{FEATURE_ID}"}'
 ```
@@ -315,7 +315,7 @@ rp1 agent-tools emit \
   --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \
-  --step completed \
+  --step task-builder:completed \
   --unit {TASK_IDS} \
   --data '{"status": "completed", "feature": "{FEATURE_ID}"}'
 ```
@@ -371,7 +371,7 @@ Blocking issue:
      --workflow {WORKFLOW} \
      --type status_change \
      --run-id {RUN_ID} \
-     --step failed \
+     --step task-builder:failed \
      --unit {TASK_IDS} \
      --data '{"status": "failed", "feature": "{FEATURE_ID}"}'
    ```
@@ -417,17 +417,17 @@ rp1 agent-tools emit \
   --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \
-  --step {CURRENT_STATE} \
+  --step task-builder:{CURRENT_STATE} \
   --unit {TASK_IDS} \
   --data '{"status": "running", "feature": "{FEATURE_ID}"}'
 ```
 
 **Example sequence**:
 ```
---workflow {WORKFLOW} --step building --data '{"status": "running", "feature": "{FEATURE_ID}"}'      # entering building state
---workflow {WORKFLOW} --step completed --data '{"status": "completed", "feature": "{FEATURE_ID}"}'   # build done, workflow complete
+--workflow {WORKFLOW} --step task-builder:building --data '{"status": "running", "feature": "{FEATURE_ID}"}'      # entering building state
+--workflow {WORKFLOW} --step task-builder:completed --data '{"status": "completed", "feature": "{FEATURE_ID}"}'   # build done, workflow complete
 ```
-On error: `--workflow {WORKFLOW} --step failed --data '{"status": "failed", "feature": "{FEATURE_ID}"}'`
+On error: `--workflow {WORKFLOW} --step task-builder:failed --data '{"status": "failed", "feature": "{FEATURE_ID}"}'`
 
 Skip all state reporting if WORKFLOW is empty (standalone invocation).
 
