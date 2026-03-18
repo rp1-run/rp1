@@ -7,12 +7,14 @@
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../../shared/errors.js";
-import type { Status } from "../../../shared/events.js";
+import { runtimeError } from "../../../shared/errors.js";
+import type { RunRecord, Status } from "../../../shared/events.js";
 import { registerTool, type ToolOptions } from "../index.js";
 import type { ToolResult } from "../models.js";
 import { successResult } from "../output.js";
 import {
 	deriveOrderedSteps,
+	getDirectPredecessors,
 	loadStateMachine,
 } from "../state-machine/index.js";
 import {
@@ -21,6 +23,7 @@ import {
 	type EventInput,
 	getEmitDatabase,
 	getSkippableSteps,
+	getStepStatuses,
 	insertEvent,
 	insertRun,
 	upsertAnnotation,
@@ -28,6 +31,10 @@ import {
 } from "./database.js";
 import { type DocIdResult, generateDocId, resolveDocId } from "./doc-id.js";
 import type { EmitInput, EmitResult } from "./models.js";
+import {
+	isNamespacedStep,
+	validateStepAgainstStateMachine,
+} from "./step-validation.js";
 
 const TOOL_NAME = "emit";
 
@@ -49,22 +56,55 @@ const classifyArtifactType = (filePath: string): string => {
 	return "other";
 };
 
+/** Result from skipped-step and predecessor completion passes */
+interface SkippedAndPredecessorResult {
+	readonly skippedSteps: readonly string[];
+	readonly completedPredecessors: readonly string[];
+}
+
 /**
- * Handle skipped-step detection for status_change events.
+ * Check for flow mismatch between the stored run and the provided workflow.
+ * Rejects when the run has flow "unknown" and --workflow provides a different value.
+ */
+const checkFlowMismatch = (
+	run: RunRecord,
+	input: EmitInput,
+): TE.TaskEither<CLIError, void> => {
+	if (
+		run.flow === "unknown" &&
+		input.workflow !== undefined &&
+		input.workflow !== "unknown"
+	) {
+		return TE.left(
+			runtimeError(
+				`run "${run.id}" has flow "unknown" but --workflow "${input.workflow}" was provided. Either correct the run's flow or create a new run with the correct workflow.`,
+			),
+		);
+	}
+
+	return TE.right(undefined);
+};
+
+/**
+ * Handle skipped-step detection and predecessor auto-completion for status_change events.
  * Loads the state machine for the run's flow, derives ordered steps,
- * and inserts skipped events for prior steps without records.
+ * inserts skipped events for prior steps without records, then auto-completes
+ * direct predecessor steps that are still in "running" or "waiting" status.
+ *
+ * State machine load failures propagate as errors for known workflows.
+ * "unknown" workflows fall back to empty (no state machine expected).
  */
 const handleSkippedSteps = (
 	input: EmitInput,
 	flow: string,
 	triggerTimestamp: string,
-): TE.TaskEither<CLIError, readonly string[]> => {
+): TE.TaskEither<CLIError, SkippedAndPredecessorResult> => {
 	const currentStep = input.step;
 	if (input.type !== "status_change" || !currentStep) {
-		return TE.right([]);
+		return TE.right({ skippedSteps: [], completedPredecessors: [] });
 	}
 
-	return pipe(
+	const smPipeline = pipe(
 		loadStateMachine(flow),
 		TE.chain((machine) =>
 			pipe(
@@ -93,12 +133,61 @@ const handleSkippedSteps = (
 						});
 					}
 
-					return skippable;
+					const completedPredecessors: string[] = [];
+
+					const status = (input.data.status as string) ?? "";
+					const isStepLevel = !input.unit;
+					const isRunning = status === "running";
+					const isNamespaced = isNamespacedStep(currentStep);
+
+					if (isStepLevel && isRunning && !isNamespaced) {
+						const predecessors = getDirectPredecessors(machine, currentStep);
+						const stepStatuses = getStepStatuses(db, input.runId);
+						const statusMap = new Map(
+							stepStatuses.map((s) => [s.step, s.status]),
+						);
+
+						const predecessorTimestamp = new Date(
+							new Date(triggerTimestamp).getTime() - 1,
+						).toISOString();
+
+						for (const pred of predecessors) {
+							const predStatus = statusMap.get(pred);
+							if (predStatus === "running" || predStatus === "waiting") {
+								insertEvent(db, {
+									runId: input.runId,
+									type: "status_change",
+									step: pred,
+									data: JSON.stringify({
+										status: "completed",
+									}),
+									createdAt: predecessorTimestamp,
+								});
+								completedPredecessors.push(pred);
+							}
+						}
+					}
+
+					return {
+						skippedSteps: skippable,
+						completedPredecessors,
+					} as SkippedAndPredecessorResult;
 				}),
 			),
 		),
-		TE.orElse((): TE.TaskEither<CLIError, readonly string[]> => TE.right([])),
 	);
+
+	if (flow === "unknown") {
+		return pipe(
+			smPipeline,
+			TE.orElse(
+				(): TE.TaskEither<CLIError, SkippedAndPredecessorResult> =>
+					TE.right({ skippedSteps: [], completedPredecessors: [] }),
+			),
+		);
+	}
+
+	return smPipeline;
 };
 
 /**
@@ -221,11 +310,13 @@ const notifyDaemon = async (
  * Main emit execution pipeline.
  * Handles all 6 event types through a unified flow:
  * 1. Ensure run exists (auto-create if needed)
- * 2. Handle type-specific pre-processing (skipped steps, artifacts, annotations)
- * 3. Insert event
- * 4. Derive and cache run status
- * 5. Notify daemon (best-effort)
- * 6. Return structured result
+ * 2. Flow-mismatch check
+ * 3. Step validation against state machine
+ * 4. Handle type-specific pre-processing (skipped steps + predecessor completion, artifacts, annotations)
+ * 5. Insert event
+ * 6. Derive and cache run status
+ * 7. Notify daemon (best-effort)
+ * 8. Return structured result
  */
 export const executeEmit = (
 	input: EmitInput,
@@ -243,67 +334,88 @@ export const executeEmit = (
 			const now = new Date().toISOString();
 
 			return pipe(
-				TE.Do,
-				TE.bind("skippedSteps", () => handleSkippedSteps(input, run.flow, now)),
-				TE.bind("docId", () => handleArtifactRegistration(input)),
-				TE.chainFirst(() => handleAnnotation(input)),
-				TE.chain(({ skippedSteps, docId }) => {
-					const eventData = { ...input.data };
-					if (docId) {
-						eventData.docId = docId;
-					}
+				checkFlowMismatch(run, input),
+				TE.chain(() => validateStepAgainstStateMachine(input, run)),
+				TE.chain(() =>
+					pipe(
+						TE.Do,
+						TE.bind("skippedResult", () =>
+							handleSkippedSteps(input, run.flow, now),
+						),
+						TE.bind("docId", () => handleArtifactRegistration(input)),
+						TE.chainFirst(() => handleAnnotation(input)),
+						TE.chain(({ skippedResult, docId }) => {
+							const eventData = { ...input.data };
+							if (docId) {
+								eventData.docId = docId;
+							}
 
-					const parentStepId =
-						input.type === "subflow_registered"
-							? (input.data.parentStepId as string)
-							: undefined;
+							const parentStepId =
+								input.type === "subflow_registered"
+									? (input.data.parentStepId as string)
+									: undefined;
 
-					return pipe(
-						getEmitDatabase(),
-						TE.map((db) => {
-							const eventInput: EventInput = {
-								runId: input.runId,
-								type: input.type,
-								step: input.step,
-								unit: input.unit,
-								data: JSON.stringify(eventData),
-								parentStepId,
-							};
+							return pipe(
+								getEmitDatabase(),
+								TE.map((db) => {
+									const eventInput: EventInput = {
+										runId: input.runId,
+										type: input.type,
+										step: input.step,
+										unit: input.unit,
+										data: JSON.stringify(eventData),
+										parentStepId,
+									};
 
-							const event = insertEvent(db, eventInput);
-							const runStatus = deriveRunStatus(
-								db,
-								input.runId,
-								input.closeRun,
+									const event = insertEvent(db, eventInput);
+									const runStatus = deriveRunStatus(
+										db,
+										input.runId,
+										input.closeRun,
+									);
+
+									return {
+										event,
+										runStatus,
+										skippedResult,
+										docId,
+									};
+								}),
 							);
-
-							return { event, runStatus, skippedSteps, docId };
 						}),
-					);
-				}),
-				TE.chainFirst(({ event, runStatus }) =>
-					TE.fromTask(async () => {
-						await notifyDaemon(input, runStatus, event.id);
-					}),
-				),
-				TE.map(
-					({
-						event,
-						runStatus,
-						skippedSteps,
-						docId,
-					}): ToolResult<EmitResult> => {
-						const result: EmitResult = {
-							eventId: event.id,
-							runId: input.runId,
-							type: input.type,
-							...(docId !== undefined ? { docId } : {}),
-							...(skippedSteps.length > 0 ? { skippedSteps } : {}),
-							runStatus,
-						};
+						TE.chainFirst(({ event, runStatus }) =>
+							TE.fromTask(async () => {
+								await notifyDaemon(input, runStatus, event.id);
+							}),
+						),
+						TE.map(
+							({
+								event,
+								runStatus,
+								skippedResult,
+								docId,
+							}): ToolResult<EmitResult> => {
+								const result: EmitResult = {
+									eventId: event.id,
+									runId: input.runId,
+									type: input.type,
+									...(docId !== undefined ? { docId } : {}),
+									...(skippedResult.skippedSteps.length > 0
+										? { skippedSteps: skippedResult.skippedSteps }
+										: {}),
+									...(skippedResult.completedPredecessors.length > 0
+										? {
+												completedPredecessors:
+													skippedResult.completedPredecessors,
+											}
+										: {}),
+									runStatus,
+								};
 
-						return successResult(TOOL_NAME, result);
-					},
+								return successResult(TOOL_NAME, result);
+							},
+						),
+					),
 				),
 			);
 		}),

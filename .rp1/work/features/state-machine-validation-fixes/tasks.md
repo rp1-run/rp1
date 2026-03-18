@@ -5,7 +5,7 @@ rp1_doc_id: e5f97faa-c21c-4366-97c7-2e801a5b49c3
 
 **Feature ID**: state-machine-validation-fixes
 **Status**: Not Started
-**Progress**: 50% (5 of 10 tasks)
+**Progress**: 60% (6 of 10 tasks)
 **Estimated Effort**: 5 days
 **Started**: 2026-03-18
 
@@ -117,6 +117,18 @@ Transform the emit pipeline from a permissive write-anything model into a strict
     - **Deviations**: None
     - **Tests**: N/A (prompt-only changes)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ⏭️ N/A |
+
 ### Integration (Parallel Group 2)
 
 - [x] **T4**: Update loader to support pre-parsed JSON deserialization `[complexity:simple]`
@@ -139,7 +151,19 @@ Transform the emit pipeline from a permissive write-anything model into a strict
     - **Deviations**: None (implemented alongside T3 serialization work)
     - **Tests**: 80/80 state-machine tests passing
 
-- [ ] **T5**: Integrate flow-mismatch check, step validation, and predecessor auto-completion into emit pipeline `[complexity:complex]`
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ⏭️ N/A |
+
+- [x] **T5**: Integrate flow-mismatch check, step validation, and predecessor auto-completion into emit pipeline `[complexity:complex]`
 
     **Reference**: [design.md#32-flow-mismatch-check](design.md#32-flow-mismatch-check), [design.md#36-modified-executeemit-pipeline](design.md#36-modified-executeemit-pipeline), [design.md#39-predecessor-auto-completion](design.md#39-predecessor-auto-completion)
 
@@ -147,19 +171,26 @@ Transform the emit pipeline from a permissive write-anything model into a strict
 
     **Acceptance Criteria**:
 
-    - [ ] `executeEmit` in `cli/src/agent-tools/emit/index.ts` adds flow-mismatch check after run retrieval and before step validation
-    - [ ] Flow-mismatch check rejects when run has `flow: "unknown"` and `--workflow` provides a non-"unknown" value, with error message per design section 3.8
-    - [ ] Flow auto-update for `flow` field removed from `insertRun`; auto-update for `feature_id` preserved
-    - [ ] `validateStepAgainstStateMachine` called after flow-mismatch check; rejection prevents event insertion
-    - [ ] `handleSkippedSteps` error handling updated: state machine load failure propagates as error for known workflows; "unknown" workflows fall back to empty (existing behavior)
-    - [ ] Pipeline order is: getOrInsertRun -> flowMismatchCheck -> stepValidation -> handleSkippedSteps -> handleArtifact -> insertEvent
-    - [ ] `handleSkippedSteps` extended with predecessor auto-completion pass after existing skipped-step detection
-    - [ ] Predecessor completion runs only for step-level `status_change` events with status "running" and no `--unit` set
-    - [ ] Direct predecessors derived from state machine transitions via `getDirectPredecessors`; predecessors with latest status "running" or "waiting" get auto-inserted "completed" events timestamped 1ms before current event
-    - [ ] Non-predecessor steps in "running" status are not auto-completed (parallel branch safety)
-    - [ ] Namespaced steps (containing colon) do not trigger predecessor completion
-    - [ ] `completedPredecessors` field added to `EmitResult` for transparency
-    - [ ] `handleSkippedSteps` signature updated to accept `unit` and `data` from `EmitInput` (or full `EmitInput`)
+    - [x] `executeEmit` in `cli/src/agent-tools/emit/index.ts` adds flow-mismatch check after run retrieval and before step validation
+    - [x] Flow-mismatch check rejects when run has `flow: "unknown"` and `--workflow` provides a non-"unknown" value, with error message per design section 3.8
+    - [x] Flow auto-update for `flow` field removed from `insertRun`; auto-update for `feature_id` preserved
+    - [x] `validateStepAgainstStateMachine` called after flow-mismatch check; rejection prevents event insertion
+    - [x] `handleSkippedSteps` error handling updated: state machine load failure propagates as error for known workflows; "unknown" workflows fall back to empty (existing behavior)
+    - [x] Pipeline order is: getOrInsertRun -> flowMismatchCheck -> stepValidation -> handleSkippedSteps -> handleArtifact -> insertEvent
+    - [x] `handleSkippedSteps` extended with predecessor auto-completion pass after existing skipped-step detection
+    - [x] Predecessor completion runs only for step-level `status_change` events with status "running" and no `--unit` set
+    - [x] Direct predecessors derived from state machine transitions via `getDirectPredecessors`; predecessors with latest status "running" or "waiting" get auto-inserted "completed" events timestamped 1ms before current event
+    - [x] Non-predecessor steps in "running" status are not auto-completed (parallel branch safety)
+    - [x] Namespaced steps (containing colon) do not trigger predecessor completion
+    - [x] `completedPredecessors` field added to `EmitResult` for transparency
+    - [x] `handleSkippedSteps` signature updated to accept `unit` and `data` from `EmitInput` (or full `EmitInput`)
+
+    **Implementation Summary**:
+
+    - **Files**: `cli/src/agent-tools/emit/index.ts`, `cli/src/agent-tools/emit/models.ts`, `cli/src/agent-tools/emit/database.ts`
+    - **Approach**: Added `checkFlowMismatch` function gating on run flow "unknown" vs provided workflow; integrated `validateStepAgainstStateMachine` after flow check; restructured `handleSkippedSteps` to include predecessor auto-completion using `getDirectPredecessors` and `getStepStatuses`, with conditional error propagation for known vs "unknown" workflows; removed flow auto-update from `insertRun` while preserving feature_id; added `completedPredecessors` to `EmitResult`
+    - **Deviations**: None
+    - **Tests**: 1545/1545 passing (updated 3 existing test files to use valid step names)
 
 ### Verification (Parallel Group 3)
 

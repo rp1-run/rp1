@@ -445,10 +445,6 @@ export const insertRun = (db: Database, input: RunInput): RunRecord => {
 		const updates: string[] = [];
 		const params: Record<string, string> = { $id: input.id };
 
-		if (existing.flow === "unknown" && input.flow !== "unknown") {
-			updates.push("flow = $flow");
-			params.$flow = input.flow;
-		}
 		if (existing.feature_id === "unknown" && input.featureId !== "unknown") {
 			updates.push("feature_id = $featureId");
 			params.$featureId = input.featureId;

@@ -43,5 +43,6 @@ export interface EmitResult {
 	readonly type: EventType;
 	readonly docId?: string;
 	readonly skippedSteps?: readonly string[];
+	readonly completedPredecessors?: readonly string[];
 	readonly runStatus: Status;
 }

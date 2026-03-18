@@ -102,7 +102,7 @@ describe("emit end-to-end", () => {
 			const input = makeInput({
 				type: "status_change",
 				runId,
-				step: "building",
+				step: "build",
 				data: { status: "running", workflow: "build", feature: "feat" },
 			});
 
@@ -146,9 +146,9 @@ describe("emit end-to-end", () => {
 		test("records parent_step_id in event", async () => {
 			const input = makeInput({
 				type: "subflow_registered",
-				step: "building",
+				step: "build",
 				data: {
-					parentStepId: "building",
+					parentStepId: "build",
 					subflowName: "task-builder",
 					steps: ["T1", "T2"],
 					workflow: "build",
@@ -170,7 +170,7 @@ describe("emit end-to-end", () => {
 			};
 
 			expect(event).not.toBeNull();
-			expect(event.parent_step_id).toBe("building");
+			expect(event.parent_step_id).toBe("build");
 		});
 	});
 
@@ -198,7 +198,7 @@ describe("emit end-to-end", () => {
 			const input: EmitInput = {
 				type: "annotation_updated",
 				runId,
-				step: "review",
+				step: "verify",
 				data: {
 					docId: "doc-for-annotation",
 					content: "Looks good",
