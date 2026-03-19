@@ -79,9 +79,14 @@ const config: Config = {
 					"0%, 100%": { opacity: "0.4" },
 					"50%": { opacity: "1" },
 				},
+				blink: {
+					"0%, 49.9%": { opacity: "1" },
+					"50%, 100%": { opacity: "0" },
+				},
 			},
 			animation: {
 				"status-pulse": "status-pulse 1.8s ease-in-out infinite",
+				blink: "blink 1s step-end infinite",
 			},
 		},
 	},

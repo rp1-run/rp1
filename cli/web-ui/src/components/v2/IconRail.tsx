@@ -1,5 +1,5 @@
-import { Activity, File, FolderOpen } from "lucide-react";
-import { NavLink, useLocation } from "react-router-dom";
+import { Activity, FolderOpen, Play } from "lucide-react";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import {
 	Tooltip,
 	TooltipContent,
@@ -18,7 +18,7 @@ interface NavItem {
 const NAV_ITEMS: readonly NavItem[] = [
 	{ to: "/", label: "Activity", icon: Activity },
 	{ to: "/projects", label: "Projects", icon: FolderOpen, matchPrefix: true },
-	{ to: "/runs", label: "Runs", icon: File, matchPrefix: true },
+	{ to: "/runs", label: "Runs", icon: Play, matchPrefix: true },
 ] as const;
 
 export interface IconRailProps {
@@ -32,11 +32,19 @@ export function IconRail({ className }: IconRailProps) {
 		<nav
 			aria-label="Main navigation"
 			className={cn(
-				"flex w-12 shrink-0 flex-col items-center gap-lg pt-lg",
+				"flex w-12 shrink-0 flex-col items-center gap-lg pt-sm",
 				"bg-surface-void",
 				className,
 			)}
 		>
+			<Link
+				to="/"
+				className="flex items-center justify-center text-fg-ghost transition-colors duration-150 hover:text-fg mb-sm"
+				style={{ fontSize: "13px", fontWeight: 500 }}
+				aria-label="rp1 home"
+			>
+				rp1<span className="animate-blink text-fg-ghost">_</span>
+			</Link>
 			{NAV_ITEMS.map((item) => {
 				const isActive = item.matchPrefix
 					? location.pathname.startsWith(item.to)
