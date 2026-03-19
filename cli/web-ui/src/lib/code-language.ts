@@ -34,6 +34,7 @@ export function getCodeLanguageFromPath(path: string): string | null {
 		xml: "xml",
 		toml: "toml",
 		txt: "text",
+		mmd: "mermaid",
 	};
 
 	if (ext === "md" || ext === "mdx") return null;
