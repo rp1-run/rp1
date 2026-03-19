@@ -1,6 +1,5 @@
 import { FileText, RefreshCw } from "lucide-react";
 import { MarkdownViewer } from "@/components/MarkdownViewer";
-import { CodeBlock } from "@/components/MarkdownViewer/CodeBlock";
 import type { HeadingEntry } from "@/hooks/useHeadingExtraction";
 import { getCodeLanguageFromPath } from "@/lib/code-language";
 
@@ -63,13 +62,17 @@ export function UnifiedContentRenderer({
 		);
 	}
 
+	// Wrap code in a markdown code fence so it renders through MarkdownViewer,
+	// giving it the same text-selection annotation infrastructure as prose content.
+	const wrappedContent = `\`\`\`${codeLanguage}\n${content}\n\`\`\``;
+
 	return (
 		<div className="relative">
 			{refreshingOverlay}
-			<CodeBlock
-				code={content}
-				language={codeLanguage}
-				artifactPath={path}
+			<MarkdownViewer
+				content={wrappedContent}
+				path={path}
+				showFrontmatter={false}
 				enableAnnotations={enableAnnotations}
 			/>
 		</div>

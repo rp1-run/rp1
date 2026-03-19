@@ -138,24 +138,10 @@ function AnnotationLayer({
 	// Lock selection when text is selected (but don't show popover yet - Google Docs style)
 	useEffect(() => {
 		if (selection && selectionPosition && !isLocked) {
-			const browserSelection = window.getSelection();
-			if (browserSelection?.anchorNode) {
-				const anchorElement =
-					browserSelection.anchorNode instanceof Element
-						? browserSelection.anchorNode
-						: browserSelection.anchorNode.parentElement;
-				const isInsideCodeBlock = anchorElement?.closest(
-					".shiki-container, pre code, .group\\/line",
-				);
-				if (isInsideCodeBlock) {
-					clearSelection();
-					return;
-				}
-			}
 			// Lock the selection so it persists - icon will appear in gutter
 			lockSelection();
 		}
-	}, [selection, selectionPosition, lockSelection, isLocked, clearSelection]);
+	}, [selection, selectionPosition, lockSelection, isLocked]);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: refs are stable
 	useEffect(() => {
