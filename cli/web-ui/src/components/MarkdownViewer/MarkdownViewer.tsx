@@ -641,7 +641,13 @@ export function MarkdownViewer({
 							}
 
 							if (language === "mermaid") {
-								return <MermaidDiagram code={codeContent} />;
+								return (
+									<MermaidDiagram
+										code={codeContent}
+										artifactPath={path}
+										enableAnnotations={enableAnnotations}
+									/>
+								);
 							}
 
 							return (
