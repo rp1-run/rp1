@@ -26,6 +26,8 @@ import {
 import type { Logger } from "../../shared/logger.js";
 import { createSpinner } from "../../shared/spinner.js";
 import { extractStateMachineMermaid } from "../agent-tools/state-machine/extractor.js";
+import { serializeStateMachine } from "../agent-tools/state-machine/serialization.js";
+import { parseAndTransform } from "../agent-tools/state-machine/transform.js";
 import type { SupportedTool } from "../config/supported-tools.js";
 import { colorFns } from "../lib/colors.js";
 import { claudeCodeRegistry } from "./claude-code/registry.js";
@@ -632,10 +634,20 @@ export const buildPlugin = async (
 
 		const extractedSkillMermaid = extractStateMachineMermaid(skillMdContent);
 		if (extractedSkillMermaid) {
+			const smParseResult = parseAndTransform(
+				ccSkill.name,
+				extractedSkillMermaid,
+			);
+			if (E.isLeft(smParseResult)) {
+				errors.push(
+					`State machine parse error in skill '${ccSkill.name}': ${formatError(smParseResult.left, false)}`,
+				);
+				continue;
+			}
 			stateMachineEntries.push({
 				name: ccSkill.name,
 				path: "",
-				content: extractedSkillMermaid,
+				content: serializeStateMachine(smParseResult.right),
 			});
 		}
 	}
@@ -717,10 +729,20 @@ export const buildPlugin = async (
 
 		const extractedAgentMermaid = extractStateMachineMermaid(ccAgent.content);
 		if (extractedAgentMermaid) {
+			const smParseResult = parseAndTransform(
+				ccAgent.name,
+				extractedAgentMermaid,
+			);
+			if (E.isLeft(smParseResult)) {
+				errors.push(
+					`State machine parse error in agent '${ccAgent.name}': ${formatError(smParseResult.left, false)}`,
+				);
+				continue;
+			}
 			stateMachineEntries.push({
 				name: ccAgent.name,
 				path: "",
-				content: extractedAgentMermaid,
+				content: serializeStateMachine(smParseResult.right),
 			});
 		}
 	}

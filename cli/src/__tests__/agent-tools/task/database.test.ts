@@ -16,6 +16,10 @@ import { mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+	closeDatabase,
+	resetInstance,
+} from "../../../agent-tools/emit/database.js";
+import {
 	cancelTask,
 	completeTask,
 	createTask,
@@ -24,10 +28,6 @@ import {
 	listTasks,
 	pickupTask,
 } from "../../../agent-tools/task/database.js";
-import {
-	closeDatabase,
-	resetDatabaseInstance,
-} from "../../../agent-tools/work/database.js";
 import { expectTaskLeft, expectTaskRight } from "../../helpers/index.js";
 
 describe("task database", () => {
@@ -42,7 +42,7 @@ describe("task database", () => {
 
 	afterEach(() => {
 		closeDatabase();
-		resetDatabaseInstance();
+		resetInstance();
 	});
 
 	afterAll(async () => {
@@ -121,12 +121,12 @@ describe("task database", () => {
 			);
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			await expectTaskRight(pickupTask(undefined, dbPath));
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			const pendingTasks = await expectTaskRight(
 				listTasks({ status: "pending" }, dbPath),
@@ -158,7 +158,7 @@ describe("task database", () => {
 			);
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			await expectTaskRight(
 				createTask(
@@ -172,7 +172,7 @@ describe("task database", () => {
 			);
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			const results = await expectTaskRight(
 				listTasks({ projectPath: "/project-a" }, dbPath),
@@ -190,7 +190,7 @@ describe("task database", () => {
 			);
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			await new Promise((resolve) => setTimeout(resolve, 10));
 
@@ -199,7 +199,7 @@ describe("task database", () => {
 			);
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			const results = await expectTaskRight(listTasks({}, dbPath));
 
@@ -217,7 +217,7 @@ describe("task database", () => {
 					createTask({ type: "bulk", description: `Task ${i}` }, dbPath),
 				);
 				closeDatabase();
-				resetDatabaseInstance();
+				resetInstance();
 			}
 
 			const results = await expectTaskRight(listTasks({ limit: 2 }, dbPath));
@@ -233,7 +233,7 @@ describe("task database", () => {
 			);
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			const results = await expectTaskRight(
 				listTasks({ status: "completed" }, dbPath),
@@ -255,7 +255,7 @@ describe("task database", () => {
 			);
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			await new Promise((resolve) => setTimeout(resolve, 10));
 
@@ -267,7 +267,7 @@ describe("task database", () => {
 			);
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			const pickedUp = await expectTaskRight(pickupTask(undefined, dbPath));
 
@@ -286,7 +286,7 @@ describe("task database", () => {
 			);
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			const pickedUp = await expectTaskRight(pickupTask(undefined, dbPath));
 
@@ -303,12 +303,12 @@ describe("task database", () => {
 			);
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			await expectTaskRight(pickupTask(undefined, dbPath));
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			const result = await expectTaskRight(pickupTask(undefined, dbPath));
 
@@ -323,7 +323,7 @@ describe("task database", () => {
 			);
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			await new Promise((resolve) => setTimeout(resolve, 10));
 
@@ -332,12 +332,12 @@ describe("task database", () => {
 			);
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			const first = await expectTaskRight(pickupTask(undefined, dbPath));
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			const second = await expectTaskRight(pickupTask(undefined, dbPath));
 
@@ -360,7 +360,7 @@ describe("task database", () => {
 			);
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			await expectTaskRight(
 				createTask(
@@ -374,7 +374,7 @@ describe("task database", () => {
 			);
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			const pickedUp = await expectTaskRight(pickupTask("/project-b", dbPath));
 
@@ -396,12 +396,12 @@ describe("task database", () => {
 			);
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			const pickedUp = await expectTaskRight(pickupTask(undefined, dbPath));
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			const completed = await expectTaskRight(
 				completeTask(
@@ -425,7 +425,7 @@ describe("task database", () => {
 			);
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			const error = await expectTaskLeft(
 				completeTask({ id: created.id }, dbPath),
@@ -444,12 +444,12 @@ describe("task database", () => {
 			);
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			const pickedUp = await expectTaskRight(pickupTask(undefined, dbPath));
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			const failed = await expectTaskRight(
 				failTask({ id: pickedUp!.id, result: "Network timeout" }, dbPath),
@@ -470,7 +470,7 @@ describe("task database", () => {
 			);
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			const error = await expectTaskLeft(failTask({ id: created.id }, dbPath));
 
@@ -487,7 +487,7 @@ describe("task database", () => {
 			);
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			const cancelled = await expectTaskRight(cancelTask(created.id, dbPath));
 
@@ -505,12 +505,12 @@ describe("task database", () => {
 			);
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			const pickedUp = await expectTaskRight(pickupTask(undefined, dbPath));
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			const cancelled = await expectTaskRight(cancelTask(pickedUp!.id, dbPath));
 
@@ -525,17 +525,17 @@ describe("task database", () => {
 			);
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			const pickedUp = await expectTaskRight(pickupTask(undefined, dbPath));
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			await expectTaskRight(completeTask({ id: pickedUp!.id }, dbPath));
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			const error = await expectTaskLeft(cancelTask(pickedUp!.id, dbPath));
 
@@ -553,19 +553,19 @@ describe("task database", () => {
 			);
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			const pickedUp = await expectTaskRight(pickupTask(undefined, dbPath));
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			await expectTaskRight(
 				failTask({ id: pickedUp!.id, result: "Error" }, dbPath),
 			);
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			const error = await expectTaskLeft(cancelTask(pickedUp!.id, dbPath));
 
@@ -589,7 +589,7 @@ describe("task database", () => {
 			);
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			const fetched = await expectTaskRight(getTask(created.id, dbPath));
 
@@ -607,7 +607,7 @@ describe("task database", () => {
 			);
 
 			closeDatabase();
-			resetDatabaseInstance();
+			resetInstance();
 
 			const error = await expectTaskLeft(getTask(99999, dbPath));
 

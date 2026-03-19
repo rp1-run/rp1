@@ -15,7 +15,7 @@ metadata:
 
 # Task Queue Management
 
-Interact with the rp1 persistent task queue. Tasks are stored in `~/.rp1/status.db` and processed in FIFO order (oldest first). The task system is a queue and state tracker -- execution is the responsibility of the agent or harness hook that picks up the task.
+Interact with the rp1 persistent task queue. Tasks are stored in `~/.rp1/rp1.db` and processed in FIFO order (oldest first). The task system is a queue and state tracker -- execution is the responsibility of the agent or harness hook that picks up the task.
 
 ## Task Lifecycle
 

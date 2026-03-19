@@ -70,10 +70,11 @@ export interface ParsedStateDiagram {
 function computeStepNodeHeight(
 	step: Step | undefined,
 	artifactCount: number,
+	forceArtifacts = false,
 ): number {
 	let height = STEP_NODE_HEIGHT;
-	if (artifactCount > 0 && step?.status !== "not_started") {
-		height += 8 + artifactCount * ARTIFACT_ROW_HEIGHT;
+	if (artifactCount > 0 && (forceArtifacts || step?.status !== "not_started")) {
+		height += 8 + artifactCount * ARTIFACT_ROW_HEIGHT + (artifactCount - 1) * 4;
 	}
 	return height;
 }
@@ -106,7 +107,9 @@ function groupArtifactsByStep(
 		if (artifact.step !== null) {
 			const existing = map.get(artifact.step);
 			if (existing) {
-				existing.push(artifact);
+				if (!existing.some((a) => a.path === artifact.path)) {
+					existing.push(artifact);
+				}
 			} else {
 				map.set(artifact.step, [artifact]);
 			}
@@ -625,6 +628,11 @@ export function buildCanvasGraph(
 ): CanvasGraph {
 	const { agentSteps, expandedSteps, artifacts, subflows } = options;
 
+	const stepMap = new Map<string, Step>();
+	for (const step of steps) {
+		stepMap.set(step.id, step);
+	}
+
 	const base = workflow
 		? workflowToReactFlow(workflow, steps, artifacts)
 		: stepsToReactFlow(steps, artifacts);
@@ -653,10 +661,17 @@ export function buildCanvasGraph(
 		}
 
 		if (!isExpanded) {
+			const stepArtifactCount = (node.data as StepNodeData).artifacts.length;
+			const collapsedHeight = computeStepNodeHeight(
+				stepMap.get(stepId),
+				stepArtifactCount,
+				true,
+			);
 			allNodes.push({
 				...node,
 				type: "groupStepNode",
 				data: { ...node.data, hasSubFlow: true, isExpanded: false },
+				style: { width: STEP_NODE_WIDTH, height: collapsedHeight },
 			});
 			continue;
 		}

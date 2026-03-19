@@ -28,7 +28,24 @@ build-web-ui:
     cd cli/web-ui && bun run build
 
 # Clear web-ui cache (needed when testing local builds)
+# Stops the production daemon first if running, since it serves assets from this cache
 clean-web-ui-cache:
+    #!/usr/bin/env bash
+    set -e
+    pid_file="${HOME}/Library/Application Support/rp1/daemon.pid"
+    if [ -f "$pid_file" ]; then
+        daemon_pid=$(sed -n '2p' "$pid_file")
+        if [ -n "$daemon_pid" ] && kill -0 "$daemon_pid" 2>/dev/null; then
+            echo "Stopping production daemon (PID $daemon_pid) before clearing web-ui cache..."
+            curl -sf -X POST http://127.0.0.1:7710/api/v2/shutdown >/dev/null 2>&1 || true
+            kill "$daemon_pid" 2>/dev/null || true
+            for i in $(seq 1 30); do
+                kill -0 "$daemon_pid" 2>/dev/null || break
+                sleep 0.1
+            done
+            rm -f "$pid_file"
+        fi
+    fi
     rm -rf ~/.rp1/web-ui/
 
 # Build the local binary with -dev version suffix
@@ -163,25 +180,26 @@ rm-stable:
 serve-web-ui:
     -pkill -f "rp1-dev" 2>/dev/null || true
     -lsof -ti:7711 | xargs kill -9 2>/dev/null || true
-    rm -f ~/Library/Application\ Support/rp1/daemon.pid
     cd cli/web-ui && rm -rf dist && bunx concurrently -k -n server,client -c blue,green "NODE_ENV=development bun run src/cli.ts ../.. --port 7711" "bun run dev:client"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Database
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Delete all rows from the local status database (for testing)
+# Delete all rows from the local rp1 database (for testing)
 db-clean:
     #!/usr/bin/env bash
     set -e
-    db_path="$HOME/.rp1/status.db"
+    db_path="${RP1_DB:-$HOME/.rp1/rp1.db}"
     if [ ! -f "$db_path" ]; then
         echo "No database found at $db_path"
         exit 0
     fi
-    count=$(sqlite3 "$db_path" "SELECT COUNT(*) FROM status_updates;")
-    sqlite3 "$db_path" "DELETE FROM status_updates;"
-    echo "Deleted $count rows from status_updates"
+    for table in runs events artifacts annotations tasks; do
+        count=$(sqlite3 "$db_path" "SELECT COUNT(*) FROM $table;" 2>/dev/null || echo "0")
+        sqlite3 "$db_path" "DELETE FROM $table;" 2>/dev/null || true
+        echo "Deleted $count rows from $table"
+    done
     # Clean project registry
     if [ "$(uname)" = "Darwin" ]; then
         registry_path="$HOME/Library/Application Support/rp1/projects.json"
@@ -256,11 +274,11 @@ clean-fake-runs:
         echo "Removed $file_count fake feature directories from $fake_dir."
     fi
 
-# Delete the entire local status database file (for testing)
+# Delete the entire local rp1 database file (for testing)
 db-reset:
     #!/usr/bin/env bash
     set -e
-    db_path="$HOME/.rp1/status.db"
+    db_path="${RP1_DB:-$HOME/.rp1/rp1.db}"
     if [ ! -f "$db_path" ]; then
         echo "No database found at $db_path"
         exit 0

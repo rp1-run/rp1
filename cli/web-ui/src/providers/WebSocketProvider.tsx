@@ -47,13 +47,9 @@ const POLLING_INTERVAL = 5000;
 
 interface WebSocketProviderProps {
 	children: ReactNode;
-	port?: number;
 }
 
-export function WebSocketProvider({
-	children,
-	port = 7710,
-}: WebSocketProviderProps) {
+export function WebSocketProvider({ children }: WebSocketProviderProps) {
 	const [status, setStatus] = useState<ConnectionStatus>("disconnected");
 	const [projectId, setProjectIdState] = useState<string | null>(null);
 	const wsRef = useRef<WebSocket | null>(null);
@@ -109,8 +105,8 @@ export function WebSocketProvider({
 
 			const currentProjectId = projectIdRef.current;
 			const wsUrl = currentProjectId
-				? `ws://127.0.0.1:${port}/ws?projectId=${encodeURIComponent(currentProjectId)}`
-				: `ws://127.0.0.1:${port}/ws`;
+				? `ws://${window.location.host}/ws?projectId=${encodeURIComponent(currentProjectId)}`
+				: `ws://${window.location.host}/ws`;
 			const ws = new WebSocket(wsUrl);
 
 			ws.onopen = () => {
@@ -205,7 +201,7 @@ export function WebSocketProvider({
 				wsRef.current = null;
 			}
 		};
-	}, [port, projectId, startPollingFallback, stopPollingFallback]);
+	}, [projectId, startPollingFallback, stopPollingFallback]);
 
 	const subscribe = useCallback((path: string) => {
 		subscriptionsRef.current.add(path);

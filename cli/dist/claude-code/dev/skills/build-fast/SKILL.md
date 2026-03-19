@@ -67,6 +67,7 @@ stateDiagram-v2
 **On each phase transition**, report via:
 ```
 rp1 agent-tools emit \
+  --workflow build-fast \
   --type status_change \
   --run-id {RUN_ID} \
   --step {CURRENT_STATE} \
@@ -83,10 +84,10 @@ rp1 agent-tools emit \
 
 **Example sequence**:
 ```
---step plan --data '{"status": "running"}'       # entering plan phase
---step build --data '{"status": "running"}'      # plan done, entering build phase
---step review --data '{"status": "running"}'     # build done, entering review phase
---step review --data '{"status": "completed"}'   # review done, workflow complete
+--workflow build-fast --step plan --data '{"status": "running"}'       # entering plan phase
+--workflow build-fast --step build --data '{"status": "running"}'      # plan done, entering build phase
+--workflow build-fast --step review --data '{"status": "running"}'     # build done, entering review phase
+--workflow build-fast --step review --data '{"status": "completed"}'   # review done, workflow complete
 ```
 
 ## §PHASE-1: Planning
@@ -234,12 +235,12 @@ Options:
 Register the artifact in the database:
 
 ```bash
-rp1 agent-tools work artifact \
-  --project "$(pwd)" \
-  --feature {FEATURE_ID} \
+rp1 agent-tools emit \
+  --workflow build-fast \
+  --type artifact_registered \
   --run-id {RUN_ID} \
-  --path {artifact_path} \
-  --step build
+  --step build \
+  --data '{"path": "{artifact_path}", "feature": "quick-build"}'
 ```
 
 ```markdown
@@ -266,7 +267,7 @@ rp1 agent-tools work artifact \
 - Spawn agents via Task/Agent tool for every phase (planner, task-builder, reviewer)
 - Wait for each Task to complete before proceeding
 - Use AskUserQuestion for user interactions (when not AFK)
-- Register artifact via `rp1 agent-tools work artifact` in §OUTPUT — this is REQUIRED
+- Register artifact via `rp1 agent-tools emit --type artifact_registered` in §OUTPUT — this is REQUIRED
 
 **DO NOT** (hard constraints — never violate these):
 - Write/edit ANY source code files directly — planner writes the artifact, task-builder writes code

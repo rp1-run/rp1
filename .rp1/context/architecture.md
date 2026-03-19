@@ -14,11 +14,10 @@ rp1 is a plugin-driven Bun and TypeScript monorepo for AI-assisted development w
 flowchart TB
     Host["Host Tools\nClaude Code / OpenCode / Codex"] --> CLI["rp1 CLI\ncli/src/main.ts"]
     CLI --> Skills["Plugin Skills and Agents\nplugins/base dev utils"]
-    CLI --> Tools["Agent Tools\nwork emit state-machine"]
+    CLI --> Tools["Agent Tools\nemit state-machine task"]
     Skills --> KBBuild["knowledge-build\nmap-reduce orchestrator"]
     KBBuild --> KBFiles[(".rp1/context/*.md")]
     Tools --> SM["State Machine Loader"]
-    Tools --> WorkDB[("~/.rp1/status.db")]
     Tools --> EmitDB[("~/.rp1/rp1.db")]
     Tools --> Daemon["Web UI Daemon\nBun server + WS"]
     Daemon --> API["v2 API routes"]
@@ -68,7 +67,7 @@ flowchart TB
 - Plugin-based monorepo with explicit namespace and dependency rules.
 - Markdown-first workflow authoring with prompts as source-of-truth assets.
 - Map-reduce orchestration for large analysis jobs such as KB generation and PR review.
-- Dual local persistence: event-oriented runtime tracking in `rp1.db` and legacy status tracking in `status.db`.
+- Unified local persistence: all workflow events, artifacts, and tasks are stored in `rp1.db`.
 - Local-first observability where agent tools write state and the Web UI rebroadcasts it.
 - Lazy loading to keep the common CLI path lightweight.
 
@@ -76,7 +75,7 @@ flowchart TB
 
 - The local daemon binds to loopback, reducing accidental remote exposure.
 - File and artifact reads are path-scoped and validated before serving.
-- Namespace rules, supported-tool contracts, and state-machine validation constrain workflow execution.
+- Namespace rules, supported-tool contracts, and state-machine validation constrain workflow execution. Emit step names are strictly validated against the workflow's state machine; invalid steps are rejected before persistence, preventing data corruption in run timelines.
 - Project-registry writes are atomic and use local-only storage expectations.
 - External repository actions rely on host-provided credentials such as `GITHUB_TOKEN`.
 

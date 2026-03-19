@@ -336,16 +336,15 @@ stateDiagram-v2
 
 If `DAG_STATE` exists, use the dependency graph to determine transitions. Otherwise, produce a sequential chain. Write to `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/tasks-subflow.mmd`.
 
-Register with `--subflow`:
+Register with subflow flag:
 
 ```bash
-rp1 agent-tools work artifact \
-  --project "$(pwd)" \
-  --feature {FEATURE_ID} \
+rp1 agent-tools emit \
+  --workflow {WORKFLOW} \
+  --type artifact_registered \
   --run-id {RUN_ID} \
-  --path .rp1/work/features/{FEATURE_ID}/tasks-subflow.mmd \
   --step tasks \
-  --subflow
+  --data '{"path": ".rp1/work/features/{FEATURE_ID}/tasks-subflow.mmd", "feature": "{FEATURE_ID}", "subflow": true}'
 ```
 
 ### §6.1 Task Artifacts
@@ -353,34 +352,34 @@ rp1 agent-tools work artifact \
 **Small scope** (tasks.md):
 
 ```bash
-rp1 agent-tools work artifact \
-  --project "$(pwd)" \
-  --feature {FEATURE_ID} \
+rp1 agent-tools emit \
+  --workflow {WORKFLOW} \
+  --type artifact_registered \
   --run-id {RUN_ID} \
-  --path .rp1/work/features/{FEATURE_ID}/tasks.md \
-  --step tasks
+  --step tasks \
+  --data '{"path": ".rp1/work/features/{FEATURE_ID}/tasks.md", "feature": "{FEATURE_ID}"}'
 ```
 
 **Large scope** (tracker.md + milestone files):
 
 ```bash
-rp1 agent-tools work artifact \
-  --project "$(pwd)" \
-  --feature {FEATURE_ID} \
+rp1 agent-tools emit \
+  --workflow {WORKFLOW} \
+  --type artifact_registered \
   --run-id {RUN_ID} \
-  --path .rp1/work/features/{FEATURE_ID}/tracker.md \
-  --step tasks
+  --step tasks \
+  --data '{"path": ".rp1/work/features/{FEATURE_ID}/tracker.md", "feature": "{FEATURE_ID}"}'
 ```
 
 Also register each `milestone-{N}.md` written:
 
 ```bash
-rp1 agent-tools work artifact \
-  --project "$(pwd)" \
-  --feature {FEATURE_ID} \
+rp1 agent-tools emit \
+  --workflow {WORKFLOW} \
+  --type artifact_registered \
   --run-id {RUN_ID} \
-  --path .rp1/work/features/{FEATURE_ID}/milestone-{N}.md \
-  --step tasks
+  --step tasks \
+  --data '{"path": ".rp1/work/features/{FEATURE_ID}/milestone-{N}.md", "feature": "{FEATURE_ID}"}'
 ```
 
 If any command fails, log a warning (`[feature-tasker] Failed to register artifact {path}: {error}`) and continue without blocking.

@@ -47,6 +47,7 @@ stateDiagram-v2
 **On each phase transition**, report via:
 ```
 rp1 agent-tools emit \
+  --workflow pr-review \
   --type status_change \
   --run-id {RUN_ID} \
   --step {CURRENT_STATE} \
@@ -63,11 +64,11 @@ rp1 agent-tools emit \
 
 **Example sequence**:
 ```
---step split --data '{"status": "running"}'        # entering split phase
---step review --data '{"status": "running"}'       # split done, entering review phase
---step synthesize --data '{"status": "running"}'   # review done, entering synthesize phase
---step post --data '{"status": "running"}'         # synthesize done, entering post phase
---step post --data '{"status": "completed"}'       # post done, workflow complete
+--workflow pr-review --step split --data '{"status": "running"}'        # entering split phase
+--workflow pr-review --step review --data '{"status": "running"}'       # split done, entering review phase
+--workflow pr-review --step synthesize --data '{"status": "running"}'   # review done, entering synthesize phase
+--workflow pr-review --step post --data '{"status": "running"}'         # synthesize done, entering post phase
+--workflow pr-review --step post --data '{"status": "completed"}'       # post done, workflow complete
 ```
 
 §ARCH

@@ -104,7 +104,6 @@ nav:
       - install: reference/cli/install.md
       - update: reference/cli/update.md
       - rp1-root-dir: reference/cli/rp1-root-dir.md
-      - work: reference/cli/work.md
     - Base Plugin:
       - Overview: reference/base/index.md
       - knowledge-build: reference/base/knowledge-build.md

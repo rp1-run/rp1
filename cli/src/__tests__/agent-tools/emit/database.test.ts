@@ -85,7 +85,7 @@ describe("emit database", () => {
 			expect(tableNames).toContain("schema_version");
 		});
 
-		test("schema_version is set to 2", async () => {
+		test("schema_version is set to 3", async () => {
 			const dbPath = join(tempDir, "version-test.db");
 			const db = await expectTaskRight(getEmitDatabase(dbPath));
 
@@ -93,7 +93,19 @@ describe("emit database", () => {
 				version: number;
 			};
 
-			expect(row.version).toBe(2);
+			expect(row.version).toBe(3);
+		});
+
+		test("artifacts table includes subflow column", async () => {
+			const dbPath = join(tempDir, "subflow-col-test.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			const columns = db.prepare("PRAGMA table_info(artifacts)").all() as {
+				name: string;
+			}[];
+			const columnNames = columns.map((c) => c.name);
+
+			expect(columnNames).toContain("subflow");
 		});
 
 		test("annotations table includes status and author columns", async () => {
@@ -183,10 +195,96 @@ describe("emit database", () => {
 			expect(columnNames).toContain("status");
 			expect(columnNames).toContain("author");
 
+			const artColumns = db.prepare("PRAGMA table_info(artifacts)").all() as {
+				name: string;
+			}[];
+			expect(artColumns.map((c) => c.name)).toContain("subflow");
+
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(2);
+			expect(versionRow.version).toBe(3);
+		});
+
+		test("migrates v2 schema to add subflow column to artifacts", async () => {
+			const dbPath = join(tempDir, "migration-v2-test.db");
+
+			const { Database } = await import("bun:sqlite");
+			const rawDb = new Database(dbPath, { create: true });
+			rawDb.exec("PRAGMA journal_mode = WAL;");
+			rawDb.exec("PRAGMA foreign_keys = ON;");
+			rawDb.exec(`
+				CREATE TABLE schema_version (version INTEGER NOT NULL);
+				INSERT INTO schema_version (version) VALUES (2);
+				CREATE TABLE runs (
+					id TEXT PRIMARY KEY NOT NULL,
+					flow TEXT NOT NULL,
+					feature_id TEXT NOT NULL,
+					project_path TEXT NOT NULL,
+					status TEXT NOT NULL DEFAULT 'not_started',
+					created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+					updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+				);
+				CREATE TABLE artifacts (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					doc_id TEXT UNIQUE NOT NULL,
+					run_id TEXT REFERENCES runs(id),
+					path TEXT NOT NULL,
+					type TEXT NOT NULL DEFAULT 'other',
+					project_path TEXT NOT NULL,
+					feature TEXT NOT NULL,
+					step TEXT,
+					created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+				);
+				CREATE TABLE annotations (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					doc_id TEXT NOT NULL REFERENCES artifacts(doc_id),
+					run_id TEXT REFERENCES runs(id),
+					content TEXT NOT NULL,
+					data TEXT,
+					parent_id INTEGER REFERENCES annotations(id),
+					status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open', 'resolved')),
+					author TEXT NOT NULL DEFAULT 'user',
+					created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+					updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+				);
+				CREATE TABLE events (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					run_id TEXT NOT NULL REFERENCES runs(id),
+					type TEXT NOT NULL,
+					step TEXT,
+					unit TEXT,
+					data TEXT,
+					parent_step_id TEXT,
+					created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+				);
+				CREATE TABLE tasks (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					type TEXT NOT NULL,
+					description TEXT NOT NULL,
+					status TEXT NOT NULL DEFAULT 'pending',
+					payload TEXT,
+					project_path TEXT,
+					result TEXT,
+					created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+					updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+				);
+			`);
+			rawDb.close();
+
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			const columns = db.prepare("PRAGMA table_info(artifacts)").all() as {
+				name: string;
+			}[];
+			const columnNames = columns.map((c) => c.name);
+
+			expect(columnNames).toContain("subflow");
+
+			const versionRow = db
+				.prepare("SELECT version FROM schema_version")
+				.get() as { version: number };
+			expect(versionRow.version).toBe(3);
 		});
 
 		test("foreign key constraints are enforced", async () => {
@@ -392,6 +490,55 @@ describe("emit database", () => {
 
 			expect(second.id).toBe(first.id);
 			expect(second.path).toBe("original.md");
+		});
+
+		test("inserts artifact with subflow=true", async () => {
+			const dbPath = join(tempDir, "artifact-subflow.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-sf",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			const artifact = upsertArtifact(db, {
+				docId: "doc-sf-1",
+				runId: "run-sf",
+				path: "flow.mmd",
+				type: "diagram",
+				projectPath: "/p",
+				feature: "feat",
+				step: "building",
+				subflow: true,
+			});
+
+			expect(artifact.subflow).toBe(true);
+			expect(artifact.path).toBe("flow.mmd");
+		});
+
+		test("inserts artifact with subflow defaulting to false", async () => {
+			const dbPath = join(tempDir, "artifact-no-subflow.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-nsf",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			const artifact = upsertArtifact(db, {
+				docId: "doc-nsf-1",
+				runId: "run-nsf",
+				path: "design.md",
+				type: "markdown",
+				projectPath: "/p",
+				feature: "feat",
+			});
+
+			expect(artifact.subflow).toBe(false);
 		});
 	});
 

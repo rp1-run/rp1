@@ -105,11 +105,12 @@ Transition to `building` state per STATE-MACHINE section:
 
 ```bash
 rp1 agent-tools emit \
+  --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \
-  --step building \
+  --step task-builder:building \
   --unit {TASK_IDS} \
-  --data '{"status": "running"}'
+  --data '{"status": "running", "feature": "{FEATURE_ID}"}'
 ```
 
 Skip if WORKFLOW is empty.
@@ -193,13 +194,12 @@ Use the actual task IDs as state names and task descriptions as labels. For sing
 2. Register as artifact with step association and subflow flag:
 
 ```bash
-rp1 agent-tools work artifact \
-  --project "$(pwd)" \
-  --feature {FEATURE_ID} \
+rp1 agent-tools emit \
+  --workflow {WORKFLOW} \
+  --type artifact_registered \
   --run-id {RUN_ID} \
-  --path "work/features/{FEATURE_ID}/{FEATURE_ID}-{TASK_IDS}.mmd" \
   --step {STEP_NAME} \
-  --subflow
+  --data '{"path": "work/features/{FEATURE_ID}/{FEATURE_ID}-{TASK_IDS}.mmd", "feature": "{FEATURE_ID}", "subflow": true}'
 ```
 
 Where `{STEP_NAME}` is the workflow step these tasks belong to (from the task list context). Skip if WORKFLOW or RUN_ID is empty. Skip in quick-build mode.
@@ -319,11 +319,12 @@ Transition to `completed` state per STATE-MACHINE section:
 
 ```bash
 rp1 agent-tools emit \
+  --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \
-  --step completed \
+  --step task-builder:completed \
   --unit {TASK_IDS} \
-  --data '{"status": "completed"}'
+  --data '{"status": "completed", "feature": "{FEATURE_ID}"}'
 ```
 
 Skip if WORKFLOW is empty.
@@ -374,11 +375,12 @@ Blocking issue:
 1. Transition to `failed` state per STATE-MACHINE section (skip if WORKFLOW is empty):
    ```bash
    rp1 agent-tools emit \
+     --workflow {WORKFLOW} \
      --type status_change \
      --run-id {RUN_ID} \
-     --step failed \
+     --step task-builder:failed \
      --unit {TASK_IDS} \
-     --data '{"status": "failed"}'
+     --data '{"status": "failed", "feature": "{FEATURE_ID}"}'
    ```
 2. Document clearly
 3. Mark partial if possible
@@ -419,19 +421,20 @@ stateDiagram-v2
 **On each transition**, report via:
 ```
 rp1 agent-tools emit \
+  --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \
-  --step {CURRENT_STATE} \
+  --step task-builder:{CURRENT_STATE} \
   --unit {TASK_IDS} \
-  --data '{"status": "running"}'
+  --data '{"status": "running", "feature": "{FEATURE_ID}"}'
 ```
 
 **Example sequence**:
 ```
---step building --data '{"status": "running"}'      # entering building state
---step completed --data '{"status": "completed"}'   # build done, workflow complete
+--workflow {WORKFLOW} --step task-builder:building --data '{"status": "running", "feature": "{FEATURE_ID}"}'      # entering building state
+--workflow {WORKFLOW} --step task-builder:completed --data '{"status": "completed", "feature": "{FEATURE_ID}"}'   # build done, workflow complete
 ```
-On error: `--step failed --data '{"status": "failed"}'`
+On error: `--workflow {WORKFLOW} --step task-builder:failed --data '{"status": "failed", "feature": "{FEATURE_ID}"}'`
 
 Skip all state reporting if WORKFLOW is empty (standalone invocation).
 

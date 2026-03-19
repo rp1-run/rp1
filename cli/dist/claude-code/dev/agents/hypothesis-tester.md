@@ -52,11 +52,12 @@ Report once per experiment using `--task hypothesis-{N}` where N is the sequenti
 
 ```bash
 rp1 agent-tools emit \
+  --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \
-  --step testing \
+  --step hypothesis-tester:testing \
   --unit hypothesis-{N} \
-  --data '{"status": "running"}'
+  --data '{"status": "running", "feature": "{FEATURE_ID}"}'
 ```
 
 If missing:
@@ -175,11 +176,12 @@ Report per experiment using the same `--task hypothesis-{N}` identifier used dur
 
 ```bash
 rp1 agent-tools emit \
+  --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \
-  --step completed \
+  --step hypothesis-tester:completed \
   --unit hypothesis-{N} \
-  --data '{"status": "completed"}'
+  --data '{"status": "completed", "feature": "{FEATURE_ID}"}'
 ```
 
 ### 6. Cleanup
@@ -225,19 +227,20 @@ stateDiagram-v2
 **On each transition**, report via:
 ```
 rp1 agent-tools emit \
+  --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \
-  --step {CURRENT_STATE} \
+  --step hypothesis-tester:{CURRENT_STATE} \
   --unit hypothesis-{N} \
-  --data '{"status": "running"}'
+  --data '{"status": "running", "feature": "{FEATURE_ID}"}'
 ```
 
 **Example sequence**:
 ```
---step testing --data '{"status": "running"}'       # entering testing state
---step completed --data '{"status": "completed"}'   # testing done, workflow complete
+--workflow {WORKFLOW} --step hypothesis-tester:testing --data '{"status": "running", "feature": "{FEATURE_ID}"}'       # entering testing state
+--workflow {WORKFLOW} --step hypothesis-tester:completed --data '{"status": "completed", "feature": "{FEATURE_ID}"}'   # testing done, workflow complete
 ```
-On error: `--step failed --data '{"status": "failed"}'`
+On error: `--workflow {WORKFLOW} --step hypothesis-tester:failed --data '{"status": "failed", "feature": "{FEATURE_ID}"}'`
 
 Skip all state reporting if WORKFLOW is empty (standalone invocation).
 

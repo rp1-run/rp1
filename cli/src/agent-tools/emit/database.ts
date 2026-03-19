@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS schema_version (
     version INTEGER NOT NULL
 );
 
-INSERT INTO schema_version (version) VALUES (2);
+INSERT INTO schema_version (version) VALUES (3);
 
 CREATE TABLE IF NOT EXISTS runs (
     id TEXT PRIMARY KEY NOT NULL,
@@ -75,6 +75,7 @@ CREATE TABLE IF NOT EXISTS artifacts (
     project_path TEXT NOT NULL,
     feature TEXT NOT NULL,
     step TEXT,
+    subflow INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
@@ -165,6 +166,7 @@ export interface ArtifactInput {
 	readonly projectPath: string;
 	readonly feature: string;
 	readonly step?: string;
+	readonly subflow?: boolean;
 }
 
 /** Stored artifact record shape */
@@ -177,6 +179,7 @@ export interface ArtifactRecord {
 	readonly projectPath: string;
 	readonly feature: string;
 	readonly step: string | null;
+	readonly subflow: boolean;
 	readonly createdAt: string;
 }
 
@@ -245,6 +248,7 @@ interface ArtifactRow {
 	project_path: string;
 	feature: string;
 	step: string | null;
+	subflow: number;
 	created_at: string;
 }
 
@@ -296,6 +300,7 @@ const artifactRowToRecord = (row: ArtifactRow): ArtifactRecord => ({
 	projectPath: row.project_path,
 	feature: row.feature,
 	step: row.step,
+	subflow: !!row.subflow,
 	createdAt: row.created_at,
 });
 
@@ -356,6 +361,25 @@ const applyMigrations = (db: Database): void => {
 		}
 
 		db.prepare("UPDATE schema_version SET version = 2").run();
+	}
+
+	const postV1Version = db
+		.prepare("SELECT version FROM schema_version LIMIT 1")
+		.get() as { version: number } | null;
+
+	if ((postV1Version?.version ?? 2) < 3) {
+		const columns = db.prepare("PRAGMA table_info(artifacts)").all() as {
+			name: string;
+		}[];
+		const columnNames = columns.map((c) => c.name);
+
+		if (!columnNames.includes("subflow")) {
+			db.exec(
+				"ALTER TABLE artifacts ADD COLUMN subflow INTEGER NOT NULL DEFAULT 0",
+			);
+		}
+
+		db.prepare("UPDATE schema_version SET version = 3").run();
 	}
 };
 
@@ -421,10 +445,6 @@ export const insertRun = (db: Database, input: RunInput): RunRecord => {
 		const updates: string[] = [];
 		const params: Record<string, string> = { $id: input.id };
 
-		if (existing.flow === "unknown" && input.flow !== "unknown") {
-			updates.push("flow = $flow");
-			params.$flow = input.flow;
-		}
 		if (existing.feature_id === "unknown" && input.featureId !== "unknown") {
 			updates.push("feature_id = $featureId");
 			params.$featureId = input.featureId;
@@ -544,8 +564,8 @@ export const upsertArtifact = (
 
 	const row = db
 		.prepare(
-			`INSERT INTO artifacts (doc_id, run_id, path, type, project_path, feature, step)
-			 VALUES ($docId, $runId, $path, $type, $projectPath, $feature, $step)
+			`INSERT INTO artifacts (doc_id, run_id, path, type, project_path, feature, step, subflow)
+			 VALUES ($docId, $runId, $path, $type, $projectPath, $feature, $step, $subflow)
 			 RETURNING *`,
 		)
 		.get({
@@ -556,6 +576,7 @@ export const upsertArtifact = (
 			$projectPath: input.projectPath,
 			$feature: input.feature,
 			$step: input.step ?? null,
+			$subflow: input.subflow ? 1 : 0,
 		}) as ArtifactRow;
 
 	return artifactRowToRecord(row);
@@ -823,6 +844,7 @@ export const getMaxEventId = (db: Database): number => {
 /** Options for listing runs with optional filters and pagination */
 export interface ListRunsOptions {
 	readonly projectPath?: string;
+	readonly projectPaths?: readonly string[];
 	readonly status?: Status;
 	readonly limit?: number;
 	readonly offset?: number;
@@ -860,6 +882,10 @@ export const listRuns = (
 	if (opts.projectPath != null) {
 		conditions.push("project_path = ?");
 		filterValues.push(opts.projectPath);
+	} else if (opts.projectPaths != null && opts.projectPaths.length > 0) {
+		const placeholders = opts.projectPaths.map(() => "?").join(", ");
+		conditions.push(`project_path IN (${placeholders})`);
+		filterValues.push(...opts.projectPaths);
 	}
 	if (opts.status != null) {
 		conditions.push("status = ?");

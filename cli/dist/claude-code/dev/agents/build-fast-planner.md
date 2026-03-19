@@ -135,12 +135,12 @@ Write file with this structure:
 After writing the artifact, register it so the Web UI can display it. Skip if WORKFLOW is empty (standalone invocation).
 
 ```bash
-rp1 agent-tools work artifact \
-  --project "$(pwd)" \
-  --feature quick-build \
+rp1 agent-tools emit \
+  --workflow {WORKFLOW} \
+  --type artifact_registered \
   --run-id {RUN_ID} \
-  --path {artifact_path} \
-  --step plan
+  --step plan \
+  --data '{"path": "{artifact_path}", "feature": "quick-build"}'
 ```
 
 If the command fails, log a warning (`[build-fast-planner] Failed to register artifact {artifact_path}: {error}`) and continue without blocking.

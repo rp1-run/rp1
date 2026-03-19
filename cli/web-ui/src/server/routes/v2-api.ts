@@ -161,6 +161,7 @@ function artifactRecordToArtifact(
 		updatedDuringRun: true,
 		isNew: false,
 		step: record.step ?? null,
+		subflow: record.subflow || undefined,
 	};
 }
 
@@ -500,7 +501,11 @@ async function buildDetailedRun(
 
 	let artifacts: readonly Artifact[];
 	if (artifactRecords.length > 0) {
-		artifacts = artifactRecords.map((ar) =>
+		const deduped = new Map<string, ArtifactRecord>();
+		for (const ar of artifactRecords) {
+			deduped.set(ar.path, ar);
+		}
+		artifacts = [...deduped.values()].map((ar) =>
 			artifactRecordToArtifact(ar, record.projectPath, record.featureId),
 		);
 	} else {
@@ -613,8 +618,11 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 				? (statusFilter as Status)
 				: undefined;
 
+		const knownProjectPaths = [...projectByPath.keys()];
+
 		const result = listRuns(db, {
 			projectPath: projectPathFilter,
+			projectPaths: projectPathFilter ? undefined : knownProjectPaths,
 			status: dbStatus,
 			limit,
 			offset,

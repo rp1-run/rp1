@@ -169,6 +169,24 @@ export function forceKillProcess(pid: number): void {
 }
 
 /**
+ * Resolve the PID of the process owning a port via lsof.
+ * Returns null if the PID cannot be determined.
+ */
+function resolvePortOwnerPid(port: number): number | null {
+	if (process.platform === "win32") return null;
+	try {
+		const output = execSync(`lsof -ti:${port} -sTCP:LISTEN`, {
+			encoding: "utf-8",
+			timeout: 3000,
+		}).trim();
+		const pid = Number.parseInt(output.split("\n")[0], 10);
+		return Number.isNaN(pid) ? null : pid;
+	} catch {
+		return null;
+	}
+}
+
+/**
  * Check if a port is available.
  */
 async function isPortAvailable(port: number): Promise<boolean> {
@@ -299,7 +317,10 @@ export async function ensureDaemon(
 		const conn = createConnection(port);
 		const health = await checkHealth(conn);
 		if (health) {
-			await writePidFile({ port, pid: process.pid }); // We don't know the real PID
+			const realPid = resolvePortOwnerPid(port);
+			if (realPid) {
+				await writePidFile({ port, pid: realPid });
+			}
 			return { connection: conn, wasRunning: true };
 		}
 

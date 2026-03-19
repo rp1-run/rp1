@@ -104,6 +104,22 @@ export const deriveOrderedSteps = (
 };
 
 /**
+ * Get all direct predecessor states that have a transition TO the given state.
+ * Inverts the transition graph: for each transition where targetId === stateId,
+ * returns the sourceId.
+ */
+export const getDirectPredecessors = (
+	machine: StateMachine,
+	stateId: string,
+): readonly string[] => [
+	...new Set(
+		machine.transitions
+			.filter((t) => t.targetId === stateId)
+			.map((t) => t.sourceId),
+	),
+];
+
+/**
  * Check if target state is reachable from source state via graph traversal.
  *
  * Uses BFS to explore all reachable states from the source. Returns true

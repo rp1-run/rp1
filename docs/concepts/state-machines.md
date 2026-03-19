@@ -92,6 +92,7 @@ stateDiagram-v2
 
 **On each phase transition**, report via:
 rp1 agent-tools emit \
+  --workflow {WORKFLOW_NAME} \
   --type status_change \
   --run-id {RUN_ID} \
   --step {CURRENT_STATE} \
@@ -124,6 +125,7 @@ stateDiagram-v2
 
 **On each transition**, report via:
 rp1 agent-tools emit \
+  --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \
   --step {CURRENT_STATE} \
@@ -137,6 +139,7 @@ Agents report status using the same `emit` command. The `--unit` flag can be use
 
 ```bash
 rp1 agent-tools emit \
+  --workflow build \
   --type status_change \
   --run-id "550e8400-e29b-41d4-a716-446655440000" \
   --step building \
@@ -144,8 +147,24 @@ rp1 agent-tools emit \
   --data '{"status": "running"}'
 ```
 
+- `--workflow` identifies which workflow this run belongs to
 - `--run-id` associates the event with the parent workflow run
 - `--unit` enables per-task tracking within the agent
+
+### Sub-Agent Namespaced Steps
+
+Sub-agents that emit steps into a parent run must prefix their step names with the agent identifier and a colon separator. This prevents sub-agent state IDs from colliding with parent workflow states.
+
+**Format:** `{agent-name}:{step-name}`
+
+| Agent | Namespaced Steps |
+|-------|-----------------|
+| task-builder | `task-builder:building`, `task-builder:completed`, `task-builder:failed` |
+| feature-verifier | `feature-verifier:verifying`, `feature-verifier:completed`, `feature-verifier:failed` |
+| task-reviewer | `task-reviewer:reviewing`, `task-reviewer:completed`, `task-reviewer:failed` |
+| hypothesis-tester | `hypothesis-tester:testing`, `hypothesis-tester:completed`, `hypothesis-tester:failed` |
+
+Namespaced steps are persisted with their full prefixed name and are not validated against the parent workflow's state machine.
 
 ### Per-Task Tracking with `--unit`
 
@@ -153,15 +172,15 @@ When an agent processes multiple tasks (e.g., task-builder implementing T1, T2, 
 
 ```bash
 # T1 starts building
-rp1 agent-tools emit --type status_change --run-id run-1 \
+rp1 agent-tools emit --workflow build --type status_change --run-id run-1 \
   --step building --unit T1 --data '{"status": "running"}'
 
 # T1 completes
-rp1 agent-tools emit --type status_change --run-id run-1 \
+rp1 agent-tools emit --workflow build --type status_change --run-id run-1 \
   --step completed --unit T1 --data '{"status": "completed"}'
 
 # T2 starts building (independent of T1)
-rp1 agent-tools emit --type status_change --run-id run-1 \
+rp1 agent-tools emit --workflow build --type status_change --run-id run-1 \
   --step building --unit T2 --data '{"status": "running"}'
 ```
 
@@ -199,33 +218,93 @@ These are independent: a workflow can be "in_progress" at the "design" phase, or
 
 ```bash
 rp1 agent-tools emit \
+  --workflow build \
   --type status_change \
   --run-id "550e8400-e29b-41d4-a716-446655440000" \
   --step design \
-  --data '{"status": "running"}'
+  --data '{"status": "running", "feature": "my-feature"}'
 ```
 
 ### Reporting State Transitions (Agents)
 
 ```bash
 rp1 agent-tools emit \
+  --workflow build \
   --type status_change \
   --run-id "550e8400-e29b-41d4-a716-446655440000" \
   --step building \
   --unit T1 \
-  --data '{"status": "running"}'
+  --data '{"status": "running", "feature": "my-feature"}'
 ```
 
 ### CLI Flags
 
 | Flag | Required | Description |
 |------|----------|-------------|
-| `--type` | Yes | Event type (e.g., `status_change`) |
+| `--type` | Yes | Event type (e.g., `status_change`, `artifact_registered`) |
+| `--workflow` | Yes | Workflow name (e.g., `build`, `pr-review`) |
 | `--run-id` | Yes | UUID grouping events into a discrete workflow run |
 | `--step` | Yes (for status_change) | The workflow/agent state (must be a valid state ID) |
 | `--unit` | No | Task/unit identifier for per-task tracking |
 | `--data` | Yes (for status_change) | JSON payload with status (e.g., `'{"status": "running"}'`) |
 | `--project` | No | Project path (defaults to cwd) |
+
+### Step Validation
+
+Every `--step` value is validated against the workflow's state machine before the event is persisted. Validation is strict -- there is no lenient mode, no opt-out flag, and no warn-and-persist fallback.
+
+**Rules:**
+
+- If the step name is not a valid state ID in the workflow's state machine, the emit is rejected with a non-zero exit code and the event is not persisted.
+- Workflows without a `## STATE-MACHINE` section skip validation entirely (no error).
+- Namespaced steps (containing a colon, e.g., `task-builder:building`) bypass parent state machine validation. See [Sub-Agent Namespaced Steps](#sub-agent-namespaced-steps).
+
+**Error message format (with known current state):**
+
+```
+Error: step "biulding" is not a valid state in the "build" state machine. Valid states: [requirements, design, tasks, build, verify, archive]. Current state: "tasks". Valid transitions from "tasks": [build].
+```
+
+**Error message format (unknown current state, e.g., first emit):**
+
+```
+Error: step "biulding" is not a valid state in the "build" state machine. Valid states: [requirements, design, tasks, build, verify, archive].
+```
+
+Error messages include valid transitions from the current state so that calling agents can self-correct on retry without consulting external documentation.
+
+### Predecessor Auto-Completion
+
+When a step-level `status_change` event with status `"running"` is emitted (and no `--unit` is set), the system automatically completes direct predecessor steps that are still in `"running"` or `"waiting"` status.
+
+**How it works:**
+
+1. The system uses the state machine's transition graph to identify direct predecessors of the current step. A direct predecessor is any state that has a transition edge leading to the current step.
+2. For each direct predecessor whose latest status is `"running"` or `"waiting"`, a `status_change` event with `{ "status": "completed" }` is automatically inserted, timestamped just before the current event.
+3. Predecessors with other statuses (`"completed"`, `"failed"`, `"skipped"`) are not modified.
+
+**Why graph-based predecessors only:**
+
+Only direct predecessors in the state machine graph are auto-completed -- not all steps currently in `"running"` status. This preserves correctness for parallel workflow branches where multiple steps may legitimately be running concurrently. Sibling branches are never touched.
+
+**Exclusions:**
+
+| Condition | Behavior |
+|-----------|----------|
+| `--unit` is set | No predecessor auto-completion (unit-level events manage their own lifecycle) |
+| Step is namespaced (contains colon) | No predecessor auto-completion |
+| Status is not `"running"` | No predecessor auto-completion |
+
+**Example:**
+
+Given a workflow with transitions `tasks --> build --> verify`, and `tasks` has latest status `"running"`:
+
+```bash
+rp1 agent-tools emit --workflow build --type status_change --run-id run-1 \
+  --step build --data '{"status": "running"}'
+```
+
+The system auto-inserts a `"completed"` event for `tasks` (timestamped just before the `build` event), then persists the `build` running event. The run timeline shows `tasks` as completed and `build` as running.
 
 ### Transition Validation
 
@@ -244,25 +323,10 @@ Each `--run-id` creates an independent workflow invocation. Multiple concurrent 
 
 ```bash
 # Run A at "verify" phase
-rp1 agent-tools emit --type status_change --run-id run-A --step verify --data '{"status": "running"}'
+rp1 agent-tools emit --workflow build --type status_change --run-id run-A --step verify --data '{"status": "running"}'
 
 # Run B at "design" phase (independent)
-rp1 agent-tools emit --type status_change --run-id run-B --step design --data '{"status": "running"}'
-```
-
-### Cleaning Up Stale Runs
-
-Agents that crash mid-workflow leave rows with an `expires_at` timestamp. These rows are automatically filtered on read. For manual cleanup:
-
-```bash
-# Preview what would be deleted
-rp1 agent-tools work cleanup --dry-run
-
-# Delete all expired runs
-rp1 agent-tools work cleanup
-
-# Delete runs expired more than 24 hours ago
-rp1 agent-tools work cleanup --older-than 24
+rp1 agent-tools emit --workflow build --type status_change --run-id run-B --step design --data '{"status": "running"}'
 ```
 
 ---
@@ -312,7 +376,7 @@ stateDiagram-v2
 
 ### Adding State Tracking to an Agent
 
-1. Add a `## STATE-MACHINE` section to the agent `.md` file with the state diagram and CLI template using `--agent`.
+1. Add a `## STATE-MACHINE` section to the agent `.md` file with the state diagram and CLI template.
 
 2. Ensure the parent skill passes `WORKFLOW`, `RUN_ID`, and `FEATURE_ID` to the agent.
 
@@ -323,17 +387,17 @@ stateDiagram-v2
 Skills that produce output files (reports, design docs, task files) should register them explicitly so the dashboard can display them:
 
 ```bash
-rp1 agent-tools work artifact \
-  --project "$(pwd)" \
-  --feature {FEATURE_ID} \
+rp1 agent-tools emit \
+  --workflow {WORKFLOW} \
+  --type artifact_registered \
   --run-id {RUN_ID} \
-  --path {relative_path_to_artifact} \
-  [--type markdown|code|diagram|diff|report|other]
+  --step {step} \
+  --data '{"path": "{relative_path_to_artifact}", "feature": "{FEATURE_ID}"}'
 ```
 
-- `--path` is relative to the project root (e.g., `.rp1/work/features/my-feature/tasks.md`)
-- `--type` is auto-classified from the file extension if omitted
-- Artifacts are stored in the `artifacts` table in `~/.rp1/status.db`
+- `path` in the data payload is relative to the project root (e.g., `.rp1/work/features/my-feature/tasks.md`)
+- For subflow diagrams, add `"subflow": true` to the data payload
+- Artifacts are stored in the `artifacts` table in `~/.rp1/rp1.db`
 - The dashboard queries this table instead of scanning the filesystem
 
 ---

@@ -1,14 +1,14 @@
 /**
  * SQLite database layer for the task queue.
  * Provides CRUD operations for task lifecycle management.
- * Reuses the shared database connection from work/database.ts.
+ * Reuses the shared database connection from emit/database.ts.
  */
 
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../../shared/errors.js";
 import { runtimeError } from "../../../shared/errors.js";
-import { getDatabase } from "../work/database.js";
+import { getEmitDatabase } from "../emit/database.js";
 import type {
 	TaskCreateInput,
 	TaskQueryOptions,
@@ -46,7 +46,7 @@ const rowToRecord = (row: TaskRow): TaskRecord => ({
  * Create a new task in pending state.
  *
  * @param input - Task creation data
- * @param dbPath - Database file path (optional, defaults to ~/.rp1/status.db)
+ * @param dbPath - Database file path (optional, defaults to ~/.rp1/rp1.db)
  * @returns TaskEither with the created TaskRecord or CLIError
  */
 export const createTask = (
@@ -54,7 +54,7 @@ export const createTask = (
 	dbPath?: string,
 ): TE.TaskEither<CLIError, TaskRecord> =>
 	pipe(
-		getDatabase(dbPath),
+		getEmitDatabase(dbPath),
 		TE.chain((db) =>
 			TE.tryCatch(
 				async () => {
@@ -85,7 +85,7 @@ export const createTask = (
  * List tasks with optional filters and FIFO ordering.
  *
  * @param options - Query filters (status, projectPath, limit)
- * @param dbPath - Database file path (optional, defaults to ~/.rp1/status.db)
+ * @param dbPath - Database file path (optional, defaults to ~/.rp1/rp1.db)
  * @returns TaskEither with array of TaskRecord or CLIError
  */
 export const listTasks = (
@@ -93,7 +93,7 @@ export const listTasks = (
 	dbPath?: string,
 ): TE.TaskEither<CLIError, readonly TaskRecord[]> =>
 	pipe(
-		getDatabase(dbPath),
+		getEmitDatabase(dbPath),
 		TE.chain((db) =>
 			TE.tryCatch(
 				async () => {
@@ -138,7 +138,7 @@ export const listTasks = (
  * Uses a single UPDATE...WHERE subquery for atomicity.
  *
  * @param projectPath - Optional project path filter
- * @param dbPath - Database file path (optional, defaults to ~/.rp1/status.db)
+ * @param dbPath - Database file path (optional, defaults to ~/.rp1/rp1.db)
  * @returns TaskEither with the picked-up TaskRecord or null if none available
  */
 export const pickupTask = (
@@ -146,7 +146,7 @@ export const pickupTask = (
 	dbPath?: string,
 ): TE.TaskEither<CLIError, TaskRecord | null> =>
 	pipe(
-		getDatabase(dbPath),
+		getEmitDatabase(dbPath),
 		TE.chain((db) =>
 			TE.tryCatch(
 				async () => {
@@ -184,7 +184,7 @@ export const pickupTask = (
  * Mark an in_progress task as completed with an optional result summary.
  *
  * @param input - Task ID and optional result
- * @param dbPath - Database file path (optional, defaults to ~/.rp1/status.db)
+ * @param dbPath - Database file path (optional, defaults to ~/.rp1/rp1.db)
  * @returns TaskEither with the completed TaskRecord or CLIError
  */
 export const completeTask = (
@@ -192,7 +192,7 @@ export const completeTask = (
 	dbPath?: string,
 ): TE.TaskEither<CLIError, TaskRecord> =>
 	pipe(
-		getDatabase(dbPath),
+		getEmitDatabase(dbPath),
 		TE.chain((db) =>
 			TE.tryCatch(
 				async () => {
@@ -230,7 +230,7 @@ export const completeTask = (
  * Mark an in_progress task as failed with an optional error description.
  *
  * @param input - Task ID and optional error description
- * @param dbPath - Database file path (optional, defaults to ~/.rp1/status.db)
+ * @param dbPath - Database file path (optional, defaults to ~/.rp1/rp1.db)
  * @returns TaskEither with the failed TaskRecord or CLIError
  */
 export const failTask = (
@@ -238,7 +238,7 @@ export const failTask = (
 	dbPath?: string,
 ): TE.TaskEither<CLIError, TaskRecord> =>
 	pipe(
-		getDatabase(dbPath),
+		getEmitDatabase(dbPath),
 		TE.chain((db) =>
 			TE.tryCatch(
 				async () => {
@@ -277,7 +277,7 @@ export const failTask = (
  * Rejects cancellation of completed or failed tasks.
  *
  * @param id - Task ID to cancel
- * @param dbPath - Database file path (optional, defaults to ~/.rp1/status.db)
+ * @param dbPath - Database file path (optional, defaults to ~/.rp1/rp1.db)
  * @returns TaskEither with the cancelled TaskRecord or CLIError
  */
 export const cancelTask = (
@@ -285,7 +285,7 @@ export const cancelTask = (
 	dbPath?: string,
 ): TE.TaskEither<CLIError, TaskRecord> =>
 	pipe(
-		getDatabase(dbPath),
+		getEmitDatabase(dbPath),
 		TE.chain((db) =>
 			TE.tryCatch(
 				async () => {
@@ -319,7 +319,7 @@ export const cancelTask = (
  * Get a single task by ID.
  *
  * @param id - Task ID
- * @param dbPath - Database file path (optional, defaults to ~/.rp1/status.db)
+ * @param dbPath - Database file path (optional, defaults to ~/.rp1/rp1.db)
  * @returns TaskEither with the TaskRecord or CLIError if not found
  */
 export const getTask = (
@@ -327,7 +327,7 @@ export const getTask = (
 	dbPath?: string,
 ): TE.TaskEither<CLIError, TaskRecord> =>
 	pipe(
-		getDatabase(dbPath),
+		getEmitDatabase(dbPath),
 		TE.chain((db) =>
 			TE.tryCatch(
 				async () => {

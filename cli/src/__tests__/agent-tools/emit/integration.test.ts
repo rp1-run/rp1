@@ -98,7 +98,7 @@ describe("Phase 2 integration: write-ahead durability", () => {
 
 			const input = makeInput({
 				type,
-				step: type === "status_change" ? "building" : undefined,
+				step: type === "status_change" ? "build" : undefined,
 				data: {
 					status: "running",
 					workflow: "build",
@@ -196,7 +196,7 @@ describe("Phase 2 integration: run resumption end-to-end", () => {
 		const input1: EmitInput = {
 			type: "status_change",
 			runId,
-			step: "review",
+			step: "verify",
 			data: { status: "completed", workflow: "build", feature: featureId },
 			projectPath: tempDir,
 		};

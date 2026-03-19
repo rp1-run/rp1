@@ -26,6 +26,7 @@ import {
 } from "../../assets/reader.js";
 import { extractStateMachineMermaid } from "./extractor.js";
 import type { StateMachine } from "./models.js";
+import { deserializeStateMachine } from "./serialization.js";
 import { parseAndTransform } from "./transform.js";
 
 const PLUGIN_NAMES = ["base", "dev", "utils"] as const;
@@ -135,9 +136,13 @@ const loadFromBundle = (
 
 					return pipe(
 						getContent,
-						TE.chain((content) =>
-							TE.fromEither(parseAndTransform(workflowName, content)),
-						),
+						TE.chain((content) => {
+							const trimmed = content.trimStart();
+							const parseResult = trimmed.startsWith("{")
+								? deserializeStateMachine(content)
+								: parseAndTransform(workflowName, content);
+							return TE.fromEither(parseResult);
+						}),
 						TE.map((machine) => {
 							cache.set(workflowName, machine);
 							return machine;
