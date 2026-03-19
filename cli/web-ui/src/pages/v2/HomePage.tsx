@@ -195,9 +195,9 @@ export function HomePage() {
 	);
 
 	return (
-		<div className="flex h-full flex-col items-center overflow-y-auto px-4 py-6 md:px-6">
-			<div className="w-full max-w-[640px]">
-				<div className="flex items-center gap-4 mb-4">
+		<div className="h-full overflow-y-auto px-4 py-6 md:px-6">
+			<div className="mx-auto max-w-[640px]">
+				<div className="flex items-center gap-4 mb-4 px-3">
 					{FILTERS.map((f) => (
 						<button
 							key={f.key}

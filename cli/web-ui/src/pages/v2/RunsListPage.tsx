@@ -1,10 +1,4 @@
-import {
-	AlertCircle,
-	ChevronLeft,
-	ChevronRight,
-	RefreshCw,
-	Search,
-} from "lucide-react";
+import { AlertCircle, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { FilterBar } from "@/components/v2/FilterBar";
@@ -364,33 +358,6 @@ export function RunsListPage() {
 
 	return (
 		<div className="mx-auto max-w-2xl px-6 py-8 space-y-6">
-			<header className="flex items-center justify-between">
-				<div>
-					<h1 className="type-title text-fg">Runs</h1>
-					{projectIdFromRoute && (
-						<p className="mt-1 type-secondary text-fg-muted">
-							Showing runs for project: {projectIdFromRoute}
-						</p>
-					)}
-				</div>
-
-				<button
-					type="button"
-					onClick={refetch}
-					disabled={isLoading}
-					className={cn(
-						"text-fg-ghost transition-colors duration-150 hover:text-fg",
-						"disabled:cursor-not-allowed disabled:opacity-50",
-					)}
-					aria-label="Refresh runs"
-				>
-					<RefreshCw
-						className={cn("h-4 w-4", isLoading && "animate-spin")}
-						strokeWidth={1.5}
-					/>
-				</button>
-			</header>
-
 			<FilterBar filters={filters} onFiltersChange={handleFiltersChange} />
 
 			{isLoading && runs.length === 0 ? (

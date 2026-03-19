@@ -95,11 +95,13 @@ export function FilterBar({
 	];
 
 	return (
-		<div className={cn("flex flex-wrap items-center gap-4", className)}>
+		<div
+			className={cn("flex flex-wrap items-center gap-x-4 gap-y-2", className)}
+		>
 			<div
 				role="tablist"
 				aria-label="Filter by status"
-				className="flex rounded-md border border-border bg-muted/30 p-0.5"
+				className="flex items-center gap-3"
 			>
 				{STATUS_TABS.map((tab) => (
 					<button
@@ -109,17 +111,20 @@ export function FilterBar({
 						aria-selected={filters.status === tab.value}
 						onClick={() => handleStatusChange(tab.value)}
 						className={cn(
-							"rounded px-3 py-1.5 text-sm font-medium transition-colors",
-							"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+							"type-caption transition-colors duration-150",
 							filters.status === tab.value
-								? "bg-background text-foreground shadow-sm"
-								: "text-muted-foreground hover:text-foreground",
+								? "text-fg"
+								: "text-fg-ghost hover:text-fg",
 						)}
 					>
 						{tab.label}
 					</button>
 				))}
 			</div>
+
+			<span className="text-fg-ghost select-none" aria-hidden="true">
+				·
+			</span>
 
 			<Select
 				size="md"
@@ -143,14 +148,10 @@ export function FilterBar({
 				<button
 					type="button"
 					onClick={handleClearFilters}
-					className={cn(
-						"inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-muted-foreground transition-colors",
-						"hover:bg-muted hover:text-foreground",
-						"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-					)}
+					className="inline-flex items-center gap-1 type-caption text-fg-ghost transition-colors duration-150 hover:text-fg"
 				>
-					<X className="h-4 w-4" aria-hidden="true" />
-					Clear filters
+					<X className="h-3 w-3" aria-hidden="true" />
+					Clear
 				</button>
 			)}
 		</div>
