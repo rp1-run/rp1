@@ -157,6 +157,36 @@ function AnnotationLayer({
 		}
 	}, [selection, selectionPosition, lockSelection, isLocked, clearSelection]);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: refs are stable
+	useEffect(() => {
+		if (!isLocked || showSelectionPopover) return;
+
+		const handleClickOutside = (e: MouseEvent) => {
+			const target = e.target as Node;
+			if (containerRef.current && !containerRef.current.contains(target)) {
+				const isGutterClick = gutterRef.current?.contains(target);
+				if (!isGutterClick) {
+					clearSelection();
+				}
+			}
+		};
+
+		const handleSelectionChange = () => {
+			const sel = window.getSelection();
+			if (!sel || sel.isCollapsed) {
+				clearSelection();
+			}
+		};
+
+		document.addEventListener("mousedown", handleClickOutside);
+		document.addEventListener("selectionchange", handleSelectionChange);
+
+		return () => {
+			document.removeEventListener("mousedown", handleClickOutside);
+			document.removeEventListener("selectionchange", handleSelectionChange);
+		};
+	}, [isLocked, showSelectionPopover, clearSelection]);
+
 	// Handle clicking the selection indicator to show the popover
 	const handleSelectionIndicatorClick = useCallback(() => {
 		setShowSelectionPopover(true);

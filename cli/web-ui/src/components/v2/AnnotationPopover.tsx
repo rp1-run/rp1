@@ -1,11 +1,4 @@
-import {
-	Check,
-	CornerDownRight,
-	GripHorizontal,
-	Send,
-	Trash2,
-	X,
-} from "lucide-react";
+import { Check, CornerDownRight, Send, Trash2, X } from "lucide-react";
 import {
 	type KeyboardEvent,
 	useCallback,
@@ -34,10 +27,10 @@ function needsTruncation(content: string): boolean {
 function truncateContent(content: string): string {
 	const lines = content.split("\n");
 	if (lines.length > TRUNCATION_LINES) {
-		return `${lines.slice(0, TRUNCATION_LINES).join("\n")}...`;
+		return `${lines.slice(0, TRUNCATION_LINES).join("\n")}…`;
 	}
 	if (content.length > TRUNCATION_CHARS) {
-		return `${content.slice(0, TRUNCATION_CHARS)}...`;
+		return `${content.slice(0, TRUNCATION_CHARS)}…`;
 	}
 	return content;
 }
@@ -49,13 +42,15 @@ export interface AnnotationPopoverProps {
 	className?: string;
 }
 
-interface ReplyItemProps {
-	reply: AnnotationReply;
-	isExpanded: boolean;
-	onToggleExpand: () => void;
-}
-
-function ReplyItem({ reply, isExpanded, onToggleExpand }: ReplyItemProps) {
+function ReplyItem({
+	reply,
+	isExpanded,
+	onToggleExpand,
+}: {
+	readonly reply: AnnotationReply;
+	readonly isExpanded: boolean;
+	readonly onToggleExpand: () => void;
+}) {
 	const showTruncation = needsTruncation(reply.content);
 	const displayContent = isExpanded
 		? reply.content
@@ -64,20 +59,23 @@ function ReplyItem({ reply, isExpanded, onToggleExpand }: ReplyItemProps) {
 	return (
 		<div className="flex gap-2 py-2">
 			<CornerDownRight
-				className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground"
+				className="mt-0.5 h-3 w-3 shrink-0 text-fg-ghost"
+				strokeWidth={1.5}
 				aria-hidden="true"
 			/>
 			<div className="min-w-0 flex-1">
-				<div className="flex items-center gap-2 text-xs text-muted-foreground">
-					<span className="font-medium text-foreground">{reply.author}</span>
+				<div className="flex items-center gap-2 type-secondary text-fg-ghost">
+					<span className="text-fg">{reply.author}</span>
 					<span>{formatRelativeTime(reply.createdAt)}</span>
 				</div>
-				<p className="mt-1 text-sm whitespace-pre-wrap">{displayContent}</p>
+				<p className="mt-1 type-body whitespace-pre-wrap text-fg">
+					{displayContent}
+				</p>
 				{showTruncation && (
 					<button
 						type="button"
 						onClick={onToggleExpand}
-						className="text-xs text-primary hover:underline mt-1"
+						className="type-secondary text-fg-ghost hover:text-fg transition-colors duration-150 mt-1"
 					>
 						{isExpanded ? "Show less" : "Show more"}
 					</button>
@@ -101,27 +99,15 @@ export function AnnotationPopover({
 	const [expandedComments, setExpandedComments] = useState<Set<string>>(
 		new Set(),
 	);
-	// Start hidden until position is calculated to avoid janky movement
 	const [isPositioned, setIsPositioned] = useState(false);
 	const [popoverPosition, setPopoverPosition] = useState<PopoverPosition>({
-		// Initial position at left of anchor (since we prefer left side)
-		x: position.anchorRect.left - 320 - 8,
+		x: position.anchorRect.left - 280 - 8,
 		y: position.anchorRect.top,
 		side: "left",
 	});
-	const [hasBeenDragged, setHasBeenDragged] = useState(false);
-	const [draggedPosition, setDraggedPosition] = useState({ x: 0, y: 0 });
 
 	const popoverRef = useRef<HTMLDivElement>(null);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
-	const isDraggingRef = useRef(false);
-	const dragOffsetRef = useRef<{
-		x: number;
-		y: number;
-		lastX?: number;
-		lastY?: number;
-	}>({ x: 0, y: 0 });
-	const rafRef = useRef<number | null>(null);
 
 	const { resolveAnnotation, reopenAnnotation, deleteAnnotation, addReply } =
 		useAnnotationContext();
@@ -136,79 +122,6 @@ export function AnnotationPopover({
 			}
 			return next;
 		});
-	}, []);
-
-	// Drag handlers for repositioning popover - using refs for smooth performance
-	const handleDragStart = useCallback(
-		(e: React.MouseEvent) => {
-			e.preventDefault();
-			const currentX = hasBeenDragged ? draggedPosition.x : popoverPosition.x;
-			const currentY = hasBeenDragged ? draggedPosition.y : popoverPosition.y;
-			isDraggingRef.current = true;
-			dragOffsetRef.current = {
-				x: e.clientX - currentX,
-				y: e.clientY - currentY,
-			};
-
-			const handleDrag = (moveEvent: MouseEvent) => {
-				if (!isDraggingRef.current) return;
-
-				if (rafRef.current) {
-					cancelAnimationFrame(rafRef.current);
-				}
-
-				rafRef.current = requestAnimationFrame(() => {
-					const newX = moveEvent.clientX - dragOffsetRef.current.x;
-					const newY = moveEvent.clientY - dragOffsetRef.current.y;
-
-					// Directly update the DOM for smoothness during drag
-					if (popoverRef.current) {
-						popoverRef.current.style.left = `${newX}px`;
-						popoverRef.current.style.top = `${newY}px`;
-					}
-
-					dragOffsetRef.current.lastX = newX;
-					dragOffsetRef.current.lastY = newY;
-				});
-			};
-
-			const handleDragEnd = () => {
-				isDraggingRef.current = false;
-
-				if (rafRef.current) {
-					cancelAnimationFrame(rafRef.current);
-					rafRef.current = null;
-				}
-
-				const finalX =
-					dragOffsetRef.current.lastX ?? e.clientX - dragOffsetRef.current.x;
-				const finalY =
-					dragOffsetRef.current.lastY ?? e.clientY - dragOffsetRef.current.y;
-				setDraggedPosition({ x: finalX, y: finalY });
-				setHasBeenDragged(true);
-
-				document.removeEventListener("mousemove", handleDrag);
-				document.removeEventListener("mouseup", handleDragEnd);
-			};
-
-			document.addEventListener("mousemove", handleDrag);
-			document.addEventListener("mouseup", handleDragEnd);
-		},
-		[
-			hasBeenDragged,
-			draggedPosition.x,
-			draggedPosition.y,
-			popoverPosition.x,
-			popoverPosition.y,
-		],
-	);
-
-	useEffect(() => {
-		return () => {
-			if (rafRef.current) {
-				cancelAnimationFrame(rafRef.current);
-			}
-		};
 	}, []);
 
 	useEffect(() => {
@@ -242,10 +155,8 @@ export function AnnotationPopover({
 			}
 		};
 
-		// Add slight delay to avoid immediate close from the same click that opened it
 		const timeoutId = setTimeout(() => {
 			document.addEventListener("mousedown", handleClickOutside);
-			// Use capture phase so this fires before page-level escape handler
 			document.addEventListener("keydown", handleEscape, true);
 		}, 100);
 
@@ -256,22 +167,14 @@ export function AnnotationPopover({
 		};
 	}, [onClose]);
 
-	// Close on scroll (but not when scrolling within the popover itself)
 	useEffect(() => {
 		const handleScroll = (e: Event) => {
-			// Don't close if scrolling within the popover content
-			if (popoverRef.current?.contains(e.target as Node)) {
-				return;
-			}
+			if (popoverRef.current?.contains(e.target as Node)) return;
 			onClose();
 		};
 
-		// Listen for scroll on window and capture phase to catch scrolling containers
 		window.addEventListener("scroll", handleScroll, true);
-
-		return () => {
-			window.removeEventListener("scroll", handleScroll, true);
-		};
+		return () => window.removeEventListener("scroll", handleScroll, true);
 	}, [onClose]);
 
 	const isResolved = annotation.status === "resolved";
@@ -281,9 +184,7 @@ export function AnnotationPopover({
 			setConfirmAction("resolve");
 			return;
 		}
-		resolveAnnotation(annotation.id).catch((error) => {
-			console.error("Failed to resolve annotation:", error);
-		});
+		resolveAnnotation(annotation.id).catch(() => {});
 		setConfirmAction(null);
 	}, [annotation.id, confirmAction, resolveAnnotation]);
 
@@ -292,9 +193,7 @@ export function AnnotationPopover({
 			setConfirmAction("reopen");
 			return;
 		}
-		reopenAnnotation(annotation.id).catch((error) => {
-			console.error("Failed to reopen annotation:", error);
-		});
+		reopenAnnotation(annotation.id).catch(() => {});
 		setConfirmAction(null);
 	}, [annotation.id, confirmAction, reopenAnnotation]);
 
@@ -305,9 +204,7 @@ export function AnnotationPopover({
 		}
 		deleteAnnotation(annotation.id)
 			.then(() => onClose())
-			.catch((error) => {
-				console.error("Failed to delete annotation:", error);
-			});
+			.catch(() => {});
 	}, [annotation.id, confirmAction, deleteAnnotation, onClose]);
 
 	const handleCancelAction = useCallback(() => {
@@ -323,8 +220,8 @@ export function AnnotationPopover({
 			await addReply(annotation.id, trimmedText);
 			setReplyText("");
 			textareaRef.current?.focus();
-		} catch (error) {
-			console.error("Failed to add reply:", error);
+		} catch {
+			// silent
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -332,7 +229,7 @@ export function AnnotationPopover({
 
 	const handleKeyDown = useCallback(
 		(e: KeyboardEvent<HTMLTextAreaElement>) => {
-			if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+			if (e.key === "Enter" && !e.shiftKey) {
 				e.preventDefault();
 				handleSubmitReply();
 			}
@@ -340,89 +237,63 @@ export function AnnotationPopover({
 		[handleSubmitReply],
 	);
 
-	const displayX = hasBeenDragged ? draggedPosition.x : popoverPosition.x;
-	const displayY = hasBeenDragged ? draggedPosition.y : popoverPosition.y;
+	const canReply = replyText.trim().length > 0 && !isSubmitting;
 
 	return (
 		<div
 			ref={popoverRef}
 			className={cn(
-				"fixed z-50 w-80 overflow-hidden rounded-lg border border-border bg-background shadow-xl",
-				isPositioned
-					? "animate-in fade-in-0 zoom-in-95 duration-150"
-					: "opacity-0",
+				"fixed z-50 w-[280px] rounded border border-border bg-surface",
+				isPositioned ? "animate-in fade-in-0 duration-150" : "opacity-0",
 				className,
 			)}
 			style={{
-				left: `${displayX}px`,
-				top: `${displayY}px`,
+				left: `${popoverPosition.x}px`,
+				top: `${popoverPosition.y}px`,
 			}}
 			role="dialog"
 			aria-label="Annotation details"
 		>
-			{/* biome-ignore lint/a11y/noStaticElementInteractions: drag handle for mouse-based repositioning */}
-			<header
-				onMouseDown={handleDragStart}
-				className={cn(
-					"flex h-7 cursor-move items-center justify-between border-b border-border bg-muted/50 px-2",
-					"hover:bg-muted transition-colors select-none",
-				)}
-				title="Drag to reposition"
-			>
-				<GripHorizontal
-					className="h-3 w-3 text-muted-foreground"
-					aria-hidden="true"
-				/>
-				{/* biome-ignore lint/a11y/noStaticElementInteractions: prevents drag when clicking buttons */}
-				<div
-					className="flex items-center gap-0.5"
-					onMouseDown={(e) => e.stopPropagation()}
-				>
+			{/* Header with actions */}
+			<div className="flex items-center justify-between px-3 pt-2 pb-1">
+				<div className="flex items-center gap-2 type-secondary text-fg-ghost">
+					<span className="text-fg">{annotation.author}</span>
+					<span>{formatRelativeTime(annotation.createdAt)}</span>
+				</div>
+				<div className="flex items-center gap-0.5">
 					<button
 						type="button"
 						onClick={isResolved ? handleReopenClick : handleResolveClick}
-						className={cn(
-							"rounded p-1 transition-colors",
-							isResolved
-								? "text-terminal-green hover:bg-terminal-green/10"
-								: "text-muted-foreground hover:bg-muted hover:text-foreground",
-							"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-						)}
-						aria-label={isResolved ? "Reopen annotation" : "Resolve annotation"}
+						className="text-fg-ghost transition-colors duration-150 hover:text-fg p-1"
+						aria-label={isResolved ? "Reopen" : "Resolve"}
 						title={isResolved ? "Reopen" : "Resolve"}
 					>
-						<Check className="h-4 w-4" aria-hidden="true" />
+						<Check className="h-3.5 w-3.5" strokeWidth={1.5} />
 					</button>
 					<button
 						type="button"
 						onClick={handleDeleteClick}
-						className={cn(
-							"rounded p-1 transition-colors",
-							"text-muted-foreground hover:bg-muted hover:text-destructive",
-							"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-						)}
-						aria-label="Delete annotation"
+						className="text-fg-ghost transition-colors duration-150 hover:text-failure p-1"
+						aria-label="Delete"
 						title="Delete"
 					>
-						<Trash2 className="h-4 w-4" aria-hidden="true" />
+						<Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
 					</button>
 					<button
 						type="button"
 						onClick={onClose}
-						className={cn(
-							"rounded p-1 transition-colors",
-							"hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-						)}
+						className="text-fg-ghost transition-colors duration-150 hover:text-fg p-1"
 						aria-label="Close"
 					>
-						<X className="h-4 w-4" aria-hidden="true" />
+						<X className="h-3.5 w-3.5" strokeWidth={1.5} />
 					</button>
 				</div>
-			</header>
+			</div>
 
+			{/* Confirm action bar */}
 			{confirmAction && (
-				<div className="border-b border-border bg-muted/30 px-3 py-2">
-					<p className="mb-2 text-xs text-muted-foreground">
+				<div className="mx-3 mb-2 rounded bg-surface-void px-3 py-2">
+					<p className="type-secondary text-fg-ghost mb-2">
 						{confirmAction === "resolve" && "Mark as resolved?"}
 						{confirmAction === "reopen" && "Reopen this annotation?"}
 						{confirmAction === "delete" && "Delete this annotation?"}
@@ -438,10 +309,10 @@ export function AnnotationPopover({
 										: handleDeleteClick
 							}
 							className={cn(
-								"flex-1 rounded px-2 py-1.5 text-xs font-medium transition-colors",
+								"flex-1 rounded px-2 py-1 type-secondary transition-colors duration-150",
 								confirmAction === "delete"
-									? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
-									: "bg-primary text-primary-foreground hover:bg-primary/90",
+									? "text-failure hover:bg-failure/10"
+									: "text-fg hover:bg-surface",
 							)}
 						>
 							{confirmAction === "resolve" && "Resolve"}
@@ -451,7 +322,7 @@ export function AnnotationPopover({
 						<button
 							type="button"
 							onClick={handleCancelAction}
-							className="flex-1 rounded border border-border bg-background px-2 py-1.5 text-xs font-medium transition-colors hover:bg-muted"
+							className="flex-1 rounded px-2 py-1 type-secondary text-fg-ghost hover:text-fg transition-colors duration-150"
 						>
 							Cancel
 						</button>
@@ -459,19 +330,9 @@ export function AnnotationPopover({
 				</div>
 			)}
 
-			<div className="max-h-80 overflow-y-auto p-3">
-				<div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
-					<span className="font-medium text-foreground">
-						{annotation.author}
-					</span>
-					<span>{formatRelativeTime(annotation.createdAt)}</span>
-					{annotation.orphaned && (
-						<span className="rounded bg-status-warning/10 px-1.5 py-0.5 text-[10px] font-medium text-status-warning">
-							Orphaned
-						</span>
-					)}
-				</div>
-				<p className="whitespace-pre-wrap text-sm">
+			{/* Content */}
+			<div className="max-h-60 overflow-y-auto px-3 pb-2">
+				<p className="whitespace-pre-wrap type-body text-fg">
 					{expandedComments.has(annotation.id)
 						? annotation.content
 						: truncateContent(annotation.content)}
@@ -480,14 +341,14 @@ export function AnnotationPopover({
 					<button
 						type="button"
 						onClick={() => toggleExpanded(annotation.id)}
-						className="text-xs text-primary hover:underline mt-1"
+						className="type-secondary text-fg-ghost hover:text-fg transition-colors duration-150 mt-1"
 					>
 						{expandedComments.has(annotation.id) ? "Show less" : "Show more"}
 					</button>
 				)}
 
 				{annotation.replies.length > 0 && (
-					<div className="mt-3 border-t border-border pt-2">
+					<div className="mt-2 border-t border-border pt-1">
 						{annotation.replies.map((reply) => (
 							<ReplyItem
 								key={reply.id}
@@ -500,7 +361,8 @@ export function AnnotationPopover({
 				)}
 			</div>
 
-			<footer className="border-t border-border p-3">
+			{/* Reply */}
+			<div className="border-t border-border px-3 py-2">
 				<div className="flex gap-2">
 					<textarea
 						ref={textareaRef}
@@ -510,9 +372,9 @@ export function AnnotationPopover({
 						placeholder="Reply..."
 						rows={1}
 						className={cn(
-							"flex-1 resize-none rounded-md border border-border bg-transparent px-3 py-2 text-sm",
-							"placeholder:text-muted-foreground",
-							"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+							"flex-1 resize-none rounded bg-surface-void px-3 py-1.5 type-body text-fg",
+							"placeholder:text-fg-ghost",
+							"focus-visible:outline-none",
 							"disabled:cursor-not-allowed disabled:opacity-50",
 						)}
 						disabled={isSubmitting}
@@ -520,25 +382,23 @@ export function AnnotationPopover({
 					<button
 						type="button"
 						onClick={handleSubmitReply}
-						disabled={!replyText.trim() || isSubmitting}
+						disabled={!canReply}
 						className={cn(
-							"rounded-md p-2 transition-colors",
-							"bg-primary text-primary-foreground",
-							"hover:bg-primary/90",
-							"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-							"disabled:pointer-events-none disabled:opacity-50",
+							"shrink-0 rounded p-1.5 transition-colors duration-150",
+							canReply
+								? "text-fg-muted hover:text-fg"
+								: "text-fg-ghost opacity-50",
 						)}
 						aria-label="Send reply"
-						title="Send reply (Cmd/Ctrl+Enter)"
+						title="Cmd/Ctrl+Enter"
 					>
-						<Send className="h-4 w-4" aria-hidden="true" />
+						<Send className="h-3.5 w-3.5" strokeWidth={1.5} />
 					</button>
 				</div>
-
-				<span className="mt-1 text-xs text-muted-foreground">
-					Cmd/Ctrl+Enter to send
-				</span>
-			</footer>
+				<p className="mt-1 type-secondary text-fg-ghost">
+					Enter to send · Shift+Enter for new line
+				</p>
+			</div>
 		</div>
 	);
 }

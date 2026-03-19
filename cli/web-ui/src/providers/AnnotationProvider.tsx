@@ -38,6 +38,7 @@ export interface AnnotationContextValue {
 	readonly error: string | null;
 	readonly filter: AnnotationFilter;
 	readonly selectedAnnotationId: string | null;
+	readonly docId: string | null;
 	setFilter: (filter: AnnotationFilter) => void;
 	selectAnnotation: (id: string | null) => void;
 	createAnnotation: (request: CreateAnnotationRequest) => Promise<Annotation>;
@@ -60,6 +61,7 @@ const AnnotationContext = createContext<AnnotationContextValue | null>(null);
 interface AnnotationProviderProps {
 	readonly children: ReactNode;
 	readonly artifactPath?: string;
+	readonly docId?: string;
 }
 
 /**
@@ -69,6 +71,7 @@ interface AnnotationProviderProps {
 export function AnnotationProvider({
 	children,
 	artifactPath,
+	docId: docIdProp,
 }: AnnotationProviderProps) {
 	const [annotations, setAnnotations] = useState<readonly Annotation[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
@@ -548,6 +551,7 @@ export function AnnotationProvider({
 			error,
 			filter,
 			selectedAnnotationId,
+			docId: docIdProp ?? null,
 			setFilter,
 			selectAnnotation,
 			createAnnotation,
@@ -564,6 +568,7 @@ export function AnnotationProvider({
 			error,
 			filter,
 			selectedAnnotationId,
+			docIdProp,
 			selectAnnotation,
 			createAnnotation,
 			resolveAnnotation,
@@ -605,6 +610,7 @@ const DEFAULT_ANNOTATION_CONTEXT: AnnotationContextValue = {
 	error: null,
 	filter: DEFAULT_FILTER,
 	selectedAnnotationId: null,
+	docId: null,
 	setFilter: () => {},
 	selectAnnotation: () => {},
 	createAnnotation: () => Promise.reject(new Error("No AnnotationProvider")),

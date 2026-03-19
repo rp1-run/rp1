@@ -188,6 +188,18 @@ export function AnnotationSidebar({
 
 	const { annotations: allAnnotations } = useAnnotationContext();
 
+	const totalCount = useMemo(() => {
+		const artifactAnnotations = artifactPath
+			? allAnnotations.filter((a) => a.artifactPath === artifactPath)
+			: allAnnotations;
+		return artifactAnnotations.length;
+	}, [allAnnotations, artifactPath]);
+
+	const hasActiveFilter =
+		filter.status !== "all" ||
+		filter.author !== null ||
+		filter.dateRange !== "all";
+
 	const authorOptions = useMemo(() => {
 		const artifactAnnotations = artifactPath
 			? allAnnotations.filter((a) => a.artifactPath === artifactPath)
@@ -259,8 +271,10 @@ export function AnnotationSidebar({
 			<header className="shrink-0 flex h-10 items-center justify-between border-b border-border bg-background px-3">
 				<div className="flex items-center gap-2">
 					<h2 className="text-sm font-semibold">Annotations</h2>
-					<span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-						{count}
+					<span className="type-secondary text-fg-ghost tabular-nums">
+						{hasActiveFilter && count !== totalCount
+							? `${count} of ${totalCount}`
+							: totalCount}
 					</span>
 				</div>
 				<div className="flex items-center gap-1">
