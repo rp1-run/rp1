@@ -1,191 +1,262 @@
-import { motion } from "framer-motion";
-import { Activity, FolderOpen, Play, Terminal } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { KeyHints, NAV_HINTS_NO_BACK } from "@/components/v2/KeyHints";
+import { useAttention } from "@/hooks/useAttention";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
-import {
-	cardHover,
-	cardTap,
-	staggerContainer,
-	staggerItem,
-} from "@/lib/motion-config";
+import { useRuns } from "@/hooks/useRuns";
+import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
+import type { Run } from "@/types/runs";
 
-interface SuggestionCard {
-	readonly label: string;
-	readonly description: string;
-	readonly icon: React.ComponentType<{ className?: string }>;
-	readonly path: string;
-	readonly accent: string;
-	readonly iconColor: string;
+type FilterType = "all" | "running" | "attention";
+
+const FILTERS: readonly { readonly key: FilterType; readonly label: string }[] =
+	[
+		{ key: "all", label: "All" },
+		{ key: "running", label: "Running" },
+		{ key: "attention", label: "Attention" },
+	];
+
+const PAGE_SIZE = 25;
+
+function StatusDot({ status }: { status: Run["status"] }) {
+	if (status === "running") {
+		return (
+			<span
+				role="img"
+				className="inline-block h-[6px] w-[6px] rounded-full bg-accent-amber animate-status-pulse"
+				aria-label="Running"
+			/>
+		);
+	}
+	if (status === "failed") {
+		return (
+			<span
+				role="img"
+				className="inline-block h-[6px] w-[6px] rounded-full bg-failure"
+				aria-label="Failed"
+			/>
+		);
+	}
+	if (status === "waiting") {
+		return (
+			<span
+				role="img"
+				className="inline-block h-[6px] w-[6px] rounded-full bg-accent-amber"
+				aria-label="Waiting"
+			/>
+		);
+	}
+	return (
+		<span
+			role="img"
+			className="inline-block h-[6px] w-[6px] rounded-full bg-fg-ghost"
+			aria-label={status}
+		/>
+	);
 }
 
-const SUGGESTIONS: readonly SuggestionCard[] = [
-	{
-		label: "View Runs",
-		description: "Monitor active and recent agent runs",
-		icon: Play,
-		path: "/runs",
-		accent: "hover:border-[hsl(var(--terminal-green))]",
-		iconColor: "text-terminal-green",
-	},
-	{
-		label: "Browse Projects",
-		description: "Explore registered projects and artifacts",
-		icon: FolderOpen,
-		path: "/projects",
-		accent: "hover:border-[hsl(var(--terminal-mauve))]",
-		iconColor: "text-terminal-mauve",
-	},
-	{
-		label: "Recent Activity",
-		description: "Review completed runs and results",
-		icon: Activity,
-		path: "/runs?status=completed",
-		accent: "hover:border-[hsl(var(--status-running))]",
-		iconColor: "text-status-running",
-	},
-] as const;
+const feedItemVariants = {
+	initial: { opacity: 0, y: 8 },
+	animate: { opacity: 1, y: 0 },
+};
 
-function SuggestionCardComponent({
-	card,
-	selected,
+const feedItemTransition = {
+	duration: 0.2,
+	ease: [0.25, 0.1, 0.25, 1.0],
+};
+
+const feedItemVariantsReduced = {
+	initial: { opacity: 1, y: 0 },
+	animate: { opacity: 1, y: 0 },
+};
+
+function FeedEntry({
+	run,
 	onClick,
+	reducedMotion,
 }: {
-	card: SuggestionCard;
-	selected: boolean;
+	run: Run;
 	onClick: () => void;
+	reducedMotion: boolean;
 }) {
-	const reducedMotion = usePrefersReducedMotion();
-	const Icon = card.icon;
+	const isWaiting = run.status === "waiting";
 
 	return (
 		<motion.button
 			type="button"
 			onClick={onClick}
-			whileHover={reducedMotion ? undefined : cardHover}
-			whileTap={reducedMotion ? undefined : cardTap}
+			variants={reducedMotion ? feedItemVariantsReduced : feedItemVariants}
+			transition={reducedMotion ? { duration: 0 } : feedItemTransition}
 			className={cn(
-				"group flex flex-col items-center gap-3 rounded-lg border border-border p-6",
-				"cursor-pointer backdrop-blur-[0px] text-center",
-				"transition-[background-color,border-color,backdrop-filter,box-shadow] duration-200 ease-out",
-				"hover:bg-[hsl(var(--bg-surface)_/_0.6)] hover:backdrop-blur-[8px]",
-				card.accent,
-				selected && "ring-2 ring-primary bg-[hsl(var(--bg-surface)_/_0.4)]",
-				"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+				"flex w-full items-center gap-3 px-3 py-2.5 text-left rounded-[var(--radius)]",
+				"transition-colors duration-150",
+				"hover:bg-surface",
+				"focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border",
+				isWaiting && "bg-accent-ghost",
 			)}
 		>
-			<div
-				className={cn(
-					"rounded-full bg-muted/30 p-3 transition-colors",
-					"group-hover:bg-muted/50",
-				)}
+			<StatusDot status={run.status} />
+
+			<span
+				className="shrink-0 type-secondary tabular-nums text-fg-ghost"
+				style={{ fontVariantNumeric: "tabular-nums" }}
 			>
-				<Icon className={cn("h-5 w-5", card.iconColor)} />
-			</div>
-			<div>
-				<p className="text-sm font-medium text-foreground">{card.label}</p>
-				<p className="mt-1 text-xs text-muted-foreground">{card.description}</p>
-			</div>
+				{formatRelativeTime(run.startedAt)}
+			</span>
+
+			<span className="truncate type-body font-medium text-fg">
+				{run.command || run.featureName || run.featureId}
+			</span>
+
+			<span className="truncate type-secondary text-fg-muted">
+				{run.projectName}
+			</span>
+
+			{isWaiting && (
+				<span className="ml-auto shrink-0 type-caption text-accent-amber">
+					waiting
+				</span>
+			)}
 		</motion.button>
 	);
 }
 
 export function HomePage() {
 	const navigate = useNavigate();
-	const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 	const reducedMotion = usePrefersReducedMotion();
+	const [filter, setFilter] = useState<FilterType>("all");
+	const [pageSize, setPageSize] = useState(PAGE_SIZE);
 
-	const handleCardClick = useCallback(
-		(path: string) => {
-			navigate(path);
+	const {
+		runs: allRuns,
+		total: allTotal,
+		isLoading: allLoading,
+	} = useRuns({ limit: pageSize });
+
+	const {
+		runs: runningRuns,
+		total: runningTotal,
+		isLoading: runningLoading,
+	} = useRuns({ status: "running", limit: pageSize });
+
+	const { data: attentionData, isLoading: attentionLoading } = useAttention();
+
+	const getDisplayData = useCallback((): {
+		runs: readonly Run[];
+		total: number;
+		isLoading: boolean;
+	} => {
+		switch (filter) {
+			case "running":
+				return {
+					runs: runningRuns,
+					total: runningTotal,
+					isLoading: runningLoading,
+				};
+			case "attention": {
+				const attentionRuns = attentionData
+					? [...attentionData.waiting, ...attentionData.failed]
+					: [];
+				return {
+					runs: attentionRuns,
+					total: attentionRuns.length,
+					isLoading: attentionLoading,
+				};
+			}
+			default:
+				return { runs: allRuns, total: allTotal, isLoading: allLoading };
+		}
+	}, [
+		filter,
+		allRuns,
+		allTotal,
+		allLoading,
+		runningRuns,
+		runningTotal,
+		runningLoading,
+		attentionData,
+		attentionLoading,
+	]);
+
+	const { runs, total, isLoading } = getDisplayData();
+	const hasMore = filter !== "attention" && runs.length < total;
+
+	const handleLoadEarlier = useCallback(() => {
+		setPageSize((prev) => prev + PAGE_SIZE);
+	}, []);
+
+	const handleRunClick = useCallback(
+		(runId: string) => {
+			navigate(`/runs/${runId}`);
 		},
 		[navigate],
 	);
 
-	useEffect(() => {
-		const handleKeyDown = (event: KeyboardEvent) => {
-			if (document.querySelector('[role="dialog"][data-state="open"]')) return;
-			if (document.body.dataset.chordPending) return;
-
-			const target = event.target as HTMLElement;
-			const isTextInput =
-				target.tagName === "INPUT" ||
-				target.tagName === "TEXTAREA" ||
-				target.isContentEditable;
-
-			if (isTextInput) return;
-
-			switch (event.key) {
-				case "j":
-				case "ArrowDown":
-				case "ArrowRight":
-					event.preventDefault();
-					setSelectedIndex((prev) =>
-						prev === null ? 0 : Math.min(prev + 1, SUGGESTIONS.length - 1),
-					);
-					break;
-				case "k":
-				case "ArrowUp":
-				case "ArrowLeft":
-					event.preventDefault();
-					setSelectedIndex((prev) =>
-						prev === null ? SUGGESTIONS.length - 1 : Math.max(prev - 1, 0),
-					);
-					break;
-				case "l":
-				case "Enter":
-					if (selectedIndex !== null && SUGGESTIONS[selectedIndex]) {
-						event.preventDefault();
-						handleCardClick(SUGGESTIONS[selectedIndex].path);
-					}
-					break;
-			}
-		};
-
-		document.addEventListener("keydown", handleKeyDown);
-		return () => document.removeEventListener("keydown", handleKeyDown);
-	}, [selectedIndex, handleCardClick]);
-
 	return (
-		<div className="flex h-full flex-col items-center justify-center gap-8 px-6 pb-6">
-			<div className="flex flex-col items-center gap-6">
-				<div className="flex items-baseline gap-1">
-					<Terminal className="h-5 w-5 text-terminal-green" />
-					<span className="font-mono text-3xl font-semibold text-foreground">
-						rp1
-					</span>
-					<span className="font-mono text-3xl font-light text-foreground/50">
-						arcade
-					</span>
-					<span className="animate-blink text-3xl text-terminal-green">_</span>
-				</div>
-			</div>
-
-			<div className="mx-auto w-full max-w-2xl">
-				<motion.div
-					className="grid w-full grid-cols-1 gap-4 sm:grid-cols-3"
-					variants={reducedMotion ? undefined : staggerContainer}
-					initial="initial"
-					animate="animate"
-				>
-					{SUGGESTIONS.map((card, index) => (
-						<motion.div
-							key={card.label}
-							variants={reducedMotion ? undefined : staggerItem}
+		<div className="flex h-full flex-col items-center overflow-y-auto px-4 py-6 md:px-6">
+			<div className="w-full max-w-[640px]">
+				<div className="flex items-center gap-4 mb-4">
+					{FILTERS.map((f) => (
+						<button
+							key={f.key}
+							type="button"
+							onClick={() => {
+								setFilter(f.key);
+								setPageSize(PAGE_SIZE);
+							}}
+							className={cn(
+								"type-caption transition-colors duration-150",
+								filter === f.key
+									? "text-fg"
+									: "text-fg-ghost hover:text-fg-muted",
+							)}
 						>
-							<SuggestionCardComponent
-								card={card}
-								selected={selectedIndex === index}
-								onClick={() => handleCardClick(card.path)}
-							/>
-						</motion.div>
+							{f.label}
+						</button>
 					))}
-				</motion.div>
-				<div className="mt-4 flex justify-center">
-					<KeyHints hints={NAV_HINTS_NO_BACK} />
 				</div>
+
+				{isLoading && runs.length === 0 ? (
+					<div className="flex items-center justify-center py-16">
+						<span className="type-body text-fg-ghost">Loading...</span>
+					</div>
+				) : runs.length === 0 ? (
+					<div className="flex items-center justify-center py-16">
+						<span className="type-body text-fg-ghost">No activity yet.</span>
+					</div>
+				) : (
+					<>
+						<AnimatePresence initial={false}>
+							<motion.div
+								className="flex flex-col"
+								initial="initial"
+								animate="animate"
+							>
+								{runs.map((run) => (
+									<FeedEntry
+										key={run.id}
+										run={run}
+										onClick={() => handleRunClick(run.id)}
+										reducedMotion={reducedMotion}
+									/>
+								))}
+							</motion.div>
+						</AnimatePresence>
+
+						{hasMore && (
+							<div className="flex justify-center py-4">
+								<button
+									type="button"
+									onClick={handleLoadEarlier}
+									className="type-secondary text-fg-ghost hover:text-fg-muted transition-colors duration-150"
+								>
+									Earlier
+								</button>
+							</div>
+						)}
+					</>
+				)}
 			</div>
 		</div>
 	);

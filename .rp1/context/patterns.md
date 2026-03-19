@@ -12,6 +12,26 @@
 
 Evidence: `plugins/base/skills/knowledge-build/SKILL.md`, `plugins/dev/skills/build/SKILL.md`, `cli/src/main.ts`
 
+## Frontend Design System
+
+### CSS Token Architecture
+- CSS custom properties store raw HSL component values (e.g., `--fg-ghost: 40 4% 41%`).
+- Tailwind config wraps these with `hsl()` (e.g., `text-fg-ghost` maps to `color: hsl(var(--fg-ghost))`).
+- **CRITICAL PATTERN**: Never use `style={{ color: "var(--token)" }}` in JSX — the raw HSL components are not valid CSS colors. Always use Tailwind utility classes (`text-fg-ghost`, `bg-surface-void`, etc.) or wrap explicitly: `hsl(var(--token))`.
+
+### Typography Class Naming
+- Custom typography size classes use `type-*` prefix: `type-title`, `type-body`, `type-secondary`, `type-caption`.
+- This avoids collision with Tailwind's `text-*` color utilities (e.g., `text-secondary` is a Tailwind COLOR class pointing at a background token, NOT a font size class).
+- The `type-*` classes are defined in `globals.css` `@layer components`.
+
+### Design Token Palette
+- Warm stone grays with HSL hue 40 (light) / 30 (dark).
+- Three semantic colors only: primary (fg), accent amber (attention/waiting), failure red (errors).
+- Ghost text must maintain at least 4.5:1 WCAG AA contrast ratio against base background.
+- Commit Mono is the sole typeface; max font size 16px.
+
+Evidence: `cli/web-ui/src/styles/globals.css`, `cli/web-ui/tailwind.config.ts`
+
 ## Type and Data Modeling
 
 **Data Representation**: TypeScript models plus structured JSON contracts for skills, state, and generated artifacts.

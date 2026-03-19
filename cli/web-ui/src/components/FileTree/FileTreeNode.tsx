@@ -81,14 +81,14 @@ export function FileTreeNode({
 			<div
 				ref={nodeRef}
 				className={cn(
-					"flex items-center gap-1 py-1 px-2 cursor-pointer rounded-sm text-sm",
-					"hover:bg-accent hover:text-accent-foreground",
-					"focus:outline-none focus:ring-1 focus:ring-ring",
-					"transition-colors duration-100",
-					isSelected && "bg-accent text-accent-foreground font-medium",
-					isFocused && !isSelected && "ring-1 ring-ring",
+					"flex items-center gap-1.5 py-1 px-2 cursor-pointer rounded type-body",
+					"hover:bg-accent-ghost",
+					"focus:outline-none focus:ring-1 focus:ring-accent-amber",
+					"transition-colors duration-150",
+					isSelected && "bg-accent-ghost text-fg",
+					isFocused && !isSelected && "ring-1 ring-accent-amber",
 				)}
-				style={{ paddingLeft: `${depth * 12 + 8}px` }}
+				style={{ paddingLeft: `${depth * 20 + 8}px` }}
 				onClick={handleClick}
 				onKeyDown={handleKeyDown}
 				tabIndex={isFocused ? 0 : -1}
@@ -96,16 +96,16 @@ export function FileTreeNode({
 				aria-selected={isSelected}
 			>
 				{isDirectory && (
-					<span className="flex-shrink-0 w-4 h-4 flex items-center justify-center">
+					<span className="flex-shrink-0 w-3.5 h-3.5 flex items-center justify-center">
 						{isExpanded ? (
-							<ChevronDown className="w-3 h-3" />
+							<ChevronDown className="w-3 h-3" strokeWidth={1.5} />
 						) : (
-							<ChevronRight className="w-3 h-3" />
+							<ChevronRight className="w-3 h-3" strokeWidth={1.5} />
 						)}
 					</span>
 				)}
-				{!isDirectory && <span className="w-4" />}
-				<Icon className="w-4 h-4 flex-shrink-0 text-muted-foreground" />
+				{!isDirectory && <span className="w-3.5" />}
+				<Icon className="w-3.5 h-3.5 flex-shrink-0 text-fg-muted" />
 				<span className="truncate">{node.name}</span>
 			</div>
 

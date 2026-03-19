@@ -1,7 +1,6 @@
 import { Check, Copy } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import {
 	Tooltip,
 	TooltipContent,
@@ -28,15 +27,6 @@ export function buildSegments(pathname: string): BreadcrumbSegment[] {
 	}));
 }
 
-/**
- * Resolve the real filesystem path for known URL patterns.
- *
- * - /projects/{projectId}/files/{filePath} → {project.path}/.rp1/{filePath}
- * - /runs/{runId}/artifacts/{artifactPath} → looks up absolutePath from the
- *   run's artifact list (server-resolved, no client-side path reconstruction)
- *
- * Returns null for unrecognized patterns or when data isn't available yet.
- */
 function useFilesystemPath(pathname: string): string | null {
 	const { projects } = useProjects();
 	const [artifactAbsolutePath, setArtifactAbsolutePath] = useState<
@@ -48,7 +38,6 @@ function useFilesystemPath(pathname: string): string | null {
 	const runId = artifactMatch?.[1] ?? null;
 	const artifactUrlPath = artifactMatch?.[2] ?? null;
 
-	// For artifact URLs, fetch the run and look up the artifact's absolutePath
 	useEffect(() => {
 		if (!runId || !artifactUrlPath) {
 			setArtifactAbsolutePath(null);
@@ -72,13 +61,11 @@ function useFilesystemPath(pathname: string): string | null {
 			.catch(() => setArtifactAbsolutePath(null));
 	}, [runId, artifactUrlPath]);
 
-	// Pattern 1: File browser — /projects/{id}/files/{path}
 	if (filesMatch) {
 		const project = projects.find((p) => p.id === filesMatch[1]);
 		if (project) return `${project.path}/.rp1/${filesMatch[2]}`;
 	}
 
-	// Pattern 2: Artifact viewer — server-resolved absolute path
 	if (artifactAbsolutePath) {
 		return artifactAbsolutePath;
 	}
@@ -104,18 +91,23 @@ export function TerminalBreadcrumb({ className }: TerminalBreadcrumbProps) {
 		<nav
 			aria-label="Breadcrumb"
 			className={cn(
-				"flex items-center border-b border-border px-4 py-1.5 font-mono text-sm text-muted-foreground",
+				"flex items-center border-b px-4 py-1.5 type-body",
+				"border-border",
+				"text-fg-ghost",
 				className,
 			)}
 		>
-			<ol className="flex items-center gap-1">
+			<ol className="flex items-center">
 				<li>
 					{segments.length === 0 ? (
-						<span className="text-foreground" aria-current="page">
+						<span className="text-fg" aria-current="page">
 							~
 						</span>
 					) : (
-						<Link to="/" className="transition-colors hover:text-foreground">
+						<Link
+							to="/"
+							className="transition-colors duration-150 hover:text-fg"
+						>
 							~
 						</Link>
 					)}
@@ -123,18 +115,21 @@ export function TerminalBreadcrumb({ className }: TerminalBreadcrumbProps) {
 				{segments.map((segment, index) => {
 					const isLast = index === segments.length - 1;
 					return (
-						<li key={segment.to} className="flex items-center gap-1">
-							<span aria-hidden="true" className="select-none">
+						<li key={segment.to} className="flex items-center">
+							<span
+								aria-hidden="true"
+								className="mx-1 select-none text-fg-ghost"
+							>
 								/
 							</span>
 							{isLast ? (
-								<span className="text-foreground" aria-current="page">
+								<span className="text-fg" aria-current="page">
 									{segment.label}
 								</span>
 							) : (
 								<Link
 									to={segment.to}
-									className="transition-colors hover:text-foreground"
+									className="transition-colors duration-150 hover:text-fg"
 								>
 									{segment.label}
 								</Link>
@@ -147,19 +142,26 @@ export function TerminalBreadcrumb({ className }: TerminalBreadcrumbProps) {
 				<TooltipProvider>
 					<Tooltip>
 						<TooltipTrigger asChild>
-							<Button
-								variant="ghost"
-								size="icon"
-								className="ml-2 h-6 w-6 text-muted-foreground hover:text-foreground"
+							<button
+								type="button"
+								className="ml-2 flex h-6 w-6 items-center justify-center rounded text-fg-ghost transition-colors duration-150 hover:text-fg"
 								onClick={handleCopy}
 								aria-label="Copy full path"
 							>
 								{copied ? (
-									<Check className="h-3.5 w-3.5" aria-hidden="true" />
+									<Check
+										className="h-4 w-4"
+										strokeWidth={1.5}
+										aria-hidden="true"
+									/>
 								) : (
-									<Copy className="h-3.5 w-3.5" aria-hidden="true" />
+									<Copy
+										className="h-4 w-4"
+										strokeWidth={1.5}
+										aria-hidden="true"
+									/>
 								)}
-							</Button>
+							</button>
 						</TooltipTrigger>
 						<TooltipContent>
 							<p>{copied ? "Copied!" : "Copy full path"}</p>

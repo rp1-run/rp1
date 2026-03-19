@@ -417,8 +417,8 @@ export function CodeBlock({
 				const html = highlighter.codeToHtml(code, {
 					lang: normalizedLang,
 					themes: {
-						light: "catppuccin-latte",
-						dark: "catppuccin-mocha",
+						light: "min-light",
+						dark: "min-dark",
 					},
 					defaultColor: false,
 				});

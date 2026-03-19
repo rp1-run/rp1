@@ -12,7 +12,7 @@
 | Installation and Distribution | `cli/src/install/` | Installs plugins and artifacts into supported host tools with backup and rollback behavior. | Base Knowledge Workflows, Dev Workflow Orchestration, Utils Prompt Workflows |
 | Agent Tools and Workflow Runtime | `cli/src/agent-tools/` | Exposes workflow status, artifact, task, GitHub, and state-machine services. | Web UI Backend |
 | Web UI Backend | `cli/web-ui/src/server/` | Runs the Bun daemon, HTTP routes, WebSocket hub, replay, and project/run APIs. | Agent Tools and Workflow Runtime |
-| Web UI Frontend | `cli/web-ui/src/app/` | Renders the live dashboard for projects, runs, workflows, and artifacts. | Web UI Backend, Mermaid Theme Package |
+| Web UI Frontend | `cli/web-ui/src/app/` | Renders the live dashboard with icon-rail navigation, vertical step lists, artifact viewer, and activity feed. | Web UI Backend |
 | Base Knowledge Workflows | `plugins/base/` | Defines KB, docs, Mermaid, strategy, and supporting prompt workflows. | - |
 | Dev Workflow Orchestration | `plugins/dev/` | Defines feature delivery, review, archive, audit, and build workflows. | Base Knowledge Workflows, Agent Tools and Workflow Runtime |
 | Utils Prompt Workflows | `plugins/utils/` | Provides prompt-writing, tersification, and eval-helper workflows. | - |
@@ -36,14 +36,18 @@
 | `createServer` | Web UI Backend | Assembles the daemon server, replay provider, and live broadcast pipeline. |
 | `WebSocketHub` | Web UI Backend | Manages subscriptions, heartbeats, replay, and live fan-out. |
 | `handleV2RunsListRequest` | Web UI Backend | Serves paginated run listings enriched with registry context. |
-| `App` | Web UI Frontend | Composes the provider stack and routing shell. |
+| `App` | Web UI Frontend | Composes the provider stack and routing shell with AppLayout (icon rail + mobile tab bar). |
+| `IconRail` | Web UI Frontend | Persistent 48px navigation rail replacing the collapsible sidebar. |
+| `MobileTabBar` | Web UI Frontend | Bottom tab navigation for small viewports. |
+| `VerticalStepList` | Web UI Frontend | Pure CSS vertical step list replacing the React Flow canvas and dagre graph layout. |
+| `ArtifactViewerPanel` | Web UI Frontend | Slide-over panel for viewing run artifacts. |
 | `knowledge-build` | Base Knowledge Workflows | Regenerates KB files through a spatial + parallel analysis flow. |
 | `build` | Dev Workflow Orchestration | Coordinates end-to-end feature delivery across requirements to archive. |
 | `prompt-writer` | Utils Prompt Workflows | Defines terse prompt-authoring conventions. |
 | `build-prompt-evals` | Utils Prompt Workflows | Extracts eval assertions and minimal prompt tests. |
 | `attestCommand` | Evaluation and Attestation | Updates attestation manifests when suites pass. |
 | `buildDependencyGraph` | Evaluation and Attestation | Computes transitive prompt dependencies for attestation. |
-| `createTheme` | Mermaid Theme Package | Builds Mermaid theme objects from Catppuccin palettes. |
+| `createTheme` | Mermaid Theme Package | Builds Mermaid theme objects from warm stone palette colors. |
 
 ## Responsibility Matrix
 
@@ -53,12 +57,12 @@
 | Installation and Distribution | plugin install, backups, restore, staging, verification |
 | Agent Tools and Workflow Runtime | run events, artifacts, tasks, state-machine validation, shared runtime utilities |
 | Web UI Backend | HTTP API, WebSocket broadcasting, replay, startup recovery, registry integration |
-| Web UI Frontend | dashboard UI, route composition, live client state, diagram and markdown viewing |
+| Web UI Frontend | dashboard UI (icon rail, vertical step lists, artifact viewer, activity feed), route composition, live client state |
 | Base Knowledge Workflows | KB generation, KB loading rules, docs helpers, Mermaid support |
 | Dev Workflow Orchestration | feature lifecycle, review flows, archive flows, delivery orchestration |
 | Utils Prompt Workflows | prompt authoring helpers, tersification, eval generation |
 | Evaluation and Attestation | dependency graphs, prompt hashing, attestation manifests, verification |
-| Mermaid Theme Package | Mermaid theme config, palette exports, contrast helpers |
+| Mermaid Theme Package | Mermaid theme config, warm stone palette exports, contrast helpers |
 
 ## Module Notes
 

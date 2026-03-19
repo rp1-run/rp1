@@ -28,6 +28,8 @@
 - **React**: Dashboard application model.
 - **Vite**: Development and bundling workflow for the Web UI.
 - **Tailwind CSS**: Styling layer for the dashboard.
+- **Commit Mono**: Sole typeface (variable font, weights 400-500).
+- **Design System**: Warm stone gray palette with HSL tokens, amber accent, muted red failure color.
 
 ### Documentation and Content
 - **MkDocs Material**: Published product documentation.
@@ -67,6 +69,14 @@
 **Rationale**:
 - Keeps the system local-first and deterministic.
 - Supports the dashboard without introducing a remote control plane.
+
+### Why Warm Stone Design System
+**Decision**: Replace Catppuccin palette with a custom warm stone gray design system using HSL tokens.
+**Rationale**:
+- Typographically-driven minimal aesthetic reduces visual noise for developer workflow monitoring.
+- Single typeface (Commit Mono) with 16px max size creates visual calm.
+- Three semantic colors (primary, amber attention, red failure) eliminate ambiguity.
+- Removed @xyflow/react and @dagrejs/dagre — vertical CSS step list handles rp1's small workflows without graph rendering overhead.
 
 ## Toolchain Compatibility
 

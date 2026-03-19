@@ -1,6 +1,5 @@
 import {
 	AlertCircle,
-	ChevronRight,
 	FileText,
 	List,
 	Loader2,
@@ -73,7 +72,11 @@ function AnnotationToggleButton({
 						onClick={onOpen}
 						aria-label="Open annotations panel"
 					>
-						<MessageSquare className="h-4 w-4" aria-hidden="true" />
+						<MessageSquare
+							className="h-4 w-4"
+							strokeWidth={1.5}
+							aria-hidden="true"
+						/>
 						{count > 0 && (
 							<span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground">
 								{count > 99 ? "99+" : count}
@@ -109,7 +112,11 @@ function MobileAnnotationButton({
 						onClick={onClick}
 						aria-label="Open annotations"
 					>
-						<MessageSquare className="h-4 w-4" aria-hidden="true" />
+						<MessageSquare
+							className="h-4 w-4"
+							strokeWidth={1.5}
+							aria-hidden="true"
+						/>
 						{count > 0 && (
 							<span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground">
 								{count > 99 ? "99+" : count}
@@ -501,20 +508,23 @@ export function FileBrowserPage() {
 	const contentArea = (
 		<>
 			{contentLoading ? (
-				<div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
-					<Loader2 className="h-8 w-8 mb-4 animate-spin" />
-					<p className="text-sm">Loading content...</p>
+				<div className="flex flex-col items-center justify-center h-64 text-fg-ghost">
+					<Loader2 className="h-4 w-4 mb-4 animate-spin" strokeWidth={1.5} />
+					<p className="type-body text-fg-ghost">Loading content...</p>
 				</div>
 			) : contentError ? (
-				<div className="flex flex-col items-center justify-center h-64 text-destructive">
-					<AlertCircle className="h-12 w-12 mb-4 opacity-70" />
-					<p className="text-lg mb-2">Failed to load content</p>
-					<p className="text-sm text-muted-foreground">{contentError}</p>
+				<div className="flex flex-col items-center justify-center h-64 text-failure">
+					<AlertCircle
+						className="h-4 w-4 mb-4 text-failure"
+						strokeWidth={1.5}
+					/>
+					<p className="type-body text-fg mb-2">Failed to load content</p>
+					<p className="text-sm text-fg-ghost">{contentError}</p>
 				</div>
 			) : !selectedPath ? (
-				<div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
-					<FileText className="h-12 w-12 mb-4 opacity-50" />
-					<p className="text-lg">
+				<div className="flex flex-col items-center justify-center h-64 text-fg-ghost">
+					<FileText className="h-4 w-4 mb-4 text-fg-ghost" strokeWidth={1.5} />
+					<p className="type-body text-fg-ghost">
 						Select a file from the sidebar to view its contents.
 					</p>
 				</div>
@@ -540,36 +550,36 @@ export function FileBrowserPage() {
 	const breadcrumb = (
 		<nav
 			aria-label="Breadcrumb"
-			className="flex items-center gap-2 p-4 text-sm text-muted-foreground border-b"
+			className="flex items-center p-4 type-body text-fg-ghost border-b border-border"
 		>
-			<ol className="flex items-center gap-1.5">
+			<ol className="flex items-center">
 				<li>
 					<Link
 						to="/projects"
-						className="transition-colors hover:text-foreground"
+						className="transition-colors duration-150 hover:text-fg"
 					>
 						Projects
 					</Link>
 				</li>
-				<li aria-hidden="true">
-					<ChevronRight className="h-3.5 w-3.5" />
+				<li className="mx-1" aria-hidden="true">
+					/
 				</li>
 				<li>
 					<Link
 						to={`/projects/${projectId}`}
-						className="transition-colors hover:text-foreground"
+						className="transition-colors duration-150 hover:text-fg"
 					>
 						{projectName ?? "..."}
 					</Link>
 				</li>
-				<li aria-hidden="true">
-					<ChevronRight className="h-3.5 w-3.5" />
+				<li className="mx-1" aria-hidden="true">
+					/
 				</li>
-				<li className={selectedPath ? "" : "text-foreground font-medium"}>
+				<li className={selectedPath ? "" : "text-fg"}>
 					{selectedPath ? (
 						<Link
 							to={`/projects/${projectId}/files`}
-							className="transition-colors hover:text-foreground"
+							className="transition-colors duration-150 hover:text-fg"
 						>
 							Files
 						</Link>
@@ -582,16 +592,12 @@ export function FileBrowserPage() {
 					return (
 						<li
 							key={pathSegments.slice(0, index + 1).join("/")}
-							className="flex items-center gap-1.5"
+							className="flex items-center"
 						>
-							<ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
-							<span
-								className={
-									isLast
-										? "text-foreground font-medium truncate max-w-[200px]"
-										: ""
-								}
-							>
+							<span className="mx-1" aria-hidden="true">
+								/
+							</span>
+							<span className={isLast ? "text-fg truncate max-w-[200px]" : ""}>
 								{segment}
 							</span>
 						</li>
@@ -623,7 +629,11 @@ export function FileBrowserPage() {
 										onClick={() => setSidebarDrawerOpen(true)}
 										aria-label="Open file tree"
 									>
-										<PanelLeft className="h-4 w-4" aria-hidden="true" />
+										<PanelLeft
+											className="h-4 w-4"
+											strokeWidth={1.5}
+											aria-hidden="true"
+										/>
 									</Button>
 								</TooltipTrigger>
 								<TooltipContent>
@@ -650,7 +660,11 @@ export function FileBrowserPage() {
 												onClick={() => setTocDrawerOpen(true)}
 												aria-label="Open table of contents"
 											>
-												<List className="h-4 w-4" aria-hidden="true" />
+												<List
+													className="h-4 w-4"
+													strokeWidth={1.5}
+													aria-hidden="true"
+												/>
 											</Button>
 										</TooltipTrigger>
 										<TooltipContent>
@@ -792,7 +806,11 @@ export function FileBrowserPage() {
 												onClick={handleToggleTocCollapse}
 												aria-label="Open table of contents"
 											>
-												<List className="h-4 w-4" aria-hidden="true" />
+												<List
+													className="h-4 w-4"
+													strokeWidth={1.5}
+													aria-hidden="true"
+												/>
 											</Button>
 										</TooltipTrigger>
 										<TooltipContent>

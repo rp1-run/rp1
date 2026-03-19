@@ -27,7 +27,6 @@ flowchart TB
     Browser["Web Browser"] --> Daemon
     Browser --> WS["WebSocket Hub"]
     WS --> EmitDB
-    Theme["catppuccin-mermaid"] --> Browser
     Skills --> GitHub["GitHub API"]
 ```
 
@@ -39,7 +38,7 @@ flowchart TB
 | Workflow Definition Layer | Defines orchestration, prompts, and state-machine rules in markdown-first assets. | `plugins/base/skills/`, `plugins/dev/skills/`, `plugins/utils/skills/`, agent markdown files |
 | Runtime Services Layer | Provides deterministic agent tools for state tracking, artifacts, validation, and integration. | `cli/src/agent-tools/`, daemon helpers, state-machine loading |
 | Persistence And Knowledge Layer | Stores local operational state and generated repository knowledge. | `~/.rp1/*.db`, `.rp1/context/*.md`, registry/config files |
-| Presentation Layer | Serves the dashboard, APIs, WebSocket streams, and artifact views. | `cli/web-ui/src/server/`, `cli/web-ui/src/app/`, `packages/catppuccin-mermaid` |
+| Presentation Layer | Serves the dashboard, APIs, WebSocket streams, and artifact views. Uses a warm stone gray design system with Commit Mono typography and HSL token architecture. | `cli/web-ui/src/server/`, `cli/web-ui/src/app/`, `cli/web-ui/src/styles/globals.css`, `cli/web-ui/tailwind.config.ts` |
 
 ## Key Interactions
 

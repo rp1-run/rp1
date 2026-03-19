@@ -3,7 +3,7 @@
 **Type**: Monorepo
 **Languages**: TypeScript, TSX, Markdown, JSON, YAML, TOML, Shell, Python, CSS, HTML
 **Version**: 0.5.2
-**Updated**: 2026-03-15
+**Updated**: 2026-03-19
 **Projects**: 7 (`cli`, `cli/web-ui`, `plugins/base`, `plugins/dev`, `plugins/utils`, `evals`, `packages/catppuccin-mermaid`)
 
 ## Project Summary
@@ -16,7 +16,7 @@ rp1 is a plugin-driven AI development workflow system built around a Bun and Typ
 |--------|-------|
 | Entry Point | `cli/src/main.ts` |
 | Key Pattern | Skill-as-orchestrator with agent delegation |
-| Tech Stack | Bun, TypeScript, React, Vite, Tailwind CSS, Commander, fp-ts, SQLite |
+| Tech Stack | Bun, TypeScript, React, Vite, Tailwind CSS, Commit Mono, warm stone design system, Commander, fp-ts, SQLite |
 
 ## Projects Overview
 
