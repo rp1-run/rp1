@@ -9,6 +9,7 @@ export {
 	deriveOrderedSteps,
 	getDirectPredecessors,
 	getTransitionsFrom,
+	getTransitivePredecessors,
 	getValidNextStates,
 	isReachable,
 	validateTransition,

@@ -120,6 +120,34 @@ export const getDirectPredecessors = (
 ];
 
 /**
+ * Get all transitive predecessor states reachable by walking backward
+ * through the transition graph from the given state.
+ * Uses BFS on the inverted graph. Handles cycles via a visited set.
+ * Does not include the state itself.
+ */
+export const getTransitivePredecessors = (
+	machine: StateMachine,
+	stateId: string,
+): readonly string[] => {
+	const visited = new Set<string>();
+	const queue = [...getDirectPredecessors(machine, stateId)];
+	for (const id of queue) visited.add(id);
+
+	let head = 0;
+	while (head < queue.length) {
+		const current = queue[head++];
+		for (const pred of getDirectPredecessors(machine, current)) {
+			if (!visited.has(pred)) {
+				visited.add(pred);
+				queue.push(pred);
+			}
+		}
+	}
+
+	return [...visited];
+};
+
+/**
  * Check if target state is reachable from source state via graph traversal.
  *
  * Uses BFS to explore all reachable states from the source. Returns true

@@ -14,7 +14,7 @@ import type { ToolResult } from "../models.js";
 import { successResult } from "../output.js";
 import {
 	deriveOrderedSteps,
-	getDirectPredecessors,
+	getTransitivePredecessors,
 	loadStateMachine,
 } from "../state-machine/index.js";
 import {
@@ -89,7 +89,7 @@ const checkFlowMismatch = (
  * Handle skipped-step detection and predecessor auto-completion for status_change events.
  * Loads the state machine for the run's flow, derives ordered steps,
  * inserts skipped events for prior steps without records, then auto-completes
- * direct predecessor steps that are still in "running" or "waiting" status.
+ * transitive predecessor steps that are still in "running" or "waiting" status.
  *
  * State machine load failures propagate as errors for known workflows.
  * "unknown" workflows fall back to empty (no state machine expected).
@@ -141,7 +141,10 @@ const handleSkippedSteps = (
 					const isNamespaced = isNamespacedStep(currentStep);
 
 					if (isStepLevel && isRunning && !isNamespaced) {
-						const predecessors = getDirectPredecessors(machine, currentStep);
+						const predecessors = getTransitivePredecessors(
+							machine,
+							currentStep,
+						).filter((p) => p !== currentStep);
 						const stepStatuses = getStepStatuses(db, input.runId);
 						const statusMap = new Map(
 							stepStatuses.map((s) => [s.step, s.status]),
