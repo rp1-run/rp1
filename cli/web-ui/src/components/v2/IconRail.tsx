@@ -33,7 +33,7 @@ export function IconRail({ className }: IconRailProps) {
 			aria-label="Main navigation"
 			className={cn(
 				"flex w-12 shrink-0 flex-col items-center gap-lg pt-sm",
-				"bg-surface-void",
+				"bg-surface-void border-r border-border/50",
 				className,
 			)}
 		>

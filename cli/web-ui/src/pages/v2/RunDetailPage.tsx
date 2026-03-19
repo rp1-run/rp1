@@ -216,6 +216,7 @@ export function RunDetailPage() {
 								selectedStepId={selectedStepId}
 								onStepSelect={handleStepSelect}
 								onArtifactSelect={handleArtifactSelect}
+								workflowName={workflowName}
 							/>
 						</div>
 					</ResizablePanel>

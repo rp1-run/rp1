@@ -27,6 +27,7 @@ export interface VerticalStepListProps {
 	readonly selectedStepId: string | null;
 	readonly onStepSelect: (stepId: string) => void;
 	readonly onArtifactSelect: (artifact: Artifact) => void;
+	readonly workflowName?: string | null;
 }
 
 const artifactIconMap: Record<ArtifactType, typeof FileText> = {
@@ -176,6 +177,7 @@ export function VerticalStepList({
 	selectedStepId,
 	onStepSelect,
 	onArtifactSelect,
+	workflowName,
 }: VerticalStepListProps) {
 	const [expandedComposites, setExpandedComposites] = useState<Set<string>>(
 		() => new Set<string>(),
@@ -239,7 +241,12 @@ export function VerticalStepList({
 	);
 
 	return (
-		<nav aria-label="Workflow steps" className="relative py-sm">
+		<nav aria-label="Workflow steps" className="relative py-md px-md">
+			{workflowName && (
+				<p className="type-caption text-fg-ghost mb-sm ml-[9px] pl-md">
+					/{workflowName}
+				</p>
+			)}
 			<ol className="relative ml-[9px] border-l border-border">
 				{steps.map((step, index) => {
 					const isSelected = step.id === selectedStepId;
