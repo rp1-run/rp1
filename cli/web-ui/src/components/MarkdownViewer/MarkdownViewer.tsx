@@ -7,8 +7,8 @@ import rehypeRaw from "rehype-raw";
 import rehypeSlug from "rehype-slug";
 import remarkFrontmatter from "remark-frontmatter";
 import remarkGfm from "remark-gfm";
-import { AnnotationIndicator } from "@/components/v2/AnnotationIndicator";
 import { AnnotationPopover } from "@/components/v2/AnnotationPopover";
+import { GroupedAnnotationIndicators } from "@/components/v2/GroupedAnnotationIndicators";
 import { SelectionIndicator } from "@/components/v2/SelectionIndicator";
 import { SelectionPopover } from "@/components/v2/SelectionPopover";
 import { useAnnotations } from "@/hooks/useAnnotations";
@@ -339,6 +339,79 @@ function AnnotationLayer({
 		setActiveAnchor(null);
 	}, [clearSelection]);
 
+	// Highlight the active annotation's text using CSS Custom Highlight API
+	useEffect(() => {
+		if (!("highlights" in CSS) || !containerRef.current) return;
+
+		if (!activeAnnotationId) {
+			CSS.highlights.delete("active-annotation");
+			return;
+		}
+
+		const annotation = annotations.find((a) => a.id === activeAnnotationId);
+		if (!annotation || annotation.anchor.type !== "text-selection") {
+			CSS.highlights.delete("active-annotation");
+			return;
+		}
+
+		const container = containerRef.current;
+		const { selectedText, contextBefore, contextAfter } = annotation.anchor;
+		const fullText = container.textContent ?? "";
+		const searchPattern = contextBefore + selectedText + contextAfter;
+		const patternIndex = fullText.indexOf(searchPattern);
+
+		if (patternIndex === -1) {
+			CSS.highlights.delete("active-annotation");
+			return;
+		}
+
+		const startIndex = patternIndex + contextBefore.length;
+		const endIndex = startIndex + selectedText.length;
+
+		const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+		let currentOffset = 0;
+		let startNode: Text | null = null;
+		let startOffset = 0;
+		let endNode: Text | null = null;
+		let endOffset = 0;
+
+		let node = walker.nextNode() as Text | null;
+		while (node) {
+			const nodeLength = node.textContent?.length ?? 0;
+			const nodeEnd = currentOffset + nodeLength;
+
+			if (!startNode && startIndex < nodeEnd) {
+				startNode = node;
+				startOffset = startIndex - currentOffset;
+			}
+
+			if (!endNode && endIndex <= nodeEnd) {
+				endNode = node;
+				endOffset = endIndex - currentOffset;
+				break;
+			}
+
+			currentOffset = nodeEnd;
+			node = walker.nextNode() as Text | null;
+		}
+
+		if (startNode && endNode) {
+			try {
+				const range = new Range();
+				range.setStart(startNode, startOffset);
+				range.setEnd(endNode, endOffset);
+				const highlight = new Highlight(range);
+				CSS.highlights.set("active-annotation", highlight);
+			} catch {
+				CSS.highlights.delete("active-annotation");
+			}
+		}
+
+		return () => {
+			CSS.highlights.delete("active-annotation");
+		};
+	}, [activeAnnotationId, annotations, containerRef]);
+
 	return (
 		<>
 			{hiddenAnchors.map((anchor) => {
@@ -355,15 +428,12 @@ function AnnotationLayer({
 				);
 			})}
 
-			{textSelectionAnnotations.map((annotation) => (
-				<AnnotationIndicator
-					key={annotation.id}
-					annotation={annotation}
-					containerRef={containerRef}
-					gutterRef={gutterRef}
-					onClick={handleTextAnnotationClick}
-				/>
-			))}
+			<GroupedAnnotationIndicators
+				annotations={textSelectionAnnotations}
+				containerRef={containerRef}
+				gutterRef={gutterRef}
+				onAnnotationClick={handleTextAnnotationClick}
+			/>
 
 			{/* Show selection indicator in gutter when text is selected (Google Docs style) */}
 			{selection && isLocked && !showSelectionPopover && (

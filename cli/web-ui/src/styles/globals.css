@@ -365,6 +365,11 @@
 
 }
 
+/* Active annotation highlight via CSS Custom Highlight API */
+::highlight(active-annotation) {
+  background-color: hsl(var(--accent) / 0.15);
+}
+
 /* Status pulse animation — the only continuous animation in the design system */
 @keyframes status-pulse {
   0%, 100% {

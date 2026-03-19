@@ -1,12 +1,5 @@
 import { MessageSquare } from "lucide-react";
 import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipProvider,
-	TooltipTrigger,
-} from "@/components/ui/tooltip";
 import type { TextSelectionAnchor } from "@/types/annotations";
 
 export interface SelectionIndicatorProps {
@@ -17,29 +10,23 @@ export interface SelectionIndicatorProps {
 }
 
 interface IndicatorPosition {
-	top: number;
-	height: number;
+	x: number;
+	y: number;
 }
 
 /**
- * Shows a chat bubble icon in the gutter when text is selected.
+ * Shows a chat bubble icon near the end of selected text.
  * Clicking the icon opens the annotation creation popover.
- * Styled to match the CodeBlock annotation indicators.
  */
 export function SelectionIndicator({
 	selection,
 	containerRef,
-	gutterRef,
 	onClick,
 }: SelectionIndicatorProps) {
-	const [indicatorPos, setIndicatorPos] = useState<IndicatorPosition | null>(
-		null,
-	);
+	const [pos, setPos] = useState<IndicatorPosition | null>(null);
 
 	useEffect(() => {
-		if (!containerRef.current || !gutterRef.current) {
-			return;
-		}
+		if (!containerRef.current) return;
 
 		const container = containerRef.current;
 		const { selectedText, contextBefore, contextAfter } = selection;
@@ -48,9 +35,7 @@ export function SelectionIndicator({
 		const searchPattern = contextBefore + selectedText + contextAfter;
 		const patternIndex = fullText.indexOf(searchPattern);
 
-		if (patternIndex === -1) {
-			return;
-		}
+		if (patternIndex === -1) return;
 
 		const startIndex = patternIndex + contextBefore.length;
 		const endIndex = startIndex + selectedText.length;
@@ -87,60 +72,49 @@ export function SelectionIndicator({
 			node = walker.nextNode() as Text | null;
 		}
 
-		if (startNode && endNode && gutterRef.current) {
+		if (startNode && endNode) {
 			try {
 				const range = document.createRange();
 				range.setStart(startNode, startOffset);
 				range.setEnd(endNode, endOffset);
 				const rect = range.getBoundingClientRect();
-				const gutterRect = gutterRef.current.getBoundingClientRect();
 
-				setIndicatorPos({
-					top: rect.top - gutterRect.top,
-					height: rect.height,
+				setPos({
+					x: rect.left - 24,
+					y: rect.top - 2,
 				});
 			} catch {
 				// Range creation can fail if offsets are invalid
 			}
 		}
-	}, [selection, containerRef, gutterRef]);
+	}, [selection, containerRef]);
 
-	if (!indicatorPos || !gutterRef.current) {
-		return null;
-	}
+	if (!pos) return null;
 
 	const handleClick = (e: React.MouseEvent) => {
 		e.stopPropagation();
 		onClick();
 	};
 
-	return createPortal(
-		<TooltipProvider>
-			<Tooltip>
-				<TooltipTrigger asChild>
-					<button
-						type="button"
-						onClick={handleClick}
-						className="absolute left-0 right-0 cursor-pointer group animate-in fade-in duration-200"
-						style={{
-							top: indicatorPos.top,
-							height: Math.max(indicatorPos.height, 20),
-						}}
-						aria-label="Add annotation to selected text"
-					>
-						{/* Chat bubble icon - same style as CodeBlock */}
-						<div className="absolute right-0.5 top-0 flex items-center justify-center rounded px-1 py-0.5 transition-all bg-annotation-open/20 text-annotation-open hover:bg-annotation-open/30 hover:scale-110">
-							<MessageSquare
-								className="h-3 w-3"
-								fill="currentColor"
-								aria-hidden="true"
-							/>
-						</div>
-					</button>
-				</TooltipTrigger>
-				<TooltipContent side="left">Add comment</TooltipContent>
-			</Tooltip>
-		</TooltipProvider>,
-		gutterRef.current,
+	const handleMouseDown = (e: React.MouseEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+	};
+
+	return (
+		<button
+			type="button"
+			onClick={handleClick}
+			onMouseDown={handleMouseDown}
+			className="fixed z-40 flex items-center justify-center rounded px-1 py-0.5 cursor-pointer animate-in fade-in duration-150 bg-accent-amber/20 text-accent-amber hover:bg-accent-amber/30 hover:scale-110 transition-all"
+			style={{
+				left: `${pos.x}px`,
+				top: `${pos.y}px`,
+			}}
+			aria-label="Add annotation to selected text"
+			title="Add comment"
+		>
+			<MessageSquare className="h-3 w-3" fill="currentColor" />
+		</button>
 	);
 }
