@@ -7,6 +7,7 @@ import { IconRail } from "@/components/v2/IconRail";
 import { MobileTabBar } from "@/components/v2/MobileTabBar";
 import { ShortcutHelpOverlay } from "@/components/v2/ShortcutHelpOverlay";
 import { TerminalBreadcrumb } from "@/components/v2/TerminalBreadcrumb";
+import { BreadcrumbProvider } from "@/hooks/useBreadcrumbContext";
 import { useGlobalShortcuts } from "@/hooks/useGlobalShortcuts";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import {
@@ -70,31 +71,15 @@ export function AppLayout() {
 	});
 
 	return (
-		<ShortcutRegistryProvider>
-			<div className="flex h-screen bg-background">
-				<IconRail className="hidden md:flex" />
+		<BreadcrumbProvider>
+			<ShortcutRegistryProvider>
+				<div className="flex h-screen bg-background">
+					<IconRail className="hidden md:flex" />
 
-				<div className="flex flex-1 flex-col overflow-hidden">
-					<TerminalBreadcrumb />
-					{isFullHeight ? (
-						<main className="flex-1 overflow-hidden">
-							<AnimatePresence mode="wait">
-								<motion.div
-									key={location.pathname}
-									variants={variants}
-									initial="initial"
-									animate="animate"
-									exit="exit"
-									transition={transition}
-									className="h-full"
-								>
-									<Outlet />
-								</motion.div>
-							</AnimatePresence>
-						</main>
-					) : (
-						<main className="flex-1 overflow-hidden">
-							<ScrollArea className="h-full">
+					<div className="flex flex-1 flex-col overflow-hidden">
+						<TerminalBreadcrumb />
+						{isFullHeight ? (
+							<main className="flex-1 overflow-hidden">
 								<AnimatePresence mode="wait">
 									<motion.div
 										key={location.pathname}
@@ -103,28 +88,46 @@ export function AppLayout() {
 										animate="animate"
 										exit="exit"
 										transition={transition}
-										className="p-6"
+										className="h-full"
 									>
 										<Outlet />
 									</motion.div>
 								</AnimatePresence>
-							</ScrollArea>
-						</main>
-					)}
+							</main>
+						) : (
+							<main className="flex-1 overflow-hidden">
+								<ScrollArea className="h-full">
+									<AnimatePresence mode="wait">
+										<motion.div
+											key={location.pathname}
+											variants={variants}
+											initial="initial"
+											animate="animate"
+											exit="exit"
+											transition={transition}
+											className="p-6"
+										>
+											<Outlet />
+										</motion.div>
+									</AnimatePresence>
+								</ScrollArea>
+							</main>
+						)}
+					</div>
+
+					<MobileTabBar
+						className="fixed inset-x-0 bottom-0 md:hidden"
+						onOpenCommandPalette={handleOpenCommandPalette}
+					/>
+
+					<CommandPalette
+						open={commandPaletteOpen}
+						onOpenChange={setCommandPaletteOpen}
+					/>
 				</div>
-
-				<MobileTabBar
-					className="fixed inset-x-0 bottom-0 md:hidden"
-					onOpenCommandPalette={handleOpenCommandPalette}
-				/>
-
-				<CommandPalette
-					open={commandPaletteOpen}
-					onOpenChange={setCommandPaletteOpen}
-				/>
-			</div>
-			<ShortcutHelpOverlay />
-		</ShortcutRegistryProvider>
+				<ShortcutHelpOverlay />
+			</ShortcutRegistryProvider>
+		</BreadcrumbProvider>
 	);
 }
 

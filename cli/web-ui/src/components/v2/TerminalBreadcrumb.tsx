@@ -1,4 +1,4 @@
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, Dot } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
@@ -7,6 +7,7 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useBreadcrumbContext } from "@/hooks/useBreadcrumbContext";
 import { useProjects } from "@/hooks/useProjects";
 import { cn } from "@/lib/utils";
 
@@ -27,7 +28,10 @@ export function buildSegments(pathname: string): BreadcrumbSegment[] {
 	}));
 }
 
-function useFilesystemPath(pathname: string): string | null {
+function useFilesystemPath(
+	pathname: string,
+	artifactParam: string | null,
+): string | null {
 	const { projects } = useProjects();
 	const [artifactAbsolutePath, setArtifactAbsolutePath] = useState<
 		string | null
@@ -35,8 +39,11 @@ function useFilesystemPath(pathname: string): string | null {
 
 	const filesMatch = pathname.match(/^\/projects\/([^/]+)\/files\/(.+)$/);
 	const artifactMatch = pathname.match(/^\/runs\/([^/]+)\/artifacts\/(.+)$/);
-	const runId = artifactMatch?.[1] ?? null;
-	const artifactUrlPath = artifactMatch?.[2] ?? null;
+	const runDetailMatch = pathname.match(/^\/runs\/([^/]+)$/);
+
+	const runId =
+		artifactMatch?.[1] ?? (artifactParam ? runDetailMatch?.[1] : null) ?? null;
+	const artifactUrlPath = artifactMatch?.[2] ?? artifactParam ?? null;
 
 	useEffect(() => {
 		if (!runId || !artifactUrlPath) {
@@ -75,9 +82,10 @@ function useFilesystemPath(pathname: string): string | null {
 
 export function TerminalBreadcrumb({ className }: TerminalBreadcrumbProps) {
 	const { pathname } = useLocation();
+	const { artifactPath: contextArtifact, projectName } = useBreadcrumbContext();
 	const segments = buildSegments(pathname);
 	const [copied, setCopied] = useState(false);
-	const filesystemPath = useFilesystemPath(pathname);
+	const filesystemPath = useFilesystemPath(pathname, contextArtifact);
 
 	const handleCopy = useCallback(() => {
 		const pathToCopy = filesystemPath ?? pathname;
@@ -86,6 +94,13 @@ export function TerminalBreadcrumb({ className }: TerminalBreadcrumbProps) {
 			setTimeout(() => setCopied(false), 2000);
 		});
 	}, [filesystemPath, pathname]);
+
+	const artifactFileName = contextArtifact
+		? (contextArtifact.split("/").pop() ?? contextArtifact)
+		: null;
+	const lastSegment =
+		segments.length > 0 ? segments[segments.length - 1] : null;
+	const displayLabel = artifactFileName ?? lastSegment?.label ?? null;
 
 	return (
 		<nav
@@ -97,47 +112,21 @@ export function TerminalBreadcrumb({ className }: TerminalBreadcrumbProps) {
 				className,
 			)}
 		>
-			<ol className="flex items-center">
-				<li>
-					{segments.length === 0 ? (
-						<span className="text-fg" aria-current="page">
-							~
-						</span>
-					) : (
-						<Link
-							to="/"
-							className="transition-colors duration-150 hover:text-fg"
-						>
-							~
-						</Link>
-					)}
-				</li>
-				{segments.map((segment, index) => {
-					const isLast = index === segments.length - 1;
-					return (
-						<li key={segment.to} className="flex items-center">
-							<span
-								aria-hidden="true"
-								className="mx-1 select-none text-fg-ghost"
-							>
-								/
-							</span>
-							{isLast ? (
-								<span className="text-fg" aria-current="page">
-									{segment.label}
-								</span>
-							) : (
-								<Link
-									to={segment.to}
-									className="transition-colors duration-150 hover:text-fg"
-								>
-									{segment.label}
-								</Link>
-							)}
-						</li>
-					);
-				})}
-			</ol>
+			<div className="flex items-center gap-2">
+				<Link
+					to="/"
+					className="flex items-center transition-colors duration-150 hover:text-fg"
+					aria-label="Home"
+				>
+					<Dot className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+				</Link>
+				{projectName && <span className="text-fg-ghost">{projectName}</span>}
+				{displayLabel && (
+					<span className="text-fg" aria-current="page">
+						{displayLabel}
+					</span>
+				)}
+			</div>
 			{segments.length > 0 && (
 				<TooltipProvider>
 					<Tooltip>
@@ -164,7 +153,7 @@ export function TerminalBreadcrumb({ className }: TerminalBreadcrumbProps) {
 							</button>
 						</TooltipTrigger>
 						<TooltipContent>
-							<p>{copied ? "Copied!" : "Copy full path"}</p>
+							<p>{copied ? "Copied!" : (filesystemPath ?? pathname)}</p>
 						</TooltipContent>
 					</Tooltip>
 				</TooltipProvider>

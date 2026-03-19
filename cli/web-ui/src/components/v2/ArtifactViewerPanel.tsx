@@ -1,4 +1,4 @@
-import { Loader2 } from "lucide-react";
+import { FileText, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { UnifiedContentRenderer } from "@/components/v2/UnifiedContentRenderer";
@@ -127,10 +127,15 @@ export function ArtifactViewerPanel({
 									type="button"
 									onClick={() => onArtifactSelect?.(artifact)}
 									className={cn(
-										"type-secondary transition-colors duration-150 hover:opacity-80",
+										"type-secondary transition-colors duration-150 hover:opacity-80 inline-flex items-center gap-1",
 										isSelected ? "text-fg font-medium" : "text-fg-ghost",
 									)}
 								>
+									<FileText
+										className="h-3 w-3 shrink-0"
+										strokeWidth={1.5}
+										aria-hidden="true"
+									/>
 									{getFileName(artifact.path)}
 								</button>
 							);

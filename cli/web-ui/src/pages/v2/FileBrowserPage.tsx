@@ -13,7 +13,7 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { FileTree } from "@/components/FileTree";
 import { Button } from "@/components/ui/button";
 import { Drawer } from "@/components/ui/drawer";
@@ -30,7 +30,6 @@ import {
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { AnnotationSidebar } from "@/components/v2/AnnotationSidebar";
-import { KeyHints, VIEWER_HINTS } from "@/components/v2/KeyHints";
 import { TableOfContents } from "@/components/v2/TableOfContents";
 import { UnifiedContentRenderer } from "@/components/v2/UnifiedContentRenderer";
 import { useAnnotations } from "@/hooks/useAnnotations";
@@ -41,7 +40,6 @@ import { useProjectFileTree } from "@/hooks/useProjectFileTree";
 import { AnnotationProvider } from "@/providers/AnnotationProvider";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 import type { Annotation } from "@/types/annotations";
-import type { V2Project } from "@/types/projects";
 import type { FileContent } from "../../server/routes/content-utils";
 
 const ANNOTATIONS_ENABLED =
@@ -149,7 +147,6 @@ export function FileBrowserPage() {
 	} = useProjectFileTree(projectId);
 	const { setProjectId, onTreeChange, onFileChange } = useWebSocket();
 
-	const [projectName, setProjectName] = useState<string | null>(null);
 	const [content, setContent] = useState<FileContent | null>(null);
 	const [contentLoading, setContentLoading] = useState(false);
 	const [contentError, setContentError] = useState<string | null>(null);
@@ -189,19 +186,6 @@ export function FileBrowserPage() {
 			setProjectId(null);
 		};
 	}, [projectId, setProjectId]);
-
-	useEffect(() => {
-		if (!projectId) return;
-		fetch(`/api/v2/projects/${projectId}`)
-			.then((res) => {
-				if (res.ok) return res.json();
-				return null;
-			})
-			.then((data: V2Project | null) => {
-				if (data) setProjectName(data.name);
-			})
-			.catch(() => {});
-	}, [projectId]);
 
 	useEffect(() => {
 		return onTreeChange(() => {
@@ -501,10 +485,6 @@ export function FileBrowserPage() {
 		enabled: !!selectedPath,
 	});
 
-	const pathSegments = selectedPath
-		? selectedPath.split("/").filter(Boolean)
-		: [];
-
 	const contentArea = (
 		<>
 			{contentLoading ? (
@@ -547,75 +527,14 @@ export function FileBrowserPage() {
 		</div>
 	);
 
-	const breadcrumb = (
-		<nav
-			aria-label="Breadcrumb"
-			className="flex items-center p-4 type-body text-fg-ghost border-b border-border"
-		>
-			<ol className="flex items-center">
-				<li>
-					<Link
-						to="/projects"
-						className="transition-colors duration-150 hover:text-fg"
-					>
-						Projects
-					</Link>
-				</li>
-				<li className="mx-1" aria-hidden="true">
-					/
-				</li>
-				<li>
-					<Link
-						to={`/projects/${projectId}`}
-						className="transition-colors duration-150 hover:text-fg"
-					>
-						{projectName ?? "..."}
-					</Link>
-				</li>
-				<li className="mx-1" aria-hidden="true">
-					/
-				</li>
-				<li className={selectedPath ? "" : "text-fg"}>
-					{selectedPath ? (
-						<Link
-							to={`/projects/${projectId}/files`}
-							className="transition-colors duration-150 hover:text-fg"
-						>
-							Files
-						</Link>
-					) : (
-						"Files"
-					)}
-				</li>
-				{pathSegments.map((segment, index) => {
-					const isLast = index === pathSegments.length - 1;
-					return (
-						<li
-							key={pathSegments.slice(0, index + 1).join("/")}
-							className="flex items-center"
-						>
-							<span className="mx-1" aria-hidden="true">
-								/
-							</span>
-							<span className={isLast ? "text-fg truncate max-w-[200px]" : ""}>
-								{segment}
-							</span>
-						</li>
-					);
-				})}
-			</ol>
-		</nav>
-	);
-
 	if (isMobile) {
 		const mobileContent = (
 			<div className="flex h-full flex-col">
 				{liveRegion}
-				{breadcrumb}
 
 				<main className="relative flex h-full flex-1 flex-col">
 					<div
-						className="flex h-10 items-center justify-between gap-2 border-b px-4"
+						className="flex h-10 items-center justify-between gap-2 px-4"
 						role="toolbar"
 						aria-label="File browser controls"
 					>
@@ -737,10 +656,6 @@ export function FileBrowserPage() {
 						/>
 					</Drawer>
 				)}
-
-				<footer className="border-t px-4 py-2">
-					<KeyHints hints={VIEWER_HINTS} />
-				</footer>
 			</div>
 		);
 
@@ -758,7 +673,6 @@ export function FileBrowserPage() {
 	const desktopContent = (
 		<div className="flex h-full flex-col">
 			{liveRegion}
-			{breadcrumb}
 
 			<ResizablePanelGroup
 				direction="horizontal"
@@ -770,7 +684,7 @@ export function FileBrowserPage() {
 					minSize={12}
 					maxSize={30}
 					collapsible
-					className="border-r"
+					className="bg-surface-void"
 				>
 					<aside aria-label="File tree" className="h-full">
 						<FileTree
@@ -783,7 +697,7 @@ export function FileBrowserPage() {
 					</aside>
 				</ResizablePanel>
 
-				<ResizableHandle withHandle aria-label="Resize file tree" />
+				<ResizableHandle aria-label="Resize file tree" />
 
 				<ResizablePanel
 					defaultSize={ANNOTATIONS_ENABLED && isMarkdown ? 55 : 67}
@@ -791,7 +705,7 @@ export function FileBrowserPage() {
 				>
 					<main className="relative flex h-full flex-col overflow-hidden">
 						<div
-							className="flex h-10 items-center justify-end gap-2 border-b px-4"
+							className="flex h-10 items-center justify-end gap-2 px-4"
 							role="toolbar"
 							aria-label="File browser controls"
 						>
@@ -832,7 +746,8 @@ export function FileBrowserPage() {
 							viewportRef={scrollViewportRef}
 						>
 							<article
-								className="mx-auto max-w-4xl p-6"
+								className="mx-auto max-w-4xl px-[40px] py-[40px]"
+								style={{ fontSize: "14px", lineHeight: "1.7" }}
 								aria-label={
 									selectedPath
 										? `Content of ${selectedPath.split("/").pop()}`
@@ -847,7 +762,7 @@ export function FileBrowserPage() {
 
 				{isMarkdown && !tocCollapsed && (
 					<>
-						<ResizableHandle withHandle aria-label="Resize table of contents" />
+						<ResizableHandle aria-label="Resize table of contents" />
 
 						<ResizablePanel
 							defaultSize={15}
@@ -869,7 +784,7 @@ export function FileBrowserPage() {
 
 				{ANNOTATIONS_ENABLED && annotationSidebarOpen && (
 					<>
-						<ResizableHandle withHandle aria-label="Resize annotations panel" />
+						<ResizableHandle aria-label="Resize annotations panel" />
 						<ResizablePanel
 							defaultSize={15}
 							minSize={12}
@@ -887,10 +802,6 @@ export function FileBrowserPage() {
 					</>
 				)}
 			</ResizablePanelGroup>
-
-			<footer className="border-t px-4 py-2">
-				<KeyHints hints={VIEWER_HINTS} />
-			</footer>
 		</div>
 	);
 

@@ -1,4 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
+import { Activity } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAttention } from "@/hooks/useAttention";
@@ -222,8 +223,23 @@ export function HomePage() {
 						<span className="type-body text-fg-ghost">Loading...</span>
 					</div>
 				) : runs.length === 0 ? (
-					<div className="flex items-center justify-center py-16">
-						<span className="type-body text-fg-ghost">No activity yet.</span>
+					<div className="flex flex-col items-center justify-center py-24 text-center">
+						<Activity
+							className="h-5 w-5 text-fg-ghost mb-4"
+							strokeWidth={1.5}
+						/>
+						<p className="type-body text-fg-ghost mb-1">No activity yet.</p>
+						<p className="type-secondary text-fg-ghost mb-4">
+							Runs will appear here once you start your first workflow.
+						</p>
+						<a
+							href="https://rp1.run/getting-started/first-workflow/"
+							target="_blank"
+							rel="noopener noreferrer"
+							className="type-secondary text-fg-muted transition-colors duration-150 hover:text-fg underline underline-offset-2"
+						>
+							Get started with your first workflow
+						</a>
 					</div>
 				) : (
 					<>

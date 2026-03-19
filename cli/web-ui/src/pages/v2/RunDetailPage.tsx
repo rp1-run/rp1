@@ -9,6 +9,7 @@ import {
 import { ArtifactViewerPanel } from "@/components/v2/ArtifactViewerPanel";
 import { VerticalStepList } from "@/components/v2/VerticalStepList";
 import { WaitingBanner } from "@/components/v2/WaitingBanner";
+import { useBreadcrumbContext } from "@/hooks/useBreadcrumbContext";
 import { useRunDetail } from "@/hooks/useRunDetail";
 import {
 	commandToWorkflowName,
@@ -94,10 +95,22 @@ export function RunDetailPage() {
 		return run.artifacts.filter((a) => a.step === selectedStepId);
 	}, [selectedStepId, run]);
 
+	const { setActiveArtifact, setProjectName } = useBreadcrumbContext();
+
+	useEffect(() => {
+		if (run?.projectName) {
+			setProjectName(run.projectName);
+		}
+		return () => {
+			setProjectName(null);
+		};
+	}, [run?.projectName, setProjectName]);
+
 	const handleStepSelect = useCallback(
 		(stepId: string) => {
 			setSelectedStepId(stepId);
 			setSelectedArtifact(null);
+			setActiveArtifact(runId ?? "", null);
 
 			if (run) {
 				const arts = run.artifacts.filter((a) => a.step === stepId);
@@ -106,17 +119,26 @@ export function RunDetailPage() {
 				}
 			}
 		},
-		[run],
+		[run, runId, setActiveArtifact],
 	);
 
-	const handleArtifactSelect = useCallback((artifact: Artifact) => {
-		setSelectedArtifact(artifact);
-	}, []);
+	const handleArtifactSelect = useCallback(
+		(artifact: Artifact) => {
+			setSelectedArtifact(artifact);
+			if (runId) {
+				setActiveArtifact(runId, artifact.path);
+			}
+		},
+		[runId, setActiveArtifact],
+	);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: reset selection on route change
 	useEffect(() => {
 		setSelectedStepId(null);
 		setSelectedArtifact(null);
+		return () => {
+			setActiveArtifact(runId ?? "", null);
+		};
 	}, [runId]);
 
 	if (isLoading || isWorkflowLoading) {
