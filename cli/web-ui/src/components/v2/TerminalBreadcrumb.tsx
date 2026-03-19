@@ -82,7 +82,11 @@ function useFilesystemPath(
 
 export function TerminalBreadcrumb({ className }: TerminalBreadcrumbProps) {
 	const { pathname } = useLocation();
-	const { artifactPath: contextArtifact, projectName } = useBreadcrumbContext();
+	const {
+		artifactPath: contextArtifact,
+		projectName,
+		projectId,
+	} = useBreadcrumbContext();
 	const segments = buildSegments(pathname);
 	const [copied, setCopied] = useState(false);
 	const filesystemPath = useFilesystemPath(pathname, contextArtifact);
@@ -120,14 +124,21 @@ export function TerminalBreadcrumb({ className }: TerminalBreadcrumbProps) {
 				>
 					<Dot className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
 				</Link>
-				{projectName && <span className="text-fg-ghost">{projectName}</span>}
+				{projectName && projectId && (
+					<Link
+						to={`/projects/${projectId}`}
+						className="text-fg-ghost transition-colors duration-150 hover:text-fg"
+					>
+						{projectName}
+					</Link>
+				)}
 				{displayLabel && (
 					<span className="text-fg" aria-current="page">
 						{displayLabel}
 					</span>
 				)}
 			</div>
-			{segments.length > 0 && (
+			{filesystemPath && (
 				<TooltipProvider>
 					<Tooltip>
 						<TooltipTrigger asChild>

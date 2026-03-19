@@ -1,4 +1,4 @@
-import { AlertCircle, RefreshCw } from "lucide-react";
+import { AlertCircle, FolderOpen, Play, RefreshCw } from "lucide-react";
 import { useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useKeyboardNav } from "@/hooks/useKeyboardNav";
@@ -69,17 +69,21 @@ function ProjectRow({
 	project,
 	selected,
 	onClick,
+	onRunsClick,
+	onFilesClick,
 }: {
 	project: V2Project;
 	selected: boolean;
 	onClick: () => void;
+	onRunsClick: (e: React.MouseEvent) => void;
+	onFilesClick: (e: React.MouseEvent) => void;
 }) {
 	return (
 		<button
 			type="button"
 			onClick={onClick}
 			className={cn(
-				"flex w-full items-center gap-3 py-3 px-2 text-left transition-colors duration-150 rounded",
+				"flex w-full items-center gap-3 py-3 px-2 text-left transition-colors duration-150 rounded group",
 				"hover:bg-accent-ghost",
 				selected && "bg-accent-ghost",
 				!project.available && "opacity-50",
@@ -87,8 +91,34 @@ function ProjectRow({
 		>
 			<ActivityDot projectId={project.id} />
 			<span className="type-body text-fg truncate">{project.name}</span>
-			<span className="ml-auto shrink-0 type-secondary text-fg-muted tabular-nums">
-				{project.runCount} run{project.runCount === 1 ? "" : "s"}
+			<span className="ml-auto flex items-center gap-3 shrink-0">
+				<span
+					role="link"
+					tabIndex={0}
+					onClick={onRunsClick}
+					onKeyDown={(e) =>
+						e.key === "Enter" && onRunsClick(e as unknown as React.MouseEvent)
+					}
+					className="text-fg-ghost opacity-0 group-hover:opacity-100 transition-opacity duration-150 hover:text-fg"
+					aria-label={`Runs for ${project.name}`}
+				>
+					<Play className="h-3.5 w-3.5" strokeWidth={1.5} />
+				</span>
+				<span
+					role="link"
+					tabIndex={0}
+					onClick={onFilesClick}
+					onKeyDown={(e) =>
+						e.key === "Enter" && onFilesClick(e as unknown as React.MouseEvent)
+					}
+					className="text-fg-ghost opacity-0 group-hover:opacity-100 transition-opacity duration-150 hover:text-fg"
+					aria-label={`Files for ${project.name}`}
+				>
+					<FolderOpen className="h-3.5 w-3.5" strokeWidth={1.5} />
+				</span>
+				<span className="type-secondary text-fg-muted tabular-nums">
+					{project.runCount} run{project.runCount === 1 ? "" : "s"}
+				</span>
 			</span>
 		</button>
 	);
@@ -216,6 +246,14 @@ export function ProjectsPage() {
 								project={project}
 								selected={selectedIndex === index}
 								onClick={() => handleProjectClick(project)}
+								onRunsClick={(e) => {
+									e.stopPropagation();
+									navigate(`/projects/${project.id}/runs`);
+								}}
+								onFilesClick={(e) => {
+									e.stopPropagation();
+									navigate(`/projects/${project.id}/files`);
+								}}
 							/>
 						</div>
 					))}

@@ -95,16 +95,16 @@ export function RunDetailPage() {
 		return run.artifacts.filter((a) => a.step === selectedStepId);
 	}, [selectedStepId, run]);
 
-	const { setActiveArtifact, setProjectName } = useBreadcrumbContext();
+	const { setActiveArtifact, setProject } = useBreadcrumbContext();
 
 	useEffect(() => {
-		if (run?.projectName) {
-			setProjectName(run.projectName);
+		if (run?.projectName && run?.projectId) {
+			setProject(run.projectId, run.projectName);
 		}
 		return () => {
-			setProjectName(null);
+			setProject(null, null);
 		};
-	}, [run?.projectName, setProjectName]);
+	}, [run?.projectName, run?.projectId, setProject]);
 
 	const handleStepSelect = useCallback(
 		(stepId: string) => {
