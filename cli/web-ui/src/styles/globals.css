@@ -162,8 +162,12 @@
     @apply max-w-full overflow-x-auto;
   }
 
-  .markdown-content ul.contains-task-list {
+  .markdown-content > ul.contains-task-list {
     @apply list-none ml-0 pl-0;
+  }
+
+  .markdown-content li > ul.contains-task-list {
+    @apply list-none pl-0 ml-2;
   }
 
   .markdown-content li.task-list-item {
@@ -172,13 +176,22 @@
     padding-left: 1.5rem;
   }
 
+  .markdown-content > ul.contains-task-list > li.task-list-item:has(> p) + li.task-list-item:has(> p) {
+    @apply mt-6 pt-6;
+    border-top: 1px solid hsl(var(--border));
+  }
+
   .markdown-content li.task-list-item > input[type="checkbox"] {
     @apply h-4 w-4 rounded;
     border: 1px solid hsl(var(--border));
     position: absolute;
     left: 0;
-    top: 0.375rem;
+    top: 0.25rem;
     accent-color: hsl(var(--accent));
+  }
+
+  .markdown-content li.task-list-item > input[type="checkbox"] + p {
+    @apply mt-0;
   }
 
   .markdown-content li.task-list-item > input[type="checkbox"]:checked {
@@ -212,6 +225,11 @@
   .markdown-content h3 {
     @apply scroll-m-20 font-medium mt-6 mb-3;
     font-size: 13px;
+  }
+
+  .markdown-content h3 + ul.contains-task-list + h3 {
+    @apply mt-8 pt-6;
+    border-top: 1px solid hsl(var(--border));
   }
 
   .markdown-content h4 {
