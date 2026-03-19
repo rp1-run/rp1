@@ -172,6 +172,8 @@ export function FileBrowserPage() {
 
 	const scrollViewportRef = useRef<HTMLDivElement>(null);
 	const headingElementsRef = useRef<Map<string, Element>>(new Map());
+	const isNavigatingRef = useRef(false);
+	const navigateTimerRef = useRef<ReturnType<typeof setTimeout>>();
 	const savedScrollState = useRef<{
 		scrollTop: number;
 		scrollHeight: number;
@@ -372,17 +374,32 @@ export function FileBrowserPage() {
 
 	const handleTocNavigate = useCallback((id: string) => {
 		const element = document.getElementById(id);
-		if (element) {
-			element.scrollIntoView({ behavior: "smooth", block: "start" });
-		}
+		if (!element) return;
+
+		isNavigatingRef.current = true;
+		setActiveHeadingId(id);
+		element.scrollIntoView({ behavior: "smooth", block: "start" });
+
+		if (navigateTimerRef.current) clearTimeout(navigateTimerRef.current);
+		navigateTimerRef.current = setTimeout(() => {
+			isNavigatingRef.current = false;
+		}, 500);
 	}, []);
 
 	const handleTocNavigateMobile = useCallback(
 		(id: string) => {
 			const element = document.getElementById(id);
-			if (element) {
-				element.scrollIntoView({ behavior: "smooth", block: "start" });
-			}
+			if (!element) return;
+
+			isNavigatingRef.current = true;
+			setActiveHeadingId(id);
+			element.scrollIntoView({ behavior: "smooth", block: "start" });
+
+			if (navigateTimerRef.current) clearTimeout(navigateTimerRef.current);
+			navigateTimerRef.current = setTimeout(() => {
+				isNavigatingRef.current = false;
+			}, 500);
+
 			if (isMobile) {
 				setTocDrawerOpen(false);
 			}
@@ -395,6 +412,8 @@ export function FileBrowserPage() {
 
 		const scrollViewport = scrollViewportRef.current;
 		const observerCallback: IntersectionObserverCallback = (entries) => {
+			if (isNavigatingRef.current) return;
+
 			const visibleEntries = entries.filter((entry) => entry.isIntersecting);
 
 			if (visibleEntries.length > 0) {

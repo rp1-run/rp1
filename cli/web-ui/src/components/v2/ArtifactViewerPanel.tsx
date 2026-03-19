@@ -1,7 +1,8 @@
-import { FileText, Loader2, MessageSquare } from "lucide-react";
+import { FileText, List, Loader2, MessageSquare } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AnnotationSidebar } from "@/components/v2/AnnotationSidebar";
+import { TableOfContents } from "@/components/v2/TableOfContents";
 import { UnifiedContentRenderer } from "@/components/v2/UnifiedContentRenderer";
 import type { HeadingEntry } from "@/hooks/useHeadingExtraction";
 import { cn } from "@/lib/utils";
@@ -66,8 +67,9 @@ function ArtifactViewerInner({
 	const [content, setContent] = useState<string | null>(null);
 	const [contentLoading, setContentLoading] = useState(false);
 	const [contentError, setContentError] = useState<string | null>(null);
-	const [, setHeadings] = useState<readonly HeadingEntry[]>([]);
+	const [headings, setHeadings] = useState<readonly HeadingEntry[]>([]);
 	const [annotationSidebarOpen, setAnnotationSidebarOpen] = useState(false);
+	const [tocOpen, setTocOpen] = useState(false);
 	const scrollViewportRef = useRef<HTMLDivElement>(null);
 	const { onFileChange } = useWebSocket();
 
@@ -136,6 +138,31 @@ function ArtifactViewerInner({
 		setHeadings(newHeadings);
 	}, []);
 
+	const handleTocNavigate = useCallback((id: string) => {
+		const element = document.getElementById(id);
+		if (element) {
+			element.scrollIntoView({ behavior: "smooth", block: "start" });
+		}
+	}, []);
+
+	const handleToggleToc = useCallback(() => {
+		setTocOpen((prev) => {
+			const next = !prev;
+			// Mutual exclusivity: close annotations when opening ToC
+			if (next) setAnnotationSidebarOpen(false);
+			return next;
+		});
+	}, []);
+
+	const handleToggleAnnotations = useCallback(() => {
+		setAnnotationSidebarOpen((prev) => {
+			const next = !prev;
+			// Mutual exclusivity: close ToC when opening annotations
+			if (next) setTocOpen(false);
+			return next;
+		});
+	}, []);
+
 	const handleNavigateToAnnotation = useCallback((annotation: Annotation) => {
 		const anchor = annotation.anchor;
 		let targetElement: Element | null = null;
@@ -182,18 +209,31 @@ function ArtifactViewerInner({
 	}
 
 	const stepArtifacts = artifacts.filter((a) => a.step === step.id);
+	const showTocToggle = headings.length > 0 && !tocOpen;
 
 	return (
 		<div className="flex h-full flex-col overflow-hidden">
 			<div className="shrink-0 px-4 md:px-[40px] pt-[24px] pb-[16px]">
 				<div className="flex items-center justify-between">
 					<h2 className="type-secondary text-fg-muted">{step.name}</h2>
-					{ANNOTATIONS_ENABLED && selectedArtifact && (
-						<AnnotationToggle
-							artifactPath={selectedArtifact.path}
-							onClick={() => setAnnotationSidebarOpen((prev) => !prev)}
-						/>
-					)}
+					<div className="flex items-center gap-3">
+						{showTocToggle && (
+							<button
+								type="button"
+								onClick={handleToggleToc}
+								className="text-fg-ghost transition-colors duration-150 hover:text-fg"
+								aria-label="Open table of contents"
+							>
+								<List className="h-3.5 w-3.5" strokeWidth={1.5} />
+							</button>
+						)}
+						{ANNOTATIONS_ENABLED && selectedArtifact && (
+							<AnnotationToggle
+								artifactPath={selectedArtifact.path}
+								onClick={handleToggleAnnotations}
+							/>
+						)}
+					</div>
 				</div>
 
 				{stepArtifacts.length > 0 && (
@@ -271,6 +311,17 @@ function ArtifactViewerInner({
 						)}
 					</div>
 				</ScrollArea>
+
+				{tocOpen && headings.length > 0 && (
+					<div className="w-[200px] shrink-0 border-l border-border overflow-y-auto">
+						<TableOfContents
+							headings={headings}
+							activeId={null}
+							onNavigate={handleTocNavigate}
+							onClose={handleToggleToc}
+						/>
+					</div>
+				)}
 
 				{ANNOTATIONS_ENABLED && annotationSidebarOpen && selectedArtifact && (
 					<div className="w-[280px] shrink-0 border-l border-border overflow-y-auto">

@@ -1,10 +1,4 @@
-import {
-	AlertTriangle,
-	Filter,
-	MessageSquare,
-	PanelRightClose,
-	X,
-} from "lucide-react";
+import { AlertTriangle, Filter, MessageSquare, X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useAnnotations } from "@/hooks/useAnnotations";
 import { formatRelativeTime } from "@/lib/time";
@@ -262,45 +256,44 @@ export function AnnotationSidebar({
 
 	return (
 		<aside
-			className={cn(
-				"flex h-full flex-col border-l border-border bg-background",
-				className,
-			)}
+			className={cn("flex h-full flex-col", className)}
 			aria-label="Annotations panel"
 		>
-			<header className="shrink-0 flex h-10 items-center justify-between border-b border-border bg-background px-3">
+			<header className="shrink-0 flex items-center justify-between px-4 pt-3 pb-2">
 				<div className="flex items-center gap-2">
-					<h2 className="text-sm font-semibold">Annotations</h2>
+					<MessageSquare
+						className="h-3.5 w-3.5 text-fg-ghost"
+						strokeWidth={1.5}
+					/>
+					<h2 className="type-secondary text-fg-muted tracking-wider uppercase">
+						Annotations
+					</h2>
 					<span className="type-secondary text-fg-ghost tabular-nums">
 						{hasActiveFilter && count !== totalCount
 							? `${count} of ${totalCount}`
 							: totalCount}
 					</span>
 				</div>
-				<div className="flex items-center gap-1">
+				<div className="flex items-center gap-2">
 					<button
 						type="button"
 						onClick={() => setShowFilters(!showFilters)}
 						className={cn(
-							"rounded-md p-1.5 transition-colors",
-							"hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-							showFilters && "bg-muted",
+							"text-fg-ghost transition-colors duration-150 hover:text-fg",
+							showFilters && "text-fg",
 						)}
 						aria-label="Toggle filters"
 						aria-pressed={showFilters}
 					>
-						<Filter className="h-4 w-4" aria-hidden="true" />
+						<Filter className="h-3.5 w-3.5" strokeWidth={1.5} />
 					</button>
 					<button
 						type="button"
 						onClick={onClose}
-						className={cn(
-							"rounded-md p-1.5 transition-colors",
-							"hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-						)}
+						className="text-fg-ghost transition-colors duration-150 hover:text-fg"
 						aria-label="Close annotations panel"
 					>
-						<PanelRightClose className="h-4 w-4" aria-hidden="true" />
+						<X className="h-3.5 w-3.5" strokeWidth={1.5} />
 					</button>
 				</div>
 			</header>
