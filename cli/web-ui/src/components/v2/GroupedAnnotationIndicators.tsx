@@ -334,9 +334,27 @@ export function GroupedAnnotationIndicators({
 			setGroups(groupByProximity(positions));
 		};
 
-		// Delay to ensure DOM is laid out
+		// Initial compute after layout settles
 		const timeoutId = setTimeout(compute, 100);
-		return () => clearTimeout(timeoutId);
+
+		// Recompute when container DOM changes (e.g., Shiki highlighting completes)
+		let observer: MutationObserver | null = null;
+		if (containerRef.current) {
+			let recomputeTimer: ReturnType<typeof setTimeout> | null = null;
+			observer = new MutationObserver(() => {
+				if (recomputeTimer) clearTimeout(recomputeTimer);
+				recomputeTimer = setTimeout(compute, 50);
+			});
+			observer.observe(containerRef.current, {
+				childList: true,
+				subtree: true,
+			});
+		}
+
+		return () => {
+			clearTimeout(timeoutId);
+			observer?.disconnect();
+		};
 	}, [annotations, containerRef, gutterRef]);
 
 	const handleSingleClick = useCallback(
