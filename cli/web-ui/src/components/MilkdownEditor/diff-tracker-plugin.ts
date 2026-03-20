@@ -23,6 +23,13 @@ interface LineInfo {
 
 export type DiffUpdateCallback = (diffs: LineDiffEntry[]) => void;
 
+export interface MarkerClickInfo {
+	entry: LineDiffEntry;
+	rect: DOMRect;
+}
+
+export type MarkerClickCallback = (info: MarkerClickInfo) => void;
+
 function extractLines(doc: ProseMirrorNode): LineInfo[] {
 	const lines: LineInfo[] = [];
 	doc.descendants((node, pos) => {
@@ -38,11 +45,36 @@ function extractLines(doc: ProseMirrorNode): LineInfo[] {
 	return lines;
 }
 
+function createMarker(
+	entry: LineDiffEntry,
+	onMarkerClick?: MarkerClickCallback,
+): HTMLDivElement {
+	const marker = document.createElement("div");
+	const typeClass =
+		entry.type === "added"
+			? "milkdown-diff-added"
+			: entry.type === "modified"
+				? "milkdown-diff-modified"
+				: "milkdown-diff-deleted";
+	marker.className = `milkdown-diff-marker ${typeClass}`;
+	marker.style.cursor = "pointer";
+
+	if (onMarkerClick) {
+		marker.addEventListener("click", (e) => {
+			e.stopPropagation();
+			onMarkerClick({ entry, rect: marker.getBoundingClientRect() });
+		});
+	}
+
+	return marker;
+}
+
 function renderGutter(
 	gutterEl: HTMLElement,
 	view: EditorView,
-	diff: LineDiffEntry[],
-	lineInfos: LineInfo[],
+	diff: readonly LineDiffEntry[],
+	lineInfos: readonly LineInfo[],
+	onMarkerClick?: MarkerClickCallback,
 ) {
 	gutterEl.innerHTML = "";
 	const editorRect = view.dom.getBoundingClientRect();
@@ -53,7 +85,7 @@ function renderGutter(
 	for (const entry of diff) {
 		if (entry.type === "unchanged") {
 			if (currentLineIdx < lineInfos.length) {
-				const node = view.nodeDOM(lineInfos[currentLineIdx]!.from);
+				const node = view.nodeDOM(lineInfos[currentLineIdx]?.from);
 				if (node instanceof HTMLElement) {
 					lastNodeBottom = node.getBoundingClientRect().bottom;
 				}
@@ -61,11 +93,10 @@ function renderGutter(
 			currentLineIdx++;
 		} else if (entry.type === "added" || entry.type === "modified") {
 			if (currentLineIdx < lineInfos.length) {
-				const node = view.nodeDOM(lineInfos[currentLineIdx]!.from);
+				const node = view.nodeDOM(lineInfos[currentLineIdx]?.from);
 				if (node instanceof HTMLElement) {
 					const nodeRect = node.getBoundingClientRect();
-					const marker = document.createElement("div");
-					marker.className = `milkdown-diff-marker ${entry.type === "added" ? "milkdown-diff-added" : "milkdown-diff-modified"}`;
+					const marker = createMarker(entry, onMarkerClick);
 					marker.style.top = `${nodeRect.top - editorRect.top}px`;
 					marker.style.height = `${nodeRect.height}px`;
 					gutterEl.appendChild(marker);
@@ -74,19 +105,68 @@ function renderGutter(
 			}
 			currentLineIdx++;
 		} else if (entry.type === "deleted") {
-			const marker = document.createElement("div");
-			marker.className = "milkdown-diff-marker milkdown-diff-deleted";
+			const marker = createMarker(entry, onMarkerClick);
 			marker.style.top = `${lastNodeBottom - editorRect.top}px`;
 			gutterEl.appendChild(marker);
 		}
 	}
 }
 
-export function createDiffTrackerPlugin(onDiffUpdate?: DiffUpdateCallback) {
+/**
+ * Render gutter markers from persisted diffs using the `line` field directly.
+ * Persisted diffs only contain non-unchanged entries, so we can't walk sequentially.
+ */
+function renderGutterFromPersisted(
+	gutterEl: HTMLElement,
+	view: EditorView,
+	diffs: readonly LineDiffEntry[],
+	lineInfos: readonly LineInfo[],
+	onMarkerClick?: MarkerClickCallback,
+) {
+	gutterEl.innerHTML = "";
+	const editorRect = view.dom.getBoundingClientRect();
+
+	for (const entry of diffs) {
+		if (entry.type === "unchanged") continue;
+
+		const lineIdx = entry.line - 1;
+
+		if (entry.type === "added" || entry.type === "modified") {
+			if (lineIdx >= 0 && lineIdx < lineInfos.length) {
+				const node = view.nodeDOM(lineInfos[lineIdx]?.from);
+				if (node instanceof HTMLElement) {
+					const nodeRect = node.getBoundingClientRect();
+					const marker = createMarker(entry, onMarkerClick);
+					marker.style.top = `${nodeRect.top - editorRect.top}px`;
+					marker.style.height = `${nodeRect.height}px`;
+					gutterEl.appendChild(marker);
+				}
+			}
+		} else if (entry.type === "deleted") {
+			const prevIdx = Math.max(0, lineIdx - 1);
+			if (prevIdx < lineInfos.length) {
+				const node = view.nodeDOM(lineInfos[prevIdx]?.from);
+				if (node instanceof HTMLElement) {
+					const nodeRect = node.getBoundingClientRect();
+					const marker = createMarker(entry, onMarkerClick);
+					marker.style.top = `${nodeRect.bottom - editorRect.top}px`;
+					gutterEl.appendChild(marker);
+				}
+			}
+		}
+	}
+}
+
+export function createDiffTrackerPlugin(
+	onDiffUpdate?: DiffUpdateCallback,
+	initialDiffs?: readonly LineDiffEntry[],
+	onMarkerClick?: MarkerClickCallback,
+) {
 	return $prose(() => {
 		let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 		let editorView: EditorView | null = null;
 		let gutterEl: HTMLElement | null = null;
+		let hasRenderedInitial = false;
 
 		return new Plugin<DiffTrackerState>({
 			key: diffTrackerKey,
@@ -95,7 +175,11 @@ export function createDiffTrackerPlugin(onDiffUpdate?: DiffUpdateCallback) {
 				init(_, state): DiffTrackerState {
 					const lineInfos = extractLines(state.doc);
 					const baseline = lineInfos.map((l) => l.text);
-					return { baseline, currentDiff: [], lineInfos };
+					return {
+						baseline,
+						currentDiff: initialDiffs ? [...initialDiffs] : [],
+						lineInfos,
+					};
 				},
 
 				apply(tr: Transaction, prev: DiffTrackerState): DiffTrackerState {
@@ -148,6 +232,18 @@ export function createDiffTrackerPlugin(onDiffUpdate?: DiffUpdateCallback) {
 						const pluginState = diffTrackerKey.getState(view.state);
 						if (!pluginState || !gutterEl) return;
 
+						if (!hasRenderedInitial && initialDiffs?.length) {
+							hasRenderedInitial = true;
+							renderGutterFromPersisted(
+								gutterEl,
+								view,
+								initialDiffs,
+								pluginState.lineInfos,
+								onMarkerClick,
+							);
+							return;
+						}
+
 						const hasChanges = pluginState.currentDiff.some(
 							(e) => e.type !== "unchanged",
 						);
@@ -157,6 +253,15 @@ export function createDiffTrackerPlugin(onDiffUpdate?: DiffUpdateCallback) {
 								view,
 								pluginState.currentDiff,
 								pluginState.lineInfos,
+								onMarkerClick,
+							);
+						} else if (initialDiffs?.length) {
+							renderGutterFromPersisted(
+								gutterEl,
+								view,
+								initialDiffs,
+								pluginState.lineInfos,
+								onMarkerClick,
 							);
 						} else {
 							gutterEl.innerHTML = "";

@@ -5,9 +5,11 @@ import { commonmark } from "@milkdown/kit/preset/commonmark";
 import { gfm } from "@milkdown/kit/preset/gfm";
 import { Milkdown, MilkdownProvider, useEditor } from "@milkdown/react";
 import { useCallback, useMemo } from "react";
+import type { LineDiffEntry } from "@/lib/diff-engine";
 import {
 	createDiffTrackerPlugin,
 	type DiffUpdateCallback,
+	type MarkerClickCallback,
 } from "./diff-tracker-plugin";
 
 import "@milkdown/kit/prose/view/style/prosemirror.css";
@@ -20,13 +22,24 @@ export interface MilkdownEditorProps {
 	readonly onContentChange?: (markdown: string) => void;
 	readonly onDiffUpdate?: DiffUpdateCallback;
 	readonly enableAnnotations?: boolean;
+	readonly initialDiffs?: readonly LineDiffEntry[];
+	readonly onMarkerClick?: MarkerClickCallback;
 }
 
 function MilkdownEditorInner({
 	content,
 	onContentChange,
 	onDiffUpdate,
-}: Pick<MilkdownEditorProps, "content" | "onContentChange" | "onDiffUpdate">) {
+	initialDiffs,
+	onMarkerClick,
+}: Pick<
+	MilkdownEditorProps,
+	| "content"
+	| "onContentChange"
+	| "onDiffUpdate"
+	| "initialDiffs"
+	| "onMarkerClick"
+>) {
 	const onChange = useCallback(
 		(_ctx: unknown, markdown: string, prevMarkdown: string) => {
 			if (markdown !== prevMarkdown) {
@@ -37,8 +50,8 @@ function MilkdownEditorInner({
 	);
 
 	const diffPlugin = useMemo(
-		() => createDiffTrackerPlugin(onDiffUpdate),
-		[onDiffUpdate],
+		() => createDiffTrackerPlugin(onDiffUpdate, initialDiffs, onMarkerClick),
+		[onDiffUpdate, initialDiffs, onMarkerClick],
 	);
 
 	useEditor((root) =>
@@ -62,6 +75,8 @@ export function MilkdownEditor({
 	content,
 	onContentChange,
 	onDiffUpdate,
+	initialDiffs,
+	onMarkerClick,
 }: MilkdownEditorProps) {
 	return (
 		<MilkdownProvider>
@@ -70,6 +85,8 @@ export function MilkdownEditor({
 					content={content}
 					onContentChange={onContentChange}
 					onDiffUpdate={onDiffUpdate}
+					initialDiffs={initialDiffs}
+					onMarkerClick={onMarkerClick}
 				/>
 			</div>
 		</MilkdownProvider>

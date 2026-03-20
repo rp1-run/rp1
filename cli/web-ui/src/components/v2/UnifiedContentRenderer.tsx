@@ -1,11 +1,16 @@
 import { AlertCircle, Check, FileText, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MarkdownViewer } from "@/components/MarkdownViewer";
+import { AnnotationLayer } from "@/components/MarkdownViewer/MarkdownViewer";
+import type { MarkerClickInfo } from "@/components/MilkdownEditor/diff-tracker-plugin";
 import { MilkdownEditor } from "@/components/MilkdownEditor/MilkdownEditor";
+import { EditDiffPopover } from "@/components/v2/EditDiffPopover";
 import { useEditAnnotations } from "@/hooks/useEditAnnotations";
 import type { HeadingEntry } from "@/hooks/useHeadingExtraction";
 import { getCodeLanguageFromPath } from "@/lib/code-language";
 import type { LineDiffEntry } from "@/lib/diff-engine";
+import { useAnnotationContextSafe } from "@/providers/AnnotationProvider";
+import type { EditDiffAnchor } from "@/types/annotations";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
@@ -62,12 +67,26 @@ function MarkdownEditorWithSave({
 	const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const indicatorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const baselineHashRef = useRef<string>("");
+	const editorContainerRef = useRef<HTMLElement>(null);
+	const gutterRef = useRef<HTMLDivElement>(null);
 
 	const { handleDiffUpdate } = useEditAnnotations({
 		docId,
 		runId,
 		artifactPath: path,
 	});
+
+	const { getAnnotationsForArtifact } = useAnnotationContextSafe();
+
+	const initialDiffs = useMemo(() => {
+		const annotations = getAnnotationsForArtifact(path);
+		for (const ann of annotations) {
+			if (ann.anchor.type === "edit-diff" && ann.status === "open") {
+				return (ann.anchor as EditDiffAnchor).diffs;
+			}
+		}
+		return undefined;
+	}, [getAnnotationsForArtifact, path]);
 
 	useEffect(() => {
 		async function computeHash() {
@@ -81,6 +100,14 @@ function MarkdownEditorWithSave({
 		}
 		computeHash();
 	}, [content]);
+
+	const [activeMarker, setActiveMarker] = useState<MarkerClickInfo | null>(
+		null,
+	);
+
+	const onMarkerClick = useCallback((info: MarkerClickInfo) => {
+		setActiveMarker(info);
+	}, []);
 
 	const onDiffUpdate = useCallback(
 		(diffs: LineDiffEntry[]) => {
@@ -130,19 +157,50 @@ function MarkdownEditorWithSave({
 	}, []);
 
 	return (
-		<div className="relative">
-			<div className="absolute top-0 right-0 z-10 px-2 py-1">
-				<SaveStatusIndicator status={saveStatus} />
+		<div className="relative flex gap-3">
+			{enableAnnotations && (
+				<div
+					ref={gutterRef}
+					className="w-5 flex-shrink-0 relative"
+					aria-hidden="true"
+				/>
+			)}
+			<div className="flex-1 min-w-0 relative">
+				<div className="absolute top-0 right-0 z-10 px-2 py-1">
+					<SaveStatusIndicator status={saveStatus} />
+				</div>
+				<article ref={editorContainerRef}>
+					<MilkdownEditor
+						content={content}
+						artifactPath={path}
+						docId={docId}
+						runId={runId}
+						enableAnnotations={enableAnnotations}
+						onContentChange={onContentChange}
+						onDiffUpdate={onDiffUpdate}
+						initialDiffs={initialDiffs}
+						onMarkerClick={onMarkerClick}
+					/>
+				</article>
+				{activeMarker && (
+					<EditDiffPopover
+						entry={activeMarker.entry}
+						anchorRect={activeMarker.rect}
+						onClose={() => setActiveMarker(null)}
+					/>
+				)}
 			</div>
-			<MilkdownEditor
-				content={content}
-				artifactPath={path}
-				docId={docId}
-				runId={runId}
-				enableAnnotations={enableAnnotations}
-				onContentChange={onContentChange}
-				onDiffUpdate={onDiffUpdate}
-			/>
+			{enableAnnotations && (
+				<AnnotationLayer
+					path={path}
+					containerRef={editorContainerRef}
+					gutterRef={gutterRef}
+					hiddenAnchors={[]}
+					onEditDiffNavigate={(entry, rect) => {
+						setActiveMarker({ entry, rect });
+					}}
+				/>
+			)}
 		</div>
 	);
 }

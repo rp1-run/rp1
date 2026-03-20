@@ -39,8 +39,8 @@ describe("diffLines", () => {
 
 		const deleted = result.filter((e) => e.type === "deleted");
 		expect(deleted.length).toBe(1);
-		expect(deleted[0]!.before).toBe("B");
-		expect(deleted[0]!.after).toBeNull();
+		expect(deleted[0]?.before).toBe("B");
+		expect(deleted[0]?.after).toBeNull();
 	});
 
 	test("handles multiple insertions in different positions", () => {
@@ -98,10 +98,10 @@ describe("diffLines", () => {
 		const result = diffLines(baseline, current);
 
 		expect(result.map((e) => e.line)).toEqual([1, 2, 3, 4]);
-		expect(result[0]!.type).toBe("unchanged");
-		expect(result[1]!.type).toBe("added");
-		expect(result[2]!.type).toBe("unchanged");
-		expect(result[3]!.type).toBe("unchanged");
+		expect(result[0]?.type).toBe("unchanged");
+		expect(result[1]?.type).toBe("added");
+		expect(result[2]?.type).toBe("unchanged");
+		expect(result[3]?.type).toBe("unchanged");
 	});
 
 	test("handles deletion at end of document", () => {
@@ -111,7 +111,7 @@ describe("diffLines", () => {
 
 		const deleted = result.filter((e) => e.type === "deleted");
 		expect(deleted.length).toBe(1);
-		expect(deleted[0]!.before).toBe("C");
+		expect(deleted[0]?.before).toBe("C");
 	});
 
 	test("handles complex mixed operations", () => {

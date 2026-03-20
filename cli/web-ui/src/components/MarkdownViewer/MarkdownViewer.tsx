@@ -89,18 +89,23 @@ function AnchorIndicator({
 	);
 }
 
-interface AnnotationLayerProps {
+export interface AnnotationLayerProps {
 	path: string;
 	containerRef: React.RefObject<HTMLElement | null>;
 	gutterRef: React.RefObject<HTMLElement | null>;
 	hiddenAnchors: DetectedHiddenAnchor[];
+	onEditDiffNavigate?: (
+		entry: import("@/lib/diff-engine").LineDiffEntry,
+		rect: DOMRect,
+	) => void;
 }
 
-function AnnotationLayer({
+export function AnnotationLayer({
 	path,
 	containerRef,
 	gutterRef,
 	hiddenAnchors,
+	onEditDiffNavigate,
 }: AnnotationLayerProps) {
 	const [activeAnchor, setActiveAnchor] = useState<DetectedHiddenAnchor | null>(
 		null,
@@ -160,6 +165,10 @@ function AnnotationLayer({
 		const handleSelectionChange = () => {
 			const sel = window.getSelection();
 			if (!sel || sel.isCollapsed) {
+				// Don't clear if cursor moved within the container (e.g., editor click)
+				if (sel?.anchorNode && containerRef.current?.contains(sel.anchorNode)) {
+					return;
+				}
 				clearSelection();
 			}
 		};
@@ -247,6 +256,29 @@ function AnnotationLayer({
 		const annotation = annotations.find((a) => a.id === selectedAnnotationId);
 		if (!annotation) return;
 
+		// Handle edit-diff annotations: scroll to the affected line and show popover
+		if (annotation.anchor.type === "edit-diff" && containerRef.current) {
+			const editAnchor =
+				annotation.anchor as import("@/types/annotations").EditDiffAnchor;
+			const firstDiff = editAnchor.diffs.find((d) => d.type !== "unchanged");
+			if (firstDiff) {
+				const container = containerRef.current;
+				const textBlocks = container.querySelectorAll(".ProseMirror > *");
+				const targetIdx = firstDiff.line - 1;
+				if (targetIdx >= 0 && targetIdx < textBlocks.length) {
+					const targetEl = textBlocks[targetIdx] as HTMLElement;
+					targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
+					if (onEditDiffNavigate) {
+						requestAnimationFrame(() => {
+							onEditDiffNavigate(firstDiff, targetEl.getBoundingClientRect());
+						});
+					}
+				}
+			}
+			selectAnnotation(null);
+			return;
+		}
+
 		// Only handle text-selection and hidden-anchor types here
 		// Line annotations are handled by CodeBlock
 		if (
@@ -261,6 +293,7 @@ function AnnotationLayer({
 			`[data-annotation-id="${selectedAnnotationId}"]`,
 		);
 		if (highlightElement) {
+			highlightElement.scrollIntoView({ behavior: "smooth", block: "center" });
 			const rect = highlightElement.getBoundingClientRect();
 			const position: SelectionPosition = {
 				x: rect.left + rect.width / 2,
@@ -274,11 +307,89 @@ function AnnotationLayer({
 			};
 			setActiveAnnotationId(annotation.id);
 			setAnnotationPosition(position);
+		} else if (
+			annotation.anchor.type === "text-selection" &&
+			containerRef.current
+		) {
+			// Fallback: find text by context matching (e.g., in contenteditable editor)
+			const { selectedText, contextBefore, contextAfter } = annotation.anchor;
+			const fullText = containerRef.current.textContent ?? "";
+			const searchPattern = contextBefore + selectedText + contextAfter;
+			const patternIndex = fullText.indexOf(searchPattern);
+
+			if (patternIndex !== -1) {
+				const startIndex = patternIndex + contextBefore.length;
+				const endIndex = startIndex + selectedText.length;
+
+				const walker = document.createTreeWalker(
+					containerRef.current,
+					NodeFilter.SHOW_TEXT,
+				);
+				let currentOffset = 0;
+				let startNode: Text | null = null;
+				let startOffset = 0;
+				let endNode: Text | null = null;
+				let endOffset = 0;
+
+				let node = walker.nextNode() as Text | null;
+				while (node) {
+					const nodeLength = node.textContent?.length ?? 0;
+					const nodeEnd = currentOffset + nodeLength;
+
+					if (!startNode && startIndex < nodeEnd) {
+						startNode = node;
+						startOffset = startIndex - currentOffset;
+					}
+					if (!endNode && endIndex <= nodeEnd) {
+						endNode = node;
+						endOffset = endIndex - currentOffset;
+						break;
+					}
+					currentOffset = nodeEnd;
+					node = walker.nextNode() as Text | null;
+				}
+
+				if (startNode && endNode) {
+					try {
+						const range = new Range();
+						range.setStart(startNode, startOffset);
+						range.setEnd(endNode, endOffset);
+						// Scroll the matched text into view
+						const el = startNode.parentElement;
+						el?.scrollIntoView({ behavior: "smooth", block: "center" });
+
+						// Use requestAnimationFrame to get position after scroll
+						requestAnimationFrame(() => {
+							const updatedRect = range.getBoundingClientRect();
+							const position: SelectionPosition = {
+								x: updatedRect.left + updatedRect.width / 2,
+								y: updatedRect.bottom,
+								anchorRect: {
+									left: updatedRect.left,
+									right: updatedRect.right,
+									top: updatedRect.top,
+									bottom: updatedRect.bottom,
+								},
+							};
+							setActiveAnnotationId(annotation.id);
+							setAnnotationPosition(position);
+						});
+					} catch {
+						// Range construction failed
+					}
+				}
+			}
 		}
 
 		// Clear selection after handling
 		selectAnnotation(null);
-	}, [selectedAnnotationId, annotations, selectAnnotation]);
+	}, [
+		selectedAnnotationId,
+		annotations,
+		selectAnnotation,
+		containerRef,
+		onEditDiffNavigate,
+	]);
 
 	const handleAnchorClick = useCallback(
 		(anchor: DetectedHiddenAnchor) => {
