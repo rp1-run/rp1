@@ -234,13 +234,20 @@ export function createDiffTrackerPlugin(
 
 						if (!hasRenderedInitial && initialDiffs?.length) {
 							hasRenderedInitial = true;
-							renderGutterFromPersisted(
-								gutterEl,
-								view,
-								initialDiffs,
-								pluginState.lineInfos,
-								onMarkerClick,
-							);
+							// Defer to next frame so DOM layout is complete
+							const g = gutterEl;
+							requestAnimationFrame(() => {
+								const state = diffTrackerKey.getState(view.state);
+								if (state && g) {
+									renderGutterFromPersisted(
+										g,
+										view,
+										initialDiffs,
+										state.lineInfos,
+										onMarkerClick,
+									);
+								}
+							});
 							return;
 						}
 
