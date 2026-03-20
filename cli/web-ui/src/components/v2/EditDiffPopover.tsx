@@ -125,7 +125,10 @@ export function EditDiffPopover({
 						<span className="type-secondary text-fg-ghost block mb-0.5">
 							Before
 						</span>
-						<pre className="type-secondary text-failure/80 whitespace-pre-wrap break-words font-mono">
+						<pre
+							className="whitespace-pre-wrap break-words font-mono text-sm"
+							style={{ color: "hsl(0 60% 65%)" }}
+						>
 							{entry.before || "\u00A0"}
 						</pre>
 					</div>
@@ -135,7 +138,10 @@ export function EditDiffPopover({
 						<span className="type-secondary text-fg-ghost block mb-0.5">
 							After
 						</span>
-						<pre className="type-secondary text-accent whitespace-pre-wrap break-words font-mono">
+						<pre
+							className="whitespace-pre-wrap break-words font-mono text-sm"
+							style={{ color: "hsl(140 60% 60%)" }}
+						>
 							{entry.after || "\u00A0"}
 						</pre>
 					</div>

@@ -136,10 +136,13 @@ function renderGutterFromPersisted(
 				const node = view.nodeDOM(lineInfos[lineIdx]?.from);
 				if (node instanceof HTMLElement) {
 					const nodeRect = node.getBoundingClientRect();
-					const marker = createMarker(entry, onMarkerClick);
-					marker.style.top = `${nodeRect.top - editorRect.top}px`;
-					marker.style.height = `${nodeRect.height}px`;
-					gutterEl.appendChild(marker);
+					const top = nodeRect.top - editorRect.top;
+					if (nodeRect.height > 0 && top > 0) {
+						const marker = createMarker(entry, onMarkerClick);
+						marker.style.top = `${top}px`;
+						marker.style.height = `${nodeRect.height}px`;
+						gutterEl.appendChild(marker);
+					}
 				}
 			}
 		} else if (entry.type === "deleted") {
@@ -148,9 +151,12 @@ function renderGutterFromPersisted(
 				const node = view.nodeDOM(lineInfos[prevIdx]?.from);
 				if (node instanceof HTMLElement) {
 					const nodeRect = node.getBoundingClientRect();
-					const marker = createMarker(entry, onMarkerClick);
-					marker.style.top = `${nodeRect.bottom - editorRect.top}px`;
-					gutterEl.appendChild(marker);
+					const top = nodeRect.bottom - editorRect.top;
+					if (nodeRect.height > 0 && top > 0) {
+						const marker = createMarker(entry, onMarkerClick);
+						marker.style.top = `${top}px`;
+						gutterEl.appendChild(marker);
+					}
 				}
 			}
 		}
