@@ -2,20 +2,21 @@
   position: absolute;
   top: 0;
   left: 0;
-  width: 3px;
+  width: 12px;
   bottom: 0;
   pointer-events: none;
+  z-index: 5;
 }
 
 .milkdown-diff-marker {
   pointer-events: auto;
-}
-
-.milkdown-diff-marker {
+  cursor: pointer;
   position: absolute;
   left: 0;
   width: 3px;
   border-radius: 1px;
+  padding-right: 9px;
+  background-clip: content-box;
 }
 
 .milkdown-diff-marker.milkdown-diff-added {
