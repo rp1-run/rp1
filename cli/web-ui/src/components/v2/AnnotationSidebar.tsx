@@ -57,7 +57,32 @@ function isEditAnnotation(annotation: Annotation): boolean {
 	return annotation.anchor.type === "edit-diff";
 }
 
-function DiffEntryItem({ entry }: { entry: LineDiffEntry }) {
+function scrollToEditorLine(lineNumber: number) {
+	const editor = document.querySelector(".milkdown-editor-root .ProseMirror");
+	if (!editor) return;
+	const textblocks = editor.querySelectorAll(
+		"p, h1, h2, h3, h4, h5, h6, li, pre, blockquote, hr",
+	);
+	const idx = lineNumber - 1;
+	if (idx >= 0 && idx < textblocks.length) {
+		textblocks[idx].scrollIntoView({ behavior: "instant", block: "center" });
+		// Wait one frame for layout to settle after scroll, then trigger the popover
+		requestAnimationFrame(() => {
+			const marker = document.querySelector(`[data-diff-line="${lineNumber}"]`);
+			if (marker instanceof HTMLElement) {
+				marker.click();
+			}
+		});
+	}
+}
+
+function DiffEntryItem({
+	entry,
+	onClick,
+}: {
+	entry: LineDiffEntry;
+	onClick?: () => void;
+}) {
 	const typeLabel =
 		entry.type === "added" ? "+" : entry.type === "deleted" ? "-" : "~";
 	const typeColor =
@@ -68,7 +93,14 @@ function DiffEntryItem({ entry }: { entry: LineDiffEntry }) {
 				: "text-fg-muted";
 
 	return (
-		<div className="flex gap-1.5 py-0.5 font-mono text-xs leading-relaxed">
+		<button
+			type="button"
+			onClick={(e) => {
+				e.stopPropagation();
+				onClick?.();
+			}}
+			className="flex gap-1.5 py-0.5 font-mono text-xs leading-relaxed w-full text-left rounded-sm hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+		>
 			<span className={cn("shrink-0 w-3 text-center", typeColor)}>
 				{typeLabel}
 			</span>
@@ -85,7 +117,7 @@ function DiffEntryItem({ entry }: { entry: LineDiffEntry }) {
 					<p className="text-fg-muted truncate">{entry.after || "\u00A0"}</p>
 				)}
 			</div>
-		</div>
+		</button>
 	);
 }
 
@@ -121,6 +153,7 @@ function EditDiffDetail({ anchor }: { anchor: EditDiffAnchor }) {
 						<DiffEntryItem
 							key={`${entry.line}-${entry.type}-${i}`}
 							entry={entry}
+							onClick={() => scrollToEditorLine(entry.line)}
 						/>
 					))}
 				</div>

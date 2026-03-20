@@ -61,6 +61,7 @@ function createMarker(
 				? "milkdown-diff-modified"
 				: "milkdown-diff-deleted";
 	marker.className = `milkdown-diff-marker ${typeClass}`;
+	marker.setAttribute("data-diff-line", String(entry.line));
 	marker.style.cursor = "pointer";
 
 	if (onMarkerClick) {
