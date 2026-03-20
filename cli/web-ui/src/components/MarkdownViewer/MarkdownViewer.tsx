@@ -269,9 +269,26 @@ export function AnnotationLayer({
 					const targetEl = textBlocks[targetIdx] as HTMLElement;
 					targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
 					if (onEditDiffNavigate) {
-						requestAnimationFrame(() => {
+						const showPopover = () => {
 							onEditDiffNavigate(firstDiff, targetEl.getBoundingClientRect());
+						};
+						// Wait for smooth scroll to finish before showing popover
+						const scrollParent =
+							targetEl.closest("[style*='overflow']") ??
+							document.scrollingElement ??
+							document.documentElement;
+						const onScrollEnd = () => {
+							scrollParent.removeEventListener("scrollend", onScrollEnd);
+							requestAnimationFrame(showPopover);
+						};
+						scrollParent.addEventListener("scrollend", onScrollEnd, {
+							once: true,
 						});
+						// Fallback if scrollend doesn't fire (already in view)
+						setTimeout(() => {
+							scrollParent.removeEventListener("scrollend", onScrollEnd);
+							requestAnimationFrame(showPopover);
+						}, 500);
 					}
 				}
 			}
