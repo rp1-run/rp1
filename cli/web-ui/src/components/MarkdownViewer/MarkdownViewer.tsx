@@ -29,6 +29,18 @@ import { CodeBlock } from "./CodeBlock";
 import { MarkdownLink } from "./MarkdownLink";
 import { MermaidDiagram } from "./MermaidDiagram";
 
+function findScrollParent(el: HTMLElement): HTMLElement {
+	let parent = el.parentElement;
+	while (parent) {
+		const { overflow, overflowY } = getComputedStyle(parent);
+		if (/(auto|scroll)/.test(overflow + overflowY)) {
+			return parent;
+		}
+		parent = parent.parentElement;
+	}
+	return document.documentElement;
+}
+
 export interface MarkdownViewerProps {
 	content: string;
 	path: string;
@@ -267,32 +279,26 @@ export function AnnotationLayer({
 				const targetIdx = firstDiff.line - 1;
 				if (targetIdx >= 0 && targetIdx < textBlocks.length) {
 					const targetEl = textBlocks[targetIdx] as HTMLElement;
-					if (onEditDiffNavigate) {
-						const showPopover = () => {
-							onEditDiffNavigate(firstDiff, targetEl.getBoundingClientRect());
-						};
-						// Check if element is already in viewport
-						const rect = targetEl.getBoundingClientRect();
-						const inView = rect.top >= 0 && rect.bottom <= window.innerHeight;
-						if (inView) {
-							showPopover();
-						} else {
-							targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
-							// Wait for scroll to settle, then show
-							let lastY = targetEl.getBoundingClientRect().top;
-							const poll = setInterval(() => {
-								const currentY = targetEl.getBoundingClientRect().top;
-								if (currentY === lastY) {
-									clearInterval(poll);
-									showPopover();
-								}
-								lastY = currentY;
-							}, 50);
-							// Safety cap
-							setTimeout(() => clearInterval(poll), 2000);
-						}
+					const showPopover = () => {
+						onEditDiffNavigate?.(firstDiff, targetEl.getBoundingClientRect());
+					};
+
+					const rect = targetEl.getBoundingClientRect();
+					const inView = rect.top >= 0 && rect.bottom <= window.innerHeight;
+
+					if (inView) {
+						showPopover();
 					} else {
-						targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
+						const scrollParent = findScrollParent(targetEl);
+						scrollParent.addEventListener(
+							"scrollend",
+							() => requestAnimationFrame(showPopover),
+							{ once: true },
+						);
+						targetEl.scrollIntoView({
+							behavior: "smooth",
+							block: "center",
+						});
 					}
 				}
 			}
