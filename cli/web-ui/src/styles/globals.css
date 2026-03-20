@@ -372,6 +372,225 @@
     padding: 0.15em 0.3em;
   }
 
+  /* Milkdown editor: design system integration */
+  .milkdown-editor-root {
+    position: relative;
+  }
+
+  .milkdown-editor-root .milkdown {
+    outline: none;
+  }
+
+  .milkdown-editor-root .ProseMirror {
+    font-family: "Commit Mono", monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    color: hsl(var(--fg));
+    padding: 16px;
+    outline: none;
+    min-height: 200px;
+  }
+
+  .milkdown-editor-root .ProseMirror-selectednode {
+    outline-color: hsl(var(--accent));
+  }
+
+  .milkdown-editor-root .ProseMirror > *:first-child {
+    margin-top: 0;
+  }
+
+  .milkdown-editor-root .ProseMirror > *:last-child {
+    margin-bottom: 0;
+  }
+
+  .milkdown-editor-root .ProseMirror h1 {
+    font-size: 16px;
+    font-weight: 500;
+    margin-top: 24px;
+    margin-bottom: 16px;
+    line-height: 1.4;
+  }
+
+  .milkdown-editor-root .ProseMirror h1:first-child {
+    margin-top: 0;
+  }
+
+  .milkdown-editor-root .ProseMirror h2 {
+    font-size: 16px;
+    font-weight: 500;
+    margin-top: 32px;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid hsl(var(--border));
+    line-height: 1.4;
+  }
+
+  .milkdown-editor-root .ProseMirror h3 {
+    font-size: 13px;
+    font-weight: 500;
+    margin-top: 24px;
+    margin-bottom: 12px;
+    line-height: 1.4;
+  }
+
+  .milkdown-editor-root .ProseMirror h4,
+  .milkdown-editor-root .ProseMirror h5 {
+    font-size: 13px;
+    font-weight: 500;
+    margin-top: 16px;
+    margin-bottom: 8px;
+    line-height: 1.4;
+  }
+
+  .milkdown-editor-root .ProseMirror h6 {
+    font-size: 11px;
+    font-weight: 500;
+    margin-top: 16px;
+    margin-bottom: 8px;
+    color: hsl(var(--fg-muted));
+    line-height: 1.4;
+  }
+
+  .milkdown-editor-root .ProseMirror p {
+    margin-top: 16px;
+    margin-bottom: 0;
+    line-height: 1.75;
+  }
+
+  .milkdown-editor-root .ProseMirror p:first-child {
+    margin-top: 0;
+  }
+
+  .milkdown-editor-root .ProseMirror strong {
+    font-weight: 500;
+  }
+
+  .milkdown-editor-root .ProseMirror em {
+    font-style: italic;
+  }
+
+  .milkdown-editor-root .ProseMirror del {
+    text-decoration: line-through;
+    color: hsl(var(--fg-muted));
+  }
+
+  .milkdown-editor-root .ProseMirror ul {
+    list-style-type: disc;
+    margin: 16px 0;
+    padding-left: 24px;
+  }
+
+  .milkdown-editor-root .ProseMirror ol {
+    list-style-type: decimal;
+    margin: 16px 0;
+    padding-left: 24px;
+  }
+
+  .milkdown-editor-root .ProseMirror li {
+    margin-top: 8px;
+  }
+
+  .milkdown-editor-root .ProseMirror li > ul,
+  .milkdown-editor-root .ProseMirror li > ol {
+    margin-top: 8px;
+    margin-bottom: 0;
+  }
+
+  .milkdown-editor-root .ProseMirror blockquote {
+    margin-top: 16px;
+    border-left: 4px solid hsl(var(--border));
+    padding-left: 16px;
+    font-style: italic;
+    color: hsl(var(--fg-muted));
+  }
+
+  .milkdown-editor-root .ProseMirror hr {
+    margin: 24px 0;
+    border: none;
+    border-top: 1px solid hsl(var(--border));
+  }
+
+  .milkdown-editor-root .ProseMirror code {
+    font-family: "Commit Mono", monospace;
+    font-size: 12px;
+    background-color: hsl(var(--void));
+    border-radius: 4px;
+    padding: 0.15em 0.3em;
+  }
+
+  .milkdown-editor-root .ProseMirror pre {
+    background-color: hsl(var(--void));
+    border-radius: 4px;
+    padding: 16px;
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+
+  .milkdown-editor-root .ProseMirror pre code {
+    background: none;
+    padding: 0;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .milkdown-editor-root .ProseMirror a {
+    color: hsl(var(--accent));
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .milkdown-editor-root .ProseMirror img {
+    max-width: 100%;
+    margin: 16px 0;
+    border-radius: 4px;
+  }
+
+  .milkdown-editor-root .ProseMirror table {
+    border-collapse: collapse;
+    min-width: 100%;
+    margin: 16px 0;
+  }
+
+  .milkdown-editor-root .ProseMirror thead {
+    border-bottom: 1px solid hsl(var(--border));
+    background-color: hsl(var(--void) / 0.5);
+  }
+
+  .milkdown-editor-root .ProseMirror tbody tr:nth-child(even) {
+    background-color: hsl(var(--void) / 0.3);
+  }
+
+  .milkdown-editor-root .ProseMirror tr {
+    border-bottom: 1px solid hsl(var(--border));
+  }
+
+  .milkdown-editor-root .ProseMirror th {
+    padding: 8px 12px;
+    text-align: left;
+    font-weight: 500;
+  }
+
+  .milkdown-editor-root .ProseMirror td {
+    padding: 8px 12px;
+  }
+
+  .milkdown-editor-root .ProseMirror .task-list-item {
+    list-style: none;
+    position: relative;
+    padding-left: 24px;
+  }
+
+  .milkdown-editor-root .ProseMirror .task-list-item input[type="checkbox"] {
+    position: absolute;
+    left: 0;
+    top: 4px;
+    width: 16px;
+    height: 16px;
+    border: 1px solid hsl(var(--border));
+    border-radius: 4px;
+    accent-color: hsl(var(--accent));
+  }
+
   /* Artifact viewer annotation indicators: small amber dots in gutter */
   .artifact-viewer-content .w-5 button .w-0\.5 {
     width: 6px;
