@@ -8,6 +8,10 @@
 }
 
 .milkdown-diff-marker {
+  pointer-events: auto;
+}
+
+.milkdown-diff-marker {
   position: absolute;
   left: 0;
   width: 3px;
