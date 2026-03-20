@@ -1,5 +1,5 @@
 import { AlertCircle, Check, FileText, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { MarkdownViewer } from "@/components/MarkdownViewer";
 import { AnnotationLayer } from "@/components/MarkdownViewer/MarkdownViewer";
 import type { MarkerClickInfo } from "@/components/MilkdownEditor/diff-tracker-plugin";
@@ -78,16 +78,6 @@ function MarkdownEditorWithSave({
 
 	const { getAnnotationsForArtifact } = useAnnotationContextSafe();
 
-	const initialDiffs = useMemo(() => {
-		const annotations = getAnnotationsForArtifact(path);
-		for (const ann of annotations) {
-			if (ann.anchor.type === "edit-diff" && ann.status === "open") {
-				return (ann.anchor as EditDiffAnchor).diffs;
-			}
-		}
-		return undefined;
-	}, [getAnnotationsForArtifact, path]);
-
 	useEffect(() => {
 		async function computeHash() {
 			const encoder = new TextEncoder();
@@ -149,6 +139,113 @@ function MarkdownEditorWithSave({
 		[runId, path],
 	);
 
+	// Render persisted gutter markers from annotations (runs after annotations load)
+	useEffect(() => {
+		let cancelled = false;
+		let rafId: number | undefined;
+
+		const annotations = getAnnotationsForArtifact(path);
+		const editDiffs: LineDiffEntry[] = [];
+		for (const ann of annotations) {
+			if (ann.anchor.type === "edit-diff" && ann.status === "open") {
+				editDiffs.push(...(ann.anchor as EditDiffAnchor).diffs);
+			}
+		}
+		if (editDiffs.length === 0) return;
+
+		const container = editorContainerRef.current;
+		if (!container) return;
+
+		const renderMarkers = () => {
+			if (cancelled) return;
+
+			const liveGutter =
+				container.querySelector<HTMLElement>("[data-diff-gutter]");
+			const proseMirror = container.querySelector<HTMLElement>(".ProseMirror");
+			if (!liveGutter || !proseMirror) return;
+			if (proseMirror.offsetHeight === 0) return;
+
+			// Use a separate gutter so the plugin's view.update doesn't clear our markers
+			let gutterEl = container.querySelector<HTMLElement>(
+				"[data-persisted-gutter]",
+			);
+			if (!gutterEl) {
+				gutterEl = document.createElement("div");
+				gutterEl.className = "milkdown-diff-gutter";
+				gutterEl.setAttribute("data-persisted-gutter", "true");
+				liveGutter.parentElement?.insertBefore(gutterEl, liveGutter);
+			}
+
+			const editorRect = proseMirror.getBoundingClientRect();
+			const blocks = proseMirror.querySelectorAll(
+				":scope > *:not(.milkdown-diff-gutter)",
+			);
+
+			gutterEl.innerHTML = "";
+			for (const entry of editDiffs) {
+				if (entry.type === "unchanged") continue;
+				const lineIdx = entry.line - 1;
+				if (lineIdx < 0 || lineIdx >= blocks.length) continue;
+
+				const block = blocks[lineIdx] as HTMLElement;
+				const blockRect = block.getBoundingClientRect();
+				const top = blockRect.top - editorRect.top;
+
+				if (blockRect.height <= 0 || top <= 0) continue;
+
+				const typeClass =
+					entry.type === "added"
+						? "milkdown-diff-added"
+						: entry.type === "modified"
+							? "milkdown-diff-modified"
+							: "milkdown-diff-deleted";
+
+				const marker = document.createElement("div");
+				marker.className = `milkdown-diff-marker ${typeClass}`;
+				marker.style.cursor = "pointer";
+				marker.style.top = `${top}px`;
+				marker.style.height =
+					entry.type === "deleted" ? "2px" : `${blockRect.height}px`;
+
+				const capturedEntry = entry;
+				marker.addEventListener("click", (e) => {
+					e.stopPropagation();
+					setActiveMarker({
+						entry: capturedEntry,
+						rect: marker.getBoundingClientRect(),
+					});
+				});
+
+				gutterEl.appendChild(marker);
+			}
+		};
+
+		const scheduleRender = () => {
+			if (cancelled) return;
+			rafId = requestAnimationFrame(renderMarkers);
+		};
+
+		// Wait for the plugin to create the gutter element, then render
+		const observer = new MutationObserver(() => {
+			if (container.querySelector("[data-diff-gutter]")) {
+				observer.disconnect();
+				scheduleRender();
+			}
+		});
+
+		if (container.querySelector("[data-diff-gutter]")) {
+			scheduleRender();
+		} else {
+			observer.observe(container, { childList: true, subtree: true });
+		}
+
+		return () => {
+			cancelled = true;
+			observer.disconnect();
+			if (rafId !== undefined) cancelAnimationFrame(rafId);
+		};
+	}, [getAnnotationsForArtifact, path]);
+
 	useEffect(() => {
 		return () => {
 			if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -178,7 +275,6 @@ function MarkdownEditorWithSave({
 						enableAnnotations={enableAnnotations}
 						onContentChange={onContentChange}
 						onDiffUpdate={onDiffUpdate}
-						initialDiffs={initialDiffs}
 						onMarkerClick={onMarkerClick}
 					/>
 				</article>

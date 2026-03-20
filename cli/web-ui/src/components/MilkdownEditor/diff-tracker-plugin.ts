@@ -7,15 +7,15 @@ import { diffLines, type LineDiffEntry } from "../../lib/diff-engine";
 
 const DEBOUNCE_MS = 200;
 
-const diffTrackerKey = new PluginKey<DiffTrackerState>("diff-tracker");
+export const diffTrackerKey = new PluginKey<DiffTrackerState>("diff-tracker");
 
-interface DiffTrackerState {
+export interface DiffTrackerState {
 	baseline: string[];
 	currentDiff: LineDiffEntry[];
 	lineInfos: LineInfo[];
 }
 
-interface LineInfo {
+export interface LineInfo {
 	text: string;
 	from: number;
 	to: number;
@@ -116,7 +116,7 @@ function renderGutter(
  * Render gutter markers from persisted diffs using the `line` field directly.
  * Persisted diffs only contain non-unchanged entries, so we can't walk sequentially.
  */
-function renderGutterFromPersisted(
+export function renderGutterFromPersisted(
 	gutterEl: HTMLElement,
 	view: EditorView,
 	diffs: readonly LineDiffEntry[],
@@ -166,14 +166,12 @@ function renderGutterFromPersisted(
 
 export function createDiffTrackerPlugin(
 	onDiffUpdate?: DiffUpdateCallback,
-	initialDiffs?: readonly LineDiffEntry[],
 	onMarkerClick?: MarkerClickCallback,
 ) {
 	return $prose(() => {
 		let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 		let editorView: EditorView | null = null;
 		let gutterEl: HTMLElement | null = null;
-		let hasRenderedInitial = false;
 
 		return new Plugin<DiffTrackerState>({
 			key: diffTrackerKey,
@@ -182,11 +180,7 @@ export function createDiffTrackerPlugin(
 				init(_, state): DiffTrackerState {
 					const lineInfos = extractLines(state.doc);
 					const baseline = lineInfos.map((l) => l.text);
-					return {
-						baseline,
-						currentDiff: initialDiffs ? [...initialDiffs] : [],
-						lineInfos,
-					};
+					return { baseline, currentDiff: [], lineInfos };
 				},
 
 				apply(tr: Transaction, prev: DiffTrackerState): DiffTrackerState {
@@ -228,6 +222,7 @@ export function createDiffTrackerPlugin(
 
 				gutterEl = document.createElement("div");
 				gutterEl.className = "milkdown-diff-gutter";
+				gutterEl.setAttribute("data-diff-gutter", "true");
 				const wrapper = view.dom.parentElement;
 				if (wrapper) {
 					wrapper.style.position = "relative";
@@ -239,25 +234,6 @@ export function createDiffTrackerPlugin(
 						const pluginState = diffTrackerKey.getState(view.state);
 						if (!pluginState || !gutterEl) return;
 
-						if (!hasRenderedInitial && initialDiffs?.length) {
-							hasRenderedInitial = true;
-							// Defer to next frame so DOM layout is complete
-							const g = gutterEl;
-							requestAnimationFrame(() => {
-								const state = diffTrackerKey.getState(view.state);
-								if (state && g) {
-									renderGutterFromPersisted(
-										g,
-										view,
-										initialDiffs,
-										state.lineInfos,
-										onMarkerClick,
-									);
-								}
-							});
-							return;
-						}
-
 						const hasChanges = pluginState.currentDiff.some(
 							(e) => e.type !== "unchanged",
 						);
@@ -266,35 +242,6 @@ export function createDiffTrackerPlugin(
 								gutterEl,
 								view,
 								pluginState.currentDiff,
-								pluginState.lineInfos,
-								onMarkerClick,
-							);
-							// Also show persisted diffs from previous sessions
-							if (initialDiffs?.length) {
-								const liveLines = new Set(
-									pluginState.currentDiff
-										.filter((e) => e.type !== "unchanged")
-										.map((e) => e.line),
-								);
-								const nonOverlapping = initialDiffs.filter(
-									(d) => !liveLines.has(d.line),
-								);
-								if (nonOverlapping.length > 0) {
-									renderGutterFromPersisted(
-										gutterEl,
-										view,
-										nonOverlapping,
-										pluginState.lineInfos,
-										onMarkerClick,
-										true,
-									);
-								}
-							}
-						} else if (initialDiffs?.length) {
-							renderGutterFromPersisted(
-								gutterEl,
-								view,
-								initialDiffs,
 								pluginState.lineInfos,
 								onMarkerClick,
 							);
