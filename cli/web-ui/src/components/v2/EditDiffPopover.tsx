@@ -119,14 +119,14 @@ export function EditDiffPopover({
 				</button>
 			</div>
 
-			<div className="px-3 pb-3 space-y-1.5">
+			<div className="px-3 pb-3 space-y-1.5 max-h-[300px] overflow-y-auto">
 				{entry.before !== null && (
 					<div className="rounded bg-surface-void px-2 py-1.5">
 						<span className="type-secondary text-fg-ghost block mb-0.5">
 							Before
 						</span>
 						<pre
-							className="whitespace-pre-wrap break-words font-mono text-sm"
+							className="whitespace-pre-wrap break-words font-mono text-xs max-h-[120px] overflow-y-auto"
 							style={{ color: "hsl(0 60% 65%)" }}
 						>
 							{entry.before || "\u00A0"}
@@ -139,7 +139,7 @@ export function EditDiffPopover({
 							After
 						</span>
 						<pre
-							className="whitespace-pre-wrap break-words font-mono text-sm"
+							className="whitespace-pre-wrap break-words font-mono text-xs max-h-[120px] overflow-y-auto"
 							style={{ color: "hsl(140 60% 60%)" }}
 						>
 							{entry.after || "\u00A0"}
