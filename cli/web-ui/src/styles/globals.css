@@ -392,7 +392,7 @@
   }
 
   .milkdown-editor-root .ProseMirror-selectednode {
-    outline-color: hsl(var(--accent));
+    outline: 1px solid hsl(var(--border));
   }
 
   .milkdown-editor-root .ProseMirror > *:first-child {
