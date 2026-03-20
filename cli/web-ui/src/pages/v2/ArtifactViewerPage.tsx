@@ -248,6 +248,24 @@ export function ArtifactViewerPage() {
 					}
 					break;
 				}
+				case "edit-diff": {
+					const firstDiff = anchor.diffs.find((d) => d.type !== "unchanged");
+					if (firstDiff) {
+						const editor = document.querySelector(
+							".milkdown-editor-root .ProseMirror",
+						);
+						if (editor) {
+							const textblocks = editor.querySelectorAll(
+								"p, h1, h2, h3, h4, h5, h6, li, pre, blockquote, hr",
+							);
+							const idx = firstDiff.line - 1;
+							if (idx >= 0 && idx < textblocks.length) {
+								targetElement = textblocks[idx];
+							}
+						}
+					}
+					break;
+				}
 			}
 
 			if (targetElement) {
