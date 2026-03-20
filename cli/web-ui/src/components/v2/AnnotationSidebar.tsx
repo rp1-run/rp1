@@ -319,7 +319,7 @@ function truncateContent(content: string): string {
 export function AnnotationSidebar({
 	artifactPath,
 	onClose,
-	onNavigateToAnnotation,
+	onNavigateToAnnotation: _onNavigateToAnnotation,
 	className,
 }: AnnotationSidebarProps) {
 	const [showFilters, setShowFilters] = useState(false);
@@ -417,18 +417,29 @@ export function AnnotationSidebar({
 		});
 	}, [setFilter]);
 
-	const { selectAnnotation } = useAnnotationContext();
+	const handleAnnotationClick = useCallback((annotation: Annotation) => {
+		// For edit-diff annotations, scroll to the first changed line
+		if (annotation.anchor.type === "edit-diff") {
+			const firstDiff = annotation.anchor.diffs.find(
+				(d) => d.type !== "unchanged",
+			);
+			if (firstDiff) {
+				scrollToEditorLine(firstDiff.line);
+			}
+			return;
+		}
 
-	const handleAnnotationClick = useCallback(
-		(annotation: Annotation) => {
-			onNavigateToAnnotation?.(annotation);
-			// Then select it to open the popover (with delay for scroll to complete)
-			setTimeout(() => {
-				selectAnnotation(annotation.id);
-			}, 300);
-		},
-		[onNavigateToAnnotation, selectAnnotation],
-	);
+		// For all other annotations, find the gutter indicator by ID and click it
+		const indicator = document.querySelector(
+			`[data-annotation-id="${annotation.id}"]`,
+		);
+		if (indicator instanceof HTMLElement) {
+			indicator.scrollIntoView({ behavior: "instant", block: "center" });
+			requestAnimationFrame(() => {
+				indicator.click();
+			});
+		}
+	}, []);
 
 	const hasActiveFilters =
 		filter.status !== "all" ||
