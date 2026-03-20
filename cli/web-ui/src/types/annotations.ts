@@ -3,8 +3,14 @@
  * Used for inline comments and threading on artifacts.
  */
 
+import type { LineDiffEntry } from "../lib/diff-engine";
+
 /** Anchor type for annotations */
-export type AnchorType = "text-selection" | "hidden-anchor" | "line";
+export type AnchorType =
+	| "text-selection"
+	| "hidden-anchor"
+	| "line"
+	| "edit-diff";
 
 /** Resolution status */
 export type AnnotationStatus = "open" | "resolved";
@@ -33,8 +39,19 @@ export interface LineAnchor {
 	readonly lineContent: string;
 }
 
+/** Edit diff anchor for tracking document changes */
+export interface EditDiffAnchor {
+	readonly type: "edit-diff";
+	readonly diffs: readonly LineDiffEntry[];
+	readonly baselineHash: string;
+}
+
 /** Union of all anchor types */
-export type Anchor = TextSelectionAnchor | HiddenAnchor | LineAnchor;
+export type Anchor =
+	| TextSelectionAnchor
+	| HiddenAnchor
+	| LineAnchor
+	| EditDiffAnchor;
 
 /** Single reply in a thread */
 export interface AnnotationReply {
