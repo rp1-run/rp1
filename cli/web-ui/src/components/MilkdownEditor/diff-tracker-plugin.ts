@@ -9,6 +9,7 @@ const DEBOUNCE_MS = 200;
 
 export const diffTrackerKey = new PluginKey<DiffTrackerState>("diff-tracker");
 
+/** Plugin state tracks only live editing concerns — never persisted diffs. */
 export interface DiffTrackerState {
 	baseline: string[];
 	currentDiff: LineDiffEntry[];
@@ -29,6 +30,9 @@ export interface MarkerClickInfo {
 }
 
 export type MarkerClickCallback = (info: MarkerClickInfo) => void;
+
+/** Getter for persisted diffs — React owns the data, plugin reads on demand. */
+export type PersistedDiffsGetter = () => readonly LineDiffEntry[];
 
 function extractLines(doc: ProseMirrorNode): LineInfo[] {
 	const lines: LineInfo[] = [];
@@ -69,31 +73,51 @@ function createMarker(
 	return marker;
 }
 
-function renderGutter(
+/**
+ * Find the ProseMirror textblock whose content matches the given text.
+ * Returns the LineInfo or undefined if not found.
+ */
+function findLineByText(
+	lineInfos: readonly LineInfo[],
+	text: string,
+): LineInfo | undefined {
+	return lineInfos.find((l) => l.text === text);
+}
+
+/**
+ * Render all gutter markers using ProseMirror positions.
+ * Live diffs come from plugin state, persisted diffs from the getter.
+ */
+function renderAllMarkers(
 	gutterEl: HTMLElement,
 	view: EditorView,
-	diff: readonly LineDiffEntry[],
-	lineInfos: readonly LineInfo[],
+	state: DiffTrackerState,
+	persistedDiffs: readonly LineDiffEntry[],
 	onMarkerClick?: MarkerClickCallback,
 ) {
 	gutterEl.innerHTML = "";
 	const editorRect = view.dom.getBoundingClientRect();
 
+	// Track which lines already have markers (live takes priority)
+	const markedPositions = new Set<number>();
+
+	// 1. Render live diff markers (sequential walk — positions are exact)
 	let currentLineIdx = 0;
 	let lastNodeBottom = 0;
 
-	for (const entry of diff) {
+	for (const entry of state.currentDiff) {
 		if (entry.type === "unchanged") {
-			if (currentLineIdx < lineInfos.length) {
-				const node = view.nodeDOM(lineInfos[currentLineIdx]?.from);
+			if (currentLineIdx < state.lineInfos.length) {
+				const node = view.nodeDOM(state.lineInfos[currentLineIdx]?.from);
 				if (node instanceof HTMLElement) {
 					lastNodeBottom = node.getBoundingClientRect().bottom;
 				}
 			}
 			currentLineIdx++;
 		} else if (entry.type === "added" || entry.type === "modified") {
-			if (currentLineIdx < lineInfos.length) {
-				const node = view.nodeDOM(lineInfos[currentLineIdx]?.from);
+			if (currentLineIdx < state.lineInfos.length) {
+				const lineInfo = state.lineInfos[currentLineIdx];
+				const node = view.nodeDOM(lineInfo?.from);
 				if (node instanceof HTMLElement) {
 					const nodeRect = node.getBoundingClientRect();
 					const marker = createMarker(entry, onMarkerClick);
@@ -101,6 +125,7 @@ function renderGutter(
 					marker.style.height = `${nodeRect.height}px`;
 					gutterEl.appendChild(marker);
 					lastNodeBottom = nodeRect.bottom;
+					if (lineInfo) markedPositions.add(lineInfo.from);
 				}
 			}
 			currentLineIdx++;
@@ -110,64 +135,52 @@ function renderGutter(
 			gutterEl.appendChild(marker);
 		}
 	}
-}
 
-/**
- * Render gutter markers from persisted diffs using the `line` field directly.
- * Persisted diffs only contain non-unchanged entries, so we can't walk sequentially.
- */
-export function renderGutterFromPersisted(
-	gutterEl: HTMLElement,
-	view: EditorView,
-	diffs: readonly LineDiffEntry[],
-	lineInfos: readonly LineInfo[],
-	onMarkerClick?: MarkerClickCallback,
-	append = false,
-) {
-	if (!append) gutterEl.innerHTML = "";
-	const editorRect = view.dom.getBoundingClientRect();
-
-	for (const entry of diffs) {
+	// 2. Render persisted diff markers (read from getter — always fresh)
+	for (const entry of persistedDiffs) {
 		if (entry.type === "unchanged") continue;
 
+		// Try line number first (correct on initial load)
 		const lineIdx = entry.line - 1;
+		let lineInfo: LineInfo | undefined;
 
-		if (entry.type === "added" || entry.type === "modified") {
-			if (lineIdx >= 0 && lineIdx < lineInfos.length) {
-				const node = view.nodeDOM(lineInfos[lineIdx]?.from);
-				if (node instanceof HTMLElement) {
-					const nodeRect = node.getBoundingClientRect();
-					const top = nodeRect.top - editorRect.top;
-					if (nodeRect.height > 0 && top > 0) {
-						const marker = createMarker(entry, onMarkerClick);
-						marker.style.top = `${top}px`;
-						marker.style.height = `${nodeRect.height}px`;
-						gutterEl.appendChild(marker);
-					}
-				}
-			}
-		} else if (entry.type === "deleted") {
-			const prevIdx = Math.max(0, lineIdx - 1);
-			if (prevIdx < lineInfos.length) {
-				const node = view.nodeDOM(lineInfos[prevIdx]?.from);
-				if (node instanceof HTMLElement) {
-					const nodeRect = node.getBoundingClientRect();
-					const top = nodeRect.bottom - editorRect.top;
-					if (nodeRect.height > 0 && top > 0) {
-						const marker = createMarker(entry, onMarkerClick);
-						marker.style.top = `${top}px`;
-						gutterEl.appendChild(marker);
-					}
-				}
+		if (lineIdx >= 0 && lineIdx < state.lineInfos.length) {
+			lineInfo = state.lineInfos[lineIdx];
+		}
+
+		// Fall back to text matching if line moved
+		if (!lineInfo || markedPositions.has(lineInfo.from)) {
+			const matchText = entry.after ?? entry.before;
+			if (matchText !== null) {
+				lineInfo = findLineByText(state.lineInfos, matchText);
 			}
 		}
+
+		if (!lineInfo || markedPositions.has(lineInfo.from)) continue;
+
+		const node = view.nodeDOM(lineInfo.from);
+		if (!(node instanceof HTMLElement)) continue;
+
+		const nodeRect = node.getBoundingClientRect();
+		const top = nodeRect.top - editorRect.top;
+		if (nodeRect.height <= 0 || top <= 0) continue;
+
+		const marker = createMarker(entry, onMarkerClick);
+		marker.style.top = `${top}px`;
+		marker.style.height =
+			entry.type === "deleted" ? "2px" : `${nodeRect.height}px`;
+		gutterEl.appendChild(marker);
+		markedPositions.add(lineInfo.from);
 	}
 }
 
 export function createDiffTrackerPlugin(
 	onDiffUpdate?: DiffUpdateCallback,
 	onMarkerClick?: MarkerClickCallback,
+	getPersistedDiffs?: PersistedDiffsGetter,
 ) {
+	const emptyDiffs: readonly LineDiffEntry[] = [];
+
 	return $prose(() => {
 		let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 		let editorView: EditorView | null = null;
@@ -180,12 +193,21 @@ export function createDiffTrackerPlugin(
 				init(_, state): DiffTrackerState {
 					const lineInfos = extractLines(state.doc);
 					const baseline = lineInfos.map((l) => l.text);
-					return { baseline, currentDiff: [], lineInfos };
+					return {
+						baseline,
+						currentDiff: [],
+						lineInfos,
+					};
 				},
 
 				apply(tr: Transaction, prev: DiffTrackerState): DiffTrackerState {
 					const meta = tr.getMeta(diffTrackerKey);
-					if (meta) return meta as DiffTrackerState;
+
+					// Handle full state update (from debounced diff computation)
+					if (meta?.currentDiff) {
+						return meta as DiffTrackerState;
+					}
+
 					if (!tr.docChanged) return prev;
 
 					if (debounceTimer !== null) clearTimeout(debounceTimer);
@@ -213,7 +235,11 @@ export function createDiffTrackerPlugin(
 						editorView.dispatch(tr);
 					}, DEBOUNCE_MS);
 
-					return prev;
+					// Update lineInfos immediately for marker repositioning
+					return {
+						...prev,
+						lineInfos: extractLines(tr.doc),
+					};
 				},
 			},
 
@@ -223,26 +249,49 @@ export function createDiffTrackerPlugin(
 				gutterEl = document.createElement("div");
 				gutterEl.className = "milkdown-diff-gutter";
 				gutterEl.setAttribute("data-diff-gutter", "true");
+
 				const wrapper = view.dom.parentElement;
 				if (wrapper) {
 					wrapper.style.position = "relative";
 					wrapper.insertBefore(gutterEl, view.dom);
 				}
 
+				// Schedule initial render after first paint (DOM needs layout)
+				requestAnimationFrame(() => {
+					if (!gutterEl || !editorView) return;
+					const pluginState = diffTrackerKey.getState(editorView.state);
+					if (!pluginState) return;
+					const persisted = getPersistedDiffs?.() ?? emptyDiffs;
+					const hasLive = pluginState.currentDiff.some(
+						(e) => e.type !== "unchanged",
+					);
+					if (hasLive || persisted.length > 0) {
+						renderAllMarkers(
+							gutterEl,
+							editorView,
+							pluginState,
+							persisted,
+							onMarkerClick,
+						);
+					}
+				});
+
 				return {
 					update(view) {
 						const pluginState = diffTrackerKey.getState(view.state);
 						if (!pluginState || !gutterEl) return;
 
-						const hasChanges = pluginState.currentDiff.some(
+						const persisted = getPersistedDiffs?.() ?? emptyDiffs;
+						const hasLive = pluginState.currentDiff.some(
 							(e) => e.type !== "unchanged",
 						);
-						if (hasChanges) {
-							renderGutter(
+
+						if (hasLive || persisted.length > 0) {
+							renderAllMarkers(
 								gutterEl,
 								view,
-								pluginState.currentDiff,
-								pluginState.lineInfos,
+								pluginState,
+								persisted,
 								onMarkerClick,
 							);
 						} else {
