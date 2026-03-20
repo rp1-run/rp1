@@ -2,8 +2,7 @@
 
 **Type**: Monorepo
 **Languages**: TypeScript, TSX, Markdown, JSON, YAML, TOML, Shell, Python, CSS, HTML
-**Version**: 0.5.2
-**Updated**: 2026-03-19
+**Updated**: 2026-03-20
 **Projects**: 7 (`cli`, `cli/web-ui`, `plugins/base`, `plugins/dev`, `plugins/utils`, `evals`, `packages/catppuccin-mermaid`)
 
 ## Project Summary
@@ -16,7 +15,7 @@ rp1 is a plugin-driven AI development workflow system built around a Bun and Typ
 |--------|-------|
 | Entry Point | `cli/src/main.ts` |
 | Key Pattern | Skill-as-orchestrator with agent delegation |
-| Tech Stack | Bun, TypeScript, React, Vite, Tailwind CSS, Commit Mono, warm stone design system, Commander, fp-ts, SQLite |
+| Tech Stack | Bun, TypeScript, React, Vite, Tailwind CSS, Commit Mono, Commander, fp-ts, SQLite |
 
 ## Projects Overview
 
@@ -36,12 +35,10 @@ rp1 is a plugin-driven AI development workflow system built around a Bun and Typ
 
 | File | Lines | Load For |
 |------|-------|----------|
-| architecture.md | ~88 | System design, component relationships, data flows |
-| modules.md | ~68 | Component breakdown, module responsibilities |
-| patterns.md | ~84 | Code conventions, implementation patterns |
-| concept_map.md | ~64 | Domain terminology, business concepts |
-| dependencies.md | ~100 | Inter-project dependencies, shared code |
-| technology-matrix.md | ~84 | Technology decisions, framework choices |
+| architecture.md | 135 | System design, component relationships, data flows |
+| modules.md | 144 | Component breakdown, module responsibilities |
+| patterns.md | 65 | Code conventions, implementation patterns |
+| concept_map.md | 143 | Domain terminology, business concepts |
 
 ## Task-Based Loading
 
@@ -51,7 +48,6 @@ rp1 is a plugin-driven AI development workflow system built around a Bun and Typ
 | Bug investigation | `architecture.md`, `modules.md` |
 | Feature implementation | `modules.md`, `patterns.md` |
 | Strategic analysis | ALL files |
-| Security audit | `architecture.md`, `dependencies.md` |
 
 ## How to Load
 
@@ -78,5 +74,3 @@ rp1/
 - **[modules.md](modules.md)**: Component breakdown
 - **[patterns.md](patterns.md)**: Code conventions
 - **[concept_map.md](concept_map.md)**: Domain terminology
-- **[dependencies.md](dependencies.md)**: Inter-project dependencies
-- **[technology-matrix.md](technology-matrix.md)**: Technology decisions

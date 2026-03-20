@@ -49,7 +49,8 @@ export function useEditAnnotations(
 	opts: UseEditAnnotationsOpts,
 ): UseEditAnnotationsResult {
 	const { docId, runId, artifactPath } = opts;
-	const { createAnnotation, deleteAnnotation } = useAnnotationContextSafe();
+	const { createAnnotation, resolveAnnotation, deleteAnnotation } =
+		useAnnotationContextSafe();
 
 	// Only tracks the annotation created in THIS session — never adopts
 	// existing annotations from previous sessions, so they stay untouched.
@@ -64,8 +65,12 @@ export function useEditAnnotations(
 			const nonUnchanged = diffs.filter((d) => d.type !== "unchanged");
 
 			if (nonUnchanged.length === 0) {
-				// No changes in current session — don't create or modify annotations.
-				// Existing annotations from previous sessions remain as-is.
+				// All changes reverted — resolve the annotation we created in this session.
+				if (editAnnotationIdRef.current) {
+					const idToResolve = editAnnotationIdRef.current;
+					editAnnotationIdRef.current = null;
+					resolveAnnotation(idToResolve).catch(() => {});
+				}
 				return;
 			}
 
@@ -106,7 +111,14 @@ export function useEditAnnotations(
 
 			upsert();
 		},
-		[docId, runId, artifactPath, createAnnotation, deleteAnnotation],
+		[
+			docId,
+			runId,
+			artifactPath,
+			createAnnotation,
+			resolveAnnotation,
+			deleteAnnotation,
+		],
 	);
 
 	return { handleDiffUpdate };
