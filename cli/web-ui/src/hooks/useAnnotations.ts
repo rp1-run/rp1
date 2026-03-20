@@ -101,6 +101,13 @@ function matchesFilter(
 		return false;
 	}
 
+	// Anchor type filter
+	if (filter.anchorType === "edit") {
+		if (annotation.anchor.type !== "edit-diff") return false;
+	} else if (filter.anchorType === "manual") {
+		if (annotation.anchor.type === "edit-diff") return false;
+	}
+
 	return true;
 }
 

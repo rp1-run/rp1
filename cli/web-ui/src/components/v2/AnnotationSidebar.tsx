@@ -1,10 +1,24 @@
-import { AlertTriangle, Filter, MessageSquare, X } from "lucide-react";
+import {
+	AlertTriangle,
+	ChevronDown,
+	ChevronRight,
+	Filter,
+	MessageSquare,
+	Pencil,
+	X,
+} from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useAnnotations } from "@/hooks/useAnnotations";
+import type { LineDiffEntry } from "@/lib/diff-engine";
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { useAnnotationContext } from "@/providers/AnnotationProvider";
-import type { Annotation, AnnotationFilter } from "@/types/annotations";
+import type {
+	AnchorTypeFilter,
+	Annotation,
+	AnnotationFilter,
+	EditDiffAnchor,
+} from "@/types/annotations";
 import { Select } from "./Select";
 
 export interface AnnotationSidebarProps {
@@ -31,7 +45,89 @@ const DATE_OPTIONS: { value: DateRangeValue; label: string }[] = [
 	{ value: "month", label: "This Month" },
 ];
 
+const ANCHOR_TYPE_OPTIONS: { value: AnchorTypeFilter; label: string }[] = [
+	{ value: "all", label: "All Types" },
+	{ value: "edit", label: "Edits" },
+	{ value: "manual", label: "Manual" },
+];
+
 const ALL_AUTHORS_VALUE = "__all__";
+
+function isEditAnnotation(annotation: Annotation): boolean {
+	return annotation.anchor.type === "edit-diff";
+}
+
+function DiffEntryItem({ entry }: { entry: LineDiffEntry }) {
+	const typeLabel =
+		entry.type === "added" ? "+" : entry.type === "deleted" ? "-" : "~";
+	const typeColor =
+		entry.type === "added"
+			? "text-accent"
+			: entry.type === "deleted"
+				? "text-failure"
+				: "text-fg-muted";
+
+	return (
+		<div className="flex gap-1.5 py-0.5 font-mono text-xs leading-relaxed">
+			<span className={cn("shrink-0 w-3 text-center", typeColor)}>
+				{typeLabel}
+			</span>
+			<span className="text-fg-ghost tabular-nums shrink-0 w-5 text-right">
+				{entry.line}
+			</span>
+			<div className="min-w-0 flex-1">
+				{entry.before !== null && (
+					<p className="text-failure/70 line-through truncate">
+						{entry.before || "\u00A0"}
+					</p>
+				)}
+				{entry.after !== null && (
+					<p className="text-fg-muted truncate">{entry.after || "\u00A0"}</p>
+				)}
+			</div>
+		</div>
+	);
+}
+
+function EditDiffDetail({ anchor }: { anchor: EditDiffAnchor }) {
+	const [isDetailExpanded, setIsDetailExpanded] = useState(false);
+	const nonUnchangedDiffs = anchor.diffs.filter((d) => d.type !== "unchanged");
+
+	if (nonUnchangedDiffs.length === 0) return null;
+
+	return (
+		<div className="mt-1.5 ml-4">
+			<button
+				type="button"
+				onClick={(e) => {
+					e.stopPropagation();
+					setIsDetailExpanded(!isDetailExpanded);
+				}}
+				className="flex items-center gap-1 text-xs text-fg-ghost hover:text-fg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+			>
+				{isDetailExpanded ? (
+					<ChevronDown className="h-3 w-3" />
+				) : (
+					<ChevronRight className="h-3 w-3" />
+				)}
+				<span>
+					{nonUnchangedDiffs.length}{" "}
+					{nonUnchangedDiffs.length === 1 ? "change" : "changes"}
+				</span>
+			</button>
+			{isDetailExpanded && (
+				<div className="mt-1 rounded border border-border bg-surface-void/50 px-2 py-1.5 max-h-48 overflow-y-auto">
+					{nonUnchangedDiffs.map((entry, i) => (
+						<DiffEntryItem
+							key={`${entry.line}-${entry.type}-${i}`}
+							entry={entry}
+						/>
+					))}
+				</div>
+			)}
+		</div>
+	);
+}
 
 interface AnnotationItemProps {
 	annotation: Annotation;
@@ -48,8 +144,9 @@ function AnnotationItem({
 }: AnnotationItemProps) {
 	const anchorPreview = getAnchorPreview(annotation);
 	const isResolved = annotation.status === "resolved";
+	const isEdit = isEditAnnotation(annotation);
 	const replyCount = annotation.replies.length;
-	const showTruncation = needsTruncation(annotation.content);
+	const showTruncation = !isEdit && needsTruncation(annotation.content);
 	const displayContent = isExpanded
 		? annotation.content
 		: truncateContent(annotation.content);
@@ -68,19 +165,41 @@ function AnnotationItem({
 				className="w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
 			>
 				<div className="flex items-start gap-2">
-					<div
-						className={cn(
-							"mt-1.5 h-2 w-2 shrink-0 rounded-full",
-							isResolved ? "bg-terminal-green" : "bg-annotation-open",
-						)}
-						role="img"
-						aria-label={isResolved ? "Resolved" : "Open"}
-					/>
+					{isEdit ? (
+						<Pencil
+							className={cn(
+								"mt-1 h-3 w-3 shrink-0",
+								isResolved ? "text-terminal-green" : "text-fg-muted",
+							)}
+							strokeWidth={1.5}
+							role="img"
+							aria-label={isResolved ? "Resolved edit" : "Edit"}
+						/>
+					) : (
+						<div
+							className={cn(
+								"mt-1.5 h-2 w-2 shrink-0 rounded-full",
+								isResolved ? "bg-terminal-green" : "bg-annotation-open",
+							)}
+							role="img"
+							aria-label={isResolved ? "Resolved" : "Open"}
+						/>
+					)}
 					<div className="min-w-0 flex-1">
-						<p className="truncate text-xs text-muted-foreground">
+						<p
+							className={cn(
+								"truncate text-xs",
+								isEdit ? "text-fg-ghost" : "text-muted-foreground",
+							)}
+						>
 							{anchorPreview}
 						</p>
-						<p className="mt-0.5 whitespace-pre-wrap text-sm">
+						<p
+							className={cn(
+								"mt-0.5 whitespace-pre-wrap text-sm",
+								isEdit && "text-fg-muted",
+							)}
+						>
 							{displayContent}
 						</p>
 						<div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
@@ -99,6 +218,9 @@ function AnnotationItem({
 					</div>
 				</div>
 			</button>
+			{isEdit && annotation.anchor.type === "edit-diff" && (
+				<EditDiffDetail anchor={annotation.anchor} />
+			)}
 			{showTruncation && (
 				<button
 					type="button"
@@ -124,6 +246,19 @@ function getAnchorPreview(annotation: Annotation): string {
 			return `#${anchor.anchorId}`;
 		case "line":
 			return `Line ${anchor.lineNumber}`;
+		case "edit-diff": {
+			const counts = { added: 0, modified: 0, deleted: 0 };
+			for (const d of anchor.diffs) {
+				if (d.type !== "unchanged") {
+					counts[d.type]++;
+				}
+			}
+			const parts: string[] = [];
+			if (counts.modified > 0) parts.push(`${counts.modified} modified`);
+			if (counts.added > 0) parts.push(`${counts.added} added`);
+			if (counts.deleted > 0) parts.push(`${counts.deleted} deleted`);
+			return parts.length > 0 ? parts.join(", ") : "No changes";
+		}
 		default:
 			return "Unknown anchor";
 	}
@@ -192,7 +327,8 @@ export function AnnotationSidebar({
 	const hasActiveFilter =
 		filter.status !== "all" ||
 		filter.author !== null ||
-		filter.dateRange !== "all";
+		filter.dateRange !== "all" ||
+		filter.anchorType !== "all";
 
 	const authorOptions = useMemo(() => {
 		const artifactAnnotations = artifactPath
@@ -232,8 +368,20 @@ export function AnnotationSidebar({
 		[filter, setFilter],
 	);
 
+	const handleAnchorTypeChange = useCallback(
+		(anchorType: AnchorTypeFilter) => {
+			setFilter({ ...filter, anchorType });
+		},
+		[filter, setFilter],
+	);
+
 	const handleClearFilters = useCallback(() => {
-		setFilter({ status: "all", author: null, dateRange: "all" });
+		setFilter({
+			status: "all",
+			author: null,
+			dateRange: "all",
+			anchorType: "all",
+		});
 	}, [setFilter]);
 
 	const { selectAnnotation } = useAnnotationContext();
@@ -252,7 +400,8 @@ export function AnnotationSidebar({
 	const hasActiveFilters =
 		filter.status !== "all" ||
 		filter.author !== null ||
-		filter.dateRange !== "all";
+		filter.dateRange !== "all" ||
+		filter.anchorType !== "all";
 
 	return (
 		<aside
@@ -306,6 +455,13 @@ export function AnnotationSidebar({
 						options={STATUS_OPTIONS}
 						onChange={handleStatusChange}
 						label="Filter by status"
+					/>
+					<Select
+						size="sm"
+						value={filter.anchorType}
+						options={ANCHOR_TYPE_OPTIONS}
+						onChange={handleAnchorTypeChange}
+						label="Filter by type"
 					/>
 					<Select
 						size="sm"

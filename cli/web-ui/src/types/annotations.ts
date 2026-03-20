@@ -91,9 +91,13 @@ export interface AddReplyRequest {
 	readonly content: string;
 }
 
+/** Anchor type filter for distinguishing edit vs manual annotations */
+export type AnchorTypeFilter = "all" | "edit" | "manual";
+
 /** Annotation filter options */
 export interface AnnotationFilter {
 	readonly status: AnnotationStatus | "all";
 	readonly author: string | null;
 	readonly dateRange: "today" | "week" | "month" | "all";
+	readonly anchorType: AnchorTypeFilter;
 }
