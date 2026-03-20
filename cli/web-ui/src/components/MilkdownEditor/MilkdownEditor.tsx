@@ -77,7 +77,7 @@ function MilkdownEditorInner({
 		getHighlighter().then((highlighter) => {
 			if (cancelled) return;
 			const parser = createParser(highlighter, {
-				theme: "github-dark-dimmed",
+				themes: { light: "min-light", dark: "min-dark" },
 			});
 			setHighlightConfig({
 				parser,

@@ -534,6 +534,12 @@
     color: inherit;
   }
 
+  /* Milkdown editor: dual-theme syntax highlighting via prosemirror-highlight.
+     In dark mode, override inline color with the --shiki-dark variable. */
+  html.dark .milkdown-editor-root .shiki {
+    color: var(--shiki-dark) !important;
+  }
+
   .milkdown-mermaid-container {
     margin: 16px 0;
     border-radius: 4px;
