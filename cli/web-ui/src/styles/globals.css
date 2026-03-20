@@ -534,6 +534,84 @@
     color: inherit;
   }
 
+  .milkdown-mermaid-container {
+    margin: 16px 0;
+    border-radius: 4px;
+    background-color: hsl(var(--surface));
+    overflow: hidden;
+  }
+
+  .milkdown-mermaid-tabs {
+    display: flex;
+    border-bottom: 1px solid hsl(var(--border));
+  }
+
+  .milkdown-mermaid-tab {
+    padding: 4px 12px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: hsl(var(--fg-ghost));
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: color 150ms;
+  }
+
+  .milkdown-mermaid-tab:hover {
+    color: hsl(var(--fg-muted));
+  }
+
+  .milkdown-mermaid-tab.active {
+    color: hsl(var(--fg));
+    box-shadow: inset 0 -1px 0 hsl(var(--fg));
+  }
+
+  .milkdown-mermaid-code {
+    background-color: hsl(var(--void));
+    padding: 16px;
+    margin: 0;
+    overflow-x: auto;
+  }
+
+  /* In preview mode, collapse the code area without display:none */
+  .milkdown-mermaid-inner[data-tab="preview"] .milkdown-mermaid-code {
+    height: 0;
+    overflow: hidden;
+    padding: 0;
+  }
+
+  .milkdown-mermaid-code code {
+    background: none;
+    padding: 0;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .milkdown-mermaid-preview {
+    display: flex;
+    justify-content: center;
+    padding: 16px;
+    overflow-x: auto;
+  }
+
+  /* In code mode, hide the preview */
+  .milkdown-mermaid-inner[data-tab="code"] .milkdown-mermaid-preview {
+    display: none;
+  }
+
+  .milkdown-mermaid-preview svg {
+    max-width: 100%;
+    height: auto;
+  }
+
+  .milkdown-mermaid-preview.mermaid-error {
+    color: hsl(var(--failure));
+    font-size: 11px;
+    padding: 8px 16px;
+  }
+
   .milkdown-editor-root .ProseMirror a {
     color: hsl(var(--accent));
     text-decoration: underline;

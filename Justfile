@@ -412,3 +412,22 @@ show-evals-status:
 # View eval results in browser
 view-evals:
     cd evals && bunx promptfoo view -n
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Guards
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Check that no tracked files contain internal Artifactory references
+check-no-artifactory:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    pattern='block-artifacts\.com|\.sqprod\.co/artifactory'
+    matches=$(git grep -n -E "$pattern" -- '*.lock' '*lock.json' '*lock.yaml' 2>/dev/null || true)
+    if [ -n "$matches" ]; then
+        echo "ERROR: Internal Artifactory references found in tracked files:"
+        echo "$matches"
+        echo ""
+        echo "Fix: Ensure bunfig.toml points to https://registry.npmjs.org/ and re-run bun install"
+        exit 1
+    fi
+    echo "No Artifactory references found."

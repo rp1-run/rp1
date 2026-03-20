@@ -23,6 +23,7 @@ import {
 	type DiffUpdateCallback,
 	type MarkerClickCallback,
 } from "./diff-tracker-plugin";
+import { createMermaidPlugin } from "./mermaid-plugin";
 
 import "@milkdown/kit/prose/view/style/prosemirror.css";
 
@@ -123,7 +124,10 @@ function MilkdownEditorInner({
 				.use(gfm)
 				.use(history)
 				.use(listener)
+				.use(createMermaidPlugin())
 				.use(diffPlugin);
+
+			// Note: mermaid NodeView must come after commonmark (needs code_block schema)
 
 			if (highlightConfig) {
 				editor.use(highlight);
