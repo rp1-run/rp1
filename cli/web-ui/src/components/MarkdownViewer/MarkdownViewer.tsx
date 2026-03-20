@@ -267,28 +267,32 @@ export function AnnotationLayer({
 				const targetIdx = firstDiff.line - 1;
 				if (targetIdx >= 0 && targetIdx < textBlocks.length) {
 					const targetEl = textBlocks[targetIdx] as HTMLElement;
-					targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
 					if (onEditDiffNavigate) {
 						const showPopover = () => {
 							onEditDiffNavigate(firstDiff, targetEl.getBoundingClientRect());
 						};
-						// Wait for smooth scroll to finish before showing popover
-						const scrollParent =
-							targetEl.closest("[style*='overflow']") ??
-							document.scrollingElement ??
-							document.documentElement;
-						const onScrollEnd = () => {
-							scrollParent.removeEventListener("scrollend", onScrollEnd);
-							requestAnimationFrame(showPopover);
-						};
-						scrollParent.addEventListener("scrollend", onScrollEnd, {
-							once: true,
-						});
-						// Fallback if scrollend doesn't fire (already in view)
-						setTimeout(() => {
-							scrollParent.removeEventListener("scrollend", onScrollEnd);
-							requestAnimationFrame(showPopover);
-						}, 500);
+						// Check if element is already in viewport
+						const rect = targetEl.getBoundingClientRect();
+						const inView = rect.top >= 0 && rect.bottom <= window.innerHeight;
+						if (inView) {
+							showPopover();
+						} else {
+							targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
+							// Wait for scroll to settle, then show
+							let lastY = targetEl.getBoundingClientRect().top;
+							const poll = setInterval(() => {
+								const currentY = targetEl.getBoundingClientRect().top;
+								if (currentY === lastY) {
+									clearInterval(poll);
+									showPopover();
+								}
+								lastY = currentY;
+							}, 50);
+							// Safety cap
+							setTimeout(() => clearInterval(poll), 2000);
+						}
+					} else {
+						targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
 					}
 				}
 			}
