@@ -299,6 +299,8 @@ function ArtifactViewerInner({
 								path={selectedArtifact.path}
 								onHeadingsExtracted={handleHeadingsExtracted}
 								enableAnnotations={ANNOTATIONS_ENABLED}
+								runId={runId}
+								docId={selectedArtifact.docId}
 							/>
 						) : (
 							<div className="flex items-center justify-center py-16">

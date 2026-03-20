@@ -57,6 +57,7 @@ const STORAGE_KEY_ANNOTATIONS_COLLAPSED = "rp1-annotations-collapsed";
 interface ArtifactContent {
 	path: string;
 	content: string;
+	docId?: string;
 }
 
 /**
@@ -362,6 +363,7 @@ export function ArtifactViewerPage() {
 				setArtifactContent({
 					path: selectedArtifactPath,
 					content: data.content,
+					docId: artifact.docId,
 				});
 			} catch (err) {
 				setContentError(err instanceof Error ? err.message : String(err));
@@ -614,6 +616,8 @@ export function ArtifactViewerPage() {
 					path={artifactContent.path}
 					onHeadingsExtracted={handleHeadingsExtracted}
 					enableAnnotations={ANNOTATIONS_ENABLED}
+					runId={runId}
+					docId={artifactContent.docId}
 				/>
 			) : null}
 		</>

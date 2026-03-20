@@ -1,0 +1,31 @@
+.milkdown-diff-gutter {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.milkdown-diff-marker {
+  position: absolute;
+  left: 0;
+  width: 3px;
+  border-radius: 1px;
+}
+
+.milkdown-diff-marker.milkdown-diff-added {
+  background-color: hsl(var(--accent));
+  opacity: 0.6;
+}
+
+.milkdown-diff-marker.milkdown-diff-modified {
+  background-color: hsl(var(--fg-muted));
+  opacity: 0.5;
+}
+
+.milkdown-diff-marker.milkdown-diff-deleted {
+  height: 2px;
+  background-color: hsl(var(--failure));
+  opacity: 0.5;
+}
