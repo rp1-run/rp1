@@ -29,8 +29,8 @@ export function EditDiffPopover({
 	const popoverRef = useRef<HTMLDivElement>(null);
 	const [isPositioned, setIsPositioned] = useState(false);
 	const [popoverPosition, setPopoverPosition] = useState<PopoverPosition>({
-		x: anchorRect.left + anchorRect.width + 8,
-		y: anchorRect.top,
+		x: -9999,
+		y: -9999,
 		side: "right",
 	});
 
