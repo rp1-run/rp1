@@ -15,6 +15,7 @@
 	},
 	"dependencies": {
 		"@milkdown/kit": "^7.19.0",
+		"@milkdown/plugin-highlight": "^7.19.0",
 		"@milkdown/preset-gfm": "^7.19.0",
 		"@milkdown/react": "^7.19.0",
 		"@prosemirror-adapter/react": "^0.5.1",

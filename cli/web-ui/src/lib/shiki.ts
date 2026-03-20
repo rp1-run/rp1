@@ -33,7 +33,7 @@ type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 export async function getHighlighter(): Promise<Highlighter> {
 	if (!highlighterPromise) {
 		highlighterPromise = createHighlighter({
-			themes: ["min-light", "min-dark"],
+			themes: ["min-light", "min-dark", "github-dark-dimmed"],
 			langs: [...SUPPORTED_LANGUAGES],
 		});
 	}

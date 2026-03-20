@@ -4,15 +4,20 @@ import { listener, listenerCtx } from "@milkdown/kit/plugin/listener";
 import { commonmark } from "@milkdown/kit/preset/commonmark";
 import { gfm } from "@milkdown/kit/preset/gfm";
 import type { EditorView } from "@milkdown/kit/prose/view";
+import { highlight, highlightPluginConfig } from "@milkdown/plugin-highlight";
+import { createParser } from "@milkdown/plugin-highlight/shiki";
 import { Milkdown, MilkdownProvider, useEditor } from "@milkdown/react";
 import {
 	forwardRef,
 	useCallback,
+	useEffect,
 	useImperativeHandle,
 	useMemo,
 	useRef,
+	useState,
 } from "react";
 import type { LineDiffEntry } from "../../lib/diff-engine";
+import { getHighlighter, normalizeLanguage } from "../../lib/shiki";
 import {
 	createDiffTrackerPlugin,
 	type DiffUpdateCallback,
@@ -60,6 +65,30 @@ function MilkdownEditorInner({
 	const persistedDiffsRef = useRef<readonly LineDiffEntry[]>([]);
 	persistedDiffsRef.current = persistedDiffs ?? [];
 
+	// Load shiki highlighter before mounting the editor
+	const [highlightConfig, setHighlightConfig] = useState<{
+		parser: ReturnType<typeof createParser>;
+		languageExtractor: (node: { attrs: { language?: string } }) => string;
+	} | null>(null);
+
+	useEffect(() => {
+		let cancelled = false;
+		getHighlighter().then((highlighter) => {
+			if (cancelled) return;
+			const parser = createParser(highlighter, {
+				theme: "github-dark-dimmed",
+			});
+			setHighlightConfig({
+				parser,
+				languageExtractor: (node: { attrs: { language?: string } }) =>
+					normalizeLanguage(node.attrs.language || "typescript"),
+			});
+		});
+		return () => {
+			cancelled = true;
+		};
+	}, []);
+
 	const onChange = useCallback(
 		(_ctx: unknown, markdown: string, prevMarkdown: string) => {
 			if (markdown !== prevMarkdown) {
@@ -80,19 +109,29 @@ function MilkdownEditorInner({
 	);
 
 	useEditor(
-		(root) =>
-			Editor.make()
+		(root) => {
+			const editor = Editor.make()
 				.config((ctx) => {
 					ctx.set(rootCtx, root);
 					ctx.set(defaultValueCtx, content);
 					ctx.get(listenerCtx).markdownUpdated(onChange);
+					if (highlightConfig) {
+						ctx.set(highlightPluginConfig.key, highlightConfig);
+					}
 				})
 				.use(commonmark)
 				.use(gfm)
 				.use(history)
 				.use(listener)
-				.use(diffPlugin),
-		[],
+				.use(diffPlugin);
+
+			if (highlightConfig) {
+				editor.use(highlight);
+			}
+
+			return editor;
+		},
+		[highlightConfig],
 	);
 
 	useImperativeHandle(

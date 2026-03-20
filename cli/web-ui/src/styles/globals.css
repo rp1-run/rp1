@@ -531,6 +531,7 @@
     padding: 0;
     font-size: 13px;
     line-height: 1.5;
+    color: inherit;
   }
 
   .milkdown-editor-root .ProseMirror a {
