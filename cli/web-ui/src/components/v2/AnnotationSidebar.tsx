@@ -24,7 +24,6 @@ import { Select } from "./Select";
 export interface AnnotationSidebarProps {
 	artifactPath: string;
 	onClose: () => void;
-	onNavigateToAnnotation?: (annotation: Annotation) => void;
 	className?: string;
 }
 
@@ -319,7 +318,6 @@ function truncateContent(content: string): string {
 export function AnnotationSidebar({
 	artifactPath,
 	onClose,
-	onNavigateToAnnotation: _onNavigateToAnnotation,
 	className,
 }: AnnotationSidebarProps) {
 	const [showFilters, setShowFilters] = useState(false);

@@ -39,7 +39,7 @@ import { useIsMobile } from "@/hooks/useMediaQuery";
 import { useProjectFileTree } from "@/hooks/useProjectFileTree";
 import { AnnotationProvider } from "@/providers/AnnotationProvider";
 import { useWebSocket } from "@/providers/WebSocketProvider";
-import type { Annotation } from "@/types/annotations";
+
 import type { FileContent } from "../../server/routes/content-utils";
 
 const ANNOTATIONS_ENABLED =
@@ -327,68 +327,6 @@ export function FileBrowserPage() {
 			sessionStorage.setItem(STORAGE_KEY_ANNOTATIONS_COLLAPSED, String(!open));
 		}
 	}, []);
-
-	const handleNavigateToAnnotation = useCallback(
-		(annotation: Annotation) => {
-			const anchor = annotation.anchor;
-			let targetElement: Element | null = null;
-
-			switch (anchor.type) {
-				case "hidden-anchor": {
-					targetElement = document.getElementById(anchor.anchorId);
-					break;
-				}
-				case "line": {
-					const lineElements = document.querySelectorAll(
-						`[data-line-number="${anchor.lineNumber}"]`,
-					);
-					if (lineElements.length > 0) {
-						targetElement = lineElements[0];
-					}
-					break;
-				}
-				case "text-selection": {
-					const highlightElements = document.querySelectorAll(
-						`[data-annotation-id="${annotation.id}"]`,
-					);
-					if (highlightElements.length > 0) {
-						targetElement = highlightElements[0];
-					}
-					break;
-				}
-				case "edit-diff": {
-					const firstDiff = anchor.diffs.find((d) => d.type !== "unchanged");
-					if (firstDiff) {
-						const editor = document.querySelector(
-							".milkdown-editor-root .ProseMirror",
-						);
-						if (editor) {
-							const textblocks = editor.querySelectorAll(
-								"p, h1, h2, h3, h4, h5, h6, li, pre, blockquote, hr",
-							);
-							const idx = firstDiff.line - 1;
-							if (idx >= 0 && idx < textblocks.length) {
-								targetElement = textblocks[idx];
-							}
-						}
-					}
-					break;
-				}
-			}
-
-			if (targetElement) {
-				targetElement.scrollIntoView({
-					behavior: "smooth",
-					block: "center",
-				});
-			}
-
-			if (isMobile) {
-				setAnnotationDrawerOpen(false);
-			}
-		},
-		[isMobile],
-	);
 
 	const handleTocNavigate = useCallback((id: string) => {
 		const element = document.getElementById(id);
@@ -688,7 +626,6 @@ export function FileBrowserPage() {
 						<AnnotationSidebar
 							artifactPath={selectedPath ?? ""}
 							onClose={() => setAnnotationDrawerOpen(false)}
-							onNavigateToAnnotation={handleNavigateToAnnotation}
 							className="border-l-0 w-full"
 						/>
 					</Drawer>
@@ -832,7 +769,6 @@ export function FileBrowserPage() {
 							<AnnotationSidebar
 								artifactPath={selectedPath ?? ""}
 								onClose={() => handleToggleAnnotationSidebar(false)}
-								onNavigateToAnnotation={handleNavigateToAnnotation}
 								className="h-full"
 							/>
 						</ResizablePanel>
