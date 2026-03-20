@@ -122,8 +122,9 @@ function renderGutterFromPersisted(
 	diffs: readonly LineDiffEntry[],
 	lineInfos: readonly LineInfo[],
 	onMarkerClick?: MarkerClickCallback,
+	append = false,
 ) {
-	gutterEl.innerHTML = "";
+	if (!append) gutterEl.innerHTML = "";
 	const editorRect = view.dom.getBoundingClientRect();
 
 	for (const entry of diffs) {
@@ -268,6 +269,27 @@ export function createDiffTrackerPlugin(
 								pluginState.lineInfos,
 								onMarkerClick,
 							);
+							// Also show persisted diffs from previous sessions
+							if (initialDiffs?.length) {
+								const liveLines = new Set(
+									pluginState.currentDiff
+										.filter((e) => e.type !== "unchanged")
+										.map((e) => e.line),
+								);
+								const nonOverlapping = initialDiffs.filter(
+									(d) => !liveLines.has(d.line),
+								);
+								if (nonOverlapping.length > 0) {
+									renderGutterFromPersisted(
+										gutterEl,
+										view,
+										nonOverlapping,
+										pluginState.lineInfos,
+										onMarkerClick,
+										true,
+									);
+								}
+							}
 						} else if (initialDiffs?.length) {
 							renderGutterFromPersisted(
 								gutterEl,

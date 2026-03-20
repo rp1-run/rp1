@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { LineDiffEntry } from "@/lib/diff-engine";
 import { useAnnotationContextSafe } from "@/providers/AnnotationProvider";
 import type { EditDiffAnchor } from "@/types/annotations";
@@ -49,11 +49,30 @@ export function useEditAnnotations(
 	opts: UseEditAnnotationsOpts,
 ): UseEditAnnotationsResult {
 	const { docId, runId, artifactPath } = opts;
-	const { createAnnotation, resolveAnnotation, deleteAnnotation } =
-		useAnnotationContextSafe();
+	const {
+		createAnnotation,
+		resolveAnnotation,
+		deleteAnnotation,
+		getAnnotationsForArtifact,
+	} = useAnnotationContextSafe();
 
 	const editAnnotationIdRef = useRef<string | null>(null);
 	const pendingRef = useRef(false);
+	const initializedRef = useRef(false);
+
+	// On mount, find existing open edit annotation for this artifact
+	useEffect(() => {
+		if (initializedRef.current || !artifactPath) return;
+		initializedRef.current = true;
+
+		const existing = getAnnotationsForArtifact(artifactPath);
+		for (const ann of existing) {
+			if (ann.anchor.type === "edit-diff" && ann.status === "open") {
+				editAnnotationIdRef.current = ann.id;
+				break;
+			}
+		}
+	}, [artifactPath, getAnnotationsForArtifact]);
 
 	const handleDiffUpdate = useCallback(
 		(diffs: LineDiffEntry[], baselineHash: string) => {
