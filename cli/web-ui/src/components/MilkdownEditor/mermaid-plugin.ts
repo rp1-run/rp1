@@ -144,9 +144,15 @@ function mermaidNodeView(_ctx: Ctx): NodeViewConstructor {
 		return {
 			dom: container,
 			contentDOM: codeEl,
+			ignoreMutation(mutation: MutationRecord) {
+				// ProseMirror owns contentDOM (the <code> element) — let it
+				// handle mutations there. Everything else (tab bar, preview
+				// panel, inner wrapper attributes) is our UI chrome — ignore.
+				if (mutation.type === "selection") return false;
+				const target = mutation.target as Node;
+				return !codeEl.contains(target);
+			},
 			stopEvent(event) {
-				// Let ProseMirror handle events inside the code area (contentDOM)
-				// but stop it from handling events in the tab bar and preview
 				const target = event.target as HTMLElement;
 				return !codeEl.contains(target) && !pre.contains(target);
 			},
