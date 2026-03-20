@@ -13,24 +13,35 @@
   cursor: pointer;
   position: absolute;
   left: 0;
-  width: 3px;
-  border-radius: 1px;
-  padding-right: 9px;
-  background-clip: content-box;
+  width: 12px;
+  background: transparent;
 }
 
-.milkdown-diff-marker.milkdown-diff-added {
+.milkdown-diff-marker::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 1px;
+}
+
+.milkdown-diff-marker.milkdown-diff-added::before {
   background-color: hsl(var(--accent));
   opacity: 0.6;
 }
 
-.milkdown-diff-marker.milkdown-diff-modified {
+.milkdown-diff-marker.milkdown-diff-modified::before {
   background-color: hsl(var(--fg-muted));
   opacity: 0.5;
 }
 
 .milkdown-diff-marker.milkdown-diff-deleted {
   height: 2px;
+}
+
+.milkdown-diff-marker.milkdown-diff-deleted::before {
   background-color: hsl(var(--failure));
   opacity: 0.5;
 }
