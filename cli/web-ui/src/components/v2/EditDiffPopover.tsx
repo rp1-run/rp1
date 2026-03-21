@@ -16,8 +16,8 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 const TYPE_COLORS: Record<string, string> = {
-	added: "text-accent",
-	modified: "text-terminal-yellow",
+	added: "text-diff-added",
+	modified: "text-diff-modified",
 	deleted: "text-failure",
 };
 
@@ -125,10 +125,7 @@ export function EditDiffPopover({
 						<span className="type-secondary text-fg-ghost block mb-0.5">
 							Before
 						</span>
-						<pre
-							className="whitespace-pre-wrap break-words font-mono text-xs max-h-[120px] overflow-y-auto"
-							style={{ color: "hsl(0 60% 65%)" }}
-						>
+						<pre className="whitespace-pre-wrap break-words font-mono text-xs max-h-[120px] overflow-y-auto text-failure">
 							{entry.before || "\u00A0"}
 						</pre>
 					</div>
@@ -138,10 +135,7 @@ export function EditDiffPopover({
 						<span className="type-secondary text-fg-ghost block mb-0.5">
 							After
 						</span>
-						<pre
-							className="whitespace-pre-wrap break-words font-mono text-xs max-h-[120px] overflow-y-auto"
-							style={{ color: "hsl(140 60% 60%)" }}
-						>
+						<pre className="whitespace-pre-wrap break-words font-mono text-xs max-h-[120px] overflow-y-auto text-diff-added">
 							{entry.after || "\u00A0"}
 						</pre>
 					</div>

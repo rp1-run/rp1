@@ -85,10 +85,10 @@ function DiffEntryItem({
 		entry.type === "added" ? "+" : entry.type === "deleted" ? "-" : "~";
 	const typeColor =
 		entry.type === "added"
-			? "text-accent"
+			? "text-diff-added"
 			: entry.type === "deleted"
 				? "text-failure"
-				: "text-fg-muted";
+				: "text-diff-modified";
 
 	return (
 		<button

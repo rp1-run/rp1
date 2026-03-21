@@ -28,12 +28,12 @@
 }
 
 .milkdown-diff-marker.milkdown-diff-added::before {
-  background-color: hsl(var(--accent));
+  background-color: hsl(var(--diff-added));
   opacity: 0.6;
 }
 
 .milkdown-diff-marker.milkdown-diff-modified::before {
-  background-color: hsl(var(--fg-muted));
+  background-color: hsl(var(--diff-modified));
   opacity: 0.5;
 }
 

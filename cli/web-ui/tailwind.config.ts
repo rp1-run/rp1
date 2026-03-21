@@ -56,6 +56,10 @@ const config: Config = {
 					ghost: "hsl(var(--fg-ghost))",
 				},
 				failure: "hsl(var(--failure))",
+				"diff-added": "hsl(var(--diff-added))",
+				"diff-modified": "hsl(var(--diff-modified))",
+				"terminal-green": "hsl(var(--terminal-green))",
+				"terminal-yellow": "hsl(var(--terminal-yellow))",
 				annotation: {
 					open: "hsl(var(--annotation-open))",
 				},
