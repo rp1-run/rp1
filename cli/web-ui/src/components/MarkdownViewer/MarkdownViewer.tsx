@@ -34,18 +34,6 @@ import { CodeBlock } from "./CodeBlock";
 import { MarkdownLink } from "./MarkdownLink";
 import { MermaidDiagram } from "./MermaidDiagram";
 
-function _findScrollParent(el: HTMLElement): HTMLElement {
-	let parent = el.parentElement;
-	while (parent) {
-		const { overflow, overflowY } = getComputedStyle(parent);
-		if (/(auto|scroll)/.test(overflow + overflowY)) {
-			return parent;
-		}
-		parent = parent.parentElement;
-	}
-	return document.documentElement;
-}
-
 export interface MarkdownViewerProps {
 	content: string;
 	path: string;
