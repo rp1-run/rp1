@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { getEditableText } from "@/lib/editable-text-nodes";
 import type { HiddenAnchor, TextSelectionAnchor } from "@/types/annotations";
 
 /** Anchor rectangle for popover positioning */
@@ -51,13 +52,21 @@ const DEFAULT_SHOW_DELAY = 250;
 /**
  * Extract text content from a container element.
  */
+function isEditableElement(node: Node): boolean {
+	if (!(node instanceof HTMLElement)) return true;
+	return node.getAttribute("contenteditable") !== "false";
+}
+
 function getContainerText(container: Node): string {
+	if (container instanceof HTMLElement) {
+		return getEditableText(container);
+	}
 	return container.textContent ?? "";
 }
 
 /**
  * Calculate the offset of a range's boundary within a container's text content.
- * Traverses DOM nodes in document order to find the text offset.
+ * Traverses DOM nodes in document order, skipping non-editable UI chrome.
  */
 function calculateTextOffset(
 	container: Node,
@@ -67,6 +76,13 @@ function calculateTextOffset(
 	let offset = 0;
 
 	function traverse(node: Node): boolean {
+		// Skip non-editable elements (mermaid tabs, action buttons, line numbers)
+		if (node instanceof HTMLElement && !isEditableElement(node)) {
+			// But still check if the target is inside — shouldn't happen
+			// for user selections, but handle gracefully
+			return node.contains(targetNode);
+		}
+
 		if (node === targetNode) {
 			if (node.nodeType === Node.TEXT_NODE) {
 				offset += targetOffset;
