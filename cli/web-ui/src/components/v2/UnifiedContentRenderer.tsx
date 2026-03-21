@@ -1,4 +1,11 @@
-import { AlertCircle, Check, FileText, RefreshCw } from "lucide-react";
+import {
+	AlertCircle,
+	Check,
+	ChevronDown,
+	ChevronRight,
+	FileText,
+	RefreshCw,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MarkdownViewer } from "@/components/MarkdownViewer";
 import { AnnotationLayer } from "@/components/MarkdownViewer/MarkdownViewer";
@@ -48,6 +55,35 @@ function SaveStatusIndicator({ status }: { readonly status: SaveStatus }) {
 					<AlertCircle className="h-3 w-3" />
 					Save failed
 				</span>
+			)}
+		</div>
+	);
+}
+
+function FrontmatterBlock({ raw }: { readonly raw: string }) {
+	const [isExpanded, setIsExpanded] = useState(false);
+	const inner = raw.replace(/^---\r?\n/, "").replace(/\r?\n---\r?\n$/, "");
+
+	return (
+		<div className="mb-2 rounded border border-border bg-surface-void overflow-hidden">
+			<button
+				type="button"
+				onClick={() => setIsExpanded(!isExpanded)}
+				className="flex items-center gap-1.5 w-full px-3 py-1.5 text-left"
+			>
+				{isExpanded ? (
+					<ChevronDown className="h-3 w-3 text-fg-ghost" strokeWidth={1.5} />
+				) : (
+					<ChevronRight className="h-3 w-3 text-fg-ghost" strokeWidth={1.5} />
+				)}
+				<span className="type-secondary text-fg-ghost tracking-wider uppercase">
+					Frontmatter
+				</span>
+			</button>
+			{isExpanded && (
+				<pre className="px-3 pb-2 font-mono text-xs text-fg-ghost leading-relaxed select-text">
+					{inner}
+				</pre>
 			)}
 		</div>
 	);
@@ -191,6 +227,7 @@ function MarkdownEditorWithSave({
 				<div className="absolute top-0 right-0 z-10 px-2 py-1">
 					<SaveStatusIndicator status={saveStatus} />
 				</div>
+				{frontmatter && <FrontmatterBlock raw={frontmatter} />}
 				<article ref={editorContainerRef}>
 					<MilkdownEditor
 						ref={editorRef}
