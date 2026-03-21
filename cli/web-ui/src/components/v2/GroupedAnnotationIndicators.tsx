@@ -310,7 +310,6 @@ export function GroupedAnnotationIndicators({
 			setGroups(groupByProximity(positions));
 		};
 
-		// Initial compute after layout settles
 		const timeoutId = setTimeout(compute, 100);
 
 		// Recompute when container DOM changes (e.g., Shiki highlighting completes)

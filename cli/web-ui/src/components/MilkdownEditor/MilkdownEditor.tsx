@@ -43,7 +43,6 @@ function MilkdownEditorInner({
 }) {
 	const viewRef = useRef<EditorView | undefined>(undefined);
 
-	// Load shiki highlighter before mounting the editor
 	const [highlightConfig, setHighlightConfig] = useState<{
 		parser: ReturnType<typeof createParser>;
 		languageExtractor: (node: { attrs: { language?: string } }) => string;

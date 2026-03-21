@@ -80,7 +80,6 @@ function DiagramAnnotationPopover({
 		textareaRef.current?.focus();
 	}, []);
 
-	// Click outside to close
 	useEffect(() => {
 		const handleClickOutside = (e: MouseEvent) => {
 			if (
@@ -158,7 +157,6 @@ function DiagramAnnotationPopover({
 
 	const canSubmit = content.trim().length > 0 && !isSubmitting;
 
-	// Position below the button
 	const buttonRect = buttonRef.current?.getBoundingClientRect();
 	const left = buttonRect ? buttonRect.right - 280 : 0;
 	const top = buttonRect ? buttonRect.bottom + 4 : 0;
@@ -256,7 +254,6 @@ export function MermaidDiagram({
 	const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 	const annotateButtonRef = useRef<HTMLButtonElement>(null);
 
-	// Find existing diagram annotation
 	const { annotations } = useAnnotations({ artifactPath: artifactPath ?? "" });
 
 	const diagramFirstLine = useMemo(() => code.split("\n")[0] ?? "", [code]);
@@ -273,7 +270,6 @@ export function MermaidDiagram({
 
 	const handleAnnotateButtonClick = useCallback(() => {
 		if (diagramAnnotation) {
-			// Existing annotation — open the view popover
 			const btnRect = annotateButtonRef.current?.getBoundingClientRect();
 			if (btnRect) {
 				setAnnotationPopoverState({
@@ -292,7 +288,6 @@ export function MermaidDiagram({
 				});
 			}
 		} else {
-			// No annotation yet — open create form
 			setAnnotationPopoverState({ mode: "create" });
 		}
 	}, [diagramAnnotation]);
