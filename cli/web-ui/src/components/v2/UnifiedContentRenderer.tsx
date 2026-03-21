@@ -89,16 +89,7 @@ function FrontmatterBlock({ raw }: { readonly raw: string }) {
 	);
 }
 
-const FRONTMATTER_RE = /^---\r?\n[\s\S]*?\r?\n---\r?\n/;
-
-function stripFrontmatter(markdown: string): {
-	body: string;
-	frontmatter: string;
-} {
-	const match = markdown.match(FRONTMATTER_RE);
-	if (!match) return { body: markdown, frontmatter: "" };
-	return { body: markdown.slice(match[0].length), frontmatter: match[0] };
-}
+import { restoreFrontmatter, stripFrontmatter } from "@/lib/frontmatter";
 
 function MarkdownEditorWithSave({
 	content,
@@ -176,7 +167,10 @@ function MarkdownEditorWithSave({
 					const response = await fetch(`/api/v2/runs/${runId}/artifacts/save`, {
 						method: "PUT",
 						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify({ path, content: frontmatter + markdown }),
+						body: JSON.stringify({
+							path,
+							content: restoreFrontmatter(frontmatter, markdown),
+						}),
 					});
 					if (!response.ok) {
 						setSaveStatus("error");
