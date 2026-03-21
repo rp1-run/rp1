@@ -34,7 +34,7 @@ import { CodeBlock } from "./CodeBlock";
 import { MarkdownLink } from "./MarkdownLink";
 import { MermaidDiagram } from "./MermaidDiagram";
 
-function findScrollParent(el: HTMLElement): HTMLElement {
+function _findScrollParent(el: HTMLElement): HTMLElement {
 	let parent = el.parentElement;
 	while (parent) {
 		const { overflow, overflowY } = getComputedStyle(parent);
