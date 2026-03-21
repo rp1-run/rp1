@@ -1,13 +1,16 @@
 /**
  * REST API endpoints for artifact file operations.
- * Provides save-to-disk functionality for edited artifacts with path validation.
+ * Provides save-to-disk functionality for edited artifacts with path validation,
+ * and on-demand unified diff computation for agent consumption.
  */
 
 import type { Database } from "bun:sqlite";
 import { resolve } from "node:path";
+import { createTwoFilesPatch } from "diff";
 import * as E from "fp-ts/lib/Either.js";
 import { formatError } from "../../../../shared/errors.js";
 import {
+	getArtifactBaseline,
 	getEmitDatabase,
 	getRunById,
 	setArtifactBaseline,
@@ -102,5 +105,46 @@ export async function handleArtifactSaveRequest(
 		return jsonResponse({ saved: true, path: absolutePath });
 	} catch (error) {
 		return errorResponse(`Failed to save artifact: ${String(error)}`);
+	}
+}
+
+export async function handleArtifactPatchRequest(
+	docId: string,
+): Promise<Response> {
+	try {
+		const db = await getDb();
+		const artifact = getArtifactBaseline(db, docId);
+
+		if (!artifact) {
+			return errorResponse(`Artifact not found: ${docId}`, 404);
+		}
+
+		if (artifact.baseline === null) {
+			return jsonResponse({ patch: null, message: "No edits recorded" });
+		}
+
+		const absolutePath = resolve(artifact.projectPath, artifact.path);
+		const file = Bun.file(absolutePath);
+
+		if (!(await file.exists())) {
+			return jsonResponse({ patch: null, message: "File not found on disk" });
+		}
+
+		const currentContent = await file.text();
+
+		if (artifact.baseline === currentContent) {
+			return jsonResponse({ patch: null, message: "No changes" });
+		}
+
+		const patch = createTwoFilesPatch(
+			`a/${artifact.path}`,
+			`b/${artifact.path}`,
+			artifact.baseline,
+			currentContent,
+		);
+
+		return jsonResponse({ patch });
+	} catch (error) {
+		return errorResponse(`Failed to compute patch: ${String(error)}`);
 	}
 }

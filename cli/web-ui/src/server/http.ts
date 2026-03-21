@@ -179,6 +179,18 @@ async function handleV2ApiRequest(
 		return handleV2RunsAttentionRequest();
 	}
 
+	// Artifact patch endpoint (must match before general artifact routes)
+	const artifactPatchMatch = pathname.match(
+		/^\/api\/v2\/artifacts\/([^/]+)\/patch$/,
+	);
+	if (artifactPatchMatch && method === "GET") {
+		const { handleArtifactPatchRequest } = await import(
+			"./routes/artifacts-api"
+		);
+		const docId = decodeURIComponent(artifactPatchMatch[1]);
+		return handleArtifactPatchRequest(docId);
+	}
+
 	// Artifact save must be matched before artifact content (more specific route first)
 	const artifactSaveMatch = pathname.match(
 		/^\/api\/v2\/runs\/([^/]+)\/artifacts\/save$/,

@@ -1,8 +1,6 @@
 /**
- * Unit tests for artifact save endpoint path validation and baseline capture.
- * Tests directory traversal prevention, project root boundary enforcement,
- * non-existent file rejection, valid write success, and baseline capture on
- * first save with non-overwrite on subsequent saves.
+ * Unit tests for artifact save endpoint path validation, baseline capture,
+ * and patch (unified diff) endpoint.
  */
 
 import { Database } from "bun:sqlite";
@@ -42,10 +40,27 @@ mock.module("../../../../src/agent-tools/emit/database.js", () => ({
 			updatedAt: new Date().toISOString(),
 		};
 	},
-	setArtifactBaseline: (db: Database, docId: string, baseline: string) => {
+	setArtifactBaseline: (db: Database, dId: string, baseline: string) => {
 		db.prepare(
 			"UPDATE artifacts SET baseline = $baseline WHERE doc_id = $docId",
-		).run({ $baseline: baseline, $docId: docId });
+		).run({ $baseline: baseline, $docId: dId });
+	},
+	getArtifactBaseline: (db: Database, dId: string) => {
+		const row = db
+			.prepare(
+				"SELECT baseline, path, project_path FROM artifacts WHERE doc_id = $docId",
+			)
+			.get({ $docId: dId }) as {
+			baseline: string | null;
+			path: string;
+			project_path: string;
+		} | null;
+		if (!row) return null;
+		return {
+			baseline: row.baseline,
+			path: row.path,
+			projectPath: row.project_path,
+		};
 	},
 }));
 
@@ -56,6 +71,7 @@ mock.module("../../server/registry", () => ({
 }));
 
 import {
+	handleArtifactPatchRequest,
 	handleArtifactSaveRequest,
 	validateSavePath,
 } from "../../server/routes/artifacts-api";
@@ -219,5 +235,159 @@ describe("handleArtifactSaveRequest baseline capture", () => {
 
 		const fileAfterSecond = await Bun.file(join(tmpDir, artifactPath)).text();
 		expect(fileAfterSecond).toBe(secondEditContent);
+	});
+});
+
+describe("handleArtifactPatchRequest", () => {
+	const patchDocId = "patch-doc-001";
+	const patchArtifactPath = "docs/patch-test.md";
+	const patchOriginal = "line one\nline two\nline three\n";
+	let patchTmpDir: string;
+	let patchDb: Database;
+
+	beforeAll(async () => {
+		patchTmpDir = await mkdtemp(join(tmpdir(), "rp1-patch-test-"));
+
+		patchDb = new Database(":memory:");
+		patchDb.exec("PRAGMA foreign_keys = ON;");
+		patchDb.exec(`
+			CREATE TABLE schema_version (version INTEGER NOT NULL);
+			INSERT INTO schema_version (version) VALUES (4);
+
+			CREATE TABLE runs (
+				id TEXT PRIMARY KEY NOT NULL,
+				flow TEXT NOT NULL,
+				feature_id TEXT NOT NULL,
+				project_path TEXT NOT NULL,
+				status TEXT NOT NULL DEFAULT 'not_started',
+				created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+				updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+			);
+
+			CREATE TABLE artifacts (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				doc_id TEXT UNIQUE NOT NULL,
+				run_id TEXT REFERENCES runs(id),
+				path TEXT NOT NULL,
+				type TEXT NOT NULL DEFAULT 'other',
+				project_path TEXT NOT NULL,
+				feature TEXT NOT NULL,
+				step TEXT,
+				subflow INTEGER NOT NULL DEFAULT 0,
+				baseline TEXT DEFAULT NULL,
+				created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+			);
+		`);
+
+		patchDb
+			.prepare(
+				"INSERT INTO runs (id, flow, feature_id, project_path) VALUES ($id, $flow, $featureId, $projectPath)",
+			)
+			.run({
+				$id: "patch-run-001",
+				$flow: "build",
+				$featureId: "test-feature",
+				$projectPath: patchTmpDir,
+			});
+
+		patchDb
+			.prepare(
+				"INSERT INTO artifacts (doc_id, run_id, path, type, project_path, feature) VALUES ($docId, $runId, $path, $type, $projectPath, $feature)",
+			)
+			.run({
+				$docId: patchDocId,
+				$runId: "patch-run-001",
+				$path: patchArtifactPath,
+				$type: "markdown",
+				$projectPath: patchTmpDir,
+				$feature: "test-feature",
+			});
+
+		await Bun.write(join(patchTmpDir, patchArtifactPath), patchOriginal);
+
+		testDb = patchDb;
+	});
+
+	afterAll(async () => {
+		patchDb?.close();
+		if (patchTmpDir) await rm(patchTmpDir, { recursive: true, force: true });
+	});
+
+	test("returns 404 when artifact doc_id is not found", async () => {
+		const response = await handleArtifactPatchRequest("nonexistent-doc");
+		expect(response.status).toBe(404);
+		const body = (await response.json()) as { error: string };
+		expect(body.error).toContain("Artifact not found");
+	});
+
+	test("returns null patch when no baseline exists", async () => {
+		const response = await handleArtifactPatchRequest(patchDocId);
+		expect(response.status).toBe(200);
+		const body = (await response.json()) as {
+			patch: string | null;
+			message: string;
+		};
+		expect(body.patch).toBeNull();
+		expect(body.message).toBe("No edits recorded");
+	});
+
+	test("returns null patch when baseline equals current content", async () => {
+		patchDb
+			.prepare(
+				"UPDATE artifacts SET baseline = $baseline WHERE doc_id = $docId",
+			)
+			.run({ $baseline: patchOriginal, $docId: patchDocId });
+
+		const response = await handleArtifactPatchRequest(patchDocId);
+		expect(response.status).toBe(200);
+		const body = (await response.json()) as {
+			patch: string | null;
+			message: string;
+		};
+		expect(body.patch).toBeNull();
+		expect(body.message).toBe("No changes");
+	});
+
+	test("returns unified diff when baseline exists and file has been modified", async () => {
+		const modifiedContent =
+			"line one\nline two modified\nline three\nline four\n";
+		await Bun.write(join(patchTmpDir, patchArtifactPath), modifiedContent);
+
+		const response = await handleArtifactPatchRequest(patchDocId);
+		expect(response.status).toBe(200);
+		const body = (await response.json()) as { patch: string };
+		expect(body.patch).toBeDefined();
+		expect(body.patch).toContain("---");
+		expect(body.patch).toContain("+++");
+		expect(body.patch).toContain("@@");
+		expect(body.patch).toContain("-line two");
+		expect(body.patch).toContain("+line two modified");
+		expect(body.patch).toContain("+line four");
+	});
+
+	test("returns null patch when file is missing from disk", async () => {
+		const missingDocId = "missing-file-doc";
+		patchDb
+			.prepare(
+				"INSERT INTO artifacts (doc_id, run_id, path, type, project_path, feature, baseline) VALUES ($docId, $runId, $path, $type, $projectPath, $feature, $baseline)",
+			)
+			.run({
+				$docId: missingDocId,
+				$runId: "patch-run-001",
+				$path: "docs/nonexistent.md",
+				$type: "markdown",
+				$projectPath: patchTmpDir,
+				$feature: "test-feature",
+				$baseline: "some baseline content",
+			});
+
+		const response = await handleArtifactPatchRequest(missingDocId);
+		expect(response.status).toBe(200);
+		const body = (await response.json()) as {
+			patch: string | null;
+			message: string;
+		};
+		expect(body.patch).toBeNull();
+		expect(body.message).toBe("File not found on disk");
 	});
 });
