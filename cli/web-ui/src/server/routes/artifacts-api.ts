@@ -10,6 +10,7 @@ import { formatError } from "../../../../shared/errors.js";
 import {
 	getEmitDatabase,
 	getRunById,
+	setArtifactBaseline,
 } from "../../../../src/agent-tools/emit/database.js";
 import { getAllProjects } from "../registry";
 import { type ApiContext, errorResponse, jsonResponse } from "./content-utils";
@@ -80,6 +81,20 @@ export async function handleArtifactSaveRequest(
 				"File does not exist: only existing files can be saved",
 				404,
 			);
+		}
+
+		const artifactRow = db
+			.prepare(
+				"SELECT doc_id, baseline FROM artifacts WHERE run_id = $runId AND path = $path LIMIT 1",
+			)
+			.get({ $runId: runId, $path: body.path }) as {
+			doc_id: string;
+			baseline: string | null;
+		} | null;
+
+		if (artifactRow && artifactRow.baseline === null) {
+			const originalContent = await file.text();
+			setArtifactBaseline(db, artifactRow.doc_id, originalContent);
 		}
 
 		await Bun.write(absolutePath, body.content);
