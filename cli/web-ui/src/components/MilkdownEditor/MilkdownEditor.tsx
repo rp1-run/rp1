@@ -7,6 +7,7 @@ import type { EditorView } from "@milkdown/kit/prose/view";
 import { highlight, highlightPluginConfig } from "@milkdown/plugin-highlight";
 import { createParser } from "@milkdown/plugin-highlight/shiki";
 import { Milkdown, MilkdownProvider, useEditor } from "@milkdown/react";
+import { withLineNumbers } from "prosemirror-highlight";
 import {
 	forwardRef,
 	useCallback,
@@ -76,9 +77,11 @@ function MilkdownEditorInner({
 		let cancelled = false;
 		getHighlighter().then((highlighter) => {
 			if (cancelled) return;
-			const parser = createParser(highlighter, {
-				themes: { light: "min-light", dark: "min-dark" },
-			});
+			const parser = withLineNumbers(
+				createParser(highlighter, {
+					themes: { light: "min-light", dark: "min-dark" },
+				}),
+			);
 			setHighlightConfig({
 				parser,
 				languageExtractor: (node: { attrs: { language?: string } }) =>

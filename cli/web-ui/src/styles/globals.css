@@ -612,6 +612,16 @@
     overflow-x: auto;
   }
 
+  .milkdown-editor-root .ProseMirror .line-number {
+    color: hsl(var(--fg-ghost) / 0.5);
+    font-size: 11px;
+    user-select: none;
+    text-align: right;
+    padding-right: 16px;
+    min-width: 32px;
+    display: inline-block;
+  }
+
   /* In preview mode, collapse the code area without display:none */
   .milkdown-mermaid-inner[data-tab="preview"] .milkdown-mermaid-code {
     height: 0;

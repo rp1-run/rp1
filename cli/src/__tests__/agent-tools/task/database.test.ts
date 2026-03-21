@@ -2,8 +2,6 @@
  * Unit tests for task queue database layer.
  * Tests CRUD operations, FIFO ordering, atomic pickup, and state transitions.
  */
-// biome-ignore-all lint/style/noNonNullAssertion: test assertions after expectTaskRight guarantee non-null
-
 import {
 	afterAll,
 	afterEach,

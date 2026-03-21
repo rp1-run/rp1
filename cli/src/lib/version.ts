@@ -157,7 +157,6 @@ const comparePrereleases = (
 	// Both have prereleases - compare lexicographically
 	// This handles cases like: alpha < beta < rc
 	// And: beta.1 < beta.2
-	// biome-ignore lint/style/noNonNullAssertion: values validated above via early returns
 	return comparePrereleaseStrings(current!, latest!);
 };
 
