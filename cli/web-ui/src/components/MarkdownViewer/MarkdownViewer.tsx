@@ -22,6 +22,11 @@ import {
 	type SelectionPosition,
 	useTextSelection,
 } from "@/hooks/useTextSelection";
+import {
+	findTextRange,
+	getEditableText,
+	getEditableTextNodes,
+} from "@/lib/editable-text-nodes";
 import { cn } from "@/lib/utils";
 import { useAnnotationContextSafe } from "@/providers/AnnotationProvider";
 import type { Annotation } from "@/types/annotations";
@@ -340,43 +345,19 @@ export function AnnotationLayer({
 		) {
 			// Fallback: find text by context matching (e.g., in contenteditable editor)
 			const { selectedText, contextBefore, contextAfter } = annotation.anchor;
-			const fullText = containerRef.current.textContent ?? "";
+			const container = containerRef.current;
+			const nodes = getEditableTextNodes(container);
+			const fullText = getEditableText(container);
 			const searchPattern = contextBefore + selectedText + contextAfter;
 			const patternIndex = fullText.indexOf(searchPattern);
 
 			if (patternIndex !== -1) {
 				const startIndex = patternIndex + contextBefore.length;
 				const endIndex = startIndex + selectedText.length;
+				const found = findTextRange(nodes, startIndex, endIndex);
 
-				const walker = document.createTreeWalker(
-					containerRef.current,
-					NodeFilter.SHOW_TEXT,
-				);
-				let currentOffset = 0;
-				let startNode: Text | null = null;
-				let startOffset = 0;
-				let endNode: Text | null = null;
-				let endOffset = 0;
-
-				let node = walker.nextNode() as Text | null;
-				while (node) {
-					const nodeLength = node.textContent?.length ?? 0;
-					const nodeEnd = currentOffset + nodeLength;
-
-					if (!startNode && startIndex < nodeEnd) {
-						startNode = node;
-						startOffset = startIndex - currentOffset;
-					}
-					if (!endNode && endIndex <= nodeEnd) {
-						endNode = node;
-						endOffset = endIndex - currentOffset;
-						break;
-					}
-					currentOffset = nodeEnd;
-					node = walker.nextNode() as Text | null;
-				}
-
-				if (startNode && endNode) {
+				if (found) {
+					const { startNode, startOffset, endNode, endOffset } = found;
 					try {
 						const range = new Range();
 						range.setStart(startNode, startOffset);
@@ -480,7 +461,8 @@ export function AnnotationLayer({
 
 		const container = containerRef.current;
 		const { selectedText, contextBefore, contextAfter } = annotation.anchor;
-		const fullText = container.textContent ?? "";
+		const nodes = getEditableTextNodes(container);
+		const fullText = getEditableText(container);
 		const searchPattern = contextBefore + selectedText + contextAfter;
 		const patternIndex = fullText.indexOf(searchPattern);
 
@@ -491,35 +473,10 @@ export function AnnotationLayer({
 
 		const startIndex = patternIndex + contextBefore.length;
 		const endIndex = startIndex + selectedText.length;
+		const found = findTextRange(nodes, startIndex, endIndex);
 
-		const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
-		let currentOffset = 0;
-		let startNode: Text | null = null;
-		let startOffset = 0;
-		let endNode: Text | null = null;
-		let endOffset = 0;
-
-		let node = walker.nextNode() as Text | null;
-		while (node) {
-			const nodeLength = node.textContent?.length ?? 0;
-			const nodeEnd = currentOffset + nodeLength;
-
-			if (!startNode && startIndex < nodeEnd) {
-				startNode = node;
-				startOffset = startIndex - currentOffset;
-			}
-
-			if (!endNode && endIndex <= nodeEnd) {
-				endNode = node;
-				endOffset = endIndex - currentOffset;
-				break;
-			}
-
-			currentOffset = nodeEnd;
-			node = walker.nextNode() as Text | null;
-		}
-
-		if (startNode && endNode) {
+		if (found) {
+			const { startNode, startOffset, endNode, endOffset } = found;
 			try {
 				const range = new Range();
 				range.setStart(startNode, startOffset);

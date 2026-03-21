@@ -8,6 +8,11 @@ import {
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { SelectionPosition } from "@/hooks/useTextSelection";
+import {
+	findTextRange,
+	getEditableText,
+	getEditableTextNodes,
+} from "@/lib/editable-text-nodes";
 import { cn } from "@/lib/utils";
 import type { Annotation } from "@/types/annotations";
 
@@ -41,7 +46,8 @@ export function AnnotationIndicator({
 		const container = containerRef.current;
 		const { selectedText, contextBefore, contextAfter } = annotation.anchor;
 
-		const fullText = container.textContent ?? "";
+		const nodes = getEditableTextNodes(container);
+		const fullText = getEditableText(container);
 		const searchPattern = contextBefore + selectedText + contextAfter;
 		const patternIndex = fullText.indexOf(searchPattern);
 
@@ -51,40 +57,10 @@ export function AnnotationIndicator({
 
 		const startIndex = patternIndex + contextBefore.length;
 		const endIndex = startIndex + selectedText.length;
+		const found = findTextRange(nodes, startIndex, endIndex);
 
-		const walker = document.createTreeWalker(
-			container,
-			NodeFilter.SHOW_TEXT,
-			null,
-		);
-
-		let currentOffset = 0;
-		let startNode: Text | null = null;
-		let startOffset = 0;
-		let endNode: Text | null = null;
-		let endOffset = 0;
-
-		let node = walker.nextNode() as Text | null;
-		while (node) {
-			const nodeLength = node.textContent?.length ?? 0;
-			const nodeEnd = currentOffset + nodeLength;
-
-			if (!startNode && startIndex < nodeEnd) {
-				startNode = node;
-				startOffset = startIndex - currentOffset;
-			}
-
-			if (!endNode && endIndex <= nodeEnd) {
-				endNode = node;
-				endOffset = endIndex - currentOffset;
-				break;
-			}
-
-			currentOffset = nodeEnd;
-			node = walker.nextNode() as Text | null;
-		}
-
-		if (startNode && endNode && gutterRef.current) {
+		if (found && gutterRef.current) {
+			const { startNode, startOffset, endNode, endOffset } = found;
 			try {
 				const range = document.createRange();
 				range.setStart(startNode, startOffset);
