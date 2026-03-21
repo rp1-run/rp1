@@ -82,7 +82,7 @@
 
 ## Web UI Frontend
 **Path**: `cli/web-ui/src/`
-**Purpose**: React SPA dashboard with icon-rail navigation, vertical step lists, artifact viewer panel, inline Milkdown markdown editor with diff tracking, annotation system (indicators, popovers, sidebar), command palette, keyboard navigation, Mermaid diagram rendering, and Shiki syntax highlighting.
+**Purpose**: React SPA dashboard with icon-rail navigation, vertical step lists, artifact viewer panel, inline Milkdown markdown editor, annotation system (indicators, popovers, sidebar), command palette, keyboard navigation, Mermaid diagram rendering, and Shiki syntax highlighting.
 
 **Key Files**:
 - `cli/web-ui/src/app/V2Layout.tsx`
