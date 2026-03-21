@@ -3,14 +3,8 @@
  * Used for inline comments and threading on artifacts.
  */
 
-import type { LineDiffEntry } from "../lib/diff-engine";
-
 /** Anchor type for annotations */
-export type AnchorType =
-	| "text-selection"
-	| "hidden-anchor"
-	| "line"
-	| "edit-diff";
+export type AnchorType = "text-selection" | "hidden-anchor" | "line";
 
 /** Resolution status */
 export type AnnotationStatus = "open" | "resolved";
@@ -39,19 +33,8 @@ export interface LineAnchor {
 	readonly lineContent: string;
 }
 
-/** Edit diff anchor for tracking document changes */
-export interface EditDiffAnchor {
-	readonly type: "edit-diff";
-	readonly diffs: readonly LineDiffEntry[];
-	readonly baselineHash: string;
-}
-
 /** Union of all anchor types */
-export type Anchor =
-	| TextSelectionAnchor
-	| HiddenAnchor
-	| LineAnchor
-	| EditDiffAnchor;
+export type Anchor = TextSelectionAnchor | HiddenAnchor | LineAnchor;
 
 /** Single reply in a thread */
 export interface AnnotationReply {
@@ -91,13 +74,9 @@ export interface AddReplyRequest {
 	readonly content: string;
 }
 
-/** Anchor type filter for distinguishing edit vs manual annotations */
-export type AnchorTypeFilter = "all" | "edit" | "manual";
-
 /** Annotation filter options */
 export interface AnnotationFilter {
 	readonly status: AnnotationStatus | "all";
 	readonly author: string | null;
 	readonly dateRange: "today" | "week" | "month" | "all";
-	readonly anchorType: AnchorTypeFilter;
 }

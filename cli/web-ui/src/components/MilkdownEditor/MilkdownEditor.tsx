@@ -13,17 +13,10 @@ import {
 	useCallback,
 	useEffect,
 	useImperativeHandle,
-	useMemo,
 	useRef,
 	useState,
 } from "react";
-import type { LineDiffEntry } from "../../lib/diff-engine";
 import { getHighlighter, normalizeLanguage } from "../../lib/shiki";
-import {
-	createDiffTrackerPlugin,
-	type DiffUpdateCallback,
-	type MarkerClickCallback,
-} from "./diff-tracker-plugin";
 import { createMermaidPlugin } from "./mermaid-plugin";
 
 import "@milkdown/kit/prose/view/style/prosemirror.css";
@@ -38,34 +31,17 @@ export interface MilkdownEditorProps {
 	readonly docId?: string;
 	readonly runId?: string;
 	readonly onContentChange?: (markdown: string) => void;
-	readonly onDiffUpdate?: DiffUpdateCallback;
 	readonly enableAnnotations?: boolean;
-	readonly onMarkerClick?: MarkerClickCallback;
-	readonly persistedDiffs?: LineDiffEntry[];
 }
 
 function MilkdownEditorInner({
 	content,
 	onContentChange,
-	onDiffUpdate,
-	onMarkerClick,
-	persistedDiffs,
 	editorRef,
-}: Pick<
-	MilkdownEditorProps,
-	| "content"
-	| "onContentChange"
-	| "onDiffUpdate"
-	| "onMarkerClick"
-	| "persistedDiffs"
-> & {
+}: Pick<MilkdownEditorProps, "content" | "onContentChange"> & {
 	editorRef: React.Ref<MilkdownEditorHandle>;
 }) {
 	const viewRef = useRef<EditorView | undefined>(undefined);
-
-	// Ref holds the current persisted diffs — always fresh for the plugin getter
-	const persistedDiffsRef = useRef<readonly LineDiffEntry[]>([]);
-	persistedDiffsRef.current = persistedDiffs ?? [];
 
 	// Load shiki highlighter before mounting the editor
 	const [highlightConfig, setHighlightConfig] = useState<{
@@ -102,16 +78,6 @@ function MilkdownEditorInner({
 		[onContentChange],
 	);
 
-	// Stable getter — the plugin reads this on every render pass.
-	// Never changes reference, so it never causes plugin recreation.
-	const getPersistedDiffs = useCallback(() => persistedDiffsRef.current, []);
-
-	const diffPlugin = useMemo(
-		() =>
-			createDiffTrackerPlugin(onDiffUpdate, onMarkerClick, getPersistedDiffs),
-		[onDiffUpdate, onMarkerClick, getPersistedDiffs],
-	);
-
 	useEditor(
 		(root) => {
 			const editor = Editor.make()
@@ -127,8 +93,7 @@ function MilkdownEditorInner({
 				.use(gfm)
 				.use(history)
 				.use(listener)
-				.use(createMermaidPlugin())
-				.use(diffPlugin);
+				.use(createMermaidPlugin());
 
 			// Note: mermaid NodeView must come after commonmark (needs code_block schema)
 
@@ -155,19 +120,13 @@ function MilkdownEditorInner({
 export const MilkdownEditor = forwardRef<
 	MilkdownEditorHandle,
 	MilkdownEditorProps
->(function MilkdownEditor(
-	{ content, onContentChange, onDiffUpdate, onMarkerClick, persistedDiffs },
-	ref,
-) {
+>(function MilkdownEditor({ content, onContentChange }, ref) {
 	return (
 		<MilkdownProvider>
 			<div className="milkdown-editor-root">
 				<MilkdownEditorInner
 					content={content}
 					onContentChange={onContentChange}
-					onDiffUpdate={onDiffUpdate}
-					onMarkerClick={onMarkerClick}
-					persistedDiffs={persistedDiffs}
 					editorRef={ref}
 				/>
 			</div>

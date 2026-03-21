@@ -88,23 +88,6 @@ function handleServiceError(error: unknown): Response {
 }
 
 /**
- * Validate a single LineDiffEntry structure.
- */
-function isValidLineDiffEntry(entry: unknown): boolean {
-	if (typeof entry !== "object" || entry === null) return false;
-
-	const e = entry as Record<string, unknown>;
-	const validTypes = ["added", "modified", "deleted", "unchanged"];
-	return (
-		typeof e.type === "string" &&
-		validTypes.includes(e.type) &&
-		typeof e.line === "number" &&
-		(e.before === null || typeof e.before === "string") &&
-		(e.after === null || typeof e.after === "string")
-	);
-}
-
-/**
  * Validate anchor structure.
  */
 export function isValidAnchor(anchor: unknown): boolean {
@@ -131,12 +114,6 @@ export function isValidAnchor(anchor: unknown): boolean {
 			return (
 				typeof anchorObj.lineNumber === "number" &&
 				typeof anchorObj.lineContent === "string"
-			);
-		case "edit-diff":
-			return (
-				Array.isArray(anchorObj.diffs) &&
-				anchorObj.diffs.every(isValidLineDiffEntry) &&
-				typeof anchorObj.baselineHash === "string"
 			);
 		default:
 			return false;

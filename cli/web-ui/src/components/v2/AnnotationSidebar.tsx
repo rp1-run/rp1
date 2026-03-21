@@ -1,23 +1,10 @@
-import {
-	AlertTriangle,
-	ChevronDown,
-	ChevronRight,
-	Filter,
-	MessageSquare,
-	Pencil,
-	X,
-} from "lucide-react";
+import { AlertTriangle, Filter, MessageSquare, X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useAnnotations } from "@/hooks/useAnnotations";
-import type { LineDiffEntry } from "@/lib/diff-engine";
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { useAnnotationContext } from "@/providers/AnnotationProvider";
-import type {
-	AnchorTypeFilter,
-	Annotation,
-	AnnotationFilter,
-} from "@/types/annotations";
+import type { Annotation, AnnotationFilter } from "@/types/annotations";
 import { Select } from "./Select";
 
 export interface AnnotationSidebarProps {
@@ -43,195 +30,7 @@ const DATE_OPTIONS: { value: DateRangeValue; label: string }[] = [
 	{ value: "month", label: "This Month" },
 ];
 
-const ANCHOR_TYPE_OPTIONS: { value: AnchorTypeFilter; label: string }[] = [
-	{ value: "all", label: "All Types" },
-	{ value: "edit", label: "Edits" },
-	{ value: "manual", label: "Manual" },
-];
-
 const ALL_AUTHORS_VALUE = "__all__";
-
-function isEditAnnotation(annotation: Annotation): boolean {
-	return annotation.anchor.type === "edit-diff";
-}
-
-function scrollToEditorLine(lineNumber: number) {
-	const editor = document.querySelector(".milkdown-editor-root .ProseMirror");
-	if (!editor) return;
-	const textblocks = editor.querySelectorAll(
-		"p, h1, h2, h3, h4, h5, h6, li, pre, blockquote, hr",
-	);
-	const idx = lineNumber - 1;
-	if (idx >= 0 && idx < textblocks.length) {
-		textblocks[idx].scrollIntoView({ behavior: "instant", block: "center" });
-		// Wait one frame for layout to settle after scroll, then trigger the popover
-		requestAnimationFrame(() => {
-			const marker = document.querySelector(`[data-diff-line="${lineNumber}"]`);
-			if (marker instanceof HTMLElement) {
-				marker.click();
-			}
-		});
-	}
-}
-
-function DiffEntryItem({
-	entry,
-	onClick,
-}: {
-	entry: LineDiffEntry;
-	onClick?: () => void;
-}) {
-	const typeLabel =
-		entry.type === "added" ? "+" : entry.type === "deleted" ? "-" : "~";
-	const typeColor =
-		entry.type === "added"
-			? "text-diff-added"
-			: entry.type === "deleted"
-				? "text-failure"
-				: "text-diff-modified";
-
-	return (
-		<button
-			type="button"
-			onClick={(e) => {
-				e.stopPropagation();
-				onClick?.();
-			}}
-			className="flex gap-1.5 py-0.5 font-mono text-xs leading-relaxed w-full text-left rounded-sm hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-		>
-			<span className={cn("shrink-0 w-3 text-center", typeColor)}>
-				{typeLabel}
-			</span>
-			<span className="text-fg-ghost tabular-nums shrink-0 w-5 text-right">
-				{entry.line}
-			</span>
-			<div className="min-w-0 flex-1">
-				{entry.before !== null && (
-					<p className="text-failure/70 line-through truncate">
-						{entry.before || "\u00A0"}
-					</p>
-				)}
-				{entry.after !== null && (
-					<p className="text-fg-muted truncate">{entry.after || "\u00A0"}</p>
-				)}
-			</div>
-		</button>
-	);
-}
-
-function EditDiffDetail({ diffs }: { diffs: readonly LineDiffEntry[] }) {
-	const [isDetailExpanded, setIsDetailExpanded] = useState(false);
-	const nonUnchangedDiffs = diffs.filter((d) => d.type !== "unchanged");
-
-	if (nonUnchangedDiffs.length === 0) return null;
-
-	return (
-		<div className="mt-1.5 ml-4">
-			<button
-				type="button"
-				onClick={(e) => {
-					e.stopPropagation();
-					setIsDetailExpanded(!isDetailExpanded);
-				}}
-				className="flex items-center gap-1 text-xs text-fg-ghost hover:text-fg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
-			>
-				{isDetailExpanded ? (
-					<ChevronDown className="h-3 w-3" />
-				) : (
-					<ChevronRight className="h-3 w-3" />
-				)}
-				<span>
-					{nonUnchangedDiffs.length}{" "}
-					{nonUnchangedDiffs.length === 1 ? "change" : "changes"}
-				</span>
-			</button>
-			{isDetailExpanded && (
-				<div className="mt-1 rounded border border-border bg-surface-void/50 px-2 py-1.5 max-h-48 overflow-y-auto">
-					{nonUnchangedDiffs.map((entry, i) => (
-						<DiffEntryItem
-							key={`${entry.line}-${entry.type}-${i}`}
-							entry={entry}
-							onClick={() => scrollToEditorLine(entry.line)}
-						/>
-					))}
-				</div>
-			)}
-		</div>
-	);
-}
-
-function EditAnnotationGroup({ annotations }: { annotations: Annotation[] }) {
-	const [isExpanded, setIsExpanded] = useState(false);
-
-	const { allDiffs, summary } = useMemo(() => {
-		const diffs: LineDiffEntry[] = [];
-		for (const a of annotations) {
-			if (a.anchor.type === "edit-diff") {
-				for (const d of a.anchor.diffs) {
-					if (d.type !== "unchanged") diffs.push(d);
-				}
-			}
-		}
-		diffs.sort((a, b) => a.line - b.line);
-
-		const counts = { modified: 0, added: 0, deleted: 0 };
-		for (const d of diffs) counts[d.type as keyof typeof counts]++;
-		const parts: string[] = [];
-		if (counts.modified > 0) parts.push(`${counts.modified} modified`);
-		if (counts.added > 0) parts.push(`${counts.added} added`);
-		if (counts.deleted > 0) parts.push(`${counts.deleted} deleted`);
-
-		return {
-			allDiffs: diffs,
-			summary: parts.length > 0 ? parts.join(", ") : "No changes",
-		};
-	}, [annotations]);
-
-	if (allDiffs.length === 0) return null;
-
-	const mostRecent = annotations.reduce((latest, a) =>
-		new Date(a.createdAt) > new Date(latest.createdAt) ? a : latest,
-	);
-
-	return (
-		<li>
-			<div
-				className={cn(
-					"w-full rounded-md border border-transparent px-2 py-1.5 text-left transition-colors",
-					"hover:border-border hover:bg-muted/50",
-				)}
-			>
-				<button
-					type="button"
-					onClick={() => setIsExpanded(!isExpanded)}
-					className="w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
-				>
-					<div className="flex items-start gap-2">
-						<Pencil
-							className="mt-1 h-3 w-3 shrink-0 text-fg-muted"
-							strokeWidth={1.5}
-						/>
-						<div className="min-w-0 flex-1">
-							<p className="truncate text-xs text-fg-ghost">{summary}</p>
-							<p className="mt-0.5 text-sm text-fg-muted">
-								{allDiffs.length}{" "}
-								{allDiffs.length === 1 ? "line change" : "line changes"}
-								{annotations.length > 1 &&
-									` across ${annotations.length} sessions`}
-							</p>
-							<div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-								<span>{mostRecent.author}</span>
-								<span>-</span>
-								<span>{formatRelativeTime(mostRecent.createdAt)}</span>
-							</div>
-						</div>
-					</div>
-				</button>
-				{isExpanded && <EditDiffDetail diffs={allDiffs} />}
-			</div>
-		</li>
-	);
-}
 
 interface AnnotationItemProps {
 	annotation: Annotation;
@@ -248,9 +47,8 @@ function AnnotationItem({
 }: AnnotationItemProps) {
 	const anchorPreview = getAnchorPreview(annotation);
 	const isResolved = annotation.status === "resolved";
-	const isEdit = isEditAnnotation(annotation);
 	const replyCount = annotation.replies.length;
-	const showTruncation = !isEdit && needsTruncation(annotation.content);
+	const showTruncation = needsTruncation(annotation.content);
 	const displayContent = isExpanded
 		? annotation.content
 		: truncateContent(annotation.content);
@@ -269,41 +67,19 @@ function AnnotationItem({
 				className="w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
 			>
 				<div className="flex items-start gap-2">
-					{isEdit ? (
-						<Pencil
-							className={cn(
-								"mt-1 h-3 w-3 shrink-0",
-								isResolved ? "text-terminal-green" : "text-fg-muted",
-							)}
-							strokeWidth={1.5}
-							role="img"
-							aria-label={isResolved ? "Resolved edit" : "Edit"}
-						/>
-					) : (
-						<div
-							className={cn(
-								"mt-1.5 h-2 w-2 shrink-0 rounded-full",
-								isResolved ? "bg-terminal-green" : "bg-annotation-open",
-							)}
-							role="img"
-							aria-label={isResolved ? "Resolved" : "Open"}
-						/>
-					)}
+					<div
+						className={cn(
+							"mt-1.5 h-2 w-2 shrink-0 rounded-full",
+							isResolved ? "bg-terminal-green" : "bg-annotation-open",
+						)}
+						role="img"
+						aria-label={isResolved ? "Resolved" : "Open"}
+					/>
 					<div className="min-w-0 flex-1">
-						<p
-							className={cn(
-								"truncate text-xs",
-								isEdit ? "text-fg-ghost" : "text-muted-foreground",
-							)}
-						>
+						<p className="truncate text-xs text-muted-foreground">
 							{anchorPreview}
 						</p>
-						<p
-							className={cn(
-								"mt-0.5 whitespace-pre-wrap text-sm",
-								isEdit && "text-fg-muted",
-							)}
-						>
+						<p className="mt-0.5 whitespace-pre-wrap text-sm">
 							{displayContent}
 						</p>
 						<div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
@@ -322,9 +98,6 @@ function AnnotationItem({
 					</div>
 				</div>
 			</button>
-			{isEdit && annotation.anchor.type === "edit-diff" && (
-				<EditDiffDetail diffs={annotation.anchor.diffs} />
-			)}
 			{showTruncation && (
 				<button
 					type="button"
@@ -350,19 +123,6 @@ function getAnchorPreview(annotation: Annotation): string {
 			return `#${anchor.anchorId}`;
 		case "line":
 			return `Line ${anchor.lineNumber}`;
-		case "edit-diff": {
-			const counts = { added: 0, modified: 0, deleted: 0 };
-			for (const d of anchor.diffs) {
-				if (d.type !== "unchanged") {
-					counts[d.type]++;
-				}
-			}
-			const parts: string[] = [];
-			if (counts.modified > 0) parts.push(`${counts.modified} modified`);
-			if (counts.added > 0) parts.push(`${counts.added} added`);
-			if (counts.deleted > 0) parts.push(`${counts.deleted} deleted`);
-			return parts.length > 0 ? parts.join(", ") : "No changes";
-		}
 		default:
 			return "Unknown anchor";
 	}
@@ -430,8 +190,7 @@ export function AnnotationSidebar({
 	const hasActiveFilter =
 		filter.status !== "all" ||
 		filter.author !== null ||
-		filter.dateRange !== "all" ||
-		filter.anchorType !== "all";
+		filter.dateRange !== "all";
 
 	const authorOptions = useMemo(() => {
 		const artifactAnnotations = artifactPath
@@ -471,35 +230,15 @@ export function AnnotationSidebar({
 		[filter, setFilter],
 	);
 
-	const handleAnchorTypeChange = useCallback(
-		(anchorType: AnchorTypeFilter) => {
-			setFilter({ ...filter, anchorType });
-		},
-		[filter, setFilter],
-	);
-
 	const handleClearFilters = useCallback(() => {
 		setFilter({
 			status: "all",
 			author: null,
 			dateRange: "all",
-			anchorType: "all",
 		});
 	}, [setFilter]);
 
 	const handleAnnotationClick = useCallback((annotation: Annotation) => {
-		// For edit-diff annotations, scroll to the first changed line
-		if (annotation.anchor.type === "edit-diff") {
-			const firstDiff = annotation.anchor.diffs.find(
-				(d) => d.type !== "unchanged",
-			);
-			if (firstDiff) {
-				scrollToEditorLine(firstDiff.line);
-			}
-			return;
-		}
-
-		// For all other annotations, find the gutter indicator by ID and click it
 		const indicator = document.querySelector(
 			`[data-annotation-id="${annotation.id}"]`,
 		);
@@ -514,8 +253,7 @@ export function AnnotationSidebar({
 	const hasActiveFilters =
 		filter.status !== "all" ||
 		filter.author !== null ||
-		filter.dateRange !== "all" ||
-		filter.anchorType !== "all";
+		filter.dateRange !== "all";
 
 	return (
 		<aside
@@ -572,13 +310,6 @@ export function AnnotationSidebar({
 					/>
 					<Select
 						size="sm"
-						value={filter.anchorType}
-						options={ANCHOR_TYPE_OPTIONS}
-						onChange={handleAnchorTypeChange}
-						label="Filter by type"
-					/>
-					<Select
-						size="sm"
 						value={filter.author ?? ALL_AUTHORS_VALUE}
 						options={authorOptions}
 						onChange={handleAuthorChange}
@@ -626,31 +357,18 @@ export function AnnotationSidebar({
 					</div>
 				) : (
 					<ul className="space-y-1 p-2">
-						{(() => {
-							const all = [
-								...groupedAnnotations.open,
-								...groupedAnnotations.resolved,
-							];
-							const editAnnotations = all.filter(isEditAnnotation);
-							const manualAnnotations = all.filter((a) => !isEditAnnotation(a));
-							return (
-								<>
-									{editAnnotations.length > 0 && (
-										<EditAnnotationGroup annotations={editAnnotations} />
-									)}
-									{manualAnnotations.map((annotation) => (
-										<li key={annotation.id}>
-											<AnnotationItem
-												annotation={annotation}
-												onClick={() => handleAnnotationClick(annotation)}
-												isExpanded={expandedComments.has(annotation.id)}
-												onToggleExpand={() => toggleExpanded(annotation.id)}
-											/>
-										</li>
-									))}
-								</>
-							);
-						})()}
+						{[...groupedAnnotations.open, ...groupedAnnotations.resolved].map(
+							(annotation) => (
+								<li key={annotation.id}>
+									<AnnotationItem
+										annotation={annotation}
+										onClick={() => handleAnnotationClick(annotation)}
+										isExpanded={expandedComments.has(annotation.id)}
+										onToggleExpand={() => toggleExpanded(annotation.id)}
+									/>
+								</li>
+							),
+						)}
 
 						{groupedAnnotations.orphaned.length > 0 && (
 							<>

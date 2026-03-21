@@ -54,7 +54,6 @@ const DEFAULT_FILTER: AnnotationFilter = {
 	status: "all",
 	author: null,
 	dateRange: "all",
-	anchorType: "all",
 };
 
 const AnnotationContext = createContext<AnnotationContextValue | null>(null);

@@ -9,18 +9,12 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MarkdownViewer } from "@/components/MarkdownViewer";
 import { AnnotationLayer } from "@/components/MarkdownViewer/MarkdownViewer";
-import type { MarkerClickInfo } from "@/components/MilkdownEditor/diff-tracker-plugin";
 import {
 	MilkdownEditor,
 	type MilkdownEditorHandle,
 } from "@/components/MilkdownEditor/MilkdownEditor";
-import { EditDiffPopover } from "@/components/v2/EditDiffPopover";
-import { useEditAnnotations } from "@/hooks/useEditAnnotations";
 import type { HeadingEntry } from "@/hooks/useHeadingExtraction";
 import { getCodeLanguageFromPath } from "@/lib/code-language";
-import type { LineDiffEntry } from "@/lib/diff-engine";
-import { useAnnotationContextSafe } from "@/providers/AnnotationProvider";
-import type { EditDiffAnchor } from "@/types/annotations";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
@@ -89,11 +83,7 @@ function FrontmatterBlock({ raw }: { readonly raw: string }) {
 	);
 }
 
-import {
-	frontmatterLineCount,
-	restoreFrontmatter,
-	stripFrontmatter,
-} from "@/lib/frontmatter";
+import { restoreFrontmatter, stripFrontmatter } from "@/lib/frontmatter";
 
 function MarkdownEditorWithSave({
 	content,
@@ -111,60 +101,14 @@ function MarkdownEditorWithSave({
 	const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
 	const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const indicatorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-	const baselineHashRef = useRef<string>("");
 
 	const { body: editorContent, frontmatter } = useMemo(
 		() => stripFrontmatter(content),
 		[content],
 	);
-	const fmLineOffset = useMemo(
-		() => frontmatterLineCount(frontmatter),
-		[frontmatter],
-	);
 	const editorContainerRef = useRef<HTMLElement>(null);
 	const gutterRef = useRef<HTMLDivElement>(null);
 	const editorRef = useRef<MilkdownEditorHandle>(null);
-
-	const { handleDiffUpdate } = useEditAnnotations({
-		docId,
-		runId,
-		artifactPath: path,
-	});
-
-	const { getAnnotationsForArtifact } = useAnnotationContextSafe();
-
-	useEffect(() => {
-		async function computeHash() {
-			const encoder = new TextEncoder();
-			const data = encoder.encode(content);
-			const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-			const hashArray = Array.from(new Uint8Array(hashBuffer));
-			baselineHashRef.current = hashArray
-				.map((b) => b.toString(16).padStart(2, "0"))
-				.join("");
-		}
-		computeHash();
-	}, [content]);
-
-	const [activeMarker, setActiveMarker] = useState<MarkerClickInfo | null>(
-		null,
-	);
-
-	const onMarkerClick = useCallback((info: MarkerClickInfo) => {
-		setActiveMarker(info);
-	}, []);
-
-	const onDiffUpdate = useCallback(
-		(diffs: LineDiffEntry[]) => {
-			if (!enableAnnotations) return;
-			const offsetDiffs =
-				fmLineOffset > 0
-					? diffs.map((d) => ({ ...d, line: d.line + fmLineOffset }))
-					: diffs;
-			handleDiffUpdate(offsetDiffs, baselineHashRef.current);
-		},
-		[enableAnnotations, handleDiffUpdate, fmLineOffset],
-	);
 
 	const onContentChange = useCallback(
 		(markdown: string) => {
@@ -201,23 +145,6 @@ function MarkdownEditorWithSave({
 		[runId, path, frontmatter],
 	);
 
-	// Compute persisted diffs from annotations — subtract frontmatter offset
-	// so line numbers are body-relative for the editor
-	const annotations = getAnnotationsForArtifact(path);
-	const persistedDiffs = useMemo(() => {
-		const diffs: LineDiffEntry[] = [];
-		for (const ann of annotations) {
-			if (ann.anchor.type === "edit-diff" && ann.status === "open") {
-				for (const d of (ann.anchor as EditDiffAnchor).diffs) {
-					diffs.push(
-						fmLineOffset > 0 ? { ...d, line: d.line - fmLineOffset } : d,
-					);
-				}
-			}
-		}
-		return diffs;
-	}, [annotations, fmLineOffset]);
-
 	useEffect(() => {
 		return () => {
 			if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -248,18 +175,8 @@ function MarkdownEditorWithSave({
 						runId={runId}
 						enableAnnotations={enableAnnotations}
 						onContentChange={onContentChange}
-						onDiffUpdate={onDiffUpdate}
-						onMarkerClick={onMarkerClick}
-						persistedDiffs={persistedDiffs}
 					/>
 				</article>
-				{activeMarker && (
-					<EditDiffPopover
-						entry={activeMarker.entry}
-						anchorRect={activeMarker.rect}
-						onClose={() => setActiveMarker(null)}
-					/>
-				)}
 			</div>
 			{enableAnnotations && (
 				<AnnotationLayer
@@ -267,9 +184,6 @@ function MarkdownEditorWithSave({
 					containerRef={editorContainerRef}
 					gutterRef={gutterRef}
 					hiddenAnchors={[]}
-					onEditDiffNavigate={(entry, rect) => {
-						setActiveMarker({ entry, rect });
-					}}
 				/>
 			)}
 		</div>

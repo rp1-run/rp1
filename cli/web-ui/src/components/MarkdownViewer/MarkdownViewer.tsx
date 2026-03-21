@@ -111,10 +111,6 @@ export interface AnnotationLayerProps {
 	containerRef: React.RefObject<HTMLElement | null>;
 	gutterRef: React.RefObject<HTMLElement | null>;
 	hiddenAnchors: DetectedHiddenAnchor[];
-	onEditDiffNavigate?: (
-		entry: import("@/lib/diff-engine").LineDiffEntry,
-		rect: DOMRect,
-	) => void;
 }
 
 export function AnnotationLayer({
@@ -122,7 +118,6 @@ export function AnnotationLayer({
 	containerRef,
 	gutterRef,
 	hiddenAnchors,
-	onEditDiffNavigate,
 }: AnnotationLayerProps) {
 	const [activeAnchor, setActiveAnchor] = useState<DetectedHiddenAnchor | null>(
 		null,
@@ -273,44 +268,6 @@ export function AnnotationLayer({
 		const annotation = annotations.find((a) => a.id === selectedAnnotationId);
 		if (!annotation) return;
 
-		// Handle edit-diff annotations: scroll to the affected line and show popover
-		if (annotation.anchor.type === "edit-diff" && containerRef.current) {
-			const editAnchor =
-				annotation.anchor as import("@/types/annotations").EditDiffAnchor;
-			const firstDiff = editAnchor.diffs.find((d) => d.type !== "unchanged");
-			if (firstDiff) {
-				const container = containerRef.current;
-				const textBlocks = container.querySelectorAll(".ProseMirror > *");
-				const targetIdx = firstDiff.line - 1;
-				if (targetIdx >= 0 && targetIdx < textBlocks.length) {
-					const targetEl = textBlocks[targetIdx] as HTMLElement;
-					const showPopover = () => {
-						onEditDiffNavigate?.(firstDiff, targetEl.getBoundingClientRect());
-					};
-
-					const rect = targetEl.getBoundingClientRect();
-					const inView = rect.top >= 0 && rect.bottom <= window.innerHeight;
-
-					if (inView) {
-						showPopover();
-					} else {
-						const scrollParent = findScrollParent(targetEl);
-						scrollParent.addEventListener(
-							"scrollend",
-							() => requestAnimationFrame(showPopover),
-							{ once: true },
-						);
-						targetEl.scrollIntoView({
-							behavior: "smooth",
-							block: "center",
-						});
-					}
-				}
-			}
-			selectAnnotation(null);
-			return;
-		}
-
 		// Only handle text-selection and hidden-anchor types here
 		// Line annotations are handled by CodeBlock
 		if (
@@ -391,13 +348,7 @@ export function AnnotationLayer({
 
 		// Clear selection after handling
 		selectAnnotation(null);
-	}, [
-		selectedAnnotationId,
-		annotations,
-		selectAnnotation,
-		containerRef,
-		onEditDiffNavigate,
-	]);
+	}, [selectedAnnotationId, annotations, selectAnnotation, containerRef]);
 
 	const handleAnchorClick = useCallback(
 		(anchor: DetectedHiddenAnchor) => {
