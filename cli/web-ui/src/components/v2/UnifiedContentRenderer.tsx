@@ -53,6 +53,17 @@ function SaveStatusIndicator({ status }: { readonly status: SaveStatus }) {
 	);
 }
 
+const FRONTMATTER_RE = /^---\r?\n[\s\S]*?\r?\n---\r?\n/;
+
+function stripFrontmatter(markdown: string): {
+	body: string;
+	frontmatter: string;
+} {
+	const match = markdown.match(FRONTMATTER_RE);
+	if (!match) return { body: markdown, frontmatter: "" };
+	return { body: markdown.slice(match[0].length), frontmatter: match[0] };
+}
+
 function MarkdownEditorWithSave({
 	content,
 	path,
@@ -70,6 +81,11 @@ function MarkdownEditorWithSave({
 	const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const indicatorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const baselineHashRef = useRef<string>("");
+
+	const { body: editorContent, frontmatter } = useMemo(
+		() => stripFrontmatter(content),
+		[content],
+	);
 	const editorContainerRef = useRef<HTMLElement>(null);
 	const gutterRef = useRef<HTMLDivElement>(null);
 	const editorRef = useRef<MilkdownEditorHandle>(null);
@@ -124,7 +140,7 @@ function MarkdownEditorWithSave({
 					const response = await fetch(`/api/v2/runs/${runId}/artifacts/save`, {
 						method: "PUT",
 						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify({ path, content: markdown }),
+						body: JSON.stringify({ path, content: frontmatter + markdown }),
 					});
 					if (!response.ok) {
 						setSaveStatus("error");
@@ -140,7 +156,7 @@ function MarkdownEditorWithSave({
 				}, SAVE_INDICATOR_DURATION_MS);
 			}, SAVE_DEBOUNCE_MS);
 		},
-		[runId, path],
+		[runId, path, frontmatter],
 	);
 
 	// Compute persisted diffs from annotations — stable via content-based memo
@@ -178,7 +194,7 @@ function MarkdownEditorWithSave({
 				<article ref={editorContainerRef}>
 					<MilkdownEditor
 						ref={editorRef}
-						content={content}
+						content={editorContent}
 						artifactPath={path}
 						docId={docId}
 						runId={runId}
