@@ -12,3 +12,8 @@ export function stripFrontmatter(markdown: string): {
 export function restoreFrontmatter(frontmatter: string, body: string): string {
 	return frontmatter + body;
 }
+
+export function frontmatterLineCount(frontmatter: string): number {
+	if (!frontmatter) return 0;
+	return frontmatter.split(/\r?\n/).length - 1;
+}

@@ -89,7 +89,11 @@ function FrontmatterBlock({ raw }: { readonly raw: string }) {
 	);
 }
 
-import { restoreFrontmatter, stripFrontmatter } from "@/lib/frontmatter";
+import {
+	frontmatterLineCount,
+	restoreFrontmatter,
+	stripFrontmatter,
+} from "@/lib/frontmatter";
 
 function MarkdownEditorWithSave({
 	content,
@@ -112,6 +116,10 @@ function MarkdownEditorWithSave({
 	const { body: editorContent, frontmatter } = useMemo(
 		() => stripFrontmatter(content),
 		[content],
+	);
+	const fmLineOffset = useMemo(
+		() => frontmatterLineCount(frontmatter),
+		[frontmatter],
 	);
 	const editorContainerRef = useRef<HTMLElement>(null);
 	const gutterRef = useRef<HTMLDivElement>(null);
@@ -149,9 +157,13 @@ function MarkdownEditorWithSave({
 	const onDiffUpdate = useCallback(
 		(diffs: LineDiffEntry[]) => {
 			if (!enableAnnotations) return;
-			handleDiffUpdate(diffs, baselineHashRef.current);
+			const offsetDiffs =
+				fmLineOffset > 0
+					? diffs.map((d) => ({ ...d, line: d.line + fmLineOffset }))
+					: diffs;
+			handleDiffUpdate(offsetDiffs, baselineHashRef.current);
 		},
-		[enableAnnotations, handleDiffUpdate],
+		[enableAnnotations, handleDiffUpdate, fmLineOffset],
 	);
 
 	const onContentChange = useCallback(
@@ -189,17 +201,22 @@ function MarkdownEditorWithSave({
 		[runId, path, frontmatter],
 	);
 
-	// Compute persisted diffs from annotations — stable via content-based memo
+	// Compute persisted diffs from annotations — subtract frontmatter offset
+	// so line numbers are body-relative for the editor
 	const annotations = getAnnotationsForArtifact(path);
 	const persistedDiffs = useMemo(() => {
 		const diffs: LineDiffEntry[] = [];
 		for (const ann of annotations) {
 			if (ann.anchor.type === "edit-diff" && ann.status === "open") {
-				diffs.push(...(ann.anchor as EditDiffAnchor).diffs);
+				for (const d of (ann.anchor as EditDiffAnchor).diffs) {
+					diffs.push(
+						fmLineOffset > 0 ? { ...d, line: d.line - fmLineOffset } : d,
+					);
+				}
 			}
 		}
 		return diffs;
-	}, [annotations]);
+	}, [annotations, fmLineOffset]);
 
 	useEffect(() => {
 		return () => {

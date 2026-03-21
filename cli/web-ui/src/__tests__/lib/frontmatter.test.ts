@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { restoreFrontmatter, stripFrontmatter } from "../../lib/frontmatter";
+import {
+	frontmatterLineCount,
+	restoreFrontmatter,
+	stripFrontmatter,
+} from "../../lib/frontmatter";
 
 describe("stripFrontmatter", () => {
 	test("strips valid frontmatter and returns both parts", () => {
@@ -90,5 +94,33 @@ describe("round-trip", () => {
 		const { body, frontmatter } = stripFrontmatter(original);
 		const restored = restoreFrontmatter(frontmatter, body);
 		expect(restored).toBe(original);
+	});
+});
+
+describe("frontmatterLineCount", () => {
+	test("returns 0 for empty string", () => {
+		expect(frontmatterLineCount("")).toBe(0);
+	});
+
+	test("counts lines in standard frontmatter", () => {
+		expect(frontmatterLineCount("---\nrp1_doc_id: abc\n---\n")).toBe(3);
+	});
+
+	test("counts lines with multiple keys", () => {
+		expect(
+			frontmatterLineCount("---\nid: abc\ntitle: My Doc\nstatus: draft\n---\n"),
+		).toBe(5);
+	});
+
+	test("counts lines with CRLF", () => {
+		expect(frontmatterLineCount("---\r\nkey: value\r\n---\r\n")).toBe(3);
+	});
+
+	test("line count matches offset needed for body line numbers", () => {
+		const md = "---\nid: abc\ntitle: test\n---\n# Heading\nBody\n";
+		const { frontmatter } = stripFrontmatter(md);
+		const offset = frontmatterLineCount(frontmatter);
+		// "# Heading" is line 5 in the full doc, line 1 in body → offset should be 4
+		expect(offset).toBe(4);
 	});
 });
