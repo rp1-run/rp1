@@ -17,7 +17,6 @@ import type {
 	AnchorTypeFilter,
 	Annotation,
 	AnnotationFilter,
-	EditDiffAnchor,
 } from "@/types/annotations";
 import { Select } from "./Select";
 
@@ -120,9 +119,9 @@ function DiffEntryItem({
 	);
 }
 
-function EditDiffDetail({ anchor }: { anchor: EditDiffAnchor }) {
+function EditDiffDetail({ diffs }: { diffs: readonly LineDiffEntry[] }) {
 	const [isDetailExpanded, setIsDetailExpanded] = useState(false);
-	const nonUnchangedDiffs = anchor.diffs.filter((d) => d.type !== "unchanged");
+	const nonUnchangedDiffs = diffs.filter((d) => d.type !== "unchanged");
 
 	if (nonUnchangedDiffs.length === 0) return null;
 
@@ -158,6 +157,79 @@ function EditDiffDetail({ anchor }: { anchor: EditDiffAnchor }) {
 				</div>
 			)}
 		</div>
+	);
+}
+
+function EditAnnotationGroup({ annotations }: { annotations: Annotation[] }) {
+	const [isExpanded, setIsExpanded] = useState(false);
+
+	const { allDiffs, summary } = useMemo(() => {
+		const diffs: LineDiffEntry[] = [];
+		for (const a of annotations) {
+			if (a.anchor.type === "edit-diff") {
+				for (const d of a.anchor.diffs) {
+					if (d.type !== "unchanged") diffs.push(d);
+				}
+			}
+		}
+		diffs.sort((a, b) => a.line - b.line);
+
+		const counts = { modified: 0, added: 0, deleted: 0 };
+		for (const d of diffs) counts[d.type as keyof typeof counts]++;
+		const parts: string[] = [];
+		if (counts.modified > 0) parts.push(`${counts.modified} modified`);
+		if (counts.added > 0) parts.push(`${counts.added} added`);
+		if (counts.deleted > 0) parts.push(`${counts.deleted} deleted`);
+
+		return {
+			allDiffs: diffs,
+			summary: parts.length > 0 ? parts.join(", ") : "No changes",
+		};
+	}, [annotations]);
+
+	if (allDiffs.length === 0) return null;
+
+	const mostRecent = annotations.reduce((latest, a) =>
+		new Date(a.createdAt) > new Date(latest.createdAt) ? a : latest,
+	);
+
+	return (
+		<li>
+			<div
+				className={cn(
+					"w-full rounded-md border border-transparent px-2 py-1.5 text-left transition-colors",
+					"hover:border-border hover:bg-muted/50",
+				)}
+			>
+				<button
+					type="button"
+					onClick={() => setIsExpanded(!isExpanded)}
+					className="w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+				>
+					<div className="flex items-start gap-2">
+						<Pencil
+							className="mt-1 h-3 w-3 shrink-0 text-fg-muted"
+							strokeWidth={1.5}
+						/>
+						<div className="min-w-0 flex-1">
+							<p className="truncate text-xs text-fg-ghost">{summary}</p>
+							<p className="mt-0.5 text-sm text-fg-muted">
+								{allDiffs.length}{" "}
+								{allDiffs.length === 1 ? "line change" : "line changes"}
+								{annotations.length > 1 &&
+									` across ${annotations.length} sessions`}
+							</p>
+							<div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+								<span>{mostRecent.author}</span>
+								<span>-</span>
+								<span>{formatRelativeTime(mostRecent.createdAt)}</span>
+							</div>
+						</div>
+					</div>
+				</button>
+				{isExpanded && <EditDiffDetail diffs={allDiffs} />}
+			</div>
+		</li>
 	);
 }
 
@@ -251,7 +323,7 @@ function AnnotationItem({
 				</div>
 			</button>
 			{isEdit && annotation.anchor.type === "edit-diff" && (
-				<EditDiffDetail anchor={annotation.anchor} />
+				<EditDiffDetail diffs={annotation.anchor.diffs} />
 			)}
 			{showTruncation && (
 				<button
@@ -554,18 +626,31 @@ export function AnnotationSidebar({
 					</div>
 				) : (
 					<ul className="space-y-1 p-2">
-						{[...groupedAnnotations.open, ...groupedAnnotations.resolved].map(
-							(annotation) => (
-								<li key={annotation.id}>
-									<AnnotationItem
-										annotation={annotation}
-										onClick={() => handleAnnotationClick(annotation)}
-										isExpanded={expandedComments.has(annotation.id)}
-										onToggleExpand={() => toggleExpanded(annotation.id)}
-									/>
-								</li>
-							),
-						)}
+						{(() => {
+							const all = [
+								...groupedAnnotations.open,
+								...groupedAnnotations.resolved,
+							];
+							const editAnnotations = all.filter(isEditAnnotation);
+							const manualAnnotations = all.filter((a) => !isEditAnnotation(a));
+							return (
+								<>
+									{editAnnotations.length > 0 && (
+										<EditAnnotationGroup annotations={editAnnotations} />
+									)}
+									{manualAnnotations.map((annotation) => (
+										<li key={annotation.id}>
+											<AnnotationItem
+												annotation={annotation}
+												onClick={() => handleAnnotationClick(annotation)}
+												isExpanded={expandedComments.has(annotation.id)}
+												onToggleExpand={() => toggleExpanded(annotation.id)}
+											/>
+										</li>
+									))}
+								</>
+							);
+						})()}
 
 						{groupedAnnotations.orphaned.length > 0 && (
 							<>
