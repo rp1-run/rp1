@@ -34,6 +34,127 @@ async function renderMermaidSvg(code: string): Promise<string> {
 	return svg;
 }
 
+// --- Image export ---
+
+async function svgToPngBlob(
+	svgEl: SVGSVGElement,
+	scaleFactor = 2,
+): Promise<Blob> {
+	const svgClone = svgEl.cloneNode(true) as SVGSVGElement;
+	svgClone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+	svgClone.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
+
+	const viewBox = svgEl.viewBox?.baseVal;
+	const attrW = Number.parseFloat(svgEl.getAttribute("width") ?? "0");
+	const attrH = Number.parseFloat(svgEl.getAttribute("height") ?? "0");
+	const width = viewBox?.width || attrW || svgEl.getBoundingClientRect().width;
+	const height =
+		viewBox?.height || attrH || svgEl.getBoundingClientRect().height;
+	svgClone.setAttribute("width", String(width));
+	svgClone.setAttribute("height", String(height));
+
+	const styleEl = document.createElementNS(
+		"http://www.w3.org/2000/svg",
+		"style",
+	);
+	const styles: string[] = [];
+	for (const sheet of document.styleSheets) {
+		try {
+			for (const rule of sheet.cssRules) {
+				styles.push(rule.cssText);
+			}
+		} catch {
+			/* skip cross-origin */
+		}
+	}
+	styleEl.textContent = styles.join("\n");
+	svgClone.insertBefore(styleEl, svgClone.firstChild);
+
+	for (const fo of svgClone.querySelectorAll("foreignObject")) {
+		const text = fo.textContent?.trim() ?? "";
+		const svgText = document.createElementNS(
+			"http://www.w3.org/2000/svg",
+			"text",
+		);
+		const x = fo.getAttribute("x") ?? "0";
+		const y = fo.getAttribute("y") ?? "0";
+		const foW = Number.parseFloat(fo.getAttribute("width") ?? "100");
+		const foH = Number.parseFloat(fo.getAttribute("height") ?? "20");
+		svgText.setAttribute("x", String(Number.parseFloat(x) + foW / 2));
+		svgText.setAttribute("y", String(Number.parseFloat(y) + foH / 2));
+		svgText.setAttribute("text-anchor", "middle");
+		svgText.setAttribute("dominant-baseline", "central");
+		svgText.setAttribute(
+			"font-family",
+			"var(--font-mono, 'JetBrains Mono', monospace)",
+		);
+		svgText.setAttribute("font-size", "14");
+		svgText.setAttribute("fill", "currentColor");
+		svgText.textContent = text;
+		fo.replaceWith(svgText);
+	}
+
+	const svgString = new XMLSerializer().serializeToString(svgClone);
+	const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgString)}`;
+
+	const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+		const image = new Image();
+		image.onload = () => resolve(image);
+		image.onerror = () => reject(new Error("Failed to load SVG as image"));
+		image.src = dataUrl;
+	});
+
+	const canvas = document.createElement("canvas");
+	canvas.width = width * scaleFactor;
+	canvas.height = height * scaleFactor;
+	const ctx = canvas.getContext("2d");
+	if (!ctx) throw new Error("Canvas context unavailable");
+	ctx.scale(scaleFactor, scaleFactor);
+
+	const isDark = document.documentElement.classList.contains("dark");
+	ctx.fillStyle = isDark ? "#211e1c" : "#f0f0ee";
+	ctx.fillRect(0, 0, width, height);
+	ctx.drawImage(img, 0, 0, width, height);
+
+	return new Promise<Blob>((resolve, reject) =>
+		canvas.toBlob(
+			(b) => (b ? resolve(b) : reject(new Error("toBlob failed"))),
+			"image/png",
+		),
+	);
+}
+
+// --- Icon helpers ---
+
+const ICON_COPY =
+	'<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>';
+const ICON_CHECK = '<polyline points="20 6 9 17 4 12"/>';
+const ICON_DOWNLOAD =
+	'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>';
+const ICON_MAXIMIZE =
+	'<polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" x2="14" y1="3" y2="10"/><line x1="3" x2="10" y1="21" y2="14"/>';
+
+function iconSvg(paths: string): string {
+	return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+}
+
+function createActionButton(paths: string, label: string): HTMLButtonElement {
+	const btn = document.createElement("button");
+	btn.type = "button";
+	btn.className = "milkdown-mermaid-action";
+	btn.title = label;
+	btn.setAttribute("aria-label", label);
+	btn.innerHTML = iconSvg(paths);
+	return btn;
+}
+
+function flashIcon(btn: HTMLButtonElement, originalPaths: string) {
+	btn.innerHTML = iconSvg(ICON_CHECK);
+	setTimeout(() => {
+		btn.innerHTML = iconSvg(originalPaths);
+	}, 1500);
+}
+
 /**
  * NodeView for mermaid code blocks.
  * Non-mermaid code blocks fall through to default rendering.
@@ -43,7 +164,6 @@ function mermaidNodeView(_ctx: Ctx): NodeViewConstructor {
 		const isMermaid = MERMAID_LANGS.test(node.attrs.language);
 
 		if (!isMermaid) {
-			// Return a minimal pass-through NodeView for non-mermaid code blocks
 			const pre = document.createElement("pre");
 			pre.dataset.language = node.attrs.language;
 			const code = document.createElement("code");
@@ -58,11 +178,9 @@ function mermaidNodeView(_ctx: Ctx): NodeViewConstructor {
 		let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 		let lastRenderedCode = "";
 
-		// Outer dom — ProseMirror watches this, so never mutate its attributes
 		const container = document.createElement("div");
 		container.className = "milkdown-mermaid-container";
 
-		// Inner wrapper carries tab state — safe from ProseMirror's MutationObserver
 		const inner = document.createElement("div");
 		inner.className = "milkdown-mermaid-inner";
 		inner.setAttribute("data-tab", "preview");
@@ -82,8 +200,21 @@ function mermaidNodeView(_ctx: Ctx): NodeViewConstructor {
 		codeTab.className = "milkdown-mermaid-tab";
 		codeTab.textContent = "Code";
 
+		// Action buttons — right-aligned in tab bar
+		const actionsDiv = document.createElement("div");
+		actionsDiv.className = "milkdown-mermaid-actions";
+
+		const copyBtn = createActionButton(ICON_COPY, "Copy as image");
+		const downloadBtn = createActionButton(ICON_DOWNLOAD, "Download as image");
+		const fullscreenBtn = createActionButton(ICON_MAXIMIZE, "Fullscreen");
+
+		actionsDiv.appendChild(copyBtn);
+		actionsDiv.appendChild(downloadBtn);
+		actionsDiv.appendChild(fullscreenBtn);
+
 		tabBar.appendChild(previewTab);
 		tabBar.appendChild(codeTab);
+		tabBar.appendChild(actionsDiv);
 
 		// Code area (ProseMirror's contentDOM — editable)
 		const pre = document.createElement("pre");
@@ -102,7 +233,7 @@ function mermaidNodeView(_ctx: Ctx): NodeViewConstructor {
 		inner.appendChild(previewPanel);
 		container.appendChild(inner);
 
-		// Tab switching — only mutates the inner wrapper, never the dom element
+		// Tab switching
 		function setTab(tab: string) {
 			inner.setAttribute("data-tab", tab);
 			previewTab.classList.toggle("active", tab === "preview");
@@ -111,6 +242,49 @@ function mermaidNodeView(_ctx: Ctx): NodeViewConstructor {
 
 		previewTab.addEventListener("click", () => setTab("preview"));
 		codeTab.addEventListener("click", () => setTab("code"));
+
+		// Action handlers
+		copyBtn.addEventListener("click", async () => {
+			const svgEl = previewPanel.querySelector("svg");
+			if (!svgEl) return;
+			try {
+				const blob = await svgToPngBlob(svgEl);
+				await navigator.clipboard.write([
+					new ClipboardItem({ "image/png": blob }),
+				]);
+				flashIcon(copyBtn, ICON_COPY);
+			} catch (err) {
+				console.error("Copy as PNG failed:", err);
+			}
+		});
+
+		downloadBtn.addEventListener("click", async () => {
+			const svgEl = previewPanel.querySelector("svg");
+			if (!svgEl) return;
+			try {
+				const blob = await svgToPngBlob(svgEl);
+				const url = URL.createObjectURL(blob);
+				const a = document.createElement("a");
+				a.href = url;
+				a.download = "mermaid-diagram.png";
+				a.click();
+				URL.revokeObjectURL(url);
+				flashIcon(downloadBtn, ICON_DOWNLOAD);
+			} catch (err) {
+				console.error("Download as PNG failed:", err);
+			}
+		});
+
+		fullscreenBtn.addEventListener("click", () => {
+			const code = codeEl.textContent?.trim() ?? "";
+			if (code) {
+				document.dispatchEvent(
+					new CustomEvent("mermaid-editor-fullscreen", {
+						detail: { code },
+					}),
+				);
+			}
+		});
 
 		// Render mermaid diagram
 		function scheduleRender(code: string) {
@@ -145,9 +319,6 @@ function mermaidNodeView(_ctx: Ctx): NodeViewConstructor {
 			dom: container,
 			contentDOM: codeEl,
 			ignoreMutation(mutation) {
-				// ProseMirror owns contentDOM (the <code> element) — let it
-				// handle mutations there. Everything else (tab bar, preview
-				// panel, inner wrapper attributes) is our UI chrome — ignore.
 				if (!(mutation instanceof MutationRecord)) return false;
 				return !codeEl.contains(mutation.target);
 			},
@@ -158,7 +329,6 @@ function mermaidNodeView(_ctx: Ctx): NodeViewConstructor {
 			update(updatedNode) {
 				if (updatedNode.type.name !== "code_block") return false;
 				if (!MERMAID_LANGS.test(updatedNode.attrs.language)) return false;
-				// Re-render if code changed
 				const newCode = updatedNode.textContent.trim();
 				if (newCode !== lastRenderedCode) {
 					scheduleRender(newCode);

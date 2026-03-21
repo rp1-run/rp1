@@ -1,4 +1,4 @@
-import { Code, Expand, RotateCcw, X, ZoomIn, ZoomOut } from "lucide-react";
+import { Expand, RotateCcw, X, ZoomIn, ZoomOut } from "lucide-react";
 import mermaid from "mermaid";
 import {
 	createContext,
@@ -41,7 +41,6 @@ export function DiagramFullscreenProvider({
 	const [isFullscreen, setIsFullscreen] = useState(false);
 	const [code, setCode] = useState<string>("");
 	const [svg, setSvg] = useState<string>("");
-	const [showSource, setShowSource] = useState(false);
 	const [scale, setScale] = useState(1);
 	const [position, setPosition] = useState({ x: 0, y: 0 });
 	const [isDragging, setIsDragging] = useState(false);
@@ -92,7 +91,6 @@ export function DiagramFullscreenProvider({
 		setCode(diagramCode);
 		setIsFullscreen(true);
 		setPosition({ x: 0, y: 0 });
-		setShowSource(false);
 
 		// Calculate optimal scale after render
 		setTimeout(() => {
@@ -130,6 +128,19 @@ export function DiagramFullscreenProvider({
 		},
 		[isFullscreen],
 	);
+
+	// Listen for fullscreen requests from vanilla DOM (Milkdown mermaid plugin)
+	useEffect(() => {
+		const handler = (e: Event) => {
+			const detail = (e as CustomEvent).detail;
+			if (detail?.code) {
+				openFullscreen(detail.code);
+			}
+		};
+		document.addEventListener("mermaid-editor-fullscreen", handler);
+		return () =>
+			document.removeEventListener("mermaid-editor-fullscreen", handler);
+	}, [openFullscreen]);
 
 	// Handle escape key
 	useEffect(() => {
@@ -278,23 +289,6 @@ export function DiagramFullscreenProvider({
 				</TooltipTrigger>
 				<TooltipContent>Fit to screen</TooltipContent>
 			</Tooltip>
-
-			<Tooltip>
-				<TooltipTrigger asChild>
-					<Button
-						variant="ghost"
-						size="icon"
-						className={cn("h-7 w-7", showSource && "bg-accent")}
-						onClick={() => setShowSource(!showSource)}
-						aria-label={showSource ? "Hide source" : "Show source"}
-					>
-						<Code className="h-3.5 w-3.5" />
-					</Button>
-				</TooltipTrigger>
-				<TooltipContent>
-					{showSource ? "Hide source" : "Show source"}
-				</TooltipContent>
-			</Tooltip>
 		</TooltipProvider>
 	);
 
@@ -334,50 +328,40 @@ export function DiagramFullscreenProvider({
 					</div>
 
 					{/* Content */}
-					<div className="flex-1 overflow-hidden">
-						{showSource ? (
-							<pre className="h-full p-6 text-sm overflow-auto">
-								<code>{code}</code>
-							</pre>
-						) : (
-							// biome-ignore lint/a11y/noStaticElementInteractions: pan/zoom interactions for diagram viewer
+					{/* biome-ignore lint/a11y/noStaticElementInteractions: pan/zoom interactions for diagram viewer */}
+					<div
+						className={cn(
+							"flex-1 overflow-hidden relative flex items-center justify-center",
+							isDragging ? "cursor-grabbing" : "cursor-grab",
+						)}
+						onMouseDown={handleMouseDown}
+						onMouseMove={handleMouseMove}
+						onMouseUp={handleMouseUp}
+						onMouseLeave={handleMouseUp}
+						onWheel={handleWheel}
+					>
+						{svg ? (
 							<div
-								className={cn(
-									"h-full relative overflow-hidden flex items-center justify-center",
-									isDragging ? "cursor-grabbing" : "cursor-grab",
-								)}
-								onMouseDown={handleMouseDown}
-								onMouseMove={handleMouseMove}
-								onMouseUp={handleMouseUp}
-								onMouseLeave={handleMouseUp}
-								onWheel={handleWheel}
-							>
-								{svg ? (
-									<div
-										ref={svgContainerRef}
-										className="mermaid-svg transition-transform duration-100 [&_svg]:max-w-none"
-										style={{
-											transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
-										}}
-										// biome-ignore lint/security/noDangerouslySetInnerHtml: trusted Mermaid SVG output
-										dangerouslySetInnerHTML={{ __html: svg }}
-									/>
-								) : (
-									<div className="text-sm text-muted-foreground">
-										Loading diagram...
-									</div>
-								)}
+								ref={svgContainerRef}
+								className="mermaid-svg transition-transform duration-100 [&_svg]:max-w-none"
+								style={{
+									transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+								}}
+								// biome-ignore lint/security/noDangerouslySetInnerHtml: trusted Mermaid SVG output
+								dangerouslySetInnerHTML={{ __html: svg }}
+							/>
+						) : (
+							<div className="text-sm text-muted-foreground">
+								Loading diagram...
 							</div>
 						)}
 					</div>
 
 					{/* Footer */}
-					{!showSource && (
-						<div className="border-t bg-muted/50 px-4 py-2 text-xs text-muted-foreground text-center">
-							{Math.round(scale * 100)}% • Drag to pan • Ctrl+Scroll to zoom •
-							Press Esc to close
-						</div>
-					)}
+					<div className="border-t bg-muted/50 px-4 py-2 text-xs text-muted-foreground text-center">
+						{Math.round(scale * 100)}% • Drag to pan • Ctrl+Scroll to zoom •
+						Press Esc to close
+					</div>
 				</div>,
 				document.body,
 			)
