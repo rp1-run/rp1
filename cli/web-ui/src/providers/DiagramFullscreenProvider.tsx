@@ -65,6 +65,7 @@ export function DiagramFullscreenProvider({
 					securityLevel: "loose",
 					fontFamily: "JetBrains Mono, monospace",
 					themeVariables: isDark ? warmStoneDark : warmStoneLight,
+					suppressErrorRendering: true,
 				});
 
 				renderCountRef.current += 1;

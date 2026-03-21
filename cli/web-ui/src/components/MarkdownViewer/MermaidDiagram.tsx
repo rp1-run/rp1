@@ -52,6 +52,7 @@ mermaid.initialize({
 	securityLevel: "loose",
 	fontFamily: "JetBrains Mono, monospace",
 	themeVariables: warmStoneLight,
+	suppressErrorRendering: true,
 });
 
 interface DiagramAnnotationPopoverProps {
@@ -341,6 +342,7 @@ export function MermaidDiagram({
 					securityLevel: "loose",
 					fontFamily: "JetBrains Mono, monospace",
 					themeVariables: isDark ? warmStoneDark : warmStoneLight,
+					suppressErrorRendering: true,
 				});
 
 				renderCountRef.current += 1;
