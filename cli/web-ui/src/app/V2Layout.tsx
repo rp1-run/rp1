@@ -39,6 +39,9 @@ export function AppLayout() {
 	const navigate = useNavigate();
 	const isFullHeight = isFullHeightRoute(location.pathname);
 
+	const animationKey =
+		location.pathname.match(/^\/runs\/[^/]+/)?.[0] ?? location.pathname;
+
 	const reducedMotion = usePrefersReducedMotion();
 	const variants = reducedMotion ? pageVariantsReduced : pageVariants;
 	const transition = reducedMotion ? pageTransitionReduced : pageTransition;
@@ -82,7 +85,7 @@ export function AppLayout() {
 							<main className="flex-1 overflow-hidden">
 								<AnimatePresence mode="wait">
 									<motion.div
-										key={location.pathname}
+										key={animationKey}
 										variants={variants}
 										initial="initial"
 										animate="animate"
@@ -99,7 +102,7 @@ export function AppLayout() {
 								<ScrollArea className="h-full">
 									<AnimatePresence mode="wait">
 										<motion.div
-											key={location.pathname}
+											key={animationKey}
 											variants={variants}
 											initial="initial"
 											animate="animate"
