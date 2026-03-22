@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.6.0](https://github.com/rp1-run/rp1/compare/v0.5.2...v0.6.0) (2026-03-22)
+
+
+### ⚠ BREAKING CHANGES
+
+* arcade ready to play ([#286](https://github.com/rp1-run/rp1/issues/286))
+
+### Features
+
+* arcade ready to play ([#286](https://github.com/rp1-run/rp1/issues/286)) ([aed76e2](https://github.com/rp1-run/rp1/commit/aed76e2f5b8d15b11603b4c05ad9a002719f0891))
+* consolidate workflow state management and remove legacy work command ([#285](https://github.com/rp1-run/rp1/issues/285)) ([51ebe71](https://github.com/rp1-run/rp1/commit/51ebe715258e801ae36f11067a95eb892d391d6d))
+* revamped run page ([#283](https://github.com/rp1-run/rp1/issues/283)) ([7af9813](https://github.com/rp1-run/rp1/commit/7af98137522854665a22f9c5ed392c474a7072a1))
+* template engine, web UI improvements, and worktree removal ([#281](https://github.com/rp1-run/rp1/issues/281)) ([1e319b3](https://github.com/rp1-run/rp1/commit/1e319b3fe95a0b3d9ec2bae6e9f0a8918cc3b63b))
+* **web-ui:** replace RunDetailPage with React Flow canvas (Phase 1) ([#282](https://github.com/rp1-run/rp1/issues/282)) ([e985610](https://github.com/rp1-run/rp1/commit/e9856105b7b0a945207bc409b340213aeae9304f))
+
+
+### Bug Fixes
+
+* **install:** flatten agent files for OpenCode compatibility ([#279](https://github.com/rp1-run/rp1/issues/279)) ([ea83683](https://github.com/rp1-run/rp1/commit/ea83683210d49741a503c6067f857b117d6f0e39))
+* remove generatedAt from plugin manifests and auto-bump dist versions ([#284](https://github.com/rp1-run/rp1/issues/284)) ([518ff0e](https://github.com/rp1-run/rp1/commit/518ff0e5b423364eb2b0c902a7a6e8630486fc79))
+
 ## [0.5.2](https://github.com/rp1-run/rp1/compare/v0.5.1...v0.5.2) (2026-03-08)
 
 
