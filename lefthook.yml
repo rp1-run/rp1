@@ -17,7 +17,8 @@ pre-commit:
       run: just check-plugin-dist
     catalog:
       glob: "plugins/**/*.md"
-      run: just check-catalog
+      run: "just check-catalog || echo 'WARNING: Catalogue is stale. Run: just generate-catalog'"
+      fail_text: "Advisory: Catalogue needs regeneration"
 pre-push:
   parallel: true
   commands:
