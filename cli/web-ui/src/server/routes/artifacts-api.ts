@@ -13,6 +13,7 @@ import * as E from "fp-ts/lib/Either.js";
 import { formatError } from "../../../../shared/errors.js";
 import {
 	getArtifactBaseline,
+	getArtifactByDocId,
 	getArtifactByRunAndDocId,
 	getEmitDatabase,
 	getRunById,
@@ -20,6 +21,7 @@ import {
 	updateArtifactPath,
 } from "../../../../src/agent-tools/emit/database.js";
 import { getAllProjects } from "../registry";
+import type { WebSocketHub } from "../websocket";
 import { type ApiContext, errorResponse, jsonResponse } from "./content-utils";
 
 async function getDb(): Promise<Database> {
@@ -28,6 +30,31 @@ async function getDb(): Promise<Database> {
 		throw new Error(`Database unavailable: ${formatError(result.left, false)}`);
 	}
 	return result.right;
+}
+
+/**
+ * Broadcast an artifact_registered event after path reconciliation so the
+ * frontend refetches run data and updates the breadcrumb immediately.
+ */
+export function broadcastPathReconciliation(
+	websocketHub: WebSocketHub | undefined,
+	projectId: string,
+	runId: string,
+	featureId: string,
+	docId: string,
+	newPath: string,
+): void {
+	if (!websocketHub) return;
+	websocketHub.broadcastEvent(
+		projectId,
+		Date.now(),
+		"artifact_registered",
+		runId,
+		featureId,
+		null,
+		{ docId, path: newPath, reconciled: true },
+		new Date().toISOString(),
+	);
 }
 
 export function validateSavePath(
@@ -162,7 +189,7 @@ export async function resolveArtifactPath(
 export async function handleArtifactSaveRequest(
 	runId: string,
 	req: Request,
-	_apiContext: ApiContext,
+	apiContext: ApiContext,
 ): Promise<Response> {
 	try {
 		const db = await getDb();
@@ -227,6 +254,14 @@ export async function handleArtifactSaveRequest(
 					console.log(
 						`[path-reconciliation] Save handler updated path for ${contentDocId}: ${fallbackRecord.path} -> ${body.path}`,
 					);
+					broadcastPathReconciliation(
+						apiContext.websocketHub,
+						project.id,
+						runId,
+						record.featureId,
+						contentDocId,
+						body.path,
+					);
 				}
 			}
 		}
@@ -243,6 +278,17 @@ export async function handleArtifactSaveRequest(
 			);
 			if (resolvedPath) {
 				absolutePath = resolvedPath;
+				const newRelPath = relative(projectRoot, resolvedPath);
+				if (newRelPath !== body.path) {
+					broadcastPathReconciliation(
+						apiContext.websocketHub,
+						project.id,
+						runId,
+						record.featureId,
+						artifactRow.doc_id,
+						newRelPath,
+					);
+				}
 			} else {
 				return errorResponse(
 					"File does not exist: only existing files can be saved",
@@ -271,6 +317,7 @@ export async function handleArtifactSaveRequest(
 
 export async function handleArtifactPatchRequest(
 	docId: string,
+	apiContext?: ApiContext,
 ): Promise<Response> {
 	try {
 		const db = await getDb();
@@ -294,6 +341,28 @@ export async function handleArtifactPatchRequest(
 
 		if (!resolvedPath) {
 			return jsonResponse({ patch: null, message: "File not found on disk" });
+		}
+
+		if (
+			apiContext?.websocketHub &&
+			resolve(artifact.projectPath, artifact.path) !== resolvedPath
+		) {
+			const projects = await getAllProjects();
+			const project = projects.find((p) => p.path === artifact.projectPath);
+			const artifactRecord = getArtifactByDocId(db, docId);
+			if (project && artifactRecord?.runId) {
+				const run = getRunById(db, artifactRecord.runId);
+				if (run) {
+					broadcastPathReconciliation(
+						apiContext.websocketHub,
+						project.id,
+						run.id,
+						run.featureId,
+						docId,
+						relative(artifact.projectPath, resolvedPath),
+					);
+				}
+			}
 		}
 
 		const currentContent = await Bun.file(resolvedPath).text();

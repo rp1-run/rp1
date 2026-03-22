@@ -8,7 +8,7 @@
  */
 
 import type { Database } from "bun:sqlite";
-import { extname, join, resolve } from "node:path";
+import { extname, join, relative, resolve } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { formatError } from "../../../../shared/errors.js";
 import type {
@@ -730,6 +730,7 @@ export async function handleV2RunDetailRequest(
 export async function handleV2ArtifactContentRequest(
 	runId: string,
 	artifactPath: string,
+	apiContext?: ApiContext,
 ): Promise<Response> {
 	try {
 		const db = await getDb();
@@ -790,7 +791,9 @@ export async function handleV2ArtifactContentRequest(
 		}
 
 		// Fallback: doc_id-based reconciliation via artifact DB lookup
-		const { resolveArtifactPath } = await import("./artifacts-api");
+		const { resolveArtifactPath, broadcastPathReconciliation } = await import(
+			"./artifacts-api"
+		);
 		const artifactRow = db
 			.prepare(
 				"SELECT doc_id FROM artifacts WHERE run_id = $runId AND path = $path LIMIT 1",
@@ -807,6 +810,17 @@ export async function handleV2ArtifactContentRequest(
 				artifactRow.doc_id,
 			);
 			if (resolvedPath) {
+				const newRelPath = relative(projectRoot, resolvedPath);
+				if (newRelPath !== artifactPath) {
+					broadcastPathReconciliation(
+						apiContext?.websocketHub,
+						project.id,
+						runId,
+						record.featureId,
+						artifactRow.doc_id,
+						newRelPath,
+					);
+				}
 				const content = await Bun.file(resolvedPath).text();
 				return jsonResponse({ content });
 			}

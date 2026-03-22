@@ -76,6 +76,35 @@ mock.module("../../../../src/agent-tools/emit/database.js", () => ({
 			$docId: dId,
 		});
 	},
+	getArtifactByDocId: (db: Database, dId: string) => {
+		const row = db
+			.prepare("SELECT * FROM artifacts WHERE doc_id = $docId")
+			.get({ $docId: dId }) as {
+			id: number;
+			doc_id: string;
+			run_id: string;
+			path: string;
+			type: string;
+			project_path: string;
+			feature: string;
+			step: string | null;
+			subflow: number;
+			created_at: string;
+		} | null;
+		if (!row) return null;
+		return {
+			id: row.id,
+			docId: row.doc_id,
+			runId: row.run_id,
+			path: row.path,
+			type: row.type,
+			projectPath: row.project_path,
+			feature: row.feature,
+			step: row.step,
+			subflow: row.subflow === 1,
+			createdAt: row.created_at,
+		};
+	},
 	getArtifactByRunAndDocId: (db: Database, rId: string, dId: string) => {
 		const row = db
 			.prepare(
@@ -116,6 +145,7 @@ mock.module("../../server/registry", () => ({
 }));
 
 import {
+	broadcastPathReconciliation,
 	extractDocIdFromContent,
 	extractDocIdFromFrontmatter,
 	handleArtifactPatchRequest,
@@ -721,5 +751,143 @@ describe("handleArtifactSaveRequest with moved file", () => {
 		// Verify file was written
 		const written = await Bun.file(join(movedTmpDir, archivedPath)).text();
 		expect(written).toBe(newContent);
+	});
+});
+
+describe("broadcastPathReconciliation", () => {
+	test("calls broadcastEvent with artifact_registered type and correct fields", () => {
+		const calls: unknown[][] = [];
+		const mockHub = {
+			broadcastEvent: (...args: unknown[]) => {
+				calls.push(args);
+			},
+		};
+
+		broadcastPathReconciliation(
+			mockHub as any,
+			"proj-1",
+			"run-1",
+			"feat-1",
+			"doc-1",
+			".rp1/work/archives/features/feat-1/tasks.md",
+		);
+
+		expect(calls).toHaveLength(1);
+		const [projectId, _eventId, eventType, runId, featureId, step, data] =
+			calls[0];
+		expect(projectId).toBe("proj-1");
+		expect(eventType).toBe("artifact_registered");
+		expect(runId).toBe("run-1");
+		expect(featureId).toBe("feat-1");
+		expect(step).toBeNull();
+		expect(data).toEqual({
+			docId: "doc-1",
+			path: ".rp1/work/archives/features/feat-1/tasks.md",
+			reconciled: true,
+		});
+	});
+
+	test("does nothing when websocketHub is undefined", () => {
+		expect(() => {
+			broadcastPathReconciliation(
+				undefined,
+				"proj-1",
+				"run-1",
+				"feat-1",
+				"doc-1",
+				"some/path.md",
+			);
+		}).not.toThrow();
+	});
+});
+
+describe("handleArtifactSaveRequest broadcasts after path reconciliation", () => {
+	const bcastRunId = "bcast-run-001";
+	const bcastDocId = "bcast-doc-001";
+	const bcastOriginalPath = ".rp1/work/features/feat-bcast/design.md";
+	const bcastArchivedPath = ".rp1/work/archives/features/feat-bcast/design.md";
+	let bcastTmpDir: string;
+	let bcastDb: Database;
+
+	beforeAll(async () => {
+		bcastTmpDir = await mkdtemp(join(tmpdir(), "rp1-bcast-test-"));
+		bcastDb = new Database(":memory:");
+		bcastDb.exec("PRAGMA foreign_keys = ON;");
+		bcastDb.exec(SCHEMA_SQL);
+
+		bcastDb
+			.prepare(
+				"INSERT INTO runs (id, flow, feature_id, project_path) VALUES ($id, $flow, $featureId, $projectPath)",
+			)
+			.run({
+				$id: bcastRunId,
+				$flow: "build",
+				$featureId: "feat-bcast",
+				$projectPath: bcastTmpDir,
+			});
+
+		bcastDb
+			.prepare(
+				"INSERT INTO artifacts (doc_id, run_id, path, type, project_path, feature) VALUES ($docId, $runId, $path, $type, $projectPath, $feature)",
+			)
+			.run({
+				$docId: bcastDocId,
+				$runId: bcastRunId,
+				$path: bcastOriginalPath,
+				$type: "markdown",
+				$projectPath: bcastTmpDir,
+				$feature: "feat-bcast",
+			});
+
+		await mkdir(dirname(join(bcastTmpDir, bcastArchivedPath)), {
+			recursive: true,
+		});
+		const fileContent = `---\nrp1_doc_id: ${bcastDocId}\ntitle: Design\n---\n# Design`;
+		await Bun.write(join(bcastTmpDir, bcastArchivedPath), fileContent);
+
+		tmpDir = bcastTmpDir;
+		testDb = bcastDb;
+	});
+
+	afterAll(async () => {
+		bcastDb?.close();
+		if (bcastTmpDir) await rm(bcastTmpDir, { recursive: true, force: true });
+	});
+
+	test("broadcasts artifact_registered when save handler reconciles a moved file via doc_id fallback", async () => {
+		const broadcastCalls: unknown[][] = [];
+		const mockHub = {
+			broadcastEvent: (...args: unknown[]) => {
+				broadcastCalls.push(args);
+			},
+		};
+
+		const newContent = `---\nrp1_doc_id: ${bcastDocId}\ntitle: Design\n---\n# Updated`;
+		const req = new Request("http://localhost/api/save", {
+			method: "PUT",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				path: bcastArchivedPath,
+				content: newContent,
+			}),
+		});
+
+		const response = await handleArtifactSaveRequest(bcastRunId, req, {
+			port: 3000,
+			startTime: Date.now(),
+			websocketHub: mockHub as any,
+		});
+		expect(response.status).toBe(200);
+
+		expect(broadcastCalls.length).toBeGreaterThanOrEqual(1);
+		const call = broadcastCalls[0];
+		const [projectId, _eventId, eventType, callRunId, featureId, _step, data] =
+			call;
+		expect(projectId).toBe("test-project");
+		expect(eventType).toBe("artifact_registered");
+		expect(callRunId).toBe(bcastRunId);
+		expect(featureId).toBe("feat-bcast");
+		expect((data as Record<string, unknown>).docId).toBe(bcastDocId);
+		expect((data as Record<string, unknown>).reconciled).toBe(true);
 	});
 });
