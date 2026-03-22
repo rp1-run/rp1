@@ -4,15 +4,7 @@
  */
 
 import { Database } from "bun:sqlite";
-import {
-	afterAll,
-	beforeAll,
-	beforeEach,
-	describe,
-	expect,
-	mock,
-	test,
-} from "bun:test";
+import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
 import { mkdir, mkdtemp, rename, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -146,7 +138,6 @@ mock.module("../../server/registry", () => ({
 
 import {
 	broadcastPathReconciliation,
-	extractDocIdFromContent,
 	extractDocIdFromFrontmatter,
 	handleArtifactPatchRequest,
 	handleArtifactSaveRequest,

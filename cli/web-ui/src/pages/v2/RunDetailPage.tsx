@@ -133,7 +133,6 @@ export function RunDetailPage() {
 		[runId, selectedStepId, navigate],
 	);
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: auto-select step/artifact when URL lacks them
 	useEffect(() => {
 		if (!run || !runId) return;
 		const steps = run.steps;
@@ -174,7 +173,6 @@ export function RunDetailPage() {
 		}
 	}, [run, runId, urlStepId, urlDocId, navigate]);
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: sync breadcrumb context with URL-derived artifact
 	useEffect(() => {
 		if (selectedArtifact && runId) {
 			setActiveArtifact(runId, selectedArtifact.path);
