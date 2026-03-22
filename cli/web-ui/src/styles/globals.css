@@ -363,7 +363,6 @@
     overflow: visible;
   }
 
-
   /* Artifact viewer panel: code blocks use void background */
   .artifact-viewer-content .shiki-container {
     background-color: hsl(var(--void));
@@ -654,7 +653,7 @@
   }
 
   .milkdown-mermaid-preview svg {
-    max-width: 100%;
+    max-width: none;
     height: auto;
   }
 

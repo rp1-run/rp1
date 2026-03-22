@@ -229,6 +229,38 @@ export function AnnotationLayer({
 		};
 	}, [activeAnnotationId, annotations, containerRef]);
 
+	// Dismiss handler for indicator_visible state.
+	// SelectionPopover and AnnotationPopover handle their own dismiss via useDismiss,
+	// but the SelectionIndicator (gutter button) has no built-in dismiss. Without this,
+	// clicking away from the indicator leaves it stuck and blocks new selections.
+	useEffect(() => {
+		if (flowState.state !== "indicator_visible") return;
+
+		const handleMouseDown = (e: MouseEvent) => {
+			if (gutterRef.current?.contains(e.target as Node)) return;
+			dispatch({ type: "CLICK_OUTSIDE" });
+		};
+
+		const handleEscape = (e: KeyboardEvent) => {
+			if (e.key === "Escape") {
+				dispatch({ type: "ESCAPE" });
+			}
+		};
+
+		// Delay activation so the mouseup that completed the text selection
+		// doesn't immediately dismiss the indicator.
+		const timeoutId = setTimeout(() => {
+			document.addEventListener("mousedown", handleMouseDown);
+			document.addEventListener("keydown", handleEscape, true);
+		}, 150);
+
+		return () => {
+			clearTimeout(timeoutId);
+			document.removeEventListener("mousedown", handleMouseDown);
+			document.removeEventListener("keydown", handleEscape, true);
+		};
+	}, [flowState.state, dispatch, gutterRef]);
+
 	return (
 		<>
 			<GroupedAnnotationIndicators

@@ -1,5 +1,4 @@
 import { Expand, RotateCcw, X, ZoomIn, ZoomOut } from "lucide-react";
-import mermaid from "mermaid";
 import {
 	createContext,
 	type ReactNode,
@@ -17,7 +16,7 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { warmStoneDark, warmStoneLight } from "@/lib/mermaid-theme";
+import { renderMermaidSvg } from "@/lib/mermaid-utils";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/providers/ThemeProvider";
 
@@ -50,29 +49,18 @@ export function DiagramFullscreenProvider({
 	const svgContainerRef = useRef<HTMLDivElement>(null);
 	const renderCountRef = useRef(0);
 
-	// Render the diagram when code or theme changes
 	useEffect(() => {
 		if (!isFullscreen || !code) return;
 
 		let cancelled = false;
 
-		async function renderDiagram() {
+		async function render() {
 			try {
-				const isDark = theme === "dark";
-				mermaid.initialize({
-					startOnLoad: false,
-					theme: "base",
-					securityLevel: "loose",
-					fontFamily: "JetBrains Mono, monospace",
-					themeVariables: isDark ? warmStoneDark : warmStoneLight,
-					suppressErrorRendering: true,
-					flowchart: { wrappingWidth: 300, padding: 12 },
-				});
-
 				renderCountRef.current += 1;
 				const diagramId = `mermaid-fullscreen-${renderCountRef.current}`;
+				const isDark = theme === "dark";
 
-				const { svg: renderedSvg } = await mermaid.render(diagramId, code);
+				const renderedSvg = await renderMermaidSvg(code, diagramId, isDark);
 
 				if (!cancelled) {
 					setSvg(renderedSvg);
@@ -82,7 +70,7 @@ export function DiagramFullscreenProvider({
 			}
 		}
 
-		renderDiagram();
+		render();
 
 		return () => {
 			cancelled = true;
@@ -94,7 +82,6 @@ export function DiagramFullscreenProvider({
 		setIsFullscreen(true);
 		setPosition({ x: 0, y: 0 });
 
-		// Calculate optimal scale after render
 		setTimeout(() => {
 			const container = svgContainerRef.current;
 			if (!container) {
@@ -155,7 +142,6 @@ export function DiagramFullscreenProvider({
 			}
 		}
 
-		// Use capture phase to intercept before other handlers
 		document.addEventListener("keydown", handleKeyDown, true);
 		document.body.style.overflow = "hidden";
 
@@ -299,13 +285,13 @@ export function DiagramFullscreenProvider({
 				// biome-ignore lint/a11y/noStaticElementInteractions: backdrop click to close modal
 				// biome-ignore lint/a11y/useKeyWithClickEvents: Escape key handled separately
 				<div
-					className="fixed inset-0 z-50 bg-background flex flex-col"
+					className="fixed inset-0 z-50 bg-surface flex flex-col"
 					onClick={(e) => {
 						if (e.target === e.currentTarget) closeFullscreen();
 					}}
 				>
 					{/* Header */}
-					<div className="flex items-center justify-between border-b bg-muted/80 px-4 py-2">
+					<div className="flex items-center justify-between border-b bg-surface px-4 py-2">
 						<span className="text-sm font-medium">Mermaid Diagram</span>
 						<div className="flex items-center gap-1">
 							{toolbar}
@@ -360,7 +346,7 @@ export function DiagramFullscreenProvider({
 					</div>
 
 					{/* Footer */}
-					<div className="border-t bg-muted/50 px-4 py-2 text-xs text-muted-foreground text-center">
+					<div className="border-t bg-surface px-4 py-2 text-xs text-muted-foreground text-center">
 						{Math.round(scale * 100)}% • Drag to pan • Ctrl+Scroll to zoom •
 						Press Esc to close
 					</div>

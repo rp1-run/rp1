@@ -2,8 +2,7 @@ import type { Ctx } from "@milkdown/kit/ctx";
 import type { NodeViewConstructor } from "@milkdown/kit/prose/view";
 import { $view } from "@milkdown/kit/utils";
 import { codeBlockSchema } from "@milkdown/preset-commonmark";
-import mermaid from "mermaid";
-import { warmStoneDark, warmStoneLight } from "../../lib/mermaid-theme";
+import { renderMermaidSvg, svgToPngBlob } from "../../lib/mermaid-utils";
 
 const DEBOUNCE_MS = 400;
 const MERMAID_LANGS = /^(mermaid|mmd|mindmap)$/i;
@@ -11,118 +10,23 @@ const MERMAID_LANGS = /^(mermaid|mmd|mindmap)$/i;
 const renderCache = new Map<string, string>();
 let idCounter = 0;
 
-function initMermaid() {
-	const isDark = document.documentElement.classList.contains("dark");
-	mermaid.initialize({
-		startOnLoad: false,
-		theme: "base",
-		securityLevel: "loose",
-		fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
-		themeVariables: isDark ? warmStoneDark : warmStoneLight,
-		suppressErrorRendering: true,
-		flowchart: { wrappingWidth: 300, padding: 12 },
-	});
+function isDarkMode(): boolean {
+	return document.documentElement.classList.contains("dark");
 }
 
-async function renderMermaidSvg(code: string): Promise<string> {
-	const cached = renderCache.get(code);
+function themeCacheKey(code: string): string {
+	return `${isDarkMode() ? "d" : "l"}:${code}`;
+}
+
+async function cachedRenderMermaid(code: string): Promise<string> {
+	const key = themeCacheKey(code);
+	const cached = renderCache.get(key);
 	if (cached) return cached;
 
-	initMermaid();
 	const id = `mermaid-editor-${idCounter++}`;
-	const { svg } = await mermaid.render(id, code);
-	renderCache.set(code, svg);
+	const svg = await renderMermaidSvg(code, id, isDarkMode());
+	renderCache.set(key, svg);
 	return svg;
-}
-
-// --- Image export ---
-
-async function svgToPngBlob(
-	svgEl: SVGSVGElement,
-	scaleFactor = 2,
-): Promise<Blob> {
-	const svgClone = svgEl.cloneNode(true) as SVGSVGElement;
-	svgClone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-	svgClone.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
-
-	const viewBox = svgEl.viewBox?.baseVal;
-	const attrW = Number.parseFloat(svgEl.getAttribute("width") ?? "0");
-	const attrH = Number.parseFloat(svgEl.getAttribute("height") ?? "0");
-	const width = viewBox?.width || attrW || svgEl.getBoundingClientRect().width;
-	const height =
-		viewBox?.height || attrH || svgEl.getBoundingClientRect().height;
-	svgClone.setAttribute("width", String(width));
-	svgClone.setAttribute("height", String(height));
-
-	const styleEl = document.createElementNS(
-		"http://www.w3.org/2000/svg",
-		"style",
-	);
-	const styles: string[] = [];
-	for (const sheet of document.styleSheets) {
-		try {
-			for (const rule of sheet.cssRules) {
-				styles.push(rule.cssText);
-			}
-		} catch {
-			/* skip cross-origin */
-		}
-	}
-	styleEl.textContent = styles.join("\n");
-	svgClone.insertBefore(styleEl, svgClone.firstChild);
-
-	for (const fo of svgClone.querySelectorAll("foreignObject")) {
-		const text = fo.textContent?.trim() ?? "";
-		const svgText = document.createElementNS(
-			"http://www.w3.org/2000/svg",
-			"text",
-		);
-		const x = fo.getAttribute("x") ?? "0";
-		const y = fo.getAttribute("y") ?? "0";
-		const foW = Number.parseFloat(fo.getAttribute("width") ?? "100");
-		const foH = Number.parseFloat(fo.getAttribute("height") ?? "20");
-		svgText.setAttribute("x", String(Number.parseFloat(x) + foW / 2));
-		svgText.setAttribute("y", String(Number.parseFloat(y) + foH / 2));
-		svgText.setAttribute("text-anchor", "middle");
-		svgText.setAttribute("dominant-baseline", "central");
-		svgText.setAttribute(
-			"font-family",
-			"var(--font-mono, 'JetBrains Mono', monospace)",
-		);
-		svgText.setAttribute("font-size", "14");
-		svgText.setAttribute("fill", "currentColor");
-		svgText.textContent = text;
-		fo.replaceWith(svgText);
-	}
-
-	const svgString = new XMLSerializer().serializeToString(svgClone);
-	const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgString)}`;
-
-	const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-		const image = new Image();
-		image.onload = () => resolve(image);
-		image.onerror = () => reject(new Error("Failed to load SVG as image"));
-		image.src = dataUrl;
-	});
-
-	const canvas = document.createElement("canvas");
-	canvas.width = width * scaleFactor;
-	canvas.height = height * scaleFactor;
-	const ctx = canvas.getContext("2d");
-	if (!ctx) throw new Error("Canvas context unavailable");
-	ctx.scale(scaleFactor, scaleFactor);
-
-	const isDark = document.documentElement.classList.contains("dark");
-	ctx.fillStyle = isDark ? "#211e1c" : "#f0f0ee";
-	ctx.fillRect(0, 0, width, height);
-	ctx.drawImage(img, 0, 0, width, height);
-
-	return new Promise<Blob>((resolve, reject) =>
-		canvas.toBlob(
-			(b) => (b ? resolve(b) : reject(new Error("toBlob failed"))),
-			"image/png",
-		),
-	);
 }
 
 // --- Icon helpers ---
@@ -246,7 +150,7 @@ function mermaidNodeView(_ctx: Ctx): NodeViewConstructor {
 			const svgEl = previewPanel.querySelector("svg");
 			if (!svgEl) return;
 			try {
-				const blob = await svgToPngBlob(svgEl);
+				const blob = await svgToPngBlob(svgEl, isDarkMode());
 				await navigator.clipboard.write([
 					new ClipboardItem({ "image/png": blob }),
 				]);
@@ -260,7 +164,7 @@ function mermaidNodeView(_ctx: Ctx): NodeViewConstructor {
 			const svgEl = previewPanel.querySelector("svg");
 			if (!svgEl) return;
 			try {
-				const blob = await svgToPngBlob(svgEl);
+				const blob = await svgToPngBlob(svgEl, isDarkMode());
 				const url = URL.createObjectURL(blob);
 				const a = document.createElement("a");
 				a.href = url;
@@ -290,7 +194,7 @@ function mermaidNodeView(_ctx: Ctx): NodeViewConstructor {
 			debounceTimer = setTimeout(async () => {
 				debounceTimer = null;
 				try {
-					const svg = await renderMermaidSvg(code);
+					const svg = await cachedRenderMermaid(code);
 					previewPanel.innerHTML = svg;
 					previewPanel.classList.remove("mermaid-error");
 					lastRenderedCode = code;
@@ -304,7 +208,7 @@ function mermaidNodeView(_ctx: Ctx): NodeViewConstructor {
 
 		// Initial render
 		const initialCode = node.textContent.trim();
-		const cached = renderCache.get(initialCode);
+		const cached = renderCache.get(themeCacheKey(initialCode));
 		if (cached) {
 			previewPanel.innerHTML = cached;
 			lastRenderedCode = initialCode;

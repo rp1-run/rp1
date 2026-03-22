@@ -12,7 +12,6 @@ import {
 	ZoomIn,
 	ZoomOut,
 } from "lucide-react";
-import mermaid from "mermaid";
 import {
 	type KeyboardEvent,
 	useCallback,
@@ -32,29 +31,15 @@ import {
 import { AnnotationPopover } from "@/components/v2/AnnotationPopover";
 import { useAnnotations } from "@/hooks/useAnnotations";
 import type { SelectionPosition } from "@/hooks/useTextSelection";
+import {
+	renderMermaidSvg,
+	svgToPngBlob as sharedSvgToPngBlob,
+} from "@/lib/mermaid-utils";
 import { cn } from "@/lib/utils";
 import { useAnnotationContextSafe } from "@/providers/AnnotationProvider";
 import { useDiagramFullscreen } from "@/providers/DiagramFullscreenProvider";
 import { useTheme } from "@/providers/ThemeProvider";
 import type { Annotation, TextSelectionAnchor } from "@/types/annotations";
-
-/**
- * Warm Stone Mermaid Theme Variables
- * Derived from the design system's CSS custom properties (HSL hue 40 light, hue 30 dark)
- */
-
-import { warmStoneDark, warmStoneLight } from "@/lib/mermaid-theme";
-
-// Default init with light theme — per-render calls override with the active theme.
-mermaid.initialize({
-	startOnLoad: false,
-	theme: "base",
-	securityLevel: "loose",
-	fontFamily: "JetBrains Mono, monospace",
-	themeVariables: warmStoneLight,
-	suppressErrorRendering: true,
-	flowchart: { wrappingWidth: 300, padding: 12 },
-});
 
 interface DiagramAnnotationPopoverProps {
 	diagramLabel: string;
@@ -327,23 +312,13 @@ export function MermaidDiagram({
 
 		let cancelled = false;
 
-		async function renderDiagram() {
+		async function render() {
 			try {
-				const isDark = theme === "dark";
-				mermaid.initialize({
-					startOnLoad: false,
-					theme: "base",
-					securityLevel: "loose",
-					fontFamily: "JetBrains Mono, monospace",
-					themeVariables: isDark ? warmStoneDark : warmStoneLight,
-					suppressErrorRendering: true,
-					flowchart: { wrappingWidth: 300, padding: 12 },
-				});
-
 				renderCountRef.current += 1;
 				const diagramId = `mermaid-${uniqueId.replace(/:/g, "")}-${renderCountRef.current}`;
+				const isDark = theme === "dark";
 
-				const { svg: renderedSvg } = await mermaid.render(diagramId, code);
+				const renderedSvg = await renderMermaidSvg(code, diagramId, isDark);
 
 				if (!cancelled) {
 					previousCodeRef.current = code;
@@ -361,7 +336,7 @@ export function MermaidDiagram({
 			}
 		}
 
-		renderDiagram();
+		render();
 
 		return () => {
 			cancelled = true;
@@ -422,15 +397,13 @@ export function MermaidDiagram({
 	const [downloaded, setDownloaded] = useState(false);
 
 	const diagramFilename = useMemo(() => {
-		// Extract diagram type from first non-empty line of mermaid code
 		const firstLine = code.trim().split("\n")[0]?.trim() ?? "";
 		const diagramType = firstLine
-			.replace(/^%%.*%%\s*/, "") // strip directives
-			.split(/[\s{(:]/)[0] // take first word before whitespace/punctuation
+			.replace(/^%%.*%%\s*/, "")
+			.split(/[\s{(:]/)[0]
 			?.toLowerCase();
 		const typeSlug = diagramType || "diagram";
 
-		// Use title if available, otherwise fall back to type
 		const base = title
 			? title
 					.replace(/[^a-zA-Z0-9]+/g, "-")
@@ -441,107 +414,11 @@ export function MermaidDiagram({
 		return `${base}.png`;
 	}, [code, title]);
 
-	const svgToPngBlob = useCallback(
-		async (scaleFactor = 2): Promise<Blob> => {
-			const svgEl = svgContainerRef.current?.querySelector("svg");
-			if (!svgEl) throw new Error("No SVG found");
-
-			const svgClone = svgEl.cloneNode(true) as SVGSVGElement;
-
-			// Ensure xmlns is set for standalone SVG serialization
-			svgClone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-			svgClone.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
-
-			// Get intrinsic SVG dimensions from viewBox or attributes (not getBoundingClientRect
-			// which returns the on-screen size constrained by the container)
-			const viewBox = svgEl.viewBox?.baseVal;
-			const attrWidth = Number.parseFloat(svgEl.getAttribute("width") ?? "0");
-			const attrHeight = Number.parseFloat(svgEl.getAttribute("height") ?? "0");
-			const width =
-				viewBox?.width || attrWidth || svgEl.getBoundingClientRect().width;
-			const height =
-				viewBox?.height || attrHeight || svgEl.getBoundingClientRect().height;
-			svgClone.setAttribute("width", String(width));
-			svgClone.setAttribute("height", String(height));
-
-			// Inline computed styles into the SVG so they survive serialization
-			const styleEl = document.createElementNS(
-				"http://www.w3.org/2000/svg",
-				"style",
-			);
-			const styles: string[] = [];
-			for (const sheet of document.styleSheets) {
-				try {
-					for (const rule of sheet.cssRules) {
-						styles.push(rule.cssText);
-					}
-				} catch {
-					// skip cross-origin stylesheets
-				}
-			}
-			styleEl.textContent = styles.join("\n");
-			svgClone.insertBefore(styleEl, svgClone.firstChild);
-
-			// Replace foreignObject elements with basic SVG text to avoid canvas tainting
-			for (const fo of svgClone.querySelectorAll("foreignObject")) {
-				const textContent = fo.textContent?.trim() ?? "";
-				const svgText = document.createElementNS(
-					"http://www.w3.org/2000/svg",
-					"text",
-				);
-				const x = fo.getAttribute("x") ?? "0";
-				const y = fo.getAttribute("y") ?? "0";
-				const foWidth = Number.parseFloat(fo.getAttribute("width") ?? "100");
-				const foHeight = Number.parseFloat(fo.getAttribute("height") ?? "20");
-				svgText.setAttribute("x", String(Number.parseFloat(x) + foWidth / 2));
-				svgText.setAttribute("y", String(Number.parseFloat(y) + foHeight / 2));
-				svgText.setAttribute("text-anchor", "middle");
-				svgText.setAttribute("dominant-baseline", "central");
-				svgText.setAttribute("font-family", "JetBrains Mono, monospace");
-				svgText.setAttribute("font-size", "14");
-				svgText.setAttribute("fill", "currentColor");
-				svgText.textContent = textContent;
-				fo.replaceWith(svgText);
-			}
-
-			const serializer = new XMLSerializer();
-			const svgString = serializer.serializeToString(svgClone);
-			const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgString)}`;
-
-			const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-				const image = new Image();
-				image.onload = () => resolve(image);
-				image.onerror = () => reject(new Error("Failed to load SVG as image"));
-				image.src = dataUrl;
-			});
-
-			const canvas = document.createElement("canvas");
-			canvas.width = width * scaleFactor;
-			canvas.height = height * scaleFactor;
-			const ctx = canvas.getContext("2d");
-			if (!ctx) throw new Error("Canvas context unavailable");
-			ctx.scale(scaleFactor, scaleFactor);
-
-			// Fill background for export (diagram renders transparent, so fill explicitly)
-			const isDark = theme === "dark";
-			ctx.fillStyle = isDark ? "#211e1c" : "#f0f0ee";
-			ctx.fillRect(0, 0, width, height);
-
-			ctx.drawImage(img, 0, 0, width, height);
-
-			return new Promise<Blob>((resolve, reject) =>
-				canvas.toBlob(
-					(b) => (b ? resolve(b) : reject(new Error("toBlob failed"))),
-					"image/png",
-				),
-			);
-		},
-		[theme],
-	);
-
 	const handleCopyPng = useCallback(async () => {
+		const svgEl = svgContainerRef.current?.querySelector("svg");
+		if (!svgEl) return;
 		try {
-			const blob = await svgToPngBlob();
+			const blob = await sharedSvgToPngBlob(svgEl, theme === "dark");
 			await navigator.clipboard.write([
 				new ClipboardItem({ "image/png": blob }),
 			]);
@@ -550,11 +427,13 @@ export function MermaidDiagram({
 		} catch (err) {
 			console.error("Copy as PNG failed:", err);
 		}
-	}, [svgToPngBlob]);
+	}, [theme]);
 
 	const handleDownloadPng = useCallback(async () => {
+		const svgEl = svgContainerRef.current?.querySelector("svg");
+		if (!svgEl) return;
 		try {
-			const blob = await svgToPngBlob();
+			const blob = await sharedSvgToPngBlob(svgEl, theme === "dark");
 			const url = URL.createObjectURL(blob);
 			const a = document.createElement("a");
 			a.href = url;
@@ -566,7 +445,7 @@ export function MermaidDiagram({
 		} catch (err) {
 			console.error("Download as PNG failed:", err);
 		}
-	}, [svgToPngBlob, diagramFilename]);
+	}, [theme, diagramFilename]);
 
 	if (error) {
 		return (
@@ -738,11 +617,11 @@ export function MermaidDiagram({
 	return (
 		<div
 			className={cn(
-				"group my-4 rounded-lg border bg-muted/30 overflow-hidden",
+				"group my-4 rounded-lg border bg-surface overflow-hidden",
 				className,
 			)}
 		>
-			<div className="flex items-center justify-end border-b bg-muted/80 px-4 py-2">
+			<div className="flex items-center justify-end border-b bg-surface px-4 py-2">
 				{title !== null && (
 					<span className="mr-auto text-xs text-muted-foreground">
 						{title ?? "Mermaid Diagram"}
@@ -809,7 +688,7 @@ export function MermaidDiagram({
 			)}
 
 			{!showSource && (
-				<div className="border-t bg-muted/50 px-4 py-1.5 text-xs text-muted-foreground">
+				<div className="border-t bg-surface px-4 py-1.5 text-xs text-muted-foreground">
 					{Math.round(scale * 100)}% • Drag to pan • Ctrl+Scroll to zoom
 				</div>
 			)}
