@@ -1030,6 +1030,38 @@ export const setArtifactBaseline = (
 };
 
 /**
+ * Update the cached path for an artifact identified by doc_id.
+ * Used when path reconciliation discovers the file has moved.
+ */
+export const updateArtifactPath = (
+	db: Database,
+	docId: string,
+	newPath: string,
+): void => {
+	db.prepare("UPDATE artifacts SET path = $path WHERE doc_id = $docId").run({
+		$path: newPath,
+		$docId: docId,
+	});
+};
+
+/**
+ * Look up an artifact by run_id and doc_id (fallback when path-based lookup misses).
+ */
+export const getArtifactByRunAndDocId = (
+	db: Database,
+	runId: string,
+	docId: string,
+): ArtifactRecord | null => {
+	const row = db
+		.prepare(
+			"SELECT * FROM artifacts WHERE run_id = $runId AND doc_id = $docId LIMIT 1",
+		)
+		.get({ $runId: runId, $docId: docId }) as ArtifactRow | null;
+
+	return row ? artifactRowToRecord(row) : null;
+};
+
+/**
  * Get annotations for a specific run.
  */
 export const getAnnotationsForRun = (

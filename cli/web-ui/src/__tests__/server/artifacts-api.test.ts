@@ -1,13 +1,21 @@
 /**
  * Unit tests for artifact save endpoint path validation, baseline capture,
- * and patch (unified diff) endpoint.
+ * patch (unified diff) endpoint, and doc_id-based path reconciliation.
  */
 
 import { Database } from "bun:sqlite";
-import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import {
+	afterAll,
+	beforeAll,
+	beforeEach,
+	describe,
+	expect,
+	mock,
+	test,
+} from "bun:test";
+import { mkdir, mkdtemp, rename, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 
 let testDb: Database;
@@ -62,6 +70,43 @@ mock.module("../../../../src/agent-tools/emit/database.js", () => ({
 			projectPath: row.project_path,
 		};
 	},
+	updateArtifactPath: (db: Database, dId: string, newPath: string) => {
+		db.prepare("UPDATE artifacts SET path = $path WHERE doc_id = $docId").run({
+			$path: newPath,
+			$docId: dId,
+		});
+	},
+	getArtifactByRunAndDocId: (db: Database, rId: string, dId: string) => {
+		const row = db
+			.prepare(
+				"SELECT * FROM artifacts WHERE run_id = $runId AND doc_id = $docId LIMIT 1",
+			)
+			.get({ $runId: rId, $docId: dId }) as {
+			id: number;
+			doc_id: string;
+			run_id: string;
+			path: string;
+			type: string;
+			project_path: string;
+			feature: string;
+			step: string | null;
+			subflow: number;
+			created_at: string;
+		} | null;
+		if (!row) return null;
+		return {
+			id: row.id,
+			docId: row.doc_id,
+			runId: row.run_id,
+			path: row.path,
+			type: row.type,
+			projectPath: row.project_path,
+			feature: row.feature,
+			step: row.step,
+			subflow: row.subflow === 1,
+			createdAt: row.created_at,
+		};
+	},
 }));
 
 mock.module("../../server/registry", () => ({
@@ -71,10 +116,43 @@ mock.module("../../server/registry", () => ({
 }));
 
 import {
+	extractDocIdFromContent,
+	extractDocIdFromFrontmatter,
 	handleArtifactPatchRequest,
 	handleArtifactSaveRequest,
+	resolveArtifactPath,
+	scanForDocId,
 	validateSavePath,
 } from "../../server/routes/artifacts-api";
+
+const SCHEMA_SQL = `
+	CREATE TABLE schema_version (version INTEGER NOT NULL);
+	INSERT INTO schema_version (version) VALUES (4);
+
+	CREATE TABLE runs (
+		id TEXT PRIMARY KEY NOT NULL,
+		flow TEXT NOT NULL,
+		feature_id TEXT NOT NULL,
+		project_path TEXT NOT NULL,
+		status TEXT NOT NULL DEFAULT 'not_started',
+		created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+		updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+	);
+
+	CREATE TABLE artifacts (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		doc_id TEXT UNIQUE NOT NULL,
+		run_id TEXT REFERENCES runs(id),
+		path TEXT NOT NULL,
+		type TEXT NOT NULL DEFAULT 'other',
+		project_path TEXT NOT NULL,
+		feature TEXT NOT NULL,
+		step TEXT,
+		subflow INTEGER NOT NULL DEFAULT 0,
+		baseline TEXT DEFAULT NULL,
+		created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+	);
+`;
 
 describe("validateSavePath", () => {
 	const projectRoot = "/home/user/project";
@@ -119,34 +197,7 @@ describe("handleArtifactSaveRequest baseline capture", () => {
 
 		testDb = new Database(":memory:");
 		testDb.exec("PRAGMA foreign_keys = ON;");
-		testDb.exec(`
-			CREATE TABLE schema_version (version INTEGER NOT NULL);
-			INSERT INTO schema_version (version) VALUES (4);
-
-			CREATE TABLE runs (
-				id TEXT PRIMARY KEY NOT NULL,
-				flow TEXT NOT NULL,
-				feature_id TEXT NOT NULL,
-				project_path TEXT NOT NULL,
-				status TEXT NOT NULL DEFAULT 'not_started',
-				created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-				updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-			);
-
-			CREATE TABLE artifacts (
-				id INTEGER PRIMARY KEY AUTOINCREMENT,
-				doc_id TEXT UNIQUE NOT NULL,
-				run_id TEXT REFERENCES runs(id),
-				path TEXT NOT NULL,
-				type TEXT NOT NULL DEFAULT 'other',
-				project_path TEXT NOT NULL,
-				feature TEXT NOT NULL,
-				step TEXT,
-				subflow INTEGER NOT NULL DEFAULT 0,
-				baseline TEXT DEFAULT NULL,
-				created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-			);
-		`);
+		testDb.exec(SCHEMA_SQL);
 
 		testDb
 			.prepare(
@@ -250,34 +301,7 @@ describe("handleArtifactPatchRequest", () => {
 
 		patchDb = new Database(":memory:");
 		patchDb.exec("PRAGMA foreign_keys = ON;");
-		patchDb.exec(`
-			CREATE TABLE schema_version (version INTEGER NOT NULL);
-			INSERT INTO schema_version (version) VALUES (4);
-
-			CREATE TABLE runs (
-				id TEXT PRIMARY KEY NOT NULL,
-				flow TEXT NOT NULL,
-				feature_id TEXT NOT NULL,
-				project_path TEXT NOT NULL,
-				status TEXT NOT NULL DEFAULT 'not_started',
-				created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-				updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-			);
-
-			CREATE TABLE artifacts (
-				id INTEGER PRIMARY KEY AUTOINCREMENT,
-				doc_id TEXT UNIQUE NOT NULL,
-				run_id TEXT REFERENCES runs(id),
-				path TEXT NOT NULL,
-				type TEXT NOT NULL DEFAULT 'other',
-				project_path TEXT NOT NULL,
-				feature TEXT NOT NULL,
-				step TEXT,
-				subflow INTEGER NOT NULL DEFAULT 0,
-				baseline TEXT DEFAULT NULL,
-				created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-			);
-		`);
+		patchDb.exec(SCHEMA_SQL);
 
 		patchDb
 			.prepare(
@@ -389,5 +413,313 @@ describe("handleArtifactPatchRequest", () => {
 		};
 		expect(body.patch).toBeNull();
 		expect(body.message).toBe("File not found on disk");
+	});
+});
+
+describe("extractDocIdFromFrontmatter", () => {
+	test("extracts doc_id from valid frontmatter", () => {
+		const content = "---\nrp1_doc_id: abc-123-def\ntitle: Test\n---\n# Hello";
+		expect(extractDocIdFromFrontmatter(content)).toBe("abc-123-def");
+	});
+
+	test("returns null when no frontmatter present", () => {
+		expect(extractDocIdFromFrontmatter("# No frontmatter")).toBeNull();
+	});
+
+	test("returns null when frontmatter has no doc_id", () => {
+		const content = "---\ntitle: Test\n---\n# Hello";
+		expect(extractDocIdFromFrontmatter(content)).toBeNull();
+	});
+
+	test("returns null when frontmatter is unclosed", () => {
+		const content = "---\nrp1_doc_id: abc-123\n# No closing delimiter";
+		expect(extractDocIdFromFrontmatter(content)).toBeNull();
+	});
+});
+
+describe("scanForDocId", () => {
+	let scanTmpDir: string;
+
+	beforeAll(async () => {
+		scanTmpDir = await mkdtemp(join(tmpdir(), "rp1-scan-test-"));
+		const workDir = join(scanTmpDir, ".rp1", "work");
+
+		await mkdir(join(workDir, "features", "feat-1"), { recursive: true });
+		await mkdir(join(workDir, "archives", "features", "feat-1"), {
+			recursive: true,
+		});
+
+		await Bun.write(
+			join(workDir, "features", "feat-1", "tasks.md"),
+			"---\nrp1_doc_id: scan-target-id\ntitle: Tasks\n---\n# Tasks",
+		);
+
+		await Bun.write(
+			join(workDir, "features", "feat-1", "design.md"),
+			"---\nrp1_doc_id: other-id\ntitle: Design\n---\n# Design",
+		);
+
+		await Bun.write(
+			join(workDir, "features", "feat-1", "notes.txt"),
+			"---\nrp1_doc_id: should-not-match\n---\nNot a markdown file",
+		);
+	});
+
+	afterAll(async () => {
+		if (scanTmpDir) await rm(scanTmpDir, { recursive: true, force: true });
+	});
+
+	test("finds file by doc_id in .rp1/work/", async () => {
+		const result = await scanForDocId(scanTmpDir, "scan-target-id");
+		expect(result).toBe(".rp1/work/features/feat-1/tasks.md");
+	});
+
+	test("returns null for non-existent doc_id", async () => {
+		const result = await scanForDocId(scanTmpDir, "nonexistent-id");
+		expect(result).toBeNull();
+	});
+
+	test("does not match non-.md files", async () => {
+		const result = await scanForDocId(scanTmpDir, "should-not-match");
+		expect(result).toBeNull();
+	});
+
+	test("finds file after it was moved to archives", async () => {
+		const src = join(
+			scanTmpDir,
+			".rp1",
+			"work",
+			"features",
+			"feat-1",
+			"tasks.md",
+		);
+		const dest = join(
+			scanTmpDir,
+			".rp1",
+			"work",
+			"archives",
+			"features",
+			"feat-1",
+			"tasks.md",
+		);
+		await rename(src, dest);
+
+		const result = await scanForDocId(scanTmpDir, "scan-target-id");
+		expect(result).toBe(".rp1/work/archives/features/feat-1/tasks.md");
+
+		// Move it back for other tests
+		await rename(dest, src);
+	});
+});
+
+describe("resolveArtifactPath", () => {
+	let reconcileTmpDir: string;
+	let reconcileDb: Database;
+	const reconcileDocId = "reconcile-doc-001";
+
+	beforeAll(async () => {
+		reconcileTmpDir = await mkdtemp(join(tmpdir(), "rp1-reconcile-test-"));
+		reconcileDb = new Database(":memory:");
+		reconcileDb.exec("PRAGMA foreign_keys = ON;");
+		reconcileDb.exec(SCHEMA_SQL);
+
+		reconcileDb
+			.prepare(
+				"INSERT INTO runs (id, flow, feature_id, project_path) VALUES ($id, $flow, $featureId, $projectPath)",
+			)
+			.run({
+				$id: "reconcile-run",
+				$flow: "build",
+				$featureId: "test-feature",
+				$projectPath: reconcileTmpDir,
+			});
+
+		reconcileDb
+			.prepare(
+				"INSERT INTO artifacts (doc_id, run_id, path, type, project_path, feature) VALUES ($docId, $runId, $path, $type, $projectPath, $feature)",
+			)
+			.run({
+				$docId: reconcileDocId,
+				$runId: "reconcile-run",
+				$path: ".rp1/work/features/feat-1/tasks.md",
+				$type: "markdown",
+				$projectPath: reconcileTmpDir,
+				$feature: "test-feature",
+			});
+
+		await mkdir(join(reconcileTmpDir, ".rp1", "work", "features", "feat-1"), {
+			recursive: true,
+		});
+		await Bun.write(
+			join(reconcileTmpDir, ".rp1", "work", "features", "feat-1", "tasks.md"),
+			`---\nrp1_doc_id: ${reconcileDocId}\ntitle: Tasks\n---\n# Tasks`,
+		);
+
+		testDb = reconcileDb;
+	});
+
+	afterAll(async () => {
+		reconcileDb?.close();
+		if (reconcileTmpDir)
+			await rm(reconcileTmpDir, { recursive: true, force: true });
+	});
+
+	test("cache hit: returns immediately when file exists at stored path", async () => {
+		const result = await resolveArtifactPath(
+			reconcileDb,
+			reconcileTmpDir,
+			".rp1/work/features/feat-1/tasks.md",
+			reconcileDocId,
+		);
+		expect(result).toBe(
+			join(reconcileTmpDir, ".rp1/work/features/feat-1/tasks.md"),
+		);
+
+		// Path in DB should not have changed
+		const row = reconcileDb
+			.prepare("SELECT path FROM artifacts WHERE doc_id = $docId")
+			.get({ $docId: reconcileDocId }) as { path: string };
+		expect(row.path).toBe(".rp1/work/features/feat-1/tasks.md");
+	});
+
+	test("cache miss + scan hit: finds moved file and updates DB path", async () => {
+		// Move the file to archives
+		const archiveDir = join(
+			reconcileTmpDir,
+			".rp1",
+			"work",
+			"archives",
+			"features",
+			"feat-1",
+		);
+		await mkdir(archiveDir, { recursive: true });
+		await rename(
+			join(reconcileTmpDir, ".rp1", "work", "features", "feat-1", "tasks.md"),
+			join(archiveDir, "tasks.md"),
+		);
+
+		const result = await resolveArtifactPath(
+			reconcileDb,
+			reconcileTmpDir,
+			".rp1/work/features/feat-1/tasks.md",
+			reconcileDocId,
+		);
+		expect(result).toBe(
+			join(reconcileTmpDir, ".rp1/work/archives/features/feat-1/tasks.md"),
+		);
+
+		// DB path should be updated
+		const row = reconcileDb
+			.prepare("SELECT path FROM artifacts WHERE doc_id = $docId")
+			.get({ $docId: reconcileDocId }) as { path: string };
+		expect(row.path).toBe(".rp1/work/archives/features/feat-1/tasks.md");
+	});
+
+	test("cache miss + scan miss: returns null when file is deleted", async () => {
+		// Remove the file entirely
+		await rm(
+			join(
+				reconcileTmpDir,
+				".rp1",
+				"work",
+				"archives",
+				"features",
+				"feat-1",
+				"tasks.md",
+			),
+		);
+
+		const result = await resolveArtifactPath(
+			reconcileDb,
+			reconcileTmpDir,
+			".rp1/work/archives/features/feat-1/tasks.md",
+			reconcileDocId,
+		);
+		expect(result).toBeNull();
+	});
+});
+
+describe("handleArtifactSaveRequest with moved file", () => {
+	const movedRunId = "moved-run-001";
+	const movedDocId = "moved-doc-001";
+	const originalPath = ".rp1/work/features/feat-move/design.md";
+	const archivedPath = ".rp1/work/archives/features/feat-move/design.md";
+	let movedTmpDir: string;
+	let movedDb: Database;
+
+	beforeAll(async () => {
+		movedTmpDir = await mkdtemp(join(tmpdir(), "rp1-moved-test-"));
+		movedDb = new Database(":memory:");
+		movedDb.exec("PRAGMA foreign_keys = ON;");
+		movedDb.exec(SCHEMA_SQL);
+
+		movedDb
+			.prepare(
+				"INSERT INTO runs (id, flow, feature_id, project_path) VALUES ($id, $flow, $featureId, $projectPath)",
+			)
+			.run({
+				$id: movedRunId,
+				$flow: "build",
+				$featureId: "feat-move",
+				$projectPath: movedTmpDir,
+			});
+
+		movedDb
+			.prepare(
+				"INSERT INTO artifacts (doc_id, run_id, path, type, project_path, feature) VALUES ($docId, $runId, $path, $type, $projectPath, $feature)",
+			)
+			.run({
+				$docId: movedDocId,
+				$runId: movedRunId,
+				$path: originalPath,
+				$type: "markdown",
+				$projectPath: movedTmpDir,
+				$feature: "feat-move",
+			});
+
+		// Create at archived location (simulating archiver already moved it)
+		await mkdir(dirname(join(movedTmpDir, archivedPath)), {
+			recursive: true,
+		});
+		const fileContent = `---\nrp1_doc_id: ${movedDocId}\ntitle: Design\n---\n# Design doc content`;
+		await Bun.write(join(movedTmpDir, archivedPath), fileContent);
+
+		tmpDir = movedTmpDir;
+		testDb = movedDb;
+	});
+
+	afterAll(async () => {
+		movedDb?.close();
+		if (movedTmpDir) await rm(movedTmpDir, { recursive: true, force: true });
+	});
+
+	test("save succeeds after file moved: falls back to doc_id lookup and reconciles", async () => {
+		const newContent = `---\nrp1_doc_id: ${movedDocId}\ntitle: Design\n---\n# Updated design`;
+
+		// Save using the ARCHIVED path (where the file actually is)
+		const req = new Request("http://localhost/api/save", {
+			method: "PUT",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ path: archivedPath, content: newContent }),
+		});
+
+		const response = await handleArtifactSaveRequest(movedRunId, req, {
+			port: 3000,
+			startTime: Date.now(),
+		});
+		expect(response.status).toBe(200);
+
+		const body = (await response.json()) as { saved: boolean };
+		expect(body.saved).toBe(true);
+
+		// Verify the DB path was updated
+		const row = movedDb
+			.prepare("SELECT path FROM artifacts WHERE doc_id = $docId")
+			.get({ $docId: movedDocId }) as { path: string };
+		expect(row.path).toBe(archivedPath);
+
+		// Verify file was written
+		const written = await Bun.file(join(movedTmpDir, archivedPath)).text();
+		expect(written).toBe(newContent);
 	});
 });

@@ -789,6 +789,29 @@ export async function handleV2ArtifactContentRequest(
 			}
 		}
 
+		// Fallback: doc_id-based reconciliation via artifact DB lookup
+		const { resolveArtifactPath } = await import("./artifacts-api");
+		const artifactRow = db
+			.prepare(
+				"SELECT doc_id FROM artifacts WHERE run_id = $runId AND path = $path LIMIT 1",
+			)
+			.get({ $runId: runId, $path: artifactPath }) as {
+			doc_id: string;
+		} | null;
+
+		if (artifactRow) {
+			const resolvedPath = await resolveArtifactPath(
+				db,
+				projectRoot,
+				artifactPath,
+				artifactRow.doc_id,
+			);
+			if (resolvedPath) {
+				const content = await Bun.file(resolvedPath).text();
+				return jsonResponse({ content });
+			}
+		}
+
 		return errorResponse(
 			`Artifact not found: ${artifactPath}. The file may have been deleted.`,
 			404,
