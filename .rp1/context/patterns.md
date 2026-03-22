@@ -1,65 +1,80 @@
 # Implementation Patterns
 
-## Naming Conventions
+**Repository**: rp1
+**Current Project**: . (monorepo root)
+**Last Updated**: 2026-03-23
 
-- **files**: snake_case module files (models.ts, command.ts, database.ts); feature directories group related modules (emit/, state-machine/, task/)
-- **functions**: camelCase verbs: executeEmit, insertRun, deriveRunStatus, validateTransition; factory constructors: usageError(), runtimeError()
-- **imports**: fp-ts imported as namespace aliases (E for Either, TE for TaskEither, O for Option); re-exported via shared/fp.ts facade; absolute imports with .js extensions
-- **Evidence**: cli/shared/fp.ts, cli/shared/errors.ts, cli/src/agent-tools/emit/database.ts
+## Naming & Organization
 
-## Type Patterns
+**Files**: snake_case module files (`models.ts`, `command.ts`, `database.ts`); feature directories group related modules (`emit/`, `state-machine/`, `task/`)
+**Functions**: camelCase verbs: `executeEmit`, `insertRun`, `deriveRunStatus`, `validateTransition`; factory constructors: `usageError()`, `runtimeError()`, `createTemplateEngine()`, `createLogger()`
+**Imports**: fp-ts imported as namespace aliases (`E` for Either, `TE` for TaskEither, `O` for Option); re-exported via `cli/shared/fp.ts` facade; absolute imports with `.js` extensions
 
-- **data_modeling**: Readonly interfaces with readonly fields for all domain models; discriminated unions using _tag field for CLIError; separate Row interfaces (snake_case DB) mapped to Record interfaces (camelCase domain) via pure mapper functions
-- **type_strictness**: Strict typing throughout: generic ToolResult<T> envelope, typed EventType/Status unions, readonly arrays and ReadonlyMap in state machine models
-- **immutability**: All model interfaces use readonly modifier; DB row-to-record mappers create new objects; React state updates use spread operator for immutable transitions
-- **Evidence**: cli/shared/errors.ts:12-38, cli/src/agent-tools/models.ts, cli/src/agent-tools/state-machine/models.ts, cli/src/agent-tools/emit/database.ts:221-318
+Evidence: `cli/shared/fp.ts`, `cli/shared/errors.ts`, `cli/src/build/template-engine.ts`
+
+## Type & Data Modeling
+
+**Data Representation**: Readonly interfaces with `readonly` fields for all domain models; separate Row interfaces (snake_case DB) mapped to Record interfaces (camelCase domain) via pure mapper functions
+**Type Strictness**: Discriminated unions using `_tag` field for `CLIError` and `type` field for `EventPayload`; generic `ToolResult<T>` envelope; `as const` assertions for constant arrays (`VALID_STATUSES`, `PLUGIN_NAMES`)
+**Immutability**: All model interfaces use `readonly` modifier; DB row-to-record mappers create new objects; React state updates use spread operator
+
+Evidence: `cli/shared/errors.ts:12-38`, `cli/shared/events.ts:10-143`, `cli/src/agent-tools/models.ts`, `cli/src/build/template-context.ts`
 
 ## Error Handling
 
-- **strategy**: fp-ts Either<CLIError, A> for sync operations, TaskEither<CLIError, A> for async; CLIError is a discriminated union with _tag field and factory functions
-- **propagation**: Validate at command boundary with E.left early return; chain operations with pipe/E.chain; format errors at output boundary with formatError(); each CLI action checks E.isLeft and exits with createErrorResponse
-- **common_types**: UsageError, NotFoundError, ConfigError, RuntimeError, ParseError, ValidationError
-- **Evidence**: cli/shared/errors.ts, cli/src/agent-tools/command.ts:170-206, cli/src/build/command.ts:125-214
+**Strategy**: fp-ts `Either<CLIError, A>` for sync operations, `TaskEither<CLIError, A>` for async; `CLIError` is a discriminated union with `_tag` field and factory functions; `tryCatchTE` helper wraps Promise into TaskEither
+**Propagation**: Validate at command boundary with `E.left` early return; compose with `TE.Do` + `TE.bind` for multi-field validation pipelines; format errors at output boundary with `formatError()`; each CLI action checks `E.isLeft` and exits with `createErrorResponse`
+**Common Types**: UsageError, NotFoundError, ConfigError, RuntimeError, ParseError, TransformError, ValidationError, GenerationError, PrerequisiteError, InstallError, StrictModeError
 
-## Validation
+Evidence: `cli/shared/errors.ts`, `cli/src/agent-tools/emit/validate.ts:286-316`, `cli/src/build/validator.ts`
 
-- **location**: CLI option parsing layer (validateEmitOptions, parseBuildArgs, parseArcadeArgs); each returns Either<CLIError, ValidatedInput>
-- **method**: Manual validation with early E.left returns for invalid inputs; Commander.js requiredOption for presence checks; parseInt with isNaN guards for numeric args
-- **Evidence**: cli/shared/config.ts:64-74, cli/src/build/command.ts:125-214, cli/src/agent-tools/command.ts:843-855
+## Validation & Boundaries
 
-## Testing
+**Location**: CLI option parsing layer (`validateEmitOptions`, `parseBuildArgs`, `parseArcadeArgs`); each returns `Either<CLIError, ValidatedInput>`; build artifacts get two-tier L1 (syntax) + L2 (schema) validation
+**Method**: Manual validation with early `E.left` returns; `TE.Do`/`TE.bind` for composing multiple validations; per-event-type payload shape validation via switch dispatch; `parseInt` with `isNaN` guards for numeric args
 
-- **organization**: Tests under cli/src/__tests__/ mirror source structure; describe/test blocks with bun:test
-- **fixtures**: beforeEach creates temp directories via createTempDir(); afterEach cleans up with rm(); DB singleton reset pattern (closeDatabase + resetInstance) between tests
-- **levels**: E2E integration tests exercising full pipeline (executeEmit through DB); helper functions like expectTaskRight unwrap TaskEither for assertions
-- **Evidence**: cli/src/__tests__/agent-tools/emit/emit.test.ts
-
-## I/O Patterns
-
-- **database**: bun:sqlite with singleton pattern via module-level dbInstance; WAL mode + busy_timeout pragmas; schema versioning with additive migrations via applyMigrations; parameterized queries with $-prefixed named params; RETURNING * for insert-then-read
-- **http_clients**: React hooks fetch from /api/v2/ REST endpoints; WebSocket for real-time event push with exponential backoff reconnection
-- **Evidence**: cli/src/agent-tools/emit/database.ts:126-433, cli/web-ui/src/hooks/useRunDetail.ts:30-56, cli/web-ui/src/providers/WebSocketProvider.tsx:95-204
-
-## Concurrency
-
-- **async_usage**: TaskEither for async CLI operations wrapping Promise-based code; React hooks with useCallback/useEffect for async data fetching; WebSocket provider manages connection lifecycle
-- **patterns**: Debounced refetch on WebSocket events (setTimeout 500ms); optimistic UI updates via setState before server reconciliation; exponential backoff for WS reconnection (2s initial, 30s max)
-- **Evidence**: cli/web-ui/src/hooks/useRunDetail.ts:63-184, cli/web-ui/src/providers/WebSocketProvider.tsx:43-47
-
-## Dependency Injection
-
-- **injection**: Manual wiring: singleton DB via getEmitDatabase(); React Context for WebSocket (WebSocketProvider) and Annotations (AnnotationProvider); useContext hooks as dependency access
-- **config**: Environment variables (RP1_DB, RP1_ROOT, GITHUB_TOKEN); findRp1Root walks directory tree with git worktree fallback; BuildConfig/ArcadeConfig parsed from CLI args
-- **Evidence**: cli/src/agent-tools/emit/database.ts:23-24, cli/shared/config.ts:20-62, cli/web-ui/src/providers/WebSocketProvider.tsx:280-286
-
-## Extension Points
-
-- **mechanism**: Multi-platform build pipeline: same markdown source in plugins/ is transformed via LiquidJS templates + platform registries (defaultRegistry, codexRegistry, claudeCodeRegistry) to target OpenCode, Codex, and Claude Code
-- **Evidence**: cli/src/build/command.ts:111-120
+Evidence: `cli/shared/config.ts:64-74`, `cli/src/agent-tools/emit/validate.ts:35-316`, `cli/src/build/validator.ts:59-296`
 
 ## Observability
 
-- **logging**: Event-driven observability via SQLite event store; no structured logging framework; console output for CLI user feedback with ANSI color formatting
-- **metrics**: Derived from persisted run data (deriveRunStatus, getProjectRunStats); build summaries aggregate counts
-- **tracing**: None detected; local SQLite event store with sequential IDs serves as audit trail
-- **Evidence**: cli/src/agent-tools/emit/database.ts:648-701, cli/shared/errors.ts:179-238
+**Logging**: consola-based Logger interface via `createLogger()` factory; level-mapped (trace=5 through error=1); ANSI color formatting for CLI error output via `formatError()`
+**Metrics**: Derived from persisted run data (`deriveRunStatus`, `getProjectRunStats`); build summaries aggregate counts
+**Tracing**: None detected; local SQLite event store with sequential IDs serves as audit trail
+
+Evidence: `cli/shared/logger.ts:1-63`, `cli/shared/errors.ts:179-238`
+
+## Testing Idioms
+
+**Organization**: Tests under `cli/src/__tests__/` mirror source structure; `describe`/`test` blocks with `bun:test`
+**Fixtures**: `beforeEach` creates temp directories via `createTempDir()`; `afterEach` cleans up with `rm()`; DB singleton reset (`closeDatabase` + `resetInstance`) between tests; `clearCache()` for state machine test isolation
+**Levels**: E2E integration tests exercising full pipeline (`executeEmit` through DB); helper functions like `expectTaskRight` unwrap TaskEither for assertions
+
+Evidence: `cli/src/__tests__/agent-tools/emit/emit.test.ts`, `cli/src/agent-tools/state-machine/loader.ts:104-106`
+
+## I/O & Integration
+
+**Database**: `bun:sqlite` with singleton pattern via module-level `dbInstance`; WAL mode + `busy_timeout` pragmas; schema versioning with additive migrations via `applyMigrations`; parameterized queries with `$`-prefixed named params; `RETURNING *` for insert-then-read
+**HTTP Clients**: React hooks fetch from `/api/v2/` REST endpoints; WebSocket for real-time event push with exponential backoff reconnection (2s initial, 30s max, factor 2); optimistic UI updates via setState before server reconciliation
+
+Evidence: `cli/src/agent-tools/emit/database.ts:1-120`, `cli/web-ui/src/hooks/useRunDetail.ts:30-56`, `cli/web-ui/src/providers/WebSocketProvider.tsx:47-50`
+
+## Concurrency & Async
+
+**Async Usage**: TaskEither for async CLI operations wrapping Promise-based code; React hooks with `useCallback`/`useEffect` for async data fetching; WebSocket provider manages connection lifecycle
+**Patterns**: Debounced refetch on WebSocket events (`setTimeout` 500ms); optimistic UI updates; exponential backoff for WS reconnection; reconnection reconciliation refetches full state on WS reconnect
+
+Evidence: `cli/web-ui/src/hooks/useRunDetail.ts:63-217`, `cli/web-ui/src/providers/WebSocketProvider.tsx:47-50`
+
+## Dependency & Configuration
+
+**DI Pattern**: Manual wiring: singleton DB via `getEmitDatabase()`; interface + factory function pattern (`createTemplateEngine`, `createLogger`); React Context for WebSocket and Annotations; `useContext` hooks as dependency access
+**Config Loading**: Environment variables (`RP1_DB`, `RP1_ROOT`, `GITHUB_TOKEN`); `findRp1Root` walks directory tree with git worktree fallback; `BuildConfig`/`ArcadeConfig` parsed from CLI args with Either returns
+
+Evidence: `cli/src/agent-tools/emit/database.ts:23-24`, `cli/shared/config.ts:20-131`, `cli/src/build/template-engine.ts:54-89`
+
+## Extension Mechanisms
+
+**Plugin System**: Multi-platform build pipeline: same markdown source transformed via LiquidJS templates + platform registries (`claudeCodeRegistry`, `codexRegistry`, `defaultRegistry`); preprocessor handles platform conditionals before template render
+**Loader Chain**: State machine loader uses cache -> bundle -> filesystem discovery chain with `TE.orElse` fallback
+
+Evidence: `cli/src/build/claude-code/registry.ts`, `cli/src/build/preprocessor.ts:1-11`, `cli/src/agent-tools/state-machine/loader.ts:69-85`

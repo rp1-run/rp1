@@ -1,144 +1,142 @@
-# Modules
+# Module & Component Breakdown
 
-## CLI Entry and Commands
-**Path**: `cli/src/`
-**Purpose**: Hosts the rp1 executable, Commander.js program wiring, lazy-loaded entrypoints for agent-tools and daemon server, and user-facing commands (install, uninstall, init, verify, update, settings, arcade, fake).
+**Project**: rp1
+**Analysis Date**: 2026-03-23
+**Modules Analyzed**: 17
 
-**Key Files**:
-- `cli/src/main.ts`
-- `cli/src/commands/fake.ts`
-- `cli/src/commands/install/index.ts`
-- `cli/src/commands/init.ts`
-- `cli/src/commands/settings.ts`
+## Core Modules
 
-## Agent Tools and Workflow Runtime
-**Path**: `cli/src/agent-tools/`
-**Purpose**: Exposes the agent-tools CLI surface with subcommands for workflow event emission, task queue management, GitHub PR operations, comment extraction, Mermaid validation, RP1 root resolution, and state-machine loading and validation.
+### cli/commands (`cli/src/commands/`)
+**Purpose**: User-facing CLI commands via Commander.js: arcade, install, init, settings, update, verify, uninstall
+**Files**: 22 | **Key**: `main.ts`, `arcade.ts`, `install/index.ts`, `init.ts`, `settings.ts`
+**Dependencies**: cli/shared, cli/agent-tools (lazy), web-ui/daemon (lazy)
 
-**Key Files**:
-- `cli/src/agent-tools/command.ts`
-- `cli/src/agent-tools/emit/database.ts`
-- `cli/src/agent-tools/emit/index.ts`
-- `cli/src/agent-tools/state-machine/loader.ts`
-- `cli/src/agent-tools/task/index.ts`
+### cli/agent-tools (`cli/src/agent-tools/`)
+**Purpose**: Agent-tools CLI surface with subcommands for emit, task queue, GitHub PR, comment extraction, Mermaid validation, rp1-root resolution, and state-machine loading
+**Files**: 43 | **Key**: `command.ts`, `index.ts`, `emit/index.ts`, `state-machine/index.ts`, `github-pr/index.ts`, `task/index.ts`
+**Dependencies**: cli/shared
 
-## Build System
-**Path**: `cli/src/build/`
-**Purpose**: Multi-platform artifact build pipeline that transforms Claude Code source plugins into OpenCode, Claude Code, and Codex format using LiquidJS templates, platform registries, conditional preprocessing, linting, and bundle manifest generation.
+### cli/build (`cli/src/build/`)
+**Purpose**: Multi-platform artifact build pipeline via LiquidJS templates, platform registries, conditional preprocessing, linting, and bundle manifest generation
+**Files**: 18 | **Key**: `command.ts`, `parser.ts`, `registry.ts`, `preprocessor.ts`, `validator.ts`, `claude-code/registry.ts`, `codex/registry.ts`
+**Dependencies**: cli/shared, cli/agent-tools/state-machine, cli/config
 
-**Key Files**:
-- `cli/src/build/command.ts`
-- `cli/src/build/models.ts`
-- `cli/src/build/parser.ts`
-- `cli/src/build/template-engine.ts`
-- `cli/src/build/codex/registry.ts`
+### cli/install (`cli/src/install/`)
+**Purpose**: Installs plugin artifacts into host tools with prerequisite checks, manifest discovery, staging, backup/rollback, and verification
+**Files**: 8 | **Key**: `command.ts`, `installer.ts`, `manifest.ts`, `prerequisites.ts`, `verifier.ts`
+**Dependencies**: cli/shared
 
-## Installation and Distribution
-**Path**: `cli/src/install/`
-**Purpose**: Installs built plugin artifacts into supported host tools (OpenCode, Claude Code, Codex) with backup, rollback, staging, prerequisite checks, manifest discovery, and post-install verification.
+### cli/init (`cli/src/init/`)
+**Purpose**: Project initialization with context detection, git root discovery, health checks, tool-specific installation, and TTY-aware prompts
+**Files**: 10 | **Key**: `index.ts`, `context-detector.ts`, `git-root.ts`, `steps/health-check.ts`
+**Dependencies**: cli/config, cli/shared
 
-**Key Files**:
-- `cli/src/install/installer.ts`
-- `cli/src/install/manifest.ts`
-- `cli/src/install/command.ts`
-- `cli/src/install/prerequisites.ts`
-- `cli/src/install/verifier.ts`
+### cli/shared (`cli/shared/`)
+**Purpose**: Cross-cutting library: fp-ts helpers, config resolution, typed error factories, logger, prompts, spinner, runtime detection, event types
+**Files**: 10 | **Key**: `index.ts`, `config.ts`, `errors.ts`, `fp.ts`, `logger.ts`, `events.ts`
+**Dependencies**: None (leaf module)
 
-## Uninstall
-**Path**: `cli/src/uninstall/`
-**Purpose**: Removes previously installed plugin artifacts from host tool directories.
+### cli/pr-review (`cli/src/pr-review/`)
+**Purpose**: PR review configuration loading and CI environment detection (GitHub Actions, generic CI, local)
+**Files**: 4 | **Key**: `index.ts`, `ci-detector.ts`, `config.ts`
 
-**Key Files**:
-- `cli/src/uninstall/index.ts`
-- `cli/src/uninstall/models.ts`
+## Web UI Modules
 
-## Config
-**Path**: `cli/src/config/`
-**Purpose**: Manages the supported tools registry (OpenCode, Claude Code, Codex) with types, loader, and lookup functions. Source of truth is a YAML file embedded at build time.
+### web-ui/server (`cli/web-ui/src/server/`)
+**Purpose**: Bun HTTP + WebSocket server with REST APIs (runs, events, artifacts, annotations, projects), live broadcast, file watching, startup recovery
+**Files**: 14 | **Key**: `server.ts`, `http.ts`, `websocket.ts`, `routes/v2-api.ts`
+**Dependencies**: cli/agent-tools/emit, cli/agent-tools/state-machine, web-ui/daemon
 
-**Key Files**:
-- `cli/src/config/supported-tools.ts`
-- `cli/src/config/supported-tools.yaml`
+### web-ui/daemon (`cli/web-ui/src/daemon/`)
+**Purpose**: Daemon lifecycle manager: spawn, monitor, and communicate with background Web UI server via IPC and PID files
+**Files**: 4 | **Key**: `manager.ts`, `ipc.ts`, `config-dir.ts`
 
-## Web UI Backend
-**Path**: `cli/web-ui/src/server/`
-**Purpose**: Bun HTTP server and WebSocket hub providing REST APIs (runs, artifacts, annotations, projects, settings), live event broadcast, file watching, startup recovery from missed events, downsampling, markdown embedding, and static asset serving.
+### web-ui/frontend (`cli/web-ui/src/`)
+**Purpose**: React SPA dashboard with icon-rail navigation, step lists, artifact viewer, Milkdown editor, annotation system, command palette, Mermaid rendering, Shiki highlighting
+**Files**: 138 | **Key**: `main.tsx`, `app/App.tsx`, `app/routes.tsx`, `app/V2Layout.tsx`
+**Dependencies**: web-ui/server (REST + WebSocket)
 
-**Key Files**:
-- `cli/web-ui/src/server.ts`
-- `cli/web-ui/src/server/http.ts`
-- `cli/web-ui/src/server/websocket.ts`
-- `cli/web-ui/src/server/annotation-service.ts`
-- `cli/web-ui/src/server/routes/v2-api.ts`
+## Plugin Modules
 
-## Web UI Daemon
-**Path**: `cli/web-ui/src/daemon/`
-**Purpose**: Daemon lifecycle manager that spawns, monitors, and communicates with the background Web UI server process via IPC and config-dir state files.
+### plugins/base
+**Purpose**: Foundational plugin: KB generation/loading, documentation, Mermaid, strategy, deep research, content writing, task management, security analysis
+**Skills**: knowledge-build, knowledge-load, strategize, deep-research, write-content, fix-mermaid, mermaid, generate-user-docs, analyse-security, task, self-update, project-birds-eye-view, code-comments, markdown-preview
+**Agents**: 13 (kb-spatial-analyzer, kb-architecture-mapper, kb-concept-extractor, kb-module-analyzer, kb-pattern-extractor, kb-index-builder, research-reporter, research-explorer, project-documenter, mermaid-fixer, security-validator, strategic-advisor, scribe)
 
-**Key Files**:
-- `cli/web-ui/src/daemon/manager.ts`
-- `cli/web-ui/src/daemon/ipc.ts`
-- `cli/web-ui/src/daemon/config-dir.ts`
+### plugins/dev
+**Purpose**: Feature delivery: build (full, fast, express), blueprint, PR review, code audit, feature lifecycle, investigation
+**Skills**: build, build-fast, build-express, blueprint, blueprint-archive, blueprint-audit, bootstrap, pr-review, pr-visual, code-audit, code-check, code-clean-comments, code-investigate, feature-archive, feature-edit, feature-unarchive, address-pr-feedback, validate-hypothesis
+**Agents**: 34 (task-builder, task-reviewer, feature-verifier, feature-architect, feature-tasker, pr-sub-reviewer, pr-review-synthesizer, express-builder, and more)
+**Depends on**: plugins/base
 
-## Web UI Frontend
-**Path**: `cli/web-ui/src/`
-**Purpose**: React SPA dashboard with icon-rail navigation, vertical step lists, artifact viewer panel, inline Milkdown markdown editor, annotation system (indicators, popovers, sidebar), command palette, keyboard navigation, Mermaid diagram rendering, and Shiki syntax highlighting.
+### plugins/utils
+**Purpose**: Prompt authoring, tersification, eval assertion extraction, eval builder, tester
+**Skills**: prompt-writer, build-prompt-evals, tersify-prompt, prompt-eval-builder, tester
+**Agents**: 4 (prompt-tersifier, prompt-eval-extractor, prompt-assertion-specialist, dependency-chain-analyzer)
 
-**Key Files**:
-- `cli/web-ui/src/app/V2Layout.tsx`
-- `cli/web-ui/src/components/v2/VerticalStepList.tsx`
-- `cli/web-ui/src/components/v2/ArtifactViewerPanel.tsx`
-- `cli/web-ui/src/components/MilkdownEditor/MilkdownEditor.tsx`
-- `cli/web-ui/src/providers/AnnotationProvider.tsx`
+## Other Packages
 
-## Base Knowledge Workflows
-**Path**: `plugins/base/`
-**Purpose**: Foundational plugin providing KB generation and loading, documentation generation, Mermaid diagram support, strategy workflows, deep research, content writing, task management, and security analysis skills, plus specialized KB builder and research agents.
+### evals (`evals/`)
+**Purpose**: Prompt attestation system: dependency graphs, content hashing, attestation manifests, eval suite verification
+**Files**: 12 | **Key**: `src/index.ts`, `src/attestation/commands.ts`, `src/attestation/deps-graph.ts`, `src/attestation/prompt-hash.ts`
 
-**Key Files**:
-- `plugins/base/skills/knowledge-build/SKILL.md`
-- `plugins/base/skills/knowledge-load/SKILL.md`
-- `plugins/base/skills/strategize/SKILL.md`
-- `plugins/base/agents/kb-spatial-analyzer.md`
-- `plugins/base/agents/research-reporter.md`
+### packages/catppuccin-mermaid
+**Purpose**: Standalone npm package: Catppuccin-flavored Mermaid theme with four flavors, palette helpers, contrast utilities, WCAG checks
+**Files**: 12 | **Key**: `src/index.ts`, `src/theme.ts`, `src/palette.ts`
 
-## Dev Workflow Orchestration
-**Path**: `plugins/dev/`
-**Purpose**: Feature delivery plugin with build (full, fast, express), blueprint, PR review, code audit, feature archive/edit/unarchive, and code investigation skills, plus 30+ specialized agents for requirements, design, tasks, building, verification, and review.
+## Module Dependencies
 
-**Key Files**:
-- `plugins/dev/skills/build/SKILL.md`
-- `plugins/dev/skills/build-fast/SKILL.md`
-- `plugins/dev/skills/pr-review/SKILL.md`
-- `plugins/dev/agents/task-builder.md`
-- `plugins/dev/agents/feature-verifier.md`
+```mermaid
+graph TD
+    Commands["cli/commands"] --> Shared["cli/shared"]
+    Commands -.->|lazy| AgentTools["cli/agent-tools"]
+    Commands -.->|lazy| Daemon["web-ui/daemon"]
+    AgentTools --> Shared
+    AgentTools --> StateMachine["state-machine"]
+    Build["cli/build"] --> Shared
+    Build --> StateMachine
+    Build --> Config["cli/config"]
+    Install["cli/install"] --> Shared
+    Init["cli/init"] --> Config
+    Init --> Shared
+    Server["web-ui/server"] --> AgentTools
+    Server --> StateMachine
+    Server --> Daemon
+    Frontend["web-ui/frontend"] -.->|REST+WS| Server
+    PluginsDev["plugins/dev"] -.->|runtime| PluginsBase["plugins/base"]
+    Evals["evals"] --> PluginsBase
+    Evals --> PluginsDev
+```
 
-## Utils Prompt Workflows
-**Path**: `plugins/utils/`
-**Purpose**: Utility plugin providing prompt authoring (prompt-writer), prompt tersification, eval assertion extraction (build-prompt-evals), eval builder, and tester skills.
+## Module Metrics
 
-**Key Files**:
-- `plugins/utils/skills/prompt-writer/SKILL.md`
-- `plugins/utils/skills/build-prompt-evals/SKILL.md`
-- `plugins/utils/skills/tersify-prompt/SKILL.md`
+| Module | Files | Key Components | Dependencies |
+|--------|-------|----------------|--------------|
+| cli/commands | 22 | 8 commands | 3 internal |
+| cli/agent-tools | 43 | 5 tool groups | 1 internal |
+| cli/build | 18 | 8 pipeline stages | 3 internal |
+| cli/install | 8 | 5 services | 1 internal |
+| cli/init | 10 | 3 orchestrators | 2 internal |
+| cli/shared | 10 | 6 utilities | 0 (leaf) |
+| web-ui/server | 14 | 4 services | 3 internal |
+| web-ui/daemon | 4 | 3 services | 1 internal |
+| web-ui/frontend | 138 | 50+ components | 1 runtime |
+| plugins/base | 30 | 14 skills, 13 agents | 0 |
+| plugins/dev | 53 | 18 skills, 34 agents | 1 runtime |
+| plugins/utils | 7 | 5 skills, 4 agents | 0 |
+| evals | 12 | 4 services | 2 direct |
+| catppuccin-mermaid | 12 | 4 modules | 0 |
 
-## Evaluation and Attestation
-**Path**: `evals/src/attestation/`
-**Purpose**: Prompt attestation system that computes dependency graphs between skills and agents, hashes prompt content, tracks attestation manifests, and verifies that prompt changes have passing eval suites.
+## Cross-Module Patterns
 
-**Key Files**:
-- `evals/src/index.ts`
-- `evals/src/attestation/commands.ts`
-- `evals/src/attestation/deps-graph.ts`
-- `evals/src/attestation/prompt-hash.ts`
-- `evals/src/attestation/manifest.ts`
+- **Skill-Agent Delegation**: Skills orchestrate, agents execute via Task tool
+- **Event-Driven Dashboard**: Agent tools emit to SQLite; server queries and broadcasts via WebSocket
+- **Multi-Platform Build**: Single markdown source compiles to Claude Code, OpenCode, Codex artifacts
+- **Lazy-Load Isolation**: main.ts dynamically imports agent-tools and daemon to keep CLI startup fast
+- **Shared fp-ts Pipeline**: All CLI modules use TaskEither<CLIError, T> via cli/shared
+- **Plugin Layering**: Base provides foundations; dev extends with delivery workflows; utils is independent
 
-## Mermaid Theme Package
-**Path**: `packages/catppuccin-mermaid/`
-**Purpose**: Standalone npm package exporting Catppuccin-flavored Mermaid theme configuration with four flavors (latte, frappe, macchiato, mocha), palette helpers, contrast utilities, and WCAG accessibility checks.
-
-**Key Files**:
-- `packages/catppuccin-mermaid/src/index.ts`
-- `packages/catppuccin-mermaid/src/theme.ts`
-- `packages/catppuccin-mermaid/src/palette.ts`
-- `packages/catppuccin-mermaid/src/types.ts`
+## Cross-References
+- **Architecture Overview**: See [architecture.md](architecture.md)
+- **Implementation Patterns**: See [patterns.md](patterns.md)
+- **Domain Concepts**: See [concept_map.md](concept_map.md)

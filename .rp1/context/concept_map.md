@@ -1,143 +1,160 @@
-# Concept Map
+# Domain Concepts & Terminology
 
-## Core Concepts
+**Project**: rp1
+**Domain**: AI Agent Orchestration & Plugin Ecosystem
+
+## Core Business Concepts
 
 ### Plugin
-**Type**: entity
-Capability package (rp1-base, rp1-dev, rp1-utils) grouping skills and agents
-**Source**: cli/src/install/models.ts, cli/src/init/models.ts
+**Definition**: Capability package (rp1-base, rp1-dev, rp1-utils) grouping skills and agents under a namespace prefix
+**Implementation**: `plugins/*/`, `cli/src/install/models.ts`
+**Key Properties**:
+- namespace: Prefix for skills/agents (e.g., `rp1-base:`, `rp1-dev:`)
+- skills: User-facing workflow entry points
+- agents: Focused autonomous workers
+
+**Business Rules**:
+- Dev agents may depend on base; base must not call dev commands
+- Each plugin has `.claude-plugin/plugin.json` manifest
 
 ### Skill
-**Type**: entity
-User-facing workflow entry point defined by SKILL.md with frontmatter, parameters, and delegation
-**Source**: cli/src/build/models.ts, docs/concepts/skill-format.md
+**Definition**: User-facing workflow entry point defined by SKILL.md with frontmatter, parameters, agent delegation, and optional state machine
+**Implementation**: `plugins/*/skills/*/SKILL.md`, `cli/src/build/models.ts`
+**Relationships**:
+- Contains state machine (optional): Governs workflow transitions
+- Delegates to agents: Skills route, agents execute
 
 ### Agent
-**Type**: entity
-Focused autonomous worker executing workflow body in a single pass
-**Source**: cli/src/build/models.ts
-
-### Sub-Agent
-**Type**: entity
-Agent spawned by skill/agent; emits namespaced steps ({agent-name}:{step}) to avoid parent state collision
-**Source**: docs/concepts/state-machines.md
+**Definition**: Focused autonomous worker executing workflow body in a single pass with numbered sections and anti-loop directives
+**Implementation**: `plugins/*/agents/*.md`, `docs/concepts/command-agent-pattern.md`
+**Relationships**:
+- Spawned by skills via Task tool
+- May spawn sub-agents with namespaced step emissions (`{agent-name}:{step}`)
 
 ### Run
-**Type**: entity
-Tracked workflow execution with UUID run-id, status, steps, events, and artifacts
-**Source**: cli/shared/events.ts, cli/web-ui/src/types/runs.ts
+**Definition**: Tracked workflow execution with UUID run-id, status, steps, events, artifacts, and optional subflows
+**Implementation**: `cli/shared/events.ts`, `cli/web-ui/src/types/runs.ts`
+**Key Properties**:
+- run-id: UUID for isolation
+- StatusValue: what (running/waiting/completed/failed)
+- WorkflowState: where (step from state diagram)
 
 ### Event
-**Type**: entity
-Typed record (status_change, artifact_registered, annotation_updated, waiting_for_user, btw_update, subflow_registered) emitted against a run
-**Source**: cli/shared/events.ts, cli/src/agent-tools/emit/models.ts
+**Definition**: Typed record emitted against a run: status_change, artifact_registered, annotation_updated, waiting_for_user, btw_update, subflow_registered
+**Implementation**: `cli/shared/events.ts`, `cli/src/agent-tools/emit/models.ts`
 
 ### Artifact
-**Type**: entity
-Typed output file (markdown, code, diagram, diff, report, other) registered against a run
-**Source**: cli/shared/events.ts, cli/web-ui/src/types/runs.ts
+**Definition**: Typed output file (markdown, code, diagram, diff, report, other) registered against a run with docId and step association
+**Implementation**: `cli/shared/events.ts`, `cli/web-ui/src/types/runs.ts`
 
 ### Annotation
-**Type**: entity
-Threaded inline comment anchored to artifact via text-selection, hidden-anchor, line, or edit-diff; supports replies and resolution
-**Source**: cli/web-ui/src/types/annotations.ts, cli/web-ui/src/providers/AnnotationProvider.tsx
+**Definition**: Threaded inline comment anchored to artifact via text-selection, hidden-anchor, or line; supports replies, resolution, and orphan detection
+**Implementation**: `cli/web-ui/src/types/annotations.ts`
 
 ### State Machine
-**Type**: entity
-Mermaid stateDiagram-v2 parsed into typed graph model with states, transitions, initial/terminal markers
-**Source**: cli/src/agent-tools/state-machine/models.ts, cli/src/agent-tools/state-machine/adapter.ts, cli/src/agent-tools/state-machine/transform.ts
+**Definition**: Mermaid stateDiagram-v2 parsed into typed graph model (SMState, SMTransition) with transition validation and ordered steps
+**Implementation**: `cli/src/agent-tools/state-machine/models.ts`, `docs/concepts/state-machines.md`
 
-### Two-Layer State Model
-**Type**: pattern
-Orthogonal dimensions: StatusValue (what: running/waiting/completed) and WorkflowState (where: step from state diagram)
-**Source**: docs/concepts/state-machines.md, cli/shared/events.ts
+### Attestation
+**Definition**: Content-addressable record linking prompt SHA-256 hash + dependency hash to eval pass/fail result for release gating
+**Implementation**: `evals/src/attestation/types.ts`, `docs/concepts/eval-system.md`
+
+### Knowledge Base
+**Definition**: Structured codebase documentation in .rp1/context/ generated via map-reduce spatial analysis and parallel specialist agents
+**Implementation**: `docs/concepts/knowledge-aware-agents.md`
 
 ### Task Queue
-**Type**: entity
-Persistent task records with lifecycle states for cross-agent work coordination
-**Source**: cli/src/agent-tools/task/models.ts
+**Definition**: Persistent task records with lifecycle states (pending/in_progress/completed/failed/cancelled) for cross-agent work coordination
+**Implementation**: `cli/src/agent-tools/task/models.ts`
 
 ### Project
-**Type**: entity
-Registered workspace with path, run statistics, and last-activity timestamp
-**Source**: cli/web-ui/src/types/projects.ts, cli/web-ui/src/providers/ProjectProvider.tsx
+**Definition**: Registered workspace with path, availability flag, run statistics, and last-activity timestamp
+**Implementation**: `cli/web-ui/src/types/projects.ts`
 
-### Supported Tool
-**Type**: entity
-Agentic host tool (Claude Code, OpenCode, Codex) registered in supported-tools.yaml with binary, version, and capabilities
-**Source**: cli/src/config/supported-tools.ts
+## Technical Concepts
 
-### ToolResult Envelope
-**Type**: pattern
-Standard JSON response {success, tool, data, errors} returned by all agent tools
-**Source**: cli/src/agent-tools/models.ts
-
-### Build Pipeline
-**Type**: workflow
-Transforms SKILL.md into platform-specific artifacts with frontmatter parsing, L1/L2 validation, and manifest generation
-**Source**: cli/src/build/models.ts
-
-### PR Review
-**Type**: workflow
-CI-integrated PR review with multi-platform context extraction, verdict modes, and GitHub API operations
-**Source**: cli/src/pr-review/models.ts, cli/src/agent-tools/github-pr/models.ts
-
-### Init Wizard
-**Type**: workflow
-Interactive project setup: git detection, brownfield/greenfield classification, tool detection, plugin install, health check
-**Source**: cli/src/init/models.ts
+### Two-Layer State Model
+**Purpose**: Orthogonal workflow tracking dimensions
+**Implementation**: `docs/concepts/state-machines.md`, `cli/shared/events.ts`
+- StatusValue (what): not_started, running, waiting, completed, failed, skipped
+- WorkflowState (where): step IDs from state diagram (e.g., plan, build, review)
 
 ### Platform Tags
-**Type**: pattern
-Semantic Liquid tags (dispatch_agent, ask_user, edit_model) abstracting platform-varying behavior
-**Source**: docs/concepts/skill-format.md
+**Purpose**: Semantic Liquid tags abstracting platform-varying behavior at build time
+**Implementation**: `docs/concepts/platform-tags.md`, `cli/src/build/tags/`
+- dispatch_agent, ask_user, edit_model, plan_tool, web_access, permissions
 
-### WebSocket
-**Type**: technical
-Real-time layer delivering event notifications, file/tree changes, state snapshots, event replays, and annotation updates
-**Source**: cli/web-ui/src/types/websocket.ts, cli/web-ui/src/providers/WebSocketProvider.tsx
-
-### CLIError
-**Type**: pattern
-Tagged union error type with _tag discriminant, factory functions, and exit code mapping
-**Source**: cli/shared/errors.ts
+### ToolResult Envelope
+**Purpose**: Standard JSON response `{success, tool, data, errors}` returned by all agent tools
+**Implementation**: `cli/src/agent-tools/models.ts`
 
 ### Predecessor Auto-Completion
-**Type**: pattern
-When a step emits running, direct graph predecessors still in running/waiting are auto-completed
-**Source**: cli/src/agent-tools/state-machine/adapter.ts, docs/concepts/state-machines.md
+**Purpose**: When a step emits running (without --unit), direct graph predecessors still in running/waiting are auto-completed
+**Implementation**: `docs/concepts/state-machines.md`
 
-## Relationships
+### CLIError
+**Purpose**: Tagged union error type with `_tag` discriminant, factory functions, and exit code mapping
+**Implementation**: `cli/shared/errors.ts`
+- Types: UsageError, NotFoundError, ConfigError, RuntimeError, ParseError, TransformError, ValidationError, GenerationError, PrerequisiteError, InstallError, StrictModeError
 
-- **Plugin** contains **Skill**: Plugins group skills in plugins/{name}/skills/
-- **Plugin** contains **Agent**: Plugins group agents in plugins/{name}/agents/
-- **Skill** delegates **Agent**: Skills delegate execution to agents via the Skill-Agent pattern
-- **Agent** spawns **Sub-Agent**: Agents can spawn sub-agents with namespaced step emissions
-- **State Machine** governs **Run**: State machines validate transitions and derive step timelines for runs
-- **Run** contains **Event**: Runs collect events emitted via agent-tools emit
-- **Run** produces **Artifact**: Runs register typed output files as artifacts
-- **Artifact** anchors **Annotation**: Annotations attach to artifacts via anchor types
-- **Event** broadcasts **WebSocket**: Events are broadcast to the dashboard via WebSocket notifications
-- **WebSocket** delivers **Web UI Dashboard**: WebSocket delivers real-time updates including state snapshots and event replays
-- **Build Pipeline** transforms **SKILL.md Format**: Build pipeline parses SKILL.md and generates platform-specific artifacts
-- **Supported Tool** targets **Install**: Each supported tool has platform-specific installation logic
-- **PR Review** uses **GitHub API**: PR review submits reviews, reactions, and comments via GitHub API tools
-- **Init Wizard** installs **Plugin**: Init wizard detects tools and installs appropriate plugins
-- **State Machine** enables **Predecessor Auto-Completion**: Graph predecessors are auto-completed when a new step starts running
+## Terminology Glossary
 
-## Terminology
-
-- **SKILL.md**: Canonical file format for an invocable rp1 skill following the Agent Skills open standard
-- **RP1_ROOT**: Resolved .rp1/ workspace root via env, git-common-dir, or cwd strategies with worktree awareness
+### Business Terms
+- **SKILL.md**: Canonical file format for an invocable rp1 skill with YAML frontmatter
+- **RP1_ROOT**: Resolved .rp1/ workspace root via env variable, git-common-dir, or cwd traversal
 - **run-id**: UUID identifier for an individual workflow execution
 - **emit**: Agent-tools command recording workflow events against a run
-- **--unit**: Emit flag enabling per-task tracking within an agent (e.g., T1, T2, T3)
-- **Namespaced step**: Sub-agent step prefixed with {agent-name}: to bypass parent state machine validation
-- **StatusValue**: Activity category: not_started, running, waiting, completed, failed, skipped
-- **WorkflowState**: Workflow phase defined by state diagram step IDs
-- **AnchorType**: How an annotation attaches to content: text-selection, hidden-anchor, line, or edit-diff
-- **Optimistic update**: UI pattern applying mutations locally before server confirmation with rollback on failure
-- **CLIError**: Tagged union error type with _tag discriminant mapping to exit codes
+- **Arcade**: Web UI dashboard entry point (port 7710 default)
+- **Brownfield / Greenfield**: Init wizard classification by existing source files
 - **Verdict**: PR review submission mode: approve, request_changes, comment, or auto
+- **BTW Update**: Informal progress message emitted by agents without state transition
+- **Scratch Pad**: Visible file section used by stateless agents to persist interview state
+- **Attention grouping**: Dashboard partitioning runs into waiting, failed, and running groups
+
+### Technical Terms
+- **--unit**: Emit flag enabling per-task tracking within an agent; disables predecessor auto-completion
+- **Namespaced step**: Sub-agent step prefixed with `{agent-name}:` to bypass parent state machine validation
+- **AnchorType**: How an annotation attaches: text-selection, hidden-anchor, or line
 - **allowed-tools**: Comma-separated string in SKILL.md frontmatter specifying permitted tool calls
-- **Brownfield / Greenfield**: Init wizard classification of projects with/without existing source files
+- **Confidence Gating**: PR review finding filter: 65%+ included, 40-64% investigated, below 40% excluded
+- **Constitutional Prompting**: Encoding expert knowledge and anti-loop directives into agent prompts for single-pass execution
+- **Spatial Analyzer**: KB generation agent that scans files, ranks by importance (0-5), and categorizes by KB section
+- **ArtifactType**: Classification of run output: markdown, code, diagram, diff, report, or other
+- **EvalPlatform**: Target platform for attestation: claude-code, opencode, or codex
+- **Subflow**: Nested workflow within a parent run, registered via subflow_registered event
+
+## Concept Relationships
+
+### Workflow Architecture
+- Plugin **contains** Skills and Agents
+- Skill **delegates** execution to Agents via Task tool
+- Agent **spawns** Sub-Agents with namespaced steps
+- State Machine **governs** Run transitions
+- Run **contains** Events, **produces** Artifacts, **contains** Subflows
+- Artifact **anchors** Annotations
+
+### Build & Distribution
+- Build Pipeline **transforms** SKILL.md into platform artifacts
+- Supported Tool (Claude Code, OpenCode, Codex) **targets** Build Pipeline
+- Attestation **validates** Skill content for release gating
+
+### Knowledge & Observation
+- Knowledge Base **informs** Agents via progressive loading
+- Project **contains** Runs with statistics
+- Event **broadcasts** via WebSocket to Arcade dashboard
+
+## Bounded Contexts
+
+| Context | Scope | Key Concepts |
+|---------|-------|--------------|
+| Knowledge Management | rp1-base | KB Generation, Spatial Analysis, Progressive Loading |
+| Feature Delivery | rp1-dev | Build Workflow, Builder-Reviewer, Blueprint, PR Review |
+| Prompt Tooling | rp1-utils | Eval Extraction, Prompt Writing, Dependency Analysis |
+| Runtime Services | cli/src | Build Pipeline, Install, Init, Agent Tools, State Machine |
+| Dashboard | cli/web-ui | Arcade, Run Visualization, Annotations, WebSocket |
+| Quality Assurance | evals/ | Attestation, Content-Addressable Hashing |
+
+## Cross-References
+- **State Machine Details**: See [architecture.md](architecture.md)
+- **Module Breakdown**: See [modules.md](modules.md)
+- **Implementation Patterns**: See [patterns.md](patterns.md)
