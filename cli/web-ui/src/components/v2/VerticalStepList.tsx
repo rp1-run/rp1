@@ -225,7 +225,7 @@ export function VerticalStepList({
 	);
 
 	return (
-		<nav aria-label="Workflow steps" className="relative py-md px-md">
+		<nav aria-label="Workflow steps" className="relative py-sm">
 			{workflowName && (
 				<p className="type-caption text-fg-ghost mb-sm ml-[9px] pl-md">
 					/{workflowName}
