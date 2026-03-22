@@ -27,7 +27,7 @@ function isFullHeightRoute(pathname: string): boolean {
 		)
 	)
 		return true;
-	if (/^\/runs\/[^/]+$/.test(pathname)) return true;
+	if (/^\/runs\/[^/]+/.test(pathname)) return true;
 	if (/^\/projects\/[^/]+\/files/.test(pathname)) return true;
 	return false;
 }
