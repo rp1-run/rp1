@@ -142,11 +142,16 @@ export function RunDetailPage() {
 		if (!urlStepId) {
 			const runningStep = steps.find((s) => s.status === "running");
 			const completedSteps = steps.filter((s) => s.status === "completed");
+			const completedWithArtifacts = completedSteps.filter((s) =>
+				run.artifacts.some((a) => a.step === s.id),
+			);
 			const targetStep =
 				runningStep ??
-				(completedSteps.length > 0
-					? completedSteps[completedSteps.length - 1]
-					: steps[0]);
+				(completedWithArtifacts.length > 0
+					? completedWithArtifacts[completedWithArtifacts.length - 1]
+					: completedSteps.length > 0
+						? completedSteps[completedSteps.length - 1]
+						: steps[0]);
 			const arts = run.artifacts.filter((a) => a.step === targetStep.id);
 			if (arts.length > 0) {
 				navigate(
