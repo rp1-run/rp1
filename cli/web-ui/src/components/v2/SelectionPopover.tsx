@@ -6,6 +6,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { useDismiss } from "@/hooks/useDismiss";
 import type { SelectionPosition } from "@/hooks/useTextSelection";
 import {
 	calculatePopoverPosition,
@@ -63,46 +64,11 @@ export function SelectionPopover({
 		setIsPositioned(true);
 	}, [position.anchorRect]);
 
-	useEffect(() => {
-		const handleClickOutside = (e: MouseEvent) => {
-			if (
-				popoverRef.current &&
-				!popoverRef.current.contains(e.target as Node)
-			) {
-				onClose();
-			}
-		};
-
-		const handleEscape = (e: globalThis.KeyboardEvent) => {
-			if (e.key === "Escape") {
-				e.stopImmediatePropagation();
-				onClose();
-			}
-		};
-
-		const timeoutId = setTimeout(() => {
-			document.addEventListener("mousedown", handleClickOutside);
-			document.addEventListener("keydown", handleEscape, true);
-		}, 100);
-
-		return () => {
-			clearTimeout(timeoutId);
-			document.removeEventListener("mousedown", handleClickOutside);
-			document.removeEventListener("keydown", handleEscape, true);
-		};
-	}, [onClose]);
-
-	useEffect(() => {
-		const handleScroll = () => {
-			onClose();
-		};
-
-		window.addEventListener("scroll", handleScroll, true);
-
-		return () => {
-			window.removeEventListener("scroll", handleScroll, true);
-		};
-	}, [onClose]);
+	useDismiss({
+		ref: popoverRef,
+		onDismiss: onClose,
+		dismissOnScroll: true,
+	});
 
 	const handleSubmit = useCallback(async () => {
 		const trimmedContent = content.trim();

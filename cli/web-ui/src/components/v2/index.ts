@@ -3,10 +3,6 @@ export {
 	type AnimatedCounterProps,
 } from "./AnimatedCounter";
 export {
-	AnnotationIndicator,
-	type AnnotationIndicatorProps,
-} from "./AnnotationIndicator";
-export {
 	AnnotationPopover,
 	type AnnotationPopoverProps,
 } from "./AnnotationPopover";

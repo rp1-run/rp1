@@ -6,7 +6,9 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { useDismiss } from "@/hooks/useDismiss";
 import type { SelectionPosition } from "@/hooks/useTextSelection";
+import { needsTruncation, truncateContent } from "@/lib/content-truncation";
 import { formatRelativeTime } from "@/lib/time";
 import {
 	calculatePopoverPosition,
@@ -15,25 +17,6 @@ import {
 } from "@/lib/utils";
 import { useAnnotationContext } from "@/providers/AnnotationProvider";
 import type { Annotation, AnnotationReply } from "@/types/annotations";
-
-const TRUNCATION_LINES = 3;
-const TRUNCATION_CHARS = 200;
-
-function needsTruncation(content: string): boolean {
-	const lineCount = content.split("\n").length;
-	return lineCount > TRUNCATION_LINES || content.length > TRUNCATION_CHARS;
-}
-
-function truncateContent(content: string): string {
-	const lines = content.split("\n");
-	if (lines.length > TRUNCATION_LINES) {
-		return `${lines.slice(0, TRUNCATION_LINES).join("\n")}…`;
-	}
-	if (content.length > TRUNCATION_CHARS) {
-		return `${content.slice(0, TRUNCATION_CHARS)}…`;
-	}
-	return content;
-}
 
 export interface AnnotationPopoverProps {
 	annotation: Annotation;
@@ -138,44 +121,11 @@ export function AnnotationPopover({
 		setIsPositioned(true);
 	}, [position.anchorRect]);
 
-	useEffect(() => {
-		const handleClickOutside = (e: MouseEvent) => {
-			if (
-				popoverRef.current &&
-				!popoverRef.current.contains(e.target as Node)
-			) {
-				onClose();
-			}
-		};
-
-		const handleEscape = (e: globalThis.KeyboardEvent) => {
-			if (e.key === "Escape") {
-				e.stopImmediatePropagation();
-				onClose();
-			}
-		};
-
-		const timeoutId = setTimeout(() => {
-			document.addEventListener("mousedown", handleClickOutside);
-			document.addEventListener("keydown", handleEscape, true);
-		}, 100);
-
-		return () => {
-			clearTimeout(timeoutId);
-			document.removeEventListener("mousedown", handleClickOutside);
-			document.removeEventListener("keydown", handleEscape, true);
-		};
-	}, [onClose]);
-
-	useEffect(() => {
-		const handleScroll = (e: Event) => {
-			if (popoverRef.current?.contains(e.target as Node)) return;
-			onClose();
-		};
-
-		window.addEventListener("scroll", handleScroll, true);
-		return () => window.removeEventListener("scroll", handleScroll, true);
-	}, [onClose]);
+	useDismiss({
+		ref: popoverRef,
+		onDismiss: onClose,
+		dismissOnScroll: true,
+	});
 
 	const isResolved = annotation.status === "resolved";
 

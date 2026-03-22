@@ -9,6 +9,7 @@ import {
 } from "react";
 
 import type {
+	AnnotationMessage,
 	AttentionCallback,
 	ConnectionStatus,
 	EventNotificationMessage,
@@ -34,6 +35,9 @@ interface WebSocketContextValue {
 	onTreeChange: (callback: (msg: TreeChangedMessage) => void) => () => void;
 	onEventNotification: (
 		callback: (msg: EventNotificationMessage) => void,
+	) => () => void;
+	onAnnotationMessage: (
+		callback: (msg: AnnotationMessage) => void,
 	) => () => void;
 	subscribeToAttention: (callback: AttentionCallback) => () => void;
 }
@@ -71,6 +75,9 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 	const eventNotificationListenersRef = useRef<
 		Set<(msg: EventNotificationMessage) => void>
 	>(new Set());
+	const annotationListenersRef = useRef<Set<(msg: AnnotationMessage) => void>>(
+		new Set(),
+	);
 	const subscriptionsRef = useRef<Set<string>>(new Set());
 
 	const attentionListenersRef = useRef<Set<AttentionCallback>>(new Set());
@@ -167,6 +174,15 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 						callback();
 					}
 					break;
+				case "annotation:created":
+				case "annotation:updated":
+				case "annotation:resolved":
+				case "annotation:deleted":
+				case "annotation:reply-added":
+					for (const listener of annotationListenersRef.current) {
+						listener(message);
+					}
+					break;
 				case "heartbeat":
 					break;
 			}
@@ -247,6 +263,16 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 		[],
 	);
 
+	const onAnnotationMessage = useCallback(
+		(callback: (msg: AnnotationMessage) => void) => {
+			annotationListenersRef.current.add(callback);
+			return () => {
+				annotationListenersRef.current.delete(callback);
+			};
+		},
+		[],
+	);
+
 	const subscribeToAttention = useCallback((callback: AttentionCallback) => {
 		attentionListenersRef.current.add(callback);
 		return () => {
@@ -269,6 +295,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 				onFileChange,
 				onTreeChange,
 				onEventNotification,
+				onAnnotationMessage,
 				subscribeToAttention,
 			}}
 		>

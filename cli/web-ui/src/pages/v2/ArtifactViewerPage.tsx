@@ -46,10 +46,6 @@ import { useRunDetail } from "@/hooks/useRunDetail";
 import { AnnotationProvider } from "@/providers/AnnotationProvider";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 
-const ANNOTATIONS_ENABLED =
-	typeof import.meta !== "undefined" &&
-	import.meta.env?.RP1_ANNOTATIONS_ENABLED !== "false";
-
 const STORAGE_KEY_TOC_COLLAPSED = "rp1-toc-collapsed";
 const STORAGE_KEY_ANNOTATIONS_COLLAPSED = "rp1-annotations-collapsed";
 
@@ -573,7 +569,6 @@ export function ArtifactViewerPage() {
 					content={artifactContent.content}
 					path={artifactContent.path}
 					onHeadingsExtracted={handleHeadingsExtracted}
-					enableAnnotations={ANNOTATIONS_ENABLED}
 					runId={runId}
 					docId={artifactContent.docId}
 				/>
@@ -659,12 +654,10 @@ export function ArtifactViewerPage() {
 								enabled={followMode}
 								onToggle={() => setFollowMode(!followMode)}
 							/>
-							{ANNOTATIONS_ENABLED && (
-								<MobileAnnotationButton
-									selectedArtifactPath={selectedArtifactPath}
-									onClick={() => setAnnotationDrawerOpen(true)}
-								/>
-							)}
+							<MobileAnnotationButton
+								selectedArtifactPath={selectedArtifactPath}
+								onClick={() => setAnnotationDrawerOpen(true)}
+							/>
 							<TooltipProvider>
 								<Tooltip>
 									<TooltipTrigger asChild>
@@ -731,20 +724,18 @@ export function ArtifactViewerPage() {
 					/>
 				</Drawer>
 
-				{ANNOTATIONS_ENABLED && (
-					<Drawer
-						open={annotationDrawerOpen}
+				<Drawer
+					open={annotationDrawerOpen}
+					onClose={() => setAnnotationDrawerOpen(false)}
+					side="right"
+					title="Annotations"
+				>
+					<AnnotationSidebar
+						artifactPath={selectedArtifactPath}
 						onClose={() => setAnnotationDrawerOpen(false)}
-						side="right"
-						title="Annotations"
-					>
-						<AnnotationSidebar
-							artifactPath={selectedArtifactPath}
-							onClose={() => setAnnotationDrawerOpen(false)}
-							className="border-l-0 w-full"
-						/>
-					</Drawer>
-				)}
+						className="border-l-0 w-full"
+					/>
+				</Drawer>
 
 				<footer className="border-t px-4 py-2">
 					<KeyHints hints={VIEWER_HINTS} />
@@ -752,15 +743,11 @@ export function ArtifactViewerPage() {
 			</div>
 		);
 
-		if (ANNOTATIONS_ENABLED) {
-			return (
-				<AnnotationProvider artifactPath={selectedArtifactPath}>
-					{mobileContent}
-				</AnnotationProvider>
-			);
-		}
-
-		return mobileContent;
+		return (
+			<AnnotationProvider artifactPath={selectedArtifactPath}>
+				{mobileContent}
+			</AnnotationProvider>
+		);
 	}
 
 	const desktopContent = (
@@ -836,10 +823,7 @@ export function ArtifactViewerPage() {
 
 				<ResizableHandle withHandle aria-label="Resize sidebar" />
 
-				<ResizablePanel
-					defaultSize={ANNOTATIONS_ENABLED ? 55 : 70}
-					minSize={40}
-				>
+				<ResizablePanel defaultSize={55} minSize={40}>
 					<main className="relative flex h-full flex-col overflow-hidden">
 						<div
 							className="flex h-10 items-center justify-end gap-2 border-b px-4"
@@ -870,7 +854,7 @@ export function ArtifactViewerPage() {
 									</Tooltip>
 								</TooltipProvider>
 							)}
-							{ANNOTATIONS_ENABLED && !annotationSidebarOpen && (
+							{!annotationSidebarOpen && (
 								<AnnotationToggleButton
 									selectedArtifactPath={selectedArtifactPath}
 									onOpen={() => handleToggleAnnotationSidebar(true)}
@@ -921,7 +905,7 @@ export function ArtifactViewerPage() {
 					</>
 				)}
 
-				{ANNOTATIONS_ENABLED && annotationSidebarOpen && (
+				{annotationSidebarOpen && (
 					<>
 						<ResizableHandle withHandle aria-label="Resize annotations panel" />
 						<ResizablePanel
@@ -947,13 +931,9 @@ export function ArtifactViewerPage() {
 		</div>
 	);
 
-	if (ANNOTATIONS_ENABLED) {
-		return (
-			<AnnotationProvider artifactPath={selectedArtifactPath}>
-				{desktopContent}
-			</AnnotationProvider>
-		);
-	}
-
-	return desktopContent;
+	return (
+		<AnnotationProvider artifactPath={selectedArtifactPath}>
+			{desktopContent}
+		</AnnotationProvider>
+	);
 }

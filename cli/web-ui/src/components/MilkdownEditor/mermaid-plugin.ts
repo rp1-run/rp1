@@ -20,6 +20,7 @@ function initMermaid() {
 		fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
 		themeVariables: isDark ? warmStoneDark : warmStoneLight,
 		suppressErrorRendering: true,
+		flowchart: { wrappingWidth: 300, padding: 12 },
 	});
 }
 
@@ -174,7 +175,6 @@ function mermaidNodeView(_ctx: Ctx): NodeViewConstructor {
 			};
 		}
 
-		// --- Mermaid NodeView ---
 		let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 		let lastRenderedCode = "";
 
@@ -200,7 +200,6 @@ function mermaidNodeView(_ctx: Ctx): NodeViewConstructor {
 		codeTab.className = "milkdown-mermaid-tab";
 		codeTab.textContent = "Code";
 
-		// Action buttons — right-aligned in tab bar
 		const actionsDiv = document.createElement("div");
 		actionsDiv.className = "milkdown-mermaid-actions";
 
@@ -216,7 +215,6 @@ function mermaidNodeView(_ctx: Ctx): NodeViewConstructor {
 		tabBar.appendChild(codeTab);
 		tabBar.appendChild(actionsDiv);
 
-		// Code area (ProseMirror's contentDOM — editable)
 		const pre = document.createElement("pre");
 		pre.className = "milkdown-mermaid-code";
 		pre.dataset.language = node.attrs.language;
@@ -276,11 +274,10 @@ function mermaidNodeView(_ctx: Ctx): NodeViewConstructor {
 		});
 
 		fullscreenBtn.addEventListener("click", () => {
-			const code = codeEl.textContent?.trim() ?? "";
-			if (code) {
+			if (lastRenderedCode) {
 				document.dispatchEvent(
 					new CustomEvent("mermaid-editor-fullscreen", {
-						detail: { code },
+						detail: { code: lastRenderedCode },
 					}),
 				);
 			}

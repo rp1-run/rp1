@@ -117,7 +117,11 @@ function AnimatedCommandDialog({
 							/>
 						</DialogPrimitive.Overlay>
 						<div className="fixed inset-0 z-50 flex items-center justify-center">
-							<DialogPrimitive.Content asChild forceMount>
+							<DialogPrimitive.Content
+								asChild
+								forceMount
+								aria-describedby={undefined}
+							>
 								<motion.div
 									className="w-full max-w-lg overflow-hidden rounded border border-border bg-surface"
 									initial={

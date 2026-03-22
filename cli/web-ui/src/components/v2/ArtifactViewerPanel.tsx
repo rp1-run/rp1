@@ -14,10 +14,6 @@ import { useWebSocket } from "@/providers/WebSocketProvider";
 
 import type { Artifact, Step } from "@/types/runs";
 
-const ANNOTATIONS_ENABLED =
-	typeof import.meta !== "undefined" &&
-	import.meta.env?.RP1_ANNOTATIONS_ENABLED !== "false";
-
 export interface ArtifactViewerPanelProps {
 	readonly step: Step | null;
 	readonly artifacts: readonly Artifact[];
@@ -190,7 +186,7 @@ function ArtifactViewerInner({
 								<List className="h-3.5 w-3.5" strokeWidth={1.5} />
 							</button>
 						)}
-						{ANNOTATIONS_ENABLED && selectedArtifact && (
+						{selectedArtifact && (
 							<AnnotationToggle
 								artifactPath={selectedArtifact.path}
 								onClick={handleToggleAnnotations}
@@ -261,7 +257,6 @@ function ArtifactViewerInner({
 								content={content}
 								path={selectedArtifact.path}
 								onHeadingsExtracted={handleHeadingsExtracted}
-								enableAnnotations={ANNOTATIONS_ENABLED}
 								runId={runId}
 								docId={selectedArtifact.docId}
 							/>
@@ -288,7 +283,7 @@ function ArtifactViewerInner({
 					</div>
 				)}
 
-				{ANNOTATIONS_ENABLED && annotationSidebarOpen && selectedArtifact && (
+				{annotationSidebarOpen && selectedArtifact && (
 					<div className="w-[280px] shrink-0 border-l border-border overflow-y-auto">
 						<AnnotationSidebar
 							artifactPath={selectedArtifact.path}
@@ -303,16 +298,12 @@ function ArtifactViewerInner({
 }
 
 export function ArtifactViewerPanel(props: ArtifactViewerPanelProps) {
-	if (ANNOTATIONS_ENABLED) {
-		return (
-			<AnnotationProvider
-				artifactPath={props.selectedArtifact?.path ?? ""}
-				docId={props.selectedArtifact?.docId}
-			>
-				<ArtifactViewerInner {...props} />
-			</AnnotationProvider>
-		);
-	}
-
-	return <ArtifactViewerInner {...props} />;
+	return (
+		<AnnotationProvider
+			artifactPath={props.selectedArtifact?.path ?? ""}
+			docId={props.selectedArtifact?.docId}
+		>
+			<ArtifactViewerInner {...props} />
+		</AnnotationProvider>
+	);
 }

@@ -1,6 +1,7 @@
 import { MessageSquare } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useDismiss } from "@/hooks/useDismiss";
 import type { SelectionPosition } from "@/hooks/useTextSelection";
 import {
 	findTextRange,
@@ -204,31 +205,16 @@ function GroupPickerPopover({
 	) => void;
 	readonly onClose: () => void;
 }) {
-	useEffect(() => {
-		const handleClickOutside = (e: MouseEvent) => {
-			const target = e.target as Element;
-			if (!target.closest("[data-group-picker]")) {
-				onClose();
-			}
-		};
-		const handleEscape = (e: KeyboardEvent) => {
-			if (e.key === "Escape") onClose();
-		};
+	const pickerRef = useRef<HTMLDivElement>(null);
 
-		const timeoutId = setTimeout(() => {
-			document.addEventListener("mousedown", handleClickOutside);
-			document.addEventListener("keydown", handleEscape);
-		}, 50);
-
-		return () => {
-			clearTimeout(timeoutId);
-			document.removeEventListener("mousedown", handleClickOutside);
-			document.removeEventListener("keydown", handleEscape);
-		};
-	}, [onClose]);
+	useDismiss({
+		ref: pickerRef,
+		onDismiss: onClose,
+	});
 
 	return (
 		<div
+			ref={pickerRef}
 			data-group-picker
 			className="fixed z-50 w-[240px] rounded border border-border bg-surface animate-in fade-in-0 duration-150"
 			style={{

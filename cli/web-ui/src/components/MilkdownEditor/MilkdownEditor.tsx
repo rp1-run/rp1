@@ -31,7 +31,6 @@ export interface MilkdownEditorProps {
 	readonly docId?: string;
 	readonly runId?: string;
 	readonly onContentChange?: (markdown: string) => void;
-	readonly enableAnnotations?: boolean;
 }
 
 function MilkdownEditorInner({

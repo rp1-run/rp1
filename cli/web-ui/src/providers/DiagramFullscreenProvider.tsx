@@ -66,6 +66,7 @@ export function DiagramFullscreenProvider({
 					fontFamily: "JetBrains Mono, monospace",
 					themeVariables: isDark ? warmStoneDark : warmStoneLight,
 					suppressErrorRendering: true,
+					flowchart: { wrappingWidth: 300, padding: 12 },
 				});
 
 				renderCountRef.current += 1;

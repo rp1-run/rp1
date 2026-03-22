@@ -363,6 +363,7 @@
     overflow: visible;
   }
 
+
   /* Artifact viewer panel: code blocks use void background */
   .artifact-viewer-content .shiki-container {
     background-color: hsl(var(--void));

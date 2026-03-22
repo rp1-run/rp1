@@ -26,7 +26,6 @@ interface UnifiedContentRendererProps {
 	readonly path: string;
 	readonly frontmatter?: Record<string, unknown>;
 	readonly isRefreshing?: boolean;
-	readonly enableAnnotations?: boolean;
 	readonly onHeadingsExtracted?: (headings: HeadingEntry[]) => void;
 	readonly runId?: string;
 	readonly docId?: string;
@@ -90,13 +89,11 @@ function MarkdownEditorWithSave({
 	path,
 	runId,
 	docId,
-	enableAnnotations,
 }: {
 	readonly content: string;
 	readonly path: string;
 	readonly runId?: string;
 	readonly docId?: string;
-	readonly enableAnnotations?: boolean;
 }) {
 	const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
 	const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -154,13 +151,11 @@ function MarkdownEditorWithSave({
 
 	return (
 		<div className="relative flex gap-3">
-			{enableAnnotations && (
-				<div
-					ref={gutterRef}
-					className="w-5 flex-shrink-0 relative"
-					aria-hidden="true"
-				/>
-			)}
+			<div
+				ref={gutterRef}
+				className="w-5 flex-shrink-0 relative"
+				aria-hidden="true"
+			/>
 			<div className="flex-1 min-w-0 relative">
 				<div className="absolute top-0 right-0 z-10 px-2 py-1">
 					<SaveStatusIndicator status={saveStatus} />
@@ -173,19 +168,15 @@ function MarkdownEditorWithSave({
 						artifactPath={path}
 						docId={docId}
 						runId={runId}
-						enableAnnotations={enableAnnotations}
 						onContentChange={onContentChange}
 					/>
 				</article>
 			</div>
-			{enableAnnotations && (
-				<AnnotationLayer
-					path={path}
-					containerRef={editorContainerRef}
-					gutterRef={gutterRef}
-					hiddenAnchors={[]}
-				/>
-			)}
+			<AnnotationLayer
+				path={path}
+				containerRef={editorContainerRef}
+				gutterRef={gutterRef}
+			/>
 		</div>
 	);
 }
@@ -195,7 +186,6 @@ export function UnifiedContentRenderer({
 	path,
 	frontmatter: _frontmatter,
 	isRefreshing,
-	enableAnnotations,
 	onHeadingsExtracted: _onHeadingsExtracted,
 	runId,
 	docId,
@@ -218,7 +208,6 @@ export function UnifiedContentRenderer({
 					path={path}
 					runId={runId}
 					docId={docId}
-					enableAnnotations={enableAnnotations}
 				/>
 			</div>
 		);
@@ -250,7 +239,6 @@ export function UnifiedContentRenderer({
 				content={wrappedContent}
 				path={path}
 				showFrontmatter={false}
-				enableAnnotations={enableAnnotations}
 			/>
 		</div>
 	);

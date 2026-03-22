@@ -1,5 +1,11 @@
 import { MessageSquare } from "lucide-react";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import {
+	findTextRange,
+	getEditableText,
+	getEditableTextNodes,
+} from "@/lib/editable-text-nodes";
 import type { TextSelectionAnchor } from "@/types/annotations";
 
 export interface SelectionIndicatorProps {
@@ -9,29 +15,29 @@ export interface SelectionIndicatorProps {
 	onClick: () => void;
 }
 
-interface IndicatorPosition {
-	x: number;
-	y: number;
-}
-
 /**
- * Shows a chat bubble icon near the end of selected text.
+ * Shows a chat bubble icon in the gutter adjacent to selected text.
  * Clicking the icon opens the annotation creation popover.
+ *
+ * Renders via createPortal into the gutter element so it scrolls
+ * naturally with content -- no scroll listener needed.
  */
 export function SelectionIndicator({
 	selection,
 	containerRef,
+	gutterRef,
 	onClick,
 }: SelectionIndicatorProps) {
-	const [pos, setPos] = useState<IndicatorPosition | null>(null);
+	const [relativeTop, setRelativeTop] = useState<number | null>(null);
 
 	useEffect(() => {
-		if (!containerRef.current) return;
+		if (!containerRef.current || !gutterRef.current) return;
 
 		const container = containerRef.current;
 		const { selectedText, contextBefore, contextAfter } = selection;
 
-		const fullText = container.textContent ?? "";
+		const nodes = getEditableTextNodes(container);
+		const fullText = getEditableText(container);
 		const searchPattern = contextBefore + selectedText + contextAfter;
 		const patternIndex = fullText.indexOf(searchPattern);
 
@@ -39,57 +45,25 @@ export function SelectionIndicator({
 
 		const startIndex = patternIndex + contextBefore.length;
 		const endIndex = startIndex + selectedText.length;
+		const found = findTextRange(nodes, startIndex, endIndex);
 
-		const walker = document.createTreeWalker(
-			container,
-			NodeFilter.SHOW_TEXT,
-			null,
-		);
-
-		let currentOffset = 0;
-		let startNode: Text | null = null;
-		let startOffset = 0;
-		let endNode: Text | null = null;
-		let endOffset = 0;
-
-		let node = walker.nextNode() as Text | null;
-		while (node) {
-			const nodeLength = node.textContent?.length ?? 0;
-			const nodeEnd = currentOffset + nodeLength;
-
-			if (!startNode && startIndex < nodeEnd) {
-				startNode = node;
-				startOffset = startIndex - currentOffset;
-			}
-
-			if (!endNode && endIndex <= nodeEnd) {
-				endNode = node;
-				endOffset = endIndex - currentOffset;
-				break;
-			}
-
-			currentOffset = nodeEnd;
-			node = walker.nextNode() as Text | null;
-		}
-
-		if (startNode && endNode) {
+		if (found) {
+			const { startNode, startOffset, endNode, endOffset } = found;
 			try {
 				const range = document.createRange();
 				range.setStart(startNode, startOffset);
 				range.setEnd(endNode, endOffset);
 				const rect = range.getBoundingClientRect();
+				const gutterRect = gutterRef.current!.getBoundingClientRect();
 
-				setPos({
-					x: rect.left - 24,
-					y: rect.top - 2,
-				});
+				setRelativeTop(rect.top - gutterRect.top);
 			} catch {
 				// Range creation can fail if offsets are invalid
 			}
 		}
-	}, [selection, containerRef]);
+	}, [selection, containerRef, gutterRef]);
 
-	if (!pos) return null;
+	if (relativeTop === null || !gutterRef.current) return null;
 
 	const handleClick = (e: React.MouseEvent) => {
 		e.stopPropagation();
@@ -101,20 +75,20 @@ export function SelectionIndicator({
 		e.stopPropagation();
 	};
 
-	return (
+	return createPortal(
 		<button
 			type="button"
 			onClick={handleClick}
 			onMouseDown={handleMouseDown}
-			className="fixed z-40 flex items-center justify-center rounded px-1 py-0.5 cursor-pointer animate-in fade-in duration-150 bg-accent-amber/20 text-accent-amber hover:bg-accent-amber/30 hover:scale-110 transition-all"
+			className="absolute right-0.5 flex items-center justify-center rounded px-1 py-0.5 cursor-pointer animate-in fade-in duration-150 bg-accent-amber/20 text-accent-amber hover:bg-accent-amber/30 hover:scale-110 transition-all"
 			style={{
-				left: `${pos.x}px`,
-				top: `${pos.y}px`,
+				top: relativeTop,
 			}}
 			aria-label="Add annotation to selected text"
 			title="Add comment"
 		>
 			<MessageSquare className="h-3 w-3" fill="currentColor" />
-		</button>
+		</button>,
+		gutterRef.current,
 	);
 }

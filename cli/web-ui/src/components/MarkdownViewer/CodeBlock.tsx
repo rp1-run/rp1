@@ -24,7 +24,6 @@ interface CodeBlockProps {
 	language?: string;
 	className?: string;
 	artifactPath?: string;
-	enableAnnotations?: boolean;
 }
 
 interface LineGutterProps {
@@ -32,7 +31,6 @@ interface LineGutterProps {
 	annotationCount: number;
 	hasAnnotations: boolean;
 	allResolved: boolean;
-	enableAnnotations: boolean;
 	onIndicatorClick: (lineNumber: number, rect: DOMRect) => void;
 }
 
@@ -41,7 +39,6 @@ function LineGutter({
 	annotationCount,
 	hasAnnotations,
 	allResolved,
-	enableAnnotations,
 	onIndicatorClick,
 }: LineGutterProps) {
 	const gutterRef = useRef<HTMLButtonElement>(null);
@@ -52,7 +49,7 @@ function LineGutter({
 		onIndicatorClick(lineNumber, rect);
 	}, [hasAnnotations, lineNumber, onIndicatorClick]);
 
-	if (!enableAnnotations || !hasAnnotations) {
+	if (!hasAnnotations) {
 		return (
 			<div className="h-6 leading-6 relative">
 				<span>{lineNumber}</span>
@@ -119,7 +116,6 @@ export function CodeBlock({
 	language,
 	className,
 	artifactPath,
-	enableAnnotations = false,
 }: CodeBlockProps) {
 	const [highlightedHtml, setHighlightedHtml] = useState<string>("");
 	const [isLoading, setIsLoading] = useState(true);
@@ -154,7 +150,7 @@ export function CodeBlock({
 		: null;
 
 	const lineAnnotationsMap = useMemo(() => {
-		if (!enableAnnotations || !artifactPath) {
+		if (!artifactPath) {
 			return new Map<number, Annotation[]>();
 		}
 
@@ -171,17 +167,11 @@ export function CodeBlock({
 			}
 		}
 		return map;
-	}, [
-		enableAnnotations,
-		artifactPath,
-		lineCount,
-		lines,
-		getAnnotationsAtPosition,
-	]);
+	}, [artifactPath, lineCount, lines, getAnnotationsAtPosition]);
 
 	// Listen for sidebar navigation - open popover when annotation is selected
 	useEffect(() => {
-		if (!selectedAnnotationId || !enableAnnotations) return;
+		if (!selectedAnnotationId) return;
 
 		const annotation = annotations.find((a) => a.id === selectedAnnotationId);
 		if (!annotation || annotation.anchor.type !== "line") return;
@@ -208,7 +198,7 @@ export function CodeBlock({
 		}
 
 		selectAnnotation(null);
-	}, [selectedAnnotationId, annotations, enableAnnotations, selectAnnotation]);
+	}, [selectedAnnotationId, annotations, selectAnnotation]);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -335,11 +325,8 @@ export function CodeBlock({
 			<div className="overflow-x-auto">
 				<div className="flex min-w-full text-sm">
 					<div
-						className={cn(
-							"flex-shrink-0 select-none border-r bg-muted/30 py-3 text-right text-muted-foreground",
-							enableAnnotations ? "w-14 px-2" : "px-3",
-						)}
-						aria-hidden={!enableAnnotations}
+						className="flex-shrink-0 select-none border-r bg-muted/30 py-3 text-right text-muted-foreground w-14 px-2"
+						aria-hidden={false}
 					>
 						{Array.from({ length: lineCount }, (_, i) => {
 							const lineNumber = i + 1;
@@ -358,7 +345,6 @@ export function CodeBlock({
 									annotationCount={annotationCount}
 									hasAnnotations={hasAnnotations}
 									allResolved={allResolved ?? false}
-									enableAnnotations={enableAnnotations && !!artifactPath}
 									onIndicatorClick={handleIndicatorClick}
 								/>
 							);
@@ -372,31 +358,25 @@ export function CodeBlock({
 							</pre>
 						) : (
 							<div className="relative">
-								{enableAnnotations && (
-									<div
-										className="absolute left-0 top-0 w-full pointer-events-none"
-										aria-hidden="true"
-									>
-										{Array.from({ length: lineCount }, (_, i) => {
-											const lineNumber = i + 1;
-											const lineAnnotations =
-												lineAnnotationsMap.get(lineNumber);
-											const hasAnnotations =
-												lineAnnotations !== undefined &&
-												lineAnnotations.length > 0;
+								<div
+									className="absolute left-0 top-0 w-full pointer-events-none"
+									aria-hidden="true"
+								>
+									{Array.from({ length: lineCount }, (_, i) => {
+										const lineNumber = i + 1;
+										const lineAnnotations = lineAnnotationsMap.get(lineNumber);
+										const hasAnnotations =
+											lineAnnotations !== undefined &&
+											lineAnnotations.length > 0;
 
-											return (
-												<div
-													key={lineNumber}
-													className={cn(
-														"h-6",
-														hasAnnotations && "bg-primary/10",
-													)}
-												/>
-											);
-										})}
-									</div>
-								)}
+										return (
+											<div
+												key={lineNumber}
+												className={cn("h-6", hasAnnotations && "bg-primary/10")}
+											/>
+										);
+									})}
+								</div>
 								<div
 									className="shiki-container relative leading-6 [&_pre]:m-0 [&_pre]:p-0 [&_pre]:bg-transparent [&_pre_code]:leading-6 [&_.line]:leading-6 [&_.line]:h-6"
 									// biome-ignore lint/security/noDangerouslySetInnerHtml: trusted Shiki output

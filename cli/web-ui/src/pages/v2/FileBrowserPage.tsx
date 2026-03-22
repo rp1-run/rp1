@@ -42,10 +42,6 @@ import { useWebSocket } from "@/providers/WebSocketProvider";
 
 import type { FileContent } from "../../server/routes/content-utils";
 
-const ANNOTATIONS_ENABLED =
-	typeof import.meta !== "undefined" &&
-	import.meta.env?.RP1_ANNOTATIONS_ENABLED !== "false";
-
 const STORAGE_KEY_TOC_COLLAPSED = "rp1-file-browser-toc-collapsed";
 const STORAGE_KEY_ANNOTATIONS_COLLAPSED =
 	"rp1-file-browser-annotations-collapsed";
@@ -490,7 +486,6 @@ export function FileBrowserPage() {
 					frontmatter={content.frontmatter}
 					isRefreshing={isRefreshing}
 					onHeadingsExtracted={handleHeadingsExtracted}
-					enableAnnotations={ANNOTATIONS_ENABLED}
 				/>
 			) : null}
 		</>
@@ -537,12 +532,10 @@ export function FileBrowserPage() {
 						</TooltipProvider>
 
 						<div className="flex items-center gap-2">
-							{ANNOTATIONS_ENABLED && (
-								<MobileAnnotationButton
-									artifactPath={selectedPath ?? ""}
-									onClick={() => setAnnotationDrawerOpen(true)}
-								/>
-							)}
+							<MobileAnnotationButton
+								artifactPath={selectedPath ?? ""}
+								onClick={() => setAnnotationDrawerOpen(true)}
+							/>
 							{isMarkdown && (
 								<TooltipProvider>
 									<Tooltip>
@@ -616,32 +609,26 @@ export function FileBrowserPage() {
 					</Drawer>
 				)}
 
-				{ANNOTATIONS_ENABLED && (
-					<Drawer
-						open={annotationDrawerOpen}
+				<Drawer
+					open={annotationDrawerOpen}
+					onClose={() => setAnnotationDrawerOpen(false)}
+					side="right"
+					title="Annotations"
+				>
+					<AnnotationSidebar
+						artifactPath={selectedPath ?? ""}
 						onClose={() => setAnnotationDrawerOpen(false)}
-						side="right"
-						title="Annotations"
-					>
-						<AnnotationSidebar
-							artifactPath={selectedPath ?? ""}
-							onClose={() => setAnnotationDrawerOpen(false)}
-							className="border-l-0 w-full"
-						/>
-					</Drawer>
-				)}
+						className="border-l-0 w-full"
+					/>
+				</Drawer>
 			</div>
 		);
 
-		if (ANNOTATIONS_ENABLED) {
-			return (
-				<AnnotationProvider artifactPath={selectedPath ?? ""}>
-					{mobileContent}
-				</AnnotationProvider>
-			);
-		}
-
-		return mobileContent;
+		return (
+			<AnnotationProvider artifactPath={selectedPath ?? ""}>
+				{mobileContent}
+			</AnnotationProvider>
+		);
 	}
 
 	const desktopContent = (
@@ -673,10 +660,7 @@ export function FileBrowserPage() {
 
 				<ResizableHandle aria-label="Resize file tree" />
 
-				<ResizablePanel
-					defaultSize={ANNOTATIONS_ENABLED && isMarkdown ? 55 : 67}
-					minSize={40}
-				>
+				<ResizablePanel defaultSize={isMarkdown ? 55 : 67} minSize={40}>
 					<main className="relative flex h-full flex-col overflow-hidden">
 						<div
 							className="flex h-10 items-center justify-end gap-2 px-4"
@@ -707,7 +691,7 @@ export function FileBrowserPage() {
 									</Tooltip>
 								</TooltipProvider>
 							)}
-							{ANNOTATIONS_ENABLED && !annotationSidebarOpen && (
+							{!annotationSidebarOpen && (
 								<AnnotationToggleButton
 									artifactPath={selectedPath ?? ""}
 									onOpen={() => handleToggleAnnotationSidebar(true)}
@@ -756,7 +740,7 @@ export function FileBrowserPage() {
 					</>
 				)}
 
-				{ANNOTATIONS_ENABLED && annotationSidebarOpen && (
+				{annotationSidebarOpen && (
 					<>
 						<ResizableHandle aria-label="Resize annotations panel" />
 						<ResizablePanel
@@ -778,13 +762,9 @@ export function FileBrowserPage() {
 		</div>
 	);
 
-	if (ANNOTATIONS_ENABLED) {
-		return (
-			<AnnotationProvider artifactPath={selectedPath ?? ""}>
-				{desktopContent}
-			</AnnotationProvider>
-		);
-	}
-
-	return desktopContent;
+	return (
+		<AnnotationProvider artifactPath={selectedPath ?? ""}>
+			{desktopContent}
+		</AnnotationProvider>
+	);
 }

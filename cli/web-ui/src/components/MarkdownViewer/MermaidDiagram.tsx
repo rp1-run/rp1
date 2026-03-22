@@ -53,6 +53,7 @@ mermaid.initialize({
 	fontFamily: "JetBrains Mono, monospace",
 	themeVariables: warmStoneLight,
 	suppressErrorRendering: true,
+	flowchart: { wrappingWidth: 300, padding: 12 },
 });
 
 interface DiagramAnnotationPopoverProps {
@@ -230,7 +231,6 @@ interface MermaidDiagramProps {
 	className?: string;
 	title?: string | null;
 	artifactPath?: string;
-	enableAnnotations?: boolean;
 }
 
 export function MermaidDiagram({
@@ -238,7 +238,6 @@ export function MermaidDiagram({
 	className,
 	title,
 	artifactPath,
-	enableAnnotations = false,
 }: MermaidDiagramProps) {
 	const [svg, setSvg] = useState<string>("");
 	const [error, setError] = useState<string | null>(null);
@@ -258,7 +257,7 @@ export function MermaidDiagram({
 
 	const diagramFirstLine = useMemo(() => code.split("\n")[0] ?? "", [code]);
 	const diagramAnnotation = useMemo(() => {
-		if (!enableAnnotations || !artifactPath) return null;
+		if (!artifactPath) return null;
 		return (
 			annotations.find(
 				(a) =>
@@ -266,7 +265,7 @@ export function MermaidDiagram({
 					a.anchor.selectedText === diagramFirstLine,
 			) ?? null
 		);
-	}, [annotations, enableAnnotations, artifactPath, diagramFirstLine]);
+	}, [annotations, artifactPath, diagramFirstLine]);
 
 	const handleAnnotateButtonClick = useCallback(() => {
 		if (diagramAnnotation) {
@@ -338,6 +337,7 @@ export function MermaidDiagram({
 					fontFamily: "JetBrains Mono, monospace",
 					themeVariables: isDark ? warmStoneDark : warmStoneLight,
 					suppressErrorRendering: true,
+					flowchart: { wrappingWidth: 300, padding: 12 },
 				});
 
 				renderCountRef.current += 1;
@@ -766,7 +766,7 @@ export function MermaidDiagram({
 							</TooltipTrigger>
 							<TooltipContent>Fullscreen</TooltipContent>
 						</Tooltip>
-						{enableAnnotations && artifactPath && (
+						{artifactPath && (
 							<Tooltip>
 								<TooltipTrigger asChild>
 									<Button
@@ -814,17 +814,15 @@ export function MermaidDiagram({
 				</div>
 			)}
 
-			{annotationPopoverState?.mode === "create" &&
-				enableAnnotations &&
-				artifactPath && (
-					<DiagramAnnotationPopover
-						diagramLabel={title ?? "Mermaid Diagram"}
-						code={code}
-						artifactPath={artifactPath}
-						buttonRef={annotateButtonRef}
-						onClose={() => setAnnotationPopoverState(null)}
-					/>
-				)}
+			{annotationPopoverState?.mode === "create" && artifactPath && (
+				<DiagramAnnotationPopover
+					diagramLabel={title ?? "Mermaid Diagram"}
+					code={code}
+					artifactPath={artifactPath}
+					buttonRef={annotateButtonRef}
+					onClose={() => setAnnotationPopoverState(null)}
+				/>
+			)}
 
 			{annotationPopoverState?.mode === "view" && (
 				<AnnotationPopover

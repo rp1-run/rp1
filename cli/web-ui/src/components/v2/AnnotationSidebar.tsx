@@ -1,6 +1,7 @@
 import { AlertTriangle, Filter, MessageSquare, X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useAnnotations } from "@/hooks/useAnnotations";
+import { needsTruncation, truncateContent } from "@/lib/content-truncation";
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { useAnnotationContext } from "@/providers/AnnotationProvider";
@@ -126,25 +127,6 @@ function getAnchorPreview(annotation: Annotation): string {
 		default:
 			return "Unknown anchor";
 	}
-}
-
-const TRUNCATION_LINES = 3;
-const TRUNCATION_CHARS = 200;
-
-function needsTruncation(content: string): boolean {
-	const lineCount = content.split("\n").length;
-	return lineCount > TRUNCATION_LINES || content.length > TRUNCATION_CHARS;
-}
-
-function truncateContent(content: string): string {
-	const lines = content.split("\n");
-	if (lines.length > TRUNCATION_LINES) {
-		return `${lines.slice(0, TRUNCATION_LINES).join("\n")}...`;
-	}
-	if (content.length > TRUNCATION_CHARS) {
-		return `${content.slice(0, TRUNCATION_CHARS)}...`;
-	}
-	return content;
 }
 
 export function AnnotationSidebar({
