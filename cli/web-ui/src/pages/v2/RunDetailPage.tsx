@@ -132,6 +132,20 @@ export function RunDetailPage() {
 		[runId, setActiveArtifact],
 	);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: only re-run when artifacts array changes
+	useEffect(() => {
+		if (!selectedArtifact || !run) return;
+		const updated = run.artifacts.find(
+			(a) => a.docId === selectedArtifact.docId,
+		);
+		if (updated && updated.path !== selectedArtifact.path) {
+			setSelectedArtifact(updated);
+			if (runId) {
+				setActiveArtifact(runId, updated.path);
+			}
+		}
+	}, [run?.artifacts, selectedArtifact, runId, setActiveArtifact]);
+
 	// biome-ignore lint/correctness/useExhaustiveDependencies: reset selection on route change
 	useEffect(() => {
 		setSelectedStepId(null);

@@ -109,23 +109,42 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 
 				if (msg.eventType === "artifact_registered") {
 					const data = msg.data as Record<string, unknown> | null;
-					const newArtifact: Artifact = {
-						docId: (data?.docId as string) ?? "",
-						path: (data?.path as string) ?? "",
-						absolutePath: (data?.path as string) ?? "",
-						type: (data?.type as Artifact["type"]) ?? "other",
-						updatedDuringRun: true,
-						isNew: true,
-						step: msg.step,
-					};
 
-					setRun((prev) => {
-						if (!prev) return null;
-						return {
-							...prev,
-							artifacts: [...prev.artifacts, newArtifact],
+					if (data?.reconciled) {
+						setRun((prev) => {
+							if (!prev) return null;
+							return {
+								...prev,
+								artifacts: prev.artifacts.map((a) =>
+									a.docId === data.docId
+										? {
+												...a,
+												path: data.path as string,
+												absolutePath: data.path as string,
+											}
+										: a,
+								),
+							};
+						});
+					} else {
+						const newArtifact: Artifact = {
+							docId: (data?.docId as string) ?? "",
+							path: (data?.path as string) ?? "",
+							absolutePath: (data?.path as string) ?? "",
+							type: (data?.type as Artifact["type"]) ?? "other",
+							updatedDuringRun: true,
+							isNew: true,
+							step: msg.step,
 						};
-					});
+
+						setRun((prev) => {
+							if (!prev) return null;
+							return {
+								...prev,
+								artifacts: [...prev.artifacts, newArtifact],
+							};
+						});
+					}
 				}
 
 				if (msg.eventType === "waiting_for_user") {
