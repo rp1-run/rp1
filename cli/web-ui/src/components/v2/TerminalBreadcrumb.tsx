@@ -1,4 +1,4 @@
-import { Check, Copy, Dot } from "lucide-react";
+import { Check, Copy } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
@@ -126,20 +126,13 @@ export function TerminalBreadcrumb({ className }: TerminalBreadcrumbProps) {
 		<nav
 			aria-label="Breadcrumb"
 			className={cn(
-				"flex items-center border-b px-4 py-1.5 type-body",
+				"flex items-center border-b px-4 py-1.5 min-h-8 type-body",
 				"border-border",
 				"text-fg-ghost",
 				className,
 			)}
 		>
 			<div className="flex items-center gap-2">
-				<Link
-					to="/"
-					className="flex items-center transition-colors duration-150 hover:text-fg"
-					aria-label="Home"
-				>
-					<Dot className="h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
-				</Link>
 				{projectName && projectId && (
 					<Link
 						to={`/projects/${projectId}`}
