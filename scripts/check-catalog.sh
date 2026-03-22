@@ -15,6 +15,16 @@ if [ ! -f "$CATALOG_DIR/skills.yaml" ] || [ ! -f "$CATALOG_DIR/agents.yaml" ]; t
     exit 1
 fi
 
+# Extract the last_checksum for a given entry name from a YAML file.
+# Uses awk to find the exact "- name: ID" line and then the next last_checksum.
+get_checksum() {
+    local name="$1" file="$2"
+    awk -v id="$name" '
+        /^  - name: / { found = ($NF == id) }
+        found && /last_checksum:/ { print $2; exit }
+    ' "$file"
+}
+
 # Check every skill SKILL.md checksum against what's in the catalogue
 for plugin_dir in "$PLUGINS_DIR"/*/; do
     plugin=$(basename "$plugin_dir")
@@ -30,7 +40,7 @@ for plugin_dir in "$PLUGINS_DIR"/*/; do
             skill_id="${prefix}:${skill_name}"
 
             current_checksum=$(shasum -a 256 "$skill_file" | cut -d' ' -f1)
-            catalog_checksum=$(grep -A 10 "name: ${skill_id}$" "$CATALOG_DIR/skills.yaml" | grep "last_checksum:" | head -1 | awk '{print $2}' || echo "")
+            catalog_checksum=$(get_checksum "$skill_id" "$CATALOG_DIR/skills.yaml")
 
             if [ -z "$catalog_checksum" ]; then
                 echo "MISSING: Skill $skill_id not in catalogue"
@@ -50,7 +60,7 @@ for plugin_dir in "$PLUGINS_DIR"/*/; do
             agent_id="${prefix}:${agent_name}"
 
             current_checksum=$(shasum -a 256 "$agent_file" | cut -d' ' -f1)
-            catalog_checksum=$(grep -A 10 "name: ${agent_id}$" "$CATALOG_DIR/agents.yaml" | grep "last_checksum:" | head -1 | awk '{print $2}' || echo "")
+            catalog_checksum=$(get_checksum "$agent_id" "$CATALOG_DIR/agents.yaml")
 
             if [ -z "$catalog_checksum" ]; then
                 echo "MISSING: Agent $agent_id not in catalogue"

@@ -200,8 +200,8 @@ agents:
     plugin: dev
     skills_that_i_use: [rp1-base:mermaid]
     skills_that_use_me: [rp1-dev:build]
-    last_update: "2026-03-19"
-    last_checksum: fc691af0a2dab888d94aa603d4cc50a5eb827ac7bcef030843dbd56ecc67bebb
+    last_update: "2026-03-22"
+    last_checksum: b7cc32c422fd975176424571a400110a4e730b8cee53f2f59c271a0464684c00
   - name: rp1-dev:feature-archiver
     description: Archives completed features to {RP1_ROOT}/work/archives/features/ or restores archived features back to active features directory
     plugin: dev

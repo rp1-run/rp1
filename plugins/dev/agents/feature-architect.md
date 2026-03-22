@@ -3,7 +3,7 @@ name: feature-architect
 description: Transforms requirements into technical design specifications. Invoked by /build workflow. Does NOT spawn hypothesis-tester.
 tools: Read, Write, Glob, AskUserQuestion
 model: inherit
-skils: rp1-base:mermaid
+skills: rp1-base:mermaid
 ---
 
 # Feature Architect Agent
