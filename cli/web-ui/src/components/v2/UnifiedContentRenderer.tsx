@@ -29,6 +29,9 @@ interface UnifiedContentRendererProps {
 	readonly onHeadingsExtracted?: (headings: HeadingEntry[]) => void;
 	readonly runId?: string;
 	readonly docId?: string;
+	readonly projectId?: string;
+	readonly filePath?: string;
+	readonly enableAnnotations?: boolean;
 }
 
 function SaveStatusIndicator({ status }: { readonly status: SaveStatus }) {
@@ -89,11 +92,17 @@ function MarkdownEditorWithSave({
 	path,
 	runId,
 	docId,
+	projectId,
+	filePath,
+	enableAnnotations = true,
 }: {
 	readonly content: string;
 	readonly path: string;
 	readonly runId?: string;
 	readonly docId?: string;
+	readonly projectId?: string;
+	readonly filePath?: string;
+	readonly enableAnnotations?: boolean;
 }) {
 	const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
 	const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -107,9 +116,11 @@ function MarkdownEditorWithSave({
 	const gutterRef = useRef<HTMLDivElement>(null);
 	const editorRef = useRef<MilkdownEditorHandle>(null);
 
+	const canSave = !!(runId || (projectId && filePath));
+
 	const onContentChange = useCallback(
 		(markdown: string) => {
-			if (!runId) return;
+			if (!canSave) return;
 
 			if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
 			if (indicatorTimerRef.current) clearTimeout(indicatorTimerRef.current);
@@ -117,14 +128,26 @@ function MarkdownEditorWithSave({
 			saveTimerRef.current = setTimeout(async () => {
 				setSaveStatus("saving");
 				try {
-					const response = await fetch(`/api/v2/runs/${runId}/artifacts/save`, {
-						method: "PUT",
-						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify({
-							path,
-							content: restoreFrontmatter(frontmatter, markdown),
-						}),
-					});
+					let response: Response;
+					const fullContent = restoreFrontmatter(frontmatter, markdown);
+
+					if (runId) {
+						response = await fetch(`/api/v2/runs/${runId}/artifacts/save`, {
+							method: "PUT",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify({ path, content: fullContent }),
+						});
+					} else {
+						response = await fetch(
+							`/api/v2/projects/${encodeURIComponent(projectId!)}/content/${encodeURIComponent(filePath!)}`,
+							{
+								method: "PUT",
+								headers: { "Content-Type": "application/json" },
+								body: JSON.stringify({ content: fullContent }),
+							},
+						);
+					}
+
 					if (!response.ok) {
 						setSaveStatus("error");
 					} else {
@@ -139,7 +162,7 @@ function MarkdownEditorWithSave({
 				}, SAVE_INDICATOR_DURATION_MS);
 			}, SAVE_DEBOUNCE_MS);
 		},
-		[runId, path, frontmatter],
+		[canSave, runId, projectId, filePath, path, frontmatter],
 	);
 
 	useEffect(() => {
@@ -172,11 +195,13 @@ function MarkdownEditorWithSave({
 					/>
 				</article>
 			</div>
-			<AnnotationLayer
-				path={path}
-				containerRef={editorContainerRef}
-				gutterRef={gutterRef}
-			/>
+			{enableAnnotations && (
+				<AnnotationLayer
+					path={path}
+					containerRef={editorContainerRef}
+					gutterRef={gutterRef}
+				/>
+			)}
 		</div>
 	);
 }
@@ -189,6 +214,9 @@ export function UnifiedContentRenderer({
 	onHeadingsExtracted: _onHeadingsExtracted,
 	runId,
 	docId,
+	projectId,
+	filePath,
+	enableAnnotations = true,
 }: UnifiedContentRendererProps) {
 	const refreshingOverlay = isRefreshing ? (
 		<div className="absolute top-0 right-0 flex items-center gap-1.5 px-2 py-1 text-xs text-muted-foreground bg-background/80 backdrop-blur-sm rounded-bl border-l border-b z-10">
@@ -208,6 +236,9 @@ export function UnifiedContentRenderer({
 					path={path}
 					runId={runId}
 					docId={docId}
+					projectId={projectId}
+					filePath={filePath}
+					enableAnnotations={enableAnnotations}
 				/>
 			</div>
 		);
@@ -239,6 +270,7 @@ export function UnifiedContentRenderer({
 				content={wrappedContent}
 				path={path}
 				showFrontmatter={false}
+				enableAnnotations={enableAnnotations}
 			/>
 		</div>
 	);

@@ -37,6 +37,7 @@ export interface MarkdownViewerProps {
 	className?: string;
 	onHeadingsExtracted?: (headings: HeadingEntry[]) => void;
 	headingIdPrefix?: string;
+	enableAnnotations?: boolean;
 }
 
 export interface AnnotationLayerProps {
@@ -308,6 +309,7 @@ export function MarkdownViewer({
 	className,
 	onHeadingsExtracted,
 	headingIdPrefix,
+	enableAnnotations = true,
 }: MarkdownViewerProps) {
 	const containerRef = useRef<HTMLElement>(null);
 	const gutterRef = useRef<HTMLDivElement>(null);
@@ -441,11 +443,13 @@ export function MarkdownViewer({
 				</ReactMarkdown>
 			</article>
 
-			<AnnotationLayer
-				path={path}
-				containerRef={containerRef}
-				gutterRef={gutterRef}
-			/>
+			{enableAnnotations && (
+				<AnnotationLayer
+					path={path}
+					containerRef={containerRef}
+					gutterRef={gutterRef}
+				/>
+			)}
 		</div>
 	);
 }

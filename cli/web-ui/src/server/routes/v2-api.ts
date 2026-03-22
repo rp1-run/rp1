@@ -1073,6 +1073,57 @@ export async function handleV2ProjectContentRequest(
 }
 
 /**
+ * PUT /api/v2/projects/:projectId/content/:path - save file content to disk.
+ * Validates that the path stays within the project's .rp1/ directory.
+ */
+export async function handleV2ProjectContentSaveRequest(
+	projectId: string,
+	filePath: string,
+	req: Request,
+): Promise<Response> {
+	try {
+		const project = await getProject(projectId);
+
+		if (!project) {
+			return errorResponse(`Project not found: ${projectId}`, 404);
+		}
+
+		const available = await isValidProject(project.path);
+		if (!available) {
+			return errorResponse(`Project unavailable: ${projectId}`, 410);
+		}
+
+		const validationError = validateFilePath(filePath);
+		if (validationError) {
+			const status = validationError.includes("Access denied") ? 403 : 400;
+			return errorResponse(validationError, status);
+		}
+
+		const body = (await req.json()) as { content?: string };
+
+		if (typeof body.content !== "string") {
+			return errorResponse(
+				"Invalid request body: content is a required string",
+				400,
+			);
+		}
+
+		const rp1Path = resolve(project.path, ".rp1");
+		const resolvedPath = await resolveWithArchiveFallback(rp1Path, filePath);
+
+		if (!resolvedPath) {
+			return errorResponse("File not found", 404);
+		}
+
+		await Bun.write(resolvedPath, body.content);
+
+		return jsonResponse({ saved: true, path: resolvedPath });
+	} catch (error) {
+		return errorResponse(`Failed to save file: ${String(error)}`);
+	}
+}
+
+/**
  * GET /api/v2/health - daemon health check.
  */
 export async function handleV2HealthRequest(

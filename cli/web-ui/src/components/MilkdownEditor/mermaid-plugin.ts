@@ -116,8 +116,6 @@ function mermaidNodeView(_ctx: Ctx): NodeViewConstructor {
 		const inner = document.createElement("div");
 		inner.className = "milkdown-mermaid-inner";
 		inner.setAttribute("data-tab", "preview");
-
-		// Tab bar
 		const tabBar = document.createElement("div");
 		tabBar.className = "milkdown-mermaid-tabs";
 		tabBar.contentEditable = "false";
@@ -152,8 +150,6 @@ function mermaidNodeView(_ctx: Ctx): NodeViewConstructor {
 		pre.dataset.language = node.attrs.language;
 		const codeEl = document.createElement("code");
 		pre.appendChild(codeEl);
-
-		// Preview panel
 		const previewPanel = document.createElement("div");
 		previewPanel.className = "milkdown-mermaid-preview";
 		previewPanel.contentEditable = "false";
@@ -162,8 +158,6 @@ function mermaidNodeView(_ctx: Ctx): NodeViewConstructor {
 		inner.appendChild(pre);
 		inner.appendChild(previewPanel);
 		container.appendChild(inner);
-
-		// Tab switching
 		function setTab(tab: string) {
 			inner.setAttribute("data-tab", tab);
 			previewTab.classList.toggle("active", tab === "preview");
@@ -172,8 +166,6 @@ function mermaidNodeView(_ctx: Ctx): NodeViewConstructor {
 
 		previewTab.addEventListener("click", () => setTab("preview"));
 		codeTab.addEventListener("click", () => setTab("code"));
-
-		// Action handlers
 		copyBtn.addEventListener("click", async () => {
 			const svgEl = previewPanel.querySelector("svg");
 			if (!svgEl) return;
@@ -214,8 +206,6 @@ function mermaidNodeView(_ctx: Ctx): NodeViewConstructor {
 				);
 			}
 		});
-
-		// Render mermaid diagram
 		function scheduleRender(code: string) {
 			if (code === lastRenderedCode) return;
 			if (debounceTimer) clearTimeout(debounceTimer);
@@ -243,8 +233,6 @@ function mermaidNodeView(_ctx: Ctx): NodeViewConstructor {
 		}
 
 		document.addEventListener(THEME_CHANGED_EVENT, onThemeChanged);
-
-		// Initial render
 		const initialCode = node.textContent.trim();
 		const cached = renderCache.get(themeCacheKey(initialCode));
 		if (cached) {

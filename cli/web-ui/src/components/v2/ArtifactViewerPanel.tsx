@@ -1,15 +1,13 @@
-import { FileText, List, Loader2, MessageSquare } from "lucide-react";
+import { FileText, List } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AnnotationSidebar } from "@/components/v2/AnnotationSidebar";
+import { AnnotationToggleBtn } from "@/components/v2/AnnotationToggleBtn";
+import { ContentPanel } from "@/components/v2/ContentPanel";
 import { TableOfContents } from "@/components/v2/TableOfContents";
-import { UnifiedContentRenderer } from "@/components/v2/UnifiedContentRenderer";
 import type { HeadingEntry } from "@/hooks/useHeadingExtraction";
 import { cn } from "@/lib/utils";
-import {
-	AnnotationProvider,
-	useAnnotationContext,
-} from "@/providers/AnnotationProvider";
+import { AnnotationProvider } from "@/providers/AnnotationProvider";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 
 import type { Artifact, Step } from "@/types/runs";
@@ -24,33 +22,6 @@ export interface ArtifactViewerPanelProps {
 
 function getFileName(path: string): string {
 	return path.split("/").pop() || path;
-}
-
-function AnnotationToggle({
-	artifactPath,
-	onClick,
-}: {
-	readonly artifactPath: string;
-	readonly onClick: () => void;
-}) {
-	const { annotations } = useAnnotationContext();
-	const totalCount = annotations.filter(
-		(a) => a.artifactPath === artifactPath,
-	).length;
-
-	return (
-		<button
-			type="button"
-			onClick={onClick}
-			className="flex items-center gap-1 text-fg-ghost transition-colors duration-150 hover:text-fg"
-			aria-label="Toggle annotations"
-		>
-			<MessageSquare className="h-3.5 w-3.5" strokeWidth={1.5} />
-			{totalCount > 0 && (
-				<span className="type-secondary tabular-nums">{totalCount}</span>
-			)}
-		</button>
-	);
 }
 
 function ArtifactViewerInner({
@@ -187,9 +158,10 @@ function ArtifactViewerInner({
 							</button>
 						)}
 						{selectedArtifact && (
-							<AnnotationToggle
+							<AnnotationToggleBtn
 								artifactPath={selectedArtifact.path}
 								onClick={handleToggleAnnotations}
+								variant="inline"
 							/>
 						)}
 					</div>
@@ -227,49 +199,21 @@ function ArtifactViewerInner({
 					className="flex-1 min-h-0 max-w-full overflow-hidden"
 					viewportRef={scrollViewportRef}
 				>
-					<div
-						className="artifact-viewer-content max-w-full overflow-hidden break-words px-4 md:px-[40px]"
-						style={{
-							paddingTop: "40px",
-							paddingBottom: "40px",
-							fontSize: "14px",
-							lineHeight: "1.7",
-							fontFamily: "var(--font-mono, 'Commit Mono', monospace)",
-							overflowWrap: "break-word",
-							wordBreak: "break-word",
-						}}
-					>
-						{contentLoading ? (
-							<div className="flex items-center justify-center py-16">
-								<Loader2 className="h-4 w-4 animate-spin text-fg-ghost" />
-							</div>
-						) : contentError ? (
-							<div className="flex flex-col items-center justify-center py-16">
-								<p className="type-secondary text-failure">
-									Failed to load artifact
-								</p>
-								<p className="mt-2 type-secondary text-fg-ghost">
-									{contentError}
-								</p>
-							</div>
-						) : content !== null && selectedArtifact ? (
-							<UnifiedContentRenderer
-								content={content}
-								path={selectedArtifact.path}
-								onHeadingsExtracted={handleHeadingsExtracted}
-								runId={runId}
-								docId={selectedArtifact.docId}
-							/>
-						) : (
-							<div className="flex items-center justify-center py-16">
-								<span className="text-fg-ghost">
-									{stepArtifacts.length > 0
-										? "Select an artifact to view."
-										: "No artifacts for this step."}
-								</span>
-							</div>
-						)}
-					</div>
+					<ContentPanel
+						content={content}
+						path={selectedArtifact?.path ?? null}
+						isLoading={contentLoading}
+						error={contentError}
+						emptyMessage={
+							stepArtifacts.length > 0
+								? "Select an artifact to view."
+								: "No artifacts for this step."
+						}
+						onHeadingsExtracted={handleHeadingsExtracted}
+						runId={runId}
+						docId={selectedArtifact?.docId}
+						scrollViewportRef={scrollViewportRef}
+					/>
 				</ScrollArea>
 
 				{tocOpen && headings.length > 0 && (

@@ -10,6 +10,10 @@ export {
 	AnnotationSidebar,
 	type AnnotationSidebarProps,
 } from "./AnnotationSidebar";
+export {
+	AnnotationToggleBtn,
+	type AnnotationToggleBtnProps,
+} from "./AnnotationToggleBtn";
 export { ArtifactList, type ArtifactListProps } from "./ArtifactList";
 export {
 	ArtifactSidebar,
@@ -29,6 +33,10 @@ export {
 	CommandPalette,
 	type CommandPaletteProps,
 } from "./CommandPalette";
+export {
+	ContentPanel,
+	type ContentPanelProps,
+} from "./ContentPanel";
 export { EventStream, type EventStreamProps } from "./EventStream";
 export { FilterBar, type FilterBarProps } from "./FilterBar";
 export {

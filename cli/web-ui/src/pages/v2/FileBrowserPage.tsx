@@ -1,11 +1,4 @@
-import {
-	AlertCircle,
-	FileText,
-	List,
-	Loader2,
-	MessageSquare,
-	PanelLeft,
-} from "lucide-react";
+import { List, PanelLeft } from "lucide-react";
 import {
 	useCallback,
 	useEffect,
@@ -29,102 +22,19 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { AnnotationSidebar } from "@/components/v2/AnnotationSidebar";
+import { ContentPanel } from "@/components/v2/ContentPanel";
 import { TableOfContents } from "@/components/v2/TableOfContents";
-import { UnifiedContentRenderer } from "@/components/v2/UnifiedContentRenderer";
-import { useAnnotations } from "@/hooks/useAnnotations";
+import { useBreadcrumbContext } from "@/hooks/useBreadcrumbContext";
 import { useContextualShortcuts } from "@/hooks/useContextualShortcuts";
 import type { HeadingEntry } from "@/hooks/useHeadingExtraction";
 import { useIsMobile } from "@/hooks/useMediaQuery";
 import { useProjectFileTree } from "@/hooks/useProjectFileTree";
-import { AnnotationProvider } from "@/providers/AnnotationProvider";
+import { useProjects } from "@/hooks/useProjects";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 
 import type { FileContent } from "../../server/routes/content-utils";
 
 const STORAGE_KEY_TOC_COLLAPSED = "rp1-file-browser-toc-collapsed";
-const STORAGE_KEY_ANNOTATIONS_COLLAPSED =
-	"rp1-file-browser-annotations-collapsed";
-
-function AnnotationToggleButton({
-	artifactPath,
-	onOpen,
-}: {
-	artifactPath: string;
-	onOpen: () => void;
-}) {
-	const { count } = useAnnotations({ artifactPath });
-
-	return (
-		<TooltipProvider>
-			<Tooltip>
-				<TooltipTrigger asChild>
-					<Button
-						variant="ghost"
-						size="icon"
-						className="h-8 w-8 relative"
-						onClick={onOpen}
-						aria-label="Open annotations panel"
-					>
-						<MessageSquare
-							className="h-4 w-4"
-							strokeWidth={1.5}
-							aria-hidden="true"
-						/>
-						{count > 0 && (
-							<span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground">
-								{count > 99 ? "99+" : count}
-							</span>
-						)}
-					</Button>
-				</TooltipTrigger>
-				<TooltipContent>
-					<p>Annotations {count > 0 ? `(${count})` : ""}</p>
-				</TooltipContent>
-			</Tooltip>
-		</TooltipProvider>
-	);
-}
-
-function MobileAnnotationButton({
-	artifactPath,
-	onClick,
-}: {
-	artifactPath: string;
-	onClick: () => void;
-}) {
-	const { count } = useAnnotations({ artifactPath });
-
-	return (
-		<TooltipProvider>
-			<Tooltip>
-				<TooltipTrigger asChild>
-					<Button
-						variant="ghost"
-						size="icon"
-						className="h-8 w-8 relative"
-						onClick={onClick}
-						aria-label="Open annotations"
-					>
-						<MessageSquare
-							className="h-4 w-4"
-							strokeWidth={1.5}
-							aria-hidden="true"
-						/>
-						{count > 0 && (
-							<span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground">
-								{count > 99 ? "99+" : count}
-							</span>
-						)}
-					</Button>
-				</TooltipTrigger>
-				<TooltipContent>
-					<p>Annotations {count > 0 ? `(${count})` : ""}</p>
-				</TooltipContent>
-			</Tooltip>
-		</TooltipProvider>
-	);
-}
 
 export function FileBrowserPage() {
 	const { projectId, "*": filePath } = useParams<{
@@ -154,21 +64,15 @@ export function FileBrowserPage() {
 		const stored = sessionStorage.getItem(STORAGE_KEY_TOC_COLLAPSED);
 		return stored === null ? true : stored === "true";
 	});
-	const [annotationSidebarOpen, setAnnotationSidebarOpen] = useState<boolean>(
-		() => {
-			if (typeof window === "undefined") return false;
-			const stored = sessionStorage.getItem(STORAGE_KEY_ANNOTATIONS_COLLAPSED);
-			return stored !== "true";
-		},
-	);
 	const [sidebarDrawerOpen, setSidebarDrawerOpen] = useState(false);
 	const [tocDrawerOpen, setTocDrawerOpen] = useState(false);
-	const [annotationDrawerOpen, setAnnotationDrawerOpen] = useState(false);
 	const [liveAnnouncement, setLiveAnnouncement] = useState<string>("");
 
 	const scrollViewportRef = useRef<HTMLDivElement>(null);
 	const headingElementsRef = useRef<Map<string, Element>>(new Map());
 	const isNavigatingRef = useRef(false);
+	const previousContentRef = useRef<FileContent | null>(null);
+	const previousPathRef = useRef<string | null>(null);
 	const navigateTimerRef = useRef<ReturnType<typeof setTimeout>>();
 	const savedScrollState = useRef<{
 		scrollTop: number;
@@ -177,6 +81,22 @@ export function FileBrowserPage() {
 
 	const isMarkdown =
 		selectedPath?.endsWith(".md") || content?.mimeType === "text/markdown";
+
+	const { projects } = useProjects();
+	const { setProject } = useBreadcrumbContext();
+
+	const projectName = projectId
+		? (projects.find((p) => p.id === projectId)?.name ?? projectId)
+		: null;
+
+	useEffect(() => {
+		if (projectId) {
+			setProject(projectId, projectName ?? projectId);
+		}
+		return () => {
+			setProject(null, null);
+		};
+	}, [projectId, projectName, setProject]);
 
 	useEffect(() => {
 		setProjectId(projectId ?? null);
@@ -207,8 +127,14 @@ export function FileBrowserPage() {
 				};
 			}
 
+			const hasPreviousContent = previousContentRef.current !== null;
+
 			if (!preserveScroll) {
-				setContentLoading(true);
+				if (hasPreviousContent) {
+					setIsRefreshing(true);
+				} else {
+					setContentLoading(true);
+				}
 				setHeadings([]);
 				setActiveHeadingId(null);
 			}
@@ -228,13 +154,18 @@ export function FileBrowserPage() {
 					throw new Error(`Failed to fetch content: ${response.statusText}`);
 				}
 				const data = (await response.json()) as FileContent;
+				previousContentRef.current = data;
+				previousPathRef.current = selectedPath;
 				setContent(data);
 			} catch (err) {
 				setContentError(err instanceof Error ? err.message : String(err));
 				setContent(null);
+				previousContentRef.current = null;
+				previousPathRef.current = null;
 			} finally {
 				if (!preserveScroll) {
 					setContentLoading(false);
+					setIsRefreshing(false);
 				}
 			}
 		},
@@ -298,30 +229,11 @@ export function FileBrowserPage() {
 	const handleToggleTocCollapse = useCallback(() => {
 		setTocCollapsed((prev) => {
 			const newValue = !prev;
-			if (!newValue) {
-				setAnnotationSidebarOpen(false);
-				if (typeof window !== "undefined") {
-					sessionStorage.setItem(STORAGE_KEY_ANNOTATIONS_COLLAPSED, "true");
-				}
-			}
 			if (typeof window !== "undefined") {
 				sessionStorage.setItem(STORAGE_KEY_TOC_COLLAPSED, String(newValue));
 			}
 			return newValue;
 		});
-	}, []);
-
-	const handleToggleAnnotationSidebar = useCallback((open: boolean) => {
-		setAnnotationSidebarOpen(open);
-		if (open) {
-			setTocCollapsed(true);
-			if (typeof window !== "undefined") {
-				sessionStorage.setItem(STORAGE_KEY_TOC_COLLAPSED, "true");
-			}
-		}
-		if (typeof window !== "undefined") {
-			sessionStorage.setItem(STORAGE_KEY_ANNOTATIONS_COLLAPSED, String(!open));
-		}
 	}, []);
 
 	const handleTocNavigate = useCallback((id: string) => {
@@ -456,40 +368,7 @@ export function FileBrowserPage() {
 		enabled: !!selectedPath,
 	});
 
-	const contentArea = (
-		<>
-			{contentLoading ? (
-				<div className="flex flex-col items-center justify-center h-64 text-fg-ghost">
-					<Loader2 className="h-4 w-4 mb-4 animate-spin" strokeWidth={1.5} />
-					<p className="type-body text-fg-ghost">Loading content...</p>
-				</div>
-			) : contentError ? (
-				<div className="flex flex-col items-center justify-center h-64 text-failure">
-					<AlertCircle
-						className="h-4 w-4 mb-4 text-failure"
-						strokeWidth={1.5}
-					/>
-					<p className="type-body text-fg mb-2">Failed to load content</p>
-					<p className="text-sm text-fg-ghost">{contentError}</p>
-				</div>
-			) : !selectedPath ? (
-				<div className="flex flex-col items-center justify-center h-64 text-fg-ghost">
-					<FileText className="h-4 w-4 mb-4 text-fg-ghost" strokeWidth={1.5} />
-					<p className="type-body text-fg-ghost">
-						Select a file from the sidebar to view its contents.
-					</p>
-				</div>
-			) : content ? (
-				<UnifiedContentRenderer
-					content={content.content}
-					path={content.path}
-					frontmatter={content.frontmatter}
-					isRefreshing={isRefreshing}
-					onHeadingsExtracted={handleHeadingsExtracted}
-				/>
-			) : null}
-		</>
-	);
+	const displayContent = content ?? previousContentRef.current;
 
 	const liveRegion = (
 		<div aria-live="polite" aria-atomic="true" className="sr-only">
@@ -532,10 +411,6 @@ export function FileBrowserPage() {
 						</TooltipProvider>
 
 						<div className="flex items-center gap-2">
-							<MobileAnnotationButton
-								artifactPath={selectedPath ?? ""}
-								onClick={() => setAnnotationDrawerOpen(true)}
-							/>
 							{isMarkdown && (
 								<TooltipProvider>
 									<Tooltip>
@@ -564,16 +439,20 @@ export function FileBrowserPage() {
 					</div>
 
 					<ScrollArea className="flex-1" viewportRef={scrollViewportRef}>
-						<article
-							className="p-4"
-							aria-label={
-								selectedPath
-									? `Content of ${selectedPath.split("/").pop()}`
-									: "File content"
-							}
-						>
-							{contentArea}
-						</article>
+						<ContentPanel
+							content={displayContent?.content ?? null}
+							path={selectedPath ?? null}
+							isLoading={contentLoading}
+							error={contentError}
+							emptyMessage="Select a file from the sidebar to view its contents."
+							frontmatter={displayContent?.frontmatter}
+							isRefreshing={isRefreshing}
+							onHeadingsExtracted={handleHeadingsExtracted}
+							scrollViewportRef={scrollViewportRef}
+							projectId={projectId}
+							filePath={selectedPath ?? undefined}
+							enableAnnotations={false}
+						/>
 					</ScrollArea>
 				</main>
 
@@ -608,27 +487,10 @@ export function FileBrowserPage() {
 						/>
 					</Drawer>
 				)}
-
-				<Drawer
-					open={annotationDrawerOpen}
-					onClose={() => setAnnotationDrawerOpen(false)}
-					side="right"
-					title="Annotations"
-				>
-					<AnnotationSidebar
-						artifactPath={selectedPath ?? ""}
-						onClose={() => setAnnotationDrawerOpen(false)}
-						className="border-l-0 w-full"
-					/>
-				</Drawer>
 			</div>
 		);
 
-		return (
-			<AnnotationProvider artifactPath={selectedPath ?? ""}>
-				{mobileContent}
-			</AnnotationProvider>
-		);
+		return mobileContent;
 	}
 
 	const desktopContent = (
@@ -691,29 +553,26 @@ export function FileBrowserPage() {
 									</Tooltip>
 								</TooltipProvider>
 							)}
-							{!annotationSidebarOpen && (
-								<AnnotationToggleButton
-									artifactPath={selectedPath ?? ""}
-									onOpen={() => handleToggleAnnotationSidebar(true)}
-								/>
-							)}
 						</div>
 
 						<ScrollArea
 							className="flex-1 min-h-0"
 							viewportRef={scrollViewportRef}
 						>
-							<article
-								className="mx-auto max-w-4xl px-[40px] py-[40px]"
-								style={{ fontSize: "14px", lineHeight: "1.7" }}
-								aria-label={
-									selectedPath
-										? `Content of ${selectedPath.split("/").pop()}`
-										: "File content"
-								}
-							>
-								{contentArea}
-							</article>
+							<ContentPanel
+								content={displayContent?.content ?? null}
+								path={selectedPath ?? null}
+								isLoading={contentLoading}
+								error={contentError}
+								emptyMessage="Select a file from the sidebar to view its contents."
+								frontmatter={displayContent?.frontmatter}
+								isRefreshing={isRefreshing}
+								onHeadingsExtracted={handleHeadingsExtracted}
+								scrollViewportRef={scrollViewportRef}
+								projectId={projectId}
+								filePath={selectedPath ?? undefined}
+								enableAnnotations={false}
+							/>
 						</ScrollArea>
 					</main>
 				</ResizablePanel>
@@ -739,32 +598,9 @@ export function FileBrowserPage() {
 						</ResizablePanel>
 					</>
 				)}
-
-				{annotationSidebarOpen && (
-					<>
-						<ResizableHandle aria-label="Resize annotations panel" />
-						<ResizablePanel
-							defaultSize={15}
-							minSize={12}
-							maxSize={25}
-							collapsible
-							className="bg-card"
-						>
-							<AnnotationSidebar
-								artifactPath={selectedPath ?? ""}
-								onClose={() => handleToggleAnnotationSidebar(false)}
-								className="h-full"
-							/>
-						</ResizablePanel>
-					</>
-				)}
 			</ResizablePanelGroup>
 		</div>
 	);
 
-	return (
-		<AnnotationProvider artifactPath={selectedPath ?? ""}>
-			{desktopContent}
-		</AnnotationProvider>
-	);
+	return desktopContent;
 }

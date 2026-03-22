@@ -527,8 +527,6 @@ describe("scanForDocId", () => {
 
 		const result = await scanForDocId(scanTmpDir, "scan-target-id");
 		expect(result).toBe(".rp1/work/archives/features/feat-1/tasks.md");
-
-		// Move it back for other tests
 		await rename(dest, src);
 	});
 });
@@ -595,8 +593,6 @@ describe("resolveArtifactPath", () => {
 		expect(result).toBe(
 			join(reconcileTmpDir, ".rp1/work/features/feat-1/tasks.md"),
 		);
-
-		// Path in DB should not have changed
 		const row = reconcileDb
 			.prepare("SELECT path FROM artifacts WHERE doc_id = $docId")
 			.get({ $docId: reconcileDocId }) as { path: string };
@@ -604,7 +600,6 @@ describe("resolveArtifactPath", () => {
 	});
 
 	test("cache miss + scan hit: finds moved file and updates DB path", async () => {
-		// Move the file to archives
 		const archiveDir = join(
 			reconcileTmpDir,
 			".rp1",
@@ -628,8 +623,6 @@ describe("resolveArtifactPath", () => {
 		expect(result).toBe(
 			join(reconcileTmpDir, ".rp1/work/archives/features/feat-1/tasks.md"),
 		);
-
-		// DB path should be updated
 		const row = reconcileDb
 			.prepare("SELECT path FROM artifacts WHERE doc_id = $docId")
 			.get({ $docId: reconcileDocId }) as { path: string };
@@ -637,7 +630,6 @@ describe("resolveArtifactPath", () => {
 	});
 
 	test("cache miss + scan miss: returns null when file is deleted", async () => {
-		// Remove the file entirely
 		await rm(
 			join(
 				reconcileTmpDir,
@@ -697,8 +689,6 @@ describe("handleArtifactSaveRequest with moved file", () => {
 				$projectPath: movedTmpDir,
 				$feature: "feat-move",
 			});
-
-		// Create at archived location (simulating archiver already moved it)
 		await mkdir(dirname(join(movedTmpDir, archivedPath)), {
 			recursive: true,
 		});
@@ -716,8 +706,6 @@ describe("handleArtifactSaveRequest with moved file", () => {
 
 	test("save succeeds after file moved: falls back to doc_id lookup and reconciles", async () => {
 		const newContent = `---\nrp1_doc_id: ${movedDocId}\ntitle: Design\n---\n# Updated design`;
-
-		// Save using the ARCHIVED path (where the file actually is)
 		const req = new Request("http://localhost/api/save", {
 			method: "PUT",
 			headers: { "Content-Type": "application/json" },
@@ -732,14 +720,10 @@ describe("handleArtifactSaveRequest with moved file", () => {
 
 		const body = (await response.json()) as { saved: boolean };
 		expect(body.saved).toBe(true);
-
-		// Verify the DB path was updated
 		const row = movedDb
 			.prepare("SELECT path FROM artifacts WHERE doc_id = $docId")
 			.get({ $docId: movedDocId }) as { path: string };
 		expect(row.path).toBe(archivedPath);
-
-		// Verify file was written
 		const written = await Bun.file(join(movedTmpDir, archivedPath)).text();
 		expect(written).toBe(newContent);
 	});

@@ -246,6 +246,15 @@ async function handleV2ApiRequest(
 		return handleV2ProjectContentRequest(projectId, filePath);
 	}
 
+	if (projectContentMatch && method === "PUT") {
+		const { handleV2ProjectContentSaveRequest } = await import(
+			"./routes/v2-api"
+		);
+		const projectId = decodeURIComponent(projectContentMatch[1]);
+		const filePath = decodeURIComponent(projectContentMatch[2]);
+		return handleV2ProjectContentSaveRequest(projectId, filePath, req);
+	}
+
 	const projectDetailMatch = pathname.match(/^\/api\/v2\/projects\/([^/]+)$/);
 	if (projectDetailMatch) {
 		const projectId = decodeURIComponent(projectDetailMatch[1]);
