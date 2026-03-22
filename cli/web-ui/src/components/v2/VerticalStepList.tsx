@@ -320,12 +320,6 @@ export function VerticalStepList({
 											artifactIconMap[artifact.type] ?? File;
 										const fileName =
 											artifact.path.split("/").pop() ?? artifact.path;
-										const dirPath = artifact.path.includes("/")
-											? artifact.path.substring(
-													0,
-													artifact.path.lastIndexOf("/"),
-												)
-											: null;
 										return (
 											<li key={artifact.docId}>
 												<button
@@ -334,20 +328,10 @@ export function VerticalStepList({
 													className="flex w-full items-center gap-xs py-[2px] text-left type-secondary text-fg-muted hover:text-fg transition-colors duration-150"
 												>
 													<IconComponent
-														className="h-3 w-3 flex-shrink-0 self-start mt-[2px]"
+														className="h-3 w-3 flex-shrink-0"
 														strokeWidth={1.5}
 													/>
-													<span className="min-w-0 flex flex-col">
-														<span className="truncate">{fileName}</span>
-														{dirPath && (
-															<span
-																className="truncate type-caption text-fg-ghost"
-																dir="rtl"
-															>
-																{dirPath}
-															</span>
-														)}
-													</span>
+													<span className="min-w-0 truncate">{fileName}</span>
 												</button>
 											</li>
 										);
