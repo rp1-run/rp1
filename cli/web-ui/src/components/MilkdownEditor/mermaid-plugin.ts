@@ -29,6 +29,32 @@ async function cachedRenderMermaid(code: string): Promise<string> {
 	return svg;
 }
 
+// --- Theme change observer ---
+// Watches for dark/light class changes on <html> and notifies all
+// mermaid NodeViews to re-render with the new theme.
+
+const THEME_CHANGED_EVENT = "mermaid-theme-changed";
+let lastObservedDark = isDarkMode();
+let observerStarted = false;
+
+function startThemeObserver() {
+	if (observerStarted) return;
+	observerStarted = true;
+
+	const observer = new MutationObserver(() => {
+		const nowDark = isDarkMode();
+		if (nowDark !== lastObservedDark) {
+			lastObservedDark = nowDark;
+			document.dispatchEvent(new CustomEvent(THEME_CHANGED_EVENT));
+		}
+	});
+
+	observer.observe(document.documentElement, {
+		attributes: true,
+		attributeFilter: ["class"],
+	});
+}
+
 // --- Icon helpers ---
 
 const ICON_COPY =
@@ -65,6 +91,8 @@ function flashIcon(btn: HTMLButtonElement, originalPaths: string) {
  * Non-mermaid code blocks fall through to default rendering.
  */
 function mermaidNodeView(_ctx: Ctx): NodeViewConstructor {
+	startThemeObserver();
+
 	return (node, _view, _getPos) => {
 		const isMermaid = MERMAID_LANGS.test(node.attrs.language);
 
@@ -206,6 +234,16 @@ function mermaidNodeView(_ctx: Ctx): NodeViewConstructor {
 			}, DEBOUNCE_MS);
 		}
 
+		// Re-render when theme changes (dark ↔ light)
+		function onThemeChanged() {
+			if (!lastRenderedCode) return;
+			const code = lastRenderedCode;
+			lastRenderedCode = "";
+			scheduleRender(code);
+		}
+
+		document.addEventListener(THEME_CHANGED_EVENT, onThemeChanged);
+
 		// Initial render
 		const initialCode = node.textContent.trim();
 		const cached = renderCache.get(themeCacheKey(initialCode));
@@ -238,6 +276,7 @@ function mermaidNodeView(_ctx: Ctx): NodeViewConstructor {
 			},
 			destroy() {
 				if (debounceTimer) clearTimeout(debounceTimer);
+				document.removeEventListener(THEME_CHANGED_EVENT, onThemeChanged);
 			},
 		};
 	};
