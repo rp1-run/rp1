@@ -17,7 +17,7 @@ Generate minimal Mermaid diagrams (1-4 max) capturing behavioral/structural PR c
 
 - Visual-first: diagrams before text, ≤2 lines per section
 - Default 1-2 diagrams, expand to 3-4 only for distinct changes
-- Color code: additions `#51cf66`, removals `#ff6b6b`, modifications `#4ecdc4`
+- No hardcoded colors — let the mermaid theme handle styling. Use labels or annotations (e.g., `[+ NewModule]`, `[~ Modified]`, `[- Removed]`) to indicate change type instead of color
 - Max 10 nodes/diagram, labels ≤3 words
 - Before/After only for major paradigm shifts (≥30% flow changed)
 
@@ -45,7 +45,7 @@ For each change, evaluate:
 2. Categorize: flow/interaction/architecture/data/infra/state/concurrency
 3. Assess value: helps reviewers? behavioral impact? independent?
 4. Select 1-4 diagrams w/ reasoning
-5. Design: type (Flowchart/Sequence/Class/ER/State/Deployment), nodes, colors
+5. Design: type (Flowchart/Sequence/Class/ER/State/Deployment), nodes, labels
 
 ### 4. Output
 
