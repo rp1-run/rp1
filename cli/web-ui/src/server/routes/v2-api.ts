@@ -8,7 +8,7 @@
  */
 
 import type { Database } from "bun:sqlite";
-import { extname, join, resolve } from "node:path";
+import { extname, join, relative, resolve } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { formatError } from "../../../../shared/errors.js";
 import type {
@@ -730,6 +730,7 @@ export async function handleV2RunDetailRequest(
 export async function handleV2ArtifactContentRequest(
 	runId: string,
 	artifactPath: string,
+	apiContext?: ApiContext,
 ): Promise<Response> {
 	try {
 		const db = await getDb();
@@ -785,6 +786,42 @@ export async function handleV2ArtifactContentRequest(
 			if (!candidate.startsWith(`${projectRoot}/`)) continue;
 			if (await Bun.file(candidate).exists()) {
 				const content = await Bun.file(candidate).text();
+				return jsonResponse({ content });
+			}
+		}
+
+		// Fallback: doc_id-based reconciliation via artifact DB lookup
+		const { resolveArtifactPath, broadcastPathReconciliation } = await import(
+			"./artifacts-api"
+		);
+		const artifactRow = db
+			.prepare(
+				"SELECT doc_id FROM artifacts WHERE run_id = $runId AND path = $path LIMIT 1",
+			)
+			.get({ $runId: runId, $path: artifactPath }) as {
+			doc_id: string;
+		} | null;
+
+		if (artifactRow) {
+			const resolvedPath = await resolveArtifactPath(
+				db,
+				projectRoot,
+				artifactPath,
+				artifactRow.doc_id,
+			);
+			if (resolvedPath) {
+				const newRelPath = relative(projectRoot, resolvedPath);
+				if (newRelPath !== artifactPath) {
+					broadcastPathReconciliation(
+						apiContext?.websocketHub,
+						project.id,
+						runId,
+						record.featureId,
+						artifactRow.doc_id,
+						newRelPath,
+					);
+				}
+				const content = await Bun.file(resolvedPath).text();
 				return jsonResponse({ content });
 			}
 		}
@@ -1032,6 +1069,57 @@ export async function handleV2ProjectContentRequest(
 		return jsonResponse(response);
 	} catch (error) {
 		return errorResponse(`Failed to read file: ${String(error)}`);
+	}
+}
+
+/**
+ * PUT /api/v2/projects/:projectId/content/:path - save file content to disk.
+ * Validates that the path stays within the project's .rp1/ directory.
+ */
+export async function handleV2ProjectContentSaveRequest(
+	projectId: string,
+	filePath: string,
+	req: Request,
+): Promise<Response> {
+	try {
+		const project = await getProject(projectId);
+
+		if (!project) {
+			return errorResponse(`Project not found: ${projectId}`, 404);
+		}
+
+		const available = await isValidProject(project.path);
+		if (!available) {
+			return errorResponse(`Project unavailable: ${projectId}`, 410);
+		}
+
+		const validationError = validateFilePath(filePath);
+		if (validationError) {
+			const status = validationError.includes("Access denied") ? 403 : 400;
+			return errorResponse(validationError, status);
+		}
+
+		const body = (await req.json()) as { content?: string };
+
+		if (typeof body.content !== "string") {
+			return errorResponse(
+				"Invalid request body: content is a required string",
+				400,
+			);
+		}
+
+		const rp1Path = resolve(project.path, ".rp1");
+		const resolvedPath = await resolveWithArchiveFallback(rp1Path, filePath);
+
+		if (!resolvedPath) {
+			return errorResponse("File not found", 404);
+		}
+
+		await Bun.write(resolvedPath, body.content);
+
+		return jsonResponse({ saved: true, path: resolvedPath });
+	} catch (error) {
+		return errorResponse(`Failed to save file: ${String(error)}`);
 	}
 }
 

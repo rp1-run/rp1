@@ -1,0 +1,75 @@
+- generic [active] [ref=e1]:
+  - link "Skip to content" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - generic [ref=e4]:
+    - navigation "Main navigation" [ref=e5]:
+      - link "rp1 home" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - text: rp1
+        - generic [ref=e7]: _
+      - link "Activity" [ref=e8] [cursor=pointer]:
+        - /url: /
+        - img [ref=e9]
+      - link "Projects" [ref=e11] [cursor=pointer]:
+        - /url: /projects
+        - img [ref=e12]
+      - link "Runs" [ref=e14] [cursor=pointer]:
+        - /url: /runs
+        - img [ref=e15]
+    - generic [ref=e17]:
+      - navigation "Breadcrumb" [ref=e18]:
+        - generic [ref=e19]:
+          - link "Home" [ref=e20] [cursor=pointer]:
+            - /url: /
+            - img [ref=e21]
+          - link "rp1" [ref=e23] [cursor=pointer]:
+            - /url: /projects/rp1
+          - generic [ref=e24]: b7e2c1a4-3f8d-4e5b-9a1c-6d2e8f0b4c7a
+      - main [ref=e25]:
+        - generic [ref=e30]:
+          - navigation "Workflow steps" [ref=e33]:
+            - paragraph [ref=e34]: /build
+            - list [ref=e35]:
+              - listitem [ref=e36]:
+                - button "Completed Requirements 1 6m 31s" [ref=e37] [cursor=pointer]:
+                  - img "Completed" [ref=e39]:
+                    - img [ref=e40]
+                  - generic [ref=e43]: Requirements
+                  - generic [ref=e44]:
+                    - generic [ref=e45]: "1"
+                    - generic [ref=e46]: 6m 31s
+              - listitem [ref=e47]:
+                - button "Completed Design 2 4m 59s" [ref=e48] [cursor=pointer]:
+                  - img "Completed" [ref=e50]:
+                    - img [ref=e51]
+                  - generic [ref=e54]: Design
+                  - generic [ref=e55]:
+                    - generic [ref=e56]: "2"
+                    - generic [ref=e57]: 4m 59s
+              - listitem [ref=e58]:
+                - button "Skipped Tasks 2 0s" [ref=e59] [cursor=pointer]:
+                  - img "Skipped" [ref=e61]:
+                    - img [ref=e62]
+                  - generic [ref=e64]: Tasks
+                  - generic [ref=e65]:
+                    - generic [ref=e66]: "2"
+                    - generic [ref=e67]: 0s
+              - listitem [ref=e68]:
+                - button "Running Build 5h 3m" [ref=e69] [cursor=pointer]:
+                  - img "Running" [ref=e71]
+                  - generic [ref=e74]: Build
+                  - generic [ref=e76]: 5h 3m
+              - listitem [ref=e77]:
+                - button "Pending Verify" [ref=e78] [cursor=pointer]:
+                  - img "Pending" [ref=e80]:
+                    - img [ref=e81]
+                  - generic [ref=e84]: Verify
+              - listitem [ref=e85]:
+                - button "Pending Archive" [ref=e86] [cursor=pointer]:
+                  - img "Pending" [ref=e88]:
+                    - img [ref=e89]
+                  - generic [ref=e92]: Archive
+          - separator [ref=e93]
+          - generic [ref=e95]:
+            - heading "Build" [level=2] [ref=e98]
+            - generic [ref=e105]: No artifacts for this step.

@@ -1,5 +1,5 @@
-import { PanelRightClose } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { List, X } from "lucide-react";
+import { memo, useCallback, useRef, useState } from "react";
 import type { HeadingEntry } from "@/hooks/useHeadingExtraction";
 import { cn } from "@/lib/utils";
 
@@ -18,6 +18,56 @@ const LEVEL_INDENT: Record<1 | 2 | 3 | 4 | 5 | 6, string> = {
 	5: "pl-10",
 	6: "pl-12",
 };
+
+interface TocItemProps {
+	heading: HeadingEntry;
+	index: number;
+	isActive: boolean;
+	isFocused: boolean;
+	isFirstFocusable: boolean;
+	onNavigate: (id: string) => void;
+	onKeyDown: (e: React.KeyboardEvent, index: number) => void;
+	onFocus: (index: number) => void;
+	setRef: (index: number) => (node: HTMLButtonElement | null) => void;
+}
+
+const TocItem = memo(function TocItem({
+	heading,
+	index,
+	isActive,
+	isFocused,
+	isFirstFocusable,
+	onNavigate,
+	onKeyDown,
+	onFocus,
+	setRef,
+}: TocItemProps) {
+	return (
+		<button
+			ref={setRef(index)}
+			id={`toc-item-${index}`}
+			type="button"
+			role="option"
+			aria-selected={isActive}
+			tabIndex={isFocused || isFirstFocusable ? 0 : -1}
+			onClick={() => onNavigate(heading.id)}
+			onKeyDown={(e) => onKeyDown(e, index)}
+			onFocus={() => onFocus(index)}
+			className={cn(
+				"w-full text-left transition-colors duration-150",
+				"rounded pr-2 py-1 type-secondary",
+				"focus-visible:outline-none",
+				LEVEL_INDENT[heading.level],
+				isActive
+					? "bg-accent-amber/15 text-fg"
+					: "text-fg-ghost hover:text-fg-muted",
+			)}
+			aria-current={isActive ? "location" : undefined}
+		>
+			<span className="line-clamp-2">{heading.text}</span>
+		</button>
+	);
+});
 
 export function TableOfContents({
 	headings,
@@ -77,16 +127,20 @@ export function TableOfContents({
 		[],
 	);
 
+	const handleFocus = useCallback((index: number) => {
+		setFocusedIndex(index);
+	}, []);
+
 	return (
-		<nav
-			className="flex h-full flex-col border-l bg-background"
-			aria-label="Table of contents"
-		>
-			<header className="shrink-0 flex h-10 items-center justify-between border-b bg-background px-4">
+		<nav className="flex h-full flex-col" aria-label="Table of contents">
+			<header className="shrink-0 flex items-center justify-between px-4 pt-3 pb-2">
 				<div className="flex items-center gap-2">
-					<h2 className="text-sm font-semibold">On this page</h2>
+					<List className="h-3.5 w-3.5 text-fg-ghost" strokeWidth={1.5} />
+					<h2 className="type-secondary text-fg-muted tracking-wider uppercase">
+						On this page
+					</h2>
 					{headings.length > 0 && (
-						<span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+						<span className="type-secondary text-fg-ghost tabular-nums">
 							{headings.length}
 						</span>
 					)}
@@ -95,19 +149,16 @@ export function TableOfContents({
 					<button
 						type="button"
 						onClick={onClose}
-						className={cn(
-							"rounded-md p-1.5 transition-colors",
-							"hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-						)}
+						className="text-fg-ghost transition-colors duration-150 hover:text-fg"
 						aria-label="Close table of contents"
 					>
-						<PanelRightClose className="h-4 w-4" aria-hidden="true" />
+						<X className="h-3.5 w-3.5" strokeWidth={1.5} />
 					</button>
 				)}
 			</header>
 
 			{headings.length === 0 ? (
-				<div className="p-3 text-sm text-muted-foreground">
+				<div className="px-4 py-3 type-secondary text-fg-ghost">
 					No headings found
 				</div>
 			) : (
@@ -120,44 +171,21 @@ export function TableOfContents({
 						focusedIndex !== null ? `toc-item-${focusedIndex}` : undefined
 					}
 				>
-					<div className="space-y-0.5 px-2 py-2">
-						{headings.map((heading, index) => {
-							const isActive = heading.id === activeId;
-							const isFocused = focusedIndex === index;
-
-							return (
-								<div key={heading.id}>
-									<button
-										ref={setItemRef(index)}
-										id={`toc-item-${index}`}
-										type="button"
-										role="option"
-										aria-selected={isActive}
-										tabIndex={
-											isFocused || (focusedIndex === null && index === 0)
-												? 0
-												: -1
-										}
-										onClick={() => onNavigate(heading.id)}
-										onKeyDown={(e) => handleKeyDown(e, index)}
-										onFocus={() => setFocusedIndex(index)}
-										className={cn(
-											"w-full text-left text-sm transition-colors",
-											"rounded-md pr-2 py-1",
-											"hover:bg-muted/50",
-											"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-											LEVEL_INDENT[heading.level],
-											isActive
-												? "bg-muted font-medium text-foreground"
-												: "text-muted-foreground hover:text-foreground",
-										)}
-										aria-current={isActive ? "location" : undefined}
-									>
-										<span className="line-clamp-2">{heading.text}</span>
-									</button>
-								</div>
-							);
-						})}
+					<div className="space-y-px px-2 py-1">
+						{headings.map((heading, index) => (
+							<TocItem
+								key={heading.id}
+								heading={heading}
+								index={index}
+								isActive={heading.id === activeId}
+								isFocused={focusedIndex === index}
+								isFirstFocusable={focusedIndex === null && index === 0}
+								onNavigate={onNavigate}
+								onKeyDown={handleKeyDown}
+								onFocus={handleFocus}
+								setRef={setItemRef}
+							/>
+						))}
 					</div>
 				</div>
 			)}

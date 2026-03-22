@@ -90,7 +90,7 @@ function handleServiceError(error: unknown): Response {
 /**
  * Validate anchor structure.
  */
-function isValidAnchor(anchor: unknown): boolean {
+export function isValidAnchor(anchor: unknown): boolean {
 	if (typeof anchor !== "object" || anchor === null) return false;
 
 	const anchorObj = anchor as Record<string, unknown>;

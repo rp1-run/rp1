@@ -45,11 +45,6 @@ import { useRunDetail } from "@/hooks/useRunDetail";
 
 import { AnnotationProvider } from "@/providers/AnnotationProvider";
 import { useWebSocket } from "@/providers/WebSocketProvider";
-import type { Annotation } from "@/types/annotations";
-
-const ANNOTATIONS_ENABLED =
-	typeof import.meta !== "undefined" &&
-	import.meta.env?.RP1_ANNOTATIONS_ENABLED !== "false";
 
 const STORAGE_KEY_TOC_COLLAPSED = "rp1-toc-collapsed";
 const STORAGE_KEY_ANNOTATIONS_COLLAPSED = "rp1-annotations-collapsed";
@@ -57,6 +52,7 @@ const STORAGE_KEY_ANNOTATIONS_COLLAPSED = "rp1-annotations-collapsed";
 interface ArtifactContent {
 	path: string;
 	content: string;
+	docId?: string;
 }
 
 /**
@@ -171,6 +167,8 @@ export function ArtifactViewerPage() {
 
 	const scrollViewportRef = useRef<HTMLDivElement>(null);
 	const headingElementsRef = useRef<Map<string, Element>>(new Map());
+	const isNavigatingRef = useRef(false);
+	const navigateTimerRef = useRef<ReturnType<typeof setTimeout>>();
 	const savedScrollState = useRef<{
 		scrollTop: number;
 		scrollHeight: number;
@@ -217,47 +215,6 @@ export function ArtifactViewerPage() {
 		}
 	}, []);
 
-	const handleNavigateToAnnotation = useCallback(
-		(annotation: Annotation) => {
-			const anchor = annotation.anchor;
-			let targetElement: Element | null = null;
-
-			switch (anchor.type) {
-				case "hidden-anchor": {
-					targetElement = document.getElementById(anchor.anchorId);
-					break;
-				}
-				case "line": {
-					const lineElements = document.querySelectorAll(
-						`[data-line-number="${anchor.lineNumber}"]`,
-					);
-					if (lineElements.length > 0) {
-						targetElement = lineElements[0];
-					}
-					break;
-				}
-				case "text-selection": {
-					const highlightElements = document.querySelectorAll(
-						`[data-annotation-id="${annotation.id}"]`,
-					);
-					if (highlightElements.length > 0) {
-						targetElement = highlightElements[0];
-					}
-					break;
-				}
-			}
-
-			if (targetElement) {
-				targetElement.scrollIntoView({ behavior: "smooth", block: "center" });
-			}
-
-			if (isMobile) {
-				setAnnotationDrawerOpen(false);
-			}
-		},
-		[isMobile],
-	);
-
 	const handleArtifactSelect = useCallback(
 		(path: string) => {
 			navigate(`/runs/${runId}/artifacts/${path}`);
@@ -271,9 +228,17 @@ export function ArtifactViewerPage() {
 	const handleTocNavigateMobile = useCallback(
 		(id: string) => {
 			const element = document.getElementById(id);
-			if (element) {
-				element.scrollIntoView({ behavior: "smooth", block: "start" });
-			}
+			if (!element) return;
+
+			isNavigatingRef.current = true;
+			setActiveHeadingId(id);
+			element.scrollIntoView({ behavior: "smooth", block: "start" });
+
+			if (navigateTimerRef.current) clearTimeout(navigateTimerRef.current);
+			navigateTimerRef.current = setTimeout(() => {
+				isNavigatingRef.current = false;
+			}, 500);
+
 			if (isMobile) {
 				setTocDrawerOpen(false);
 			}
@@ -283,9 +248,16 @@ export function ArtifactViewerPage() {
 
 	const handleTocNavigate = useCallback((id: string) => {
 		const element = document.getElementById(id);
-		if (element) {
-			element.scrollIntoView({ behavior: "smooth", block: "start" });
-		}
+		if (!element) return;
+
+		isNavigatingRef.current = true;
+		setActiveHeadingId(id);
+		element.scrollIntoView({ behavior: "smooth", block: "start" });
+
+		if (navigateTimerRef.current) clearTimeout(navigateTimerRef.current);
+		navigateTimerRef.current = setTimeout(() => {
+			isNavigatingRef.current = false;
+		}, 500);
 	}, []);
 
 	const handleHeadingsExtracted = useCallback((newHeadings: HeadingEntry[]) => {
@@ -345,6 +317,7 @@ export function ArtifactViewerPage() {
 				setArtifactContent({
 					path: selectedArtifactPath,
 					content: data.content,
+					docId: artifact.docId,
 				});
 			} catch (err) {
 				setContentError(err instanceof Error ? err.message : String(err));
@@ -402,6 +375,8 @@ export function ArtifactViewerPage() {
 
 		const scrollViewport = scrollViewportRef.current;
 		const observerCallback: IntersectionObserverCallback = (entries) => {
+			if (isNavigatingRef.current) return;
+
 			const visibleEntries = entries.filter((entry) => entry.isIntersecting);
 
 			if (visibleEntries.length > 0) {
@@ -594,7 +569,8 @@ export function ArtifactViewerPage() {
 					content={artifactContent.content}
 					path={artifactContent.path}
 					onHeadingsExtracted={handleHeadingsExtracted}
-					enableAnnotations={ANNOTATIONS_ENABLED}
+					runId={runId}
+					docId={artifactContent.docId}
 				/>
 			) : null}
 		</>
@@ -678,12 +654,10 @@ export function ArtifactViewerPage() {
 								enabled={followMode}
 								onToggle={() => setFollowMode(!followMode)}
 							/>
-							{ANNOTATIONS_ENABLED && (
-								<MobileAnnotationButton
-									selectedArtifactPath={selectedArtifactPath}
-									onClick={() => setAnnotationDrawerOpen(true)}
-								/>
-							)}
+							<MobileAnnotationButton
+								selectedArtifactPath={selectedArtifactPath}
+								onClick={() => setAnnotationDrawerOpen(true)}
+							/>
 							<TooltipProvider>
 								<Tooltip>
 									<TooltipTrigger asChild>
@@ -750,21 +724,18 @@ export function ArtifactViewerPage() {
 					/>
 				</Drawer>
 
-				{ANNOTATIONS_ENABLED && (
-					<Drawer
-						open={annotationDrawerOpen}
+				<Drawer
+					open={annotationDrawerOpen}
+					onClose={() => setAnnotationDrawerOpen(false)}
+					side="right"
+					title="Annotations"
+				>
+					<AnnotationSidebar
+						artifactPath={selectedArtifactPath}
 						onClose={() => setAnnotationDrawerOpen(false)}
-						side="right"
-						title="Annotations"
-					>
-						<AnnotationSidebar
-							artifactPath={selectedArtifactPath}
-							onClose={() => setAnnotationDrawerOpen(false)}
-							onNavigateToAnnotation={handleNavigateToAnnotation}
-							className="border-l-0 w-full"
-						/>
-					</Drawer>
-				)}
+						className="border-l-0 w-full"
+					/>
+				</Drawer>
 
 				<footer className="border-t px-4 py-2">
 					<KeyHints hints={VIEWER_HINTS} />
@@ -772,15 +743,11 @@ export function ArtifactViewerPage() {
 			</div>
 		);
 
-		if (ANNOTATIONS_ENABLED) {
-			return (
-				<AnnotationProvider artifactPath={selectedArtifactPath}>
-					{mobileContent}
-				</AnnotationProvider>
-			);
-		}
-
-		return mobileContent;
+		return (
+			<AnnotationProvider artifactPath={selectedArtifactPath}>
+				{mobileContent}
+			</AnnotationProvider>
+		);
 	}
 
 	const desktopContent = (
@@ -856,10 +823,7 @@ export function ArtifactViewerPage() {
 
 				<ResizableHandle withHandle aria-label="Resize sidebar" />
 
-				<ResizablePanel
-					defaultSize={ANNOTATIONS_ENABLED ? 55 : 70}
-					minSize={40}
-				>
+				<ResizablePanel defaultSize={55} minSize={40}>
 					<main className="relative flex h-full flex-col overflow-hidden">
 						<div
 							className="flex h-10 items-center justify-end gap-2 border-b px-4"
@@ -890,7 +854,7 @@ export function ArtifactViewerPage() {
 									</Tooltip>
 								</TooltipProvider>
 							)}
-							{ANNOTATIONS_ENABLED && !annotationSidebarOpen && (
+							{!annotationSidebarOpen && (
 								<AnnotationToggleButton
 									selectedArtifactPath={selectedArtifactPath}
 									onOpen={() => handleToggleAnnotationSidebar(true)}
@@ -941,7 +905,7 @@ export function ArtifactViewerPage() {
 					</>
 				)}
 
-				{ANNOTATIONS_ENABLED && annotationSidebarOpen && (
+				{annotationSidebarOpen && (
 					<>
 						<ResizableHandle withHandle aria-label="Resize annotations panel" />
 						<ResizablePanel
@@ -954,7 +918,6 @@ export function ArtifactViewerPage() {
 							<AnnotationSidebar
 								artifactPath={selectedArtifactPath}
 								onClose={() => handleToggleAnnotationSidebar(false)}
-								onNavigateToAnnotation={handleNavigateToAnnotation}
 								className="h-full"
 							/>
 						</ResizablePanel>
@@ -968,13 +931,9 @@ export function ArtifactViewerPage() {
 		</div>
 	);
 
-	if (ANNOTATIONS_ENABLED) {
-		return (
-			<AnnotationProvider artifactPath={selectedArtifactPath}>
-				{desktopContent}
-			</AnnotationProvider>
-		);
-	}
-
-	return desktopContent;
+	return (
+		<AnnotationProvider artifactPath={selectedArtifactPath}>
+			{desktopContent}
+		</AnnotationProvider>
+	);
 }

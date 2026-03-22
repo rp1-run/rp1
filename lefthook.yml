@@ -15,6 +15,10 @@ pre-commit:
     plugin-dist:
       glob: "plugins/**/*.{md,json,yaml,yml,py}"
       run: just check-plugin-dist
+    catalog:
+      glob: "plugins/**/*.md"
+      run: "just check-catalog || echo 'WARNING: Catalogue is stale. Run: just generate-catalog'"
+      fail_text: "Advisory: Catalogue needs regeneration"
 pre-push:
   parallel: true
   commands:
@@ -24,6 +28,12 @@ pre-push:
       run: cd cli/web-ui && npx tsc --noEmit
     plugin-dist:
       run: just check-plugin-dist
+    catalog:
+      run: just check-catalog
+      fail_text: "Catalogue is stale — run: just generate-catalog"
     verify-evals:
       run: "just verify-evals || echo 'WARNING: Unattested prompt changes detected. Run: just run-evals <suite> && just attest-evals <output-file>'"
       fail_text: "Advisory: Some prompts need re-attestation"
+    no-artifactory:
+      run: just check-no-artifactory
+      fail_text: "Lockfiles contain internal Artifactory references — see output above for details"

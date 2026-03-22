@@ -6,8 +6,8 @@ const config: Config = {
 	theme: {
 		extend: {
 			fontFamily: {
-				sans: ["Geist Sans", "system-ui", "sans-serif"],
-				mono: ["JetBrains Mono", "monospace"],
+				mono: ["Commit Mono", "monospace"],
+				sans: ["Commit Mono", "monospace"],
 			},
 			colors: {
 				border: "hsl(var(--border))",
@@ -32,8 +32,10 @@ const config: Config = {
 					foreground: "hsl(var(--muted-foreground))",
 				},
 				accent: {
-					DEFAULT: "hsl(var(--accent))",
-					foreground: "hsl(var(--accent-foreground))",
+					DEFAULT: "hsl(var(--accent-ui))",
+					foreground: "hsl(var(--accent-ui-foreground))",
+					amber: "hsl(var(--accent))",
+					ghost: "hsl(var(--accent-ghost))",
 				},
 				popover: {
 					DEFAULT: "hsl(var(--popover))",
@@ -43,43 +45,49 @@ const config: Config = {
 					DEFAULT: "hsl(var(--card))",
 					foreground: "hsl(var(--card-foreground))",
 				},
-				terminal: {
-					green: "hsl(var(--terminal-green))",
-					cursor: "hsl(var(--terminal-cursor))",
-					mauve: "hsl(var(--terminal-mauve))",
-					red: "hsl(var(--terminal-red))",
+				surface: {
+					void: "hsl(var(--void))",
+					base: "hsl(var(--base))",
+					DEFAULT: "hsl(var(--surface))",
 				},
-				status: {
-					queued: "hsl(var(--status-queued))",
-					running: "hsl(var(--status-running))",
-					waiting: "hsl(var(--status-waiting))",
-					completed: "hsl(var(--status-completed))",
-					failed: "hsl(var(--status-failed))",
-					"needs-review": "hsl(var(--status-needs-review))",
-					warning: "hsl(var(--status-warning))",
+				fg: {
+					DEFAULT: "hsl(var(--fg))",
+					muted: "hsl(var(--fg-muted))",
+					ghost: "hsl(var(--fg-ghost))",
 				},
+				failure: "hsl(var(--failure))",
+				"terminal-green": "hsl(var(--terminal-green))",
+				"terminal-yellow": "hsl(var(--terminal-yellow))",
 				annotation: {
 					open: "hsl(var(--annotation-open))",
 				},
-				surface: {
-					void: "hsl(var(--bg-void))",
-					base: "hsl(var(--bg-base))",
-					DEFAULT: "hsl(var(--bg-surface))",
-					elevated: "hsl(var(--bg-elevated))",
-				},
+			},
+			spacing: {
+				xs: "var(--space-xs)",
+				sm: "var(--space-sm)",
+				md: "var(--space-md)",
+				lg: "var(--space-lg)",
+				xl: "var(--space-xl)",
+				"2xl": "var(--space-2xl)",
 			},
 			borderRadius: {
 				lg: "var(--radius)",
-				md: "calc(var(--radius) - 2px)",
-				sm: "calc(var(--radius) - 4px)",
+				md: "var(--radius)",
+				sm: "var(--radius)",
+				DEFAULT: "var(--radius)",
 			},
 			keyframes: {
+				"status-pulse": {
+					"0%, 100%": { opacity: "0.4" },
+					"50%": { opacity: "1" },
+				},
 				blink: {
-					"0%, 100%": { opacity: "1" },
-					"50%": { opacity: "0" },
+					"0%, 49.9%": { opacity: "1" },
+					"50%, 100%": { opacity: "0" },
 				},
 			},
 			animation: {
+				"status-pulse": "status-pulse 1.8s ease-in-out infinite",
 				blink: "blink 1s step-end infinite",
 			},
 		},

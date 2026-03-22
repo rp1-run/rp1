@@ -1,13 +1,8 @@
-import { motion } from "framer-motion";
-import { Hand } from "lucide-react";
 import type React from "react";
-import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
-import { statusBorderColors, statusGlowColors } from "@/lib/status-colors";
 import { getStatusLabel } from "@/lib/status-labels";
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
-import type { Run } from "@/types/runs";
-import { StatusBadge } from "./StatusBadge";
+import type { Run, RunStatus } from "@/types/runs";
 
 export interface RunCardProps {
 	run: Run;
@@ -17,6 +12,20 @@ export interface RunCardProps {
 	className?: string;
 }
 
+function StatusDot({ status }: { status: RunStatus }) {
+	const dotClass = cn(
+		"h-2 w-2 shrink-0 rounded-full",
+		status === "running" && "bg-accent-amber animate-status-pulse",
+		status === "completed" && "bg-fg-ghost",
+		status === "failed" && "bg-failure",
+		status === "waiting" && "bg-accent-amber",
+		status === "not_started" && "bg-fg-ghost",
+		status === "skipped" && "bg-fg-ghost",
+	);
+
+	return <span className={dotClass} aria-hidden="true" />;
+}
+
 export function RunCard({
 	run,
 	onClick,
@@ -24,25 +33,6 @@ export function RunCard({
 	showStatus = true,
 	className,
 }: RunCardProps) {
-	const reducedMotion = usePrefersReducedMotion();
-
-	const borderColorClass = statusBorderColors[run.status];
-	const glowColor = statusGlowColors[run.status];
-	const selectedGlowColor = glowColor.replace(/\/ [\d.]+\)$/, "/ 0.6)");
-
-	const hoverWithGlow = reducedMotion
-		? undefined
-		: {
-				boxShadow: selected
-					? `-4px 0 16px 0px ${selectedGlowColor}`
-					: `-4px 0 12px -2px ${glowColor}`,
-				transition: { duration: 0.15 },
-			};
-
-	const accentStyle: React.CSSProperties | undefined = selected
-		? { boxShadow: `-4px 0 16px 0px ${selectedGlowColor}` }
-		: undefined;
-
 	const handleKeyDown = (event: React.KeyboardEvent) => {
 		if (onClick && (event.key === "Enter" || event.key === " ")) {
 			event.preventDefault();
@@ -51,51 +41,35 @@ export function RunCard({
 	};
 
 	return (
-		<motion.div
+		// biome-ignore lint/a11y/useSemanticElements: div with role="button" used for custom run card styling
+		<div
 			role="button"
 			tabIndex={onClick ? 0 : undefined}
 			onClick={onClick}
 			onKeyDown={onClick ? handleKeyDown : undefined}
-			whileHover={hoverWithGlow}
-			style={accentStyle}
 			className={cn(
-				"group flex items-center gap-4 py-3 px-3 transition-colors",
-				"border-l-2",
-				borderColorClass,
-				onClick && "cursor-pointer hover:bg-muted/50",
-				selected && "bg-muted/30",
+				"group flex items-center gap-3 py-3 px-3 transition-colors duration-150",
+				onClick && "cursor-pointer hover:bg-accent-ghost",
+				selected && "bg-accent-ghost",
+				run.status === "waiting" && "bg-accent-ghost",
 				className,
 			)}
 		>
-			{showStatus && (
-				<StatusBadge status={run.status} size="sm" showLabel={false} />
-			)}
-
-			{run.status === "waiting" && (
-				<span
-					className="shrink-0 text-status-waiting"
-					role="img"
-					aria-label={getStatusLabel("waiting")}
-				>
-					<Hand className="h-4 w-4" aria-hidden="true" />
-				</span>
-			)}
+			{showStatus && <StatusDot status={run.status} />}
 
 			<div className="min-w-0 flex-1">
 				<div className="flex items-center gap-2">
-					<span className="truncate font-medium text-foreground">
+					<span className="truncate type-body font-medium text-fg">
 						{run.projectName}
 					</span>
-					<span className="text-muted-foreground">/</span>
-					<span className="truncate text-muted-foreground">
+					<span className="text-fg-ghost">/</span>
+					<span className="truncate type-body text-fg-muted">
 						{run.featureName}
 					</span>
 				</div>
 
-				<div className="mt-0.5 flex items-center gap-2 text-sm text-muted-foreground">
-					<code className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono">
-						{run.command}
-					</code>
+				<div className="mt-0.5 flex items-center gap-2 type-secondary text-fg-muted">
+					<span>{run.command}</span>
 					{run.currentStep && (
 						<>
 							<span aria-hidden="true">-</span>
@@ -105,18 +79,37 @@ export function RunCard({
 				</div>
 
 				{run.status === "failed" && run.error && (
-					<p className="mt-1 truncate text-xs text-status-failed">
+					<p className="mt-1 truncate type-secondary text-failure">
 						{run.error}
 					</p>
 				)}
 			</div>
 
-			<time
-				dateTime={run.startedAt}
-				className="shrink-0 text-sm text-muted-foreground tabular-nums"
-			>
-				{formatRelativeTime(run.startedAt)}
-			</time>
-		</motion.div>
+			<div className="flex shrink-0 flex-col items-end gap-1">
+				<time
+					dateTime={run.startedAt}
+					className="type-secondary text-fg-ghost tabular-nums"
+				>
+					{formatRelativeTime(run.startedAt)}
+				</time>
+				{showStatus && (
+					// biome-ignore lint/a11y/useSemanticElements: span with role="status" for inline status text
+					<span
+						role="status"
+						className={cn(
+							"type-caption",
+							run.status === "running" && "text-fg",
+							run.status === "completed" && "text-fg-ghost",
+							run.status === "failed" && "text-failure",
+							run.status === "waiting" && "text-accent-amber",
+							(run.status === "not_started" || run.status === "skipped") &&
+								"text-fg-ghost",
+						)}
+					>
+						{getStatusLabel(run.status)}
+					</span>
+				)}
+			</div>
+		</div>
 	);
 }

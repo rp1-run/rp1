@@ -231,6 +231,23 @@ Please fix manually and remove this comment block.
 -->
 ```
 
+## Styling Rules
+
+**NEVER use hardcoded colors** in `style`, `classDef`, or inline directives. Diagrams are rendered with a coordinated light/dark theme in the rp1 web UI. Hardcoded fills bypass the theme's text color, producing unreadable text (e.g., light text on a bright fill in dark mode).
+
+**Let the theme handle styling.** Default nodes, edges, and labels already have correct contrast in both themes. Do not add `fill:#`, `color:#`, `stroke:#`, `classDef`, or `style` directives to diagrams.
+
+**If you must visually distinguish nodes**, use mermaid's built-in class system with `:::` syntax — never raw hex colors:
+
+```mermaid
+flowchart TD
+    A[Default node]
+    B[Secondary node]:::secondary
+    C[Tertiary node]:::tertiary
+```
+
+The `secondary` and `tertiary` classes are handled by the theme and render correctly in both light and dark modes. This is sufficient for most visual grouping needs.
+
 ## Best Practices
 
 ### Creating Diagrams
@@ -240,6 +257,7 @@ Please fix manually and remove this comment block.
 3. **Quote special characters**: Always quote labels with spaces, colons, parentheses
 4. **Use consistent arrow styles**: Don't mix arrow types within a diagram
 5. **Build incrementally**: For complex diagrams, validate after each addition
+6. **No hardcoded colors**: See Styling Rules above — let the theme handle all colors
 
 ### Validation
 

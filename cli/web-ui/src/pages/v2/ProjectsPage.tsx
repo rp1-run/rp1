@@ -1,42 +1,19 @@
-import { motion } from "framer-motion";
-import { AlertCircle, FolderOpen, RefreshCw } from "lucide-react";
+import { AlertCircle, FolderOpen, Play, RefreshCw } from "lucide-react";
 import { useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { KeyHints, NAV_HINTS } from "@/components/v2/KeyHints";
-import { ProjectCard } from "@/components/v2/ProjectCard";
 import { useKeyboardNav } from "@/hooks/useKeyboardNav";
-import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { useProjects, type V2Project } from "@/hooks/useProjects";
-import {
-	staggerContainer,
-	staggerContainerReduced,
-	staggerItem,
-	staggerItemReduced,
-} from "@/lib/motion-config";
+import { useRuns } from "@/hooks/useRuns";
 import { cn } from "@/lib/utils";
-
-const SKELETON_KEYS = ["sk-a", "sk-b", "sk-c", "sk-d", "sk-e", "sk-f"];
 
 function LoadingSkeleton() {
 	return (
-		<div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-			{SKELETON_KEYS.map((key) => (
-				<div
-					key={key}
-					className="animate-pulse rounded-lg border border-border p-4 space-y-3"
-				>
-					<div className="flex justify-between">
-						<div className="h-5 w-32 rounded bg-muted" />
-						<div className="h-5 w-20 rounded-full bg-muted" />
-					</div>
-					<div className="h-4 w-48 rounded bg-muted" />
-					<div className="flex justify-between">
-						<div className="h-4 w-24 rounded bg-muted" />
-						<div className="flex gap-2">
-							<div className="h-5 w-5 rounded bg-muted" />
-							<div className="h-5 w-5 rounded bg-muted" />
-						</div>
-					</div>
+		<div className="space-y-0 divide-y divide-border">
+			{["sk-a", "sk-b", "sk-c", "sk-d"].map((key) => (
+				<div key={key} className="flex items-center gap-3 py-3 animate-pulse">
+					<div className="h-2 w-2 rounded-full bg-fg-ghost" />
+					<div className="h-4 w-40 rounded bg-surface-void" />
+					<div className="ml-auto h-3 w-16 rounded bg-surface-void" />
 				</div>
 			))}
 		</div>
@@ -45,67 +22,115 @@ function LoadingSkeleton() {
 
 function EmptyState() {
 	return (
-		<div className="flex flex-col items-center justify-center rounded-lg border border-border bg-muted/10 px-8 py-16">
-			<div className="mb-4 rounded-full bg-muted/50 p-4">
-				<FolderOpen className="h-8 w-8 text-muted-foreground" />
-			</div>
-			<h2 className="mb-2 text-lg font-medium text-foreground">
-				No projects registered
-			</h2>
-			<p className="text-center text-sm text-muted-foreground">
-				Run <code className="rounded bg-muted px-1.5 py-0.5">rp1 arcade</code>{" "}
-				in a project directory to register it.
-			</p>
-		</div>
+		<p className="py-16 text-center text-fg-ghost">
+			No projects registered yet.
+		</p>
 	);
 }
 
 function ErrorState({ error, onRetry }: { error: Error; onRetry: () => void }) {
 	return (
-		<div className="flex flex-col items-center justify-center rounded-lg border border-status-failed/30 bg-status-failed/10 px-8 py-16">
-			<div className="mb-4 rounded-full bg-status-failed/20 p-4">
-				<AlertCircle className="h-8 w-8 text-status-failed" />
-			</div>
-			<h2 className="mb-2 text-lg font-medium text-foreground">
-				Failed to load projects
-			</h2>
-			<p className="mb-4 text-center text-sm text-muted-foreground">
-				{error.message}
-			</p>
+		<div className="flex flex-col items-center justify-center px-8 py-16">
+			<AlertCircle className="mb-4 h-4 w-4 text-failure" strokeWidth={1.5} />
+			<p className="mb-2 type-body text-fg">Failed to load projects</p>
+			<p className="mb-4 type-secondary text-fg-muted">{error.message}</p>
 			<button
 				type="button"
 				onClick={onRetry}
-				className="inline-flex items-center gap-2 rounded-md bg-muted px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted/80"
+				className="type-body text-fg-muted transition-colors duration-150 hover:text-fg"
 			>
-				<RefreshCw className="h-4 w-4" />
 				Try again
 			</button>
 		</div>
 	);
 }
 
+function ActivityDot({ projectId }: { projectId: string }) {
+	const { runs } = useRuns({
+		status: "running",
+		projectId,
+		limit: 1,
+		offset: 0,
+		dateRange: "all",
+	});
+
+	if (runs.length === 0) return null;
+
+	return (
+		// biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-label on decorative dot for screen readers
+		<span
+			className="h-2 w-2 shrink-0 rounded-full bg-fg animate-status-pulse"
+			aria-label="Active runs"
+		/>
+	);
+}
+
+function ProjectRow({
+	project,
+	selected,
+	onClick,
+	onRunsClick,
+	onFilesClick,
+}: {
+	project: V2Project;
+	selected: boolean;
+	onClick: () => void;
+	onRunsClick: (e: React.MouseEvent) => void;
+	onFilesClick: (e: React.MouseEvent) => void;
+}) {
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			className={cn(
+				"flex w-full items-center gap-3 py-3 px-2 text-left transition-colors duration-150 rounded group",
+				"hover:bg-accent-ghost",
+				selected && "bg-accent-ghost",
+				!project.available && "opacity-50",
+			)}
+		>
+			<ActivityDot projectId={project.id} />
+			<span className="type-body text-fg truncate">{project.name}</span>
+			<span className="ml-auto flex items-center gap-3 shrink-0">
+				<span
+					role="link"
+					tabIndex={0}
+					onClick={onRunsClick}
+					onKeyDown={(e) =>
+						e.key === "Enter" && onRunsClick(e as unknown as React.MouseEvent)
+					}
+					className="text-fg-ghost opacity-0 group-hover:opacity-100 transition-opacity duration-150 hover:text-fg"
+					aria-label={`Runs for ${project.name}`}
+				>
+					<Play className="h-3.5 w-3.5" strokeWidth={1.5} />
+				</span>
+				<span
+					role="link"
+					tabIndex={0}
+					onClick={onFilesClick}
+					onKeyDown={(e) =>
+						e.key === "Enter" && onFilesClick(e as unknown as React.MouseEvent)
+					}
+					className="text-fg-ghost opacity-0 group-hover:opacity-100 transition-opacity duration-150 hover:text-fg"
+					aria-label={`Files for ${project.name}`}
+				>
+					<FolderOpen className="h-3.5 w-3.5" strokeWidth={1.5} />
+				</span>
+				<span className="type-secondary text-fg-muted tabular-nums">
+					{project.runCount} run{project.runCount === 1 ? "" : "s"}
+				</span>
+			</span>
+		</button>
+	);
+}
+
 export function ProjectsPage() {
 	const navigate = useNavigate();
 	const { projects, isLoading, error, refetch } = useProjects();
-	const reducedMotion = usePrefersReducedMotion();
 
-	const handleCardClick = useCallback(
+	const handleProjectClick = useCallback(
 		(project: V2Project) => {
 			navigate(`/projects/${project.id}`);
-		},
-		[navigate],
-	);
-
-	const handleBrowseFilesClick = useCallback(
-		(project: V2Project) => {
-			navigate(`/projects/${project.id}/files`);
-		},
-		[navigate],
-	);
-
-	const handleRunsClick = useCallback(
-		(project: V2Project) => {
-			navigate(`/projects/${project.id}/runs`);
 		},
 		[navigate],
 	);
@@ -116,8 +141,8 @@ export function ProjectsPage() {
 
 	const { selectedIndex, setSelectedIndex } = useKeyboardNav({
 		items: projects,
-		onSelect: handleCardClick,
-		onDrillIn: handleCardClick,
+		onSelect: handleProjectClick,
+		onDrillIn: handleProjectClick,
 		onDrillOut: handleDrillOut,
 		enabled: projects.length > 0,
 	});
@@ -161,7 +186,7 @@ export function ProjectsPage() {
 				case "Enter":
 					if (selectedIndex !== null && projects[selectedIndex]) {
 						e.preventDefault();
-						handleCardClick(projects[selectedIndex]);
+						handleProjectClick(projects[selectedIndex]);
 					}
 					break;
 				case "h":
@@ -178,43 +203,28 @@ export function ProjectsPage() {
 		projects,
 		selectedIndex,
 		setSelectedIndex,
-		handleCardClick,
+		handleProjectClick,
 		handleDrillOut,
 	]);
 
 	return (
-		<div className="space-y-6">
-			<header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-				<div>
-					<h1 className="text-2xl font-semibold text-foreground">Projects</h1>
-					<p className="mt-1 text-sm text-muted-foreground">
-						{projects.length > 0
-							? `${projects.length} registered project${projects.length === 1 ? "" : "s"}`
-							: "Registered projects will appear here"}
-					</p>
-				</div>
-
+		<div className="mx-auto max-w-2xl px-6 py-8">
+			<header className="mb-6 flex items-center justify-between">
+				<h1 className="type-title text-fg">Projects</h1>
 				<button
 					type="button"
 					onClick={refetch}
 					disabled={isLoading}
 					className={cn(
-						"inline-flex items-center gap-2 rounded-md border border-border bg-muted/30 px-4 py-2 font-mono text-sm transition-colors",
-						"hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+						"text-fg-ghost transition-colors duration-150 hover:text-fg",
 						"disabled:cursor-not-allowed disabled:opacity-50",
 					)}
 					aria-label="Refresh projects"
 				>
-					<span className="text-terminal-green" aria-hidden="true">
-						$
-					</span>
-					<span>refresh</span>
-					{isLoading && (
-						<RefreshCw
-							className="h-3.5 w-3.5 animate-spin"
-							aria-hidden="true"
-						/>
-					)}
+					<RefreshCw
+						className={cn("h-4 w-4", isLoading && "animate-spin")}
+						strokeWidth={1.5}
+					/>
 				</button>
 			</header>
 
@@ -225,35 +235,29 @@ export function ProjectsPage() {
 			) : projects.length === 0 ? (
 				<EmptyState />
 			) : (
-				<>
-					<motion.div
-						className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
-						role="list"
-						aria-label="Projects"
-						variants={
-							reducedMotion ? staggerContainerReduced : staggerContainer
-						}
-						initial="initial"
-						animate="animate"
-					>
-						{projects.map((project, index) => (
-							<motion.div
-								key={project.id}
-								variants={reducedMotion ? staggerItemReduced : staggerItem}
-							>
-								<ProjectCard
-									project={project}
-									onCardClick={() => handleCardClick(project)}
-									onBrowseFilesClick={() => handleBrowseFilesClick(project)}
-									onRunsClick={() => handleRunsClick(project)}
-									selected={selectedIndex === index}
-								/>
-							</motion.div>
-						))}
-					</motion.div>
-
-					<KeyHints hints={NAV_HINTS} />
-				</>
+				<div
+					className="divide-y divide-border"
+					role="list"
+					aria-label="Projects"
+				>
+					{projects.map((project, index) => (
+						<div key={project.id} role="listitem">
+							<ProjectRow
+								project={project}
+								selected={selectedIndex === index}
+								onClick={() => handleProjectClick(project)}
+								onRunsClick={(e) => {
+									e.stopPropagation();
+									navigate(`/projects/${project.id}/runs`);
+								}}
+								onFilesClick={(e) => {
+									e.stopPropagation();
+									navigate(`/projects/${project.id}/files`);
+								}}
+							/>
+						</div>
+					))}
+				</div>
 			)}
 		</div>
 	);

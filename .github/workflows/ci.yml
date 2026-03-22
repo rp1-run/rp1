@@ -90,6 +90,18 @@ jobs:
       - name: Verify plugin dist is up to date
         run: just check-plugin-dist
 
+  catalog:
+    name: Verify Catalogue
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: extractions/setup-just@v2
+
+      - name: Verify catalogue is up to date
+        run: just check-catalog
+
   attestation:
     name: Verify Attestations
     runs-on: ubuntu-latest

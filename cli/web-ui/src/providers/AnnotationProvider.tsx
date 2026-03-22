@@ -22,10 +22,10 @@ import type {
 import type {
 	AnnotationCreatedMessage,
 	AnnotationDeletedMessage,
+	AnnotationMessage,
 	AnnotationReplyAddedMessage,
 	AnnotationResolvedMessage,
 	AnnotationUpdatedMessage,
-	ServerMessage,
 } from "../types/websocket";
 import { useWebSocket } from "./WebSocketProvider";
 
@@ -38,6 +38,7 @@ export interface AnnotationContextValue {
 	readonly error: string | null;
 	readonly filter: AnnotationFilter;
 	readonly selectedAnnotationId: string | null;
+	readonly docId: string | null;
 	setFilter: (filter: AnnotationFilter) => void;
 	selectAnnotation: (id: string | null) => void;
 	createAnnotation: (request: CreateAnnotationRequest) => Promise<Annotation>;
@@ -60,6 +61,7 @@ const AnnotationContext = createContext<AnnotationContextValue | null>(null);
 interface AnnotationProviderProps {
 	readonly children: ReactNode;
 	readonly artifactPath?: string;
+	readonly docId?: string;
 }
 
 /**
@@ -69,6 +71,7 @@ interface AnnotationProviderProps {
 export function AnnotationProvider({
 	children,
 	artifactPath,
+	docId: docIdProp,
 }: AnnotationProviderProps) {
 	const [annotations, setAnnotations] = useState<readonly Annotation[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
@@ -78,8 +81,7 @@ export function AnnotationProvider({
 		string | null
 	>(null);
 
-	const { status: wsStatus } = useWebSocket();
-	const wsRef = useRef<WebSocket | null>(null);
+	const { onAnnotationMessage } = useWebSocket();
 	const mountedRef = useRef(true);
 
 	// Store pending optimistic updates for rollback
@@ -408,7 +410,7 @@ export function AnnotationProvider({
 	/**
 	 * Handle incoming WebSocket annotation messages.
 	 */
-	const handleAnnotationMessage = useCallback((message: ServerMessage) => {
+	const handleAnnotationMessage = useCallback((message: AnnotationMessage) => {
 		switch (message.type) {
 			case "annotation:created": {
 				const msg = message as AnnotationCreatedMessage;
@@ -511,31 +513,10 @@ export function AnnotationProvider({
 		};
 	}, [fetchAnnotations]);
 
-	// Subscribe to WebSocket for real-time annotation updates
+	// Subscribe to WebSocket for real-time annotation updates via shared WebSocketProvider
 	useEffect(() => {
-		if (wsStatus !== "connected") return;
-
-		const wsUrl = `ws://${window.location.host}/ws`;
-		const ws = new WebSocket(wsUrl);
-
-		ws.onmessage = (event) => {
-			try {
-				const message = JSON.parse(event.data) as ServerMessage;
-				if (message.type.startsWith("annotation:")) {
-					handleAnnotationMessage(message);
-				}
-			} catch {
-				// Ignore parse errors
-			}
-		};
-
-		wsRef.current = ws;
-
-		return () => {
-			ws.close();
-			wsRef.current = null;
-		};
-	}, [wsStatus, handleAnnotationMessage]);
+		return onAnnotationMessage(handleAnnotationMessage);
+	}, [onAnnotationMessage, handleAnnotationMessage]);
 
 	const selectAnnotation = useCallback((id: string | null) => {
 		setSelectedAnnotationId(id);
@@ -548,6 +529,7 @@ export function AnnotationProvider({
 			error,
 			filter,
 			selectedAnnotationId,
+			docId: docIdProp ?? null,
 			setFilter,
 			selectAnnotation,
 			createAnnotation,
@@ -564,6 +546,7 @@ export function AnnotationProvider({
 			error,
 			filter,
 			selectedAnnotationId,
+			docIdProp,
 			selectAnnotation,
 			createAnnotation,
 			resolveAnnotation,
@@ -605,6 +588,7 @@ const DEFAULT_ANNOTATION_CONTEXT: AnnotationContextValue = {
 	error: null,
 	filter: DEFAULT_FILTER,
 	selectedAnnotationId: null,
+	docId: null,
 	setFilter: () => {},
 	selectAnnotation: () => {},
 	createAnnotation: () => Promise.reject(new Error("No AnnotationProvider")),

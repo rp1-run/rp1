@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS schema_version (
     version INTEGER NOT NULL
 );
 
-INSERT INTO schema_version (version) VALUES (3);
+INSERT INTO schema_version (version) VALUES (4);
 
 CREATE TABLE IF NOT EXISTS runs (
     id TEXT PRIMARY KEY NOT NULL,
@@ -76,6 +76,7 @@ CREATE TABLE IF NOT EXISTS artifacts (
     feature TEXT NOT NULL,
     step TEXT,
     subflow INTEGER NOT NULL DEFAULT 0,
+    baseline TEXT DEFAULT NULL,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
@@ -380,6 +381,27 @@ const applyMigrations = (db: Database): void => {
 		}
 
 		db.prepare("UPDATE schema_version SET version = 3").run();
+	}
+
+	const postV2Version = db
+		.prepare("SELECT version FROM schema_version LIMIT 1")
+		.get() as { version: number } | null;
+
+	if ((postV2Version?.version ?? 3) < 4) {
+		const columns = db.prepare("PRAGMA table_info(artifacts)").all() as {
+			name: string;
+		}[];
+		const columnNames = columns.map((c) => c.name);
+
+		if (!columnNames.includes("baseline")) {
+			db.exec("ALTER TABLE artifacts ADD COLUMN baseline TEXT DEFAULT NULL");
+		}
+
+		db.exec(
+			"DELETE FROM annotations WHERE json_extract(data, '$.type') = 'edit-diff'",
+		);
+
+		db.prepare("UPDATE schema_version SET version = 4").run();
 	}
 };
 
@@ -964,6 +986,77 @@ export const getArtifactByDocId = (
 	const row = db
 		.prepare("SELECT * FROM artifacts WHERE doc_id = $docId")
 		.get({ $docId: docId }) as ArtifactRow | null;
+
+	return row ? artifactRowToRecord(row) : null;
+};
+
+/**
+ * Get the baseline content and path info for an artifact by doc_id.
+ */
+export const getArtifactBaseline = (
+	db: Database,
+	docId: string,
+): { baseline: string | null; path: string; projectPath: string } | null => {
+	const row = db
+		.prepare(
+			"SELECT baseline, path, project_path FROM artifacts WHERE doc_id = $docId",
+		)
+		.get({ $docId: docId }) as {
+		baseline: string | null;
+		path: string;
+		project_path: string;
+	} | null;
+
+	if (!row) return null;
+
+	return {
+		baseline: row.baseline,
+		path: row.path,
+		projectPath: row.project_path,
+	};
+};
+
+/**
+ * Store baseline content for an artifact.
+ */
+export const setArtifactBaseline = (
+	db: Database,
+	docId: string,
+	baseline: string,
+): void => {
+	db.prepare(
+		"UPDATE artifacts SET baseline = $baseline WHERE doc_id = $docId",
+	).run({ $baseline: baseline, $docId: docId });
+};
+
+/**
+ * Update the cached path for an artifact identified by doc_id.
+ * Used when path reconciliation discovers the file has moved.
+ */
+export const updateArtifactPath = (
+	db: Database,
+	docId: string,
+	newPath: string,
+): void => {
+	db.prepare("UPDATE artifacts SET path = $path WHERE doc_id = $docId").run({
+		$path: newPath,
+		$docId: docId,
+	});
+};
+
+/**
+ * Look up an artifact by run_id and doc_id (fallback when path-based lookup misses).
+ */
+export const getArtifactByRunAndDocId = (
+	db: Database,
+	runId: string,
+	docId: string,
+): ArtifactRecord | null => {
+	const row = db
+		.prepare(
+			"SELECT * FROM artifacts WHERE run_id = $runId AND doc_id = $docId LIMIT 1",
+		)
+		.get({ $runId: runId, $docId: docId }) as ArtifactRow | null;
 
 	return row ? artifactRowToRecord(row) : null;
 };

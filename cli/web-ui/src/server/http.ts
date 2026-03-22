@@ -179,6 +179,30 @@ async function handleV2ApiRequest(
 		return handleV2RunsAttentionRequest();
 	}
 
+	// Artifact patch endpoint (must match before general artifact routes)
+	const artifactPatchMatch = pathname.match(
+		/^\/api\/v2\/artifacts\/([^/]+)\/patch$/,
+	);
+	if (artifactPatchMatch && method === "GET") {
+		const { handleArtifactPatchRequest } = await import(
+			"./routes/artifacts-api"
+		);
+		const docId = decodeURIComponent(artifactPatchMatch[1]);
+		return handleArtifactPatchRequest(docId, apiContext);
+	}
+
+	// Artifact save must be matched before artifact content (more specific route first)
+	const artifactSaveMatch = pathname.match(
+		/^\/api\/v2\/runs\/([^/]+)\/artifacts\/save$/,
+	);
+	if (artifactSaveMatch && method === "PUT") {
+		const { handleArtifactSaveRequest } = await import(
+			"./routes/artifacts-api"
+		);
+		const runId = decodeURIComponent(artifactSaveMatch[1]);
+		return handleArtifactSaveRequest(runId, req, apiContext);
+	}
+
 	// Artifact content must be matched before run detail (more specific route first)
 	const artifactMatch = pathname.match(
 		/^\/api\/v2\/runs\/([^/]+)\/artifacts\/(.+)$/,
@@ -187,7 +211,7 @@ async function handleV2ApiRequest(
 		const { handleV2ArtifactContentRequest } = await import("./routes/v2-api");
 		const runId = decodeURIComponent(artifactMatch[1]);
 		const artifactPath = decodeURIComponent(artifactMatch[2]);
-		return handleV2ArtifactContentRequest(runId, artifactPath);
+		return handleV2ArtifactContentRequest(runId, artifactPath, apiContext);
 	}
 
 	const runDetailMatch = pathname.match(/^\/api\/v2\/runs\/([^/]+)$/);
@@ -220,6 +244,15 @@ async function handleV2ApiRequest(
 		const projectId = decodeURIComponent(projectContentMatch[1]);
 		const filePath = decodeURIComponent(projectContentMatch[2]);
 		return handleV2ProjectContentRequest(projectId, filePath);
+	}
+
+	if (projectContentMatch && method === "PUT") {
+		const { handleV2ProjectContentSaveRequest } = await import(
+			"./routes/v2-api"
+		);
+		const projectId = decodeURIComponent(projectContentMatch[1]);
+		const filePath = decodeURIComponent(projectContentMatch[2]);
+		return handleV2ProjectContentSaveRequest(projectId, filePath, req);
 	}
 
 	const projectDetailMatch = pathname.match(/^\/api\/v2\/projects\/([^/]+)$/);

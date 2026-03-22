@@ -8,6 +8,7 @@ import {
 	deriveOrderedSteps,
 	getDirectPredecessors,
 	getTransitionsFrom,
+	getTransitivePredecessors,
 	getValidNextStates,
 	isReachable,
 	validateTransition,
@@ -383,6 +384,74 @@ describe("adapter", () => {
 			expect(getDirectPredecessors(machine, "plan")).toEqual([]);
 			expect(getDirectPredecessors(machine, "build")).toEqual(["plan"]);
 			expect(getDirectPredecessors(machine, "review")).toEqual(["build"]);
+		});
+	});
+
+	describe("getTransitivePredecessors", () => {
+		test("returns all ancestors in a linear chain", () => {
+			const machine = parseMachine("build", buildWorkflow);
+
+			expect([...getTransitivePredecessors(machine, "archive")].sort()).toEqual(
+				["build", "design", "requirements", "tasks", "verify"].sort(),
+			);
+		});
+
+		test("returns transitive predecessors beyond direct parents", () => {
+			const machine = parseMachine("build", buildWorkflow);
+			const preds = getTransitivePredecessors(machine, "tasks");
+
+			expect(preds).toContain("design");
+			expect(preds).toContain("requirements");
+			expect(preds).toHaveLength(2);
+		});
+
+		test("returns empty array for initial state", () => {
+			const machine = parseMachine("build", buildWorkflow);
+
+			expect(getTransitivePredecessors(machine, "requirements")).toEqual([]);
+		});
+
+		test("handles cycles without infinite loop", () => {
+			const machine = parseMachine("build", buildWorkflow);
+			const preds = getTransitivePredecessors(machine, "build");
+
+			expect(preds).toContain("tasks");
+			expect(preds).toContain("verify");
+			expect(preds).toContain("requirements");
+			expect(preds).toContain("design");
+		});
+
+		test("includes the state itself when reachable via cycle", () => {
+			const machine = parseMachine("build", buildWorkflow);
+			const preds = getTransitivePredecessors(machine, "verify");
+
+			expect(preds).toContain("verify");
+			expect(preds).toContain("build");
+		});
+
+		test("does not include the state itself when no cycle exists", () => {
+			const machine = parseMachine("build-fast", buildFastWorkflow);
+			const preds = getTransitivePredecessors(machine, "review");
+
+			expect(preds).not.toContain("review");
+			expect(preds).toContain("build");
+			expect(preds).toContain("plan");
+		});
+
+		test("handles join points with multiple paths", () => {
+			const machine = parseMachine("multi-init", multiInitWorkflow);
+			const preds = getTransitivePredecessors(machine, "done");
+
+			expect(preds).toContain("merge");
+			expect(preds).toContain("path_a");
+			expect(preds).toContain("path_b");
+		});
+
+		test("does not include states on separate branches", () => {
+			const machine = parseMachine("multi-init", multiInitWorkflow);
+
+			expect(getTransitivePredecessors(machine, "path_a")).toEqual([]);
+			expect(getTransitivePredecessors(machine, "path_b")).toEqual([]);
 		});
 	});
 

@@ -1,3 +1,4 @@
+import mermaidGrammars from "@shikijs/langs/mermaid";
 import { createHighlighter, type Highlighter } from "shiki";
 
 let highlighterPromise: Promise<Highlighter> | null = null;
@@ -25,16 +26,34 @@ const SUPPORTED_LANGUAGES = [
 	"xml",
 	"dockerfile",
 	"toml",
+	"mermaid",
 	"text",
 ] as const;
 
 type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 
+// The bundled mermaid grammar is an injection grammar designed for markdown
+// fenced code blocks. Its top-level patterns match ``` delimiters, not raw
+// mermaid content. We patch it to use the #mermaid repository (which has
+// the actual diagram patterns) directly at the top level.
+const mermaidGrammar = mermaidGrammars[0];
+const standaloneMermaid = {
+	...mermaidGrammar,
+	patterns: [{ include: "#mermaid" }],
+	injectionSelector: undefined,
+};
+
 export async function getHighlighter(): Promise<Highlighter> {
 	if (!highlighterPromise) {
+		const langs = SUPPORTED_LANGUAGES.filter((l) => l !== "mermaid");
 		highlighterPromise = createHighlighter({
-			themes: ["catppuccin-latte", "catppuccin-mocha"],
-			langs: [...SUPPORTED_LANGUAGES],
+			themes: ["min-light", "min-dark", "github-dark-dimmed"],
+			langs: [
+				...langs,
+				standaloneMermaid as Parameters<
+					typeof createHighlighter
+				>[0]["langs"][number],
+			],
 		});
 	}
 	return highlighterPromise;
@@ -61,6 +80,8 @@ export function normalizeLanguage(lang: string | undefined): SupportedLanguage {
 		hpp: "cpp",
 		plaintext: "text",
 		txt: "text",
+		mmd: "mermaid",
+		mindmap: "mermaid",
 	};
 
 	const aliased = aliases[normalized] || normalized;
@@ -98,6 +119,7 @@ export function getLanguageDisplayName(lang: string | undefined): string {
 		xml: "XML",
 		dockerfile: "Dockerfile",
 		toml: "TOML",
+		mermaid: "Mermaid",
 		text: "Plain Text",
 	};
 

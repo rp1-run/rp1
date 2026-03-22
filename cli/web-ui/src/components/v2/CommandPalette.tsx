@@ -35,21 +35,31 @@ export interface CommandPaletteProps {
 }
 
 const navigationIcons: Record<string, React.ReactNode> = {
-	"nav-home": <Home className="mr-2 h-4 w-4" />,
-	"nav-runs": <FileText className="mr-2 h-4 w-4" />,
-	"nav-projects": <FolderOpen className="mr-2 h-4 w-4" />,
+	"nav-home": (
+		<Home className="mr-2 h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+	),
+	"nav-runs": (
+		<FileText className="mr-2 h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+	),
+	"nav-projects": (
+		<FolderOpen className="mr-2 h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+	),
 };
 
 const actionIcons: Record<string, React.ReactNode> = {
-	"act-theme": <Moon className="mr-2 h-4 w-4" />,
-	"act-refresh": <RefreshCw className="mr-2 h-4 w-4" />,
+	"act-theme": (
+		<Moon className="mr-2 h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+	),
+	"act-refresh": (
+		<RefreshCw className="mr-2 h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+	),
 };
 
 const navigationCommands = commands.filter(isNavigationCommand);
 const actionCommands = commands.filter(isActionCommand);
 
 const CMDK_STYLES =
-	"[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5";
+	"[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-fg-muted [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-4 [&_[cmdk-input-wrapper]_svg]:w-4 [&_[cmdk-input]]:h-10 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-2.5 [&_[cmdk-item]_svg]:h-4 [&_[cmdk-item]_svg]:w-4";
 
 const commandStaggerContainer = {
 	animate: {
@@ -107,9 +117,13 @@ function AnimatedCommandDialog({
 							/>
 						</DialogPrimitive.Overlay>
 						<div className="fixed inset-0 z-50 flex items-center justify-center">
-							<DialogPrimitive.Content asChild forceMount>
+							<DialogPrimitive.Content
+								asChild
+								forceMount
+								aria-describedby={undefined}
+							>
 								<motion.div
-									className="w-full max-w-lg overflow-hidden rounded-lg border shadow-lg glass"
+									className="w-full max-w-lg overflow-hidden rounded border border-border bg-surface"
 									initial={
 										reducedMotion
 											? { opacity: 1, scale: 1 }

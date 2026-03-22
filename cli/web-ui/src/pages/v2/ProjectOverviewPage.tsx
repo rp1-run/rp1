@@ -1,13 +1,6 @@
-import {
-	AlertCircle,
-	ChevronRight,
-	FolderOpen,
-	Play,
-	RefreshCw,
-} from "lucide-react";
+import { AlertCircle, ChevronRight, FolderOpen, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { KeyHints, NAV_HINTS } from "@/components/v2/KeyHints";
 import { RunCard } from "@/components/v2/RunCard";
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -24,21 +17,16 @@ interface RunsResponse {
 function LoadingSkeleton() {
 	return (
 		<div className="space-y-6">
-			<div className="animate-pulse rounded-lg border border-border p-6">
-				<div className="h-6 w-48 rounded bg-muted" />
-				<div className="mt-2 h-4 w-72 rounded bg-muted" />
+			<div className="animate-pulse py-4">
+				<div className="h-4 w-48 rounded bg-surface-void" />
+				<div className="mt-2 h-3 w-72 rounded bg-surface-void" />
 			</div>
-			<div className="space-y-3">
+			<div className="divide-y divide-border">
 				{["skeleton-run-a", "skeleton-run-b", "skeleton-run-c"].map((key) => (
-					<div
-						key={key}
-						className="animate-pulse rounded-lg border border-border py-3 px-3"
-					>
-						<div className="flex items-center gap-3">
-							<div className="h-5 w-5 rounded-full bg-muted" />
-							<div className="h-5 w-40 rounded bg-muted" />
-							<div className="ml-auto h-5 w-16 rounded bg-muted" />
-						</div>
+					<div key={key} className="flex items-center gap-3 py-3 animate-pulse">
+						<div className="h-2 w-2 rounded-full bg-fg-ghost" />
+						<div className="h-4 w-40 rounded bg-surface-void" />
+						<div className="ml-auto h-3 w-16 rounded bg-surface-void" />
 					</div>
 				))}
 			</div>
@@ -48,22 +36,17 @@ function LoadingSkeleton() {
 
 function ErrorState({ error, onRetry }: { error: Error; onRetry: () => void }) {
 	return (
-		<div className="flex flex-col items-center justify-center rounded-lg border border-status-failed/30 bg-status-failed/10 px-8 py-16">
-			<div className="mb-4 rounded-full bg-status-failed/20 p-4">
-				<AlertCircle className="h-8 w-8 text-status-failed" />
-			</div>
-			<h2 className="mb-2 text-lg font-medium text-foreground">
-				Failed to load project
-			</h2>
-			<p className="mb-4 text-center text-sm text-muted-foreground">
+		<div className="flex flex-col items-center justify-center px-8 py-16">
+			<AlertCircle className="mb-4 h-4 w-4 text-failure" strokeWidth={1.5} />
+			<p className="mb-2 type-body text-fg">Failed to load project</p>
+			<p className="mb-4 text-center type-secondary text-fg-muted">
 				{error.message}
 			</p>
 			<button
 				type="button"
 				onClick={onRetry}
-				className="inline-flex items-center gap-2 rounded-md bg-muted px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted/80"
+				className="type-body text-fg-muted transition-colors duration-150 hover:text-fg"
 			>
-				<RefreshCw className="h-4 w-4" />
 				Try again
 			</button>
 		</div>
@@ -72,23 +55,39 @@ function ErrorState({ error, onRetry }: { error: Error; onRetry: () => void }) {
 
 function NotFoundState() {
 	return (
-		<div className="flex flex-col items-center justify-center rounded-lg border border-border bg-muted/10 px-8 py-16">
-			<div className="mb-4 rounded-full bg-muted/50 p-4">
-				<AlertCircle className="h-8 w-8 text-muted-foreground" />
-			</div>
-			<h2 className="mb-2 text-lg font-medium text-foreground">
-				Project not found
-			</h2>
-			<p className="mb-4 text-center text-sm text-muted-foreground">
+		<div className="flex flex-col items-center justify-center px-8 py-16">
+			<p className="mb-4 type-body text-fg">Project not found</p>
+			<p className="mb-4 text-center type-secondary text-fg-muted">
 				The project you are looking for does not exist or has been removed.
 			</p>
 			<Link
 				to="/projects"
-				className="inline-flex items-center gap-2 rounded-md bg-muted px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted/80"
+				className="type-body text-fg-muted transition-colors duration-150 hover:text-fg"
 			>
 				Back to projects
 			</Link>
 		</div>
+	);
+}
+
+function Breadcrumb({ projectName }: { projectName: string | null }) {
+	return (
+		<nav aria-label="Breadcrumb" className="type-secondary text-fg-ghost">
+			<ol className="flex items-center">
+				<li>
+					<Link
+						to="/projects"
+						className="transition-colors duration-150 hover:text-fg"
+					>
+						Projects
+					</Link>
+				</li>
+				<li className="mx-1" aria-hidden="true">
+					/
+				</li>
+				<li className="text-fg">{projectName ?? "..."}</li>
+			</ol>
+		</nav>
 	);
 }
 
@@ -210,7 +209,7 @@ export function ProjectOverviewPage() {
 
 	if (isLoading) {
 		return (
-			<div className="space-y-6">
+			<div className="mx-auto max-w-2xl px-6 py-8 space-y-6">
 				<Breadcrumb projectName={null} />
 				<LoadingSkeleton />
 			</div>
@@ -219,7 +218,7 @@ export function ProjectOverviewPage() {
 
 	if (error) {
 		return (
-			<div className="space-y-6">
+			<div className="mx-auto max-w-2xl px-6 py-8 space-y-6">
 				<Breadcrumb projectName={null} />
 				<ErrorState error={error} onRetry={refetch} />
 			</div>
@@ -228,7 +227,7 @@ export function ProjectOverviewPage() {
 
 	if (notFound || !project) {
 		return (
-			<div className="space-y-6">
+			<div className="mx-auto max-w-2xl px-6 py-8 space-y-6">
 				<Breadcrumb projectName={null} />
 				<NotFoundState />
 			</div>
@@ -240,105 +239,80 @@ export function ProjectOverviewPage() {
 		: "No activity";
 
 	return (
-		<div className="space-y-6">
+		<div className="mx-auto max-w-2xl px-6 py-8 space-y-6">
 			<Breadcrumb projectName={project.name} />
 
 			<header className="flex items-center justify-between">
 				<div>
-					<h1 className="text-2xl font-semibold text-foreground">
-						{project.name}
-					</h1>
-					<p
-						className="mt-1 text-sm text-muted-foreground"
-						title={project.path}
-					>
+					<h1 className="type-title text-fg">{project.name}</h1>
+					<p className="mt-1 type-secondary text-fg-muted" title={project.path}>
 						{project.path}
 					</p>
 				</div>
 
-				<div className="flex items-center gap-2">
+				<div className="flex items-center gap-3">
 					<Link
 						to={`/projects/${projectId}/files`}
-						className={cn(
-							"inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium transition-colors",
-							"hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-						)}
+						className="text-fg-ghost transition-colors duration-150 hover:text-fg"
+						aria-label="Browse files"
 					>
-						<FolderOpen className="h-4 w-4" aria-hidden="true" />
-						<span className="sr-only sm:not-sr-only">Browse Files</span>
+						<FolderOpen className="h-4 w-4" strokeWidth={1.5} />
 					</Link>
 					<button
 						type="button"
 						onClick={refetch}
 						disabled={isLoading}
 						className={cn(
-							"inline-flex items-center gap-2 rounded-md border border-border bg-muted/30 px-4 py-2 font-mono text-sm transition-colors",
-							"hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+							"text-fg-ghost transition-colors duration-150 hover:text-fg",
 							"disabled:cursor-not-allowed disabled:opacity-50",
 						)}
 						aria-label="Refresh project"
 					>
-						<span className="text-terminal-green" aria-hidden="true">
-							$
-						</span>
-						<span>refresh</span>
-						{isLoading && (
-							<RefreshCw
-								className="h-3.5 w-3.5 animate-spin"
-								aria-hidden="true"
-							/>
-						)}
+						<RefreshCw
+							className={cn("h-4 w-4", isLoading && "animate-spin")}
+							strokeWidth={1.5}
+						/>
 					</button>
 				</div>
 			</header>
 
-			<div className="flex items-center gap-3 text-sm text-muted-foreground">
+			<div className="flex items-center gap-3 type-secondary text-fg-muted">
 				<span
 					className={cn(
-						"inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
-						project.available
-							? "bg-status-completed/15 text-status-completed"
-							: "bg-status-failed/15 text-status-failed",
+						"type-caption",
+						project.available ? "text-fg-ghost" : "text-failure",
 					)}
 				>
 					{project.available ? "Available" : "Unavailable"}
 				</span>
-				<span>
+				<span className="tabular-nums">
 					{project.runCount} run{project.runCount === 1 ? "" : "s"}
-				</span>
-				<span aria-hidden="true" className="text-border">
-					|
 				</span>
 				<span>{lastActivity}</span>
 			</div>
 
 			<div className="space-y-4">
 				<div className="flex items-center justify-between">
-					<h2 className="text-lg font-medium text-foreground">Recent Runs</h2>
+					<h2 className="type-body font-medium text-fg">Recent Runs</h2>
 					{runs.length > 0 && (
 						<Link
 							to={`/projects/${projectId}/runs`}
-							className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+							className="flex items-center gap-1 type-secondary text-fg-ghost transition-colors duration-150 hover:text-fg"
 						>
 							View all runs
-							<ChevronRight className="h-4 w-4" />
+							<ChevronRight className="h-4 w-4" strokeWidth={1.5} />
 						</Link>
 					)}
 				</div>
 
 				{runs.length === 0 ? (
-					<div className="flex flex-col items-center justify-center rounded-lg border border-border bg-muted/10 px-8 py-12">
-						<div className="mb-3 rounded-full bg-muted/50 p-3">
-							<Play className="h-6 w-6 text-muted-foreground" />
-						</div>
-						<p className="text-sm text-muted-foreground">
-							No runs recorded for this project yet.
-						</p>
-					</div>
+					<p className="py-12 text-center text-fg-ghost">
+						No runs recorded for this project yet.
+					</p>
 				) : (
 					// biome-ignore lint/a11y/useSemanticElements: div with role="list" used for custom divide-y styling incompatible with ul/li
 					<div
-						className="rounded-lg border border-border divide-y divide-border/50"
+						className="divide-y divide-border"
 						role="list"
 						aria-label="Recent runs"
 					>
@@ -353,29 +327,6 @@ export function ProjectOverviewPage() {
 					</div>
 				)}
 			</div>
-
-			<KeyHints hints={NAV_HINTS} />
 		</div>
-	);
-}
-
-function Breadcrumb({ projectName }: { projectName: string | null }) {
-	return (
-		<nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">
-			<ol className="flex items-center gap-1.5">
-				<li>
-					<Link
-						to="/projects"
-						className="transition-colors hover:text-foreground"
-					>
-						Projects
-					</Link>
-				</li>
-				<li aria-hidden="true">
-					<ChevronRight className="h-3.5 w-3.5" />
-				</li>
-				<li className="text-foreground font-medium">{projectName ?? "..."}</li>
-			</ol>
-		</nav>
 	);
 }

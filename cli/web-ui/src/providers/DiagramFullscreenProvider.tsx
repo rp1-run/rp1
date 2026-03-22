@@ -1,5 +1,4 @@
-import { Code, Expand, RotateCcw, X, ZoomIn, ZoomOut } from "lucide-react";
-import mermaid from "mermaid";
+import { Expand, RotateCcw, X, ZoomIn, ZoomOut } from "lucide-react";
 import {
 	createContext,
 	type ReactNode,
@@ -17,217 +16,9 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { renderMermaidSvg } from "@/lib/mermaid-utils";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/providers/ThemeProvider";
-
-// Catppuccin theme variables (same as MermaidDiagram)
-const catppuccinLatte = {
-	background: "#eff1f5",
-	mainBkg: "#ccd0da",
-	nodeBkg: "#ccd0da",
-	nodeBorder: "#9ca0b0",
-	nodeTextColor: "#4c4f69",
-	primaryColor: "#1e66f5",
-	primaryTextColor: "#eff1f5",
-	primaryBorderColor: "#209fb5",
-	secondaryColor: "#7287fd",
-	secondaryTextColor: "#eff1f5",
-	secondaryBorderColor: "#8839ef",
-	tertiaryColor: "#bcc0cc",
-	tertiaryTextColor: "#4c4f69",
-	tertiaryBorderColor: "#9ca0b0",
-	textColor: "#4c4f69",
-	lineColor: "#8c8fa1",
-	noteBkgColor: "#df8e1d",
-	noteTextColor: "#eff1f5",
-	noteBorderColor: "#fe640b",
-	clusterBkg: "#ccd0da",
-	clusterBorder: "#9ca0b0",
-	edgeLabelBackground: "#bcc0cc",
-	actorBkg: "#ccd0da",
-	actorBorder: "#1e66f5",
-	actorTextColor: "#4c4f69",
-	actorLineColor: "#8c8fa1",
-	signalColor: "#4c4f69",
-	signalTextColor: "#4c4f69",
-	labelBoxBkgColor: "#bcc0cc",
-	labelBoxBorderColor: "#9ca0b0",
-	labelTextColor: "#4c4f69",
-	loopTextColor: "#4c4f69",
-	activationBorderColor: "#1e66f5",
-	activationBkgColor: "#bcc0cc",
-	sequenceNumberColor: "#eff1f5",
-	labelBackgroundColor: "#bcc0cc",
-	compositeBackground: "#ccd0da",
-	compositeBorder: "#9ca0b0",
-	compositeTitleBackground: "#bcc0cc",
-	innerEndBackground: "#9ca0b0",
-	specialStateColor: "#8839ef",
-	classText: "#4c4f69",
-	attributeBackgroundColorOdd: "#ccd0da",
-	attributeBackgroundColorEven: "#bcc0cc",
-	sectionBkgColor: "#ccd0da",
-	sectionBkgColor2: "#bcc0cc",
-	altSectionBkgColor: "#e6e9ef",
-	gridColor: "#9ca0b0",
-	todayLineColor: "#d20f39",
-	taskBorderColor: "#1e66f5",
-	taskBkgColor: "#bcc0cc",
-	taskTextColor: "#4c4f69",
-	taskTextLightColor: "#6c6f85",
-	taskTextOutsideColor: "#4c4f69",
-	activeTaskBorderColor: "#209fb5",
-	activeTaskBkgColor: "#1e66f5",
-	doneTaskBorderColor: "#40a02b",
-	doneTaskBkgColor: "#ccd0da",
-	critBorderColor: "#d20f39",
-	critBkgColor: "#e64553",
-	excludeBkgColor: "#dce0e8",
-	pie1: "#1e66f5",
-	pie2: "#7287fd",
-	pie3: "#209fb5",
-	pie4: "#04a5e5",
-	pie5: "#179299",
-	pie6: "#40a02b",
-	pie7: "#df8e1d",
-	pie8: "#fe640b",
-	pie9: "#e64553",
-	pie10: "#d20f39",
-	pie11: "#ea76cb",
-	pie12: "#8839ef",
-	pieStrokeColor: "#9ca0b0",
-	pieTitleTextColor: "#4c4f69",
-	pieSectionTextColor: "#eff1f5",
-	pieLegendTextColor: "#4c4f69",
-	git0: "#1e66f5",
-	git1: "#40a02b",
-	git2: "#8839ef",
-	git3: "#fe640b",
-	git4: "#179299",
-	git5: "#ea76cb",
-	git6: "#df8e1d",
-	git7: "#7287fd",
-	gitBranchLabel0: "#eff1f5",
-	gitBranchLabel1: "#eff1f5",
-	gitBranchLabel2: "#eff1f5",
-	gitBranchLabel3: "#eff1f5",
-	gitBranchLabel4: "#eff1f5",
-	gitBranchLabel5: "#eff1f5",
-	gitBranchLabel6: "#eff1f5",
-	gitBranchLabel7: "#eff1f5",
-	commitLabelColor: "#4c4f69",
-	commitLabelBackground: "#bcc0cc",
-	tagLabelColor: "#4c4f69",
-	tagLabelBackground: "#ccd0da",
-	tagLabelBorder: "#9ca0b0",
-	pieStrokeWidth: "2px",
-	pieOuterStrokeWidth: "2px",
-	pieOpacity: "0.7",
-};
-
-const catppuccinMocha = {
-	background: "#1e1e2e",
-	mainBkg: "#313244",
-	nodeBkg: "#313244",
-	nodeBorder: "#6c7086",
-	nodeTextColor: "#cdd6f4",
-	primaryColor: "#89b4fa",
-	primaryTextColor: "#11111b",
-	primaryBorderColor: "#74c7ec",
-	secondaryColor: "#b4befe",
-	secondaryTextColor: "#11111b",
-	secondaryBorderColor: "#cba6f7",
-	tertiaryColor: "#45475a",
-	tertiaryTextColor: "#cdd6f4",
-	tertiaryBorderColor: "#6c7086",
-	textColor: "#cdd6f4",
-	lineColor: "#7f849c",
-	noteBkgColor: "#f9e2af",
-	noteTextColor: "#11111b",
-	noteBorderColor: "#fab387",
-	clusterBkg: "#313244",
-	clusterBorder: "#6c7086",
-	edgeLabelBackground: "#45475a",
-	actorBkg: "#313244",
-	actorBorder: "#89b4fa",
-	actorTextColor: "#cdd6f4",
-	actorLineColor: "#7f849c",
-	signalColor: "#cdd6f4",
-	signalTextColor: "#cdd6f4",
-	labelBoxBkgColor: "#45475a",
-	labelBoxBorderColor: "#6c7086",
-	labelTextColor: "#cdd6f4",
-	loopTextColor: "#cdd6f4",
-	activationBorderColor: "#89b4fa",
-	activationBkgColor: "#45475a",
-	sequenceNumberColor: "#11111b",
-	labelBackgroundColor: "#45475a",
-	compositeBackground: "#313244",
-	compositeBorder: "#6c7086",
-	compositeTitleBackground: "#45475a",
-	innerEndBackground: "#6c7086",
-	specialStateColor: "#cba6f7",
-	classText: "#cdd6f4",
-	attributeBackgroundColorOdd: "#313244",
-	attributeBackgroundColorEven: "#45475a",
-	sectionBkgColor: "#313244",
-	sectionBkgColor2: "#45475a",
-	altSectionBkgColor: "#181825",
-	gridColor: "#6c7086",
-	todayLineColor: "#f38ba8",
-	taskBorderColor: "#89b4fa",
-	taskBkgColor: "#45475a",
-	taskTextColor: "#cdd6f4",
-	taskTextLightColor: "#a6adc8",
-	taskTextOutsideColor: "#cdd6f4",
-	activeTaskBorderColor: "#74c7ec",
-	activeTaskBkgColor: "#89b4fa",
-	doneTaskBorderColor: "#a6e3a1",
-	doneTaskBkgColor: "#313244",
-	critBorderColor: "#f38ba8",
-	critBkgColor: "#eba0ac",
-	excludeBkgColor: "#11111b",
-	pie1: "#89b4fa",
-	pie2: "#b4befe",
-	pie3: "#74c7ec",
-	pie4: "#89dceb",
-	pie5: "#94e2d5",
-	pie6: "#a6e3a1",
-	pie7: "#f9e2af",
-	pie8: "#fab387",
-	pie9: "#eba0ac",
-	pie10: "#f38ba8",
-	pie11: "#f5c2e7",
-	pie12: "#cba6f7",
-	pieStrokeColor: "#6c7086",
-	pieTitleTextColor: "#cdd6f4",
-	pieSectionTextColor: "#11111b",
-	pieLegendTextColor: "#cdd6f4",
-	git0: "#89b4fa",
-	git1: "#a6e3a1",
-	git2: "#cba6f7",
-	git3: "#fab387",
-	git4: "#94e2d5",
-	git5: "#f5c2e7",
-	git6: "#f9e2af",
-	git7: "#b4befe",
-	gitBranchLabel0: "#11111b",
-	gitBranchLabel1: "#11111b",
-	gitBranchLabel2: "#11111b",
-	gitBranchLabel3: "#11111b",
-	gitBranchLabel4: "#11111b",
-	gitBranchLabel5: "#11111b",
-	gitBranchLabel6: "#11111b",
-	gitBranchLabel7: "#11111b",
-	commitLabelColor: "#cdd6f4",
-	commitLabelBackground: "#45475a",
-	tagLabelColor: "#cdd6f4",
-	tagLabelBackground: "#313244",
-	tagLabelBorder: "#6c7086",
-	pieStrokeWidth: "2px",
-	pieOuterStrokeWidth: "2px",
-	pieOpacity: "0.7",
-};
 
 interface DiagramFullscreenContextValue {
 	isFullscreen: boolean;
@@ -249,7 +40,6 @@ export function DiagramFullscreenProvider({
 	const [isFullscreen, setIsFullscreen] = useState(false);
 	const [code, setCode] = useState<string>("");
 	const [svg, setSvg] = useState<string>("");
-	const [showSource, setShowSource] = useState(false);
 	const [scale, setScale] = useState(1);
 	const [position, setPosition] = useState({ x: 0, y: 0 });
 	const [isDragging, setIsDragging] = useState(false);
@@ -259,27 +49,18 @@ export function DiagramFullscreenProvider({
 	const svgContainerRef = useRef<HTMLDivElement>(null);
 	const renderCountRef = useRef(0);
 
-	// Render the diagram when code or theme changes
 	useEffect(() => {
 		if (!isFullscreen || !code) return;
 
 		let cancelled = false;
 
-		async function renderDiagram() {
+		async function render() {
 			try {
-				const isDark = theme === "dark";
-				mermaid.initialize({
-					startOnLoad: false,
-					theme: "base",
-					securityLevel: "loose",
-					fontFamily: "JetBrains Mono, monospace",
-					themeVariables: isDark ? catppuccinMocha : catppuccinLatte,
-				});
-
 				renderCountRef.current += 1;
 				const diagramId = `mermaid-fullscreen-${renderCountRef.current}`;
+				const isDark = theme === "dark";
 
-				const { svg: renderedSvg } = await mermaid.render(diagramId, code);
+				const renderedSvg = await renderMermaidSvg(code, diagramId, isDark);
 
 				if (!cancelled) {
 					setSvg(renderedSvg);
@@ -289,7 +70,7 @@ export function DiagramFullscreenProvider({
 			}
 		}
 
-		renderDiagram();
+		render();
 
 		return () => {
 			cancelled = true;
@@ -300,9 +81,7 @@ export function DiagramFullscreenProvider({
 		setCode(diagramCode);
 		setIsFullscreen(true);
 		setPosition({ x: 0, y: 0 });
-		setShowSource(false);
 
-		// Calculate optimal scale after render
 		setTimeout(() => {
 			const container = svgContainerRef.current;
 			if (!container) {
@@ -339,6 +118,19 @@ export function DiagramFullscreenProvider({
 		[isFullscreen],
 	);
 
+	// Listen for fullscreen requests from vanilla DOM (Milkdown mermaid plugin)
+	useEffect(() => {
+		const handler = (e: Event) => {
+			const detail = (e as CustomEvent).detail;
+			if (detail?.code) {
+				openFullscreen(detail.code);
+			}
+		};
+		document.addEventListener("mermaid-editor-fullscreen", handler);
+		return () =>
+			document.removeEventListener("mermaid-editor-fullscreen", handler);
+	}, [openFullscreen]);
+
 	// Handle escape key
 	useEffect(() => {
 		if (!isFullscreen) return;
@@ -350,7 +142,6 @@ export function DiagramFullscreenProvider({
 			}
 		}
 
-		// Use capture phase to intercept before other handlers
 		document.addEventListener("keydown", handleKeyDown, true);
 		document.body.style.overflow = "hidden";
 
@@ -486,23 +277,6 @@ export function DiagramFullscreenProvider({
 				</TooltipTrigger>
 				<TooltipContent>Fit to screen</TooltipContent>
 			</Tooltip>
-
-			<Tooltip>
-				<TooltipTrigger asChild>
-					<Button
-						variant="ghost"
-						size="icon"
-						className={cn("h-7 w-7", showSource && "bg-accent")}
-						onClick={() => setShowSource(!showSource)}
-						aria-label={showSource ? "Hide source" : "Show source"}
-					>
-						<Code className="h-3.5 w-3.5" />
-					</Button>
-				</TooltipTrigger>
-				<TooltipContent>
-					{showSource ? "Hide source" : "Show source"}
-				</TooltipContent>
-			</Tooltip>
 		</TooltipProvider>
 	);
 
@@ -511,13 +285,13 @@ export function DiagramFullscreenProvider({
 				// biome-ignore lint/a11y/noStaticElementInteractions: backdrop click to close modal
 				// biome-ignore lint/a11y/useKeyWithClickEvents: Escape key handled separately
 				<div
-					className="fixed inset-0 z-50 bg-background flex flex-col"
+					className="fixed inset-0 z-50 bg-surface flex flex-col"
 					onClick={(e) => {
 						if (e.target === e.currentTarget) closeFullscreen();
 					}}
 				>
 					{/* Header */}
-					<div className="flex items-center justify-between border-b bg-muted/80 px-4 py-2">
+					<div className="flex items-center justify-between border-b bg-surface px-4 py-2">
 						<span className="text-sm font-medium">Mermaid Diagram</span>
 						<div className="flex items-center gap-1">
 							{toolbar}
@@ -542,50 +316,40 @@ export function DiagramFullscreenProvider({
 					</div>
 
 					{/* Content */}
-					<div className="flex-1 overflow-hidden">
-						{showSource ? (
-							<pre className="h-full p-6 text-sm overflow-auto">
-								<code>{code}</code>
-							</pre>
-						) : (
-							// biome-ignore lint/a11y/noStaticElementInteractions: pan/zoom interactions for diagram viewer
+					{/* biome-ignore lint/a11y/noStaticElementInteractions: pan/zoom interactions for diagram viewer */}
+					<div
+						className={cn(
+							"flex-1 overflow-hidden relative flex items-center justify-center",
+							isDragging ? "cursor-grabbing" : "cursor-grab",
+						)}
+						onMouseDown={handleMouseDown}
+						onMouseMove={handleMouseMove}
+						onMouseUp={handleMouseUp}
+						onMouseLeave={handleMouseUp}
+						onWheel={handleWheel}
+					>
+						{svg ? (
 							<div
-								className={cn(
-									"h-full relative overflow-hidden flex items-center justify-center",
-									isDragging ? "cursor-grabbing" : "cursor-grab",
-								)}
-								onMouseDown={handleMouseDown}
-								onMouseMove={handleMouseMove}
-								onMouseUp={handleMouseUp}
-								onMouseLeave={handleMouseUp}
-								onWheel={handleWheel}
-							>
-								{svg ? (
-									<div
-										ref={svgContainerRef}
-										className="mermaid-svg transition-transform duration-100 [&_svg]:max-w-none"
-										style={{
-											transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
-										}}
-										// biome-ignore lint/security/noDangerouslySetInnerHtml: trusted Mermaid SVG output
-										dangerouslySetInnerHTML={{ __html: svg }}
-									/>
-								) : (
-									<div className="text-sm text-muted-foreground">
-										Loading diagram...
-									</div>
-								)}
+								ref={svgContainerRef}
+								className="mermaid-svg transition-transform duration-100 [&_svg]:max-w-none"
+								style={{
+									transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+								}}
+								// biome-ignore lint/security/noDangerouslySetInnerHtml: trusted Mermaid SVG output
+								dangerouslySetInnerHTML={{ __html: svg }}
+							/>
+						) : (
+							<div className="text-sm text-muted-foreground">
+								Loading diagram...
 							</div>
 						)}
 					</div>
 
 					{/* Footer */}
-					{!showSource && (
-						<div className="border-t bg-muted/50 px-4 py-2 text-xs text-muted-foreground text-center">
-							{Math.round(scale * 100)}% • Drag to pan • Ctrl+Scroll to zoom •
-							Press Esc to close
-						</div>
-					)}
+					<div className="border-t bg-surface px-4 py-2 text-xs text-muted-foreground text-center">
+						{Math.round(scale * 100)}% • Drag to pan • Ctrl+Scroll to zoom •
+						Press Esc to close
+					</div>
 				</div>,
 				document.body,
 			)

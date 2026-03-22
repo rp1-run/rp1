@@ -1,13 +1,13 @@
 import { Check, Copy } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useBreadcrumbContext } from "@/hooks/useBreadcrumbContext";
 import { useProjects } from "@/hooks/useProjects";
 import { cn } from "@/lib/utils";
 
@@ -28,16 +28,10 @@ export function buildSegments(pathname: string): BreadcrumbSegment[] {
 	}));
 }
 
-/**
- * Resolve the real filesystem path for known URL patterns.
- *
- * - /projects/{projectId}/files/{filePath} → {project.path}/.rp1/{filePath}
- * - /runs/{runId}/artifacts/{artifactPath} → looks up absolutePath from the
- *   run's artifact list (server-resolved, no client-side path reconstruction)
- *
- * Returns null for unrecognized patterns or when data isn't available yet.
- */
-function useFilesystemPath(pathname: string): string | null {
+function useFilesystemPath(
+	pathname: string,
+	artifactParam: string | null,
+): string | null {
 	const { projects } = useProjects();
 	const [artifactAbsolutePath, setArtifactAbsolutePath] = useState<
 		string | null
@@ -45,12 +39,21 @@ function useFilesystemPath(pathname: string): string | null {
 
 	const filesMatch = pathname.match(/^\/projects\/([^/]+)\/files\/(.+)$/);
 	const artifactMatch = pathname.match(/^\/runs\/([^/]+)\/artifacts\/(.+)$/);
-	const runId = artifactMatch?.[1] ?? null;
-	const artifactUrlPath = artifactMatch?.[2] ?? null;
+	const runDetailMatch = pathname.match(/^\/runs\/([^/]+)(\/step\/[^/]+)?$/);
+	const stepArtifactMatch = pathname.match(
+		/^\/runs\/([^/]+)\/step\/[^/]+\/artifact\/([^/]+)$/,
+	);
 
-	// For artifact URLs, fetch the run and look up the artifact's absolutePath
+	const runId =
+		artifactMatch?.[1] ??
+		stepArtifactMatch?.[1] ??
+		(artifactParam ? runDetailMatch?.[1] : null) ??
+		null;
+	const docId = stepArtifactMatch?.[2] ?? null;
+	const artifactUrlPath = artifactMatch?.[2] ?? artifactParam ?? null;
+
 	useEffect(() => {
-		if (!runId || !artifactUrlPath) {
+		if (!runId || (!artifactUrlPath && !docId)) {
 			setArtifactAbsolutePath(null);
 			return;
 		}
@@ -59,26 +62,33 @@ function useFilesystemPath(pathname: string): string | null {
 			.then(
 				(
 					run: {
-						artifacts?: readonly { path: string; absolutePath: string }[];
+						artifacts?: readonly {
+							docId: string;
+							path: string;
+							absolutePath: string;
+						}[];
 					} | null,
 				) => {
 					if (!run?.artifacts) return;
-					const artifact =
-						run.artifacts.find((a) => a.path === artifactUrlPath) ??
-						run.artifacts.find((a) => a.path.endsWith(`/${artifactUrlPath}`));
+					let artifact: { absolutePath: string } | undefined;
+					if (docId) {
+						artifact = run.artifacts.find((a) => a.docId === docId);
+					} else if (artifactUrlPath) {
+						artifact =
+							run.artifacts.find((a) => a.path === artifactUrlPath) ??
+							run.artifacts.find((a) => a.path.endsWith(`/${artifactUrlPath}`));
+					}
 					setArtifactAbsolutePath(artifact?.absolutePath ?? null);
 				},
 			)
 			.catch(() => setArtifactAbsolutePath(null));
-	}, [runId, artifactUrlPath]);
+	}, [runId, artifactUrlPath, docId]);
 
-	// Pattern 1: File browser — /projects/{id}/files/{path}
 	if (filesMatch) {
 		const project = projects.find((p) => p.id === filesMatch[1]);
 		if (project) return `${project.path}/.rp1/${filesMatch[2]}`;
 	}
 
-	// Pattern 2: Artifact viewer — server-resolved absolute path
 	if (artifactAbsolutePath) {
 		return artifactAbsolutePath;
 	}
@@ -88,9 +98,14 @@ function useFilesystemPath(pathname: string): string | null {
 
 export function TerminalBreadcrumb({ className }: TerminalBreadcrumbProps) {
 	const { pathname } = useLocation();
+	const {
+		artifactPath: contextArtifact,
+		projectName,
+		projectId,
+	} = useBreadcrumbContext();
 	const segments = buildSegments(pathname);
 	const [copied, setCopied] = useState(false);
-	const filesystemPath = useFilesystemPath(pathname);
+	const filesystemPath = useFilesystemPath(pathname, contextArtifact);
 
 	const handleCopy = useCallback(() => {
 		const pathToCopy = filesystemPath ?? pathname;
@@ -100,69 +115,65 @@ export function TerminalBreadcrumb({ className }: TerminalBreadcrumbProps) {
 		});
 	}, [filesystemPath, pathname]);
 
+	const artifactFileName = contextArtifact
+		? (contextArtifact.split("/").pop() ?? contextArtifact)
+		: null;
+	const lastSegment =
+		segments.length > 0 ? segments[segments.length - 1] : null;
+	const displayLabel = artifactFileName ?? lastSegment?.label ?? null;
+
 	return (
 		<nav
 			aria-label="Breadcrumb"
 			className={cn(
-				"flex items-center border-b border-border px-4 py-1.5 font-mono text-sm text-muted-foreground",
+				"flex items-center border-b px-4 py-1.5 min-h-8 type-body",
+				"border-border",
+				"text-fg-ghost",
 				className,
 			)}
 		>
-			<ol className="flex items-center gap-1">
-				<li>
-					{segments.length === 0 ? (
-						<span className="text-foreground" aria-current="page">
-							~
-						</span>
-					) : (
-						<Link to="/" className="transition-colors hover:text-foreground">
-							~
-						</Link>
-					)}
-				</li>
-				{segments.map((segment, index) => {
-					const isLast = index === segments.length - 1;
-					return (
-						<li key={segment.to} className="flex items-center gap-1">
-							<span aria-hidden="true" className="select-none">
-								/
-							</span>
-							{isLast ? (
-								<span className="text-foreground" aria-current="page">
-									{segment.label}
-								</span>
-							) : (
-								<Link
-									to={segment.to}
-									className="transition-colors hover:text-foreground"
-								>
-									{segment.label}
-								</Link>
-							)}
-						</li>
-					);
-				})}
-			</ol>
-			{segments.length > 0 && (
+			<div className="flex items-center gap-2">
+				{projectName && projectId && (
+					<Link
+						to={`/projects/${projectId}`}
+						className="text-fg-ghost transition-colors duration-150 hover:text-fg"
+					>
+						{projectName}
+					</Link>
+				)}
+				{displayLabel && (
+					<span className="text-fg" aria-current="page">
+						{displayLabel}
+					</span>
+				)}
+			</div>
+			{filesystemPath && (
 				<TooltipProvider>
 					<Tooltip>
 						<TooltipTrigger asChild>
-							<Button
-								variant="ghost"
-								size="icon"
-								className="ml-2 h-6 w-6 text-muted-foreground hover:text-foreground"
+							<button
+								type="button"
+								className="ml-2 flex h-6 w-6 items-center justify-center rounded text-fg-ghost transition-colors duration-150 hover:text-fg"
 								onClick={handleCopy}
 								aria-label="Copy full path"
 							>
 								{copied ? (
-									<Check className="h-3.5 w-3.5" aria-hidden="true" />
+									<Check
+										className="h-4 w-4"
+										strokeWidth={1.5}
+										aria-hidden="true"
+									/>
 								) : (
-									<Copy className="h-3.5 w-3.5" aria-hidden="true" />
+									<Copy
+										className="h-4 w-4"
+										strokeWidth={1.5}
+										aria-hidden="true"
+									/>
 								)}
-							</Button>
+							</button>
 						</TooltipTrigger>
 						<TooltipContent>
-							<p>{copied ? "Copied!" : "Copy full path"}</p>
+							<p>{copied ? "Copied!" : (filesystemPath ?? pathname)}</p>
 						</TooltipContent>
 					</Tooltip>
 				</TooltipProvider>

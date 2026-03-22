@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { HiddenAnchor, TextSelectionAnchor } from "@/types/annotations";
+import { getEditableText } from "@/lib/editable-text-nodes";
+import type { TextSelectionAnchor } from "@/types/annotations";
 
 /** Anchor rectangle for popover positioning */
 export interface AnchorRect {
@@ -51,13 +52,21 @@ const DEFAULT_SHOW_DELAY = 250;
 /**
  * Extract text content from a container element.
  */
+function isEditableElement(node: Node): boolean {
+	if (!(node instanceof HTMLElement)) return true;
+	return node.getAttribute("contenteditable") !== "false";
+}
+
 function getContainerText(container: Node): string {
+	if (container instanceof HTMLElement) {
+		return getEditableText(container);
+	}
 	return container.textContent ?? "";
 }
 
 /**
  * Calculate the offset of a range's boundary within a container's text content.
- * Traverses DOM nodes in document order to find the text offset.
+ * Traverses DOM nodes in document order, skipping non-editable UI chrome.
  */
 function calculateTextOffset(
 	container: Node,
@@ -67,6 +76,13 @@ function calculateTextOffset(
 	let offset = 0;
 
 	function traverse(node: Node): boolean {
+		// Skip non-editable elements (mermaid tabs, action buttons, line numbers)
+		if (node instanceof HTMLElement && !isEditableElement(node)) {
+			// But still check if the target is inside — shouldn't happen
+			// for user selections, but handle gracefully
+			return node.contains(targetNode);
+		}
+
 		if (node === targetNode) {
 			if (node.nodeType === Node.TEXT_NODE) {
 				offset += targetOffset;
@@ -330,139 +346,5 @@ export function useTextSelection(
 		clearSelection,
 		lockSelection,
 		isLocked,
-	};
-}
-
-/** Detected hidden anchor element data */
-export interface DetectedHiddenAnchor {
-	/** The anchor element */
-	readonly element: HTMLAnchorElement;
-	/** The HiddenAnchor data for annotation */
-	readonly anchor: HiddenAnchor;
-	/** Position for popover placement */
-	readonly position: SelectionPosition;
-}
-
-/**
- * Find all hidden anchor elements (`<a id="...">`) within a container.
- * Returns anchor data suitable for creating annotations.
- *
- * Hidden anchors are `<a>` elements with an `id` attribute and no `href`,
- * typically used as stable reference points in generated markdown content.
- */
-export function detectHiddenAnchors(
-	container: HTMLElement,
-): DetectedHiddenAnchor[] {
-	const anchors: DetectedHiddenAnchor[] = [];
-	const containerRect = container.getBoundingClientRect();
-
-	const elements = container.querySelectorAll<HTMLAnchorElement>("a[id]");
-
-	for (const element of elements) {
-		if (element.hasAttribute("href")) {
-			continue;
-		}
-
-		const anchorId = element.id;
-		if (!anchorId) {
-			continue;
-		}
-
-		const anchorText = getAnchorContextText(element);
-
-		const rect = element.getBoundingClientRect();
-		// Calculate position relative to the container, not the viewport
-		const position: SelectionPosition = {
-			x: rect.left - containerRect.left + rect.width / 2,
-			y: rect.top - containerRect.top,
-			anchorRect: {
-				left: rect.left,
-				right: rect.right,
-				top: rect.top,
-				bottom: rect.bottom,
-			},
-		};
-
-		anchors.push({
-			element,
-			anchor: {
-				type: "hidden-anchor",
-				anchorId,
-				anchorText,
-			},
-			position,
-		});
-	}
-
-	return anchors;
-}
-
-/**
- * Get context text for a hidden anchor by examining nearby content.
- * Looks at the next sibling's text content or parent's text.
- */
-function getAnchorContextText(element: HTMLElement): string {
-	const nextSibling = element.nextSibling;
-	if (nextSibling?.nodeType === Node.TEXT_NODE && nextSibling.textContent) {
-		const text = nextSibling.textContent.trim();
-		if (text) {
-			return text.slice(0, 100);
-		}
-	}
-
-	const nextElement = element.nextElementSibling;
-	if (nextElement?.textContent) {
-		const text = nextElement.textContent.trim();
-		if (text) {
-			return text.slice(0, 100);
-		}
-	}
-
-	const parent = element.parentElement;
-	if (parent?.textContent) {
-		const text = parent.textContent.trim();
-		if (text) {
-			return text.slice(0, 100);
-		}
-	}
-
-	return "";
-}
-
-/**
- * Find a specific hidden anchor by ID within a container.
- */
-export function findHiddenAnchorById(
-	container: HTMLElement,
-	anchorId: string,
-): DetectedHiddenAnchor | null {
-	const element = container.querySelector<HTMLAnchorElement>(
-		`a[id="${CSS.escape(anchorId)}"]:not([href])`,
-	);
-
-	if (!element) {
-		return null;
-	}
-
-	const anchorText = getAnchorContextText(element);
-	const rect = element.getBoundingClientRect();
-
-	return {
-		element,
-		anchor: {
-			type: "hidden-anchor",
-			anchorId,
-			anchorText,
-		},
-		position: {
-			x: rect.left + rect.width / 2,
-			y: rect.top,
-			anchorRect: {
-				left: rect.left,
-				right: rect.right,
-				top: rect.top,
-				bottom: rect.bottom,
-			},
-		},
 	};
 }

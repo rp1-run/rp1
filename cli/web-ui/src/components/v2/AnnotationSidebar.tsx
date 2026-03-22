@@ -1,12 +1,7 @@
-import {
-	AlertTriangle,
-	Filter,
-	MessageSquare,
-	PanelRightClose,
-	X,
-} from "lucide-react";
+import { AlertTriangle, Filter, MessageSquare, X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useAnnotations } from "@/hooks/useAnnotations";
+import { needsTruncation, truncateContent } from "@/lib/content-truncation";
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { useAnnotationContext } from "@/providers/AnnotationProvider";
@@ -16,7 +11,6 @@ import { Select } from "./Select";
 export interface AnnotationSidebarProps {
 	artifactPath: string;
 	onClose: () => void;
-	onNavigateToAnnotation?: (annotation: Annotation) => void;
 	className?: string;
 }
 
@@ -135,29 +129,9 @@ function getAnchorPreview(annotation: Annotation): string {
 	}
 }
 
-const TRUNCATION_LINES = 3;
-const TRUNCATION_CHARS = 200;
-
-function needsTruncation(content: string): boolean {
-	const lineCount = content.split("\n").length;
-	return lineCount > TRUNCATION_LINES || content.length > TRUNCATION_CHARS;
-}
-
-function truncateContent(content: string): string {
-	const lines = content.split("\n");
-	if (lines.length > TRUNCATION_LINES) {
-		return `${lines.slice(0, TRUNCATION_LINES).join("\n")}...`;
-	}
-	if (content.length > TRUNCATION_CHARS) {
-		return `${content.slice(0, TRUNCATION_CHARS)}...`;
-	}
-	return content;
-}
-
 export function AnnotationSidebar({
 	artifactPath,
 	onClose,
-	onNavigateToAnnotation,
 	className,
 }: AnnotationSidebarProps) {
 	const [showFilters, setShowFilters] = useState(false);
@@ -187,6 +161,18 @@ export function AnnotationSidebar({
 	} = useAnnotations({ artifactPath });
 
 	const { annotations: allAnnotations } = useAnnotationContext();
+
+	const totalCount = useMemo(() => {
+		const artifactAnnotations = artifactPath
+			? allAnnotations.filter((a) => a.artifactPath === artifactPath)
+			: allAnnotations;
+		return artifactAnnotations.length;
+	}, [allAnnotations, artifactPath]);
+
+	const hasActiveFilter =
+		filter.status !== "all" ||
+		filter.author !== null ||
+		filter.dateRange !== "all";
 
 	const authorOptions = useMemo(() => {
 		const artifactAnnotations = artifactPath
@@ -227,21 +213,24 @@ export function AnnotationSidebar({
 	);
 
 	const handleClearFilters = useCallback(() => {
-		setFilter({ status: "all", author: null, dateRange: "all" });
+		setFilter({
+			status: "all",
+			author: null,
+			dateRange: "all",
+		});
 	}, [setFilter]);
 
-	const { selectAnnotation } = useAnnotationContext();
-
-	const handleAnnotationClick = useCallback(
-		(annotation: Annotation) => {
-			onNavigateToAnnotation?.(annotation);
-			// Then select it to open the popover (with delay for scroll to complete)
-			setTimeout(() => {
-				selectAnnotation(annotation.id);
-			}, 300);
-		},
-		[onNavigateToAnnotation, selectAnnotation],
-	);
+	const handleAnnotationClick = useCallback((annotation: Annotation) => {
+		const indicator = document.querySelector(
+			`[data-annotation-id="${annotation.id}"]`,
+		);
+		if (indicator instanceof HTMLElement) {
+			indicator.scrollIntoView({ behavior: "instant", block: "center" });
+			requestAnimationFrame(() => {
+				indicator.click();
+			});
+		}
+	}, []);
 
 	const hasActiveFilters =
 		filter.status !== "all" ||
@@ -250,43 +239,44 @@ export function AnnotationSidebar({
 
 	return (
 		<aside
-			className={cn(
-				"flex h-full flex-col border-l border-border bg-background",
-				className,
-			)}
+			className={cn("flex h-full flex-col", className)}
 			aria-label="Annotations panel"
 		>
-			<header className="shrink-0 flex h-10 items-center justify-between border-b border-border bg-background px-3">
+			<header className="shrink-0 flex items-center justify-between px-4 pt-3 pb-2">
 				<div className="flex items-center gap-2">
-					<h2 className="text-sm font-semibold">Annotations</h2>
-					<span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-						{count}
+					<MessageSquare
+						className="h-3.5 w-3.5 text-fg-ghost"
+						strokeWidth={1.5}
+					/>
+					<h2 className="type-secondary text-fg-muted tracking-wider uppercase">
+						Annotations
+					</h2>
+					<span className="type-secondary text-fg-ghost tabular-nums">
+						{hasActiveFilter && count !== totalCount
+							? `${count} of ${totalCount}`
+							: totalCount}
 					</span>
 				</div>
-				<div className="flex items-center gap-1">
+				<div className="flex items-center gap-2">
 					<button
 						type="button"
 						onClick={() => setShowFilters(!showFilters)}
 						className={cn(
-							"rounded-md p-1.5 transition-colors",
-							"hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-							showFilters && "bg-muted",
+							"text-fg-ghost transition-colors duration-150 hover:text-fg",
+							showFilters && "text-fg",
 						)}
 						aria-label="Toggle filters"
 						aria-pressed={showFilters}
 					>
-						<Filter className="h-4 w-4" aria-hidden="true" />
+						<Filter className="h-3.5 w-3.5" strokeWidth={1.5} />
 					</button>
 					<button
 						type="button"
 						onClick={onClose}
-						className={cn(
-							"rounded-md p-1.5 transition-colors",
-							"hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-						)}
+						className="text-fg-ghost transition-colors duration-150 hover:text-fg"
 						aria-label="Close annotations panel"
 					>
-						<PanelRightClose className="h-4 w-4" aria-hidden="true" />
+						<X className="h-3.5 w-3.5" strokeWidth={1.5} />
 					</button>
 				</div>
 			</header>

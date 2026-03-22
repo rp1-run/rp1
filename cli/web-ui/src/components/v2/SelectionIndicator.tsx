@@ -2,11 +2,10 @@ import { MessageSquare } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
-	Tooltip,
-	TooltipContent,
-	TooltipProvider,
-	TooltipTrigger,
-} from "@/components/ui/tooltip";
+	findTextRange,
+	getEditableText,
+	getEditableTextNodes,
+} from "@/lib/editable-text-nodes";
 import type { TextSelectionAnchor } from "@/types/annotations";
 
 export interface SelectionIndicatorProps {
@@ -16,15 +15,12 @@ export interface SelectionIndicatorProps {
 	onClick: () => void;
 }
 
-interface IndicatorPosition {
-	top: number;
-	height: number;
-}
-
 /**
- * Shows a chat bubble icon in the gutter when text is selected.
+ * Shows a chat bubble icon in the gutter adjacent to selected text.
  * Clicking the icon opens the annotation creation popover.
- * Styled to match the CodeBlock annotation indicators.
+ *
+ * Renders via createPortal into the gutter element so it scrolls
+ * naturally with content -- no scroll listener needed.
  */
 export function SelectionIndicator({
 	selection,
@@ -32,115 +28,67 @@ export function SelectionIndicator({
 	gutterRef,
 	onClick,
 }: SelectionIndicatorProps) {
-	const [indicatorPos, setIndicatorPos] = useState<IndicatorPosition | null>(
-		null,
-	);
+	const [relativeTop, setRelativeTop] = useState<number | null>(null);
 
 	useEffect(() => {
-		if (!containerRef.current || !gutterRef.current) {
-			return;
-		}
+		if (!containerRef.current || !gutterRef.current) return;
 
 		const container = containerRef.current;
 		const { selectedText, contextBefore, contextAfter } = selection;
 
-		const fullText = container.textContent ?? "";
+		const nodes = getEditableTextNodes(container);
+		const fullText = getEditableText(container);
 		const searchPattern = contextBefore + selectedText + contextAfter;
 		const patternIndex = fullText.indexOf(searchPattern);
 
-		if (patternIndex === -1) {
-			return;
-		}
+		if (patternIndex === -1) return;
 
 		const startIndex = patternIndex + contextBefore.length;
 		const endIndex = startIndex + selectedText.length;
+		const found = findTextRange(nodes, startIndex, endIndex);
 
-		const walker = document.createTreeWalker(
-			container,
-			NodeFilter.SHOW_TEXT,
-			null,
-		);
-
-		let currentOffset = 0;
-		let startNode: Text | null = null;
-		let startOffset = 0;
-		let endNode: Text | null = null;
-		let endOffset = 0;
-
-		let node = walker.nextNode() as Text | null;
-		while (node) {
-			const nodeLength = node.textContent?.length ?? 0;
-			const nodeEnd = currentOffset + nodeLength;
-
-			if (!startNode && startIndex < nodeEnd) {
-				startNode = node;
-				startOffset = startIndex - currentOffset;
-			}
-
-			if (!endNode && endIndex <= nodeEnd) {
-				endNode = node;
-				endOffset = endIndex - currentOffset;
-				break;
-			}
-
-			currentOffset = nodeEnd;
-			node = walker.nextNode() as Text | null;
-		}
-
-		if (startNode && endNode && gutterRef.current) {
+		if (found) {
+			const { startNode, startOffset, endNode, endOffset } = found;
 			try {
 				const range = document.createRange();
 				range.setStart(startNode, startOffset);
 				range.setEnd(endNode, endOffset);
 				const rect = range.getBoundingClientRect();
-				const gutterRect = gutterRef.current.getBoundingClientRect();
+				const gutterRect = gutterRef.current!.getBoundingClientRect();
 
-				setIndicatorPos({
-					top: rect.top - gutterRect.top,
-					height: rect.height,
-				});
+				setRelativeTop(rect.top - gutterRect.top);
 			} catch {
 				// Range creation can fail if offsets are invalid
 			}
 		}
 	}, [selection, containerRef, gutterRef]);
 
-	if (!indicatorPos || !gutterRef.current) {
-		return null;
-	}
+	if (relativeTop === null || !gutterRef.current) return null;
 
 	const handleClick = (e: React.MouseEvent) => {
 		e.stopPropagation();
 		onClick();
 	};
 
+	const handleMouseDown = (e: React.MouseEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+	};
+
 	return createPortal(
-		<TooltipProvider>
-			<Tooltip>
-				<TooltipTrigger asChild>
-					<button
-						type="button"
-						onClick={handleClick}
-						className="absolute left-0 right-0 cursor-pointer group animate-in fade-in duration-200"
-						style={{
-							top: indicatorPos.top,
-							height: Math.max(indicatorPos.height, 20),
-						}}
-						aria-label="Add annotation to selected text"
-					>
-						{/* Chat bubble icon - same style as CodeBlock */}
-						<div className="absolute right-0.5 top-0 flex items-center justify-center rounded px-1 py-0.5 transition-all bg-annotation-open/20 text-annotation-open hover:bg-annotation-open/30 hover:scale-110">
-							<MessageSquare
-								className="h-3 w-3"
-								fill="currentColor"
-								aria-hidden="true"
-							/>
-						</div>
-					</button>
-				</TooltipTrigger>
-				<TooltipContent side="left">Add comment</TooltipContent>
-			</Tooltip>
-		</TooltipProvider>,
+		<button
+			type="button"
+			onClick={handleClick}
+			onMouseDown={handleMouseDown}
+			className="absolute right-0.5 flex items-center justify-center rounded px-1 py-0.5 cursor-pointer animate-in fade-in duration-150 bg-accent-amber/20 text-accent-amber hover:bg-accent-amber/30 hover:scale-110 transition-all"
+			style={{
+				top: relativeTop,
+			}}
+			aria-label="Add annotation to selected text"
+			title="Add comment"
+		>
+			<MessageSquare className="h-3 w-3" fill="currentColor" />
+		</button>,
 		gutterRef.current,
 	);
 }

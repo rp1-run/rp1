@@ -3,194 +3,104 @@
 @tailwind utilities;
 
 @font-face {
-  font-family: "JetBrains Mono";
-  src: url("/fonts/JetBrainsMono/JetBrainsMono-Regular.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "JetBrains Mono";
-  src: url("/fonts/JetBrainsMono/JetBrainsMono-Medium.woff2") format("woff2");
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "JetBrains Mono";
-  src: url("/fonts/JetBrainsMono/JetBrainsMono-Bold.woff2") format("woff2");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Geist Sans";
-  src: url("/fonts/GeistSans/GeistSans-Regular.woff2") format("woff2");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Geist Sans";
-  src: url("/fonts/GeistSans/GeistSans-Medium.woff2") format("woff2");
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "Geist Sans";
-  src: url("/fonts/GeistSans/GeistSans-SemiBold.woff2") format("woff2");
-  font-weight: 600;
+  font-family: "Commit Mono";
+  src: url("/fonts/CommitMono/CommitMono-VF.woff2") format("woff2");
+  font-weight: 400 500;
   font-style: normal;
   font-display: swap;
 }
 
 @layer base {
   :root {
-    --radius: 0.5rem;
+    --radius: 4px;
+
+    /* Spacing tokens (4px base grid) */
+    --space-xs: 4px;
+    --space-sm: 8px;
+    --space-md: 16px;
+    --space-lg: 24px;
+    --space-xl: 40px;
+    --space-2xl: 64px;
   }
 
-  /* Catppuccin Latte (Light Theme) - with improved contrast */
+  /* Light mode — warm stone grays (HSL hue 40) */
   :root,
   [data-theme="light"] {
-    --background: 220 23% 95%;
-    --foreground: 234 16% 20%;
-    --card: 220 23% 95%;
-    --card-foreground: 234 16% 20%;
-    --popover: 220 23% 98%;
-    --popover-foreground: 234 16% 20%;
-    --primary: 266 85% 48%;
-    --primary-foreground: 220 23% 98%;
-    --secondary: 223 16% 83%;
-    --secondary-foreground: 234 16% 20%;
-    --muted: 223 16% 83%;
-    --muted-foreground: 228 14% 38%;
-    --accent: 223 16% 88%;
-    --accent-foreground: 234 16% 20%;
-    --destructive: 347 87% 44%;
-    --destructive-foreground: 220 23% 95%;
-    --border: 225 14% 77%;
-    --input: 225 14% 77%;
-    --ring: 266 85% 58%;
+    --void: 40 6% 90%;
+    --base: 40 6% 94%;
+    --surface: 40 6% 98%;
+    --fg: 40 10% 15%;
+    --fg-muted: 40 6% 38%;
+    --fg-ghost: 40 4% 41%;
+    --border: 40 4% 82%;
+    --accent: 35 62% 52%;
+    --accent-ghost: 38 28% 93%;
+    --failure: 0 55% 48%;
+    --terminal-green: 145 40% 36%;
+    --terminal-yellow: 40 50% 45%;
 
-    /* Surface depth hierarchy -- 4 levels from deepest to elevated */
-    --bg-void: 220 23% 92%;
-    --bg-base: 220 23% 95%;
-    --bg-surface: 220 23% 98%;
-    --bg-elevated: 0 0% 100%;
+    /* shadcn compatibility mappings */
+    --background: var(--base);
+    --foreground: var(--fg);
+    --card: var(--surface);
+    --card-foreground: var(--fg);
+    --popover: var(--surface);
+    --popover-foreground: var(--fg);
+    --primary: var(--fg);
+    --primary-foreground: var(--surface);
+    --secondary: var(--void);
+    --secondary-foreground: var(--fg);
+    --muted: var(--void);
+    --muted-foreground: var(--fg-muted);
+    --accent-ui: var(--accent-ghost);
+    --accent-ui-foreground: var(--fg);
+    --destructive: var(--failure);
+    --destructive-foreground: var(--surface);
+    --input: var(--border);
+    --ring: var(--accent);
 
-    /* Border hierarchy -- 3 tiers from subtle to accent glow */
-    --border-subtle: 225 14% 90%;
-    --border-default: 225 14% 77%;
-    --border-glow: 266 85% 58%;
-
-    /* Glow accent variants -- used in box-shadow contexts */
-    --glow-primary: 266 85% 58% / 0.15;
-    --glow-success: 109 58% 40% / 0.15;
-    --glow-info: 220 91% 54% / 0.15;
-
-    /* Annotation and warning colors */
-    --annotation-open: 22 99% 52%;
-    --status-warning: 22 99% 52%;
-    --bg-terminal-yellow: 35 77% 49%;
-
-    /* Terminal aesthetic - Catppuccin Latte */
-    --terminal-green: 109 58% 40%;
-    --terminal-cursor: 109 58% 40%;
-    --terminal-mauve: 266 85% 58%;
-    --terminal-red: 347 87% 44%;
-    --terminal-yellow: 35 77% 49%;
-
-    /* Status colors - Catppuccin Latte */
-    --status-queued: 228 11% 65%;
-    --status-running: 220 91% 54%;
-    --status-waiting: 22 99% 52%;
-    --status-warning: 22 99% 52%;
-    --status-completed: 109 58% 40%;
-    --status-failed: 347 87% 44%;
-    --status-needs-review: 266 85% 58%;
-
-    /* Status accent bar colors - lighter, luminous tones for border accents */
-    --status-accent-queued: 228 15% 72%;
-    --status-accent-running: 217 82% 62%;
-    --status-accent-waiting: 25 90% 58%;
-    --status-accent-completed: 142 48% 50%;
-    --status-accent-failed: 350 72% 56%;
-    --status-accent-needs-review: 267 68% 62%;
+    /* Annotation colors */
+    --annotation-open: var(--accent);
   }
 
-  /* Catppuccin Mocha (Dark Theme) */
+  /* Dark mode — warm stone grays (HSL hue 30, 8-10% saturation) */
   .dark,
   [data-theme="dark"] {
-    --background: 240 21% 15%;
-    --foreground: 226 64% 88%;
-    --card: 240 21% 15%;
-    --card-foreground: 226 64% 88%;
-    --popover: 237 16% 23%;
-    --popover-foreground: 226 64% 88%;
-    --primary: 267 83% 80%;
-    --primary-foreground: 240 21% 15%;
-    --secondary: 237 16% 23%;
-    --secondary-foreground: 226 64% 88%;
-    --muted: 237 16% 23%;
-    --muted-foreground: 227 27% 64%;
-    --accent: 267 83% 80%;
-    --accent-foreground: 240 21% 15%;
-    --destructive: 343 81% 75%;
-    --destructive-foreground: 240 21% 15%;
-    --border: 234 13% 31%;
-    --input: 234 13% 31%;
-    --ring: 267 83% 80%;
+    --void: 30 9% 8%;
+    --base: 30 8% 12%;
+    --surface: 30 8% 16%;
+    --fg: 40 10% 88%;
+    --fg-muted: 40 8% 58%;
+    --fg-ghost: 40 6% 55%;
+    --border: 30 6% 22%;
+    --accent: 35 58% 55%;
+    --accent-ghost: 35 15% 16%;
+    --failure: 0 50% 58%;
+    --terminal-green: 145 45% 55%;
+    --terminal-yellow: 38 55% 55%;
 
-    /* Surface depth hierarchy -- 4 levels from deepest to elevated */
-    --bg-void: 240 50% 4%;
-    --bg-base: 240 30% 9%;
-    --bg-surface: 240 25% 14%;
-    --bg-elevated: 240 20% 18%;
+    /* shadcn compatibility mappings */
+    --background: var(--base);
+    --foreground: var(--fg);
+    --card: var(--surface);
+    --card-foreground: var(--fg);
+    --popover: var(--surface);
+    --popover-foreground: var(--fg);
+    --primary: var(--fg);
+    --primary-foreground: var(--void);
+    --secondary: var(--void);
+    --secondary-foreground: var(--fg);
+    --muted: var(--void);
+    --muted-foreground: var(--fg-muted);
+    --accent-ui: var(--accent-ghost);
+    --accent-ui-foreground: var(--fg);
+    --destructive: var(--failure);
+    --destructive-foreground: var(--fg);
+    --input: var(--border);
+    --ring: var(--accent);
 
-    /* Border hierarchy -- 3 tiers from subtle to accent glow */
-    --border-subtle: 240 20% 18%;
-    --border-default: 234 13% 31%;
-    --border-glow: 267 83% 80%;
-
-    /* Glow accent variants -- used in box-shadow contexts */
-    --glow-primary: 267 83% 80% / 0.3;
-    --glow-success: 115 54% 76% / 0.3;
-    --glow-info: 217 92% 76% / 0.3;
-
-    /* Annotation and warning colors */
-    --annotation-open: 23 92% 75%;
-    --status-warning: 23 92% 75%;
-    --bg-terminal-yellow: 40 62% 73%;
-
-    /* Terminal aesthetic - Catppuccin Mocha */
-    --terminal-green: 115 54% 76%;
-    --terminal-cursor: 115 54% 76%;
-    --terminal-mauve: 267 83% 80%;
-    --terminal-red: 343 81% 75%;
-    --terminal-yellow: 41 86% 83%;
-
-    /* Status colors - Catppuccin Mocha */
-    --status-queued: 230 25% 44%;
-    --status-running: 217 92% 76%;
-    --status-waiting: 23 92% 75%;
-    --status-warning: 23 92% 75%;
-    --status-completed: 115 54% 76%;
-    --status-failed: 343 81% 75%;
-    --status-needs-review: 267 83% 80%;
-
-    /* Status accent bar colors - vivid, saturated tones for dark mode accents */
-    --status-accent-queued: 230 25% 52%;
-    --status-accent-running: 217 92% 72%;
-    --status-accent-waiting: 23 92% 70%;
-    --status-accent-completed: 142 50% 65%;
-    --status-accent-failed: 343 81% 70%;
-    --status-accent-needs-review: 267 83% 76%;
+    /* Annotation colors */
+    --annotation-open: var(--accent);
   }
 }
 
@@ -200,11 +110,42 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans;
+    @apply bg-background text-foreground font-mono;
   }
 }
 
 @layer components {
+  /* Typography utility classes */
+  .type-title {
+    font-size: 16px;
+    font-weight: 500;
+    letter-spacing: 0;
+    line-height: 1.4;
+  }
+
+  .type-body {
+    font-size: 13px;
+    font-weight: 400;
+    letter-spacing: 0;
+    line-height: 1.5;
+  }
+
+  .type-secondary {
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 0;
+    line-height: 1.4;
+  }
+
+  .type-caption {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    line-height: 1.4;
+  }
+
+  /* Markdown content styles */
   .markdown-content {
     @apply max-w-none;
   }
@@ -217,7 +158,6 @@
     @apply mb-0;
   }
 
-  /* Responsive table styling (T1) */
   .markdown-content table {
     @apply min-w-full;
   }
@@ -226,47 +166,55 @@
     @apply max-w-full overflow-x-auto;
   }
 
-  /* Task list container styling (T3) */
-  .markdown-content ul.contains-task-list {
+  .markdown-content > ul.contains-task-list {
     @apply list-none ml-0 pl-0;
   }
 
-  /* Task list items - use padding + absolute positioning for checkbox */
+  .markdown-content li > ul.contains-task-list {
+    @apply list-none pl-0 ml-2;
+  }
+
   .markdown-content li.task-list-item {
     @apply list-none ml-0;
     position: relative;
     padding-left: 1.5rem;
   }
 
-  /* Task checkboxes - position absolutely at the start */
-  .markdown-content li.task-list-item > input[type="checkbox"] {
-    @apply h-4 w-4 rounded border-border;
-    position: absolute;
-    left: 0;
-    top: 0.375rem;
-    accent-color: hsl(var(--terminal-green));
+  .markdown-content > ul.contains-task-list > li.task-list-item:has(> p) + li.task-list-item:has(> p) {
+    @apply mt-6 pt-6;
+    border-top: 1px solid hsl(var(--border));
   }
 
-  /* Checked state distinction */
+  .markdown-content li.task-list-item > input[type="checkbox"] {
+    @apply h-4 w-4 rounded;
+    border: 1px solid hsl(var(--border));
+    position: absolute;
+    left: 0;
+    top: 0.25rem;
+    accent-color: hsl(var(--accent));
+  }
+
+  .markdown-content li.task-list-item > input[type="checkbox"] + p {
+    @apply mt-0;
+  }
+
   .markdown-content li.task-list-item > input[type="checkbox"]:checked {
     @apply opacity-80;
   }
 
-  /* Nested tables in lists (T5) */
   .markdown-content li > .table-wrapper,
   .markdown-content li > table {
     @apply my-2;
   }
 
-  /* Nested lists maintain proper spacing (T5) */
   .markdown-content li > ul,
   .markdown-content li > ol {
     @apply mt-2 mb-0;
   }
 
-  /* Heading styles (T2) */
   .markdown-content h1 {
-    @apply scroll-m-20 text-3xl font-bold tracking-tight mb-4 mt-6;
+    @apply scroll-m-20 font-medium mb-4 mt-6;
+    font-size: 16px;
   }
 
   .markdown-content h1:first-child {
@@ -274,26 +222,36 @@
   }
 
   .markdown-content h2 {
-    @apply scroll-m-20 text-2xl font-semibold tracking-tight mt-8 mb-4 border-b pb-2;
+    @apply scroll-m-20 font-medium mt-8 mb-4 border-b pb-2;
+    font-size: 16px;
   }
 
   .markdown-content h3 {
-    @apply scroll-m-20 text-xl font-semibold tracking-tight mt-6 mb-3;
+    @apply scroll-m-20 font-medium mt-6 mb-3;
+    font-size: 13px;
+  }
+
+  .markdown-content h3 + ul.contains-task-list + h3 {
+    @apply mt-8 pt-6;
+    border-top: 1px solid hsl(var(--border));
   }
 
   .markdown-content h4 {
-    @apply scroll-m-20 text-lg font-semibold tracking-tight mt-4 mb-2;
+    @apply scroll-m-20 font-medium mt-4 mb-2;
+    font-size: 13px;
   }
 
   .markdown-content h5 {
-    @apply scroll-m-20 text-base font-semibold tracking-tight mt-4 mb-2;
+    @apply scroll-m-20 font-medium mt-4 mb-2;
+    font-size: 13px;
   }
 
   .markdown-content h6 {
-    @apply scroll-m-20 text-sm font-semibold tracking-tight mt-4 mb-2 text-muted-foreground;
+    @apply scroll-m-20 font-medium mt-4 mb-2;
+    font-size: 11px;
+    color: hsl(var(--fg-muted));
   }
 
-  /* Text element styles (T2) */
   .markdown-content p {
     @apply leading-7;
   }
@@ -303,7 +261,7 @@
   }
 
   .markdown-content strong {
-    @apply font-bold;
+    @apply font-medium;
   }
 
   .markdown-content em {
@@ -311,10 +269,10 @@
   }
 
   .markdown-content del {
-    @apply line-through text-muted-foreground;
+    @apply line-through;
+    color: hsl(var(--fg-muted));
   }
 
-  /* List styles (T2) */
   .markdown-content ul {
     @apply my-4 ml-6 list-disc;
   }
@@ -327,35 +285,38 @@
     @apply mt-2;
   }
 
-  /* Blockquote and hr styles (T2) */
   .markdown-content blockquote {
-    @apply mt-4 border-l-4 border-terminal-green pl-4 italic text-muted-foreground;
+    @apply mt-4 border-l-4 pl-4 italic;
+    border-color: hsl(var(--border));
+    color: hsl(var(--fg-muted));
   }
 
   .markdown-content hr {
-    @apply my-6 border-border;
+    @apply my-6;
+    border-color: hsl(var(--border));
   }
 
-  /* Image styles (T2) */
   .markdown-content img {
-    @apply my-4 max-w-full rounded-md;
+    @apply my-4 max-w-full;
+    border-radius: var(--radius);
   }
 
-  /* Table cell styles (T2) */
   .markdown-content thead {
-    @apply border-b bg-muted/50;
+    @apply border-b;
+    background-color: hsl(var(--void) / 0.5);
   }
 
   .markdown-content tbody tr:nth-child(even) {
-    @apply bg-muted/30;
+    background-color: hsl(var(--void) / 0.3);
   }
 
   .markdown-content tr {
-    @apply border-b border-border;
+    @apply border-b;
+    border-color: hsl(var(--border));
   }
 
   .markdown-content th {
-    @apply px-3 py-2 text-left font-semibold;
+    @apply px-3 py-2 text-left font-medium;
   }
 
   .markdown-content td {
@@ -374,7 +335,7 @@
   .shiki-container pre code {
     display: flex;
     flex-direction: column;
-    font-family: "JetBrains Mono", monospace;
+    font-family: "Commit Mono", monospace;
   }
 
   .shiki-container .line {
@@ -382,12 +343,10 @@
     line-height: 1.5rem;
   }
 
-  /* Ensure empty lines have content for proper height */
   .shiki-container .line:empty::after {
-    content: "\200b"; /* zero-width space */
+    content: "\200b";
   }
 
-  /* Shiki dual theme support - variables are defined inline on each span */
   .shiki,
   .shiki span {
     color: var(--shiki-light);
@@ -403,184 +362,407 @@
     max-width: none;
     overflow: visible;
   }
-}
 
-/* React Flow style overrides — integrate with Catppuccin design system */
-.react-flow__background {
-  background-color: hsl(var(--bg-surface));
-}
-
-.react-flow__edge-path {
-  stroke: hsl(var(--border));
-}
-
-.react-flow__controls {
-  background-color: hsl(var(--card));
-  border: 1px solid hsl(var(--border));
-  border-radius: var(--radius);
-  box-shadow: 0 1px 3px hsl(var(--bg-void) / 0.2);
-}
-
-.react-flow__controls-button {
-  background-color: hsl(var(--card));
-  border-color: hsl(var(--border));
-  fill: hsl(var(--foreground));
-}
-
-.react-flow__controls-button:hover {
-  background-color: hsl(var(--accent));
-}
-
-/* Step node transition animation for live status changes */
-@keyframes step-transition {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.04); }
-  100% { transform: scale(1); }
-}
-
-.animate-step-transition {
-  animation: step-transition 400ms ease-out;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .animate-step-transition {
-    animation: none;
+  /* Artifact viewer panel: code blocks use void background */
+  .artifact-viewer-content .shiki-container {
+    background-color: hsl(var(--void));
+    border-radius: 4px;
+    padding: 16px;
   }
+
+  .artifact-viewer-content code:not(pre code) {
+    background-color: hsl(var(--void));
+    border-radius: 4px;
+    padding: 0.15em 0.3em;
+  }
+
+  /* Milkdown editor: design system integration */
+  .milkdown-editor-root {
+    position: relative;
+  }
+
+  .milkdown-editor-root .milkdown {
+    outline: none;
+  }
+
+  .milkdown-editor-root .ProseMirror {
+    font-family: "Commit Mono", monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    color: hsl(var(--fg));
+    padding: 16px;
+    outline: none;
+    min-height: 200px;
+  }
+
+  .milkdown-editor-root .ProseMirror-selectednode {
+    outline: 1px solid hsl(var(--border));
+  }
+
+  .milkdown-editor-root .ProseMirror > *:first-child {
+    margin-top: 0;
+  }
+
+  .milkdown-editor-root .ProseMirror > *:last-child {
+    margin-bottom: 0;
+  }
+
+  .milkdown-editor-root .ProseMirror h1 {
+    font-size: 16px;
+    font-weight: 500;
+    margin-top: 24px;
+    margin-bottom: 16px;
+    line-height: 1.4;
+  }
+
+  .milkdown-editor-root .ProseMirror h1:first-child {
+    margin-top: 0;
+  }
+
+  .milkdown-editor-root .ProseMirror h2 {
+    font-size: 16px;
+    font-weight: 500;
+    margin-top: 32px;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid hsl(var(--border));
+    line-height: 1.4;
+  }
+
+  .milkdown-editor-root .ProseMirror h3 {
+    font-size: 13px;
+    font-weight: 500;
+    margin-top: 24px;
+    margin-bottom: 12px;
+    line-height: 1.4;
+  }
+
+  .milkdown-editor-root .ProseMirror h4,
+  .milkdown-editor-root .ProseMirror h5 {
+    font-size: 13px;
+    font-weight: 500;
+    margin-top: 16px;
+    margin-bottom: 8px;
+    line-height: 1.4;
+  }
+
+  .milkdown-editor-root .ProseMirror h6 {
+    font-size: 11px;
+    font-weight: 500;
+    margin-top: 16px;
+    margin-bottom: 8px;
+    color: hsl(var(--fg-muted));
+    line-height: 1.4;
+  }
+
+  .milkdown-editor-root .ProseMirror p {
+    margin-top: 16px;
+    margin-bottom: 0;
+    line-height: 1.75;
+  }
+
+  .milkdown-editor-root .ProseMirror p:first-child {
+    margin-top: 0;
+  }
+
+  .milkdown-editor-root .ProseMirror strong {
+    font-weight: 500;
+  }
+
+  .milkdown-editor-root .ProseMirror em {
+    font-style: italic;
+  }
+
+  .milkdown-editor-root .ProseMirror del {
+    text-decoration: line-through;
+    color: hsl(var(--fg-muted));
+  }
+
+  .milkdown-editor-root .ProseMirror ul {
+    list-style-type: disc;
+    margin: 16px 0;
+    padding-left: 24px;
+  }
+
+  .milkdown-editor-root .ProseMirror ol {
+    list-style-type: decimal;
+    margin: 16px 0;
+    padding-left: 24px;
+  }
+
+  .milkdown-editor-root .ProseMirror li {
+    margin-top: 8px;
+  }
+
+  .milkdown-editor-root .ProseMirror li > ul,
+  .milkdown-editor-root .ProseMirror li > ol {
+    margin-top: 8px;
+    margin-bottom: 0;
+  }
+
+  .milkdown-editor-root .ProseMirror blockquote {
+    margin-top: 16px;
+    border-left: 4px solid hsl(var(--border));
+    padding-left: 16px;
+    font-style: italic;
+    color: hsl(var(--fg-muted));
+  }
+
+  .milkdown-editor-root .ProseMirror hr {
+    margin: 24px 0;
+    border: none;
+    border-top: 1px solid hsl(var(--border));
+  }
+
+  .milkdown-editor-root .ProseMirror code {
+    font-family: "Commit Mono", monospace;
+    font-size: 12px;
+    background-color: hsl(var(--void));
+    border-radius: 4px;
+    padding: 0.15em 0.3em;
+  }
+
+  .milkdown-editor-root .ProseMirror pre {
+    background-color: hsl(var(--void));
+    border-radius: 4px;
+    padding: 16px;
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+
+  .milkdown-editor-root .ProseMirror pre code {
+    background: none;
+    padding: 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: inherit;
+  }
+
+  /* Milkdown editor: dual-theme syntax highlighting via prosemirror-highlight.
+     In dark mode, override inline color with the --shiki-dark variable. */
+  html.dark .milkdown-editor-root .shiki {
+    color: var(--shiki-dark) !important;
+  }
+
+  .milkdown-mermaid-container {
+    margin: 16px 0;
+    border-radius: 4px;
+    background-color: hsl(var(--surface));
+    overflow: hidden;
+  }
+
+  .milkdown-mermaid-tabs {
+    display: flex;
+    border-bottom: 1px solid hsl(var(--border));
+  }
+
+  .milkdown-mermaid-tab {
+    padding: 4px 12px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: hsl(var(--fg-ghost));
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: color 150ms;
+  }
+
+  .milkdown-mermaid-tab:hover {
+    color: hsl(var(--fg-muted));
+  }
+
+  .milkdown-mermaid-tab.active {
+    color: hsl(var(--fg));
+    box-shadow: inset 0 -1px 0 hsl(var(--fg));
+  }
+
+  .milkdown-mermaid-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: auto;
+    padding-right: 4px;
+  }
+
+  .milkdown-mermaid-action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: hsl(var(--fg-ghost));
+    cursor: pointer;
+    border-radius: 4px;
+    transition: color 150ms;
+  }
+
+  .milkdown-mermaid-action:hover {
+    color: hsl(var(--fg));
+  }
+
+  .milkdown-mermaid-inner[data-tab="code"] .milkdown-mermaid-actions {
+    display: none;
+  }
+
+  .milkdown-mermaid-code {
+    background-color: hsl(var(--void));
+    padding: 16px;
+    margin: 0;
+    overflow-x: auto;
+  }
+
+  .milkdown-editor-root .ProseMirror .line-number {
+    color: hsl(var(--fg-ghost) / 0.5);
+    font-size: 11px;
+    user-select: none;
+    text-align: right;
+    padding-right: 16px;
+    min-width: 32px;
+    display: inline-block;
+  }
+
+  /* In preview mode, collapse the code area without display:none */
+  .milkdown-mermaid-inner[data-tab="preview"] .milkdown-mermaid-code {
+    height: 0;
+    overflow: hidden;
+    padding: 0;
+  }
+
+  .milkdown-mermaid-code code {
+    background: none;
+    padding: 0;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .milkdown-mermaid-preview {
+    display: flex;
+    justify-content: center;
+    padding: 16px;
+    overflow-x: auto;
+  }
+
+  /* In code mode, hide the preview */
+  .milkdown-mermaid-inner[data-tab="code"] .milkdown-mermaid-preview {
+    display: none;
+  }
+
+  .milkdown-mermaid-preview svg {
+    max-width: none;
+    height: auto;
+  }
+
+  .milkdown-mermaid-preview.mermaid-error {
+    color: hsl(var(--failure));
+    font-size: 11px;
+    padding: 8px 16px;
+  }
+
+  .milkdown-editor-root .ProseMirror a {
+    color: hsl(var(--accent));
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .milkdown-editor-root .ProseMirror img {
+    max-width: 100%;
+    margin: 16px 0;
+    border-radius: 4px;
+  }
+
+  .milkdown-editor-root .ProseMirror table {
+    border-collapse: collapse;
+    min-width: 100%;
+    margin: 16px 0;
+  }
+
+  .milkdown-editor-root .ProseMirror thead {
+    border-bottom: 1px solid hsl(var(--border));
+    background-color: hsl(var(--void) / 0.5);
+  }
+
+  .milkdown-editor-root .ProseMirror tbody tr:nth-child(even) {
+    background-color: hsl(var(--void) / 0.3);
+  }
+
+  .milkdown-editor-root .ProseMirror tr {
+    border-bottom: 1px solid hsl(var(--border));
+  }
+
+  .milkdown-editor-root .ProseMirror th {
+    padding: 8px 12px;
+    text-align: left;
+    font-weight: 500;
+  }
+
+  .milkdown-editor-root .ProseMirror td {
+    padding: 8px 12px;
+  }
+
+  .milkdown-editor-root .ProseMirror .task-list-item {
+    list-style: none;
+    position: relative;
+    padding-left: 24px;
+  }
+
+  .milkdown-editor-root .ProseMirror .task-list-item input[type="checkbox"] {
+    position: absolute;
+    left: 0;
+    top: 4px;
+    width: 16px;
+    height: 16px;
+    border: 1px solid hsl(var(--border));
+    border-radius: 4px;
+    accent-color: hsl(var(--accent));
+  }
+
+  /* Artifact viewer annotation indicators: small amber dots in gutter */
+  .artifact-viewer-content .w-5 button .w-0\.5 {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: hsl(var(--accent));
+    position: static;
+  }
+
 }
 
-/* Active state glow animation — outside @layer for maximum specificity over mermaid's internal <style> */
-@keyframes active-state-glow {
+/* Active annotation highlight via CSS Custom Highlight API */
+::highlight(active-annotation) {
+  background-color: hsl(var(--accent) / 0.15);
+}
+
+/* Status pulse animation — the only continuous animation in the design system */
+@keyframes status-pulse {
   0%, 100% {
-    filter: drop-shadow(0 0 4px hsl(var(--status-running) / 0.4));
+    opacity: 0.4;
   }
   50% {
-    filter: drop-shadow(0 0 12px hsl(var(--status-running) / 0.6));
+    opacity: 1;
   }
 }
 
-.mermaid-svg .currentState {
-  animation: active-state-glow 2s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .mermaid-svg .currentState {
-    animation: none;
-    filter: drop-shadow(0 0 8px hsl(var(--status-running) / 0.5));
-  }
+.animate-status-pulse {
+  animation: status-pulse 1.8s ease-in-out infinite;
 }
 
 @layer utilities {
-  .text-terminal-green {
-    color: hsl(var(--terminal-green));
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
   }
 
-  .border-terminal-green {
-    border-color: hsl(var(--terminal-green));
+  /* Annotation color utilities */
+  .text-annotation-open {
+    color: hsl(var(--annotation-open));
   }
 
-  .bg-terminal-green {
-    background-color: hsl(var(--terminal-green));
-  }
-
-  .text-terminal-mauve {
-    color: hsl(var(--terminal-mauve));
-  }
-
-  .text-terminal-red {
-    color: hsl(var(--terminal-red));
-  }
-
-  .text-terminal-yellow {
-    color: hsl(var(--terminal-yellow));
-  }
-
-  .bg-terminal-yellow {
-    background-color: hsl(var(--terminal-yellow));
-  }
-
-  /* Status color utilities */
-  .text-status-queued {
-    color: hsl(var(--status-queued));
-  }
-
-  .bg-status-queued {
-    background-color: hsl(var(--status-queued));
-  }
-
-  .text-status-running {
-    color: hsl(var(--status-running));
-  }
-
-  .bg-status-running {
-    background-color: hsl(var(--status-running));
-  }
-
-  .text-status-waiting {
-    color: hsl(var(--status-waiting));
-  }
-
-  .bg-status-waiting {
-    background-color: hsl(var(--status-waiting));
-  }
-
-  .text-status-completed {
-    color: hsl(var(--status-completed));
-  }
-
-  .bg-status-completed {
-    background-color: hsl(var(--status-completed));
-  }
-
-  .text-status-failed {
-    color: hsl(var(--status-failed));
-  }
-
-  .bg-status-failed {
-    background-color: hsl(var(--status-failed));
-  }
-
-  .text-status-needs-review {
-    color: hsl(var(--status-needs-review));
-  }
-
-  .bg-status-needs-review {
-    background-color: hsl(var(--status-needs-review));
-  }
-
-  .text-status-warning {
-    color: hsl(var(--status-warning));
-  }
-
-  .bg-status-warning {
-    background-color: hsl(var(--status-warning));
-  }
-
-  @keyframes blink {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0; }
-  }
-
-  .animate-blink {
-    animation: blink 1s ease-in-out infinite;
-  }
-
-  @keyframes pulse-gentle {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
-  }
-
-  .animate-pulse-gentle {
-    animation: pulse-gentle 1.3s ease-in-out infinite;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .animate-blink {
-      animation: none;
-    }
-
-    .animate-pulse-gentle {
-      animation: none;
-    }
+  .bg-annotation-open {
+    background-color: hsl(var(--annotation-open));
   }
 
   .sr-only {
@@ -605,202 +787,20 @@
     clip: auto;
     white-space: normal;
   }
-
-  /* Glassmorphic utility */
-  .glass {
-    backdrop-filter: blur(12px) saturate(140%);
-    -webkit-backdrop-filter: blur(12px) saturate(140%);
-    background-color: hsl(var(--bg-surface) / 0.6);
-    border: 1px solid hsl(var(--border-subtle));
-  }
-
-  /* Glow accent utilities */
-  .glow-primary {
-    box-shadow: 0 0 16px 2px hsl(var(--glow-primary));
-  }
-
-  .glow-success {
-    box-shadow: 0 0 16px 2px hsl(var(--glow-success));
-  }
-
-  .glow-info {
-    box-shadow: 0 0 16px 2px hsl(var(--glow-info));
-  }
-
-  /* Grain texture utility */
-  .grain {
-    position: relative;
-  }
-
-  .grain::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    opacity: 0.04;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    z-index: 1;
-  }
-
-  /* Tabular numbers for numerical alignment */
-  .tabular-nums {
-    font-variant-numeric: tabular-nums;
-  }
-
-  /* Annotation color utilities */
-  .text-annotation-open {
-    color: hsl(var(--annotation-open));
-  }
-
-  .bg-annotation-open {
-    background-color: hsl(var(--annotation-open));
-  }
-
-  /* Status warning utilities */
-  .text-status-warning {
-    color: hsl(var(--status-warning));
-  }
-
-  .bg-status-warning {
-    background-color: hsl(var(--status-warning));
-  }
-
-  /* Terminal yellow background utility */
-  .bg-terminal-yellow {
-    background-color: hsl(var(--bg-terminal-yellow));
-  }
-
-  /* Status glow utilities -- box-shadow variants per status using accent palette */
-  .glow-status-running {
-    box-shadow: 0 0 12px 1px hsl(var(--status-accent-running) / 0.2);
-  }
-
-  .glow-status-failed {
-    box-shadow: 0 0 12px 1px hsl(var(--status-accent-failed) / 0.2);
-  }
-
-  .glow-status-completed {
-    box-shadow: 0 0 12px 1px hsl(var(--status-accent-completed) / 0.2);
-  }
-
-  .glow-status-waiting {
-    box-shadow: 0 0 12px 1px hsl(var(--status-accent-waiting) / 0.2);
-  }
-
-  .glow-status-needs-review {
-    box-shadow: 0 0 12px 1px hsl(var(--status-accent-needs-review) / 0.2);
-  }
-
-  .glow-status-queued {
-    box-shadow: 0 0 12px 1px hsl(var(--status-accent-queued) / 0.1);
-  }
-
-  /* Glow pulse keyframes -- uses CSS custom property --glow-color set inline */
-  @keyframes glow-pulse {
-    0%, 100% {
-      box-shadow: 0 0 8px 1px var(--glow-color);
-    }
-    50% {
-      box-shadow: 0 0 24px 4px var(--glow-color);
-    }
-  }
-
-  .animate-glow-pulse {
-    animation: glow-pulse 2s ease-in-out infinite;
-  }
-
-  /* Border color utilities for status accent bars -- use dedicated accent palette */
-  .border-l-status-running {
-    border-left-color: hsl(var(--status-accent-running));
-  }
-
-  .border-l-status-failed {
-    border-left-color: hsl(var(--status-accent-failed));
-  }
-
-  .border-l-status-completed {
-    border-left-color: hsl(var(--status-accent-completed));
-  }
-
-  .border-l-status-waiting {
-    border-left-color: hsl(var(--status-accent-waiting));
-  }
-
-  .border-l-status-needs-review {
-    border-left-color: hsl(var(--status-accent-needs-review));
-  }
-
-  .border-l-status-queued {
-    border-left-color: hsl(var(--status-accent-queued));
-  }
 }
 
+/* Reduced motion: disable all animations */
 @media (prefers-reduced-motion: reduce) {
-  .grain::after {
-    display: none;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 
-  .animate-glow-pulse {
+  .animate-status-pulse {
     animation: none;
-    box-shadow: 0 0 24px 4px var(--glow-color);
-  }
-
-  @keyframes terminal-typing {
-    from { max-width: 0; }
-    to { max-width: calc(var(--char-count) * 1ch + 2ch); }
-  }
-
-  .terminal-typing {
-    overflow: hidden;
-    white-space: nowrap;
-    animation: terminal-typing var(--typing-duration, 1500ms) steps(var(--char-count), end) forwards;
-  }
-
-  .terminal-typing .terminal-typing-cursor {
-    visibility: hidden;
-    animation: blink 1s ease-in-out infinite, terminal-cursor-reveal var(--typing-duration, 1500ms) step-end forwards;
-  }
-
-  @keyframes terminal-cursor-reveal {
-    from { visibility: hidden; }
-    to { visibility: visible; }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .terminal-typing {
-      animation: none;
-      max-width: none;
-    }
-
-    .terminal-typing .terminal-typing-cursor {
-      visibility: visible;
-      animation: none;
-    }
-  }
-
-  .glow-red { --glow-color: hsl(var(--status-failed) / 0.4); }
-  .glow-amber { --glow-color: hsl(var(--status-warning) / 0.4); }
-  .glow-blue { --glow-color: hsl(var(--status-running) / 0.4); }
-  .glow-green { --glow-color: hsl(var(--status-completed) / 0.4); }
-  .glow-purple { --glow-color: hsl(var(--status-needs-review) / 0.4); }
-
-  .status-glow {
-    box-shadow: 0 0 8px 2px var(--glow-color);
-  }
-
-  @keyframes glow-pulse {
-    0%, 100% { box-shadow: 0 0 8px 2px var(--glow-color); }
-    50% { box-shadow: 0 0 16px 4px var(--glow-color); }
-  }
-
-  .status-glow-pulse {
-    animation: glow-pulse 2s ease-in-out infinite;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .status-glow-pulse {
-      animation: none;
-      border: 1px solid var(--glow-color);
-    }
+    opacity: 1;
   }
 }

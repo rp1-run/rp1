@@ -14,13 +14,16 @@
 		"clean": "rm -rf dist"
 	},
 	"dependencies": {
-		"@dagrejs/dagre": "^1.1.4",
+		"@milkdown/kit": "^7.19.0",
+		"@milkdown/plugin-highlight": "^7.19.0",
+		"@milkdown/preset-gfm": "^7.19.0",
+		"@milkdown/react": "^7.19.0",
+		"@prosemirror-adapter/react": "^0.5.1",
 		"@radix-ui/react-dialog": "^1.1.4",
 		"@radix-ui/react-scroll-area": "^1.2.1",
 		"@radix-ui/react-slot": "^1.1.0",
 		"@radix-ui/react-tooltip": "^1.1.4",
 		"@tanstack/react-virtual": "^3.11.2",
-		"@xyflow/react": "^12.0.0",
 		"chokidar": "^3.6.0",
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",

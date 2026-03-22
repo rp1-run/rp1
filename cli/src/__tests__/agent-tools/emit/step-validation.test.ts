@@ -757,8 +757,8 @@ describe("predecessor auto-completion", () => {
 		);
 	});
 
-	test("does not auto-complete non-predecessor steps in running status", async () => {
-		const runId = `run-pred-non-${Date.now()}`;
+	test("auto-completes transitive predecessors in running status", async () => {
+		const runId = `run-pred-trans-${Date.now()}`;
 
 		const input1: EmitInput = {
 			type: "status_change",
@@ -780,9 +780,7 @@ describe("predecessor auto-completion", () => {
 		};
 		const result = await expectTaskRight(executeEmit(input2));
 
-		expect(result.data.completedPredecessors ?? []).not.toContain(
-			"requirements",
-		);
+		expect(result.data.completedPredecessors ?? []).toContain("requirements");
 	});
 
 	test("does not trigger predecessor completion when unit is set", async () => {
