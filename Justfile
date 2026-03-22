@@ -414,6 +414,18 @@ view-evals:
     cd evals && bunx promptfoo view -n
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Catalogue
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Generate catalog/skills.yaml and catalog/agents.yaml from plugin sources
+generate-catalog:
+    ./scripts/generate-catalog.sh
+
+# Verify catalogue is up-to-date with plugin sources
+check-catalog:
+    ./scripts/check-catalog.sh
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Guards
 # ─────────────────────────────────────────────────────────────────────────────
 
