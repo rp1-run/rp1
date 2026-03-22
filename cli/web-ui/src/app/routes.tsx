@@ -18,6 +18,11 @@ export const router = createBrowserRouter([
 			{ index: true, element: <HomePage /> },
 			{ path: "runs", element: <RunsListPage /> },
 			{ path: "runs/:runId", element: <RunDetailPage /> },
+			{ path: "runs/:runId/step/:stepId", element: <RunDetailPage /> },
+			{
+				path: "runs/:runId/step/:stepId/artifact/:docId",
+				element: <RunDetailPage />,
+			},
 			{ path: "runs/:runId/artifacts/*", element: <ArtifactViewerPage /> },
 			{ path: "projects", element: <ProjectsPage /> },
 			{ path: "projects/:projectId", element: <ProjectOverviewPage /> },

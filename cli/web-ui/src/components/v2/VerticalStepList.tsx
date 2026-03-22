@@ -10,7 +10,7 @@ import {
 	Image,
 	Minus,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import type {
 	AgentTask,
@@ -198,22 +198,6 @@ export function VerticalStepList({
 		return map;
 	}, [artifacts]);
 
-	const autoSelectApplied = useMemo(() => {
-		if (selectedStepId) return selectedStepId;
-		const runningStep = steps.find((s) => s.status === "running");
-		if (runningStep) return runningStep.id;
-		const completedSteps = steps.filter((s) => s.status === "completed");
-		if (completedSteps.length > 0)
-			return completedSteps[completedSteps.length - 1].id;
-		return steps.length > 0 ? steps[0].id : null;
-	}, [steps, selectedStepId]);
-
-	useEffect(() => {
-		if (autoSelectApplied && !selectedStepId) {
-			onStepSelect(autoSelectApplied);
-		}
-	}, [autoSelectApplied, selectedStepId, onStepSelect]);
-
 	const toggleComposite = useCallback((stepId: string, e: React.MouseEvent) => {
 		e.stopPropagation();
 		setExpandedComposites((prev) => {
@@ -336,6 +320,12 @@ export function VerticalStepList({
 											artifactIconMap[artifact.type] ?? File;
 										const fileName =
 											artifact.path.split("/").pop() ?? artifact.path;
+										const dirPath = artifact.path.includes("/")
+											? artifact.path.substring(
+													0,
+													artifact.path.lastIndexOf("/"),
+												)
+											: null;
 										return (
 											<li key={artifact.docId}>
 												<button
@@ -344,10 +334,20 @@ export function VerticalStepList({
 													className="flex w-full items-center gap-xs py-[2px] text-left type-secondary text-fg-muted hover:text-fg transition-colors duration-150"
 												>
 													<IconComponent
-														className="h-3 w-3 flex-shrink-0"
+														className="h-3 w-3 flex-shrink-0 self-start mt-[2px]"
 														strokeWidth={1.5}
 													/>
-													<span className="min-w-0 truncate">{fileName}</span>
+													<span className="min-w-0 flex flex-col">
+														<span className="truncate">{fileName}</span>
+														{dirPath && (
+															<span
+																className="truncate type-caption text-fg-ghost"
+																dir="rtl"
+															>
+																{dirPath}
+															</span>
+														)}
+													</span>
 												</button>
 											</li>
 										);

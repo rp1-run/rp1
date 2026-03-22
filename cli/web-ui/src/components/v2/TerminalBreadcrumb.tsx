@@ -39,14 +39,21 @@ function useFilesystemPath(
 
 	const filesMatch = pathname.match(/^\/projects\/([^/]+)\/files\/(.+)$/);
 	const artifactMatch = pathname.match(/^\/runs\/([^/]+)\/artifacts\/(.+)$/);
-	const runDetailMatch = pathname.match(/^\/runs\/([^/]+)$/);
+	const runDetailMatch = pathname.match(/^\/runs\/([^/]+)(\/step\/[^/]+)?$/);
+	const stepArtifactMatch = pathname.match(
+		/^\/runs\/([^/]+)\/step\/[^/]+\/artifact\/([^/]+)$/,
+	);
 
 	const runId =
-		artifactMatch?.[1] ?? (artifactParam ? runDetailMatch?.[1] : null) ?? null;
+		artifactMatch?.[1] ??
+		stepArtifactMatch?.[1] ??
+		(artifactParam ? runDetailMatch?.[1] : null) ??
+		null;
+	const docId = stepArtifactMatch?.[2] ?? null;
 	const artifactUrlPath = artifactMatch?.[2] ?? artifactParam ?? null;
 
 	useEffect(() => {
-		if (!runId || !artifactUrlPath) {
+		if (!runId || (!artifactUrlPath && !docId)) {
 			setArtifactAbsolutePath(null);
 			return;
 		}
@@ -55,18 +62,27 @@ function useFilesystemPath(
 			.then(
 				(
 					run: {
-						artifacts?: readonly { path: string; absolutePath: string }[];
+						artifacts?: readonly {
+							docId: string;
+							path: string;
+							absolutePath: string;
+						}[];
 					} | null,
 				) => {
 					if (!run?.artifacts) return;
-					const artifact =
-						run.artifacts.find((a) => a.path === artifactUrlPath) ??
-						run.artifacts.find((a) => a.path.endsWith(`/${artifactUrlPath}`));
+					let artifact: { absolutePath: string } | undefined;
+					if (docId) {
+						artifact = run.artifacts.find((a) => a.docId === docId);
+					} else if (artifactUrlPath) {
+						artifact =
+							run.artifacts.find((a) => a.path === artifactUrlPath) ??
+							run.artifacts.find((a) => a.path.endsWith(`/${artifactUrlPath}`));
+					}
 					setArtifactAbsolutePath(artifact?.absolutePath ?? null);
 				},
 			)
 			.catch(() => setArtifactAbsolutePath(null));
-	}, [runId, artifactUrlPath]);
+	}, [runId, artifactUrlPath, docId]);
 
 	if (filesMatch) {
 		const project = projects.find((p) => p.id === filesMatch[1]);

@@ -1,5 +1,5 @@
 import { ArrowLeft, RefreshCw } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
 	ResizableHandle,
@@ -52,7 +52,7 @@ function MobileStepSelector({
 }
 
 export function RunDetailPage() {
-	const { runId } = useParams();
+	const { runId, stepId: urlStepId, docId: urlDocId } = useParams();
 	const navigate = useNavigate();
 	const { run, isLoading, error, refetch } = useRunDetail(runId);
 
@@ -62,10 +62,12 @@ export function RunDetailPage() {
 	);
 	const { isLoading: isWorkflowLoading } = useWorkflowSteps(workflowName);
 
-	const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
-	const [selectedArtifact, setSelectedArtifact] = useState<Artifact | null>(
-		null,
-	);
+	const selectedStepId = urlStepId ?? null;
+
+	const selectedArtifact = useMemo(() => {
+		if (!urlDocId || !run) return null;
+		return run.artifacts.find((a) => a.docId === urlDocId) ?? null;
+	}, [urlDocId, run]);
 
 	const displaySteps = useMemo<readonly Step[]>(() => {
 		return run ? run.steps : [];
@@ -108,52 +110,79 @@ export function RunDetailPage() {
 
 	const handleStepSelect = useCallback(
 		(stepId: string) => {
-			setSelectedStepId(stepId);
-			setSelectedArtifact(null);
-			setActiveArtifact(runId ?? "", null);
-
+			if (!runId) return;
 			if (run) {
 				const arts = run.artifacts.filter((a) => a.step === stepId);
 				if (arts.length > 0) {
-					setSelectedArtifact(arts[0]);
+					navigate(`/runs/${runId}/step/${stepId}/artifact/${arts[0].docId}`);
+					return;
 				}
 			}
+			navigate(`/runs/${runId}/step/${stepId}`);
 		},
-		[run, runId, setActiveArtifact],
+		[run, runId, navigate],
 	);
 
 	const handleArtifactSelect = useCallback(
 		(artifact: Artifact) => {
-			setSelectedArtifact(artifact);
-			if (runId) {
-				setActiveArtifact(runId, artifact.path);
-			}
+			if (!runId || !selectedStepId) return;
+			navigate(
+				`/runs/${runId}/step/${selectedStepId}/artifact/${artifact.docId}`,
+			);
 		},
-		[runId, setActiveArtifact],
+		[runId, selectedStepId, navigate],
 	);
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: only re-run when artifacts array changes
+	// biome-ignore lint/correctness/useExhaustiveDependencies: auto-select step/artifact when URL lacks them
 	useEffect(() => {
-		if (!selectedArtifact || !run) return;
-		const updated = run.artifacts.find(
-			(a) => a.docId === selectedArtifact.docId,
-		);
-		if (updated && updated.path !== selectedArtifact.path) {
-			setSelectedArtifact(updated);
-			if (runId) {
-				setActiveArtifact(runId, updated.path);
+		if (!run || !runId) return;
+		const steps = run.steps;
+		if (steps.length === 0) return;
+
+		if (!urlStepId) {
+			const runningStep = steps.find((s) => s.status === "running");
+			const completedSteps = steps.filter((s) => s.status === "completed");
+			const targetStep =
+				runningStep ??
+				(completedSteps.length > 0
+					? completedSteps[completedSteps.length - 1]
+					: steps[0]);
+			const arts = run.artifacts.filter((a) => a.step === targetStep.id);
+			if (arts.length > 0) {
+				navigate(
+					`/runs/${runId}/step/${targetStep.id}/artifact/${arts[0].docId}`,
+					{ replace: true },
+				);
+			} else {
+				navigate(`/runs/${runId}/step/${targetStep.id}`, { replace: true });
+			}
+			return;
+		}
+
+		if (urlStepId && !urlDocId) {
+			const arts = run.artifacts.filter((a) => a.step === urlStepId);
+			if (arts.length > 0) {
+				navigate(`/runs/${runId}/step/${urlStepId}/artifact/${arts[0].docId}`, {
+					replace: true,
+				});
 			}
 		}
-	}, [run?.artifacts, selectedArtifact, runId, setActiveArtifact]);
+	}, [run, runId, urlStepId, urlDocId, navigate]);
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: reset selection on route change
+	// biome-ignore lint/correctness/useExhaustiveDependencies: sync breadcrumb context with URL-derived artifact
 	useEffect(() => {
-		setSelectedStepId(null);
-		setSelectedArtifact(null);
+		if (selectedArtifact && runId) {
+			setActiveArtifact(runId, selectedArtifact.path);
+		} else {
+			setActiveArtifact(runId ?? "", null);
+		}
+	}, [selectedArtifact, runId, setActiveArtifact]);
+
+	useEffect(() => {
 		return () => {
 			setActiveArtifact(runId ?? "", null);
 		};
-	}, [runId]);
+	}, [runId, setActiveArtifact]);
 
 	if (isLoading || isWorkflowLoading) {
 		return (
