@@ -16,6 +16,7 @@ import {
 	useWorkflowSteps,
 } from "@/hooks/useWorkflowSteps";
 import { cn } from "@/lib/utils";
+import { useWebSocket } from "@/providers/WebSocketProvider";
 import type { Artifact, Step } from "@/types/runs";
 
 function MobileStepSelector({
@@ -98,15 +99,18 @@ export function RunDetailPage() {
 	}, [selectedStepId, run]);
 
 	const { setActiveArtifact, setProject } = useBreadcrumbContext();
+	const { setProjectId } = useWebSocket();
 
 	useEffect(() => {
 		if (run?.projectName && run?.projectId) {
 			setProject(run.projectId, run.projectName);
+			setProjectId(run.projectId);
 		}
 		return () => {
 			setProject(null, null);
+			setProjectId(null);
 		};
-	}, [run?.projectName, run?.projectId, setProject]);
+	}, [run?.projectName, run?.projectId, setProject, setProjectId]);
 
 	const handleStepSelect = useCallback(
 		(stepId: string) => {

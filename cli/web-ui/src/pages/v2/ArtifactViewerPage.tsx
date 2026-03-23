@@ -354,8 +354,13 @@ export function ArtifactViewerPage() {
 	useEffect(() => {
 		if (!selectedArtifactPath || !run) return;
 
+		const normalizedPath = selectedArtifactPath.replace(/^\.rp1\//, "");
+
 		const unsubscribe = onFileChange((msg) => {
-			if (msg.path === selectedArtifactPath && msg.changeType === "modify") {
+			if (
+				msg.changeType === "modify" &&
+				(msg.path === selectedArtifactPath || msg.path === normalizedPath)
+			) {
 				fetchArtifactContentWithScrollPreservation(true);
 			}
 		});

@@ -35,7 +35,12 @@ function ArtifactViewerInner({
 	onArtifactSelect,
 	runId,
 }: ArtifactViewerPanelProps) {
-	const [content, setContent] = useState<string | null>(null);
+	const [content, setContentRaw] = useState<string | null>(null);
+	const [contentRevision, setContentRevision] = useState(0);
+	const setContent = useCallback((c: string | null) => {
+		setContentRaw(c);
+		setContentRevision((r) => r + 1);
+	}, []);
 	const [contentLoading, setContentLoading] = useState(false);
 	const [contentError, setContentError] = useState<string | null>(null);
 	const [headings, setHeadings] = useState<readonly HeadingEntry[]>([]);
@@ -89,7 +94,7 @@ function ArtifactViewerInner({
 				}
 			}
 		},
-		[artifactPath, runId],
+		[artifactPath, runId, setContent],
 	);
 
 	useEffect(() => {
@@ -99,8 +104,13 @@ function ArtifactViewerInner({
 	useEffect(() => {
 		if (!artifactPath || !runId) return;
 
+		const normalizedArtifactPath = artifactPath.replace(/^\.rp1\//, "");
+
 		const unsubscribe = onFileChange((msg) => {
-			if (msg.path === artifactPath && msg.changeType === "modify") {
+			if (
+				msg.changeType === "modify" &&
+				(msg.path === artifactPath || msg.path === normalizedArtifactPath)
+			) {
 				fetchContent(true);
 			}
 		});
@@ -208,6 +218,7 @@ function ArtifactViewerInner({
 					viewportRef={scrollViewportRef}
 				>
 					<ContentPanel
+						key={contentRevision}
 						content={content}
 						path={selectedArtifact?.path ?? null}
 						isLoading={contentLoading}
