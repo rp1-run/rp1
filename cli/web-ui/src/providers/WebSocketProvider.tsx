@@ -111,9 +111,10 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 			setStatus("connecting");
 
 			const currentProjectId = projectIdRef.current;
+			const wsProto = window.location.protocol === "https:" ? "wss" : "ws";
 			const wsUrl = currentProjectId
-				? `ws://${window.location.host}/ws?projectId=${encodeURIComponent(currentProjectId)}`
-				: `ws://${window.location.host}/ws`;
+				? `${wsProto}://${window.location.host}/ws?projectId=${encodeURIComponent(currentProjectId)}`
+				: `${wsProto}://${window.location.host}/ws`;
 			const ws = new WebSocket(wsUrl);
 
 			ws.onopen = () => {
