@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/rp1-run/rp1/compare/v0.6.0...v0.6.1) (2026-03-23)
+
+
+### Bug Fixes
+
+* **web-ui:** annotation & artifact viewer improvements ([#287](https://github.com/rp1-run/rp1/issues/287)) ([9df6d5f](https://github.com/rp1-run/rp1/commit/9df6d5f4797033311c221950d246880eaa3e11d8))
+
 ## [0.6.0](https://github.com/rp1-run/rp1/compare/v0.5.2...v0.6.0) (2026-03-22)
 
 
