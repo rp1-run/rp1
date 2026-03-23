@@ -1080,7 +1080,11 @@ export const getAnnotationsForRun = (
 ): AnnotationRecord[] => {
 	const rows = db
 		.prepare(
-			"SELECT * FROM annotations WHERE run_id = $runId ORDER BY created_at ASC",
+			`SELECT DISTINCT a.* FROM annotations a
+			 LEFT JOIN artifacts art ON a.doc_id = art.doc_id
+			 WHERE a.run_id = $runId
+			    OR (a.run_id IS NULL AND art.run_id = $runId)
+			 ORDER BY a.created_at ASC`,
 		)
 		.all({ $runId: runId }) as AnnotationRow[];
 
@@ -1101,7 +1105,11 @@ export const getAnnotationsForRunFiltered = (
 	}
 	const rows = db
 		.prepare(
-			"SELECT * FROM annotations WHERE run_id = $runId AND status = $status ORDER BY created_at ASC",
+			`SELECT DISTINCT a.* FROM annotations a
+			 LEFT JOIN artifacts art ON a.doc_id = art.doc_id
+			 WHERE (a.run_id = $runId OR (a.run_id IS NULL AND art.run_id = $runId))
+			   AND a.status = $status
+			 ORDER BY a.created_at ASC`,
 		)
 		.all({ $runId: runId, $status: status }) as AnnotationRow[];
 

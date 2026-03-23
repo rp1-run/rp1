@@ -60,7 +60,7 @@ function DiagramAnnotationPopover({
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const popoverRef = useRef<HTMLDivElement>(null);
-	const { createAnnotation, docId } = useAnnotationContextSafe();
+	const { createAnnotation, docId, runId } = useAnnotationContextSafe();
 
 	useEffect(() => {
 		textareaRef.current?.focus();
@@ -113,6 +113,7 @@ function DiagramAnnotationPopover({
 				artifactPath,
 				anchor,
 				content: trimmedContent,
+				runId: runId ?? undefined,
 			});
 
 			onClose();
@@ -129,6 +130,7 @@ function DiagramAnnotationPopover({
 		docId,
 		isSubmitting,
 		onClose,
+		runId,
 	]);
 
 	const handleKeyDown = useCallback(

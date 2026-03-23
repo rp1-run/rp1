@@ -44,7 +44,7 @@ export function SelectionPopover({
 
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const popoverRef = useRef<HTMLDivElement>(null);
-	const { createAnnotation, docId } = useAnnotationContext();
+	const { createAnnotation, docId, runId } = useAnnotationContext();
 
 	useEffect(() => {
 		textareaRef.current?.focus();
@@ -81,6 +81,7 @@ export function SelectionPopover({
 				artifactPath,
 				anchor,
 				content: trimmedContent,
+				runId: runId ?? undefined,
 			});
 
 			onAnnotationCreated?.();
@@ -99,6 +100,7 @@ export function SelectionPopover({
 		isSubmitting,
 		onAnnotationCreated,
 		onClose,
+		runId,
 	]);
 
 	const handleKeyDown = useCallback(

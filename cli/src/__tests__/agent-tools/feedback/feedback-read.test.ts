@@ -139,6 +139,48 @@ describe("feedback read", () => {
 		expect(result.data.annotations).toHaveLength(2);
 	});
 
+	test("finds annotations with null run_id via artifact join", async () => {
+		const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+		upsertArtifact(db, {
+			docId: "doc-null-run",
+			runId,
+			path: "design.md",
+			type: "markdown",
+			projectPath: tempDir,
+			feature: "feat-1",
+		});
+
+		// Simulate the bug: annotation created without run_id (as the web UI did)
+		upsertAnnotation(db, {
+			docId: "doc-null-run",
+			content: "Fix this diagram",
+			status: "open",
+			author: "user",
+			data: JSON.stringify({ artifactPath: "design.md" }),
+		});
+
+		const result = await expectTaskRight(
+			executeFeedbackRead(
+				{ runId, status: "open", projectPath: tempDir },
+				dbPath,
+			),
+		);
+
+		expect(result.data.annotations).toHaveLength(1);
+		expect(result.data.annotations[0].content).toBe("Fix this diagram");
+
+		// Also verify with status "all"
+		const allResult = await expectTaskRight(
+			executeFeedbackRead(
+				{ runId, status: "all", projectPath: tempDir },
+				dbPath,
+			),
+		);
+
+		expect(allResult.data.annotations).toHaveLength(1);
+	});
+
 	test("includes replies nested under root annotations", async () => {
 		const db = await expectTaskRight(getEmitDatabase(dbPath));
 

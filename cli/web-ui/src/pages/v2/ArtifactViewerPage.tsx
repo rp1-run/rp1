@@ -744,7 +744,7 @@ export function ArtifactViewerPage() {
 		);
 
 		return (
-			<AnnotationProvider artifactPath={selectedArtifactPath}>
+			<AnnotationProvider artifactPath={selectedArtifactPath} runId={runId}>
 				{mobileContent}
 			</AnnotationProvider>
 		);
@@ -932,7 +932,7 @@ export function ArtifactViewerPage() {
 	);
 
 	return (
-		<AnnotationProvider artifactPath={selectedArtifactPath}>
+		<AnnotationProvider artifactPath={selectedArtifactPath} runId={runId}>
 			{desktopContent}
 		</AnnotationProvider>
 	);
