@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { AnnotationStatusFilter } from "../../../agent-tools/feedback/models.js";
 import {
 	validateAcceptEditOptions,
 	validateReadOptions,
@@ -21,7 +22,11 @@ describe("feedback validation", () => {
 		});
 
 		test("accepts explicit status values", () => {
-			for (const status of ["open", "resolved", "all"]) {
+			for (const status of [
+				"open",
+				"resolved",
+				"all",
+			] as AnnotationStatusFilter[]) {
 				const result = expectRight(
 					validateReadOptions({ runId: "run-1", status }),
 				);
