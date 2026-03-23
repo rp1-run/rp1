@@ -5,6 +5,10 @@ import { AnnotationSidebar } from "@/components/v2/AnnotationSidebar";
 import { AnnotationToggleBtn } from "@/components/v2/AnnotationToggleBtn";
 import { ContentPanel } from "@/components/v2/ContentPanel";
 import { TableOfContents } from "@/components/v2/TableOfContents";
+import {
+	type SaveStatus,
+	SaveStatusIndicator,
+} from "@/components/v2/UnifiedContentRenderer";
 import type { HeadingEntry } from "@/hooks/useHeadingExtraction";
 import { cn } from "@/lib/utils";
 import { AnnotationProvider } from "@/providers/AnnotationProvider";
@@ -37,6 +41,7 @@ function ArtifactViewerInner({
 	const [headings, setHeadings] = useState<readonly HeadingEntry[]>([]);
 	const [annotationSidebarOpen, setAnnotationSidebarOpen] = useState(false);
 	const [tocOpen, setTocOpen] = useState(false);
+	const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
 	const scrollViewportRef = useRef<HTMLDivElement>(null);
 	const { onFileChange } = useWebSocket();
 
@@ -147,6 +152,7 @@ function ArtifactViewerInner({
 				<div className="flex items-center justify-between">
 					<h2 className="type-secondary text-fg-muted">{step.name}</h2>
 					<div className="flex items-center gap-3">
+						<SaveStatusIndicator status={saveStatus} />
 						{showTocToggle && (
 							<button
 								type="button"
@@ -210,6 +216,7 @@ function ArtifactViewerInner({
 								: "No artifacts for this step."
 						}
 						onHeadingsExtracted={handleHeadingsExtracted}
+						onSaveStatusChange={setSaveStatus}
 						runId={runId}
 						docId={selectedArtifact?.docId}
 						scrollViewportRef={scrollViewportRef}
