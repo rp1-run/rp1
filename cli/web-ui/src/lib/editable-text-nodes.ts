@@ -1,13 +1,14 @@
 /**
- * Collect text nodes from a container, skipping non-editable UI chrome
- * (e.g., mermaid tab bars, action buttons) inside contentEditable="false" elements.
+ * Collect text nodes from a container, skipping UI chrome
+ * (e.g., mermaid tab bars, action buttons, line numbers) marked with
+ * data-annotation-exclude. Code block content is included.
  */
 export function getEditableTextNodes(container: HTMLElement): Text[] {
 	const nodes: Text[] = [];
 	const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
 		acceptNode(node) {
 			const el = node.parentElement;
-			if (el?.closest('[contenteditable="false"]')) {
+			if (el?.closest("[data-annotation-exclude]")) {
 				return NodeFilter.FILTER_REJECT;
 			}
 			return NodeFilter.FILTER_ACCEPT;

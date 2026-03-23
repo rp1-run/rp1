@@ -623,7 +623,10 @@ export function MermaidDiagram({
 				className,
 			)}
 		>
-			<div className="flex items-center justify-end border-b bg-surface px-4 py-2">
+			<div
+				className="flex items-center justify-end border-b bg-surface px-4 py-2"
+				data-annotation-exclude=""
+			>
 				{title !== null && (
 					<span className="mr-auto text-xs text-muted-foreground">
 						{title ?? "Mermaid Diagram"}

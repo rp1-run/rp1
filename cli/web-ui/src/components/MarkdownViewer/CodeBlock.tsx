@@ -293,7 +293,10 @@ export function CodeBlock({
 				className,
 			)}
 		>
-			<div className="flex items-center justify-between border-b bg-muted/80 px-4 py-2">
+			<div
+				className="flex items-center justify-between border-b bg-muted/80 px-4 py-2"
+				data-annotation-exclude=""
+			>
 				<div className="flex items-center gap-2 text-xs text-muted-foreground">
 					<Code className="h-3.5 w-3.5" />
 					<span>{displayName}</span>
@@ -327,6 +330,7 @@ export function CodeBlock({
 					<div
 						className="flex-shrink-0 select-none border-r bg-muted/30 py-3 text-right text-muted-foreground w-14 px-2"
 						aria-hidden={false}
+						data-annotation-exclude=""
 					>
 						{Array.from({ length: lineCount }, (_, i) => {
 							const lineNumber = i + 1;
