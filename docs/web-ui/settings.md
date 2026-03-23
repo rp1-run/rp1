@@ -138,5 +138,5 @@ Changes take effect immediately on restart.
 
 ## Related
 
-- [V2 Dashboard](v2-dashboard.md) - Status monitoring dashboard
+- [Dashboard](dashboard.md) - Status monitoring dashboard
 - [Keyboard Shortcuts](keyboard-shortcuts.md) - Navigation shortcuts

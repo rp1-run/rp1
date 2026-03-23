@@ -1,6 +1,6 @@
-# V2 Status Dashboard
+# Status Dashboard
 
-The V2 dashboard provides a glanceable status view for monitoring AI agent runs across all your projects. Access it at `/v2/` when the web UI is running.
+The dashboard provides a glanceable status view for monitoring AI agent runs across all your projects. Access it at `/` when the web UI is running.
 
 **Time to orient**: Under 30 seconds to understand what needs attention.
 
@@ -8,27 +8,22 @@ The V2 dashboard provides a glanceable status view for monitoring AI agent runs 
 
 ## Accessing the Dashboard
 
-Start the web UI with `rp1 arcade`, then navigate to `/v2/` in your browser:
+Start the web UI with `rp1 arcade`:
 
 ```bash
 rp1 arcade
 # Opens http://localhost:7710
-
-# Navigate to V2 dashboard
-# http://localhost:7710/v2/
 ```
-
-The V2 dashboard runs alongside the existing documentation viewer at `/`. Both are fully functional.
 
 ---
 
 ## Data Sources
 
-The V2 dashboard displays real data from your local rp1 installation. All run data is sourced from the status database at `~/.rp1/rp1.db`, which is populated when AI agents report their progress using the `emit` agent tool.
+The dashboard displays real data from your local rp1 installation. All run data is sourced from the status database at `~/.rp1/rp1.db`, which is populated when AI agents report their progress using the `emit` agent tool.
 
 ### How Runs Are Populated
 
-When an agent (or any workflow) reports status via `rp1 agent-tools emit`, a record is written to `rp1.db`. The V2 API queries this database to populate the dashboard:
+When an agent (or any workflow) reports status via `rp1 agent-tools emit`, a record is written to `rp1.db`. The API queries this database to populate the dashboard:
 
 1. **Agent executes workflow** - Agents call `rp1 agent-tools emit` at key milestones (feature started, task in progress, completed, failed)
 2. **Status stored in database** - Each update creates a record in `~/.rp1/rp1.db` with run ID, step, status, and event data
@@ -67,7 +62,7 @@ If your dashboard shows no runs, ensure that:
 
 ## Home Dashboard (Now View)
 
-The home dashboard (`/v2/`) shows what needs your attention across all projects. Runs are grouped into four sections displayed in priority order:
+The home dashboard (`/`) shows what needs your attention across all projects. Runs are grouped into four sections displayed in priority order:
 
 | Section | Description | Default State |
 |---------|-------------|---------------|
@@ -98,7 +93,7 @@ Click the Refresh button in the header to manually fetch updated data. The dashb
 
 ## Runs List
 
-The runs list (`/v2/runs`) shows all agent runs with filtering capabilities.
+The runs list (`/runs`) shows all agent runs with filtering capabilities.
 
 ### Filters
 
@@ -114,13 +109,13 @@ Filter state syncs to URL parameters for shareable links.
 
 ### Project-Scoped View
 
-Navigate to `/v2/project/:projectId/runs` to view runs filtered to a specific project.
+Navigate to `/projects/:projectId/runs` to view runs filtered to a specific project.
 
 ---
 
 ## Run Detail
 
-The run detail view (`/v2/runs/:runId`) shows complete information about a single run.
+The run detail view (`/runs/:runId`) shows complete information about a single run.
 
 ### Header
 
@@ -192,13 +187,13 @@ Task-batch events show a summary like "12 tasks completed in Build step" rather 
 
 ### Sidebar
 
-The left sidebar provides navigation between V2 views:
+The left sidebar provides navigation between views:
 
 | Item | Route | Description |
 |------|-------|-------------|
-| Home | `/v2/` | Attention dashboard |
-| Runs | `/v2/runs` | All runs list |
-| Projects | `/v2/projects` | Project list |
+| Home | `/` | Attention dashboard |
+| Runs | `/runs` | All runs list |
+| Projects | `/projects` | Project list |
 
 The sidebar can collapse to icon-only mode for more content space.
 
@@ -216,7 +211,7 @@ The header displays:
 
 ## Keyboard Shortcuts
 
-The V2 dashboard supports a comprehensive keyboard-first interaction model. See [Keyboard Shortcuts](keyboard-shortcuts.md) for the full reference.
+The dashboard supports a comprehensive keyboard-first interaction model. See [Keyboard Shortcuts](keyboard-shortcuts.md) for the full reference.
 
 ### Global
 
@@ -259,7 +254,7 @@ Keyboard navigation uses the roving tabindex pattern for accessibility.
 
 ## Theme
 
-The V2 dashboard uses the Catppuccin color palette:
+The dashboard uses the Catppuccin color palette:
 
 | Theme | Description |
 |-------|-------------|

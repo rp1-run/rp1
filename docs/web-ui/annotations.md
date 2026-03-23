@@ -231,5 +231,5 @@ When disabled, annotation UI elements are hidden and the API returns 404.
 ## Related
 
 - [Artifact Viewer](artifact-viewer.md) - Main artifact viewing interface
-- [V2 Dashboard](v2-dashboard.md) - Status monitoring dashboard
+- [Dashboard](dashboard.md) - Status monitoring dashboard
 - [Feature Development Guide](../guides/feature-development.md) - Using `/build` workflow

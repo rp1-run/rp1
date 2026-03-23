@@ -54,7 +54,7 @@ Evidence: `cli/src/__tests__/agent-tools/emit/emit.test.ts`, `cli/src/agent-tool
 ## I/O & Integration
 
 **Database**: `bun:sqlite` with singleton pattern via module-level `dbInstance`; WAL mode + `busy_timeout` pragmas; schema versioning with additive migrations via `applyMigrations`; parameterized queries with `$`-prefixed named params; `RETURNING *` for insert-then-read
-**HTTP Clients**: React hooks fetch from `/api/v2/` REST endpoints; WebSocket for real-time event push with exponential backoff reconnection (2s initial, 30s max, factor 2); optimistic UI updates via setState before server reconciliation
+**HTTP Clients**: React hooks fetch from `/api/v2/` REST endpoints (the `/v2/` prefix is an internal implementation detail, not user-facing); WebSocket for real-time event push with exponential backoff reconnection (2s initial, 30s max, factor 2); optimistic UI updates via setState before server reconciliation
 
 Evidence: `cli/src/agent-tools/emit/database.ts:1-120`, `cli/web-ui/src/hooks/useRunDetail.ts:30-56`, `cli/web-ui/src/providers/WebSocketProvider.tsx:47-50`
 

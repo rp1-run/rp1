@@ -141,5 +141,5 @@ The shortcut help overlay and command palette both show platform-appropriate lab
 
 ## Related
 
-- [V2 Dashboard](../web-ui/v2-dashboard.md) -- Status monitoring dashboard
+- [Dashboard](../web-ui/dashboard.md) -- Status monitoring dashboard
 - [Keyboard Shortcuts (Web UI reference)](../web-ui/keyboard-shortcuts.md) -- Full keyboard reference for all views
