@@ -1030,6 +1030,16 @@ export const setArtifactBaseline = (
 };
 
 /**
+ * Clear the baseline content for an artifact, signaling that the agent
+ * has acknowledged a user edit. Sets baseline to NULL for the given doc_id.
+ */
+export const clearArtifactBaseline = (db: Database, docId: string): void => {
+	db.prepare("UPDATE artifacts SET baseline = NULL WHERE doc_id = $docId").run({
+		$docId: docId,
+	});
+};
+
+/**
  * Update the cached path for an artifact identified by doc_id.
  * Used when path reconciliation discovers the file has moved.
  */
@@ -1073,6 +1083,27 @@ export const getAnnotationsForRun = (
 			"SELECT * FROM annotations WHERE run_id = $runId ORDER BY created_at ASC",
 		)
 		.all({ $runId: runId }) as AnnotationRow[];
+
+	return rows.map(annotationRowToRecord);
+};
+
+/**
+ * Get annotations for a run, filtered by status.
+ * When status is "all", delegates to getAnnotationsForRun.
+ */
+export const getAnnotationsForRunFiltered = (
+	db: Database,
+	runId: string,
+	status: "open" | "resolved" | "all",
+): AnnotationRecord[] => {
+	if (status === "all") {
+		return getAnnotationsForRun(db, runId);
+	}
+	const rows = db
+		.prepare(
+			"SELECT * FROM annotations WHERE run_id = $runId AND status = $status ORDER BY created_at ASC",
+		)
+		.all({ $runId: runId, $status: status }) as AnnotationRow[];
 
 	return rows.map(annotationRowToRecord);
 };
