@@ -27,9 +27,11 @@ Extract these parameters from the user's input:
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
 | `REQUEST` | No | `""` | Initial development request (may be empty; will prompt if missing) |
+| `AFK` | No | `false` | Non-interactive mode. Set `true` if user says "afk" or "unattended". Suppresses all interactive gate options. |
 
 **Environment values** (resolve via shell):
 - `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
+- `RUN_ID`: Generate a UUID at session start for event emission
 
 ## 1. Main Loop
 
@@ -112,18 +114,28 @@ checks after making changes. Do NOT commit.
 
 ### 1.5 Post-Build Prompt
 
-After builder completes:
+After builder completes, emit waiting status so the Arcade dashboard reflects the gate pause:
 
-{% ask_user "What would you like to do next?", options: "Commit & move on", "Refine", "New task (no commit)", "Exit" %}
+```bash
+rp1 agent-tools emit \
+  --workflow build-express \
+  --type waiting_for_user \
+  --run-id {RUN_ID} \
+  --step build \
+  --data '{"prompt": "What would you like to do next?", "context": "Post-build prompt after express builder completes"}'
+```
+
+{% ask_user "What would you like to do next?", options: "Commit & move on", "Refine", "Review feedback from Arcade", "New task (no commit)", "Exit" %}
 
 | Option | Action |
 |--------|--------|
 | Commit & move on | Commit current changes (conventional commit), then loop to 1.1 |
 | Refine | Ask what to change, re-invoke §1.4 with refinement as REQUEST |
+| Review feedback from Arcade | Load the `arcade-collab` skill (`/rp1-dev:arcade-collab`), then call `rp1 agent-tools feedback read --run-id {RUN_ID} --status open`. If feedback exists, process it per the collaboration loop in the skill. After all feedback is processed, return to this prompt and re-present the same options. **Not shown when `AFK=true`.** |
 | New task (no commit) | Loop to 1.1 without committing |
 | Exit | STOP |
 
-After a scope redirect (§1.3), show only "New task" and "Exit" options.
+After a scope redirect (§1.3), show only "New task" and "Exit" options (no feedback review since no build occurred).
 
 ### 1.6 Commit
 

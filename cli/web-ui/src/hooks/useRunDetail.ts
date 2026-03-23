@@ -127,10 +127,14 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 							};
 						});
 					} else {
+						const docId = (data?.docId as string) ?? "";
+						const path = (data?.path as string) ?? "";
+						if (!docId || !path) return;
+
 						const newArtifact: Artifact = {
-							docId: (data?.docId as string) ?? "",
-							path: (data?.path as string) ?? "",
-							absolutePath: (data?.path as string) ?? "",
+							docId,
+							path,
+							absolutePath: path,
 							type: (data?.type as Artifact["type"]) ?? "other",
 							updatedDuringRun: true,
 							isNew: true,

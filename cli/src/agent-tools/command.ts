@@ -18,6 +18,17 @@ import {
 	type EmitCommandOptions,
 	validateEmitOptions,
 } from "./emit/validate.js";
+import {
+	executeFeedbackAcceptEdit,
+	executeFeedbackRead,
+	executeFeedbackReply,
+	executeFeedbackResolve,
+	validateAcceptEditOptions,
+	validateReadOptions,
+	validateReplyOptions,
+	validateResolveOptions,
+} from "./feedback/index.js";
+import { VALID_STATUS_FILTERS } from "./feedback/models.js";
 import { resolveProjectPath } from "./git.js";
 import {
 	executeAddReaction,
@@ -57,6 +68,7 @@ import "./mmd-validate/index.js";
 import "./rp1-root-dir/index.js";
 import "./comment-extract/index.js";
 import "./emit/index.js";
+import "./feedback/index.js";
 import "./github-pr/index.js";
 import "./task/index.js";
 
@@ -93,6 +105,7 @@ Available Tools:
   rp1-root-dir      Resolve RP1_ROOT path with read-only worktree detection
   comment-extract   Extract comments from git-changed files
   emit              Record events for the rp1 workflow event system
+  feedback          Read, resolve, reply to, and accept feedback from the Arcade
   github-pr         GitHub PR operations (submit-review, add-reaction, reply-comment, fetch-comments)
   task              Manage task queue (create, list, pickup, complete, fail, cancel, get)
 
@@ -104,6 +117,8 @@ Examples:
   rp1 agent-tools comment-extract branch main
   rp1 agent-tools comment-extract unstaged main
   echo '{"owner":"org","repo":"repo","pr_number":123}' | rp1 agent-tools github-pr fetch-comments
+  rp1 agent-tools feedback read --run-id <uuid> --status open
+  rp1 agent-tools feedback resolve 42 --reply "Applied fix"
   rp1 agent-tools task create --type check-annotations --description "Review open annotations"
   rp1 agent-tools task list --status pending
   rp1 agent-tools emit --type status_change --run-id <uuid> --step requirements --data '{"status": "running"}'
@@ -573,6 +588,305 @@ Examples:
 			process.exit(0);
 		},
 	);
+
+/**
+ * feedback subcommand.
+ * Read, resolve, reply to, and accept feedback from the Arcade.
+ */
+const feedbackCommand = agentToolsCommand
+	.command("feedback")
+	.description("Read, resolve, reply to, and accept feedback from the Arcade")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Provides subcommands for managing the feedback lifecycle between
+  users and agents. Agents read annotations and file edits from the
+  Arcade, then resolve, reply, or accept them.
+
+Subcommands:
+  read          Read open annotations and pending file edits for a run
+  resolve       Resolve an annotation with an optional reply
+  reply         Reply to an annotation thread
+  accept-edit   Accept (acknowledge) a direct file edit
+
+Examples:
+  rp1 agent-tools feedback read --run-id <uuid> --status open
+  rp1 agent-tools feedback resolve 42 --reply "Applied the suggested fix"
+  rp1 agent-tools feedback reply 42 --content "Working on this now"
+  rp1 agent-tools feedback accept-edit <doc-id>
+`,
+	);
+
+/**
+ * feedback read subcommand.
+ * Retrieves all open annotations and pending file edits for a workflow run.
+ */
+feedbackCommand
+	.command("read")
+	.description("Read open annotations and pending file edits for a run")
+	.requiredOption("--run-id <id>", "Workflow run ID")
+	.option(
+		"--status <status>",
+		`Annotation status filter (${VALID_STATUS_FILTERS.join(", ")})`,
+		"open",
+	)
+	.option("--project <path>", "Project path (defaults to cwd)")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Retrieves all open annotations and pending file edits associated with
+  a workflow run. Annotations include their full thread (replies).
+  File edits are returned as unified diffs computed from the stored
+  baseline vs current file content on disk.
+
+Options:
+  --run-id <id>       Workflow run ID (required)
+  --status <status>   Filter annotations by status: ${VALID_STATUS_FILTERS.join(", ")} (default: open)
+  --project <path>    Project path for resolving artifact file paths (defaults to cwd)
+
+Output:
+  JSON ToolResult with:
+  - runId: The run identifier
+  - annotations: Array of annotation objects with id, docId, artifactPath, content, anchor, status, author, replies, createdAt
+  - edits: Array of edit objects with docId, artifactPath, patch (unified diff)
+  - summary: Counts of annotations, edits, and breakdown by artifact type
+
+Examples:
+  rp1 agent-tools feedback read --run-id "550e8400-e29b-41d4-a716-446655440000"
+  rp1 agent-tools feedback read --run-id "550e8400-e29b-41d4-a716-446655440000" --status all
+  rp1 agent-tools feedback read --run-id "550e8400-e29b-41d4-a716-446655440000" --status resolved --project /path/to/project
+`,
+	)
+	.action(
+		async (options: {
+			runId: string;
+			status: string;
+			project?: string;
+		}): Promise<void> => {
+			const toolName = "feedback";
+
+			const validationResult = validateReadOptions({
+				runId: options.runId,
+				status: options.status,
+				project: options.project,
+			});
+
+			if (E.isLeft(validationResult)) {
+				console.error(
+					createErrorResponse(
+						toolName,
+						formatError(validationResult.left, false),
+					),
+				);
+				process.exit(1);
+			}
+
+			const result = await executeFeedbackRead(validationResult.right)();
+
+			if (E.isLeft(result)) {
+				console.error(
+					createErrorResponse(toolName, formatError(result.left, false)),
+				);
+				process.exit(1);
+			}
+
+			console.log(formatOutput(result.right));
+			process.exit(0);
+		},
+	);
+
+/**
+ * feedback resolve subcommand.
+ * Marks an annotation as resolved with an optional reply.
+ */
+feedbackCommand
+	.command("resolve <annotation-id>")
+	.description("Resolve an annotation with an optional reply")
+	.option("--reply <text>", "Reply explaining what action was taken")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Marks an annotation as resolved. Optionally includes a reply that
+  explains what action was taken. The reply is attributed to the agent.
+  Only root annotations (not replies) can be resolved.
+
+Arguments:
+  annotation-id   Annotation ID to resolve (positive integer)
+
+Options:
+  --reply <text>   Optional reply explaining the action taken
+
+Output:
+  JSON ToolResult with:
+  - resolved: true
+  - annotationId: The resolved annotation ID
+  - replyId: ID of the reply (if --reply was provided)
+
+Examples:
+  rp1 agent-tools feedback resolve 42
+  rp1 agent-tools feedback resolve 42 --reply "Applied the suggested fix to design.md"
+`,
+	)
+	.action(
+		async (
+			annotationId: string,
+			options: { reply?: string },
+		): Promise<void> => {
+			const toolName = "feedback";
+
+			const validationResult = validateResolveOptions({
+				annotationId,
+				reply: options.reply,
+			});
+
+			if (E.isLeft(validationResult)) {
+				console.error(
+					createErrorResponse(
+						toolName,
+						formatError(validationResult.left, false),
+					),
+				);
+				process.exit(1);
+			}
+
+			const result = await executeFeedbackResolve(validationResult.right)();
+
+			if (E.isLeft(result)) {
+				console.error(
+					createErrorResponse(toolName, formatError(result.left, false)),
+				);
+				process.exit(1);
+			}
+
+			console.log(formatOutput(result.right));
+			process.exit(0);
+		},
+	);
+
+/**
+ * feedback reply subcommand.
+ * Adds an agent-attributed reply to an annotation thread.
+ */
+feedbackCommand
+	.command("reply <annotation-id>")
+	.description("Reply to an annotation thread")
+	.requiredOption("--content <text>", "Reply content")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Adds a reply to an existing annotation thread without resolving it.
+  The reply is attributed to the agent (author: "agent").
+
+Arguments:
+  annotation-id   Annotation ID to reply to (positive integer)
+
+Options:
+  --content <text>   Reply content (required, must be non-empty)
+
+Output:
+  JSON ToolResult with:
+  - replyId: ID of the created reply
+  - annotationId: The parent annotation ID
+
+Examples:
+  rp1 agent-tools feedback reply 42 --content "Working on this now"
+  rp1 agent-tools feedback reply 42 --content "This conflicts with the existing caching strategy, leaving open for discussion"
+`,
+	)
+	.action(
+		async (
+			annotationId: string,
+			options: { content: string },
+		): Promise<void> => {
+			const toolName = "feedback";
+
+			const validationResult = validateReplyOptions({
+				annotationId,
+				content: options.content,
+			});
+
+			if (E.isLeft(validationResult)) {
+				console.error(
+					createErrorResponse(
+						toolName,
+						formatError(validationResult.left, false),
+					),
+				);
+				process.exit(1);
+			}
+
+			const result = await executeFeedbackReply(validationResult.right)();
+
+			if (E.isLeft(result)) {
+				console.error(
+					createErrorResponse(toolName, formatError(result.left, false)),
+				);
+				process.exit(1);
+			}
+
+			console.log(formatOutput(result.right));
+			process.exit(0);
+		},
+	);
+
+/**
+ * feedback accept-edit subcommand.
+ * Accepts a direct file edit by clearing the artifact baseline.
+ */
+feedbackCommand
+	.command("accept-edit <doc-id>")
+	.description("Accept (acknowledge) a direct file edit")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Accepts a user's direct file edit by clearing the stored baseline for
+  that artifact. After acceptance, the edit no longer appears as pending
+  in feedback reads. The file content on disk is not modified.
+
+Arguments:
+  doc-id   Document ID of the artifact whose edit to accept
+
+Output:
+  JSON ToolResult with:
+  - accepted: true
+  - docId: The accepted document ID
+
+Examples:
+  rp1 agent-tools feedback accept-edit "abc123-def456"
+`,
+	)
+	.action(async (docId: string): Promise<void> => {
+		const toolName = "feedback";
+
+		const validationResult = validateAcceptEditOptions({ docId });
+
+		if (E.isLeft(validationResult)) {
+			console.error(
+				createErrorResponse(
+					toolName,
+					formatError(validationResult.left, false),
+				),
+			);
+			process.exit(1);
+		}
+
+		const result = await executeFeedbackAcceptEdit(validationResult.right)();
+
+		if (E.isLeft(result)) {
+			console.error(
+				createErrorResponse(toolName, formatError(result.left, false)),
+			);
+			process.exit(1);
+		}
+
+		console.log(formatOutput(result.right));
+		process.exit(0);
+	});
 
 /**
  * task subcommand.

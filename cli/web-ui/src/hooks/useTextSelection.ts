@@ -52,9 +52,9 @@ const DEFAULT_SHOW_DELAY = 250;
 /**
  * Extract text content from a container element.
  */
-function isEditableElement(node: Node): boolean {
+function isAnnotatableElement(node: Node): boolean {
 	if (!(node instanceof HTMLElement)) return true;
-	return node.getAttribute("contenteditable") !== "false";
+	return !node.hasAttribute("data-annotation-exclude");
 }
 
 function getContainerText(container: Node): string {
@@ -76,10 +76,8 @@ function calculateTextOffset(
 	let offset = 0;
 
 	function traverse(node: Node): boolean {
-		// Skip non-editable elements (mermaid tabs, action buttons, line numbers)
-		if (node instanceof HTMLElement && !isEditableElement(node)) {
-			// But still check if the target is inside — shouldn't happen
-			// for user selections, but handle gracefully
+		// Skip excluded UI chrome (mermaid tabs, action buttons, line numbers)
+		if (node instanceof HTMLElement && !isAnnotatableElement(node)) {
 			return node.contains(targetNode);
 		}
 

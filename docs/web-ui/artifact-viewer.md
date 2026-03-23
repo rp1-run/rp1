@@ -8,14 +8,14 @@ The Artifact Viewer displays design documents, requirements, and other artifacts
 
 ### From Run Details
 
-1. Navigate to a run in the V2 dashboard
+1. Navigate to a run in the dashboard
 2. Click any artifact in the Artifacts panel
 3. The artifact opens in the viewer
 
 ### Direct URL
 
 ```
-/v2/project/:projectId/artifact?path=:artifactPath
+/runs/:runId/artifacts/:artifactPath
 ```
 
 Where `:artifactPath` is the relative path to the artifact (e.g., `requirements.md`).
@@ -116,5 +116,5 @@ Annotations display as thin vertical lines on the left side of annotated content
 ## Related
 
 - [Annotations](annotations.md) - Complete annotation documentation
-- [V2 Dashboard](v2-dashboard.md) - Status monitoring dashboard
+- [Dashboard](dashboard.md) - Status monitoring dashboard
 - [Feature Development Guide](../guides/feature-development.md) - Using `/build` workflow

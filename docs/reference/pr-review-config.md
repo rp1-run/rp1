@@ -391,7 +391,7 @@ Invalid configuration produces clear error messages:
 | `Invalid verdict value` | `verdict` not one of allowed values | Use `auto`, `approve`, `request_changes`, or `comment` |
 | `Invalid ai_harness value` | `ai_harness` not recognized | Use `claude-code` or `opencode` |
 | `Invalid ci_platform value` | `ci_platform` not recognized | Use `github`, `buildkite`, or `gitlab` |
-| `max_comments must be positive` | Negative or zero value | Use a positive integer |
+| `max_comments must be positive` | Negative value | Use a non-negative integer |
 | `YAML parse error` | Invalid YAML syntax | Check indentation and structure |
 
 ---

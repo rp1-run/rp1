@@ -162,6 +162,6 @@ The command palette and shortcut overlay use ARIA dialog roles with proper focus
 ## Related
 
 - [WebUI Interaction](../concepts/webui.md) - Conceptual overview of keyboard-first navigation
-- [V2 Dashboard](v2-dashboard.md) - Status monitoring dashboard
+- [Dashboard](dashboard.md) - Status monitoring dashboard
 - [Artifact Viewer](artifact-viewer.md) - Document viewing
 - [Settings](settings.md) - Configuration options

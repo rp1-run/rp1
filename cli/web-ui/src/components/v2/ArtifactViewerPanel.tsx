@@ -5,6 +5,10 @@ import { AnnotationSidebar } from "@/components/v2/AnnotationSidebar";
 import { AnnotationToggleBtn } from "@/components/v2/AnnotationToggleBtn";
 import { ContentPanel } from "@/components/v2/ContentPanel";
 import { TableOfContents } from "@/components/v2/TableOfContents";
+import {
+	type SaveStatus,
+	SaveStatusIndicator,
+} from "@/components/v2/UnifiedContentRenderer";
 import type { HeadingEntry } from "@/hooks/useHeadingExtraction";
 import { cn } from "@/lib/utils";
 import { AnnotationProvider } from "@/providers/AnnotationProvider";
@@ -31,18 +35,26 @@ function ArtifactViewerInner({
 	onArtifactSelect,
 	runId,
 }: ArtifactViewerPanelProps) {
-	const [content, setContent] = useState<string | null>(null);
+	const [content, setContentRaw] = useState<string | null>(null);
+	const [contentRevision, setContentRevision] = useState(0);
+	const setContent = useCallback((c: string | null) => {
+		setContentRaw(c);
+		setContentRevision((r) => r + 1);
+	}, []);
 	const [contentLoading, setContentLoading] = useState(false);
 	const [contentError, setContentError] = useState<string | null>(null);
 	const [headings, setHeadings] = useState<readonly HeadingEntry[]>([]);
 	const [annotationSidebarOpen, setAnnotationSidebarOpen] = useState(false);
 	const [tocOpen, setTocOpen] = useState(false);
+	const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
 	const scrollViewportRef = useRef<HTMLDivElement>(null);
 	const { onFileChange } = useWebSocket();
 
+	const artifactPath = selectedArtifact?.path ?? null;
+
 	const fetchContent = useCallback(
 		async (preserveScroll: boolean) => {
-			if (!selectedArtifact || !runId) {
+			if (!artifactPath || !runId) {
 				setContent(null);
 				return;
 			}
@@ -55,7 +67,7 @@ function ArtifactViewerInner({
 
 			try {
 				const response = await fetch(
-					`/api/v2/runs/${runId}/artifacts/${encodeURIComponent(selectedArtifact.path)}`,
+					`/api/v2/runs/${runId}/artifacts/${encodeURIComponent(artifactPath)}`,
 				);
 				if (!response.ok) {
 					let errorMessage = `Failed to fetch artifact: ${response.statusText}`;
@@ -82,7 +94,7 @@ function ArtifactViewerInner({
 				}
 			}
 		},
-		[selectedArtifact, runId],
+		[artifactPath, runId, setContent],
 	);
 
 	useEffect(() => {
@@ -90,16 +102,21 @@ function ArtifactViewerInner({
 	}, [fetchContent]);
 
 	useEffect(() => {
-		if (!selectedArtifact || !runId) return;
+		if (!artifactPath || !runId) return;
+
+		const normalizedArtifactPath = artifactPath.replace(/^\.rp1\//, "");
 
 		const unsubscribe = onFileChange((msg) => {
-			if (msg.path === selectedArtifact.path && msg.changeType === "modify") {
+			if (
+				msg.changeType === "modify" &&
+				(msg.path === artifactPath || msg.path === normalizedArtifactPath)
+			) {
 				fetchContent(true);
 			}
 		});
 
 		return unsubscribe;
-	}, [selectedArtifact, runId, onFileChange, fetchContent]);
+	}, [artifactPath, runId, onFileChange, fetchContent]);
 
 	const handleHeadingsExtracted = useCallback((newHeadings: HeadingEntry[]) => {
 		setHeadings(newHeadings);
@@ -147,6 +164,7 @@ function ArtifactViewerInner({
 				<div className="flex items-center justify-between">
 					<h2 className="type-secondary text-fg-muted">{step.name}</h2>
 					<div className="flex items-center gap-3">
+						<SaveStatusIndicator status={saveStatus} />
 						{showTocToggle && (
 							<button
 								type="button"
@@ -200,6 +218,7 @@ function ArtifactViewerInner({
 					viewportRef={scrollViewportRef}
 				>
 					<ContentPanel
+						key={contentRevision}
 						content={content}
 						path={selectedArtifact?.path ?? null}
 						isLoading={contentLoading}
@@ -210,6 +229,7 @@ function ArtifactViewerInner({
 								: "No artifacts for this step."
 						}
 						onHeadingsExtracted={handleHeadingsExtracted}
+						onSaveStatusChange={setSaveStatus}
 						runId={runId}
 						docId={selectedArtifact?.docId}
 						scrollViewportRef={scrollViewportRef}

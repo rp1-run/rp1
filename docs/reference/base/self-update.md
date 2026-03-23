@@ -21,7 +21,22 @@ Updates rp1 to the latest version using the appropriate package manager.
 
 ## Description
 
-The `self-update` command detects your rp1 installation method and runs the appropriate update command. It supports automatic updates for Homebrew and Scoop installations, and provides manual instructions for other installation methods.
+The `self-update` command detects your rp1 installation method and runs the appropriate update
+command. It supports automatic updates for Homebrew and Scoop installations, and provides manual
+instructions for other installation methods.
+
+After a successful CLI update, the command prompts you to update plugins for all detected agentic
+tools (Claude Code, OpenCode). You can also update plugins separately with `rp1 update plugins`.
+
+## Options
+
+| Option | Description |
+|--------|-------------|
+| `--check` | Check for available updates without installing |
+| `--json` | Output result as JSON (only with `--check`) |
+| `--dry-run` | Preview what would be done without making changes |
+| `--force` | Force update even if already on the latest version |
+| `-y, --yes` | Skip all confirmation prompts |
 
 ## Supported Package Managers
 
@@ -119,12 +134,41 @@ For manual installations or when automatic update fails, download the latest ver
 | Scoop (Windows) | `scoop bucket add rp1 https://github.com/rp1-run/scoop-bucket && scoop install rp1` |
 | Direct download | Download binary from GitHub releases |
 
-## Safe to Run
+## Plugin Updates
 
-The command is safe to run even if you are already on the latest version. In this case, the package manager will report no updates available:
+After updating the CLI, the command prompts you to update plugins for all detected agentic tools:
 
 ```
-Already up-to-date. rp1 is at version 0.3.0
+Would you like to update rp1 plugins as well? (y/N)
+```
+
+If you confirm (or use `-y`), the command detects installed tools and updates their plugins:
+
+```
+Updating plugins for all detected tools...
+
+Detected tools: Claude Code, OpenCode
+Successfully updated: 2/2
+
+Claude Code: Plugins updated
+OpenCode: Plugins updated
+```
+
+You can also update plugins independently:
+
+```bash
+rp1 update plugins                  # Update all detected tools
+rp1 update plugins claude-code      # Update Claude Code plugins only
+rp1 update plugins opencode         # Update OpenCode plugins only
+```
+
+## Safe to Run
+
+The command is safe to run even if you are already on the latest version. In this case, the
+command reports no updates available:
+
+```
+You are already on the latest version (v0.3.0)
 ```
 
 ## Error Handling

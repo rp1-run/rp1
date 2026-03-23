@@ -1,6 +1,6 @@
 # build
 
-End-to-end feature workflow orchestrator. Runs the complete 6-step lifecycle (requirements → design → build → verify → follow-up → archive) in a single command.
+End-to-end feature workflow orchestrator. Runs the complete 6-step lifecycle (requirements → design → tasks → build → verify → archive) in a single command.
 
 ---
 
@@ -258,6 +258,5 @@ Running `rp1 install codex` copies per-agent TOML files to `~/.codex/agents/rp1/
 
 ## See Also
 
-- [Feature Development Guide](../../guides/feature-development.md) - Complete tutorial
 - [Feature Development Guide](../../guides/feature-development.md) - End-to-end feature workflow and build guidance
 - [Builder-Reviewer Agents](../../concepts/builder-reviewer-agents.md) - How the build step works

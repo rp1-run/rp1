@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, Navigate, useParams } from "react-router-dom";
 import {
 	ArtifactViewerPage,
 	FileBrowserPage,
@@ -9,6 +9,11 @@ import {
 	RunsListPage,
 } from "@/pages/v2";
 import { V2Layout } from "./V2Layout";
+
+function StepRedirect() {
+	const { runId, stepId } = useParams();
+	return <Navigate to={`/runs/${runId}/step/${stepId}`} replace />;
+}
 
 export const router = createBrowserRouter([
 	{
@@ -22,6 +27,10 @@ export const router = createBrowserRouter([
 			{
 				path: "runs/:runId/step/:stepId/artifact/:docId",
 				element: <RunDetailPage />,
+			},
+			{
+				path: "runs/:runId/step/:stepId/artifact",
+				element: <StepRedirect />,
 			},
 			{ path: "runs/:runId/artifacts/*", element: <ArtifactViewerPage /> },
 			{ path: "projects", element: <ProjectsPage /> },

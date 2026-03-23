@@ -27,6 +27,7 @@ interface UnifiedContentRendererProps {
 	readonly frontmatter?: Record<string, unknown>;
 	readonly isRefreshing?: boolean;
 	readonly onHeadingsExtracted?: (headings: HeadingEntry[]) => void;
+	readonly onSaveStatusChange?: (status: SaveStatus) => void;
 	readonly runId?: string;
 	readonly docId?: string;
 	readonly projectId?: string;
@@ -34,7 +35,13 @@ interface UnifiedContentRendererProps {
 	readonly enableAnnotations?: boolean;
 }
 
-function SaveStatusIndicator({ status }: { readonly status: SaveStatus }) {
+export type { SaveStatus };
+
+export function SaveStatusIndicator({
+	status,
+}: {
+	readonly status: SaveStatus;
+}) {
 	if (status === "idle") return null;
 
 	return (
@@ -95,6 +102,7 @@ function MarkdownEditorWithSave({
 	projectId,
 	filePath,
 	enableAnnotations = true,
+	onSaveStatusChange,
 }: {
 	readonly content: string;
 	readonly path: string;
@@ -103,8 +111,16 @@ function MarkdownEditorWithSave({
 	readonly projectId?: string;
 	readonly filePath?: string;
 	readonly enableAnnotations?: boolean;
+	readonly onSaveStatusChange?: (status: SaveStatus) => void;
 }) {
-	const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+	const [_saveStatus, setSaveStatusRaw] = useState<SaveStatus>("idle");
+	const setSaveStatus = useCallback(
+		(status: SaveStatus) => {
+			setSaveStatusRaw(status);
+			onSaveStatusChange?.(status);
+		},
+		[onSaveStatusChange],
+	);
 	const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const indicatorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -162,7 +178,7 @@ function MarkdownEditorWithSave({
 				}, SAVE_INDICATOR_DURATION_MS);
 			}, SAVE_DEBOUNCE_MS);
 		},
-		[canSave, runId, projectId, filePath, path, frontmatter],
+		[canSave, runId, projectId, filePath, path, frontmatter, setSaveStatus],
 	);
 
 	useEffect(() => {
@@ -180,9 +196,6 @@ function MarkdownEditorWithSave({
 				aria-hidden="true"
 			/>
 			<div className="flex-1 min-w-0 relative">
-				<div className="absolute top-0 right-0 z-10 px-2 py-1">
-					<SaveStatusIndicator status={saveStatus} />
-				</div>
 				{frontmatter && <FrontmatterBlock raw={frontmatter} />}
 				<article ref={editorContainerRef}>
 					<MilkdownEditor
@@ -212,6 +225,7 @@ export function UnifiedContentRenderer({
 	frontmatter: _frontmatter,
 	isRefreshing,
 	onHeadingsExtracted: _onHeadingsExtracted,
+	onSaveStatusChange,
 	runId,
 	docId,
 	projectId,
@@ -239,6 +253,7 @@ export function UnifiedContentRenderer({
 					projectId={projectId}
 					filePath={filePath}
 					enableAnnotations={enableAnnotations}
+					onSaveStatusChange={onSaveStatusChange}
 				/>
 			</div>
 		);

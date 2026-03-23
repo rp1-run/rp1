@@ -1,33 +1,34 @@
 # rp1 - Knowledge Base
 
 **Type**: Monorepo
-**Languages**: TypeScript, TSX, Markdown, JSON, YAML, TOML, Shell, Python, CSS, HTML
-**Updated**: 2026-03-20
-**Projects**: 7 (`cli`, `cli/web-ui`, `plugins/base`, `plugins/dev`, `plugins/utils`, `evals`, `packages/catppuccin-mermaid`)
+**Languages**: TypeScript, TSX, Markdown, Shell
+**Version**: 0.6.0
+**Updated**: 2026-03-23
+**Projects**: 7 (cli, cli/web-ui, plugins/base, plugins/dev, plugins/utils, evals, packages/catppuccin-mermaid)
 
 ## Project Summary
 
-rp1 is a plugin-driven AI development workflow system built around a Bun and TypeScript CLI, markdown-authored skills and agents, local workflow state tracking, a live Web UI dashboard, and eval tooling for prompt attestation. The repository exists to make agent workflows inspectable, reproducible, and easier to ship across Claude Code, OpenCode, and Codex.
+rp1 is an AI agent orchestration platform that provides a plugin ecosystem for coding agents. It delivers skills, agents, and workflows to host tools (Claude Code, OpenCode, Codex) via a build pipeline that transforms markdown-first prompt definitions into platform-specific artifacts, with a Web UI dashboard for live workflow monitoring.
 
 ## Quick Reference
 
 | Aspect | Value |
 |--------|-------|
-| Entry Point | `cli/src/main.ts` |
-| Key Pattern | Skill-as-orchestrator with agent delegation |
-| Tech Stack | Bun, TypeScript, React, Vite, Tailwind CSS, Commit Mono, Commander, fp-ts, SQLite |
+| Entry Point | `cli/src/main.ts` (CLI), `cli/web-ui/src/main.tsx` (dashboard) |
+| Key Pattern | Plugin Architecture with Skill-Agent delegation |
+| Tech Stack | Bun, TypeScript, fp-ts, React, Vite, SQLite, LiquidJS, GoReleaser |
 
 ## Projects Overview
 
 | Project | Purpose | Language | Entry Point |
 |---------|---------|----------|-------------|
-| `cli` | Main executable, installers, build pipeline, and runtime services | TypeScript | `cli/src/main.ts` |
-| `cli/web-ui` | Local dashboard, daemon server, APIs, and run visualization | TSX | `cli/web-ui/src/server.ts` |
-| `plugins/base` | KB, docs, Mermaid, strategy, and foundational workflows | Markdown | `plugins/base/skills/` |
-| `plugins/dev` | Feature delivery, review, audit, and archive workflows | Markdown | `plugins/dev/skills/` |
-| `plugins/utils` | Prompt utility and eval-helper workflows | Markdown | `plugins/utils/skills/` |
-| `evals` | Prompt evaluation and attestation tooling | TypeScript | `evals/src/index.ts` |
-| `packages/catppuccin-mermaid` | Shared Mermaid theming package | TypeScript | `packages/catppuccin-mermaid/src/index.ts` |
+| cli | CLI commands, build pipeline, agent tools, install | TypeScript | `src/main.ts` |
+| cli/web-ui | Dashboard SPA + Bun server + daemon | TSX/TypeScript | `src/main.tsx` |
+| plugins/base | KB generation, docs, mermaid, research, strategy | Markdown | `skills/knowledge-build/SKILL.md` |
+| plugins/dev | Feature delivery, PR review, code quality | Markdown | `skills/build/SKILL.md` |
+| plugins/utils | Prompt authoring, eval extraction, tersification | Markdown | `skills/prompt-writer/SKILL.md` |
+| evals | Prompt attestation and eval suite verification | TypeScript | `src/index.ts` |
+| packages/catppuccin-mermaid | Catppuccin-flavored Mermaid theme package | TypeScript | `src/index.ts` |
 
 ## KB File Manifest
 
@@ -35,10 +36,10 @@ rp1 is a plugin-driven AI development workflow system built around a Bun and Typ
 
 | File | Lines | Load For |
 |------|-------|----------|
-| architecture.md | 135 | System design, component relationships, data flows |
-| modules.md | 144 | Component breakdown, module responsibilities |
-| patterns.md | 65 | Code conventions, implementation patterns |
-| concept_map.md | 143 | Domain terminology, business concepts |
+| architecture.md | ~150 | System design, component relationships, data flows |
+| modules.md | ~144 | Component breakdown, module responsibilities |
+| patterns.md | ~80 | Code conventions, implementation patterns |
+| concept_map.md | ~195 | Domain terminology, business concepts |
 
 ## Task-Based Loading
 
@@ -47,30 +48,5 @@ rp1 is a plugin-driven AI development workflow system built around a Bun and Typ
 | Code review | `patterns.md` |
 | Bug investigation | `architecture.md`, `modules.md` |
 | Feature implementation | `modules.md`, `patterns.md` |
-| Strategic analysis | ALL files |
-
-## How to Load
-
-```
-Read: {{$RP1_ROOT}}/context/{filename}
-```
-
-## Repository Structure
-
-```text
-rp1/
-├── cli/                         # Main CLI, installers, and runtime services
-├── cli/web-ui/                  # Dashboard frontend and Bun daemon server
-├── plugins/base/                # Foundational KB and utility workflows
-├── plugins/dev/                 # Delivery, review, and archive workflows
-├── plugins/utils/               # Prompt and helper workflows
-├── evals/                       # Prompt evaluation and attestation tooling
-└── packages/catppuccin-mermaid/ # Shared Mermaid theming package
-```
-
-## Navigation
-
-- **[architecture.md](architecture.md)**: System design and diagrams
-- **[modules.md](modules.md)**: Component breakdown
-- **[patterns.md](patterns.md)**: Code conventions
-- **[concept_map.md](concept_map.md)**: Domain terminology
+| Strategic or system-wide analysis | All files |
+| Understanding domain concepts | `concept_map.md` |

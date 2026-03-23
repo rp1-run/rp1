@@ -16,32 +16,25 @@ rp1 arcade
 - Documentation viewer with syntax highlighting
 - Live Mermaid diagram rendering with Catppuccin theming
 - File tree navigation for `.rp1/` directory
-- Real-time status dashboard (V2)
+- Real-time status dashboard
 - WebSocket-based live reload
 - Dark/light theme support (Catppuccin Mocha/Latte)
 
 ## Routes
 
-### Documentation Viewer (V1)
+### Status Dashboard
+
+The dashboard provides a glanceable view of AI agent runs across all projects.
 
 | Route | Description |
 |-------|-------------|
-| `/` | Documentation viewer with file tree |
-| `/status` | Work status dashboard (legacy) |
+| `/` | Home dashboard - attention-prioritized run overview |
+| `/runs` | Runs list with filters (status, project, date range) |
+| `/runs/:runId` | Run detail - timeline, artifacts, event stream |
+| `/projects` | Project list |
+| `/projects/:projectId/runs` | Project-scoped runs list |
 
-### Status Dashboard (V2)
-
-The V2 dashboard provides a glanceable view of AI agent runs across all projects.
-
-| Route | Description |
-|-------|-------------|
-| `/v2/` | Home dashboard - attention-prioritized run overview |
-| `/v2/runs` | Runs list with filters (status, project, date range) |
-| `/v2/runs/:runId` | Run detail - timeline, artifacts, event stream |
-| `/v2/projects` | Project list |
-| `/v2/project/:projectId/runs` | Project-scoped runs list |
-
-See [V2 Dashboard Documentation](../../docs/web-ui/v2-dashboard.md) for detailed usage.
+See [Dashboard Documentation](../../docs/web-ui/dashboard.md) for detailed usage.
 
 ## Development
 
@@ -66,11 +59,11 @@ bun run typecheck
 ```
 src/
   app/           # App entry, layouts, routing
-    V2Layout.tsx   # V2 shell with sidebar
-    v2-routes.tsx  # V2 route configuration
+    Layout.tsx     # Shell with sidebar
+    routes.tsx     # Route configuration
   components/
     ui/          # Shared UI primitives (Radix-based)
-    v2/          # V2-specific components
+    v2/          # Dashboard components
       StatusBadge.tsx
       RunCard.tsx
       StepTimeline.tsx
@@ -84,7 +77,7 @@ src/
     useRunDetail.ts    # Fetch single run
     useKeyboardNav.ts  # List keyboard navigation
   pages/
-    v2/              # V2 page components
+    v2/              # Page components
       HomePage.tsx
       RunsListPage.tsx
       RunDetailPage.tsx
@@ -94,15 +87,15 @@ src/
     ThemeProvider.tsx      # Theme management
   server/
     routes/
-      v2-api.ts      # V2 API endpoints
+      v2-api.ts      # API endpoints
   types/
-    runs.ts          # V2 data types
+    runs.ts          # Run data types
     websocket.ts     # WebSocket message types
 ```
 
 ## API Endpoints
 
-### V2 API
+### API
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -124,7 +117,7 @@ Query parameters for `/api/v2/runs`:
 
 ## WebSocket Events
 
-V2 run status events:
+Run status events:
 
 | Event | Payload | Description |
 |-------|---------|-------------|

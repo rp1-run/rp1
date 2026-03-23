@@ -71,7 +71,10 @@ flowchart LR
 
     subgraph "Extraction Phase"
         EXTRACT[prompt-eval-extractor]
-        WRITER[eval-prompt-writer]
+    end
+
+    subgraph "Optimization Phase"
+        PAS[prompt-assertion-specialist]
     end
 
     subgraph "Output"
@@ -81,13 +84,14 @@ flowchart LR
 
     CMD --> ANALYZER
     ANALYZER -->|dependency chain| EXTRACT
-    CMD --> WRITER
     EXTRACT --> YAML
-    WRITER --> PROMPT
+    EXTRACT --> PROMPT
+    YAML --> PAS
+    PAS --> YAML
 
     style ANALYZER fill:#1565c0,color:#fff
     style EXTRACT fill:#2e7d32,color:#fff
-    style WRITER fill:#2e7d32,color:#fff
+    style PAS fill:#2e7d32,color:#fff
 ```
 
 ### Example Chain
@@ -114,27 +118,27 @@ flowchart TB
         subgraph "Agents"
             DCA[dependency-chain-analyzer]
             PEE[prompt-eval-extractor]
-            EPW[eval-prompt-writer]
+            PAS[prompt-assertion-specialist]
         end
     end
 
     BPE -->|Step 1| DCA
     BPE -->|Step 2| PEE
-    BPE -->|Step 2| EPW
+    BPE -->|Step 3| PAS
     PEE -.->|reads| CHAIN[Dependency Chain Files]
 
     style BPE fill:#7b1fa2,color:#fff
     style DCA fill:#1565c0,color:#fff
     style PEE fill:#2e7d32,color:#fff
-    style EPW fill:#2e7d32,color:#fff
+    style PAS fill:#2e7d32,color:#fff
 ```
 
 | Component | Purpose |
 |-----------|---------|
 | **build-prompt-evals** | Command orchestrator; routes to agents |
 | **dependency-chain-analyzer** | Discovers sub-agent and skill dependencies |
-| **prompt-eval-extractor** | Generates assertions from prompt content |
-| **eval-prompt-writer** | Creates minimal test prompts |
+| **prompt-eval-extractor** | Generates assertions and minimal test prompts from prompt content |
+| **prompt-assertion-specialist** | Resolves placeholder assertions, consolidates scenarios |
 
 ---
 

@@ -248,5 +248,5 @@ Each step spawns its agent, which produces artifacts used by subsequent steps. T
 
 ## Learn More
 
-- [Skill Reference](../reference/index.md) - All 31 skills across base, dev, and utils plugins
+- [Skill Reference](../reference/index.md) - All 39 skills across base, dev, and utils plugins
 - [Feature Development Tutorial](../guides/feature-development.md) - See the pattern in action

@@ -173,6 +173,6 @@ For detailed keyboard shortcut documentation, see [Keyboard Shortcuts](../web-ui
 
 ## Related
 
-- [`work` Agent Tool](cli/work.md) - CLI tool for recording status updates
+- [Agent Tools Reference](agent-tools.md) - CLI tools for recording status updates
 - [Feature Development Guide](../guides/feature-development.md) - Using `/build` workflow
 - [Keyboard Shortcuts](../web-ui/keyboard-shortcuts.md) - Complete keyboard shortcut reference

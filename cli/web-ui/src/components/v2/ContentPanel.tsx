@@ -1,5 +1,8 @@
 import { Loader2 } from "lucide-react";
-import { UnifiedContentRenderer } from "@/components/v2/UnifiedContentRenderer";
+import {
+	type SaveStatus,
+	UnifiedContentRenderer,
+} from "@/components/v2/UnifiedContentRenderer";
 import type { HeadingEntry } from "@/hooks/useHeadingExtraction";
 
 export interface ContentPanelProps {
@@ -11,6 +14,7 @@ export interface ContentPanelProps {
 	readonly frontmatter?: Record<string, unknown>;
 	readonly isRefreshing?: boolean;
 	readonly onHeadingsExtracted?: (headings: HeadingEntry[]) => void;
+	readonly onSaveStatusChange?: (status: SaveStatus) => void;
 	readonly runId?: string;
 	readonly docId?: string;
 	readonly projectId?: string;
@@ -33,12 +37,13 @@ export function ContentPanel({
 	projectId,
 	filePath,
 	enableAnnotations = true,
+	onSaveStatusChange,
 }: ContentPanelProps) {
 	return (
 		<div
 			className="artifact-viewer-content max-w-full overflow-hidden break-words px-4 md:px-[40px]"
 			style={{
-				paddingTop: "40px",
+				paddingTop: "16px",
 				paddingBottom: "40px",
 				fontSize: "14px",
 				lineHeight: "1.7",
@@ -63,6 +68,7 @@ export function ContentPanel({
 					frontmatter={frontmatter}
 					isRefreshing={isRefreshing}
 					onHeadingsExtracted={onHeadingsExtracted}
+					onSaveStatusChange={onSaveStatusChange}
 					runId={runId}
 					docId={docId}
 					projectId={projectId}

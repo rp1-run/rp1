@@ -16,6 +16,7 @@ import {
 	useWorkflowSteps,
 } from "@/hooks/useWorkflowSteps";
 import { cn } from "@/lib/utils";
+import { useWebSocket } from "@/providers/WebSocketProvider";
 import type { Artifact, Step } from "@/types/runs";
 
 function MobileStepSelector({
@@ -98,23 +99,26 @@ export function RunDetailPage() {
 	}, [selectedStepId, run]);
 
 	const { setActiveArtifact, setProject } = useBreadcrumbContext();
+	const { setProjectId } = useWebSocket();
 
 	useEffect(() => {
 		if (run?.projectName && run?.projectId) {
 			setProject(run.projectId, run.projectName);
+			setProjectId(run.projectId);
 		}
 		return () => {
 			setProject(null, null);
+			setProjectId(null);
 		};
-	}, [run?.projectName, run?.projectId, setProject]);
+	}, [run?.projectName, run?.projectId, setProject, setProjectId]);
 
 	const handleStepSelect = useCallback(
 		(stepId: string) => {
 			if (!runId) return;
 			if (run) {
-				const arts = run.artifacts.filter((a) => a.step === stepId);
-				if (arts.length > 0) {
-					navigate(`/runs/${runId}/step/${stepId}/artifact/${arts[0].docId}`);
+				const art = run.artifacts.find((a) => a.step === stepId && a.docId);
+				if (art) {
+					navigate(`/runs/${runId}/step/${stepId}/artifact/${art.docId}`);
 					return;
 				}
 			}
@@ -151,12 +155,13 @@ export function RunDetailPage() {
 					: completedSteps.length > 0
 						? completedSteps[completedSteps.length - 1]
 						: steps[0]);
-			const arts = run.artifacts.filter((a) => a.step === targetStep.id);
-			if (arts.length > 0) {
-				navigate(
-					`/runs/${runId}/step/${targetStep.id}/artifact/${arts[0].docId}`,
-					{ replace: true },
-				);
+			const art = run.artifacts.find(
+				(a) => a.step === targetStep.id && a.docId,
+			);
+			if (art) {
+				navigate(`/runs/${runId}/step/${targetStep.id}/artifact/${art.docId}`, {
+					replace: true,
+				});
 			} else {
 				navigate(`/runs/${runId}/step/${targetStep.id}`, { replace: true });
 			}
@@ -164,9 +169,9 @@ export function RunDetailPage() {
 		}
 
 		if (urlStepId && !urlDocId) {
-			const arts = run.artifacts.filter((a) => a.step === urlStepId);
-			if (arts.length > 0) {
-				navigate(`/runs/${runId}/step/${urlStepId}/artifact/${arts[0].docId}`, {
+			const art = run.artifacts.find((a) => a.step === urlStepId && a.docId);
+			if (art) {
+				navigate(`/runs/${runId}/step/${urlStepId}/artifact/${art.docId}`, {
 					replace: true,
 				});
 			}

@@ -23,7 +23,7 @@
 
 <p align="center">
   Professional development workflows for AI coding assistants.<br>
-  21 commands. 18 specialized agents. Single-pass execution.<br>
+  39 commands. 49 specialized agents. Single-pass execution.<br>
   Works today with <strong>Claude Code</strong>. Experimental support for <strong>OpenCode</strong> and <strong>Codex CLI</strong>.
 </p>
 
@@ -104,7 +104,7 @@ This will set up rp1 and install plugins for your AI assistant (Claude Code, Ope
 /code-check
 ```
 
-**[See all 21 commands →](https://rp1.run/reference/)**
+**[See all 39 commands →](https://rp1.run/reference/)**
 
 ---
 

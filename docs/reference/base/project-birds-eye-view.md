@@ -42,7 +42,7 @@ The command produces documentation covering:
 
 The command generates a comprehensive markdown document:
 
-**Location:** `.rp1/work/project-overview.md`
+**Location:** `.rp1/context/birds-eye-view.md`
 
 **Contents:**
 
@@ -79,7 +79,7 @@ Summary:
 - Type: E-commerce Platform
 - Tech Stack: TypeScript, PostgreSQL, Redis
 
-Output: $RP1_ROOT/work/project-overview.md
+Output: $RP1_ROOT/context/birds-eye-view.md
 
 Sections Generated:
 - Summary ✓

@@ -406,4 +406,4 @@ rp1 agent-tools emit \
 
 - [SKILL.md Format](skill-format.md) -- How skills are structured
 - [Skill-Agent Pattern](command-agent-pattern.md) -- How skills delegate to agents
-- [Web UI Dashboard](../web-ui/v2-dashboard.md) -- Where workflow progress is displayed
+- [Web UI Dashboard](../web-ui/dashboard.md) -- Where workflow progress is displayed

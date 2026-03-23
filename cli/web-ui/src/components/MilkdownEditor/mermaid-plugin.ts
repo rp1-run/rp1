@@ -119,6 +119,7 @@ function mermaidNodeView(_ctx: Ctx): NodeViewConstructor {
 		const tabBar = document.createElement("div");
 		tabBar.className = "milkdown-mermaid-tabs";
 		tabBar.contentEditable = "false";
+		tabBar.dataset.annotationExclude = "";
 
 		const previewTab = document.createElement("button");
 		previewTab.type = "button";
@@ -153,6 +154,7 @@ function mermaidNodeView(_ctx: Ctx): NodeViewConstructor {
 		const previewPanel = document.createElement("div");
 		previewPanel.className = "milkdown-mermaid-preview";
 		previewPanel.contentEditable = "false";
+		previewPanel.dataset.annotationExclude = "";
 
 		inner.appendChild(tabBar);
 		inner.appendChild(pre);

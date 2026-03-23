@@ -186,22 +186,33 @@ These comments are invisible in rendered markdown but provide context when viewi
 
 ## Agent Integration
 
-AI agents can access annotations via the JSON file to:
+AI agents interact with annotations through the `rp1 agent-tools feedback` subcommand, which provides a structured interface for the full feedback lifecycle.
 
-- **Read feedback**: Understand user concerns and questions
-- **Track resolution**: Skip resolved annotations
+### Feedback Subcommands
+
+| Subcommand | Purpose |
+|------------|---------|
+| `feedback read --run-id <id>` | Fetch open annotations and pending file edits for a run |
+| `feedback resolve <id> --run-id <id>` | Mark an annotation as resolved |
+| `feedback reply <id> --run-id <id>` | Reply to an annotation thread |
+| `feedback accept-edit <id> --run-id <id>` | Accept a user-proposed file edit |
+
+All feedback operations are scoped by `--run-id`. Annotations without an explicit `runId` are matched via their associated artifacts, so agents can find feedback even when annotations were created before the current run started.
 
 ### Reading Annotations
 
-Agents should read `.rp1/open-tasks.json` at the start of relevant workflows to check for feedback.
+Agents call `rp1 agent-tools feedback read --run-id <run-id>` at the start of relevant workflows to check for feedback. This returns open annotations with summary counts and any pending direct file edits.
+
+The raw JSON storage at `.rp1/open-tasks.json` remains available as a fallback for direct file access.
 
 ### Example Workflow
 
 1. You review an AI-generated requirements document
 2. Add annotations highlighting unclear sections or requesting changes
 3. Run `/build my-feature` to continue development
-4. The builder agent reads annotations and addresses the feedback
-5. Resolved feedback is marked in the JSON file
+4. The builder agent calls `feedback read` to retrieve open annotations
+5. The agent addresses each annotation, then calls `feedback resolve` to mark it done
+6. Resolutions are written to the database and broadcast via WebSocket in real time
 
 ---
 
@@ -220,5 +231,5 @@ When disabled, annotation UI elements are hidden and the API returns 404.
 ## Related
 
 - [Artifact Viewer](artifact-viewer.md) - Main artifact viewing interface
-- [V2 Dashboard](v2-dashboard.md) - Status monitoring dashboard
+- [Dashboard](dashboard.md) - Status monitoring dashboard
 - [Feature Development Guide](../guides/feature-development.md) - Using `/build` workflow

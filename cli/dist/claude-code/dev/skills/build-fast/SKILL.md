@@ -115,6 +115,17 @@ Output the planner's `redirect_message` and STOP.
 
 When skipped: Do NOT call AskUserQuestion. Proceed directly to §PHASE-2.
 
+Emit waiting status so the Arcade dashboard reflects the gate pause:
+
+```bash
+rp1 agent-tools emit \
+  --workflow build-fast \
+  --type waiting_for_user \
+  --run-id {RUN_ID} \
+  --step plan \
+  --data '{"prompt": "Proceed with plan?", "context": "Plan review checkpoint after planning phase"}'
+```
+
 Present the plan review to the user:
 
 ## Plan Review
@@ -132,9 +143,11 @@ AskUserQuestion: "Proceed with plan?"
 Options:
 - Continue
 - Revise
+- Review feedback from Arcade
 - Stop
 
 **On "Revise"**: Prompt for feedback, re-invoke §PHASE-1 with feedback appended to DEVELOPMENT_REQUEST.
+**On "Review feedback from Arcade"**: Load the `arcade-collab` skill (`/rp1-dev:arcade-collab`), then call `rp1 agent-tools feedback read --run-id {RUN_ID} --status open`. If feedback exists, process it per the collaboration loop in the skill. After all feedback is processed, return to this gate and re-present the same options.
 **On "Stop"**: Output "Build fast cancelled. Artifact preserved at {artifact_path}" and STOP.
 
 ## §PHASE-2: Execution
@@ -213,6 +226,17 @@ git push -u origin {branch}
 
 When skipped: Do NOT call AskUserQuestion. Proceed directly to §OUTPUT.
 
+Emit waiting status so the Arcade dashboard reflects the gate pause:
+
+```bash
+rp1 agent-tools emit \
+  --workflow build-fast \
+  --type waiting_for_user \
+  --run-id {RUN_ID} \
+  --step build \
+  --data '{"prompt": "Continue or make additional changes?", "context": "Post-implementation checkpoint after build phase"}'
+```
+
 Present the post-implementation checkpoint to the user:
 
 ## Implementation Complete
@@ -226,8 +250,10 @@ AskUserQuestion: "Continue or make additional changes?"
 Options:
 - Done
 - Add/Edit
+- Review feedback from Arcade
 
 **On "Add/Edit"**: Prompt for additional request, re-invoke §PHASE-2 with new request appended.
+**On "Review feedback from Arcade"**: Load the `arcade-collab` skill (`/rp1-dev:arcade-collab`), then call `rp1 agent-tools feedback read --run-id {RUN_ID} --status open`. If feedback exists, process it per the collaboration loop in the skill. After all feedback is processed, return to this gate and re-present the same options.
 **On "Done"**: Continue to output.
 
 ## §OUTPUT

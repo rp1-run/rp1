@@ -1,6 +1,6 @@
 # analyse-security
 
-Performs comprehensive security validation including vulnerability scanning, authentication verification, and compliance assessment.
+Performs comprehensive security validation including vulnerability scanning, authentication/authorization verification, compliance assessment, and penetration testing.
 
 ---
 
@@ -20,7 +20,7 @@ Performs comprehensive security validation including vulnerability scanning, aut
 
 ## Description
 
-The `analyse-security` command performs thorough security validation of your codebase. It automatically detects and runs available security scanning tools, verifies authentication and authorization implementations, and checks for common vulnerabilities.
+The `analyse-security` command performs thorough security validation of your codebase including vulnerability scans, authentication/authorization verification, compliance assessment, and penetration testing. It automatically detects and runs available security scanning tools and checks for common vulnerabilities.
 
 The command analyzes:
 
@@ -41,7 +41,7 @@ The command analyzes:
 
 The command produces a security validation report:
 
-**Location:** `.rp1/work/security-report.md`
+**Location:** `.rp1/work/features/{feature_id}/security_report.md`
 
 **Contents:**
 

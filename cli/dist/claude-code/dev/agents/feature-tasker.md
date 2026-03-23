@@ -249,6 +249,22 @@ List uncovered design sections -> new tasks: T{max_id + 1}...
 [If DAG_STATE exists - copy from design.md per §3.6]
 [Omit section if DAG_STATE = null]
 
+## Task Subflow
+
+```mermaid
+stateDiagram-v2
+    [*] --> T1
+    T1 : Task 1 description
+    [*] --> T2
+    T2 : Task 2 description
+    T1 --> T3
+    T2 --> T3
+    T3 : Task 3 description
+    T3 --> [*]
+```
+
+[Generate from DAG_STATE if exists; otherwise sequential chain. Same logic as §6.0 diagram generation.]
+
 ## Task Breakdown
 
 ### [Category per parallel group]
@@ -287,6 +303,19 @@ List uncovered design sections -> new tasks: T{max_id + 1}...
 |-----------|-------|--------|----------|--------|
 | [M1](milestone-1.md) | [Title] | Not Started | 0% | [Date] |
 
+## Task Subflow
+
+```mermaid
+stateDiagram-v2
+    [*] --> M1
+    M1 : Milestone 1
+    M1 --> M2
+    M2 : Milestone 2
+    M2 --> [*]
+```
+
+[Overall milestone-level subflow diagram. Generate from DAG_STATE if exists; otherwise sequential chain.]
+
 ## Acceptance Criteria Coverage
 [All criteria w/ milestone mapping]
 
@@ -310,6 +339,19 @@ List uncovered design sections -> new tasks: T{max_id + 1}...
 ### [Category]
 [Tasks w/ T[N].[M] IDs]
 
+## Task Subflow
+
+```mermaid
+stateDiagram-v2
+    [*] --> T1_1
+    T1_1 : Task 1.1 description
+    T1_1 --> T1_2
+    T1_2 : Task 1.2 description
+    T1_2 --> [*]
+```
+
+[Per-milestone task subflow diagram. Generate from milestone task dependencies.]
+
 ## Definition of Done
 [Completion criteria]
 ```
@@ -320,32 +362,7 @@ After writing task artifacts, register them so the Web UI can display them. Skip
 
 ### §6.0 Subflow Diagram
 
-Generate a `tasks-subflow.mmd` file from the task dependency structure:
-
-```mermaid
-stateDiagram-v2
-    [*] --> T1
-    T1 : Task 1 description
-    [*] --> T2
-    T2 : Task 2 description
-    T1 --> T3
-    T2 --> T3
-    T3 : Task 3 description
-    T3 --> [*]
-```
-
-If `DAG_STATE` exists, use the dependency graph to determine transitions. Otherwise, produce a sequential chain. Write to `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/tasks-subflow.mmd`.
-
-Register with subflow flag:
-
-```bash
-rp1 agent-tools emit \
-  --workflow {WORKFLOW} \
-  --type artifact_registered \
-  --run-id {RUN_ID} \
-  --step tasks \
-  --data '{"path": ".rp1/work/features/{FEATURE_ID}/tasks-subflow.mmd", "feature": "{FEATURE_ID}", "subflow": true}'
-```
+The subflow diagram is embedded inline as a fenced mermaid code block in the parent markdown file (per §5.1 `## Task Subflow` for small scope, §5.2 for large scope). No standalone `.mmd` file is created. Artifact registration for the subflow is merged into §6.1 via the `"subflow": true` flag.
 
 ### §6.1 Task Artifacts
 
@@ -357,7 +374,7 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step tasks \
-  --data '{"path": ".rp1/work/features/{FEATURE_ID}/tasks.md", "feature": "{FEATURE_ID}"}'
+  --data '{"path": ".rp1/work/features/{FEATURE_ID}/tasks.md", "feature": "{FEATURE_ID}", "subflow": true}'
 ```
 
 **Large scope** (tracker.md + milestone files):
@@ -368,7 +385,7 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step tasks \
-  --data '{"path": ".rp1/work/features/{FEATURE_ID}/tracker.md", "feature": "{FEATURE_ID}"}'
+  --data '{"path": ".rp1/work/features/{FEATURE_ID}/tracker.md", "feature": "{FEATURE_ID}", "subflow": true}'
 ```
 
 Also register each `milestone-{N}.md` written:

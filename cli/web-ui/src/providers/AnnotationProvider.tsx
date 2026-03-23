@@ -39,6 +39,7 @@ export interface AnnotationContextValue {
 	readonly filter: AnnotationFilter;
 	readonly selectedAnnotationId: string | null;
 	readonly docId: string | null;
+	readonly runId: string | null;
 	setFilter: (filter: AnnotationFilter) => void;
 	selectAnnotation: (id: string | null) => void;
 	createAnnotation: (request: CreateAnnotationRequest) => Promise<Annotation>;
@@ -62,6 +63,7 @@ interface AnnotationProviderProps {
 	readonly children: ReactNode;
 	readonly artifactPath?: string;
 	readonly docId?: string;
+	readonly runId?: string;
 }
 
 /**
@@ -72,6 +74,7 @@ export function AnnotationProvider({
 	children,
 	artifactPath,
 	docId: docIdProp,
+	runId: runIdProp,
 }: AnnotationProviderProps) {
 	const [annotations, setAnnotations] = useState<readonly Annotation[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
@@ -84,7 +87,6 @@ export function AnnotationProvider({
 	const { onAnnotationMessage } = useWebSocket();
 	const mountedRef = useRef(true);
 
-	// Store pending optimistic updates for rollback
 	const optimisticRollbackRef = useRef<Map<string, readonly Annotation[]>>(
 		new Map(),
 	);
@@ -126,7 +128,6 @@ export function AnnotationProvider({
 	 */
 	const createAnnotation = useCallback(
 		async (request: CreateAnnotationRequest): Promise<Annotation> => {
-			// Generate a temporary ID for optimistic update
 			const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 			const optimisticAnnotation: Annotation = {
 				id: tempId,
@@ -142,11 +143,8 @@ export function AnnotationProvider({
 				orphaned: false,
 			};
 
-			// Store current state for rollback
 			const rollbackId = tempId;
 			optimisticRollbackRef.current.set(rollbackId, annotations);
-
-			// Optimistic update
 			setAnnotations((prev) => [...prev, optimisticAnnotation]);
 
 			try {
@@ -166,7 +164,6 @@ export function AnnotationProvider({
 
 				const created = (await response.json()) as Annotation;
 
-				// Replace temporary annotation with real one
 				setAnnotations((prev) =>
 					prev.map((a) => (a.id === tempId ? created : a)),
 				);
@@ -174,7 +171,6 @@ export function AnnotationProvider({
 				optimisticRollbackRef.current.delete(rollbackId);
 				return created;
 			} catch (err) {
-				// Rollback on error
 				const rollbackState = optimisticRollbackRef.current.get(rollbackId);
 				if (rollbackState) {
 					setAnnotations(rollbackState);
@@ -191,10 +187,7 @@ export function AnnotationProvider({
 	 */
 	const resolveAnnotation = useCallback(
 		async (id: string): Promise<void> => {
-			// Store current state for rollback
 			optimisticRollbackRef.current.set(id, annotations);
-
-			// Optimistic update
 			setAnnotations((prev) =>
 				prev.map((a) =>
 					a.id === id
@@ -222,7 +215,6 @@ export function AnnotationProvider({
 
 				optimisticRollbackRef.current.delete(id);
 			} catch (err) {
-				// Rollback on error
 				const rollbackState = optimisticRollbackRef.current.get(id);
 				if (rollbackState) {
 					setAnnotations(rollbackState);
@@ -239,10 +231,7 @@ export function AnnotationProvider({
 	 */
 	const reopenAnnotation = useCallback(
 		async (id: string): Promise<void> => {
-			// Store current state for rollback
 			optimisticRollbackRef.current.set(id, annotations);
-
-			// Optimistic update
 			setAnnotations((prev) =>
 				prev.map((a) =>
 					a.id === id
@@ -270,7 +259,6 @@ export function AnnotationProvider({
 
 				optimisticRollbackRef.current.delete(id);
 			} catch (err) {
-				// Rollback on error
 				const rollbackState = optimisticRollbackRef.current.get(id);
 				if (rollbackState) {
 					setAnnotations(rollbackState);
@@ -287,10 +275,7 @@ export function AnnotationProvider({
 	 */
 	const deleteAnnotation = useCallback(
 		async (id: string): Promise<void> => {
-			// Store current state for rollback
 			optimisticRollbackRef.current.set(id, annotations);
-
-			// Optimistic update
 			setAnnotations((prev) => prev.filter((a) => a.id !== id));
 
 			try {
@@ -308,7 +293,6 @@ export function AnnotationProvider({
 
 				optimisticRollbackRef.current.delete(id);
 			} catch (err) {
-				// Rollback on error
 				const rollbackState = optimisticRollbackRef.current.get(id);
 				if (rollbackState) {
 					setAnnotations(rollbackState);
@@ -325,7 +309,6 @@ export function AnnotationProvider({
 	 */
 	const addReply = useCallback(
 		async (annotationId: string, content: string): Promise<void> => {
-			// Generate temporary reply for optimistic update
 			const tempReply: AnnotationReply = {
 				id: `temp-reply-${Date.now()}-${Math.random().toString(36).slice(2)}`,
 				content,
@@ -333,11 +316,8 @@ export function AnnotationProvider({
 				createdAt: new Date().toISOString(),
 			};
 
-			// Store current state for rollback
 			const rollbackId = `reply-${annotationId}`;
 			optimisticRollbackRef.current.set(rollbackId, annotations);
-
-			// Optimistic update
 			setAnnotations((prev) =>
 				prev.map((a) =>
 					a.id === annotationId
@@ -369,7 +349,6 @@ export function AnnotationProvider({
 
 				const realReply = (await response.json()) as AnnotationReply;
 
-				// Replace temporary reply with real one
 				setAnnotations((prev) =>
 					prev.map((a) =>
 						a.id === annotationId
@@ -385,7 +364,6 @@ export function AnnotationProvider({
 
 				optimisticRollbackRef.current.delete(rollbackId);
 			} catch (err) {
-				// Rollback on error
 				const rollbackState = optimisticRollbackRef.current.get(rollbackId);
 				if (rollbackState) {
 					setAnnotations(rollbackState);
@@ -429,7 +407,6 @@ export function AnnotationProvider({
 								JSON.stringify(msg.annotation.anchor),
 					);
 					if (tempIndex >= 0) {
-						// Replace the temp annotation with the real one
 						const updated = [...prev];
 						updated[tempIndex] = msg.annotation;
 						return updated;
@@ -480,7 +457,6 @@ export function AnnotationProvider({
 						);
 
 						if (tempIndex >= 0) {
-							// Replace temp reply with real one
 							const updatedReplies = [...a.replies];
 							updatedReplies[tempIndex] = msg.reply;
 							return {
@@ -490,7 +466,6 @@ export function AnnotationProvider({
 							};
 						}
 
-						// Add as new reply
 						return {
 							...a,
 							replies: [...a.replies, msg.reply],
@@ -503,7 +478,6 @@ export function AnnotationProvider({
 		}
 	}, []);
 
-	// Fetch annotations on mount and when artifact path changes
 	useEffect(() => {
 		mountedRef.current = true;
 		fetchAnnotations();
@@ -513,7 +487,6 @@ export function AnnotationProvider({
 		};
 	}, [fetchAnnotations]);
 
-	// Subscribe to WebSocket for real-time annotation updates via shared WebSocketProvider
 	useEffect(() => {
 		return onAnnotationMessage(handleAnnotationMessage);
 	}, [onAnnotationMessage, handleAnnotationMessage]);
@@ -530,6 +503,7 @@ export function AnnotationProvider({
 			filter,
 			selectedAnnotationId,
 			docId: docIdProp ?? null,
+			runId: runIdProp ?? null,
 			setFilter,
 			selectAnnotation,
 			createAnnotation,
@@ -547,6 +521,7 @@ export function AnnotationProvider({
 			filter,
 			selectedAnnotationId,
 			docIdProp,
+			runIdProp,
 			selectAnnotation,
 			createAnnotation,
 			resolveAnnotation,
@@ -589,6 +564,7 @@ const DEFAULT_ANNOTATION_CONTEXT: AnnotationContextValue = {
 	filter: DEFAULT_FILTER,
 	selectedAnnotationId: null,
 	docId: null,
+	runId: null,
 	setFilter: () => {},
 	selectAnnotation: () => {},
 	createAnnotation: () => Promise.reject(new Error("No AnnotationProvider")),

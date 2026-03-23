@@ -13,9 +13,8 @@ The `rp1-base` plugin provides core knowledge and documentation capabilities tha
 - Content writing
 - Shared skills for all plugins
 
-**Agents**: 12 specialized agents (6 for KB generation, 2 for deep research, 4 for docs/strategy/security/validation)
-**Commands**: 9 user-facing commands
-**Skills**: 3 shared capabilities (1 retired)
+**Agents**: 12 specialized agents (5 for KB generation, 2 for deep research, 5 for docs/strategy/security/validation/scribe)
+**Skills**: 15 (10 user-facing commands, 5 shared capabilities)
 
 ## Commands (9)
 

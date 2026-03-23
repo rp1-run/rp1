@@ -213,7 +213,7 @@ agents:
     description: Analyzes mid-stream edits for validity, detects conflicts, and propagates approved changes across feature documentation
     plugin: dev
     skills_that_i_use: [rp1-dev:build]
-    skills_that_use_me: [rp1-dev:feature-edit]
+    skills_that_use_me: [rp1-dev:arcade-collab,rp1-dev:feature-edit]
     last_update: "2026-02-16"
     last_checksum: 95ff537b4ff0390e111bfa0461777c10f90acfcb89d6e6a5b7f959a42286d77e
   - name: rp1-dev:feature-requirement-gatherer
@@ -228,8 +228,8 @@ agents:
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:build]
-    last_update: "2026-03-19"
-    last_checksum: b3e2366690739e00a967ed4e9a86b2d9a7fc0071d18226a6022b2a15f0d2849d
+    last_update: "2026-03-23"
+    last_checksum: 2ce4072d2c8ce483f30a084f28314414319889a1977c4813ad791b57f50826a7
   - name: rp1-dev:feature-verifier
     description: Verifies feature acceptance criteria and requirements mapping with full KB context awareness for comprehensive feature validation before merge
     plugin: dev
@@ -312,8 +312,8 @@ agents:
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:build-fast,rp1-dev:build]
-    last_update: "2026-03-19"
-    last_checksum: 6ff3beccb8874c9ffa2ab97b8953f9ed57f7de4caaa483da2be4d7e4fc331613
+    last_update: "2026-03-23"
+    last_checksum: 4e50920994b959a8936d0fa2da65e9577aa8ef54844ed135bb9a94e6a5ece401
   - name: rp1-dev:task-reviewer
     description: Verifies builder's work for discipline, accuracy, completeness, and commit quality. Returns SUCCESS or FAILURE with actionable feedback. Uses extended thinking for careful verification.
     plugin: dev

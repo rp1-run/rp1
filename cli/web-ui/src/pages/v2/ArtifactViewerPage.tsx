@@ -187,7 +187,6 @@ export function ArtifactViewerPage() {
 	const handleToggleTocCollapse = useCallback(() => {
 		setTocCollapsed((prev) => {
 			const newValue = !prev;
-			// Close annotations when opening ToC
 			if (!newValue) {
 				setAnnotationSidebarOpen(false);
 				if (typeof window !== "undefined") {
@@ -203,7 +202,6 @@ export function ArtifactViewerPage() {
 
 	const handleToggleAnnotationSidebar = useCallback((open: boolean) => {
 		setAnnotationSidebarOpen(open);
-		// Close ToC when opening annotations
 		if (open) {
 			setTocCollapsed(true);
 			if (typeof window !== "undefined") {
@@ -356,8 +354,13 @@ export function ArtifactViewerPage() {
 	useEffect(() => {
 		if (!selectedArtifactPath || !run) return;
 
+		const normalizedPath = selectedArtifactPath.replace(/^\.rp1\//, "");
+
 		const unsubscribe = onFileChange((msg) => {
-			if (msg.path === selectedArtifactPath && msg.changeType === "modify") {
+			if (
+				msg.changeType === "modify" &&
+				(msg.path === selectedArtifactPath || msg.path === normalizedPath)
+			) {
 				fetchArtifactContentWithScrollPreservation(true);
 			}
 		});
@@ -407,7 +410,6 @@ export function ArtifactViewerPage() {
 		return () => observer.disconnect();
 	}, [headings]);
 
-	// Announce active heading changes to screen readers
 	useEffect(() => {
 		if (activeHeadingId) {
 			const heading = headings.find((h) => h.id === activeHeadingId);
@@ -576,7 +578,6 @@ export function ArtifactViewerPage() {
 		</>
 	);
 
-	// Live region for screen reader announcements
 	const liveRegion = (
 		<div aria-live="polite" aria-atomic="true" className="sr-only">
 			{liveAnnouncement}
@@ -744,7 +745,7 @@ export function ArtifactViewerPage() {
 		);
 
 		return (
-			<AnnotationProvider artifactPath={selectedArtifactPath}>
+			<AnnotationProvider artifactPath={selectedArtifactPath} runId={runId}>
 				{mobileContent}
 			</AnnotationProvider>
 		);
@@ -932,7 +933,7 @@ export function ArtifactViewerPage() {
 	);
 
 	return (
-		<AnnotationProvider artifactPath={selectedArtifactPath}>
+		<AnnotationProvider artifactPath={selectedArtifactPath} runId={runId}>
 			{desktopContent}
 		</AnnotationProvider>
 	);

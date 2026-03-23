@@ -141,7 +141,8 @@ If the KB exceeds memory budget, compression is applied in this order:
 2. Compress unused shared code
 3. Summarize verbose descriptions
 4. Remove historical information
-5. Compress target project details (last resort)
+5. Compress validation details (keep critical issues)
+6. Compress target project details (last resort)
 
 ## Recommended Alternative
 

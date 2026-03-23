@@ -2,9 +2,9 @@
 
 The `rp1-base` plugin provides foundation capabilities for knowledge management, deep research, documentation, strategic analysis, security validation, and self-maintenance.
 
-**Version**: 4.1.0
-**Skills**: 9
-**Agents**: 12
+**Version**: 0.6.0
+**Skills**: 15
+**Agents**: 13
 **Dependencies**: None (base plugin)
 
 ---

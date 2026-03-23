@@ -24,8 +24,13 @@ Internal CLI utilities for AI agent workflows:
 
 | Tool | Description |
 |------|-------------|
-| [`rp1-root-dir`](cli/rp1-root-dir.md) | RP1_ROOT path resolution with worktree-aware detection |
+| [`emit`](agent-tools.md#emit) | Workflow event emission with state machine validation |
+| [`feedback`](agent-tools.md#feedback) | Feedback lifecycle: read, resolve, reply, accept-edit for Arcade annotations |
 | [`github-pr`](agent-tools.md#github-pr) | GitHub PR operations (submit-review, add-reaction, reply-comment, fetch-comments) |
+| [`task`](agent-tools.md#task) | Task queue management (create, list, pickup, complete, fail, cancel, get) |
+| [`rp1-root-dir`](cli/rp1-root-dir.md) | RP1_ROOT path resolution with worktree-aware detection |
+| `comment-extract` | Extract comments from source files for review workflows |
+| `mmd-validate` | Validate Mermaid diagram syntax |
 
 [:octicons-arrow-right-24: Agent Tools Reference](agent-tools.md)
 
@@ -156,3 +161,6 @@ Looking for something specific?
 - **Security scan**: [`analyse-security`](base/analyse-security.md)
 - **Task dependency format**: [`dag-format`](dag-format.md)
 - **Monitor agent progress**: [Status Dashboard](web-ui.md#status-dashboard)
+- **CLI commands**: [`init`](cli/index.md), [`install`](cli/install.md), [`update`](cli/update.md)
+- **Troubleshooting install issues**: [Installation Troubleshooting](../troubleshooting/installation.md)
+- **Deprecated features**: [Retired Features](../retired-features.md)

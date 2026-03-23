@@ -60,7 +60,7 @@ function DiagramAnnotationPopover({
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const popoverRef = useRef<HTMLDivElement>(null);
-	const { createAnnotation, docId } = useAnnotationContextSafe();
+	const { createAnnotation, docId, runId } = useAnnotationContextSafe();
 
 	useEffect(() => {
 		textareaRef.current?.focus();
@@ -113,6 +113,7 @@ function DiagramAnnotationPopover({
 				artifactPath,
 				anchor,
 				content: trimmedContent,
+				runId: runId ?? undefined,
 			});
 
 			onClose();
@@ -129,6 +130,7 @@ function DiagramAnnotationPopover({
 		docId,
 		isSubmitting,
 		onClose,
+		runId,
 	]);
 
 	const handleKeyDown = useCallback(
@@ -621,7 +623,10 @@ export function MermaidDiagram({
 				className,
 			)}
 		>
-			<div className="flex items-center justify-end border-b bg-surface px-4 py-2">
+			<div
+				className="flex items-center justify-end border-b bg-surface px-4 py-2"
+				data-annotation-exclude=""
+			>
 				{title !== null && (
 					<span className="mr-auto text-xs text-muted-foreground">
 						{title ?? "Mermaid Diagram"}

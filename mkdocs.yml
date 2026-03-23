@@ -97,6 +97,7 @@ nav:
     - DAG Format: reference/dag-format.md
     - PR Review Config: reference/pr-review-config.md
     - Agent Tools: reference/agent-tools.md
+    - Platform Tags: reference/platform-tags.md
     - Web UI: reference/web-ui.md
     - CLI:
       - Overview: reference/cli/index.md
@@ -154,6 +155,7 @@ nav:
     - SKILL.md Format: concepts/skill-format.md
     - Eval System: concepts/eval-system.md
     - State Machines: concepts/state-machines.md
+    - Platform Tags: concepts/platform-tags.md
     - WebUI Interaction: concepts/webui.md
   - Retired Features: retired-features.md
 

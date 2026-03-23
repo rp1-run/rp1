@@ -31,7 +31,7 @@ The `code-investigate` command performs systematic investigation of bugs and iss
 
 ## Output
 
-**Location:** `.rp1/work/investigation-report.md`
+**Location:** `.rp1/work/issues/{issue_id}/investigation_report.md`
 
 **Contents:**
 

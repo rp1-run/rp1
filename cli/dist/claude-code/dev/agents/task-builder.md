@@ -171,31 +171,24 @@ Per task:
 
 ### 3.4 Sub-Flow Diagram Generation
 
-After implementing all assigned tasks, generate a `.mmd` stateDiagram-v2 file representing the task execution sub-flow within the current step.
+After implementing all assigned tasks, embed a `stateDiagram-v2` fenced mermaid block representing the task execution sub-flow. Do NOT create a standalone `.mmd` file.
 
-1. Create `{FEATURE_ID}-{TASK_IDS}.mmd` in the feature directory (`{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`):
+1. Generate the diagram content using actual task IDs as state names and task descriptions as labels. For single tasks, produce a simple `[*] --> TaskState --> [*]` diagram.
 
-```mermaid
-stateDiagram-v2
-    [*] --> T1_description
-    T1_description --> T2_description
-    T2_description --> [*]
-```
+2. **Feature mode**: Embed the diagram in `tasks.md` as an `**Execution Flow**` block after the implementation summary for the last task in the batch (see Section 4.2 for placement).
 
-Use the actual task IDs as state names and task descriptions as labels. For single tasks, produce a simple `[*] --> TaskState --> [*]` diagram.
+   **Quick-build mode**: Embed the diagram in the quick-build artifact after the Implementation Summary table.
 
-2. Register as artifact with step association and subflow flag:
+3. Register the parent markdown file as artifact (skip if WORKFLOW or RUN_ID is empty; skip in quick-build mode):
 
 ```bash
 rp1 agent-tools emit \
   --workflow {WORKFLOW} \
   --type artifact_registered \
   --run-id {RUN_ID} \
-  --step {STEP_NAME} \
-  --data '{"path": "work/features/{FEATURE_ID}/{FEATURE_ID}-{TASK_IDS}.mmd", "feature": "{FEATURE_ID}", "subflow": true}'
+  --step task-builder:building \
+  --data '{"path": ".rp1/work/features/{FEATURE_ID}/tasks.md", "feature": "{FEATURE_ID}", "subflow": true}'
 ```
-
-Where `{STEP_NAME}` is the workflow step these tasks belong to (from the task list context). Skip if WORKFLOW or RUN_ID is empty. Skip in quick-build mode.
 
 ### 3.5 Scope Verification
 
@@ -289,7 +282,7 @@ Mark each task complete in the Tasks section: `- [ ]` -> `- [x]`
 
 **ELSE** (Feature mode):
 
-Add immediately after task line (4-space indent, blank lines between sections):
+Add immediately after task line (4-space indent, blank lines between sections). Include the `**Execution Flow**` mermaid block after the summary fields (generated per Section 3.4):
 
 ```markdown
 - [x] **T1**: Task description `[complexity:medium]`
@@ -300,6 +293,14 @@ Add immediately after task line (4-space indent, blank lines between sections):
     - **Approach**: [brief description; keep it terse]
     - **Deviations**: None | [deviation + justification]
     - **Tests**: [X/Y passing]
+
+    **Execution Flow**:
+
+    ```mermaid
+    stateDiagram-v2
+        [*] --> T1_description
+        T1_description --> [*]
+    ```
 ```
 
 ### 4.3 Update Progress
