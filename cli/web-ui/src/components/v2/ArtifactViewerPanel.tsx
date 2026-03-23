@@ -45,9 +45,11 @@ function ArtifactViewerInner({
 	const scrollViewportRef = useRef<HTMLDivElement>(null);
 	const { onFileChange } = useWebSocket();
 
+	const artifactPath = selectedArtifact?.path ?? null;
+
 	const fetchContent = useCallback(
 		async (preserveScroll: boolean) => {
-			if (!selectedArtifact || !runId) {
+			if (!artifactPath || !runId) {
 				setContent(null);
 				return;
 			}
@@ -60,7 +62,7 @@ function ArtifactViewerInner({
 
 			try {
 				const response = await fetch(
-					`/api/v2/runs/${runId}/artifacts/${encodeURIComponent(selectedArtifact.path)}`,
+					`/api/v2/runs/${runId}/artifacts/${encodeURIComponent(artifactPath)}`,
 				);
 				if (!response.ok) {
 					let errorMessage = `Failed to fetch artifact: ${response.statusText}`;
@@ -87,7 +89,7 @@ function ArtifactViewerInner({
 				}
 			}
 		},
-		[selectedArtifact, runId],
+		[artifactPath, runId],
 	);
 
 	useEffect(() => {
@@ -95,16 +97,16 @@ function ArtifactViewerInner({
 	}, [fetchContent]);
 
 	useEffect(() => {
-		if (!selectedArtifact || !runId) return;
+		if (!artifactPath || !runId) return;
 
 		const unsubscribe = onFileChange((msg) => {
-			if (msg.path === selectedArtifact.path && msg.changeType === "modify") {
+			if (msg.path === artifactPath && msg.changeType === "modify") {
 				fetchContent(true);
 			}
 		});
 
 		return unsubscribe;
-	}, [selectedArtifact, runId, onFileChange, fetchContent]);
+	}, [artifactPath, runId, onFileChange, fetchContent]);
 
 	const handleHeadingsExtracted = useCallback((newHeadings: HeadingEntry[]) => {
 		setHeadings(newHeadings);
