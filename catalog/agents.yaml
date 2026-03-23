@@ -213,7 +213,7 @@ agents:
     description: Analyzes mid-stream edits for validity, detects conflicts, and propagates approved changes across feature documentation
     plugin: dev
     skills_that_i_use: [rp1-dev:build]
-    skills_that_use_me: [rp1-dev:feature-edit]
+    skills_that_use_me: [rp1-dev:arcade-collab,rp1-dev:feature-edit]
     last_update: "2026-02-16"
     last_checksum: 95ff537b4ff0390e111bfa0461777c10f90acfcb89d6e6a5b7f959a42286d77e
   - name: rp1-dev:feature-requirement-gatherer
