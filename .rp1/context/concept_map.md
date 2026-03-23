@@ -44,12 +44,26 @@
 **Implementation**: `cli/shared/events.ts`, `cli/src/agent-tools/emit/models.ts`
 
 ### Artifact
-**Definition**: Typed output file (markdown, code, diagram, diff, report, other) registered against a run with docId and step association
-**Implementation**: `cli/shared/events.ts`, `cli/web-ui/src/types/runs.ts`
+**Definition**: Typed output file (markdown, code, diagram, diff, report, other) registered against a run with docId, step association, and optional baseline content for edit tracking
+**Implementation**: `cli/shared/events.ts`, `cli/web-ui/src/types/runs.ts`, `cli/src/agent-tools/emit/database.ts`
 
 ### Annotation
-**Definition**: Threaded inline comment anchored to artifact via text-selection, hidden-anchor, or line; supports replies, resolution, and orphan detection
-**Implementation**: `cli/web-ui/src/types/annotations.ts`
+**Definition**: Threaded inline comment anchored to artifact via text-selection, hidden-anchor, or line; supports replies, resolution, and orphan detection. Can be associated with a run directly via run_id or indirectly through the parent artifact's run_id
+**Implementation**: `cli/web-ui/src/types/annotations.ts`, `cli/web-ui/src/providers/AnnotationProvider.tsx`
+
+### Feedback
+**Definition**: Agent-tools subcommand system enabling agents to programmatically interact with Arcade annotations: read (with status filtering), resolve, reply, and accept-edit. CLI-side complement to the dashboard annotation UI
+**Implementation**: `cli/src/agent-tools/feedback/models.ts`, `cli/src/agent-tools/feedback/index.ts`, `cli/src/agent-tools/feedback/validate.ts`
+**Key Properties**:
+- Operations: read, resolve, reply, accept-edit
+- AnnotationStatusFilter: open, resolved, all
+- Read returns annotations and edits grouped by run
+- Accept-edit clears artifact baseline to acknowledge user file edits
+
+**Relationships**:
+- Reads Annotations associated with a Run
+- Resolve/Reply mutate Annotation state
+- Accept-edit clears Artifact baseline
 
 ### State Machine
 **Definition**: Mermaid stateDiagram-v2 parsed into typed graph model (SMState, SMTransition) with transition validation and ordered steps
@@ -92,6 +106,14 @@
 **Purpose**: When a step emits running (without --unit), direct graph predecessors still in running/waiting are auto-completed
 **Implementation**: `docs/concepts/state-machines.md`
 
+### Artifact Baseline
+**Purpose**: Stored content snapshot of an artifact at registration time, used to detect and diff user edits. Cleared via accept-edit when an agent acknowledges a user's direct file modification
+**Implementation**: `cli/src/agent-tools/emit/database.ts`
+
+### Annotation-Run Indirect Association
+**Purpose**: Annotations with null run_id are associated with runs via LEFT JOIN on the artifacts table (matching artifact.doc_id to annotation.doc_id where artifact.run_id matches). Ensures feedback queries capture all annotations for a run even when annotations lack a direct run_id
+**Implementation**: `cli/src/agent-tools/emit/database.ts`
+
 ### CLIError
 **Purpose**: Tagged union error type with `_tag` discriminant, factory functions, and exit code mapping
 **Implementation**: `cli/shared/errors.ts`
@@ -110,6 +132,8 @@
 - **BTW Update**: Informal progress message emitted by agents without state transition
 - **Scratch Pad**: Visible file section used by stateless agents to persist interview state
 - **Attention grouping**: Dashboard partitioning runs into waiting, failed, and running groups
+- **Feedback**: Agent-tools subcommand for reading and responding to user annotations from the CLI; operations: read, resolve, reply, accept-edit
+- **Accept-Edit**: Feedback operation that clears an artifact's baseline, signaling the agent acknowledges a user's direct file edit
 
 ### Technical Terms
 - **--unit**: Emit flag enabling per-task tracking within an agent; disables predecessor auto-completion
@@ -122,6 +146,9 @@
 - **ArtifactType**: Classification of run output: markdown, code, diagram, diff, report, or other
 - **EvalPlatform**: Target platform for attestation: claude-code, opencode, or codex
 - **Subflow**: Nested workflow within a parent run, registered via subflow_registered event
+- **AnnotationStatusFilter**: Query filter for feedback read: open, resolved, or all
+- **Artifact Baseline**: Stored content snapshot enabling diff detection of user edits to artifact files
+- **Optimistic Update**: UI pattern in AnnotationProvider where state changes are applied immediately with rollback on API failure
 
 ## Concept Relationships
 
@@ -132,6 +159,14 @@
 - State Machine **governs** Run transitions
 - Run **contains** Events, **produces** Artifacts, **contains** Subflows
 - Artifact **anchors** Annotations
+- Annotation **associated with** Run directly (run_id) or indirectly (via Artifact's run_id)
+
+### Feedback Loop
+- User **creates** Annotations on Artifacts in Arcade dashboard
+- User **edits** Artifact files directly, generating baseline diffs
+- Agent **reads** Feedback (annotations + edits) for a Run
+- Agent **resolves** or **replies to** Annotations
+- Agent **accepts edits** by clearing Artifact baseline
 
 ### Build & Distribution
 - Build Pipeline **transforms** SKILL.md into platform artifacts
@@ -150,7 +185,7 @@
 | Knowledge Management | rp1-base | KB Generation, Spatial Analysis, Progressive Loading |
 | Feature Delivery | rp1-dev | Build Workflow, Builder-Reviewer, Blueprint, PR Review |
 | Prompt Tooling | rp1-utils | Eval Extraction, Prompt Writing, Dependency Analysis |
-| Runtime Services | cli/src | Build Pipeline, Install, Init, Agent Tools, State Machine |
+| Runtime Services | cli/src | Build Pipeline, Install, Init, Agent Tools, State Machine, Feedback |
 | Dashboard | cli/web-ui | Arcade, Run Visualization, Annotations, WebSocket |
 | Quality Assurance | evals/ | Attestation, Content-Addressable Hashing |
 

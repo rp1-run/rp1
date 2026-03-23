@@ -36,10 +36,10 @@ rp1 is an AI agent orchestration platform that provides a plugin ecosystem for c
 
 | File | Lines | Load For |
 |------|-------|----------|
-| architecture.md | ~138 | System design, component relationships, data flows |
-| modules.md | ~142 | Component breakdown, module responsibilities |
+| architecture.md | ~150 | System design, component relationships, data flows |
+| modules.md | ~144 | Component breakdown, module responsibilities |
 | patterns.md | ~80 | Code conventions, implementation patterns |
-| concept_map.md | ~160 | Domain terminology, business concepts |
+| concept_map.md | ~195 | Domain terminology, business concepts |
 
 ## Task-Based Loading
 
@@ -48,39 +48,5 @@ rp1 is an AI agent orchestration platform that provides a plugin ecosystem for c
 | Code review | `patterns.md` |
 | Bug investigation | `architecture.md`, `modules.md` |
 | Feature implementation | `modules.md`, `patterns.md` |
-| Strategic analysis | ALL files |
-| Security audit | `architecture.md` |
-
-## How to Load
-
-```
-Read: {{$RP1_ROOT}}/context/{filename}
-```
-
-## Repository Structure
-
-```
-rp1/
-├── cli/               # CLI commands, build pipeline, agent tools
-│   ├── src/           # TypeScript source
-│   ├── shared/        # Cross-cutting utilities (fp-ts, errors, config)
-│   ├── web-ui/        # Dashboard SPA + Bun server
-│   └── dist/          # Built platform artifacts
-├── plugins/
-│   ├── base/          # Foundational skills and agents
-│   ├── dev/           # Feature delivery workflows
-│   └── utils/         # Prompt engineering tools
-├── evals/             # Attestation system
-├── packages/
-│   └── catppuccin-mermaid/  # Mermaid theme package
-├── docs/              # MkDocs documentation site
-├── scripts/           # Build and release scripts
-└── .rp1/context/      # Generated knowledge base (this directory)
-```
-
-## Navigation
-
-- **[architecture.md](architecture.md)**: System design and diagrams
-- **[modules.md](modules.md)**: Component breakdown
-- **[patterns.md](patterns.md)**: Code conventions
-- **[concept_map.md](concept_map.md)**: Domain terminology
+| Strategic or system-wide analysis | All files |
+| Understanding domain concepts | `concept_map.md` |

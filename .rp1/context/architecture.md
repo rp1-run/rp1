@@ -10,7 +10,7 @@
 flowchart TB
     Host["Host Tools\nClaude Code / OpenCode / Codex"] --> CLI["rp1 CLI\ncli/src/main.ts"]
     CLI --> Skills["Plugin Skills and Agents\nplugins/base dev utils"]
-    CLI --> Tools["Agent Tools\nemit state-machine task"]
+    CLI --> Tools["Agent Tools\nemit state-machine task feedback"]
     Skills --> KBBuild["knowledge-build\nmap-reduce orchestrator"]
     KBBuild --> KBFiles[(".rp1/context/*.md")]
     Tools --> SM["State Machine Loader"]
@@ -34,7 +34,7 @@ flowchart TB
 |-------|---------|----------------|
 | Interaction | User/host-tool entry, CLI launch | `cli/src/main.ts`, `cli/src/commands/` |
 | Workflow Definition | Orchestration prompts, state machines | `plugins/base/agents/`, `plugins/dev/agents/` |
-| Runtime Services | Agent tools, state tracking, validation | `cli/src/agent-tools/`, `cli/src/lib/` |
+| Runtime Services | Agent tools, state tracking, validation, feedback lifecycle | `cli/src/agent-tools/`, `cli/src/lib/` |
 | Build & Distribution | Plugin compilation to platform artifacts | `cli/src/build/`, `scripts/build.sh`, `.goreleaser.yml` |
 | Persistence & Knowledge | Local state and generated KB | `.rp1/context/*.md`, `~/.rp1/rp1.db`, `.rp1/work/` |
 | Presentation | Dashboard, APIs, WebSocket streams | `cli/web-ui/` |
@@ -52,7 +52,7 @@ Prompts in SKILL.md and agent.md are source-of-truth assets parsed by the build 
 Large analysis jobs (KB generation, PR review) fan out to parallel specialist agents and merge results. Spatial analyzer categorizes files, then 4+ agents process in parallel.
 
 ### State-Machine-Driven Workflows
-Mermaid stateDiagram-v2 parsed into typed graph models. Steps validated against transitions; skipped steps auto-detected; predecessors auto-completed.
+Mermaid stateDiagram-v2 parsed into typed graph models. Steps validated against transitions; skipped steps auto-detected; predecessors auto-completed. Agents embed execution diagrams inline for self-documenting orchestration.
 
 ### Cross-Platform Build Pipeline
 Single plugin source compiles to Claude Code, OpenCode, and Codex formats via LiquidJS templates with conditional preprocessing and lint.
@@ -65,6 +65,9 @@ CLI spawns a detached Bun server for the Web UI with PID-file lifecycle, health 
 
 ### fp-ts Functional Pipelines
 Typed error propagation via `Either<CLIError, A>` and `TaskEither<CLIError, A>` throughout agent-tools, build, and install.
+
+### Protocol-Aware WebSocket
+WebSocket provider auto-selects `wss://` or `ws://` based on page protocol, enabling secure connections when the dashboard is served over HTTPS.
 
 ## Data Flow
 
@@ -107,6 +110,15 @@ Browser connects via WebSocket to daemon (port 7710)
   -> File watcher pool detects .rp1/work changes and pushes updates
 ```
 
+### Feedback Lifecycle
+```
+User annotates artifacts in the Arcade dashboard
+  -> Agent calls rp1 agent-tools feedback read --run-id <id>
+  -> Returns open annotations and pending file edits with summary counts
+  -> Agent processes feedback, then resolves/replies/accepts
+  -> Resolution and replies written to SQLite, broadcast via WebSocket
+```
+
 ## Integration Points
 
 | Service | Purpose | Type |
@@ -114,7 +126,7 @@ Browser connects via WebSocket to daemon (port 7710)
 | Bun | Runtime for CLI, server, packaging, binary compilation, tests | Runtime |
 | SQLite (bun:sqlite) | Embedded persistence for runs, events, artifacts, annotations, tasks | Database |
 | GitHub API (@octokit/rest) | PR review operations, comment management, reactions | REST API |
-| React + Vite | Frontend runtime and build for Web UI dashboard | Frontend |
+| React + Vite | Frontend runtime and build for Web UI dashboard (dev server port 6810) | Frontend |
 | GoReleaser | Cross-platform binary compilation (darwin/linux/windows, arm64/x64) | Release |
 | Release Please | Automated semver releases with coordinated version bumps | Release |
 | GitHub Actions CI | 5-job pipeline: check, test, plugin-dist, catalog, attestation | CI/CD |

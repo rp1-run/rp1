@@ -6,19 +6,19 @@
 
 ## Naming & Organization
 
-**Files**: snake_case module files (`models.ts`, `command.ts`, `database.ts`); feature directories group related modules (`emit/`, `state-machine/`, `task/`)
-**Functions**: camelCase verbs: `executeEmit`, `insertRun`, `deriveRunStatus`, `validateTransition`; factory constructors: `usageError()`, `runtimeError()`, `createTemplateEngine()`, `createLogger()`
+**Files**: snake_case module files (`models.ts`, `command.ts`, `database.ts`); feature directories group related modules (`emit/`, `state-machine/`, `task/`, `feedback/`)
+**Functions**: camelCase verbs: `executeEmit`, `insertRun`, `executeFeedbackRead`, `validateReadOptions`; factory constructors: `usageError()`, `runtimeError()`, `createTemplateEngine()`, `createLogger()`
 **Imports**: fp-ts imported as namespace aliases (`E` for Either, `TE` for TaskEither, `O` for Option); re-exported via `cli/shared/fp.ts` facade; absolute imports with `.js` extensions
 
-Evidence: `cli/shared/fp.ts`, `cli/shared/errors.ts`, `cli/src/build/template-engine.ts`
+Evidence: `cli/shared/fp.ts`, `cli/shared/errors.ts`, `cli/src/agent-tools/feedback/index.ts`
 
 ## Type & Data Modeling
 
 **Data Representation**: Readonly interfaces with `readonly` fields for all domain models; separate Row interfaces (snake_case DB) mapped to Record interfaces (camelCase domain) via pure mapper functions
-**Type Strictness**: Discriminated unions using `_tag` field for `CLIError` and `type` field for `EventPayload`; generic `ToolResult<T>` envelope; `as const` assertions for constant arrays (`VALID_STATUSES`, `PLUGIN_NAMES`)
+**Type Strictness**: Discriminated unions using `_tag` field for `CLIError` and `type` field for `EventPayload`; generic `ToolResult<T>` envelope; `as const` assertions for constant arrays (`VALID_STATUSES`, `VALID_STATUS_FILTERS`, `PLUGIN_NAMES`)
 **Immutability**: All model interfaces use `readonly` modifier; DB row-to-record mappers create new objects; React state updates use spread operator
 
-Evidence: `cli/shared/errors.ts:12-38`, `cli/shared/events.ts:10-143`, `cli/src/agent-tools/models.ts`, `cli/src/build/template-context.ts`
+Evidence: `cli/shared/errors.ts:12-38`, `cli/src/agent-tools/feedback/models.ts:34-38`, `cli/src/build/template-context.ts`
 
 ## Error Handling
 
@@ -26,14 +26,14 @@ Evidence: `cli/shared/errors.ts:12-38`, `cli/shared/events.ts:10-143`, `cli/src/
 **Propagation**: Validate at command boundary with `E.left` early return; compose with `TE.Do` + `TE.bind` for multi-field validation pipelines; format errors at output boundary with `formatError()`; each CLI action checks `E.isLeft` and exits with `createErrorResponse`
 **Common Types**: UsageError, NotFoundError, ConfigError, RuntimeError, ParseError, TransformError, ValidationError, GenerationError, PrerequisiteError, InstallError, StrictModeError
 
-Evidence: `cli/shared/errors.ts`, `cli/src/agent-tools/emit/validate.ts:286-316`, `cli/src/build/validator.ts`
+Evidence: `cli/shared/errors.ts`, `cli/src/agent-tools/feedback/validate.ts:47-70`, `cli/src/build/validator.ts`
 
 ## Validation & Boundaries
 
-**Location**: CLI option parsing layer (`validateEmitOptions`, `parseBuildArgs`, `parseArcadeArgs`); each returns `Either<CLIError, ValidatedInput>`; build artifacts get two-tier L1 (syntax) + L2 (schema) validation
+**Location**: CLI option parsing layer (`validateEmitOptions`, `validateReadOptions`, `parseBuildArgs`); each returns `Either<CLIError, ValidatedInput>`; build artifacts get two-tier L1 (syntax) + L2 (schema) validation
 **Method**: Manual validation with early `E.left` returns; `TE.Do`/`TE.bind` for composing multiple validations; per-event-type payload shape validation via switch dispatch; `parseInt` with `isNaN` guards for numeric args
 
-Evidence: `cli/shared/config.ts:64-74`, `cli/src/agent-tools/emit/validate.ts:35-316`, `cli/src/build/validator.ts:59-296`
+Evidence: `cli/src/agent-tools/feedback/validate.ts:76-96`, `cli/src/agent-tools/emit/validate.ts:35-316`, `cli/src/build/validator.ts:59-296`
 
 ## Observability
 

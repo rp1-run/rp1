@@ -12,9 +12,9 @@
 **Dependencies**: cli/shared, cli/agent-tools (lazy), web-ui/daemon (lazy)
 
 ### cli/agent-tools (`cli/src/agent-tools/`)
-**Purpose**: Agent-tools CLI surface with subcommands for emit, task queue, GitHub PR, comment extraction, Mermaid validation, rp1-root resolution, and state-machine loading
-**Files**: 43 | **Key**: `command.ts`, `index.ts`, `emit/index.ts`, `state-machine/index.ts`, `github-pr/index.ts`, `task/index.ts`
-**Dependencies**: cli/shared
+**Purpose**: Agent-tools CLI surface with subcommands for emit, task queue, GitHub PR, comment extraction, Mermaid validation, rp1-root resolution, state-machine loading, and feedback lifecycle
+**Files**: 51 | **Key**: `command.ts`, `index.ts`, `emit/index.ts`, `state-machine/index.ts`, `github-pr/index.ts`, `task/index.ts`, `feedback/index.ts`
+**Dependencies**: cli/shared, web-ui/daemon (notify)
 
 ### cli/build (`cli/src/build/`)
 **Purpose**: Multi-platform artifact build pipeline via LiquidJS templates, platform registries, conditional preprocessing, linting, and bundle manifest generation
@@ -65,7 +65,7 @@
 
 ### plugins/dev
 **Purpose**: Feature delivery: build (full, fast, express), blueprint, PR review, code audit, feature lifecycle, investigation
-**Skills**: build, build-fast, build-express, blueprint, blueprint-archive, blueprint-audit, bootstrap, pr-review, pr-visual, code-audit, code-check, code-clean-comments, code-investigate, feature-archive, feature-edit, feature-unarchive, address-pr-feedback, validate-hypothesis
+**Skills**: build, build-fast, build-express, blueprint, blueprint-archive, blueprint-audit, bootstrap, pr-review, pr-visual, code-audit, code-check, code-clean-comments, code-investigate, feature-archive, feature-edit, feature-unarchive, address-pr-feedback, validate-hypothesis, arcade-collab
 **Agents**: 34 (task-builder, task-reviewer, feature-verifier, feature-architect, feature-tasker, pr-sub-reviewer, pr-review-synthesizer, express-builder, and more)
 **Depends on**: plugins/base
 
@@ -93,6 +93,7 @@ graph TD
     Commands -.->|lazy| Daemon["web-ui/daemon"]
     AgentTools --> Shared
     AgentTools --> StateMachine["state-machine"]
+    AgentTools -.->|notify| Daemon
     Build["cli/build"] --> Shared
     Build --> StateMachine
     Build --> Config["cli/config"]
@@ -113,7 +114,7 @@ graph TD
 | Module | Files | Key Components | Dependencies |
 |--------|-------|----------------|--------------|
 | cli/commands | 22 | 8 commands | 3 internal |
-| cli/agent-tools | 43 | 5 tool groups | 1 internal |
+| cli/agent-tools | 51 | 6 tool groups | 2 internal |
 | cli/build | 18 | 8 pipeline stages | 3 internal |
 | cli/install | 8 | 5 services | 1 internal |
 | cli/init | 10 | 3 orchestrators | 2 internal |
@@ -122,7 +123,7 @@ graph TD
 | web-ui/daemon | 4 | 3 services | 1 internal |
 | web-ui/frontend | 138 | 50+ components | 1 runtime |
 | plugins/base | 30 | 14 skills, 13 agents | 0 |
-| plugins/dev | 53 | 18 skills, 34 agents | 1 runtime |
+| plugins/dev | 53 | 19 skills, 34 agents | 1 runtime |
 | plugins/utils | 7 | 5 skills, 4 agents | 0 |
 | evals | 12 | 4 services | 2 direct |
 | catppuccin-mermaid | 12 | 4 modules | 0 |
@@ -135,6 +136,7 @@ graph TD
 - **Lazy-Load Isolation**: main.ts dynamically imports agent-tools and daemon to keep CLI startup fast
 - **Shared fp-ts Pipeline**: All CLI modules use TaskEither<CLIError, T> via cli/shared
 - **Plugin Layering**: Base provides foundations; dev extends with delivery workflows; utils is independent
+- **Feedback Loop**: Agent-tools feedback submodule reads/resolves/replies to Arcade annotations and notifies daemon for real-time WebSocket broadcast
 
 ## Cross-References
 - **Architecture Overview**: See [architecture.md](architecture.md)
