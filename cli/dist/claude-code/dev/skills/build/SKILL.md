@@ -94,12 +94,25 @@ Validate the response before continuing:
 - On contract failure: retry step 1 once with an explicit reminder that the agent may only write `requirements.md` and must not implement anything.
 - If the retry also fails, abort the build as failed. Do not continue to design, build, verify, or archive based on non-compliant output.
 
-**Checkpoint** (skip if AFK): AskUserQuestion: "Continue, Revise, or Stop?"
+**Checkpoint** (skip if AFK):
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type waiting_for_user \
+  --run-id {RUN_ID} \
+  --step requirements \
+  --data '{"prompt": "Continue, Revise, Review feedback from Arcade, or Stop?", "context": "Requirements gathering complete"}'
+```
+
+AskUserQuestion: "Continue, Revise, Review feedback from Arcade, or Stop?"
 Options:
 - Continue
 - Revise
+- Review feedback from Arcade
 - Stop
 On Revise: get feedback, append to REQUIREMENTS, re-invoke step 1.
+On Review feedback from Arcade: load `arcade-collab` skill, process all feedback for RUN_ID, then return to this checkpoint with original options.
 On Stop: output summary, exit with `/build {FEATURE_ID}` resume instruction.
 
 ## §STEP-2: Design
@@ -123,12 +136,25 @@ subagent_type: rp1-dev:feature-tasker
 prompt: 
 FEATURE_ID={FEATURE_ID}, UPDATE_MODE={UPDATE_MODE}, RP1_ROOT={{$RP1_ROOT}}, WORKFLOW=build, RUN_ID={RUN_ID}
 
-**Checkpoint** (skip if AFK): AskUserQuestion: "Continue, Revise, or Stop?"
+**Checkpoint** (skip if AFK):
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type waiting_for_user \
+  --run-id {RUN_ID} \
+  --step design \
+  --data '{"prompt": "Continue, Revise, Review feedback from Arcade, or Stop?", "context": "Design and task generation complete"}'
+```
+
+AskUserQuestion: "Continue, Revise, Review feedback from Arcade, or Stop?"
 Options:
 - Continue
 - Revise
+- Review feedback from Arcade
 - Stop
 On Revise: get feedback, re-invoke §STEP-2 with UPDATE_MODE=true.
+On Review feedback from Arcade: load `arcade-collab` skill, process all feedback for RUN_ID, then return to this checkpoint with original options.
 On Stop: output summary (steps 1-2 done), exit with `/build {FEATURE_ID}`.
 
 ## §STEP-3: Tasks
@@ -140,12 +166,25 @@ subagent_type: rp1-dev:feature-tasker
 prompt: 
 FEATURE_ID={FEATURE_ID}, UPDATE_MODE=false, RP1_ROOT={{$RP1_ROOT}}, WORKFLOW=build, RUN_ID={RUN_ID}
 
-**Checkpoint** (skip if AFK): AskUserQuestion: "Continue, Revise, or Stop?"
+**Checkpoint** (skip if AFK):
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type waiting_for_user \
+  --run-id {RUN_ID} \
+  --step tasks \
+  --data '{"prompt": "Continue, Revise, Review feedback from Arcade, or Stop?", "context": "Task breakdown complete"}'
+```
+
+AskUserQuestion: "Continue, Revise, Review feedback from Arcade, or Stop?"
 Options:
 - Continue
 - Revise
+- Review feedback from Arcade
 - Stop
 On Revise: get feedback, re-invoke §STEP-3 with UPDATE_MODE=true and feedback as UPDATE_CONTEXT.
+On Review feedback from Arcade: load `arcade-collab` skill, process all feedback for RUN_ID, then return to this checkpoint with original options.
 On Stop: output summary (steps 1-3 done), exit with `/build {FEATURE_ID}`.
 
 ## §STEP-4: Build
@@ -188,12 +227,25 @@ Loop logic: attempt=1, max=2. If reviewer reports SUCCESS: move to next unit. If
 
 Doc tasks (TD*): build doc_scan_results.json, spawn scribe.
 
-**Checkpoint** (skip if AFK): AskUserQuestion: "Continue, Add Task, or Stop?"
+**Checkpoint** (skip if AFK):
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type waiting_for_user \
+  --run-id {RUN_ID} \
+  --step build \
+  --data '{"prompt": "Continue, Add Task, Review feedback from Arcade, or Stop?", "context": "Build phase complete"}'
+```
+
+AskUserQuestion: "Continue, Add Task, Review feedback from Arcade, or Stop?"
 Options:
 - Continue
 - Add Task
+- Review feedback from Arcade
 - Stop
 On Add Task: spawn builder+reviewer for ad-hoc TX-{timestamp} task, loop back.
+On Review feedback from Arcade: load `arcade-collab` skill, process all feedback for RUN_ID, then return to this checkpoint with original options.
 
 ## §STEP-5: Verify
 
@@ -242,11 +294,24 @@ rp1 agent-tools emit \
 
 Output: Feature ID, step status table (1-6), artifacts created.
 
-**Post-verify** (skip if AFK): AskUserQuestion: "Add task, Archive, or Do nothing?"
+**Post-verify** (skip if AFK):
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type waiting_for_user \
+  --run-id {RUN_ID} \
+  --step verify \
+  --data '{"prompt": "Add task, Archive, Review feedback from Arcade, or Do nothing?", "context": "Verification complete"}'
+```
+
+AskUserQuestion: "Add task, Archive, Review feedback from Arcade, or Do nothing?"
 Options:
 - Add task
 - Archive
+- Review feedback from Arcade
 - Do nothing
+On Review feedback from Arcade: load `arcade-collab` skill, process all feedback for RUN_ID, then return to this checkpoint with original options.
 
 ### Archive (skip if "Do nothing")
 
