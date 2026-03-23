@@ -25,7 +25,6 @@ import type {
 	FeedbackReadResult,
 } from "./models.js";
 
-/** Tool name for output */
 const TOOL_NAME = "feedback";
 
 /**

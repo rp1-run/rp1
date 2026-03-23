@@ -17,7 +17,6 @@ import { successResult } from "../output.js";
 import type { FeedbackReplyOptions, FeedbackReplyResult } from "./models.js";
 import { notifyDaemon } from "./notify.js";
 
-/** Tool name for output */
 const TOOL_NAME = "feedback";
 
 /**

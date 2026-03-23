@@ -25,7 +25,6 @@ import type {
 } from "./models.js";
 import { notifyDaemon } from "./notify.js";
 
-/** Tool name for output */
 const TOOL_NAME = "feedback";
 
 /**

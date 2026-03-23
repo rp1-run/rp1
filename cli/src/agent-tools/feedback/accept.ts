@@ -23,7 +23,6 @@ import type {
 	FeedbackAcceptEditResult,
 } from "./models.js";
 
-/** Tool name for output */
 const TOOL_NAME = "feedback";
 
 /**

@@ -9,7 +9,6 @@ import { registerTool, type ToolOptions } from "../index.js";
 import type { ToolResult } from "../models.js";
 import { successResult } from "../output.js";
 
-/** Tool name used for registration and output */
 const TOOL_NAME = "feedback";
 
 /**
@@ -28,7 +27,6 @@ const execute = (
 		}),
 	);
 
-/** Register this tool with the framework */
 registerTool({
 	name: TOOL_NAME,
 	description: "Read, resolve, reply to, and accept feedback from the Arcade",
