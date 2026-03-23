@@ -174,4 +174,4 @@ Agents define exactly what they produce:
 ## Learn More
 
 - [Feature Development Tutorial](../guides/feature-development.md) - See constitutional prompting in action
-- [Command Reference](../reference/index.md) - Explore all 21 constitutional commands
+- [Command Reference](../reference/index.md) - Explore all constitutional commands

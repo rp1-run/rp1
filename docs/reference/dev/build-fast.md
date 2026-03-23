@@ -291,5 +291,5 @@ Recommended Quick Win: [simplest valuable alternative]
 
 ## Related Commands
 
-- [`build`](../../guides/feature-development.md) - For larger features requiring full workflow
+- [`build`](build.md) - For larger features requiring full workflow
 - [`code-check`](code-check.md) - Verify changes

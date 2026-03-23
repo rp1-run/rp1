@@ -15,6 +15,7 @@ Common issues, solutions, and debugging strategies for rp1.
 | KB content stale | Code changed after build | Rebuild KB |
 | Skills not found | Plugins not installed | Run `rp1 init` |
 | Slow operations | Large context window | Break into smaller operations |
+| Install rollback/recovery | Interrupted install | See [Installation Troubleshooting](installation.md) |
 
 ---
 
@@ -359,8 +360,12 @@ Common issues, solutions, and debugging strategies for rp1.
         ```yaml
         # In GitHub Actions
         - name: Rebuild KB
-          run: /knowledge-build
           if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+          env:
+            ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          run: |
+            rp1 init --yes
+            claude --print "/knowledge-build"
         ```
 
     3. **Check KB generation date:**

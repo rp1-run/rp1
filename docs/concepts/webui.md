@@ -54,7 +54,8 @@ These shortcuts work from any view in the WebUI. Modifier-key shortcuts (Cmd/Ctr
 | ? | Toggle shortcut help overlay |
 | / | Focus the search input on the current view |
 | Escape | Dismiss the topmost overlay, or blur the focused element |
-| Cmd+\\ / Ctrl+\\ | Toggle sidebar collapsed/expanded |
+| Cmd+B / Ctrl+B | Toggle sidebar collapsed/expanded |
+| Cmd+\\ / Ctrl+\\ | Toggle sidebar collapsed/expanded (alternate) |
 
 ---
 
@@ -107,7 +108,7 @@ Go-to chords always navigate to the index/list route, never to a previously visi
 
 Press **?** to open the shortcut help overlay from any view. The overlay displays all keyboard shortcuts grouped into three categories:
 
-- **Global** -- shortcuts that work everywhere (Cmd+K, ?, /, Escape, Cmd+\\)
+- **Global** -- shortcuts that work everywhere (Cmd+K, ?, /, Escape, Cmd+B, Cmd+\\)
 - **Navigation** -- vim keys and go-to chords (j/k, Enter, g then h/r/p)
 - **Current View** -- view-specific shortcuts (placeholder for future phases)
 

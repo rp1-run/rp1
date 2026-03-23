@@ -96,7 +96,7 @@ The wizard guides you through:
 
 1. **Problem & Context** - What problem are you solving?
 2. **Target Users** - Who will use this?
-3. **Business Rationale** - Why build this now?
+3. **Value Proposition** - What value does this deliver?
 4. **Scope Guardrails** - What's in/out of scope?
 5. **Success Criteria** - How will you measure success?
 

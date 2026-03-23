@@ -39,15 +39,15 @@ The repair process:
 
 ## Requirements
 
-This command requires Node.js to be installed:
+This command requires the rp1 CLI:
 
 | Dependency | Description |
 |------------|-------------|
-| Node.js | Required for npx |
-| @mermaid-js/mermaid-cli | Fetched automatically via npx |
+| rp1 CLI v0.3.0+ | Includes `agent-tools mmd-validate` command |
+| Chromium | Auto-downloaded on first use by rp1 |
 
-!!! note "Automatic Installation"
-    The mermaid-cli package is fetched via `npx` on first use. No manual installation is required if you have Node.js installed.
+!!! note "Automatic Setup"
+    Chromium is automatically downloaded on first use. No manual installation is required beyond having the rp1 CLI installed.
 
 ## Input Modes
 

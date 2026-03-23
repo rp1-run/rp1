@@ -75,8 +75,8 @@ Build the knowledge base for your project:
 rp1's KB generation uses a map-reduce architecture:
 
 1. **Spatial Analysis**: Scans repository, categorizes files by KB section
-2. **Parallel Analysis**: 5 specialized agents analyze files concurrently
-3. **Merge Phase**: Combines agent outputs into KB files
+2. **Parallel Analysis**: 4 specialized agents analyze files concurrently
+3. **Merge Phase**: Orchestrator merges agent outputs and generates index.md directly
 
 ```mermaid
 flowchart TB
@@ -86,20 +86,19 @@ flowchart TB
     end
 
     subgraph Phase 2: Parallel Analysis
-        RANK --> A1[Index Builder]
-        RANK --> A2[Concept Extractor]
-        RANK --> A3[Architecture Mapper]
-        RANK --> A4[Module Analyzer]
-        RANK --> A5[Pattern Extractor]
+        RANK --> A1[Concept Extractor]
+        RANK --> A2[Architecture Mapper]
+        RANK --> A3[Module Analyzer]
+        RANK --> A4[Pattern Extractor]
     end
 
     subgraph Phase 3: Merge
-        A1 --> MERGE[Merge Results]
+        A1 --> MERGE[Orchestrator Merge]
         A2 --> MERGE
         A3 --> MERGE
         A4 --> MERGE
-        A5 --> MERGE
-        MERGE --> KB[.rp1/context/]
+        MERGE --> IDX[Generate index.md]
+        IDX --> KB[.rp1/context/]
     end
 ```
 

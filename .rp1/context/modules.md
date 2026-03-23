@@ -122,8 +122,8 @@ graph TD
 | web-ui/server | 14 | 4 services | 3 internal |
 | web-ui/daemon | 4 | 3 services | 1 internal |
 | web-ui/frontend | 138 | 50+ components | 1 runtime |
-| plugins/base | 30 | 14 skills, 13 agents | 0 |
-| plugins/dev | 53 | 19 skills, 34 agents | 1 runtime |
+| plugins/base | 30 | 15 skills, 13 agents | 0 |
+| plugins/dev | 53 | 19 skills, 33 agents | 1 runtime |
 | plugins/utils | 7 | 5 skills, 4 agents | 0 |
 | evals | 12 | 4 services | 2 direct |
 | catppuccin-mermaid | 12 | 4 modules | 0 |

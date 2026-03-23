@@ -533,7 +533,7 @@ These agents run `/rp1-base:knowledge-load` as their first step to receive compr
    /plugin install rp1-base@rp1-local
    /plugin install rp1-dev@rp1-local
 
-   # Verify - should see 21 commands (6 base + 15 dev)
+   # Verify - should see 34 commands (15 base + 19 dev)
    /help | grep rp1
    ```
 
@@ -593,13 +593,14 @@ When adding or modifying features:
 
 **Pattern**: Command Pattern + Strategy Pattern
 
-- **Commands** (21 total): Lightweight entry points that users invoke
-  - Base: 6 commands
-  - Dev: 15 commands
-- **Agents** (18 total): Specialized sub-agents with deep execution logic
-  - Base: 9 agents
-  - Dev: 9 agents
-- **Skills** (4 total): Reusable capabilities in base plugin
+- **Skills** (39 total): Lightweight entry points that users invoke
+  - Base: 15 skills
+  - Dev: 19 skills
+  - Utils: 5 skills
+- **Agents** (49 total): Specialized sub-agents with deep execution logic
+  - Base: 12 agents
+  - Dev: 33 agents
+  - Utils: 4 agents
   - mermaid, markdown-preview, knowledge-base-templates, code-comments
 
 Commands delegate to agents via Claude Code's Task tool, ensuring only relevant context is loaded.

@@ -10,8 +10,8 @@ The `rp1-utils` plugin provides specialized tools for developing and maintaining
 - **Prompt authoring** - Write terse prompts from scratch using compression-by-default principles
 - **Agent refactoring** - Tools for optimizing constitutional agents
 
-**Commands**: 2 user-facing commands
-**Agents**: 5 specialized agents
+**Commands**: 3 user-facing commands
+**Agents**: 4 specialized agents
 **Skills**: 2 internal skills
 
 ## Commands (2)

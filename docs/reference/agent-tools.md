@@ -31,8 +31,13 @@ interface ToolResult<T> {
 
 | Module | Description |
 |--------|-------------|
-| [`rp1-root-dir`](cli/rp1-root-dir.md) | RP1_ROOT path resolution with worktree-aware detection |
+| [`emit`](#emit) | Workflow event emission with state machine validation |
+| [`feedback`](#feedback) | Feedback lifecycle: read, resolve, reply, accept-edit for Arcade annotations |
 | [`github-pr`](#github-pr) | GitHub PR operations (review, comments, reactions) |
+| [`task`](#task) | Task queue management (create, list, pickup, complete, fail, cancel, get) |
+| [`rp1-root-dir`](cli/rp1-root-dir.md) | RP1_ROOT path resolution with worktree-aware detection |
+| `comment-extract` | Extract comments from source files for review workflows |
+| `mmd-validate` | Validate Mermaid diagram syntax |
 
 ---
 
@@ -311,6 +316,63 @@ echo '{
 
 ---
 
+## feedback
+
+Manages the feedback lifecycle for Arcade annotations. Agents use these subcommands to read user feedback, resolve annotations, reply to comments, and accept file edits.
+
+### Subcommands
+
+| Subcommand | Description |
+|------------|-------------|
+| `read` | Fetch open annotations and pending file edits for a run |
+| `resolve` | Mark an annotation as resolved |
+| `reply` | Reply to an annotation thread |
+| `accept-edit` | Accept a user-proposed file edit |
+
+All feedback subcommands require a `--run-id` to scope operations to a specific workflow run.
+
+### read
+
+Fetch open annotations and pending file edits for a given run.
+
+#### Synopsis
+
+```bash
+rp1 agent-tools feedback read --run-id <run-id>
+```
+
+#### Output
+
+Returns open annotations with summary counts, associated artifact paths, and any pending direct file edits. Annotations without an explicit `runId` are matched via their associated artifacts.
+
+### resolve
+
+Mark an annotation as resolved after addressing the feedback.
+
+```bash
+rp1 agent-tools feedback resolve <annotation-id> --run-id <run-id>
+```
+
+### reply
+
+Reply to an annotation thread.
+
+```bash
+rp1 agent-tools feedback reply <annotation-id> --run-id <run-id>
+```
+
+Reads the reply body from stdin.
+
+### accept-edit
+
+Accept a user-proposed direct file edit.
+
+```bash
+rp1 agent-tools feedback accept-edit <doc-id> --run-id <run-id>
+```
+
+---
+
 ## Error Handling
 
 All tools return errors in a consistent format:
@@ -343,3 +405,4 @@ All tools return errors in a consistent format:
 - [rp1-root-dir Reference](cli/rp1-root-dir.md) - Path resolution
 - [PR Review Config](pr-review-config.md) - Configuration options
 - [Remote PR Review Guide](../guides/remote-pr-review.md) - CI setup tutorial
+- [Annotations](../web-ui/annotations.md) - Annotation system used by the feedback tool

@@ -21,9 +21,13 @@ Agent tools are CLI utilities designed for use by AI agents during automated wor
 
 | Command | Description |
 |---------|-------------|
-| [`rp1-root-dir`](rp1-root-dir.md) | Resolve RP1_ROOT path with worktree-aware detection |
-| [`work`](work.md) | Record workflow status updates for progress tracking |
+| [`rp1-root-dir`](rp1-root-dir.md) | Resolve RP1_ROOT path with read-only worktree detection |
+| [`emit`](../agent-tools.md#emit) | Record events for the rp1 workflow event system |
+| [`comment-extract`](../agent-tools.md#comment-extract) | Extract comments from git-changed files |
+| [`feedback`](../agent-tools.md#feedback) | Read, resolve, reply to, and accept feedback from the Arcade |
 | [`github-pr`](../agent-tools.md#github-pr) | GitHub PR operations (submit-review, add-reaction, reply-comment, fetch-comments) |
+| [`mmd-validate`](../agent-tools.md#mmd-validate) | Validate Mermaid diagram syntax in markdown or raw input |
+| [`task`](../agent-tools.md#task) | Manage task queue (create, list, pickup, complete, fail, cancel, get) |
 
 See [Agent Tools Reference](../agent-tools.md) for the full documentation.
 

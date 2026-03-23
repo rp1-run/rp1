@@ -9,13 +9,13 @@ Autonomous deep research on codebases and technical topics using a map-reduce ar
 === "Claude Code"
 
     ```bash
-    /deep-research [research-topic]
+    /deep-research <research-topic>
     ```
 
 === "OpenCode"
 
     ```bash
-    /rp1-base-deep-research [research-topic]
+    /rp1-base-deep-research <research-topic>
     ```
 
 ## Description
@@ -34,7 +34,7 @@ The workflow:
 
 | Parameter | Position | Default | Description |
 |-----------|----------|---------|-------------|
-| `research-topic` | `$ARGUMENTS` | (required) | Your research question or topic |
+| `research-topic` | `$ARGUMENTS` | (required) | Your research question or topic (freeform text) |
 | `RP1_ROOT` | Environment | `.rp1/` | Root directory for output artifacts |
 
 ## Exploration Modes

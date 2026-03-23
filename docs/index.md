@@ -8,7 +8,7 @@ hide:
 
 Professional development workflows for AI coding assistants.
 Skip the iteration loops — single-pass workflows that get it right the first time.
-21 commands. 18 specialized agents. Careful context management.
+39 commands. 49 specialized agents. Careful context management.
 Works today with **Claude Code** and **OpenCode** (experimental).
 
 
@@ -111,7 +111,7 @@ Or for small well-scoped quick tasks (that don't need extensive planning):
 /strategize
 ```
 
-[See all 21 commands :material-arrow-right:](reference/index.md)
+[See all 39 commands :material-arrow-right:](reference/index.md)
 
 </div>
 
@@ -315,7 +315,8 @@ Get new developers productive on your codebase fast. Knowledge base + guided exp
 
 <div align="center" markdown>
 
-[Get Started](getting-started/installation.md){ .md-button .md-button--primary }
+[Get Started](getting-started/index.md){ .md-button .md-button--primary }
+[Why rp1?](comparison/vs-raw-prompting.md){ .md-button }
 
 </div>
 

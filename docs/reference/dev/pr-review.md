@@ -9,13 +9,13 @@ Thorough code review that understands what your PR is trying to accomplish and c
 === "Claude Code"
 
     ```bash
-    /pr-review [target] [base-branch]
+    /pr-review [target] [base-branch] [skip-visual]
     ```
 
 === "OpenCode"
 
     ```bash
-    /rp1-dev-pr-review [target] [base-branch]
+    /rp1-dev-pr-review [target] [base-branch] [skip-visual]
     ```
 
 ## Description
@@ -28,6 +28,7 @@ The `pr-review` command performs comprehensive code review by first understandin
 |-----------|----------|----------|---------|-------------|
 | `TARGET` | `$1` | No | Current branch | PR number, URL, or branch name |
 | `BASE_BRANCH` | `$2` | No | From PR or `main` | Base branch for comparison |
+| `SKIP_VISUAL` | `$3` | No | `false` | Set `true` to skip visual diagram generation |
 
 ## Input Resolution
 
@@ -242,7 +243,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install rp1
-        run: curl -fsSL https://rp1.run/install.sh | bash
+        run: curl -fsSL https://rp1.run/install.sh | sh
 
       - name: Install Claude Code
         run: npm install -g @anthropic-ai/claude-code

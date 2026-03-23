@@ -12,10 +12,10 @@ Start the web UI with `rp1 arcade`, then navigate to `/v2/` in your browser:
 
 ```bash
 rp1 arcade
-# Opens http://localhost:3000
+# Opens http://localhost:7710
 
 # Navigate to V2 dashboard
-# http://localhost:3000/v2/
+# http://localhost:7710/v2/
 ```
 
 The V2 dashboard runs alongside the existing documentation viewer at `/`. Both are fully functional.

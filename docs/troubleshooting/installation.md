@@ -27,9 +27,9 @@ Installation failed. Restored previous installation (15 files). You can safely r
 
 Before any installation modification, rp1 backs up:
 
-- All existing `rp1-*` directories in the commands folder
-- All existing `rp1-*` directories in the agents folder
-- All existing skill directories
+- All existing `rp1-*` agent files in the agents folder
+- All existing `rp1-*` skill directories
+- All existing `rp1-*` plugin hook directories
 - The `opencode.json` configuration (if present)
 
 ### Backup Location
@@ -37,16 +37,17 @@ Before any installation modification, rp1 backs up:
 Backups are stored in a timestamped directory:
 
 ```
-~/.config/rp1/backups/install-{timestamp}/
+~/.opencode-rp1-backups/backup_{timestamp}/
 ├── manifest.json
-├── command/
+├── agents/
+│   └── rp1-base-*.md
+│   └── rp1-dev-*.md
+├── skills/
 │   └── rp1-base/
 │   └── rp1-dev/
-├── agent/
-│   └── rp1-base/
-│   └── rp1-dev/
-└── skill/
-    └── rp1-base/
+├── plugin/
+│   └── rp1-base-hooks/
+└── opencode.json
 ```
 
 ---
@@ -172,8 +173,9 @@ In CI environments, graceful shutdown via SIGTERM is handled identically to SIGI
         rm -rf ~/.claude/agents/rp1-*
 
         # OpenCode
-        rm -rf ~/.config/opencode/command/rp1-*
-        rm -rf ~/.config/opencode/agent/rp1-*
+        rm -rf ~/.config/opencode/agents/rp1-*
+        rm -rf ~/.config/opencode/skills/rp1-*
+        rm -rf ~/.config/opencode/plugin/rp1-*
         ```
 
 ### Staging Directory Cleanup

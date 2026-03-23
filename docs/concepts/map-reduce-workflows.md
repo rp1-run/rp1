@@ -64,13 +64,12 @@ flowchart TB
 - Categorization by KB section
 - Dependency mapping
 
-### Phase 2: Process (5 Parallel Agents)
+### Phase 2: Process (4 Parallel Agents)
 
-Five specialized agents process their assigned files simultaneously:
+Four specialized agents process their assigned files simultaneously:
 
 | Agent | Input | Output |
 |-------|-------|--------|
-| index-builder | Entry points, configs | `index.md` data |
 | concept-extractor | Domain files | `concept_map.md` data |
 | architecture-mapper | Core modules | `architecture.md` data |
 | module-analyzer | All modules | `modules.md` data |
@@ -79,24 +78,21 @@ Five specialized agents process their assigned files simultaneously:
 ```mermaid
 flowchart TB
     subgraph "Parallel Agents"
-        A1[index-builder]
-        A2[concept-extractor]
-        A3[architecture-mapper]
-        A4[module-analyzer]
-        A5[pattern-extractor]
+        A1[concept-extractor]
+        A2[architecture-mapper]
+        A3[module-analyzer]
+        A4[pattern-extractor]
     end
 
     A1 --> J1[JSON]
     A2 --> J2[JSON]
     A3 --> J3[JSON]
     A4 --> J4[JSON]
-    A5 --> J5[JSON]
 
     style A1 fill:#2e7d32,color:#fff
     style A2 fill:#2e7d32,color:#fff
     style A3 fill:#2e7d32,color:#fff
     style A4 fill:#2e7d32,color:#fff
-    style A5 fill:#2e7d32,color:#fff
 ```
 
 ### Phase 3: Reduce (Merge)
@@ -105,7 +101,7 @@ The orchestrator merges JSON outputs into final KB files:
 
 ```
 .rp1/context/
-├── index.md         ← from index-builder
+├── index.md         ← from orchestrator (merges all agent outputs)
 ├── concept_map.md   ← from concept-extractor
 ├── architecture.md  ← from architecture-mapper
 ├── modules.md       ← from module-analyzer
@@ -210,7 +206,7 @@ flowchart LR
 | Incremental | 10-15 minutes | 2-5 minutes |
 
 **Why faster:**
-- 5 agents work simultaneously
+- 4 agents work simultaneously
 - Each focuses on specific file types
 - No redundant processing
 

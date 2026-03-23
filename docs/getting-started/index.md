@@ -26,6 +26,14 @@ rp1 is a plugin system that brings structured, repeatable workflows to AI coding
 
     [:octicons-arrow-right-24: First Workflow](first-workflow.md)
 
+-   :material-folder-outline:{ .lg .middle } **The .rp1 Directory**
+
+    ---
+
+    Understand the workspace structure and configuration.
+
+    [:octicons-arrow-right-24: Directory Guide](rp1-directory.md)
+
 </div>
 
 ## Prerequisites
