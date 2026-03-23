@@ -15,3 +15,345 @@ skills:
     skills_that_i_use: []
     last_update: "2026-03-14"
     last_checksum: 42ebd30790dd238310041dc7449631714503bef12e1efc2e6759dfab8311ec34
+  - name: rp1-base:code-comments
+    description: Extract comment locations from code files for analysis. Use when cleaning comments, auditing code documentation, or analyzing comment patterns. Supports Python, JavaScript, TypeScript, Go, Rust, Java, C/C++, Ruby, PHP, Shell scripts. Trigger terms - comments, extract comments, code comments, comment analysis, documentation audit, comment cleanup.
+    plugin: base
+    skills_that_use_me: []
+    agents_that_use_me: [rp1-dev:comment-cleaner]
+    sub_agents_that_i_use: []
+    skills_that_i_use: []
+    last_update: "2026-01-01"
+    last_checksum: a0bacec93e6fb99d0b9ffdb60698018c2c8a059cb91d0a54e0ee6c558d6fc6cf
+  - name: rp1-base:deep-research
+    description: Autonomous deep research on codebases and technical topics with structured report output via map-reduce explorer architecture.
+    plugin: base
+    skills_that_use_me: []
+    agents_that_use_me: []
+    sub_agents_that_i_use: [rp1-base:research-explorer,rp1-base:research-reporter]
+    skills_that_i_use: []
+    last_update: "2026-03-19"
+    last_checksum: e58278a4c4efdce15b65044cd62d9a20d2b17556964f511e727f206f89893609
+  - name: rp1-base:fix-mermaid
+    description: Validates and repairs mermaid diagrams in markdown files. Scans for mermaid blocks, validates syntax, and auto-repairs common errors.
+    plugin: base
+    skills_that_use_me: []
+    agents_that_use_me: []
+    sub_agents_that_i_use: [rp1-base:mermaid-fixer]
+    skills_that_i_use: [rp1-base:mermaid]
+    last_update: "2026-03-14"
+    last_checksum: 85209a77d8b4ebaba3ef0f99c238aecaf104d6c9009e3538d2617c74e688259e
+  - name: rp1-base:generate-user-docs
+    description: Synchronizes user documentation with knowledge base using two-phase map-reduce orchestration with scan and process phases.
+    plugin: base
+    skills_that_use_me: []
+    agents_that_use_me: []
+    sub_agents_that_i_use: [rp1-base:scribe]
+    skills_that_i_use: [rp1-base:knowledge-build]
+    last_update: "2026-03-14"
+    last_checksum: 6b0b8709e8355f4b54b6aec0b1cbd583391f7de933aed62f45c496b1c2e21cab
+  - name: rp1-base:knowledge-base-templates
+    description: Provides reusable templates for generating comprehensive codebase knowledge bases including architecture diagrams, concept maps, and module documentation. Supports both single-project and monorepo structures. Use when creating project documentation, knowledge bases, or when user mentions KB templates, codebase documentation, or project documentation structure.
+    plugin: base
+    skills_that_use_me: [rp1-base:knowledge-build]
+    agents_that_use_me: []
+    sub_agents_that_i_use: []
+    skills_that_i_use: []
+    last_update: "2026-02-01"
+    last_checksum: 35c10ce296c6b69a36122fc97e0ef52307fdf1a862c92077d1e8f5f83308fda0
+  - name: rp1-base:knowledge-build
+    description: Orchestrates parallel KB generation using spatial analysis and a map-reduce architecture with incremental update support.
+    plugin: base
+    skills_that_use_me: [rp1-base:generate-user-docs,rp1-dev:bootstrap]
+    agents_that_use_me: [rp1-base:kb-architecture-mapper]
+    sub_agents_that_i_use: [rp1-base:kb-architecture-mapper,rp1-base:kb-concept-extractor,rp1-base:kb-module-analyzer,rp1-base:kb-pattern-extractor,rp1-base:kb-spatial-analyzer]
+    skills_that_i_use: [rp1-base:knowledge-base-templates,rp1-base:mermaid]
+    last_update: "2026-03-14"
+    last_checksum: 3f4770105636d6b1d8974e4d43b9bd8bfcf04d5b1678687072b1470d9cc309e0
+  - name: rp1-base:knowledge-load
+    description: Ingests and prepares codebase documentation, builds internal knowledge graphs, and creates optimized context representations for downstream analysis tasks.
+    plugin: base
+    skills_that_use_me: []
+    agents_that_use_me: [rp1-base:kb-module-analyzer]
+    sub_agents_that_i_use: []
+    skills_that_i_use: []
+    last_update: "2026-03-07"
+    last_checksum: 3124d787ffe7b747514658592df3e7e117f2c0e58a3ab0f0df72cd4bdd1280d8
+  - name: rp1-base:markdown-preview
+    description: Generate browser-viewable HTML previews from markdown, plain text, and Mermaid diagrams. Auto-validates diagrams, applies professional styling, and opens in default browser. Use when agents need to preview documentation, visualizations, or formatted content.
+    plugin: base
+    skills_that_use_me: []
+    agents_that_use_me: [rp1-dev:pr-visualizer]
+    sub_agents_that_i_use: []
+    skills_that_i_use: []
+    last_update: "2026-02-16"
+    last_checksum: e5a4a87cf96e4d9447b456f2d908f20b678bd7d6d8815fcf13c5b0f506489c6f
+  - name: rp1-base:mermaid
+    description: Create, validate, and troubleshoot Mermaid.js diagrams. Use when generating flowcharts, sequence diagrams, class diagrams, ER diagrams, Gantt charts, state diagrams, or any visualization. Handles diagram validation, syntax errors, broken diagrams, and automatic repair. Trigger terms - mermaid, diagram, flowchart, sequence, class diagram, ER diagram, entity relationship, state machine, gantt, visualization, chart, graph.
+    plugin: base
+    skills_that_use_me: [rp1-base:fix-mermaid,rp1-base:knowledge-build]
+    agents_that_use_me: [rp1-dev:feature-architect]
+    sub_agents_that_i_use: []
+    skills_that_i_use: []
+    last_update: "2026-03-22"
+    last_checksum: a30569ef42a2d9d9b47e4f6658bf1656d6c0b9d21ed85552b27dc6af1cb4b578
+  - name: rp1-base:project-birds-eye-view
+    description: Generates comprehensive project overview documents with diagrams for new developers using internal knowledge base and codebase context.
+    plugin: base
+    skills_that_use_me: []
+    agents_that_use_me: []
+    sub_agents_that_i_use: [rp1-base:project-documenter]
+    skills_that_i_use: []
+    last_update: "2026-03-14"
+    last_checksum: 5bfaa56c3a9a81e284b096aa1e860683bfefba404b1f1c93e07acc51f6e809b0
+  - name: rp1-base:self-update
+    description: Update rp1 CLI and all plugins to the latest version.
+    plugin: base
+    skills_that_use_me: [rp1-dev:build-fast]
+    agents_that_use_me: []
+    sub_agents_that_i_use: []
+    skills_that_i_use: []
+    last_update: "2026-03-01"
+    last_checksum: 999e1d27ad8cd96b6b22c7b51165c6880fb926d14ff8defff842ff06d3140e55
+  - name: rp1-base:strategize
+    description: Analyzes systems holistically to provide strategic recommendations balancing cost, quality, performance, complexity, and business objectives with quantified trade-offs.
+    plugin: base
+    skills_that_use_me: []
+    agents_that_use_me: []
+    sub_agents_that_i_use: [rp1-base:strategic-advisor]
+    skills_that_i_use: []
+    last_update: "2026-03-14"
+    last_checksum: 5453c2a28428ffa4633b5be73978a30a279275d9b9ef62917c060f73326f5694
+  - name: rp1-base:task
+    description: Discover and manage queued tasks for agent execution
+    plugin: base
+    skills_that_use_me: []
+    agents_that_use_me: []
+    sub_agents_that_i_use: []
+    skills_that_i_use: []
+    last_update: "2026-03-19"
+    last_checksum: 8fea4d3e3cd2cf7776c581eb5489060e61cbea8bb531b89865348f2c0cd59202
+  - name: rp1-base:write-content
+    description: Interactive prompt to help create polished technical documents through clarifying questions and structured writing workflows.
+    plugin: base
+    skills_that_use_me: []
+    agents_that_use_me: []
+    sub_agents_that_i_use: []
+    skills_that_i_use: []
+    last_update: "2026-03-07"
+    last_checksum: 9d4350ed5d0d5109701f822b4d1e83e6ce403d3fac9f33afc389fd538dbbe9a4
+  - name: rp1-dev:address-pr-feedback
+    description: Unified PR feedback workflow - collect, triage, and fix review comments in a single command with worktree isolation.
+    plugin: dev
+    skills_that_use_me: []
+    agents_that_use_me: []
+    sub_agents_that_i_use: [rp1-dev:pr-feedback-collector]
+    skills_that_i_use: []
+    last_update: "2026-03-14"
+    last_checksum: 6e62027d5882d36103a98b3aac9395ec568b4dc197d1d50fb215a4aa5a3cc4ad
+  - name: rp1-dev:arcade-collab
+    description: Structured guidance for agents to read, classify, and act on user feedback (annotations and direct file edits) from the Arcade.
+    plugin: dev
+    skills_that_use_me: []
+    agents_that_use_me: []
+    sub_agents_that_i_use: [rp1-dev:feature-editor]
+    skills_that_i_use: [rp1-dev:feature-edit]
+    last_update: "2026-03-23"
+    last_checksum: f1782f7bdf084441f1c42e508907f67ef070a6ab39b6a9e96b10d336ffecdb99
+  - name: rp1-dev:blueprint-archive
+    description: Archives a completed PRD to the archives directory with associated features and closure summary.
+    plugin: dev
+    skills_that_use_me: []
+    agents_that_use_me: []
+    sub_agents_that_i_use: [rp1-dev:prd-archiver]
+    skills_that_i_use: [rp1-dev:blueprint]
+    last_update: "2026-03-14"
+    last_checksum: bc0a2b0ec2cd9844f143be0b6df9074232ab2ca042285cd8145202882f720f56
+  - name: rp1-dev:blueprint-audit
+    description: Audits a PRD against implementation status and guides lifecycle decisions.
+    plugin: dev
+    skills_that_use_me: []
+    agents_that_use_me: []
+    sub_agents_that_i_use: [rp1-dev:blueprint-auditor]
+    skills_that_i_use: [rp1-dev:blueprint]
+    last_update: "2026-03-14"
+    last_checksum: eb6f2cff171f7146d8fda4e42380fff505e08d60b31fdb23bbf0f1015fb33576
+  - name: rp1-dev:blueprint
+    description: Guided wizard for project vision via two-tier docs (charter + PRDs) with stateless interview loops.
+    plugin: dev
+    skills_that_use_me: [rp1-dev:blueprint-archive,rp1-dev:blueprint-audit,rp1-dev:bootstrap]
+    agents_that_use_me: []
+    sub_agents_that_i_use: [rp1-dev:blueprint-wizard,rp1-dev:charter-interviewer]
+    skills_that_i_use: [rp1-dev:build]
+    last_update: "2026-03-19"
+    last_checksum: 0b62292765c988653693b9309cad52c4cff0e31ac46e372b311e5ad6fe6720db
+  - name: rp1-dev:bootstrap
+    description: Bootstrap a new project with charter discovery and tech stack scaffolding for greenfield development.
+    plugin: dev
+    skills_that_use_me: []
+    agents_that_use_me: []
+    sub_agents_that_i_use: [rp1-dev:bootstrap-scaffolder,rp1-dev:charter-interviewer]
+    skills_that_i_use: [rp1-base:knowledge-build,rp1-dev:blueprint,rp1-dev:build]
+    last_update: "2026-03-14"
+    last_checksum: 0d3c9e8bf0a08084341d447da29e90b74293782475a7a80a6853b8954887a33b
+  - name: rp1-dev:build-express
+    description: Interactive builder loop for small, low-risk changes. Delegates each request to a general sub-agent. Redirects larger work to /build-fast or /build.
+    plugin: dev
+    skills_that_use_me: []
+    agents_that_use_me: []
+    sub_agents_that_i_use: [rp1-dev:express-builder]
+    skills_that_i_use: [rp1-dev:build-fast,rp1-dev:build]
+    last_update: "2026-03-14"
+    last_checksum: 8e7d51fbef7610c77ba3a85972df834781b4d22d8b98ea3e5bf99a289551a0f4
+  - name: rp1-dev:build-fast
+    description: Quick-iteration development for small/medium scope changes with persistent artifacts and optional review.
+    plugin: dev
+    skills_that_use_me: [rp1-dev:build-express,rp1-utils:prompt-eval-builder]
+    agents_that_use_me: []
+    sub_agents_that_i_use: [rp1-dev:build-fast-planner,rp1-dev:task-builder,rp1-dev:task-reviewer]
+    skills_that_i_use: [rp1-base:self-update,rp1-dev:build]
+    last_update: "2026-03-19"
+    last_checksum: f76f245eddca842927c922dc39088e0755cf52868c7808f120399b7da5efd406
+  - name: rp1-dev:build
+    description: End-to-end feature workflow (requirements -> design -> tasks -> build -> verify -> archive) in a single command.
+    plugin: dev
+    skills_that_use_me: [rp1-dev:blueprint,rp1-dev:bootstrap,rp1-dev:build-express,rp1-dev:build-fast,rp1-utils:prompt-eval-builder]
+    agents_that_use_me: [rp1-dev:feature-editor,rp1-dev:hypothesis-tester]
+    sub_agents_that_i_use: [rp1-dev:build-artifact-detector,rp1-dev:build-task-grouper,rp1-dev:build-task-parser,rp1-dev:build-verify-aggregator,rp1-dev:code-checker,rp1-dev:comment-cleaner,rp1-dev:feature-architect,rp1-dev:feature-archiver,rp1-dev:feature-requirement-gatherer,rp1-dev:feature-tasker,rp1-dev:feature-verifier,rp1-dev:hypothesis-tester,rp1-dev:task-builder,rp1-dev:task-reviewer]
+    skills_that_i_use: [rp1-dev:code-check,rp1-dev:feature-archive]
+    last_update: "2026-03-19"
+    last_checksum: aa73200fd1dd4eed1ff910850c4267caa6b7132e704a39f8901503d5707d9c30
+  - name: rp1-dev:code-audit
+    description: Analyzes implemented code for pattern consistency, maintainability, code duplication, comment quality, and documentation drift.
+    plugin: dev
+    skills_that_use_me: []
+    agents_that_use_me: []
+    sub_agents_that_i_use: [rp1-dev:code-auditor]
+    skills_that_i_use: []
+    last_update: "2026-03-14"
+    last_checksum: a1546330e80866ea7c48fe7afeb9d15988d9f24d819be9c52db49f8cfbb2d2b3
+  - name: rp1-dev:code-check
+    description: Fast code hygiene validation (lints, formatters, tests, coverage) for quick development loop feedback.
+    plugin: dev
+    skills_that_use_me: [rp1-dev:build]
+    agents_that_use_me: []
+    sub_agents_that_i_use: [rp1-dev:code-checker]
+    skills_that_i_use: []
+    last_update: "2026-03-14"
+    last_checksum: d456f8743a2c3952235fabbd0e3065010ed7d21d5b97f01eb9234772f5a23cff
+  - name: rp1-dev:code-clean-comments
+    description: Systematically removes unnecessary comments from code using git-scoped file detection.
+    plugin: dev
+    skills_that_use_me: []
+    agents_that_use_me: []
+    sub_agents_that_i_use: [rp1-dev:comment-cleaner]
+    skills_that_i_use: []
+    last_update: "2026-03-14"
+    last_checksum: c9b9f7f52011e8aedbe7c07c9cfeda12f31117b6c18ff9c6f5c6a85c61850989
+  - name: rp1-dev:code-investigate
+    description: Systematic investigation of bugs and issues to identify root causes through evidence-based analysis, hypothesis testing, and comprehensive documentation without permanent code changes.
+    plugin: dev
+    skills_that_use_me: []
+    agents_that_use_me: []
+    sub_agents_that_i_use: [rp1-dev:bug-investigator]
+    skills_that_i_use: []
+    last_update: "2026-03-14"
+    last_checksum: 9afbc0a6c4401d929dd1116e5805e1db609aca5cedba34a0ff8d66c30a676c2d
+  - name: rp1-dev:feature-archive
+    description: Archives a completed feature to the archives directory with optional documentation validation.
+    plugin: dev
+    skills_that_use_me: [rp1-dev:build,rp1-dev:feature-unarchive]
+    agents_that_use_me: []
+    sub_agents_that_i_use: [rp1-dev:feature-archiver]
+    skills_that_i_use: []
+    last_update: "2026-03-14"
+    last_checksum: 18e77aa5fe0cc5e07bf2d764d8162ac33e0c4a451faaff021f32a7f40ecdbb49
+  - name: rp1-dev:feature-edit
+    description: Incorporates mid-stream changes into feature documentation with validation and propagation.
+    plugin: dev
+    skills_that_use_me: [rp1-dev:arcade-collab]
+    agents_that_use_me: []
+    sub_agents_that_i_use: [rp1-dev:feature-editor]
+    skills_that_i_use: []
+    last_update: "2026-03-14"
+    last_checksum: 46baa391caf5c4705352c644a2b3c93b94d843167d7e1ac0848f5dc0b9fb400e
+  - name: rp1-dev:feature-unarchive
+    description: Restores an archived feature from the archives directory back to the active features directory.
+    plugin: dev
+    skills_that_use_me: []
+    agents_that_use_me: []
+    sub_agents_that_i_use: [rp1-dev:feature-archiver]
+    skills_that_i_use: [rp1-dev:feature-archive]
+    last_update: "2026-03-14"
+    last_checksum: 4c3251bf87841a7baabe008a53c95e9be6e08b2e58b12ec10e4bbf96c59e5ac5
+  - name: rp1-dev:pr-review
+    description: Intent-aware map-reduce PR review with CI/CD support, confidence gating, and intelligent comment deduplication.
+    plugin: dev
+    skills_that_use_me: []
+    agents_that_use_me: []
+    sub_agents_that_i_use: [rp1-dev:pr-comment-deduplicator,rp1-dev:pr-comment-poster,rp1-dev:pr-review-reporter,rp1-dev:pr-review-splitter,rp1-dev:pr-review-synthesizer,rp1-dev:pr-sub-reviewer,rp1-dev:pr-visualizer]
+    skills_that_i_use: [rp1-dev:pr-visual]
+    last_update: "2026-03-19"
+    last_checksum: 57ab732501184424a6720724967db8bc5c43c41c0b238dd879bb5092d385879e
+  - name: rp1-dev:pr-visual
+    description: Transform pull request diffs into comprehensive Mermaid diagrams for visual code review and change understanding.
+    plugin: dev
+    skills_that_use_me: [rp1-dev:pr-review]
+    agents_that_use_me: []
+    sub_agents_that_i_use: [rp1-dev:pr-visualizer]
+    skills_that_i_use: []
+    last_update: "2026-03-14"
+    last_checksum: 14637084a70c40c320e87e50a89e5a234abed0aea43cf50063595f349df62b1b
+  - name: rp1-dev:validate-hypothesis
+    description: Validate design hypotheses via code experiments, codebase analysis, and external research.
+    plugin: dev
+    skills_that_use_me: []
+    agents_that_use_me: []
+    sub_agents_that_i_use: [rp1-dev:hypothesis-tester]
+    skills_that_i_use: []
+    last_update: "2026-03-14"
+    last_checksum: a879643fe7e84c2ad929f060848a29a49ae6ad55467e91cbde82a2183043a6ad
+  - name: rp1-utils:build-prompt-evals
+    description: Builds eval assertions and minimal test prompt from prompt text, then optimizes assertions via specialist agent.
+    plugin: utils
+    skills_that_use_me: []
+    agents_that_use_me: []
+    sub_agents_that_i_use: [rp1-utils:dependency-chain-analyzer,rp1-utils:prompt-assertion-specialist,rp1-utils:prompt-eval-extractor]
+    skills_that_i_use: []
+    last_update: "2026-03-14"
+    last_checksum: 263aa6db1f231b6c07e9ebf0f109e5bfd2a11897f6ff560b1b05b4ad95d94c13
+  - name: rp1-utils:prompt-eval-builder
+    description: Domain knowledge for extracting eval assertions and generating test invocation prompts from command/agent specs. Used for building promptfoo evaluation configs.
+    plugin: utils
+    skills_that_use_me: []
+    agents_that_use_me: []
+    sub_agents_that_i_use: []
+    skills_that_i_use: [rp1-dev:build-fast,rp1-dev:build]
+    last_update: "2026-01-23"
+    last_checksum: cede5ee43cd2c295c08702f787337ff249d1bf715c1f00fa9fc1f4eb4226d7ac
+  - name: rp1-utils:prompt-writer
+    description: Write maximally terse agent prompts from scratch. Use when creating new agent specs, command prompts, or instruction sets. Teaches structure-first composition with compression-by-default patterns.
+    plugin: utils
+    skills_that_use_me: []
+    agents_that_use_me: [rp1-utils:prompt-tersifier]
+    sub_agents_that_i_use: []
+    skills_that_i_use: []
+    last_update: "2025-12-30"
+    last_checksum: 1b00b87ed197e5cb52a1112d48e8297220c908f8a96c846bb332bdea60b187e2
+  - name: rp1-utils:tersify-prompt
+    description: Rewrites agent-instruction prompts to be maximally terse while preserving full intent.
+    plugin: utils
+    skills_that_use_me: []
+    agents_that_use_me: []
+    sub_agents_that_i_use: [rp1-utils:prompt-tersifier]
+    skills_that_i_use: []
+    last_update: "2026-03-14"
+    last_checksum: 5d24b040379b684f50f3f6b35744b896905cb91364f7a642756c10e3c9b76ebb
+  - name: rp1-utils:tester
+    description: Test command template for verifying argument passing and skill invocation.
+    plugin: utils
+    skills_that_use_me: []
+    agents_that_use_me: []
+    sub_agents_that_i_use: []
+    skills_that_i_use: []
+    last_update: "2026-03-01"
+    last_checksum: d6b6af4f9188df16e3d98ddf47b7d0e4963dc5cc11335f67586f993edb1da1b1
