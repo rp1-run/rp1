@@ -139,7 +139,7 @@ Enable agents to read, act on, and acknowledge user feedback (annotations and di
     | Commit | ✅ PASS |
     | Comments | ✅ PASS |
 
-- [ ] **T8**: Write unit and integration tests for the feedback module `[complexity:medium]`
+- [x] **T8**: Write unit and integration tests for the feedback module `[complexity:medium]`
 
     **Reference**: [design.md#7-testing-strategy](design.md#7-testing-strategy)
 
@@ -147,13 +147,20 @@ Enable agents to read, act on, and acknowledge user feedback (annotations and di
 
     **Acceptance Criteria**:
 
-    - [ ] `feedback-read.test.ts` covers: read with status filters, empty results, diff computation for edited artifacts, filtering out unchanged baselines
-    - [ ] `feedback-resolve.test.ts` covers: resolve with reply, resolve without reply, agent attribution on replies
-    - [ ] `feedback-reply.test.ts` covers: reply creation, parent annotation validation, agent author attribution
-    - [ ] `feedback-accept.test.ts` covers: baseline clear, no-edit edge case (baseline is already NULL)
-    - [ ] `validate.test.ts` covers: invalid run-id, invalid annotation-id, invalid doc-id, invalid status value, valid inputs for all subcommands
-    - [ ] Tests use in-memory SQLite with `beforeEach` seeding and `afterEach` cleanup following existing test patterns
-    - [ ] All tests pass via `bun test`
+    - [x] `feedback-read.test.ts` covers: read with status filters, empty results, diff computation for edited artifacts, filtering out unchanged baselines
+    - [x] `feedback-resolve.test.ts` covers: resolve with reply, resolve without reply, agent attribution on replies
+    - [x] `feedback-reply.test.ts` covers: reply creation, parent annotation validation, agent author attribution
+    - [x] `feedback-accept.test.ts` covers: baseline clear, no-edit edge case (baseline is already NULL)
+    - [x] `validate.test.ts` covers: invalid run-id, invalid annotation-id, invalid doc-id, invalid status value, valid inputs for all subcommands
+    - [x] Tests use in-memory SQLite with `beforeEach` seeding and `afterEach` cleanup following existing test patterns
+    - [x] All tests pass via `bun test`
+
+    **Implementation Summary**:
+
+    - **Files**: `cli/src/__tests__/agent-tools/feedback/validate.test.ts`, `feedback-read.test.ts`, `feedback-resolve.test.ts`, `feedback-reply.test.ts`, `feedback-accept.test.ts`
+    - **Approach**: Created 5 test files covering all feedback subcommands; validation tests verify input boundaries (empty strings, invalid IDs, invalid status); read tests exercise status filtering, reply nesting, diff computation, unchanged baseline filtering, and summary grouping; resolve tests cover with/without reply and agent attribution; reply tests verify agent author and thread preservation; accept tests verify baseline clear and edge cases
+    - **Deviations**: None
+    - **Tests**: 41/41 passing
 
 ### Command Registration
 
