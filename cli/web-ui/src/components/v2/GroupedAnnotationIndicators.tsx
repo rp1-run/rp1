@@ -298,23 +298,32 @@ export function GroupedAnnotationIndicators({
 
 		const timeoutId = setTimeout(compute, 100);
 
+		let recomputeTimer: ReturnType<typeof setTimeout> | null = null;
+		const debouncedCompute = () => {
+			if (recomputeTimer) clearTimeout(recomputeTimer);
+			recomputeTimer = setTimeout(compute, 50);
+		};
+
 		// Recompute when container DOM changes (e.g., Shiki highlighting completes)
-		let observer: MutationObserver | null = null;
+		let mutationObserver: MutationObserver | null = null;
+		let resizeObserver: ResizeObserver | null = null;
 		if (containerRef.current) {
-			let recomputeTimer: ReturnType<typeof setTimeout> | null = null;
-			observer = new MutationObserver(() => {
-				if (recomputeTimer) clearTimeout(recomputeTimer);
-				recomputeTimer = setTimeout(compute, 50);
-			});
-			observer.observe(containerRef.current, {
+			mutationObserver = new MutationObserver(debouncedCompute);
+			mutationObserver.observe(containerRef.current, {
 				childList: true,
 				subtree: true,
 			});
+
+			// Recompute when container resizes (e.g., sidebar opens/closes)
+			resizeObserver = new ResizeObserver(debouncedCompute);
+			resizeObserver.observe(containerRef.current);
 		}
 
 		return () => {
 			clearTimeout(timeoutId);
-			observer?.disconnect();
+			if (recomputeTimer) clearTimeout(recomputeTimer);
+			mutationObserver?.disconnect();
+			resizeObserver?.disconnect();
 		};
 	}, [annotations, containerRef, gutterRef]);
 
