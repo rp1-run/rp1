@@ -349,3 +349,10 @@ agents:
     skills_that_use_me: [rp1-utils:build-prompt-evals]
     last_update: "2026-01-23"
     last_checksum: e1828b70615249bf7af823ea891df8343e7e035ed89e7f1d32a0a25b26fb270a
+  - name: rp1-utils:prompt-tersifier
+    description: Transforms agent-instruction prompts into maximally terse versions while preserving full intent
+    plugin: utils
+    skills_that_i_use: [rp1-utils:prompt-writer]
+    skills_that_use_me: [rp1-utils:tersify-prompt]
+    last_update: "2025-12-30"
+    last_checksum: 274c7fdee57f62c217379a6b1244f8b697f5d1134baa1166c6770c40eedaa6b6
