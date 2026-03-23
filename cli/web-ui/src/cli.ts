@@ -175,7 +175,7 @@ async function main(): Promise<void> {
 			await openBrowser(url);
 		}, 500);
 	} else {
-		console.log(`\n  For development, open: http://localhost:5173`);
+		console.log(`\n  For development, open: http://localhost:6810`);
 	}
 
 	process.on("SIGINT", () => {
