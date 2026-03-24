@@ -38,8 +38,7 @@ metadata:
 ```mermaid
 stateDiagram-v2
     [*] --> visualize
-    visualize --> register : diagrams_ready
-    register --> [*] : done
+    visualize --> [*] : done
 ```
 
 Generate `RUN_ID` as UUID at start.
@@ -67,25 +66,17 @@ prompt:
 
 Wait for completion. Extract the artifact path from agent output.
 
-Emit `visualize` completed.
-
-## §2 Register
-
-Emit `register` running.
-
 Register the artifact:
 ```bash
 rp1 agent-tools emit \
   --workflow pr-visual \
   --type artifact_registered \
   --run-id {RUN_ID} \
-  --step register \
+  --step visualize \
   --data '{"path": "{ARTIFACT_PATH}", "type": "pr-visual"}'
 ```
 
-Emit `register` completed.
-
-Output the artifact path.
+Emit `visualize` completed. Output the artifact path.
 
 ## Anti-Loop
 
