@@ -46,7 +46,7 @@ export interface PRReviewConfig {
 	readonly max_comments: number;
 	/** Bot identification marker; default: "<!-- rp1-review -->" */
 	readonly bot_marker: string;
-	/** Generate mermaid diagrams in summary; default: false */
+	/** Generate mermaid diagrams in summary; default: true */
 	readonly visualize: boolean;
 	/** CI platform configuration; default: "github" */
 	readonly ci_platform: CIPlatformConfig;

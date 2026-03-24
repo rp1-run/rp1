@@ -9,6 +9,7 @@
   "license": "Apache-2.0",
   "homepage": "https://github.com/rp1-run/rp1",
   "repository": "https://github.com/rp1-run/rp1",
+  "hooks": "./hooks/hooks.json",
   "keywords": [
     "knowledge-management",
     "documentation",

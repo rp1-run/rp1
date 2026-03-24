@@ -82,7 +82,7 @@ skills:
     description: Generate browser-viewable HTML previews from markdown, plain text, and Mermaid diagrams. Auto-validates diagrams, applies professional styling, and opens in default browser. Use when agents need to preview documentation, visualizations, or formatted content.
     plugin: base
     skills_that_use_me: []
-    agents_that_use_me: [rp1-dev:pr-visualizer]
+    agents_that_use_me: []
     sub_agents_that_i_use: []
     skills_that_i_use: []
     last_update: "2026-02-16"
@@ -184,8 +184,8 @@ skills:
     agents_that_use_me: []
     sub_agents_that_i_use: [rp1-dev:blueprint-wizard,rp1-dev:charter-interviewer]
     skills_that_i_use: [rp1-dev:build]
-    last_update: "2026-03-19"
-    last_checksum: 0b62292765c988653693b9309cad52c4cff0e31ac46e372b311e5ad6fe6720db
+    last_update: "2026-03-24"
+    last_checksum: 0aa08207a70664ee2aec34fe68506bfb191e305e895716c0fcf7a3142b0c8016
   - name: rp1-dev:bootstrap
     description: Bootstrap a new project with charter discovery and tech stack scaffolding for greenfield development.
     plugin: dev
@@ -292,17 +292,17 @@ skills:
     agents_that_use_me: []
     sub_agents_that_i_use: [rp1-dev:pr-comment-deduplicator,rp1-dev:pr-comment-poster,rp1-dev:pr-review-reporter,rp1-dev:pr-review-splitter,rp1-dev:pr-review-synthesizer,rp1-dev:pr-sub-reviewer,rp1-dev:pr-visualizer]
     skills_that_i_use: [rp1-dev:pr-visual]
-    last_update: "2026-03-19"
-    last_checksum: 57ab732501184424a6720724967db8bc5c43c41c0b238dd879bb5092d385879e
+    last_update: "2026-03-24"
+    last_checksum: 261c86743c7c583b411620eb32e16626433af69128336b534d0890a0d749b89f
   - name: rp1-dev:pr-visual
-    description: Transform pull request diffs into comprehensive Mermaid diagrams for visual code review and change understanding.
+    description: Transform pull request diffs into Mermaid diagrams for visual code review and change understanding.
     plugin: dev
     skills_that_use_me: [rp1-dev:pr-review]
     agents_that_use_me: []
     sub_agents_that_i_use: [rp1-dev:pr-visualizer]
     skills_that_i_use: []
-    last_update: "2026-03-14"
-    last_checksum: 14637084a70c40c320e87e50a89e5a234abed0aea43cf50063595f349df62b1b
+    last_update: "2026-03-24"
+    last_checksum: 668b3c84c2ad555ef9b74577ca8c47c64a3ed88ef57e117c2691fbf79d225cf8
   - name: rp1-dev:validate-hypothesis
     description: Validate design hypotheses via code experiments, codebase analysis, and external research.
     plugin: dev

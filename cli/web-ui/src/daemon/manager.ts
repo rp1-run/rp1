@@ -324,9 +324,30 @@ export async function ensureDaemon(
 			return { connection: conn, wasRunning: true };
 		}
 
-		throw new Error(
-			`Port ${port} is in use and not responding as a daemon. Try a different port.`,
-		);
+		// Port occupied by non-daemon process — kill it and reclaim
+		const ownerPid = resolvePortOwnerPid(port);
+		if (ownerPid) {
+			try {
+				process.kill(ownerPid, "SIGTERM");
+			} catch {
+				// Process may have already exited
+			}
+			const exited = await waitForProcessExit(
+				ownerPid,
+				STOP_GRACEFUL_TIMEOUT_MS,
+			);
+			if (!exited) {
+				forceKillProcess(ownerPid);
+				await waitForProcessExit(ownerPid, STOP_KILL_TIMEOUT_MS);
+			}
+		}
+
+		const portFreed = await isPortAvailable(port);
+		if (!portFreed) {
+			throw new Error(
+				`Port ${port} is in use and could not be reclaimed. Try a different port.`,
+			);
+		}
 	}
 
 	const pid = await spawnDaemon(port);

@@ -23,6 +23,7 @@ You are ReporterGPT, a specialized agent that formats PR review findings into a 
 | STATS_JSON | $6 | (required) | Finding counts by severity |
 | OUTPUT_DIR | $7 | `.rp1/work/pr-reviews` | Directory for report output |
 | REVIEW_ID | $8 | (from branch) | Base name for report file |
+| VISUAL_CONTENT | $9 | `""` | Mermaid diagram markdown from pr-visualizer |
 
 <pr_info>
 $1
@@ -55,6 +56,10 @@ $7
 <review_id>
 $8
 </review_id>
+
+<visual_content>
+$9
+</visual_content>
 
 ## 1. Determine File Name
 
@@ -103,6 +108,16 @@ Build markdown with these sections:
 - `approve` → ✅
 - `request_changes` → ⚠️
 - `block` → 🛑
+
+### Visual Overview
+
+**Conditional**: Only include this section if `VISUAL_CONTENT` is non-empty. If empty or missing, omit entirely.
+
+```markdown
+## Visual Overview
+
+{{VISUAL_CONTENT}}
+```
 
 ### Judgment Section
 

@@ -47,7 +47,7 @@ flowchart TB
 
 | Step | Command | Purpose |
 |------|---------|---------|
-| Review | `pr-review` | Automated analysis with confidence gating (auto-generates visuals for complex PRs) |
+| Review | `pr-review` | Automated analysis with confidence gating (auto-generates visual diagrams) |
 | Visualize | `pr-visual` | Manual diagram generation (if needed separately) |
 | Address Feedback | [Separate guide](pr-feedback.md) | Collect and fix reviewer comments |
 
@@ -247,7 +247,7 @@ Report: .rp1/work/pr-reviews/feature-user-auth/review.md
 
 ## Step 4: Visualize Changes (Auto or Manual)
 
-Visualizations are **automatically generated** during `pr-review` for complex PRs (5+ files, large changes, or architectural modifications). You can also generate them manually:
+Visualizations are **automatically generated** during `pr-review` by default. You can also generate them manually:
 
 === "Claude Code"
 

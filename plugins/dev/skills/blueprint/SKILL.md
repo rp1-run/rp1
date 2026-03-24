@@ -147,6 +147,15 @@ loop:
         Write charter sections from response.charter_content
         Remove "## Scratch Pad" section entirely
         Update status to "Complete"
+        Register artifact:
+        ```bash
+        rp1 agent-tools emit \
+          --workflow blueprint \
+          --type artifact_registered \
+          --run-id {RUN_ID} \
+          --step charter \
+          --data '{"path": "{{$RP1_ROOT}}/context/charter.md"}'
+        ```
         Output: "Charter complete! Proceeding to PRD creation..."
         break -> Step 4
 
@@ -235,6 +244,15 @@ loop:
 
   success:
       Write PRD w/ response.prd_content (removes scratch pad)
+      Register artifact:
+      ```bash
+      rp1 agent-tools emit \
+        --workflow blueprint \
+        --type artifact_registered \
+        --run-id {RUN_ID} \
+        --step prd \
+        --data '{"path": "{PRD_PATH}"}'
+      ```
       Output: "PRD created at {PRD_PATH}"
       break
 

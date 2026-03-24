@@ -78,7 +78,7 @@ describe("PR review config loader", () => {
 			expect(defaults.verdict).toBe("auto");
 			expect(defaults.max_comments).toBe(25);
 			expect(defaults.bot_marker).toBe("<!-- rp1-review -->");
-			expect(defaults.visualize).toBe(false);
+			expect(defaults.visualize).toBe(true);
 			expect(defaults.ci_platform).toBe("github");
 		});
 	});
