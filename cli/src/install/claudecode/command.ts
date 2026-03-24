@@ -106,7 +106,7 @@ const displayDryRunPlan = (
 	const color = getColorFns(isTTY);
 
 	const marketplaceSource = config.useHttps
-		? "https://github.com/rp1-run/rp1.git --sparse .claude-plugin cli/dist/claude-code"
+		? "<HTTPS tarball download + local path>"
 		: "rp1-run/rp1";
 	logger.info(color.yellow("[dry-run] Installation plan:"));
 	logger.info("");

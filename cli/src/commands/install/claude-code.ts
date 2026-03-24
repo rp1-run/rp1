@@ -75,7 +75,7 @@ Examples:
 
 		if (ctx.dryRun) {
 			const marketplaceSource = useHttps
-				? "https://github.com/rp1-run/rp1.git --sparse .claude-plugin cli/dist/claude-code"
+				? "<HTTPS tarball download + local path>"
 				: "rp1-run/rp1";
 			console.log(dim("[dry-run] Installation plan:"));
 			console.log("");
