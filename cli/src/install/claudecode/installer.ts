@@ -21,6 +21,16 @@ const execAsync = promisify(exec);
 const MARKETPLACE_REPO = "rp1-run/rp1";
 
 /**
+ * HTTPS URL for the marketplace repository (used when SSH is unavailable).
+ */
+const MARKETPLACE_HTTPS_URL = `https://github.com/${MARKETPLACE_REPO}.git`;
+
+/**
+ * Sparse checkout paths to limit download to marketplace metadata and plugin artifacts.
+ */
+const MARKETPLACE_SPARSE_PATHS = ".claude-plugin cli/dist/claude-code";
+
+/**
  * Marketplace name used in plugin references (the GitHub org name).
  */
 const MARKETPLACE_NAME = "rp1-run";
@@ -92,18 +102,24 @@ const getErrorMessage = (error: CLIError): string => formatError(error, false);
 /**
  * Add rp1 marketplace to Claude Code.
  * Executes: claude plugin marketplace add rp1-run/rp1
+ * When useHttps is true, uses HTTPS URL with sparse checkout instead of SSH.
  *
  * @param logger - Logger for progress output
  * @param dryRun - If true, log the command without executing
  * @param isTTY - Whether the terminal supports TTY for spinner display
+ * @param useHttps - If true, use HTTPS URL with sparse checkout (no SSH keys required)
  * @returns TaskEither with true on success (or already exists), CLIError on failure
  */
 export const addMarketplace = (
 	logger: Logger,
 	dryRun: boolean,
 	isTTY: boolean,
+	useHttps = false,
 ): TE.TaskEither<CLIError, boolean> => {
-	const command = `claude plugin marketplace add ${MARKETPLACE_REPO}`;
+	const source = useHttps
+		? `${MARKETPLACE_HTTPS_URL} --sparse ${MARKETPLACE_SPARSE_PATHS}`
+		: MARKETPLACE_REPO;
+	const command = `claude plugin marketplace add ${source}`;
 	const spinner = createSpinner(isTTY);
 
 	return pipe(
@@ -241,6 +257,7 @@ export const installAllPlugins = (
 	logger: Logger,
 	dryRun: boolean,
 	isTTY: boolean,
+	useHttps = false,
 ): TE.TaskEither<CLIError, ClaudeCodeInstallResult> => {
 	const plugins = ["rp1-base", "rp1-dev"];
 	const warnings: string[] = [];
@@ -248,7 +265,7 @@ export const installAllPlugins = (
 
 	return pipe(
 		// Step 1: Add marketplace
-		addMarketplace(logger, dryRun, isTTY),
+		addMarketplace(logger, dryRun, isTTY, useHttps),
 		TE.chain((marketplaceAdded) =>
 			pipe(
 				// Step 2: Install rp1-base

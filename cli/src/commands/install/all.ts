@@ -25,6 +25,10 @@ export const installAllSubcommand = new Command("all")
 	.description("Install rp1 plugins to all detected agentic tools")
 	.option("--dry-run", "Show what would be installed without installing")
 	.option("-y, --yes", "Skip confirmation prompts")
+	.option(
+		"--https",
+		"Use HTTPS transport instead of SSH (no SSH keys required)",
+	)
 	.addHelpText(
 		"after",
 		`
@@ -50,6 +54,7 @@ Examples:
 			isTTY,
 			dryRun: options.dryRun ?? parentOpts.dryRun ?? false,
 			skipPrompt: options.yes ?? parentOpts.yes ?? false,
+			useHttps: options.https ?? parentOpts.https ?? false,
 		};
 
 		// Display header

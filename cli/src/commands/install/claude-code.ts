@@ -29,6 +29,10 @@ export const installClaudeCodeSubcommand = new Command("claude-code")
 		"Installation scope: user, project, or local",
 		"user",
 	)
+	.option(
+		"--https",
+		"Use HTTPS transport instead of SSH (no SSH keys required)",
+	)
 	.addHelpText(
 		"after",
 		`
@@ -37,6 +41,7 @@ Examples:
   rp1 install claude-code --dry-run    Preview installation commands
   rp1 install claude-code -y           Non-interactive installation
   rp1 install claude-code -s project   Install to project scope
+  rp1 install claude-code --https      Use HTTPS (no SSH keys needed)
 `,
 	)
 	.action(async (options, command) => {
@@ -51,22 +56,32 @@ Examples:
 
 		const scope = options.scope as "user" | "project" | "local";
 		const parentOpts = command.parent?.opts() ?? {};
+		const useHttps = options.https ?? parentOpts.https ?? false;
 		const ctx: InstallContext = {
 			logger,
 			isTTY,
 			dryRun: options.dryRun ?? parentOpts.dryRun ?? false,
 			skipPrompt: options.yes ?? parentOpts.yes ?? false,
+			useHttps,
 		};
 
 		// Display header
 		console.log("");
 		console.log(bold("Installing rp1 plugins to Claude Code"));
+		if (useHttps) {
+			console.log(dim("(using HTTPS transport)"));
+		}
 		console.log("");
 
 		if (ctx.dryRun) {
+			const marketplaceSource = useHttps
+				? "https://github.com/rp1-run/rp1.git --sparse .claude-plugin cli/dist/claude-code"
+				: "rp1-run/rp1";
 			console.log(dim("[dry-run] Installation plan:"));
 			console.log("");
-			console.log(`${dim("1.")} claude plugin marketplace add rp1-run/rp1`);
+			console.log(
+				`${dim("1.")} claude plugin marketplace add ${marketplaceSource}`,
+			);
 			console.log(
 				`${dim("2.")} claude plugin install rp1-base@rp1-run --scope ${scope}`,
 			);

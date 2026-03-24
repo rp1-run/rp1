@@ -5,6 +5,7 @@ set -eu
 # Usage: curl -fsSL https://rp1.run/install.sh | sh
 #        curl -fsSL https://rp1.run/install.sh | VERSION=5.5.0 sh
 #        curl -fsSL https://rp1.run/install.sh | INSTALL_DIR=/opt/bin sh
+#        curl -fsSL https://rp1.run/install.sh | SKIP_PLUGINS=1 sh
 
 GITHUB_REPO="rp1-run/rp1"
 BINARY_NAME="rp1"
@@ -215,6 +216,60 @@ Please report this issue at: https://github.com/${GITHUB_REPO}/issues"
     success "Checksum verified"
 }
 
+install_plugins() {
+    local version="$1"
+    local scope="${PLUGIN_SCOPE:-user}"
+
+    echo ""
+    printf "${BOLD}Claude Code Plugin Installation${NC}\n"
+    echo "=============================="
+    echo ""
+
+    if ! command -v claude >/dev/null 2>&1; then
+        info "Claude Code CLI not found — skipping plugin installation"
+        echo "  Install Claude Code first, then run:"
+        echo "    rp1 install claude-code"
+        return 0
+    fi
+
+    info "Installing rp1 plugins to Claude Code..."
+
+    # Try SSH-based marketplace add first
+    if claude plugin marketplace add ${GITHUB_REPO} >/dev/null 2>&1; then
+        success "Marketplace added (SSH)"
+    else
+        # Fallback: HTTPS URL with sparse checkout (no SSH keys required)
+        info "SSH failed, retrying with HTTPS..."
+        local https_url="https://github.com/${GITHUB_REPO}.git"
+        if claude plugin marketplace add "$https_url" --sparse .claude-plugin cli/dist/claude-code >/dev/null 2>&1; then
+            success "Marketplace added (HTTPS)"
+        else
+            warn "Could not add marketplace. You can install plugins manually later:"
+            echo "    rp1 install claude-code"
+            return 0
+        fi
+    fi
+
+    # Install plugins
+    local plugin_failed=0
+    for plugin in rp1-base rp1-dev; do
+        if claude plugin install "${plugin}@rp1-run" --scope "$scope" >/dev/null 2>&1; then
+            success "Plugin ${plugin} installed"
+        else
+            warn "Failed to install ${plugin}"
+            plugin_failed=1
+        fi
+    done
+
+    if [ "$plugin_failed" = "0" ]; then
+        echo ""
+        success "All plugins installed! Restart Claude Code to load them."
+    else
+        echo ""
+        warn "Some plugins failed. Try: rp1 install claude-code"
+    fi
+}
+
 main() {
     echo ""
     printf "${BOLD}rp1 Binary Installer${NC}\n"
@@ -318,6 +373,11 @@ Or install to a user-writable directory:
         esac
     else
         error "Installation verification failed. Binary is not executable."
+    fi
+
+    # Plugin installation (if Claude Code is available)
+    if [ "${SKIP_PLUGINS:-}" != "1" ]; then
+        install_plugins "$version"
     fi
 
     # macOS Gatekeeper note

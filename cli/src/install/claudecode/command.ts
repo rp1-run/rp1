@@ -24,6 +24,7 @@ export interface ClaudeCodeInstallArgs {
 	readonly dryRun: boolean;
 	readonly yes: boolean;
 	readonly scope: "user" | "project" | "local";
+	readonly useHttps: boolean;
 	readonly showHelp: boolean;
 }
 
@@ -56,6 +57,7 @@ export const parseClaudeCodeInstallArgs = (
 	let dryRun = false;
 	let yes = false;
 	let scope: "user" | "project" | "local" = "user";
+	let useHttps = false;
 	let showHelp = false;
 
 	for (let i = 0; i < args.length; i++) {
@@ -71,12 +73,14 @@ export const parseClaudeCodeInstallArgs = (
 				scope = nextArg;
 				i++; // Skip the next argument since we consumed it
 			}
+		} else if (arg === "--https") {
+			useHttps = true;
 		} else if (arg === "-h" || arg === "--help") {
 			showHelp = true;
 		}
 	}
 
-	return { dryRun, yes, scope, showHelp };
+	return { dryRun, yes, scope, useHttps, showHelp };
 };
 
 /**
@@ -88,6 +92,7 @@ const createConfig = (
 	dryRun: args.dryRun,
 	yes: args.yes,
 	scope: args.scope,
+	useHttps: args.useHttps,
 });
 
 /**
@@ -100,9 +105,14 @@ const displayDryRunPlan = (
 ): void => {
 	const color = getColorFns(isTTY);
 
+	const marketplaceSource = config.useHttps
+		? "https://github.com/rp1-run/rp1.git --sparse .claude-plugin cli/dist/claude-code"
+		: "rp1-run/rp1";
 	logger.info(color.yellow("[dry-run] Installation plan:"));
 	logger.info("");
-	logger.info(`${color.dim("1.")} claude plugin marketplace add rp1-run/rp1`);
+	logger.info(
+		`${color.dim("1.")} claude plugin marketplace add ${marketplaceSource}`,
+	);
 	logger.info(
 		`${color.dim("2.")} claude plugin install rp1-base@rp1-run --scope ${config.scope}`,
 	);
@@ -181,7 +191,13 @@ const executeNormalInstall = (
 			return TE.right(undefined);
 		}),
 		TE.chain(() =>
-			installAllPlugins(config.scope, logger, config.dryRun, isTTY),
+			installAllPlugins(
+				config.scope,
+				logger,
+				config.dryRun,
+				isTTY,
+				config.useHttps,
+			),
 		),
 		// Step 2: Display success message
 		TE.map((installResult: ClaudeCodeInstallResult) => {
