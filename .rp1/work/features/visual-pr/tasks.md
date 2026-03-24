@@ -5,7 +5,7 @@ rp1_doc_id: 8ee156fe-6d82-4429-8e7b-861eef2ea4b4
 
 **Feature ID**: visual-pr
 **Status**: In Progress
-**Progress**: 54% (6 of 11 tasks)
+**Progress**: 64% (7 of 11 tasks)
 **Estimated Effort**: 3 days
 **Started**: 2026-03-24
 
@@ -218,7 +218,7 @@ stateDiagram-v2
 
 ### Dependent Components (Parallel Group 2)
 
-- [x] **T2**: Update /pr-visual skill -- update dispatch and description for markdown-only output `[complexity:simple]`
+- [ ] **T2**: Update /pr-visual skill -- update dispatch and description for markdown-only output `[complexity:simple]`
 
     **Reference**: [design.md#32-pr-visual-skill-update](design.md#32-pr-visual-skill-update)
 
@@ -239,6 +239,12 @@ stateDiagram-v2
     - **Deviations**: None (Attempt 2: restored catalog files damaged by Attempt 1, committed only SKILL.md)
     - **Tests**: N/A (markdown prompt file)
 
+    **Review Feedback** (Attempt 2):
+    - **Status**: FAILURE
+    - **Issues**:
+      - [commit] T2 implementation is spread across 3 commits (792ff859, 4c684d10, e1b68971) instead of one atomic commit. The latest commit (e1b68971) only contains tasks.md, not the actual SKILL.md change. The first commit (792ff859) included out-of-scope files (catalog/agents.yaml, catalog/skills.yaml, cli/dist/claude-code/dev/skills/pr-visual/SKILL.md).
+    - **Guidance**: Squash the three T2 commits (792ff859, 4c684d10, e1b68971) into a single atomic commit containing only `plugins/dev/skills/pr-visual/SKILL.md` and `.rp1/work/features/visual-pr/tasks.md`. Use interactive rebase: `git rebase -i 8c047b63` (the T1 commit), mark the fix and second T2 commits as `fixup` into the first T2 commit, then force-update the branch. The commit message should be `feat(visual-pr): implement T2 - update /pr-visual skill for markdown-only output`.
+
     **Execution Flow**:
 
     ```mermaid
@@ -247,7 +253,7 @@ stateDiagram-v2
         T2_update_pr_visual_skill --> [*]
     ```
 
-- [ ] **T4**: Update /pr-review skill -- default-on visuals, remove trivial threshold, pass STANDALONE=false, pass VISUAL_CONTENT to reporter `[complexity:medium]`
+- [x] **T4**: Update /pr-review skill -- default-on visuals, remove trivial threshold, pass STANDALONE=false, pass VISUAL_CONTENT to reporter `[complexity:medium]`
 
     **Reference**: [design.md#33-pr-review-skill-update](design.md#33-pr-review-skill-update)
 
@@ -255,16 +261,31 @@ stateDiagram-v2
 
     **Acceptance Criteria**:
 
-    - [ ] P-1 Config: `visualize` default changed from `false` to `true` in skill config documentation
-    - [ ] P0.5: Skip conditions simplified to only `SKIP_VISUAL=true OR config.visualize=false`
-    - [ ] P0.5: Trivial threshold logic (<=3 files, same dir, <100 lines) completely removed
-    - [ ] P0.5: VISUAL_WARRANTED check removed (always generate when not skipped)
-    - [ ] P0.5: OUTPUT_MODE parameter removed from visualizer dispatch
-    - [ ] P0.5: Dispatch params are PR_BRANCH, BASE_BRANCH, REVIEW_DEPTH, STANDALONE=false
-    - [ ] P4: VISUAL_PATH replaced with VISUAL_CONTENT in reporter dispatch
-    - [ ] P4: VISUAL_PATH artifact registration removed
-    - [ ] P4: "If VISUAL_TASK_ID: check completion" logic removed
-    - [ ] Final output: `{{IF VISUAL_PATH != "none"}}` line removed
+    - [x] P-1 Config: `visualize` default changed from `false` to `true` in skill config documentation
+    - [x] P0.5: Skip conditions simplified to only `SKIP_VISUAL=true OR config.visualize=false`
+    - [x] P0.5: Trivial threshold logic (<=3 files, same dir, <100 lines) completely removed
+    - [x] P0.5: VISUAL_WARRANTED check removed (always generate when not skipped)
+    - [x] P0.5: OUTPUT_MODE parameter removed from visualizer dispatch
+    - [x] P0.5: Dispatch params are PR_BRANCH, BASE_BRANCH, REVIEW_DEPTH, STANDALONE=false
+    - [x] P4: VISUAL_PATH replaced with VISUAL_CONTENT in reporter dispatch
+    - [x] P4: VISUAL_PATH artifact registration removed
+    - [x] P4: "If VISUAL_TASK_ID: check completion" logic removed
+    - [x] Final output: `{{IF VISUAL_PATH != "none"}}` line removed
+
+    **Implementation Summary**:
+
+    - **Files**: `plugins/dev/skills/pr-review/SKILL.md`
+    - **Approach**: Updated P-1 config doc to show visualize default as true. Simplified P0.5 skip conditions to only SKIP_VISUAL and config.visualize checks, removing trivial threshold and VISUAL_WARRANTED logic. Replaced OUTPUT_MODE with STANDALONE=false in visualizer dispatch. Changed P4 reporter dispatch from VISUAL_PATH to VISUAL_CONTENT. Removed VISUAL_PATH artifact registration and VISUAL_TASK_ID completion check. Removed VISUAL_PATH line from final local output.
+    - **Deviations**: None
+    - **Tests**: N/A (markdown prompt file)
+
+    **Execution Flow**:
+
+    ```mermaid
+    stateDiagram-v2
+        [*] --> T4_update_pr_review_skill
+        T4_update_pr_review_skill --> [*]
+    ```
 
 ### User Docs
 

@@ -100,7 +100,7 @@ P5   (seq):  Comment Posting (CI only) -> GitHub Review
    verdict: string         # "approve" | "request_changes" | "comment" | "auto", default: "auto"
    max_comments: integer   # default: 25
    bot_marker: string      # default: "<!-- rp1-review -->"
-   visualize: boolean      # default: false
+   visualize: boolean      # default: true
    ci_platform: string     # "github" | "buildkite" | "gitlab", default: "github"
    ```
    Missing file -> use defaults.
@@ -184,20 +184,11 @@ Options:
 
 ### P0.5: Visual Gen (Conditional)
 
-**Skip conditions**:
-- CI mode + `NOT config.visualize`
-- SKIP_VISUAL == true
-- Trivial: <=3 files, same dir, <100 lines
+**Skip conditions** (any true -> skip):
+- `SKIP_VISUAL == true`
+- `config.visualize == false`
 
-**Detect** (local):
-```bash
-git diff --stat {{base}}..{{branch}}
-git diff --numstat {{base}}..{{branch}}
-```
-`VISUAL_WARRANTED = file_count > 5 OR any file > 200 lines OR multiple dirs OR arch files`
-
-**Spawn** (if warranted):
-`OUTPUT_MODE = CI_MODE ? "markdown" : "html"`
+**Spawn** (if not skipped):
 Background mode: local=true, CI=false
 
 Task tool:
@@ -207,9 +198,9 @@ Generate PR visualization.
   PR_BRANCH: {{pr_branch}}
   BASE_BRANCH: {{base_branch}}
   REVIEW_DEPTH: quick
-  OUTPUT_MODE: {{OUTPUT_MODE}}
+  STANDALONE: false
 
-CI: capture `VISUAL_CONTENT` | Local: store `VISUAL_TASK_ID`, continue
+Capture `VISUAL_CONTENT` (raw markdown with Mermaid diagrams)
 
 ### P1: Splitting
 
@@ -268,9 +259,8 @@ Perform holistic verification.
 1. Merge findings: unit + cross_file, dedupe by (path, lines, dimension), keep highest severity
 2. Stats: `{critical: N, high: N, medium: N, low: N}`
 3. Review ID: PR# -> `pr-{{number}}` | else -> sanitized branch
-4. If `VISUAL_TASK_ID`: check completion -> `VISUAL_PATH` or "none"
-5. `git rev-parse {{branch}}` -> `HEAD_SHA`
-6. Spawn:
+4. `git rev-parse {{branch}}` -> `HEAD_SHA`
+5. Spawn:
 
    Task tool:
 subagent_type: rp1-dev:pr-review-reporter
@@ -282,14 +272,14 @@ Generate markdown report.
      FINDINGS_JSON: {{stringify(merged_findings)}}
      CROSS_FILE_JSON: {{stringify(cross_file_findings)}}
      STATS_JSON: {{stringify(stats)}}
-     VISUAL_PATH: {{VISUAL_PATH or "none"}}
+     VISUAL_CONTENT: {{VISUAL_CONTENT or ""}}
      OUTPUT_DIR: {{$RP1_ROOT}}/work/pr-reviews
      REVIEW_ID: {{review_id}}
      Return JSON with path.
 
-7. Fail -> output findings inline
-8. Store `REPORTER_FINDINGS` for P5 (CI mode)
-9. Register artifact:
+6. Fail -> output findings inline
+7. Store `REPORTER_FINDINGS` for P5 (CI mode)
+8. Register artifact:
    ```bash
    rp1 agent-tools emit \
      --workflow pr-review \
@@ -297,15 +287,6 @@ Generate markdown report.
      --run-id {RUN_ID} \
      --step post \
      --data '{"path": "{REPORT_PATH}"}'
-   ```
-   If `VISUAL_PATH` exists and != "none":
-   ```bash
-   rp1 agent-tools emit \
-     --workflow pr-review \
-     --type artifact_registered \
-     --run-id {RUN_ID} \
-     --step post \
-     --data '{"path": "{VISUAL_PATH}"}'
    ```
 
 ### P5: Comment Posting (CI Only)
@@ -383,7 +364,6 @@ Post PR review to GitHub.
    Findings: Critical={{critical}}, High={{high}}, Medium={{medium}}, Low={{low}}
 
    Report: {{REPORT_PATH}}
-   {{IF VISUAL_PATH != "none"}}Visual: {{VISUAL_PATH}}{{/IF}}
    {{IF STASHED}}Restored stashed changes{{/IF}}
    ```
 
