@@ -270,8 +270,8 @@ agents:
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:pr-review]
-    last_update: "2026-01-01"
-    last_checksum: 2697f35723f07dcb9c428f9fd6fa92cc07d7b72ef0fb4944619bf4ad331de464
+    last_update: "2026-03-24"
+    last_checksum: dcf186f4eb6c1b391d2544c907fd5418a5683b168a4888ecdfffa9d85730677d
   - name: rp1-dev:pr-review-splitter
     description: Splits PR diff into reviewable units, filtering out generated/low-value files
     plugin: dev
