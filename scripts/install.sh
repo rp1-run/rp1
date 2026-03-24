@@ -238,6 +238,8 @@ install_plugins() {
     if claude plugin marketplace add ${GITHUB_REPO} >/dev/null 2>&1; then
         success "Marketplace added (SSH)"
     else
+        # Clean up any broken state from the failed SSH attempt
+        claude plugin marketplace remove rp1-run >/dev/null 2>&1 || true
         # Fallback: HTTPS URL with sparse checkout (no SSH keys required)
         info "SSH failed, retrying with HTTPS..."
         local https_url="https://github.com/${GITHUB_REPO}.git"

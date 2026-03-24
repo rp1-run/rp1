@@ -137,6 +137,22 @@ export const addMarketplace = (
 				logger.info(`Marketplace ${MARKETPLACE_REPO} already registered`);
 				return TE.right(true);
 			}
+			// If SSH failed and we haven't tried HTTPS yet, fall back automatically
+			if (!useHttps) {
+				spinner.stop();
+				logger.info("SSH failed, retrying with HTTPS...");
+				return pipe(
+					// Clean up broken state from failed SSH attempt
+					executeClaudeCommand(
+						`claude plugin marketplace remove ${MARKETPLACE_NAME}`,
+						createSpinner(false),
+						logger,
+						dryRun,
+					),
+					TE.orElse(() => TE.right("")),
+					TE.chain(() => addMarketplace(logger, dryRun, isTTY, true)),
+				);
+			}
 			spinner.fail(`Failed to add marketplace: ${getErrorMessage(error)}`);
 			return TE.left(error);
 		}),
