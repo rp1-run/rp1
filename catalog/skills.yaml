@@ -295,14 +295,14 @@ skills:
     last_update: "2026-03-24"
     last_checksum: 03f691541dd6516a054922f3ff7402e641e9e65692515392d07a4e900a0649d8
   - name: rp1-dev:pr-visual
-    description: Transform pull request diffs into comprehensive Mermaid diagrams for visual code review and change understanding.
+    description: Transform pull request diffs into Mermaid diagrams for visual code review and change understanding.
     plugin: dev
     skills_that_use_me: [rp1-dev:pr-review]
     agents_that_use_me: []
     sub_agents_that_i_use: [rp1-dev:pr-visualizer]
     skills_that_i_use: []
-    last_update: "2026-03-14"
-    last_checksum: 14637084a70c40c320e87e50a89e5a234abed0aea43cf50063595f349df62b1b
+    last_update: "2026-03-24"
+    last_checksum: 87bd8ea9514cf263961ba179a557ee817dc7fca18a7ccf266cf52832f246b22a
   - name: rp1-dev:validate-hypothesis
     description: Validate design hypotheses via code experiments, codebase analysis, and external research.
     plugin: dev
