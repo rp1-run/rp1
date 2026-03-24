@@ -342,7 +342,6 @@ export async function ensureDaemon(
 			}
 		}
 
-		// Verify port is now free
 		const portFreed = await isPortAvailable(port);
 		if (!portFreed) {
 			throw new Error(
