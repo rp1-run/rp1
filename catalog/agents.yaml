@@ -296,10 +296,10 @@ agents:
   - name: rp1-dev:pr-visualizer
     description: Transform PR diffs into Mermaid diagrams for visual code review
     plugin: dev
-    skills_that_i_use: [rp1-base:markdown-preview]
+    skills_that_i_use: []
     skills_that_use_me: [rp1-dev:pr-review,rp1-dev:pr-visual]
-    last_update: "2026-03-22"
-    last_checksum: 295b2a4b5558734279fa5bdc7de26df77ff19e08daff139d5e302d35573b1248
+    last_update: "2026-03-24"
+    last_checksum: c6769240229c5fd1f5680fd378436192800ea4eef748d26ac91fb11d622cfbd9
   - name: rp1-dev:prd-archiver
     description: Archives completed PRDs to {RP1_ROOT}/work/archives/prds/, archives associated completed features, checks KB staleness, and generates closure summaries
     plugin: dev

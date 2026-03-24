@@ -82,7 +82,7 @@ skills:
     description: Generate browser-viewable HTML previews from markdown, plain text, and Mermaid diagrams. Auto-validates diagrams, applies professional styling, and opens in default browser. Use when agents need to preview documentation, visualizations, or formatted content.
     plugin: base
     skills_that_use_me: []
-    agents_that_use_me: [rp1-dev:pr-visualizer]
+    agents_that_use_me: []
     sub_agents_that_i_use: []
     skills_that_i_use: []
     last_update: "2026-02-16"
