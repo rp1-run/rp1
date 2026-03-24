@@ -68,8 +68,8 @@ bot_marker: "<!-- rp1-review -->"
 # Generate mermaid diagrams in review summary
 # Diagrams show component flows and change relationships
 # Type: boolean
-# Default: false
-visualize: false
+# Default: true
+visualize: true
 
 # CI platform for context extraction
 # Type: "github" | "buildkite" | "gitlab"
@@ -273,14 +273,14 @@ bot_marker: "<!-- my-team-rp1 -->"
 | Property | Value |
 |----------|-------|
 | Type | `boolean` |
-| Default | `false` |
+| Default | `true` |
 | Required | No |
 
-Generates mermaid diagrams showing change relationships and component flows.
+Generates mermaid diagrams showing change relationships and component flows. Enabled by default.
 
 | Value | Behavior |
 |-------|----------|
-| `true` | Include mermaid diagrams in review summary |
+| `true` | Include mermaid diagrams in review summary (default) |
 | `false` | Text-only review (faster) |
 
 **Example:**
