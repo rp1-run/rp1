@@ -302,7 +302,7 @@ skills:
     sub_agents_that_i_use: [rp1-dev:pr-visualizer]
     skills_that_i_use: []
     last_update: "2026-03-24"
-    last_checksum: 87bd8ea9514cf263961ba179a557ee817dc7fca18a7ccf266cf52832f246b22a
+    last_checksum: ed7deafe7f703f37f0b6659eaa67ab300c5805c29fb012e2e7da420e7f4439b5
   - name: rp1-dev:validate-hypothesis
     description: Validate design hypotheses via code experiments, codebase analysis, and external research.
     plugin: dev
