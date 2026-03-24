@@ -21,12 +21,15 @@ export const Rp1Plugin = async (_ctx: any) => {
 
       const rp1Binary = process.env.RP1_BINARY || "rp1";
 
-      // Launch arcade daemon silently
+      // Launch arcade daemon
       try {
         execSync(rp1Binary + " arcade --no-open", {
           timeout: 5000,
           stdio: ["pipe", "pipe", "pipe"],
         });
+        console.log(
+          "🕹️ rp1 Arcade is live at http://localhost:7710",
+        );
       } catch {
         // Silent fail
       }
@@ -44,7 +47,7 @@ export const Rp1Plugin = async (_ctx: any) => {
         if (data.update_available && data.latest_version) {
           // Use console to show update notice (visible in OpenCode logs)
           console.log(
-            `[rp1] Update available: v${data.current_version} → v${data.latest_version}. Run /self-update`,
+            `🔄 rp1 update available: v${data.current_version} → v${data.latest_version}  |  Run /self-update to update`,
           );
         }
       } catch {
