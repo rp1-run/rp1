@@ -184,8 +184,8 @@ skills:
     agents_that_use_me: []
     sub_agents_that_i_use: [rp1-dev:blueprint-wizard,rp1-dev:charter-interviewer]
     skills_that_i_use: [rp1-dev:build]
-    last_update: "2026-03-19"
-    last_checksum: 0b62292765c988653693b9309cad52c4cff0e31ac46e372b311e5ad6fe6720db
+    last_update: "2026-03-24"
+    last_checksum: 0aa08207a70664ee2aec34fe68506bfb191e305e895716c0fcf7a3142b0c8016
   - name: rp1-dev:bootstrap
     description: Bootstrap a new project with charter discovery and tech stack scaffolding for greenfield development.
     plugin: dev
@@ -292,8 +292,8 @@ skills:
     agents_that_use_me: []
     sub_agents_that_i_use: [rp1-dev:pr-comment-deduplicator,rp1-dev:pr-comment-poster,rp1-dev:pr-review-reporter,rp1-dev:pr-review-splitter,rp1-dev:pr-review-synthesizer,rp1-dev:pr-sub-reviewer,rp1-dev:pr-visualizer]
     skills_that_i_use: [rp1-dev:pr-visual]
-    last_update: "2026-03-19"
-    last_checksum: 57ab732501184424a6720724967db8bc5c43c41c0b238dd879bb5092d385879e
+    last_update: "2026-03-24"
+    last_checksum: 03f691541dd6516a054922f3ff7402e641e9e65692515392d07a4e900a0649d8
   - name: rp1-dev:pr-visual
     description: Transform pull request diffs into comprehensive Mermaid diagrams for visual code review and change understanding.
     plugin: dev

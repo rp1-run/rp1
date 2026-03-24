@@ -287,6 +287,24 @@ Parse `units`, store counts. Fail -> Abort w/ error.
 
 7. Fail -> output findings inline
 8. Store `REPORTER_FINDINGS` for P5 (CI mode)
+9. Register artifact:
+   ```bash
+   rp1 agent-tools emit \
+     --workflow pr-review \
+     --type artifact_registered \
+     --run-id {RUN_ID} \
+     --step post \
+     --data '{"path": "{REPORT_PATH}"}'
+   ```
+   If `VISUAL_PATH` exists and != "none":
+   ```bash
+   rp1 agent-tools emit \
+     --workflow pr-review \
+     --type artifact_registered \
+     --run-id {RUN_ID} \
+     --step post \
+     --data '{"path": "{VISUAL_PATH}"}'
+   ```
 
 ### P5: Comment Posting (CI Only)
 
