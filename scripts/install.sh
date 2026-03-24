@@ -236,15 +236,19 @@ install_plugins() {
 
     # Try SSH-based marketplace add first
     if claude plugin marketplace add ${GITHUB_REPO} >/dev/null 2>&1; then
-        success "Marketplace added (SSH)"
+        success "Marketplace added"
     else
         # Clean up any broken state from the failed SSH attempt
         claude plugin marketplace remove rp1-run >/dev/null 2>&1 || true
-        # Fallback: HTTPS URL with sparse checkout (no SSH keys required)
-        info "SSH failed, retrying with HTTPS..."
-        local https_url="https://github.com/${GITHUB_REPO}.git"
-        if claude plugin marketplace add "$https_url" --sparse .claude-plugin cli/dist/claude-code >/dev/null 2>&1; then
-            success "Marketplace added (HTTPS)"
+        # Fallback: download tarball via HTTPS and add as local path
+        info "Git clone failed, falling back to HTTPS tarball..."
+        local tarball_url="https://github.com/${GITHUB_REPO}/archive/refs/heads/main.tar.gz"
+        local marketplace_dir="$tmp_dir/rp1-marketplace"
+        mkdir -p "$marketplace_dir"
+        if download "$tarball_url" "$tmp_dir/rp1-repo.tar.gz" && \
+           tar -xzf "$tmp_dir/rp1-repo.tar.gz" -C "$marketplace_dir" --strip-components=1 --wildcards '*/.claude-plugin/*' '*/cli/dist/claude-code/*' 2>/dev/null && \
+           claude plugin marketplace add "$marketplace_dir" >/dev/null 2>&1; then
+            success "Marketplace added (HTTPS tarball)"
         else
             warn "Could not add marketplace. You can install plugins manually later:"
             echo "    rp1 install claude-code"

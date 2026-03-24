@@ -4,6 +4,9 @@
  */
 
 import { exec } from "node:child_process";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { promisify } from "node:util";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
@@ -21,14 +24,9 @@ const execAsync = promisify(exec);
 const MARKETPLACE_REPO = "rp1-run/rp1";
 
 /**
- * HTTPS URL for the marketplace repository (used when SSH is unavailable).
+ * HTTPS tarball URL for downloading the marketplace repo without git.
  */
-const MARKETPLACE_HTTPS_URL = `https://github.com/${MARKETPLACE_REPO}.git`;
-
-/**
- * Sparse checkout paths to limit download to marketplace metadata and plugin artifacts.
- */
-const MARKETPLACE_SPARSE_PATHS = ".claude-plugin cli/dist/claude-code";
+const MARKETPLACE_TARBALL_URL = `https://github.com/${MARKETPLACE_REPO}/archive/refs/heads/main.tar.gz`;
 
 /**
  * Marketplace name used in plugin references (the GitHub org name).
@@ -116,10 +114,11 @@ export const addMarketplace = (
 	isTTY: boolean,
 	useHttps = false,
 ): TE.TaskEither<CLIError, boolean> => {
-	const source = useHttps
-		? `${MARKETPLACE_HTTPS_URL} --sparse ${MARKETPLACE_SPARSE_PATHS}`
-		: MARKETPLACE_REPO;
-	const command = `claude plugin marketplace add ${source}`;
+	if (useHttps) {
+		return addMarketplaceViaTarball(logger, dryRun, isTTY);
+	}
+
+	const command = `claude plugin marketplace add ${MARKETPLACE_REPO}`;
 	const spinner = createSpinner(isTTY);
 
 	return pipe(
@@ -137,25 +136,93 @@ export const addMarketplace = (
 				logger.info(`Marketplace ${MARKETPLACE_REPO} already registered`);
 				return TE.right(true);
 			}
-			// If SSH failed and we haven't tried HTTPS yet, fall back automatically
-			if (!useHttps) {
-				spinner.stop();
-				logger.info("SSH failed, retrying with HTTPS...");
-				return pipe(
-					// Clean up broken state from failed SSH attempt
-					executeClaudeCommand(
-						`claude plugin marketplace remove ${MARKETPLACE_NAME}`,
-						createSpinner(false),
-						logger,
-						dryRun,
-					),
-					TE.orElse(() => TE.right("")),
-					TE.chain(() => addMarketplace(logger, dryRun, isTTY, true)),
-				);
-			}
-			spinner.fail(`Failed to add marketplace: ${getErrorMessage(error)}`);
-			return TE.left(error);
+			// Git clone failed — fall back to HTTPS tarball download
+			spinner.stop();
+			logger.info("Git clone failed, falling back to HTTPS tarball...");
+			// Clean up broken state from failed attempt
+			return pipe(
+				executeClaudeCommand(
+					`claude plugin marketplace remove ${MARKETPLACE_NAME}`,
+					createSpinner(false),
+					logger,
+					dryRun,
+				),
+				TE.orElse(() => TE.right("")),
+				TE.chain(() => addMarketplaceViaTarball(logger, dryRun, isTTY)),
+			);
 		}),
+	);
+};
+
+/**
+ * Download the marketplace repo as a tarball, extract, and add as a local path.
+ * Works on machines where git is unavailable or blocked.
+ */
+const addMarketplaceViaTarball = (
+	logger: Logger,
+	dryRun: boolean,
+	isTTY: boolean,
+): TE.TaskEither<CLIError, boolean> => {
+	const spinner = createSpinner(isTTY);
+
+	if (dryRun) {
+		logger.info(
+			`[dry-run] Would download ${MARKETPLACE_TARBALL_URL} and add as local marketplace`,
+		);
+		return TE.right(true);
+	}
+
+	return pipe(
+		TE.tryCatch(
+			async () => {
+				spinner.start("Downloading marketplace via HTTPS...");
+				const tmpDir = await mkdtemp(join(tmpdir(), "rp1-marketplace-"));
+				const tarballPath = join(tmpDir, "repo.tar.gz");
+				const extractDir = join(tmpDir, "extracted");
+
+				// Download tarball
+				await execAsync(
+					`curl -fsSL -o "${tarballPath}" "${MARKETPLACE_TARBALL_URL}"`,
+					{ timeout: COMMAND_TIMEOUT * 2 },
+				);
+
+				// Extract only marketplace metadata and plugin artifacts
+				await execAsync(
+					`mkdir -p "${extractDir}" && tar -xzf "${tarballPath}" -C "${extractDir}" --strip-components=1 --wildcards '*/.claude-plugin/*' '*/cli/dist/claude-code/*'`,
+					{ timeout: COMMAND_TIMEOUT },
+				);
+
+				return extractDir;
+			},
+			(e) => {
+				spinner.fail("Failed to download marketplace tarball");
+				const error = e as Error;
+				return installError(
+					"claude-command",
+					`Tarball download failed: ${error.message}`,
+				);
+			},
+		),
+		TE.chain((extractDir) =>
+			pipe(
+				executeClaudeCommand(
+					`claude plugin marketplace add "${extractDir}"`,
+					spinner,
+					logger,
+					false,
+				),
+				TE.map(() => {
+					spinner.succeed(`Marketplace ${MARKETPLACE_REPO} added (HTTPS)`);
+					return true;
+				}),
+				TE.mapLeft((error) => {
+					spinner.fail(`Failed to add marketplace: ${getErrorMessage(error)}`);
+					// Clean up temp dir on failure
+					rm(extractDir, { recursive: true, force: true }).catch(() => {});
+					return error;
+				}),
+			),
+		),
 	);
 };
 
