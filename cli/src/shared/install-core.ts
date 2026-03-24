@@ -42,6 +42,7 @@ export interface InstallContext {
 	readonly isTTY: boolean;
 	readonly dryRun: boolean;
 	readonly skipPrompt: boolean;
+	readonly useHttps?: boolean;
 }
 
 /**
@@ -81,7 +82,9 @@ export const installClaudeCodePlugins = (
 		// Step 1: Run prerequisite checks
 		runAllPrerequisiteChecks(),
 		// Step 2: Install all plugins via Claude CLI
-		TE.chain(() => installAllPlugins(scope, ctx.logger, ctx.dryRun, ctx.isTTY)),
+		TE.chain(() =>
+			installAllPlugins(scope, ctx.logger, ctx.dryRun, ctx.isTTY, ctx.useHttps),
+		),
 	);
 
 /**
