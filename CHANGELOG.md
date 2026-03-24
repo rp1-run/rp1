@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.4](https://github.com/rp1-run/rp1/compare/v0.6.3...v0.6.4) (2026-03-24)
+
+
+### Features
+
+* small bundle of changes ([#293](https://github.com/rp1-run/rp1/issues/293)) ([49a2850](https://github.com/rp1-run/rp1/commit/49a2850e31fcbbab0ad92e20303f8c9248f81080))
+
 ## [0.6.3](https://github.com/rp1-run/rp1/compare/v0.6.2...v0.6.3) (2026-03-24)
 
 
