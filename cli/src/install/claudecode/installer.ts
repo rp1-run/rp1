@@ -178,7 +178,11 @@ const addMarketplaceViaTarball = (
 				spinner.start("Downloading marketplace via HTTPS...");
 				const tmpDir = await mkdtemp(join(tmpdir(), "rp1-marketplace-"));
 				const tarballPath = join(tmpDir, "repo.tar.gz");
-				const extractDir = join(tmpDir, "extracted");
+				// Use persistent path — claude references this directory at runtime
+				const cacheDir = join(process.env.HOME ?? tmpdir(), ".cache", "rp1");
+				const extractDir = join(cacheDir, "marketplace");
+				await rm(extractDir, { recursive: true, force: true }).catch(() => {});
+				await execAsync(`mkdir -p "${extractDir}"`);
 
 				// Download tarball
 				await execAsync(
@@ -217,8 +221,6 @@ const addMarketplaceViaTarball = (
 				}),
 				TE.mapLeft((error) => {
 					spinner.fail(`Failed to add marketplace: ${getErrorMessage(error)}`);
-					// Clean up temp dir on failure
-					rm(extractDir, { recursive: true, force: true }).catch(() => {});
 					return error;
 				}),
 			),

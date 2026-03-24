@@ -243,7 +243,9 @@ install_plugins() {
         # Fallback: download tarball via HTTPS and add as local path
         info "Git clone failed, falling back to HTTPS tarball..."
         local tarball_url="https://github.com/${GITHUB_REPO}/archive/refs/heads/main.tar.gz"
-        local marketplace_dir="$tmp_dir/rp1-marketplace"
+        # Use persistent path — claude references this directory at runtime
+        local marketplace_dir="$HOME/.cache/rp1/marketplace"
+        rm -rf "$marketplace_dir"
         mkdir -p "$marketplace_dir"
         if download "$tarball_url" "$tmp_dir/rp1-repo.tar.gz" && \
            tar -xzf "$tmp_dir/rp1-repo.tar.gz" -C "$marketplace_dir" --strip-components=1 --wildcards '*/.claude-plugin/*' '*/cli/dist/claude-code/*' 2>/dev/null && \
