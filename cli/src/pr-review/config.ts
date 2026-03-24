@@ -74,7 +74,7 @@ const DEFAULT_CONFIG: PRReviewConfig = {
 	verdict: "auto",
 	max_comments: 25,
 	bot_marker: "<!-- rp1-review -->",
-	visualize: false,
+	visualize: true,
 	ci_platform: "github",
 };
 
