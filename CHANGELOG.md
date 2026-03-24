@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.3](https://github.com/rp1-run/rp1/compare/v0.6.2...v0.6.3) (2026-03-24)
+
+
+### Bug Fixes
+
+* clean up broken marketplace state before HTTPS fallback ([#291](https://github.com/rp1-run/rp1/issues/291)) ([7ebc0a8](https://github.com/rp1-run/rp1/commit/7ebc0a84eb49c39c802fb102683711c49dea014d))
+
 ## [0.6.2](https://github.com/rp1-run/rp1/compare/v0.6.1...v0.6.2) (2026-03-24)
 
 
