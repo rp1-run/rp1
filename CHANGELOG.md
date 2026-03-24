@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.2](https://github.com/rp1-run/rp1/compare/v0.6.1...v0.6.2) (2026-03-24)
+
+
+### Features
+
+* HTTPS fallback for plugin installation ([#289](https://github.com/rp1-run/rp1/issues/289)) ([88a9553](https://github.com/rp1-run/rp1/commit/88a9553cde5e87263ecbaf135eff5440d38becb7))
+
 ## [0.6.1](https://github.com/rp1-run/rp1/compare/v0.6.0...v0.6.1) (2026-03-23)
 
 
