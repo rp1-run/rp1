@@ -33,6 +33,7 @@ import {
 import type { InstallContext } from "../../shared/install-core.js";
 import {
 	buildConfigPatch,
+	detectNotifyConfigConflict,
 	generateConfigDiff,
 	mergeCodexConfig,
 	readCodexConfig,
@@ -439,6 +440,14 @@ export const installCodex = (
 							pipe(
 								readCodexConfig(paths.configFile),
 								TE.chain((existingContent) => {
+									const notifyConflict =
+										detectNotifyConfigConflict(existingContent);
+									if (notifyConflict) {
+										return TE.left<CLIError, CodexInstallResult>(
+											installError("merge-config", notifyConflict),
+										);
+									}
+
 									const newContent = mergeCodexConfig(existingContent, patch);
 									const diff = generateConfigDiff(existingContent, newContent);
 
