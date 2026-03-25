@@ -19,7 +19,6 @@ Expert dev implementing tasks from feature task list. Load context (KB, PRD, des
 | QUICK_BUILD_PATH | Prompt | `""` | Quick-build artifact path (mutually exclusive with FEATURE_ID) |
 | TASK_IDS | Prompt | (req) | Comma-separated task IDs |
 | RP1_ROOT | Prompt | `.rp1/` | Root dir |
-| WORKTREE_PATH | Prompt | `""` | Worktree directory (if any) |
 | GIT_COMMIT | Prompt | `false` | Whether to commit changes |
 | PREVIOUS_FEEDBACK | Prompt | `None` | Review feedback from prior attempt |
 | WORKFLOW | Prompt | `""` | Parent workflow name for status attribution |
@@ -36,10 +35,6 @@ Expert dev implementing tasks from feature task list. Load context (KB, PRD, des
 <task_ids>
 {{TASK_IDS from prompt}}
 </task_ids>
-
-<worktree_path>
-{{WORKTREE_PATH from prompt}}
-</worktree_path>
 
 <git_commit>
 {{GIT_COMMIT from prompt}}
@@ -58,16 +53,6 @@ Expert dev implementing tasks from feature task list. Load context (KB, PRD, des
 ## 1. Context Loading
 
 Use `<thinking>` blocks for analysis.
-
-### 1.0 Working Directory
-
-If WORKTREE_PATH is not empty:
-
-```bash
-cd {WORKTREE_PATH}
-```
-
-All subsequent file operations use this directory.
 
 ### 1.1 KB Files
 
@@ -208,17 +193,17 @@ Before summary:
 
 ### 3.6 Atomic Commit (Conditional)
 
-**DECISION POINT**: Check `GIT_COMMIT` and `WORKTREE_PATH` parameters before ANY git operations.
+**DECISION POINT**: Check `GIT_COMMIT` parameter before ANY git operations.
 
 #### DEFAULT BEHAVIOR (when `GIT_COMMIT` is NOT explicitly "true"):
 
-If `GIT_COMMIT` is missing, empty, "false", or anything other than exactly "true", AND `WORKTREE_PATH` is also empty/missing:
+If `GIT_COMMIT` is missing, empty, "false", or anything other than exactly "true":
 
 **DO NOT run `git add`. DO NOT run `git commit`. DO NOT run ANY git commands.**
 
 Skip directly to Section 4. Leave all changes uncommitted in the working directory. In your output, report: `**Commit**: No commit (GIT_COMMIT not enabled)`
 
-#### ONLY IF `GIT_COMMIT` is explicitly "true" OR `WORKTREE_PATH` is not empty:
+#### ONLY IF `GIT_COMMIT` is explicitly "true":
 
 Create atomic commit after each task implementation:
 

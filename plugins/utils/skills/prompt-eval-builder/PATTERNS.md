@@ -116,12 +116,12 @@ For creating user invocation prompts that test commands/agents.
 **Input** (build-fast.md):
 ```yaml
 name: build-fast
-argument-hint: "[development-request...] [--afk] [--git-worktree] [--git-commit] [--git-push]"
+argument-hint: "[development-request...] [--afk] [--git-commit] [--git-push]"
 ```
 
 **Output**:
 ```
-/rp1-dev:build-fast "{{REQUEST}}"{% if GIT_COMMIT %} --git-commit{% endif %}{% if GIT_WORKTREE %} --git-worktree{% endif %}{% if GIT_PUSH %} --git-push{% endif %}{% if AFK_MODE %} --afk{% endif %}
+/rp1-dev:build-fast "{{REQUEST}}"{% if GIT_COMMIT %} --git-commit{% endif %}{% if GIT_PUSH %} --git-push{% endif %}{% if AFK_MODE %} --afk{% endif %}
 ```
 
 **Input** (feature-requirements.md):
@@ -162,7 +162,6 @@ argument-hint: "feature-id [extra-context]"
 defaultTest:
   vars:
     REQUEST: "a simple bun script that validates JSON input"
-    GIT_WORKTREE: true
     GIT_COMMIT: true
     GIT_PUSH: false
     AFK_MODE: false
