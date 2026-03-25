@@ -17,6 +17,12 @@ import {
 } from "../../init/shell-fence.js";
 
 const MANAGED_SECTION_HEADER = "# rp1 managed section - do not edit manually";
+const MANAGED_NOTIFY_COMMAND = ["rp1", "agent-tools", "codex-notify"] as const;
+const MANAGED_NOTIFY_KEYS = [
+	"notifications",
+	"notification_method",
+	"notify",
+] as const;
 
 /**
  * Build the platform-specific writable_roots paths that rp1 needs
@@ -51,6 +57,20 @@ const generateWritableRootsSection = (): string => {
 	const roots = getWritableRoots();
 	const entries = roots.map((r) => `"${r}"`).join(", ");
 	return `[sandbox_workspace_write]\nwritable_roots = [${entries}]`;
+};
+
+/**
+ * Generate the Codex notification stanza used to surface rp1 startup notices.
+ * Uses the command-based notify integration so Codex can invoke rp1 directly.
+ */
+const generateNotifySection = (): string => {
+	const command = MANAGED_NOTIFY_COMMAND.map((part) => `"${part}"`).join(", ");
+	return [
+		"# Route Codex notifications through rp1 so startup notices can be surfaced",
+		'notifications = "all"',
+		'notification_method = "command"',
+		`notify = [${command}]`,
+	].join("\n");
 };
 
 /**
@@ -96,6 +116,8 @@ export const buildConfigPatch = (
 				"# Allow rp1 to write status DB, project registry, and settings",
 			);
 			sections.push(generateWritableRootsSection());
+			sections.push("");
+			sections.push(generateNotifySection());
 			sections.push("");
 
 			const agentSections: string[] = [];
@@ -145,6 +167,34 @@ const getUserContent = (content: string): string => {
 	const position = findShellFencedContent(content);
 	if (!position) return content;
 	return content.slice(0, position.start) + content.slice(position.end);
+};
+
+/**
+ * Detect user-owned Codex notification settings outside the rp1 fence.
+ * These keys represent a single integration point and must not be silently replaced.
+ */
+export const detectNotifyConfigConflict = (content: string): string | null => {
+	const userContent = getUserContent(content);
+	if (userContent.trim().length === 0) return null;
+
+	try {
+		const parsed = Bun.TOML.parse(userContent) as Record<string, unknown>;
+		const conflictingKeys = MANAGED_NOTIFY_KEYS.filter((key) =>
+			Object.hasOwn(parsed, key),
+		);
+
+		if (conflictingKeys.length === 0) {
+			return null;
+		}
+
+		return (
+			"Existing user-managed Codex notification config conflicts with rp1-managed hook support: " +
+			conflictingKeys.join(", ") +
+			". Remove or relocate those settings before running `rp1 install codex`."
+		);
+	} catch {
+		return null;
+	}
 };
 
 /**
