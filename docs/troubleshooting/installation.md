@@ -150,6 +150,36 @@ In CI environments, graceful shutdown via SIGTERM is handled identically to SIGI
 
         This indicates a bug. Please report with steps to reproduce.
 
+### Codex Notify Config Conflict
+
+??? question "rp1 install codex fails because notify settings already exist"
+
+    **Symptoms:**
+
+    - Install fails with a message about existing user-managed Codex notification config
+    - Your `~/.codex/config.toml` already contains one or more of:
+      `notify`, `notifications`, `notification_method`
+
+    **Why this happens:**
+
+    rp1 now uses Codex's `notify` command integration to surface startup notices.
+    Those settings are a single ownership point in `config.toml`, so rp1 refuses
+    to overwrite user-managed notification automation outside its fenced section.
+
+    **Solutions:**
+
+    1. Move the existing Codex notification settings out of `~/.codex/config.toml`
+       or remove them if rp1 should own the integration.
+    2. Re-run:
+
+        ```bash
+        rp1 install codex
+        ```
+
+    3. If you need custom notification behavior alongside rp1, keep your changes
+       outside the rp1 fenced section and wire them through your `rp1` wrapper
+       command instead of reusing Codex's top-level notify keys.
+
 ### Backup Not Found
 
 ??? question "Rollback failed: no backup available"

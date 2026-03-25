@@ -6,6 +6,7 @@ import * as E from "fp-ts/lib/Either.js";
 import {
 	buildConfigPatch,
 	deduplicatePatch,
+	detectNotifyConfigConflict,
 	generateConfigDiff,
 	mergeCodexConfig,
 	readCodexConfig,
@@ -80,6 +81,16 @@ describe("codex config", () => {
 
 			expect(result).toContain("[features]");
 			expect(result).toContain("multi_agent = true");
+		});
+
+		test("includes Codex notify command settings", async () => {
+			const result = await expectTaskRight(buildConfigPatch([]));
+
+			expect(result).toContain('notifications = "all"');
+			expect(result).toContain('notification_method = "command"');
+			expect(result).toContain(
+				'notify = ["rp1", "agent-tools", "codex-notify"]',
+			);
 		});
 
 		test("concatenates multiple TOML files", async () => {
@@ -198,6 +209,31 @@ describe("codex config", () => {
 			const error = validateToml(result);
 			expect(error).toBeNull();
 			expect(result).toContain("[agents.rp1-build]");
+		});
+	});
+
+	describe("detectNotifyConfigConflict", () => {
+		test("returns null when user config does not own notify settings", () => {
+			const existing = 'model = "o3"\n';
+			expect(detectNotifyConfigConflict(existing)).toBeNull();
+		});
+
+		test("detects user-owned notify command", () => {
+			const existing =
+				'model = "o3"\nnotify = ["terminal-notifier", "-message", "done"]\n';
+			expect(detectNotifyConfigConflict(existing)).toContain("notify");
+		});
+
+		test("ignores notify settings inside the rp1 fence", () => {
+			const existing = `model = "o3"
+
+# rp1:start
+notifications = "all"
+notification_method = "command"
+notify = ["rp1", "agent-tools", "codex-notify"]
+# rp1:end
+`;
+			expect(detectNotifyConfigConflict(existing)).toBeNull();
 		});
 	});
 

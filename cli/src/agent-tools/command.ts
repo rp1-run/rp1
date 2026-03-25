@@ -7,6 +7,7 @@ import { Command } from "commander";
 import * as E from "fp-ts/lib/Either.js";
 import { formatError } from "../../shared/errors.js";
 import { VALID_EVENT_TYPES } from "../../shared/events.js";
+import { executeCodexNotify } from "./codex-notify/index.js";
 import { executeExtract } from "./comment-extract/index.js";
 import {
 	closeDatabase as closeEmitDatabase,
@@ -37,7 +38,7 @@ import {
 	executeSubmitReview,
 } from "./github-pr/index.js";
 import { getTool, type ToolOptions } from "./index.js";
-import { readInput } from "./input.js";
+import { readFromStdinAllowEmpty, readInput } from "./input.js";
 import { formatOutput } from "./output.js";
 import {
 	executeCancel as executeTaskCancel,
@@ -103,6 +104,7 @@ export const agentToolsCommand = new Command("agent-tools")
 Available Tools:
   mmd-validate      Validate Mermaid diagram syntax
   rp1-root-dir      Resolve RP1_ROOT path with read-only worktree detection
+  codex-notify      Handle Codex notify callbacks for rp1 startup notices
   comment-extract   Extract comments from git-changed files
   emit              Record events for the rp1 workflow event system
   feedback          Read, resolve, reply to, and accept feedback from the Arcade
@@ -114,6 +116,7 @@ Examples:
   cat diagram.mmd | rp1 agent-tools mmd-validate
   echo "graph TD; A-->B" | rp1 agent-tools mmd-validate
   rp1 agent-tools rp1-root-dir
+  echo '{"cwd":"/tmp","thread-id":"abc"}' | rp1 agent-tools codex-notify
   rp1 agent-tools comment-extract branch main
   rp1 agent-tools comment-extract unstaged main
   echo '{"owner":"org","repo":"repo","pr_number":123}' | rp1 agent-tools github-pr fetch-comments
@@ -278,6 +281,62 @@ Examples:
 
 		console.log(formatOutput(result.right));
 		process.exit(0);
+	});
+
+/**
+ * codex-notify subcommand.
+ * Handles Codex command-based notification callbacks.
+ */
+agentToolsCommand
+	.command("codex-notify")
+	.description("Handle Codex notify callbacks for rp1 startup notices")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Reads a Codex notification payload from stdin and emits rp1 notices such as
+  Arcade availability and rp1 update guidance. Intended to be invoked by Codex
+  through ~/.codex/config.toml notify settings.
+
+Input:
+  - Optional JSON payload via stdin. Empty stdin is allowed.
+
+Output:
+  Plain-text notification content for Codex to surface, or empty output when
+  no new notice should be shown.
+
+Examples:
+  echo '{"cwd":"/tmp/project","thread-id":"abc","turn-id":"t1"}' | rp1 agent-tools codex-notify
+  rp1 agent-tools codex-notify
+`,
+	)
+	.action(async (): Promise<void> => {
+		const inputResult = await readFromStdinAllowEmpty()();
+		if (E.isLeft(inputResult)) {
+			console.error(
+				createErrorResponse(
+					"codex-notify",
+					formatError(inputResult.left, false),
+				),
+			);
+			process.exit(1);
+		}
+
+		try {
+			const output = await executeCodexNotify(inputResult.right);
+			if (output.length > 0) {
+				console.log(output);
+			}
+			process.exit(0);
+		} catch (error) {
+			console.error(
+				createErrorResponse(
+					"codex-notify",
+					error instanceof Error ? error.message : String(error),
+				),
+			);
+			process.exit(1);
+		}
 	});
 
 /**
