@@ -285,6 +285,7 @@ describe("preprocessConditionals", () => {
 			);
 			expect(cxResult).toContain("Spawn agent:");
 			expect(cxResult).toContain("rp1-dev-code-writer");
+			expect(cxResult).toContain("fork_context: false");
 		});
 
 		test("semantic tags work alongside platform conditionals", async () => {

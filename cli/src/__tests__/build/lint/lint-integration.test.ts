@@ -34,6 +34,7 @@ describe("lintArtifact integration", () => {
 		const content = [
 			"Spawn agent:",
 			"  agent_type: rp1-dev-implementer",
+			"  fork_context: false",
 			'  prompt: "Implement the feature"',
 			"",
 			"Wait for the spawned agent to complete. Do NOT proceed until the agent has finished.",

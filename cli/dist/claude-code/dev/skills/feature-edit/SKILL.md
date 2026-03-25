@@ -58,7 +58,7 @@ Edit types:
 
 Task tool:
 subagent_type: rp1-dev:feature-editor
-prompt: 
+prompt:
 FEATURE_ID: {FEATURE_ID}
 EDIT_DESCRIPTION: {EDIT_DESCRIPTION}
 DECISIONS: {}
@@ -79,7 +79,7 @@ Options:
 
 Task tool:
 subagent_type: rp1-dev:feature-editor
-prompt: 
+prompt:
 FEATURE_ID: {FEATURE_ID}
 EDIT_DESCRIPTION: {EDIT_DESCRIPTION}
 DECISIONS: {"classification": "...", "scope_action": "...", ...}

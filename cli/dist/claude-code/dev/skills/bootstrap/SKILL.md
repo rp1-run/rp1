@@ -135,7 +135,7 @@ question_count = 0
 while question_count < 10:
     Task tool:
 subagent_type: rp1-dev:charter-interviewer
-prompt: 
+prompt:
 CHARTER_PATH: {CHARTER_PATH}, MODE: CREATE, RP1_ROOT: {{$RP1_ROOT}}
 
     response = parse_json(output)
@@ -194,7 +194,7 @@ question_count = 0, summary_iterations = 0
 loop:
   Task tool:
 subagent_type: rp1-dev:bootstrap-scaffolder
-prompt: 
+prompt:
 PROJECT_NAME, TARGET_DIR, CHARTER_PATH, PREFS_PATH, RP1_ROOT
 
   response = parse_json(output)

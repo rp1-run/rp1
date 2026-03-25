@@ -96,7 +96,7 @@ rp1 agent-tools emit \
 
 Task tool:
 subagent_type: rp1-dev:build-fast-planner
-prompt: 
+prompt:
 DEVELOPMENT_REQUEST={DEVELOPMENT_REQUEST}, RP1_ROOT={{$RP1_ROOT}}, WORKFLOW=build-fast, RUN_ID={RUN_ID}
 
 **Parse response**: Extract `scope`, `plan_summary`, `files_affected`, `reasoning`, `artifact_path`, `task_count`, `task_ids`.
@@ -160,7 +160,7 @@ Options:
 
 Task tool:
 subagent_type: rp1-dev:task-builder
-prompt: 
+prompt:
 QUICK_BUILD_PATH={artifact_path}
 TASK_IDS={task_ids}
 GIT_COMMIT={GIT_COMMIT}
@@ -180,7 +180,7 @@ RUN_ID={RUN_ID}
 
 Task tool:
 subagent_type: rp1-dev:task-reviewer
-prompt: 
+prompt:
 QUICK_BUILD_PATH={artifact_path}
 TASK_IDS={task_ids}
 GIT_COMMIT={GIT_COMMIT}
@@ -199,7 +199,7 @@ If `status` = "FAILURE":
 
 Task tool:
 subagent_type: rp1-dev:task-builder
-prompt: 
+prompt:
 QUICK_BUILD_PATH={artifact_path}
 TASK_IDS={task_ids}
 GIT_COMMIT={GIT_COMMIT}

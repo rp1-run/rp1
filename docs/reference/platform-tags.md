@@ -28,21 +28,26 @@ Renders platform-specific agent spawn instructions.
 ```
 {% dispatch_agent "<agent-ref>", "<prompt>" %}
 {% dispatch_agent "<agent-ref>", "<prompt>", background %}
+{% dispatch_agent "<agent-ref>", "<prompt>", context: "inherit" %}
 {% dispatch_agent "<agent-ref>" %}
 multi-line prompt content
 {% enddispatch_agent %}
 {% dispatch_agent "<agent-ref>", background %}
 multi-line prompt content
 {% enddispatch_agent %}
+{% dispatch_agent "<agent-ref>", background, context: "inherit" %}
+multi-line prompt content
+{% enddispatch_agent %}
 ```
 
 **Arguments**:
 
-| Position | Name | Required | Description |
-|----------|------|----------|-------------|
+| Position / Named | Name | Required | Description |
+|------------------|------|----------|-------------|
 | 1 | agent-ref | Yes | Canonical agent reference (e.g., `rp1-dev:code-writer`) |
 | 2 | prompt | Yes for inline syntax | Prompt text passed to the spawned agent |
 | 3 | mode | No | `background` for non-blocking dispatch. Default: foreground |
+| named | context | No | Codex context mode. `fresh` (default) emits `fork_context: false`; `inherit` emits `fork_context: true`. Ignored on CC and OpenCode. |
 
 **Output by platform**:
 
@@ -67,6 +72,7 @@ Codex (foreground):
 ```
 Spawn agent:
   agent_type: rp1-dev-code-writer
+  fork_context: false
   prompt: "Write the implementation"
 
 Wait for the spawned agent to complete. Do NOT proceed until the agent has finished and returned its result. Check the agent's output for success/failure before continuing.
@@ -77,10 +83,13 @@ Codex (background):
 ```
 Spawn agent (background):
   agent_type: rp1-dev-code-writer
+  fork_context: false
   prompt: "Write the implementation"
 
 This agent runs in the background. Continue with other work. Check its result later when needed.
 ```
+
+Use `context: "inherit"` only when the child agent genuinely needs parent conversation history. On Codex, that changes the rendered spawn block to `fork_context: true`.
 
 **Namespace transformation** (applied internally by the tag):
 
@@ -354,11 +363,11 @@ The build-time linter validates rendered artifacts per platform. Run it standalo
 
 ### L003: incomplete-dispatch (error)
 
-**Detects**: Codex `Spawn agent:` blocks without corresponding wait instructions. Only applies to foreground spawns; background spawns (`Spawn agent (background):`) are exempt.
+**Detects**: Codex spawn blocks that omit explicit `fork_context` or omit corresponding wait instructions for foreground spawns. Background spawns (`Spawn agent (background):`) still require `fork_context`, but they are exempt from wait instructions.
 
-**Example**: A hand-written `Spawn agent:` block in Codex output missing the "Wait for the spawned agent to complete" instruction.
+**Example**: A hand-written `Spawn agent:` block in Codex output missing `fork_context: false` or missing the "Wait for the spawned agent to complete" instruction.
 
-**Fix**: Use `{% dispatch_agent %}` instead of hand-writing dispatch blocks. The tag produces the full spawn/wait protocol automatically. If you must write dispatch manually, include the wait instructions after the spawn block.
+**Fix**: Use `{% dispatch_agent %}` instead of hand-writing dispatch blocks. The tag produces the full spawn/fork_context/wait protocol automatically. If you must write dispatch manually, include `fork_context: false` (or `true`) explicitly and add wait instructions after foreground spawns.
 
 ### L004: unresolved-tags (error)
 
