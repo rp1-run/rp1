@@ -284,13 +284,13 @@ export async function verifyClaudeCodePlugins(
 }
 
 /**
- * Get the Codex agents skills directory path.
+ * Get the Codex skills directory path.
  *
  * @param home - Home directory (defaults to os.homedir())
- * @returns Path to Codex agents skills directory
+ * @returns Path to Codex skills directory
  */
 export function getCodexSkillsDir(home: string = homedir()): string {
-	return join(home, ".agents", "skills");
+	return join(home, ".codex", "skills");
 }
 
 /**
@@ -305,7 +305,7 @@ export function getCodexConfigFile(home: string = homedir()): string {
 
 /**
  * Verify Codex CLI plugin installation.
- * Checks for rp1 skill directories under ~/.agents/skills/ and confirms
+ * Checks for rp1 skill directories under ~/.codex/skills/ and confirms
  * rp1-managed config was merged into ~/.codex/config.toml.
  *
  * @param home - Home directory (for testing, defaults to os.homedir())
@@ -336,23 +336,23 @@ export async function verifyCodexPlugins(
 
 			if (rp1Dirs.length > 0) {
 				callbacks?.onActivity(
-					`Found ${rp1Dirs.length} rp1 skill(s) in Codex agents directory`,
+					`Found ${rp1Dirs.length} rp1 skill(s) in Codex skills directory`,
 					"info",
 				);
 			}
 		}
 	} catch {
 		// Skills directory doesn't exist
-		issues.push("Codex agents skills directory not found");
-		callbacks?.onActivity("Codex agents skills directory not found", "warning");
+		issues.push("Codex skills directory not found");
+		callbacks?.onActivity("Codex skills directory not found", "warning");
 	}
 
 	if (!hasBaseSkills) {
-		issues.push("Codex base skills not found in ~/.agents/skills");
+		issues.push("Codex base skills not found in ~/.codex/skills");
 	}
 
 	if (!hasDevSkills) {
-		issues.push("Codex dev skills not found in ~/.agents/skills");
+		issues.push("Codex dev skills not found in ~/.codex/skills");
 	}
 
 	let configInstalled = false;

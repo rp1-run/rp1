@@ -34,7 +34,6 @@ export const Rp1Plugin = async (_ctx: any) => {
     // Daemon may already be running or rp1 not available
   }
 
-  // Check for updates
   try {
     const result = execSync(rp1Binary + " update --check --json", {
       timeout: TIMEOUT_MS,
@@ -46,7 +45,6 @@ export const Rp1Plugin = async (_ctx: any) => {
       updateNotice = `rp1 update available: v${data.current_version} → v${data.latest_version}  |  Run /self-update`;
     }
   } catch {
-    // Graceful degradation
   }
 
   return {

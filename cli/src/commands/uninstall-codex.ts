@@ -25,7 +25,8 @@ export const uninstallCodexCommand = new Command("codex")
 		"after",
 		`
 Removes rp1 content from your Codex CLI environment:
-  - Removes rp1-* skill directories from ~/.agents/skills/
+  - Removes rp1-* skill directories from ~/.codex/skills/
+  - Removes rp1-managed agent files from ~/.codex/agents/rp1/
   - Removes rp1-managed sections from ~/.codex/config.toml
   - Preserves all non-rp1 content
 

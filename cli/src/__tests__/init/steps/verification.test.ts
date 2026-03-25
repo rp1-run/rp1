@@ -286,7 +286,7 @@ describe("verification step", () => {
 
 	describe("verifyCodexPlugins", () => {
 		test("passes when base skills, dev skills, and fenced config exist", async () => {
-			const skillsDir = join(tempDir, ".agents", "skills");
+			const skillsDir = join(tempDir, ".codex", "skills");
 			const configDir = join(tempDir, ".codex");
 
 			await mkdir(join(skillsDir, "rp1-base-knowledge-build"), {
@@ -319,7 +319,7 @@ describe("verification step", () => {
 		});
 
 		test("fails when config exists but rp1 fenced section is missing", async () => {
-			const skillsDir = join(tempDir, ".agents", "skills");
+			const skillsDir = join(tempDir, ".codex", "skills");
 			const configDir = join(tempDir, ".codex");
 
 			await mkdir(join(skillsDir, "rp1-base-knowledge-build"), {
@@ -338,7 +338,7 @@ describe("verification step", () => {
 		});
 
 		test("fails when only one plugin group of skills is present", async () => {
-			const skillsDir = join(tempDir, ".agents", "skills");
+			const skillsDir = join(tempDir, ".codex", "skills");
 			const configDir = join(tempDir, ".codex");
 
 			await mkdir(join(skillsDir, "rp1-base-knowledge-build"), {
@@ -360,7 +360,7 @@ describe("verification step", () => {
 				false,
 			);
 			expect(result.issues).toContain(
-				"Codex dev skills not found in ~/.agents/skills",
+				"Codex dev skills not found in ~/.codex/skills",
 			);
 		});
 	});

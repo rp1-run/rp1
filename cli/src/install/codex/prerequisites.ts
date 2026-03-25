@@ -16,7 +16,7 @@ import type { CodexPaths } from "./models.js";
 /**
  * Minimum supported Codex CLI version (from registry).
  */
-const MIN_VERSION = "0.110.0";
+const MIN_VERSION = "0.116.0";
 
 /**
  * Check if Codex CLI is installed and in PATH.
@@ -162,7 +162,7 @@ export const checkCodexVersion = (
 export const getCodexPaths = (): CodexPaths => {
 	const home = homedir();
 	return {
-		skillsDir: join(home, ".agents", "skills"),
+		skillsDir: join(home, ".codex", "skills"),
 		configDir: join(home, ".codex"),
 		configFile: join(home, ".codex", "config.toml"),
 		backupDir: join(home, ".codex-rp1-backups"),

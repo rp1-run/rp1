@@ -83,9 +83,9 @@ const platformConfigs: Record<BuildPlatform, SupportedTool> = {
 	codex: {
 		id: "codex",
 		name: "Codex CLI",
-		enabled: false,
+		enabled: true,
 		binary: "codex",
-		min_version: "0.110.0",
+		min_version: "0.116.0",
 		instruction_file: "AGENTS.md",
 		install_url: "https://github.com/openai/codex",
 		plugin_install_cmd: null,
