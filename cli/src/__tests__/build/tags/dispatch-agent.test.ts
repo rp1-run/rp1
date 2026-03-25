@@ -58,10 +58,11 @@ describe("dispatch_agent tag", () => {
 		});
 
 		describe("codex (foreground)", () => {
-			test("renders full spawn/wait protocol", async () => {
+			test("renders full spawn/wait protocol with fresh context by default", async () => {
 				const output = await render(template, "codex");
 				expect(output).toContain("Spawn agent:");
 				expect(output).toContain("agent_type: rp1-dev-code-writer");
+				expect(output).toContain("fork_context: false");
 				expect(output).toContain('prompt: "Write the implementation"');
 				expect(output).toContain("Wait for the spawned agent to complete");
 				expect(output).toContain("Do NOT proceed until the agent has finished");
@@ -83,6 +84,7 @@ describe("dispatch_agent tag", () => {
 				const output = await render(bgTemplate, "codex");
 				expect(output).toContain("Spawn agent (background):");
 				expect(output).toContain("agent_type: rp1-dev-code-writer");
+				expect(output).toContain("fork_context: false");
 			});
 
 			test("includes continue-working instructions instead of wait", async () => {
@@ -95,6 +97,14 @@ describe("dispatch_agent tag", () => {
 				const output = await render(bgTemplate, "claude-code");
 				expect(output).toContain("Task tool:");
 				expect(output).not.toContain("background");
+			});
+
+			test("supports opt-in inherited context", async () => {
+				const inheritTemplate =
+					'{% dispatch_agent "rp1-dev:code-writer", "Write code", context: "inherit" %}';
+				const output = await render(inheritTemplate, "codex");
+				expect(output).toContain("Spawn agent:");
+				expect(output).toContain("fork_context: true");
 			});
 		});
 
@@ -163,6 +173,7 @@ FEATURE_ID=my-feature, AFK=false, UPDATE_MODE=false, RP1_ROOT=/path/to/root
 				const output = await render(blockTemplate, "codex");
 				expect(output).toContain("Spawn agent:");
 				expect(output).toContain("agent_type: rp1-dev-feature-architect");
+				expect(output).toContain("fork_context: false");
 				expect(output).toContain("FEATURE_ID=my-feature");
 				expect(output).toContain("Wait for the spawned agent to complete");
 			});
@@ -174,8 +185,18 @@ Write all the code for feature X
 {% enddispatch_agent %}`;
 			const output = await render(bgBlock, "codex");
 			expect(output).toContain("Spawn agent (background):");
+			expect(output).toContain("fork_context: false");
 			expect(output).toContain("Write all the code for feature X");
 			expect(output).toContain("This agent runs in the background");
+		});
+
+		test("block supports inherited context", async () => {
+			const inheritBlock = `{% dispatch_agent "rp1-dev:code-writer", background, context: "inherit" %}
+Write all the code for feature X
+{% enddispatch_agent %}`;
+			const output = await render(inheritBlock, "codex");
+			expect(output).toContain("Spawn agent (background):");
+			expect(output).toContain("fork_context: true");
 		});
 
 		test("block preserves template variable placeholders", async () => {
@@ -198,6 +219,23 @@ FEATURE_ID=templated-spawns, REQUIREMENTS=Add templated rendering, AFK=false, RP
 			const cx = await render(complexBlock, "codex");
 			expect(cx).toContain("Spawn agent:");
 			expect(cx).toContain("rp1-dev-feature-requirement-gatherer");
+			expect(cx).toContain("fork_context: false");
+		});
+
+		test("rejects invalid context mode", async () => {
+			const invalidTemplate =
+				'{% dispatch_agent "rp1-dev:code-writer", "Write code", context: "shared" %}';
+			await expect(render(invalidTemplate, "codex")).rejects.toThrow(
+				'dispatch_agent "context" must be "fresh" or "inherit"',
+			);
+		});
+
+		test("rejects unsupported named arguments", async () => {
+			const invalidTemplate =
+				'{% dispatch_agent "rp1-dev:code-writer", "Write code", strategy: "fast" %}';
+			await expect(render(invalidTemplate, "codex")).rejects.toThrow(
+				'dispatch_agent does not support named argument "strategy"',
+			);
 		});
 	});
 });

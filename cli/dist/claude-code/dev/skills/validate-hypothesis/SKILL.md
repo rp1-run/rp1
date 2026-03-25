@@ -38,7 +38,7 @@ Extract these parameters from the user's input:
 
 Task tool:
 subagent_type: rp1-dev:hypothesis-tester
-prompt: 
+prompt:
 FEATURE_ID: {FEATURE_ID}
 RP1_ROOT: {{$RP1_ROOT}}
 Validate all PENDING hypotheses for this feature.

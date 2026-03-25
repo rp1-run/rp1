@@ -102,7 +102,7 @@ Spawn a single general sub-agent to implement the request:
 
 Task tool:
 subagent_type: rp1-dev:express-builder
-prompt: 
+prompt:
 Implement the following change in the codebase:
 
 {REQUEST}

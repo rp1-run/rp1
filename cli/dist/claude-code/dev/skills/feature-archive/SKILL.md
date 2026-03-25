@@ -47,7 +47,7 @@ Extract these parameters from the user's input:
 
 Task tool:
 subagent_type: rp1-dev:feature-archiver
-prompt: 
+prompt:
 MODE: archive
 FEATURE_ID: {FEATURE_ID}
 SKIP_DOC_CHECK: false

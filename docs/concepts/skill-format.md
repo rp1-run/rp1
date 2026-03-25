@@ -222,7 +222,7 @@ Use the `dispatch_agent` tag:
 {% dispatch_agent "rp1-dev:code-writer", "Write the implementation" %}
 ```
 
-The tag produces the correct spawn instructions for each platform, including the full spawn/wait protocol on Codex.
+The tag produces the correct spawn instructions for each platform, including explicit `fork_context: false` and the full wait protocol on Codex by default. Use `context: "inherit"` only when the child needs parent conversation history.
 
 ### Example: User Input
 

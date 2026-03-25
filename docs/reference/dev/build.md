@@ -299,6 +299,8 @@ During the Codex build, agent and skill content undergoes four transformations i
 
 The plain slash-command transformation auto-discovers all skill names from plugin directories. Adding a new skill is automatically picked up on the next build without any configuration.
 
+Semantic `{% dispatch_agent %}` blocks render to Codex `Spawn agent:` instructions with explicit `fork_context: false` by default. Use `context: "inherit"` in the source tag only when a child agent truly needs parent conversation history.
+
 ### Installation
 
 Running `rp1 install codex` copies skill directories to `~/.codex/skills/`, per-agent TOML files to `~/.codex/agents/rp1/`, and merges the slim config entries into `~/.codex/config.toml`. Uninstallation removes only rp1-managed artifacts (skill directories prefixed with `rp1-*` and the `~/.codex/agents/rp1/` directory) while preserving user-created and third-party Codex configuration.

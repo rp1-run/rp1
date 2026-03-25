@@ -193,7 +193,7 @@ Background mode: local=true, CI=false
 
 Task tool:
 subagent_type: rp1-dev:pr-visualizer
-prompt: 
+prompt:
 Generate PR visualization.
   PR_BRANCH: {{pr_branch}}
   BASE_BRANCH: {{base_branch}}
@@ -206,7 +206,7 @@ Capture `VISUAL_CONTENT` (raw markdown with Mermaid diagrams)
 
 Task tool:
 subagent_type: rp1-dev:pr-review-splitter
-prompt: 
+prompt:
 Split PR diff into review units.
   PR_BRANCH: {{pr_branch}}
   BASE_BRANCH: {{base_branch}}
@@ -225,7 +225,7 @@ Parse `units`, store counts. Fail -> Abort w/ error.
 
    Task tool:
 subagent_type: rp1-dev:pr-sub-reviewer
-prompt: 
+prompt:
 Analyze review unit across 5 dimensions.
      UNIT_JSON: {{stringify(unit_with_diff)}}
      INTENT_JSON: {{stringify(intent_model)}}
@@ -243,7 +243,7 @@ Analyze review unit across 5 dimensions.
 
    Task tool:
 subagent_type: rp1-dev:pr-review-synthesizer
-prompt: 
+prompt:
 Perform holistic verification.
      INTENT_JSON: {{stringify(intent_model)}}
      FILE_LIST: {{stringify(file_list)}}
@@ -264,7 +264,7 @@ Perform holistic verification.
 
    Task tool:
 subagent_type: rp1-dev:pr-review-reporter
-prompt: 
+prompt:
 Generate markdown report.
      PR_INFO: {{stringify({branch, title, base, github_url: GITHUB_URL, head_sha: HEAD_SHA})}}
      INTENT_JSON: {{stringify(intent_model)}}
@@ -307,7 +307,7 @@ Skip if `CI_MODE=false`.
 
    Task tool:
 subagent_type: rp1-dev:pr-comment-deduplicator
-prompt: 
+prompt:
 Deduplicate PR comments.
      NEW_COMMENTS: {{stringify(new_comments)}}
      EXISTING_BOT_COMMENTS: {{stringify(existing_bot_comments)}}
@@ -319,7 +319,7 @@ Deduplicate PR comments.
 
    Task tool:
 subagent_type: rp1-dev:pr-comment-poster
-prompt: 
+prompt:
 Post PR review to GitHub.
      OWNER: {{CI_CONTEXT.owner}}
      REPO: {{CI_CONTEXT.repo}}

@@ -12,6 +12,7 @@ describe("L003: incomplete-dispatch", () => {
 			const content = [
 				"Spawn agent:",
 				"  agent_type: rp1-dev-writer",
+				"  fork_context: false",
 				'  prompt: "Write code"',
 				"",
 				"Continue with other work.",
@@ -23,12 +24,26 @@ describe("L003: incomplete-dispatch", () => {
 			expect(diagnostics[0].message).toContain("missing wait instructions");
 		});
 
+		test("detects spawn without explicit fork_context", () => {
+			const content = [
+				"Spawn agent:",
+				"  agent_type: rp1-dev-writer",
+				'  prompt: "Write code"',
+				"",
+				"Wait for the spawned agent to complete. Do NOT proceed until the agent has finished and returned its result.",
+			].join("\n");
+			const diagnostics = incompleteDispatchRule(content, "codex", "test.md");
+			expect(diagnostics.length).toBe(1);
+			expect(diagnostics[0].message).toContain("missing explicit fork_context");
+		});
+
 		test("reports correct line number", () => {
 			const content = [
 				"Some intro.",
 				"",
 				"Spawn agent:",
 				"  agent_type: rp1-dev-writer",
+				"  fork_context: false",
 			].join("\n");
 			const diagnostics = incompleteDispatchRule(content, "codex", "test.md");
 			expect(diagnostics[0].line).toBe(3);
@@ -40,6 +55,7 @@ describe("L003: incomplete-dispatch", () => {
 			const content = [
 				"Spawn agent:",
 				"  agent_type: rp1-dev-writer",
+				"  fork_context: false",
 				'  prompt: "Write code"',
 				"",
 				"Wait for the spawned agent to complete. Do NOT proceed until the agent has finished and returned its result.",
@@ -52,6 +68,7 @@ describe("L003: incomplete-dispatch", () => {
 			const content = [
 				"Spawn agent (background):",
 				"  agent_type: rp1-dev-writer",
+				"  fork_context: false",
 				'  prompt: "Write code"',
 				"",
 				"Continue with other work.",
