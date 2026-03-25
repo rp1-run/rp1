@@ -122,7 +122,7 @@ fix-evals:
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Full local install: build + remove stable + install to all platforms
-install: build rm-stable install-claude install-opencode
+install: build rm-stable install-claude install-opencode install-codex
 
 # Run local binary with args
 run *args: build
@@ -157,12 +157,12 @@ install-opencode:
     @echo ""
     @./bin/rp1 install opencode
 
-# Install to Codex (disabled — Codex support is paused)
-# install-codex:
-#     @echo ""
-#     @echo "━━━ Codex ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-#     @echo ""
-#     @./bin/rp1 install codex --yes
+# Install to Codex
+install-codex:
+    @echo ""
+    @echo "━━━ Codex ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    @echo ""
+    @./bin/rp1 install codex --yes
 
 # Remove stable rp1 from all platforms (only rp1-namespaced, preserves user files)
 rm-stable:
@@ -171,6 +171,8 @@ rm-stable:
     rm -rf ~/.config/opencode/skills/rp1-*/
     -claude plugin marketplace rm rp1-run 2>/dev/null
     rm -rf ~/.agents/skills/rp1-*/
+    rm -rf ~/.codex/skills/rp1-*/
+    rm -rf ~/.codex/agents/rp1/
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Web-UI Development
