@@ -21,6 +21,7 @@ import { paramTransform } from "./param-transform.js";
 import { roleType } from "./role-type.js";
 import { slashCommands } from "./slash-commands.js";
 import { toolName } from "./tool-name.js";
+import { toolProse } from "./tool-prose.js";
 
 export {
 	allowedToolsFilter,
@@ -31,6 +32,7 @@ export {
 	roleType,
 	slashCommands,
 	toolName,
+	toolProse,
 };
 
 /**
@@ -95,5 +97,13 @@ export function registerFilters(liquid: Liquid): void {
 		"param_transform",
 		(content: string, platform: BuildPlatform) =>
 			paramTransform(content, platform),
+	);
+
+	liquid.registerFilter(
+		"tool_prose",
+		function (content: string, platform: BuildPlatform) {
+			const registry = this.context.get(["registry"]) as PlatformRegistry;
+			return toolProse(content, platform, registry);
+		},
 	);
 }

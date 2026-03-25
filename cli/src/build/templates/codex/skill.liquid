@@ -27,4 +27,4 @@ metadata:
 {%- endif %}
 ---
 
-{{ artifact.content | namespace_ref: platform | slash_commands: platform | param_transform: platform }}
+{{ artifact.content | namespace_ref: platform | slash_commands: platform | param_transform: platform | tool_prose: platform }}
