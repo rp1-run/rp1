@@ -100,7 +100,7 @@ describe("buildCodexPlugin integration", () => {
 			expect(file).toMatch(/\.toml$/);
 			const content = await readFile(join(agentsDir, file), "utf-8");
 			expect(content).not.toContain("model =");
-			expect(content).toContain('developer_instructions = """');
+			expect(content).toContain("developer_instructions = '''");
 		}
 	}, 30000);
 
