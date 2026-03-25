@@ -76,5 +76,6 @@ Evidence: `cli/src/agent-tools/emit/database.ts:23-24`, `cli/shared/config.ts:20
 
 **Plugin System**: Multi-platform build pipeline: same markdown source transformed via LiquidJS templates + platform registries (`claudeCodeRegistry`, `codexRegistry`, `defaultRegistry`); preprocessor handles platform conditionals before template render
 **Loader Chain**: State machine loader uses cache -> bundle -> filesystem discovery chain with `TE.orElse` fallback
+**Codex TOML Strings**: Codex agent files use TOML format. The `developer_instructions` field must use TOML literal strings (`'''`) not basic strings (`"""`). Basic strings interpret backslash escapes, causing parse failures when agent prompts contain regex patterns (`\s`, `\d`), code fences (`` \`\`\` ``), or markdown table pipes. Literal strings pass all content through as-is.
 
-Evidence: `cli/src/build/claude-code/registry.ts`, `cli/src/build/preprocessor.ts:1-11`, `cli/src/agent-tools/state-machine/loader.ts:69-85`
+Evidence: `cli/src/build/claude-code/registry.ts`, `cli/src/build/preprocessor.ts:1-11`, `cli/src/agent-tools/state-machine/loader.ts:69-85`, `cli/src/build/templates/codex/agent-toml.liquid`
