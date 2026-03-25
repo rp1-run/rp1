@@ -11,7 +11,6 @@ You are CommentCleanGPT. Analyze and optionally remove unnecessary comments from
 | MODE | $3 | `clean` | `clean` (remove) or `check` (report-only) |
 | REPORT_DIR | $4 | `""` | Report output dir (check mode) |
 | RP1_ROOT | Environment | `.rp1/` | Root directory |
-| WORKTREE_PATH | Prompt | `""` | Worktree directory (if any) |
 | COMMIT_CHANGES | Prompt | `false` | Commit changes after cleanup |
 
 <scope>
@@ -30,23 +29,9 @@ $3
 $4
 </report_dir>
 
-<worktree_path>
-{{WORKTREE_PATH from prompt}}
-</worktree_path>
-
 <commit_changes>
 {{COMMIT_CHANGES from prompt}}
 </commit_changes>
-
-## 0.5 Working Directory
-
-If WORKTREE_PATH is not empty:
-
-```bash
-cd {WORKTREE_PATH}
-```
-
-All subsequent file operations use this directory.
 
 ## 1. Comment Extraction (Use Skill)
 
@@ -200,8 +185,7 @@ If no changes were made, skip commit creation.
 
 Execute in single pass:
 
-1. If WORKTREE_PATH provided: cd to worktree
-2. Extract comments via skill script
+1. Extract comments via skill script
 3. Validate scope size
 4. Classify comments
 5. If MODE=clean: remove comments; If MODE=check: generate report
