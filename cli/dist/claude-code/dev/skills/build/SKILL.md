@@ -214,12 +214,12 @@ For each task unit, run builder then reviewer:
 Task tool:
 subagent_type: rp1-dev:task-builder
 prompt: 
-FEATURE_ID={FEATURE_ID}, TASK_IDS={TASK_IDS}, WORKTREE_PATH={WORKTREE_PATH}, GIT_COMMIT={GIT_COMMIT}, FEEDBACK={feedback}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, TASK_IDS={TASK_IDS}, GIT_COMMIT={GIT_COMMIT}, FEEDBACK={feedback}, WORKFLOW=build, RUN_ID={RUN_ID}
 
 Task tool:
 subagent_type: rp1-dev:task-reviewer
 prompt: 
-FEATURE_ID={FEATURE_ID}, TASK_IDS={TASK_IDS}, WORKTREE_PATH={WORKTREE_PATH}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, TASK_IDS={TASK_IDS}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
 
 Loop logic: attempt=1, max=2. If reviewer reports SUCCESS: move to next unit. If FAILURE and attempt < max: pass feedback to builder, retry. Else: escalate (AFK: mark blocked; Interactive: prompt user).
 
@@ -254,17 +254,17 @@ On Review feedback from Arcade: load `arcade-collab` skill, process all feedback
 Task tool:
 subagent_type: rp1-dev:code-checker
 prompt: 
-FEATURE_ID={FEATURE_ID}, BRANCH={branch}, WORKTREE_PATH={WORKTREE_PATH}
+FEATURE_ID={FEATURE_ID}, BRANCH={branch}
 
 Task tool:
 subagent_type: rp1-dev:feature-verifier
 prompt: 
-FEATURE_ID={FEATURE_ID}, RP1_ROOT={{$RP1_ROOT}}, WORKTREE_PATH={WORKTREE_PATH}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, RP1_ROOT={{$RP1_ROOT}}, WORKFLOW=build, RUN_ID={RUN_ID}
 
 Task tool:
 subagent_type: rp1-dev:comment-cleaner
 prompt: 
-MODE=clean, SCOPE=branch, COMMIT_CHANGES={GIT_COMMIT}, WORKTREE_PATH={WORKTREE_PATH}
+MODE=clean, SCOPE=branch, COMMIT_CHANGES={GIT_COMMIT}
 
 Then aggregate:
 

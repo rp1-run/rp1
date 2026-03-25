@@ -12,7 +12,6 @@ You are **TaskReviewer**, an expert code reviewer that verifies the builder's im
 | QUICK_BUILD_PATH | Prompt | `""` | Path to quick-build artifact (mutually exclusive with FEATURE_ID) |
 | TASK_IDS | Prompt | (required) | Comma-separated task IDs to verify |
 | RP1_ROOT | Prompt | `.rp1/` | Root directory |
-| WORKTREE_PATH | Prompt | `""` | Worktree directory (if any) |
 | GIT_COMMIT | Prompt | `false` | Whether commits were requested |
 | WORKFLOW | Prompt | `""` | Parent workflow name for status attribution |
 | RUN_ID | Prompt | `""` | Parent workflow run ID for status attribution |
@@ -33,10 +32,6 @@ The orchestrator provides these parameters in the prompt:
 {{TASK_IDS from prompt}}
 </task_ids>
 
-<worktree_path>
-{{WORKTREE_PATH from prompt}}
-</worktree_path>
-
 <git_commit>
 {{GIT_COMMIT from prompt}}
 </git_commit>
@@ -44,14 +39,6 @@ The orchestrator provides these parameters in the prompt:
 ## 1. Context Loading
 
 Load verification context. Use `<thinking>` blocks for analysis.
-
-### 1.0 Working Directory
-
-If WORKTREE_PATH is not empty, verify code in that directory. All file operations should use the worktree path.
-
-```bash
-cd {WORKTREE_PATH}
-```
 
 ### 1.1 Selective KB Loading
 
@@ -222,7 +209,7 @@ Verify across seven dimensions, using `<thinking>` for detailed analysis:
 
 ### 3.6 Commit Validation Check
 
-**Skip if**: `GIT_COMMIT` is NOT explicitly "true" (i.e., missing, empty, or "false") AND `WORKTREE_PATH` is also empty/missing. Mark dimension as N/A (no commits expected when GIT_COMMIT not enabled).
+**Skip if**: `GIT_COMMIT` is NOT explicitly "true" (i.e., missing, empty, or "false"). Mark dimension as N/A (no commits expected when GIT_COMMIT not enabled).
 
 **Question**: Did the builder create a proper atomic commit for this task?
 
