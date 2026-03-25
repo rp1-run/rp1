@@ -3,10 +3,10 @@
  *
  * Transforms a canonical agent reference into the correct platform-specific
  * spawn instructions: Task tool for Claude Code, task tool for OpenCode,
- * and the full spawn/wait protocol for Codex.
+ * and the full spawn/fork_context/wait protocol for Codex.
  *
- * Inline syntax:  {% dispatch_agent "<agent-ref>", "<prompt>" [, background] %}
- * Block syntax:   {% dispatch_agent "<agent-ref>" [, background] %}
+ * Inline syntax:  {% dispatch_agent "<agent-ref>", "<prompt>" [, background] [, context: "fresh"|"inherit"] %}
+ * Block syntax:   {% dispatch_agent "<agent-ref>" [, background] [, context: "fresh"|"inherit"] %}
  *                   multi-line prompt content
  *                 {% enddispatch_agent %}
  */
@@ -23,37 +23,55 @@ import {
 import type { BuildPlatform } from "../template-context.js";
 import { parseTagArgs, transformNamespace } from "./index.js";
 
+type DispatchContextMode = "fresh" | "inherit";
+
+function renderPromptField(indent: string, prompt: string): string {
+	return prompt.startsWith("\n")
+		? `${indent}prompt:${prompt}`
+		: `${indent}prompt: ${prompt}`;
+}
+
 function renderClaudeCode(agentRef: string, prompt: string): string {
 	return `Task tool:
 subagent_type: ${agentRef}
-prompt: ${prompt}`;
+${renderPromptField("", prompt)}`;
 }
 
 function renderOpenCode(agentRef: string, prompt: string): string {
 	const ns = transformNamespace(agentRef, "opencode");
 	return `task tool:
 subagent_type: ${ns}
-prompt: ${prompt}`;
+${renderPromptField("", prompt)}`;
 }
 
 // Codex multi-agent API is experimental (HYP-002 rejected). The spawn/wait
 // protocol below reflects the current API surface and may need updating if
 // Codex changes its multi-agent primitives.
 
-function renderCodexForeground(agentRef: string, prompt: string): string {
+function renderCodexForeground(
+	agentRef: string,
+	prompt: string,
+	context: DispatchContextMode,
+): string {
 	const ns = transformNamespace(agentRef, "codex");
 	return `Spawn agent:
   agent_type: ${ns}
-  prompt: ${prompt}
+  fork_context: ${context === "inherit" ? "true" : "false"}
+${renderPromptField("  ", prompt)}
 
 Wait for the spawned agent to complete. Do NOT proceed until the agent has finished and returned its result. Check the agent's output for success/failure before continuing.`;
 }
 
-function renderCodexBackground(agentRef: string, prompt: string): string {
+function renderCodexBackground(
+	agentRef: string,
+	prompt: string,
+	context: DispatchContextMode,
+): string {
 	const ns = transformNamespace(agentRef, "codex");
 	return `Spawn agent (background):
   agent_type: ${ns}
-  prompt: ${prompt}
+  fork_context: ${context === "inherit" ? "true" : "false"}
+${renderPromptField("  ", prompt)}
 
 This agent runs in the background. Continue with other work. Check its result later when needed.`;
 }
@@ -62,6 +80,7 @@ function renderDispatch(
 	agentRef: string,
 	prompt: string,
 	mode: "foreground" | "background",
+	context: DispatchContextMode,
 	platform: BuildPlatform,
 ): string {
 	switch (platform) {
@@ -71,8 +90,8 @@ function renderDispatch(
 			return renderOpenCode(agentRef, prompt);
 		case "codex":
 			return mode === "background"
-				? renderCodexBackground(agentRef, prompt)
-				: renderCodexForeground(agentRef, prompt);
+				? renderCodexBackground(agentRef, prompt, context)
+				: renderCodexForeground(agentRef, prompt, context);
 	}
 }
 
@@ -87,16 +106,44 @@ function formatPrompt(prompt: string, isBlock: boolean): string {
 	return `"${prompt}"`;
 }
 
+function parseContextMode(
+	rawContext: string | readonly string[] | undefined,
+): DispatchContextMode {
+	if (rawContext === undefined) {
+		return "fresh";
+	}
+	if (typeof rawContext !== "string") {
+		throw new Error(
+			'dispatch_agent "context" accepts exactly one value: "fresh" or "inherit"',
+		);
+	}
+	if (rawContext !== "fresh" && rawContext !== "inherit") {
+		throw new Error(
+			`dispatch_agent "context" must be "fresh" or "inherit" (got "${rawContext}")`,
+		);
+	}
+	return rawContext;
+}
+
 export class DispatchAgentTag extends Tag {
 	private readonly agentRef: string;
 	private readonly inlinePrompt: string | null;
 	private readonly mode: "foreground" | "background";
+	private readonly context: DispatchContextMode;
 	private readonly blockTemplates: Template[];
 
 	constructor(token: TagToken, remainTokens: TopLevelToken[], liquid: Liquid) {
 		super(token, remainTokens, liquid);
 		const args = parseTagArgs(token.args);
+		for (const key of Object.keys(args.named)) {
+			if (key !== "context") {
+				throw new Error(
+					`dispatch_agent does not support named argument "${key}"`,
+				);
+			}
+		}
 		this.agentRef = args.positional[0] ?? "";
+		this.context = parseContextMode(args.named.context);
 		this.blockTemplates = [];
 
 		// Determine inline vs block based on arguments.
@@ -175,6 +222,7 @@ export class DispatchAgentTag extends Tag {
 				this.agentRef,
 				formatPrompt(prompt, isBlock),
 				this.mode,
+				this.context,
 				platform,
 			),
 		);

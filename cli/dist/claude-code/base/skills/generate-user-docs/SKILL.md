@@ -462,7 +462,7 @@ FOR each batch in BATCHES (in parallel):
 
 Task tool:
 subagent_type: rp1-base:scribe
-prompt: 
+prompt:
 MODE: scan
 FILES: {{JSON.stringify(batch.files)}}
 KB_INDEX_PATH: {{$RP1_ROOT}}/context/index.md
@@ -746,7 +746,7 @@ FOR each batch in PROCESS_BATCHES (in parallel):
 
 Task tool:
 subagent_type: rp1-base:scribe
-prompt: 
+prompt:
 MODE: process
 FILES: {{JSON.stringify(batch.files)}}
 SCAN_RESULTS_PATH: {{$RP1_ROOT}}/work/features/scribe/scan_results.json

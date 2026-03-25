@@ -65,7 +65,7 @@ Route to the `feature-editor` agent with the annotation content as the edit desc
 
 Task tool:
 subagent_type: rp1-dev:feature-editor
-prompt: 
+prompt:
 FEATURE_ID: {FEATURE_ID}
 EDIT_DESCRIPTION: {annotation content from the feedback item}
 
@@ -88,7 +88,7 @@ When the user directly edited a requirements or design file:
 
    Task tool:
 subagent_type: rp1-dev:feature-editor
-prompt: 
+prompt:
 FEATURE_ID: {FEATURE_ID}
    EDIT_DESCRIPTION: "User directly edited {artifactPath}. Changes: {summary of patch}. Propagate to downstream artifacts."
 

@@ -59,7 +59,7 @@ Use Bash: test -f "{INPUT}" && echo "file" || echo "inline"
 
 Task tool:
 subagent_type: rp1-utils:prompt-tersifier
-prompt: 
+prompt:
 {INPUT_PROMPT content here}
 
 ### Step 4: Process Output

@@ -59,7 +59,7 @@ Spawn dependency-chain-analyzer to discover sub-agent and skill dependencies:
 
 Task tool:
 subagent_type: rp1-utils:dependency-chain-analyzer
-prompt: 
+prompt:
 $1: {INPUT file path}
 
 Capture JSON output as DEPENDENCY_CHAIN variable.
@@ -95,7 +95,7 @@ Single agent generates both YAML assertions and test prompt:
 
 Task tool:
 subagent_type: rp1-utils:prompt-eval-extractor
-prompt: 
+prompt:
 $1: {PROMPT_TEXT content}
 $2: {SOURCE_NAME}
 $3: {OUTPUT_YAML}
@@ -120,7 +120,7 @@ Invoke assertion specialist to optimize the generated eval config:
 
 Task tool:
 subagent_type: rp1-utils:prompt-assertion-specialist
-prompt: 
+prompt:
 $1: {OUTPUT_YAML}
 
 Capture JSON output as ASSERTION_RESULT variable.
