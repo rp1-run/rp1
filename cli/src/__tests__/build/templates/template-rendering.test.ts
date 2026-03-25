@@ -151,6 +151,22 @@ const createTestEngine = () => {
 		},
 	);
 
+	engine.registerFilter("tool_prose", (content: string, platform: string) => {
+		if (platform === "codex") {
+			const mappings: Record<string, string> = {
+				AskUserQuestion: "functions.request_user_input",
+				Edit: "functions.apply_patch",
+				Bash: "functions.exec_command",
+			};
+			let result = content;
+			for (const [cc, codex] of Object.entries(mappings)) {
+				result = result.replace(new RegExp(`\\b${cc}\\b`, "g"), codex);
+			}
+			return result;
+		}
+		return content;
+	});
+
 	return engine;
 };
 
