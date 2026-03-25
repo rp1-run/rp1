@@ -1,6 +1,6 @@
 ---
 name: address-pr-feedback
-description: "Unified PR feedback workflow - collect, triage, and fix review comments in a single command with worktree isolation."
+description: "Unified PR feedback workflow - collect, triage, and fix review comments in a single command."
 allowed-tools: Bash(echo *), Bash(rp1 *)
 metadata:
   version: 2.0.0
@@ -70,20 +70,7 @@ After collection completes:
 **AFK Mode**: Auto-proceed to Phase 3 without confirmation. Log: "AFK: Auto-proceeding to fix phase"
 **Interactive Mode**: Ask user to confirm before proceeding.
 
-## Phase 3: Fix (Worktree Isolated)
-
-**IMPORTANT**: All fix work is done in an isolated worktree to allow user review before pushing.
-
-Use the Skill tool to invoke the worktree-workflow skill:
-
-```
-skill: "rp1-dev:worktree-workflow"
-args: task_slug={pr_branch}, agent_prefix=fix, create_pr=false
-```
-
-This sets up an isolated worktree on the PR branch.
-
-### Inside the Worktree
+## Phase 3: Fix
 
 Process comments in priority order: Blocking -> Important -> Suggestions -> Style.
 
@@ -118,14 +105,9 @@ For declined comments:
 
 Run quality checks (lint, typecheck, tests). Commit any auto-fixes.
 
-Do **NOT** push or cleanup. Return to original directory and store:
-- `worktree_path`: Full path to the worktree
-- `branch`: The branch name
-- `commit_count`: Number of commits made
-
 ## Phase 4: Report
 
-Generate final summary with worktree navigation instructions:
+Generate final summary:
 
 ```markdown
 ## PR Feedback Resolution Summary
@@ -151,7 +133,6 @@ Generate final summary with worktree navigation instructions:
 - `{path}` - {description}
 
 ### Commits Made
-{commit_count} commit(s) in worktree:
 - `{commit_hash}` - {commit_message}
 - ...
 
@@ -162,46 +143,6 @@ Generate final summary with worktree navigation instructions:
 ### Declined Comments
 - {list with reasons}
 
----
-
-## Review Your Changes
-
-The fixes have been made in an isolated worktree. **Changes are NOT pushed yet.**
-
-**Worktree Location**:
-```
-{worktree_path}
-```
-
-**To review the changes**:
-```bash
-cd {worktree_path}
-git log --oneline -10
-git diff HEAD~{commit_count}
-```
-
-**To push the changes** (after review):
-```bash
-cd {worktree_path}
-git push origin {branch}
-```
-
-**To discard changes**:
-```bash
-cd {original_cwd}
-git checkout {branch} -- .  # revert changes
-```
-
----
-
-## Cleanup (Required)
-
-When done reviewing, return to the main repo and remove the worktree:
-```bash
-cd {original_cwd}
-git worktree remove {worktree_path}
-```
-
 **Ready for Re-Review**: Yes/No (after you push)
 ```
 
@@ -209,10 +150,9 @@ git worktree remove {worktree_path}
 
 - If PR not found: Report error, suggest checking PR number or running from PR branch
 - If collection fails: Report error, do not proceed to triage
-- If worktree creation fails: Report error, suggest manual intervention
 - If fix fails: Mark comment as blocked, continue with remaining comments
-- If tests fail: Report failure in summary, still provide worktree for review
+- If tests fail: Report failure in summary, continue with remaining comments
 
 ## Execution
 
-Execute phases sequentially. Do NOT ask for clarification during execution. If blocking issues prevent completion, report status and stop. Always leave worktree intact for user review.
+Execute phases sequentially. Do NOT ask for clarification during execution. If blocking issues prevent completion, report status and stop.
