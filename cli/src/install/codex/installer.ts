@@ -576,7 +576,28 @@ export const installCodex = (
 };
 
 /**
+ * Guard that ensures a path is not a structural Codex directory.
+ * Returns true if the path is safe to remove (i.e., not structural).
+ */
+const isSafeToRemove = (targetPath: string, paths: CodexPaths): boolean => {
+	const protectedPaths = [
+		paths.configDir,
+		paths.skillsDir,
+		dirname(paths.agentsDir),
+		paths.configFile,
+	];
+	return !protectedPaths.includes(targetPath);
+};
+
+/**
  * Remove rp1 content from Codex: skill directories, per-agent TOML files, and fenced config sections.
+ *
+ * Safety guarantees:
+ * - Only rp1-* prefixed skill directories are removed from ~/.codex/skills/
+ * - Only ~/.codex/agents/rp1/ subdirectory is removed (not the parent ~/.codex/agents/)
+ * - Only rp1 fenced sections are removed from config.toml (file is never deleted)
+ * - Structural directories (~/.codex/, ~/.codex/skills/, ~/.codex/agents/) are never removed
+ * - Missing or unexpected directory structure produces a descriptive error
  */
 export const uninstallCodex = (
 	paths: CodexPaths,
@@ -589,6 +610,15 @@ export const uninstallCodex = (
 
 			const rp1SkillDirs: string[] = [];
 			try {
+				const skillsStat = await stat(paths.skillsDir);
+				if (!skillsStat.isDirectory()) {
+					throw installError(
+						"uninstall",
+						`Expected ${paths.skillsDir} to be a directory, but it is not. ` +
+							"Cannot safely enumerate rp1 skills for removal. " +
+							"Verify your Codex installation structure.",
+					);
+				}
 				const entries = await readdir(paths.skillsDir, {
 					withFileTypes: true,
 				});
@@ -597,16 +627,18 @@ export const uninstallCodex = (
 						rp1SkillDirs.push(entry.name);
 					}
 				}
-			} catch {
-				// skills dir may not exist
+			} catch (err) {
+				if (typeof err === "object" && err !== null && "_tag" in err) {
+					throw err;
+				}
 			}
 
 			let hasAgentsDir = false;
 			try {
-				await stat(paths.agentsDir);
-				hasAgentsDir = true;
+				const agentsStat = await stat(paths.agentsDir);
+				hasAgentsDir = agentsStat.isDirectory();
 			} catch {
-				// agents dir may not exist
+				hasAgentsDir = false;
 			}
 
 			let hasFencedConfig = false;
@@ -614,7 +646,7 @@ export const uninstallCodex = (
 				const configContent = await readFile(paths.configFile, "utf-8");
 				hasFencedConfig = hasShellFencedContent(configContent);
 			} catch {
-				// config file may not exist
+				hasFencedConfig = false;
 			}
 
 			if (dryRun) {
@@ -637,11 +669,26 @@ export const uninstallCodex = (
 			}
 
 			for (const dirName of rp1SkillDirs) {
-				await rm(join(paths.skillsDir, dirName), { recursive: true });
+				const targetPath = join(paths.skillsDir, dirName);
+				if (!isSafeToRemove(targetPath, paths)) {
+					throw installError(
+						"uninstall",
+						`Refusing to remove structural directory: ${targetPath}. ` +
+							"Only rp1-managed content may be removed.",
+					);
+				}
+				await rm(targetPath, { recursive: true });
 				skillsRemoved++;
 			}
 
 			if (hasAgentsDir) {
+				if (!isSafeToRemove(paths.agentsDir, paths)) {
+					throw installError(
+						"uninstall",
+						`Refusing to remove structural directory: ${paths.agentsDir}. ` +
+							"Only the rp1 agent subdirectory may be removed.",
+					);
+				}
 				await rm(paths.agentsDir, { recursive: true });
 			}
 
@@ -651,14 +698,22 @@ export const uninstallCodex = (
 				if (cleaned.length > 0) {
 					await writeFile(paths.configFile, `${cleaned}\n`, "utf-8");
 				} else {
-					await rm(paths.configFile);
+					await writeFile(paths.configFile, "", "utf-8");
 				}
 				configCleaned = true;
 			}
 
 			return { skillsRemoved, configCleaned };
 		},
-		(e) => installError("uninstall", `Failed to uninstall Codex plugins: ${e}`),
+		(e) => {
+			if (typeof e === "object" && e !== null && "_tag" in e) {
+				return e as CLIError;
+			}
+			return installError(
+				"uninstall",
+				`Failed to uninstall Codex plugins: ${e}`,
+			);
+		},
 	);
 
 /**

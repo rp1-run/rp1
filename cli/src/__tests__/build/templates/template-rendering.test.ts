@@ -131,6 +131,26 @@ const createTestEngine = () => {
 		return value;
 	});
 
+	engine.registerFilter(
+		"param_transform",
+		(content: string, platform: string) => {
+			if (platform === "codex") {
+				return content
+					.replace(
+						/\$ARGUMENTS/g,
+						"the arguments provided by the user in their prompt",
+					)
+					.replace(/\$(\d+)\b/g, (_match: string, num: string) => {
+						const ordinals = ["first", "second", "third", "fourth", "fifth"];
+						const idx = parseInt(num, 10) - 1;
+						const ordinal = ordinals[idx] ?? `#${parseInt(num, 10)}`;
+						return `the value of the ${ordinal} argument (extracted from the user's prompt)`;
+					});
+			}
+			return content;
+		},
+	);
+
 	return engine;
 };
 
@@ -362,7 +382,7 @@ describeWithLiquid("template rendering", () => {
 			expect(manifest.codexVersionTested).toBe("0.1.x");
 			expect(manifest.artifacts.skills).toEqual(["skill1"]);
 			expect(manifest.artifacts.agents).toEqual(["agent1", "agent2"]);
-			expect(manifest.installation.skillsDir).toBe(".agents/skills/");
+			expect(manifest.installation.skillsDir).toBe("~/.codex/skills/");
 			expect(manifest.installation.configFile).toBe("~/.codex/config.toml");
 		});
 	});
