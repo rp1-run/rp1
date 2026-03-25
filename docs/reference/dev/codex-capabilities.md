@@ -14,7 +14,7 @@ All capabilities below were validated through the [Codex Capability Validation E
 | Skill discovery | Yes | Skills installed to `~/.codex/skills/` are discoverable via `$skill-name` invocation. |
 | Shell execution | Yes | Full shell access for build, test, and tool commands. |
 | File operations (read/write/edit/search) | Yes | File editing uses `apply_patch` (unified diff format), not exact string replacement. |
-| Subagent dispatch | Yes | Agents spawned via `Spawn agent:` / wait protocol. Defined in per-agent TOML files. |
+| Subagent dispatch | Yes | Agents spawned via `Spawn agent:` blocks with explicit `fork_context` and wait protocol. Defined in per-agent TOML files. |
 | Parallel delegation | Yes | Multiple subagents can run concurrently with results merged on completion. |
 | Structured output | Yes | Subagents can produce structured JSON output for aggregation. |
 | End-to-end orchestration | Yes | Full multi-step workflows (plan, delegate, merge, verify) execute reliably. |
@@ -35,7 +35,7 @@ All capabilities below were validated through the [Codex Capability Validation E
 | Parameter substitution | Native (`$1`, `$ARGUMENTS`) | Native (`$1`, `$ARGUMENTS`) | Model-extracted from instructional text |
 | File editing model | Edit tool (exact string replacement) | edit_file (exact string replacement) | apply_patch (unified diff) |
 | Tool permissions | `allowed-tools` frontmatter | Permission map | Sandbox execution policy |
-| Agent dispatch | Task tool (sync) | task tool (sync) | spawn_agent + wait (async) |
+| Agent dispatch | Task tool (sync) | task tool (sync) | spawn_agent + explicit fork_context + wait (async) |
 
 ## Parameter Handling
 
@@ -48,6 +48,7 @@ Skill authors do not need to do anything special for Codex parameter support. Th
 - **Agent files are TOML, not markdown.** Codex agents use `.toml` files with a `developer_instructions` field instead of markdown agent files.
 - **No per-skill tool restrictions.** Codex does not have an `allowed-tools` equivalent. All skills run with the same sandbox permissions.
 - **Subagent dispatch is asynchronous.** Use `{% dispatch_agent %}` platform tags to generate the correct spawn/wait protocol automatically.
+- **Codex child context should be explicit.** `{% dispatch_agent %}` defaults Codex children to fresh context (`fork_context: false`). Use `context: "inherit"` only when the child must see the parent conversation history.
 - **File edits use unified diffs.** Use `{% edit_model %}` platform tags to reference the correct editing tool per platform.
 - **User input requires options.** The `request_user_input` tool on Codex requires an explicit options list. Use `{% ask_user %}` to handle this automatically.
 

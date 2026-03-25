@@ -54,7 +54,7 @@ Extract these parameters from the user's input:
 
 Task tool:
 subagent_type: rp1-dev:feature-archiver
-prompt: 
+prompt:
 Execute the feature-archiver agent to restore the specified archived feature.
 
 MODE: unarchive

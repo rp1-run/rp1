@@ -54,12 +54,11 @@ rp1 agent-tools emit \
 
 Emit `visualize` running. Spawn the pr-visualizer agent:
 
-```
+Task tool:
 subagent_type: rp1-dev:pr-visualizer
 prompt:
-  PR_BRANCH={PR_BRANCH}, BASE_BRANCH={BASE_BRANCH}, REVIEW_DEPTH={REVIEW_DEPTH},
-  FOCUS_AREAS={FOCUS_AREAS}, STANDALONE=true, RP1_ROOT={RP1_ROOT}
-```
+PR_BRANCH={PR_BRANCH}, BASE_BRANCH={BASE_BRANCH}, REVIEW_DEPTH={REVIEW_DEPTH},
+FOCUS_AREAS={FOCUS_AREAS}, STANDALONE=true, RP1_ROOT={RP1_ROOT}
 
 Wait for completion. Extract the artifact path from agent output.
 

@@ -151,7 +151,7 @@ For each explorer:
 
 Task tool:
 subagent_type: rp1-base:research-explorer
-prompt: 
+prompt:
 Explore and return JSON findings.
 EXPLORATION_TARGET: {target}
 QUESTIONS: {stringify(questions)}
@@ -284,7 +284,7 @@ The reporter handles output file naming (slugification, directory creation, dedu
 
 Task tool:
 subagent_type: rp1-base:research-reporter
-prompt: 
+prompt:
 Generate research report.
 SYNTHESIS_DATA: {stringify(synthesis_data)}
 RP1_ROOT: {{$RP1_ROOT}}
