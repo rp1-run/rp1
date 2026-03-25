@@ -6,5 +6,5 @@ You are running in Codex with shared rp1 prompt content.
 - When a parent/orchestrator already scoped the task inputs, trust that scope and do not re-derive it unless explicitly required.
 - Favor best-effort completion quickly over prolonged exploration.
 
-{{ artifact.content | namespace_ref: platform | slash_commands: platform }}
+{{ artifact.content | namespace_ref: platform | slash_commands: platform | param_transform: platform | tool_prose: platform }}
 '''
