@@ -303,7 +303,7 @@ Semantic `{% dispatch_agent %}` blocks render to Codex `Spawn agent:` instructio
 
 ### Installation
 
-Running `rp1 install codex` copies skill directories to `~/.codex/skills/`, per-agent TOML files to `~/.codex/agents/rp1/`, and merges the slim config entries into `~/.codex/config.toml`. Uninstallation removes only rp1-managed artifacts (skill directories prefixed with `rp1-*` and the `~/.codex/agents/rp1/` directory) while preserving user-created and third-party Codex configuration.
+Running `rp1 install codex` copies skill directories to `~/.codex/skills/`, per-agent TOML files to `~/.codex/agents/rp1/`, and merges the slim config entries into `~/.codex/config.toml`. The managed section now also installs a Codex `notify` command that routes startup notices through `rp1 agent-tools codex-notify`. Uninstallation removes only rp1-managed artifacts (skill directories prefixed with `rp1-*`, the `~/.codex/agents/rp1/` directory, and the fenced Codex config section) while preserving user-created and third-party Codex configuration.
 
 For a detailed breakdown of validated Codex capabilities and platform differences, see the [Codex Capabilities](codex-capabilities.md) reference.
 
