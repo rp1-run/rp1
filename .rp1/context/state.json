@@ -10,9 +10,9 @@
     "evals",
     "packages/catppuccin-mermaid"
   ],
-  "generated_at": "2026-03-23T18:30:00Z",
-  "git_commit": "3afe90aa176df06dbd9dbb36c9dc1625e0bbbeca",
-  "files_analyzed": 832,
+  "generated_at": "2026-03-25T18:00:00Z",
+  "git_commit": "3cdf227cce483acf13b214d2786ae1ad3856be16",
+  "files_analyzed": 728,
   "languages": [
     "TypeScript",
     "TSX",
@@ -27,7 +27,7 @@
   ],
   "metrics": {
     "modules": 17,
-    "components": 25,
-    "concepts": 28
+    "components": 28,
+    "concepts": 32
   }
 }
