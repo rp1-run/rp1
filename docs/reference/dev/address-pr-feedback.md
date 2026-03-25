@@ -110,14 +110,12 @@ Displays summary for review:
 In interactive mode, you can review before proceeding.
 In `--afk` mode, auto-proceeds to fix phase.
 
-### Phase 3: Fix (Worktree Isolated)
+### Phase 3: Fix
 
-All fix work is done in an isolated git worktree to allow review before merging:
+Processes comments in priority order (blocking -> important -> suggestions -> style):
 
-1. Creates an isolated worktree on the PR branch
-2. Processes comments in priority order (blocking -> important -> suggestions -> style)
-3. Commits each fix with conventional commit format
-4. Runs quality checks (lint, typecheck, tests)
+1. Commits each fix with conventional commit format
+2. Runs quality checks (lint, typecheck, tests)
 
 For each comment:
 
@@ -126,8 +124,6 @@ For each comment:
 - Commits with `fix(feedback): description`
 - Updates feedback document with resolution status
 - Runs tests to verify
-
-**Important**: Changes are NOT pushed automatically. The worktree is left intact for your review.
 
 ### Phase 4: Report
 
@@ -146,30 +142,8 @@ Generates a consolidated summary:
 - Style: 2/2
 
 ### Commits Made
-5 commit(s) in worktree:
 - abc1234 - fix(feedback): move JWT secret to env var
 - def5678 - fix(feedback): add token expiration check
-
-## Review Your Changes
-
-The fixes have been made in an isolated worktree. **Changes are NOT pushed yet.**
-
-**Worktree Location**:
-path/to/worktree
-
-**To review the changes**:
-cd path/to/worktree
-git log --oneline -10
-git diff HEAD~5
-
-**To push** (after review):
-cd path/to/worktree
-git push origin feature/my-feature
-
-## Cleanup (Required)
-
-When done reviewing, return to the main repo and remove the worktree:
-git worktree remove path/to/worktree
 ```
 
 ## Related Commands
