@@ -37,7 +37,7 @@ Invoke the pr-feedback-collector agent to gather and classify PR comments:
 
 Task tool:
 subagent_type: rp1-dev:pr-feedback-collector
-prompt: 
+prompt:
 FEATURE_ID: {FEATURE_ID or derived from PR}
 PR_NUMBER: {PR_IDENTIFIER if numeric, else auto-detect}
 RP1_ROOT: {{$RP1_ROOT}}

@@ -123,7 +123,7 @@ question_number = 0
 loop:
   1. Task tool:
 subagent_type: rp1-dev:charter-interviewer
-prompt: 
+prompt:
 CHARTER_PATH={{$RP1_ROOT}}/context/charter.md, MODE={mode}, RP1_ROOT={{$RP1_ROOT}}
 
   2. Parse JSON response
@@ -216,7 +216,7 @@ question_count = 0
 loop:
   Task tool:
 subagent_type: rp1-dev:blueprint-wizard
-prompt: 
+prompt:
 PRD_NAME={PRD_NAME}, EXTRA_CONTEXT={EXTRA_CONTEXT}, RP1_ROOT={{$RP1_ROOT}}
 
   Parse JSON response

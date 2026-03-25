@@ -47,7 +47,7 @@ Extract these parameters from the user's input:
 
 Task tool:
 subagent_type: rp1-dev:blueprint-auditor
-prompt: 
+prompt:
 MODE: audit
 PRD_NAME: {PRD_NAME}
 

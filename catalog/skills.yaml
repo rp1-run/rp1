@@ -31,7 +31,7 @@ skills:
     agents_that_use_me: []
     sub_agents_that_i_use: [rp1-base:research-explorer,rp1-base:research-reporter]
     skills_that_i_use: []
-    last_update: "2026-03-19"
+    last_update: "2026-03-25"
     last_checksum: e58278a4c4efdce15b65044cd62d9a20d2b17556964f511e727f206f89893609
   - name: rp1-base:fix-mermaid
     description: Validates and repairs mermaid diagrams in markdown files. Scans for mermaid blocks, validates syntax, and auto-repairs common errors.
@@ -67,7 +67,7 @@ skills:
     agents_that_use_me: [rp1-base:kb-architecture-mapper]
     sub_agents_that_i_use: [rp1-base:kb-architecture-mapper,rp1-base:kb-concept-extractor,rp1-base:kb-module-analyzer,rp1-base:kb-pattern-extractor,rp1-base:kb-spatial-analyzer]
     skills_that_i_use: [rp1-base:knowledge-base-templates,rp1-base:mermaid]
-    last_update: "2026-03-14"
+    last_update: "2026-03-25"
     last_checksum: 3f4770105636d6b1d8974e4d43b9bd8bfcf04d5b1678687072b1470d9cc309e0
   - name: rp1-base:knowledge-load
     description: Ingests and prepares codebase documentation, builds internal knowledge graphs, and creates optimized context representations for downstream analysis tasks.
@@ -211,7 +211,7 @@ skills:
     agents_that_use_me: []
     sub_agents_that_i_use: [rp1-dev:build-fast-planner,rp1-dev:task-builder,rp1-dev:task-reviewer]
     skills_that_i_use: [rp1-base:self-update,rp1-dev:arcade-collab,rp1-dev:build]
-    last_update: "2026-03-23"
+    last_update: "2026-03-25"
     last_checksum: 15827694e9e7aaf81556d043db8e8a3f3641626f7b2fc6bdfc4fe27f1b7d86a3
   - name: rp1-dev:build
     description: End-to-end feature workflow (requirements -> design -> tasks -> build -> verify -> archive) in a single command.
@@ -301,8 +301,8 @@ skills:
     agents_that_use_me: []
     sub_agents_that_i_use: [rp1-dev:pr-visualizer]
     skills_that_i_use: []
-    last_update: "2026-03-24"
-    last_checksum: 668b3c84c2ad555ef9b74577ca8c47c64a3ed88ef57e117c2691fbf79d225cf8
+    last_update: "2026-03-25"
+    last_checksum: fe65ae5544668d3a67c62c507a53c12bdf8630924ad9ad693fdad42b2160e418
   - name: rp1-dev:validate-hypothesis
     description: Validate design hypotheses via code experiments, codebase analysis, and external research.
     plugin: dev

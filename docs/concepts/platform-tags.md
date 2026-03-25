@@ -8,7 +8,7 @@ Each platform has different tool names, agent spawning protocols, and capability
 
 | Behavior | Claude Code | OpenCode | Codex |
 |----------|-------------|----------|-------|
-| Agent dispatch | Task tool (sync) | task tool (sync) | spawn_agent + wait (async) |
+| Agent dispatch | Task tool (sync) | task tool (sync) | spawn_agent + explicit fork_context + wait (async) |
 | User input | AskUserQuestion | ask_user | request_user_input (options required) |
 | Planning | TodoWrite + PlanMode | manage_todos | update_plan |
 | Web access | WebFetch + WebSearch | web_fetch + web_search | web_search only |
@@ -35,7 +35,7 @@ Tags use `{% %}` syntax, which the preprocessor's Liquid instance already proces
 
 | Tag | Purpose | FR |
 |-----|---------|-----|
-| `{% dispatch_agent %}` | Agent spawning with full Codex spawn/wait protocol | FR-01 |
+| `{% dispatch_agent %}` | Agent spawning with full Codex spawn/fork_context/wait protocol | FR-01 |
 | `{% ask_user %}` | User input with per-platform tool names and Codex constraints | FR-02 |
 | `{% plan_tool %}` | Planning/todo with CC plan-mode support | FR-03 |
 | `{% web_access %}` | Web access with graceful degradation | FR-04 |
@@ -64,7 +64,7 @@ For syntax, arguments, and per-platform output examples, see the [Platform Tags 
 
 The build pipeline validates rendered output with five lint rules (L001--L005). Errors block the build; warnings are advisory. Run the linter standalone with `rp1 build --lint`.
 
-The linter catches null tool references, orphaned platform blocks, incomplete Codex dispatch protocols, unresolved semantic tags, and CC-specific tool names in non-CC prose. See the [lint rules reference](../reference/platform-tags.md#lint-rules-reference) for details on each rule.
+The linter catches null tool references, orphaned platform blocks, incomplete Codex dispatch protocols (including missing `fork_context`), unresolved semantic tags, and CC-specific tool names in non-CC prose. See the [lint rules reference](../reference/platform-tags.md#lint-rules-reference) for details on each rule.
 
 ## Related
 

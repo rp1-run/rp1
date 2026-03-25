@@ -49,7 +49,7 @@ Extract these parameters from the user's input:
 
 Task tool:
 subagent_type: rp1-dev:prd-archiver
-prompt: 
+prompt:
 MODE: scan
 PRD_NAME: {PRD_NAME}
 
@@ -100,7 +100,7 @@ Capture response as `GAPS`.
 
 Task tool:
 subagent_type: rp1-dev:prd-archiver
-prompt: 
+prompt:
 MODE: archive
 PRD_NAME: {PRD_NAME}
 CLOSURE_STATUS: {complete|partial}

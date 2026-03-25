@@ -38,7 +38,7 @@ metadata:
 
 Task tool:
 subagent_type: rp1-dev:build-artifact-detector
-prompt: 
+prompt:
 FEATURE_ID={FEATURE_ID}, RP1_ROOT={{$RP1_ROOT}}
 
 Do NOT read files, load KB, or analyze requirements before this completes.
@@ -84,7 +84,7 @@ AFK mode: skip all prompts, auto-select defaults, retry once on failure, auto-ar
 
 Task tool:
 subagent_type: rp1-dev:feature-requirement-gatherer
-prompt: 
+prompt:
 FEATURE_ID={FEATURE_ID}, REQUIREMENTS={REQUIREMENTS}, AFK={AFK}, RP1_ROOT={{$RP1_ROOT}}, WORKFLOW=build, RUN_ID={RUN_ID}
 
 Validate the response before continuing:
@@ -121,19 +121,19 @@ On Stop: output summary, exit with `/build {FEATURE_ID}` resume instruction.
 
 Task tool:
 subagent_type: rp1-dev:feature-architect
-prompt: 
+prompt:
 FEATURE_ID={FEATURE_ID}, AFK={AFK}, UPDATE_MODE={design.md exists}, RP1_ROOT={{$RP1_ROOT}}, WORKFLOW=build, RUN_ID={RUN_ID}
 
 If `flagged_hypotheses` non-empty:
 
 Task tool:
 subagent_type: rp1-dev:hypothesis-tester
-prompt: 
+prompt:
 FEATURE_ID={FEATURE_ID}, WORKFLOW=build, RUN_ID={RUN_ID}
 
 Task tool:
 subagent_type: rp1-dev:feature-tasker
-prompt: 
+prompt:
 FEATURE_ID={FEATURE_ID}, UPDATE_MODE={UPDATE_MODE}, RP1_ROOT={{$RP1_ROOT}}, WORKFLOW=build, RUN_ID={RUN_ID}
 
 **Checkpoint** (skip if AFK):
@@ -163,7 +163,7 @@ On Stop: output summary (steps 1-2 done), exit with `/build {FEATURE_ID}`.
 
 Task tool:
 subagent_type: rp1-dev:feature-tasker
-prompt: 
+prompt:
 FEATURE_ID={FEATURE_ID}, UPDATE_MODE=false, RP1_ROOT={{$RP1_ROOT}}, WORKFLOW=build, RUN_ID={RUN_ID}
 
 **Checkpoint** (skip if AFK):
@@ -195,14 +195,14 @@ On Stop: output summary (steps 1-3 done), exit with `/build {FEATURE_ID}`.
 
 Task tool:
 subagent_type: rp1-dev:build-task-parser
-prompt: 
+prompt:
 TASKS_PATH={{$RP1_ROOT}}/work/features/{FEATURE_ID}/tasks.md
 
 Extract `implementation_tasks`, `doc_tasks`.
 
 Task tool:
 subagent_type: rp1-dev:build-task-grouper
-prompt: 
+prompt:
 TASKS: {implementation_tasks JSON}, MAX_SIMPLE_BATCH: 3, COMPLEX_ISOLATED: true
 
 Extract `task_units` array.
@@ -213,12 +213,12 @@ For each task unit, run builder then reviewer:
 
 Task tool:
 subagent_type: rp1-dev:task-builder
-prompt: 
+prompt:
 FEATURE_ID={FEATURE_ID}, TASK_IDS={TASK_IDS}, GIT_COMMIT={GIT_COMMIT}, FEEDBACK={feedback}, WORKFLOW=build, RUN_ID={RUN_ID}
 
 Task tool:
 subagent_type: rp1-dev:task-reviewer
-prompt: 
+prompt:
 FEATURE_ID={FEATURE_ID}, TASK_IDS={TASK_IDS}, GIT_COMMIT={GIT_COMMIT}, WORKFLOW=build, RUN_ID={RUN_ID}
 
 Loop logic: attempt=1, max=2. If reviewer reports SUCCESS: move to next unit. If FAILURE and attempt < max: pass feedback to builder, retry. Else: escalate (AFK: mark blocked; Interactive: prompt user).
@@ -253,24 +253,24 @@ On Review feedback from Arcade: load `arcade-collab` skill, process all feedback
 
 Task tool:
 subagent_type: rp1-dev:code-checker
-prompt: 
+prompt:
 FEATURE_ID={FEATURE_ID}, BRANCH={branch}
 
 Task tool:
 subagent_type: rp1-dev:feature-verifier
-prompt: 
+prompt:
 FEATURE_ID={FEATURE_ID}, RP1_ROOT={{$RP1_ROOT}}, WORKFLOW=build, RUN_ID={RUN_ID}
 
 Task tool:
 subagent_type: rp1-dev:comment-cleaner
-prompt: 
+prompt:
 MODE=clean, SCOPE=branch, COMMIT_CHANGES={GIT_COMMIT}
 
 Then aggregate:
 
 Task tool:
 subagent_type: rp1-dev:build-verify-aggregator
-prompt: 
+prompt:
 PHASE_RESULTS: { code_checker: {...}, feature_verifier: {...}, comment_cleaner: {...} }
 
 Extract `overall_status`, `ready_for_merge`, `manual_items`.
@@ -317,7 +317,7 @@ On Review feedback from Arcade: load `arcade-collab` skill, process all feedback
 
 Task tool:
 subagent_type: rp1-dev:feature-archiver
-prompt: 
+prompt:
 MODE=archive, FEATURE_ID={FEATURE_ID}, SKIP_DOC_CHECK=false
 
 ## §ANTI-LOOP
