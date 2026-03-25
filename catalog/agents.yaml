@@ -46,8 +46,8 @@ agents:
     plugin: base
     skills_that_i_use: []
     skills_that_use_me: [rp1-base:knowledge-build]
-    last_update: "2026-02-16"
-    last_checksum: a961b7bac1653739c6dbd468dfa35df2996bb2ecf38984ce9675fdafa546e073
+    last_update: "2026-03-25"
+    last_checksum: a6edc412292bce9fcd3b0206e3bb163d0b106792b5d6973cf9d71e94ba17e7b5
   - name: rp1-base:mermaid-fixer
     description: Validates and repairs mermaid diagrams in markdown files. Scans for mermaid blocks, validates each diagram, attempts automatic repair (up to 3 iterations), and inserts placeholders for unfixable diagrams.
     plugin: base
