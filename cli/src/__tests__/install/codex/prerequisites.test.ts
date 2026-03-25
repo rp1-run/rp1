@@ -25,11 +25,11 @@ describe("codex prerequisites", () => {
 	});
 
 	describe("checkCodexVersion", () => {
-		test("accepts versions >= 0.110.0", () => {
+		test("accepts versions >= 0.116.0", () => {
 			const validVersions = [
-				"0.110.0",
-				"0.110.1",
-				"0.111.0",
+				"0.116.0",
+				"0.116.1",
+				"0.117.0",
 				"0.200.0",
 				"1.0.0",
 				"2.0.0",
@@ -44,8 +44,8 @@ describe("codex prerequisites", () => {
 			}
 		});
 
-		test("rejects versions below 0.110.0", () => {
-			const oldVersions = ["0.109.9", "0.100.0", "0.50.0", "0.1.0"];
+		test("rejects versions below 0.116.0", () => {
+			const oldVersions = ["0.115.9", "0.110.0", "0.100.0", "0.50.0", "0.1.0"];
 
 			for (const version of oldVersions) {
 				const result = checkCodexVersion(version);
@@ -53,7 +53,7 @@ describe("codex prerequisites", () => {
 				if (E.isLeft(result)) {
 					expect(getErrorMessage(result.left)).toContain("below minimum");
 					expect((result.left as { suggestion?: string }).suggestion).toContain(
-						"0.110.0",
+						"0.116.0",
 					);
 				}
 			}
@@ -81,10 +81,10 @@ describe("codex prerequisites", () => {
 		});
 
 		test("extracts version from string containing semver", () => {
-			const result = checkCodexVersion("codex version 0.110.0");
+			const result = checkCodexVersion("codex version 0.116.0");
 			expect(E.isRight(result)).toBe(true);
 			if (E.isRight(result)) {
-				expect(result.right.value).toBe("0.110.0");
+				expect(result.right.value).toBe("0.116.0");
 			}
 		});
 	});
@@ -123,11 +123,12 @@ describe("codex prerequisites", () => {
 	});
 
 	describe("getCodexPaths", () => {
-		test("returns all required path fields", () => {
+		test("returns all required path fields with canonical ~/.codex/ paths", () => {
 			const paths = getCodexPaths();
 
-			expect(paths.skillsDir).toContain(".agents");
+			expect(paths.skillsDir).toContain(".codex");
 			expect(paths.skillsDir).toContain("skills");
+			expect(paths.skillsDir).not.toContain(".agents");
 			expect(paths.configDir).toContain(".codex");
 			expect(paths.configFile).toContain("config.toml");
 			expect(paths.backupDir).toContain("codex-rp1-backups");

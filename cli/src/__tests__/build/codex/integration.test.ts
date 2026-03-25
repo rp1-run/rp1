@@ -121,7 +121,7 @@ describe("buildCodexPlugin integration", () => {
 		expect(manifest.plugin).toBe("rp1-base");
 		expect(manifest.artifacts.skills.length).toBe(result.skills);
 		expect(manifest.artifacts.agents.length).toBe(result.agents);
-		expect(manifest.installation.skillsDir).toBe(".agents/skills/");
+		expect(manifest.installation.skillsDir).toBe("~/.codex/skills/");
 		expect(manifest.installation.configFile).toBe("~/.codex/config.toml");
 	}, 30000);
 
@@ -156,6 +156,42 @@ describe("buildCodexPlugin integration", () => {
 		}
 
 		expect(foundTransformedRef).toBe(true);
+	}, 30000);
+
+	test("built Codex skills do not contain raw $1 or $ARGUMENTS markers", async () => {
+		const outputPath = join(tempDir, "param-check-output");
+		await buildCodexPlugin("dev", projectRoot, outputPath, logger, true);
+
+		const skillsDir = join(outputPath, "dev", "skills");
+		const skillDirs = await readdir(skillsDir);
+
+		for (const dir of skillDirs) {
+			const content = await readFile(join(skillsDir, dir, "SKILL.md"), "utf-8");
+			const lines = content.split("\n");
+			let inCodeBlock = false;
+			for (const line of lines) {
+				if (line.startsWith("```")) {
+					inCodeBlock = !inCodeBlock;
+					continue;
+				}
+				if (!inCodeBlock) {
+					expect(line).not.toMatch(/\$\d+\b/);
+					expect(line).not.toMatch(/\$ARGUMENTS/);
+				}
+			}
+		}
+	}, 30000);
+
+	test("AGENTS.md does not contain Claude-specific syntax", async () => {
+		const outputPath = join(tempDir, "agentsmd-syntax-output");
+		await buildCodexPlugin("base", projectRoot, outputPath, logger, true);
+
+		const agentsMdPath = join(outputPath, "base", "AGENTS.md");
+		const agentsMdContent = await readFile(agentsMdPath, "utf-8");
+
+		expect(agentsMdContent).not.toContain("CLAUDE.md");
+		expect(agentsMdContent).not.toContain("@path");
+		expect(agentsMdContent).not.toContain("claude-code");
 	}, 30000);
 
 	test("produces AGENTS.md listing all agents", async () => {
