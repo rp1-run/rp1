@@ -179,15 +179,15 @@ agents:
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:build,rp1-dev:code-check]
-    last_update: "2026-02-16"
-    last_checksum: 171c96b9c4e97cf029e25e2b166bdaa9a8cc44ea033f5f06aae79c998a48d5ce
+    last_update: "2026-03-25"
+    last_checksum: 23ec405de32b17fb8f3566fe72bc0f518d35d888e490e7fddabaf3024410db30
   - name: rp1-dev:comment-cleaner
     description: Systematically removes unnecessary comments from code while preserving docstrings, critical logic explanations, and type directives
     plugin: dev
     skills_that_i_use: [rp1-base:code-comments]
     skills_that_use_me: [rp1-dev:build,rp1-dev:code-clean-comments]
-    last_update: "2026-01-01"
-    last_checksum: 691bbfd43d4c3ebc0ad4c75a48d18aa9e55510983a3e5eebadf8787c96499787
+    last_update: "2026-03-25"
+    last_checksum: 8c80f0f2312a0721a0f3e8da76fd82c6982c950bef895a51927b5e1cff4abb86
   - name: rp1-dev:express-builder
     description: Implements a single focused code change from a build-express request
     plugin: dev
@@ -235,8 +235,8 @@ agents:
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:build]
-    last_update: "2026-03-19"
-    last_checksum: c51f0e64e54a41411a2592781fcf0482ba665fa1c08f07a11b32d9290b1b38f8
+    last_update: "2026-03-25"
+    last_checksum: 2b2f64b6980df0bc630a54b80ebadb5b568f97f232dff181c77a2c99fa3f293f
   - name: rp1-dev:hypothesis-tester
     description: Validates design hypotheses through code experiments, codebase analysis, and external research
     plugin: dev
@@ -312,15 +312,15 @@ agents:
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:build-fast,rp1-dev:build]
-    last_update: "2026-03-23"
-    last_checksum: 4e50920994b959a8936d0fa2da65e9577aa8ef54844ed135bb9a94e6a5ece401
+    last_update: "2026-03-25"
+    last_checksum: 60c9650e01bdee0608256984cef27001b35c84851aac1ea8a30652777ff79d69
   - name: rp1-dev:task-reviewer
     description: Verifies builder's work for discipline, accuracy, completeness, and commit quality. Returns SUCCESS or FAILURE with actionable feedback. Uses extended thinking for careful verification.
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:build-fast,rp1-dev:build]
-    last_update: "2026-03-19"
-    last_checksum: 69c5083a58f858328328a08e1399749bcd08f2cbc1cf9be3220aef0d50abf85d
+    last_update: "2026-03-25"
+    last_checksum: 63307f1fb0e21b0b70117c6b8317f4bb90819458ef6a1c9dfc822f72c37e2b31
   - name: rp1-dev:test-runner
     description: Executes comprehensive functional testing of implemented features including automated tests, coverage measurement, acceptance criteria verification, and detailed test reporting
     plugin: dev
