@@ -101,7 +101,7 @@ export const installParentCommand = new Command("install")
 	.option("-y, --yes", "Skip confirmation prompts")
 	.option(
 		"-p, --platform <platform>",
-		"Target a specific platform (claude-code, opencode)",
+		"Target a specific platform (claude-code, opencode, codex)",
 	)
 	.addHelpText(
 		"after",
@@ -112,6 +112,7 @@ Use --platform to target a specific platform.
 Subcommands:
   claude-code    Install plugins to Claude Code
   opencode       Install plugins to OpenCode
+  codex          Install plugins to Codex CLI
   all            Install plugins to all detected tools
 
 Examples:
