@@ -221,7 +221,7 @@ skills:
     sub_agents_that_i_use: [rp1-dev:build-artifact-detector,rp1-dev:build-task-grouper,rp1-dev:build-task-parser,rp1-dev:build-verify-aggregator,rp1-dev:code-checker,rp1-dev:comment-cleaner,rp1-dev:feature-architect,rp1-dev:feature-archiver,rp1-dev:feature-requirement-gatherer,rp1-dev:feature-tasker,rp1-dev:feature-verifier,rp1-dev:hypothesis-tester,rp1-dev:task-builder,rp1-dev:task-reviewer]
     skills_that_i_use: [rp1-dev:code-check,rp1-dev:feature-archive]
     last_update: "2026-03-26"
-    last_checksum: e626b18a90fe7b89687aa550fe2efe2413bbcb06d3a6131a9e5b4d206b5d5009
+    last_checksum: 02f7664253cda891e79de85be60a15b0db5c88cf200b20398c8a8918a17a1ae7
   - name: rp1-dev:code-audit
     description: Analyzes implemented code for pattern consistency, maintainability, code duplication, comment quality, and documentation drift.
     plugin: dev
