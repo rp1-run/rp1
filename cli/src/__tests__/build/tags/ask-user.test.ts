@@ -91,4 +91,133 @@ describe("ask_user tag", () => {
 			expect(output).toContain('options: ["OK"]');
 		});
 	});
+
+	describe("codex enrichment sections", () => {
+		const template =
+			'{% ask_user "Approve the design?", options: "Yes", "No", "Revise" %}';
+
+		test("includes checkpoint section with persistence guidance", async () => {
+			const output = await render(template, "codex");
+			expect(output).toContain("**Checkpoint**:");
+			expect(output).toContain("Current workflow phase and step name");
+			expect(output).toContain("Paths to any artifacts produced so far");
+			expect(output).toContain("Pending work remaining in the workflow");
+		});
+
+		test("includes stop directive", async () => {
+			const output = await render(template, "codex");
+			expect(output).toContain("**Stop**:");
+			expect(output).toContain(
+				"Do NOT continue the workflow beyond this point",
+			);
+		});
+
+		test("includes resume instructions", async () => {
+			const output = await render(template, "codex");
+			expect(output).toContain("**Resume**:");
+			expect(output).toContain("read the checkpoint file");
+			expect(output).toContain("process the user's reply");
+		});
+
+		test("preserves subagent unavailability note at end", async () => {
+			const output = await render(template, "codex");
+			expect(output).toContain(
+				"User input is unavailable in subagent contexts on Codex",
+			);
+			const noteIndex = output.indexOf(
+				"User input is unavailable in subagent contexts on Codex",
+			);
+			const resumeIndex = output.indexOf("**Resume**:");
+			expect(noteIndex).toBeGreaterThan(resumeIndex);
+		});
+
+		test("sections appear in correct order", async () => {
+			const output = await render(template, "codex");
+			const checkpointIdx = output.indexOf("**Checkpoint**:");
+			const stopIdx = output.indexOf("**Stop**:");
+			const resumeIdx = output.indexOf("**Resume**:");
+			const noteIdx = output.indexOf(
+				"User input is unavailable in subagent contexts on Codex",
+			);
+
+			expect(checkpointIdx).toBeGreaterThan(-1);
+			expect(stopIdx).toBeGreaterThan(checkpointIdx);
+			expect(resumeIdx).toBeGreaterThan(stopIdx);
+			expect(noteIdx).toBeGreaterThan(resumeIdx);
+		});
+	});
+
+	describe("codex plain-text fallback", () => {
+		const template = '{% ask_user "Ready to proceed?", options: "Yes", "No" %}';
+
+		test("includes plain-text fallback section", async () => {
+			const output = await render(template, "codex");
+			expect(output).toContain("**Plain-text fallback**:");
+			expect(output).toContain("If `request_user_input` is unavailable");
+		});
+
+		test("fallback includes question text in natural language", async () => {
+			const output = await render(template, "codex");
+			expect(output).toContain("**Ready to proceed?**");
+			expect(output).toContain("I need your input before continuing.");
+		});
+
+		test("fallback includes options in natural language", async () => {
+			const output = await render(template, "codex");
+			expect(output).toContain(
+				"Please respond with one of the following, or provide freeform feedback:",
+			);
+			expect(output).toContain("- Yes");
+			expect(output).toContain("- No");
+		});
+
+		test("fallback appears before checkpoint section", async () => {
+			const output = await render(template, "codex");
+			const fallbackIdx = output.indexOf("**Plain-text fallback**:");
+			const checkpointIdx = output.indexOf("**Checkpoint**:");
+			expect(fallbackIdx).toBeGreaterThan(-1);
+			expect(checkpointIdx).toBeGreaterThan(fallbackIdx);
+		});
+
+		test("fallback coexists with structured request_user_input", async () => {
+			const output = await render(template, "codex");
+			expect(output).toContain('request_user_input: "Ready to proceed?"');
+			expect(output).toContain('options: ["Yes", "No"]');
+			expect(output).toContain("**Plain-text fallback**:");
+		});
+	});
+
+	describe("regression: CC and OC renderings unchanged", () => {
+		const template = '{% ask_user "Pick one", options: "Yes", "No", "Maybe" %}';
+
+		test("CC rendering does not include Codex-specific sections", async () => {
+			const output = await render(template, "claude-code");
+			expect(output).not.toContain("**Checkpoint**:");
+			expect(output).not.toContain("**Stop**:");
+			expect(output).not.toContain("**Resume**:");
+			expect(output).not.toContain("request_user_input");
+			expect(output).not.toContain("**Plain-text fallback**:");
+		});
+
+		test("OC rendering does not include Codex-specific sections", async () => {
+			const output = await render(template, "opencode");
+			expect(output).not.toContain("**Checkpoint**:");
+			expect(output).not.toContain("**Stop**:");
+			expect(output).not.toContain("**Resume**:");
+			expect(output).not.toContain("request_user_input");
+			expect(output).not.toContain("**Plain-text fallback**:");
+		});
+
+		test("CC rendering matches expected format exactly", async () => {
+			const template2 = '{% ask_user "What is your preference?" %}';
+			const output = await render(template2, "claude-code");
+			expect(output).toBe('AskUserQuestion: "What is your preference?"');
+		});
+
+		test("OC rendering matches expected format exactly", async () => {
+			const template2 = '{% ask_user "What is your preference?" %}';
+			const output = await render(template2, "opencode");
+			expect(output).toBe('ask_user: "What is your preference?"');
+		});
+	});
 });
