@@ -240,7 +240,13 @@ List uncovered design sections -> new tasks: T{max_id + 1}...
 ## §5 Output
 
 ### 5.1 Small Scope (tasks.md)
+
+**Frontmatter**: If RUN_ID is non-empty, include `rp1_run_id` in the YAML frontmatter block. This enables run resumability. Use the `rp1_` prefix consistent with `rp1_doc_id`.
+
 ```markdown
+---
+rp1_run_id: {RUN_ID}
+---
 # Development Tasks: [Feature Name]
 
 **Feature ID**: {FEATURE_ID}
@@ -292,8 +298,11 @@ stateDiagram-v2
 
 ### 5.2 Large Scope
 
-**tracker.md**:
+**tracker.md** (include `rp1_run_id` frontmatter same as small scope):
 ```markdown
+---
+rp1_run_id: {RUN_ID}
+---
 # Feature Development Tracker: [Feature Name]
 
 **Feature ID**: {FEATURE_ID}
