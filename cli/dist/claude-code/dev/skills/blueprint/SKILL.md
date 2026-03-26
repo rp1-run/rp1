@@ -43,7 +43,7 @@ stateDiagram-v2
 
 **On each phase transition**, report via:
 ```
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow blueprint \
   --type status_change \
   --run-id {RUN_ID} \
@@ -148,7 +148,7 @@ CHARTER_PATH={{$RP1_ROOT}}/context/charter.md, MODE={mode}, RP1_ROOT={{$RP1_ROOT
         Update status to "Complete"
         Register artifact:
         ```bash
-        rp1 agent-tools emit \
+        rp1 agent-tools emit --harness claude-code \
           --workflow blueprint \
           --type artifact_registered \
           --run-id {RUN_ID} \
@@ -246,7 +246,7 @@ PRD_NAME={PRD_NAME}, EXTRA_CONTEXT={EXTRA_CONTEXT}, RP1_ROOT={{$RP1_ROOT}}
       Write PRD w/ response.prd_content (removes scratch pad)
       Register artifact:
       ```bash
-      rp1 agent-tools emit \
+      rp1 agent-tools emit --harness claude-code \
         --workflow blueprint \
         --type artifact_registered \
         --run-id {RUN_ID} \

@@ -66,7 +66,7 @@ stateDiagram-v2
 
 **On each phase transition**, report via:
 ```
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow build-fast \
   --type status_change \
   --run-id {RUN_ID} \
@@ -120,7 +120,7 @@ When skipped: Do NOT call AskUserQuestion. Proceed directly to §PHASE-2.
 Emit waiting status so the Arcade dashboard reflects the gate pause:
 
 ```bash
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow build-fast \
   --type waiting_for_user \
   --run-id {RUN_ID} \
@@ -231,7 +231,7 @@ When skipped: Do NOT call AskUserQuestion. Proceed directly to §OUTPUT.
 Emit waiting status so the Arcade dashboard reflects the gate pause:
 
 ```bash
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow build-fast \
   --type waiting_for_user \
   --run-id {RUN_ID} \
@@ -263,7 +263,7 @@ Options:
 Register the artifact in the database:
 
 ```bash
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow build-fast \
   --type artifact_registered \
   --run-id {RUN_ID} \
@@ -295,7 +295,7 @@ rp1 agent-tools emit \
 - Spawn agents via Task/Agent tool for every phase (planner, task-builder, reviewer)
 - Wait for each Task to complete before proceeding
 - Use AskUserQuestion for user interactions (when not AFK)
-- Register artifact via `rp1 agent-tools emit --type artifact_registered` in §OUTPUT — this is REQUIRED
+- Register artifact via `rp1 agent-tools emit --harness claude-code --type artifact_registered` in §OUTPUT — this is REQUIRED
 
 **DO NOT** (hard constraints — never violate these):
 - Write/edit ANY source code files directly — planner writes the artifact, task-builder writes code

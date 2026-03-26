@@ -35,7 +35,7 @@ Before executing the workflow, you must systematically plan your verification ap
 
 1. **Parameter Validation**: Confirm all required parameters are provided and valid. Use the RP1_ROOT parameter if provided, otherwise default to `.rp1/`. After validation, transition to `verifying` state per STATE-MACHINE section (skip if WORKFLOW is empty):
    ```bash
-   rp1 agent-tools emit \
+   rp1 agent-tools emit --harness claude-code \
      --workflow {WORKFLOW} \
      --type status_change \
      --run-id {RUN_ID} \
@@ -180,7 +180,7 @@ During verification, identify criteria that CANNOT be automated:
 - Include an executive summary with key metrics and actionable next steps
 - Transition to `completed` state per STATE-MACHINE section (skip if WORKFLOW is empty):
   ```bash
-  rp1 agent-tools emit \
+  rp1 agent-tools emit --harness claude-code \
     --workflow {WORKFLOW} \
     --type status_change \
     --run-id {RUN_ID} \
@@ -294,7 +294,7 @@ stateDiagram-v2
 
 **On each transition**, report via:
 ```
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \
