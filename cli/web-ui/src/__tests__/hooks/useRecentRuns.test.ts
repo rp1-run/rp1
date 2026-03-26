@@ -26,6 +26,8 @@ describe("useRecentRuns", () => {
 				id: "run-1",
 				projectName: "proj-a",
 				featureName: "feat-x",
+				featureId: "feat-x",
+				name: "Build Alpha",
 			});
 		});
 
@@ -33,6 +35,8 @@ describe("useRecentRuns", () => {
 		expect(result.current.recentRuns[0].id).toBe("run-1");
 		expect(result.current.recentRuns[0].projectName).toBe("proj-a");
 		expect(result.current.recentRuns[0].featureName).toBe("feat-x");
+		expect(result.current.recentRuns[0].featureId).toBe("feat-x");
+		expect(result.current.recentRuns[0].name).toBe("Build Alpha");
 		expect(typeof result.current.recentRuns[0].timestamp).toBe("number");
 
 		const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]");
@@ -48,6 +52,7 @@ describe("useRecentRuns", () => {
 				id: "run-1",
 				projectName: "proj-a",
 				featureName: "feat-x",
+				name: "Original Name",
 			});
 		});
 		act(() => {
@@ -55,6 +60,7 @@ describe("useRecentRuns", () => {
 				id: "run-2",
 				projectName: "proj-a",
 				featureName: "feat-y",
+				featureId: "feat-y",
 			});
 		});
 		act(() => {
@@ -62,12 +68,14 @@ describe("useRecentRuns", () => {
 				id: "run-1",
 				projectName: "proj-a",
 				featureName: "feat-x-updated",
+				name: "Updated Name",
 			});
 		});
 
 		expect(result.current.recentRuns).toHaveLength(2);
 		expect(result.current.recentRuns[0].id).toBe("run-1");
 		expect(result.current.recentRuns[0].featureName).toBe("feat-x-updated");
+		expect(result.current.recentRuns[0].name).toBe("Updated Name");
 		expect(result.current.recentRuns[1].id).toBe("run-2");
 	});
 
@@ -80,6 +88,7 @@ describe("useRecentRuns", () => {
 					id: `run-${i}`,
 					projectName: `proj-${i}`,
 					featureName: `feat-${i}`,
+					featureId: `feat-${i}`,
 				});
 			}
 		});
@@ -97,6 +106,7 @@ describe("useRecentRuns", () => {
 				id: "run-a",
 				projectName: "proj",
 				featureName: "feat",
+				name: "Run A",
 			});
 		});
 		act(() => {
@@ -104,6 +114,7 @@ describe("useRecentRuns", () => {
 				id: "run-b",
 				projectName: "proj",
 				featureName: "feat",
+				name: "Run B",
 			});
 		});
 		act(() => {
@@ -111,6 +122,7 @@ describe("useRecentRuns", () => {
 				id: "run-c",
 				projectName: "proj",
 				featureName: "feat",
+				name: "Run C",
 			});
 		});
 
@@ -127,6 +139,7 @@ describe("useRecentRuns", () => {
 				id: "run-1",
 				projectName: "proj",
 				featureName: "feat",
+				featureId: "feat",
 			});
 		});
 
@@ -143,6 +156,7 @@ describe("useRecentRuns", () => {
 				id: "run-1",
 				projectName: "proj",
 				featureName: "feat",
+				name: "To Clear",
 			});
 		});
 		expect(result.current.recentRuns).toHaveLength(1);
@@ -159,5 +173,24 @@ describe("useRecentRuns", () => {
 		localStorage.setItem(STORAGE_KEY, "not-json{{{");
 		const { result } = renderHook(() => useRecentRuns());
 		expect(result.current.recentRuns).toEqual([]);
+	});
+
+	test("handles legacy stored entries without name or featureId", () => {
+		localStorage.setItem(
+			STORAGE_KEY,
+			JSON.stringify([
+				{
+					id: "run-legacy",
+					projectName: "proj",
+					featureName: "feat",
+					timestamp: 123,
+				},
+			]),
+		);
+
+		const { result } = renderHook(() => useRecentRuns());
+		expect(result.current.recentRuns).toHaveLength(1);
+		expect(result.current.recentRuns[0].name).toBeNull();
+		expect(result.current.recentRuns[0].featureId).toBeUndefined();
 	});
 });

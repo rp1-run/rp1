@@ -10,6 +10,10 @@
  * Excludes subcommands like `emit resume-run` which are not event emits.
  */
 
+import {
+	emitCommandHasHarness,
+	findEmitEventCommands,
+} from "../../emit-command-utils.js";
 import type { BuildPlatform } from "../../template-context.js";
 import type { LintDiagnostic } from "../index.js";
 
@@ -21,37 +25,27 @@ function findLineNumber(content: string, index: number): number {
 	return line;
 }
 
-/** Matches emit event invocations: `emit` followed by `--`, `\`, or EOL. */
-const EMIT_EVENT_PATTERN = /rp1 agent-tools emit(?= (?:--|\\)| *$)/gm;
-
 export function missingEmitHarnessRule(
 	content: string,
 	_platform: BuildPlatform,
 	file: string,
 ): LintDiagnostic[] {
 	const diagnostics: LintDiagnostic[] = [];
-
-	EMIT_EVENT_PATTERN.lastIndex = 0;
-	let match: RegExpExecArray | null;
-	while ((match = EMIT_EVENT_PATTERN.exec(content)) !== null) {
-		const lineEnd = content.indexOf("\n", match.index);
-		const restOfLine = content.slice(
-			match.index,
-			lineEnd === -1 ? undefined : lineEnd,
-		);
-
-		if (!restOfLine.includes("--harness")) {
-			diagnostics.push({
-				rule: "L006",
-				severity: "warning",
-				message:
-					"emit event invocation missing --harness; runs.harness will be NULL",
-				file,
-				line: findLineNumber(content, match.index),
-				suggestion:
-					"Ensure injectEmitHarness transform in build/transforms.ts covers this pattern",
-			});
+	for (const match of findEmitEventCommands(content)) {
+		if (emitCommandHasHarness(match.command)) {
+			continue;
 		}
+
+		diagnostics.push({
+			rule: "L006",
+			severity: "warning",
+			message:
+				"emit event invocation missing --harness; runs.harness will be NULL",
+			file,
+			line: findLineNumber(content, match.index),
+			suggestion:
+				"Ensure injectEmitHarness transform in build/transforms.ts covers this pattern",
+		});
 	}
 
 	return diagnostics;
