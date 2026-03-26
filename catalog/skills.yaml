@@ -184,8 +184,8 @@ skills:
     agents_that_use_me: []
     sub_agents_that_i_use: [rp1-dev:blueprint-wizard,rp1-dev:charter-interviewer]
     skills_that_i_use: [rp1-dev:build]
-    last_update: "2026-03-24"
-    last_checksum: 0aa08207a70664ee2aec34fe68506bfb191e305e895716c0fcf7a3142b0c8016
+    last_update: "2026-03-26"
+    last_checksum: 2ca1f16be45eea23b414e90447d5d5c4209d4bcb7dd452e2ac3b8b04a90d636d
   - name: rp1-dev:bootstrap
     description: Bootstrap a new project with charter discovery and tech stack scaffolding for greenfield development.
     plugin: dev
@@ -202,8 +202,8 @@ skills:
     agents_that_use_me: []
     sub_agents_that_i_use: [rp1-dev:express-builder]
     skills_that_i_use: [rp1-dev:arcade-collab,rp1-dev:build-fast,rp1-dev:build]
-    last_update: "2026-03-23"
-    last_checksum: cee2fcd079a7984c1e8b44fcc4d43c4bc0738b6a9cab279f7f5f86791c2dbe99
+    last_update: "2026-03-26"
+    last_checksum: 34e4b8da96b1967e89780b7744cf543cfc1f7802d97b560593485ac51d7a3a15
   - name: rp1-dev:build-fast
     description: Quick-iteration development for small/medium scope changes with persistent artifacts and optional review.
     plugin: dev
@@ -211,8 +211,8 @@ skills:
     agents_that_use_me: []
     sub_agents_that_i_use: [rp1-dev:build-fast-planner,rp1-dev:task-builder,rp1-dev:task-reviewer]
     skills_that_i_use: [rp1-base:self-update,rp1-dev:arcade-collab,rp1-dev:build]
-    last_update: "2026-03-25"
-    last_checksum: 15827694e9e7aaf81556d043db8e8a3f3641626f7b2fc6bdfc4fe27f1b7d86a3
+    last_update: "2026-03-26"
+    last_checksum: b8c35eca9941cd88708ef4d41f0883739823971d1ec03715bf70de219c9d2d14
   - name: rp1-dev:build
     description: End-to-end feature workflow (requirements -> design -> tasks -> build -> verify -> archive) in a single command.
     plugin: dev
@@ -292,8 +292,8 @@ skills:
     agents_that_use_me: []
     sub_agents_that_i_use: [rp1-dev:pr-comment-deduplicator,rp1-dev:pr-comment-poster,rp1-dev:pr-review-reporter,rp1-dev:pr-review-splitter,rp1-dev:pr-review-synthesizer,rp1-dev:pr-sub-reviewer,rp1-dev:pr-visualizer]
     skills_that_i_use: [rp1-dev:pr-visual]
-    last_update: "2026-03-24"
-    last_checksum: 261c86743c7c583b411620eb32e16626433af69128336b534d0890a0d749b89f
+    last_update: "2026-03-26"
+    last_checksum: 1fb2364327549863239d4b5661e6d2bf079b9fbcbd53fb86ccf7a8e43a29faca
   - name: rp1-dev:pr-visual
     description: Transform pull request diffs into Mermaid diagrams for visual code review and change understanding.
     plugin: dev

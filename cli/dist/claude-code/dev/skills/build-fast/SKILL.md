@@ -75,6 +75,8 @@ rp1 agent-tools emit \
 ```
 
 - Generate `RUN_ID` as a UUID at workflow start
+- Derive `RUN_NAME` from the development request: a brief summary (max 60 chars) prefixed with `"Feature: "` (e.g., `"Feature: Add logout button to navbar"`)
+- On the **first** emit only, include `--name "{RUN_NAME}"` to label the run in the Arcade dashboard
 
 **State Progression Protocol**:
 1. Report each `--step` with `--data '{"status": "running"}'` when you enter that state
@@ -84,7 +86,7 @@ rp1 agent-tools emit \
 
 **Example sequence**:
 ```
---workflow build-fast --step plan --data '{"status": "running"}'       # entering plan phase
+--workflow build-fast --step plan --name "Feature: Add logout button" --data '{"status": "running"}'   # first emit includes --name
 --workflow build-fast --step build --data '{"status": "running"}'      # plan done, entering build phase
 --workflow build-fast --step review --data '{"status": "running"}'     # build done, entering review phase
 --workflow build-fast --step review --data '{"status": "completed"}'   # review done, workflow complete
