@@ -51,6 +51,7 @@ import { defaultRegistry } from "./registry.js";
 import type { BuildPlatform } from "./template-context.js";
 import { buildTemplateContext } from "./template-context.js";
 import { createTemplateEngine } from "./template-engine.js";
+import { injectEmitHarness } from "./transforms.js";
 import { validateAgent, validateSkill } from "./validator.js";
 
 const VALID_PLATFORMS = ["opencode", "codex", "claude-code", "all"];
@@ -573,7 +574,7 @@ export const buildPlugin = async (
 			errors.push(formatError(renderResult.left, false));
 			continue;
 		}
-		const skillMdContent = renderResult.right;
+		const skillMdContent = injectEmitHarness(renderResult.right, platform);
 
 		const validateResult = validateSkill(
 			skillMdContent,
@@ -695,7 +696,7 @@ export const buildPlugin = async (
 			errors.push(formatError(renderResult.left, false));
 			continue;
 		}
-		const content = renderResult.right;
+		const content = injectEmitHarness(renderResult.right, platform);
 		const filename = `${ccAgent.name}.md`;
 
 		const validateResult = validateAgent(content, filename);
@@ -939,9 +940,10 @@ export const buildCCPlugin = async (
 			errors.push(formatError(renderResult.left, false));
 			continue;
 		}
+		const ccSkillContent = injectEmitHarness(renderResult.right, platform);
 
 		const ccSkillLint = lintArtifact(
-			renderResult.right,
+			ccSkillContent,
 			platform,
 			`${skillDirName}/SKILL.md`,
 		);
@@ -962,7 +964,7 @@ export const buildCCPlugin = async (
 		if (!lintOnly) {
 			const skillOutputDir = join(pluginOutputDir, "skills", skillDirName);
 			await mkdir(skillOutputDir, { recursive: true });
-			await writeFile(join(skillOutputDir, "SKILL.md"), renderResult.right);
+			await writeFile(join(skillOutputDir, "SKILL.md"), ccSkillContent);
 
 			await copySupportingFiles(
 				skillDir,
@@ -1020,9 +1022,10 @@ export const buildCCPlugin = async (
 			errors.push(formatError(renderResult.left, false));
 			continue;
 		}
+		const ccAgentContent = injectEmitHarness(renderResult.right, platform);
 
 		const ccAgentLint = lintArtifact(
-			renderResult.right,
+			ccAgentContent,
 			platform,
 			`${ccAgent.name}.md`,
 		);
@@ -1042,7 +1045,7 @@ export const buildCCPlugin = async (
 
 		if (!lintOnly) {
 			const outputFile = join(pluginOutputDir, "agents", `${ccAgent.name}.md`);
-			await writeFile(outputFile, renderResult.right);
+			await writeFile(outputFile, ccAgentContent);
 		}
 
 		agentNames.push(ccAgent.name);
@@ -1209,9 +1212,10 @@ export const buildCodexPlugin = async (
 			errors.push(formatError(renderResult.left, false));
 			continue;
 		}
+		const codexSkillContent = injectEmitHarness(renderResult.right, platform);
 
 		const codexSkillLint = lintArtifact(
-			renderResult.right,
+			codexSkillContent,
 			platform,
 			`${namespacedSkillDir}/SKILL.md`,
 		);
@@ -1236,7 +1240,7 @@ export const buildCodexPlugin = async (
 				namespacedSkillDir,
 			);
 			await mkdir(skillOutputDir, { recursive: true });
-			await writeFile(join(skillOutputDir, "SKILL.md"), renderResult.right);
+			await writeFile(join(skillOutputDir, "SKILL.md"), codexSkillContent);
 
 			await copySupportingFiles(
 				skillDir,
@@ -1348,9 +1352,10 @@ export const buildCodexPlugin = async (
 			errors.push(formatError(tomlResult.left, false));
 			continue;
 		}
+		const codexAgentContent = injectEmitHarness(tomlResult.right, platform);
 
 		const codexAgentLint = lintArtifact(
-			tomlResult.right,
+			codexAgentContent,
 			platform,
 			`${ccAgent.name}.toml`,
 		);
@@ -1372,7 +1377,7 @@ export const buildCodexPlugin = async (
 			const tomlFilename = `${ccAgent.name}.toml`;
 			await writeFile(
 				join(pluginOutputDir, "agents", tomlFilename),
-				tomlResult.right,
+				codexAgentContent,
 			);
 		}
 
