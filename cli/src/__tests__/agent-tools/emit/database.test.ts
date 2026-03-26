@@ -85,7 +85,7 @@ describe("emit database", () => {
 			expect(tableNames).toContain("schema_version");
 		});
 
-		test("schema_version is set to 5", async () => {
+		test("schema_version is set to 6", async () => {
 			const dbPath = join(tempDir, "version-test.db");
 			const db = await expectTaskRight(getEmitDatabase(dbPath));
 
@@ -93,7 +93,7 @@ describe("emit database", () => {
 				version: number;
 			};
 
-			expect(row.version).toBe(5);
+			expect(row.version).toBe(6);
 		});
 
 		test("artifacts table includes subflow column", async () => {
@@ -201,10 +201,15 @@ describe("emit database", () => {
 			expect(artColumns.map((c) => c.name)).toContain("subflow");
 			expect(artColumns.map((c) => c.name)).toContain("baseline");
 
+			const runColumns = db.prepare("PRAGMA table_info(runs)").all() as {
+				name: string;
+			}[];
+			expect(runColumns.map((c) => c.name)).toContain("harness");
+
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(5);
+			expect(versionRow.version).toBe(6);
 		});
 
 		test("migrates v2 schema to add subflow column to artifacts", async () => {
@@ -283,10 +288,15 @@ describe("emit database", () => {
 			expect(columnNames).toContain("subflow");
 			expect(columnNames).toContain("baseline");
 
+			const runColumns = db.prepare("PRAGMA table_info(runs)").all() as {
+				name: string;
+			}[];
+			expect(runColumns.map((c) => c.name)).toContain("harness");
+
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(5);
+			expect(versionRow.version).toBe(6);
 		});
 
 		test("v3 to v4 migration adds baseline column and cleans orphaned edit-diff annotations", async () => {
@@ -373,7 +383,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(5);
+			expect(versionRow.version).toBe(6);
 
 			const annotations = db.prepare("SELECT * FROM annotations").all() as {
 				content: string;
