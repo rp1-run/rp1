@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS schema_version (
     version INTEGER NOT NULL
 );
 
-INSERT INTO schema_version (version) VALUES (5);
+INSERT INTO schema_version (version) VALUES (6);
 
 CREATE TABLE IF NOT EXISTS runs (
     id TEXT PRIMARY KEY NOT NULL,
@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS runs (
     feature_id TEXT NOT NULL,
     project_path TEXT NOT NULL,
     name TEXT DEFAULT NULL,
+    harness TEXT DEFAULT NULL,
     status TEXT NOT NULL DEFAULT 'not_started'
         CHECK(status IN ('not_started', 'running', 'waiting', 'completed', 'failed', 'skipped')),
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
@@ -147,6 +148,7 @@ export interface RunInput {
 	readonly featureId: string;
 	readonly projectPath: string;
 	readonly name?: string;
+	readonly harness?: string;
 }
 
 /** Input for inserting an event */
@@ -227,6 +229,7 @@ interface RunRow {
 	feature_id: string;
 	project_path: string;
 	name: string | null;
+	harness: string | null;
 	status: string;
 	created_at: string;
 	updated_at: string;
@@ -281,6 +284,7 @@ const runRowToRecord = (row: RunRow): RunRecord => ({
 	projectPath: row.project_path,
 	status: row.status as Status,
 	name: row.name ?? null,
+	harness: row.harness ?? null,
 	createdAt: row.created_at,
 	updatedAt: row.updated_at,
 });
@@ -424,6 +428,23 @@ const applyMigrations = (db: Database): void => {
 
 		db.prepare("UPDATE schema_version SET version = 5").run();
 	}
+
+	const postV4Version = db
+		.prepare("SELECT version FROM schema_version LIMIT 1")
+		.get() as { version: number } | null;
+
+	if ((postV4Version?.version ?? 5) < 6) {
+		const columns = db.prepare("PRAGMA table_info(runs)").all() as {
+			name: string;
+		}[];
+		const columnNames = columns.map((c) => c.name);
+
+		if (!columnNames.includes("harness")) {
+			db.exec("ALTER TABLE runs ADD COLUMN harness TEXT DEFAULT NULL");
+		}
+
+		db.prepare("UPDATE schema_version SET version = 6").run();
+	}
 };
 
 /**
@@ -498,6 +519,11 @@ export const insertRun = (db: Database, input: RunInput): RunRecord => {
 			params.$name = input.name;
 		}
 
+		if (existing.harness === null && input.harness != null) {
+			updates.push("harness = $harness");
+			params.$harness = input.harness;
+		}
+
 		if (updates.length > 0) {
 			updates.push("updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')");
 			db.prepare(`UPDATE runs SET ${updates.join(", ")} WHERE id = $id`).run(
@@ -514,8 +540,8 @@ export const insertRun = (db: Database, input: RunInput): RunRecord => {
 
 	const row = db
 		.prepare(
-			`INSERT INTO runs (id, flow, feature_id, project_path, name)
-			 VALUES ($id, $flow, $featureId, $projectPath, $name)
+			`INSERT INTO runs (id, flow, feature_id, project_path, name, harness)
+			 VALUES ($id, $flow, $featureId, $projectPath, $name, $harness)
 			 RETURNING *`,
 		)
 		.get({
@@ -524,6 +550,7 @@ export const insertRun = (db: Database, input: RunInput): RunRecord => {
 			$featureId: input.featureId,
 			$projectPath: input.projectPath,
 			$name: input.name ?? null,
+			$harness: input.harness ?? null,
 		}) as RunRow;
 
 	return runRowToRecord(row);
@@ -562,8 +589,8 @@ export const findOrCreateRun = (
 
 	const newId = crypto.randomUUID();
 	db.prepare(
-		`INSERT INTO runs (id, flow, feature_id, project_path)
-		 VALUES ($id, $flow, $featureId, $projectPath)`,
+		`INSERT INTO runs (id, flow, feature_id, project_path, harness)
+		 VALUES ($id, $flow, $featureId, $projectPath, NULL)`,
 	).run({
 		$id: newId,
 		$flow: input.flow,
