@@ -164,9 +164,8 @@ describe("ask_user tag", () => {
 
 		test("fallback includes options in natural language", async () => {
 			const output = await render(template, "codex");
-			expect(output).toContain(
-				"Please respond with one of the following, or provide freeform feedback:",
-			);
+			expect(output).toContain("Please respond with one of the following:");
+			expect(output).not.toContain("freeform feedback");
 			expect(output).toContain("- Yes");
 			expect(output).toContain("- No");
 		});
@@ -184,6 +183,24 @@ describe("ask_user tag", () => {
 			expect(output).toContain('request_user_input: "Ready to proceed?"');
 			expect(output).toContain('options: ["Yes", "No"]');
 			expect(output).toContain("**Plain-text fallback**:");
+		});
+
+		test("checkpoint/stop/resume are inside fallback block, not unconditional", async () => {
+			const output = await render(template, "codex");
+			const fallbackStart = output.indexOf("**Plain-text fallback**:");
+			const firstDivider = output.indexOf("---", fallbackStart);
+			const secondDivider = output.indexOf("---", firstDivider + 3);
+			const checkpointIdx = output.indexOf("**Checkpoint**:");
+			const stopIdx = output.indexOf("**Stop**:");
+			const resumeIdx = output.indexOf("**Resume**:");
+
+			// All three sections must be between the two --- dividers
+			expect(checkpointIdx).toBeGreaterThan(firstDivider);
+			expect(checkpointIdx).toBeLessThan(secondDivider);
+			expect(stopIdx).toBeGreaterThan(firstDivider);
+			expect(stopIdx).toBeLessThan(secondDivider);
+			expect(resumeIdx).toBeGreaterThan(firstDivider);
+			expect(resumeIdx).toBeLessThan(secondDivider);
 		});
 	});
 
