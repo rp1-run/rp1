@@ -429,6 +429,10 @@ const emitCommand = agentToolsCommand
 	.option("--project <path>", "Project path (defaults to cwd)")
 	.option("--name <name>", "Human-readable name for the run (set-once)")
 	.option(
+		"--harness <name>",
+		"Harness/platform name (e.g., claude-code, codex, opencode)",
+	)
+	.option(
 		"--close-run",
 		"Force-close the run by completing all non-terminal steps",
 	)
