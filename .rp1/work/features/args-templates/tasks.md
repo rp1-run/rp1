@@ -6,7 +6,7 @@ rp1_doc_id: 81f506be-4692-4de8-b46a-067c37b213a1
 
 **Feature ID**: args-templates
 **Status**: Not Started
-**Progress**: 28% (4 of 14 tasks)
+**Progress**: 35% (5 of 14 tasks)
 **Estimated Effort**: 7 days
 **Started**: 2026-03-27
 
@@ -192,6 +192,18 @@ stateDiagram-v2
     - **Deviations**: None
     - **Tests**: 1961/1961 passing (21 new tests)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ✅ PASS |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
     **Execution Flow**:
 
     ```mermaid
@@ -200,7 +212,7 @@ stateDiagram-v2
         T3_HintDerivationAndImpliesValidation --> [*]
     ```
 
-- [ ] **T4**: Create source-level validation rules L007-L012 for legacy argument detection `[complexity:medium]`
+- [x] **T4**: Create source-level validation rules L007-L012 for legacy argument detection `[complexity:medium]`
 
     **Reference**: [design.md#37-source-level-validation-l1](design.md#37-source-level-validation-l1)
 
@@ -208,15 +220,30 @@ stateDiagram-v2
 
     **Acceptance Criteria**:
 
-    - [ ] L007: Error when both `argument-hint` and `arguments` are present in same skill
-    - [ ] L008: Error when `## Parameters` or `## 0. Parameters` heading found alongside `arguments`
-    - [ ] L009: Error when `argument-hint` present without `arguments` (legacy-only)
-    - [ ] L010: Error when `type: enum` without `enum_values`
-    - [ ] L011: Error when `implies` references non-existent argument
-    - [ ] L012: Error when circular `implies` chain detected
-    - [ ] All rules produce actionable messages with file path and remediation guidance
-    - [ ] Rules implemented in `cli/src/build/lint/rules/legacy-arguments.ts`
-    - [ ] Unit tests in `cli/src/__tests__/build/lint/legacy-arguments.test.ts`
+    - [x] L007: Error when both `argument-hint` and `arguments` are present in same skill
+    - [x] L008: Error when `## Parameters` or `## 0. Parameters` heading found alongside `arguments`
+    - [x] L009: Error when `argument-hint` present without `arguments` (legacy-only)
+    - [x] L010: Error when `type: enum` without `enum_values`
+    - [x] L011: Error when `implies` references non-existent argument
+    - [x] L012: Error when circular `implies` chain detected
+    - [x] All rules produce actionable messages with file path and remediation guidance
+    - [x] Rules implemented in `cli/src/build/lint/rules/legacy-arguments.ts`
+    - [x] Unit tests in `cli/src/__tests__/build/lint/legacy-arguments.test.ts`
+
+    **Implementation Summary**:
+
+    - **Files**: `cli/src/build/lint/rules/legacy-arguments.ts`, `cli/src/__tests__/build/lint/legacy-arguments.test.ts`
+    - **Approach**: Created source-level validation functions lintSkillArguments and lintAgentArguments that operate on parsed data (pre-render); reuses validateImpliesChains from arguments.ts for L011/L012; separate from rendered-output lint rules (L001-L006)
+    - **Deviations**: None
+    - **Tests**: 28/28 passing
+
+    **Execution Flow**:
+
+    ```mermaid
+    stateDiagram-v2
+        [*] --> T4_SourceLevelValidation
+        T4_SourceLevelValidation --> [*]
+    ```
 
 - [ ] **T5**: Wire parser, hint deriver, and validation into the build pipeline `[complexity:medium]`
 
