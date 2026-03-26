@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { injectEmitHarness } from "../../build/transforms.js";
 
 describe("injectEmitHarness", () => {
-	test("injects --harness after rp1 agent-tools emit", () => {
+	test("injects --harness after rp1 agent-tools emit with flags", () => {
 		const input = `rp1 agent-tools emit --workflow build --type status_change`;
 		const result = injectEmitHarness(input, "codex");
 		expect(result).toBe(
@@ -38,17 +38,21 @@ rp1 agent-tools emit --type artifact_registered`;
 		);
 	});
 
-	test("does not modify unrelated text", () => {
+	test("does not modify prose mentions", () => {
 		const input = "This is about the rp1 agent-tools emit command.";
 		const result = injectEmitHarness(input, "codex");
-		expect(result).toBe(
-			"This is about the rp1 agent-tools emit --harness codex command.",
-		);
+		expect(result).toBe(input);
 	});
 
-	test("handles resume-run subcommand without injection", () => {
+	test("does not inject into emit resume-run subcommand", () => {
 		const input = `rp1 agent-tools emit resume-run --feature test`;
 		const result = injectEmitHarness(input, "codex");
-		expect(result).toContain("--harness codex");
+		expect(result).toBe(input);
+	});
+
+	test("injects when emit is at end of line", () => {
+		const input = `rp1 agent-tools emit`;
+		const result = injectEmitHarness(input, "codex");
+		expect(result).toBe(`rp1 agent-tools emit --harness codex`);
 	});
 });
