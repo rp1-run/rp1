@@ -2,6 +2,11 @@
  * Post-render transforms for compiled skill/agent output.
  */
 
+import {
+	emitCommandHasHarness,
+	findEmitEventCommands,
+	getEmitEventToken,
+} from "./emit-command-utils.js";
 import type { BuildPlatform } from "./template-context.js";
 
 /**
@@ -15,8 +20,21 @@ export function injectEmitHarness(
 	content: string,
 	platform: BuildPlatform,
 ): string {
-	return content.replace(
-		/rp1 agent-tools emit(?= (?:--|\\)| *$)(?! .*--harness)/gm,
-		`rp1 agent-tools emit --harness ${platform}`,
-	);
+	const matches = findEmitEventCommands(content);
+	const emitToken = getEmitEventToken();
+	let result = content;
+
+	for (let i = matches.length - 1; i >= 0; i--) {
+		const match = matches[i];
+		if (emitCommandHasHarness(match.command)) {
+			continue;
+		}
+
+		result =
+			result.slice(0, match.index) +
+			`${emitToken} --harness ${platform}` +
+			result.slice(match.index + emitToken.length);
+	}
+
+	return result;
 }

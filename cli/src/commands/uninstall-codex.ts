@@ -72,7 +72,7 @@ Examples:
 			process.exit(getExitCode(result.left));
 		}
 
-		const { skillsRemoved, configCleaned } = result.right;
+		const { skillsRemoved, agentsRemoved, configCleaned } = result.right;
 
 		if (dryRun) {
 			console.log("");
@@ -81,10 +81,13 @@ Examples:
 		}
 
 		console.log("");
-		if (skillsRemoved > 0 || configCleaned) {
+		if (skillsRemoved > 0 || agentsRemoved || configCleaned) {
 			logger.success(bold("rp1 has been removed from Codex CLI"));
 			if (skillsRemoved > 0) {
 				console.log(dim(`  Removed ${skillsRemoved} skill directories`));
+			}
+			if (agentsRemoved) {
+				console.log(dim("  Removed rp1 agent definitions"));
 			}
 			if (configCleaned) {
 				console.log(dim("  Cleaned rp1 sections from config.toml"));

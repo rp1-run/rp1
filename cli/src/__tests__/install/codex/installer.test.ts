@@ -442,6 +442,7 @@ describe("codex installer", () => {
 
 			const result = await expectTaskRight(uninstallCodex(paths, false));
 			expect(result.skillsRemoved).toBe(2);
+			expect(result.agentsRemoved).toBe(false);
 
 			const entries = await readdir(paths.skillsDir);
 			expect(entries).not.toContain("rp1-build");
@@ -488,6 +489,7 @@ describe("codex installer", () => {
 
 			const result = await expectTaskRight(uninstallCodex(paths, false));
 			expect(result.configCleaned).toBe(true);
+			expect(result.agentsRemoved).toBe(false);
 
 			const cleaned = await readFile(paths.configFile, "utf-8");
 			expect(cleaned).toContain("sandbox_mode");
@@ -516,6 +518,7 @@ describe("codex installer", () => {
 
 			const result = await expectTaskRight(uninstallCodex(paths, true));
 			expect(result.skillsRemoved).toBe(0);
+			expect(result.agentsRemoved).toBe(false);
 			expect(result.configCleaned).toBe(false);
 
 			const entries = await readdir(paths.skillsDir);
@@ -535,6 +538,7 @@ describe("codex installer", () => {
 
 			const result = await expectTaskRight(uninstallCodex(paths, false));
 			expect(result.skillsRemoved).toBe(0);
+			expect(result.agentsRemoved).toBe(false);
 			expect(result.configCleaned).toBe(false);
 		});
 
@@ -559,7 +563,8 @@ describe("codex installer", () => {
 				'model = "o4-mini"',
 			);
 
-			await expectTaskRight(uninstallCodex(paths, false));
+			const result = await expectTaskRight(uninstallCodex(paths, false));
+			expect(result.agentsRemoved).toBe(true);
 
 			let agentsDirExists = true;
 			try {
@@ -583,6 +588,7 @@ describe("codex installer", () => {
 
 			const result = await expectTaskRight(uninstallCodex(paths, false));
 			expect(result.skillsRemoved).toBe(0);
+			expect(result.agentsRemoved).toBe(false);
 			expect(result.configCleaned).toBe(false);
 		});
 
@@ -603,6 +609,7 @@ describe("codex installer", () => {
 			);
 
 			const result = await expectTaskRight(uninstallCodex(paths, false));
+			expect(result.agentsRemoved).toBe(false);
 			expect(result.configCleaned).toBe(true);
 
 			const cleaned = await readFile(paths.configFile, "utf-8");
