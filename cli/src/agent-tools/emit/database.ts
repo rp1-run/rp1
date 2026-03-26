@@ -30,13 +30,14 @@ CREATE TABLE IF NOT EXISTS schema_version (
     version INTEGER NOT NULL
 );
 
-INSERT INTO schema_version (version) VALUES (4);
+INSERT INTO schema_version (version) VALUES (5);
 
 CREATE TABLE IF NOT EXISTS runs (
     id TEXT PRIMARY KEY NOT NULL,
     flow TEXT NOT NULL,
     feature_id TEXT NOT NULL,
     project_path TEXT NOT NULL,
+    name TEXT DEFAULT NULL,
     status TEXT NOT NULL DEFAULT 'not_started'
         CHECK(status IN ('not_started', 'running', 'waiting', 'completed', 'failed', 'skipped')),
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
@@ -145,6 +146,7 @@ export interface RunInput {
 	readonly flow: string;
 	readonly featureId: string;
 	readonly projectPath: string;
+	readonly name?: string;
 }
 
 /** Input for inserting an event */
@@ -224,6 +226,7 @@ interface RunRow {
 	flow: string;
 	feature_id: string;
 	project_path: string;
+	name: string | null;
 	status: string;
 	created_at: string;
 	updated_at: string;
@@ -277,6 +280,7 @@ const runRowToRecord = (row: RunRow): RunRecord => ({
 	featureId: row.feature_id,
 	projectPath: row.project_path,
 	status: row.status as Status,
+	name: row.name ?? null,
 	createdAt: row.created_at,
 	updatedAt: row.updated_at,
 });
@@ -402,6 +406,23 @@ const applyMigrations = (db: Database): void => {
 		);
 
 		db.prepare("UPDATE schema_version SET version = 4").run();
+	}
+
+	const postV3Version = db
+		.prepare("SELECT version FROM schema_version LIMIT 1")
+		.get() as { version: number } | null;
+
+	if ((postV3Version?.version ?? 4) < 5) {
+		const columns = db.prepare("PRAGMA table_info(runs)").all() as {
+			name: string;
+		}[];
+		const columnNames = columns.map((c) => c.name);
+
+		if (!columnNames.includes("name")) {
+			db.exec("ALTER TABLE runs ADD COLUMN name TEXT DEFAULT NULL");
+		}
+
+		db.prepare("UPDATE schema_version SET version = 5").run();
 	}
 };
 
