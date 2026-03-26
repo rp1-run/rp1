@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.5](https://github.com/rp1-run/rp1/compare/v0.6.4...v0.6.5) (2026-03-26)
+
+
+### Bug Fixes
+
+* remove explicit hooks declaration from plugin manifest ([#296](https://github.com/rp1-run/rp1/issues/296)) ([e904430](https://github.com/rp1-run/rp1/commit/e9044304dde401a512fa1ae164ad6e7883873a89))
+
 ## [0.6.4](https://github.com/rp1-run/rp1/compare/v0.6.3...v0.6.4) (2026-03-24)
 
 
