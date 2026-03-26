@@ -439,6 +439,103 @@ describe("emit database", () => {
 			expect(second.flow).toBe("build");
 			expect(second.featureId).toBe("feat-1");
 		});
+
+		test("creates a new run with name when provided", async () => {
+			const dbPath = join(tempDir, "insert-run-name.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			const run = insertRun(db, {
+				id: "run-named",
+				flow: "build",
+				featureId: "my-feature",
+				projectPath: "/test/project",
+				name: "Feature: My Feature",
+			});
+
+			expect(run.id).toBe("run-named");
+			expect(run.name).toBe("Feature: My Feature");
+		});
+
+		test("creates a new run with null name when omitted", async () => {
+			const dbPath = join(tempDir, "insert-run-no-name.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			const run = insertRun(db, {
+				id: "run-unnamed",
+				flow: "build",
+				featureId: "my-feature",
+				projectPath: "/test/project",
+			});
+
+			expect(run.name).toBeNull();
+		});
+
+		test("backfills name when existing run has null name", async () => {
+			const dbPath = join(tempDir, "insert-run-backfill-name.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-backfill",
+				flow: "build",
+				featureId: "feat-1",
+				projectPath: "/project",
+			});
+
+			const updated = insertRun(db, {
+				id: "run-backfill",
+				flow: "build",
+				featureId: "feat-1",
+				projectPath: "/project",
+				name: "Feature: Backfilled",
+			});
+
+			expect(updated.name).toBe("Feature: Backfilled");
+		});
+
+		test("does not overwrite existing name on subsequent emit", async () => {
+			const dbPath = join(tempDir, "insert-run-keep-name.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-keep",
+				flow: "build",
+				featureId: "feat-1",
+				projectPath: "/project",
+				name: "Original Name",
+			});
+
+			const second = insertRun(db, {
+				id: "run-keep",
+				flow: "build",
+				featureId: "feat-1",
+				projectPath: "/project",
+				name: "New Name",
+			});
+
+			expect(second.name).toBe("Original Name");
+		});
+
+		test("emit without name never clears existing name", async () => {
+			const dbPath = join(tempDir, "insert-run-no-clear.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-no-clear",
+				flow: "build",
+				featureId: "feat-1",
+				projectPath: "/project",
+				name: "Preserved Name",
+			});
+
+			const second = insertRun(db, {
+				id: "run-no-clear",
+				flow: "build",
+				featureId: "feat-1",
+				projectPath: "/project",
+			});
+
+			expect(second.name).toBe("Preserved Name");
+		});
 	});
 
 	describe("insertEvent", () => {
@@ -1221,6 +1318,88 @@ describe("emit database", () => {
 
 			expect(result.runId).not.toBe("run-other-project");
 			expect(result.resumed).toBe(false);
+		});
+
+		test("does not resume run from different workflow type", async () => {
+			const dbPath = join(tempDir, "resume-flow-filter.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-pr-review",
+				flow: "pr-review",
+				featureId: "feat-flow",
+				projectPath: "/project/flow",
+			});
+
+			insertEvent(db, {
+				runId: "run-pr-review",
+				type: "status_change",
+				step: "step1",
+				data: JSON.stringify({ status: "running" }),
+			});
+			deriveRunStatus(db, "run-pr-review");
+
+			const result = findOrCreateRun(db, {
+				flow: "build",
+				featureId: "feat-flow",
+				projectPath: "/project/flow",
+			});
+
+			expect(result.runId).not.toBe("run-pr-review");
+			expect(result.resumed).toBe(false);
+		});
+
+		test("resumes run matching same workflow type", async () => {
+			const dbPath = join(tempDir, "resume-same-flow.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-build-1",
+				flow: "build",
+				featureId: "feat-same-flow",
+				projectPath: "/project/same",
+			});
+
+			insertEvent(db, {
+				runId: "run-build-1",
+				type: "status_change",
+				step: "step1",
+				data: JSON.stringify({ status: "running" }),
+			});
+			deriveRunStatus(db, "run-build-1");
+
+			insertRun(db, {
+				id: "run-pr-1",
+				flow: "pr-review",
+				featureId: "feat-same-flow",
+				projectPath: "/project/same",
+			});
+
+			insertEvent(db, {
+				runId: "run-pr-1",
+				type: "status_change",
+				step: "step1",
+				data: JSON.stringify({ status: "running" }),
+			});
+			deriveRunStatus(db, "run-pr-1");
+
+			const buildResult = findOrCreateRun(db, {
+				flow: "build",
+				featureId: "feat-same-flow",
+				projectPath: "/project/same",
+			});
+
+			expect(buildResult.runId).toBe("run-build-1");
+			expect(buildResult.resumed).toBe(true);
+
+			const prResult = findOrCreateRun(db, {
+				flow: "pr-review",
+				featureId: "feat-same-flow",
+				projectPath: "/project/same",
+			});
+
+			expect(prResult.runId).toBe("run-pr-1");
+			expect(prResult.resumed).toBe(true);
 		});
 	});
 

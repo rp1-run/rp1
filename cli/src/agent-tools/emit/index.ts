@@ -332,6 +332,7 @@ export const executeEmit = (
 				flow: (input.data.workflow as string) ?? "unknown",
 				featureId: (input.data.feature as string) ?? "unknown",
 				projectPath: input.projectPath,
+				name: input.name,
 			});
 
 			const now = new Date().toISOString();
