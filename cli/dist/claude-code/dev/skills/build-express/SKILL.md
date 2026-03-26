@@ -31,6 +31,18 @@ Extract these parameters from the user's input:
 **Environment values** (resolve via shell):
 - `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 - `RUN_ID`: Generate a UUID at session start for event emission
+- `RUN_NAME`: Derive from the initial request: a brief summary (max 60 chars) prefixed with `"Feature: "` (e.g., `"Feature: Fix null error in auth.ts"`). If REQUEST is empty, set after the first user prompt in §1.1.
+
+**First emit**: Include `--name "{RUN_NAME}"` on the first emit call to label the run in the Arcade dashboard. Example:
+```bash
+rp1 agent-tools emit \
+  --workflow build-express \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --name "Feature: {brief summary of request}" \
+  --step build \
+  --data '{"status": "running"}'
+```
 
 ## 1. Main Loop
 

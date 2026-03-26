@@ -56,6 +56,8 @@ rp1 agent-tools emit \
 ```
 
 - Generate `RUN_ID` as a UUID at workflow start
+- Derive `RUN_NAME`: use `"Blueprint: {PRD_NAME}"` when PRD_NAME is provided, otherwise use `"Blueprint: main"`
+- On the **first** emit only, include `--name "{RUN_NAME}"` to label the run in the Arcade dashboard
 
 **State Progression Protocol**:
 1. Report each `--step` with `--data '{"status": "running"}'` when you enter that state
@@ -65,7 +67,7 @@ rp1 agent-tools emit \
 
 **Example sequence** (with charter):
 ```
---workflow blueprint --step detect --data '{"status": "running"}'     # entering detect phase
+--workflow blueprint --step detect --name "Blueprint: mobile-app" --data '{"status": "running"}'   # first emit includes --name
 --workflow blueprint --step charter --data '{"status": "running"}'    # needs charter, entering charter phase
 --workflow blueprint --step prd --data '{"status": "running"}'        # charter done, entering prd phase
 --workflow blueprint --step prd --data '{"status": "completed"}'      # prd done, workflow complete
