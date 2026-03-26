@@ -39,10 +39,23 @@ metadata:
 Task tool:
 subagent_type: rp1-dev:build-artifact-detector
 prompt:
-FEATURE_ID={FEATURE_ID}, RP1_ROOT={{$RP1_ROOT}}
+FEATURE_ID={FEATURE_ID}, WORKFLOW_TYPE=build, RP1_ROOT={{$RP1_ROOT}}
 
 Do NOT read files, load KB, or analyze requirements before this completes.
-Parse response: extract `start_step` (1-6) and `artifacts` status.
+Parse response: extract `start_step` (1-6), `artifacts` status, `run_id`, and `resumed`.
+
+**Run ID Resolution**: Use the `run_id` from the artifact-detector response for all subsequent emits. If `resumed` is `true`, the detector found a resumable run and the returned `run_id` is the existing run. If `resumed` is `false`, the detector created a new run. Either way, set `RUN_ID = run_id` from the response. Do NOT generate a new UUID.
+
+**Artifact Reconciliation**: If `resumed` is `true` and `unregistered_artifacts` is present and non-empty, register each artifact under the resumed run:
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type artifact_registered \
+  --run-id {RUN_ID} \
+  --step build \
+  --data '{"path": "{relative_path}", "feature": "{FEATURE_ID}"}'
+```
 
 ## STATE-MACHINE
 
@@ -58,8 +71,30 @@ stateDiagram-v2
     archive --> [*] : done
 ```
 
-Report each transition: `rp1 agent-tools emit --workflow build --type status_change --run-id {RUN_ID} --step {STATE} --data '{"status": "running", "feature": "{FEATURE_ID}"}'`
-Generate `RUN_ID` as UUID at start. Terminal states (`→ [*]`): report with `--data '{"status": "completed", "feature": "{FEATURE_ID}"}'`.
+**First emit** (entering the first active state): include `--name` to label the run:
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step {STATE} \
+  --name "Feature: {FEATURE_ID}" \
+  --data '{"status": "running", "feature": "{FEATURE_ID}"}'
+```
+
+Subsequent state transitions omit `--name` (set-once semantics; the DB keeps the first value):
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step {STATE} \
+  --data '{"status": "running", "feature": "{FEATURE_ID}"}'
+```
+
+`RUN_ID` comes from the artifact-detector (§0-FIRST-ACTION). Do NOT generate a new UUID.
 
 ## §PROGRESS
 
@@ -113,7 +148,16 @@ Options:
 - Stop
 On Revise: get feedback, append to REQUIREMENTS, re-invoke step 1.
 On Review feedback from Arcade: load `arcade-collab` skill, process all feedback for RUN_ID, then return to this checkpoint with original options.
-On Stop: output summary, exit with `/build {FEATURE_ID}` resume instruction.
+On Stop: emit waiting status, output summary, exit with `/build {FEATURE_ID}` resume instruction.
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step requirements \
+  --data '{"status": "waiting", "feature": "{FEATURE_ID}"}'
+```
 
 ## §STEP-2: Design
 
@@ -155,7 +199,16 @@ Options:
 - Stop
 On Revise: get feedback, re-invoke §STEP-2 with UPDATE_MODE=true.
 On Review feedback from Arcade: load `arcade-collab` skill, process all feedback for RUN_ID, then return to this checkpoint with original options.
-On Stop: output summary (steps 1-2 done), exit with `/build {FEATURE_ID}`.
+On Stop: emit waiting status, output summary (steps 1-2 done), exit with `/build {FEATURE_ID}`.
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step design \
+  --data '{"status": "waiting", "feature": "{FEATURE_ID}"}'
+```
 
 ## §STEP-3: Tasks
 
@@ -185,7 +238,16 @@ Options:
 - Stop
 On Revise: get feedback, re-invoke §STEP-3 with UPDATE_MODE=true and feedback as UPDATE_CONTEXT.
 On Review feedback from Arcade: load `arcade-collab` skill, process all feedback for RUN_ID, then return to this checkpoint with original options.
-On Stop: output summary (steps 1-3 done), exit with `/build {FEATURE_ID}`.
+On Stop: emit waiting status, output summary (steps 1-3 done), exit with `/build {FEATURE_ID}`.
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step tasks \
+  --data '{"status": "waiting", "feature": "{FEATURE_ID}"}'
+```
 
 ## §STEP-4: Build
 
@@ -294,6 +356,17 @@ rp1 agent-tools emit \
 
 Output: Feature ID, step status table (1-6), artifacts created.
 
+**Emit completed status** after registering all artifacts:
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step archive \
+  --data '{"status": "completed", "feature": "{FEATURE_ID}"}'
+```
+
 **Post-verify** (skip if AFK):
 
 ```bash
@@ -319,6 +392,29 @@ Task tool:
 subagent_type: rp1-dev:feature-archiver
 prompt:
 MODE=archive, FEATURE_ID={FEATURE_ID}, SKIP_DOC_CHECK=false
+
+## §TERMINAL-STATES
+
+**Every exit path MUST emit a terminal status.** No run may remain in "running" after the skill finishes.
+
+| Exit Path | Status | Step |
+|-----------|--------|------|
+| Archive completes successfully | `completed` | `archive` |
+| User selects "Stop" at any checkpoint | `waiting` | current step |
+| User selects "Do nothing" at post-verify | `completed` | `archive` |
+| Unrecoverable agent failure (steps 1-3) | `failed` | failing step |
+| AFK mode abort | `failed` | failing step |
+
+On any unrecoverable failure, emit before exiting:
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step {FAILING_STEP} \
+  --data '{"status": "failed", "feature": "{FEATURE_ID}"}'
+```
 
 ## §ANTI-LOOP
 
