@@ -233,14 +233,14 @@ Log of all major technology/architecture decisions w/ rationales.
 After writing `design.md` and `design-decisions.md`, register them so the Web UI can display them. Skip if WORKFLOW is empty (standalone invocation).
 
 ```bash
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow {WORKFLOW} \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step design \
   --data '{"path": ".rp1/work/features/{FEATURE_ID}/design.md", "feature": "{FEATURE_ID}"}'
 
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow {WORKFLOW} \
   --type artifact_registered \
   --run-id {RUN_ID} \

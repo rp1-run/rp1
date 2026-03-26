@@ -378,7 +378,7 @@ The subflow diagram is embedded inline as a fenced mermaid code block in the par
 **Small scope** (tasks.md):
 
 ```bash
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow {WORKFLOW} \
   --type artifact_registered \
   --run-id {RUN_ID} \
@@ -389,7 +389,7 @@ rp1 agent-tools emit \
 **Large scope** (tracker.md + milestone files):
 
 ```bash
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow {WORKFLOW} \
   --type artifact_registered \
   --run-id {RUN_ID} \
@@ -400,7 +400,7 @@ rp1 agent-tools emit \
 Also register each `milestone-{N}.md` written:
 
 ```bash
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow {WORKFLOW} \
   --type artifact_registered \
   --run-id {RUN_ID} \

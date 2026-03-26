@@ -35,7 +35,7 @@ Extract these parameters from the user's input:
 
 **First emit**: Include `--name "{RUN_NAME}"` on the first emit call to label the run in the Arcade dashboard. Example:
 ```bash
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow build-express \
   --type status_change \
   --run-id {RUN_ID} \
@@ -129,7 +129,7 @@ checks after making changes. Do NOT commit.
 After builder completes, emit waiting status so the Arcade dashboard reflects the gate pause:
 
 ```bash
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow build-express \
   --type waiting_for_user \
   --run-id {RUN_ID} \
