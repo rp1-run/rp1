@@ -1,4 +1,5 @@
 import type React from "react";
+import { resolveRunDisplayName } from "@/lib/run-display";
 import { getStatusLabel } from "@/lib/status-labels";
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -62,10 +63,14 @@ export function RunCard({
 					<span className="truncate type-body font-medium text-fg">
 						{run.projectName}
 					</span>
-					<span className="text-fg-ghost">/</span>
-					<span className="truncate type-body text-fg-muted">
-						{run.featureName}
-					</span>
+					{resolveRunDisplayName(run) && (
+						<>
+							<span className="text-fg-ghost">/</span>
+							<span className="truncate type-body text-fg-muted">
+								{resolveRunDisplayName(run)}
+							</span>
+						</>
+					)}
 				</div>
 
 				<div className="mt-0.5 flex items-center gap-2 type-secondary text-fg-muted">
