@@ -108,9 +108,14 @@ Each requirement MUST include:
 
 ## 5. Output Template
 
-Write to `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/requirements.md`:
+Write to `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/requirements.md`.
+
+**Frontmatter**: If RUN_ID is non-empty, include `rp1_run_id` in the YAML frontmatter block. This enables run resumability. Use the `rp1_` prefix consistent with `rp1_doc_id`.
 
 ```markdown
+---
+rp1_run_id: {RUN_ID}
+---
 # Requirements Specification: [Feature Title]
 
 **Feature ID**: [FEATURE_ID]
