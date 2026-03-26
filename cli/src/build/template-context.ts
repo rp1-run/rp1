@@ -8,7 +8,12 @@
  */
 
 import type { SupportedTool } from "../config/supported-tools.js";
-import type { PlatformRegistry, SkillMetadata } from "./models.js";
+import type {
+	ArgumentDefinition,
+	EnvironmentDefinition,
+	PlatformRegistry,
+	SkillMetadata,
+} from "./models.js";
 
 // ---------------------------------------------------------------------------
 // Platform type
@@ -49,6 +54,8 @@ export interface AgentArtifactData {
 	readonly tools: readonly string[];
 	readonly content: string; // post-conditional-processing
 	readonly roleType?: CodexRoleType; // computed for Codex
+	readonly arguments?: readonly ArgumentDefinition[];
+	readonly environment?: readonly EnvironmentDefinition[];
 }
 
 /** Data for a manifest artifact passed into the template context. */
