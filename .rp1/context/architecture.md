@@ -1,130 +1,112 @@
 # System Architecture
 
 **Project**: rp1
-**Architecture Pattern**: Plugin-based CLI + Event-Sourced Dashboard + Map-Reduce Agent Orchestration
-**Last Updated**: 2026-03-25
+**Architecture Pattern**: Plugin-based CLI with Event-Sourced Dashboard
+**Last Updated**: 2026-03-26
 
 ## High-Level Architecture
 
 ```mermaid
 flowchart TB
     Host["Host Tools\nClaude Code / OpenCode / Codex"] --> CLI["rp1 CLI\ncli/src/main.ts"]
-    CLI --> Skills["Plugin Skills and Agents\nplugins/base dev utils"]
-    CLI --> Tools["Agent Tools\nemit state-machine task feedback"]
+    CLI --> Skills["Plugin Skills & Agents\nplugins/base, dev, utils"]
+    CLI --> Tools["Agent Tools\nemit, state-machine, task, feedback"]
     Skills --> KBBuild["knowledge-build\nmap-reduce orchestrator"]
     KBBuild --> KBFiles[(".rp1/context/*.md")]
     Tools --> SM["State Machine Loader"]
     Tools --> EmitDB[("~/.rp1/rp1.db")]
-    Tools --> Daemon["Web UI Daemon\nBun server + WS"]
-    Daemon --> API["v2 API routes"]
+    Tools --> Daemon["Web UI Daemon\nBun HTTP + WS"]
+    Daemon --> API["v2 API Routes"]
     API --> EmitDB
     API --> Registry["Project Registry"]
-    API --> Workspace[".rp1/work and context files"]
+    API --> Workspace[".rp1/work & context"]
     Browser["Web Browser"] --> Daemon
     Browser --> WS["WebSocket Hub"]
     WS --> EmitDB
     Skills --> GitHub["GitHub API"]
     CLI --> BuildPipeline["Build Pipeline\nLiquidJS templates"]
-    BuildPipeline --> Platforms["OpenCode / Claude Code / Codex\nartifacts"]
+    BuildPipeline --> Platforms["Platform Artifacts\nClaude Code / OpenCode / Codex"]
 ```
 
-## Architectural Patterns
-
-### Plugin Architecture
-Three plugins (base, dev, utils) with `.claude-plugin/plugin.json` manifests, namespace rules, and explicit dependency direction (dev depends on base, not vice versa). Each plugin provides skills, agents, and hooks compiled to platform-specific artifacts.
-
-### Markdown-First Workflow Authoring
-Prompts authored as markdown with YAML frontmatter, compiled to Claude Code, OpenCode, and Codex formats via LiquidJS templates with conditional preprocessing.
-
-### Map-Reduce Orchestration
-Large analysis jobs fan out to parallel specialist agents and merge results. Used for KB generation (spatial analyzer + 4 parallel agents), PR review (diff splitting + parallel sub-reviewers + synthesizer), and deep research.
-
-### State-Machine-Driven Workflows
-Workflow orchestration via declarative Mermaid stateDiagram-v2 definitions parsed into typed graph models. Steps validated against transitions at runtime with auto-completion of predecessors and sub-agent step namespacing.
-
-### Cross-Platform Build Pipeline
-Single plugin source compiles to Claude Code, OpenCode, and Codex formats via LiquidJS templates with platform registries and conditional preprocessing.
-
-### Event-Sourced State with Replay
-Events inserted into SQLite with sequential IDs. Reconnecting WebSocket clients receive missed events or a state snapshot depending on gap size (up to 100 events replayed).
-
-### fp-ts Functional Pipelines
-Typed error propagation via `Either<CLIError, A>` and `TaskEither<CLIError, A>` throughout agent-tools, build, install, and server modules. Re-exported via `cli/shared/fp.ts` facade.
-
-## System Layers
+## Architecture Layers
 
 | Layer | Purpose | Key Components |
 |-------|---------|----------------|
 | Interaction | User and host-tool entry points | `cli/src/main.ts`, `cli/src/commands/` |
-| Workflow Definition | Orchestration prompts, state machines, skills | `plugins/base/`, `plugins/dev/`, `plugins/utils/` |
-| Runtime Services | Agent tools, state tracking, validation | `cli/src/agent-tools/`, `cli/src/lib/` |
-| Build & Distribution | Plugin compilation, binary packaging | `cli/src/build/`, `cli/scripts/`, `scripts/` |
-| Presentation | Dashboard SPA, REST APIs, WebSocket | `cli/web-ui/src/app/`, `cli/web-ui/src/server/` |
-| Persistence | Local state, KB, project registry | `.rp1/context/`, `~/.rp1/rp1.db`, `.rp1/work/` |
+| Workflow Definition | Skills, agents, state machines | `plugins/base/`, `plugins/dev/`, `plugins/utils/` |
+| Runtime Services | Agent tools, event emission, validation | `cli/src/agent-tools/`, `cli/src/lib/` |
+| Build & Distribution | Plugin compilation, artifact generation | `cli/src/build/`, `cli/scripts/`, `scripts/` |
+| Presentation | Arcade dashboard SPA, REST APIs, WebSocket | `cli/web-ui/src/app/`, `cli/web-ui/src/server/` |
+| Persistence | SQLite event store, KB files, project registry | `~/.rp1/rp1.db`, `.rp1/context/`, `.rp1/work/` |
 | Evaluation | Prompt quality validation, attestation | `evals/` |
+
+## Architectural Patterns
+
+### Plugin Architecture
+Three plugins (base, dev, utils) with `.claude-plugin/plugin.json` manifests. Dependency direction enforced: dev depends on base, never reverse. Each plugin provides skills and agents compiled to platform-specific artifacts.
+
+### Event-Sourced State with Replay
+Events inserted into SQLite with monotonic IDs. Reconnecting WebSocket clients receive missed events (up to 100) or a state snapshot for larger gaps. Run status derived from event history.
+
+### Cross-Platform Build Pipeline
+Single SKILL.md source compiles to Claude Code, OpenCode, and Codex formats via shared `executeBuild` function with platform-specific LiquidJS templates and custom filters/tags.
+
+### State-Machine-Driven Workflows
+Mermaid stateDiagram-v2 definitions parsed into typed graph models. Runtime validation of step transitions with predecessor auto-completion and namespaced sub-agent steps.
+
+### fp-ts Functional Pipelines
+Typed error propagation via `Either<CLIError, A>` and `TaskEither<CLIError, A>` throughout CLI modules. Re-exported via `cli/shared/fp.ts` facade.
+
+### Map-Reduce Agent Orchestration
+Large analysis jobs fan out to parallel specialist agents and merge results. Used for KB generation (spatial analyzer + 4 parallel agents), PR review (splitter + N sub-reviewers), and deep research.
 
 ## Key Data Flows
 
-### KB Generation Flow
-```mermaid
-sequenceDiagram
-    participant User
-    participant Orchestrator as knowledge-build
-    participant Spatial as Spatial Analyzer
-    participant Agents as 4 Parallel Agents
-    participant KB as .rp1/context/
-
-    User->>Orchestrator: /rp1-base:knowledge-build
-    Orchestrator->>Spatial: Scan and categorize files
-    Spatial-->>Orchestrator: Categorized file lists (JSON)
-    Orchestrator->>Agents: Spawn concept, arch, module, pattern agents
-    Agents-->>Orchestrator: Analysis results (JSON)
-    Orchestrator->>KB: Merge and write KB files
+### Event Pipeline
+```
+Agent emit call -> Step validation (state machine) -> SQLite insert -> HTTP notify -> WebSocket broadcast -> Dashboard UI
 ```
 
-### Workflow Event Pipeline
-1. Agent calls `rp1 agent-tools emit` with workflow, step, and run-id
-2. Validate step against state machine graph; auto-complete predecessor steps
-3. Insert event into SQLite with monotonic ID
-4. Derive run status from event history
-5. Notify daemon via HTTP POST `/api/v2/status/notify`
-6. Daemon broadcasts typed event envelope via WebSocket to subscribed clients
+### KB Generation
+```
+Spatial analyzer (scan & categorize) -> 4 parallel agents (concept, arch, module, pattern) -> Orchestrator merge -> .rp1/context/*.md
+```
 
-### Web UI Live Updates
-1. Browser connects via WebSocket to daemon (port 7710) with optional lastEventId
-2. Daemon replays missed events (up to 100) or sends state snapshot
-3. FileWatcherPool watches `.rp1/work` and `.rp1/context` with chokidar
-4. File changes debounced and broadcast as file:changed or tree:changed messages
-5. Agent tools emit events to SQLite and notify daemon via HTTP
+### Plugin Build Pipeline
+```
+SKILL.md source -> LiquidJS preprocessing (platform tags, filters) -> Platform-specific artifacts -> dist/{platform}/
+```
 
 ### Feedback Lifecycle
-1. User annotates artifacts in Arcade dashboard (create, reply, resolve)
-2. Annotations stored in SQLite, broadcast via WebSocket
-3. Agent calls `rp1 agent-tools feedback read --run-id <id>`
-4. Returns open annotations and pending file edits with summary counts
-5. Agent processes feedback, then resolves/replies/accepts via agent-tools
+```
+User annotates in Arcade -> SQLite + WebSocket broadcast -> Agent reads via feedback tool -> Agent resolves/replies/accepts
+```
 
 ## Integration Points
 
-| Service | Purpose | Integration |
-|---------|---------|-------------|
+| Integration | Purpose | Type |
+|-------------|---------|------|
 | Bun | Runtime, HTTP/WS server, binary compilation, test runner | Runtime |
-| SQLite (bun:sqlite) | Events, runs, artifacts, annotations, tasks | Embedded DB, WAL mode |
-| GitHub API (@octokit) | PR review, comment management, reactions | REST API |
-| React + Vite | Frontend dashboard SPA | Dev port 6810 -> backend 6710 |
-| LiquidJS | Multi-platform artifact generation from SKILL.md | Build pipeline |
-| GoReleaser | Cross-platform binary compilation | darwin/linux/windows |
+| bun:sqlite | Events, runs, artifacts, annotations, tasks storage (WAL mode) | Embedded DB |
+| GitHub API (@octokit/rest) | PR review, comment management, reactions | REST API |
+| React + Vite | Arcade dashboard SPA with Tailwind, Radix UI, Milkdown | Frontend |
+| LiquidJS | Multi-platform artifact generation from SKILL.md templates | Build pipeline |
+| chokidar | File watching for `.rp1/work` and `.rp1/context` directories | Runtime |
+| promptfoo | Eval harness for prompt quality testing with attestation | Testing |
 | Release Please | Automated semver with coordinated version bumps | CI/CD |
-| promptfoo | Eval harness for prompt quality testing | Testing |
-| Lefthook | Git hooks for pre-commit lint/format/typecheck | Dev tooling |
-| chokidar | File watching for .rp1/work and .rp1/context | Runtime |
-| MkDocs Material | Documentation site at rp1.run | Cloudflare Pages |
+| GitHub Actions | CI (lint, typecheck, test), release automation, PR review | CI/CD |
+| Lefthook | Git hooks for pre-commit lint/format and pre-push typecheck | Dev tooling |
+| Biome | Linting and formatting for TypeScript/TSX | Dev tooling |
+| MkDocs Material | Documentation site at rp1.run | Documentation |
 
 ## Deployment
 
-- **Type**: Plugin System + Standalone Binary + Background Daemon
-- **Environment**: Local CLI hosted by Claude Code, OpenCode, or Codex agents
 - **Distribution**: GitHub releases via GoReleaser (Homebrew, Scoop, curl installer, npm, Claude Code marketplace)
 - **Targets**: darwin-arm64, darwin-x64, linux-arm64, linux-x64, windows-x64
-- **Versioning**: Unified semver via release-please across CLI and all plugins
 - **Daemon**: Background Bun HTTP+WS server on port 7710 with PID-file lifecycle, version-aware restart, LRU file watcher pool (max 10 projects)
+- **Versioning**: Unified semver via release-please across CLI and all plugins
+
+## Cross-References
+- **Module details**: See [modules.md](modules.md)
+- **Domain concepts**: See [concept_map.md](concept_map.md)
+- **Code patterns**: See [patterns.md](patterns.md)
