@@ -11,9 +11,12 @@ import { parse as parseYaml } from "yaml";
 import type { CLIError } from "../../shared/errors.js";
 import { parseError } from "../../shared/errors.js";
 import type {
+	ArgumentDefinition,
+	ArgumentType,
 	ClaudeCodeAgent,
 	ClaudeCodeCommand,
 	ClaudeCodeSkill,
+	EnvironmentDefinition,
 	SkillMetadata,
 } from "./models.js";
 
@@ -163,34 +166,268 @@ export const parseAgent = (
 				tools = toolsRaw.split(",").map((t) => t.trim());
 			}
 
+			// Parse and validate arguments if present
+			const argsResult = parseArgumentDefinitions(metadata.arguments, filePath);
+			if (E.isLeft(argsResult)) {
+				return TE.left(argsResult.left);
+			}
+			const parsedArgs = argsResult.right;
+
+			// Parse and validate environment if present
+			const envResult = parseEnvironmentDefinitions(
+				metadata.environment,
+				filePath,
+			);
+			if (E.isLeft(envResult)) {
+				return TE.left(envResult.left);
+			}
+			const parsedEnv = envResult.right;
+
 			const agent: ClaudeCodeAgent = {
 				name: String(name),
 				description: String(description),
 				tools,
 				model: model ? String(model) : "inherit",
 				content: body,
+				...(parsedArgs.length > 0 && { arguments: parsedArgs }),
+				...(parsedEnv.length > 0 && { environment: parsedEnv }),
 			};
 
 			return TE.right(agent);
 		}),
 	);
 
+const VALID_ARGUMENT_TYPES: readonly ArgumentType[] = [
+	"string",
+	"boolean",
+	"enum",
+];
+
+const UPPER_SNAKE_CASE_RE = /^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$/;
+
 /**
- * Extract rp1-specific metadata from the frontmatter `metadata` map.
- * Returns undefined when the metadata map is absent or not an object,
- * preserving backward compatibility with pre-migration skills.
+ * Validate and parse a single argument definition from raw YAML data.
+ * Returns Either with ParseError on invalid shape.
  */
-const extractSkillMetadata = (raw: unknown): SkillMetadata | undefined => {
+const parseArgumentDefinition = (
+	raw: unknown,
+	index: number,
+	filePath: string,
+): E.Either<CLIError, ArgumentDefinition> => {
 	if (
 		raw === null ||
 		raw === undefined ||
 		typeof raw !== "object" ||
 		Array.isArray(raw)
 	) {
-		return undefined;
+		return E.left(
+			parseError(filePath, `arguments[${index}]: must be an object`),
+		);
+	}
+
+	const obj = raw as Record<string, unknown>;
+
+	// Required fields
+	if (typeof obj.name !== "string" || obj.name.length === 0) {
+		return E.left(
+			parseError(
+				filePath,
+				`arguments[${index}]: missing or invalid 'name' (must be a non-empty string)`,
+			),
+		);
+	}
+
+	if (!UPPER_SNAKE_CASE_RE.test(obj.name)) {
+		return E.left(
+			parseError(
+				filePath,
+				`arguments[${index}]: name '${obj.name}' must be UPPER_SNAKE_CASE (e.g., FEATURE_ID)`,
+			),
+		);
+	}
+
+	if (
+		typeof obj.type !== "string" ||
+		!VALID_ARGUMENT_TYPES.includes(obj.type as ArgumentType)
+	) {
+		return E.left(
+			parseError(
+				filePath,
+				`arguments[${index}]: invalid 'type' '${String(obj.type)}'. Must be one of: ${VALID_ARGUMENT_TYPES.join(", ")}`,
+			),
+		);
+	}
+
+	if (typeof obj.required !== "boolean") {
+		return E.left(
+			parseError(
+				filePath,
+				`arguments[${index}]: missing or invalid 'required' (must be a boolean)`,
+			),
+		);
+	}
+
+	if (typeof obj.description !== "string" || obj.description.length === 0) {
+		return E.left(
+			parseError(
+				filePath,
+				`arguments[${index}]: missing or invalid 'description' (must be a non-empty string)`,
+			),
+		);
+	}
+
+	// Build the validated definition
+	const def: ArgumentDefinition = {
+		name: obj.name,
+		type: obj.type as ArgumentType,
+		required: obj.required,
+		description: obj.description,
+		...(obj.default !== undefined && {
+			default: obj.default as string | boolean,
+		}),
+		...(Array.isArray(obj.aliases) && { aliases: obj.aliases.map(String) }),
+		...(Array.isArray(obj.implies) && { implies: obj.implies.map(String) }),
+		...(Array.isArray(obj.enum_values) && {
+			enum_values: obj.enum_values.map(String),
+		}),
+		...(typeof obj.variadic === "boolean" && { variadic: obj.variadic }),
+		...(obj.source !== null &&
+			obj.source !== undefined &&
+			typeof obj.source === "object" &&
+			!Array.isArray(obj.source) &&
+			typeof (obj.source as Record<string, unknown>).env === "string" && {
+				source: { env: (obj.source as Record<string, unknown>).env as string },
+			}),
+	};
+
+	return E.right(def);
+};
+
+/**
+ * Validate and parse an array of argument definitions from raw YAML data.
+ * Returns the parsed array or a ParseError for the first invalid entry.
+ */
+const parseArgumentDefinitions = (
+	raw: unknown,
+	filePath: string,
+): E.Either<CLIError, readonly ArgumentDefinition[]> => {
+	if (raw === undefined || raw === null) {
+		return E.right([]);
+	}
+
+	if (!Array.isArray(raw)) {
+		return E.left(parseError(filePath, "'arguments' must be an array"));
+	}
+
+	const results: ArgumentDefinition[] = [];
+	for (let i = 0; i < raw.length; i++) {
+		const parsed = parseArgumentDefinition(raw[i], i, filePath);
+		if (E.isLeft(parsed)) {
+			return parsed;
+		}
+		results.push(parsed.right);
+	}
+
+	return E.right(results);
+};
+
+/**
+ * Validate and parse an array of environment definitions from raw YAML data.
+ */
+const parseEnvironmentDefinitions = (
+	raw: unknown,
+	filePath: string,
+): E.Either<CLIError, readonly EnvironmentDefinition[]> => {
+	if (raw === undefined || raw === null) {
+		return E.right([]);
+	}
+
+	if (!Array.isArray(raw)) {
+		return E.left(parseError(filePath, "'environment' must be an array"));
+	}
+
+	const results: EnvironmentDefinition[] = [];
+	for (let i = 0; i < raw.length; i++) {
+		const item = raw[i];
+		if (
+			item === null ||
+			item === undefined ||
+			typeof item !== "object" ||
+			Array.isArray(item)
+		) {
+			return E.left(
+				parseError(filePath, `environment[${i}]: must be an object`),
+			);
+		}
+
+		const obj = item as Record<string, unknown>;
+
+		if (typeof obj.name !== "string" || obj.name.length === 0) {
+			return E.left(
+				parseError(filePath, `environment[${i}]: missing or invalid 'name'`),
+			);
+		}
+
+		if (typeof obj.source !== "string" || obj.source.length === 0) {
+			return E.left(
+				parseError(filePath, `environment[${i}]: missing or invalid 'source'`),
+			);
+		}
+
+		if (typeof obj.description !== "string" || obj.description.length === 0) {
+			return E.left(
+				parseError(
+					filePath,
+					`environment[${i}]: missing or invalid 'description'`,
+				),
+			);
+		}
+
+		results.push({
+			name: obj.name,
+			source: obj.source,
+			description: obj.description,
+		});
+	}
+
+	return E.right(results);
+};
+
+/**
+ * Extract rp1-specific metadata from the frontmatter `metadata` map.
+ * Returns Right(undefined) when the metadata map is absent or not an object,
+ * preserving backward compatibility with pre-migration skills.
+ * Returns Left(ParseError) when arguments or environment are malformed.
+ */
+const extractSkillMetadata = (
+	raw: unknown,
+	filePath: string,
+): E.Either<CLIError, SkillMetadata | undefined> => {
+	if (
+		raw === null ||
+		raw === undefined ||
+		typeof raw !== "object" ||
+		Array.isArray(raw)
+	) {
+		return E.right(undefined);
 	}
 
 	const meta = raw as Record<string, unknown>;
+
+	// Parse and validate arguments if present
+	const argsResult = parseArgumentDefinitions(meta.arguments, filePath);
+	if (E.isLeft(argsResult)) {
+		return argsResult;
+	}
+	const parsedArgs = argsResult.right;
+
+	// Parse and validate environment if present
+	const envResult = parseEnvironmentDefinitions(meta.environment, filePath);
+	if (E.isLeft(envResult)) {
+		return envResult;
+	}
+	const parsedEnv = envResult.right;
+
 	const result: SkillMetadata = {
 		version: typeof meta.version === "string" ? meta.version : undefined,
 		tags: Array.isArray(meta.tags) ? meta.tags.map(String) : undefined,
@@ -204,11 +441,13 @@ const extractSkillMetadata = (raw: unknown): SkillMetadata | undefined => {
 		subAgents: Array.isArray(meta.sub_agents)
 			? meta.sub_agents.map(String)
 			: undefined,
+		...(parsedArgs.length > 0 && { arguments: parsedArgs }),
+		...(parsedEnv.length > 0 && { environment: parsedEnv }),
 	};
 
 	// Return undefined if all fields are undefined (no meaningful metadata)
 	const hasAnyField = Object.values(result).some((v) => v !== undefined);
-	return hasAnyField ? result : undefined;
+	return E.right(hasAnyField ? result : undefined);
 };
 
 /**
@@ -266,7 +505,11 @@ export const parseSkill = (
 				typeof allowedTools === "string" ? allowedTools : undefined;
 
 			// Extract rp1-specific metadata from the nested `metadata` map
-			const skillMetadata = extractSkillMetadata(metadata.metadata);
+			const metadataResult = extractSkillMetadata(metadata.metadata, skillDir);
+			if (E.isLeft(metadataResult)) {
+				return TE.left(metadataResult.left);
+			}
+			const skillMetadata = metadataResult.right;
 
 			return TE.right({
 				name: String(name),
