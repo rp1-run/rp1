@@ -82,7 +82,7 @@ If PREVIOUS_FEEDBACK != "None": parse to understand prior failures + needed corr
 Transition to `building` state per STATE-MACHINE section:
 
 ```bash
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \
@@ -167,7 +167,7 @@ After implementing all assigned tasks, embed a `stateDiagram-v2` fenced mermaid 
 3. Register the parent markdown file as artifact (skip if WORKFLOW or RUN_ID is empty; skip in quick-build mode):
 
 ```bash
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow {WORKFLOW} \
   --type artifact_registered \
   --run-id {RUN_ID} \
@@ -297,7 +297,7 @@ Update progress % in header if present (feature mode only).
 Transition to `completed` state per STATE-MACHINE section:
 
 ```bash
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \
@@ -353,7 +353,7 @@ Blocking issue:
 
 1. Transition to `failed` state per STATE-MACHINE section (skip if WORKFLOW is empty):
    ```bash
-   rp1 agent-tools emit \
+   rp1 agent-tools emit --harness claude-code \
      --workflow {WORKFLOW} \
      --type status_change \
      --run-id {RUN_ID} \
@@ -399,7 +399,7 @@ stateDiagram-v2
 
 **On each transition**, report via:
 ```
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \

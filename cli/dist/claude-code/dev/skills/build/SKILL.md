@@ -49,7 +49,7 @@ Parse response: extract `start_step` (1-6), `artifacts` status, `run_id`, and `r
 **Artifact Reconciliation**: If `resumed` is `true` and `unregistered_artifacts` is present and non-empty, register each artifact under the resumed run:
 
 ```bash
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow build \
   --type artifact_registered \
   --run-id {RUN_ID} \
@@ -74,7 +74,7 @@ stateDiagram-v2
 **First emit** (entering the first active state): include `--name` to label the run:
 
 ```bash
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow build \
   --type status_change \
   --run-id {RUN_ID} \
@@ -86,7 +86,7 @@ rp1 agent-tools emit \
 Subsequent state transitions omit `--name` (set-once semantics; the DB keeps the first value):
 
 ```bash
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow build \
   --type status_change \
   --run-id {RUN_ID} \
@@ -132,7 +132,7 @@ Validate the response before continuing:
 **Checkpoint** (skip if AFK):
 
 ```bash
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow build \
   --type waiting_for_user \
   --run-id {RUN_ID} \
@@ -151,7 +151,7 @@ On Review feedback from Arcade: load `arcade-collab` skill, process all feedback
 On Stop: emit waiting status, output summary, exit with `/build {FEATURE_ID}` resume instruction.
 
 ```bash
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow build \
   --type status_change \
   --run-id {RUN_ID} \
@@ -183,7 +183,7 @@ FEATURE_ID={FEATURE_ID}, UPDATE_MODE={UPDATE_MODE}, RP1_ROOT={{$RP1_ROOT}}, WORK
 **Checkpoint** (skip if AFK):
 
 ```bash
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow build \
   --type waiting_for_user \
   --run-id {RUN_ID} \
@@ -202,7 +202,7 @@ On Review feedback from Arcade: load `arcade-collab` skill, process all feedback
 On Stop: emit waiting status, output summary (steps 1-2 done), exit with `/build {FEATURE_ID}`.
 
 ```bash
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow build \
   --type status_change \
   --run-id {RUN_ID} \
@@ -222,7 +222,7 @@ FEATURE_ID={FEATURE_ID}, UPDATE_MODE=false, RP1_ROOT={{$RP1_ROOT}}, WORKFLOW=bui
 **Checkpoint** (skip if AFK):
 
 ```bash
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow build \
   --type waiting_for_user \
   --run-id {RUN_ID} \
@@ -241,7 +241,7 @@ On Review feedback from Arcade: load `arcade-collab` skill, process all feedback
 On Stop: emit waiting status, output summary (steps 1-3 done), exit with `/build {FEATURE_ID}`.
 
 ```bash
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow build \
   --type status_change \
   --run-id {RUN_ID} \
@@ -292,7 +292,7 @@ Doc tasks (TD*): build doc_scan_results.json, spawn scribe.
 **Checkpoint** (skip if AFK):
 
 ```bash
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow build \
   --type waiting_for_user \
   --run-id {RUN_ID} \
@@ -346,7 +346,7 @@ If GIT_COMMIT: stage+commit. If GIT_PUSH: push. If GIT_PR: create PR.
 Register artifacts: for each file in `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`:
 
 ```bash
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow build \
   --type artifact_registered \
   --run-id {RUN_ID} \
@@ -359,7 +359,7 @@ Output: Feature ID, step status table (1-6), artifacts created.
 **Emit completed status** after registering all artifacts:
 
 ```bash
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow build \
   --type status_change \
   --run-id {RUN_ID} \
@@ -370,7 +370,7 @@ rp1 agent-tools emit \
 **Post-verify** (skip if AFK):
 
 ```bash
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow build \
   --type waiting_for_user \
   --run-id {RUN_ID} \
@@ -408,7 +408,7 @@ MODE=archive, FEATURE_ID={FEATURE_ID}, SKIP_DOC_CHECK=false
 On any unrecoverable failure, emit before exiting:
 
 ```bash
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow build \
   --type status_change \
   --run-id {RUN_ID} \
