@@ -5,7 +5,7 @@ rp1_doc_id: 34355588-4346-4b0b-8dab-d8e680bb7cbb
 
 **Feature ID**: fix-run-names-and-resume-ids
 **Status**: In Progress
-**Progress**: 61% (8 of 13 tasks)
+**Progress**: 69% (9 of 13 tasks)
 **Estimated Effort**: 4 days
 **Started**: 2026-03-26
 
@@ -371,15 +371,19 @@ stateDiagram-v2
     - **Deviations**: None
     - **Tests**: N/A (prompt-only changes)
 
-    **Execution Flow**:
+    **Validation Summary**:
 
-    ```mermaid
-    stateDiagram-v2
-        [*] --> T8_Artifact_detector_resume
-        T8_Artifact_detector_resume --> [*]
-    ```
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ⏭️ N/A |
 
-- [ ] **T10**: Add --name emission to other workflow skills `[complexity:simple]`
+- [x] **T10**: Add --name emission to other workflow skills `[complexity:simple]`
 
     **Reference**: [design.md#312-other-workflow-skill-updates](design.md#312-other-workflow-skill-updates)
 
@@ -387,10 +391,25 @@ stateDiagram-v2
 
     **Acceptance Criteria**:
 
-    - [ ] build-fast skill passes `--name "Feature: {FEATURE_ID}"` on first emit
-    - [ ] build-express skill passes `--name "Feature: {FEATURE_ID}"` on first emit
-    - [ ] pr-review skill passes `--name "PR #{PR_NUMBER}"` or `--name "PR: {title}"` on first emit
-    - [ ] blueprint skill passes `--name "Blueprint: {PRD_NAME}"` on first emit
+    - [x] build-fast skill passes `--name "Feature: {FEATURE_ID}"` on first emit
+    - [x] build-express skill passes `--name "Feature: {FEATURE_ID}"` on first emit
+    - [x] pr-review skill passes `--name "PR #{PR_NUMBER}"` or `--name "PR: {title}"` on first emit
+    - [x] blueprint skill passes `--name "Blueprint: {PRD_NAME}"` on first emit
+
+    **Implementation Summary**:
+
+    - **Files**: `plugins/dev/skills/build-fast/SKILL.md`, `plugins/dev/skills/build-express/SKILL.md`, `plugins/dev/skills/pr-review/SKILL.md`, `plugins/dev/skills/blueprint/SKILL.md`
+    - **Approach**: Added RUN_NAME derivation instructions and `--name` flag to the first emit call in each skill's STATE-MACHINE section. build-fast and build-express derive name from request context with "Feature: " prefix; pr-review uses "PR #{pr_number}" with branch fallback; blueprint uses "Blueprint: {PRD_NAME}" with "main" default. Updated example sequences to show --name on first emit.
+    - **Deviations**: build-fast and build-express do not have a FEATURE_ID parameter, so the name is derived from the development request summary instead (matching the "Feature: " prefix pattern from the design).
+    - **Tests**: N/A (prompt-only changes)
+
+    **Execution Flow**:
+
+    ```mermaid
+    stateDiagram-v2
+        [*] --> T10_name_emission_in_workflow_skills
+        T10_name_emission_in_workflow_skills --> [*]
+    ```
 
 ### Critical Path Completion
 

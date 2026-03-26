@@ -64,6 +64,8 @@ rp1 agent-tools emit \
 ```
 
 - Generate `RUN_ID` as a UUID at workflow start
+- Derive `RUN_NAME` from the resolved PR context: use `"PR #{pr_number}"` when a PR number is available, otherwise use `"PR: {branch_name}"` as fallback
+- On the **first** emit only, include `--name "{RUN_NAME}"` to label the run in the Arcade dashboard
 
 **State Progression Protocol**:
 1. Report each `--step` with `--data '{"status": "running"}'` when you enter that state
@@ -73,7 +75,7 @@ rp1 agent-tools emit \
 
 **Example sequence**:
 ```
---workflow pr-review --step split --data '{"status": "running"}'        # entering split phase
+--workflow pr-review --step split --name "PR #42" --data '{"status": "running"}'   # first emit includes --name
 --workflow pr-review --step review --data '{"status": "running"}'       # split done, entering review phase
 --workflow pr-review --step synthesize --data '{"status": "running"}'   # review done, entering synthesize phase
 --workflow pr-review --step post --data '{"status": "running"}'         # synthesize done, entering post phase
