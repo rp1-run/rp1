@@ -5,7 +5,7 @@ rp1_doc_id: 34355588-4346-4b0b-8dab-d8e680bb7cbb
 
 **Feature ID**: fix-run-names-and-resume-ids
 **Status**: In Progress
-**Progress**: 53% (7 of 13 tasks)
+**Progress**: 61% (8 of 13 tasks)
 **Estimated Effort**: 4 days
 **Started**: 2026-03-26
 
@@ -337,7 +337,19 @@ stateDiagram-v2
         T6_Frontend_display --> [*]
     ```
 
-- [ ] **T8**: Update artifact-detector agent for run_id extraction and resume logic `[complexity:medium]`
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
+- [x] **T8**: Update artifact-detector agent for run_id extraction and resume logic `[complexity:medium]`
 
     **Reference**: [design.md#39-artifact-detector-agent-updates](design.md#39-artifact-detector-agent-updates)
 
@@ -345,12 +357,27 @@ stateDiagram-v2
 
     **Acceptance Criteria**:
 
-    - [ ] Artifact-detector extracts `rp1_run_id` from YAML frontmatter of existing artifacts
-    - [ ] Extracted run_id is verified against DB for resumable state (running/waiting)
-    - [ ] Terminal-state runs (completed/failed/skipped) cause a new run ID to be generated
-    - [ ] Falls back to `resume-run` subcommand when no frontmatter run_id exists
-    - [ ] Extended output includes `run_id`, `resumed`, and `artifacts` fields
-    - [ ] Artifact reconciliation scans for unregistered files on resume (best-effort)
+    - [x] Artifact-detector extracts `rp1_run_id` from YAML frontmatter of existing artifacts
+    - [x] Extracted run_id is verified against DB for resumable state (running/waiting)
+    - [x] Terminal-state runs (completed/failed/skipped) cause a new run ID to be generated
+    - [x] Falls back to `resume-run` subcommand when no frontmatter run_id exists
+    - [x] Extended output includes `run_id`, `resumed`, and `artifacts` fields
+    - [x] Artifact reconciliation scans for unregistered files on resume (best-effort)
+
+    **Implementation Summary**:
+
+    - **Files**: `plugins/dev/agents/build-artifact-detector.md`
+    - **Approach**: Added Section 2 (Run ID Resolution) with three-part strategy: (2.1) extract `rp1_run_id` from YAML frontmatter of artifacts read during step detection, (2.2) verify resumable state via `resume-run` CLI subcommand comparing frontmatter run_id against DB state, (2.3) fall back to `resume-run` when no frontmatter exists. Added Section 2.4 for best-effort artifact reconciliation on resume. Extended output contract with `run_id`, `resumed`, and `unregistered_artifacts` fields. Added `WORKFLOW_TYPE` parameter (default: `build`) and `Bash(rp1 *)` tool permission for DB queries.
+    - **Deviations**: None
+    - **Tests**: N/A (prompt-only changes)
+
+    **Execution Flow**:
+
+    ```mermaid
+    stateDiagram-v2
+        [*] --> T8_Artifact_detector_resume
+        T8_Artifact_detector_resume --> [*]
+    ```
 
 - [ ] **T10**: Add --name emission to other workflow skills `[complexity:simple]`
 
