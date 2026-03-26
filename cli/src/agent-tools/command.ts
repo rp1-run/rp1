@@ -427,6 +427,7 @@ const emitCommand = agentToolsCommand
 	.option("--unit <unit>", "Task/unit identifier")
 	.option("--data <json>", "JSON payload for the event")
 	.option("--project <path>", "Project path (defaults to cwd)")
+	.option("--name <name>", "Human-readable name for the run (set-once)")
 	.option(
 		"--close-run",
 		"Force-close the run by completing all non-terminal steps",
@@ -503,6 +504,7 @@ Examples:
 			data?: string;
 			project?: string;
 			closeRun?: boolean;
+			name?: string;
 		}): Promise<void> => {
 			const toolName = "emit";
 
@@ -515,6 +517,7 @@ Examples:
 				data: options.data,
 				project: options.project,
 				closeRun: options.closeRun,
+				name: options.name,
 			};
 
 			const validationResult = await validateEmitOptions(emitOptions)();

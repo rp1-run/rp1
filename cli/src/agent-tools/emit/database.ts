@@ -493,6 +493,11 @@ export const insertRun = (db: Database, input: RunInput): RunRecord => {
 			params.$featureId = input.featureId;
 		}
 
+		if (existing.name === null && input.name != null) {
+			updates.push("name = $name");
+			params.$name = input.name;
+		}
+
 		if (updates.length > 0) {
 			updates.push("updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')");
 			db.prepare(`UPDATE runs SET ${updates.join(", ")} WHERE id = $id`).run(
@@ -509,8 +514,8 @@ export const insertRun = (db: Database, input: RunInput): RunRecord => {
 
 	const row = db
 		.prepare(
-			`INSERT INTO runs (id, flow, feature_id, project_path)
-			 VALUES ($id, $flow, $featureId, $projectPath)
+			`INSERT INTO runs (id, flow, feature_id, project_path, name)
+			 VALUES ($id, $flow, $featureId, $projectPath, $name)
 			 RETURNING *`,
 		)
 		.get({
@@ -518,6 +523,7 @@ export const insertRun = (db: Database, input: RunInput): RunRecord => {
 			$flow: input.flow,
 			$featureId: input.featureId,
 			$projectPath: input.projectPath,
+			$name: input.name ?? null,
 		}) as RunRow;
 
 	return runRowToRecord(row);
@@ -537,6 +543,7 @@ export const findOrCreateRun = (
 		.prepare(
 			`SELECT * FROM runs
 			 WHERE feature_id = ?
+			   AND flow = ?
 			   AND project_path = ?
 			   AND status NOT IN (${terminalPlaceholders})
 			 ORDER BY created_at DESC
@@ -544,6 +551,7 @@ export const findOrCreateRun = (
 		)
 		.get(
 			input.featureId,
+			input.flow,
 			input.projectPath,
 			...TERMINAL_STATUSES,
 		) as RunRow | null;
