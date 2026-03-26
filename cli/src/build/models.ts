@@ -2,6 +2,34 @@
  * Type-safe data models for Claude Code and OpenCode artifacts.
  */
 
+// ---------------------------------------------------------------------------
+// Argument schema types
+// ---------------------------------------------------------------------------
+
+/** Supported argument types for structured argument definitions. */
+export type ArgumentType = "string" | "boolean" | "enum";
+
+/** Single argument definition from skill/agent frontmatter. */
+export interface ArgumentDefinition {
+	readonly name: string;
+	readonly type: ArgumentType;
+	readonly required: boolean;
+	readonly default?: string | boolean;
+	readonly description: string;
+	readonly aliases?: readonly string[];
+	readonly implies?: readonly string[];
+	readonly enum_values?: readonly string[];
+	readonly variadic?: boolean;
+	readonly source?: { readonly env: string };
+}
+
+/** Environment parameter definition from skill/agent frontmatter. */
+export interface EnvironmentDefinition {
+	readonly name: string;
+	readonly source: string;
+	readonly description: string;
+}
+
 /**
  * Parsed Claude Code command with frontmatter.
  * Represents a command from Claude Code's .claude-plugin/commands/ directory
@@ -30,6 +58,8 @@ export interface ClaudeCodeAgent {
 	readonly tools: readonly string[];
 	readonly model: string;
 	readonly content: string;
+	readonly arguments?: readonly ArgumentDefinition[];
+	readonly environment?: readonly EnvironmentDefinition[];
 }
 
 /**
@@ -45,6 +75,8 @@ export interface SkillMetadata {
 	readonly author?: string;
 	readonly argumentHint?: string;
 	readonly subAgents?: readonly string[];
+	readonly arguments?: readonly ArgumentDefinition[];
+	readonly environment?: readonly EnvironmentDefinition[];
 }
 
 /**
