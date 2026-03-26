@@ -174,6 +174,91 @@ describe("emit end-to-end", () => {
 		});
 	});
 
+	describe("harness column", () => {
+		test("stores harness value from emit data payload", async () => {
+			const runId = `run-harness-${Date.now()}`;
+			const input = makeInput({
+				type: "status_change",
+				runId,
+				step: "design",
+				data: {
+					status: "running",
+					workflow: "build",
+					feature: "feat",
+					harness: "codex",
+				},
+			});
+
+			await expectTaskRight(executeEmit(input));
+
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+			const row = db
+				.prepare("SELECT harness FROM runs WHERE id = $id")
+				.get({ $id: runId }) as { harness: string | null } | null;
+
+			expect(row).not.toBeNull();
+			expect(row?.harness).toBe("codex");
+		});
+
+		test("existing runs without harness remain valid", async () => {
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+			const runId = `run-no-harness-${Date.now()}`;
+			insertRun(db, {
+				id: runId,
+				flow: "build",
+				featureId: "feat",
+				projectPath: tempDir,
+			});
+
+			const row = db
+				.prepare("SELECT harness FROM runs WHERE id = $id")
+				.get({ $id: runId }) as { harness: string | null } | null;
+
+			expect(row).not.toBeNull();
+			expect(row?.harness).toBeNull();
+		});
+
+		test("backfills harness on subsequent emit for existing run with NULL harness", async () => {
+			const runId = `run-backfill-${Date.now()}`;
+
+			const firstInput = makeInput({
+				type: "status_change",
+				runId,
+				step: "design",
+				data: {
+					status: "running",
+					workflow: "build",
+					feature: "feat",
+				},
+			});
+			await expectTaskRight(executeEmit(firstInput));
+
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+			const beforeRow = db
+				.prepare("SELECT harness FROM runs WHERE id = $id")
+				.get({ $id: runId }) as { harness: string | null } | null;
+			expect(beforeRow?.harness).toBeNull();
+
+			const secondInput = makeInput({
+				type: "status_change",
+				runId,
+				step: "build",
+				data: {
+					status: "running",
+					workflow: "build",
+					feature: "feat",
+					harness: "claude-code",
+				},
+			});
+			await expectTaskRight(executeEmit(secondInput));
+
+			const afterRow = db
+				.prepare("SELECT harness FROM runs WHERE id = $id")
+				.get({ $id: runId }) as { harness: string | null } | null;
+			expect(afterRow?.harness).toBe("claude-code");
+		});
+	});
+
 	describe("annotation_updated events", () => {
 		test("upserts annotation linked to artifact doc_id", async () => {
 			// Pre-create a run and artifact so the annotation FK is valid.
