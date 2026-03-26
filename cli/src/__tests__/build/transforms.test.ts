@@ -24,6 +24,15 @@ describe("injectEmitHarness", () => {
 		expect(result).toBe(input);
 	});
 
+	test("does not double-inject when --harness is on a continuation line", () => {
+		const input = `rp1 agent-tools emit \\
+  --workflow build \\
+  --harness codex \\
+  --type status_change`;
+		const result = injectEmitHarness(input, "codex");
+		expect(result).toBe(input);
+	});
+
 	test("transforms all emit calls in content", () => {
 		const input = `Step 1:
 rp1 agent-tools emit --type status_change

@@ -362,6 +362,9 @@ export const installCodex = (
 			return TE.right<CLIError, void>(undefined);
 		}),
 		TE.chain(() => checkWritePermissions(paths.skillsDir)),
+		TE.chain(() => checkWritePermissions(paths.agentsDir)),
+		TE.chain(() => checkWritePermissions(paths.backupDir)),
+		TE.chain(() => checkWritePermissions(paths.configDir)),
 		TE.chainFirst(() => {
 			spinner.succeed("Codex prerequisites OK");
 			return TE.right(undefined);
@@ -625,6 +628,7 @@ export const uninstallCodex = (
 	TE.tryCatch(
 		async () => {
 			let skillsRemoved = 0;
+			let agentsRemoved = false;
 			let configCleaned = false;
 
 			const rp1SkillDirs: string[] = [];
@@ -684,7 +688,11 @@ export const uninstallCodex = (
 				if (rp1SkillDirs.length === 0 && !hasAgentsDir && !hasFencedConfig) {
 					console.log("No rp1 content found to remove.");
 				}
-				return { skillsRemoved: 0, configCleaned: false };
+				return {
+					skillsRemoved: 0,
+					agentsRemoved: false,
+					configCleaned: false,
+				};
 			}
 
 			for (const dirName of rp1SkillDirs) {
@@ -709,6 +717,7 @@ export const uninstallCodex = (
 					);
 				}
 				await rm(paths.agentsDir, { recursive: true });
+				agentsRemoved = true;
 			}
 
 			if (hasFencedConfig) {
@@ -722,7 +731,7 @@ export const uninstallCodex = (
 				configCleaned = true;
 			}
 
-			return { skillsRemoved, configCleaned };
+			return { skillsRemoved, agentsRemoved, configCleaned };
 		},
 		(e) => {
 			if (typeof e === "object" && e !== null && "_tag" in e) {

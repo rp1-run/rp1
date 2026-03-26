@@ -62,6 +62,15 @@ rp1 agent-tools emit --type status_change`;
 			const diagnostics = missingEmitHarnessRule(content, "codex", "test.md");
 			expect(diagnostics.length).toBe(0);
 		});
+
+		test("no diagnostic when --harness is on a continuation line", () => {
+			const content = `rp1 agent-tools emit \\
+  --workflow build \\
+  --harness codex \\
+  --type status_change`;
+			const diagnostics = missingEmitHarnessRule(content, "codex", "test.md");
+			expect(diagnostics.length).toBe(0);
+		});
 	});
 
 	describe("ignores non-event contexts", () => {

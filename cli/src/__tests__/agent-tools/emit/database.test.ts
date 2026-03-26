@@ -1411,6 +1411,40 @@ describe("emit database", () => {
 			expect(prResult.runId).toBe("run-pr-1");
 			expect(prResult.resumed).toBe(true);
 		});
+
+		test("resumes and backfills legacy active runs with unknown flow", async () => {
+			const dbPath = join(tempDir, "resume-legacy-unknown-flow.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-legacy",
+				flow: "unknown",
+				featureId: "feat-legacy",
+				projectPath: "/project/legacy",
+			});
+
+			insertEvent(db, {
+				runId: "run-legacy",
+				type: "status_change",
+				step: "step1",
+				data: JSON.stringify({ status: "running" }),
+			});
+			deriveRunStatus(db, "run-legacy");
+
+			const result = findOrCreateRun(db, {
+				flow: "build",
+				featureId: "feat-legacy",
+				projectPath: "/project/legacy",
+			});
+
+			expect(result.runId).toBe("run-legacy");
+			expect(result.resumed).toBe(true);
+
+			const row = db
+				.prepare("SELECT flow FROM runs WHERE id = ?")
+				.get("run-legacy") as { flow: string } | null;
+			expect(row?.flow).toBe("build");
+		});
 	});
 
 	describe("legacy cleanup", () => {

@@ -135,6 +135,7 @@ describe("codex integration", () => {
 
 		const uninstallResult = await expectTaskRight(uninstallCodex(paths, false));
 		expect(uninstallResult.skillsRemoved).toBe(2);
+		expect(uninstallResult.agentsRemoved).toBe(true);
 		expect(uninstallResult.configCleaned).toBe(true);
 
 		const postEntries = await readdir(paths.skillsDir);
