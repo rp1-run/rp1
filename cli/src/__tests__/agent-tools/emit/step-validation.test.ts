@@ -263,6 +263,7 @@ describe("validateStepAgainstStateMachine", () => {
 		featureId: "feat",
 		projectPath: tempDir,
 		status: "running" as const,
+		name: null,
 		createdAt: new Date().toISOString(),
 		updatedAt: new Date().toISOString(),
 	});
