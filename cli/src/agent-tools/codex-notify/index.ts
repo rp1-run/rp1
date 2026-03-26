@@ -5,14 +5,17 @@
  */
 
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { getWritableRoots } from "../../install/codex/config.js";
 
 const DEFAULT_TIMEOUT_MS = 8000;
 const ARCADE_URL = "http://localhost:7710";
 const STATE_FILE = join(getWritableRoots()[0], "codex-notify-state.json");
+const LOCK_DIR = `${STATE_FILE}.lock`;
 const MAX_RECORDS = 200;
+const LOCK_TIMEOUT_MS = 2000;
+const LOCK_RETRY_MS = 50;
 
 type NoticeKind = "arcade" | "update";
 
@@ -131,10 +134,43 @@ const saveState = async (state: NotifyState): Promise<void> => {
 		.sort((a, b) => b[1].updatedAt.localeCompare(a[1].updatedAt))
 		.slice(0, MAX_RECORDS);
 	const nextState: NotifyState = { records: Object.fromEntries(entries) };
+	const tempPath = `${STATE_FILE}.${process.pid}.${Date.now()}.tmp`;
 
 	await mkdir(dirname(STATE_FILE), { recursive: true });
-	await writeFile(`${STATE_FILE}.tmp`, JSON.stringify(nextState, null, 2));
-	await writeFile(STATE_FILE, JSON.stringify(nextState, null, 2));
+	await writeFile(tempPath, JSON.stringify(nextState, null, 2));
+	await rename(tempPath, STATE_FILE);
+};
+
+const sleep = (ms: number): Promise<void> =>
+	new Promise((resolve) => setTimeout(resolve, ms));
+
+const withStateLock = async <T>(fn: () => Promise<T>): Promise<T> => {
+	const deadline = Date.now() + LOCK_TIMEOUT_MS;
+
+	while (true) {
+		try {
+			await mkdir(LOCK_DIR);
+			break;
+		} catch (error) {
+			const code =
+				typeof error === "object" &&
+				error !== null &&
+				"code" in error &&
+				typeof error.code === "string"
+					? error.code
+					: null;
+			if (code !== "EEXIST" || Date.now() >= deadline) {
+				throw error;
+			}
+			await sleep(LOCK_RETRY_MS);
+		}
+	}
+
+	try {
+		return await fn();
+	} finally {
+		await rm(LOCK_DIR, { recursive: true, force: true });
+	}
 };
 
 const runRp1 = async (
@@ -257,16 +293,23 @@ const updateState = (
 export const executeCodexNotify = async (input: string): Promise<string> => {
 	const payload = parsePayload(input);
 	const scopeKey = deriveScopeKey(payload);
-	const state = await loadState();
 	const candidateNotices = (
 		await Promise.all([buildArcadeNotice(), buildUpdateNotice()])
 	).filter((notice): notice is Notice => notice !== null);
 
-	const notices = filterNewNotices(scopeKey, payload, candidateNotices, state);
-	if (notices.length === 0) {
-		return "";
-	}
+	return withStateLock(async () => {
+		const state = await loadState();
+		const notices = filterNewNotices(
+			scopeKey,
+			payload,
+			candidateNotices,
+			state,
+		);
+		if (notices.length === 0) {
+			return "";
+		}
 
-	await saveState(updateState(scopeKey, payload, notices, state));
-	return notices.map((notice) => notice.message).join("\n");
+		await saveState(updateState(scopeKey, payload, notices, state));
+		return notices.map((notice) => notice.message).join("\n");
+	});
 };

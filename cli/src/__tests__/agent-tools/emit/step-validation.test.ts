@@ -440,7 +440,7 @@ describe("flow-mismatch check (via executeEmit)", () => {
 		await rm(tempDir, { recursive: true, force: true });
 	});
 
-	test("rejects when run has flow 'unknown' and --workflow provides a value", async () => {
+	test("backfills legacy run flow when stored flow is 'unknown'", async () => {
 		const db = await expectTaskRight(getEmitDatabase(dbPath));
 		const runId = "run-flow-mismatch";
 		insertRun(db, {
@@ -459,11 +459,13 @@ describe("flow-mismatch check (via executeEmit)", () => {
 			data: { status: "running", workflow: "build", feature: "feat" },
 		};
 
-		const error = await expectTaskLeft(executeEmit(input));
-		const msg = getErrorMessage(error);
-		expect(msg).toContain("flow");
-		expect(msg).toContain("unknown");
-		expect(msg).toContain("build");
+		const result = await expectTaskRight(executeEmit(input));
+		expect(result.success).toBe(true);
+
+		const row = db.prepare("SELECT flow FROM runs WHERE id = ?").get(runId) as {
+			flow: string;
+		} | null;
+		expect(row?.flow).toBe("build");
 	});
 
 	test("passes when run flow matches provided workflow", async () => {

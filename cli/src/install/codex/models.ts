@@ -20,6 +20,7 @@ export interface CodexInstallResult {
 /** Result of a Codex uninstallation. */
 export interface CodexUninstallResult {
 	readonly skillsRemoved: number;
+	readonly agentsRemoved: boolean;
 	readonly configCleaned: boolean;
 }
 

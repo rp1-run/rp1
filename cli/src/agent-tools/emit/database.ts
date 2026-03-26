@@ -509,6 +509,11 @@ export const insertRun = (db: Database, input: RunInput): RunRecord => {
 		const updates: string[] = [];
 		const params: Record<string, string> = { $id: input.id };
 
+		if (existing.flow === "unknown" && input.flow !== "unknown") {
+			updates.push("flow = $flow");
+			params.$flow = input.flow;
+		}
+
 		if (existing.feature_id === "unknown" && input.featureId !== "unknown") {
 			updates.push("feature_id = $featureId");
 			params.$featureId = input.featureId;
@@ -585,6 +590,32 @@ export const findOrCreateRun = (
 
 	if (existing) {
 		return { runId: existing.id, resumed: true };
+	}
+
+	const legacyUnknown = db
+		.prepare(
+			`SELECT * FROM runs
+			 WHERE feature_id = ?
+			   AND flow = 'unknown'
+			   AND project_path = ?
+			   AND status NOT IN (${terminalPlaceholders})
+			 ORDER BY created_at DESC
+			 LIMIT 1`,
+		)
+		.get(
+			input.featureId,
+			input.projectPath,
+			...TERMINAL_STATUSES,
+		) as RunRow | null;
+
+	if (legacyUnknown) {
+		db.prepare(
+			`UPDATE runs
+			 SET flow = ?,
+			     updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+			 WHERE id = ?`,
+		).run(input.flow, legacyUnknown.id);
+		return { runId: legacyUnknown.id, resumed: true };
 	}
 
 	const newId = crypto.randomUUID();
