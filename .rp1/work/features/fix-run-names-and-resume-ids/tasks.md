@@ -5,7 +5,7 @@ rp1_doc_id: 34355588-4346-4b0b-8dab-d8e680bb7cbb
 
 **Feature ID**: fix-run-names-and-resume-ids
 **Status**: In Progress
-**Progress**: 69% (9 of 13 tasks)
+**Progress**: 77% (10 of 13 tasks)
 **Estimated Effort**: 4 days
 **Started**: 2026-03-26
 
@@ -411,9 +411,21 @@ stateDiagram-v2
         T10_name_emission_in_workflow_skills --> [*]
     ```
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ⏭️ N/A |
+
 ### Critical Path Completion
 
-- [ ] **T7**: Update build skill for resume logic, name emission, and terminal states `[complexity:medium]`
+- [x] **T7**: Update build skill for resume logic, name emission, and terminal states `[complexity:medium]`
 
     **Reference**: [design.md#311-build-skill-resume-integration](design.md#311-build-skill-resume-integration)
 
@@ -421,13 +433,28 @@ stateDiagram-v2
 
     **Acceptance Criteria**:
 
-    - [ ] Build skill uses `run_id` from artifact-detector when `resumed: true`
-    - [ ] Build skill generates new UUID when not resuming
-    - [ ] First emit includes `--name "Feature: {FEATURE_ID}"`
-    - [ ] Normal completion emits "completed" status
-    - [ ] Error exits emit "failed" status
-    - [ ] Workflows paused for user input emit "waiting" status
-    - [ ] No run remains in "running" status after the build skill finishes execution
+    - [x] Build skill uses `run_id` from artifact-detector when `resumed: true`
+    - [x] Build skill generates new UUID when not resuming
+    - [x] First emit includes `--name "Feature: {FEATURE_ID}"`
+    - [x] Normal completion emits "completed" status
+    - [x] Error exits emit "failed" status
+    - [x] Workflows paused for user input emit "waiting" status
+    - [x] No run remains in "running" status after the build skill finishes execution
+
+    **Implementation Summary**:
+
+    - **Files**: `plugins/dev/skills/build/SKILL.md`
+    - **Approach**: Updated §0-FIRST-ACTION to pass WORKFLOW_TYPE=build to artifact-detector and extract run_id/resumed/unregistered_artifacts from response, with artifact reconciliation on resume. Replaced UUID generation with run_id from artifact-detector. Added --name "Feature: {FEATURE_ID}" to first emit in STATE-MACHINE section. Added waiting status emit to all three "On Stop" exit paths (steps 1-3). Added completed status emit in §6 SUMMARY after artifact registration. Added §TERMINAL-STATES section documenting all exit paths (completed, waiting, failed) with emit commands for failure cases.
+    - **Deviations**: None
+    - **Tests**: N/A (prompt-only changes)
+
+    **Execution Flow**:
+
+    ```mermaid
+    stateDiagram-v2
+        [*] --> T7_build_skill_resume_and_terminal_states
+        T7_build_skill_resume_and_terminal_states --> [*]
+    ```
 
 ### User Docs
 
