@@ -107,7 +107,15 @@ When requirements don't specify tech choices:
 
 ## §7 Design Output
 
-Write to `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/design.md`:
+Write to `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/design.md`.
+
+**Frontmatter**: If RUN_ID is non-empty, include `rp1_run_id` in the YAML frontmatter block. This enables run resumability. Use the `rp1_` prefix consistent with `rp1_doc_id`.
+
+```yaml
+---
+rp1_run_id: {RUN_ID}
+---
+```
 
 | # | Section | Diagram (if valuable) |
 |---|---------|----------------------|

@@ -71,6 +71,7 @@ export interface Run {
 	readonly projectName: string;
 	readonly featureId: string;
 	readonly featureName: string;
+	readonly name: string | null;
 	readonly command: string;
 	readonly status: RunStatus;
 	readonly currentStep: string | null;

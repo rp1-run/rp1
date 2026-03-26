@@ -32,6 +32,7 @@ const baseRun: Run = {
 	projectName: "Test Project",
 	featureId: "feat-1",
 	featureName: "Test Feature",
+	name: null,
 	command: "build",
 	status: "running",
 	currentStep: "design",
