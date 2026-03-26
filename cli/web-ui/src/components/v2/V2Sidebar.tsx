@@ -23,6 +23,7 @@ import {
 import { useAttention } from "@/hooks/useAttention";
 import { usePinnedProjects } from "@/hooks/usePinnedProjects";
 import { useRecentRuns } from "@/hooks/useRecentRuns";
+import { resolveRunDisplayName } from "@/lib/run-display";
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { Collapsible } from "./Collapsible";
@@ -221,7 +222,7 @@ function SidebarQuickAccess({ collapsed }: SidebarQuickAccessProps) {
 												<span className="relative inline-flex h-2 w-2 rounded-full bg-status-running" />
 											</span>
 											<span className="flex-1 truncate text-foreground">
-												{run.featureName || run.projectName}
+												{resolveRunDisplayName(run) || run.projectName}
 											</span>
 										</Link>
 									</li>

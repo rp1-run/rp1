@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useAttention } from "@/hooks/useAttention";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { useRuns } from "@/hooks/useRuns";
+import { resolveRunDisplayName } from "@/lib/run-display";
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { Run } from "@/types/runs";
@@ -107,7 +108,7 @@ function FeedEntry({
 			</span>
 
 			<span className="truncate type-body font-medium text-fg">
-				{run.command || run.featureName || run.featureId}
+				{resolveRunDisplayName(run) || run.command}
 			</span>
 
 			<span className="truncate type-secondary text-fg-muted">
