@@ -333,7 +333,11 @@ export const executeEmit = (
 				featureId: (input.data.feature as string) ?? "unknown",
 				projectPath: input.projectPath,
 				name: input.name,
-				harness: (input.data.harness as string) ?? undefined,
+				harness:
+					input.harness ??
+					(input.data.harness as string) ??
+					process.env.RP1_HARNESS ??
+					undefined,
 			});
 
 			const now = new Date().toISOString();
