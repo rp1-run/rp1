@@ -48,6 +48,7 @@ import type {
 import { parseAgent, parseSkill } from "./parser.js";
 import { preprocessConditionals } from "./preprocessor.js";
 import { defaultRegistry } from "./registry.js";
+import { transformNamespace } from "./tags/index.js";
 import type { BuildPlatform } from "./template-context.js";
 import { buildTemplateContext } from "./template-context.js";
 import { createTemplateEngine } from "./template-engine.js";
@@ -1325,6 +1326,10 @@ export const buildCodexPlugin = async (
 		const processedContent = preprocessResult.right;
 
 		const roleTypeValue = mapAgentToRoleType(ccAgent.name, ccAgent.description);
+		const codexAgentName = transformNamespace(
+			`rp1-${pluginName}:${ccAgent.name}`,
+			"codex",
+		);
 
 		const agentTomlCtx = {
 			...buildTemplateContext(
@@ -1357,7 +1362,7 @@ export const buildCodexPlugin = async (
 		const codexAgentLint = lintArtifact(
 			codexAgentContent,
 			platform,
-			`${ccAgent.name}.toml`,
+			`${codexAgentName}.toml`,
 		);
 		for (const d of codexAgentLint.diagnostics) {
 			if (d.severity === "warning" && !jsonOutput) {
@@ -1374,7 +1379,7 @@ export const buildCodexPlugin = async (
 		}
 
 		if (!lintOnly) {
-			const tomlFilename = `${ccAgent.name}.toml`;
+			const tomlFilename = `${codexAgentName}.toml`;
 			await writeFile(
 				join(pluginOutputDir, "agents", tomlFilename),
 				codexAgentContent,
@@ -1382,11 +1387,11 @@ export const buildCodexPlugin = async (
 		}
 
 		codexAgents.push({
-			name: ccAgent.name,
+			name: codexAgentName,
 			description: ccAgent.description,
 			roleType: roleTypeValue,
 		});
-		agentNames.push(ccAgent.name);
+		agentNames.push(codexAgentName);
 		agentCount++;
 	}
 
