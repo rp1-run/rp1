@@ -54,23 +54,18 @@ function renderCodex(question: string, options: readonly string[]): string {
 	output += "\n\n---";
 	output += "\nI need your input before continuing.";
 	output += `\n\n**${question}**`;
-	output +=
-		"\n\nPlease respond with one of the following, or provide freeform feedback:";
+	output += "\n\nPlease respond with one of the following:";
 	output += `\n${optionsList.map((o) => `- ${o}`).join("\n")}`;
-	output += "\n---";
-
-	// Checkpoint/stop/resume sections
 	output +=
 		"\n\n**Checkpoint**: Before stopping, save a checkpoint file that includes:";
 	output += "\n- Current workflow phase and step name";
 	output += "\n- Paths to any artifacts produced so far";
 	output += "\n- Pending work remaining in the workflow";
-
 	output +=
 		"\n\n**Stop**: Do NOT continue the workflow beyond this point in the current turn. Present the question above to the user and end your response.";
-
 	output +=
 		"\n\n**Resume**: On the next turn, read the checkpoint file, process the user's reply, and continue the workflow from where it stopped.";
+	output += "\n---";
 
 	output +=
 		"\n\nNote: User input is unavailable in subagent contexts on Codex.";
