@@ -15,6 +15,7 @@
 
 import type { BuildPlatform } from "../template-context.js";
 import { incompleteDispatchRule } from "./rules/incomplete-dispatch.js";
+import { missingEmitHarnessRule } from "./rules/missing-emit-harness.js";
 import { nullToolInProseRule } from "./rules/null-tool-in-prose.js";
 import { nullToolRefsRule } from "./rules/null-tool-refs.js";
 import { orphanedPlatformRule } from "./rules/orphaned-platform.js";
@@ -114,3 +115,4 @@ registerLintRule(orphanedPlatformRule);
 registerLintRule(incompleteDispatchRule);
 registerLintRule(unresolvedTagsRule);
 registerLintRule(nullToolInProseRule);
+registerLintRule(missingEmitHarnessRule);
