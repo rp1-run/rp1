@@ -51,7 +51,7 @@ Transition to `testing` state per STATE-MACHINE section (skip if WORKFLOW is emp
 Report once per experiment using `--task hypothesis-{N}` where N is the sequential experiment number (e.g., `hypothesis-1`, `hypothesis-2`):
 
 ```bash
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \
@@ -175,7 +175,7 @@ Transition to `completed` state per STATE-MACHINE section (skip if WORKFLOW is e
 Report per experiment using the same `--task hypothesis-{N}` identifier used during `testing`:
 
 ```bash
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \
@@ -226,7 +226,7 @@ stateDiagram-v2
 
 **On each transition**, report via:
 ```
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \

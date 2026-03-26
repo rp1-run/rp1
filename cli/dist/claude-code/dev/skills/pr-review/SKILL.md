@@ -46,7 +46,7 @@ stateDiagram-v2
 
 **On each phase transition**, report via:
 ```
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow pr-review \
   --type status_change \
   --run-id {RUN_ID} \
@@ -283,7 +283,7 @@ Generate markdown report.
 7. Store `REPORTER_FINDINGS` for P5 (CI mode)
 8. Register artifact:
    ```bash
-   rp1 agent-tools emit \
+   rp1 agent-tools emit --harness claude-code \
      --workflow pr-review \
      --type artifact_registered \
      --run-id {RUN_ID} \
