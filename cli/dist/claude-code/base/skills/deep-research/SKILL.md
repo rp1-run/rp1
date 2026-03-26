@@ -45,7 +45,7 @@ stateDiagram-v2
 
 **On each phase transition**, report via:
 ```
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow deep-research \
   --type status_change \
   --run-id {RUN_ID} \
@@ -307,7 +307,7 @@ Handle failure:
 After extracting report_path, register it in the artifact database:
 
 ```bash
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow deep-research \
   --type artifact_registered \
   --run-id {RUN_ID} \

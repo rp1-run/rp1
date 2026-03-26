@@ -42,7 +42,7 @@ Generate `RUN_ID` as UUID at start.
 
 **On each phase transition**, report via:
 ```
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow pr-visual \
   --type status_change \
   --run-id {RUN_ID} \
@@ -64,7 +64,7 @@ Wait for completion. Extract the artifact path from agent output.
 
 Register the artifact:
 ```bash
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow pr-visual \
   --type artifact_registered \
   --run-id {RUN_ID} \

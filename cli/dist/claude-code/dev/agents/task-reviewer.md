@@ -88,7 +88,7 @@ This is your primary input for verification.
 Transition to `reviewing` state per STATE-MACHINE section:
 
 ```bash
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \
@@ -451,7 +451,7 @@ If no manual items, return empty array: `"manual_verification": []`
 Transition to `completed` state per STATE-MACHINE section:
 
 ```bash
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \
@@ -492,7 +492,7 @@ Skip if WORKFLOW is empty.
 Transition to `failed` state per STATE-MACHINE section:
 
 ```bash
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \
@@ -572,7 +572,7 @@ stateDiagram-v2
 
 **On each transition**, report via:
 ```
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow {WORKFLOW} \
   --type status_change \
   --run-id {RUN_ID} \

@@ -174,7 +174,7 @@ rp1_run_id: {RUN_ID}
 After writing `requirements.md`, register it so the Web UI can display it. Skip if WORKFLOW is empty (standalone invocation).
 
 ```bash
-rp1 agent-tools emit \
+rp1 agent-tools emit --harness claude-code \
   --workflow {WORKFLOW} \
   --type artifact_registered \
   --run-id {RUN_ID} \

@@ -60,7 +60,7 @@ Use a thinking block. For each changed file:
 4. Save markdown to `{{$RP1_ROOT}}/work/pr-reviews/{REVIEW_ID}-visual-{NNN}.md`
 5. Register artifact:
    ```bash
-   rp1 agent-tools emit --type artifact_registered --data '{"path": "{{$RP1_ROOT}}/work/pr-reviews/{REVIEW_ID}-visual-{NNN}.md"}'
+   rp1 agent-tools emit --harness claude-code --type artifact_registered --data '{"path": "{{$RP1_ROOT}}/work/pr-reviews/{REVIEW_ID}-visual-{NNN}.md"}'
    ```
 6. Output the file path
 
