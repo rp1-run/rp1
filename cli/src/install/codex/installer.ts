@@ -393,6 +393,24 @@ export const installCodex = (
 			return pipe(
 				TE.Do,
 				TE.chain(() => {
+					spinner.start("Checking for config conflicts...");
+					return pipe(
+						readCodexConfig(paths.configFile),
+						TE.chain((existingContent) => {
+							const notifyConflict =
+								detectNotifyConfigConflict(existingContent);
+							if (notifyConflict) {
+								spinner.fail("Config conflict detected");
+								return TE.left<CLIError, void>(
+									installError("merge-config", notifyConflict),
+								);
+							}
+							spinner.succeed("No config conflicts");
+							return TE.right<CLIError, void>(undefined);
+						}),
+					);
+				}),
+				TE.chain(() => {
 					spinner.start("Creating backup...");
 					return backupCodexInstallation(paths);
 				}),
@@ -440,14 +458,6 @@ export const installCodex = (
 							pipe(
 								readCodexConfig(paths.configFile),
 								TE.chain((existingContent) => {
-									const notifyConflict =
-										detectNotifyConfigConflict(existingContent);
-									if (notifyConflict) {
-										return TE.left<CLIError, CodexInstallResult>(
-											installError("merge-config", notifyConflict),
-										);
-									}
-
 									const newContent = mergeCodexConfig(existingContent, patch);
 									const diff = generateConfigDiff(existingContent, newContent);
 
