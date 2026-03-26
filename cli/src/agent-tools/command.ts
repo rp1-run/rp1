@@ -509,6 +509,7 @@ Examples:
 			project?: string;
 			closeRun?: boolean;
 			name?: string;
+			harness?: string;
 		}): Promise<void> => {
 			const toolName = "emit";
 
@@ -522,6 +523,7 @@ Examples:
 				project: options.project,
 				closeRun: options.closeRun,
 				name: options.name,
+				harness: options.harness,
 			};
 
 			const validationResult = await validateEmitOptions(emitOptions)();
