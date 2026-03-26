@@ -248,7 +248,7 @@ function SidebarQuickAccess({ collapsed }: SidebarQuickAccessProps) {
 										>
 											<Clock className="h-3 w-3 shrink-0 text-muted-foreground" />
 											<span className="flex-1 truncate text-foreground">
-												{run.featureName || run.projectName}
+												{resolveRunDisplayName(run) || run.projectName}
 											</span>
 											<span className="shrink-0 text-[0.625rem] text-muted-foreground">
 												{formatRelativeTime(
