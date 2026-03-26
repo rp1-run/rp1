@@ -218,6 +218,66 @@ describe("emit end-to-end", () => {
 			expect(row?.harness).toBeNull();
 		});
 
+		test("stores harness from explicit input.harness field over data payload", async () => {
+			const runId = `run-harness-flag-${Date.now()}`;
+			const input = makeInput({
+				type: "status_change",
+				runId,
+				step: "design",
+				harness: "opencode",
+				data: {
+					status: "running",
+					workflow: "build",
+					feature: "feat",
+					harness: "codex",
+				},
+			});
+
+			await expectTaskRight(executeEmit(input));
+
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+			const row = db
+				.prepare("SELECT harness FROM runs WHERE id = $id")
+				.get({ $id: runId }) as { harness: string | null } | null;
+
+			expect(row).not.toBeNull();
+			expect(row?.harness).toBe("opencode");
+		});
+
+		test("falls back to RP1_HARNESS env var when no explicit harness", async () => {
+			const runId = `run-harness-env-${Date.now()}`;
+			const originalEnv = process.env.RP1_HARNESS;
+			process.env.RP1_HARNESS = "claude-code";
+			try {
+				const input = makeInput({
+					type: "status_change",
+					runId,
+					step: "design",
+					data: {
+						status: "running",
+						workflow: "build",
+						feature: "feat",
+					},
+				});
+
+				await expectTaskRight(executeEmit(input));
+
+				const db = await expectTaskRight(getEmitDatabase(dbPath));
+				const row = db
+					.prepare("SELECT harness FROM runs WHERE id = $id")
+					.get({ $id: runId }) as { harness: string | null } | null;
+
+				expect(row).not.toBeNull();
+				expect(row?.harness).toBe("claude-code");
+			} finally {
+				if (originalEnv === undefined) {
+					delete process.env.RP1_HARNESS;
+				} else {
+					process.env.RP1_HARNESS = originalEnv;
+				}
+			}
+		});
+
 		test("backfills harness on subsequent emit for existing run with NULL harness", async () => {
 			const runId = `run-backfill-${Date.now()}`;
 

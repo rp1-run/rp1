@@ -35,6 +35,7 @@ export interface EmitInput {
 	readonly projectPath: string;
 	readonly closeRun?: boolean;
 	readonly name?: string;
+	readonly harness?: string;
 }
 
 /** Result returned from a successful emit operation */
