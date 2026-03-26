@@ -42,6 +42,7 @@ import { useFollowMode } from "@/hooks/useFollowMode";
 import type { HeadingEntry } from "@/hooks/useHeadingExtraction";
 import { useIsMobile } from "@/hooks/useMediaQuery";
 import { useRunDetail } from "@/hooks/useRunDetail";
+import { resolveRunDisplayName } from "@/lib/run-display";
 
 import { AnnotationProvider } from "@/providers/AnnotationProvider";
 import { useWebSocket } from "@/providers/WebSocketProvider";
@@ -604,17 +605,21 @@ export function ArtifactViewerPage() {
 						<li aria-hidden="true">
 							<ChevronRight className="h-4 w-4" />
 						</li>
-						<li>
-							<Link
-								to={`/runs/${runId}`}
-								className="hover:text-foreground transition-colors"
-							>
-								{run.featureName}
-							</Link>
-						</li>
-						<li aria-hidden="true">
-							<ChevronRight className="h-4 w-4" />
-						</li>
+						{resolveRunDisplayName(run) && (
+							<>
+								<li>
+									<Link
+										to={`/runs/${runId}`}
+										className="hover:text-foreground transition-colors"
+									>
+										{resolveRunDisplayName(run)}
+									</Link>
+								</li>
+								<li aria-hidden="true">
+									<ChevronRight className="h-4 w-4" />
+								</li>
+							</>
+						)}
 						<li aria-current="page">
 							<span className="text-foreground truncate max-w-[100px]">
 								{selectedArtifactPath
@@ -770,17 +775,21 @@ export function ArtifactViewerPage() {
 					<li aria-hidden="true">
 						<ChevronRight className="h-4 w-4" />
 					</li>
-					<li>
-						<Link
-							to={`/runs/${runId}`}
-							className="hover:text-foreground transition-colors"
-						>
-							{run.featureName}
-						</Link>
-					</li>
-					<li aria-hidden="true">
-						<ChevronRight className="h-4 w-4" />
-					</li>
+					{resolveRunDisplayName(run) && (
+						<>
+							<li>
+								<Link
+									to={`/runs/${runId}`}
+									className="hover:text-foreground transition-colors"
+								>
+									{resolveRunDisplayName(run)}
+								</Link>
+							</li>
+							<li aria-hidden="true">
+								<ChevronRight className="h-4 w-4" />
+							</li>
+						</>
+					)}
 					<li aria-current={selectedArtifactPath ? undefined : "page"}>
 						<span className="text-foreground">Artifacts</span>
 					</li>
