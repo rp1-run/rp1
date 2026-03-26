@@ -264,6 +264,7 @@ describe("validateStepAgainstStateMachine", () => {
 		projectPath: tempDir,
 		status: "running" as const,
 		name: null,
+		harness: null,
 		createdAt: new Date().toISOString(),
 		updatedAt: new Date().toISOString(),
 	});
