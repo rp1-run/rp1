@@ -6,7 +6,7 @@ rp1_doc_id: 81f506be-4692-4de8-b46a-067c37b213a1
 
 **Feature ID**: args-templates
 **Status**: Not Started
-**Progress**: 50% (7 of 14 tasks)
+**Progress**: 57% (8 of 14 tasks)
 **Estimated Effort**: 7 days
 **Started**: 2026-03-27
 
@@ -278,6 +278,18 @@ stateDiagram-v2
     - **Deviations**: None
     - **Tests**: 1985/1989 passing (4 codex integration failures expected -- existing plugins use legacy argument-hint without structured arguments; resolved by T8/T9 migration)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
     **Execution Flow**:
 
     ```mermaid
@@ -288,7 +300,7 @@ stateDiagram-v2
 
 ### Settings and Runtime
 
-- [ ] **T6**: Create settings loader for argument defaults from TOML files `[complexity:medium]`
+- [x] **T6**: Create settings loader for argument defaults from TOML files `[complexity:medium]`
 
     **Reference**: [design.md#36-settings-schema-toml](design.md#36-settings-schema-toml)
 
@@ -296,13 +308,28 @@ stateDiagram-v2
 
     **Acceptance Criteria**:
 
-    - [ ] `cli/src/settings/loader.ts` created with functions to load project and user TOML settings
-    - [ ] Reads `.rp1/settings.toml` for project-level argument defaults
-    - [ ] Reads `~/.config/rp1/settings.toml` for user-level argument defaults
-    - [ ] Parses `[arguments.<skill-name>]` tables from TOML
-    - [ ] Uses `Bun.TOML.parse()` consistent with existing `validator.ts`
-    - [ ] Returns merged defaults per skill with project settings taking precedence over user settings
-    - [ ] Handles missing files gracefully (returns empty defaults)
+    - [x] `cli/src/settings/loader.ts` created with functions to load project and user TOML settings
+    - [x] Reads `.rp1/settings.toml` for project-level argument defaults
+    - [x] Reads `~/.config/rp1/settings.toml` for user-level argument defaults
+    - [x] Parses `[arguments.<skill-name>]` tables from TOML
+    - [x] Uses `Bun.TOML.parse()` consistent with existing `validator.ts`
+    - [x] Returns merged defaults per skill with project settings taking precedence over user settings
+    - [x] Handles missing files gracefully (returns empty defaults)
+
+    **Implementation Summary**:
+
+    - **Files**: `cli/src/settings/loader.ts`, `cli/src/__tests__/settings/loader.test.ts`
+    - **Approach**: Created loader module with loadArgumentDefaultsForSkill and loadAllArgumentDefaults functions; reuses resolveGlobalSettingsPath/resolveLocalSettingsPath from validator.ts; parses TOML via Bun.TOML.parse() and extracts [arguments.*] tables; merges with spread operator giving project precedence over user
+    - **Deviations**: None
+    - **Tests**: 9/9 passing
+
+    **Execution Flow**:
+
+    ```mermaid
+    stateDiagram-v2
+        [*] --> T6_SettingsLoader
+        T6_SettingsLoader --> [*]
+    ```
 
 - [ ] **T7**: Create resolve-args agent tool subcommand `[complexity:complex]`
 
