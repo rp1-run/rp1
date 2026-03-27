@@ -28,6 +28,25 @@ metadata:
 
 Generate eval assertions (YAML) and test invocation prompt from source prompt. Extracts assertions, then runs assertion specialist to resolve placeholders, consolidate scenarios, and document unresolved assertions.
 
+## 0. Resolve Arguments
+
+Run the argument resolver to obtain all parameter values:
+
+```bash
+rp1 agent-tools resolve-args --schema-path plugins/utils/skills/build-prompt-evals/SKILL.md --args "{raw arguments from user invocation}"
+```
+
+Parse the JSON response. Extract values from `data.arguments`:
+
+| Variable | Source |
+|----------|--------|
+| INPUT | `data.arguments.INPUT` |
+| OUTPUT_DIR | `data.arguments.OUTPUT_DIR` |
+
+If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
+
+Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
+
 ## Modes
 
 **File Mode** (when INPUT is a valid file path):
@@ -62,7 +81,7 @@ Use Bash: test -f "{INPUT}" && echo "file" || echo "inline"
 Spawn dependency-chain-analyzer to discover sub-agent and skill dependencies:
 
 {% dispatch_agent "rp1-utils:dependency-chain-analyzer" %}
-$1: {INPUT file path}
+FILE_PATH: {INPUT file path}
 {% enddispatch_agent %}
 
 Capture JSON output as DEPENDENCY_CHAIN variable.
@@ -97,11 +116,11 @@ OUTPUT_PROMPT = {OUTPUT_DIR}/{basename}-eval-prompt.txt
 Single agent generates both YAML assertions and test prompt:
 
 {% dispatch_agent "rp1-utils:prompt-eval-extractor" %}
-$1: {PROMPT_TEXT content}
-$2: {SOURCE_NAME}
-$3: {OUTPUT_YAML}
-$4: {DEPENDENCY_CHAIN JSON or empty string}
-$5: {OUTPUT_PROMPT}
+PROMPT_TEXT: {PROMPT_TEXT content}
+SOURCE_NAME: {SOURCE_NAME}
+OUTPUT_FILE: {OUTPUT_YAML}
+DEPENDENCY_CHAIN: {DEPENDENCY_CHAIN JSON or empty string}
+OUTPUT_PROMPT: {OUTPUT_PROMPT}
 {% enddispatch_agent %}
 
 ### Step 6: Extraction Complete (Intermediate)
@@ -121,7 +140,7 @@ RP1_ROOT="$(git rev-parse --show-toplevel)/.rp1"
 Invoke assertion specialist to optimize the generated eval config:
 
 {% dispatch_agent "rp1-utils:prompt-assertion-specialist" %}
-$1: {OUTPUT_YAML}
+CONFIG_PATH: {OUTPUT_YAML}
 {% enddispatch_agent %}
 
 Capture JSON output as ASSERTION_RESULT variable.
