@@ -14,7 +14,27 @@ metadata:
   created: 2025-10-25
   updated: 2026-02-26
   author: cloud-on-prem/rp1
-  argument-hint: "[target] [base-branch] [skip-visual]"
+  arguments:
+    - name: TARGET
+      type: string
+      required: false
+      description: "PR number, PR URL, branch name, or empty for current branch"
+    - name: BASE_BRANCH
+      type: string
+      required: false
+      description: "Diff base branch (default: from PR or main)"
+    - name: SKIP_VISUAL
+      type: boolean
+      required: false
+      default: false
+      description: "Skip visual diagram generation"
+      aliases:
+        - "skip-visual"
+        - "no visual"
+  environment:
+    - name: RP1_ROOT
+      source: "rp1 agent-tools rp1-root-dir"
+      description: "Root directory for rp1 project context and work artifacts"
   sub_agents:
     - "rp1-dev:pr-visualizer"
     - "rp1-dev:pr-review-splitter"
@@ -28,19 +48,6 @@ metadata:
 # PR Review Orchestrator
 
 §ROLE: Map-reduce PR review orchestrator. 6 phases, local + CI modes, comment deduplication.
-
-## Parameters
-
-Extract these parameters from the user's input:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `TARGET` | No | current branch | PR number, PR URL, branch name, or empty for current branch |
-| `BASE_BRANCH` | No | from PR or `main` | Diff base branch |
-| `SKIP_VISUAL` | No | `false` | Set `true` if user says "skip-visual" or "no visual" |
-
-**Environment values** (resolve via shell):
-- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 
 ## STATE-MACHINE
 

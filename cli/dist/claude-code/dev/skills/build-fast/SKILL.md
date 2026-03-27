@@ -17,22 +17,6 @@ metadata:
 
 Quick-iteration workflow for focused changes. Three-phase execution: plan -> build -> [review].
 
-## Parameters
-
-Extract these parameters from the user's input:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `DEVELOPMENT_REQUEST` | Yes | - | The freeform development request text |
-| `AFK` | No | `false` | Non-interactive mode. Set `true` if user says "afk", "no prompts", or "unattended" |
-| `CONFIRM_PLAN` | No | `false` | Enable plan review checkpoint and post-implementation review. Set `true` if user says "confirm", "review plan", or "confirm-plan" |
-| `REVIEW` | No | `false` | Enable task-reviewer validation after implementation. Set `true` if user says "review", "verify", or "check" |
-| `GIT_COMMIT` | No | `false` | Commit changes. Set `true` if user says "commit" |
-| `GIT_PUSH` | No | `false` | Push branch to remote. Set `true` if user says "push" |
-
-**Environment values** (resolve via shell):
-- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
-
 ## §VERSION-GATE
 
 **If** `RP1_VERSION` < 0.3.3 **then** STOP execution with message:

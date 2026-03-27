@@ -17,17 +17,6 @@ metadata:
 
 Archives completed feature docs from active -> archives dir.
 
-## Parameters
-
-Extract these parameters from the user's input:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `FEATURE_ID` | Yes | - | Feature ID to archive (kebab-case) |
-
-**Environment values** (resolve via shell):
-- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
-
 ## Usage
 
 ```

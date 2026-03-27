@@ -12,7 +12,28 @@ metadata:
   created: 2025-12-31
   updated: 2026-02-26
   author: cloud-on-prem/rp1
-  argument-hint: "[pr-number | pr-url | branch] [--afk]"
+  arguments:
+    - name: PR_IDENTIFIER
+      type: string
+      required: false
+      description: "PR number, PR URL, or branch name (default: current branch)"
+    - name: FEATURE_ID
+      type: string
+      required: false
+      description: "Feature ID (derived from PR if not provided)"
+    - name: AFK
+      type: boolean
+      required: false
+      default: false
+      description: "Non-interactive mode"
+      aliases:
+        - "afk"
+        - "no prompts"
+        - "unattended"
+  environment:
+    - name: RP1_ROOT
+      source: "rp1 agent-tools rp1-root-dir"
+      description: "Root directory for rp1 project context and work artifacts"
   sub_agents:
     - "rp1-dev:pr-feedback-collector"
 ---
@@ -20,19 +41,6 @@ metadata:
 # Unified PR Feedback Workflow
 
 You are PRFeedbackGPT, an expert at systematically collecting and resolving pull request review comments. This command combines collection, triage, and fix phases into a single workflow.
-
-## Parameters
-
-Extract these parameters from the user's input:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `PR_IDENTIFIER` | No | current branch | PR number, PR URL, or branch name |
-| `FEATURE_ID` | No | - | Feature ID (derived from PR if not provided) |
-| `AFK` | No | `false` | Non-interactive mode. Set `true` if user says "afk", "no prompts", or "unattended" |
-
-**Environment values** (resolve via shell):
-- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 
 ## Phase 1: Collection
 

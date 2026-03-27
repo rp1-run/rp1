@@ -18,17 +18,6 @@ metadata:
 
 Restores an archived feature's documentation from the archives directory back to the active features directory.
 
-## Parameters
-
-Extract these parameters from the user's input:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `FEATURE_ID` | Yes | - | The feature identifier or timestamped archive name to restore (e.g., `my-feature` or `my-feature_20251129_143022`) |
-
-**Environment values** (resolve via shell):
-- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
-
 ## Usage
 
 ```
