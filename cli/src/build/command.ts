@@ -37,6 +37,10 @@ import { discoverSkillMap } from "./codex/skill-map.js";
 import { validateSubAgents } from "./codex/sub-agent-validator.js";
 import { validateCodexToml } from "./codex/validator.js";
 import { type LintDiagnostic, lintArtifact } from "./lint/index.js";
+import {
+	lintAgentArguments,
+	lintSkillArguments,
+} from "./lint/rules/legacy-arguments.js";
 import type {
 	BuildConfig,
 	BuildSummary,
@@ -50,7 +54,10 @@ import { preprocessConditionals } from "./preprocessor.js";
 import { defaultRegistry } from "./registry.js";
 import { transformNamespace } from "./tags/index.js";
 import type { BuildPlatform } from "./template-context.js";
-import { buildTemplateContext } from "./template-context.js";
+import {
+	buildTemplateContext,
+	withDerivedArgumentHint,
+} from "./template-context.js";
 import { createTemplateEngine } from "./template-engine.js";
 import { injectEmitHarness } from "./transforms.js";
 import { validateAgent, validateSkill } from "./validator.js";
@@ -539,6 +546,20 @@ export const buildPlugin = async (
 		}
 		const ccSkill = parseResult.right;
 
+		// Source-level argument validation (L007-L012) -- runs before rendering
+		const skillArgLint = lintSkillArguments(
+			ccSkill.metadata,
+			ccSkill.content,
+			skillDir,
+		);
+		const skillArgErrors = skillArgLint.filter((d) => d.severity === "error");
+		if (skillArgErrors.length > 0) {
+			for (const d of skillArgErrors) {
+				errors.push(formatLintDiagnostic(d));
+			}
+			continue;
+		}
+
 		const preprocessResult = await preprocessConditionals(
 			ccSkill.content,
 			platform,
@@ -562,7 +583,7 @@ export const buildPlugin = async (
 				description: ccSkill.description,
 				allowedTools: ccSkill.allowedTools,
 				content: processedContent,
-				metadata: ccSkill.metadata,
+				metadata: withDerivedArgumentHint(ccSkill.metadata),
 				supportingFiles: ccSkill.supportingFiles,
 			},
 			registry,
@@ -665,6 +686,20 @@ export const buildPlugin = async (
 		}
 		const ccAgent = parseResult.right;
 
+		// Source-level argument validation (L008, L010-L012) -- runs before rendering
+		const agentArgLint = lintAgentArguments(
+			ccAgent.arguments,
+			ccAgent.content,
+			agentFile,
+		);
+		const agentArgErrors = agentArgLint.filter((d) => d.severity === "error");
+		if (agentArgErrors.length > 0) {
+			for (const d of agentArgErrors) {
+				errors.push(formatLintDiagnostic(d));
+			}
+			continue;
+		}
+
 		const preprocessResult = await preprocessConditionals(
 			ccAgent.content,
 			platform,
@@ -686,6 +721,8 @@ export const buildPlugin = async (
 				model: ccAgent.model,
 				tools: ccAgent.tools,
 				content: processedContent,
+				...(ccAgent.arguments && { arguments: ccAgent.arguments }),
+				...(ccAgent.environment && { environment: ccAgent.environment }),
 			},
 			registry,
 			cliVersion,
@@ -904,6 +941,22 @@ export const buildCCPlugin = async (
 		}
 		const ccSkill = parseResult.right;
 
+		// Source-level argument validation (L007-L012) -- runs before rendering
+		const ccSkillArgLint = lintSkillArguments(
+			ccSkill.metadata,
+			ccSkill.content,
+			skillDir,
+		);
+		const ccSkillArgErrors = ccSkillArgLint.filter(
+			(d) => d.severity === "error",
+		);
+		if (ccSkillArgErrors.length > 0) {
+			for (const d of ccSkillArgErrors) {
+				errors.push(formatLintDiagnostic(d));
+			}
+			continue;
+		}
+
 		const preprocessResult = await preprocessConditionals(
 			ccSkill.content,
 			platform,
@@ -928,7 +981,7 @@ export const buildCCPlugin = async (
 				description: ccSkill.description,
 				allowedTools: ccSkill.allowedTools,
 				content: processedContent,
-				metadata: ccSkill.metadata,
+				metadata: withDerivedArgumentHint(ccSkill.metadata),
 				supportingFiles: ccSkill.supportingFiles,
 			},
 			registry,
@@ -991,6 +1044,22 @@ export const buildCCPlugin = async (
 		}
 		const ccAgent = parseResult.right;
 
+		// Source-level argument validation (L008, L010-L012) -- runs before rendering
+		const ccAgentArgLint = lintAgentArguments(
+			ccAgent.arguments,
+			ccAgent.content,
+			agentFile,
+		);
+		const ccAgentArgErrors = ccAgentArgLint.filter(
+			(d) => d.severity === "error",
+		);
+		if (ccAgentArgErrors.length > 0) {
+			for (const d of ccAgentArgErrors) {
+				errors.push(formatLintDiagnostic(d));
+			}
+			continue;
+		}
+
 		const preprocessResult = await preprocessConditionals(
 			ccAgent.content,
 			platform,
@@ -1012,6 +1081,8 @@ export const buildCCPlugin = async (
 				model: ccAgent.model,
 				tools: ccAgent.tools,
 				content: processedContent,
+				...(ccAgent.arguments && { arguments: ccAgent.arguments }),
+				...(ccAgent.environment && { environment: ccAgent.environment }),
 			},
 			registry,
 			cliVersion,
@@ -1174,6 +1245,22 @@ export const buildCodexPlugin = async (
 		const ccSkill = parseResult.right;
 		parsedSkills.push(ccSkill);
 
+		// Source-level argument validation (L007-L012) -- runs before rendering
+		const codexSkillArgLint = lintSkillArguments(
+			ccSkill.metadata,
+			ccSkill.content,
+			skillDir,
+		);
+		const codexSkillArgErrors = codexSkillArgLint.filter(
+			(d) => d.severity === "error",
+		);
+		if (codexSkillArgErrors.length > 0) {
+			for (const d of codexSkillArgErrors) {
+				errors.push(formatLintDiagnostic(d));
+			}
+			continue;
+		}
+
 		const preprocessResult = await preprocessConditionals(
 			ccSkill.content,
 			platform,
@@ -1198,7 +1285,7 @@ export const buildCodexPlugin = async (
 					description: ccSkill.description,
 					allowedTools: ccSkill.allowedTools,
 					content: processedContent,
-					metadata: ccSkill.metadata,
+					metadata: withDerivedArgumentHint(ccSkill.metadata),
 					supportingFiles: ccSkill.supportingFiles,
 				},
 				registry,
@@ -1315,6 +1402,22 @@ export const buildCodexPlugin = async (
 		}
 		const ccAgent = parseResult.right;
 
+		// Source-level argument validation (L008, L010-L012) -- runs before rendering
+		const codexAgentArgLint = lintAgentArguments(
+			ccAgent.arguments,
+			ccAgent.content,
+			agentFile,
+		);
+		const codexAgentArgErrors = codexAgentArgLint.filter(
+			(d) => d.severity === "error",
+		);
+		if (codexAgentArgErrors.length > 0) {
+			for (const d of codexAgentArgErrors) {
+				errors.push(formatLintDiagnostic(d));
+			}
+			continue;
+		}
+
 		const preprocessResult = await preprocessConditionals(
 			ccAgent.content,
 			platform,
@@ -1344,6 +1447,8 @@ export const buildCodexPlugin = async (
 					tools: ccAgent.tools,
 					content: processedContent,
 					roleType: roleTypeValue,
+					...(ccAgent.arguments && { arguments: ccAgent.arguments }),
+					...(ccAgent.environment && { environment: ccAgent.environment }),
 				},
 				registry,
 				cliVersion,
