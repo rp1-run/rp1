@@ -98,8 +98,8 @@ For verifying existing patterns/implementations.
 #### EXTERNAL_RESEARCH
 For third-party docs/API capabilities.
 
-- WebSearch: `query="{lib/API} {capability}"`
-- WebFetch: `url="{doc URL}" prompt="Extract {topic}"`
+- Search the web: `query="{lib/API} {capability}"`
+- Fetch documentation: `url="{doc URL}" prompt="Extract {topic}"`
 - Source authority levels:
   - Authoritative: Official docs, RFCs, vendor APIs
   - Semi-authoritative: Tech blogs, SO accepted answers

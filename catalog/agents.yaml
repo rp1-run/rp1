@@ -103,21 +103,21 @@ agents:
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:blueprint-audit]
     last_update: "2026-03-27"
-    last_checksum: b6b08e8bbdd0b26d703492cf00139ca3406c93ceeafb517926ca472f5a744f13
+    last_checksum: 5580a45f350fb217c3227044104b52af7435b17f194313c2ef1816b9a4f356fe
   - name: rp1-dev:blueprint-wizard
     description: Stateless PRD wizard that analyzes interview state and returns structured JSON responses for PRD creation
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:blueprint]
     last_update: "2026-03-27"
-    last_checksum: f5a13c3da873d4780d3c5d061f18e66bd89f9661ab841e7086261186780fe10b
+    last_checksum: 0671e14f6b8477dcd72977b1b98b12f312b8b662d9c51d00942202f8ecb612cf
   - name: rp1-dev:bootstrap-scaffolder
     description: Stateless scaffolder that analyzes interview state and returns structured JSON responses for tech stack selection and project scaffolding
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:bootstrap]
     last_update: "2026-03-27"
-    last_checksum: 257c3336a9fd96abe63d1163d43e940372f74e43940aa30cd66156ff36b1c778
+    last_checksum: cda08db3ed73aed3082ad076da97bbfe70c85f93d072c47e1e429ff38868994f
   - name: rp1-dev:bug-investigator
     description: Systematic investigation of bugs and issues to identify root causes through evidence-based analysis, hypothesis testing, and comprehensive documentation without permanent code changes
     plugin: dev
@@ -166,7 +166,7 @@ agents:
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:blueprint,rp1-dev:bootstrap]
     last_update: "2026-03-27"
-    last_checksum: 65ae1116429306b8535d7e968a7b5f8f4a9415454b9f829033c9aeca361d5f0c
+    last_checksum: 6748f21636ef47aee731484b911ca3390bc47ef66edf004450fa7683f05e46be
   - name: rp1-dev:code-auditor
     description: Analyzes implemented code for pattern consistency, maintainability, code duplication, comment quality, and documentation drift
     plugin: dev
@@ -201,7 +201,7 @@ agents:
     skills_that_i_use: [rp1-base:mermaid]
     skills_that_use_me: [rp1-dev:build]
     last_update: "2026-03-27"
-    last_checksum: 32f3949647727a88b618b505fbce20bed45c297695ddf09e849f9f3f7e5a2cd8
+    last_checksum: 9d9b537ee80bdd101a0996f416de5adf002d029031bff0d9d53f088f458b736e
   - name: rp1-dev:feature-archiver
     description: Archives completed features to {RP1_ROOT}/work/archives/features/ or restores archived features back to active features directory
     plugin: dev
@@ -222,7 +222,7 @@ agents:
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:build]
     last_update: "2026-03-27"
-    last_checksum: 322f27c1e5b6cdd796251a028d95403676cf96f308cc3953b2e19b28f2b251f5
+    last_checksum: b6aba3d9caebbccc86eee63d98d3d6be35d884c758ea70904010e5e4f60cab5c
   - name: rp1-dev:feature-tasker
     description: Generates development tasks from design specifications with support for incremental updates that preserve completed work
     plugin: dev
@@ -243,7 +243,7 @@ agents:
     skills_that_i_use: [rp1-dev:build]
     skills_that_use_me: [rp1-dev:build,rp1-dev:validate-hypothesis]
     last_update: "2026-03-27"
-    last_checksum: 239d023da991bc8aa1c52b9d13558106bb3eeb3a864f51ef87314e253eebf4c8
+    last_checksum: 548c9478f47b3efeac6f74085391f89f33508a41da220d5877db9bfd70b56492
   - name: rp1-dev:pr-comment-deduplicator
     description: Deduplicates PR review comments against existing bot and human comments
     plugin: dev
