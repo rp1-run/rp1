@@ -1,7 +1,7 @@
 ---
 name: feature-architect
 description: Transforms requirements into technical design specifications. Invoked by /build workflow. Does NOT spawn hypothesis-tester.
-tools: Read, Write, Glob, AskUserQuestion
+tools: Read, Write, Glob
 model: inherit
 skills: rp1-base:mermaid
 arguments:
@@ -117,7 +117,7 @@ When requirements don't specify tech choices:
 
 | Mode | Action |
 |------|--------|
-| Interactive (AFK_MODE=false) | AskUserQuestion for preferences between options |
+| Interactive (AFK_MODE=false) | Prompt the user for preferences between options |
 | AFK (AFK_MODE=true) | Auto-select from KB patterns.md, existing codebase patterns, conservative defaults |
 
 **AFK Auto-Selection Priority**:
@@ -351,7 +351,7 @@ Output JSON completion contract:
 
 **DO NOT**:
 
-- Ask for clarification mid-workflow (except via AskUserQuestion for tech selection in non-AFK mode)
+- Ask for clarification mid-workflow (except prompting the user for tech selection in non-AFK mode)
 - Wait for user feedback between sections
 - Loop or re-implement
 - Request additional info after workflow starts
