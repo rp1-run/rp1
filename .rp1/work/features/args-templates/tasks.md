@@ -6,7 +6,7 @@ rp1_doc_id: 81f506be-4692-4de8-b46a-067c37b213a1
 
 **Feature ID**: args-templates
 **Status**: Not Started
-**Progress**: 79% (11 of 14 tasks)
+**Progress**: 86% (12 of 14 tasks)
 **Estimated Effort**: 7 days
 **Started**: 2026-03-27
 
@@ -456,6 +456,18 @@ stateDiagram-v2
     - **Deviations**: None
     - **Tests**: 2018/2018 passing
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ⏭️ N/A |
+
     **Execution Flow**:
 
     ```mermaid
@@ -466,7 +478,7 @@ stateDiagram-v2
 
 ### Documentation
 
-- [ ] **T10**: Update documentation for structured arguments schema `[complexity:medium]`
+- [x] **T10**: Update documentation for structured arguments schema `[complexity:medium]`
 
     **Reference**: [design.md#5-implementation-plan](design.md#5-implementation-plan)
 
@@ -474,12 +486,27 @@ stateDiagram-v2
 
     **Acceptance Criteria**:
 
-    - [ ] `docs/concepts/skill-format.md` updated: frontmatter schema section documents `arguments` and `environment`
-    - [ ] `docs/concepts/skill-format.md` updated: argument-hint notation documents auto-derivation
-    - [ ] `docs/concepts/skill-format.md` updated: new Environment Parameters section added
-    - [ ] `AGENTS.md` updated: argument style section references structured arguments instead of `$1/$2`
-    - [ ] `AGENTS.md` updated: canonical variable assignment references `environment` schema
-    - [ ] `DEVELOPMENT.md` updated if parameter conventions are mentioned
+    - [x] `docs/concepts/skill-format.md` updated: frontmatter schema section documents `arguments` and `environment`
+    - [x] `docs/concepts/skill-format.md` updated: argument-hint notation documents auto-derivation
+    - [x] `docs/concepts/skill-format.md` updated: new Environment Parameters section added
+    - [x] `AGENTS.md` updated: argument style section references structured arguments instead of `$1/$2`
+    - [x] `AGENTS.md` updated: canonical variable assignment references `environment` schema
+    - [x] `DEVELOPMENT.md` updated if parameter conventions are mentioned
+
+    **Implementation Summary**:
+
+    - **Files**: `docs/concepts/skill-format.md`, `AGENTS.md`, `DEVELOPMENT.md`
+    - **Approach**: Updated skill-format.md frontmatter schema to document metadata.arguments and metadata.environment fields with full field reference tables; replaced argument-hint notation section with auto-derivation rules; replaced legacy ## Parameters section with Argument Resolution section describing CLI-based resolve-args flow; updated reference example to use structured arguments; updated AGENTS.md argument style to use structured frontmatter arrays instead of $1/$2 positional params and hand-written tables; updated canonical variable assignment to reference environment schema; updated DEVELOPMENT.md contributing section to reference structured arguments instead of Parameters section
+    - **Deviations**: None
+    - **Tests**: 2018/2018 passing
+
+    **Execution Flow**:
+
+    ```mermaid
+    stateDiagram-v2
+        [*] --> T10_DocumentationUpdates
+        T10_DocumentationUpdates --> [*]
+    ```
 
 ### User Docs
 

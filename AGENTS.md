@@ -52,33 +52,69 @@ When Codex agents spawn subagents in this repo:
 
 ### Argument style
 
-Use explicit positional arguments compatible with both Claude Code and OpenCode:
+Define parameters using structured `arguments` arrays in frontmatter. Skills nest arguments under `metadata`; agents place them at the top level.
 
-- `$1`, `$2`, `$3` for structured parameters
-- `$ARGUMENTS` for freeform text
+**Skills** (`metadata.arguments`):
 
-All commands with parameters must include this section:
-
-```markdown
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| FEATURE_ID | $1 | (required) | Feature identifier |
-| CONTEXT | $2 | `""` | Optional context |
-| RP1_ROOT | Environment | `.rp1/` | Root directory |
+```yaml
+metadata:
+  arguments:
+    - name: FEATURE_ID
+      type: string
+      required: true
+      description: "Feature identifier"
+    - name: AFK
+      type: boolean
+      required: false
+      default: false
+      description: "Non-interactive mode"
+      aliases:
+        - "afk"
+        - "no prompts"
 ```
 
-Use `argument-hint` in frontmatter with standard notation:
+**Agents** (top-level `arguments`):
 
-- `<param>` required
-- `[param]` optional
-- `[param...]` variadic optional
-- `[--flag]` optional flag
+```yaml
+arguments:
+  - name: FEATURE_ID
+    type: string
+    required: true
+    description: "Feature identifier"
+  - name: CONTEXT
+    type: string
+    required: false
+    description: "Optional context"
+```
+
+The build pipeline auto-derives the `argument-hint` string from these definitions. Do not write manual `argument-hint` strings or hand-written `## Parameters` / `## 0. Parameters` tables -- both trigger build errors.
+
+Argument names use UPPER_SNAKE_CASE. Supported types: `string`, `boolean`, `enum`. See [docs/concepts/skill-format.md](docs/concepts/skill-format.md) for the full field reference.
 
 ### Canonical variable assignment
 
-Resolve `RP1_ROOT` with:
+Declare environment-resolved parameters (like `RP1_ROOT`) in the `environment` schema:
+
+**Skills** (`metadata.environment`):
+
+```yaml
+metadata:
+  environment:
+    - name: RP1_ROOT
+      source: "rp1 agent-tools rp1-root-dir"
+      description: "Root directory for rp1 project context"
+```
+
+**Agents** (top-level `environment`):
+
+```yaml
+environment:
+  - name: RP1_ROOT
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 project context"
+```
+
+Within the prompt body, resolve `RP1_ROOT` with:
 
 ```markdown
 $RP1_ROOT = !`rp1 agent-tools rp1-root-dir`
