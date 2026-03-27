@@ -439,7 +439,7 @@ fix(commands): resolve argument parsing
 
 3. **Ensure agents follow constitutional prompt structure**:
    - Frontmatter with name, description, tools, model
-   - Parameters section with defaults
+   - Structured `arguments` and `environment` in frontmatter (not hand-written parameter tables)
    - Structured workflow with pseudocode
    - Anti-loop directives
 4. **Use proper namespace prefixes**:
@@ -489,8 +489,8 @@ model: inherit
 
 Role persona and critical instructions
 
-## 0. Parameters
-[Parameter definitions with defaults]
+## 0. Parameters (deprecated -- use frontmatter `arguments` instead)
+[Structured arguments defined in frontmatter, resolved via `rp1 agent-tools resolve-args`]
 
 ## 1-N. Workflow Sections
 [Detailed execution logic, algorithms, pseudocode]
