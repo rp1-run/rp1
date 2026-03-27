@@ -11,183 +11,183 @@ agents:
     plugin: base
     skills_that_i_use: [rp1-base:knowledge-build]
     skills_that_use_me: [rp1-base:knowledge-build]
-    last_update: "2026-02-16"
-    last_checksum: a0366d45935bb0d4bd1d308e1375cdd8986cf2d2cbec811d556c051acfa931e7
+    last_update: "2026-03-27"
+    last_checksum: ebf88e4385614f10532664dc3322d5910fff1cb24ba6869c716984ce4d6337e8
   - name: rp1-base:kb-concept-extractor
     description: Extracts domain concepts and terminology for concept_map.md from pre-filtered files
     plugin: base
     skills_that_i_use: []
     skills_that_use_me: [rp1-base:knowledge-build]
-    last_update: "2026-02-16"
-    last_checksum: 9d817538feb83cf9fb6c61906cb80a4729522cbf43812f4c5af65c54db82a7ed
+    last_update: "2026-03-27"
+    last_checksum: 58ab9515593500168326d623141a2ef862cc8e0cc489682c9ceaa69a33d2de49
   - name: rp1-base:kb-index-builder
     description: [DEPRECATED] Generates project overview data for index.md from pre-filtered files
     plugin: base
     skills_that_i_use: []
     skills_that_use_me: []
-    last_update: "2026-02-16"
-    last_checksum: 59fa6652024d2621d6ba84bea748e9dee02d450306cf3911fee6ac3cbcdbcbfc
+    last_update: "2026-03-27"
+    last_checksum: fdefe172229116c5a63e7b6a00cbee7d480267dbbb7fe98a98d0e479f699cf08
   - name: rp1-base:kb-module-analyzer
     description: Analyzes modules, components, and dependencies for modules.md from pre-filtered files
     plugin: base
     skills_that_i_use: [rp1-base:knowledge-load]
     skills_that_use_me: [rp1-base:knowledge-build]
-    last_update: "2026-02-16"
-    last_checksum: baa6eb3d31c85e8929af3416ead6a1fea32548c49fead44c31d8f7a4efc2134e
+    last_update: "2026-03-27"
+    last_checksum: edd10779ea99fdca7c46b9b65337b6ecd9dff81ed0b2b40255b81ce0a3fa3b38
   - name: rp1-base:kb-pattern-extractor
     description: Extracts implementation patterns and idioms for patterns.md from pre-filtered source files
     plugin: base
     skills_that_i_use: []
     skills_that_use_me: [rp1-base:knowledge-build]
-    last_update: "2026-02-16"
-    last_checksum: 8b6b896d4fcf8e68a8224a748dc5cdb692a5e1a672bab287260b37bcf1771ab6
+    last_update: "2026-03-27"
+    last_checksum: e0ccd496ce7d54285ccd0a552280cae29069811f13b8578e2744610a52e3e0e0
   - name: rp1-base:kb-spatial-analyzer
     description: Scans repository files, ranks by importance (0-5), and categorizes them by KB section for parallel analysis
     plugin: base
     skills_that_i_use: []
     skills_that_use_me: [rp1-base:knowledge-build]
-    last_update: "2026-03-26"
-    last_checksum: a6edc412292bce9fcd3b0206e3bb163d0b106792b5d6973cf9d71e94ba17e7b5
+    last_update: "2026-03-27"
+    last_checksum: 1d4d49c282a2415412cc04fe2385837a143acba667ea7d3656c54ab1ebdf5f61
   - name: rp1-base:mermaid-fixer
     description: Validates and repairs mermaid diagrams in markdown files. Scans for mermaid blocks, validates each diagram, attempts automatic repair (up to 3 iterations), and inserts placeholders for unfixable diagrams.
     plugin: base
     skills_that_i_use: []
     skills_that_use_me: [rp1-base:fix-mermaid]
-    last_update: "2025-12-29"
-    last_checksum: 34babb0b7817577a3e27524241264c4e5bdca68740347d53202dfb7eea386fa2
+    last_update: "2026-03-27"
+    last_checksum: 5718ecd1e1d66c23c515242e3dfffbf8fafded8b3ef7f97b7540e5468856e90c
   - name: rp1-base:project-documenter
     description: Generates comprehensive project overview documents with diagrams for new developers using internal knowledge base and codebase context
     plugin: base
     skills_that_i_use: []
     skills_that_use_me: [rp1-base:project-birds-eye-view]
-    last_update: "2026-02-16"
-    last_checksum: e15f35663ce7f116619e1113ca69c56494203ddb00dd3ca05bd9d25fc53e8a3e
+    last_update: "2026-03-27"
+    last_checksum: 198dcc96aeac16b965b312239d1e117e518b91022f3f2813226381fd97a768c2
   - name: rp1-base:research-explorer
     description: Deep exploration of codebases or web resources, returning structured JSON findings with evidence
     plugin: base
     skills_that_i_use: []
     skills_that_use_me: [rp1-base:deep-research]
-    last_update: "2025-12-29"
-    last_checksum: 78a84c0d15a64beadb12a58bd139137dbca1423f3a65f15d01934cae8e1088b7
+    last_update: "2026-03-27"
+    last_checksum: 7382a7d8a1f5eaa58fe8fa0e434f9e1d011f6b11811e4fc438c52365030c1451
   - name: rp1-base:research-reporter
     description: Generates structured research reports with validated Mermaid diagrams from synthesis data
     plugin: base
     skills_that_i_use: []
     skills_that_use_me: [rp1-base:deep-research]
-    last_update: "2026-02-16"
-    last_checksum: 29d603c66cceb59f1466892f285bfb34c296d97c7e7b22c79eb6fd746b34f892
+    last_update: "2026-03-27"
+    last_checksum: 8eded2271db513a116f9f0ba923d15c45929b283a1d256f16f183dcefa2ba716
   - name: rp1-base:scribe
     description: Dual-mode agent for documentation scanning (mode=scan) and processing (mode=process)
     plugin: base
     skills_that_i_use: []
     skills_that_use_me: [rp1-base:generate-user-docs]
-    last_update: "2026-03-14"
-    last_checksum: 815457e3a2438daa4e5fc2c8d25bcc554b95e4fc1c9c9c07dbeae0ca8062b836
+    last_update: "2026-03-27"
+    last_checksum: 97a057f4e8277b2f6cad55892a28f0e883ca5c7728304f2924f75358bed797de
   - name: rp1-base:security-validator
     description: Performs thorough security validation of features including vulnerability scans, authentication/authorization verification, compliance assessment, and penetration testing
     plugin: base
     skills_that_i_use: []
     skills_that_use_me: [rp1-base:analyse-security]
-    last_update: "2026-02-16"
-    last_checksum: 31d95e0a72da3f970a8d9be3cedefeffeb206dbc04058e11d7b620af7740a670
+    last_update: "2026-03-27"
+    last_checksum: 84f5de46a83de68515ad65d82ccdb246cdcd942af90c6ac6ed16af008539bdcb
   - name: rp1-base:strategic-advisor
     description: Analyzes systems holistically to provide strategic recommendations balancing cost, quality, performance, complexity, and business objectives with quantified trade-offs
     plugin: base
     skills_that_i_use: []
     skills_that_use_me: [rp1-base:strategize]
-    last_update: "2026-02-16"
-    last_checksum: f41daef5d825d2047ca43d76bce5a3554f163b8eb49de9e97000de9e19988d7e
+    last_update: "2026-03-27"
+    last_checksum: 79f1cc3c72c345ae4d61c886383c5cfbb417210e42ce2b10d7d67a2938c63361
   - name: rp1-dev:blueprint-auditor
     description: Audits PRD documents against implementation status and executes disposition actions
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:blueprint-audit]
-    last_update: "2026-02-16"
-    last_checksum: 73b864488d15a3322eaf256b777402b3d5206e0de018f7a1fa57054c1d2e191e
+    last_update: "2026-03-27"
+    last_checksum: b6b08e8bbdd0b26d703492cf00139ca3406c93ceeafb517926ca472f5a744f13
   - name: rp1-dev:blueprint-wizard
     description: Stateless PRD wizard that analyzes interview state and returns structured JSON responses for PRD creation
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:blueprint]
-    last_update: "2026-02-16"
-    last_checksum: 995a1125dacbbe214b3c8f40659748276d9d99da93099aa11be58aa7bfcbd9d3
+    last_update: "2026-03-27"
+    last_checksum: f5a13c3da873d4780d3c5d061f18e66bd89f9661ab841e7086261186780fe10b
   - name: rp1-dev:bootstrap-scaffolder
     description: Stateless scaffolder that analyzes interview state and returns structured JSON responses for tech stack selection and project scaffolding
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:bootstrap]
-    last_update: "2026-02-16"
-    last_checksum: 49bc1b513d3f135c8d413de71ee132d5a87b64f23fdb014c44116d5ae0bfc250
+    last_update: "2026-03-27"
+    last_checksum: 257c3336a9fd96abe63d1163d43e940372f74e43940aa30cd66156ff36b1c778
   - name: rp1-dev:bug-investigator
     description: Systematic investigation of bugs and issues to identify root causes through evidence-based analysis, hypothesis testing, and comprehensive documentation without permanent code changes
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:code-investigate]
-    last_update: "2026-02-16"
-    last_checksum: c9441c43e20a90b24613830c7e166c47267c33c516ad54298b8402f0171cda79
+    last_update: "2026-03-27"
+    last_checksum: 69b9214a55b05bcaff217716824bf3ec61b11bbf5c2b7a8bebfc833ec3f8f20b
   - name: rp1-dev:build-artifact-detector
     description: Determines workflow start_step by checking existing feature artifacts and resolving run resume state
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:build]
-    last_update: "2026-03-26"
-    last_checksum: cd486e17360689227711581114553800198e34b4275088b75f5111056e18911f
+    last_update: "2026-03-27"
+    last_checksum: c9e372727d49c7afe81619424cacdfe48afc72ddd9c0d8728012a9b7420f5fe2
   - name: rp1-dev:build-fast-planner
     description: Quick-iteration workflow planner. Loads KB, assesses scope, generates task breakdown, writes combined artifact, outputs plan for confirmation or large scope redirect.
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:build-fast]
-    last_update: "2026-03-19"
-    last_checksum: 8385078f0b47c2ecefd84cf5ab694da5bbeda67d73644a8c2a00528a3fa1f514
+    last_update: "2026-03-27"
+    last_checksum: 7c15d157652b40946a52a6f8fdbc6ac287cb8138adf7087a12197a1719e664b1
   - name: rp1-dev:build-task-grouper
     description: Batches parsed tasks into execution units based on complexity rules
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:build]
-    last_update: "2026-03-08"
-    last_checksum: 7d15c0ef1a6831770c5df245b6b39815dd839a555f36a9002ab6350137518ea0
+    last_update: "2026-03-27"
+    last_checksum: b7dbeb8fd460af65ebcd8fbc2c158bb505443b24001a6996d8f0b565a591f974
   - name: rp1-dev:build-task-parser
     description: Extracts structured task information from tasks.md files
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:build]
-    last_update: "2026-03-08"
-    last_checksum: 6cdfa0158c1556f9b0d9dce87008c85e5e9bf0b8a6fbbeff5d1943d896e60994
+    last_update: "2026-03-27"
+    last_checksum: 235336c79e9a3c989d4518053a25270a022dd8030bb4145b5a6a4a79ea89d096
   - name: rp1-dev:build-verify-aggregator
     description: Combines verification phase results into final status determination
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:build]
-    last_update: "2026-03-08"
-    last_checksum: 1ba855c4302d087d6827f54965ccc8737082b203f2676454ea1645ce47374a61
+    last_update: "2026-03-27"
+    last_checksum: b427a54fd862a99a1571e8a928d57827d6b912cfaa79394ceed36fb5a2940f63
   - name: rp1-dev:charter-interviewer
     description: Stateless interview agent that analyzes charter state and returns structured JSON responses for greenfield project vision capture
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:blueprint,rp1-dev:bootstrap]
-    last_update: "2026-02-16"
-    last_checksum: 07f3c86ade6a0e41fdefec8b887cd099f95791db9f29508f8600e3183a2abeca
+    last_update: "2026-03-27"
+    last_checksum: 65ae1116429306b8535d7e968a7b5f8f4a9415454b9f829033c9aeca361d5f0c
   - name: rp1-dev:code-auditor
     description: Analyzes implemented code for pattern consistency, maintainability, code duplication, comment quality, and documentation drift
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:code-audit]
-    last_update: "2026-02-16"
-    last_checksum: 28add0f97f4fc1deb3e43499afe0af41a61759ed58d82fd0786d8854093cd7fc
+    last_update: "2026-03-27"
+    last_checksum: b42f3e8b5900334a4e97a86b6a8772a7dbc3be2d770173f38a79a370e2cca564
   - name: rp1-dev:code-checker
     description: Fast code hygiene validation (linters, formatters, tests, coverage) for quick dev loop feedback
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:build,rp1-dev:code-check]
-    last_update: "2026-03-26"
-    last_checksum: 23ec405de32b17fb8f3566fe72bc0f518d35d888e490e7fddabaf3024410db30
+    last_update: "2026-03-27"
+    last_checksum: 2ead3ad456faf9d09dc7ef9f5d46792d46927444f22428bfbb4604d8ebed4074
   - name: rp1-dev:comment-cleaner
     description: Systematically removes unnecessary comments from code while preserving docstrings, critical logic explanations, and type directives
     plugin: dev
     skills_that_i_use: [rp1-base:code-comments]
     skills_that_use_me: [rp1-dev:build,rp1-dev:code-clean-comments]
-    last_update: "2026-03-26"
-    last_checksum: 8c80f0f2312a0721a0f3e8da76fd82c6982c950bef895a51927b5e1cff4abb86
+    last_update: "2026-03-27"
+    last_checksum: 8509a027b5766071ed5f673eeb3d3b2b5b8686ebd34116e92fb019ce874714fe
   - name: rp1-dev:express-builder
     description: Implements a single focused code change from a build-express request
     plugin: dev
@@ -200,159 +200,159 @@ agents:
     plugin: dev
     skills_that_i_use: [rp1-base:mermaid]
     skills_that_use_me: [rp1-dev:build]
-    last_update: "2026-03-26"
-    last_checksum: c94aa0d507f74d3b28e80fbc20098045b6d4a96e2d0a8330ea78e254e59ac7c3
+    last_update: "2026-03-27"
+    last_checksum: 32f3949647727a88b618b505fbce20bed45c297695ddf09e849f9f3f7e5a2cd8
   - name: rp1-dev:feature-archiver
     description: Archives completed features to {RP1_ROOT}/work/archives/features/ or restores archived features back to active features directory
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:build,rp1-dev:feature-archive,rp1-dev:feature-unarchive]
-    last_update: "2026-02-16"
-    last_checksum: 781c64ebb679bf12215027c2d0da034d90a59b5ca7aeb19cec5c905c9e6f4b9c
+    last_update: "2026-03-27"
+    last_checksum: 2fecd593e42fd7a4da08bd71d5a04fed6f6cb6698e744e7fbeda45b5cae28cfe
   - name: rp1-dev:feature-editor
     description: Analyzes mid-stream edits for validity, detects conflicts, and propagates approved changes across feature documentation
     plugin: dev
     skills_that_i_use: [rp1-dev:build]
     skills_that_use_me: [rp1-dev:arcade-collab,rp1-dev:feature-edit]
-    last_update: "2026-02-16"
-    last_checksum: 95ff537b4ff0390e111bfa0461777c10f90acfcb89d6e6a5b7f959a42286d77e
+    last_update: "2026-03-27"
+    last_checksum: 2390e5a270e1ecfd4abde2a5fff148a04c97c0aa8f91f10f5890e530917e572c
   - name: rp1-dev:feature-requirement-gatherer
     description: Transforms high-level feature concepts into structured requirements specifications. Invoked by /build workflow.
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:build]
-    last_update: "2026-03-26"
-    last_checksum: e7ccaf2d9a798845bf882adb4da3bd257f302a24f1361e7931cc998dbad4d7c7
+    last_update: "2026-03-27"
+    last_checksum: 322f27c1e5b6cdd796251a028d95403676cf96f308cc3953b2e19b28f2b251f5
   - name: rp1-dev:feature-tasker
     description: Generates development tasks from design specifications with support for incremental updates that preserve completed work
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:build]
-    last_update: "2026-03-26"
-    last_checksum: 0917d29c68c1c7223d02ca5bf7dc23c56fae58488a70f330d54ab45ebc8c301f
+    last_update: "2026-03-27"
+    last_checksum: 786d4f07127e18ff66ddb6b70798494ffdcdaccd78f1ef3ce57d7e184f8b3115
   - name: rp1-dev:feature-verifier
     description: Verifies feature acceptance criteria and requirements mapping with full KB context awareness for comprehensive feature validation before merge
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:build]
-    last_update: "2026-03-26"
-    last_checksum: 2b2f64b6980df0bc630a54b80ebadb5b568f97f232dff181c77a2c99fa3f293f
+    last_update: "2026-03-27"
+    last_checksum: 86468d076ba6834e6e756df2ab9ffa11532a5d35b750c2a299e182d1f7bd507e
   - name: rp1-dev:hypothesis-tester
     description: Validates design hypotheses through code experiments, codebase analysis, and external research
     plugin: dev
     skills_that_i_use: [rp1-dev:build]
     skills_that_use_me: [rp1-dev:build,rp1-dev:validate-hypothesis]
-    last_update: "2026-03-19"
-    last_checksum: 89e92663752cd6f31c1a0fe7beecc304948bcd7fbc1f599ac2a1af3bff171a8c
+    last_update: "2026-03-27"
+    last_checksum: 239d023da991bc8aa1c52b9d13558106bb3eeb3a864f51ef87314e253eebf4c8
   - name: rp1-dev:pr-comment-deduplicator
     description: Deduplicates PR review comments against existing bot and human comments
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:pr-review]
-    last_update: "2026-01-11"
-    last_checksum: 29693e18aab85528b02b01597bd231d9478941dee9d9e8febd2614c4d286769f
+    last_update: "2026-03-27"
+    last_checksum: 0c6383836decc8544be38821497e75d2b030dae96d3271147ea7ea2d9239805b
   - name: rp1-dev:pr-comment-poster
     description: Posts PR review comments via github-pr agent-tools
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:pr-review]
-    last_update: "2026-01-11"
-    last_checksum: 62a4123226aadb815df8c3e7070d7f4c26ccafe01536ae41f1ddb9b64d1974df
+    last_update: "2026-03-27"
+    last_checksum: 59347106f659b8c6fc91d99c0c2b1bfee15101bf4946c80d4d4ed60ded818c47
   - name: rp1-dev:pr-feedback-collector
     description: Automatically gathers pull request review comments from GitHub, classifies them by priority and type, extracts actionable tasks, and generates structured feedback documents for systematic resolution
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:address-pr-feedback]
-    last_update: "2026-02-16"
-    last_checksum: 9598d71f8256f44e82a7faa2ab909ab33135e630e89435fd9addbafe6e9b7529
+    last_update: "2026-03-27"
+    last_checksum: 319fe4709dad9345544c859575ee185e7249021c9dffc3672f5b65c8fd6eea1f
   - name: rp1-dev:pr-review-reporter
     description: Formats findings into markdown report and writes to file
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:pr-review]
-    last_update: "2026-03-24"
-    last_checksum: dcf186f4eb6c1b391d2544c907fd5418a5683b168a4888ecdfffa9d85730677d
+    last_update: "2026-03-27"
+    last_checksum: 329429cfc615c44511e946fa5edbd615826d4dafd36cb85f09282ec65edb60a6
   - name: rp1-dev:pr-review-splitter
     description: Splits PR diff into reviewable units, filtering out generated/low-value files
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:pr-review]
-    last_update: "2026-01-11"
-    last_checksum: c4f3f0a70f92b3825930a1e43b98e45a04e962fb564aec03701fd8e84e904c4f
+    last_update: "2026-03-27"
+    last_checksum: e9e33288bf67385918ed5aa3db37183a35dd1f6d08f54880c05d3ba08cb718ed
   - name: rp1-dev:pr-review-synthesizer
     description: Holistic cross-file verification using compressed summaries
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:pr-review]
-    last_update: "2026-02-16"
-    last_checksum: 392c18149391bf9cf5f0c37040d882ee1d0361c9e95f80db41e776688df0de3b
+    last_update: "2026-03-27"
+    last_checksum: 952e20dc842c63effd29d93cc2bea3817cb00a7d82b55c1a2fe63cdbe3d629a7
   - name: rp1-dev:pr-sub-reviewer
     description: Analyzes one review unit across 5 dimensions with confidence gating
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:pr-review]
-    last_update: "2026-02-23"
-    last_checksum: 13a1b2df69d4c7a7ad3549f6a39d3e890059839fa1e0bd9f2111cb78afb6878d
+    last_update: "2026-03-27"
+    last_checksum: c84631c0fefc324111a3b2a9cfd349d9cd30b9d3c8e16c9003d24c8b9cf8bd17
   - name: rp1-dev:pr-visualizer
     description: Transform PR diffs into Mermaid diagrams for visual code review
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:pr-review,rp1-dev:pr-visual]
-    last_update: "2026-03-24"
-    last_checksum: c6769240229c5fd1f5680fd378436192800ea4eef748d26ac91fb11d622cfbd9
+    last_update: "2026-03-27"
+    last_checksum: f1c279c0565ebef255beb15ed2c9700492adc50cbcce48a0644fbec0f0217e51
   - name: rp1-dev:prd-archiver
     description: Archives completed PRDs to {RP1_ROOT}/work/archives/prds/, archives associated completed features, checks KB staleness, and generates closure summaries
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:blueprint-archive]
-    last_update: "2026-02-16"
-    last_checksum: 95c2e940dcf6574ff0741473f411ce78967c516c45f806fc3ee4e208f771f13e
+    last_update: "2026-03-27"
+    last_checksum: 13d9ebdbaa4369c8ac3de3fc41069bbea3eee86cd85d9e005eec5afd7dc7cddb
   - name: rp1-dev:task-builder
     description: Implements assigned task(s) w/ full context, writes summaries to tasks.md. Uses extended thinking (or ultrathink).
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:build-fast,rp1-dev:build]
-    last_update: "2026-03-26"
-    last_checksum: 60c9650e01bdee0608256984cef27001b35c84851aac1ea8a30652777ff79d69
+    last_update: "2026-03-27"
+    last_checksum: da4d1f44c698b732517227894832707cba481dcd8bf64694c85e430a46afbe83
   - name: rp1-dev:task-reviewer
     description: Verifies builder's work for discipline, accuracy, completeness, and commit quality. Returns SUCCESS or FAILURE with actionable feedback. Uses extended thinking for careful verification.
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:build-fast,rp1-dev:build]
-    last_update: "2026-03-26"
-    last_checksum: 63307f1fb0e21b0b70117c6b8317f4bb90819458ef6a1c9dfc822f72c37e2b31
+    last_update: "2026-03-27"
+    last_checksum: 0fffb6f062a26b30e947de10062d3ebf6ba2ea640ff26c98dd80cea2d4e4f1e2
   - name: rp1-dev:test-runner
     description: Executes comprehensive functional testing of implemented features including automated tests, coverage measurement, acceptance criteria verification, and detailed test reporting
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: []
-    last_update: "2026-02-16"
-    last_checksum: 02b9f9f038c1c9c997fc38ddc5666431b49a1f16d2ec9c38b3f4c82bb519765c
+    last_update: "2026-03-27"
+    last_checksum: cafcf11af82c0f3c282c81cda1ba6be2553f7f953614ff2f8a8d43202c478bca
   - name: rp1-utils:dependency-chain-analyzer
     description: Analyzes command/agent files to discover sub-agent and skill dependencies
     plugin: utils
     skills_that_i_use: []
     skills_that_use_me: [rp1-utils:build-prompt-evals]
-    last_update: "2026-01-23"
-    last_checksum: 75782aba59f28455ebed0d88373a745d2b2f6daffe4afd1096ec703531850678
+    last_update: "2026-03-27"
+    last_checksum: 2e71fdcde7d4f7ddab7776b9e56776f3709c39409802792c37916ac1727df80e
   - name: rp1-utils:prompt-assertion-specialist
     description: Consolidates eval test scenarios to minimize LLM evaluation calls
     plugin: utils
     skills_that_i_use: []
     skills_that_use_me: [rp1-utils:build-prompt-evals]
-    last_update: "2026-01-23"
-    last_checksum: 147f7364311592ad030fc745d5baafdcc8549a9b3b36582a9181be101b6eb8b0
+    last_update: "2026-03-27"
+    last_checksum: 92357273934349457bbb03f21ba01aa8b590436c1dfcafbc1e671f819bde4737
   - name: rp1-utils:prompt-eval-extractor
     description: Extracts evaluation assertions using prompt-eval-builder skill
     plugin: utils
     skills_that_i_use: []
     skills_that_use_me: [rp1-utils:build-prompt-evals]
-    last_update: "2026-01-23"
-    last_checksum: e1828b70615249bf7af823ea891df8343e7e035ed89e7f1d32a0a25b26fb270a
+    last_update: "2026-03-27"
+    last_checksum: 17f483457a185a0d6f9b2b853df5bb1e9b2f4d44ba28ad885e2b85b4a4c610c2
   - name: rp1-utils:prompt-tersifier
     description: Transforms agent-instruction prompts into maximally terse versions while preserving full intent
     plugin: utils
     skills_that_i_use: [rp1-utils:prompt-writer]
     skills_that_use_me: [rp1-utils:tersify-prompt]
-    last_update: "2025-12-30"
-    last_checksum: 274c7fdee57f62c217379a6b1244f8b697f5d1134baa1166c6770c40eedaa6b6
+    last_update: "2026-03-27"
+    last_checksum: 3b8d37c009e0759c0fee6564cec7460c4b0adc33cec3228b272ddf6091821607
