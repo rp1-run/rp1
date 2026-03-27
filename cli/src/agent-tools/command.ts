@@ -66,6 +66,7 @@ process.on("SIGINT", () => {
 });
 
 import "./mmd-validate/index.js";
+import "./resolve-args/index.js";
 import "./rp1-root-dir/index.js";
 import "./comment-extract/index.js";
 import "./emit/index.js";
@@ -103,6 +104,7 @@ export const agentToolsCommand = new Command("agent-tools")
 		`
 Available Tools:
   mmd-validate      Validate Mermaid diagram syntax
+  resolve-args      Resolve structured arguments from schema, settings, and user input
   rp1-root-dir      Resolve RP1_ROOT path with read-only worktree detection
   codex-notify      Handle Codex notify callbacks for rp1 startup notices
   comment-extract   Extract comments from git-changed files
@@ -271,6 +273,85 @@ Examples:
 		}
 
 		const result = await tool.execute("", { inputSource: "stdin" })();
+
+		if (E.isLeft(result)) {
+			console.error(
+				createErrorResponse(toolName, formatError(result.left, false)),
+			);
+			process.exit(1);
+		}
+
+		console.log(formatOutput(result.right));
+		process.exit(0);
+	});
+
+/**
+ * resolve-args subcommand.
+ * Resolves structured arguments for skills and agents.
+ */
+agentToolsCommand
+	.command("resolve-args")
+	.description(
+		"Resolve structured arguments from schema, settings, and user input",
+	)
+	.option("-f, --file <path>", "Read JSON input from file instead of stdin")
+	.addHelpText(
+		"after",
+		`
+Description:
+  Resolves arguments for a skill or agent by reading the structured arguments
+  schema from frontmatter, merging user input with project and user settings,
+  and returning a fully resolved argument object.
+
+  Resolution precedence (highest to lowest):
+  1. Explicit user input (from raw_args)
+  2. Project settings (.rp1/settings.toml)
+  3. User settings (~/.config/rp1/settings.toml)
+  4. ENV var (source.env on argument definition)
+  5. Schema default
+
+Input:
+  JSON object with:
+  - schema_path: Path to skill SKILL.md or agent .md file
+  - raw_args: Raw argument string from invocation
+  - project_root: Project root directory (for settings lookup)
+
+Output:
+  JSON ToolResult with resolved arguments, environment, and unresolved list.
+
+Examples:
+  echo '{"schema_path":"plugins/dev/skills/build/SKILL.md","raw_args":"my-feature --afk","project_root":"/project"}' | rp1 agent-tools resolve-args
+  rp1 agent-tools resolve-args -f input.json
+`,
+	)
+	.action(async (options: { file?: string }): Promise<void> => {
+		const toolName = "resolve-args";
+
+		const inputResult = await readInput(options.file)();
+
+		if (E.isLeft(inputResult)) {
+			console.error(
+				createErrorResponse(toolName, formatError(inputResult.left, false)),
+			);
+			process.exit(1);
+		}
+
+		const { content, source } = inputResult.right;
+
+		const tool = getTool(toolName);
+		if (!tool) {
+			console.error(
+				createErrorResponse(toolName, "Tool not found in registry"),
+			);
+			process.exit(1);
+		}
+
+		const toolOptions: ToolOptions = {
+			inputSource: source,
+			filePath: options.file,
+		};
+
+		const result = await tool.execute(content, toolOptions)();
 
 		if (E.isLeft(result)) {
 			console.error(
