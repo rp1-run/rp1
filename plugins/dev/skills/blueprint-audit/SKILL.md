@@ -12,20 +12,16 @@ metadata:
   created: 2026-01-27
   updated: 2026-02-26
   author: cloud-on-prem/rp1
-  argument-hint: "<prd-name>"
+  arguments:
+    - name: PRD_NAME
+      type: string
+      required: true
+      description: "PRD filename without extension"
 ---
 
 # Blueprint Audit
 
 Audits PRD documents against implementation evidence, identifies stale or completed blueprints, and guides disposition decisions (archive, modify scope, defer).
-
-## Parameters
-
-Extract these parameters from the user's input:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `PRD_NAME` | Yes | - | PRD filename without extension |
 
 ## Usage
 

@@ -16,14 +16,6 @@ metadata:
 
 This command validates and repairs Mermaid.js diagrams in markdown files.
 
-## Parameters
-
-Extract these parameters from the user's input:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `FILE_PATH` | Yes | - | Path to markdown file, or `-` for stdin diagram |
-
 ## Usage
 
 ```

@@ -12,23 +12,20 @@ metadata:
   created: 2025-12-31
   updated: 2026-02-26
   author: cloud-on-prem/rp1
-  argument-hint: "<prd-name>"
+  arguments:
+    - name: PRD_NAME
+      type: string
+      required: true
+      description: "PRD filename without extension (kebab-case)"
+  environment:
+    - name: RP1_ROOT
+      source: "rp1 agent-tools rp1-root-dir"
+      description: "Root directory for rp1 project context and work artifacts"
 ---
 
 # PRD Archive
 
 Archives completed PRD docs from active -> archives dir with associated features.
-
-## Parameters
-
-Extract these parameters from the user's input:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `PRD_NAME` | Yes | - | PRD filename without extension (kebab-case) |
-
-**Environment values** (resolve via shell):
-- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 
 ## Usage
 

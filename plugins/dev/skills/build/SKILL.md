@@ -11,7 +11,50 @@ metadata:
   created: 2025-12-30
   updated: 2026-02-26
   author: cloud-on-prem/rp1
-  argument-hint: "<feature-id> [requirements...] [--afk] [--git-commit] [--git-push] [--git-pr]"
+  arguments:
+    - name: FEATURE_ID
+      type: string
+      required: true
+      description: "Feature identifier (kebab-case)"
+    - name: REQUIREMENTS
+      type: string
+      required: false
+      default: ""
+      description: "Raw requirements text"
+      variadic: true
+    - name: AFK
+      type: boolean
+      required: false
+      default: false
+      description: "Non-interactive mode"
+      aliases:
+        - "afk"
+        - "no prompts"
+        - "unattended"
+    - name: GIT_COMMIT
+      type: boolean
+      required: false
+      default: false
+      description: "Commit changes after build"
+    - name: GIT_PUSH
+      type: boolean
+      required: false
+      default: false
+      description: "Push branch to remote"
+      implies:
+        - GIT_COMMIT
+    - name: GIT_PR
+      type: boolean
+      required: false
+      default: false
+      description: "Create PR after build"
+      implies:
+        - GIT_PUSH
+        - GIT_COMMIT
+  environment:
+    - name: RP1_ROOT
+      source: "rp1 agent-tools rp1-root-dir"
+      description: "Root directory for rp1 project context and work artifacts"
   sub_agents:
     - "rp1-dev:build-artifact-detector"
     - "rp1-dev:feature-requirement-gatherer"
@@ -33,20 +76,7 @@ metadata:
 
 **YOU ARE A PURE ORCHESTRATOR.** Spawn agents for all work. NEVER write/edit/read files yourself. NEVER implement code, requirements, designs, or tests. Use exact agent references per step. If agent fails, retry it — never do its work.
 
-## Parameters
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `FEATURE_ID` | Yes | - | Feature identifier (kebab-case) |
-| `REQUIREMENTS` | No | `""` | Raw requirements text |
-| `AFK` | No | `false` | Non-interactive mode |
-| `GIT_COMMIT` | No | `false` | Commit changes after build |
-| `GIT_PUSH` | No | `false` | Push branch to remote |
-| `GIT_PR` | No | `false` | Create PR (implies push+commit) |
-
-**Resolve**: `RP1_ROOT` = !`rp1 agent-tools rp1-root-dir` (extract `data.root`)
 **Feature dir**: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`
-**Flags**: GIT_PR → GIT_PUSH=true → GIT_COMMIT=true
 
 ## §0-FIRST-ACTION
 

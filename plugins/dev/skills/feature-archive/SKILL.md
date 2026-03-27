@@ -11,7 +11,15 @@ metadata:
   created: 2025-11-29
   updated: 2026-02-26
   author: cloud-on-prem/rp1
-  argument-hint: "<feature-id>"
+  arguments:
+    - name: FEATURE_ID
+      type: string
+      required: true
+      description: "Feature ID to archive (kebab-case)"
+  environment:
+    - name: RP1_ROOT
+      source: "rp1 agent-tools rp1-root-dir"
+      description: "Root directory for rp1 project context and work artifacts"
   sub_agents:
     - "rp1-dev:feature-archiver"
 ---
@@ -19,17 +27,6 @@ metadata:
 # Feature Archive
 
 Archives completed feature docs from active -> archives dir.
-
-## Parameters
-
-Extract these parameters from the user's input:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `FEATURE_ID` | Yes | - | Feature ID to archive (kebab-case) |
-
-**Environment values** (resolve via shell):
-- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 
 ## Usage
 

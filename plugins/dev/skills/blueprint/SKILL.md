@@ -14,25 +14,26 @@ metadata:
   created: 2025-11-30
   updated: 2026-02-26
   author: cloud-on-prem/rp1
-  argument-hint: "[prd-name]"
+  arguments:
+    - name: PRD_NAME
+      type: string
+      required: false
+      description: "PRD name to create (omit for default charter + main PRD flow)"
+    - name: EXTRA_CONTEXT
+      type: string
+      required: false
+      default: ""
+      description: "Additional context provided by the user"
+  environment:
+    - name: RP1_ROOT
+      source: "rp1 agent-tools rp1-root-dir"
+      description: "Root directory for rp1 project context and work artifacts"
   sub_agents:
     - "rp1-dev:charter-interviewer"
     - "rp1-dev:blueprint-wizard"
 ---
 
 # Project Blueprint
-
-## Parameters
-
-Extract these parameters from the user's input:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `PRD_NAME` | No | - | PRD name to create (omit for default charter + main PRD flow) |
-| `EXTRA_CONTEXT` | No | `""` | Additional context provided by the user |
-
-**Environment values** (resolve via shell):
-- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 
 ## STATE-MACHINE
 

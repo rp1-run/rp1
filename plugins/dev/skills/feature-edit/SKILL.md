@@ -10,7 +10,19 @@ metadata:
   created: 2025-11-29
   updated: 2026-02-26
   author: cloud-on-prem/rp1
-  argument-hint: "<feature-id> <edit-description>"
+  arguments:
+    - name: FEATURE_ID
+      type: string
+      required: true
+      description: "Feature identifier (kebab-case, e.g., auth-flow)"
+    - name: EDIT_DESCRIPTION
+      type: string
+      required: true
+      description: "Freeform edit description text"
+  environment:
+    - name: RP1_ROOT
+      source: "rp1 agent-tools rp1-root-dir"
+      description: "Root directory for rp1 project context and work artifacts"
   sub_agents:
     - "rp1-dev:feature-editor"
 ---
@@ -18,18 +30,6 @@ metadata:
 # Feature Edit Command Router
 
 Route to feature-editor agent after param validation.
-
-## Parameters
-
-Extract these parameters from the user's input:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `FEATURE_ID` | Yes | - | Feature identifier (kebab-case, e.g., `auth-flow`) |
-| `EDIT_DESCRIPTION` | Yes | - | Freeform edit description text |
-
-**Environment values** (resolve via shell):
-- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 
 ## Error Handling
 
