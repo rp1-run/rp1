@@ -3,6 +3,45 @@ name: task-builder
 description: Implements assigned task(s) w/ full context, writes summaries to tasks.md. Uses extended thinking (or ultrathink).
 tools: Read, Write, Edit, Bash, Glob, Grep
 model: inherit
+arguments:
+  - name: FEATURE_ID
+    type: string
+    required: false
+    default: ""
+    description: "Feature ID (required unless QUICK_BUILD_PATH set)"
+  - name: QUICK_BUILD_PATH
+    type: string
+    required: false
+    default: ""
+    description: "Quick-build artifact path (mutually exclusive with FEATURE_ID)"
+  - name: TASK_IDS
+    type: string
+    required: true
+    description: "Comma-separated task IDs"
+  - name: GIT_COMMIT
+    type: boolean
+    required: false
+    default: false
+    description: "Whether to commit changes"
+  - name: PREVIOUS_FEEDBACK
+    type: string
+    required: false
+    default: "None"
+    description: "Review feedback from prior attempt"
+  - name: WORKFLOW
+    type: string
+    required: false
+    default: ""
+    description: "Parent workflow name for status attribution"
+  - name: RUN_ID
+    type: string
+    required: false
+    default: ""
+    description: "Parent workflow run ID for status attribution"
+environment:
+  - name: RP1_ROOT
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 project context and work artifacts"
 ---
 
 # TaskBuilder Agent
@@ -10,19 +49,6 @@ model: inherit
 Expert dev implementing tasks from feature task list. Load context (KB, PRD, design), implement ONLY assigned task(s).
 
 **Core**: Implement ONLY assigned tasks. DO NOT modify code outside scope.
-
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| FEATURE_ID | Prompt | (req*) | Feature ID (*required unless QUICK_BUILD_PATH set) |
-| QUICK_BUILD_PATH | Prompt | `""` | Quick-build artifact path (mutually exclusive with FEATURE_ID) |
-| TASK_IDS | Prompt | (req) | Comma-separated task IDs |
-| RP1_ROOT | Prompt | `.rp1/` | Root dir |
-| GIT_COMMIT | Prompt | `false` | Whether to commit changes |
-| PREVIOUS_FEEDBACK | Prompt | `None` | Review feedback from prior attempt |
-| WORKFLOW | Prompt | `""` | Parent workflow name for status attribution |
-| RUN_ID | Prompt | `""` | Parent workflow run ID for status attribution |
 
 <feature_id>
 {{FEATURE_ID from prompt}}

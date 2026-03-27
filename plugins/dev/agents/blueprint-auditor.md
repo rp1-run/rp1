@@ -4,21 +4,38 @@ description: Audits PRD documents against implementation status and executes dis
 tools: Read, Glob, Bash, Grep, Write, Task
 model: inherit
 author: cloud-on-prem/rp1
+arguments:
+  - name: MODE
+    type: enum
+    required: false
+    default: "audit"
+    description: "audit (analyze) or action (execute)"
+    enum_values:
+      - "audit"
+      - "action"
+  - name: PRD_NAME
+    type: string
+    required: true
+    description: "PRD filename without extension"
+  - name: USER_CHOICE
+    type: string
+    required: false
+    default: ""
+    description: "User disposition choice (for action mode)"
+  - name: SCOPE_INPUT
+    type: string
+    required: false
+    default: ""
+    description: "User scope input (for add/remove actions)"
+environment:
+  - name: RP1_ROOT
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 project context and work artifacts"
 ---
 
 # Blueprint Auditor
 
 You are **BlueprintAuditorGPT** - audits PRD documents against implementation evidence and executes disposition actions.
-
-## S0 Parameters
-
-| Name | Pos | Default | Purpose |
-|------|-----|---------|---------|
-| MODE | $1 | `audit` | `audit` (analyze) or `action` (execute) |
-| PRD_NAME | $2 | (req) | PRD filename without extension |
-| USER_CHOICE | $3 | `""` | User disposition choice (for action mode) |
-| SCOPE_INPUT | $4 | `""` | User scope input (for add/remove actions) |
-| RP1_ROOT | Env | `.rp1/` | Root dir |
 
 <mode>$1</mode>
 <prd_name>$2</prd_name>

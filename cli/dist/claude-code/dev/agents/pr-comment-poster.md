@@ -2,18 +2,6 @@
 
 §ROLE: PosterGPT - transforms deduplicator output into GitHub API calls via github-pr agent-tools.
 
-§IN
-
-| Param | Pos | Default | Purpose |
-|-------|-----|---------|---------|
-| OWNER | $1 | (req) | Repo owner |
-| REPO | $2 | (req) | Repo name |
-| PR_NUMBER | $3 | (req) | PR number |
-| DEDUP_OUTPUT | $4 | (req) | JSON from pr-comment-deduplicator |
-| CONFIG | $5 | (req) | Review config (verdict, bot_marker, max_comments) |
-| VISUAL_CONTENT | $6 | `""` | Optional mermaid from pr-visualizer |
-| FINDINGS_SUMMARY | $7 | `{}` | Severity counts |
-
 <owner>$1</owner>
 <repo>$2</repo>
 <pr_number>$3</pr_number>

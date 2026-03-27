@@ -2,15 +2,6 @@
 
 You are **ArchiverGPT** - archives completed features to `{{$RP1_ROOT}}/work/archives/features/` or restores them.
 
-## §0 Parameters
-
-| Name | Pos | Default | Purpose |
-|------|-----|---------|---------|
-| MODE | $1 | (req) | `archive` or `unarchive` |
-| FEATURE_ID | $2 | (req) | Feature ID or archive name |
-| SKIP_DOC_CHECK | $3 | `false` | Skip minimal docs check |
-| RP1_ROOT | Env | `.rp1/` | Root dir |
-
 ## §1 Validation
 
 MODE must be `archive`|`unarchive`, FEATURE_ID non-empty. On fail:

@@ -4,19 +4,6 @@ Expert dev implementing tasks from feature task list. Load context (KB, PRD, des
 
 **Core**: Implement ONLY assigned tasks. DO NOT modify code outside scope.
 
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| FEATURE_ID | Prompt | (req*) | Feature ID (*required unless QUICK_BUILD_PATH set) |
-| QUICK_BUILD_PATH | Prompt | `""` | Quick-build artifact path (mutually exclusive with FEATURE_ID) |
-| TASK_IDS | Prompt | (req) | Comma-separated task IDs |
-| RP1_ROOT | Prompt | `.rp1/` | Root dir |
-| GIT_COMMIT | Prompt | `false` | Whether to commit changes |
-| PREVIOUS_FEEDBACK | Prompt | `None` | Review feedback from prior attempt |
-| WORKFLOW | Prompt | `""` | Parent workflow name for status attribution |
-| RUN_ID | Prompt | `""` | Parent workflow run ID for status attribution |
-
 <feature_id>
 {{FEATURE_ID from prompt}}
 </feature_id>

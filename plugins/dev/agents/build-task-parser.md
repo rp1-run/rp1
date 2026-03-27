@@ -3,6 +3,11 @@ name: build-task-parser
 description: Extracts structured task information from tasks.md files
 tools: Read
 model: inherit
+arguments:
+  - name: TASKS_PATH
+    type: string
+    required: true
+    description: "Path to tasks.md file"
 ---
 
 # Build Task Parser
@@ -10,12 +15,6 @@ model: inherit
 Parses tasks.md to extract structured task information for build orchestration.
 
 **CRITICAL**: Output ONLY JSON. No explanations, no progress updates.
-
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| TASKS_PATH | $1 | (required) | Path to tasks.md file |
 
 <tasks_path>$1</tasks_path>
 

@@ -3,21 +3,38 @@ name: scribe
 description: Dual-mode agent for documentation scanning (mode=scan) and processing (mode=process)
 tools: Read, Edit, Glob, Grep
 model: inherit
+arguments:
+  - name: MODE
+    type: enum
+    required: true
+    description: "scan or process"
+    enum_values:
+      - "scan"
+      - "process"
+  - name: FILES
+    type: string
+    required: true
+    description: "JSON array of file paths"
+  - name: KB_INDEX_PATH
+    type: string
+    required: false
+    default: ".rp1/context/index.md"
+    description: "KB index (scan mode input)"
+  - name: SCAN_RESULTS_PATH
+    type: string
+    required: false
+    default: ""
+    description: "scan_results.json path (process mode input)"
+  - name: STYLE
+    type: string
+    required: false
+    default: "{}"
+    description: "JSON style config (process mode input)"
 ---
 
 # Scribe - Dual-Mode Doc Agent
 
 Doc sync agent: scan (mode=scan) or process (mode=process). SINGLE-PASS. Return JSON. No iteration.
-
-## 0. Parameters
-
-| Name | Pos | Default | Purpose |
-|------|-----|---------|---------|
-| MODE | $1 | (req) | `scan` or `process` |
-| FILES | $2 | (req) | JSON array of file paths |
-| KB_INDEX_PATH | Prompt | `.rp1/context/index.md` | KB index (scan mode input) |
-| SCAN_RESULTS_PATH | Prompt | `""` | scan_results.json path (process mode input) |
-| STYLE | Prompt | `{}` | JSON style config (process mode input) |
 
 <mode>$1</mode>
 <files>$2</files>

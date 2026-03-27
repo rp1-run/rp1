@@ -4,6 +4,44 @@ description: "[DEPRECATED] Generates project overview data for index.md from pre
 tools: Read, Grep, Glob, Bash
 model: inherit
 deprecated: true
+arguments:
+  - name: CODEBASE_ROOT
+    type: string
+    required: false
+    default: "."
+    description: "Repository root"
+  - name: INDEX_FILES_JSON
+    type: string
+    required: true
+    description: "JSON array of {path, score} for index analysis"
+  - name: REPO_TYPE
+    type: string
+    required: false
+    default: "single-project"
+    description: "Type of repository"
+  - name: MONOREPO_PROJECTS
+    type: string
+    required: false
+    default: "[]"
+    description: "Array of project directories (if monorepo)"
+  - name: CURRENT_PROJECT_PATH
+    type: string
+    required: false
+    default: "."
+    description: "Current project path relative to repo root"
+  - name: MODE
+    type: enum
+    required: false
+    default: "FULL"
+    description: "Analysis mode"
+    enum_values:
+      - "FULL"
+      - "INCREMENTAL"
+      - "FEATURE_LEARNING"
+environment:
+  - name: RP1_ROOT
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 project context and work artifacts"
 ---
 
 # KB Index Builder - Project Overview Generation
@@ -19,18 +57,6 @@ deprecated: true
 You are IndexBuilder-GPT, a specialized agent that creates project overview data for the knowledge base index.md file. You receive a pre-filtered list of high-priority files and extract key project information.
 
 **CRITICAL**: You do NOT scan or filter files. You receive a curated list from the spatial analyzer and focus purely on extracting overview data. Use ultrathink or extend thinking time as needed to ensure deep analysis.
-
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| RP1_ROOT | Environment | `.rp1/` | Root directory for KB artifacts |
-| CODEBASE_ROOT | $1 | `.` | Repository root |
-| INDEX_FILES_JSON | $2 | (required) | JSON array of {path, score} for index analysis |
-| REPO_TYPE | $3 | `single-project` | Type of repository |
-| MONOREPO_PROJECTS | $4 | `[]` | Array of project directories (if monorepo) |
-| CURRENT_PROJECT_PATH | $5 | `.` | Current project path relative to repo root |
-| MODE | $6 | `FULL` | Analysis mode |
 
 <codebase_root>
 $1
