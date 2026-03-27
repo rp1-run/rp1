@@ -12,11 +12,14 @@ DEV_MARKETPLACE=".dev-marketplace"
 CC_DIST="cli/dist/claude-code"
 PLUGINS=("base" "dev" "utils")
 
-# Build utils explicitly since it's excluded from the default build
-if [ ! -d "$CC_DIST/utils" ] || [ -z "$(ls -A "$CC_DIST/utils" 2>/dev/null)" ]; then
-    echo "Building utils plugin for local dev..."
-    cd cli && bun run scripts/build-claude-code.ts --plugin utils > /dev/null 2>&1 && cd ..
-fi
+# Build utils explicitly for all platforms since it's excluded from the default build
+for build_script in build-claude-code.ts build-opencode.ts build-codex.ts; do
+    platform_dist="cli/dist/$(echo "$build_script" | sed 's/build-//' | sed 's/\.ts//')"
+    if [ ! -d "$platform_dist/utils" ] || [ -z "$(ls -A "$platform_dist/utils" 2>/dev/null)" ]; then
+        echo "Building utils plugin for $(echo "$build_script" | sed 's/build-//' | sed 's/\.ts//')..."
+        cd cli && bun run "scripts/$build_script" --plugin utils > /dev/null 2>&1 && cd ..
+    fi
+done
 
 # Clean and create dev marketplace directory
 rm -rf "$DEV_MARKETPLACE"
