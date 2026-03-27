@@ -20,13 +20,15 @@ const TOOL_NAME = "resolve-args";
 
 /**
  * Validate and parse JSON input into ResolveArgsInput.
+ * Accepts either "name" (namespace, e.g., "rp1-dev:build") or "schema_path" (direct file path).
+ * When both are provided, schema_path takes precedence.
  */
 const parseInput = (input: string): E.Either<CLIError, ResolveArgsInput> => {
 	if (!input.trim()) {
 		return E.left(
 			usageError(
 				"Empty input",
-				'Provide JSON with "schema_path", "raw_args", and "project_root" fields.',
+				'Provide JSON with "name" or "schema_path", plus "raw_args" and "project_root" fields.',
 			),
 		);
 	}
@@ -42,18 +44,24 @@ const parseInput = (input: string): E.Either<CLIError, ResolveArgsInput> => {
 		return E.left(
 			usageError(
 				"Input must be a JSON object",
-				'Provide JSON with "schema_path", "raw_args", and "project_root" fields.',
+				'Provide JSON with "name" or "schema_path", plus "raw_args" and "project_root" fields.',
 			),
 		);
 	}
 
 	const obj = parsed as Record<string, unknown>;
 
-	if (typeof obj.schema_path !== "string" || !obj.schema_path) {
+	const name = typeof obj.name === "string" && obj.name ? obj.name : undefined;
+	const schemaPath =
+		typeof obj.schema_path === "string" && obj.schema_path
+			? obj.schema_path
+			: undefined;
+
+	if (!name && !schemaPath) {
 		return E.left(
 			usageError(
-				'Missing or invalid "schema_path" field',
-				"Provide the path to the skill/agent markdown file with frontmatter.",
+				'Missing "name" or "schema_path" field',
+				'Provide "name" (e.g., "rp1-dev:build") or "schema_path" (path to SKILL.md/agent .md).',
 			),
 		);
 	}
@@ -63,7 +71,8 @@ const parseInput = (input: string): E.Either<CLIError, ResolveArgsInput> => {
 		typeof obj.project_root === "string" ? obj.project_root : process.cwd();
 
 	return E.right({
-		schema_path: obj.schema_path,
+		...(schemaPath && { schema_path: schemaPath }),
+		...(name && { name }),
 		raw_args: rawArgs,
 		project_root: projectRoot,
 	});
