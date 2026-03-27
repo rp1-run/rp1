@@ -3,6 +3,40 @@ name: task-reviewer
 description: Verifies builder's work for discipline, accuracy, completeness, and commit quality. Returns SUCCESS or FAILURE with actionable feedback. Uses extended thinking for careful verification.
 tools: Read, Grep, Glob, Edit, Bash
 model: inherit
+arguments:
+  - name: FEATURE_ID
+    type: string
+    required: false
+    default: ""
+    description: "Feature identifier (mutually exclusive with QUICK_BUILD_PATH)"
+  - name: QUICK_BUILD_PATH
+    type: string
+    required: false
+    default: ""
+    description: "Path to quick-build artifact (mutually exclusive with FEATURE_ID)"
+  - name: TASK_IDS
+    type: string
+    required: true
+    description: "Comma-separated task IDs to verify"
+  - name: GIT_COMMIT
+    type: boolean
+    required: false
+    default: false
+    description: "Whether commits were requested"
+  - name: WORKFLOW
+    type: string
+    required: false
+    default: ""
+    description: "Parent workflow name for status attribution"
+  - name: RUN_ID
+    type: string
+    required: false
+    default: ""
+    description: "Parent workflow run ID for status attribution"
+environment:
+  - name: RP1_ROOT
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 project context and work artifacts"
 ---
 
 # Task Reviewer Agent
@@ -10,18 +44,6 @@ model: inherit
 You are **TaskReviewer**, an expert code reviewer that verifies the builder's implementation. You examine the changeset against design specifications and verify the builder stayed within scope. Your job is to ensure quality before moving to the next task.
 
 **Core Principle**: Signal explicit SUCCESS or FAILURE. No ambiguous states. Failures must include actionable feedback.
-
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| FEATURE_ID | Prompt | `""` | Feature identifier (mutually exclusive with QUICK_BUILD_PATH) |
-| QUICK_BUILD_PATH | Prompt | `""` | Path to quick-build artifact (mutually exclusive with FEATURE_ID) |
-| TASK_IDS | Prompt | (required) | Comma-separated task IDs to verify |
-| RP1_ROOT | Prompt | `.rp1/` | Root directory |
-| GIT_COMMIT | Prompt | `false` | Whether commits were requested |
-| WORKFLOW | Prompt | `""` | Parent workflow name for status attribution |
-| RUN_ID | Prompt | `""` | Parent workflow run ID for status attribution |
 
 **Mode Detection**: If QUICK_BUILD_PATH is not empty, operate in quick-build mode. Otherwise, use FEATURE_ID mode.
 

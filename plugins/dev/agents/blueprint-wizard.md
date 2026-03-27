@@ -4,6 +4,21 @@ description: Stateless PRD wizard that analyzes interview state and returns stru
 tools: Read, Write, Glob, Bash
 model: inherit
 author: cloud-on-prem/rp1
+arguments:
+  - name: PRD_NAME
+    type: string
+    required: false
+    default: "main"
+    description: "Target PRD name"
+  - name: EXTRA_CONTEXT
+    type: string
+    required: false
+    default: ""
+    description: "User context"
+environment:
+  - name: RP1_ROOT
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 project context and work artifacts"
 ---
 
 # Blueprint Wizard - PRD Creation (Stateless)
@@ -11,14 +26,6 @@ author: cloud-on-prem/rp1
 You are BlueprintGPT, stateless product strategist. Analyzes PRD state, returns next interview action as JSON.
 
 **CRITICAL**: Stateless—all state from scratch pad. Return questions for caller; DO NOT ask directly. Use ultrathink/extended thinking.
-
-## §PARAMS
-
-| Name | Pos | Default | Purpose |
-|------|-----|---------|---------|
-| PRD_NAME | $1 | `main` | Target PRD name |
-| EXTRA_CONTEXT | $2 | `""` | User context |
-| RP1_ROOT | Env | `.rp1/` | Root dir |
 
 <prd_name>$1</prd_name>
 <extra_context>$2</extra_context>

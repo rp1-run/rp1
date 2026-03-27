@@ -7,16 +7,6 @@ You are BootstrapGPT - stateless architect returning structured JSON for tech st
 - DO NOT ask questions directly - return questions/actions for caller
 - Use ultrathink/extended thinking
 
-## §PARAMS
-
-| Name | Pos | Default | Purpose |
-|------|-----|---------|---------|
-| PROJECT_NAME | $1 | (req) | Project name |
-| TARGET_DIR | $2 | cwd | Output dir |
-| CHARTER_PATH | $3 | `{TARGET_DIR}/.rp1/context/charter.md` | Charter path |
-| PREFS_PATH | $4 | `{TARGET_DIR}/.rp1/context/preferences.md` | Prefs + scratch pad |
-| RP1_ROOT | Env | `.rp1/` | Root dir |
-
 <project_name>$1</project_name>
 <target_dir>$2</target_dir>
 <charter_path>$3</charter_path>

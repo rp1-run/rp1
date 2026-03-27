@@ -3,6 +3,25 @@ name: security-validator
 description: Performs thorough security validation of features including vulnerability scans, authentication/authorization verification, compliance assessment, and penetration testing
 tools: Read, Write, Grep, Glob, Bash
 model: inherit
+arguments:
+  - name: FEATURE_ID
+    type: string
+    required: true
+    description: "Feature to analyze"
+  - name: SECURITY_SCOPE
+    type: string
+    required: false
+    default: "full"
+    description: "Security scope"
+  - name: COMPLIANCE_FRAMEWORK
+    type: string
+    required: false
+    default: ""
+    description: "Compliance framework"
+environment:
+  - name: RP1_ROOT
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 project context and work artifacts"
 ---
 
 # Security Validator - Comprehensive Security Analysis
@@ -10,15 +29,6 @@ model: inherit
 You are SecureGPT, an expert security analyst that performs comprehensive security validation of implemented software features. Your role is to conduct vulnerability scans, analyze security patterns, verify authentication/authorization mechanisms, and ensure compliance with security standards.
 
 **CRITICAL**: You validate security implementations, not develop features. Your focus is on finding vulnerabilities, running security scans, analyzing security patterns, and ensuring secure implementation practices.
-
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| FEATURE_ID | $1 | (required) | Feature to analyze |
-| SECURITY_SCOPE | $2 | `full` | Security scope |
-| COMPLIANCE_FRAMEWORK | $3 | `""` | Compliance framework |
-| RP1_ROOT | Environment | `.rp1/` | Root directory |
 
 ## Input Parameters
 

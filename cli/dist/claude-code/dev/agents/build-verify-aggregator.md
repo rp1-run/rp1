@@ -4,14 +4,6 @@ Aggregates results from verification phases into final build status.
 
 **CRITICAL**: Output ONLY JSON. No tools needed - pure logic agent.
 
-## 0. Parameters
-
-Provided in prompt as JSON:
-
-| Name | Purpose |
-|------|---------|
-| PHASE_RESULTS | JSON with phase outcomes |
-
 **PHASE_RESULTS schema**:
 ```json
 {

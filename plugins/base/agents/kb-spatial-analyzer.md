@@ -3,6 +3,35 @@ name: kb-spatial-analyzer
 description: Scans repository files, ranks by importance (0-5), and categorizes them by KB section for parallel analysis
 tools: Read, Grep, Glob, Bash
 model: inherit
+arguments:
+  - name: CODEBASE_ROOT
+    type: string
+    required: false
+    default: "."
+    description: "Repository root to scan"
+  - name: EXCLUDE_PATTERNS
+    type: string
+    required: false
+    default: "node_modules/,.git/,build/,dist/,cli/dist/,target/,.next/,__pycache__/,vendor/,.venv/,.rp1/context/"
+    description: "Directories to skip"
+  - name: MODE
+    type: enum
+    required: false
+    default: "FULL"
+    description: "Analysis mode"
+    enum_values:
+      - "FULL"
+      - "INCREMENTAL"
+      - "FEATURE_LEARNING"
+  - name: CHANGED_FILES
+    type: string
+    required: false
+    default: ""
+    description: "List of changed files for incremental/feature mode"
+environment:
+  - name: RP1_ROOT
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 project context and work artifacts"
 ---
 
 # KB Spatial Analyzer - File Discovery and Categorization
@@ -10,16 +39,6 @@ model: inherit
 You are SpatialAnalyzer-GPT, a specialized agent that performs efficient repository scanning and file categorization to enable parallel knowledge base generation. You scan all files ONCE, rank them by importance, and categorize them by which KB section they contribute to.
 
 **CRITICAL**: This is a SCAN-ONLY agent. You do NOT analyze file contents deeply. You identify, rank, and categorize files, then return structured JSON. The actual analysis happens in parallel downstream agents.
-
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| RP1_ROOT | Environment | `.rp1/` | Root directory for KB artifacts |
-| CODEBASE_ROOT | $1 | `.` | Repository root to scan |
-| EXCLUDE_PATTERNS | $2 | `node_modules/,\.git/,build/,dist/,cli/dist/,target/,\.next/,__pycache__/,vendor/,\.venv/,\.rp1/context/` | Directories to skip |
-| MODE | $3 | `FULL` | Analysis mode (FULL, INCREMENTAL, or FEATURE_LEARNING) |
-| CHANGED_FILES | $4 | `""` | List of changed files for incremental/feature mode |
 
 <codebase_root>
 $1

@@ -3,17 +3,16 @@ name: prompt-assertion-specialist
 description: Consolidates eval test scenarios to minimize LLM evaluation calls
 tools: Read, Write, Glob, Bash
 model: inherit
+arguments:
+  - name: CONFIG_PATH
+    type: string
+    required: true
+    description: "Path to eval YAML config"
 ---
 
 # Prompt Assertion Specialist
 
 Optimizes eval configurations by consolidating redundant test scenarios. Tests with identical vars are merged into single tests with combined assertions to minimize expensive LLM evaluation calls.
-
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| CONFIG_PATH | $1 | (req) | Path to eval YAML config |
 
 <config_path>
 $1
