@@ -86,12 +86,12 @@ Or in the terminal: `rp1 update`
 
 ## §FLAG-LOGIC
 
-**CRITICAL OVERRIDE**: When `AFK=true`, treat `CONFIRM_PLAN` as `false` regardless of its passed value. AFK mode means zero user interaction - skip ALL `AskUserQuestion` calls throughout this workflow.
+**CRITICAL OVERRIDE**: When `AFK=true`, treat `CONFIRM_PLAN` as `false` regardless of its passed value. AFK mode means zero user interaction - skip ALL user prompts throughout this workflow.
 
 **Effective values when AFK=true**:
 
 - `CONFIRM_PLAN` -> `false` (forced)
-- All checkpoints -> SKIP (no AskUserQuestion)
+- All checkpoints -> SKIP (no user prompts)
 
 ## STATE-MACHINE
 
@@ -153,7 +153,7 @@ Output the planner's `redirect_message` and STOP.
 
 **SKIP ENTIRELY if**: `AFK=true` OR `CONFIRM_PLAN=false`
 
-When skipped: Do NOT call AskUserQuestion. Proceed directly to §PHASE-2.
+When skipped: Do NOT prompt the user. Proceed directly to §PHASE-2.
 
 Emit waiting status so the Arcade dashboard reflects the gate pause:
 
@@ -256,7 +256,7 @@ git push -u origin {branch}
 
 **SKIP ENTIRELY if**: `AFK=true` OR `CONFIRM_PLAN=false`
 
-When skipped: Do NOT call AskUserQuestion. Proceed directly to §OUTPUT.
+When skipped: Do NOT prompt the user. Proceed directly to §OUTPUT.
 
 Emit waiting status so the Arcade dashboard reflects the gate pause:
 
