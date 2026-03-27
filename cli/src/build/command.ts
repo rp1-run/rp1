@@ -1662,7 +1662,7 @@ const buildOpenCodeArtifacts = async (
 		const devAssets = pluginAssets.get("dev");
 		const utilsAssets = pluginAssets.get("utils");
 
-		if (baseAssets && devAssets && utilsAssets) {
+		if (baseAssets && devAssets) {
 			const cliVersion = await readCliVersion(projectRoot);
 			const engine = createTemplateEngine();
 
@@ -1675,7 +1675,9 @@ const buildOpenCodeArtifacts = async (
 					type: "bundle-manifest",
 					baseJson: JSON.stringify(baseAssets, null, 2),
 					devJson: JSON.stringify(devAssets, null, 2),
-					utilsJson: JSON.stringify(utilsAssets, null, 2),
+					...(utilsAssets && {
+						utilsJson: JSON.stringify(utilsAssets, null, 2),
+					}),
 				},
 				registry: defaultRegistry,
 			};
