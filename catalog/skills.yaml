@@ -32,7 +32,7 @@ skills:
     sub_agents_that_i_use: [rp1-base:research-explorer,rp1-base:research-reporter]
     skills_that_i_use: []
     last_update: "2026-03-27"
-    last_checksum: ece1f08e31f43272751e5f485049e4a12f468fd6378cf2affdac662128a98799
+    last_checksum: fa1d44537a0bd8fdf7fac59d5749a9c5c18a9de7f828695b4e4c47673a7bbda1
   - name: rp1-base:fix-mermaid
     description: Validates and repairs mermaid diagrams in markdown files. Scans for mermaid blocks, validates syntax, and auto-repairs common errors.
     plugin: base
@@ -41,7 +41,7 @@ skills:
     sub_agents_that_i_use: [rp1-base:mermaid-fixer]
     skills_that_i_use: [rp1-base:mermaid]
     last_update: "2026-03-27"
-    last_checksum: 3e9b7bd0a6f4b56c59979dec0ee00c899cbe7ab06f0f0c35946ebaf529ded999
+    last_checksum: 3d994039a8fe0b8d2cc0334eb61e619726b1b4918b2ed8f4c530c1b199fbca2e
   - name: rp1-base:generate-user-docs
     description: Synchronizes user documentation with knowledge base using two-phase map-reduce orchestration with scan and process phases.
     plugin: base
@@ -50,7 +50,7 @@ skills:
     sub_agents_that_i_use: [rp1-base:scribe]
     skills_that_i_use: [rp1-base:knowledge-build]
     last_update: "2026-03-27"
-    last_checksum: c57fe62e8335c5d81390550cc5adc9a001cf2428e961b0e32c9a49b78be6ac74
+    last_checksum: d47225907dff1c3fc909915096e0d71376e99db1ab11e8891ccc5d73da2e7786
   - name: rp1-base:knowledge-base-templates
     description: Provides reusable templates for generating comprehensive codebase knowledge bases including architecture diagrams, concept maps, and module documentation. Supports both single-project and monorepo structures. Use when creating project documentation, knowledge bases, or when user mentions KB templates, codebase documentation, or project documentation structure.
     plugin: base
@@ -68,7 +68,7 @@ skills:
     sub_agents_that_i_use: [rp1-base:kb-architecture-mapper,rp1-base:kb-concept-extractor,rp1-base:kb-module-analyzer,rp1-base:kb-pattern-extractor,rp1-base:kb-spatial-analyzer]
     skills_that_i_use: [rp1-base:knowledge-base-templates,rp1-base:mermaid]
     last_update: "2026-03-27"
-    last_checksum: b0aec1c768dd298c5896e2fc0f64fa850d8eeec407c2ee4a78366633deeab800
+    last_checksum: 9bbb4d249f01b87343f42a7677ebfe22c3712e5c13517eaed7693bf44a0ffd2b
   - name: rp1-base:knowledge-load
     description: Ingests and prepares codebase documentation, builds internal knowledge graphs, and creates optimized context representations for downstream analysis tasks.
     plugin: base
@@ -77,7 +77,7 @@ skills:
     sub_agents_that_i_use: []
     skills_that_i_use: []
     last_update: "2026-03-27"
-    last_checksum: 23af175f21e119ebd6f86bc49ce59904dc5ea2a5232bb9fdb47b503062a995c2
+    last_checksum: 7e871983785f7e6b458510e2b9f9f06dfad1619b274142356750516298e12849
   - name: rp1-base:markdown-preview
     description: Generate browser-viewable HTML previews from markdown, plain text, and Mermaid diagrams. Auto-validates diagrams, applies professional styling, and opens in default browser. Use when agents need to preview documentation, visualizations, or formatted content.
     plugin: base
@@ -131,7 +131,7 @@ skills:
     sub_agents_that_i_use: []
     skills_that_i_use: []
     last_update: "2026-03-27"
-    last_checksum: 07bbbd6ab4647942d51ca06c331b4e1f0c3e20915505b242b634bf5780647e1a
+    last_checksum: d7191588fda8e23c99a1aac87fc7de986599bb90ffb5b2d5263151e0599cb2db
   - name: rp1-base:write-content
     description: Interactive prompt to help create polished technical documents through clarifying questions and structured writing workflows.
     plugin: base
