@@ -18,11 +18,6 @@
         },
         {
           "type": "json",
-          "path": "plugins/utils/.claude-plugin/plugin.json",
-          "jsonpath": "$.version"
-        },
-        {
-          "type": "json",
           "path": "cli/dist/claude-code/base/.claude-plugin/plugin.json",
           "jsonpath": "$.version"
         },
@@ -33,22 +28,12 @@
         },
         {
           "type": "json",
-          "path": "cli/dist/claude-code/utils/.claude-plugin/plugin.json",
-          "jsonpath": "$.version"
-        },
-        {
-          "type": "json",
           "path": "cli/dist/claude-code/base/manifest.json",
           "jsonpath": "$.version"
         },
         {
           "type": "json",
           "path": "cli/dist/claude-code/dev/manifest.json",
-          "jsonpath": "$.version"
-        },
-        {
-          "type": "json",
-          "path": "cli/dist/claude-code/utils/manifest.json",
           "jsonpath": "$.version"
         },
         {

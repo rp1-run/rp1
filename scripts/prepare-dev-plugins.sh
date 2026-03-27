@@ -4,10 +4,19 @@ set -e
 # Prepares dev versions of plugins in a temp marketplace directory
 # Uses built CC artifacts from cli/dist/claude-code/ when available,
 # falls back to raw source plugins if not built yet.
+#
+# Note: utils is an internal-only plugin excluded from the default build.
+# This script builds it explicitly for local dev installs.
 
 DEV_MARKETPLACE=".dev-marketplace"
 CC_DIST="cli/dist/claude-code"
 PLUGINS=("base" "dev" "utils")
+
+# Build utils explicitly since it's excluded from the default build
+if [ ! -d "$CC_DIST/utils" ] || [ -z "$(ls -A "$CC_DIST/utils" 2>/dev/null)" ]; then
+    echo "Building utils plugin for local dev..."
+    cd cli && bun run scripts/build-claude-code.ts --plugin utils > /dev/null 2>&1 && cd ..
+fi
 
 # Clean and create dev marketplace directory
 rm -rf "$DEV_MARKETPLACE"

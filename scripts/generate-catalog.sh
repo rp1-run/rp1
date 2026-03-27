@@ -7,6 +7,9 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PLUGINS_DIR="$REPO_ROOT/plugins"
 CATALOG_DIR="$REPO_ROOT/catalog"
 
+# Only catalog distributable plugins (utils is internal-only)
+DIST_PLUGINS=("base" "dev")
+
 mkdir -p "$CATALOG_DIR"
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -54,8 +57,9 @@ declare -a ALL_SKILL_FILES=()
 declare -a ALL_AGENT_IDS=()
 declare -a ALL_AGENT_FILES=()
 
-for plugin_dir in "$PLUGINS_DIR"/*/; do
-    plugin=$(basename "$plugin_dir")
+for plugin in "${DIST_PLUGINS[@]}"; do
+    plugin_dir="$PLUGINS_DIR/$plugin"
+    [ -d "$plugin_dir" ] || continue
     prefix="rp1-${plugin}"
 
     # Skills

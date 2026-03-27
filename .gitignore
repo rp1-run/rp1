@@ -11,6 +11,7 @@ dist/
 !cli/dist/
 cli/dist/*
 !cli/dist/claude-code/
+cli/dist/claude-code/utils/
 
 # MkDocs build output
 site/
