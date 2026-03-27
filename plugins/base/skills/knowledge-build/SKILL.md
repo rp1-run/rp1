@@ -271,7 +271,7 @@ If `FEATURE_ID` is provided, this is a **feature learning build** that captures 
 
 ### Phase 2: Map Phase (Parallel Execution)
 
-1. **Spawn 4 analysis agents in parallel** (CRITICAL: Use a SINGLE message with 4 Task tool calls):
+1. **Spawn 4 analysis agents in parallel** (CRITICAL: dispatch all 4 agents in a SINGLE message):
 
    **Agent 1 - Concept Extractor**:
 
@@ -329,12 +329,7 @@ If `FEATURE_ID` is provided, this is a **feature learning build** that captures 
 
 1. **Load KB templates**:
 
-   ```
-   Use Skill tool with:
-   skill: rp1-base:knowledge-base-templates
-   ```
-
-   - Load templates for: index.md, concept_map.md, architecture.md, modules.md, patterns.md
+   Invoke the `rp1-base:knowledge-base-templates` skill to load templates for: index.md, concept_map.md, architecture.md, modules.md, patterns.md
 
 2. **Merge agent data into templates** (concept_map, architecture, modules, patterns):
 
@@ -361,13 +356,7 @@ If `FEATURE_ID` is provided, this is a **feature learning build** that captures 
 
 3. **Validate Mermaid diagrams**:
 
-   ```
-   Use Skill tool with:
-   skill: rp1-base:mermaid
-   ```
-
-   - Validate diagram from architecture.md
-   - If invalid: Log warning, use fallback simple diagram or omit
+   Invoke the `rp1-base:mermaid` skill to validate the diagram from architecture.md. If invalid: Log warning, use fallback simple diagram or omit.
 
 4. **Generate index.md directly** (orchestrator-owned, not agent):
 
@@ -379,16 +368,12 @@ If `FEATURE_ID` is provided, this is a **feature learning build** that captures 
    - Calculate file manifest: get line counts after writing other KB files
    - Template placeholder mapping: fill template with aggregated data
 
-5. **Write KB files**:
-
-   ```
-   Use Write tool to write:
-   - {{$RP1_ROOT}}/context/index.md
-   - {{$RP1_ROOT}}/context/concept_map.md
-   - {{$RP1_ROOT}}/context/architecture.md
-   - {{$RP1_ROOT}}/context/modules.md
-   - {{$RP1_ROOT}}/context/patterns.md
-   ```
+5. **Write KB files** to:
+   - `{{$RP1_ROOT}}/context/index.md`
+   - `{{$RP1_ROOT}}/context/concept_map.md`
+   - `{{$RP1_ROOT}}/context/architecture.md`
+   - `{{$RP1_ROOT}}/context/modules.md`
+   - `{{$RP1_ROOT}}/context/patterns.md`
 
 ### Phase 4: State Management
 
@@ -428,13 +413,9 @@ If `FEATURE_ID` is provided, this is a **feature learning build** that captures 
 
    **NOTE**: `meta.json` contains local paths that may differ per team member. This file should be added to `.gitignore`.
 
-4. **Write state files**:
-
-   ```
-   Use Write tool to write:
-   - {{$RP1_ROOT}}/context/state.json
-   - {{$RP1_ROOT}}/context/meta.json
-   ```
+4. **Write state files** to:
+   - `{{$RP1_ROOT}}/context/state.json`
+   - `{{$RP1_ROOT}}/context/meta.json`
 
 ### Phase 5: Error Handling
 

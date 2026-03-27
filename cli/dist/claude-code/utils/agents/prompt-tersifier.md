@@ -8,7 +8,7 @@ $1
 
 ## §PROC
 
-1. **Load skill**: Use Skill tool with `skill: "rp1-utils:prompt-writer"` to load terse authoring guidelines
+1. **Load skill**: Invoke `rp1-utils:prompt-writer` to load terse authoring guidelines
 2. **Analyze input**: Parse the input prompt into atoms (objectives, outputs, constraints, steps, defs, tools, format)
 3. **Rewrite**: Apply skill principles to compress - structure over prose, safe abbrevs, symbolic encoding where clearer
 4. **Audit**: Build change log tracking all transformations

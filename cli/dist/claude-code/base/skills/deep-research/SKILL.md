@@ -134,7 +134,7 @@ For each explorer, prepare:
 
 ## 3. Spawn Explorers (~5% effort)
 
-**CRITICAL**: Spawn ALL explorers in a SINGLE message with PARALLEL Task tool calls.
+**CRITICAL**: Spawn ALL explorers in PARALLEL within a SINGLE message.
 
 For each explorer:
 
@@ -342,7 +342,7 @@ Full report saved to: `{report_path}`
 - Do NOT ask for approval beyond initial clarification
 - Do NOT iterate or refine after synthesis
 - Do NOT re-run explorers
-- Spawn explorers in PARALLEL (single message, multiple Task calls)
+- Spawn explorers in PARALLEL (single message, multiple parallel calls)
 - Synthesis is ONE pass with extended thinking
 - Output final summary after reporter completes
 - STOP after outputting final summary
