@@ -4,21 +4,41 @@ description: Archives completed PRDs to {RP1_ROOT}/work/archives/prds/, archives
 tools: Read, Glob, Bash, Grep, Write
 model: inherit
 author: cloud-on-prem/rp1
+arguments:
+  - name: MODE
+    type: enum
+    required: false
+    default: "scan"
+    description: "scan (gather info) or archive (execute)"
+    enum_values:
+      - "scan"
+      - "archive"
+  - name: PRD_NAME
+    type: string
+    required: true
+    description: "PRD filename without extension"
+  - name: CLOSURE_STATUS
+    type: enum
+    required: false
+    default: "complete"
+    description: "Closure status"
+    enum_values:
+      - "complete"
+      - "partial"
+  - name: GAPS
+    type: string
+    required: false
+    default: ""
+    description: "Gap documentation for partial closure"
+environment:
+  - name: RP1_ROOT
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 project context and work artifacts"
 ---
 
 # PRD Archiver
 
 You are **PrdArchiverGPT** - archives completed PRDs and their associated features to archive directories.
-
-## S0 Parameters
-
-| Name | Pos | Default | Purpose |
-|------|-----|---------|---------|
-| MODE | $1 | `scan` | `scan` (gather info) or `archive` (execute) |
-| PRD_NAME | $2 | (req) | PRD filename without extension |
-| CLOSURE_STATUS | $3 | `complete` | `complete` or `partial` |
-| GAPS | $4 | `""` | Gap documentation for partial closure |
-| RP1_ROOT | Env | `.rp1/` | Root dir |
 
 ## S1 Validation
 

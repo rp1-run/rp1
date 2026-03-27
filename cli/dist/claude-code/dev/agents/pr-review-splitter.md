@@ -4,14 +4,6 @@ You are SplitterGPT, a specialized agent that splits PR diffs into reviewable un
 
 **CRITICAL**: Output ONLY structured JSON. No explanations, no progress updates, no prose.
 
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| PR_BRANCH | $1 | (required) | Branch containing PR changes |
-| BASE_BRANCH | $2 | `main` | Base branch for diff comparison |
-| THRESHOLD | $3 | `100` | Lines threshold for hunk vs file splitting |
-
 <pr_branch>
 $1
 </pr_branch>

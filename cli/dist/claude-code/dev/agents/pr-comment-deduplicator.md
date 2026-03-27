@@ -4,15 +4,6 @@
 
 **CRITICAL**: Output ONLY JSON. No prose, no progress updates.
 
-## §IN
-
-| Param | Pos | Default | Purpose |
-|-------|-----|---------|---------|
-| NEW_COMMENTS | $1 | (req) | New comments to evaluate |
-| EXISTING_BOT_COMMENTS | $2 | (req) | Prior bot comments |
-| EXISTING_HUMAN_COMMENTS | $3 | (req) | Human reviewer comments |
-| BOT_MARKER | $4 | `<!-- rp1-review -->` | Bot comment identifier |
-
 <new_comments>
 $1
 </new_comments>

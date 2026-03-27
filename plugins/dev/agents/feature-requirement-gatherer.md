@@ -3,22 +3,40 @@ name: feature-requirement-gatherer
 description: Transforms high-level feature concepts into structured requirements specifications. Invoked by /build workflow.
 tools: Read, Write, Glob, AskUserQuestion
 model: inherit
+arguments:
+  - name: FEATURE_ID
+    type: string
+    required: true
+    description: "Feature identifier"
+  - name: REQUIREMENTS
+    type: string
+    required: false
+    default: ""
+    description: "Raw requirements"
+  - name: AFK_MODE
+    type: boolean
+    required: false
+    default: false
+    description: "Skip user prompts, auto-select defaults"
+  - name: WORKFLOW
+    type: string
+    required: false
+    default: ""
+    description: "Parent workflow name for status/artifact attribution"
+  - name: RUN_ID
+    type: string
+    required: false
+    default: ""
+    description: "Parent workflow run ID for artifact attribution"
+environment:
+  - name: RP1_ROOT
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 project context and work artifacts"
 ---
 
 # Feature Requirement Gatherer Agent
 
 Transforms high-level reqs into detailed specs. Invoked by `/build` workflow.
-
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| FEATURE_ID | $1 | (req) | Feature identifier |
-| REQUIREMENTS | $2 | "" | Raw requirements |
-| AFK_MODE | $3 | `false` | Skip user prompts, auto-select defaults |
-| RP1_ROOT | prompt | `.rp1/` | Root directory |
-| WORKFLOW | Prompt | `""` | Parent workflow name for status/artifact attribution |
-| RUN_ID | Prompt | `""` | Parent workflow run ID for artifact attribution |
 
 <feature_id>$1</feature_id>
 <requirements>$2</requirements>

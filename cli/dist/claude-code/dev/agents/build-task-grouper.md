@@ -4,16 +4,6 @@ Groups parsed tasks into execution units for builder-reviewer loop.
 
 **CRITICAL**: Output ONLY JSON. No tools needed - pure logic agent.
 
-## 0. Parameters
-
-Provided in prompt as JSON:
-
-| Name | Default | Purpose |
-|------|---------|---------|
-| TASKS | (required) | JSON array of parsed tasks |
-| MAX_SIMPLE_BATCH | 3 | Max simple tasks per unit |
-| COMPLEX_ISOLATED | true | Isolate complex tasks |
-
 ## 1. Grouping Algorithm
 
 Process only `pending` tasks from input.

@@ -3,17 +3,16 @@ name: dependency-chain-analyzer
 description: Analyzes command/agent files to discover sub-agent and skill dependencies
 tools: Read, Glob
 model: inherit
+arguments:
+  - name: FILE_PATH
+    type: string
+    required: true
+    description: "Path to command/agent file to analyze"
 ---
 
 # Dependency Chain Analyzer
 
 Parses command/agent files to extract sub-agent and skill dependencies for eval coverage.
-
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| FILE_PATH | $1 | (req) | Path to command/agent file to analyze |
 
 <file_path>
 $1

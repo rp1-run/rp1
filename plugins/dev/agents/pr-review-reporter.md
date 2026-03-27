@@ -3,6 +3,46 @@ name: pr-review-reporter
 description: Formats findings into markdown report and writes to file
 tools: Read, Write, Glob, Bash
 model: inherit
+arguments:
+  - name: PR_INFO
+    type: string
+    required: true
+    description: "PR metadata (branch, title, base, github_url?, head_sha?)"
+  - name: INTENT_JSON
+    type: string
+    required: true
+    description: "Intent model used for review"
+  - name: JUDGMENT_JSON
+    type: string
+    required: true
+    description: "Synthesis result (judgment, rationale, intent_achieved)"
+  - name: FINDINGS_JSON
+    type: string
+    required: true
+    description: "Merged findings from all sub-reviewers"
+  - name: CROSS_FILE_JSON
+    type: string
+    required: true
+    description: "Cross-file findings from synthesizer"
+  - name: STATS_JSON
+    type: string
+    required: true
+    description: "Finding counts by severity"
+  - name: OUTPUT_DIR
+    type: string
+    required: false
+    default: ".rp1/work/pr-reviews"
+    description: "Directory for report output"
+  - name: REVIEW_ID
+    type: string
+    required: false
+    default: ""
+    description: "Base name for report file (derived from branch if empty)"
+  - name: VISUAL_CONTENT
+    type: string
+    required: false
+    default: ""
+    description: "Mermaid diagram markdown from pr-visualizer"
 ---
 
 # PR Review Reporter - Report Generation Agent
@@ -10,20 +50,6 @@ model: inherit
 You are ReporterGPT, a specialized agent that formats PR review findings into a structured markdown report and writes it to the appropriate location. You return only the file path.
 
 **CRITICAL**: Write the report file, then output ONLY the path. No explanations, no content echoing.
-
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| PR_INFO | $1 | (required) | PR metadata (branch, title, base, github_url?, head_sha?) |
-| INTENT_JSON | $2 | (required) | Intent model used for review |
-| JUDGMENT_JSON | $3 | (required) | Synthesis result (judgment, rationale, intent_achieved) |
-| FINDINGS_JSON | $4 | (required) | Merged findings from all sub-reviewers |
-| CROSS_FILE_JSON | $5 | (required) | Cross-file findings from synthesizer |
-| STATS_JSON | $6 | (required) | Finding counts by severity |
-| OUTPUT_DIR | $7 | `.rp1/work/pr-reviews` | Directory for report output |
-| REVIEW_ID | $8 | (from branch) | Base name for report file |
-| VISUAL_CONTENT | $9 | `""` | Mermaid diagram markdown from pr-visualizer |
 
 <pr_info>
 $1

@@ -4,20 +4,32 @@ description: Archives completed features to {RP1_ROOT}/work/archives/features/ o
 tools: Read, Glob, Bash, Edit
 model: inherit
 author: cloud-on-prem/rp1
+arguments:
+  - name: MODE
+    type: enum
+    required: true
+    description: "archive or unarchive"
+    enum_values:
+      - "archive"
+      - "unarchive"
+  - name: FEATURE_ID
+    type: string
+    required: true
+    description: "Feature ID or archive name"
+  - name: SKIP_DOC_CHECK
+    type: boolean
+    required: false
+    default: false
+    description: "Skip minimal docs check"
+environment:
+  - name: RP1_ROOT
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 project context and work artifacts"
 ---
 
 # Feature Archiver
 
 You are **ArchiverGPT** - archives completed features to `{{$RP1_ROOT}}/work/archives/features/` or restores them.
-
-## §0 Parameters
-
-| Name | Pos | Default | Purpose |
-|------|-----|---------|---------|
-| MODE | $1 | (req) | `archive` or `unarchive` |
-| FEATURE_ID | $2 | (req) | Feature ID or archive name |
-| SKIP_DOC_CHECK | $3 | `false` | Skip minimal docs check |
-| RP1_ROOT | Env | `.rp1/` | Root dir |
 
 ## §1 Validation
 

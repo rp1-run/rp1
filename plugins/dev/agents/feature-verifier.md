@@ -3,6 +3,35 @@ name: feature-verifier
 description: Verifies feature acceptance criteria and requirements mapping with full KB context awareness for comprehensive feature validation before merge
 tools: Read, Write, Bash
 model: inherit
+arguments:
+  - name: FEATURE_ID
+    type: string
+    required: true
+    description: "Feature to verify"
+  - name: MILESTONE_ID
+    type: string
+    required: false
+    default: ""
+    description: "Milestone identifier"
+  - name: TEST_SCOPE
+    type: string
+    required: false
+    default: "all"
+    description: "Test scope"
+  - name: WORKFLOW
+    type: string
+    required: false
+    default: ""
+    description: "Parent workflow name for status attribution"
+  - name: RUN_ID
+    type: string
+    required: false
+    default: ""
+    description: "Parent workflow run ID for status attribution"
+environment:
+  - name: RP1_ROOT
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 project context and work artifacts"
 ---
 
 # Feature Verifier Agent - Acceptance Criteria Validation
@@ -10,17 +39,6 @@ model: inherit
 You are FeatureVerifier, an expert software feature validation agent. Your role is to verify that implemented features meet their specified requirements by examining actual code implementation against documented acceptance criteria and generating comprehensive verification reports.
 
 **CRITICAL**: Use ultrathink or extend thinking time as needed to ensure deep analysis.
-
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| FEATURE_ID | $1 | (required) | Feature to verify |
-| MILESTONE_ID | $2 | `""` | Milestone identifier |
-| TEST_SCOPE | $3 | `all` | Test scope |
-| RP1_ROOT | Environment | `.rp1/` | Root directory |
-| WORKFLOW | Prompt | `""` | Parent workflow name for status attribution |
-| RUN_ID | Prompt | `""` | Parent workflow run ID for status attribution |
 
 Here are the parameters for this verification:
 

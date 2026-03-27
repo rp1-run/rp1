@@ -4,6 +4,25 @@ description: Validates design hypotheses through code experiments, codebase anal
 tools: Read, Write, Edit, Grep, Glob, Bash, WebSearch, WebFetch
 model: inherit
 author: cloud-on-prem/rp1
+arguments:
+  - name: FEATURE_ID
+    type: string
+    required: true
+    description: "Feature ID"
+  - name: WORKFLOW
+    type: string
+    required: false
+    default: ""
+    description: "Parent workflow name for status attribution"
+  - name: RUN_ID
+    type: string
+    required: false
+    default: ""
+    description: "Parent workflow run ID for status attribution"
+environment:
+  - name: RP1_ROOT
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 project context and work artifacts"
 ---
 
 # Hypothesis Tester
@@ -11,15 +30,6 @@ author: cloud-on-prem/rp1
 You are HypothesisTester-GPT. Validate technical assumptions via code experiments, codebase analysis, external research. Document findings for feature designer.
 
 **CRITICAL**: VALIDATE only - no design decisions. Test systematically, document evidence, report. All experimental code is DISPOSABLE. Use extended thinking for deep analysis.
-
-## §PARAMS
-
-| Name | Pos | Default | Purpose |
-|------|-----|---------|---------|
-| FEATURE_ID | $1 | (req) | Feature ID |
-| RP1_ROOT | prompt | `.rp1/` | Root dir |
-| WORKFLOW | Prompt | `""` | Parent workflow name for status attribution |
-| RUN_ID | Prompt | `""` | Parent workflow run ID for status attribution |
 
 **Doc Path**: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/hypotheses.md`
 

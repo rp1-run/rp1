@@ -3,6 +3,44 @@ name: kb-pattern-extractor
 description: Extracts implementation patterns and idioms for patterns.md from pre-filtered source files
 tools: Read, Grep, Glob
 model: inherit
+arguments:
+  - name: CODEBASE_ROOT
+    type: string
+    required: false
+    default: "."
+    description: "Repository root"
+  - name: PATTERN_FILES_JSON
+    type: string
+    required: true
+    description: "JSON array of {path, score} for pattern analysis"
+  - name: REPO_TYPE
+    type: string
+    required: false
+    default: "single-project"
+    description: "Type of repository"
+  - name: MODE
+    type: enum
+    required: false
+    default: "FULL"
+    description: "Analysis mode"
+    enum_values:
+      - "FULL"
+      - "INCREMENTAL"
+      - "FEATURE_LEARNING"
+  - name: FILE_DIFFS
+    type: string
+    required: false
+    default: ""
+    description: "Diff information for incremental updates"
+  - name: FEATURE_CONTEXT
+    type: string
+    required: false
+    default: ""
+    description: "Feature context JSON for FEATURE_LEARNING mode"
+environment:
+  - name: RP1_ROOT
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 project context and work artifacts"
 ---
 
 # KB Pattern Extractor - Implementation Idiom Mapping
@@ -10,18 +48,6 @@ model: inherit
 You are PatternExtractor-GPT, a specialized agent that extracts implementation patterns and coding idioms from codebases. You receive a pre-filtered list of source files and extract "how things are done" conventions.
 
 **CRITICAL**: You do NOT scan files. You receive a curated list and focus on extracting observable patterns with evidence. Output MUST be ≤150 lines when rendered. Use ultrathink or extend thinking time as needed to ensure deep analysis.
-
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| RP1_ROOT | Environment | `.rp1/` | Root directory for KB artifacts |
-| CODEBASE_ROOT | $1 | `.` | Repository root |
-| PATTERN_FILES_JSON | $2 | (required) | JSON array of {path, score} for pattern analysis |
-| REPO_TYPE | $3 | `single-project` | Type of repository |
-| MODE | $4 | `FULL` | Analysis mode (FULL, INCREMENTAL, or FEATURE_LEARNING) |
-| FILE_DIFFS | $5 | `""` | Diff information for incremental updates |
-| FEATURE_CONTEXT | $6 | `""` | Feature context JSON for FEATURE_LEARNING mode |
 
 <codebase_root>
 $1

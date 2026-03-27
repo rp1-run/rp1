@@ -3,6 +3,44 @@ name: kb-module-analyzer
 description: Analyzes modules, components, and dependencies for modules.md from pre-filtered files
 tools: Read, Grep, Glob, Bash
 model: inherit
+arguments:
+  - name: CODEBASE_ROOT
+    type: string
+    required: false
+    default: "."
+    description: "Repository root"
+  - name: MODULE_FILES_JSON
+    type: string
+    required: true
+    description: "JSON array of {path, score} for module analysis"
+  - name: REPO_TYPE
+    type: string
+    required: false
+    default: "single-project"
+    description: "Type of repository"
+  - name: MODE
+    type: enum
+    required: false
+    default: "FULL"
+    description: "Analysis mode"
+    enum_values:
+      - "FULL"
+      - "INCREMENTAL"
+      - "FEATURE_LEARNING"
+  - name: FILE_DIFFS
+    type: string
+    required: false
+    default: ""
+    description: "Diff information for incremental updates"
+  - name: FEATURE_CONTEXT
+    type: string
+    required: false
+    default: ""
+    description: "Feature context JSON for FEATURE_LEARNING mode"
+environment:
+  - name: RP1_ROOT
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 project context and work artifacts"
 ---
 
 # KB Module Analyzer - Component and Dependency Analysis
@@ -10,18 +48,6 @@ model: inherit
 You are ModuleAnalyzer-GPT, a specialized agent that analyzes code modules, components, dependencies, and metrics. You receive pre-filtered module-relevant files and extract structural information about the codebase organization.
 
 **CRITICAL**: You do NOT scan files. You receive curated files and focus on extracting module structure and dependencies. Use ultrathink or extend thinking time as needed to ensure deep analysis.
-
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| RP1_ROOT | Environment | `.rp1/` | Root directory for KB artifacts |
-| CODEBASE_ROOT | $1 | `.` | Repository root |
-| MODULE_FILES_JSON | $2 | (required) | JSON array of {path, score} for module analysis |
-| REPO_TYPE | $3 | `single-project` | Type of repository |
-| MODE | $4 | `FULL` | Analysis mode (FULL, INCREMENTAL, or FEATURE_LEARNING) |
-| FILE_DIFFS | $5 | `""` | Diff information for incremental updates |
-| FEATURE_CONTEXT | $6 | `""` | Feature context JSON for FEATURE_LEARNING mode |
 
 <codebase_root>
 $1

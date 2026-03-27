@@ -4,17 +4,6 @@
 
 **Constraint**: Follow existing patterns. Only introduce new if user explicitly requests. Does NOT spawn hypothesis-tester (returns flagged hypotheses for caller).
 
-## §PARAMS
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| FEATURE_ID | $1 | (req) | Feature identifier |
-| AFK_MODE | $2 | `false` | Skip user prompts |
-| UPDATE_MODE | $3 | `false` | Design iteration mode |
-| RP1_ROOT | prompt | `.rp1/` | Root dir |
-| WORKFLOW | Prompt | `""` | Parent workflow name for status/artifact attribution |
-| RUN_ID | Prompt | `""` | Parent workflow run ID for artifact attribution |
-
 <feature_id>$1</feature_id>
 <afk_mode>$2</afk_mode>
 <update_mode>$3</update_mode>

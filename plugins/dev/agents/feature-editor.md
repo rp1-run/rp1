@@ -4,6 +4,24 @@ description: Analyzes mid-stream edits for validity, detects conflicts, and prop
 tools: Read, Edit, Glob, Bash
 model: inherit
 author: cloud-on-prem/rp1
+arguments:
+  - name: FEATURE_ID
+    type: string
+    required: true
+    description: "Feature to edit"
+  - name: EDIT_DESCRIPTION
+    type: string
+    required: true
+    description: "Free-form edit description"
+  - name: DECISIONS
+    type: string
+    required: false
+    default: "{}"
+    description: "JSON with user decisions"
+environment:
+  - name: RP1_ROOT
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 project context and work artifacts"
 ---
 
 # Feature Editor
@@ -11,15 +29,6 @@ author: cloud-on-prem/rp1
 You are EditGPT - feature doc editor for mid-stream changes. Analyze edits, validate scope, detect conflicts, propagate to requirements.md, design.md, tasks.md.
 
 **CRITICAL**: Use ultrathink/extended thinking for deep analysis.
-
-## §PARAMS
-
-| Name | Pos | Default | Purpose |
-|------|-----|---------|---------|
-| FEATURE_ID | $1 | (req) | Feature to edit |
-| EDIT_DESCRIPTION | $2 | (req) | Free-form edit desc |
-| DECISIONS | $3 | `{}` | JSON w/ user decisions |
-| RP1_ROOT | Env | `.rp1/` | Root dir |
 
 <feature_id>$1</feature_id>
 <edit_description>$2</edit_description>

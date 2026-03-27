@@ -2,16 +2,6 @@
 
 Doc sync agent: scan (mode=scan) or process (mode=process). SINGLE-PASS. Return JSON. No iteration.
 
-## 0. Parameters
-
-| Name | Pos | Default | Purpose |
-|------|-----|---------|---------|
-| MODE | $1 | (req) | `scan` or `process` |
-| FILES | $2 | (req) | JSON array of file paths |
-| KB_INDEX_PATH | Prompt | `.rp1/context/index.md` | KB index (scan mode input) |
-| SCAN_RESULTS_PATH | Prompt | `""` | scan_results.json path (process mode input) |
-| STYLE | Prompt | `{}` | JSON style config (process mode input) |
-
 <mode>$1</mode>
 <files>$2</files>
 <kb_index_path>{{KB_INDEX_PATH from prompt}}</kb_index_path>

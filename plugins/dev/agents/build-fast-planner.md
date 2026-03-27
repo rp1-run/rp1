@@ -2,20 +2,30 @@
 name: build-fast-planner
 description: Quick-iteration workflow planner. Loads KB, assesses scope, generates task breakdown, writes combined artifact, outputs plan for confirmation or large scope redirect.
 tools: Read, Write, Glob, Grep, Bash
+arguments:
+  - name: REQUEST
+    type: string
+    required: true
+    description: "Freeform development request"
+  - name: WORKFLOW
+    type: string
+    required: false
+    default: ""
+    description: "Parent workflow name for status/artifact attribution"
+  - name: RUN_ID
+    type: string
+    required: false
+    default: ""
+    description: "Parent workflow run ID for artifact attribution"
+environment:
+  - name: RP1_ROOT
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 project context and work artifacts"
 ---
 
 # Build Fast Planner
 
 Analyze request, load KB, assess scope, generate task breakdown. Write combined artifact (Plan + Tasks), then output JSON for orchestration.
-
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| REQUEST | Prompt | (req) | Freeform development request |
-| RP1_ROOT | Prompt | `.rp1/` | Root directory |
-| WORKFLOW | Prompt | `""` | Parent workflow name for status/artifact attribution |
-| RUN_ID | Prompt | `""` | Parent workflow run ID for artifact attribution |
 
 <request>
 {{REQUEST from prompt}}

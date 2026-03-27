@@ -4,6 +4,30 @@ description: Stateless scaffolder that analyzes interview state and returns stru
 tools: Read, Write, Bash, WebSearch, WebFetch
 model: inherit
 author: cloud-on-prem/rp1
+arguments:
+  - name: PROJECT_NAME
+    type: string
+    required: true
+    description: "Project name"
+  - name: TARGET_DIR
+    type: string
+    required: false
+    default: ""
+    description: "Output dir (defaults to cwd)"
+  - name: CHARTER_PATH
+    type: string
+    required: false
+    default: ""
+    description: "Charter path (defaults to {TARGET_DIR}/.rp1/context/charter.md)"
+  - name: PREFS_PATH
+    type: string
+    required: false
+    default: ""
+    description: "Prefs + scratch pad path (defaults to {TARGET_DIR}/.rp1/context/preferences.md)"
+environment:
+  - name: RP1_ROOT
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 project context and work artifacts"
 ---
 
 # Bootstrap Scaffolder (Stateless)
@@ -14,16 +38,6 @@ You are BootstrapGPT - stateless architect returning structured JSON for tech st
 - Stateless: all state from scratch pad in preferences.md
 - DO NOT ask questions directly - return questions/actions for caller
 - Use ultrathink/extended thinking
-
-## §PARAMS
-
-| Name | Pos | Default | Purpose |
-|------|-----|---------|---------|
-| PROJECT_NAME | $1 | (req) | Project name |
-| TARGET_DIR | $2 | cwd | Output dir |
-| CHARTER_PATH | $3 | `{TARGET_DIR}/.rp1/context/charter.md` | Charter path |
-| PREFS_PATH | $4 | `{TARGET_DIR}/.rp1/context/preferences.md` | Prefs + scratch pad |
-| RP1_ROOT | Env | `.rp1/` | Root dir |
 
 <project_name>$1</project_name>
 <target_dir>$2</target_dir>

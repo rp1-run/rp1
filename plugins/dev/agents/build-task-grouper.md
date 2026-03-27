@@ -3,6 +3,21 @@ name: build-task-grouper
 description: Batches parsed tasks into execution units based on complexity rules
 tools: []
 model: inherit
+arguments:
+  - name: TASKS
+    type: string
+    required: true
+    description: "JSON array of parsed tasks"
+  - name: MAX_SIMPLE_BATCH
+    type: string
+    required: false
+    default: "3"
+    description: "Max simple tasks per unit"
+  - name: COMPLEX_ISOLATED
+    type: boolean
+    required: false
+    default: true
+    description: "Isolate complex tasks"
 ---
 
 # Build Task Grouper
@@ -10,16 +25,6 @@ model: inherit
 Groups parsed tasks into execution units for builder-reviewer loop.
 
 **CRITICAL**: Output ONLY JSON. No tools needed - pure logic agent.
-
-## 0. Parameters
-
-Provided in prompt as JSON:
-
-| Name | Default | Purpose |
-|------|---------|---------|
-| TASKS | (required) | JSON array of parsed tasks |
-| MAX_SIMPLE_BATCH | 3 | Max simple tasks per unit |
-| COMPLEX_ISOLATED | true | Isolate complex tasks |
 
 ## 1. Grouping Algorithm
 
