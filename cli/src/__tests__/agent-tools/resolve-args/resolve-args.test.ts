@@ -8,6 +8,10 @@ import {
 	resolveArgs,
 	resolveImpliesChains,
 } from "../../../agent-tools/resolve-args/resolver.js";
+import {
+	parseNamespace,
+	resolveSchemaFromNameOrPath,
+} from "../../../agent-tools/resolve-args/schema-lookup.js";
 import type { ArgumentDefinition } from "../../../build/models.js";
 
 let tempDir: string;
@@ -554,5 +558,184 @@ environment:
 		})();
 
 		expect(E.isLeft(result)).toBe(true);
+	});
+
+	test("resolves via schema_path when both name and schema_path are provided", async () => {
+		const schemaPath = await createSkillFile(
+			tempDir,
+			`---
+name: test-skill
+description: "A test skill with structured arguments for validation"
+metadata:
+  arguments:
+    - name: FEATURE_ID
+      type: string
+      required: true
+      description: "Feature identifier"
+---
+# Test skill
+`,
+		);
+
+		const result = await resolveArgs({
+			name: "rp1-nonexistent:nonexistent",
+			schema_path: schemaPath,
+			raw_args: "my-feature",
+			project_root: tempDir,
+		})();
+
+		expect(E.isRight(result)).toBe(true);
+		if (E.isRight(result)) {
+			expect(result.right.arguments.FEATURE_ID).toBe("my-feature");
+		}
+	});
+
+	test("resolves via name using development dist path", async () => {
+		const result = await resolveArgs({
+			name: "rp1-dev:build",
+			raw_args: "",
+			project_root: tempDir,
+		})();
+
+		// This should succeed in development (cli/dist/ exists with built artifacts)
+		expect(E.isRight(result)).toBe(true);
+	});
+
+	test("returns error when name references unknown plugin", async () => {
+		const result = await resolveArgs({
+			name: "rp1-nonexistent:some-skill",
+			raw_args: "",
+			project_root: tempDir,
+		})();
+
+		expect(E.isLeft(result)).toBe(true);
+	});
+
+	test("returns error when name references unknown skill in valid plugin", async () => {
+		const result = await resolveArgs({
+			name: "rp1-dev:nonexistent-skill-xyz",
+			raw_args: "",
+			project_root: tempDir,
+		})();
+
+		expect(E.isLeft(result)).toBe(true);
+	});
+
+	test("returns error when neither name nor schema_path is provided", async () => {
+		const result = await resolveArgs({
+			raw_args: "",
+			project_root: tempDir,
+		})();
+
+		expect(E.isLeft(result)).toBe(true);
+	});
+});
+
+describe("parseNamespace", () => {
+	test("parses valid namespace with rp1- prefix", () => {
+		const result = parseNamespace("rp1-dev:build");
+		expect(E.isRight(result)).toBe(true);
+		if (E.isRight(result)) {
+			expect(result.right.pluginShort).toBe("dev");
+			expect(result.right.artifactName).toBe("build");
+		}
+	});
+
+	test("parses namespace without rp1- prefix", () => {
+		const result = parseNamespace("dev:build");
+		expect(E.isRight(result)).toBe(true);
+		if (E.isRight(result)) {
+			expect(result.right.pluginShort).toBe("dev");
+			expect(result.right.artifactName).toBe("build");
+		}
+	});
+
+	test("parses base plugin namespace", () => {
+		const result = parseNamespace("rp1-base:knowledge-load");
+		expect(E.isRight(result)).toBe(true);
+		if (E.isRight(result)) {
+			expect(result.right.pluginShort).toBe("base");
+			expect(result.right.artifactName).toBe("knowledge-load");
+		}
+	});
+
+	test("returns error for name without colon", () => {
+		const result = parseNamespace("build");
+		expect(E.isLeft(result)).toBe(true);
+	});
+
+	test("returns error for empty plugin part", () => {
+		const result = parseNamespace(":build");
+		expect(E.isLeft(result)).toBe(true);
+	});
+
+	test("returns error for empty name part", () => {
+		const result = parseNamespace("rp1-dev:");
+		expect(E.isLeft(result)).toBe(true);
+	});
+});
+
+describe("resolveSchemaFromNameOrPath", () => {
+	test("schema_path takes precedence over name", async () => {
+		const schemaPath = await createSkillFile(
+			tempDir,
+			`---
+name: override-skill
+description: "Schema path override test"
+---
+# Override skill
+`,
+		);
+
+		const result = await resolveSchemaFromNameOrPath(
+			"rp1-nonexistent:nonexistent",
+			schemaPath,
+		)();
+
+		expect(E.isRight(result)).toBe(true);
+		if (E.isRight(result)) {
+			expect(result.right).toBe(schemaPath);
+		}
+	});
+
+	test("returns error when schema_path does not exist", async () => {
+		const result = await resolveSchemaFromNameOrPath(
+			undefined,
+			join(tempDir, "nonexistent.md"),
+		)();
+
+		expect(E.isLeft(result)).toBe(true);
+	});
+
+	test("returns error when no source specified", async () => {
+		const result = await resolveSchemaFromNameOrPath(undefined, undefined)();
+
+		expect(E.isLeft(result)).toBe(true);
+	});
+
+	test("resolves agent by name from development dist", async () => {
+		const result = await resolveSchemaFromNameOrPath(
+			"rp1-dev:task-builder",
+			undefined,
+		)();
+
+		// Should find the agent in cli/dist/claude-code/dev/agents/task-builder.md
+		expect(E.isRight(result)).toBe(true);
+		if (E.isRight(result)) {
+			expect(result.right).toContain("agents/task-builder.md");
+		}
+	});
+
+	test("resolves skill by name from development dist", async () => {
+		const result = await resolveSchemaFromNameOrPath(
+			"rp1-dev:build",
+			undefined,
+		)();
+
+		// Should find the skill in cli/dist/claude-code/dev/skills/build/SKILL.md
+		expect(E.isRight(result)).toBe(true);
+		if (E.isRight(result)) {
+			expect(result.right).toContain("skills/build/SKILL.md");
+		}
 	});
 });

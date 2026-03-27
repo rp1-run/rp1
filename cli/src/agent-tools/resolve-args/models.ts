@@ -5,7 +5,8 @@
 
 /** Input payload for the resolve-args tool. */
 export interface ResolveArgsInput {
-	readonly schema_path: string;
+	readonly schema_path?: string;
+	readonly name?: string;
 	readonly raw_args: string;
 	readonly project_root: string;
 }
