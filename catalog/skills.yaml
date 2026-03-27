@@ -32,7 +32,7 @@ skills:
     sub_agents_that_i_use: [rp1-base:research-explorer,rp1-base:research-reporter]
     skills_that_i_use: []
     last_update: "2026-03-27"
-    last_checksum: 28d8f53e818817654c6f6798939a9f888048f93145297d80e74df7857f81a5a7
+    last_checksum: ece1f08e31f43272751e5f485049e4a12f468fd6378cf2affdac662128a98799
   - name: rp1-base:fix-mermaid
     description: Validates and repairs mermaid diagrams in markdown files. Scans for mermaid blocks, validates syntax, and auto-repairs common errors.
     plugin: base
