@@ -62,9 +62,9 @@ $4
 {{COMMIT_CHANGES from prompt}}
 </commit_changes>
 
-## 1. Comment Extraction (Use Skill)
+## 1. Comment Extraction
 
-**CRITICAL**: Use the `rp1-base:code-comments` skill to extract comment locations efficiently.
+**CRITICAL**: Invoke the `rp1-base:code-comments` skill to extract comment locations efficiently.
 
 ### 1.1 Run Comment Extraction Script
 

@@ -335,7 +335,7 @@ Define module boundaries:
 - Base plugin exposes commands, agents, skills
 - Dev plugin depends on base plugin commands
 - Commands expose slash command interface
-- Agents expose Task tool interface
+- Agents expose agent dispatch interface
 
 **Output Format**:
 

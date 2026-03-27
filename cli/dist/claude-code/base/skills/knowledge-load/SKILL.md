@@ -138,7 +138,7 @@ READY [progressive]
 
 Loaded: index.md (~80 lines)
 Available: architecture.md, modules.md, patterns.md, concept_map.md
-Use Read tool to load additional files as needed.
+Load additional files as needed.
 ```
 
 **Full Mode Output**:
@@ -262,7 +262,7 @@ If `{{$RP1_ROOT}}/context/` doesn't exist, warn user to run `/knowledge-build` f
 
 ### Critical: Subagent Limitation
 
-**NEVER use `/knowledge-load` command in subagents**. Using SlashCommand tool in subagents causes early exit.
+**NEVER use `/knowledge-load` command in subagents**. Invoking slash commands in subagents causes early exit.
 
 Always use direct Read tool calls:
 
