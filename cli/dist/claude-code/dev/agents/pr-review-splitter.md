@@ -58,7 +58,7 @@ Store the list of files for processing.
 - `.gitignore`, `.npmrc`, `.nvmrc`, `.tool-versions`
 
 ### Check .gitattributes
-Use Grep to check for `linguist-generated=true` patterns in `.gitattributes` and add matching files to filter list.
+Search `.gitattributes` for `linguist-generated=true` patterns and add matching files to filter list.
 
 Track filtered files in a separate list for transparency.
 

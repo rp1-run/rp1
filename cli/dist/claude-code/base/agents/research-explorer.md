@@ -78,7 +78,7 @@ Identify:
 
 **Step 2: Pattern Search**
 
-Use Grep tool to find relevant patterns based on questions:
+Search for relevant patterns based on questions:
 - Search for keywords from questions
 - Look for architectural patterns (e.g., `class.*Handler`, `function.*middleware`)
 - Find configuration and setup code
