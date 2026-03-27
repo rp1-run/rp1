@@ -68,6 +68,28 @@ rp1 agent-tools emit \
   --data '{"status": "{running|completed}", "branch": "{PR_BRANCH}"}'
 ```
 
+## 0. Resolve Arguments
+
+Run the argument resolver to obtain all parameter values:
+
+```bash
+rp1 agent-tools resolve-args --schema-path plugins/dev/skills/pr-visual/SKILL.md --args "{raw arguments from user invocation}"
+```
+
+Parse the JSON response. Extract values from `data.arguments` and `data.environment`:
+
+| Variable | Source |
+|----------|--------|
+| PR_BRANCH | `data.arguments.PR_BRANCH` |
+| BASE_BRANCH | `data.arguments.BASE_BRANCH` |
+| REVIEW_DEPTH | `data.arguments.REVIEW_DEPTH` |
+| FOCUS_AREAS | `data.arguments.FOCUS_AREAS` |
+| RP1_ROOT | `data.environment.RP1_ROOT` |
+
+If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
+
+Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
+
 ## §1 Visualize
 
 Emit `visualize` running. Spawn the pr-visualizer agent:
