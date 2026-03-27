@@ -13,13 +13,4 @@ metadata:
 
 # Tester Prompt
 
-## Parameters
-
-Extract these parameters from the user's input:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `GIT_COMMIT` | No | - | Git commit reference if provided |
-| `GIT_BRANCH` | No | - | Git branch name if provided |
-
 Print out the values of {GIT_COMMIT} and {GIT_BRANCH}

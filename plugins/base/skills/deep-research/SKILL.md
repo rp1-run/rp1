@@ -12,24 +12,21 @@ metadata:
   created: 2025-12-16
   updated: 2026-02-26
   author: cloud-on-prem/rp1
-  argument-hint: "<research-topic>"
+  arguments:
+    - name: RESEARCH_TOPIC
+      type: string
+      required: true
+      description: "The research topic or questions (freeform text)"
+  environment:
+    - name: RP1_ROOT
+      source: "rp1 agent-tools rp1-root-dir"
+      description: "Root directory for rp1 project context and work artifacts"
   sub_agents:
     - "rp1-base:research-explorer"
     - "rp1-base:research-reporter"
 ---
 
 # Deep Research - Orchestration Command
-
-## Parameters
-
-Extract these parameters from the user's input:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `RESEARCH_TOPIC` | Yes | - | The user's research topic or questions (freeform text) |
-
-**Environment values** (resolve via shell):
-- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 
 You are executing the Deep Research workflow. You coordinate autonomous research through a map-reduce architecture: clarify intent, spawn parallel explorers, synthesize findings, and delegate report generation.
 

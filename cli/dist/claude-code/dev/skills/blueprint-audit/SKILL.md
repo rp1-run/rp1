@@ -18,14 +18,6 @@ metadata:
 
 Audits PRD documents against implementation evidence, identifies stale or completed blueprints, and guides disposition decisions (archive, modify scope, defer).
 
-## Parameters
-
-Extract these parameters from the user's input:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `PRD_NAME` | Yes | - | PRD filename without extension |
-
 ## Usage
 
 ```

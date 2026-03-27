@@ -13,7 +13,15 @@ metadata:
   created: 2025-12-26
   updated: 2026-02-26
   author: cloud-on-prem/rp1
-  argument-hint: "[project-name]"
+  arguments:
+    - name: PROJECT_NAME
+      type: string
+      required: false
+      description: "New project directory name (lowercase, hyphens allowed)"
+  environment:
+    - name: RP1_ROOT
+      source: "rp1 agent-tools rp1-root-dir"
+      description: "Root directory for rp1 project context and work artifacts"
   sub_agents:
     - "rp1-dev:charter-interviewer"
     - "rp1-dev:bootstrap-scaffolder"
@@ -22,17 +30,6 @@ metadata:
 # Bootstrap Command - Greenfield Project Creation
 
 Minimal coordinator: pre-flight checks -> charter-interviewer -> bootstrap-scaffolder.
-
-## Parameters
-
-Extract these parameters from the user's input:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `PROJECT_NAME` | No | (prompted) | New project directory name (lowercase, hyphens allowed) |
-
-**Environment values** (resolve via shell):
-- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 
 ## §1 Pre-Flight
 

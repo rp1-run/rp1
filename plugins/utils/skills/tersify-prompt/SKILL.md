@@ -9,7 +9,11 @@ metadata:
   created: 2025-12-21
   updated: 2026-02-26
   author: cloud-on-prem/rp1
-  argument-hint: "<file-path-or-prompt>"
+  arguments:
+    - name: INPUT
+      type: string
+      required: true
+      description: "File path to a prompt file, or raw prompt text to compress"
   sub_agents:
     - "rp1-utils:prompt-tersifier"
 ---
@@ -17,14 +21,6 @@ metadata:
 # Tersify Prompt
 
 Compresses agent-instruction prompts to be maximally terse while preserving full intent.
-
-## Parameters
-
-Extract these parameters from the user's input:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `INPUT` | Yes | - | File path to a prompt file, or raw prompt text to compress |
 
 ## Modes
 

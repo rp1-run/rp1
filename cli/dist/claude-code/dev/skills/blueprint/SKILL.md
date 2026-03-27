@@ -13,22 +13,10 @@ metadata:
     - core
   created: 2025-11-30
   author: cloud-on-prem/rp1
-  argument-hint: "[prd-name]"
+  argument-hint: "[prd-name] [extra-context]"
 ---
 
 # Project Blueprint
-
-## Parameters
-
-Extract these parameters from the user's input:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `PRD_NAME` | No | - | PRD name to create (omit for default charter + main PRD flow) |
-| `EXTRA_CONTEXT` | No | `""` | Additional context provided by the user |
-
-**Environment values** (resolve via shell):
-- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 
 ## STATE-MACHINE
 

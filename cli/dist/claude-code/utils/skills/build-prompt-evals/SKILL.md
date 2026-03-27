@@ -8,21 +8,12 @@ metadata:
     - evals
   created: 2026-01-19
   author: cloud-on-prem/rp1
-  argument-hint: "<file-or-prompt> [--output <dir>]"
+  argument-hint: "<input> [output-dir]"
 ---
 
 # Build Prompt Evals
 
 Generate eval assertions (YAML) and test invocation prompt from source prompt. Extracts assertions, then runs assertion specialist to resolve placeholders, consolidate scenarios, and document unresolved assertions.
-
-## Parameters
-
-Extract these parameters from the user's input:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `INPUT` | Yes | - | File path to a prompt file, or raw prompt text |
-| `OUTPUT_DIR` | No | input file dir or cwd | Output directory for generated files. Set if user provides `--output <dir>` |
 
 ## Modes
 

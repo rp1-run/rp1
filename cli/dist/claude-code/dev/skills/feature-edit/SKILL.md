@@ -16,18 +16,6 @@ metadata:
 
 Route to feature-editor agent after param validation.
 
-## Parameters
-
-Extract these parameters from the user's input:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `FEATURE_ID` | Yes | - | Feature identifier (kebab-case, e.g., `auth-flow`) |
-| `EDIT_DESCRIPTION` | Yes | - | Freeform edit description text |
-
-**Environment values** (resolve via shell):
-- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
-
 ## Error Handling
 
 **Missing FEATURE_ID**:
