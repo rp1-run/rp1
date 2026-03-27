@@ -266,11 +266,9 @@ fi
 
 After creating the markdown file, use the markdown-preview skill to generate the HTML preview.
 
-Use the Skill tool:
+Invoke the `rp1-base:markdown-preview` skill.
 
-skill: "rp1-base:markdown-preview"
-
-Read the generated markdown file and pass content:
+Load the generated markdown file and pass content:
 - content: Read from {{$RP1_ROOT}}/work/pr_reviews/<pr-id>-visual.md
 - title: "PR Visualization for PR #{pr-number}"
 - theme: "github"
@@ -289,7 +287,7 @@ Log the file path and report to user:
 
 **From Documentation Agent**:
 ```markdown
-Use skill: "rp1-base:markdown-preview"
+Invoke `rp1-base:markdown-preview`.
 
 Pass documentation content:
 - content: Generated markdown documentation

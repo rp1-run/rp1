@@ -93,7 +93,7 @@ If missing: warn, continue.
 Read quick-build artifact at `{QUICK_BUILD_PATH}`:
 
 - Contains Plan section with scope, reasoning, files affected
-- Contains Tasks section with task breakdown
+- Contains Tasks section with structured breakdown
 
 No separate requirements.md or design.md for quick-builds (all context is in the artifact).
 
