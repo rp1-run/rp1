@@ -124,7 +124,7 @@ Perform 3-8 searches based on question complexity.
 
 **Step 2: Content Retrieval**
 
-Use WebFetch tool to retrieve:
+Fetch from the web to retrieve:
 - Top search results (up to 5 per search)
 - Official documentation pages
 - Technical blog posts with relevant content
