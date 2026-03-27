@@ -650,7 +650,7 @@ Breakdown:
 
 #### Step 3.5: Wait for User Approval
 
-Use the AskUserQuestion tool to obtain explicit approval:
+Ask the user for explicit approval:
 
 AskUserQuestion: "Proceed with documentation updates?"
 Options:

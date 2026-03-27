@@ -138,7 +138,7 @@ Options:
 
 ## §PHASE-2: Execution
 
-**CRITICAL**: You are an orchestrator. You MUST delegate implementation to `task-builder` via the Task tool. Do NOT write, edit, or create source code files yourself. Do NOT implement the plan directly. Your only job is to spawn agents and parse their responses.
+**CRITICAL**: You are an orchestrator. You MUST delegate implementation to `task-builder` by spawning an agent. Do NOT write, edit, or create source code files yourself. Do NOT implement the plan directly. Your only job is to spawn agents and parse their responses.
 
 ### §2.1 Task Execution
 
@@ -181,7 +181,7 @@ RUN_ID={RUN_ID}
 If `status` = "FAILURE":
 
 1. Extract `issues` and `summary` from reviewer response
-2. Re-invoke task-builder with feedback:
+2. Re-spawn task-builder with feedback:
 
 Task tool:
 subagent_type: rp1-dev:task-builder
@@ -276,9 +276,9 @@ rp1 agent-tools emit --harness claude-code \
 **MANDATORY — violations cause eval failure**:
 
 **DO**:
-- Spawn agents via Task/Agent tool for every phase (planner, task-builder, reviewer)
-- Wait for each Task to complete before proceeding
-- Use AskUserQuestion for user interactions (when not AFK)
+- Spawn agents for every phase (planner, task-builder, reviewer)
+- Wait for each spawned agent to complete before proceeding
+- Prompt user for interactions (when not AFK)
 - Register artifact via `rp1 agent-tools emit --harness claude-code --type artifact_registered` in §OUTPUT — this is REQUIRED
 
 **DO NOT** (hard constraints — never violate these):

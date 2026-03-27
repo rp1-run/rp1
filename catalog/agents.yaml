@@ -33,7 +33,7 @@ agents:
     skills_that_i_use: [rp1-base:knowledge-load]
     skills_that_use_me: [rp1-base:knowledge-build]
     last_update: "2026-03-27"
-    last_checksum: edd10779ea99fdca7c46b9b65337b6ecd9dff81ed0b2b40255b81ce0a3fa3b38
+    last_checksum: a3f9b7e2f8aa28448b8eb94a850d1e5df88940a320a323e25e4bebfa8712cbb9
   - name: rp1-base:kb-pattern-extractor
     description: Extracts implementation patterns and idioms for patterns.md from pre-filtered source files
     plugin: base
@@ -68,7 +68,7 @@ agents:
     skills_that_i_use: []
     skills_that_use_me: [rp1-base:deep-research]
     last_update: "2026-03-27"
-    last_checksum: 7382a7d8a1f5eaa58fe8fa0e434f9e1d011f6b11811e4fc438c52365030c1451
+    last_checksum: 0b9044319cd728a3836b91d3549bff35827f933ed7cf4e87e10eba60ddc4eaa7
   - name: rp1-base:research-reporter
     description: Generates structured research reports with validated Mermaid diagrams from synthesis data
     plugin: base
@@ -187,7 +187,7 @@ agents:
     skills_that_i_use: [rp1-base:code-comments]
     skills_that_use_me: [rp1-dev:build,rp1-dev:code-clean-comments]
     last_update: "2026-03-27"
-    last_checksum: 8509a027b5766071ed5f673eeb3d3b2b5b8686ebd34116e92fb019ce874714fe
+    last_checksum: 31be94b297b34e582b1baa2c3cbf9c4780c712c6b24869bcd4cb12e1ee0615aa
   - name: rp1-dev:express-builder
     description: Implements a single focused code change from a build-express request
     plugin: dev
@@ -278,7 +278,7 @@ agents:
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:pr-review]
     last_update: "2026-03-27"
-    last_checksum: e9e33288bf67385918ed5aa3db37183a35dd1f6d08f54880c05d3ba08cb718ed
+    last_checksum: fbf2342257df652cf714d031cf4437e22c20f0fc4143cee99c29b66a6f055ba0
   - name: rp1-dev:pr-review-synthesizer
     description: Holistic cross-file verification using compressed summaries
     plugin: dev
@@ -313,7 +313,7 @@ agents:
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:build-fast,rp1-dev:build]
     last_update: "2026-03-27"
-    last_checksum: da4d1f44c698b732517227894832707cba481dcd8bf64694c85e430a46afbe83
+    last_checksum: 3ad5446a457f24ad17e0b418bc0c83304c46da5a1ea70da4c460fd5654f9a5bc
   - name: rp1-dev:task-reviewer
     description: Verifies builder's work for discipline, accuracy, completeness, and commit quality. Returns SUCCESS or FAILURE with actionable feedback. Uses extended thinking for careful verification.
     plugin: dev
@@ -355,4 +355,4 @@ agents:
     skills_that_i_use: [rp1-utils:prompt-writer]
     skills_that_use_me: [rp1-utils:tersify-prompt]
     last_update: "2026-03-27"
-    last_checksum: 3b8d37c009e0759c0fee6564cec7460c4b0adc33cec3228b272ddf6091821607
+    last_checksum: e43da48ef7f66187301fe67c3dac397e22247ec06961a0fc75650e6d9e8bd4f2
