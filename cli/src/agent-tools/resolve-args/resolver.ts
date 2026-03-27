@@ -193,21 +193,34 @@ export const parseRawArgs = (
 		const token = tokens[i];
 
 		if (token.startsWith("--")) {
-			const flagName = token.slice(2);
-			const upperName = flagName.replace(/-/g, "_").toUpperCase();
+			const raw = token.slice(2);
 
-			// Check if this is a known boolean argument
-			const matchedArg = schema.find((a) => a.name === upperName);
-
-			if (matchedArg?.type === "boolean") {
-				result[upperName] = true;
+			// Handle --key=value syntax
+			const eqIndex = raw.indexOf("=");
+			if (eqIndex !== -1) {
+				const flagName = raw.slice(0, eqIndex);
+				const flagValue = raw.slice(eqIndex + 1);
+				const upperName = flagName.replace(/-/g, "_").toUpperCase();
+				const matchedArg = schema.find((a) => a.name === upperName);
+				result[upperName] =
+					matchedArg?.type === "boolean" ? flagValue !== "false" : flagValue;
 				i++;
-			} else if (i + 1 < tokens.length && !tokens[i + 1].startsWith("--")) {
-				result[upperName] = tokens[i + 1];
-				i += 2;
 			} else {
-				result[upperName] = true;
-				i++;
+				const upperName = raw.replace(/-/g, "_").toUpperCase();
+
+				// Check if this is a known boolean argument
+				const matchedArg = schema.find((a) => a.name === upperName);
+
+				if (matchedArg?.type === "boolean") {
+					result[upperName] = true;
+					i++;
+				} else if (i + 1 < tokens.length && !tokens[i + 1].startsWith("--")) {
+					result[upperName] = tokens[i + 1];
+					i += 2;
+				} else {
+					result[upperName] = true;
+					i++;
+				}
 			}
 		} else {
 			// Check for alias match
