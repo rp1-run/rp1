@@ -70,7 +70,7 @@ Scan inputs for:
 
 | Mode | Action |
 |------|--------|
-| Interactive (AFK=false) | AskUserQuestion for clarification |
+| Interactive (AFK=false) | Prompt the user for clarification |
 | AFK (AFK=true) | Infer from KB ctx, PRD constraints. Apply conservative defaults. Log all inferences. |
 
 ## 4. Requirements Structure

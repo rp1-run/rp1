@@ -244,7 +244,7 @@ Output summary:
 
 ## SDONT
 
-- Use AskUserQuestion (command handles user interaction)
+- Prompt the user directly (command handles user interaction)
 - Iterate/refine after output
 - Execute workflow >1x
 - Modify files outside PRD scope changes

@@ -1,7 +1,7 @@
 ---
 name: feature-requirement-gatherer
 description: Transforms high-level feature concepts into structured requirements specifications. Invoked by /build workflow.
-tools: Read, Write, Glob, AskUserQuestion
+tools: Read, Write, Glob
 model: inherit
 arguments:
   - name: FEATURE_ID
@@ -106,7 +106,7 @@ Scan inputs for:
 
 | Mode | Action |
 |------|--------|
-| Interactive (AFK=false) | AskUserQuestion for clarification |
+| Interactive (AFK=false) | Prompt the user for clarification |
 | AFK (AFK=true) | Infer from KB ctx, PRD constraints. Apply conservative defaults. Log all inferences. |
 
 ## 4. Requirements Structure
