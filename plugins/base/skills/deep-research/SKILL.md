@@ -72,6 +72,25 @@ rp1 agent-tools emit \
 --step report --data '{"status": "completed"}'      # report work finished, workflow done
 ```
 
+## 0. Resolve Arguments
+
+Run the argument resolver to obtain all parameter values:
+
+```bash
+rp1 agent-tools resolve-args --schema-path plugins/base/skills/deep-research/SKILL.md --args "{raw arguments from user invocation}"
+```
+
+Parse the JSON response. Extract values from `data.arguments` and `data.environment`:
+
+| Variable | Source |
+|----------|--------|
+| RESEARCH_TOPIC | `data.arguments.RESEARCH_TOPIC` |
+| RP1_ROOT | `data.environment.RP1_ROOT` |
+
+If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
+
+Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
+
 ## 1. Intent Clarification (~15% effort)
 
 **Goal**: Understand exactly what the user wants to research before spawning explorers.
