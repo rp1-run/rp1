@@ -11,18 +11,23 @@ metadata:
   created: 2025-11-29
   author: cloud-on-prem/rp1
   argument-hint: "<feature-id>"
+  arguments:
+    - name: FEATURE_ID
+      type: string
+      required: true
+      description: Feature identifier whose hypotheses to validate (kebab-case)
+  environment:
+    - name: RP1_ROOT
+      source: rp1 agent-tools rp1-root-dir
+      description: Root directory for rp1 project context and work artifacts
 ---
-
-# Hypothesis Validator
-
-Invokes **hypothesis-tester** agent to validate design assumptions.
 
 ## 0. Resolve Arguments
 
 Run the argument resolver to obtain all parameter values:
 
 ```bash
-rp1 agent-tools resolve-args --schema-path plugins/dev/skills/validate-hypothesis/SKILL.md --args "{raw arguments from user invocation}"
+rp1 agent-tools resolve-args --name rp1-dev:validate-hypothesis --args "$ARGUMENTS"
 ```
 
 Parse the JSON response. Extract values from `data.arguments` and `data.environment`:
@@ -35,6 +40,10 @@ Parse the JSON response. Extract values from `data.arguments` and `data.environm
 If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
 
 Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
+
+# Hypothesis Validator
+
+Invokes **hypothesis-tester** agent to validate design assumptions.
 
 ## Prerequisites
 - `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/hypotheses.md` MUST exist

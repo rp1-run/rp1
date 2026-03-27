@@ -10,19 +10,28 @@ metadata:
   created: 2025-10-25
   author: cloud-on-prem/rp1
   argument-hint: "[scope] [base-branch]"
+  arguments:
+    - name: SCOPE
+      type: string
+      required: false
+      description: "Scope of files to clean: branch, unstaged, or a git commit range"
+      default: branch
+    - name: BASE_BRANCH
+      type: string
+      required: false
+      description: Base branch for branch scope comparison
+      default: main
 ---
-
-# Comment Cleaner
 
 ## 0. Resolve Arguments
 
 Run the argument resolver to obtain all parameter values:
 
 ```bash
-rp1 agent-tools resolve-args --schema-path plugins/dev/skills/code-clean-comments/SKILL.md --args "{raw arguments from user invocation}"
+rp1 agent-tools resolve-args --name rp1-dev:code-clean-comments --args "$ARGUMENTS"
 ```
 
-Parse the JSON response. Extract values from `data.arguments`:
+Parse the JSON response. Extract values from `data.arguments` and `data.environment`:
 
 | Variable | Source |
 |----------|--------|
@@ -32,6 +41,8 @@ Parse the JSON response. Extract values from `data.arguments`:
 If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
 
 Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
+
+# Comment Cleaner
 
 Spawns the comment-cleaner agent for surgical comment cleanup.
 

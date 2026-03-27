@@ -11,21 +11,30 @@ metadata:
   created: 2026-03-15
   author: cloud-on-prem/rp1
   argument-hint: "<operation>"
+  arguments:
+    - name: OPERATION
+      type: enum
+      required: true
+      description: Task operation to perform
+      enum_values:
+        - create
+        - list
+        - pickup
+        - complete
+        - fail
+        - cancel
+        - get
 ---
-
-# Task Queue Management
-
-Interact with the rp1 persistent task queue. Tasks are stored in `~/.rp1/rp1.db` and processed in FIFO order (oldest first). The task system is a queue and state tracker -- execution is the responsibility of the agent or harness hook that picks up the task.
 
 ## 0. Resolve Arguments
 
 Run the argument resolver to obtain all parameter values:
 
 ```bash
-rp1 agent-tools resolve-args --schema-path plugins/base/skills/task/SKILL.md --args "{raw arguments from user invocation}"
+rp1 agent-tools resolve-args --name rp1-base:task --args "$ARGUMENTS"
 ```
 
-Parse the JSON response. Extract values from `data.arguments`:
+Parse the JSON response. Extract values from `data.arguments` and `data.environment`:
 
 | Variable | Source |
 |----------|--------|
@@ -34,6 +43,10 @@ Parse the JSON response. Extract values from `data.arguments`:
 If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
 
 Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
+
+# Task Queue Management
+
+Interact with the rp1 persistent task queue. Tasks are stored in `~/.rp1/rp1.db` and processed in FIFO order (oldest first). The task system is a queue and state tracker -- execution is the responsibility of the agent or harness hook that picks up the task.
 
 ## Task Lifecycle
 

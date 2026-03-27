@@ -10,21 +10,22 @@ metadata:
   created: 2025-12-11
   author: cloud-on-prem/rp1
   argument-hint: "<file-path>"
+  arguments:
+    - name: FILE_PATH
+      type: string
+      required: true
+      description: Path to markdown file, or - for stdin diagram
 ---
-
-# Mermaid Diagram Fixer
-
-This command validates and repairs Mermaid.js diagrams in markdown files.
 
 ## 0. Resolve Arguments
 
 Run the argument resolver to obtain all parameter values:
 
 ```bash
-rp1 agent-tools resolve-args --schema-path plugins/base/skills/fix-mermaid/SKILL.md --args "{raw arguments from user invocation}"
+rp1 agent-tools resolve-args --name rp1-base:fix-mermaid --args "$ARGUMENTS"
 ```
 
-Parse the JSON response. Extract values from `data.arguments`:
+Parse the JSON response. Extract values from `data.arguments` and `data.environment`:
 
 | Variable | Source |
 |----------|--------|
@@ -33,6 +34,10 @@ Parse the JSON response. Extract values from `data.arguments`:
 If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
 
 Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
+
+# Mermaid Diagram Fixer
+
+This command validates and repairs Mermaid.js diagrams in markdown files.
 
 ## Usage
 

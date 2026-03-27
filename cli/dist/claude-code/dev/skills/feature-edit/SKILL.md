@@ -10,18 +10,27 @@ metadata:
   created: 2025-11-29
   author: cloud-on-prem/rp1
   argument-hint: "<feature-id> <edit-description>"
+  arguments:
+    - name: FEATURE_ID
+      type: string
+      required: true
+      description: Feature identifier (kebab-case, e.g., auth-flow)
+    - name: EDIT_DESCRIPTION
+      type: string
+      required: true
+      description: Freeform edit description text
+  environment:
+    - name: RP1_ROOT
+      source: rp1 agent-tools rp1-root-dir
+      description: Root directory for rp1 project context and work artifacts
 ---
-
-# Feature Edit Command Router
-
-Route to feature-editor agent after param validation.
 
 ## 0. Resolve Arguments
 
 Run the argument resolver to obtain all parameter values:
 
 ```bash
-rp1 agent-tools resolve-args --schema-path plugins/dev/skills/feature-edit/SKILL.md --args "{raw arguments from user invocation}"
+rp1 agent-tools resolve-args --name rp1-dev:feature-edit --args "$ARGUMENTS"
 ```
 
 Parse the JSON response. Extract values from `data.arguments` and `data.environment`:
@@ -35,6 +44,10 @@ Parse the JSON response. Extract values from `data.arguments` and `data.environm
 If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
 
 Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
+
+# Feature Edit Command Router
+
+Route to feature-editor agent after param validation.
 
 ## Error Handling
 
