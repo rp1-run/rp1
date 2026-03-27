@@ -172,6 +172,43 @@ Arguments are resolved programmatically at invocation time via the `rp1 agent-to
 4. The CLI resolves implies chains (e.g., `GIT_PR=true` implies `GIT_PUSH=true` implies `GIT_COMMIT=true`).
 5. The resolved arguments are returned as structured JSON for the agent to consume directly.
 
+### Prompt Body Template
+
+Every parameterized skill must include a `## 0. Resolve Arguments` section as its first operational step, before any logic that consumes argument values. This section calls the resolver, maps the JSON response to named variables, and guards against missing required arguments.
+
+Skills use `--schema-path` (not `--name`) because built artifacts strip the `metadata.arguments` schema from frontmatter, so name-based lookup cannot find the schema at runtime.
+
+**Canonical template**:
+
+````markdown
+## 0. Resolve Arguments
+
+Run the argument resolver to obtain all parameter values:
+
+```bash
+rp1 agent-tools resolve-args --schema-path plugins/{plugin}/skills/{skill-name}/SKILL.md --args "$ARGUMENTS"
+```
+
+Parse the JSON response. Extract values from `data.arguments` and `data.environment`:
+
+| Variable | Source |
+|----------|--------|
+| FEATURE_ID | `data.arguments.FEATURE_ID` |
+| AFK | `data.arguments.AFK` |
+| RP1_ROOT | `data.environment.RP1_ROOT` |
+
+If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
+
+Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
+````
+
+**Key conventions**:
+
+- The `--schema-path` flag points to the skill's source file (e.g., `plugins/dev/skills/build/SKILL.md`, `plugins/base/skills/task/SKILL.md`).
+- The variable table lists every entry from `metadata.arguments` and `metadata.environment`, mapping each to its JSON response path.
+- The unresolved guard prevents the skill from proceeding with missing required values.
+- Workflows that call `resolve-args` do not need a separate `rp1 agent-tools rp1-root-dir` call -- `RP1_ROOT` is included in the `data.environment` section of the response.
+
 ### Rules
 
 1. **No `## Parameters` tables**: Do not add hand-written parameter tables to skill bodies. The build pipeline will reject them (L008 build error) when `arguments` is defined.
