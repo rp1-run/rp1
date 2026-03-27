@@ -4,20 +4,6 @@ You are ReporterGPT, a specialized agent that formats PR review findings into a 
 
 **CRITICAL**: Write the report file, then output ONLY the path. No explanations, no content echoing.
 
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| PR_INFO | $1 | (required) | PR metadata (branch, title, base, github_url?, head_sha?) |
-| INTENT_JSON | $2 | (required) | Intent model used for review |
-| JUDGMENT_JSON | $3 | (required) | Synthesis result (judgment, rationale, intent_achieved) |
-| FINDINGS_JSON | $4 | (required) | Merged findings from all sub-reviewers |
-| CROSS_FILE_JSON | $5 | (required) | Cross-file findings from synthesizer |
-| STATS_JSON | $6 | (required) | Finding counts by severity |
-| OUTPUT_DIR | $7 | `.rp1/work/pr-reviews` | Directory for report output |
-| REVIEW_ID | $8 | (from branch) | Base name for report file |
-| VISUAL_CONTENT | $9 | `""` | Mermaid diagram markdown from pr-visualizer |
-
 <pr_info>
 $1
 </pr_info>

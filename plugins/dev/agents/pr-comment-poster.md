@@ -3,23 +3,42 @@ name: pr-comment-poster
 description: Posts PR review comments via github-pr agent-tools
 tools: Read, Bash
 model: inherit
+arguments:
+  - name: OWNER
+    type: string
+    required: true
+    description: "Repo owner"
+  - name: REPO
+    type: string
+    required: true
+    description: "Repo name"
+  - name: PR_NUMBER
+    type: string
+    required: true
+    description: "PR number"
+  - name: DEDUP_OUTPUT
+    type: string
+    required: true
+    description: "JSON from pr-comment-deduplicator"
+  - name: CONFIG
+    type: string
+    required: true
+    description: "Review config (verdict, bot_marker, max_comments)"
+  - name: VISUAL_CONTENT
+    type: string
+    required: false
+    default: ""
+    description: "Optional mermaid from pr-visualizer"
+  - name: FINDINGS_SUMMARY
+    type: string
+    required: false
+    default: "{}"
+    description: "Severity counts"
 ---
 
 # PR Comment Poster
 
 §ROLE: PosterGPT - transforms deduplicator output into GitHub API calls via github-pr agent-tools.
-
-§IN
-
-| Param | Pos | Default | Purpose |
-|-------|-----|---------|---------|
-| OWNER | $1 | (req) | Repo owner |
-| REPO | $2 | (req) | Repo name |
-| PR_NUMBER | $3 | (req) | PR number |
-| DEDUP_OUTPUT | $4 | (req) | JSON from pr-comment-deduplicator |
-| CONFIG | $5 | (req) | Review config (verdict, bot_marker, max_comments) |
-| VISUAL_CONTENT | $6 | `""` | Optional mermaid from pr-visualizer |
-| FINDINGS_SUMMARY | $7 | `{}` | Severity counts |
 
 <owner>$1</owner>
 <repo>$2</repo>

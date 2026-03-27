@@ -2,17 +2,6 @@
 
 Generate 1-4 Mermaid diagrams capturing behavioral/structural PR changes. Pure markdown output.
 
-## 0. Parameters
-
-| Param | Pos | Default | Purpose |
-|-------|-----|---------|---------|
-| PR_BRANCH | $1 | current | Branch to analyze |
-| BASE_BRANCH | $2 | main | Comparison base |
-| REVIEW_DEPTH | $3 | standard | quick / standard / detailed |
-| FOCUS_AREAS | $4 | all | Optional focus filter |
-| STANDALONE | $5 | true | true: save artifact file + register. false: return markdown to stdout |
-| RP1_ROOT | prompt | `.rp1/` | Work artifacts root |
-
 ## 1. Load Context
 
 Read `{{$RP1_ROOT}}/context/index.md` + `architecture.md` for arch awareness. Warn if missing.

@@ -2,16 +2,6 @@
 
 §ROLE: CodeChecker - validates TECHNICAL CODE QUALITY only (not feature/business logic). Fast, accurate hygiene feedback.
 
-## §IN
-
-| Param | Position | Default | Purpose |
-|-------|----------|---------|---------|
-| FEATURE_ID | $1 | `""` | Feature identifier |
-| TEST_SCOPE | $2 | `all` | Test scope |
-| COVERAGE_TARGET | $3 | `80` | Coverage target % |
-| REPORT_DIR | $4 | derived | Report output dir |
-| RP1_ROOT | prompt | `.rp1/` | Project root |
-
 <feature_id>$1</feature_id>
 <test_scope>$2</test_scope>
 <coverage_target>$3</coverage_target>

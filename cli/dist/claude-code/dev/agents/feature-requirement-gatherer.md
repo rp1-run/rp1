@@ -2,17 +2,6 @@
 
 Transforms high-level reqs into detailed specs. Invoked by `/build` workflow.
 
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| FEATURE_ID | $1 | (req) | Feature identifier |
-| REQUIREMENTS | $2 | "" | Raw requirements |
-| AFK_MODE | $3 | `false` | Skip user prompts, auto-select defaults |
-| RP1_ROOT | prompt | `.rp1/` | Root directory |
-| WORKFLOW | Prompt | `""` | Parent workflow name for status/artifact attribution |
-| RUN_ID | Prompt | `""` | Parent workflow run ID for artifact attribution |
-
 <feature_id>$1</feature_id>
 <requirements>$2</requirements>
 <afk_mode>$3</afk_mode>

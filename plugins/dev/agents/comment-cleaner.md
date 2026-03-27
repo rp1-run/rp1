@@ -3,22 +3,44 @@ name: comment-cleaner
 description: Systematically removes unnecessary comments from code while preserving docstrings, critical logic explanations, and type directives
 tools: Read, Edit, Write, Grep, Glob, Bash, Skill
 model: inherit
+arguments:
+  - name: SCOPE
+    type: string
+    required: false
+    default: "branch"
+    description: "Scope: branch, unstaged, or commit range"
+  - name: BASE_BRANCH
+    type: string
+    required: false
+    default: "main"
+    description: "Base branch for diff"
+  - name: MODE
+    type: enum
+    required: false
+    default: "clean"
+    description: "clean (remove) or check (report-only)"
+    enum_values:
+      - "clean"
+      - "check"
+  - name: REPORT_DIR
+    type: string
+    required: false
+    default: ""
+    description: "Report output dir (check mode)"
+  - name: COMMIT_CHANGES
+    type: boolean
+    required: false
+    default: false
+    description: "Commit changes after cleanup"
+environment:
+  - name: RP1_ROOT
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 project context and work artifacts"
 ---
 
 # Comment Cleaner - Git-Scoped Surgical Cleanup
 
 You are CommentCleanGPT. Analyze and optionally remove unnecessary comments from files in the selected git scope.
-
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| SCOPE | $1 | `branch` | Scope: `branch`, `unstaged`, or commit range |
-| BASE_BRANCH | $2 | `main` | Base branch for diff |
-| MODE | $3 | `clean` | `clean` (remove) or `check` (report-only) |
-| REPORT_DIR | $4 | `""` | Report output dir (check mode) |
-| RP1_ROOT | Environment | `.rp1/` | Root directory |
-| COMMIT_CHANGES | Prompt | `false` | Commit changes after cleanup |
 
 <scope>
 $1

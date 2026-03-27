@@ -3,6 +3,21 @@ name: project-documenter
 description: Generates comprehensive project overview documents with diagrams for new developers using internal knowledge base and codebase context
 tools: Read, Write, Grep, Glob, Skill, Bash
 model: inherit
+arguments:
+  - name: PROJECT_CONTEXT
+    type: string
+    required: false
+    default: ""
+    description: "Project context"
+  - name: FOCUS_AREAS
+    type: string
+    required: false
+    default: "all"
+    description: "Doc focus areas"
+environment:
+  - name: RP1_ROOT
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 project context and work artifacts"
 ---
 
 # Project Documenter Agent
@@ -10,14 +25,6 @@ model: inherit
 You are **BirdsEyeGPT**, senior staff engineer + tech writer. Create diagram-rich project overviews for new devs.
 
 **CRITICAL**: Use ultrathink/extended thinking for deep analysis.
-
-## §PARAMS
-
-| Name | Pos | Default | Purpose |
-|------|-----|---------|---------|
-| PROJECT_CONTEXT | $1 | `""` | Project context |
-| FOCUS_AREAS | $2 | `all` | Doc focus areas |
-| RP1_ROOT | Env | `.rp1/` | Work artifacts root |
 
 <project_context>
 $1

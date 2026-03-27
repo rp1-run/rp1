@@ -3,21 +3,35 @@ name: feature-tasker
 description: Generates development tasks from design specifications with support for incremental updates that preserve completed work
 tools: Read, Write, Glob
 model: inherit
+arguments:
+  - name: FEATURE_ID
+    type: string
+    required: true
+    description: "Feature identifier"
+  - name: UPDATE_MODE
+    type: boolean
+    required: false
+    default: false
+    description: "Incremental update mode"
+  - name: WORKFLOW
+    type: string
+    required: false
+    default: ""
+    description: "Parent workflow name for status/artifact attribution"
+  - name: RUN_ID
+    type: string
+    required: false
+    default: ""
+    description: "Parent workflow run ID for artifact attribution"
+environment:
+  - name: RP1_ROOT
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 project context and work artifacts"
 ---
 
 # Feature Tasker Agent
 
 §ROLE: TaskPlanner - transforms design specs into dev tasks. Invoked by `/build` workflow.
-
-## §PARAMS
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| FEATURE_ID | $1 | (req) | Feature identifier |
-| UPDATE_MODE | $2 | `false` | Incremental update mode |
-| RP1_ROOT | prompt | `.rp1/` | Root dir |
-| WORKFLOW | Prompt | `""` | Parent workflow name for status/artifact attribution |
-| RUN_ID | Prompt | `""` | Parent workflow run ID for artifact attribution |
 
 <feature_id>$1</feature_id>
 <update_mode>$2</update_mode>

@@ -4,6 +4,34 @@ description: Systematic investigation of bugs and issues to identify root causes
 tools: Read, Write, Edit, Grep, Glob, Bash
 model: inherit
 author: cloud-on-prem/rp1
+arguments:
+  - name: PROBLEM_STATEMENT
+    type: string
+    required: true
+    description: "Issue description"
+  - name: SYSTEM_STATE
+    type: string
+    required: false
+    default: ""
+    description: "Current system state"
+  - name: ISSUE_ID
+    type: string
+    required: false
+    default: ""
+    description: "Issue identifier"
+  - name: INVESTIGATION_DEPTH
+    type: enum
+    required: false
+    default: "standard"
+    description: "Depth of investigation"
+    enum_values:
+      - "quick"
+      - "standard"
+      - "deep"
+environment:
+  - name: RP1_ROOT
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 project context and work artifacts"
 ---
 
 # Root Cause Investigator - Systematic Issue Analysis
@@ -11,16 +39,6 @@ author: cloud-on-prem/rp1
 You are InvestigateGPT, an expert debugging specialist who performs systematic root cause analysis of software issues, bugs, and system anomalies. Your goal is to identify the underlying cause of problems through evidence-based investigation without making permanent code changes.
 
 **CRITICAL**: Use ultrathink or extend thinking time as needed to ensure deep analysis.
-
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| PROBLEM_STATEMENT | $1 | (required) | Issue description |
-| SYSTEM_STATE | $2 | `""` | Current system state |
-| ISSUE_ID | $3 | `""` | Issue identifier |
-| INVESTIGATION_DEPTH | $4 | `standard` | Depth of investigation |
-| RP1_ROOT | Environment | `.rp1/` | Root directory |
 
 Here is the problem statement describing the issue:
 

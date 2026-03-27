@@ -6,7 +6,7 @@ rp1_doc_id: 81f506be-4692-4de8-b46a-067c37b213a1
 
 **Feature ID**: args-templates
 **Status**: Not Started
-**Progress**: 71% (10 of 14 tasks)
+**Progress**: 79% (11 of 14 tasks)
 **Estimated Effort**: 7 days
 **Started**: 2026-03-27
 
@@ -415,6 +415,18 @@ stateDiagram-v2
     - **Deviations**: None
     - **Tests**: 2018/2018 passing
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ⏭️ N/A |
+
     **Execution Flow**:
 
     ```mermaid
@@ -423,7 +435,7 @@ stateDiagram-v2
         T8_SkillMigration --> [*]
     ```
 
-- [ ] **T9**: Migrate all agents with parameter tables to structured arguments in frontmatter `[complexity:complex]`
+- [x] **T9**: Migrate all agents with parameter tables to structured arguments in frontmatter `[complexity:complex]`
 
     **Reference**: [design.md#5-implementation-plan](design.md#5-implementation-plan)
 
@@ -431,11 +443,26 @@ stateDiagram-v2
 
     **Acceptance Criteria**:
 
-    - [ ] All ~37 agent .md files across `plugins/base/`, `plugins/dev/`, `plugins/utils/` migrated
-    - [ ] Each agent's `## 0. Parameters` table replaced with `arguments` in frontmatter
-    - [ ] `environment` section added where applicable (agents resolving `RP1_ROOT`)
-    - [ ] No agent triggers L1 build validation errors after migration
-    - [ ] Argument names use UPPER_SNAKE_CASE convention
+    - [x] All ~37 agent .md files across `plugins/base/`, `plugins/dev/`, `plugins/utils/` migrated
+    - [x] Each agent's `## 0. Parameters` table replaced with `arguments` in frontmatter
+    - [x] `environment` section added where applicable (agents resolving `RP1_ROOT`)
+    - [x] No agent triggers L1 build validation errors after migration
+    - [x] Argument names use UPPER_SNAKE_CASE convention
+
+    **Implementation Summary**:
+
+    - **Files**: 49 agent .md files across `plugins/base/agents/`, `plugins/dev/agents/`, `plugins/utils/agents/`
+    - **Approach**: Replaced all parameter tables (## 0. Parameters, ## §PARAMS, ## §IN, ## S0 Parameters, ## §0 Parameters, §IN) with structured `arguments` arrays in frontmatter; removed hand-written parameter tables from agent bodies; added `environment` sections for agents resolving RP1_ROOT (35 agents); used `type: enum` with `enum_values` where applicable (comment-cleaner MODE, pr-visualizer REVIEW_DEPTH, pr-feedback-collector GROUP_BY, charter-interviewer MODE, bug-investigator INVESTIGATION_DEPTH, code-auditor PATTERN_STRICTNESS, strategic-advisor RISK_TOLERANCE, research-explorer EXPLORATION_TYPE, research-reporter REPORT_TYPE, scribe MODE, kb-* agents MODE, mermaid-fixer OUTPUT_MODE, feature-archiver MODE, prd-archiver MODE/CLOSURE_STATUS, blueprint-auditor MODE)
+    - **Deviations**: None
+    - **Tests**: 2018/2018 passing
+
+    **Execution Flow**:
+
+    ```mermaid
+    stateDiagram-v2
+        [*] --> T9_AgentMigration
+        T9_AgentMigration --> [*]
+    ```
 
 ### Documentation
 

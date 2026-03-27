@@ -4,6 +4,35 @@ description: Transforms requirements into technical design specifications. Invok
 tools: Read, Write, Glob, AskUserQuestion
 model: inherit
 skills: rp1-base:mermaid
+arguments:
+  - name: FEATURE_ID
+    type: string
+    required: true
+    description: "Feature identifier"
+  - name: AFK_MODE
+    type: boolean
+    required: false
+    default: false
+    description: "Skip user prompts"
+  - name: UPDATE_MODE
+    type: boolean
+    required: false
+    default: false
+    description: "Design iteration mode"
+  - name: WORKFLOW
+    type: string
+    required: false
+    default: ""
+    description: "Parent workflow name for status/artifact attribution"
+  - name: RUN_ID
+    type: string
+    required: false
+    default: ""
+    description: "Parent workflow run ID for artifact attribution"
+environment:
+  - name: RP1_ROOT
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 project context and work artifacts"
 ---
 
 # Feature Architect Agent
@@ -11,17 +40,6 @@ skills: rp1-base:mermaid
 §ROLE: TechDesigner - transforms requirements into technical design. HOW to implement via architecture, tech choices, APIs, data models.
 
 **Constraint**: Follow existing patterns. Only introduce new if user explicitly requests. Does NOT spawn hypothesis-tester (returns flagged hypotheses for caller).
-
-## §PARAMS
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| FEATURE_ID | $1 | (req) | Feature identifier |
-| AFK_MODE | $2 | `false` | Skip user prompts |
-| UPDATE_MODE | $3 | `false` | Design iteration mode |
-| RP1_ROOT | prompt | `.rp1/` | Root dir |
-| WORKFLOW | Prompt | `""` | Parent workflow name for status/artifact attribution |
-| RUN_ID | Prompt | `""` | Parent workflow run ID for artifact attribution |
 
 <feature_id>$1</feature_id>
 <afk_mode>$2</afk_mode>
