@@ -15,6 +15,7 @@ export interface CodexInstallResult {
 	readonly configMerged: boolean;
 	readonly backupPath: string | null;
 	readonly warnings: readonly string[];
+	readonly pluginsInstalled: readonly string[];
 }
 
 /** Result of a Codex uninstallation. */

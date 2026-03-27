@@ -13,7 +13,7 @@ import {
 	stat,
 	writeFile,
 } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
@@ -52,7 +52,14 @@ import {
 	getCodexPaths,
 } from "./prerequisites.js";
 
-const CODEX_PLUGINS = ["base", "dev"] as const;
+/** Extract plugin names (e.g. "rp1-base") from plugin directory paths. */
+const pluginNamesFromDirs = (dirs: readonly string[]): string[] =>
+	dirs.map((d) => `rp1-${basename(d)}`);
+
+// Required plugins that must always be present
+const CODEX_REQUIRED_PLUGINS = ["base", "dev"] as const;
+// Optional internal plugins included when available (e.g., dev builds)
+const CODEX_OPTIONAL_PLUGINS = ["utils"] as const;
 
 /**
  * Recursively copy a directory, returning the number of files copied.
@@ -88,7 +95,8 @@ export const validateCodexArtifacts = (
 		async () => {
 			const pluginDirs: string[] = [];
 
-			for (const plugin of CODEX_PLUGINS) {
+			// Validate required plugins
+			for (const plugin of CODEX_REQUIRED_PLUGINS) {
 				const pluginDir = join(artifactsDir, plugin);
 				try {
 					await stat(pluginDir);
@@ -120,6 +128,18 @@ export const validateCodexArtifacts = (
 				}
 
 				pluginDirs.push(pluginDir);
+			}
+
+			// Include optional plugins if present (e.g., utils in dev builds)
+			for (const plugin of CODEX_OPTIONAL_PLUGINS) {
+				const pluginDir = join(artifactsDir, plugin);
+				try {
+					await stat(join(pluginDir, "skills"));
+					await stat(join(pluginDir, "agents"));
+					pluginDirs.push(pluginDir);
+				} catch {
+					// Optional plugin not present, skip
+				}
 			}
 
 			return pluginDirs;
@@ -388,6 +408,7 @@ export const installCodex = (
 							configMerged: false,
 							backupPath: null,
 							warnings: ["Dry run - no changes made"],
+							pluginsInstalled: pluginNamesFromDirs(pluginDirs),
 						}),
 					),
 				);
@@ -499,6 +520,7 @@ export const installCodex = (
 															configMerged: false,
 															backupPath,
 															warnings: ["Config merge skipped by user"],
+															pluginsInstalled: pluginNamesFromDirs(pluginDirs),
 														} satisfies CodexInstallResult;
 													}
 												} else if (choice === "skip" || choice === null) {
@@ -507,6 +529,7 @@ export const installCodex = (
 														configMerged: false,
 														backupPath,
 														warnings: ["Config merge skipped by user"],
+														pluginsInstalled: pluginNamesFromDirs(pluginDirs),
 													} satisfies CodexInstallResult;
 												}
 											}
@@ -571,6 +594,7 @@ export const installCodex = (
 												configMerged: true,
 												backupPath,
 												warnings: verifyWarnings,
+												pluginsInstalled: pluginNamesFromDirs(pluginDirs),
 											} satisfies CodexInstallResult;
 										},
 										(e) => {
@@ -756,7 +780,10 @@ export const previewCodexInstallation = (
 			console.log("[dry-run] Installation preview:\n");
 			console.log("Skills to install:");
 
-			for (const plugin of CODEX_PLUGINS) {
+			for (const plugin of [
+				...CODEX_REQUIRED_PLUGINS,
+				...CODEX_OPTIONAL_PLUGINS,
+			]) {
 				const skillsSrc = join(artifactsDir, plugin, "skills");
 				try {
 					const entries = await readdir(skillsSrc, { withFileTypes: true });
@@ -773,7 +800,10 @@ export const previewCodexInstallation = (
 			}
 
 			console.log("\nPer-agent TOML files to install:");
-			for (const plugin of CODEX_PLUGINS) {
+			for (const plugin of [
+				...CODEX_REQUIRED_PLUGINS,
+				...CODEX_OPTIONAL_PLUGINS,
+			]) {
 				const agentsSrc = join(artifactsDir, plugin, "agents");
 				try {
 					const entries = await readdir(agentsSrc, { withFileTypes: true });
@@ -791,7 +821,10 @@ export const previewCodexInstallation = (
 
 			console.log("\nConfig changes:");
 			const tomlPaths: string[] = [];
-			for (const plugin of CODEX_PLUGINS) {
+			for (const plugin of [
+				...CODEX_REQUIRED_PLUGINS,
+				...CODEX_OPTIONAL_PLUGINS,
+			]) {
 				const tomlPath = join(artifactsDir, plugin, "rp1-agents.toml");
 				try {
 					await stat(tomlPath);

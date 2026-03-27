@@ -1790,10 +1790,14 @@ export const executeBuild = (
 					}
 
 					// Only distributable plugins by default; utils is internal-only
-					// and excluded from the production marketplace. Build it
-					// explicitly with --plugin utils for local dev.
+					// and excluded from the production marketplace. Set
+					// RP1_BUILD_INTERNAL=1 to include it (used by build-local-dev).
 					const pluginsToBuild =
-						config.plugin === "all" ? ["base", "dev"] : [config.plugin];
+						config.plugin === "all"
+							? process.env.RP1_BUILD_INTERNAL
+								? ["base", "dev", "utils"]
+								: ["base", "dev"]
+							: [config.plugin];
 
 					const allSummaries: BuildSummary[] = [];
 
