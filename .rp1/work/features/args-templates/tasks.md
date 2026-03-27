@@ -6,7 +6,7 @@ rp1_doc_id: 81f506be-4692-4de8-b46a-067c37b213a1
 
 **Feature ID**: args-templates
 **Status**: Not Started
-**Progress**: 35% (5 of 14 tasks)
+**Progress**: 50% (7 of 14 tasks)
 **Estimated Effort**: 7 days
 **Started**: 2026-03-27
 
@@ -237,6 +237,18 @@ stateDiagram-v2
     - **Deviations**: None
     - **Tests**: 28/28 passing
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ✅ PASS |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
     **Execution Flow**:
 
     ```mermaid
@@ -245,7 +257,7 @@ stateDiagram-v2
         T4_SourceLevelValidation --> [*]
     ```
 
-- [ ] **T5**: Wire parser, hint deriver, and validation into the build pipeline `[complexity:medium]`
+- [x] **T5**: Wire parser, hint deriver, and validation into the build pipeline `[complexity:medium]`
 
     **Reference**: [design.md#38-build-pipeline-integration](design.md#38-build-pipeline-integration)
 
@@ -253,11 +265,26 @@ stateDiagram-v2
 
     **Acceptance Criteria**:
 
-    - [ ] `template-context.ts` auto-derives `argumentHint` using `deriveArgumentHint()` when `arguments` is present
-    - [ ] `SkillArtifactData` and `AgentArtifactData` carry parsed arguments and environment
-    - [ ] Source-level validation (L007-L012) runs after parsing and before template rendering
-    - [ ] Build fails with L1 errors when validation rules trigger
-    - [ ] Existing templates (`skill.liquid`, `agent.liquid`) continue to emit hint correctly with derived value
+    - [x] `template-context.ts` auto-derives `argumentHint` using `deriveArgumentHint()` when `arguments` is present
+    - [x] `SkillArtifactData` and `AgentArtifactData` carry parsed arguments and environment
+    - [x] Source-level validation (L007-L012) runs after parsing and before template rendering
+    - [x] Build fails with L1 errors when validation rules trigger
+    - [x] Existing templates (`skill.liquid`, `agent.liquid`) continue to emit hint correctly with derived value
+
+    **Implementation Summary**:
+
+    - **Files**: `cli/src/build/template-context.ts`, `cli/src/build/command.ts`
+    - **Approach**: Added withDerivedArgumentHint() helper in template-context.ts that auto-derives argumentHint from structured arguments; wired lintSkillArguments/lintAgentArguments source-level validation at all 6 build points (3 platforms x 2 artifact types) to run after parsing and before rendering; passed agent arguments/environment through to AgentArtifactData at all platform build points
+    - **Deviations**: None
+    - **Tests**: 1985/1989 passing (4 codex integration failures expected -- existing plugins use legacy argument-hint without structured arguments; resolved by T8/T9 migration)
+
+    **Execution Flow**:
+
+    ```mermaid
+    stateDiagram-v2
+        [*] --> T5_BuildPipelineIntegration
+        T5_BuildPipelineIntegration --> [*]
+    ```
 
 ### Settings and Runtime
 
@@ -463,7 +490,7 @@ stateDiagram-v2
     - [x] Types imported from `./models.js` (shared location)
     - [x] `buildTemplateContext()` continues to work with the extended interface
 
-- [ ] **T5-addendum**: Wire parsed agent arguments through `AgentArtifactData` in the build pipeline so all platform templates can access them `[complexity:simple]`
+- [x] **T5-addendum**: Wire parsed agent arguments through `AgentArtifactData` in the build pipeline so all platform templates can access them `[complexity:simple]`
 
     **Reference**: [design.md EDIT-003](#edit-003-arguments-schema-must-be-platform-agnostic-across-all-harnesses)
 
@@ -471,9 +498,9 @@ stateDiagram-v2
 
     **Acceptance Criteria**:
 
-    - [ ] When building agents, parsed `arguments` and `environment` from `ClaudeCodeAgent` are populated into `AgentArtifactData`
-    - [ ] Claude Code, OpenCode, and Codex agent templates all receive the same argument data via the `artifact` context variable
-    - [ ] The auto-derived `argumentHint` is available to all platform templates through the artifact context
+    - [x] When building agents, parsed `arguments` and `environment` from `ClaudeCodeAgent` are populated into `AgentArtifactData`
+    - [x] Claude Code, OpenCode, and Codex agent templates all receive the same argument data via the `artifact` context variable
+    - [x] The auto-derived `argumentHint` is available to all platform templates through the artifact context
 
 ### Tasks from EDIT-004
 
