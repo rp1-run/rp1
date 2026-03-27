@@ -13,7 +13,15 @@ metadata:
   created: 2025-10-25
   updated: 2026-02-26
   author: cloud-on-prem/rp1
-  argument-hint: "[feature-id]"
+  arguments:
+    - name: FEATURE_ID
+      type: string
+      required: false
+      description: "Feature ID to incorporate learnings from an archived feature into KB"
+  environment:
+    - name: RP1_ROOT
+      source: "rp1 agent-tools rp1-root-dir"
+      description: "Root directory for rp1 project context and work artifacts"
   sub_agents:
     - "rp1-base:kb-spatial-analyzer"
     - "rp1-base:kb-concept-extractor"
@@ -23,17 +31,6 @@ metadata:
 ---
 
 # Knowledge Builder - Parallel KB Generation Orchestrator
-
-## Parameters
-
-Extract these parameters from the user's input:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `FEATURE_ID` | No | - | Feature ID to incorporate learnings from an archived feature into KB |
-
-**Environment values** (resolve via shell):
-- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 
 This command orchestrates parallel knowledge base generation using a map-reduce architecture
 

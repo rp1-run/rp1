@@ -8,20 +8,12 @@ metadata:
     - refactoring
   created: 2025-12-21
   author: cloud-on-prem/rp1
-  argument-hint: "<file-path-or-prompt>"
+  argument-hint: "<input>"
 ---
 
 # Tersify Prompt
 
 Compresses agent-instruction prompts to be maximally terse while preserving full intent.
-
-## Parameters
-
-Extract these parameters from the user's input:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `INPUT` | Yes | - | File path to a prompt file, or raw prompt text to compress |
 
 ## Modes
 

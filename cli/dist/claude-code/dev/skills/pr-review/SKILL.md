@@ -13,25 +13,12 @@ metadata:
     - ci
   created: 2025-10-25
   author: cloud-on-prem/rp1
-  argument-hint: "[target] [base-branch] [skip-visual]"
+  argument-hint: "[target] [base-branch] [--skip-visual]"
 ---
 
 # PR Review Orchestrator
 
 §ROLE: Map-reduce PR review orchestrator. 6 phases, local + CI modes, comment deduplication.
-
-## Parameters
-
-Extract these parameters from the user's input:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `TARGET` | No | current branch | PR number, PR URL, branch name, or empty for current branch |
-| `BASE_BRANCH` | No | from PR or `main` | Diff base branch |
-| `SKIP_VISUAL` | No | `false` | Set `true` if user says "skip-visual" or "no visual" |
-
-**Environment values** (resolve via shell):
-- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 
 ## STATE-MACHINE
 

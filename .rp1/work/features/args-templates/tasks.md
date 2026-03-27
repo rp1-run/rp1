@@ -6,7 +6,7 @@ rp1_doc_id: 81f506be-4692-4de8-b46a-067c37b213a1
 
 **Feature ID**: args-templates
 **Status**: Not Started
-**Progress**: 64% (9 of 14 tasks)
+**Progress**: 71% (10 of 14 tasks)
 **Estimated Effort**: 7 days
 **Started**: 2026-03-27
 
@@ -371,6 +371,18 @@ stateDiagram-v2
     - **Deviations**: None
     - **Tests**: 20/20 passing
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ✅ PASS |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
     **Execution Flow**:
 
     ```mermaid
@@ -381,7 +393,7 @@ stateDiagram-v2
 
 ### Migration
 
-- [ ] **T8**: Migrate all skills with argument-hint to structured arguments schema `[complexity:complex]`
+- [x] **T8**: Migrate all skills with argument-hint to structured arguments schema `[complexity:complex]`
 
     **Reference**: [design.md#5-implementation-plan](design.md#5-implementation-plan)
 
@@ -389,12 +401,27 @@ stateDiagram-v2
 
     **Acceptance Criteria**:
 
-    - [ ] All ~28 skill SKILL.md files across `plugins/base/`, `plugins/dev/`, `plugins/utils/` migrated
-    - [ ] Each skill's `argument-hint` replaced with `metadata.arguments` array
-    - [ ] Hand-written `## Parameters` tables removed from skill bodies
-    - [ ] `environment` section added where applicable (skills resolving `RP1_ROOT`)
-    - [ ] No skill triggers L1 build validation errors after migration
-    - [ ] Argument names use UPPER_SNAKE_CASE convention
+    - [x] All ~28 skill SKILL.md files across `plugins/base/`, `plugins/dev/`, `plugins/utils/` migrated
+    - [x] Each skill's `argument-hint` replaced with `metadata.arguments` array
+    - [x] Hand-written `## Parameters` tables removed from skill bodies
+    - [x] `environment` section added where applicable (skills resolving `RP1_ROOT`)
+    - [x] No skill triggers L1 build validation errors after migration
+    - [x] Argument names use UPPER_SNAKE_CASE convention
+
+    **Implementation Summary**:
+
+    - **Files**: 24 SKILL.md files across `plugins/base/skills/`, `plugins/dev/skills/`, `plugins/utils/skills/`
+    - **Approach**: Replaced `argument-hint` with structured `metadata.arguments` arrays in frontmatter; removed hand-written `## Parameters` tables and `**Environment values**` sections from skill bodies; added `metadata.environment` sections for skills resolving RP1_ROOT; preserved `aliases` and `implies` chains for boolean flags (e.g., build skill's GIT_PR implies GIT_PUSH implies GIT_COMMIT); used `type: enum` with `enum_values` where applicable (pr-visual REVIEW_DEPTH, knowledge-load LOAD_MODE, task OPERATION)
+    - **Deviations**: None
+    - **Tests**: 2018/2018 passing
+
+    **Execution Flow**:
+
+    ```mermaid
+    stateDiagram-v2
+        [*] --> T8_SkillMigration
+        T8_SkillMigration --> [*]
+    ```
 
 - [ ] **T9**: Migrate all agents with parameter tables to structured arguments in frontmatter `[complexity:complex]`
 

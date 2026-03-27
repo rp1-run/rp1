@@ -11,17 +11,9 @@ metadata:
     - parallel
   created: 2025-12-28
   author: cloud-on-prem/rp1
-  argument-hint: ""
 ---
 
 # Generate User Docs - Two-Phase Map-Reduce Orchestrator
-
-## Parameters
-
-This command takes no user parameters.
-
-**Environment values** (resolve via shell):
-- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 
 This command orchestrates user documentation synchronization with the auto-generated knowledge base using a two-phase map-reduce architecture.
 

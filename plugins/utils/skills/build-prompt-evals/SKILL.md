@@ -9,7 +9,15 @@ metadata:
   created: 2026-01-19
   updated: 2026-02-26
   author: cloud-on-prem/rp1
-  argument-hint: "<file-or-prompt> [--output <dir>]"
+  arguments:
+    - name: INPUT
+      type: string
+      required: true
+      description: "File path to a prompt file, or raw prompt text"
+    - name: OUTPUT_DIR
+      type: string
+      required: false
+      description: "Output directory for generated files (default: input file dir or cwd)"
   sub_agents:
     - "rp1-utils:dependency-chain-analyzer"
     - "rp1-utils:prompt-eval-extractor"
@@ -19,15 +27,6 @@ metadata:
 # Build Prompt Evals
 
 Generate eval assertions (YAML) and test invocation prompt from source prompt. Extracts assertions, then runs assertion specialist to resolve placeholders, consolidate scenarios, and document unresolved assertions.
-
-## Parameters
-
-Extract these parameters from the user's input:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `INPUT` | Yes | - | File path to a prompt file, or raw prompt text |
-| `OUTPUT_DIR` | No | input file dir or cwd | Output directory for generated files. Set if user provides `--output <dir>` |
 
 ## Modes
 

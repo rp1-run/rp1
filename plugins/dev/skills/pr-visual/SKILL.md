@@ -12,7 +12,34 @@ metadata:
   created: 2025-10-25
   updated: 2026-03-25
   author: cloud-on-prem/rp1
-  argument-hint: "[pr-branch] [base-branch] [review-depth] [focus-areas]"
+  arguments:
+    - name: PR_BRANCH
+      type: string
+      required: false
+      description: "Branch or PR to visualize (default: current branch)"
+    - name: BASE_BRANCH
+      type: string
+      required: false
+      default: "main"
+      description: "Diff base branch"
+    - name: REVIEW_DEPTH
+      type: enum
+      required: false
+      default: "standard"
+      description: "Review depth level"
+      enum_values:
+        - "quick"
+        - "standard"
+        - "detailed"
+    - name: FOCUS_AREAS
+      type: string
+      required: false
+      default: "all"
+      description: "Optional focus filter"
+  environment:
+    - name: RP1_ROOT
+      source: "rp1 agent-tools rp1-root-dir"
+      description: "Root directory for rp1 project context and work artifacts"
   sub_agents:
     - "rp1-dev:pr-visualizer"
 ---
@@ -20,18 +47,6 @@ metadata:
 # Visual PR Analyzer
 
 §ROLE: Standalone PR visualization orchestrator. Dispatches pr-visualizer, registers artifact.
-
-## Parameters
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `PR_BRANCH` | No | current branch | Branch or PR to visualize |
-| `BASE_BRANCH` | No | `main` | Diff base branch |
-| `REVIEW_DEPTH` | No | `standard` | quick / standard / detailed |
-| `FOCUS_AREAS` | No | `all` | Optional focus filter |
-
-**Environment values** (resolve via shell):
-- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 
 ## STATE-MACHINE
 

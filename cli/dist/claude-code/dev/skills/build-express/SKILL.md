@@ -10,7 +10,7 @@ metadata:
     - feature
   created: 2026-01-15
   author: cloud-on-prem/rp1
-  argument-hint: "[request...]"
+  argument-hint: "[request...] [--afk]"
 ---
 
 # Build Express
@@ -19,21 +19,7 @@ Interactive builder loop for rapid, small changes. Delegates each request to a s
 
 **This command ONLY orchestrates. It does NOT implement code.**
 
-## Parameters
-
-Extract these parameters from the user's input:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `REQUEST` | No | `""` | Initial development request (may be empty; will prompt if missing) |
-| `AFK` | No | `false` | Non-interactive mode. Set `true` if user says "afk" or "unattended". Suppresses all interactive gate options. |
-
-**Environment values** (resolve via shell):
-- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
-- `RUN_ID`: Generate a UUID at session start for event emission
-- `RUN_NAME`: Derive from the initial request: a brief summary (max 60 chars) prefixed with `"Feature: "` (e.g., `"Feature: Fix null error in auth.ts"`). If REQUEST is empty, set after the first user prompt in §1.1.
-
-**First emit**: Include `--name "{RUN_NAME}"` on the first emit call to label the run in the Arcade dashboard. Example:
+**First emit**: Include `--name "{RUN_NAME}"` on the first emit call to label the run in the Arcade dashboard. Derive `RUN_NAME` from the initial request: a brief summary (max 60 chars) prefixed with `"Feature: "`. Generate `RUN_ID` as a UUID at session start. Example:
 ```bash
 rp1 agent-tools emit --harness claude-code \
   --workflow build-express \

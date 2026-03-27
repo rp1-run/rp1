@@ -10,7 +10,11 @@ metadata:
   created: 2025-12-11
   updated: 2026-02-26
   author: cloud-on-prem/rp1
-  argument-hint: "<file-path>"
+  arguments:
+    - name: FILE_PATH
+      type: string
+      required: true
+      description: "Path to markdown file, or - for stdin diagram"
   sub_agents:
     - "rp1-base:mermaid-fixer"
 ---
@@ -18,14 +22,6 @@ metadata:
 # Mermaid Diagram Fixer
 
 This command validates and repairs Mermaid.js diagrams in markdown files.
-
-## Parameters
-
-Extract these parameters from the user's input:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `FILE_PATH` | Yes | - | Path to markdown file, or `-` for stdin diagram |
 
 ## Usage
 
