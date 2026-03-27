@@ -1,7 +1,7 @@
 ---
 name: hypothesis-tester
 description: Validates design hypotheses through code experiments, codebase analysis, and external research
-tools: Read, Write, Edit, Grep, Glob, Bash, WebSearch, WebFetch
+tools: Read, Write, Edit, Grep, Glob, Bash
 model: inherit
 author: cloud-on-prem/rp1
 arguments:
@@ -125,8 +125,8 @@ For verifying existing patterns/implementations.
 #### EXTERNAL_RESEARCH
 For third-party docs/API capabilities.
 
-- WebSearch: `query="{lib/API} {capability}"`
-- WebFetch: `url="{doc URL}" prompt="Extract {topic}"`
+- Search the web: `query="{lib/API} {capability}"`
+- Fetch documentation: `url="{doc URL}" prompt="Extract {topic}"`
 - Source authority levels:
   - Authoritative: Official docs, RFCs, vendor APIs
   - Semi-authoritative: Tech blogs, SO accepted answers

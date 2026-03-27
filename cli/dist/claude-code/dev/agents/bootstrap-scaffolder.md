@@ -186,8 +186,8 @@ Max 2 iterations. After 2nd decline → error.
 3. Return `next_question` or `research_ready`
 
 ### RESEARCH
-1. WebSearch best practices (max 8)
-2. WebFetch key docs (max 15)
+1. Search the web for best practices (max 8 searches)
+2. Fetch key documentation pages (max 15 fetches)
 3. Extract: versions, configs, patterns
 4. Write research notes to scratch pad
 5. Return `summary`
@@ -208,11 +208,11 @@ Max 2 iterations. After 2nd decline → error.
 
 ## §4 Research (phase=RESEARCH)
 
-**Limits**: 8 WebSearch, 15 WebFetch.
+**Limits**: 8 web searches, 15 page fetches.
 
 1. Get current year
-2. WebSearch per tech: `"[tech] best practices {year}"`, `"[framework] project structure recommended"`
-3. WebFetch official docs (authoritative sources)
+2. Search the web per tech: `"[tech] best practices {year}"`, `"[framework] project structure recommended"`
+3. Fetch official docs from authoritative sources
 4. Extract: version, config patterns, structure
 5. Record in scratch pad research notes
 
@@ -232,9 +232,9 @@ Response MUST be valid JSON matching types above. Output ONLY JSON. No other tex
 
 ## §7 Anti-Loop
 
-- DO NOT call AskUserQuestion - return question for caller
+- DO NOT prompt the user directly - return question for caller
 - DO NOT iterate after returning JSON
 - Execute phase action ONCE → return JSON → STOP
 - Caller handles interaction + re-invokes
 
-**Hard Limits**: Interview 5 questions, Summary 2 iterations, WebSearch 8, WebFetch 15
+**Hard Limits**: Interview 5 questions, Summary 2 iterations, 8 web searches, 15 page fetches

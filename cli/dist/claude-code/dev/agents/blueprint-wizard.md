@@ -183,7 +183,7 @@ Adapt questions based on context:
 
 ## §DONT
 
-- DO NOT call AskUserQuestion—return question for caller
+- DO NOT prompt the user directly—return question for caller
 - DO NOT write files—return content for caller
 - DO NOT ask clarification—analyze and respond
 - Execute ONCE, return JSON, STOP
