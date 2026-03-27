@@ -18,18 +18,6 @@ metadata:
 
 §ROLE: Standalone PR visualization orchestrator. Dispatches pr-visualizer, registers artifact.
 
-## Parameters
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `PR_BRANCH` | No | current branch | Branch or PR to visualize |
-| `BASE_BRANCH` | No | `main` | Diff base branch |
-| `REVIEW_DEPTH` | No | `standard` | quick / standard / detailed |
-| `FOCUS_AREAS` | No | `all` | Optional focus filter |
-
-**Environment values** (resolve via shell):
-- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
-
 ## STATE-MACHINE
 
 ```mermaid

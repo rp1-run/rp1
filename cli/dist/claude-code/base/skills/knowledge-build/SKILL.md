@@ -17,17 +17,6 @@ metadata:
 
 # Knowledge Builder - Parallel KB Generation Orchestrator
 
-## Parameters
-
-Extract these parameters from the user's input:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `FEATURE_ID` | No | - | Feature ID to incorporate learnings from an archived feature into KB |
-
-**Environment values** (resolve via shell):
-- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
-
 This command orchestrates parallel knowledge base generation using a map-reduce architecture
 
 **CRITICAL**: This is an ORCHESTRATOR command, not a thin wrapper. This command must handle parallel execution coordination, result aggregation, and state management.

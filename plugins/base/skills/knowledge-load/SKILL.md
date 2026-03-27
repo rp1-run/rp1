@@ -13,21 +13,26 @@ metadata:
   created: 2025-10-25
   updated: 2026-02-26
   author: cloud-on-prem/rp1
-  argument-hint: "[mode]"
+  arguments:
+    - name: LOAD_MODE
+      type: enum
+      required: false
+      default: "progressive"
+      description: "Loading mode"
+      enum_values:
+        - "progressive"
+        - "full"
+      aliases:
+        - "full"
+        - "all"
+        - "everything"
+  environment:
+    - name: RP1_ROOT
+      source: "rp1 agent-tools rp1-root-dir"
+      description: "Root directory for rp1 project context and work artifacts"
 ---
 
 # Knowledge Loader - Context Ingestion & Preparation
-
-## Parameters
-
-Extract these parameters from the user's input:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `LOAD_MODE` | No | `progressive` | Loading mode. Set `full` if user says "full", "all", or "everything"; otherwise `progressive` |
-
-**Environment values** (resolve via shell):
-- `RP1_ROOT`: !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
 
 > **DEPRECATED**: This command is deprecated. All rp1 commands are now **self-contained**
 > and load KB context automatically via their agents. You no longer need to run `/knowledge-load`

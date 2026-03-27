@@ -10,7 +10,7 @@ metadata:
     - task-queue
   created: 2026-03-15
   author: cloud-on-prem/rp1
-  argument-hint: "<operation> [options]"
+  argument-hint: "<operation>"
 ---
 
 # Task Queue Management
