@@ -389,13 +389,17 @@ export const EMBEDDED_MANIFEST = {
       skills: [${devSkills.join(", ")}],
       stateMachines: [${devStateMachines.join(", ")}],
     },
-    utils: {
+${
+	utilsAgents.length > 0 || utilsSkills.length > 0
+		? `    utils: {
       name: "rp1-utils",
       commands: [],
       agents: [${utilsAgents.join(", ")}],
       skills: [${utilsSkills.join(", ")}],
       stateMachines: [${utilsStateMachines.join(", ")}],
-    },
+    },`
+		: "    // utils excluded from distribution (internal-only plugin)"
+}
   },
   webui: [${webuiEntries.join(", ")}],
   version: "${manifest.version}",
@@ -414,9 +418,11 @@ export const IS_BUNDLED = true;
 		console.log(`  Base OpenCode Plugin: ${basePluginFiles.length} files`);
 	}
 	console.log(`  Dev: ${devAgents.length} agents, ${devSkills.length} skills`);
-	console.log(
-		`  Utils: ${utilsAgents.length} agents, ${utilsSkills.length} skills`,
-	);
+	if (utilsAgents.length > 0 || utilsSkills.length > 0) {
+		console.log(
+			`  Utils: ${utilsAgents.length} agents, ${utilsSkills.length} skills`,
+		);
+	}
 	const totalStateMachines =
 		baseStateMachines.length +
 		devStateMachines.length +
