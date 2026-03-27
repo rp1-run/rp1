@@ -125,7 +125,12 @@ const executeInstallFromBundled = (
 						spinner.stop();
 						console.log(yellow("\nDRY RUN MODE - No files will be modified\n"));
 						console.log("Would install from bundled assets:");
-						for (const p of [assets.plugins.base, assets.plugins.dev]) {
+						const pluginsToPreview = [
+							assets.plugins.base,
+							assets.plugins.dev,
+							...(assets.plugins.utils ? [assets.plugins.utils] : []),
+						];
+						for (const p of pluginsToPreview) {
 							console.log(
 								`  • ${p.name}: ${p.agents.length} agents, ${p.skills.length} skills`,
 							);
@@ -148,7 +153,11 @@ const executeInstallFromBundled = (
 						}),
 						TE.chain(() => {
 							spinner.start("Verifying installation...");
-							const allPlugins = [assets.plugins.base, assets.plugins.dev];
+							const allPlugins = [
+								assets.plugins.base,
+								assets.plugins.dev,
+								...(assets.plugins.utils ? [assets.plugins.utils] : []),
+							];
 							// Count unique skill directories (entries are file-level, e.g. "rp1-build/SKILL.md")
 							const uniqueSkillDirs = new Set(
 								allPlugins.flatMap((p) =>
@@ -288,9 +297,7 @@ export const executeInstall = (
 			return pipe(
 				discoverPlugins(artifactsDir),
 				TE.chain((plugins) => {
-					// Only install distributable plugins (utils is internal-only)
-					const distPlugins = plugins.filter((p) => p.plugin !== "rp1-utils");
-					const pluginDirs = distPlugins.map((p) =>
+					const pluginDirs = plugins.map((p) =>
 						join(artifactsDir, p.plugin.replace("rp1-", "")),
 					);
 
