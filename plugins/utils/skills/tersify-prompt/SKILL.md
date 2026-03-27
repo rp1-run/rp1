@@ -22,6 +22,24 @@ metadata:
 
 Compresses agent-instruction prompts to be maximally terse while preserving full intent.
 
+## 0. Resolve Arguments
+
+Run the argument resolver to obtain all parameter values:
+
+```bash
+rp1 agent-tools resolve-args --schema-path plugins/utils/skills/tersify-prompt/SKILL.md --args "{raw arguments from user invocation}"
+```
+
+Parse the JSON response. Extract values from `data.arguments`:
+
+| Variable | Source |
+|----------|--------|
+| INPUT | `data.arguments.INPUT` |
+
+If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
+
+Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
+
 ## Modes
 
 **File Mode** (when INPUT is a valid file path):

@@ -320,7 +320,7 @@ skills:
     sub_agents_that_i_use: [rp1-utils:dependency-chain-analyzer,rp1-utils:prompt-assertion-specialist,rp1-utils:prompt-eval-extractor]
     skills_that_i_use: []
     last_update: "2026-03-27"
-    last_checksum: 3ed0b39a0b8da8443936a142a27ec4e0a81021fece3f1f7b27518bd72fe40af9
+    last_checksum: 7e30d0c8cf67895242c820f22750c20c77cc31be48acf29903d19f5de00e92c9
   - name: rp1-utils:prompt-eval-builder
     description: Domain knowledge for extracting eval assertions and generating test invocation prompts from command/agent specs. Used for building promptfoo evaluation configs.
     plugin: utils
@@ -347,7 +347,7 @@ skills:
     sub_agents_that_i_use: [rp1-utils:prompt-tersifier]
     skills_that_i_use: []
     last_update: "2026-03-27"
-    last_checksum: 84d9993abc288650143e6f7f5cf4dd207b2f8db0885ac27cf695556cebc6d4fd
+    last_checksum: f0d9ec3eab960141e058eb50bcbc90607de306e0eb9a04a2b39224543e6268ea
   - name: rp1-utils:tester
     description: Test command template for verifying argument passing and skill invocation.
     plugin: utils
@@ -356,4 +356,4 @@ skills:
     sub_agents_that_i_use: []
     skills_that_i_use: []
     last_update: "2026-03-27"
-    last_checksum: b65c310a4e5c59bd7b32708c952d70c9c8435d8a2e0e267c98e7e27a36f2cddb
+    last_checksum: 74e3d1eced601384a5afff436d8d15d9feae86195c387571d86e471da4b2bab3
