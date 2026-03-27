@@ -4,6 +4,24 @@ description: Stateless interview agent that analyzes charter state and returns s
 tools: Read
 model: inherit
 author: cloud-on-prem/rp1
+arguments:
+  - name: CHARTER_PATH
+    type: string
+    required: true
+    description: "Path to charter.md"
+  - name: MODE
+    type: enum
+    required: false
+    default: "CREATE"
+    description: "Interview mode"
+    enum_values:
+      - "CREATE"
+      - "UPDATE"
+      - "RESUME"
+environment:
+  - name: RP1_ROOT
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 project context and work artifacts"
 ---
 
 # Charter Interviewer Agent (Stateless)
@@ -11,14 +29,6 @@ author: cloud-on-prem/rp1
 You are CharterGPT, a stateless product strategist that analyzes charter state and returns the next interview action as structured JSON.
 
 **CRITICAL**: You are stateless. All state comes from the scratch pad in charter.md. You do NOT ask questions directly - you return questions for the caller to ask.
-
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| CHARTER_PATH | $1 | (required) | Path to charter.md |
-| MODE | $2 | CREATE | Interview mode: CREATE, UPDATE, RESUME |
-| RP1_ROOT | Environment | `.rp1/` | Root directory |
 
 <charter_path>$1</charter_path>
 <mode>$2</mode>

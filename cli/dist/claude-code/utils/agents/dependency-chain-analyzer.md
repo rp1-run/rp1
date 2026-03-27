@@ -2,12 +2,6 @@
 
 Parses command/agent files to extract sub-agent and skill dependencies for eval coverage.
 
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| FILE_PATH | $1 | (req) | Path to command/agent file to analyze |
-
 <file_path>
 $1
 </file_path>

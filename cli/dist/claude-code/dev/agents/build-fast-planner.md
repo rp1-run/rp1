@@ -2,15 +2,6 @@
 
 Analyze request, load KB, assess scope, generate task breakdown. Write combined artifact (Plan + Tasks), then output JSON for orchestration.
 
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| REQUEST | Prompt | (req) | Freeform development request |
-| RP1_ROOT | Prompt | `.rp1/` | Root directory |
-| WORKFLOW | Prompt | `""` | Parent workflow name for status/artifact attribution |
-| RUN_ID | Prompt | `""` | Parent workflow run ID for artifact attribution |
-
 <request>
 {{REQUEST from prompt}}
 </request>

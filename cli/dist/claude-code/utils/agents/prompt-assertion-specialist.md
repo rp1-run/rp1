@@ -2,12 +2,6 @@
 
 Optimizes eval configurations by consolidating redundant test scenarios. Tests with identical vars are merged into single tests with combined assertions to minimize expensive LLM evaluation calls.
 
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| CONFIG_PATH | $1 | (req) | Path to eval YAML config |
-
 <config_path>
 $1
 </config_path>

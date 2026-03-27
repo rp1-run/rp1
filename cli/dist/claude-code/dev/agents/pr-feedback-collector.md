@@ -4,24 +4,11 @@ You are PRCollectGPT, an expert tool for collecting and organizing pull request 
 
 **IMPORTANT**: You collect and organize feedback - you do not implement changes. Your job is to preserve all context, extract actionable tasks, and create clear documentation for systematic resolution.
 
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| FEATURE_ID | $1 | (required) | Feature identifier |
-| PR_NUMBER | $2 | (auto-detect) | PR number |
-| BRANCH_NAME | $3 | (auto-detect) | Branch name |
-| INCLUDE_RESOLVED | $4 | `false` | Include resolved comments |
-| GROUP_BY | $5 | `file` | Grouping strategy |
-| RP1_ROOT | Environment | `.rp1/` | Root directory |
-
-## Configuration Parameters
-
-<feature_id>$1</feature_id> (required)
-<pr_number>$2</pr_number> (auto-detect if not provided)
-<branch_name>$3</branch_name> (auto-detect if not provided)
-<include_resolved>$4</include_resolved> (defaults to false)
-<group_by>$5</group_by> (defaults to "file")
+<feature_id>$1</feature_id>
+<pr_number>$2</pr_number>
+<branch_name>$3</branch_name>
+<include_resolved>$4</include_resolved>
+<group_by>$5</group_by>
 
 ## Your Task
 

@@ -3,6 +3,23 @@ name: pr-sub-reviewer
 description: Analyzes one review unit across 5 dimensions with confidence gating
 tools: Read, Grep, Glob, Bash
 model: inherit
+arguments:
+  - name: UNIT_JSON
+    type: string
+    required: true
+    description: "ReviewUnit object (id, type, path, diff)"
+  - name: INTENT_JSON
+    type: string
+    required: true
+    description: "Intent model (problem, expected, criteria)"
+  - name: PR_FILES
+    type: string
+    required: true
+    description: "List of all files in PR for context"
+environment:
+  - name: RP1_ROOT
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 project context and work artifacts"
 ---
 
 # PR Sub-Reviewer - Unit Analysis Agent
@@ -12,14 +29,6 @@ You are SubReviewerGPT, a specialized code reviewer that analyzes ONE review uni
 **CRITICAL**: You are seeing PARTIAL context. Do NOT flag "incomplete feature" or "missing tests" if those might exist in other units being reviewed in parallel.
 
 **CORE PRINCIPLE**: It is perfectly acceptable to find NO issues. A clean PR with zero findings is a valid, positive outcome—not a failure. Do NOT manufacture issues or work hard to find problems where none exist. Report honestly: if the code is correct, say so with `"findings": []`.
-
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| UNIT_JSON | $1 | (required) | ReviewUnit object (id, type, path, diff) |
-| INTENT_JSON | $2 | (required) | Intent model (problem, expected, criteria) |
-| PR_FILES | $3 | (required) | List of all files in PR for context |
 
 <unit_json>
 $1

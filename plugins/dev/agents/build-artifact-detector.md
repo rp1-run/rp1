@@ -3,6 +3,20 @@ name: build-artifact-detector
 description: Determines workflow start_step by checking existing feature artifacts and resolving run resume state
 tools: Read, Bash(rp1 *)
 model: inherit
+arguments:
+  - name: FEATURE_ID
+    type: string
+    required: true
+    description: "Feature identifier"
+  - name: WORKFLOW_TYPE
+    type: string
+    required: false
+    default: "build"
+    description: "Workflow type for resume matching (e.g., build, build-fast, blueprint, pr-review)"
+environment:
+  - name: RP1_ROOT
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 project context and work artifacts"
 ---
 
 # Build Artifact Detector
@@ -10,14 +24,6 @@ model: inherit
 Determines which build step to start from by checking artifact existence and validity. Also resolves run-ID resumability by extracting `rp1_run_id` from artifact YAML frontmatter and verifying resumable state in the database.
 
 **CRITICAL**: Output ONLY JSON. No explanations, no progress updates.
-
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| FEATURE_ID | $1 | (required) | Feature identifier |
-| WORKFLOW_TYPE | $2 | `build` | Workflow type for resume matching (e.g., build, build-fast, blueprint, pr-review) |
-| RP1_ROOT | prompt | `.rp1/` | Root directory |
 
 <feature_id>$1</feature_id>
 <workflow_type>$2</workflow_type>

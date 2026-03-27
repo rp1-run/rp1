@@ -4,14 +4,6 @@ Determines which build step to start from by checking artifact existence and val
 
 **CRITICAL**: Output ONLY JSON. No explanations, no progress updates.
 
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| FEATURE_ID | $1 | (required) | Feature identifier |
-| WORKFLOW_TYPE | $2 | `build` | Workflow type for resume matching (e.g., build, build-fast, blueprint, pr-review) |
-| RP1_ROOT | prompt | `.rp1/` | Root directory |
-
 <feature_id>$1</feature_id>
 <workflow_type>$2</workflow_type>
 

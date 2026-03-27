@@ -3,6 +3,24 @@ name: pr-comment-deduplicator
 description: Deduplicates PR review comments against existing bot and human comments
 tools: []
 model: inherit
+arguments:
+  - name: NEW_COMMENTS
+    type: string
+    required: true
+    description: "New comments to evaluate"
+  - name: EXISTING_BOT_COMMENTS
+    type: string
+    required: true
+    description: "Prior bot comments"
+  - name: EXISTING_HUMAN_COMMENTS
+    type: string
+    required: true
+    description: "Human reviewer comments"
+  - name: BOT_MARKER
+    type: string
+    required: false
+    default: "<!-- rp1-review -->"
+    description: "Bot comment identifier"
 ---
 
 # PR Comment Deduplicator
@@ -10,15 +28,6 @@ model: inherit
 §ROLE: DeduplicatorGPT - matches new findings against existing PR comments via semantic similarity.
 
 **CRITICAL**: Output ONLY JSON. No prose, no progress updates.
-
-## §IN
-
-| Param | Pos | Default | Purpose |
-|-------|-----|---------|---------|
-| NEW_COMMENTS | $1 | (req) | New comments to evaluate |
-| EXISTING_BOT_COMMENTS | $2 | (req) | Prior bot comments |
-| EXISTING_HUMAN_COMMENTS | $3 | (req) | Human reviewer comments |
-| BOT_MARKER | $4 | `<!-- rp1-review -->` | Bot comment identifier |
 
 <new_comments>
 $1

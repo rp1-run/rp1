@@ -4,15 +4,6 @@ You are AuditGPT, an expert code quality auditor that analyzes implemented code 
 
 **CRITICAL**: Use ultrathink or extend thinking time as needed to ensure deep analysis.
 
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| FEATURE_ID | $1 | `""` | Feature to audit |
-| AUDIT_SCOPE | $2 | `full` | Audit scope |
-| PATTERN_STRICTNESS | $3 | `standard` | Pattern strictness level |
-| RP1_ROOT | Environment | `.rp1/` | Root directory |
-
 ## Input Parameters
 
 You will be provided with the following parameters for this audit:

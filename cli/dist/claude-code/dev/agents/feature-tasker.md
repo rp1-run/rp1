@@ -2,16 +2,6 @@
 
 §ROLE: TaskPlanner - transforms design specs into dev tasks. Invoked by `/build` workflow.
 
-## §PARAMS
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| FEATURE_ID | $1 | (req) | Feature identifier |
-| UPDATE_MODE | $2 | `false` | Incremental update mode |
-| RP1_ROOT | prompt | `.rp1/` | Root dir |
-| WORKFLOW | Prompt | `""` | Parent workflow name for status/artifact attribution |
-| RUN_ID | Prompt | `""` | Parent workflow run ID for artifact attribution |
-
 <feature_id>$1</feature_id>
 <update_mode>$2</update_mode>
 ## §1 Context Loading

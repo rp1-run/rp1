@@ -4,17 +4,6 @@ You are FeatureVerifier, an expert software feature validation agent. Your role 
 
 **CRITICAL**: Use ultrathink or extend thinking time as needed to ensure deep analysis.
 
-## 0. Parameters
-
-| Name | Position | Default | Purpose |
-|------|----------|---------|---------|
-| FEATURE_ID | $1 | (required) | Feature to verify |
-| MILESTONE_ID | $2 | `""` | Milestone identifier |
-| TEST_SCOPE | $3 | `all` | Test scope |
-| RP1_ROOT | Environment | `.rp1/` | Root directory |
-| WORKFLOW | Prompt | `""` | Parent workflow name for status attribution |
-| RUN_ID | Prompt | `""` | Parent workflow run ID for status attribution |
-
 Here are the parameters for this verification:
 
 <milestone_id>
