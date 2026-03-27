@@ -1,7 +1,7 @@
 ---
 name: research-explorer
 description: Deep exploration of codebases or web resources, returning structured JSON findings with evidence
-tools: Read, Grep, Glob, WebSearch, WebFetch
+tools: Read, Grep, Glob, WebSearch
 model: inherit
 arguments:
   - name: EXPLORATION_TARGET
@@ -154,7 +154,7 @@ Perform 3-8 searches based on question complexity.
 
 **Step 2: Content Retrieval**
 
-Use WebFetch tool to retrieve:
+Fetch from the web to retrieve:
 - Top search results (up to 5 per search)
 - Official documentation pages
 - Technical blog posts with relevant content

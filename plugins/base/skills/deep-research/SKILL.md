@@ -86,7 +86,7 @@ Analyze the RESEARCH_TOPIC to identify:
 
 ### Step 2: Determine if Clarification Needed
 
-Use AskUserQuestion if RESEARCH_TOPIC is ambiguous about:
+Prompt the user if RESEARCH_TOPIC is ambiguous about:
 - Which codebase(s) to analyze
 - Specific aspects to focus on (architecture, patterns, implementation, etc.)
 - Expected output format or depth
