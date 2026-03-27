@@ -93,6 +93,12 @@ Argument names use UPPER_SNAKE_CASE. Supported types: `string`, `boolean`, `enum
 
 ### Canonical variable assignment
 
+All parameterized skills must call `rp1 agent-tools resolve-args --schema-path` as their first operational step (the `## 0. Resolve Arguments` section). This single call resolves both user-supplied arguments and environment variables declared in frontmatter, returning structured JSON. See [docs/concepts/skill-format.md](docs/concepts/skill-format.md) for the full pattern.
+
+**Agents are excluded** from this requirement -- they receive pre-resolved named parameters from parent skills and do not call `resolve-args` themselves.
+
+#### Environment schema declarations
+
 Declare environment-resolved parameters (like `RP1_ROOT`) in the `environment` schema:
 
 **Skills** (`metadata.environment`):
@@ -114,11 +120,17 @@ environment:
     description: "Root directory for rp1 project context"
 ```
 
-Within the prompt body, resolve `RP1_ROOT` with:
+#### Inline resolution (deprecated for parameterized skills)
+
+The inline pattern below is **deprecated** for skills that have `metadata.arguments` defined. Use `resolve-args --schema-path` instead, which handles both arguments and environment variables in one call.
 
 ```markdown
 $RP1_ROOT = !`rp1 agent-tools rp1-root-dir`
 ```
+
+This inline pattern remains valid only for agents and for non-parameterized skills (those with no `metadata.arguments`).
+
+#### Path interpolation
 
 When interpolating paths:
 
