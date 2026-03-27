@@ -31,26 +31,6 @@ metadata:
 
 Route to feature-editor agent after param validation.
 
-## 0. Resolve Arguments
-
-Run the argument resolver to obtain all parameter values:
-
-```bash
-rp1 agent-tools resolve-args --schema-path plugins/dev/skills/feature-edit/SKILL.md --args "{raw arguments from user invocation}"
-```
-
-Parse the JSON response. Extract values from `data.arguments` and `data.environment`:
-
-| Variable | Source |
-|----------|--------|
-| FEATURE_ID | `data.arguments.FEATURE_ID` |
-| EDIT_DESCRIPTION | `data.arguments.EDIT_DESCRIPTION` |
-| RP1_ROOT | `data.environment.RP1_ROOT` |
-
-If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
-
-Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
-
 ## Error Handling
 
 **Missing FEATURE_ID**:

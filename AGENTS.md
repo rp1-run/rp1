@@ -93,7 +93,7 @@ Argument names use UPPER_SNAKE_CASE. Supported types: `string`, `boolean`, `enum
 
 ### Canonical variable assignment
 
-All parameterized skills must call `rp1 agent-tools resolve-args --schema-path` as their first operational step (the `## 0. Resolve Arguments` section). This single call resolves both user-supplied arguments and environment variables declared in frontmatter, returning structured JSON. See [docs/concepts/skill-format.md](docs/concepts/skill-format.md) for the full pattern.
+The build pipeline automatically injects a `## 0. Resolve Arguments` section into every parameterized skill that declares `metadata.arguments`. This section calls `rp1 agent-tools resolve-args --name rp1-{plugin}:{skill}` to resolve both user-supplied arguments and environment variables, returning structured JSON. Skill authors do **not** write this section — it is generated from frontmatter. See [docs/concepts/skill-format.md](docs/concepts/skill-format.md) for details.
 
 **Agents are excluded** from this requirement -- they receive pre-resolved named parameters from parent skills and do not call `resolve-args` themselves.
 

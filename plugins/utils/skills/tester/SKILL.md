@@ -22,23 +22,4 @@ metadata:
 
 # Tester Prompt
 
-## 0. Resolve Arguments
-
-Run the argument resolver to obtain all parameter values:
-
-```bash
-rp1 agent-tools resolve-args --schema-path plugins/utils/skills/tester/SKILL.md --args "{raw arguments from user invocation}"
-```
-
-Parse the JSON response. Extract values from `data.arguments`:
-
-| Variable | Source |
-|----------|--------|
-| GIT_COMMIT | `data.arguments.GIT_COMMIT` |
-| GIT_BRANCH | `data.arguments.GIT_BRANCH` |
-
-If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
-
-Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
-
 Print out the values of {GIT_COMMIT} and {GIT_BRANCH}

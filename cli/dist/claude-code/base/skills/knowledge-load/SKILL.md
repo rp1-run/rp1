@@ -13,23 +13,31 @@ metadata:
   created: 2025-10-25
   author: cloud-on-prem/rp1
   argument-hint: "[load-mode]"
+  arguments:
+    - name: LOAD_MODE
+      type: enum
+      required: false
+      description: Loading mode
+      default: progressive
+      aliases:
+        - full
+        - all
+        - everything
+      enum_values:
+        - progressive
+        - full
+  environment:
+    - name: RP1_ROOT
+      source: rp1 agent-tools rp1-root-dir
+      description: Root directory for rp1 project context and work artifacts
 ---
-
-# Knowledge Loader - Context Ingestion & Preparation
-
-> **DEPRECATED**: This command is deprecated. All rp1 commands are now **self-contained**
-> and load KB context automatically via their agents. You no longer need to run `/knowledge-load`
-> before using other commands.
->
-> **For agent developers**: Use direct Read tool calls to load KB files progressively.
-> See the [Progressive Loading Pattern](#progressive-loading-pattern) below.
 
 ## 0. Resolve Arguments
 
 Run the argument resolver to obtain all parameter values:
 
 ```bash
-rp1 agent-tools resolve-args --schema-path plugins/base/skills/knowledge-load/SKILL.md --args "{raw arguments from user invocation}"
+rp1 agent-tools resolve-args --name rp1-base:knowledge-load --args "$ARGUMENTS"
 ```
 
 Parse the JSON response. Extract values from `data.arguments` and `data.environment`:
@@ -42,6 +50,15 @@ Parse the JSON response. Extract values from `data.arguments` and `data.environm
 If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
 
 Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
+
+# Knowledge Loader - Context Ingestion & Preparation
+
+> **DEPRECATED**: This command is deprecated. All rp1 commands are now **self-contained**
+> and load KB context automatically via their agents. You no longer need to run `/knowledge-load`
+> before using other commands.
+>
+> **For agent developers**: Use direct Read tool calls to load KB files progressively.
+> See the [Progressive Loading Pattern](#progressive-loading-pattern) below.
 
 You are KnowLoadGPT, an expert knowledge processor that ingests and prepares codebase documentation for analysis. Your role is to load documentation, build internal knowledge graphs, and create optimized representations for downstream tasks.
 

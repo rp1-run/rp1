@@ -174,11 +174,11 @@ Arguments are resolved programmatically at invocation time via the `rp1 agent-to
 
 ### Prompt Body Template
 
-Every parameterized skill must include a `## 0. Resolve Arguments` section as its first operational step, before any logic that consumes argument values. This section calls the resolver, maps the JSON response to named variables, and guards against missing required arguments.
+The build pipeline automatically injects a `## 0. Resolve Arguments` section into every parameterized skill's built output. Skill authors do **not** write this section — it is generated from the `metadata.arguments` and `metadata.environment` frontmatter declarations.
 
-Skills use `--schema-path` (not `--name`) because built artifacts strip the `metadata.arguments` schema from frontmatter, so name-based lookup cannot find the schema at runtime.
+The injected section uses `--name rp1-{plugin}:{skill}` for schema lookup, which resolves in both development (`cli/dist/`) and production (installed plugins) environments. Built artifacts include the structured `arguments` array in frontmatter alongside `argument-hint`.
 
-**Canonical template**:
+**What the build pipeline generates** (for reference — do not add this to source skills):
 
 ````markdown
 ## 0. Resolve Arguments
@@ -186,7 +186,7 @@ Skills use `--schema-path` (not `--name`) because built artifacts strip the `met
 Run the argument resolver to obtain all parameter values:
 
 ```bash
-rp1 agent-tools resolve-args --schema-path plugins/{plugin}/skills/{skill-name}/SKILL.md --args "$ARGUMENTS"
+rp1 agent-tools resolve-args --name rp1-{plugin}:{skill-name} --args "$ARGUMENTS"
 ```
 
 Parse the JSON response. Extract values from `data.arguments` and `data.environment`:
@@ -204,7 +204,7 @@ Use these resolved values for all subsequent steps. Do not re-derive or re-parse
 
 **Key conventions**:
 
-- The `--schema-path` flag points to the skill's source file (e.g., `plugins/dev/skills/build/SKILL.md`, `plugins/base/skills/task/SKILL.md`).
+- The `--name` flag uses the skill's namespace (e.g., `rp1-dev:build`, `rp1-base:task`). The CLI resolves this to the correct schema file automatically.
 - The variable table lists every entry from `metadata.arguments` and `metadata.environment`, mapping each to its JSON response path.
 - The unresolved guard prevents the skill from proceeding with missing required values.
 - Workflows that call `resolve-args` do not need a separate `rp1 agent-tools rp1-root-dir` call -- `RP1_ROOT` is included in the `data.environment` section of the response.
@@ -212,8 +212,9 @@ Use these resolved values for all subsequent steps. Do not re-derive or re-parse
 ### Rules
 
 1. **No `## Parameters` tables**: Do not add hand-written parameter tables to skill bodies. The build pipeline will reject them (L008 build error) when `arguments` is defined.
-2. **No `$ARGUMENTS`**: Do not use platform-specific `$ARGUMENTS` substitution.
-3. **No `$1`, `$2` positional params**: Parameters are defined in frontmatter and resolved via CLI.
+2. **No `## 0. Resolve Arguments` section**: Do not add a hand-written resolver section. The build pipeline auto-injects this from frontmatter.
+3. **No `$ARGUMENTS`**: Do not use platform-specific `$ARGUMENTS` substitution in source skills.
+4. **No `$1`, `$2` positional params**: Parameters are defined in frontmatter and resolved via CLI.
 4. **Boolean defaults**: Boolean arguments default to `false` unless an explicit `default` is provided. The CLI enforces this, preventing model inference errors.
 5. **Implies chains**: Use the `implies` field to declare boolean flag dependencies. The CLI resolves these transitively.
 

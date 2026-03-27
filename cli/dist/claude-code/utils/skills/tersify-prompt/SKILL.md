@@ -9,21 +9,22 @@ metadata:
   created: 2025-12-21
   author: cloud-on-prem/rp1
   argument-hint: "<input>"
+  arguments:
+    - name: INPUT
+      type: string
+      required: true
+      description: File path to a prompt file, or raw prompt text to compress
 ---
-
-# Tersify Prompt
-
-Compresses agent-instruction prompts to be maximally terse while preserving full intent.
 
 ## 0. Resolve Arguments
 
 Run the argument resolver to obtain all parameter values:
 
 ```bash
-rp1 agent-tools resolve-args --schema-path plugins/utils/skills/tersify-prompt/SKILL.md --args "{raw arguments from user invocation}"
+rp1 agent-tools resolve-args --name rp1-utils:tersify-prompt --args "$ARGUMENTS"
 ```
 
-Parse the JSON response. Extract values from `data.arguments`:
+Parse the JSON response. Extract values from `data.arguments` and `data.environment`:
 
 | Variable | Source |
 |----------|--------|
@@ -32,6 +33,10 @@ Parse the JSON response. Extract values from `data.arguments`:
 If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
 
 Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
+
+# Tersify Prompt
+
+Compresses agent-instruction prompts to be maximally terse while preserving full intent.
 
 ## Modes
 

@@ -13,18 +13,23 @@ metadata:
   created: 2025-12-26
   author: cloud-on-prem/rp1
   argument-hint: "[project-name]"
+  arguments:
+    - name: PROJECT_NAME
+      type: string
+      required: false
+      description: New project directory name (lowercase, hyphens allowed)
+  environment:
+    - name: RP1_ROOT
+      source: rp1 agent-tools rp1-root-dir
+      description: Root directory for rp1 project context and work artifacts
 ---
-
-# Bootstrap Command - Greenfield Project Creation
-
-Minimal coordinator: pre-flight checks -> charter-interviewer -> bootstrap-scaffolder.
 
 ## 0. Resolve Arguments
 
 Run the argument resolver to obtain all parameter values:
 
 ```bash
-rp1 agent-tools resolve-args --schema-path plugins/dev/skills/bootstrap/SKILL.md --args "{raw arguments from user invocation}"
+rp1 agent-tools resolve-args --name rp1-dev:bootstrap --args "$ARGUMENTS"
 ```
 
 Parse the JSON response. Extract values from `data.arguments` and `data.environment`:
@@ -37,6 +42,10 @@ Parse the JSON response. Extract values from `data.arguments` and `data.environm
 If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
 
 Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
+
+# Bootstrap Command - Greenfield Project Creation
+
+Minimal coordinator: pre-flight checks -> charter-interviewer -> bootstrap-scaffolder.
 
 ## §1 Pre-Flight
 
