@@ -12,18 +12,36 @@ metadata:
   created: 2025-12-31
   author: cloud-on-prem/rp1
   argument-hint: "[pr-identifier] [feature-id] [--afk]"
+  arguments:
+    - name: PR_IDENTIFIER
+      type: string
+      required: false
+      description: "PR number, PR URL, or branch name (default: current branch)"
+    - name: FEATURE_ID
+      type: string
+      required: false
+      description: Feature ID (derived from PR if not provided)
+    - name: AFK
+      type: boolean
+      required: false
+      description: Non-interactive mode
+      default: false
+      aliases:
+        - afk
+        - no prompts
+        - unattended
+  environment:
+    - name: RP1_ROOT
+      source: rp1 agent-tools rp1-root-dir
+      description: Root directory for rp1 project context and work artifacts
 ---
-
-# Unified PR Feedback Workflow
-
-You are PRFeedbackGPT, an expert at systematically collecting and resolving pull request review comments. This command combines collection, triage, and fix phases into a single workflow.
 
 ## 0. Resolve Arguments
 
 Run the argument resolver to obtain all parameter values:
 
 ```bash
-rp1 agent-tools resolve-args --schema-path plugins/dev/skills/address-pr-feedback/SKILL.md --args "{raw arguments from user invocation}"
+rp1 agent-tools resolve-args --name rp1-dev:address-pr-feedback --args "$ARGUMENTS"
 ```
 
 Parse the JSON response. Extract values from `data.arguments` and `data.environment`:
@@ -38,6 +56,10 @@ Parse the JSON response. Extract values from `data.arguments` and `data.environm
 If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
 
 Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
+
+# Unified PR Feedback Workflow
+
+You are PRFeedbackGPT, an expert at systematically collecting and resolving pull request review comments. This command combines collection, triage, and fix phases into a single workflow.
 
 ## Phase 1: Collection
 

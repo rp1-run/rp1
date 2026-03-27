@@ -11,18 +11,65 @@ metadata:
   created: 2026-01-01
   author: cloud-on-prem/rp1
   argument-hint: "[development-request...] [--afk] [--confirm-plan] [--review] [--git-commit] [--git-push]"
+  arguments:
+    - name: DEVELOPMENT_REQUEST
+      type: string
+      required: true
+      description: The freeform development request text
+      variadic: true
+    - name: AFK
+      type: boolean
+      required: false
+      description: Non-interactive mode
+      default: false
+      aliases:
+        - afk
+        - no prompts
+        - unattended
+    - name: CONFIRM_PLAN
+      type: boolean
+      required: false
+      description: Enable plan review checkpoint and post-implementation review
+      default: false
+      aliases:
+        - confirm
+        - review plan
+        - confirm-plan
+    - name: REVIEW
+      type: boolean
+      required: false
+      description: Enable task-reviewer validation after implementation
+      default: false
+      aliases:
+        - review
+        - verify
+        - check
+    - name: GIT_COMMIT
+      type: boolean
+      required: false
+      description: Commit changes
+      default: false
+      aliases:
+        - commit
+    - name: GIT_PUSH
+      type: boolean
+      required: false
+      description: Push branch to remote
+      default: false
+      aliases:
+        - push
+  environment:
+    - name: RP1_ROOT
+      source: rp1 agent-tools rp1-root-dir
+      description: Root directory for rp1 project context and work artifacts
 ---
-
-# Build Fast Command
-
-Quick-iteration workflow for focused changes. Three-phase execution: plan -> build -> [review].
 
 ## 0. Resolve Arguments
 
 Run the argument resolver to obtain all parameter values:
 
 ```bash
-rp1 agent-tools resolve-args --schema-path plugins/dev/skills/build-fast/SKILL.md --args "{raw arguments from user invocation}"
+rp1 agent-tools resolve-args --name rp1-dev:build-fast --args "$ARGUMENTS"
 ```
 
 Parse the JSON response. Extract values from `data.arguments` and `data.environment`:
@@ -40,6 +87,10 @@ Parse the JSON response. Extract values from `data.arguments` and `data.environm
 If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
 
 Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
+
+# Build Fast Command
+
+Quick-iteration workflow for focused changes. Three-phase execution: plan -> build -> [review].
 
 ## §VERSION-GATE
 

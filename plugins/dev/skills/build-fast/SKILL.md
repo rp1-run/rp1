@@ -72,30 +72,6 @@ metadata:
 
 Quick-iteration workflow for focused changes. Three-phase execution: plan -> build -> [review].
 
-## 0. Resolve Arguments
-
-Run the argument resolver to obtain all parameter values:
-
-```bash
-rp1 agent-tools resolve-args --schema-path plugins/dev/skills/build-fast/SKILL.md --args "{raw arguments from user invocation}"
-```
-
-Parse the JSON response. Extract values from `data.arguments` and `data.environment`:
-
-| Variable | Source |
-|----------|--------|
-| DEVELOPMENT_REQUEST | `data.arguments.DEVELOPMENT_REQUEST` |
-| AFK | `data.arguments.AFK` |
-| CONFIRM_PLAN | `data.arguments.CONFIRM_PLAN` |
-| REVIEW | `data.arguments.REVIEW` |
-| GIT_COMMIT | `data.arguments.GIT_COMMIT` |
-| GIT_PUSH | `data.arguments.GIT_PUSH` |
-| RP1_ROOT | `data.environment.RP1_ROOT` |
-
-If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
-
-Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
-
 ## §VERSION-GATE
 
 **If** `RP1_VERSION` < 0.3.3 **then** STOP execution with message:
