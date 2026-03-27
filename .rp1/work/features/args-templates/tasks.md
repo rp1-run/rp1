@@ -6,7 +6,7 @@ rp1_doc_id: 81f506be-4692-4de8-b46a-067c37b213a1
 
 **Feature ID**: args-templates
 **Status**: Not Started
-**Progress**: 57% (8 of 14 tasks)
+**Progress**: 64% (9 of 14 tasks)
 **Estimated Effort**: 7 days
 **Started**: 2026-03-27
 
@@ -323,6 +323,18 @@ stateDiagram-v2
     - **Deviations**: None
     - **Tests**: 9/9 passing
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ✅ PASS |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
     **Execution Flow**:
 
     ```mermaid
@@ -331,7 +343,7 @@ stateDiagram-v2
         T6_SettingsLoader --> [*]
     ```
 
-- [ ] **T7**: Create resolve-args agent tool subcommand `[complexity:complex]`
+- [x] **T7**: Create resolve-args agent tool subcommand `[complexity:complex]`
 
     **Reference**: [design.md#35-cli-argument-resolution-resolve-args](design.md#35-cli-argument-resolution-resolve-args)
 
@@ -339,18 +351,33 @@ stateDiagram-v2
 
     **Acceptance Criteria**:
 
-    - [ ] `cli/src/agent-tools/resolve-args/index.ts` created following `registerTool` pattern
-    - [ ] `cli/src/agent-tools/resolve-args/models.ts` created with input/output types
-    - [ ] `cli/src/agent-tools/resolve-args/resolver.ts` created with resolution logic
-    - [ ] Accepts JSON input with `schema_path`, `raw_args`, and `project_root`
-    - [ ] Reads and parses frontmatter from the schema file to extract arguments
-    - [ ] Implements 5-layer merge: user input > project settings > user settings > env var > schema default
-    - [ ] Resolves implies chains transitively (fixed-point algorithm)
-    - [ ] Boolean arguments default to `false` when not specified
-    - [ ] Required arguments not resolved from any layer appear in `unresolved` array
-    - [ ] Returns `ToolResult<ResolvedArgs>` envelope with `arguments`, `environment`, and `unresolved`
-    - [ ] Empty schema returns empty object (no-op)
-    - [ ] Unit tests in `cli/src/__tests__/agent-tools/resolve-args/resolve-args.test.ts` cover merge precedence, implies chains, and unresolved handling
+    - [x] `cli/src/agent-tools/resolve-args/index.ts` created following `registerTool` pattern
+    - [x] `cli/src/agent-tools/resolve-args/models.ts` created with input/output types
+    - [x] `cli/src/agent-tools/resolve-args/resolver.ts` created with resolution logic
+    - [x] Accepts JSON input with `schema_path`, `raw_args`, and `project_root`
+    - [x] Reads and parses frontmatter from the schema file to extract arguments
+    - [x] Implements 5-layer merge: user input > project settings > user settings > env var > schema default
+    - [x] Resolves implies chains transitively (fixed-point algorithm)
+    - [x] Boolean arguments default to `false` when not specified
+    - [x] Required arguments not resolved from any layer appear in `unresolved` array
+    - [x] Returns `ToolResult<ResolvedArgs>` envelope with `arguments`, `environment`, and `unresolved`
+    - [x] Empty schema returns empty object (no-op)
+    - [x] Unit tests in `cli/src/__tests__/agent-tools/resolve-args/resolve-args.test.ts` cover merge precedence, implies chains, and unresolved handling
+
+    **Implementation Summary**:
+
+    - **Files**: `cli/src/agent-tools/resolve-args/index.ts`, `cli/src/agent-tools/resolve-args/models.ts`, `cli/src/agent-tools/resolve-args/resolver.ts`, `cli/src/agent-tools/command.ts`, `cli/src/__tests__/agent-tools/resolve-args/resolve-args.test.ts`
+    - **Approach**: Created resolve-args agent tool following registerTool pattern; resolver reads frontmatter from schema file, parses arguments/environment, merges 5 layers (user input > project settings > user settings > env var > schema default), resolves implies chains via fixed-point algorithm, detects unresolved required args; wired subcommand into command.ts with stdin/file input support
+    - **Deviations**: None
+    - **Tests**: 20/20 passing
+
+    **Execution Flow**:
+
+    ```mermaid
+    stateDiagram-v2
+        [*] --> T7_ResolveArgsAgentTool
+        T7_ResolveArgsAgentTool --> [*]
+    ```
 
 ### Migration
 
