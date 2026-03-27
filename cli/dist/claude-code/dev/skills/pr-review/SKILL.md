@@ -14,7 +14,49 @@ metadata:
   created: 2025-10-25
   author: cloud-on-prem/rp1
   argument-hint: "[target] [base-branch] [--skip-visual]"
+  arguments:
+    - name: TARGET
+      type: string
+      required: false
+      description: PR number, PR URL, branch name, or empty for current branch
+    - name: BASE_BRANCH
+      type: string
+      required: false
+      description: "Diff base branch (default: from PR or main)"
+    - name: SKIP_VISUAL
+      type: boolean
+      required: false
+      description: Skip visual diagram generation
+      default: false
+      aliases:
+        - skip-visual
+        - no visual
+  environment:
+    - name: RP1_ROOT
+      source: rp1 agent-tools rp1-root-dir
+      description: Root directory for rp1 project context and work artifacts
 ---
+
+## 0. Resolve Arguments
+
+Run the argument resolver to obtain all parameter values:
+
+```bash
+rp1 agent-tools resolve-args --name rp1-dev:pr-review --args "$ARGUMENTS"
+```
+
+Parse the JSON response. Extract values from `data.arguments` and `data.environment`:
+
+| Variable | Source |
+|----------|--------|
+| TARGET | `data.arguments.TARGET` |
+| BASE_BRANCH | `data.arguments.BASE_BRANCH` |
+| SKIP_VISUAL | `data.arguments.SKIP_VISUAL` |
+| RP1_ROOT | `data.environment.RP1_ROOT` |
+
+If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
+
+Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
 
 # PR Review Orchestrator
 
@@ -59,27 +101,6 @@ rp1 agent-tools emit --harness claude-code \
 --workflow pr-review --step post --data '{"status": "running"}'         # synthesize done, entering post phase
 --workflow pr-review --step post --data '{"status": "completed"}'       # post done, workflow complete
 ```
-
-## 0. Resolve Arguments
-
-Run the argument resolver to obtain all parameter values:
-
-```bash
-rp1 agent-tools resolve-args --schema-path plugins/dev/skills/pr-review/SKILL.md --args "{raw arguments from user invocation}"
-```
-
-Parse the JSON response. Extract values from `data.arguments` and `data.environment`:
-
-| Variable | Source |
-|----------|--------|
-| TARGET | `data.arguments.TARGET` |
-| BASE_BRANCH | `data.arguments.BASE_BRANCH` |
-| SKIP_VISUAL | `data.arguments.SKIP_VISUAL` |
-| RP1_ROOT | `data.environment.RP1_ROOT` |
-
-If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
-
-Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
 
 §ARCH
 

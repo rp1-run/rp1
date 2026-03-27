@@ -9,21 +9,26 @@ metadata:
   created: 2026-01-19
   author: cloud-on-prem/rp1
   argument-hint: "<input> [output-dir]"
+  arguments:
+    - name: INPUT
+      type: string
+      required: true
+      description: File path to a prompt file, or raw prompt text
+    - name: OUTPUT_DIR
+      type: string
+      required: false
+      description: "Output directory for generated files (default: input file dir or cwd)"
 ---
-
-# Build Prompt Evals
-
-Generate eval assertions (YAML) and test invocation prompt from source prompt. Extracts assertions, then runs assertion specialist to resolve placeholders, consolidate scenarios, and document unresolved assertions.
 
 ## 0. Resolve Arguments
 
 Run the argument resolver to obtain all parameter values:
 
 ```bash
-rp1 agent-tools resolve-args --schema-path plugins/utils/skills/build-prompt-evals/SKILL.md --args "{raw arguments from user invocation}"
+rp1 agent-tools resolve-args --name rp1-utils:build-prompt-evals --args "$ARGUMENTS"
 ```
 
-Parse the JSON response. Extract values from `data.arguments`:
+Parse the JSON response. Extract values from `data.arguments` and `data.environment`:
 
 | Variable | Source |
 |----------|--------|
@@ -33,6 +38,10 @@ Parse the JSON response. Extract values from `data.arguments`:
 If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
 
 Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
+
+# Build Prompt Evals
+
+Generate eval assertions (YAML) and test invocation prompt from source prompt. Extracts assertions, then runs assertion specialist to resolve placeholders, consolidate scenarios, and document unresolved assertions.
 
 ## Modes
 

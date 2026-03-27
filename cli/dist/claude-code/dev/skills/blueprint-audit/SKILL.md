@@ -12,21 +12,22 @@ metadata:
   created: 2026-01-27
   author: cloud-on-prem/rp1
   argument-hint: "<prd-name>"
+  arguments:
+    - name: PRD_NAME
+      type: string
+      required: true
+      description: PRD filename without extension
 ---
-
-# Blueprint Audit
-
-Audits PRD documents against implementation evidence, identifies stale or completed blueprints, and guides disposition decisions (archive, modify scope, defer).
 
 ## 0. Resolve Arguments
 
 Run the argument resolver to obtain all parameter values:
 
 ```bash
-rp1 agent-tools resolve-args --schema-path plugins/dev/skills/blueprint-audit/SKILL.md --args "{raw arguments from user invocation}"
+rp1 agent-tools resolve-args --name rp1-dev:blueprint-audit --args "$ARGUMENTS"
 ```
 
-Parse the JSON response. Extract values from `data.arguments`:
+Parse the JSON response. Extract values from `data.arguments` and `data.environment`:
 
 | Variable | Source |
 |----------|--------|
@@ -35,6 +36,10 @@ Parse the JSON response. Extract values from `data.arguments`:
 If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
 
 Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
+
+# Blueprint Audit
+
+Audits PRD documents against implementation evidence, identifies stale or completed blueprints, and guides disposition decisions (archive, modify scope, defer).
 
 ## Usage
 

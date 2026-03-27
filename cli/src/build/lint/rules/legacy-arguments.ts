@@ -1,5 +1,5 @@
 /**
- * L007-L012: Source-level validation rules for argument schema integrity.
+ * L007-L013: Source-level validation rules for argument schema integrity.
  *
  * These rules operate on parsed source data (SkillMetadata, ClaudeCodeAgent)
  * before template rendering, unlike the rendered-output lint rules (L001-L006).
@@ -10,6 +10,7 @@
  * L010: Enum argument missing enum_values
  * L011: Implies references non-existent argument
  * L012: Circular implies chain
+ * L013: Hand-written Resolve Arguments section alongside arguments (skill only)
  */
 
 import { validateImpliesChains } from "../../arguments.js";
@@ -17,6 +18,7 @@ import type { ArgumentDefinition, SkillMetadata } from "../../models.js";
 import type { LintDiagnostic } from "../index.js";
 
 const PARAMETERS_HEADING_RE = /^#{1,3}\s+(?:0\.\s+)?Parameters\s*$/m;
+const RESOLVE_ARGS_HEADING_RE = /^#{1,3}\s+(?:0\.\s+)?Resolve\s+Arguments\s*$/m;
 
 /**
  * Validate argument definitions for enum/implies issues (L010-L012).
@@ -96,7 +98,32 @@ function lintParametersHeading(
 }
 
 /**
- * Run source-level argument validation rules (L007-L012) on a parsed skill.
+ * Check body content for hand-written Resolve Arguments section (L013).
+ * The build template auto-injects this section; hand-written copies cause duplication.
+ */
+function lintResolveArgsHeading(
+	body: string,
+	hasArguments: boolean,
+	file: string,
+): LintDiagnostic[] {
+	if (!hasArguments) return [];
+	if (!RESOLVE_ARGS_HEADING_RE.test(body)) return [];
+
+	return [
+		{
+			rule: "L013",
+			severity: "error",
+			message:
+				"hand-written 'Resolve Arguments' section found alongside structured 'arguments'. The build template auto-injects this section.",
+			file,
+			suggestion:
+				"Remove the '## 0. Resolve Arguments' section from the body. The build pipeline generates it automatically from the 'arguments' schema in frontmatter.",
+		},
+	];
+}
+
+/**
+ * Run source-level argument validation rules (L007-L013) on a parsed skill.
  *
  * @param metadata - Parsed SkillMetadata (may be undefined for skills without metadata)
  * @param body - Skill body content (post-frontmatter markdown)
@@ -138,6 +165,7 @@ export function lintSkillArguments(
 	}
 
 	diagnostics.push(...lintParametersHeading(body, hasArguments, file));
+	diagnostics.push(...lintResolveArgsHeading(body, hasArguments, file));
 
 	if (hasArguments && metadata?.arguments) {
 		diagnostics.push(...lintArgumentDefinitions(metadata.arguments, file));

@@ -151,6 +151,19 @@ const createTestEngine = () => {
 		},
 	);
 
+	engine.registerFilter("to_yaml", (value: unknown, indent?: number) => {
+		const { stringify } = require("yaml");
+		if (value == null) return "";
+		const raw = stringify(value, { indent: 2 });
+		if (!raw || raw.trim() === "") return "";
+		const prefix = " ".repeat(indent ?? 4);
+		return raw
+			.trimEnd()
+			.split("\n")
+			.map((line: string) => (line.trim() === "" ? "" : `${prefix}${line}`))
+			.join("\n");
+	});
+
 	engine.registerFilter("tool_prose", (content: string, platform: string) => {
 		if (platform === "codex") {
 			const mappings: Record<string, string> = {

@@ -12,18 +12,23 @@ metadata:
   created: 2025-12-31
   author: cloud-on-prem/rp1
   argument-hint: "<prd-name>"
+  arguments:
+    - name: PRD_NAME
+      type: string
+      required: true
+      description: PRD filename without extension (kebab-case)
+  environment:
+    - name: RP1_ROOT
+      source: rp1 agent-tools rp1-root-dir
+      description: Root directory for rp1 project context and work artifacts
 ---
-
-# PRD Archive
-
-Archives completed PRD docs from active -> archives dir with associated features.
 
 ## 0. Resolve Arguments
 
 Run the argument resolver to obtain all parameter values:
 
 ```bash
-rp1 agent-tools resolve-args --schema-path plugins/dev/skills/blueprint-archive/SKILL.md --args "{raw arguments from user invocation}"
+rp1 agent-tools resolve-args --name rp1-dev:blueprint-archive --args "$ARGUMENTS"
 ```
 
 Parse the JSON response. Extract values from `data.arguments` and `data.environment`:
@@ -36,6 +41,10 @@ Parse the JSON response. Extract values from `data.arguments` and `data.environm
 If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
 
 Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
+
+# PRD Archive
+
+Archives completed PRD docs from active -> archives dir with associated features.
 
 ## Usage
 
