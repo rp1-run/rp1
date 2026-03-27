@@ -10,9 +10,10 @@
  * | opencode    | Rewrites known CC tool names to OC equivalents        |
  * | codex       | Rewrites known CC tool names to Codex equivalents     |
  *
- * Only transforms references outside code blocks. Tool names mapped
- * to null (no platform equivalent) are left unchanged — the lint rule
- * L005 will still flag them for manual attention.
+ * Only transforms references outside code blocks. For Codex, tools mapped
+ * to null receive prose fallback descriptions (shell equivalents or
+ * "not available" labels). On other platforms, null-mapped tools are
+ * left unchanged.
  */
 
 import { findMatchesOutsideCodeBlocks } from "../content-utils.js";
@@ -28,10 +29,28 @@ const PROSE_TOOL_NAMES = [
 	"Grep",
 	"Glob",
 	"WebFetch",
+	"WebSearch",
 	"TodoWrite",
 	"EnterPlanMode",
 	"ExitPlanMode",
+	"Task",
+	"Skill",
+	"SlashCommand",
 ] as const;
+
+/**
+ * Codex-specific prose fallbacks for tools mapped to null.
+ * These provide human-readable descriptions instead of silently skipping.
+ */
+const CODEX_PROSE_FALLBACKS: Record<string, string> = {
+	Read: "cat/head/tail via shell",
+	Write: "file writes via shell",
+	Glob: "find via shell",
+	Grep: "grep via shell",
+	WebFetch: "web fetching (not available)",
+	WebSearch: "web searching (not available)",
+	TodoWrite: "task tracking (not available)",
+};
 
 /**
  * Rewrite bare CC tool names in prose to platform equivalents.
@@ -52,8 +71,17 @@ export const toolProse = (
 
 	for (const tool of PROSE_TOOL_NAMES) {
 		const mapped = registry.toolMappings[tool];
-		// Skip tools with no equivalent (null) or no mapping (undefined)
-		if (!mapped) continue;
+
+		// Determine the replacement string: use the mapped name if available,
+		// or a Codex prose fallback for null-mapped tools on the codex platform.
+		let replacement: string | undefined;
+		if (mapped) {
+			replacement = mapped;
+		} else if (platform === "codex" && mapped === null) {
+			replacement = CODEX_PROSE_FALLBACKS[tool];
+		}
+
+		if (!replacement) continue;
 
 		const pattern = new RegExp(`\\b${tool}\\b`, "g");
 		const matches = findMatchesOutsideCodeBlocks(pattern, result);
@@ -64,7 +92,7 @@ export const toolProse = (
 			if (matchIndex === undefined) continue;
 			result =
 				result.slice(0, matchIndex) +
-				mapped +
+				replacement +
 				result.slice(matchIndex + match[0].length);
 		}
 	}
