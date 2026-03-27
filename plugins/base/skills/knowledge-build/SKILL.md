@@ -36,6 +36,25 @@ This command orchestrates parallel knowledge base generation using a map-reduce 
 
 **CRITICAL**: This is an ORCHESTRATOR command, not a thin wrapper. This command must handle parallel execution coordination, result aggregation, and state management.
 
+## 0. Resolve Arguments
+
+Run the argument resolver to obtain all parameter values:
+
+```bash
+rp1 agent-tools resolve-args --schema-path plugins/base/skills/knowledge-build/SKILL.md --args "{raw arguments from user invocation}"
+```
+
+Parse the JSON response. Extract values from `data.arguments` and `data.environment`:
+
+| Variable | Source |
+|----------|--------|
+| FEATURE_ID | `data.arguments.FEATURE_ID` |
+| RP1_ROOT | `data.environment.RP1_ROOT` |
+
+If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
+
+Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
+
 ## Architecture Overview
 
 ```
