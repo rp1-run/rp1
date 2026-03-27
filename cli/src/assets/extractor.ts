@@ -219,20 +219,9 @@ export const extractPlugins = (
 			);
 			plugins.push(assets.plugins.dev.name);
 
-			// Extract utils plugin
-			filesExtracted += await extractPlugin(
-				assets.plugins.utils,
-				targetDir,
-				onProgress,
-			);
-			plugins.push(assets.plugins.utils.name);
-
 			// Extract OpenCode plugins (TypeScript hooks)
-			const allPlugins = [
-				assets.plugins.base,
-				assets.plugins.dev,
-				assets.plugins.utils,
-			];
+			// Note: utils is internal-only and excluded from user-facing installs
+			const allPlugins = [assets.plugins.base, assets.plugins.dev];
 
 			for (const plugin of allPlugins) {
 				filesExtracted += await extractOpenCodePlugin(plugin, onProgress);
