@@ -49,8 +49,9 @@ clean-web-ui-cache:
     rm -rf ~/.rp1/web-ui/
 
 # Build the local binary with -dev version suffix
-build-local-dev: build-opencode build-codex build-web-ui clean-web-ui-cache
-    cd cli && bun run generate:assets && bun build ./src/main.ts --compile --outfile ../bin/rp1 --define __RP1_DEV_BUILD__=true
+# RP1_BUILD_INTERNAL=1 includes utils (internal-only plugin) in the dev build
+build-local-dev: build-web-ui clean-web-ui-cache
+    cd cli && RP1_BUILD_INTERNAL=1 bun run scripts/build-opencode.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-codex.ts && bun run generate:assets && bun build ./src/main.ts --compile --outfile ../bin/rp1 --define __RP1_DEV_BUILD__=true
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Test
