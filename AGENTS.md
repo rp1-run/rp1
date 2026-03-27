@@ -122,7 +122,7 @@ environment:
 
 #### Inline resolution (deprecated for parameterized skills)
 
-The inline pattern below is **deprecated** for skills that have `metadata.arguments` defined. Use `resolve-args --schema-path` instead, which handles both arguments and environment variables in one call.
+The inline pattern below is **deprecated** for skills that have `metadata.arguments` defined. The build template auto-injects `resolve-args --name` instead, which handles both arguments and environment variables in one call.
 
 ```markdown
 $RP1_ROOT = !`rp1 agent-tools rp1-root-dir`
