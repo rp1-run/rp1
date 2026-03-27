@@ -295,6 +295,19 @@ agentToolsCommand
 		"Resolve structured arguments from schema, settings, and user input",
 	)
 	.option("-f, --file <path>", "Read JSON input from file instead of stdin")
+	.option(
+		"-n, --name <namespace>",
+		'Skill/agent name using namespace convention (e.g., "rp1-dev:build")',
+	)
+	.option(
+		"-s, --schema-path <path>",
+		"Direct path to SKILL.md or agent .md file (overrides --name)",
+	)
+	.option("-a, --args <args>", "Raw argument string from invocation")
+	.option(
+		"-p, --project-root <path>",
+		"Project root directory for settings lookup",
+	)
 	.addHelpText(
 		"after",
 		`
@@ -303,6 +316,10 @@ Description:
   schema from frontmatter, merging user input with project and user settings,
   and returning a fully resolved argument object.
 
+  The schema can be located by name (--name) or by direct path (--schema-path).
+  Name-based lookup resolves the schema internally by searching plugin directories.
+  When --schema-path is provided, it takes precedence over --name.
+
   Resolution precedence (highest to lowest):
   1. Explicit user input (from raw_args)
   2. Project settings (.rp1/settings.toml)
@@ -310,9 +327,9 @@ Description:
   4. ENV var (source.env on argument definition)
   5. Schema default
 
-Input:
-  JSON object with:
-  - schema_path: Path to skill SKILL.md or agent .md file
+Input (CLI flags or JSON via stdin/file):
+  - name: Skill/agent namespace (e.g., "rp1-dev:build")
+  - schema_path: Direct path to SKILL.md or agent .md file
   - raw_args: Raw argument string from invocation
   - project_root: Project root directory (for settings lookup)
 
@@ -320,49 +337,83 @@ Output:
   JSON ToolResult with resolved arguments, environment, and unresolved list.
 
 Examples:
-  echo '{"schema_path":"plugins/dev/skills/build/SKILL.md","raw_args":"my-feature --afk","project_root":"/project"}' | rp1 agent-tools resolve-args
+  rp1 agent-tools resolve-args --name rp1-dev:build --args "my-feature --afk"
+  rp1 agent-tools resolve-args --schema-path plugins/dev/skills/build/SKILL.md --args "my-feature"
+  echo '{"name":"rp1-dev:build","raw_args":"my-feature --afk","project_root":"/project"}' | rp1 agent-tools resolve-args
   rp1 agent-tools resolve-args -f input.json
 `,
 	)
-	.action(async (options: { file?: string }): Promise<void> => {
-		const toolName = "resolve-args";
+	.action(
+		async (options: {
+			file?: string;
+			name?: string;
+			schemaPath?: string;
+			args?: string;
+			projectRoot?: string;
+		}): Promise<void> => {
+			const toolName = "resolve-args";
 
-		const inputResult = await readInput(options.file)();
+			let content: string;
+			let source: "file" | "stdin" = "stdin";
 
-		if (E.isLeft(inputResult)) {
-			console.error(
-				createErrorResponse(toolName, formatError(inputResult.left, false)),
-			);
-			process.exit(1);
-		}
+			// If CLI flags provide name or schema-path, build JSON input from flags
+			if (options.name || options.schemaPath) {
+				const input: Record<string, string> = {};
+				if (options.schemaPath) {
+					input.schema_path = options.schemaPath;
+				}
+				if (options.name) {
+					input.name = options.name;
+				}
+				if (options.args) {
+					input.raw_args = options.args;
+				}
+				if (options.projectRoot) {
+					input.project_root = options.projectRoot;
+				}
+				content = JSON.stringify(input);
+				source = "stdin";
+			} else {
+				// Fall back to file/stdin input
+				const inputResult = await readInput(options.file)();
 
-		const { content, source } = inputResult.right;
+				if (E.isLeft(inputResult)) {
+					console.error(
+						createErrorResponse(toolName, formatError(inputResult.left, false)),
+					);
+					process.exit(1);
+				}
 
-		const tool = getTool(toolName);
-		if (!tool) {
-			console.error(
-				createErrorResponse(toolName, "Tool not found in registry"),
-			);
-			process.exit(1);
-		}
+				content = inputResult.right.content;
+				source = inputResult.right.source;
+			}
 
-		const toolOptions: ToolOptions = {
-			inputSource: source,
-			filePath: options.file,
-		};
+			const tool = getTool(toolName);
+			if (!tool) {
+				console.error(
+					createErrorResponse(toolName, "Tool not found in registry"),
+				);
+				process.exit(1);
+			}
 
-		const result = await tool.execute(content, toolOptions)();
+			const toolOptions: ToolOptions = {
+				inputSource: source,
+				filePath: options.file,
+			};
 
-		if (E.isLeft(result)) {
-			console.error(
-				createErrorResponse(toolName, formatError(result.left, false)),
-			);
-			process.exit(1);
-		}
+			const result = await tool.execute(content, toolOptions)();
 
-		console.log(formatOutput(result.right));
-		process.exit(0);
-	});
+			if (E.isLeft(result)) {
+				console.error(
+					createErrorResponse(toolName, formatError(result.left, false)),
+				);
+				process.exit(1);
+			}
+
+			console.log(formatOutput(result.right));
+			process.exit(0);
+		},
+	);
 
 /**
  * codex-notify subcommand.
