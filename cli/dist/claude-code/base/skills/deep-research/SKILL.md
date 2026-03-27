@@ -12,7 +12,35 @@ metadata:
   created: 2025-12-16
   author: cloud-on-prem/rp1
   argument-hint: "<research-topic>"
+  arguments:
+    - name: RESEARCH_TOPIC
+      type: string
+      required: true
+      description: The research topic or questions (freeform text)
+  environment:
+    - name: RP1_ROOT
+      source: rp1 agent-tools rp1-root-dir
+      description: Root directory for rp1 project context and work artifacts
 ---
+
+## 0. Resolve Arguments
+
+Run the argument resolver to obtain all parameter values:
+
+```bash
+rp1 agent-tools resolve-args --name rp1-base:deep-research --args "$ARGUMENTS"
+```
+
+Parse the JSON response. Extract values from `data.arguments` and `data.environment`:
+
+| Variable | Source |
+|----------|--------|
+| RESEARCH_TOPIC | `data.arguments.RESEARCH_TOPIC` |
+| RP1_ROOT | `data.environment.RP1_ROOT` |
+
+If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
+
+Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
 
 # Deep Research - Orchestration Command
 
@@ -59,25 +87,6 @@ rp1 agent-tools emit --harness claude-code \
 --step report --data '{"status": "running"}'        # synthesis done, entering report phase
 --step report --data '{"status": "completed"}'      # report work finished, workflow done
 ```
-
-## 0. Resolve Arguments
-
-Run the argument resolver to obtain all parameter values:
-
-```bash
-rp1 agent-tools resolve-args --schema-path plugins/base/skills/deep-research/SKILL.md --args "{raw arguments from user invocation}"
-```
-
-Parse the JSON response. Extract values from `data.arguments` and `data.environment`:
-
-| Variable | Source |
-|----------|--------|
-| RESEARCH_TOPIC | `data.arguments.RESEARCH_TOPIC` |
-| RP1_ROOT | `data.environment.RP1_ROOT` |
-
-If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
-
-Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
 
 ## 1. Intent Clarification (~15% effort)
 

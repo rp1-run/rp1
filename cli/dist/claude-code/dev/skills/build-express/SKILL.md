@@ -11,20 +11,33 @@ metadata:
   created: 2026-01-15
   author: cloud-on-prem/rp1
   argument-hint: "[request...] [--afk]"
+  arguments:
+    - name: REQUEST
+      type: string
+      required: false
+      description: Initial development request (may be empty; will prompt if missing)
+      default: ""
+      variadic: true
+    - name: AFK
+      type: boolean
+      required: false
+      description: Non-interactive mode
+      default: false
+      aliases:
+        - afk
+        - unattended
+  environment:
+    - name: RP1_ROOT
+      source: rp1 agent-tools rp1-root-dir
+      description: Root directory for rp1 project context and work artifacts
 ---
-
-# Build Express
-
-Interactive builder loop for rapid, small changes. Delegates each request to a single general sub-agent.
-
-**This command ONLY orchestrates. It does NOT implement code.**
 
 ## 0. Resolve Arguments
 
 Run the argument resolver to obtain all parameter values:
 
 ```bash
-rp1 agent-tools resolve-args --schema-path plugins/dev/skills/build-express/SKILL.md --args "{raw arguments from user invocation}"
+rp1 agent-tools resolve-args --name rp1-dev:build-express --args "$ARGUMENTS"
 ```
 
 Parse the JSON response. Extract values from `data.arguments` and `data.environment`:
@@ -38,6 +51,12 @@ Parse the JSON response. Extract values from `data.arguments` and `data.environm
 If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
 
 Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
+
+# Build Express
+
+Interactive builder loop for rapid, small changes. Delegates each request to a single general sub-agent.
+
+**This command ONLY orchestrates. It does NOT implement code.**
 
 **First emit**: Include `--name "{RUN_NAME}"` on the first emit call to label the run in the Arcade dashboard. Derive `RUN_NAME` from the initial request: a brief summary (max 60 chars) prefixed with `"Feature: "`. Generate `RUN_ID` as a UUID at session start. Example:
 ```bash

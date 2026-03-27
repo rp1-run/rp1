@@ -11,20 +11,58 @@ metadata:
   created: 2025-12-30
   author: cloud-on-prem/rp1
   argument-hint: "<feature-id> [requirements...] [--afk] [--git-commit] [--git-push] [--git-pr]"
+  arguments:
+    - name: FEATURE_ID
+      type: string
+      required: true
+      description: Feature identifier (kebab-case)
+    - name: REQUIREMENTS
+      type: string
+      required: false
+      description: Raw requirements text
+      default: ""
+      variadic: true
+    - name: AFK
+      type: boolean
+      required: false
+      description: Non-interactive mode
+      default: false
+      aliases:
+        - afk
+        - no prompts
+        - unattended
+    - name: GIT_COMMIT
+      type: boolean
+      required: false
+      description: Commit changes after build
+      default: false
+    - name: GIT_PUSH
+      type: boolean
+      required: false
+      description: Push branch to remote
+      default: false
+      implies:
+        - GIT_COMMIT
+    - name: GIT_PR
+      type: boolean
+      required: false
+      description: Create PR after build
+      default: false
+      implies:
+        - GIT_PUSH
+        - GIT_COMMIT
+  environment:
+    - name: RP1_ROOT
+      source: rp1 agent-tools rp1-root-dir
+      description: Root directory for rp1 project context and work artifacts
 ---
-
-# Build Command
-
-**YOU ARE A PURE ORCHESTRATOR.** Spawn agents for all work. NEVER write/edit/read files yourself. NEVER implement code, requirements, designs, or tests. Use exact agent references per step. If agent fails, retry it — never do its work.
-
-**Feature dir**: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`
 
 ## 0. Resolve Arguments
 
 Run the argument resolver to obtain all parameter values:
 
 ```bash
-rp1 agent-tools resolve-args --schema-path plugins/dev/skills/build/SKILL.md --args "{raw arguments from user invocation}"
+rp1 agent-tools resolve-args --name rp1-dev:build --args "$ARGUMENTS"
 ```
 
 Parse the JSON response. Extract values from `data.arguments` and `data.environment`:
@@ -42,6 +80,12 @@ Parse the JSON response. Extract values from `data.arguments` and `data.environm
 If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
 
 Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
+
+# Build Command
+
+**YOU ARE A PURE ORCHESTRATOR.** Spawn agents for all work. NEVER write/edit/read files yourself. NEVER implement code, requirements, designs, or tests. Use exact agent references per step. If agent fails, retry it — never do its work.
+
+**Feature dir**: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`
 
 ## §0-FIRST-ACTION
 

@@ -11,6 +11,10 @@ metadata:
     - parallel
   created: 2025-12-28
   author: cloud-on-prem/rp1
+  environment:
+    - name: RP1_ROOT
+      source: rp1 agent-tools rp1-root-dir
+      description: Root directory for rp1 project context and work artifacts
 ---
 
 # Generate User Docs - Two-Phase Map-Reduce Orchestrator
@@ -18,24 +22,6 @@ metadata:
 This command orchestrates user documentation synchronization with the auto-generated knowledge base using a two-phase map-reduce architecture.
 
 **CRITICAL**: This is an ORCHESTRATOR command, not a thin wrapper. It coordinates scan and process phases across multiple scribe subagents.
-
-## 0. Resolve Arguments
-
-Run the argument resolver to obtain all parameter values:
-
-```bash
-rp1 agent-tools resolve-args --schema-path plugins/base/skills/generate-user-docs/SKILL.md --args "{raw arguments from user invocation}"
-```
-
-Parse the JSON response. Extract values from `data.environment`:
-
-| Variable | Source |
-|----------|--------|
-| RP1_ROOT | `data.environment.RP1_ROOT` |
-
-If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
-
-Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
 
 ## Architecture Overview
 

@@ -27,25 +27,6 @@ metadata:
 
 # Comment Cleaner
 
-## 0. Resolve Arguments
-
-Run the argument resolver to obtain all parameter values:
-
-```bash
-rp1 agent-tools resolve-args --schema-path plugins/dev/skills/code-clean-comments/SKILL.md --args "{raw arguments from user invocation}"
-```
-
-Parse the JSON response. Extract values from `data.arguments`:
-
-| Variable | Source |
-|----------|--------|
-| SCOPE | `data.arguments.SCOPE` |
-| BASE_BRANCH | `data.arguments.BASE_BRANCH` |
-
-If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
-
-Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
-
 Spawns the comment-cleaner agent for surgical comment cleanup.
 
 {% dispatch_agent "rp1-dev:comment-cleaner", "SCOPE: {SCOPE}, BASE_BRANCH: {BASE_BRANCH}" %}

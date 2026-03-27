@@ -14,7 +14,41 @@ metadata:
   created: 2025-11-30
   author: cloud-on-prem/rp1
   argument-hint: "[prd-name] [extra-context]"
+  arguments:
+    - name: PRD_NAME
+      type: string
+      required: false
+      description: PRD name to create (omit for default charter + main PRD flow)
+    - name: EXTRA_CONTEXT
+      type: string
+      required: false
+      description: Additional context provided by the user
+      default: ""
+  environment:
+    - name: RP1_ROOT
+      source: rp1 agent-tools rp1-root-dir
+      description: Root directory for rp1 project context and work artifacts
 ---
+
+## 0. Resolve Arguments
+
+Run the argument resolver to obtain all parameter values:
+
+```bash
+rp1 agent-tools resolve-args --name rp1-dev:blueprint --args "$ARGUMENTS"
+```
+
+Parse the JSON response. Extract values from `data.arguments` and `data.environment`:
+
+| Variable | Source |
+|----------|--------|
+| PRD_NAME | `data.arguments.PRD_NAME` |
+| EXTRA_CONTEXT | `data.arguments.EXTRA_CONTEXT` |
+| RP1_ROOT | `data.environment.RP1_ROOT` |
+
+If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
+
+Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
 
 # Project Blueprint
 
@@ -56,26 +90,6 @@ rp1 agent-tools emit --harness claude-code \
 --workflow blueprint --step prd --data '{"status": "running"}'        # charter done, entering prd phase
 --workflow blueprint --step prd --data '{"status": "completed"}'      # prd done, workflow complete
 ```
-
-## 0. Resolve Arguments
-
-Run the argument resolver to obtain all parameter values:
-
-```bash
-rp1 agent-tools resolve-args --schema-path plugins/dev/skills/blueprint/SKILL.md --args "{raw arguments from user invocation}"
-```
-
-Parse the JSON response. Extract values from `data.arguments` and `data.environment`:
-
-| Variable | Source |
-|----------|--------|
-| PRD_NAME | `data.arguments.PRD_NAME` |
-| EXTRA_CONTEXT | `data.arguments.EXTRA_CONTEXT` |
-| RP1_ROOT | `data.environment.RP1_ROOT` |
-
-If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
-
-Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
 
 ## §CTX
 

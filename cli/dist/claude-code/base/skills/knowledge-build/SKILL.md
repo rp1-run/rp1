@@ -13,20 +13,23 @@ metadata:
   created: 2025-10-25
   author: cloud-on-prem/rp1
   argument-hint: "[feature-id]"
+  arguments:
+    - name: FEATURE_ID
+      type: string
+      required: false
+      description: Feature ID to incorporate learnings from an archived feature into KB
+  environment:
+    - name: RP1_ROOT
+      source: rp1 agent-tools rp1-root-dir
+      description: Root directory for rp1 project context and work artifacts
 ---
-
-# Knowledge Builder - Parallel KB Generation Orchestrator
-
-This command orchestrates parallel knowledge base generation using a map-reduce architecture
-
-**CRITICAL**: This is an ORCHESTRATOR command, not a thin wrapper. This command must handle parallel execution coordination, result aggregation, and state management.
 
 ## 0. Resolve Arguments
 
 Run the argument resolver to obtain all parameter values:
 
 ```bash
-rp1 agent-tools resolve-args --schema-path plugins/base/skills/knowledge-build/SKILL.md --args "{raw arguments from user invocation}"
+rp1 agent-tools resolve-args --name rp1-base:knowledge-build --args "$ARGUMENTS"
 ```
 
 Parse the JSON response. Extract values from `data.arguments` and `data.environment`:
@@ -39,6 +42,12 @@ Parse the JSON response. Extract values from `data.arguments` and `data.environm
 If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
 
 Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
+
+# Knowledge Builder - Parallel KB Generation Orchestrator
+
+This command orchestrates parallel knowledge base generation using a map-reduce architecture
+
+**CRITICAL**: This is an ORCHESTRATOR command, not a thin wrapper. This command must handle parallel execution coordination, result aggregation, and state management.
 
 ## Architecture Overview
 

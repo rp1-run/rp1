@@ -12,7 +12,57 @@ metadata:
   created: 2025-10-25
   author: cloud-on-prem/rp1
   argument-hint: "[pr-branch] [base-branch] [review-depth] [focus-areas]"
+  arguments:
+    - name: PR_BRANCH
+      type: string
+      required: false
+      description: "Branch or PR to visualize (default: current branch)"
+    - name: BASE_BRANCH
+      type: string
+      required: false
+      description: Diff base branch
+      default: main
+    - name: REVIEW_DEPTH
+      type: enum
+      required: false
+      description: Review depth level
+      default: standard
+      enum_values:
+        - quick
+        - standard
+        - detailed
+    - name: FOCUS_AREAS
+      type: string
+      required: false
+      description: Optional focus filter
+      default: all
+  environment:
+    - name: RP1_ROOT
+      source: rp1 agent-tools rp1-root-dir
+      description: Root directory for rp1 project context and work artifacts
 ---
+
+## 0. Resolve Arguments
+
+Run the argument resolver to obtain all parameter values:
+
+```bash
+rp1 agent-tools resolve-args --name rp1-dev:pr-visual --args "$ARGUMENTS"
+```
+
+Parse the JSON response. Extract values from `data.arguments` and `data.environment`:
+
+| Variable | Source |
+|----------|--------|
+| PR_BRANCH | `data.arguments.PR_BRANCH` |
+| BASE_BRANCH | `data.arguments.BASE_BRANCH` |
+| REVIEW_DEPTH | `data.arguments.REVIEW_DEPTH` |
+| FOCUS_AREAS | `data.arguments.FOCUS_AREAS` |
+| RP1_ROOT | `data.environment.RP1_ROOT` |
+
+If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
+
+Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
 
 # Visual PR Analyzer
 
@@ -37,28 +87,6 @@ rp1 agent-tools emit --harness claude-code \
   --step {STATE} \
   --data '{"status": "{running|completed}", "branch": "{PR_BRANCH}"}'
 ```
-
-## 0. Resolve Arguments
-
-Run the argument resolver to obtain all parameter values:
-
-```bash
-rp1 agent-tools resolve-args --schema-path plugins/dev/skills/pr-visual/SKILL.md --args "{raw arguments from user invocation}"
-```
-
-Parse the JSON response. Extract values from `data.arguments` and `data.environment`:
-
-| Variable | Source |
-|----------|--------|
-| PR_BRANCH | `data.arguments.PR_BRANCH` |
-| BASE_BRANCH | `data.arguments.BASE_BRANCH` |
-| REVIEW_DEPTH | `data.arguments.REVIEW_DEPTH` |
-| FOCUS_AREAS | `data.arguments.FOCUS_AREAS` |
-| RP1_ROOT | `data.environment.RP1_ROOT` |
-
-If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
-
-Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
 
 ## §1 Visualize
 

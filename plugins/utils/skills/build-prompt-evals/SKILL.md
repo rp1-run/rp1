@@ -28,25 +28,6 @@ metadata:
 
 Generate eval assertions (YAML) and test invocation prompt from source prompt. Extracts assertions, then runs assertion specialist to resolve placeholders, consolidate scenarios, and document unresolved assertions.
 
-## 0. Resolve Arguments
-
-Run the argument resolver to obtain all parameter values:
-
-```bash
-rp1 agent-tools resolve-args --schema-path plugins/utils/skills/build-prompt-evals/SKILL.md --args "{raw arguments from user invocation}"
-```
-
-Parse the JSON response. Extract values from `data.arguments`:
-
-| Variable | Source |
-|----------|--------|
-| INPUT | `data.arguments.INPUT` |
-| OUTPUT_DIR | `data.arguments.OUTPUT_DIR` |
-
-If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
-
-Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
-
 ## Modes
 
 **File Mode** (when INPUT is a valid file path):
