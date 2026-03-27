@@ -1787,10 +1787,11 @@ export const executeBuild = (
 						}
 					}
 
+					// Only distributable plugins by default; utils is internal-only
+					// and excluded from the production marketplace. Build it
+					// explicitly with --plugin utils for local dev.
 					const pluginsToBuild =
-						config.plugin === "all"
-							? ["base", "dev", "utils"]
-							: [config.plugin];
+						config.plugin === "all" ? ["base", "dev"] : [config.plugin];
 
 					const allSummaries: BuildSummary[] = [];
 

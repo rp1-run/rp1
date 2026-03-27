@@ -207,7 +207,7 @@ skills:
   - name: rp1-dev:build-fast
     description: Quick-iteration development for small/medium scope changes with persistent artifacts and optional review.
     plugin: dev
-    skills_that_use_me: [rp1-dev:build-express,rp1-utils:prompt-eval-builder]
+    skills_that_use_me: [rp1-dev:build-express]
     agents_that_use_me: []
     sub_agents_that_i_use: [rp1-dev:build-fast-planner,rp1-dev:task-builder,rp1-dev:task-reviewer]
     skills_that_i_use: [rp1-base:self-update,rp1-dev:arcade-collab,rp1-dev:build]
@@ -216,7 +216,7 @@ skills:
   - name: rp1-dev:build
     description: End-to-end feature workflow (requirements -> design -> tasks -> build -> verify -> archive) in a single command.
     plugin: dev
-    skills_that_use_me: [rp1-dev:blueprint,rp1-dev:bootstrap,rp1-dev:build-express,rp1-dev:build-fast,rp1-utils:prompt-eval-builder]
+    skills_that_use_me: [rp1-dev:blueprint,rp1-dev:bootstrap,rp1-dev:build-express,rp1-dev:build-fast]
     agents_that_use_me: [rp1-dev:feature-editor,rp1-dev:hypothesis-tester]
     sub_agents_that_i_use: [rp1-dev:build-artifact-detector,rp1-dev:build-task-grouper,rp1-dev:build-task-parser,rp1-dev:build-verify-aggregator,rp1-dev:code-checker,rp1-dev:comment-cleaner,rp1-dev:feature-architect,rp1-dev:feature-archiver,rp1-dev:feature-requirement-gatherer,rp1-dev:feature-tasker,rp1-dev:feature-verifier,rp1-dev:hypothesis-tester,rp1-dev:task-builder,rp1-dev:task-reviewer]
     skills_that_i_use: [rp1-dev:code-check,rp1-dev:feature-archive]
@@ -312,48 +312,3 @@ skills:
     skills_that_i_use: []
     last_update: "2026-03-27"
     last_checksum: 507a981437cc12123cdbe33bcacbe3455b906fbf0fdffcfd3bcff54ab77ce85e
-  - name: rp1-utils:build-prompt-evals
-    description: Builds eval assertions and minimal test prompt from prompt text, then optimizes assertions via specialist agent.
-    plugin: utils
-    skills_that_use_me: []
-    agents_that_use_me: []
-    sub_agents_that_i_use: [rp1-utils:dependency-chain-analyzer,rp1-utils:prompt-assertion-specialist,rp1-utils:prompt-eval-extractor]
-    skills_that_i_use: []
-    last_update: "2026-03-27"
-    last_checksum: 94ec4a0ea7ed41f86ea1b49a83b367724df0473185215bc945bc5a065ce7c8f0
-  - name: rp1-utils:prompt-eval-builder
-    description: Domain knowledge for extracting eval assertions and generating test invocation prompts from command/agent specs. Used for building promptfoo evaluation configs.
-    plugin: utils
-    skills_that_use_me: []
-    agents_that_use_me: []
-    sub_agents_that_i_use: []
-    skills_that_i_use: [rp1-dev:build-fast,rp1-dev:build]
-    last_update: "2026-01-23"
-    last_checksum: cede5ee43cd2c295c08702f787337ff249d1bf715c1f00fa9fc1f4eb4226d7ac
-  - name: rp1-utils:prompt-writer
-    description: Write maximally terse agent prompts from scratch. Use when creating new agent specs, command prompts, or instruction sets. Teaches structure-first composition with compression-by-default patterns.
-    plugin: utils
-    skills_that_use_me: []
-    agents_that_use_me: [rp1-utils:prompt-tersifier]
-    sub_agents_that_i_use: []
-    skills_that_i_use: []
-    last_update: "2025-12-30"
-    last_checksum: 1b00b87ed197e5cb52a1112d48e8297220c908f8a96c846bb332bdea60b187e2
-  - name: rp1-utils:tersify-prompt
-    description: Rewrites agent-instruction prompts to be maximally terse while preserving full intent.
-    plugin: utils
-    skills_that_use_me: []
-    agents_that_use_me: []
-    sub_agents_that_i_use: [rp1-utils:prompt-tersifier]
-    skills_that_i_use: []
-    last_update: "2026-03-27"
-    last_checksum: 84d9993abc288650143e6f7f5cf4dd207b2f8db0885ac27cf695556cebc6d4fd
-  - name: rp1-utils:tester
-    description: Test command template for verifying argument passing and skill invocation.
-    plugin: utils
-    skills_that_use_me: []
-    agents_that_use_me: []
-    sub_agents_that_i_use: []
-    skills_that_i_use: []
-    last_update: "2026-03-27"
-    last_checksum: b65c310a4e5c59bd7b32708c952d70c9c8435d8a2e0e267c98e7e27a36f2cddb

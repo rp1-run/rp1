@@ -328,31 +328,3 @@ agents:
     skills_that_use_me: []
     last_update: "2026-03-27"
     last_checksum: cafcf11af82c0f3c282c81cda1ba6be2553f7f953614ff2f8a8d43202c478bca
-  - name: rp1-utils:dependency-chain-analyzer
-    description: Analyzes command/agent files to discover sub-agent and skill dependencies
-    plugin: utils
-    skills_that_i_use: []
-    skills_that_use_me: [rp1-utils:build-prompt-evals]
-    last_update: "2026-03-27"
-    last_checksum: 2e71fdcde7d4f7ddab7776b9e56776f3709c39409802792c37916ac1727df80e
-  - name: rp1-utils:prompt-assertion-specialist
-    description: Consolidates eval test scenarios to minimize LLM evaluation calls
-    plugin: utils
-    skills_that_i_use: []
-    skills_that_use_me: [rp1-utils:build-prompt-evals]
-    last_update: "2026-03-27"
-    last_checksum: 92357273934349457bbb03f21ba01aa8b590436c1dfcafbc1e671f819bde4737
-  - name: rp1-utils:prompt-eval-extractor
-    description: Extracts evaluation assertions using prompt-eval-builder skill
-    plugin: utils
-    skills_that_i_use: []
-    skills_that_use_me: [rp1-utils:build-prompt-evals]
-    last_update: "2026-03-27"
-    last_checksum: 17f483457a185a0d6f9b2b853df5bb1e9b2f4d44ba28ad885e2b85b4a4c610c2
-  - name: rp1-utils:prompt-tersifier
-    description: Transforms agent-instruction prompts into maximally terse versions while preserving full intent
-    plugin: utils
-    skills_that_i_use: [rp1-utils:prompt-writer]
-    skills_that_use_me: [rp1-utils:tersify-prompt]
-    last_update: "2026-03-27"
-    last_checksum: e43da48ef7f66187301fe67c3dac397e22247ec06961a0fc75650e6d9e8bd4f2
