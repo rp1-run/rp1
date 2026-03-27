@@ -24,6 +24,7 @@ import type {
 	ResolvedArgumentValues,
 	ResolvedEnvironmentValues,
 } from "./models.js";
+import { resolveSchemaFromNameOrPath } from "./schema-lookup.js";
 
 /**
  * Extract the skill/agent name from a schema file path.
@@ -326,19 +327,30 @@ export const resolveArgs = (
 	input: ResolveArgsInput,
 ): TE.TaskEither<CLIError, ResolvedArgs> =>
 	pipe(
+		// Resolve schema file path from name or direct path
+		resolveSchemaFromNameOrPath(input.name, input.schema_path),
 		// Read and parse the schema file
-		TE.tryCatch(
-			() => readFile(input.schema_path, "utf-8"),
-			() =>
-				notFoundError(
-					input.schema_path,
-					"Schema file not found. Check the path and try again.",
+		TE.chain((resolvedPath) =>
+			pipe(
+				TE.tryCatch(
+					() => readFile(resolvedPath, "utf-8"),
+					() =>
+						notFoundError(
+							resolvedPath,
+							"Schema file not found. Check the path and try again.",
+						),
 				),
+				TE.map((content) => ({ content, resolvedPath })),
+			),
 		),
-		TE.chain((content) =>
-			pipe(parseFrontmatter(content, input.schema_path), TE.fromEither),
+		TE.chain(({ content, resolvedPath }) =>
+			pipe(
+				parseFrontmatter(content, resolvedPath),
+				TE.fromEither,
+				TE.map((schema) => ({ schema, resolvedPath })),
+			),
 		),
-		TE.chain((schema) => {
+		TE.chain(({ schema, resolvedPath }) => {
 			// Empty schema -> return empty result
 			if (schema.arguments.length === 0 && schema.environment.length === 0) {
 				return TE.right<CLIError, ResolvedArgs>({
@@ -357,7 +369,7 @@ export const resolveArgs = (
 					const userInput = parseRawArgs(input.raw_args, argDefs);
 
 					// Layers 2+3: Load settings (loader handles merge precedence)
-					const skillName = extractNameFromPath(input.schema_path);
+					const skillName = extractNameFromPath(resolvedPath);
 					const settingsDefaults = await loadArgumentDefaultsForSkill(
 						skillName,
 						input.project_root,

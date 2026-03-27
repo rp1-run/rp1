@@ -6,7 +6,7 @@ rp1_doc_id: 81f506be-4692-4de8-b46a-067c37b213a1
 
 **Feature ID**: args-templates
 **Status**: Not Started
-**Progress**: 86% (12 of 14 tasks)
+**Progress**: 93% (13 of 14 tasks)
 **Estimated Effort**: 7 days
 **Started**: 2026-03-27
 
@@ -500,6 +500,18 @@ stateDiagram-v2
     - **Deviations**: None
     - **Tests**: 2018/2018 passing
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ⏭️ N/A |
+
     **Execution Flow**:
 
     ```mermaid
@@ -639,7 +651,7 @@ stateDiagram-v2
 
 ### Tasks from EDIT-004
 
-- [ ] **T7-addendum**: Implement name-based schema lookup in resolve-args instead of raw file path input `[complexity:medium]`
+- [x] **T7-addendum**: Implement name-based schema lookup in resolve-args instead of raw file path input `[complexity:medium]`
 
     **Reference**: [design.md EDIT-004](#edit-004-resolve-args-should-accept-skillagent-name-not-raw-file-path)
 
@@ -647,13 +659,28 @@ stateDiagram-v2
 
     **Acceptance Criteria**:
 
-    - [ ] `resolve-args` accepts a `--name` argument using `<plugin>:<skill-or-agent-name>` namespace convention (e.g., `rp1-dev:build`)
-    - [ ] The tool parses the namespace to extract plugin name and skill/agent name
-    - [ ] The tool resolves the schema file path internally by looking up the installed plugin directory
-    - [ ] Plugin path lookup works in both development mode (`cli/dist/`) and production mode (installed plugin paths)
-    - [ ] A `--schema-path` override flag is supported for development/testing to bypass name-based lookup
-    - [ ] When `--schema-path` is provided, it takes precedence over `--name`
-    - [ ] Unit tests cover name-based lookup, schema-path override, and error cases (unknown plugin, unknown skill)
+    - [x] `resolve-args` accepts a `--name` argument using `<plugin>:<skill-or-agent-name>` namespace convention (e.g., `rp1-dev:build`)
+    - [x] The tool parses the namespace to extract plugin name and skill/agent name
+    - [x] The tool resolves the schema file path internally by looking up the installed plugin directory
+    - [x] Plugin path lookup works in both development mode (`cli/dist/`) and production mode (installed plugin paths)
+    - [x] A `--schema-path` override flag is supported for development/testing to bypass name-based lookup
+    - [x] When `--schema-path` is provided, it takes precedence over `--name`
+    - [x] Unit tests cover name-based lookup, schema-path override, and error cases (unknown plugin, unknown skill)
+
+    **Implementation Summary**:
+
+    - **Files**: `cli/src/agent-tools/resolve-args/schema-lookup.ts`, `cli/src/agent-tools/resolve-args/models.ts`, `cli/src/agent-tools/resolve-args/index.ts`, `cli/src/agent-tools/resolve-args/resolver.ts`, `cli/src/agent-tools/command.ts`, `cli/src/__tests__/agent-tools/resolve-args/resolve-args.test.ts`
+    - **Approach**: Created schema-lookup module with parseNamespace and resolveSchemaPath functions; namespace parsing strips rp1- prefix and splits on colon; schema resolution tries dev paths (cli/dist/claude-code/) first then production paths (installed_plugins.json); updated models to make schema_path optional and add name field; updated resolver to use schema-lookup for path resolution; added --name, --schema-path, --args, --project-root CLI flags to command.ts
+    - **Deviations**: None
+    - **Tests**: 36/36 passing (16 new tests)
+
+    **Execution Flow**:
+
+    ```mermaid
+    stateDiagram-v2
+        [*] --> T7_addendum_NameBasedSchemaLookup
+        T7_addendum_NameBasedSchemaLookup --> [*]
+    ```
 
 ## Definition of Done
 
