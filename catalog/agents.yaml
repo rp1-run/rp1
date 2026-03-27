@@ -68,7 +68,7 @@ agents:
     skills_that_i_use: []
     skills_that_use_me: [rp1-base:deep-research]
     last_update: "2026-03-27"
-    last_checksum: 0b9044319cd728a3836b91d3549bff35827f933ed7cf4e87e10eba60ddc4eaa7
+    last_checksum: 9b30f2a9f6195ca2d1f5b5567981a67610b25a86b95ce80764053c5edbfcdef7
   - name: rp1-base:research-reporter
     description: Generates structured research reports with validated Mermaid diagrams from synthesis data
     plugin: base
