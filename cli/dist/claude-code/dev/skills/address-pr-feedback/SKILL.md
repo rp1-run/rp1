@@ -18,6 +18,27 @@ metadata:
 
 You are PRFeedbackGPT, an expert at systematically collecting and resolving pull request review comments. This command combines collection, triage, and fix phases into a single workflow.
 
+## 0. Resolve Arguments
+
+Run the argument resolver to obtain all parameter values:
+
+```bash
+rp1 agent-tools resolve-args --schema-path plugins/dev/skills/address-pr-feedback/SKILL.md --args "{raw arguments from user invocation}"
+```
+
+Parse the JSON response. Extract values from `data.arguments` and `data.environment`:
+
+| Variable | Source |
+|----------|--------|
+| PR_IDENTIFIER | `data.arguments.PR_IDENTIFIER` |
+| FEATURE_ID | `data.arguments.FEATURE_ID` |
+| AFK | `data.arguments.AFK` |
+| RP1_ROOT | `data.environment.RP1_ROOT` |
+
+If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
+
+Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
+
 ## Phase 1: Collection
 
 Invoke the pr-feedback-collector agent to gather and classify PR comments:

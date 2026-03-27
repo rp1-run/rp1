@@ -19,6 +19,30 @@ metadata:
 
 **Feature dir**: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`
 
+## 0. Resolve Arguments
+
+Run the argument resolver to obtain all parameter values:
+
+```bash
+rp1 agent-tools resolve-args --schema-path plugins/dev/skills/build/SKILL.md --args "{raw arguments from user invocation}"
+```
+
+Parse the JSON response. Extract values from `data.arguments` and `data.environment`:
+
+| Variable | Source |
+|----------|--------|
+| FEATURE_ID | `data.arguments.FEATURE_ID` |
+| REQUIREMENTS | `data.arguments.REQUIREMENTS` |
+| AFK | `data.arguments.AFK` |
+| GIT_COMMIT | `data.arguments.GIT_COMMIT` |
+| GIT_PUSH | `data.arguments.GIT_PUSH` |
+| GIT_PR | `data.arguments.GIT_PR` |
+| RP1_ROOT | `data.environment.RP1_ROOT` |
+
+If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
+
+Use these resolved values for all subsequent steps. Do not re-derive or re-parse arguments.
+
 ## §0-FIRST-ACTION
 
 **FIRST tool call MUST be:**
