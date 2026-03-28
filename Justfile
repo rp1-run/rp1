@@ -163,12 +163,12 @@ fix-evals:
 # Local Installation
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Full local install: build + remove stable + install to all platforms
-install: build rm-stable
+# Full local install: remove stable + build + install to all platforms
+install: rm-stable build
     @echo ""
     @echo "━━━ Installing to all platforms ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     @echo ""
-    @./bin/rp1 install
+    @./bin/rp1 install -y
 
 # Run local binary with args
 run *args: build
