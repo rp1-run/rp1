@@ -18,6 +18,14 @@ export {
 	installPlugin,
 	updatePlugin,
 } from "./installer.js";
+// Marketplace
+export {
+	createLocalMarketplace,
+	DEFAULT_MARKETPLACE_DIR,
+	MARKETPLACE_NAME as LOCAL_MARKETPLACE_NAME,
+	type MarketplaceResult,
+	registerMarketplace,
+} from "./marketplace.js";
 // Models
 export type {
 	ClaudeCodeInstallConfig,
