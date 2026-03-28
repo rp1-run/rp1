@@ -19,7 +19,7 @@ describe("formatCheckOutputHookText", () => {
 		);
 	});
 
-	test("returns null when no update is available", () => {
+	test("returns version info when no update is available", () => {
 		const result = formatCheckOutputHookText({
 			currentVersion: "0.6.5",
 			latestVersion: "0.6.5",
@@ -31,7 +31,7 @@ describe("formatCheckOutputHookText", () => {
 			cacheExpiresInHours: 23.5,
 		});
 
-		expect(result).toBeNull();
+		expect(result).toContain("rp1 is running v");
 	});
 
 	test("returns null when the check errored", () => {
