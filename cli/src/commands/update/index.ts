@@ -14,8 +14,13 @@ import { Command } from "commander";
 import * as E from "fp-ts/lib/Either.js";
 import { formatError } from "../../../shared/errors.js";
 import type { Logger } from "../../../shared/logger.js";
-import { confirmAction } from "../../../shared/prompts.js";
 import { loadToolsRegistry } from "../../config/supported-tools.js";
+import { updatePlugin } from "../../install/claudecode/installer.js";
+import {
+	isStale,
+	type PlatformVersions,
+	readAllVersionMarkers,
+} from "../../install/version-marker.js";
 import { DEFAULT_TTL_HOURS, writeCache } from "../../lib/cache.js";
 import { getColorFns } from "../../lib/colors.js";
 import {
@@ -30,7 +35,7 @@ import {
 } from "../../lib/version.js";
 import {
 	type InstallContext,
-	installAllDetectedTools,
+	installForSpecificTool,
 } from "../../shared/install-core.js";
 import { pluginsSubcommand } from "./plugins.js";
 
@@ -272,6 +277,150 @@ export const executeSelfUpdate = async (
 };
 
 /**
+ * Known platforms for staleness detection.
+ * Order determines display order in status output.
+ */
+const KNOWN_PLATFORMS = ["claude-code", "opencode", "codex"] as const;
+
+/**
+ * Check plugin staleness via version markers and reinstall stale platforms.
+ * Reads the centralized version markers file and compares each platform's
+ * installed version against the current binary version. Stale platforms
+ * are automatically re-extracted and reinstalled from the binary.
+ *
+ * For Claude Code, additionally runs `claude plugin update` after reinstall
+ * to ensure Claude picks up the new plugin files.
+ *
+ * @param options - Update options (dryRun)
+ * @param logger - Logger instance
+ * @param isTTY - Whether running in TTY mode
+ */
+const checkAndReinstallStalePlugins = async (
+	options: { dryRun: boolean; yes: boolean },
+	logger: Logger,
+	isTTY: boolean,
+): Promise<void> => {
+	const { green, yellow, bold, dim } = getColorFns(isTTY);
+	const currentVersion = getInstalledVersion();
+
+	console.log("");
+	console.log(bold("Checking plugin staleness..."));
+
+	const markersResult = await readAllVersionMarkers()();
+
+	if (E.isLeft(markersResult)) {
+		console.log(
+			yellow("Warning: Could not read version markers. Skipping plugin check."),
+		);
+		logger.debug(
+			`Version marker read failed: ${formatError(markersResult.left, false)}`,
+		);
+		return;
+	}
+
+	const markers: PlatformVersions = markersResult.right;
+	const stalePlatforms: string[] = [];
+	const upToDatePlatforms: string[] = [];
+
+	for (const platform of KNOWN_PLATFORMS) {
+		const marker = markers[platform] ?? null;
+		if (isStale(marker, currentVersion)) {
+			stalePlatforms.push(platform);
+		} else {
+			upToDatePlatforms.push(platform);
+		}
+	}
+
+	if (stalePlatforms.length === 0) {
+		console.log(green("All platform plugins are up to date."));
+		console.log("");
+		for (const platform of upToDatePlatforms) {
+			console.log(
+				dim(
+					`  ${platform}: v${markers[platform]?.version ?? "unknown"} (current)`,
+				),
+			);
+		}
+		return;
+	}
+
+	console.log("");
+	console.log(
+		`Stale plugins detected for: ${stalePlatforms.map((p) => bold(p)).join(", ")}`,
+	);
+
+	if (options.dryRun) {
+		console.log("");
+		console.log("Dry run mode - would reinstall plugins for:");
+		for (const platform of stalePlatforms) {
+			const markerVersion = markers[platform]?.version ?? "none";
+			console.log(`  ${platform}: ${markerVersion} -> ${currentVersion}`);
+		}
+		return;
+	}
+
+	const ctx: InstallContext = {
+		logger,
+		isTTY,
+		dryRun: options.dryRun,
+		skipPrompt: options.yes || !isTTY,
+	};
+
+	const registry = await loadToolsRegistry();
+
+	console.log("");
+	console.log(bold("Reinstalling stale plugins..."));
+	console.log("");
+
+	for (const platform of stalePlatforms) {
+		const markerVersion = markers[platform]?.version ?? "none";
+		console.log(
+			`Updating ${platform} plugins (${markerVersion} -> ${currentVersion})...`,
+		);
+
+		const result = await installForSpecificTool(platform, registry, ctx)();
+
+		if (E.isLeft(result)) {
+			console.log(yellow(`  ${platform}: Failed to reinstall`));
+			logger.debug(`  Error: ${formatError(result.left, false)}`);
+			continue;
+		}
+
+		if (result.right.success) {
+			console.log(green(`  ${platform}: Plugins reinstalled`));
+
+			if (platform === "claude-code") {
+				console.log(dim("  Running claude plugin update..."));
+				for (const pluginName of ["rp1-base", "rp1-dev"]) {
+					const updateResult = await updatePlugin(
+						pluginName,
+						"user",
+						logger,
+						options.dryRun,
+						isTTY,
+					)();
+					if (E.isLeft(updateResult)) {
+						logger.debug(
+							`  claude plugin update for ${pluginName} failed: ${formatError(updateResult.left, false)}`,
+						);
+					}
+				}
+			}
+		} else {
+			console.log(yellow(`  ${platform}: Reinstall failed`));
+			if (result.right.error) {
+				logger.debug(`  Error: ${formatError(result.right.error, false)}`);
+			}
+		}
+	}
+
+	console.log("");
+	for (const platform of upToDatePlatforms) {
+		console.log(dim(`  ${platform}: Already up to date`));
+	}
+};
+
+/**
  * Execute the update action logic.
  * Exported for use by deprecated command wrappers.
  *
@@ -358,40 +507,10 @@ export const executeUpdateAction = async (
 		process.exit(updateResult.exitCode);
 	}
 
-	// For dry-run, also show plugin update preview
-	if (options.dryRun) {
-		console.log("");
-		console.log("Plugin updates would also be available:");
-		console.log(
-			"  Run 'rp1 update plugins' to update plugins after CLI update.",
-		);
-		console.log("");
-		console.log("Run without --dry-run to perform the update.");
-		process.exit(0);
-	}
-
-	// Prompt for plugin update (skip in non-TTY or if --yes)
-	if (!isTTY) {
-		// Non-TTY: skip plugin prompt silently
-		console.log("");
-		console.log(
-			dim("Please restart Claude Code or OpenCode to use the new version."),
-		);
-		console.log(dim("Run 'rp1 update plugins' to update plugins."));
-		process.exit(0);
-	}
-
-	console.log("");
-	const shouldUpdatePlugins = options.yes
-		? true
-		: await confirmAction("Would you like to update rp1 plugins as well?", {
-				isTTY,
-				defaultOnNonTTY: false,
-			});
-
-	if (shouldUpdatePlugins && logger) {
-		await executePluginUpdates(
-			{ dryRun: false, yes: options.yes },
+	// Check plugin staleness and reinstall if needed
+	if (logger) {
+		await checkAndReinstallStalePlugins(
+			{ dryRun: options.dryRun, yes: options.yes },
 			logger,
 			isTTY,
 		);
@@ -399,57 +518,11 @@ export const executeUpdateAction = async (
 
 	console.log("");
 	console.log(
-		dim("Please restart Claude Code or OpenCode to use the new version."),
+		dim(
+			"Please restart Claude Code, OpenCode, or Codex to use the new version.",
+		),
 	);
 	process.exit(0);
-};
-
-/**
- * Execute plugin updates for all detected tools.
- */
-const executePluginUpdates = async (
-	options: { dryRun: boolean; yes: boolean },
-	logger: Logger,
-	isTTY: boolean,
-): Promise<void> => {
-	const { green, yellow, bold, dim } = getColorFns(isTTY);
-
-	const ctx: InstallContext = {
-		logger,
-		isTTY,
-		dryRun: options.dryRun,
-		skipPrompt: options.yes || !isTTY,
-	};
-
-	const registry = await loadToolsRegistry();
-
-	console.log("");
-	console.log(bold("Updating plugins for all detected tools..."));
-	console.log("");
-
-	const result = await installAllDetectedTools(registry, ctx)();
-
-	if (E.isLeft(result)) {
-		console.error(formatError(result.left, isTTY));
-		return;
-	}
-
-	const { installed, results, detected } = result.right;
-
-	console.log(`Detected tools: ${detected.map((d) => d.tool.name).join(", ")}`);
-	console.log(`Successfully updated: ${installed}/${results.length}`);
-	console.log("");
-
-	for (const res of results) {
-		if (res.success) {
-			console.log(green(`${res.toolName}: Plugins updated`));
-		} else {
-			console.log(yellow(`${res.toolName}: Update failed`));
-			if (res.error) {
-				console.log(dim(`  ${formatError(res.error, false)}`));
-			}
-		}
-	}
 };
 
 /**
