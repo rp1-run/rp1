@@ -5,7 +5,7 @@
  */
 
 import { copyFile, mkdir, readdir, stat, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, extname, join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
@@ -46,6 +46,12 @@ export interface ExtractionResult {
 const PLUGIN_KEYS = ALL_PLUGIN_KEYS;
 
 /**
+ * Determine file mode based on extension. Shell scripts get execute permission.
+ */
+const fileMode = (path: string): number =>
+	extname(path) === ".sh" ? 0o755 : 0o644;
+
+/**
  * Write a single embedded asset entry to the filesystem.
  * Reads from the Bun blob path and writes text content.
  */
@@ -54,12 +60,13 @@ const writeAssetEntry = async (
 	destPath: string,
 ): Promise<void> => {
 	await mkdir(dirname(destPath), { recursive: true });
+	const mode = fileMode(destPath);
 
 	if (entry.content !== undefined) {
-		await writeFile(destPath, entry.content, { mode: 0o644 });
+		await writeFile(destPath, entry.content, { mode });
 	} else {
 		const content = await Bun.file(entry.path).text();
-		await writeFile(destPath, content, { mode: 0o644 });
+		await writeFile(destPath, content, { mode });
 	}
 };
 
