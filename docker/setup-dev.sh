@@ -41,7 +41,18 @@ echo ""
 # ── Build local rp1 binary ──────────────────────────────────────────────────
 
 echo "[2/3] Building rp1 from local source..."
-cd /src/rp1 && just build-local-dev
+# Bun's --compile uses atomic rename which fails on virtiofs mounts.
+# Build to a local tmp dir first, then copy the binary to the mount.
+BUILD_TMP=$(mktemp -d)
+cd /src/rp1/cli && \
+    RP1_BUILD_INTERNAL=1 bun run scripts/build-opencode.ts && \
+    RP1_BUILD_INTERNAL=1 bun run scripts/build-codex.ts && \
+    RP1_BUILD_INTERNAL=1 bun run scripts/build-claude-code.ts && \
+    bun run generate:assets && \
+    bun build ./src/main.ts --compile --outfile "$BUILD_TMP/rp1" --define __RP1_DEV_BUILD__=true
+mkdir -p /src/rp1/bin
+cp "$BUILD_TMP/rp1" /src/rp1/bin/rp1
+rm -rf "$BUILD_TMP"
 echo ""
 
 # ── Ensure binary is on PATH ────────────────────────────────────────────────
