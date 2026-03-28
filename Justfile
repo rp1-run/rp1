@@ -164,7 +164,11 @@ fix-evals:
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Full local install: build + remove stable + install to all platforms
-install: build rm-stable install-opencode install-codex
+install: build rm-stable
+    @echo ""
+    @echo "━━━ Installing to all platforms ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    @echo ""
+    @./bin/rp1 install
 
 # Run local binary with args
 run *args: build

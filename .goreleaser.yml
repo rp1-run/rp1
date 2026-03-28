@@ -79,6 +79,8 @@ homebrew_casks:
       post:
         install: |
           system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", staged_path] if OS.mac?
+          system_command "#{staged_path}/rp1", args: ["install"],
+            print_stderr: false
 
 scoops:
   - name: rp1
@@ -90,6 +92,8 @@ scoops:
     homepage: "https://rp1.run"
     description: "AI-assisted development workflows CLI"
     license: MIT
+    post_install:
+      - "rp1 install"
 
 changelog:
   use: github-native
