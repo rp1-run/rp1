@@ -758,8 +758,10 @@ export const buildPlatformPlugin = async (
 			continue;
 		}
 
-		// Validate agent (markdown-based platforms only)
-		if (definition.naming.agentExtension === ".md") {
+		// Validate agent (OpenCode only -- validateAgent checks for YAML
+		// frontmatter which only the OpenCode agent template produces;
+		// Claude Code agents are raw markdown without frontmatter).
+		if (platform === "opencode") {
 			const validateResult = validateAgent(content, agentFilename);
 			if (E.isLeft(validateResult)) {
 				errors.push(formatError(validateResult.left, false));
@@ -856,7 +858,7 @@ export const buildPlatformPlugin = async (
 	let hasOpenCodePlugin = false;
 	let openCodePluginAsset: OpenCodePluginAsset | undefined;
 
-	if (!lintOnly && definition.producesBundleAssets) {
+	if (!lintOnly && platform === "opencode") {
 		hasOpenCodePlugin = await copyOpenCodePlugin(pluginDir, pluginOutputDir);
 
 		if (hasOpenCodePlugin) {
