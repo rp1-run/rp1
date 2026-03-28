@@ -1,6 +1,6 @@
 /**
  * Integration tests for the Codex build pipeline.
- * Tests end-to-end buildCodexPlugin with fixture data and output verification.
+ * Tests end-to-end buildPlatformPlugin (codex) with fixture data and output verification.
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
@@ -8,13 +8,15 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { parse as parseToml } from "smol-toml";
 import { createLogger } from "../../../../shared/logger.js";
-import { buildCodexPlugin } from "../../../build/command.js";
+import { buildPlatformPlugin } from "../../../build/command.js";
+import { PLATFORM_DEFINITIONS } from "../../../build/platform-definitions.js";
 import { cleanupTempDir, createTempDir } from "../../helpers/index.js";
 
 const projectRoot = join(import.meta.dir, "..", "..", "..", "..", "..");
 const logger = createLogger({ level: "error", color: false });
+const codexDef = PLATFORM_DEFINITIONS.get("codex")!;
 
-describe("buildCodexPlugin integration", () => {
+describe("buildPlatformPlugin (codex) integration", () => {
 	let tempDir: string;
 
 	beforeAll(async () => {
@@ -27,23 +29,31 @@ describe("buildCodexPlugin integration", () => {
 
 	test("builds base plugin with skills and agents", async () => {
 		const outputPath = join(tempDir, "base-output");
-		const result = await buildCodexPlugin(
+		const result = await buildPlatformPlugin(
 			"base",
 			projectRoot,
 			outputPath,
+			codexDef,
 			logger,
 			true,
 		);
 
-		expect(result.plugin).toBe("base");
-		expect(result.skills).toBeGreaterThan(0);
-		expect(result.agents).toBeGreaterThan(0);
-		expect(result.errors).toHaveLength(0);
+		expect(result.summary.plugin).toBe("base");
+		expect(result.summary.skills).toBeGreaterThan(0);
+		expect(result.summary.agents).toBeGreaterThan(0);
+		expect(result.summary.errors).toHaveLength(0);
 	}, 30000);
 
 	test("produces skill directories with SKILL.md and agents/openai.yaml", async () => {
 		const outputPath = join(tempDir, "structure-output");
-		await buildCodexPlugin("base", projectRoot, outputPath, logger, true);
+		await buildPlatformPlugin(
+			"base",
+			projectRoot,
+			outputPath,
+			codexDef,
+			logger,
+			true,
+		);
 
 		const skillsDir = join(outputPath, "base", "skills");
 		const skillDirs = await readdir(skillsDir);
@@ -64,7 +74,14 @@ describe("buildCodexPlugin integration", () => {
 
 	test("produces rp1-agents.toml with slim config entries", async () => {
 		const outputPath = join(tempDir, "toml-output");
-		await buildCodexPlugin("base", projectRoot, outputPath, logger, true);
+		await buildPlatformPlugin(
+			"base",
+			projectRoot,
+			outputPath,
+			codexDef,
+			logger,
+			true,
+		);
 
 		const tomlPath = join(outputPath, "base", "rp1-agents.toml");
 		const tomlContent = await readFile(tomlPath, "utf-8");
@@ -87,7 +104,14 @@ describe("buildCodexPlugin integration", () => {
 
 	test("produces per-agent TOML files with model and developer_instructions", async () => {
 		const outputPath = join(tempDir, "per-agent-output");
-		await buildCodexPlugin("base", projectRoot, outputPath, logger, true);
+		await buildPlatformPlugin(
+			"base",
+			projectRoot,
+			outputPath,
+			codexDef,
+			logger,
+			true,
+		);
 
 		const agentsDir = join(outputPath, "base", "agents");
 		const agentsStat = await stat(agentsDir);
@@ -106,10 +130,11 @@ describe("buildCodexPlugin integration", () => {
 
 	test("produces manifest.json with correct structure", async () => {
 		const outputPath = join(tempDir, "manifest-output");
-		const result = await buildCodexPlugin(
+		const result = await buildPlatformPlugin(
 			"base",
 			projectRoot,
 			outputPath,
+			codexDef,
 			logger,
 			true,
 		);
@@ -119,15 +144,22 @@ describe("buildCodexPlugin integration", () => {
 		const manifest = JSON.parse(manifestContent);
 
 		expect(manifest.plugin).toBe("rp1-base");
-		expect(manifest.artifacts.skills.length).toBe(result.skills);
-		expect(manifest.artifacts.agents.length).toBe(result.agents);
+		expect(manifest.artifacts.skills.length).toBe(result.summary.skills);
+		expect(manifest.artifacts.agents.length).toBe(result.summary.agents);
 		expect(manifest.installation.skillsDir).toBe("~/.codex/skills/");
 		expect(manifest.installation.configFile).toBe("~/.codex/config.toml");
 	}, 30000);
 
 	test("transforms namespace references in skill content outside code blocks", async () => {
 		const outputPath = join(tempDir, "namespace-output");
-		await buildCodexPlugin("dev", projectRoot, outputPath, logger, true);
+		await buildPlatformPlugin(
+			"dev",
+			projectRoot,
+			outputPath,
+			codexDef,
+			logger,
+			true,
+		);
 
 		const skillsDir = join(outputPath, "dev", "skills");
 		const skillDirs = await readdir(skillsDir);
@@ -160,7 +192,14 @@ describe("buildCodexPlugin integration", () => {
 
 	test("built Codex skills do not contain raw $1 or $ARGUMENTS markers", async () => {
 		const outputPath = join(tempDir, "param-check-output");
-		await buildCodexPlugin("dev", projectRoot, outputPath, logger, true);
+		await buildPlatformPlugin(
+			"dev",
+			projectRoot,
+			outputPath,
+			codexDef,
+			logger,
+			true,
+		);
 
 		const skillsDir = join(outputPath, "dev", "skills");
 		const skillDirs = await readdir(skillsDir);
@@ -184,7 +223,14 @@ describe("buildCodexPlugin integration", () => {
 
 	test("AGENTS.md does not contain Claude-specific syntax", async () => {
 		const outputPath = join(tempDir, "agentsmd-syntax-output");
-		await buildCodexPlugin("base", projectRoot, outputPath, logger, true);
+		await buildPlatformPlugin(
+			"base",
+			projectRoot,
+			outputPath,
+			codexDef,
+			logger,
+			true,
+		);
 
 		const agentsMdPath = join(outputPath, "base", "AGENTS.md");
 		const agentsMdContent = await readFile(agentsMdPath, "utf-8");
@@ -196,7 +242,14 @@ describe("buildCodexPlugin integration", () => {
 
 	test("produces AGENTS.md listing all agents", async () => {
 		const outputPath = join(tempDir, "agentsmd-output");
-		await buildCodexPlugin("base", projectRoot, outputPath, logger, true);
+		await buildPlatformPlugin(
+			"base",
+			projectRoot,
+			outputPath,
+			codexDef,
+			logger,
+			true,
+		);
 
 		const agentsMdPath = join(outputPath, "base", "AGENTS.md");
 		const agentsMdContent = await readFile(agentsMdPath, "utf-8");
@@ -217,7 +270,14 @@ describe("buildCodexPlugin integration", () => {
 
 	test("slim config entries do not include tools, role, or inline developer_instructions", async () => {
 		const outputPath = join(tempDir, "no-tools-output");
-		await buildCodexPlugin("base", projectRoot, outputPath, logger, true);
+		await buildPlatformPlugin(
+			"base",
+			projectRoot,
+			outputPath,
+			codexDef,
+			logger,
+			true,
+		);
 
 		const tomlPath = join(outputPath, "base", "rp1-agents.toml");
 		const tomlContent = await readFile(tomlPath, "utf-8");
@@ -234,33 +294,35 @@ describe("buildCodexPlugin integration", () => {
 
 	test("builds dev plugin without errors", async () => {
 		const outputPath = join(tempDir, "dev-output");
-		const result = await buildCodexPlugin(
+		const result = await buildPlatformPlugin(
 			"dev",
 			projectRoot,
 			outputPath,
+			codexDef,
 			logger,
 			true,
 		);
 
-		expect(result.plugin).toBe("dev");
-		expect(result.skills).toBeGreaterThan(0);
-		expect(result.agents).toBeGreaterThan(0);
-		expect(result.errors).toHaveLength(0);
+		expect(result.summary.plugin).toBe("dev");
+		expect(result.summary.skills).toBeGreaterThan(0);
+		expect(result.summary.agents).toBeGreaterThan(0);
+		expect(result.summary.errors).toHaveLength(0);
 	}, 30000);
 
 	test("builds utils plugin without errors", async () => {
 		const outputPath = join(tempDir, "utils-output");
-		const result = await buildCodexPlugin(
+		const result = await buildPlatformPlugin(
 			"utils",
 			projectRoot,
 			outputPath,
+			codexDef,
 			logger,
 			true,
 		);
 
-		expect(result.plugin).toBe("utils");
-		expect(result.skills).toBeGreaterThan(0);
-		expect(result.agents).toBeGreaterThan(0);
-		expect(result.errors).toHaveLength(0);
+		expect(result.summary.plugin).toBe("utils");
+		expect(result.summary.skills).toBeGreaterThan(0);
+		expect(result.summary.agents).toBeGreaterThan(0);
+		expect(result.summary.errors).toHaveLength(0);
 	}, 30000);
 });

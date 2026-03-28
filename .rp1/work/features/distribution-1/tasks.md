@@ -6,7 +6,7 @@ rp1_doc_id: ae97c605-3a88-4779-9289-86fdbebcdd58
 
 **Feature ID**: distribution-1
 **Status**: Not Started
-**Progress**: 20% (2 of 10 tasks)
+**Progress**: 30% (3 of 10 tasks)
 **Estimated Effort**: 3 days
 **Started**: 2026-03-28
 
@@ -134,6 +134,18 @@ stateDiagram-v2
     - **Deviations**: None
     - **Tests**: 547/547 passing
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
     **Execution Flow**:
 
     ```mermaid
@@ -144,7 +156,7 @@ stateDiagram-v2
 
 ### Core Build (Parallel Group 2)
 
-- [ ] **T2**: Consolidate three build functions into a single buildPlatformPlugin() with hook dispatch `[complexity:complex]`
+- [x] **T2**: Consolidate three build functions into a single buildPlatformPlugin() with hook dispatch `[complexity:complex]`
 
     **Reference**: [design.md#33-buildplatformplugin-generic-loop](design.md#33-buildplatformplugin-generic-loop)
 
@@ -152,13 +164,28 @@ stateDiagram-v2
 
     **Acceptance Criteria**:
 
-    - [ ] Single `buildPlatformPlugin()` function defined in `command.ts` accepting pluginName, projectRoot, outputPath, PlatformDefinition, logger, jsonOutput, and lintOnly parameters
-    - [ ] Function implements the generic parse-preprocess-render-lint-write loop with hook dispatch at each lifecycle point (preparePlugin, enrichSkillContext, enrichAgentContext, postSkillWrite, postPluginBuild)
-    - [ ] Previous `buildPlugin`, `buildCCPlugin`, and `buildCodexPlugin` functions removed
-    - [ ] `executeBuild` dispatches to `buildPlatformPlugin()` with the appropriate `PlatformDefinition`
-    - [ ] Unified `PlatformBuildResult` return type used for all platforms; platforms without bundle assets return empty arrays
-    - [ ] Build output for each platform is identical to what the previous per-platform functions produced (same files, same content)
-    - [ ] All existing build tests pass (`command.test.ts`, `agent-name-parity.test.ts`, `codex/integration.test.ts`)
+    - [x] Single `buildPlatformPlugin()` function defined in `command.ts` accepting pluginName, projectRoot, outputPath, PlatformDefinition, logger, jsonOutput, and lintOnly parameters
+    - [x] Function implements the generic parse-preprocess-render-lint-write loop with hook dispatch at each lifecycle point (preparePlugin, enrichSkillContext, enrichAgentContext, postSkillWrite, postPluginBuild)
+    - [x] Previous `buildPlugin`, `buildCCPlugin`, and `buildCodexPlugin` functions removed
+    - [x] `executeBuild` dispatches to `buildPlatformPlugin()` with the appropriate `PlatformDefinition`
+    - [x] Unified `PlatformBuildResult` return type used for all platforms; platforms without bundle assets return empty arrays
+    - [x] Build output for each platform is identical to what the previous per-platform functions produced (same files, same content)
+    - [x] All existing build tests pass (`command.test.ts`, `agent-name-parity.test.ts`, `codex/integration.test.ts`)
+
+    **Implementation Summary**:
+
+    - **Files**: `cli/src/build/command.ts`, `cli/src/build/platform-definitions.ts`, `cli/src/build/index.ts`, `cli/src/__tests__/build/command.test.ts`, `cli/src/__tests__/build/codex/integration.test.ts`
+    - **Approach**: Replaced three per-platform build functions (buildPlugin, buildCCPlugin, buildCodexPlugin) and their three wrapper functions (buildOpenCodeArtifacts, buildClaudeCodeArtifacts, buildCodexArtifacts) with a single buildPlatformPlugin() that accepts a PlatformDefinition and dispatches to lifecycle hooks. Extended HookContext with engine, registry, versions, and platform info so hooks can render templates autonomously. Implemented Codex hooks (preparePlugin, enrichSkillContext, enrichAgentContext, postSkillWrite, postPluginBuild) in platform-definitions.ts. Updated executeBuild to iterate PLATFORM_DEFINITIONS with a unified buildPlatformArtifacts dispatcher. Updated tests to use the new function signature with explicit PlatformDefinition parameter.
+    - **Deviations**: None
+    - **Tests**: 547/547 passing
+
+    **Execution Flow**:
+
+    ```mermaid
+    stateDiagram-v2
+        [*] --> T2_buildPlatformPlugin_consolidation
+        T2_buildPlatformPlugin_consolidation --> [*]
+    ```
 
 - [ ] **T3**: Replace registry lookup switch with PlatformDefinition map lookup `[complexity:simple]`
 

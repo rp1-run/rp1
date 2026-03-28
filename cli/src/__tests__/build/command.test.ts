@@ -7,7 +7,8 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Logger } from "../../../shared/logger.js";
-import { buildPlugin } from "../../build/command.js";
+import { buildPlatformPlugin } from "../../build/command.js";
+import { PLATFORM_DEFINITIONS } from "../../build/platform-definitions.js";
 import {
 	assertTestIsolation,
 	cleanupTempDir,
@@ -27,7 +28,9 @@ const noopLogger: Logger = {
 	box: () => {},
 };
 
-describe("buildPlugin", () => {
+const opencodeDef = PLATFORM_DEFINITIONS.get("opencode")!;
+
+describe("buildPlatformPlugin (opencode)", () => {
 	let tempDir: string;
 	let outputDir: string;
 
@@ -63,7 +66,14 @@ Build fast skill content.
 		);
 
 		const out = join(outputDir, "dev-skills");
-		const result = await buildPlugin("dev", projectRoot, out, noopLogger, true);
+		const result = await buildPlatformPlugin(
+			"dev",
+			projectRoot,
+			out,
+			opencodeDef,
+			noopLogger,
+			true,
+		);
 
 		expect(result.summary.skills).toBeGreaterThanOrEqual(1);
 		expect(
@@ -93,10 +103,11 @@ Skill version of knowledge-load content.
 		);
 
 		const out = join(outputDir, "skill-output");
-		const result = await buildPlugin(
+		const result = await buildPlatformPlugin(
 			"base",
 			projectRoot,
 			out,
+			opencodeDef,
 			noopLogger,
 			true,
 		);
@@ -155,10 +166,11 @@ Skill B content.
 		);
 
 		const out = join(outputDir, "manifest");
-		const result = await buildPlugin(
+		const result = await buildPlatformPlugin(
 			"base",
 			projectRoot,
 			out,
+			opencodeDef,
 			noopLogger,
 			true,
 		);
@@ -199,10 +211,11 @@ Prompt writer skill content.
 		);
 
 		const out = join(outputDir, "utils");
-		const result = await buildPlugin(
+		const result = await buildPlatformPlugin(
 			"utils",
 			projectRoot,
 			out,
+			opencodeDef,
 			noopLogger,
 			true,
 		);
