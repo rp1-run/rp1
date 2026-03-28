@@ -36,7 +36,7 @@ json_escape() {
   printf '%s' "$s"
 }
 
-escaped_message="$(json_escape "🔄 $message")"
+escaped_message="$(json_escape "🚀 $message")"
 escaped_context="$(json_escape "An $message. Suggest running /self-update if the user asks about updates.")"
 
 printf '{'

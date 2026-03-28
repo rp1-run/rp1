@@ -57,7 +57,7 @@ export const Rp1Plugin = async (_ctx: any) => {
         lines.push("🕹️ rp1 Arcade is live at http://localhost:7710");
       }
       if (updateNotice) {
-        lines.push(`🔄 ${updateNotice}`);
+        lines.push(`🚀 ${updateNotice}`);
       }
       if (lines.length > 0) {
         output.system.push(lines.join("\n"));
