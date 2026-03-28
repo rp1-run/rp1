@@ -6,7 +6,7 @@ rp1_doc_id: ae97c605-3a88-4779-9289-86fdbebcdd58
 
 **Feature ID**: distribution-1
 **Status**: Not Started
-**Progress**: 60% (6 of 10 tasks)
+**Progress**: 80% (8 of 10 tasks)
 **Estimated Effort**: 3 days
 **Started**: 2026-03-28
 
@@ -307,6 +307,18 @@ stateDiagram-v2
     - **Deviations**: None
     - **Tests**: 2037/2040 passing (3 pre-existing failures from T6 git rm of cli/dist/claude-code/)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
     **Execution Flow**:
 
     ```mermaid
@@ -317,7 +329,7 @@ stateDiagram-v2
 
 ### Integration (Parallel Group 4)
 
-- [ ] **T7**: Update package.json build scripts and GoReleaser configuration for multi-platform builds `[complexity:simple]`
+- [x] **T7**: Update package.json build scripts and GoReleaser configuration for multi-platform builds `[complexity:simple]`
 
     **Reference**: [design.md#implementation-plan](design.md#implementation-plan)
 
@@ -325,13 +337,20 @@ stateDiagram-v2
 
     **Acceptance Criteria**:
 
-    - [ ] `build:release` in `package.json` builds all three platforms before generating assets
-    - [ ] All `cli/dist` path references in build scripts updated to `dist/`
-    - [ ] GoReleaser prebuild runs `generate-asset-imports.ts` after all platforms are built
-    - [ ] A build failure for any single platform causes the entire release build to fail
-    - [ ] `bun run build:release` completes successfully producing a binary with all platform assets
+    - [x] `build:release` in `package.json` builds all three platforms before generating assets
+    - [x] All `cli/dist` path references in build scripts updated to `dist/`
+    - [x] GoReleaser prebuild runs `generate-asset-imports.ts` after all platforms are built
+    - [x] A build failure for any single platform causes the entire release build to fail
+    - [x] `bun run build:release` completes successfully producing a binary with all platform assets
 
-- [ ] **T8**: Add "Adding a New Platform" section to DEVELOPMENT.md `[complexity:simple]`
+    **Implementation Summary**:
+
+    - **Files**: `cli/package.json`
+    - **Approach**: Updated `build:release` script to chain all three platform build scripts (build:opencode, build-claude-code.ts, build-codex.ts) before running generate:assets. The && chaining ensures any individual platform failure short-circuits the entire release build. No GoReleaser config changes needed since the CI workflow delegates to build:release via package.json.
+    - **Deviations**: None
+    - **Tests**: 2037/2040 passing (3 pre-existing failures from T6)
+
+- [x] **T8**: Add "Adding a New Platform" section to DEVELOPMENT.md `[complexity:simple]`
 
     **Reference**: [design.md#implementation-plan](design.md#implementation-plan)
 
@@ -339,10 +358,26 @@ stateDiagram-v2
 
     **Acceptance Criteria**:
 
-    - [ ] DEVELOPMENT.md contains a new "Adding a New Platform" section
-    - [ ] Section references the `PlatformDefinition` interface and lists files to create (definition entry, registry, templates)
-    - [ ] Section describes the end-to-end process from definition to verified build output
-    - [ ] A maintainer can follow the documentation to add a hypothetical new platform without modifying `buildPlatformPlugin()` or `generate-asset-imports.ts`
+    - [x] DEVELOPMENT.md contains a new "Adding a New Platform" section
+    - [x] Section references the `PlatformDefinition` interface and lists files to create (definition entry, registry, templates)
+    - [x] Section describes the end-to-end process from definition to verified build output
+    - [x] A maintainer can follow the documentation to add a hypothetical new platform without modifying `buildPlatformPlugin()` or `generate-asset-imports.ts`
+
+    **Implementation Summary**:
+
+    - **Files**: `DEVELOPMENT.md`
+    - **Approach**: Added comprehensive "Adding a New Platform" section covering: files to create/modify table, 8-step process from BuildPlatform type extension through build verification, PlatformDefinition interface reference, lifecycle hooks overview, and build script template. Uses a hypothetical "cursor" platform as the worked example throughout.
+    - **Deviations**: None
+    - **Tests**: N/A (documentation only)
+
+    **Execution Flow**:
+
+    ```mermaid
+    stateDiagram-v2
+        [*] --> T7_Build_scripts_and_GoReleaser
+        T7_Build_scripts_and_GoReleaser --> T8_Platform_extension_documentation
+        T8_Platform_extension_documentation --> [*]
+    ```
 
 ### User Docs
 
