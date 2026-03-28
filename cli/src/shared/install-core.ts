@@ -3,12 +3,16 @@
  * Provides core functions used by both `rp1 init` and `rp1 install` commands.
  */
 
+import { rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { pipe } from "fp-ts/lib/function.js";
 import * as RA from "fp-ts/lib/ReadonlyArray.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../shared/errors.js";
-import { installError } from "../../shared/errors.js";
+import { installError, usageError } from "../../shared/errors.js";
 import type { Logger } from "../../shared/logger.js";
+import { hasBundledAssets } from "../assets/index.js";
 import {
 	getEnabledTools,
 	isToolEnabled,
@@ -19,6 +23,7 @@ import {
 	detectTools,
 	type ToolDetectionResult,
 } from "../init/tool-detector.js";
+import { extractPlatformAssets } from "../install/asset-extractor.js";
 import { installAllPlugins } from "../install/claudecode/installer.js";
 import type { ClaudeCodeInstallResult } from "../install/claudecode/models.js";
 import { runAllPrerequisiteChecks } from "../install/claudecode/prerequisites.js";
@@ -32,6 +37,8 @@ import {
 	type InstallArgs,
 	type InstallOptions,
 } from "../install/command.js";
+import { writeVersionMarker } from "../install/version-marker.js";
+import { getInstalledVersion } from "../lib/version.js";
 
 /**
  * Context for installation operations.
@@ -134,7 +141,10 @@ export const installOpenCodePlugins = (
 
 /**
  * Install rp1 plugins to Codex CLI.
- * Copies skill directories and merges config.toml with agent definitions.
+ * When running from a bundled binary, extracts Codex assets from the embedded
+ * manifest to a temp staging directory before installing. When not bundled,
+ * uses the existing dist/ or artifactsDir path (dev mode).
+ * Writes a version marker after successful install.
  *
  * @param config - Optional configuration for artifacts directory, etc.
  * @param ctx - Installation context with logger, TTY info, etc.
@@ -144,16 +154,65 @@ export const installCodexPlugins = (
 	config: Partial<{ artifactsDir: string | null }>,
 	ctx: InstallContext,
 ): TE.TaskEither<CLIError, CodexInstallResult> => {
+	if (config.artifactsDir === null && hasBundledAssets()) {
+		return installCodexFromBundled(ctx);
+	}
+
 	const artifactsDir =
 		config.artifactsDir ?? getDefaultCodexArtifactsDir() ?? "dist/codex";
 
-	return installCodex(
-		{
-			artifactsDir,
-			dryRun: ctx.dryRun,
-			yes: ctx.skipPrompt,
-		},
-		ctx,
+	return pipe(
+		installCodex(
+			{
+				artifactsDir,
+				dryRun: ctx.dryRun,
+				yes: ctx.skipPrompt,
+			},
+			ctx,
+		),
+		TE.chainFirst(() => writeVersionMarker("codex", getInstalledVersion())),
+	);
+};
+
+/**
+ * Install Codex plugins from bundled binary assets.
+ * Extracts to a temp staging directory, installs from there, then cleans up.
+ */
+const installCodexFromBundled = (
+	ctx: InstallContext,
+): TE.TaskEither<CLIError, CodexInstallResult> => {
+	const stagingDir = join(tmpdir(), `rp1-codex-extract-${Date.now()}`);
+
+	const cleanupStaging = TE.tryCatch(
+		() => rm(stagingDir, { recursive: true, force: true }),
+		() => usageError("cleanup", "Failed to clean up staging directory"),
+	);
+
+	return pipe(
+		extractPlatformAssets({
+			platform: "codex",
+			targetDir: stagingDir,
+		}),
+		TE.chain(() =>
+			pipe(
+				installCodex(
+					{
+						artifactsDir: stagingDir,
+						dryRun: ctx.dryRun,
+						yes: ctx.skipPrompt,
+					},
+					ctx,
+				),
+				TE.chainFirst(() => writeVersionMarker("codex", getInstalledVersion())),
+				TE.chainFirst(() => cleanupStaging),
+			),
+		),
+		TE.orElse((error) =>
+			pipe(
+				cleanupStaging,
+				TE.chain(() => TE.left<CLIError, CodexInstallResult>(error)),
+			),
+		),
 	);
 };
 
