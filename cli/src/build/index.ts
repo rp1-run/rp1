@@ -4,10 +4,10 @@
 
 // Claude Code registry
 export { claudeCodeRegistry } from "./claude-code/registry.js";
+export type { PlatformBuildResult } from "./command.js";
 // Command
 export {
-	buildCCPlugin,
-	buildCodexPlugin,
+	buildPlatformPlugin,
 	deriveCCOutputDir,
 	deriveCodexOutputDir,
 	executeBuild,
