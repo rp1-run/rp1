@@ -607,7 +607,10 @@ describe("integration: version-update", () => {
 				expect(hasDetectionResult).toBe(true);
 
 				// For dry-run with package manager, should show what would be done
-				if (exitCode === 0 && output.includes("Dry run mode")) {
+				if (
+					exitCode === 0 &&
+					output.includes("Dry run mode - showing what would be done")
+				) {
 					expect(output).toContain("Installation method:");
 					expect(output).toContain("Current version:");
 					expect(output).toContain("Update command:");
