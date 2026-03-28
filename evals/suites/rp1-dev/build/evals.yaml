@@ -3,7 +3,7 @@
 # Unified eval config for /rp1-dev:build across harnesses.
 # Default: claude-with-tools. Override: EVAL_HARNESS=opencode
 #
-# Run: just run-evals rp1-dev/build
+# Run: just eval-run rp1-dev/build
 description: "rp1-dev:build unified evaluation"
 evaluateOptions:
   maxConcurrency: 4
