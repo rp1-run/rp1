@@ -122,14 +122,35 @@ CMD ["zsh"]
 # ─────────────────────────────────────────────────────────────────────────────
 FROM target-repo AS dev
 
+USER root
+
+# Node.js LTS via NodeSource (needed for Codex CLI)
+RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+USER rp1user
+
+# Claude Code CLI
+RUN curl -fsSL https://claude.ai/install.sh | bash
+
+# OpenCode CLI
+RUN curl -fsSL https://opencode.ai/install | bash
+
+# Codex CLI
+RUN mkdir -p /home/rp1user/.npm-global \
+    && npm config set prefix /home/rp1user/.npm-global \
+    && npm install -g @openai/codex
+ENV PATH="/home/rp1user/.npm-global/bin:${PATH}"
+
 COPY --chown=rp1user:rp1user docker/setup-dev.sh /home/rp1user/.local/bin/setup-dev.sh
 RUN chmod +x /home/rp1user/.local/bin/setup-dev.sh
 
-# Add /src/rp1/bin to PATH and configure dev prompt
-RUN echo 'export PATH="/src/rp1/bin:$PATH"' >> /home/rp1user/.zshrc \
+# Add all tool bin dirs to PATH and configure dev prompt
+RUN echo 'export PATH="/src/rp1/bin:$HOME/.local/bin:$HOME/.opencode/bin:$HOME/.npm-global/bin:$PATH"' >> /home/rp1user/.zshrc \
     && echo 'PROMPT="[rp1-dev] %~/ %# "' >> /home/rp1user/.zshrc
 
-ENV PATH="/src/rp1/bin:${PATH}"
+ENV PATH="/src/rp1/bin:/home/rp1user/.local/bin:/home/rp1user/.opencode/bin:/home/rp1user/.npm-global/bin:${PATH}"
 
 # Bind Arcade to 0.0.0.0 so port forwarding works from host
 ENV RP1_ARCADE_HOST="0.0.0.0"
