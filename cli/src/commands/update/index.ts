@@ -98,6 +98,20 @@ export const formatCheckOutputJson = (
 };
 
 /**
+ * Format check-update result for shell hooks.
+ * Returns a single-line message when an update is available, otherwise null.
+ */
+export const formatCheckOutputHookText = (
+	result: Awaited<ReturnType<typeof checkForUpdate>>,
+): string | null => {
+	if (result.error || !result.updateAvailable || !result.latestVersion) {
+		return null;
+	}
+
+	return `rp1 update available: v${result.currentVersion} -> v${result.latestVersion} | Run /self-update to update`;
+};
+
+/**
  * Format check-update result for human output.
  * Exported for use by deprecated check-update command wrapper.
  */
@@ -435,6 +449,7 @@ export const executeUpdateAction = async (
 		force: boolean;
 		yes: boolean;
 		json?: boolean;
+		format?: string;
 	},
 	logger: Logger | undefined,
 	isTTY: boolean,
@@ -442,11 +457,27 @@ export const executeUpdateAction = async (
 	const { dim } = getColorFns(isTTY);
 
 	logger?.debug(
-		`Update action starting (check=${options.check}, dry-run=${options.dryRun}, force=${options.force}, yes=${options.yes}, json=${options.json})`,
+		`Update action starting (check=${options.check}, dry-run=${options.dryRun}, force=${options.force}, yes=${options.yes}, json=${options.json}, format=${options.format})`,
 	);
 
 	// Handle --check mode: delegate to check-update logic
 	if (options.check) {
+		if (options.json && options.format) {
+			console.error("Error: --json and --format cannot be used together.");
+			process.exit(1);
+		}
+
+		if (
+			options.format !== undefined &&
+			options.format !== "human" &&
+			options.format !== "hook-text"
+		) {
+			console.error(
+				"Error: Invalid --format value. Use 'human' or 'hook-text'.",
+			);
+			process.exit(1);
+		}
+
 		const checkOptions: CheckOptions = {
 			force: false, // Use cache unless expired
 			timeoutMs: 5000,
@@ -459,6 +490,13 @@ export const executeUpdateAction = async (
 
 			if (options.json) {
 				formatCheckOutputJson(result);
+			} else if (options.format === "hook-text") {
+				const message = formatCheckOutputHookText(result);
+				if (message) {
+					console.log(message);
+					process.exit(0);
+				}
+				process.exit(result.error && !result.latestVersion ? 2 : 1);
 			} else {
 				formatCheckOutput(result, isTTY);
 			}
@@ -550,6 +588,7 @@ export const updateCommand = new Command("update")
 	.description("Update rp1 CLI and/or plugins")
 	.option("--check", "Check for updates without installing", false)
 	.option("--json", "Output result as JSON (only with --check)", false)
+	.option("--format <format>", "Output format for --check: human or hook-text")
 	.option("--dry-run", "Show what would be done without executing", false)
 	.option("--force", "Force update even if already on latest", false)
 	.option("-y, --yes", "Skip confirmation prompts", false)
@@ -562,6 +601,7 @@ Subcommands:
 Options:
   --check    Check for available updates without installing
   --json     Output result as JSON (only with --check)
+  --format   Output format for --check: human or hook-text
   --dry-run  Preview what would be done without making changes
   --force    Force update even if already on the latest version
   -y, --yes  Skip all confirmation prompts
@@ -570,6 +610,7 @@ Examples:
   rp1 update                   Update CLI, then prompt for plugin update
   rp1 update --check           Check if updates are available
   rp1 update --check --json    Check for updates with JSON output
+  rp1 update --check --format hook-text  Emit shell-friendly hook text
   rp1 update --dry-run         Preview update actions
   rp1 update --force           Force reinstall current version
   rp1 update -y                Update without prompts
@@ -588,6 +629,7 @@ Examples:
 				force: options.force,
 				yes: options.yes,
 				json: options.json,
+				format: options.format,
 			},
 			logger,
 			isTTY,
