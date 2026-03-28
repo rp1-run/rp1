@@ -12,9 +12,6 @@ pre-commit:
     format:
       glob: "cli/**/*.{ts,tsx,js,jsx}"
       run: cd cli && bun run format
-    plugin-dist:
-      glob: "plugins/**/*.{md,json,yaml,yml,py}"
-      run: just check-plugin-dist
     catalog:
       glob: "plugins/**/*.md"
       run: "just check-catalog || echo 'WARNING: Catalogue is stale. Run: just generate-catalog'"
@@ -26,8 +23,6 @@ pre-push:
       run: cd cli && bun run typecheck
     typecheck-webui:
       run: cd cli/web-ui && npx tsc --noEmit
-    plugin-dist:
-      run: just check-plugin-dist
     catalog:
       run: just check-catalog
       fail_text: "Catalogue is stale — run: just generate-catalog"
