@@ -20,6 +20,7 @@ export {
 export {
 	type AssetEntry,
 	type BundledAssets,
+	type BundledPlatform,
 	type BundledPlugin,
 	getBundledAssets,
 	getBundledVersion,
