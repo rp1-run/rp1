@@ -37,6 +37,27 @@ export interface BundledPlugin {
 }
 
 /**
+ * Required plugins that must always be present in every build.
+ */
+export const REQUIRED_PLUGINS = ["base", "dev"] as const;
+
+/**
+ * Optional plugins included when their artifacts are present (e.g., internal dev builds).
+ * Add new optional plugins here — all installers pick them up automatically.
+ */
+export const OPTIONAL_PLUGINS = ["utils"] as const;
+
+/**
+ * All known plugin keys (required + optional).
+ */
+export const ALL_PLUGIN_KEYS = [
+	...REQUIRED_PLUGINS,
+	...OPTIONAL_PLUGINS,
+] as const;
+
+export type PluginKey = (typeof ALL_PLUGIN_KEYS)[number];
+
+/**
  * Per-platform bundled plugin set.
  */
 export interface BundledPlatform {
@@ -46,6 +67,20 @@ export interface BundledPlatform {
 		utils?: BundledPlugin;
 	};
 }
+
+/**
+ * Collect all available plugins from a platform, including optional ones when present.
+ */
+export const collectPlatformPlugins = (
+	platform: BundledPlatform,
+): BundledPlugin[] => {
+	const result: BundledPlugin[] = [];
+	for (const key of ALL_PLUGIN_KEYS) {
+		const plugin = platform.plugins[key];
+		if (plugin) result.push(plugin);
+	}
+	return result;
+};
 
 /**
  * Complete manifest of all bundled assets.

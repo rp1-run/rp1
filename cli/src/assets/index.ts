@@ -18,13 +18,18 @@ export {
 } from "./extractor.js";
 // Re-export reader functions
 export {
+	ALL_PLUGIN_KEYS,
 	type AssetEntry,
 	type BundledAssets,
 	type BundledPlatform,
 	type BundledPlugin,
+	collectPlatformPlugins,
 	getBundledAssets,
 	getBundledVersion,
 	hasBundledAssets,
+	OPTIONAL_PLUGINS,
+	type PluginKey,
+	REQUIRED_PLUGINS,
 	readEmbeddedFile,
 	readEmbeddedFileBytes,
 } from "./reader.js";
