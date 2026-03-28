@@ -90,25 +90,25 @@ just serve-docs
 
 | Recipe | Description |
 |--------|-------------|
-| `setup-evals` | One-time setup: install eval dependencies |
-| `run-evals suite` | Run evaluation suite (e.g., `just run-evals rp1-dev/build`) |
-| `attest-evals file` | Generate attestation from eval output |
-| `verify-evals` | Verify all attestations are current |
-| `show-evals-status` | Show commands needing re-attestation |
-| `view-evals` | Open Promptfoo web viewer |
+| `eval-setup` | One-time setup: install eval dependencies |
+| `eval-run suite` | Run evaluation suite (e.g., `just eval-run rp1-dev/build`) |
+| `eval-attest file` | Generate attestation from eval output |
+| `eval-verify` | Verify all attestations are current |
+| `eval-status` | Show commands needing re-attestation |
+| `eval-view` | Open Promptfoo web viewer |
 
 **Eval workflow:**
 ```bash
 # First time only
-just setup-evals
+just eval-setup
 
 # Run evals and generate attestation
-just run-evals rp1-dev/build
-just attest-evals output/rp1-dev-build-2026-01-23T10-30-00.json
+just eval-run rp1-dev/build
+just eval-attest output/rp1-dev-build-2026-01-23T10-30-00.json
 
 # Check attestation status
-just verify-evals
-just show-evals-status
+just eval-verify
+just eval-status
 ```
 
 ## Project Structure
@@ -942,7 +942,7 @@ just install            # Reinstall dev version
 ### Eval dependencies missing
 
 ```bash
-just setup-evals        # Run once after clone
+just eval-setup        # Run once after clone
 ```
 
 ### Tests failing with lint errors

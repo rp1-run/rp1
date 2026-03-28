@@ -14,7 +14,7 @@ pre-commit:
       run: cd cli && bun run format
     catalog:
       glob: "plugins/**/*.md"
-      run: "just check-catalog || echo 'WARNING: Catalogue is stale. Run: just generate-catalog'"
+      run: "just catalog-check || echo 'WARNING: Catalogue is stale. Run: just catalog-generate'"
       fail_text: "Advisory: Catalogue needs regeneration"
 pre-push:
   parallel: true
@@ -24,10 +24,10 @@ pre-push:
     typecheck-webui:
       run: cd cli/web-ui && npx tsc --noEmit
     catalog:
-      run: just check-catalog
-      fail_text: "Catalogue is stale — run: just generate-catalog"
-    verify-evals:
-      run: "just verify-evals || echo 'WARNING: Unattested prompt changes detected. Run: just run-evals <suite> && just attest-evals <output-file>'"
+      run: just catalog-check
+      fail_text: "Catalogue is stale — run: just catalog-generate"
+    eval-verify:
+      run: "just eval-verify || echo 'WARNING: Unattested prompt changes detected. Run: just eval-run <suite> && just eval-attest <output-file>'"
       fail_text: "Advisory: Some prompts need re-attestation"
     no-artifactory:
       run: just check-no-artifactory
