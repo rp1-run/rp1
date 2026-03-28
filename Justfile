@@ -79,7 +79,7 @@ opencode:
         echo "Building OpenCode artifacts..."
         cd cli && bun run scripts/build-opencode.ts && cd ..
     fi
-    ./bin/rp1 install opencode --yes
+    ./bin/rp1 install opencode --yes --artifacts-dir dist/opencode
     opencode
 
 # Launch Codex with local dev plugins (auto-builds if stale)
@@ -91,7 +91,7 @@ codex:
         echo "Building Codex artifacts..."
         cd cli && bun run scripts/build-codex.ts && cd ..
     fi
-    ./bin/rp1 install codex --yes
+    ./bin/rp1 install codex --yes --artifacts-dir dist/codex
     codex
 
 # ─────────────────────────────────────────────────────────────────────────────
