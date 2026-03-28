@@ -212,9 +212,13 @@ rm-stable:
     rm -rf ~/.config/opencode/agents/rp1*
     rm -rf ~/.config/opencode/skills/rp1-*/
     -claude plugin marketplace rm rp1-run 2>/dev/null
+    -claude plugin marketplace rm rp1-local 2>/dev/null
+    rm -rf ~/.rp1/claude/plugins/
     rm -rf ~/.agents/skills/rp1-*/
     rm -rf ~/.codex/skills/rp1-*/
     rm -rf ~/.codex/agents/rp1/
+    rm -f bin/rp1
+    rm -f ~/.rp1/platform-versions.json
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Web-UI Development
