@@ -26,6 +26,7 @@ export type {
 	ClaudeCodeAgent,
 	ClaudeCodeCommand,
 	ClaudeCodeSkill,
+	EmbeddedManifest,
 	OpenCodeAgent,
 	OpenCodeCommand,
 	OpenCodeSkill,

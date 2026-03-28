@@ -98,6 +98,15 @@ const executeInstallFromBundled = (
 	return pipe(
 		TE.fromEither(getBundledAssets()),
 		TE.chain((assets) => {
+			const platform = assets.platforms.opencode;
+			if (!platform) {
+				return TE.left(
+					usageError(
+						"No OpenCode platform found in embedded manifest",
+						"Ensure the binary was built with OpenCode assets.",
+					),
+				);
+			}
 			spinner.start("Checking prerequisites...");
 			return pipe(
 				checkOpenCodeInstalled(),
@@ -126,9 +135,9 @@ const executeInstallFromBundled = (
 						console.log(yellow("\nDRY RUN MODE - No files will be modified\n"));
 						console.log("Would install from bundled assets:");
 						const pluginsToPreview = [
-							assets.plugins.base,
-							assets.plugins.dev,
-							...(assets.plugins.utils ? [assets.plugins.utils] : []),
+							platform.plugins.base,
+							platform.plugins.dev,
+							...(platform.plugins.utils ? [platform.plugins.utils] : []),
 						];
 						for (const p of pluginsToPreview) {
 							console.log(
@@ -154,9 +163,9 @@ const executeInstallFromBundled = (
 						TE.chain(() => {
 							spinner.start("Verifying installation...");
 							const allPlugins = [
-								assets.plugins.base,
-								assets.plugins.dev,
-								...(assets.plugins.utils ? [assets.plugins.utils] : []),
+								platform.plugins.base,
+								platform.plugins.dev,
+								...(platform.plugins.utils ? [platform.plugins.utils] : []),
 							];
 							// Count unique skill directories (entries are file-level, e.g. "rp1-build/SKILL.md")
 							const uniqueSkillDirs = new Set(
