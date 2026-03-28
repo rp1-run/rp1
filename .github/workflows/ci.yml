@@ -81,7 +81,7 @@ jobs:
       - uses: extractions/setup-just@v2
 
       - name: Verify catalogue is up to date
-        run: just check-catalog
+        run: just catalog-check
 
   attestation:
     name: Verify Attestations
@@ -106,4 +106,4 @@ jobs:
         run: cd evals && bun install
 
       - name: Verify attestations
-        run: just verify-evals
+        run: just eval-verify
