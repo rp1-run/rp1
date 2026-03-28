@@ -13,7 +13,11 @@ import type { CLIError } from "../../shared/errors.js";
 import { usageError } from "../../shared/errors.js";
 import type { Logger } from "../../shared/logger.js";
 import { createSpinner } from "../../shared/spinner.js";
-import { getBundledAssets, hasBundledAssets } from "../assets/index.js";
+import {
+	collectPlatformPlugins,
+	getBundledAssets,
+	hasBundledAssets,
+} from "../assets/index.js";
 import { colorFns } from "../lib/colors.js";
 import { getInstalledVersion } from "../lib/version.js";
 import { extractPlatformAssets } from "./asset-extractor.js";
@@ -103,11 +107,7 @@ const extractBundledHooks = async (
 	await mkdir(pluginsDir, { recursive: true });
 
 	let filesExtracted = 0;
-	const allPlugins = [
-		platform.plugins.base,
-		platform.plugins.dev,
-		...(platform.plugins.utils ? [platform.plugins.utils] : []),
-	];
+	const allPlugins = collectPlatformPlugins(platform);
 
 	for (const plugin of allPlugins) {
 		if (!plugin.openCodePlugin) continue;
@@ -179,11 +179,7 @@ const executeInstallFromBundled = (
 						spinner.stop();
 						console.log(yellow("\nDRY RUN MODE - No files will be modified\n"));
 						console.log("Would install from bundled assets:");
-						const pluginsToPreview = [
-							platform.plugins.base,
-							platform.plugins.dev,
-							...(platform.plugins.utils ? [platform.plugins.utils] : []),
-						];
+						const pluginsToPreview = collectPlatformPlugins(platform);
 						for (const p of pluginsToPreview) {
 							console.log(
 								`  • ${p.name}: ${p.agents.length} agents, ${p.skills.length} skills`,
@@ -275,11 +271,7 @@ const executeInstallFromBundled = (
 								),
 								TE.chain(() => {
 									spinner.start("Verifying installation...");
-									const allPlugins = [
-										platform.plugins.base,
-										platform.plugins.dev,
-										...(platform.plugins.utils ? [platform.plugins.utils] : []),
-									];
+									const allPlugins = collectPlatformPlugins(platform);
 									const uniqueSkillDirs = new Set(
 										allPlugins.flatMap((p) =>
 											p.skills.map((s) => s.name.split("/")[0]),

@@ -15,8 +15,13 @@ import type {
 	AssetEntry,
 	BundledPlatform,
 	BundledPlugin,
+	PluginKey,
 } from "../assets/reader.js";
-import { getBundledAssets, hasBundledAssets } from "../assets/reader.js";
+import {
+	ALL_PLUGIN_KEYS,
+	getBundledAssets,
+	hasBundledAssets,
+} from "../assets/reader.js";
 import type { BuildPlatform } from "../build/template-context.js";
 
 /**
@@ -37,11 +42,8 @@ export interface ExtractionResult {
 	readonly targetDir: string;
 }
 
-/**
- * Plugin directory keys in the BundledPlatform.plugins object.
- */
-const PLUGIN_KEYS = ["base", "dev", "utils"] as const;
-type PluginKey = (typeof PLUGIN_KEYS)[number];
+// Re-export for local use; canonical list lives in reader.ts
+const PLUGIN_KEYS = ALL_PLUGIN_KEYS;
 
 /**
  * Write a single embedded asset entry to the filesystem.
