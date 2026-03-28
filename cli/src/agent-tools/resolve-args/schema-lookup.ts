@@ -54,10 +54,10 @@ export const parseNamespace = (
 };
 
 /**
- * Find the rp1 CLI root directory by walking up from the current file's location.
- * In development, this is the repo root containing dist/.
+ * Find the rp1 repo root directory by walking up from the current file's location.
+ * In development, this is the repo root containing source plugins and optionally dist/.
  */
-const findCliRoot = (): string | null => {
+const findRepoRoot = (): string | null => {
 	// Walk up from this file's directory to find the repo root
 	let current = resolve(dirname(new URL(import.meta.url).pathname));
 	const root = resolve("/");
@@ -65,11 +65,11 @@ const findCliRoot = (): string | null => {
 	while (current !== root) {
 		try {
 			const fs = require("node:fs");
-			const distPath = join(current, "dist", "claude-code");
 			const pluginsPath = join(current, "plugins");
+			const cliPackagePath = join(current, "cli", "package.json");
 			if (
-				fs.statSync(distPath).isDirectory() &&
-				fs.statSync(pluginsPath).isDirectory()
+				fs.statSync(pluginsPath).isDirectory() &&
+				fs.statSync(cliPackagePath).isFile()
 			) {
 				return current;
 			}
@@ -139,15 +139,17 @@ const fileExists = async (path: string): Promise<boolean> => {
 
 /**
  * Resolve a namespace name to a schema file path.
- * Tries development paths first (dist/), then production installed paths.
+ * Tries development paths first (dist/, then source plugins/), then production installed paths.
  *
  * Search order for skills:
  *   1. dist/claude-code/<pluginShort>/skills/<name>/SKILL.md (dev)
- *   2. <installedPath>/skills/<name>/SKILL.md (production)
+ *   2. plugins/<pluginShort>/skills/<name>/SKILL.md (dev source)
+ *   3. <installedPath>/skills/<name>/SKILL.md (production)
  *
  * Search order for agents:
  *   1. dist/claude-code/<pluginShort>/agents/<name>.md (dev)
- *   2. <installedPath>/agents/<name>.md (production)
+ *   2. plugins/<pluginShort>/agents/<name>.md (dev source)
+ *   3. <installedPath>/agents/<name>.md (production)
  *
  * Since we don't know upfront whether the name refers to a skill or agent,
  * we try skill paths first, then agent paths.
@@ -159,26 +161,35 @@ export const resolveSchemaPath = (
 		async () => {
 			const { pluginShort, artifactName } = parsed;
 
-			// 1. Try development mode (dist/)
-			const cliRoot = findCliRoot();
-			if (cliRoot) {
-				const devPluginDir = join(cliRoot, "dist", "claude-code", pluginShort);
+			// 1. Try development mode (dist/, then source plugins/)
+			const repoRoot = findRepoRoot();
+			if (repoRoot) {
+				const devPluginDirs = [
+					join(repoRoot, "dist", "claude-code", pluginShort),
+					join(repoRoot, "plugins", pluginShort),
+				];
 
-				// Try skill path
-				const devSkillPath = join(
-					devPluginDir,
-					"skills",
-					artifactName,
-					"SKILL.md",
-				);
-				if (await fileExists(devSkillPath)) {
-					return devSkillPath;
-				}
+				for (const devPluginDir of devPluginDirs) {
+					// Try skill path
+					const devSkillPath = join(
+						devPluginDir,
+						"skills",
+						artifactName,
+						"SKILL.md",
+					);
+					if (await fileExists(devSkillPath)) {
+						return devSkillPath;
+					}
 
-				// Try agent path
-				const devAgentPath = join(devPluginDir, "agents", `${artifactName}.md`);
-				if (await fileExists(devAgentPath)) {
-					return devAgentPath;
+					// Try agent path
+					const devAgentPath = join(
+						devPluginDir,
+						"agents",
+						`${artifactName}.md`,
+					);
+					if (await fileExists(devAgentPath)) {
+						return devAgentPath;
+					}
 				}
 			}
 
@@ -209,7 +220,7 @@ export const resolveSchemaPath = (
 
 			throw new Error(
 				`Could not find schema for "${pluginShort}:${artifactName}". ` +
-					`Searched skill and agent paths in both development (dist/) and installed plugin directories.`,
+					`Searched skill and agent paths in development (dist/ and plugins/) and installed plugin directories.`,
 			);
 		},
 		(err) =>
