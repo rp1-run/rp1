@@ -131,6 +131,7 @@ Detect error categories by pattern matching the `message` field in validation er
 | `QUOTE_ERROR` | `unterminated string`, `got 'STR'`, `lexical error.*string` | Wrap label in double quotes |
 | `CARDINALITY` | `cardinality`, `relationship`, `erDiagram` | Use valid notation: `\|\|--o{` |
 | `LINE_BREAK` | `expecting.*(NEWLINE\|NL\|EOF)` | Each statement on its own line |
+| `ESCAPED_NEWLINE` | `\n` found in node label text | Replace `\n` with `<br>` or remove |
 | `DIAGRAM_TYPE` | `unknown diagram type`, `UnknownDiagramError` | Correct spelling, add declaration |
 | `NODE_SYNTAX` | `got 'PS'`, `got 'PE'`, `got 'SQS'`, `got 'SQE'`, `unclosed` | Match all opening and closing brackets |
 
@@ -143,6 +144,7 @@ ARROW_SYNTAX:  message contains "got 'MINUS'" or "got 'GT'" or "expecting.*LINK"
 QUOTE_ERROR:   message contains "unterminated string" or "got 'STR'" or "lexical error.*string"
 CARDINALITY:   message contains "cardinality" or "relationship"
 LINE_BREAK:    message contains "expecting.*NEWLINE" or "expecting.*NL" or "expecting.*EOF"
+ESCAPED_NEWLINE: source contains literal \n inside node labels (pre-validation check, not from error message)
 DIAGRAM_TYPE:  message contains "unknown diagram type" or "UnknownDiagramError"
 NODE_SYNTAX:   message contains "got 'PS'" or "got 'SQS'" or "unclosed"
 UNKNOWN:       default (no pattern matched)
@@ -171,6 +173,10 @@ sequenceDiagram
     Alice->>Bob: Hello
     Bob->>Alice: Hi
 ```
+
+**ESCAPED_NEWLINE**: Replace `\n` with `<br>` or rewrite as single-line:
+- `A["Line one\nLine two"]` -> `A["Line one<br>Line two"]`
+- Better: `A["Line one"]` (keep labels short)
 
 **DIAGRAM_TYPE**: Valid types:
 `flowchart`, `graph`, `sequenceDiagram`, `classDiagram`, `stateDiagram`, `stateDiagram-v2`, `erDiagram`, `gantt`, `pie`, `journey`, `gitGraph`, `mindmap`, `timeline`, `quadrantChart`, `xychart-beta`, `block-beta`, `sankey-beta`, `kanban`, `radar-beta`
@@ -248,6 +254,44 @@ flowchart TD
 
 The `secondary` and `tertiary` classes are handled by the theme and render correctly in both light and dark modes. This is sufficient for most visual grouping needs.
 
+## Node Label Rules
+
+**NEVER use `\n` in node labels.** Mermaid does not interpret `\n` as a line break — it renders the literal characters `\n` in the output. Use `<br>` for line breaks within labels, or keep labels concise and single-line.
+
+```mermaid
+%% WRONG — renders literal \n
+flowchart TD
+    A["First line\nSecond line"]
+
+%% CORRECT — use <br> for line breaks
+flowchart TD
+    A["First line<br>Second line"]
+
+%% BEST — keep labels short and single-line
+flowchart TD
+    A["First line"]
+```
+
+Prefer short, single-line labels (3-5 words max). If a label needs multiple lines, use `<br>` sparingly. Long labels make diagrams hard to read — consider splitting into separate nodes instead.
+
+**Keep subgraph labels short (1-3 words).** Mermaid renders subgraph labels at the top edge of the container. Long labels overlap with child nodes inside the subgraph. Use brief titles and put detail in the child nodes instead.
+
+```mermaid
+%% WRONG — long subgraph label overlaps with children
+flowchart TD
+    subgraph Install ["Install to all platforms (claude, opencode, codex)"]
+        A["Claude Code"]
+        B["OpenCode"]
+    end
+
+%% CORRECT — short label, detail in children
+flowchart TD
+    subgraph Install ["Install"]
+        A["Claude Code"]
+        B["OpenCode"]
+    end
+```
+
 ## Best Practices
 
 ### Creating Diagrams
@@ -258,6 +302,7 @@ The `secondary` and `tertiary` classes are handled by the theme and render corre
 4. **Use consistent arrow styles**: Don't mix arrow types within a diagram
 5. **Build incrementally**: For complex diagrams, validate after each addition
 6. **No hardcoded colors**: See Styling Rules above — let the theme handle all colors
+7. **No `\n` in labels**: Use `<br>` for line breaks, or keep labels single-line
 
 ### Validation
 
