@@ -6,12 +6,33 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { REQUIRED_PLUGINS } from "../../assets/reader.js";
+import type { PlatformVersions } from "../../install/version-marker.js";
 import { CLAUDE_PLUGIN_DIRS } from "../../shared/paths.js";
 import type {
 	PluginStatus,
 	StepCallbacks,
 	VerificationResult,
 } from "../models.js";
+
+/**
+ * Read the installed version for a platform from the centralized version marker file.
+ * Returns null if the file is missing or the platform has no entry.
+ */
+async function getInstalledVersion(platform: string): Promise<string | null> {
+	try {
+		const filePath = join(
+			process.env.HOME ?? homedir(),
+			".rp1",
+			"platform-versions.json",
+		);
+		const content = await readFile(filePath, "utf-8");
+		const markers = JSON.parse(content) as PlatformVersions;
+		return markers[platform]?.version ?? null;
+	} catch {
+		return null;
+	}
+}
 
 /**
  * Get the OpenCode config directory path.
@@ -94,7 +115,7 @@ export async function verifyOpenCodePlugins(
 /**
  * Expected plugin names that should be installed.
  */
-const EXPECTED_PLUGINS = ["rp1-base", "rp1-dev"] as const;
+const EXPECTED_PLUGINS = REQUIRED_PLUGINS.map((k) => `rp1-${k}`);
 
 /**
  * Plugin directory name suffixes used by Claude Code.
@@ -252,10 +273,19 @@ export async function verifyClaudeCodePlugins(
 
 	// Read installed_plugins.json for verification
 	const installedPlugins = await readInstalledPluginsJson(pluginDir);
+	const platformVersion = await getInstalledVersion("claude-code");
 
 	// Verify each expected plugin
 	for (const pluginName of EXPECTED_PLUGINS) {
 		const result = verifyPluginFromJson(pluginName, installedPlugins);
+		// Use platform version marker when installed_plugins.json lacks version info
+		if (
+			result.status.installed &&
+			result.status.version === "unknown" &&
+			platformVersion
+		) {
+			result.status = { ...result.status, version: platformVersion };
+		}
 		plugins.push(result.status);
 		if (result.issue) {
 			issues.push(result.issue);
@@ -400,16 +430,18 @@ export async function verifyCodexPlugins(
 		);
 	}
 
+	const codexVersion = await getInstalledVersion("codex");
+
 	plugins.push({
 		name: "rp1-base",
 		installed: hasSkills && hasBaseAgents,
-		version: "unknown",
+		version: codexVersion ?? "unknown",
 		location: hasSkills && hasBaseAgents ? skillsDir : null,
 	});
 	plugins.push({
 		name: "rp1-dev",
 		installed: hasSkills && hasDevAgents,
-		version: "unknown",
+		version: codexVersion ?? "unknown",
 		location: hasSkills && hasDevAgents ? skillsDir : null,
 	});
 
