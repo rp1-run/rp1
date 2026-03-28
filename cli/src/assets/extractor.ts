@@ -16,6 +16,7 @@ import type {
 	BundledPlatform,
 	BundledPlugin,
 } from "./reader.js";
+import { collectPlatformPlugins } from "./reader.js";
 
 /**
  * Result of extracting plugins to filesystem.
@@ -222,38 +223,13 @@ export const extractPlugins = (
 
 			onProgress?.("Extracting bundled plugins...");
 
-			// Extract base plugin
-			filesExtracted += await extractPlugin(
-				platform.plugins.base,
-				targetDir,
-				onProgress,
-			);
-			plugins.push(platform.plugins.base.name);
-
-			// Extract dev plugin
-			filesExtracted += await extractPlugin(
-				platform.plugins.dev,
-				targetDir,
-				onProgress,
-			);
-			plugins.push(platform.plugins.dev.name);
-
-			// Extract utils plugin if present in bundle
-			if (platform.plugins.utils) {
-				filesExtracted += await extractPlugin(
-					platform.plugins.utils,
-					targetDir,
-					onProgress,
-				);
-				plugins.push(platform.plugins.utils.name);
+			const allPlugins = collectPlatformPlugins(platform);
+			for (const plugin of allPlugins) {
+				filesExtracted += await extractPlugin(plugin, targetDir, onProgress);
+				plugins.push(plugin.name);
 			}
 
 			// Extract OpenCode plugins (TypeScript hooks)
-			const allPlugins = [
-				platform.plugins.base,
-				platform.plugins.dev,
-				...(platform.plugins.utils ? [platform.plugins.utils] : []),
-			];
 
 			for (const plugin of allPlugins) {
 				filesExtracted += await extractOpenCodePlugin(plugin, onProgress);

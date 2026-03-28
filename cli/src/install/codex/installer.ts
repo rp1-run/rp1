@@ -26,6 +26,7 @@ import {
 } from "../../../shared/errors.js";
 import { confirmAction, selectOption } from "../../../shared/prompts.js";
 import { createSpinner } from "../../../shared/spinner.js";
+import { OPTIONAL_PLUGINS, REQUIRED_PLUGINS } from "../../assets/reader.js";
 import {
 	hasShellFencedContent,
 	replaceShellFencedContent,
@@ -55,11 +56,6 @@ import {
 /** Extract plugin names (e.g. "rp1-base") from plugin directory paths. */
 const pluginNamesFromDirs = (dirs: readonly string[]): string[] =>
 	dirs.map((d) => `rp1-${basename(d)}`);
-
-// Required plugins that must always be present
-const CODEX_REQUIRED_PLUGINS = ["base", "dev"] as const;
-// Optional internal plugins included when available (e.g., dev builds)
-const CODEX_OPTIONAL_PLUGINS = ["utils"] as const;
 
 /**
  * Recursively copy a directory, returning the number of files copied.
@@ -96,7 +92,7 @@ export const validateCodexArtifacts = (
 			const pluginDirs: string[] = [];
 
 			// Validate required plugins
-			for (const plugin of CODEX_REQUIRED_PLUGINS) {
+			for (const plugin of REQUIRED_PLUGINS) {
 				const pluginDir = join(artifactsDir, plugin);
 				try {
 					await stat(pluginDir);
@@ -131,7 +127,7 @@ export const validateCodexArtifacts = (
 			}
 
 			// Include optional plugins if present (e.g., utils in dev builds)
-			for (const plugin of CODEX_OPTIONAL_PLUGINS) {
+			for (const plugin of OPTIONAL_PLUGINS) {
 				const pluginDir = join(artifactsDir, plugin);
 				try {
 					await stat(join(pluginDir, "skills"));
@@ -780,10 +776,7 @@ export const previewCodexInstallation = (
 			console.log("[dry-run] Installation preview:\n");
 			console.log("Skills to install:");
 
-			for (const plugin of [
-				...CODEX_REQUIRED_PLUGINS,
-				...CODEX_OPTIONAL_PLUGINS,
-			]) {
+			for (const plugin of [...REQUIRED_PLUGINS, ...OPTIONAL_PLUGINS]) {
 				const skillsSrc = join(artifactsDir, plugin, "skills");
 				try {
 					const entries = await readdir(skillsSrc, { withFileTypes: true });
@@ -800,10 +793,7 @@ export const previewCodexInstallation = (
 			}
 
 			console.log("\nPer-agent TOML files to install:");
-			for (const plugin of [
-				...CODEX_REQUIRED_PLUGINS,
-				...CODEX_OPTIONAL_PLUGINS,
-			]) {
+			for (const plugin of [...REQUIRED_PLUGINS, ...OPTIONAL_PLUGINS]) {
 				const agentsSrc = join(artifactsDir, plugin, "agents");
 				try {
 					const entries = await readdir(agentsSrc, { withFileTypes: true });
@@ -821,10 +811,7 @@ export const previewCodexInstallation = (
 
 			console.log("\nConfig changes:");
 			const tomlPaths: string[] = [];
-			for (const plugin of [
-				...CODEX_REQUIRED_PLUGINS,
-				...CODEX_OPTIONAL_PLUGINS,
-			]) {
+			for (const plugin of [...REQUIRED_PLUGINS, ...OPTIONAL_PLUGINS]) {
 				const tomlPath = join(artifactsDir, plugin, "rp1-agents.toml");
 				try {
 					await stat(tomlPath);
