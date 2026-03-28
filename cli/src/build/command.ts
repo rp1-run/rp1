@@ -1769,7 +1769,7 @@ export const executeBuild = (
 				async () => {
 					const projectRoot = await findProjectRoot(process.cwd());
 
-					const outputPath = resolve(config.outputDir);
+					const outputPath = resolve(projectRoot, config.outputDir);
 					const ccOutputPath = deriveCCOutputDir(outputPath);
 					const codexOutputPath = deriveCodexOutputDir(outputPath);
 
