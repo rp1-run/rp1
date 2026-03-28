@@ -1,14 +1,22 @@
 /**
  * Integration tests for version update CLI commands and hook output.
  * Tests end-to-end behavior of check-update, self-update commands
- * and the check-update.py hook script.
+ * and the check-update.sh hook script.
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
+import {
+	chmod,
+	mkdir,
+	mkdtemp,
+	readFile,
+	rm,
+	unlink,
+	writeFile,
+} from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { VersionCache } from "../../lib/cache.js";
 
@@ -23,15 +31,24 @@ const CLI_ROOT = join(import.meta.dir, "../../../");
 const PLUGINS_BASE = join(CLI_ROOT, "../plugins/base");
 
 /**
- * Path to the check-update.py hook script.
+ * Path to the check-update.sh hook script.
  */
-const HOOK_SCRIPT_PATH = join(PLUGINS_BASE, "hooks/check-update.py");
+const HOOK_SCRIPT_PATH = join(PLUGINS_BASE, "hooks/check-update.sh");
 
-/**
- * Path to the version cache file.
- */
-const CONFIG_DIR = join(homedir(), ".config", "rp1");
-const CACHE_PATH = join(CONFIG_DIR, "version-cache.json");
+let testHomeDir: string;
+let configDir: string;
+let cachePath: string;
+let testBinDir: string;
+let rp1WrapperPath: string;
+
+const getTestEnv = (): NodeJS.ProcessEnv => ({
+	...process.env,
+	NO_COLOR: "1",
+	HOME: testHomeDir,
+	XDG_CONFIG_HOME: join(testHomeDir, ".config"),
+	RP1_BINARY: rp1WrapperPath,
+	PATH: `${testBinDir}:${process.env.PATH ?? ""}`,
+});
 
 /**
  * Run a CLI command and return stdout, stderr, and exit code.
@@ -44,7 +61,7 @@ async function runCliCommand(
 		const proc = spawn("bun", ["run", join(CLI_ROOT, "src/main.ts"), ...args], {
 			cwd: CLI_ROOT,
 			timeout,
-			env: { ...process.env, NO_COLOR: "1" },
+			env: getTestEnv(),
 		});
 
 		let stdout = "";
@@ -73,17 +90,17 @@ async function runCliCommand(
 }
 
 /**
- * Run the check-update.py hook script with provided input.
+ * Run the check-update.sh hook script with provided input.
  */
 async function runHookScript(
 	input: object,
 	timeout = 10000,
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
 	return new Promise((resolve, reject) => {
-		const proc = spawn("python3", [HOOK_SCRIPT_PATH], {
+		const proc = spawn(HOOK_SCRIPT_PATH, [], {
 			cwd: PLUGINS_BASE,
 			timeout,
-			env: { ...process.env },
+			env: getTestEnv(),
 		});
 
 		let stdout = "";
@@ -120,45 +137,65 @@ async function runHookScript(
 async function writeTestCache(
 	data: Omit<VersionCache, "checkedAt"> & { checkedAt?: string },
 ): Promise<void> {
-	if (!existsSync(CONFIG_DIR)) {
-		await mkdir(CONFIG_DIR, { recursive: true });
+	if (!existsSync(configDir)) {
+		await mkdir(configDir, { recursive: true });
 	}
 
 	const cacheData: VersionCache = {
 		...data,
 		checkedAt: data.checkedAt ?? new Date().toISOString(),
 	};
-	await writeFile(CACHE_PATH, JSON.stringify(cacheData, null, 2));
+	await writeFile(cachePath, JSON.stringify(cacheData, null, 2));
 }
 
 /**
  * Remove the cache file if it exists.
  */
 async function removeCache(): Promise<void> {
-	if (existsSync(CACHE_PATH)) {
-		await unlink(CACHE_PATH);
+	if (existsSync(cachePath)) {
+		await unlink(cachePath);
 	}
 }
 
 async function readCache(): Promise<VersionCache | null> {
-	if (!existsSync(CACHE_PATH)) {
+	if (!existsSync(cachePath)) {
 		return null;
 	}
 	try {
-		const content = await readFile(CACHE_PATH, "utf-8");
+		const content = await readFile(cachePath, "utf-8");
 		return JSON.parse(content) as VersionCache;
 	} catch {
 		return null;
 	}
 }
 
+async function createRp1Wrapper(): Promise<void> {
+	testBinDir = join(testHomeDir, "bin");
+	rp1WrapperPath = join(testBinDir, "rp1");
+	await mkdir(testBinDir, { recursive: true });
+	await writeFile(
+		rp1WrapperPath,
+		[
+			"#!/bin/sh",
+			`exec bun run "${join(CLI_ROOT, "src/main.ts")}" "$@"`,
+			"",
+		].join("\n"),
+	);
+	await chmod(rp1WrapperPath, 0o755);
+}
+
 describe("integration: version-update", () => {
 	beforeEach(async () => {
+		testHomeDir = await mkdtemp(join(tmpdir(), "rp1-version-update-"));
+		configDir = join(testHomeDir, ".config", "rp1");
+		cachePath = join(configDir, "version-cache.json");
+		await createRp1Wrapper();
 		await removeCache();
 	});
 
 	afterEach(async () => {
 		await removeCache();
+		await rm(testHomeDir, { recursive: true, force: true });
 	});
 
 	describe("rp1 check-update --json", () => {
@@ -376,7 +413,53 @@ describe("integration: version-update", () => {
 		);
 	});
 
-	describe("check-update.py hook", () => {
+	describe("hook-text output", () => {
+		test(
+			"rp1 update --check --format hook-text prints one line and exits 0 when update exists",
+			async () => {
+				await writeTestCache({
+					latestVersion: "42.0.0",
+					releaseUrl: "https://github.com/rp1-run/rp1/releases/tag/v42.0.0",
+					ttlHours: 24,
+				});
+
+				const { stdout, exitCode } = await runCliCommand([
+					"update",
+					"--check",
+					"--format",
+					"hook-text",
+				]);
+
+				expect(exitCode).toBe(0);
+				expect(stdout).toContain("rp1 update available:");
+				expect(stdout).toContain("Run /self-update to update");
+			},
+			{ timeout: 30000 },
+		);
+
+		test(
+			"rp1 check-update --format hook-text exits 1 with empty stdout when no update exists",
+			async () => {
+				await writeTestCache({
+					latestVersion: "0.6.5",
+					releaseUrl: "https://github.com/rp1-run/rp1/releases/tag/v0.6.5",
+					ttlHours: 24,
+				});
+
+				const { stdout, exitCode } = await runCliCommand([
+					"check-update",
+					"--format",
+					"hook-text",
+				]);
+
+				expect(exitCode).toBe(1);
+				expect(stdout).toBe("");
+			},
+			{ timeout: 30000 },
+		);
+	});
+
+	describe("check-update.sh hook", () => {
 		test(
 			"produces output when source is startup and update available",
 			async () => {
@@ -484,9 +567,10 @@ describe("integration: version-update", () => {
 		test(
 			"exits gracefully with invalid JSON input",
 			async () => {
-				const proc = spawn("python3", [HOOK_SCRIPT_PATH], {
+				const proc = spawn(HOOK_SCRIPT_PATH, [], {
 					cwd: PLUGINS_BASE,
 					timeout: 10000,
+					env: getTestEnv(),
 				});
 
 				return new Promise<void>((resolve) => {
@@ -634,7 +718,9 @@ describe("integration: version-update", () => {
 				expect(foundMethod).toBe(true);
 
 				if (exitCode === 0) {
-					const showsDryRunInfo = output.includes("without --dry-run");
+					const showsDryRunInfo = output.includes(
+						"Dry run mode - showing what would be done",
+					);
 					const showsUpToDate = output.includes(
 						"already on the latest version",
 					);
