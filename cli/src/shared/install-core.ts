@@ -185,7 +185,7 @@ export const installCodexPlugins = (
 	config: Partial<{ artifactsDir: string | null }>,
 	ctx: InstallContext,
 ): TE.TaskEither<CLIError, CodexInstallResult> => {
-	if (config.artifactsDir === null && hasBundledAssets()) {
+	if (config.artifactsDir == null && hasBundledAssets()) {
 		return installCodexFromBundled(ctx);
 	}
 
