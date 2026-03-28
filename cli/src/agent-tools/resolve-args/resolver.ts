@@ -18,6 +18,7 @@ import type {
 	EnvironmentDefinition,
 } from "../../build/models.js";
 import { loadArgumentDefaultsForSkill } from "../../settings/loader.js";
+import { resolveRp1Root } from "../rp1-root-dir/resolver.js";
 import type {
 	ResolveArgsInput,
 	ResolvedArgs,
@@ -305,12 +306,12 @@ export const resolveImpliesChains = (
 };
 
 /**
- * Resolve environment parameters by executing their source commands
- * or reading environment variables.
+ * Resolve environment parameters by checking environment variables
+ * and falling back to built-in resolvers for known parameters.
  */
-const resolveEnvironment = (
+const resolveEnvironment = async (
 	envDefs: readonly EnvironmentDefinition[],
-): ResolvedEnvironmentValues => {
+): Promise<ResolvedEnvironmentValues> => {
 	const result: Record<string, string> = {};
 
 	for (const def of envDefs) {
@@ -318,6 +319,15 @@ const resolveEnvironment = (
 		const envValue = process.env[def.name];
 		if (envValue !== undefined) {
 			result[def.name] = envValue;
+			continue;
+		}
+
+		// Fall back to built-in resolver for RP1_ROOT
+		if (def.name === "RP1_ROOT") {
+			const rootResult = await resolveRp1Root()();
+			if (rootResult._tag === "Right") {
+				result[def.name] = rootResult.right.root;
+			}
 		}
 	}
 
@@ -447,7 +457,7 @@ export const resolveArgs = (
 					}
 
 					// Resolve environment parameters
-					const environment = resolveEnvironment(envDefs);
+					const environment = await resolveEnvironment(envDefs);
 
 					return {
 						arguments: resolved as ResolvedArgumentValues,
