@@ -603,6 +603,62 @@ flowchart TD
 
 ---
 
+## 7. ESCAPED_NEWLINE
+
+**Description**: Using `\n` in node labels instead of `<br>`. Mermaid does not interpret `\n` as a line break — it renders the literal characters `\n` in the output.
+
+**Detection Patterns**:
+- Source contains literal `\n` inside node label brackets `[]`, `()`, `{}`, or quoted strings
+- This is a pre-validation check (caught by inspecting source, not from mermaid error messages)
+
+### Example 7.1: Literal \n in Flowchart Labels
+
+**Broken**:
+```mermaid
+flowchart TD
+    A["Plugin Sources\nplugins/base, plugins/dev"]
+    B["executeBuild()\ncli/src/build/command.ts"]
+    A --> B
+```
+
+**Result**: Labels render as `Plugin Sources\nplugins/base, plugins/dev` with visible `\n` characters.
+
+**Fixed**:
+```mermaid
+flowchart TD
+    A["plugins/base, plugins/dev"]
+    B["executeBuild()"]
+    A --> B
+```
+
+**Fix Strategy**: Remove `\n` from labels. Either use `<br>` for necessary line breaks or simplify to single-line labels (preferred).
+
+---
+
+### Example 7.2: Using \n for Multi-line Detail
+
+**Broken**:
+```mermaid
+flowchart TD
+    A["GoReleaser\nSingle Binary x5\n(all assets embedded)"]
+```
+
+**Fixed (with line breaks)**:
+```mermaid
+flowchart TD
+    A["GoReleaser Binary x5<br>all assets embedded"]
+```
+
+**Fixed (single-line, preferred)**:
+```mermaid
+flowchart TD
+    A["GoReleaser Binary x5"]
+```
+
+**Fix Strategy**: Keep labels concise (3-5 words). Use `<br>` sparingly for essential multi-line labels.
+
+---
+
 ## Quick Reference: Fix Strategies by Category
 
 | Category | Primary Fix | Secondary Fix |
@@ -611,6 +667,7 @@ flowchart TD
 | QUOTE_ERROR | Wrap label in double quotes | Remove/escape special characters |
 | CARDINALITY | Add proper cardinality markers | Use format: `\|\|--o{` |
 | LINE_BREAK | Split statements onto separate lines | Add newline after each statement |
+| ESCAPED_NEWLINE | Replace `\n` with `<br>` in labels | Simplify to single-line labels |
 | DIAGRAM_TYPE | Correct spelling or add type declaration | Use `flowchart` over `graph` |
 | NODE_SYNTAX | Balance brackets/braces | Quote labels with special chars |
 
