@@ -55,7 +55,7 @@ export const parseNamespace = (
 
 /**
  * Find the rp1 CLI root directory by walking up from the current file's location.
- * In development, this is the repo root containing cli/dist/.
+ * In development, this is the repo root containing dist/.
  */
 const findCliRoot = (): string | null => {
 	// Walk up from this file's directory to find the repo root
@@ -64,9 +64,13 @@ const findCliRoot = (): string | null => {
 
 	while (current !== root) {
 		try {
-			const cliDistPath = join(current, "cli", "dist");
-			const stats = require("node:fs").statSync(cliDistPath);
-			if (stats.isDirectory()) {
+			const fs = require("node:fs");
+			const distPath = join(current, "dist", "claude-code");
+			const pluginsPath = join(current, "plugins");
+			if (
+				fs.statSync(distPath).isDirectory() &&
+				fs.statSync(pluginsPath).isDirectory()
+			) {
 				return current;
 			}
 		} catch {
@@ -135,14 +139,14 @@ const fileExists = async (path: string): Promise<boolean> => {
 
 /**
  * Resolve a namespace name to a schema file path.
- * Tries development paths first (cli/dist/), then production installed paths.
+ * Tries development paths first (dist/), then production installed paths.
  *
  * Search order for skills:
- *   1. cli/dist/claude-code/<pluginShort>/skills/<name>/SKILL.md (dev)
+ *   1. dist/claude-code/<pluginShort>/skills/<name>/SKILL.md (dev)
  *   2. <installedPath>/skills/<name>/SKILL.md (production)
  *
  * Search order for agents:
- *   1. cli/dist/claude-code/<pluginShort>/agents/<name>.md (dev)
+ *   1. dist/claude-code/<pluginShort>/agents/<name>.md (dev)
  *   2. <installedPath>/agents/<name>.md (production)
  *
  * Since we don't know upfront whether the name refers to a skill or agent,
@@ -155,16 +159,10 @@ export const resolveSchemaPath = (
 		async () => {
 			const { pluginShort, artifactName } = parsed;
 
-			// 1. Try development mode (cli/dist/)
+			// 1. Try development mode (dist/)
 			const cliRoot = findCliRoot();
 			if (cliRoot) {
-				const devPluginDir = join(
-					cliRoot,
-					"cli",
-					"dist",
-					"claude-code",
-					pluginShort,
-				);
+				const devPluginDir = join(cliRoot, "dist", "claude-code", pluginShort);
 
 				// Try skill path
 				const devSkillPath = join(
@@ -211,7 +209,7 @@ export const resolveSchemaPath = (
 
 			throw new Error(
 				`Could not find schema for "${pluginShort}:${artifactName}". ` +
-					`Searched skill and agent paths in both development (cli/dist/) and installed plugin directories.`,
+					`Searched skill and agent paths in both development (dist/) and installed plugin directories.`,
 			);
 		},
 		(err) =>

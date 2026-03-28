@@ -597,7 +597,7 @@ metadata:
 			project_root: tempDir,
 		})();
 
-		// This should succeed in development (cli/dist/ exists with built artifacts)
+		// This should succeed in development (dist/ exists with built artifacts)
 		expect(E.isRight(result)).toBe(true);
 	});
 
@@ -719,7 +719,7 @@ description: "Schema path override test"
 			undefined,
 		)();
 
-		// Should find the agent in cli/dist/claude-code/dev/agents/task-builder.md
+		// Should find the agent in dist/claude-code/dev/agents/task-builder.md
 		expect(E.isRight(result)).toBe(true);
 		if (E.isRight(result)) {
 			expect(result.right).toContain("agents/task-builder.md");
@@ -732,7 +732,7 @@ description: "Schema path override test"
 			undefined,
 		)();
 
-		// Should find the skill in cli/dist/claude-code/dev/skills/build/SKILL.md
+		// Should find the skill in dist/claude-code/dev/skills/build/SKILL.md
 		expect(E.isRight(result)).toBe(true);
 		if (E.isRight(result)) {
 			expect(result.right).toContain("skills/build/SKILL.md");
