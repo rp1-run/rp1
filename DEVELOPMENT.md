@@ -914,6 +914,100 @@ interface PlatformDefinition {
 }
 ```
 
+## Docker Environment
+
+A containerized environment for testing rp1 against a real TypeScript codebase (`zod-to-json-schema`). Two scenarios are available: **Stable Tester** (production rp1 binary) and **Active Developer** (local source mounted).
+
+### Prerequisites
+
+- Docker Desktop (or compatible runtime) installed and running
+- Apple Silicon Mac (images target `linux/arm64` only)
+- `just` command runner installed on the host
+
+### Stable Tester
+
+Starts a container with the latest production rp1 binary, all harness CLIs (Claude Code, OpenCode, Codex), and the target repository pre-cloned with dependencies installed. Use this for benchmarking rp1 releases.
+
+```bash
+just start-docker-stable
+```
+
+What it does:
+
+1. Builds the `stable` Docker image (cached after first build)
+2. Starts the container with port forwarding and env var injection
+3. Drops you into an interactive zsh shell at `~/target/zod-to-json-schema`
+
+The shell prompt shows `[rp1-stable]` to indicate the active scenario. rp1, all harness CLIs, and the target repo are ready to use immediately.
+
+### Active Developer
+
+Starts a container with your local rp1 source tree mounted at `/src/rp1`. The container automatically builds rp1 from your local source and installs plugins on startup. Use this for testing in-progress changes.
+
+```bash
+just start-docker-dev
+```
+
+What it does:
+
+1. Builds the `dev` Docker image (cached after first build)
+2. Starts the container with your local rp1 directory bind-mounted at `/src/rp1`
+3. Runs `setup-dev.sh` which:
+   - Installs CLI dependencies (`bun install`)
+   - Builds rp1 from local source (`just build-local-dev`)
+   - Installs plugins to all platforms (`just install`)
+4. Drops you into an interactive zsh shell at `~/target/zod-to-json-schema`
+
+The shell prompt shows `[rp1-dev]` to indicate the active scenario. Changes to local files on the host are reflected inside the container without restart (bind mount).
+
+### Environment Variables
+
+Both recipes forward API keys and tokens from your host shell to the container using `docker run -e VAR_NAME` syntax. The following variables are forwarded when set:
+
+- `ANTHROPIC_API_KEY`
+- `OPENAI_API_KEY`
+- `GITHUB_TOKEN`
+
+No `.env` file is needed. If a variable is not set on the host, it is silently skipped (no error). No secrets are baked into the Docker image.
+
+### Port Forwarding
+
+The container's Arcade dashboard port (7710) is mapped to host port **17710** to avoid conflicts with a locally running rp1 Arcade instance:
+
+```
+Container :7710  -->  Host :17710
+```
+
+After starting Arcade inside the container (`rp1 arcade`), access it at `http://localhost:17710` in your host browser.
+
+To forward additional ports, modify the `docker run` command in the `start-docker-stable` or `start-docker-dev` recipes in the `justfile` by adding `-p <host-port>:<container-port>` flags.
+
+### Pinning the Target Repository
+
+The target repository (`zod-to-json-schema`) commit can be overridden at build time:
+
+```bash
+docker build --platform linux/arm64 --target stable \
+  --build-arg ZOD_COMMIT=<commit-sha> \
+  -t rp1-stable -f docker/Dockerfile .
+```
+
+By default, it checks out the `main` branch.
+
+### Container Layout
+
+```
+/home/rp1user/
+├── .local/bin/         # User-local binaries (rp1, bun)
+├── target/
+│   └── zod-to-json-schema/   # Target repository (working directory)
+/src/rp1/               # Volume mount point (dev container only)
+```
+
+### Installed Tools
+
+Both containers include: git, gh, zsh, ripgrep, bun, python3, curl, make, gcc, g++, tar, gzip, wget, less, vim, jq, just. The stable container additionally includes Node.js LTS.
+
 ## Troubleshooting
 
 ### Port 7710 already in use
