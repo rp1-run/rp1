@@ -34,6 +34,20 @@ export type {
 } from "./models.js";
 // Parser
 export { parseAgent, parseCommand, parseSkill } from "./parser.js";
+export type {
+	HookContext,
+	PlatformBuildState,
+	PlatformDefinition,
+	PlatformHooks,
+	PlatformNaming,
+	PlatformTemplates,
+	PostBuildResult,
+} from "./platform-definitions.js";
+// Platform definitions
+export {
+	getPlatformConfig,
+	PLATFORM_DEFINITIONS,
+} from "./platform-definitions.js";
 // Preprocessor
 export { preprocessConditionals } from "./preprocessor.js";
 // Registry
