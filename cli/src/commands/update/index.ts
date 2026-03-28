@@ -495,25 +495,33 @@ export const executeUpdateAction = async (
 		}
 	}
 
-	// Standard update flow: self-update then optionally update plugins
+	// Standard update flow: self-update then check plugin staleness
 	const updateResult = await executeSelfUpdate(
 		{ dryRun: options.dryRun, force: options.force },
 		logger,
 		isTTY,
 	);
 
-	// If self-update failed or requires manual intervention, exit
-	if (!updateResult.success || updateResult.exitCode !== 0) {
+	// If self-update had a hard failure (not manual-install), exit immediately
+	if (!updateResult.success && updateResult.exitCode !== 2) {
 		process.exit(updateResult.exitCode);
 	}
 
-	// Check plugin staleness and reinstall if needed
+	// Check plugin staleness and reinstall if needed.
+	// This runs for both successful updates AND manual installs (exitCode 2),
+	// so curl/direct-download users still get plugin staleness checks.
 	if (logger) {
 		await checkAndReinstallStalePlugins(
 			{ dryRun: options.dryRun, yes: options.yes },
 			logger,
 			isTTY,
 		);
+	}
+
+	// If self-update required manual intervention (manual install), exit
+	// after plugin checks have completed
+	if (!updateResult.success || updateResult.exitCode !== 0) {
+		process.exit(updateResult.exitCode);
 	}
 
 	console.log("");
