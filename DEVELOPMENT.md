@@ -924,9 +924,9 @@ A containerized environment for testing rp1 against a real TypeScript codebase (
 - Apple Silicon Mac (images target `linux/arm64` only)
 - `just` command runner installed on the host
 
-### Stable Tester
+### Stable Tester (Clean Room)
 
-Starts a container with the latest production rp1 binary, all harness CLIs (Claude Code, OpenCode, Codex), and the target repository pre-cloned with dependencies installed. Use this for benchmarking rp1 releases.
+Starts a **clean room** container with all harness CLIs (Claude Code, OpenCode, Codex) pre-installed but **no rp1**. Use `test-install.sh` inside the container to simulate the user installation experience. Your local rp1 source is mounted read-only at `/src/rp1`.
 
 ```bash
 just start-docker-stable
@@ -935,10 +935,26 @@ just start-docker-stable
 What it does:
 
 1. Builds the `stable` Docker image (cached after first build)
-2. Starts the container with port forwarding and env var injection
+2. Starts the container with port forwarding, env var injection, and local source mounted read-only
 3. Drops you into an interactive zsh shell at `~/target/zod-to-json-schema`
 
-The shell prompt shows `[rp1-stable]` to indicate the active scenario. rp1, all harness CLIs, and the target repo are ready to use immediately.
+The shell prompt shows `[rp1-stable]`. Use the test harness to install rp1:
+
+```bash
+# Simulate a first-time user running the production install script
+test-install.sh fresh
+
+# Simulate a first-time install with a locally-built binary (from mounted source)
+test-install.sh fresh --from-source
+
+# Simulate upgrading an existing install from source
+test-install.sh update --from-source
+
+# Reset to clean room state (remove all rp1 artifacts)
+test-install.sh clean
+```
+
+Without `--from-source`, `test-install.sh` runs the real production install script (`curl -fsSL https://rp1.run/install.sh | sh`) — exactly what a user would run. With `--from-source`, it builds a linux/arm64 binary from the mounted source tree at `/src/rp1` inside the container (a macOS binary from the host won't work in the Linux container).
 
 ### Active Developer
 

@@ -8,16 +8,18 @@ default:
 # Docker Environment
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Start the Stable Tester container (production rp1 + all harnesses)
+# Start the Stable Tester container (clean room with harness CLIs, no rp1 installed)
+# Use test-install.sh inside the container to simulate installation
 start-docker-stable:
     #!/usr/bin/env bash
     set -e
     echo "Building stable image (cached layers reused)..."
     docker build --platform linux/arm64 --target stable -t rp1-stable -f docker/Dockerfile .
-    echo "Starting stable container..."
+    echo "Starting stable container (clean room — run test-install.sh to install rp1)..."
     docker run --rm -it \
         --platform linux/arm64 \
         -p 17710:7710 \
+        -v "$(pwd)":/src/rp1 \
         -e ANTHROPIC_API_KEY \
         -e OPENAI_API_KEY \
         -e GITHUB_TOKEN \
