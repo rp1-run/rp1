@@ -5,6 +5,8 @@
  */
 
 import { exec } from "node:child_process";
+import { stat } from "node:fs/promises";
+import { join } from "node:path";
 import { promisify } from "node:util";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
@@ -30,6 +32,16 @@ const execAsync = promisify(exec);
  * Command timeout in milliseconds.
  */
 const COMMAND_TIMEOUT = 30000;
+
+/**
+ * Required plugins that must always be installed.
+ */
+const CLAUDE_CODE_REQUIRED_PLUGINS = ["base", "dev"] as const;
+
+/**
+ * Optional plugins included when their artifacts are present (e.g., dev builds).
+ */
+const CLAUDE_CODE_OPTIONAL_PLUGINS = ["utils"] as const;
 
 /**
  * Execute a Claude CLI command.
@@ -208,8 +220,8 @@ export const installAllPlugins = (
 	dryRun: boolean,
 	isTTY: boolean,
 ): TE.TaskEither<CLIError, ClaudeCodeInstallResult> => {
-	const plugins = ["rp1-base", "rp1-dev"];
-	const pluginKeys = ["base", "dev"];
+	const pluginKeys: string[] = [...CLAUDE_CODE_REQUIRED_PLUGINS];
+	const plugins: string[] = pluginKeys.map((k) => `rp1-${k}`);
 	const warnings: string[] = [];
 	const pluginsInstalled: string[] = [];
 	const marketplaceDir = DEFAULT_MARKETPLACE_DIR;
@@ -226,26 +238,49 @@ export const installAllPlugins = (
 				plugins: pluginKeys,
 			});
 		}),
-		// Step 3: Create marketplace metadata (marketplace.json)
-		TE.chain(() => createLocalMarketplace(marketplaceDir, pluginKeys)),
-		// Step 4: Register local marketplace with Claude CLI
-		TE.chain(() => registerMarketplace(marketplaceDir, logger, dryRun, isTTY)),
-		// Step 5: Install rp1-base
+		// Step 3: Detect optional plugins whose artifacts are present
 		TE.chain(() =>
-			pipe(
-				installPlugin(plugins[0], scope, logger, dryRun, isTTY),
-				TE.map((success) => {
-					if (success) pluginsInstalled.push(plugins[0]);
-				}),
+			TE.tryCatch(
+				async () => {
+					for (const plugin of CLAUDE_CODE_OPTIONAL_PLUGINS) {
+						const pluginDir = join(marketplaceDir, plugin);
+						try {
+							await stat(pluginDir);
+							pluginKeys.push(plugin);
+							plugins.push(`rp1-${plugin}`);
+							logger.info(`Optional plugin detected: rp1-${plugin}`);
+						} catch {
+							// Optional plugin not present, skip
+						}
+					}
+				},
+				(e) =>
+					installError(
+						"detect-optional-plugins",
+						`Failed to detect optional plugins: ${e}`,
+					),
 			),
 		),
-		// Step 6: Install rp1-dev
+		// Step 4: Create marketplace metadata (marketplace.json)
+		TE.chain(() => createLocalMarketplace(marketplaceDir, pluginKeys)),
+		// Step 5: Register local marketplace with Claude CLI
+		TE.chain(() => registerMarketplace(marketplaceDir, logger, dryRun, isTTY)),
+		// Step 6: Install all discovered plugins
 		TE.chain(() =>
-			pipe(
-				installPlugin(plugins[1], scope, logger, dryRun, isTTY),
-				TE.map((success) => {
-					if (success) pluginsInstalled.push(plugins[1]);
-				}),
+			plugins.reduce(
+				(acc, pluginName) =>
+					pipe(
+						acc,
+						TE.chain(() =>
+							pipe(
+								installPlugin(pluginName, scope, logger, dryRun, isTTY),
+								TE.map((success) => {
+									if (success) pluginsInstalled.push(pluginName);
+								}),
+							),
+						),
+					),
+				TE.right<CLIError, void>(undefined),
 			),
 		),
 		// Step 7: Write version marker
