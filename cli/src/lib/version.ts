@@ -6,6 +6,10 @@
 
 // Static import ensures version is bundled at compile time
 import pkg from "../../package.json";
+
+// Dev builds inject this constant at build time
+declare const __RP1_DEV_BUILD__: boolean | undefined;
+
 import {
 	DEFAULT_TTL_HOURS,
 	isCacheValid,
@@ -57,6 +61,23 @@ export const getInstalledVersion = (): string => {
 		return stripVersionPrefix(pkg.version);
 	}
 	return "unknown";
+};
+
+/**
+ * Get the display version of rp1, including "-dev" suffix for dev builds.
+ *
+ * @returns The display version string (e.g., "0.6.5" or "0.6.5-dev")
+ */
+export const getDisplayVersion = (): string => {
+	const base = getInstalledVersion();
+	if (
+		base !== "unknown" &&
+		typeof __RP1_DEV_BUILD__ !== "undefined" &&
+		__RP1_DEV_BUILD__
+	) {
+		return `${base}-dev`;
+	}
+	return base;
 };
 
 /**
