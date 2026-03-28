@@ -233,6 +233,7 @@ export interface BundlePluginAssets {
 	readonly agents: readonly BundleAssetEntry[];
 	readonly skills: readonly BundleAssetEntry[];
 	readonly stateMachines: readonly BundleAssetEntry[];
+	readonly verbatimFiles: readonly BundleAssetEntry[];
 	readonly openCodePlugin?: OpenCodePluginAsset;
 }
 

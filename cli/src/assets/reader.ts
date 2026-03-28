@@ -33,6 +33,7 @@ export interface BundledPlugin {
 	agents: AssetEntry[];
 	skills: AssetEntry[];
 	stateMachines: AssetEntry[];
+	verbatimFiles: AssetEntry[];
 	openCodePlugin?: OpenCodePluginAsset;
 }
 
