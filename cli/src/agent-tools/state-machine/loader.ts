@@ -116,6 +116,7 @@ const loadFromBundle = (
 		TE.chain((assets) => {
 			for (const pluginKey of PLUGIN_NAMES) {
 				const plugin = assets.plugins[pluginKey];
+				if (!plugin) continue;
 				const stateMachines = plugin.stateMachines;
 				if (!stateMachines || stateMachines.length === 0) continue;
 
@@ -235,6 +236,7 @@ const listFromBundle = (): TE.TaskEither<CLIError, readonly string[]> =>
 			const workflows: string[] = [];
 			for (const pluginKey of PLUGIN_NAMES) {
 				const plugin = assets.plugins[pluginKey];
+				if (!plugin) continue;
 				const stateMachines = plugin.stateMachines;
 				if (!stateMachines || stateMachines.length === 0) continue;
 				for (const sm of stateMachines) {
