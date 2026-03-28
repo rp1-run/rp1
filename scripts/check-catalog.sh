@@ -25,9 +25,12 @@ get_checksum() {
     ' "$file"
 }
 
-# Check every skill SKILL.md checksum against what's in the catalogue
-for plugin_dir in "$PLUGINS_DIR"/*/; do
-    plugin=$(basename "$plugin_dir")
+# Only check distributable plugins (utils is internal-only, matching generate-catalog.sh)
+DIST_PLUGINS=("base" "dev")
+
+for plugin in "${DIST_PLUGINS[@]}"; do
+    plugin_dir="$PLUGINS_DIR/$plugin"
+    [ -d "$plugin_dir" ] || continue
     prefix="rp1-${plugin}"
 
     # Skills
