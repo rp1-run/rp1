@@ -15,7 +15,7 @@ import {
 	writeFile,
 } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, join, relative } from "node:path";
+import { dirname, extname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
@@ -71,7 +71,7 @@ const copyDir = async (src: string, dst: string): Promise<number> => {
 			await chmod(dstPath, 0o755);
 		} else {
 			await copyFile(srcPath, dstPath);
-			await chmod(dstPath, 0o644);
+			await chmod(dstPath, extname(dstPath) === ".sh" ? 0o755 : 0o644);
 			count++;
 		}
 	}
