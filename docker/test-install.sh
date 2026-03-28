@@ -100,6 +100,7 @@ build_from_source() {
     mkdir -p "$INSTALL_DIR"
     cp "$build_tmp/rp1" "$INSTALL_DIR/$BINARY_NAME"
     chmod +x "$INSTALL_DIR/$BINARY_NAME"
+    cd "$HOME"
     rm -rf "$build_tmp"
 
     success "Built and installed: $($BINARY_NAME --version 2>/dev/null || echo 'unknown')"
