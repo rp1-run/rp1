@@ -194,8 +194,9 @@ export const deprecatedInstallOpencode = createDeprecatedCommand(
 		spinner.succeed(green("rp1 plugins installed successfully to OpenCode!"));
 		console.log("");
 		console.log(dim("Installed plugins:"));
-		console.log(dim("  - rp1-base"));
-		console.log(dim("  - rp1-dev"));
+		for (const plugin of result.right.pluginsInstalled) {
+			console.log(dim(`  - ${plugin}`));
+		}
 		console.log("");
 		console.log(
 			dim("Restart OpenCode and run /skills to see available rp1 skills."),
