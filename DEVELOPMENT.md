@@ -783,6 +783,138 @@ just clean-fake-runs
 
 This deletes all `fake-`-prefixed rows from the status database (annotations, artifacts, events, and runs).
 
+## Adding a New Platform
+
+The build pipeline is data-driven via `PlatformDefinition` entries. Adding support for a new AI coding platform (e.g., Cursor, Copilot) requires creating configuration and templates -- no changes to the generic build loop (`buildPlatformPlugin()`) or asset embedding script (`generate-asset-imports.ts`).
+
+### Files to Create or Modify
+
+| File | Action | Purpose |
+|------|--------|---------|
+| `cli/src/build/template-context.ts` | Edit | Add platform ID to `BuildPlatform` union type |
+| `cli/src/build/platform-definitions.ts` | Edit | Add `PlatformDefinition` entry to `PLATFORM_DEFINITIONS` map |
+| `cli/src/build/<platform>/registry.ts` | Create | Define `PlatformRegistry` with tool name mappings |
+| `cli/src/build/templates/<platform>/` | Create | LiquidJS templates for skill, agent, and manifest artifacts |
+| `cli/src/config/supported-tools.yaml` | Edit | Add platform metadata (binary name, min version, instruction file) |
+| `cli/scripts/build-<platform>.ts` | Create | Thin wrapper calling `executeBuild` with `--platform <name>` |
+
+### Step-by-Step Process
+
+**1. Extend the `BuildPlatform` type** in `cli/src/build/template-context.ts`:
+
+```typescript
+export type BuildPlatform = "opencode" | "codex" | "claude-code" | "cursor";
+```
+
+**2. Create a platform registry** in `cli/src/build/<platform>/registry.ts`. The registry maps abstract tool names (Read, Write, Bash, etc.) to the platform's concrete tool names:
+
+```typescript
+import type { PlatformRegistry } from "../models.js";
+
+export const cursorRegistry: PlatformRegistry = {
+  tools: {
+    Read: "read_file",
+    Write: "write_file",
+    // ... map all tools the platform supports
+  },
+};
+```
+
+See `cli/src/build/registry.ts` (OpenCode), `cli/src/build/claude-code/registry.ts`, or `cli/src/build/codex/registry.ts` for examples.
+
+**3. Create LiquidJS templates** in `cli/src/build/templates/<platform>/`:
+
+- `skill.liquid` -- renders a skill artifact
+- `agent.liquid` or `agent-toml.liquid` -- renders an agent artifact
+- `manifest.liquid` -- renders the platform manifest (e.g., `manifest.json`)
+
+Templates receive the full build context including plugin metadata, parsed frontmatter, rendered content, and registry. See existing platform templates for the available context variables.
+
+**4. Add a `PlatformDefinition` entry** in `cli/src/build/platform-definitions.ts`:
+
+```typescript
+const cursorPlatform: PlatformDefinition = {
+  id: "cursor",
+  registry: cursorRegistry,
+  config: platformConfigs.cursor,
+  templates: {
+    skill: "cursor/skill",
+    agent: "cursor/agent",
+    manifest: "cursor/manifest",
+  },
+  naming: {
+    skillDirPrefix: "rp1-",
+    agentFileName: (pluginName, agentName) => `rp1-${pluginName}-${agentName}`,
+    agentExtension: ".md",
+  },
+  producesBundleAssets: false,
+};
+```
+
+Then add it to the `PLATFORM_DEFINITIONS` map:
+
+```typescript
+["cursor", cursorPlatform],
+```
+
+**5. (Optional) Add lifecycle hooks** if the platform requires custom build behavior. Available hooks:
+
+- `preparePlugin` -- initialize state before building (e.g., discover skill maps)
+- `enrichSkillContext` / `enrichAgentContext` -- inject platform-specific template variables
+- `postSkillWrite` -- run per-skill post-processing (e.g., generate companion config files)
+- `postPluginBuild` -- run per-plugin post-processing (e.g., generate index files, validate output)
+
+**6. Create a build script** at `cli/scripts/build-<platform>.ts`:
+
+```typescript
+#!/usr/bin/env bun
+import * as E from "fp-ts/lib/Either.js";
+import { createLogger, LogLevel } from "../shared/logger.js";
+import { executeBuild } from "../src/build/index.js";
+
+const logger = createLogger({
+  level: process.env.DEBUG ? LogLevel.DEBUG : LogLevel.INFO,
+  color: process.stdout.isTTY ?? false,
+});
+
+const args = process.argv.slice(2);
+const result = await executeBuild(
+  [...args, "--platform", "cursor"],
+  logger,
+)();
+
+if (E.isLeft(result)) {
+  process.exit(1);
+}
+```
+
+**7. Update `parseBuildArgs()`** in `cli/src/build/command.ts` to add the platform to `VALID_PLATFORMS`.
+
+**8. Verify the build**:
+
+```bash
+cd cli
+bun run scripts/build-<platform>.ts
+ls ../dist/<platform>/   # Verify output structure
+```
+
+The `--platform all` flag in `bun run build` will automatically include the new platform since `executeBuild` iterates `PLATFORM_DEFINITIONS`.
+
+### PlatformDefinition Interface Reference
+
+```typescript
+interface PlatformDefinition {
+  id: BuildPlatform;                    // Platform identifier
+  registry: PlatformRegistry;           // Tool name mappings
+  config: SupportedTool;                // Platform metadata
+  templates: PlatformTemplates;         // LiquidJS template paths
+  naming: PlatformNaming;               // Output file naming conventions
+  hooks?: PlatformHooks;                // Optional lifecycle hooks
+  copyDirs?: readonly string[];         // Directories to copy verbatim
+  producesBundleAssets: boolean;         // Include in embedded binary manifest
+}
+```
+
 ## Troubleshooting
 
 ### Port 7710 already in use
