@@ -9,7 +9,6 @@ export interface ClaudeCodeInstallConfig {
 	readonly dryRun: boolean;
 	readonly yes: boolean;
 	readonly scope: "user" | "project" | "local";
-	readonly useHttps: boolean;
 }
 
 /**
@@ -19,7 +18,6 @@ export const defaultClaudeCodeInstallConfig: ClaudeCodeInstallConfig = {
 	dryRun: false,
 	yes: false,
 	scope: "user",
-	useHttps: false,
 };
 
 /**
