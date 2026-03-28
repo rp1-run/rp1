@@ -48,10 +48,14 @@ cd /src/rp1/cli && \
     RP1_BUILD_INTERNAL=1 bun run scripts/build-opencode.ts && \
     RP1_BUILD_INTERNAL=1 bun run scripts/build-codex.ts && \
     RP1_BUILD_INTERNAL=1 bun run scripts/build-claude-code.ts && \
-    bun run generate:assets && \
-    bun build ./src/main.ts --compile --outfile "$BUILD_TMP/rp1" --define __RP1_DEV_BUILD__=true
+    bun run generate:assets
+# Bun's --compile creates a temp .bun-build file in CWD then renames it.
+# virtiofs doesn't support atomic rename, so cd to a local dir for the compile.
+cd "$BUILD_TMP" && \
+    bun build /src/rp1/cli/src/main.ts --compile --outfile "$BUILD_TMP/rp1" --define __RP1_DEV_BUILD__=true
 mkdir -p /src/rp1/bin
 cp "$BUILD_TMP/rp1" /src/rp1/bin/rp1
+cd /src/rp1
 rm -rf "$BUILD_TMP"
 echo ""
 
@@ -70,10 +74,11 @@ fi
 echo "rp1 binary: $(rp1 --version)"
 echo ""
 
-# ── Install plugins using the local build ───────────────────────────────────
+# ── Install plugins to detected harness platforms ─────────────────────────
 
-echo "[3/3] Installing plugins to all platforms..."
-cd /src/rp1 && just install
+echo "[3/3] Installing plugins to detected platforms..."
+# Install to whichever harness CLIs are available; skip if none found
+rp1 install -y || echo "Warning: plugin install failed (no harness CLIs detected). Install Claude Code or OpenCode, then run 'rp1 install -y'."
 echo ""
 
 # ── Done ────────────────────────────────────────────────────────────────────
