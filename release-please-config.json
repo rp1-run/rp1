@@ -17,26 +17,6 @@
           "jsonpath": "$.version"
         },
         {
-          "type": "json",
-          "path": "cli/dist/claude-code/base/.claude-plugin/plugin.json",
-          "jsonpath": "$.version"
-        },
-        {
-          "type": "json",
-          "path": "cli/dist/claude-code/dev/.claude-plugin/plugin.json",
-          "jsonpath": "$.version"
-        },
-        {
-          "type": "json",
-          "path": "cli/dist/claude-code/base/manifest.json",
-          "jsonpath": "$.version"
-        },
-        {
-          "type": "json",
-          "path": "cli/dist/claude-code/dev/manifest.json",
-          "jsonpath": "$.version"
-        },
-        {
           "type": "generic",
           "path": "README.md"
         },
