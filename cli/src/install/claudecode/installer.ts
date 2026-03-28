@@ -230,17 +230,12 @@ export const installAllPlugins = (
 		// Step 1: Migrate from old GitHub marketplace if present
 		migrateFromGitHubMarketplace(logger, dryRun, isTTY),
 		// Step 2: Extract Claude Code assets from binary to marketplace dir
-		// Include optional plugins in extraction so their assets are written
-		// if present in the binary; detection in step 3 confirms which exist.
 		TE.chain(() => {
 			logger.info("Extracting Claude Code assets...");
 			return extractPlatformAssets({
 				platform: "claude-code",
 				targetDir: marketplaceDir,
-				plugins: [
-					...CLAUDE_CODE_REQUIRED_PLUGINS,
-					...CLAUDE_CODE_OPTIONAL_PLUGINS,
-				],
+				plugins: pluginKeys,
 			});
 		}),
 		// Step 3: Detect optional plugins whose artifacts are present
