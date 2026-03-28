@@ -26,6 +26,8 @@ export {
 	type MarketplaceResult,
 	registerMarketplace,
 } from "./marketplace.js";
+// Migration
+export { migrateFromGitHubMarketplace } from "./migration.js";
 // Models
 export type {
 	ClaudeCodeInstallConfig,
