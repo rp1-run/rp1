@@ -9,6 +9,9 @@ node_modules/
 # Build artifacts
 dist/
 
+# rp1 work directory (features, archives, scratch)
+.rp1/work/
+
 # MkDocs build output
 site/
 
