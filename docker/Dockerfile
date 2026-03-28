@@ -42,8 +42,7 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
     && rm -rf /var/lib/apt/lists/*
 
 # just (command runner)
-RUN curl -fsSL "https://github.com/casey/just/releases/latest/download/just-$(uname -m)-unknown-linux-musl.tar.gz" \
-    | tar xz -C /usr/local/bin
+RUN curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash -s -- --to /usr/local/bin
 
 # Non-root user
 RUN useradd -m -s /bin/zsh rp1user \
@@ -63,9 +62,9 @@ ENV PATH="/home/rp1user/.bun/bin:${PATH}"
 # ─────────────────────────────────────────────────────────────────────────────
 FROM base AS target-repo
 
-ARG ZOD_COMMIT=main
+ARG ZOD_COMMIT=master
 
-RUN git clone https://github.com/StefanNieke/zod-to-json-schema.git \
+RUN git clone https://github.com/StefanTerdell/zod-to-json-schema.git \
     /home/rp1user/target/zod-to-json-schema \
     && cd /home/rp1user/target/zod-to-json-schema \
     && git checkout ${ZOD_COMMIT} \
@@ -108,6 +107,9 @@ RUN rp1 install -y
 # Shell prompt for stable
 RUN echo 'PROMPT="[rp1-stable] %~/ %# "' >> /home/rp1user/.zshrc
 
+# Bind Arcade to 0.0.0.0 so port forwarding works from host
+ENV RP1_ARCADE_HOST="0.0.0.0"
+
 EXPOSE 7710
 
 WORKDIR /home/rp1user/target/zod-to-json-schema
@@ -120,7 +122,7 @@ CMD ["zsh"]
 # ─────────────────────────────────────────────────────────────────────────────
 FROM target-repo AS dev
 
-COPY --chown=rp1user:rp1user setup-dev.sh /home/rp1user/.local/bin/setup-dev.sh
+COPY --chown=rp1user:rp1user docker/setup-dev.sh /home/rp1user/.local/bin/setup-dev.sh
 RUN chmod +x /home/rp1user/.local/bin/setup-dev.sh
 
 # Add /src/rp1/bin to PATH and configure dev prompt
@@ -128,6 +130,9 @@ RUN echo 'export PATH="/src/rp1/bin:$PATH"' >> /home/rp1user/.zshrc \
     && echo 'PROMPT="[rp1-dev] %~/ %# "' >> /home/rp1user/.zshrc
 
 ENV PATH="/src/rp1/bin:${PATH}"
+
+# Bind Arcade to 0.0.0.0 so port forwarding works from host
+ENV RP1_ARCADE_HOST="0.0.0.0"
 
 EXPOSE 7710
 
