@@ -317,21 +317,21 @@ serve-docs:
 # ─────────────────────────────────────────────────────────────────────────────
 
 # One-time setup for evals (run after clone)
-setup-evals:
+eval-setup:
     cd evals && bun install --frozen-lockfile
 
 # Directory structure: evals/suites/{plugin}/{suite}/evals.yaml
 # Default harness: claude code. Override with --harness=opencode.
 #
 # Examples:
-#   just run-evals                          # run all suites (claude harness)
-#   just run-evals rp1-dev/build-fast       # run specific suite
-#   just run-evals --harness=opencode       # run all with opencode
-#   just run-evals --attest --commit        # run all, attest passing, commit
-#   just run-evals --platform=opencode      # attest for opencode platform
+#   just eval-run                          # run all suites (claude harness)
+#   just eval-run rp1-dev/build-fast       # run specific suite
+#   just eval-run --harness=opencode       # run all with opencode
+#   just eval-run --attest --commit        # run all, attest passing, commit
+#   just eval-run --platform=opencode      # attest for opencode platform
 
 # Run eval suites. Optional: suite path, --harness=opencode, --platform=<platform>, --attest, --commit, --verbose
-run-evals *args:
+eval-run *args:
     #!/usr/bin/env bash
     set -e
     repo_root="$(pwd)"
@@ -416,19 +416,19 @@ run-evals *args:
     echo "All evals PASSED"
 
 # Generate attestation from eval output file
-attest-evals output-file:
+eval-attest output-file:
     bun run evals/src/attestation/cli.ts attest-from-output evals/output/{{output-file}}
 
 # Verify all attestations are current
-verify-evals:
+eval-verify:
     bun run evals/src/attestation/cli.ts verify
 
 # Show commands needing re-attestation
-show-evals-status:
+eval-status:
     bun run evals/src/attestation/cli.ts status
 
 # View eval results in browser
-view-evals:
+eval-view:
     cd evals && bunx promptfoo view -n
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -436,11 +436,11 @@ view-evals:
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Generate catalog/skills.yaml and catalog/agents.yaml from plugin sources
-generate-catalog:
+catalog-generate:
     ./scripts/generate-catalog.sh
 
 # Verify catalogue is up-to-date with plugin sources
-check-catalog:
+catalog-check:
     ./scripts/check-catalog.sh
 
 # ─────────────────────────────────────────────────────────────────────────────

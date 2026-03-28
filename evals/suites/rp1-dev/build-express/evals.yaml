@@ -3,7 +3,7 @@
 # Advisory eval for /rp1-dev:build-express.
 # Validates: scope gating, delegation to general sub-agent, post-build prompt flow.
 #
-# Run: just run-evals rp1-dev/build-express
+# Run: just eval-run rp1-dev/build-express
 description: "rp1-dev:build-express advisory evaluation"
 evaluateOptions:
   maxConcurrency: 4
