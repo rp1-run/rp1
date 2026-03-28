@@ -954,11 +954,13 @@ What it does:
 2. Starts the container with your local rp1 directory bind-mounted at `/src/rp1`
 3. Runs `setup-dev.sh` which:
    - Installs CLI dependencies (`bun install`)
-   - Builds rp1 from local source (`just build-local-dev`)
-   - Installs plugins to all platforms (`just install`)
-4. Drops you into an interactive zsh shell at `~/target/zod-to-json-schema`
+   - Builds rp1 from local source (compiles to a temp dir to avoid virtiofs rename issues, then copies the binary)
+   - Installs plugins to detected platforms (`rp1 install -y`)
+4. Drops you into an interactive zsh shell at `/src/rp1`
 
 The shell prompt shows `[rp1-dev]` to indicate the active scenario. Changes to local files on the host are reflected inside the container without restart (bind mount).
+
+**Note**: The dev image includes Node.js, Claude Code, OpenCode, and Codex CLIs so that `rp1 install -y` can detect and install plugins to all platforms.
 
 ### Environment Variables
 
@@ -978,7 +980,7 @@ The container's Arcade dashboard port (7710) is mapped to host port **17710** to
 Container :7710  -->  Host :17710
 ```
 
-After starting Arcade inside the container (`rp1 arcade`), access it at `http://localhost:17710` in your host browser.
+After starting Arcade inside the container (`rp1 arcade`), access it at `http://localhost:17710` in your host browser. The container sets `RP1_ARCADE_HOST=0.0.0.0` so the Arcade server binds to all interfaces, enabling Docker port forwarding to reach it.
 
 To forward additional ports, modify the `docker run` command in the `start-docker-stable` or `start-docker-dev` recipes in the `justfile` by adding `-p <host-port>:<container-port>` flags.
 
@@ -992,7 +994,7 @@ docker build --platform linux/arm64 --target stable \
   -t rp1-stable -f docker/Dockerfile .
 ```
 
-By default, it checks out the `main` branch.
+By default, it checks out the `master` branch.
 
 ### Container Layout
 
@@ -1006,9 +1008,21 @@ By default, it checks out the `main` branch.
 
 ### Installed Tools
 
-Both containers include: git, gh, zsh, ripgrep, bun, python3, curl, make, gcc, g++, tar, gzip, wget, less, vim, jq, just. The stable container additionally includes Node.js LTS.
+Both containers include: git, gh, zsh, ripgrep, bun, Node.js LTS, python3, curl, make, gcc, g++, tar, gzip, wget, less, vim, jq, just, Claude Code CLI, OpenCode CLI, Codex CLI.
 
 ## Troubleshooting
+
+### Docker: `SELF_SIGNED_CERT_IN_CHAIN` during image build
+
+This happens when a corporate VPN intercepts TLS connections inside the Docker build. Disconnect VPN and rebuild, or add the VPN's CA certificate to the container.
+
+### Docker: `failed to rename ... .bun-build` (virtiofs)
+
+Bun's `--compile` flag uses atomic rename which doesn't work on Docker's virtiofs filesystem. The `setup-dev.sh` script already works around this by building to a temp dir. If you hit this in other contexts, compile to a local path first then copy to the mount.
+
+### Docker: Arcade not reachable at localhost:17710
+
+Ensure `RP1_ARCADE_HOST=0.0.0.0` is set inside the container. Without it, the Arcade server binds to `127.0.0.1` which is unreachable from the host via Docker port forwarding. Both Docker images set this env var automatically.
 
 ### Port 7710 already in use
 
