@@ -53,7 +53,7 @@ export function startServer(config: ServerConfig): AppServer {
 
 	serverInstance = Bun.serve<WebSocketData>({
 		port,
-		hostname: "127.0.0.1",
+		hostname: process.env.RP1_ARCADE_HOST ?? "127.0.0.1",
 		fetch(req, server) {
 			const url = new URL(req.url);
 			const pathname = url.pathname;
