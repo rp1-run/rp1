@@ -418,7 +418,7 @@ const claudeCodePlatform: PlatformDefinition = {
 		agentExtension: ".md",
 	},
 	copyDirs: [".claude-plugin", "hooks"],
-	producesBundleAssets: false,
+	producesBundleAssets: true,
 };
 
 const codexPlatform: PlatformDefinition = {
@@ -443,7 +443,7 @@ const codexPlatform: PlatformDefinition = {
 		postSkillWrite: codexPostSkillWrite,
 		postPluginBuild: codexPostPluginBuild,
 	},
-	producesBundleAssets: false,
+	producesBundleAssets: true,
 };
 
 // ---------------------------------------------------------------------------

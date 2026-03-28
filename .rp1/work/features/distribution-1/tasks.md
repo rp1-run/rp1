@@ -327,6 +327,37 @@ stateDiagram-v2
         T4_Multi_platform_asset_embedding --> [*]
     ```
 
+### Phase 1 Blocker Fix
+
+- [x] **TX-embed-all-platforms**: Enable bundle asset generation for Claude Code and Codex platforms `[complexity:simple]`
+
+    **Reference**: [design.md#35-multi-platform-asset-embedding](design.md#35-multi-platform-asset-embedding), REQ-005
+
+    **Effort**: 30 minutes
+
+    **Acceptance Criteria**:
+
+    - [x] `producesBundleAssets` set to `true` for claude-code platform in `platform-definitions.ts`
+    - [x] `producesBundleAssets` set to `true` for codex platform in `platform-definitions.ts`
+    - [x] `bun run build` produces `bundle-manifest.json` in `dist/claude-code/` and `dist/codex/` (in addition to existing `dist/opencode/`)
+    - [x] `generate-asset-imports.ts` discovers and includes assets from all three platform dist directories
+    - [x] All existing build tests pass
+
+    **Implementation Summary**:
+
+    - **Files**: `cli/src/build/platform-definitions.ts`, `.rp1/work/features/distribution-1/design.md`
+    - **Approach**: Set `producesBundleAssets` from `false` to `true` for both `claudeCodePlatform` and `codexPlatform` entries. This enables the build pipeline to collect skill/agent entries and generate `bundle-manifest.json` for these platforms, which `generate-asset-imports.ts` already discovers dynamically via `discoverPlatforms()`. Updated design.md platform map table and decision D5 to reflect the correction.
+    - **Deviations**: Design doc originally deferred CC/Codex manifests to Phase 2 (decision D5), but this violated REQ-005 which requires EMBEDDED_MANIFEST to contain entries for all three platforms.
+    - **Tests**: 547/547 passing
+
+    **Execution Flow**:
+
+    ```mermaid
+    stateDiagram-v2
+        [*] --> TX_embed_all_platforms
+        TX_embed_all_platforms --> [*]
+    ```
+
 ### Integration (Parallel Group 4)
 
 - [x] **T7**: Update package.json build scripts and GoReleaser configuration for multi-platform builds `[complexity:simple]`
