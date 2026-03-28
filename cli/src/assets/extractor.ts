@@ -10,7 +10,12 @@ import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../shared/errors.js";
 import { installError, runtimeError } from "../../shared/errors.js";
-import type { AssetEntry, BundledAssets, BundledPlugin } from "./reader.js";
+import type {
+	AssetEntry,
+	BundledAssets,
+	BundledPlatform,
+	BundledPlugin,
+} from "./reader.js";
 
 /**
  * Result of extracting plugins to filesystem.
@@ -185,6 +190,13 @@ const removeLegacyDirs = async (
 };
 
 /**
+ * Resolve the OpenCode platform entry from a multi-platform manifest.
+ */
+const resolveOpenCodePlatform = (
+	assets: BundledAssets,
+): BundledPlatform | null => assets.platforms.opencode ?? null;
+
+/**
  * Extract all plugin files to OpenCode config directory.
  * This is the main entry point for `install:opencode` from bundled assets.
  */
@@ -195,6 +207,13 @@ export const extractPlugins = (
 ): TE.TaskEither<CLIError, ExtractionResult> =>
 	TE.tryCatch(
 		async () => {
+			const platform = resolveOpenCodePlatform(assets);
+			if (!platform) {
+				throw new Error(
+					"No OpenCode platform found in embedded manifest. Ensure the binary was built with OpenCode assets.",
+				);
+			}
+
 			let filesExtracted = 0;
 			const plugins: string[] = [];
 
@@ -205,35 +224,35 @@ export const extractPlugins = (
 
 			// Extract base plugin
 			filesExtracted += await extractPlugin(
-				assets.plugins.base,
+				platform.plugins.base,
 				targetDir,
 				onProgress,
 			);
-			plugins.push(assets.plugins.base.name);
+			plugins.push(platform.plugins.base.name);
 
 			// Extract dev plugin
 			filesExtracted += await extractPlugin(
-				assets.plugins.dev,
+				platform.plugins.dev,
 				targetDir,
 				onProgress,
 			);
-			plugins.push(assets.plugins.dev.name);
+			plugins.push(platform.plugins.dev.name);
 
 			// Extract utils plugin if present in bundle
-			if (assets.plugins.utils) {
+			if (platform.plugins.utils) {
 				filesExtracted += await extractPlugin(
-					assets.plugins.utils,
+					platform.plugins.utils,
 					targetDir,
 					onProgress,
 				);
-				plugins.push(assets.plugins.utils.name);
+				plugins.push(platform.plugins.utils.name);
 			}
 
 			// Extract OpenCode plugins (TypeScript hooks)
 			const allPlugins = [
-				assets.plugins.base,
-				assets.plugins.dev,
-				...(assets.plugins.utils ? [assets.plugins.utils] : []),
+				platform.plugins.base,
+				platform.plugins.dev,
+				...(platform.plugins.utils ? [platform.plugins.utils] : []),
 			];
 
 			for (const plugin of allPlugins) {
