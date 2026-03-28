@@ -14,6 +14,7 @@ import type {
 	PlatformRegistry,
 } from "./models.js";
 import type { BuildPlatform } from "./template-context.js";
+import type { TemplateEngine } from "./template-engine.js";
 
 // ---------------------------------------------------------------------------
 // Platform naming conventions
@@ -63,13 +64,22 @@ export interface PostBuildResult {
 }
 
 /**
- * Context passed to the preparePlugin hook.
+ * Context passed to lifecycle hooks, providing access to build
+ * infrastructure (engine, registry, versions) so hooks can render
+ * templates and build contexts without duplicating setup logic.
  */
 export interface HookContext {
 	readonly projectRoot: string;
 	readonly pluginName: string;
 	readonly pluginDir: string;
 	readonly outputDir: string;
+	readonly engine: TemplateEngine;
+	readonly registry: PlatformRegistry;
+	readonly platformConfig: SupportedTool;
+	readonly pluginVersion: string;
+	readonly cliVersion: string;
+	readonly platform: BuildPlatform;
+	readonly jsonOutput: boolean;
 }
 
 /**
@@ -111,6 +121,7 @@ export interface PlatformHooks {
 		skillDir: string,
 		skill: ClaudeCodeSkill,
 		state: PlatformBuildState,
+		hookCtx: HookContext,
 	) => Promise<void>;
 
 	/**
@@ -121,6 +132,7 @@ export interface PlatformHooks {
 	readonly postPluginBuild?: (
 		outputDir: string,
 		state: PlatformBuildState,
+		hookCtx: HookContext,
 	) => Promise<PostBuildResult>;
 }
 
@@ -187,13 +199,184 @@ const platformConfigs: Record<BuildPlatform, SupportedTool> = {
 };
 
 // ---------------------------------------------------------------------------
-// Lazy imports for registries (avoid circular deps)
+// Imports for registries and platform-specific modules
 // ---------------------------------------------------------------------------
 
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import * as E from "fp-ts/lib/Either.js";
 import { claudeCodeRegistry } from "./claude-code/registry.js";
 import { codexRegistry } from "./codex/registry.js";
+import { mapAgentToRoleType } from "./codex/role-mapper.js";
+import { discoverSkillMap } from "./codex/skill-map.js";
+import { validateSubAgents } from "./codex/sub-agent-validator.js";
+import { validateCodexToml } from "./codex/validator.js";
 import { defaultRegistry } from "./registry.js";
 import { transformNamespace } from "./tags/index.js";
+import { buildTemplateContext } from "./template-context.js";
+
+// ---------------------------------------------------------------------------
+// Codex hook implementations
+// ---------------------------------------------------------------------------
+
+const codexPreparePlugin = async (
+	ctx: HookContext,
+): Promise<PlatformBuildState> => {
+	const skillMap = discoverSkillMap(ctx.projectRoot);
+	return {
+		skillMap,
+		parsedSkills: [] as ClaudeCodeSkill[],
+		codexAgents: [] as Array<{
+			name: string;
+			description: string;
+			roleType: string;
+		}>,
+	};
+};
+
+const codexEnrichSkillContext = (
+	ctx: Record<string, unknown>,
+	state: PlatformBuildState,
+): Record<string, unknown> => ({
+	...ctx,
+	skillMap: state.skillMap,
+});
+
+const codexEnrichAgentContext = (
+	ctx: Record<string, unknown>,
+	agent: ClaudeCodeAgent,
+	state: PlatformBuildState,
+): Record<string, unknown> => {
+	const roleTypeValue = mapAgentToRoleType(agent.name, agent.description);
+	return {
+		...ctx,
+		skillMap: state.skillMap,
+		artifact: {
+			...(ctx.artifact as Record<string, unknown>),
+			roleType: roleTypeValue,
+		},
+	};
+};
+
+const codexPostSkillWrite = async (
+	skillDir: string,
+	skill: ClaudeCodeSkill,
+	state: PlatformBuildState,
+	hookCtx: HookContext,
+): Promise<void> => {
+	(state.parsedSkills as ClaudeCodeSkill[]).push(skill);
+
+	const agentsSubDir = join(skillDir, "agents");
+	await mkdir(agentsSubDir, { recursive: true });
+
+	const namespacedSkillDir = `rp1-${skill.name}`;
+	const openaiYamlCtx = buildTemplateContext(
+		hookCtx.platform,
+		hookCtx.pluginName,
+		hookCtx.pluginVersion,
+		{
+			type: "skill" as const,
+			name: skill.name,
+			namespacedName: namespacedSkillDir,
+			description: skill.description,
+			content: skill.content,
+			supportingFiles: skill.supportingFiles,
+		},
+		hookCtx.registry,
+		hookCtx.cliVersion,
+		hookCtx.platformConfig,
+	);
+
+	const yamlResult = await hookCtx.engine.render(
+		"codex/openai-yaml",
+		openaiYamlCtx,
+	);
+	if (E.isRight(yamlResult)) {
+		await writeFile(join(agentsSubDir, "openai.yaml"), yamlResult.right);
+	}
+};
+
+const codexPostPluginBuild = async (
+	outputDir: string,
+	state: PlatformBuildState,
+	hookCtx: HookContext,
+): Promise<PostBuildResult> => {
+	const errors: string[] = [];
+	const warnings: string[] = [];
+
+	const parsedSkills = state.parsedSkills as ClaudeCodeSkill[];
+	const subAgentValidation = validateSubAgents(
+		hookCtx.projectRoot,
+		parsedSkills,
+	);
+	errors.push(...subAgentValidation.errors);
+	if (!hookCtx.jsonOutput) {
+		for (const warning of subAgentValidation.warnings) {
+			console.warn(`[sub-agent] ${warning}`);
+		}
+		for (const info of subAgentValidation.info) {
+			console.info(`[sub-agent] ${info}`);
+		}
+	}
+
+	const codexAgents = state.codexAgents as Array<{
+		name: string;
+		description: string;
+		roleType: string;
+	}>;
+
+	if (codexAgents.length > 0) {
+		const agentConfigCtx = {
+			platform: hookCtx.platform,
+			pluginName: hookCtx.pluginName,
+			artifact: { agents: codexAgents },
+			registry: hookCtx.registry,
+		};
+		const configResult = await hookCtx.engine.render(
+			"codex/agent-config",
+			agentConfigCtx,
+		);
+		if (E.isRight(configResult)) {
+			const tomlValidation = validateCodexToml(
+				configResult.right,
+				`${hookCtx.pluginName}/rp1-agents.toml`,
+			);
+			if (E.isLeft(tomlValidation)) {
+				const { formatError } = await import("../../shared/errors.js");
+				errors.push(formatError(tomlValidation.left, false));
+			} else {
+				await writeFile(join(outputDir, "rp1-agents.toml"), configResult.right);
+			}
+		} else {
+			const { formatError } = await import("../../shared/errors.js");
+			errors.push(formatError(configResult.left, false));
+		}
+
+		const agentsMdCtx = {
+			platform: hookCtx.platform,
+			pluginName: hookCtx.pluginName,
+			artifact: { agents: codexAgents },
+			registry: hookCtx.registry,
+		};
+		const agentsMdResult = await hookCtx.engine.render(
+			"codex/agents-md",
+			agentsMdCtx,
+		);
+		if (E.isRight(agentsMdResult)) {
+			await writeFile(join(outputDir, "AGENTS.md"), agentsMdResult.right);
+		}
+	}
+
+	return { errors, warnings };
+};
+
+// ---------------------------------------------------------------------------
+// OpenCode hook implementations
+// ---------------------------------------------------------------------------
+
+const opencodePreparePlugin = async (
+	_ctx: HookContext,
+): Promise<PlatformBuildState> => ({});
 
 // ---------------------------------------------------------------------------
 // Platform definitions
@@ -213,6 +396,9 @@ const opencodePlatform: PlatformDefinition = {
 		agentFileName: (pluginName: string, agentName: string) =>
 			`rp1-${pluginName}-${agentName}`,
 		agentExtension: ".md",
+	},
+	hooks: {
+		preparePlugin: opencodePreparePlugin,
 	},
 	producesBundleAssets: true,
 };
@@ -249,6 +435,13 @@ const codexPlatform: PlatformDefinition = {
 		agentFileName: (pluginName: string, agentName: string) =>
 			transformNamespace(`rp1-${pluginName}:${agentName}`, "codex"),
 		agentExtension: ".toml",
+	},
+	hooks: {
+		preparePlugin: codexPreparePlugin,
+		enrichSkillContext: codexEnrichSkillContext,
+		enrichAgentContext: codexEnrichAgentContext,
+		postSkillWrite: codexPostSkillWrite,
+		postPluginBuild: codexPostPluginBuild,
 	},
 	producesBundleAssets: false,
 };

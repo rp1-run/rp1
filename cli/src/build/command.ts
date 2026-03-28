@@ -1,7 +1,8 @@
 /**
- * CLI entry point for build:opencode command.
+ * CLI entry point for the build command.
  * Uses the LiquidJS template engine for all artifact generation across
- * OpenCode, Codex, and Claude Code platforms.
+ * OpenCode, Codex, and Claude Code platforms via a single data-driven
+ * buildPlatformPlugin() function backed by PlatformDefinition configuration.
  */
 
 import {
@@ -28,14 +29,7 @@ import { createSpinner } from "../../shared/spinner.js";
 import { extractStateMachineMermaid } from "../agent-tools/state-machine/extractor.js";
 import { serializeStateMachine } from "../agent-tools/state-machine/serialization.js";
 import { parseAndTransform } from "../agent-tools/state-machine/transform.js";
-import type { SupportedTool } from "../config/supported-tools.js";
 import { colorFns } from "../lib/colors.js";
-import { claudeCodeRegistry } from "./claude-code/registry.js";
-import { codexRegistry } from "./codex/registry.js";
-import { mapAgentToRoleType } from "./codex/role-mapper.js";
-import { discoverSkillMap } from "./codex/skill-map.js";
-import { validateSubAgents } from "./codex/sub-agent-validator.js";
-import { validateCodexToml } from "./codex/validator.js";
 import { type LintDiagnostic, lintArtifact } from "./lint/index.js";
 import {
 	lintAgentArguments,
@@ -46,13 +40,17 @@ import type {
 	BuildSummary,
 	BundleAssetEntry,
 	BundlePluginAssets,
-	ClaudeCodeSkill,
 	OpenCodePluginAsset,
 } from "./models.js";
 import { parseAgent, parseSkill } from "./parser.js";
+import type {
+	HookContext,
+	PlatformBuildState,
+	PlatformDefinition,
+} from "./platform-definitions.js";
+import { PLATFORM_DEFINITIONS } from "./platform-definitions.js";
 import { preprocessConditionals } from "./preprocessor.js";
 import { defaultRegistry } from "./registry.js";
-import { transformNamespace } from "./tags/index.js";
 import type { BuildPlatform } from "./template-context.js";
 import {
 	buildTemplateContext,
@@ -70,62 +68,6 @@ const VALID_PLATFORMS = ["opencode", "codex", "claude-code", "all"];
 const formatLintDiagnostic = (d: LintDiagnostic): string => {
 	const location = d.line ? `${d.file}:${d.line}` : d.file;
 	return `[${d.rule}] ${location} ${d.severity}: ${d.message}`;
-};
-
-/**
- * Stub SupportedTool for platforms when the full registry is not loaded.
- * Build scripts run from source where supported-tools.generated.js may
- * not yet exist, so we provide inline defaults.
- */
-const platformConfigs: Record<BuildPlatform, SupportedTool> = {
-	opencode: {
-		id: "opencode",
-		name: "OpenCode",
-		enabled: true,
-		binary: "opencode",
-		min_version: "0.8.0",
-		instruction_file: "AGENTS.md",
-		install_url: "https://opencode.ai/docs/installation",
-		plugin_install_cmd: null,
-		capabilities: ["plugins", "slash-commands", "agents"],
-	},
-	codex: {
-		id: "codex",
-		name: "Codex CLI",
-		enabled: true,
-		binary: "codex",
-		min_version: "0.116.0",
-		instruction_file: "AGENTS.md",
-		install_url: "https://github.com/openai/codex",
-		plugin_install_cmd: null,
-		capabilities: ["skills", "agents"],
-	},
-	"claude-code": {
-		id: "claude-code",
-		name: "Claude Code",
-		enabled: true,
-		binary: "claude",
-		min_version: "1.0.33",
-		instruction_file: "CLAUDE.md",
-		install_url:
-			"https://docs.anthropic.com/en/docs/claude-code/getting-started",
-		plugin_install_cmd: "claude plugin install {plugin}",
-		capabilities: ["plugins", "slash-commands", "agents", "skills"],
-	},
-};
-
-/**
- * Get the PlatformRegistry for a given build platform.
- */
-const getRegistryForPlatform = (platform: BuildPlatform) => {
-	switch (platform) {
-		case "opencode":
-			return defaultRegistry;
-		case "codex":
-			return codexRegistry;
-		case "claude-code":
-			return claudeCodeRegistry;
-	}
 };
 
 /**
@@ -478,26 +420,30 @@ const getOpenCodePluginName = (pluginName: string): string => {
 };
 
 /**
- * Extended build result with asset paths for bundle manifest.
+ * Unified build result for all platforms. Platforms that do not produce
+ * bundle assets return empty arrays.
  */
-export interface PluginBuildResult {
+export interface PlatformBuildResult {
 	summary: BuildSummary;
 	assets: BundlePluginAssets;
 	hasOpenCodePlugin: boolean;
 }
 
 /**
- * Build a single plugin for the OpenCode platform.
- * Uses the template engine for all artifact generation.
+ * Build a single plugin for any platform using the data-driven PlatformDefinition.
+ * Replaces the previous per-platform buildPlugin, buildCCPlugin, and buildCodexPlugin
+ * functions with a single generic parse-preprocess-render-lint-write loop that
+ * dispatches to platform-specific lifecycle hooks.
  */
-export const buildPlugin = async (
+export const buildPlatformPlugin = async (
 	pluginName: string,
 	projectRoot: string,
 	outputPath: string,
+	definition: PlatformDefinition,
 	_logger: Logger,
 	jsonOutput: boolean,
 	lintOnly = false,
-): Promise<PluginBuildResult> => {
+): Promise<PlatformBuildResult> => {
 	const errors: string[] = [];
 	const commandEntries: BundleAssetEntry[] = [];
 	const agentEntries: BundleAssetEntry[] = [];
@@ -505,38 +451,63 @@ export const buildPlugin = async (
 	const skillFileEntries: BundleAssetEntry[] = [];
 	const stateMachineEntries: BundleAssetEntry[] = [];
 
+	const platform = definition.id;
 	const pluginDir = join(projectRoot, "plugins", pluginName);
 	const pluginOutputDir = join(outputPath, pluginName);
 	const pluginVersion = await readPluginVersion(pluginDir);
 	const cliVersion = await readCliVersion(projectRoot);
 
 	const engine = createTemplateEngine();
-	const platform: BuildPlatform = "opencode";
-	const registry = getRegistryForPlatform(platform);
-	const platformConfig = platformConfigs[platform];
+	const registry = definition.registry;
+	const platformConfig = definition.config;
 
 	const spinner = createSpinner(!jsonOutput && (process.stdout.isTTY ?? false));
 
+	// Build hook context for lifecycle hooks
+	const hookCtx: HookContext = {
+		projectRoot,
+		pluginName,
+		pluginDir,
+		outputDir: pluginOutputDir,
+		engine,
+		registry,
+		platformConfig,
+		pluginVersion,
+		cliVersion,
+		platform,
+		jsonOutput,
+	};
+
+	// Initialize platform-specific state via preparePlugin hook
+	let buildState: PlatformBuildState = {};
+	if (definition.hooks?.preparePlugin) {
+		buildState = await definition.hooks.preparePlugin(hookCtx);
+	}
+
 	if (!lintOnly) {
-		// Clean and create output directories
 		try {
 			await rm(pluginOutputDir, { recursive: true, force: true });
 		} catch {
 			// Directory might not exist
 		}
 
-		// Create output directories: agents/ (flat), skills/
 		await mkdir(join(pluginOutputDir, "agents"), { recursive: true });
 		await mkdir(join(pluginOutputDir, "skills"), { recursive: true });
 	}
 
 	if (!jsonOutput) {
+		const platformLabel = platform === "opencode" ? "" : ` (${platform})`;
 		const mode = lintOnly ? " (lint)" : "";
-		spinner.start(`Building ${pluginName} plugin${mode}...`);
+		spinner.start(`Building ${pluginName} plugin${platformLabel}${mode}...`);
 	}
+
+	// -----------------------------------------------------------------------
+	// Build skills
+	// -----------------------------------------------------------------------
 
 	const skillsDir = join(pluginDir, "skills");
 	const skillDirs = await getSkillDirs(skillsDir);
+	const skillNames: string[] = [];
 
 	for (const skillDir of skillDirs) {
 		const parseResult = await parseSkill(skillDir)();
@@ -546,7 +517,6 @@ export const buildPlugin = async (
 		}
 		const ccSkill = parseResult.right;
 
-		// Source-level argument validation (L007-L012) -- runs before rendering
 		const skillArgLint = lintSkillArguments(
 			ccSkill.metadata,
 			ccSkill.content,
@@ -570,9 +540,9 @@ export const buildPlugin = async (
 		}
 		const processedContent = preprocessResult.right;
 
-		const namespacedSkillDir = `rp1-${ccSkill.name}`;
+		const namespacedSkillDir = `${definition.naming.skillDirPrefix}${ccSkill.name}`;
 
-		const ctx = buildTemplateContext(
+		let ctx: Record<string, unknown> = buildTemplateContext(
 			platform,
 			pluginName,
 			pluginVersion,
@@ -591,15 +561,19 @@ export const buildPlugin = async (
 			platformConfig,
 		);
 
-		const renderResult = await engine.render("opencode/skill", ctx);
+		if (definition.hooks?.enrichSkillContext) {
+			ctx = definition.hooks.enrichSkillContext(ctx, buildState);
+		}
+
+		const renderResult = await engine.render(definition.templates.skill, ctx);
 		if (E.isLeft(renderResult)) {
 			errors.push(formatError(renderResult.left, false));
 			continue;
 		}
-		const skillMdContent = injectEmitHarness(renderResult.right, platform);
+		const skillContent = injectEmitHarness(renderResult.right, platform);
 
 		const validateResult = validateSkill(
-			skillMdContent,
+			skillContent,
 			`${namespacedSkillDir}/SKILL.md`,
 		);
 		if (E.isLeft(validateResult)) {
@@ -608,7 +582,7 @@ export const buildPlugin = async (
 		}
 
 		const skillLint = lintArtifact(
-			skillMdContent,
+			skillContent,
 			platform,
 			`${namespacedSkillDir}/SKILL.md`,
 		);
@@ -633,29 +607,48 @@ export const buildPlugin = async (
 				namespacedSkillDir,
 			);
 			await mkdir(skillOutputDir, { recursive: true });
-			await writeFile(join(skillOutputDir, "SKILL.md"), skillMdContent);
+			await writeFile(join(skillOutputDir, "SKILL.md"), skillContent);
 
 			await copySupportingFiles(
 				skillDir,
 				skillOutputDir,
 				ccSkill.supportingFiles,
 			);
+
+			if (definition.hooks?.postSkillWrite) {
+				await definition.hooks.postSkillWrite(
+					skillOutputDir,
+					ccSkill,
+					buildState,
+					hookCtx,
+				);
+			}
 		}
 
-		const relativePath = `${pluginName}/skills/${namespacedSkillDir}/SKILL.md`;
-		skillEntries.push({ name: namespacedSkillDir, path: relativePath });
+		skillNames.push(namespacedSkillDir);
 
-		const skillOutputDir = join(pluginOutputDir, "skills", namespacedSkillDir);
-		const allSkillFiles = lintOnly ? [] : await collectAllFiles(skillOutputDir);
-		for (const file of allSkillFiles) {
-			const fileRelPath = `${pluginName}/skills/${namespacedSkillDir}/${file}`;
-			skillFileEntries.push({
-				name: `${namespacedSkillDir}/${file}`,
-				path: fileRelPath,
-			});
+		if (definition.producesBundleAssets) {
+			const relativePath = `${pluginName}/skills/${namespacedSkillDir}/SKILL.md`;
+			skillEntries.push({ name: namespacedSkillDir, path: relativePath });
+
+			const skillOutputDir = join(
+				pluginOutputDir,
+				"skills",
+				namespacedSkillDir,
+			);
+			const allSkillFiles = lintOnly
+				? []
+				: await collectAllFiles(skillOutputDir);
+			for (const file of allSkillFiles) {
+				const fileRelPath = `${pluginName}/skills/${namespacedSkillDir}/${file}`;
+				skillFileEntries.push({
+					name: `${namespacedSkillDir}/${file}`,
+					path: fileRelPath,
+				});
+			}
 		}
 
-		const extractedSkillMermaid = extractStateMachineMermaid(skillMdContent);
+		const extractedSkillMermaid = extractStateMachineMermaid(skillContent);
 		if (extractedSkillMermaid) {
 			const smParseResult = parseAndTransform(
 				ccSkill.name,
@@ -675,8 +668,13 @@ export const buildPlugin = async (
 		}
 	}
 
+	// -----------------------------------------------------------------------
+	// Build agents
+	// -----------------------------------------------------------------------
+
 	const agentsDir = join(pluginDir, "agents");
 	const agentFiles = await getMarkdownFiles(agentsDir);
+	const agentNames: string[] = [];
 
 	for (const agentFile of agentFiles) {
 		const parseResult = await parseAgent(agentFile)();
@@ -686,7 +684,6 @@ export const buildPlugin = async (
 		}
 		const ccAgent = parseResult.right;
 
-		// Source-level argument validation (L008, L010-L012) -- runs before rendering
 		const agentArgLint = lintAgentArguments(
 			ccAgent.arguments,
 			ccAgent.content,
@@ -710,7 +707,7 @@ export const buildPlugin = async (
 		}
 		const processedContent = preprocessResult.right;
 
-		const ctx = buildTemplateContext(
+		let ctx: Record<string, unknown> = buildTemplateContext(
 			platform,
 			pluginName,
 			pluginVersion,
@@ -729,21 +726,24 @@ export const buildPlugin = async (
 			platformConfig,
 		);
 
-		const renderResult = await engine.render("opencode/agent", ctx);
+		if (definition.hooks?.enrichAgentContext) {
+			ctx = definition.hooks.enrichAgentContext(ctx, ccAgent, buildState);
+		}
+
+		const renderResult = await engine.render(definition.templates.agent, ctx);
 		if (E.isLeft(renderResult)) {
 			errors.push(formatError(renderResult.left, false));
 			continue;
 		}
 		const content = injectEmitHarness(renderResult.right, platform);
-		const filename = `${ccAgent.name}.md`;
 
-		const validateResult = validateAgent(content, filename);
-		if (E.isLeft(validateResult)) {
-			errors.push(formatError(validateResult.left, false));
-			continue;
-		}
+		const agentOutputName = definition.naming.agentFileName(
+			pluginName,
+			ccAgent.name,
+		);
+		const agentFilename = `${agentOutputName}${definition.naming.agentExtension}`;
 
-		const agentLint = lintArtifact(content, platform, filename);
+		const agentLint = lintArtifact(content, platform, agentFilename);
 		for (const d of agentLint.diagnostics) {
 			if (d.severity === "warning" && !jsonOutput) {
 				console.warn(formatLintDiagnostic(d));
@@ -758,13 +758,45 @@ export const buildPlugin = async (
 			continue;
 		}
 
-		// Write to flat namespaced file: agents/rp1-{plugin}-{filename}
-		const relativePath = `${pluginName}/agents/rp1-${pluginName}-${filename}`;
-		if (!lintOnly) {
-			const outputFile = join(outputPath, relativePath);
-			await writeFile(outputFile, content);
+		// Validate agent (markdown-based platforms only)
+		if (definition.naming.agentExtension === ".md") {
+			const validateResult = validateAgent(content, agentFilename);
+			if (E.isLeft(validateResult)) {
+				errors.push(formatError(validateResult.left, false));
+				continue;
+			}
 		}
-		agentEntries.push({ name: ccAgent.name, path: relativePath });
+
+		if (!lintOnly) {
+			await writeFile(join(pluginOutputDir, "agents", agentFilename), content);
+		}
+
+		agentNames.push(agentOutputName);
+
+		if (definition.producesBundleAssets) {
+			const relativePath = `${pluginName}/agents/${agentFilename}`;
+			agentEntries.push({ name: ccAgent.name, path: relativePath });
+		}
+
+		// Track Codex agent metadata in build state for postPluginBuild hooks
+		if (buildState.codexAgents !== undefined) {
+			const { mapAgentToRoleType } = await import("./codex/role-mapper.js");
+			const roleTypeValue = mapAgentToRoleType(
+				ccAgent.name,
+				ccAgent.description,
+			);
+			(
+				buildState.codexAgents as Array<{
+					name: string;
+					description: string;
+					roleType: string;
+				}>
+			).push({
+				name: agentOutputName,
+				description: ccAgent.description,
+				roleType: roleTypeValue,
+			});
+		}
 
 		const extractedAgentMermaid = extractStateMachineMermaid(ccAgent.content);
 		if (extractedAgentMermaid) {
@@ -786,10 +818,45 @@ export const buildPlugin = async (
 		}
 	}
 
+	// -----------------------------------------------------------------------
+	// Post-plugin build hook
+	// -----------------------------------------------------------------------
+
+	if (!lintOnly && definition.hooks?.postPluginBuild) {
+		const hookResult = await definition.hooks.postPluginBuild(
+			pluginOutputDir,
+			buildState,
+			hookCtx,
+		);
+		errors.push(...hookResult.errors);
+	}
+
+	// -----------------------------------------------------------------------
+	// Copy verbatim directories (e.g., .claude-plugin, hooks)
+	// -----------------------------------------------------------------------
+
+	if (!lintOnly && definition.copyDirs) {
+		for (const dir of definition.copyDirs) {
+			const srcDir = join(pluginDir, dir);
+			try {
+				const dirStat = await stat(srcDir);
+				if (dirStat.isDirectory()) {
+					await copyDirectory(srcDir, join(pluginOutputDir, dir));
+				}
+			} catch {
+				// Directory doesn't exist -- skip
+			}
+		}
+	}
+
+	// -----------------------------------------------------------------------
+	// OpenCode-specific: copy platform plugin files and collect assets
+	// -----------------------------------------------------------------------
+
 	let hasOpenCodePlugin = false;
 	let openCodePluginAsset: OpenCodePluginAsset | undefined;
 
-	if (!lintOnly) {
+	if (!lintOnly && definition.producesBundleAssets) {
 		hasOpenCodePlugin = await copyOpenCodePlugin(pluginDir, pluginOutputDir);
 
 		if (hasOpenCodePlugin) {
@@ -802,10 +869,16 @@ export const buildPlugin = async (
 				files: pluginFiles,
 			};
 		}
+	}
 
-		const commandNames = commandEntries.map((e) => e.name);
-		const agentNames = agentEntries.map((e) => e.name);
-		const skillNames = skillEntries.map((e) => e.name);
+	// -----------------------------------------------------------------------
+	// Write manifest
+	// -----------------------------------------------------------------------
+
+	if (!lintOnly) {
+		const manifestSkillNames = skillNames;
+		const manifestAgentNames = agentNames;
+		const manifestCommandNames = commandEntries.map((e) => e.name);
 
 		const manifestCtx = buildTemplateContext(
 			platform,
@@ -813,10 +886,10 @@ export const buildPlugin = async (
 			pluginVersion,
 			{
 				type: "manifest",
-				skills: skillNames,
-				agents: agentNames,
-				commands: commandNames,
-				hasOpenCodePlugin: hasOpenCodePlugin || undefined,
+				skills: manifestSkillNames,
+				agents: manifestAgentNames,
+				commands: manifestCommandNames,
+				...(hasOpenCodePlugin && { hasOpenCodePlugin: true }),
 			},
 			registry,
 			cliVersion,
@@ -824,7 +897,7 @@ export const buildPlugin = async (
 		);
 
 		const manifestResult = await engine.render(
-			"opencode/manifest",
+			definition.templates.manifest,
 			manifestCtx,
 		);
 		if (E.isRight(manifestResult)) {
@@ -835,10 +908,18 @@ export const buildPlugin = async (
 		}
 	}
 
+	// -----------------------------------------------------------------------
+	// Summary output
+	// -----------------------------------------------------------------------
+
 	if (!jsonOutput) {
 		const hasErrors = errors.length > 0;
+		const platformLabel = platform === "opencode" ? "" : ` ${platform}`;
 		const ocPluginNote = hasOpenCodePlugin ? " + OpenCode plugin" : "";
-		const summary = `${pluginName}: ${agentEntries.length} agents, ${skillEntries.length} skills${ocPluginNote}`;
+		const mode = lintOnly ? " lint" : "";
+		const summary =
+			`${pluginName}${platformLabel ? ` (${platform}${mode})` : ""}:` +
+			` ${agentNames.length} agents, ${skillNames.length} skills${ocPluginNote}`;
 		if (hasErrors) {
 			spinner.fail(`${summary} (${errors.length} errors)`);
 		} else {
@@ -850,8 +931,8 @@ export const buildPlugin = async (
 		summary: {
 			plugin: pluginName,
 			commands: commandEntries.length,
-			agents: agentEntries.length,
-			skills: skillEntries.length,
+			agents: agentNames.length,
+			skills: skillNames.length,
 			errors,
 		},
 		assets: {
@@ -884,705 +965,6 @@ export const deriveCodexOutputDir = (opencodeOutputDir: string): string => {
 	const normalized = opencodeOutputDir.replace(/\/+$/, "");
 	const parent = dirname(normalized);
 	return join(parent, "codex");
-};
-
-/**
- * Build a single plugin for the Claude Code platform.
- * Uses the template engine for all artifact generation.
- */
-export const buildCCPlugin = async (
-	pluginName: string,
-	projectRoot: string,
-	outputPath: string,
-	_logger: Logger,
-	jsonOutput: boolean,
-	lintOnly = false,
-): Promise<BuildSummary> => {
-	const errors: string[] = [];
-
-	const pluginDir = join(projectRoot, "plugins", pluginName);
-	const pluginOutputDir = join(outputPath, pluginName);
-	const pluginVersion = await readPluginVersion(pluginDir);
-	const cliVersion = await readCliVersion(projectRoot);
-
-	const engine = createTemplateEngine();
-	const platform: BuildPlatform = "claude-code";
-	const registry = getRegistryForPlatform(platform);
-	const platformConfig = platformConfigs[platform];
-
-	const spinner = createSpinner(!jsonOutput && (process.stdout.isTTY ?? false));
-
-	if (!lintOnly) {
-		try {
-			await rm(pluginOutputDir, { recursive: true, force: true });
-		} catch {
-			// Directory might not exist
-		}
-
-		await mkdir(join(pluginOutputDir, "skills"), { recursive: true });
-		await mkdir(join(pluginOutputDir, "agents"), { recursive: true });
-	}
-
-	if (!jsonOutput) {
-		const mode = lintOnly ? " (lint)" : "";
-		spinner.start(`Building ${pluginName} plugin (claude-code)${mode}...`);
-	}
-
-	const skillsDir = join(pluginDir, "skills");
-	const skillDirs = await getSkillDirs(skillsDir);
-	let skillCount = 0;
-	const skillNames: string[] = [];
-
-	for (const skillDir of skillDirs) {
-		const parseResult = await parseSkill(skillDir)();
-		if (E.isLeft(parseResult)) {
-			errors.push(formatError(parseResult.left, false));
-			continue;
-		}
-		const ccSkill = parseResult.right;
-
-		// Source-level argument validation (L007-L012) -- runs before rendering
-		const ccSkillArgLint = lintSkillArguments(
-			ccSkill.metadata,
-			ccSkill.content,
-			skillDir,
-		);
-		const ccSkillArgErrors = ccSkillArgLint.filter(
-			(d) => d.severity === "error",
-		);
-		if (ccSkillArgErrors.length > 0) {
-			for (const d of ccSkillArgErrors) {
-				errors.push(formatLintDiagnostic(d));
-			}
-			continue;
-		}
-
-		const preprocessResult = await preprocessConditionals(
-			ccSkill.content,
-			platform,
-		);
-		if (E.isLeft(preprocessResult)) {
-			errors.push(formatError(preprocessResult.left, false));
-			continue;
-		}
-		const processedContent = preprocessResult.right;
-
-		// CC: no prefix — Claude Code already namespaces with the plugin name
-		const skillDirName = ccSkill.name;
-
-		const ctx = buildTemplateContext(
-			platform,
-			pluginName,
-			pluginVersion,
-			{
-				type: "skill",
-				name: ccSkill.name,
-				namespacedName: skillDirName,
-				description: ccSkill.description,
-				allowedTools: ccSkill.allowedTools,
-				content: processedContent,
-				metadata: withDerivedArgumentHint(ccSkill.metadata),
-				supportingFiles: ccSkill.supportingFiles,
-			},
-			registry,
-			cliVersion,
-			platformConfig,
-		);
-
-		const renderResult = await engine.render("claude-code/skill", ctx);
-		if (E.isLeft(renderResult)) {
-			errors.push(formatError(renderResult.left, false));
-			continue;
-		}
-		const ccSkillContent = injectEmitHarness(renderResult.right, platform);
-
-		const ccSkillLint = lintArtifact(
-			ccSkillContent,
-			platform,
-			`${skillDirName}/SKILL.md`,
-		);
-		for (const d of ccSkillLint.diagnostics) {
-			if (d.severity === "warning" && !jsonOutput) {
-				console.warn(formatLintDiagnostic(d));
-			}
-		}
-		if (ccSkillLint.hasErrors) {
-			for (const d of ccSkillLint.diagnostics.filter(
-				(d) => d.severity === "error",
-			)) {
-				errors.push(formatLintDiagnostic(d));
-			}
-			continue;
-		}
-
-		if (!lintOnly) {
-			const skillOutputDir = join(pluginOutputDir, "skills", skillDirName);
-			await mkdir(skillOutputDir, { recursive: true });
-			await writeFile(join(skillOutputDir, "SKILL.md"), ccSkillContent);
-
-			await copySupportingFiles(
-				skillDir,
-				skillOutputDir,
-				ccSkill.supportingFiles,
-			);
-		}
-
-		skillNames.push(skillDirName);
-		skillCount++;
-	}
-
-	const agentsDir = join(pluginDir, "agents");
-	const agentFiles = await getMarkdownFiles(agentsDir);
-	let agentCount = 0;
-	const agentNames: string[] = [];
-
-	for (const agentFile of agentFiles) {
-		const parseResult = await parseAgent(agentFile)();
-		if (E.isLeft(parseResult)) {
-			errors.push(formatError(parseResult.left, false));
-			continue;
-		}
-		const ccAgent = parseResult.right;
-
-		// Source-level argument validation (L008, L010-L012) -- runs before rendering
-		const ccAgentArgLint = lintAgentArguments(
-			ccAgent.arguments,
-			ccAgent.content,
-			agentFile,
-		);
-		const ccAgentArgErrors = ccAgentArgLint.filter(
-			(d) => d.severity === "error",
-		);
-		if (ccAgentArgErrors.length > 0) {
-			for (const d of ccAgentArgErrors) {
-				errors.push(formatLintDiagnostic(d));
-			}
-			continue;
-		}
-
-		const preprocessResult = await preprocessConditionals(
-			ccAgent.content,
-			platform,
-		);
-		if (E.isLeft(preprocessResult)) {
-			errors.push(formatError(preprocessResult.left, false));
-			continue;
-		}
-		const processedContent = preprocessResult.right;
-
-		const ctx = buildTemplateContext(
-			platform,
-			pluginName,
-			pluginVersion,
-			{
-				type: "agent",
-				name: ccAgent.name,
-				description: ccAgent.description,
-				model: ccAgent.model,
-				tools: ccAgent.tools,
-				content: processedContent,
-				...(ccAgent.arguments && { arguments: ccAgent.arguments }),
-				...(ccAgent.environment && { environment: ccAgent.environment }),
-			},
-			registry,
-			cliVersion,
-			platformConfig,
-		);
-
-		const renderResult = await engine.render("claude-code/agent", ctx);
-		if (E.isLeft(renderResult)) {
-			errors.push(formatError(renderResult.left, false));
-			continue;
-		}
-		const ccAgentContent = injectEmitHarness(renderResult.right, platform);
-
-		const ccAgentLint = lintArtifact(
-			ccAgentContent,
-			platform,
-			`${ccAgent.name}.md`,
-		);
-		for (const d of ccAgentLint.diagnostics) {
-			if (d.severity === "warning" && !jsonOutput) {
-				console.warn(formatLintDiagnostic(d));
-			}
-		}
-		if (ccAgentLint.hasErrors) {
-			for (const d of ccAgentLint.diagnostics.filter(
-				(d) => d.severity === "error",
-			)) {
-				errors.push(formatLintDiagnostic(d));
-			}
-			continue;
-		}
-
-		if (!lintOnly) {
-			const outputFile = join(pluginOutputDir, "agents", `${ccAgent.name}.md`);
-			await writeFile(outputFile, ccAgentContent);
-		}
-
-		agentNames.push(ccAgent.name);
-		agentCount++;
-	}
-
-	if (!lintOnly) {
-		const manifestCtx = buildTemplateContext(
-			platform,
-			`rp1-${pluginName}`,
-			pluginVersion,
-			{
-				type: "manifest",
-				skills: skillNames,
-				agents: agentNames,
-				commands: [],
-			},
-			registry,
-			cliVersion,
-			platformConfig,
-		);
-
-		const manifestResult = await engine.render(
-			"claude-code/manifest",
-			manifestCtx,
-		);
-		if (E.isRight(manifestResult)) {
-			await writeFile(
-				join(pluginOutputDir, "manifest.json"),
-				manifestResult.right,
-			);
-		}
-
-		// Copy plugin metadata and hooks for marketplace installation
-		for (const dir of [".claude-plugin", "hooks"]) {
-			const srcDir = join(pluginDir, dir);
-			try {
-				const dirStat = await stat(srcDir);
-				if (dirStat.isDirectory()) {
-					await copyDirectory(srcDir, join(pluginOutputDir, dir));
-				}
-			} catch {
-				// Directory doesn't exist — skip
-			}
-		}
-	}
-
-	if (!jsonOutput) {
-		const hasErrors = errors.length > 0;
-		const mode = lintOnly ? " lint" : "";
-		const summary = `${pluginName} (claude-code${mode}): ${agentCount} agents, ${skillCount} skills`;
-		if (hasErrors) {
-			spinner.fail(`${summary} (${errors.length} errors)`);
-		} else {
-			spinner.succeed(summary);
-		}
-	}
-
-	return {
-		plugin: pluginName,
-		commands: 0,
-		agents: agentCount,
-		skills: skillCount,
-		errors,
-	};
-};
-
-/**
- * Build a single plugin for the Codex platform.
- * Uses the template engine for all artifact generation.
- * Produces: skill dirs with SKILL.md + agents/openai.yaml, per-agent TOML files,
- * rp1-agents.toml config, AGENTS.md listing, and manifest.json.
- */
-export const buildCodexPlugin = async (
-	pluginName: string,
-	projectRoot: string,
-	outputPath: string,
-	_logger: Logger,
-	jsonOutput: boolean,
-	lintOnly = false,
-): Promise<BuildSummary> => {
-	const errors: string[] = [];
-
-	const pluginDir = join(projectRoot, "plugins", pluginName);
-	const pluginOutputDir = join(outputPath, pluginName);
-	const pluginVersion = await readPluginVersion(pluginDir);
-	const cliVersion = await readCliVersion(projectRoot);
-
-	const engine = createTemplateEngine();
-	const platform: BuildPlatform = "codex";
-	const registry = getRegistryForPlatform(platform);
-	const platformConfig = platformConfigs[platform];
-	const skillMap = discoverSkillMap(projectRoot);
-
-	const spinner = createSpinner(!jsonOutput && (process.stdout.isTTY ?? false));
-
-	if (!lintOnly) {
-		try {
-			await rm(pluginOutputDir, { recursive: true, force: true });
-		} catch {
-			// Directory might not exist
-		}
-
-		await mkdir(join(pluginOutputDir, "skills"), { recursive: true });
-		await mkdir(join(pluginOutputDir, "agents"), { recursive: true });
-	}
-
-	if (!jsonOutput) {
-		const mode = lintOnly ? " (lint)" : "";
-		spinner.start(`Building ${pluginName} plugin (codex)${mode}...`);
-	}
-
-	const skillsDir = join(pluginDir, "skills");
-	const skillDirs = await getSkillDirs(skillsDir);
-	let skillCount = 0;
-	const skillNames: string[] = [];
-	const parsedSkills: ClaudeCodeSkill[] = [];
-
-	for (const skillDir of skillDirs) {
-		const parseResult = await parseSkill(skillDir)();
-		if (E.isLeft(parseResult)) {
-			errors.push(formatError(parseResult.left, false));
-			continue;
-		}
-		const ccSkill = parseResult.right;
-		parsedSkills.push(ccSkill);
-
-		// Source-level argument validation (L007-L012) -- runs before rendering
-		const codexSkillArgLint = lintSkillArguments(
-			ccSkill.metadata,
-			ccSkill.content,
-			skillDir,
-		);
-		const codexSkillArgErrors = codexSkillArgLint.filter(
-			(d) => d.severity === "error",
-		);
-		if (codexSkillArgErrors.length > 0) {
-			for (const d of codexSkillArgErrors) {
-				errors.push(formatLintDiagnostic(d));
-			}
-			continue;
-		}
-
-		const preprocessResult = await preprocessConditionals(
-			ccSkill.content,
-			platform,
-		);
-		if (E.isLeft(preprocessResult)) {
-			errors.push(formatError(preprocessResult.left, false));
-			continue;
-		}
-		const processedContent = preprocessResult.right;
-
-		const namespacedSkillDir = `rp1-${ccSkill.name}`;
-
-		const ctx = {
-			...buildTemplateContext(
-				platform,
-				pluginName,
-				pluginVersion,
-				{
-					type: "skill" as const,
-					name: ccSkill.name,
-					namespacedName: namespacedSkillDir,
-					description: ccSkill.description,
-					allowedTools: ccSkill.allowedTools,
-					content: processedContent,
-					metadata: withDerivedArgumentHint(ccSkill.metadata),
-					supportingFiles: ccSkill.supportingFiles,
-				},
-				registry,
-				cliVersion,
-				platformConfig,
-			),
-			skillMap,
-		};
-
-		const renderResult = await engine.render("codex/skill", ctx);
-		if (E.isLeft(renderResult)) {
-			errors.push(formatError(renderResult.left, false));
-			continue;
-		}
-		const codexSkillContent = injectEmitHarness(renderResult.right, platform);
-
-		const codexSkillLint = lintArtifact(
-			codexSkillContent,
-			platform,
-			`${namespacedSkillDir}/SKILL.md`,
-		);
-		for (const d of codexSkillLint.diagnostics) {
-			if (d.severity === "warning" && !jsonOutput) {
-				console.warn(formatLintDiagnostic(d));
-			}
-		}
-		if (codexSkillLint.hasErrors) {
-			for (const d of codexSkillLint.diagnostics.filter(
-				(d) => d.severity === "error",
-			)) {
-				errors.push(formatLintDiagnostic(d));
-			}
-			continue;
-		}
-
-		if (!lintOnly) {
-			const skillOutputDir = join(
-				pluginOutputDir,
-				"skills",
-				namespacedSkillDir,
-			);
-			await mkdir(skillOutputDir, { recursive: true });
-			await writeFile(join(skillOutputDir, "SKILL.md"), codexSkillContent);
-
-			await copySupportingFiles(
-				skillDir,
-				skillOutputDir,
-				ccSkill.supportingFiles,
-			);
-
-			const agentsSubDir = join(skillOutputDir, "agents");
-			await mkdir(agentsSubDir, { recursive: true });
-
-			const openaiYamlCtx = {
-				...buildTemplateContext(
-					platform,
-					pluginName,
-					pluginVersion,
-					{
-						type: "skill" as const,
-						name: ccSkill.name,
-						namespacedName: namespacedSkillDir,
-						description: ccSkill.description,
-						content: processedContent,
-						supportingFiles: ccSkill.supportingFiles,
-					},
-					registry,
-					cliVersion,
-					platformConfig,
-				),
-			};
-
-			const yamlResult = await engine.render(
-				"codex/openai-yaml",
-				openaiYamlCtx,
-			);
-			if (E.isRight(yamlResult)) {
-				await writeFile(join(agentsSubDir, "openai.yaml"), yamlResult.right);
-			}
-		}
-
-		skillNames.push(namespacedSkillDir);
-		skillCount++;
-	}
-
-	const subAgentValidation = validateSubAgents(projectRoot, parsedSkills);
-	errors.push(...subAgentValidation.errors);
-	if (!jsonOutput) {
-		for (const warning of subAgentValidation.warnings) {
-			console.warn(`[sub-agent] ${warning}`);
-		}
-		for (const info of subAgentValidation.info) {
-			console.info(`[sub-agent] ${info}`);
-		}
-	}
-
-	const agentsDir = join(pluginDir, "agents");
-	const agentFiles = await getMarkdownFiles(agentsDir);
-	let agentCount = 0;
-	const agentNames: string[] = [];
-
-	interface CodexAgentInfo {
-		name: string;
-		description: string;
-		roleType: string;
-	}
-	const codexAgents: CodexAgentInfo[] = [];
-
-	for (const agentFile of agentFiles) {
-		const parseResult = await parseAgent(agentFile)();
-		if (E.isLeft(parseResult)) {
-			errors.push(formatError(parseResult.left, false));
-			continue;
-		}
-		const ccAgent = parseResult.right;
-
-		// Source-level argument validation (L008, L010-L012) -- runs before rendering
-		const codexAgentArgLint = lintAgentArguments(
-			ccAgent.arguments,
-			ccAgent.content,
-			agentFile,
-		);
-		const codexAgentArgErrors = codexAgentArgLint.filter(
-			(d) => d.severity === "error",
-		);
-		if (codexAgentArgErrors.length > 0) {
-			for (const d of codexAgentArgErrors) {
-				errors.push(formatLintDiagnostic(d));
-			}
-			continue;
-		}
-
-		const preprocessResult = await preprocessConditionals(
-			ccAgent.content,
-			platform,
-		);
-		if (E.isLeft(preprocessResult)) {
-			errors.push(formatError(preprocessResult.left, false));
-			continue;
-		}
-		const processedContent = preprocessResult.right;
-
-		const roleTypeValue = mapAgentToRoleType(ccAgent.name, ccAgent.description);
-		const codexAgentName = transformNamespace(
-			`rp1-${pluginName}:${ccAgent.name}`,
-			"codex",
-		);
-
-		const agentTomlCtx = {
-			...buildTemplateContext(
-				platform,
-				pluginName,
-				pluginVersion,
-				{
-					type: "agent" as const,
-					name: ccAgent.name,
-					description: ccAgent.description,
-					model: ccAgent.model,
-					tools: ccAgent.tools,
-					content: processedContent,
-					roleType: roleTypeValue,
-					...(ccAgent.arguments && { arguments: ccAgent.arguments }),
-					...(ccAgent.environment && { environment: ccAgent.environment }),
-				},
-				registry,
-				cliVersion,
-				platformConfig,
-			),
-			skillMap,
-		};
-
-		const tomlResult = await engine.render("codex/agent-toml", agentTomlCtx);
-		if (E.isLeft(tomlResult)) {
-			errors.push(formatError(tomlResult.left, false));
-			continue;
-		}
-		const codexAgentContent = injectEmitHarness(tomlResult.right, platform);
-
-		const codexAgentLint = lintArtifact(
-			codexAgentContent,
-			platform,
-			`${codexAgentName}.toml`,
-		);
-		for (const d of codexAgentLint.diagnostics) {
-			if (d.severity === "warning" && !jsonOutput) {
-				console.warn(formatLintDiagnostic(d));
-			}
-		}
-		if (codexAgentLint.hasErrors) {
-			for (const d of codexAgentLint.diagnostics.filter(
-				(d) => d.severity === "error",
-			)) {
-				errors.push(formatLintDiagnostic(d));
-			}
-			continue;
-		}
-
-		if (!lintOnly) {
-			const tomlFilename = `${codexAgentName}.toml`;
-			await writeFile(
-				join(pluginOutputDir, "agents", tomlFilename),
-				codexAgentContent,
-			);
-		}
-
-		codexAgents.push({
-			name: codexAgentName,
-			description: ccAgent.description,
-			roleType: roleTypeValue,
-		});
-		agentNames.push(codexAgentName);
-		agentCount++;
-	}
-
-	if (!lintOnly && codexAgents.length > 0) {
-		const agentConfigCtx = {
-			platform,
-			pluginName,
-			artifact: { agents: codexAgents },
-			registry,
-		};
-		const configResult = await engine.render(
-			"codex/agent-config",
-			agentConfigCtx,
-		);
-		if (E.isRight(configResult)) {
-			const tomlValidation = validateCodexToml(
-				configResult.right,
-				`${pluginName}/rp1-agents.toml`,
-			);
-			if (E.isLeft(tomlValidation)) {
-				errors.push(formatError(tomlValidation.left, false));
-			} else {
-				await writeFile(
-					join(pluginOutputDir, "rp1-agents.toml"),
-					configResult.right,
-				);
-			}
-		} else {
-			errors.push(formatError(configResult.left, false));
-		}
-
-		const agentsMdCtx = {
-			platform,
-			pluginName,
-			artifact: { agents: codexAgents },
-			registry,
-		};
-		const agentsMdResult = await engine.render("codex/agents-md", agentsMdCtx);
-		if (E.isRight(agentsMdResult)) {
-			await writeFile(join(pluginOutputDir, "AGENTS.md"), agentsMdResult.right);
-		}
-	}
-
-	if (!lintOnly) {
-		const manifestCtx = buildTemplateContext(
-			platform,
-			`rp1-${pluginName}`,
-			pluginVersion,
-			{
-				type: "manifest",
-				skills: skillNames,
-				agents: agentNames,
-				commands: [],
-			},
-			registry,
-			cliVersion,
-			platformConfig,
-		);
-
-		const manifestResult = await engine.render("codex/manifest", manifestCtx);
-		if (E.isRight(manifestResult)) {
-			await writeFile(
-				join(pluginOutputDir, "manifest.json"),
-				manifestResult.right,
-			);
-		}
-	}
-
-	if (!jsonOutput) {
-		const hasErrors = errors.length > 0;
-		const mode = lintOnly ? " lint" : "";
-		const summary = `${pluginName} (codex${mode}): ${agentCount} agents, ${skillCount} skills`;
-		if (hasErrors) {
-			spinner.fail(`${summary} (${errors.length} errors)`);
-		} else {
-			spinner.succeed(summary);
-		}
-	}
-
-	return {
-		plugin: pluginName,
-		commands: 0,
-		agents: agentCount,
-		skills: skillCount,
-		errors,
-	};
 };
 
 /**
@@ -1629,9 +1011,11 @@ const printSummary = (summaries: BuildSummary[], outputPath: string): void => {
 };
 
 /**
- * Build OpenCode artifacts for the given plugins.
+ * Build artifacts for a given platform and plugin set.
+ * Uses the unified buildPlatformPlugin with PlatformDefinition lookup.
  */
-const buildOpenCodeArtifacts = async (
+const buildPlatformArtifacts = async (
+	platform: BuildPlatform,
 	pluginsToBuild: string[],
 	projectRoot: string,
 	outputPath: string,
@@ -1641,14 +1025,18 @@ const buildOpenCodeArtifacts = async (
 	summaries: BuildSummary[];
 	pluginAssets: Map<string, BundlePluginAssets>;
 }> => {
+	const definition = PLATFORM_DEFINITIONS.get(platform);
+	if (!definition) throw new Error(`Unknown platform: ${platform}`);
+
 	const summaries: BuildSummary[] = [];
 	const pluginAssets: Map<string, BundlePluginAssets> = new Map();
 
 	for (const pluginName of pluginsToBuild) {
-		const result = await buildPlugin(
+		const result = await buildPlatformPlugin(
 			pluginName,
 			projectRoot,
 			outputPath,
+			definition,
 			logger,
 			config.jsonOutput,
 			config.lintOnly,
@@ -1657,7 +1045,12 @@ const buildOpenCodeArtifacts = async (
 		pluginAssets.set(pluginName, result.assets);
 	}
 
-	if (!config.lintOnly && config.plugin === "all") {
+	// Generate bundle manifest for platforms that produce bundle assets
+	if (
+		definition.producesBundleAssets &&
+		!config.lintOnly &&
+		config.plugin === "all"
+	) {
 		const baseAssets = pluginAssets.get("base");
 		const devAssets = pluginAssets.get("dev");
 		const utilsAssets = pluginAssets.get("utils");
@@ -1667,7 +1060,7 @@ const buildOpenCodeArtifacts = async (
 			const engine = createTemplateEngine();
 
 			const bundleCtx = {
-				platform: "opencode",
+				platform: platform,
 				pluginName: "bundle",
 				version: cliVersion,
 				buildTimestamp: new Date().toISOString(),
@@ -1702,60 +1095,6 @@ const buildOpenCodeArtifacts = async (
 };
 
 /**
- * Build Claude Code artifacts for the given plugins.
- */
-const buildClaudeCodeArtifacts = async (
-	pluginsToBuild: string[],
-	projectRoot: string,
-	outputPath: string,
-	config: BuildConfig,
-	logger: Logger,
-): Promise<BuildSummary[]> => {
-	const summaries: BuildSummary[] = [];
-
-	for (const pluginName of pluginsToBuild) {
-		const result = await buildCCPlugin(
-			pluginName,
-			projectRoot,
-			outputPath,
-			logger,
-			config.jsonOutput,
-			config.lintOnly,
-		);
-		summaries.push(result);
-	}
-
-	return summaries;
-};
-
-/**
- * Build Codex artifacts for the given plugins.
- */
-const buildCodexArtifacts = async (
-	pluginsToBuild: string[],
-	projectRoot: string,
-	outputPath: string,
-	config: BuildConfig,
-	logger: Logger,
-): Promise<BuildSummary[]> => {
-	const summaries: BuildSummary[] = [];
-
-	for (const pluginName of pluginsToBuild) {
-		const result = await buildCodexPlugin(
-			pluginName,
-			projectRoot,
-			outputPath,
-			logger,
-			config.jsonOutput,
-			config.lintOnly,
-		);
-		summaries.push(result);
-	}
-
-	return summaries;
-};
-
-/**
  * Main build command execution.
  */
 export const executeBuild = (
@@ -1773,19 +1112,32 @@ export const executeBuild = (
 					const ccOutputPath = deriveCCOutputDir(outputPath);
 					const codexOutputPath = deriveCodexOutputDir(outputPath);
 
+					// Resolve platforms to build
+					const platformsToBuild: Array<{
+						platform: BuildPlatform;
+						outputPath: string;
+					}> =
+						config.platform === "all"
+							? [
+									{ platform: "opencode", outputPath },
+									{ platform: "claude-code", outputPath: ccOutputPath },
+									{ platform: "codex", outputPath: codexOutputPath },
+								]
+							: [
+									{
+										platform: config.platform as BuildPlatform,
+										outputPath:
+											config.platform === "claude-code"
+												? ccOutputPath
+												: config.platform === "codex"
+													? codexOutputPath
+													: outputPath,
+									},
+								];
+
 					if (!config.jsonOutput) {
-						logger.debug(`Output directory: ${outputPath}`);
-						if (
-							config.platform === "claude-code" ||
-							config.platform === "all"
-						) {
-							logger.debug(`Claude Code output directory: ${ccOutputPath}`);
-						}
-						if (
-							(config.platform === "codex" || config.platform === "all") &&
-							platformConfigs.codex.enabled !== false
-						) {
-							logger.debug(`Codex output directory: ${codexOutputPath}`);
+						for (const { platform, outputPath: op } of platformsToBuild) {
+							logger.debug(`${platform} output directory: ${op}`);
 						}
 					}
 
@@ -1801,43 +1153,33 @@ export const executeBuild = (
 
 					const allSummaries: BuildSummary[] = [];
 
-					if (config.platform === "opencode" || config.platform === "all") {
-						const { summaries } = await buildOpenCodeArtifacts(
+					for (const {
+						platform,
+						outputPath: platformOutput,
+					} of platformsToBuild) {
+						const def = PLATFORM_DEFINITIONS.get(platform);
+						if (!def) {
+							logger.warn(`Unknown platform "${platform}" — skipping`);
+							continue;
+						}
+						if (def.config.enabled === false) {
+							if (config.platform !== "all") {
+								logger.warn(
+									`${platform} platform is disabled — skipping artifact generation`,
+								);
+							}
+							continue;
+						}
+
+						const { summaries } = await buildPlatformArtifacts(
+							platform,
 							pluginsToBuild,
 							projectRoot,
-							outputPath,
+							platformOutput,
 							config,
 							logger,
 						);
 						allSummaries.push(...summaries);
-					}
-
-					if (config.platform === "claude-code" || config.platform === "all") {
-						const ccSummaries = await buildClaudeCodeArtifacts(
-							pluginsToBuild,
-							projectRoot,
-							ccOutputPath,
-							config,
-							logger,
-						);
-						allSummaries.push(...ccSummaries);
-					}
-
-					if (config.platform === "codex" || config.platform === "all") {
-						if (platformConfigs.codex.enabled !== false) {
-							const codexSummaries = await buildCodexArtifacts(
-								pluginsToBuild,
-								projectRoot,
-								codexOutputPath,
-								config,
-								logger,
-							);
-							allSummaries.push(...codexSummaries);
-						} else if (config.platform === "codex") {
-							logger.warn(
-								"Codex platform is disabled — skipping artifact generation",
-							);
-						}
 					}
 
 					if (config.jsonOutput) {
