@@ -8,20 +8,13 @@
  * appearing verbatim in non-CC rendered output.
  */
 
-import { codexRegistry } from "../../codex/registry.js";
-import { defaultRegistry } from "../../registry.js";
+import { PLATFORM_DEFINITIONS } from "../../platform-definitions.js";
 import type { BuildPlatform } from "../../template-context.js";
 import type { LintDiagnostic } from "../index.js";
 
 function getRegistryForPlatform(platform: BuildPlatform) {
-	switch (platform) {
-		case "opencode":
-			return defaultRegistry;
-		case "codex":
-			return codexRegistry;
-		default:
-			return null;
-	}
+	const def = PLATFORM_DEFINITIONS.get(platform);
+	return def?.registry ?? null;
 }
 
 function findLineNumber(content: string, index: number): number {
