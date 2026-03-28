@@ -47,8 +47,6 @@ bin/rp1
 .rp1/context/meta.json
 .rp1/settings.toml
 # rp1:end
-.dev-marketplace/
-
 # Eval output - attestation results are tracked, .gitkeep placeholder removed
 # Result files (e.g., output/rp1-dev-build-fast-2026-01-19.json) are committed as evidence
 .playwright-cli/
