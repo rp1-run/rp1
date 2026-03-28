@@ -58,12 +58,11 @@ All development commands use [Just](https://github.com/casey/just). Run `just` t
 
 | Recipe | Description |
 |--------|-------------|
-| `install` | Full local install: build + remove stable + install to both platforms |
+| `install` | Full local install: build + remove stable + install to all platforms |
 | `run *args` | Build and run local binary with arguments |
-| `install-claude` | Install dev plugins to Claude Code |
 | `install-opencode` | Install to OpenCode |
-| `rm-stable` | Remove stable rp1 from both platforms |
-| `prepare-dev-plugins` | Create `.dev-marketplace/` with -dev versioned plugins |
+| `install-codex` | Install to Codex |
+| `rm-stable` | Remove stable rp1 from all platforms |
 
 ### Web-UI Development
 
