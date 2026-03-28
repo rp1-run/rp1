@@ -64,7 +64,6 @@ export interface PluginInstallDeps {
 		logger: Logger,
 		dryRun: boolean,
 		isTTY: boolean,
-		useHttps?: boolean,
 	) => TE.TaskEither<CLIError, ClaudeCodeInstallResult>;
 }
 
