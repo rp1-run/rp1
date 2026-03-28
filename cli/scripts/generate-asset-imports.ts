@@ -75,7 +75,13 @@ interface AssetImport {
 	varName: string;
 	importPath: string;
 	outputName: string;
-	category: "agent" | "skill" | "state-machine" | "webui" | "opencode-plugin";
+	category:
+		| "agent"
+		| "skill"
+		| "state-machine"
+		| "webui"
+		| "opencode-plugin"
+		| "verbatim-file";
 	plugin?: "base" | "dev" | "utils";
 	platform?: string;
 	inlineContent?: string;
@@ -195,6 +201,18 @@ function collectPlatformAssets(platform: DiscoveredPlatform): AssetImport[] {
 
 				imports.push(smEntry);
 			}
+		}
+
+		for (const file of plugin.verbatimFiles ?? []) {
+			const fullPath = join(platform.distDir, file.path);
+			imports.push({
+				varName: toVarName(`${platformPrefix}_${pluginName}_file`, file.name),
+				importPath: getImportPath(fullPath),
+				outputName: file.name,
+				category: "verbatim-file",
+				plugin: pluginName,
+				platform: platform.name,
+			});
 		}
 
 		// OpenCode Plugin (TypeScript plugin responding to OpenCode events)
@@ -366,13 +384,25 @@ function generatePlatformBlock(
 		.filter((a) => a.category === "state-machine" && a.plugin === "base")
 		.map(formatStateMachineEntry);
 
+	const baseVerbatimFiles = platformAssets
+		.filter((a) => a.category === "verbatim-file" && a.plugin === "base")
+		.map(formatEntry);
+
 	const devStateMachines = platformAssets
 		.filter((a) => a.category === "state-machine" && a.plugin === "dev")
 		.map(formatStateMachineEntry);
 
+	const devVerbatimFiles = platformAssets
+		.filter((a) => a.category === "verbatim-file" && a.plugin === "dev")
+		.map(formatEntry);
+
 	const utilsStateMachines = platformAssets
 		.filter((a) => a.category === "state-machine" && a.plugin === "utils")
 		.map(formatStateMachineEntry);
+
+	const utilsVerbatimFiles = platformAssets
+		.filter((a) => a.category === "verbatim-file" && a.plugin === "utils")
+		.map(formatEntry);
 
 	// OpenCode plugin files (only base plugin has this currently)
 	const basePluginFiles = platformAssets
@@ -394,6 +424,7 @@ function generatePlatformBlock(
         agents: [${utilsAgents.join(", ")}],
         skills: [${utilsSkills.join(", ")}],
         stateMachines: [${utilsStateMachines.join(", ")}],
+        verbatimFiles: [${utilsVerbatimFiles.join(", ")}],
       },`
 			: "      // utils excluded from distribution (internal-only plugin)";
 
@@ -410,6 +441,7 @@ function generatePlatformBlock(
           agents: [${baseAgents.join(", ")}],
           skills: [${baseSkills.join(", ")}],
           stateMachines: [${baseStateMachines.join(", ")}],
+          verbatimFiles: [${baseVerbatimFiles.join(", ")}],
           ${baseOpenCodePlugin}
         },
         dev: {
@@ -418,6 +450,7 @@ function generatePlatformBlock(
           agents: [${devAgents.join(", ")}],
           skills: [${devSkills.join(", ")}],
           stateMachines: [${devStateMachines.join(", ")}],
+          verbatimFiles: [${devVerbatimFiles.join(", ")}],
         },
 ${utilsBlock}
       },
@@ -512,11 +545,17 @@ export const IS_BUNDLED = true;
 		const pluginFiles = platformAssets.filter(
 			(a) => a.category === "opencode-plugin",
 		);
+		const verbatimFiles = platformAssets.filter(
+			(a) => a.category === "verbatim-file",
+		);
 
 		console.log(`  ${platform.name}:`);
 		console.log(`    ${agents.length} agents, ${skills.length} skills`);
 		if (stateMachines.length > 0) {
 			console.log(`    ${stateMachines.length} state machines`);
+		}
+		if (verbatimFiles.length > 0) {
+			console.log(`    ${verbatimFiles.length} verbatim plugin files`);
 		}
 		if (pluginFiles.length > 0) {
 			console.log(`    ${pluginFiles.length} plugin files`);

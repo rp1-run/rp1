@@ -219,12 +219,26 @@ const findProjectRoot = async (startPath: string): Promise<string> => {
  * Read plugin version from .claude-plugin/plugin.json.
  * Falls back to "0.0.0" if file doesn't exist or is invalid.
  */
-const readPluginVersion = async (pluginDir: string): Promise<string> => {
+const formatBuildPluginVersion = (
+	version: string,
+	platform: string,
+): string => {
+	if (platform !== "claude-code" || !process.env.RP1_BUILD_INTERNAL) {
+		return version;
+	}
+
+	return version.includes("-") ? version : `${version}-dev`;
+};
+
+const readPluginVersion = async (
+	pluginDir: string,
+	platform: string,
+): Promise<string> => {
 	try {
 		const pluginJsonPath = join(pluginDir, ".claude-plugin", "plugin.json");
 		const content = await readFile(pluginJsonPath, "utf-8");
 		const json = JSON.parse(content) as { version?: string };
-		return json.version ?? "0.0.0";
+		return formatBuildPluginVersion(json.version ?? "0.0.0", platform);
 	} catch {
 		return "0.0.0";
 	}
@@ -345,6 +359,27 @@ const copyDirectory = async (
 	}
 };
 
+const maybeRewriteClaudePluginManifest = async (
+	destDir: string,
+	platform: string,
+	pluginVersion: string,
+): Promise<void> => {
+	if (platform !== "claude-code" || !process.env.RP1_BUILD_INTERNAL) {
+		return;
+	}
+
+	const pluginJsonPath = join(destDir, "plugin.json");
+
+	try {
+		const content = await readFile(pluginJsonPath, "utf-8");
+		const json = JSON.parse(content) as Record<string, unknown>;
+		json.version = pluginVersion;
+		await writeFile(pluginJsonPath, JSON.stringify(json, null, 2) + "\n");
+	} catch {
+		// Leave copied manifest untouched if it's missing or invalid.
+	}
+};
+
 /**
  * Copy OpenCode plugin files from platforms/opencode/ to platforms/opencode/ in output.
  * Source and output use the same structure for consistency.
@@ -450,11 +485,12 @@ export const buildPlatformPlugin = async (
 	const skillEntries: BundleAssetEntry[] = [];
 	const skillFileEntries: BundleAssetEntry[] = [];
 	const stateMachineEntries: BundleAssetEntry[] = [];
+	const verbatimFileEntries: BundleAssetEntry[] = [];
 
 	const platform = definition.id;
 	const pluginDir = join(projectRoot, "plugins", pluginName);
 	const pluginOutputDir = join(outputPath, pluginName);
-	const pluginVersion = await readPluginVersion(pluginDir);
+	const pluginVersion = await readPluginVersion(pluginDir, definition.id);
 	const cliVersion = await readCliVersion(projectRoot);
 
 	const engine = createTemplateEngine();
@@ -843,7 +879,24 @@ export const buildPlatformPlugin = async (
 			try {
 				const dirStat = await stat(srcDir);
 				if (dirStat.isDirectory()) {
-					await copyDirectory(srcDir, join(pluginOutputDir, dir));
+					const destDir = join(pluginOutputDir, dir);
+					await copyDirectory(srcDir, destDir);
+					if (dir === ".claude-plugin") {
+						await maybeRewriteClaudePluginManifest(
+							destDir,
+							platform,
+							pluginVersion,
+						);
+					}
+					if (definition.producesBundleAssets) {
+						const copiedFiles = await collectAllFiles(destDir, dir);
+						for (const file of copiedFiles) {
+							verbatimFileEntries.push({
+								name: file,
+								path: `${pluginName}/${file}`,
+							});
+						}
+					}
 				}
 			} catch {
 				// Directory doesn't exist -- skip
@@ -943,6 +996,7 @@ export const buildPlatformPlugin = async (
 			agents: agentEntries,
 			skills: skillFileEntries,
 			stateMachines: stateMachineEntries,
+			verbatimFiles: verbatimFileEntries,
 			openCodePlugin: openCodePluginAsset,
 		},
 		hasOpenCodePlugin,
