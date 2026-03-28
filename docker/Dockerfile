@@ -72,7 +72,8 @@ RUN git clone https://github.com/StefanTerdell/zod-to-json-schema.git \
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 3a: stable
-# Production rp1 binary, Node.js, harness CLIs, rp1 plugins
+# Clean room: OS tools + harness CLIs, but NO rp1 installed.
+# Use test-install.sh inside the container to simulate user installation.
 # ─────────────────────────────────────────────────────────────────────────────
 FROM target-repo AS stable
 
@@ -85,9 +86,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
 
 USER rp1user
 
-# rp1 production binary
-ENV PATH="/home/rp1user/.local/bin:${PATH}"
-RUN curl -fsSL https://rp1.run/install.sh | INSTALL_DIR=/home/rp1user/.local/bin sh
+ENV PATH="/home/rp1user/.local/bin:/home/rp1user/.opencode/bin:/home/rp1user/.npm-global/bin:${PATH}"
 
 # Claude Code CLI
 RUN curl -fsSL https://claude.ai/install.sh | bash
@@ -99,10 +98,10 @@ RUN curl -fsSL https://opencode.ai/install | bash
 RUN mkdir -p /home/rp1user/.npm-global \
     && npm config set prefix /home/rp1user/.npm-global \
     && npm install -g @openai/codex
-ENV PATH="/home/rp1user/.npm-global/bin:${PATH}"
 
-# Install rp1 plugins to all platforms
-RUN rp1 install -y
+# Test installation harness — simulates user install/update flow
+COPY --chown=rp1user:rp1user docker/test-install.sh /home/rp1user/.local/bin/test-install.sh
+RUN chmod +x /home/rp1user/.local/bin/test-install.sh
 
 # Shell prompt for stable
 RUN echo 'PROMPT="[rp1-stable] %~/ %# "' >> /home/rp1user/.zshrc
