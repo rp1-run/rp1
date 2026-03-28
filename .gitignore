@@ -8,10 +8,6 @@ node_modules/
 
 # Build artifacts
 dist/
-!cli/dist/
-cli/dist/*
-!cli/dist/claude-code/
-cli/dist/claude-code/utils/
 
 # MkDocs build output
 site/
@@ -26,7 +22,7 @@ __pycache__/
 # Package lock files (we use bun exclusively with bun.lock)
 package-lock.json
 
-# CLI build output (claude-code dist is tracked via rules above)
+# CLI build output
 cli/web-ui/.vite/
 cli/web-ui/dist/
 cli/web-ui/.playwright-cli/
