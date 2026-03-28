@@ -102,6 +102,12 @@ const extractBundledPlugin = async (
 		}
 	}
 
+	for (const file of plugin.verbatimFiles ?? []) {
+		const destPath = join(pluginDir, file.name);
+		await writeAssetEntry(file, destPath);
+		filesExtracted++;
+	}
+
 	return filesExtracted;
 };
 
