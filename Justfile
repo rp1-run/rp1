@@ -54,6 +54,47 @@ build-local-dev: build-web-ui clean-web-ui-cache
     cd cli && RP1_BUILD_INTERNAL=1 bun run scripts/build-opencode.ts && RP1_BUILD_INTERNAL=1 bun run scripts/build-codex.ts && bun run generate:assets && bun build ./src/main.ts --compile --outfile ../bin/rp1 --define __RP1_DEV_BUILD__=true
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Dev Launch (per-platform with auto-build)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Launch Claude Code with local dev plugins (auto-builds if stale)
+claude:
+    #!/usr/bin/env bash
+    set -e
+    if [ ! -d "dist/claude-code/base" ] || \
+       [ "$(find plugins/ -newer dist/claude-code/base -name '*.md' 2>/dev/null | head -1)" ]; then
+        echo "Building Claude Code artifacts..."
+        cd cli && bun run scripts/build-claude-code.ts && cd ..
+    fi
+    claude --plugin-dir dist/claude-code/base \
+           --plugin-dir dist/claude-code/dev \
+           ${PLUGIN_UTILS:+--plugin-dir dist/claude-code/utils}
+
+# Launch OpenCode with local dev plugins (auto-builds if stale)
+opencode:
+    #!/usr/bin/env bash
+    set -e
+    if [ ! -d "dist/opencode/base" ] || \
+       [ "$(find plugins/ -newer dist/opencode/base -name '*.md' 2>/dev/null | head -1)" ]; then
+        echo "Building OpenCode artifacts..."
+        cd cli && bun run scripts/build-opencode.ts && cd ..
+    fi
+    ./bin/rp1 install opencode --yes
+    opencode
+
+# Launch Codex with local dev plugins (auto-builds if stale)
+codex:
+    #!/usr/bin/env bash
+    set -e
+    if [ ! -d "dist/codex/base" ] || \
+       [ "$(find plugins/ -newer dist/codex/base -name '*.md' 2>/dev/null | head -1)" ]; then
+        echo "Building Codex artifacts..."
+        cd cli && bun run scripts/build-codex.ts && cd ..
+    fi
+    ./bin/rp1 install codex --yes
+    codex
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Test
 # ─────────────────────────────────────────────────────────────────────────────
 
