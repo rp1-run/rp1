@@ -525,7 +525,7 @@ These agents run `/rp1-base:knowledge-load` as their first step to receive compr
 
    ```bash
    # Clean previous installations
-   ./scripts/clean-dev-plugins.sh
+   just rm-stable
 
    # Install both plugins
    /plugin marketplace add ~/Development/rp1
