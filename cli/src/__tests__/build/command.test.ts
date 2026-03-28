@@ -29,6 +29,7 @@ const noopLogger: Logger = {
 };
 
 const opencodeDef = PLATFORM_DEFINITIONS.get("opencode")!;
+const claudeCodeDef = PLATFORM_DEFINITIONS.get("claude-code")!;
 
 describe("buildPlatformPlugin (opencode)", () => {
 	let tempDir: string;
@@ -224,5 +225,120 @@ Prompt writer skill content.
 		expect(
 			result.assets.skills.some((s) => s.name.startsWith("rp1-prompt-writer/")),
 		).toBe(true);
+	});
+});
+
+describe("buildPlatformPlugin (claude-code dev versioning)", () => {
+	let tempDir: string;
+	let outputDir: string;
+
+	beforeAll(async () => {
+		tempDir = await createTempDir("build-cmd-claude");
+		await assertTestIsolation(tempDir);
+		outputDir = join(tempDir, "output");
+	});
+
+	afterAll(async () => {
+		await cleanupTempDir(tempDir);
+	});
+
+	test("uses -dev suffix for Claude Code plugin.json in local dev builds only", async () => {
+		const projectRoot = join(tempDir, "project-claude-dev");
+
+		await writeFixture(
+			projectRoot,
+			"plugins/base/.claude-plugin/plugin.json",
+			JSON.stringify({
+				name: "rp1-base",
+				version: "1.2.3",
+			}),
+		);
+		await writeFixture(
+			projectRoot,
+			"plugins/base/skills/sample/SKILL.md",
+			`---
+name: sample
+description: "Sample skill with enough description text for validation"
+---
+
+Sample content.
+`,
+		);
+
+		const original = process.env.RP1_BUILD_INTERNAL;
+		process.env.RP1_BUILD_INTERNAL = "1";
+
+		try {
+			const out = join(outputDir, "claude-dev");
+			await buildPlatformPlugin(
+				"base",
+				projectRoot,
+				out,
+				claudeCodeDef,
+				noopLogger,
+				true,
+			);
+
+			const pluginJson = JSON.parse(
+				await readFile(
+					join(out, "base", ".claude-plugin", "plugin.json"),
+					"utf-8",
+				),
+			);
+			expect(pluginJson.version).toBe("1.2.3-dev");
+		} finally {
+			if (original === undefined) {
+				delete process.env.RP1_BUILD_INTERNAL;
+			} else {
+				process.env.RP1_BUILD_INTERNAL = original;
+			}
+		}
+	});
+
+	test("does not add -dev suffix for Claude Code when not in a local dev build", async () => {
+		const projectRoot = join(tempDir, "project-claude-stable");
+
+		await writeFixture(
+			projectRoot,
+			"plugins/base/.claude-plugin/plugin.json",
+			JSON.stringify({
+				name: "rp1-base",
+				version: "2.3.4",
+			}),
+		);
+		await writeFixture(
+			projectRoot,
+			"plugins/base/skills/sample/SKILL.md",
+			`---
+name: sample
+description: "Sample skill with enough description text for validation"
+---
+
+Sample content.
+`,
+		);
+
+		try {
+			delete process.env.RP1_BUILD_INTERNAL;
+			const out = join(outputDir, "claude-stable");
+			await buildPlatformPlugin(
+				"base",
+				projectRoot,
+				out,
+				claudeCodeDef,
+				noopLogger,
+				true,
+			);
+
+			const pluginJson = JSON.parse(
+				await readFile(
+					join(out, "base", ".claude-plugin", "plugin.json"),
+					"utf-8",
+				),
+			);
+			expect(pluginJson.version).toBe("2.3.4");
+		} finally {
+			delete process.env.RP1_BUILD_INTERNAL;
+		}
 	});
 });

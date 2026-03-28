@@ -38,14 +38,26 @@ describe("asset-extractor", () => {
 			const distDir = join(tempDir, "dist", "claude-code");
 			const baseAgentsDir = join(distDir, "base", "agents");
 			const baseSkillsDir = join(distDir, "base", "skills", "my-skill");
+			const basePluginMetaDir = join(distDir, "base", ".claude-plugin");
+			const baseHooksDir = join(distDir, "base", "hooks");
 			const devAgentsDir = join(distDir, "dev", "agents");
 
 			await mkdir(baseAgentsDir, { recursive: true });
 			await mkdir(baseSkillsDir, { recursive: true });
+			await mkdir(basePluginMetaDir, { recursive: true });
+			await mkdir(baseHooksDir, { recursive: true });
 			await mkdir(devAgentsDir, { recursive: true });
 
 			await writeFile(join(baseAgentsDir, "test-agent.md"), "# Test Agent");
 			await writeFile(join(baseSkillsDir, "SKILL.md"), "# Test Skill");
+			await writeFile(
+				join(basePluginMetaDir, "plugin.json"),
+				'{"name":"rp1-base","version":"0.1.0"}',
+			);
+			await writeFile(
+				join(baseHooksDir, "hooks.json"),
+				'{"hooks":{"SessionStart":[]}}',
+			);
 			await writeFile(join(devAgentsDir, "dev-agent.md"), "# Dev Agent");
 
 			const targetDir = join(tempDir, "output");
@@ -67,7 +79,7 @@ describe("asset-extractor", () => {
 					}),
 				);
 
-				expect(result.filesExtracted).toBe(3);
+				expect(result.filesExtracted).toBe(5);
 				expect(result.pluginsExtracted).toContain("rp1-base");
 				expect(result.pluginsExtracted).toContain("rp1-dev");
 				expect(result.targetDir).toBe(targetDir);
@@ -84,6 +96,18 @@ describe("asset-extractor", () => {
 					"utf-8",
 				);
 				expect(skillContent).toBe("# Test Skill");
+
+				const pluginJson = await readFile(
+					join(targetDir, "base", ".claude-plugin", "plugin.json"),
+					"utf-8",
+				);
+				expect(pluginJson).toContain('"name":"rp1-base"');
+
+				const hooksJson = await readFile(
+					join(targetDir, "base", "hooks", "hooks.json"),
+					"utf-8",
+				);
+				expect(hooksJson).toContain('"SessionStart"');
 			} finally {
 				process.chdir(origCwd);
 			}
