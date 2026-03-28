@@ -31,6 +31,7 @@ import {
 import {
 	type CheckOptions,
 	checkForUpdate,
+	getDisplayVersion,
 	getInstalledVersion,
 } from "../../lib/version.js";
 import {
@@ -104,11 +105,17 @@ export const formatCheckOutputJson = (
 export const formatCheckOutputHookText = (
 	result: Awaited<ReturnType<typeof checkForUpdate>>,
 ): string | null => {
-	if (result.error || !result.updateAvailable || !result.latestVersion) {
+	if (result.error) {
 		return null;
 	}
 
-	return `rp1 update available: v${result.currentVersion} -> v${result.latestVersion} | Run /self-update to update`;
+	if (result.updateAvailable && result.latestVersion) {
+		return `rp1 update available: v${result.currentVersion} -> v${result.latestVersion} | Run /self-update to update`;
+	}
+
+	// No update available — return current version info
+	const displayVersion = getDisplayVersion();
+	return `rp1 is running v${displayVersion}`;
 };
 
 /**
