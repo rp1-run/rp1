@@ -79,12 +79,18 @@ const extractBundledPlugin = async (
 	plugin: BundledPlugin,
 	pluginKey: string,
 	targetDir: string,
+	platform?: BuildPlatform,
 ): Promise<number> => {
 	let filesExtracted = 0;
 	const pluginDir = join(targetDir, pluginKey);
 
 	for (const agent of plugin.agents) {
-		const destPath = join(pluginDir, "agents", `${agent.name}.md`);
+		// Codex agents are TOML files with a plugin-prefixed name (e.g., rp1-base-agent-name.toml)
+		const agentFileName =
+			platform === "codex"
+				? `${plugin.name}-${agent.name}.toml`
+				: `${agent.name}.md`;
+		const destPath = join(pluginDir, "agents", agentFileName);
 		await writeAssetEntry(agent, destPath);
 		filesExtracted++;
 	}
@@ -214,7 +220,12 @@ const extractFromEmbedded = (
 				const plugin = platform.plugins[key];
 				if (!plugin) continue;
 
-				const count = await extractBundledPlugin(plugin, key, opts.targetDir);
+				const count = await extractBundledPlugin(
+					plugin,
+					key,
+					opts.targetDir,
+					opts.platform,
+				);
 				filesExtracted += count;
 				pluginsExtracted.push(plugin.name);
 			}
