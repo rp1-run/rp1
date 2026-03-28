@@ -43,6 +43,7 @@ describe("extractor", () => {
 									{ name: "rp1-test-skill/SKILL.md", path: mockSkillPath },
 								],
 								stateMachines: [],
+								verbatimFiles: [],
 							},
 							dev: {
 								name: "rp1-dev",
@@ -50,6 +51,7 @@ describe("extractor", () => {
 								agents: [],
 								skills: [],
 								stateMachines: [],
+								verbatimFiles: [],
 							},
 							utils: {
 								name: "rp1-utils",
@@ -57,6 +59,7 @@ describe("extractor", () => {
 								agents: [],
 								skills: [],
 								stateMachines: [],
+								verbatimFiles: [],
 							},
 						},
 					},
@@ -106,6 +109,7 @@ describe("extractor", () => {
 								agents: [],
 								skills: [],
 								stateMachines: [],
+								verbatimFiles: [],
 							},
 							dev: {
 								name: "rp1-dev",
@@ -113,6 +117,7 @@ describe("extractor", () => {
 								agents: [],
 								skills: [],
 								stateMachines: [],
+								verbatimFiles: [],
 							},
 							utils: {
 								name: "rp1-utils",
@@ -120,6 +125,7 @@ describe("extractor", () => {
 								agents: [],
 								skills: [],
 								stateMachines: [],
+								verbatimFiles: [],
 							},
 						},
 					},
@@ -160,6 +166,7 @@ describe("extractor", () => {
 								],
 								skills: [],
 								stateMachines: [],
+								verbatimFiles: [],
 							},
 							dev: {
 								name: "rp1-dev",
@@ -167,6 +174,7 @@ describe("extractor", () => {
 								agents: [],
 								skills: [],
 								stateMachines: [],
+								verbatimFiles: [],
 							},
 							utils: {
 								name: "rp1-utils",
@@ -174,6 +182,7 @@ describe("extractor", () => {
 								agents: [],
 								skills: [],
 								stateMachines: [],
+								verbatimFiles: [],
 							},
 						},
 					},
@@ -228,6 +237,7 @@ describe("extractor", () => {
 								agents: [{ name: "test-agent", path: mockAgent }],
 								skills: [],
 								stateMachines: [],
+								verbatimFiles: [],
 							},
 							dev: {
 								name: "rp1-dev",
@@ -235,6 +245,7 @@ describe("extractor", () => {
 								agents: [],
 								skills: [],
 								stateMachines: [],
+								verbatimFiles: [],
 							},
 							utils: {
 								name: "rp1-utils",
@@ -242,6 +253,7 @@ describe("extractor", () => {
 								agents: [],
 								skills: [],
 								stateMachines: [],
+								verbatimFiles: [],
 							},
 						},
 					},
@@ -296,6 +308,7 @@ describe("extractor", () => {
 								agents: [{ name: "test-agent", path: mockAgent }],
 								skills: [],
 								stateMachines: [],
+								verbatimFiles: [],
 							},
 							dev: {
 								name: "rp1-dev",
@@ -303,6 +316,7 @@ describe("extractor", () => {
 								agents: [],
 								skills: [],
 								stateMachines: [],
+								verbatimFiles: [],
 							},
 							utils: {
 								name: "rp1-utils",
@@ -310,6 +324,7 @@ describe("extractor", () => {
 								agents: [],
 								skills: [],
 								stateMachines: [],
+								verbatimFiles: [],
 							},
 						},
 					},
@@ -367,6 +382,7 @@ describe("extractor", () => {
 								],
 								skills: [],
 								stateMachines: [],
+								verbatimFiles: [],
 							},
 							dev: {
 								name: "rp1-dev",
@@ -374,6 +390,7 @@ describe("extractor", () => {
 								agents: [],
 								skills: [],
 								stateMachines: [],
+								verbatimFiles: [],
 							},
 							utils: {
 								name: "rp1-utils",
@@ -381,6 +398,7 @@ describe("extractor", () => {
 								agents: [],
 								skills: [],
 								stateMachines: [],
+								verbatimFiles: [],
 							},
 						},
 					},
