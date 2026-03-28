@@ -5,6 +5,41 @@ default:
     @just --list
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Docker Environment
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Start the Stable Tester container (production rp1 + all harnesses)
+start-docker-stable:
+    #!/usr/bin/env bash
+    set -e
+    echo "Building stable image (cached layers reused)..."
+    docker build --platform linux/arm64 --target stable -t rp1-stable -f docker/Dockerfile .
+    echo "Starting stable container..."
+    docker run --rm -it \
+        --platform linux/arm64 \
+        -p 17710:7710 \
+        -e ANTHROPIC_API_KEY \
+        -e OPENAI_API_KEY \
+        -e GITHUB_TOKEN \
+        rp1-stable
+
+# Start the Active Developer container (local rp1 source mounted)
+start-docker-dev:
+    #!/usr/bin/env bash
+    set -e
+    echo "Building dev image (cached layers reused)..."
+    docker build --platform linux/arm64 --target dev -t rp1-dev -f docker/Dockerfile .
+    echo "Starting dev container with local source mounted..."
+    docker run --rm -it \
+        --platform linux/arm64 \
+        -p 17710:7710 \
+        -v "$(pwd)":/src/rp1 \
+        -e ANTHROPIC_API_KEY \
+        -e OPENAI_API_KEY \
+        -e GITHUB_TOKEN \
+        rp1-dev
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Build
 # ─────────────────────────────────────────────────────────────────────────────
 
