@@ -94,8 +94,8 @@ skills:
     agents_that_use_me: [rp1-dev:feature-architect]
     sub_agents_that_i_use: []
     skills_that_i_use: []
-    last_update: "2026-03-22"
-    last_checksum: a30569ef42a2d9d9b47e4f6658bf1656d6c0b9d21ed85552b27dc6af1cb4b578
+    last_update: "2026-03-28"
+    last_checksum: ae54912661678a555ee8ffd0fa92139b51abfc1cdd24879475335c6b66a43c2e
   - name: rp1-base:project-birds-eye-view
     description: Generates comprehensive project overview documents with diagrams for new developers using internal knowledge base and codebase context.
     plugin: base
