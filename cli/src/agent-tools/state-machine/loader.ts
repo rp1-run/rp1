@@ -107,6 +107,7 @@ export const clearCache = (): void => {
 
 /**
  * Attempt to load a state machine from bundled assets.
+ * Searches across all platforms in the embedded manifest.
  */
 const loadFromBundle = (
 	workflowName: string,
@@ -114,41 +115,44 @@ const loadFromBundle = (
 	pipe(
 		TE.fromEither(getBundledAssets()),
 		TE.chain((assets) => {
-			for (const pluginKey of PLUGIN_NAMES) {
-				const plugin = assets.plugins[pluginKey];
-				if (!plugin) continue;
-				const stateMachines = plugin.stateMachines;
-				if (!stateMachines || stateMachines.length === 0) continue;
+			for (const platform of Object.values(assets.platforms)) {
+				if (!platform) continue;
+				for (const pluginKey of PLUGIN_NAMES) {
+					const plugin = platform.plugins[pluginKey];
+					if (!plugin) continue;
+					const stateMachines = plugin.stateMachines;
+					if (!stateMachines || stateMachines.length === 0) continue;
 
-				const entry = stateMachines.find((sm) => sm.name === workflowName);
-				if (entry) {
-					const getContent: TE.TaskEither<CLIError, string> = entry.content
-						? TE.right(entry.content)
-						: pipe(
-								TE.tryCatch(
-									() => readEmbeddedFile(entry.path),
-									(err) =>
-										runtimeError(
-											`Failed to read bundled state machine for '${workflowName}': ${err}`,
-										),
-								),
-								TE.chain((readResult) => TE.fromEither(readResult)),
-							);
+					const entry = stateMachines.find((sm) => sm.name === workflowName);
+					if (entry) {
+						const getContent: TE.TaskEither<CLIError, string> = entry.content
+							? TE.right(entry.content)
+							: pipe(
+									TE.tryCatch(
+										() => readEmbeddedFile(entry.path),
+										(err) =>
+											runtimeError(
+												`Failed to read bundled state machine for '${workflowName}': ${err}`,
+											),
+									),
+									TE.chain((readResult) => TE.fromEither(readResult)),
+								);
 
-					return pipe(
-						getContent,
-						TE.chain((content) => {
-							const trimmed = content.trimStart();
-							const parseResult = trimmed.startsWith("{")
-								? deserializeStateMachine(content)
-								: parseAndTransform(workflowName, content);
-							return TE.fromEither(parseResult);
-						}),
-						TE.map((machine) => {
-							cache.set(workflowName, machine);
-							return machine;
-						}),
-					);
+						return pipe(
+							getContent,
+							TE.chain((content) => {
+								const trimmed = content.trimStart();
+								const parseResult = trimmed.startsWith("{")
+									? deserializeStateMachine(content)
+									: parseAndTransform(workflowName, content);
+								return TE.fromEither(parseResult);
+							}),
+							TE.map((machine) => {
+								cache.set(workflowName, machine);
+								return machine;
+							}),
+						);
+					}
 				}
 			}
 			return TE.left(
@@ -228,22 +232,26 @@ const loadFromFilesystem = (
 
 /**
  * List workflows from bundled assets.
+ * Collects workflows across all platforms, deduplicating by name.
  */
 const listFromBundle = (): TE.TaskEither<CLIError, readonly string[]> =>
 	pipe(
 		TE.fromEither(getBundledAssets()),
 		TE.map((assets) => {
-			const workflows: string[] = [];
-			for (const pluginKey of PLUGIN_NAMES) {
-				const plugin = assets.plugins[pluginKey];
-				if (!plugin) continue;
-				const stateMachines = plugin.stateMachines;
-				if (!stateMachines || stateMachines.length === 0) continue;
-				for (const sm of stateMachines) {
-					workflows.push(sm.name);
+			const workflowSet = new Set<string>();
+			for (const platform of Object.values(assets.platforms)) {
+				if (!platform) continue;
+				for (const pluginKey of PLUGIN_NAMES) {
+					const plugin = platform.plugins[pluginKey];
+					if (!plugin) continue;
+					const stateMachines = plugin.stateMachines;
+					if (!stateMachines || stateMachines.length === 0) continue;
+					for (const sm of stateMachines) {
+						workflowSet.add(sm.name);
+					}
 				}
 			}
-			return workflows;
+			return [...workflowSet];
 		}),
 	);
 

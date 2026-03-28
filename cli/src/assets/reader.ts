@@ -37,14 +37,22 @@ export interface BundledPlugin {
 }
 
 /**
- * Complete manifest of all bundled assets.
+ * Per-platform bundled plugin set.
  */
-export interface BundledAssets {
+export interface BundledPlatform {
 	plugins: {
 		base: BundledPlugin;
 		dev: BundledPlugin;
 		utils?: BundledPlugin;
 	};
+}
+
+/**
+ * Complete manifest of all bundled assets.
+ * Organized by platform, with each platform containing its own plugin set.
+ */
+export interface BundledAssets {
+	platforms: Partial<Record<string, BundledPlatform>>;
 	webui: AssetEntry[];
 	version: string;
 	buildTimestamp: string;

@@ -32,27 +32,33 @@ describe("extractor", () => {
 			await Bun.write(mockSkillPath, "# Mock Skill\nTest content");
 
 			const mockAssets: BundledAssets = {
-				plugins: {
-					base: {
-						name: "rp1-base",
-						commands: [],
-						agents: [{ name: "test-agent", path: mockAgentPath }],
-						skills: [{ name: "rp1-test-skill/SKILL.md", path: mockSkillPath }],
-						stateMachines: [],
-					},
-					dev: {
-						name: "rp1-dev",
-						commands: [],
-						agents: [],
-						skills: [],
-						stateMachines: [],
-					},
-					utils: {
-						name: "rp1-utils",
-						commands: [],
-						agents: [],
-						skills: [],
-						stateMachines: [],
+				platforms: {
+					opencode: {
+						plugins: {
+							base: {
+								name: "rp1-base",
+								commands: [],
+								agents: [{ name: "test-agent", path: mockAgentPath }],
+								skills: [
+									{ name: "rp1-test-skill/SKILL.md", path: mockSkillPath },
+								],
+								stateMachines: [],
+							},
+							dev: {
+								name: "rp1-dev",
+								commands: [],
+								agents: [],
+								skills: [],
+								stateMachines: [],
+							},
+							utils: {
+								name: "rp1-utils",
+								commands: [],
+								agents: [],
+								skills: [],
+								stateMachines: [],
+							},
+						},
 					},
 				},
 				webui: [],
@@ -91,27 +97,31 @@ describe("extractor", () => {
 
 		test("reports progress via callback", async () => {
 			const mockAssets: BundledAssets = {
-				plugins: {
-					base: {
-						name: "rp1-base",
-						commands: [],
-						agents: [],
-						skills: [],
-						stateMachines: [],
-					},
-					dev: {
-						name: "rp1-dev",
-						commands: [],
-						agents: [],
-						skills: [],
-						stateMachines: [],
-					},
-					utils: {
-						name: "rp1-utils",
-						commands: [],
-						agents: [],
-						skills: [],
-						stateMachines: [],
+				platforms: {
+					opencode: {
+						plugins: {
+							base: {
+								name: "rp1-base",
+								commands: [],
+								agents: [],
+								skills: [],
+								stateMachines: [],
+							},
+							dev: {
+								name: "rp1-dev",
+								commands: [],
+								agents: [],
+								skills: [],
+								stateMachines: [],
+							},
+							utils: {
+								name: "rp1-utils",
+								commands: [],
+								agents: [],
+								skills: [],
+								stateMachines: [],
+							},
+						},
 					},
 				},
 				webui: [],
@@ -138,30 +148,34 @@ describe("extractor", () => {
 			await Bun.write(mockAgent2, "# Agent 2");
 
 			const mockAssets: BundledAssets = {
-				plugins: {
-					base: {
-						name: "rp1-base",
-						commands: [],
-						agents: [
-							{ name: "agent-one", path: mockAgent1 },
-							{ name: "agent-two", path: mockAgent2 },
-						],
-						skills: [],
-						stateMachines: [],
-					},
-					dev: {
-						name: "rp1-dev",
-						commands: [],
-						agents: [],
-						skills: [],
-						stateMachines: [],
-					},
-					utils: {
-						name: "rp1-utils",
-						commands: [],
-						agents: [],
-						skills: [],
-						stateMachines: [],
+				platforms: {
+					opencode: {
+						plugins: {
+							base: {
+								name: "rp1-base",
+								commands: [],
+								agents: [
+									{ name: "agent-one", path: mockAgent1 },
+									{ name: "agent-two", path: mockAgent2 },
+								],
+								skills: [],
+								stateMachines: [],
+							},
+							dev: {
+								name: "rp1-dev",
+								commands: [],
+								agents: [],
+								skills: [],
+								stateMachines: [],
+							},
+							utils: {
+								name: "rp1-utils",
+								commands: [],
+								agents: [],
+								skills: [],
+								stateMachines: [],
+							},
+						},
 					},
 				},
 				webui: [],
@@ -205,27 +219,31 @@ describe("extractor", () => {
 			);
 
 			const mockAssets: BundledAssets = {
-				plugins: {
-					base: {
-						name: "rp1-base",
-						commands: [],
-						agents: [{ name: "test-agent", path: mockAgent }],
-						skills: [],
-						stateMachines: [],
-					},
-					dev: {
-						name: "rp1-dev",
-						commands: [],
-						agents: [],
-						skills: [],
-						stateMachines: [],
-					},
-					utils: {
-						name: "rp1-utils",
-						commands: [],
-						agents: [],
-						skills: [],
-						stateMachines: [],
+				platforms: {
+					opencode: {
+						plugins: {
+							base: {
+								name: "rp1-base",
+								commands: [],
+								agents: [{ name: "test-agent", path: mockAgent }],
+								skills: [],
+								stateMachines: [],
+							},
+							dev: {
+								name: "rp1-dev",
+								commands: [],
+								agents: [],
+								skills: [],
+								stateMachines: [],
+							},
+							utils: {
+								name: "rp1-utils",
+								commands: [],
+								agents: [],
+								skills: [],
+								stateMachines: [],
+							},
+						},
 					},
 				},
 				webui: [],
@@ -269,27 +287,31 @@ describe("extractor", () => {
 			);
 
 			const mockAssets: BundledAssets = {
-				plugins: {
-					base: {
-						name: "rp1-base",
-						commands: [],
-						agents: [{ name: "test-agent", path: mockAgent }],
-						skills: [],
-						stateMachines: [],
-					},
-					dev: {
-						name: "rp1-dev",
-						commands: [],
-						agents: [],
-						skills: [],
-						stateMachines: [],
-					},
-					utils: {
-						name: "rp1-utils",
-						commands: [],
-						agents: [],
-						skills: [],
-						stateMachines: [],
+				platforms: {
+					opencode: {
+						plugins: {
+							base: {
+								name: "rp1-base",
+								commands: [],
+								agents: [{ name: "test-agent", path: mockAgent }],
+								skills: [],
+								stateMachines: [],
+							},
+							dev: {
+								name: "rp1-dev",
+								commands: [],
+								agents: [],
+								skills: [],
+								stateMachines: [],
+							},
+							utils: {
+								name: "rp1-utils",
+								commands: [],
+								agents: [],
+								skills: [],
+								stateMachines: [],
+							},
+						},
 					},
 				},
 				webui: [],
@@ -333,30 +355,34 @@ describe("extractor", () => {
 			);
 
 			const mockAssets: BundledAssets = {
-				plugins: {
-					base: {
-						name: "rp1-base",
-						commands: [],
-						agents: [
-							{ name: "agent-a", path: mockAgent1 },
-							{ name: "agent-b", path: mockAgent2 },
-						],
-						skills: [],
-						stateMachines: [],
-					},
-					dev: {
-						name: "rp1-dev",
-						commands: [],
-						agents: [],
-						skills: [],
-						stateMachines: [],
-					},
-					utils: {
-						name: "rp1-utils",
-						commands: [],
-						agents: [],
-						skills: [],
-						stateMachines: [],
+				platforms: {
+					opencode: {
+						plugins: {
+							base: {
+								name: "rp1-base",
+								commands: [],
+								agents: [
+									{ name: "agent-a", path: mockAgent1 },
+									{ name: "agent-b", path: mockAgent2 },
+								],
+								skills: [],
+								stateMachines: [],
+							},
+							dev: {
+								name: "rp1-dev",
+								commands: [],
+								agents: [],
+								skills: [],
+								stateMachines: [],
+							},
+							utils: {
+								name: "rp1-utils",
+								commands: [],
+								agents: [],
+								skills: [],
+								stateMachines: [],
+							},
+						},
 					},
 				},
 				webui: [],
