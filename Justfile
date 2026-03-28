@@ -164,33 +164,11 @@ fix-evals:
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Full local install: build + remove stable + install to all platforms
-install: build rm-stable install-claude install-opencode install-codex
+install: build rm-stable install-opencode install-codex
 
 # Run local binary with args
 run *args: build
     ./bin/rp1 {{args}}
-
-# Prepare dev marketplace with -dev version plugins (builds CC artifacts first)
-prepare-dev-plugins: build-claude-code
-    ./scripts/prepare-dev-plugins.sh
-
-# Install dev plugins to Claude Code
-install-claude: prepare-dev-plugins
-    @echo ""
-    @echo "━━━ Claude Code ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    @echo ""
-    @claude plugin marketplace rm rp1-local >/dev/null 2>&1 || true
-    @claude plugin marketplace add ./.dev-marketplace/ >/dev/null 2>&1 && printf '\033[32m✔\033[0m Marketplace configured\n' || printf '\033[31m✗\033[0m Marketplace configuration failed\n'
-    @claude plugin install rp1-base@rp1-local >/dev/null 2>&1 && printf '\033[32m✔\033[0m Installed rp1-base\n' || printf '\033[31m✗\033[0m Failed to install rp1-base\n'
-    @claude plugin install rp1-dev@rp1-local >/dev/null 2>&1 && printf '\033[32m✔\033[0m Installed rp1-dev\n' || printf '\033[31m✗\033[0m Failed to install rp1-dev\n'
-    @claude plugin install rp1-utils@rp1-local >/dev/null 2>&1 && printf '\033[32m✔\033[0m Installed rp1-utils\n' || printf '\033[31m✗\033[0m Failed to install rp1-utils\n'
-    @echo ""
-    @echo "Installed plugins:"
-    @echo "  - rp1-base"
-    @echo "  - rp1-dev"
-    @echo "  - rp1-utils"
-    @echo ""
-    @echo "Restart Claude Code to load updated plugins."
 
 # Install to OpenCode
 install-opencode:
