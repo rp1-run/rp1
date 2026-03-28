@@ -12,7 +12,11 @@ import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../shared/errors.js";
 import { installError, usageError } from "../../shared/errors.js";
 import type { Logger } from "../../shared/logger.js";
-import { hasBundledAssets } from "../assets/index.js";
+import {
+	collectPlatformPlugins,
+	getBundledAssets,
+	hasBundledAssets,
+} from "../assets/index.js";
 import {
 	getEnabledTools,
 	isToolEnabled,
@@ -123,17 +127,47 @@ const buildOpenCodeArgs = (
  * @param ctx - Installation context with logger, TTY info, etc.
  * @returns TaskEither with void on success or CLIError on failure
  */
+/**
+ * Result of installing OpenCode plugins.
+ */
+export interface OpenCodeInstallResult {
+	readonly pluginsInstalled: readonly string[];
+	readonly warnings: readonly string[];
+}
+
 export const installOpenCodePlugins = (
 	config: Partial<InstallArgs>,
 	ctx: InstallContext,
-): TE.TaskEither<CLIError, void> => {
+): TE.TaskEither<CLIError, OpenCodeInstallResult> => {
 	const args = buildOpenCodeArgs(config, ctx);
 	const options: InstallOptions = {
 		isTTY: ctx.isTTY,
 		skipPrompt: ctx.skipPrompt,
 	};
 
-	return executeInstall(args, ctx.logger, options);
+	return pipe(
+		executeInstall(args, ctx.logger, options),
+		TE.map((): OpenCodeInstallResult => {
+			// Derive installed plugins from bundled assets when available
+			const assetsResult = getBundledAssets();
+			if ("right" in assetsResult) {
+				const platform = assetsResult.right.platforms.opencode;
+				if (platform) {
+					return {
+						pluginsInstalled: collectPlatformPlugins(platform).map(
+							(p) => p.name,
+						),
+						warnings: [],
+					};
+				}
+			}
+			// Fallback: report required plugins (optional plugins unknown without manifest)
+			return {
+				pluginsInstalled: ["rp1-base", "rp1-dev"],
+				warnings: [],
+			};
+		}),
+	);
 };
 
 /**
@@ -262,11 +296,11 @@ const installForTool = (
 		return pipe(
 			installOpenCodePlugins({}, ctx),
 			TE.map(
-				(): ToolInstallResult => ({
+				(result): ToolInstallResult => ({
 					...baseResult,
 					success: true,
-					pluginsInstalled: ["rp1-base", "rp1-dev"],
-					warnings: [],
+					pluginsInstalled: result.pluginsInstalled,
+					warnings: result.warnings,
 				}),
 			),
 			TE.orElse(
@@ -286,10 +320,10 @@ const installForTool = (
 		return pipe(
 			installCodexPlugins({}, ctx),
 			TE.map(
-				(): ToolInstallResult => ({
+				(result): ToolInstallResult => ({
 					...baseResult,
 					success: true,
-					pluginsInstalled: ["rp1-base", "rp1-dev"],
+					pluginsInstalled: result.pluginsInstalled,
 					warnings: [],
 				}),
 			),
