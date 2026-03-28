@@ -217,64 +217,18 @@ Please report this issue at: https://github.com/${GITHUB_REPO}/issues"
 }
 
 install_plugins() {
-    local version="$1"
-    local scope="${PLUGIN_SCOPE:-user}"
+    local install_dir="$1"
 
     echo ""
-    printf "${BOLD}Claude Code Plugin Installation${NC}\n"
+    printf "${BOLD}Plugin Installation${NC}\n"
     echo "=============================="
     echo ""
 
-    if ! command -v claude >/dev/null 2>&1; then
-        info "Claude Code CLI not found — skipping plugin installation"
-        echo "  Install Claude Code first, then run:"
-        echo "    rp1 install claude-code"
-        return 0
-    fi
-
-    info "Installing rp1 plugins to Claude Code..."
-
-    # Try SSH-based marketplace add first
-    if claude plugin marketplace add ${GITHUB_REPO} >/dev/null 2>&1; then
-        success "Marketplace added"
+    info "Installing rp1 plugins..."
+    if "$install_dir/$BINARY_NAME" install 2>/dev/null; then
+        success "Plugins installed successfully"
     else
-        # Clean up any broken state from the failed SSH attempt
-        claude plugin marketplace remove rp1-run >/dev/null 2>&1 || true
-        # Fallback: download tarball via HTTPS and add as local path
-        info "Git clone failed, falling back to HTTPS tarball..."
-        local tarball_url="https://github.com/${GITHUB_REPO}/archive/refs/heads/main.tar.gz"
-        # Use persistent path — claude references this directory at runtime
-        local marketplace_dir="$HOME/.cache/rp1/marketplace"
-        rm -rf "$marketplace_dir"
-        mkdir -p "$marketplace_dir"
-        if download "$tarball_url" "$tmp_dir/rp1-repo.tar.gz" && \
-           tar -xzf "$tmp_dir/rp1-repo.tar.gz" -C "$marketplace_dir" --strip-components=1 --wildcards '*/.claude-plugin/*' '*/cli/dist/claude-code/*' 2>/dev/null && \
-           claude plugin marketplace add "$marketplace_dir" >/dev/null 2>&1; then
-            success "Marketplace added (HTTPS tarball)"
-        else
-            warn "Could not add marketplace. You can install plugins manually later:"
-            echo "    rp1 install claude-code"
-            return 0
-        fi
-    fi
-
-    # Install plugins
-    local plugin_failed=0
-    for plugin in rp1-base rp1-dev; do
-        if claude plugin install "${plugin}@rp1-run" --scope "$scope" >/dev/null 2>&1; then
-            success "Plugin ${plugin} installed"
-        else
-            warn "Failed to install ${plugin}"
-            plugin_failed=1
-        fi
-    done
-
-    if [ "$plugin_failed" = "0" ]; then
-        echo ""
-        success "All plugins installed! Restart Claude Code to load them."
-    else
-        echo ""
-        warn "Some plugins failed. Try: rp1 install claude-code"
+        warn "Plugin installation failed. Run 'rp1 install' manually after installation."
     fi
 }
 
@@ -383,9 +337,9 @@ Or install to a user-writable directory:
         error "Installation verification failed. Binary is not executable."
     fi
 
-    # Plugin installation (if Claude Code is available)
-    if [ "${SKIP_PLUGINS:-}" != "1" ]; then
-        install_plugins "$version"
+    # Plugin installation
+    if [ "${SKIP_PLUGINS:-0}" != "1" ]; then
+        install_plugins "$install_dir"
     fi
 
     # macOS Gatekeeper note
