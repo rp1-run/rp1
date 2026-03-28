@@ -350,6 +350,18 @@ stateDiagram-v2
     - **Deviations**: None
     - **Tests**: 2037/2040 passing (3 pre-existing failures from T6)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ⏭️ N/A |
+
 - [x] **T8**: Add "Adding a New Platform" section to DEVELOPMENT.md `[complexity:simple]`
 
     **Reference**: [design.md#implementation-plan](design.md#implementation-plan)
@@ -370,6 +382,18 @@ stateDiagram-v2
     - **Deviations**: None
     - **Tests**: N/A (documentation only)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ⏭️ N/A |
+    | Commit | ✅ PASS |
+    | Comments | ⏭️ N/A |
+
     **Execution Flow**:
 
     ```mermaid
@@ -377,6 +401,36 @@ stateDiagram-v2
         [*] --> T7_Build_scripts_and_GoReleaser
         T7_Build_scripts_and_GoReleaser --> T8_Platform_extension_documentation
         T8_Platform_extension_documentation --> [*]
+    ```
+
+### Build Entrypoint (Post-Review Fix)
+
+- [x] **TX-build-entrypoint**: Add build:platforms script to cli/package.json for single-command multi-platform builds `[complexity:simple]`
+
+    **Reference**: PRD REQ-001, STORY-001
+
+    **Effort**: 1 hour
+
+    **Acceptance Criteria**:
+
+    - [x] `build:platforms` script added to `cli/package.json` that runs `executeBuild --platform all`
+    - [x] Running `bun run build:platforms` produces `dist/claude-code/`, `dist/opencode/`, and `dist/codex/` directories
+    - [x] `build:release` chains `build:platforms` before asset generation instead of individual platform scripts
+    - [x] `build:all` uses `build:platforms` instead of `build:opencode` only
+
+    **Implementation Summary**:
+
+    - **Files**: `cli/scripts/build-platforms.ts` (new), `cli/package.json`
+    - **Approach**: Created build-platforms.ts script mirroring the existing per-platform scripts but passing `--platform all` to executeBuild. Updated package.json to add `build:platforms` script, simplified `build:release` to use `build:platforms` instead of chaining three individual platform scripts, and updated `build:all` to use `build:platforms`.
+    - **Deviations**: None
+    - **Tests**: 4/4 build tests passing
+
+    **Execution Flow**:
+
+    ```mermaid
+    stateDiagram-v2
+        [*] --> TX_build_entrypoint
+        TX_build_entrypoint --> [*]
     ```
 
 ### User Docs
