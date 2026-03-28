@@ -304,8 +304,19 @@ export function getCodexConfigFile(home: string = homedir()): string {
 }
 
 /**
+ * Get the Codex rp1 agents directory path.
+ *
+ * @param home - Home directory (defaults to os.homedir())
+ * @returns Path to Codex rp1 agents directory
+ */
+export function getCodexAgentsDir(home: string = homedir()): string {
+	return join(home, ".codex", "agents", "rp1");
+}
+
+/**
  * Verify Codex CLI plugin installation.
- * Checks for rp1 skill directories under ~/.codex/skills/ and confirms
+ * Checks for flat rp1-* skill directories under ~/.codex/skills/, confirms
+ * per-agent TOMLs are present under ~/.codex/agents/rp1/, and verifies the
  * rp1-managed config was merged into ~/.codex/config.toml.
  *
  * @param home - Home directory (for testing, defaults to os.homedir())
@@ -322,17 +333,18 @@ export async function verifyCodexPlugins(
 	callbacks?.onActivity("Checking Codex CLI skills directory", "info");
 
 	const skillsDir = getCodexSkillsDir(home);
+	const agentsDir = getCodexAgentsDir(home);
 	const configFile = getCodexConfigFile(home);
-	let hasBaseSkills = false;
-	let hasDevSkills = false;
+	let hasSkills = false;
+	let hasBaseAgents = false;
+	let hasDevAgents = false;
 
 	try {
 		const dirStat = await stat(skillsDir);
 		if (dirStat.isDirectory()) {
 			const entries = await readdir(skillsDir);
 			const rp1Dirs = entries.filter((e) => e.startsWith("rp1-"));
-			hasBaseSkills = rp1Dirs.some((entry) => entry.startsWith("rp1-base-"));
-			hasDevSkills = rp1Dirs.some((entry) => entry.startsWith("rp1-dev-"));
+			hasSkills = rp1Dirs.length > 0;
 
 			if (rp1Dirs.length > 0) {
 				callbacks?.onActivity(
@@ -347,12 +359,27 @@ export async function verifyCodexPlugins(
 		callbacks?.onActivity("Codex skills directory not found", "warning");
 	}
 
-	if (!hasBaseSkills) {
-		issues.push("Codex base skills not found in ~/.codex/skills");
+	if (!hasSkills) {
+		issues.push("No rp1 skill directories found in ~/.codex/skills");
 	}
 
-	if (!hasDevSkills) {
-		issues.push("Codex dev skills not found in ~/.codex/skills");
+	try {
+		const dirStat = await stat(agentsDir);
+		if (dirStat.isDirectory()) {
+			const entries = await readdir(agentsDir);
+			hasBaseAgents = entries.some((e) => e.startsWith("rp1-base-"));
+			hasDevAgents = entries.some((e) => e.startsWith("rp1-dev-"));
+		}
+	} catch {
+		issues.push("Codex rp1 agents directory not found");
+	}
+
+	if (!hasBaseAgents) {
+		issues.push("Codex base agents not found in ~/.codex/agents/rp1");
+	}
+
+	if (!hasDevAgents) {
+		issues.push("Codex dev agents not found in ~/.codex/agents/rp1");
 	}
 
 	let configInstalled = false;
@@ -375,18 +402,19 @@ export async function verifyCodexPlugins(
 
 	plugins.push({
 		name: "rp1-base",
-		installed: hasBaseSkills,
+		installed: hasSkills && hasBaseAgents,
 		version: "unknown",
-		location: hasBaseSkills ? skillsDir : null,
+		location: hasSkills && hasBaseAgents ? skillsDir : null,
 	});
 	plugins.push({
 		name: "rp1-dev",
-		installed: hasDevSkills,
+		installed: hasSkills && hasDevAgents,
 		version: "unknown",
-		location: hasDevSkills ? skillsDir : null,
+		location: hasSkills && hasDevAgents ? skillsDir : null,
 	});
 
-	const verified = hasBaseSkills && hasDevSkills && configInstalled;
+	const verified =
+		hasSkills && hasBaseAgents && hasDevAgents && configInstalled;
 
 	if (verified) {
 		callbacks?.onActivity("Codex plugins verified", "success");
