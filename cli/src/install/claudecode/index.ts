@@ -13,7 +13,6 @@ export {
 } from "./command.js";
 // Installer
 export {
-	addMarketplace,
 	installAllPlugins,
 	installPlugin,
 	updatePlugin,

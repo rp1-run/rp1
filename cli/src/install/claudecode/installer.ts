@@ -1,12 +1,10 @@
 /**
  * Installer module for Claude Code plugin installation.
- * Executes Claude CLI commands to add marketplace and install plugins.
+ * Uses the local filesystem marketplace powered by embedded binary assets,
+ * replacing the previous GitHub-repo-based marketplace approach.
  */
 
 import { exec } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { promisify } from "node:util";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
@@ -14,27 +12,22 @@ import type { CLIError } from "../../../shared/errors.js";
 import { formatError, installError } from "../../../shared/errors.js";
 import type { Logger } from "../../../shared/logger.js";
 import { createSpinner, type Spinner } from "../../../shared/spinner.js";
+import { getInstalledVersion } from "../../lib/version.js";
+import { extractPlatformAssets } from "../asset-extractor.js";
+import { writeVersionMarker } from "../version-marker.js";
+import {
+	createLocalMarketplace,
+	DEFAULT_MARKETPLACE_DIR,
+	MARKETPLACE_NAME,
+	registerMarketplace,
+} from "./marketplace.js";
+import { migrateFromGitHubMarketplace } from "./migration.js";
 import type { ClaudeCodeInstallResult } from "./models.js";
 
 const execAsync = promisify(exec);
 
 /**
- * Marketplace repository identifier (GitHub org/repo format).
- */
-const MARKETPLACE_REPO = "rp1-run/rp1";
-
-/**
- * HTTPS tarball URL for downloading the marketplace repo without git.
- */
-const MARKETPLACE_TARBALL_URL = `https://github.com/${MARKETPLACE_REPO}/archive/refs/heads/main.tar.gz`;
-
-/**
- * Marketplace name used in plugin references (the GitHub org name).
- */
-const MARKETPLACE_NAME = "rp1-run";
-
-/**
- * Command timeout in milliseconds (30 seconds for network operations).
+ * Command timeout in milliseconds.
  */
 const COMMAND_TIMEOUT = 30000;
 
@@ -65,7 +58,6 @@ const executeClaudeCommand = (
 				const { stdout, stderr } = await execAsync(command, {
 					timeout: COMMAND_TIMEOUT,
 				});
-				// Some Claude commands output to stderr for progress info
 				return stdout || stderr;
 			},
 			(e) => {
@@ -98,137 +90,6 @@ const isAlreadyExistsError = (error: CLIError): boolean => {
 const getErrorMessage = (error: CLIError): string => formatError(error, false);
 
 /**
- * Add rp1 marketplace to Claude Code.
- * Executes: claude plugin marketplace add rp1-run/rp1
- * When useHttps is true, uses HTTPS URL with sparse checkout instead of SSH.
- *
- * @param logger - Logger for progress output
- * @param dryRun - If true, log the command without executing
- * @param isTTY - Whether the terminal supports TTY for spinner display
- * @param useHttps - If true, use HTTPS URL with sparse checkout (no SSH keys required)
- * @returns TaskEither with true on success (or already exists), CLIError on failure
- */
-export const addMarketplace = (
-	logger: Logger,
-	dryRun: boolean,
-	isTTY: boolean,
-	useHttps = false,
-): TE.TaskEither<CLIError, boolean> => {
-	if (useHttps) {
-		return addMarketplaceViaTarball(logger, dryRun, isTTY);
-	}
-
-	const command = `claude plugin marketplace add ${MARKETPLACE_REPO}`;
-	const spinner = createSpinner(isTTY);
-
-	return pipe(
-		executeClaudeCommand(command, spinner, logger, dryRun),
-		TE.map(() => {
-			if (!dryRun) {
-				spinner.succeed(`Marketplace ${MARKETPLACE_REPO} added`);
-			}
-			return true;
-		}),
-		TE.orElse((error) => {
-			// Handle "already exists" gracefully
-			if (error._tag === "InstallError" && isAlreadyExistsError(error)) {
-				spinner.stop();
-				logger.info(`Marketplace ${MARKETPLACE_REPO} already registered`);
-				return TE.right(true);
-			}
-			// Git clone failed — fall back to HTTPS tarball download
-			spinner.stop();
-			logger.info("Git clone failed, falling back to HTTPS tarball...");
-			// Clean up broken state from failed attempt
-			return pipe(
-				executeClaudeCommand(
-					`claude plugin marketplace remove ${MARKETPLACE_NAME}`,
-					createSpinner(false),
-					logger,
-					dryRun,
-				),
-				TE.orElse(() => TE.right("")),
-				TE.chain(() => addMarketplaceViaTarball(logger, dryRun, isTTY)),
-			);
-		}),
-	);
-};
-
-/**
- * Download the marketplace repo as a tarball, extract, and add as a local path.
- * Works on machines where git is unavailable or blocked.
- */
-const addMarketplaceViaTarball = (
-	logger: Logger,
-	dryRun: boolean,
-	isTTY: boolean,
-): TE.TaskEither<CLIError, boolean> => {
-	const spinner = createSpinner(isTTY);
-
-	if (dryRun) {
-		logger.info(
-			`[dry-run] Would download ${MARKETPLACE_TARBALL_URL} and add as local marketplace`,
-		);
-		return TE.right(true);
-	}
-
-	return pipe(
-		TE.tryCatch(
-			async () => {
-				spinner.start("Downloading marketplace via HTTPS...");
-				const tmpDir = await mkdtemp(join(tmpdir(), "rp1-marketplace-"));
-				const tarballPath = join(tmpDir, "repo.tar.gz");
-				// Use persistent path — claude references this directory at runtime
-				const cacheDir = join(process.env.HOME ?? tmpdir(), ".cache", "rp1");
-				const extractDir = join(cacheDir, "marketplace");
-				await rm(extractDir, { recursive: true, force: true }).catch(() => {});
-				await execAsync(`mkdir -p "${extractDir}"`);
-
-				// Download tarball
-				await execAsync(
-					`curl -fsSL -o "${tarballPath}" "${MARKETPLACE_TARBALL_URL}"`,
-					{ timeout: COMMAND_TIMEOUT * 2 },
-				);
-
-				// Extract only marketplace metadata and plugin artifacts
-				await execAsync(
-					`mkdir -p "${extractDir}" && tar -xzf "${tarballPath}" -C "${extractDir}" --strip-components=1 --wildcards '*/.claude-plugin/*' '*/cli/dist/claude-code/*'`,
-					{ timeout: COMMAND_TIMEOUT },
-				);
-
-				return extractDir;
-			},
-			(e) => {
-				spinner.fail("Failed to download marketplace tarball");
-				const error = e as Error;
-				return installError(
-					"claude-command",
-					`Tarball download failed: ${error.message}`,
-				);
-			},
-		),
-		TE.chain((extractDir) =>
-			pipe(
-				executeClaudeCommand(
-					`claude plugin marketplace add "${extractDir}"`,
-					spinner,
-					logger,
-					false,
-				),
-				TE.map(() => {
-					spinner.succeed(`Marketplace ${MARKETPLACE_REPO} added (HTTPS)`);
-					return true;
-				}),
-				TE.mapLeft((error) => {
-					spinner.fail(`Failed to add marketplace: ${getErrorMessage(error)}`);
-					return error;
-				}),
-			),
-		),
-	);
-};
-
-/**
  * Build scope argument for Claude CLI commands.
  */
 const buildScopeArg = (scope: string): string => {
@@ -243,8 +104,8 @@ const buildScopeArg = (scope: string): string => {
 };
 
 /**
- * Install a plugin from the rp1 marketplace.
- * Executes: claude plugin install <plugin>@rp1 --scope <scope>
+ * Install a plugin from the local marketplace.
+ * Executes: claude plugin install <plugin>@rp1-local --scope <scope>
  *
  * @param pluginName - Name of the plugin to install (e.g., "rp1-base")
  * @param scope - Installation scope: "user", "project", or "local"
@@ -260,7 +121,6 @@ export const installPlugin = (
 	dryRun: boolean,
 	isTTY: boolean,
 ): TE.TaskEither<CLIError, boolean> => {
-	// Plugin name format: <plugin>@<marketplace>
 	const pluginRef = `${pluginName}@${MARKETPLACE_NAME}`;
 	const scopeArg = buildScopeArg(scope);
 	const command = `claude plugin install ${pluginRef} ${scopeArg}`;
@@ -275,7 +135,6 @@ export const installPlugin = (
 			return true;
 		}),
 		TE.orElse((error) => {
-			// Handle "already exists" gracefully - try to update instead
 			if (error._tag === "InstallError" && isAlreadyExistsError(error)) {
 				spinner.stop();
 				logger.info(`Plugin ${pluginName} already installed, updating...`);
@@ -291,7 +150,7 @@ export const installPlugin = (
 
 /**
  * Update a plugin to latest version.
- * Executes: claude plugin update <plugin>@rp1 --scope <scope>
+ * Executes: claude plugin update <plugin>@rp1-local --scope <scope>
  *
  * @param pluginName - Name of the plugin to update (e.g., "rp1-base")
  * @param scope - Installation scope: "user", "project", or "local"
@@ -328,8 +187,14 @@ export const updatePlugin = (
 };
 
 /**
- * Install all rp1 plugins to Claude Code.
- * Orchestrates marketplace registration and plugin installation.
+ * Install all rp1 plugins to Claude Code via the local filesystem marketplace.
+ * Orchestrates the full install flow:
+ * 1. Migrate from old GitHub marketplace (if present)
+ * 2. Extract Claude Code assets from binary to local marketplace directory
+ * 3. Create marketplace metadata (marketplace.json)
+ * 4. Register local marketplace with Claude CLI
+ * 5. Install plugins from local marketplace
+ * 6. Write version marker for staleness detection
  *
  * @param scope - Installation scope: "user", "project", or "local"
  * @param logger - Logger for progress output
@@ -342,38 +207,53 @@ export const installAllPlugins = (
 	logger: Logger,
 	dryRun: boolean,
 	isTTY: boolean,
-	useHttps = false,
 ): TE.TaskEither<CLIError, ClaudeCodeInstallResult> => {
 	const plugins = ["rp1-base", "rp1-dev"];
+	const pluginKeys = ["base", "dev"];
 	const warnings: string[] = [];
 	const pluginsInstalled: string[] = [];
+	const marketplaceDir = DEFAULT_MARKETPLACE_DIR;
 
 	return pipe(
-		// Step 1: Add marketplace
-		addMarketplace(logger, dryRun, isTTY, useHttps),
-		TE.chain((marketplaceAdded) =>
+		// Step 1: Migrate from old GitHub marketplace if present
+		migrateFromGitHubMarketplace(logger, dryRun, isTTY),
+		// Step 2: Extract Claude Code assets from binary to marketplace dir
+		TE.chain(() => {
+			logger.info("Extracting Claude Code assets...");
+			return extractPlatformAssets({
+				platform: "claude-code",
+				targetDir: marketplaceDir,
+				plugins: pluginKeys,
+			});
+		}),
+		// Step 3: Create marketplace metadata (marketplace.json)
+		TE.chain(() => createLocalMarketplace(marketplaceDir, pluginKeys)),
+		// Step 4: Register local marketplace with Claude CLI
+		TE.chain(() => registerMarketplace(marketplaceDir, logger, dryRun, isTTY)),
+		// Step 5: Install rp1-base
+		TE.chain(() =>
 			pipe(
-				// Step 2: Install rp1-base
 				installPlugin(plugins[0], scope, logger, dryRun, isTTY),
 				TE.map((success) => {
 					if (success) pluginsInstalled.push(plugins[0]);
-					return { marketplaceAdded };
 				}),
 			),
 		),
-		TE.chain((result) =>
+		// Step 6: Install rp1-dev
+		TE.chain(() =>
 			pipe(
-				// Step 3: Install rp1-dev
 				installPlugin(plugins[1], scope, logger, dryRun, isTTY),
 				TE.map((success) => {
 					if (success) pluginsInstalled.push(plugins[1]);
-					return result;
 				}),
 			),
 		),
+		// Step 7: Write version marker
+		TE.chain(() => writeVersionMarker("claude-code", getInstalledVersion())),
+		// Return result
 		TE.map(
-			(result): ClaudeCodeInstallResult => ({
-				marketplaceAdded: result.marketplaceAdded,
+			(): ClaudeCodeInstallResult => ({
+				marketplaceAdded: true,
 				pluginsInstalled,
 				warnings,
 			}),
