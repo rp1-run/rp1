@@ -6,9 +6,9 @@
 
 import { Database } from "bun:sqlite";
 import { existsSync, unlinkSync } from "node:fs";
-import { mkdir } from "node:fs/promises";
+import { mkdir, readdir, stat } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../../shared/errors.js";
 import { runtimeError } from "../../../shared/errors.js";
@@ -30,13 +30,16 @@ CREATE TABLE IF NOT EXISTS schema_version (
     version INTEGER NOT NULL
 );
 
-INSERT INTO schema_version (version) VALUES (6);
+INSERT INTO schema_version (version) VALUES (7);
 
 CREATE TABLE IF NOT EXISTS runs (
     id TEXT PRIMARY KEY NOT NULL,
     flow TEXT NOT NULL,
     feature_id TEXT NOT NULL,
     project_path TEXT NOT NULL,
+    rp1_project_root TEXT NOT NULL,
+    rp1_kb_dir TEXT NOT NULL,
+    rp1_work_dir TEXT NOT NULL,
     name TEXT DEFAULT NULL,
     harness TEXT DEFAULT NULL,
     status TEXT NOT NULL DEFAULT 'not_started'
@@ -74,6 +77,8 @@ CREATE TABLE IF NOT EXISTS artifacts (
     run_id TEXT REFERENCES runs(id),
     path TEXT NOT NULL,
     type TEXT NOT NULL DEFAULT 'other',
+    storage_root TEXT NOT NULL DEFAULT 'project'
+        CHECK(storage_root IN ('absolute', 'project', 'work_dir')),
     project_path TEXT NOT NULL,
     feature TEXT NOT NULL,
     step TEXT,
@@ -147,6 +152,9 @@ export interface RunInput {
 	readonly flow: string;
 	readonly featureId: string;
 	readonly projectPath: string;
+	readonly rp1ProjectRoot?: string;
+	readonly rp1KbDir?: string;
+	readonly rp1WorkDir?: string;
 	readonly name?: string;
 	readonly harness?: string;
 }
@@ -168,11 +176,14 @@ export interface ArtifactInput {
 	readonly runId?: string;
 	readonly path: string;
 	readonly type: string;
+	readonly storageRoot?: ArtifactStorageRoot;
 	readonly projectPath: string;
 	readonly feature: string;
 	readonly step?: string;
 	readonly subflow?: boolean;
 }
+
+export type ArtifactStorageRoot = "absolute" | "project" | "work_dir";
 
 /** Stored artifact record shape */
 export interface ArtifactRecord {
@@ -181,6 +192,7 @@ export interface ArtifactRecord {
 	readonly runId: string | null;
 	readonly path: string;
 	readonly type: string;
+	readonly storageRoot: ArtifactStorageRoot;
 	readonly projectPath: string;
 	readonly feature: string;
 	readonly step: string | null;
@@ -228,6 +240,9 @@ interface RunRow {
 	flow: string;
 	feature_id: string;
 	project_path: string;
+	rp1_project_root: string | null;
+	rp1_kb_dir: string | null;
+	rp1_work_dir: string | null;
 	name: string | null;
 	harness: string | null;
 	status: string;
@@ -252,6 +267,7 @@ interface ArtifactRow {
 	run_id: string | null;
 	path: string;
 	type: string;
+	storage_root: ArtifactStorageRoot | null;
 	project_path: string;
 	feature: string;
 	step: string | null;
@@ -277,11 +293,51 @@ interface StepStatusRow {
 	status: string;
 }
 
+const normalizeProjectKey = (projectRoot: string): string => {
+	const resolvedRoot = resolve(projectRoot);
+	const normalizedRoot = resolvedRoot
+		.replace(/^[A-Za-z]:/, "")
+		.replace(/^\/+/, "")
+		.replace(/[\\/]+/g, "-")
+		.replace(/[^A-Za-z0-9._-]/g, "-")
+		.replace(/-+/g, "-")
+		.replace(/^-|-$/g, "");
+
+	return normalizedRoot.length > 0 ? normalizedRoot : "project";
+};
+
+const defaultKbDir = (projectRoot: string): string =>
+	join(projectRoot, ".rp1", "context");
+
+const defaultWorkDir = (projectRoot: string): string =>
+	join(homedir(), ".rp1", normalizeProjectKey(projectRoot));
+
+const resolveRunDirectories = (input: {
+	readonly projectPath: string;
+	readonly rp1ProjectRoot?: string;
+	readonly rp1KbDir?: string;
+	readonly rp1WorkDir?: string;
+}): {
+	readonly rp1ProjectRoot: string;
+	readonly rp1KbDir: string;
+	readonly rp1WorkDir: string;
+} => {
+	const rp1ProjectRoot = resolve(input.rp1ProjectRoot ?? input.projectPath);
+	return {
+		rp1ProjectRoot,
+		rp1KbDir: resolve(input.rp1KbDir ?? defaultKbDir(rp1ProjectRoot)),
+		rp1WorkDir: resolve(input.rp1WorkDir ?? defaultWorkDir(rp1ProjectRoot)),
+	};
+};
+
 const runRowToRecord = (row: RunRow): RunRecord => ({
 	id: row.id,
 	flow: row.flow,
 	featureId: row.feature_id,
 	projectPath: row.project_path,
+	rp1ProjectRoot: row.rp1_project_root ?? row.project_path,
+	rp1KbDir: row.rp1_kb_dir ?? defaultKbDir(row.project_path),
+	rp1WorkDir: row.rp1_work_dir ?? defaultWorkDir(row.project_path),
 	status: row.status as Status,
 	name: row.name ?? null,
 	harness: row.harness ?? null,
@@ -306,6 +362,7 @@ const artifactRowToRecord = (row: ArtifactRow): ArtifactRecord => ({
 	runId: row.run_id,
 	path: row.path,
 	type: row.type,
+	storageRoot: row.storage_root ?? "project",
 	projectPath: row.project_path,
 	feature: row.feature,
 	step: row.step,
@@ -445,6 +502,68 @@ const applyMigrations = (db: Database): void => {
 
 		db.prepare("UPDATE schema_version SET version = 6").run();
 	}
+
+	const postV5Version = db
+		.prepare("SELECT version FROM schema_version LIMIT 1")
+		.get() as { version: number } | null;
+
+	if ((postV5Version?.version ?? 6) < 7) {
+		const runColumns = db.prepare("PRAGMA table_info(runs)").all() as {
+			name: string;
+		}[];
+		const runColumnNames = runColumns.map((c) => c.name);
+
+		if (!runColumnNames.includes("rp1_project_root")) {
+			db.exec("ALTER TABLE runs ADD COLUMN rp1_project_root TEXT DEFAULT NULL");
+		}
+		if (!runColumnNames.includes("rp1_kb_dir")) {
+			db.exec("ALTER TABLE runs ADD COLUMN rp1_kb_dir TEXT DEFAULT NULL");
+		}
+		if (!runColumnNames.includes("rp1_work_dir")) {
+			db.exec("ALTER TABLE runs ADD COLUMN rp1_work_dir TEXT DEFAULT NULL");
+		}
+
+		const artifactColumns = db
+			.prepare("PRAGMA table_info(artifacts)")
+			.all() as {
+			name: string;
+		}[];
+		const artifactColumnNames = artifactColumns.map((c) => c.name);
+
+		if (!artifactColumnNames.includes("storage_root")) {
+			db.exec(
+				"ALTER TABLE artifacts ADD COLUMN storage_root TEXT NOT NULL DEFAULT 'project' CHECK(storage_root IN ('absolute', 'project', 'work_dir'))",
+			);
+		}
+
+		const runsToBackfill = db
+			.prepare(
+				"SELECT id, project_path FROM runs WHERE rp1_project_root IS NULL OR rp1_kb_dir IS NULL OR rp1_work_dir IS NULL",
+			)
+			.all() as { id: string; project_path: string }[];
+
+		const backfillRunStmt = db.prepare(
+			`UPDATE runs
+			 SET rp1_project_root = $rp1ProjectRoot,
+			     rp1_kb_dir = $rp1KbDir,
+			     rp1_work_dir = $rp1WorkDir
+			 WHERE id = $id`,
+		);
+
+		for (const run of runsToBackfill) {
+			const directories = resolveRunDirectories({
+				projectPath: run.project_path,
+			});
+			backfillRunStmt.run({
+				$id: run.id,
+				$rp1ProjectRoot: directories.rp1ProjectRoot,
+				$rp1KbDir: directories.rp1KbDir,
+				$rp1WorkDir: directories.rp1WorkDir,
+			});
+		}
+
+		db.prepare("UPDATE schema_version SET version = 7").run();
+	}
 };
 
 /**
@@ -529,6 +648,23 @@ export const insertRun = (db: Database, input: RunInput): RunRecord => {
 			params.$harness = input.harness;
 		}
 
+		const directories = resolveRunDirectories(input);
+
+		if (existing.rp1_project_root == null && directories.rp1ProjectRoot) {
+			updates.push("rp1_project_root = $rp1ProjectRoot");
+			params.$rp1ProjectRoot = directories.rp1ProjectRoot;
+		}
+
+		if (existing.rp1_kb_dir == null && directories.rp1KbDir) {
+			updates.push("rp1_kb_dir = $rp1KbDir");
+			params.$rp1KbDir = directories.rp1KbDir;
+		}
+
+		if (existing.rp1_work_dir == null && directories.rp1WorkDir) {
+			updates.push("rp1_work_dir = $rp1WorkDir");
+			params.$rp1WorkDir = directories.rp1WorkDir;
+		}
+
 		if (updates.length > 0) {
 			updates.push("updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')");
 			db.prepare(`UPDATE runs SET ${updates.join(", ")} WHERE id = $id`).run(
@@ -543,10 +679,17 @@ export const insertRun = (db: Database, input: RunInput): RunRecord => {
 		return runRowToRecord(existing);
 	}
 
+	const directories = resolveRunDirectories(input);
 	const row = db
 		.prepare(
-			`INSERT INTO runs (id, flow, feature_id, project_path, name, harness)
-			 VALUES ($id, $flow, $featureId, $projectPath, $name, $harness)
+			`INSERT INTO runs (
+			    id, flow, feature_id, project_path, rp1_project_root, rp1_kb_dir,
+			    rp1_work_dir, name, harness
+			 )
+			 VALUES (
+			    $id, $flow, $featureId, $projectPath, $rp1ProjectRoot, $rp1KbDir,
+			    $rp1WorkDir, $name, $harness
+			 )
 			 RETURNING *`,
 		)
 		.get({
@@ -554,6 +697,9 @@ export const insertRun = (db: Database, input: RunInput): RunRecord => {
 			$flow: input.flow,
 			$featureId: input.featureId,
 			$projectPath: input.projectPath,
+			$rp1ProjectRoot: directories.rp1ProjectRoot,
+			$rp1KbDir: directories.rp1KbDir,
+			$rp1WorkDir: directories.rp1WorkDir,
 			$name: input.name ?? null,
 			$harness: input.harness ?? null,
 		}) as RunRow;
@@ -619,14 +765,24 @@ export const findOrCreateRun = (
 	}
 
 	const newId = crypto.randomUUID();
+	const directories = resolveRunDirectories({ projectPath: input.projectPath });
 	db.prepare(
-		`INSERT INTO runs (id, flow, feature_id, project_path, harness)
-		 VALUES ($id, $flow, $featureId, $projectPath, NULL)`,
+		`INSERT INTO runs (
+		    id, flow, feature_id, project_path, rp1_project_root, rp1_kb_dir,
+		    rp1_work_dir, harness
+		 )
+		 VALUES (
+		    $id, $flow, $featureId, $projectPath, $rp1ProjectRoot, $rp1KbDir,
+		    $rp1WorkDir, NULL
+		 )`,
 	).run({
 		$id: newId,
 		$flow: input.flow,
 		$featureId: input.featureId,
 		$projectPath: input.projectPath,
+		$rp1ProjectRoot: directories.rp1ProjectRoot,
+		$rp1KbDir: directories.rp1KbDir,
+		$rp1WorkDir: directories.rp1WorkDir,
 	});
 
 	return { runId: newId, resumed: false };
@@ -673,8 +829,12 @@ export const upsertArtifact = (
 
 	const row = db
 		.prepare(
-			`INSERT INTO artifacts (doc_id, run_id, path, type, project_path, feature, step, subflow)
-			 VALUES ($docId, $runId, $path, $type, $projectPath, $feature, $step, $subflow)
+			`INSERT INTO artifacts (
+			    doc_id, run_id, path, type, storage_root, project_path, feature, step, subflow
+			 )
+			 VALUES (
+			    $docId, $runId, $path, $type, $storageRoot, $projectPath, $feature, $step, $subflow
+			 )
 			 RETURNING *`,
 		)
 		.get({
@@ -682,6 +842,7 @@ export const upsertArtifact = (
 			$runId: input.runId ?? null,
 			$path: input.path,
 			$type: input.type,
+			$storageRoot: input.storageRoot ?? "project",
 			$projectPath: input.projectPath,
 			$feature: input.feature,
 			$step: input.step ?? null,
@@ -1139,6 +1300,153 @@ export const updateArtifactPath = (
 		$path: newPath,
 		$docId: docId,
 	});
+};
+
+export const updateArtifactStorage = (
+	db: Database,
+	docId: string,
+	updates: {
+		readonly path: string;
+		readonly storageRoot: ArtifactStorageRoot;
+	},
+): void => {
+	db.prepare(
+		"UPDATE artifacts SET path = $path, storage_root = $storageRoot WHERE doc_id = $docId",
+	).run({
+		$path: updates.path,
+		$storageRoot: updates.storageRoot,
+		$docId: docId,
+	});
+};
+
+const isWithinRoot = (candidatePath: string, rootPath: string): boolean => {
+	const normalizedRoot = resolve(rootPath);
+	const relativePath = relative(normalizedRoot, resolve(candidatePath));
+	return (
+		relativePath === "" ||
+		(!relativePath.startsWith("..") && !isAbsolute(relativePath))
+	);
+};
+
+export const normalizeArtifactStorage = (
+	artifactPath: string,
+	run: Pick<RunRecord, "rp1ProjectRoot" | "rp1WorkDir">,
+	storageRoot?: ArtifactStorageRoot,
+): { readonly path: string; readonly storageRoot: ArtifactStorageRoot } => {
+	if (storageRoot != null) {
+		if (storageRoot === "absolute" || isAbsolute(artifactPath)) {
+			return { path: resolve(artifactPath), storageRoot };
+		}
+		const baseDir =
+			storageRoot === "work_dir" ? run.rp1WorkDir : run.rp1ProjectRoot;
+		return {
+			path: relative(baseDir, resolve(baseDir, artifactPath)),
+			storageRoot,
+		};
+	}
+
+	if (isAbsolute(artifactPath)) {
+		const absolutePath = resolve(artifactPath);
+		if (isWithinRoot(absolutePath, run.rp1WorkDir)) {
+			return {
+				path: relative(run.rp1WorkDir, absolutePath),
+				storageRoot: "work_dir",
+			};
+		}
+		if (isWithinRoot(absolutePath, run.rp1ProjectRoot)) {
+			return {
+				path: relative(run.rp1ProjectRoot, absolutePath),
+				storageRoot: "project",
+			};
+		}
+		return { path: absolutePath, storageRoot: "absolute" };
+	}
+
+	return { path: artifactPath, storageRoot: "work_dir" };
+};
+
+async function scanForArtifactDocId(
+	rootDir: string,
+	docId: string,
+	maxDepth = 8,
+): Promise<string | null> {
+	async function scanDir(dir: string, depth: number): Promise<string | null> {
+		if (depth > maxDepth) return null;
+
+		let entries: string[];
+		try {
+			entries = await readdir(dir);
+		} catch {
+			return null;
+		}
+
+		for (const name of entries) {
+			const fullPath = join(dir, name);
+
+			try {
+				const fileStat = await stat(fullPath);
+				if (fileStat.isDirectory()) {
+					const nested = await scanDir(fullPath, depth + 1);
+					if (nested) return nested;
+					continue;
+				}
+
+				if (!fileStat.isFile() || !name.endsWith(".md")) {
+					continue;
+				}
+			} catch {
+				continue;
+			}
+
+			try {
+				const headerBytes = await Bun.file(fullPath).slice(0, 1024).text();
+				const match = headerBytes.match(/^rp1_doc_id:\s*(.+)$/m);
+				if (match?.[1]?.trim() === docId) {
+					return fullPath;
+				}
+			} catch {}
+		}
+
+		return null;
+	}
+
+	return scanDir(rootDir, 0);
+}
+
+export const resolveArtifactPathForRun = async (
+	db: Database,
+	run: Pick<RunRecord, "rp1ProjectRoot" | "rp1WorkDir">,
+	artifact: Pick<ArtifactRecord, "docId" | "path" | "storageRoot">,
+): Promise<string | null> => {
+	if (isAbsolute(artifact.path)) {
+		return (await Bun.file(artifact.path).exists()) ? artifact.path : null;
+	}
+
+	if (artifact.storageRoot === "work_dir") {
+		const workPath = resolve(run.rp1WorkDir, artifact.path);
+		if (await Bun.file(workPath).exists()) {
+			return workPath;
+		}
+	} else {
+		const projectPath = resolve(run.rp1ProjectRoot, artifact.path);
+		if (await Bun.file(projectPath).exists()) {
+			return projectPath;
+		}
+	}
+
+	const scannedPath = await scanForArtifactDocId(
+		run.rp1WorkDir,
+		artifact.docId,
+	);
+	if (scannedPath == null) {
+		return null;
+	}
+
+	updateArtifactStorage(db, artifact.docId, {
+		path: relative(run.rp1WorkDir, scannedPath),
+		storageRoot: "work_dir",
+	});
+	return scannedPath;
 };
 
 /**
