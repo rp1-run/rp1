@@ -5,8 +5,8 @@ rp1_doc_id: 70ebc9b1-5183-4c5f-9373-471cdcbed866
 # Development Tasks: Directory Resolution Overhaul
 
 **Feature ID**: rp1-dir-fix
-**Status**: In Progress
-**Progress**: 86% (6 of 7 tasks)
+**Status**: Completed
+**Progress**: 100% (7 of 7 tasks)
 **Estimated Effort**: 3 days
 **Started**: 2026-03-29
 
@@ -303,7 +303,7 @@ stateDiagram-v2
         T6 --> [*]
     ```
 
-- [ ] **T7**: Make init and managed `.gitignore` updates reflect the resolved directory model `[complexity:simple]`
+- [x] **T7**: Make init and managed `.gitignore` updates reflect the resolved directory model `[complexity:simple]`
 
     **Reference**: [design.md#34-gitignore-handling](design.md#34-gitignore-handling)
 
@@ -311,9 +311,25 @@ stateDiagram-v2
 
     **Acceptance Criteria**:
 
-    - [ ] Init computes ignore entries from the resolved directory configuration rather than assuming project-local `.rp1/work`.
-    - [ ] The managed `# rp1:start` / `# rp1:end` section remains idempotent across repeated updates.
-    - [ ] Externalized work directories do not cause misleading project-local ignore entries to be written.
+    - [x] Init computes ignore entries from the resolved directory configuration rather than assuming project-local `.rp1/work`.
+    - [x] The managed `# rp1:start` / `# rp1:end` section remains idempotent across repeated updates.
+    - [x] Externalized work directories do not cause misleading project-local ignore entries to be written.
+
+    **Implementation Summary**:
+
+    - **Files**: `cli/src/init/gitignore.ts`, `cli/src/init/steps/project-setup.ts`, `cli/src/init/ui/hooks/useStepExecution.ts`, `cli/src/__tests__/init/gitignore.test.ts`
+    - **Approach**: Added a shared init gitignore generator backed by the resolved directory model, wired both the CLI init flow and the wizard flow onto it, and covered default external work storage, custom local work dirs, and idempotent fenced rewrites.
+    - **Deviations**: None
+    - **Tests**: 18/18 passing (`bun test cli/src/__tests__/init/gitignore.test.ts cli/src/__tests__/init/init.integration.test.ts`), `cd cli && bun x tsc --noEmit` passing
+
+    **Execution Flow**:
+
+    ```mermaid
+    stateDiagram-v2
+        [*] --> T7
+        T7: Init and gitignore updates
+        T7 --> [*]
+    ```
 
 ## Acceptance Criteria Checklist
 
@@ -323,12 +339,12 @@ stateDiagram-v2
 - [ ] REQ-004: environment variables override config values, config scopes cascade correctly, and documented defaults apply when unset.
 - [ ] REQ-005: parent and child workflows can consume the same resolved directory values through argument resolution.
 - [ ] REQ-006: run records persist `rp1_project_root`, `rp1_kb_dir`, and `rp1_work_dir` for later inspection.
-- [ ] REQ-007: `.gitignore` management stays predictable, single-section, and aligned to actual managed directories.
+- [x] REQ-007: `.gitignore` management stays predictable, single-section, and aligned to actual managed directories.
 - [ ] REQ-008: resolved directory values and their effective sources are visible for troubleshooting.
 
 ## Definition of Done
 
-- [ ] All tasks completed
+- [x] All tasks completed
 - [ ] All AC verified
 - [ ] Code reviewed
 - [ ] Docs updated
