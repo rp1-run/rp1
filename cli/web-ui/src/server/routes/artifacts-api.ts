@@ -15,11 +15,20 @@ import {
 	getArtifactBaseline,
 	getArtifactByDocId,
 	getArtifactByRunAndDocId,
+	getArtifactsForRun,
 	getEmitDatabase,
 	getRunById,
+	resolveArtifactPathForRun,
 	setArtifactBaseline,
 	updateArtifactPath,
 } from "../../../../src/agent-tools/emit/database.js";
+import {
+	getRunDirectories,
+	matchesArtifactDisplayPath,
+	resolveArtifactAbsolutePath,
+	resolveProjectDirectories,
+	toArtifactDisplayPathFromAbsolute,
+} from "../project-paths";
 import { getAllProjects } from "../registry";
 import type { WebSocketHub } from "../websocket";
 import { type ApiContext, errorResponse, jsonResponse } from "./content-utils";
@@ -72,6 +81,9 @@ export function validateSavePath(
 
 	return null;
 }
+
+const hasTraversal = (filePath: string): boolean =>
+	filePath.includes("..") || filePath.startsWith("/");
 
 /**
  * Extract rp1_doc_id from YAML frontmatter in a markdown file.
@@ -213,80 +225,73 @@ export async function handleArtifactSaveRequest(
 				400,
 			);
 		}
+		const requestedPath = body.path;
+		const nextContent = body.content;
 
-		const projectRoot = resolve(project.path);
-		const validationError = validateSavePath(body.path, projectRoot);
-		if (validationError) {
-			return errorResponse(validationError, 400);
+		if (hasTraversal(requestedPath)) {
+			return errorResponse(
+				"Invalid path: directory traversal not allowed",
+				400,
+			);
 		}
 
-		// Primary lookup: by run_id + path
-		let artifactRow = db
-			.prepare(
-				"SELECT doc_id, baseline FROM artifacts WHERE run_id = $runId AND path = $path LIMIT 1",
-			)
-			.get({ $runId: runId, $path: body.path }) as {
-			doc_id: string;
-			baseline: string | null;
-		} | null;
+		const directories = getRunDirectories(record);
+		const artifactRecords = getArtifactsForRun(db, runId);
+		let artifactRecord =
+			artifactRecords.find((candidate) =>
+				matchesArtifactDisplayPath(directories, candidate, requestedPath),
+			) ?? null;
+		let artifactBaseline =
+			artifactRecord != null
+				? (getArtifactBaseline(db, artifactRecord.docId)?.baseline ?? null)
+				: null;
 
 		// Fallback: if path-based lookup missed (file was moved), try by run_id + doc_id
 		// extracted from the content being saved (which contains the frontmatter)
-		if (!artifactRow) {
-			const contentDocId = extractDocIdFromContent(body.content);
+		if (!artifactRecord) {
+			const contentDocId = extractDocIdFromContent(nextContent);
 			if (contentDocId) {
-				const fallbackRecord = getArtifactByRunAndDocId(
-					db,
-					runId,
-					contentDocId,
-				);
-				if (fallbackRecord) {
-					artifactRow = {
-						doc_id: fallbackRecord.docId,
-						baseline: null,
-					};
-					// Read baseline from DB since we have a fresh record
+				artifactRecord = getArtifactByRunAndDocId(db, runId, contentDocId);
+				if (artifactRecord) {
 					const baselineInfo = getArtifactBaseline(db, contentDocId);
 					if (baselineInfo) {
-						artifactRow.baseline = baselineInfo.baseline;
+						artifactBaseline = baselineInfo.baseline;
 					}
-					updateArtifactPath(db, contentDocId, body.path);
-					console.log(
-						`[path-reconciliation] Save handler updated path for ${contentDocId}: ${fallbackRecord.path} -> ${body.path}`,
-					);
-					broadcastPathReconciliation(
-						apiContext.websocketHub,
-						project.id,
-						runId,
-						record.featureId,
-						contentDocId,
-						body.path,
-					);
 				}
 			}
 		}
 
-		let absolutePath = resolve(projectRoot, body.path);
-		const fileExists = await Bun.file(absolutePath).exists();
+		if (!artifactRecord) {
+			return errorResponse("Artifact not found for save request", 404);
+		}
 
-		if (!fileExists && artifactRow) {
+		let absolutePath = await resolveArtifactPathForRun(
+			db,
+			record,
+			artifactRecord,
+		);
+
+		if (!absolutePath) {
 			const resolvedPath = await resolveArtifactPath(
 				db,
-				projectRoot,
-				body.path,
-				artifactRow.doc_id,
+				record.projectPath,
+				artifactRecord.path,
+				artifactRecord.docId,
 			);
 			if (resolvedPath) {
 				absolutePath = resolvedPath;
-				const newRelPath = relative(projectRoot, resolvedPath);
-				if (newRelPath !== body.path) {
+				const reconciledPath = toArtifactDisplayPathFromAbsolute(
+					directories,
+					resolvedPath,
+				);
+				if (reconciledPath !== requestedPath) {
 					broadcastPathReconciliation(
 						apiContext.websocketHub,
 						project.id,
 						runId,
 						record.featureId,
-						artifactRow.doc_id,
-						newRelPath,
+						artifactRecord.docId,
+						reconciledPath,
 					);
 				}
 			} else {
@@ -295,19 +300,21 @@ export async function handleArtifactSaveRequest(
 					404,
 				);
 			}
-		} else if (!fileExists) {
+		}
+
+		if (!absolutePath) {
 			return errorResponse(
 				"File does not exist: only existing files can be saved",
 				404,
 			);
 		}
 
-		if (artifactRow && artifactRow.baseline === null) {
+		if (artifactBaseline === null) {
 			const originalContent = await Bun.file(absolutePath).text();
-			setArtifactBaseline(db, artifactRow.doc_id, originalContent);
+			setArtifactBaseline(db, artifactRecord.docId, originalContent);
 		}
 
-		await Bun.write(absolutePath, body.content);
+		await Bun.write(absolutePath, nextContent);
 
 		return jsonResponse({ saved: true, path: absolutePath });
 	} catch (error) {
@@ -331,13 +338,29 @@ export async function handleArtifactPatchRequest(
 			return jsonResponse({ patch: null, message: "No edits recorded" });
 		}
 
-		// Use path reconciliation instead of direct file check
-		const resolvedPath = await resolveArtifactPath(
-			db,
-			artifact.projectPath,
-			artifact.path,
-			docId,
-		);
+		const artifactRecord = getArtifactByDocId(db, docId);
+		if (!artifactRecord) {
+			return errorResponse(`Artifact not found: ${docId}`, 404);
+		}
+
+		const run =
+			artifactRecord.runId != null
+				? getRunById(db, artifactRecord.runId)
+				: null;
+		const directories =
+			run != null
+				? getRunDirectories(run)
+				: resolveProjectDirectories(artifact.projectPath);
+
+		const resolvedPath =
+			run != null
+				? await resolveArtifactPathForRun(db, run, artifactRecord)
+				: await resolveArtifactPath(
+						db,
+						artifact.projectPath,
+						artifact.path,
+						docId,
+					);
 
 		if (!resolvedPath) {
 			return jsonResponse({ patch: null, message: "File not found on disk" });
@@ -345,23 +368,19 @@ export async function handleArtifactPatchRequest(
 
 		if (
 			apiContext?.websocketHub &&
-			resolve(artifact.projectPath, artifact.path) !== resolvedPath
+			resolveArtifactAbsolutePath(directories, artifactRecord) !== resolvedPath
 		) {
 			const projects = await getAllProjects();
 			const project = projects.find((p) => p.path === artifact.projectPath);
-			const artifactRecord = getArtifactByDocId(db, docId);
-			if (project && artifactRecord?.runId) {
-				const run = getRunById(db, artifactRecord.runId);
-				if (run) {
-					broadcastPathReconciliation(
-						apiContext.websocketHub,
-						project.id,
-						run.id,
-						run.featureId,
-						docId,
-						relative(artifact.projectPath, resolvedPath),
-					);
-				}
+			if (project && run) {
+				broadcastPathReconciliation(
+					apiContext.websocketHub,
+					project.id,
+					run.id,
+					run.featureId,
+					docId,
+					toArtifactDisplayPathFromAbsolute(directories, resolvedPath),
+				);
 			}
 		}
 
@@ -372,7 +391,10 @@ export async function handleArtifactPatchRequest(
 		}
 
 		// Use the potentially-updated path for diff headers
-		const displayPath = relative(artifact.projectPath, resolvedPath);
+		const displayPath = toArtifactDisplayPathFromAbsolute(
+			directories,
+			resolvedPath,
+		);
 
 		const patch = createTwoFilesPatch(
 			`a/${displayPath}`,

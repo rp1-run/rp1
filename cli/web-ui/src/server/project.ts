@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { chainTE, pipe, type TaskEither, tryCatch } from "../lib/fp";
+import { resolveProjectDirectories } from "./project-paths";
 
 export interface Project {
 	path: string;
@@ -42,28 +43,6 @@ export function validateProject(
 				};
 			}
 
-			const workPath = join(rp1Path, "work");
-			const workExists = await checkDirectoryExists(workPath);
-
-			if (!workExists) {
-				throw {
-					_tag: "MissingSubdirectory" as const,
-					path: basePath,
-					directory: "work",
-				};
-			}
-
-			const contextPath = join(rp1Path, "context");
-			const contextExists = await checkDirectoryExists(contextPath);
-
-			if (!contextExists) {
-				throw {
-					_tag: "MissingSubdirectory" as const,
-					path: basePath,
-					directory: "context",
-				};
-			}
-
 			return basePath;
 		},
 		(error): ProjectError => {
@@ -87,9 +66,12 @@ export function getProjectMetadata(
 		chainTE(() =>
 			tryCatch(
 				async () => {
+					const directories = resolveProjectDirectories(basePath);
 					// Always use directory name for project display
 					const name = basePath.split("/").pop() ?? "unknown";
-					const charterPath = join(basePath, ".rp1", "work", "charter.md");
+					const charterPath = join(directories.workDir, "charter.md");
+					const hasWork = await checkDirectoryExists(directories.workDir);
+					const hasContext = await checkDirectoryExists(directories.kbDir);
 
 					const charterFile = Bun.file(charterPath);
 					const charterExists = await charterFile.exists();
@@ -98,8 +80,8 @@ export function getProjectMetadata(
 						path: basePath,
 						name,
 						charterPath: charterExists ? charterPath : null,
-						hasWork: true,
-						hasContext: true,
+						hasWork,
+						hasContext,
 					};
 
 					return project;
