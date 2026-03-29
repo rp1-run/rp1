@@ -6,6 +6,11 @@
 import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
+import type { CanonicalName } from "../../../shared/canonical-name.js";
+import {
+	parseUserFacing,
+	toCanonicalString,
+} from "../../../shared/canonical-name.js";
 import type { CLIError } from "../../../shared/errors.js";
 import {
 	notFoundError,
@@ -347,8 +352,17 @@ const resolveEnvironment = async (
  */
 export const resolveArgs = (
 	input: ResolveArgsInput,
-): TE.TaskEither<CLIError, ResolvedArgs> =>
-	pipe(
+): TE.TaskEither<CLIError, ResolvedArgs> => {
+	// Parse canonical name once if input.name is provided
+	let canonicalName: CanonicalName | null = null;
+	if (input.name) {
+		const parsed = parseUserFacing(input.name);
+		if (E.isRight(parsed)) {
+			canonicalName = parsed.right;
+		}
+	}
+
+	return pipe(
 		// Resolve schema file path from name or direct path
 		resolveSchemaFromNameOrPath(input.name, input.schema_path),
 		// Read and parse the schema file
@@ -391,7 +405,12 @@ export const resolveArgs = (
 					const userInput = parseRawArgs(input.raw_args, argDefs);
 
 					// Layers 2+3: Load settings (loader handles merge precedence)
-					const skillName = extractNameFromPath(resolvedPath);
+					// Use canonical name from input (e.g., "rp1-dev:build" -> "dev:build")
+					// to keep settings keys platform-independent and unambiguous.
+					// Falls back to path extraction only for --schema-path usage.
+					const skillName = canonicalName
+						? toCanonicalString(canonicalName)
+						: extractNameFromPath(resolvedPath);
 					const settingsDefaults = await loadArgumentDefaultsForSkill(
 						skillName,
 						input.project_root,
@@ -471,3 +490,4 @@ export const resolveArgs = (
 			);
 		}),
 	);
+};
