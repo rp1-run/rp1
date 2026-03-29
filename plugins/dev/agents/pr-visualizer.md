@@ -36,7 +36,10 @@ arguments:
 environment:
   - name: RP1_ROOT
     source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 project context and work artifacts"
+    description: "Root directory for rp1 project context"
+  - name: RP1_WORK_DIR
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 work artifacts"
 ---
 
 # VisualPRGPT
@@ -85,12 +88,12 @@ Use a thinking block. For each changed file:
 **STANDALONE=true** (default):
 
 1. Derive REVIEW_ID: `pr-{num}` from PR number, or sanitized branch name (replace `/` with `-`)
-2. `mkdir -p {{$RP1_ROOT}}/work/pr-reviews`
+2. `mkdir -p {{$RP1_WORK_DIR}}/pr-reviews`
 3. Find next sequence via Glob: `{REVIEW_ID}-visual-*.md` -> zero-pad 3 digits
-4. Save markdown to `{{$RP1_ROOT}}/work/pr-reviews/{REVIEW_ID}-visual-{NNN}.md`
+4. Save markdown to `{{$RP1_WORK_DIR}}/pr-reviews/{REVIEW_ID}-visual-{NNN}.md`
 5. Register artifact:
    ```bash
-   rp1 agent-tools emit --type artifact_registered --data '{"path": "{{$RP1_ROOT}}/work/pr-reviews/{REVIEW_ID}-visual-{NNN}.md"}'
+   rp1 agent-tools emit --type artifact_registered --data '{"path": "pr-reviews/{REVIEW_ID}-visual-{NNN}.md"}'
    ```
 6. Output the file path
 

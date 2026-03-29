@@ -20,7 +20,10 @@ metadata:
   environment:
     - name: RP1_ROOT
       source: "rp1 agent-tools rp1-root-dir"
-      description: "Root directory for rp1 project context and work artifacts"
+      description: "Root directory for rp1 project context"
+    - name: RP1_WORK_DIR
+      source: "rp1 agent-tools rp1-root-dir"
+      description: "Root directory for rp1 work artifacts"
 ---
 
 # PRD Archive
@@ -35,8 +38,8 @@ Archives completed PRD docs from active -> archives dir with associated features
 
 ## Behavior
 
-- Moves `{{$RP1_ROOT}}/work/prds/<PRD_NAME>.md` -> `{{$RP1_ROOT}}/work/archives/prds/<PRD_NAME>/prd.md`
-- Archives associated completed features to `{{$RP1_ROOT}}/work/archives/features/`
+- Moves `{{$RP1_WORK_DIR}}/prds/<PRD_NAME>.md` -> `{{$RP1_WORK_DIR}}/archives/prds/<PRD_NAME>/prd.md`
+- Archives associated completed features to `{{$RP1_WORK_DIR}}/archives/features/`
 - Generates `closure_summary.md` with archive metadata
 - Checks KB staleness and suggests `/knowledge-build` if needed
 - Creates archive directories if missing

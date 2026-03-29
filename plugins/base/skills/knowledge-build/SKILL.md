@@ -21,7 +21,10 @@ metadata:
   environment:
     - name: RP1_ROOT
       source: "rp1 agent-tools rp1-root-dir"
-      description: "Root directory for rp1 project context and work artifacts"
+      description: "Root directory for rp1 project context"
+    - name: RP1_WORK_DIR
+      source: "rp1 agent-tools rp1-root-dir"
+      description: "Root directory for rp1 work artifacts"
   sub_agents:
     - "rp1-base:kb-spatial-analyzer"
     - "rp1-base:kb-concept-extractor"
@@ -61,21 +64,21 @@ If `FEATURE_ID` is provided, this is a **feature learning build** that captures 
 1. **Locate archived feature**:
 
    ```
-   FEATURE_PATH = {{$RP1_ROOT}}/work/archives/features/{FEATURE_ID}/
+   FEATURE_PATH = {{$RP1_WORK_DIR}}/archives/features/{FEATURE_ID}/
    ```
 
    If not found, check active features:
 
    ```
-   FEATURE_PATH = {{$RP1_ROOT}}/work/features/{FEATURE_ID}/
+   FEATURE_PATH = {{$RP1_WORK_DIR}}/features/{FEATURE_ID}/
    ```
 
    If neither exists, error:
 
    ```
    Feature not found: {FEATURE_ID}
-   Checked: {{$RP1_ROOT}}/work/archives/features/{FEATURE_ID}/
-           {{$RP1_ROOT}}/work/features/{FEATURE_ID}/
+   Checked: {{$RP1_WORK_DIR}}/archives/features/{FEATURE_ID}/
+           {{$RP1_WORK_DIR}}/features/{FEATURE_ID}/
    ```
 
 2. **Read feature documentation**:

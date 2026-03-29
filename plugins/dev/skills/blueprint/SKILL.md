@@ -27,7 +27,10 @@ metadata:
   environment:
     - name: RP1_ROOT
       source: "rp1 agent-tools rp1-root-dir"
-      description: "Root directory for rp1 project context and work artifacts"
+      description: "Root directory for rp1 project context"
+    - name: RP1_WORK_DIR
+      source: "rp1 agent-tools rp1-root-dir"
+      description: "Root directory for rp1 work artifacts"
   sub_agents:
     - "rp1-dev:charter-interviewer"
     - "rp1-dev:blueprint-wizard"
@@ -78,7 +81,7 @@ rp1 agent-tools emit \
 
 **Doc Hierarchy**:
 1. **Charter** (`{{$RP1_ROOT}}/context/charter.md`) - Project-level: problem/context, users, business rationale, scope guardrails, success criteria
-2. **PRDs** (`{{$RP1_ROOT}}/work/prds/<name>.md`) - Surface-specific: overview, in/out scope, requirements, dependencies, timeline. Inherit from charter, link back, no duplication.
+2. **PRDs** (`{{$RP1_WORK_DIR}}/prds/<name>.md`) - Surface-specific: overview, in/out scope, requirements, dependencies, timeline. Inherit from charter, link back, no duplication.
 
 ## §PROC
 
@@ -194,7 +197,7 @@ loop:
 `PRD_NAME = PRD_NAME || "main"`
 
 #### 4.2 Init PRD
-Create `{{$RP1_ROOT}}/work/prds/{PRD_NAME}.md`:
+Create `{{$RP1_WORK_DIR}}/prds/{PRD_NAME}.md`:
 ```markdown
 # PRD: {PRD_NAME}
 
@@ -216,7 +219,7 @@ Create `{{$RP1_ROOT}}/work/prds/{PRD_NAME}.md`:
 
 #### 4.3 PRD Loop
 
-PRD_PATH = `{{$RP1_ROOT}}/work/prds/{PRD_NAME}.md`
+PRD_PATH = `{{$RP1_WORK_DIR}}/prds/{PRD_NAME}.md`
 question_count = 0
 
 loop:
@@ -270,7 +273,7 @@ loop:
 PRD created!
 
 Created:
-- {{$RP1_ROOT}}/work/prds/{PRD_NAME}.md
+- {{$RP1_WORK_DIR}}/prds/{PRD_NAME}.md
 
 Next Steps:
 - Create features: /rp1-dev:build <feature-id>

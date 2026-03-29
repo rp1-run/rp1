@@ -252,6 +252,18 @@ stateDiagram-v2
     - **Deviations**: None
     - **Tests**: 31/31 passing (`cd cli/web-ui && bun test src/__tests__/server/artifacts-api.test.ts src/__tests__/server/project-paths.test.ts`), `cd cli/web-ui && bun x tsc --noEmit` passing, `just check-web-ui` passing
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ✅ PASS |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
     **Execution Flow**:
 
     ```mermaid
@@ -263,7 +275,7 @@ stateDiagram-v2
 
 ### Workflow Migration And Repo Hygiene
 
-- [ ] **T6**: Migrate rp1-authored prompts and artifact registration to the resolved work-directory model `[complexity:medium]`
+- [x] **T6**: Migrate rp1-authored prompts and artifact registration to the resolved work-directory model `[complexity:medium]`
 
     **Reference**: [design.md#35-migration-strategy](design.md#35-migration-strategy)
 
@@ -271,9 +283,25 @@ stateDiagram-v2
 
     **Acceptance Criteria**:
 
-    - [ ] Prompt artifacts keep `RP1_ROOT` for config/context paths and switch work-artifact paths to `RP1_WORK_DIR` where appropriate.
-    - [ ] Artifact registration helpers emit paths relative to the resolved work directory for rp1-managed work outputs.
-    - [ ] Updated prompts remain compatible with existing build/runtime conventions.
+    - [x] Prompt artifacts keep `RP1_ROOT` for config/context paths and switch work-artifact paths to `RP1_WORK_DIR` where appropriate.
+    - [x] Artifact registration helpers emit paths relative to the resolved work directory for rp1-managed work outputs.
+    - [x] Updated prompts remain compatible with existing build/runtime conventions.
+
+    **Implementation Summary**:
+
+    - **Files**: `plugins/dev/skills/build/SKILL.md`, `plugins/dev/skills/build-fast/SKILL.md`, `plugins/dev/skills/pr-review/SKILL.md`, `plugins/dev/skills/address-pr-feedback/SKILL.md`, `plugins/dev/skills/blueprint/SKILL.md`, `plugins/dev/skills/blueprint-archive/SKILL.md`, `plugins/dev/skills/feature-archive/SKILL.md`, `plugins/dev/skills/feature-unarchive/SKILL.md`, `plugins/dev/skills/validate-hypothesis/SKILL.md`, `plugins/dev/agents/build-artifact-detector.md`, `plugins/dev/agents/build-fast-planner.md`, `plugins/dev/agents/feature-requirement-gatherer.md`, `plugins/dev/agents/feature-architect.md`, `plugins/dev/agents/feature-tasker.md`, `plugins/dev/agents/task-builder.md`, `plugins/dev/agents/task-reviewer.md`, `plugins/dev/agents/pr-visualizer.md`, `plugins/dev/agents/pr-review-reporter.md`, `plugins/dev/agents/feature-editor.md`, `plugins/dev/agents/feature-archiver.md`, `plugins/dev/agents/blueprint-wizard.md`, `plugins/dev/agents/blueprint-auditor.md`, `plugins/dev/agents/prd-archiver.md`, `plugins/dev/agents/code-checker.md`, `plugins/dev/agents/hypothesis-tester.md`, `plugins/dev/agents/bug-investigator.md`, `plugins/base/agents/research-reporter.md`, `plugins/base/agents/security-validator.md`, `plugins/base/skills/knowledge-build/SKILL.md`, `plugins/base/skills/generate-user-docs/SKILL.md`, `plugins/base/skills/markdown-preview/SKILL.md`, `plugins/base/skills/markdown-preview/EXAMPLES.md`, `plugins/base/skills/write-content/SKILL.md`
+    - **Approach**: Switched rp1-authored prompt file paths from `RP1_ROOT/work/...` to `RP1_WORK_DIR/...`, added `RP1_WORK_DIR` prompt env wiring where needed, and updated artifact-registration examples/contracts to use work-dir-relative paths for rp1-managed outputs.
+    - **Deviations**: None
+    - **Tests**: `just build` passing
+
+    **Execution Flow**:
+
+    ```mermaid
+    stateDiagram-v2
+        [*] --> T6
+        T6: Prompt and workflow migration
+        T6 --> [*]
+    ```
 
 - [ ] **T7**: Make init and managed `.gitignore` updates reflect the resolved directory model `[complexity:simple]`
 

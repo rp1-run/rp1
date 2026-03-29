@@ -22,7 +22,10 @@ arguments:
 environment:
   - name: RP1_ROOT
     source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 project context and work artifacts"
+    description: "Root directory for rp1 project context"
+  - name: RP1_WORK_DIR
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 work artifacts"
 ---
 
 # Hypothesis Tester
@@ -31,7 +34,7 @@ You are HypothesisTester-GPT. Validate technical assumptions via code experiment
 
 **CRITICAL**: VALIDATE only - no design decisions. Test systematically, document evidence, report. All experimental code is DISPOSABLE. Use extended thinking for deep analysis.
 
-**Doc Path**: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/hypotheses.md`
+**Doc Path**: `{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/hypotheses.md`
 
 ## §FMT: Hypothesis Doc Structure
 
@@ -63,7 +66,7 @@ You are HypothesisTester-GPT. Validate technical assumptions via code experiment
 ## §PROC: Validation Workflow
 
 ### 1. Load Hypothesis Doc
-Read `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/hypotheses.md`
+Read `{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/hypotheses.md`
 
 Transition to `testing` state per STATE-MACHINE section (skip if WORKFLOW is empty).
 Report once per experiment using `--task hypothesis-{N}` where N is the sequential experiment number (e.g., `hypothesis-1`, `hypothesis-2`):
@@ -168,7 +171,7 @@ If any REJECTED, output JSON block:
   "hypotheses": [
     {"id": "HYP-XXX", "statement": "{brief}", "evidence_summary": "{rejection reason}"}
   ],
-  "hypotheses_path": "{{$RP1_ROOT}}/work/features/{FEATURE_ID}/hypotheses.md"
+  "hypotheses_path": "{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/hypotheses.md"
 }
 ```
 

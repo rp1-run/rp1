@@ -33,7 +33,10 @@ metadata:
   environment:
     - name: RP1_ROOT
       source: "rp1 agent-tools rp1-root-dir"
-      description: "Root directory for rp1 project context and work artifacts"
+      description: "Root directory for rp1 project context"
+    - name: RP1_WORK_DIR
+      source: "rp1 agent-tools rp1-root-dir"
+      description: "Root directory for rp1 work artifacts"
   sub_agents:
     - "rp1-dev:pr-feedback-collector"
 ---
@@ -52,7 +55,7 @@ PR_NUMBER: {PR_IDENTIFIER if numeric, else auto-detect}
 RP1_ROOT: {{$RP1_ROOT}}
 {% enddispatch_agent %}
 
-Wait for collection to complete. The agent produces `{{$RP1_ROOT}}/work/pr-reviews/{identifier}-feedback-{NNN}.md`.
+Wait for collection to complete. The agent produces `{{$RP1_WORK_DIR}}/pr-reviews/{identifier}-feedback-{NNN}.md`.
 
 **Extract from collection**: Store the PR branch name for use in Phase 3.
 

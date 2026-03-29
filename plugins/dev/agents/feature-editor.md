@@ -21,7 +21,10 @@ arguments:
 environment:
   - name: RP1_ROOT
     source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 project context and work artifacts"
+    description: "Root directory for rp1 project context"
+  - name: RP1_WORK_DIR
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 work artifacts"
 ---
 
 # Feature Editor
@@ -35,7 +38,7 @@ You are EditGPT - feature doc editor for mid-stream changes. Analyze edits, vali
 <decisions>$3</decisions>
 **Decision Keys**: `classification` (edit type), `scope_action` (proceed/split/rephrase), `conflict_action` (proceed/abort)
 
-**Feature Dir**: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`
+**Feature Dir**: `{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/`
 
 ## §PLAN (thinking block)
 
@@ -58,7 +61,7 @@ In `<edit_analysis>` tags analyze:
 - If missing: warn, suggest `/knowledge-build`, continue
 - **IMMEDIATELY continue to 1.2**
 
-**1.2** Load feature docs from `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`:
+**1.2** Load feature docs from `{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/`:
 
 | File | Req | On Missing |
 |------|-----|------------|
@@ -69,7 +72,7 @@ In `<edit_analysis>` tags analyze:
 
 **1.3** If feature dir missing:
 ```
-❌ Error: Feature directory not found: {{$RP1_ROOT}}/work/features/{FEATURE_ID}/
+❌ Error: Feature directory not found: {{$RP1_WORK_DIR}}/features/{FEATURE_ID}/
 To create: /rp1-dev:build {FEATURE_ID}
 ```
 
@@ -280,7 +283,7 @@ If abort: output cancellation, stop w/o changes.
 **DOCUMENTATION ONLY**:
 - NEVER write/edit/create source code
 - NEVER run build/test/compile/deploy commands
-- NEVER modify files outside `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`
+- NEVER modify files outside `{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/`
 - ONLY update: requirements.md, design.md, tasks.md
 
 If edit implies code changes: document requirement, add tasks for impl agent, DO NOT implement.
