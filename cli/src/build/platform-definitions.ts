@@ -202,7 +202,7 @@ const platformConfigs: Record<BuildPlatform, SupportedTool> = {
 // Imports for registries and platform-specific modules
 // ---------------------------------------------------------------------------
 
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { claudeCodeRegistry } from "./claude-code/registry.js";
@@ -365,6 +365,23 @@ const codexPostPluginBuild = async (
 		if (E.isRight(agentsMdResult)) {
 			await writeFile(join(outputDir, "AGENTS.md"), agentsMdResult.right);
 		}
+	}
+
+	// Copy codex-hooks.json if present in the plugin source
+	try {
+		const hooksSource = join(
+			hookCtx.projectRoot,
+			"plugins",
+			hookCtx.pluginName,
+			"hooks",
+			"codex-hooks.json",
+		);
+		const hooksContent = await readFile(hooksSource, "utf-8");
+		// Validate JSON before copying
+		JSON.parse(hooksContent);
+		await writeFile(join(outputDir, "codex-hooks.json"), hooksContent);
+	} catch {
+		// No codex-hooks.json for this plugin — that's fine
 	}
 
 	return { errors, warnings };
