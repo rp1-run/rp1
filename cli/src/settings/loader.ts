@@ -25,6 +25,21 @@ const isPlainRecord = (
 ): value is Readonly<Record<string, unknown>> =>
 	value !== null && typeof value === "object" && !Array.isArray(value);
 
+const UPPER_SNAKE_CASE_PATTERN = /^[A-Z][A-Z0-9_]*$/;
+const LOWER_CONFIG_KEY_PATTERN = /^[a-z][a-z0-9_-]*$/;
+
+const normalizeArgumentKey = (key: string): string => {
+	if (UPPER_SNAKE_CASE_PATTERN.test(key)) {
+		return key;
+	}
+
+	if (LOWER_CONFIG_KEY_PATTERN.test(key)) {
+		return key.replace(/-/g, "_").toUpperCase();
+	}
+
+	return key;
+};
+
 const parseSettingsFileStrict = (filePath: string): ParsedSettingsFile => {
 	if (!existsSync(filePath)) {
 		return { arguments: {}, directories: {} };
@@ -47,7 +62,11 @@ const parseSettingsFileStrict = (filePath: string): ParsedSettingsFile => {
 							typeof value === "boolean" ||
 							typeof value === "number"
 						) {
-							filteredDefaults[key] = value;
+							const normalizedKey = normalizeArgumentKey(key);
+							if (normalizedKey in filteredDefaults) {
+								continue;
+							}
+							filteredDefaults[normalizedKey] = value;
 						}
 					}
 					argumentDefaults[skillName] = filteredDefaults;
@@ -74,6 +93,14 @@ const loadArgumentsFromFile = async (
 	return parseSettingsFileStrict(filePath).arguments;
 };
 
+const getLegacySkillAlias = (skillName: string): string | undefined => {
+	const colonIndex = skillName.indexOf(":");
+	if (colonIndex < 0 || colonIndex === skillName.length - 1) {
+		return undefined;
+	}
+	return skillName.slice(colonIndex + 1);
+};
+
 export const loadDirectorySettings = (
 	projectRoot: string,
 	options?: Parameters<typeof loadSharedDirectorySettings>[1],
@@ -98,8 +125,15 @@ export const loadArgumentDefaultsForSkill = async (
 		loadArgumentsFromFile(resolveGlobalSettingsPath()),
 	]);
 
-	const userSkillDefaults = userDefaults[skillName] ?? {};
-	const projectSkillDefaults = projectDefaults[skillName] ?? {};
+	const legacySkillName = getLegacySkillAlias(skillName);
+	const userSkillDefaults = {
+		...(legacySkillName ? (userDefaults[legacySkillName] ?? {}) : {}),
+		...(userDefaults[skillName] ?? {}),
+	};
+	const projectSkillDefaults = {
+		...(legacySkillName ? (projectDefaults[legacySkillName] ?? {}) : {}),
+		...(projectDefaults[skillName] ?? {}),
+	};
 
 	return { ...userSkillDefaults, ...projectSkillDefaults };
 };

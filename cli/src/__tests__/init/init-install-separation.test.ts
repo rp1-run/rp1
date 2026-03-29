@@ -308,6 +308,44 @@ describe("init-install separation", () => {
 			expect(firstContent).toBe(secondContent);
 		});
 
+		test("createSettingsFiles writes current directory configuration guidance", async () => {
+			const logger = createMockLogger();
+
+			await mkdir(join(tempDir, ".rp1"), { recursive: true });
+			await createSettingsFiles(tempDir, logger);
+
+			const localPath = join(tempDir, ".rp1", "settings.toml");
+			const content = await readFile(localPath, "utf-8");
+
+			expect(content).not.toContain("\ngit_worktree = false");
+			expect(content).not.toContain("\ngit_commit = false");
+			expect(content).toContain("# Directory overrides:");
+			expect(content).toContain("# [directories]");
+			expect(content).toContain('# project_root = "/absolute/project/path"');
+			expect(content).toContain('# work_dir = "~/rp1-work/my-project"');
+			expect(content).toContain('# [arguments."dev:build"]');
+			expect(content).toContain("# git_commit = false");
+		});
+
+		test("createSettingsFiles preserves existing settings file content", async () => {
+			const logger = createMockLogger();
+			const localPath = join(tempDir, ".rp1", "settings.toml");
+			const existingContent = [
+				"[directories]",
+				'work_dir = "ops/work"',
+				"",
+				"[arguments.build]",
+				"GIT_COMMIT = true",
+			].join("\n");
+
+			await mkdir(join(tempDir, ".rp1"), { recursive: true });
+			await writeFile(localPath, existingContent, "utf-8");
+			await createSettingsFiles(tempDir, logger);
+
+			const content = await readFile(localPath, "utf-8");
+			expect(content).toBe(existingContent);
+		});
+
 		test("injectInstructions is idempotent", async () => {
 			const logger = createMockLogger();
 

@@ -43,6 +43,32 @@ describe("loadArgumentDefaultsForSkill", () => {
 		expect(result).toEqual({ AFK: false, GIT_COMMIT: true });
 	});
 
+	test("loads canonical skill names from settings tables", async () => {
+		await writeFixture(
+			tempDir,
+			".rp1/settings.toml",
+			`[arguments."dev:build"]\nafk = false\ngit_commit = true\n`,
+		);
+
+		const result = await loadArgumentDefaultsForSkill("dev:build", tempDir);
+		expect(result).toEqual({ AFK: false, GIT_COMMIT: true });
+	});
+
+	test("loads lowercase argument keys and normalizes them to canonical names", async () => {
+		await writeFixture(
+			tempDir,
+			".rp1/settings.toml",
+			`[arguments.build]\nafk = false\ngit_commit = true\ngit_push = false\n`,
+		);
+
+		const result = await loadArgumentDefaultsForSkill("build", tempDir);
+		expect(result).toEqual({
+			AFK: false,
+			GIT_COMMIT: true,
+			GIT_PUSH: false,
+		});
+	});
+
 	test("returns empty when skill has no entry in settings", async () => {
 		await writeFixture(
 			tempDir,
@@ -66,6 +92,17 @@ describe("loadArgumentDefaultsForSkill", () => {
 		// by confirming the project value is present in the result.
 		const result = await loadArgumentDefaultsForSkill("build", tempDir);
 		expect(result.AFK).toBe(true);
+	});
+
+	test("canonical skill lookup falls back to legacy short section names", async () => {
+		await writeFixture(
+			tempDir,
+			".rp1/settings.toml",
+			`[arguments.build]\ngit_commit = true\n`,
+		);
+
+		const result = await loadArgumentDefaultsForSkill("dev:build", tempDir);
+		expect(result.GIT_COMMIT).toBe(true);
 	});
 
 	test("handles malformed TOML gracefully", async () => {
@@ -124,6 +161,27 @@ describe("loadAllArgumentDefaults", () => {
 		const result = await loadAllArgumentDefaults(tempDir);
 		expect(result).toEqual({
 			build: { PLATFORM: "claude-code" },
+		});
+	});
+
+	test("normalizes lowercase keys across all loaded skills", async () => {
+		await writeFixture(
+			tempDir,
+			".rp1/settings.toml",
+			[
+				"[arguments.build]",
+				"afk = false",
+				"git_commit = true",
+				"",
+				"[arguments.build-fast]",
+				"afk = true",
+			].join("\n"),
+		);
+
+		const result = await loadAllArgumentDefaults(tempDir);
+		expect(result).toEqual({
+			build: { AFK: false, GIT_COMMIT: true },
+			"build-fast": { AFK: true },
 		});
 	});
 });
