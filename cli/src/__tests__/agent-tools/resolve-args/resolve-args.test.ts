@@ -25,6 +25,9 @@ afterEach(async () => {
 	// Clean up any env vars set during tests
 	delete process.env.TEST_PLATFORM;
 	delete process.env.RP1_ROOT;
+	delete process.env.RP1_PROJECT_ROOT;
+	delete process.env.RP1_KB_DIR;
+	delete process.env.RP1_WORK_DIR;
 });
 
 const createSkillFile = async (
@@ -547,6 +550,109 @@ environment:
 		if (E.isRight(result)) {
 			expect(result.right.arguments.FEATURE_ID).toBe("my-feature");
 			expect(result.right.arguments.GIT_COMMIT).toBe(true);
+		}
+	});
+
+	test("resolves the full directory environment set from one stable directory resolution", async () => {
+		const rp1Dir = join(tempDir, ".rp1");
+		await mkdir(join(rp1Dir, "context"), { recursive: true });
+
+		const schemaPath = await createAgentFile(
+			tempDir,
+			`---
+name: test-agent
+description: "A test agent with resolved directory environment"
+tools: Read
+model: inherit
+environment:
+  - name: RP1_ROOT
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "RP1 root"
+  - name: RP1_PROJECT_ROOT
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Project root"
+  - name: RP1_KB_DIR
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "KB directory"
+  - name: RP1_WORK_DIR
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Work directory"
+---
+# Test agent
+`,
+		);
+
+		const firstResult = await resolveArgs({
+			schema_path: schemaPath,
+			raw_args: "",
+			project_root: tempDir,
+		})();
+		const secondResult = await resolveArgs({
+			schema_path: schemaPath,
+			raw_args: "",
+			project_root: tempDir,
+		})();
+
+		expect(E.isRight(firstResult)).toBe(true);
+		expect(E.isRight(secondResult)).toBe(true);
+		if (E.isRight(firstResult) && E.isRight(secondResult)) {
+			expect(firstResult.right.environment).toEqual({
+				RP1_ROOT: join(tempDir, ".rp1"),
+				RP1_PROJECT_ROOT: tempDir,
+				RP1_KB_DIR: join(tempDir, ".rp1", "context"),
+				RP1_WORK_DIR: firstResult.right.environment.RP1_WORK_DIR,
+			});
+			expect(secondResult.right.environment).toEqual(
+				firstResult.right.environment,
+			);
+		}
+	});
+
+	test("explicit directory environment variables override resolver outputs", async () => {
+		process.env.RP1_PROJECT_ROOT = join(tempDir, "project-override");
+		process.env.RP1_KB_DIR = join(tempDir, "kb-override");
+		process.env.RP1_WORK_DIR = join(tempDir, "work-override");
+		process.env.RP1_ROOT = join(tempDir, "rp1-override");
+
+		const schemaPath = await createAgentFile(
+			tempDir,
+			`---
+name: test-agent
+description: "A test agent with resolved directory environment"
+tools: Read
+model: inherit
+environment:
+  - name: RP1_ROOT
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "RP1 root"
+  - name: RP1_PROJECT_ROOT
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Project root"
+  - name: RP1_KB_DIR
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "KB directory"
+  - name: RP1_WORK_DIR
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Work directory"
+---
+# Test agent
+`,
+		);
+
+		const result = await resolveArgs({
+			schema_path: schemaPath,
+			raw_args: "",
+			project_root: tempDir,
+		})();
+
+		expect(E.isRight(result)).toBe(true);
+		if (E.isRight(result)) {
+			expect(result.right.environment).toEqual({
+				RP1_ROOT: join(tempDir, "rp1-override"),
+				RP1_PROJECT_ROOT: join(tempDir, "project-override"),
+				RP1_KB_DIR: join(tempDir, "kb-override"),
+				RP1_WORK_DIR: join(tempDir, "work-override"),
+			});
 		}
 	});
 
