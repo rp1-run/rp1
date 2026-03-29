@@ -14,6 +14,7 @@
  * codex/transformations.ts respectively.
  */
 
+import { PLUGIN_NAMES } from "../../../shared/canonical-name.js";
 import { findMatchesOutsideCodeBlocks } from "../content-utils.js";
 import type { BuildPlatform } from "../template-context.js";
 
@@ -22,9 +23,10 @@ import type { BuildPlatform } from "../template-context.js";
  * Replaces colon with slash: rp1-base:x -> rp1-base/x, rp1-dev:x -> rp1-dev/x
  */
 const transformNamespaceSeparator = (content: string): string => {
-	let result = content.replace(/rp1-base:/g, "rp1-base/");
-	result = result.replace(/rp1-dev:/g, "rp1-dev/");
-	result = result.replace(/rp1-utils:/g, "rp1-utils/");
+	let result = content;
+	for (const plugin of PLUGIN_NAMES) {
+		result = result.replaceAll(`rp1-${plugin}:`, `rp1-${plugin}/`);
+	}
 	return result;
 };
 
@@ -37,7 +39,11 @@ const transformNamespaceSeparator = (content: string): string => {
  * Only transforms references outside code blocks.
  */
 const transformNamespaceToCodex = (content: string): string => {
-	const pattern = /\/rp1-(base|dev|utils):([a-z][a-z0-9-]*)/g;
+	const pluginAlternation = PLUGIN_NAMES.join("|");
+	const pattern = new RegExp(
+		`/rp1-(${pluginAlternation}):([a-z][a-z0-9-]*)`,
+		"g",
+	);
 
 	const matches = findMatchesOutsideCodeBlocks(pattern, content);
 
