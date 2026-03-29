@@ -3,7 +3,6 @@
  * Implements 5-layer merge, implies chain resolution, and unresolved detection.
  */
 
-import { readFile } from "node:fs/promises";
 import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
@@ -356,7 +355,7 @@ export const resolveArgs = (
 		TE.chain((resolvedPath) =>
 			pipe(
 				TE.tryCatch(
-					() => readFile(resolvedPath, "utf-8"),
+					() => Bun.file(resolvedPath).text(),
 					() =>
 						notFoundError(
 							resolvedPath,
