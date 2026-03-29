@@ -525,7 +525,7 @@ export const installCodex = (
 
 											// Install hooks.json for SessionStart hooks
 											try {
-												await installCodexHooks(paths.configDir);
+												await installCodexHooks(paths.configDir, pluginDirs);
 												spinner.succeed("Installed hooks.json");
 											} catch (e) {
 												spinner.warn(`Could not install hooks.json: ${e}`);
@@ -616,65 +616,43 @@ const isRp1HookEntry = (entry: unknown): boolean => {
 };
 
 /**
- * Build the rp1 SessionStart hook entries for Codex hooks.json.
- *
- * Commands use bash -c with double-quoted printf args containing escaped
- * quotes (\"). When JSON.stringify serializes these, the \" becomes \\\"
- * in the JSON file, which round-trips correctly: JSON parse → \" → bash
- * interprets as literal ".
+ * Load rp1 SessionStart hooks from codex-hooks.json in build artifacts.
+ * Returns the SessionStart entries array, or null if no hooks file found.
  */
-const buildRp1HookEntries = (): unknown[] => {
-	// prettier-ignore
-	const arcadeCmd =
-		"bash -c '${RP1_BINARY:-rp1} arcade --no-open >/dev/null 2>&1;" +
-		' printf "{\\"systemMessage\\":\\"🕹️ rp1 Arcade is live at http://localhost:7710\\",' +
-		'\\"hookSpecificOutput\\":{\\"hookEventName\\":\\"SessionStart\\",' +
-		'\\"additionalContext\\":\\"rp1 Arcade is running at http://localhost:7710.' +
-		' Mention this to the user if relevant.\\"}}"\'';
-
-	// prettier-ignore
-	const updateCmd =
-		"bash -c '${RP1_BINARY:-rp1} update --check --format hook-text 2>/dev/null" +
-		' | { read -r msg; [ -n "$msg" ] &&' +
-		' printf "{\\"systemMessage\\":\\"🚀 %s\\",' +
-		'\\"hookSpecificOutput\\":{\\"hookEventName\\":\\"SessionStart\\",' +
-		'\\"additionalContext\\":\\"%s\\"}}"' +
-		' "$msg" "$msg" || true; }\'';
-
-	return [
-		{
-			matcher: "startup|resume",
-			hooks: [
-				{
-					type: "command",
-					command: arcadeCmd,
-					statusMessage: "Starting rp1 Arcade",
-					timeout: 10,
-				},
-			],
-		},
-		{
-			matcher: "startup",
-			hooks: [
-				{
-					type: "command",
-					command: updateCmd,
-					statusMessage: "Checking for rp1 updates",
-					timeout: 10,
-				},
-			],
-		},
-	];
+const loadRp1HookEntries = async (
+	pluginDirs: readonly string[],
+): Promise<unknown[] | null> => {
+	for (const dir of pluginDirs) {
+		try {
+			const content = await readFile(join(dir, "codex-hooks.json"), "utf-8");
+			const parsed = JSON.parse(content) as {
+				hooks?: { SessionStart?: unknown[] };
+			};
+			if (parsed.hooks?.SessionStart) {
+				return parsed.hooks.SessionStart;
+			}
+		} catch {
+			// Not in this plugin dir
+		}
+	}
+	return null;
 };
 
 /**
  * Install hooks.json for Codex SessionStart hooks (arcade + update check).
- * Merges with any existing hooks.json, preserving non-rp1 entries.
+ * Reads hook definitions from codex-hooks.json in the build artifacts,
+ * then merges with any existing user hooks.json, preserving non-rp1 entries.
  */
-const installCodexHooks = async (configDir: string): Promise<void> => {
-	const hooksPath = join(configDir, "hooks.json");
-	const rp1Hooks = buildRp1HookEntries();
+const installCodexHooks = async (
+	configDir: string,
+	pluginDirs: readonly string[],
+): Promise<void> => {
+	const rp1Hooks = await loadRp1HookEntries(pluginDirs);
+	if (!rp1Hooks || rp1Hooks.length === 0) {
+		return;
+	}
 
+	const hooksPath = join(configDir, "hooks.json");
 	let existing: Record<string, unknown[]> = {};
 	try {
 		const content = await readFile(hooksPath, "utf-8");
