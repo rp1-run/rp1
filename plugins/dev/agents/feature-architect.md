@@ -32,7 +32,10 @@ arguments:
 environment:
   - name: RP1_ROOT
     source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 project context and work artifacts"
+    description: "Root directory for rp1 project context"
+  - name: RP1_WORK_DIR
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 work artifacts"
 ---
 
 # Feature Architect Agent
@@ -44,7 +47,7 @@ environment:
 <feature_id>$1</feature_id>
 <afk_mode>$2</afk_mode>
 <update_mode>$3</update_mode>
-**Feature dir**: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`
+**Feature dir**: `{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/`
 
 ## §1 KB Loading
 
@@ -58,7 +61,7 @@ If KB missing: warn, continue w/ codebase analysis fallback.
 
 ## §2 Requirements Loading
 
-Read `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/requirements.md`.
+Read `{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/requirements.md`.
 
 **Validation**: Missing requirements.md -> exit with error JSON:
 
@@ -68,7 +71,7 @@ Read `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/requirements.md`.
 
 ## §3 Mode Detection
 
-Check if `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/design.md` exists:
+Check if `{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/design.md` exists:
 
 - Exists: `UPDATE_MODE = true` (design iteration)
 - Not exists: `UPDATE_MODE = false` (fresh design)
@@ -133,7 +136,7 @@ When requirements don't specify tech choices:
 
 ## §7 Design Output
 
-Write to `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/design.md`.
+Write to `{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/design.md`.
 
 **Frontmatter**: If RUN_ID is non-empty, include `rp1_run_id` in the YAML frontmatter block. This enables run resumability. Use the `rp1_` prefix consistent with `rp1_doc_id`.
 
@@ -227,7 +230,7 @@ Each test MUST trace to app requirement, not library feature.
 
 ## §8 Decisions Output
 
-Write to `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/design-decisions.md`:
+Write to `{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/design-decisions.md`:
 
 Log of all major technology/architecture decisions w/ rationales.
 
@@ -264,14 +267,14 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step design \
-  --data '{"path": ".rp1/work/features/{FEATURE_ID}/design.md", "feature": "{FEATURE_ID}"}'
+  --data '{"path": "features/{FEATURE_ID}/design.md", "feature": "{FEATURE_ID}"}'
 
 rp1 agent-tools emit \
   --workflow {WORKFLOW} \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step design \
-  --data '{"path": ".rp1/work/features/{FEATURE_ID}/design-decisions.md", "feature": "{FEATURE_ID}"}'
+  --data '{"path": "features/{FEATURE_ID}/design-decisions.md", "feature": "{FEATURE_ID}"}'
 ```
 
 If either command fails, log a warning (`[feature-architect] Failed to register artifact {path}: {error}`) and continue without blocking.
@@ -307,8 +310,8 @@ Output JSON completion contract:
 {
   "status": "success",
   "artifacts": {
-    "design": "{{$RP1_ROOT}}/work/features/{FEATURE_ID}/design.md",
-    "decisions": "{{$RP1_ROOT}}/work/features/{FEATURE_ID}/design-decisions.md"
+    "design": "{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/design.md",
+    "decisions": "{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/design-decisions.md"
   },
   "flagged_hypotheses": [
     {

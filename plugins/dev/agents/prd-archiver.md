@@ -33,7 +33,10 @@ arguments:
 environment:
   - name: RP1_ROOT
     source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 project context and work artifacts"
+    description: "Root directory for rp1 project context"
+  - name: RP1_WORK_DIR
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 work artifacts"
 ---
 
 # PRD Archiver
@@ -44,10 +47,10 @@ You are **PrdArchiverGPT** - archives completed PRDs and their associated featur
 
 1. PRD_NAME must be non-empty
 2. MODE must be `scan` or `archive`
-3. Check PRD exists at `{{$RP1_ROOT}}/work/prds/{PRD_NAME}.md`
+3. Check PRD exists at `{{$RP1_WORK_DIR}}/prds/{PRD_NAME}.md`
 
 **On PRD not found:**
-- List available PRDs via glob `{{$RP1_ROOT}}/work/prds/*.md`
+- List available PRDs via glob `{{$RP1_WORK_DIR}}/prds/*.md`
 - Return error JSON:
 ```json
 {"type":"error","message":"PRD '{PRD_NAME}' not found.","available_prds":["prd1","prd2"]}
@@ -56,10 +59,10 @@ You are **PrdArchiverGPT** - archives completed PRDs and their associated featur
 ## S2 Paths
 
 ```
-PRD_PATH = {{$RP1_ROOT}}/work/prds/{PRD_NAME}.md
-PRD_ARCHIVE_DIR = {{$RP1_ROOT}}/work/archives/prds/{PRD_NAME}/
-FEATURES_DIR = {{$RP1_ROOT}}/work/features/
-FEATURES_ARCHIVE_DIR = {{$RP1_ROOT}}/work/archives/features/
+PRD_PATH = {{$RP1_WORK_DIR}}/prds/{PRD_NAME}.md
+PRD_ARCHIVE_DIR = {{$RP1_WORK_DIR}}/archives/prds/{PRD_NAME}/
+FEATURES_DIR = {{$RP1_WORK_DIR}}/features/
+FEATURES_ARCHIVE_DIR = {{$RP1_WORK_DIR}}/archives/features/
 KB_DIR = {{$RP1_ROOT}}/context/
 ```
 
@@ -166,7 +169,7 @@ Generate `{{$PRD_ARCHIVE_DIR}}/closure_summary.md`:
 
 ## Original Location
 
-- PRD: .rp1/work/prds/{PRD_NAME}.md
+- PRD: prds/{PRD_NAME}.md
 ```
 
 ## S11 Output

@@ -54,7 +54,10 @@ metadata:
   environment:
     - name: RP1_ROOT
       source: "rp1 agent-tools rp1-root-dir"
-      description: "Root directory for rp1 project context and work artifacts"
+      description: "Root directory for rp1 project context"
+    - name: RP1_WORK_DIR
+      source: "rp1 agent-tools rp1-root-dir"
+      description: "Root directory for rp1 work artifacts"
   sub_agents:
     - "rp1-dev:build-artifact-detector"
     - "rp1-dev:feature-requirement-gatherer"
@@ -76,7 +79,7 @@ metadata:
 
 **YOU ARE A PURE ORCHESTRATOR.** Spawn agents for all work. NEVER write/edit/read files yourself. NEVER implement code, requirements, designs, or tests. Use exact agent references per step. If agent fails, retry it — never do its work.
 
-**Feature dir**: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`
+**Feature dir**: `{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/`
 
 ## §0-FIRST-ACTION
 
@@ -168,7 +171,7 @@ FEATURE_ID={FEATURE_ID}, REQUIREMENTS={REQUIREMENTS}, AFK={AFK}, RP1_ROOT={{$RP1
 
 Validate the response before continuing:
 
-- Accept only the documented completion contract from `feature-requirement-gatherer`: JSON with `"status": "success"` and `"artifact": "{{$RP1_ROOT}}/work/features/{FEATURE_ID}/requirements.md"`, or the exact text line `Requirements completed: {{$RP1_ROOT}}/work/features/{FEATURE_ID}/requirements.md`.
+- Accept only the documented completion contract from `feature-requirement-gatherer`: JSON with `"status": "success"` and `"artifact": "{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/requirements.md"`, or the exact text line `Requirements completed: {{$RP1_WORK_DIR}}/features/{FEATURE_ID}/requirements.md`.
 - Treat any response that mentions commits, source-code edits, tests, verification, unrelated file paths, or implementation completion as a contract failure.
 - On contract failure: retry step 1 once with an explicit reminder that the agent may only write `requirements.md` and must not implement anything.
 - If the retry also fails, abort the build as failed. Do not continue to design, build, verify, or archive based on non-compliant output.
@@ -281,7 +284,7 @@ rp1 agent-tools emit \
 ### §4.1 Parse + Group
 
 {% dispatch_agent "rp1-dev:build-task-parser" %}
-TASKS_PATH={{$RP1_ROOT}}/work/features/{FEATURE_ID}/tasks.md
+TASKS_PATH={{$RP1_WORK_DIR}}/features/{FEATURE_ID}/tasks.md
 {% enddispatch_agent %}
 
 Extract `implementation_tasks`, `doc_tasks`.
@@ -355,7 +358,7 @@ If GIT_COMMIT: stage+commit. If GIT_PUSH: push. If GIT_PR: create PR.
 
 ## §6 SUMMARY
 
-Register artifacts: for each file in `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`:
+Register artifacts: for each file in `{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/`:
 
 ```bash
 rp1 agent-tools emit \

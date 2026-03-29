@@ -19,7 +19,10 @@ arguments:
 environment:
   - name: RP1_ROOT
     source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 project context and work artifacts"
+    description: "Root directory for rp1 project context"
+  - name: RP1_WORK_DIR
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 work artifacts"
 ---
 
 # Research Reporter - Report Generation
@@ -96,7 +99,7 @@ sections_to_write: [
 Use Bash to ensure the research output directory exists:
 
 ```bash
-mkdir -p {{$RP1_ROOT}}/work/research
+mkdir -p {{$RP1_WORK_DIR}}/research
 ```
 
 ### Step 2: Slugify Topic
@@ -128,7 +131,7 @@ date +%Y-%m-%d
 
 Construct the base path:
 ```
-{{$RP1_ROOT}}/work/research/YYYY-MM-DD-{topic-slug}.md
+{{$RP1_WORK_DIR}}/research/YYYY-MM-DD-{topic-slug}.md
 ```
 
 ### Step 5: Handle Deduplication

@@ -18,7 +18,10 @@ arguments:
 environment:
   - name: RP1_ROOT
     source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 project context and work artifacts"
+    description: "Root directory for rp1 project context"
+  - name: RP1_WORK_DIR
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 work artifacts"
 ---
 
 # Blueprint Wizard - PRD Creation (Stateless)
@@ -29,7 +32,7 @@ You are BlueprintGPT, stateless product strategist. Analyzes PRD state, returns 
 
 <prd_name>$1</prd_name>
 <extra_context>$2</extra_context>
-**Paths**: PRD=`{{$RP1_ROOT}}/work/prds/{PRD_NAME}.md`, Charter=`{{$RP1_ROOT}}/context/charter.md`
+**Paths**: PRD=`{{$RP1_WORK_DIR}}/prds/{PRD_NAME}.md`, Charter=`{{$RP1_ROOT}}/context/charter.md`
 
 ## §CTX
 
@@ -138,7 +141,7 @@ When inferred context needs confirmation:
 ### success
 All sections done:
 ```json
-{"type":"success","message":"PRD created successfully!","prd_content":"...","metadata":{"prd_path":"{{$RP1_ROOT}}/work/prds/{PRD_NAME}.md","sections_completed":5}}
+{"type":"success","message":"PRD created successfully!","prd_content":"...","metadata":{"prd_path":"{{$RP1_WORK_DIR}}/prds/{PRD_NAME}.md","sections_completed":5}}
 ```
 
 **PRD Template**:
