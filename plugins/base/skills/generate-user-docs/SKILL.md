@@ -15,7 +15,10 @@ metadata:
   environment:
     - name: RP1_ROOT
       source: "rp1 agent-tools rp1-root-dir"
-      description: "Root directory for rp1 project context and work artifacts"
+      description: "Root directory for rp1 project context"
+    - name: RP1_WORK_DIR
+      source: "rp1 agent-tools rp1-root-dir"
+      description: "Root directory for rp1 work artifacts"
   sub_agents:
     - "rp1-base:scribe"
 ---
@@ -607,7 +610,7 @@ AGGREGATED.style = STYLE_CONFIG  # From Phase 1
 Before writing scan results, ensure the work directory exists:
 
 ```bash
-mkdir -p {{$RP1_ROOT}}/work/features/scribe
+mkdir -p {{$RP1_WORK_DIR}}/features/scribe
 ```
 
 Use Bash tool to create directory if it doesn't exist.
@@ -618,7 +621,7 @@ Write the aggregated results to external state file:
 
 ```
 Use Write tool:
-    Path: {{$RP1_ROOT}}/work/features/scribe/scan_results.json
+    Path: {{$RP1_WORK_DIR}}/features/scribe/scan_results.json
     Content: {{JSON.stringify(AGGREGATED, null, 2)}}
 ```
 
@@ -630,7 +633,7 @@ This external state file:
 
 Log write confirmation:
 ```
-Scan results written to {{$RP1_ROOT}}/work/features/scribe/scan_results.json
+Scan results written to {{$RP1_WORK_DIR}}/features/scribe/scan_results.json
 ```
 
 #### Step 3.4: Present Summary to User
@@ -664,7 +667,7 @@ Ask the user for explicit approval:
 ```
 Documentation update cancelled.
 
-Scan results preserved at: {{$RP1_ROOT}}/work/features/scribe/scan_results.json
+Scan results preserved at: {{$RP1_WORK_DIR}}/features/scribe/scan_results.json
 You can review classifications and re-run when ready.
 ```
 **EXIT IMMEDIATELY** - do not proceed.
@@ -716,7 +719,7 @@ For each batch, construct the JSON input matching the scribe agent process mode 
 {
   "mode": "process",
   "files": ["path/to/file1.md", "path/to/file2.md", ...],
-  "scan_results_path": "{{$RP1_ROOT}}/work/features/scribe/scan_results.json",
+  "scan_results_path": "{{$RP1_WORK_DIR}}/features/scribe/scan_results.json",
   "style": {
     "heading_style": "atx",
     "list_marker": "dash",
@@ -742,7 +745,7 @@ FOR each batch in PROCESS_BATCHES (in parallel):
 {% dispatch_agent "rp1-base:scribe" %}
 MODE: process
 FILES: {{JSON.stringify(batch.files)}}
-SCAN_RESULTS_PATH: {{$RP1_ROOT}}/work/features/scribe/scan_results.json
+SCAN_RESULTS_PATH: {{$RP1_WORK_DIR}}/features/scribe/scan_results.json
 STYLE: {{JSON.stringify(STYLE_CONFIG)}}
 
 Process documentation files and apply edits.
@@ -889,7 +892,7 @@ Pass `PROCESS_SUMMARY` to Phase 5 for final reporting.
 3. **Cleanup** (optional):
    ```bash
    # Remove temporary scan results if desired
-   rm {{$RP1_ROOT}}/work/features/scribe/scan_results.json
+   rm {{$RP1_WORK_DIR}}/features/scribe/scan_results.json
    ```
 
 ## Error Handling

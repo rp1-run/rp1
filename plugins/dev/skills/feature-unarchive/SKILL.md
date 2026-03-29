@@ -20,7 +20,10 @@ metadata:
   environment:
     - name: RP1_ROOT
       source: "rp1 agent-tools rp1-root-dir"
-      description: "Root directory for rp1 project context and work artifacts"
+      description: "Root directory for rp1 project context"
+    - name: RP1_WORK_DIR
+      source: "rp1 agent-tools rp1-root-dir"
+      description: "Root directory for rp1 work artifacts"
   sub_agents:
     - "rp1-dev:feature-archiver"
 ---
@@ -46,7 +49,7 @@ Restores an archived feature's documentation from the archives directory back to
 
 ## Behavior
 
-- Moves `{{$RP1_ROOT}}/work/archives/features/{FEATURE_ID}/` to `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`
+- Moves `{{$RP1_WORK_DIR}}/archives/features/{FEATURE_ID}/` to `{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/`
 - Fails if a feature with the same ID already exists in the active directory
 - Provides guidance on resolving conflicts
 

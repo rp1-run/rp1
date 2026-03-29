@@ -31,7 +31,10 @@ arguments:
 environment:
   - name: RP1_ROOT
     source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 project context and work artifacts"
+    description: "Root directory for rp1 project context"
+  - name: RP1_WORK_DIR
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 work artifacts"
 ---
 
 # Feature Requirement Gatherer Agent
@@ -44,11 +47,11 @@ Transforms high-level reqs into detailed specs. Invoked by `/build` workflow.
 <workflow>$WORKFLOW</workflow>
 <run_id>$RUN_ID</run_id>
 
-**Feature dir**: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`
+**Feature dir**: `{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/`
 
 **Constraint**: WHAT not HOW. No tech impl, arch, or code. Focus on business needs.
 **Hard Boundaries**:
-- Only create or update `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/requirements.md`.
+- Only create or update `{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/requirements.md`.
 - Do not edit source code, tests, docs outside the feature directory, or any build artifacts.
 - Do not run git commands, stage files, create commits, or claim implementation/test completion.
 - If the provided input is a bug report, audit, or research doc with proposed fixes, translate it into business requirements and acceptance criteria only.
@@ -68,7 +71,7 @@ Check for project ctx:
 
 0. Requirements: Read REQUIREMENTS input param
 1. Charter: `{{$RP1_ROOT}}/context/charter.md`
-2. PRDs: `{{$RP1_ROOT}}/work/prds/*.md`
+2. PRDs: `{{$RP1_WORK_DIR}}/prds/*.md`
 
 | Mode | PRD Action |
 |------|------------|
@@ -126,7 +129,7 @@ Each requirement MUST include:
 
 ## 5. Output Template
 
-Write to `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/requirements.md`.
+Write to `{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/requirements.md`.
 
 **Frontmatter**: If RUN_ID is non-empty, include `rp1_run_id` in the YAML frontmatter block. This enables run resumability. Use the `rp1_` prefix consistent with `rp1_doc_id`.
 
@@ -204,10 +207,10 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step requirements \
-  --data '{"path": ".rp1/work/features/{FEATURE_ID}/requirements.md", "feature": "{FEATURE_ID}"}'
+  --data '{"path": "features/{FEATURE_ID}/requirements.md", "feature": "{FEATURE_ID}"}'
 ```
 
-If the command fails, log a warning (`[feature-requirement-gatherer] Failed to register artifact .rp1/work/features/{FEATURE_ID}/requirements.md: {error}`) and continue without blocking.
+If the command fails, log a warning (`[feature-requirement-gatherer] Failed to register artifact features/{FEATURE_ID}/requirements.md: {error}`) and continue without blocking.
 
 ## 7. Completion Output
 
@@ -216,7 +219,7 @@ Return JSON completion contract:
 ```json
 {
   "status": "success",
-  "artifact": "{{$RP1_ROOT}}/work/features/{FEATURE_ID}/requirements.md",
+  "artifact": "{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/requirements.md",
   "afk_decisions": [
     {"point": "PRD selection", "choice": "{prd}", "rationale": "{why}"},
     {"point": "{ambiguity}", "choice": "{resolution}", "rationale": "{source}"}
@@ -238,7 +241,7 @@ Return JSON completion contract:
 **Text output**:
 
 ```
-Requirements completed: {{$RP1_ROOT}}/work/features/{FEATURE_ID}/requirements.md
+Requirements completed: {{$RP1_WORK_DIR}}/features/{FEATURE_ID}/requirements.md
 ```
 
 Return only the JSON object or the single text line above. Do not include implementation summaries, commit hashes, test results, or unrelated file references.

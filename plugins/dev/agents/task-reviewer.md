@@ -36,7 +36,10 @@ arguments:
 environment:
   - name: RP1_ROOT
     source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 project context and work artifacts"
+    description: "Root directory for rp1 project context"
+  - name: RP1_WORK_DIR
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 work artifacts"
 ---
 
 # Task Reviewer Agent
@@ -96,7 +99,7 @@ Read the quick-build artifact at `{QUICK_BUILD_PATH}`:
 
 **Else** (feature mode):
 
-Read these files from `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`:
+Read these files from `{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/`:
 
 | File | Purpose |
 |------|---------|

@@ -41,7 +41,10 @@ arguments:
 environment:
   - name: RP1_ROOT
     source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 project context and work artifacts"
+    description: "Root directory for rp1 project context"
+  - name: RP1_WORK_DIR
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 work artifacts"
 ---
 
 # TaskBuilder Agent
@@ -99,7 +102,7 @@ No separate requirements.md or design.md for quick-builds (all context is in the
 
 **ELSE** (Feature mode):
 
-Read from `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`:
+Read from `{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/`:
 
 - `requirements.md`: reqs + acceptance criteria
 - `design.md`: tech specs
@@ -205,7 +208,7 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step task-builder:building \
-  --data '{"path": ".rp1/work/features/{FEATURE_ID}/tasks.md", "feature": "{FEATURE_ID}", "subflow": true}'
+  --data '{"path": "features/{FEATURE_ID}/tasks.md", "feature": "{FEATURE_ID}", "subflow": true}'
 ```
 
 ### 3.5 Scope Verification

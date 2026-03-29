@@ -6,6 +6,8 @@ allowed-tools: Read, Write, Bash, Skill
 
 # Markdown Preview Generator — Browser-Ready HTML from Markdown
 
+$RP1_WORK_DIR = !`rp1 agent-tools rp1-root-dir` (extract `data.workDir` from JSON response)
+
 Generate self-contained HTML files from markdown content and automatically open them in the user's default browser.
 
 ## What This Skill Does
@@ -269,7 +271,7 @@ After creating the markdown file, use the markdown-preview skill to generate the
 Invoke the `rp1-base:markdown-preview` skill.
 
 Load the generated markdown file and pass content:
-- content: Read from {{$RP1_ROOT}}/work/pr_reviews/<pr-id>-visual.md
+- content: Read from {{$RP1_WORK_DIR}}/pr_reviews/<pr-id>-visual.md
 - title: "PR Visualization for PR #{pr-number}"
 - theme: "github"
 
