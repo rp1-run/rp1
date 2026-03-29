@@ -134,12 +134,7 @@ export const registerRp1HooksPlugin = (): TE.TaskEither<CLIError, boolean> =>
 		async () => {
 			const configDir = join(homedir(), ".config", "opencode");
 			const configPath = join(configDir, "opencode.json");
-			const pluginPath = join(
-				configDir,
-				"plugins",
-				"rp1-base-hooks",
-				"index.ts",
-			);
+			const pluginPath = join(configDir, "plugins", "rp1-base-hooks.ts");
 			const pluginRef = `file://${pluginPath}`;
 
 			await mkdir(configDir, { recursive: true });
