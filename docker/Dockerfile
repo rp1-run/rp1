@@ -30,6 +30,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     sudo \
     unzip \
     xz-utils \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
 # GitHub CLI (gh)
