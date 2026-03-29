@@ -1,5 +1,11 @@
-import { join, relative } from "node:path";
+import { relative } from "node:path";
 import chokidar from "chokidar";
+import {
+	listProjectSectionRoots,
+	type ProjectDirectories,
+	type ProjectSection,
+	resolveProjectDirectories,
+} from "./project-paths";
 import type { WebSocketHub } from "./websocket";
 
 type ChangeType = "modify" | "add" | "delete";
@@ -41,7 +47,7 @@ const BURST_STABILIZE_MS = 300;
 export class FileWatcher {
 	private watchers: chokidar.FSWatcher[] = [];
 	private hub: WebSocketHub;
-	private rp1Path: string;
+	private directories: ProjectDirectories;
 	private pendingChanges: Map<string, PendingChange> = new Map();
 	private debounceTimeout: ReturnType<typeof setTimeout> | null = null;
 	private debounceMs: number;
@@ -61,22 +67,22 @@ export class FileWatcher {
 	) {
 		this.projectId = projectId;
 		this.projectPath = projectPath;
-		this.rp1Path = join(projectPath, ".rp1");
+		this.directories = resolveProjectDirectories(projectPath);
 		this.hub = hub;
 		this.debounceMs = options.debounceMs ?? 100;
 	}
 
 	start(): void {
-		const workPath = join(this.rp1Path, "work");
-		const contextPath = join(this.rp1Path, "context");
+		for (const root of listProjectSectionRoots(this.directories)) {
+			this.watchDirectory(root.absolutePath, root.section);
+		}
 
-		this.watchDirectory(workPath, "work");
-		this.watchDirectory(contextPath, "context");
-
-		console.log(`File watcher started for ${this.rp1Path}`);
+		console.log(
+			`File watcher started for ${this.projectPath} (work=${this.directories.workDir}, context=${this.directories.kbDir})`,
+		);
 	}
 
-	private watchDirectory(dirPath: string, section: string): void {
+	private watchDirectory(dirPath: string, section: ProjectSection): void {
 		try {
 			const watcher = chokidar.watch(dirPath, {
 				persistent: true,
@@ -107,12 +113,16 @@ export class FileWatcher {
 
 	private handleEvent(
 		fullPath: string,
-		section: string,
+		section: ProjectSection,
 		type: ChangeType,
 	): void {
 		try {
-			const filename = relative(join(this.rp1Path, section), fullPath);
-			if (!filename || shouldIgnore(filename)) return;
+			const rootDir =
+				section === "work" ? this.directories.workDir : this.directories.kbDir;
+			const filename = relative(rootDir, fullPath);
+			if (!filename || filename.startsWith("..") || shouldIgnore(filename)) {
+				return;
+			}
 
 			const relativePath = `${section}/${filename}`;
 			this.queueChange(relativePath, type);
