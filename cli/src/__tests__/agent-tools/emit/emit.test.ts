@@ -11,7 +11,9 @@ import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import {
 	closeDatabase,
+	getArtifactByDocId,
 	getEmitDatabase,
+	getRunById,
 	insertRun,
 	resetInstance,
 	upsertArtifact,
@@ -110,6 +112,52 @@ describe("emit end-to-end", () => {
 
 			expect(result.data.runStatus).toBe("running");
 		});
+
+		test("persists resolved directory metadata on the run", async () => {
+			const projectRoot = join(tempDir, "project-root");
+			await writeFixture(projectRoot, ".rp1/settings.toml", "");
+			const originalProjectRoot = process.env.RP1_PROJECT_ROOT;
+			const originalKbDir = process.env.RP1_KB_DIR;
+			const originalWorkDir = process.env.RP1_WORK_DIR;
+			process.env.RP1_PROJECT_ROOT = projectRoot;
+			process.env.RP1_KB_DIR = join(tempDir, "kb-dir");
+			process.env.RP1_WORK_DIR = join(tempDir, "work-dir");
+
+			try {
+				const runId = `run-dirs-${Date.now()}`;
+				const input = makeInput({
+					type: "status_change",
+					runId,
+					step: "build",
+					projectPath: projectRoot,
+					data: { status: "running", workflow: "build", feature: "feat" },
+				});
+
+				await expectTaskRight(executeEmit(input));
+
+				const db = await expectTaskRight(getEmitDatabase(dbPath));
+				const run = getRunById(db, runId);
+				expect(run?.rp1ProjectRoot).toBe(projectRoot);
+				expect(run?.rp1KbDir).toBe(join(tempDir, "kb-dir"));
+				expect(run?.rp1WorkDir).toBe(join(tempDir, "work-dir"));
+			} finally {
+				if (originalProjectRoot == null) {
+					delete process.env.RP1_PROJECT_ROOT;
+				} else {
+					process.env.RP1_PROJECT_ROOT = originalProjectRoot;
+				}
+				if (originalKbDir == null) {
+					delete process.env.RP1_KB_DIR;
+				} else {
+					process.env.RP1_KB_DIR = originalKbDir;
+				}
+				if (originalWorkDir == null) {
+					delete process.env.RP1_WORK_DIR;
+				} else {
+					process.env.RP1_WORK_DIR = originalWorkDir;
+				}
+			}
+		});
 	});
 
 	describe("artifact_registered events", () => {
@@ -139,6 +187,53 @@ describe("emit end-to-end", () => {
 			expect(result.data.docId).toMatch(
 				/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
 			);
+		});
+
+		test("stores work-dir-relative artifact paths when the file is under rp1_work_dir", async () => {
+			const originalProjectRoot = process.env.RP1_PROJECT_ROOT;
+			const originalWorkDir = process.env.RP1_WORK_DIR;
+			const projectRoot = join(tempDir, "project-artifacts");
+			const workDir = join(tempDir, "external-work");
+			process.env.RP1_PROJECT_ROOT = projectRoot;
+			process.env.RP1_WORK_DIR = workDir;
+
+			try {
+				const artifactPath = await writeFixture(
+					workDir,
+					"features/test-feat/design.md",
+					"---\nrp1_doc_id: doc-storage\n---\n# Test Artifact\n",
+				);
+
+				const input = makeInput({
+					type: "artifact_registered",
+					step: "design",
+					projectPath: projectRoot,
+					data: {
+						path: artifactPath,
+						feature: "test-feat",
+						type: "markdown",
+						workflow: "build",
+					},
+				});
+
+				const result = await expectTaskRight(executeEmit(input));
+				const db = await expectTaskRight(getEmitDatabase(dbPath));
+				const artifact = getArtifactByDocId(db, result.data.docId ?? "");
+
+				expect(artifact?.storageRoot).toBe("work_dir");
+				expect(artifact?.path).toBe("features/test-feat/design.md");
+			} finally {
+				if (originalProjectRoot == null) {
+					delete process.env.RP1_PROJECT_ROOT;
+				} else {
+					process.env.RP1_PROJECT_ROOT = originalProjectRoot;
+				}
+				if (originalWorkDir == null) {
+					delete process.env.RP1_WORK_DIR;
+				} else {
+					process.env.RP1_WORK_DIR = originalWorkDir;
+				}
+			}
 		});
 	});
 

@@ -6,7 +6,7 @@ rp1_doc_id: 70ebc9b1-5183-4c5f-9373-471cdcbed866
 
 **Feature ID**: rp1-dir-fix
 **Status**: In Progress
-**Progress**: 57% (4 of 7 tasks)
+**Progress**: 71% (5 of 7 tasks)
 **Estimated Effort**: 3 days
 **Started**: 2026-03-29
 
@@ -181,7 +181,7 @@ stateDiagram-v2
 
 ### Persistence And UI
 
-- [ ] **T4**: Persist resolved run-directory metadata and normalize artifact storage behavior `[complexity:complex]`
+- [x] **T4**: Persist resolved run-directory metadata and normalize artifact storage behavior `[complexity:complex]`
 
     **Reference**: [design.md#31-data-model](design.md#31-data-model)
 
@@ -189,9 +189,25 @@ stateDiagram-v2
 
     **Acceptance Criteria**:
 
-    - [ ] Database migrations add run columns for `rp1_project_root`, `rp1_kb_dir`, and `rp1_work_dir`.
-    - [ ] Artifact persistence distinguishes work-dir-relative storage from project-relative or absolute legacy paths.
-    - [ ] Artifact reads resolve paths using the documented compatibility order without regressing legacy lookup behavior.
+    - [x] Database migrations add run columns for `rp1_project_root`, `rp1_kb_dir`, and `rp1_work_dir`.
+    - [x] Artifact persistence distinguishes work-dir-relative storage from project-relative or absolute legacy paths.
+    - [x] Artifact reads resolve paths using the documented compatibility order without regressing legacy lookup behavior.
+
+    **Implementation Summary**:
+
+    - **Files**: `cli/shared/events.ts`, `cli/src/agent-tools/emit/database.ts`, `cli/src/agent-tools/emit/index.ts`, `cli/src/__tests__/agent-tools/emit/database.test.ts`, `cli/src/__tests__/agent-tools/emit/emit.test.ts`, `cli/src/__tests__/agent-tools/emit/step-validation.test.ts`
+    - **Approach**: Added schema v7 run-directory columns and artifact `storage_root`, persisted resolved directory values during emit, normalized new artifact writes against `rp1_work_dir`, and added compatibility helpers/tests for absolute, project-relative, and work-dir-relative artifact reads.
+    - **Deviations**: None
+    - **Tests**: 103/103 passing (`bun test cli/src/__tests__/agent-tools/emit/database.test.ts cli/src/__tests__/agent-tools/emit/emit.test.ts`), `cd cli && bun run typecheck` passing; `just check-cli` still reports pre-existing unrelated lint findings outside T4 scope
+
+    **Execution Flow**:
+
+    ```mermaid
+    stateDiagram-v2
+        [*] --> T4
+        T4: Run and artifact persistence
+        T4 --> [*]
+    ```
 
 - [ ] **T5**: Update Arcade server project lookup, artifact access, and file watchers to use resolved directory metadata `[complexity:complex]`
 
