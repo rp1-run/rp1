@@ -225,7 +225,7 @@ export interface ReinitState {
 	readonly hasFencedContent: boolean;
 	/** Whether KB content exists (.rp1/context/index.md) */
 	readonly hasKBContent: boolean;
-	/** Whether work content exists (any files in .rp1/work/) */
+	/** Whether work content exists in the resolved rp1 work directory */
 	readonly hasWorkContent: boolean;
 }
 
