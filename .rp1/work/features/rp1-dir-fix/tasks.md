@@ -6,7 +6,7 @@ rp1_doc_id: 70ebc9b1-5183-4c5f-9373-471cdcbed866
 
 **Feature ID**: rp1-dir-fix
 **Status**: In Progress
-**Progress**: 71% (5 of 7 tasks)
+**Progress**: 86% (6 of 7 tasks)
 **Estimated Effort**: 3 days
 **Started**: 2026-03-29
 
@@ -170,6 +170,18 @@ stateDiagram-v2
     - **Deviations**: None
     - **Tests**: 47/47 passing (`bun test cli/src/__tests__/agent-tools/rp1-root-dir/resolver.test.ts cli/src/__tests__/agent-tools/resolve-args/resolve-args.test.ts`)
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ✅ PASS |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
     **Execution Flow**:
 
     ```mermaid
@@ -200,6 +212,18 @@ stateDiagram-v2
     - **Deviations**: None
     - **Tests**: 103/103 passing (`bun test cli/src/__tests__/agent-tools/emit/database.test.ts cli/src/__tests__/agent-tools/emit/emit.test.ts`), `cd cli && bun run typecheck` passing; `just check-cli` still reports pre-existing unrelated lint findings outside T4 scope
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ✅ PASS |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
     **Execution Flow**:
 
     ```mermaid
@@ -209,7 +233,7 @@ stateDiagram-v2
         T4 --> [*]
     ```
 
-- [ ] **T5**: Update Arcade server project lookup, artifact access, and file watchers to use resolved directory metadata `[complexity:complex]`
+- [x] **T5**: Update Arcade server project lookup, artifact access, and file watchers to use resolved directory metadata `[complexity:complex]`
 
     **Reference**: [design.md#33-command-and-api-behavior](design.md#33-command-and-api-behavior)
 
@@ -217,9 +241,25 @@ stateDiagram-v2
 
     **Acceptance Criteria**:
 
-    - [ ] Arcade routes use stored run/project directory metadata rather than hardcoded `.rp1/work` assumptions.
-    - [ ] File watching targets the resolved work and KB directories for the active project context.
-    - [ ] Run inspection and artifact viewing continue to work for both new runs and legacy records.
+    - [x] Arcade routes use stored run/project directory metadata rather than hardcoded `.rp1/work` assumptions.
+    - [x] File watching targets the resolved work and KB directories for the active project context.
+    - [x] Run inspection and artifact viewing continue to work for both new runs and legacy records.
+
+    **Implementation Summary**:
+
+    - **Files**: `cli/web-ui/src/server/project-paths.ts`, `cli/web-ui/src/server/project.ts`, `cli/web-ui/src/server/file-watcher.ts`, `cli/web-ui/src/server/routes/v2-api.ts`, `cli/web-ui/src/server/routes/artifacts-api.ts`, `cli/web-ui/src/__tests__/server/artifacts-api.test.ts`, `cli/web-ui/src/__tests__/server/project-paths.test.ts`
+    - **Approach**: Added a shared Arcade path helper so project browsing and watchers resolve current `kbDir`/`workDir`, while run artifact routes derive display paths and disk reads from stored run directory metadata with legacy `.rp1/work` reconciliation fallback.
+    - **Deviations**: None
+    - **Tests**: 31/31 passing (`cd cli/web-ui && bun test src/__tests__/server/artifacts-api.test.ts src/__tests__/server/project-paths.test.ts`), `cd cli/web-ui && bun x tsc --noEmit` passing, `just check-web-ui` passing
+
+    **Execution Flow**:
+
+    ```mermaid
+    stateDiagram-v2
+        [*] --> T5
+        T5: Arcade server and file watching
+        T5 --> [*]
+    ```
 
 ### Workflow Migration And Repo Hygiene
 
