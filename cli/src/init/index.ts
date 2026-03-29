@@ -3,8 +3,6 @@
  * Orchestrates all initialization steps with TTY-aware interactivity.
  */
 
-import * as fs from "node:fs/promises";
-import * as path from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
@@ -19,11 +17,11 @@ import {
 	type InstallContext,
 	installAllDetectedTools,
 } from "../shared/install-core.js";
-import { hasFencedContent } from "./comment-fence.js";
 import {
 	type ContextDetectionResult,
 	detectProjectContext,
 } from "./context-detector.js";
+import { detectReinitState as detectSharedReinitState } from "./directory-model.js";
 import { detectGitRoot, type GitRootResult } from "./git-root.js";
 import type {
 	HealthReport,
@@ -52,6 +50,7 @@ import {
 	verifyOpenCodePlugins,
 } from "./steps/verification.js";
 import {
+	type DetectedTool,
 	detectTools,
 	formatDetectedTool,
 	getOutdatedTools,
@@ -104,52 +103,6 @@ const INIT_STEPS = [
 	{ name: "health-check", description: "Performing health check..." },
 	{ name: "summary", description: "Generating summary..." },
 ] as const;
-
-async function fileExists(filePath: string): Promise<boolean> {
-	try {
-		await fs.access(filePath);
-		return true;
-	} catch {
-		return false;
-	}
-}
-
-async function directoryExists(dirPath: string): Promise<boolean> {
-	try {
-		const stat = await fs.stat(dirPath);
-		return stat.isDirectory();
-	} catch {
-		return false;
-	}
-}
-
-async function hasAnyFiles(dirPath: string): Promise<boolean> {
-	try {
-		const entries = await fs.readdir(dirPath, { withFileTypes: true });
-		for (const entry of entries) {
-			if (entry.isFile()) {
-				return true;
-			}
-			if (entry.isDirectory()) {
-				const subPath = path.join(dirPath, entry.name);
-				if (await hasAnyFiles(subPath)) {
-					return true;
-				}
-			}
-		}
-		return false;
-	} catch {
-		return false;
-	}
-}
-
-async function readFileContent(filePath: string): Promise<string | null> {
-	try {
-		return await fs.readFile(filePath, "utf-8");
-	} catch {
-		return null;
-	}
-}
 
 /**
  * Detect whether interactive mode should be used.
@@ -234,41 +187,11 @@ export async function detectReinitState(
 	cwd: string,
 	detectedToolInstructionFile: string | null,
 ): Promise<ReinitState> {
-	const rp1Root = process.env.RP1_ROOT || ".rp1";
-	const rp1Dir = path.resolve(cwd, rp1Root);
-	const contextDir = path.join(rp1Dir, "context");
-	const workDir = path.join(rp1Dir, "work");
-
-	const hasRp1Dir = await directoryExists(rp1Dir);
-
-	let hasFenced = false;
-	if (detectedToolInstructionFile) {
-		const instrPath = path.resolve(cwd, detectedToolInstructionFile);
-		const content = await readFileContent(instrPath);
-		if (content) {
-			hasFenced = hasFencedContent(content);
-		}
-	} else {
-		for (const file of ["CLAUDE.md", "AGENTS.md"]) {
-			const instrPath = path.resolve(cwd, file);
-			const content = await readFileContent(instrPath);
-			if (content && hasFencedContent(content)) {
-				hasFenced = true;
-				break;
-			}
-		}
-	}
-
-	const hasKB = await fileExists(path.join(contextDir, "index.md"));
-
-	const hasWork = await hasAnyFiles(workDir);
-
-	return {
-		hasRp1Dir: hasRp1Dir,
-		hasFencedContent: hasFenced,
-		hasKBContent: hasKB,
-		hasWorkContent: hasWork,
-	};
+	return detectSharedReinitState(cwd, {
+		tool: {
+			instruction_file: detectedToolInstructionFile,
+		},
+	} as DetectedTool | null);
 }
 
 /**
