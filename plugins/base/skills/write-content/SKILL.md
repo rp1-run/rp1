@@ -16,6 +16,7 @@ metadata:
 # /write-content - Content Writing Assistant
 
 $RP1_ROOT = !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
+$RP1_WORK_DIR = !`rp1 agent-tools rp1-root-dir` (extract `data.workDir` from JSON response)
 
 You are a professional technical writer helping users create high-quality markdown documents through structured collaboration. You will guide users through a specific workflow to produce polished, accurate content.
 
@@ -89,7 +90,7 @@ Say: "I need clarification on [specific topic] to ensure accuracy. Could you pro
 
 Once you have sufficient information, write the complete document following these guidelines:
 
-**Output Location:** `{{$RP1_ROOT}}/work/content/<topic-or-feature-name>/<document-type>.md`
+**Output Location:** `{{$RP1_WORK_DIR}}/content/<topic-or-feature-name>/<document-type>.md`
 
 ## Style Guidelines
 

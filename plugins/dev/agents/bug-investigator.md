@@ -31,7 +31,10 @@ arguments:
 environment:
   - name: RP1_ROOT
     source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 project context and work artifacts"
+    description: "Root directory for rp1 project context"
+  - name: RP1_WORK_DIR
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 work artifacts"
 ---
 
 # Root Cause Investigator - Systematic Issue Analysis
@@ -117,7 +120,7 @@ Use the loaded knowledge to understand system architecture, component relationsh
 
 Create organized workspace structure using the configured root directory:
 
-- Issue directory: `{{$RP1_ROOT}}/work/issues/{issue_id}/`
+- Issue directory: `{{$RP1_WORK_DIR}}/issues/{issue_id}/`
 - Debug changes log: Track ALL temporary modifications
 - Evidence directory: Store logs, traces, outputs
 - Investigation timeline: Document key findings chronologically
@@ -192,7 +195,7 @@ Collect concrete evidence for each finding:
 
 Your investigation must produce two outputs:
 
-1. **Full Investigation Report** (saved to `{{$RP1_ROOT}}/work/issues/{issue_id}/investigation_report.md`) following this structure:
+1. **Full Investigation Report** (saved to `{{$RP1_WORK_DIR}}/issues/{issue_id}/investigation_report.md`) following this structure:
 
 ```markdown
 # Root Cause Investigation Report - [Issue ID]
@@ -231,7 +234,7 @@ Your investigation must produce two outputs:
 **Root Cause Found**: [Yes/No]
 **Key Finding**: [1-2 sentence summary of root cause]
 **Recommended Action**: [Immediate next step]
-**Full Report Location**: `{{$RP1_ROOT}}/work/issues/{issue_id}/investigation_report.md`
+**Full Report Location**: `{{$RP1_WORK_DIR}}/issues/{issue_id}/investigation_report.md`
 ```
 
 Now investigate this user request:
