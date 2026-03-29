@@ -49,6 +49,7 @@ import type {
 	ReinitState,
 	StepId,
 } from "../../models.js";
+import { buildSettingsTomlTemplate } from "../../settings-template.js";
 import {
 	appendShellFencedContent,
 	hasShellFencedContent,
@@ -81,28 +82,7 @@ import {
 } from "../../tool-detector.js";
 import type { WizardAction, WizardState } from "./useWizardState.js";
 
-/**
- * Default settings template with all flags disabled for safety.
- * Users can enable features as needed after reviewing the settings.
- */
-const DEFAULT_SETTINGS_TEMPLATE = `# rp1 Settings
-# Documentation: https://rp1.run/configuration/settings
-
-# All settings are disabled by default for safety.
-# Enable features by changing false to true.
-
-# Enable git worktree isolation for build commands
-git_worktree = false
-
-# Automatically commit changes after builds
-git_commit = false
-
-# Automatically push branches to remote
-git_push = false
-
-# Enable AFK (unattended) mode for automated workflows
-afk = false
-`;
+const DEFAULT_SETTINGS_TEMPLATE = buildSettingsTomlTemplate();
 
 /**
  * Resolve the global settings file path.
