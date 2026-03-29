@@ -542,6 +542,14 @@ export const installCodex = (
 
 											spinner.succeed("Config.toml updated");
 
+											// Install hooks.json for SessionStart hooks
+											try {
+												await installCodexHooks(paths.configDir);
+												spinner.succeed("Installed hooks.json");
+											} catch (e) {
+												spinner.warn(`Could not install hooks.json: ${e}`);
+											}
+
 											spinner.start("Verifying installation...");
 											const verifyWarnings: string[] = [];
 
@@ -615,6 +623,71 @@ export const installCodex = (
 			return error;
 		}),
 	);
+};
+
+/**
+ * Install hooks.json for Codex SessionStart hooks (arcade + update check).
+ * Merges with any existing hooks.json, preserving non-rp1 entries.
+ */
+const installCodexHooks = async (configDir: string): Promise<void> => {
+	const hooksPath = join(configDir, "hooks.json");
+	const rp1Hooks = {
+		SessionStart: [
+			{
+				matcher: "startup",
+				hooks: [
+					{
+						type: "command",
+						command:
+							'bash -c \'${RP1_BINARY:-rp1} update --check --format hook-text 2>/dev/null | { read -r msg; [ -n "$msg" ] && printf "{\\\\"systemMessage\\\\":\\\\"🚀 %s\\\\",\\\\"hookSpecificOutput\\\\":{\\\\"hookEventName\\\\":\\\\"SessionStart\\\\",\\\\"additionalContext\\\\":\\\\"%s\\\\"}}" "$msg" "$msg" || true; }\'',
+						statusMessage: "Checking for rp1 updates",
+						timeout: 10,
+					},
+				],
+			},
+			{
+				matcher: "startup|resume",
+				hooks: [
+					{
+						type: "command",
+						command:
+							'bash -c \'${RP1_BINARY:-rp1} arcade --no-open >/dev/null 2>&1; printf "{\\\\"systemMessage\\\\":\\\\"🕹️ rp1 Arcade is live at http://localhost:7710\\\\"}"\'',
+						statusMessage: "Starting rp1 Arcade",
+						timeout: 10,
+					},
+				],
+			},
+		],
+	};
+
+	let existing: Record<string, unknown[]> = {};
+	try {
+		const content = await readFile(hooksPath, "utf-8");
+		const parsed = JSON.parse(content) as { hooks?: Record<string, unknown[]> };
+		if (parsed.hooks && typeof parsed.hooks === "object") {
+			existing = parsed.hooks;
+		}
+	} catch {
+		// No existing hooks file
+	}
+
+	// Remove any previous rp1 hooks from SessionStart (identified by rp1 commands)
+	if (existing.SessionStart && Array.isArray(existing.SessionStart)) {
+		existing.SessionStart = existing.SessionStart.filter(
+			(entry: any) =>
+				!JSON.stringify(entry).includes("rp1 arcade") &&
+				!JSON.stringify(entry).includes("rp1 update"),
+		);
+	}
+
+	// Merge rp1 hooks
+	const merged = { ...existing };
+	merged.SessionStart = [
+		...(merged.SessionStart || []),
+		...rp1Hooks.SessionStart,
+	];
+
+	await writeFile(hooksPath, JSON.stringify({ hooks: merged }, null, 2));
 };
 
 /**
@@ -749,6 +822,32 @@ export const uninstallCodex = (
 					await writeFile(paths.configFile, "", "utf-8");
 				}
 				configCleaned = true;
+			}
+
+			// Remove rp1 hooks from hooks.json
+			try {
+				const hooksPath = join(paths.configDir, "hooks.json");
+				const hooksContent = await readFile(hooksPath, "utf-8");
+				const parsed = JSON.parse(hooksContent) as {
+					hooks?: Record<string, unknown[]>;
+				};
+				if (parsed.hooks?.SessionStart) {
+					parsed.hooks.SessionStart = parsed.hooks.SessionStart.filter(
+						(entry: any) =>
+							!JSON.stringify(entry).includes("rp1 arcade") &&
+							!JSON.stringify(entry).includes("rp1 update"),
+					);
+					if (parsed.hooks.SessionStart.length === 0) {
+						delete parsed.hooks.SessionStart;
+					}
+				}
+				if (parsed.hooks && Object.keys(parsed.hooks).length === 0) {
+					await rm(hooksPath, { force: true });
+				} else {
+					await writeFile(hooksPath, JSON.stringify(parsed, null, 2));
+				}
+			} catch {
+				// hooks.json may not exist
 			}
 
 			return { skillsRemoved, agentsRemoved, configCleaned };

@@ -120,6 +120,7 @@ export const buildConfigPatch = (
 
 			sections.push("[features]");
 			sections.push("multi_agent = true");
+			sections.push("codex_hooks = true");
 			sections.push("");
 
 			sections.push(
