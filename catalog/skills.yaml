@@ -49,8 +49,8 @@ skills:
     agents_that_use_me: []
     sub_agents_that_i_use: [rp1-base:scribe]
     skills_that_i_use: [rp1-base:knowledge-build]
-    last_update: "2026-03-27"
-    last_checksum: c57fe62e8335c5d81390550cc5adc9a001cf2428e961b0e32c9a49b78be6ac74
+    last_update: "2026-03-29"
+    last_checksum: 1421b8c3130328b9582c2a584e7b02fd2228375fdeb5ccc96cfe3e93ea76da2d
   - name: rp1-base:knowledge-base-templates
     description: Provides reusable templates for generating comprehensive codebase knowledge bases including architecture diagrams, concept maps, and module documentation. Supports both single-project and monorepo structures. Use when creating project documentation, knowledge bases, or when user mentions KB templates, codebase documentation, or project documentation structure.
     plugin: base
@@ -67,8 +67,8 @@ skills:
     agents_that_use_me: [rp1-base:kb-architecture-mapper]
     sub_agents_that_i_use: [rp1-base:kb-architecture-mapper,rp1-base:kb-concept-extractor,rp1-base:kb-module-analyzer,rp1-base:kb-pattern-extractor,rp1-base:kb-spatial-analyzer]
     skills_that_i_use: [rp1-base:knowledge-base-templates,rp1-base:mermaid]
-    last_update: "2026-03-27"
-    last_checksum: b0aec1c768dd298c5896e2fc0f64fa850d8eeec407c2ee4a78366633deeab800
+    last_update: "2026-03-29"
+    last_checksum: c9e364b11d6c8994b212810654c3964d52dca01b171b878c42556310491cadc7
   - name: rp1-base:knowledge-load
     description: Ingests and prepares codebase documentation, builds internal knowledge graphs, and creates optimized context representations for downstream analysis tasks.
     plugin: base
@@ -85,8 +85,8 @@ skills:
     agents_that_use_me: []
     sub_agents_that_i_use: []
     skills_that_i_use: []
-    last_update: "2026-03-27"
-    last_checksum: f2be203b3f45b761ca8cc6a05ec6ff2ce78e714cf6200aa2b82f322959be44ad
+    last_update: "2026-03-29"
+    last_checksum: 59adceb6470978ee9788152a9863d845ef7642e008c55b8c022ef3646b8f1230
   - name: rp1-base:mermaid
     description: Create, validate, and troubleshoot Mermaid.js diagrams. Use when generating flowcharts, sequence diagrams, class diagrams, ER diagrams, Gantt charts, state diagrams, or any visualization. Handles diagram validation, syntax errors, broken diagrams, and automatic repair. Trigger terms - mermaid, diagram, flowchart, sequence, class diagram, ER diagram, entity relationship, state machine, gantt, visualization, chart, graph.
     plugin: base
@@ -139,8 +139,8 @@ skills:
     agents_that_use_me: []
     sub_agents_that_i_use: []
     skills_that_i_use: []
-    last_update: "2026-03-07"
-    last_checksum: 9d4350ed5d0d5109701f822b4d1e83e6ce403d3fac9f33afc389fd538dbbe9a4
+    last_update: "2026-03-29"
+    last_checksum: dd7398f53fc5d3c3865c750ea6f1d65f66e5d04489820c3d5383a12e27f7bce2
   - name: rp1-dev:address-pr-feedback
     description: Unified PR feedback workflow - collect, triage, and fix review comments in a single command.
     plugin: dev
@@ -148,8 +148,8 @@ skills:
     agents_that_use_me: []
     sub_agents_that_i_use: [rp1-dev:pr-feedback-collector]
     skills_that_i_use: []
-    last_update: "2026-03-27"
-    last_checksum: 5204a61f91684df2e4168a27a41f12b7632eb9492b0b70ca7e7207ac088bf639
+    last_update: "2026-03-29"
+    last_checksum: 1fd43e99488e9d9a10a592856ce8ea6baa8544a24e1d98e642c0abbf45623c85
   - name: rp1-dev:arcade-collab
     description: Structured guidance for agents to read, classify, and act on user feedback (annotations and direct file edits) from the Arcade.
     plugin: dev
@@ -166,8 +166,8 @@ skills:
     agents_that_use_me: []
     sub_agents_that_i_use: [rp1-dev:prd-archiver]
     skills_that_i_use: [rp1-dev:blueprint]
-    last_update: "2026-03-27"
-    last_checksum: b0e7d0050c9d20c840fadf96f99a2b0de7f4552f67a751fce8c16db128b4fc45
+    last_update: "2026-03-29"
+    last_checksum: d0a2d00d3efdcd39a95e88a6bdd1e7a91e8fa80f627fe3e8b6530336e2509600
   - name: rp1-dev:blueprint-audit
     description: Audits a PRD against implementation status and guides lifecycle decisions.
     plugin: dev
@@ -184,8 +184,8 @@ skills:
     agents_that_use_me: []
     sub_agents_that_i_use: [rp1-dev:blueprint-wizard,rp1-dev:charter-interviewer]
     skills_that_i_use: [rp1-dev:build]
-    last_update: "2026-03-27"
-    last_checksum: d82649fadcb2d9d656796d1801df9e5b11c67d675d44c95c1ee8c050f01f96c2
+    last_update: "2026-03-29"
+    last_checksum: 5cdde7cb1d3ce520b72f39f4603462fcecc424fff7070bbcd41365ad94b89dbe
   - name: rp1-dev:bootstrap
     description: Bootstrap a new project with charter discovery and tech stack scaffolding for greenfield development.
     plugin: dev
@@ -211,8 +211,8 @@ skills:
     agents_that_use_me: []
     sub_agents_that_i_use: [rp1-dev:build-fast-planner,rp1-dev:task-builder,rp1-dev:task-reviewer]
     skills_that_i_use: [rp1-base:self-update,rp1-dev:arcade-collab,rp1-dev:build]
-    last_update: "2026-03-27"
-    last_checksum: aad99ca735990067107ee3197c7066461fc69fa31fde77369f20b4f046622c7d
+    last_update: "2026-03-29"
+    last_checksum: eeda9c29c0d0e4357fa07125c6024a7a9b52dfec7588c376c211eade5743d573
   - name: rp1-dev:build
     description: End-to-end feature workflow (requirements -> design -> tasks -> build -> verify -> archive) in a single command.
     plugin: dev
@@ -220,8 +220,8 @@ skills:
     agents_that_use_me: [rp1-dev:feature-editor,rp1-dev:hypothesis-tester]
     sub_agents_that_i_use: [rp1-dev:build-artifact-detector,rp1-dev:build-task-grouper,rp1-dev:build-task-parser,rp1-dev:build-verify-aggregator,rp1-dev:code-checker,rp1-dev:comment-cleaner,rp1-dev:feature-architect,rp1-dev:feature-archiver,rp1-dev:feature-requirement-gatherer,rp1-dev:feature-tasker,rp1-dev:feature-verifier,rp1-dev:hypothesis-tester,rp1-dev:task-builder,rp1-dev:task-reviewer]
     skills_that_i_use: [rp1-dev:code-check,rp1-dev:feature-archive]
-    last_update: "2026-03-27"
-    last_checksum: 054f8f6a2f6f6122eed9230d96ecc7815fb1dbfd16ae881973844abf48edd3fe
+    last_update: "2026-03-29"
+    last_checksum: 011904181216a5275babbebb656d48b76840745de8b614cae1f4e36f6da18a05
   - name: rp1-dev:code-audit
     description: Analyzes implemented code for pattern consistency, maintainability, code duplication, comment quality, and documentation drift.
     plugin: dev
@@ -265,8 +265,8 @@ skills:
     agents_that_use_me: []
     sub_agents_that_i_use: [rp1-dev:feature-archiver]
     skills_that_i_use: []
-    last_update: "2026-03-27"
-    last_checksum: bc33d4c5cc01039257abed1c85ac2faa1b6f5d79367df698bf82c4a8150cc834
+    last_update: "2026-03-29"
+    last_checksum: d98737b41d1e9211a7f54b0108215c621f17067682edf6fadee7350a89dbdac9
   - name: rp1-dev:feature-edit
     description: Incorporates mid-stream changes into feature documentation with validation and propagation.
     plugin: dev
@@ -283,8 +283,8 @@ skills:
     agents_that_use_me: []
     sub_agents_that_i_use: [rp1-dev:feature-archiver]
     skills_that_i_use: [rp1-dev:feature-archive]
-    last_update: "2026-03-27"
-    last_checksum: 82e6c314dd6d7ce2dd71486cc01da5f5dd226b8cf3fa4d53c52dca5a5a8b5645
+    last_update: "2026-03-29"
+    last_checksum: df61394f48b1ea13c0e32bcde6d6a1716318866c2e5d9f7428e8919838832462
   - name: rp1-dev:pr-review
     description: Intent-aware map-reduce PR review with CI/CD support, confidence gating, and intelligent comment deduplication.
     plugin: dev
@@ -292,8 +292,8 @@ skills:
     agents_that_use_me: []
     sub_agents_that_i_use: [rp1-dev:pr-comment-deduplicator,rp1-dev:pr-comment-poster,rp1-dev:pr-review-reporter,rp1-dev:pr-review-splitter,rp1-dev:pr-review-synthesizer,rp1-dev:pr-sub-reviewer,rp1-dev:pr-visualizer]
     skills_that_i_use: [rp1-dev:pr-visual]
-    last_update: "2026-03-27"
-    last_checksum: 2c22ed82cb1a97bf7d5f5e112e14b9ece79f64282d754c297381933dff3db55c
+    last_update: "2026-03-29"
+    last_checksum: 0286e17e1ad99a56edc23d15b18838e6603b64126d2d573b612534397160179c
   - name: rp1-dev:pr-visual
     description: Transform pull request diffs into Mermaid diagrams for visual code review and change understanding.
     plugin: dev
@@ -310,5 +310,5 @@ skills:
     agents_that_use_me: []
     sub_agents_that_i_use: [rp1-dev:hypothesis-tester]
     skills_that_i_use: []
-    last_update: "2026-03-27"
-    last_checksum: 507a981437cc12123cdbe33bcacbe3455b906fbf0fdffcfd3bcff54ab77ce85e
+    last_update: "2026-03-29"
+    last_checksum: f7861467751fdb78e30179d6e1f66323e25755f2d158509ed87c6a1ac23521c4
