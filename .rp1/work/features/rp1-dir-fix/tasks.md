@@ -6,7 +6,7 @@ rp1_doc_id: 70ebc9b1-5183-4c5f-9373-471cdcbed866
 
 **Feature ID**: rp1-dir-fix
 **Status**: In Progress
-**Progress**: 43% (3 of 7 tasks)
+**Progress**: 57% (4 of 7 tasks)
 **Estimated Effort**: 3 days
 **Started**: 2026-03-29
 
@@ -130,6 +130,18 @@ stateDiagram-v2
       - Reworked `loadDirectorySettings()` so it resolves the effective project root first, then reloads project-local settings from that effective root before final precedence is applied.
       - Added regressions at both the loader and runtime resolver layers for a user-level `project_root` redirect into a project with its own `.rp1/settings.toml`, verifying effective-project `kb_dir` and `work_dir` override user-level values.
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ✅ PASS |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
     **Execution Flow**:
 
     ```mermaid
@@ -139,7 +151,7 @@ stateDiagram-v2
         T2 --> [*]
     ```
 
-- [ ] **T3**: Extend agent tool and argument-resolution outputs with the resolved directory set `[complexity:medium]`
+- [x] **T3**: Extend agent tool and argument-resolution outputs with the resolved directory set `[complexity:medium]`
 
     **Reference**: [design.md#22-integration-points](design.md#22-integration-points)
 
@@ -147,9 +159,25 @@ stateDiagram-v2
 
     **Acceptance Criteria**:
 
-    - [ ] `rp1 agent-tools rp1-root-dir` returns backward-compatible `root` plus `projectRoot`, `kbDir`, `workDir`, and source metadata.
-    - [ ] `resolve-args` exposes `RP1_PROJECT_ROOT`, `RP1_KB_DIR`, and `RP1_WORK_DIR` in addition to `RP1_ROOT`.
-    - [ ] Repeated resolution in a workflow chain surfaces stable directory values when overrides do not change.
+    - [x] `rp1 agent-tools rp1-root-dir` returns backward-compatible `root` plus `projectRoot`, `kbDir`, `workDir`, and source metadata.
+    - [x] `resolve-args` exposes `RP1_PROJECT_ROOT`, `RP1_KB_DIR`, and `RP1_WORK_DIR` in addition to `RP1_ROOT`.
+    - [x] Repeated resolution in a workflow chain surfaces stable directory values when overrides do not change.
+
+    **Implementation Summary**:
+
+    - **Files**: `cli/src/agent-tools/rp1-root-dir/models.ts`, `cli/src/agent-tools/rp1-root-dir/resolver.ts`, `cli/src/agent-tools/resolve-args/resolver.ts`, `cli/src/__tests__/agent-tools/rp1-root-dir/resolver.test.ts`, `cli/src/__tests__/agent-tools/resolve-args/resolve-args.test.ts`
+    - **Approach**: Extended `rp1-root-dir` to return the full resolved directory set and per-field sources while preserving the legacy `root` and `source` fields, then taught `resolve-args` to populate all four RP1 directory environment variables from a single shared directory-resolution pass.
+    - **Deviations**: None
+    - **Tests**: 47/47 passing (`bun test cli/src/__tests__/agent-tools/rp1-root-dir/resolver.test.ts cli/src/__tests__/agent-tools/resolve-args/resolve-args.test.ts`)
+
+    **Execution Flow**:
+
+    ```mermaid
+    stateDiagram-v2
+        [*] --> T3
+        T3: Agent tool and argument propagation
+        T3 --> [*]
+    ```
 
 ### Persistence And UI
 
