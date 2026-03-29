@@ -10,6 +10,7 @@ import {
 	initTestRepo,
 	removeTestWorktree,
 	withEnvOverride,
+	writeFixture,
 } from "../helpers/index.js";
 
 describe("directory resolution", () => {
@@ -200,5 +201,206 @@ describe("directory resolution", () => {
 		} finally {
 			restore();
 		}
+	});
+
+	test("loads kb and work directories from project settings", async () => {
+		await writeFixture(
+			projectRoot,
+			".rp1/settings.toml",
+			[
+				"[directories]",
+				'kb_dir = "custom/context"',
+				'work_dir = "custom/work"',
+			].join("\n"),
+		);
+
+		const result = resolveDirectorySet(nestedPath);
+		expect(E.isRight(result)).toBe(true);
+		if (E.isLeft(result)) {
+			return;
+		}
+
+		expect(result.right.kbDir).toBe(join(projectRoot, "custom", "context"));
+		expect(result.right.workDir).toBe(join(projectRoot, "custom", "work"));
+		expect(result.right.sources.kbDir).toBe("project_settings");
+		expect(result.right.sources.workDir).toBe("project_settings");
+	});
+
+	test("applies project settings project_root as the effective runtime project root", async () => {
+		await writeFixture(
+			projectRoot,
+			".rp1/settings.toml",
+			[
+				"[directories]",
+				'project_root = "workspace"',
+				'kb_dir = "docs/context"',
+				'work_dir = "ops/work"',
+			].join("\n"),
+		);
+
+		const result = resolveDirectorySet(nestedPath);
+		expect(E.isRight(result)).toBe(true);
+		if (E.isLeft(result)) {
+			return;
+		}
+
+		expect(result.right.projectRoot).toBe(join(projectRoot, "workspace"));
+		expect(result.right.rp1Root).toBe(join(projectRoot, "workspace", ".rp1"));
+		expect(result.right.kbDir).toBe(
+			join(projectRoot, "workspace", "docs", "context"),
+		);
+		expect(result.right.workDir).toBe(
+			join(projectRoot, "workspace", "ops", "work"),
+		);
+		expect(result.right.sources.projectRoot).toBe("project_settings");
+		expect(result.right.sources.kbDir).toBe("project_settings");
+		expect(result.right.sources.workDir).toBe("project_settings");
+	});
+
+	test("applies user settings project_root when no project override exists", async () => {
+		const userHomeDir = join(tempBase, "user-home");
+		const globalSettingsPath = join(
+			userHomeDir,
+			".config",
+			"rp1",
+			"settings.toml",
+		);
+		await writeFixture(
+			userHomeDir,
+			".config/rp1/settings.toml",
+			[
+				"[directories]",
+				'project_root = "user-project"',
+				'kb_dir = "shared/kb"',
+				'work_dir = "shared/work"',
+			].join("\n"),
+		);
+
+		const result = resolveDirectorySet(plainDirectory, {
+			globalSettingsPath,
+			userHomeDir,
+		});
+		expect(E.isRight(result)).toBe(true);
+		if (E.isLeft(result)) {
+			return;
+		}
+
+		expect(result.right.projectRoot).toBe(join(userHomeDir, "user-project"));
+		expect(result.right.rp1Root).toBe(
+			join(userHomeDir, "user-project", ".rp1"),
+		);
+		expect(result.right.kbDir).toBe(join(userHomeDir, "shared", "kb"));
+		expect(result.right.workDir).toBe(join(userHomeDir, "shared", "work"));
+		expect(result.right.sources.projectRoot).toBe("user_settings");
+		expect(result.right.sources.kbDir).toBe("user_settings");
+		expect(result.right.sources.workDir).toBe("user_settings");
+	});
+
+	test("uses effective-project local directory overrides after a user project_root redirect", async () => {
+		const userHomeDir = join(tempBase, "redirect-user-home");
+		const redirectedProjectRoot = join(tempBase, "redirected-project");
+		const globalSettingsPath = join(
+			userHomeDir,
+			".config",
+			"rp1",
+			"settings.toml",
+		);
+		await writeFixture(
+			userHomeDir,
+			".config/rp1/settings.toml",
+			[
+				"[directories]",
+				`project_root = "${redirectedProjectRoot}"`,
+				'kb_dir = "user/kb"',
+				'work_dir = "user/work"',
+			].join("\n"),
+		);
+		await writeFixture(
+			redirectedProjectRoot,
+			".rp1/settings.toml",
+			[
+				"[directories]",
+				'kb_dir = "project/context"',
+				'work_dir = "project/work"',
+			].join("\n"),
+		);
+
+		const result = resolveDirectorySet(plainDirectory, {
+			globalSettingsPath,
+			userHomeDir,
+		});
+		expect(E.isRight(result)).toBe(true);
+		if (E.isLeft(result)) {
+			return;
+		}
+
+		expect(result.right.projectRoot).toBe(redirectedProjectRoot);
+		expect(result.right.rp1Root).toBe(join(redirectedProjectRoot, ".rp1"));
+		expect(result.right.kbDir).toBe(
+			join(redirectedProjectRoot, "project", "context"),
+		);
+		expect(result.right.workDir).toBe(
+			join(redirectedProjectRoot, "project", "work"),
+		);
+		expect(result.right.sources.projectRoot).toBe("user_settings");
+		expect(result.right.sources.kbDir).toBe("project_settings");
+		expect(result.right.sources.workDir).toBe("project_settings");
+	});
+
+	test("env overrides take precedence over configured directory settings", async () => {
+		await writeFixture(
+			projectRoot,
+			".rp1/settings.toml",
+			[
+				"[directories]",
+				'kb_dir = "custom/context"',
+				'work_dir = "custom/work"',
+			].join("\n"),
+		);
+		const restoreKbDir = withEnvOverride(
+			"RP1_KB_DIR",
+			join(tempBase, "env-kb-override"),
+		);
+		const restoreWorkDir = withEnvOverride(
+			"RP1_WORK_DIR",
+			join(tempBase, "env-work-override"),
+		);
+
+		try {
+			const result = resolveDirectorySet(nestedPath);
+			expect(E.isRight(result)).toBe(true);
+			if (E.isLeft(result)) {
+				return;
+			}
+
+			expect(result.right.kbDir).toBe(join(tempBase, "env-kb-override"));
+			expect(result.right.workDir).toBe(join(tempBase, "env-work-override"));
+			expect(result.right.sources.kbDir).toBe("env");
+			expect(result.right.sources.workDir).toBe("env");
+		} finally {
+			restoreWorkDir();
+			restoreKbDir();
+		}
+	});
+
+	test("returns a validation error when configured directory settings are invalid", async () => {
+		await writeFixture(
+			projectRoot,
+			".rp1/settings.toml",
+			"[directories]\nwork_dir = 42\n",
+		);
+
+		const result = resolveDirectorySet(nestedPath);
+		expect(E.isLeft(result)).toBe(true);
+		if (E.isRight(result)) {
+			return;
+		}
+
+		expect(result.left._tag).toBe("ValidationError");
+		if (result.left._tag !== "ValidationError") {
+			return;
+		}
+		expect(result.left.file).toContain(".rp1/settings.toml");
+		expect(result.left.message).toContain("[directories].work_dir");
 	});
 });
