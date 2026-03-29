@@ -11,6 +11,7 @@ import * as path from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { nanoid } from "nanoid";
 import { useCallback, useRef } from "react";
+import { formatError } from "../../../../shared/errors.js";
 import type { Logger } from "../../../../shared/logger.js";
 import {
 	loadToolsRegistry,
@@ -32,6 +33,7 @@ import {
 	type ProjectContext,
 } from "../../context-detector.js";
 import { detectGitRoot, type GitRootResult } from "../../git-root.js";
+import { buildManagedGitignoreContent } from "../../gitignore.js";
 import type {
 	Activity,
 	ActivityType,
@@ -43,7 +45,6 @@ import type {
 	ReinitState,
 	StepId,
 } from "../../models.js";
-import { GITIGNORE_PRESETS } from "../../models.js";
 import {
 	appendShellFencedContent,
 	hasShellFencedContent,
@@ -639,7 +640,14 @@ export const useStepExecution = ({
 
 			addAct("gitignore-config", `Applying ${preset} preset...`, "info");
 
-			const gitignoreContent = GITIGNORE_PRESETS[preset];
+			const gitignoreContentResult = buildManagedGitignoreContent(
+				ctx.cwd,
+				preset,
+			);
+			if (E.isLeft(gitignoreContentResult)) {
+				throw new Error(formatError(gitignoreContentResult.left, false));
+			}
+			const gitignoreContent = gitignoreContentResult.right;
 			const exists = await fileExists(gitignorePath);
 
 			if (!exists) {
