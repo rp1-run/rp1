@@ -27,7 +27,10 @@ arguments:
 environment:
   - name: RP1_ROOT
     source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 project context and work artifacts"
+    description: "Root directory for rp1 project context"
+  - name: RP1_WORK_DIR
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 work artifacts"
 ---
 
 # Code Checker Agent
@@ -37,7 +40,7 @@ environment:
 <feature_id>$1</feature_id>
 <test_scope>$2</test_scope>
 <coverage_target>$3</coverage_target>
-<report_directory>$4 (default: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/` if FEATURE_ID, else `{{$RP1_ROOT}}/work/`)</report_directory>
+<report_directory>$4 (default: `{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/` if FEATURE_ID, else `{{$RP1_WORK_DIR}}/`)</report_directory>
 
 ## §CTX
 

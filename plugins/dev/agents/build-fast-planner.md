@@ -20,7 +20,10 @@ arguments:
 environment:
   - name: RP1_ROOT
     source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 project context and work artifacts"
+    description: "Root directory for rp1 project context"
+  - name: RP1_WORK_DIR
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 work artifacts"
 ---
 
 # Build Fast Planner
@@ -99,18 +102,18 @@ If scope is Small or Medium, generate task breakdown:
 
 1. Generate slug from REQUEST: 2-4 word kebab-case (e.g., "fix-auth-validation", "add-logging-module")
 2. Get current date: `yyyy-mm-dd` format
-3. Check for existing files matching pattern `{date}-{slug}-*.md` in `{{$RP1_ROOT}}/work/quick-builds/`
+3. Check for existing files matching pattern `{date}-{slug}-*.md` in `{{$RP1_WORK_DIR}}/quick-builds/`
 4. Determine suffix `n`:
    - If no match: n=1
    - If matches exist: n = highest existing suffix + 1
 
 Filename: `{yyyy-mm-dd}-{slug}-{n}.md`
-Full path: `{{$RP1_ROOT}}/work/quick-builds/{filename}`
+Full path: `{{$RP1_WORK_DIR}}/quick-builds/{filename}`
 
 ### 4.2 Create Directory
 
 ```bash
-mkdir -p "{{$RP1_ROOT}}/work/quick-builds"
+mkdir -p "{{$RP1_WORK_DIR}}/quick-builds"
 ```
 
 ### 4.3 Write Artifact
@@ -156,10 +159,10 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step plan \
-  --data '{"path": "{artifact_path}", "feature": "quick-build"}'
+  --data '{"path": "quick-builds/{filename}", "feature": "quick-build"}'
 ```
 
-If the command fails, log a warning (`[build-fast-planner] Failed to register artifact {artifact_path}: {error}`) and continue without blocking.
+If the command fails, log a warning (`[build-fast-planner] Failed to register artifact quick-builds/{filename}: {error}`) and continue without blocking.
 
 ## 5. Output
 
@@ -192,7 +195,8 @@ After writing artifact, output:
   "reasoning": "[one line: files X, systems Y, risk Z]",
   "files_affected": "[list of files or patterns]",
   "plan_summary": "[2-4 sentences describing approach and changes]",
-  "artifact_path": "{RP1_ROOT}/work/quick-builds/{filename}",
+  "artifact_path": "{RP1_WORK_DIR}/quick-builds/{filename}",
+  "artifact_relative_path": "quick-builds/{filename}",
   "task_count": {number of tasks},
   "task_ids": "T1,T2,T3",
   "redirect_message": null

@@ -24,12 +24,15 @@ arguments:
 environment:
   - name: RP1_ROOT
     source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 project context and work artifacts"
+    description: "Root directory for rp1 project context"
+  - name: RP1_WORK_DIR
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 work artifacts"
 ---
 
 # Feature Archiver
 
-You are **ArchiverGPT** - archives completed features to `{{$RP1_ROOT}}/work/archives/features/` or restores them.
+You are **ArchiverGPT** - archives completed features to `{{$RP1_WORK_DIR}}/archives/features/` or restores them.
 
 ## §1 Validation
 
@@ -43,8 +46,8 @@ MODE must be `archive`|`unarchive`, FEATURE_ID non-empty. On fail:
 ## §2 Paths
 
 ```
-FEATURES_DIR = {{$RP1_ROOT}}/work/features/
-ARCHIVES_DIR = {{$RP1_ROOT}}/work/archives/features/
+FEATURES_DIR = {{$RP1_WORK_DIR}}/features/
+ARCHIVES_DIR = {{$RP1_WORK_DIR}}/archives/features/
 
 archive:   SOURCE={{$FEATURES_DIR}}/{FEATURE_ID}/  DEST={{$ARCHIVES_DIR}}/{FEATURE_ID}/
 unarchive: SOURCE={{$ARCHIVES_DIR}}/{FEATURE_ID}/  DEST={{$FEATURES_DIR}}/{FEATURE_ID}/
@@ -73,7 +76,7 @@ If DEST exists: append `_{TIMESTAMP}` (format: `%Y%m%d_%H%M%S`)
 
 **If `{{$SOURCE}}/field-notes.md` exists:**
 
-1. Find PRD: check `requirements.md` for `PRD:` ref or `{{$RP1_ROOT}}/work/prds/*.md` link; fallback `main.md`
+1. Find PRD: check `requirements.md` for `PRD:` ref or `{{$RP1_WORK_DIR}}/prds/*.md` link; fallback `main.md`
 2. Extract valuable entries (incl: `Design Deviation`, `Codebase Discovery`, `Workaround`; excl: `Task {N}`, `User Clarification`, feature-specific)
 3. Compact to one-liners:
    ```

@@ -26,7 +26,10 @@ arguments:
 environment:
   - name: RP1_ROOT
     source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 project context and work artifacts"
+    description: "Root directory for rp1 project context"
+  - name: RP1_WORK_DIR
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 work artifacts"
 ---
 
 # Feature Tasker Agent
@@ -37,7 +40,7 @@ environment:
 <update_mode>$2</update_mode>
 ## §1 Context Loading
 
-Read `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`:
+Read `{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/`:
 
 | File | Req | Purpose |
 |------|-----|---------|
@@ -404,7 +407,7 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step tasks \
-  --data '{"path": ".rp1/work/features/{FEATURE_ID}/tasks.md", "feature": "{FEATURE_ID}", "subflow": true}'
+  --data '{"path": "features/{FEATURE_ID}/tasks.md", "feature": "{FEATURE_ID}", "subflow": true}'
 ```
 
 **Large scope** (tracker.md + milestone files):
@@ -415,7 +418,7 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step tasks \
-  --data '{"path": ".rp1/work/features/{FEATURE_ID}/tracker.md", "feature": "{FEATURE_ID}", "subflow": true}'
+  --data '{"path": "features/{FEATURE_ID}/tracker.md", "feature": "{FEATURE_ID}", "subflow": true}'
 ```
 
 Also register each `milestone-{N}.md` written:
@@ -426,7 +429,7 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step tasks \
-  --data '{"path": ".rp1/work/features/{FEATURE_ID}/milestone-{N}.md", "feature": "{FEATURE_ID}"}'
+  --data '{"path": "features/{FEATURE_ID}/milestone-{N}.md", "feature": "{FEATURE_ID}"}'
 ```
 
 If any command fails, log a warning (`[feature-tasker] Failed to register artifact {path}: {error}`) and continue without blocking.
@@ -435,7 +438,7 @@ If any command fails, log a warning (`[feature-tasker] Failed to register artifa
 
 ### Fresh (UPDATE_MODE=false)
 ```
-Task planning completed: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`
+Task planning completed: `{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/`
 
 **Generated**: [tasks.md | tracker.md + milestone-*.md]
 
@@ -449,7 +452,7 @@ Task planning completed: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`
 
 ### Incremental (UPDATE_MODE=true)
 ```
-Task update completed: `{{$RP1_ROOT}}/work/features/{FEATURE_ID}/`
+Task update completed: `{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/`
 
 **Incremental Update Summary**:
 - Preserved: [N]

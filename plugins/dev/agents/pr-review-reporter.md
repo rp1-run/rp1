@@ -31,7 +31,7 @@ arguments:
   - name: OUTPUT_DIR
     type: string
     required: false
-    default: ".rp1/work/pr-reviews"
+    default: "pr-reviews"
     description: "Directory for report output"
   - name: REVIEW_ID
     type: string

@@ -61,7 +61,10 @@ metadata:
   environment:
     - name: RP1_ROOT
       source: "rp1 agent-tools rp1-root-dir"
-      description: "Root directory for rp1 project context and work artifacts"
+      description: "Root directory for rp1 project context"
+    - name: RP1_WORK_DIR
+      source: "rp1 agent-tools rp1-root-dir"
+      description: "Root directory for rp1 work artifacts"
   sub_agents:
     - "rp1-dev:build-fast-planner"
     - "rp1-dev:task-builder"
@@ -139,7 +142,7 @@ rp1 agent-tools emit \
 DEVELOPMENT_REQUEST={DEVELOPMENT_REQUEST}, RP1_ROOT={{$RP1_ROOT}}, WORKFLOW=build-fast, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
-**Parse response**: Extract `scope`, `plan_summary`, `files_affected`, `reasoning`, `artifact_path`, `task_count`, `task_ids`.
+**Parse response**: Extract `scope`, `plan_summary`, `files_affected`, `reasoning`, `artifact_path`, `artifact_relative_path`, `task_count`, `task_ids`.
 
 **If planner fails or returns an error**: Retry the planner once. If it fails again, use a `general-purpose` agent with the same prompt to generate the plan and artifact. Never skip planning — always produce an artifact before §PHASE-2.
 
@@ -194,7 +197,7 @@ Present the plan review to the user:
 **You MUST spawn task-builder here.** Do not implement the tasks yourself.
 
 {% dispatch_agent "rp1-dev:task-builder" %}
-QUICK_BUILD_PATH={artifact_path}
+QUICK_BUILD_PATH={{$RP1_WORK_DIR}}/{artifact_relative_path}
 TASK_IDS={task_ids}
 GIT_COMMIT={GIT_COMMIT}
 RP1_ROOT={{$RP1_ROOT}}
@@ -213,7 +216,7 @@ RUN_ID={RUN_ID}
 **You MUST use `subagent_type: rp1-dev:task-reviewer`** — do not use `general-purpose` or any other agent type.
 
 {% dispatch_agent "rp1-dev:task-reviewer" %}
-QUICK_BUILD_PATH={artifact_path}
+QUICK_BUILD_PATH={{$RP1_WORK_DIR}}/{artifact_relative_path}
 TASK_IDS={task_ids}
 GIT_COMMIT={GIT_COMMIT}
 RP1_ROOT={{$RP1_ROOT}}
@@ -231,7 +234,7 @@ If `status` = "FAILURE":
 2. Re-spawn task-builder with feedback:
 
 {% dispatch_agent "rp1-dev:task-builder" %}
-QUICK_BUILD_PATH={artifact_path}
+QUICK_BUILD_PATH={{$RP1_WORK_DIR}}/{artifact_relative_path}
 TASK_IDS={task_ids}
 GIT_COMMIT={GIT_COMMIT}
 RP1_ROOT={{$RP1_ROOT}}
@@ -294,7 +297,7 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step build \
-  --data '{"path": "{artifact_path}", "feature": "quick-build"}'
+  --data '{"path": "{artifact_relative_path}", "feature": "quick-build"}'
 ```
 
 ```markdown

@@ -21,7 +21,10 @@ arguments:
 environment:
   - name: RP1_ROOT
     source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 project context and work artifacts"
+    description: "Root directory for rp1 project context"
+  - name: RP1_WORK_DIR
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Root directory for rp1 work artifacts"
 ---
 
 # Security Validator - Comprehensive Security Analysis
@@ -204,7 +207,7 @@ After completing your analysis, provide a comprehensive security report with thi
 [APPROVED - Minor improvements can be addressed post-release]
 
 ## Detailed Findings Report
-Location: `{{$RP1_ROOT}}/work/features/{feature_id}/security_report.md`
+Location: `{{$RP1_WORK_DIR}}/features/{feature_id}/security_report.md`
 ```
 
 ## Quality Standards

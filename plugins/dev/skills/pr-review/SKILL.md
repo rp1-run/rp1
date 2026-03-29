@@ -34,7 +34,10 @@ metadata:
   environment:
     - name: RP1_ROOT
       source: "rp1 agent-tools rp1-root-dir"
-      description: "Root directory for rp1 project context and work artifacts"
+      description: "Root directory for rp1 project context"
+    - name: RP1_WORK_DIR
+      source: "rp1 agent-tools rp1-root-dir"
+      description: "Root directory for rp1 work artifacts"
   sub_agents:
     - "rp1-dev:pr-visualizer"
     - "rp1-dev:pr-review-splitter"
@@ -279,7 +282,7 @@ Parse `units`, store counts. Fail -> Abort w/ error.
      CROSS_FILE_JSON: {{stringify(cross_file_findings)}}
      STATS_JSON: {{stringify(stats)}}
      VISUAL_CONTENT: {{VISUAL_CONTENT or ""}}
-     OUTPUT_DIR: {{$RP1_ROOT}}/work/pr-reviews
+     OUTPUT_DIR: {{$RP1_WORK_DIR}}/pr-reviews
      REVIEW_ID: {{review_id}}
      Return JSON with path.
    {% enddispatch_agent %}
