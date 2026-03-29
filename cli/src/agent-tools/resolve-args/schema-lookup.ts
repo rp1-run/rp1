@@ -11,6 +11,13 @@ import { fileURLToPath } from "node:url";
 import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
+import type { CanonicalName } from "../../../shared/canonical-name.js";
+import {
+	parseUserFacing,
+	toCanonicalString,
+	toPluginName,
+	toUserFacing,
+} from "../../../shared/canonical-name.js";
 import type { CLIError } from "../../../shared/errors.js";
 import { notFoundError, usageError } from "../../../shared/errors.js";
 import type { BundledPlugin } from "../../assets/reader.js";
@@ -20,73 +27,40 @@ import {
 	hasBundledAssets,
 } from "../../assets/reader.js";
 
-/** Parsed namespace from a skill/agent name like "rp1-dev:build". */
-export interface ParsedNamespace {
-	readonly pluginShort: string;
-	readonly artifactName: string;
-}
-
 /**
- * Parse a namespace reference like "rp1-dev:build" into plugin short name and artifact name.
- * Strips the "rp1-" prefix from the plugin portion.
+ * @deprecated Use {@link parseUserFacing} from canonical-name.ts directly.
+ * Kept for backwards compatibility with existing test imports.
  */
-export const parseNamespace = (
-	name: string,
-): E.Either<CLIError, ParsedNamespace> => {
-	const colonIndex = name.indexOf(":");
-	if (colonIndex < 0) {
-		return E.left(
-			usageError(
-				`Invalid name format: "${name}"`,
-				'Use "<plugin>:<name>" format (e.g., "rp1-dev:build").',
-			),
-		);
-	}
+export const parseNamespace = parseUserFacing;
 
-	const pluginPart = name.slice(0, colonIndex);
-	const artifactName = name.slice(colonIndex + 1);
-
-	if (!pluginPart || !artifactName) {
-		return E.left(
-			usageError(
-				`Invalid name format: "${name}"`,
-				'Both plugin and name parts are required (e.g., "rp1-dev:build").',
-			),
-		);
-	}
-
-	const pluginShort = pluginPart.replace(/^rp1-/, "");
-
-	return E.right({ pluginShort, artifactName });
-};
+/** @deprecated Use {@link CanonicalName} from canonical-name.ts directly. */
+export type ParsedNamespace = CanonicalName;
 
 /**
- * Match a skill entry by canonical name.
- * Entry names are "{prefix}{canonicalName}/SKILL.md" where prefix is "" or "rp1-".
+ * Match a skill entry by canonical artifact name.
+ * Entry names are "{prefix}{artifact}/SKILL.md" where prefix is "" or "rp1-".
  */
 const matchSkillEntry = (
 	entry: { name: string },
-	artifactName: string,
+	artifact: string,
 ): boolean => {
 	if (!entry.name.endsWith("/SKILL.md")) return false;
 	const dirName = entry.name.slice(0, -"/SKILL.md".length);
-	// Handle nested path segments (e.g., "rp1-build/subdir/SKILL.md" won't match,
-	// but "rp1-build/SKILL.md" will via the final segment)
 	const baseName = dirName.includes("/") ? dirName.split("/").pop()! : dirName;
 	const canonical = baseName.replace(/^rp1-/, "");
-	return canonical === artifactName;
+	return canonical === artifact;
 };
 
 /**
- * Match an agent entry by canonical name.
- * Entry names are "{canonicalName}" with .md or .toml extension.
+ * Match an agent entry by canonical artifact name.
+ * Entry names are "{artifact}" with .md or .toml extension.
  */
 const matchAgentEntry = (
 	entry: { name: string },
-	artifactName: string,
+	artifact: string,
 ): boolean => {
 	const name = entry.name.replace(/\.(md|toml)$/, "");
-	return name === artifactName;
+	return name === artifact;
 };
 
 /**
@@ -95,16 +69,12 @@ const matchAgentEntry = (
  */
 const findInPlugin = (
 	plugin: BundledPlugin,
-	artifactName: string,
+	artifact: string,
 ): string | null => {
-	const skillEntry = plugin.skills.find((e) =>
-		matchSkillEntry(e, artifactName),
-	);
+	const skillEntry = plugin.skills.find((e) => matchSkillEntry(e, artifact));
 	if (skillEntry) return skillEntry.path;
 
-	const agentEntry = plugin.agents.find((e) =>
-		matchAgentEntry(e, artifactName),
-	);
+	const agentEntry = plugin.agents.find((e) => matchAgentEntry(e, artifact));
 	if (agentEntry) return agentEntry.path;
 
 	return null;
@@ -116,10 +86,9 @@ const findInPlugin = (
  * Returns the embedded blob path on success.
  */
 const findInBundledManifest = (
-	parsed: ParsedNamespace,
+	name: CanonicalName,
 ): E.Either<CLIError, string> => {
-	const { pluginShort, artifactName } = parsed;
-	const pluginName = `rp1-${pluginShort}`;
+	const pluginName = toPluginName(name);
 
 	const assetsResult = getBundledAssets();
 	if (assetsResult._tag === "Left") return assetsResult;
@@ -131,14 +100,14 @@ const findInBundledManifest = (
 		);
 		if (!plugin) continue;
 
-		const path = findInPlugin(plugin, artifactName);
+		const path = findInPlugin(plugin, name.artifact);
 		if (path) return E.right(path);
 	}
 
 	return E.left(
 		notFoundError(
-			`rp1-${pluginShort}:${artifactName}`,
-			`Could not find schema for "${pluginShort}:${artifactName}" in the embedded manifest.`,
+			toUserFacing(name),
+			`Could not find schema for "${toCanonicalString(name)}" in the embedded manifest.`,
 		),
 	);
 };
@@ -175,14 +144,12 @@ interface DiskManifest {
  * Returns the absolute filesystem path to the matching skill/agent file.
  */
 const findInDevManifests = async (
-	parsed: ParsedNamespace,
+	name: CanonicalName,
 ): Promise<string | null> => {
-	const { pluginShort, artifactName } = parsed;
-	const pluginName = `rp1-${pluginShort}`;
+	const pluginName = toPluginName(name);
 	const repoRoot = getRepoRoot();
 	const distDir = join(repoRoot, "dist");
 
-	// Scan all platform directories under dist/
 	let platformDirs: string[];
 	try {
 		const { readdir } = await import("node:fs/promises");
@@ -191,8 +158,8 @@ const findInDevManifests = async (
 		return null;
 	}
 
-	for (const platformName of platformDirs) {
-		const manifestPath = join(distDir, platformName, "bundle-manifest.json");
+	for (const platformDir of platformDirs) {
+		const manifestPath = join(distDir, platformDir, "bundle-manifest.json");
 		let manifest: DiskManifest;
 		try {
 			const content = await readFile(manifestPath, "utf-8");
@@ -206,20 +173,18 @@ const findInDevManifests = async (
 		);
 		if (!plugin) continue;
 
-		// Search skills
 		const skillEntry = (plugin.skills ?? []).find((e) =>
-			matchSkillEntry(e, artifactName),
+			matchSkillEntry(e, name.artifact),
 		);
 		if (skillEntry) {
-			return join(distDir, platformName, skillEntry.path);
+			return join(distDir, platformDir, skillEntry.path);
 		}
 
-		// Search agents
 		const agentEntry = (plugin.agents ?? []).find((e) =>
-			matchAgentEntry(e, artifactName),
+			matchAgentEntry(e, name.artifact),
 		);
 		if (agentEntry) {
-			return join(distDir, platformName, agentEntry.path);
+			return join(distDir, platformDir, agentEntry.path);
 		}
 	}
 
@@ -239,31 +204,31 @@ const fileExists = async (path: string): Promise<boolean> => {
 };
 
 /**
- * Resolve a namespace name to a schema file path.
+ * Resolve a canonical name to a schema file path.
  * Uses the embedded manifest (production) or dist/ bundle-manifest.json files (development).
  */
 export const resolveSchemaPath = (
-	parsed: ParsedNamespace,
+	name: CanonicalName,
 ): TE.TaskEither<CLIError, string> => {
 	// Production: use embedded manifest
 	if (hasBundledAssets()) {
-		return TE.fromEither(findInBundledManifest(parsed));
+		return TE.fromEither(findInBundledManifest(name));
 	}
 
 	// Development: read bundle-manifest.json from dist/
 	return TE.tryCatch(
 		async () => {
-			const result = await findInDevManifests(parsed);
+			const result = await findInDevManifests(name);
 			if (result) return result;
 
 			throw new Error(
-				`Could not find schema for "${parsed.pluginShort}:${parsed.artifactName}" in dist/ bundle manifests. ` +
+				`Could not find schema for "${toCanonicalString(name)}" in dist/ bundle manifests. ` +
 					"Ensure you have run a build first.",
 			);
 		},
 		(err) =>
 			notFoundError(
-				`rp1-${parsed.pluginShort}:${parsed.artifactName}`,
+				toUserFacing(name),
 				err instanceof Error ? err.message : String(err),
 			),
 	);
@@ -299,7 +264,7 @@ export const resolveSchemaFromNameOrPath = (
 	// Name-based lookup via manifest
 	if (name) {
 		return pipe(
-			TE.fromEither(parseNamespace(name)),
+			TE.fromEither(parseUserFacing(name)),
 			TE.chain(resolveSchemaPath),
 		);
 	}

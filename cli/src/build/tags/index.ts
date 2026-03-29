@@ -12,7 +12,12 @@
  * Mirrors the registerFilters() pattern in cli/src/build/filters/index.ts.
  */
 
+import * as E from "fp-ts/lib/Either.js";
 import type { Liquid } from "liquidjs";
+import {
+	parseUserFacing,
+	toPluginName,
+} from "../../../shared/canonical-name.js";
 import type { BuildPlatform } from "../template-context.js";
 import { AskUserTag } from "./ask-user.js";
 import { DispatchAgentTag } from "./dispatch-agent.js";
@@ -198,25 +203,21 @@ export function transformNamespace(
 	ref: string,
 	platform: BuildPlatform,
 ): string {
+	const parsed = parseUserFacing(ref);
+	if (E.isLeft(parsed)) return ref;
+
+	const { artifact } = parsed.right;
+	const pluginName = toPluginName(parsed.right);
+
 	switch (platform) {
 		case "claude-code":
 			return ref;
-		case "opencode": {
+		case "opencode":
 			// rp1-base:agent -> @rp1-base/agent
-			const match = ref.match(/^(rp1-(?:base|dev|utils)):(.+)$/);
-			if (match) {
-				return `@${match[1]}/${match[2]}`;
-			}
-			return ref;
-		}
-		case "codex": {
+			return `@${pluginName}/${artifact}`;
+		case "codex":
 			// rp1-base:agent -> rp1-base-agent
-			const match = ref.match(/^(rp1-(?:base|dev|utils)):(.+)$/);
-			if (match) {
-				return `${match[1]}-${match[2]}`;
-			}
-			return ref;
-		}
+			return `${pluginName}-${artifact}`;
 	}
 }
 
