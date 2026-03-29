@@ -11,6 +11,7 @@ import {
 	parseUserFacing,
 	toCanonicalString,
 } from "../../../shared/canonical-name.js";
+import { resolveDirectorySet } from "../../../shared/directory-resolution.js";
 import type { CLIError } from "../../../shared/errors.js";
 import {
 	notFoundError,
@@ -22,7 +23,6 @@ import type {
 	EnvironmentDefinition,
 } from "../../build/models.js";
 import { loadArgumentDefaultsForSkill } from "../../settings/loader.js";
-import { resolveRp1Root } from "../rp1-root-dir/resolver.js";
 import type {
 	ResolveArgsInput,
 	ResolvedArgs,
@@ -315,8 +315,17 @@ export const resolveImpliesChains = (
  */
 const resolveEnvironment = async (
 	envDefs: readonly EnvironmentDefinition[],
+	projectRoot: string,
 ): Promise<ResolvedEnvironmentValues> => {
 	const result: Record<string, string> = {};
+	const needsDirectoryResolution = envDefs.some((def) =>
+		["RP1_ROOT", "RP1_PROJECT_ROOT", "RP1_KB_DIR", "RP1_WORK_DIR"].includes(
+			def.name,
+		),
+	);
+	const directories = needsDirectoryResolution
+		? resolveDirectorySet(projectRoot)
+		: undefined;
 
 	for (const def of envDefs) {
 		// Check if there's an environment variable with the parameter name
@@ -326,11 +335,24 @@ const resolveEnvironment = async (
 			continue;
 		}
 
-		// Fall back to built-in resolver for RP1_ROOT
-		if (def.name === "RP1_ROOT") {
-			const rootResult = await resolveRp1Root()();
-			if (rootResult._tag === "Right") {
-				result[def.name] = rootResult.right.root;
+		if (directories && E.isRight(directories)) {
+			if (def.name === "RP1_ROOT") {
+				result[def.name] = directories.right.rp1Root;
+				continue;
+			}
+
+			if (def.name === "RP1_PROJECT_ROOT") {
+				result[def.name] = directories.right.projectRoot;
+				continue;
+			}
+
+			if (def.name === "RP1_KB_DIR") {
+				result[def.name] = directories.right.kbDir;
+				continue;
+			}
+
+			if (def.name === "RP1_WORK_DIR") {
+				result[def.name] = directories.right.workDir;
 			}
 		}
 	}
@@ -475,7 +497,10 @@ export const resolveArgs = (
 					}
 
 					// Resolve environment parameters
-					const environment = await resolveEnvironment(envDefs);
+					const environment = await resolveEnvironment(
+						envDefs,
+						input.project_root,
+					);
 
 					return {
 						arguments: resolved as ResolvedArgumentValues,

@@ -102,13 +102,22 @@ describe("rp1-root-dir resolver", () => {
 	});
 
 	describe("standard repo (non-worktree)", () => {
-		test("returns isWorktree: false and source: 'cwd' for standard git repo", async () => {
+		test("returns backward-compatible root and resolved directory metadata for standard git repo", async () => {
 			const result = await expectTaskRight(resolveRp1Root(standardRepoRoot));
 
 			expect(result.isWorktree).toBe(false);
 			expect(result.source).toBe("cwd");
 			expect(result.root).toBe(join(standardRepoRoot, ".rp1"));
+			expect(result.projectRoot).toBe(standardRepoRoot);
+			expect(result.kbDir).toBe(join(standardRepoRoot, ".rp1", "context"));
+			expect(result.workDir).toContain(".rp1");
 			expect(result.worktreeName).toBeUndefined();
+			expect(result.sources).toEqual({
+				root: "cwd",
+				projectRoot: "git_repo_root",
+				kbDir: "default",
+				workDir: "default",
+			});
 		});
 
 		test("returns correct root from subdirectory of standard repo", async () => {
@@ -143,7 +152,7 @@ describe("rp1-root-dir resolver", () => {
 	});
 
 	describe("RP1_ROOT env override", () => {
-		test("returns env value with source: 'env' when RP1_ROOT is set", async () => {
+		test("returns env value with source metadata when RP1_ROOT is set", async () => {
 			const customRoot = join(tempBase, "custom-rp1-root");
 			process.env.RP1_ROOT = customRoot;
 
@@ -151,6 +160,12 @@ describe("rp1-root-dir resolver", () => {
 
 			expect(result.source).toBe("env");
 			expect(result.root).toBe(customRoot);
+			expect(result.projectRoot).toBe(tempBase);
+			expect(result.kbDir).toBe(join(customRoot, "context"));
+			expect(result.sources.root).toBe("env");
+			expect(result.sources.projectRoot).toBe("env");
+			expect(result.sources.kbDir).toBe("default");
+			expect(result.sources.workDir).toBe("default");
 			expect(result.isWorktree).toBe(false);
 		});
 

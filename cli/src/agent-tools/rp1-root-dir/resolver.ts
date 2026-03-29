@@ -7,6 +7,15 @@ import { resolveDirectorySet } from "../../../shared/directory-resolution.js";
 import type { CLIError } from "../../../shared/errors.js";
 import type { Rp1RootResult } from "./models.js";
 
+const mapRootSource = (
+	projectRootSource: ResolvedDirectorySet["sources"]["projectRoot"],
+): Rp1RootResult["source"] =>
+	projectRootSource === "git_common_dir"
+		? "git-common-dir"
+		: projectRootSource === "env"
+			? "env"
+			: "cwd";
+
 export const resolveRp1Root = (
 	cwd: string = process.cwd(),
 ): TE.TaskEither<CLIError, Rp1RootResult> =>
@@ -16,14 +25,18 @@ export const resolveRp1Root = (
 			E.map(
 				(directories: ResolvedDirectorySet): Rp1RootResult => ({
 					root: directories.rp1Root,
+					projectRoot: directories.projectRoot,
+					kbDir: directories.kbDir,
+					workDir: directories.workDir,
 					isWorktree: directories.isWorktree,
 					worktreeName: directories.worktreeName,
-					source:
-						directories.sources.projectRoot === "git_common_dir"
-							? "git-common-dir"
-							: directories.sources.projectRoot === "env"
-								? "env"
-								: "cwd",
+					source: mapRootSource(directories.sources.projectRoot),
+					sources: {
+						root: mapRootSource(directories.sources.projectRoot),
+						projectRoot: directories.sources.projectRoot,
+						kbDir: directories.sources.kbDir,
+						workDir: directories.sources.workDir,
+					},
 				}),
 			),
 		),
