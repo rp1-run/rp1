@@ -4,10 +4,12 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { join } from "node:path";
 import {
 	generateFeatureId,
 	generateRunId,
 	parseWorkflowName,
+	resolveArtifactPaths,
 } from "../../commands/fake.js";
 
 describe("parseWorkflowName", () => {
@@ -84,5 +86,22 @@ describe("generateRunId", () => {
 	test("generates unique IDs on successive calls", () => {
 		const ids = new Set(Array.from({ length: 10 }, () => generateRunId()));
 		expect(ids.size).toBe(10);
+	});
+});
+
+describe("resolveArtifactPaths", () => {
+	test("builds work-dir-relative artifact registration paths", () => {
+		const workDir = "/tmp/rp1-work";
+		const result = resolveArtifactPaths(
+			workDir,
+			"feature-123",
+			"verify-report.md",
+		);
+
+		expect(result.artifactPath).toBe(
+			join("features", "feature-123", "verify-report.md"),
+		);
+		expect(result.fullDir).toBe(join(workDir, "features", "feature-123"));
+		expect(result.artifactPath.startsWith(workDir)).toBe(false);
 	});
 });
