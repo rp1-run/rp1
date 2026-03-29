@@ -8,7 +8,7 @@
  */
 
 import type { Database } from "bun:sqlite";
-import { extname, join, relative, resolve } from "node:path";
+import { extname, join, resolve } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { formatError } from "../../../../shared/errors.js";
 import type {
@@ -29,6 +29,7 @@ import {
 	getRunsByAttentionStatus,
 	getStepStatuses,
 	listRuns,
+	resolveArtifactPathForRun,
 } from "../../../../src/agent-tools/emit/database.js";
 import {
 	deriveOrderedSteps,
@@ -49,6 +50,17 @@ import type {
 	StepStatus,
 } from "../../types/runs";
 import {
+	getRunDirectories,
+	listProjectSectionRoots,
+	matchesArtifactDisplayPath,
+	type ProjectDirectories,
+	resolveArtifactAbsolutePath,
+	resolveProjectDirectories,
+	resolveProjectSectionFilePath,
+	toArtifactDisplayPath,
+	toArtifactDisplayPathFromAbsolute,
+} from "../project-paths";
+import {
 	getAllProjects,
 	getProject,
 	isValidProject,
@@ -66,7 +78,6 @@ import {
 	getMimeType,
 	jsonResponse,
 	parseFrontmatter,
-	resolveWithArchiveFallback,
 	validateFilePath,
 } from "./content-utils";
 
@@ -123,40 +134,15 @@ function parseJsonSafe(
  * - Absolute paths -> strip project prefix to make relative
  * - Already relative -> pass through
  */
-function normalizeArtifactPath(
-	artifactPath: string,
-	featureId: string,
-	projectPath?: string,
-): string {
-	if (!artifactPath.includes("/")) {
-		return `.rp1/work/features/${featureId}/${artifactPath}`;
-	}
-	if (projectPath && artifactPath.startsWith("/")) {
-		const prefix = projectPath.endsWith("/") ? projectPath : `${projectPath}/`;
-		if (artifactPath.startsWith(prefix)) {
-			return artifactPath.slice(prefix.length);
-		}
-	}
-	return artifactPath;
-}
-
-/**
- * Convert an ArtifactRecord from the emit database to a frontend Artifact type.
- */
 function artifactRecordToArtifact(
 	record: ArtifactRecord,
-	projectPath: string,
-	featureId: string,
+	directories: ProjectDirectories,
 ): Artifact {
-	const relativePath = normalizeArtifactPath(
-		record.path,
-		featureId,
-		projectPath,
-	);
+	const relativePath = toArtifactDisplayPath(directories, record);
 	return {
 		docId: record.docId,
 		path: relativePath,
-		absolutePath: resolve(projectPath, relativePath),
+		absolutePath: resolveArtifactAbsolutePath(directories, record),
 		type: record.type as ArtifactType,
 		updatedDuringRun: true,
 		isNew: false,
@@ -170,14 +156,11 @@ function artifactRecordToArtifact(
  * Used as a fallback when no artifacts are registered in the database.
  */
 async function discoverArtifactsFromFilesystem(
-	projectPath: string,
+	workDir: string,
 	featureId: string,
 ): Promise<readonly Artifact[]> {
-	const featureDir = resolve(projectPath, `.rp1/work/features/${featureId}`);
-	const archiveDir = resolve(
-		projectPath,
-		`.rp1/work/archives/features/${featureId}`,
-	);
+	const featureDir = resolve(workDir, `features/${featureId}`);
+	const archiveDir = resolve(workDir, `archives/features/${featureId}`);
 
 	const { existsSync } = await import("node:fs");
 	const dir = existsSync(featureDir)
@@ -190,11 +173,8 @@ async function discoverArtifactsFromFilesystem(
 
 	const glob = new Bun.Glob("*.md");
 	const artifacts: Artifact[] = [];
-	const resolvedProjectPath = resolve(projectPath);
 	for await (const entry of glob.scan({ cwd: dir })) {
-		const relativePath = dir.startsWith(resolvedProjectPath)
-			? `${dir.slice(resolvedProjectPath.length + 1)}/${entry}`
-			: entry;
+		const relativePath = `work/${dir === featureDir ? `features/${featureId}` : `archives/features/${featureId}`}/${entry}`;
 		artifacts.push({
 			docId: `fs:${relativePath}`,
 			path: relativePath,
@@ -215,9 +195,9 @@ async function discoverArtifactsFromFilesystem(
  * Only reads .mmd files marked as subflow artifacts.
  */
 async function getSubflowDiagrams(
-	projectPath: string,
 	artifacts: readonly Artifact[],
 	events: readonly EventRecord[],
+	directories: ProjectDirectories,
 ): Promise<Readonly<Record<string, string>>> {
 	const subflows: Record<string, string> = {};
 
@@ -227,8 +207,7 @@ async function getSubflowDiagrams(
 		if (!artifact.path.endsWith(".mmd")) continue;
 
 		try {
-			const filePath = resolve(projectPath, artifact.path);
-			const file = Bun.file(filePath);
+			const file = Bun.file(artifact.absolutePath);
 			if (await file.exists()) {
 				subflows[artifact.step] = await file.text();
 			}
@@ -250,7 +229,8 @@ async function getSubflowDiagrams(
 			subflows[event.step] = diagram;
 		} else if (path) {
 			try {
-				const filePath = resolve(projectPath, path);
+				const filePath =
+					(await resolveProjectSectionFilePath(directories, path)) ?? path;
 				const file = Bun.file(filePath);
 				if (await file.exists()) {
 					subflows[event.step] = await file.text();
@@ -495,6 +475,7 @@ async function buildDetailedRun(
 	project: ProjectEntry,
 ): Promise<Run> {
 	const command = `/${record.flow}`;
+	const directories = getRunDirectories(record);
 
 	const stepStatuses = getStepStatuses(db, record.id);
 	const events = getEventsForRun(db, record.id);
@@ -504,14 +485,14 @@ async function buildDetailedRun(
 	if (artifactRecords.length > 0) {
 		const deduped = new Map<string, ArtifactRecord>();
 		for (const ar of artifactRecords) {
-			deduped.set(ar.path, ar);
+			deduped.set(toArtifactDisplayPath(directories, ar), ar);
 		}
 		artifacts = [...deduped.values()].map((ar) =>
-			artifactRecordToArtifact(ar, record.projectPath, record.featureId),
+			artifactRecordToArtifact(ar, directories),
 		);
 	} else {
 		artifacts = await discoverArtifactsFromFilesystem(
-			record.projectPath,
+			directories.workDir,
 			record.featureId,
 		);
 	}
@@ -519,11 +500,7 @@ async function buildDetailedRun(
 	const steps = await deriveSteps(stepStatuses, events, command);
 	const runEvents = events.map(eventRecordToRunEvent);
 	const agentSteps = deriveAgentSteps(events);
-	const subflows = await getSubflowDiagrams(
-		record.projectPath,
-		artifacts,
-		events,
-	);
+	const subflows = await getSubflowDiagrams(artifacts, events, directories);
 
 	let currentStep: string | null = null;
 	for (const step of [...steps].reverse()) {
@@ -752,43 +729,67 @@ export async function handleV2ArtifactContentRequest(
 			return errorResponse("Invalid artifact path", 400);
 		}
 
-		const projectRoot = resolve(project.path);
+		const directories = getRunDirectories(record);
+		const artifactRecords = getArtifactsForRun(db, runId);
+		const artifactRecord = artifactRecords.find((candidate) =>
+			matchesArtifactDisplayPath(directories, candidate, artifactPath),
+		);
 
-		const candidates: string[] = [];
-
-		candidates.push(resolve(projectRoot, artifactPath));
-
-		const archivablePrefixes = [".rp1/work/features/", ".rp1/work/prds/"];
-		for (const prefix of archivablePrefixes) {
-			if (artifactPath.startsWith(prefix)) {
-				candidates.push(
-					resolve(
-						projectRoot,
-						artifactPath.replace(
-							prefix,
-							`.rp1/work/archives/${prefix.slice(".rp1/work/".length)}`,
-						),
-					),
+		if (artifactRecord) {
+			const resolvedPath = await resolveArtifactPathForRun(
+				db,
+				record,
+				artifactRecord,
+			);
+			if (resolvedPath) {
+				const reconciledPath = toArtifactDisplayPathFromAbsolute(
+					directories,
+					resolvedPath,
 				);
+				if (reconciledPath !== artifactPath && apiContext?.websocketHub) {
+					const { broadcastPathReconciliation } = await import(
+						"./artifacts-api"
+					);
+					broadcastPathReconciliation(
+						apiContext.websocketHub,
+						project.id,
+						runId,
+						record.featureId,
+						artifactRecord.docId,
+						reconciledPath,
+					);
+				}
+
+				const content = await Bun.file(resolvedPath).text();
+				return jsonResponse({ content });
 			}
 		}
 
-		if (!artifactPath.includes("/")) {
-			const featureId = record.featureId;
-			candidates.push(
-				resolve(projectRoot, `.rp1/work/features/${featureId}/${artifactPath}`),
-				resolve(
-					projectRoot,
-					`.rp1/work/archives/features/${featureId}/${artifactPath}`,
-				),
-			);
+		const scopedPath = await resolveProjectSectionFilePath(
+			directories,
+			artifactPath,
+		);
+		if (scopedPath) {
+			const content = await Bun.file(scopedPath).text();
+			return jsonResponse({ content });
 		}
 
-		for (const candidate of candidates) {
-			if (!candidate.startsWith(`${projectRoot}/`)) continue;
-			if (await Bun.file(candidate).exists()) {
-				const content = await Bun.file(candidate).text();
-				return jsonResponse({ content });
+		if (!artifactPath.includes("/")) {
+			const fallbackCandidates = [
+				Bun.resolveSync(
+					directories.workDir,
+					`features/${record.featureId}/${artifactPath}`,
+				),
+				Bun.resolveSync(
+					directories.workDir,
+					`archives/features/${record.featureId}/${artifactPath}`,
+				),
+			];
+			for (const candidate of fallbackCandidates) {
+				if (await Bun.file(candidate).exists()) {
+					const content = await Bun.file(candidate).text();
+					return jsonResponse({ content });
+				}
 			}
 		}
 
@@ -807,12 +808,15 @@ export async function handleV2ArtifactContentRequest(
 		if (artifactRow) {
 			const resolvedPath = await resolveArtifactPath(
 				db,
-				projectRoot,
+				record.projectPath,
 				artifactPath,
 				artifactRow.doc_id,
 			);
 			if (resolvedPath) {
-				const newRelPath = relative(projectRoot, resolvedPath);
+				const newRelPath = toArtifactDisplayPathFromAbsolute(
+					directories,
+					resolvedPath,
+				);
 				if (newRelPath !== artifactPath) {
 					broadcastPathReconciliation(
 						apiContext?.websocketHub,
@@ -999,19 +1003,14 @@ export async function handleV2ProjectFilesRequest(
 			return errorResponse(`Project unavailable: ${projectId}`, 410);
 		}
 
-		const rp1Path = join(project.path, ".rp1");
+		const directories = resolveProjectDirectories(project.path);
 		const sections: FileNode[] = [];
 
-		const workPath = join(rp1Path, "work");
-		const workTree = await buildFileTree(workPath, "work");
-		if (workTree) {
-			sections.push(workTree);
-		}
-
-		const contextPath = join(rp1Path, "context");
-		const contextTree = await buildFileTree(contextPath, "context");
-		if (contextTree) {
-			sections.push(contextTree);
+		for (const root of listProjectSectionRoots(directories)) {
+			const tree = await buildFileTree(root.absolutePath, root.section);
+			if (tree) {
+				sections.push(tree);
+			}
 		}
 
 		return jsonResponse(sections);
@@ -1045,9 +1044,11 @@ export async function handleV2ProjectContentRequest(
 			return errorResponse(validationError, status);
 		}
 
-		const rp1Path = resolve(project.path, ".rp1");
-
-		const resolvedPath = await resolveWithArchiveFallback(rp1Path, filePath);
+		const directories = resolveProjectDirectories(project.path);
+		const resolvedPath = await resolveProjectSectionFilePath(
+			directories,
+			filePath,
+		);
 		if (!resolvedPath) {
 			return errorResponse("File not found", 404);
 		}
@@ -1110,8 +1111,11 @@ export async function handleV2ProjectContentSaveRequest(
 			);
 		}
 
-		const rp1Path = resolve(project.path, ".rp1");
-		const resolvedPath = await resolveWithArchiveFallback(rp1Path, filePath);
+		const directories = resolveProjectDirectories(project.path);
+		const resolvedPath = await resolveProjectSectionFilePath(
+			directories,
+			filePath,
+		);
 
 		if (!resolvedPath) {
 			return errorResponse("File not found", 404);

@@ -7,8 +7,9 @@ import { Database } from "bun:sqlite";
 import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
 import { mkdir, mkdtemp, rename, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
+import type { WebSocketHub } from "../../server/websocket";
 
 let testDb: Database;
 let tmpDir: string;
@@ -28,6 +29,9 @@ mock.module("../../../../src/agent-tools/emit/database.js", () => ({
 			flow: string;
 			feature_id: string;
 			project_path: string;
+			rp1_project_root: string | null;
+			rp1_kb_dir: string | null;
+			rp1_work_dir: string | null;
 		} | null;
 		if (!row) return null;
 		return {
@@ -35,6 +39,9 @@ mock.module("../../../../src/agent-tools/emit/database.js", () => ({
 			flow: row.flow,
 			featureId: row.feature_id,
 			projectPath: row.project_path,
+			rp1ProjectRoot: row.rp1_project_root ?? row.project_path,
+			rp1KbDir: row.rp1_kb_dir ?? join(row.project_path, ".rp1", "context"),
+			rp1WorkDir: row.rp1_work_dir ?? join(row.project_path, ".rp1", "work"),
 			status: "running" as const,
 			createdAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString(),
@@ -77,6 +84,7 @@ mock.module("../../../../src/agent-tools/emit/database.js", () => ({
 			run_id: string;
 			path: string;
 			type: string;
+			storage_root: "absolute" | "project" | "work_dir" | null;
 			project_path: string;
 			feature: string;
 			step: string | null;
@@ -90,6 +98,7 @@ mock.module("../../../../src/agent-tools/emit/database.js", () => ({
 			runId: row.run_id,
 			path: row.path,
 			type: row.type,
+			storageRoot: row.storage_root ?? "project",
 			projectPath: row.project_path,
 			feature: row.feature,
 			step: row.step,
@@ -108,6 +117,7 @@ mock.module("../../../../src/agent-tools/emit/database.js", () => ({
 			run_id: string;
 			path: string;
 			type: string;
+			storage_root: "absolute" | "project" | "work_dir" | null;
 			project_path: string;
 			feature: string;
 			step: string | null;
@@ -121,12 +131,65 @@ mock.module("../../../../src/agent-tools/emit/database.js", () => ({
 			runId: row.run_id,
 			path: row.path,
 			type: row.type,
+			storageRoot: row.storage_root ?? "project",
 			projectPath: row.project_path,
 			feature: row.feature,
 			step: row.step,
 			subflow: row.subflow === 1,
 			createdAt: row.created_at,
 		};
+	},
+	getArtifactsForRun: (db: Database, rId: string) =>
+		(
+			db
+				.prepare(
+					"SELECT * FROM artifacts WHERE run_id = $runId ORDER BY created_at ASC",
+				)
+				.all({ $runId: rId }) as Array<{
+				id: number;
+				doc_id: string;
+				run_id: string;
+				path: string;
+				type: string;
+				storage_root: "absolute" | "project" | "work_dir" | null;
+				project_path: string;
+				feature: string;
+				step: string | null;
+				subflow: number;
+				created_at: string;
+			}>
+		).map((row) => ({
+			id: row.id,
+			docId: row.doc_id,
+			runId: row.run_id,
+			path: row.path,
+			type: row.type,
+			storageRoot: row.storage_root ?? "project",
+			projectPath: row.project_path,
+			feature: row.feature,
+			step: row.step,
+			subflow: row.subflow === 1,
+			createdAt: row.created_at,
+		})),
+	resolveArtifactPathForRun: async (
+		_db: Database,
+		run: { rp1ProjectRoot: string; rp1WorkDir: string },
+		artifact: {
+			docId: string;
+			path: string;
+			storageRoot: "absolute" | "project" | "work_dir";
+		},
+	) => {
+		if (artifact.storageRoot === "absolute") {
+			return (await Bun.file(artifact.path).exists()) ? artifact.path : null;
+		}
+		const baseDir =
+			artifact.storageRoot === "work_dir" ? run.rp1WorkDir : run.rp1ProjectRoot;
+		const fullPath = resolve(baseDir, artifact.path);
+		if (await Bun.file(fullPath).exists()) {
+			return fullPath;
+		}
+		return null;
 	},
 }));
 
@@ -155,6 +218,9 @@ const SCHEMA_SQL = `
 		flow TEXT NOT NULL,
 		feature_id TEXT NOT NULL,
 		project_path TEXT NOT NULL,
+		rp1_project_root TEXT DEFAULT NULL,
+		rp1_kb_dir TEXT DEFAULT NULL,
+		rp1_work_dir TEXT DEFAULT NULL,
 		status TEXT NOT NULL DEFAULT 'not_started',
 		created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
 		updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
@@ -166,6 +232,7 @@ const SCHEMA_SQL = `
 		run_id TEXT REFERENCES runs(id),
 		path TEXT NOT NULL,
 		type TEXT NOT NULL DEFAULT 'other',
+		storage_root TEXT NOT NULL DEFAULT 'project',
 		project_path TEXT NOT NULL,
 		feature TEXT NOT NULL,
 		step TEXT,
@@ -732,14 +799,14 @@ describe("handleArtifactSaveRequest with moved file", () => {
 describe("broadcastPathReconciliation", () => {
 	test("calls broadcastEvent with artifact_registered type and correct fields", () => {
 		const calls: unknown[][] = [];
-		const mockHub = {
+		const mockHub: Pick<WebSocketHub, "broadcastEvent"> = {
 			broadcastEvent: (...args: unknown[]) => {
 				calls.push(args);
 			},
 		};
 
 		broadcastPathReconciliation(
-			mockHub as any,
+			mockHub as WebSocketHub,
 			"proj-1",
 			"run-1",
 			"feat-1",
@@ -831,7 +898,7 @@ describe("handleArtifactSaveRequest broadcasts after path reconciliation", () =>
 
 	test("broadcasts artifact_registered when save handler reconciles a moved file via doc_id fallback", async () => {
 		const broadcastCalls: unknown[][] = [];
-		const mockHub = {
+		const mockHub: Pick<WebSocketHub, "broadcastEvent"> = {
 			broadcastEvent: (...args: unknown[]) => {
 				broadcastCalls.push(args);
 			},
@@ -850,7 +917,7 @@ describe("handleArtifactSaveRequest broadcasts after path reconciliation", () =>
 		const response = await handleArtifactSaveRequest(bcastRunId, req, {
 			port: 3000,
 			startTime: Date.now(),
-			websocketHub: mockHub as any,
+			websocketHub: mockHub as WebSocketHub,
 		});
 		expect(response.status).toBe(200);
 
@@ -864,5 +931,97 @@ describe("handleArtifactSaveRequest broadcasts after path reconciliation", () =>
 		expect(featureId).toBe("feat-bcast");
 		expect((data as Record<string, unknown>).docId).toBe(bcastDocId);
 		expect((data as Record<string, unknown>).reconciled).toBe(true);
+	});
+});
+
+describe("handleArtifactSaveRequest with external work_dir storage", () => {
+	const externalRunId = "external-run-001";
+	const externalDocId = "external-doc-001";
+	const externalStoredPath = "features/ext/design.md";
+	const externalDisplayPath = "work/features/ext/design.md";
+	let externalTmpDir: string;
+	let externalWorkDir: string;
+	let externalDb: Database;
+
+	beforeAll(async () => {
+		externalTmpDir = await mkdtemp(join(tmpdir(), "rp1-external-work-test-"));
+		externalWorkDir = join(externalTmpDir, "external-work");
+		externalDb = new Database(":memory:");
+		externalDb.exec("PRAGMA foreign_keys = ON;");
+		externalDb.exec(SCHEMA_SQL);
+
+		externalDb
+			.prepare(
+				"INSERT INTO runs (id, flow, feature_id, project_path, rp1_project_root, rp1_kb_dir, rp1_work_dir) VALUES ($id, $flow, $featureId, $projectPath, $rp1ProjectRoot, $rp1KbDir, $rp1WorkDir)",
+			)
+			.run({
+				$id: externalRunId,
+				$flow: "build",
+				$featureId: "ext-feature",
+				$projectPath: externalTmpDir,
+				$rp1ProjectRoot: externalTmpDir,
+				$rp1KbDir: join(externalTmpDir, ".rp1", "context"),
+				$rp1WorkDir: externalWorkDir,
+			});
+
+		externalDb
+			.prepare(
+				"INSERT INTO artifacts (doc_id, run_id, path, type, storage_root, project_path, feature) VALUES ($docId, $runId, $path, $type, $storageRoot, $projectPath, $feature)",
+			)
+			.run({
+				$docId: externalDocId,
+				$runId: externalRunId,
+				$path: externalStoredPath,
+				$type: "markdown",
+				$storageRoot: "work_dir",
+				$projectPath: externalTmpDir,
+				$feature: "ext-feature",
+			});
+
+		await mkdir(dirname(join(externalWorkDir, externalStoredPath)), {
+			recursive: true,
+		});
+		await Bun.write(
+			join(externalWorkDir, externalStoredPath),
+			"# External work artifact\n",
+		);
+
+		tmpDir = externalTmpDir;
+		testDb = externalDb;
+	});
+
+	afterAll(async () => {
+		externalDb?.close();
+		if (externalTmpDir) {
+			await rm(externalTmpDir, { recursive: true, force: true });
+		}
+	});
+
+	test("saves through the work/ display path while writing to the resolved work directory", async () => {
+		const updatedContent = "# Updated external work artifact\n";
+		const request = new Request("http://localhost/api/save", {
+			method: "PUT",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				path: externalDisplayPath,
+				content: updatedContent,
+			}),
+		});
+
+		const response = await handleArtifactSaveRequest(externalRunId, request, {
+			port: 3000,
+			startTime: Date.now(),
+		});
+		expect(response.status).toBe(200);
+
+		const written = await Bun.file(
+			join(externalWorkDir, externalStoredPath),
+		).text();
+		expect(written).toBe(updatedContent);
+
+		const baselineRow = externalDb
+			.prepare("SELECT baseline FROM artifacts WHERE doc_id = $docId")
+			.get({ $docId: externalDocId }) as { baseline: string | null };
+		expect(baselineRow.baseline).toBe("# External work artifact\n");
 	});
 });
