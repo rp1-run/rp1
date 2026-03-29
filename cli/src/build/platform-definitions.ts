@@ -207,6 +207,7 @@ const platformConfigs: Record<BuildPlatform, SupportedTool> = {
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
+import { toUserFacing } from "../../shared/canonical-name.js";
 import { claudeCodeRegistry } from "./claude-code/registry.js";
 import { codexRegistry } from "./codex/registry.js";
 import { mapAgentToRoleType } from "./codex/role-mapper.js";
@@ -457,7 +458,10 @@ const codexPlatform: PlatformDefinition = {
 	naming: {
 		skillDirPrefix: "rp1-",
 		agentFileName: (pluginName: string, agentName: string) =>
-			transformNamespace(`rp1-${pluginName}:${agentName}`, "codex"),
+			transformNamespace(
+				toUserFacing({ plugin: pluginName, artifact: agentName }),
+				"codex",
+			),
 		agentExtension: ".toml",
 	},
 	hooks: {

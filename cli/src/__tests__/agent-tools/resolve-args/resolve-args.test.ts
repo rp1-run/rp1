@@ -636,8 +636,8 @@ describe("parseNamespace", () => {
 		const result = parseNamespace("rp1-dev:build");
 		expect(E.isRight(result)).toBe(true);
 		if (E.isRight(result)) {
-			expect(result.right.pluginShort).toBe("dev");
-			expect(result.right.artifactName).toBe("build");
+			expect(result.right.plugin).toBe("dev");
+			expect(result.right.artifact).toBe("build");
 		}
 	});
 
@@ -645,8 +645,8 @@ describe("parseNamespace", () => {
 		const result = parseNamespace("dev:build");
 		expect(E.isRight(result)).toBe(true);
 		if (E.isRight(result)) {
-			expect(result.right.pluginShort).toBe("dev");
-			expect(result.right.artifactName).toBe("build");
+			expect(result.right.plugin).toBe("dev");
+			expect(result.right.artifact).toBe("build");
 		}
 	});
 
@@ -654,8 +654,8 @@ describe("parseNamespace", () => {
 		const result = parseNamespace("rp1-base:knowledge-load");
 		expect(E.isRight(result)).toBe(true);
 		if (E.isRight(result)) {
-			expect(result.right.pluginShort).toBe("base");
-			expect(result.right.artifactName).toBe("knowledge-load");
+			expect(result.right.plugin).toBe("base");
+			expect(result.right.artifact).toBe("knowledge-load");
 		}
 	});
 
