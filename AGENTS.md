@@ -215,16 +215,22 @@ If installing `uv`, `bun`, or npm packages fails unexpectedly, it is likely due 
 <!-- rp1:start -->
 ## rp1 Knowledge Base
 
-Use the KB instead of duplicating project reference material in this file.
+**Use Progressive Disclosure Pattern**
 
 Location: `.rp1/context/`
 
-Loading rules:
+Files:
+- index.md (always load first)
+- architecture.md
+- modules.md
+- patterns.md
+- concept_map.md
 
-1. Always read `index.md` first.
-2. Then load only the files needed for the task:
-   - Code review: `patterns.md`
-   - Bug investigation: `architecture.md`, `modules.md`
-   - Feature work: `modules.md`, `patterns.md`
+Loading rules:
+1. Always read index.md first.
+2. Then load based on task type:
+   - Code review: patterns.md
+   - Bug investigation: architecture.md, modules.md
+   - Feature work: modules.md, patterns.md
    - Strategic or system-wide analysis: all files
 <!-- rp1:end -->
