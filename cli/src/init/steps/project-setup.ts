@@ -83,7 +83,7 @@ function countLines(content: string): number {
 // ============================================================================
 
 /**
- * Create the .rp1/ directory structure (context/, work/).
+ * Create the project-local .rp1/ directory structure used by init.
  */
 export async function createDirectoryStructure(
 	cwd: string,
@@ -93,7 +93,6 @@ export async function createDirectoryStructure(
 	const rp1Root = process.env.RP1_ROOT || ".rp1";
 	const rp1Dir = path.resolve(cwd, rp1Root);
 	const contextDir = path.join(rp1Dir, "context");
-	const workDir = path.join(rp1Dir, "work");
 
 	if (!(await directoryExists(rp1Dir))) {
 		await fs.mkdir(rp1Dir, { recursive: true });
@@ -105,12 +104,6 @@ export async function createDirectoryStructure(
 		await fs.mkdir(contextDir, { recursive: true });
 		logger.info(`Created: ${contextDir}`);
 		actions.push({ type: "created_directory", path: contextDir });
-	}
-
-	if (!(await directoryExists(workDir))) {
-		await fs.mkdir(workDir, { recursive: true });
-		logger.info(`Created: ${workDir}`);
-		actions.push({ type: "created_directory", path: workDir });
 	}
 
 	return actions;
