@@ -1,17 +1,24 @@
 /**
  * Schema file lookup for resolve-args.
  * Resolves a skill/agent namespace name (e.g., "rp1-dev:build") to
- * the SKILL.md or agent .md file path by looking up plugin directories.
+ * the asset path by searching the bundled manifest (production) or
+ * reading bundle-manifest.json from dist/ (development).
  */
 
 import { readFile, stat } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../../shared/errors.js";
 import { notFoundError, usageError } from "../../../shared/errors.js";
-import { getClaudePluginDirs } from "../../shared/paths.js";
+import type { BundledPlugin } from "../../assets/reader.js";
+import {
+	collectPlatformPlugins,
+	getBundledAssets,
+	hasBundledAssets,
+} from "../../assets/reader.js";
 
 /** Parsed namespace from a skill/agent name like "rp1-dev:build". */
 export interface ParsedNamespace {
@@ -54,71 +61,165 @@ export const parseNamespace = (
 };
 
 /**
- * Find the rp1 repo root directory by walking up from the current file's location.
- * In development, this is the repo root containing source plugins and optionally dist/.
+ * Match a skill entry by canonical name.
+ * Entry names are "{prefix}{canonicalName}/SKILL.md" where prefix is "" or "rp1-".
  */
-const findRepoRoot = (): string | null => {
-	// Walk up from this file's directory to find the repo root
-	let current = resolve(dirname(new URL(import.meta.url).pathname));
-	const root = resolve("/");
+const matchSkillEntry = (
+	entry: { name: string },
+	artifactName: string,
+): boolean => {
+	if (!entry.name.endsWith("/SKILL.md")) return false;
+	const dirName = entry.name.slice(0, -"/SKILL.md".length);
+	// Handle nested path segments (e.g., "rp1-build/subdir/SKILL.md" won't match,
+	// but "rp1-build/SKILL.md" will via the final segment)
+	const baseName = dirName.includes("/") ? dirName.split("/").pop()! : dirName;
+	const canonical = baseName.replace(/^rp1-/, "");
+	return canonical === artifactName;
+};
 
-	while (current !== root) {
-		try {
-			const fs = require("node:fs");
-			const pluginsPath = join(current, "plugins");
-			const cliPackagePath = join(current, "cli", "package.json");
-			if (
-				fs.statSync(pluginsPath).isDirectory() &&
-				fs.statSync(cliPackagePath).isFile()
-			) {
-				return current;
-			}
-		} catch {
-			// Continue searching
-		}
-		current = resolve(current, "..");
-	}
+/**
+ * Match an agent entry by canonical name.
+ * Entry names are "{canonicalName}" with .md or .toml extension.
+ */
+const matchAgentEntry = (
+	entry: { name: string },
+	artifactName: string,
+): boolean => {
+	const name = entry.name.replace(/\.(md|toml)$/, "");
+	return name === artifactName;
+};
+
+/**
+ * Search a plugin's skills and agents for a matching entry.
+ * Returns the entry path on match, or null.
+ */
+const findInPlugin = (
+	plugin: BundledPlugin,
+	artifactName: string,
+): string | null => {
+	const skillEntry = plugin.skills.find((e) =>
+		matchSkillEntry(e, artifactName),
+	);
+	if (skillEntry) return skillEntry.path;
+
+	const agentEntry = plugin.agents.find((e) =>
+		matchAgentEntry(e, artifactName),
+	);
+	if (agentEntry) return agentEntry.path;
 
 	return null;
 };
 
-/** Suffixes used by Claude Code marketplace for rp1 plugins. */
-const PLUGIN_SUFFIXES = ["@rp1-local", "@rp1-run"] as const;
+/**
+ * Find a skill or agent in the embedded manifest by canonical name.
+ * Searches all platforms for a matching plugin and artifact.
+ * Returns the embedded blob path on success.
+ */
+const findInBundledManifest = (
+	parsed: ParsedNamespace,
+): E.Either<CLIError, string> => {
+	const { pluginShort, artifactName } = parsed;
+	const pluginName = `rp1-${pluginShort}`;
 
-/** Structure of installed_plugins.json entries. */
-interface InstalledPluginEntry {
-	readonly installPath: string;
-	readonly version?: string;
-	readonly isLocal?: boolean;
+	const assetsResult = getBundledAssets();
+	if (assetsResult._tag === "Left") return assetsResult;
+
+	for (const platform of Object.values(assetsResult.right.platforms)) {
+		if (!platform) continue;
+		const plugin = collectPlatformPlugins(platform).find(
+			(p) => p.name === pluginName,
+		);
+		if (!plugin) continue;
+
+		const path = findInPlugin(plugin, artifactName);
+		if (path) return E.right(path);
+	}
+
+	return E.left(
+		notFoundError(
+			`rp1-${pluginShort}:${artifactName}`,
+			`Could not find schema for "${pluginShort}:${artifactName}" in the embedded manifest.`,
+		),
+	);
+};
+
+/**
+ * Derive the repository root from this module's location.
+ * Path: cli/src/agent-tools/resolve-args/ -> 4 levels up -> repo root
+ */
+const getRepoRoot = (): string => {
+	const currentDir = dirname(fileURLToPath(import.meta.url));
+	return join(currentDir, "..", "..", "..", "..");
+};
+
+/** Entry in a disk bundle manifest. */
+interface DiskManifestEntry {
+	name: string;
+	path: string;
+}
+
+/** Plugin in a disk bundle manifest. */
+interface DiskManifestPlugin {
+	name: string;
+	skills: DiskManifestEntry[];
+	agents: DiskManifestEntry[];
+}
+
+/** Minimal manifest structure read from dist bundle-manifest.json. */
+interface DiskManifest {
+	plugins: Record<string, DiskManifestPlugin>;
 }
 
 /**
- * Look up the install path for a plugin from Claude Code's installed_plugins.json.
+ * Dev-mode fallback: read bundle-manifest.json files from dist/ and search them.
+ * Returns the absolute filesystem path to the matching skill/agent file.
  */
-const findInstalledPluginPath = async (
-	pluginShort: string,
+const findInDevManifests = async (
+	parsed: ParsedNamespace,
 ): Promise<string | null> => {
-	const pluginDirs = getClaudePluginDirs();
+	const { pluginShort, artifactName } = parsed;
+	const pluginName = `rp1-${pluginShort}`;
+	const repoRoot = getRepoRoot();
+	const distDir = join(repoRoot, "dist");
 
-	for (const pluginDir of pluginDirs) {
+	// Scan all platform directories under dist/
+	let platformDirs: string[];
+	try {
+		const { readdir } = await import("node:fs/promises");
+		platformDirs = await readdir(distDir);
+	} catch {
+		return null;
+	}
+
+	for (const platformName of platformDirs) {
+		const manifestPath = join(distDir, platformName, "bundle-manifest.json");
+		let manifest: DiskManifest;
 		try {
-			const jsonPath = join(pluginDir, "installed_plugins.json");
-			const content = await readFile(jsonPath, "utf-8");
-			const data = JSON.parse(content) as {
-				plugins: Record<string, InstalledPluginEntry[]>;
-			};
-
-			const pluginName = `rp1-${pluginShort}`;
-
-			for (const suffix of PLUGIN_SUFFIXES) {
-				const fullId = `${pluginName}${suffix}`;
-				const entries = data.plugins?.[fullId];
-				if (entries && entries.length > 0) {
-					return entries[0].installPath;
-				}
-			}
+			const content = await readFile(manifestPath, "utf-8");
+			manifest = JSON.parse(content) as DiskManifest;
 		} catch {
-			// Try next directory
+			continue;
+		}
+
+		const plugin = Object.values(manifest.plugins).find(
+			(p) => p.name === pluginName,
+		);
+		if (!plugin) continue;
+
+		// Search skills
+		const skillEntry = (plugin.skills ?? []).find((e) =>
+			matchSkillEntry(e, artifactName),
+		);
+		if (skillEntry) {
+			return join(distDir, platformName, skillEntry.path);
+		}
+
+		// Search agents
+		const agentEntry = (plugin.agents ?? []).find((e) =>
+			matchAgentEntry(e, artifactName),
+		);
+		if (agentEntry) {
+			return join(distDir, platformName, agentEntry.path);
 		}
 	}
 
@@ -139,88 +240,25 @@ const fileExists = async (path: string): Promise<boolean> => {
 
 /**
  * Resolve a namespace name to a schema file path.
- * Tries development paths first (dist/, then source plugins/), then production installed paths.
- *
- * Search order for skills:
- *   1. dist/claude-code/<pluginShort>/skills/<name>/SKILL.md (dev)
- *   2. plugins/<pluginShort>/skills/<name>/SKILL.md (dev source)
- *   3. <installedPath>/skills/<name>/SKILL.md (production)
- *
- * Search order for agents:
- *   1. dist/claude-code/<pluginShort>/agents/<name>.md (dev)
- *   2. plugins/<pluginShort>/agents/<name>.md (dev source)
- *   3. <installedPath>/agents/<name>.md (production)
- *
- * Since we don't know upfront whether the name refers to a skill or agent,
- * we try skill paths first, then agent paths.
+ * Uses the embedded manifest (production) or dist/ bundle-manifest.json files (development).
  */
 export const resolveSchemaPath = (
 	parsed: ParsedNamespace,
-): TE.TaskEither<CLIError, string> =>
-	TE.tryCatch(
+): TE.TaskEither<CLIError, string> => {
+	// Production: use embedded manifest
+	if (hasBundledAssets()) {
+		return TE.fromEither(findInBundledManifest(parsed));
+	}
+
+	// Development: read bundle-manifest.json from dist/
+	return TE.tryCatch(
 		async () => {
-			const { pluginShort, artifactName } = parsed;
-
-			// 1. Try development mode (dist/, then source plugins/)
-			const repoRoot = findRepoRoot();
-			if (repoRoot) {
-				const devPluginDirs = [
-					join(repoRoot, "dist", "claude-code", pluginShort),
-					join(repoRoot, "plugins", pluginShort),
-				];
-
-				for (const devPluginDir of devPluginDirs) {
-					// Try skill path
-					const devSkillPath = join(
-						devPluginDir,
-						"skills",
-						artifactName,
-						"SKILL.md",
-					);
-					if (await fileExists(devSkillPath)) {
-						return devSkillPath;
-					}
-
-					// Try agent path
-					const devAgentPath = join(
-						devPluginDir,
-						"agents",
-						`${artifactName}.md`,
-					);
-					if (await fileExists(devAgentPath)) {
-						return devAgentPath;
-					}
-				}
-			}
-
-			// 2. Try production mode (installed plugins)
-			const installedPath = await findInstalledPluginPath(pluginShort);
-			if (installedPath) {
-				// Try skill path
-				const prodSkillPath = join(
-					installedPath,
-					"skills",
-					artifactName,
-					"SKILL.md",
-				);
-				if (await fileExists(prodSkillPath)) {
-					return prodSkillPath;
-				}
-
-				// Try agent path
-				const prodAgentPath = join(
-					installedPath,
-					"agents",
-					`${artifactName}.md`,
-				);
-				if (await fileExists(prodAgentPath)) {
-					return prodAgentPath;
-				}
-			}
+			const result = await findInDevManifests(parsed);
+			if (result) return result;
 
 			throw new Error(
-				`Could not find schema for "${pluginShort}:${artifactName}". ` +
-					`Searched skill and agent paths in development (dist/ and plugins/) and installed plugin directories.`,
+				`Could not find schema for "${parsed.pluginShort}:${parsed.artifactName}" in dist/ bundle manifests. ` +
+					"Ensure you have run a build first.",
 			);
 		},
 		(err) =>
@@ -229,6 +267,7 @@ export const resolveSchemaPath = (
 				err instanceof Error ? err.message : String(err),
 			),
 	);
+};
 
 /**
  * Resolve the schema file path from either a direct path override or a namespace name.
@@ -257,7 +296,7 @@ export const resolveSchemaFromNameOrPath = (
 		);
 	}
 
-	// Name-based lookup
+	// Name-based lookup via manifest
 	if (name) {
 		return pipe(
 			TE.fromEither(parseNamespace(name)),
