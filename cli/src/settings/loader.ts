@@ -1,13 +1,9 @@
-/**
- * Settings loader for argument defaults.
- * Loads and merges argument defaults from project-level and user-level
- * TOML settings files, with project settings taking precedence.
- */
-
+import { existsSync, readFileSync } from "node:fs";
 import {
+	loadDirectorySettings as loadSharedDirectorySettings,
 	resolveGlobalSettingsPath,
 	resolveLocalSettingsPath,
-} from "./validator.js";
+} from "../../shared/settings.js";
 
 /** Argument defaults for a single skill/agent, keyed by UPPER_SNAKE_CASE argument name. */
 export type ArgumentDefaults = Readonly<
@@ -19,6 +15,55 @@ export type SettingsArgumentDefaults = Readonly<
 	Record<string, ArgumentDefaults>
 >;
 
+type ParsedSettingsFile = Readonly<{
+	arguments: SettingsArgumentDefaults;
+	directories: Record<string, never>;
+}>;
+
+const isPlainRecord = (
+	value: unknown,
+): value is Readonly<Record<string, unknown>> =>
+	value !== null && typeof value === "object" && !Array.isArray(value);
+
+const parseSettingsFileStrict = (filePath: string): ParsedSettingsFile => {
+	if (!existsSync(filePath)) {
+		return { arguments: {}, directories: {} };
+	}
+
+	try {
+		const text = readFileSync(filePath, "utf-8");
+		const parsed = Bun.TOML.parse(text) as Record<string, unknown>;
+		const argumentsSection = parsed.arguments;
+		const argumentDefaults: Record<string, ArgumentDefaults> = {};
+
+		if (isPlainRecord(argumentsSection)) {
+			for (const [skillName, table] of Object.entries(argumentsSection)) {
+				if (isPlainRecord(table)) {
+					const filteredDefaults: Record<string, string | boolean | number> =
+						{};
+					for (const [key, value] of Object.entries(table)) {
+						if (
+							typeof value === "string" ||
+							typeof value === "boolean" ||
+							typeof value === "number"
+						) {
+							filteredDefaults[key] = value;
+						}
+					}
+					argumentDefaults[skillName] = filteredDefaults;
+				}
+			}
+		}
+
+		return {
+			arguments: argumentDefaults,
+			directories: {},
+		};
+	} catch {
+		return { arguments: {}, directories: {} };
+	}
+};
+
 /**
  * Load and parse a TOML settings file, extracting the `[arguments.*]` tables.
  * Returns an empty record when the file is missing or malformed.
@@ -26,45 +71,13 @@ export type SettingsArgumentDefaults = Readonly<
 const loadArgumentsFromFile = async (
 	filePath: string,
 ): Promise<SettingsArgumentDefaults> => {
-	const file = Bun.file(filePath);
-	const exists = await file.exists();
-
-	if (!exists) {
-		return {};
-	}
-
-	try {
-		const text = await file.text();
-		const parsed = Bun.TOML.parse(text) as Record<string, unknown>;
-		const argumentsSection = parsed.arguments;
-
-		if (
-			argumentsSection === undefined ||
-			argumentsSection === null ||
-			typeof argumentsSection !== "object"
-		) {
-			return {};
-		}
-
-		const result: Record<string, ArgumentDefaults> = {};
-
-		for (const [skillName, table] of Object.entries(
-			argumentsSection as Record<string, unknown>,
-		)) {
-			if (
-				table !== null &&
-				typeof table === "object" &&
-				!Array.isArray(table)
-			) {
-				result[skillName] = table as ArgumentDefaults;
-			}
-		}
-
-		return result;
-	} catch {
-		return {};
-	}
+	return parseSettingsFileStrict(filePath).arguments;
 };
+
+export const loadDirectorySettings = (
+	projectRoot: string,
+	options?: Parameters<typeof loadSharedDirectorySettings>[1],
+) => loadSharedDirectorySettings(projectRoot, options);
 
 /**
  * Load argument defaults for a specific skill/agent from both project-level
