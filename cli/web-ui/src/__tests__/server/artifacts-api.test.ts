@@ -52,6 +52,19 @@ mock.module("../../../../src/agent-tools/emit/database.js", () => ({
 			"UPDATE artifacts SET baseline = $baseline WHERE doc_id = $docId",
 		).run({ $baseline: baseline, $docId: dId });
 	},
+	updateArtifactStorage: (
+		db: Database,
+		dId: string,
+		updates: { path: string; storageRoot: "absolute" | "project" | "work_dir" },
+	) => {
+		db.prepare(
+			"UPDATE artifacts SET path = $path, storage_root = $storageRoot WHERE doc_id = $docId",
+		).run({
+			$path: updates.path,
+			$storageRoot: updates.storageRoot,
+			$docId: dId,
+		});
+	},
 	getArtifactBaseline: (db: Database, dId: string) => {
 		const row = db
 			.prepare(
@@ -190,6 +203,33 @@ mock.module("../../../../src/agent-tools/emit/database.js", () => ({
 			return fullPath;
 		}
 		return null;
+	},
+	normalizeArtifactStorage: (
+		artifactPath: string,
+		run: { rp1ProjectRoot: string; rp1WorkDir: string },
+	) => {
+		const resolvedArtifactPath = resolve(artifactPath);
+		const workRoot = resolve(run.rp1WorkDir);
+		const projectRoot = resolve(run.rp1ProjectRoot);
+		if (
+			resolvedArtifactPath === workRoot ||
+			resolvedArtifactPath.startsWith(`${workRoot}/`)
+		) {
+			return {
+				path: resolvedArtifactPath.slice(workRoot.length + 1),
+				storageRoot: "work_dir" as const,
+			};
+		}
+		if (
+			resolvedArtifactPath === projectRoot ||
+			resolvedArtifactPath.startsWith(`${projectRoot}/`)
+		) {
+			return {
+				path: resolvedArtifactPath.slice(projectRoot.length + 1),
+				storageRoot: "project" as const,
+			};
+		}
+		return { path: resolvedArtifactPath, storageRoot: "absolute" as const };
 	},
 }));
 
@@ -527,28 +567,29 @@ describe("extractDocIdFromFrontmatter", () => {
 
 describe("scanForDocId", () => {
 	let scanTmpDir: string;
+	let scanWorkDir: string;
 
 	beforeAll(async () => {
 		scanTmpDir = await mkdtemp(join(tmpdir(), "rp1-scan-test-"));
-		const workDir = join(scanTmpDir, ".rp1", "work");
+		scanWorkDir = join(scanTmpDir, ".rp1", "work");
 
-		await mkdir(join(workDir, "features", "feat-1"), { recursive: true });
-		await mkdir(join(workDir, "archives", "features", "feat-1"), {
+		await mkdir(join(scanWorkDir, "features", "feat-1"), { recursive: true });
+		await mkdir(join(scanWorkDir, "archives", "features", "feat-1"), {
 			recursive: true,
 		});
 
 		await Bun.write(
-			join(workDir, "features", "feat-1", "tasks.md"),
+			join(scanWorkDir, "features", "feat-1", "tasks.md"),
 			"---\nrp1_doc_id: scan-target-id\ntitle: Tasks\n---\n# Tasks",
 		);
 
 		await Bun.write(
-			join(workDir, "features", "feat-1", "design.md"),
+			join(scanWorkDir, "features", "feat-1", "design.md"),
 			"---\nrp1_doc_id: other-id\ntitle: Design\n---\n# Design",
 		);
 
 		await Bun.write(
-			join(workDir, "features", "feat-1", "notes.txt"),
+			join(scanWorkDir, "features", "feat-1", "notes.txt"),
 			"---\nrp1_doc_id: should-not-match\n---\nNot a markdown file",
 		);
 	});
@@ -557,18 +598,18 @@ describe("scanForDocId", () => {
 		if (scanTmpDir) await rm(scanTmpDir, { recursive: true, force: true });
 	});
 
-	test("finds file by doc_id in .rp1/work/", async () => {
-		const result = await scanForDocId(scanTmpDir, "scan-target-id");
-		expect(result).toBe(".rp1/work/features/feat-1/tasks.md");
+	test("finds file by doc_id in the resolved work directory", async () => {
+		const result = await scanForDocId(scanWorkDir, "scan-target-id");
+		expect(result).toBe(join(scanWorkDir, "features", "feat-1", "tasks.md"));
 	});
 
 	test("returns null for non-existent doc_id", async () => {
-		const result = await scanForDocId(scanTmpDir, "nonexistent-id");
+		const result = await scanForDocId(scanWorkDir, "nonexistent-id");
 		expect(result).toBeNull();
 	});
 
 	test("does not match non-.md files", async () => {
-		const result = await scanForDocId(scanTmpDir, "should-not-match");
+		const result = await scanForDocId(scanWorkDir, "should-not-match");
 		expect(result).toBeNull();
 	});
 
@@ -592,8 +633,10 @@ describe("scanForDocId", () => {
 		);
 		await rename(src, dest);
 
-		const result = await scanForDocId(scanTmpDir, "scan-target-id");
-		expect(result).toBe(".rp1/work/archives/features/feat-1/tasks.md");
+		const result = await scanForDocId(scanWorkDir, "scan-target-id");
+		expect(result).toBe(
+			join(scanWorkDir, "archives", "features", "feat-1", "tasks.md"),
+		);
 		await rename(dest, src);
 	});
 });
@@ -602,6 +645,12 @@ describe("resolveArtifactPath", () => {
 	let reconcileTmpDir: string;
 	let reconcileDb: Database;
 	const reconcileDocId = "reconcile-doc-001";
+	const reconcileDirectories = (projectRoot: string, workDir: string) => ({
+		projectRoot,
+		rp1Root: join(projectRoot, ".rp1"),
+		kbDir: join(projectRoot, ".rp1", "context"),
+		workDir,
+	});
 
 	beforeAll(async () => {
 		reconcileTmpDir = await mkdtemp(join(tmpdir(), "rp1-reconcile-test-"));
@@ -653,9 +702,15 @@ describe("resolveArtifactPath", () => {
 	test("cache hit: returns immediately when file exists at stored path", async () => {
 		const result = await resolveArtifactPath(
 			reconcileDb,
-			reconcileTmpDir,
-			".rp1/work/features/feat-1/tasks.md",
-			reconcileDocId,
+			reconcileDirectories(
+				reconcileTmpDir,
+				join(reconcileTmpDir, ".rp1", "work"),
+			),
+			{
+				docId: reconcileDocId,
+				path: ".rp1/work/features/feat-1/tasks.md",
+				storageRoot: "project",
+			},
 		);
 		expect(result).toBe(
 			join(reconcileTmpDir, ".rp1/work/features/feat-1/tasks.md"),
@@ -683,9 +738,15 @@ describe("resolveArtifactPath", () => {
 
 		const result = await resolveArtifactPath(
 			reconcileDb,
-			reconcileTmpDir,
-			".rp1/work/features/feat-1/tasks.md",
-			reconcileDocId,
+			reconcileDirectories(
+				reconcileTmpDir,
+				join(reconcileTmpDir, ".rp1", "work"),
+			),
+			{
+				docId: reconcileDocId,
+				path: ".rp1/work/features/feat-1/tasks.md",
+				storageRoot: "project",
+			},
 		);
 		expect(result).toBe(
 			join(reconcileTmpDir, ".rp1/work/archives/features/feat-1/tasks.md"),
@@ -693,7 +754,7 @@ describe("resolveArtifactPath", () => {
 		const row = reconcileDb
 			.prepare("SELECT path FROM artifacts WHERE doc_id = $docId")
 			.get({ $docId: reconcileDocId }) as { path: string };
-		expect(row.path).toBe(".rp1/work/archives/features/feat-1/tasks.md");
+		expect(row.path).toBe("archives/features/feat-1/tasks.md");
 	});
 
 	test("cache miss + scan miss: returns null when file is deleted", async () => {
@@ -711,11 +772,75 @@ describe("resolveArtifactPath", () => {
 
 		const result = await resolveArtifactPath(
 			reconcileDb,
-			reconcileTmpDir,
-			".rp1/work/archives/features/feat-1/tasks.md",
-			reconcileDocId,
+			reconcileDirectories(
+				reconcileTmpDir,
+				join(reconcileTmpDir, ".rp1", "work"),
+			),
+			{
+				docId: reconcileDocId,
+				path: "archives/features/feat-1/tasks.md",
+				storageRoot: "work_dir",
+			},
 		);
 		expect(result).toBeNull();
+	});
+
+	test("reconciles moved work-dir artifacts using the stored external work directory", async () => {
+		const externalProjectRoot = await mkdtemp(
+			join(tmpdir(), "rp1-external-reconcile-"),
+		);
+		const externalWorkDir = join(externalProjectRoot, "external-work");
+		const externalDocId = "external-reconcile-doc";
+
+		try {
+			reconcileDb
+				.prepare(
+					"INSERT INTO artifacts (doc_id, run_id, path, type, storage_root, project_path, feature) VALUES ($docId, $runId, $path, $type, $storageRoot, $projectPath, $feature)",
+				)
+				.run({
+					$docId: externalDocId,
+					$runId: "reconcile-run",
+					$path: "features/ext/tasks.md",
+					$type: "markdown",
+					$storageRoot: "work_dir",
+					$projectPath: externalProjectRoot,
+					$feature: "test-feature",
+				});
+
+			await mkdir(join(externalWorkDir, "archives", "features", "ext"), {
+				recursive: true,
+			});
+			await Bun.write(
+				join(externalWorkDir, "archives", "features", "ext", "tasks.md"),
+				`---\nrp1_doc_id: ${externalDocId}\ntitle: Tasks\n---\n# Tasks`,
+			);
+
+			const result = await resolveArtifactPath(
+				reconcileDb,
+				reconcileDirectories(externalProjectRoot, externalWorkDir),
+				{
+					docId: externalDocId,
+					path: "features/ext/tasks.md",
+					storageRoot: "work_dir",
+				},
+			);
+
+			expect(result).toBe(
+				join(externalWorkDir, "archives", "features", "ext", "tasks.md"),
+			);
+			const row = reconcileDb
+				.prepare(
+					"SELECT path, storage_root FROM artifacts WHERE doc_id = $docId",
+				)
+				.get({ $docId: externalDocId }) as {
+				path: string;
+				storage_root: string;
+			};
+			expect(row.path).toBe("archives/features/ext/tasks.md");
+			expect(row.storage_root).toBe("work_dir");
+		} finally {
+			await rm(externalProjectRoot, { recursive: true, force: true });
+		}
 	});
 });
 
@@ -790,7 +915,7 @@ describe("handleArtifactSaveRequest with moved file", () => {
 		const row = movedDb
 			.prepare("SELECT path FROM artifacts WHERE doc_id = $docId")
 			.get({ $docId: movedDocId }) as { path: string };
-		expect(row.path).toBe(archivedPath);
+		expect(row.path).toBe("archives/features/feat-move/design.md");
 		const written = await Bun.file(join(movedTmpDir, archivedPath)).text();
 		expect(written).toBe(newContent);
 	});

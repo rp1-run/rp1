@@ -32,6 +32,10 @@ import {
 	detectProjectContext,
 	type ProjectContext,
 } from "../../context-detector.js";
+import {
+	detectReinitState,
+	resolveInitDirectoryModel,
+} from "../../directory-model.js";
 import { detectGitRoot, type GitRootResult } from "../../git-root.js";
 import { buildManagedGitignoreContent } from "../../gitignore.js";
 import type {
@@ -420,28 +424,27 @@ export const useStepExecution = ({
 	const executeDirectorySetup = useCallback(
 		async (addAct: AddActivityFn): Promise<void> => {
 			const ctx = contextRef.current;
-			const rp1Root = process.env.RP1_ROOT || ".rp1";
-			const rp1Dir = path.resolve(ctx.cwd, rp1Root);
-			const contextDir = path.join(rp1Dir, "context");
-			const workDir = path.join(rp1Dir, "work");
+			const directories = resolveInitDirectoryModel(ctx.cwd);
 
 			let created = 0;
 
-			if (!(await directoryExists(rp1Dir))) {
-				await fs.mkdir(rp1Dir, { recursive: true });
-				addAct("directory-setup", `Created ${rp1Root}/`, "success");
+			if (!(await directoryExists(directories.rp1Dir))) {
+				await fs.mkdir(directories.rp1Dir, { recursive: true });
+				addAct(
+					"directory-setup",
+					`Created ${formatDirectoryForDisplay(ctx.cwd, directories.rp1Dir)}`,
+					"success",
+				);
 				created++;
 			}
 
-			if (!(await directoryExists(contextDir))) {
-				await fs.mkdir(contextDir, { recursive: true });
-				addAct("directory-setup", `Created ${rp1Root}/context/`, "success");
-				created++;
-			}
-
-			if (!(await directoryExists(workDir))) {
-				await fs.mkdir(workDir, { recursive: true });
-				addAct("directory-setup", `Created ${rp1Root}/work/`, "success");
+			if (!(await directoryExists(directories.contextDir))) {
+				await fs.mkdir(directories.contextDir, { recursive: true });
+				addAct(
+					"directory-setup",
+					`Created ${formatDirectoryForDisplay(ctx.cwd, directories.contextDir)}`,
+					"success",
+				);
 				created++;
 			}
 
@@ -1016,71 +1019,15 @@ export const useStepExecution = ({
 	return executeStep;
 };
 
-/**
- * Detect re-initialization state by checking for existing rp1 artifacts.
- */
-async function detectReinitState(
-	cwd: string,
-	detectedTool: DetectedTool | null,
-): Promise<ReinitState> {
-	const rp1Root = process.env.RP1_ROOT || ".rp1";
-	const rp1Dir = path.resolve(cwd, rp1Root);
-	const contextDir = path.join(rp1Dir, "context");
-
-	const hasRp1Dir = await directoryExists(rp1Dir);
-
-	let hasFenced = false;
-	const detectedToolInstructionFile =
-		detectedTool?.tool.instruction_file ?? null;
-
-	if (detectedToolInstructionFile) {
-		const instrPath = path.resolve(cwd, detectedToolInstructionFile);
-		const content = await readFileContent(instrPath);
-		if (content) {
-			hasFenced = hasFencedContent(content);
-		}
-	} else {
-		for (const file of ["CLAUDE.md", "AGENTS.md"]) {
-			const instrPath = path.resolve(cwd, file);
-			const content = await readFileContent(instrPath);
-			if (content && hasFencedContent(content)) {
-				hasFenced = true;
-				break;
-			}
-		}
+function formatDirectoryForDisplay(cwd: string, directoryPath: string): string {
+	const relativePath = path.relative(cwd, directoryPath);
+	if (
+		relativePath !== "" &&
+		!relativePath.startsWith("..") &&
+		!path.isAbsolute(relativePath)
+	) {
+		return `${relativePath.replaceAll("\\", "/")}/`;
 	}
 
-	const hasKB = await fileExists(path.join(contextDir, "index.md"));
-	const workDir = path.join(rp1Dir, "work");
-	const hasWork = await hasAnyFiles(workDir);
-
-	return {
-		hasRp1Dir,
-		hasFencedContent: hasFenced,
-		hasKBContent: hasKB,
-		hasWorkContent: hasWork,
-	};
-}
-
-/**
- * Check if a directory has any files (recursively).
- */
-async function hasAnyFiles(dirPath: string): Promise<boolean> {
-	try {
-		const entries = await fs.readdir(dirPath, { withFileTypes: true });
-		for (const entry of entries) {
-			if (entry.isFile()) {
-				return true;
-			}
-			if (entry.isDirectory()) {
-				const subPath = path.join(dirPath, entry.name);
-				if (await hasAnyFiles(subPath)) {
-					return true;
-				}
-			}
-		}
-		return false;
-	} catch {
-		return false;
-	}
+	return `${directoryPath.replaceAll("\\", "/")}/`;
 }

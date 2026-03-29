@@ -476,6 +476,18 @@ Existing implementation tasks remain valid, but they now carry an explicit clean
     - **Deviations**: None
     - **Tests**: 35/35 passing (`bun test cli/src/__tests__/commands/fake.test.ts cli/src/__tests__/init/init-install-separation.test.ts cli/src/__tests__/init/gitignore.test.ts`), `cd cli && bun x tsc --noEmit` passing, `just check-cli` passing
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ✅ PASS |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
     **Execution Flow**:
 
     ```mermaid
@@ -483,4 +495,22 @@ Existing implementation tasks remain valid, but they now carry an explicit clean
         [*] --> TX_20260329192125
         TX_20260329192125: Verifier follow-up gaps
         TX_20260329192125 --> [*]
+    ```
+
+- [x] **TX-20260329193516**: Fix the remaining verifier gap and align init UI directory behavior `[complexity:simple]`
+
+    **Implementation Summary**:
+
+    - **Files**: `cli/web-ui/src/server/routes/artifacts-api.ts`, `cli/web-ui/src/server/routes/v2-api.ts`, `cli/web-ui/src/__tests__/server/artifacts-api.test.ts`, `cli/src/init/directory-model.ts`, `cli/src/init/index.ts`, `cli/src/init/models.ts`, `cli/src/init/ui/hooks/useStepExecution.ts`, `cli/src/__tests__/init/directory-model.test.ts`
+    - **Approach**: Reworked Arcade artifact reconciliation to resolve against stored run directories and normalized storage semantics instead of a hardcoded project-local `.rp1/work`, then shared init directory/reinit detection so the UI no longer creates or probes `RP1_ROOT/work` when the resolved work directory lives elsewhere.
+    - **Deviations**: None
+    - **Tests**: 61/61 passing (`cd cli && bun test src/__tests__/init/directory-model.test.ts src/__tests__/init/init-install-separation.test.ts src/__tests__/init/steps/health-check.test.ts`; `cd cli/web-ui && bun test src/__tests__/server/artifacts-api.test.ts`), `cd cli && bun x tsc --noEmit` passing, `cd cli/web-ui && bun x tsc --noEmit` passing
+
+    **Execution Flow**:
+
+    ```mermaid
+    stateDiagram-v2
+        [*] --> TX_20260329193516
+        TX_20260329193516: Verifier reconciliation and init UI alignment
+        TX_20260329193516 --> [*]
     ```

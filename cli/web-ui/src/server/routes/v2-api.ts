@@ -806,12 +806,11 @@ export async function handleV2ArtifactContentRequest(
 		} | null;
 
 		if (artifactRow) {
-			const resolvedPath = await resolveArtifactPath(
-				db,
-				record.projectPath,
-				artifactPath,
-				artifactRow.doc_id,
-			);
+			const resolvedPath = await resolveArtifactPath(db, directories, {
+				docId: artifactRow.doc_id,
+				path: artifactPath,
+				storageRoot: "work_dir",
+			});
 			if (resolvedPath) {
 				const newRelPath = toArtifactDisplayPathFromAbsolute(
 					directories,

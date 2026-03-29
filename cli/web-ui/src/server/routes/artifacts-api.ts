@@ -7,7 +7,7 @@
 
 import type { Database } from "bun:sqlite";
 import { readdir, stat } from "node:fs/promises";
-import { join, relative, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { createTwoFilesPatch } from "diff";
 import * as E from "fp-ts/lib/Either.js";
 import { formatError } from "../../../../shared/errors.js";
@@ -18,13 +18,16 @@ import {
 	getArtifactsForRun,
 	getEmitDatabase,
 	getRunById,
+	normalizeArtifactStorage,
 	resolveArtifactPathForRun,
 	setArtifactBaseline,
-	updateArtifactPath,
+	updateArtifactStorage,
 } from "../../../../src/agent-tools/emit/database.js";
 import {
+	getLegacyWorkDir,
 	getRunDirectories,
 	matchesArtifactDisplayPath,
+	type ProjectDirectories,
 	resolveArtifactAbsolutePath,
 	resolveProjectDirectories,
 	toArtifactDisplayPathFromAbsolute,
@@ -107,17 +110,14 @@ export function extractDocIdFromContent(content: string): string | null {
 }
 
 /**
- * Scan .rp1/work/ for a markdown file containing the given doc_id in its frontmatter.
- * Returns the relative path (from projectRoot) if found, null otherwise.
- * Bounded to .rp1/work/ and only scans .md files. Stops on first match.
+ * Scan a candidate work root for a markdown file containing the given doc_id
+ * in its frontmatter. Returns the absolute path if found, null otherwise.
  */
 export async function scanForDocId(
-	projectRoot: string,
+	workDir: string,
 	docId: string,
 	maxDepth = 8,
 ): Promise<string | null> {
-	const workDir = join(projectRoot, ".rp1", "work");
-
 	async function scanDir(dir: string, depth: number): Promise<string | null> {
 		if (depth > maxDepth) return null;
 
@@ -147,7 +147,7 @@ export async function scanForDocId(
 					const headerBytes = await file.slice(0, 1024).text();
 					const foundId = extractDocIdFromFrontmatter(headerBytes);
 					if (foundId === docId) {
-						return relative(projectRoot, fullPath);
+						return fullPath;
 					}
 				} catch {
 					continue;
@@ -166,36 +166,60 @@ export async function scanForDocId(
 	return scanDir(workDir, 0);
 }
 
+const getReconciliationRoots = (
+	projectRoot: string,
+	workDir: string,
+): readonly string[] => {
+	const legacyWorkDir = getLegacyWorkDir(projectRoot);
+	return Array.from(new Set([resolve(workDir), resolve(legacyWorkDir)]));
+};
+
 /**
  * Resolve an artifact's on-disk path using doc_id-based reconciliation.
  *
  * Fast path: file exists at the stored (cached) path -- returns immediately.
- * Slow path: scans .rp1/work/ for a file with matching rp1_doc_id in frontmatter.
- * On scan hit: updates the path column in the DB (cache refresh) and returns the new path.
+ * Slow path: scans the resolved work roots for a file with matching
+ * rp1_doc_id in frontmatter. On scan hit, updates artifact storage metadata
+ * using the current directory model and returns the new path.
  * On scan miss: returns null (file truly gone).
  */
 export async function resolveArtifactPath(
 	db: Database,
-	projectRoot: string,
-	storedPath: string,
-	docId: string,
+	directories: ProjectDirectories,
+	artifact: {
+		docId: string;
+		path: string;
+		storageRoot: "absolute" | "project" | "work_dir";
+	},
 ): Promise<string | null> {
-	const absolutePath = resolve(projectRoot, storedPath);
+	const absolutePath = resolveArtifactAbsolutePath(directories, artifact);
 	if (await Bun.file(absolutePath).exists()) {
 		return absolutePath;
 	}
 
-	const newRelativePath = await scanForDocId(projectRoot, docId);
-	if (newRelativePath === null) {
-		return null;
+	for (const rootDir of getReconciliationRoots(
+		directories.projectRoot,
+		directories.workDir,
+	)) {
+		const scannedPath = await scanForDocId(rootDir, artifact.docId);
+		if (scannedPath === null) {
+			continue;
+		}
+
+		const normalized = normalizeArtifactStorage(scannedPath, {
+			rp1ProjectRoot: directories.projectRoot,
+			rp1WorkDir: directories.workDir,
+		});
+
+		updateArtifactStorage(db, artifact.docId, normalized);
+		console.log(
+			`[path-reconciliation] Updated artifact path for ${artifact.docId}: ${artifact.path} -> ${normalized.path} (${normalized.storageRoot})`,
+		);
+
+		return scannedPath;
 	}
 
-	updateArtifactPath(db, docId, newRelativePath);
-	console.log(
-		`[path-reconciliation] Updated artifact path for ${docId}: ${storedPath} -> ${newRelativePath}`,
-	);
-
-	return resolve(projectRoot, newRelativePath);
+	return null;
 }
 
 export async function handleArtifactSaveRequest(
@@ -274,9 +298,8 @@ export async function handleArtifactSaveRequest(
 		if (!absolutePath) {
 			const resolvedPath = await resolveArtifactPath(
 				db,
-				record.projectPath,
-				artifactRecord.path,
-				artifactRecord.docId,
+				directories,
+				artifactRecord,
 			);
 			if (resolvedPath) {
 				absolutePath = resolvedPath;
@@ -354,13 +377,9 @@ export async function handleArtifactPatchRequest(
 
 		const resolvedPath =
 			run != null
-				? await resolveArtifactPathForRun(db, run, artifactRecord)
-				: await resolveArtifactPath(
-						db,
-						artifact.projectPath,
-						artifact.path,
-						docId,
-					);
+				? ((await resolveArtifactPathForRun(db, run, artifactRecord)) ??
+					(await resolveArtifactPath(db, directories, artifactRecord)))
+				: await resolveArtifactPath(db, directories, artifactRecord);
 
 		if (!resolvedPath) {
 			return jsonResponse({ patch: null, message: "File not found on disk" });
