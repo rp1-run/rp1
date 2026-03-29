@@ -15,7 +15,7 @@ import {
 import { existsSync, writeFileSync } from "node:fs";
 import { mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
 	closeDatabase,
 	countEventsSince,
@@ -40,7 +40,9 @@ import {
 	insertEvent,
 	insertRun,
 	listRuns,
+	normalizeArtifactStorage,
 	resetInstance,
+	resolveArtifactPathForRun,
 	updateAnnotation,
 	upsertAnnotation,
 	upsertArtifact,
@@ -85,7 +87,7 @@ describe("emit database", () => {
 			expect(tableNames).toContain("schema_version");
 		});
 
-		test("schema_version is set to 6", async () => {
+		test("schema_version is set to 7", async () => {
 			const dbPath = join(tempDir, "version-test.db");
 			const db = await expectTaskRight(getEmitDatabase(dbPath));
 
@@ -93,7 +95,7 @@ describe("emit database", () => {
 				version: number;
 			};
 
-			expect(row.version).toBe(6);
+			expect(row.version).toBe(7);
 		});
 
 		test("artifacts table includes subflow column", async () => {
@@ -106,6 +108,7 @@ describe("emit database", () => {
 			const columnNames = columns.map((c) => c.name);
 
 			expect(columnNames).toContain("subflow");
+			expect(columnNames).toContain("storage_root");
 		});
 
 		test("annotations table includes status and author columns", async () => {
@@ -119,6 +122,20 @@ describe("emit database", () => {
 
 			expect(columnNames).toContain("status");
 			expect(columnNames).toContain("author");
+		});
+
+		test("runs table includes resolved directory columns", async () => {
+			const dbPath = join(tempDir, "run-dir-columns-test.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			const columns = db.prepare("PRAGMA table_info(runs)").all() as {
+				name: string;
+			}[];
+			const columnNames = columns.map((c) => c.name);
+
+			expect(columnNames).toContain("rp1_project_root");
+			expect(columnNames).toContain("rp1_kb_dir");
+			expect(columnNames).toContain("rp1_work_dir");
 		});
 
 		test("migrates v1 schema to add status and author columns", async () => {
@@ -205,11 +222,14 @@ describe("emit database", () => {
 				name: string;
 			}[];
 			expect(runColumns.map((c) => c.name)).toContain("harness");
+			expect(runColumns.map((c) => c.name)).toContain("rp1_project_root");
+			expect(runColumns.map((c) => c.name)).toContain("rp1_kb_dir");
+			expect(runColumns.map((c) => c.name)).toContain("rp1_work_dir");
 
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(6);
+			expect(versionRow.version).toBe(7);
 		});
 
 		test("migrates v2 schema to add subflow column to artifacts", async () => {
@@ -287,16 +307,20 @@ describe("emit database", () => {
 
 			expect(columnNames).toContain("subflow");
 			expect(columnNames).toContain("baseline");
+			expect(columnNames).toContain("storage_root");
 
 			const runColumns = db.prepare("PRAGMA table_info(runs)").all() as {
 				name: string;
 			}[];
 			expect(runColumns.map((c) => c.name)).toContain("harness");
+			expect(runColumns.map((c) => c.name)).toContain("rp1_project_root");
+			expect(runColumns.map((c) => c.name)).toContain("rp1_kb_dir");
+			expect(runColumns.map((c) => c.name)).toContain("rp1_work_dir");
 
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(6);
+			expect(versionRow.version).toBe(7);
 		});
 
 		test("v3 to v4 migration adds baseline column and cleans orphaned edit-diff annotations", async () => {
@@ -383,7 +407,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(6);
+			expect(versionRow.version).toBe(7);
 
 			const annotations = db.prepare("SELECT * FROM annotations").all() as {
 				content: string;
@@ -425,6 +449,25 @@ describe("emit database", () => {
 			expect(run.createdAt).toMatch(
 				/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
 			);
+		});
+
+		test("stores resolved run directory metadata", async () => {
+			const dbPath = join(tempDir, "insert-run-directories.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			const run = insertRun(db, {
+				id: "run-dirs",
+				flow: "build",
+				featureId: "my-feature",
+				projectPath: "/test/project",
+				rp1ProjectRoot: "/resolved/project",
+				rp1KbDir: "/kb/location",
+				rp1WorkDir: "/work/location",
+			});
+
+			expect(run.rp1ProjectRoot).toBe("/resolved/project");
+			expect(run.rp1KbDir).toBe("/kb/location");
+			expect(run.rp1WorkDir).toBe("/work/location");
 		});
 
 		test("returns existing run if ID already present", async () => {
@@ -660,6 +703,7 @@ describe("emit database", () => {
 			expect(artifact.docId).toBe("doc-001");
 			expect(artifact.path).toBe("design.md");
 			expect(artifact.type).toBe("markdown");
+			expect(artifact.storageRoot).toBe("project");
 		});
 
 		test("returns existing artifact if doc_id already present", async () => {
@@ -742,6 +786,31 @@ describe("emit database", () => {
 			});
 
 			expect(artifact.subflow).toBe(false);
+		});
+
+		test("persists work-dir storage metadata", async () => {
+			const dbPath = join(tempDir, "artifact-storage-root.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-storage",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			const artifact = upsertArtifact(db, {
+				docId: "doc-storage",
+				runId: "run-storage",
+				path: "features/feat/design.md",
+				type: "markdown",
+				storageRoot: "work_dir",
+				projectPath: "/p",
+				feature: "feat",
+			});
+
+			expect(artifact.storageRoot).toBe("work_dir");
+			expect(artifact.path).toBe("features/feat/design.md");
 		});
 	});
 
@@ -2068,6 +2137,97 @@ describe("emit database", () => {
 			const artifact = getArtifactByDocId(db, "nonexistent");
 
 			expect(artifact).toBeNull();
+		});
+	});
+
+	describe("artifact storage helpers", () => {
+		test("normalizes absolute work-dir artifacts to work_dir-relative paths", () => {
+			const normalized = normalizeArtifactStorage(
+				"/resolved/work/features/feat/design.md",
+				{
+					rp1ProjectRoot: "/resolved/project",
+					rp1WorkDir: "/resolved/work",
+				},
+			);
+
+			expect(normalized).toEqual({
+				path: "features/feat/design.md",
+				storageRoot: "work_dir",
+			});
+		});
+
+		test("resolves legacy project-relative artifacts from the project root", async () => {
+			const dbPath = join(tempDir, "artifact-resolve-project.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+			const projectRoot = join(tempDir, "project-root");
+			await mkdir(join(projectRoot, ".rp1"), { recursive: true });
+			writeFileSync(join(projectRoot, "legacy.md"), "# legacy\n");
+
+			const resolvedPath = await resolveArtifactPathForRun(
+				db,
+				{
+					rp1ProjectRoot: projectRoot,
+					rp1WorkDir: join(tempDir, "external-work"),
+				},
+				{
+					docId: "doc-legacy",
+					path: "legacy.md",
+					storageRoot: "project",
+				},
+			);
+
+			expect(resolvedPath).toBe(join(projectRoot, "legacy.md"));
+		});
+
+		test("reconciles missing work-dir artifacts by scanning rp1_work_dir", async () => {
+			const dbPath = join(tempDir, "artifact-resolve-reconcile.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+			const projectRoot = join(tempDir, "project-reconcile");
+			const workDir = join(tempDir, "external-work");
+			const filePath = join(workDir, "features", "feat", "design.md");
+			await mkdir(dirname(filePath), { recursive: true });
+			writeFileSync(
+				filePath,
+				"---\nrp1_doc_id: doc-reconcile\n---\n# Design\n",
+			);
+
+			insertRun(db, {
+				id: "run-reconcile",
+				flow: "build",
+				featureId: "feat",
+				projectPath: projectRoot,
+				rp1ProjectRoot: projectRoot,
+				rp1KbDir: join(projectRoot, ".rp1", "context"),
+				rp1WorkDir: workDir,
+			});
+			upsertArtifact(db, {
+				docId: "doc-reconcile",
+				runId: "run-reconcile",
+				path: "missing/design.md",
+				type: "markdown",
+				storageRoot: "work_dir",
+				projectPath: projectRoot,
+				feature: "feat",
+			});
+
+			const resolvedPath = await resolveArtifactPathForRun(
+				db,
+				{
+					rp1ProjectRoot: projectRoot,
+					rp1WorkDir: workDir,
+				},
+				{
+					docId: "doc-reconcile",
+					path: "missing/design.md",
+					storageRoot: "work_dir",
+				},
+			);
+
+			expect(resolvedPath).toBe(filePath);
+
+			const artifact = getArtifactByDocId(db, "doc-reconcile");
+			expect(artifact?.path).toBe("features/feat/design.md");
+			expect(artifact?.storageRoot).toBe("work_dir");
 		});
 	});
 
