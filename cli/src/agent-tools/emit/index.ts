@@ -6,6 +6,7 @@
 
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
+import { resolveDirectorySet } from "../../../shared/directory-resolution.js";
 import type { CLIError } from "../../../shared/errors.js";
 import { runtimeError } from "../../../shared/errors.js";
 import type { RunRecord, Status } from "../../../shared/events.js";
@@ -26,6 +27,7 @@ import {
 	getStepStatuses,
 	insertEvent,
 	insertRun,
+	normalizeArtifactStorage,
 	upsertAnnotation,
 	upsertArtifact,
 } from "./database.js";
@@ -200,6 +202,7 @@ const handleSkippedSteps = (
  */
 const handleArtifactRegistration = (
 	input: EmitInput,
+	run: Pick<RunRecord, "rp1ProjectRoot" | "rp1WorkDir">,
 ): TE.TaskEither<CLIError, string | undefined> => {
 	if (input.type !== "artifact_registered") {
 		return TE.right(undefined);
@@ -226,12 +229,22 @@ const handleArtifactRegistration = (
 					const artifactType =
 						(input.data.type as string) ?? classifyArtifactType(filePath);
 					const feature = input.data.feature as string;
+					const normalizedStorage = normalizeArtifactStorage(
+						filePath,
+						run,
+						input.data.storageRoot as
+							| "absolute"
+							| "project"
+							| "work_dir"
+							| undefined,
+					);
 
 					const artifactInput: ArtifactInput = {
 						docId: docIdResult.docId,
 						runId: input.runId,
-						path: filePath,
+						path: normalizedStorage.path,
 						type: artifactType,
+						storageRoot: normalizedStorage.storageRoot,
 						projectPath: input.projectPath,
 						feature,
 						step: input.step,
@@ -327,11 +340,19 @@ export const executeEmit = (
 	pipe(
 		getEmitDatabase(),
 		TE.chain((db) => {
+			const directories = resolveDirectorySet(input.projectPath);
+			if (directories._tag === "Left") {
+				return TE.left(directories.left);
+			}
+
 			const run = insertRun(db, {
 				id: input.runId,
 				flow: (input.data.workflow as string) ?? "unknown",
 				featureId: (input.data.feature as string) ?? "unknown",
 				projectPath: input.projectPath,
+				rp1ProjectRoot: directories.right.projectRoot,
+				rp1KbDir: directories.right.kbDir,
+				rp1WorkDir: directories.right.workDir,
 				name: input.name,
 				harness:
 					input.harness ??
@@ -351,7 +372,7 @@ export const executeEmit = (
 						TE.bind("skippedResult", () =>
 							handleSkippedSteps(input, run.flow, now),
 						),
-						TE.bind("docId", () => handleArtifactRegistration(input)),
+						TE.bind("docId", () => handleArtifactRegistration(input, run)),
 						TE.chainFirst(() => handleAnnotation(input)),
 						TE.chain(({ skippedResult, docId }) => {
 							const eventData = { ...input.data };
