@@ -10,7 +10,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import type { Logger } from "../../../shared/logger.js";
@@ -275,6 +275,18 @@ describe("init-install separation", () => {
 			// Second run should create nothing (dirs already exist)
 			const created2 = actions2.filter((a) => a.type === "created_directory");
 			expect(created2.length).toBe(0);
+		});
+
+		test("createDirectoryStructure does not create a legacy project-local work dir", async () => {
+			const logger = createMockLogger();
+
+			await createDirectoryStructure(tempDir, logger);
+
+			expect((await stat(join(tempDir, ".rp1"))).isDirectory()).toBe(true);
+			expect((await stat(join(tempDir, ".rp1", "context"))).isDirectory()).toBe(
+				true,
+			);
+			await expect(stat(join(tempDir, ".rp1", "work"))).rejects.toThrow();
 		});
 
 		test("createSettingsFiles is idempotent", async () => {

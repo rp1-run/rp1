@@ -294,6 +294,18 @@ stateDiagram-v2
     - **Deviations**: None
     - **Tests**: `just build` passing
 
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ✅ PASS |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
+
     **Execution Flow**:
 
     ```mermaid
@@ -321,6 +333,18 @@ stateDiagram-v2
     - **Approach**: Added a shared init gitignore generator backed by the resolved directory model, wired both the CLI init flow and the wizard flow onto it, and covered default external work storage, custom local work dirs, and idempotent fenced rewrites.
     - **Deviations**: None
     - **Tests**: 18/18 passing (`bun test cli/src/__tests__/init/gitignore.test.ts cli/src/__tests__/init/init.integration.test.ts`), `cd cli && bun x tsc --noEmit` passing
+
+    **Validation Summary**:
+
+    | Dimension | Status |
+    |-----------|--------|
+    | Discipline | ✅ PASS |
+    | Accuracy | ✅ PASS |
+    | Completeness | ✅ PASS |
+    | Quality | ✅ PASS |
+    | Testing | ✅ PASS |
+    | Commit | ✅ PASS |
+    | Comments | ✅ PASS |
 
     **Execution Flow**:
 
@@ -440,3 +464,23 @@ Existing implementation tasks remain valid, but they now carry an explicit clean
 
 - [ ] Audit the new directory-resolution rollout for superseded helpers, duplicate resolver entry points, and stale single-root assumptions, then remove code that is no longer reachable or no longer needed for documented compatibility.
 - [ ] Remove obsolete rp1-managed write-path and gitignore branches once `rp1_work_dir` and the new managed-directory model fully cover the supported behavior, keeping only the minimum legacy read compatibility paths.
+
+---
+
+- [x] **TX-20260329192125**: Fix verifier follow-up gaps for fake-command artifact paths and init directory creation `[complexity:simple]`
+
+    **Implementation Summary**:
+
+    - **Files**: `cli/src/commands/fake.ts`, `cli/src/init/steps/project-setup.ts`, `cli/src/__tests__/commands/fake.test.ts`, `cli/src/__tests__/init/init-install-separation.test.ts`
+    - **Approach**: Updated fake-command artifact writes and registrations to derive `features/...` paths from the resolved `rp1_work_dir`, and removed the legacy init creation of project-local `.rp1/work` while keeping `.rp1` and `.rp1/context` setup intact.
+    - **Deviations**: None
+    - **Tests**: 35/35 passing (`bun test cli/src/__tests__/commands/fake.test.ts cli/src/__tests__/init/init-install-separation.test.ts cli/src/__tests__/init/gitignore.test.ts`), `cd cli && bun x tsc --noEmit` passing, `just check-cli` passing
+
+    **Execution Flow**:
+
+    ```mermaid
+    stateDiagram-v2
+        [*] --> TX_20260329192125
+        TX_20260329192125: Verifier follow-up gaps
+        TX_20260329192125 --> [*]
+    ```
