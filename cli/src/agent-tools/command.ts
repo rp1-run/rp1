@@ -37,7 +37,7 @@ import {
 	executeSubmitReview,
 } from "./github-pr/index.js";
 import { getTool, type ToolOptions } from "./index.js";
-import { readFromStdinAllowEmpty, readInput } from "./input.js";
+import { readInput } from "./input.js";
 import { formatOutput } from "./output.js";
 import {
 	executeCancel as executeTaskCancel,
