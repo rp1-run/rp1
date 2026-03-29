@@ -26,6 +26,7 @@ import {
 import { buildManagedGitignoreContent } from "../gitignore.js";
 import type { GitignorePreset, InitAction } from "../models.js";
 import type { InitProgress } from "../progress.js";
+import { buildSettingsTomlTemplate } from "../settings-template.js";
 import {
 	appendShellFencedContent,
 	hasShellFencedContent,
@@ -114,80 +115,6 @@ export async function createDirectoryStructure(
 // ============================================================================
 
 /**
- * Default settings with all flags disabled for safety.
- */
-const DEFAULT_SETTINGS: Record<string, boolean> = {
-	git_worktree: false,
-	git_commit: false,
-	git_push: false,
-	afk: false,
-};
-
-/**
- * Generate settings TOML content with comments.
- * Preserves user values while adding any new schema fields.
- */
-function generateSettingsToml(settings: Record<string, boolean>): string {
-	return `# rp1 Settings
-# Documentation: https://rp1.run/configuration/settings
-
-# All settings are disabled by default for safety.
-# Enable features by changing false to true.
-
-# Enable git worktree isolation for build commands
-git_worktree = ${settings.git_worktree ?? false}
-
-# Automatically commit changes after builds
-git_commit = ${settings.git_commit ?? false}
-
-# Automatically push branches to remote
-git_push = ${settings.git_push ?? false}
-
-# Enable AFK (unattended) mode for automated workflows
-afk = ${settings.afk ?? false}
-`;
-}
-
-/**
- * Parse existing settings file and extract known boolean settings.
- */
-async function parseExistingSettings(
-	filePath: string,
-): Promise<Record<string, boolean> | null> {
-	try {
-		const file = Bun.file(filePath);
-		if (!(await file.exists())) {
-			return null;
-		}
-		const content = await file.text();
-		const parsed = Bun.TOML.parse(content) as Record<string, unknown>;
-
-		const settings: Record<string, boolean> = {};
-		for (const key of Object.keys(DEFAULT_SETTINGS)) {
-			if (typeof parsed[key] === "boolean") {
-				settings[key] = parsed[key];
-			}
-		}
-		return settings;
-	} catch {
-		return null;
-	}
-}
-
-/**
- * Merge existing settings with defaults.
- * User values take precedence, new schema fields get defaults.
- */
-function mergeSettings(
-	existing: Record<string, boolean> | null,
-): Record<string, boolean> {
-	if (!existing) {
-		return { ...DEFAULT_SETTINGS };
-	}
-	return { ...DEFAULT_SETTINGS, ...existing };
-}
-
-/**
  * Resolve the global settings file path.
  * Uses ~/.config/rp1/settings.toml to match settings-loader.ts.
  */
@@ -204,48 +131,33 @@ function resolveLocalSettingsPath(cwd: string): string {
 }
 
 /**
- * Create or update a single settings file with merge logic.
- * If file exists, merges with existing settings (user values preserved).
- * New schema fields are added with defaults.
+ * Create a settings file if missing.
+ * Existing settings files are preserved verbatim.
  */
 async function createOrUpdateSettingsFile(
 	filePath: string,
 ): Promise<{ action: InitAction; isNew: boolean; addedFields: string[] }> {
-	const existing = await parseExistingSettings(filePath);
-	const merged = mergeSettings(existing);
-	const content = generateSettingsToml(merged);
-
-	// Determine what changed
-	const addedFields: string[] = [];
-	if (existing) {
-		for (const key of Object.keys(DEFAULT_SETTINGS)) {
-			if (!(key in existing)) {
-				addedFields.push(key);
-			}
-		}
-	}
-
-	await writeFileContent(filePath, content);
-
-	if (!existing) {
+	if (await fileExists(filePath)) {
 		return {
-			action: { type: "created_file", path: filePath },
-			isNew: true,
+			action: { type: "updated_file", path: filePath },
+			isNew: false,
 			addedFields: [],
 		};
 	}
 
+	const content = buildSettingsTomlTemplate();
+	await writeFileContent(filePath, content);
+
 	return {
-		action: { type: "updated_file", path: filePath },
-		isNew: false,
-		addedFields,
+		action: { type: "created_file", path: filePath },
+		isNew: true,
+		addedFields: [],
 	};
 }
 
 /**
  * Create settings files in both global and local locations.
- * Safely merges with existing settings - user values are preserved,
- * new schema fields are added with defaults.
+ * Creates missing settings files and preserves existing settings verbatim.
  */
 export async function createSettingsFiles(
 	cwd: string,
@@ -254,7 +166,7 @@ export async function createSettingsFiles(
 	const actions: InitAction[] = [];
 
 	logger.info(
-		"Settings files can be safely re-initialized - your values are preserved",
+		"Settings files can be safely re-initialized - existing values are preserved",
 	);
 
 	// Process global settings file
