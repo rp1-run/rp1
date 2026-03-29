@@ -944,17 +944,25 @@ The shell prompt shows `[rp1-stable]`. Use the test harness to install rp1:
 # Simulate a first-time user running the production install script
 test-install.sh fresh
 
-# Simulate a first-time install with a locally-built binary (from mounted source)
+# Simulate a first-time install with a locally-built binary (raw copy, skips install script)
 test-install.sh fresh --from-source
 
-# Simulate upgrading an existing install from source
+# Simulate a first-time install through the real install script using local artifacts
+test-install.sh fresh --local-install
+
+# Simulate upgrading an existing install
 test-install.sh update --from-source
+test-install.sh update --local-install
 
 # Reset to clean room state (remove all rp1 artifacts)
 test-install.sh clean
 ```
 
-Without `--from-source`, `test-install.sh` runs the real production install script (`curl -fsSL https://rp1.run/install.sh | sh`) — exactly what a user would run. With `--from-source`, it builds a linux/arm64 binary from the mounted source tree at `/src/rp1` inside the container (a macOS binary from the host won't work in the Linux container).
+Three modes are available:
+
+- **(default)**: Runs the real production install script (`curl -fsSL https://rp1.run/install.sh | sh`) — exactly what a user would run.
+- **`--from-source`**: Builds a linux/arm64 binary from the mounted source at `/src/rp1` and copies it directly into `~/.local/bin`. Fast, but skips the install script entirely.
+- **`--local-install`**: Builds the binary from source, stages it with goreleaser-style naming (`rp1-linux-arm64` + `checksums.txt`), then runs the real install script against those local artifacts. This exercises checksum verification, file permissions, and PATH checks — use this to test unreleased versions through the full install flow.
 
 ### Active Developer
 

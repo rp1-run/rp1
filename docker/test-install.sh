@@ -2,15 +2,18 @@
 # test-install.sh — Simulate rp1 installation in a clean container.
 #
 # Usage:
-#   test-install.sh fresh                  # Download + install latest production release
-#   test-install.sh fresh --from-source    # Build from /src/rp1 and install
-#   test-install.sh update                 # Download + upgrade to latest production release
-#   test-install.sh update --from-source   # Build from /src/rp1 and upgrade
-#   test-install.sh clean                  # Remove all rp1 artifacts (reset to clean room)
+#   test-install.sh fresh                    # Download + install latest production release
+#   test-install.sh fresh --from-source      # Build from /src/rp1 and install (raw copy)
+#   test-install.sh fresh --local-install    # Build from /src/rp1 and install (through install script)
+#   test-install.sh update                   # Download + upgrade to latest production release
+#   test-install.sh update --from-source     # Build from /src/rp1 and upgrade (raw copy)
+#   test-install.sh update --local-install   # Build from /src/rp1 and upgrade (through install script)
+#   test-install.sh clean                    # Remove all rp1 artifacts (reset to clean room)
 #
-# The --from-source flag builds a linux/arm64 binary from the mounted rp1 source
-# tree at /src/rp1 (requires the mount). Without it, the real production install
-# script runs — exactly what a user would experience.
+# --from-source    builds a binary from the mounted source and copies it directly.
+# --local-install  builds a binary, stages it with checksums (goreleaser-style),
+#                  then runs the real install script against local artifacts.
+#                  This exercises checksum verification, file permissions, and PATH checks.
 
 set -euo pipefail
 
@@ -106,20 +109,104 @@ build_from_source() {
     success "Built and installed: $($BINARY_NAME --version 2>/dev/null || echo 'unknown')"
 }
 
+# ── Build local artifacts (binary + checksums, goreleaser-style) ──────────
+
+build_local_artifacts() {
+    if [ ! -d "$SOURCE_DIR" ]; then
+        error "$SOURCE_DIR is not mounted. Start the container with: just start-docker-stable"
+    fi
+    if [ ! -f "$SOURCE_DIR/justfile" ]; then
+        error "$SOURCE_DIR does not look like an rp1 source tree (no justfile found)."
+    fi
+
+    local artifacts_dir="/tmp/rp1-local-artifacts"
+    rm -rf "$artifacts_dir"
+    mkdir -p "$artifacts_dir"
+
+    local os arch binary_filename
+    os=$(uname -s | tr '[:upper:]' '[:lower:]')
+    arch=$(uname -m)
+    case "$arch" in
+        aarch64) arch="arm64" ;;
+        x86_64)  arch="amd64" ;;
+    esac
+    binary_filename="rp1-${os}-${arch}"
+
+    info "Building rp1 from source at $SOURCE_DIR..."
+
+    # Install CLI dependencies
+    info "Installing CLI dependencies..."
+    cd "$SOURCE_DIR/cli" && bun install
+
+    # Build plugins and generate assets
+    info "Building plugins and generating assets..."
+    cd "$SOURCE_DIR/cli" && \
+        RP1_BUILD_INTERNAL=1 bun run scripts/build-opencode.ts && \
+        RP1_BUILD_INTERNAL=1 bun run scripts/build-codex.ts && \
+        RP1_BUILD_INTERNAL=1 bun run scripts/build-claude-code.ts && \
+        bun run generate:assets
+
+    # Compile binary (virtiofs can't do atomic rename, use local tmp)
+    local build_tmp
+    build_tmp=$(mktemp -d)
+    info "Compiling binary (${os}/${arch})..."
+    cd "$build_tmp" && \
+        bun build "$SOURCE_DIR/cli/src/main.ts" --compile \
+        --outfile "$build_tmp/rp1" \
+        --define __RP1_DEV_BUILD__=true
+
+    # Stage artifacts with goreleaser naming
+    cp "$build_tmp/rp1" "$artifacts_dir/$binary_filename"
+    chmod +x "$artifacts_dir/$binary_filename"
+    cd "$artifacts_dir" && sha256sum "$binary_filename" > checksums.txt
+    cd "$HOME"
+    rm -rf "$build_tmp"
+
+    # Extract version from package.json
+    local version
+    version=$(grep '"version"' "$SOURCE_DIR/cli/package.json" | sed 's/.*"\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)".*/\1/')
+    if [ -z "$version" ]; then
+        error "Could not extract version from $SOURCE_DIR/cli/package.json"
+    fi
+
+    success "Local artifacts staged in $artifacts_dir"
+    echo "  Binary:    $artifacts_dir/$binary_filename"
+    echo "  Checksums: $artifacts_dir/checksums.txt"
+    echo "  Version:   $version"
+
+    # Export for caller
+    STAGED_VERSION="$version"
+    STAGED_ARTIFACTS_DIR="$artifacts_dir"
+}
+
 # ── Install binary ─────────────────────────────────────────────────────────
 
 install_binary() {
-    local from_source="${1:-false}"
+    local mode="${1:-production}"
 
-    if [ "$from_source" = "true" ]; then
-        build_from_source
-    else
-        # Run the real install script (same as a user would)
-        info "Running production install script (same as a real user)..."
-        echo ""
-        curl -fsSL https://rp1.run/install.sh | INSTALL_DIR="$INSTALL_DIR" SKIP_PLUGINS=1 sh
-        echo ""
-    fi
+    case "$mode" in
+        from-source)
+            build_from_source
+            ;;
+        local-install)
+            build_local_artifacts
+            info "Running install script with local artifacts..."
+            echo ""
+            VERSION="$STAGED_VERSION" \
+            LOCAL_ARTIFACTS_DIR="$STAGED_ARTIFACTS_DIR" \
+            INSTALL_DIR="$INSTALL_DIR" \
+            SKIP_PLUGINS=1 \
+                sh "$SOURCE_DIR/scripts/install.sh"
+            echo ""
+            ;;
+        *)
+            # Run the real install script (same as a user would)
+            info "Running production install script (same as a real user)..."
+            echo ""
+            curl -fsSL https://rp1.run/install.sh | INSTALL_DIR="$INSTALL_DIR" SKIP_PLUGINS=1 sh
+            echo ""
+            ;;
+    esac
 
     # Verify
     if ! command -v "$BINARY_NAME" &>/dev/null; then
@@ -139,15 +226,15 @@ install_plugins() {
 # ── Fresh install ──────────────────────────────────────────────────────────
 
 do_fresh() {
-    local from_source="${1:-false}"
+    local mode="${1:-production}"
 
     echo ""
     echo "━━━ Simulating fresh rp1 installation ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    if [ "$from_source" = "true" ]; then
-        echo "    (from local source at $SOURCE_DIR)"
-    else
-        echo "    (from production install script)"
-    fi
+    case "$mode" in
+        from-source)    echo "    (from local source at $SOURCE_DIR)" ;;
+        local-install)  echo "    (local artifacts through install script)" ;;
+        *)              echo "    (from production install script)" ;;
+    esac
     echo ""
 
     # Ensure clean state first
@@ -157,7 +244,7 @@ do_fresh() {
     info "Starting fresh installation..."
     echo ""
 
-    install_binary "$from_source"
+    install_binary "$mode"
     install_plugins
 
     echo ""
@@ -173,15 +260,15 @@ do_fresh() {
 # ── Update install ─────────────────────────────────────────────────────────
 
 do_update() {
-    local from_source="${1:-false}"
+    local mode="${1:-production}"
 
     echo ""
     echo "━━━ Simulating rp1 update ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    if [ "$from_source" = "true" ]; then
-        echo "    (from local source at $SOURCE_DIR)"
-    else
-        echo "    (from production install script)"
-    fi
+    case "$mode" in
+        from-source)    echo "    (from local source at $SOURCE_DIR)" ;;
+        local-install)  echo "    (local artifacts through install script)" ;;
+        *)              echo "    (from production install script)" ;;
+    esac
     echo ""
 
     # Check that rp1 is currently installed
@@ -193,7 +280,7 @@ do_update() {
     old_version=$("$BINARY_NAME" --version 2>/dev/null || echo "unknown")
     info "Current version: $old_version"
 
-    install_binary "$from_source"
+    install_binary "$mode"
     install_plugins
 
     local new_version
@@ -210,27 +297,33 @@ do_update() {
 # ── Main ───────────────────────────────────────────────────────────────────
 
 usage() {
-    echo "Usage: test-install.sh <command> [--from-source]"
+    echo "Usage: test-install.sh <command> [--from-source | --local-install]"
     echo ""
     echo "Commands:"
-    echo "  fresh                  Simulate first-time install (production release)"
-    echo "  fresh --from-source    Simulate first-time install (build from /src/rp1)"
-    echo "  update                 Simulate upgrade (production release)"
-    echo "  update --from-source   Simulate upgrade (build from /src/rp1)"
-    echo "  clean                  Remove all rp1 artifacts (reset to clean room)"
+    echo "  fresh                    Simulate first-time install (production release)"
+    echo "  fresh --from-source      Simulate first-time install (build from /src/rp1, raw copy)"
+    echo "  fresh --local-install    Simulate first-time install (build from /src/rp1, through install script)"
+    echo "  update                   Simulate upgrade (production release)"
+    echo "  update --from-source     Simulate upgrade (build from /src/rp1, raw copy)"
+    echo "  update --local-install   Simulate upgrade (build from /src/rp1, through install script)"
+    echo "  clean                    Remove all rp1 artifacts (reset to clean room)"
     echo ""
-    echo "Without --from-source, runs the real install script (curl | sh)."
-    echo "With --from-source, builds a linux/arm64 binary from the mounted source."
+    echo "Modes:"
+    echo "  (default)          Runs the real install script (curl | sh)."
+    echo "  --from-source      Builds a binary from the mounted source and copies it directly."
+    echo "  --local-install    Builds a binary from the mounted source, stages it with checksums,"
+    echo "                     then runs the real install script against local artifacts."
 }
 
-from_source=false
-if [ "${2:-}" = "--from-source" ]; then
-    from_source=true
-fi
+mode="production"
+case "${2:-}" in
+    --from-source)   mode="from-source" ;;
+    --local-install) mode="local-install" ;;
+esac
 
 case "${1:-}" in
-    fresh)  do_fresh "$from_source" ;;
-    update) do_update "$from_source" ;;
+    fresh)  do_fresh "$mode" ;;
+    update) do_update "$mode" ;;
     clean)  do_clean ;;
     *)      usage; exit 1 ;;
 esac
