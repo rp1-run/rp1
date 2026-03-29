@@ -867,6 +867,14 @@ export const buildPlatformPlugin = async (
 			hookCtx,
 		);
 		errors.push(...hookResult.errors);
+		if (definition.producesBundleAssets && hookResult.verbatimFiles) {
+			for (const file of hookResult.verbatimFiles) {
+				verbatimFileEntries.push({
+					name: file.name,
+					path: `${pluginName}/${file.path}`,
+				});
+			}
+		}
 	}
 
 	// -----------------------------------------------------------------------
