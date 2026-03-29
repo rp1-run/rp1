@@ -606,45 +606,81 @@ export const installCodex = (
 	);
 };
 
+const isRp1HookEntry = (entry: unknown): boolean => {
+	const s = JSON.stringify(entry);
+	return (
+		s.includes("rp1 arcade") ||
+		s.includes("RP1_BINARY") ||
+		s.includes("rp1 update")
+	);
+};
+
+/**
+ * Build the rp1 SessionStart hook entries for Codex hooks.json.
+ *
+ * Commands use bash -c with double-quoted printf args containing escaped
+ * quotes (\"). When JSON.stringify serializes these, the \" becomes \\\"
+ * in the JSON file, which round-trips correctly: JSON parse → \" → bash
+ * interprets as literal ".
+ */
+const buildRp1HookEntries = (): unknown[] => {
+	// prettier-ignore
+	const arcadeCmd =
+		"bash -c '${RP1_BINARY:-rp1} arcade --no-open >/dev/null 2>&1;" +
+		' printf "{\\"systemMessage\\":\\"🕹️ rp1 Arcade is live at http://localhost:7710\\",' +
+		'\\"hookSpecificOutput\\":{\\"hookEventName\\":\\"SessionStart\\",' +
+		'\\"additionalContext\\":\\"rp1 Arcade is running at http://localhost:7710.' +
+		' Mention this to the user if relevant.\\"}}"\'';
+
+	// prettier-ignore
+	const updateCmd =
+		"bash -c '${RP1_BINARY:-rp1} update --check --format hook-text 2>/dev/null" +
+		' | { read -r msg; [ -n "$msg" ] &&' +
+		' printf "{\\"systemMessage\\":\\"🚀 %s\\",' +
+		'\\"hookSpecificOutput\\":{\\"hookEventName\\":\\"SessionStart\\",' +
+		'\\"additionalContext\\":\\"%s\\"}}"' +
+		' "$msg" "$msg" || true; }\'';
+
+	return [
+		{
+			matcher: "startup|resume",
+			hooks: [
+				{
+					type: "command",
+					command: arcadeCmd,
+					statusMessage: "Starting rp1 Arcade",
+					timeout: 10,
+				},
+			],
+		},
+		{
+			matcher: "startup",
+			hooks: [
+				{
+					type: "command",
+					command: updateCmd,
+					statusMessage: "Checking for rp1 updates",
+					timeout: 10,
+				},
+			],
+		},
+	];
+};
+
 /**
  * Install hooks.json for Codex SessionStart hooks (arcade + update check).
  * Merges with any existing hooks.json, preserving non-rp1 entries.
  */
 const installCodexHooks = async (configDir: string): Promise<void> => {
 	const hooksPath = join(configDir, "hooks.json");
-	const rp1Hooks = {
-		SessionStart: [
-			{
-				matcher: "startup",
-				hooks: [
-					{
-						type: "command",
-						command:
-							'bash -c \'${RP1_BINARY:-rp1} update --check --format hook-text 2>/dev/null | { read -r msg; [ -n "$msg" ] && printf "{\\\\"systemMessage\\\\":\\\\"🚀 %s\\\\",\\\\"hookSpecificOutput\\\\":{\\\\"hookEventName\\\\":\\\\"SessionStart\\\\",\\\\"additionalContext\\\\":\\\\"%s\\\\"}}" "$msg" "$msg" || true; }\'',
-						statusMessage: "Checking for rp1 updates",
-						timeout: 10,
-					},
-				],
-			},
-			{
-				matcher: "startup|resume",
-				hooks: [
-					{
-						type: "command",
-						command:
-							'bash -c \'${RP1_BINARY:-rp1} arcade --no-open >/dev/null 2>&1; printf "{\\\\"systemMessage\\\\":\\\\"🕹️ rp1 Arcade is live at http://localhost:7710\\\\"}"\'',
-						statusMessage: "Starting rp1 Arcade",
-						timeout: 10,
-					},
-				],
-			},
-		],
-	};
+	const rp1Hooks = buildRp1HookEntries();
 
 	let existing: Record<string, unknown[]> = {};
 	try {
 		const content = await readFile(hooksPath, "utf-8");
-		const parsed = JSON.parse(content) as { hooks?: Record<string, unknown[]> };
+		const parsed = JSON.parse(content) as {
+			hooks?: Record<string, unknown[]>;
+		};
 		if (parsed.hooks && typeof parsed.hooks === "object") {
 			existing = parsed.hooks;
 		}
@@ -652,21 +688,16 @@ const installCodexHooks = async (configDir: string): Promise<void> => {
 		// No existing hooks file
 	}
 
-	// Remove any previous rp1 hooks from SessionStart (identified by rp1 commands)
+	// Remove any previous rp1 hooks from SessionStart
 	if (existing.SessionStart && Array.isArray(existing.SessionStart)) {
 		existing.SessionStart = existing.SessionStart.filter(
-			(entry: any) =>
-				!JSON.stringify(entry).includes("rp1 arcade") &&
-				!JSON.stringify(entry).includes("rp1 update"),
+			(entry) => !isRp1HookEntry(entry),
 		);
 	}
 
 	// Merge rp1 hooks
 	const merged = { ...existing };
-	merged.SessionStart = [
-		...(merged.SessionStart || []),
-		...rp1Hooks.SessionStart,
-	];
+	merged.SessionStart = [...(merged.SessionStart || []), ...rp1Hooks];
 
 	await writeFile(hooksPath, JSON.stringify({ hooks: merged }, null, 2));
 };
