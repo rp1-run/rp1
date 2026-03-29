@@ -290,6 +290,8 @@ describeWithLiquid("template rendering", () => {
 			const engine = createTestEngine();
 			const result = await engine.renderFile("codex/agent-toml", {
 				platform: "codex",
+				pluginName: "dev",
+				namespacedPluginName: "rp1-dev",
 				artifact: {
 					type: "agent",
 					name: "task-builder",

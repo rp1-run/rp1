@@ -61,6 +61,8 @@ export type PlatformBuildState = Record<string, unknown>;
 export interface PostBuildResult {
 	readonly errors: string[];
 	readonly warnings: string[];
+	/** Additional files to include in the bundle manifest as verbatim entries. */
+	readonly verbatimFiles?: readonly { name: string; path: string }[];
 }
 
 /**
@@ -368,6 +370,7 @@ const codexPostPluginBuild = async (
 	}
 
 	// Copy codex-hooks.json if present in the plugin source
+	const verbatimFiles: { name: string; path: string }[] = [];
 	try {
 		const hooksSource = join(
 			hookCtx.projectRoot,
@@ -380,11 +383,15 @@ const codexPostPluginBuild = async (
 		// Validate JSON before copying
 		JSON.parse(hooksContent);
 		await writeFile(join(outputDir, "codex-hooks.json"), hooksContent);
+		verbatimFiles.push({
+			name: "codex-hooks.json",
+			path: "codex-hooks.json",
+		});
 	} catch {
 		// No codex-hooks.json for this plugin — that's fine
 	}
 
-	return { errors, warnings };
+	return { errors, warnings, verbatimFiles };
 };
 
 // ---------------------------------------------------------------------------

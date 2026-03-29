@@ -6,6 +6,10 @@ set -eu
 #        curl -fsSL https://rp1.run/install.sh | VERSION=5.5.0 sh
 #        curl -fsSL https://rp1.run/install.sh | INSTALL_DIR=/opt/bin sh
 #        curl -fsSL https://rp1.run/install.sh | SKIP_PLUGINS=1 sh
+#
+# Internal (not in site/install.sh):
+#        LOCAL_ARTIFACTS_DIR=/path/to/dir VERSION=0.6.5 sh install.sh
+#        Skips download; copies binary + checksums.txt from local dir.
 
 GITHUB_REPO="rp1-run/rp1"
 BINARY_NAME="rp1"
@@ -250,6 +254,9 @@ main() {
         validate_version "$version"
         info "Using specified version: $version"
     else
+        if [ -n "${LOCAL_ARTIFACTS_DIR:-}" ]; then
+            error "VERSION must be set when using LOCAL_ARTIFACTS_DIR"
+        fi
         info "Fetching latest version..."
         version=$(get_latest_version)
         if [ -z "$version" ]; then
@@ -265,14 +272,27 @@ main() {
     trap 'rm -rf "$tmp_dir"' EXIT
 
     local binary_filename="${BINARY_NAME}-${os}-${arch}"
-    local download_url="https://github.com/${GITHUB_REPO}/releases/download/v${version}/${binary_filename}"
-    local checksums_url="https://github.com/${GITHUB_REPO}/releases/download/v${version}/checksums.txt"
-
     local binary_path="$tmp_dir/$binary_filename"
     local checksums_path="$tmp_dir/checksums.txt"
 
-    download "$download_url" "$binary_path"
-    download "$checksums_url" "$checksums_path"
+    if [ -n "${LOCAL_ARTIFACTS_DIR:-}" ]; then
+        info "Using local artifacts from $LOCAL_ARTIFACTS_DIR"
+        local local_binary="$LOCAL_ARTIFACTS_DIR/$binary_filename"
+        local local_checksums="$LOCAL_ARTIFACTS_DIR/checksums.txt"
+        if [ ! -f "$local_binary" ]; then
+            error "Binary not found: $local_binary"
+        fi
+        if [ ! -f "$local_checksums" ]; then
+            error "Checksums not found: $local_checksums"
+        fi
+        cp "$local_binary" "$binary_path"
+        cp "$local_checksums" "$checksums_path"
+    else
+        local download_url="https://github.com/${GITHUB_REPO}/releases/download/v${version}/${binary_filename}"
+        local checksums_url="https://github.com/${GITHUB_REPO}/releases/download/v${version}/checksums.txt"
+        download "$download_url" "$binary_path"
+        download "$checksums_url" "$checksums_path"
+    fi
 
     verify_checksum "$binary_path" "$checksums_path" "$binary_filename"
 
