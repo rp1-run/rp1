@@ -4,9 +4,15 @@ import { homedir } from "node:os";
 import path from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import type { CLIError } from "./errors.js";
+import {
+	type LoadedDirectorySettings,
+	loadDirectorySettings,
+} from "./settings.js";
 
 export type ProjectRootSource =
 	| "env"
+	| "project_settings"
+	| "user_settings"
 	| "walk_up"
 	| "git_common_dir"
 	| "git_repo_root"
@@ -31,6 +37,8 @@ export interface ResolvedDirectorySet {
 		readonly workDir: DirectorySource;
 	};
 }
+
+type DirectorySettingsLoadOptions = Parameters<typeof loadDirectorySettings>[1];
 
 interface GitContext {
 	readonly gitDir: string;
@@ -132,73 +140,88 @@ const buildResolvedDirectorySet = (params: {
 	projectRootSource: ProjectRootSource;
 	isWorktree: boolean;
 	worktreeName?: string;
-}): ResolvedDirectorySet => {
+	settingsLoadOptions?: DirectorySettingsLoadOptions;
+}): E.Either<CLIError, ResolvedDirectorySet> => {
 	const rp1RootFromEnv = process.env.RP1_ROOT;
 	const kbDirFromEnv = process.env.RP1_KB_DIR;
 	const workDirFromEnv = process.env.RP1_WORK_DIR;
+	const candidateProjectRoot = path.resolve(params.projectRoot);
+	return E.map((settings: LoadedDirectorySettings): ResolvedDirectorySet => {
+		const projectRoot =
+			params.projectRootSource === "env"
+				? candidateProjectRoot
+				: path.resolve(settings.projectRoot ?? candidateProjectRoot);
+		const projectRootSource: ProjectRootSource =
+			params.projectRootSource === "env"
+				? params.projectRootSource
+				: (settings.sources.projectRoot ?? params.projectRootSource);
+		const rp1Root = rp1RootFromEnv
+			? path.resolve(rp1RootFromEnv)
+			: path.join(projectRoot, ".rp1");
+		const kbDir = kbDirFromEnv
+			? path.resolve(kbDirFromEnv)
+			: (settings.kbDir ?? path.join(rp1Root, "context"));
+		const workDir = workDirFromEnv
+			? path.resolve(workDirFromEnv)
+			: (settings.workDir ??
+				path.join(homedir(), ".rp1", normalizeProjectKey(projectRoot)));
+		const kbDirSource: DirectorySource = kbDirFromEnv
+			? "env"
+			: (settings.sources.kbDir ?? "default");
+		const workDirSource: DirectorySource = workDirFromEnv
+			? "env"
+			: (settings.sources.workDir ?? "default");
 
-	const projectRoot = path.resolve(params.projectRoot);
-	const rp1Root = rp1RootFromEnv
-		? path.resolve(rp1RootFromEnv)
-		: path.join(projectRoot, ".rp1");
-	const kbDir = kbDirFromEnv
-		? path.resolve(kbDirFromEnv)
-		: path.join(rp1Root, "context");
-	const workDir = workDirFromEnv
-		? path.resolve(workDirFromEnv)
-		: path.join(homedir(), ".rp1", normalizeProjectKey(projectRoot));
-
-	return {
-		projectRoot,
-		rp1Root,
-		kbDir,
-		workDir,
-		isWorktree: params.isWorktree,
-		worktreeName: params.worktreeName,
-		sources: {
-			projectRoot: params.projectRootSource,
-			kbDir: kbDirFromEnv ? "env" : "default",
-			workDir: workDirFromEnv ? "env" : "default",
-		},
-	};
+		return {
+			projectRoot,
+			rp1Root,
+			kbDir,
+			workDir,
+			isWorktree: params.isWorktree,
+			worktreeName: params.worktreeName,
+			sources: {
+				projectRoot: projectRootSource,
+				kbDir: kbDirSource,
+				workDir: workDirSource,
+			},
+		};
+	})(loadDirectorySettings(candidateProjectRoot, params.settingsLoadOptions));
 };
 
 export const resolveDirectorySet = (
 	startPath: string = process.cwd(),
+	settingsLoadOptions?: DirectorySettingsLoadOptions,
 ): E.Either<CLIError, ResolvedDirectorySet> => {
 	const resolvedStartPath = path.resolve(startPath);
 
 	const projectRootFromEnv = process.env.RP1_PROJECT_ROOT;
 	if (projectRootFromEnv) {
-		return E.right(
-			buildResolvedDirectorySet({
-				projectRoot: projectRootFromEnv,
-				projectRootSource: "env",
-				isWorktree: false,
-			}),
-		);
+		return buildResolvedDirectorySet({
+			projectRoot: projectRootFromEnv,
+			projectRootSource: "env",
+			isWorktree: false,
+			settingsLoadOptions,
+		});
 	}
 
 	const rp1RootFromEnv = process.env.RP1_ROOT;
 	if (rp1RootFromEnv) {
-		return E.right(
-			buildResolvedDirectorySet({
-				projectRoot: path.dirname(path.resolve(rp1RootFromEnv)),
-				projectRootSource: "env",
-				isWorktree: false,
-			}),
-		);
+		return buildResolvedDirectorySet({
+			projectRoot: path.dirname(path.resolve(rp1RootFromEnv)),
+			projectRootSource: "env",
+			isWorktree: false,
+			settingsLoadOptions,
+		});
 	}
 
 	const walkedProjectRoot = walkUpToProjectRoot(resolvedStartPath);
 	if (walkedProjectRoot) {
-		return E.right(
-			buildResolvedDirectorySet({
-				projectRoot: walkedProjectRoot,
-				projectRootSource: "walk_up",
-				isWorktree: false,
-			}),
-		);
+		return buildResolvedDirectorySet({
+			projectRoot: walkedProjectRoot,
+			projectRootSource: "walk_up",
+			isWorktree: false,
+			settingsLoadOptions,
+		});
 	}
 
 	const gitContext = existsSync(resolvedStartPath)
@@ -212,31 +235,28 @@ export const resolveDirectorySet = (
 		const commonDirProjectRoot = deriveProjectRootFromCommonDir(commonDir);
 
 		if (isWorktree && hasRp1Directory(commonDirProjectRoot)) {
-			return E.right(
-				buildResolvedDirectorySet({
-					projectRoot: commonDirProjectRoot,
-					projectRootSource: "git_common_dir",
-					isWorktree: true,
-					worktreeName: gitContext.branch,
-				}),
-			);
+			return buildResolvedDirectorySet({
+				projectRoot: commonDirProjectRoot,
+				projectRootSource: "git_common_dir",
+				isWorktree: true,
+				worktreeName: gitContext.branch,
+				settingsLoadOptions,
+			});
 		}
 
-		return E.right(
-			buildResolvedDirectorySet({
-				projectRoot: gitContext.topLevel,
-				projectRootSource: "git_repo_root",
-				isWorktree,
-				worktreeName: isWorktree ? gitContext.branch : undefined,
-			}),
-		);
+		return buildResolvedDirectorySet({
+			projectRoot: gitContext.topLevel,
+			projectRootSource: "git_repo_root",
+			isWorktree,
+			worktreeName: isWorktree ? gitContext.branch : undefined,
+			settingsLoadOptions,
+		});
 	}
 
-	return E.right(
-		buildResolvedDirectorySet({
-			projectRoot: resolvedStartPath,
-			projectRootSource: "cwd_fallback",
-			isWorktree: false,
-		}),
-	);
+	return buildResolvedDirectorySet({
+		projectRoot: resolvedStartPath,
+		projectRootSource: "cwd_fallback",
+		isWorktree: false,
+		settingsLoadOptions,
+	});
 };
