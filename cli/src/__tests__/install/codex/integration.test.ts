@@ -128,9 +128,6 @@ describe("codex integration", () => {
 		expect(config).toContain("# rp1:end");
 		expect(config).toContain("[agents.rp1-build]");
 		expect(config).toContain("[agents.rp1-review]");
-		expect(config).toContain('notifications = "all"');
-		expect(config).toContain('notification_method = "command"');
-		expect(config).toContain('notify = ["rp1", "agent-tools", "codex-notify"]');
 		expect(config).toContain('config_file = "./agents/rp1/rp1-build.toml"');
 
 		const uninstallResult = await expectTaskRight(uninstallCodex(paths, false));

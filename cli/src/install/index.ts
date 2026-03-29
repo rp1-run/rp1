@@ -55,7 +55,6 @@ export {
 	checkWritePermissions,
 	getOpenCodeConfigDir,
 	getOpenCodeConfigPath,
-	registerRp1HooksPlugin,
 } from "./prerequisites.js";
 // Verifier
 export type { ExpectedCounts } from "./verifier.js";
