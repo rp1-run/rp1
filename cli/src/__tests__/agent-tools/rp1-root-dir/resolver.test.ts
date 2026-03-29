@@ -19,9 +19,7 @@ import {
 	captureMainRepoState,
 	createInitialCommit,
 	createTestWorktree,
-	expectTaskLeft,
 	expectTaskRight,
-	getErrorMessage,
 	initTestRepo,
 	removeTestWorktree,
 	verifyNoMainRepoContamination,
@@ -60,6 +58,7 @@ describe("rp1-root-dir resolver", () => {
 		// Create a repo with a linked worktree using isolated git
 		worktreeRepoRoot = join(tempBase, "worktree-main");
 		await mkdir(worktreeRepoRoot, { recursive: true });
+		await mkdir(join(worktreeRepoRoot, ".rp1"), { recursive: true });
 		await initTestRepo(worktreeRepoRoot);
 
 		// Create initial commit with different content
@@ -180,19 +179,20 @@ describe("rp1-root-dir resolver", () => {
 	});
 
 	describe("not a git repo", () => {
-		test("returns error when not in a git repository", async () => {
-			const error = await expectTaskLeft(resolveRp1Root(nonGitDir));
+		test("falls back to cwd when not in a git repository", async () => {
+			const result = await expectTaskRight(resolveRp1Root(nonGitDir));
 
-			expect(error._tag).toBe("RuntimeError");
-			expect(getErrorMessage(error)).toContain("Git command failed");
+			expect(result.root).toBe(join(nonGitDir, ".rp1"));
+			expect(result.source).toBe("cwd");
+			expect(result.isWorktree).toBe(false);
 		});
 
-		test("returns error for non-existent directory", async () => {
+		test("falls back to cwd for non-existent directories", async () => {
 			const nonExistentPath = join(tempBase, "does-not-exist");
+			const result = await expectTaskRight(resolveRp1Root(nonExistentPath));
 
-			const error = await expectTaskLeft(resolveRp1Root(nonExistentPath));
-
-			expect(error._tag).toBe("RuntimeError");
+			expect(result.root).toBe(join(nonExistentPath, ".rp1"));
+			expect(result.source).toBe("cwd");
 		});
 	});
 });

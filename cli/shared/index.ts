@@ -6,6 +6,12 @@ export {
 	parseArcadeArgs,
 	resolveRp1Root,
 } from "./config.js";
+export {
+	type DirectorySource,
+	type ProjectRootSource,
+	type ResolvedDirectorySet,
+	resolveDirectorySet,
+} from "./directory-resolution.js";
 
 export {
 	backupError,
