@@ -11,6 +11,8 @@
 import * as fs from "node:fs/promises";
 import { homedir } from "node:os";
 import * as path from "node:path";
+import * as E from "fp-ts/lib/Either.js";
+import { formatError } from "../../../shared/errors.js";
 import type { Logger } from "../../../shared/logger.js";
 import type { PromptOptions } from "../../../shared/prompts.js";
 import { selectOption } from "../../../shared/prompts.js";
@@ -21,8 +23,8 @@ import {
 	validateFencing,
 	wrapWithFence,
 } from "../comment-fence.js";
+import { buildManagedGitignoreContent } from "../gitignore.js";
 import type { GitignorePreset, InitAction } from "../models.js";
-import { GITIGNORE_PRESETS } from "../models.js";
 import type { InitProgress } from "../progress.js";
 import {
 	appendShellFencedContent,
@@ -441,7 +443,11 @@ export async function configureGitignore(
 		}
 	}
 
-	const gitignoreContent = GITIGNORE_PRESETS[preset];
+	const gitignoreContentResult = buildManagedGitignoreContent(cwd, preset);
+	if (E.isLeft(gitignoreContentResult)) {
+		throw new Error(formatError(gitignoreContentResult.left, false));
+	}
+	const gitignoreContent = gitignoreContentResult.right;
 	const exists = await fileExists(gitignorePath);
 
 	if (!exists) {
