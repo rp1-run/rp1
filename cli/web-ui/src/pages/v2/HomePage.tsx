@@ -227,6 +227,13 @@ export function HomePage() {
 	return (
 		<div className="h-full overflow-y-auto px-4 py-6 md:px-6">
 			<div className="mx-auto max-w-[640px]">
+				<header className="mb-6 px-3">
+					<h1 className="flex items-center gap-2 type-title text-fg">
+						<Activity className="h-4 w-4" strokeWidth={1.5} />
+						Activity
+					</h1>
+				</header>
+
 				<div className="flex items-center gap-4 mb-4 px-3">
 					{FILTERS.map((f) => (
 						<button
