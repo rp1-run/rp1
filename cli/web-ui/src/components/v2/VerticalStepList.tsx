@@ -11,6 +11,7 @@ import {
 	Minus,
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
+import { HarnessIcon } from "@/components/v2/HarnessIcon";
 import { cn } from "@/lib/utils";
 import type {
 	AgentTask,
@@ -28,6 +29,7 @@ export interface VerticalStepListProps {
 	readonly onStepSelect: (stepId: string) => void;
 	readonly onArtifactSelect: (artifact: Artifact) => void;
 	readonly workflowName?: string | null;
+	readonly harness?: string | null;
 }
 
 const artifactIconMap: Record<ArtifactType, typeof FileText> = {
@@ -178,6 +180,7 @@ export function VerticalStepList({
 	onStepSelect,
 	onArtifactSelect,
 	workflowName,
+	harness,
 }: VerticalStepListProps) {
 	const [expandedComposites, setExpandedComposites] = useState<Set<string>>(
 		() => new Set<string>(),
@@ -227,9 +230,10 @@ export function VerticalStepList({
 	return (
 		<nav aria-label="Workflow steps" className="relative py-md px-md">
 			{workflowName && (
-				<p className="type-caption text-fg-ghost mb-sm ml-[9px] pl-md">
-					/{workflowName}
-				</p>
+				<div className="flex items-center gap-1.5 mb-sm ml-[9px] pl-md">
+					<HarnessIcon harness={harness ?? null} size={14} />
+					<p className="type-caption text-fg-ghost">/{workflowName}</p>
+				</div>
 			)}
 			<ol className="relative ml-[9px] border-l border-border">
 				{steps.map((step, index) => {

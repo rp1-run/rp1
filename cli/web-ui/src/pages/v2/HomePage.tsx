@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Activity } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { HarnessIcon } from "@/components/v2/HarnessIcon";
 import { useAttention } from "@/hooks/useAttention";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { useRuns } from "@/hooks/useRuns";
@@ -100,11 +101,12 @@ function FeedEntry({
 		>
 			<StatusDot status={run.status} />
 
-			<span
-				className="shrink-0 type-secondary tabular-nums text-fg-ghost"
-				style={{ fontVariantNumeric: "tabular-nums" }}
-			>
+			<span className="w-[5.5em] shrink-0 text-right type-secondary tabular-nums text-fg-ghost">
 				{formatRelativeTime(run.startedAt)}
+			</span>
+
+			<span className="inline-flex w-[14px] shrink-0 items-center justify-center">
+				<HarnessIcon harness={run.harness} size={14} />
 			</span>
 
 			<span className="truncate type-body font-medium text-fg">

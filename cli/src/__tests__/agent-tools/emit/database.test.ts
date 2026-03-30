@@ -96,6 +96,7 @@ describe("emit database", () => {
 			};
 
 			expect(row.version).toBe(8);
+			expect(row.version).toBe(8);
 		});
 
 		test("artifacts table includes subflow column", async () => {
@@ -230,6 +231,7 @@ describe("emit database", () => {
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
 			expect(versionRow.version).toBe(8);
+			expect(versionRow.version).toBe(8);
 		});
 
 		test("migrates v2 schema to add subflow column to artifacts", async () => {
@@ -321,6 +323,7 @@ describe("emit database", () => {
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
 			expect(versionRow.version).toBe(8);
+			expect(versionRow.version).toBe(8);
 		});
 
 		test("v3 to v4 migration adds baseline column and cleans orphaned edit-diff annotations", async () => {
@@ -407,6 +410,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
+			expect(versionRow.version).toBe(8);
 			expect(versionRow.version).toBe(8);
 
 			const annotations = db.prepare("SELECT * FROM annotations").all() as {
