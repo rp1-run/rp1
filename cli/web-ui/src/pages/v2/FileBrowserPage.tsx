@@ -53,7 +53,12 @@ export function FileBrowserPage() {
 	} = useProjectFileTree(projectId);
 	const { setProjectId, onTreeChange, onFileChange } = useWebSocket();
 
-	const [content, setContent] = useState<FileContent | null>(null);
+	const [content, setContentRaw] = useState<FileContent | null>(null);
+	const [contentRevision, setContentRevision] = useState(0);
+	const setContent = useCallback((c: FileContent | null) => {
+		setContentRaw(c);
+		if (c !== null) setContentRevision((r) => r + 1);
+	}, []);
 	const [contentLoading, setContentLoading] = useState(false);
 	const [contentError, setContentError] = useState<string | null>(null);
 	const [isRefreshing, setIsRefreshing] = useState(false);
@@ -71,8 +76,6 @@ export function FileBrowserPage() {
 	const scrollViewportRef = useRef<HTMLDivElement>(null);
 	const headingElementsRef = useRef<Map<string, Element>>(new Map());
 	const isNavigatingRef = useRef(false);
-	const previousContentRef = useRef<FileContent | null>(null);
-	const previousPathRef = useRef<string | null>(null);
 	const navigateTimerRef = useRef<ReturnType<typeof setTimeout>>();
 	const savedScrollState = useRef<{
 		scrollTop: number;
@@ -127,15 +130,8 @@ export function FileBrowserPage() {
 				};
 			}
 
-			const hasPreviousContent = previousContentRef.current !== null;
-
 			if (!preserveScroll) {
-				setContent(null);
-				if (hasPreviousContent) {
-					setIsRefreshing(true);
-				} else {
-					setContentLoading(true);
-				}
+				setContentLoading(true);
 				setHeadings([]);
 				setActiveHeadingId(null);
 			}
@@ -155,22 +151,16 @@ export function FileBrowserPage() {
 					throw new Error(`Failed to fetch content: ${response.statusText}`);
 				}
 				const data = (await response.json()) as FileContent;
-				previousContentRef.current = data;
-				previousPathRef.current = selectedPath;
 				setContent(data);
 			} catch (err) {
 				setContentError(err instanceof Error ? err.message : String(err));
 				setContent(null);
-				previousContentRef.current = null;
-				previousPathRef.current = null;
 			} finally {
-				if (!preserveScroll) {
-					setContentLoading(false);
-					setIsRefreshing(false);
-				}
+				setContentLoading(false);
+				setIsRefreshing(false);
 			}
 		},
-		[selectedPath, projectId],
+		[selectedPath, projectId, setContent],
 	);
 
 	useEffect(() => {
@@ -369,10 +359,6 @@ export function FileBrowserPage() {
 		enabled: !!selectedPath,
 	});
 
-	const displayContent = content ?? previousContentRef.current;
-	const displayPath =
-		content !== null ? selectedPath : (previousPathRef.current ?? selectedPath);
-
 	const liveRegion = (
 		<div aria-live="polite" aria-atomic="true" className="sr-only">
 			{liveAnnouncement}
@@ -443,18 +429,18 @@ export function FileBrowserPage() {
 
 					<ScrollArea className="flex-1" viewportRef={scrollViewportRef}>
 						<ContentPanel
-							key={displayPath}
-							content={displayContent?.content ?? null}
-							path={displayPath ?? null}
+							key={contentRevision}
+							content={content?.content ?? null}
+							path={selectedPath ?? null}
 							isLoading={contentLoading}
 							error={contentError}
 							emptyMessage="Select a file from the sidebar to view its contents."
-							frontmatter={displayContent?.frontmatter}
+							frontmatter={content?.frontmatter}
 							isRefreshing={isRefreshing}
 							onHeadingsExtracted={handleHeadingsExtracted}
 							scrollViewportRef={scrollViewportRef}
 							projectId={projectId}
-							filePath={displayPath ?? undefined}
+							filePath={selectedPath ?? undefined}
 							enableAnnotations={false}
 						/>
 					</ScrollArea>
@@ -564,18 +550,18 @@ export function FileBrowserPage() {
 							viewportRef={scrollViewportRef}
 						>
 							<ContentPanel
-								key={displayPath}
-								content={displayContent?.content ?? null}
-								path={displayPath ?? null}
+								key={contentRevision}
+								content={content?.content ?? null}
+								path={selectedPath ?? null}
 								isLoading={contentLoading}
 								error={contentError}
 								emptyMessage="Select a file from the sidebar to view its contents."
-								frontmatter={displayContent?.frontmatter}
+								frontmatter={content?.frontmatter}
 								isRefreshing={isRefreshing}
 								onHeadingsExtracted={handleHeadingsExtracted}
 								scrollViewportRef={scrollViewportRef}
 								projectId={projectId}
-								filePath={displayPath ?? undefined}
+								filePath={selectedPath ?? undefined}
 								enableAnnotations={false}
 							/>
 						</ScrollArea>
