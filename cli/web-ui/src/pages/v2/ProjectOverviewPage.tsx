@@ -1,4 +1,9 @@
-import { AlertCircle, ChevronRight, FolderOpen, RefreshCw } from "lucide-react";
+import {
+	AlertCircle,
+	ChevronRight,
+	RefreshCw,
+	SquareKanban,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { RunCard } from "@/components/v2/RunCard";
@@ -256,7 +261,7 @@ export function ProjectOverviewPage() {
 						className="text-fg-ghost transition-colors duration-150 hover:text-fg"
 						aria-label="Browse files"
 					>
-						<FolderOpen className="h-4 w-4" strokeWidth={1.5} />
+						<SquareKanban className="h-4 w-4" strokeWidth={1.5} />
 					</Link>
 					<button
 						type="button"

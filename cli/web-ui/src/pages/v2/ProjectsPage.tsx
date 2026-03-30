@@ -1,4 +1,4 @@
-import { AlertCircle, FolderOpen, Play, RefreshCw } from "lucide-react";
+import { AlertCircle, Play, RefreshCw, SquareKanban } from "lucide-react";
 import { useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useKeyboardNav } from "@/hooks/useKeyboardNav";
@@ -114,7 +114,7 @@ function ProjectRow({
 					className="text-fg-ghost opacity-0 group-hover:opacity-100 transition-opacity duration-150 hover:text-fg"
 					aria-label={`Files for ${project.name}`}
 				>
-					<FolderOpen className="h-3.5 w-3.5" strokeWidth={1.5} />
+					<SquareKanban className="h-3.5 w-3.5" strokeWidth={1.5} />
 				</span>
 				<span className="type-secondary text-fg-muted tabular-nums">
 					{project.runCount} run{project.runCount === 1 ? "" : "s"}
