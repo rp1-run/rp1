@@ -168,10 +168,10 @@ export async function scanForDocId(
 
 const getReconciliationRoots = (
 	projectRoot: string,
-	workDir: string,
+	workRoot: string,
 ): readonly string[] => {
 	const legacyWorkDir = getLegacyWorkDir(projectRoot);
-	return Array.from(new Set([resolve(workDir), resolve(legacyWorkDir)]));
+	return Array.from(new Set([resolve(workRoot), resolve(legacyWorkDir)]));
 };
 
 /**
@@ -199,7 +199,7 @@ export async function resolveArtifactPath(
 
 	for (const rootDir of getReconciliationRoots(
 		directories.projectRoot,
-		directories.workDir,
+		directories.workRoot,
 	)) {
 		const scannedPath = await scanForDocId(rootDir, artifact.docId);
 		if (scannedPath === null) {
@@ -208,7 +208,7 @@ export async function resolveArtifactPath(
 
 		const normalized = normalizeArtifactStorage(scannedPath, {
 			rp1ProjectRoot: directories.projectRoot,
-			rp1WorkDir: directories.workDir,
+			rp1WorkRoot: directories.workRoot,
 		});
 
 		updateArtifactStorage(db, artifact.docId, normalized);
