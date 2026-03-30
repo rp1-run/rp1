@@ -69,9 +69,9 @@ export function getProjectMetadata(
 					const directories = resolveProjectDirectories(basePath);
 					// Always use directory name for project display
 					const name = basePath.split("/").pop() ?? "unknown";
-					const charterPath = join(directories.workDir, "charter.md");
-					const hasWork = await checkDirectoryExists(directories.workDir);
-					const hasContext = await checkDirectoryExists(directories.kbDir);
+					const charterPath = join(directories.workRoot, "charter.md");
+					const hasWork = await checkDirectoryExists(directories.workRoot);
+					const hasContext = await checkDirectoryExists(directories.kbRoot);
 
 					const charterFile = Bun.file(charterPath);
 					const charterExists = await charterFile.exists();

@@ -78,7 +78,7 @@ export class FileWatcher {
 		}
 
 		console.log(
-			`File watcher started for ${this.projectPath} (work=${this.directories.workDir}, context=${this.directories.kbDir})`,
+			`File watcher started for ${this.projectPath} (work=${this.directories.workRoot}, kb=${this.directories.kbRoot})`,
 		);
 	}
 
@@ -118,7 +118,9 @@ export class FileWatcher {
 	): void {
 		try {
 			const rootDir =
-				section === "work" ? this.directories.workDir : this.directories.kbDir;
+				section === "work"
+					? this.directories.workRoot
+					: this.directories.kbRoot;
 			const filename = relative(rootDir, fullPath);
 			if (!filename || filename.startsWith("..") || shouldIgnore(filename)) {
 				return;
