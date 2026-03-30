@@ -1089,7 +1089,7 @@ describe("emit database", () => {
 			expect(row.status).toBe("running");
 		});
 
-		test("uses the latest logical work-item status after failed to completed recovery", async () => {
+		test("latest logical work-item status supersedes earlier failed lifecycle states", async () => {
 			const dbPath = join(tempDir, "derive-logical-recovery-failed.db");
 			const db = await expectTaskRight(getEmitDatabase(dbPath));
 
@@ -1120,7 +1120,7 @@ describe("emit database", () => {
 			expect(status).toBe("completed");
 		});
 
-		test("uses the latest logical work-item status after running to completed recovery", async () => {
+		test("latest logical work-item status supersedes earlier running lifecycle states", async () => {
 			const dbPath = join(tempDir, "derive-logical-recovery-running.db");
 			const db = await expectTaskRight(getEmitDatabase(dbPath));
 
@@ -1255,7 +1255,7 @@ describe("emit database", () => {
 			expect(step2?.status).toBe("running");
 		});
 
-		test("collapses namespaced lifecycle labels into the latest logical step key", async () => {
+		test("reports the latest logical work-item key instead of stale lifecycle labels", async () => {
 			const dbPath = join(tempDir, "step-statuses-logical.db");
 			const db = await expectTaskRight(getEmitDatabase(dbPath));
 
