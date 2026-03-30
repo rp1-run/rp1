@@ -1,4 +1,4 @@
-import { FolderOpen } from "lucide-react";
+import { SquareKanban } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { HarnessIcon } from "@/components/v2/HarnessIcon";
 import { useBreadcrumbContext } from "@/hooks/useBreadcrumbContext";
@@ -61,7 +61,7 @@ export function TerminalBreadcrumb({ className }: TerminalBreadcrumbProps) {
 						className="flex items-center gap-1 type-secondary italic text-fg-ghost hover:text-fg-muted transition-colors duration-150 cursor-pointer"
 						aria-label={`Open project ${runInfo.projectName}`}
 					>
-						<FolderOpen className="h-3 w-3" strokeWidth={1.5} />
+						<SquareKanban className="h-3 w-3" strokeWidth={1.5} />
 						{runInfo.projectName}
 					</span>
 				</div>
@@ -84,7 +84,7 @@ export function TerminalBreadcrumb({ className }: TerminalBreadcrumbProps) {
 					to={`/projects/${projectId}`}
 					className="flex items-center gap-1 type-secondary italic text-fg-ghost transition-colors duration-150 hover:text-fg-muted"
 				>
-					<FolderOpen className="h-3 w-3" strokeWidth={1.5} />
+					<SquareKanban className="h-3 w-3" strokeWidth={1.5} />
 					{projectName}
 				</Link>
 			</nav>
