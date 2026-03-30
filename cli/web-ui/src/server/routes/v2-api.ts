@@ -16,6 +16,11 @@ import type {
 	RunRecord,
 	Status,
 } from "../../../../shared/events.js";
+import {
+	getLogicalStepDisplayId,
+	getLogicalStepKey,
+	isNamespacedLifecycleStep,
+} from "../../../../shared/index.js";
 import type {
 	ArtifactRecord,
 	StepStatusEntry,
@@ -284,7 +289,7 @@ function eventRecordToRunEvent(record: EventRecord): RunEvent {
  * Derive agent tasks from status_change events that have a unit field.
  * Groups by step, then by unit (agent task).
  */
-function deriveAgentSteps(
+export function deriveAgentSteps(
 	events: readonly EventRecord[],
 ): Readonly<Record<string, readonly AgentTask[]>> | null {
 	const agentEvents = events.filter(
@@ -297,11 +302,12 @@ function deriveAgentSteps(
 	for (const event of agentEvents) {
 		const stepId = event.step;
 		if (!stepId) continue;
+		const logicalStepId = getLogicalStepKey(stepId, event.unit);
 
-		let taskMap = stepMap.get(stepId);
+		let taskMap = stepMap.get(logicalStepId);
 		if (!taskMap) {
 			taskMap = new Map<string, AgentTask>();
-			stepMap.set(stepId, taskMap);
+			stepMap.set(logicalStepId, taskMap);
 		}
 
 		const data = parseJsonSafe(event.data);
@@ -326,6 +332,63 @@ function deriveAgentSteps(
 	return result;
 }
 
+function getLogicalStepName(
+	logicalStepId: string,
+	concreteStep: string,
+): string {
+	const displayId = getLogicalStepDisplayId(concreteStep);
+	const logicalUnitSeparator = logicalStepId.indexOf("::");
+	if (logicalUnitSeparator === -1) {
+		return humanizeFeatureName(displayId);
+	}
+
+	const unit = logicalStepId.slice(logicalUnitSeparator + 2);
+	return `${humanizeFeatureName(displayId)} ${unit}`;
+}
+
+function groupEventsByLogicalStep(
+	events: readonly EventRecord[],
+): Map<string, EventRecord[]> {
+	const stepEvents = new Map<string, EventRecord[]>();
+	for (const event of events) {
+		if (event.type !== "status_change" || !event.step) continue;
+		const logicalStepId = getLogicalStepKey(event.step, event.unit);
+		const existing = stepEvents.get(logicalStepId);
+		if (existing) {
+			existing.push(event);
+		} else {
+			stepEvents.set(logicalStepId, [event]);
+		}
+	}
+
+	return stepEvents;
+}
+
+function toStep(
+	stepId: string,
+	status: StepStatus,
+	events: readonly EventRecord[],
+): Step {
+	const startedAt = events.length > 0 ? events[0].createdAt : null;
+	const completedAt =
+		status === "completed" || status === "failed" || status === "skipped"
+			? events.length > 0
+				? events[events.length - 1].createdAt
+				: null
+			: null;
+	const concreteStep = events[events.length - 1]?.step ?? stepId;
+
+	return {
+		id: stepId,
+		name: getLogicalStepName(stepId, concreteStep),
+		status,
+		startedAt,
+		completedAt,
+		taskCount: null,
+		completedTaskCount: null,
+	};
+}
+
 /**
  * Derive steps from a state machine definition merged with step status data.
  * Steps with status_change events get their actual status;
@@ -337,39 +400,32 @@ export function deriveStepsFromMachine(
 	events: readonly EventRecord[],
 ): readonly Step[] {
 	const statusMap = new Map(stepStatuses.map((s) => [s.step, s.status]));
-
-	const stepEvents = new Map<string, EventRecord[]>();
-	for (const event of events) {
-		if (event.type !== "status_change" || !event.step) continue;
-		const existing = stepEvents.get(event.step);
-		if (existing) {
-			existing.push(event);
-		} else {
-			stepEvents.set(event.step, [event]);
-		}
-	}
-
-	return orderedSteps.map(({ id, label }) => {
+	const stepEvents = groupEventsByLogicalStep(events);
+	const orderedStepIds = new Set(orderedSteps.map((step) => step.id));
+	const machineSteps = orderedSteps.map(({ id, label }) => {
 		const status: StepStatus = statusMap.get(id) ?? "not_started";
-		const evts = stepEvents.get(id);
-		const startedAt = evts && evts.length > 0 ? evts[0].createdAt : null;
-		const completedAt =
-			status === "completed" || status === "failed" || status === "skipped"
-				? evts && evts.length > 0
-					? evts[evts.length - 1].createdAt
-					: null
-				: null;
+		const evts = stepEvents.get(id) ?? [];
+		const derivedStep = toStep(id, status, evts);
 
 		return {
-			id,
+			...derivedStep,
 			name: humanizeFeatureName(label),
-			status,
-			startedAt,
-			completedAt,
-			taskCount: null,
-			completedTaskCount: null,
 		};
 	});
+	const syntheticSteps = Array.from(stepEvents.entries())
+		.filter(([stepId, evts]) => {
+			if (orderedStepIds.has(stepId)) return false;
+			const concreteStep = evts[evts.length - 1]?.step;
+			return concreteStep ? isNamespacedLifecycleStep(concreteStep) : false;
+		})
+		.sort(([, leftEvents], [, rightEvents]) =>
+			leftEvents[0].createdAt.localeCompare(rightEvents[0].createdAt),
+		)
+		.map(([stepId, evts]) =>
+			toStep(stepId, statusMap.get(stepId) ?? "not_started", evts),
+		);
+
+	return [...machineSteps, ...syntheticSteps];
 }
 
 /**
@@ -380,40 +436,12 @@ export function deriveStepsFromEvents(
 	stepStatuses: readonly StepStatusEntry[],
 	events: readonly EventRecord[],
 ): readonly Step[] {
-	const stepEvents = new Map<string, EventRecord[]>();
-	for (const event of events) {
-		if (event.type !== "status_change" || !event.step) continue;
-		const existing = stepEvents.get(event.step);
-		if (existing) {
-			existing.push(event);
-		} else {
-			stepEvents.set(event.step, [event]);
-		}
-	}
-
+	const stepEvents = groupEventsByLogicalStep(events);
 	const statusMap = new Map(stepStatuses.map((s) => [s.step, s.status]));
-	const steps: Step[] = [];
 
-	for (const [stepId, evts] of stepEvents) {
-		const status: StepStatus = statusMap.get(stepId) ?? "not_started";
-		const startedAt = evts[0].createdAt;
-		const completedAt =
-			status === "completed" || status === "failed" || status === "skipped"
-				? evts[evts.length - 1].createdAt
-				: null;
-
-		steps.push({
-			id: stepId,
-			name: humanizeFeatureName(stepId),
-			status,
-			startedAt,
-			completedAt,
-			taskCount: null,
-			completedTaskCount: null,
-		});
-	}
-
-	return steps;
+	return Array.from(stepEvents.entries()).map(([stepId, evts]) =>
+		toStep(stepId, statusMap.get(stepId) ?? "not_started", evts),
+	);
 }
 
 /**
