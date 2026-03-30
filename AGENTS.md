@@ -99,25 +99,35 @@ The build pipeline automatically injects a `## 0. Resolve Arguments` section int
 
 #### Environment schema declarations
 
-Declare environment-resolved parameters (like `RP1_ROOT`) in the `environment` schema:
+Declare environment-resolved parameters in the `environment` schema. The three directory variables are:
+
+- `RP1_PROJECT_ROOT` -- repository root (for code access)
+- `RP1_KB_ROOT` -- knowledge base directory (for reading KB files)
+- `RP1_WORK_ROOT` -- work artifact directory (for reading/writing work artifacts)
 
 **Skills** (`metadata.environment`):
 
 ```yaml
 metadata:
   environment:
-    - name: RP1_ROOT
-      source: "rp1 agent-tools rp1-root-dir"
-      description: "Root directory for rp1 project context"
+    - name: RP1_KB_ROOT
+      source: "rp1 agent-tools resolve-args --name RP1_KB_ROOT"
+      description: "Knowledge base directory"
+    - name: RP1_WORK_ROOT
+      source: "rp1 agent-tools resolve-args --name RP1_WORK_ROOT"
+      description: "Work artifact directory"
 ```
 
 **Agents** (top-level `environment`):
 
 ```yaml
 environment:
-  - name: RP1_ROOT
-    source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 project context"
+  - name: RP1_KB_ROOT
+    source: "rp1 agent-tools resolve-args --name RP1_KB_ROOT"
+    description: "Knowledge base directory"
+  - name: RP1_WORK_ROOT
+    source: "rp1 agent-tools resolve-args --name RP1_WORK_ROOT"
+    description: "Work artifact directory"
 ```
 
 #### Inline resolution (deprecated for parameterized skills)
@@ -125,7 +135,7 @@ environment:
 The inline pattern below is **deprecated** for skills that have `metadata.arguments` defined. The build template auto-injects `resolve-args --name` instead, which handles both arguments and environment variables in one call.
 
 ```markdown
-$RP1_ROOT = !`rp1 agent-tools rp1-root-dir`
+$RP1_KB_ROOT = !`rp1 agent-tools resolve-args --name RP1_KB_ROOT`
 ```
 
 This inline pattern remains valid only for agents and for non-parameterized skills (those with no `metadata.arguments`).
@@ -135,10 +145,21 @@ This inline pattern remains valid only for agents and for non-parameterized skil
 When interpolating paths:
 
 ```markdown
-{{$RP1_ROOT}}/work/features/{FEATURE_ID}/
+{{$RP1_WORK_ROOT}}/features/{FEATURE_ID}/
+{{$RP1_KB_ROOT}}/index.md
 ```
 
 Do not use `${}` shell parameter expansion in Bash snippets intended for Claude Code.
+
+### Artifact Path Contract
+
+When emitting `artifact_registered` events via `rp1 agent-tools emit`, artifact paths must follow these rules:
+
+- **Work artifacts** (`storageRoot: "work_dir"`): Paths must be relative to `RP1_WORK_ROOT` without any prefix. Example: `features/my-feature/design.md` (not `work/features/...`).
+- **KB artifacts** (`storageRoot: "project"`): Paths must be relative to the project root. Example: `.rp1/context/index.md`.
+- **Absolute paths**: Used as-is regardless of `storageRoot`.
+
+The system automatically resolves relative paths against the correct base directory based on `storageRoot`. Agents do not need to construct absolute paths manually.
 
 ### XML tags vs inline parameters
 
