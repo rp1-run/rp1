@@ -1,4 +1,10 @@
-import { AlertCircle, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import {
+	AlertCircle,
+	ChevronLeft,
+	ChevronRight,
+	Play,
+	Search,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { FilterBar } from "@/components/v2/FilterBar";
@@ -358,6 +364,13 @@ export function RunsListPage() {
 
 	return (
 		<div className="mx-auto max-w-2xl px-6 py-8 space-y-6">
+			<header>
+				<h1 className="flex items-center gap-2 type-title text-fg">
+					<Play className="h-4 w-4" strokeWidth={1.5} />
+					Runs
+				</h1>
+			</header>
+
 			<FilterBar filters={filters} onFiltersChange={handleFiltersChange} />
 
 			{isLoading && runs.length === 0 ? (
