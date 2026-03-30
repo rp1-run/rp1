@@ -109,11 +109,15 @@ function FeedEntry({
 				<HarnessIcon harness={run.harness} size={14} />
 			</span>
 
-			<span className="truncate type-body font-medium text-fg">
-				{resolveRunDisplayName(run) || run.command}
+			<span className="shrink-0 type-body font-medium text-fg">
+				{run.command}
 			</span>
 
 			<span className="truncate type-secondary text-fg-muted">
+				{resolveRunDisplayName(run) || run.command}
+			</span>
+
+			<span className="shrink-0 type-secondary text-fg-ghost">
 				{run.projectName}
 			</span>
 
