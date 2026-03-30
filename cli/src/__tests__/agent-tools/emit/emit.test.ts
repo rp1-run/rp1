@@ -117,11 +117,11 @@ describe("emit end-to-end", () => {
 			const projectRoot = join(tempDir, "project-root");
 			await writeFixture(projectRoot, ".rp1/settings.toml", "");
 			const originalProjectRoot = process.env.RP1_PROJECT_ROOT;
-			const originalKbDir = process.env.RP1_KB_DIR;
-			const originalWorkDir = process.env.RP1_WORK_DIR;
+			const originalKbDir = process.env.RP1_KB_ROOT;
+			const originalWorkDir = process.env.RP1_WORK_ROOT;
 			process.env.RP1_PROJECT_ROOT = projectRoot;
-			process.env.RP1_KB_DIR = join(tempDir, "kb-dir");
-			process.env.RP1_WORK_DIR = join(tempDir, "work-dir");
+			process.env.RP1_KB_ROOT = join(tempDir, "kb-dir");
+			process.env.RP1_WORK_ROOT = join(tempDir, "work-dir");
 
 			try {
 				const runId = `run-dirs-${Date.now()}`;
@@ -138,8 +138,8 @@ describe("emit end-to-end", () => {
 				const db = await expectTaskRight(getEmitDatabase(dbPath));
 				const run = getRunById(db, runId);
 				expect(run?.rp1ProjectRoot).toBe(projectRoot);
-				expect(run?.rp1KbDir).toBe(join(tempDir, "kb-dir"));
-				expect(run?.rp1WorkDir).toBe(join(tempDir, "work-dir"));
+				expect(run?.rp1KbRoot).toBe(join(tempDir, "kb-dir"));
+				expect(run?.rp1WorkRoot).toBe(join(tempDir, "work-dir"));
 			} finally {
 				if (originalProjectRoot == null) {
 					delete process.env.RP1_PROJECT_ROOT;
@@ -147,14 +147,14 @@ describe("emit end-to-end", () => {
 					process.env.RP1_PROJECT_ROOT = originalProjectRoot;
 				}
 				if (originalKbDir == null) {
-					delete process.env.RP1_KB_DIR;
+					delete process.env.RP1_KB_ROOT;
 				} else {
-					process.env.RP1_KB_DIR = originalKbDir;
+					process.env.RP1_KB_ROOT = originalKbDir;
 				}
 				if (originalWorkDir == null) {
-					delete process.env.RP1_WORK_DIR;
+					delete process.env.RP1_WORK_ROOT;
 				} else {
-					process.env.RP1_WORK_DIR = originalWorkDir;
+					process.env.RP1_WORK_ROOT = originalWorkDir;
 				}
 			}
 		});
@@ -189,13 +189,13 @@ describe("emit end-to-end", () => {
 			);
 		});
 
-		test("stores work-dir-relative artifact paths when the file is under rp1_work_dir", async () => {
+		test("stores work-dir-relative artifact paths when the file is under rp1_work_root", async () => {
 			const originalProjectRoot = process.env.RP1_PROJECT_ROOT;
-			const originalWorkDir = process.env.RP1_WORK_DIR;
+			const originalWorkDir = process.env.RP1_WORK_ROOT;
 			const projectRoot = join(tempDir, "project-artifacts");
 			const workDir = join(tempDir, "external-work");
 			process.env.RP1_PROJECT_ROOT = projectRoot;
-			process.env.RP1_WORK_DIR = workDir;
+			process.env.RP1_WORK_ROOT = workDir;
 
 			try {
 				const artifactPath = await writeFixture(
@@ -229,9 +229,9 @@ describe("emit end-to-end", () => {
 					process.env.RP1_PROJECT_ROOT = originalProjectRoot;
 				}
 				if (originalWorkDir == null) {
-					delete process.env.RP1_WORK_DIR;
+					delete process.env.RP1_WORK_ROOT;
 				} else {
-					process.env.RP1_WORK_DIR = originalWorkDir;
+					process.env.RP1_WORK_ROOT = originalWorkDir;
 				}
 			}
 		});
