@@ -1,14 +1,16 @@
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, FolderOpen } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { HarnessIcon } from "@/components/v2/HarnessIcon";
 import { useBreadcrumbContext } from "@/hooks/useBreadcrumbContext";
 import { useProjects } from "@/hooks/useProjects";
+import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
 export interface TerminalBreadcrumbProps {
@@ -98,10 +100,12 @@ function useFilesystemPath(
 
 export function TerminalBreadcrumb({ className }: TerminalBreadcrumbProps) {
 	const { pathname } = useLocation();
+	const navigate = useNavigate();
 	const {
 		artifactPath: contextArtifact,
 		projectName,
 		projectId,
+		runInfo,
 	} = useBreadcrumbContext();
 	const segments = buildSegments(pathname);
 	const [copied, setCopied] = useState(false);
@@ -121,6 +125,48 @@ export function TerminalBreadcrumb({ className }: TerminalBreadcrumbProps) {
 	const lastSegment =
 		segments.length > 0 ? segments[segments.length - 1] : null;
 	const displayLabel = artifactFileName ?? lastSegment?.label ?? null;
+
+	if (runInfo) {
+		return (
+			<nav
+				aria-label="Run info"
+				className={cn(
+					"flex items-center justify-center border-b px-4 py-1.5 min-h-8 type-body",
+					"border-border",
+					"text-fg-ghost",
+					className,
+				)}
+			>
+				<div className="flex items-center gap-3">
+					<span className="type-secondary tabular-nums text-fg-ghost">
+						{formatRelativeTime(runInfo.startedAt)}
+					</span>
+					<HarnessIcon harness={runInfo.harness} size={14} />
+					<span className="type-body font-medium text-fg">
+						{runInfo.command}
+					</span>
+					<span className="type-secondary text-fg-muted">
+						{runInfo.displayName}
+					</span>
+					{/* biome-ignore lint/a11y/useSemanticElements: span with role="link" for project navigation */}
+					<span
+						role="link"
+						tabIndex={0}
+						onClick={() => navigate(`/projects/${runInfo.projectName}`)}
+						onKeyDown={(e) => {
+							if (e.key === "Enter")
+								navigate(`/projects/${runInfo.projectName}`);
+						}}
+						className="flex items-center gap-1 pl-4 type-secondary italic text-fg-ghost hover:text-fg-muted transition-colors duration-150 cursor-pointer"
+						aria-label={`Open project ${runInfo.projectName}`}
+					>
+						<FolderOpen className="h-3 w-3" strokeWidth={1.5} />
+						{runInfo.projectName}
+					</span>
+				</div>
+			</nav>
+		);
+	}
 
 	return (
 		<nav
