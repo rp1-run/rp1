@@ -5,7 +5,7 @@
  * enabling rapid, repeatable UI testing of the Web UI dashboard.
  */
 
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import chalk from "chalk";
 import { Command } from "commander";
 import * as E from "fp-ts/lib/Either.js";
@@ -152,7 +152,7 @@ const ARTIFACT_STEPS: Record<
 const resolveProjectPath = async (): Promise<string> => {
 	const result = await resolveRp1Root()();
 	if (E.isRight(result)) {
-		return dirname(result.right.root);
+		return result.right.projectRoot;
 	}
 	return process.cwd();
 };
@@ -418,7 +418,7 @@ const simulateRun = async (
 				continue;
 			}
 			const { artifactPath, fullDir } = resolveArtifactPaths(
-				resolvedRoot.right.workDir,
+				resolvedRoot.right.workRoot,
 				featureId,
 				artifact.path,
 			);
