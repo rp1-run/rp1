@@ -18,6 +18,7 @@ import type {
 	RunRecord,
 	Status,
 } from "../../../shared/events.js";
+import { getLogicalStepKey } from "../../../shared/logical-step.js";
 
 /** Default database file location. Override with RP1_DB env var. */
 const DEFAULT_DB_PATH = process.env.RP1_DB ?? join(homedir(), ".rp1", "rp1.db");
@@ -232,6 +233,8 @@ export interface AnnotationRecord {
 export interface StepStatusEntry {
 	readonly step: string;
 	readonly status: Status;
+	readonly concreteStep?: string;
+	readonly unit?: string | null;
 }
 
 /** Raw database row shapes (snake_case) */
@@ -289,8 +292,15 @@ interface AnnotationRow {
 }
 
 interface StepStatusRow {
+	id: number;
 	step: string;
+	unit: string | null;
 	status: string;
+}
+
+interface LogicalStepStatusEntry extends StepStatusEntry {
+	readonly concreteStep: string;
+	readonly unit: string | null;
 }
 
 const normalizeProjectKey = (projectRoot: string): string => {
@@ -902,8 +912,8 @@ export const upsertAnnotation = (
 };
 
 /**
- * Query the latest status_change event per step for a run.
- * Returns the most recent status for each unique step.
+ * Query the latest status_change event per logical work item for a run.
+ * Returns the most recent status for each unique logical step key.
  */
 export const getStepStatuses = (
 	db: Database,
@@ -911,22 +921,26 @@ export const getStepStatuses = (
 ): StepStatusEntry[] => {
 	const rows = db
 		.prepare(
-			`SELECT e.step, json_extract(e.data, '$.status') as status
-			 FROM events e
-			 INNER JOIN (
-			     SELECT step, MAX(id) as max_id
-			     FROM events
-			     WHERE run_id = $runId AND type = 'status_change' AND step IS NOT NULL
-			     GROUP BY step
-			 ) latest ON e.id = latest.max_id
-			 WHERE e.run_id = $runId`,
+			`SELECT id, step, unit, json_extract(data, '$.status') as status
+			 FROM events
+			 WHERE run_id = $runId AND type = 'status_change' AND step IS NOT NULL
+			 ORDER BY id ASC`,
 		)
 		.all({ $runId: runId }) as StepStatusRow[];
 
-	return rows.map((row) => ({
-		step: row.step,
-		status: row.status as Status,
-	}));
+	const latestByLogicalKey = new Map<string, LogicalStepStatusEntry>();
+
+	for (const row of rows) {
+		const logicalStepKey = getLogicalStepKey(row.step, row.unit);
+		latestByLogicalKey.set(logicalStepKey, {
+			step: logicalStepKey,
+			status: row.status as Status,
+			concreteStep: row.step,
+			unit: row.unit,
+		});
+	}
+
+	return Array.from(latestByLogicalKey.values());
 };
 
 /**
@@ -955,7 +969,8 @@ export const deriveRunStatus = (
 				insertEvent(db, {
 					runId,
 					type: "status_change",
-					step: entry.step,
+					step: entry.concreteStep ?? entry.step,
+					unit: entry.unit ?? undefined,
 					data: JSON.stringify({ status: "completed" }),
 					createdAt: now,
 				});
