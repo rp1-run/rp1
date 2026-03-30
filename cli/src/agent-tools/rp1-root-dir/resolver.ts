@@ -24,18 +24,16 @@ export const resolveRp1Root = (
 			resolveDirectorySet(cwd),
 			E.map(
 				(directories: ResolvedDirectorySet): Rp1RootResult => ({
-					root: directories.rp1Root,
 					projectRoot: directories.projectRoot,
-					kbDir: directories.kbDir,
-					workDir: directories.workDir,
+					kbRoot: directories.kbRoot,
+					workRoot: directories.workRoot,
 					isWorktree: directories.isWorktree,
 					worktreeName: directories.worktreeName,
 					source: mapRootSource(directories.sources.projectRoot),
 					sources: {
-						root: mapRootSource(directories.sources.projectRoot),
 						projectRoot: directories.sources.projectRoot,
-						kbDir: directories.sources.kbDir,
-						workDir: directories.sources.workDir,
+						kbRoot: directories.sources.kbRoot,
+						workRoot: directories.sources.workRoot,
 					},
 				}),
 			),
@@ -46,13 +44,14 @@ export const resolveRp1Root = (
  * Synchronous check for RP1_ROOT environment variable.
  * Useful for quick checks before spawning async operations.
  */
-export const hasEnvOverride = (): boolean => Boolean(process.env.RP1_ROOT);
+export const hasEnvOverride = (): boolean =>
+	Boolean(process.env.RP1_PROJECT_ROOT);
 
 /**
- * Get RP1_ROOT from environment variable if set.
+ * Get RP1_PROJECT_ROOT from environment variable if set.
  * Returns Either with the resolved path or None indicator.
  */
 export const getEnvOverride = (): E.Either<"no-env-override", string> => {
-	const envValue = process.env.RP1_ROOT;
+	const envValue = process.env.RP1_PROJECT_ROOT;
 	return envValue ? E.right(path.resolve(envValue)) : E.left("no-env-override");
 };
