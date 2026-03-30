@@ -271,7 +271,7 @@ After creating the markdown file, use the markdown-preview skill to generate the
 Invoke the `rp1-base:markdown-preview` skill.
 
 Load the generated markdown file and pass content:
-- content: Read from {{$RP1_WORK_DIR}}/pr_reviews/<pr-id>-visual.md
+- content: Read from {{$RP1_WORK_ROOT}}/pr_reviews/<pr-id>-visual.md
 - title: "PR Visualization for PR #{pr-number}"
 - theme: "github"
 

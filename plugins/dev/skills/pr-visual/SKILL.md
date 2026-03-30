@@ -37,9 +37,9 @@ metadata:
       default: "all"
       description: "Optional focus filter"
   environment:
-    - name: RP1_ROOT
+    - name: RP1_KB_ROOT
       source: "rp1 agent-tools rp1-root-dir"
-      description: "Root directory for rp1 project context and work artifacts"
+      description: "Knowledge base directory for project context"
   sub_agents:
     - "rp1-dev:pr-visualizer"
 ---
@@ -74,7 +74,7 @@ Emit `visualize` running. Spawn the pr-visualizer agent:
 
 {% dispatch_agent "rp1-dev:pr-visualizer" %}
 PR_BRANCH={PR_BRANCH}, BASE_BRANCH={BASE_BRANCH}, REVIEW_DEPTH={REVIEW_DEPTH},
-FOCUS_AREAS={FOCUS_AREAS}, STANDALONE=true, RP1_ROOT={RP1_ROOT}
+FOCUS_AREAS={FOCUS_AREAS}, STANDALONE=true, RP1_KB_ROOT={RP1_KB_ROOT}
 {% enddispatch_agent %}
 
 Wait for completion. Extract the artifact path from agent output.

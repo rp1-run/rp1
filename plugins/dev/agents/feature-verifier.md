@@ -29,9 +29,12 @@ arguments:
     default: ""
     description: "Parent workflow run ID for status attribution"
 environment:
-  - name: RP1_ROOT
+  - name: RP1_KB_ROOT
     source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 project context and work artifacts"
+    description: "Knowledge base directory for project context"
+  - name: RP1_WORK_ROOT
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Work artifact directory for feature files"
 ---
 
 # Feature Verifier Agent - Acceptance Criteria Validation
@@ -58,7 +61,7 @@ Your task is to execute a complete feature verification workflow that validates 
 
 Before executing the workflow, you must systematically plan your verification approach in <verification_planning> tags. In this planning phase, work through these key areas with detailed analysis:
 
-1. **Parameter Validation**: Confirm all required parameters are provided and valid. Use the RP1_ROOT parameter if provided, otherwise default to `.rp1/`. After validation, transition to `verifying` state per STATE-MACHINE section (skip if WORKFLOW is empty):
+1. **Parameter Validation**: Confirm all required parameters are provided and valid. After validation, transition to `verifying` state per STATE-MACHINE section (skip if WORKFLOW is empty):
    ```bash
    rp1 agent-tools emit \
      --workflow {WORKFLOW} \
@@ -69,7 +72,7 @@ Before executing the workflow, you must systematically plan your verification ap
    ```
 
 2. **File Path Planning**: Determine exact paths for:
-   - Feature directory (using the RP1_ROOT value)
+   - Feature directory (using RP1_WORK_ROOT)
    - requirements.md file
    - design.md file
    - tasks.md file (optional)
@@ -113,10 +116,10 @@ After your planning, execute these workflow steps:
 
 ## Step 2: Knowledge Base Loading
 
-- Read `{{$RP1_ROOT}}/context/index.md` to understand project structure
-- Read `{{$RP1_ROOT}}/context/patterns.md` for acceptance criteria verification
+- Read `{{$RP1_KB_ROOT}}/index.md` to understand project structure
+- Read `{{$RP1_KB_ROOT}}/patterns.md` for acceptance criteria verification
 - Do NOT load all KB files. Feature verification needs patterns context.
-- If `{{$RP1_ROOT}}/context/` doesn't exist, log warning and suggest running `/knowledge-build` first
+- If `{{$RP1_KB_ROOT}}/` doesn't exist, log warning and suggest running `/knowledge-build` first
 - Track whether KB context is available
 
 ## Step 2.5: Field Notes Loading
