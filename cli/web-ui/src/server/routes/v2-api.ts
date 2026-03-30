@@ -492,7 +492,7 @@ async function buildDetailedRun(
 		);
 	} else {
 		artifacts = await discoverArtifactsFromFilesystem(
-			directories.workDir,
+			directories.workRoot,
 			record.featureId,
 		);
 	}
@@ -777,11 +777,11 @@ export async function handleV2ArtifactContentRequest(
 		if (!artifactPath.includes("/")) {
 			const fallbackCandidates = [
 				Bun.resolveSync(
-					directories.workDir,
+					directories.workRoot,
 					`features/${record.featureId}/${artifactPath}`,
 				),
 				Bun.resolveSync(
-					directories.workDir,
+					directories.workRoot,
 					`archives/features/${record.featureId}/${artifactPath}`,
 				),
 			];
