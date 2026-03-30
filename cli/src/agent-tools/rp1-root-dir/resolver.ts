@@ -41,7 +41,7 @@ export const resolveRp1Root = (
 	);
 
 /**
- * Synchronous check for RP1_ROOT environment variable.
+ * Synchronous check for RP1_PROJECT_ROOT environment variable.
  * Useful for quick checks before spawning async operations.
  */
 export const hasEnvOverride = (): boolean =>
