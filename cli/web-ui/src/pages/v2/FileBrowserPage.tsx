@@ -443,6 +443,7 @@ export function FileBrowserPage() {
 
 					<ScrollArea className="flex-1" viewportRef={scrollViewportRef}>
 						<ContentPanel
+							key={displayPath}
 							content={displayContent?.content ?? null}
 							path={displayPath ?? null}
 							isLoading={contentLoading}
@@ -563,6 +564,7 @@ export function FileBrowserPage() {
 							viewportRef={scrollViewportRef}
 						>
 							<ContentPanel
+								key={displayPath}
 								content={displayContent?.content ?? null}
 								path={displayPath ?? null}
 								isLoading={contentLoading}
