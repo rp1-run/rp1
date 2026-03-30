@@ -202,7 +202,7 @@ const handleSkippedSteps = (
  */
 const handleArtifactRegistration = (
 	input: EmitInput,
-	run: Pick<RunRecord, "rp1ProjectRoot" | "rp1WorkDir">,
+	run: Pick<RunRecord, "rp1ProjectRoot" | "rp1WorkRoot">,
 ): TE.TaskEither<CLIError, string | undefined> => {
 	if (input.type !== "artifact_registered") {
 		return TE.right(undefined);
@@ -351,8 +351,8 @@ export const executeEmit = (
 				featureId: (input.data.feature as string) ?? "unknown",
 				projectPath: input.projectPath,
 				rp1ProjectRoot: directories.right.projectRoot,
-				rp1KbDir: directories.right.kbDir,
-				rp1WorkDir: directories.right.workDir,
+				rp1KbRoot: directories.right.kbRoot,
+				rp1WorkRoot: directories.right.workRoot,
 				name: input.name,
 				harness:
 					input.harness ??
