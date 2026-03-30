@@ -194,8 +194,8 @@ describe("loadDirectorySettings", () => {
 			[
 				"[directories]",
 				'project_root = "workspace"',
-				'kb_dir = "docs/context"',
-				'work_dir = "ops/work"',
+				'kb_root = "docs/context"',
+				'work_root = "ops/work"',
 			].join("\n"),
 		);
 
@@ -206,15 +206,15 @@ describe("loadDirectorySettings", () => {
 		}
 
 		expect(result.right.projectRoot).toBe(join(tempDir, "workspace"));
-		expect(result.right.kbDir).toBe(
+		expect(result.right.kbRoot).toBe(
 			join(tempDir, "workspace", "docs", "context"),
 		);
-		expect(result.right.workDir).toBe(
+		expect(result.right.workRoot).toBe(
 			join(tempDir, "workspace", "ops", "work"),
 		);
 		expect(result.right.sources.projectRoot).toBe("project_settings");
-		expect(result.right.sources.kbDir).toBe("project_settings");
-		expect(result.right.sources.workDir).toBe("project_settings");
+		expect(result.right.sources.kbRoot).toBe("project_settings");
+		expect(result.right.sources.workRoot).toBe("project_settings");
 	});
 
 	test("normalizes relative user settings against the user home directory", async () => {
@@ -236,8 +236,8 @@ describe("loadDirectorySettings", () => {
 			[
 				"[directories]",
 				'project_root = "projects/demo"',
-				'kb_dir = "shared/kb"',
-				'work_dir = "shared/work"',
+				'kb_root = "shared/kb"',
+				'work_root = "shared/work"',
 			].join("\n"),
 		);
 
@@ -253,11 +253,11 @@ describe("loadDirectorySettings", () => {
 		expect(result.right.projectRoot).toBe(
 			join(userHomeDir, "projects", "demo"),
 		);
-		expect(result.right.kbDir).toBe(join(userHomeDir, "shared", "kb"));
-		expect(result.right.workDir).toBe(join(userHomeDir, "shared", "work"));
+		expect(result.right.kbRoot).toBe(join(userHomeDir, "shared", "kb"));
+		expect(result.right.workRoot).toBe(join(userHomeDir, "shared", "work"));
 		expect(result.right.sources.projectRoot).toBe("user_settings");
-		expect(result.right.sources.kbDir).toBe("user_settings");
-		expect(result.right.sources.workDir).toBe("user_settings");
+		expect(result.right.sources.kbRoot).toBe("user_settings");
+		expect(result.right.sources.workRoot).toBe("user_settings");
 	});
 
 	test("prefers project settings over user settings for each directory field on the same project root", async () => {
@@ -273,8 +273,8 @@ describe("loadDirectorySettings", () => {
 			".rp1/settings.toml",
 			[
 				"[directories]",
-				'kb_dir = "local/context"',
-				'work_dir = "local/work"',
+				'kb_root = "local/context"',
+				'work_root = "local/work"',
 			].join("\n"),
 		);
 		await writeFixture(
@@ -282,8 +282,8 @@ describe("loadDirectorySettings", () => {
 			".config/rp1/settings.toml",
 			[
 				"[directories]",
-				'kb_dir = "global/context"',
-				'work_dir = "global/work"',
+				'kb_root = "global/context"',
+				'work_root = "global/work"',
 			].join("\n"),
 		);
 
@@ -297,11 +297,11 @@ describe("loadDirectorySettings", () => {
 		}
 
 		expect(result.right.projectRoot).toBe(tempDir);
-		expect(result.right.kbDir).toBe(join(tempDir, "local", "context"));
-		expect(result.right.workDir).toBe(join(tempDir, "local", "work"));
+		expect(result.right.kbRoot).toBe(join(tempDir, "local", "context"));
+		expect(result.right.workRoot).toBe(join(tempDir, "local", "work"));
 		expect(result.right.sources.projectRoot).toBeUndefined();
-		expect(result.right.sources.kbDir).toBe("project_settings");
-		expect(result.right.sources.workDir).toBe("project_settings");
+		expect(result.right.sources.kbRoot).toBe("project_settings");
+		expect(result.right.sources.workRoot).toBe("project_settings");
 	});
 
 	test("reloads project-local overrides from a user-redirected effective project root", async () => {
@@ -319,8 +319,8 @@ describe("loadDirectorySettings", () => {
 			[
 				"[directories]",
 				`project_root = "${redirectedProjectRoot}"`,
-				'kb_dir = "user/kb"',
-				'work_dir = "user/work"',
+				'kb_root = "user/kb"',
+				'work_root = "user/work"',
 			].join("\n"),
 		);
 		await writeFixture(
@@ -328,8 +328,8 @@ describe("loadDirectorySettings", () => {
 			".rp1/settings.toml",
 			[
 				"[directories]",
-				'kb_dir = "project/context"',
-				'work_dir = "project/work"',
+				'kb_root = "project/context"',
+				'work_root = "project/work"',
 			].join("\n"),
 		);
 
@@ -343,22 +343,22 @@ describe("loadDirectorySettings", () => {
 		}
 
 		expect(result.right.projectRoot).toBe(redirectedProjectRoot);
-		expect(result.right.kbDir).toBe(
+		expect(result.right.kbRoot).toBe(
 			join(redirectedProjectRoot, "project", "context"),
 		);
-		expect(result.right.workDir).toBe(
+		expect(result.right.workRoot).toBe(
 			join(redirectedProjectRoot, "project", "work"),
 		);
 		expect(result.right.sources.projectRoot).toBe("user_settings");
-		expect(result.right.sources.kbDir).toBe("project_settings");
-		expect(result.right.sources.workDir).toBe("project_settings");
+		expect(result.right.sources.kbRoot).toBe("project_settings");
+		expect(result.right.sources.workRoot).toBe("project_settings");
 	});
 
 	test("returns a validation error for invalid directory values", async () => {
 		await writeFixture(
 			tempDir,
 			".rp1/settings.toml",
-			"[directories]\nkb_dir = 42\n",
+			"[directories]\nkb_root = 42\n",
 		);
 
 		const result = loadDirectorySettings(tempDir);
@@ -372,6 +372,6 @@ describe("loadDirectorySettings", () => {
 			return;
 		}
 		expect(result.left.file).toContain(".rp1/settings.toml");
-		expect(result.left.message).toContain("[directories].kb_dir");
+		expect(result.left.message).toContain("[directories].kb_root");
 	});
 });
