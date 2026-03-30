@@ -38,9 +38,9 @@ arguments:
     default: ""
     description: "Feature context JSON for FEATURE_LEARNING mode"
 environment:
-  - name: RP1_ROOT
+  - name: RP1_KB_ROOT
     source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 project context and work artifacts"
+    description: "Knowledge base directory for project context"
 ---
 
 # KB Module Analyzer - Component and Dependency Analysis
@@ -77,7 +77,7 @@ $6
 
 **Check for existing modules.md**:
 
-- Check if `{{$RP1_ROOT}}/context/modules.md` exists
+- Check if `{{$RP1_KB_ROOT}}/modules.md` exists
 - If exists, read the file to understand current module structure
 - Extract existing modules, components, dependencies, and metrics
 - Use as baseline context for analysis

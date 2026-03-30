@@ -19,9 +19,9 @@ metadata:
       required: false
       description: "New project directory name (lowercase, hyphens allowed)"
   environment:
-    - name: RP1_ROOT
+    - name: RP1_KB_ROOT
       source: "rp1 agent-tools rp1-root-dir"
-      description: "Root directory for rp1 project context and work artifacts"
+      description: "Knowledge base directory for project context"
   sub_agents:
     - "rp1-dev:charter-interviewer"
     - "rp1-dev:bootstrap-scaffolder"
@@ -88,10 +88,10 @@ Create subdir if needed: `mkdir -p "{TARGET_DIR}"` (fail -> abort)
 ### 4.1 Init Charter
 
 ```bash
-mkdir -p "{TARGET_DIR}/{{$RP1_ROOT}}/context"
+mkdir -p "{TARGET_DIR}/{{$RP1_KB_ROOT}}"
 ```
 
-Create `{TARGET_DIR}/{{$RP1_ROOT}}/context/charter.md`:
+Create `{TARGET_DIR}/{{$RP1_KB_ROOT}}/charter.md`:
 
 ```markdown
 # Project Charter: {PROJECT_NAME}
@@ -121,12 +121,12 @@ _TBD_
 
 ### 4.2 Interview Loop
 
-CHARTER_PATH = `{TARGET_DIR}/{{$RP1_ROOT}}/context/charter.md`
+CHARTER_PATH = `{TARGET_DIR}/{{$RP1_KB_ROOT}}/charter.md`
 question_count = 0
 
 while question_count < 10:
     {% dispatch_agent "rp1-dev:charter-interviewer" %}
-    CHARTER_PATH: {CHARTER_PATH}, MODE: CREATE, RP1_ROOT: {{$RP1_ROOT}}
+    CHARTER_PATH: {CHARTER_PATH}, MODE: CREATE, RP1_KB_ROOT: {{$RP1_KB_ROOT}}
     {% enddispatch_agent %}
 
     response = parse_json(output)
@@ -151,13 +151,13 @@ while question_count < 10:
 
 ### 4.3 Verify
 
-`ls "{TARGET_DIR}/{{$RP1_ROOT}}/context/charter.md"` - missing -> warn, continue
+`ls "{TARGET_DIR}/{{$RP1_KB_ROOT}}/charter.md"` - missing -> warn, continue
 
 ## §5 Scaffold Phase (Stateless)
 
 ### 5.1 Init Preferences
 
-Create `{TARGET_DIR}/{{$RP1_ROOT}}/context/preferences.md`:
+Create `{TARGET_DIR}/{{$RP1_KB_ROOT}}/preferences.md`:
 
 ```markdown
 # Project Preferences
@@ -179,12 +179,12 @@ Testing: [?] | Build: [?] | Lint: [?] | Format: [?]
 
 ### 5.2 Scaffolder Loop
 
-PREFS_PATH = `{TARGET_DIR}/{{$RP1_ROOT}}/context/preferences.md`
+PREFS_PATH = `{TARGET_DIR}/{{$RP1_KB_ROOT}}/preferences.md`
 question_count = 0, summary_iterations = 0
 
 loop:
   {% dispatch_agent "rp1-dev:bootstrap-scaffolder" %}
-  PROJECT_NAME, TARGET_DIR, CHARTER_PATH, PREFS_PATH, RP1_ROOT
+  PROJECT_NAME, TARGET_DIR, CHARTER_PATH, PREFS_PATH, RP1_KB_ROOT
   {% enddispatch_agent %}
 
   response = parse_json(output)
@@ -218,7 +218,7 @@ loop:
 Bootstrap complete!
 Project: {PROJECT_NAME} | Location: {TARGET_DIR}
 
-Created: {{$RP1_ROOT}}/context/charter.md, preferences.md, AGENTS.md, CLAUDE.md, README.md, [pkg manifest], src/, tests/
+Created: {{$RP1_KB_ROOT}}/charter.md, preferences.md, AGENTS.md, CLAUDE.md, README.md, [pkg manifest], src/, tests/
 
 Next: cd {PROJECT_NAME}, review code, run app (see README.md)
 

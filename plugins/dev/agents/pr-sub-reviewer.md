@@ -17,9 +17,9 @@ arguments:
     required: true
     description: "List of all files in PR for context"
 environment:
-  - name: RP1_ROOT
+  - name: RP1_KB_ROOT
     source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 project context and work artifacts"
+    description: "Knowledge base directory for project context"
 ---
 
 # PR Sub-Reviewer - Unit Analysis Agent
@@ -44,17 +44,17 @@ $3
 
 ## 1. Load Knowledge Base
 
-Read `{{$RP1_ROOT}}/context/index.md` to understand project structure and available KB files.
+Read `{{$RP1_KB_ROOT}}/index.md` to understand project structure and available KB files.
 
 **Selective Loading**: For code review, load:
-- `{{$RP1_ROOT}}/context/patterns.md` - Required for pattern consistency checks
-- `{{$RP1_ROOT}}/context/architecture.md` - Only if reviewing cross-component changes
+- `{{$RP1_KB_ROOT}}/patterns.md` - Required for pattern consistency checks
+- `{{$RP1_KB_ROOT}}/architecture.md` - Only if reviewing cross-component changes
 
 Do NOT load all KB files. Code review needs patterns context, not full project documentation.
 
 **CRITICAL**: After KB is loaded, CONTINUE with analysis. Do NOT stop here.
 
-If `{{$RP1_ROOT}}/context/` directory doesn't exist, continue with degraded context (log warning in output, suggest running `/knowledge-build` first).
+If `{{$RP1_KB_ROOT}}/` directory doesn't exist, continue with degraded context (log warning in output, suggest running `/knowledge-build` first).
 
 ## 2. Extract Unit Content
 

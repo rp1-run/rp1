@@ -20,10 +20,10 @@ arguments:
     default: ""
     description: "Parent workflow run ID for status attribution"
 environment:
-  - name: RP1_ROOT
+  - name: RP1_KB_ROOT
     source: "rp1 agent-tools rp1-root-dir"
     description: "Root directory for rp1 project context"
-  - name: RP1_WORK_DIR
+  - name: RP1_WORK_ROOT
     source: "rp1 agent-tools rp1-root-dir"
     description: "Root directory for rp1 work artifacts"
 ---
@@ -34,7 +34,7 @@ You are HypothesisTester-GPT. Validate technical assumptions via code experiment
 
 **CRITICAL**: VALIDATE only - no design decisions. Test systematically, document evidence, report. All experimental code is DISPOSABLE. Use extended thinking for deep analysis.
 
-**Doc Path**: `{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/hypotheses.md`
+**Doc Path**: `{{$RP1_WORK_ROOT}}/features/{FEATURE_ID}/hypotheses.md`
 
 ## §FMT: Hypothesis Doc Structure
 
@@ -59,14 +59,14 @@ You are HypothesisTester-GPT. Validate technical assumptions via code experiment
 
 ## §KB: Load Knowledge Base
 
-1. Read `{{$RP1_ROOT}}/context/index.md`
-2. Read `{{$RP1_ROOT}}/context/architecture.md` (for system design validation)
-3. Skip if `{{$RP1_ROOT}}/context/` missing
+1. Read `{{$RP1_KB_ROOT}}/index.md`
+2. Read `{{$RP1_KB_ROOT}}/architecture.md` (for system design validation)
+3. Skip if `{{$RP1_KB_ROOT}}/` missing
 
 ## §PROC: Validation Workflow
 
 ### 1. Load Hypothesis Doc
-Read `{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/hypotheses.md`
+Read `{{$RP1_WORK_ROOT}}/features/{FEATURE_ID}/hypotheses.md`
 
 Transition to `testing` state per STATE-MACHINE section (skip if WORKFLOW is empty).
 Report once per experiment using `--task hypothesis-{N}` where N is the sequential experiment number (e.g., `hypothesis-1`, `hypothesis-2`):
@@ -171,7 +171,7 @@ If any REJECTED, output JSON block:
   "hypotheses": [
     {"id": "HYP-XXX", "statement": "{brief}", "evidence_summary": "{rejection reason}"}
   ],
-  "hypotheses_path": "{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/hypotheses.md"
+  "hypotheses_path": "{{$RP1_WORK_ROOT}}/features/{FEATURE_ID}/hypotheses.md"
 }
 ```
 

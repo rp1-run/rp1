@@ -39,10 +39,10 @@ arguments:
     default: ""
     description: "Parent workflow run ID for status attribution"
 environment:
-  - name: RP1_ROOT
+  - name: RP1_KB_ROOT
     source: "rp1 agent-tools rp1-root-dir"
     description: "Root directory for rp1 project context"
-  - name: RP1_WORK_DIR
+  - name: RP1_WORK_ROOT
     source: "rp1 agent-tools rp1-root-dir"
     description: "Root directory for rp1 work artifacts"
 ---
@@ -85,7 +85,7 @@ Use `<thinking>` blocks for analysis.
 
 ### 1.1 KB Files
 
-Read from `{{$RP1_ROOT}}/context/`: `index.md`, `architecture.md`, `modules.md`, `patterns.md`
+Read from `{{$RP1_KB_ROOT}}/`: `index.md`, `architecture.md`, `modules.md`, `patterns.md`
 
 If missing: warn, continue.
 
@@ -102,7 +102,7 @@ No separate requirements.md or design.md for quick-builds (all context is in the
 
 **ELSE** (Feature mode):
 
-Read from `{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/`:
+Read from `{{$RP1_WORK_ROOT}}/features/{FEATURE_ID}/`:
 
 - `requirements.md`: reqs + acceptance criteria
 - `design.md`: tech specs

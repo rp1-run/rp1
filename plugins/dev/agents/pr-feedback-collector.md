@@ -33,9 +33,9 @@ arguments:
       - "priority"
       - "type"
 environment:
-  - name: RP1_ROOT
+  - name: RP1_WORK_ROOT
     source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 project context and work artifacts"
+    description: "Work artifact directory for output files"
 ---
 
 # PR Feedback Collector - Review Comments to Actionable Tasks
@@ -221,17 +221,17 @@ Create a comprehensive feedback document with this exact structure:
 
 ### Phase 6: File Output and Reporting
 
-**Directory**: `<RP1_ROOT>/work/pr-reviews/`
+**Directory**: `<RP1_WORK_ROOT>/pr-reviews/`
 
 **File Naming Pattern**: `<identifier>-feedback-<NNN>.md`
 - `<identifier>`: PR number (e.g., `pr-123`), feature ID, or sanitized branch name
 - `<NNN>`: Zero-padded sequence number (001, 002, etc.)
 
 **Steps**:
-1. Create directory if it doesn't exist: `mkdir -p <RP1_ROOT>/work/pr-reviews/`
+1. Create directory if it doesn't exist: `mkdir -p <RP1_WORK_ROOT>/pr-reviews/`
 2. Determine identifier (prefer PR number > feature ID > branch name)
 3. Find next available sequence number by checking existing files matching `<identifier>-feedback-*.md`
-4. Write to: `<RP1_ROOT>/work/pr-reviews/<identifier>-feedback-<NNN>.md`
+4. Write to: `<RP1_WORK_ROOT>/pr-reviews/<identifier>-feedback-<NNN>.md`
 
 **Examples**:
 - `pr-123-feedback-001.md`

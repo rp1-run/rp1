@@ -14,10 +14,10 @@ arguments:
     default: "build"
     description: "Workflow type for resume matching (e.g., build, build-fast, blueprint, pr-review)"
 environment:
-  - name: RP1_ROOT
+  - name: RP1_KB_ROOT
     source: "rp1 agent-tools rp1-root-dir"
     description: "Root directory for rp1 project context"
-  - name: RP1_WORK_DIR
+  - name: RP1_WORK_ROOT
     source: "rp1 agent-tools rp1-root-dir"
     description: "Root directory for rp1 work artifacts"
 ---
@@ -37,21 +37,21 @@ Check artifacts in order. First failing check determines `start_step`.
 
 ### Step 1: Requirements
 
-Read `{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/requirements.md`
+Read `{{$RP1_WORK_ROOT}}/features/{FEATURE_ID}/requirements.md`
 
 - **Valid if**: Contains `## 5. Functional Requirements`
 - **Missing/invalid**: `start_step = 1`, STOP
 
 ### Step 2: Design
 
-Read `{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/design.md`
+Read `{{$RP1_WORK_ROOT}}/features/{FEATURE_ID}/design.md`
 
 - **Valid if**: Contains `## 2. Architecture`
 - **Missing/invalid**: `start_step = 2`, STOP
 
 ### Step 3: Tasks
 
-Read `{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/tasks.md`
+Read `{{$RP1_WORK_ROOT}}/features/{FEATURE_ID}/tasks.md`
 
 - **Valid if**: Contains task entries (`- [ ]` or `- [x]`)
 - **Missing/no entries**: `start_step = 3`, STOP
@@ -65,7 +65,7 @@ Check tasks.md for pending tasks.
 
 ### Step 5: Verification
 
-Glob `{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/feature_verify_report*.md`, read most recent.
+Glob `{{$RP1_WORK_ROOT}}/features/{FEATURE_ID}/feature_verify_report*.md`, read most recent.
 
 - **Verified if**: Contains BOTH `Overall Status: VERIFIED` AND `Ready for Merge: YES`
 - **Not verified**: `start_step = 5`, STOP
@@ -116,7 +116,7 @@ Use the returned `runId` and `resumed` values directly.
 
 ### 2.4 Artifact Reconciliation (Best-Effort)
 
-When `resumed` is `true`, scan the feature directory `{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/` for `.md` files that may not be registered under the resumed run. Report these as `unregistered_artifacts` in the output so the calling skill can register them.
+When `resumed` is `true`, scan the feature directory `{{$RP1_WORK_ROOT}}/features/{FEATURE_ID}/` for `.md` files that may not be registered under the resumed run. Report these as `unregistered_artifacts` in the output so the calling skill can register them.
 
 This is best-effort. If scanning fails, omit the `unregistered_artifacts` field and continue.
 

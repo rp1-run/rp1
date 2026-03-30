@@ -38,9 +38,9 @@ arguments:
     default: ""
     description: "Feature context JSON for FEATURE_LEARNING mode"
 environment:
-  - name: RP1_ROOT
+  - name: RP1_KB_ROOT
     source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 project context and work artifacts"
+    description: "Knowledge base directory for project context"
 ---
 
 # KB Architecture Mapper - System Architecture Analysis
@@ -77,7 +77,7 @@ $6
 
 **Check for existing architecture.md**:
 
-- Check if `{{$RP1_ROOT}}/context/architecture.md` exists
+- Check if `{{$RP1_KB_ROOT}}/architecture.md` exists
 - If exists, read the file to understand current architectural knowledge
 - Extract existing patterns, layers, integrations, and diagrams
 - Use as baseline context for analysis
@@ -299,8 +299,8 @@ Map data flow and state:
 
 **For rp1 example**:
 
-- State stored in `{{$RP1_ROOT}}/context/state.json`
-- KB files generated in `{{$RP1_ROOT}}/context/*.md`
+- State stored in `{{$RP1_KB_ROOT}}/state.json`
+- KB files generated in `{{$RP1_KB_ROOT}}/*.md`
 - State updated after each KB generation
 
 **Output Format**:
@@ -309,7 +309,7 @@ Map data flow and state:
 {
   "state_management": {
     "strategy": "File-based state with JSON metadata",
-    "location": "{{$RP1_ROOT}}/context/state.json",
+    "location": "{{$RP1_KB_ROOT}}/state.json",
     "lifecycle": "Generated after KB build, used for incremental updates"
   },
   "data_flows": [
