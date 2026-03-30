@@ -35,6 +35,7 @@ const baseRun: Run = {
 	name: null,
 	command: "build",
 	status: "running",
+	harness: null,
 	currentStep: "design",
 	steps: [
 		{
