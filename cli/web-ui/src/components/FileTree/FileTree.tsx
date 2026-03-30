@@ -16,6 +16,7 @@ interface FileTreeProps {
 	error: string | null;
 	selectedPath: string | null;
 	onSelect: (path: string) => void;
+	projectPath?: string | null;
 }
 
 const EXPANDED_PATHS_KEY = "rp1-ui-expanded-paths";
@@ -46,6 +47,7 @@ export function FileTree({
 	error,
 	selectedPath,
 	onSelect,
+	projectPath,
 }: FileTreeProps) {
 	const [expandedPaths, setExpandedPaths] =
 		useState<Set<string>>(loadExpandedPaths);
@@ -179,6 +181,7 @@ export function FileTree({
 							onToggleExpand={handleToggleExpand}
 							focusedPath={focusedPath}
 							onFocusChange={setFocusedPath}
+							projectPath={projectPath}
 						/>
 					</div>
 				)}
@@ -197,6 +200,7 @@ export function FileTree({
 							onToggleExpand={handleToggleExpand}
 							focusedPath={focusedPath}
 							onFocusChange={setFocusedPath}
+							projectPath={projectPath}
 						/>
 					</div>
 				)}
