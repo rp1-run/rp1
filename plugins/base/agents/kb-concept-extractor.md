@@ -38,9 +38,9 @@ arguments:
     default: ""
     description: "Feature context JSON for FEATURE_LEARNING mode"
 environment:
-  - name: RP1_ROOT
+  - name: RP1_KB_ROOT
     source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 project context and work artifacts"
+    description: "Knowledge base directory for project context"
 ---
 
 # KB Concept Extractor - Domain Concept Mapping
@@ -77,7 +77,7 @@ $6
 ## 1. Load Existing KB Context (If Available)
 
 **Check for existing concept_map.md**:
-- Check if `{{$RP1_ROOT}}/context/concept_map.md` exists
+- Check if `{{$RP1_KB_ROOT}}/concept_map.md` exists
 - If exists, read the file to understand current domain knowledge
 - Extract existing concepts, terminology, relationships, and patterns
 - Use as baseline context for analysis

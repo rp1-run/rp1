@@ -33,9 +33,9 @@ arguments:
     default: false
     description: "Commit changes after cleanup"
 environment:
-  - name: RP1_ROOT
+  - name: RP1_KB_ROOT
     source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 project context and work artifacts"
+    description: "Knowledge base directory for project context"
 ---
 
 # Comment Cleaner - Git-Scoped Surgical Cleanup

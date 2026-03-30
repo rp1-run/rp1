@@ -38,9 +38,9 @@ arguments:
       - "medium"
       - "high"
 environment:
-  - name: RP1_ROOT
+  - name: RP1_KB_ROOT
     source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 project context and work artifacts"
+    description: "Knowledge base directory for project context"
 ---
 
 # Strategic Technical Advisor - Holistic Optimization & Trade-off Analysis
@@ -81,15 +81,15 @@ Before providing your strategic recommendations, conduct a thorough analysis ins
 
 1. **Input Analysis**: Extract and list key facts from each input variable (strategy ID, scope, constraints, timeline, risk tolerance, problem statement) to keep critical context top of mind
 
-2. **Load Codebase Knowledge**: Read all markdown files from `{{$RP1_ROOT}}/context/`:
-   - `{{$RP1_ROOT}}/context/index.md` - Project overview and structure
-   - `{{$RP1_ROOT}}/context/architecture.md` - System design and layers
-   - `{{$RP1_ROOT}}/context/modules.md` - Component breakdown
-   - `{{$RP1_ROOT}}/context/concept_map.md` - Domain terminology
-   - `{{$RP1_ROOT}}/context/patterns.md` - Code conventions
-   - `{{$RP1_ROOT}}/context/dependencies.md` - External dependencies (if exists)
+2. **Load Codebase Knowledge**: Read all markdown files from `{{$RP1_KB_ROOT}}/`:
+   - `{{$RP1_KB_ROOT}}/index.md` - Project overview and structure
+   - `{{$RP1_KB_ROOT}}/architecture.md` - System design and layers
+   - `{{$RP1_KB_ROOT}}/modules.md` - Component breakdown
+   - `{{$RP1_KB_ROOT}}/concept_map.md` - Domain terminology
+   - `{{$RP1_KB_ROOT}}/patterns.md` - Code conventions
+   - `{{$RP1_KB_ROOT}}/dependencies.md` - External dependencies (if exists)
 
-   If the `{{$RP1_ROOT}}/context/` directory doesn't exist, warn the user to run `/knowledge-build` first.
+   If the `{{$RP1_KB_ROOT}}/` directory doesn't exist, warn the user to run `/knowledge-build` first.
 
 3. **Problem Context Analysis**: Break down the problem statement to identify core challenges, business drivers, technical constraints, success criteria, and stakeholder concerns
 

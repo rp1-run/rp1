@@ -52,10 +52,10 @@ metadata:
         - GIT_PUSH
         - GIT_COMMIT
   environment:
-    - name: RP1_ROOT
+    - name: RP1_KB_ROOT
       source: "rp1 agent-tools rp1-root-dir"
       description: "Root directory for rp1 project context"
-    - name: RP1_WORK_DIR
+    - name: RP1_WORK_ROOT
       source: "rp1 agent-tools rp1-root-dir"
       description: "Root directory for rp1 work artifacts"
   sub_agents:
@@ -79,14 +79,14 @@ metadata:
 
 **YOU ARE A PURE ORCHESTRATOR.** Spawn agents for all work. NEVER write/edit/read files yourself. NEVER implement code, requirements, designs, or tests. Use exact agent references per step. If agent fails, retry it — never do its work.
 
-**Feature dir**: `{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/`
+**Feature dir**: `{{$RP1_WORK_ROOT}}/features/{FEATURE_ID}/`
 
 ## §0-FIRST-ACTION
 
 **FIRST tool call MUST be:**
 
 {% dispatch_agent "rp1-dev:build-artifact-detector" %}
-FEATURE_ID={FEATURE_ID}, WORKFLOW_TYPE=build, RP1_ROOT={{$RP1_ROOT}}
+FEATURE_ID={FEATURE_ID}, WORKFLOW_TYPE=build, RP1_KB_ROOT={{$RP1_KB_ROOT}}
 {% enddispatch_agent %}
 
 Do NOT read files, load KB, or analyze requirements before this completes.
@@ -166,12 +166,12 @@ AFK mode: skip all prompts, auto-select defaults, retry once on failure, auto-ar
 **Skip if**: start_step > 1. **Spawn agent — do NOT gather requirements yourself:**
 
 {% dispatch_agent "rp1-dev:feature-requirement-gatherer" %}
-FEATURE_ID={FEATURE_ID}, REQUIREMENTS={REQUIREMENTS}, AFK={AFK}, RP1_ROOT={{$RP1_ROOT}}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, REQUIREMENTS={REQUIREMENTS}, AFK={AFK}, RP1_KB_ROOT={{$RP1_KB_ROOT}}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 Validate the response before continuing:
 
-- Accept only the documented completion contract from `feature-requirement-gatherer`: JSON with `"status": "success"` and `"artifact": "{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/requirements.md"`, or the exact text line `Requirements completed: {{$RP1_WORK_DIR}}/features/{FEATURE_ID}/requirements.md`.
+- Accept only the documented completion contract from `feature-requirement-gatherer`: JSON with `"status": "success"` and `"artifact": "{{$RP1_WORK_ROOT}}/features/{FEATURE_ID}/requirements.md"`, or the exact text line `Requirements completed: {{$RP1_WORK_ROOT}}/features/{FEATURE_ID}/requirements.md`.
 - Treat any response that mentions commits, source-code edits, tests, verification, unrelated file paths, or implementation completion as a contract failure.
 - On contract failure: retry step 1 once with an explicit reminder that the agent may only write `requirements.md` and must not implement anything.
 - If the retry also fails, abort the build as failed. Do not continue to design, build, verify, or archive based on non-compliant output.
@@ -206,7 +206,7 @@ rp1 agent-tools emit \
 **Skip if**: start_step > 2. **Spawn agent — do NOT design yourself:**
 
 {% dispatch_agent "rp1-dev:feature-architect" %}
-FEATURE_ID={FEATURE_ID}, AFK={AFK}, UPDATE_MODE={design.md exists}, RP1_ROOT={{$RP1_ROOT}}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, AFK={AFK}, UPDATE_MODE={design.md exists}, RP1_KB_ROOT={{$RP1_KB_ROOT}}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 If `flagged_hypotheses` non-empty:
@@ -216,7 +216,7 @@ FEATURE_ID={FEATURE_ID}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 {% dispatch_agent "rp1-dev:feature-tasker" %}
-FEATURE_ID={FEATURE_ID}, UPDATE_MODE={UPDATE_MODE}, RP1_ROOT={{$RP1_ROOT}}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, UPDATE_MODE={UPDATE_MODE}, RP1_KB_ROOT={{$RP1_KB_ROOT}}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 **Checkpoint** (skip if AFK):
@@ -249,7 +249,7 @@ rp1 agent-tools emit \
 **Skip if**: start_step > 3. **Spawn agent:**
 
 {% dispatch_agent "rp1-dev:feature-tasker" %}
-FEATURE_ID={FEATURE_ID}, UPDATE_MODE=false, RP1_ROOT={{$RP1_ROOT}}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, UPDATE_MODE=false, RP1_KB_ROOT={{$RP1_KB_ROOT}}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 **Checkpoint** (skip if AFK):
@@ -284,7 +284,7 @@ rp1 agent-tools emit \
 ### §4.1 Parse + Group
 
 {% dispatch_agent "rp1-dev:build-task-parser" %}
-TASKS_PATH={{$RP1_WORK_DIR}}/features/{FEATURE_ID}/tasks.md
+TASKS_PATH={{$RP1_WORK_ROOT}}/features/{FEATURE_ID}/tasks.md
 {% enddispatch_agent %}
 
 Extract `implementation_tasks`, `doc_tasks`.
@@ -337,7 +337,7 @@ FEATURE_ID={FEATURE_ID}, BRANCH={branch}
 {% enddispatch_agent %}
 
 {% dispatch_agent "rp1-dev:feature-verifier" %}
-FEATURE_ID={FEATURE_ID}, RP1_ROOT={{$RP1_ROOT}}, WORKFLOW=build, RUN_ID={RUN_ID}
+FEATURE_ID={FEATURE_ID}, RP1_KB_ROOT={{$RP1_KB_ROOT}}, WORKFLOW=build, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 {% dispatch_agent "rp1-dev:comment-cleaner" %}
@@ -358,7 +358,7 @@ If GIT_COMMIT: stage+commit. If GIT_PUSH: push. If GIT_PR: create PR.
 
 ## §6 SUMMARY
 
-Register artifacts: for each file in `{{$RP1_WORK_DIR}}/features/{FEATURE_ID}/`:
+Register artifacts: for each file in `{{$RP1_WORK_ROOT}}/features/{FEATURE_ID}/`:
 
 ```bash
 rp1 agent-tools emit \
