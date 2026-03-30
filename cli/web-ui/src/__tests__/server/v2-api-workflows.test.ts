@@ -12,7 +12,10 @@ import {
 	deriveOrderedSteps,
 	parseAndTransform,
 } from "../../../../src/agent-tools/state-machine/index.js";
-import type { StateMachine } from "../../../../src/agent-tools/state-machine/models.js";
+import type {
+	OrderedStep,
+	StateMachine,
+} from "../../../../src/agent-tools/state-machine/models.js";
 import {
 	commandToWorkflowName,
 	deriveAgentSteps,
@@ -293,6 +296,48 @@ describe("deriveStepsFromMachine", () => {
 				completedAt: "2026-03-01T00:03:00.000Z",
 			});
 		});
+
+		test("suppresses synthetic logical sub-agent steps when the parent machine already represents them", () => {
+			const orderedSteps: OrderedStep[] = [
+				{ id: "plan", label: "Plan", index: 0 },
+				{ id: "task-builder", label: "Task Builder", index: 1 },
+				{ id: "review", label: "Review", index: 2 },
+			];
+			const stepStatuses: StepStatusEntry[] = [
+				{ step: "plan", status: "completed" },
+				{ step: "task-builder", status: "running" },
+			];
+
+			const events: EventRecord[] = [
+				makeEvent({
+					id: 1,
+					step: "plan",
+					data: JSON.stringify({ status: "completed" }),
+					createdAt: "2026-03-01T00:00:00.000Z",
+				}),
+				makeEvent({
+					id: 2,
+					step: "task-builder:building",
+					unit: "T1",
+					data: JSON.stringify({ status: "running" }),
+					createdAt: "2026-03-01T00:01:00.000Z",
+				}),
+				makeEvent({
+					id: 3,
+					step: "task-builder:building",
+					unit: "T2",
+					data: JSON.stringify({ status: "running" }),
+					createdAt: "2026-03-01T00:02:00.000Z",
+				}),
+			];
+
+			const steps = deriveStepsFromMachine(stepStatuses, orderedSteps, events);
+			expect(steps.map((step) => step.id)).toEqual([
+				"plan",
+				"task-builder",
+				"review",
+			]);
+		});
 	});
 
 	describe("pr-review workflow", () => {
@@ -443,7 +488,7 @@ describe("deriveStepsFromEvents", () => {
 });
 
 describe("deriveAgentSteps", () => {
-	test("groups namespaced lifecycle events by logical work item and preserves units", () => {
+	test("groups namespaced lifecycle events by logical parent and preserves unit-specific latest states", () => {
 		const events: EventRecord[] = [
 			makeEvent({
 				id: 1,
@@ -467,15 +512,13 @@ describe("deriveAgentSteps", () => {
 
 		const agentSteps = deriveAgentSteps(events);
 		expect(agentSteps).toEqual({
-			"task-builder::T1": [
+			"task-builder": [
 				{
 					id: "T1",
 					name: "T1",
 					status: "completed",
 					agent: "T1",
 				},
-			],
-			"task-builder::T2": [
 				{
 					id: "T2",
 					name: "T2",
