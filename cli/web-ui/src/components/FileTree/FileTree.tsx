@@ -29,7 +29,7 @@ function loadExpandedPaths(): Set<string> {
 	} catch {
 		// ignore
 	}
-	return new Set(["work", "context"]);
+	return new Set(["work", "kb"]);
 }
 
 function saveExpandedPaths(paths: Set<string>): void {
@@ -151,7 +151,9 @@ export function FileTree({
 	}
 
 	const workSection = tree.find((node) => node.name === "work");
-	const contextSection = tree.find((node) => node.name === "context");
+	const contextSection = tree.find(
+		(node) => node.name === "kb" || node.name === "context",
+	);
 
 	return (
 		<ScrollArea className="h-full">
