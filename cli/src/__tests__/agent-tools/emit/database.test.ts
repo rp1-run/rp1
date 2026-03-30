@@ -2229,6 +2229,64 @@ describe("emit database", () => {
 			expect(artifact?.path).toBe("features/feat/design.md");
 			expect(artifact?.storageRoot).toBe("work_dir");
 		});
+
+		test("reconciles missing work-dir artifacts by scanning the legacy .rp1/work directory", async () => {
+			const dbPath = join(tempDir, "artifact-resolve-legacy-work.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+			const projectRoot = join(tempDir, "project-legacy-work");
+			const workDir = join(tempDir, "external-work-empty");
+			const filePath = join(
+				projectRoot,
+				".rp1",
+				"work",
+				"features",
+				"feat",
+				"design.md",
+			);
+			await mkdir(dirname(filePath), { recursive: true });
+			writeFileSync(
+				filePath,
+				"---\nrp1_doc_id: doc-legacy-work\n---\n# Legacy Design\n",
+			);
+
+			insertRun(db, {
+				id: "run-legacy-work",
+				flow: "build",
+				featureId: "feat",
+				projectPath: projectRoot,
+				rp1ProjectRoot: projectRoot,
+				rp1KbRoot: join(projectRoot, ".rp1", "context"),
+				rp1WorkRoot: workDir,
+			});
+			upsertArtifact(db, {
+				docId: "doc-legacy-work",
+				runId: "run-legacy-work",
+				path: "missing/design.md",
+				type: "markdown",
+				storageRoot: "work_dir",
+				projectPath: projectRoot,
+				feature: "feat",
+			});
+
+			const resolvedPath = await resolveArtifactPathForRun(
+				db,
+				{
+					rp1ProjectRoot: projectRoot,
+					rp1WorkRoot: workDir,
+				},
+				{
+					docId: "doc-legacy-work",
+					path: "missing/design.md",
+					storageRoot: "work_dir",
+				},
+			);
+
+			expect(resolvedPath).toBe(filePath);
+
+			const artifact = getArtifactByDocId(db, "doc-legacy-work");
+			expect(artifact?.path).toBe(".rp1/work/features/feat/design.md");
+			expect(artifact?.storageRoot).toBe("project");
+		});
 	});
 
 	describe("getAnnotationsForRun", () => {
