@@ -34,6 +34,7 @@ const baseRun: Run = {
 	featureName: "Test Feature",
 	command: "build",
 	status: "running",
+	harness: null,
 	currentStep: "design",
 	steps: [
 		{

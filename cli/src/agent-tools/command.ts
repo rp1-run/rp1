@@ -369,6 +369,10 @@ const emitCommand = agentToolsCommand
 	.option("--data <json>", "JSON payload for the event")
 	.option("--project <path>", "Project path (defaults to cwd)")
 	.option(
+		"--harness <name>",
+		"Harness/platform name (e.g., claude-code, codex, opencode)",
+	)
+	.option(
 		"--close-run",
 		"Force-close the run by completing all non-terminal steps",
 	)
@@ -444,6 +448,7 @@ Examples:
 			data?: string;
 			project?: string;
 			closeRun?: boolean;
+			harness?: string;
 		}): Promise<void> => {
 			const toolName = "emit";
 
@@ -456,6 +461,7 @@ Examples:
 				data: options.data,
 				project: options.project,
 				closeRun: options.closeRun,
+				harness: options.harness,
 			};
 
 			const validationResult = await validateEmitOptions(emitOptions)();

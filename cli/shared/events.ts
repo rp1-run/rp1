@@ -138,6 +138,7 @@ export interface RunRecord {
 	readonly featureId: string;
 	readonly projectPath: string;
 	readonly status: Status;
+	readonly harness: string | null;
 	readonly createdAt: string;
 	readonly updatedAt: string;
 }

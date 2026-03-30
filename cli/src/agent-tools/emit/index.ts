@@ -332,6 +332,11 @@ export const executeEmit = (
 				flow: (input.data.workflow as string) ?? "unknown",
 				featureId: (input.data.feature as string) ?? "unknown",
 				projectPath: input.projectPath,
+				harness:
+					input.harness ??
+					(input.data.harness as string) ??
+					process.env.RP1_HARNESS ??
+					undefined,
 			});
 
 			const now = new Date().toISOString();
