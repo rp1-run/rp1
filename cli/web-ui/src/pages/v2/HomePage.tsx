@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { Activity } from "lucide-react";
+import { Activity, FolderOpen } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { HarnessIcon } from "@/components/v2/HarnessIcon";
@@ -77,10 +77,12 @@ const feedItemVariantsReduced = {
 function FeedEntry({
 	run,
 	onClick,
+	onProjectClick,
 	reducedMotion,
 }: {
 	run: Run;
 	onClick: () => void;
+	onProjectClick: (projectName: string) => void;
 	reducedMotion: boolean;
 }) {
 	const isWaiting = run.status === "waiting";
@@ -117,15 +119,29 @@ function FeedEntry({
 				{resolveRunDisplayName(run) || run.command}
 			</span>
 
-			<span className="shrink-0 type-secondary text-fg-ghost">
+			{isWaiting && (
+				<span className="shrink-0 type-caption text-accent-amber">waiting</span>
+			)}
+
+			<span
+				role="link"
+				tabIndex={0}
+				onClick={(e) => {
+					e.stopPropagation();
+					onProjectClick(run.projectName);
+				}}
+				onKeyDown={(e) => {
+					if (e.key === "Enter") {
+						e.stopPropagation();
+						onProjectClick(run.projectName);
+					}
+				}}
+				className="ml-auto shrink-0 flex items-center gap-1 pl-4 type-secondary italic text-fg-ghost hover:text-fg-muted transition-colors duration-150 cursor-pointer"
+				aria-label={`Open project ${run.projectName}`}
+			>
+				<FolderOpen className="h-3 w-3" strokeWidth={1.5} />
 				{run.projectName}
 			</span>
-
-			{isWaiting && (
-				<span className="ml-auto shrink-0 type-caption text-accent-amber">
-					waiting
-				</span>
-			)}
 		</motion.button>
 	);
 }
@@ -201,6 +217,13 @@ export function HomePage() {
 		[navigate],
 	);
 
+	const handleProjectClick = useCallback(
+		(projectName: string) => {
+			navigate(`/projects/${projectName}`);
+		},
+		[navigate],
+	);
+
 	return (
 		<div className="h-full overflow-y-auto px-4 py-6 md:px-6">
 			<div className="mx-auto max-w-[640px]">
@@ -261,6 +284,7 @@ export function HomePage() {
 										key={run.id}
 										run={run}
 										onClick={() => handleRunClick(run.id)}
+										onProjectClick={handleProjectClick}
 										reducedMotion={reducedMotion}
 									/>
 								))}
