@@ -110,7 +110,10 @@ export async function detectReinitState(
 	}
 
 	const hasKB = await fileExists(path.join(directories.contextDir, "index.md"));
-	const hasWork = await hasAnyFiles(directories.workDir);
+	const legacyWorkDir = path.join(directories.rp1Dir, "work");
+	const hasWork =
+		(await hasAnyFiles(legacyWorkDir)) ||
+		(await hasAnyFiles(directories.workDir));
 
 	return {
 		hasRp1Dir,
