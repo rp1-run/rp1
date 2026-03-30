@@ -287,7 +287,7 @@ function eventRecordToRunEvent(record: EventRecord): RunEvent {
 
 /**
  * Derive agent tasks from status_change events that have a unit field.
- * Groups by step, then by unit (agent task).
+ * Groups by logical parent step first, then by unit (agent task).
  */
 export function deriveAgentSteps(
 	events: readonly EventRecord[],
@@ -302,12 +302,12 @@ export function deriveAgentSteps(
 	for (const event of agentEvents) {
 		const stepId = event.step;
 		if (!stepId) continue;
-		const logicalStepId = getLogicalStepKey(stepId, event.unit);
+		const logicalParentStepId = getLogicalStepDisplayId(stepId);
 
-		let taskMap = stepMap.get(logicalStepId);
+		let taskMap = stepMap.get(logicalParentStepId);
 		if (!taskMap) {
 			taskMap = new Map<string, AgentTask>();
-			stepMap.set(logicalStepId, taskMap);
+			stepMap.set(logicalParentStepId, taskMap);
 		}
 
 		const data = parseJsonSafe(event.data);
@@ -330,6 +330,20 @@ export function deriveAgentSteps(
 	}
 
 	return result;
+}
+
+function getLogicalParentStepId(
+	logicalStepId: string,
+	concreteStep: string | undefined,
+): string {
+	if (concreteStep) {
+		return getLogicalStepDisplayId(concreteStep);
+	}
+
+	const logicalUnitSeparator = logicalStepId.indexOf("::");
+	return logicalUnitSeparator === -1
+		? logicalStepId
+		: logicalStepId.slice(0, logicalUnitSeparator);
 }
 
 function getLogicalStepName(
@@ -412,11 +426,20 @@ export function deriveStepsFromMachine(
 			name: humanizeFeatureName(label),
 		};
 	});
+	const machineParentStepIds = new Set(
+		orderedSteps.map(({ id }) => getLogicalParentStepId(id, id)),
+	);
 	const syntheticSteps = Array.from(stepEvents.entries())
 		.filter(([stepId, evts]) => {
-			if (orderedStepIds.has(stepId)) return false;
 			const concreteStep = evts[evts.length - 1]?.step;
-			return concreteStep ? isNamespacedLifecycleStep(concreteStep) : false;
+			if (!concreteStep || !isNamespacedLifecycleStep(concreteStep)) {
+				return false;
+			}
+
+			if (orderedStepIds.has(stepId)) return false;
+
+			const parentStepId = getLogicalParentStepId(stepId, concreteStep);
+			return !machineParentStepIds.has(parentStepId);
 		})
 		.sort(([, leftEvents], [, rightEvents]) =>
 			leftEvents[0].createdAt.localeCompare(rightEvents[0].createdAt),
