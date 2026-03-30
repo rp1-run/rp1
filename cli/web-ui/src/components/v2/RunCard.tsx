@@ -11,6 +11,7 @@ export interface RunCardProps {
 	onClick?: () => void;
 	selected?: boolean;
 	showStatus?: boolean;
+	showProject?: boolean;
 	className?: string;
 }
 
@@ -33,6 +34,7 @@ export function RunCard({
 	onClick,
 	selected,
 	showStatus = true,
+	showProject = true,
 	className,
 }: RunCardProps) {
 	const handleKeyDown = (event: React.KeyboardEvent) => {
@@ -75,26 +77,28 @@ export function RunCard({
 				{resolveRunDisplayName(run) || run.command}
 			</span>
 
-			{/* biome-ignore lint/a11y/useSemanticElements: span with role="link" for project navigation within button row */}
-			<span
-				role="link"
-				tabIndex={0}
-				onClick={(e) => {
-					e.stopPropagation();
-					window.location.href = `/projects/${run.projectName}`;
-				}}
-				onKeyDown={(e) => {
-					if (e.key === "Enter") {
+			{showProject && (
+				// biome-ignore lint/a11y/useSemanticElements: span with role="link" for project navigation within button row
+				<span
+					role="link"
+					tabIndex={0}
+					onClick={(e) => {
 						e.stopPropagation();
 						window.location.href = `/projects/${run.projectName}`;
-					}
-				}}
-				className="ml-auto shrink-0 flex items-center gap-1 pl-4 type-secondary italic text-fg-ghost hover:text-fg-muted transition-colors duration-150 cursor-pointer"
-				aria-label={`Open project ${run.projectName}`}
-			>
-				<SquareKanban className="h-3 w-3" strokeWidth={1.5} />
-				{run.projectName}
-			</span>
+					}}
+					onKeyDown={(e) => {
+						if (e.key === "Enter") {
+							e.stopPropagation();
+							window.location.href = `/projects/${run.projectName}`;
+						}
+					}}
+					className="ml-auto shrink-0 flex items-center gap-1 pl-4 type-secondary italic text-fg-ghost hover:text-fg-muted transition-colors duration-150 cursor-pointer"
+					aria-label={`Open project ${run.projectName}`}
+				>
+					<SquareKanban className="h-3 w-3" strokeWidth={1.5} />
+					{run.projectName}
+				</span>
+			)}
 		</div>
 	);
 }
