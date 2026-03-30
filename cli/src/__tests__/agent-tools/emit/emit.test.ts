@@ -235,6 +235,58 @@ describe("emit end-to-end", () => {
 				}
 			}
 		});
+
+		test("uses frontmatter doc_id for relative work-dir artifacts when storageRoot is omitted", async () => {
+			const originalProjectRoot = process.env.RP1_PROJECT_ROOT;
+			const originalWorkDir = process.env.RP1_WORK_ROOT;
+			const projectRoot = join(tempDir, "project-relative-doc-id");
+			const workDir = join(tempDir, "external-work-relative-doc-id");
+			process.env.RP1_PROJECT_ROOT = projectRoot;
+			process.env.RP1_WORK_ROOT = workDir;
+
+			try {
+				await writeFixture(projectRoot, ".rp1/settings.toml", "");
+				await writeFixture(
+					workDir,
+					"features/test-feat/design.md",
+					"---\nrp1_doc_id: doc-relative-frontmatter\n---\n# Test Artifact\n",
+				);
+
+				const result = await expectTaskRight(
+					executeEmit(
+						makeInput({
+							type: "artifact_registered",
+							step: "design",
+							projectPath: projectRoot,
+							data: {
+								path: "features/test-feat/design.md",
+								feature: "test-feat",
+								type: "markdown",
+								workflow: "build",
+							},
+						}),
+					),
+				);
+
+				const db = await expectTaskRight(getEmitDatabase(dbPath));
+				const artifact = getArtifactByDocId(db, "doc-relative-frontmatter");
+
+				expect(result.data.docId).toBe("doc-relative-frontmatter");
+				expect(artifact?.storageRoot).toBe("work_dir");
+				expect(artifact?.path).toBe("features/test-feat/design.md");
+			} finally {
+				if (originalProjectRoot == null) {
+					delete process.env.RP1_PROJECT_ROOT;
+				} else {
+					process.env.RP1_PROJECT_ROOT = originalProjectRoot;
+				}
+				if (originalWorkDir == null) {
+					delete process.env.RP1_WORK_ROOT;
+				} else {
+					process.env.RP1_WORK_ROOT = originalWorkDir;
+				}
+			}
+		});
 	});
 
 	describe("subflow_registered events", () => {
