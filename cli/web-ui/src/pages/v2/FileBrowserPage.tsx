@@ -88,9 +88,11 @@ export function FileBrowserPage() {
 	const { projects } = useProjects();
 	const { setProject } = useBreadcrumbContext();
 
-	const projectName = projectId
-		? (projects.find((p) => p.id === projectId)?.name ?? projectId)
+	const project = projectId
+		? (projects.find((p) => p.id === projectId) ?? null)
 		: null;
+	const projectName = project?.name ?? projectId ?? null;
+	const projectPath = project?.path ?? null;
 
 	useEffect(() => {
 		if (projectId) {
@@ -459,6 +461,7 @@ export function FileBrowserPage() {
 							error={treeError}
 							selectedPath={selectedPath}
 							onSelect={handleFileSelect}
+							projectPath={projectPath}
 						/>
 					</ScrollArea>
 				</Drawer>
@@ -506,6 +509,7 @@ export function FileBrowserPage() {
 							error={treeError}
 							selectedPath={selectedPath}
 							onSelect={handleFileSelect}
+							projectPath={projectPath}
 						/>
 					</aside>
 				</ResizablePanel>
