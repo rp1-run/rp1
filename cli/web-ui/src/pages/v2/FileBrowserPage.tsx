@@ -130,6 +130,7 @@ export function FileBrowserPage() {
 			const hasPreviousContent = previousContentRef.current !== null;
 
 			if (!preserveScroll) {
+				setContent(null);
 				if (hasPreviousContent) {
 					setIsRefreshing(true);
 				} else {
