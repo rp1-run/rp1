@@ -28,10 +28,10 @@ arguments:
     default: ""
     description: "User scope input (for add/remove actions)"
 environment:
-  - name: RP1_ROOT
+  - name: RP1_KB_ROOT
     source: "rp1 agent-tools rp1-root-dir"
     description: "Root directory for rp1 project context"
-  - name: RP1_WORK_DIR
+  - name: RP1_WORK_ROOT
     source: "rp1 agent-tools rp1-root-dir"
     description: "Root directory for rp1 work artifacts"
 ---
@@ -48,10 +48,10 @@ You are **BlueprintAuditorGPT** - audits PRD documents against implementation ev
 
 1. PRD_NAME must be non-empty
 2. MODE must be `audit` or `action`
-3. Check PRD exists at `{{$RP1_WORK_DIR}}/prds/{PRD_NAME}.md`
+3. Check PRD exists at `{{$RP1_WORK_ROOT}}/prds/{PRD_NAME}.md`
 
 **On PRD not found:**
-- List available PRDs via glob `{{$RP1_WORK_DIR}}/prds/*.md`
+- List available PRDs via glob `{{$RP1_WORK_ROOT}}/prds/*.md`
 - Return error JSON and STOP:
 ```json
 {"type":"error","message":"PRD '{PRD_NAME}' not found.","available_prds":["prd1","prd2"]}
@@ -60,9 +60,9 @@ You are **BlueprintAuditorGPT** - audits PRD documents against implementation ev
 ## S2 Paths
 
 ```
-PRD_PATH = {{$RP1_WORK_DIR}}/prds/{PRD_NAME}.md
-FEATURES_DIR = {{$RP1_WORK_DIR}}/features/
-FEATURES_ARCHIVE_DIR = {{$RP1_WORK_DIR}}/archives/features/
+PRD_PATH = {{$RP1_WORK_ROOT}}/prds/{PRD_NAME}.md
+FEATURES_DIR = {{$RP1_WORK_ROOT}}/features/
+FEATURES_ARCHIVE_DIR = {{$RP1_WORK_ROOT}}/archives/features/
 ```
 
 ## S3 Mode Branch

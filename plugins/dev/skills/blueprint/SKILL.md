@@ -25,10 +25,10 @@ metadata:
       default: ""
       description: "Additional context provided by the user"
   environment:
-    - name: RP1_ROOT
+    - name: RP1_KB_ROOT
       source: "rp1 agent-tools rp1-root-dir"
       description: "Root directory for rp1 project context"
-    - name: RP1_WORK_DIR
+    - name: RP1_WORK_ROOT
       source: "rp1 agent-tools rp1-root-dir"
       description: "Root directory for rp1 work artifacts"
   sub_agents:
@@ -80,14 +80,14 @@ rp1 agent-tools emit \
 ## §CTX
 
 **Doc Hierarchy**:
-1. **Charter** (`{{$RP1_ROOT}}/context/charter.md`) - Project-level: problem/context, users, business rationale, scope guardrails, success criteria
-2. **PRDs** (`{{$RP1_WORK_DIR}}/prds/<name>.md`) - Surface-specific: overview, in/out scope, requirements, dependencies, timeline. Inherit from charter, link back, no duplication.
+1. **Charter** (`{{$RP1_KB_ROOT}}/charter.md`) - Project-level: problem/context, users, business rationale, scope guardrails, success criteria
+2. **PRDs** (`{{$RP1_WORK_ROOT}}/prds/<name>.md`) - Surface-specific: overview, in/out scope, requirements, dependencies, timeline. Inherit from charter, link back, no duplication.
 
 ## §PROC
 
 ### Step 1: Mode Detection
 
-Read `{{$RP1_ROOT}}/context/charter.md`:
+Read `{{$RP1_KB_ROOT}}/charter.md`:
 
 | Condition | Mode | Message |
 |-----------|------|---------|
@@ -132,7 +132,7 @@ Read `{{$RP1_ROOT}}/context/charter.md`:
 question_number = 0
 loop:
   1. {% dispatch_agent "rp1-dev:charter-interviewer" %}
-     CHARTER_PATH={{$RP1_ROOT}}/context/charter.md, MODE={mode}, RP1_ROOT={{$RP1_ROOT}}
+     CHARTER_PATH={{$RP1_KB_ROOT}}/charter.md, MODE={mode}, RP1_KB_ROOT={{$RP1_KB_ROOT}}
      {% enddispatch_agent %}
 
   2. Parse JSON response
@@ -160,7 +160,7 @@ loop:
           --type artifact_registered \
           --run-id {RUN_ID} \
           --step charter \
-          --data '{"path": "{{$RP1_ROOT}}/context/charter.md"}'
+          --data '{"path": "{{$RP1_KB_ROOT}}/charter.md"}'
         ```
         Output: "Charter complete! Proceeding to PRD creation..."
         break -> Step 4
@@ -197,11 +197,11 @@ loop:
 `PRD_NAME = PRD_NAME || "main"`
 
 #### 4.2 Init PRD
-Create `{{$RP1_WORK_DIR}}/prds/{PRD_NAME}.md`:
+Create `{{$RP1_WORK_ROOT}}/prds/{PRD_NAME}.md`:
 ```markdown
 # PRD: {PRD_NAME}
 
-**Charter**: [Project Charter]({{$RP1_ROOT}}/context/charter.md)
+**Charter**: [Project Charter]({{$RP1_KB_ROOT}}/charter.md)
 **Version**: 1.0.0
 **Status**: Draft
 **Created**: {YYYY-MM-DD}
@@ -219,12 +219,12 @@ Create `{{$RP1_WORK_DIR}}/prds/{PRD_NAME}.md`:
 
 #### 4.3 PRD Loop
 
-PRD_PATH = `{{$RP1_WORK_DIR}}/prds/{PRD_NAME}.md`
+PRD_PATH = `{{$RP1_WORK_ROOT}}/prds/{PRD_NAME}.md`
 question_count = 0
 
 loop:
   {% dispatch_agent "rp1-dev:blueprint-wizard" %}
-  PRD_NAME={PRD_NAME}, EXTRA_CONTEXT={EXTRA_CONTEXT}, RP1_ROOT={{$RP1_ROOT}}
+  PRD_NAME={PRD_NAME}, EXTRA_CONTEXT={EXTRA_CONTEXT}, RP1_KB_ROOT={{$RP1_KB_ROOT}}
   {% enddispatch_agent %}
 
   Parse JSON response
@@ -273,7 +273,7 @@ loop:
 PRD created!
 
 Created:
-- {{$RP1_WORK_DIR}}/prds/{PRD_NAME}.md
+- {{$RP1_WORK_ROOT}}/prds/{PRD_NAME}.md
 
 Next Steps:
 - Create features: /rp1-dev:build <feature-id>
