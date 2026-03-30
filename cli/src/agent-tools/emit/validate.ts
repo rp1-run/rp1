@@ -4,7 +4,7 @@
  * payload shapes per event type with descriptive error messages.
  */
 
-import { dirname, isAbsolute } from "node:path";
+import { isAbsolute } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
@@ -256,7 +256,7 @@ const validateProjectPath = (
 		resolveRp1Root(),
 		TE.map(
 			(result): ResolvedProjectPath => ({
-				projectPath: dirname(result.root),
+				projectPath: result.projectRoot,
 				worktreePath: result.isWorktree ? process.cwd() : undefined,
 			}),
 		),
