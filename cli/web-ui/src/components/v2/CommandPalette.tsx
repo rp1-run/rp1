@@ -1,6 +1,6 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { AnimatePresence, motion } from "framer-motion";
-import { FileText, FolderOpen, Home, Moon, RefreshCw } from "lucide-react";
+import { FileText, Home, Moon, RefreshCw, SquareKanban } from "lucide-react";
 import { useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -42,7 +42,11 @@ const navigationIcons: Record<string, React.ReactNode> = {
 		<FileText className="mr-2 h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
 	),
 	"nav-projects": (
-		<FolderOpen className="mr-2 h-4 w-4" strokeWidth={1.5} aria-hidden="true" />
+		<SquareKanban
+			className="mr-2 h-4 w-4"
+			strokeWidth={1.5}
+			aria-hidden="true"
+		/>
 	),
 };
 
