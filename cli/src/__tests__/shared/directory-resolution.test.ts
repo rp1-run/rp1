@@ -23,18 +23,18 @@ describe("directory resolution", () => {
 	let plainDirectory: string;
 	let originalRp1ProjectRoot: string | undefined;
 	let originalRp1Root: string | undefined;
-	let originalRp1KbDir: string | undefined;
-	let originalRp1WorkDir: string | undefined;
+	let originalRp1KbRoot: string | undefined;
+	let originalRp1WorkRoot: string | undefined;
 
 	beforeAll(async () => {
 		originalRp1ProjectRoot = process.env.RP1_PROJECT_ROOT;
 		originalRp1Root = process.env.RP1_ROOT;
-		originalRp1KbDir = process.env.RP1_KB_DIR;
-		originalRp1WorkDir = process.env.RP1_WORK_DIR;
+		originalRp1KbRoot = process.env.RP1_KB_ROOT;
+		originalRp1WorkRoot = process.env.RP1_WORK_ROOT;
 		delete process.env.RP1_PROJECT_ROOT;
 		delete process.env.RP1_ROOT;
-		delete process.env.RP1_KB_DIR;
-		delete process.env.RP1_WORK_DIR;
+		delete process.env.RP1_KB_ROOT;
+		delete process.env.RP1_WORK_ROOT;
 
 		const tempDir = join(tmpdir(), `rp1-directory-resolution-${Date.now()}`);
 		await mkdir(tempDir, { recursive: true });
@@ -77,15 +77,15 @@ describe("directory resolution", () => {
 		} else {
 			process.env.RP1_ROOT = originalRp1Root;
 		}
-		if (originalRp1KbDir === undefined) {
-			delete process.env.RP1_KB_DIR;
+		if (originalRp1KbRoot === undefined) {
+			delete process.env.RP1_KB_ROOT;
 		} else {
-			process.env.RP1_KB_DIR = originalRp1KbDir;
+			process.env.RP1_KB_ROOT = originalRp1KbRoot;
 		}
-		if (originalRp1WorkDir === undefined) {
-			delete process.env.RP1_WORK_DIR;
+		if (originalRp1WorkRoot === undefined) {
+			delete process.env.RP1_WORK_ROOT;
 		} else {
-			process.env.RP1_WORK_DIR = originalRp1WorkDir;
+			process.env.RP1_WORK_ROOT = originalRp1WorkRoot;
 		}
 
 		await removeTestWorktree(worktreeMainRoot, linkedWorktreePath, true);
@@ -100,11 +100,12 @@ describe("directory resolution", () => {
 		}
 
 		expect(result.right.projectRoot).toBe(projectRoot);
-		expect(result.right.rp1Root).toBe(join(projectRoot, ".rp1"));
-		expect(result.right.kbDir).toBe(join(projectRoot, ".rp1", "context"));
+		expect(result.right.kbRoot).toBe(join(projectRoot, ".rp1", "context"));
 		expect(result.right.sources.projectRoot).toBe("walk_up");
-		expect(result.right.workDir.startsWith(join(homedir(), ".rp1"))).toBe(true);
-		expect(result.right.workDir.endsWith("project-with-rp1")).toBe(true);
+		expect(result.right.workRoot.startsWith(join(homedir(), ".rp1"))).toBe(
+			true,
+		);
+		expect(result.right.workRoot.endsWith("project-with-rp1")).toBe(true);
 	});
 
 	test("uses the main repo .rp1 directory when running inside a linked worktree", () => {
@@ -129,7 +130,6 @@ describe("directory resolution", () => {
 
 		expect(result.right.projectRoot).toBe(gitRepoWithoutRp1);
 		expect(result.right.sources.projectRoot).toBe("git_repo_root");
-		expect(result.right.rp1Root).toBe(join(gitRepoWithoutRp1, ".rp1"));
 	});
 
 	test("falls back to cwd outside git repositories", () => {
@@ -149,12 +149,12 @@ describe("directory resolution", () => {
 			"RP1_PROJECT_ROOT",
 			join(tempBase, "env-project"),
 		);
-		const restoreKbDir = withEnvOverride(
-			"RP1_KB_DIR",
+		const restoreKbRoot = withEnvOverride(
+			"RP1_KB_ROOT",
 			join(tempBase, "env-kb"),
 		);
-		const restoreWorkDir = withEnvOverride(
-			"RP1_WORK_DIR",
+		const restoreWorkRoot = withEnvOverride(
+			"RP1_WORK_ROOT",
 			join(tempBase, "env-work"),
 		);
 
@@ -166,15 +166,14 @@ describe("directory resolution", () => {
 			}
 
 			expect(result.right.projectRoot).toBe(join(tempBase, "env-project"));
-			expect(result.right.rp1Root).toBe(join(tempBase, "env-project", ".rp1"));
-			expect(result.right.kbDir).toBe(join(tempBase, "env-kb"));
-			expect(result.right.workDir).toBe(join(tempBase, "env-work"));
+			expect(result.right.kbRoot).toBe(join(tempBase, "env-kb"));
+			expect(result.right.workRoot).toBe(join(tempBase, "env-work"));
 			expect(result.right.sources.projectRoot).toBe("env");
-			expect(result.right.sources.kbDir).toBe("env");
-			expect(result.right.sources.workDir).toBe("env");
+			expect(result.right.sources.kbRoot).toBe("env");
+			expect(result.right.sources.workRoot).toBe("env");
 		} finally {
-			restoreWorkDir();
-			restoreKbDir();
+			restoreWorkRoot();
+			restoreKbRoot();
 			restoreProjectRoot();
 		}
 	});
@@ -193,8 +192,7 @@ describe("directory resolution", () => {
 			}
 
 			expect(result.right.projectRoot).toBe(join(tempBase, "custom-root"));
-			expect(result.right.rp1Root).toBe(join(tempBase, "custom-root", ".rp1"));
-			expect(result.right.kbDir).toBe(
+			expect(result.right.kbRoot).toBe(
 				join(tempBase, "custom-root", ".rp1", "context"),
 			);
 			expect(result.right.sources.projectRoot).toBe("env");
@@ -209,8 +207,8 @@ describe("directory resolution", () => {
 			".rp1/settings.toml",
 			[
 				"[directories]",
-				'kb_dir = "custom/context"',
-				'work_dir = "custom/work"',
+				'kb_root = "custom/context"',
+				'work_root = "custom/work"',
 			].join("\n"),
 		);
 
@@ -220,10 +218,10 @@ describe("directory resolution", () => {
 			return;
 		}
 
-		expect(result.right.kbDir).toBe(join(projectRoot, "custom", "context"));
-		expect(result.right.workDir).toBe(join(projectRoot, "custom", "work"));
-		expect(result.right.sources.kbDir).toBe("project_settings");
-		expect(result.right.sources.workDir).toBe("project_settings");
+		expect(result.right.kbRoot).toBe(join(projectRoot, "custom", "context"));
+		expect(result.right.workRoot).toBe(join(projectRoot, "custom", "work"));
+		expect(result.right.sources.kbRoot).toBe("project_settings");
+		expect(result.right.sources.workRoot).toBe("project_settings");
 	});
 
 	test("applies project settings project_root as the effective runtime project root", async () => {
@@ -233,8 +231,8 @@ describe("directory resolution", () => {
 			[
 				"[directories]",
 				'project_root = "workspace"',
-				'kb_dir = "docs/context"',
-				'work_dir = "ops/work"',
+				'kb_root = "docs/context"',
+				'work_root = "ops/work"',
 			].join("\n"),
 		);
 
@@ -245,16 +243,15 @@ describe("directory resolution", () => {
 		}
 
 		expect(result.right.projectRoot).toBe(join(projectRoot, "workspace"));
-		expect(result.right.rp1Root).toBe(join(projectRoot, "workspace", ".rp1"));
-		expect(result.right.kbDir).toBe(
+		expect(result.right.kbRoot).toBe(
 			join(projectRoot, "workspace", "docs", "context"),
 		);
-		expect(result.right.workDir).toBe(
+		expect(result.right.workRoot).toBe(
 			join(projectRoot, "workspace", "ops", "work"),
 		);
 		expect(result.right.sources.projectRoot).toBe("project_settings");
-		expect(result.right.sources.kbDir).toBe("project_settings");
-		expect(result.right.sources.workDir).toBe("project_settings");
+		expect(result.right.sources.kbRoot).toBe("project_settings");
+		expect(result.right.sources.workRoot).toBe("project_settings");
 	});
 
 	test("applies user settings project_root when no project override exists", async () => {
@@ -271,8 +268,8 @@ describe("directory resolution", () => {
 			[
 				"[directories]",
 				'project_root = "user-project"',
-				'kb_dir = "shared/kb"',
-				'work_dir = "shared/work"',
+				'kb_root = "shared/kb"',
+				'work_root = "shared/work"',
 			].join("\n"),
 		);
 
@@ -286,14 +283,11 @@ describe("directory resolution", () => {
 		}
 
 		expect(result.right.projectRoot).toBe(join(userHomeDir, "user-project"));
-		expect(result.right.rp1Root).toBe(
-			join(userHomeDir, "user-project", ".rp1"),
-		);
-		expect(result.right.kbDir).toBe(join(userHomeDir, "shared", "kb"));
-		expect(result.right.workDir).toBe(join(userHomeDir, "shared", "work"));
+		expect(result.right.kbRoot).toBe(join(userHomeDir, "shared", "kb"));
+		expect(result.right.workRoot).toBe(join(userHomeDir, "shared", "work"));
 		expect(result.right.sources.projectRoot).toBe("user_settings");
-		expect(result.right.sources.kbDir).toBe("user_settings");
-		expect(result.right.sources.workDir).toBe("user_settings");
+		expect(result.right.sources.kbRoot).toBe("user_settings");
+		expect(result.right.sources.workRoot).toBe("user_settings");
 	});
 
 	test("uses effective-project local directory overrides after a user project_root redirect", async () => {
@@ -311,8 +305,8 @@ describe("directory resolution", () => {
 			[
 				"[directories]",
 				`project_root = "${redirectedProjectRoot}"`,
-				'kb_dir = "user/kb"',
-				'work_dir = "user/work"',
+				'kb_root = "user/kb"',
+				'work_root = "user/work"',
 			].join("\n"),
 		);
 		await writeFixture(
@@ -320,8 +314,8 @@ describe("directory resolution", () => {
 			".rp1/settings.toml",
 			[
 				"[directories]",
-				'kb_dir = "project/context"',
-				'work_dir = "project/work"',
+				'kb_root = "project/context"',
+				'work_root = "project/work"',
 			].join("\n"),
 		);
 
@@ -335,16 +329,15 @@ describe("directory resolution", () => {
 		}
 
 		expect(result.right.projectRoot).toBe(redirectedProjectRoot);
-		expect(result.right.rp1Root).toBe(join(redirectedProjectRoot, ".rp1"));
-		expect(result.right.kbDir).toBe(
+		expect(result.right.kbRoot).toBe(
 			join(redirectedProjectRoot, "project", "context"),
 		);
-		expect(result.right.workDir).toBe(
+		expect(result.right.workRoot).toBe(
 			join(redirectedProjectRoot, "project", "work"),
 		);
 		expect(result.right.sources.projectRoot).toBe("user_settings");
-		expect(result.right.sources.kbDir).toBe("project_settings");
-		expect(result.right.sources.workDir).toBe("project_settings");
+		expect(result.right.sources.kbRoot).toBe("project_settings");
+		expect(result.right.sources.workRoot).toBe("project_settings");
 	});
 
 	test("env overrides take precedence over configured directory settings", async () => {
@@ -353,16 +346,16 @@ describe("directory resolution", () => {
 			".rp1/settings.toml",
 			[
 				"[directories]",
-				'kb_dir = "custom/context"',
-				'work_dir = "custom/work"',
+				'kb_root = "custom/context"',
+				'work_root = "custom/work"',
 			].join("\n"),
 		);
-		const restoreKbDir = withEnvOverride(
-			"RP1_KB_DIR",
+		const restoreKbRoot = withEnvOverride(
+			"RP1_KB_ROOT",
 			join(tempBase, "env-kb-override"),
 		);
-		const restoreWorkDir = withEnvOverride(
-			"RP1_WORK_DIR",
+		const restoreWorkRoot = withEnvOverride(
+			"RP1_WORK_ROOT",
 			join(tempBase, "env-work-override"),
 		);
 
@@ -373,13 +366,13 @@ describe("directory resolution", () => {
 				return;
 			}
 
-			expect(result.right.kbDir).toBe(join(tempBase, "env-kb-override"));
-			expect(result.right.workDir).toBe(join(tempBase, "env-work-override"));
-			expect(result.right.sources.kbDir).toBe("env");
-			expect(result.right.sources.workDir).toBe("env");
+			expect(result.right.kbRoot).toBe(join(tempBase, "env-kb-override"));
+			expect(result.right.workRoot).toBe(join(tempBase, "env-work-override"));
+			expect(result.right.sources.kbRoot).toBe("env");
+			expect(result.right.sources.workRoot).toBe("env");
 		} finally {
-			restoreWorkDir();
-			restoreKbDir();
+			restoreWorkRoot();
+			restoreKbRoot();
 		}
 	});
 
@@ -387,7 +380,7 @@ describe("directory resolution", () => {
 		await writeFixture(
 			projectRoot,
 			".rp1/settings.toml",
-			"[directories]\nwork_dir = 42\n",
+			"[directories]\nwork_root = 42\n",
 		);
 
 		const result = resolveDirectorySet(nestedPath);
@@ -401,6 +394,6 @@ describe("directory resolution", () => {
 			return;
 		}
 		expect(result.left.file).toContain(".rp1/settings.toml");
-		expect(result.left.message).toContain("[directories].work_dir");
+		expect(result.left.message).toContain("[directories].work_root");
 	});
 });
