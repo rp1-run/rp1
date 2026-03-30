@@ -8,12 +8,11 @@ import type { ArtifactRecord } from "../../../src/agent-tools/emit/database.js";
 
 export interface ProjectDirectories {
 	readonly projectRoot: string;
-	readonly rp1Root: string;
-	readonly kbDir: string;
-	readonly workDir: string;
+	readonly kbRoot: string;
+	readonly workRoot: string;
 }
 
-export type ProjectSection = "work" | "context";
+export type ProjectSection = "work" | "kb";
 
 interface SectionPath {
 	readonly section: ProjectSection;
@@ -37,12 +36,11 @@ const defaultResolvedDirectories = (
 	projectPath: string,
 ): ProjectDirectories => {
 	const projectRoot = resolve(projectPath);
-	const rp1Root = join(projectRoot, ".rp1");
+	const rp1DotDir = join(projectRoot, ".rp1");
 	return {
 		projectRoot,
-		rp1Root,
-		kbDir: join(rp1Root, "context"),
-		workDir: join(homedir(), ".rp1", normalizeProjectKey(projectRoot)),
+		kbRoot: join(rp1DotDir, "context"),
+		workRoot: join(homedir(), ".rp1", normalizeProjectKey(projectRoot)),
 	};
 };
 
@@ -75,32 +73,30 @@ export const resolveProjectDirectories = (
 
 	return {
 		projectRoot: resolve(result.right.projectRoot),
-		rp1Root: resolve(result.right.rp1Root),
-		kbDir: resolve(result.right.kbDir),
-		workDir: resolve(result.right.workDir),
+		kbRoot: resolve(result.right.kbRoot),
+		workRoot: resolve(result.right.workRoot),
 	};
 };
 
 export const getRunDirectories = (
 	run: Pick<
 		RunRecord,
-		"projectPath" | "rp1ProjectRoot" | "rp1KbDir" | "rp1WorkDir"
+		"projectPath" | "rp1ProjectRoot" | "rp1KbRoot" | "rp1WorkRoot"
 	>,
 ): ProjectDirectories => {
 	const defaults = defaultResolvedDirectories(run.projectPath);
 	return {
 		projectRoot: resolve(run.rp1ProjectRoot ?? defaults.projectRoot),
-		rp1Root: join(resolve(run.rp1ProjectRoot ?? defaults.projectRoot), ".rp1"),
-		kbDir: resolve(run.rp1KbDir ?? join(defaults.rp1Root, "context")),
-		workDir: resolve(run.rp1WorkDir ?? getLegacyWorkDir(run.projectPath)),
+		kbRoot: resolve(run.rp1KbRoot ?? defaults.kbRoot),
+		workRoot: resolve(run.rp1WorkRoot ?? getLegacyWorkDir(run.projectPath)),
 	};
 };
 
 export const listProjectSectionRoots = (
 	directories: ProjectDirectories,
 ): readonly { section: ProjectSection; absolutePath: string }[] => [
-	{ section: "work", absolutePath: directories.workDir },
-	{ section: "context", absolutePath: directories.kbDir },
+	{ section: "work", absolutePath: directories.workRoot },
+	{ section: "kb", absolutePath: directories.kbRoot },
 ];
 
 export const parseProjectSectionPath = (
@@ -117,9 +113,16 @@ export const parseProjectSectionPath = (
 		};
 	}
 
+	if (filePath === "kb" || filePath.startsWith("kb/")) {
+		return {
+			section: "kb",
+			relativePath: filePath === "kb" ? "" : filePath.slice("kb/".length),
+		};
+	}
+
 	if (filePath === "context" || filePath.startsWith("context/")) {
 		return {
-			section: "context",
+			section: "kb",
 			relativePath:
 				filePath === "context" ? "" : filePath.slice("context/".length),
 		};
@@ -136,7 +139,7 @@ export const resolveProjectSectionFilePath = async (
 	if (!parsed) return null;
 
 	const rootDir =
-		parsed.section === "work" ? directories.workDir : directories.kbDir;
+		parsed.section === "work" ? directories.workRoot : directories.kbRoot;
 	const candidate = resolve(rootDir, parsed.relativePath);
 	if (!isWithinRoot(candidate, rootDir)) {
 		return null;
@@ -174,17 +177,17 @@ export const toProjectSectionPath = (
 	absolutePath: string,
 ): string | null => {
 	const resolvedPath = resolve(absolutePath);
-	if (isWithinRoot(resolvedPath, directories.workDir)) {
+	if (isWithinRoot(resolvedPath, directories.workRoot)) {
 		return ensureSectionPath(
 			"work",
-			trimTrailingSlash(relative(directories.workDir, resolvedPath)),
+			trimTrailingSlash(relative(directories.workRoot, resolvedPath)),
 		);
 	}
 
-	if (isWithinRoot(resolvedPath, directories.kbDir)) {
+	if (isWithinRoot(resolvedPath, directories.kbRoot)) {
 		return ensureSectionPath(
-			"context",
-			trimTrailingSlash(relative(directories.kbDir, resolvedPath)),
+			"kb",
+			trimTrailingSlash(relative(directories.kbRoot, resolvedPath)),
 		);
 	}
 
@@ -200,7 +203,7 @@ export const resolveArtifactAbsolutePath = (
 	}
 
 	if (artifact.storageRoot === "work_dir") {
-		return resolve(directories.workDir, artifact.path);
+		return resolve(directories.workRoot, artifact.path);
 	}
 
 	return resolve(directories.projectRoot, artifact.path);
