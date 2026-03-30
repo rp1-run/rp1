@@ -3,8 +3,10 @@ import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+	getRunDirectories,
 	type ProjectDirectories,
 	parseProjectSectionPath,
+	resolveArtifactAbsolutePath,
 	resolveProjectSectionFilePath,
 	toArtifactDisplayPath,
 	toArtifactDisplayPathFromAbsolute,
@@ -56,6 +58,15 @@ describe("project-paths", () => {
 		).toBe("work/features/feat-1/tasks.md");
 	});
 
+	test("normalizes legacy repo-local work_dir artifact paths with a stable work/ prefix", () => {
+		expect(
+			toArtifactDisplayPath(directories, {
+				path: ".rp1/work/archives/features/feat-1/tasks.md",
+				storageRoot: "work_dir",
+			}),
+		).toBe("work/archives/features/feat-1/tasks.md");
+	});
+
 	test("maps absolute paths under the resolved work directory back to work/ paths", () => {
 		expect(
 			toArtifactDisplayPathFromAbsolute(
@@ -69,6 +80,31 @@ describe("project-paths", () => {
 				),
 			),
 		).toBe("work/archives/features/feat-1/tasks.md");
+	});
+
+	test("resolves legacy repo-local work_dir artifact paths against the effective work root", () => {
+		expect(
+			resolveArtifactAbsolutePath(directories, {
+				path: ".rp1/work/archives/features/feat-1/tasks.md",
+				storageRoot: "work_dir",
+			}),
+		).toBe(
+			join(directories.workRoot, "archives", "features", "feat-1", "tasks.md"),
+		);
+	});
+
+	test("falls back to repo-local legacy work dir when the stored run work root is stale", async () => {
+		const legacyWorkRoot = join(tmpProjectDir, ".rp1", "work");
+		await mkdir(join(legacyWorkRoot, "features"), { recursive: true });
+
+		expect(
+			getRunDirectories({
+				projectPath: tmpProjectDir,
+				rp1ProjectRoot: tmpProjectDir,
+				rp1KbRoot: directories.kbRoot,
+				rp1WorkRoot: join(tmpProjectDir, "missing-work-root"),
+			}).workRoot,
+		).toBe(legacyWorkRoot);
 	});
 
 	describe("parseProjectSectionPath backward compatibility", () => {

@@ -133,6 +133,42 @@ function parseJsonSafe(
 	}
 }
 
+function getEffectiveLogicalStepEvents(
+	events: readonly EventRecord[],
+): readonly { logicalStepId: string; event: EventRecord }[] {
+	const effectiveEvents: { logicalStepId: string; event: EventRecord }[] = [];
+	let activeWorkflowStep: string | null = null;
+
+	for (const event of events) {
+		if (event.type !== "status_change" || !event.step) continue;
+
+		const data = parseJsonSafe(event.data);
+		const status = data?.status as Status | undefined;
+		const logicalStepId =
+			isNamespacedLifecycleStep(event.step) && activeWorkflowStep
+				? activeWorkflowStep
+				: getLogicalStepKey(event.step, event.unit);
+
+		effectiveEvents.push({ logicalStepId, event });
+
+		if (isNamespacedLifecycleStep(event.step) || status == null) {
+			continue;
+		}
+
+		if (
+			status === "running" ||
+			status === "waiting" ||
+			status === "not_started"
+		) {
+			activeWorkflowStep = event.step;
+		} else if (activeWorkflowStep === event.step) {
+			activeWorkflowStep = null;
+		}
+	}
+
+	return effectiveEvents;
+}
+
 /**
  * Normalize an artifact path to always be relative to the project root.
  * - Bare filenames -> resolve relative to feature's work directory
@@ -292,17 +328,20 @@ function eventRecordToRunEvent(record: EventRecord): RunEvent {
 export function deriveAgentSteps(
 	events: readonly EventRecord[],
 ): Readonly<Record<string, readonly AgentTask[]>> | null {
-	const agentEvents = events.filter(
-		(e) => e.type === "status_change" && e.unit != null,
-	);
+	const effectiveEvents = getEffectiveLogicalStepEvents(events);
+	const agentEvents = effectiveEvents.filter(({ event }) => event.unit != null);
 	if (agentEvents.length === 0) return null;
 
 	const stepMap = new Map<string, Map<string, AgentTask>>();
 
-	for (const event of agentEvents) {
+	for (const { logicalStepId, event } of agentEvents) {
 		const stepId = event.step;
 		if (!stepId) continue;
-		const logicalParentStepId = getLogicalStepDisplayId(stepId);
+		const logicalParentStepId =
+			isNamespacedLifecycleStep(stepId) &&
+			logicalStepId !== getLogicalStepKey(stepId, event.unit)
+				? logicalStepId
+				: getLogicalStepDisplayId(stepId);
 
 		let taskMap = stepMap.get(logicalParentStepId);
 		if (!taskMap) {
@@ -364,9 +403,9 @@ function groupEventsByLogicalStep(
 	events: readonly EventRecord[],
 ): Map<string, EventRecord[]> {
 	const stepEvents = new Map<string, EventRecord[]>();
-	for (const event of events) {
-		if (event.type !== "status_change" || !event.step) continue;
-		const logicalStepId = getLogicalStepKey(event.step, event.unit);
+	for (const { logicalStepId, event } of getEffectiveLogicalStepEvents(
+		events,
+	)) {
 		const existing = stepEvents.get(logicalStepId);
 		if (existing) {
 			existing.push(event);
