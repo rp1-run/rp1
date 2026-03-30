@@ -260,6 +260,13 @@ export function RunDetailPage() {
 						className="bg-surface-void"
 					>
 						<div className="h-full overflow-y-auto">
+							<div className="px-md pt-md pb-xs">
+								<p className="type-body font-medium text-fg truncate">
+									{run.projectName}
+									<span className="text-fg-ghost"> / </span>
+									<span className="text-fg-muted">{run.featureName}</span>
+								</p>
+							</div>
 							<VerticalStepList
 								harness={run.harness}
 								steps={displaySteps}
