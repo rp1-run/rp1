@@ -74,6 +74,7 @@ export interface Run {
 	readonly name: string | null;
 	readonly command: string;
 	readonly status: RunStatus;
+	readonly harness: string | null;
 	readonly currentStep: string | null;
 	readonly steps: readonly Step[];
 	readonly artifacts: readonly Artifact[];
