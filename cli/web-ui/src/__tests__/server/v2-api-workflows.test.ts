@@ -386,7 +386,7 @@ describe("deriveStepsFromEvents", () => {
 		expect(steps[1].status).toBe("running");
 	});
 
-	test("collapses recovered lifecycle events into one logical work item", () => {
+	test("latest logical work-item status supersedes earlier lifecycle states in the detail view", () => {
 		const stepStatuses: StepStatusEntry[] = [
 			{ step: "task-reviewer::T1", status: "completed" },
 		];
@@ -488,7 +488,7 @@ describe("deriveStepsFromEvents", () => {
 });
 
 describe("deriveAgentSteps", () => {
-	test("groups namespaced lifecycle events by logical parent and preserves unit-specific latest states", () => {
+	test("groups lifecycle events by logical parent and preserves each unit's latest state", () => {
 		const events: EventRecord[] = [
 			makeEvent({
 				id: 1,
