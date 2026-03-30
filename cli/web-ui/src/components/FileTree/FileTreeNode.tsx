@@ -1,5 +1,11 @@
-import { ChevronDown, ChevronRight } from "lucide-react";
-import { type KeyboardEvent, useCallback, useEffect, useRef } from "react";
+import { Check, ChevronDown, ChevronRight } from "lucide-react";
+import {
+	type KeyboardEvent,
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import { cn } from "@/lib/utils";
 import type { FileNode } from "../../server/routes/content-utils";
 import { getFileIcon, getFolderIcon } from "./icons";
@@ -13,6 +19,7 @@ interface FileTreeNodeProps {
 	onToggleExpand: (path: string) => void;
 	focusedPath: string | null;
 	onFocusChange: (path: string) => void;
+	projectPath?: string | null;
 }
 
 export function FileTreeNode({
@@ -24,12 +31,14 @@ export function FileTreeNode({
 	onToggleExpand,
 	focusedPath,
 	onFocusChange,
+	projectPath,
 }: FileTreeNodeProps) {
 	const isDirectory = node.type === "directory";
 	const isExpanded = expandedPaths.has(node.path);
 	const isSelected = selectedPath === node.path;
 	const isFocused = focusedPath === node.path;
 	const nodeRef = useRef<HTMLDivElement>(null);
+	const [copied, setCopied] = useState(false);
 
 	useEffect(() => {
 		if (isFocused && nodeRef.current) {
@@ -105,7 +114,32 @@ export function FileTreeNode({
 					</span>
 				)}
 				{!isDirectory && <span className="w-3.5" />}
-				<Icon className="w-3.5 h-3.5 flex-shrink-0 text-fg-muted" />
+				{!isDirectory ? (
+					<button
+						type="button"
+						title={projectPath ? `${projectPath}/.rp1/${node.path}` : node.path}
+						onClick={(e) => {
+							e.stopPropagation();
+							const fullPath = projectPath
+								? `${projectPath}/.rp1/${node.path}`
+								: node.path;
+							navigator.clipboard.writeText(fullPath).then(() => {
+								setCopied(true);
+								setTimeout(() => setCopied(false), 2000);
+							});
+						}}
+						className="flex-shrink-0 transition-colors duration-150 hover:text-fg"
+						aria-label={`Copy path for ${node.name}`}
+					>
+						{copied ? (
+							<Check className="w-3.5 h-3.5 text-fg" strokeWidth={1.5} />
+						) : (
+							<Icon className="w-3.5 h-3.5 text-fg-muted" />
+						)}
+					</button>
+				) : (
+					<Icon className="w-3.5 h-3.5 flex-shrink-0 text-fg-muted" />
+				)}
 				<span className="truncate">{node.name}</span>
 			</div>
 
@@ -123,6 +157,7 @@ export function FileTreeNode({
 							onToggleExpand={onToggleExpand}
 							focusedPath={focusedPath}
 							onFocusChange={onFocusChange}
+							projectPath={projectPath}
 						/>
 					))}
 				</div>
