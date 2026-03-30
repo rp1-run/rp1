@@ -1,3 +1,10 @@
+/**
+ * Canonical effective-status rule for sub-agent lifecycle events.
+ * Non-namespaced steps keep their identity. Namespaced lifecycle steps collapse
+ * to the namespace prefix, with `unit` appended only for namespaced steps so
+ * reducers and Arcade both let the latest logical work-item state supersede
+ * earlier lifecycle labels for the same work item.
+ */
 export const isNamespacedLifecycleStep = (step: string): boolean => {
 	const separatorIndex = step.indexOf(":");
 	return separatorIndex > 0 && separatorIndex < step.length - 1;
