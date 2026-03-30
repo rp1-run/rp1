@@ -150,7 +150,7 @@ export function validateFilePath(filePath: string): string | null {
 		return "Invalid file path";
 	}
 
-	const allowedPrefixes = ["work/", "context/"];
+	const allowedPrefixes = ["work/", "kb/", "context/"];
 	if (!allowedPrefixes.some((prefix) => filePath.startsWith(prefix))) {
 		return "Access denied: path outside allowed directories";
 	}
