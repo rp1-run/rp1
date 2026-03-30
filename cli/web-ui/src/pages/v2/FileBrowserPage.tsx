@@ -369,6 +369,8 @@ export function FileBrowserPage() {
 	});
 
 	const displayContent = content ?? previousContentRef.current;
+	const displayPath =
+		content !== null ? selectedPath : (previousPathRef.current ?? selectedPath);
 
 	const liveRegion = (
 		<div aria-live="polite" aria-atomic="true" className="sr-only">
@@ -441,7 +443,7 @@ export function FileBrowserPage() {
 					<ScrollArea className="flex-1" viewportRef={scrollViewportRef}>
 						<ContentPanel
 							content={displayContent?.content ?? null}
-							path={selectedPath ?? null}
+							path={displayPath ?? null}
 							isLoading={contentLoading}
 							error={contentError}
 							emptyMessage="Select a file from the sidebar to view its contents."
@@ -450,7 +452,7 @@ export function FileBrowserPage() {
 							onHeadingsExtracted={handleHeadingsExtracted}
 							scrollViewportRef={scrollViewportRef}
 							projectId={projectId}
-							filePath={selectedPath ?? undefined}
+							filePath={displayPath ?? undefined}
 							enableAnnotations={false}
 						/>
 					</ScrollArea>
@@ -561,7 +563,7 @@ export function FileBrowserPage() {
 						>
 							<ContentPanel
 								content={displayContent?.content ?? null}
-								path={selectedPath ?? null}
+								path={displayPath ?? null}
 								isLoading={contentLoading}
 								error={contentError}
 								emptyMessage="Select a file from the sidebar to view its contents."
@@ -570,7 +572,7 @@ export function FileBrowserPage() {
 								onHeadingsExtracted={handleHeadingsExtracted}
 								scrollViewportRef={scrollViewportRef}
 								projectId={projectId}
-								filePath={selectedPath ?? undefined}
+								filePath={displayPath ?? undefined}
 								enableAnnotations={false}
 							/>
 						</ScrollArea>
