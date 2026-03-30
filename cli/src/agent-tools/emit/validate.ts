@@ -122,7 +122,7 @@ const validateArtifactRegisteredPayload = (
 	if (!data.path || typeof data.path !== "string") {
 		return E.left(
 			usageError(
-				'artifact_registered events require a \'path\' field (string) in --data. Example: --data \'{"path": "work/features/my-feature/design.md", "feature": "my-feature"}\'',
+				'artifact_registered events require a \'path\' field (string) in --data. Paths are relative to the work directory (RP1_WORK_ROOT). Example: --data \'{"path": "features/my-feature/design.md", "feature": "my-feature"}\'',
 			),
 		);
 	}
