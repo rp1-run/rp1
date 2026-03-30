@@ -1,9 +1,4 @@
-import {
-	AlertCircle,
-	ChevronRight,
-	RefreshCw,
-	SquareKanban,
-} from "lucide-react";
+import { AlertCircle, ChevronRight, FolderOpen } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { RunCard } from "@/components/v2/RunCard";
@@ -208,10 +203,6 @@ export function ProjectOverviewPage() {
 		return () => document.removeEventListener("keydown", handleKeyDown);
 	}, [runs, selectedIndex, handleRunClick, handleDrillOut]);
 
-	const refetch = useCallback(() => {
-		fetchData();
-	}, [fetchData]);
-
 	if (isLoading) {
 		return (
 			<div className="mx-auto max-w-2xl px-6 py-8 space-y-6">
@@ -225,7 +216,7 @@ export function ProjectOverviewPage() {
 		return (
 			<div className="mx-auto max-w-2xl px-6 py-8 space-y-6">
 				<Breadcrumb projectName={null} />
-				<ErrorState error={error} onRetry={refetch} />
+				<ErrorState error={error} onRetry={fetchData} />
 			</div>
 		);
 	}
@@ -255,30 +246,13 @@ export function ProjectOverviewPage() {
 					</p>
 				</div>
 
-				<div className="flex items-center gap-3">
-					<Link
-						to={`/projects/${projectId}/files`}
-						className="text-fg-ghost transition-colors duration-150 hover:text-fg"
-						aria-label="Browse files"
-					>
-						<SquareKanban className="h-4 w-4" strokeWidth={1.5} />
-					</Link>
-					<button
-						type="button"
-						onClick={refetch}
-						disabled={isLoading}
-						className={cn(
-							"text-fg-ghost transition-colors duration-150 hover:text-fg",
-							"disabled:cursor-not-allowed disabled:opacity-50",
-						)}
-						aria-label="Refresh project"
-					>
-						<RefreshCw
-							className={cn("h-4 w-4", isLoading && "animate-spin")}
-							strokeWidth={1.5}
-						/>
-					</button>
-				</div>
+				<Link
+					to={`/projects/${projectId}/files`}
+					className="text-fg-ghost transition-colors duration-150 hover:text-fg"
+					aria-label="Browse files"
+				>
+					<FolderOpen className="h-4 w-4" strokeWidth={1.5} />
+				</Link>
 			</header>
 
 			<div className="flex items-center gap-3 type-secondary text-fg-muted">
@@ -327,6 +301,7 @@ export function ProjectOverviewPage() {
 								run={run}
 								onClick={() => handleRunClick(run)}
 								selected={selectedIndex === index}
+								showProject={false}
 							/>
 						))}
 					</div>
