@@ -21,7 +21,7 @@
 - **state-machine**: Mermaid stateDiagram-v2 parser and graph query engine
 - **mmd-validate**: Mermaid diagram extraction and validation from markdown
 - **comment-extract**: Code comment extraction from git-changed files
-- **rp1-root-dir**: RP1 root directory resolution
+- **rp1-root-dir**: Project directory resolution (returns kbRoot, workRoot, projectRoot)
 - **codex-notify**: Codex platform notification support
 **Dependencies**: cli/shared, bun:sqlite
 
