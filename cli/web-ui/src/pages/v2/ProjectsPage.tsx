@@ -1,4 +1,4 @@
-import { AlertCircle, Play, RefreshCw, SquareKanban } from "lucide-react";
+import { AlertCircle, FolderOpen, Play } from "lucide-react";
 import { useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useKeyboardNav } from "@/hooks/useKeyboardNav";
@@ -91,6 +91,9 @@ function ProjectRow({
 		>
 			<ActivityDot projectId={project.id} />
 			<span className="type-body text-fg truncate">{project.name}</span>
+			<span className="type-secondary text-fg-ghost truncate">
+				{project.path}
+			</span>
 			<span className="ml-auto flex items-center gap-3 shrink-0">
 				<span
 					role="link"
@@ -114,7 +117,7 @@ function ProjectRow({
 					className="text-fg-ghost opacity-0 group-hover:opacity-100 transition-opacity duration-150 hover:text-fg"
 					aria-label={`Files for ${project.name}`}
 				>
-					<SquareKanban className="h-3.5 w-3.5" strokeWidth={1.5} />
+					<FolderOpen className="h-3.5 w-3.5" strokeWidth={1.5} />
 				</span>
 				<span className="type-secondary text-fg-muted tabular-nums">
 					{project.runCount} run{project.runCount === 1 ? "" : "s"}
@@ -209,23 +212,8 @@ export function ProjectsPage() {
 
 	return (
 		<div className="mx-auto max-w-2xl px-6 py-8">
-			<header className="mb-6 flex items-center justify-between">
+			<header className="mb-6">
 				<h1 className="type-title text-fg">Projects</h1>
-				<button
-					type="button"
-					onClick={refetch}
-					disabled={isLoading}
-					className={cn(
-						"text-fg-ghost transition-colors duration-150 hover:text-fg",
-						"disabled:cursor-not-allowed disabled:opacity-50",
-					)}
-					aria-label="Refresh projects"
-				>
-					<RefreshCw
-						className={cn("h-4 w-4", isLoading && "animate-spin")}
-						strokeWidth={1.5}
-					/>
-				</button>
 			</header>
 
 			{isLoading && projects.length === 0 ? (
