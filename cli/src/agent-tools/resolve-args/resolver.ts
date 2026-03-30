@@ -319,9 +319,7 @@ const resolveEnvironment = async (
 ): Promise<ResolvedEnvironmentValues> => {
 	const result: Record<string, string> = {};
 	const needsDirectoryResolution = envDefs.some((def) =>
-		["RP1_ROOT", "RP1_PROJECT_ROOT", "RP1_KB_DIR", "RP1_WORK_DIR"].includes(
-			def.name,
-		),
+		["RP1_PROJECT_ROOT", "RP1_KB_ROOT", "RP1_WORK_ROOT"].includes(def.name),
 	);
 	const directories = needsDirectoryResolution
 		? resolveDirectorySet(projectRoot)
@@ -336,23 +334,18 @@ const resolveEnvironment = async (
 		}
 
 		if (directories && E.isRight(directories)) {
-			if (def.name === "RP1_ROOT") {
-				result[def.name] = directories.right.rp1Root;
-				continue;
-			}
-
 			if (def.name === "RP1_PROJECT_ROOT") {
 				result[def.name] = directories.right.projectRoot;
 				continue;
 			}
 
-			if (def.name === "RP1_KB_DIR") {
-				result[def.name] = directories.right.kbDir;
+			if (def.name === "RP1_KB_ROOT") {
+				result[def.name] = directories.right.kbRoot;
 				continue;
 			}
 
-			if (def.name === "RP1_WORK_DIR") {
-				result[def.name] = directories.right.workDir;
+			if (def.name === "RP1_WORK_ROOT") {
+				result[def.name] = directories.right.workRoot;
 			}
 		}
 	}
