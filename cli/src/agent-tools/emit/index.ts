@@ -213,9 +213,9 @@ const handleArtifactRegistration = (
 	const storageRoot = input.data.storageRoot as string | undefined;
 	const absolutePath = filePath.startsWith("/")
 		? filePath
-		: storageRoot === "work_dir"
-			? resolve(run.rp1WorkRoot, filePath)
-			: resolve(run.rp1ProjectRoot, filePath);
+		: storageRoot === "project"
+			? resolve(run.rp1ProjectRoot, filePath)
+			: resolve(run.rp1WorkRoot, filePath);
 
 	const docIdTask = pipe(
 		resolveDocId(absolutePath),
