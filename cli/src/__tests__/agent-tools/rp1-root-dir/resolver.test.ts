@@ -31,17 +31,17 @@ describe("rp1-root-dir resolver", () => {
 	let worktreeRepoRoot: string;
 	let linkedWorktreePath: string;
 	let nonGitDir: string;
-	let originalEnv: string | undefined;
+	let originalProjectRootEnv: string | undefined;
 	let mainRepoSnapshot: Awaited<ReturnType<typeof captureMainRepoState>>;
 
 	beforeAll(async () => {
 		// Capture main repo state before tests for contamination detection
 		mainRepoSnapshot = await captureMainRepoState();
 
-		// Save original RP1_ROOT env value
-		originalEnv = process.env.RP1_ROOT;
+		// Save original RP1_PROJECT_ROOT env value
+		originalProjectRootEnv = process.env.RP1_PROJECT_ROOT;
 		// Clear it for most tests
-		delete process.env.RP1_ROOT;
+		delete process.env.RP1_PROJECT_ROOT;
 
 		// Create unique temp directory for this test run
 		// Use realpath to resolve symlinks (macOS /var -> /private/var)
@@ -79,11 +79,11 @@ describe("rp1-root-dir resolver", () => {
 	});
 
 	afterAll(async () => {
-		// Restore original RP1_ROOT
-		if (originalEnv !== undefined) {
-			process.env.RP1_ROOT = originalEnv;
+		// Restore original RP1_PROJECT_ROOT
+		if (originalProjectRootEnv !== undefined) {
+			process.env.RP1_PROJECT_ROOT = originalProjectRootEnv;
 		} else {
-			delete process.env.RP1_ROOT;
+			delete process.env.RP1_PROJECT_ROOT;
 		}
 
 		// Remove linked worktree first using isolated git
@@ -97,30 +97,28 @@ describe("rp1-root-dir resolver", () => {
 	});
 
 	afterEach(() => {
-		// Ensure RP1_ROOT is cleared after each test
-		delete process.env.RP1_ROOT;
+		// Ensure RP1_PROJECT_ROOT is cleared after each test
+		delete process.env.RP1_PROJECT_ROOT;
 	});
 
 	describe("standard repo (non-worktree)", () => {
-		test("returns backward-compatible root and resolved directory metadata for standard git repo", async () => {
+		test("returns resolved directory metadata for standard git repo", async () => {
 			const result = await expectTaskRight(resolveRp1Root(standardRepoRoot));
 
 			expect(result.isWorktree).toBe(false);
 			expect(result.source).toBe("cwd");
-			expect(result.root).toBe(join(standardRepoRoot, ".rp1"));
 			expect(result.projectRoot).toBe(standardRepoRoot);
-			expect(result.kbDir).toBe(join(standardRepoRoot, ".rp1", "context"));
-			expect(result.workDir).toContain(".rp1");
+			expect(result.kbRoot).toBe(join(standardRepoRoot, ".rp1", "context"));
+			expect(result.workRoot).toContain(".rp1");
 			expect(result.worktreeName).toBeUndefined();
 			expect(result.sources).toEqual({
-				root: "cwd",
 				projectRoot: "git_repo_root",
-				kbDir: "default",
-				workDir: "default",
+				kbRoot: "default",
+				workRoot: "default",
 			});
 		});
 
-		test("returns correct root from subdirectory of standard repo", async () => {
+		test("returns correct projectRoot from subdirectory of standard repo", async () => {
 			const subDir = join(standardRepoRoot, "src");
 			await mkdir(subDir, { recursive: true });
 
@@ -128,7 +126,7 @@ describe("rp1-root-dir resolver", () => {
 
 			expect(result.isWorktree).toBe(false);
 			expect(result.source).toBe("cwd");
-			expect(result.root).toBe(join(standardRepoRoot, ".rp1"));
+			expect(result.projectRoot).toBe(standardRepoRoot);
 		});
 	});
 
@@ -138,58 +136,56 @@ describe("rp1-root-dir resolver", () => {
 
 			expect(result.isWorktree).toBe(true);
 			expect(result.source).toBe("git-common-dir");
-			expect(result.root).toBe(join(worktreeRepoRoot, ".rp1"));
+			expect(result.projectRoot).toBe(worktreeRepoRoot);
 			expect(result.worktreeName).toBe("test-branch");
 		});
 
-		test("returns main repo root path from linked worktree", async () => {
+		test("returns main repo projectRoot from linked worktree", async () => {
 			const result = await expectTaskRight(resolveRp1Root(linkedWorktreePath));
 
-			// The root should point to the main repo, not the worktree
-			expect(result.root).not.toContain("linked-worktree");
-			expect(result.root).toContain("worktree-main");
+			// The projectRoot should point to the main repo, not the worktree
+			expect(result.projectRoot).not.toContain("linked-worktree");
+			expect(result.projectRoot).toContain("worktree-main");
 		});
 	});
 
-	describe("RP1_ROOT env override", () => {
-		test("returns env value with source metadata when RP1_ROOT is set", async () => {
-			const customRoot = join(tempBase, "custom-rp1-root");
-			process.env.RP1_ROOT = customRoot;
+	describe("RP1_PROJECT_ROOT env override", () => {
+		test("returns env value with source metadata when RP1_PROJECT_ROOT is set", async () => {
+			const customProjectRoot = join(tempBase, "custom-project");
+			process.env.RP1_PROJECT_ROOT = customProjectRoot;
 
 			const result = await expectTaskRight(resolveRp1Root(standardRepoRoot));
 
 			expect(result.source).toBe("env");
-			expect(result.root).toBe(customRoot);
-			expect(result.projectRoot).toBe(tempBase);
-			expect(result.kbDir).toBe(join(customRoot, "context"));
-			expect(result.sources.root).toBe("env");
+			expect(result.projectRoot).toBe(customProjectRoot);
+			expect(result.kbRoot).toBe(join(customProjectRoot, ".rp1", "context"));
 			expect(result.sources.projectRoot).toBe("env");
-			expect(result.sources.kbDir).toBe("default");
-			expect(result.sources.workDir).toBe("default");
+			expect(result.sources.kbRoot).toBe("default");
+			expect(result.sources.workRoot).toBe("default");
 			expect(result.isWorktree).toBe(false);
 		});
 
 		test("env override takes precedence over git detection", async () => {
-			const customRoot = join(tempBase, "env-override");
-			process.env.RP1_ROOT = customRoot;
+			const customProjectRoot = join(tempBase, "env-override");
+			process.env.RP1_PROJECT_ROOT = customProjectRoot;
 
 			// Even when in a worktree, env should win
 			const result = await expectTaskRight(resolveRp1Root(linkedWorktreePath));
 
 			expect(result.source).toBe("env");
-			expect(result.root).toBe(customRoot);
+			expect(result.projectRoot).toBe(customProjectRoot);
 			// isWorktree should be false when using env override
 			expect(result.isWorktree).toBe(false);
 		});
 
 		test("env override resolves relative paths to absolute", async () => {
-			process.env.RP1_ROOT = "./relative/.rp1";
+			process.env.RP1_PROJECT_ROOT = "./relative/project";
 
 			const result = await expectTaskRight(resolveRp1Root(standardRepoRoot));
 
 			expect(result.source).toBe("env");
-			// Should be absolute path
-			expect(result.root.startsWith("/")).toBe(true);
+			// projectRoot should be absolute path
+			expect(result.projectRoot.startsWith("/")).toBe(true);
 		});
 	});
 
@@ -197,7 +193,7 @@ describe("rp1-root-dir resolver", () => {
 		test("falls back to cwd when not in a git repository", async () => {
 			const result = await expectTaskRight(resolveRp1Root(nonGitDir));
 
-			expect(result.root).toBe(join(nonGitDir, ".rp1"));
+			expect(result.projectRoot).toBe(nonGitDir);
 			expect(result.source).toBe("cwd");
 			expect(result.isWorktree).toBe(false);
 		});
@@ -206,7 +202,7 @@ describe("rp1-root-dir resolver", () => {
 			const nonExistentPath = join(tempBase, "does-not-exist");
 			const result = await expectTaskRight(resolveRp1Root(nonExistentPath));
 
-			expect(result.root).toBe(join(nonExistentPath, ".rp1"));
+			expect(result.projectRoot).toBe(nonExistentPath);
 			expect(result.source).toBe("cwd");
 		});
 	});
