@@ -261,6 +261,7 @@ export function RunDetailPage() {
 					>
 						<div className="h-full overflow-y-auto">
 							<VerticalStepList
+								harness={run.harness}
 								steps={displaySteps}
 								artifacts={run.artifacts}
 								agentSteps={run.agentSteps}
