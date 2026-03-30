@@ -153,8 +153,8 @@ export interface RunInput {
 	readonly featureId: string;
 	readonly projectPath: string;
 	readonly rp1ProjectRoot?: string;
-	readonly rp1KbDir?: string;
-	readonly rp1WorkDir?: string;
+	readonly rp1KbRoot?: string;
+	readonly rp1WorkRoot?: string;
 	readonly name?: string;
 	readonly harness?: string;
 }
@@ -241,8 +241,8 @@ interface RunRow {
 	feature_id: string;
 	project_path: string;
 	rp1_project_root: string | null;
-	rp1_kb_dir: string | null;
-	rp1_work_dir: string | null;
+	rp1_kb_root: string | null;
+	rp1_work_root: string | null;
 	name: string | null;
 	harness: string | null;
 	status: string;
@@ -306,27 +306,27 @@ const normalizeProjectKey = (projectRoot: string): string => {
 	return normalizedRoot.length > 0 ? normalizedRoot : "project";
 };
 
-const defaultKbDir = (projectRoot: string): string =>
+const defaultKbRoot = (projectRoot: string): string =>
 	join(projectRoot, ".rp1", "context");
 
-const defaultWorkDir = (projectRoot: string): string =>
+const defaultWorkRoot = (projectRoot: string): string =>
 	join(homedir(), ".rp1", normalizeProjectKey(projectRoot));
 
 const resolveRunDirectories = (input: {
 	readonly projectPath: string;
 	readonly rp1ProjectRoot?: string;
-	readonly rp1KbDir?: string;
-	readonly rp1WorkDir?: string;
+	readonly rp1KbRoot?: string;
+	readonly rp1WorkRoot?: string;
 }): {
 	readonly rp1ProjectRoot: string;
-	readonly rp1KbDir: string;
-	readonly rp1WorkDir: string;
+	readonly rp1KbRoot: string;
+	readonly rp1WorkRoot: string;
 } => {
 	const rp1ProjectRoot = resolve(input.rp1ProjectRoot ?? input.projectPath);
 	return {
 		rp1ProjectRoot,
-		rp1KbDir: resolve(input.rp1KbDir ?? defaultKbDir(rp1ProjectRoot)),
-		rp1WorkDir: resolve(input.rp1WorkDir ?? defaultWorkDir(rp1ProjectRoot)),
+		rp1KbRoot: resolve(input.rp1KbRoot ?? defaultKbRoot(rp1ProjectRoot)),
+		rp1WorkRoot: resolve(input.rp1WorkRoot ?? defaultWorkRoot(rp1ProjectRoot)),
 	};
 };
 
@@ -336,8 +336,8 @@ const runRowToRecord = (row: RunRow): RunRecord => ({
 	featureId: row.feature_id,
 	projectPath: row.project_path,
 	rp1ProjectRoot: row.rp1_project_root ?? row.project_path,
-	rp1KbDir: row.rp1_kb_dir ?? defaultKbDir(row.project_path),
-	rp1WorkDir: row.rp1_work_dir ?? defaultWorkDir(row.project_path),
+	rp1KbRoot: row.rp1_kb_root ?? defaultKbRoot(row.project_path),
+	rp1WorkRoot: row.rp1_work_root ?? defaultWorkRoot(row.project_path),
 	status: row.status as Status,
 	name: row.name ?? null,
 	harness: row.harness ?? null,
@@ -557,8 +557,8 @@ const applyMigrations = (db: Database): void => {
 			backfillRunStmt.run({
 				$id: run.id,
 				$rp1ProjectRoot: directories.rp1ProjectRoot,
-				$rp1KbDir: directories.rp1KbDir,
-				$rp1WorkDir: directories.rp1WorkDir,
+				$rp1KbDir: directories.rp1KbRoot,
+				$rp1WorkDir: directories.rp1WorkRoot,
 			});
 		}
 
@@ -675,14 +675,14 @@ export const insertRun = (db: Database, input: RunInput): RunRecord => {
 			params.$rp1ProjectRoot = directories.rp1ProjectRoot;
 		}
 
-		if (existing.rp1_kb_dir == null && directories.rp1KbDir) {
-			updates.push("rp1_kb_dir = $rp1KbDir");
-			params.$rp1KbDir = directories.rp1KbDir;
+		if (existing.rp1_kb_root == null && directories.rp1KbRoot) {
+			updates.push("rp1_kb_root = $rp1KbRoot");
+			params.$rp1KbRoot = directories.rp1KbRoot;
 		}
 
-		if (existing.rp1_work_dir == null && directories.rp1WorkDir) {
-			updates.push("rp1_work_dir = $rp1WorkDir");
-			params.$rp1WorkDir = directories.rp1WorkDir;
+		if (existing.rp1_work_root == null && directories.rp1WorkRoot) {
+			updates.push("rp1_work_root = $rp1WorkRoot");
+			params.$rp1WorkRoot = directories.rp1WorkRoot;
 		}
 
 		if (updates.length > 0) {
@@ -703,12 +703,12 @@ export const insertRun = (db: Database, input: RunInput): RunRecord => {
 	const row = db
 		.prepare(
 			`INSERT INTO runs (
-			    id, flow, feature_id, project_path, rp1_project_root, rp1_kb_dir,
-			    rp1_work_dir, name, harness
+			    id, flow, feature_id, project_path, rp1_project_root, rp1_kb_root,
+			    rp1_work_root, name, harness
 			 )
 			 VALUES (
-			    $id, $flow, $featureId, $projectPath, $rp1ProjectRoot, $rp1KbDir,
-			    $rp1WorkDir, $name, $harness
+			    $id, $flow, $featureId, $projectPath, $rp1ProjectRoot, $rp1KbRoot,
+			    $rp1WorkRoot, $name, $harness
 			 )
 			 RETURNING *`,
 		)
@@ -718,8 +718,8 @@ export const insertRun = (db: Database, input: RunInput): RunRecord => {
 			$featureId: input.featureId,
 			$projectPath: input.projectPath,
 			$rp1ProjectRoot: directories.rp1ProjectRoot,
-			$rp1KbDir: directories.rp1KbDir,
-			$rp1WorkDir: directories.rp1WorkDir,
+			$rp1KbRoot: directories.rp1KbRoot,
+			$rp1WorkRoot: directories.rp1WorkRoot,
 			$name: input.name ?? null,
 			$harness: input.harness ?? null,
 		}) as RunRow;
@@ -788,12 +788,12 @@ export const findOrCreateRun = (
 	const directories = resolveRunDirectories({ projectPath: input.projectPath });
 	db.prepare(
 		`INSERT INTO runs (
-		    id, flow, feature_id, project_path, rp1_project_root, rp1_kb_dir,
-		    rp1_work_dir, harness
+		    id, flow, feature_id, project_path, rp1_project_root, rp1_kb_root,
+		    rp1_work_root, harness
 		 )
 		 VALUES (
-		    $id, $flow, $featureId, $projectPath, $rp1ProjectRoot, $rp1KbDir,
-		    $rp1WorkDir, NULL
+		    $id, $flow, $featureId, $projectPath, $rp1ProjectRoot, $rp1KbRoot,
+		    $rp1WorkRoot, NULL
 		 )`,
 	).run({
 		$id: newId,
@@ -801,8 +801,8 @@ export const findOrCreateRun = (
 		$featureId: input.featureId,
 		$projectPath: input.projectPath,
 		$rp1ProjectRoot: directories.rp1ProjectRoot,
-		$rp1KbDir: directories.rp1KbDir,
-		$rp1WorkDir: directories.rp1WorkDir,
+		$rp1KbRoot: directories.rp1KbRoot,
+		$rp1WorkRoot: directories.rp1WorkRoot,
 	});
 
 	return { runId: newId, resumed: false };
@@ -1350,7 +1350,7 @@ const isWithinRoot = (candidatePath: string, rootPath: string): boolean => {
 
 export const normalizeArtifactStorage = (
 	artifactPath: string,
-	run: Pick<RunRecord, "rp1ProjectRoot" | "rp1WorkDir">,
+	run: Pick<RunRecord, "rp1ProjectRoot" | "rp1WorkRoot">,
 	storageRoot?: ArtifactStorageRoot,
 ): { readonly path: string; readonly storageRoot: ArtifactStorageRoot } => {
 	if (storageRoot != null) {
@@ -1358,7 +1358,7 @@ export const normalizeArtifactStorage = (
 			return { path: resolve(artifactPath), storageRoot };
 		}
 		const baseDir =
-			storageRoot === "work_dir" ? run.rp1WorkDir : run.rp1ProjectRoot;
+			storageRoot === "work_dir" ? run.rp1WorkRoot : run.rp1ProjectRoot;
 		return {
 			path: relative(baseDir, resolve(baseDir, artifactPath)),
 			storageRoot,
@@ -1367,9 +1367,9 @@ export const normalizeArtifactStorage = (
 
 	if (isAbsolute(artifactPath)) {
 		const absolutePath = resolve(artifactPath);
-		if (isWithinRoot(absolutePath, run.rp1WorkDir)) {
+		if (isWithinRoot(absolutePath, run.rp1WorkRoot)) {
 			return {
-				path: relative(run.rp1WorkDir, absolutePath),
+				path: relative(run.rp1WorkRoot, absolutePath),
 				storageRoot: "work_dir",
 			};
 		}
@@ -1435,7 +1435,7 @@ async function scanForArtifactDocId(
 
 export const resolveArtifactPathForRun = async (
 	db: Database,
-	run: Pick<RunRecord, "rp1ProjectRoot" | "rp1WorkDir">,
+	run: Pick<RunRecord, "rp1ProjectRoot" | "rp1WorkRoot">,
 	artifact: Pick<ArtifactRecord, "docId" | "path" | "storageRoot">,
 ): Promise<string | null> => {
 	if (isAbsolute(artifact.path)) {
@@ -1443,7 +1443,7 @@ export const resolveArtifactPathForRun = async (
 	}
 
 	if (artifact.storageRoot === "work_dir") {
-		const workPath = resolve(run.rp1WorkDir, artifact.path);
+		const workPath = resolve(run.rp1WorkRoot, artifact.path);
 		if (await Bun.file(workPath).exists()) {
 			return workPath;
 		}
@@ -1455,7 +1455,7 @@ export const resolveArtifactPathForRun = async (
 	}
 
 	const scannedPath = await scanForArtifactDocId(
-		run.rp1WorkDir,
+		run.rp1WorkRoot,
 		artifact.docId,
 	);
 	if (scannedPath == null) {
@@ -1463,7 +1463,7 @@ export const resolveArtifactPathForRun = async (
 	}
 
 	updateArtifactStorage(db, artifact.docId, {
-		path: relative(run.rp1WorkDir, scannedPath),
+		path: relative(run.rp1WorkRoot, scannedPath),
 		storageRoot: "work_dir",
 	});
 	return scannedPath;
