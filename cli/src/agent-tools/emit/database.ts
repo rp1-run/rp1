@@ -312,6 +312,9 @@ const defaultKbRoot = (projectRoot: string): string =>
 const defaultWorkRoot = (projectRoot: string): string =>
 	join(homedir(), ".rp1", normalizeProjectKey(projectRoot));
 
+const getLegacyWorkDir = (projectRoot: string): string =>
+	join(resolve(projectRoot), ".rp1", "work");
+
 const resolveRunDirectories = (input: {
 	readonly projectPath: string;
 	readonly rp1ProjectRoot?: string;
@@ -1433,6 +1436,13 @@ async function scanForArtifactDocId(
 	return scanDir(rootDir, 0);
 }
 
+const getArtifactReconciliationRoots = (
+	run: Pick<RunRecord, "rp1ProjectRoot" | "rp1WorkRoot">,
+): readonly string[] =>
+	Array.from(
+		new Set([resolve(run.rp1WorkRoot), getLegacyWorkDir(run.rp1ProjectRoot)]),
+	);
+
 export const resolveArtifactPathForRun = async (
 	db: Database,
 	run: Pick<RunRecord, "rp1ProjectRoot" | "rp1WorkRoot">,
@@ -1447,6 +1457,19 @@ export const resolveArtifactPathForRun = async (
 		if (await Bun.file(workPath).exists()) {
 			return workPath;
 		}
+
+		const legacyWorkPath = resolve(
+			getLegacyWorkDir(run.rp1ProjectRoot),
+			artifact.path,
+		);
+		if (await Bun.file(legacyWorkPath).exists()) {
+			updateArtifactStorage(
+				db,
+				artifact.docId,
+				normalizeArtifactStorage(legacyWorkPath, run),
+			);
+			return legacyWorkPath;
+		}
 	} else {
 		const projectPath = resolve(run.rp1ProjectRoot, artifact.path);
 		if (await Bun.file(projectPath).exists()) {
@@ -1454,19 +1477,21 @@ export const resolveArtifactPathForRun = async (
 		}
 	}
 
-	const scannedPath = await scanForArtifactDocId(
-		run.rp1WorkRoot,
-		artifact.docId,
-	);
-	if (scannedPath == null) {
-		return null;
+	for (const rootDir of getArtifactReconciliationRoots(run)) {
+		const scannedPath = await scanForArtifactDocId(rootDir, artifact.docId);
+		if (scannedPath == null) {
+			continue;
+		}
+
+		updateArtifactStorage(
+			db,
+			artifact.docId,
+			normalizeArtifactStorage(scannedPath, run),
+		);
+		return scannedPath;
 	}
 
-	updateArtifactStorage(db, artifact.docId, {
-		path: relative(run.rp1WorkRoot, scannedPath),
-		storageRoot: "work_dir",
-	});
-	return scannedPath;
+	return null;
 };
 
 /**
