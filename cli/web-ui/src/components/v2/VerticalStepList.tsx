@@ -258,7 +258,7 @@ export function VerticalStepList({
 								type="button"
 								onClick={() => onStepSelect(step.id)}
 								className={cn(
-									"flex w-full items-start gap-sm py-xs pr-sm pl-md text-left transition-colors duration-150",
+									"flex w-full items-start gap-sm py-sm pr-sm pl-md text-left transition-colors duration-150",
 									isSelected
 										? "bg-accent-ghost text-fg"
 										: "text-fg-muted hover:text-fg",
@@ -349,7 +349,7 @@ export function VerticalStepList({
 										{subTasks.map((task) => (
 											<li
 												key={task.id}
-												className="relative flex items-center gap-xs py-[3px] pl-sm"
+												className="relative flex items-center gap-xs py-sm pl-sm"
 											>
 												<span className="absolute -left-[10px]">
 													<SubTaskStatusDot status={task.status} />
