@@ -4,6 +4,7 @@
  * Handles all 6 event types through a single executeEmit pipeline.
  */
 
+import { resolve } from "node:path";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import { resolveDirectorySet } from "../../../shared/directory-resolution.js";
@@ -209,9 +210,12 @@ const handleArtifactRegistration = (
 	}
 
 	const filePath = input.data.path as string;
+	const storageRoot = input.data.storageRoot as string | undefined;
 	const absolutePath = filePath.startsWith("/")
 		? filePath
-		: `${input.projectPath}/${filePath}`;
+		: storageRoot === "work_dir"
+			? resolve(run.rp1WorkRoot, filePath)
+			: resolve(run.rp1ProjectRoot, filePath);
 
 	const docIdTask = pipe(
 		resolveDocId(absolutePath),
