@@ -1,32 +1,35 @@
 # The .rp1 Directory
 
-rp1 stores project-specific data in a `.rp1/` directory at your project root. This location can be customized via the `RP1_ROOT` environment variable ([see below](#configuring-rp1_root)). This guide explains the directory structure, what to commit vs ignore, and how to customize the storage location.
+rp1 stores project-specific knowledge base data in a `.rp1/` directory at your project root, while work artifacts are stored externally in `~/.rp1/<project-key>/`. This guide explains the directory structure, what to commit vs ignore, and how to customize storage locations using the `RP1_PROJECT_ROOT`, `RP1_KB_ROOT`, and `RP1_WORK_ROOT` environment variables.
 
 ---
 
 ## Directory Structure
 
 ```
-.rp1/
-├── context/              # Generated knowledge base (auto-generated)
-│   ├── index.md          # Project overview
-│   ├── architecture.md   # System architecture
-│   ├── modules.md        # Component breakdown
-│   ├── concept_map.md    # Domain concepts
-│   ├── patterns.md       # Implementation patterns
-│   ├── state.json        # Build state tracking (shareable)
-│   └── meta.json         # Local paths (NOT shareable - add to .gitignore)
-└── work/                 # Active development work
-    ├── charter.md        # Project charter (from /blueprint)
-    ├── prds/             # Product requirement documents
-    │   └── *.md          # PRD files created by /blueprint
-    ├── features/         # Feature development artifacts
-    │   └── <feature-id>/ # Per-feature directories
-    │       ├── requirements.md
-    │       ├── design.md
-    │       ├── tasks.md
-    │       └── field-notes.md
-    └── archives/         # Completed/archived features
+.rp1/                         # Project-local (RP1_KB_ROOT)
+├── context/                  # Generated knowledge base (auto-generated)
+│   ├── index.md              # Project overview
+│   ├── architecture.md       # System architecture
+│   ├── modules.md            # Component breakdown
+│   ├── concept_map.md        # Domain concepts
+│   ├── patterns.md           # Implementation patterns
+│   ├── state.json            # Build state tracking (shareable)
+│   └── meta.json             # Local paths (NOT shareable - add to .gitignore)
+├── config/                   # Project configuration
+└── settings.toml             # Directory and project settings
+
+~/.rp1/<project-key>/         # External work dir (RP1_WORK_ROOT)
+├── charter.md                # Project charter (from /blueprint)
+├── prds/                     # Product requirement documents
+│   └── *.md                  # PRD files created by /blueprint
+├── features/                 # Feature development artifacts
+│   └── <feature-id>/         # Per-feature directories
+│       ├── requirements.md
+│       ├── design.md
+│       ├── tasks.md
+│       └── field-notes.md
+└── archives/                 # Completed/archived features
 ```
 
 ---
@@ -61,60 +64,57 @@ The `.rp1/context/` directory contains your auto-generated knowledge base. There
     git config --global core.excludesfile ~/.gitignore_global
     ```
 
-    This is **heavily discouraged** as it prevents sharing KB with your team. Consider using the [`RP1_ROOT` environment variable](#configuring-rp1_root) instead to store rp1 data outside your repository.
+    This is **heavily discouraged** as it prevents sharing KB with your team. Consider using the `RP1_KB_ROOT` environment variable to customize the KB storage location.
 
 ---
 
-## Configuring RP1_ROOT
+## Configuring Directory Paths
 
-By default, rp1 uses `.rp1/` in your current working directory. Override this with the `RP1_ROOT` environment variable.
+rp1 uses three environment variables for directory resolution:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `RP1_PROJECT_ROOT` | Auto-detected | Repository root directory |
+| `RP1_KB_ROOT` | `<project>/.rp1/context/` | Knowledge base directory |
+| `RP1_WORK_ROOT` | `~/.rp1/<project-key>/` | Work artifact directory |
 
 !!! tip "Advanced Configuration"
-    For automatic per-directory configuration using `direnv`, see [Custom RP1_ROOT](../reference/cli/init.md#custom-rp1_root) in the init reference.
+    For automatic per-directory configuration using `direnv`, see [Custom Directory Paths](../reference/cli/init.md#custom-rp1_root) in the init reference.
 
 ### Use Cases
 
-1. **Project-local (default)**: Data stored in each project's `.rp1/` directory
-2. **User-global**: Centralized data across all projects
-3. **Custom path**: Specific location for your workflow
+1. **Project-local KB (default)**: KB stored in each project's `.rp1/context/` directory
+2. **Custom KB path**: Override KB location for specific workflows
+3. **Custom work path**: Override work artifact storage location
 
 ### Configuration Examples
 
-=== "Project-local (default)"
+=== "Default (recommended)"
 
-    No configuration needed. rp1 creates `.rp1/` in your current directory.
+    No configuration needed. rp1 auto-detects project root and derives KB and work paths.
 
     ```bash
-    # Just run commands - .rp1/ is created automatically
+    # Just run commands - paths are resolved automatically
     /knowledge-build
     ```
 
-=== "User-global"
+=== "Custom KB path"
 
-    Centralize rp1 data in your home directory with per-project subdirectories:
-
-    ```bash
-    # Add to ~/.bashrc or ~/.zshrc (include project name)
-    export RP1_ROOT="$HOME/.rp1-global/my-project/"
-    ```
-
-    !!! note
-        Include a project-specific subdirectory to keep each project's KB separate. The knowledge base is project-specific and shouldn't be shared across different codebases.
-
-=== "Custom path"
-
-    Set a specific location per-session or per-command:
+    Override the knowledge base location:
 
     ```bash
-    # Per-session
-    export RP1_ROOT="/path/to/custom/rp1"
-
-    # Or per-command (Claude Code)
-    RP1_ROOT=/custom/path /knowledge-build
+    # Add to ~/.bashrc or ~/.zshrc
+    export RP1_KB_ROOT="/path/to/custom/kb"
     ```
 
-    !!! tip
-        Use [direnv](../reference/cli/init.md#custom-rp1_root) to automatically set `RP1_ROOT` when you enter a project directory.
+=== "Custom work path"
+
+    Override where work artifacts are stored:
+
+    ```bash
+    # Add to ~/.bashrc or ~/.zshrc
+    export RP1_WORK_ROOT="/path/to/custom/work"
+    ```
 
 ### Monorepo Considerations
 
@@ -181,20 +181,21 @@ rp1 automatically detects monorepo structures and creates project-specific secti
 
 ??? question "KB building in wrong location?"
 
-    Check your `RP1_ROOT` environment variable:
+    Check your `RP1_KB_ROOT` environment variable:
 
     ```bash
-    echo $RP1_ROOT
+    echo $RP1_KB_ROOT
     ```
 
     If set unexpectedly, unset it or override per-command.
 
 ??? question "Feature files not found?"
 
-    Ensure you're in the correct directory. Feature commands look for files in `{RP1_ROOT}/work/features/{feature-id}/`.
+    Ensure you're in the correct directory. Feature commands look for files in `${RP1_WORK_ROOT}/features/{feature-id}/`.
 
     ```bash
-    ls .rp1/work/features/
+    # Check your resolved work directory
+    rp1 agent-tools rp1-root-dir
     ```
 
 ---

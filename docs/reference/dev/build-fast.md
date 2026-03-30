@@ -110,7 +110,7 @@ After planning, before implementation begins:
 
 **Scope**: Medium
 **Estimated Effort**: 3 hours
-**Artifact**: .rp1/work/quick-builds/20260201-143022-refactor-payment/plan.md
+**Artifact**: quick-builds/20260201-143022-refactor-payment/plan.md
 
 **Tasks**:
 1. Extract payment validation logic
@@ -133,7 +133,7 @@ After implementation completes:
 ## Implementation Complete
 
 **Branch**: quick-build-refactor-payment
-**Artifact**: .rp1/work/quick-builds/20260201-143022-refactor-payment/plan.md
+**Artifact**: quick-builds/20260201-143022-refactor-payment/plan.md
 
 Review the changes, then:
 1. "Done" - Finish workflow
@@ -257,7 +257,7 @@ By default, `build-fast` makes changes in your current working directory without
 After completing a task, the command generates a summary document at:
 
 ```
-{RP1_ROOT}/work/quick-builds/{YYYYMMDD-HHMMSS-slug}/summary.md
+{RP1_WORK_ROOT}/quick-builds/{YYYYMMDD-HHMMSS-slug}/summary.md
 ```
 
 This provides:
