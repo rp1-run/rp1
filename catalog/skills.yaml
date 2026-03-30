@@ -86,7 +86,7 @@ skills:
     sub_agents_that_i_use: []
     skills_that_i_use: []
     last_update: "2026-03-30"
-    last_checksum: 3b2106b26e42cb25115e6911ce8d5368531118ba451f48e783b2493fac1ec7a0
+    last_checksum: 30aab7fb7c9fcf90995155ef9aebe75e3bdf5c793c8002158ce5c1de56d0cc69
   - name: rp1-base:mermaid
     description: Create, validate, and troubleshoot Mermaid.js diagrams. Use when generating flowcharts, sequence diagrams, class diagrams, ER diagrams, Gantt charts, state diagrams, or any visualization. Handles diagram validation, syntax errors, broken diagrams, and automatic repair. Trigger terms - mermaid, diagram, flowchart, sequence, class diagram, ER diagram, entity relationship, state machine, gantt, visualization, chart, graph.
     plugin: base
@@ -140,7 +140,7 @@ skills:
     sub_agents_that_i_use: []
     skills_that_i_use: []
     last_update: "2026-03-30"
-    last_checksum: c45d146d3b4ce9a9c2b7d7990596647f419f15ae22ee4b6a5e34b02940ecfdff
+    last_checksum: cda14ee586374c7e20356e18115fcc3d43fb9ee3b39581aa1a75b52daf252c4f
   - name: rp1-dev:address-pr-feedback
     description: Unified PR feedback workflow - collect, triage, and fix review comments in a single command.
     plugin: dev
