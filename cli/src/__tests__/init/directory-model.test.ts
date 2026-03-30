@@ -40,7 +40,7 @@ describe("init directory model", () => {
 		await writeFile(
 			join(tempDir, ".rp1", "settings.toml"),
 			`[directories]
-work_dir = "./external-work"
+work_root = "./external-work"
 `,
 			"utf-8",
 		);

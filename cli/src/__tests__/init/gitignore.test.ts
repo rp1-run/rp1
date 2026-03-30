@@ -61,7 +61,7 @@ describe("init gitignore generation", () => {
 		await mkdir(join(tempDir, ".rp1"), { recursive: true });
 		await writeFile(
 			join(tempDir, ".rp1", "settings.toml"),
-			["[directories]", 'work_dir = "ops/work"'].join("\n"),
+			["[directories]", 'work_root = "ops/work"'].join("\n"),
 			"utf-8",
 		);
 
