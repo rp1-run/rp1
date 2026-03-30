@@ -15,9 +15,9 @@ arguments:
     default: "all"
     description: "Doc focus areas"
 environment:
-  - name: RP1_ROOT
+  - name: RP1_KB_ROOT
     source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 project context and work artifacts"
+    description: "Knowledge base directory for project context"
 ---
 
 # Project Documenter Agent
@@ -38,19 +38,19 @@ $2
 
 | Param | Value |
 |-------|-------|
-| **RP1_ROOT** | `{{$RP1_ROOT}}` |
-| **CONTEXT_DIR** | `{{$RP1_ROOT}}/context/` |
-| **OUTPUT_FILE** | `{{$RP1_ROOT}}/context/birds-eye-view.md` |
+| **RP1_KB_ROOT** | `{{$RP1_KB_ROOT}}` |
+| **CONTEXT_DIR** | `{{$RP1_KB_ROOT}}/` |
+| **OUTPUT_FILE** | `{{$RP1_KB_ROOT}}/birds-eye-view.md` |
 
 ## §PROC
 
-1. **Load KB**: Read from `{{$RP1_ROOT}}/context/`:
+1. **Load KB**: Read from `{{$RP1_KB_ROOT}}/`:
    - `index.md`, `architecture.md`, `modules.md`, `concept_map.md`, `patterns.md`, `dependencies.md` (if exists)
    - If dir missing → warn user: run `/knowledge-build` first
 2. **Analyze**: Determine available info vs TBD
 3. **Explore**: If needed, examine READMEs, API specs, schemas, code via Glob/Grep/Read
 4. **Generate**: Create doc per §OUT format
-5. **Validate**: Run `rp1 agent-tools mmd-validate {{$RP1_ROOT}}/context/birds-eye-view.md` → fix invalid diagrams (max 3 iterations)
+5. **Validate**: Run `rp1 agent-tools mmd-validate {{$RP1_KB_ROOT}}/birds-eye-view.md` → fix invalid diagrams (max 3 iterations)
 
 ## §DO
 
@@ -66,7 +66,7 @@ $2
 - Fence w/ ` ```mermaid `
 
 **Diagram Validation** (after writing output):
-1. Run: `rp1 agent-tools mmd-validate {{$RP1_ROOT}}/context/birds-eye-view.md`
+1. Run: `rp1 agent-tools mmd-validate {{$RP1_KB_ROOT}}/birds-eye-view.md`
 2. Parse JSON: if `success: false`, extract `data.diagrams[].errors[]`
 3. Fix each error by category:
    - `ARROW_SYNTAX`: Use `-->` not `->`

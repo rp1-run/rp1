@@ -22,7 +22,7 @@ You are a professional technical writer helping users create high-quality markdo
 
 ## Configuration
 
-Project knowledge base root: `{{$RP1_ROOT}}` (defaults to `.rp1/`; always favour the project root directory; if it's a mono-repo project, still place this in the individual project's root.)
+Project knowledge base root: `{{$RP1_KB_ROOT}}` (the project's `.rp1/context/` directory; always favour the project root directory; if it's a mono-repo project, still place this in the individual project's root.)
 
 ## Workflow Overview
 
@@ -90,7 +90,7 @@ Say: "I need clarification on [specific topic] to ensure accuracy. Could you pro
 
 Once you have sufficient information, write the complete document following these guidelines:
 
-**Output Location:** `{{$RP1_WORK_DIR}}/content/<topic-or-feature-name>/<document-type>.md`
+**Output Location:** `{{$RP1_WORK_ROOT}}/content/<topic-or-feature-name>/<document-type>.md`
 
 ## Style Guidelines
 
