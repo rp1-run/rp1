@@ -4,6 +4,7 @@ import { getStatusLabel } from "@/lib/status-labels";
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { Run, RunStatus } from "@/types/runs";
+import { HarnessIcon } from "./HarnessIcon";
 
 export interface RunCardProps {
 	run: Run;
@@ -74,6 +75,7 @@ export function RunCard({
 				</div>
 
 				<div className="mt-0.5 flex items-center gap-2 type-secondary text-fg-muted">
+					<HarnessIcon harness={run.harness} size={14} />
 					<span>{run.command}</span>
 					{run.currentStep && (
 						<>

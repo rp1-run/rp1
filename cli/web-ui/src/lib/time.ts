@@ -10,7 +10,7 @@ export function formatRelativeTime(dateString: string): string {
 	if (diffSeconds < 60) return "just now";
 	if (diffMinutes < 60) return `${diffMinutes}m ago`;
 	if (diffHours < 24) return `${diffHours}h ago`;
-	if (diffDays === 1) return "yesterday";
+	if (diffDays === 1) return "1d ago";
 	if (diffDays < 7) return `${diffDays}d ago`;
 	return date.toLocaleDateString();
 }
