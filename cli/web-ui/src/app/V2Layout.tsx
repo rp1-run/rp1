@@ -40,7 +40,9 @@ export function AppLayout() {
 	const isFullHeight = isFullHeightRoute(location.pathname);
 
 	const animationKey =
-		location.pathname.match(/^\/runs\/[^/]+/)?.[0] ?? location.pathname;
+		location.pathname.match(/^\/runs\/[^/]+/)?.[0] ??
+		location.pathname.match(/^\/projects\/[^/]+\/files/)?.[0] ??
+		location.pathname;
 
 	const reducedMotion = usePrefersReducedMotion();
 	const variants = reducedMotion ? pageVariantsReduced : pageVariants;
