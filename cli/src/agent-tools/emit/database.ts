@@ -18,7 +18,10 @@ import type {
 	RunRecord,
 	Status,
 } from "../../../shared/events.js";
-import { getLogicalStepKey } from "../../../shared/logical-step.js";
+import {
+	getLogicalStepKey,
+	isNamespacedLifecycleStep,
+} from "../../../shared/logical-step.js";
 
 /** Default database file location. Override with RP1_DB env var. */
 const DEFAULT_DB_PATH = process.env.RP1_DB ?? join(homedir(), ".rp1", "rp1.db");
@@ -302,6 +305,12 @@ interface LogicalStepStatusEntry extends StepStatusEntry {
 	readonly concreteStep: string;
 	readonly unit: string | null;
 }
+
+const NON_TERMINAL_STATUSES = new Set<Status>([
+	"running",
+	"waiting",
+	"not_started",
+]);
 
 const normalizeProjectKey = (projectRoot: string): string => {
 	const resolvedRoot = resolve(projectRoot);
@@ -929,15 +938,37 @@ export const getStepStatuses = (
 		.all({ $runId: runId }) as StepStatusRow[];
 
 	const latestByLogicalKey = new Map<string, LogicalStepStatusEntry>();
+	let activeWorkflowStep: string | null = null;
 
 	for (const row of rows) {
-		const logicalStepKey = getLogicalStepKey(row.step, row.unit);
+		const status = row.status as Status;
+		const logicalStepKey =
+			isNamespacedLifecycleStep(row.step) && activeWorkflowStep
+				? activeWorkflowStep
+				: getLogicalStepKey(row.step, row.unit);
+
 		latestByLogicalKey.set(logicalStepKey, {
 			step: logicalStepKey,
-			status: row.status as Status,
-			concreteStep: row.step,
-			unit: row.unit,
+			status,
+			concreteStep:
+				isNamespacedLifecycleStep(row.step) && activeWorkflowStep
+					? activeWorkflowStep
+					: row.step,
+			unit:
+				isNamespacedLifecycleStep(row.step) && activeWorkflowStep
+					? null
+					: row.unit,
 		});
+
+		if (isNamespacedLifecycleStep(row.step)) {
+			continue;
+		}
+
+		if (NON_TERMINAL_STATUSES.has(status)) {
+			activeWorkflowStep = row.step;
+		} else if (activeWorkflowStep === row.step) {
+			activeWorkflowStep = null;
+		}
 	}
 
 	return Array.from(latestByLogicalKey.values());

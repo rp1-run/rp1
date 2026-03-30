@@ -528,6 +528,40 @@ describe("deriveAgentSteps", () => {
 			],
 		});
 	});
+
+	test("contains unit tasks under the active workflow step when one is running", () => {
+		const events: EventRecord[] = [
+			makeEvent({
+				id: 1,
+				step: "build",
+				data: JSON.stringify({ status: "running" }),
+			}),
+			makeEvent({
+				id: 2,
+				step: "task-builder:building",
+				unit: "T1",
+				data: JSON.stringify({ status: "running" }),
+			}),
+			makeEvent({
+				id: 3,
+				step: "task-reviewer:completed",
+				unit: "T1",
+				data: JSON.stringify({ status: "completed" }),
+			}),
+		];
+
+		const agentSteps = deriveAgentSteps(events);
+		expect(agentSteps).toEqual({
+			build: [
+				{
+					id: "T1",
+					name: "T1",
+					status: "completed",
+					agent: "T1",
+				},
+			],
+		});
+	});
 });
 
 describe("handleV2WorkflowsListRequest", () => {
