@@ -26,15 +26,14 @@ export type DirectorySource =
 
 export interface ResolvedDirectorySet {
 	readonly projectRoot: string;
-	readonly rp1Root: string;
-	readonly kbDir: string;
-	readonly workDir: string;
+	readonly kbRoot: string;
+	readonly workRoot: string;
 	readonly isWorktree: boolean;
 	readonly worktreeName?: string;
 	readonly sources: {
 		readonly projectRoot: ProjectRootSource;
-		readonly kbDir: DirectorySource;
-		readonly workDir: DirectorySource;
+		readonly kbRoot: DirectorySource;
+		readonly workRoot: DirectorySource;
 	};
 }
 
@@ -143,8 +142,8 @@ const buildResolvedDirectorySet = (params: {
 	settingsLoadOptions?: DirectorySettingsLoadOptions;
 }): E.Either<CLIError, ResolvedDirectorySet> => {
 	const rp1RootFromEnv = process.env.RP1_ROOT;
-	const kbDirFromEnv = process.env.RP1_KB_DIR;
-	const workDirFromEnv = process.env.RP1_WORK_DIR;
+	const kbRootFromEnv = process.env.RP1_KB_ROOT;
+	const workRootFromEnv = process.env.RP1_WORK_ROOT;
 	const candidateProjectRoot = path.resolve(params.projectRoot);
 	return E.map((settings: LoadedDirectorySettings): ResolvedDirectorySet => {
 		const projectRoot =
@@ -155,34 +154,33 @@ const buildResolvedDirectorySet = (params: {
 			params.projectRootSource === "env"
 				? params.projectRootSource
 				: (settings.sources.projectRoot ?? params.projectRootSource);
-		const rp1Root = rp1RootFromEnv
+		const rp1DotDir = rp1RootFromEnv
 			? path.resolve(rp1RootFromEnv)
 			: path.join(projectRoot, ".rp1");
-		const kbDir = kbDirFromEnv
-			? path.resolve(kbDirFromEnv)
-			: (settings.kbDir ?? path.join(rp1Root, "context"));
-		const workDir = workDirFromEnv
-			? path.resolve(workDirFromEnv)
-			: (settings.workDir ??
+		const kbRoot = kbRootFromEnv
+			? path.resolve(kbRootFromEnv)
+			: (settings.kbRoot ?? path.join(rp1DotDir, "context"));
+		const workRoot = workRootFromEnv
+			? path.resolve(workRootFromEnv)
+			: (settings.workRoot ??
 				path.join(homedir(), ".rp1", normalizeProjectKey(projectRoot)));
-		const kbDirSource: DirectorySource = kbDirFromEnv
+		const kbRootSource: DirectorySource = kbRootFromEnv
 			? "env"
-			: (settings.sources.kbDir ?? "default");
-		const workDirSource: DirectorySource = workDirFromEnv
+			: (settings.sources.kbRoot ?? "default");
+		const workRootSource: DirectorySource = workRootFromEnv
 			? "env"
-			: (settings.sources.workDir ?? "default");
+			: (settings.sources.workRoot ?? "default");
 
 		return {
 			projectRoot,
-			rp1Root,
-			kbDir,
-			workDir,
+			kbRoot,
+			workRoot,
 			isWorktree: params.isWorktree,
 			worktreeName: params.worktreeName,
 			sources: {
 				projectRoot: projectRootSource,
-				kbDir: kbDirSource,
-				workDir: workDirSource,
+				kbRoot: kbRootSource,
+				workRoot: workRootSource,
 			},
 		};
 	})(loadDirectorySettings(candidateProjectRoot, params.settingsLoadOptions));
