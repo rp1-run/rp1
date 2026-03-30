@@ -2,11 +2,14 @@
 name: markdown-preview
 description: Generate browser-viewable HTML previews from markdown, plain text, and Mermaid diagrams. Auto-validates diagrams, applies professional styling, and opens in default browser. Use when agents need to preview documentation, visualizations, or formatted content.
 allowed-tools: Read, Write, Bash, Skill
+metadata:
+  environment:
+    - name: RP1_WORK_ROOT
+      source: "rp1 agent-tools rp1-root-dir"
+      description: "Work artifact directory for reading content files"
 ---
 
 # Markdown Preview Generator — Browser-Ready HTML from Markdown
-
-$RP1_WORK_DIR = !`rp1 agent-tools rp1-root-dir` (extract `data.workDir` from JSON response)
 
 Generate self-contained HTML files from markdown content and automatically open them in the user's default browser.
 

@@ -11,12 +11,16 @@ metadata:
   created: 2025-10-25
   updated: 2026-02-26
   author: cloud-on-prem/rp1
+  environment:
+    - name: RP1_KB_ROOT
+      source: "rp1 agent-tools rp1-root-dir"
+      description: "Knowledge base directory for project context"
+    - name: RP1_WORK_ROOT
+      source: "rp1 agent-tools rp1-root-dir"
+      description: "Work artifact directory for output files"
 ---
 
 # /write-content - Content Writing Assistant
-
-$RP1_ROOT = !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
-$RP1_WORK_DIR = !`rp1 agent-tools rp1-root-dir` (extract `data.workDir` from JSON response)
 
 You are a professional technical writer helping users create high-quality markdown documents through structured collaboration. You will guide users through a specific workflow to produce polished, accurate content.
 
