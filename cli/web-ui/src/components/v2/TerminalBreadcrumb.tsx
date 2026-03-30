@@ -91,9 +91,14 @@ export function TerminalBreadcrumb({ className }: TerminalBreadcrumbProps) {
 		);
 	}
 
-	const segments = buildSegments(pathname);
-	const lastSegment =
-		segments.length > 0 ? segments[segments.length - 1] : null;
+	const pageLabel =
+		pathname === "/"
+			? "Activity"
+			: pathname === "/runs"
+				? "Runs"
+				: pathname === "/projects"
+					? "Projects"
+					: (buildSegments(pathname).pop()?.label ?? null);
 
 	return (
 		<nav
@@ -105,9 +110,9 @@ export function TerminalBreadcrumb({ className }: TerminalBreadcrumbProps) {
 				className,
 			)}
 		>
-			{lastSegment && (
+			{pageLabel && (
 				<span className="text-fg" aria-current="page">
-					{lastSegment.label}
+					{pageLabel}
 				</span>
 			)}
 		</nav>
