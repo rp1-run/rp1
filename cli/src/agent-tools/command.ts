@@ -506,10 +506,6 @@ const emitCommand = agentToolsCommand
 		"Harness/platform name (e.g., claude-code, codex, opencode)",
 	)
 	.option(
-		"--harness <name>",
-		"Harness/platform name (e.g., claude-code, codex, opencode)",
-	)
-	.option(
 		"--close-run",
 		"Force-close the run by completing all non-terminal steps",
 	)
