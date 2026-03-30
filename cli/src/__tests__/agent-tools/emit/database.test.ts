@@ -1155,6 +1155,42 @@ describe("emit database", () => {
 			expect(status).toBe("completed");
 		});
 
+		test("parent workflow completion supersedes contained child lifecycle failures", async () => {
+			const dbPath = join(tempDir, "derive-contained-child-failure.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-contained-failure",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			insertEvent(db, {
+				runId: "run-contained-failure",
+				type: "status_change",
+				step: "build",
+				data: JSON.stringify({ status: "running" }),
+			});
+			insertEvent(db, {
+				runId: "run-contained-failure",
+				type: "status_change",
+				step: "task-reviewer:failed",
+				unit: "T4",
+				data: JSON.stringify({ status: "failed" }),
+			});
+			insertEvent(db, {
+				runId: "run-contained-failure",
+				type: "status_change",
+				step: "build",
+				data: JSON.stringify({ status: "completed" }),
+			});
+
+			const status = deriveRunStatus(db, "run-contained-failure");
+
+			expect(status).toBe("completed");
+		});
+
 		test("keeps units independent within the same sub-agent namespace", async () => {
 			const dbPath = join(tempDir, "derive-logical-units.db");
 			const db = await expectTaskRight(getEmitDatabase(dbPath));
@@ -1293,6 +1329,43 @@ describe("emit database", () => {
 					status: "completed",
 					concreteStep: "task-reviewer:completed",
 					unit: "T1",
+				},
+			]);
+		});
+
+		test("contains namespaced lifecycle steps inside the active parent workflow step", async () => {
+			const dbPath = join(tempDir, "step-statuses-contained-parent.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-ss-contained",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			insertEvent(db, {
+				runId: "run-ss-contained",
+				type: "status_change",
+				step: "build",
+				data: JSON.stringify({ status: "running" }),
+			});
+			insertEvent(db, {
+				runId: "run-ss-contained",
+				type: "status_change",
+				step: "task-reviewer:failed",
+				unit: "T4",
+				data: JSON.stringify({ status: "failed" }),
+			});
+
+			const statuses = getStepStatuses(db, "run-ss-contained");
+
+			expect(statuses).toEqual([
+				{
+					step: "build",
+					status: "failed",
+					concreteStep: "build",
+					unit: null,
 				},
 			]);
 		});

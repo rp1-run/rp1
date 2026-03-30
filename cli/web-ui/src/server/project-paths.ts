@@ -63,6 +63,20 @@ const ensureSectionPath = (
 	relativePath: string,
 ): string => (relativePath.length > 0 ? `${prefix}/${relativePath}` : prefix);
 
+const normalizeStoredWorkRelativePath = (artifactPath: string): string => {
+	const normalized = artifactPath.replace(/\\/g, "/").replace(/^\.\/+/, "");
+
+	if (normalized.startsWith(".rp1/work/")) {
+		return normalized.slice(".rp1/work/".length);
+	}
+
+	if (normalized.startsWith("work/")) {
+		return normalized.slice("work/".length);
+	}
+
+	return normalized;
+};
+
 export const resolveProjectDirectories = (
 	projectPath: string,
 ): ProjectDirectories => {
@@ -71,10 +85,19 @@ export const resolveProjectDirectories = (
 		return defaultResolvedDirectories(projectPath);
 	}
 
+	const resolvedWorkRoot = resolve(result.right.workRoot);
+	const workRoot =
+		existsSync(resolvedWorkRoot) || result.right.sources.workRoot !== "default"
+			? resolvedWorkRoot
+			: (() => {
+					const legacy = getLegacyWorkDir(result.right.projectRoot);
+					return existsSync(legacy) ? legacy : resolvedWorkRoot;
+				})();
+
 	return {
 		projectRoot: resolve(result.right.projectRoot),
 		kbRoot: resolve(result.right.kbRoot),
-		workRoot: resolve(result.right.workRoot),
+		workRoot,
 	};
 };
 
@@ -85,10 +108,21 @@ export const getRunDirectories = (
 	>,
 ): ProjectDirectories => {
 	const defaults = defaultResolvedDirectories(run.projectPath);
+	const projectRoot = resolve(run.rp1ProjectRoot ?? defaults.projectRoot);
+	const kbRoot = resolve(run.rp1KbRoot ?? defaults.kbRoot);
+	const storedWorkRoot = run.rp1WorkRoot
+		? resolve(run.rp1WorkRoot)
+		: getLegacyWorkDir(run.projectPath);
+	const legacyWorkRoot = getLegacyWorkDir(projectRoot);
+	const workRoot =
+		existsSync(storedWorkRoot) || !existsSync(legacyWorkRoot)
+			? storedWorkRoot
+			: legacyWorkRoot;
+
 	return {
-		projectRoot: resolve(run.rp1ProjectRoot ?? defaults.projectRoot),
-		kbRoot: resolve(run.rp1KbRoot ?? defaults.kbRoot),
-		workRoot: resolve(run.rp1WorkRoot ?? getLegacyWorkDir(run.projectPath)),
+		projectRoot,
+		kbRoot,
+		workRoot,
 	};
 };
 
@@ -203,7 +237,10 @@ export const resolveArtifactAbsolutePath = (
 	}
 
 	if (artifact.storageRoot === "work_dir") {
-		return resolve(directories.workRoot, artifact.path);
+		return resolve(
+			directories.workRoot,
+			normalizeStoredWorkRelativePath(artifact.path),
+		);
 	}
 
 	return resolve(directories.projectRoot, artifact.path);
@@ -218,7 +255,10 @@ export const toArtifactDisplayPath = (
 	}
 
 	if (artifact.storageRoot === "work_dir") {
-		return ensureSectionPath("work", trimTrailingSlash(artifact.path));
+		return ensureSectionPath(
+			"work",
+			trimTrailingSlash(normalizeStoredWorkRelativePath(artifact.path)),
+		);
 	}
 
 	const absolutePath = resolve(directories.projectRoot, artifact.path);
