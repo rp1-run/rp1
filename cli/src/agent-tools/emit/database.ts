@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS schema_version (
     version INTEGER NOT NULL
 );
 
-INSERT INTO schema_version (version) VALUES (7);
+INSERT INTO schema_version (version) VALUES (8);
 
 CREATE TABLE IF NOT EXISTS runs (
     id TEXT PRIMARY KEY NOT NULL,
@@ -38,8 +38,8 @@ CREATE TABLE IF NOT EXISTS runs (
     feature_id TEXT NOT NULL,
     project_path TEXT NOT NULL,
     rp1_project_root TEXT NOT NULL,
-    rp1_kb_dir TEXT NOT NULL,
-    rp1_work_dir TEXT NOT NULL,
+    rp1_kb_root TEXT NOT NULL,
+    rp1_work_root TEXT NOT NULL,
     name TEXT DEFAULT NULL,
     harness TEXT DEFAULT NULL,
     status TEXT NOT NULL DEFAULT 'not_started'
@@ -563,6 +563,26 @@ const applyMigrations = (db: Database): void => {
 		}
 
 		db.prepare("UPDATE schema_version SET version = 7").run();
+	}
+
+	const postV7Version = db
+		.prepare("SELECT version FROM schema_version LIMIT 1")
+		.get() as { version: number } | null;
+
+	if ((postV7Version?.version ?? 7) < 8) {
+		const cols = db.prepare("PRAGMA table_info(runs)").all() as {
+			name: string;
+		}[];
+		const colNames = new Set(cols.map((c) => c.name));
+
+		if (colNames.has("rp1_kb_dir") && !colNames.has("rp1_kb_root")) {
+			db.exec("ALTER TABLE runs RENAME COLUMN rp1_kb_dir TO rp1_kb_root");
+		}
+		if (colNames.has("rp1_work_dir") && !colNames.has("rp1_work_root")) {
+			db.exec("ALTER TABLE runs RENAME COLUMN rp1_work_dir TO rp1_work_root");
+		}
+
+		db.prepare("UPDATE schema_version SET version = 8").run();
 	}
 };
 
