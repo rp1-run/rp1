@@ -15,6 +15,7 @@ import {
 import type { StateMachine } from "../../../../src/agent-tools/state-machine/models.js";
 import {
 	commandToWorkflowName,
+	deriveAgentSteps,
 	deriveStepsFromEvents,
 	deriveStepsFromMachine,
 	handleV2WorkflowDetailRequest,
@@ -231,6 +232,67 @@ describe("deriveStepsFromMachine", () => {
 			expect(steps[1].status).toBe("running");
 			expect(steps[2].status).toBe("not_started");
 		});
+
+		test("appends synthetic logical sub-agent steps after machine steps in first-seen order", () => {
+			const stepStatuses: StepStatusEntry[] = [
+				{ step: "plan", status: "completed" },
+				{ step: "task-builder::T2", status: "running" },
+				{ step: "task-builder::T1", status: "completed" },
+			];
+
+			const events: EventRecord[] = [
+				makeEvent({
+					id: 1,
+					step: "plan",
+					data: JSON.stringify({ status: "completed" }),
+					createdAt: "2026-03-01T00:00:00.000Z",
+				}),
+				makeEvent({
+					id: 2,
+					step: "task-builder:building",
+					unit: "T2",
+					data: JSON.stringify({ status: "running" }),
+					createdAt: "2026-03-01T00:01:00.000Z",
+				}),
+				makeEvent({
+					id: 3,
+					step: "task-builder:building",
+					unit: "T1",
+					data: JSON.stringify({ status: "running" }),
+					createdAt: "2026-03-01T00:02:00.000Z",
+				}),
+				makeEvent({
+					id: 4,
+					step: "task-builder:completed",
+					unit: "T1",
+					data: JSON.stringify({ status: "completed" }),
+					createdAt: "2026-03-01T00:03:00.000Z",
+				}),
+			];
+
+			const steps = deriveStepsFromMachine(stepStatuses, orderedSteps, events);
+			expect(steps.map((step) => step.id)).toEqual([
+				"plan",
+				"build",
+				"review",
+				"task-builder::T2",
+				"task-builder::T1",
+			]);
+			expect(steps[3]).toMatchObject({
+				id: "task-builder::T2",
+				name: "Task Builder T2",
+				status: "running",
+				startedAt: "2026-03-01T00:01:00.000Z",
+				completedAt: null,
+			});
+			expect(steps[4]).toMatchObject({
+				id: "task-builder::T1",
+				name: "Task Builder T1",
+				status: "completed",
+				startedAt: "2026-03-01T00:02:00.000Z",
+				completedAt: "2026-03-01T00:03:00.000Z",
+			});
+		});
 	});
 
 	describe("pr-review workflow", () => {
@@ -250,7 +312,7 @@ describe("deriveStepsFromMachine", () => {
 });
 
 describe("deriveStepsFromEvents", () => {
-	test("groups events by step ID", () => {
+	test("groups non-namespaced events by step ID", () => {
 		const stepStatuses: StepStatusEntry[] = [
 			{ step: "T1", status: "completed" },
 			{ step: "T2", status: "running" },
@@ -277,6 +339,39 @@ describe("deriveStepsFromEvents", () => {
 		expect(steps[0].status).toBe("completed");
 		expect(steps[1].id).toBe("T2");
 		expect(steps[1].status).toBe("running");
+	});
+
+	test("collapses recovered lifecycle events into one logical work item", () => {
+		const stepStatuses: StepStatusEntry[] = [
+			{ step: "task-reviewer::T1", status: "completed" },
+		];
+
+		const events: EventRecord[] = [
+			makeEvent({
+				id: 1,
+				step: "task-reviewer:failed",
+				unit: "T1",
+				data: JSON.stringify({ status: "failed" }),
+				createdAt: "2026-03-01T00:00:00.000Z",
+			}),
+			makeEvent({
+				id: 2,
+				step: "task-reviewer:completed",
+				unit: "T1",
+				data: JSON.stringify({ status: "completed" }),
+				createdAt: "2026-03-01T00:01:00.000Z",
+			}),
+		];
+
+		const steps = deriveStepsFromEvents(stepStatuses, events);
+		expect(steps).toHaveLength(1);
+		expect(steps[0]).toMatchObject({
+			id: "task-reviewer::T1",
+			name: "Task Reviewer T1",
+			status: "completed",
+			startedAt: "2026-03-01T00:00:00.000Z",
+			completedAt: "2026-03-01T00:01:00.000Z",
+		});
 	});
 
 	test("skips events without step", () => {
@@ -344,6 +439,51 @@ describe("deriveStepsFromEvents", () => {
 				"skipped",
 			]).toContain(step.status);
 		}
+	});
+});
+
+describe("deriveAgentSteps", () => {
+	test("groups namespaced lifecycle events by logical work item and preserves units", () => {
+		const events: EventRecord[] = [
+			makeEvent({
+				id: 1,
+				step: "task-builder:building",
+				unit: "T1",
+				data: JSON.stringify({ status: "running" }),
+			}),
+			makeEvent({
+				id: 2,
+				step: "task-builder:completed",
+				unit: "T1",
+				data: JSON.stringify({ status: "completed" }),
+			}),
+			makeEvent({
+				id: 3,
+				step: "task-builder:building",
+				unit: "T2",
+				data: JSON.stringify({ status: "running" }),
+			}),
+		];
+
+		const agentSteps = deriveAgentSteps(events);
+		expect(agentSteps).toEqual({
+			"task-builder::T1": [
+				{
+					id: "T1",
+					name: "T1",
+					status: "completed",
+					agent: "T1",
+				},
+			],
+			"task-builder::T2": [
+				{
+					id: "T2",
+					name: "T2",
+					status: "running",
+					agent: "T2",
+				},
+			],
+		});
 	});
 });
 
