@@ -30,8 +30,8 @@ mock.module("../../../../src/agent-tools/emit/database.js", () => ({
 			feature_id: string;
 			project_path: string;
 			rp1_project_root: string | null;
-			rp1_kb_dir: string | null;
-			rp1_work_dir: string | null;
+			rp1_kb_root: string | null;
+			rp1_work_root: string | null;
 		} | null;
 		if (!row) return null;
 		return {
@@ -40,8 +40,8 @@ mock.module("../../../../src/agent-tools/emit/database.js", () => ({
 			featureId: row.feature_id,
 			projectPath: row.project_path,
 			rp1ProjectRoot: row.rp1_project_root ?? row.project_path,
-			rp1KbDir: row.rp1_kb_dir ?? join(row.project_path, ".rp1", "context"),
-			rp1WorkDir: row.rp1_work_dir ?? join(row.project_path, ".rp1", "work"),
+			rp1KbRoot: row.rp1_kb_root ?? join(row.project_path, ".rp1", "context"),
+			rp1WorkRoot: row.rp1_work_root ?? join(row.project_path, ".rp1", "work"),
 			status: "running" as const,
 			createdAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString(),
@@ -186,7 +186,7 @@ mock.module("../../../../src/agent-tools/emit/database.js", () => ({
 		})),
 	resolveArtifactPathForRun: async (
 		_db: Database,
-		run: { rp1ProjectRoot: string; rp1WorkDir: string },
+		run: { rp1ProjectRoot: string; rp1WorkRoot: string },
 		artifact: {
 			docId: string;
 			path: string;
@@ -197,7 +197,9 @@ mock.module("../../../../src/agent-tools/emit/database.js", () => ({
 			return (await Bun.file(artifact.path).exists()) ? artifact.path : null;
 		}
 		const baseDir =
-			artifact.storageRoot === "work_dir" ? run.rp1WorkDir : run.rp1ProjectRoot;
+			artifact.storageRoot === "work_dir"
+				? run.rp1WorkRoot
+				: run.rp1ProjectRoot;
 		const fullPath = resolve(baseDir, artifact.path);
 		if (await Bun.file(fullPath).exists()) {
 			return fullPath;
@@ -206,10 +208,10 @@ mock.module("../../../../src/agent-tools/emit/database.js", () => ({
 	},
 	normalizeArtifactStorage: (
 		artifactPath: string,
-		run: { rp1ProjectRoot: string; rp1WorkDir: string },
+		run: { rp1ProjectRoot: string; rp1WorkRoot: string },
 	) => {
 		const resolvedArtifactPath = resolve(artifactPath);
-		const workRoot = resolve(run.rp1WorkDir);
+		const workRoot = resolve(run.rp1WorkRoot);
 		const projectRoot = resolve(run.rp1ProjectRoot);
 		if (
 			resolvedArtifactPath === workRoot ||
@@ -259,8 +261,8 @@ const SCHEMA_SQL = `
 		feature_id TEXT NOT NULL,
 		project_path TEXT NOT NULL,
 		rp1_project_root TEXT DEFAULT NULL,
-		rp1_kb_dir TEXT DEFAULT NULL,
-		rp1_work_dir TEXT DEFAULT NULL,
+		rp1_kb_root TEXT DEFAULT NULL,
+		rp1_work_root TEXT DEFAULT NULL,
 		status TEXT NOT NULL DEFAULT 'not_started',
 		created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
 		updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
@@ -645,11 +647,10 @@ describe("resolveArtifactPath", () => {
 	let reconcileTmpDir: string;
 	let reconcileDb: Database;
 	const reconcileDocId = "reconcile-doc-001";
-	const reconcileDirectories = (projectRoot: string, workDir: string) => ({
+	const reconcileDirectories = (projectRoot: string, workRoot: string) => ({
 		projectRoot,
-		rp1Root: join(projectRoot, ".rp1"),
-		kbDir: join(projectRoot, ".rp1", "context"),
-		workDir,
+		kbRoot: join(projectRoot, ".rp1", "context"),
+		workRoot,
 	});
 
 	beforeAll(async () => {
@@ -1077,7 +1078,7 @@ describe("handleArtifactSaveRequest with external work_dir storage", () => {
 
 		externalDb
 			.prepare(
-				"INSERT INTO runs (id, flow, feature_id, project_path, rp1_project_root, rp1_kb_dir, rp1_work_dir) VALUES ($id, $flow, $featureId, $projectPath, $rp1ProjectRoot, $rp1KbDir, $rp1WorkDir)",
+				"INSERT INTO runs (id, flow, feature_id, project_path, rp1_project_root, rp1_kb_root, rp1_work_root) VALUES ($id, $flow, $featureId, $projectPath, $rp1ProjectRoot, $rp1KbRoot, $rp1WorkRoot)",
 			)
 			.run({
 				$id: externalRunId,
@@ -1085,8 +1086,8 @@ describe("handleArtifactSaveRequest with external work_dir storage", () => {
 				$featureId: "ext-feature",
 				$projectPath: externalTmpDir,
 				$rp1ProjectRoot: externalTmpDir,
-				$rp1KbDir: join(externalTmpDir, ".rp1", "context"),
-				$rp1WorkDir: externalWorkDir,
+				$rp1KbRoot: join(externalTmpDir, ".rp1", "context"),
+				$rp1WorkRoot: externalWorkDir,
 			});
 
 		externalDb

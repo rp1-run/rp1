@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
 	type ProjectDirectories,
+	parseProjectSectionPath,
 	resolveProjectSectionFilePath,
 	toArtifactDisplayPath,
 	toArtifactDisplayPathFromAbsolute,
@@ -17,16 +18,15 @@ describe("project-paths", () => {
 		tmpProjectDir = await mkdtemp(join(tmpdir(), "rp1-project-paths-"));
 		directories = {
 			projectRoot: tmpProjectDir,
-			rp1Root: join(tmpProjectDir, ".rp1"),
-			kbDir: join(tmpProjectDir, "external-context"),
-			workDir: join(tmpProjectDir, "external-work"),
+			kbRoot: join(tmpProjectDir, "external-context"),
+			workRoot: join(tmpProjectDir, "external-work"),
 		};
 
-		await mkdir(join(directories.workDir, "archives", "features", "feat-1"), {
+		await mkdir(join(directories.workRoot, "archives", "features", "feat-1"), {
 			recursive: true,
 		});
 		await Bun.write(
-			join(directories.workDir, "archives", "features", "feat-1", "tasks.md"),
+			join(directories.workRoot, "archives", "features", "feat-1", "tasks.md"),
 			"# archived task",
 		);
 	});
@@ -43,7 +43,7 @@ describe("project-paths", () => {
 			"work/features/feat-1/tasks.md",
 		);
 		expect(resolved).toBe(
-			join(directories.workDir, "archives", "features", "feat-1", "tasks.md"),
+			join(directories.workRoot, "archives", "features", "feat-1", "tasks.md"),
 		);
 	});
 
@@ -60,8 +60,37 @@ describe("project-paths", () => {
 		expect(
 			toArtifactDisplayPathFromAbsolute(
 				directories,
-				join(directories.workDir, "archives", "features", "feat-1", "tasks.md"),
+				join(
+					directories.workRoot,
+					"archives",
+					"features",
+					"feat-1",
+					"tasks.md",
+				),
 			),
 		).toBe("work/archives/features/feat-1/tasks.md");
+	});
+
+	describe("parseProjectSectionPath backward compatibility", () => {
+		test("parses kb/ prefix and returns kb section", () => {
+			const result = parseProjectSectionPath("kb/index.md");
+			expect(result).not.toBeNull();
+			expect(result!.section).toBe("kb");
+			expect(result!.relativePath).toBe("index.md");
+		});
+
+		test("parses context/ prefix and normalizes to kb section", () => {
+			const result = parseProjectSectionPath("context/index.md");
+			expect(result).not.toBeNull();
+			expect(result!.section).toBe("kb");
+			expect(result!.relativePath).toBe("index.md");
+		});
+
+		test("parses work/ prefix and returns work section", () => {
+			const result = parseProjectSectionPath("work/features/feat-1/tasks.md");
+			expect(result).not.toBeNull();
+			expect(result!.section).toBe("work");
+			expect(result!.relativePath).toBe("features/feat-1/tasks.md");
+		});
 	});
 });
