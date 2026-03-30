@@ -1088,6 +1088,131 @@ describe("emit database", () => {
 
 			expect(row.status).toBe("running");
 		});
+
+		test("uses the latest logical work-item status after failed to completed recovery", async () => {
+			const dbPath = join(tempDir, "derive-logical-recovery-failed.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-logical-failed",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			insertEvent(db, {
+				runId: "run-logical-failed",
+				type: "status_change",
+				step: "task-reviewer:failed",
+				unit: "T1",
+				data: JSON.stringify({ status: "failed" }),
+			});
+			insertEvent(db, {
+				runId: "run-logical-failed",
+				type: "status_change",
+				step: "task-reviewer:completed",
+				unit: "T1",
+				data: JSON.stringify({ status: "completed" }),
+			});
+
+			const status = deriveRunStatus(db, "run-logical-failed");
+
+			expect(status).toBe("completed");
+		});
+
+		test("uses the latest logical work-item status after running to completed recovery", async () => {
+			const dbPath = join(tempDir, "derive-logical-recovery-running.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-logical-running",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			insertEvent(db, {
+				runId: "run-logical-running",
+				type: "status_change",
+				step: "task-builder:building",
+				unit: "T1",
+				data: JSON.stringify({ status: "running" }),
+			});
+			insertEvent(db, {
+				runId: "run-logical-running",
+				type: "status_change",
+				step: "task-builder:completed",
+				unit: "T1",
+				data: JSON.stringify({ status: "completed" }),
+			});
+
+			const status = deriveRunStatus(db, "run-logical-running");
+
+			expect(status).toBe("completed");
+		});
+
+		test("keeps units independent within the same sub-agent namespace", async () => {
+			const dbPath = join(tempDir, "derive-logical-units.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-logical-units",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			insertEvent(db, {
+				runId: "run-logical-units",
+				type: "status_change",
+				step: "task-builder:completed",
+				unit: "T1",
+				data: JSON.stringify({ status: "completed" }),
+			});
+			insertEvent(db, {
+				runId: "run-logical-units",
+				type: "status_change",
+				step: "task-builder:failed",
+				unit: "T2",
+				data: JSON.stringify({ status: "failed" }),
+			});
+
+			const status = deriveRunStatus(db, "run-logical-units");
+
+			expect(status).toBe("failed");
+		});
+
+		test("closeRun completes logical work items using their latest concrete step label", async () => {
+			const dbPath = join(tempDir, "derive-logical-close-run.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-logical-close",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			insertEvent(db, {
+				runId: "run-logical-close",
+				type: "status_change",
+				step: "task-builder:building",
+				unit: "T1",
+				data: JSON.stringify({ status: "running" }),
+			});
+
+			const status = deriveRunStatus(db, "run-logical-close", true);
+			const events = getEventsForRun(db, "run-logical-close");
+			const completionEvents = events.filter(
+				(event) =>
+					event.step === "task-builder:building" &&
+					event.data != null &&
+					JSON.parse(event.data).status === "completed",
+			);
+
+			expect(status).toBe("completed");
+			expect(completionEvents).toHaveLength(1);
+		});
 	});
 
 	describe("getStepStatuses", () => {
@@ -1128,6 +1253,44 @@ describe("emit database", () => {
 
 			expect(step1?.status).toBe("completed");
 			expect(step2?.status).toBe("running");
+		});
+
+		test("collapses namespaced lifecycle labels into the latest logical step key", async () => {
+			const dbPath = join(tempDir, "step-statuses-logical.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-ss-logical",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			insertEvent(db, {
+				runId: "run-ss-logical",
+				type: "status_change",
+				step: "task-reviewer:failed",
+				unit: "T1",
+				data: JSON.stringify({ status: "failed" }),
+			});
+			insertEvent(db, {
+				runId: "run-ss-logical",
+				type: "status_change",
+				step: "task-reviewer:completed",
+				unit: "T1",
+				data: JSON.stringify({ status: "completed" }),
+			});
+
+			const statuses = getStepStatuses(db, "run-ss-logical");
+
+			expect(statuses).toEqual([
+				{
+					step: "task-reviewer::T1",
+					status: "completed",
+					concreteStep: "task-reviewer:completed",
+					unit: "T1",
+				},
+			]);
 		});
 	});
 
