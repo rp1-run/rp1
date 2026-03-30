@@ -86,6 +86,11 @@ export {
 	LogLevel,
 } from "./logger.js";
 export {
+	getLogicalStepDisplayId,
+	getLogicalStepKey,
+	isNamespacedLifecycleStep,
+} from "./logical-step.js";
+export {
 	confirmAction,
 	type PromptOptions,
 	selectMultiple,
