@@ -53,25 +53,23 @@ export const buildManagedGitignoreContent = (
 	const resolvedCwd = path.resolve(cwd);
 	return E.map((directories: ResolvedDirectorySet) => {
 		const lines: string[] = [];
-		const rp1RootDir = toDirectoryPattern(resolvedCwd, directories.rp1Root);
-		const kbDir = toDirectoryPattern(resolvedCwd, directories.kbDir);
-		const workDir = toDirectoryPattern(resolvedCwd, directories.workDir);
+		const rp1RootPath = path.join(directories.projectRoot, ".rp1");
+		const rp1RootDir = toDirectoryPattern(resolvedCwd, rp1RootPath);
+		const kbDir = toDirectoryPattern(resolvedCwd, directories.kbRoot);
+		const workDir = toDirectoryPattern(resolvedCwd, directories.workRoot);
 		const settingsAbsolutePath = resolveProjectSettingsPath(resolvedCwd);
 		const settingsPath = toRelativePath(resolvedCwd, settingsAbsolutePath);
 		const kbMetaPath = toRelativePath(
 			resolvedCwd,
-			path.join(directories.kbDir, "meta.json"),
+			path.join(directories.kbRoot, "meta.json"),
 		);
-		const kbDirWithinRp1Root = isWithinRoot(
-			directories.rp1Root,
-			directories.kbDir,
-		);
+		const kbDirWithinRp1Root = isWithinRoot(rp1RootPath, directories.kbRoot);
 		const workDirWithinRp1Root = isWithinRoot(
-			directories.rp1Root,
-			directories.workDir,
+			rp1RootPath,
+			directories.workRoot,
 		);
 		const settingsWithinRp1Root = isWithinRoot(
-			directories.rp1Root,
+			rp1RootPath,
 			settingsAbsolutePath,
 		);
 

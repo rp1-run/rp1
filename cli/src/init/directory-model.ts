@@ -29,9 +29,9 @@ export const resolveInitDirectoryModel = (cwd: string): InitDirectoryModel => {
 	}
 
 	return {
-		rp1Dir: path.resolve(result.right.rp1Root),
-		contextDir: path.resolve(result.right.kbDir),
-		workDir: path.resolve(result.right.workDir),
+		rp1Dir: path.resolve(result.right.projectRoot, ".rp1"),
+		contextDir: path.resolve(result.right.kbRoot),
+		workDir: path.resolve(result.right.workRoot),
 	};
 };
 
