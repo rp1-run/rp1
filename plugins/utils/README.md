@@ -104,7 +104,7 @@ $1: plugins/dev/commands/build-fast.md
 
 Optimizes eval configurations by resolving placeholder assertions to actual implementations, consolidating redundant test scenarios, and documenting assertions that require custom implementation.
 
-**Input**: Eval YAML config path, source name, RP1_ROOT
+**Input**: Eval YAML config path, source name, RP1_PROJECT_ROOT
 
 **Processing**:
 1. Parse placeholder assertions (PLACEHOLDER:, TODO:, # PLACEHOLDER: markers)
