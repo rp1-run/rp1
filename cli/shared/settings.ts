@@ -6,15 +6,15 @@ import { type CLIError, validationError } from "./errors.js";
 
 export interface DirectorySettings {
 	readonly projectRoot?: string;
-	readonly kbDir?: string;
-	readonly workDir?: string;
+	readonly kbRoot?: string;
+	readonly workRoot?: string;
 }
 
 export interface LoadedDirectorySettings extends DirectorySettings {
 	readonly sources: {
 		readonly projectRoot?: "project_settings" | "user_settings";
-		readonly kbDir?: "project_settings" | "user_settings";
-		readonly workDir?: "project_settings" | "user_settings";
+		readonly kbRoot?: "project_settings" | "user_settings";
+		readonly workRoot?: "project_settings" | "user_settings";
 	};
 }
 
@@ -37,7 +37,7 @@ const isPlainRecord = (
 
 const normalizeDirectoryValue = (
 	filePath: string,
-	fieldName: "project_root" | "kb_dir" | "work_dir",
+	fieldName: "project_root" | "kb_root" | "work_root",
 	value: unknown,
 	baseDir: string,
 ): E.Either<CLIError, string | undefined> => {
@@ -110,31 +110,31 @@ const parseDirectorySettingsFile = (
 			options.directoryBaseDir ??
 			projectRootResult.right ??
 			options.projectRootBaseDir;
-		const kbDirResult = normalizeDirectoryValue(
+		const kbRootResult = normalizeDirectoryValue(
 			filePath,
-			"kb_dir",
-			rawDirectories.kb_dir,
+			"kb_root",
+			rawDirectories.kb_root,
 			directoryBaseDir,
 		);
-		if (E.isLeft(kbDirResult)) {
-			return kbDirResult;
+		if (E.isLeft(kbRootResult)) {
+			return kbRootResult;
 		}
 
-		const workDirResult = normalizeDirectoryValue(
+		const workRootResult = normalizeDirectoryValue(
 			filePath,
-			"work_dir",
-			rawDirectories.work_dir,
+			"work_root",
+			rawDirectories.work_root,
 			directoryBaseDir,
 		);
-		if (E.isLeft(workDirResult)) {
-			return workDirResult;
+		if (E.isLeft(workRootResult)) {
+			return workRootResult;
 		}
 
 		return E.right({
 			directories: {
 				projectRoot: projectRootResult.right,
-				kbDir: kbDirResult.right,
-				workDir: workDirResult.right,
+				kbRoot: kbRootResult.right,
+				workRoot: workRootResult.right,
 			},
 		});
 	} catch (error) {
@@ -216,16 +216,16 @@ export const loadDirectorySettings = (
 	const projectSettings: ParsedSettingsDirectories = {
 		projectRoot:
 			effectiveProjectSettings.projectRoot ?? baseProjectSettings.projectRoot,
-		kbDir: effectiveProjectSettings.kbDir ?? baseProjectSettings.kbDir,
-		workDir: effectiveProjectSettings.workDir ?? baseProjectSettings.workDir,
+		kbRoot: effectiveProjectSettings.kbRoot ?? baseProjectSettings.kbRoot,
+		workRoot: effectiveProjectSettings.workRoot ?? baseProjectSettings.workRoot,
 	};
 	const resolvedSettingsProjectRoot =
 		projectSettings.projectRoot ?? candidateProjectRoot ?? resolvedProjectRoot;
 
 	return E.right({
 		projectRoot: resolvedSettingsProjectRoot,
-		kbDir: projectSettings.kbDir ?? userSettings.kbDir,
-		workDir: projectSettings.workDir ?? userSettings.workDir,
+		kbRoot: projectSettings.kbRoot ?? userSettings.kbRoot,
+		workRoot: projectSettings.workRoot ?? userSettings.workRoot,
 		sources: {
 			projectRoot:
 				projectSettings.projectRoot !== undefined
@@ -233,16 +233,16 @@ export const loadDirectorySettings = (
 					: candidateProjectRoot !== undefined
 						? "user_settings"
 						: undefined,
-			kbDir:
-				projectSettings.kbDir !== undefined
+			kbRoot:
+				projectSettings.kbRoot !== undefined
 					? "project_settings"
-					: userSettings.kbDir !== undefined
+					: userSettings.kbRoot !== undefined
 						? "user_settings"
 						: undefined,
-			workDir:
-				projectSettings.workDir !== undefined
+			workRoot:
+				projectSettings.workRoot !== undefined
 					? "project_settings"
-					: userSettings.workDir !== undefined
+					: userSettings.workRoot !== undefined
 						? "user_settings"
 						: undefined,
 		},
