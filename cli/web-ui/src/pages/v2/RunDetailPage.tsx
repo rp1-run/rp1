@@ -15,6 +15,7 @@ import {
 	commandToWorkflowName,
 	useWorkflowSteps,
 } from "@/hooks/useWorkflowSteps";
+import { resolveRunDisplayName } from "@/lib/run-display";
 import { cn } from "@/lib/utils";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 import type { Artifact, Step } from "@/types/runs";
@@ -98,7 +99,7 @@ export function RunDetailPage() {
 		return run.artifacts.filter((a) => a.step === selectedStepId);
 	}, [selectedStepId, run]);
 
-	const { setActiveArtifact, setProject } = useBreadcrumbContext();
+	const { setActiveArtifact, setProject, setRunInfo } = useBreadcrumbContext();
 	const { setProjectId } = useWebSocket();
 
 	useEffect(() => {
@@ -111,6 +112,21 @@ export function RunDetailPage() {
 			setProjectId(null);
 		};
 	}, [run?.projectName, run?.projectId, setProject, setProjectId]);
+
+	useEffect(() => {
+		if (run) {
+			setRunInfo({
+				startedAt: run.startedAt,
+				harness: run.harness,
+				command: run.command,
+				displayName: resolveRunDisplayName(run) || run.command,
+				projectName: run.projectName,
+			});
+		}
+		return () => {
+			setRunInfo(null);
+		};
+	}, [run, setRunInfo]);
 
 	const handleStepSelect = useCallback(
 		(stepId: string) => {
@@ -260,13 +276,6 @@ export function RunDetailPage() {
 						className="bg-surface-void"
 					>
 						<div className="h-full overflow-y-auto">
-							<div className="px-md pt-md pb-xs">
-								<p className="type-body font-medium text-fg truncate">
-									{run.projectName}
-									<span className="text-fg-ghost"> / </span>
-									<span className="text-fg-muted">{run.featureName}</span>
-								</p>
-							</div>
 							<VerticalStepList
 								harness={run.harness}
 								steps={displaySteps}
