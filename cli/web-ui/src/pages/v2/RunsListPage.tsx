@@ -147,7 +147,7 @@ function Pagination({
 	);
 }
 
-const RUN_CARD_HEIGHT = 80;
+const RUN_CARD_HEIGHT = 44;
 
 export function RunsListPage() {
 	const navigate = useNavigate();

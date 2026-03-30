@@ -1,4 +1,4 @@
-import { FileText, List } from "lucide-react";
+import { Check, FileText, List } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AnnotationSidebar } from "@/components/v2/AnnotationSidebar";
@@ -47,6 +47,7 @@ function ArtifactViewerInner({
 	const [annotationSidebarOpen, setAnnotationSidebarOpen] = useState(false);
 	const [tocOpen, setTocOpen] = useState(false);
 	const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+	const [copiedPath, setCopiedPath] = useState<string | null>(null);
 	const scrollViewportRef = useRef<HTMLDivElement>(null);
 	const { onFileChange } = useWebSocket();
 
@@ -189,23 +190,40 @@ function ArtifactViewerInner({
 					<nav className="mt-[8px] flex flex-wrap gap-x-[16px] gap-y-[4px]">
 						{stepArtifacts.map((artifact) => {
 							const isSelected = selectedArtifact?.path === artifact.path;
+							const isCopied = copiedPath === artifact.path;
+							const IconComponent = isCopied ? Check : FileText;
 							return (
-								<button
+								<span
 									key={artifact.path}
-									type="button"
-									onClick={() => onArtifactSelect?.(artifact)}
 									className={cn(
-										"type-secondary transition-colors duration-150 hover:opacity-80 inline-flex items-center gap-1",
+										"type-secondary inline-flex items-center gap-1",
 										isSelected ? "text-fg font-medium" : "text-fg-ghost",
 									)}
 								>
-									<FileText
-										className="h-3 w-3 shrink-0"
-										strokeWidth={1.5}
-										aria-hidden="true"
-									/>
-									{getFileName(artifact.path)}
-								</button>
+									<button
+										type="button"
+										title={artifact.absolutePath ?? artifact.path}
+										onClick={(e) => {
+											e.stopPropagation();
+											const absPath = artifact.absolutePath ?? artifact.path;
+											navigator.clipboard.writeText(absPath).then(() => {
+												setCopiedPath(artifact.path);
+												setTimeout(() => setCopiedPath(null), 2000);
+											});
+										}}
+										className="shrink-0 transition-colors duration-150 hover:text-fg"
+										aria-label={`Copy path for ${getFileName(artifact.path)}`}
+									>
+										<IconComponent className="h-3 w-3" strokeWidth={1.5} />
+									</button>
+									<button
+										type="button"
+										onClick={() => onArtifactSelect?.(artifact)}
+										className="transition-colors duration-150 hover:opacity-80"
+									>
+										{getFileName(artifact.path)}
+									</button>
+								</span>
 							);
 						})}
 					</nav>

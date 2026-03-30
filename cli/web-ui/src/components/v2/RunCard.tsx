@@ -1,6 +1,6 @@
+import { FolderOpen } from "lucide-react";
 import type React from "react";
 import { resolveRunDisplayName } from "@/lib/run-display";
-import { getStatusLabel } from "@/lib/status-labels";
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { Run, RunStatus } from "@/types/runs";
@@ -50,7 +50,7 @@ export function RunCard({
 			onClick={onClick}
 			onKeyDown={onClick ? handleKeyDown : undefined}
 			className={cn(
-				"group flex items-center gap-3 py-3 px-3 transition-colors duration-150",
+				"flex items-center gap-3 py-2.5 px-3 transition-colors duration-150",
 				onClick && "cursor-pointer hover:bg-accent-ghost",
 				selected && "bg-accent-ghost",
 				run.status === "waiting" && "bg-accent-ghost",
@@ -59,64 +59,42 @@ export function RunCard({
 		>
 			{showStatus && <StatusDot status={run.status} />}
 
-			<div className="min-w-0 flex-1">
-				<div className="flex items-center gap-2">
-					<span className="truncate type-body font-medium text-fg">
-						{run.projectName}
-					</span>
-					{resolveRunDisplayName(run) && (
-						<>
-							<span className="text-fg-ghost">/</span>
-							<span className="truncate type-body text-fg-muted">
-								{resolveRunDisplayName(run)}
-							</span>
-						</>
-					)}
-				</div>
+			<span className="w-[5.5em] shrink-0 text-right type-secondary tabular-nums text-fg-ghost">
+				{formatRelativeTime(run.startedAt)}
+			</span>
 
-				<div className="mt-0.5 flex items-center gap-2 type-secondary text-fg-muted">
-					<HarnessIcon harness={run.harness} size={14} />
-					<span>{run.command}</span>
-					{run.currentStep && (
-						<>
-							<span aria-hidden="true">-</span>
-							<span className="truncate">{run.currentStep}</span>
-						</>
-					)}
-				</div>
+			<span className="inline-flex w-[14px] shrink-0 items-center justify-center">
+				<HarnessIcon harness={run.harness} size={14} />
+			</span>
 
-				{run.status === "failed" && run.error && (
-					<p className="mt-1 truncate type-secondary text-failure">
-						{run.error}
-					</p>
-				)}
-			</div>
+			<span className="shrink-0 type-body font-medium text-fg">
+				{run.command}
+			</span>
 
-			<div className="flex shrink-0 flex-col items-end gap-1">
-				<time
-					dateTime={run.startedAt}
-					className="type-secondary text-fg-ghost tabular-nums"
-				>
-					{formatRelativeTime(run.startedAt)}
-				</time>
-				{showStatus && (
-					// biome-ignore lint/a11y/useSemanticElements: span with role="status" for inline status text
-					<span
-						role="status"
-						className={cn(
-							"type-caption",
-							run.status === "running" && "text-fg",
-							run.status === "completed" && "text-fg-ghost",
-							run.status === "failed" && "text-failure",
-							run.status === "waiting" && "text-accent-amber",
-							(run.status === "not_started" || run.status === "skipped") &&
-								"text-fg-ghost",
-						)}
-					>
-						{getStatusLabel(run.status)}
-					</span>
-				)}
-			</div>
+			<span className="truncate type-secondary text-fg-muted">
+				{resolveRunDisplayName(run) || run.command}
+			</span>
+
+			{/* biome-ignore lint/a11y/useSemanticElements: span with role="link" for project navigation within button row */}
+			<span
+				role="link"
+				tabIndex={0}
+				onClick={(e) => {
+					e.stopPropagation();
+					window.location.href = `/projects/${run.projectName}`;
+				}}
+				onKeyDown={(e) => {
+					if (e.key === "Enter") {
+						e.stopPropagation();
+						window.location.href = `/projects/${run.projectName}`;
+					}
+				}}
+				className="ml-auto shrink-0 flex items-center gap-1 pl-4 type-secondary italic text-fg-ghost hover:text-fg-muted transition-colors duration-150 cursor-pointer"
+				aria-label={`Open project ${run.projectName}`}
+			>
+				<FolderOpen className="h-3 w-3" strokeWidth={1.5} />
+				{run.projectName}
+			</span>
 		</div>
 	);
 }
