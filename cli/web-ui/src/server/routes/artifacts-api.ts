@@ -114,7 +114,7 @@ export function extractDocIdFromContent(content: string): string | null {
  * in its frontmatter. Returns the absolute path if found, null otherwise.
  */
 export async function scanForDocId(
-	workDir: string,
+	workRoot: string,
 	docId: string,
 	maxDepth = 8,
 ): Promise<string | null> {
@@ -163,7 +163,7 @@ export async function scanForDocId(
 		return null;
 	}
 
-	return scanDir(workDir, 0);
+	return scanDir(workRoot, 0);
 }
 
 const getReconciliationRoots = (

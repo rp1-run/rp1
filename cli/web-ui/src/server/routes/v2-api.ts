@@ -156,11 +156,11 @@ function artifactRecordToArtifact(
  * Used as a fallback when no artifacts are registered in the database.
  */
 async function discoverArtifactsFromFilesystem(
-	workDir: string,
+	workRoot: string,
 	featureId: string,
 ): Promise<readonly Artifact[]> {
-	const featureDir = resolve(workDir, `features/${featureId}`);
-	const archiveDir = resolve(workDir, `archives/features/${featureId}`);
+	const featureDir = resolve(workRoot, `features/${featureId}`);
+	const archiveDir = resolve(workRoot, `archives/features/${featureId}`);
 
 	const { existsSync } = await import("node:fs");
 	const dir = existsSync(featureDir)
