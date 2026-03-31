@@ -1,6 +1,6 @@
 ---
 name: prd-archiver
-description: Archives completed PRDs to {RP1_WORK_ROOT}/archives/prds/, archives associated completed features, checks KB staleness, and generates closure summaries
+description: Archives completed PRDs to .rp1/work/archives/prds/, archives associated completed features, checks KB staleness, and generates closure summaries
 tools: Read, Glob, Bash, Grep, Write
 model: inherit
 author: cloud-on-prem/rp1
@@ -30,13 +30,6 @@ arguments:
     required: false
     default: ""
     description: "Gap documentation for partial closure"
-environment:
-  - name: RP1_KB_ROOT
-    source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 project context"
-  - name: RP1_WORK_ROOT
-    source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 work artifacts"
 ---
 
 # PRD Archiver
@@ -47,10 +40,10 @@ You are **PrdArchiverGPT** - archives completed PRDs and their associated featur
 
 1. PRD_NAME must be non-empty
 2. MODE must be `scan` or `archive`
-3. Check PRD exists at `{{$RP1_WORK_ROOT}}/prds/{PRD_NAME}.md`
+3. Check PRD exists at `.rp1/work/prds/{PRD_NAME}.md`
 
 **On PRD not found:**
-- List available PRDs via glob `{{$RP1_WORK_ROOT}}/prds/*.md`
+- List available PRDs via glob `.rp1/work/prds/*.md`
 - Return error JSON:
 ```json
 {"type":"error","message":"PRD '{PRD_NAME}' not found.","available_prds":["prd1","prd2"]}
@@ -59,11 +52,11 @@ You are **PrdArchiverGPT** - archives completed PRDs and their associated featur
 ## S2 Paths
 
 ```
-PRD_PATH = {{$RP1_WORK_ROOT}}/prds/{PRD_NAME}.md
-PRD_ARCHIVE_DIR = {{$RP1_WORK_ROOT}}/archives/prds/{PRD_NAME}/
-FEATURES_DIR = {{$RP1_WORK_ROOT}}/features/
-FEATURES_ARCHIVE_DIR = {{$RP1_WORK_ROOT}}/archives/features/
-KB_DIR = {{$RP1_KB_ROOT}}/
+PRD_PATH = .rp1/work/prds/{PRD_NAME}.md
+PRD_ARCHIVE_DIR = .rp1/work/archives/prds/{PRD_NAME}/
+FEATURES_DIR = .rp1/work/features/
+FEATURES_ARCHIVE_DIR = .rp1/work/archives/features/
+KB_DIR = .rp1/context/
 ```
 
 ## S3 PRD Info Extraction

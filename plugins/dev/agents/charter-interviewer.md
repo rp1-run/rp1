@@ -18,10 +18,6 @@ arguments:
       - "CREATE"
       - "UPDATE"
       - "RESUME"
-environment:
-  - name: RP1_KB_ROOT
-    source: "rp1 agent-tools rp1-root-dir"
-    description: "Knowledge base directory for project context"
 ---
 
 # Charter Interviewer Agent (Stateless)

@@ -37,10 +37,6 @@ arguments:
     required: false
     default: ""
     description: "Feature context JSON for FEATURE_LEARNING mode"
-environment:
-  - name: RP1_KB_ROOT
-    source: "rp1 agent-tools rp1-root-dir"
-    description: "Knowledge base directory for project context"
 ---
 
 # KB Pattern Extractor - Implementation Idiom Mapping
@@ -77,7 +73,7 @@ $6
 
 **Check for existing patterns.md**:
 
-- Check if `{{$RP1_KB_ROOT}}/patterns.md` exists
+- Check if `.rp1/context/patterns.md` exists
 - If exists, read to understand current pattern documentation
 - Use as baseline for refinement in INCREMENTAL mode
 

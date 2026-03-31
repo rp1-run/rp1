@@ -23,10 +23,6 @@ arguments:
     required: false
     default: "80"
     description: "Coverage target percentage"
-environment:
-  - name: RP1_KB_ROOT
-    source: "rp1 agent-tools rp1-root-dir"
-    description: "Knowledge base directory for project context"
 ---
 
 # Test Runner Agent - Comprehensive Test Execution

@@ -16,13 +16,6 @@ metadata:
       type: string
       required: true
       description: "Feature ID to archive (kebab-case)"
-  environment:
-    - name: RP1_KB_ROOT
-      source: "rp1 agent-tools rp1-root-dir"
-      description: "Root directory for rp1 project context"
-    - name: RP1_WORK_ROOT
-      source: "rp1 agent-tools rp1-root-dir"
-      description: "Root directory for rp1 work artifacts"
   sub_agents:
     - "rp1-dev:feature-archiver"
 ---
@@ -39,7 +32,7 @@ Archives completed feature docs from active -> archives dir.
 
 ## Behavior
 
-- Moves `{{$RP1_WORK_ROOT}}/features/{FEATURE_ID}/` -> `{{$RP1_WORK_ROOT}}/archives/features/{FEATURE_ID}/`
+- Moves `.rp1/work/features/{FEATURE_ID}/` -> `.rp1/work/archives/features/{FEATURE_ID}/`
 - Creates archives/features/ if missing
 - Existing archive ID -> appends timestamp suffix
 - Validates docs exist before archiving
