@@ -245,10 +245,9 @@ Description:
   git worktrees. Users manage worktrees directly with native git commands.
 
 Resolution order:
-  1. RP1_PROJECT_ROOT environment variable (if set, used as-is)
-  2. RP1_ROOT compatibility environment variable (legacy input)
-  3. Git worktree detection via git-common-dir (maps to main repo)
-  4. Standard resolution from current working directory
+  1. Walk up from current directory to find .rp1/project_id
+  2. Git worktree detection via git-common-dir (maps to main repo)
+  3. Fall back to .rp1/ directory without project_id (with warning)
 
 Output:
   JSON with resolved directories and detection metadata:
