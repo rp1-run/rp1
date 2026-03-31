@@ -7,6 +7,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import {
@@ -35,6 +36,8 @@ describe("emit end-to-end", () => {
 		closeDatabase();
 		resetInstance();
 		tempDir = await createTempDir("emit-e2e");
+		mkdirSync(join(tempDir, ".rp1"), { recursive: true });
+		writeFileSync(join(tempDir, ".rp1", "project_id"), "test-emit-e2e-uuid");
 		testCounter++;
 		dbPath = join(tempDir, `test-${testCounter}.db`);
 		// Initialize the singleton with our test DB path.
@@ -115,48 +118,28 @@ describe("emit end-to-end", () => {
 
 		test("persists resolved directory metadata on the run", async () => {
 			const projectRoot = join(tempDir, "project-root");
-			await writeFixture(projectRoot, ".rp1/settings.toml", "");
-			const originalProjectRoot = process.env.RP1_PROJECT_ROOT;
-			const originalKbDir = process.env.RP1_KB_ROOT;
-			const originalWorkDir = process.env.RP1_WORK_ROOT;
-			process.env.RP1_PROJECT_ROOT = projectRoot;
-			process.env.RP1_KB_ROOT = join(tempDir, "kb-dir");
-			process.env.RP1_WORK_ROOT = join(tempDir, "work-dir");
+			await writeFixture(
+				projectRoot,
+				".rp1/project_id",
+				"test-persist-dirs-uuid",
+			);
 
-			try {
-				const runId = `run-dirs-${Date.now()}`;
-				const input = makeInput({
-					type: "status_change",
-					runId,
-					step: "build",
-					projectPath: projectRoot,
-					data: { status: "running", workflow: "build", feature: "feat" },
-				});
+			const runId = `run-dirs-${Date.now()}`;
+			const input = makeInput({
+				type: "status_change",
+				runId,
+				step: "build",
+				projectPath: projectRoot,
+				data: { status: "running", workflow: "build", feature: "feat" },
+			});
 
-				await expectTaskRight(executeEmit(input));
+			await expectTaskRight(executeEmit(input));
 
-				const db = await expectTaskRight(getEmitDatabase(dbPath));
-				const run = getRunById(db, runId);
-				expect(run?.rp1ProjectRoot).toBe(projectRoot);
-				expect(run?.rp1KbRoot).toBe(join(tempDir, "kb-dir"));
-				expect(run?.rp1WorkRoot).toBe(join(tempDir, "work-dir"));
-			} finally {
-				if (originalProjectRoot == null) {
-					delete process.env.RP1_PROJECT_ROOT;
-				} else {
-					process.env.RP1_PROJECT_ROOT = originalProjectRoot;
-				}
-				if (originalKbDir == null) {
-					delete process.env.RP1_KB_ROOT;
-				} else {
-					process.env.RP1_KB_ROOT = originalKbDir;
-				}
-				if (originalWorkDir == null) {
-					delete process.env.RP1_WORK_ROOT;
-				} else {
-					process.env.RP1_WORK_ROOT = originalWorkDir;
-				}
-			}
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+			const run = getRunById(db, runId);
+			expect(run?.rp1ProjectRoot).toBe(projectRoot);
+			expect(run?.rp1KbRoot).toBe(join(projectRoot, ".rp1", "context"));
+			expect(run?.rp1WorkRoot).toBe(join(projectRoot, ".rp1", "work"));
 		});
 	});
 
@@ -190,102 +173,77 @@ describe("emit end-to-end", () => {
 		});
 
 		test("stores work-dir-relative artifact paths when the file is under rp1_work_root", async () => {
-			const originalProjectRoot = process.env.RP1_PROJECT_ROOT;
-			const originalWorkDir = process.env.RP1_WORK_ROOT;
 			const projectRoot = join(tempDir, "project-artifacts");
-			const workDir = join(tempDir, "external-work");
-			process.env.RP1_PROJECT_ROOT = projectRoot;
-			process.env.RP1_WORK_ROOT = workDir;
+			await writeFixture(
+				projectRoot,
+				".rp1/project_id",
+				"test-work-dir-artifacts-uuid",
+			);
 
-			try {
-				const artifactPath = await writeFixture(
-					workDir,
-					"features/test-feat/design.md",
-					"---\nrp1_doc_id: doc-storage\n---\n# Test Artifact\n",
-				);
+			const workDir = join(projectRoot, ".rp1", "work");
+			const artifactPath = await writeFixture(
+				workDir,
+				"features/test-feat/design.md",
+				"---\nrp1_doc_id: doc-storage\n---\n# Test Artifact\n",
+			);
 
-				const input = makeInput({
-					type: "artifact_registered",
-					step: "design",
-					projectPath: projectRoot,
-					data: {
-						path: artifactPath,
-						feature: "test-feat",
-						type: "markdown",
-						workflow: "build",
-					},
-				});
+			const input = makeInput({
+				type: "artifact_registered",
+				step: "design",
+				projectPath: projectRoot,
+				data: {
+					path: artifactPath,
+					feature: "test-feat",
+					type: "markdown",
+					workflow: "build",
+				},
+			});
 
-				const result = await expectTaskRight(executeEmit(input));
-				const db = await expectTaskRight(getEmitDatabase(dbPath));
-				const artifact = getArtifactByDocId(db, result.data.docId ?? "");
+			const result = await expectTaskRight(executeEmit(input));
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+			const artifact = getArtifactByDocId(db, result.data.docId ?? "");
 
-				expect(artifact?.storageRoot).toBe("work_dir");
-				expect(artifact?.path).toBe("features/test-feat/design.md");
-			} finally {
-				if (originalProjectRoot == null) {
-					delete process.env.RP1_PROJECT_ROOT;
-				} else {
-					process.env.RP1_PROJECT_ROOT = originalProjectRoot;
-				}
-				if (originalWorkDir == null) {
-					delete process.env.RP1_WORK_ROOT;
-				} else {
-					process.env.RP1_WORK_ROOT = originalWorkDir;
-				}
-			}
+			expect(artifact?.storageRoot).toBe("work_dir");
+			expect(artifact?.path).toBe("features/test-feat/design.md");
 		});
 
 		test("uses frontmatter doc_id for relative work-dir artifacts when storageRoot is omitted", async () => {
-			const originalProjectRoot = process.env.RP1_PROJECT_ROOT;
-			const originalWorkDir = process.env.RP1_WORK_ROOT;
 			const projectRoot = join(tempDir, "project-relative-doc-id");
-			const workDir = join(tempDir, "external-work-relative-doc-id");
-			process.env.RP1_PROJECT_ROOT = projectRoot;
-			process.env.RP1_WORK_ROOT = workDir;
+			await writeFixture(
+				projectRoot,
+				".rp1/project_id",
+				"test-frontmatter-docid-uuid",
+			);
 
-			try {
-				await writeFixture(projectRoot, ".rp1/settings.toml", "");
-				await writeFixture(
-					workDir,
-					"features/test-feat/design.md",
-					"---\nrp1_doc_id: doc-relative-frontmatter\n---\n# Test Artifact\n",
-				);
+			const workDir = join(projectRoot, ".rp1", "work");
+			await writeFixture(
+				workDir,
+				"features/test-feat/design.md",
+				"---\nrp1_doc_id: doc-relative-frontmatter\n---\n# Test Artifact\n",
+			);
 
-				const result = await expectTaskRight(
-					executeEmit(
-						makeInput({
-							type: "artifact_registered",
-							step: "design",
-							projectPath: projectRoot,
-							data: {
-								path: "features/test-feat/design.md",
-								feature: "test-feat",
-								type: "markdown",
-								workflow: "build",
-							},
-						}),
-					),
-				);
+			const result = await expectTaskRight(
+				executeEmit(
+					makeInput({
+						type: "artifact_registered",
+						step: "design",
+						projectPath: projectRoot,
+						data: {
+							path: "features/test-feat/design.md",
+							feature: "test-feat",
+							type: "markdown",
+							workflow: "build",
+						},
+					}),
+				),
+			);
 
-				const db = await expectTaskRight(getEmitDatabase(dbPath));
-				const artifact = getArtifactByDocId(db, "doc-relative-frontmatter");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+			const artifact = getArtifactByDocId(db, "doc-relative-frontmatter");
 
-				expect(result.data.docId).toBe("doc-relative-frontmatter");
-				expect(artifact?.storageRoot).toBe("work_dir");
-				expect(artifact?.path).toBe("features/test-feat/design.md");
-			} finally {
-				if (originalProjectRoot == null) {
-					delete process.env.RP1_PROJECT_ROOT;
-				} else {
-					process.env.RP1_PROJECT_ROOT = originalProjectRoot;
-				}
-				if (originalWorkDir == null) {
-					delete process.env.RP1_WORK_ROOT;
-				} else {
-					process.env.RP1_WORK_ROOT = originalWorkDir;
-				}
-			}
+			expect(result.data.docId).toBe("doc-relative-frontmatter");
+			expect(artifact?.storageRoot).toBe("work_dir");
+			expect(artifact?.path).toBe("features/test-feat/design.md");
 		});
 	});
 

@@ -6,7 +6,10 @@
 import { stat } from "node:fs/promises";
 import { resolve } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
-import { resolveDirectorySet } from "../../../shared/directory-resolution.js";
+import {
+	type ResolvedDirectorySet,
+	resolveDirectorySet,
+} from "../../../shared/directory-resolution.js";
 import type { StepCallbacks } from "../models.js";
 
 /**
@@ -75,7 +78,7 @@ export async function checkRp1Readiness(
 	const charterFile = resolve(cwd, rp1Root, "context", "charter.md");
 	const workDir = E.match(
 		() => resolve(rp1Dir, "work"),
-		(directories) => resolve(directories.workRoot),
+		(directories: ResolvedDirectorySet) => resolve(directories.workRoot),
 	)(resolveDirectorySet(cwd));
 
 	const [

@@ -716,7 +716,7 @@ describe("handleArtifactSaveRequest with moved file", () => {
 		const row = movedDb
 			.prepare("SELECT path FROM artifacts WHERE doc_id = $docId")
 			.get({ $docId: movedDocId }) as { path: string };
-		expect(row.path).toBe(".rp1/work/archives/features/feat-move/design.md");
+		expect(row.path).toBe("archives/features/feat-move/design.md");
 		const written = await Bun.file(join(movedTmpDir, archivedPath)).text();
 		expect(written).toBe(newContent);
 	});
