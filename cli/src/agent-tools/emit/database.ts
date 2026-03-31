@@ -1219,11 +1219,13 @@ export const listRuns = (
 	const filterValues: (string | number)[] = [];
 
 	if (opts.projectPath != null) {
-		conditions.push("project_path = ?");
+		conditions.push("COALESCE(rp1_project_root, project_path) = ?");
 		filterValues.push(opts.projectPath);
 	} else if (opts.projectPaths != null && opts.projectPaths.length > 0) {
 		const placeholders = opts.projectPaths.map(() => "?").join(", ");
-		conditions.push(`project_path IN (${placeholders})`);
+		conditions.push(
+			`COALESCE(rp1_project_root, project_path) IN (${placeholders})`,
+		);
 		filterValues.push(...opts.projectPaths);
 	}
 	if (opts.status != null) {
@@ -1408,8 +1410,15 @@ export const normalizeArtifactStorage = (
 		}
 		const baseDir =
 			storageRoot === "work_dir" ? run.rp1WorkRoot : run.rp1ProjectRoot;
+		const resolvedPath = resolve(baseDir, artifactPath);
+		if (!isWithinRoot(resolvedPath, baseDir)) {
+			return {
+				path: resolvedPath,
+				storageRoot: "absolute",
+			};
+		}
 		return {
-			path: relative(baseDir, resolve(baseDir, artifactPath)),
+			path: relative(baseDir, resolvedPath),
 			storageRoot,
 		};
 	}
@@ -1484,9 +1493,16 @@ async function scanForArtifactDocId(
 
 const getArtifactReconciliationRoots = (
 	run: Pick<RunRecord, "rp1ProjectRoot" | "rp1WorkRoot">,
+	storageRoot: ArtifactStorageRoot,
 ): readonly string[] =>
 	Array.from(
-		new Set([resolve(run.rp1WorkRoot), getLegacyWorkDir(run.rp1ProjectRoot)]),
+		new Set([
+			...(storageRoot === "project" ? [resolve(run.rp1ProjectRoot)] : []),
+			...(storageRoot === "absolute" ? [] : [resolve(run.rp1WorkRoot)]),
+			...(storageRoot === "absolute"
+				? []
+				: [getLegacyWorkDir(run.rp1ProjectRoot)]),
+		]),
 	);
 
 export const resolveArtifactPathForRun = async (
@@ -1523,7 +1539,10 @@ export const resolveArtifactPathForRun = async (
 		}
 	}
 
-	for (const rootDir of getArtifactReconciliationRoots(run)) {
+	for (const rootDir of getArtifactReconciliationRoots(
+		run,
+		artifact.storageRoot,
+	)) {
 		const scannedPath = await scanForArtifactDocId(rootDir, artifact.docId);
 		if (scannedPath == null) {
 			continue;
@@ -1698,19 +1717,21 @@ export const getProjectRunStats = (
 
 	const rows = db
 		.prepare(
-			`SELECT project_path, COUNT(*) as run_count, MAX(updated_at) as last_activity_at
+			`SELECT COALESCE(rp1_project_root, project_path) as effective_project_path,
+			        COUNT(*) as run_count,
+			        MAX(updated_at) as last_activity_at
 			 FROM runs
-			 WHERE project_path IN (${placeholders})
-			 GROUP BY project_path`,
+			 WHERE COALESCE(rp1_project_root, project_path) IN (${placeholders})
+			 GROUP BY COALESCE(rp1_project_root, project_path)`,
 		)
 		.all(...projectPaths) as {
-		project_path: string;
+		effective_project_path: string;
 		run_count: number;
 		last_activity_at: string | null;
 	}[];
 
 	for (const row of rows) {
-		result.set(row.project_path, {
+		result.set(row.effective_project_path, {
 			runCount: row.run_count,
 			lastActivityAt: row.last_activity_at,
 		});

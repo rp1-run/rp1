@@ -91,11 +91,7 @@ Use a thinking block. For each changed file:
 2. `mkdir -p {{$RP1_WORK_ROOT}}/pr-reviews`
 3. Find next sequence via Glob: `{REVIEW_ID}-visual-*.md` -> zero-pad 3 digits
 4. Save markdown to `{{$RP1_WORK_ROOT}}/pr-reviews/{REVIEW_ID}-visual-{NNN}.md`
-5. Register artifact:
-   ```bash
-   rp1 agent-tools emit --type artifact_registered --data '{"path": "pr-reviews/{REVIEW_ID}-visual-{NNN}.md"}'
-   ```
-6. Output the file path
+5. Output the file path only. The parent workflow registers the artifact with the correct run context.
 
 **STANDALONE=false**:
 

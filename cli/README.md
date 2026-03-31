@@ -197,7 +197,10 @@ cat diagram.mmd | rp1 agent-tools mmd-validate
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `RP1_ROOT` | `.rp1/` | Custom location for rp1 data directory |
+| `RP1_PROJECT_ROOT` | Current project | Override the resolved project root |
+| `RP1_KB_ROOT` | `<project>/.rp1/context` | Override the resolved knowledge-base directory |
+| `RP1_WORK_ROOT` | Platform default | Override the resolved work artifact directory |
+| `RP1_ROOT` | Compatibility only | Legacy `.rp1` root input; avoid for new workflows |
 
 ## Deprecated Commands
 

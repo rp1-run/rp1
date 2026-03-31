@@ -100,6 +100,30 @@ describe("emit validation", () => {
 				expect(error._tag).toBe("UsageError");
 				expect(getErrorMessage(error)).toContain("feature");
 			});
+
+			test("rejects traversal in non-absolute artifact paths", () => {
+				const error = expectLeft(
+					validatePayloadShape("artifact_registered", {
+						path: "../outside.md",
+						feature: "feat",
+						storageRoot: "project",
+					}),
+				);
+				expect(error._tag).toBe("UsageError");
+				expect(getErrorMessage(error)).toContain("must not contain '..'");
+			});
+
+			test("rejects absolute paths unless storageRoot is absolute", () => {
+				const error = expectLeft(
+					validatePayloadShape("artifact_registered", {
+						path: "/tmp/outside.md",
+						feature: "feat",
+						storageRoot: "project",
+					}),
+				);
+				expect(error._tag).toBe("UsageError");
+				expect(getErrorMessage(error)).toContain("must be relative");
+			});
 		});
 
 		describe("annotation_updated", () => {
