@@ -23,11 +23,7 @@ export const findRp1Root = (
 		resolveDirectorySet(startPath),
 		E.match(
 			() => O.none,
-			(result) =>
-				result.sources.projectRoot === "cwd_fallback" ||
-				result.sources.projectRoot === "git_repo_root"
-					? O.none
-					: O.some(result.projectRoot),
+			(result) => O.some(result.projectRoot),
 		),
 	);
 
@@ -83,9 +79,7 @@ export const resolveRp1Root = (
 	config: ArcadeConfig,
 ): E.Either<CLIError, ArcadeConfig> =>
 	pipe(
-		resolveDirectorySet(config.rp1Root || process.cwd(), {
-			honorEnv: config.rp1Root.length === 0,
-		}),
+		resolveDirectorySet(config.rp1Root || process.cwd()),
 		E.map((directories) => ({
 			...config,
 			rp1Root: directories.projectRoot,

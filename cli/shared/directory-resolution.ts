@@ -1,46 +1,21 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, statSync } from "node:fs";
-import { homedir } from "node:os";
 import path from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import type { CLIError } from "./errors.js";
-import {
-	type LoadedDirectorySettings,
-	loadDirectorySettings,
-} from "./settings.js";
+import { notFoundError } from "./errors.js";
+import { PROJECT_ID_FILENAME, readProjectId } from "./project-id.js";
 
-export type ProjectRootSource =
-	| "env"
-	| "project_settings"
-	| "user_settings"
-	| "walk_up"
-	| "git_common_dir"
-	| "git_repo_root"
-	| "cwd_fallback";
-
-export type DirectorySource =
-	| "env"
-	| "project_settings"
-	| "user_settings"
-	| "default";
+export type ProjectRootSource = "walk_up" | "git_common_dir";
 
 export interface ResolvedDirectorySet {
 	readonly projectRoot: string;
+	readonly projectId: string | undefined;
 	readonly kbRoot: string;
 	readonly workRoot: string;
 	readonly isWorktree: boolean;
 	readonly worktreeName?: string;
-	readonly sources: {
-		readonly projectRoot: ProjectRootSource;
-		readonly kbRoot: DirectorySource;
-		readonly workRoot: DirectorySource;
-	};
 }
-
-type DirectorySettingsLoadOptions = Parameters<typeof loadDirectorySettings>[1];
-type ResolveDirectorySetOptions = DirectorySettingsLoadOptions & {
-	readonly honorEnv?: boolean;
-};
 
 interface GitContext {
 	readonly gitDir: string;
@@ -74,22 +49,42 @@ const isDirectory = (targetPath: string): boolean => {
 	}
 };
 
+const hasProjectIdFile = (targetPath: string): boolean =>
+	existsSync(path.join(targetPath, ".rp1", PROJECT_ID_FILENAME));
+
 const hasRp1Directory = (targetPath: string): boolean =>
 	isDirectory(path.join(targetPath, ".rp1"));
 
-const walkUpToProjectRoot = (startPath: string): string | undefined => {
+const walkUpToProjectRoot = (
+	startPath: string,
+): { root: string; hasProjectId: boolean } | undefined => {
 	let current = path.resolve(startPath);
+	let fallbackRp1Dir: string | undefined;
+
 	while (true) {
-		if (hasRp1Directory(current)) {
-			return current;
+		if (hasProjectIdFile(current)) {
+			return { root: current, hasProjectId: true };
+		}
+
+		if (fallbackRp1Dir === undefined && hasRp1Directory(current)) {
+			fallbackRp1Dir = current;
 		}
 
 		const parent = path.dirname(current);
 		if (parent === current) {
-			return undefined;
+			break;
 		}
 		current = parent;
 	}
+
+	if (fallbackRp1Dir !== undefined) {
+		console.warn(
+			`[rp1] Found .rp1/ directory at ${fallbackRp1Dir} without project_id. Run 'rp1 migrate' to create one.`,
+		);
+		return { root: fallbackRp1Dir, hasProjectId: false };
+	}
+
+	return undefined;
 };
 
 const execGit = (cwd: string, args: readonly string[]): string =>
@@ -137,99 +132,39 @@ const normalizeProjectKey = (projectRoot: string): string => {
 	return normalizedRoot.length > 0 ? normalizedRoot : "project";
 };
 
-export const defaultWorkRootForProject = (projectRoot: string): string =>
-	path.join(homedir(), ".rp1", "work", normalizeProjectKey(projectRoot));
+export { normalizeProjectKey };
 
-const buildResolvedDirectorySet = (params: {
+const buildDirectorySet = (params: {
 	projectRoot: string;
-	projectRootSource: ProjectRootSource;
 	isWorktree: boolean;
 	worktreeName?: string;
-	legacyRp1Root?: string;
-	options?: ResolveDirectorySetOptions;
-}): E.Either<CLIError, ResolvedDirectorySet> => {
-	const honorEnv = params.options?.honorEnv !== false;
-	const kbRootFromEnv = honorEnv ? process.env.RP1_KB_ROOT : undefined;
-	const workRootFromEnv = honorEnv ? process.env.RP1_WORK_ROOT : undefined;
-	const candidateProjectRoot = path.resolve(params.projectRoot);
-	return E.map((settings: LoadedDirectorySettings): ResolvedDirectorySet => {
-		const projectRoot =
-			params.projectRootSource === "env"
-				? candidateProjectRoot
-				: path.resolve(settings.projectRoot ?? candidateProjectRoot);
-		const projectRootSource: ProjectRootSource =
-			params.projectRootSource === "env"
-				? params.projectRootSource
-				: (settings.sources.projectRoot ?? params.projectRootSource);
-		const rp1DotDir = params.legacyRp1Root
-			? path.resolve(params.legacyRp1Root)
-			: path.join(projectRoot, ".rp1");
-		const kbRoot = kbRootFromEnv
-			? path.resolve(kbRootFromEnv)
-			: (settings.kbRoot ?? path.join(rp1DotDir, "context"));
-		const workRoot = workRootFromEnv
-			? path.resolve(workRootFromEnv)
-			: (settings.workRoot ?? defaultWorkRootForProject(projectRoot));
-		const kbRootSource: DirectorySource = kbRootFromEnv
-			? "env"
-			: (settings.sources.kbRoot ?? "default");
-		const workRootSource: DirectorySource = workRootFromEnv
-			? "env"
-			: (settings.sources.workRoot ?? "default");
+}): ResolvedDirectorySet => {
+	const projectRoot = path.resolve(params.projectRoot);
+	const projectId = readProjectId(projectRoot);
 
-		return {
-			projectRoot,
-			kbRoot,
-			workRoot,
-			isWorktree: params.isWorktree,
-			worktreeName: params.worktreeName,
-			sources: {
-				projectRoot: projectRootSource,
-				kbRoot: kbRootSource,
-				workRoot: workRootSource,
-			},
-		};
-	})(loadDirectorySettings(candidateProjectRoot, params.options));
+	return {
+		projectRoot,
+		projectId,
+		kbRoot: path.join(projectRoot, ".rp1", "context"),
+		workRoot: path.join(projectRoot, ".rp1", "work"),
+		isWorktree: params.isWorktree,
+		worktreeName: params.worktreeName,
+	};
 };
 
 export const resolveDirectorySet = (
 	startPath: string = process.cwd(),
-	options?: ResolveDirectorySetOptions,
 ): E.Either<CLIError, ResolvedDirectorySet> => {
 	const resolvedStartPath = path.resolve(startPath);
-	const honorEnv = options?.honorEnv !== false;
 
-	if (honorEnv) {
-		const projectRootFromEnv = process.env.RP1_PROJECT_ROOT;
-		if (projectRootFromEnv) {
-			return buildResolvedDirectorySet({
-				projectRoot: projectRootFromEnv,
-				projectRootSource: "env",
+	const walkedResult = walkUpToProjectRoot(resolvedStartPath);
+	if (walkedResult) {
+		return E.right(
+			buildDirectorySet({
+				projectRoot: walkedResult.root,
 				isWorktree: false,
-				options,
-			});
-		}
-
-		const rp1RootFromEnv = process.env.RP1_ROOT;
-		if (rp1RootFromEnv) {
-			return buildResolvedDirectorySet({
-				projectRoot: path.dirname(path.resolve(rp1RootFromEnv)),
-				projectRootSource: "env",
-				isWorktree: false,
-				legacyRp1Root: rp1RootFromEnv,
-				options,
-			});
-		}
-	}
-
-	const walkedProjectRoot = walkUpToProjectRoot(resolvedStartPath);
-	if (walkedProjectRoot) {
-		return buildResolvedDirectorySet({
-			projectRoot: walkedProjectRoot,
-			projectRootSource: "walk_up",
-			isWorktree: false,
-			options,
-		});
+			}),
+		);
 	}
 
 	const gitContext = existsSync(resolvedStartPath)
@@ -242,29 +177,31 @@ export const resolveDirectorySet = (
 		const isWorktree = gitDir !== commonDir;
 		const commonDirProjectRoot = deriveProjectRootFromCommonDir(commonDir);
 
-		if (isWorktree && hasRp1Directory(commonDirProjectRoot)) {
-			return buildResolvedDirectorySet({
-				projectRoot: commonDirProjectRoot,
-				projectRootSource: "git_common_dir",
-				isWorktree: true,
-				worktreeName: gitContext.branch,
-				options,
-			});
-		}
+		if (
+			isWorktree &&
+			(hasProjectIdFile(commonDirProjectRoot) ||
+				hasRp1Directory(commonDirProjectRoot))
+		) {
+			if (!hasProjectIdFile(commonDirProjectRoot)) {
+				console.warn(
+					`[rp1] Found .rp1/ directory at ${commonDirProjectRoot} without project_id. Run 'rp1 migrate' to create one.`,
+				);
+			}
 
-		return buildResolvedDirectorySet({
-			projectRoot: gitContext.topLevel,
-			projectRootSource: "git_repo_root",
-			isWorktree,
-			worktreeName: isWorktree ? gitContext.branch : undefined,
-			options,
-		});
+			return E.right(
+				buildDirectorySet({
+					projectRoot: commonDirProjectRoot,
+					isWorktree: true,
+					worktreeName: gitContext.branch,
+				}),
+			);
+		}
 	}
 
-	return buildResolvedDirectorySet({
-		projectRoot: resolvedStartPath,
-		projectRootSource: "cwd_fallback",
-		isWorktree: false,
-		options,
-	});
+	return E.left(
+		notFoundError(
+			".rp1/project_id",
+			"No rp1 project found. Run 'rp1 init' to initialize a project.",
+		),
+	);
 };
