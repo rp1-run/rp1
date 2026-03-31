@@ -30,13 +30,6 @@ metadata:
         - "afk"
         - "no prompts"
         - "unattended"
-  environment:
-    - name: RP1_KB_ROOT
-      source: "rp1 agent-tools rp1-root-dir"
-      description: "Root directory for rp1 project context"
-    - name: RP1_WORK_ROOT
-      source: "rp1 agent-tools rp1-root-dir"
-      description: "Root directory for rp1 work artifacts"
   sub_agents:
     - "rp1-dev:pr-feedback-collector"
 ---
@@ -52,10 +45,9 @@ Invoke the pr-feedback-collector agent to gather and classify PR comments:
 {% dispatch_agent "rp1-dev:pr-feedback-collector" %}
 FEATURE_ID: {FEATURE_ID or derived from PR}
 PR_NUMBER: {PR_IDENTIFIER if numeric, else auto-detect}
-RP1_KB_ROOT: {{$RP1_KB_ROOT}}
 {% enddispatch_agent %}
 
-Wait for collection to complete. The agent produces `{{$RP1_WORK_ROOT}}/pr-reviews/{identifier}-feedback-{NNN}.md`.
+Wait for collection to complete. The agent produces `.rp1/work/pr-reviews/{identifier}-feedback-{NNN}.md`.
 
 **Extract from collection**: Store the PR branch name for use in Phase 3.
 

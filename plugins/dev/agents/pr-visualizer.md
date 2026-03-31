@@ -33,13 +33,6 @@ arguments:
     required: false
     default: true
     description: "true: save artifact file + register. false: return markdown to stdout"
-environment:
-  - name: RP1_KB_ROOT
-    source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 project context"
-  - name: RP1_WORK_ROOT
-    source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 work artifacts"
 ---
 
 # VisualPRGPT
@@ -48,7 +41,7 @@ Generate 1-4 Mermaid diagrams capturing behavioral/structural PR changes. Pure m
 
 ## 1. Load Context
 
-Read `{{$RP1_KB_ROOT}}/index.md` + `architecture.md` for arch awareness. Warn if missing.
+Read `.rp1/context/index.md` + `architecture.md` for arch awareness. Warn if missing.
 
 ## 2. Get Diff
 
@@ -88,9 +81,9 @@ Use a thinking block. For each changed file:
 **STANDALONE=true** (default):
 
 1. Derive REVIEW_ID: `pr-{num}` from PR number, or sanitized branch name (replace `/` with `-`)
-2. `mkdir -p {{$RP1_WORK_ROOT}}/pr-reviews`
+2. `mkdir -p .rp1/work/pr-reviews`
 3. Find next sequence via Glob: `{REVIEW_ID}-visual-*.md` -> zero-pad 3 digits
-4. Save markdown to `{{$RP1_WORK_ROOT}}/pr-reviews/{REVIEW_ID}-visual-{NNN}.md`
+4. Save markdown to `.rp1/work/pr-reviews/{REVIEW_ID}-visual-{NNN}.md`
 5. Output the file path only. The parent workflow registers the artifact with the correct run context.
 
 **STANDALONE=false**:

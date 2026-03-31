@@ -58,13 +58,6 @@ metadata:
       description: "Push branch to remote"
       aliases:
         - "push"
-  environment:
-    - name: RP1_KB_ROOT
-      source: "rp1 agent-tools rp1-root-dir"
-      description: "Root directory for rp1 project context"
-    - name: RP1_WORK_ROOT
-      source: "rp1 agent-tools rp1-root-dir"
-      description: "Root directory for rp1 work artifacts"
   sub_agents:
     - "rp1-dev:build-fast-planner"
     - "rp1-dev:task-builder"
@@ -139,7 +132,7 @@ rp1 agent-tools emit \
 **Spawn agent**:
 
 {% dispatch_agent "rp1-dev:build-fast-planner" %}
-DEVELOPMENT_REQUEST={DEVELOPMENT_REQUEST}, RP1_KB_ROOT={{$RP1_KB_ROOT}}, WORKFLOW=build-fast, RUN_ID={RUN_ID}
+DEVELOPMENT_REQUEST={DEVELOPMENT_REQUEST}, WORKFLOW=build-fast, RUN_ID={RUN_ID}
 {% enddispatch_agent %}
 
 **Parse response**: Extract `scope`, `plan_summary`, `files_affected`, `reasoning`, `artifact_path`, `artifact_relative_path`, `task_count`, `task_ids`.
@@ -197,10 +190,9 @@ Present the plan review to the user:
 **You MUST spawn task-builder here.** Do not implement the tasks yourself.
 
 {% dispatch_agent "rp1-dev:task-builder" %}
-QUICK_BUILD_PATH={{$RP1_WORK_ROOT}}/{artifact_relative_path}
+QUICK_BUILD_PATH=.rp1/work/{artifact_relative_path}
 TASK_IDS={task_ids}
 GIT_COMMIT={GIT_COMMIT}
-RP1_KB_ROOT={{$RP1_KB_ROOT}}
 WORKFLOW=build-fast
 RUN_ID={RUN_ID}
 {% enddispatch_agent %}
@@ -216,10 +208,9 @@ RUN_ID={RUN_ID}
 **You MUST use `subagent_type: rp1-dev:task-reviewer`** — do not use `general-purpose` or any other agent type.
 
 {% dispatch_agent "rp1-dev:task-reviewer" %}
-QUICK_BUILD_PATH={{$RP1_WORK_ROOT}}/{artifact_relative_path}
+QUICK_BUILD_PATH=.rp1/work/{artifact_relative_path}
 TASK_IDS={task_ids}
 GIT_COMMIT={GIT_COMMIT}
-RP1_KB_ROOT={{$RP1_KB_ROOT}}
 WORKFLOW=build-fast
 RUN_ID={RUN_ID}
 {% enddispatch_agent %}
@@ -234,10 +225,9 @@ If `status` = "FAILURE":
 2. Re-spawn task-builder with feedback:
 
 {% dispatch_agent "rp1-dev:task-builder" %}
-QUICK_BUILD_PATH={{$RP1_WORK_ROOT}}/{artifact_relative_path}
+QUICK_BUILD_PATH=.rp1/work/{artifact_relative_path}
 TASK_IDS={task_ids}
 GIT_COMMIT={GIT_COMMIT}
-RP1_KB_ROOT={{$RP1_KB_ROOT}}
 PREVIOUS_FEEDBACK={reviewer summary and issues}
 WORKFLOW=build-fast
 RUN_ID={RUN_ID}

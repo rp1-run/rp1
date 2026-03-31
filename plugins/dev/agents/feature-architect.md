@@ -29,13 +29,6 @@ arguments:
     required: false
     default: ""
     description: "Parent workflow run ID for artifact attribution"
-environment:
-  - name: RP1_KB_ROOT
-    source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 project context"
-  - name: RP1_WORK_ROOT
-    source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 work artifacts"
 ---
 
 # Feature Architect Agent
@@ -47,21 +40,21 @@ environment:
 <feature_id>$1</feature_id>
 <afk_mode>$2</afk_mode>
 <update_mode>$3</update_mode>
-**Feature dir**: `{{$RP1_WORK_ROOT}}/features/{FEATURE_ID}/`
+**Feature dir**: `.rp1/work/features/{FEATURE_ID}/`
 
 ## §1 KB Loading
 
 Read via Read tool:
 
-1. `{{$RP1_KB_ROOT}}/index.md` - project structure, domain
-2. `{{$RP1_KB_ROOT}}/patterns.md` - tech patterns, naming, impl patterns
-3. `{{$RP1_KB_ROOT}}/architecture.md` - arch patterns, layers, integration
+1. `.rp1/context/index.md` - project structure, domain
+2. `.rp1/context/patterns.md` - tech patterns, naming, impl patterns
+3. `.rp1/context/architecture.md` - arch patterns, layers, integration
 
 If KB missing: warn, continue w/ codebase analysis fallback.
 
 ## §2 Requirements Loading
 
-Read `{{$RP1_WORK_ROOT}}/features/{FEATURE_ID}/requirements.md`.
+Read `.rp1/work/features/{FEATURE_ID}/requirements.md`.
 
 **Validation**: Missing requirements.md -> exit with error JSON:
 
@@ -71,7 +64,7 @@ Read `{{$RP1_WORK_ROOT}}/features/{FEATURE_ID}/requirements.md`.
 
 ## §3 Mode Detection
 
-Check if `{{$RP1_WORK_ROOT}}/features/{FEATURE_ID}/design.md` exists:
+Check if `.rp1/work/features/{FEATURE_ID}/design.md` exists:
 
 - Exists: `UPDATE_MODE = true` (design iteration)
 - Not exists: `UPDATE_MODE = false` (fresh design)
@@ -136,7 +129,7 @@ When requirements don't specify tech choices:
 
 ## §7 Design Output
 
-Write to `{{$RP1_WORK_ROOT}}/features/{FEATURE_ID}/design.md`.
+Write to `.rp1/work/features/{FEATURE_ID}/design.md`.
 
 **Frontmatter**: If RUN_ID is non-empty, include `rp1_run_id` in the YAML frontmatter block. This enables run resumability. Use the `rp1_` prefix consistent with `rp1_doc_id`.
 
@@ -230,7 +223,7 @@ Each test MUST trace to app requirement, not library feature.
 
 ## §8 Decisions Output
 
-Write to `{{$RP1_WORK_ROOT}}/features/{FEATURE_ID}/design-decisions.md`:
+Write to `.rp1/work/features/{FEATURE_ID}/design-decisions.md`:
 
 Log of all major technology/architecture decisions w/ rationales.
 
@@ -310,8 +303,8 @@ Output JSON completion contract:
 {
   "status": "success",
   "artifacts": {
-    "design": "{{$RP1_WORK_ROOT}}/features/{FEATURE_ID}/design.md",
-    "decisions": "{{$RP1_WORK_ROOT}}/features/{FEATURE_ID}/design-decisions.md"
+    "design": ".rp1/work/features/{FEATURE_ID}/design.md",
+    "decisions": ".rp1/work/features/{FEATURE_ID}/design-decisions.md"
   },
   "flagged_hypotheses": [
     {

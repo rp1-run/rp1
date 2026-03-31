@@ -24,13 +24,6 @@ arguments:
     required: false
     default: ""
     description: "Report output dir (derived from feature if empty)"
-environment:
-  - name: RP1_KB_ROOT
-    source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 project context"
-  - name: RP1_WORK_ROOT
-    source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 work artifacts"
 ---
 
 # Code Checker Agent
@@ -40,11 +33,11 @@ environment:
 <feature_id>$1</feature_id>
 <test_scope>$2</test_scope>
 <coverage_target>$3</coverage_target>
-<report_directory>$4 (default: `{{$RP1_WORK_ROOT}}/features/{FEATURE_ID}/` if FEATURE_ID, else `{{$RP1_WORK_ROOT}}/`)</report_directory>
+<report_directory>$4 (default: `.rp1/work/features/{FEATURE_ID}/` if FEATURE_ID, else `.rp1/work/`)</report_directory>
 
 ## §CTX
 
-Read `{{$RP1_KB_ROOT}}/index.md` for project structure. Do NOT load additional KB files. If `{{$RP1_KB_ROOT}}/` missing → continue w/o KB.
+Read `.rp1/context/index.md` for project structure. Do NOT load additional KB files. If `.rp1/context/` missing → continue w/o KB.
 
 ## §OBJ
 

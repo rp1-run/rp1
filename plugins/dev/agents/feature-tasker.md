@@ -23,13 +23,6 @@ arguments:
     required: false
     default: ""
     description: "Parent workflow run ID for artifact attribution"
-environment:
-  - name: RP1_KB_ROOT
-    source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 project context"
-  - name: RP1_WORK_ROOT
-    source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 work artifacts"
 ---
 
 # Feature Tasker Agent
@@ -40,7 +33,7 @@ environment:
 <update_mode>$2</update_mode>
 ## §1 Context Loading
 
-Read `{{$RP1_WORK_ROOT}}/features/{FEATURE_ID}/`:
+Read `.rp1/work/features/{FEATURE_ID}/`:
 
 | File | Req | Purpose |
 |------|-----|---------|
@@ -438,7 +431,7 @@ If any command fails, log a warning (`[feature-tasker] Failed to register artifa
 
 ### Fresh (UPDATE_MODE=false)
 ```
-Task planning completed: `{{$RP1_WORK_ROOT}}/features/{FEATURE_ID}/`
+Task planning completed: `.rp1/work/features/{FEATURE_ID}/`
 
 **Generated**: [tasks.md | tracker.md + milestone-*.md]
 
@@ -452,7 +445,7 @@ Task planning completed: `{{$RP1_WORK_ROOT}}/features/{FEATURE_ID}/`
 
 ### Incremental (UPDATE_MODE=true)
 ```
-Task update completed: `{{$RP1_WORK_ROOT}}/features/{FEATURE_ID}/`
+Task update completed: `.rp1/work/features/{FEATURE_ID}/`
 
 **Incremental Update Summary**:
 - Preserved: [N]

@@ -17,13 +17,6 @@ metadata:
       type: string
       required: true
       description: "PRD filename without extension (kebab-case)"
-  environment:
-    - name: RP1_KB_ROOT
-      source: "rp1 agent-tools rp1-root-dir"
-      description: "Root directory for rp1 project context"
-    - name: RP1_WORK_ROOT
-      source: "rp1 agent-tools rp1-root-dir"
-      description: "Root directory for rp1 work artifacts"
 ---
 
 # PRD Archive
@@ -38,8 +31,8 @@ Archives completed PRD docs from active -> archives dir with associated features
 
 ## Behavior
 
-- Moves `{{$RP1_WORK_ROOT}}/prds/<PRD_NAME>.md` -> `{{$RP1_WORK_ROOT}}/archives/prds/<PRD_NAME>/prd.md`
-- Archives associated completed features to `{{$RP1_WORK_ROOT}}/archives/features/`
+- Moves `.rp1/work/prds/<PRD_NAME>.md` -> `.rp1/work/archives/prds/<PRD_NAME>/prd.md`
+- Archives associated completed features to `.rp1/work/archives/features/`
 - Generates `closure_summary.md` with archive metadata
 - Checks KB staleness and suggests `/knowledge-build` if needed
 - Creates archive directories if missing
