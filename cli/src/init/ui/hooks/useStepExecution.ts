@@ -13,6 +13,7 @@ import { nanoid } from "nanoid";
 import { useCallback, useRef } from "react";
 import { formatError } from "../../../../shared/errors.js";
 import type { Logger } from "../../../../shared/logger.js";
+import { ensureProjectId } from "../../../../shared/project-id.js";
 import {
 	loadToolsRegistry,
 	type ToolsRegistry,
@@ -96,8 +97,7 @@ function resolveGlobalSettingsPath(): string {
  * Resolve the local settings file path.
  */
 function resolveLocalSettingsPath(cwd: string): string {
-	const rp1Root = process.env.RP1_ROOT || ".rp1";
-	return path.join(cwd, rp1Root, "settings.toml");
+	return path.join(cwd, ".rp1", "settings.toml");
 }
 
 /**
@@ -427,6 +427,19 @@ export const useStepExecution = ({
 				);
 				created++;
 			}
+
+			if (!(await directoryExists(directories.workDir))) {
+				await fs.mkdir(directories.workDir, { recursive: true });
+				addAct(
+					"directory-setup",
+					`Created ${formatDirectoryForDisplay(ctx.cwd, directories.workDir)}`,
+					"success",
+				);
+				created++;
+			}
+
+			await ensureProjectId(ctx.cwd);
+			addAct("directory-setup", "Project ID ensured", "success");
 
 			if (created === 0) {
 				addAct("directory-setup", "Directory structure exists", "success");
