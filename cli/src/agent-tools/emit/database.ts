@@ -1280,6 +1280,7 @@ export const getMaxEventId = (db: Database): number => {
 export interface ListRunsOptions {
 	readonly projectPath?: string;
 	readonly projectPaths?: readonly string[];
+	readonly projectId?: string;
 	readonly status?: Status;
 	readonly limit?: number;
 	readonly offset?: number;
@@ -1314,7 +1315,10 @@ export const listRuns = (
 	const conditions: string[] = [];
 	const filterValues: (string | number)[] = [];
 
-	if (opts.projectPath != null) {
+	if (opts.projectId != null) {
+		conditions.push("project_id = ?");
+		filterValues.push(opts.projectId);
+	} else if (opts.projectPath != null) {
 		conditions.push("COALESCE(rp1_project_root, project_path) = ?");
 		filterValues.push(opts.projectPath);
 	} else if (opts.projectPaths != null && opts.projectPaths.length > 0) {
