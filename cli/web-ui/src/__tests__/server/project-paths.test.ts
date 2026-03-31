@@ -84,6 +84,33 @@ describe("project-paths", () => {
 		).toBe("work/archives/features/feat-1/tasks.md");
 	});
 
+	test("canonicalizes absolute work-root artifacts to stable work/ display paths", () => {
+		expect(
+			toArtifactDisplayPath(directories, {
+				path: join(
+					directories.workRoot,
+					"archives",
+					"features",
+					"feat-1",
+					"tasks.md",
+				),
+				storageRoot: "absolute",
+			}),
+		).toBe("work/archives/features/feat-1/tasks.md");
+	});
+
+	test("canonicalizes absolute kb-root artifacts to stable kb/ display paths", async () => {
+		await mkdir(directories.kbRoot, { recursive: true });
+		await Bun.write(join(directories.kbRoot, "index.md"), "# kb");
+
+		expect(
+			toArtifactDisplayPath(directories, {
+				path: join(directories.kbRoot, "index.md"),
+				storageRoot: "absolute",
+			}),
+		).toBe("kb/index.md");
+	});
+
 	test("resolves legacy repo-local work_dir artifact paths against the effective work root", () => {
 		expect(
 			resolveArtifactAbsolutePath(directories, {

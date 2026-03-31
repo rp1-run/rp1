@@ -192,10 +192,6 @@ export const toArtifactDisplayPath = (
 	directories: ProjectDirectories,
 	artifact: Pick<ArtifactRecord, "path" | "storageRoot">,
 ): string => {
-	if (isAbsolute(artifact.path) || artifact.storageRoot === "absolute") {
-		return artifact.path;
-	}
-
 	if (artifact.storageRoot === "work_dir") {
 		return ensureSectionPath(
 			"work",
@@ -203,13 +199,10 @@ export const toArtifactDisplayPath = (
 		);
 	}
 
-	const absolutePath = resolve(directories.projectRoot, artifact.path);
-	const sectionPath = toProjectSectionPath(directories, absolutePath);
-	if (sectionPath) {
-		return sectionPath;
-	}
-
-	return artifact.path;
+	return toArtifactDisplayPathFromAbsolute(
+		directories,
+		resolveArtifactAbsolutePath(directories, artifact),
+	);
 };
 
 export const toArtifactDisplayPathFromAbsolute = (
