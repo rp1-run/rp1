@@ -10,7 +10,6 @@ import { mkdir, readdir, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import * as TE from "fp-ts/lib/TaskEither.js";
-import { defaultWorkRootForProject } from "../../../shared/directory-resolution.js";
 import type { CLIError } from "../../../shared/errors.js";
 import { runtimeError } from "../../../shared/errors.js";
 import type {
@@ -23,6 +22,7 @@ import {
 	getLogicalStepKey,
 	isNamespacedLifecycleStep,
 } from "../../../shared/logical-step.js";
+import { readProjectId } from "../../../shared/project-id.js";
 
 /** Default database file location. Override with RP1_DB env var. */
 const DEFAULT_DB_PATH = process.env.RP1_DB ?? join(homedir(), ".rp1", "rp1.db");
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS schema_version (
     version INTEGER NOT NULL
 );
 
-INSERT INTO schema_version (version) VALUES (8);
+INSERT INTO schema_version (version) VALUES (9);
 
 CREATE TABLE IF NOT EXISTS runs (
     id TEXT PRIMARY KEY NOT NULL,
@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS runs (
     rp1_project_root TEXT NOT NULL,
     rp1_kb_root TEXT NOT NULL,
     rp1_work_root TEXT NOT NULL,
+    project_id TEXT DEFAULT NULL,
     name TEXT DEFAULT NULL,
     harness TEXT DEFAULT NULL,
     status TEXT NOT NULL DEFAULT 'not_started'
@@ -57,6 +58,7 @@ CREATE INDEX IF NOT EXISTS idx_runs_project ON runs(project_path);
 CREATE INDEX IF NOT EXISTS idx_runs_feature ON runs(project_path, feature_id);
 CREATE INDEX IF NOT EXISTS idx_runs_status ON runs(status);
 CREATE INDEX IF NOT EXISTS idx_runs_feature_status ON runs(project_path, feature_id, status);
+CREATE INDEX IF NOT EXISTS idx_runs_project_id ON runs(project_id);
 
 CREATE TABLE IF NOT EXISTS events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -85,6 +87,7 @@ CREATE TABLE IF NOT EXISTS artifacts (
     storage_root TEXT NOT NULL DEFAULT 'project'
         CHECK(storage_root IN ('absolute', 'project', 'work_dir')),
     project_path TEXT NOT NULL,
+    project_id TEXT DEFAULT NULL,
     feature TEXT NOT NULL,
     step TEXT,
     subflow INTEGER NOT NULL DEFAULT 0,
@@ -95,6 +98,7 @@ CREATE TABLE IF NOT EXISTS artifacts (
 CREATE INDEX IF NOT EXISTS idx_artifacts_doc_id ON artifacts(doc_id);
 CREATE INDEX IF NOT EXISTS idx_artifacts_run ON artifacts(run_id);
 CREATE INDEX IF NOT EXISTS idx_artifacts_project_feature ON artifacts(project_path, feature);
+CREATE INDEX IF NOT EXISTS idx_artifacts_project_id ON artifacts(project_id);
 
 CREATE TABLE IF NOT EXISTS annotations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -121,6 +125,7 @@ CREATE TABLE IF NOT EXISTS tasks (
         CHECK(status IN ('pending', 'in_progress', 'completed', 'failed', 'cancelled')),
     payload TEXT,
     project_path TEXT,
+    project_id TEXT DEFAULT NULL,
     result TEXT,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
@@ -130,6 +135,7 @@ CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
 CREATE INDEX IF NOT EXISTS idx_tasks_status_created ON tasks(status, created_at);
 CREATE INDEX IF NOT EXISTS idx_tasks_project ON tasks(project_path);
 CREATE INDEX IF NOT EXISTS idx_tasks_project_status ON tasks(project_path, status, created_at);
+CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks(project_id);
 `;
 
 /** Terminal statuses that indicate a run is no longer active */
@@ -160,6 +166,7 @@ export interface RunInput {
 	readonly rp1ProjectRoot?: string;
 	readonly rp1KbRoot?: string;
 	readonly rp1WorkRoot?: string;
+	readonly projectId?: string;
 	readonly name?: string;
 	readonly harness?: string;
 }
@@ -183,6 +190,7 @@ export interface ArtifactInput {
 	readonly type: string;
 	readonly storageRoot?: ArtifactStorageRoot;
 	readonly projectPath: string;
+	readonly projectId?: string;
 	readonly feature: string;
 	readonly step?: string;
 	readonly subflow?: boolean;
@@ -199,6 +207,7 @@ export interface ArtifactRecord {
 	readonly type: string;
 	readonly storageRoot: ArtifactStorageRoot;
 	readonly projectPath: string;
+	readonly projectId: string | null;
 	readonly feature: string;
 	readonly step: string | null;
 	readonly subflow: boolean;
@@ -250,6 +259,7 @@ interface RunRow {
 	rp1_project_root: string | null;
 	rp1_kb_root: string | null;
 	rp1_work_root: string | null;
+	project_id: string | null;
 	name: string | null;
 	harness: string | null;
 	status: string;
@@ -276,6 +286,7 @@ interface ArtifactRow {
 	type: string;
 	storage_root: ArtifactStorageRoot | null;
 	project_path: string;
+	project_id: string | null;
 	feature: string;
 	step: string | null;
 	subflow: number;
@@ -317,7 +328,7 @@ const defaultKbRoot = (projectRoot: string): string =>
 	join(projectRoot, ".rp1", "context");
 
 const defaultWorkRoot = (projectRoot: string): string =>
-	defaultWorkRootForProject(projectRoot);
+	join(projectRoot, ".rp1", "work");
 
 const getLegacyWorkDir = (projectRoot: string): string =>
 	join(resolve(projectRoot), ".rp1", "work");
@@ -327,16 +338,19 @@ const resolveRunDirectories = (input: {
 	readonly rp1ProjectRoot?: string;
 	readonly rp1KbRoot?: string;
 	readonly rp1WorkRoot?: string;
+	readonly projectId?: string;
 }): {
 	readonly rp1ProjectRoot: string;
 	readonly rp1KbRoot: string;
 	readonly rp1WorkRoot: string;
+	readonly projectId: string | undefined;
 } => {
 	const rp1ProjectRoot = resolve(input.rp1ProjectRoot ?? input.projectPath);
 	return {
 		rp1ProjectRoot,
 		rp1KbRoot: resolve(input.rp1KbRoot ?? defaultKbRoot(rp1ProjectRoot)),
 		rp1WorkRoot: resolve(input.rp1WorkRoot ?? defaultWorkRoot(rp1ProjectRoot)),
+		projectId: input.projectId ?? readProjectId(rp1ProjectRoot),
 	};
 };
 
@@ -348,6 +362,7 @@ const runRowToRecord = (row: RunRow): RunRecord => ({
 	rp1ProjectRoot: row.rp1_project_root ?? row.project_path,
 	rp1KbRoot: row.rp1_kb_root ?? defaultKbRoot(row.project_path),
 	rp1WorkRoot: row.rp1_work_root ?? defaultWorkRoot(row.project_path),
+	projectId: row.project_id ?? null,
 	status: row.status as Status,
 	name: row.name ?? null,
 	harness: row.harness ?? null,
@@ -374,6 +389,7 @@ const artifactRowToRecord = (row: ArtifactRow): ArtifactRecord => ({
 	type: row.type,
 	storageRoot: row.storage_root ?? "project",
 	projectPath: row.project_path,
+	projectId: row.project_id ?? null,
 	feature: row.feature,
 	step: row.step,
 	subflow: !!row.subflow,
@@ -594,6 +610,90 @@ const applyMigrations = (db: Database): void => {
 
 		db.prepare("UPDATE schema_version SET version = 8").run();
 	}
+
+	const postV8Version = db
+		.prepare("SELECT version FROM schema_version LIMIT 1")
+		.get() as { version: number } | null;
+
+	if ((postV8Version?.version ?? 8) < 9) {
+		const runCols = db.prepare("PRAGMA table_info(runs)").all() as {
+			name: string;
+		}[];
+		const runColNames = new Set(runCols.map((c) => c.name));
+
+		if (!runColNames.has("project_id")) {
+			db.exec("ALTER TABLE runs ADD COLUMN project_id TEXT DEFAULT NULL");
+		}
+		db.exec(
+			"CREATE INDEX IF NOT EXISTS idx_runs_project_id ON runs(project_id)",
+		);
+
+		const artifactCols = db.prepare("PRAGMA table_info(artifacts)").all() as {
+			name: string;
+		}[];
+		const artifactColNames = new Set(artifactCols.map((c) => c.name));
+
+		if (!artifactColNames.has("project_id")) {
+			db.exec("ALTER TABLE artifacts ADD COLUMN project_id TEXT DEFAULT NULL");
+		}
+		db.exec(
+			"CREATE INDEX IF NOT EXISTS idx_artifacts_project_id ON artifacts(project_id)",
+		);
+
+		const taskCols = db.prepare("PRAGMA table_info(tasks)").all() as {
+			name: string;
+		}[];
+		const taskColNames = new Set(taskCols.map((c) => c.name));
+
+		if (!taskColNames.has("project_id")) {
+			db.exec("ALTER TABLE tasks ADD COLUMN project_id TEXT DEFAULT NULL");
+		}
+		db.exec(
+			"CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks(project_id)",
+		);
+
+		const runsToBackfill = db
+			.prepare(
+				"SELECT id, rp1_project_root FROM runs WHERE project_id IS NULL AND rp1_project_root IS NOT NULL",
+			)
+			.all() as { id: string; rp1_project_root: string }[];
+
+		const backfillStmt = db.prepare(
+			"UPDATE runs SET project_id = $projectId WHERE id = $id",
+		);
+
+		for (const run of runsToBackfill) {
+			const projectId = readProjectId(run.rp1_project_root);
+			if (projectId) {
+				backfillStmt.run({ $id: run.id, $projectId: projectId });
+			}
+		}
+
+		const artifactsToBackfill = db
+			.prepare(
+				`SELECT a.id, r.rp1_project_root
+				 FROM artifacts a
+				 LEFT JOIN runs r ON a.run_id = r.id
+				 WHERE a.project_id IS NULL AND r.rp1_project_root IS NOT NULL`,
+			)
+			.all() as { id: number; rp1_project_root: string }[];
+
+		const backfillArtifactStmt = db.prepare(
+			"UPDATE artifacts SET project_id = $projectId WHERE id = $id",
+		);
+
+		for (const artifact of artifactsToBackfill) {
+			const projectId = readProjectId(artifact.rp1_project_root);
+			if (projectId) {
+				backfillArtifactStmt.run({
+					$id: artifact.id,
+					$projectId: projectId,
+				});
+			}
+		}
+
+		db.prepare("UPDATE schema_version SET version = 9").run();
+	}
 };
 
 /**
@@ -695,6 +795,11 @@ export const insertRun = (db: Database, input: RunInput): RunRecord => {
 			params.$rp1WorkRoot = directories.rp1WorkRoot;
 		}
 
+		if (existing.project_id == null && directories.projectId) {
+			updates.push("project_id = $projectId");
+			params.$projectId = directories.projectId;
+		}
+
 		if (updates.length > 0) {
 			updates.push("updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')");
 			db.prepare(`UPDATE runs SET ${updates.join(", ")} WHERE id = $id`).run(
@@ -714,11 +819,11 @@ export const insertRun = (db: Database, input: RunInput): RunRecord => {
 		.prepare(
 			`INSERT INTO runs (
 			    id, flow, feature_id, project_path, rp1_project_root, rp1_kb_root,
-			    rp1_work_root, name, harness
+			    rp1_work_root, project_id, name, harness
 			 )
 			 VALUES (
 			    $id, $flow, $featureId, $projectPath, $rp1ProjectRoot, $rp1KbRoot,
-			    $rp1WorkRoot, $name, $harness
+			    $rp1WorkRoot, $projectId, $name, $harness
 			 )
 			 RETURNING *`,
 		)
@@ -730,6 +835,7 @@ export const insertRun = (db: Database, input: RunInput): RunRecord => {
 			$rp1ProjectRoot: directories.rp1ProjectRoot,
 			$rp1KbRoot: directories.rp1KbRoot,
 			$rp1WorkRoot: directories.rp1WorkRoot,
+			$projectId: directories.projectId ?? null,
 			$name: input.name ?? null,
 			$harness: input.harness ?? null,
 		}) as RunRow;
@@ -799,11 +905,11 @@ export const findOrCreateRun = (
 	db.prepare(
 		`INSERT INTO runs (
 		    id, flow, feature_id, project_path, rp1_project_root, rp1_kb_root,
-		    rp1_work_root, harness
+		    rp1_work_root, project_id, harness
 		 )
 		 VALUES (
 		    $id, $flow, $featureId, $projectPath, $rp1ProjectRoot, $rp1KbRoot,
-		    $rp1WorkRoot, NULL
+		    $rp1WorkRoot, $projectId, NULL
 		 )`,
 	).run({
 		$id: newId,
@@ -813,6 +919,7 @@ export const findOrCreateRun = (
 		$rp1ProjectRoot: directories.rp1ProjectRoot,
 		$rp1KbRoot: directories.rp1KbRoot,
 		$rp1WorkRoot: directories.rp1WorkRoot,
+		$projectId: directories.projectId ?? null,
 	});
 
 	return { runId: newId, resumed: false };
@@ -860,10 +967,10 @@ export const upsertArtifact = (
 	const row = db
 		.prepare(
 			`INSERT INTO artifacts (
-			    doc_id, run_id, path, type, storage_root, project_path, feature, step, subflow
+			    doc_id, run_id, path, type, storage_root, project_path, project_id, feature, step, subflow
 			 )
 			 VALUES (
-			    $docId, $runId, $path, $type, $storageRoot, $projectPath, $feature, $step, $subflow
+			    $docId, $runId, $path, $type, $storageRoot, $projectPath, $projectId, $feature, $step, $subflow
 			 )
 			 RETURNING *`,
 		)
@@ -874,6 +981,7 @@ export const upsertArtifact = (
 			$type: input.type,
 			$storageRoot: input.storageRoot ?? "project",
 			$projectPath: input.projectPath,
+			$projectId: input.projectId ?? null,
 			$feature: input.feature,
 			$step: input.step ?? null,
 			$subflow: input.subflow ? 1 : 0,
