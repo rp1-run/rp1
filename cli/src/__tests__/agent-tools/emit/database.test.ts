@@ -2155,6 +2155,32 @@ describe("emit database", () => {
 			expect(result.records[0].projectPath).toBe("/project/alpha");
 		});
 
+		test("filters by effective rp1_project_root when projectPath is legacy", async () => {
+			const dbPath = join(tempDir, "list-runs-effective-project.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-le1",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/legacy/path",
+				rp1ProjectRoot: "/resolved/project",
+			});
+			insertRun(db, {
+				id: "run-le2",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/other/path",
+				rp1ProjectRoot: "/other/project",
+			});
+
+			const result = listRuns(db, { projectPath: "/resolved/project" });
+
+			expect(result.total).toBe(1);
+			expect(result.records[0].id).toBe("run-le1");
+			expect(result.records[0].rp1ProjectRoot).toBe("/resolved/project");
+		});
+
 		test("filters by status", async () => {
 			const dbPath = join(tempDir, "list-runs-status.db");
 			const db = await expectTaskRight(getEmitDatabase(dbPath));
@@ -2393,6 +2419,22 @@ describe("emit database", () => {
 			expect(normalized).toEqual({
 				path: "features/feat/design.md",
 				storageRoot: "work_dir",
+			});
+		});
+
+		test("promotes explicit project-relative traversal to absolute storage", () => {
+			const normalized = normalizeArtifactStorage(
+				"../outside.md",
+				{
+					rp1ProjectRoot: "/resolved/project",
+					rp1WorkRoot: "/resolved/work",
+				},
+				"project",
+			);
+
+			expect(normalized).toEqual({
+				path: "/resolved/outside.md",
+				storageRoot: "absolute",
 			});
 		});
 
@@ -2837,6 +2879,31 @@ describe("emit database", () => {
 			expect(stats.get("/project/beta")?.runCount).toBe(1);
 			expect(stats.get("/project/gamma")?.runCount).toBe(0);
 			expect(stats.get("/project/gamma")?.lastActivityAt).toBeNull();
+		});
+
+		test("aggregates historical runs by effective rp1_project_root", async () => {
+			const dbPath = join(tempDir, "project-stats-effective.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-pse1",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/legacy/project",
+				rp1ProjectRoot: "/resolved/project",
+			});
+			insertRun(db, {
+				id: "run-pse2",
+				flow: "review",
+				featureId: "feat",
+				projectPath: "/legacy/project",
+				rp1ProjectRoot: "/resolved/project",
+			});
+
+			const stats = getProjectRunStats(db, ["/resolved/project"]);
+
+			expect(stats.get("/resolved/project")?.runCount).toBe(2);
+			expect(stats.get("/resolved/project")?.lastActivityAt).toBeTruthy();
 		});
 
 		test("returns empty map for empty project list", async () => {

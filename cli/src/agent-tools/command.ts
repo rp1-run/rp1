@@ -104,7 +104,7 @@ export const agentToolsCommand = new Command("agent-tools")
 Available Tools:
   mmd-validate      Validate Mermaid diagram syntax
   resolve-args      Resolve structured arguments from schema, settings, and user input
-  rp1-root-dir      Resolve RP1_ROOT path with read-only worktree detection
+  rp1-root-dir      Resolve project, KB, and work directories with worktree detection
   comment-extract   Extract comments from git-changed files
   emit              Record events for the rp1 workflow event system
   feedback          Read, resolve, reply to, and accept feedback from the Arcade
@@ -226,33 +226,39 @@ Examples:
 
 /**
  * rp1-root-dir subcommand.
- * Resolves RP1_ROOT path with worktree awareness for KB and artifact access.
+ * Resolves project, KB, and work directories with worktree awareness.
  */
 agentToolsCommand
 	.command("rp1-root-dir")
-	.description("Resolve RP1_ROOT path with read-only worktree detection")
+	.description(
+		"Resolve project, KB, and work directories with worktree detection",
+	)
 	.addHelpText(
 		"after",
 		`
 Description:
-  Resolves the RP1_ROOT path so agents can access KB and work artifacts from
-  the correct project root. When running in a linked git worktree, the tool
-  detects this and maps back to the main repository's .rp1 directory.
+  Resolves the effective project root plus the derived knowledge-base and work
+  directories. When running in a linked git worktree, the tool detects this and
+  maps back to the main repository so agents operate on the canonical project.
 
   This is a read-only detection tool. It does not create, modify, or remove
   git worktrees. Users manage worktrees directly with native git commands.
 
 Resolution order:
-  1. RP1_ROOT environment variable (if set, used as-is)
-  2. Git worktree detection via git-common-dir (maps to main repo)
-  3. Standard resolution from current working directory
+  1. RP1_PROJECT_ROOT environment variable (if set, used as-is)
+  2. RP1_ROOT compatibility environment variable (legacy input)
+  3. Git worktree detection via git-common-dir (maps to main repo)
+  4. Standard resolution from current working directory
 
 Output:
-  JSON with root path and detection metadata:
-  - root: Absolute path to RP1_ROOT directory
+  JSON with resolved directories and detection metadata:
+  - projectRoot: Absolute path to the effective project root
+  - kbRoot: Absolute path to the knowledge-base directory
+  - workRoot: Absolute path to the work artifact directory
   - isWorktree: Whether running in a linked git worktree
   - worktreeName: Branch name if in worktree
-  - source: How root was resolved ('env', 'git-common-dir', or 'cwd')
+  - source: How the project root was resolved ('env', 'git-common-dir', or 'cwd')
+  - sources: Per-directory source metadata for projectRoot, kbRoot, and workRoot
 
 Examples:
   rp1 agent-tools rp1-root-dir
@@ -560,7 +566,7 @@ Examples:
     --workflow build \\
     --type artifact_registered \\
     --run-id "550e8400-e29b-41d4-a716-446655440000" \\
-    --data '{"path": "work/features/my-feature/design.md", "feature": "my-feature"}'
+    --data '{"path": "features/my-feature/design.md", "feature": "my-feature"}'
 
   # Record a subflow
   rp1 agent-tools emit \\

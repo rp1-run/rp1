@@ -135,6 +135,58 @@ const validateArtifactRegisteredPayload = (
 		);
 	}
 
+	const storageRoot = data.storageRoot;
+	if (
+		storageRoot !== undefined &&
+		storageRoot !== "absolute" &&
+		storageRoot !== "project" &&
+		storageRoot !== "work_dir"
+	) {
+		return E.left(
+			usageError(
+				"artifact_registered events only support storageRoot values 'absolute', 'project', or 'work_dir'",
+			),
+		);
+	}
+
+	const artifactPath = data.path;
+	if (
+		typeof artifactPath === "string" &&
+		artifactPath.includes("..") &&
+		storageRoot !== "absolute"
+	) {
+		return E.left(
+			usageError(
+				"artifact_registered paths must not contain '..' unless storageRoot is 'absolute'",
+			),
+		);
+	}
+
+	if (
+		typeof artifactPath === "string" &&
+		isAbsolute(artifactPath) &&
+		storageRoot !== undefined &&
+		storageRoot !== "absolute"
+	) {
+		return E.left(
+			usageError(
+				"artifact_registered paths must be relative when storageRoot is 'project' or 'work_dir'",
+			),
+		);
+	}
+
+	if (
+		typeof artifactPath === "string" &&
+		!isAbsolute(artifactPath) &&
+		storageRoot === "absolute"
+	) {
+		return E.left(
+			usageError(
+				"artifact_registered paths must be absolute when storageRoot is 'absolute'",
+			),
+		);
+	}
+
 	return E.right(data);
 };
 
@@ -236,7 +288,8 @@ export const validatePayloadShape = (
  *
  * When --project is explicitly provided, validates and resolves it via git
  * worktree normalization. When omitted, uses the same resolution chain as
- * `rp1 agent-tools rp1-root-dir`: RP1_ROOT env var → git common-dir → cwd.
+ * `rp1 agent-tools rp1-root-dir`: RP1_PROJECT_ROOT / RP1_ROOT compatibility →
+ * git common-dir → cwd.
  * This ensures emit records are attributed to the correct project regardless
  * of worktree context or env overrides.
  */

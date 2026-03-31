@@ -36,13 +36,70 @@ import { getAllProjects } from "../registry";
 import type { WebSocketHub } from "../websocket";
 import { type ApiContext, errorResponse, jsonResponse } from "./content-utils";
 
-async function getDb(): Promise<Database> {
+function getEffectiveProjectPath(record: {
+	projectPath: string;
+	rp1ProjectRoot?: string | null;
+}): string {
+	return record.rp1ProjectRoot ?? record.projectPath;
+}
+
+function findProjectByPathSet<T extends { path: string }>(
+	projects: readonly T[],
+	projectPath: string,
+	fallbackPath?: string,
+): T | undefined {
+	return (
+		projects.find((project) => project.path === projectPath) ??
+		(fallbackPath
+			? projects.find((project) => project.path === fallbackPath)
+			: undefined)
+	);
+}
+
+export interface ArtifactsApiDependencies {
+	readonly getDb: () => Promise<Database>;
+	readonly getArtifactBaseline: typeof getArtifactBaseline;
+	readonly getArtifactByDocId: typeof getArtifactByDocId;
+	readonly getArtifactByRunAndDocId: typeof getArtifactByRunAndDocId;
+	readonly getArtifactsForRun: typeof getArtifactsForRun;
+	readonly getAllProjects: typeof getAllProjects;
+	readonly getRunById: typeof getRunById;
+	readonly normalizeArtifactStorage: typeof normalizeArtifactStorage;
+	readonly resolveArtifactPathForRun: typeof resolveArtifactPathForRun;
+	readonly setArtifactBaseline: typeof setArtifactBaseline;
+	readonly updateArtifactStorage: typeof updateArtifactStorage;
+}
+
+export type ArtifactsApiDependencyOverrides = Partial<ArtifactsApiDependencies>;
+
+async function getDefaultDb(): Promise<Database> {
 	const result = await getEmitDatabase()();
 	if (E.isLeft(result)) {
 		throw new Error(`Database unavailable: ${formatError(result.left, false)}`);
 	}
 	return result.right;
 }
+
+const defaultArtifactsApiDependencies: ArtifactsApiDependencies = {
+	getDb: getDefaultDb,
+	getArtifactBaseline,
+	getArtifactByDocId,
+	getArtifactByRunAndDocId,
+	getArtifactsForRun,
+	getAllProjects,
+	getRunById,
+	normalizeArtifactStorage,
+	resolveArtifactPathForRun,
+	setArtifactBaseline,
+	updateArtifactStorage,
+};
+
+const resolveDependencies = (
+	overrides: ArtifactsApiDependencyOverrides = {},
+): ArtifactsApiDependencies => ({
+	...defaultArtifactsApiDependencies,
+	...overrides,
+});
 
 /**
  * Broadcast an artifact_registered event after path reconciliation so the
@@ -169,9 +226,16 @@ export async function scanForDocId(
 const getReconciliationRoots = (
 	projectRoot: string,
 	workRoot: string,
+	storageRoot: "absolute" | "project" | "work_dir",
 ): readonly string[] => {
 	const legacyWorkDir = getLegacyWorkDir(projectRoot);
-	return Array.from(new Set([resolve(workRoot), resolve(legacyWorkDir)]));
+	return Array.from(
+		new Set([
+			...(storageRoot === "project" ? [resolve(projectRoot)] : []),
+			...(storageRoot === "absolute" ? [] : [resolve(workRoot)]),
+			...(storageRoot === "absolute" ? [] : [resolve(legacyWorkDir)]),
+		]),
+	);
 };
 
 /**
@@ -191,7 +255,9 @@ export async function resolveArtifactPath(
 		path: string;
 		storageRoot: "absolute" | "project" | "work_dir";
 	},
+	deps: ArtifactsApiDependencyOverrides = {},
 ): Promise<string | null> {
+	const dependencies = resolveDependencies(deps);
 	const absolutePath = resolveArtifactAbsolutePath(directories, artifact);
 	if (await Bun.file(absolutePath).exists()) {
 		return absolutePath;
@@ -200,18 +266,19 @@ export async function resolveArtifactPath(
 	for (const rootDir of getReconciliationRoots(
 		directories.projectRoot,
 		directories.workRoot,
+		artifact.storageRoot,
 	)) {
 		const scannedPath = await scanForDocId(rootDir, artifact.docId);
 		if (scannedPath === null) {
 			continue;
 		}
 
-		const normalized = normalizeArtifactStorage(scannedPath, {
+		const normalized = dependencies.normalizeArtifactStorage(scannedPath, {
 			rp1ProjectRoot: directories.projectRoot,
 			rp1WorkRoot: directories.workRoot,
 		});
 
-		updateArtifactStorage(db, artifact.docId, normalized);
+		dependencies.updateArtifactStorage(db, artifact.docId, normalized);
 		console.log(
 			`[path-reconciliation] Updated artifact path for ${artifact.docId}: ${artifact.path} -> ${normalized.path} (${normalized.storageRoot})`,
 		);
@@ -226,17 +293,23 @@ export async function handleArtifactSaveRequest(
 	runId: string,
 	req: Request,
 	apiContext: ApiContext,
+	deps: ArtifactsApiDependencyOverrides = {},
 ): Promise<Response> {
 	try {
-		const db = await getDb();
-		const record = getRunById(db, runId);
+		const dependencies = resolveDependencies(deps);
+		const db = await dependencies.getDb();
+		const record = dependencies.getRunById(db, runId);
 
 		if (!record) {
 			return errorResponse(`Run not found: ${runId}`, 404);
 		}
 
-		const projects = await getAllProjects();
-		const project = projects.find((p) => p.path === record.projectPath);
+		const projects = await dependencies.getAllProjects();
+		const project = findProjectByPathSet(
+			projects,
+			getEffectiveProjectPath(record),
+			record.projectPath,
+		);
 		if (!project) {
 			return errorResponse(`Project not found for run: ${runId}`, 404);
 		}
@@ -260,14 +333,15 @@ export async function handleArtifactSaveRequest(
 		}
 
 		const directories = getRunDirectories(record);
-		const artifactRecords = getArtifactsForRun(db, runId);
+		const artifactRecords = dependencies.getArtifactsForRun(db, runId);
 		let artifactRecord =
 			artifactRecords.find((candidate) =>
 				matchesArtifactDisplayPath(directories, candidate, requestedPath),
 			) ?? null;
 		let artifactBaseline =
 			artifactRecord != null
-				? (getArtifactBaseline(db, artifactRecord.docId)?.baseline ?? null)
+				? (dependencies.getArtifactBaseline(db, artifactRecord.docId)
+						?.baseline ?? null)
 				: null;
 
 		// Fallback: if path-based lookup missed (file was moved), try by run_id + doc_id
@@ -275,9 +349,16 @@ export async function handleArtifactSaveRequest(
 		if (!artifactRecord) {
 			const contentDocId = extractDocIdFromContent(nextContent);
 			if (contentDocId) {
-				artifactRecord = getArtifactByRunAndDocId(db, runId, contentDocId);
+				artifactRecord = dependencies.getArtifactByRunAndDocId(
+					db,
+					runId,
+					contentDocId,
+				);
 				if (artifactRecord) {
-					const baselineInfo = getArtifactBaseline(db, contentDocId);
+					const baselineInfo = dependencies.getArtifactBaseline(
+						db,
+						contentDocId,
+					);
 					if (baselineInfo) {
 						artifactBaseline = baselineInfo.baseline;
 					}
@@ -289,7 +370,7 @@ export async function handleArtifactSaveRequest(
 			return errorResponse("Artifact not found for save request", 404);
 		}
 
-		let absolutePath = await resolveArtifactPathForRun(
+		let absolutePath = await dependencies.resolveArtifactPathForRun(
 			db,
 			record,
 			artifactRecord,
@@ -300,23 +381,10 @@ export async function handleArtifactSaveRequest(
 				db,
 				directories,
 				artifactRecord,
+				dependencies,
 			);
 			if (resolvedPath) {
 				absolutePath = resolvedPath;
-				const reconciledPath = toArtifactDisplayPathFromAbsolute(
-					directories,
-					resolvedPath,
-				);
-				if (reconciledPath !== requestedPath) {
-					broadcastPathReconciliation(
-						apiContext.websocketHub,
-						project.id,
-						runId,
-						record.featureId,
-						artifactRecord.docId,
-						reconciledPath,
-					);
-				}
 			} else {
 				return errorResponse(
 					"File does not exist: only existing files can be saved",
@@ -332,9 +400,28 @@ export async function handleArtifactSaveRequest(
 			);
 		}
 
+		const resolvedDisplayPath = toArtifactDisplayPathFromAbsolute(
+			directories,
+			absolutePath,
+		);
+		if (resolvedDisplayPath !== requestedPath) {
+			broadcastPathReconciliation(
+				apiContext.websocketHub,
+				project.id,
+				runId,
+				record.featureId,
+				artifactRecord.docId,
+				resolvedDisplayPath,
+			);
+		}
+
 		if (artifactBaseline === null) {
 			const originalContent = await Bun.file(absolutePath).text();
-			setArtifactBaseline(db, artifactRecord.docId, originalContent);
+			dependencies.setArtifactBaseline(
+				db,
+				artifactRecord.docId,
+				originalContent,
+			);
 		}
 
 		await Bun.write(absolutePath, nextContent);
@@ -348,10 +435,12 @@ export async function handleArtifactSaveRequest(
 export async function handleArtifactPatchRequest(
 	docId: string,
 	apiContext?: ApiContext,
+	deps: ArtifactsApiDependencyOverrides = {},
 ): Promise<Response> {
 	try {
-		const db = await getDb();
-		const artifact = getArtifactBaseline(db, docId);
+		const dependencies = resolveDependencies(deps);
+		const db = await dependencies.getDb();
+		const artifact = dependencies.getArtifactBaseline(db, docId);
 
 		if (!artifact) {
 			return errorResponse(`Artifact not found: ${docId}`, 404);
@@ -361,14 +450,14 @@ export async function handleArtifactPatchRequest(
 			return jsonResponse({ patch: null, message: "No edits recorded" });
 		}
 
-		const artifactRecord = getArtifactByDocId(db, docId);
+		const artifactRecord = dependencies.getArtifactByDocId(db, docId);
 		if (!artifactRecord) {
 			return errorResponse(`Artifact not found: ${docId}`, 404);
 		}
 
 		const run =
 			artifactRecord.runId != null
-				? getRunById(db, artifactRecord.runId)
+				? dependencies.getRunById(db, artifactRecord.runId)
 				: null;
 		const directories =
 			run != null
@@ -377,9 +466,23 @@ export async function handleArtifactPatchRequest(
 
 		const resolvedPath =
 			run != null
-				? ((await resolveArtifactPathForRun(db, run, artifactRecord)) ??
-					(await resolveArtifactPath(db, directories, artifactRecord)))
-				: await resolveArtifactPath(db, directories, artifactRecord);
+				? ((await dependencies.resolveArtifactPathForRun(
+						db,
+						run,
+						artifactRecord,
+					)) ??
+					(await resolveArtifactPath(
+						db,
+						directories,
+						artifactRecord,
+						dependencies,
+					)))
+				: await resolveArtifactPath(
+						db,
+						directories,
+						artifactRecord,
+						dependencies,
+					);
 
 		if (!resolvedPath) {
 			return jsonResponse({ patch: null, message: "File not found on disk" });
@@ -389,8 +492,14 @@ export async function handleArtifactPatchRequest(
 			apiContext?.websocketHub &&
 			resolveArtifactAbsolutePath(directories, artifactRecord) !== resolvedPath
 		) {
-			const projects = await getAllProjects();
-			const project = projects.find((p) => p.path === artifact.projectPath);
+			const projects = await dependencies.getAllProjects();
+			const project = run
+				? findProjectByPathSet(
+						projects,
+						getEffectiveProjectPath(run),
+						run.projectPath,
+					)
+				: findProjectByPathSet(projects, artifact.projectPath);
 			if (project && run) {
 				broadcastPathReconciliation(
 					apiContext.websocketHub,

@@ -80,7 +80,7 @@ const normalizeStoredWorkRelativePath = (artifactPath: string): string => {
 export const resolveProjectDirectories = (
 	projectPath: string,
 ): ProjectDirectories => {
-	const result = resolveDirectorySet(projectPath);
+	const result = resolveDirectorySet(projectPath, { honorEnv: false });
 	if (E.isLeft(result)) {
 		return defaultResolvedDirectories(projectPath);
 	}
@@ -107,12 +107,14 @@ export const getRunDirectories = (
 		"projectPath" | "rp1ProjectRoot" | "rp1KbRoot" | "rp1WorkRoot"
 	>,
 ): ProjectDirectories => {
-	const defaults = defaultResolvedDirectories(run.projectPath);
+	const defaults = defaultResolvedDirectories(
+		run.rp1ProjectRoot ?? run.projectPath,
+	);
 	const projectRoot = resolve(run.rp1ProjectRoot ?? defaults.projectRoot);
 	const kbRoot = resolve(run.rp1KbRoot ?? defaults.kbRoot);
 	const storedWorkRoot = run.rp1WorkRoot
 		? resolve(run.rp1WorkRoot)
-		: getLegacyWorkDir(run.projectPath);
+		: getLegacyWorkDir(projectRoot);
 	const legacyWorkRoot = getLegacyWorkDir(projectRoot);
 	const workRoot =
 		existsSync(storedWorkRoot) || !existsSync(legacyWorkRoot)
