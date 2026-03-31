@@ -1,8 +1,10 @@
 import { existsSync } from "node:fs";
-import { homedir } from "node:os";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
-import { resolveDirectorySet } from "../../../shared/directory-resolution.js";
+import {
+	defaultWorkRootForProject,
+	resolveDirectorySet,
+} from "../../../shared/directory-resolution.js";
 import type { RunRecord } from "../../../shared/events.js";
 import type { ArtifactRecord } from "../../../src/agent-tools/emit/database.js";
 
@@ -19,19 +21,6 @@ interface SectionPath {
 	readonly relativePath: string;
 }
 
-const normalizeProjectKey = (projectRoot: string): string => {
-	const resolvedRoot = resolve(projectRoot);
-	const normalizedRoot = resolvedRoot
-		.replace(/^[A-Za-z]:/, "")
-		.replace(/^\/+/, "")
-		.replace(/[\\/]+/g, "-")
-		.replace(/[^A-Za-z0-9._-]/g, "-")
-		.replace(/-+/g, "-")
-		.replace(/^-|-$/g, "");
-
-	return normalizedRoot.length > 0 ? normalizedRoot : "project";
-};
-
 const defaultResolvedDirectories = (
 	projectPath: string,
 ): ProjectDirectories => {
@@ -40,7 +29,7 @@ const defaultResolvedDirectories = (
 	return {
 		projectRoot,
 		kbRoot: join(rp1DotDir, "context"),
-		workRoot: join(homedir(), ".rp1", normalizeProjectKey(projectRoot)),
+		workRoot: defaultWorkRootForProject(projectRoot),
 	};
 };
 

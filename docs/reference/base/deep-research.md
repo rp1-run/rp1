@@ -35,7 +35,7 @@ The workflow:
 | Parameter | Position | Default | Description |
 |-----------|----------|---------|-------------|
 | `research-topic` | `$ARGUMENTS` | (required) | Your research question or topic (freeform text) |
-| `RP1_WORK_ROOT` | Environment | `~/.rp1/<project-key>/` | Work directory for output artifacts |
+| `RP1_WORK_ROOT` | Environment | `~/.rp1/work/<project-key>/` | Work directory for output artifacts |
 
 ## Exploration Modes
 
