@@ -10,6 +10,7 @@ import { mkdir, readdir, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import * as TE from "fp-ts/lib/TaskEither.js";
+import { defaultWorkRootForProject } from "../../../shared/directory-resolution.js";
 import type { CLIError } from "../../../shared/errors.js";
 import { runtimeError } from "../../../shared/errors.js";
 import type {
@@ -312,24 +313,11 @@ const NON_TERMINAL_STATUSES = new Set<Status>([
 	"not_started",
 ]);
 
-const normalizeProjectKey = (projectRoot: string): string => {
-	const resolvedRoot = resolve(projectRoot);
-	const normalizedRoot = resolvedRoot
-		.replace(/^[A-Za-z]:/, "")
-		.replace(/^\/+/, "")
-		.replace(/[\\/]+/g, "-")
-		.replace(/[^A-Za-z0-9._-]/g, "-")
-		.replace(/-+/g, "-")
-		.replace(/^-|-$/g, "");
-
-	return normalizedRoot.length > 0 ? normalizedRoot : "project";
-};
-
 const defaultKbRoot = (projectRoot: string): string =>
 	join(projectRoot, ".rp1", "context");
 
 const defaultWorkRoot = (projectRoot: string): string =>
-	join(homedir(), ".rp1", normalizeProjectKey(projectRoot));
+	defaultWorkRootForProject(projectRoot);
 
 const getLegacyWorkDir = (projectRoot: string): string =>
 	join(resolve(projectRoot), ".rp1", "work");

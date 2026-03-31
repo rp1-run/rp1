@@ -102,9 +102,9 @@ describe("directory resolution", () => {
 		expect(result.right.projectRoot).toBe(projectRoot);
 		expect(result.right.kbRoot).toBe(join(projectRoot, ".rp1", "context"));
 		expect(result.right.sources.projectRoot).toBe("walk_up");
-		expect(result.right.workRoot.startsWith(join(homedir(), ".rp1"))).toBe(
-			true,
-		);
+		expect(
+			result.right.workRoot.startsWith(join(homedir(), ".rp1", "work")),
+		).toBe(true);
 		expect(result.right.workRoot.endsWith("project-with-rp1")).toBe(true);
 	});
 
