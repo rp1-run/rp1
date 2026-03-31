@@ -203,7 +203,7 @@ const handleSkippedSteps = (
  */
 const handleArtifactRegistration = (
 	input: EmitInput,
-	run: Pick<RunRecord, "rp1ProjectRoot" | "rp1WorkRoot">,
+	run: Pick<RunRecord, "rp1ProjectRoot" | "rp1WorkRoot" | "projectId">,
 ): TE.TaskEither<CLIError, string | undefined> => {
 	if (input.type !== "artifact_registered") {
 		return TE.right(undefined);
@@ -250,6 +250,7 @@ const handleArtifactRegistration = (
 						type: artifactType,
 						storageRoot: normalizedStorage.storageRoot,
 						projectPath: input.projectPath,
+						projectId: run.projectId ?? undefined,
 						feature,
 						step: input.step,
 						subflow: input.data.subflow === true,
@@ -357,6 +358,7 @@ export const executeEmit = (
 				rp1ProjectRoot: directories.right.projectRoot,
 				rp1KbRoot: directories.right.kbRoot,
 				rp1WorkRoot: directories.right.workRoot,
+				projectId: directories.right.projectId,
 				name: input.name,
 				harness:
 					input.harness ??
