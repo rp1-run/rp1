@@ -201,6 +201,35 @@ describe("directory resolution", () => {
 		}
 	});
 
+	test("does not let legacy RP1_ROOT clobber derived defaults when RP1_PROJECT_ROOT is set", () => {
+		const restoreProjectRoot = withEnvOverride(
+			"RP1_PROJECT_ROOT",
+			join(tempBase, "new-project-root"),
+		);
+		const restoreLegacyRoot = withEnvOverride(
+			"RP1_ROOT",
+			join(tempBase, "old-project-root", ".rp1"),
+		);
+
+		try {
+			const result = resolveDirectorySet(plainDirectory);
+			expect(E.isRight(result)).toBe(true);
+			if (E.isLeft(result)) {
+				return;
+			}
+
+			expect(result.right.projectRoot).toBe(join(tempBase, "new-project-root"));
+			expect(result.right.kbRoot).toBe(
+				join(tempBase, "new-project-root", ".rp1", "context"),
+			);
+			expect(result.right.sources.projectRoot).toBe("env");
+			expect(result.right.sources.kbRoot).toBe("default");
+		} finally {
+			restoreLegacyRoot();
+			restoreProjectRoot();
+		}
+	});
+
 	test("loads kb and work directories from project settings", async () => {
 		await writeFixture(
 			projectRoot,

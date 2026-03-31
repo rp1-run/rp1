@@ -38,9 +38,11 @@ describe("readiness step", () => {
 			skipWorkDir?: boolean;
 			skipKb?: boolean;
 			skipCharter?: boolean;
+			workRoot?: string;
 		},
 	): Promise<void> {
 		const rp1Root = process.env.RP1_ROOT || ".rp1";
+		const workRoot = options?.workRoot ?? join(cwd, rp1Root, "work");
 
 		if (!options?.skipRp1Dir) {
 			await mkdir(join(cwd, rp1Root), { recursive: true });
@@ -51,7 +53,7 @@ describe("readiness step", () => {
 		}
 
 		if (!options?.skipWorkDir && !options?.skipRp1Dir) {
-			await mkdir(join(cwd, rp1Root, "work"), { recursive: true });
+			await mkdir(workRoot, { recursive: true });
 		}
 
 		if (!options?.skipKb && !options?.skipContextDir && !options?.skipRp1Dir) {
@@ -76,7 +78,7 @@ describe("readiness step", () => {
 	}
 
 	describe("checkRp1Readiness", () => {
-		test("returns true for all checks when .rp1/, index.md, charter.md exist", async () => {
+		test("returns true for all checks when local rp1 files and KB docs exist", async () => {
 			await createCompleteSetup(tempDir);
 
 			const result = await checkRp1Readiness(tempDir);
@@ -124,12 +126,40 @@ describe("readiness step", () => {
 			expect(result.charterExists).toBe(false);
 		});
 
-		test("returns false for directoriesExist when work/ missing", async () => {
+		test("does not require the work directory for readiness", async () => {
 			await createCompleteSetup(tempDir, { skipWorkDir: true });
 
 			const result = await checkRp1Readiness(tempDir);
 
-			expect(result.directoriesExist).toBe(false);
+			expect(result.directoriesExist).toBe(true);
+			expect(result.kbExists).toBe(true);
+			expect(result.charterExists).toBe(true);
+		});
+
+		test("supports an external configured work directory without requiring it to exist", async () => {
+			await mkdir(join(tempDir, ".rp1"), { recursive: true });
+			await mkdir(join(tempDir, ".rp1", "context"), { recursive: true });
+			await writeFile(
+				join(tempDir, ".rp1", "settings.toml"),
+				`[directories]
+work_root = "./external-work"
+`,
+				"utf-8",
+			);
+			await writeFile(
+				join(tempDir, ".rp1", "context", "index.md"),
+				"# Knowledge Base\n",
+				"utf-8",
+			);
+			await writeFile(
+				join(tempDir, ".rp1", "context", "charter.md"),
+				"# Charter\n",
+				"utf-8",
+			);
+
+			const result = await checkRp1Readiness(tempDir);
+
+			expect(result.directoriesExist).toBe(true);
 			expect(result.kbExists).toBe(true);
 			expect(result.charterExists).toBe(true);
 		});
@@ -246,7 +276,7 @@ describe("readiness step", () => {
 			expect(result.charterExists).toBe(false);
 		});
 
-		test("checks all three directories for directoriesExist", async () => {
+		test("checks the local rp1 and context directories for directoriesExist", async () => {
 			await mkdir(join(tempDir, ".rp1"), { recursive: true });
 
 			const result = await checkRp1Readiness(tempDir);

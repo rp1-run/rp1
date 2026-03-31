@@ -7,6 +7,7 @@ import {
 	type ProjectDirectories,
 	parseProjectSectionPath,
 	resolveArtifactAbsolutePath,
+	resolveProjectDirectories,
 	resolveProjectSectionFilePath,
 	toArtifactDisplayPath,
 	toArtifactDisplayPathFromAbsolute,
@@ -15,14 +16,29 @@ import {
 describe("project-paths", () => {
 	let tmpProjectDir: string;
 	let directories: ProjectDirectories;
+	let originalProjectRoot: string | undefined;
+	let originalKbRoot: string | undefined;
+	let originalWorkRoot: string | undefined;
 
 	beforeAll(async () => {
+		originalProjectRoot = process.env.RP1_PROJECT_ROOT;
+		originalKbRoot = process.env.RP1_KB_ROOT;
+		originalWorkRoot = process.env.RP1_WORK_ROOT;
 		tmpProjectDir = await mkdtemp(join(tmpdir(), "rp1-project-paths-"));
 		directories = {
 			projectRoot: tmpProjectDir,
 			kbRoot: join(tmpProjectDir, "external-context"),
 			workRoot: join(tmpProjectDir, "external-work"),
 		};
+		await mkdir(join(tmpProjectDir, ".rp1"), { recursive: true });
+		await Bun.write(
+			join(tmpProjectDir, ".rp1", "settings.toml"),
+			[
+				"[directories]",
+				'kb_root = "external-context"',
+				'work_root = "external-work"',
+			].join("\n"),
+		);
 
 		await mkdir(join(directories.workRoot, "archives", "features", "feat-1"), {
 			recursive: true,
@@ -34,6 +50,21 @@ describe("project-paths", () => {
 	});
 
 	afterAll(async () => {
+		if (originalProjectRoot === undefined) {
+			delete process.env.RP1_PROJECT_ROOT;
+		} else {
+			process.env.RP1_PROJECT_ROOT = originalProjectRoot;
+		}
+		if (originalKbRoot === undefined) {
+			delete process.env.RP1_KB_ROOT;
+		} else {
+			process.env.RP1_KB_ROOT = originalKbRoot;
+		}
+		if (originalWorkRoot === undefined) {
+			delete process.env.RP1_WORK_ROOT;
+		} else {
+			process.env.RP1_WORK_ROOT = originalWorkRoot;
+		}
 		if (tmpProjectDir) {
 			await rm(tmpProjectDir, { recursive: true, force: true });
 		}
@@ -105,6 +136,18 @@ describe("project-paths", () => {
 				rp1WorkRoot: join(tmpProjectDir, "missing-work-root"),
 			}).workRoot,
 		).toBe(legacyWorkRoot);
+	});
+
+	test("ignores process-wide RP1_* env overrides when resolving an arbitrary project path", () => {
+		process.env.RP1_PROJECT_ROOT = "/env/project";
+		process.env.RP1_KB_ROOT = "/env/kb";
+		process.env.RP1_WORK_ROOT = "/env/work";
+
+		const resolved = resolveProjectDirectories(tmpProjectDir);
+
+		expect(resolved.projectRoot).toBe(tmpProjectDir);
+		expect(resolved.kbRoot).toBe(directories.kbRoot);
+		expect(resolved.workRoot).toBe(directories.workRoot);
 	});
 
 	describe("parseProjectSectionPath backward compatibility", () => {
