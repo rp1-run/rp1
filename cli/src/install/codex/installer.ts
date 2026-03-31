@@ -823,7 +823,7 @@ export const uninstallCodex = (
 				};
 				if (parsed.hooks?.SessionStart) {
 					parsed.hooks.SessionStart = parsed.hooks.SessionStart.filter(
-						(entry: any) =>
+						(entry: unknown) =>
 							!JSON.stringify(entry).includes("rp1 arcade") &&
 							!JSON.stringify(entry).includes("rp1 update"),
 					);

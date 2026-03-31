@@ -374,7 +374,7 @@ const maybeRewriteClaudePluginManifest = async (
 		const content = await readFile(pluginJsonPath, "utf-8");
 		const json = JSON.parse(content) as Record<string, unknown>;
 		json.version = pluginVersion;
-		await writeFile(pluginJsonPath, JSON.stringify(json, null, 2) + "\n");
+		await writeFile(pluginJsonPath, `${JSON.stringify(json, null, 2)}\n`);
 	} catch {
 		// Leave copied manifest untouched if it's missing or invalid.
 	}

@@ -72,8 +72,8 @@ describe("version-marker", () => {
 		if (readResult._tag === "Right") {
 			const markers = readResult.right;
 			expect(markers["claude-code"]?.version).toBe("0.6.5");
-			expect(markers["opencode"]?.version).toBe("0.6.5");
-			expect(markers["codex"]?.version).toBe("0.6.4");
+			expect(markers.opencode?.version).toBe("0.6.5");
+			expect(markers.codex?.version).toBe("0.6.4");
 		}
 	});
 
