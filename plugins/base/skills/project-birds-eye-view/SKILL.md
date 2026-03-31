@@ -1,6 +1,6 @@
 ---
 name: project-birds-eye-view
-description: "Generates comprehensive project overview documents with diagrams for new developers using internal knowledge base and codebase context."
+description: "Generates a project overview document with architecture diagrams, module summaries, and data models for developer onboarding. Outputs a single markdown file with validated Mermaid diagrams covering system context, architecture, modules, workflows, and APIs. Use when onboarding new developers, creating a project summary, generating architecture documentation, or building a getting-started guide."
 metadata:
   version: 2.0.0
   tags:
@@ -17,23 +17,30 @@ metadata:
 
 # Project Bird's-Eye View Generator
 
-This command invokes the **project-documenter** sub-agent to generate project overview documentation.
+Dispatches the **project-documenter** sub-agent to produce a comprehensive project overview document.
 
-Invoke the project-documenter agent:
+## Usage
+
+```
+/rp1-base:project-birds-eye-view
+/rp1-base:project-birds-eye-view generate overview for the payments service
+```
+
+## Workflow
 
 {% dispatch_agent "rp1-base:project-documenter" %}
 
-The agent will:
+The agent performs these steps:
 
-- Load internal knowledge base
-- Explore codebase for additional context
-- Generate comprehensive overview with diagrams
-- Include: Summary, System Context, Architecture, Modules, Data Model, Workflows, APIs
-- Create Mermaid diagrams (validated)
-- Mark unknowns as TBD
-- Save the output document
-- Report back with documentation summary
+1. **Load KB** — Read the internal knowledge base from `.rp1/context/`
+2. **Explore codebase** — Scan source files for additional architectural context
+3. **Generate document** — Produce a structured overview covering:
+   - Project summary and system context
+   - Architecture overview with Mermaid diagrams
+   - Module breakdown and dependencies
+   - Data model and key workflows
+   - API surface
+4. **Validate diagrams** — Run Mermaid syntax validation on all generated diagrams
+5. **Save and report** — Write the document and return a summary
 
-The agent follows strict rules: never invent facts, use only loaded sources and codebase exploration.
-
-The agent has access to all necessary tools and will handle the entire documentation workflow autonomously.
+Unknowns are marked as **TBD** — the agent never invents facts, using only loaded sources and codebase exploration.
