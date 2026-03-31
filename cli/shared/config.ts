@@ -47,7 +47,7 @@ export const parseArcadeArgs = (
 	args: string[],
 ): E.Either<CLIError, ArcadeConfig> => {
 	const config: ArcadeConfig = {
-		rp1Root: process.env.RP1_ROOT || "",
+		rp1Root: "",
 		port: 7710,
 		openBrowser: true,
 		verbose: false,
@@ -83,7 +83,9 @@ export const resolveRp1Root = (
 	config: ArcadeConfig,
 ): E.Either<CLIError, ArcadeConfig> =>
 	pipe(
-		resolveDirectorySet(config.rp1Root || process.cwd()),
+		resolveDirectorySet(config.rp1Root || process.cwd(), {
+			honorEnv: config.rp1Root.length === 0,
+		}),
 		E.map((directories) => ({
 			...config,
 			rp1Root: directories.projectRoot,

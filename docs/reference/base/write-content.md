@@ -46,11 +46,11 @@ The command follows a structured process:
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `RP1_ROOT` | `.rp1/` | Root directory for output |
+| `RP1_WORK_ROOT` | Resolved by rp1 | Work artifact directory for output |
 
 ## Output
 
-Documents are written to: `.rp1/work/content/<topic>/<type>.md`
+Documents are written to: `<RP1_WORK_ROOT>/content/<topic>/<type>.md`
 
 ## Examples
 

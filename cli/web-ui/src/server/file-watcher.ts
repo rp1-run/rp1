@@ -364,26 +364,22 @@ export class FileWatcherPool {
 		}
 
 		if (!oldestKey) {
-			for (const [key, pooled] of this.watchers.entries()) {
-				if (pooled.lastAccessedAt < oldestTime) {
-					oldestTime = pooled.lastAccessedAt;
-					oldestKey = key;
-				}
-			}
+			console.log(
+				"[watcher-pool] All watchers are active; skipping eviction and allowing temporary overflow",
+			);
+			return;
 		}
 
-		if (oldestKey) {
-			const pooled = this.watchers.get(oldestKey);
-			if (pooled) {
-				if (pooled.gracePeriodTimer) {
-					clearTimeout(pooled.gracePeriodTimer);
-				}
-				pooled.watcher.stop();
-				this.watchers.delete(oldestKey);
-				console.log(
-					`[${oldestKey}] Watcher evicted (LRU), total watchers: ${this.watchers.size}`,
-				);
+		const pooled = this.watchers.get(oldestKey);
+		if (pooled) {
+			if (pooled.gracePeriodTimer) {
+				clearTimeout(pooled.gracePeriodTimer);
 			}
+			pooled.watcher.stop();
+			this.watchers.delete(oldestKey);
+			console.log(
+				`[${oldestKey}] Watcher evicted (LRU), total watchers: ${this.watchers.size}`,
+			);
 		}
 	}
 

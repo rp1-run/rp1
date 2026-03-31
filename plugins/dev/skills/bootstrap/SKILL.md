@@ -88,10 +88,10 @@ Create subdir if needed: `mkdir -p "{TARGET_DIR}"` (fail -> abort)
 ### 4.1 Init Charter
 
 ```bash
-mkdir -p "{TARGET_DIR}/{{$RP1_KB_ROOT}}"
+mkdir -p "{TARGET_DIR}/.rp1/context"
 ```
 
-Create `{TARGET_DIR}/{{$RP1_KB_ROOT}}/charter.md`:
+Create `{TARGET_DIR}/.rp1/context/charter.md`:
 
 ```markdown
 # Project Charter: {PROJECT_NAME}
@@ -121,12 +121,12 @@ _TBD_
 
 ### 4.2 Interview Loop
 
-CHARTER_PATH = `{TARGET_DIR}/{{$RP1_KB_ROOT}}/charter.md`
+CHARTER_PATH = `{TARGET_DIR}/.rp1/context/charter.md`
 question_count = 0
 
 while question_count < 10:
     {% dispatch_agent "rp1-dev:charter-interviewer" %}
-    CHARTER_PATH: {CHARTER_PATH}, MODE: CREATE, RP1_KB_ROOT: {{$RP1_KB_ROOT}}
+    CHARTER_PATH: {CHARTER_PATH}, MODE: CREATE, RP1_KB_ROOT: {TARGET_DIR}/.rp1/context
     {% enddispatch_agent %}
 
     response = parse_json(output)
@@ -151,13 +151,13 @@ while question_count < 10:
 
 ### 4.3 Verify
 
-`ls "{TARGET_DIR}/{{$RP1_KB_ROOT}}/charter.md"` - missing -> warn, continue
+`ls "{TARGET_DIR}/.rp1/context/charter.md"` - missing -> warn, continue
 
 ## §5 Scaffold Phase (Stateless)
 
 ### 5.1 Init Preferences
 
-Create `{TARGET_DIR}/{{$RP1_KB_ROOT}}/preferences.md`:
+Create `{TARGET_DIR}/.rp1/context/preferences.md`:
 
 ```markdown
 # Project Preferences
@@ -179,12 +179,12 @@ Testing: [?] | Build: [?] | Lint: [?] | Format: [?]
 
 ### 5.2 Scaffolder Loop
 
-PREFS_PATH = `{TARGET_DIR}/{{$RP1_KB_ROOT}}/preferences.md`
+PREFS_PATH = `{TARGET_DIR}/.rp1/context/preferences.md`
 question_count = 0, summary_iterations = 0
 
 loop:
   {% dispatch_agent "rp1-dev:bootstrap-scaffolder" %}
-  PROJECT_NAME, TARGET_DIR, CHARTER_PATH, PREFS_PATH, RP1_KB_ROOT
+  PROJECT_NAME, TARGET_DIR, CHARTER_PATH, PREFS_PATH, RP1_KB_ROOT={TARGET_DIR}/.rp1/context
   {% enddispatch_agent %}
 
   response = parse_json(output)

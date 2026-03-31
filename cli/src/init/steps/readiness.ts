@@ -5,6 +5,8 @@
 
 import { stat } from "node:fs/promises";
 import { resolve } from "node:path";
+import * as E from "fp-ts/lib/Either.js";
+import { resolveDirectorySet } from "../../../shared/directory-resolution.js";
 import type { StepCallbacks } from "../models.js";
 
 /**
@@ -51,7 +53,9 @@ async function isDirectory(dirPath: string): Promise<boolean> {
 
 /**
  * Check rp1 readiness by performing parallel file system checks.
- * Checks for required directories, KB presence, and charter presence.
+ * Checks for the local rp1 directories, KB presence, and charter presence.
+ * The work root is resolved from directory settings/env but may be created on
+ * demand, so it is not required for readiness.
  *
  * @param cwd - Current working directory
  * @param callbacks - Optional callbacks for reporting progress to UI
@@ -67,29 +71,35 @@ export async function checkRp1Readiness(
 
 	const rp1Dir = resolve(cwd, rp1Root);
 	const contextDir = resolve(cwd, rp1Root, "context");
-	const workDir = resolve(cwd, rp1Root, "work");
 	const kbFile = resolve(cwd, rp1Root, "context", "index.md");
 	const charterFile = resolve(cwd, rp1Root, "context", "charter.md");
+	const workDir = E.match(
+		() => resolve(rp1Dir, "work"),
+		(directories) => resolve(directories.workRoot),
+	)(resolveDirectorySet(cwd));
 
 	const [
 		rp1DirExists,
 		contextDirExists,
-		workDirExists,
 		kbExists,
 		charterExists,
+		workDirExists,
 	] = await Promise.all([
 		isDirectory(rp1Dir),
 		isDirectory(contextDir),
-		isDirectory(workDir),
 		pathExists(kbFile),
 		pathExists(charterFile),
+		isDirectory(workDir),
 	]);
 
-	const directoriesExist = rp1DirExists && contextDirExists && workDirExists;
+	const directoriesExist = rp1DirExists && contextDirExists;
 
 	// Report findings
 	if (directoriesExist) {
 		callbacks?.onActivity("Found existing rp1 directory structure", "info");
+	}
+	if (workDirExists) {
+		callbacks?.onActivity("Resolved work directory exists", "info");
 	}
 	if (kbExists) {
 		callbacks?.onActivity("Knowledge base exists", "info");
