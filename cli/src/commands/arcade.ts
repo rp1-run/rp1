@@ -271,11 +271,10 @@ Daemon:
   by running 'rp1 arcade' in different directories. Use the project switcher
   in the web UI to navigate between projects.
 
-Environment:
-  RP1_PROJECT_ROOT              Set the default project path when no [path] is provided
-  RP1_KB_ROOT                   Override the resolved KB directory for that project
-  RP1_WORK_ROOT                 Override the resolved work directory for that project
-  RP1_ROOT                      Legacy compatibility input; avoid for new workflows
+Directories:
+  Project directories are resolved from the .rp1/project_id file.
+  KB root is always <project>/.rp1/context, work root is always <project>/.rp1/work.
+  Run 'rp1 migrate' to move legacy external work directories into the project.
 
 Note: This command requires Bun runtime. Install from https://bun.sh
 `,
