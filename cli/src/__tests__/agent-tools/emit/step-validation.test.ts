@@ -265,6 +265,7 @@ describe("validateStepAgainstStateMachine", () => {
 		rp1ProjectRoot: tempDir,
 		rp1KbRoot: join(tempDir, ".rp1", "context"),
 		rp1WorkRoot: join(tempDir, ".rp1", "work"),
+		projectId: null,
 		status: "running" as const,
 		name: null,
 		harness: null,
