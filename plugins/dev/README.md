@@ -40,8 +40,8 @@ Then install dev plugin:
 ```
 
 The blueprint command creates a two-tier document hierarchy:
-1. **Charter** (`{{$RP1_KB_ROOT}}/charter.md`) - Project-level "why" and "who"
-2. **PRDs** (`{{$RP1_WORK_ROOT}}/prds/<name>.md`) - Surface-specific "what" that inherits from charter
+1. **Charter** (`.rp1/context/charter.md`) - Project-level "why" and "who"
+2. **PRDs** (`.rp1/work/prds/<name>.md`) - Surface-specific "what" that inherits from charter
 
 **Bootstrap Flow** (for greenfield projects):
 ```bash
@@ -197,7 +197,7 @@ During feature implementation, the build step of `/build` automatically captures
 
 The verify step reads these field notes to distinguish intentional deviations from potential issues, preventing false verification failures.
 
-**Location**: `{{$RP1_WORK_ROOT}}/features/{FEATURE_ID}/field-notes.md`
+**Location**: `.rp1/work/features/{FEATURE_ID}/field-notes.md`
 
 ## Version
 

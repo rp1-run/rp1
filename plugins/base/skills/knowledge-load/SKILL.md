@@ -26,10 +26,6 @@ metadata:
         - "full"
         - "all"
         - "everything"
-  environment:
-    - name: RP1_KB_ROOT
-      source: "rp1 agent-tools rp1-root-dir"
-      description: "Knowledge base directory for project context"
 ---
 
 # Knowledge Loader - Context Ingestion & Preparation
@@ -77,7 +73,7 @@ Determine the repository type based on these indicators:
 
 ## Loading Strategies by Repository Type
 
-All relevant files are in {{$RP1_KB_ROOT}}/
+All relevant files are in .rp1/context/
 
 **Single Project**:
 
@@ -217,7 +213,7 @@ READY [monorepo: 2 projects - rp1-base, rp1-dev]
 
 ```
 Now analyzing parameters...
-I see that RP1_KB_ROOT is set to .rp1/context/...
+I see that the KB root is at .rp1/context/...
 Loading index.md file...
 File loaded successfully, now parsing...
 Extracting repository structure...
@@ -241,12 +237,12 @@ etc. (too verbose!)
 ```markdown
 ## 1. Load Knowledge Base
 
-Read `{{$RP1_KB_ROOT}}/index.md` to understand project structure and available KB files.
+Read `.rp1/context/index.md` to understand project structure and available KB files.
 
 **Selective Loading**: Based on your task, load additional files as needed:
-- For pattern consistency checks -> Read `{{$RP1_KB_ROOT}}/patterns.md`
-- For architecture understanding -> Read `{{$RP1_KB_ROOT}}/architecture.md`
-- For component details -> Read `{{$RP1_KB_ROOT}}/modules.md`
+- For pattern consistency checks -> Read `.rp1/context/patterns.md`
+- For architecture understanding -> Read `.rp1/context/architecture.md`
+- For component details -> Read `.rp1/context/modules.md`
 
 Do NOT load all KB files unless performing holistic analysis.
 ```
@@ -256,14 +252,14 @@ Do NOT load all KB files unless performing holistic analysis.
 ```markdown
 ## 1. Load Knowledge Base
 
-Read all markdown files from `{{$RP1_KB_ROOT}}/*.md`:
-- `{{$RP1_KB_ROOT}}/index.md` - Project overview
-- `{{$RP1_KB_ROOT}}/architecture.md` - System design
-- `{{$RP1_KB_ROOT}}/modules.md` - Component breakdown
-- `{{$RP1_KB_ROOT}}/concept_map.md` - Domain terminology
-- `{{$RP1_KB_ROOT}}/patterns.md` - Code conventions
+Read all markdown files from `.rp1/context/*.md`:
+- `.rp1/context/index.md` - Project overview
+- `.rp1/context/architecture.md` - System design
+- `.rp1/context/modules.md` - Component breakdown
+- `.rp1/context/concept_map.md` - Domain terminology
+- `.rp1/context/patterns.md` - Code conventions
 
-If `{{$RP1_KB_ROOT}}/` doesn't exist, warn user to run `/knowledge-build` first.
+If `.rp1/context/` doesn't exist, warn user to run `/knowledge-build` first.
 ```
 
 ### Task-to-KB-Files Mapping
@@ -285,7 +281,7 @@ Always use direct Read tool calls:
 
 ```markdown
 # CORRECT (in subagent)
-Read `{{$RP1_KB_ROOT}}/index.md`
+Read `.rp1/context/index.md`
 
 # INCORRECT (causes subagent to exit)
 Run `/knowledge-load`

@@ -18,10 +18,6 @@ metadata:
       type: string
       required: false
       description: "Output directory for generated files (default: input file dir or cwd)"
-  environment:
-    - name: RP1_PROJECT_ROOT
-      source: "rp1 agent-tools rp1-root-dir"
-      description: "Project root directory for locating prompt files"
   sub_agents:
     - "rp1-utils:dependency-chain-analyzer"
     - "rp1-utils:prompt-eval-extractor"
