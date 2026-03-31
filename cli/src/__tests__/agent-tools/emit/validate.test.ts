@@ -5,7 +5,6 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { dirname } from "node:path";
 import { VALID_EVENT_TYPES } from "../../../../shared/events.js";
 import {
 	validateEmitOptions,
@@ -247,24 +246,18 @@ describe("emit validation", () => {
 	});
 
 	describe("validateEmitOptions project path resolution", () => {
-		test("uses RP1_ROOT env var to derive project path when --project omitted", async () => {
-			const fakeRp1Root = "/tmp/test-project/.rp1";
-			const restore = withEnvOverride("RP1_ROOT", fakeRp1Root);
-			try {
-				const result = await expectTaskRight(
-					validateEmitOptions({
-						type: "status_change",
-						runId: "test-run-1",
-						workflow: "build",
-						step: "plan",
-						data: '{"status": "running"}',
-						// project intentionally omitted
-					}),
-				);
-				expect(result.projectPath).toBe(dirname(fakeRp1Root));
-			} finally {
-				restore();
-			}
+		test("falls back to cwd when --project is omitted", async () => {
+			const result = await expectTaskRight(
+				validateEmitOptions({
+					type: "status_change",
+					runId: "test-run-1",
+					workflow: "build",
+					step: "plan",
+					data: '{"status": "running"}',
+					// project intentionally omitted
+				}),
+			);
+			expect(result.projectPath).toBe(process.cwd());
 		});
 
 		test("explicit --project takes precedence over RP1_ROOT env var", async () => {
@@ -290,42 +283,32 @@ describe("emit validation", () => {
 
 	describe("validateEmitOptions workflow validation", () => {
 		test("injects workflow into data payload", async () => {
-			const fakeRp1Root = "/tmp/test-project/.rp1";
-			const restore = withEnvOverride("RP1_ROOT", fakeRp1Root);
-			try {
-				const result = await expectTaskRight(
-					validateEmitOptions({
-						type: "status_change",
-						runId: "test-run-wf",
-						workflow: "build",
-						step: "plan",
-						data: '{"status": "running"}',
-					}),
-				);
-				expect(result.workflow).toBe("build");
-				expect(result.data.workflow).toBe("build");
-			} finally {
-				restore();
-			}
+			const result = await expectTaskRight(
+				validateEmitOptions({
+					type: "status_change",
+					runId: "test-run-wf",
+					workflow: "build",
+					step: "plan",
+					data: '{"status": "running"}',
+					project: process.cwd(),
+				}),
+			);
+			expect(result.workflow).toBe("build");
+			expect(result.data.workflow).toBe("build");
 		});
 
 		test("rejects empty workflow string", async () => {
-			const fakeRp1Root = "/tmp/test-project/.rp1";
-			const restore = withEnvOverride("RP1_ROOT", fakeRp1Root);
-			try {
-				const result = await validateEmitOptions({
-					type: "status_change",
-					runId: "test-run-wf",
-					workflow: "",
-					step: "plan",
-					data: '{"status": "running"}',
-				})();
-				expect(result._tag).toBe("Left");
-				if (result._tag === "Left") {
-					expect(getErrorMessage(result.left)).toContain("--workflow");
-				}
-			} finally {
-				restore();
+			const result = await validateEmitOptions({
+				type: "status_change",
+				runId: "test-run-wf",
+				workflow: "",
+				step: "plan",
+				data: '{"status": "running"}',
+				project: process.cwd(),
+			})();
+			expect(result._tag).toBe("Left");
+			if (result._tag === "Left") {
+				expect(getErrorMessage(result.left)).toContain("--workflow");
 			}
 		});
 	});
