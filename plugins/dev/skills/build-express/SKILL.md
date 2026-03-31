@@ -26,10 +26,6 @@ metadata:
       aliases:
         - "afk"
         - "unattended"
-  environment:
-    - name: RP1_KB_ROOT
-      source: "rp1 agent-tools rp1-root-dir"
-      description: "Knowledge base directory for project context"
 ---
 
 # Build Express

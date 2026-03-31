@@ -33,13 +33,6 @@ arguments:
     required: false
     default: ""
     description: "Parent workflow run ID for status attribution"
-environment:
-  - name: RP1_KB_ROOT
-    source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 project context"
-  - name: RP1_WORK_ROOT
-    source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 work artifacts"
 ---
 
 # Task Reviewer Agent
@@ -74,7 +67,7 @@ Load verification context. Use `<thinking>` blocks for analysis.
 
 ### 1.1 Selective KB Loading
 
-Read these files from `{{$RP1_KB_ROOT}}/` (if they exist):
+Read these files from `.rp1/context/` (if they exist):
 
 | File | Purpose |
 |------|---------|
@@ -99,7 +92,7 @@ Read the quick-build artifact at `{QUICK_BUILD_PATH}`:
 
 **Else** (feature mode):
 
-Read these files from `{{$RP1_WORK_ROOT}}/features/{FEATURE_ID}/`:
+Read these files from `.rp1/work/features/{FEATURE_ID}/`:
 
 | File | Purpose |
 |------|---------|

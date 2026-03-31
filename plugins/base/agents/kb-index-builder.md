@@ -38,10 +38,6 @@ arguments:
       - "FULL"
       - "INCREMENTAL"
       - "FEATURE_LEARNING"
-environment:
-  - name: RP1_KB_ROOT
-    source: "rp1 agent-tools rp1-root-dir"
-    description: "Knowledge base directory for project context"
 ---
 
 # KB Index Builder - Project Overview Generation
@@ -90,7 +86,7 @@ $5
 
 **Check for existing index.md**:
 
-- Check if `{{$RP1_KB_ROOT}}/index.md` exists
+- Check if `.rp1/context/index.md` exists
 - If exists, read the file to understand current KB state
 - Extract existing project information, structure, and insights
 - Use as baseline context for analysis

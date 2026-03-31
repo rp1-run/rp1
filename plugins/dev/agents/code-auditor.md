@@ -23,10 +23,6 @@ arguments:
       - "relaxed"
       - "standard"
       - "strict"
-environment:
-  - name: RP1_KB_ROOT
-    source: "rp1 agent-tools rp1-root-dir"
-    description: "Knowledge base directory for project context"
 ---
 
 # Code Quality Auditor - Pattern & Style Analysis
@@ -55,13 +51,13 @@ $3
 
 Before performing the audit, load codebase knowledge progressively:
 
-1. Read `{{$RP1_KB_ROOT}}/index.md` to understand project structure
-2. Read `{{$RP1_KB_ROOT}}/patterns.md` for pattern consistency checks (required)
-3. Read `{{$RP1_KB_ROOT}}/modules.md` for component understanding (required)
+1. Read `.rp1/context/index.md` to understand project structure
+2. Read `.rp1/context/patterns.md` for pattern consistency checks (required)
+3. Read `.rp1/context/modules.md` for component understanding (required)
 
 Do NOT load all KB files. Code auditing needs patterns and modules context.
 
-If `{{$RP1_KB_ROOT}}/` doesn't exist, warn user to run `/knowledge-build` first.
+If `.rp1/context/` doesn't exist, warn user to run `/knowledge-build` first.
 
 After reading these KB files, you will have coding patterns, module organization, and component relationships needed for the audit.
 
@@ -113,7 +109,7 @@ Your audit will systematically analyze the following quality dimensions:
 
 When you receive an audit request, follow this systematic approach:
 
-1. **Load the codebase knowledge base** by reading index.md, patterns.md, and modules.md from `{{$RP1_KB_ROOT}}/`
+1. **Load the codebase knowledge base** by reading index.md, patterns.md, and modules.md from `.rp1/context/`
 2. **Analyze the current codebase** to understand established patterns and conventions
 3. **Systematically evaluate each quality dimension** using the framework above
 4. **Generate a comprehensive audit report** with findings, priorities, and recommendations

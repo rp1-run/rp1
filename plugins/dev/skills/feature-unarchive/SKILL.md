@@ -17,13 +17,6 @@ metadata:
       type: string
       required: true
       description: "The feature identifier or timestamped archive name to restore"
-  environment:
-    - name: RP1_KB_ROOT
-      source: "rp1 agent-tools rp1-root-dir"
-      description: "Root directory for rp1 project context"
-    - name: RP1_WORK_ROOT
-      source: "rp1 agent-tools rp1-root-dir"
-      description: "Root directory for rp1 work artifacts"
   sub_agents:
     - "rp1-dev:feature-archiver"
 ---
@@ -49,7 +42,7 @@ Restores an archived feature's documentation from the archives directory back to
 
 ## Behavior
 
-- Moves `{{$RP1_WORK_ROOT}}/archives/features/{FEATURE_ID}/` to `{{$RP1_WORK_ROOT}}/features/{FEATURE_ID}/`
+- Moves `.rp1/work/archives/features/{FEATURE_ID}/` to `.rp1/work/features/{FEATURE_ID}/`
 - Fails if a feature with the same ID already exists in the active directory
 - Provides guidance on resolving conflicts
 

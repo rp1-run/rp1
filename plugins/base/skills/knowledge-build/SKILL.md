@@ -18,13 +18,6 @@ metadata:
       type: string
       required: false
       description: "Feature ID to incorporate learnings from an archived feature into KB"
-  environment:
-    - name: RP1_KB_ROOT
-      source: "rp1 agent-tools rp1-root-dir"
-      description: "Root directory for rp1 project context"
-    - name: RP1_WORK_ROOT
-      source: "rp1 agent-tools rp1-root-dir"
-      description: "Root directory for rp1 work artifacts"
   sub_agents:
     - "rp1-base:kb-spatial-analyzer"
     - "rp1-base:kb-concept-extractor"
@@ -64,21 +57,21 @@ If `FEATURE_ID` is provided, this is a **feature learning build** that captures 
 1. **Locate archived feature**:
 
    ```
-   FEATURE_PATH = {{$RP1_WORK_ROOT}}/archives/features/{FEATURE_ID}/
+   FEATURE_PATH = .rp1/work/archives/features/{FEATURE_ID}/
    ```
 
    If not found, check active features:
 
    ```
-   FEATURE_PATH = {{$RP1_WORK_ROOT}}/features/{FEATURE_ID}/
+   FEATURE_PATH = .rp1/work/features/{FEATURE_ID}/
    ```
 
    If neither exists, error:
 
    ```
    Feature not found: {FEATURE_ID}
-   Checked: {{$RP1_WORK_ROOT}}/archives/features/{FEATURE_ID}/
-           {{$RP1_WORK_ROOT}}/features/{FEATURE_ID}/
+   Checked: .rp1/work/archives/features/{FEATURE_ID}/
+           .rp1/work/features/{FEATURE_ID}/
    ```
 
 2. **Read feature documentation**:
@@ -142,7 +135,7 @@ If `FEATURE_ID` is provided, this is a **feature learning build** that captures 
 **NOTE**: Skip this phase entirely if FEATURE_ID is provided (Feature Learning Mode).
 
 1. **Check for existing KB state**:
-   - Check if `{{$RP1_KB_ROOT}}/state.json` exists
+   - Check if `.rp1/context/state.json` exists
    - If exists, read the `git_commit` field from state.json
 
 2. **Check current git commit**:
@@ -176,16 +169,16 @@ If `FEATURE_ID` is provided, this is a **feature learning build** that captures 
 
      ```bash
      # Read shareable state
-     repo_type=$(jq -r '.repo_type // "single-project"' {{$RP1_KB_ROOT}}/state.json)
+     repo_type=$(jq -r '.repo_type // "single-project"' .rp1/context/state.json)
 
      # Read local values from meta.json (with fallback to state.json for backward compatibility)
-     if [ -f "{{$RP1_KB_ROOT}}/meta.json" ]; then
-       repo_root=$(jq -r '.repo_root // "."' {{$RP1_KB_ROOT}}/meta.json)
-       current_project_path=$(jq -r '.current_project_path // "."' {{$RP1_KB_ROOT}}/meta.json)
+     if [ -f ".rp1/context/meta.json" ]; then
+       repo_root=$(jq -r '.repo_root // "."' .rp1/context/meta.json)
+       current_project_path=$(jq -r '.current_project_path // "."' .rp1/context/meta.json)
      else
        # Backward compatibility: read from state.json if meta.json doesn't exist
-       repo_root=$(jq -r '.repo_root // "."' {{$RP1_KB_ROOT}}/state.json)
-       current_project_path=$(jq -r '.current_project_path // "."' {{$RP1_KB_ROOT}}/state.json)
+       repo_root=$(jq -r '.repo_root // "."' .rp1/context/state.json)
+       current_project_path=$(jq -r '.current_project_path // "."' .rp1/context/state.json)
      fi
      ```
 
@@ -372,11 +365,11 @@ If `FEATURE_ID` is provided, this is a **feature learning build** that captures 
    - Template placeholder mapping: fill template with aggregated data
 
 5. **Write KB files** to:
-   - `{{$RP1_KB_ROOT}}/index.md`
-   - `{{$RP1_KB_ROOT}}/concept_map.md`
-   - `{{$RP1_KB_ROOT}}/architecture.md`
-   - `{{$RP1_KB_ROOT}}/modules.md`
-   - `{{$RP1_KB_ROOT}}/patterns.md`
+   - `.rp1/context/index.md`
+   - `.rp1/context/concept_map.md`
+   - `.rp1/context/architecture.md`
+   - `.rp1/context/modules.md`
+   - `.rp1/context/patterns.md`
 
 ### Phase 4: State Management
 
@@ -417,8 +410,8 @@ If `FEATURE_ID` is provided, this is a **feature learning build** that captures 
    **NOTE**: `meta.json` contains local paths that may differ per team member. This file should be added to `.gitignore`.
 
 4. **Write state files** to:
-   - `{{$RP1_KB_ROOT}}/state.json`
-   - `{{$RP1_KB_ROOT}}/meta.json`
+   - `.rp1/context/state.json`
+   - `.rp1/context/meta.json`
 
 ### Phase 5: Error Handling
 
@@ -451,13 +444,13 @@ Repository: {{repo_type}}
 Files Analyzed: {{total_files}}
 
 KB Files Written:
-- {{$RP1_KB_ROOT}}/index.md
-- {{$RP1_KB_ROOT}}/concept_map.md
-- {{$RP1_KB_ROOT}}/architecture.md
-- {{$RP1_KB_ROOT}}/modules.md
-- {{$RP1_KB_ROOT}}/patterns.md
-- {{$RP1_KB_ROOT}}/state.json (shareable metadata)
-- {{$RP1_KB_ROOT}}/meta.json (local paths - add to .gitignore)
+- .rp1/context/index.md
+- .rp1/context/concept_map.md
+- .rp1/context/architecture.md
+- .rp1/context/modules.md
+- .rp1/context/patterns.md
+- .rp1/context/state.json (shareable metadata)
+- .rp1/context/meta.json (local paths - add to .gitignore)
 
 Next steps:
 - KB is automatically loaded by agents when needed (no manual /knowledge-load required)
@@ -481,11 +474,11 @@ Learnings Incorporated:
 - concept_map.md: {{N}} domain concepts
 
 KB Files Updated:
-- {{$RP1_KB_ROOT}}/index.md
-- {{$RP1_KB_ROOT}}/concept_map.md
-- {{$RP1_KB_ROOT}}/architecture.md
-- {{$RP1_KB_ROOT}}/modules.md
-- {{$RP1_KB_ROOT}}/patterns.md
+- .rp1/context/index.md
+- .rp1/context/concept_map.md
+- .rp1/context/architecture.md
+- .rp1/context/modules.md
+- .rp1/context/patterns.md
 
 The knowledge from feature "{{FEATURE_ID}}" has been captured into the KB.
 Future agents will benefit from these learnings.
@@ -495,7 +488,7 @@ Future agents will benefit from these learnings.
 
 | Parameter | Default | Purpose |
 |-----------|---------|---------|
-| RP1_KB_ROOT | `.rp1/context/` | Root directory for KB artifacts |
+| KB_ROOT | `.rp1/context/` | Root directory for KB artifacts |
 | CODEBASE_ROOT | `.` | Repository root to analyze |
 | EXCLUDE_PATTERNS | `node_modules/,.git/,build/,dist/` | Patterns to exclude from scanning |
 

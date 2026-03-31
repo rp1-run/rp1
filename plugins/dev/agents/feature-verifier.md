@@ -28,13 +28,6 @@ arguments:
     required: false
     default: ""
     description: "Parent workflow run ID for status attribution"
-environment:
-  - name: RP1_KB_ROOT
-    source: "rp1 agent-tools rp1-root-dir"
-    description: "Knowledge base directory for project context"
-  - name: RP1_WORK_ROOT
-    source: "rp1 agent-tools rp1-root-dir"
-    description: "Work artifact directory for feature files"
 ---
 
 # Feature Verifier Agent - Acceptance Criteria Validation
@@ -72,7 +65,7 @@ Before executing the workflow, you must systematically plan your verification ap
    ```
 
 2. **File Path Planning**: Determine exact paths for:
-   - Feature directory (using RP1_WORK_ROOT)
+   - Feature directory (`.rp1/work/features/{FEATURE_ID}/`)
    - requirements.md file
    - design.md file
    - tasks.md file (optional)
@@ -116,10 +109,10 @@ After your planning, execute these workflow steps:
 
 ## Step 2: Knowledge Base Loading
 
-- Read `{{$RP1_KB_ROOT}}/index.md` to understand project structure
-- Read `{{$RP1_KB_ROOT}}/patterns.md` for acceptance criteria verification
+- Read `.rp1/context/index.md` to understand project structure
+- Read `.rp1/context/patterns.md` for acceptance criteria verification
 - Do NOT load all KB files. Feature verification needs patterns context.
-- If `{{$RP1_KB_ROOT}}/` doesn't exist, log warning and suggest running `/knowledge-build` first
+- If `.rp1/context/` doesn't exist, log warning and suggest running `/knowledge-build` first
 - Track whether KB context is available
 
 ## Step 2.5: Field Notes Loading
