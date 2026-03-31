@@ -277,7 +277,7 @@ describe("init-install separation", () => {
 			expect(created2.length).toBe(0);
 		});
 
-		test("createDirectoryStructure does not create a legacy project-local work dir", async () => {
+		test("createDirectoryStructure creates .rp1/work along with .rp1/context", async () => {
 			const logger = createMockLogger();
 
 			await createDirectoryStructure(tempDir, logger);
@@ -286,7 +286,9 @@ describe("init-install separation", () => {
 			expect((await stat(join(tempDir, ".rp1", "context"))).isDirectory()).toBe(
 				true,
 			);
-			await expect(stat(join(tempDir, ".rp1", "work"))).rejects.toThrow();
+			expect((await stat(join(tempDir, ".rp1", "work"))).isDirectory()).toBe(
+				true,
+			);
 		});
 
 		test("createSettingsFiles is idempotent", async () => {

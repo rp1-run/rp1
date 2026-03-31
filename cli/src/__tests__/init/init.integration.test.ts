@@ -682,9 +682,8 @@ Existing agent instructions.
 		);
 
 		test(
-			"respects RP1_ROOT environment variable",
+			"ignores RP1_ROOT environment variable and uses .rp1/ in cwd",
 			async () => {
-				// Set custom RP1_ROOT
 				process.env.RP1_ROOT = "custom-rp1-dir";
 
 				const logger = createTrackingLogger();
@@ -700,12 +699,16 @@ Existing agent instructions.
 
 				const initResult: InitResult = result.right;
 
-				// Should have created custom directory
 				const customDirAction = initResult.actions.find(
 					(a) =>
 						a.type === "created_directory" && a.path.includes("custom-rp1-dir"),
 				);
-				expect(customDirAction).toBeDefined();
+				expect(customDirAction).toBeUndefined();
+
+				const rp1DirAction = initResult.actions.find(
+					(a) => a.type === "created_directory" && a.path.includes(".rp1"),
+				);
+				expect(rp1DirAction).toBeDefined();
 			},
 			{ timeout: 30000 },
 		);

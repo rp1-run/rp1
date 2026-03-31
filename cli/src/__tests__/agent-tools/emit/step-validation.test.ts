@@ -8,6 +8,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import {
@@ -433,6 +434,11 @@ describe("flow-mismatch check (via executeEmit)", () => {
 		resetInstance();
 		clearCache();
 		tempDir = await createTempDir("flow-mismatch");
+		mkdirSync(join(tempDir, ".rp1"), { recursive: true });
+		writeFileSync(
+			join(tempDir, ".rp1", "project_id"),
+			"test-flow-mismatch-uuid",
+		);
 		dbPath = join(tempDir, "test.db");
 		await expectTaskRight(getEmitDatabase(dbPath));
 	});
@@ -509,6 +515,11 @@ describe("emit pipeline: step validation integration", () => {
 		resetInstance();
 		clearCache();
 		tempDir = await createTempDir("emit-step-val");
+		mkdirSync(join(tempDir, ".rp1"), { recursive: true });
+		writeFileSync(
+			join(tempDir, ".rp1", "project_id"),
+			"test-emit-step-val-uuid",
+		);
 		dbPath = join(tempDir, "test.db");
 		await expectTaskRight(getEmitDatabase(dbPath));
 	});
@@ -626,6 +637,11 @@ describe("predecessor auto-completion", () => {
 		resetInstance();
 		clearCache();
 		tempDir = await createTempDir("pred-completion");
+		mkdirSync(join(tempDir, ".rp1"), { recursive: true });
+		writeFileSync(
+			join(tempDir, ".rp1", "project_id"),
+			"test-pred-completion-uuid",
+		);
 		dbPath = join(tempDir, "test.db");
 		await expectTaskRight(getEmitDatabase(dbPath));
 	});
