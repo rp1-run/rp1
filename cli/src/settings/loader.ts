@@ -1,6 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
 import {
-	loadDirectorySettings as loadSharedDirectorySettings,
 	resolveGlobalSettingsPath,
 	resolveLocalSettingsPath,
 } from "../../shared/settings.js";
@@ -100,11 +99,6 @@ const getLegacySkillAlias = (skillName: string): string | undefined => {
 	}
 	return skillName.slice(colonIndex + 1);
 };
-
-export const loadDirectorySettings = (
-	projectRoot: string,
-	options?: Parameters<typeof loadSharedDirectorySettings>[1],
-) => loadSharedDirectorySettings(projectRoot, options);
 
 /**
  * Load argument defaults for a specific skill/agent from both project-level
