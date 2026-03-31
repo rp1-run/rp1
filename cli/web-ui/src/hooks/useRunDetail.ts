@@ -68,132 +68,131 @@ export function useRunDetail(runId: string | undefined): UseRunDetailResult {
 		const handleEvent = (msg: EventNotificationMessage) => {
 			const currentRun = runRef.current;
 			if (!currentRun) return;
+			if (msg.runId !== currentRun.id) return;
 
-			if (
-				msg.featureId === currentRun.featureId &&
-				msg.projectId === currentRun.projectId
-			) {
-				if (msg.eventType === "status_change") {
-					const data = msg.data as Record<string, unknown> | null;
-					const newStatus = data?.status as string | undefined;
-					const step = msg.step;
+			let shouldRefetch = true;
 
-					if (step || newStatus) {
-						setRun((prev) => {
-							if (!prev) return null;
+			if (msg.eventType === "status_change") {
+				const data = msg.data as Record<string, unknown> | null;
+				const newStatus = data?.status as string | undefined;
+				const step = msg.step;
 
-							let updatedSteps = prev.steps;
-							if (step && newStatus) {
-								updatedSteps = prev.steps.map((s) =>
-									s.id === step ? { ...s, status: newStatus as StepStatus } : s,
-								);
-							}
+				if (step || newStatus) {
+					setRun((prev) => {
+						if (!prev) return null;
 
-							return {
-								...prev,
-								steps: updatedSteps,
-								...(step !== undefined && { currentStep: step }),
-								...(newStatus !== undefined && {
-									status: newStatus as RunStatus,
-								}),
-							};
-						});
-					}
+						let updatedSteps = prev.steps;
+						if (step && newStatus) {
+							updatedSteps = prev.steps.map((s) =>
+								s.id === step ? { ...s, status: newStatus as StepStatus } : s,
+							);
+						}
 
-					const isTerminal =
-						newStatus === "completed" || newStatus === "failed";
-					if (isTerminal) {
-						setTimeout(fetchRun, 1000);
-					}
-				}
-
-				if (msg.eventType === "artifact_registered") {
-					const data = msg.data as Record<string, unknown> | null;
-
-					if (data?.reconciled) {
-						setRun((prev) => {
-							if (!prev) return null;
-							return {
-								...prev,
-								artifacts: prev.artifacts.map((a) =>
-									a.docId === data.docId
-										? {
-												...a,
-												path: data.path as string,
-												absolutePath: data.path as string,
-											}
-										: a,
-								),
-							};
-						});
-					} else {
-						const docId = (data?.docId as string) ?? "";
-						const path = (data?.path as string) ?? "";
-						if (!docId || !path) return;
-
-						const newArtifact: Artifact = {
-							docId,
-							path,
-							absolutePath: path,
-							type: (data?.type as Artifact["type"]) ?? "other",
-							updatedDuringRun: true,
-							isNew: true,
-							step: msg.step,
+						return {
+							...prev,
+							steps: updatedSteps,
+							...(step !== undefined && { currentStep: step }),
+							...(newStatus !== undefined && {
+								status: newStatus as RunStatus,
+							}),
 						};
-
-						setRun((prev) => {
-							if (!prev) return null;
-							return {
-								...prev,
-								artifacts: [...prev.artifacts, newArtifact],
-							};
-						});
-					}
+					});
 				}
 
-				if (msg.eventType === "waiting_for_user") {
-					const data = msg.data as Record<string, unknown> | null;
-					const prompt = (data?.prompt as string) ?? "";
-					const waitingEvent: RunEvent = {
-						id: `ws-${msg.eventId}`,
-						type: "waiting_for_user",
-						message: prompt,
-						timestamp: msg.createdAt,
-						stepId: msg.step,
-						metadata: data ?? null,
+				const isTerminal = newStatus === "completed" || newStatus === "failed";
+				if (isTerminal) {
+					setTimeout(fetchRun, 1000);
+				}
+			}
+
+			if (msg.eventType === "artifact_registered") {
+				const data = msg.data as Record<string, unknown> | null;
+
+				if (data?.reconciled) {
+					shouldRefetch = false;
+					setRun((prev) => {
+						if (!prev) return null;
+						return {
+							...prev,
+							artifacts: prev.artifacts.map((a) =>
+								a.docId === data.docId
+									? {
+											...a,
+											path: data.path as string,
+										}
+									: a,
+							),
+						};
+					});
+				} else {
+					const docId = (data?.docId as string) ?? "";
+					const path = (data?.path as string) ?? "";
+					if (!docId || !path) return;
+
+					const newArtifact: Artifact = {
+						docId,
+						path,
+						absolutePath: path,
+						type: (data?.type as Artifact["type"]) ?? "other",
+						updatedDuringRun: true,
+						isNew: true,
+						step: msg.step,
 					};
 
 					setRun((prev) => {
 						if (!prev) return null;
 						return {
 							...prev,
-							status: "waiting" as RunStatus,
-							events: [...prev.events, waitingEvent],
+							artifacts: [...prev.artifacts, newArtifact],
 						};
 					});
 				}
+			}
 
-				if (msg.eventType === "btw_update") {
-					const data = msg.data as Record<string, unknown> | null;
-					const message = (data?.message as string) ?? "";
-					const btwEvent: RunEvent = {
-						id: `ws-${msg.eventId}`,
-						type: "btw_update",
-						message,
-						timestamp: msg.createdAt,
-						stepId: msg.step,
-						metadata: data ?? null,
+			if (msg.eventType === "waiting_for_user") {
+				const data = msg.data as Record<string, unknown> | null;
+				const prompt = (data?.prompt as string) ?? "";
+				const waitingEvent: RunEvent = {
+					id: `ws-${msg.eventId}`,
+					type: "waiting_for_user",
+					message: prompt,
+					timestamp: msg.createdAt,
+					stepId: msg.step,
+					metadata: data ?? null,
+				};
+
+				setRun((prev) => {
+					if (!prev) return null;
+					return {
+						...prev,
+						status: "waiting" as RunStatus,
+						events: [...prev.events, waitingEvent],
 					};
+				});
+			}
 
-					setRun((prev) => {
-						if (!prev) return null;
-						return {
-							...prev,
-							events: [...prev.events, btwEvent],
-						};
-					});
-				}
+			if (msg.eventType === "btw_update") {
+				const data = msg.data as Record<string, unknown> | null;
+				const message = (data?.message as string) ?? "";
+				const btwEvent: RunEvent = {
+					id: `ws-${msg.eventId}`,
+					type: "btw_update",
+					message,
+					timestamp: msg.createdAt,
+					stepId: msg.step,
+					metadata: data ?? null,
+				};
 
+				setRun((prev) => {
+					if (!prev) return null;
+					return {
+						...prev,
+						events: [...prev.events, btwEvent],
+					};
+				});
+			}
+
+			if (shouldRefetch) {
 				clearTimeout(debouncedFetchRef.current);
 				debouncedFetchRef.current = setTimeout(fetchRun, 500);
 			}
