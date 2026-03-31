@@ -52,9 +52,15 @@ metadata:
       default: false
       description: "Commit changes after build"
   environment:
-    - name: RP1_ROOT
+    - name: RP1_PROJECT_ROOT
       source: "rp1 agent-tools rp1-root-dir"
-      description: "Root directory for rp1 project context and work artifacts"
+      description: "Project root directory"
+    - name: RP1_KB_ROOT
+      source: "rp1 agent-tools rp1-root-dir"
+      description: "Knowledge-base directory"
+    - name: RP1_WORK_ROOT
+      source: "rp1 agent-tools rp1-root-dir"
+      description: "Work artifact directory"
 ---
 ```
 
@@ -98,16 +104,16 @@ The `environment` field declares parameters resolved from the shell environment,
 
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
-| `name` | string | Yes | Parameter name (e.g., `RP1_ROOT`) |
+| `name` | string | Yes | Parameter name (e.g., `RP1_KB_ROOT`) |
 | `source` | string | Yes | Resolution command or description |
 | `description` | string | Yes | Human-readable description |
 
 ```yaml
 metadata:
   environment:
-    - name: RP1_ROOT
+    - name: RP1_KB_ROOT
       source: "rp1 agent-tools rp1-root-dir"
-      description: "Root directory for rp1 project context and work artifacts"
+      description: "Knowledge-base directory"
 ```
 
 Environment parameters are resolved at invocation time via `rp1 agent-tools resolve-args` and returned as a separate `environment` section in the resolved output.
@@ -138,7 +144,7 @@ metadata:
 rp1 skills that resolve environment variables or call rp1 CLI tools should include both `Bash(echo *)` and `Bash(rp1 *)`:
 
 - `Bash(echo *)` -- Shell echo commands
-- `Bash(rp1 *)` -- rp1 CLI invocations including RP1_ROOT resolution (`rp1 agent-tools rp1-root-dir`, `rp1 agent-tools emit`, `rp1 agent-tools mmd-validate`, etc.)
+- `Bash(rp1 *)` -- rp1 CLI invocations including directory resolution (`rp1 agent-tools rp1-root-dir`, `rp1 agent-tools emit`, `rp1 agent-tools mmd-validate`, etc.)
 
 **Important**: Do NOT use `echo ${VAR:-default}` syntax in skills. Claude Code blocks `${}` parameter substitution in Bash commands. Use `rp1 agent-tools rp1-root-dir` instead.
 
@@ -195,7 +201,9 @@ Parse the JSON response. Extract values from `data.arguments` and `data.environm
 |----------|--------|
 | FEATURE_ID | `data.arguments.FEATURE_ID` |
 | AFK | `data.arguments.AFK` |
-| RP1_ROOT | `data.environment.RP1_ROOT` |
+| RP1_PROJECT_ROOT | `data.environment.RP1_PROJECT_ROOT` |
+| RP1_KB_ROOT | `data.environment.RP1_KB_ROOT` |
+| RP1_WORK_ROOT | `data.environment.RP1_WORK_ROOT` |
 
 If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
 
@@ -207,7 +215,7 @@ Use these resolved values for all subsequent steps. Do not re-derive or re-parse
 - The `--name` flag uses the skill's namespace (e.g., `rp1-dev:build`, `rp1-base:task`). The CLI resolves this to the correct schema file automatically.
 - The variable table lists every entry from `metadata.arguments` and `metadata.environment`, mapping each to its JSON response path.
 - The unresolved guard prevents the skill from proceeding with missing required values.
-- Workflows that call `resolve-args` do not need a separate `rp1 agent-tools rp1-root-dir` call -- `RP1_ROOT` is included in the `data.environment` section of the response.
+- Workflows that call `resolve-args` do not need a separate `rp1 agent-tools rp1-root-dir` call -- directory variables such as `RP1_PROJECT_ROOT`, `RP1_KB_ROOT`, and `RP1_WORK_ROOT` are included in the `data.environment` section of the response.
 
 ### Rules
 
@@ -223,7 +231,7 @@ Use these resolved values for all subsequent steps. Do not re-derive or re-parse
 Skills that accept no parameters omit the `arguments` field entirely. Environment values can still be declared in the `environment` field or resolved inline:
 
 ```markdown
-$RP1_ROOT = !`rp1 agent-tools rp1-root-dir` (extract `data.root` from JSON response)
+$RP1_KB_ROOT = !`rp1 agent-tools rp1-root-dir` (extract `data.kbRoot` from JSON response)
 ```
 
 ---
@@ -286,9 +294,12 @@ metadata:
         - incremental
         - refresh
   environment:
-    - name: RP1_ROOT
+    - name: RP1_KB_ROOT
       source: "rp1 agent-tools rp1-root-dir"
-      description: "Root directory for rp1 project context"
+      description: "Knowledge-base directory"
+    - name: RP1_WORK_ROOT
+      source: "rp1 agent-tools rp1-root-dir"
+      description: "Work artifact directory"
 ---
 ```
 
@@ -302,7 +313,7 @@ metadata:
 | **argument-hint** | Replaced by `metadata.arguments` (hint auto-derived by build pipeline) |
 | **PARSE ARGUMENTS** | Entire section removed; arguments resolved via `rp1 agent-tools resolve-args` |
 | **`$1` reference** | Replaced with structured `LOAD_MODE` argument definition |
-| **Environment** | `RP1_ROOT` declared in `metadata.environment` |
+| **Environment** | `RP1_KB_ROOT` and `RP1_WORK_ROOT` declared in `metadata.environment` |
 | **Prompt body** | Unchanged (all workflow logic preserved) |
 
 ---
@@ -314,7 +325,7 @@ Use this checklist when creating a new skill:
 - [ ] Create directory: `plugins/{plugin}/skills/{skill-name}/`
 - [ ] Create `SKILL.md` with frontmatter (standard fields at top, rp1 fields in `metadata`)
 - [ ] Define parameters in `metadata.arguments` with structured schema (name, type, required, default, description)
-- [ ] Define environment parameters in `metadata.environment` where applicable (e.g., `RP1_ROOT`)
+- [ ] Define environment parameters in `metadata.environment` where applicable (e.g., `RP1_KB_ROOT`, `RP1_WORK_ROOT`)
 - [ ] Do NOT add a hand-written `## Parameters` table or manual `argument-hint`
 - [ ] Include `Bash(echo *)` and `Bash(rp1 *)` in `allowed-tools` if the skill uses environment resolution or rp1 CLI tools
 - [ ] Preserve all prompt logic, agent spawning, workflow sections

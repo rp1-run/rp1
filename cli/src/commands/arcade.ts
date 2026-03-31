@@ -272,7 +272,10 @@ Daemon:
   in the web UI to navigate between projects.
 
 Environment:
-  RP1_ROOT                      Set default project path
+  RP1_PROJECT_ROOT              Set the default project path when no [path] is provided
+  RP1_KB_ROOT                   Override the resolved KB directory for that project
+  RP1_WORK_ROOT                 Override the resolved work directory for that project
+  RP1_ROOT                      Legacy compatibility input; avoid for new workflows
 
 Note: This command requires Bun runtime. Install from https://bun.sh
 `,

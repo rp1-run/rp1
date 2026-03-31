@@ -18,6 +18,7 @@ import { execSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import {
 	copyFileSync,
+	existsSync,
 	mkdirSync,
 	readdirSync,
 	rmSync,
@@ -91,14 +92,12 @@ function resetWorkspace(workspaceDir: string, remoteDir: string): void {
 	// Copy fixture project if it exists, otherwise create minimal structure
 	try {
 		copyDirSync(FIXTURE_DIR, workspaceDir);
-
-		// Ensure .rp1 work directories exist (may be gitignored in fixture)
-		mkdirSync(`${workspaceDir}/.rp1/work/quick-builds`, { recursive: true });
-		mkdirSync(`${workspaceDir}/.rp1/work/features`, { recursive: true });
 	} catch {
 		// Fallback: create minimal bun project structure
+		mkdirSync(`${workspaceDir}/.rp1/context`, { recursive: true });
 		mkdirSync(`${workspaceDir}/src`, { recursive: true });
 		writeFileSync(`${workspaceDir}/README.md`, "# Test Project\n");
+		writeFileSync(`${workspaceDir}/.rp1/context/index.md`, "# Test KB\n");
 		writeFileSync(
 			`${workspaceDir}/package.json`,
 			JSON.stringify(
@@ -143,6 +142,19 @@ function resetWorkspace(workspaceDir: string, remoteDir: string): void {
 			),
 		);
 	}
+
+	const settingsPath = join(workspaceDir, ".rp1", "settings.toml");
+	if (!existsSync(settingsPath)) {
+		writeFileSync(
+			settingsPath,
+			['[directories]', 'work_root = "rp1-work"'].join("\n"),
+		);
+	}
+
+	const configuredWorkRoot = join(workspaceDir, "rp1-work");
+	mkdirSync(join(configuredWorkRoot, "quick-builds"), { recursive: true });
+	mkdirSync(join(configuredWorkRoot, "features"), { recursive: true });
+	mkdirSync(join(configuredWorkRoot, "worktrees"), { recursive: true });
 
 	// Initialize git repo with main as default branch
 	execSync("git init -b main", { cwd: workspaceDir, stdio: "pipe" });

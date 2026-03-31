@@ -86,6 +86,22 @@ import {
 	validateFilePath,
 } from "./content-utils";
 
+function getRunProjectPath(
+	record: Pick<RunRecord, "projectPath" | "rp1ProjectRoot">,
+): string {
+	return record.rp1ProjectRoot ?? record.projectPath;
+}
+
+function findProjectForRun(
+	projectByPath: ReadonlyMap<string, ProjectEntry>,
+	record: Pick<RunRecord, "projectPath" | "rp1ProjectRoot">,
+): ProjectEntry | undefined {
+	return (
+		projectByPath.get(getRunProjectPath(record)) ??
+		projectByPath.get(record.projectPath)
+	);
+}
+
 /**
  * Acquire the emit database connection.
  * Uses the singleton pattern from getEmitDatabase.
@@ -701,7 +717,7 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 
 		let runs: Run[] = [];
 		for (const record of result.records) {
-			const project = projectByPath.get(record.projectPath);
+			const project = findProjectForRun(projectByPath, record);
 			if (project) {
 				runs.push(runRecordToListRun(record, project));
 			}
@@ -746,7 +762,7 @@ export async function handleV2RunsAttentionRequest(): Promise<Response> {
 		const toRuns = (records: readonly RunRecord[]): Run[] => {
 			const runs: Run[] = [];
 			for (const record of records) {
-				const project = projectByPath.get(record.projectPath);
+				const project = findProjectForRun(projectByPath, record);
 				if (project) {
 					runs.push(runRecordToListRun(record, project));
 				}
@@ -782,7 +798,10 @@ export async function handleV2RunDetailRequest(
 		}
 
 		const projects = await getAllProjects();
-		const project = projects.find((p) => p.path === record.projectPath);
+		const projectByPath = new Map(
+			projects.map((candidate) => [candidate.path, candidate]),
+		);
+		const project = findProjectForRun(projectByPath, record);
 		if (!project) {
 			return errorResponse(`Project not found for run: ${runId}`, 404);
 		}
@@ -812,7 +831,10 @@ export async function handleV2ArtifactContentRequest(
 		}
 
 		const projects = await getAllProjects();
-		const project = projects.find((p) => p.path === record.projectPath);
+		const projectByPath = new Map(
+			projects.map((candidate) => [candidate.path, candidate]),
+		);
+		const project = findProjectForRun(projectByPath, record);
 		if (!project) {
 			return errorResponse(`Project not found for run: ${runId}`, 404);
 		}
@@ -868,11 +890,11 @@ export async function handleV2ArtifactContentRequest(
 
 		if (!artifactPath.includes("/")) {
 			const fallbackCandidates = [
-				Bun.resolveSync(
+				resolve(
 					directories.workRoot,
 					`features/${record.featureId}/${artifactPath}`,
 				),
-				Bun.resolveSync(
+				resolve(
 					directories.workRoot,
 					`archives/features/${record.featureId}/${artifactPath}`,
 				),

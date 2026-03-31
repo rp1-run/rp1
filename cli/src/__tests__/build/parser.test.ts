@@ -155,9 +155,9 @@ arguments:
     default: false
     description: "Whether to commit changes"
 environment:
-  - name: RP1_ROOT
+  - name: RP1_KB_ROOT
     source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory"
+    description: "Knowledge-base directory"
 ---
 Agent content.`;
 
@@ -185,7 +185,7 @@ Agent content.`;
 
 				expect(result.environment).toBeDefined();
 				expect(result.environment).toHaveLength(1);
-				expect(result.environment?.[0]?.name).toBe("RP1_ROOT");
+				expect(result.environment?.[0]?.name).toBe("RP1_KB_ROOT");
 				expect(result.environment?.[0]?.source).toBe(
 					"rp1 agent-tools rp1-root-dir",
 				);

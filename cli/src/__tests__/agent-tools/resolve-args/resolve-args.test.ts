@@ -24,6 +24,7 @@ afterEach(async () => {
 	await rm(tempDir, { recursive: true, force: true });
 	// Clean up any env vars set during tests
 	delete process.env.TEST_PLATFORM;
+	delete process.env.RP1_ROOT;
 	delete process.env.RP1_PROJECT_ROOT;
 	delete process.env.RP1_KB_ROOT;
 	delete process.env.RP1_WORK_ROOT;
@@ -643,6 +644,52 @@ environment:
 				RP1_KB_ROOT: join(tempDir, "kb-override"),
 				RP1_WORK_ROOT: join(tempDir, "work-override"),
 			});
+		}
+	});
+
+	test("explicit project_root input is not clobbered by legacy RP1_ROOT", async () => {
+		const explicitProjectRoot = join(tempDir, "explicit-project");
+		await mkdir(join(explicitProjectRoot, ".rp1", "context"), {
+			recursive: true,
+		});
+		process.env.RP1_ROOT = join(tempDir, "legacy-project", ".rp1");
+
+		const schemaPath = await createAgentFile(
+			tempDir,
+			`---
+name: test-agent
+description: "A test agent with resolved directory environment"
+tools: Read
+model: inherit
+environment:
+  - name: RP1_PROJECT_ROOT
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Project root"
+  - name: RP1_KB_ROOT
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "KB directory"
+  - name: RP1_WORK_ROOT
+    source: "rp1 agent-tools rp1-root-dir"
+    description: "Work directory"
+---
+# Test agent
+`,
+		);
+
+		const result = await resolveArgs({
+			schema_path: schemaPath,
+			raw_args: "",
+			project_root: explicitProjectRoot,
+		})();
+
+		expect(E.isRight(result)).toBe(true);
+		if (E.isRight(result)) {
+			expect(result.right.environment.RP1_PROJECT_ROOT).toBe(
+				explicitProjectRoot,
+			);
+			expect(result.right.environment.RP1_KB_ROOT).toBe(
+				join(explicitProjectRoot, ".rp1", "context"),
+			);
 		}
 	});
 

@@ -4,11 +4,20 @@
  */
 
 import { Database } from "bun:sqlite";
-import { afterAll, beforeAll, describe, expect, mock, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, rename, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
-import * as E from "fp-ts/lib/Either.js";
+import { dirname, join } from "node:path";
+import {
+	type ArtifactsApiDependencyOverrides,
+	broadcastPathReconciliation,
+	extractDocIdFromFrontmatter,
+	handleArtifactPatchRequest as routeHandleArtifactPatchRequest,
+	handleArtifactSaveRequest as routeHandleArtifactSaveRequest,
+	resolveArtifactPath as routeResolveArtifactPath,
+	scanForDocId,
+	validateSavePath,
+} from "../../server/routes/artifacts-api";
 import type { WebSocketHub } from "../../server/websocket";
 
 let testDb: Database;
@@ -19,237 +28,28 @@ const docId = "test-doc-001";
 const artifactPath = "docs/design.md";
 const originalContent = "# Original Design\n\nThis is the original file.";
 
-mock.module("../../../../src/agent-tools/emit/database.js", () => ({
-	getEmitDatabase: () => async () => E.right(testDb),
-	getRunById: (db: Database, id: string) => {
-		const row = db
-			.prepare("SELECT * FROM runs WHERE id = $id")
-			.get({ $id: id }) as {
-			id: string;
-			flow: string;
-			feature_id: string;
-			project_path: string;
-			rp1_project_root: string | null;
-			rp1_kb_root: string | null;
-			rp1_work_root: string | null;
-		} | null;
-		if (!row) return null;
-		return {
-			id: row.id,
-			flow: row.flow,
-			featureId: row.feature_id,
-			projectPath: row.project_path,
-			rp1ProjectRoot: row.rp1_project_root ?? row.project_path,
-			rp1KbRoot: row.rp1_kb_root ?? join(row.project_path, ".rp1", "context"),
-			rp1WorkRoot: row.rp1_work_root ?? join(row.project_path, ".rp1", "work"),
-			status: "running" as const,
-			createdAt: new Date().toISOString(),
-			updatedAt: new Date().toISOString(),
-		};
-	},
-	setArtifactBaseline: (db: Database, dId: string, baseline: string) => {
-		db.prepare(
-			"UPDATE artifacts SET baseline = $baseline WHERE doc_id = $docId",
-		).run({ $baseline: baseline, $docId: dId });
-	},
-	updateArtifactStorage: (
-		db: Database,
-		dId: string,
-		updates: { path: string; storageRoot: "absolute" | "project" | "work_dir" },
-	) => {
-		db.prepare(
-			"UPDATE artifacts SET path = $path, storage_root = $storageRoot WHERE doc_id = $docId",
-		).run({
-			$path: updates.path,
-			$storageRoot: updates.storageRoot,
-			$docId: dId,
-		});
-	},
-	getArtifactBaseline: (db: Database, dId: string) => {
-		const row = db
-			.prepare(
-				"SELECT baseline, path, project_path FROM artifacts WHERE doc_id = $docId",
-			)
-			.get({ $docId: dId }) as {
-			baseline: string | null;
-			path: string;
-			project_path: string;
-		} | null;
-		if (!row) return null;
-		return {
-			baseline: row.baseline,
-			path: row.path,
-			projectPath: row.project_path,
-		};
-	},
-	updateArtifactPath: (db: Database, dId: string, newPath: string) => {
-		db.prepare("UPDATE artifacts SET path = $path WHERE doc_id = $docId").run({
-			$path: newPath,
-			$docId: dId,
-		});
-	},
-	getArtifactByDocId: (db: Database, dId: string) => {
-		const row = db
-			.prepare("SELECT * FROM artifacts WHERE doc_id = $docId")
-			.get({ $docId: dId }) as {
-			id: number;
-			doc_id: string;
-			run_id: string;
-			path: string;
-			type: string;
-			storage_root: "absolute" | "project" | "work_dir" | null;
-			project_path: string;
-			feature: string;
-			step: string | null;
-			subflow: number;
-			created_at: string;
-		} | null;
-		if (!row) return null;
-		return {
-			id: row.id,
-			docId: row.doc_id,
-			runId: row.run_id,
-			path: row.path,
-			type: row.type,
-			storageRoot: row.storage_root ?? "project",
-			projectPath: row.project_path,
-			feature: row.feature,
-			step: row.step,
-			subflow: row.subflow === 1,
-			createdAt: row.created_at,
-		};
-	},
-	getArtifactByRunAndDocId: (db: Database, rId: string, dId: string) => {
-		const row = db
-			.prepare(
-				"SELECT * FROM artifacts WHERE run_id = $runId AND doc_id = $docId LIMIT 1",
-			)
-			.get({ $runId: rId, $docId: dId }) as {
-			id: number;
-			doc_id: string;
-			run_id: string;
-			path: string;
-			type: string;
-			storage_root: "absolute" | "project" | "work_dir" | null;
-			project_path: string;
-			feature: string;
-			step: string | null;
-			subflow: number;
-			created_at: string;
-		} | null;
-		if (!row) return null;
-		return {
-			id: row.id,
-			docId: row.doc_id,
-			runId: row.run_id,
-			path: row.path,
-			type: row.type,
-			storageRoot: row.storage_root ?? "project",
-			projectPath: row.project_path,
-			feature: row.feature,
-			step: row.step,
-			subflow: row.subflow === 1,
-			createdAt: row.created_at,
-		};
-	},
-	getArtifactsForRun: (db: Database, rId: string) =>
-		(
-			db
-				.prepare(
-					"SELECT * FROM artifacts WHERE run_id = $runId ORDER BY created_at ASC",
-				)
-				.all({ $runId: rId }) as Array<{
-				id: number;
-				doc_id: string;
-				run_id: string;
-				path: string;
-				type: string;
-				storage_root: "absolute" | "project" | "work_dir" | null;
-				project_path: string;
-				feature: string;
-				step: string | null;
-				subflow: number;
-				created_at: string;
-			}>
-		).map((row) => ({
-			id: row.id,
-			docId: row.doc_id,
-			runId: row.run_id,
-			path: row.path,
-			type: row.type,
-			storageRoot: row.storage_root ?? "project",
-			projectPath: row.project_path,
-			feature: row.feature,
-			step: row.step,
-			subflow: row.subflow === 1,
-			createdAt: row.created_at,
-		})),
-	resolveArtifactPathForRun: async (
-		_db: Database,
-		run: { rp1ProjectRoot: string; rp1WorkRoot: string },
-		artifact: {
-			docId: string;
-			path: string;
-			storageRoot: "absolute" | "project" | "work_dir";
-		},
-	) => {
-		if (artifact.storageRoot === "absolute") {
-			return (await Bun.file(artifact.path).exists()) ? artifact.path : null;
-		}
-		const baseDir =
-			artifact.storageRoot === "work_dir"
-				? run.rp1WorkRoot
-				: run.rp1ProjectRoot;
-		const fullPath = resolve(baseDir, artifact.path);
-		if (await Bun.file(fullPath).exists()) {
-			return fullPath;
-		}
-		return null;
-	},
-	normalizeArtifactStorage: (
-		artifactPath: string,
-		run: { rp1ProjectRoot: string; rp1WorkRoot: string },
-	) => {
-		const resolvedArtifactPath = resolve(artifactPath);
-		const workRoot = resolve(run.rp1WorkRoot);
-		const projectRoot = resolve(run.rp1ProjectRoot);
-		if (
-			resolvedArtifactPath === workRoot ||
-			resolvedArtifactPath.startsWith(`${workRoot}/`)
-		) {
-			return {
-				path: resolvedArtifactPath.slice(workRoot.length + 1),
-				storageRoot: "work_dir" as const,
-			};
-		}
-		if (
-			resolvedArtifactPath === projectRoot ||
-			resolvedArtifactPath.startsWith(`${projectRoot}/`)
-		) {
-			return {
-				path: resolvedArtifactPath.slice(projectRoot.length + 1),
-				storageRoot: "project" as const,
-			};
-		}
-		return { path: resolvedArtifactPath, storageRoot: "absolute" as const };
-	},
-}));
+const testDependencies: ArtifactsApiDependencyOverrides = {
+	getDb: async () => testDb,
+	getAllProjects: async () =>
+		tmpDir ? [{ id: "test-project", path: tmpDir, name: "Test Project" }] : [],
+};
 
-mock.module("../../server/registry", () => ({
-	getAllProjects: async () => [
-		{ id: "test-project", path: tmpDir, name: "Test Project" },
-	],
-}));
+const handleArtifactPatchRequest = (
+	docId: Parameters<typeof routeHandleArtifactPatchRequest>[0],
+	apiContext?: Parameters<typeof routeHandleArtifactPatchRequest>[1],
+) => routeHandleArtifactPatchRequest(docId, apiContext, testDependencies);
 
-import {
-	broadcastPathReconciliation,
-	extractDocIdFromFrontmatter,
-	handleArtifactPatchRequest,
-	handleArtifactSaveRequest,
-	resolveArtifactPath,
-	scanForDocId,
-	validateSavePath,
-} from "../../server/routes/artifacts-api";
+const handleArtifactSaveRequest = (
+	runId: Parameters<typeof routeHandleArtifactSaveRequest>[0],
+	req: Parameters<typeof routeHandleArtifactSaveRequest>[1],
+	apiContext: Parameters<typeof routeHandleArtifactSaveRequest>[2],
+) => routeHandleArtifactSaveRequest(runId, req, apiContext, testDependencies);
+
+const resolveArtifactPath = (
+	db: Parameters<typeof routeResolveArtifactPath>[0],
+	directories: Parameters<typeof routeResolveArtifactPath>[1],
+	artifact: Parameters<typeof routeResolveArtifactPath>[2],
+) => routeResolveArtifactPath(db, directories, artifact, testDependencies);
 
 const SCHEMA_SQL = `
 	CREATE TABLE schema_version (version INTEGER NOT NULL);
@@ -916,7 +716,7 @@ describe("handleArtifactSaveRequest with moved file", () => {
 		const row = movedDb
 			.prepare("SELECT path FROM artifacts WHERE doc_id = $docId")
 			.get({ $docId: movedDocId }) as { path: string };
-		expect(row.path).toBe("archives/features/feat-move/design.md");
+		expect(row.path).toBe(".rp1/work/archives/features/feat-move/design.md");
 		const written = await Bun.file(join(movedTmpDir, archivedPath)).text();
 		expect(written).toBe(newContent);
 	});

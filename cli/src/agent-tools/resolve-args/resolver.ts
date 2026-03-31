@@ -322,7 +322,7 @@ const resolveEnvironment = async (
 		["RP1_PROJECT_ROOT", "RP1_KB_ROOT", "RP1_WORK_ROOT"].includes(def.name),
 	);
 	const directories = needsDirectoryResolution
-		? resolveDirectorySet(projectRoot)
+		? resolveDirectorySet(projectRoot, { honorEnv: false })
 		: undefined;
 
 	for (const def of envDefs) {
