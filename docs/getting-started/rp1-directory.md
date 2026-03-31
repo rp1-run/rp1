@@ -1,14 +1,15 @@
 # The .rp1 Directory
 
-rp1 stores project-specific knowledge base data in a `.rp1/` directory at your project root, while work artifacts are stored externally in `~/.rp1/work/<project-key>/`. This guide explains the directory structure, what to commit vs ignore, and how to customize storage locations using the `RP1_PROJECT_ROOT`, `RP1_KB_ROOT`, and `RP1_WORK_ROOT` environment variables.
+rp1 stores all project-specific data in a `.rp1/` directory at your project root. This includes the knowledge base (`.rp1/context/`), work artifacts (`.rp1/work/`), and a stable project identity file (`.rp1/project_id`). This guide explains the directory structure, what to commit vs ignore, and how project discovery works.
 
 ---
 
 ## Directory Structure
 
 ```
-.rp1/                         # Project-local (RP1_KB_ROOT)
-├── context/                  # Generated knowledge base (auto-generated)
+.rp1/                         # Project root marker
+├── project_id                # Stable UUID identity (checked in)
+├── context/                  # Generated knowledge base
 │   ├── index.md              # Project overview
 │   ├── architecture.md       # System architecture
 │   ├── modules.md            # Component breakdown
@@ -17,26 +18,53 @@ rp1 stores project-specific knowledge base data in a `.rp1/` directory at your p
 │   ├── state.json            # Build state tracking (shareable)
 │   └── meta.json             # Local paths (NOT shareable - add to .gitignore)
 ├── config/                   # Project configuration
-└── settings.toml             # Directory and project settings
-
-~/.rp1/work/<project-key>/    # External work dir (RP1_WORK_ROOT)
-├── charter.md                # Project charter (from /blueprint)
-├── prds/                     # Product requirement documents
-│   └── *.md                  # PRD files created by /blueprint
-├── features/                 # Feature development artifacts
-│   └── <feature-id>/         # Per-feature directories
-│       ├── requirements.md
-│       ├── design.md
-│       ├── tasks.md
-│       └── field-notes.md
-└── archives/                 # Completed/archived features
+├── work/                     # Work artifacts (ignored by git)
+│   ├── charter.md            # Project charter (from /blueprint)
+│   ├── prds/                 # Product requirement documents
+│   │   └── *.md              # PRD files created by /blueprint
+│   ├── features/             # Feature development artifacts
+│   │   └── <feature-id>/     # Per-feature directories
+│   │       ├── requirements.md
+│   │       ├── design.md
+│   │       ├── tasks.md
+│   │       └── field-notes.md
+│   └── archives/             # Completed/archived features
+└── settings.toml             # Project settings
 ```
+
+---
+
+## Project Identity
+
+Every rp1 project has a `.rp1/project_id` file containing a UUID (e.g., `550e8400-e29b-41d4-a716-446655440000`). This file is:
+
+- **Created automatically** by `rp1 init` or `rp1 migrate`.
+- **Checked into version control** so all team members and clones share the same identity.
+- **Immutable** once created -- rp1 never regenerates or modifies it.
+- **Used by Arcade** to correlate runs, artifacts, and tasks across clones and worktrees.
+
+## Project Discovery
+
+rp1 discovers your project by walking up the directory tree from the current working directory, looking for `.rp1/project_id`. This means you can run rp1 commands from any subdirectory within your project.
+
+If `.rp1/project_id` is not found but `.rp1/` exists (pre-migration project), rp1 still functions but logs a warning recommending `rp1 migrate`.
+
+For git worktrees, rp1 resolves back to the main worktree's `.rp1/` directory so all worktrees share the same project identity, knowledge base, and work artifacts.
 
 ---
 
 ## Git Recommendations
 
 When you run `rp1 init`, it automatically configures `.gitignore` with one of three presets. See [Git Ignore Presets](../reference/cli/init.md#git-ignore-presets) for details on each option.
+
+The recommended preset:
+
+- **Tracks** `.rp1/project_id` (stable identity shared across team)
+- **Tracks** `.rp1/context/` (knowledge base, optionally shared)
+- **Tracks** `.rp1/config/` (project configuration)
+- **Ignores** `.rp1/work/` (local work artifacts)
+- **Ignores** `.rp1/settings.toml` (local settings)
+- **Ignores** `.rp1/context/meta.json` (local paths)
 
 ### Knowledge Base: To Commit or Not?
 
@@ -56,67 +84,9 @@ The `.rp1/context/` directory contains your auto-generated knowledge base. There
 !!! tip "Hybrid Approach"
     Some teams commit context files but add them to `.gitattributes` with `merge=ours` to avoid merge conflicts, or only commit periodically (e.g., with releases).
 
-!!! warning "Stealth Mode (Discouraged)"
-    You can ignore `.rp1/` across all projects by adding it to your global gitignore:
-
-    ```bash
-    echo ".rp1/" >> ~/.gitignore_global
-    git config --global core.excludesfile ~/.gitignore_global
-    ```
-
-    This is **heavily discouraged** as it prevents sharing KB with your team. Consider using the `RP1_KB_ROOT` environment variable to customize the KB storage location.
-
 ---
 
-## Configuring Directory Paths
-
-rp1 uses three environment variables for directory resolution:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `RP1_PROJECT_ROOT` | Auto-detected | Repository root directory |
-| `RP1_KB_ROOT` | `<project>/.rp1/context/` | Knowledge base directory |
-| `RP1_WORK_ROOT` | `~/.rp1/work/<project-key>/` | Work artifact directory |
-
-!!! tip "Advanced Configuration"
-    For automatic per-directory configuration using `direnv`, see [Custom Directory Paths](../reference/cli/init.md#custom-rp1_root) in the init reference.
-
-### Use Cases
-
-1. **Project-local KB (default)**: KB stored in each project's `.rp1/context/` directory
-2. **Custom KB path**: Override KB location for specific workflows
-3. **Custom work path**: Override work artifact storage location
-
-### Configuration Examples
-
-=== "Default (recommended)"
-
-    No configuration needed. rp1 auto-detects project root and derives KB and work paths.
-
-    ```bash
-    # Just run commands - paths are resolved automatically
-    /knowledge-build
-    ```
-
-=== "Custom KB path"
-
-    Override the knowledge base location:
-
-    ```bash
-    # Add to ~/.bashrc or ~/.zshrc
-    export RP1_KB_ROOT="/path/to/custom/kb"
-    ```
-
-=== "Custom work path"
-
-    Override where work artifacts are stored:
-
-    ```bash
-    # Add to ~/.bashrc or ~/.zshrc
-    export RP1_WORK_ROOT="/path/to/custom/work"
-    ```
-
-### Monorepo Considerations
+## Monorepo Considerations
 
 For monorepos, you have two options:
 
@@ -149,13 +119,34 @@ Place `.rp1/` at the repository root for a unified view:
 ```
 my-monorepo/
 ├── .rp1/                 # Shared KB at repo root
-│   └── context/
-│       └── index.md      # Lists all projects
+│   ├── project_id
+│   ├── context/
+│   └── work/
 ├── packages/
 └── services/
 ```
 
 rp1 automatically detects monorepo structures and creates project-specific sections. Use this when you need cross-project context.
+
+---
+
+## Migration from External Work Roots
+
+If you are upgrading from a version of rp1 that stored work artifacts externally (under `~/.rp1/work/<project-key>/`), run:
+
+```bash
+rp1 migrate
+```
+
+This command:
+
+1. Creates `.rp1/project_id` if missing
+2. Creates `.rp1/work/` if missing
+3. Moves legacy work artifacts from `~/.rp1/work/<key>` into `.rp1/work/`
+4. Updates `.gitignore` with appropriate rules
+5. Backfills `project_id` in Arcade database records
+
+The command is idempotent and safe to run multiple times. See [`rp1 migrate`](../reference/cli/rp1-migrate.md) for details.
 
 ---
 
@@ -179,24 +170,18 @@ rp1 automatically detects monorepo structures and creates project-specific secti
     /knowledge-build
     ```
 
-??? question "KB building in wrong location?"
-
-    Check your `RP1_KB_ROOT` environment variable:
-
-    ```bash
-    echo $RP1_KB_ROOT
-    ```
-
-    If set unexpectedly, unset it or override per-command.
-
 ??? question "Feature files not found?"
 
-    Ensure you're in the correct directory. Feature commands look for files in `${RP1_WORK_ROOT}/features/{feature-id}/`.
+    Ensure you're in the correct directory. Feature commands look for files in `.rp1/work/features/{feature-id}/`.
 
     ```bash
-    # Check your resolved work directory
+    # Check your resolved directories
     rp1 agent-tools rp1-root-dir
     ```
+
+??? question "Getting a warning about missing project_id?"
+
+    Run `rp1 migrate` to create the `.rp1/project_id` file and complete the migration to the new directory model.
 
 ---
 
