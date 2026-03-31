@@ -257,7 +257,7 @@ By default, `build-fast` makes changes in your current working directory without
 After completing a task, the command generates a summary document at:
 
 ```
-{RP1_WORK_ROOT}/quick-builds/{YYYYMMDD-HHMMSS-slug}/summary.md
+.rp1/work/quick-builds/{YYYYMMDD-HHMMSS-slug}/summary.md
 ```
 
 This provides:

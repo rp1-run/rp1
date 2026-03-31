@@ -691,34 +691,18 @@ OpenCode: https://opencode.ai/docs/installation
       → 2. Restart OpenCode to load plugins     [required]
     ```
 
-## Environment Variables
+## Directory Layout
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `RP1_PROJECT_ROOT` | Current project | Override the resolved project root |
-| `RP1_KB_ROOT` | `<project>/.rp1/context` | Override the resolved knowledge-base directory |
-| `RP1_WORK_ROOT` | Platform default | Override the resolved work artifact directory |
-| `RP1_ROOT` | Compatibility only | Legacy `.rp1` root input; avoid for new setups |
+After initialization, all rp1 state lives under the `.rp1/` directory within your project:
 
-### Directory Overrides
+| Path | Purpose |
+|------|---------|
+| `.rp1/project_id` | Stable UUID for project identity (checked into version control) |
+| `.rp1/context/` | Knowledge base files |
+| `.rp1/work/` | Work artifacts (git-ignored) |
+| `.rp1/config/` | Plugin and platform configuration |
 
-For new setups, prefer the three-root model:
-
-```bash
-# Override the resolved project root
-export RP1_PROJECT_ROOT=/custom/path/project
-
-# Optionally pin KB/work directories explicitly
-export RP1_KB_ROOT=/custom/path/project/.rp1/context
-export RP1_WORK_ROOT=/custom/path/work
-
-rp1 init
-```
-
-`RP1_ROOT` remains available as a compatibility input for older workflows, but new documentation and skills should use `RP1_PROJECT_ROOT`, `RP1_KB_ROOT`, and `RP1_WORK_ROOT`.
-
-!!! tip "direnv"
-    [direnv](https://direnv.net/){:target="_blank"} automatically loads environment variables when you enter a directory. It's useful for per-project configuration without polluting your global shell config.
+Directory paths are fixed and derived from the project root -- there are no environment variable overrides. Run `rp1 migrate` if upgrading from a version that used `RP1_PROJECT_ROOT`, `RP1_KB_ROOT`, or `RP1_WORK_ROOT` environment variables.
 
 ## Idempotency
 
