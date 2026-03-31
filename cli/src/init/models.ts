@@ -186,16 +186,18 @@ export interface InitOptions {
  */
 export const GITIGNORE_PRESETS = {
 	/**
-	 * Option A (Recommended): Track context, ignore work.
+	 * Option A (Recommended): Track context and project_id, ignore work.
 	 * Uses !.rp1/ to override global gitignore rules that may ignore .rp1/
-	 * Also ignores settings.toml as it may contain user-specific preferences.
+	 * .rp1/* ignores everything inside .rp1/ (including work/), then
+	 * selective un-ignores restore tracked paths.
 	 */
 	recommended: `!.rp1/
 .rp1/*
-!.rp1/context/
-!.rp1/context/**
+!.rp1/project_id
 !.rp1/config/
 !.rp1/config/**
+!.rp1/context/
+!.rp1/context/**
 .rp1/context/meta.json
 .rp1/settings.toml`,
 
