@@ -298,8 +298,8 @@ agents:
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:pr-review,rp1-dev:pr-visual]
-    last_update: "2026-03-30"
-    last_checksum: efc0a3b8d011ddd796973b2a54387ce9b6b435f7b584dd446cafec226f352274
+    last_update: "2026-03-31"
+    last_checksum: 15b35f555401f78a0b6324bb0e11847eca7284215aa6260d8743ff0659118d2f
   - name: rp1-dev:prd-archiver
     description: Archives completed PRDs to {RP1_WORK_ROOT}/archives/prds/, archives associated completed features, checks KB staleness, and generates closure summaries
     plugin: dev
