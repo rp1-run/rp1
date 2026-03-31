@@ -22,14 +22,11 @@ const createMockLogger = (): Logger => ({
 describe("init gitignore generation", () => {
 	let tempDir: string;
 	let originalHome: string | undefined;
-	let originalRp1Root: string | undefined;
 
 	beforeEach(async () => {
 		tempDir = await createTempDir("init-gitignore-");
 		originalHome = process.env.HOME;
-		originalRp1Root = process.env.RP1_ROOT;
 		process.env.HOME = tempDir;
-		delete process.env.RP1_ROOT;
 	});
 
 	afterEach(async () => {
@@ -39,25 +36,23 @@ describe("init gitignore generation", () => {
 		} else {
 			process.env.HOME = originalHome;
 		}
-		if (originalRp1Root === undefined) {
-			delete process.env.RP1_ROOT;
-		} else {
-			process.env.RP1_ROOT = originalRp1Root;
-		}
 	});
 
-	test("recommended preset skips default external work_dir but keeps project settings fenced", () => {
+	test("recommended preset includes project_id un-ignore and covers work via .rp1/*", () => {
 		const result = buildManagedGitignoreContent(tempDir, "recommended");
 
 		expect(result._tag).toBe("Right");
 		if (result._tag !== "Right") return;
 
+		expect(result.right).toContain("!.rp1/project_id");
 		expect(result.right).toContain("!.rp1/context/");
+		expect(result.right).toContain("!.rp1/context/**");
+		expect(result.right).toContain(".rp1/*");
 		expect(result.right).toContain(".rp1/settings.toml");
 		expect(result.right).not.toContain(".rp1/work/");
 	});
 
-	test("recommended preset ignores a configured local work_dir instead of assuming .rp1/work", async () => {
+	test("recommended preset uses fixed project-local paths regardless of settings", async () => {
 		await mkdir(join(tempDir, ".rp1"), { recursive: true });
 		await writeFile(
 			join(tempDir, ".rp1", "settings.toml"),
@@ -70,8 +65,9 @@ describe("init gitignore generation", () => {
 		expect(result._tag).toBe("Right");
 		if (result._tag !== "Right") return;
 
-		expect(result.right).toContain("ops/work/");
-		expect(result.right).not.toContain(".rp1/work/");
+		expect(result.right).not.toContain("ops/work/");
+		expect(result.right).toContain("!.rp1/project_id");
+		expect(result.right).toContain(".rp1/*");
 		expect(result.right).toContain(".rp1/settings.toml");
 	});
 
@@ -98,7 +94,7 @@ describe("init gitignore generation", () => {
 		expect(secondPass).toBe(firstPass);
 		expect(secondPass.match(/# rp1:start/g)?.length).toBe(1);
 		expect(secondPass.match(/# rp1:end/g)?.length).toBe(1);
+		expect(secondPass).toContain("!.rp1/project_id");
 		expect(secondPass).toContain(".rp1/settings.toml");
-		expect(secondPass).not.toContain(".rp1/work/");
 	});
 });
