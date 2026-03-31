@@ -31,7 +31,19 @@ const originalContent = "# Original Design\n\nThis is the original file.";
 const testDependencies: ArtifactsApiDependencyOverrides = {
 	getDb: async () => testDb,
 	getAllProjects: async () =>
-		tmpDir ? [{ id: "test-project", path: tmpDir, name: "Test Project" }] : [],
+		tmpDir
+			? [
+					{
+						id: "test-project",
+						projectId: "test-project-uuid",
+						path: tmpDir,
+						name: "Test Project",
+						addedAt: new Date().toISOString(),
+						lastAccessedAt: new Date().toISOString(),
+						available: true,
+					},
+				]
+			: [],
 };
 
 const handleArtifactPatchRequest = (
