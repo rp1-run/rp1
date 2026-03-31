@@ -123,9 +123,8 @@ function FeedEntry({
 				<span className="shrink-0 type-caption text-accent-amber">waiting</span>
 			)}
 
-			<span
-				role="link"
-				tabIndex={0}
+			<button
+				type="button"
 				onClick={(e) => {
 					e.stopPropagation();
 					onProjectClick(run.projectName);
@@ -136,12 +135,12 @@ function FeedEntry({
 						onProjectClick(run.projectName);
 					}
 				}}
-				className="ml-auto shrink-0 flex items-center gap-1 pl-4 type-secondary italic text-fg-ghost hover:text-fg-muted transition-colors duration-150 cursor-pointer"
+				className="ml-auto shrink-0 flex items-center gap-1 pl-4 type-secondary italic text-fg-ghost hover:text-fg-muted transition-colors duration-150 cursor-pointer bg-transparent border-none p-0"
 				aria-label={`Open project ${run.projectName}`}
 			>
 				<SquareKanban className="h-3 w-3" strokeWidth={1.5} />
 				{run.projectName}
-			</span>
+			</button>
 		</motion.button>
 	);
 }
