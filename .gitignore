@@ -50,3 +50,6 @@ bin/rp1
 # Eval output - attestation results are tracked, .gitkeep placeholder removed
 # Result files (e.g., output/rp1-dev-build-fast-2026-01-19.json) are committed as evidence
 .playwright-cli/
+.osgrep
+# rp1 directory
+!.rp1/project_id
