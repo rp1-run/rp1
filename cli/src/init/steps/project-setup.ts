@@ -91,9 +91,9 @@ export async function createDirectoryStructure(
 	logger: Logger,
 ): Promise<InitAction[]> {
 	const actions: InitAction[] = [];
-	const rp1Root = process.env.RP1_ROOT || ".rp1";
-	const rp1Dir = path.resolve(cwd, rp1Root);
+	const rp1Dir = path.resolve(cwd, ".rp1");
 	const contextDir = path.join(rp1Dir, "context");
+	const workDir = path.join(rp1Dir, "work");
 
 	if (!(await directoryExists(rp1Dir))) {
 		await fs.mkdir(rp1Dir, { recursive: true });
@@ -105,6 +105,12 @@ export async function createDirectoryStructure(
 		await fs.mkdir(contextDir, { recursive: true });
 		logger.info(`Created: ${contextDir}`);
 		actions.push({ type: "created_directory", path: contextDir });
+	}
+
+	if (!(await directoryExists(workDir))) {
+		await fs.mkdir(workDir, { recursive: true });
+		logger.info(`Created: ${workDir}`);
+		actions.push({ type: "created_directory", path: workDir });
 	}
 
 	return actions;
@@ -126,8 +132,7 @@ function resolveGlobalSettingsPath(): string {
  * Resolve the local settings file path.
  */
 function resolveLocalSettingsPath(cwd: string): string {
-	const rp1Root = process.env.RP1_ROOT || ".rp1";
-	return path.join(cwd, rp1Root, "settings.toml");
+	return path.join(cwd, ".rp1", "settings.toml");
 }
 
 /**

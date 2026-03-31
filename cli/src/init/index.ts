@@ -8,6 +8,7 @@ import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
 import { type CLIError, runtimeError } from "../../shared/errors.js";
 import type { Logger } from "../../shared/logger.js";
+import { ensureProjectId } from "../../shared/project-id.js";
 import { type PromptOptions, selectOption } from "../../shared/prompts.js";
 import {
 	loadToolsRegistry,
@@ -643,6 +644,7 @@ export function executeInit(
 				progress.startStep("directory-setup");
 				const dirActions = await createDirectoryStructure(cwd, logger);
 				allActions.push(...dirActions);
+				await ensureProjectId(cwd);
 				progress.completeStep();
 
 				progress.startStep("settings-setup");
