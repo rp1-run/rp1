@@ -106,7 +106,7 @@ export const createLocalMarketplace = (
 
 			const metadata = buildMarketplaceMetadata(plugins);
 			const metadataPath = join(metadataDir, "marketplace.json");
-			await writeFile(metadataPath, JSON.stringify(metadata, null, 2) + "\n", {
+			await writeFile(metadataPath, `${JSON.stringify(metadata, null, 2)}\n`, {
 				mode: 0o644,
 			});
 
