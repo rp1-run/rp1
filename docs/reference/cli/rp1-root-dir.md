@@ -14,9 +14,12 @@ rp1 agent-tools rp1-root-dir
 
 The `rp1-root-dir` agent tool resolves the effective directory set for the current project:
 
-- `projectRoot` - the canonical project root
-- `kbRoot` - the knowledge-base directory
-- `workRoot` - the work artifact directory
+- `projectRoot` - the canonical project root (directory containing `.rp1/project_id`)
+- `projectId` - the stable UUID from `.rp1/project_id`
+- `kbRoot` - the knowledge-base directory (always `<projectRoot>/.rp1/context`)
+- `workRoot` - the work artifact directory (always `<projectRoot>/.rp1/work`)
+
+All paths are deterministic from the project root. There are no environment variable overrides or settings-based customization.
 
 When the agent is running inside a linked git worktree, the tool maps back to the main repository so directory resolution stays stable. This tool performs read-only detection only; rp1 does not create or manage git worktrees.
 
@@ -30,16 +33,10 @@ Returns JSON with the resolved directories and context information:
   "tool": "rp1-root-dir",
   "data": {
     "projectRoot": "/Users/dev/myproject",
+    "projectId": "550e8400-e29b-41d4-a716-446655440000",
     "kbRoot": "/Users/dev/myproject/.rp1/context",
-    "workRoot": "/Users/dev/.rp1/Users-dev-myproject",
-    "isWorktree": true,
-    "worktreeName": "quick-build-fix-auth",
-    "source": "git-common-dir",
-    "sources": {
-      "projectRoot": "git_common_dir",
-      "kbRoot": "default",
-      "workRoot": "default"
-    }
+    "workRoot": "/Users/dev/myproject/.rp1/work",
+    "isWorktree": false
   }
 }
 ```
@@ -49,31 +46,22 @@ Returns JSON with the resolved directories and context information:
 | Field | Type | Description |
 |-------|------|-------------|
 | `projectRoot` | string | Absolute path to the effective project root |
-| `kbRoot` | string | Absolute path to the knowledge-base directory |
-| `workRoot` | string | Absolute path to the work artifact directory |
+| `projectId` | string \| null | UUID from `.rp1/project_id`, or `null` if the file is missing (pre-migration project) |
+| `kbRoot` | string | Absolute path to the knowledge-base directory (`<projectRoot>/.rp1/context`) |
+| `workRoot` | string | Absolute path to the work artifact directory (`<projectRoot>/.rp1/work`) |
 | `isWorktree` | boolean | `true` if running in a linked git worktree |
 | `worktreeName` | string | Branch name if in a worktree (optional) |
-| `source` | string | How the project root was resolved: `env`, `git-common-dir`, or `cwd` |
-| `sources` | object | Per-directory source metadata for `projectRoot`, `kbRoot`, and `workRoot` |
-
-### Resolution Sources
-
-| Source | Description |
-|--------|-------------|
-| `env` | Used `RP1_PROJECT_ROOT` or legacy `RP1_ROOT` input |
-| `git-common-dir` | Resolved from git's common directory (worktree scenario) |
-| `cwd` | Standard resolution from current working directory |
 
 ## Resolution Algorithm
 
-The tool resolves directories using this priority:
+The tool resolves directories using this process:
 
-1. `RP1_PROJECT_ROOT` environment variable
-2. `RP1_ROOT` compatibility environment variable
-3. Git worktree detection via `git rev-parse --git-common-dir`
-4. Standard resolution from current working directory
+1. Walk up from the current directory looking for `.rp1/project_id`.
+2. If not found but `.rp1/` exists, use that directory as project root (with `projectId: null` and a warning recommending `rp1 migrate`).
+3. If neither is found, try git worktree detection via `git rev-parse --git-common-dir` to locate the main worktree's `.rp1/project_id`.
+4. If no project is found, return an error recommending `rp1 init`.
 
-When running in a linked worktree, the tool detects this by comparing `git rev-parse --git-dir` with `git rev-parse --git-common-dir`. If they differ, rp1 resolves directories from the main repository instead of the linked checkout.
+Once the project root is determined, `kbRoot` and `workRoot` are always `<projectRoot>/.rp1/context` and `<projectRoot>/.rp1/work` respectively.
 
 ## Examples
 
@@ -86,10 +74,10 @@ $ rp1 agent-tools rp1-root-dir
   "tool": "rp1-root-dir",
   "data": {
     "projectRoot": "/Users/dev/myproject",
+    "projectId": "550e8400-e29b-41d4-a716-446655440000",
     "kbRoot": "/Users/dev/myproject/.rp1/context",
-    "workRoot": "/Users/dev/.rp1/Users-dev-myproject",
-    "isWorktree": false,
-    "source": "cwd"
+    "workRoot": "/Users/dev/myproject/.rp1/work",
+    "isWorktree": false
   }
 }
 ```
@@ -104,31 +92,11 @@ $ rp1 agent-tools rp1-root-dir
   "tool": "rp1-root-dir",
   "data": {
     "projectRoot": "/Users/dev/myproject",
+    "projectId": "550e8400-e29b-41d4-a716-446655440000",
     "kbRoot": "/Users/dev/myproject/.rp1/context",
-    "workRoot": "/Users/dev/.rp1/Users-dev-myproject",
+    "workRoot": "/Users/dev/myproject/.rp1/work",
     "isWorktree": true,
-    "worktreeName": "quick-build-fix-auth",
-    "source": "git-common-dir"
-  }
-}
-```
-
-### With Environment Override
-
-```bash
-$ export RP1_PROJECT_ROOT=/Users/dev/custom-project
-$ export RP1_KB_ROOT=/Users/dev/shared-kb
-$ export RP1_WORK_ROOT=/Users/dev/shared-work
-$ rp1 agent-tools rp1-root-dir
-{
-  "success": true,
-  "tool": "rp1-root-dir",
-  "data": {
-    "projectRoot": "/Users/dev/custom-project",
-    "kbRoot": "/Users/dev/shared-kb",
-    "workRoot": "/Users/dev/shared-work",
-    "isWorktree": false,
-    "source": "env"
+    "worktreeName": "quick-build-fix-auth"
   }
 }
 ```
@@ -137,15 +105,16 @@ $ rp1 agent-tools rp1-root-dir
 
 | Error | Cause | Resolution |
 |-------|-------|------------|
-| Invalid settings | `.rp1/settings.toml` contains invalid directory configuration | Fix the settings file and rerun |
+| No project found | No `.rp1/project_id` or `.rp1/` directory in any ancestor | Run `rp1 init` to initialize a project |
 | Filesystem access failure | The process cannot read the candidate project path | Check permissions and rerun |
 
 ## Use Cases
 
 - Linked worktree detection: resolve back to the main repository for stable KB/work access
-- Custom directory overrides: inspect the effect of `RP1_PROJECT_ROOT`, `RP1_KB_ROOT`, and `RP1_WORK_ROOT`
-- Compatibility debugging: verify legacy `RP1_ROOT` input without using it for new workflows
+- Path discovery: determine the project root and derive all paths from it
+- Pre-migration check: inspect whether `projectId` is `null` (needs `rp1 migrate`)
 
 ## Related
 
+- [`rp1 migrate`](rp1-migrate.md) - Migrate an existing project to the new directory model
 - [`build-fast`](../dev/build-fast.md) - Quick-iteration development workflow

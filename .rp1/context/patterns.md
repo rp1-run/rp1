@@ -67,7 +67,7 @@ Evidence: cli/web-ui/src/hooks/useRunDetail.ts:63-207, cli/web-ui/src/hooks/useR
 ## Dependency & Configuration
 
 **DI Pattern**: Manual wiring: singleton DB via getEmitDatabase(); interface + factory function pattern; React Context for WebSocket/Annotations; useContext hooks as dependency access
-**Config Loading**: Environment variables (RP1_DB, RP1_KB_ROOT, RP1_WORK_ROOT, GITHUB_TOKEN); findRp1Root walks directory tree with git worktree fallback; schema version migration for config evolution
+**Config Loading**: Environment variables (RP1_DB, GITHUB_TOKEN); project discovery walks directory tree for `.rp1/project_id` with git worktree fallback; KB and work paths are deterministic from project root (`.rp1/context` and `.rp1/work`); schema version migration for config evolution
 
 Evidence: cli/src/agent-tools/emit/database.ts:23-24, cli/shared/config.ts:20-131
 

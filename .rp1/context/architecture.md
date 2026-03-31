@@ -37,7 +37,7 @@ flowchart TB
 | Runtime Services | Agent tools, event emission, validation | `cli/src/agent-tools/`, `cli/src/lib/` |
 | Build & Distribution | Plugin compilation, artifact generation | `cli/src/build/`, `cli/scripts/`, `scripts/` |
 | Presentation | Arcade dashboard SPA, REST APIs, WebSocket | `cli/web-ui/src/app/`, `cli/web-ui/src/server/` |
-| Persistence | SQLite event store, KB files, project registry | `~/.rp1/rp1.db`, `.rp1/context/`, `.rp1/work/` |
+| Persistence | SQLite event store, KB files, work artifacts, project identity | `~/.rp1/rp1.db`, `.rp1/project_id`, `.rp1/context/`, `.rp1/work/` |
 | Evaluation | Prompt quality validation, attestation | `evals/` |
 
 ## Architectural Patterns
