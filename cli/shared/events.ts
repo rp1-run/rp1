@@ -141,6 +141,7 @@ export interface RunRecord {
 	readonly rp1ProjectRoot: string;
 	readonly rp1KbRoot: string;
 	readonly rp1WorkRoot: string;
+	readonly projectId: string | null;
 	readonly status: Status;
 	readonly name: string | null;
 	readonly harness: string | null;
