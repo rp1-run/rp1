@@ -87,7 +87,7 @@ describe("emit database", () => {
 			expect(tableNames).toContain("schema_version");
 		});
 
-		test("schema_version is set to 8", async () => {
+		test("schema_version is set to 9", async () => {
 			const dbPath = join(tempDir, "version-test.db");
 			const db = await expectTaskRight(getEmitDatabase(dbPath));
 
@@ -95,8 +95,7 @@ describe("emit database", () => {
 				version: number;
 			};
 
-			expect(row.version).toBe(8);
-			expect(row.version).toBe(8);
+			expect(row.version).toBe(9);
 		});
 
 		test("artifacts table includes subflow column", async () => {
@@ -230,8 +229,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(8);
-			expect(versionRow.version).toBe(8);
+			expect(versionRow.version).toBe(9);
 		});
 
 		test("migrates v2 schema to add subflow column to artifacts", async () => {
@@ -322,8 +320,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(8);
-			expect(versionRow.version).toBe(8);
+			expect(versionRow.version).toBe(9);
 		});
 
 		test("v3 to v4 migration adds baseline column and cleans orphaned edit-diff annotations", async () => {
@@ -410,8 +407,7 @@ describe("emit database", () => {
 			const versionRow = db
 				.prepare("SELECT version FROM schema_version")
 				.get() as { version: number };
-			expect(versionRow.version).toBe(8);
-			expect(versionRow.version).toBe(8);
+			expect(versionRow.version).toBe(9);
 
 			const annotations = db.prepare("SELECT * FROM annotations").all() as {
 				content: string;
