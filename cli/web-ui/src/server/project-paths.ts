@@ -1,10 +1,4 @@
-import { existsSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
-import * as E from "fp-ts/lib/Either.js";
-import {
-	defaultWorkRootForProject,
-	resolveDirectorySet,
-} from "../../../shared/directory-resolution.js";
 import type { RunRecord } from "../../../shared/events.js";
 import type { ArtifactRecord } from "../../../src/agent-tools/emit/database.js";
 
@@ -21,20 +15,15 @@ interface SectionPath {
 	readonly relativePath: string;
 }
 
-const defaultResolvedDirectories = (
-	projectPath: string,
-): ProjectDirectories => {
+const deriveProjectDirectories = (projectPath: string): ProjectDirectories => {
 	const projectRoot = resolve(projectPath);
 	const rp1DotDir = join(projectRoot, ".rp1");
 	return {
 		projectRoot,
 		kbRoot: join(rp1DotDir, "context"),
-		workRoot: defaultWorkRootForProject(projectRoot),
+		workRoot: join(rp1DotDir, "work"),
 	};
 };
-
-export const getLegacyWorkDir = (projectRoot: string): string =>
-	join(resolve(projectRoot), ".rp1", "work");
 
 const isWithinRoot = (candidatePath: string, rootPath: string): boolean => {
 	const relativePath = relative(resolve(rootPath), resolve(candidatePath));
@@ -69,52 +58,14 @@ const normalizeStoredWorkRelativePath = (artifactPath: string): string => {
 export const resolveProjectDirectories = (
 	projectPath: string,
 ): ProjectDirectories => {
-	const result = resolveDirectorySet(projectPath, { honorEnv: false });
-	if (E.isLeft(result)) {
-		return defaultResolvedDirectories(projectPath);
-	}
-
-	const resolvedWorkRoot = resolve(result.right.workRoot);
-	const workRoot =
-		existsSync(resolvedWorkRoot) || result.right.sources.workRoot !== "default"
-			? resolvedWorkRoot
-			: (() => {
-					const legacy = getLegacyWorkDir(result.right.projectRoot);
-					return existsSync(legacy) ? legacy : resolvedWorkRoot;
-				})();
-
-	return {
-		projectRoot: resolve(result.right.projectRoot),
-		kbRoot: resolve(result.right.kbRoot),
-		workRoot,
-	};
+	return deriveProjectDirectories(projectPath);
 };
 
 export const getRunDirectories = (
-	run: Pick<
-		RunRecord,
-		"projectPath" | "rp1ProjectRoot" | "rp1KbRoot" | "rp1WorkRoot"
-	>,
+	run: Pick<RunRecord, "projectPath" | "rp1ProjectRoot">,
 ): ProjectDirectories => {
-	const defaults = defaultResolvedDirectories(
-		run.rp1ProjectRoot ?? run.projectPath,
-	);
-	const projectRoot = resolve(run.rp1ProjectRoot ?? defaults.projectRoot);
-	const kbRoot = resolve(run.rp1KbRoot ?? defaults.kbRoot);
-	const storedWorkRoot = run.rp1WorkRoot
-		? resolve(run.rp1WorkRoot)
-		: getLegacyWorkDir(projectRoot);
-	const legacyWorkRoot = getLegacyWorkDir(projectRoot);
-	const workRoot =
-		existsSync(storedWorkRoot) || !existsSync(legacyWorkRoot)
-			? storedWorkRoot
-			: legacyWorkRoot;
-
-	return {
-		projectRoot,
-		kbRoot,
-		workRoot,
-	};
+	const projectRoot = resolve(run.rp1ProjectRoot ?? run.projectPath);
+	return deriveProjectDirectories(projectRoot);
 };
 
 export const listProjectSectionRoots = (
@@ -258,14 +209,6 @@ export const toArtifactDisplayPath = (
 		return sectionPath;
 	}
 
-	const legacyWorkDir = getLegacyWorkDir(directories.projectRoot);
-	if (isWithinRoot(absolutePath, legacyWorkDir)) {
-		return ensureSectionPath(
-			"work",
-			trimTrailingSlash(relative(legacyWorkDir, absolutePath)),
-		);
-	}
-
 	return artifact.path;
 };
 
@@ -276,11 +219,6 @@ export const toArtifactDisplayPathFromAbsolute = (
 	const sectionPath = toProjectSectionPath(directories, absolutePath);
 	if (sectionPath) {
 		return sectionPath;
-	}
-
-	const legacyWorkDir = getLegacyWorkDir(directories.projectRoot);
-	if (existsSync(legacyWorkDir) && isWithinRoot(absolutePath, legacyWorkDir)) {
-		return ensureSectionPath("work", relative(legacyWorkDir, absolutePath));
 	}
 
 	if (isWithinRoot(absolutePath, directories.projectRoot)) {
