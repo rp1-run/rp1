@@ -7,7 +7,7 @@ export {
 	resolveRp1Root,
 } from "./config.js";
 export {
-	type DirectorySource,
+	normalizeProjectKey,
 	type ProjectRootSource,
 	type ResolvedDirectorySet,
 	resolveDirectorySet,
