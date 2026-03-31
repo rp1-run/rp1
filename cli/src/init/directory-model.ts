@@ -13,8 +13,7 @@ export interface InitDirectoryModel {
 }
 
 const defaultInitDirectoryModel = (cwd: string): InitDirectoryModel => {
-	const rp1Root = process.env.RP1_ROOT || ".rp1";
-	const rp1Dir = path.resolve(cwd, rp1Root);
+	const rp1Dir = path.resolve(cwd, ".rp1");
 	return {
 		rp1Dir,
 		contextDir: path.join(rp1Dir, "context"),
