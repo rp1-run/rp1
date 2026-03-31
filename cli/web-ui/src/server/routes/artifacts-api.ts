@@ -24,7 +24,6 @@ import {
 	updateArtifactStorage,
 } from "../../../../src/agent-tools/emit/database.js";
 import {
-	getLegacyWorkDir,
 	getRunDirectories,
 	matchesArtifactDisplayPath,
 	type ProjectDirectories,
@@ -228,12 +227,10 @@ const getReconciliationRoots = (
 	workRoot: string,
 	storageRoot: "absolute" | "project" | "work_dir",
 ): readonly string[] => {
-	const legacyWorkDir = getLegacyWorkDir(projectRoot);
 	return Array.from(
 		new Set([
 			...(storageRoot === "project" ? [resolve(projectRoot)] : []),
 			...(storageRoot === "absolute" ? [] : [resolve(workRoot)]),
-			...(storageRoot === "absolute" ? [] : [resolve(legacyWorkDir)]),
 		]),
 	);
 };

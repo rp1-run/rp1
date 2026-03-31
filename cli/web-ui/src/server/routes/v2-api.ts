@@ -94,8 +94,13 @@ function getRunProjectPath(
 
 function findProjectForRun(
 	projectByPath: ReadonlyMap<string, ProjectEntry>,
-	record: Pick<RunRecord, "projectPath" | "rp1ProjectRoot">,
+	record: Pick<RunRecord, "projectPath" | "rp1ProjectRoot" | "projectId">,
+	projectById?: ReadonlyMap<string, ProjectEntry>,
 ): ProjectEntry | undefined {
+	if (record.projectId && projectById) {
+		const byId = projectById.get(record.projectId);
+		if (byId) return byId;
+	}
 	return (
 		projectByPath.get(getRunProjectPath(record)) ??
 		projectByPath.get(record.projectPath)
@@ -680,6 +685,7 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 
 	const statusFilter = params.get("status") as RunStatus | "all" | null;
 	const projectIdFilter = params.get("projectId");
+	const projectUuidFilter = params.get("project_id");
 	const limit = Number.parseInt(params.get("limit") ?? "50", 10);
 	const offset = Number.parseInt(params.get("offset") ?? "0", 10);
 	const dateRange = params.get("dateRange") ?? "all";
@@ -689,9 +695,16 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 		const projects = await getAllProjects();
 		const projectById = new Map(projects.map((p) => [p.id, p]));
 		const projectByPath = new Map(projects.map((p) => [p.path, p]));
+		const projectByUuid = new Map(
+			projects.filter((p) => p.projectId).map((p) => [p.projectId!, p]),
+		);
 
 		let projectPathFilter: string | undefined;
-		if (projectIdFilter) {
+		let dbProjectIdFilter: string | undefined;
+
+		if (projectUuidFilter) {
+			dbProjectIdFilter = projectUuidFilter;
+		} else if (projectIdFilter) {
 			const project = projectById.get(projectIdFilter);
 			if (project) {
 				projectPathFilter = project.path;
@@ -708,8 +721,10 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 		const knownProjectPaths = [...projectByPath.keys()];
 
 		const result = listRuns(db, {
-			projectPath: projectPathFilter,
-			projectPaths: projectPathFilter ? undefined : knownProjectPaths,
+			projectId: dbProjectIdFilter,
+			projectPath: dbProjectIdFilter ? undefined : projectPathFilter,
+			projectPaths:
+				dbProjectIdFilter || projectPathFilter ? undefined : knownProjectPaths,
 			status: dbStatus,
 			limit,
 			offset,
@@ -717,7 +732,7 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 
 		let runs: Run[] = [];
 		for (const record of result.records) {
-			const project = findProjectForRun(projectByPath, record);
+			const project = findProjectForRun(projectByPath, record, projectByUuid);
 			if (project) {
 				runs.push(runRecordToListRun(record, project));
 			}
