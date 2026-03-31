@@ -95,30 +95,22 @@ function ProjectRow({
 				{project.path}
 			</span>
 			<span className="ml-auto flex items-center gap-3 shrink-0">
-				<span
-					role="link"
-					tabIndex={0}
+				<button
+					type="button"
 					onClick={onRunsClick}
-					onKeyDown={(e) =>
-						e.key === "Enter" && onRunsClick(e as unknown as React.MouseEvent)
-					}
-					className="text-fg-ghost opacity-0 group-hover:opacity-100 transition-opacity duration-150 hover:text-fg"
+					className="text-fg-ghost opacity-0 group-hover:opacity-100 transition-opacity duration-150 hover:text-fg bg-transparent border-none p-0 cursor-pointer"
 					aria-label={`Runs for ${project.name}`}
 				>
 					<Play className="h-3.5 w-3.5" strokeWidth={1.5} />
-				</span>
-				<span
-					role="link"
-					tabIndex={0}
+				</button>
+				<button
+					type="button"
 					onClick={onFilesClick}
-					onKeyDown={(e) =>
-						e.key === "Enter" && onFilesClick(e as unknown as React.MouseEvent)
-					}
-					className="text-fg-ghost opacity-0 group-hover:opacity-100 transition-opacity duration-150 hover:text-fg"
+					className="text-fg-ghost opacity-0 group-hover:opacity-100 transition-opacity duration-150 hover:text-fg bg-transparent border-none p-0 cursor-pointer"
 					aria-label={`Files for ${project.name}`}
 				>
 					<FolderOpen className="h-3.5 w-3.5" strokeWidth={1.5} />
-				</span>
+				</button>
 				<span className="type-secondary text-fg-muted tabular-nums">
 					{project.runCount} run{project.runCount === 1 ? "" : "s"}
 				</span>
@@ -226,13 +218,12 @@ export function ProjectsPage() {
 			) : projects.length === 0 ? (
 				<EmptyState />
 			) : (
-				<div
-					className="divide-y divide-border"
-					role="list"
+				<ul
+					className="divide-y divide-border list-none m-0 p-0"
 					aria-label="Projects"
 				>
 					{projects.map((project, index) => (
-						<div key={project.id} role="listitem">
+						<li key={project.id}>
 							<ProjectRow
 								project={project}
 								selected={selectedIndex === index}
@@ -246,9 +237,9 @@ export function ProjectsPage() {
 									navigate(`/projects/${project.id}/files`);
 								}}
 							/>
-						</div>
+						</li>
 					))}
-				</div>
+				</ul>
 			)}
 		</div>
 	);
