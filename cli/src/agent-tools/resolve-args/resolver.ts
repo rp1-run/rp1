@@ -11,7 +11,6 @@ import {
 	parseUserFacing,
 	toCanonicalString,
 } from "../../../shared/canonical-name.js";
-import { resolveDirectorySet } from "../../../shared/directory-resolution.js";
 import type { CLIError } from "../../../shared/errors.js";
 import {
 	notFoundError,
@@ -27,7 +26,6 @@ import type {
 	ResolveArgsInput,
 	ResolvedArgs,
 	ResolvedArgumentValues,
-	ResolvedEnvironmentValues,
 } from "./models.js";
 import { resolveSchemaFromNameOrPath } from "./schema-lookup.js";
 
@@ -310,50 +308,6 @@ export const resolveImpliesChains = (
 };
 
 /**
- * Resolve environment parameters by checking environment variables
- * and falling back to built-in resolvers for known parameters.
- */
-const resolveEnvironment = async (
-	envDefs: readonly EnvironmentDefinition[],
-	projectRoot: string,
-): Promise<ResolvedEnvironmentValues> => {
-	const result: Record<string, string> = {};
-	const needsDirectoryResolution = envDefs.some((def) =>
-		["RP1_PROJECT_ROOT", "RP1_KB_ROOT", "RP1_WORK_ROOT"].includes(def.name),
-	);
-	const directories = needsDirectoryResolution
-		? resolveDirectorySet(projectRoot, { honorEnv: false })
-		: undefined;
-
-	for (const def of envDefs) {
-		// Check if there's an environment variable with the parameter name
-		const envValue = process.env[def.name];
-		if (envValue !== undefined) {
-			result[def.name] = envValue;
-			continue;
-		}
-
-		if (directories && E.isRight(directories)) {
-			if (def.name === "RP1_PROJECT_ROOT") {
-				result[def.name] = directories.right.projectRoot;
-				continue;
-			}
-
-			if (def.name === "RP1_KB_ROOT") {
-				result[def.name] = directories.right.kbRoot;
-				continue;
-			}
-
-			if (def.name === "RP1_WORK_ROOT") {
-				result[def.name] = directories.right.workRoot;
-			}
-		}
-	}
-
-	return result;
-};
-
-/**
  * Resolve arguments using the 5-layer merge precedence.
  *
  * Resolution precedence (highest to lowest):
@@ -414,7 +368,6 @@ export const resolveArgs = (
 			return TE.tryCatch(
 				async () => {
 					const argDefs = schema.arguments;
-					const envDefs = schema.environment;
 
 					// Layer 1: Parse user input
 					const userInput = parseRawArgs(input.raw_args, argDefs);
@@ -489,15 +442,9 @@ export const resolveArgs = (
 						}
 					}
 
-					// Resolve environment parameters
-					const environment = await resolveEnvironment(
-						envDefs,
-						input.project_root,
-					);
-
 					return {
 						arguments: resolved as ResolvedArgumentValues,
-						environment,
+						environment: {},
 						unresolved,
 					};
 				},
