@@ -166,5 +166,85 @@ describe("migrate", () => {
 				await rm(legacyDir, { recursive: true, force: true });
 			}
 		});
+
+		test("moveLegacyWork only moves known work artifact entries at top level", async () => {
+			const legacyDir = join(tmpdir(), `rp1-legacy-known-${Date.now()}`);
+			const destDir = join(tempDir, ".rp1", "work");
+			await mkdir(legacyDir, { recursive: true });
+			await mkdir(destDir, { recursive: true });
+
+			// Known work entries
+			await mkdir(join(legacyDir, "features", "my-feat"), { recursive: true });
+			await writeFile(
+				join(legacyDir, "features", "my-feat", "design.md"),
+				"design",
+			);
+			await writeFile(join(legacyDir, "pr-review-checkpoint.json"), "{}");
+
+			// Unknown entry (e.g. a stray checkout)
+			await mkdir(join(legacyDir, "some-random-dir"), { recursive: true });
+			await writeFile(
+				join(legacyDir, "some-random-dir", "big-file.bin"),
+				"data",
+			);
+
+			try {
+				const result = moveLegacyWork(tempDir, legacyDir);
+
+				expect(result.filesMoved).toBe(2);
+				expect(result.filesSkipped).toBe(1);
+				expect(
+					existsSync(join(destDir, "features", "my-feat", "design.md")),
+				).toBe(true);
+				expect(existsSync(join(destDir, "pr-review-checkpoint.json"))).toBe(
+					true,
+				);
+				expect(existsSync(join(destDir, "some-random-dir"))).toBe(false);
+			} finally {
+				await rm(legacyDir, { recursive: true, force: true });
+			}
+		});
+
+		test("moveLegacyWork skips directories containing .git", async () => {
+			const legacyDir = join(tmpdir(), `rp1-legacy-git-${Date.now()}`);
+			const destDir = join(tempDir, ".rp1", "work");
+			await mkdir(legacyDir, { recursive: true });
+			await mkdir(destDir, { recursive: true });
+
+			// pr-reviews with a worktree checkout nested inside
+			await mkdir(join(legacyDir, "pr-reviews", "worktrees", "pr-123"), {
+				recursive: true,
+			});
+			await writeFile(
+				join(legacyDir, "pr-reviews", "worktrees", "pr-123", ".git"),
+				"gitdir: /somewhere",
+			);
+			await writeFile(
+				join(legacyDir, "pr-reviews", "worktrees", "pr-123", "big-file.bin"),
+				"data",
+			);
+			await writeFile(
+				join(legacyDir, "pr-reviews", "summary.md"),
+				"review summary",
+			);
+
+			try {
+				const result = moveLegacyWork(tempDir, legacyDir);
+
+				// summary.md moved, pr-123 dir skipped (has .git)
+				expect(result.filesMoved).toBe(1);
+				expect(result.filesSkipped).toBe(1);
+				expect(existsSync(join(destDir, "pr-reviews", "summary.md"))).toBe(
+					true,
+				);
+				expect(
+					existsSync(
+						join(destDir, "pr-reviews", "worktrees", "pr-123", "big-file.bin"),
+					),
+				).toBe(false);
+			} finally {
+				await rm(legacyDir, { recursive: true, force: true });
+			}
+		});
 	});
 });
