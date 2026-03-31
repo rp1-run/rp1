@@ -17,10 +17,6 @@ metadata:
       type: string
       required: true
       description: "The research topic or questions (freeform text)"
-  environment:
-    - name: RP1_KB_ROOT
-      source: "rp1 agent-tools rp1-root-dir"
-      description: "Knowledge base directory for project context"
   sub_agents:
     - "rp1-base:research-explorer"
     - "rp1-base:research-reporter"
@@ -285,7 +281,6 @@ The reporter handles output file naming (slugification, directory creation, dedu
 {% dispatch_agent "rp1-base:research-reporter" %}
 Generate research report.
 SYNTHESIS_DATA: {stringify(synthesis_data)}
-RP1_KB_ROOT: {{$RP1_KB_ROOT}}
 REPORT_TYPE: {standard | comparative}
 
 Return JSON with report status and path.

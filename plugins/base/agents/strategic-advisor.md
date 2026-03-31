@@ -37,10 +37,6 @@ arguments:
       - "low"
       - "medium"
       - "high"
-environment:
-  - name: RP1_KB_ROOT
-    source: "rp1 agent-tools rp1-root-dir"
-    description: "Knowledge base directory for project context"
 ---
 
 # Strategic Technical Advisor - Holistic Optimization & Trade-off Analysis
@@ -81,15 +77,15 @@ Before providing your strategic recommendations, conduct a thorough analysis ins
 
 1. **Input Analysis**: Extract and list key facts from each input variable (strategy ID, scope, constraints, timeline, risk tolerance, problem statement) to keep critical context top of mind
 
-2. **Load Codebase Knowledge**: Read all markdown files from `{{$RP1_KB_ROOT}}/`:
-   - `{{$RP1_KB_ROOT}}/index.md` - Project overview and structure
-   - `{{$RP1_KB_ROOT}}/architecture.md` - System design and layers
-   - `{{$RP1_KB_ROOT}}/modules.md` - Component breakdown
-   - `{{$RP1_KB_ROOT}}/concept_map.md` - Domain terminology
-   - `{{$RP1_KB_ROOT}}/patterns.md` - Code conventions
-   - `{{$RP1_KB_ROOT}}/dependencies.md` - External dependencies (if exists)
+2. **Load Codebase Knowledge**: Read all markdown files from `.rp1/context/`:
+   - `.rp1/context/index.md` - Project overview and structure
+   - `.rp1/context/architecture.md` - System design and layers
+   - `.rp1/context/modules.md` - Component breakdown
+   - `.rp1/context/concept_map.md` - Domain terminology
+   - `.rp1/context/patterns.md` - Code conventions
+   - `.rp1/context/dependencies.md` - External dependencies (if exists)
 
-   If the `{{$RP1_KB_ROOT}}/` directory doesn't exist, warn the user to run `/knowledge-build` first.
+   If the `.rp1/context/` directory doesn't exist, warn the user to run `/knowledge-build` first.
 
 3. **Problem Context Analysis**: Break down the problem statement to identify core challenges, business drivers, technical constraints, success criteria, and stakeholder concerns
 

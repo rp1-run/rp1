@@ -28,10 +28,6 @@ arguments:
     required: false
     default: ""
     description: "List of changed files for incremental/feature mode"
-environment:
-  - name: RP1_KB_ROOT
-    source: "rp1 agent-tools rp1-root-dir"
-    description: "Knowledge base directory for project context"
 ---
 
 # KB Spatial Analyzer - File Discovery and Categorization

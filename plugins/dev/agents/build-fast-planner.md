@@ -17,13 +17,6 @@ arguments:
     required: false
     default: ""
     description: "Parent workflow run ID for artifact attribution"
-environment:
-  - name: RP1_KB_ROOT
-    source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 project context"
-  - name: RP1_WORK_ROOT
-    source: "rp1 agent-tools rp1-root-dir"
-    description: "Root directory for rp1 work artifacts"
 ---
 
 # Build Fast Planner
@@ -51,7 +44,7 @@ Default: Feature (if no match).
 
 ### 1.2 Load KB Files
 
-Always read: `{{$RP1_KB_ROOT}}/index.md`
+Always read: `.rp1/context/index.md`
 
 Then by type:
 
@@ -102,18 +95,18 @@ If scope is Small or Medium, generate task breakdown:
 
 1. Generate slug from REQUEST: 2-4 word kebab-case (e.g., "fix-auth-validation", "add-logging-module")
 2. Get current date: `yyyy-mm-dd` format
-3. Check for existing files matching pattern `{date}-{slug}-*.md` in `{{$RP1_WORK_ROOT}}/quick-builds/`
+3. Check for existing files matching pattern `{date}-{slug}-*.md` in `.rp1/work/quick-builds/`
 4. Determine suffix `n`:
    - If no match: n=1
    - If matches exist: n = highest existing suffix + 1
 
 Filename: `{yyyy-mm-dd}-{slug}-{n}.md`
-Full path: `{{$RP1_WORK_ROOT}}/quick-builds/{filename}`
+Full path: `.rp1/work/quick-builds/{filename}`
 
 ### 4.2 Create Directory
 
 ```bash
-mkdir -p "{{$RP1_WORK_ROOT}}/quick-builds"
+mkdir -p ".rp1/work/quick-builds"
 ```
 
 ### 4.3 Write Artifact
@@ -195,7 +188,7 @@ After writing artifact, output:
   "reasoning": "[one line: files X, systems Y, risk Z]",
   "files_affected": "[list of files or patterns]",
   "plan_summary": "[2-4 sentences describing approach and changes]",
-  "artifact_path": "{RP1_WORK_ROOT}/quick-builds/{filename}",
+  "artifact_path": ".rp1/work/quick-builds/{filename}",
   "artifact_relative_path": "quick-builds/{filename}",
   "task_count": {number of tasks},
   "task_ids": "T1,T2,T3",

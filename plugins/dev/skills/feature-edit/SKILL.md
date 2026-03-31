@@ -19,10 +19,6 @@ metadata:
       type: string
       required: true
       description: "Freeform edit description text"
-  environment:
-    - name: RP1_KB_ROOT
-      source: "rp1 agent-tools rp1-root-dir"
-      description: "Knowledge base directory for project context"
   sub_agents:
     - "rp1-dev:feature-editor"
 ---
