@@ -35,7 +35,6 @@ The workflow:
 | Parameter | Position | Default | Description |
 |-----------|----------|---------|-------------|
 | `research-topic` | `$ARGUMENTS` | (required) | Your research question or topic (freeform text) |
-| `RP1_WORK_ROOT` | Environment | `~/.rp1/work/<project-key>/` | Work directory for output artifacts |
 
 ## Exploration Modes
 
@@ -59,7 +58,7 @@ Each explorer specializes in a different research approach:
 
 ## Output
 
-Reports are saved to `{RP1_WORK_ROOT}/research/` with auto-generated filenames:
+Reports are saved to `.rp1/work/research/` with auto-generated filenames:
 
 | Output | Description |
 |--------|-------------|
