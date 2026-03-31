@@ -53,6 +53,9 @@ const moveFile = (src: string, dest: string): void => {
 	}
 };
 
+const isGitRepo = (dirPath: string): boolean =>
+	existsSync(join(dirPath, ".git"));
+
 const moveRecursive = (
 	srcDir: string,
 	destDir: string,
@@ -73,6 +76,11 @@ const moveRecursive = (
 		}
 
 		if (entry.isDirectory()) {
+			// Skip directories that look like git repos (worktree checkouts)
+			if (isGitRepo(srcPath)) {
+				skipped++;
+				continue;
+			}
 			if (!existsSync(destPath)) {
 				mkdirSync(destPath, { recursive: true });
 			}
@@ -109,6 +117,24 @@ export const findLegacyWorkDir = (projectRoot: string): string | undefined => {
 	return legacyPath;
 };
 
+/** Top-level entries that are actual rp1 work artifacts, not repo checkouts */
+const KNOWN_WORK_ENTRIES = new Set([
+	"features",
+	"research",
+	"pr-reviews",
+	"archives",
+	"content",
+	"blueprints",
+	"pr-review-checkpoint.json",
+]);
+
+const isWorkArtifact = (entryName: string): boolean => {
+	if (KNOWN_WORK_ENTRIES.has(entryName)) return true;
+	// JSON/markdown files at top level are likely work artifacts
+	if (entryName.endsWith(".md") || entryName.endsWith(".json")) return true;
+	return false;
+};
+
 export const moveLegacyWork = (
 	projectRoot: string,
 	legacyPath: string,
@@ -117,11 +143,39 @@ export const moveLegacyWork = (
 
 	mkdirSync(destDir, { recursive: true });
 
-	const { moved, skipped } = moveRecursive(legacyPath, destDir, legacyPath);
+	let totalMoved = 0;
+	let totalSkipped = 0;
+
+	const entries = readdirSync(legacyPath, { withFileTypes: true });
+	for (const entry of entries) {
+		if (!isWorkArtifact(entry.name)) {
+			totalSkipped++;
+			continue;
+		}
+
+		const srcPath = join(legacyPath, entry.name);
+		const destPath = join(destDir, entry.name);
+
+		if (entry.isDirectory()) {
+			if (!existsSync(destPath)) {
+				mkdirSync(destPath, { recursive: true });
+			}
+			const sub = moveRecursive(srcPath, destPath, legacyPath);
+			totalMoved += sub.moved;
+			totalSkipped += sub.skipped;
+		} else if (entry.isFile()) {
+			if (existsSync(destPath)) {
+				totalSkipped++;
+			} else {
+				moveFile(srcPath, destPath);
+				totalMoved++;
+			}
+		}
+	}
 
 	return {
 		legacyPath,
-		filesMoved: moved,
-		filesSkipped: skipped,
+		filesMoved: totalMoved,
+		filesSkipped: totalSkipped,
 	};
 };
