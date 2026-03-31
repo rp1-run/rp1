@@ -150,6 +150,42 @@ describe("buildPlatformPlugin (codex) integration", () => {
 		expect(manifest.installation.configFile).toBe("~/.codex/config.toml");
 	}, 30000);
 
+	test("copies codex-hooks.json with user-facing SessionStart messages only", async () => {
+		const outputPath = join(tempDir, "hooks-output");
+		await buildPlatformPlugin(
+			"base",
+			projectRoot,
+			outputPath,
+			codexDef,
+			logger,
+			true,
+		);
+
+		const hooksPath = join(outputPath, "base", "codex-hooks.json");
+		const hooksContent = await readFile(hooksPath, "utf-8");
+		const parsed = JSON.parse(hooksContent) as {
+			hooks?: {
+				SessionStart?: Array<{
+					hooks?: Array<{
+						command?: string;
+					}>;
+				}>;
+			};
+		};
+
+		const sessionStartHooks = parsed.hooks?.SessionStart ?? [];
+		expect(sessionStartHooks.length).toBeGreaterThan(0);
+
+		for (const entry of sessionStartHooks) {
+			for (const hook of entry.hooks ?? []) {
+				const command = hook.command ?? "";
+				expect(command).toContain('\\"systemMessage\\":');
+				expect(command).not.toContain("hookSpecificOutput");
+				expect(command).not.toContain("additionalContext");
+			}
+		}
+	}, 30000);
+
 	test("transforms namespace references in skill content outside code blocks", async () => {
 		const outputPath = join(tempDir, "namespace-output");
 		await buildPlatformPlugin(
