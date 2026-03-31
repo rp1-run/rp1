@@ -5,6 +5,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import type { EventNotificationPayload } from "../../../../web-ui/src/daemon/ipc.js";
@@ -34,6 +35,11 @@ describe("Phase 2 integration: write-ahead durability", () => {
 		closeDatabase();
 		resetInstance();
 		tempDir = await createTempDir("emit-integration-wha");
+		mkdirSync(join(tempDir, ".rp1"), { recursive: true });
+		writeFileSync(
+			join(tempDir, ".rp1", "project_id"),
+			"test-integration-wha-uuid",
+		);
 		dbPath = join(tempDir, "test.db");
 		await expectTaskRight(getEmitDatabase(dbPath));
 	});
@@ -154,6 +160,11 @@ describe("Phase 2 integration: run resumption end-to-end", () => {
 		closeDatabase();
 		resetInstance();
 		tempDir = await createTempDir("emit-integration-resume");
+		mkdirSync(join(tempDir, ".rp1"), { recursive: true });
+		writeFileSync(
+			join(tempDir, ".rp1", "project_id"),
+			"test-integration-resume-uuid",
+		);
 		dbPath = join(tempDir, "test.db");
 		await expectTaskRight(getEmitDatabase(dbPath));
 	});
@@ -256,6 +267,11 @@ describe("Phase 2 integration: WebSocket reconnect replay", () => {
 		closeDatabase();
 		resetInstance();
 		tempDir = await createTempDir("emit-integration-replay");
+		mkdirSync(join(tempDir, ".rp1"), { recursive: true });
+		writeFileSync(
+			join(tempDir, ".rp1", "project_id"),
+			"test-integration-replay-uuid",
+		);
 		dbPath = join(tempDir, "test.db");
 		await expectTaskRight(getEmitDatabase(dbPath));
 	});
