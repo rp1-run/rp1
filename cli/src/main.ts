@@ -19,6 +19,7 @@ import { fakeCommand } from "./commands/fake.js";
 import { initCommand } from "./commands/init.js";
 import { installParentCommand } from "./commands/install/index.js";
 import { listCommand } from "./commands/install.js";
+import { migrateCommand } from "./commands/migrate.js";
 import { settingsCommand } from "./commands/settings.js";
 import { uninstallCommand } from "./commands/uninstall.js";
 import { updateCommand } from "./commands/update/index.js";
@@ -204,6 +205,7 @@ program.addCommand(updateCommand);
 // Keep list command (still needed)
 program.addCommand(listCommand);
 program.addCommand(initCommand);
+program.addCommand(migrateCommand);
 program.addCommand(uninstallCommand);
 program.addCommand(settingsCommand);
 
