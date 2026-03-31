@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import {
 	getRunDirectories,
@@ -148,6 +148,26 @@ describe("project-paths", () => {
 		expect(resolved.projectRoot).toBe(tmpProjectDir);
 		expect(resolved.kbRoot).toBe(directories.kbRoot);
 		expect(resolved.workRoot).toBe(directories.workRoot);
+	});
+
+	test("uses the shared ~/.rp1/work default when no project work_root is configured", async () => {
+		const defaultProjectDir = await mkdtemp(
+			join(tmpdir(), "rp1-project-paths-default-"),
+		);
+
+		try {
+			await mkdir(join(defaultProjectDir, ".rp1"), { recursive: true });
+
+			const resolved = resolveProjectDirectories(defaultProjectDir);
+
+			expect(resolved.projectRoot).toBe(defaultProjectDir);
+			expect(resolved.kbRoot).toBe(join(defaultProjectDir, ".rp1", "context"));
+			expect(
+				resolved.workRoot.startsWith(join(homedir(), ".rp1", "work")),
+			).toBe(true);
+		} finally {
+			await rm(defaultProjectDir, { recursive: true, force: true });
+		}
 	});
 
 	describe("parseProjectSectionPath backward compatibility", () => {

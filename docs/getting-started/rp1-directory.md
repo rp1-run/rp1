@@ -1,6 +1,6 @@
 # The .rp1 Directory
 
-rp1 stores project-specific knowledge base data in a `.rp1/` directory at your project root, while work artifacts are stored externally in `~/.rp1/<project-key>/`. This guide explains the directory structure, what to commit vs ignore, and how to customize storage locations using the `RP1_PROJECT_ROOT`, `RP1_KB_ROOT`, and `RP1_WORK_ROOT` environment variables.
+rp1 stores project-specific knowledge base data in a `.rp1/` directory at your project root, while work artifacts are stored externally in `~/.rp1/work/<project-key>/`. This guide explains the directory structure, what to commit vs ignore, and how to customize storage locations using the `RP1_PROJECT_ROOT`, `RP1_KB_ROOT`, and `RP1_WORK_ROOT` environment variables.
 
 ---
 
@@ -19,7 +19,7 @@ rp1 stores project-specific knowledge base data in a `.rp1/` directory at your p
 ├── config/                   # Project configuration
 └── settings.toml             # Directory and project settings
 
-~/.rp1/<project-key>/         # External work dir (RP1_WORK_ROOT)
+~/.rp1/work/<project-key>/    # External work dir (RP1_WORK_ROOT)
 ├── charter.md                # Project charter (from /blueprint)
 ├── prds/                     # Product requirement documents
 │   └── *.md                  # PRD files created by /blueprint
@@ -76,7 +76,7 @@ rp1 uses three environment variables for directory resolution:
 |----------|---------|-------------|
 | `RP1_PROJECT_ROOT` | Auto-detected | Repository root directory |
 | `RP1_KB_ROOT` | `<project>/.rp1/context/` | Knowledge base directory |
-| `RP1_WORK_ROOT` | `~/.rp1/<project-key>/` | Work artifact directory |
+| `RP1_WORK_ROOT` | `~/.rp1/work/<project-key>/` | Work artifact directory |
 
 !!! tip "Advanced Configuration"
     For automatic per-directory configuration using `direnv`, see [Custom Directory Paths](../reference/cli/init.md#custom-rp1_root) in the init reference.

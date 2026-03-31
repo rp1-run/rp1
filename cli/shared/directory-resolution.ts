@@ -137,6 +137,9 @@ const normalizeProjectKey = (projectRoot: string): string => {
 	return normalizedRoot.length > 0 ? normalizedRoot : "project";
 };
 
+export const defaultWorkRootForProject = (projectRoot: string): string =>
+	path.join(homedir(), ".rp1", "work", normalizeProjectKey(projectRoot));
+
 const buildResolvedDirectorySet = (params: {
 	projectRoot: string;
 	projectRootSource: ProjectRootSource;
@@ -166,8 +169,7 @@ const buildResolvedDirectorySet = (params: {
 			: (settings.kbRoot ?? path.join(rp1DotDir, "context"));
 		const workRoot = workRootFromEnv
 			? path.resolve(workRootFromEnv)
-			: (settings.workRoot ??
-				path.join(homedir(), ".rp1", normalizeProjectKey(projectRoot)));
+			: (settings.workRoot ?? defaultWorkRootForProject(projectRoot));
 		const kbRootSource: DirectorySource = kbRootFromEnv
 			? "env"
 			: (settings.sources.kbRoot ?? "default");
