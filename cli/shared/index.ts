@@ -91,6 +91,11 @@ export {
 	isNamespacedLifecycleStep,
 } from "./logical-step.js";
 export {
+	ensureProjectId,
+	PROJECT_ID_FILENAME,
+	readProjectId,
+} from "./project-id.js";
+export {
 	confirmAction,
 	type PromptOptions,
 	selectMultiple,
