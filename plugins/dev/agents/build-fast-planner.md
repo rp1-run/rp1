@@ -152,7 +152,7 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step plan \
-  --data '{"path": "quick-builds/{filename}", "feature": "quick-build"}'
+  --data '{"path": "quick-builds/{filename}", "feature": "quick-build", "storageRoot": "work_dir"}'
 ```
 
 If the command fails, log a warning (`[build-fast-planner] Failed to register artifact quick-builds/{filename}: {error}`) and continue without blocking.

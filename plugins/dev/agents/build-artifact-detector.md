@@ -109,7 +109,7 @@ Use the returned `runId` and `resumed` values directly.
 
 ### 2.4 Artifact Reconciliation (Best-Effort)
 
-When `resumed` is `true`, scan the feature directory `.rp1/work/features/{FEATURE_ID}/` for `.md` files that may not be registered under the resumed run. Report these as `unregistered_artifacts` in the output so the calling skill can register them.
+When `resumed` is `true`, scan the feature directory `.rp1/work/features/{FEATURE_ID}/` for `.md` files that may not be registered under the resumed run. Report these as `unregistered_artifacts` using work-root-relative paths so the calling skill can register them directly.
 
 This is best-effort. If scanning fails, omit the `unregistered_artifacts` field and continue.
 
@@ -129,7 +129,7 @@ Return ONLY this JSON:
     "tasks": {"found": false, "has_entries": false, "pending": 0},
     "verify_report": {"found": false, "verified": false, "reason": "No report"}
   },
-  "unregistered_artifacts": ["field-notes.md"]
+  "unregistered_artifacts": ["features/{FEATURE_ID}/field-notes.md"]
 }
 ```
 
@@ -138,7 +138,7 @@ Return ONLY this JSON:
 - `run_id`: UUID of the run to use for all subsequent emits
 - `resumed`: `true` if reusing an existing run, `false` if a new run was created
 - `artifacts`: Per-artifact status with reasons
-- `unregistered_artifacts`: (optional) List of `.md` filenames found on disk but potentially not registered under the resumed run. Only present when `resumed` is `true`.
+- `unregistered_artifacts`: (optional) List of work-root-relative `.md` paths found on disk but potentially not registered under the resumed run. Only present when `resumed` is `true`.
 
 ## 4. Anti-Loop
 

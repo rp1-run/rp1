@@ -565,7 +565,7 @@ Examples:
     --workflow build \\
     --type artifact_registered \\
     --run-id "550e8400-e29b-41d4-a716-446655440000" \\
-    --data '{"path": "features/my-feature/design.md", "feature": "my-feature"}'
+    --data '{"path": "features/my-feature/design.md", "feature": "my-feature", "storageRoot": "work_dir"}'
 
   # Record a subflow
   rp1 agent-tools emit \\
