@@ -82,7 +82,7 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step visualize \
-  --data '{"path": "{ARTIFACT_PATH}", "type": "pr-visual", "feature": "pr-visual", "storageRoot": "absolute"}'
+  --data '{"path": "{ARTIFACT_PATH}", "type": "pr-visual", "feature": "pr-visual", "storageRoot": "project"}'
 ```
 
 Emit `visualize` completed. Output the artifact path.

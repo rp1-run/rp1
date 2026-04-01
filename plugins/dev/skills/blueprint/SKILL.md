@@ -153,7 +153,7 @@ loop:
           --type artifact_registered \
           --run-id {RUN_ID} \
           --step charter \
-          --data '{"path": ".rp1/context/charter.md", "feature": "blueprint", "storageRoot": "absolute"}'
+          --data '{"path": ".rp1/context/charter.md", "feature": "blueprint", "storageRoot": "project"}'
         ```
         Output: "Charter complete! Proceeding to PRD creation..."
         break -> Step 4
@@ -250,7 +250,7 @@ loop:
         --type artifact_registered \
         --run-id {RUN_ID} \
         --step prd \
-        --data '{"path": "{PRD_PATH}", "feature": "{PRD_NAME}", "storageRoot": "absolute"}'
+        --data '{"path": "{PRD_PATH}", "feature": "{PRD_NAME}", "storageRoot": "project"}'
       ```
       Output: "PRD created at {PRD_PATH}"
       break

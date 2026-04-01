@@ -247,14 +247,9 @@ node_modules/
 			expect(report.issues.some((i) => i.includes(".gitignore"))).toBe(true);
 		});
 
-		test("respects RP1_ROOT environment variable", async () => {
-			// Set custom RP1_ROOT
+		test("ignores RP1_ROOT environment variable and still checks .rp1", async () => {
 			process.env.RP1_ROOT = "custom-rp1-dir";
-
-			// Create custom rp1 directory structure
-			await mkdir(join(tempDir, "custom-rp1-dir", "context"), {
-				recursive: true,
-			});
+			await mkdir(join(tempDir, ".rp1", "context"), { recursive: true });
 
 			// Create instruction file with fenced content
 			await writeFile(
@@ -267,15 +262,13 @@ node_modules/
 
 			const report = await performHealthCheck(tempDir, plugins);
 
-			// Should find the custom directory
 			expect(report.rp1DirExists).toBe(true);
 		});
 
-		test("reports issue when RP1_ROOT directory is missing", async () => {
-			// Set custom RP1_ROOT that doesn't exist
+		test("does not report issues for a missing RP1_ROOT override when .rp1 exists", async () => {
 			process.env.RP1_ROOT = "non-existent-dir";
+			await mkdir(join(tempDir, ".rp1", "context"), { recursive: true });
 
-			// Create other components (but not the RP1_ROOT dir)
 			await writeFile(
 				join(tempDir, "CLAUDE.md"),
 				`<!-- rp1:start -->\nTest content\n<!-- rp1:end -->`,
@@ -286,9 +279,9 @@ node_modules/
 
 			const report = await performHealthCheck(tempDir, plugins);
 
-			expect(report.rp1DirExists).toBe(false);
+			expect(report.rp1DirExists).toBe(true);
 			expect(report.issues.some((i) => i.includes("non-existent-dir"))).toBe(
-				true,
+				false,
 			);
 		});
 

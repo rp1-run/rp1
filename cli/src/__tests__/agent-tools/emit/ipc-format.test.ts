@@ -16,6 +16,8 @@ describe("IPC event notification format", () => {
 				eventId: 42,
 				runId: "run-abc-123",
 				projectPath: "/path/to/project",
+				projectId: "project-uuid-1",
+				rp1ProjectRoot: "/path/to/project",
 				featureId: "my-feature",
 				step: "design",
 				data: { status: "running" },
@@ -27,6 +29,8 @@ describe("IPC event notification format", () => {
 			expect(payload.eventId).toBe(42);
 			expect(payload.runId).toBe("run-abc-123");
 			expect(payload.projectPath).toBe("/path/to/project");
+			expect(payload.projectId).toBe("project-uuid-1");
+			expect(payload.rp1ProjectRoot).toBe("/path/to/project");
 			expect(payload.featureId).toBe("my-feature");
 			expect(payload.step).toBe("design");
 			expect(payload.data).toEqual({ status: "running" });
@@ -87,6 +91,8 @@ describe("IPC event notification format", () => {
 				eventId: 42,
 				runId: "run-abc-123",
 				projectPath: "/path/to/project",
+				projectId: "project-uuid-1",
+				rp1ProjectRoot: "/path/to/project",
 				featureId: "my-feature",
 				step: "design",
 				data: { status: "running", message: "working on it" },
@@ -100,6 +106,8 @@ describe("IPC event notification format", () => {
 			expect(deserialized.eventType).toBe("status_change");
 			expect(deserialized.eventId).toBe(42);
 			expect(deserialized.runId).toBe("run-abc-123");
+			expect(deserialized.projectId).toBe("project-uuid-1");
+			expect(deserialized.rp1ProjectRoot).toBe("/path/to/project");
 			expect(deserialized.data).toEqual({
 				status: "running",
 				message: "working on it",

@@ -4,12 +4,8 @@
  */
 
 import { stat } from "node:fs/promises";
-import { resolve } from "node:path";
-import * as E from "fp-ts/lib/Either.js";
-import {
-	type ResolvedDirectorySet,
-	resolveDirectorySet,
-} from "../../../shared/directory-resolution.js";
+import { join } from "node:path";
+import { resolveInitDirectoryModel } from "../directory-model.js";
 import type { StepCallbacks } from "../models.js";
 
 /**
@@ -68,18 +64,14 @@ export async function checkRp1Readiness(
 	cwd: string,
 	callbacks?: StepCallbacks,
 ): Promise<ReadinessResult> {
-	const rp1Root = process.env.RP1_ROOT || ".rp1";
-
 	callbacks?.onActivity("Checking existing rp1 configuration", "info");
 
-	const rp1Dir = resolve(cwd, rp1Root);
-	const contextDir = resolve(cwd, rp1Root, "context");
-	const kbFile = resolve(cwd, rp1Root, "context", "index.md");
-	const charterFile = resolve(cwd, rp1Root, "context", "charter.md");
-	const workDir = E.match(
-		() => resolve(rp1Dir, "work"),
-		(directories: ResolvedDirectorySet) => resolve(directories.workRoot),
-	)(resolveDirectorySet(cwd));
+	const directories = resolveInitDirectoryModel(cwd);
+	const rp1Dir = directories.rp1Dir;
+	const contextDir = directories.contextDir;
+	const kbFile = join(contextDir, "index.md");
+	const charterFile = join(contextDir, "charter.md");
+	const workDir = directories.workDir;
 
 	const [
 		rp1DirExists,

@@ -132,6 +132,26 @@ function anchorsMatch(a: Anchor, b: Anchor): boolean {
 	}
 }
 
+export function filterAnnotationsForArtifactScope(
+	annotations: readonly Annotation[],
+	options: {
+		readonly artifactPath?: string;
+		readonly scopedDocId?: string | null;
+	},
+): readonly Annotation[] {
+	if (options.scopedDocId) {
+		return annotations;
+	}
+
+	if (!options.artifactPath) {
+		return annotations;
+	}
+
+	return annotations.filter(
+		(annotation) => annotation.artifactPath === options.artifactPath,
+	);
+}
+
 /**
  * Hook for consuming annotation context with filtering and lookup utilities.
  *
@@ -147,9 +167,11 @@ export function useAnnotations(
 
 	// Apply artifact path filter
 	const artifactAnnotations = useMemo(() => {
-		if (!artifactPath) return context.annotations;
-		return context.annotations.filter((a) => a.artifactPath === artifactPath);
-	}, [context.annotations, artifactPath]);
+		return filterAnnotationsForArtifactScope(context.annotations, {
+			artifactPath,
+			scopedDocId: context.docId,
+		});
+	}, [context.annotations, artifactPath, context.docId]);
 
 	// Merge filter from options with context filter
 	const effectiveFilter = useMemo<AnnotationFilter>(

@@ -179,6 +179,8 @@ export interface EventNotificationPayload {
 	readonly eventId: number;
 	readonly runId: string;
 	readonly projectPath: string;
+	readonly projectId?: string;
+	readonly rp1ProjectRoot?: string;
 	readonly featureId: string;
 	readonly step: string | null;
 	readonly data: Record<string, unknown> | null;
