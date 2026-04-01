@@ -1329,7 +1329,7 @@ describe("emit database", () => {
 			]);
 		});
 
-		test("contains namespaced lifecycle steps inside the active parent workflow step", async () => {
+		test("namespaced sub-step events do not override active parent workflow step status", async () => {
 			const dbPath = join(tempDir, "step-statuses-contained-parent.db");
 			const db = await expectTaskRight(getEmitDatabase(dbPath));
 
@@ -1359,11 +1359,65 @@ describe("emit database", () => {
 			expect(statuses).toEqual([
 				{
 					step: "build",
-					status: "failed",
+					status: "running",
 					concreteStep: "build",
 					unit: null,
 				},
 			]);
+		});
+
+		test("parent step completed after sub-step failures shows completed", async () => {
+			const dbPath = join(tempDir, "step-statuses-parent-completed.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-ss-parent-ok",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			insertEvent(db, {
+				runId: "run-ss-parent-ok",
+				type: "status_change",
+				step: "build",
+				data: JSON.stringify({ status: "running" }),
+			});
+			insertEvent(db, {
+				runId: "run-ss-parent-ok",
+				type: "status_change",
+				step: "task-builder:completed",
+				unit: "T1",
+				data: JSON.stringify({ status: "completed" }),
+			});
+			insertEvent(db, {
+				runId: "run-ss-parent-ok",
+				type: "status_change",
+				step: "task-reviewer:failed",
+				unit: "T1",
+				data: JSON.stringify({ status: "failed" }),
+			});
+			insertEvent(db, {
+				runId: "run-ss-parent-ok",
+				type: "status_change",
+				step: "build",
+				data: JSON.stringify({ status: "completed" }),
+			});
+			insertEvent(db, {
+				runId: "run-ss-parent-ok",
+				type: "status_change",
+				step: "verify",
+				data: JSON.stringify({ status: "running" }),
+			});
+
+			const statuses = getStepStatuses(db, "run-ss-parent-ok");
+
+			const buildStep = statuses.find((s) => s.step === "build");
+			const verifyStep = statuses.find((s) => s.step === "verify");
+
+			expect(buildStep?.status).toBe("completed");
+			expect(verifyStep?.status).toBe("running");
+			expect(statuses).toHaveLength(2);
 		});
 	});
 
