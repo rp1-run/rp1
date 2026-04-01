@@ -321,6 +321,19 @@ rp1 agent-tools emit \
 On Add Task: spawn builder+reviewer for ad-hoc TX-{timestamp} task, loop back.
 On Review feedback from Arcade: load `arcade-collab` skill, process all feedback for RUN_ID, then return to this checkpoint with original options.
 
+### §4.4 Close Build Step
+
+**Before transitioning to verify**, emit `build → completed` (required even if sub-tasks had retried/escalated failures):
+
+```bash
+rp1 agent-tools emit \
+  --workflow build \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --step build \
+  --data '{"status": "completed", "feature": "{FEATURE_ID}"}'
+```
+
 ## §STEP-5: Verify
 
 **Skip if**: start_step > 5. **Invoke ALL THREE in SINGLE response:**
