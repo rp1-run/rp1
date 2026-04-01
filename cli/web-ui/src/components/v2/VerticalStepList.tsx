@@ -3,6 +3,7 @@ import {
 	Check,
 	Circle,
 	Code,
+	Copy,
 	File,
 	FileText,
 	GitCompare,
@@ -223,6 +224,7 @@ export function VerticalStepList({
 	const [expandedComposites, setExpandedComposites] = useState<Set<string>>(
 		() => new Set<string>(),
 	);
+	const [copiedArtifactId, setCopiedArtifactId] = useState<string | null>(null);
 
 	const artifactsByStep = useMemo(() => {
 		const map = new Map<string, Artifact[]>();
@@ -337,11 +339,33 @@ export function VerticalStepList({
 										const fileName =
 											artifact.path.split("/").pop() ?? artifact.path;
 										return (
-											<li key={artifact.docId}>
+											<li
+												key={artifact.docId}
+												className="flex items-center gap-xs"
+											>
+												<button
+													type="button"
+													onClick={(e) => {
+														e.stopPropagation();
+														navigator.clipboard.writeText(
+															artifact.absolutePath ?? artifact.path,
+														);
+														setCopiedArtifactId(artifact.docId);
+														setTimeout(() => setCopiedArtifactId(null), 2000);
+													}}
+													aria-label={`Copy path for ${fileName}`}
+													className="flex-shrink-0 p-[1px] text-fg-ghost hover:text-fg transition-colors duration-150"
+												>
+													{copiedArtifactId === artifact.docId ? (
+														<Check className="h-3 w-3" strokeWidth={1.5} />
+													) : (
+														<Copy className="h-3 w-3" strokeWidth={1.5} />
+													)}
+												</button>
 												<button
 													type="button"
 													onClick={() => onArtifactSelect(artifact)}
-													className="flex w-full items-center gap-xs py-[2px] text-left type-secondary text-fg-muted hover:text-fg transition-colors duration-150"
+													className="flex min-w-0 flex-1 items-center gap-xs py-[2px] text-left type-secondary text-fg-muted hover:text-fg transition-colors duration-150"
 												>
 													<IconComponent
 														className="h-3 w-3 flex-shrink-0"
