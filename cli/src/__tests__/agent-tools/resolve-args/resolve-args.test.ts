@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import * as E from "fp-ts/lib/Either.js";
 import {
 	parseRawArgs,
@@ -13,6 +15,23 @@ import {
 	resolveSchemaFromNameOrPath,
 } from "../../../agent-tools/resolve-args/schema-lookup.js";
 import type { ArgumentDefinition } from "../../../build/models.js";
+
+/** True when dist/ bundle manifests exist (i.e. a build has been run). */
+// Test file is at cli/src/__tests__/agent-tools/resolve-args/ — 5 levels up to repo root
+const hasDevDist = existsSync(
+	join(
+		dirname(fileURLToPath(import.meta.url)),
+		"..",
+		"..",
+		"..",
+		"..",
+		"..",
+		"dist",
+		"claude-code",
+		"bundle-manifest.json",
+	),
+);
+const testIfDist = hasDevDist ? test : test.skip;
 
 let tempDir: string;
 
@@ -667,7 +686,7 @@ metadata:
 		}
 	});
 
-	test("resolves via name using development dist path", async () => {
+	testIfDist("resolves via name using development dist path", async () => {
 		const result = await resolveArgs({
 			name: "rp1-dev:build",
 			raw_args: "",
@@ -790,7 +809,7 @@ description: "Schema path override test"
 		expect(E.isLeft(result)).toBe(true);
 	});
 
-	test("resolves agent by name from development dist", async () => {
+	testIfDist("resolves agent by name from development dist", async () => {
 		const result = await resolveSchemaFromNameOrPath(
 			"rp1-dev:task-builder",
 			undefined,
@@ -803,7 +822,7 @@ description: "Schema path override test"
 		}
 	});
 
-	test("resolves skill by name from development dist", async () => {
+	testIfDist("resolves skill by name from development dist", async () => {
 		const result = await resolveSchemaFromNameOrPath(
 			"rp1-dev:build",
 			undefined,
