@@ -196,7 +196,7 @@ If you stopped at a gate, resuming `/build` continues from the next stage.
 
 ## Output
 
-**Location:** `$RP1_ROOT/work/features/<feature-id>/`
+**Location:** `.rp1/work/features/<feature-id>/`
 
 **Contents:**
 

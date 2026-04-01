@@ -11,6 +11,7 @@ import {
 	useCallback,
 	useEffect,
 	useLayoutEffect,
+	useMemo,
 	useRef,
 	useState,
 } from "react";
@@ -185,6 +186,21 @@ export function ArtifactViewerPage() {
 	} = useFollowMode(scrollViewportRef);
 
 	const selectedArtifactPath = artifactPathParam || "";
+	const selectedArtifact = useMemo(() => {
+		if (!run || !selectedArtifactPath) {
+			return null;
+		}
+
+		return (
+			run.artifacts.find(
+				(artifact) => artifact.path === selectedArtifactPath,
+			) ??
+			run.artifacts.find((artifact) =>
+				artifact.path.endsWith(`/${selectedArtifactPath}`),
+			) ??
+			null
+		);
+	}, [run, selectedArtifactPath]);
 
 	const handleToggleTocCollapse = useCallback(() => {
 		setTocCollapsed((prev) => {
@@ -270,11 +286,7 @@ export function ArtifactViewerPage() {
 				setArtifactContent(null);
 				return;
 			}
-
-			const artifact =
-				run.artifacts.find((a) => a.path === selectedArtifactPath) ??
-				run.artifacts.find((a) => a.path.endsWith(`/${selectedArtifactPath}`));
-			if (!artifact) {
+			if (!selectedArtifact) {
 				setContentError("Artifact not found");
 				setArtifactContent(null);
 				return;
@@ -297,7 +309,7 @@ export function ArtifactViewerPage() {
 
 			try {
 				const response = await fetch(
-					`/api/v2/runs/${runId}/artifacts/${encodeURIComponent(artifact.path)}`,
+					`/api/v2/runs/${runId}/artifacts/${encodeURIComponent(selectedArtifact.path)}`,
 				);
 				if (!response.ok) {
 					let errorMessage = `Failed to fetch artifact: ${response.statusText}`;
@@ -317,7 +329,7 @@ export function ArtifactViewerPage() {
 				setArtifactContent({
 					path: selectedArtifactPath,
 					content: data.content,
-					docId: artifact.docId,
+					docId: selectedArtifact.docId,
 				});
 			} catch (err) {
 				setContentError(err instanceof Error ? err.message : String(err));
@@ -328,7 +340,7 @@ export function ArtifactViewerPage() {
 				}
 			}
 		},
-		[run, runId, selectedArtifactPath],
+		[run, runId, selectedArtifact, selectedArtifactPath],
 	);
 
 	useEffect(() => {
@@ -753,7 +765,11 @@ export function ArtifactViewerPage() {
 		);
 
 		return (
-			<AnnotationProvider artifactPath={selectedArtifactPath} runId={runId}>
+			<AnnotationProvider
+				artifactPath={selectedArtifactPath}
+				docId={selectedArtifact?.docId}
+				runId={runId}
+			>
 				{mobileContent}
 			</AnnotationProvider>
 		);
@@ -945,7 +961,11 @@ export function ArtifactViewerPage() {
 	);
 
 	return (
-		<AnnotationProvider artifactPath={selectedArtifactPath} runId={runId}>
+		<AnnotationProvider
+			artifactPath={selectedArtifactPath}
+			docId={selectedArtifact?.docId}
+			runId={runId}
+		>
 			{desktopContent}
 		</AnnotationProvider>
 	);

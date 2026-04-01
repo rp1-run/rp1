@@ -28,7 +28,7 @@ Internal CLI utilities for AI agent workflows:
 | [`feedback`](agent-tools.md#feedback) | Feedback lifecycle: read, resolve, reply, accept-edit for Arcade annotations |
 | [`github-pr`](agent-tools.md#github-pr) | GitHub PR operations (submit-review, add-reaction, reply-comment, fetch-comments) |
 | [`task`](agent-tools.md#task) | Task queue management (create, list, pickup, complete, fail, cancel, get) |
-| [`rp1-root-dir`](cli/rp1-root-dir.md) | RP1_ROOT path resolution with worktree-aware detection |
+| [`rp1-root-dir`](cli/rp1-root-dir.md) | Canonical project, KB, and work directory resolution with worktree-aware detection |
 | `comment-extract` | Extract comments from source files for review workflows |
 | `mmd-validate` | Validate Mermaid diagram syntax |
 

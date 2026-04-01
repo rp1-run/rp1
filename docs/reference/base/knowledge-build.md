@@ -32,7 +32,6 @@ The command uses a parallel map-reduce architecture:
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `RP1_ROOT` | `.rp1/` | Root directory for KB artifacts |
 | `CODEBASE_ROOT` | `.` | Repository root to analyze |
 | `EXCLUDE_PATTERNS` | `node_modules/,.git/,build/,dist/` | Patterns to exclude |
 

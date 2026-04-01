@@ -34,7 +34,6 @@ This command is typically called internally by other KB-aware agents, but can be
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `mode` | `progressive` | Loading mode: `progressive` (index.md only) or `full` (all files) |
-| `RP1_ROOT` | `.rp1/` | Root directory for KB artifacts |
 | `PROJECT_PATH` | `.` | Project path (for monorepo subprojects) |
 | `FOCUS_MODE` | `balanced` | Context allocation strategy |
 | `MEMORY_BUDGET` | Auto | Memory limit for loaded context |
@@ -151,12 +150,12 @@ Instead of using this deprecated command, agents should load KB files directly:
 ```markdown
 ## 1. Load Knowledge Base
 
-Read `{RP1_ROOT}/context/index.md` to understand project structure.
+Read `.rp1/context/index.md` to understand project structure.
 
 Based on your task, selectively load additional files:
-- Code review → Read `{RP1_ROOT}/context/patterns.md`
-- Bug investigation → Read `{RP1_ROOT}/context/architecture.md` + `modules.md`
-- Feature work → Read `{RP1_ROOT}/context/modules.md` + `patterns.md`
+- Code review → Read `.rp1/context/patterns.md`
+- Bug investigation → Read `.rp1/context/architecture.md` + `modules.md`
+- Feature work → Read `.rp1/context/modules.md` + `patterns.md`
 ```
 
 See the [Knowledge-Aware Agents](../../concepts/knowledge-aware-agents.md) concept page for more on progressive loading patterns.
