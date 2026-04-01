@@ -105,7 +105,7 @@
 
 ### Core Terms
 - **SKILL.md**: Canonical file format for invocable skills with YAML frontmatter following the Agent Skills open standard
-- **RP1_ROOT**: Resolved `.rp1/` workspace root via env variable, git-common-dir (worktree), or cwd traversal
+- **project directories**: Deterministic rp1 paths derived from the project root; KB lives under `.rp1/context/` and work artifacts under `.rp1/work/`
 - **run-id**: UUID identifier for an individual workflow execution
 - **emit**: Agent-tools command recording workflow events against a run with type, step, and data payload
 - **Arcade**: Web UI dashboard (port 7710) for monitoring agent runs, artifacts, and annotations with WebSocket real-time updates

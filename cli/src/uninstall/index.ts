@@ -14,6 +14,7 @@ import { type CLIError, runtimeError } from "../../shared/errors.js";
 import type { Logger } from "../../shared/logger.js";
 import { confirmAction, type PromptOptions } from "../../shared/prompts.js";
 import { findFencedContent, hasFencedContent } from "../init/comment-fence.js";
+import { resolveInitDirectoryModel } from "../init/directory-model.js";
 import {
 	findShellFencedContent,
 	hasShellFencedContent,
@@ -272,9 +273,10 @@ export function executeUninstall(
 				const actions: UninstallAction[] = [];
 				const warnings: string[] = [];
 				const manualCleanup: string[] = [];
+				const directories = resolveInitDirectoryModel(cwd);
 
 				// Check if anything to uninstall
-				const rp1Dir = path.resolve(cwd, process.env.RP1_ROOT || ".rp1");
+				const rp1Dir = directories.rp1Dir;
 				const hasRp1Dir = await directoryExists(rp1Dir);
 				const claudeExists = await fileExists(path.resolve(cwd, "CLAUDE.md"));
 				const agentsExists = await fileExists(path.resolve(cwd, "AGENTS.md"));

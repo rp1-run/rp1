@@ -122,7 +122,7 @@ const validateArtifactRegisteredPayload = (
 	if (!data.path || typeof data.path !== "string") {
 		return E.left(
 			usageError(
-				'artifact_registered events require a \'path\' field (string) in --data. Paths are relative to the work directory (RP1_WORK_ROOT). Example: --data \'{"path": "features/my-feature/design.md", "feature": "my-feature"}\'',
+				'artifact_registered events require a \'path\' field (string) in --data. Paths are relative to `.rp1/work` unless `storageRoot` is set. Example: --data \'{"path": "features/my-feature/design.md", "feature": "my-feature"}\'',
 			),
 		);
 	}
@@ -288,10 +288,9 @@ export const validatePayloadShape = (
  *
  * When --project is explicitly provided, validates and resolves it via git
  * worktree normalization. When omitted, uses the same resolution chain as
- * `rp1 agent-tools rp1-root-dir`: RP1_PROJECT_ROOT / RP1_ROOT compatibility →
- * git common-dir → cwd.
+ * `rp1 agent-tools rp1-root-dir`: project-root discovery → git common-dir → cwd.
  * This ensures emit records are attributed to the correct project regardless
- * of worktree context or env overrides.
+ * of worktree context.
  */
 const validateProjectPath = (
 	project: string | undefined,

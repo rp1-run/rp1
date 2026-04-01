@@ -1,6 +1,6 @@
 /**
  * rp1-root-dir tool entry point.
- * Resolves the RP1_ROOT path using read-only worktree detection,
+ * Resolves canonical rp1 project directories using read-only worktree detection,
  * enabling agents to access KB and work artifacts from the main
  * repository when running in a linked git worktree.
  * This tool does not create, modify, or remove git worktrees.
@@ -20,7 +20,7 @@ const TOOL_NAME = "rp1-root-dir";
 
 /**
  * Execute rp1-root-dir tool.
- * Resolves the RP1_ROOT path with worktree detection.
+ * Resolves canonical project, KB, and work directories with worktree detection.
  *
  * @param _input - Unused (tool takes no input)
  * @param _options - Unused tool options
@@ -39,7 +39,7 @@ export const execute = (
 registerTool({
 	name: TOOL_NAME,
 	description:
-		"Resolve RP1_ROOT path with read-only worktree detection for KB and artifact access",
+		"Resolve canonical project, KB, and work directories with read-only worktree detection",
 	execute,
 });
 

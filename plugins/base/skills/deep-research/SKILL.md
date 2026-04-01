@@ -138,7 +138,7 @@ For each explorer, prepare:
 - EXPLORATION_TARGET: Path or topic
 - QUESTIONS: Subset of primary_questions relevant to this explorer
 - EXPLORATION_TYPE: codebase | web | hybrid
-- KB_PATH: Path to check for .rp1/context/ (for codebase explorers)
+- KB_PATH: Path to the KB root, typically `.rp1/context/` (for codebase explorers)
 
 ## 3. Spawn Explorers (~5% effort)
 

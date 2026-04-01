@@ -34,9 +34,8 @@ The command produces documentation covering:
 
 ## Parameters
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `RP1_ROOT` | `.rp1/` | Root directory for output |
+Output paths are fixed relative to the project root:
+- KB output: `.rp1/context/`
 
 ## Output
 
@@ -79,7 +78,7 @@ Summary:
 - Type: E-commerce Platform
 - Tech Stack: TypeScript, PostgreSQL, Redis
 
-Output: $RP1_ROOT/context/birds-eye-view.md
+Output: .rp1/context/birds-eye-view.md
 
 Sections Generated:
 - Summary ✓

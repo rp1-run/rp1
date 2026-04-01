@@ -6,6 +6,7 @@
 import { readFile, stat } from "node:fs/promises";
 import { resolve } from "node:path";
 import { hasFencedContent } from "../comment-fence.js";
+import { resolveInitDirectoryModel } from "../directory-model.js";
 import type { HealthReport, PluginStatus, StepCallbacks } from "../models.js";
 import { hasShellFencedContent } from "../shell-fence.js";
 import type { ReadinessResult } from "./readiness.js";
@@ -113,15 +114,15 @@ export async function performHealthCheck(
 	readiness?: ReadinessResult,
 	callbacks?: StepCallbacks,
 ): Promise<HealthReport> {
-	const rp1Root = process.env.RP1_ROOT || ".rp1";
-	const rp1Dir = resolve(cwd, rp1Root);
+	const directories = resolveInitDirectoryModel(cwd);
+	const rp1Dir = directories.rp1Dir;
 	const issues: string[] = [];
 
 	callbacks?.onActivity("Checking rp1 directory structure", "info");
 
 	const rp1DirExists = await isDirectory(rp1Dir);
 	if (!rp1DirExists) {
-		issues.push(`${rp1Root}/ directory not found`);
+		issues.push(".rp1/ directory not found");
 	}
 
 	const instructionFileValid = await checkInstructionFile(cwd);

@@ -195,12 +195,11 @@ cat diagram.mmd | rp1 agent-tools mmd-validate
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `RP1_PROJECT_ROOT` | Current project | Override the resolved project root |
-| `RP1_KB_ROOT` | `<project>/.rp1/context` | Override the resolved knowledge-base directory |
-| `RP1_WORK_ROOT` | Platform default | Override the resolved work artifact directory |
-| `RP1_ROOT` | Compatibility only | Legacy `.rp1` root input; avoid for new workflows |
+rp1 derives its directories from the project root:
+
+- Knowledge base: `.rp1/context/`
+- Work artifacts: `.rp1/work/`
+- Legacy directory override environment variables are no longer supported
 
 ## Deprecated Commands
 

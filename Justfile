@@ -313,8 +313,7 @@ clean-fake-runs:
 
     # Clean fake artifact files from disk
     echo ""
-    rp1_root="${RP1_ROOT:-.rp1}"
-    fake_dir="$rp1_root/work/features"
+    fake_dir=".rp1/work/features"
     file_count=0
     if [ -d "$fake_dir" ]; then
         for d in "$fake_dir"/fake-*/; do
