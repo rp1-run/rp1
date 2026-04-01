@@ -99,6 +99,11 @@ export function RunDetailPage() {
 		return run.artifacts.filter((a) => a.step === selectedStepId);
 	}, [selectedStepId, run]);
 
+	const subflowDiagram = useMemo(() => {
+		if (!selectedStepId || !run?.subflows) return null;
+		return run.subflows[selectedStepId] ?? null;
+	}, [selectedStepId, run?.subflows]);
+
 	const { setActiveArtifact, setProject, setRunInfo } = useBreadcrumbContext();
 	const { setProjectId } = useWebSocket();
 
@@ -132,10 +137,13 @@ export function RunDetailPage() {
 		(stepId: string) => {
 			if (!runId) return;
 			if (run) {
-				const art = run.artifacts.find((a) => a.step === stepId && a.docId);
-				if (art) {
-					navigate(`/runs/${runId}/step/${stepId}/artifact/${art.docId}`);
-					return;
+				const hasSubflow = run.subflows && run.subflows[stepId] !== undefined;
+				if (!hasSubflow) {
+					const art = run.artifacts.find((a) => a.step === stepId && a.docId);
+					if (art) {
+						navigate(`/runs/${runId}/step/${stepId}/artifact/${art.docId}`);
+						return;
+					}
 				}
 			}
 			navigate(`/runs/${runId}/step/${stepId}`);
@@ -185,11 +193,14 @@ export function RunDetailPage() {
 		}
 
 		if (urlStepId && !urlDocId) {
-			const art = run.artifacts.find((a) => a.step === urlStepId && a.docId);
-			if (art) {
-				navigate(`/runs/${runId}/step/${urlStepId}/artifact/${art.docId}`, {
-					replace: true,
-				});
+			const hasSubflow = run.subflows && run.subflows[urlStepId] !== undefined;
+			if (!hasSubflow) {
+				const art = run.artifacts.find((a) => a.step === urlStepId && a.docId);
+				if (art) {
+					navigate(`/runs/${runId}/step/${urlStepId}/artifact/${art.docId}`, {
+						replace: true,
+					});
+				}
 			}
 		}
 	}, [run, runId, urlStepId, urlDocId, navigate]);
@@ -298,6 +309,7 @@ export function RunDetailPage() {
 							selectedArtifact={selectedArtifact}
 							onArtifactSelect={handleArtifactSelect}
 							runId={runId}
+							subflowDiagram={subflowDiagram}
 						/>
 					</ResizablePanel>
 				</ResizablePanelGroup>
