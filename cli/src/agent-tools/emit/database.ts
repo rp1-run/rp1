@@ -1038,22 +1038,21 @@ export const getStepStatuses = (
 
 	for (const row of rows) {
 		const status = row.status as Status;
-		const logicalStepKey =
-			isNamespacedLifecycleStep(row.step) && activeWorkflowStep
-				? activeWorkflowStep
-				: getLogicalStepKey(row.step, row.unit);
+
+		// When a parent workflow step is active, namespaced sub-step events
+		// must not override the parent's status. Sub-tasks are tracked
+		// separately via deriveAgentSteps in the web UI.
+		if (isNamespacedLifecycleStep(row.step) && activeWorkflowStep) {
+			continue;
+		}
+
+		const logicalStepKey = getLogicalStepKey(row.step, row.unit);
 
 		latestByLogicalKey.set(logicalStepKey, {
 			step: logicalStepKey,
 			status,
-			concreteStep:
-				isNamespacedLifecycleStep(row.step) && activeWorkflowStep
-					? activeWorkflowStep
-					: row.step,
-			unit:
-				isNamespacedLifecycleStep(row.step) && activeWorkflowStep
-					? null
-					: row.unit,
+			concreteStep: row.step,
+			unit: row.unit,
 		});
 
 		if (isNamespacedLifecycleStep(row.step)) {
