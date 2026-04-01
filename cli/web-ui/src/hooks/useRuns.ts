@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 import type { Run, RunsFilter } from "@/types/runs";
+import { useReconnectRecovery } from "./useReconnectRecovery";
 
 interface RunsResponse {
 	runs: Run[];
@@ -94,6 +95,8 @@ export function useRuns(options: UseRunsOptions = {}): UseRunsResult {
 		});
 		return unsubscribe;
 	}, [subscribeToAttention, fetchRuns]);
+
+	useReconnectRecovery(fetchRuns);
 
 	const refetch = useCallback(() => {
 		setIsLoading(true);

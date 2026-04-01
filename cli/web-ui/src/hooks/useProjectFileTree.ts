@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { FileNode } from "../server/routes/content-utils";
+import { useReconnectRecovery } from "./useReconnectRecovery";
 
 export type { FileNode };
 
@@ -49,6 +50,8 @@ export function useProjectFileTree(
 	useEffect(() => {
 		fetchTree();
 	}, [fetchTree]);
+
+	useReconnectRecovery(fetchTree);
 
 	return {
 		tree,

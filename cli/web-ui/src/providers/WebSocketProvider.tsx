@@ -40,6 +40,7 @@ interface WebSocketContextValue {
 		callback: (msg: AnnotationMessage) => void,
 	) => () => void;
 	subscribeToAttention: (callback: AttentionCallback) => () => void;
+	subscribeToReconnect: (callback: () => void) => () => void;
 }
 
 const WebSocketContext = createContext<WebSocketContextValue | null>(null);
@@ -79,8 +80,9 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 		new Set(),
 	);
 	const subscriptionsRef = useRef<Set<string>>(new Set());
-
 	const attentionListenersRef = useRef<Set<AttentionCallback>>(new Set());
+	const reconnectListenersRef = useRef<Set<() => void>>(new Set());
+	const notifyReconnectRef = useRef(false);
 
 	const startPollingFallback = useCallback(() => {
 		if (pollingIntervalRef.current) return;
@@ -129,12 +131,20 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 				for (const path of subscriptionsRef.current) {
 					ws.send(JSON.stringify({ type: "subscribe", path }));
 				}
+
+				if (notifyReconnectRef.current) {
+					notifyReconnectRef.current = false;
+					for (const callback of reconnectListenersRef.current) {
+						callback();
+					}
+				}
 			};
 
 			ws.onclose = () => {
 				if (!mountedRef.current) return;
 				setStatus("disconnected");
 				wsRef.current = null;
+				notifyReconnectRef.current = true;
 				startPollingFallback();
 				scheduleReconnect();
 			};
@@ -281,6 +291,13 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 		};
 	}, []);
 
+	const subscribeToReconnect = useCallback((callback: () => void) => {
+		reconnectListenersRef.current.add(callback);
+		return () => {
+			reconnectListenersRef.current.delete(callback);
+		};
+	}, []);
+
 	const setProjectId = useCallback((newProjectId: string | null) => {
 		setProjectIdState(newProjectId);
 	}, []);
@@ -298,6 +315,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 				onEventNotification,
 				onAnnotationMessage,
 				subscribeToAttention,
+				subscribeToReconnect,
 			}}
 		>
 			{children}

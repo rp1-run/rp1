@@ -2,6 +2,7 @@ import { AlertCircle, ChevronRight, FolderOpen } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { RunCard } from "@/components/v2/RunCard";
+import { useReconnectRecovery } from "@/hooks/useReconnectRecovery";
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { V2Project } from "@/types/projects";
@@ -141,6 +142,8 @@ export function ProjectOverviewPage() {
 	useEffect(() => {
 		fetchData();
 	}, [fetchData]);
+
+	useReconnectRecovery(fetchData);
 
 	const handleRunClick = useCallback(
 		(run: Run) => {
