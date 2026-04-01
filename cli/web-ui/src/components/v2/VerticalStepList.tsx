@@ -3,7 +3,6 @@ import {
 	Check,
 	Circle,
 	Code,
-	Copy,
 	File,
 	FileText,
 	GitCompare,
@@ -299,7 +298,7 @@ export function VerticalStepList({
 									<StatusDot status={step.status} />
 								</span>
 
-								<div className="flex min-w-0 flex-1 items-start gap-xs">
+								<div className="flex min-w-0 flex-1 items-baseline gap-xs">
 									<span
 										className={cn(
 											"type-body font-medium min-w-0 truncate",
@@ -359,7 +358,10 @@ export function VerticalStepList({
 													{copiedArtifactId === artifact.docId ? (
 														<Check className="h-3 w-3" strokeWidth={1.5} />
 													) : (
-														<Copy className="h-3 w-3" strokeWidth={1.5} />
+														<IconComponent
+															className="h-3 w-3"
+															strokeWidth={1.5}
+														/>
 													)}
 												</button>
 												<button
@@ -367,10 +369,6 @@ export function VerticalStepList({
 													onClick={() => onArtifactSelect(artifact)}
 													className="flex min-w-0 flex-1 items-center gap-xs py-[2px] text-left type-secondary text-fg-muted hover:text-fg transition-colors duration-150"
 												>
-													<IconComponent
-														className="h-3 w-3 flex-shrink-0"
-														strokeWidth={1.5}
-													/>
 													<span className="min-w-0 truncate">{fileName}</span>
 												</button>
 											</li>
