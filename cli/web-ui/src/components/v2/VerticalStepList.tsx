@@ -339,7 +339,7 @@ export function VerticalStepList({
 									<ol>
 										{subTasks.map((task) => (
 											<li
-												key={task.id}
+												key={`${task.agent}:${task.id}`}
 												className="relative flex items-center gap-xs py-sm pl-sm"
 											>
 												<span className="absolute -left-[10px]">
@@ -348,8 +348,13 @@ export function VerticalStepList({
 												<span className="type-secondary text-fg-muted tabular-nums">
 													{task.id}
 												</span>
-												<span className="type-secondary text-fg-ghost">
-													{task.agent}
+												{task.agent !== task.id && (
+													<span className="type-secondary text-fg-ghost">
+														{task.agent}
+													</span>
+												)}
+												<span className="type-secondary text-fg-ghost ml-auto">
+													{task.status}
 												</span>
 											</li>
 										))}
