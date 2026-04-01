@@ -41,6 +41,7 @@ import { useContextualShortcuts } from "@/hooks/useContextualShortcuts";
 import { useFollowMode } from "@/hooks/useFollowMode";
 import type { HeadingEntry } from "@/hooks/useHeadingExtraction";
 import { useIsMobile } from "@/hooks/useMediaQuery";
+import { useReconnectRecovery } from "@/hooks/useReconnectRecovery";
 import { useRunDetail } from "@/hooks/useRunDetail";
 import { resolveRunDisplayName } from "@/lib/run-display";
 
@@ -333,6 +334,8 @@ export function ArtifactViewerPage() {
 	useEffect(() => {
 		fetchArtifactContentWithScrollPreservation(false);
 	}, [fetchArtifactContentWithScrollPreservation]);
+
+	useReconnectRecovery(() => fetchArtifactContentWithScrollPreservation(true));
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: intentionally depends on artifactContent to restore scroll after content changes
 	useLayoutEffect(() => {

@@ -13,6 +13,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { useReconnectRecovery } from "@/hooks/useReconnectRecovery";
 import type {
 	Annotation,
 	AnnotationFilter,
@@ -122,6 +123,8 @@ export function AnnotationProvider({
 			}
 		}
 	}, [artifactPath]);
+
+	useReconnectRecovery(fetchAnnotations);
 
 	/**
 	 * Create a new annotation with optimistic update.

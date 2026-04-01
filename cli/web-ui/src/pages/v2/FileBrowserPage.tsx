@@ -30,6 +30,7 @@ import type { HeadingEntry } from "@/hooks/useHeadingExtraction";
 import { useIsMobile } from "@/hooks/useMediaQuery";
 import { useProjectFileTree } from "@/hooks/useProjectFileTree";
 import { useProjects } from "@/hooks/useProjects";
+import { useReconnectRecovery } from "@/hooks/useReconnectRecovery";
 import { useWebSocket } from "@/providers/WebSocketProvider";
 
 import type { FileContent } from "../../server/routes/content-utils";
@@ -168,6 +169,8 @@ export function FileBrowserPage() {
 	useEffect(() => {
 		fetchContent(false);
 	}, [fetchContent]);
+
+	useReconnectRecovery(() => fetchContent(true));
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: restore scroll after content changes
 	useLayoutEffect(() => {

@@ -11,6 +11,7 @@ import {
 	useEffect,
 	useState,
 } from "react";
+import { useReconnectRecovery } from "@/hooks/useReconnectRecovery";
 import type { ProjectEntry } from "../server/registry";
 
 interface ProjectsResponse {
@@ -60,6 +61,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 	useEffect(() => {
 		fetchProjects();
 	}, [fetchProjects]);
+
+	useReconnectRecovery(fetchProjects);
 
 	const setCurrentProject = useCallback((projectId: string) => {
 		setCurrentProjectId(projectId);
