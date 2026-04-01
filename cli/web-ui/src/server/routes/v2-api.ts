@@ -252,9 +252,68 @@ async function discoverArtifactsFromFilesystem(
 }
 
 /**
+ * Extract the best Mermaid fenced code block from markdown content.
+ * Prefers blocks under "Task Subflow" or "Execution Flow" headings
+ * (case-insensitive, within 3 lines above the opening fence).
+ * Falls back to the first Mermaid block if no heading match is found.
+ * Returns null when no Mermaid blocks exist.
+ */
+export function extractMermaidFromMarkdown(content: string): string | null {
+	if (!content) return null;
+
+	const lines = content.split("\n");
+	const blocks: { content: string; headingMatch: boolean }[] = [];
+
+	let inFence = false;
+	let fenceStart = -1;
+	let blockLines: string[] = [];
+
+	for (let i = 0; i < lines.length; i++) {
+		const trimmed = lines[i].trimStart();
+
+		if (!inFence) {
+			if (trimmed.startsWith("```mermaid")) {
+				inFence = true;
+				fenceStart = i;
+				blockLines = [];
+			}
+		} else {
+			if (trimmed.startsWith("```")) {
+				const blockContent = blockLines.join("\n").trim();
+				if (blockContent.length > 0) {
+					const headingMatch = hasMatchingHeading(lines, fenceStart);
+					blocks.push({ content: blockContent, headingMatch });
+				}
+				inFence = false;
+				blockLines = [];
+			} else {
+				blockLines.push(lines[i]);
+			}
+		}
+	}
+
+	if (blocks.length === 0) return null;
+
+	const preferred = blocks.find((b) => b.headingMatch);
+	return preferred ? preferred.content : blocks[0].content;
+}
+
+function hasMatchingHeading(lines: string[], fenceIndex: number): boolean {
+	const headingPattern = /task\s+subflow|execution\s+flow/i;
+	const searchStart = Math.max(0, fenceIndex - 3);
+	for (let i = searchStart; i < fenceIndex; i++) {
+		const trimmed = lines[i].trimStart();
+		if (trimmed.startsWith("#") || trimmed.startsWith("**")) {
+			if (headingPattern.test(trimmed)) return true;
+		}
+	}
+	return false;
+}
+
+/**
  * Read subflow diagram content from disk for subflow artifacts.
  * Returns a map of step ID to Mermaid diagram source.
- * Only reads .mmd files marked as subflow artifacts.
+ * Reads .mmd files directly and extracts Mermaid from markdown artifacts.
  */
 async function getSubflowDiagrams(
 	artifacts: readonly Artifact[],
@@ -266,12 +325,17 @@ async function getSubflowDiagrams(
 	// Source 1: artifact-based subflow diagrams (requires subflow flag on artifact)
 	for (const artifact of artifacts) {
 		if (!artifact.subflow || !artifact.step) continue;
-		if (!artifact.path.endsWith(".mmd")) continue;
 
 		try {
 			const file = Bun.file(artifact.absolutePath);
 			if (await file.exists()) {
-				subflows[artifact.step] = await file.text();
+				if (artifact.path.endsWith(".mmd")) {
+					subflows[artifact.step] = await file.text();
+				} else {
+					const content = await file.text();
+					const mermaid = extractMermaidFromMarkdown(content);
+					if (mermaid) subflows[artifact.step] = mermaid;
+				}
 			}
 		} catch {
 			// Best-effort: skip unreadable subflow files
