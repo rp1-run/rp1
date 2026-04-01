@@ -104,11 +104,15 @@ describe("emit database", () => {
 
 			const columns = db.prepare("PRAGMA table_info(artifacts)").all() as {
 				name: string;
+				dflt_value: string | null;
 			}[];
 			const columnNames = columns.map((c) => c.name);
 
 			expect(columnNames).toContain("subflow");
 			expect(columnNames).toContain("storage_root");
+			expect(
+				columns.find((column) => column.name === "storage_root")?.dflt_value,
+			).toBe("'work_dir'");
 		});
 
 		test("annotations table includes status and author columns", async () => {
@@ -695,6 +699,7 @@ describe("emit database", () => {
 				runId: "run-art",
 				path: "design.md",
 				type: "markdown",
+				storageRoot: "work_dir",
 				projectPath: "/p",
 				feature: "feat",
 				step: "design",
@@ -703,7 +708,7 @@ describe("emit database", () => {
 			expect(artifact.docId).toBe("doc-001");
 			expect(artifact.path).toBe("design.md");
 			expect(artifact.type).toBe("markdown");
-			expect(artifact.storageRoot).toBe("project");
+			expect(artifact.storageRoot).toBe("work_dir");
 		});
 
 		test("returns existing artifact if doc_id already present", async () => {
@@ -722,6 +727,7 @@ describe("emit database", () => {
 				runId: "run-art2",
 				path: "original.md",
 				type: "markdown",
+				storageRoot: "work_dir",
 				projectPath: "/p",
 				feature: "feat",
 			});
@@ -731,6 +737,7 @@ describe("emit database", () => {
 				runId: "run-art2",
 				path: "different.md",
 				type: "code",
+				storageRoot: "work_dir",
 				projectPath: "/other",
 				feature: "other-feat",
 			});
@@ -755,6 +762,7 @@ describe("emit database", () => {
 				runId: "run-sf",
 				path: "flow.mmd",
 				type: "diagram",
+				storageRoot: "work_dir",
 				projectPath: "/p",
 				feature: "feat",
 				step: "building",
@@ -781,6 +789,7 @@ describe("emit database", () => {
 				runId: "run-nsf",
 				path: "design.md",
 				type: "markdown",
+				storageRoot: "work_dir",
 				projectPath: "/p",
 				feature: "feat",
 			});
@@ -831,6 +840,7 @@ describe("emit database", () => {
 				runId: "run-ann",
 				path: "file.md",
 				type: "markdown",
+				storageRoot: "work_dir",
 				projectPath: "/p",
 				feature: "feat",
 			});
@@ -865,6 +875,7 @@ describe("emit database", () => {
 				runId: "run-sa",
 				path: "file.md",
 				type: "markdown",
+				storageRoot: "work_dir",
 				projectPath: "/p",
 				feature: "feat",
 			});
@@ -2085,6 +2096,7 @@ describe("emit database", () => {
 				runId: "run-snap-active",
 				path: "design.md",
 				type: "markdown",
+				storageRoot: "work_dir",
 				projectPath: "/p/snap",
 				feature: "feat-snap",
 				step: "design",
@@ -2399,6 +2411,7 @@ describe("emit database", () => {
 				runId: "run-afr",
 				path: "design.md",
 				type: "markdown",
+				storageRoot: "work_dir",
 				projectPath: "/p",
 				feature: "feat",
 			});
@@ -2407,6 +2420,7 @@ describe("emit database", () => {
 				runId: "run-afr-other",
 				path: "other.md",
 				type: "markdown",
+				storageRoot: "work_dir",
 				projectPath: "/p",
 				feature: "feat",
 			});
@@ -2435,6 +2449,7 @@ describe("emit database", () => {
 				runId: "run-abd",
 				path: "file.ts",
 				type: "code",
+				storageRoot: "work_dir",
 				projectPath: "/p",
 				feature: "feat",
 			});
@@ -2644,6 +2659,7 @@ describe("emit database", () => {
 				runId: "run-anr",
 				path: "file.md",
 				type: "markdown",
+				storageRoot: "work_dir",
 				projectPath: "/p",
 				feature: "feat",
 			});
@@ -2683,6 +2699,7 @@ describe("emit database", () => {
 				runId: "run-and",
 				path: "a.md",
 				type: "markdown",
+				storageRoot: "work_dir",
 				projectPath: "/p",
 				feature: "feat",
 			});
@@ -2691,6 +2708,7 @@ describe("emit database", () => {
 				runId: "run-and",
 				path: "b.md",
 				type: "markdown",
+				storageRoot: "work_dir",
 				projectPath: "/p",
 				feature: "feat",
 			});
@@ -2730,6 +2748,7 @@ describe("emit database", () => {
 				runId: "run-abi",
 				path: "file.md",
 				type: "markdown",
+				storageRoot: "work_dir",
 				projectPath: "/p",
 				feature: "feat",
 			});
@@ -2773,6 +2792,7 @@ describe("emit database", () => {
 				runId: "run-ua",
 				path: "file.md",
 				type: "markdown",
+				storageRoot: "work_dir",
 				projectPath: "/p",
 				feature: "feat",
 			});
@@ -2807,6 +2827,7 @@ describe("emit database", () => {
 				runId: "run-uas",
 				path: "file.md",
 				type: "markdown",
+				storageRoot: "work_dir",
 				projectPath: "/p",
 				feature: "feat",
 			});
@@ -2843,6 +2864,7 @@ describe("emit database", () => {
 				runId: "run-uad",
 				path: "file.md",
 				type: "markdown",
+				storageRoot: "work_dir",
 				projectPath: "/p",
 				feature: "feat",
 			});
@@ -2877,6 +2899,7 @@ describe("emit database", () => {
 				runId: "run-da",
 				path: "file.md",
 				type: "markdown",
+				storageRoot: "work_dir",
 				projectPath: "/p",
 				feature: "feat",
 			});

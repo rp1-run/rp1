@@ -73,7 +73,7 @@ export interface ArtifactRegisteredPayload {
 	readonly projectPath: string;
 	readonly feature: string;
 	readonly docId?: string;
-	readonly storageRoot?: "absolute" | "project" | "work_dir";
+	readonly storageRoot: "absolute" | "project" | "work_dir";
 }
 
 export interface AnnotationUpdatedPayload {

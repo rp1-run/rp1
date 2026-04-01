@@ -130,15 +130,15 @@ agents:
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:build]
-    last_update: "2026-03-31"
-    last_checksum: 94d511f59d5b152051bcaa71ca321703b9f74d436b82d5285741209303ef6191
+    last_update: "2026-04-01"
+    last_checksum: 5bb90fa45d194b9b345b0338a0f7bb11658b8a300c655a6f44b6bcb699189eec
   - name: rp1-dev:build-fast-planner
     description: Quick-iteration workflow planner. Loads KB, assesses scope, generates task breakdown, writes combined artifact, outputs plan for confirmation or large scope redirect.
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:build-fast]
-    last_update: "2026-03-31"
-    last_checksum: 8ac9906ad6d28932759807aa973aae079bf0fb77a548c8ff4ac0496ace46630e
+    last_update: "2026-04-01"
+    last_checksum: c1c235d2b94fe311be106df9acd6b84cfdee8c9975efb85a1c4f54b057da8add
   - name: rp1-dev:build-task-grouper
     description: Batches parsed tasks into execution units based on complexity rules
     plugin: dev
@@ -200,8 +200,8 @@ agents:
     plugin: dev
     skills_that_i_use: [rp1-base:mermaid]
     skills_that_use_me: [rp1-dev:build]
-    last_update: "2026-03-31"
-    last_checksum: bc94ea63b024de0ff8f912ea76289285fc60e98633e1ecc153121268c18e6fcb
+    last_update: "2026-04-01"
+    last_checksum: e58615fab2cda91f6188e4465198ce6c38979ba803176195d5f6484bc21f8845
   - name: rp1-dev:feature-archiver
     description: Archives completed features to .rp1/work/archives/features/ or restores archived features back to active features directory
     plugin: dev
@@ -221,15 +221,15 @@ agents:
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:build]
-    last_update: "2026-03-31"
-    last_checksum: f1af7086b9aa1ca3302022729682f60d376e767fc1934606e1954860630fa95c
+    last_update: "2026-04-01"
+    last_checksum: 5513d5da8f79659bcc35afd1a6db002b105c09a6a3490ed44b8cf3c83abea1bf
   - name: rp1-dev:feature-tasker
     description: Generates development tasks from design specifications with support for incremental updates that preserve completed work
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:build]
-    last_update: "2026-03-31"
-    last_checksum: 7181d42a8b38be1bfbe7c9e52c2c4ec28cd30f31c12e52dfc0809f53035a9d9f
+    last_update: "2026-04-01"
+    last_checksum: 375f251801e285e6ee91f6beb818ad1c93479ec3537adb81612be26078ea484f
   - name: rp1-dev:feature-verifier
     description: Verifies feature acceptance criteria and requirements mapping with full KB context awareness for comprehensive feature validation before merge
     plugin: dev
@@ -312,8 +312,8 @@ agents:
     plugin: dev
     skills_that_i_use: []
     skills_that_use_me: [rp1-dev:build-fast,rp1-dev:build]
-    last_update: "2026-03-31"
-    last_checksum: a7b97f7122fe6bd5c3e4560d513ae0c0b9619d52281e66b31f647d354f1f7011
+    last_update: "2026-04-01"
+    last_checksum: 99aeaf8044d3588724c20509809b945495f8fbc133bb0740b855d024b0dd617e
   - name: rp1-dev:task-reviewer
     description: Verifies builder's work for discipline, accuracy, completeness, and commit quality. Returns SUCCESS or FAILURE with actionable feedback. Uses extended thinking for careful verification.
     plugin: dev

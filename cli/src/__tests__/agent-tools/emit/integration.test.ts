@@ -343,6 +343,7 @@ describe("Phase 2 integration: WebSocket reconnect replay", () => {
 			runId: run.id,
 			path: "design.md",
 			type: "markdown",
+			storageRoot: "work_dir",
 			projectPath: tempDir,
 			feature: "feat-snapshot",
 			step: "design",

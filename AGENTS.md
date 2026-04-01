@@ -122,6 +122,7 @@ Do not use `${}` shell parameter expansion in Bash snippets intended for Claude 
 
 When emitting `artifact_registered` events via `rp1 agent-tools emit`, artifact paths must follow these rules:
 
+- **Always include `storageRoot` explicitly.** Do not rely on implicit defaults.
 - **Work artifacts** (`storageRoot: "work_dir"`): Paths must be relative to the work root (`.rp1/work/`) without any prefix. Example: `features/my-feature/design.md` (not `work/features/...`).
 - **KB artifacts** (`storageRoot: "project"`): Paths must be relative to the project root. Example: `.rp1/context/index.md`.
 - **Absolute paths**: Used as-is regardless of `storageRoot`.

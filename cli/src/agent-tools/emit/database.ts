@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS artifacts (
     run_id TEXT REFERENCES runs(id),
     path TEXT NOT NULL,
     type TEXT NOT NULL DEFAULT 'other',
-    storage_root TEXT NOT NULL DEFAULT 'project'
+    storage_root TEXT NOT NULL DEFAULT 'work_dir'
         CHECK(storage_root IN ('absolute', 'project', 'work_dir')),
     project_path TEXT NOT NULL,
     project_id TEXT DEFAULT NULL,
@@ -188,7 +188,7 @@ export interface ArtifactInput {
 	readonly runId?: string;
 	readonly path: string;
 	readonly type: string;
-	readonly storageRoot?: ArtifactStorageRoot;
+	readonly storageRoot: ArtifactStorageRoot;
 	readonly projectPath: string;
 	readonly projectId?: string;
 	readonly feature: string;
@@ -387,7 +387,7 @@ const artifactRowToRecord = (row: ArtifactRow): ArtifactRecord => ({
 	runId: row.run_id,
 	path: row.path,
 	type: row.type,
-	storageRoot: row.storage_root ?? "project",
+	storageRoot: row.storage_root ?? "work_dir",
 	projectPath: row.project_path,
 	projectId: row.project_id ?? null,
 	feature: row.feature,
@@ -558,7 +558,7 @@ const applyMigrations = (db: Database): void => {
 
 		if (!artifactColumnNames.includes("storage_root")) {
 			db.exec(
-				"ALTER TABLE artifacts ADD COLUMN storage_root TEXT NOT NULL DEFAULT 'project' CHECK(storage_root IN ('absolute', 'project', 'work_dir'))",
+				"ALTER TABLE artifacts ADD COLUMN storage_root TEXT NOT NULL DEFAULT 'work_dir' CHECK(storage_root IN ('absolute', 'project', 'work_dir'))",
 			);
 		}
 
@@ -979,7 +979,7 @@ export const upsertArtifact = (
 			$runId: input.runId ?? null,
 			$path: input.path,
 			$type: input.type,
-			$storageRoot: input.storageRoot ?? "project",
+			$storageRoot: input.storageRoot,
 			$projectPath: input.projectPath,
 			$projectId: input.projectId ?? null,
 			$feature: input.feature,

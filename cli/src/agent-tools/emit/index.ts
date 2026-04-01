@@ -21,6 +21,7 @@ import {
 } from "../state-machine/index.js";
 import {
 	type ArtifactInput,
+	type ArtifactStorageRoot,
 	deriveRunStatus,
 	type EventInput,
 	getEmitDatabase,
@@ -210,12 +211,13 @@ const handleArtifactRegistration = (
 	}
 
 	const filePath = input.data.path as string;
-	const storageRoot = input.data.storageRoot as string | undefined;
-	const absolutePath = filePath.startsWith("/")
-		? filePath
-		: storageRoot === "project"
-			? resolve(run.rp1ProjectRoot, filePath)
-			: resolve(run.rp1WorkRoot, filePath);
+	const storageRoot = input.data.storageRoot as ArtifactStorageRoot;
+	const absolutePath =
+		storageRoot === "absolute" || filePath.startsWith("/")
+			? resolve(filePath)
+			: storageRoot === "project"
+				? resolve(run.rp1ProjectRoot, filePath)
+				: resolve(run.rp1WorkRoot, filePath);
 
 	const docIdTask = pipe(
 		resolveDocId(absolutePath),
@@ -236,11 +238,7 @@ const handleArtifactRegistration = (
 					const normalizedStorage = normalizeArtifactStorage(
 						filePath,
 						run,
-						input.data.storageRoot as
-							| "absolute"
-							| "project"
-							| "work_dir"
-							| undefined,
+						storageRoot,
 					);
 
 					const artifactInput: ArtifactInput = {

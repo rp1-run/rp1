@@ -67,6 +67,7 @@ describe("feedback read", () => {
 			runId,
 			path: "requirements.md",
 			type: "markdown",
+			storageRoot: "work_dir",
 			projectPath: tempDir,
 			feature: "feat-1",
 		});
@@ -109,6 +110,7 @@ describe("feedback read", () => {
 			runId,
 			path: "design.md",
 			type: "markdown",
+			storageRoot: "work_dir",
 			projectPath: tempDir,
 			feature: "feat-1",
 		});
@@ -147,6 +149,7 @@ describe("feedback read", () => {
 			runId,
 			path: "design.md",
 			type: "markdown",
+			storageRoot: "work_dir",
 			projectPath: tempDir,
 			feature: "feat-1",
 		});
@@ -189,6 +192,7 @@ describe("feedback read", () => {
 			runId,
 			path: "code.ts",
 			type: "code",
+			storageRoot: "work_dir",
 			projectPath: tempDir,
 			feature: "feat-1",
 		});
@@ -239,6 +243,7 @@ describe("feedback read", () => {
 			runId,
 			path: "edited-file.md",
 			type: "markdown",
+			storageRoot: "work_dir",
 			projectPath: tempDir,
 			feature: "feat-1",
 		});
@@ -272,6 +277,7 @@ describe("feedback read", () => {
 			runId,
 			path: "unchanged.md",
 			type: "markdown",
+			storageRoot: "work_dir",
 			projectPath: tempDir,
 			feature: "feat-1",
 		});
@@ -296,6 +302,7 @@ describe("feedback read", () => {
 			runId,
 			path: "requirements.md",
 			type: "markdown",
+			storageRoot: "work_dir",
 			projectPath: tempDir,
 			feature: "feat-1",
 		});
@@ -305,6 +312,7 @@ describe("feedback read", () => {
 			runId,
 			path: "src/index.ts",
 			type: "code",
+			storageRoot: "work_dir",
 			projectPath: tempDir,
 			feature: "feat-1",
 		});
@@ -347,6 +355,7 @@ describe("feedback read", () => {
 			runId,
 			path: "design.md",
 			type: "markdown",
+			storageRoot: "work_dir",
 			projectPath: tempDir,
 			feature: "feat-1",
 		});

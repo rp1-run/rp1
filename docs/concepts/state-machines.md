@@ -392,10 +392,11 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step {step} \
-  --data '{"path": "{relative_path_to_artifact}", "feature": "{FEATURE_ID}"}'
+  --data '{"path": "{relative_path_to_artifact}", "feature": "{FEATURE_ID}", "storageRoot": "work_dir"}'
 ```
 
-- `path` in the data payload is relative to the project root (e.g., `.rp1/work/features/my-feature/tasks.md`)
+- `storageRoot` is required. Use `work_dir` for `.rp1/work`-relative paths, `project` for project-root-relative paths, and `absolute` for absolute filesystem paths.
+- `path` for `storageRoot: "work_dir"` is relative to `.rp1/work` (e.g., `features/my-feature/tasks.md`)
 - For subflow diagrams, add `"subflow": true` to the data payload
 - Artifacts are stored in the `artifacts` table in `~/.rp1/rp1.db`
 - The dashboard queries this table instead of scanning the filesystem
