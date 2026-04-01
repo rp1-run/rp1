@@ -76,6 +76,7 @@ describe("emit validation", () => {
 				const result = validatePayloadShape("artifact_registered", {
 					path: "work/design.md",
 					feature: "my-feature",
+					storageRoot: "project",
 				});
 				expectRight(result);
 			});
@@ -94,10 +95,22 @@ describe("emit validation", () => {
 				const error = expectLeft(
 					validatePayloadShape("artifact_registered", {
 						path: "file.md",
+						storageRoot: "work_dir",
 					}),
 				);
 				expect(error._tag).toBe("UsageError");
 				expect(getErrorMessage(error)).toContain("feature");
+			});
+
+			test("rejects artifact_registered without storageRoot", () => {
+				const error = expectLeft(
+					validatePayloadShape("artifact_registered", {
+						path: "file.md",
+						feature: "feat",
+					}),
+				);
+				expect(error._tag).toBe("UsageError");
+				expect(getErrorMessage(error)).toContain("storageRoot");
 			});
 
 			test("rejects traversal in non-absolute artifact paths", () => {
@@ -224,6 +237,7 @@ describe("emit validation", () => {
 					artifact_registered: {
 						path: "file.md",
 						feature: "feat",
+						storageRoot: "work_dir",
 					},
 					annotation_updated: {
 						docId: "doc-1",

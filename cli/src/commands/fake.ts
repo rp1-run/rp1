@@ -258,6 +258,7 @@ const emitArtifactRegistered = async (params: {
 		data: {
 			path: params.path,
 			feature: params.feature,
+			storageRoot: "work_dir",
 			workflow: params.workflow,
 		},
 		projectPath: params.projectPath,

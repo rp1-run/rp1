@@ -44,6 +44,7 @@ describe("feedback reply", () => {
 			runId,
 			path: "file.md",
 			type: "markdown",
+			storageRoot: "work_dir",
 			projectPath: tempDir,
 			feature: "feat-1",
 		});

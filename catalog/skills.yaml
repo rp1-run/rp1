@@ -32,7 +32,7 @@ skills:
     sub_agents_that_i_use: [rp1-base:research-explorer,rp1-base:research-reporter]
     skills_that_i_use: []
     last_update: "2026-04-01"
-    last_checksum: 8aab4c8b39e926b8ff76f91c194f6d488d7ada15d0086f97e34f56e13c4f16f7
+    last_checksum: 1af1f1db4e35f2b499348547f403a0834c5ceda25b87f4ed84bb91a0fb29f40c
   - name: rp1-base:fix-mermaid
     description: Validates and repairs mermaid diagrams in markdown files. Scans for mermaid blocks, validates syntax, and auto-repairs common errors.
     plugin: base
@@ -211,8 +211,8 @@ skills:
     agents_that_use_me: []
     sub_agents_that_i_use: [rp1-dev:build-fast-planner,rp1-dev:task-builder,rp1-dev:task-reviewer]
     skills_that_i_use: [rp1-base:self-update,rp1-dev:arcade-collab,rp1-dev:build]
-    last_update: "2026-03-31"
-    last_checksum: 5f8288cd0f74f66b50fbd79079cfa4db0a42ce87af56c28e39e6d403ebaa7bda
+    last_update: "2026-04-01"
+    last_checksum: aa8b53ac1499c0cf48fc95206b16c53e2b73de04625eb5b212815c8e380fd0be
   - name: rp1-dev:build
     description: End-to-end feature workflow (requirements -> design -> tasks -> build -> verify -> archive) in a single command.
     plugin: dev
@@ -221,7 +221,7 @@ skills:
     sub_agents_that_i_use: [rp1-dev:build-artifact-detector,rp1-dev:build-task-grouper,rp1-dev:build-task-parser,rp1-dev:build-verify-aggregator,rp1-dev:code-checker,rp1-dev:comment-cleaner,rp1-dev:feature-architect,rp1-dev:feature-archiver,rp1-dev:feature-requirement-gatherer,rp1-dev:feature-tasker,rp1-dev:feature-verifier,rp1-dev:hypothesis-tester,rp1-dev:task-builder,rp1-dev:task-reviewer]
     skills_that_i_use: [rp1-dev:code-check,rp1-dev:feature-archive]
     last_update: "2026-04-01"
-    last_checksum: 8de78b8a6598057095ff9eebd754c230c4c0420c0379d7c37da61f32f4b35618
+    last_checksum: b95fffe661d04abc93400a5a9b808c4939b28fefd12bd28a3efd3ed9f8d8e6aa
   - name: rp1-dev:code-audit
     description: Analyzes implemented code for pattern consistency, maintainability, code duplication, comment quality, and documentation drift.
     plugin: dev

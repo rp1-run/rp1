@@ -95,7 +95,7 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step build \
-  --data '{"path": "{relative_path}", "feature": "{FEATURE_ID}"}'
+  --data '{"path": "{relative_path}", "feature": "{FEATURE_ID}", "storageRoot": "work_dir"}'
 ```
 
 ## STATE-MACHINE
@@ -372,7 +372,7 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step archive \
-  --data '{"path": "{relative_path}", "feature": "{FEATURE_ID}"}'
+  --data '{"path": "{relative_path}", "feature": "{FEATURE_ID}", "storageRoot": "work_dir"}'
 ```
 
 Output: Feature ID, step status table (1-6), artifacts created.
