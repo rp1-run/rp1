@@ -1,7 +1,6 @@
 import {
 	BarChart3,
 	Check,
-	ChevronRight,
 	Circle,
 	Code,
 	File,
@@ -136,6 +135,48 @@ function StatusDot({ status }: { readonly status: StepStatus }) {
 	}
 }
 
+const STATUS_CATEGORIES: Record<string, string> = {
+	running: "active",
+	waiting: "waiting",
+	completed: "done",
+	failed: "failed",
+};
+
+function SubTaskSummaryChips({
+	tasks,
+}: {
+	readonly tasks: readonly AgentTask[];
+}) {
+	const counts = new Map<string, number>();
+	for (const task of tasks) {
+		const category = STATUS_CATEGORIES[task.status] ?? task.status;
+		counts.set(category, (counts.get(category) ?? 0) + 1);
+	}
+
+	const accentMap: Record<string, string> = {
+		active: "text-accent-amber",
+		waiting: "text-fg-ghost",
+		done: "text-fg-ghost",
+		failed: "text-failure",
+	};
+
+	return (
+		<span className="flex items-center gap-xs ml-xs">
+			{Array.from(counts.entries()).map(([category, count]) => (
+				<span
+					key={category}
+					className="type-secondary text-fg-ghost whitespace-nowrap"
+				>
+					<span className={accentMap[category] ?? "text-fg-ghost"}>
+						{count}
+					</span>{" "}
+					{category}
+				</span>
+			))}
+		</span>
+	);
+}
+
 function SubTaskStatusDot({ status }: { readonly status: string }) {
 	switch (status) {
 		case "completed":
@@ -198,19 +239,6 @@ export function VerticalStepList({
 		return map;
 	}, [artifacts]);
 
-	const toggleComposite = useCallback((stepId: string, e: React.MouseEvent) => {
-		e.stopPropagation();
-		setExpandedComposites((prev) => {
-			const next = new Set(prev);
-			if (next.has(stepId)) {
-				next.delete(stepId);
-			} else {
-				next.add(stepId);
-			}
-			return next;
-		});
-	}, []);
-
 	const hasBackEdge = useCallback(
 		(step: Step, index: number) => {
 			if (index === 0) return false;
@@ -247,7 +275,17 @@ export function VerticalStepList({
 						>
 							<button
 								type="button"
-								onClick={() => onStepSelect(step.id)}
+								onClick={() => {
+									onStepSelect(step.id);
+									if (isComposite) {
+										setExpandedComposites((prev) => {
+											const next = new Set(prev);
+											if (next.has(step.id)) next.delete(step.id);
+											else next.add(step.id);
+											return next;
+										});
+									}
+								}}
 								className={cn(
 									"flex w-full items-start gap-sm py-sm pr-sm pl-md text-left transition-colors duration-150",
 									isSelected
@@ -260,27 +298,6 @@ export function VerticalStepList({
 								</span>
 
 								<div className="flex min-w-0 flex-1 items-start gap-xs">
-									{isComposite && (
-										<button
-											type="button"
-											onClick={(e) => toggleComposite(step.id, e)}
-											className="mt-[1px] flex-shrink-0 p-0.5"
-											aria-label={
-												isCompositeExpanded
-													? "Collapse sub-tasks"
-													: "Expand sub-tasks"
-											}
-										>
-											<ChevronRight
-												className={cn(
-													"h-3 w-3 text-fg-ghost transition-transform duration-150",
-													isCompositeExpanded && "rotate-90",
-												)}
-												strokeWidth={1.5}
-											/>
-										</button>
-									)}
-
 									<span
 										className={cn(
 											"type-body font-medium min-w-0 truncate",
@@ -297,6 +314,10 @@ export function VerticalStepList({
 										>
 											{"\u21A9"}
 										</span>
+									)}
+
+									{isComposite && !isCompositeExpanded && (
+										<SubTaskSummaryChips tasks={subTasks} />
 									)}
 								</div>
 
