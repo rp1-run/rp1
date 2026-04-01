@@ -517,13 +517,13 @@ describe("deriveAgentSteps", () => {
 					id: "T1",
 					name: "T1",
 					status: "completed",
-					agent: "T1",
+					agent: "task-builder",
 				},
 				{
 					id: "T2",
 					name: "T2",
 					status: "running",
-					agent: "T2",
+					agent: "task-builder",
 				},
 			],
 		});
@@ -556,8 +556,80 @@ describe("deriveAgentSteps", () => {
 				{
 					id: "T1",
 					name: "T1",
+					status: "running",
+					agent: "task-builder",
+				},
+				{
+					id: "T1",
+					name: "T1",
 					status: "completed",
-					agent: "T1",
+					agent: "task-reviewer",
+				},
+			],
+		});
+	});
+
+	test("two events with same agent and unit merge into one task", () => {
+		const events: EventRecord[] = [
+			makeEvent({
+				id: 1,
+				step: "task-builder:building",
+				unit: "T1",
+				data: JSON.stringify({ status: "running" }),
+			}),
+			makeEvent({
+				id: 2,
+				step: "task-builder:completed",
+				unit: "T1",
+				data: JSON.stringify({ status: "completed" }),
+			}),
+		];
+
+		const agentSteps = deriveAgentSteps(events);
+		expect(agentSteps).toEqual({
+			"task-builder": [
+				{
+					id: "T1",
+					name: "T1",
+					status: "completed",
+					agent: "task-builder",
+				},
+			],
+		});
+	});
+
+	test("two events with same unit but different agents produce separate tasks", () => {
+		const events: EventRecord[] = [
+			makeEvent({
+				id: 1,
+				step: "task-builder:building",
+				unit: "T1",
+				data: JSON.stringify({ status: "running" }),
+			}),
+			makeEvent({
+				id: 2,
+				step: "task-reviewer:reviewing",
+				unit: "T1",
+				data: JSON.stringify({ status: "running" }),
+			}),
+		];
+
+		const agentSteps = deriveAgentSteps(events);
+		expect(agentSteps).toEqual({
+			"task-builder": [
+				{
+					id: "T1",
+					name: "T1",
+					status: "running",
+					agent: "task-builder",
+				},
+			],
+			"task-reviewer": [
+				{
+					id: "T1",
+					name: "T1",
+					status: "running",
+					agent: "task-reviewer",
 				},
 			],
 		});
