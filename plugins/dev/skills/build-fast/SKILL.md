@@ -287,7 +287,7 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step build \
-  --data '{"path": "{artifact_relative_path}", "feature": "quick-build"}'
+  --data '{"path": "{artifact_relative_path}", "feature": "quick-build", "storageRoot": "work_dir"}'
 ```
 
 ```markdown
