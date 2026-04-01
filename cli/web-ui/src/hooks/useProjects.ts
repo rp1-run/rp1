@@ -5,6 +5,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { V2Project } from "@/types/projects";
+import { useReconnectRecovery } from "./useReconnectRecovery";
 
 export type { V2Project };
 
@@ -45,6 +46,8 @@ export function useProjects(): UseProjectsReturn {
 	useEffect(() => {
 		fetchProjects();
 	}, [fetchProjects]);
+
+	useReconnectRecovery(fetchProjects);
 
 	const refetch = useCallback(() => {
 		setIsLoading(true);
