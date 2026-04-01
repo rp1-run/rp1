@@ -306,7 +306,7 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step report \
-  --data '{"path": "{report_path}", "feature": "research"}'
+  --data '{"path": "{report_path}", "feature": "research", "storageRoot": "project"}'
 ```
 
 ## 6. Final Summary (~15% effort)

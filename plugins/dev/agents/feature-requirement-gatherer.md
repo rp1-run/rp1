@@ -200,7 +200,7 @@ rp1 agent-tools emit \
   --type artifact_registered \
   --run-id {RUN_ID} \
   --step requirements \
-  --data '{"path": "features/{FEATURE_ID}/requirements.md", "feature": "{FEATURE_ID}"}'
+  --data '{"path": "features/{FEATURE_ID}/requirements.md", "feature": "{FEATURE_ID}", "storageRoot": "work_dir"}'
 ```
 
 If the command fails, log a warning (`[feature-requirement-gatherer] Failed to register artifact features/{FEATURE_ID}/requirements.md: {error}`) and continue without blocking.

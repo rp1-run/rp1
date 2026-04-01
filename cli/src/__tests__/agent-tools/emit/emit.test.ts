@@ -157,6 +157,7 @@ describe("emit end-to-end", () => {
 				data: {
 					path: mdPath,
 					feature: "test-feat",
+					storageRoot: "absolute",
 					type: "markdown",
 					workflow: "build",
 				},
@@ -181,7 +182,7 @@ describe("emit end-to-end", () => {
 			);
 
 			const workDir = join(projectRoot, ".rp1", "work");
-			const artifactPath = await writeFixture(
+			await writeFixture(
 				workDir,
 				"features/test-feat/design.md",
 				"---\nrp1_doc_id: doc-storage\n---\n# Test Artifact\n",
@@ -192,8 +193,9 @@ describe("emit end-to-end", () => {
 				step: "design",
 				projectPath: projectRoot,
 				data: {
-					path: artifactPath,
+					path: "features/test-feat/design.md",
 					feature: "test-feat",
+					storageRoot: "work_dir",
 					type: "markdown",
 					workflow: "build",
 				},
@@ -207,7 +209,7 @@ describe("emit end-to-end", () => {
 			expect(artifact?.path).toBe("features/test-feat/design.md");
 		});
 
-		test("uses frontmatter doc_id for relative work-dir artifacts when storageRoot is omitted", async () => {
+		test("uses frontmatter doc_id for relative work-dir artifacts when storageRoot is explicit", async () => {
 			const projectRoot = join(tempDir, "project-relative-doc-id");
 			await writeFixture(
 				projectRoot,
@@ -231,6 +233,7 @@ describe("emit end-to-end", () => {
 						data: {
 							path: "features/test-feat/design.md",
 							feature: "test-feat",
+							storageRoot: "work_dir",
 							type: "markdown",
 							workflow: "build",
 						},
@@ -441,6 +444,7 @@ describe("emit end-to-end", () => {
 				runId,
 				path: "file.md",
 				type: "markdown",
+				storageRoot: "work_dir",
 				projectPath: tempDir,
 				feature: "feat",
 			});

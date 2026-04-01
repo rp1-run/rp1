@@ -122,7 +122,7 @@ const validateArtifactRegisteredPayload = (
 	if (!data.path || typeof data.path !== "string") {
 		return E.left(
 			usageError(
-				'artifact_registered events require a \'path\' field (string) in --data. Paths are relative to `.rp1/work` unless `storageRoot` is set. Example: --data \'{"path": "features/my-feature/design.md", "feature": "my-feature"}\'',
+				'artifact_registered events require a \'path\' field (string) in --data. Example: --data \'{"path": "features/my-feature/design.md", "feature": "my-feature", "storageRoot": "work_dir"}\'',
 			),
 		);
 	}
@@ -136,8 +136,15 @@ const validateArtifactRegisteredPayload = (
 	}
 
 	const storageRoot = data.storageRoot;
+	if (storageRoot === undefined) {
+		return E.left(
+			usageError(
+				"artifact_registered events require a 'storageRoot' field in --data. Use 'work_dir' for `.rp1/work`-relative paths, 'project' for project-root-relative paths, or 'absolute' for absolute paths",
+			),
+		);
+	}
+
 	if (
-		storageRoot !== undefined &&
 		storageRoot !== "absolute" &&
 		storageRoot !== "project" &&
 		storageRoot !== "work_dir"
@@ -165,7 +172,6 @@ const validateArtifactRegisteredPayload = (
 	if (
 		typeof artifactPath === "string" &&
 		isAbsolute(artifactPath) &&
-		storageRoot !== undefined &&
 		storageRoot !== "absolute"
 	) {
 		return E.left(
