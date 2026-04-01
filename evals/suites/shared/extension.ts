@@ -147,7 +147,7 @@ function resetWorkspace(workspaceDir: string, remoteDir: string): void {
 	if (!existsSync(settingsPath)) {
 		writeFileSync(
 			settingsPath,
-			['[directories]', 'work_root = "rp1-work"'].join("\n"),
+			["[directories]", 'work_root = "rp1-work"'].join("\n"),
 		);
 	}
 
