@@ -54,6 +54,7 @@ import type {
 	Step,
 	StepStatus,
 } from "../../types/runs";
+import { buildProjectLookup, findProjectByIdentity } from "../project-lookup";
 import {
 	getRunDirectories,
 	listProjectSectionRoots,
@@ -85,27 +86,6 @@ import {
 	parseFrontmatter,
 	validateFilePath,
 } from "./content-utils";
-
-function getRunProjectPath(
-	record: Pick<RunRecord, "projectPath" | "rp1ProjectRoot">,
-): string {
-	return record.rp1ProjectRoot ?? record.projectPath;
-}
-
-function findProjectForRun(
-	projectByPath: ReadonlyMap<string, ProjectEntry>,
-	record: Pick<RunRecord, "projectPath" | "rp1ProjectRoot" | "projectId">,
-	projectById?: ReadonlyMap<string, ProjectEntry>,
-): ProjectEntry | undefined {
-	if (record.projectId && projectById) {
-		const byId = projectById.get(record.projectId);
-		if (byId) return byId;
-	}
-	return (
-		projectByPath.get(getRunProjectPath(record)) ??
-		projectByPath.get(record.projectPath)
-	);
-}
 
 /**
  * Acquire the emit database connection.
@@ -761,11 +741,7 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 	try {
 		const db = await getDb();
 		const projects = await getAllProjects();
-		const projectById = new Map(projects.map((p) => [p.id, p]));
-		const projectByPath = new Map(projects.map((p) => [p.path, p]));
-		const projectByUuid = new Map(
-			projects.filter((p) => p.projectId).map((p) => [p.projectId!, p]),
-		);
+		const projectLookup = buildProjectLookup(projects);
 
 		let projectPathFilter: string | undefined;
 		let dbProjectIdFilter: string | undefined;
@@ -773,7 +749,9 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 		if (projectUuidFilter) {
 			dbProjectIdFilter = projectUuidFilter;
 		} else if (projectIdFilter) {
-			const project = projectById.get(projectIdFilter);
+			const project = findProjectByIdentity(projectLookup, {
+				projectId: projectIdFilter,
+			});
 			if (project) {
 				projectPathFilter = project.path;
 			} else {
@@ -786,7 +764,7 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 				? (statusFilter as Status)
 				: undefined;
 
-		const knownProjectPaths = [...projectByPath.keys()];
+		const knownProjectPaths = [...projectLookup.byPath.keys()];
 
 		const result = listRuns(db, {
 			projectId: dbProjectIdFilter,
@@ -800,7 +778,7 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 
 		let runs: Run[] = [];
 		for (const record of result.records) {
-			const project = findProjectForRun(projectByPath, record, projectByUuid);
+			const project = findProjectByIdentity(projectLookup, record);
 			if (project) {
 				runs.push(runRecordToListRun(record, project));
 			}
@@ -838,14 +816,14 @@ export async function handleV2RunsAttentionRequest(): Promise<Response> {
 	try {
 		const db = await getDb();
 		const projects = await getAllProjects();
-		const projectByPath = new Map(projects.map((p) => [p.path, p]));
+		const projectLookup = buildProjectLookup(projects);
 
 		const attentionRuns = getRunsByAttentionStatus(db);
 
 		const toRuns = (records: readonly RunRecord[]): Run[] => {
 			const runs: Run[] = [];
 			for (const record of records) {
-				const project = findProjectForRun(projectByPath, record);
+				const project = findProjectByIdentity(projectLookup, record);
 				if (project) {
 					runs.push(runRecordToListRun(record, project));
 				}
@@ -881,10 +859,8 @@ export async function handleV2RunDetailRequest(
 		}
 
 		const projects = await getAllProjects();
-		const projectByPath = new Map(
-			projects.map((candidate) => [candidate.path, candidate]),
-		);
-		const project = findProjectForRun(projectByPath, record);
+		const projectLookup = buildProjectLookup(projects);
+		const project = findProjectByIdentity(projectLookup, record);
 		if (!project) {
 			return errorResponse(`Project not found for run: ${runId}`, 404);
 		}
@@ -914,10 +890,8 @@ export async function handleV2ArtifactContentRequest(
 		}
 
 		const projects = await getAllProjects();
-		const projectByPath = new Map(
-			projects.map((candidate) => [candidate.path, candidate]),
-		);
-		const project = findProjectForRun(projectByPath, record);
+		const projectLookup = buildProjectLookup(projects);
+		const project = findProjectByIdentity(projectLookup, record);
 		if (!project) {
 			return errorResponse(`Project not found for run: ${runId}`, 404);
 		}
@@ -1405,24 +1379,37 @@ export async function handleV2StatusNotifyRequest(
 		const eventType = body.eventType as string | undefined;
 		const eventId = body.eventId as number | undefined;
 		const runId = body.runId as string | undefined;
+		const projectId = body.projectId as string | undefined;
+		const rp1ProjectRoot = body.rp1ProjectRoot as string | undefined;
 		const projectPath = body.projectPath as string | undefined;
 		const featureId = body.featureId as string | undefined;
 		const step = (body.step as string | null) ?? null;
 		const data = (body.data as Record<string, unknown> | null) ?? null;
 		const createdAt = (body.createdAt as string) ?? new Date().toISOString();
 
-		if (!projectPath || !featureId || !eventType || eventId == null || !runId) {
+		if (
+			!featureId ||
+			!eventType ||
+			eventId == null ||
+			!runId ||
+			(!projectId && !rp1ProjectRoot && !projectPath)
+		) {
 			console.warn(
 				"[notify] Malformed event notification, missing required fields, discarding",
 			);
 			return errorResponse(
-				"Missing required fields for event notification: projectPath, featureId, eventType, eventId, runId",
+				"Missing required fields for event notification: featureId, eventType, eventId, runId, and one of projectId, rp1ProjectRoot, or projectPath",
 				400,
 			);
 		}
 
 		const projects = await getAllProjects();
-		const project = projects.find((p) => p.path === projectPath);
+		const projectLookup = buildProjectLookup(projects);
+		const project = findProjectByIdentity(projectLookup, {
+			projectId,
+			rp1ProjectRoot,
+			projectPath,
+		});
 
 		if (!project) {
 			return jsonResponse({

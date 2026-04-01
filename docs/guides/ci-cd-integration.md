@@ -118,7 +118,6 @@ fi
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `RP1_ROOT` | `.rp1/` | Custom location for rp1 data |
 | `CI` | - | Most CI platforms set this automatically |
 
 ---
@@ -276,9 +275,6 @@ jobs:
       - review
       - build
 
-    variables:
-      RP1_ROOT: ".rp1"
-
     .rp1-setup: &rp1-setup
       before_script:
         - curl -fsSL https://rp1.run/install.sh | sh
@@ -379,7 +375,6 @@ jobs:
 
         environment {
             ANTHROPIC_API_KEY = credentials('anthropic-api-key')
-            RP1_ROOT = '.rp1'
         }
 
         stages {

@@ -33,9 +33,8 @@ The command analyzes:
 
 ## Parameters
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `RP1_ROOT` | `.rp1/` | Root directory for output |
+Output paths are fixed relative to the project root:
+- Feature reports: `.rp1/work/features/{feature_id}/`
 
 ## Output
 

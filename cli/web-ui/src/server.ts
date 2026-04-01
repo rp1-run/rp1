@@ -1,6 +1,10 @@
 import { readDaemonState, writeDaemonState } from "./daemon/config-dir";
 import { FileWatcherPool } from "./server/file-watcher";
 import { startServer } from "./server/http";
+import {
+	buildProjectLookup,
+	findProjectByIdentity,
+} from "./server/project-lookup";
 import { getAllProjects } from "./server/registry";
 import { WebSocketHub } from "./server/websocket";
 
@@ -51,34 +55,43 @@ async function runStartupRecovery(websocketHub: WebSocketHub): Promise<void> {
 	}
 
 	const projects = await getAllProjects();
-	const projectPathToId = new Map<string, string>();
+	const projectLookup = buildProjectLookup(projects);
 	const runCache = new Map<
 		string,
-		{ projectPath: string; featureId: string }
+		{
+			projectPath: string;
+			rp1ProjectRoot: string | null;
+			projectId: string | null;
+			featureId: string;
+		}
 	>();
 
 	for (const event of missedEvents) {
 		let runInfo = runCache.get(event.runId);
 		if (!runInfo) {
 			const row = db
-				.prepare("SELECT project_path, feature_id FROM runs WHERE id = ?")
+				.prepare(
+					"SELECT project_path, rp1_project_root, project_id, feature_id FROM runs WHERE id = ?",
+				)
 				.get(event.runId) as {
 				project_path: string;
+				rp1_project_root: string | null;
+				project_id: string | null;
 				feature_id: string;
 			} | null;
 
 			if (!row) continue;
-			runInfo = { projectPath: row.project_path, featureId: row.feature_id };
+			runInfo = {
+				projectPath: row.project_path,
+				rp1ProjectRoot: row.rp1_project_root,
+				projectId: row.project_id,
+				featureId: row.feature_id,
+			};
 			runCache.set(event.runId, runInfo);
 		}
 
-		let projectId = projectPathToId.get(runInfo.projectPath);
-		if (!projectId) {
-			const project = projects.find((p) => p.path === runInfo.projectPath);
-			if (!project) continue;
-			projectId = project.id;
-			projectPathToId.set(runInfo.projectPath, projectId);
-		}
+		const project = findProjectByIdentity(projectLookup, runInfo);
+		if (!project) continue;
 
 		let data: Record<string, unknown> | null = null;
 		if (event.data) {
@@ -90,7 +103,7 @@ async function runStartupRecovery(websocketHub: WebSocketHub): Promise<void> {
 		}
 
 		websocketHub.broadcastEvent(
-			projectId,
+			project.id,
 			event.id,
 			event.type,
 			event.runId,

@@ -25,7 +25,7 @@ arguments:
     type: string
     required: false
     default: ""
-    description: "Path to check for .rp1/context/ KB"
+    description: "Path to the KB root (.rp1/context)"
 ---
 
 # Research Explorer - Focused Exploration and Findings
@@ -58,7 +58,7 @@ $4
 
 If KB_PATH is provided (non-empty):
 
-1. Use Read tool to check for `{KB_PATH}/.rp1/context/index.md`
+1. Use Read tool to check for `{KB_PATH}/index.md`
 2. If file exists: KB is available
 3. If file not found: KB unavailable, proceed with direct exploration
 
@@ -67,16 +67,16 @@ If KB_PATH is provided (non-empty):
 If KB available, load files progressively based on EXPLORATION_TYPE and questions:
 
 **Always load**:
-- `{KB_PATH}/.rp1/context/index.md` - Project overview, entry points
+- `{KB_PATH}/index.md` - Project overview, entry points
 
 **Load for architecture questions**:
-- `{KB_PATH}/.rp1/context/architecture.md` - System design, patterns
+- `{KB_PATH}/architecture.md` - System design, patterns
 
 **Load for pattern/implementation questions**:
-- `{KB_PATH}/.rp1/context/patterns.md` - Code conventions
+- `{KB_PATH}/patterns.md` - Code conventions
 
 **Load for module-specific questions**:
-- `{KB_PATH}/.rp1/context/modules.md` - Component breakdown
+- `{KB_PATH}/modules.md` - Component breakdown
 
 ### Step 3: Record KB Status
 
