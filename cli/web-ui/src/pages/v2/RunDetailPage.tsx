@@ -330,6 +330,7 @@ export function RunDetailPage() {
 						selectedArtifact={selectedArtifact}
 						onArtifactSelect={handleArtifactSelect}
 						runId={runId}
+						subflowDiagram={subflowDiagram}
 					/>
 				</div>
 			</div>

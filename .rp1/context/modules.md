@@ -83,8 +83,10 @@
 **Key Components**:
 - **App shell**: Provider hierarchy (ErrorBoundary > Theme > WebSocket > Diagram > Tooltip > Router)
 - **Pages**: HomePage, RunDetailPage, RunsListPage, ProjectsPage, ArtifactViewerPage, FileBrowserPage
-- **Components**: EventStream, V2Sidebar, RunCard, CommandPalette, ArtifactViewerPanel, AnnotationSidebar
+- **Components**: EventStream, V2Sidebar, RunCard, CommandPalette, ArtifactViewerPanel (with Subflow tab for Mermaid diagrams), AnnotationSidebar
 - **Hooks**: useRuns, useRunDetail, useProjects, useWorkflowSteps, useAnnotations, useRecentRuns
+- **Subflow support**: ArtifactViewerPanel renders a Subflow tab when a `subflowDiagram` prop is present; the server extracts Mermaid blocks from markdown artifacts via `extractMermaidFromMarkdown` (v2-api.ts); `deriveAgentSteps` uses a composite identity key (`agentName:taskId`) to disambiguate sub-agent steps
+- **UX interactions**: VerticalStepList supports single-click expansion of composite steps; FileTreeNode copies the file path to clipboard on file-icon click
 - **Providers**: WebSocketProvider, ThemeProvider, ProjectProvider, AnnotationProvider
 **Dependencies**: web-ui/server (via REST + WebSocket)
 
