@@ -70,7 +70,7 @@ When archiving, the command checks for `field-notes.md` and extracts valuable le
 
 **How it works:**
 
-1. Finds the associated PRD from `requirements.md` or searches `$RP1_ROOT/work/prds/`
+1. Finds the associated PRD from `requirements.md` or searches `.rp1/work/prds/`
 2. Compacts discoveries to one-liners with reference links
 3. Appends to a `## Discoveries` section in the PRD (creates if missing)
 

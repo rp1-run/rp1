@@ -293,6 +293,7 @@ const handleAnnotation = (input: EmitInput): TE.TaskEither<CLIError, void> => {
  */
 const notifyDaemon = async (
 	input: EmitInput,
+	run: Pick<RunRecord, "projectId" | "rp1ProjectRoot">,
 	_runStatus: Status,
 	eventId: number,
 ): Promise<void> => {
@@ -316,6 +317,8 @@ const notifyDaemon = async (
 				eventId,
 				runId: input.runId,
 				projectPath: input.projectPath,
+				projectId: run.projectId ?? undefined,
+				rp1ProjectRoot: run.rp1ProjectRoot,
 				featureId,
 				step: input.step ?? null,
 				data,
@@ -421,7 +424,7 @@ export const executeEmit = (
 						}),
 						TE.chainFirst(({ event, runStatus }) =>
 							TE.fromTask(async () => {
-								await notifyDaemon(input, runStatus, event.id);
+								await notifyDaemon(input, run, runStatus, event.id);
 							}),
 						),
 						TE.map(

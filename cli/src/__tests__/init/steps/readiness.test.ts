@@ -41,7 +41,7 @@ describe("readiness step", () => {
 			workRoot?: string;
 		},
 	): Promise<void> {
-		const rp1Root = process.env.RP1_ROOT || ".rp1";
+		const rp1Root = ".rp1";
 		const workRoot = options?.workRoot ?? join(cwd, rp1Root, "work");
 
 		if (!options?.skipRp1Dir) {
@@ -200,7 +200,7 @@ work_root = "./external-work"
 			}
 		});
 
-		test("respects RP1_ROOT environment variable", async () => {
+		test("ignores RP1_ROOT environment variable and still uses .rp1", async () => {
 			process.env.RP1_ROOT = "custom-rp1";
 			await createCompleteSetup(tempDir);
 
@@ -211,14 +211,15 @@ work_root = "./external-work"
 			expect(result.charterExists).toBe(true);
 		});
 
-		test("returns false when RP1_ROOT directory does not exist", async () => {
+		test("does not treat RP1_ROOT as the source of readiness state", async () => {
 			process.env.RP1_ROOT = "non-existent-dir";
+			await createCompleteSetup(tempDir);
 
 			const result = await checkRp1Readiness(tempDir);
 
-			expect(result.directoriesExist).toBe(false);
-			expect(result.kbExists).toBe(false);
-			expect(result.charterExists).toBe(false);
+			expect(result.directoriesExist).toBe(true);
+			expect(result.kbExists).toBe(true);
+			expect(result.charterExists).toBe(true);
 		});
 
 		test("returns correct result structure", async () => {

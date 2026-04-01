@@ -32,9 +32,8 @@ The command analyzes:
 
 ## Parameters
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `RP1_ROOT` | `.rp1/` | Root directory for KB context |
+KB paths are fixed relative to the project root:
+- Knowledge base: `.rp1/context/`
 
 ## Output
 
