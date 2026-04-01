@@ -436,13 +436,17 @@ export function deriveAgentSteps(
 
 		const data = parseJsonSafe(event.data);
 		const taskId = event.unit ?? `agent-${event.id}`;
+		const agentName = isNamespacedLifecycleStep(stepId)
+			? getLogicalStepDisplayId(stepId)
+			: stepId;
+		const compositeKey = `${agentName}:${taskId}`;
 		const status = (data?.status as string) ?? "running";
 
-		taskMap.set(taskId, {
+		taskMap.set(compositeKey, {
 			id: taskId,
 			name: humanizeFeatureName(taskId),
 			status,
-			agent: event.unit ?? "unknown",
+			agent: agentName,
 		});
 	}
 
