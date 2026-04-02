@@ -7,14 +7,17 @@ import type { ReinitState } from "./models.js";
 import type { DetectedTool } from "./tool-detector.js";
 
 export interface InitDirectoryModel {
+	readonly projectRoot: string;
 	readonly rp1Dir: string;
 	readonly contextDir: string;
 	readonly workDir: string;
 }
 
 const defaultInitDirectoryModel = (cwd: string): InitDirectoryModel => {
-	const rp1Dir = path.resolve(cwd, ".rp1");
+	const projectRoot = path.resolve(cwd);
+	const rp1Dir = path.resolve(projectRoot, ".rp1");
 	return {
+		projectRoot,
 		rp1Dir,
 		contextDir: path.join(rp1Dir, "context"),
 		workDir: path.join(rp1Dir, "work"),
@@ -28,6 +31,7 @@ export const resolveInitDirectoryModel = (cwd: string): InitDirectoryModel => {
 	}
 
 	return {
+		projectRoot: path.resolve(result.right.projectRoot),
 		rp1Dir: path.resolve(result.right.projectRoot, ".rp1"),
 		contextDir: path.resolve(result.right.kbRoot),
 		workDir: path.resolve(result.right.workRoot),
