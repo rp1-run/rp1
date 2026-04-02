@@ -8,7 +8,6 @@ import {
 } from "@/components/ui/resizable";
 import { ArtifactViewerPanel } from "@/components/v2/ArtifactViewerPanel";
 import { VerticalStepList } from "@/components/v2/VerticalStepList";
-import { WaitingBanner } from "@/components/v2/WaitingBanner";
 import { useBreadcrumbContext } from "@/hooks/useBreadcrumbContext";
 import { useRunDetail } from "@/hooks/useRunDetail";
 import {
@@ -73,20 +72,6 @@ export function RunDetailPage() {
 
 	const displaySteps = useMemo<readonly Step[]>(() => {
 		return run ? run.steps : [];
-	}, [run]);
-
-	const waitingPrompt = useMemo<string | null>(() => {
-		if (!run || run.status !== "waiting") return null;
-		const waitingEvents = run.events.filter(
-			(e) => e.type === "waiting_for_user",
-		);
-		if (waitingEvents.length === 0) return null;
-		const mostRecent = waitingEvents.reduce((latest, e) =>
-			new Date(e.timestamp).getTime() > new Date(latest.timestamp).getTime()
-				? e
-				: latest,
-		);
-		return mostRecent.message || null;
 	}, [run]);
 
 	const selectedStep = useMemo(() => {
@@ -271,12 +256,6 @@ export function RunDetailPage() {
 
 	return (
 		<div className="flex h-full flex-col">
-			{waitingPrompt && (
-				<div className="shrink-0 px-md py-sm">
-					<WaitingBanner prompt={waitingPrompt} />
-				</div>
-			)}
-
 			{/* Desktop: two-panel resizable layout */}
 			<div className="hidden md:flex flex-1 min-h-0">
 				<ResizablePanelGroup direction="horizontal">
