@@ -599,7 +599,10 @@ async function deriveSteps(
 /**
  * Convert a RunRecord to a lightweight Run for list views.
  */
-function runRecordToListRun(record: RunRecord, project: ProjectEntry): Run {
+function runRecordToListRun(
+	record: RunRecord & { readonly lastEventAt?: string | null },
+	project: ProjectEntry,
+): Run {
 	return {
 		id: record.id,
 		projectId: project.id,
@@ -615,6 +618,7 @@ function runRecordToListRun(record: RunRecord, project: ProjectEntry): Run {
 		artifacts: [],
 		events: [],
 		startedAt: record.createdAt,
+		lastEventAt: record.lastEventAt ?? record.createdAt,
 		completedAt:
 			record.status === "completed" || record.status === "failed"
 				? record.updatedAt
@@ -712,6 +716,7 @@ async function buildDetailedRun(
 		artifacts,
 		events: runEvents,
 		startedAt: record.createdAt,
+		lastEventAt: events[events.length - 1]?.createdAt ?? record.createdAt,
 		completedAt:
 			record.status === "completed" || record.status === "failed"
 				? record.updatedAt
@@ -796,7 +801,8 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 			const range = ranges[dateRange];
 			if (range) {
 				runs = runs.filter(
-					(r) => now - new Date(r.startedAt).getTime() <= range,
+					(r) =>
+						now - new Date(r.lastEventAt ?? r.startedAt).getTime() <= range,
 				);
 				total = runs.length;
 			}
