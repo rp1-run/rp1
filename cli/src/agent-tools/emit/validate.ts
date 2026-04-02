@@ -127,10 +127,10 @@ const validateArtifactRegisteredPayload = (
 		);
 	}
 
-	if (!data.feature || typeof data.feature !== "string") {
+	if (data.feature !== undefined && typeof data.feature !== "string") {
 		return E.left(
 			usageError(
-				"artifact_registered events require a 'feature' field (string) in --data",
+				"artifact_registered 'feature' field must be a string when provided",
 			),
 		);
 	}
