@@ -1315,7 +1315,7 @@ export interface ListRunsOptions {
 
 /** Paginated result for run listing */
 export interface ListRunsResult {
-	readonly records: RunRecord[];
+	readonly records: RunRecordWithLastEvent[];
 	readonly total: number;
 }
 
@@ -1326,10 +1326,15 @@ export interface ProjectRunStats {
 }
 
 /** Runs grouped by attention-requiring status */
+/** A run record augmented with the latest event timestamp. */
+export type RunRecordWithLastEvent = RunRecord & {
+	readonly lastEventAt: string | null;
+};
+
 export interface AttentionRuns {
-	readonly waiting: RunRecord[];
-	readonly failed: RunRecord[];
-	readonly running: RunRecord[];
+	readonly waiting: RunRecordWithLastEvent[];
+	readonly failed: RunRecordWithLastEvent[];
+	readonly running: RunRecordWithLastEvent[];
 }
 
 /**
@@ -1372,12 +1377,29 @@ export const listRuns = (
 
 	const rows = db
 		.prepare(
-			`SELECT * FROM runs ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+			`SELECT runs.*,
+			        COALESCE(latest_events.last_event_at, runs.created_at) AS last_event_at
+			 FROM runs
+			 LEFT JOIN (
+			     SELECT run_id, MAX(created_at) AS last_event_at
+			     FROM events
+			     GROUP BY run_id
+			 ) AS latest_events ON latest_events.run_id = runs.id
+			 ${whereClause}
+			 ORDER BY COALESCE(latest_events.last_event_at, runs.created_at) DESC,
+			          runs.created_at DESC,
+			          runs.id DESC
+			 LIMIT ? OFFSET ?`,
 		)
-		.all(...filterValues, limit, offset) as RunRow[];
+		.all(...filterValues, limit, offset) as (RunRow & {
+		last_event_at: string;
+	})[];
 
 	return {
-		records: rows.map(runRowToRecord),
+		records: rows.map((row) => ({
+			...runRowToRecord(row),
+			lastEventAt: row.last_event_at,
+		})),
 		total: countRow.count,
 	};
 };
@@ -1915,18 +1937,28 @@ export const getProjectRunStats = (
 export const getRunsByAttentionStatus = (db: Database): AttentionRuns => {
 	const rows = db
 		.prepare(
-			`SELECT * FROM runs
-			 WHERE status IN ('waiting', 'failed', 'running')
-			 ORDER BY updated_at DESC`,
+			`SELECT runs.*,
+			        COALESCE(latest_events.last_event_at, runs.created_at) AS last_event_at
+			 FROM runs
+			 LEFT JOIN (
+			     SELECT run_id, MAX(created_at) AS last_event_at
+			     FROM events
+			     GROUP BY run_id
+			 ) AS latest_events ON latest_events.run_id = runs.id
+			 WHERE runs.status IN ('waiting', 'failed', 'running')
+			 ORDER BY COALESCE(latest_events.last_event_at, runs.updated_at) DESC`,
 		)
-		.all() as RunRow[];
+		.all() as (RunRow & { last_event_at: string })[];
 
-	const waiting: RunRecord[] = [];
-	const failed: RunRecord[] = [];
-	const running: RunRecord[] = [];
+	const waiting: RunRecordWithLastEvent[] = [];
+	const failed: RunRecordWithLastEvent[] = [];
+	const running: RunRecordWithLastEvent[] = [];
 
 	for (const row of rows) {
-		const record = runRowToRecord(row);
+		const record: RunRecordWithLastEvent = {
+			...runRowToRecord(row),
+			lastEventAt: row.last_event_at,
+		};
 		switch (row.status) {
 			case "waiting":
 				waiting.push(record);

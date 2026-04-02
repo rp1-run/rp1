@@ -2278,6 +2278,75 @@ describe("emit database", () => {
 			expect(result.records[0].id).toBe("run-ls1");
 		});
 
+		test("sorts by the latest event timestamp", async () => {
+			const dbPath = join(tempDir, "list-runs-latest-event.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-lr1",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+			insertRun(db, {
+				id: "run-lr2",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			db.prepare("UPDATE runs SET created_at = $createdAt WHERE id = $id").run({
+				$createdAt: "2026-03-01T00:00:00.000Z",
+				$id: "run-lr1",
+			});
+			db.prepare("UPDATE runs SET created_at = $createdAt WHERE id = $id").run({
+				$createdAt: "2026-03-02T00:00:00.000Z",
+				$id: "run-lr2",
+			});
+
+			insertEvent(db, {
+				runId: "run-lr1",
+				type: "btw_update",
+				data: JSON.stringify({ message: "latest activity" }),
+				createdAt: "2026-03-03T00:00:00.000Z",
+			});
+			insertEvent(db, {
+				runId: "run-lr2",
+				type: "btw_update",
+				data: JSON.stringify({ message: "older activity" }),
+				createdAt: "2026-03-01T12:00:00.000Z",
+			});
+
+			const result = listRuns(db);
+
+			expect(result.records[0].id).toBe("run-lr1");
+			expect(result.records[0].lastEventAt).toBe("2026-03-03T00:00:00.000Z");
+			expect(result.records[1].id).toBe("run-lr2");
+			expect(result.records[1].lastEventAt).toBe("2026-03-01T12:00:00.000Z");
+		});
+
+		test("falls back to run created_at when there are no events", async () => {
+			const dbPath = join(tempDir, "list-runs-no-events.db");
+			const db = await expectTaskRight(getEmitDatabase(dbPath));
+
+			insertRun(db, {
+				id: "run-lr3",
+				flow: "build",
+				featureId: "feat",
+				projectPath: "/p",
+			});
+
+			db.prepare("UPDATE runs SET created_at = $createdAt WHERE id = $id").run({
+				$createdAt: "2026-03-04T00:00:00.000Z",
+				$id: "run-lr3",
+			});
+
+			const result = listRuns(db);
+
+			expect(result.records[0].id).toBe("run-lr3");
+			expect(result.records[0].lastEventAt).toBe("2026-03-04T00:00:00.000Z");
+		});
+
 		test("supports pagination with limit and offset", async () => {
 			const dbPath = join(tempDir, "list-runs-page.db");
 			const db = await expectTaskRight(getEmitDatabase(dbPath));
