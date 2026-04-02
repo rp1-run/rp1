@@ -10,10 +10,26 @@ export interface ProjectDirectories {
 
 export type ProjectSection = "work" | "kb";
 
+export interface ProjectSectionRoot {
+	readonly section: ProjectSection;
+	readonly absolutePath: string;
+	readonly displayPath: string;
+}
+
 interface SectionPath {
 	readonly section: ProjectSection;
 	readonly relativePath: string;
 }
+
+const CANONICAL_SECTION_PREFIXES: Record<ProjectSection, string> = {
+	work: ".rp1/work",
+	kb: ".rp1/context",
+};
+
+const LEGACY_SECTION_PREFIXES: Record<ProjectSection, readonly string[]> = {
+	work: ["work"],
+	kb: ["kb", "context"],
+};
 
 const deriveProjectDirectories = (projectPath: string): ProjectDirectories => {
 	const projectRoot = resolve(projectPath);
@@ -36,10 +52,26 @@ const isWithinRoot = (candidatePath: string, rootPath: string): boolean => {
 const trimTrailingSlash = (value: string): string =>
 	value.replace(/[\\/]+$/, "");
 
-const ensureSectionPath = (
-	prefix: ProjectSection,
-	relativePath: string,
-): string => (relativePath.length > 0 ? `${prefix}/${relativePath}` : prefix);
+const ensureSectionPath = (prefix: string, relativePath: string): string =>
+	relativePath.length > 0 ? `${prefix}/${relativePath}` : prefix;
+
+const getCanonicalSectionPath = (section: ProjectSection): string =>
+	CANONICAL_SECTION_PREFIXES[section];
+
+const matchSectionPrefix = (
+	filePath: string,
+	prefix: string,
+): string | null => {
+	if (filePath === prefix) {
+		return "";
+	}
+
+	if (filePath.startsWith(`${prefix}/`)) {
+		return filePath.slice(prefix.length + 1);
+	}
+
+	return null;
+};
 
 const normalizeStoredWorkRelativePath = (artifactPath: string): string => {
 	const normalized = artifactPath.replace(/\\/g, "/").replace(/^\.\/+/, "");
@@ -70,9 +102,17 @@ export const getRunDirectories = (
 
 export const listProjectSectionRoots = (
 	directories: ProjectDirectories,
-): readonly { section: ProjectSection; absolutePath: string }[] => [
-	{ section: "work", absolutePath: directories.workRoot },
-	{ section: "kb", absolutePath: directories.kbRoot },
+): readonly ProjectSectionRoot[] => [
+	{
+		section: "work",
+		absolutePath: directories.workRoot,
+		displayPath: getCanonicalSectionPath("work"),
+	},
+	{
+		section: "kb",
+		absolutePath: directories.kbRoot,
+		displayPath: getCanonicalSectionPath("kb"),
+	},
 ];
 
 export const parseProjectSectionPath = (
@@ -82,26 +122,21 @@ export const parseProjectSectionPath = (
 		return null;
 	}
 
-	if (filePath === "work" || filePath.startsWith("work/")) {
-		return {
-			section: "work",
-			relativePath: filePath === "work" ? "" : filePath.slice("work/".length),
-		};
-	}
+	const normalizedPath = trimTrailingSlash(filePath.replace(/\\/g, "/"));
 
-	if (filePath === "kb" || filePath.startsWith("kb/")) {
-		return {
-			section: "kb",
-			relativePath: filePath === "kb" ? "" : filePath.slice("kb/".length),
-		};
-	}
-
-	if (filePath === "context" || filePath.startsWith("context/")) {
-		return {
-			section: "kb",
-			relativePath:
-				filePath === "context" ? "" : filePath.slice("context/".length),
-		};
+	for (const section of ["work", "kb"] as const) {
+		for (const prefix of [
+			getCanonicalSectionPath(section),
+			...LEGACY_SECTION_PREFIXES[section],
+		]) {
+			const relativePath = matchSectionPrefix(normalizedPath, prefix);
+			if (relativePath !== null) {
+				return {
+					section,
+					relativePath,
+				};
+			}
+		}
 	}
 
 	return null;
@@ -155,14 +190,14 @@ export const toProjectSectionPath = (
 	const resolvedPath = resolve(absolutePath);
 	if (isWithinRoot(resolvedPath, directories.workRoot)) {
 		return ensureSectionPath(
-			"work",
+			getCanonicalSectionPath("work"),
 			trimTrailingSlash(relative(directories.workRoot, resolvedPath)),
 		);
 	}
 
 	if (isWithinRoot(resolvedPath, directories.kbRoot)) {
 		return ensureSectionPath(
-			"kb",
+			getCanonicalSectionPath("kb"),
 			trimTrailingSlash(relative(directories.kbRoot, resolvedPath)),
 		);
 	}
@@ -194,7 +229,7 @@ export const toArtifactDisplayPath = (
 ): string => {
 	if (artifact.storageRoot === "work_dir") {
 		return ensureSectionPath(
-			"work",
+			getCanonicalSectionPath("work"),
 			trimTrailingSlash(normalizeStoredWorkRelativePath(artifact.path)),
 		);
 	}
@@ -227,4 +262,81 @@ export const matchesArtifactDisplayPath = (
 	requestedPath: string,
 ): boolean =>
 	artifact.path === requestedPath ||
-	toArtifactDisplayPath(directories, artifact) === requestedPath;
+	toArtifactDisplayPath(directories, artifact) === requestedPath ||
+	(artifact.storageRoot === "work_dir" &&
+		ensureSectionPath(
+			"work",
+			trimTrailingSlash(normalizeStoredWorkRelativePath(artifact.path)),
+		) === requestedPath) ||
+	(artifact.storageRoot !== "absolute" &&
+		resolveProjectSectionFilePathLegacyAlias(
+			directories,
+			artifact,
+			requestedPath,
+		));
+
+const resolveProjectSectionFilePathLegacyAlias = (
+	directories: ProjectDirectories,
+	artifact: Pick<ArtifactRecord, "path" | "storageRoot">,
+	requestedPath: string,
+): boolean => {
+	const absolutePath = resolveArtifactAbsolutePath(directories, artifact);
+	const resolvedPath = resolve(absolutePath);
+
+	if (isWithinRoot(resolvedPath, directories.workRoot)) {
+		return (
+			ensureSectionPath(
+				"work",
+				trimTrailingSlash(relative(directories.workRoot, resolvedPath)),
+			) === requestedPath
+		);
+	}
+
+	if (isWithinRoot(resolvedPath, directories.kbRoot)) {
+		const relativePath = trimTrailingSlash(
+			relative(directories.kbRoot, resolvedPath),
+		);
+		return (
+			ensureSectionPath("kb", relativePath) === requestedPath ||
+			ensureSectionPath("context", relativePath) === requestedPath
+		);
+	}
+
+	return false;
+};
+
+export const findArtifactByRequestedPath = <
+	T extends Pick<ArtifactRecord, "path" | "storageRoot">,
+>(
+	directories: ProjectDirectories,
+	artifacts: readonly T[],
+	requestedPath: string,
+): T | null => {
+	let exactMatch: T | null = null;
+	let canonicalMatch: T | null = null;
+	let legacyAliasMatch: T | null = null;
+
+	for (const artifact of artifacts) {
+		if (artifact.path === requestedPath) {
+			exactMatch = artifact;
+			break;
+		}
+
+		if (
+			canonicalMatch === null &&
+			toArtifactDisplayPath(directories, artifact) === requestedPath
+		) {
+			canonicalMatch = artifact;
+			continue;
+		}
+
+		if (
+			legacyAliasMatch === null &&
+			matchesArtifactDisplayPath(directories, artifact, requestedPath)
+		) {
+			legacyAliasMatch = artifact;
+		}
+	}
+
+	return exactMatch ?? canonicalMatch ?? legacyAliasMatch;
+};

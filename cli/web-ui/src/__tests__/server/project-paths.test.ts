@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+	findArtifactByRequestedPath,
 	getRunDirectories,
 	type ProjectDirectories,
 	parseProjectSectionPath,
@@ -51,25 +52,25 @@ describe("project-paths", () => {
 		);
 	});
 
-	test("formats work_dir artifacts with a stable work/ display prefix", () => {
+	test("formats work_dir artifacts with a canonical .rp1/work display prefix", () => {
 		expect(
 			toArtifactDisplayPath(directories, {
 				path: "features/feat-1/tasks.md",
 				storageRoot: "work_dir",
 			}),
-		).toBe("work/features/feat-1/tasks.md");
+		).toBe(".rp1/work/features/feat-1/tasks.md");
 	});
 
-	test("normalizes legacy repo-local work_dir artifact paths with a stable work/ prefix", () => {
+	test("normalizes legacy repo-local work_dir artifact paths to .rp1/work", () => {
 		expect(
 			toArtifactDisplayPath(directories, {
 				path: ".rp1/work/archives/features/feat-1/tasks.md",
 				storageRoot: "work_dir",
 			}),
-		).toBe("work/archives/features/feat-1/tasks.md");
+		).toBe(".rp1/work/archives/features/feat-1/tasks.md");
 	});
 
-	test("maps absolute paths under the resolved work directory back to work/ paths", () => {
+	test("maps absolute paths under the resolved work directory back to .rp1/work paths", () => {
 		expect(
 			toArtifactDisplayPathFromAbsolute(
 				directories,
@@ -81,10 +82,10 @@ describe("project-paths", () => {
 					"tasks.md",
 				),
 			),
-		).toBe("work/archives/features/feat-1/tasks.md");
+		).toBe(".rp1/work/archives/features/feat-1/tasks.md");
 	});
 
-	test("canonicalizes absolute work-root artifacts to stable work/ display paths", () => {
+	test("canonicalizes absolute work-root artifacts to stable .rp1/work display paths", () => {
 		expect(
 			toArtifactDisplayPath(directories, {
 				path: join(
@@ -96,10 +97,10 @@ describe("project-paths", () => {
 				),
 				storageRoot: "absolute",
 			}),
-		).toBe("work/archives/features/feat-1/tasks.md");
+		).toBe(".rp1/work/archives/features/feat-1/tasks.md");
 	});
 
-	test("canonicalizes absolute kb-root artifacts to stable kb/ display paths", async () => {
+	test("canonicalizes absolute kb-root artifacts to stable .rp1/context display paths", async () => {
 		await mkdir(directories.kbRoot, { recursive: true });
 		await Bun.write(join(directories.kbRoot, "index.md"), "# kb");
 
@@ -108,7 +109,49 @@ describe("project-paths", () => {
 				path: join(directories.kbRoot, "index.md"),
 				storageRoot: "absolute",
 			}),
-		).toBe("kb/index.md");
+		).toBe(".rp1/context/index.md");
+	});
+
+	test("keeps project work/ directories distinct from .rp1/work artifacts", () => {
+		expect(
+			toArtifactDisplayPath(directories, {
+				path: "work/features/feat-1/tasks.md",
+				storageRoot: "project",
+			}),
+		).toBe("work/features/feat-1/tasks.md");
+
+		expect(
+			toArtifactDisplayPath(directories, {
+				path: "features/feat-1/tasks.md",
+				storageRoot: "work_dir",
+			}),
+		).toBe(".rp1/work/features/feat-1/tasks.md");
+	});
+
+	test("prefers an exact project artifact path over the legacy work/ alias", () => {
+		const projectArtifact = {
+			path: "work/features/feat-1/tasks.md",
+			storageRoot: "project",
+		} as const;
+		const workArtifact = {
+			path: "features/feat-1/tasks.md",
+			storageRoot: "work_dir",
+		} as const;
+
+		expect(
+			findArtifactByRequestedPath(
+				directories,
+				[workArtifact, projectArtifact],
+				"work/features/feat-1/tasks.md",
+			),
+		).toBe(projectArtifact);
+		expect(
+			findArtifactByRequestedPath(
+				directories,
+				[projectArtifact, workArtifact],
+				".rp1/work/features/feat-1/tasks.md",
+			),
+		).toBe(workArtifact);
 	});
 
 	test("resolves legacy repo-local work_dir artifact paths against the effective work root", () => {
@@ -174,6 +217,22 @@ describe("project-paths", () => {
 	});
 
 	describe("parseProjectSectionPath backward compatibility", () => {
+		test("parses the canonical .rp1/context prefix", () => {
+			const result = parseProjectSectionPath(".rp1/context/index.md");
+			expect(result).not.toBeNull();
+			expect(result!.section).toBe("kb");
+			expect(result!.relativePath).toBe("index.md");
+		});
+
+		test("parses the canonical .rp1/work prefix", () => {
+			const result = parseProjectSectionPath(
+				".rp1/work/features/feat-1/tasks.md",
+			);
+			expect(result).not.toBeNull();
+			expect(result!.section).toBe("work");
+			expect(result!.relativePath).toBe("features/feat-1/tasks.md");
+		});
+
 		test("parses kb/ prefix and returns kb section", () => {
 			const result = parseProjectSectionPath("kb/index.md");
 			expect(result).not.toBeNull();
