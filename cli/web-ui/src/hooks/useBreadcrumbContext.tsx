@@ -7,6 +7,7 @@ export interface RunInfo {
 	readonly command: string;
 	readonly displayName: string;
 	readonly projectName: string;
+	readonly projectId: string;
 }
 
 interface BreadcrumbContextValue {
