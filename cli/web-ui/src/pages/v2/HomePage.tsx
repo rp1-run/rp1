@@ -1,24 +1,15 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { Activity, SquareKanban } from "lucide-react";
+import { Activity, SlidersHorizontal, SquareKanban } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { FilterBar } from "@/components/v2/FilterBar";
 import { HarnessIcon } from "@/components/v2/HarnessIcon";
-import { useAttention } from "@/hooks/useAttention";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import { useRuns } from "@/hooks/useRuns";
 import { resolveRunDisplayName } from "@/lib/run-display";
 import { formatRelativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
-import type { Run } from "@/types/runs";
-
-type FilterType = "all" | "running" | "attention";
-
-const FILTERS: readonly { readonly key: FilterType; readonly label: string }[] =
-	[
-		{ key: "all", label: "All" },
-		{ key: "running", label: "Running" },
-		{ key: "attention", label: "Attention" },
-	];
+import type { Run, RunsFilter } from "@/types/runs";
 
 const PAGE_SIZE = 25;
 
@@ -148,62 +139,22 @@ function FeedEntry({
 export function HomePage() {
 	const navigate = useNavigate();
 	const reducedMotion = usePrefersReducedMotion();
-	const [filter, setFilter] = useState<FilterType>("all");
+	const [showFilters, setShowFilters] = useState(false);
+	const [filters, setFilters] = useState<RunsFilter>({
+		status: "all",
+		projectId: null,
+		dateRange: "all",
+	});
 	const [pageSize, setPageSize] = useState(PAGE_SIZE);
 
-	const {
-		runs: allRuns,
-		total: allTotal,
-		isLoading: allLoading,
-	} = useRuns({ limit: pageSize });
+	const { runs, total, isLoading } = useRuns({ ...filters, limit: pageSize });
 
-	const {
-		runs: runningRuns,
-		total: runningTotal,
-		isLoading: runningLoading,
-	} = useRuns({ status: "running", limit: pageSize });
+	const hasMore = runs.length < total;
 
-	const { data: attentionData, isLoading: attentionLoading } = useAttention();
-
-	const getDisplayData = useCallback((): {
-		runs: readonly Run[];
-		total: number;
-		isLoading: boolean;
-	} => {
-		switch (filter) {
-			case "running":
-				return {
-					runs: runningRuns,
-					total: runningTotal,
-					isLoading: runningLoading,
-				};
-			case "attention": {
-				const attentionRuns = attentionData
-					? [...attentionData.waiting, ...attentionData.failed]
-					: [];
-				return {
-					runs: attentionRuns,
-					total: attentionRuns.length,
-					isLoading: attentionLoading,
-				};
-			}
-			default:
-				return { runs: allRuns, total: allTotal, isLoading: allLoading };
-		}
-	}, [
-		filter,
-		allRuns,
-		allTotal,
-		allLoading,
-		runningRuns,
-		runningTotal,
-		runningLoading,
-		attentionData,
-		attentionLoading,
-	]);
-
-	const { runs, total, isLoading } = getDisplayData();
-	const hasMore = filter !== "attention" && runs.length < total;
+	const handleFiltersChange = useCallback((newFilters: RunsFilter) => {
+		setFilters(newFilters);
+		setPageSize(PAGE_SIZE);
+	}, []);
 
 	const handleLoadEarlier = useCallback(() => {
 		setPageSize((prev) => prev + PAGE_SIZE);
@@ -226,33 +177,35 @@ export function HomePage() {
 	return (
 		<div className="h-full overflow-y-auto px-4 py-6 md:px-6">
 			<div className="mx-auto max-w-[640px]">
-				<header className="mb-6 px-3">
+				<header className="mb-6 px-3 flex items-center justify-between">
 					<h1 className="flex items-center gap-2 type-title text-fg">
 						<Activity className="h-4 w-4" strokeWidth={1.5} />
 						Activity
 					</h1>
+					<button
+						type="button"
+						onClick={() => setShowFilters((prev) => !prev)}
+						className={cn(
+							"flex h-7 w-7 items-center justify-center rounded transition-colors duration-150",
+							showFilters
+								? "text-fg bg-surface"
+								: "text-fg-ghost hover:text-fg-muted",
+						)}
+						aria-label={showFilters ? "Hide filters" : "Show filters"}
+						aria-expanded={showFilters}
+					>
+						<SlidersHorizontal className="h-3.5 w-3.5" strokeWidth={1.5} />
+					</button>
 				</header>
 
-				<div className="flex items-center gap-4 mb-4 px-3">
-					{FILTERS.map((f) => (
-						<button
-							key={f.key}
-							type="button"
-							onClick={() => {
-								setFilter(f.key);
-								setPageSize(PAGE_SIZE);
-							}}
-							className={cn(
-								"type-caption transition-colors duration-150",
-								filter === f.key
-									? "text-fg"
-									: "text-fg-ghost hover:text-fg-muted",
-							)}
-						>
-							{f.label}
-						</button>
-					))}
-				</div>
+				{showFilters && (
+					<div className="mb-4 px-3">
+						<FilterBar
+							filters={filters}
+							onFiltersChange={handleFiltersChange}
+						/>
+					</div>
+				)}
 
 				{isLoading && runs.length === 0 ? (
 					<div className="flex items-center justify-center py-16">

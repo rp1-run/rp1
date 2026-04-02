@@ -5,7 +5,6 @@ import {
 	FileBox,
 	FolderKanban,
 	Home,
-	ListTodo,
 	Pin,
 	Search,
 	Settings,
@@ -50,7 +49,7 @@ interface NavItem {
 	conditionalRoute?: string;
 }
 
-const ENABLED_ROUTES = new Set(["/", "/runs", "/projects"]);
+const ENABLED_ROUTES = new Set(["/", "/projects"]);
 
 const allNavItems: NavItem[] = [
 	{
@@ -59,13 +58,6 @@ const allNavItems: NavItem[] = [
 		icon: <Home className="h-5 w-5" />,
 		shortcutHint: "g h",
 		badgeKey: "home",
-	},
-	{
-		to: "/runs",
-		label: "Runs",
-		icon: <ListTodo className="h-5 w-5" />,
-		shortcutHint: "g r",
-		badgeKey: "runs",
 	},
 	{
 		to: "/projects",

@@ -1,4 +1,4 @@
-import { Activity, Command, File, SquareKanban } from "lucide-react";
+import { Activity, Command, SquareKanban } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
@@ -12,7 +12,6 @@ interface TabItem {
 const TAB_ITEMS: readonly TabItem[] = [
 	{ to: "/", label: "Activity", icon: Activity },
 	{ to: "/projects", label: "Projects", icon: SquareKanban, matchPrefix: true },
-	{ to: "/runs", label: "Runs", icon: File, matchPrefix: true },
 ] as const;
 
 export interface MobileTabBarProps {
