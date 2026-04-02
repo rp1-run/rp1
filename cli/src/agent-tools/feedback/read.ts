@@ -4,7 +4,7 @@
  */
 
 import { readFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { isAbsolute, join, relative } from "node:path";
 import { createTwoFilesPatch } from "diff";
 import { pipe } from "fp-ts/lib/function.js";
 import * as TE from "fp-ts/lib/TaskEither.js";
@@ -15,6 +15,8 @@ import {
 	getArtifactBaseline,
 	getArtifactsForRun,
 	getEmitDatabase,
+	getRunById,
+	resolveArtifactPathForRun,
 } from "../emit/database.js";
 import type { ToolResult } from "../models.js";
 import { successResult } from "../output.js";
@@ -43,6 +45,33 @@ const classifyArtifactType = (filePath: string): string => {
 		return "code";
 	if (lower.endsWith(".md") || lower.endsWith(".mdx")) return "markdown";
 	return "other";
+};
+
+const isWithinRoot = (candidatePath: string, rootPath: string): boolean => {
+	const relativePath = relative(rootPath, candidatePath);
+	return (
+		relativePath === "" ||
+		(!relativePath.startsWith("..") && !isAbsolute(relativePath))
+	);
+};
+
+const toDisplayPath = (
+	fullPath: string,
+	run: { readonly rp1ProjectRoot: string; readonly rp1WorkRoot: string },
+): string => {
+	if (isWithinRoot(fullPath, run.rp1WorkRoot)) {
+		const workRelative = relative(run.rp1WorkRoot, fullPath).replace(
+			/\\/g,
+			"/",
+		);
+		return workRelative.length > 0 ? `.rp1/work/${workRelative}` : ".rp1/work";
+	}
+
+	if (isWithinRoot(fullPath, run.rp1ProjectRoot)) {
+		return relative(run.rp1ProjectRoot, fullPath).replace(/\\/g, "/");
+	}
+
+	return fullPath;
 };
 
 /**
@@ -109,6 +138,7 @@ export const executeFeedbackRead = (
 						},
 					);
 
+					const run = getRunById(db, options.runId);
 					const artifacts = getArtifactsForRun(db, options.runId);
 
 					const edits: FeedbackEdit[] = [];
@@ -118,7 +148,13 @@ export const executeFeedbackRead = (
 							continue;
 						}
 
-						const fullPath = join(baselineInfo.projectPath, baselineInfo.path);
+						const fullPath =
+							run == null
+								? join(baselineInfo.projectPath, baselineInfo.path)
+								: await resolveArtifactPathForRun(db, run, artifact);
+						if (fullPath == null) {
+							continue;
+						}
 						let currentContent: string;
 						try {
 							currentContent = readFileSync(fullPath, "utf-8");
@@ -130,7 +166,13 @@ export const executeFeedbackRead = (
 							continue;
 						}
 
-						const displayPath = relative(baselineInfo.projectPath, fullPath);
+						const displayPath =
+							run == null
+								? relative(baselineInfo.projectPath, fullPath).replace(
+										/\\/g,
+										"/",
+									)
+								: toDisplayPath(fullPath, run);
 						const patch = createTwoFilesPatch(
 							`a/${displayPath}`,
 							`b/${displayPath}`,
@@ -140,7 +182,7 @@ export const executeFeedbackRead = (
 
 						edits.push({
 							docId: artifact.docId,
-							artifactPath: baselineInfo.path,
+							artifactPath: displayPath,
 							patch,
 						});
 					}
