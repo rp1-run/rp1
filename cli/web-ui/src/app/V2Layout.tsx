@@ -5,6 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { CommandPalette } from "@/components/v2/CommandPalette";
 import { IconRail } from "@/components/v2/IconRail";
 import { MobileTabBar } from "@/components/v2/MobileTabBar";
+import { NotificationContainer } from "@/components/v2/NotificationToast";
 import { ShortcutHelpOverlay } from "@/components/v2/ShortcutHelpOverlay";
 import { TerminalBreadcrumb } from "@/components/v2/TerminalBreadcrumb";
 import { BreadcrumbProvider } from "@/hooks/useBreadcrumbContext";
@@ -131,6 +132,7 @@ export function AppLayout() {
 					/>
 				</div>
 				<ShortcutHelpOverlay />
+				<NotificationContainer />
 			</ShortcutRegistryProvider>
 		</BreadcrumbProvider>
 	);
