@@ -31,8 +31,8 @@ skills:
     agents_that_use_me: []
     sub_agents_that_i_use: [rp1-base:research-explorer,rp1-base:research-reporter]
     skills_that_i_use: []
-    last_update: "2026-04-01"
-    last_checksum: 1af1f1db4e35f2b499348547f403a0834c5ceda25b87f4ed84bb91a0fb29f40c
+    last_update: "2026-04-03"
+    last_checksum: e72173e2d523f9d1b3cea5d79d5be4c826937e5e790ff9cdfe665e7a58c3beb0
   - name: rp1-base:fix-mermaid
     description: Validates and repairs mermaid diagrams in markdown files. Scans for mermaid blocks, validates syntax, and auto-repairs common errors.
     plugin: base
@@ -184,8 +184,8 @@ skills:
     agents_that_use_me: []
     sub_agents_that_i_use: [rp1-dev:blueprint-wizard,rp1-dev:charter-interviewer]
     skills_that_i_use: [rp1-dev:build]
-    last_update: "2026-04-01"
-    last_checksum: 05250695233b12f04091789407d1a5a699314df582c5028c2ee1f6b3e3630a7e
+    last_update: "2026-04-03"
+    last_checksum: 22d86a0329e25710262060a3021392699bd31e5d30eb3a777b47954548350fe3
   - name: rp1-dev:bootstrap
     description: Bootstrap a new project with charter discovery and tech stack scaffolding for greenfield development.
     plugin: dev
@@ -202,8 +202,8 @@ skills:
     agents_that_use_me: []
     sub_agents_that_i_use: [rp1-dev:build-fast-planner,rp1-dev:task-builder,rp1-dev:task-reviewer]
     skills_that_i_use: [rp1-base:self-update,rp1-dev:arcade-collab,rp1-dev:build]
-    last_update: "2026-04-01"
-    last_checksum: aa8b53ac1499c0cf48fc95206b16c53e2b73de04625eb5b212815c8e380fd0be
+    last_update: "2026-04-03"
+    last_checksum: 1fb65492400218452c5647b8f7bb144bd920fb5c798758b9cdc665284cf74d27
   - name: rp1-dev:build
     description: End-to-end feature workflow (requirements -> design -> tasks -> build -> verify -> archive) in a single command.
     plugin: dev
@@ -292,8 +292,8 @@ skills:
     agents_that_use_me: []
     sub_agents_that_i_use: [rp1-dev:pr-visualizer]
     skills_that_i_use: []
-    last_update: "2026-04-01"
-    last_checksum: 3fc745a5cec59e79d1278915ed12b38d7b6c0efa273e1dd40efac68d043c0f3d
+    last_update: "2026-04-03"
+    last_checksum: e37f7f34b93000ed76bc1b9b8ff11a88ca4b276b399b13249d54085d15c4a123
   - name: rp1-dev:speedrun
     description: Interactive speedrun loop for small, low-risk changes. Delegates each request to a general sub-agent. Redirects larger work to /build-fast or /build.
     plugin: dev
