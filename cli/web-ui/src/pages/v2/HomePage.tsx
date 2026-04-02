@@ -1,11 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import {
-	Activity,
-	Mail,
-	SlidersHorizontal,
-	SquareKanban,
-	X,
-} from "lucide-react";
+import { Activity, SlidersHorizontal, SquareKanban, X } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { FilterBar } from "@/components/v2/FilterBar";
@@ -147,6 +141,8 @@ function FeedEntry({
 				<SquareKanban className="h-3 w-3" strokeWidth={1.5} />
 				{run.projectName}
 			</button>
+
+			<span className="w-5 shrink-0" aria-hidden="true" />
 		</motion.div>
 	);
 }
@@ -191,9 +187,10 @@ function NotificationFeedEntry({
 				"focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border",
 			)}
 		>
-			<span className="inline-flex w-[6px] shrink-0 items-center justify-center">
-				<Mail className="h-[6px] w-[6px] text-fg-ghost" strokeWidth={1.5} />
-			</span>
+			<span
+				className="inline-block h-[6px] w-[6px] shrink-0 rotate-45 bg-fg-ghost/50"
+				aria-hidden="true"
+			/>
 
 			<span className="w-[5.5em] shrink-0 text-right type-secondary tabular-nums text-fg-ghost">
 				{formatRelativeTime(notification.createdAt)}
