@@ -94,11 +94,11 @@ function ProjectRow({
 			<span className="type-secondary text-fg-ghost truncate">
 				{project.path}
 			</span>
-			<span className="ml-auto flex items-center gap-3 shrink-0">
+			<span className="ml-auto flex items-center gap-2 shrink-0 pl-4">
 				<button
 					type="button"
 					onClick={onRunsClick}
-					className="text-fg-ghost opacity-0 group-hover:opacity-100 transition-opacity duration-150 hover:text-fg bg-transparent border-none p-0 cursor-pointer"
+					className="text-fg-ghost transition-colors duration-150 hover:text-fg bg-transparent border-none p-0 cursor-pointer"
 					aria-label={`Runs for ${project.name}`}
 				>
 					<Play className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -106,12 +106,12 @@ function ProjectRow({
 				<button
 					type="button"
 					onClick={onFilesClick}
-					className="text-fg-ghost opacity-0 group-hover:opacity-100 transition-opacity duration-150 hover:text-fg bg-transparent border-none p-0 cursor-pointer"
+					className="text-fg-ghost transition-colors duration-150 hover:text-fg bg-transparent border-none p-0 cursor-pointer"
 					aria-label={`Files for ${project.name}`}
 				>
 					<FolderOpen className="h-3.5 w-3.5" strokeWidth={1.5} />
 				</button>
-				<span className="type-secondary text-fg-muted tabular-nums">
+				<span className="type-secondary text-fg-muted tabular-nums min-w-[4.5rem] text-right">
 					{project.runCount} run{project.runCount === 1 ? "" : "s"}
 				</span>
 			</span>
