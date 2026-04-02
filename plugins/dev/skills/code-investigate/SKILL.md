@@ -27,7 +27,7 @@ This command invokes the **bug-investigator** sub-agent for systematic issue ana
 
 **First emit**: Generate `RUN_ID` as a UUID. Derive `RUN_NAME` from the problem statement: a brief summary (max 60 chars) prefixed with `"Investigate: "`.
 
-On session start, emit the status change AND register the investigation report artifact immediately:
+On session start, emit the status change:
 ```bash
 rp1 agent-tools emit \
   --workflow code-investigate \
@@ -36,14 +36,6 @@ rp1 agent-tools emit \
   --name "Investigate: {brief summary}" \
   --step investigating \
   --data '{"status": "running"}'
-```
-```bash
-rp1 agent-tools emit \
-  --workflow code-investigate \
-  --type artifact_registered \
-  --run-id {RUN_ID} \
-  --step investigating \
-  --data '{"path": "issues/{ISSUE_ID}/investigation_report.md", "storageRoot": "work_dir", "format": "markdown"}'
 ```
 
 ## STATE-MACHINE
@@ -75,6 +67,16 @@ rp1 agent-tools emit \
   --type btw_update \
   --run-id {RUN_ID} \
   --data '{"message": "{finding summary}"}'
+```
+
+After the agent writes the investigation report, register it as an artifact:
+```bash
+rp1 agent-tools emit \
+  --workflow code-investigate \
+  --type artifact_registered \
+  --run-id {RUN_ID} \
+  --step investigating \
+  --data '{"path": "issues/{ISSUE_ID}/investigation_report.md", "storageRoot": "work_dir", "format": "markdown"}'
 ```
 
 On completion, mark the step as completed:

@@ -49,11 +49,9 @@ metadata:
 
 ```mermaid
 stateDiagram-v2
-    [*] --> split
-    split --> review : split_complete
-    review --> synthesize : review_complete
-    synthesize --> post : synthesis_complete
-    post --> [*] : done
+    [*] --> reviewing
+    reviewing --> posting : analysis_complete
+    posting --> [*] : done
 ```
 
 **On each phase transition**, report via:
@@ -70,19 +68,32 @@ rp1 agent-tools emit \
 - Derive `RUN_NAME` from the resolved PR context: use `"PR #{pr_number}"` when a PR number is available, otherwise use `"PR: {branch_name}"` as fallback
 - On the **first** emit only, include `--name "{RUN_NAME}"` to label the run in the Arcade dashboard
 
+On session start, emit the status change:
+```bash
+rp1 agent-tools emit \
+  --workflow pr-review \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --name "{RUN_NAME}" \
+  --step reviewing \
+  --data '{"status": "running"}'
+```
+
 **State Progression Protocol**:
 1. Report each `--step` with `--data '{"status": "running"}'` when you enter that state
 2. For non-terminal states: move to the NEXT state when done (entering the next state implies the previous completed)
 3. For terminal states (those with `→ [*]` transitions): report with `--data '{"status": "completed"}'` when the step's work finishes
 4. On error, transition to the appropriate failure state in the graph
 
+**State mapping**:
+- `reviewing` covers: P-1 (config), P0 (input resolution), P0.5 (visual gen), P1 (splitting), P2 (sub-reviewers), P3 (synthesis)
+- `posting` covers: P4 (reporting), P5 (comment posting)
+
 **Example sequence**:
 ```
---workflow pr-review --step split --name "PR #42" --data '{"status": "running"}'   # first emit includes --name
---workflow pr-review --step review --data '{"status": "running"}'       # split done, entering review phase
---workflow pr-review --step synthesize --data '{"status": "running"}'   # review done, entering synthesize phase
---workflow pr-review --step post --data '{"status": "running"}'         # synthesize done, entering post phase
---workflow pr-review --step post --data '{"status": "completed"}'       # post done, workflow complete
+--workflow pr-review --step reviewing --name "PR #42" --data '{"status": "running"}'   # first emit includes --name
+--workflow pr-review --step posting --data '{"status": "running"}'       # analysis done, entering posting phase
+--workflow pr-review --step posting --data '{"status": "completed"}'     # posting done, workflow complete
 ```
 
 §ARCH
@@ -282,14 +293,14 @@ Parse `units`, store counts. Fail -> Abort w/ error.
 
 6. Fail -> output findings inline
 7. Store `REPORTER_FINDINGS` for P5 (CI mode)
-8. Register artifact:
+8. Register the report artifact after the reporter creates it:
    ```bash
    rp1 agent-tools emit \
      --workflow pr-review \
      --type artifact_registered \
      --run-id {RUN_ID} \
-     --step post \
-     --data '{"path": "{REPORT_PATH}", "feature": "{review_id}", "storageRoot": "project"}'
+     --step posting \
+     --data '{"path": "{REPORT_PATH}", "feature": "{review_id}", "storageRoot": "project", "format": "markdown"}'
    ```
 
 ### P5: Comment Posting (CI Only)
