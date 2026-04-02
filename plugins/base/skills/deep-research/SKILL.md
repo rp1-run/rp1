@@ -46,6 +46,7 @@ rp1 agent-tools emit \
   --workflow deep-research \
   --type status_change \
   --run-id {RUN_ID} \
+  --name "Research: {brief summary of research topic}" \
   --step {CURRENT_STATE} \
   --data '{"status": "running"}'
 ```
