@@ -34,7 +34,15 @@ export function useProjects(): UseProjectsReturn {
 			}
 
 			const data = (await response.json()) as ProjectsResponse;
-			setProjects(data.projects);
+			const sorted = [...data.projects].sort((a, b) => {
+				// Projects with no activity sink to the bottom
+				if (!a.lastActivityAt && !b.lastActivityAt) return 0;
+				if (!a.lastActivityAt) return 1;
+				if (!b.lastActivityAt) return -1;
+				// Most recent activity first
+				return b.lastActivityAt.localeCompare(a.lastActivityAt);
+			});
+			setProjects(sorted);
 			setError(null);
 		} catch (err) {
 			setError(err instanceof Error ? err : new Error(String(err)));
