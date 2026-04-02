@@ -20,9 +20,13 @@
  * @returns YAML-safe string, double-quoted if necessary
  */
 export const escapeYaml = (value: string): string => {
-	const needsQuoting = /[[\]{}:#>|*&!%@`'"\\,\n]|^[\s-]|^\s*$/.test(value);
+	const needsQuoting = /[[\]{}:#>|*&!%@`'"\\,\n\r]|^[\s-]|^\s*$/.test(value);
 	if (needsQuoting) {
-		const escaped = value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+		const escaped = value
+			.replace(/\\/g, "\\\\")
+			.replace(/"/g, '\\"')
+			.replace(/\n/g, "\\n")
+			.replace(/\r/g, "\\r");
 		return `"${escaped}"`;
 	}
 	return value;

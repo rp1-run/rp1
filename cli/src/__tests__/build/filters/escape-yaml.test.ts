@@ -64,8 +64,16 @@ describe("escape_yaml filter", () => {
 		expect(escapeYaml("a, b")).toBe('"a, b"');
 	});
 
-	test("quotes strings with newlines", () => {
-		expect(escapeYaml("line1\nline2")).toBe('"line1\nline2"');
+	test("escapes newlines in quoted strings", () => {
+		expect(escapeYaml("line1\nline2")).toBe('"line1\\nline2"');
+	});
+
+	test("escapes carriage returns in quoted strings", () => {
+		expect(escapeYaml("line1\rline2")).toBe('"line1\\rline2"');
+	});
+
+	test("escapes newlines that contain --- to prevent frontmatter breakage", () => {
+		expect(escapeYaml("before\n---\nafter")).toBe('"before\\n---\\nafter"');
 	});
 
 	test("quotes strings starting with whitespace", () => {
