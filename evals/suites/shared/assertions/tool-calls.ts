@@ -521,16 +521,15 @@ export const assertWorkStatusUpdate = assertToolCall(
 export const assertArtifactRegistration = assertToolCall(
 	"Bash",
 	(input) =>
-		input.command.includes("rp1 agent-tools work artifact") &&
-		input.command.includes("--project") &&
-		input.command.includes("--run-id") &&
-		input.command.includes("--path"),
+		input.command.includes("rp1 agent-tools emit") &&
+		input.command.includes("--type artifact_registered") &&
+		input.command.includes("--run-id"),
 );
 
 /** Assert no artifact registration (e.g., large scope redirects). */
 export const assertNoArtifactRegistration = assertNoToolCall(
 	"Bash",
-	/rp1\s+agent-tools\s+work\s+artifact/,
+	/rp1\s+agent-tools\s+emit.*--type\s+artifact_registered/,
 );
 
 /** Assert a specific subagent was spawned (name in tool call input). */
@@ -749,6 +748,14 @@ export const assertTaskBuilderSpawned = assertSubagentSpawned("task-builder");
 
 /** Assert task-reviewer subagent was spawned. */
 export const assertTaskReviewerSpawned = assertSubagentSpawned("task-reviewer");
+
+/** Assert speedrun-builder subagent was spawned. */
+export const assertSpeedrunBuilderSpawned =
+	assertSubagentSpawned("speedrun-builder");
+
+/** Assert build-fast-planner subagent was spawned. */
+export const assertBuildFastPlannerSpawned =
+	assertSubagentSpawned("build-fast-planner");
 
 /** Assert artifact-detector spawned first. */
 export const assertArtifactDetectorFirst =
