@@ -1,6 +1,6 @@
 ---
-name: build-express
-description: "Interactive builder loop for small, low-risk changes. Delegates each request to a general sub-agent. Redirects larger work to /build-fast or /build."
+name: speedrun
+description: "Interactive speedrun loop for small, low-risk changes. Delegates each request to a general sub-agent. Redirects larger work to /build-fast or /build."
 allowed-tools: Bash(echo *), Bash(rp1 *), Bash(git *)
 metadata:
   version: 1.1.0
@@ -28,16 +28,16 @@ metadata:
         - "unattended"
 ---
 
-# Build Express
+# Speedrun
 
-Interactive builder loop for rapid, small changes. Delegates each request to a single general sub-agent.
+Interactive speedrun loop for rapid, small changes. Delegates each request to a single general sub-agent.
 
 **This command ONLY orchestrates. It does NOT implement code.**
 
 **First emit**: Include `--name "{RUN_NAME}"` on the first emit call to label the run in the Arcade dashboard. Derive `RUN_NAME` from the initial request: a brief summary (max 60 chars) prefixed with `"Feature: "`. Generate `RUN_ID` as a UUID at session start. Example:
 ```bash
 rp1 agent-tools emit \
-  --workflow build-express \
+  --workflow speedrun \
   --type status_change \
   --run-id {RUN_ID} \
   --name "Feature: {brief summary of request}" \
@@ -45,24 +45,19 @@ rp1 agent-tools emit \
   --data '{"status": "running"}'
 ```
 
-## 1. Main Loop
+## STATE-MACHINE
 
 ```mermaid
 stateDiagram-v2
-  [*] --> GetRequest
-  GetRequest --> Clarify: vague
-  GetRequest --> ScopeCheck: clear
-  Clarify --> ScopeCheck: clarified
-  ScopeCheck --> Redirect: medium_or_large
-  ScopeCheck --> Build: small
-  Redirect --> Prompt
-  Build --> Prompt
-  Prompt --> Commit: user=commit
-  Prompt --> Build: user=refine
-  Prompt --> GetRequest: user=new
-  Prompt --> [*]: user=exit
-  Commit --> GetRequest
+    [*] --> build
+    build --> commit : user=commit
+    build --> build : user=refine
+    commit --> build : next_task
+    build --> [*] : user=exit
+    commit --> [*] : user=exit
 ```
+
+## 1. Main Loop
 
 ### 1.1 Get Request
 
@@ -113,7 +108,7 @@ Then loop to §1.5 (Post-Build Prompt) so the user can submit a smaller request 
 
 Spawn a single general sub-agent to implement the request:
 
-{% dispatch_agent "rp1-dev:express-builder" %}
+{% dispatch_agent "rp1-dev:speedrun-builder" %}
 Implement the following change in the codebase:
 
 {REQUEST}
@@ -130,7 +125,7 @@ After builder completes, emit waiting status so the Arcade dashboard reflects th
 
 ```bash
 rp1 agent-tools emit \
-  --workflow build-express \
+  --workflow speedrun \
   --type waiting_for_user \
   --run-id {RUN_ID} \
   --step build \
@@ -170,7 +165,7 @@ On exit, report tasks completed count.
 
 **Tasks Completed**: {count}
 
-Express session ended.
+Speedrun session ended.
 ```
 
 ## 3. Orchestrator Rules

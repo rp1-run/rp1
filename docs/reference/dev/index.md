@@ -17,7 +17,7 @@ Build features with full workflow orchestration.
 |---------|-------------|
 | [`build`](build.md) | **Primary skill** -- End-to-end feature workflow (requirements -> design -> build -> verify -> archive) |
 | [`build-fast`](build-fast.md) | Quick iteration for small, well-scoped tasks |
-| `build-express` | Interactive builder loop for small, low-risk changes |
+| `speedrun` | Interactive speedrun loop for small, low-risk changes |
 | [`validate-hypothesis`](validate-hypothesis.md) | Test design assumptions through experiments |
 | `bootstrap` | Bootstrap a new greenfield project with charter discovery and scaffolding |
 
