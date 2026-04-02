@@ -789,6 +789,122 @@
   }
 }
 
+/* Notification toast — macOS-style slide-in from top-right */
+@keyframes rp1-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes rp1-toast-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+.rp1-notification-container {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.rp1-notification-toast {
+  pointer-events: auto;
+  display: flex;
+  width: 320px;
+  border-radius: 4px;
+  border: 1px solid hsl(var(--border));
+  background-color: hsl(var(--surface));
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.08),
+    0 4px 12px rgba(0, 0, 0, 0.04);
+  cursor: pointer;
+  overflow: hidden;
+  outline: none;
+}
+
+.rp1-notification-toast:focus-visible {
+  outline: 2px solid hsl(var(--accent));
+  outline-offset: 1px;
+}
+
+.rp1-notification-accent {
+  width: 3px;
+  flex-shrink: 0;
+  background-color: hsl(var(--accent));
+}
+
+.rp1-notification-body {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+}
+
+.rp1-notification-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.rp1-notification-title {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.3;
+  color: hsl(var(--fg));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rp1-notification-close {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  border: none;
+  background: transparent;
+  color: hsl(var(--fg-muted));
+  cursor: pointer;
+  transition: color 150ms, background-color 150ms;
+}
+
+.rp1-notification-close:hover {
+  color: hsl(var(--fg));
+  background-color: hsl(var(--accent-ghost));
+}
+
+.rp1-notification-message {
+  margin-top: 4px;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace);
+  font-size: 11px;
+  line-height: 1.45;
+  color: hsl(var(--fg-muted));
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 /* Reduced motion: disable all animations */
 @media (prefers-reduced-motion: reduce) {
   *,
