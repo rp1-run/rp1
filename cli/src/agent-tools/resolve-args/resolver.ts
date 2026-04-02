@@ -11,6 +11,7 @@ import {
 	parseUserFacing,
 	toCanonicalString,
 } from "../../../shared/canonical-name.js";
+import { resolveDirectorySet } from "../../../shared/directory-resolution.js";
 import type { CLIError } from "../../../shared/errors.js";
 import {
 	notFoundError,
@@ -379,9 +380,16 @@ export const resolveArgs = (
 					const skillName = canonicalName
 						? toCanonicalString(canonicalName)
 						: extractNameFromPath(resolvedPath);
+					const settingsProjectRoot = pipe(
+						resolveDirectorySet(input.project_root),
+						E.match(
+							() => input.project_root,
+							(directories) => directories.projectRoot,
+						),
+					);
 					const settingsDefaults = await loadArgumentDefaultsForSkill(
 						skillName,
-						input.project_root,
+						settingsProjectRoot,
 					);
 
 					// Merge all layers per argument

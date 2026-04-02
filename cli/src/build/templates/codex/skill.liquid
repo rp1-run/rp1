@@ -44,18 +44,13 @@ Run the argument resolver to obtain all parameter values:
 rp1 agent-tools resolve-args --name {{ namespacedPluginName }}:{{ artifact.name }} --args "the arguments provided by the user in their prompt"
 ```
 
-Parse the JSON response. Extract values from `data.arguments` and `data.environment`:
+Parse the JSON response. Extract values from `data.arguments`:
 
 | Variable | Source |
 |----------|--------|
 {%- for arg in artifact.metadata.arguments %}
 | {{ arg.name }} | `data.arguments.{{ arg.name }}` |
 {%- endfor %}
-{%- if artifact.metadata.environment and artifact.metadata.environment.size > 0 %}
-{%- for env in artifact.metadata.environment %}
-| {{ env.name }} | `data.environment.{{ env.name }}` |
-{%- endfor %}
-{%- endif %}
 
 If `data.unresolved` is non-empty, warn the user about missing required arguments and stop.
 

@@ -234,14 +234,14 @@ describe("feedback read", () => {
 
 		await writeFixture(
 			tempDir,
-			"edited-file.md",
+			".rp1/work/features/feat-1/edited-file.md",
 			"# Updated\n\nNew content here.",
 		);
 
 		upsertArtifact(db, {
 			docId: "doc-edit-1",
 			runId,
-			path: "edited-file.md",
+			path: "features/feat-1/edited-file.md",
 			type: "markdown",
 			storageRoot: "work_dir",
 			projectPath: tempDir,
@@ -259,11 +259,71 @@ describe("feedback read", () => {
 
 		expect(result.data.edits).toHaveLength(1);
 		expect(result.data.edits[0].docId).toBe("doc-edit-1");
-		expect(result.data.edits[0].artifactPath).toBe("edited-file.md");
+		expect(result.data.edits[0].artifactPath).toBe(
+			".rp1/work/features/feat-1/edited-file.md",
+		);
 		expect(result.data.edits[0].patch).toContain("---");
 		expect(result.data.edits[0].patch).toContain("+++");
 		expect(result.data.edits[0].patch).toContain("Original");
 		expect(result.data.edits[0].patch).toContain("Updated");
+	});
+
+	test("computes diffs for work_dir artifacts stored under a historical external run work root", async () => {
+		const db = await expectTaskRight(getEmitDatabase(dbPath));
+		const externalWorkRoot = join(tempDir, "external-work");
+
+		insertRun(db, {
+			id: "run-feedback-read-external",
+			flow: "build",
+			featureId: "feat-external",
+			projectPath: tempDir,
+			rp1ProjectRoot: tempDir,
+			rp1WorkRoot: externalWorkRoot,
+		});
+
+		await writeFixture(
+			tempDir,
+			"external-work/features/feat-external/design.md",
+			"# Updated external design\n",
+		);
+
+		upsertArtifact(db, {
+			docId: "doc-edit-external",
+			runId: "run-feedback-read-external",
+			path: "features/feat-external/design.md",
+			type: "markdown",
+			storageRoot: "work_dir",
+			projectPath: tempDir,
+			feature: "feat-external",
+		});
+
+		setArtifactBaseline(
+			db,
+			"doc-edit-external",
+			"# Original external design\n",
+		);
+
+		const result = await expectTaskRight(
+			executeFeedbackRead(
+				{
+					runId: "run-feedback-read-external",
+					status: "open",
+					projectPath: tempDir,
+				},
+				dbPath,
+			),
+		);
+
+		expect(result.data.edits).toHaveLength(1);
+		expect(result.data.edits[0].artifactPath).toBe(
+			".rp1/work/features/feat-external/design.md",
+		);
+		expect(result.data.edits[0].patch).toContain(
+			"--- a/.rp1/work/features/feat-external/design.md",
+		);
+		expect(result.data.edits[0].patch).toContain(
+			"+++ b/.rp1/work/features/feat-external/design.md",
+		);
 	});
 
 	test("filters out artifacts where baseline matches current content", async () => {

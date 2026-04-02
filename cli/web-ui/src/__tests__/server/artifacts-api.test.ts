@@ -1000,6 +1000,38 @@ describe("handleArtifactSaveRequest with external work_dir storage", () => {
 		).text();
 		expect(written).toBe(updatedContent);
 	});
+
+	test("does not broadcast reconciliation when the canonical .rp1/work path already matches an external work_dir artifact", async () => {
+		const broadcastCalls: unknown[][] = [];
+		const mockHub: Pick<WebSocketHub, "broadcastEvent"> = {
+			broadcastEvent: (...args: unknown[]) => {
+				broadcastCalls.push(args);
+			},
+		};
+		const updatedContent = "# Updated without reconciliation broadcast\n";
+
+		await Bun.write(
+			join(externalWorkDir, externalStoredPath),
+			"# External work artifact\n",
+		);
+
+		const request = new Request("http://localhost/api/save", {
+			method: "PUT",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				path: externalDisplayPath,
+				content: updatedContent,
+			}),
+		});
+
+		const response = await handleArtifactSaveRequest(externalRunId, request, {
+			port: 3000,
+			startTime: Date.now(),
+			websocketHub: mockHub as WebSocketHub,
+		});
+		expect(response.status).toBe(200);
+		expect(broadcastCalls).toHaveLength(0);
+	});
 });
 
 describe("handleArtifactSaveRequest path collisions", () => {

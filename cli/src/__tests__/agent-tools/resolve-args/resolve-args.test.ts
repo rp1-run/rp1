@@ -15,6 +15,7 @@ import {
 	resolveSchemaFromNameOrPath,
 } from "../../../agent-tools/resolve-args/schema-lookup.js";
 import type { ArgumentDefinition } from "../../../build/models.js";
+import { writeFixture } from "../../helpers/index.js";
 
 /** True when dist/ bundle manifests exist (i.e. a build has been run). */
 // Test file is at cli/src/__tests__/agent-tools/resolve-args/ — 5 levels up to repo root
@@ -529,6 +530,47 @@ metadata:
 		expect(E.isRight(result)).toBe(true);
 		if (E.isRight(result)) {
 			expect(result.right.arguments.GIT_COMMIT).toBe(true);
+		}
+	});
+
+	test("discovers the canonical project root for settings lookup from nested directories", async () => {
+		await writeFixture(tempDir, ".rp1/project_id", "project-123");
+		await writeFixture(
+			tempDir,
+			".rp1/settings.toml",
+			`[arguments.test-skill]
+FEATURE_ID = "from-project-settings"
+`,
+		);
+
+		const nestedDir = join(tempDir, "packages", "app");
+		await mkdir(nestedDir, { recursive: true });
+
+		const schemaPath = await createSkillFile(
+			tempDir,
+			`---
+name: test-skill
+description: "A test skill with settings-driven defaults"
+metadata:
+  arguments:
+    - name: FEATURE_ID
+      type: string
+      required: true
+      description: "Feature identifier"
+---
+# Test skill
+`,
+		);
+
+		const result = await resolveArgs({
+			schema_path: schemaPath,
+			raw_args: "",
+			project_root: nestedDir,
+		})();
+
+		expect(E.isRight(result)).toBe(true);
+		if (E.isRight(result)) {
+			expect(result.right.arguments.FEATURE_ID).toBe("from-project-settings");
 		}
 	});
 

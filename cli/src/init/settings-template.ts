@@ -5,19 +5,10 @@ export function buildSettingsTomlTemplate(): string {
 # Project-level settings are optional.
 # Most projects can leave this file with commented examples only.
 #
-# Directory overrides:
-# - project_root: project root used to derive RP1 paths
-# - kb_dir: location of KB/context files
-# - work_dir: location of work artifacts
-#
-# Relative paths in project-local settings resolve from the project root.
-# Relative paths in global settings resolve from your home directory.
-#
-# Example:
-# [directories]
-# project_root = "/absolute/project/path"
-# kb_dir = ".rp1/context"
-# work_dir = "~/rp1-work/my-project"
+# Directory paths are fixed from the project root:
+# - Knowledge base files live in .rp1/context
+# - Work artifacts live in .rp1/work
+# Use this file for command defaults only.
 
 # Command default examples:
 # [arguments."dev:build"]

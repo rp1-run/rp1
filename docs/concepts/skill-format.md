@@ -180,7 +180,7 @@ Run the argument resolver to obtain all parameter values:
 rp1 agent-tools resolve-args --name rp1-{plugin}:{skill-name} --args "$ARGUMENTS"
 ```
 
-Parse the JSON response. Extract values from `data.arguments` and `data.environment`:
+Parse the JSON response. Extract values from `data.arguments`:
 
 | Variable | Source |
 |----------|--------|
@@ -197,7 +197,7 @@ To discover directory paths, use `rp1 agent-tools rp1-root-dir` which returns `p
 **Key conventions**:
 
 - The `--name` flag uses the skill's namespace (e.g., `rp1-dev:build`, `rp1-base:task`). The CLI resolves this to the correct schema file automatically.
-- The variable table lists every entry from `metadata.arguments` and `metadata.environment`, mapping each to its JSON response path.
+- The variable table lists every entry from `metadata.arguments`, mapping each to its JSON response path.
 - The unresolved guard prevents the skill from proceeding with missing required values.
 - To discover directory paths, use `rp1 agent-tools rp1-root-dir` separately. Directory variables are no longer included in the `resolve-args` response.
 
