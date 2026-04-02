@@ -1700,21 +1700,57 @@ export async function handleV2FeedRequest(req: Request): Promise<Response> {
 			type: "notification";
 			id: number;
 			timestamp: string;
-			notification: Omit<NotificationRecord, "dismissed">;
-		}> = notifResult.notifications.map((n) => ({
-			type: "notification" as const,
-			id: n.id,
-			timestamp: n.createdAt,
-			notification: {
+			notification: Omit<NotificationRecord, "dismissed"> & {
+				harness: string | null;
+				runCommand: string | null;
+				runName: string | null;
+				projectName: string | null;
+			};
+		}> = notifResult.notifications.map((n) => {
+			let harness: string | null = null;
+			let runCommand: string | null = null;
+			let runName: string | null = null;
+			let projectName: string | null = null;
+
+			if (n.sourceId) {
+				const run = getRunById(db, n.sourceId);
+				if (run) {
+					harness = run.harness;
+					runCommand = `/${run.flow}`;
+					runName = run.name ?? null;
+					const project = findProjectByIdentity(projectLookup, run);
+					if (project) {
+						projectName = project.name;
+					}
+				}
+			} else if (n.projectId) {
+				for (const [, project] of projectLookup.byId) {
+					if (project.id === n.projectId) {
+						projectName = project.name;
+						break;
+					}
+				}
+			}
+
+			return {
+				type: "notification" as const,
 				id: n.id,
-				message: n.message,
-				sourceType: n.sourceType,
-				sourceId: n.sourceId,
-				route: n.route,
-				projectId: n.projectId,
-				createdAt: n.createdAt,
-			},
-		}));
+				timestamp: n.createdAt,
+				notification: {
+					id: n.id,
+					message: n.message,
+					sourceType: n.sourceType,
+					sourceId: n.sourceId,
+					route: n.route,
+					projectId: n.projectId,
+					createdAt: n.createdAt,
+					harness,
+					runCommand,
+					runName,
+					projectName,
+				},
+			};
+		});
 
 		if (dateRange !== "all") {
 			const now = Date.now();
