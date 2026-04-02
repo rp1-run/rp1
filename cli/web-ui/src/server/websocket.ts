@@ -68,6 +68,24 @@ export interface AnnotationReplyAddedMessage {
 	timestamp: string;
 }
 
+export interface NotificationCreatedMessage {
+	type: "notification:created";
+	notification: {
+		id: number;
+		message: string;
+		sourceType: string;
+		sourceId: string | null;
+		route: string | null;
+		projectId: string | null;
+		createdAt: string;
+	};
+}
+
+export interface NotificationDismissedMessage {
+	type: "notification:dismissed";
+	notificationId: number;
+}
+
 export interface SubscribeMessage {
 	type: "subscribe";
 	path: string;
@@ -120,6 +138,8 @@ export type ServerMessage =
 	| AnnotationResolvedMessage
 	| AnnotationDeletedMessage
 	| AnnotationReplyAddedMessage
+	| NotificationCreatedMessage
+	| NotificationDismissedMessage
 	| EventReplayMessage
 	| StateSnapshotMessage;
 export type ClientMessage =
@@ -547,5 +567,44 @@ export class WebSocketHub {
 			timestamp: new Date().toISOString(),
 		};
 		this.broadcast(message);
+	}
+
+	broadcastNotificationCreated(notification: {
+		id: number;
+		message: string;
+		sourceType: string;
+		sourceId: string | null;
+		route: string | null;
+		projectId: string | null;
+		createdAt: string;
+	}): void {
+		const msg: NotificationCreatedMessage = {
+			type: "notification:created",
+			notification,
+		};
+
+		const serialized = JSON.stringify(msg);
+		for (const state of this.clients.values()) {
+			const isProjectMatch =
+				notification.projectId === null ||
+				state.projectId === null ||
+				state.projectId === notification.projectId;
+
+			if (isProjectMatch) {
+				try {
+					state.ws.send(serialized);
+				} catch {
+					this.removeClient(state.ws);
+				}
+			}
+		}
+	}
+
+	broadcastNotificationDismissed(notificationId: number): void {
+		const msg: NotificationDismissedMessage = {
+			type: "notification:dismissed",
+			notificationId,
+		};
+		this.broadcast(msg);
 	}
 }
