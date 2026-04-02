@@ -99,8 +99,8 @@
 
 ### plugins/dev
 **Purpose**: Feature delivery plugin: build workflows, blueprint, PR review, code audit, feature lifecycle
-**Skills**: build, build-fast, build-express, blueprint, blueprint-audit, blueprint-archive, pr-review, pr-visual, code-audit, code-check, code-investigate, code-clean-comments, feature-archive, feature-unarchive, feature-edit, validate-hypothesis, address-pr-feedback, bootstrap, arcade-collab
-**Agents**: task-builder, task-reviewer, feature-verifier, feature-architect, feature-tasker, pr-sub-reviewer, pr-review-synthesizer, pr-comment-poster, pr-comment-deduplicator, build-artifact-detector, express-builder, bug-investigator, blueprint-wizard, charter-interviewer, bootstrap-scaffolder
+**Skills**: build, build-fast, speedrun, blueprint, blueprint-audit, blueprint-archive, pr-review, pr-visual, code-audit, code-check, code-investigate, code-clean-comments, feature-archive, feature-unarchive, feature-edit, validate-hypothesis, address-pr-feedback, bootstrap, arcade-collab
+**Agents**: task-builder, task-reviewer, feature-verifier, feature-architect, feature-tasker, pr-sub-reviewer, pr-review-synthesizer, pr-comment-poster, pr-comment-deduplicator, build-artifact-detector, speedrun-builder, bug-investigator, blueprint-wizard, charter-interviewer, bootstrap-scaffolder
 **Dependency**: rp1-base (runtime)
 
 ### plugins/utils
