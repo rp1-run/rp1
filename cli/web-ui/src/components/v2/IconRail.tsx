@@ -1,4 +1,4 @@
-import { Activity, Play, SquareKanban } from "lucide-react";
+import { Activity, SquareKanban } from "lucide-react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import {
 	Tooltip,
@@ -18,7 +18,6 @@ interface NavItem {
 const NAV_ITEMS: readonly NavItem[] = [
 	{ to: "/", label: "Activity", icon: Activity },
 	{ to: "/projects", label: "Projects", icon: SquareKanban, matchPrefix: true },
-	{ to: "/runs", label: "Runs", icon: Play, matchPrefix: true },
 ] as const;
 
 export interface IconRailProps {
