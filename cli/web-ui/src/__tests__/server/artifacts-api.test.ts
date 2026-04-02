@@ -847,7 +847,7 @@ describe("handleArtifactSaveRequest broadcasts after path reconciliation", () =>
 			method: "PUT",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
-				path: bcastArchivedPath,
+				path: bcastOriginalPath,
 				content: newContent,
 			}),
 		});
@@ -868,6 +868,7 @@ describe("handleArtifactSaveRequest broadcasts after path reconciliation", () =>
 		expect(callRunId).toBe(bcastRunId);
 		expect(featureId).toBe("feat-bcast");
 		expect((data as Record<string, unknown>).docId).toBe(bcastDocId);
+		expect((data as Record<string, unknown>).path).toBe(bcastArchivedPath);
 		expect((data as Record<string, unknown>).reconciled).toBe(true);
 	});
 });
@@ -876,7 +877,8 @@ describe("handleArtifactSaveRequest with external work_dir storage", () => {
 	const externalRunId = "external-run-001";
 	const externalDocId = "external-doc-001";
 	const externalStoredPath = "features/ext/design.md";
-	const externalDisplayPath = "work/features/ext/design.md";
+	const externalDisplayPath = ".rp1/work/features/ext/design.md";
+	const legacyExternalDisplayPath = "work/features/ext/design.md";
 	let externalTmpDir: string;
 	let externalWorkDir: string;
 	let externalDb: Database;
@@ -935,8 +937,13 @@ describe("handleArtifactSaveRequest with external work_dir storage", () => {
 		}
 	});
 
-	test("saves through the work/ display path while writing to the resolved work directory", async () => {
+	test("saves through the canonical .rp1/work display path while writing to the resolved work directory", async () => {
 		const updatedContent = "# Updated external work artifact\n";
+		await Bun.write(
+			join(externalWorkDir, externalStoredPath),
+			"# External work artifact\n",
+		);
+
 		const request = new Request("http://localhost/api/save", {
 			method: "PUT",
 			headers: { "Content-Type": "application/json" },
@@ -961,5 +968,172 @@ describe("handleArtifactSaveRequest with external work_dir storage", () => {
 			.prepare("SELECT baseline FROM artifacts WHERE doc_id = $docId")
 			.get({ $docId: externalDocId }) as { baseline: string | null };
 		expect(baselineRow.baseline).toBe("# External work artifact\n");
+	});
+
+	test("still accepts the legacy work/ alias when no project artifact conflicts with it", async () => {
+		const updatedContent = "# Updated through legacy alias\n";
+		externalDb
+			.prepare("UPDATE artifacts SET baseline = NULL WHERE doc_id = $docId")
+			.run({ $docId: externalDocId });
+		await Bun.write(
+			join(externalWorkDir, externalStoredPath),
+			"# External work artifact\n",
+		);
+
+		const request = new Request("http://localhost/api/save", {
+			method: "PUT",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				path: legacyExternalDisplayPath,
+				content: updatedContent,
+			}),
+		});
+
+		const response = await handleArtifactSaveRequest(externalRunId, request, {
+			port: 3000,
+			startTime: Date.now(),
+		});
+		expect(response.status).toBe(200);
+
+		const written = await Bun.file(
+			join(externalWorkDir, externalStoredPath),
+		).text();
+		expect(written).toBe(updatedContent);
+	});
+});
+
+describe("handleArtifactSaveRequest path collisions", () => {
+	const runId = "collision-run-001";
+	const projectDocId = "collision-project-doc";
+	const workDocId = "collision-work-doc";
+	const collidingPath = "work/features/ext/design.md";
+	const canonicalWorkPath = ".rp1/work/features/ext/design.md";
+	let collisionTmpDir: string;
+	let collisionWorkDir: string;
+	let collisionDb: Database;
+
+	beforeAll(async () => {
+		collisionTmpDir = await mkdtemp(join(tmpdir(), "rp1-artifact-collision-"));
+		collisionWorkDir = join(collisionTmpDir, "external-work");
+		collisionDb = new Database(":memory:");
+		collisionDb.exec("PRAGMA foreign_keys = ON;");
+		collisionDb.exec(SCHEMA_SQL);
+
+		collisionDb
+			.prepare(
+				"INSERT INTO runs (id, flow, feature_id, project_path, rp1_project_root, rp1_kb_root, rp1_work_root) VALUES ($id, $flow, $featureId, $projectPath, $rp1ProjectRoot, $rp1KbRoot, $rp1WorkRoot)",
+			)
+			.run({
+				$id: runId,
+				$flow: "build",
+				$featureId: "ext-feature",
+				$projectPath: collisionTmpDir,
+				$rp1ProjectRoot: collisionTmpDir,
+				$rp1KbRoot: join(collisionTmpDir, ".rp1", "context"),
+				$rp1WorkRoot: collisionWorkDir,
+			});
+
+		collisionDb
+			.prepare(
+				"INSERT INTO artifacts (doc_id, run_id, path, type, storage_root, project_path, feature) VALUES ($docId, $runId, $path, $type, $storageRoot, $projectPath, $feature)",
+			)
+			.run({
+				$docId: projectDocId,
+				$runId: runId,
+				$path: collidingPath,
+				$type: "markdown",
+				$storageRoot: "project",
+				$projectPath: collisionTmpDir,
+				$feature: "ext-feature",
+			});
+
+		collisionDb
+			.prepare(
+				"INSERT INTO artifacts (doc_id, run_id, path, type, storage_root, project_path, feature) VALUES ($docId, $runId, $path, $type, $storageRoot, $projectPath, $feature)",
+			)
+			.run({
+				$docId: workDocId,
+				$runId: runId,
+				$path: "features/ext/design.md",
+				$type: "markdown",
+				$storageRoot: "work_dir",
+				$projectPath: collisionTmpDir,
+				$feature: "ext-feature",
+			});
+
+		await mkdir(dirname(join(collisionTmpDir, collidingPath)), {
+			recursive: true,
+		});
+		await mkdir(dirname(join(collisionWorkDir, "features/ext/design.md")), {
+			recursive: true,
+		});
+
+		tmpDir = collisionTmpDir;
+		testDb = collisionDb;
+	});
+
+	afterAll(async () => {
+		collisionDb?.close();
+		if (collisionTmpDir) {
+			await rm(collisionTmpDir, { recursive: true, force: true });
+		}
+	});
+
+	test("prefers the exact project-root artifact over the legacy work/ alias", async () => {
+		await Bun.write(join(collisionTmpDir, collidingPath), "# Project file\n");
+		await Bun.write(
+			join(collisionWorkDir, "features/ext/design.md"),
+			"# Work artifact\n",
+		);
+
+		const response = await handleArtifactSaveRequest(
+			runId,
+			new Request("http://localhost/api/save", {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					path: collidingPath,
+					content: "# Updated project file\n",
+				}),
+			}),
+			{ port: 3000, startTime: Date.now() },
+		);
+		expect(response.status).toBe(200);
+
+		expect(await Bun.file(join(collisionTmpDir, collidingPath)).text()).toBe(
+			"# Updated project file\n",
+		);
+		expect(
+			await Bun.file(join(collisionWorkDir, "features/ext/design.md")).text(),
+		).toBe("# Work artifact\n");
+	});
+
+	test("routes the canonical .rp1/work path to the work_dir artifact", async () => {
+		await Bun.write(join(collisionTmpDir, collidingPath), "# Project file\n");
+		await Bun.write(
+			join(collisionWorkDir, "features/ext/design.md"),
+			"# Work artifact\n",
+		);
+
+		const response = await handleArtifactSaveRequest(
+			runId,
+			new Request("http://localhost/api/save", {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					path: canonicalWorkPath,
+					content: "# Updated work artifact\n",
+				}),
+			}),
+			{ port: 3000, startTime: Date.now() },
+		);
+		expect(response.status).toBe(200);
+
+		expect(await Bun.file(join(collisionTmpDir, collidingPath)).text()).toBe(
+			"# Project file\n",
+		);
+		expect(
+			await Bun.file(join(collisionWorkDir, "features/ext/design.md")).text(),
+		).toBe("# Updated work artifact\n");
 	});
 });

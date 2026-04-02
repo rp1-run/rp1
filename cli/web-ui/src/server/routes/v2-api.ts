@@ -56,9 +56,9 @@ import type {
 } from "../../types/runs";
 import { buildProjectLookup, findProjectByIdentity } from "../project-lookup";
 import {
+	findArtifactByRequestedPath,
 	getRunDirectories,
 	listProjectSectionRoots,
-	matchesArtifactDisplayPath,
 	type ProjectDirectories,
 	resolveArtifactAbsolutePath,
 	resolveProjectDirectories,
@@ -216,7 +216,7 @@ async function discoverArtifactsFromFilesystem(
 	const glob = new Bun.Glob("*.md");
 	const artifacts: Artifact[] = [];
 	for await (const entry of glob.scan({ cwd: dir })) {
-		const relativePath = `work/${dir === featureDir ? `features/${featureId}` : `archives/features/${featureId}`}/${entry}`;
+		const relativePath = `.rp1/work/${dir === featureDir ? `features/${featureId}` : `archives/features/${featureId}`}/${entry}`;
 		artifacts.push({
 			docId: `fs:${relativePath}`,
 			path: relativePath,
@@ -902,8 +902,10 @@ export async function handleV2ArtifactContentRequest(
 
 		const directories = getRunDirectories(record);
 		const artifactRecords = getArtifactsForRun(db, runId);
-		const artifactRecord = artifactRecords.find((candidate) =>
-			matchesArtifactDisplayPath(directories, candidate, artifactPath),
+		const artifactRecord = findArtifactByRequestedPath(
+			directories,
+			artifactRecords,
+			artifactPath,
 		);
 
 		if (artifactRecord) {
@@ -1177,7 +1179,7 @@ export async function handleV2ProjectFilesRequest(
 		const sections: FileNode[] = [];
 
 		for (const root of listProjectSectionRoots(directories)) {
-			const tree = await buildFileTree(root.absolutePath, root.section);
+			const tree = await buildFileTree(root.absolutePath, root.displayPath);
 			if (tree) {
 				sections.push(tree);
 			}

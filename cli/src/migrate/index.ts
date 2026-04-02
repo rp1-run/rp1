@@ -1,5 +1,7 @@
-import { existsSync, mkdirSync, statSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
+import * as E from "fp-ts/lib/Either.js";
+import { resolveDirectorySet } from "../../shared/directory-resolution.js";
 import { ensureProjectId } from "../../shared/project-id.js";
 import { backfillProjectId, type DbBackfillResult } from "./db-backfill.js";
 import {
@@ -22,61 +24,16 @@ export interface MigrateResult {
 	readonly dbBackfill: DbBackfillResult;
 }
 
-const isDirectory = (targetPath: string): boolean => {
-	try {
-		return statSync(targetPath).isDirectory();
-	} catch {
-		return false;
-	}
-};
-
-const walkUpForRp1Dir = (startPath: string): string | undefined => {
-	let current = path.resolve(startPath);
-
-	while (true) {
-		if (isDirectory(path.join(current, ".rp1"))) {
-			return current;
-		}
-
-		const parent = path.dirname(current);
-		if (parent === current) break;
-		current = parent;
-	}
-
-	return undefined;
-};
-
-const tryGitRoot = (startPath: string): string | undefined => {
-	try {
-		const { execFileSync } = require("node:child_process");
-		const topLevel = execFileSync("git", ["rev-parse", "--show-toplevel"], {
-			cwd: startPath,
-			encoding: "utf-8",
-			stdio: ["ignore", "pipe", "pipe"],
-		}).trim();
-		return topLevel;
-	} catch {
-		return undefined;
-	}
-};
-
 export const executeMigrate = async (
 	cwd: string = process.cwd(),
 ): Promise<MigrateResult> => {
-	let projectRoot = walkUpForRp1Dir(cwd);
-
-	if (!projectRoot) {
-		const gitRoot = tryGitRoot(cwd);
-		if (gitRoot && isDirectory(path.join(gitRoot, ".rp1"))) {
-			projectRoot = gitRoot;
-		}
-	}
-
-	if (!projectRoot) {
+	const directories = resolveDirectorySet(cwd);
+	if (E.isLeft(directories)) {
 		throw new Error(
 			"No .rp1/ directory found. Run 'rp1 init' to initialize a project first.",
 		);
 	}
+	const projectRoot = directories.right.projectRoot;
 
 	const projectIdExistedBefore = existsSync(
 		path.join(projectRoot, ".rp1", "project_id"),

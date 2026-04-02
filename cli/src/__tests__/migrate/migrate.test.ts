@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -9,6 +9,11 @@ import {
 	findLegacyWorkDir,
 	moveLegacyWork,
 } from "../../migrate/legacy-work.js";
+import {
+	createInitialCommit,
+	createTestWorktree,
+	initTestRepo,
+} from "../helpers/index.js";
 
 describe("migrate", () => {
 	let tempDir: string;
@@ -86,6 +91,23 @@ describe("migrate", () => {
 			expect(gitignore).toContain("!.rp1/");
 			expect(gitignore).toContain(".rp1/*");
 			expect(gitignore).toContain("!.rp1/project_id");
+		});
+
+		test("uses the canonical git common-dir project root when run from a worktree", async () => {
+			const repoDir = join(tempDir, "repo");
+			const worktreeDir = join(tempDir, "repo-worktree");
+			await mkdir(repoDir, { recursive: true });
+			await initTestRepo(repoDir);
+			await createInitialCommit(repoDir);
+			await mkdir(join(repoDir, ".rp1"), { recursive: true });
+			await createTestWorktree(repoDir, worktreeDir, "feature/worktree");
+
+			const result = await executeMigrate(worktreeDir);
+
+			expect(result.projectRoot).toBe(realpathSync(repoDir));
+			expect(existsSync(join(repoDir, ".rp1", "project_id"))).toBe(true);
+			expect(existsSync(join(repoDir, ".rp1", "work"))).toBe(true);
+			expect(existsSync(join(worktreeDir, ".rp1"))).toBe(false);
 		});
 	});
 
