@@ -1,4 +1,4 @@
-import { Anthropic, Claude, OpenAI } from "@lobehub/icons";
+import { Claude, OpenAI, OpenCode } from "@lobehub/icons";
 
 export type HarnessName = "claude-code" | "codex" | "opencode";
 
@@ -17,7 +17,7 @@ export function HarnessIcon({ harness, size = 20 }: HarnessIconProps) {
 			icon = <OpenAI size={size} />;
 			break;
 		case "opencode":
-			icon = <Anthropic size={size} />;
+			icon = <OpenCode size={size} />;
 			break;
 		default:
 			return (
