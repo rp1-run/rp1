@@ -711,7 +711,7 @@ describe("emit database", () => {
 			expect(artifact.storageRoot).toBe("work_dir");
 		});
 
-		test("returns existing artifact if doc_id already present", async () => {
+		test("updates existing artifact if doc_id already present", async () => {
 			const dbPath = join(tempDir, "artifact-upsert.db");
 			const db = await expectTaskRight(getEmitDatabase(dbPath));
 
@@ -737,13 +737,17 @@ describe("emit database", () => {
 				runId: "run-art2",
 				path: "different.md",
 				type: "code",
-				storageRoot: "work_dir",
+				storageRoot: "project",
 				projectPath: "/other",
 				feature: "other-feat",
 			});
 
 			expect(second.id).toBe(first.id);
-			expect(second.path).toBe("original.md");
+			expect(second.path).toBe("different.md");
+			expect(second.type).toBe("code");
+			expect(second.storageRoot).toBe("project");
+			expect(second.projectPath).toBe("/other");
+			expect(second.feature).toBe("other-feat");
 		});
 
 		test("inserts artifact with subflow=true", async () => {
@@ -2487,6 +2491,21 @@ describe("emit database", () => {
 			});
 		});
 
+		test("normalizes legacy project-local .rp1/work artifacts to work_dir-relative paths", () => {
+			const normalized = normalizeArtifactStorage(
+				"/resolved/project/.rp1/work/features/feat/design.md",
+				{
+					rp1ProjectRoot: "/resolved/project",
+					rp1WorkRoot: "/resolved/external-work",
+				},
+			);
+
+			expect(normalized).toEqual({
+				path: "features/feat/design.md",
+				storageRoot: "work_dir",
+			});
+		});
+
 		test("promotes explicit project-relative traversal to absolute storage", () => {
 			const normalized = normalizeArtifactStorage(
 				"../outside.md",
@@ -2631,8 +2650,8 @@ describe("emit database", () => {
 			expect(resolvedPath).toBe(filePath);
 
 			const artifact = getArtifactByDocId(db, "doc-legacy-work");
-			expect(artifact?.path).toBe(".rp1/work/features/feat/design.md");
-			expect(artifact?.storageRoot).toBe("project");
+			expect(artifact?.path).toBe("features/feat/design.md");
+			expect(artifact?.storageRoot).toBe("work_dir");
 		});
 	});
 
