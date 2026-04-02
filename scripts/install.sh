@@ -49,6 +49,27 @@ error() {
     exit 1
 }
 
+# Run a command, elevating with sudo only if needed and available.
+# Usage: maybe_sudo command [args...]
+maybe_sudo() {
+    if "$@" 2>/dev/null; then
+        return 0
+    fi
+
+    # Command failed -- try sudo if we are not already root
+    if [ "$(id -u)" -eq 0 ]; then
+        # Already root and still failed; nothing more to try
+        return 1
+    fi
+
+    if command -v sudo >/dev/null 2>&1; then
+        sudo "$@"
+    else
+        # No sudo available -- report clearly
+        return 1
+    fi
+}
+
 detect_os() {
     case "$(uname -s)" in
         Darwin)
@@ -299,7 +320,7 @@ main() {
     info "Installing to $install_dir..."
 
     if [ ! -d "$install_dir" ]; then
-        if ! mkdir -p "$install_dir" 2>/dev/null; then
+        if ! maybe_sudo mkdir -p "$install_dir"; then
             error "Cannot create directory: $install_dir
 Try running with sudo:
   curl -fsSL https://rp1.run/install.sh | sudo sh
@@ -309,14 +330,12 @@ Or install to a user-writable directory:
     fi
 
     local final_path="$install_dir/$BINARY_NAME"
-    if ! mv "$binary_path" "$final_path" 2>/dev/null; then
-        if ! sudo mv "$binary_path" "$final_path" 2>/dev/null; then
-            error "Cannot install to $install_dir
+    if ! maybe_sudo mv "$binary_path" "$final_path"; then
+        error "Cannot install to $install_dir
 Try running with sudo:
   curl -fsSL https://rp1.run/install.sh | sudo sh
 Or install to a user-writable directory:
   curl -fsSL https://rp1.run/install.sh | INSTALL_DIR=\$HOME/.local/bin sh"
-        fi
     fi
 
     chmod +x "$final_path"
