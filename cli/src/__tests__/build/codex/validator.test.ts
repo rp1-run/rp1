@@ -120,7 +120,7 @@ Content.`;
 
 			expect(error._tag).toBe("ValidationError");
 			if (error._tag === "ValidationError") {
-				expect(error.level).toBe("L2");
+				expect(error.level).toBe("L1");
 			}
 		});
 	});
