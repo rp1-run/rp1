@@ -91,10 +91,19 @@ describe("emit validation", () => {
 				expect(getErrorMessage(error)).toContain("path");
 			});
 
-			test("rejects artifact_registered without feature", () => {
+			test("accepts artifact_registered without feature", () => {
+				const result = validatePayloadShape("artifact_registered", {
+					path: "file.md",
+					storageRoot: "work_dir",
+				});
+				expectRight(result);
+			});
+
+			test("rejects artifact_registered with non-string feature", () => {
 				const error = expectLeft(
 					validatePayloadShape("artifact_registered", {
 						path: "file.md",
+						feature: 123,
 						storageRoot: "work_dir",
 					}),
 				);

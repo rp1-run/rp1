@@ -234,7 +234,7 @@ const handleArtifactRegistration = (
 				TE.map((db) => {
 					const artifactType =
 						(input.data.type as string) ?? classifyArtifactType(filePath);
-					const feature = input.data.feature as string;
+					const feature = (input.data.feature as string) ?? "unknown";
 					const normalizedStorage = normalizeArtifactStorage(
 						filePath,
 						run,
