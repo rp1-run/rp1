@@ -152,6 +152,34 @@ describe("init-install separation", () => {
 		);
 
 		test(
+			"executeInit reuses the canonical project root when started from a nested directory",
+			async () => {
+				const logger = createTrackingLogger();
+				const nestedDir = join(tempDir, "packages", "app");
+				await mkdir(join(tempDir, ".rp1"), { recursive: true });
+				await writeFile(join(tempDir, ".rp1", "project_id"), "project-123");
+				await mkdir(nestedDir, { recursive: true });
+
+				const result = await executeInit(
+					{ cwd: nestedDir, yes: true },
+					logger,
+				)();
+
+				expect(E.isRight(result)).toBe(true);
+				expect(
+					await readFile(join(tempDir, ".rp1", "project_id"), "utf-8"),
+				).toBe("project-123");
+				expect(
+					await readFileIfExists(join(nestedDir, ".rp1", "project_id")),
+				).toBeNull();
+				expect(
+					await readFileIfExists(join(nestedDir, ".rp1", "settings.toml")),
+				).toBeNull();
+			},
+			{ timeout: 30000 },
+		);
+
+		test(
 			"install failure does not prevent project setup from completing",
 			async () => {
 				const logger = createTrackingLogger();
@@ -291,6 +319,27 @@ describe("init-install separation", () => {
 			);
 		});
 
+		test("createDirectoryStructure writes to the canonical project root from a nested directory", async () => {
+			const logger = createMockLogger();
+			const nestedDir = join(tempDir, "packages", "app");
+
+			await mkdir(join(tempDir, ".rp1"), { recursive: true });
+			await writeFile(join(tempDir, ".rp1", "project_id"), "project-123");
+			await mkdir(nestedDir, { recursive: true });
+
+			await createDirectoryStructure(nestedDir, logger);
+
+			expect((await stat(join(tempDir, ".rp1", "context"))).isDirectory()).toBe(
+				true,
+			);
+			expect((await stat(join(tempDir, ".rp1", "work"))).isDirectory()).toBe(
+				true,
+			);
+			expect(
+				await readFileIfExists(join(nestedDir, ".rp1", "project_id")),
+			).toBe(null);
+		});
+
 		test("createSettingsFiles is idempotent", async () => {
 			const logger = createMockLogger();
 
@@ -346,6 +395,24 @@ describe("init-install separation", () => {
 
 			const content = await readFile(localPath, "utf-8");
 			expect(content).toBe(existingContent);
+		});
+
+		test("createSettingsFiles writes local settings to the canonical project root", async () => {
+			const logger = createMockLogger();
+			const nestedDir = join(tempDir, "packages", "app");
+
+			await mkdir(join(tempDir, ".rp1"), { recursive: true });
+			await writeFile(join(tempDir, ".rp1", "project_id"), "project-123");
+			await mkdir(nestedDir, { recursive: true });
+
+			await createSettingsFiles(nestedDir, logger);
+
+			expect(
+				await readFileIfExists(join(tempDir, ".rp1", "settings.toml")),
+			).not.toBeNull();
+			expect(
+				await readFileIfExists(join(nestedDir, ".rp1", "settings.toml")),
+			).toBeNull();
 		});
 
 		test("injectInstructions is idempotent", async () => {

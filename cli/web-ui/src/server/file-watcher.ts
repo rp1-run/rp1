@@ -3,7 +3,7 @@ import chokidar from "chokidar";
 import {
 	listProjectSectionRoots,
 	type ProjectDirectories,
-	type ProjectSection,
+	type ProjectSectionRoot,
 	resolveProjectDirectories,
 } from "./project-paths";
 import type { WebSocketHub } from "./websocket";
@@ -74,7 +74,7 @@ export class FileWatcher {
 
 	start(): void {
 		for (const root of listProjectSectionRoots(this.directories)) {
-			this.watchDirectory(root.absolutePath, root.section);
+			this.watchDirectory(root);
 		}
 
 		console.log(
@@ -82,9 +82,9 @@ export class FileWatcher {
 		);
 	}
 
-	private watchDirectory(dirPath: string, section: ProjectSection): void {
+	private watchDirectory(root: ProjectSectionRoot): void {
 		try {
-			const watcher = chokidar.watch(dirPath, {
+			const watcher = chokidar.watch(root.absolutePath, {
 				persistent: true,
 				ignoreInitial: true,
 				awaitWriteFinish: {
@@ -96,37 +96,29 @@ export class FileWatcher {
 			});
 
 			watcher
-				.on("add", (fullPath) => this.handleEvent(fullPath, section, "add"))
-				.on("change", (fullPath) =>
-					this.handleEvent(fullPath, section, "modify"),
-				)
-				.on("unlink", (fullPath) =>
-					this.handleEvent(fullPath, section, "delete"),
-				)
+				.on("add", (fullPath) => this.handleEvent(fullPath, root, "add"))
+				.on("change", (fullPath) => this.handleEvent(fullPath, root, "modify"))
+				.on("unlink", (fullPath) => this.handleEvent(fullPath, root, "delete"))
 				.on("error", (error) => this.handleWatcherError(error));
 
 			this.watchers.push(watcher);
 		} catch (error) {
-			console.warn(`Could not watch directory ${dirPath}:`, error);
+			console.warn(`Could not watch directory ${root.absolutePath}:`, error);
 		}
 	}
 
 	private handleEvent(
 		fullPath: string,
-		section: ProjectSection,
+		root: ProjectSectionRoot,
 		type: ChangeType,
 	): void {
 		try {
-			const rootDir =
-				section === "work"
-					? this.directories.workRoot
-					: this.directories.kbRoot;
-			const filename = relative(rootDir, fullPath);
+			const filename = relative(root.absolutePath, fullPath);
 			if (!filename || filename.startsWith("..") || shouldIgnore(filename)) {
 				return;
 			}
 
-			const relativePath = `${section}/${filename}`;
+			const relativePath = `${root.displayPath}/${filename}`;
 			this.queueChange(relativePath, type);
 		} catch (error) {
 			console.warn(

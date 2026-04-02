@@ -97,7 +97,7 @@ function resolveGlobalSettingsPath(): string {
  * Resolve the local settings file path.
  */
 function resolveLocalSettingsPath(cwd: string): string {
-	return path.join(cwd, ".rp1", "settings.toml");
+	return path.join(resolveInitDirectoryModel(cwd).rp1Dir, "settings.toml");
 }
 
 /**
@@ -438,7 +438,7 @@ export const useStepExecution = ({
 				created++;
 			}
 
-			await ensureProjectId(ctx.cwd);
+			await ensureProjectId(directories.projectRoot);
 			addAct("directory-setup", "Project ID ensured", "success");
 
 			if (created === 0) {

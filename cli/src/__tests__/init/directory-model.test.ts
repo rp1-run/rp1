@@ -21,6 +21,21 @@ describe("init directory model", () => {
 	test("resolves workDir to project-local .rp1/work", () => {
 		const directories = resolveInitDirectoryModel(tempDir);
 
+		expect(directories.projectRoot).toBe(tempDir);
+		expect(directories.rp1Dir).toBe(join(tempDir, ".rp1"));
+		expect(directories.contextDir).toBe(join(tempDir, ".rp1", "context"));
+		expect(directories.workDir).toBe(join(tempDir, ".rp1", "work"));
+	});
+
+	test("reuses the existing project root when invoked from a nested directory", async () => {
+		const nestedDir = join(tempDir, "packages", "app");
+		await mkdir(join(tempDir, ".rp1"), { recursive: true });
+		await writeFile(join(tempDir, ".rp1", "project_id"), "project-123");
+		await mkdir(nestedDir, { recursive: true });
+
+		const directories = resolveInitDirectoryModel(nestedDir);
+
+		expect(directories.projectRoot).toBe(tempDir);
 		expect(directories.rp1Dir).toBe(join(tempDir, ".rp1"));
 		expect(directories.contextDir).toBe(join(tempDir, ".rp1", "context"));
 		expect(directories.workDir).toBe(join(tempDir, ".rp1", "work"));

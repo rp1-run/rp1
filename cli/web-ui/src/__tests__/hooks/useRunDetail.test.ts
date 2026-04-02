@@ -263,7 +263,7 @@ describe("useRunDetail", () => {
 				step: "design",
 				data: {
 					docId: "doc-1",
-					path: "work/features/feat-1/tasks.md",
+					path: ".rp1/work/features/feat-1/tasks.md",
 					reconciled: true,
 				},
 				createdAt: "2026-03-15T01:25:00Z",
@@ -271,7 +271,7 @@ describe("useRunDetail", () => {
 		});
 
 		expect(result.current.run?.artifacts[0]?.path).toBe(
-			"work/features/feat-1/tasks.md",
+			".rp1/work/features/feat-1/tasks.md",
 		);
 		expect(result.current.run?.artifacts[0]?.absolutePath).toBe(
 			"/tmp/project/.rp1/work/features/feat-1/tasks.md",
