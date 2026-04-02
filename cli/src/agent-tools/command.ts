@@ -251,13 +251,12 @@ Resolution order:
 
 Output:
   JSON with resolved directories and detection metadata:
+  - projectId: Stable project UUID when available
   - projectRoot: Absolute path to the effective project root
   - kbRoot: Absolute path to the knowledge-base directory
   - workRoot: Absolute path to the work artifact directory
   - isWorktree: Whether running in a linked git worktree
   - worktreeName: Branch name if in worktree
-  - source: How the project root was resolved ('env', 'git-common-dir', or 'cwd')
-  - sources: Per-directory source metadata for projectRoot, kbRoot, and workRoot
 
 Examples:
   rp1 agent-tools rp1-root-dir

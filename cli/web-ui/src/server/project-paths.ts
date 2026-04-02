@@ -73,6 +73,31 @@ const matchSectionPrefix = (
 	return null;
 };
 
+const parseSectionPath = (
+	filePath: string,
+	prefixes: Readonly<Record<ProjectSection, readonly string[]>>,
+): SectionPath | null => {
+	if (filePath.includes("..") || isAbsolute(filePath)) {
+		return null;
+	}
+
+	const normalizedPath = trimTrailingSlash(filePath.replace(/\\/g, "/"));
+
+	for (const section of ["work", "kb"] as const) {
+		for (const prefix of prefixes[section]) {
+			const relativePath = matchSectionPrefix(normalizedPath, prefix);
+			if (relativePath !== null) {
+				return {
+					section,
+					relativePath,
+				};
+			}
+		}
+	}
+
+	return null;
+};
+
 const normalizeStoredWorkRelativePath = (artifactPath: string): string => {
 	const normalized = artifactPath.replace(/\\/g, "/").replace(/^\.\/+/, "");
 
@@ -94,10 +119,15 @@ export const resolveProjectDirectories = (
 };
 
 export const getRunDirectories = (
-	run: Pick<RunRecord, "projectPath" | "rp1ProjectRoot">,
+	run: Pick<RunRecord, "projectPath"> &
+		Partial<Pick<RunRecord, "rp1ProjectRoot" | "rp1KbRoot" | "rp1WorkRoot">>,
 ): ProjectDirectories => {
 	const projectRoot = resolve(run.rp1ProjectRoot ?? run.projectPath);
-	return deriveProjectDirectories(projectRoot);
+	return {
+		projectRoot,
+		kbRoot: resolve(run.rp1KbRoot ?? join(projectRoot, ".rp1", "context")),
+		workRoot: resolve(run.rp1WorkRoot ?? join(projectRoot, ".rp1", "work")),
+	};
 };
 
 export const listProjectSectionRoots = (
@@ -118,28 +148,19 @@ export const listProjectSectionRoots = (
 export const parseProjectSectionPath = (
 	filePath: string,
 ): SectionPath | null => {
-	if (filePath.includes("..") || isAbsolute(filePath)) {
-		return null;
-	}
+	return parseSectionPath(filePath, {
+		work: [getCanonicalSectionPath("work"), ...LEGACY_SECTION_PREFIXES.work],
+		kb: [getCanonicalSectionPath("kb"), ...LEGACY_SECTION_PREFIXES.kb],
+	});
+};
 
-	const normalizedPath = trimTrailingSlash(filePath.replace(/\\/g, "/"));
-
-	for (const section of ["work", "kb"] as const) {
-		for (const prefix of [
-			getCanonicalSectionPath(section),
-			...LEGACY_SECTION_PREFIXES[section],
-		]) {
-			const relativePath = matchSectionPrefix(normalizedPath, prefix);
-			if (relativePath !== null) {
-				return {
-					section,
-					relativePath,
-				};
-			}
-		}
-	}
-
-	return null;
+export const parseCanonicalProjectSectionPath = (
+	filePath: string,
+): SectionPath | null => {
+	return parseSectionPath(filePath, {
+		work: [getCanonicalSectionPath("work")],
+		kb: [getCanonicalSectionPath("kb")],
+	});
 };
 
 export const resolveProjectSectionFilePath = async (
