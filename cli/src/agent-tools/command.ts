@@ -335,7 +335,8 @@ Input (CLI flags or JSON via stdin/file):
   - project_root: Project root directory (for settings lookup)
 
 Output:
-  JSON ToolResult with resolved arguments, environment, and unresolved list.
+  JSON ToolResult with resolved arguments, an environment placeholder object,
+  and an unresolved list.
 
 Examples:
   rp1 agent-tools resolve-args --name rp1-dev:build --args "my-feature --afk"

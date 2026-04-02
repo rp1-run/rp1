@@ -25,6 +25,12 @@ export interface HeartbeatMessage {
 	timestamp: string;
 }
 
+/** Project registry changed notification */
+export interface ProjectsChangedMessage {
+	type: "projects:changed";
+	timestamp: string;
+}
+
 /** Unified event notification for all status, artifact, and annotation updates */
 export interface EventNotificationMessage {
 	type: "event:notification";
@@ -115,6 +121,7 @@ export type ServerMessage =
 	| FileChangedMessage
 	| TreeChangedMessage
 	| HeartbeatMessage
+	| ProjectsChangedMessage
 	| EventNotificationMessage
 	| EventReplayMessage
 	| StateSnapshotMessage
