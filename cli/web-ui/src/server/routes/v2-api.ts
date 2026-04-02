@@ -23,6 +23,7 @@ import {
 } from "../../../../shared/index.js";
 import type {
 	ArtifactRecord,
+	NotificationRecord,
 	RunRecordWithLastEvent,
 	StepStatusEntry,
 } from "../../../../src/agent-tools/emit/database.js";
@@ -37,6 +38,10 @@ import {
 	listRuns,
 	resolveArtifactPathForRun,
 } from "../../../../src/agent-tools/emit/database.js";
+import {
+	dismissNotification,
+	listNotifications,
+} from "../../../../src/agent-tools/emit/notification-database.js";
 import {
 	deriveOrderedSteps,
 	listWorkflows,
@@ -1501,5 +1506,247 @@ export async function handleV2ProjectDeleteRequest(
 		return jsonResponse({ removed: true });
 	} catch (error) {
 		return errorResponse(`Failed to remove project: ${String(error)}`);
+	}
+}
+
+/**
+ * GET /api/v2/notifications - list non-dismissed notifications with pagination.
+ */
+export async function handleV2NotificationsListRequest(
+	req: Request,
+): Promise<Response> {
+	try {
+		const url = new URL(req.url);
+		const params = url.searchParams;
+		const projectId = params.get("projectId") ?? undefined;
+		const limit = Number.parseInt(params.get("limit") ?? "50", 10);
+		const offset = Number.parseInt(params.get("offset") ?? "0", 10);
+
+		const db = await getDb();
+		const result = listNotifications(db, { projectId, limit, offset });
+
+		const notifications = result.notifications.map((n) => ({
+			id: n.id,
+			message: n.message,
+			sourceType: n.sourceType,
+			sourceId: n.sourceId,
+			route: n.route,
+			projectId: n.projectId,
+			createdAt: n.createdAt,
+		}));
+
+		return jsonResponse({ notifications, total: result.total });
+	} catch (error) {
+		return errorResponse(`Failed to fetch notifications: ${String(error)}`);
+	}
+}
+
+/**
+ * POST /api/v2/notifications/:id/dismiss - soft-delete a notification.
+ * Broadcasts notification:dismissed via WebSocket.
+ */
+export async function handleV2NotificationDismissRequest(
+	notificationId: number,
+	ctx: ApiContext,
+): Promise<Response> {
+	try {
+		const db = await getDb();
+		const dismissed = dismissNotification(db, notificationId);
+
+		if (!dismissed) {
+			return errorResponse(
+				`Notification not found or already dismissed: ${notificationId}`,
+				404,
+			);
+		}
+
+		ctx.websocketHub?.broadcastNotificationDismissed(notificationId);
+
+		return jsonResponse({ dismissed: true });
+	} catch (error) {
+		return errorResponse(`Failed to dismiss notification: ${String(error)}`);
+	}
+}
+
+/**
+ * POST /api/v2/notifications/notify - receive notification from CLI emit pipeline.
+ * Broadcasts via WebSocket hub for real-time delivery.
+ */
+export async function handleV2NotificationNotifyRequest(
+	req: Request,
+	ctx: ApiContext,
+): Promise<Response> {
+	try {
+		let body: Record<string, unknown>;
+		try {
+			body = (await req.json()) as Record<string, unknown>;
+		} catch {
+			return errorResponse("Malformed JSON body", 400);
+		}
+
+		if (body.type !== "notification") {
+			return errorResponse(
+				`Unsupported type: expected "notification", received "${String(body.type ?? "none")}"`,
+				400,
+			);
+		}
+
+		const notification = body.notification as
+			| {
+					id: number;
+					message: string;
+					sourceType: string;
+					sourceId: string | null;
+					route: string | null;
+					projectId: string | null;
+					createdAt: string;
+			  }
+			| undefined;
+
+		if (!notification || typeof notification.id !== "number") {
+			return errorResponse("Missing or invalid notification payload", 400);
+		}
+
+		ctx.websocketHub?.broadcastNotificationCreated(notification);
+
+		return jsonResponse({ notified: true, notificationId: notification.id });
+	} catch (error) {
+		return errorResponse(`Failed to process notification: ${String(error)}`);
+	}
+}
+
+/**
+ * GET /api/v2/feed - unified activity feed (runs + notifications, chronologically interleaved).
+ * Queries both tables, merges by timestamp, and applies pagination to the combined result.
+ * When a status filter is active, notifications are still included alongside filtered runs.
+ */
+export async function handleV2FeedRequest(req: Request): Promise<Response> {
+	try {
+		const url = new URL(req.url);
+		const params = url.searchParams;
+		const projectIdFilter = params.get("projectId");
+		const projectUuidFilter = params.get("project_id");
+		const statusFilter = params.get("status") as string | null;
+		const dateRange = params.get("dateRange") ?? "all";
+		const limit = Number.parseInt(params.get("limit") ?? "25", 10);
+		const offset = Number.parseInt(params.get("offset") ?? "0", 10);
+
+		const db = await getDb();
+		const projects = await getAllProjects();
+		const projectLookup = buildProjectLookup(projects);
+
+		let projectPathFilter: string | undefined;
+		let dbProjectIdFilter: string | undefined;
+
+		if (projectUuidFilter) {
+			dbProjectIdFilter = projectUuidFilter;
+		} else if (projectIdFilter) {
+			const project = findProjectByIdentity(projectLookup, {
+				projectId: projectIdFilter,
+			});
+			if (project) {
+				projectPathFilter = project.path;
+			} else {
+				return jsonResponse({ items: [], total: 0 });
+			}
+		}
+
+		const dbStatus =
+			statusFilter && statusFilter !== "all"
+				? (statusFilter as string)
+				: undefined;
+
+		const knownProjectPaths = [...projectLookup.byPath.keys()];
+
+		const runsResult = listRuns(db, {
+			projectId: dbProjectIdFilter,
+			projectPath: dbProjectIdFilter ? undefined : projectPathFilter,
+			projectPaths:
+				dbProjectIdFilter || projectPathFilter ? undefined : knownProjectPaths,
+			status: dbStatus as
+				| import("../../../../shared/events.js").Status
+				| undefined,
+			limit: 200,
+			offset: 0,
+		});
+
+		let runItems: Array<{
+			type: "run";
+			id: string;
+			timestamp: string;
+			run: Run;
+		}> = [];
+		for (const record of runsResult.records) {
+			const project = findProjectByIdentity(projectLookup, record);
+			if (project) {
+				const run = runRecordToListRun(record, project);
+				runItems.push({
+					type: "run",
+					id: record.id,
+					timestamp: run.lastEventAt ?? run.startedAt,
+					run,
+				});
+			}
+		}
+
+		const notifProjectId = dbProjectIdFilter ?? undefined;
+		const notifResult = listNotifications(db, {
+			projectId: notifProjectId,
+			limit: 200,
+			offset: 0,
+		});
+
+		let notifItems: Array<{
+			type: "notification";
+			id: number;
+			timestamp: string;
+			notification: Omit<NotificationRecord, "dismissed">;
+		}> = notifResult.notifications.map((n) => ({
+			type: "notification" as const,
+			id: n.id,
+			timestamp: n.createdAt,
+			notification: {
+				id: n.id,
+				message: n.message,
+				sourceType: n.sourceType,
+				sourceId: n.sourceId,
+				route: n.route,
+				projectId: n.projectId,
+				createdAt: n.createdAt,
+			},
+		}));
+
+		if (dateRange !== "all") {
+			const now = Date.now();
+			const ranges: Record<string, number> = {
+				today: 24 * 60 * 60 * 1000,
+				week: 7 * 24 * 60 * 60 * 1000,
+				month: 30 * 24 * 60 * 60 * 1000,
+			};
+			const range = ranges[dateRange];
+			if (range) {
+				runItems = runItems.filter(
+					(item) => now - new Date(item.timestamp).getTime() <= range,
+				);
+				notifItems = notifItems.filter(
+					(item) => now - new Date(item.timestamp).getTime() <= range,
+				);
+			}
+		}
+
+		type FeedItem = (typeof runItems)[number] | (typeof notifItems)[number];
+
+		const allItems: FeedItem[] = [...runItems, ...notifItems];
+		allItems.sort(
+			(a, b) =>
+				new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+		);
+
+		const total = allItems.length;
+		const paged = allItems.slice(offset, offset + limit);
+
+		return jsonResponse({ items: paged, total });
+	} catch (error) {
+		return errorResponse(`Failed to fetch feed: ${String(error)}`);
 	}
 }
