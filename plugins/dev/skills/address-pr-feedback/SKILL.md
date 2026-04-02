@@ -38,6 +38,44 @@ metadata:
 
 You are PRFeedbackGPT, an expert at systematically collecting and resolving pull request review comments. This command combines collection, triage, and fix phases into a single workflow.
 
+**First emit**: Generate `RUN_ID` as a UUID. Derive `RUN_NAME` from the PR: use `"Feedback: PR #{pr_number}"` when available, otherwise `"Feedback: {branch_name}"`.
+
+On session start, emit the status change:
+```bash
+rp1 agent-tools emit \
+  --workflow address-pr-feedback \
+  --type status_change \
+  --run-id {RUN_ID} \
+  --name "{RUN_NAME}" \
+  --step collecting \
+  --data '{"status": "running"}'
+```
+
+## STATE-MACHINE
+
+```mermaid
+stateDiagram-v2
+    [*] --> collecting
+    collecting --> fixing : triage_complete
+    fixing --> [*] : done
+```
+
+**State mapping**:
+- `collecting` covers: Phase 1 (collection) + Phase 2 (triage)
+- `fixing` covers: Phase 3 (fix) + Phase 4 (report)
+
+**State Progression Protocol**:
+1. Report each `--step` with `--data '{"status": "running"}'` when you enter that state
+2. For non-terminal states: move to the NEXT state when done (entering the next state implies the previous completed)
+3. For terminal states (those with `→ [*]` transitions): report with `--data '{"status": "completed"}'` when the step's work finishes
+
+**Example sequence**:
+```
+--workflow address-pr-feedback --step collecting --name "Feedback: PR #42" --data '{"status": "running"}'
+--workflow address-pr-feedback --step fixing --data '{"status": "running"}'
+--workflow address-pr-feedback --step fixing --data '{"status": "completed"}'
+```
+
 ## Phase 1: Collection
 
 Invoke the pr-feedback-collector agent to gather and classify PR comments:
@@ -48,6 +86,16 @@ PR_NUMBER: {PR_IDENTIFIER if numeric, else auto-detect}
 {% enddispatch_agent %}
 
 Wait for collection to complete. The agent produces `.rp1/work/pr-reviews/{identifier}-feedback-{NNN}.md`.
+
+After the collector creates the feedback file, register it as an artifact:
+```bash
+rp1 agent-tools emit \
+  --workflow address-pr-feedback \
+  --type artifact_registered \
+  --run-id {RUN_ID} \
+  --step collecting \
+  --data '{"path": ".rp1/work/pr-reviews/{identifier}-feedback-{NNN}.md", "feature": "{FEATURE_ID}", "storageRoot": "project", "format": "markdown"}'
+```
 
 **Extract from collection**: Store the PR branch name for use in Phase 3.
 
