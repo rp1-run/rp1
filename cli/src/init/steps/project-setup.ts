@@ -23,6 +23,7 @@ import {
 	validateFencing,
 	wrapWithFence,
 } from "../comment-fence.js";
+import { resolveInitDirectoryModel } from "../directory-model.js";
 import { buildManagedGitignoreContent } from "../gitignore.js";
 import type { GitignorePreset, InitAction } from "../models.js";
 import type { InitProgress } from "../progress.js";
@@ -91,9 +92,8 @@ export async function createDirectoryStructure(
 	logger: Logger,
 ): Promise<InitAction[]> {
 	const actions: InitAction[] = [];
-	const rp1Dir = path.resolve(cwd, ".rp1");
-	const contextDir = path.join(rp1Dir, "context");
-	const workDir = path.join(rp1Dir, "work");
+	const directories = resolveInitDirectoryModel(cwd);
+	const { rp1Dir, contextDir, workDir } = directories;
 
 	if (!(await directoryExists(rp1Dir))) {
 		await fs.mkdir(rp1Dir, { recursive: true });
@@ -132,7 +132,7 @@ function resolveGlobalSettingsPath(): string {
  * Resolve the local settings file path.
  */
 function resolveLocalSettingsPath(cwd: string): string {
-	return path.join(cwd, ".rp1", "settings.toml");
+	return path.join(resolveInitDirectoryModel(cwd).rp1Dir, "settings.toml");
 }
 
 /**

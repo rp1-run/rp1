@@ -24,8 +24,8 @@ import {
 	updateArtifactStorage,
 } from "../../../../src/agent-tools/emit/database.js";
 import {
+	findArtifactByRequestedPath,
 	getRunDirectories,
-	matchesArtifactDisplayPath,
 	type ProjectDirectories,
 	resolveArtifactAbsolutePath,
 	resolveProjectDirectories,
@@ -331,10 +331,11 @@ export async function handleArtifactSaveRequest(
 
 		const directories = getRunDirectories(record);
 		const artifactRecords = dependencies.getArtifactsForRun(db, runId);
-		let artifactRecord =
-			artifactRecords.find((candidate) =>
-				matchesArtifactDisplayPath(directories, candidate, requestedPath),
-			) ?? null;
+		let artifactRecord = findArtifactByRequestedPath(
+			directories,
+			artifactRecords,
+			requestedPath,
+		);
 		let artifactBaseline =
 			artifactRecord != null
 				? (dependencies.getArtifactBaseline(db, artifactRecord.docId)

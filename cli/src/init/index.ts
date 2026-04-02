@@ -22,7 +22,10 @@ import {
 	type ContextDetectionResult,
 	detectProjectContext,
 } from "./context-detector.js";
-import { detectReinitState as detectSharedReinitState } from "./directory-model.js";
+import {
+	detectReinitState as detectSharedReinitState,
+	resolveInitDirectoryModel,
+} from "./directory-model.js";
 import { detectGitRoot, type GitRootResult } from "./git-root.js";
 import type {
 	HealthReport,
@@ -642,9 +645,10 @@ export function executeInit(
 
 				// --- Project setup ---
 				progress.startStep("directory-setup");
+				const directories = resolveInitDirectoryModel(cwd);
 				const dirActions = await createDirectoryStructure(cwd, logger);
 				allActions.push(...dirActions);
-				await ensureProjectId(cwd);
+				await ensureProjectId(directories.projectRoot);
 				progress.completeStep();
 
 				progress.startStep("settings-setup");
