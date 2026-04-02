@@ -28,11 +28,38 @@ export const backfillProjectId = (
 	const resolvedRoot = resolve(projectRoot);
 
 	try {
+		// Ensure project_id column exists in each table before updating.
+		// Older database versions (schema < 9) may not have this column yet.
+		const ensureProjectIdColumn = (table: string) => {
+			const cols = db.prepare(`PRAGMA table_info(${table})`).all() as {
+				name: string;
+			}[];
+			if (!cols.some((c) => c.name === "project_id")) {
+				db.exec(`ALTER TABLE ${table} ADD COLUMN project_id TEXT DEFAULT NULL`);
+			}
+		};
+
+		ensureProjectIdColumn("runs");
+		ensureProjectIdColumn("artifacts");
+		ensureProjectIdColumn("tasks");
+
+		// rp1_project_root may not exist in very old DBs (added in schema v7).
+		// Fall back to project_path if rp1_project_root is missing.
+		const runCols = db.prepare("PRAGMA table_info(runs)").all() as {
+			name: string;
+		}[];
+		const hasRp1ProjectRoot = runCols.some(
+			(c) => c.name === "rp1_project_root",
+		);
+		const runsWhereCol = hasRp1ProjectRoot
+			? "rp1_project_root"
+			: "project_path";
+
 		const runsResult = db
 			.prepare(
 				`UPDATE runs SET project_id = $projectId
 			 WHERE project_id IS NULL
-			   AND rp1_project_root = $projectRoot`,
+			   AND ${runsWhereCol} = $projectRoot`,
 			)
 			.run({
 				$projectId: projectId,
