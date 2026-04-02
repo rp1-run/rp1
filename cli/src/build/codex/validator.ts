@@ -11,35 +11,66 @@ import type { CLIError } from "../../../shared/errors.js";
 import { validationError } from "../../../shared/errors.js";
 
 /**
- * Extract YAML frontmatter from SKILL.md content.
+ * Extract YAML frontmatter from SKILL.md content using line-by-line parsing
+ * that matches the Codex CLI's Rust `extract_frontmatter` implementation.
+ *
+ * Codex requires:
+ * 1. First line (trimmed) must be exactly "---"
+ * 2. A closing "---" line must exist
+ * 3. At least one line of content between opening and closing delimiters
  */
 const extractFrontmatter = (
 	content: string,
 	file: string,
 ): E.Either<CLIError, Record<string, unknown>> => {
-	if (!content.startsWith("---")) {
+	const lines = content.split("\n");
+
+	// First line must be "---" (trimmed)
+	if (lines.length === 0 || lines[0].trim() !== "---") {
 		return E.left(
 			validationError(
 				file,
 				"L1",
-				"Content must start with YAML frontmatter (---)",
+				"Content must start with YAML frontmatter (first line must be ---)",
 			),
 		);
 	}
 
-	const parts = content.split("---");
-	if (parts.length < 3) {
+	// Collect frontmatter lines until closing "---"
+	const frontmatterLines: string[] = [];
+	let foundClosing = false;
+	for (let i = 1; i < lines.length; i++) {
+		if (lines[i].trim() === "---") {
+			foundClosing = true;
+			break;
+		}
+		frontmatterLines.push(lines[i]);
+	}
+
+	if (!foundClosing) {
 		return E.left(
 			validationError(
 				file,
 				"L1",
-				"Invalid frontmatter structure (must have opening and closing ---)",
+				"Missing closing --- delimiter for YAML frontmatter",
 			),
 		);
 	}
+
+	if (frontmatterLines.length === 0) {
+		return E.left(
+			validationError(
+				file,
+				"L1",
+				"YAML frontmatter is empty (no content between --- delimiters)",
+			),
+		);
+	}
+
+	const frontmatterText = frontmatterLines.join("\n");
 
 	try {
-		const metadata = parseYaml(parts[1]) as Record<string, unknown>;
+		const metadata = parseYaml(frontmatterText) as Record<string, unknown>;
 		return E.right(metadata);
 	} catch (e) {
 		return E.left(
