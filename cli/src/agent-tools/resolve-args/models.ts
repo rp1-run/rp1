@@ -14,7 +14,7 @@ export interface ResolveArgsInput {
 /** Resolved argument values keyed by UPPER_SNAKE_CASE argument name. */
 export type ResolvedArgumentValues = Readonly<Record<string, string | boolean>>;
 
-/** Resolved environment values keyed by parameter name. */
+/** Reserved environment values keyed by parameter name. Currently emitted as {}. */
 export type ResolvedEnvironmentValues = Readonly<Record<string, string>>;
 
 /** Output payload for the resolve-args tool. */

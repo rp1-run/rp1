@@ -4,6 +4,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
+import { useWebSocket } from "@/providers/WebSocketProvider";
 import type { V2Project } from "@/types/projects";
 import { useReconnectRecovery } from "./useReconnectRecovery";
 
@@ -24,6 +25,7 @@ export function useProjects(): UseProjectsReturn {
 	const [projects, setProjects] = useState<V2Project[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<Error | null>(null);
+	const { onProjectsChange } = useWebSocket();
 
 	const fetchProjects = useCallback(async () => {
 		try {
@@ -54,6 +56,12 @@ export function useProjects(): UseProjectsReturn {
 	useEffect(() => {
 		fetchProjects();
 	}, [fetchProjects]);
+
+	useEffect(() => {
+		return onProjectsChange(() => {
+			void fetchProjects();
+		});
+	}, [fetchProjects, onProjectsChange]);
 
 	useReconnectRecovery(fetchProjects);
 

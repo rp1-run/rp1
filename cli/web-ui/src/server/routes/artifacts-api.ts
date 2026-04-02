@@ -227,10 +227,12 @@ const getReconciliationRoots = (
 	workRoot: string,
 	storageRoot: "absolute" | "project" | "work_dir",
 ): readonly string[] => {
+	const legacyWorkRoot = join(resolve(projectRoot), ".rp1", "work");
 	return Array.from(
 		new Set([
 			...(storageRoot === "project" ? [resolve(projectRoot)] : []),
 			...(storageRoot === "absolute" ? [] : [resolve(workRoot)]),
+			...(storageRoot === "absolute" ? [] : [legacyWorkRoot]),
 		]),
 	);
 };
@@ -270,10 +272,14 @@ export async function resolveArtifactPath(
 			continue;
 		}
 
-		const normalized = dependencies.normalizeArtifactStorage(scannedPath, {
-			rp1ProjectRoot: directories.projectRoot,
-			rp1WorkRoot: directories.workRoot,
-		});
+		const normalized = dependencies.normalizeArtifactStorage(
+			scannedPath,
+			{
+				rp1ProjectRoot: directories.projectRoot,
+				rp1WorkRoot: directories.workRoot,
+			},
+			artifact.storageRoot,
+		);
 
 		dependencies.updateArtifactStorage(db, artifact.docId, normalized);
 		console.log(
