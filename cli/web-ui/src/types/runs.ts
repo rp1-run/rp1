@@ -80,6 +80,7 @@ export interface Run {
 	readonly artifacts: readonly Artifact[];
 	readonly events: readonly RunEvent[];
 	readonly startedAt: string;
+	readonly lastEventAt?: string | null;
 	readonly completedAt: string | null;
 	readonly error: string | null;
 	readonly agentSteps: Readonly<Record<string, readonly AgentTask[]>> | null;
