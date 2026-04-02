@@ -149,11 +149,13 @@ function NotificationFeedEntry({
 	item,
 	onClick,
 	onDismiss,
+	onProjectClick,
 	reducedMotion,
 }: {
 	item: NotificationFeedItem;
 	onClick: () => void;
 	onDismiss: (id: number) => void;
+	onProjectClick: (projectId: string) => void;
 	reducedMotion: boolean;
 }) {
 	const notification = item.notification;
@@ -189,12 +191,19 @@ function NotificationFeedEntry({
 				{formatRelativeTime(notification.createdAt)}
 			</span>
 
-			<span
-				className="shrink-0 type-body text-fg-ghost select-none"
-				aria-hidden="true"
-			>
-				--
+			<span className="inline-flex w-[14px] shrink-0 items-center justify-center">
+				{notification.harness ? (
+					<HarnessIcon harness={notification.harness} size={14} />
+				) : (
+					<span className="inline-block w-[14px]" />
+				)}
 			</span>
+
+			{notification.runCommand && (
+				<span className="shrink-0 type-body text-fg-ghost">
+					{notification.runCommand}
+				</span>
+			)}
 
 			<span
 				className={cn(
@@ -204,6 +213,27 @@ function NotificationFeedEntry({
 			>
 				{notification.message}
 			</span>
+
+			{notification.projectName && notification.projectId && (
+				<button
+					type="button"
+					onClick={(e) => {
+						e.stopPropagation();
+						onProjectClick(notification.projectId!);
+					}}
+					onKeyDown={(e) => {
+						if (e.key === "Enter" || e.key === " ") {
+							e.stopPropagation();
+							onProjectClick(notification.projectId!);
+						}
+					}}
+					className="ml-auto shrink-0 flex items-center gap-1 pl-4 type-secondary italic text-fg-ghost hover:text-fg-muted transition-colors duration-150 cursor-pointer bg-transparent border-none p-0"
+					aria-label={`Open project ${notification.projectName}`}
+				>
+					<SquareKanban className="h-3 w-3" strokeWidth={1.5} />
+					{notification.projectName}
+				</button>
+			)}
 
 			<button
 				type="button"
@@ -218,12 +248,13 @@ function NotificationFeedEntry({
 					}
 				}}
 				className={cn(
-					"ml-auto shrink-0 inline-flex items-center justify-center",
+					"shrink-0 inline-flex items-center justify-center",
 					"h-5 w-5 rounded transition-colors duration-150",
 					"text-fg-ghost/0 group-hover:text-fg-ghost",
 					"hover:!text-fg-muted hover:bg-surface/50",
 					"bg-transparent border-none p-0 cursor-pointer",
 					"focus-visible:text-fg-ghost focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border",
+					!notification.projectName && "ml-auto",
 				)}
 				aria-label="Dismiss notification"
 			>
@@ -335,6 +366,7 @@ export function HomePage() {
 							if (route) handleNotificationClick(route);
 						}}
 						onDismiss={handleDismiss}
+						onProjectClick={handleProjectClick}
 						reducedMotion={reducedMotion}
 					/>
 				);
