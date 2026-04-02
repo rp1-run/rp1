@@ -83,7 +83,7 @@ tests:
           11. Build-verify-aggregator determines overall_status (VERIFIED/FAILED) and ready_for_merge
           12. Final output includes Feature ID, step status table (1-6), and artifacts created
           13. Agent reports work status updates via Metadata bashCommands containing "rp1 agent-tools emit" with "--type status_change" and "--run-id" flags
-          14. Agent registers produced artifacts via Metadata bashCommands containing "rp1 agent-tools work artifact" with "--project", "--feature", "--run-id", and "--path" flags pointing to files in .rp1/work/features/{FEATURE_ID}/
+          14. Agent registers produced artifacts via Metadata bashCommands containing "rp1 agent-tools emit" with "--type artifact_registered" and "--run-id" flags pointing to files in .rp1/work/features/{FEATURE_ID}/
 
           PASS if: Full workflow executes with status tracking
           FAIL if: Steps skipped out of order or no status table
