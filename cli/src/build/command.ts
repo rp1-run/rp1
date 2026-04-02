@@ -30,6 +30,7 @@ import { extractStateMachineMermaid } from "../agent-tools/state-machine/extract
 import { serializeStateMachine } from "../agent-tools/state-machine/serialization.js";
 import { parseAndTransform } from "../agent-tools/state-machine/transform.js";
 import { colorFns } from "../lib/colors.js";
+import { validateCodexSkill } from "./codex/validator.js";
 import { type LintDiagnostic, lintArtifact } from "./lint/index.js";
 import {
 	lintAgentArguments,
@@ -608,10 +609,10 @@ export const buildPlatformPlugin = async (
 		}
 		const skillContent = injectEmitHarness(renderResult.right, platform);
 
-		const validateResult = validateSkill(
-			skillContent,
-			`${namespacedSkillDir}/SKILL.md`,
-		);
+		const validateResult =
+			platform === "codex"
+				? validateCodexSkill(skillContent, `${namespacedSkillDir}/SKILL.md`)
+				: validateSkill(skillContent, `${namespacedSkillDir}/SKILL.md`);
 		if (E.isLeft(validateResult)) {
 			errors.push(formatError(validateResult.left, false));
 			continue;
