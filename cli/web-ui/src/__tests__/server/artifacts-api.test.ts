@@ -567,7 +567,7 @@ describe("resolveArtifactPath", () => {
 		const row = reconcileDb
 			.prepare("SELECT path FROM artifacts WHERE doc_id = $docId")
 			.get({ $docId: reconcileDocId }) as { path: string };
-		expect(row.path).toBe("archives/features/feat-1/tasks.md");
+		expect(row.path).toBe(".rp1/work/archives/features/feat-1/tasks.md");
 	});
 
 	test("cache miss + scan miss: returns null when file is deleted", async () => {
@@ -655,6 +655,69 @@ describe("resolveArtifactPath", () => {
 			await rm(externalProjectRoot, { recursive: true, force: true });
 		}
 	});
+
+	test("reconciles work-dir artifacts from the legacy project-local .rp1/work directory", async () => {
+		const legacyProjectRoot = await mkdtemp(
+			join(tmpdir(), "rp1-legacy-work-reconcile-"),
+		);
+		const externalWorkDir = join(legacyProjectRoot, "external-work");
+		const legacyDocId = "legacy-project-work-doc";
+		const legacyPath = join(
+			legacyProjectRoot,
+			".rp1",
+			"work",
+			"features",
+			"legacy",
+			"tasks.md",
+		);
+
+		try {
+			reconcileDb
+				.prepare(
+					"INSERT INTO artifacts (doc_id, run_id, path, type, storage_root, project_path, feature) VALUES ($docId, $runId, $path, $type, $storageRoot, $projectPath, $feature)",
+				)
+				.run({
+					$docId: legacyDocId,
+					$runId: "reconcile-run",
+					$path: "missing/tasks.md",
+					$type: "markdown",
+					$storageRoot: "work_dir",
+					$projectPath: legacyProjectRoot,
+					$feature: "test-feature",
+				});
+
+			await mkdir(dirname(legacyPath), { recursive: true });
+			await Bun.write(
+				legacyPath,
+				`---\nrp1_doc_id: ${legacyDocId}\n---\n# Legacy Work`,
+			);
+
+			const result = await resolveArtifactPath(
+				reconcileDb,
+				reconcileDirectories(legacyProjectRoot, externalWorkDir),
+				{
+					docId: legacyDocId,
+					path: "missing/tasks.md",
+					storageRoot: "work_dir",
+				},
+			);
+
+			expect(result).toBe(legacyPath);
+
+			const row = reconcileDb
+				.prepare(
+					"SELECT path, storage_root FROM artifacts WHERE doc_id = $docId",
+				)
+				.get({ $docId: legacyDocId }) as {
+				path: string;
+				storage_root: string;
+			};
+			expect(row.path).toBe("features/legacy/tasks.md");
+			expect(row.storage_root).toBe("work_dir");
+		} finally {
+			await rm(legacyProjectRoot, { recursive: true, force: true });
+		}
+	});
 });
 
 describe("handleArtifactSaveRequest with moved file", () => {
@@ -728,7 +791,7 @@ describe("handleArtifactSaveRequest with moved file", () => {
 		const row = movedDb
 			.prepare("SELECT path FROM artifacts WHERE doc_id = $docId")
 			.get({ $docId: movedDocId }) as { path: string };
-		expect(row.path).toBe("archives/features/feat-move/design.md");
+		expect(row.path).toBe(".rp1/work/archives/features/feat-move/design.md");
 		const written = await Bun.file(join(movedTmpDir, archivedPath)).text();
 		expect(written).toBe(newContent);
 	});

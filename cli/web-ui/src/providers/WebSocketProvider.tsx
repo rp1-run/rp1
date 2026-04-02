@@ -14,6 +14,7 @@ import type {
 	ConnectionStatus,
 	EventNotificationMessage,
 	FileChangedMessage,
+	ProjectsChangedMessage,
 	ServerMessage,
 	TreeChangedMessage,
 } from "../types/websocket";
@@ -35,6 +36,9 @@ interface WebSocketContextValue {
 	onTreeChange: (callback: (msg: TreeChangedMessage) => void) => () => void;
 	onEventNotification: (
 		callback: (msg: EventNotificationMessage) => void,
+	) => () => void;
+	onProjectsChange: (
+		callback: (msg: ProjectsChangedMessage) => void,
 	) => () => void;
 	onAnnotationMessage: (
 		callback: (msg: AnnotationMessage) => void,
@@ -75,6 +79,9 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 	);
 	const eventNotificationListenersRef = useRef<
 		Set<(msg: EventNotificationMessage) => void>
+	>(new Set());
+	const projectsChangeListenersRef = useRef<
+		Set<(msg: ProjectsChangedMessage) => void>
 	>(new Set());
 	const annotationListenersRef = useRef<Set<(msg: AnnotationMessage) => void>>(
 		new Set(),
@@ -185,6 +192,11 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 						callback();
 					}
 					break;
+				case "projects:changed":
+					for (const listener of projectsChangeListenersRef.current) {
+						listener(message);
+					}
+					break;
 				case "annotation:created":
 				case "annotation:updated":
 				case "annotation:resolved":
@@ -284,6 +296,16 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 		[],
 	);
 
+	const onProjectsChange = useCallback(
+		(callback: (msg: ProjectsChangedMessage) => void) => {
+			projectsChangeListenersRef.current.add(callback);
+			return () => {
+				projectsChangeListenersRef.current.delete(callback);
+			};
+		},
+		[],
+	);
+
 	const subscribeToAttention = useCallback((callback: AttentionCallback) => {
 		attentionListenersRef.current.add(callback);
 		return () => {
@@ -313,6 +335,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 				onFileChange,
 				onTreeChange,
 				onEventNotification,
+				onProjectsChange,
 				onAnnotationMessage,
 				subscribeToAttention,
 				subscribeToReconnect,

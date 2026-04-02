@@ -101,7 +101,7 @@ The `environment` field declares parameters resolved from the shell environment,
 !!! warning "Directory variables removed"
     The `RP1_PROJECT_ROOT`, `RP1_KB_ROOT`, and `RP1_WORK_ROOT` environment variables have been removed. All directory paths are now deterministic from the project root: KB is always `<projectRoot>/.rp1/context` and work is always `<projectRoot>/.rp1/work`. Skills that previously declared these in `metadata.environment` should remove those entries. Use `rp1 agent-tools rp1-root-dir` to discover the project root if needed.
 
-Environment parameters are resolved at invocation time via `rp1 agent-tools resolve-args` and returned as a separate `environment` section in the resolved output.
+`rp1 agent-tools resolve-args` currently returns an empty `environment` object placeholder in its resolved output. Do not rely on `metadata.environment` for directory discovery; use `rp1 agent-tools rp1-root-dir` and deterministic `.rp1/context` / `.rp1/work` paths instead.
 
 ### `metadata.sub_agents`
 
