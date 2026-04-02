@@ -14,6 +14,7 @@ import type {
 	ConnectionStatus,
 	EventNotificationMessage,
 	FileChangedMessage,
+	NotificationMessage,
 	ProjectsChangedMessage,
 	ServerMessage,
 	TreeChangedMessage,
@@ -23,6 +24,7 @@ export type {
 	ConnectionStatus,
 	EventNotificationMessage,
 	FileChangedMessage,
+	NotificationMessage,
 	TreeChangedMessage,
 } from "../types/websocket";
 
@@ -43,6 +45,7 @@ interface WebSocketContextValue {
 	onAnnotationMessage: (
 		callback: (msg: AnnotationMessage) => void,
 	) => () => void;
+	onNotification: (callback: (msg: NotificationMessage) => void) => () => void;
 	subscribeToAttention: (callback: AttentionCallback) => () => void;
 	subscribeToReconnect: (callback: () => void) => () => void;
 }
@@ -86,6 +89,9 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 	const annotationListenersRef = useRef<Set<(msg: AnnotationMessage) => void>>(
 		new Set(),
 	);
+	const notificationListenersRef = useRef<
+		Set<(msg: NotificationMessage) => void>
+	>(new Set());
 	const subscriptionsRef = useRef<Set<string>>(new Set());
 	const attentionListenersRef = useRef<Set<AttentionCallback>>(new Set());
 	const reconnectListenersRef = useRef<Set<() => void>>(new Set());
@@ -206,6 +212,12 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 						listener(message);
 					}
 					break;
+				case "notification:created":
+				case "notification:dismissed":
+					for (const listener of notificationListenersRef.current) {
+						listener(message);
+					}
+					break;
 				case "heartbeat":
 					break;
 			}
@@ -296,6 +308,16 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 		[],
 	);
 
+	const onNotification = useCallback(
+		(callback: (msg: NotificationMessage) => void) => {
+			notificationListenersRef.current.add(callback);
+			return () => {
+				notificationListenersRef.current.delete(callback);
+			};
+		},
+		[],
+	);
+
 	const onProjectsChange = useCallback(
 		(callback: (msg: ProjectsChangedMessage) => void) => {
 			projectsChangeListenersRef.current.add(callback);
@@ -337,6 +359,7 @@ export function WebSocketProvider({ children }: WebSocketProviderProps) {
 				onEventNotification,
 				onProjectsChange,
 				onAnnotationMessage,
+				onNotification,
 				subscribeToAttention,
 				subscribeToReconnect,
 			}}
