@@ -35,6 +35,7 @@ import {
 } from "./database.js";
 import { type DocIdResult, generateDocId, resolveDocId } from "./doc-id.js";
 import type { EmitInput, EmitResult } from "./models.js";
+import { maybeGenerateNotification } from "./notification-generator.js";
 import {
 	isNamespacedStep,
 	validateStepAgainstStateMachine,
@@ -409,6 +410,19 @@ export const executeEmit = (
 										db,
 										input.runId,
 										input.closeRun,
+									);
+
+									maybeGenerateNotification(
+										db,
+										input.runId,
+										runStatus,
+										input.type,
+										run.projectId,
+										run.flow !== "unknown"
+											? run.flow
+											: (input.workflow ?? null),
+										input.step ?? null,
+										input.data,
 									);
 
 									return {
