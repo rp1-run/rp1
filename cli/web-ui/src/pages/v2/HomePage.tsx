@@ -188,9 +188,12 @@ function NotificationFeedEntry({
 			)}
 		>
 			<span
-				className="inline-block h-[6px] w-[6px] shrink-0 rotate-45 bg-fg-ghost/50"
+				className="inline-block w-[6px] shrink-0 text-fg-ghost/50 leading-none"
+				style={{ fontSize: "8px" }}
 				aria-hidden="true"
-			/>
+			>
+				▲
+			</span>
 
 			<span className="w-[5.5em] shrink-0 text-right type-secondary tabular-nums text-fg-ghost">
 				{formatRelativeTime(notification.createdAt)}
