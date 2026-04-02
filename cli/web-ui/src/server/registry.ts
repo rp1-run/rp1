@@ -5,6 +5,8 @@
 
 import { readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
 import { basename, dirname } from "node:path";
+import * as E from "fp-ts/lib/Either.js";
+import { resolveDirectorySet } from "../../../shared/directory-resolution.js";
 import { readProjectId } from "../../../shared/project-id.js";
 import { ensureConfigDir, getRegistryPath } from "../daemon/config-dir";
 
@@ -212,16 +214,23 @@ export async function registerProject(
 		};
 	}
 
+	// Normalize path through directory resolution so worktrees resolve
+	// to the main repo path instead of being registered as separate projects.
+	const resolved = resolveDirectorySet(projectPath);
+	const normalizedPath = E.isRight(resolved)
+		? resolved.right.projectRoot
+		: projectPath;
+
 	const registry = await loadRegistry();
 	const existingIds = new Set(Object.keys(registry.projects));
-	const uuid = readProjectId(projectPath);
+	const uuid = readProjectId(normalizedPath);
 
 	const existing = Object.values(registry.projects).find(
-		(p) => p.path === projectPath,
+		(p) => p.path === normalizedPath,
 	);
 
 	const now = new Date().toISOString();
-	const available = await isValidProject(projectPath);
+	const available = await isValidProject(normalizedPath);
 
 	if (existing) {
 		const needsRekey = uuid && existing.id !== uuid;
@@ -250,13 +259,13 @@ export async function registerProject(
 		return updated;
 	}
 
-	const id = uuid ?? generateProjectId(projectPath, existingIds);
-	const name = getProjectName(projectPath);
+	const id = uuid ?? generateProjectId(normalizedPath, existingIds);
+	const name = getProjectName(normalizedPath);
 
 	const entry: ProjectEntry = {
 		id,
 		projectId: uuid,
-		path: projectPath,
+		path: normalizedPath,
 		name,
 		addedAt: now,
 		lastAccessedAt: now,
