@@ -19,6 +19,7 @@ import {
 	getTransitivePredecessors,
 	loadStateMachine,
 } from "../state-machine/index.js";
+import type { NotificationRecord } from "./database.js";
 import {
 	type ArtifactInput,
 	type ArtifactStorageRoot,
@@ -330,6 +331,35 @@ const notifyDaemon = async (
 };
 
 /**
+ * Notify the daemon of a newly created notification for WebSocket broadcast.
+ * Best-effort: failures are silently swallowed.
+ */
+const notifyDaemonNotification = async (
+	notification: NotificationRecord,
+): Promise<void> => {
+	try {
+		const { connectToDaemon, notifyNotification } = await import(
+			"../../../web-ui/src/daemon/index.js"
+		);
+
+		const conn = await connectToDaemon();
+		if (conn) {
+			await notifyNotification(conn, {
+				id: notification.id,
+				message: notification.message,
+				sourceType: notification.sourceType,
+				sourceId: notification.sourceId,
+				route: notification.route,
+				projectId: notification.projectId,
+				createdAt: notification.createdAt,
+			});
+		}
+	} catch {
+		// Daemon not available - polling will pick up the change
+	}
+};
+
+/**
  * Main emit execution pipeline.
  * Handles all 6 event types through a unified flow:
  * 1. Ensure run exists (auto-create if needed)
@@ -412,7 +442,7 @@ export const executeEmit = (
 										input.closeRun,
 									);
 
-									maybeGenerateNotification(
+									const notification = maybeGenerateNotification(
 										db,
 										input.runId,
 										runStatus,
@@ -430,13 +460,17 @@ export const executeEmit = (
 										runStatus,
 										skippedResult,
 										docId,
+										notification,
 									};
 								}),
 							);
 						}),
-						TE.chainFirst(({ event, runStatus }) =>
+						TE.chainFirst(({ event, runStatus, notification }) =>
 							TE.fromTask(async () => {
 								await notifyDaemon(input, run, runStatus, event.id);
+								if (notification) {
+									await notifyDaemonNotification(notification);
+								}
 							}),
 						),
 						TE.map(
