@@ -111,6 +111,7 @@ export function RunDetailPage() {
 				command: run.command,
 				displayName: resolveRunDisplayName(run) || run.command,
 				projectName: run.projectName,
+				projectId: run.projectId,
 			});
 		}
 		return () => {
