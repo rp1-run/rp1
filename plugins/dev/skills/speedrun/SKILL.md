@@ -34,16 +34,25 @@ Interactive speedrun loop for rapid, small changes. Delegates each request to a 
 
 **This command ONLY orchestrates. It does NOT implement code.**
 
-**First emit**: Include `--name "{RUN_NAME}"` on the first emit call to label the run in the Arcade dashboard. Derive `RUN_NAME` from the initial request: a brief summary (max 60 chars) prefixed with `"Feature: "`. Generate `RUN_ID` as a UUID at session start. Capture `DATESTAMP=$(date +%Y-%m-%d)` once at session start for use in session log paths. Initialize `TASK_COUNT=0` at session start. Example:
+**First emit**: Include `--name "{RUN_NAME}"` on the first emit call to label the run in the Arcade dashboard. Derive `RUN_NAME` from the initial request: a brief summary (max 60 chars) prefixed with `"Feature: "`. Generate `RUN_ID` as a UUID at session start. Capture `DATESTAMP=$(date +%Y-%m-%d)` once at session start for use in session log paths. Initialize `TASK_COUNT=0` at session start.
+
+On session start, emit the status change AND register the session log artifact immediately (before the first task):
 ```bash
 rp1 agent-tools emit \
   --workflow speedrun \
   --type status_change \
   --run-id {RUN_ID} \
   --name "Feature: {brief summary of request}" \
-  --step build \
-  --unit task-1 \
+  --step active \
   --data '{"status": "running"}'
+```
+```bash
+rp1 agent-tools emit \
+  --workflow speedrun \
+  --type artifact_registered \
+  --run-id {RUN_ID} \
+  --step active \
+  --data '{"path": "speedrun/{DATESTAMP}-{RUN_ID}/session-log.md", "storageRoot": "work_dir", "format": "markdown"}'
 ```
 
 **Per-task unit tracking**: Each task in the session gets a unit identifier `task-{TASK_COUNT}`. Increment `TASK_COUNT` before each new task starts. Include `--unit task-{TASK_COUNT}` on ALL emit calls for that task so each task appears as a trackable item in the Arcade.
@@ -52,12 +61,8 @@ rp1 agent-tools emit \
 
 ```mermaid
 stateDiagram-v2
-    [*] --> build
-    build --> commit : user=commit
-    build --> build : user=refine
-    commit --> build : next_task
-    build --> [*] : user=exit
-    commit --> [*] : user=exit
+    [*] --> active
+    active --> [*] : session_end
 ```
 
 ## 1. Main Loop
@@ -133,7 +138,7 @@ rp1 agent-tools emit \
   --workflow speedrun \
   --type status_change \
   --run-id {RUN_ID} \
-  --step build \
+  --step active \
   --unit task-{TASK_COUNT} \
   --data '{"status": "running", "request": "{brief summary of REQUEST}"}'
 ```
@@ -160,7 +165,7 @@ rp1 agent-tools emit \
   --workflow speedrun \
   --type waiting_for_user \
   --run-id {RUN_ID} \
-  --step build \
+  --step active \
   --unit task-{TASK_COUNT} \
   --data '{"prompt": "What would you like to do next?", "context": "Post-build prompt after express builder completes"}'
 ```
@@ -189,7 +194,7 @@ rp1 agent-tools emit \
   --workflow speedrun \
   --type status_change \
   --run-id {RUN_ID} \
-  --step commit \
+  --step active \
   --unit task-{TASK_COUNT} \
   --data '{"status": "completed"}'
 ```
@@ -219,18 +224,7 @@ The log file uses this format:
 - **Change**: 1-line summary of what the builder actually did (from builder output). Use "N/A" if skipped before build.
 - **Status**: `committed`, `skipped`, or `refined` (refined = was refined then committed)
 
-After writing/updating the file, register it as an artifact:
-
-```bash
-rp1 agent-tools emit \
-  --workflow speedrun \
-  --type artifact_registered \
-  --run-id {RUN_ID} \
-  --unit task-{TASK_COUNT} \
-  --data '{"path": "speedrun/{DATESTAMP}-{RUN_ID}/session-log.md", "storageRoot": "work_dir", "format": "markdown"}'
-```
-
-Create the directory if it does not exist (`mkdir -p`). Rewrite the entire file each time (header + all rows) so it stays consistent.
+Create the directory if it does not exist (`mkdir -p`). Rewrite the entire file each time (header + all rows) so it stays consistent. The artifact was already registered at session start, so no need to re-register here.
 
 ## 2. Session End
 
