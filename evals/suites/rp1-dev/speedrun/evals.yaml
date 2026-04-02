@@ -51,7 +51,11 @@ tests:
   - description: "small_request_delegates_to_subagent"
     assert:
       - type: javascript
-        value: file://../../shared/assertions/tool-calls.ts:assertGeneralSubagentSpawned
+        value: file://../../shared/assertions/tool-calls.ts:assertSpeedrunBuilderSpawned
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertWorkStatusUpdate
+      - type: javascript
+        value: file://../../shared/assertions/tool-calls.ts:assertArtifactRegistration
       - type: llm-rubric
         value: |
           Evaluate the speedrun agent's orchestration behavior for a small request.
@@ -61,12 +65,12 @@ tests:
           orchestrator's OUTPUT TEXT and delegation behavior, not raw tool call metadata.
 
           REQUIRED (all must pass):
-          1. Agent spawns a general sub-agent for implementation (visible in Agent/Task tool calls)
+          1. Agent spawns speedrun-builder sub-agent for implementation (visible in Agent/Task tool calls)
           2. Agent does NOT spawn build-fast-planner or task-builder (those are build-fast agents)
           3. Agent presents a post-build prompt with options including: commit, refine, new task, exit
           4. Agent tracks task count across the session
 
-          PASS if: Small request delegated to general sub-agent with post-build prompt options
+          PASS if: Small request delegated to speedrun-builder with post-build prompt options
           FAIL if: Agent uses build-fast pipeline agents or never presents post-build options
   - description: "medium_scope_redirects"
     vars:
