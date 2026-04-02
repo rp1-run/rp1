@@ -241,6 +241,49 @@ export async function notifyEvent(
 }
 
 /**
+ * Notification payload for real-time WebSocket broadcast via daemon.
+ */
+export interface NotificationNotifyPayload {
+	readonly type: "notification";
+	readonly notification: {
+		readonly id: number;
+		readonly message: string;
+		readonly sourceType: string;
+		readonly sourceId: string | null;
+		readonly route: string | null;
+		readonly projectId: string | null;
+		readonly createdAt: string;
+	};
+}
+
+/**
+ * Notify the daemon of a new notification for immediate WebSocket broadcast.
+ * Fails silently if daemon is not running - this is expected behavior.
+ */
+export async function notifyNotification(
+	conn: DaemonConnection,
+	notification: NotificationNotifyPayload["notification"],
+): Promise<boolean> {
+	try {
+		const response = await fetch(
+			`${conn.baseUrl}/api/v2/notifications/notify`,
+			{
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					type: "notification",
+					notification,
+				} satisfies NotificationNotifyPayload),
+				signal: AbortSignal.timeout(1000),
+			},
+		);
+		return response.ok;
+	} catch {
+		return false;
+	}
+}
+
+/**
  * Get daemon status.
  */
 export interface DaemonStatus {
