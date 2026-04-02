@@ -77,11 +77,19 @@ function FeedEntry({
 	reducedMotion: boolean;
 }) {
 	const isWaiting = run.status === "waiting";
+	const latestEventAt = run.lastEventAt ?? run.startedAt;
 
 	return (
-		<motion.button
-			type="button"
+		<motion.div
+			role="button"
+			tabIndex={0}
 			onClick={onClick}
+			onKeyDown={(e) => {
+				if (e.key === "Enter" || e.key === " ") {
+					e.preventDefault();
+					onClick();
+				}
+			}}
 			variants={reducedMotion ? feedItemVariantsReduced : feedItemVariants}
 			transition={reducedMotion ? { duration: 0 } : feedItemTransition}
 			className={cn(
@@ -95,7 +103,7 @@ function FeedEntry({
 			<StatusDot status={run.status} />
 
 			<span className="w-[5.5em] shrink-0 text-right type-secondary tabular-nums text-fg-ghost">
-				{formatRelativeTime(run.startedAt)}
+				{formatRelativeTime(latestEventAt)}
 			</span>
 
 			<span className="inline-flex w-[14px] shrink-0 items-center justify-center">
@@ -121,7 +129,7 @@ function FeedEntry({
 					onProjectClick(run.projectId);
 				}}
 				onKeyDown={(e) => {
-					if (e.key === "Enter") {
+					if (e.key === "Enter" || e.key === " ") {
 						e.stopPropagation();
 						onProjectClick(run.projectId);
 					}
@@ -132,7 +140,7 @@ function FeedEntry({
 				<SquareKanban className="h-3 w-3" strokeWidth={1.5} />
 				{run.projectName}
 			</button>
-		</motion.button>
+		</motion.div>
 	);
 }
 
