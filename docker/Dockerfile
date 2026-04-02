@@ -48,7 +48,8 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh | bash 
 # Non-root user
 RUN useradd -m -s /bin/zsh rp1user \
     && mkdir -p /home/rp1user/.local/bin \
-    && chown -R rp1user:rp1user /home/rp1user
+    && chown -R rp1user:rp1user /home/rp1user \
+    && echo 'rp1user ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/rp1user
 
 USER rp1user
 WORKDIR /home/rp1user
