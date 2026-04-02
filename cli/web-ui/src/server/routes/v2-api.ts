@@ -23,6 +23,7 @@ import {
 } from "../../../../shared/index.js";
 import type {
 	ArtifactRecord,
+	RunRecordWithLastEvent,
 	StepStatusEntry,
 } from "../../../../src/agent-tools/emit/database.js";
 import {
@@ -600,7 +601,7 @@ async function deriveSteps(
  * Convert a RunRecord to a lightweight Run for list views.
  */
 function runRecordToListRun(
-	record: RunRecord & { readonly lastEventAt?: string | null },
+	record: RunRecordWithLastEvent,
 	project: ProjectEntry,
 ): Run {
 	return {
@@ -826,7 +827,7 @@ export async function handleV2RunsAttentionRequest(): Promise<Response> {
 
 		const attentionRuns = getRunsByAttentionStatus(db);
 
-		const toRuns = (records: readonly RunRecord[]): Run[] => {
+		const toRuns = (records: readonly RunRecordWithLastEvent[]): Run[] => {
 			const runs: Run[] = [];
 			for (const record of records) {
 				const project = findProjectByIdentity(projectLookup, record);
