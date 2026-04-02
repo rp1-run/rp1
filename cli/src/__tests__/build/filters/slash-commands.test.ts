@@ -9,7 +9,7 @@ import { slashCommands } from "../../../build/filters/slash-commands.js";
 const skillMap: ReadonlyMap<string, string> = new Map([
 	["build", "dev"],
 	["build-fast", "dev"],
-	["build-express", "dev"],
+	["speedrun", "dev"],
 	["knowledge-build", "base"],
 	["knowledge-load", "base"],
 	["tersify-prompt", "utils"],
@@ -89,11 +89,11 @@ describe("slash_commands filter", () => {
 			);
 		});
 
-		test("negative lookahead prevents /build from matching /build-express", () => {
-			const content = "Use /build-express here.";
+		test("negative lookahead prevents /build from matching /speedrun", () => {
+			const content = "Use /speedrun here.";
 			const result = slashCommands(content, "codex", skillMap);
-			expect(result).toBe("Use $rp1-dev-build-express here.");
-			expect(result.match(/\$rp1-dev-build/g)?.length).toBe(1);
+			expect(result).toBe("Use $rp1-dev-speedrun here.");
+			expect(result).not.toContain("$rp1-dev-build");
 		});
 
 		test("preserves references inside code blocks", () => {
