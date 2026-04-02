@@ -1,5 +1,11 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { Activity, SlidersHorizontal, SquareKanban, X } from "lucide-react";
+import {
+	Activity,
+	Mail,
+	SlidersHorizontal,
+	SquareKanban,
+	X,
+} from "lucide-react";
 import { useCallback, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { FilterBar } from "@/components/v2/FilterBar";
@@ -185,7 +191,9 @@ function NotificationFeedEntry({
 				"focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border",
 			)}
 		>
-			<span className="inline-block w-[6px] shrink-0" aria-hidden="true" />
+			<span className="inline-flex w-[6px] shrink-0 items-center justify-center">
+				<Mail className="h-[6px] w-[6px] text-fg-ghost" strokeWidth={1.5} />
+			</span>
 
 			<span className="w-[5.5em] shrink-0 text-right type-secondary tabular-nums text-fg-ghost">
 				{formatRelativeTime(notification.createdAt)}
@@ -200,7 +208,7 @@ function NotificationFeedEntry({
 			</span>
 
 			{notification.runCommand && (
-				<span className="shrink-0 type-body text-fg-ghost">
+				<span className="shrink-0 type-body font-medium text-fg">
 					{notification.runCommand}
 				</span>
 			)}
