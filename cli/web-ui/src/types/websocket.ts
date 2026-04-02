@@ -108,6 +108,31 @@ export interface AnnotationReplyAddedMessage {
 	timestamp: string;
 }
 
+/** Notification created via the notification system */
+export interface NotificationCreatedMessage {
+	type: "notification:created";
+	notification: {
+		id: number;
+		message: string;
+		sourceType: string;
+		sourceId: string | null;
+		route: string | null;
+		projectId: string | null;
+		createdAt: string;
+	};
+}
+
+/** Notification dismissed (soft-deleted) */
+export interface NotificationDismissedMessage {
+	type: "notification:dismissed";
+	notificationId: number;
+}
+
+/** Union of all notification-related messages */
+export type NotificationMessage =
+	| NotificationCreatedMessage
+	| NotificationDismissedMessage;
+
 /** Union of all annotation-related messages */
 export type AnnotationMessage =
 	| AnnotationCreatedMessage
@@ -129,7 +154,9 @@ export type ServerMessage =
 	| AnnotationUpdatedMessage
 	| AnnotationResolvedMessage
 	| AnnotationDeletedMessage
-	| AnnotationReplyAddedMessage;
+	| AnnotationReplyAddedMessage
+	| NotificationCreatedMessage
+	| NotificationDismissedMessage;
 
 /** WebSocket connection status */
 export type ConnectionStatus = "connecting" | "connected" | "disconnected";
