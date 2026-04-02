@@ -11,6 +11,10 @@ interface NotificationFeedRecord {
 	readonly route: string | null;
 	readonly projectId: string | null;
 	readonly createdAt: string;
+	readonly harness: string | null;
+	readonly runCommand: string | null;
+	readonly runName: string | null;
+	readonly projectName: string | null;
 }
 
 export interface RunFeedItem {
