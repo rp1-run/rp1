@@ -174,6 +174,32 @@ describe("project-paths", () => {
 		).toBe(join(tmpProjectDir, ".rp1", "work"));
 	});
 
+	test("getRunDirectories preserves persisted run roots while keeping canonical display paths", () => {
+		const externalKbRoot = join(tmpProjectDir, "external-context");
+		const externalWorkRoot = join(tmpProjectDir, "external-work");
+		const runDirectories = getRunDirectories({
+			projectPath: tmpProjectDir,
+			rp1ProjectRoot: tmpProjectDir,
+			rp1KbRoot: externalKbRoot,
+			rp1WorkRoot: externalWorkRoot,
+		});
+
+		expect(runDirectories.kbRoot).toBe(externalKbRoot);
+		expect(runDirectories.workRoot).toBe(externalWorkRoot);
+		expect(
+			toArtifactDisplayPathFromAbsolute(
+				runDirectories,
+				join(externalWorkRoot, "features", "feat-1", "tasks.md"),
+			),
+		).toBe(".rp1/work/features/feat-1/tasks.md");
+		expect(
+			toArtifactDisplayPathFromAbsolute(
+				runDirectories,
+				join(externalKbRoot, "index.md"),
+			),
+		).toBe(".rp1/context/index.md");
+	});
+
 	test("ignores process-wide RP1_* env overrides when resolving project path", () => {
 		const origPR = process.env.RP1_PROJECT_ROOT;
 		const origKB = process.env.RP1_KB_ROOT;

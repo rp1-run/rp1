@@ -114,9 +114,9 @@ During initialization, you're offered three options for configuring `.gitignore`
 | Path | Contains | Shareable? |
 |------|----------|------------|
 | `.rp1/context/` | Generated knowledge base files | Yes |
-| Configured work root | Feature artifacts, PR reviews | Usually no |
+| `.rp1/work/` | Feature artifacts, PR reviews | Usually no |
 | `.rp1/context/meta.json` | Generated KB metadata | No |
-| `.rp1/settings.toml` | Local directory overrides | Usually no |
+| `.rp1/settings.toml` | Project-level command defaults | Usually no |
 
 ## Plugin Installation
 
