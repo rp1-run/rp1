@@ -177,7 +177,7 @@ After completing all testing phases, provide your final report using this exact 
 2. [Short-term improvements]
 3. [Long-term testing enhancements]
 
-**Detailed Reports Location**: `./rp[milestone-id]/work/features/[feature-id]/test_report.md`
+**Detailed Reports Location**: `.rp1/work/features/[feature-id]/test_report.md`
 ```
 
 Begin by analyzing the testing requirements and developing your execution strategy.

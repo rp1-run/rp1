@@ -950,7 +950,7 @@ export const insertEvent = (db: Database, input: EventInput): EventRecord => {
 };
 
 /**
- * Insert an artifact with doc_id, or return the existing record if doc_id is already present.
+ * Insert an artifact by doc_id, or refresh the existing record in place.
  */
 export const upsertArtifact = (
 	db: Database,
@@ -961,7 +961,35 @@ export const upsertArtifact = (
 		.get({ $docId: input.docId }) as ArtifactRow | null;
 
 	if (existing) {
-		return artifactRowToRecord(existing);
+		const row = db
+			.prepare(
+				`UPDATE artifacts
+				 SET run_id = $runId,
+				     path = $path,
+				     type = $type,
+				     storage_root = $storageRoot,
+				     project_path = $projectPath,
+				     project_id = $projectId,
+				     feature = $feature,
+				     step = $step,
+				     subflow = $subflow
+				 WHERE doc_id = $docId
+				 RETURNING *`,
+			)
+			.get({
+				$docId: input.docId,
+				$runId: input.runId ?? existing.run_id,
+				$path: input.path,
+				$type: input.type,
+				$storageRoot: input.storageRoot,
+				$projectPath: input.projectPath,
+				$projectId: input.projectId ?? existing.project_id,
+				$feature: input.feature,
+				$step: input.step ?? existing.step,
+				$subflow: input.subflow ?? existing.subflow,
+			}) as ArtifactRow;
+
+		return artifactRowToRecord(row);
 	}
 
 	const row = db
@@ -1503,10 +1531,51 @@ export const normalizeArtifactStorage = (
 	run: Pick<RunRecord, "rp1ProjectRoot" | "rp1WorkRoot">,
 	storageRoot?: ArtifactStorageRoot,
 ): { readonly path: string; readonly storageRoot: ArtifactStorageRoot } => {
+	const normalizeWithinRoot = (
+		absolutePath: string,
+		rootPath: string,
+		targetStorageRoot: ArtifactStorageRoot,
+	): {
+		readonly path: string;
+		readonly storageRoot: ArtifactStorageRoot;
+	} | null => {
+		if (!isWithinRoot(absolutePath, rootPath)) {
+			return null;
+		}
+
+		return {
+			path: relative(rootPath, absolutePath),
+			storageRoot: targetStorageRoot,
+		};
+	};
+
+	const legacyWorkDir = getLegacyWorkDir(run.rp1ProjectRoot);
+
 	if (storageRoot != null) {
-		if (storageRoot === "absolute" || isAbsolute(artifactPath)) {
+		if (storageRoot === "absolute") {
 			return { path: resolve(artifactPath), storageRoot };
 		}
+
+		if (isAbsolute(artifactPath)) {
+			const absolutePath = resolve(artifactPath);
+			if (storageRoot === "work_dir") {
+				return (
+					normalizeWithinRoot(absolutePath, run.rp1WorkRoot, "work_dir") ??
+					normalizeWithinRoot(absolutePath, legacyWorkDir, "work_dir") ?? {
+						path: absolutePath,
+						storageRoot: "absolute",
+					}
+				);
+			}
+
+			return (
+				normalizeWithinRoot(absolutePath, run.rp1ProjectRoot, "project") ?? {
+					path: absolutePath,
+					storageRoot: "absolute",
+				}
+			);
+		}
+
 		const baseDir =
 			storageRoot === "work_dir" ? run.rp1WorkRoot : run.rp1ProjectRoot;
 		const resolvedPath = resolve(baseDir, artifactPath);
@@ -1524,19 +1593,14 @@ export const normalizeArtifactStorage = (
 
 	if (isAbsolute(artifactPath)) {
 		const absolutePath = resolve(artifactPath);
-		if (isWithinRoot(absolutePath, run.rp1WorkRoot)) {
-			return {
-				path: relative(run.rp1WorkRoot, absolutePath),
-				storageRoot: "work_dir",
-			};
-		}
-		if (isWithinRoot(absolutePath, run.rp1ProjectRoot)) {
-			return {
-				path: relative(run.rp1ProjectRoot, absolutePath),
-				storageRoot: "project",
-			};
-		}
-		return { path: absolutePath, storageRoot: "absolute" };
+		return (
+			normalizeWithinRoot(absolutePath, run.rp1WorkRoot, "work_dir") ??
+			normalizeWithinRoot(absolutePath, legacyWorkDir, "work_dir") ??
+			normalizeWithinRoot(absolutePath, run.rp1ProjectRoot, "project") ?? {
+				path: absolutePath,
+				storageRoot: "absolute",
+			}
+		);
 	}
 
 	return { path: artifactPath, storageRoot: "work_dir" };
@@ -1627,7 +1691,7 @@ export const resolveArtifactPathForRun = async (
 			updateArtifactStorage(
 				db,
 				artifact.docId,
-				normalizeArtifactStorage(legacyWorkPath, run),
+				normalizeArtifactStorage(legacyWorkPath, run, artifact.storageRoot),
 			);
 			return legacyWorkPath;
 		}
@@ -1650,7 +1714,7 @@ export const resolveArtifactPathForRun = async (
 		updateArtifactStorage(
 			db,
 			artifact.docId,
-			normalizeArtifactStorage(scannedPath, run),
+			normalizeArtifactStorage(scannedPath, run, artifact.storageRoot),
 		);
 		return scannedPath;
 	}
