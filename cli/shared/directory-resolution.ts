@@ -157,16 +157,10 @@ export const resolveDirectorySet = (
 ): E.Either<CLIError, ResolvedDirectorySet> => {
 	const resolvedStartPath = path.resolve(startPath);
 
-	const walkedResult = walkUpToProjectRoot(resolvedStartPath);
-	if (walkedResult) {
-		return E.right(
-			buildDirectorySet({
-				projectRoot: walkedResult.root,
-				isWorktree: false,
-			}),
-		);
-	}
-
+	// Phase 1: Check git worktree status FIRST.
+	// If we're in a worktree, resolve to the main repo's project root so that
+	// worktrees with their own .rp1/project_id (e.g. checked into the repo)
+	// don't get registered as separate projects.
 	const gitContext = existsSync(resolvedStartPath)
 		? readGitContext(resolvedStartPath)
 		: undefined;
@@ -175,27 +169,42 @@ export const resolveDirectorySet = (
 		const gitDir = normalizeGitPath(resolvedStartPath, gitContext.gitDir);
 		const commonDir = normalizeGitPath(resolvedStartPath, gitContext.commonDir);
 		const isWorktree = gitDir !== commonDir;
-		const commonDirProjectRoot = deriveProjectRootFromCommonDir(commonDir);
 
-		if (
-			isWorktree &&
-			(hasProjectIdFile(commonDirProjectRoot) ||
-				hasRp1Directory(commonDirProjectRoot))
-		) {
-			if (!hasProjectIdFile(commonDirProjectRoot)) {
-				console.warn(
-					`[rp1] Found .rp1/ directory at ${commonDirProjectRoot} without project_id. Run 'rp1 migrate' to create one.`,
+		if (isWorktree) {
+			const commonDirProjectRoot = deriveProjectRootFromCommonDir(commonDir);
+
+			if (
+				hasProjectIdFile(commonDirProjectRoot) ||
+				hasRp1Directory(commonDirProjectRoot)
+			) {
+				if (!hasProjectIdFile(commonDirProjectRoot)) {
+					console.warn(
+						`[rp1] Found .rp1/ directory at ${commonDirProjectRoot} without project_id. Run 'rp1 migrate' to create one.`,
+					);
+				}
+
+				return E.right(
+					buildDirectorySet({
+						projectRoot: commonDirProjectRoot,
+						isWorktree: true,
+						worktreeName: gitContext.branch,
+					}),
 				);
 			}
-
-			return E.right(
-				buildDirectorySet({
-					projectRoot: commonDirProjectRoot,
-					isWorktree: true,
-					worktreeName: gitContext.branch,
-				}),
-			);
 		}
+	}
+
+	// Phase 2: Walk up directory tree to find .rp1/project_id.
+	// Only reached for non-worktree contexts or worktrees whose main repo
+	// lacks an .rp1 directory.
+	const walkedResult = walkUpToProjectRoot(resolvedStartPath);
+	if (walkedResult) {
+		return E.right(
+			buildDirectorySet({
+				projectRoot: walkedResult.root,
+				isWorktree: false,
+			}),
+		);
 	}
 
 	return E.left(
