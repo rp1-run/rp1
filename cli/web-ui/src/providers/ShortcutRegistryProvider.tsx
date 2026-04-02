@@ -72,8 +72,8 @@ const NAVIGATION_SHORTCUTS: ShortcutDefinition[] = [
 	},
 	{
 		key: "g r",
-		label: "Runs",
-		description: "Go to Runs",
+		label: "Activity",
+		description: "Go to Activity",
 		action: () => {},
 	},
 	{

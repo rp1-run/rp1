@@ -16,7 +16,7 @@ const CHORD_TIMEOUT_MS = 500;
 
 const CHORD_TARGETS: Record<string, string> = {
 	h: "/",
-	r: "/runs",
+	r: "/",
 	p: "/projects",
 };
 

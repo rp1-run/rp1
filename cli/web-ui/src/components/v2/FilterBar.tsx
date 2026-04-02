@@ -95,13 +95,11 @@ export function FilterBar({
 	];
 
 	return (
-		<div
-			className={cn("flex flex-wrap items-center gap-x-4 gap-y-2", className)}
-		>
+		<div className={cn("flex items-center gap-1 flex-nowrap", className)}>
 			<div
 				role="tablist"
 				aria-label="Filter by status"
-				className="flex items-center gap-3"
+				className="flex shrink-0 items-center gap-1"
 			>
 				{STATUS_TABS.map((tab) => (
 					<button
@@ -111,10 +109,10 @@ export function FilterBar({
 						aria-selected={filters.status === tab.value}
 						onClick={() => handleStatusChange(tab.value)}
 						className={cn(
-							"type-caption transition-colors duration-150",
+							"px-2 py-1 rounded-md text-xs font-medium transition-colors duration-150",
 							filters.status === tab.value
-								? "text-fg"
-								: "text-fg-ghost hover:text-fg",
+								? "bg-surface text-fg"
+								: "text-fg-ghost hover:text-fg-muted hover:bg-surface/50",
 						)}
 					>
 						{tab.label}
@@ -122,12 +120,15 @@ export function FilterBar({
 				))}
 			</div>
 
-			<span className="text-fg-ghost select-none" aria-hidden="true">
+			<span
+				className="shrink-0 text-fg-ghost/40 select-none mx-1"
+				aria-hidden="true"
+			>
 				·
 			</span>
 
 			<Select
-				size="md"
+				size="sm"
 				value={filters.projectId ?? ""}
 				options={projectOptions}
 				onChange={(val) => handleProjectChange(val === "" ? null : val)}
@@ -136,7 +137,7 @@ export function FilterBar({
 			/>
 
 			<Select
-				size="md"
+				size="sm"
 				value={filters.dateRange}
 				options={DATE_RANGES}
 				onChange={(val) => handleDateRangeChange(val)}
@@ -148,10 +149,10 @@ export function FilterBar({
 				<button
 					type="button"
 					onClick={handleClearFilters}
-					className="inline-flex items-center gap-1 type-caption text-fg-ghost transition-colors duration-150 hover:text-fg"
+					className="shrink-0 inline-flex items-center justify-center h-7 w-7 rounded-md text-fg-ghost transition-colors duration-150 hover:text-fg hover:bg-surface/50"
+					aria-label="Clear filters"
 				>
-					<X className="h-3 w-3" aria-hidden="true" />
-					Clear
+					<X className="h-3.5 w-3.5" />
 				</button>
 			)}
 		</div>
