@@ -370,10 +370,13 @@ describe("init-install separation", () => {
 
 			expect(content).not.toContain("\ngit_worktree = false");
 			expect(content).not.toContain("\ngit_commit = false");
-			expect(content).toContain("# Directory overrides:");
-			expect(content).toContain("# [directories]");
-			expect(content).toContain('# project_root = "/absolute/project/path"');
-			expect(content).toContain('# work_dir = "~/rp1-work/my-project"');
+			expect(content).toContain(
+				"# Directory paths are fixed from the project root:",
+			);
+			expect(content).toContain(
+				"# - Knowledge base files live in .rp1/context",
+			);
+			expect(content).toContain("# - Work artifacts live in .rp1/work");
 			expect(content).toContain('# [arguments."dev:build"]');
 			expect(content).toContain("# git_commit = false");
 		});

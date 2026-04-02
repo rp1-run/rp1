@@ -136,7 +136,7 @@ describe("readiness step", () => {
 			expect(result.charterExists).toBe(true);
 		});
 
-		test("supports an external configured work directory without requiring it to exist", async () => {
+		test("ignores obsolete directory override settings and still uses canonical readiness paths", async () => {
 			await mkdir(join(tempDir, ".rp1"), { recursive: true });
 			await mkdir(join(tempDir, ".rp1", "context"), { recursive: true });
 			await writeFile(
