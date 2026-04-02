@@ -48,13 +48,13 @@ rp1 agent-tools emit \
   --workflow blueprint \
   --type status_change \
   --run-id {RUN_ID} \
+  --name "{RUN_NAME}" \
   --step {CURRENT_STATE} \
   --data '{"status": "running"}'
 ```
 
 - Generate `RUN_ID` as a UUID at workflow start
 - Derive `RUN_NAME`: use `"Blueprint: {PRD_NAME}"` when PRD_NAME is provided, otherwise use `"Blueprint: main"`
-- On the **first** emit only, include `--name "{RUN_NAME}"` to label the run in the Arcade dashboard
 
 **State Progression Protocol**:
 1. Report each `--step` with `--data '{"status": "running"}'` when you enter that state

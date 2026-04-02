@@ -60,6 +60,7 @@ rp1 agent-tools emit \
   --workflow pr-visual \
   --type status_change \
   --run-id {RUN_ID} \
+  --name "PR Visual: {PR_BRANCH}" \
   --step {STATE} \
   --data '{"status": "{running|completed}", "branch": "{PR_BRANCH}"}'
 ```
