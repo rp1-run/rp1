@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS schema_version (
     version INTEGER NOT NULL
 );
 
-INSERT INTO schema_version (version) VALUES (9);
+INSERT INTO schema_version (version) VALUES (10);
 
 CREATE TABLE IF NOT EXISTS runs (
     id TEXT PRIMARY KEY NOT NULL,
@@ -136,6 +136,23 @@ CREATE INDEX IF NOT EXISTS idx_tasks_status_created ON tasks(status, created_at)
 CREATE INDEX IF NOT EXISTS idx_tasks_project ON tasks(project_path);
 CREATE INDEX IF NOT EXISTS idx_tasks_project_status ON tasks(project_path, status, created_at);
 CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks(project_id);
+
+CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    message TEXT NOT NULL,
+    source_type TEXT NOT NULL DEFAULT 'run'
+        CHECK(source_type IN ('run', 'agent', 'system')),
+    source_id TEXT,
+    route TEXT,
+    project_id TEXT,
+    dismissed INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_dismissed ON notifications(dismissed);
+CREATE INDEX IF NOT EXISTS idx_notifications_project ON notifications(project_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications(created_at);
+CREATE INDEX IF NOT EXISTS idx_notifications_project_dismissed ON notifications(project_id, dismissed, created_at);
 `;
 
 /** Terminal statuses that indicate a run is no longer active */
@@ -197,6 +214,21 @@ export interface ArtifactInput {
 }
 
 export type ArtifactStorageRoot = "absolute" | "project" | "work_dir";
+
+/** Notification source type discriminator */
+export type NotificationSourceType = "run" | "agent" | "system";
+
+/** Stored notification record shape (camelCase domain model) */
+export interface NotificationRecord {
+	readonly id: number;
+	readonly message: string;
+	readonly sourceType: NotificationSourceType;
+	readonly sourceId: string | null;
+	readonly route: string | null;
+	readonly projectId: string | null;
+	readonly dismissed: boolean;
+	readonly createdAt: string;
+}
 
 /** Stored artifact record shape */
 export interface ArtifactRecord {
@@ -693,6 +725,33 @@ const applyMigrations = (db: Database): void => {
 		}
 
 		db.prepare("UPDATE schema_version SET version = 9").run();
+	}
+
+	const postV9Version = db
+		.prepare("SELECT version FROM schema_version LIMIT 1")
+		.get() as { version: number } | null;
+
+	if ((postV9Version?.version ?? 9) < 10) {
+		db.exec(`
+			CREATE TABLE IF NOT EXISTS notifications (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				message TEXT NOT NULL,
+				source_type TEXT NOT NULL DEFAULT 'run'
+					CHECK(source_type IN ('run', 'agent', 'system')),
+				source_id TEXT,
+				route TEXT,
+				project_id TEXT,
+				dismissed INTEGER NOT NULL DEFAULT 0,
+				created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+			);
+
+			CREATE INDEX IF NOT EXISTS idx_notifications_dismissed ON notifications(dismissed);
+			CREATE INDEX IF NOT EXISTS idx_notifications_project ON notifications(project_id);
+			CREATE INDEX IF NOT EXISTS idx_notifications_created ON notifications(created_at);
+			CREATE INDEX IF NOT EXISTS idx_notifications_project_dismissed ON notifications(project_id, dismissed, created_at);
+		`);
+
+		db.prepare("UPDATE schema_version SET version = 10").run();
 	}
 };
 
