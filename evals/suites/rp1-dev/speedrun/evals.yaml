@@ -1,10 +1,10 @@
-# build-express Command Evaluation Suite
+# speedrun Command Evaluation Suite
 #
-# Advisory eval for /rp1-dev:build-express.
+# Advisory eval for /rp1-dev:speedrun.
 # Validates: scope gating, delegation to general sub-agent, post-build prompt flow.
 #
-# Run: just eval-run rp1-dev/build-express
-description: "rp1-dev:build-express advisory evaluation"
+# Run: just eval-run rp1-dev/speedrun
+description: "rp1-dev:speedrun advisory evaluation"
 evaluateOptions:
   maxConcurrency: 4
 extensions:
@@ -54,7 +54,7 @@ tests:
         value: file://../../shared/assertions/tool-calls.ts:assertGeneralSubagentSpawned
       - type: llm-rubric
         value: |
-          Evaluate the build-express agent's orchestration behavior for a small request.
+          Evaluate the speedrun agent's orchestration behavior for a small request.
 
           NOTE: Sub-agent tool calls (Write, Edit, Bash, etc.) appear in metadata alongside
           the orchestrator's calls — they CANNOT be distinguished. Only evaluate the
@@ -84,7 +84,7 @@ tests:
           1. Agent identifies the request as medium or large scope
           2. Agent does NOT delegate to a sub-agent for implementation
           3. Output recommends using `/rp1-dev:build-fast` or `/rp1-dev:build` instead
-          4. Output explains WHY the request exceeds build-express scope (e.g., multiple systems, high risk, many files)
+          4. Output explains WHY the request exceeds speedrun scope (e.g., multiple systems, high risk, many files)
           5. Agent still presents options to continue (new task or exit)
 
           PROHIBITED:
