@@ -148,8 +148,8 @@ skills:
     agents_that_use_me: []
     sub_agents_that_i_use: [rp1-dev:pr-feedback-collector]
     skills_that_i_use: []
-    last_update: "2026-03-31"
-    last_checksum: 189127f66488fa847e28c7772d857ccb3ae0eb3b6bad7cef9e605ff4e04ae0de
+    last_update: "2026-04-02"
+    last_checksum: 0c091fe540145f1c559c3ad59e34aa91e9478706819d994722f173bba432ebd2
   - name: rp1-dev:arcade-collab
     description: Structured guidance for agents to read, classify, and act on user feedback (annotations and direct file edits) from the Arcade.
     plugin: dev
@@ -248,7 +248,7 @@ skills:
     sub_agents_that_i_use: [rp1-dev:bug-investigator]
     skills_that_i_use: []
     last_update: "2026-04-02"
-    last_checksum: 03c6819c0c21dbe8009a4aa090f6e9cd6c9ed930d02ff6f33711d99d12187542
+    last_checksum: 9c074557af11be52b1d91946e556741feeaf14a8e6b98e9aaf9afe6fd5c6dab4
   - name: rp1-dev:feature-archive
     description: Archives a completed feature to the archives directory with optional documentation validation.
     plugin: dev
@@ -283,8 +283,8 @@ skills:
     agents_that_use_me: []
     sub_agents_that_i_use: [rp1-dev:pr-comment-deduplicator,rp1-dev:pr-comment-poster,rp1-dev:pr-review-reporter,rp1-dev:pr-review-splitter,rp1-dev:pr-review-synthesizer,rp1-dev:pr-sub-reviewer,rp1-dev:pr-visualizer]
     skills_that_i_use: [rp1-dev:pr-visual]
-    last_update: "2026-04-01"
-    last_checksum: a7dbc83915d4f02882683727ec999c385a5ba4f3ac51b65a5d33c24fe744e5c5
+    last_update: "2026-04-02"
+    last_checksum: 8e94a437a168d9db530b875e8c273896fbeecbd5399d7d88371c33f3dbe20dff
   - name: rp1-dev:pr-visual
     description: Transform pull request diffs into Mermaid diagrams for visual code review and change understanding.
     plugin: dev
@@ -302,7 +302,7 @@ skills:
     sub_agents_that_i_use: [rp1-dev:speedrun-builder]
     skills_that_i_use: [rp1-dev:arcade-collab,rp1-dev:build-fast,rp1-dev:build]
     last_update: "2026-04-02"
-    last_checksum: 0f603626a46342ab23680e9596a80e58b1f9241ff1686487277eb49efcec92d4
+    last_checksum: 70ffd7a0e4255906e4980b0425493ecfc429d97732660656e1419fd06dd630e2
   - name: rp1-dev:validate-hypothesis
     description: Validate design hypotheses via code experiments, codebase analysis, and external research.
     plugin: dev
