@@ -233,6 +233,33 @@ describe("directory resolution", () => {
 		}
 	});
 
+	test("worktree with its own .rp1/project_id still resolves to main repo", async () => {
+		// Simulate a worktree that has .rp1/ checked into the repo (or created locally)
+		const worktreeRp1Dir = join(linkedWorktreePath, ".rp1");
+		await mkdir(worktreeRp1Dir, { recursive: true });
+		writeFileSync(
+			join(worktreeRp1Dir, "project_id"),
+			"770e8400-e29b-41d4-a716-446655440000",
+		);
+
+		try {
+			const result = resolveDirectorySet(linkedWorktreePath);
+			expect(E.isRight(result)).toBe(true);
+			if (E.isLeft(result)) return;
+
+			// Should resolve to main repo, NOT the worktree's local .rp1
+			expect(result.right.projectRoot).toBe(worktreeMainRoot);
+			expect(result.right.projectId).toBe(
+				"660e8400-e29b-41d4-a716-446655440000",
+			);
+			expect(result.right.isWorktree).toBe(true);
+			expect(result.right.worktreeName).toBe("test-branch");
+		} finally {
+			// Clean up the worktree-local .rp1 directory
+			await rm(worktreeRp1Dir, { recursive: true, force: true });
+		}
+	});
+
 	test("settings.toml directory overrides are ignored", async () => {
 		await writeFixture(
 			projectRoot,
