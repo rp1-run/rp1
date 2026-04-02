@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Activity, SlidersHorizontal, SquareKanban } from "lucide-react";
 import { useCallback, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { FilterBar } from "@/components/v2/FilterBar";
 import { HarnessIcon } from "@/components/v2/HarnessIcon";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
@@ -73,7 +73,7 @@ function FeedEntry({
 }: {
 	run: Run;
 	onClick: () => void;
-	onProjectClick: (projectName: string) => void;
+	onProjectClick: (projectId: string) => void;
 	reducedMotion: boolean;
 }) {
 	const isWaiting = run.status === "waiting";
@@ -118,12 +118,12 @@ function FeedEntry({
 				type="button"
 				onClick={(e) => {
 					e.stopPropagation();
-					onProjectClick(run.projectName);
+					onProjectClick(run.projectId);
 				}}
 				onKeyDown={(e) => {
 					if (e.key === "Enter") {
 						e.stopPropagation();
-						onProjectClick(run.projectName);
+						onProjectClick(run.projectId);
 					}
 				}}
 				className="ml-auto shrink-0 flex items-center gap-1 pl-4 type-secondary italic text-fg-ghost hover:text-fg-muted transition-colors duration-150 cursor-pointer bg-transparent border-none p-0"
@@ -138,11 +138,14 @@ function FeedEntry({
 
 export function HomePage() {
 	const navigate = useNavigate();
+	const [searchParams, setSearchParams] = useSearchParams();
 	const reducedMotion = usePrefersReducedMotion();
-	const [showFilters, setShowFilters] = useState(false);
+
+	const initialProjectId = searchParams.get("projectId");
+	const [showFilters, setShowFilters] = useState(!!initialProjectId);
 	const [filters, setFilters] = useState<RunsFilter>({
 		status: "all",
-		projectId: null,
+		projectId: initialProjectId,
 		dateRange: "all",
 	});
 	const [pageSize, setPageSize] = useState(PAGE_SIZE);
@@ -151,10 +154,24 @@ export function HomePage() {
 
 	const hasMore = runs.length < total;
 
-	const handleFiltersChange = useCallback((newFilters: RunsFilter) => {
-		setFilters(newFilters);
-		setPageSize(PAGE_SIZE);
-	}, []);
+	const handleFiltersChange = useCallback(
+		(newFilters: RunsFilter) => {
+			setFilters(newFilters);
+			setPageSize(PAGE_SIZE);
+			setSearchParams(
+				(prev) => {
+					if (newFilters.projectId) {
+						prev.set("projectId", newFilters.projectId);
+					} else {
+						prev.delete("projectId");
+					}
+					return prev;
+				},
+				{ replace: true },
+			);
+		},
+		[setSearchParams],
+	);
 
 	const handleLoadEarlier = useCallback(() => {
 		setPageSize((prev) => prev + PAGE_SIZE);
@@ -168,8 +185,8 @@ export function HomePage() {
 	);
 
 	const handleProjectClick = useCallback(
-		(projectName: string) => {
-			navigate(`/projects/${projectName}`);
+		(projectId: string) => {
+			navigate(`/projects/${projectId}`);
 		},
 		[navigate],
 	);

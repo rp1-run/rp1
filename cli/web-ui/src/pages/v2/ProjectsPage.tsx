@@ -230,7 +230,7 @@ export function ProjectsPage() {
 								onClick={() => handleProjectClick(project)}
 								onRunsClick={(e) => {
 									e.stopPropagation();
-									navigate(`/projects/${project.id}/runs`);
+									navigate(`/?projectId=${project.id}`);
 								}}
 								onFilesClick={(e) => {
 									e.stopPropagation();

@@ -53,10 +53,9 @@ export function TerminalBreadcrumb({ className }: TerminalBreadcrumbProps) {
 					<span
 						role="link"
 						tabIndex={0}
-						onClick={() => navigate(`/projects/${runInfo.projectName}`)}
+						onClick={() => navigate(`/projects/${runInfo.projectId}`)}
 						onKeyDown={(e) => {
-							if (e.key === "Enter")
-								navigate(`/projects/${runInfo.projectName}`);
+							if (e.key === "Enter") navigate(`/projects/${runInfo.projectId}`);
 						}}
 						className="flex items-center gap-1 type-secondary italic text-fg-ghost hover:text-fg-muted transition-colors duration-150 cursor-pointer"
 						aria-label={`Open project ${runInfo.projectName}`}
