@@ -1,6 +1,6 @@
 # knowledge-build
 
-Orchestrates parallel knowledge base generation using spatial analysis and a map-reduce architecture.
+Orchestrates parallel knowledge base generation into `.rp1/context/` using spatial analysis and a map-reduce architecture.
 
 ---
 
@@ -18,9 +18,23 @@ Orchestrates parallel knowledge base generation using spatial analysis and a map
     /rp1-base-knowledge-build
     ```
 
+Optional feature-learning mode:
+
+=== "Claude Code"
+
+    ```bash
+    /knowledge-build my-feature
+    ```
+
+=== "OpenCode"
+
+    ```bash
+    /rp1-base-knowledge-build my-feature
+    ```
+
 ## Description
 
-The `knowledge-build` command analyzes your codebase and generates a structured knowledge base in `.rp1/context/`. This KB powers all knowledge-aware agents, enabling them to understand your architecture, patterns, and conventions.
+The `knowledge-build` command analyzes your codebase and updates the structured knowledge base in `.rp1/context/`. It is a passive workflow: it does not create user-facing work artifacts under `.rp1/work/`, and it does not register an Arcade run.
 
 The command uses a parallel map-reduce architecture:
 
@@ -28,12 +42,11 @@ The command uses a parallel map-reduce architecture:
 2. **Parallel Processing**: 4 agents analyze files simultaneously
 3. **Merge**: Orchestrator merges results, generates index.md, writes final KB files
 
-## Parameters
+## Arguments
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `CODEBASE_ROOT` | `.` | Repository root to analyze |
-| `EXCLUDE_PATTERNS` | `node_modules/,.git/,build/,dist/` | Patterns to exclude |
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `feature-id` | No | Capture learnings from an archived or active feature into the KB |
 
 ## Build Modes
 
@@ -44,6 +57,7 @@ The command automatically detects the appropriate build mode:
 | **Skip** | KB exists, no git changes | Instant |
 | **Full** | First build or >50 files changed | 10-15 min |
 | **Incremental** | <50 files changed since last build | 2-5 min |
+| **Feature Learning** | `feature-id` provided | Depends on feature scope |
 
 ## Output
 
@@ -52,7 +66,7 @@ The command generates knowledge base files in `.rp1/context/`.
 !!! info "KB File Reference"
     See [What's in the Knowledge Base?](../../concepts/knowledge-aware-agents.md#whats-in-the-knowledge-base) for the complete list of generated files and their purposes.
 
-**Note**: `meta.json` contains local paths and should be added to `.gitignore`. All other files are shareable with your team.
+**Note**: `meta.json` contains local paths and should be added to `.gitignore`. It is written locally but not intended as a shared project artifact.
 
 ## Examples
 
@@ -73,7 +87,7 @@ The command generates knowledge base files in `.rp1/context/`.
 **Expected output:**
 ```
 First-time KB generation with parallel analysis (10-15 min)
-Analyzing... (Phase 2/5)
+Analyzing...
 ✅ Knowledge Base Generated Successfully
 
 Strategy: Parallel map-reduce
@@ -88,6 +102,8 @@ KB Files Written:
 - .rp1/context/patterns.md
 - .rp1/context/state.json (shareable)
 - .rp1/context/meta.json (local - add to .gitignore)
+
+No Arcade run is created for this passive workflow.
 ```
 
 ### Incremental Build
@@ -98,6 +114,20 @@ When you've made changes since the last build:
 ```
 Changes detected since last build (a1b2c3d → e4f5g6h). Analyzing 12 changed files (2-5 min)
 ✅ Knowledge Base Generated Successfully
+```
+
+### Feature Learning Build
+
+Capture lessons from a completed feature:
+
+```bash
+/knowledge-build user-auth
+```
+
+**Expected output:**
+```
+Feature learning build for user-auth
+✅ Feature Learnings Captured
 ```
 
 ### No Changes
