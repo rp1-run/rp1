@@ -11,7 +11,6 @@ import * as TE from "fp-ts/lib/TaskEither.js";
 import type { CLIError } from "../../shared/errors.js";
 import { usageError } from "../../shared/errors.js";
 import type { Logger } from "../../shared/logger.js";
-import { confirmAction } from "../../shared/prompts.js";
 import { createSpinner } from "../../shared/spinner.js";
 import {
 	extractPlugins,
@@ -204,7 +203,6 @@ export const executeInstall = (
 ): TE.TaskEither<CLIError, void> => {
 	const config = parseInstallArgs(args);
 	const isTTY = options?.isTTY ?? process.stdout.isTTY ?? false;
-	const skipPrompt = options?.skipPrompt ?? config.yes;
 	const spinner = createSpinner(isTTY);
 
 	if (config.showHelp) {
@@ -306,22 +304,7 @@ export const executeInstall = (
 							(msg) => {
 								spinner.text = msg;
 							},
-							async (path) => {
-								if (!skipPrompt) {
-									spinner.stop();
-									const proceed = await confirmAction(
-										`Overwrite existing file: ${path}?`,
-										{ isTTY, defaultOnNonTTY: false },
-									);
-									if (!proceed) {
-										console.log(yellow(`  Skipped: ${path}`));
-										spinner.start("Installing plugins...");
-										return;
-									}
-									spinner.start("Installing plugins...");
-								}
-								console.log(yellow(`  ⚠ Overwriting: ${path}`));
-							},
+							undefined, // onOverwrite — rp1-namespaced files are always safe to overwrite
 							undefined, // logger
 							config.strict,
 						),
