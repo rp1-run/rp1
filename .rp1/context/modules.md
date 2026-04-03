@@ -1,121 +1,146 @@
 # Module & Component Breakdown
 
 **Project**: rp1
-**Analysis Date**: 2026-03-26
-**Modules Analyzed**: 15
+**Analysis Date**: 2026-04-03
+**Modules Analyzed**: 21
 
 ## Core Modules
 
 ### cli/commands (`cli/src/commands/`)
 **Purpose**: User-facing CLI commands via Commander.js
-**Key Components**: init, install (OpenCode/Claude Code/Codex), build, arcade, settings, update, verify, uninstall
-**Dependencies**: cli/shared, cli/init, cli/build, cli/install, cli/agent-tools (lazy), web-ui/daemon (lazy)
+**Files**: 20
+**Key Files**: `init.ts`, `install/index.ts`, `build.ts`, `arcade.ts`, `verify/index.ts`, `update/index.ts`
 
 ### cli/agent-tools (`cli/src/agent-tools/`)
-**Purpose**: Agent-tools CLI surface with tool registry and 9 subcommands
-**Key Components**:
-- **emit**: Unified event recording with 6 event types, state machine validation, artifact classification
-- **task**: Task lifecycle management (create, pickup, complete, fail, cancel, list)
-- **feedback**: Annotation processing lifecycle (read, resolve, reply, accept-edit)
-- **github-pr**: Deterministic GitHub PR operations (submit-review, add-reaction, reply-comment, fetch-comments)
-- **state-machine**: Mermaid stateDiagram-v2 parser and graph query engine
-- **mmd-validate**: Mermaid diagram extraction and validation from markdown
-- **comment-extract**: Code comment extraction from git-changed files
-- **rp1-root-dir**: Project directory resolution (returns kbRoot, workRoot, projectRoot)
-- **codex-notify**: Codex platform notification support
-**Dependencies**: cli/shared, bun:sqlite
+**Purpose**: Agent-tools CLI surface with tool registry and 9 subcommands for AI agent infrastructure
+**Files**: 45
+**Subcommands**: emit, task, feedback, github-pr, state-machine, mmd-validate, comment-extract, resolve-args, rp1-root-dir
+**Key Files**: `command.ts`, `index.ts`, `emit/index.ts`, `emit/database.ts`, `state-machine/index.ts`
 
 ### cli/build (`cli/src/build/`)
-**Purpose**: Multi-platform artifact build pipeline via LiquidJS
-**Key Components**:
-- **filters**: 9 custom Liquid filters (tool_prose, allowed_tools, namespace_ref, slash_commands, tool_name, escape_toml, escape_yaml, param_transform, role_type)
-- **tags**: dispatch_agent semantic tag for platform-aware agent dispatch
-- **templates**: Platform-specific LiquidJS templates (claude-code, opencode, codex)
-- **lint**: Two-tier validation (L1 errors, L2 warnings)
-**Dependencies**: cli/shared, cli/agent-tools/state-machine, liquidjs
+**Purpose**: Multi-platform artifact build pipeline via LiquidJS templating
+**Files**: 19
+**Key Files**: `command.ts`, `index.ts`, `parser.ts`, `platform-definitions.ts`, `arguments.ts`, `transforms.ts`
 
 ### cli/install (`cli/src/install/`)
 **Purpose**: Install plugin artifacts into host tools with staging, backup/rollback, verification
-**Key Components**:
-- **OpenCode installer**: File discovery, staging, atomic install with rollback
-- **Claude Code installer**: Marketplace integration for plugin installation
-- **Codex installer**: Shell fence management, skill copying
-**Dependencies**: cli/shared
+**Files**: 14
+**Key Files**: `installer.ts`, `index.ts`, `claudecode/installer.ts`, `codex/installer.ts`
 
 ### cli/init (`cli/src/init/`)
 **Purpose**: Project initialization with context detection, tool detection, plugin installation, Ink UI
-**Key Components**: context-detector (brownfield/greenfield), git-root, health-check, verification, InitWizard (Ink)
-**Dependencies**: cli/shared, cli/install
+**Files**: 18
+**Key Files**: `index.ts`, `context-detector.ts`, `directory-model.ts`, `ui/InitWizard.tsx`
 
 ### cli/shared (`cli/shared/`)
 **Purpose**: Cross-cutting library (leaf module, no internal dependencies)
-**Key Components**:
-- **fp.ts**: fp-ts facade (Either, TaskEither, Option re-exports)
-- **errors.ts**: CLIError discriminated union (14 variants) with factory functions and exit codes
-- **events.ts**: Canonical event types (Status, EventType, ArtifactType, RunRecord, EventRecord)
-- **config.ts**: RP1 root resolution with filesystem walk and git worktree fallback
-- **logger.ts**: consola-based Logger via createLogger() factory
-- **runtime.ts**: Runtime detection (Bun/Node)
+**Files**: 12
+**Key Exports**: CLIError, fp-ts facade, Logger, ResolvedDirectorySet, RuntimeInfo, canonical-name, project-id
+
+### cli/assets (`cli/src/assets/`)
+**Purpose**: Bundled asset access for release builds: manifest reading, plugin/web-ui extraction
+**Files**: 4
+**Key Files**: `index.ts`, `extractor.ts`, `reader.ts`
+
+### cli/settings (`cli/src/settings/`)
+**Purpose**: Settings file loading and validation for project/global rp1 configuration
+**Files**: 2
+**Key Files**: `loader.ts`, `validator.ts`
+
+### cli/config (`cli/src/config/`)
+**Purpose**: Supported tools registry (YAML-embedded at build time) defining host tool capabilities
+**Files**: 4
+**Key Files**: `supported-tools.ts`, `supported-tools.yaml`
+
+### cli/lib (`cli/src/lib/`)
+**Purpose**: Utility library: cache, colors, package-manager detection, version comparison
+**Files**: 4
+
+### cli/migrate (`cli/src/migrate/`)
+**Purpose**: Migration system for upgrading rp1 project structures across versions
+**Files**: 4
+**Key Files**: `index.ts`, `db-backfill.ts`, `legacy-work.ts`
 
 ### cli/pr-review (`cli/src/pr-review/`)
 **Purpose**: PR review configuration loading and CI environment detection
-**Key Components**: ci-detector (GitHub Actions, Buildkite, GitLab, generic, local), config loader
+**Files**: 4
+**Key Files**: `index.ts`, `ci-detector.ts`, `config.ts`
+
+### cli/uninstall (`cli/src/uninstall/`)
+**Purpose**: Uninstall executor removing rp1 injections from instruction files and gitignore
+**Files**: 2
 
 ## Web UI Modules
 
 ### web-ui/server (`cli/web-ui/src/server/`)
-**Purpose**: Bun HTTP + WebSocket server with REST APIs, file watching, event broadcast
-**Key Components**:
-- **http.ts**: HTTP server with route mounting and CORS
-- **websocket.ts**: WebSocket hub with event broadcast, replay, heartbeat
-- **project.ts**: Project registry and file tree resolution
-- **v2-api.ts**: REST endpoints for runs, events, artifacts, projects
-- **file-watcher.ts**: chokidar-based LRU file watcher pool (max 10 projects)
-- **annotation-service.ts**: Annotation persistence and retrieval
-**Dependencies**: cli/agent-tools/emit (database), cli/agent-tools/state-machine
+**Purpose**: Bun HTTP + WebSocket server with REST APIs, file watching, event broadcast, annotation embedding
+**Files**: 16
+**Key Files**: `http.ts`, `websocket.ts`, `routes/v2-api.ts`, `file-watcher.ts`, `annotation-service.ts`, `downsampling-service.ts`
 
 ### web-ui/daemon (`cli/web-ui/src/daemon/`)
-**Purpose**: Daemon lifecycle manager (spawn, monitor, IPC, PID files)
-**Key Components**: manager.ts, ipc.ts, config-dir.ts
+**Purpose**: Daemon lifecycle manager (spawn, monitor, IPC, PID files, config directory)
+**Files**: 4
+**Key Files**: `index.ts`, `manager.ts`, `ipc.ts`
 
 ### web-ui/frontend (`cli/web-ui/src/`)
-**Purpose**: React SPA dashboard (Arcade) with 137 files
-**Key Components**:
-- **App shell**: Provider hierarchy (ErrorBoundary > Theme > WebSocket > Diagram > Tooltip > Router)
-- **Pages**: HomePage, RunDetailPage, RunsListPage, ProjectsPage, ArtifactViewerPage, FileBrowserPage
-- **Components**: EventStream, V2Sidebar, RunCard, CommandPalette, ArtifactViewerPanel (with Subflow tab for Mermaid diagrams), AnnotationSidebar
-- **Hooks**: useRuns, useRunDetail, useProjects, useWorkflowSteps, useAnnotations, useRecentRuns
-- **Subflow support**: ArtifactViewerPanel renders a Subflow tab when a `subflowDiagram` prop is present; the server extracts Mermaid blocks from markdown artifacts via `extractMermaidFromMarkdown` (v2-api.ts); `deriveAgentSteps` uses a composite identity key (`agentName:taskId`) to disambiguate sub-agent steps
-- **UX interactions**: VerticalStepList supports single-click expansion of composite steps; FileTreeNode copies the file path to clipboard on file-icon click
-- **Providers**: WebSocketProvider, ThemeProvider, ProjectProvider, AnnotationProvider
-**Dependencies**: web-ui/server (via REST + WebSocket)
+**Purpose**: React SPA dashboard (Arcade) with pages, components, hooks, providers, and motion transitions
+**Files**: 144
+**Key Files**: `main.tsx`, `app/App.tsx`, `app/V2Layout.tsx`, `app/routes.tsx`
 
 ## Plugin Modules
 
-### plugins/base
+### plugins/base (`plugins/base/`)
 **Purpose**: Foundational plugin: KB generation/loading, documentation, Mermaid, strategy, deep research, security
-**Skills**: knowledge-build, knowledge-load, strategize, deep-research, write-content, fix-mermaid, analyse-security, task, self-update, project-birds-eye-view, mermaid, markdown-preview, knowledge-base-templates
-**Agents**: kb-spatial-analyzer, kb-architecture-mapper, kb-concept-extractor, kb-module-analyzer, kb-pattern-extractor, research-reporter, strategic-advisor, scribe, mermaid-fixer
+**Skills**: knowledge-build, knowledge-load, strategize, deep-research, write-content, fix-mermaid, analyse-security, task, self-update, project-birds-eye-view, mermaid, markdown-preview, knowledge-base-templates, generate-user-docs, code-comments
+**Agents**: kb-spatial-analyzer, kb-architecture-mapper, kb-concept-extractor, kb-module-analyzer, kb-pattern-extractor, kb-index-builder, research-reporter, research-explorer, strategic-advisor, scribe, mermaid-fixer, project-documenter, security-validator
 
-### plugins/dev
+### plugins/dev (`plugins/dev/`)
 **Purpose**: Feature delivery plugin: build workflows, blueprint, PR review, code audit, feature lifecycle
 **Skills**: build, build-fast, speedrun, blueprint, blueprint-audit, blueprint-archive, pr-review, pr-visual, code-audit, code-check, code-investigate, code-clean-comments, feature-archive, feature-unarchive, feature-edit, validate-hypothesis, address-pr-feedback, bootstrap, arcade-collab
-**Agents**: task-builder, task-reviewer, feature-verifier, feature-architect, feature-tasker, pr-sub-reviewer, pr-review-synthesizer, pr-comment-poster, pr-comment-deduplicator, build-artifact-detector, speedrun-builder, bug-investigator, blueprint-wizard, charter-interviewer, bootstrap-scaffolder
-**Dependency**: rp1-base (runtime)
+**Agents**: 33 agents including task-builder, feature-architect, feature-verifier, pr-sub-reviewer, pr-review-synthesizer, speedrun-builder, bug-investigator, test-runner
 
-### plugins/utils
+### plugins/utils (`plugins/utils/`)
 **Purpose**: Prompt authoring plugin: prompt writing, tersification, eval assertion extraction
 **Skills**: prompt-writer, tersify-prompt, prompt-eval-builder, build-prompt-evals, tester
 **Agents**: prompt-tersifier, prompt-eval-extractor, prompt-assertion-specialist, dependency-chain-analyzer
 
-## Support Modules
+## Standalone Packages
 
 ### evals (`evals/`)
 **Purpose**: Prompt attestation system with content-addressable hashing, dependency graphs, verification
-**Key Components**: attestation/index.ts, deps-graph.ts, manifest.ts, prompt-hash.ts
+**Files**: 7
+**Key Files**: `src/index.ts`, `src/attestation/deps-graph.ts`, `src/attestation/manifest.ts`
 
-### packages/catppuccin-mermaid
+### catppuccin-mermaid (`packages/catppuccin-mermaid/`)
 **Purpose**: Standalone npm package: Catppuccin-flavored Mermaid theme with four flavors and WCAG contrast checks
+**Files**: 3
+**Key Files**: `src/index.ts`, `src/theme.ts`, `src/palette.ts`
+
+## Key Component Details
+
+### emit (agent-tool)
+**File**: `cli/src/agent-tools/emit/index.ts`
+**Pipeline**: validate -> find/create run -> insert event -> upsert artifacts -> derive status -> maybe generate notification
+**Dependencies**: state-machine, bun:sqlite, cli/shared
+
+### state-machine (agent-tool)
+**File**: `cli/src/agent-tools/state-machine/index.ts`
+**Purpose**: Parse Mermaid stateDiagram-v2 into queryable directed graphs with step ordering and transition validation
+**Dependencies**: cli/shared
+
+### resolve-args (agent-tool)
+**File**: `cli/src/agent-tools/resolve-args/index.ts`
+**Purpose**: Resolve structured arguments by merging 5 layers (schema defaults, global settings, project settings, environment, user input) with implies chains
+**Dependencies**: cli/assets, cli/settings, cli/shared, cli/build
+
+### build pipeline (cli/build)
+**File**: `cli/src/build/index.ts`
+**Pipeline**: parse -> preprocess -> template -> lint -> emit
+**Features**: 9 custom Liquid filters, dispatch_agent tag, two-tier L1/L2 lint validation, multi-platform output
+
+### web-ui/server
+**File**: `cli/web-ui/src/server/http.ts`
+**Purpose**: REST APIs and WebSocket for Arcade dashboard with reconnect replay, file watching (chokidar LRU pool, max 10), annotation embedding, downsampling
 
 ## Module Dependencies
 
@@ -123,21 +148,24 @@
 graph TD
     Commands["cli/commands"] --> Shared["cli/shared"]
     Commands --> Init["cli/init"]
-    Commands --> Build["cli/build"]
     Commands --> Install["cli/install"]
+    Commands --> Config["cli/config"]
     Commands -.->|lazy| AgentTools["cli/agent-tools"]
     Commands -.->|lazy| Daemon["web-ui/daemon"]
     AgentTools --> Shared
-    AgentTools --> SQLite["bun:sqlite"]
-    Build --> Shared
-    Build --> SM["state-machine"]
+    AgentTools -->|emit->sm| SM["state-machine"]
+    AgentTools -->|resolve-args| Assets["cli/assets"]
+    AgentTools -->|resolve-args| Settings["cli/settings"]
+    AgentTools -->|feedback| Daemon
+    Build["cli/build"] --> Shared
+    Build --> SM
     Install --> Shared
     Init --> Shared
     Init --> Install
-    WebServer["web-ui/server"] --> AgentTools
-    WebServer --> SM
-    WebServer --> Shared
-    Frontend["web-ui/frontend"] -.->|REST+WS| WebServer
+    Init --> Config
+    Server["web-ui/server"] --> AgentTools
+    Server --> Shared
+    Frontend["web-ui/frontend"] -.->|REST+WS| Server
     PluginsDev["plugins/dev"] -.->|runtime| PluginsBase["plugins/base"]
     Evals["evals"] --> PluginsBase
     Evals --> PluginsDev
@@ -145,17 +173,11 @@ graph TD
 
 ## Cross-Module Patterns
 
-| Pattern | Description | Modules |
-|---------|-------------|---------|
-| Skill-Agent Delegation | Skills orchestrate, agents execute via Task tool | plugins/base, plugins/dev |
-| Event-Driven Dashboard | emit -> SQLite -> WebSocket -> React | agent-tools, web-ui/server, web-ui/frontend |
-| Multi-Platform Build | Single source -> LiquidJS -> 3 platform artifacts | cli/build, all plugins |
-| Lazy-Load Isolation | Dynamic imports for sub-100ms CLI startup | cli/commands, cli/agent-tools, web-ui/server |
-| Shared fp-ts Pipeline | TaskEither<CLIError, T> throughout | cli/shared, all CLI modules |
-| State Machine Validation | Mermaid definitions used by emit, build, and web-ui | state-machine, emit, build, web-ui/server |
-| Tool Registry Self-Registration | Agent tools register via registerTool() at import time | cli/agent-tools |
-
-## Cross-References
-- **Architecture layers**: See [architecture.md](architecture.md)
-- **Domain concepts**: See [concept_map.md](concept_map.md)
-- **Code patterns**: See [patterns.md](patterns.md)
+- **Skill-Agent Delegation**: Skills orchestrate, agents execute discrete tasks in single-pass autonomous mode
+- **Event-Driven Dashboard**: emit -> SQLite -> daemon -> WebSocket -> React frontend (with startup recovery)
+- **Multi-Platform Build**: Single markdown source -> LiquidJS -> platform-specific artifacts for 3 host tools
+- **Lazy-Load Isolation**: Heavy modules (puppeteer, daemon) dynamically imported only when needed for sub-100ms startup
+- **Shared fp-ts Pipeline**: TaskEither<CLIError, T> as canonical error-handling monad across all CLI modules
+- **State Machine Validation**: Mermaid definitions as single source of truth validated at emit time, build time, and in web-ui
+- **Tool Registry Self-Registration**: Agent tools register via registerTool() at module import time
+- **Daemon IPC Notification**: Agent tools send best-effort IPC notifications for immediate WebSocket broadcast

@@ -2,20 +2,20 @@
 
 **Type**: Single Project
 **Languages**: TypeScript, TSX, Markdown, Shell
-**Version**: 0.6.4-dev
-**Updated**: 2026-03-26
+**Version**: 0.6.5-dev
+**Updated**: 2026-04-03
 
 ## Project Summary
 
-rp1 is an AI agent orchestration CLI that enables developers to compose, build, and monitor agentic workflows across multiple host platforms (Claude Code, OpenCode, Codex). It provides a plugin architecture with skills and agents authored as markdown, compiled to platform-specific artifacts, and tracked via an event-sourced dashboard (Arcade).
+rp1 is an AI agent orchestration platform that extends coding assistants (Claude Code, OpenCode, Codex) with structured workflows, event tracking, and a real-time dashboard. It provides a plugin-based CLI that compiles markdown skill/agent definitions into platform-specific artifacts, tracks workflow execution via event-sourced SQLite state, and serves the Arcade web UI for monitoring runs, artifacts, and annotations.
 
 ## Quick Reference
 
 | Aspect | Value |
 |--------|-------|
 | Entry Point | `cli/src/main.ts` |
-| Key Pattern | Skill-Agent delegation with state-machine-driven workflows |
-| Tech Stack | Bun, TypeScript, fp-ts, React, Vite, SQLite, LiquidJS |
+| Key Pattern | Plugin-based CLI with Map-Reduce Agent Orchestration |
+| Tech Stack | Bun, TypeScript, React, fp-ts, LiquidJS, SQLite, WebSocket |
 
 ## KB File Manifest
 
@@ -23,10 +23,10 @@ rp1 is an AI agent orchestration CLI that enables developers to compose, build, 
 
 | File | Lines | Load For |
 |------|-------|----------|
-| architecture.md | ~112 | System design, component relationships, data flows |
-| modules.md | ~159 | Component breakdown, module responsibilities |
-| patterns.md | ~79 | Code conventions, implementation patterns |
-| concept_map.md | ~183 | Domain terminology, business concepts |
+| architecture.md | ~131 | System design, component relationships, data flows |
+| modules.md | ~183 | Component breakdown, module responsibilities |
+| patterns.md | ~61 | Code conventions, implementation patterns |
+| concept_map.md | ~160 | Domain terminology, business concepts |
 
 ## Task-Based Loading
 
@@ -47,28 +47,24 @@ Read: .rp1/context/{filename}
 
 ```
 cli/
-├── src/                  # CLI core (commands, agent-tools, build, install, init)
-│   ├── agent-tools/      # 9 subcommands (emit, task, feedback, github-pr, state-machine, ...)
-│   ├── build/            # Multi-platform LiquidJS build pipeline
-│   ├── commands/         # Commander.js CLI commands
-│   ├── install/          # Plugin installers (OpenCode, Claude Code, Codex)
-│   └── init/             # Project initialization wizard
-├── shared/               # Cross-cutting library (fp-ts, errors, events, config)
+├── src/                  # CLI source (commands, agent-tools, build, install, init)
+├── shared/               # Cross-cutting library (errors, fp-ts, logger)
 ├── web-ui/               # Arcade dashboard (React SPA + Bun server)
-│   ├── src/server/       # HTTP + WebSocket server, v2 API routes
-│   └── src/              # React frontend (pages, components, hooks, providers)
-├── scripts/              # Build scripts (build-claude-code.ts, build-codex.ts, build-opencode.ts)
+├── scripts/              # Build scripts (per-platform compilation)
 plugins/
-├── base/                 # Foundation: KB, strategy, Mermaid, research, security
-├── dev/                  # Delivery: build, blueprint, PR review, code audit, features
-└── utils/                # Prompt: writing, tersification, eval extraction
-evals/                    # Prompt attestation system
-packages/catppuccin-mermaid/  # Mermaid theme package
+├── base/                 # Knowledge, documentation, Mermaid, research, security
+├── dev/                  # Build workflows, PR review, blueprint, feature lifecycle
+├── utils/                # Prompt authoring, eval extraction, tersification
+evals/                    # Prompt attestation with content-addressable hashing
+packages/
+├── catppuccin-mermaid/   # Catppuccin-themed Mermaid diagrams
+docs/                     # MkDocs Material documentation site
+scripts/                  # Repository-level build/release scripts
 ```
 
 ## Navigation
 
 - **[architecture.md](architecture.md)**: System design, layers, data flows, integrations
-- **[modules.md](modules.md)**: 15 modules with components, dependencies, cross-module patterns
+- **[modules.md](modules.md)**: 21 modules with dependencies and cross-module patterns
 - **[patterns.md](patterns.md)**: Code conventions (naming, types, errors, testing, I/O)
-- **[concept_map.md](concept_map.md)**: 20 domain concepts, terminology glossary, bounded contexts
+- **[concept_map.md](concept_map.md)**: 20+ domain concepts, terminology glossary, bounded contexts
