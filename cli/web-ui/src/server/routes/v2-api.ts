@@ -8,7 +8,7 @@
  */
 
 import type { Database } from "bun:sqlite";
-import { extname, join, resolve } from "node:path";
+import { basename, extname, join, resolve } from "node:path";
 import * as E from "fp-ts/lib/Either.js";
 import { formatError } from "../../../../shared/errors.js";
 import type {
@@ -114,6 +114,42 @@ function humanizeFeatureName(featureId: string): string {
 		.split("-")
 		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
 		.join(" ");
+}
+
+/**
+ * Build a fallback ProjectEntry from a RunRecord when the project registry
+ * lookup fails. This ensures runs are never silently dropped from the UI.
+ */
+function fallbackProjectFromRun(record: {
+	readonly projectId: string | null;
+	readonly rp1ProjectRoot: string;
+	readonly projectPath: string;
+}): ProjectEntry {
+	const path = record.rp1ProjectRoot || record.projectPath;
+	return {
+		id: record.projectId ?? path,
+		projectId: record.projectId ?? undefined,
+		path,
+		name: basename(path),
+		addedAt: new Date().toISOString(),
+		lastAccessedAt: new Date().toISOString(),
+		available: false,
+	};
+}
+
+/**
+ * Check if a run record originated from an eval workspace.
+ * Eval runs use temporary directories and should not appear in the Activity UI.
+ */
+function isEvalRunRecord(record: {
+	readonly rp1ProjectRoot: string;
+	readonly projectPath: string;
+}): boolean {
+	const effectivePath = record.rp1ProjectRoot || record.projectPath;
+	return (
+		effectivePath.startsWith("/tmp/rp1-evals/") ||
+		effectivePath.startsWith("/private/tmp/rp1-evals/")
+	);
 }
 
 /**
@@ -775,13 +811,9 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 				? (statusFilter as Status)
 				: undefined;
 
-		const knownProjectPaths = [...projectLookup.byPath.keys()];
-
 		const result = listRuns(db, {
 			projectId: dbProjectIdFilter,
 			projectPath: dbProjectIdFilter ? undefined : projectPathFilter,
-			projectPaths:
-				dbProjectIdFilter || projectPathFilter ? undefined : knownProjectPaths,
 			status: dbStatus,
 			limit,
 			offset,
@@ -789,10 +821,11 @@ export async function handleV2RunsListRequest(req: Request): Promise<Response> {
 
 		let runs: Run[] = [];
 		for (const record of result.records) {
-			const project = findProjectByIdentity(projectLookup, record);
-			if (project) {
-				runs.push(runRecordToListRun(record, project));
-			}
+			if (isEvalRunRecord(record)) continue;
+			const project =
+				findProjectByIdentity(projectLookup, record) ??
+				fallbackProjectFromRun(record);
+			runs.push(runRecordToListRun(record, project));
 		}
 
 		let total = result.total;
@@ -835,10 +868,10 @@ export async function handleV2RunsAttentionRequest(): Promise<Response> {
 		const toRuns = (records: readonly RunRecordWithLastEvent[]): Run[] => {
 			const runs: Run[] = [];
 			for (const record of records) {
-				const project = findProjectByIdentity(projectLookup, record);
-				if (project) {
-					runs.push(runRecordToListRun(record, project));
-				}
+				const project =
+					findProjectByIdentity(projectLookup, record) ??
+					fallbackProjectFromRun(record);
+				runs.push(runRecordToListRun(record, project));
 			}
 			return runs;
 		};
@@ -872,10 +905,9 @@ export async function handleV2RunDetailRequest(
 
 		const projects = await getAllProjects();
 		const projectLookup = buildProjectLookup(projects);
-		const project = findProjectByIdentity(projectLookup, record);
-		if (!project) {
-			return errorResponse(`Project not found for run: ${runId}`, 404);
-		}
+		const project =
+			findProjectByIdentity(projectLookup, record) ??
+			fallbackProjectFromRun(record);
 
 		const run = await buildDetailedRun(db, record, project);
 		return jsonResponse(run);
@@ -903,10 +935,9 @@ export async function handleV2ArtifactContentRequest(
 
 		const projects = await getAllProjects();
 		const projectLookup = buildProjectLookup(projects);
-		const project = findProjectByIdentity(projectLookup, record);
-		if (!project) {
-			return errorResponse(`Project not found for run: ${runId}`, 404);
-		}
+		const project =
+			findProjectByIdentity(projectLookup, record) ??
+			fallbackProjectFromRun(record);
 
 		if (artifactPath.includes("..")) {
 			return errorResponse("Invalid artifact path", 400);
@@ -1656,13 +1687,9 @@ export async function handleV2FeedRequest(req: Request): Promise<Response> {
 				? (statusFilter as string)
 				: undefined;
 
-		const knownProjectPaths = [...projectLookup.byPath.keys()];
-
 		const runsResult = listRuns(db, {
 			projectId: dbProjectIdFilter,
 			projectPath: dbProjectIdFilter ? undefined : projectPathFilter,
-			projectPaths:
-				dbProjectIdFilter || projectPathFilter ? undefined : knownProjectPaths,
 			status: dbStatus as
 				| import("../../../../shared/events.js").Status
 				| undefined,
@@ -1677,16 +1704,17 @@ export async function handleV2FeedRequest(req: Request): Promise<Response> {
 			run: Run;
 		}> = [];
 		for (const record of runsResult.records) {
-			const project = findProjectByIdentity(projectLookup, record);
-			if (project) {
-				const run = runRecordToListRun(record, project);
-				runItems.push({
-					type: "run",
-					id: record.id,
-					timestamp: run.lastEventAt ?? run.startedAt,
-					run,
-				});
-			}
+			if (isEvalRunRecord(record)) continue;
+			const project =
+				findProjectByIdentity(projectLookup, record) ??
+				fallbackProjectFromRun(record);
+			const run = runRecordToListRun(record, project);
+			runItems.push({
+				type: "run",
+				id: record.id,
+				timestamp: run.lastEventAt ?? run.startedAt,
+				run,
+			});
 		}
 
 		const notifProjectId = dbProjectIdFilter ?? undefined;
@@ -1718,10 +1746,10 @@ export async function handleV2FeedRequest(req: Request): Promise<Response> {
 					harness = run.harness;
 					runCommand = `/${run.flow}`;
 					runName = run.name ?? null;
-					const project = findProjectByIdentity(projectLookup, run);
-					if (project) {
-						projectName = project.name;
-					}
+					const project =
+						findProjectByIdentity(projectLookup, run) ??
+						fallbackProjectFromRun(run);
+					projectName = project.name;
 				}
 			} else if (n.projectId) {
 				for (const [, project] of projectLookup.byId) {
