@@ -98,6 +98,8 @@ metadata:
    - Get `CURRENT_COMMIT` via `git rev-parse HEAD`.
    - If no `state.json`:
      - Set `MODE=FULL`
+     - `FILE_SCOPE=[]`
+     - `FILE_DIFFS={}`
      - `INITIAL_MESSAGE=First-time KB generation with parallel analysis (10-15 min)`
    - Else read:
      - `OLD_COMMIT=state.json.git_commit`
@@ -114,13 +116,14 @@ metadata:
      - Update only `git_commit` in `state.json`
      - Keep all other fields unchanged
      - Output `No in-scope changes. Updated commit reference ({OLD_COMMIT} -> {CURRENT_COMMIT}).` and stop
+   - Preserve the full scoped changed-file list as the evidence frontier in both `FULL` and `INCREMENTAL`.
    - Count changed files:
      - `> 50` -> `MODE=FULL`
      - `<= 50` -> `MODE=INCREMENTAL`
    - If `MODE=FULL`:
      - `INITIAL_MESSAGE=Large change set ({N} files). Wide reconcile (10-15 min)`
-     - `FILE_SCOPE=[]`
-     - `FILE_DIFFS={}`
+     - `FILE_SCOPE=<scoped changed files>`
+     - Build `FILE_DIFFS` as `path -> git diff OLD_COMMIT CURRENT_COMMIT -- path`
    - If `MODE=INCREMENTAL`:
      - `INITIAL_MESSAGE=Changes detected since last build ({OLD_COMMIT} -> {CURRENT_COMMIT}). Analyzing {N} changed files (2-5 min)`
      - `FILE_SCOPE=<scoped changed files>`
@@ -129,13 +132,13 @@ metadata:
 
 ### 2. Spatial Analysis
 
-1. Spawn the spatial analyzer with the actual mode and actual file scope:
+1. Spawn the spatial analyzer with the actual mode and changed-file frontier:
 
 {% dispatch_agent "rp1-base:kb-spatial-analyzer" %}
 Use the computed build inputs from the parent orchestrator.
 
 - MODE: actual build mode (`FULL`, `INCREMENTAL`, or `FEATURE_LEARNING`)
-- CHANGED_FILES: actual JSON array for the scoped file list; empty array in `FULL`
+- CHANGED_FILES: actual JSON array for the scoped changed-file list when available; empty only for first-time `FULL`
 - Task: rank files 0-5 and categorize them into `index_files`, `concept_files`, `arch_files`, `module_files`
 - Return JSON only with:
   - `repo_type`

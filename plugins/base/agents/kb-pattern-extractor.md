@@ -124,8 +124,8 @@ Extract file list from PATTERN_FILES_JSON:
 
 **Check MODE**:
 
-- **FULL mode**: Analyze all assigned files completely
-- **INCREMENTAL mode**: Use FILE_DIFFS to focus on changed code sections
+- **FULL mode**: Analyze all assigned files completely. If `FILE_DIFFS` is non-empty, start from that changed-file frontier, then widen.
+- **INCREMENTAL mode**: Use `FILE_DIFFS` to focus on changed code sections. Widen only locally when needed.
 - **FEATURE_LEARNING mode**: Focus on implementation patterns from completed feature. Use FEATURE_CONTEXT to understand patterns discovered during implementation, workarounds, and coding idioms used.
 
 **FEATURE_LEARNING mode specific**:

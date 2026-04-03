@@ -27,7 +27,7 @@ arguments:
     type: string
     required: false
     default: ""
-    description: "List of changed files for incremental/feature mode"
+    description: "List of changed files; diff frontier for all non-bootstrap modes"
 ---
 
 # KB Spatial Analyzer - File Discovery and Categorization
@@ -55,7 +55,7 @@ $4
 ## 0. Detect Analysis Mode
 
 **Check MODE parameter**:
-- **FULL**: Scan all files in repository (first-time build)
+- **FULL**: Scan all files in repository; if CHANGED_FILES is provided, treat it as the mandatory diff frontier
 - **INCREMENTAL**: Only categorize files in CHANGED_FILES list (incremental update)
 - **FEATURE_LEARNING**: Only categorize files in CHANGED_FILES list (files modified during feature implementation)
 
@@ -143,20 +143,25 @@ Set `repo_type` to either "single-project" or "monorepo".
 
 ## 2. File Discovery
 
-**FULL mode** (first-time build):
+**FULL mode** (bootstrap or wide reconcile):
 
 Use a single fast inventory pass from repository root:
 
-1. **Build one repository inventory**:
+1. **Parse CHANGED_FILES if provided**:
+   - Treat it as the explicit diff frontier
+   - Use it to bias inclusion and prioritization
+   - Do not drop relevant changed files from categories just because the repo scan is broader
+
+2. **Build one repository inventory**:
    - Prefer `rg --files` (or the host's fastest equivalent)
    - Apply EXCLUDE_PATTERNS before categorization
    - Do not glob and then re-glob the same tree
 
-2. **Filter by extension**:
+3. **Filter by extension**:
    - Include: source code, configs, docs, build files
    - Exclude: binaries, images, videos, archives, logs
 
-3. **Detect languages and frameworks**:
+4. **Detect languages and frameworks**:
    - Count files by extension (*.py, *.rs, *.go, *.ts, etc.)
    - Identify primary language from extension counts
    - Detect frameworks only from workspace configs and package manifests
@@ -266,6 +271,7 @@ Categorize each file into one or more KB sections:
 - A file can appear in multiple categories if relevant (e.g., `models/user.py` in both concept_files and module_files)
 - Prioritize categories by relevance: Entry point → index_files, Domain model → concept_files + module_files
 - Include score with each file for downstream filtering
+- When CHANGED_FILES is provided, relevant changed files are mandatory inclusions in their categories
 
 ## 5. Metadata Extraction
 
@@ -305,7 +311,7 @@ Return structured JSON with these fields:
 
 **Requirements**:
 - Categories may be empty, especially in INCREMENTAL or FEATURE_LEARNING mode
-- Sort each category by score DESC then path ASC
+- If CHANGED_FILES is provided, sort each category with changed files first, then score DESC, then path ASC
 - Limit each category to 150 files
 - Do not fabricate filler entries to satisfy a minimum
 

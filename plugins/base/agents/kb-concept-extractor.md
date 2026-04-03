@@ -130,8 +130,8 @@ Extract file list from CONCEPT_FILES_JSON:
 - Limit to top 100 files by score for efficiency
 
 **Check MODE**:
-- **FULL mode**: Analyze all assigned files completely
-- **INCREMENTAL mode**: Use FILE_DIFFS to focus on changed code sections
+- **FULL mode**: Analyze all assigned files completely. If `FILE_DIFFS` is non-empty, start from that changed-file frontier, then widen.
+- **INCREMENTAL mode**: Use `FILE_DIFFS` to focus on changed code sections. Widen only locally when needed.
 - **FEATURE_LEARNING mode**: Focus on concepts from completed feature implementation. Use FEATURE_CONTEXT to understand what was built, decisions made, and patterns discovered. Prioritize extracting domain concepts that emerged from the feature.
 
 ## 3. Core Domain Concepts
