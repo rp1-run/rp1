@@ -437,12 +437,15 @@ eval-run *args:
         done
     fi
 
-    # Commit attestation changes
+    # Commit attestation changes and eval output files
     if [ "$do_commit" = "true" ] && [ "$attest" = "true" ]; then
-        if git diff --quiet evals/attestation.json 2>/dev/null; then
+        git add evals/attestation.json
+        for output in $passed_suites; do
+            git add "evals/${output}"
+        done
+        if git diff --cached --quiet 2>/dev/null; then
             echo "No attestation changes to commit"
         else
-            git add evals/attestation.json
             git commit -m "$(printf 'chore: attest evals\n\nGenerated with AI\n\nCo-Authored-By: rp1 <bot@rp1.run>')"
             echo "Attestation committed"
         fi
