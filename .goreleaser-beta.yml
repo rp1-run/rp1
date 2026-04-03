@@ -1,0 +1,79 @@
+version: 2
+
+project_name: rp1
+
+builds:
+  - id: rp1
+    builder: bun
+    main: cli/src/main.ts
+    binary: rp1
+    targets:
+      - darwin-arm64
+      - darwin-x64
+    flags:
+      - --compile
+      - --minify
+
+archives:
+  - id: default
+    formats:
+      - binary
+    builds:
+      - rp1
+    name_template: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}"
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+release:
+  github:
+    owner: rp1-run
+    name: rp1
+  draft: false
+  prerelease: auto
+  name_template: "v{{ .Version }}"
+  mode: keep-existing
+  footer: |
+    ## Beta Installation
+
+    ### Install
+    ```bash
+    brew install rp1-run/tap/rp1-beta
+    ```
+
+    ### Verify
+    ```bash
+    rp1 --version
+    ```
+
+    ### Rollback to Stable
+    ```bash
+    brew uninstall rp1-beta && brew install rp1-run/tap/rp1
+    ```
+
+    > **Note**: You cannot have both stable and beta installed simultaneously.
+
+    ---
+    **Full Changelog**: https://github.com/rp1-run/rp1/compare/{{ .PreviousTag }}...{{ .Tag }}
+
+homebrew_casks:
+  - name: rp1-beta
+    repository:
+      owner: rp1-run
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Casks
+    homepage: "https://rp1.run"
+    description: "AI-assisted development workflows CLI (pre-release)"
+    conflicts:
+      - cask: "rp1"
+    hooks:
+      post:
+        install: |
+          system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", staged_path] if OS.mac?
+          system_command "#{staged_path}/rp1", args: ["install"],
+            print_stderr: false
+
+changelog:
+  use: github-native
