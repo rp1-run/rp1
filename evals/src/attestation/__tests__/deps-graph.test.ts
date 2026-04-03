@@ -28,19 +28,19 @@ afterAll(async () => {
 describe("getDistPluginPath", () => {
 	test("returns correct path for claude-code", () => {
 		expect(getDistPluginPath("claude-code", "rp1-dev")).toBe(
-			"cli/dist/claude-code/dev",
+			"dist/claude-code/dev",
 		);
 	});
 
 	test("returns correct path for opencode", () => {
 		expect(getDistPluginPath("opencode", "rp1-base")).toBe(
-			"cli/dist/opencode/base",
+			"dist/opencode/base",
 		);
 	});
 
 	test("returns correct path for codex", () => {
 		expect(getDistPluginPath("codex", "rp1-utils")).toBe(
-			"cli/dist/codex/utils",
+			"dist/codex/utils",
 		);
 	});
 });
@@ -56,7 +56,7 @@ prompt: Build fast
 		const refs = parseAgentRefs(content, "claude-code");
 
 		expect(refs).toEqual([
-			"cli/dist/claude-code/dev/agents/build-fast-executor.md",
+			"dist/claude-code/dev/agents/build-fast-executor.md",
 		]);
 	});
 
@@ -70,7 +70,7 @@ prompt: Build fast
 		const refs = parseAgentRefs(content, "opencode");
 
 		expect(refs).toEqual([
-			"cli/dist/opencode/dev/agents/build-fast-executor.md",
+			"dist/opencode/dev/agents/build-fast-executor.md",
 		]);
 	});
 
@@ -87,9 +87,9 @@ prompt: Analyze
 		const refs = parseAgentRefs(content, "claude-code");
 
 		expect(refs).toContain(
-			"cli/dist/claude-code/dev/agents/feature-architect.md",
+			"dist/claude-code/dev/agents/feature-architect.md",
 		);
-		expect(refs).toContain("cli/dist/claude-code/base/agents/kb-analyzer.md");
+		expect(refs).toContain("dist/claude-code/base/agents/kb-analyzer.md");
 		expect(refs).toHaveLength(2);
 	});
 
@@ -103,7 +103,7 @@ prompt: Second
 `;
 		const refs = parseAgentRefs(content, "claude-code");
 
-		expect(refs).toEqual(["cli/dist/claude-code/dev/agents/builder.md"]);
+		expect(refs).toEqual(["dist/claude-code/dev/agents/builder.md"]);
 	});
 
 	test("extracts subagent_type references", () => {
@@ -116,8 +116,8 @@ prompt: Review the build
 `;
 		const refs = parseAgentRefs(content, "claude-code");
 
-		expect(refs).toContain("cli/dist/claude-code/dev/agents/task-builder.md");
-		expect(refs).toContain("cli/dist/claude-code/dev/agents/task-reviewer.md");
+		expect(refs).toContain("dist/claude-code/dev/agents/task-builder.md");
+		expect(refs).toContain("dist/claude-code/dev/agents/task-reviewer.md");
 		expect(refs).toHaveLength(2);
 	});
 
@@ -132,9 +132,9 @@ prompt: Build
 		const refs = parseAgentRefs(content, "claude-code");
 
 		expect(refs).toContain(
-			"cli/dist/claude-code/dev/agents/feature-architect.md",
+			"dist/claude-code/dev/agents/feature-architect.md",
 		);
-		expect(refs).toContain("cli/dist/claude-code/dev/agents/task-builder.md");
+		expect(refs).toContain("dist/claude-code/dev/agents/task-builder.md");
 		expect(refs).toHaveLength(2);
 	});
 
@@ -167,9 +167,9 @@ Task: rp1-utils:utils-agent
 `;
 		const refs = parseAgentRefs(content, "codex");
 
-		expect(refs).toContain("cli/dist/codex/base/agents/base-agent.md");
-		expect(refs).toContain("cli/dist/codex/dev/agents/dev-agent.md");
-		expect(refs).toContain("cli/dist/codex/utils/agents/utils-agent.md");
+		expect(refs).toContain("dist/codex/base/agents/base-agent.md");
+		expect(refs).toContain("dist/codex/dev/agents/dev-agent.md");
+		expect(refs).toContain("dist/codex/utils/agents/utils-agent.md");
 	});
 });
 
@@ -183,7 +183,7 @@ Use the skill: rp1-base:knowledge-base-templates
 		const refs = parseSkillRefs(content, "claude-code");
 
 		expect(refs).toEqual([
-			"cli/dist/claude-code/base/skills/knowledge-base-templates/SKILL.md",
+			"dist/claude-code/base/skills/knowledge-base-templates/SKILL.md",
 		]);
 	});
 
@@ -196,7 +196,7 @@ Use the skill: rp1-base:knowledge-base-templates
 		const refs = parseSkillRefs(content, "opencode");
 
 		expect(refs).toEqual([
-			"cli/dist/opencode/base/skills/rp1-knowledge-base-templates/SKILL.md",
+			"dist/opencode/base/skills/rp1-knowledge-base-templates/SKILL.md",
 		]);
 	});
 
@@ -207,7 +207,7 @@ Skill rp1-dev:worktree-workflow
 		const refs = parseSkillRefs(content, "claude-code");
 
 		expect(refs).toEqual([
-			"cli/dist/claude-code/dev/skills/worktree-workflow/SKILL.md",
+			"dist/claude-code/dev/skills/worktree-workflow/SKILL.md",
 		]);
 	});
 
@@ -218,7 +218,7 @@ Use worktree-workflow skill \`rp1-dev:worktree-workflow\`
 		const refs = parseSkillRefs(content, "codex");
 
 		expect(refs).toEqual([
-			"cli/dist/codex/dev/skills/rp1-worktree-workflow/SKILL.md",
+			"dist/codex/dev/skills/rp1-worktree-workflow/SKILL.md",
 		]);
 	});
 
@@ -229,9 +229,9 @@ Skill rp1-base:knowledge-base-templates
 `;
 		const refs = parseSkillRefs(content, "claude-code");
 
-		expect(refs).toContain("cli/dist/claude-code/base/skills/mermaid/SKILL.md");
+		expect(refs).toContain("dist/claude-code/base/skills/mermaid/SKILL.md");
 		expect(refs).toContain(
-			"cli/dist/claude-code/base/skills/knowledge-base-templates/SKILL.md",
+			"dist/claude-code/base/skills/knowledge-base-templates/SKILL.md",
 		);
 		expect(refs).toHaveLength(2);
 	});
@@ -243,7 +243,7 @@ skill: rp1-base:mermaid
 `;
 		const refs = parseSkillRefs(content, "claude-code");
 
-		expect(refs).toEqual(["cli/dist/claude-code/base/skills/mermaid/SKILL.md"]);
+		expect(refs).toEqual(["dist/claude-code/base/skills/mermaid/SKILL.md"]);
 	});
 
 	test("returns empty array when no skill references found", () => {
@@ -323,8 +323,8 @@ Content.
 
 	test("handles transitive skill dependencies", async () => {
 		// Create directory structure in dist format
-		const distBase = join(tempDir, "cli/dist/claude-code/base");
-		const distDev = join(tempDir, "cli/dist/claude-code/dev");
+		const distBase = join(tempDir, "dist/claude-code/base");
+		const distDev = join(tempDir, "dist/claude-code/dev");
 		await mkdir(join(distBase, "agents"), { recursive: true });
 		await mkdir(join(distBase, "skills/mermaid"), { recursive: true });
 		await mkdir(join(distDev, "skills/build-cmd"), { recursive: true });
@@ -379,7 +379,7 @@ Content.
 			expect(result.right.platform).toBe("claude-code");
 			// Agent path is derived from dist paths
 			expect(result.right.agents).toEqual([
-				"cli/dist/claude-code/base/agents/kb-builder.md",
+				"dist/claude-code/base/agents/kb-builder.md",
 			]);
 		}
 	});
@@ -398,7 +398,7 @@ Content.
 
 	test("handles cycles without infinite loop", async () => {
 		// Create circular dependency: skill A -> agent B -> skill A
-		const distBase = join(tempDir, "cli/dist/claude-code/base");
+		const distBase = join(tempDir, "dist/claude-code/base");
 		await mkdir(join(distBase, "agents"), { recursive: true });
 		await mkdir(join(distBase, "skills/cyclic-skill"), { recursive: true });
 
@@ -431,7 +431,7 @@ Use skill: rp1-base:cyclic-skill
 			expect(result.right.skill).toBe("cyclic-skill");
 			expect(result.right.platform).toBe("claude-code");
 			expect(result.right.agents).toEqual([
-				"cli/dist/claude-code/base/agents/cyclic-agent.md",
+				"dist/claude-code/base/agents/cyclic-agent.md",
 			]);
 		}
 	});

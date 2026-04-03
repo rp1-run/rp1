@@ -1,7 +1,7 @@
 /**
  * Dependency graph derivation for eval attestation.
  * Parses markdown to extract Task and Skill references from prompt files.
- * Resolves paths from cli/dist/{platform}/ built artifacts.
+ * Resolves paths from dist/{platform}/ built artifacts.
  */
 
 import { pipe } from "fp-ts/function";
@@ -47,7 +47,7 @@ export function getDistPluginPath(
 	pluginName: string,
 ): string {
 	const pluginDir = pluginName.replace("rp1-", "");
-	return `cli/dist/${platform}/${pluginDir}`;
+	return `dist/${platform}/${pluginDir}`;
 }
 
 /**
@@ -67,7 +67,7 @@ function skillDirName(skillName: string, platform: EvalPlatform): string {
 
 /**
  * Parse a skill file to extract agent dependencies.
- * Resolves agent paths to cli/dist/{platform}/{plugin}/agents/{name}.md
+ * Resolves agent paths to dist/{platform}/{plugin}/agents/{name}.md
  *
  * @param content - The skill file content to parse
  * @param platform - Target eval platform
@@ -92,7 +92,7 @@ export function parseAgentRefs(
 
 /**
  * Parse an agent file to extract skill dependencies.
- * Resolves skill paths to cli/dist/{platform}/{plugin}/skills/{name}/SKILL.md
+ * Resolves skill paths to dist/{platform}/{plugin}/skills/{name}/SKILL.md
  *
  * @param content - The agent file content to parse
  * @param platform - Target eval platform
@@ -121,7 +121,7 @@ export function parseSkillRefs(
  * Recursively traverses all agent and skill references using BFS
  * with cycle detection to capture transitive dependencies.
  *
- * @param promptPath - Path to the built skill file (cli/dist/{platform}/{plugin}/skills/{name}/SKILL.md)
+ * @param promptPath - Path to the built skill file (dist/{platform}/{plugin}/skills/{name}/SKILL.md)
  * @param platform - Target eval platform
  * @returns TaskEither with dependency graph or error
  */
