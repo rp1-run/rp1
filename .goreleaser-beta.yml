@@ -1,6 +1,7 @@
 version: 2
 
 project_name: rp1
+
 dist: .goreleaser/dist
 
 builds:
