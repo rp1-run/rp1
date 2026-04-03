@@ -547,7 +547,6 @@ beta-release version:
     require_command git
     require_command node
     require_command bun
-    require_command goreleaser
 
     # 1. Validate version format
     if [[ ! "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$ ]]; then
@@ -579,15 +578,8 @@ beta-release version:
         exit 1
     fi
 
-    if [[ -z "${GITHUB_TOKEN:-}" ]]; then
-        echo "ERROR: GITHUB_TOKEN must be set for GoReleaser to publish the GitHub pre-release"
-        exit 1
-    fi
-
-    if [[ -z "${HOMEBREW_TAP_TOKEN:-}" ]]; then
-        echo "ERROR: HOMEBREW_TAP_TOKEN must be set to publish the rp1-beta Homebrew cask"
-        exit 1
-    fi
+    # Tokens are no longer required locally — CI handles the release via
+    # the GoReleaser workflow once the tag is pushed.
 
     # Strip leading 'v' for package.json
     pkg_version="${version#v}"
@@ -632,10 +624,10 @@ beta-release version:
         fs.writeFileSync('package.json', JSON.stringify(pkg, null, '\t') + '\n');
     " && cd ..
 
-    # 4. Build release assets
+    # 4. Build release assets (install deps first for clean environments)
     echo ""
     echo "  Building release assets..."
-    cd cli && bun run build:release && cd ..
+    cd cli && bun install && bun run build:release && cd ..
 
     # 5. Commit the temporary beta version bump
     echo ""
@@ -655,8 +647,7 @@ beta-release version:
     echo ""
     echo "  Remote actions after confirmation:"
     echo "    - Push tag $version to origin"
-    echo "    - Create/update the GitHub beta pre-release via GoReleaser"
-    echo "    - Publish/update the rp1-beta Homebrew cask"
+    echo "    - CI will build and publish the beta release via GoReleaser"
     echo ""
     read -r -p "  Continue? [y/N] " confirm
     if [[ ! "$confirm" =~ ^([yY][eE][sS]|[yY])$ ]]; then
@@ -673,13 +664,11 @@ beta-release version:
     git push origin "refs/tags/$version"
     tag_pushed=true
 
-    # 7. Run GoReleaser with beta config
     echo ""
-    echo "  Running GoReleaser..."
-    goreleaser release --config .goreleaser-beta.yml --clean
-
+    echo "━━━ Beta Tag Pushed ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
-    echo "━━━ Beta Release Complete ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  CI will now build and publish the release."
+    echo "  Monitor: https://github.com/rp1-run/rp1/actions"
     echo ""
     echo "  Post-Release Checklist:"
     echo "  ────────────────────────"
