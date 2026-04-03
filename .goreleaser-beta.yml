@@ -73,8 +73,7 @@ homebrew_casks:
       post:
         install: |
           system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", staged_path] if OS.mac?
-          rp1_bin = Dir.glob("#{staged_path}/rp1-darwin-*").first
-          system_command rp1_bin, args: ["install", "-y"], print_stderr: false if rp1_bin
+          puts "Run 'rp1 install' to set up plugins for Claude Code, OpenCode, and Codex."
 
 changelog:
   use: github-native
