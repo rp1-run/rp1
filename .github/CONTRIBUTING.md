@@ -67,6 +67,21 @@ Releases are managed via **release-please** with manual approval gates:
 
 Auto-merge is intentionally disabled to ensure release quality and timing control.
 
+## Post-Beta Cleanup
+
+After a beta has been validated and promoted to a stable release, complete the following cleanup steps:
+
+1. **Archive or remove the GitHub pre-release**: Navigate to the beta's GitHub Release (tagged `v*.*.*-beta.*`) and either delete it or mark it as archived. This prevents stale beta binaries from appearing in the releases list.
+
+2. **Reset or remove the beta cask**: In the `rp1-run/homebrew-tap` repository, either remove `Casks/rp1-beta.rb` or reset it to a placeholder. This prevents users from installing an outdated beta after the stable release is available.
+
+3. **Notify beta testers**: Post a comment on the relevant GitHub issue or discussion thread informing testers that the beta has been promoted to stable and they should switch back via:
+   ```bash
+   brew uninstall rp1-beta && brew install rp1-run/tap/rp1
+   ```
+
+The `just beta-release` recipe prints this checklist automatically after a successful beta publish.
+
 ## Development Workflow
 
 See [DEVELOPMENT.md](../DEVELOPMENT.md) for detailed project architecture and testing setup.
