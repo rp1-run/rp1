@@ -51,6 +51,9 @@ metadata:
 - Execute immediately. No approval loop.
 - Single pass. No refinement loop.
 - Treat this as an orchestrator, not a wrapper.
+- `FULL` means wide evidence collection, not blank-slate regeneration.
+- When prior KB exists, section agents MUST reconcile against it, even in `FULL`.
+- Section agents MUST also treat prior KB as incomplete and perform one explicit novelty scan for material knowledge absent from it.
 - Replace all placeholders with concrete values before dispatching child agents.
 - Spawn the 4 analysis agents in one parallel batch.
 - Wait patiently for child agents on the critical path. Do not declare them stalled after a short wait.
@@ -115,7 +118,7 @@ metadata:
      - `> 50` -> `MODE=FULL`
      - `<= 50` -> `MODE=INCREMENTAL`
    - If `MODE=FULL`:
-     - `INITIAL_MESSAGE=Large change set ({N} files). Full analysis (10-15 min)`
+     - `INITIAL_MESSAGE=Large change set ({N} files). Wide reconcile (10-15 min)`
      - `FILE_SCOPE=[]`
      - `FILE_DIFFS={}`
    - If `MODE=INCREMENTAL`:

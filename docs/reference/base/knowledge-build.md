@@ -59,6 +59,8 @@ The command automatically detects the appropriate build mode:
 | **Incremental** | <50 files changed since last build | 2-5 min |
 | **Feature Learning** | `feature-id` provided | Depends on feature scope |
 
+`Full` means wide evidence collection, not blank-slate regeneration. If prior KB exists, agents should reconcile against it rather than rewrite from zero. They should also treat the prior as incomplete and perform an explicit novelty scan for material knowledge absent from it.
+
 ## Output
 
 The command generates knowledge base files in `.rp1/context/`.
