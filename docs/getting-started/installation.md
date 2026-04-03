@@ -296,6 +296,7 @@ rp1 install  # Re-extract stable plugins
 
 ```bash
 brew upgrade rp1-beta
+rp1 install
 ```
 
 ---
@@ -391,12 +392,14 @@ You're ready to go! Continue to [Your First Workflow](first-workflow.md) to run 
 
         ```bash
         brew upgrade rp1
+        rp1 install
         ```
 
     === "Scoop"
 
         ```bash
         scoop update rp1
+        rp1 install
         ```
 
     **Uninstalling:**

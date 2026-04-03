@@ -86,6 +86,7 @@ Want to try upcoming features before they're officially released?
 
 ```bash
 brew install rp1-run/tap/rp1-beta
+rp1 install
 ```
 
 > **Note:** You cannot have both stable and beta installed simultaneously. Installing one requires uninstalling the other first.
@@ -101,6 +102,7 @@ rp1 --version
 
 ```bash
 brew uninstall rp1-beta && brew install rp1-run/tap/rp1
+rp1 install
 ```
 
 ---
