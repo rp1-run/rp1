@@ -1080,6 +1080,14 @@ export async function handleV2ProjectsListRequest(): Promise<Response> {
 			};
 		});
 
+		// Sort by latest activity descending; projects with no activity sink to the bottom
+		v2Projects.sort((a, b) => {
+			if (!a.lastActivityAt && !b.lastActivityAt) return 0;
+			if (!a.lastActivityAt) return 1;
+			if (!b.lastActivityAt) return -1;
+			return b.lastActivityAt.localeCompare(a.lastActivityAt);
+		});
+
 		return jsonResponse({ projects: v2Projects });
 	} catch (error) {
 		return errorResponse(`Failed to load projects: ${String(error)}`);
