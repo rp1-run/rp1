@@ -11,10 +11,24 @@ permissions:
 
 jobs:
   goreleaser:
-    runs-on: ubuntu-latest
+    runs-on: ${{ contains(github.ref_name, '-beta') && 'macos-latest' || 'ubuntu-latest' }}
     timeout-minutes: 30
 
     steps:
+      - name: Detect release type
+        id: release-type
+        run: |
+          TAG="${{ github.ref_name }}"
+          if [[ "$TAG" == *"-beta"* ]]; then
+            echo "is_beta=true" >> "$GITHUB_OUTPUT"
+            echo "goreleaser_config=.goreleaser-beta.yml" >> "$GITHUB_OUTPUT"
+            echo "Detected beta release: $TAG"
+          else
+            echo "is_beta=false" >> "$GITHUB_OUTPUT"
+            echo "goreleaser_config=.goreleaser.yml" >> "$GITHUB_OUTPUT"
+            echo "Detected stable release: $TAG"
+          fi
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -63,25 +77,33 @@ jobs:
         uses: goreleaser/goreleaser-action@v6
         with:
           version: "~> v2"
-          args: release --clean
+          args: release --clean --config ${{ steps.release-type.outputs.goreleaser_config }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          SCOOP_BUCKET_TOKEN: ${{ secrets.SCOOP_BUCKET_TOKEN }}
+          SCOOP_BUCKET_TOKEN: ${{ steps.release-type.outputs.is_beta == 'false' && secrets.SCOOP_BUCKET_TOKEN || '' }}
 
       - name: Verify Release Artifacts
         if: success()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          EXPECTED_ARTIFACTS=(
-            "rp1-darwin-arm64"
-            "rp1-darwin-amd64"
-            "rp1-linux-arm64"
-            "rp1-linux-amd64"
-            "rp1-windows-amd64.zip"
-            "checksums.txt"
-          )
+          if [ "${{ steps.release-type.outputs.is_beta }}" = "true" ]; then
+            EXPECTED_ARTIFACTS=(
+              "rp1-darwin-arm64"
+              "rp1-darwin-amd64"
+              "checksums.txt"
+            )
+          else
+            EXPECTED_ARTIFACTS=(
+              "rp1-darwin-arm64"
+              "rp1-darwin-amd64"
+              "rp1-linux-arm64"
+              "rp1-linux-amd64"
+              "rp1-windows-amd64.zip"
+              "checksums.txt"
+            )
+          fi
 
           TAG="${{ github.ref_name }}"
           echo "Verifying artifacts for release: $TAG"
@@ -115,5 +137,5 @@ jobs:
         if: always()
         with:
           name: dist
-          path: dist/
+          path: .goreleaser/dist/
           retention-days: 7

@@ -11,9 +11,6 @@ builds:
     targets:
       - darwin-arm64
       - darwin-x64
-      - linux-arm64
-      - linux-x64
-      - windows-x64
     flags:
       - --compile
       - --minify
@@ -25,10 +22,6 @@ archives:
     builds:
       - rp1
     name_template: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}"
-    format_overrides:
-      - goos: windows
-        formats:
-          - zip
 
 checksum:
   name_template: "checksums.txt"
@@ -43,60 +36,45 @@ release:
   name_template: "v{{ .Version }}"
   mode: keep-existing
   footer: |
-    ## Installation
+    ## Beta Installation
 
-    ### macOS / Linux (Homebrew)
+    ### Install
     ```bash
-    brew install rp1-run/tap/rp1
+    brew install rp1-run/tap/rp1-beta
     ```
 
-    ### Windows (Scoop)
+    ### Verify
     ```bash
-    scoop bucket add rp1 https://github.com/rp1-run/scoop-bucket
-    scoop install rp1
+    rp1 --version
     ```
 
-    ### CI/CD (curl)
+    ### Rollback to Stable
     ```bash
-    curl -fsSL https://rp1.run/install.sh | sh
+    brew uninstall rp1-beta && brew install rp1-run/tap/rp1
     ```
 
-    ### Direct Download
-    Download the appropriate binary for your platform from the assets below.
+    > **Note**: You cannot have both stable and beta installed simultaneously.
 
     ---
     **Full Changelog**: https://github.com/rp1-run/rp1/compare/{{ .PreviousTag }}...{{ .Tag }}
 
 homebrew_casks:
-  - name: rp1
+  - name: rp1-beta
     repository:
       owner: rp1-run
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     directory: Casks
     homepage: "https://rp1.run"
-    description: "AI-assisted development workflows CLI"
+    description: "AI-assisted development workflows CLI (pre-release)"
     conflicts:
-      - cask: "rp1-beta"
+      - cask: "rp1"
     hooks:
       post:
         install: |
           system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", staged_path] if OS.mac?
           system_command "#{staged_path}/rp1", args: ["install"],
             print_stderr: false
-
-scoops:
-  - name: rp1
-    repository:
-      owner: rp1-run
-      name: scoop-bucket
-      token: "{{ .Env.SCOOP_BUCKET_TOKEN }}"
-    directory: bucket
-    homepage: "https://rp1.run"
-    description: "AI-assisted development workflows CLI"
-    license: MIT
-    post_install:
-      - "rp1 install"
 
 changelog:
   use: github-native
