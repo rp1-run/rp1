@@ -75,6 +75,8 @@ homebrew_casks:
     directory: Casks
     homepage: "https://rp1.run"
     description: "AI-assisted development workflows CLI"
+    conflicts:
+      - cask: "rp1-beta"
     hooks:
       post:
         install: |
