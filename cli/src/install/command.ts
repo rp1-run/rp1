@@ -137,7 +137,6 @@ const executeInstallFromBundled = (
 	options?: InstallOptions,
 ): TE.TaskEither<CLIError, void> => {
 	const isTTY = options?.isTTY ?? process.stdout.isTTY ?? false;
-	const skipPrompt = options?.skipPrompt ?? config.yes;
 	const spinner = createSpinner(isTTY);
 
 	return pipe(
@@ -218,22 +217,7 @@ const executeInstallFromBundled = (
 									(msg) => {
 										spinner.text = msg;
 									},
-									async (path) => {
-										if (!skipPrompt) {
-											spinner.stop();
-											const proceed = await confirmAction(
-												`Overwrite existing file: ${path}?`,
-												{ isTTY, defaultOnNonTTY: false },
-											);
-											if (!proceed) {
-												console.log(yellow(`  Skipped: ${path}`));
-												spinner.start("Installing plugins...");
-												return;
-											}
-											spinner.start("Installing plugins...");
-										}
-										console.log(yellow(`  ⚠ Overwriting: ${path}`));
-									},
+									undefined, // onOverwrite — rp1-namespaced files are always safe to overwrite
 									undefined,
 									config.strict,
 								),
