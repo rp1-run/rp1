@@ -1,7 +1,7 @@
 # System Architecture
 
 **Project**: rp1
-**Architecture Pattern**: Plugin-based CLI with Event-Sourced State and Map-Reduce Agent Orchestration
+**Architecture Pattern**: Plugin-based CLI with event-sourced state and map-reduce agent orchestration
 **Last Updated**: 2026-04-03
 
 ## High-Level Architecture
@@ -32,75 +32,84 @@ flowchart TB
     Skills -.-> Catalog
     Lefthook["Git Hooks\nlefthook.yml"] -.-> Catalog
     Lefthook -.-> Biome["Biome\nlint + format"]
+    Lefthook -.-> EvalAttest["Eval Attestation\ncontent-addressable hashing"]
     Evals["Eval System\nevals/"] --> Promptfoo["promptfoo\n+ OpenTelemetry"]
     Evals -.-> Skills
+    Hooks["Session Hooks\nhooks.json"] -.-> Daemon
+    CLI --> DirRes["Directory Resolution\nworktree-aware"]
 ```
 
 ## Architectural Patterns
 
 ### Plugin Architecture
-Three plugins (base, dev, utils) with plugin.json manifests. Dependency direction enforced: dev depends on base, never reverse. Utils is internal-only (excluded from catalog distribution).
+Three plugins (base, dev, utils) with plugin.json manifests. Dependency direction enforced: dev depends on base, never reverse; utils is internal-only.
 
 ### Event-Sourced State with Replay
 SQLite event store with monotonic IDs. WebSocket reconnect sends missed events (up to 100) or state snapshot for larger gaps. Run status derived from event history.
 
 ### Cross-Platform Build Pipeline
-Single SKILL.md source compiles to Claude Code, OpenCode, and Codex formats via shared `executeBuild` function with platform-specific LiquidJS templates and custom filters/tags. Asset embedding generates an EMBEDDED_MANIFEST keyed by platform.
+Single SKILL.md source compiles to Claude Code, OpenCode, and Codex formats via shared executeBuild with LiquidJS templates, custom filters/tags, and EMBEDDED_MANIFEST keyed by platform.
 
 ### State-Machine-Driven Workflows
-Mermaid stateDiagram-v2 definitions parsed into typed graph models. Runtime validation of step transitions with predecessor auto-completion and namespaced sub-agent steps.
+Mermaid stateDiagram-v2 definitions parsed into typed graph models. Runtime step validation with predecessor auto-completion and namespaced sub-agent steps.
 
 ### fp-ts Functional Pipelines
-Typed error propagation via `Either<CLIError, A>` and `TaskEither<CLIError, A>` throughout CLI modules. Re-exported via `cli/shared/fp.ts` facade.
+Either<CLIError, A> and TaskEither<CLIError, A> throughout CLI. Re-exported via cli/shared/fp.ts facade.
 
 ### Map-Reduce Agent Orchestration
-Large analysis jobs fan out to parallel specialist agents and merge results. Used for KB generation, PR review, deep research, and user docs generation.
+Large analysis jobs fan out to parallel specialist agents and merge results. Used for KB generation (spatial analyzer -> 5 parallel agents -> merge), PR review (diff splitter -> N sub-reviewers -> synthesizer), deep research, and user docs.
 
 ### Catalog-as-Code with Checksum Guards
-Auto-generated skill and agent catalogs with SHA-256 checksums and cross-reference maps. Staleness detection enforced by git hooks.
+Auto-generated skill and agent catalogs with SHA-256 checksums. Lefthook enforces: advisory at pre-commit, blocking at pre-push.
 
 ### Build-Time Asset Embedding
-Configuration files and platform artifacts embedded into the compiled binary at build time via generate-asset-imports, producing a platform-keyed EMBEDDED_MANIFEST for single-executable distribution.
+Configuration files and platform artifacts embedded into the compiled binary at build time via generate-asset-imports.ts for single-executable distribution.
+
+### Git Worktree-Aware Project Resolution
+Project discovery walks up from cwd looking for .rp1/project_id, with special handling for git worktrees to share identity, KB, and work artifacts across all worktrees via git common-dir detection.
+
+### Prompt Attestation with Content-Addressable Hashing
+Content-addressable hashing of prompt sources with dependency graph tracking. Pre-push hooks enforce attestation freshness to prevent behavioral drift.
+
+### Session Hooks with Platform Adaptation
+Plugin hooks auto-start the Arcade daemon and check for updates on session startup, with platform-specific hook definitions for each supported host tool.
 
 ## Layers
 
-| Layer | Purpose | Key Components |
-|-------|---------|----------------|
+| Layer | Purpose | Components |
+|-------|---------|------------|
 | Interaction | User and host-tool entry points | `cli/src/main.ts`, `cli/src/commands/` |
 | Workflow Definition | Skills, agents, state machines as markdown | `plugins/base/`, `plugins/dev/`, `plugins/utils/` |
-| Runtime Services | Agent tools, event emission, validation | `cli/src/agent-tools/`, `cli/src/lib/`, `cli/src/config/` |
-| Build & Distribution | Plugin compilation, asset embedding | `cli/src/build/`, `cli/scripts/`, `scripts/` |
-| Presentation | Arcade dashboard SPA, REST APIs, WebSocket | `cli/web-ui/src/app/`, `cli/web-ui/src/server/` |
+| Runtime Services | Agent tools, event emission, validation, directory resolution | `cli/src/agent-tools/`, `cli/src/lib/`, `cli/shared/` |
+| Build & Distribution | Plugin compilation, asset embedding, platform artifacts | `cli/src/build/`, `cli/scripts/`, `scripts/` |
+| Presentation | Arcade dashboard SPA, REST APIs, WebSocket hub | `cli/web-ui/src/app/`, `cli/web-ui/src/server/` |
 | Persistence | SQLite event store, KB files, work artifacts | `~/.rp1/rp1.db`, `.rp1/context/`, `.rp1/work/` |
-| Evaluation | Prompt quality validation, attestation | `evals/` |
-| Quality Gates | Catalog checks, lint/format, typecheck | `lefthook.yml`, `scripts/check-catalog.sh` |
+| Evaluation | Prompt quality validation with content-addressable attestation | `evals/` |
+| Quality Gates | Catalog checks, lint/format, typecheck, attestation verification | `lefthook.yml`, `scripts/check-catalog.sh`, `cli/biome.json` |
 
-## Key Data Flows
+## Key Interaction Flows
 
 ### Event Pipeline
-```
 Agent emit call -> Step validation (state machine) -> SQLite insert -> HTTP notify -> WebSocket broadcast -> Dashboard UI update
-```
 
-### KB Generation
-```
-Spatial analyzer (file scoring 0-5) -> 4 parallel agents (concept, arch, module, pattern) -> Orchestrator merge -> .rp1/context/*.md
-```
+### KB Generation (Map-Reduce)
+1. Orchestrator detects mode (FULL/INCREMENTAL/FEATURE_LEARNING) via git diff or FEATURE_ID
+2. Spatial analyzer ranks files 0-5 and categorizes into 5 sections
+3. 5 parallel agents (concept, arch, interaction, module, pattern) analyze assigned files
+4. Each agent reconciles against prior KB and performs novelty scan
+5. Orchestrator merges JSON outputs into .rp1/context/*.md + state.json
 
 ### Plugin Build Pipeline
-```
-SKILL.md parsed -> LiquidJS preprocessing with platform tags -> Platform-specific artifacts -> bundle-manifest.json -> Asset embedding into binary
-```
+SKILL.md parsed -> LiquidJS preprocessing with platform-specific tags -> Platform artifacts for Claude Code/OpenCode/Codex -> bundle-manifest.json -> Asset embedding into compiled binary
 
 ### Feedback Lifecycle
-```
-User annotates in Arcade -> SQLite + WebSocket broadcast -> Agent reads via feedback tool -> Agent resolves/replies/accepts
-```
+User annotates in Arcade -> SQLite insert + WebSocket broadcast -> Agent reads via feedback tool -> Agent resolves/replies/accepts
 
-### Catalog Integrity
-```
-Plugin files modified -> Pre-commit hook (advisory) -> Pre-push hook (blocking) -> generate-catalog.sh -> SHA-256 checksums + cross-references
-```
+### Session Startup
+Host tool triggers SessionStart hook -> Update check (10s timeout) -> Arcade daemon starts on port 7710 -> System message injected
+
+### Project Discovery
+rp1-root-dir called from cwd -> Walk up for .rp1/project_id -> If git worktree, resolve to main repo .rp1/ -> Return projectRoot, kbRoot, workRoot, isWorktree
 
 ## Integrations
 
@@ -113,19 +122,23 @@ Plugin files modified -> Pre-commit hook (advisory) -> Pre-push hook (blocking) 
 | LiquidJS | Multi-platform artifact generation from SKILL.md templates | Build |
 | chokidar | File watching for .rp1/work and .rp1/context directories | Runtime |
 | promptfoo | Eval harness for prompt quality testing with attestation | Testing |
-| OpenTelemetry | Distributed tracing for eval runs | Observability |
 | Release Please | Automated semver across CLI and plugins | CI/CD |
 | GitHub Actions | CI (lint, typecheck, test), release automation, PR review | CI/CD |
 | Lefthook | Git hooks for pre-commit and pre-push quality gates | Dev tooling |
 | Biome | Linting and formatting for TypeScript/TSX | Dev tooling |
 | MkDocs Material | Documentation site at rp1.run | Documentation |
-| Docker | Multi-stage container for install testing and development | Dev tooling |
+| Docker | Multi-stage container for cross-platform testing | Dev tooling |
 
 ## Deployment
 
 - **Type**: Single-executable CLI with embedded assets + background daemon
-- **Environment**: Local developer machines (macOS, Linux, Windows)
-- **Distribution**: GitHub releases via GoReleaser (Homebrew, Scoop, curl, npm); Claude Code marketplace
 - **Targets**: darwin-arm64, darwin-x64, linux-arm64, linux-x64, windows-x64
+- **Distribution**: GitHub releases via GoReleaser (Homebrew, Scoop, curl, npm); Claude Code marketplace
 - **Daemon**: Background Bun HTTP+WS server on port 7710 with PID-file lifecycle, version-aware restart, LRU file watcher pool (max 10 projects)
 - **Versioning**: Unified semver via release-please across CLI and all plugins
+
+## Cross-References
+- **Surface behavior**: See [interaction-model.md](interaction-model.md)
+- **Component inventory**: See [modules.md](modules.md)
+- **Code conventions**: See [patterns.md](patterns.md)
+- **Domain terminology**: See [concept_map.md](concept_map.md)

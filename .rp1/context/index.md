@@ -7,15 +7,15 @@
 
 ## Project Summary
 
-rp1 is an AI agent orchestration platform that extends coding assistants (Claude Code, OpenCode, Codex) with structured workflows, event tracking, and a real-time dashboard. It provides a plugin-based CLI that compiles markdown skill/agent definitions into platform-specific artifacts, tracks workflow execution via event-sourced SQLite state, and serves the Arcade web UI for monitoring runs, artifacts, and annotations.
+rp1 is a developer-facing CLI and plugin system that orchestrates AI coding agents across multiple host tools (Claude Code, OpenCode, Codex). It provides structured workflows via skills and agents, real-time monitoring through the Arcade web dashboard, and a knowledge base system for codebase-aware agent execution.
 
 ## Quick Reference
 
 | Aspect | Value |
 |--------|-------|
 | Entry Point | `cli/src/main.ts` |
-| Key Pattern | Plugin-based CLI with Map-Reduce Agent Orchestration |
-| Tech Stack | Bun, TypeScript, React, fp-ts, LiquidJS, SQLite, WebSocket |
+| Key Pattern | Plugin-based CLI with map-reduce agent orchestration |
+| Tech Stack | Bun, TypeScript, React, Vite, fp-ts, SQLite, LiquidJS |
 
 ## KB File Manifest
 
@@ -23,10 +23,11 @@ rp1 is an AI agent orchestration platform that extends coding assistants (Claude
 
 | File | Lines | Load For |
 |------|-------|----------|
-| architecture.md | ~131 | System design, component relationships, data flows |
-| modules.md | ~183 | Component breakdown, module responsibilities |
-| patterns.md | ~61 | Code conventions, implementation patterns |
-| concept_map.md | ~160 | Domain terminology, business concepts |
+| architecture.md | ~144 | System design, component relationships, data flows |
+| interaction-model.md | ~99 | Cross-surface interaction semantics, UX principles |
+| modules.md | ~174 | Component breakdown, module responsibilities |
+| patterns.md | ~82 | Code conventions, implementation patterns |
+| concept_map.md | ~173 | Domain terminology, business concepts |
 
 ## Task-Based Loading
 
@@ -35,6 +36,7 @@ rp1 is an AI agent orchestration platform that extends coding assistants (Claude
 | Code review | `patterns.md` |
 | Bug investigation | `architecture.md`, `modules.md` |
 | Feature implementation | `modules.md`, `patterns.md` |
+| Frontend / UX / surface work | `interaction-model.md`, `modules.md`, `patterns.md` |
 | Strategic analysis | ALL files |
 
 ## How to Load
@@ -47,24 +49,27 @@ Read: .rp1/context/{filename}
 
 ```
 cli/
-├── src/                  # CLI source (commands, agent-tools, build, install, init)
-├── shared/               # Cross-cutting library (errors, fp-ts, logger)
-├── web-ui/               # Arcade dashboard (React SPA + Bun server)
-├── scripts/              # Build scripts (per-platform compilation)
+├── src/               # CLI commands, agent-tools, build pipeline
+│   ├── commands/      # User-facing CLI commands
+│   ├── agent-tools/   # 9 agent tool subcommands (emit, task, feedback, etc.)
+│   ├── build/         # Multi-platform artifact build pipeline
+│   ├── install/       # Plugin installer with staging/rollback
+│   └── init/          # Project initialization with Ink UI
+├── shared/            # Cross-cutting library (errors, fp-ts, events, logger)
+└── web-ui/            # Arcade dashboard (React SPA + Bun HTTP/WS server)
 plugins/
-├── base/                 # Knowledge, documentation, Mermaid, research, security
-├── dev/                  # Build workflows, PR review, blueprint, feature lifecycle
-├── utils/                # Prompt authoring, eval extraction, tersification
-evals/                    # Prompt attestation with content-addressable hashing
+├── base/              # KB, research, strategy, security (15 skills, 14 agents)
+├── dev/               # Build, blueprint, PR review, code audit (19 skills, 33 agents)
+└── utils/             # Prompt writing, tersification, evals (5 skills, 4 agents)
+evals/                 # Prompt attestation with content-addressable hashing
 packages/
-├── catppuccin-mermaid/   # Catppuccin-themed Mermaid diagrams
-docs/                     # MkDocs Material documentation site
-scripts/                  # Repository-level build/release scripts
+└── catppuccin-mermaid/ # Mermaid theme package
 ```
 
 ## Navigation
 
-- **[architecture.md](architecture.md)**: System design, layers, data flows, integrations
-- **[modules.md](modules.md)**: 21 modules with dependencies and cross-module patterns
-- **[patterns.md](patterns.md)**: Code conventions (naming, types, errors, testing, I/O)
-- **[concept_map.md](concept_map.md)**: 20+ domain concepts, terminology glossary, bounded contexts
+- **[architecture.md](architecture.md)**: System design and diagrams
+- **[interaction-model.md](interaction-model.md)**: Cross-surface behavior and UX semantics
+- **[modules.md](modules.md)**: Component breakdown
+- **[patterns.md](patterns.md)**: Code conventions
+- **[concept_map.md](concept_map.md)**: Domain terminology
